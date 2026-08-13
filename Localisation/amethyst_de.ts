@@ -2,24 +2,6 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="de" sourcelanguage="en">
 <context>
-    <name />
-    <message>
-        <source>WizardViewBase</source>
-        <comment>Downloading {0} from Nexus… {1}%</comment>
-        <translation>WizardViewBase</translation>
-    </message>
-    <message>
-        <source>WizardViewBase</source>
-        <comment>Premium account — downloading {0} from Nexus…</comment>
-        <translation>WizardViewBase</translation>
-    </message>
-    <message>
-        <source>WizardViewBase</source>
-        <comment>The archive is picked up automatically once the download finishes.</comment>
-        <translation>WizardViewBase</translation>
-    </message>
-</context>
-<context>
     <name>AddGameView</name>
     <message>
         <source>Select a game to add</source>
@@ -53,8 +35,8 @@
         <translation>Alle Dateien</translation>
     </message>
     <message>
-        <source>Import BG3MM Load Order — {0}</source>
-        <translation>Import BG3MM Load Order — {0}</translation>
+        <source>Import BG3MM Load Order - {0}</source>
+        <translation>Importieren BG3MM Ladeauftrag - {0}</translation>
     </message>
     <message>
         <source>Step 1: Select a BG3 Mod Manager order file</source>
@@ -128,7 +110,7 @@ Führe „Deploy“ aus, um die neue Ladereihenfolge im Spiel zu übernehmen.</t
 <context>
     <name>BSADecompressorView</name>
     <message>
-        <source>BSA Decompressor — {0}</source>
+        <source>BSA Decompressor - {0}</source>
         <translation>BSA Dekompressor - {0}</translation>
     </message>
     <message>
@@ -170,7 +152,7 @@ Klicken Sie auf Installieren, um zu beginnen.</translation>
         <translation>Der BSA Decompressor-Ausgang ist bereits installiert</translation>
     </message>
     <message>
-        <source>The '{0}' mod is already in your mod list — there is nothing to re-apply, so you can simply close this wizard.
+        <source>The '{0}' mod is already in your mod list - there is nothing to re-apply, so you can simply close this wizard.
 
 Rebuild from scratch restores the game to vanilla and runs the decompressor again (needs the .mpi package).</source>
         <translation>Der '{0}'-Mod ist bereits in Ihrer Mod-Liste - es gibt nichts, was Sie erneut anwenden können, so dass Sie diesen Assistenten einfach schließen können.
@@ -192,7 +174,7 @@ Rebuild von Grund auf stellt das Spiel auf Vanille wieder her und führt den Dek
     <message>
         <source>The BSA Decompressor rebuilds the vanilla BSA archives without compression for faster loading, and the result is added as a mod.
 
-Download the 'FNV BSA Decompressor' main file from Nexus — the .mpi package inside the archive is detected automatically.</source>
+Download the 'FNV BSA Decompressor' main file from Nexus - the .mpi package inside the archive is detected automatically.</source>
         <translation>Der BSA-Dekompressor baut die Vanille-BSA-Archive ohne Komprimierung für ein schnelleres Laden um und das Ergebnis wird als Mod hinzugefügt.
 
 Laden Sie die Hauptdatei "FNV BSA Decompressor" von Nexus herunter - das .mpi-Paket im Archiv wird automatisch erkannt.</translation>
@@ -230,8 +212,8 @@ Laden Sie die Hauptdatei "FNV BSA Decompressor" von Nexus herunter - das .mpi-Pa
         <translation>Durchsuchen…</translation>
     </message>
     <message>
-        <source>— not set —</source>
-        <translation>— nicht festgelegt —</translation>
+        <source>- not set -</source>
+        <translation>- nicht festgelegt -</translation>
     </message>
     <message>
         <source>Looking for the BSA Decompressor download…</source>
@@ -242,7 +224,7 @@ Laden Sie die Hauptdatei "FNV BSA Decompressor" von Nexus herunter - das .mpi-Pa
         <translation>Verwenden Sie zuvor extrahiertes Paket.</translation>
     </message>
     <message>
-        <source>Archive not found in your download folders — download it from Nexus, then click Detect again (or Choose file…).</source>
+        <source>Archive not found in your download folders - download it from Nexus, then click Detect again (or Choose file…).</source>
         <translation>Archivieren Sie nicht in Ihren Download-Ordnern - laden Sie es von Nexus herunter und klicken Sie dann erneut auf Erkennen (oder Datei auswählen ...).</translation>
     </message>
     <message>
@@ -262,11 +244,11 @@ Laden Sie die Hauptdatei "FNV BSA Decompressor" von Nexus herunter - das .mpi-Pa
         <translation>Download des BSA Decompressor Pakets von Nexus... {0}%</translation>
     </message>
     <message>
-        <source>Premium account — downloading the BSA Decompressor package from Nexus…</source>
-        <translation>Premium-Konto — Download des BSA Decompressor-Pakets von Nexus..</translation>
+        <source>Premium account - downloading the BSA Decompressor package from Nexus…</source>
+        <translation>Premium-Konto - Herunterladen des BSA Decompressor-Pakets von Nexus..</translation>
     </message>
     <message>
-        <source>Archive not found — download it from Nexus (button above). It will be picked up automatically as soon as the download finishes.</source>
+        <source>Archive not found - download it from Nexus (button above). It will be picked up automatically as soon as the download finishes.</source>
         <translation>Archiv nicht gefunden - laden Sie es von Nexus herunter (Button oben). Es wird automatisch abgeholt, sobald der Download beendet ist.</translation>
     </message>
     <message>
@@ -310,7 +292,7 @@ Laden Sie die Hauptdatei "FNV BSA Decompressor" von Nexus herunter - das .mpi-Pa
         <translation>Schritt 3: Dekomprimierung von BSA-Archiven</translation>
     </message>
     <message>
-        <source>The game is first restored to a vanilla state, then the installer rebuilds the vanilla BSA archives without compression. This can take a while — please leave it running.
+        <source>The game is first restored to a vanilla state, then the installer rebuilds the vanilla BSA archives without compression. This can take a while - please leave it running.
 Output is written directly into your mod list as the '{0}' mod.</source>
         <translation>Das Spiel wird zuerst in einen Vanille-Zustand wiederhergestellt, dann baut der Installateur die Vanille-BSA-Archive ohne Kompression um. Dies kann eine Weile dauern - bitte lassen Sie es laufen.
 Die Ausgabe wird direkt in Ihre Mod-Liste als "{0}"-Mod geschrieben.</translation>
@@ -328,8 +310,8 @@ Die Ausgabe wird direkt in Ihre Mod-Liste als "{0}"-Mod geschrieben.</translatio
         <translation>Wiederherstellen des Spiels in einen Vanille-Zustand vor der Installation ..</translation>
     </message>
     <message>
-        <source>Restore failed — see the log. Fix the issue (or restore manually via the Restore button) and retry.</source>
-        <translation>Wiederherstellen fehlgeschlagen — siehe Protokoll. Beheben Sie das Problem (oder Wiederherstellen manuell über die Schaltfläche Wiederherstellen) und wiederholen Sie es.</translation>
+        <source>Restore failed - see the log. Fix the issue (or restore manually via the Restore button) and retry.</source>
+        <translation>Wiederherstellen fehlgeschlagen - siehe Protokoll. Beheben Sie das Problem (oder Wiederherstellen manuell über die Schaltfläche Wiederherstellen) und wiederholen Sie es.</translation>
     </message>
     <message>
         <source>Mod staging path is not configured.</source>
@@ -342,7 +324,7 @@ Die Ausgabe wird direkt in Ihre Mod-Liste als "{0}"-Mod geschrieben.</translatio
 {0}</translation>
     </message>
     <message>
-        <source>Missing vanilla plugin files even after restoring to vanilla — these were never backed up.
+        <source>Missing vanilla plugin files even after restoring to vanilla - these were never backed up.
 In Steam, right-click the game → Properties → Installed Files → Verify integrity of game files, then retry.
 
 {0}</source>
@@ -364,8 +346,8 @@ Klicken Sie in Steam mit der rechten Maustaste auf das Spiel → Eigenschaften �
         <translation>Installer mit Fehler beendet (Code {0}). Siehe das Protokoll für Details.</translation>
     </message>
     <message>
-        <source>Build complete — registering mod…</source>
-        <translation>Build Complete — Registrieren mod..</translation>
+        <source>Build complete - registering mod…</source>
+        <translation>Build Complete - Registrieren mod..</translation>
     </message>
     <message>
         <source>Build finished but registering the mod failed: {0}</source>
@@ -379,8 +361,8 @@ Klicken Sie in Steam mit der rechten Maustaste auf das Spiel → Eigenschaften �
 <context>
     <name>BackupRestoreView</name>
     <message>
-        <source>Restore backup — {0}</source>
-        <translation>Sicherung wiederherstellen — {0}</translation>
+        <source>Restore backup - {0}</source>
+        <translation>Backup wiederherstellen - {0}</translation>
     </message>
     <message>
         <source>Select a backup to restore the modlist and plugins for this profile.</source>
@@ -462,16 +444,16 @@ Klicken Sie in Steam mit der rechten Maustaste auf das Spiel → Eigenschaften �
 <context>
     <name>BainPickerView</name>
     <message>
-        <source>{0} — BAIN package — choose sub-packages to install</source>
-        <translation>{0} — BAIN-Paket — Wählen Sie die zu installierenden Unterpakete aus</translation>
+        <source>{0} - BAIN package - choose sub-packages to install</source>
+        <translation>{0} - BAIN-Paket - Wählen Sie Unterpakete zum Installieren</translation>
     </message>
     <message>
-        <source>BAIN package — choose sub-packages to install</source>
-        <translation>BAIN-Paket – Wählen Sie die zu installierenden Unterpakete aus</translation>
+        <source>BAIN package - choose sub-packages to install</source>
+        <translation>BAIN-Paket - Wählen Sie Unterpakete zum Installieren</translation>
     </message>
     <message>
-        <source>Sub-packages ({0}) — tick to install · green = files used · red = fully overridden by a later package</source>
-        <translation>Unterpakete ({0}) – zum Installieren ankreuzen · grün = verwendete Dateien · rot = vollständig durch ein späteres Paket überschrieben</translation>
+        <source>Sub-packages ({0}) - tick to install · green = files used · red = fully overridden by a later package</source>
+        <translation>Unterpakete ({0}) - zu installierendes Häkchen · grün = verwendete Dateien · rot = vollständig von einem späteren Paket überschrieben</translation>
     </message>
     <message>
         <source>Package readme</source>
@@ -494,15 +476,15 @@ Klicken Sie in Steam mit der rechten Maustaste auf das Spiel → Eigenschaften �
         <translation>Installieren</translation>
     </message>
     <message>
-        <source>Use this package — turn off the later packages overriding its files</source>
-        <translation>Verwenden Sie dieses Paket – deaktivieren Sie die späteren Pakete, die dessen Dateien überschreiben</translation>
+        <source>Use this package - turn off the later packages overriding its files</source>
+        <translation>Verwenden Sie dieses Paket - schalten Sie die späteren Pakete aus, die seine Dateien überschreiben</translation>
     </message>
 </context>
 <context>
     <name>BethiniView</name>
     <message>
-        <source>Run BethINI Pie — {0}</source>
-        <translation>Run BethINI Pie — {0}</translation>
+        <source>Run BethINI Pie - {0}</source>
+        <translation>Run BethINI Pie - {0}</translation>
     </message>
     <message>
         <source>Step 1: Download BethINI Pie</source>
@@ -559,7 +541,7 @@ Bitte starten Sie den Assistenten neu und installieren Sie zuerst BethINI Pie.</
         <translation>Vorbereitung des „Wine“-Präfixes für BethINI Pie…</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' — check that it is installed in Steam.</source>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
         <translation>Konnte Proton '{0}' nicht finden - überprüfen Sie, ob es in Steam installiert ist.</translation>
     </message>
     <message>
@@ -580,8 +562,8 @@ Konfigurieren Sie Ihre INI-Einstellungen, schließen Sie sie und klicken Sie auf
 <context>
     <name>BodySlideLinuxView</name>
     <message>
-        <source>{0} (Linux) — {1}</source>
-        <translation>{0} (Linux) — {1}</translation>
+        <source>{0} (Linux) - {1}</source>
+        <translation>{0} (Linux) - {1}</translation>
     </message>
     <message>
         <source>Step 3: Run {0}</source>
@@ -594,10 +576,10 @@ Konfigurieren Sie Ihre INI-Einstellungen, schließen Sie sie und klicken Sie auf
     <message>
         <source>A native Linux build of BodySlide and Outfit Studio, shared by every game.
 
-No Proton prefix is used — the game, its Data folder and the output folder are passed to the tool directly.</source>
+No Proton prefix is used - the game, its Data folder and the output folder are passed to the tool directly.</source>
         <translation>Ein nativer Linux-Build von BodySlide und Outfit Studio, der von jedem Spiel geteilt wird.
 
-Es wird kein Proton-Präfix verwendet – das Spiel, sein Datenordner und der Ausgabeordner werden direkt an das Tool übergeben.</translation>
+Es wird kein Proton-Präfix verwendet - das Spiel, sein Datenordner und der Ausgabeordner werden direkt an das Tool übergeben.</translation>
     </message>
     <message>
         <source>Download</source>
@@ -616,11 +598,11 @@ Es wird kein Proton-Präfix verwendet – das Spiel, sein Datenordner und der Au
         <translation>Nicht installiert. Überprüfen Sie GitHub für die neueste Version ..</translation>
     </message>
     <message>
-        <source>Installed: {0}. Could not reach GitHub to check for updates — see log.</source>
+        <source>Installed: {0}. Could not reach GitHub to check for updates - see log.</source>
         <translation>Installiert: {0}. Konnte GitHub nicht erreichen, um nach Updates zu suchen - siehe Protokoll.</translation>
     </message>
     <message>
-        <source>Could not reach GitHub to fetch the release — see log.</source>
+        <source>Could not reach GitHub to fetch the release - see log.</source>
         <translation>Konnte GitHub nicht erreichen, um das Release abzurufen - siehe Protokoll.</translation>
     </message>
     <message>
@@ -636,8 +618,8 @@ Es wird kein Proton-Präfix verwendet – das Spiel, sein Datenordner und der Au
         <translation>Update auf {0}</translation>
     </message>
     <message>
-        <source>Installed: {0} — {1} is available.</source>
-        <translation>Installiert: {0} — {1} ist verfügbar.</translation>
+        <source>Installed: {0} - {1} is available.</source>
+        <translation>Installiert: {0} - {1} ist verfügbar.</translation>
     </message>
     <message>
         <source>Reinstall {0}</source>
@@ -717,7 +699,7 @@ Schließen Sie es, wenn Sie fertig sind, und klicken Sie anschließend auf „Fe
 <context>
     <name>BodySlideView</name>
     <message>
-        <source>{0} — {1}</source>
+        <source>{0} - {1}</source>
         <translation>{0} — {1}</translation>
     </message>
     <message>
@@ -773,7 +755,7 @@ Deploy your modlist first, then reopen this wizard.</source>
 Stelle zunächst deine Modliste bereit und öffne diesen Assistenten anschließend erneut.</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' — check that it is installed in Steam.</source>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
         <translation>Konnte Proton '{0}' nicht finden - überprüfen Sie, ob es in Steam installiert ist.</translation>
     </message>
     <message>
@@ -856,8 +838,8 @@ Schließen Sie es, wenn Sie fertig sind, und klicken Sie anschließend auf „Fe
 <context>
     <name>BsaUnpackOverlay</name>
     <message>
-        <source>Unpack {0} — {1}</source>
-        <translation>{0} entpacken — {1}</translation>
+        <source>Unpack {0} - {1}</source>
+        <translation>{0} auspacken - {1}</translation>
     </message>
     <message>
         <source>No archive files in this mod folder.</source>
@@ -883,8 +865,8 @@ Schließen Sie es, wenn Sie fertig sind, und klicken Sie anschließend auf „Fe
 <context>
     <name>BundleOptionsView</name>
     <message>
-        <source>Bundle Options — {0}</source>
-        <translation>Paketoptionen — {0}</translation>
+        <source>Bundle Options - {0}</source>
+        <translation>Bundle-Optionen - {0}</translation>
     </message>
     <message>
         <source>Cancel</source>
@@ -899,8 +881,8 @@ Schließen Sie es, wenn Sie fertig sind, und klicken Sie anschließend auf „Fe
         <translation>Wählen Sie eine Option aus</translation>
     </message>
     <message>
-        <source>Optional — any</source>
-        <translation>Optional – beliebig</translation>
+        <source>Optional - any</source>
+        <translation>Optional - beliebige</translation>
     </message>
     <message>
         <source>Move up</source>
@@ -1061,8 +1043,8 @@ Der MD5-Cache bleibt erhalten. Archive werden bei Bedarf erneut heruntergeladen.
         <translation>Größe</translation>
     </message>
     <message>
-        <source>Change Version — {0}</source>
-        <translation>Version ändern — {0}</translation>
+        <source>Change Version - {0}</source>
+        <translation>Version ändern - {0}</translation>
     </message>
     <message>
         <source>Ignore Update</source>
@@ -1093,11 +1075,11 @@ Der MD5-Cache bleibt erhalten. Archive werden bei Bedarf erneut heruntergeladen.
         <translation>Anzeigen</translation>
     </message>
     <message>
-        <source>Downloaded — install it from the Downloads tab.</source>
-        <translation>Heruntergeladen - installieren Sie es über den Tab Downloads.</translation>
+        <source>Downloaded - install it from the Downloads tab.</source>
+        <translation>Heruntergeladen - installieren Sie es über den Downloads-Tab.</translation>
     </message>
     <message>
-        <source>Installing — the list will refresh when it finishes.</source>
+        <source>Installing - the list will refresh when it finishes.</source>
         <translation>Installieren - die Liste wird aktualisiert, wenn sie fertig ist.</translation>
     </message>
     <message>
@@ -1105,7 +1087,7 @@ Der MD5-Cache bleibt erhalten. Archive werden bei Bedarf erneut heruntergeladen.
         <translation>Installieren</translation>
     </message>
     <message>
-        <source>Waiting for the browser download of '{0}' — click Cancel to stop.</source>
+        <source>Waiting for the browser download of '{0}' - click Cancel to stop.</source>
         <translation>Warten auf den Browser-Download von '{0}' - klicken Sie auf Abbrechen, um zu stoppen.</translation>
     </message>
     <message>
@@ -1113,7 +1095,7 @@ Der MD5-Cache bleibt erhalten. Archive werden bei Bedarf erneut heruntergeladen.
         <translation>Abbrechen</translation>
     </message>
     <message>
-        <source>Waiting for the browser download — {0} / {1}</source>
+        <source>Waiting for the browser download - {0} / {1}</source>
         <translation>Warten auf den Browser-Download - {0} / {1}</translation>
     </message>
 </context>
@@ -1227,8 +1209,8 @@ Der MD5-Cache bleibt erhalten. Archive werden bei Bedarf erneut heruntergeladen.
         <translation>Keine optionalen Mods.</translation>
     </message>
     <message>
-        <source>Off-site mods ({0}) — download manually:</source>
-        <translation>Externe Mods ({0}) – manuell herunterladen:</translation>
+        <source>Off-site mods ({0}) - download manually:</source>
+        <translation>Off-Site-Mods ({0}) - manuell herunterladen:</translation>
     </message>
     <message>
         <source>Open</source>
@@ -1357,8 +1339,8 @@ Der MD5-Cache bleibt erhalten. Archive werden bei Bedarf erneut heruntergeladen.
         <translation>Erwartete Datei: {0}</translation>
     </message>
     <message>
-        <source>Mod {0}/{1} — download this file, then it will be auto-detected…</source>
-        <translation>Mod „{0}“ / {1} — Lade diese Datei herunter, dann wird sie automatisch erkannt…</translation>
+        <source>Mod {0}/{1} - download this file, then it will be auto-detected…</source>
+        <translation>Mod {0} / {1} - laden Sie diese Datei herunter, dann wird sie automatisch erkannt ..</translation>
     </message>
     <message>
         <source>Open next {0}</source>
@@ -1466,8 +1448,8 @@ Der MD5-Cache bleibt erhalten. Archive werden bei Bedarf erneut heruntergeladen.
 <context>
     <name>ConfigureGameView</name>
     <message>
-        <source>{0} Game — {1}</source>
-        <translation>{0} Spiel – „{1}“</translation>
+        <source>{0} Game - {1}</source>
+        <translation>{0} Spiel - {1}</translation>
     </message>
     <message>
         <source>Settings saved to profile: {0} (this profile only)</source>
@@ -1514,6 +1496,10 @@ Der MD5-Cache bleibt erhalten. Archive werden bei Bedarf erneut heruntergeladen.
         <translation>Steam-Bibliotheken werden durchsucht…</translation>
     </message>
     <message>
+        <source>Detected installs:</source>
+        <translation>Entdeckte Anlagen:</translation>
+    </message>
+    <message>
         <source>Browse manually…</source>
         <translation>Manuell durchsuchen…</translation>
     </message>
@@ -1534,8 +1520,8 @@ Der MD5-Cache bleibt erhalten. Archive werden bei Bedarf erneut heruntergeladen.
         <translation>Nach Präfix suchen…</translation>
     </message>
     <message>
-        <source>No launcher ID — prefix not applicable.</source>
-        <translation>Keine Launcher-ID – Präfix nicht zutreffend.</translation>
+        <source>No launcher ID - prefix not applicable.</source>
+        <translation>Keine Launcher ID - Präfix nicht anwendbar.</translation>
     </message>
     <message>
         <source>Mod Staging Folder</source>
@@ -1602,6 +1588,10 @@ Der MD5-Cache bleibt erhalten. Archive werden bei Bedarf erneut heruntergeladen.
         <translation>Automatische Archivinvalidierung (lose Dateien gegenüber BSAs bevorzugen)</translation>
     </message>
     <message>
+        <source>Create case-alias symlinks on deploy (Faster load times)</source>
+        <translation>Erstellen von Case-Alias-Symlinks beim Deployment (Schnellere Ladezeiten)</translation>
+    </message>
+    <message>
         <source>Use profile-specific INI files</source>
         <translation>Profilspezifische INI-Dateien verwenden</translation>
     </message>
@@ -1612,6 +1602,10 @@ Der MD5-Cache bleibt erhalten. Archive werden bei Bedarf erneut heruntergeladen.
     <message>
         <source>Prepend load-order numbers to mod folders</source>
         <translation>Prepend Load-Order-Nummern zu mod Ordner</translation>
+    </message>
+    <message>
+        <source>Manage load order in DFU</source>
+        <translation>Verwalten von Load Order in DFU</translation>
     </message>
     <message>
         <source>Game Patch Version</source>
@@ -1670,7 +1664,7 @@ Die Einstellungen des Standardprofils bleiben davon unberührt.</translation>
         <translation>Gefunden über Faugus Launcher.</translation>
     </message>
     <message>
-        <source>Executable ({0}) not found in this folder — double-check the path.</source>
+        <source>Executable ({0}) not found in this folder - double-check the path.</source>
         <translation>Ausführbar ({0}) nicht in diesem Ordner gefunden - überprüfen Sie den Pfad.</translation>
     </message>
     <message>
@@ -1688,6 +1682,10 @@ Die Einstellungen des Standardprofils bleiben davon unberührt.</translation>
     <message>
         <source>Not found automatically. Browse manually to locate the game folder.</source>
         <translation>Wurde nicht automatisch gefunden. Suchen Sie den Spielordner manuell.</translation>
+    </message>
+    <message>
+        <source>Current: {0}</source>
+        <translation>Aktuell: {0}</translation>
     </message>
     <message>
         <source>No executable name configured for this game.</source>
@@ -1768,7 +1766,7 @@ Gepflegt: Ihre Mods, Profile und überschreiben Ordner.
 Dies kann nicht rückgängig gemacht werden.</translation>
     </message>
     <message>
-        <source>Remove Instance — {0}</source>
+        <source>Remove Instance - {0}</source>
         <translation>Instanz entfernen - {0}</translation>
     </message>
     <message>
@@ -1784,8 +1782,8 @@ Vanilla game files are kept. This cannot be undone.</source>
 Vanilla-Spieldateien werden aufbewahrt. Dies kann nicht rückgängig gemacht werden.</translation>
     </message>
     <message>
-        <source>Clean Game Folder — {0}</source>
-        <translation>Clean Game Folder — {0}</translation>
+        <source>Clean Game Folder - {0}</source>
+        <translation>Sauberer Spielordner - {0}</translation>
     </message>
     <message>
         <source>Cleaning game folder…</source>
@@ -1796,8 +1794,8 @@ Vanilla-Spieldateien werden aufbewahrt. Dies kann nicht rückgängig gemacht wer
         <translation>Bereinigung fehlgeschlagen: {0}</translation>
     </message>
     <message>
-        <source>Clean complete — {0} deployed file(s) removed.</source>
-        <translation>Vollständig bereinigt — Die von „{0}“ bereitgestellten Dateien wurden entfernt.</translation>
+        <source>Clean complete - {0} deployed file(s) removed.</source>
+        <translation>Vollständig reinigen - {0} bereitgestellte Datei(en) entfernt.</translation>
     </message>
 </context>
 <context>
@@ -1835,10 +1833,317 @@ Vanilla-Spieldateien werden aufbewahrt. Dies kann nicht rückgängig gemacht wer
     </message>
 </context>
 <context>
+    <name>CreateCollectionView</name>
+    <message>
+        <source>Exact</source>
+        <translation>Exakt</translation>
+    </message>
+    <message>
+        <source>Prefer</source>
+        <translation>Vorzug</translation>
+    </message>
+    <message>
+        <source>Latest</source>
+        <translation>Letzte</translation>
+    </message>
+    <message>
+        <source>Create new collection</source>
+        <translation>Neue Kollektion erstellen</translation>
+    </message>
+    <message>
+        <source>{0}  (rev {1})</source>
+        <translation>{0} (rev {1})</translation>
+    </message>
+    <message>
+        <source>Upload revision</source>
+        <translation>Upload Revision</translation>
+    </message>
+    <message>
+        <source>Uploads a new draft revision of '{0}'.</source>
+        <translation>Ladet einen neuen Entwurf der Revision von '{0}' hoch.</translation>
+    </message>
+    <message>
+        <source>Upload to Nexus</source>
+        <translation>Upload auf Nexus</translation>
+    </message>
+    <message>
+        <source>Creates a new draft collection on your account.</source>
+        <translation>Erstellt einen neuen Entwurf Sammlung auf Ihrem Konto.</translation>
+    </message>
+    <message>
+        <source>Create Collection</source>
+        <translation>Create Collection</translation>
+    </message>
+    <message>
+        <source>e.g. My Survival Overhaul</source>
+        <translation>z.B. My Survival Overhaul</translation>
+    </message>
+    <message>
+        <source>Your Nexus username</source>
+        <translation>Ihr Nexus-Benutzername</translation>
+    </message>
+    <message>
+        <source>Game version(s), comma separated - optional</source>
+        <translation>Spielversion(en), Komma getrennt - optional</translation>
+    </message>
+    <message>
+        <source>Short description - optional</source>
+        <translation>Kurzbeschreibung - fakultativ</translation>
+    </message>
+    <message>
+        <source>Install instructions shown before install - optional</source>
+        <translation>Installationsanweisungen vor der Installation angezeigt - optional</translation>
+    </message>
+    <message>
+        <source>Upload target</source>
+        <translation>Upload-Ziel</translation>
+    </message>
+    <message>
+        <source>Collection name</source>
+        <translation>Sammlungsname</translation>
+    </message>
+    <message>
+        <source>Author</source>
+        <translation>Autor</translation>
+    </message>
+    <message>
+        <source>Game versions</source>
+        <translation>Spielversionen</translation>
+    </message>
+    <message>
+        <source>Description</source>
+        <translation>Beschreibung</translation>
+    </message>
+    <message>
+        <source>Install instructions</source>
+        <translation>Einbauanweisungen</translation>
+    </message>
+    <message>
+        <source>Suggest a new profile on install</source>
+        <translation>Schlagen Sie ein neues Profil bei der Installation vor</translation>
+    </message>
+    <message>
+        <source>When enabled, installers (Amethyst and Vortex) recommend installing this collection into a fresh profile.</source>
+        <translation>Wenn sie aktiviert sind, empfehlen Installateure (Amethyst und Vortex), diese Sammlung in ein neues Profil zu installieren.</translation>
+    </message>
+    <message>
+        <source>Contains adult content</source>
+        <translation>Enthält Inhalte für Erwachsene</translation>
+    </message>
+    <message>
+        <source>Flags the collection as adult on Nexus.</source>
+        <translation>Markiert die Sammlung als Erwachsener auf Nexus.</translation>
+    </message>
+    <message>
+        <source>Exclude plugin rules</source>
+        <translation>Plugin-Regeln ausschließen</translation>
+    </message>
+    <message>
+        <source>Installers skip this collection's LOOT plugin rules.</source>
+        <translation>Installateure überspringen die LOOT-Plugin-Regeln dieser Sammlung.</translation>
+    </message>
+    <message>
+        <source>Include profile INI files</source>
+        <translation>Profil INI-Dateien einfügen</translation>
+    </message>
+    <message>
+        <source>Ships the profile's game INI files (ini files/) as INI tweaks that installers merge into the player's settings.</source>
+        <translation>Versendet das profilspiel ini-dateien (ini-dateien), während ini die installateure in die einstellungen des spielers einfügen.</translation>
+    </message>
+    <message>
+        <source>Include profile INI files ({0})</source>
+        <translation>Profil INI-Dateien ({0})</translation>
+    </message>
+    <message>
+        <source>Ships the profile's game INI files as INI tweaks. These are complete files, so they also carry display settings specific to your machine (resolution, gamma, shadow distance) and will overwrite the installing user's.</source>
+        <translation>Versendet das Spiel des Profils INI-Dateien als INI-Tweaks. Dies sind vollständige Dateien, so dass sie auch die Anzeigeeinstellungen für Ihren Computer (Auflösung, Gamma, Schattenabstand) enthalten und die des installierenden Benutzers überschreiben.</translation>
+    </message>
+    <message>
+        <source>No game INI files found in this profile's 'ini files' folder.</source>
+        <translation>Kein Spiel INI Dateien in diesem Profil 'ini Dateien' Ordner gefunden.</translation>
+    </message>
+    <message>
+        <source>Export…</source>
+        <translation>Export ..</translation>
+    </message>
+    <message>
+        <source>Mod Name</source>
+        <translation>Mod Name</translation>
+    </message>
+    <message>
+        <source>Source</source>
+        <translation>Quelle</translation>
+    </message>
+    <message>
+        <source>Preferred Version</source>
+        <translation>Bevorzugte Version</translation>
+    </message>
+    <message>
+        <source>Fomod</source>
+        <translation>Fomod</translation>
+    </message>
+    <message>
+        <source>Optional</source>
+        <translation>Fakultativ</translation>
+    </message>
+    <message>
+        <source>Phase</source>
+        <translation>Phase</translation>
+    </message>
+    <message>
+        <source>Update</source>
+        <translation>Aktualisierung</translation>
+    </message>
+    <message>
+        <source>Edits</source>
+        <translation>Edits</translation>
+    </message>
+    <message>
+        <source>What installers download when a newer file exists.</source>
+        <translation>Welche Installateure herunterladen, wenn eine neuere Datei vorhanden ist.</translation>
+    </message>
+    <message>
+        <source>Not allowed: this mod is on Nexus, so users download it themselves. Use the Edits column to ship your changes.</source>
+        <translation>Nicht erlaubt: Dieser Mod ist auf Nexus, also laden die Benutzer ihn selbst herunter. Verwenden Sie die Spalte Edits, um Ihre Änderungen zu versenden.</translation>
+    </message>
+    <message>
+        <source>An author name is required.</source>
+        <translation>Ein Autorname ist erforderlich.</translation>
+    </message>
+    <message>
+        <source>This profile has no mods to put in a collection.</source>
+        <translation>Dieses Profil hat keine Mods in einer Sammlung zu setzen.</translation>
+    </message>
+    <message>
+        <source>{0} Nexus mod(s) are missing a File ID and must be set first.</source>
+        <translation>{0} Nexus mod(s) fehlt eine Datei-ID und muss zuerst gesetzt werden.</translation>
+    </message>
+    <message>
+        <source>Browse-source mod(s) need a URL: {0}</source>
+        <translation>Browser-Source-Mod(s) benötigen eine URL: {0}</translation>
+    </message>
+    <message>
+        <source>Manual-source mod(s) need instructions or a URL: {0}</source>
+        <translation>Manual-Source-Mod(s) benötigen Anweisungen oder eine URL: {0}</translation>
+    </message>
+    <message>
+        <source>No mods to export.</source>
+        <translation>Keine Mods zum Exportieren.</translation>
+    </message>
+    <message>
+        <source>Export Collection</source>
+        <translation>Ausfuhren</translation>
+    </message>
+    <message>
+        <source>Nexus Collection (*.7z)</source>
+        <translation>Nexus Collection (*.7z)</translation>
+    </message>
+    <message>
+        <source>All files</source>
+        <translation>Alle Dateien</translation>
+    </message>
+    <message>
+        <source>{0} warning(s) - see log.</source>
+        <translation>{0} Warnung(en) - siehe Protokoll.</translation>
+    </message>
+    <message>
+        <source>Reading mod metadata…</source>
+        <translation>Mod Metadaten lesen..</translation>
+    </message>
+    <message>
+        <source>Hashing archives…</source>
+        <translation>Hashing Archives..</translation>
+    </message>
+    <message>
+        <source>Packing bundled mods…</source>
+        <translation>Packing gebündelte Mods..</translation>
+    </message>
+    <message>
+        <source>Diffing edited files…</source>
+        <translation>Diffing bearbeitete Dateien..</translation>
+    </message>
+    <message>
+        <source>Writing collection archive…</source>
+        <translation>Sammlungsarchiv schreiben..</translation>
+    </message>
+    <message>
+        <source>Exporting…</source>
+        <translation>Exportieren..</translation>
+    </message>
+    <message>
+        <source>Uploading archive…</source>
+        <translation>Archiv hochladen..</translation>
+    </message>
+    <message>
+        <source>Exporting collection</source>
+        <translation>Ausführende Sammlung</translation>
+    </message>
+    <message>
+        <source>Collection exported to {0}</source>
+        <translation>Sammlung exportiert nach {0}</translation>
+    </message>
+    <message>
+        <source>Export failed: {0}</source>
+        <translation>Export fehlgeschlagen: {0}</translation>
+    </message>
+    <message>
+        <source>No mods to upload.</source>
+        <translation>Keine Mods zum Upload.</translation>
+    </message>
+    <message>
+        <source>Log in first: Nexus ▸ Login to Nexus ▸ Login via SSO.</source>
+        <translation>Melden Sie sich zuerst an: Nexus ▸ Login zu Nexus ▸ Login via SSO.</translation>
+    </message>
+    <message>
+        <source>Upload a new revision of '{0}' (collection #{1})?
+
+The revision is created as a draft - publish it from Nexus ▸ Collections ▸ My collections when ready. If that collection was deleted, a new draft collection is created instead.</source>
+        <translation>Laden Sie eine neue Revision von '{0}' (Sammlung #{1}) hoch?
+
+Die Überarbeitung wird als Entwurf erstellt - veröffentlichen Sie sie aus Nexus ▸ Collections ▸ Meine Kollektionen wenn fertig. Wenn diese Sammlung gelöscht wurde, wird stattdessen ein neuer Entwurf erstellt.</translation>
+    </message>
+    <message>
+        <source>Create a new draft collection '{0}' on your Nexus account?
+
+Nothing is published: the draft is only visible to you until you publish it from Nexus ▸ Collections ▸ My collections.</source>
+        <translation>Erstellen Sie einen neuen Entwurf Sammlung '{0}' auf Ihrem Nexus-Konto?
+
+Es wird nichts veröffentlicht: Der Entwurf ist nur für Sie sichtbar, bis Sie ihn aus Nexus ▸ Collections ▸ veröffentlichen Meine Sammlungen.</translation>
+    </message>
+    <message>
+        <source>Preparing upload…</source>
+        <translation>Upload vorbereiten..</translation>
+    </message>
+    <message>
+        <source>Upload collection</source>
+        <translation>Upload-Sammlung</translation>
+    </message>
+    <message>
+        <source>Upload</source>
+        <translation>Upload</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Stornierung</translation>
+    </message>
+    <message>
+        <source>Registering collection…</source>
+        <translation>Registrierungssammlung ..</translation>
+    </message>
+    <message>
+        <source>Uploaded as a draft revision - publish it from Nexus ▸ Collections ▸ My collections.</source>
+        <translation>Hochgeladen als Entwurfsrevision - veröffentlichen Sie es aus Nexus ▸ Collections ▸ Meine Sammlungen.</translation>
+    </message>
+    <message>
+        <source>Upload failed: {0}</source>
+        <translation>Upload fehlgeschlagen: {0}</translation>
+    </message>
+</context>
+<context>
     <name>CreationKitView</name>
     <message>
-        <source>Run Creation Kit — {0}</source>
-        <translation>Run Creation Kit — {0}</translation>
+        <source>Run Creation Kit - {0}</source>
+        <translation>Run Creation Kit - {0}</translation>
     </message>
     <message>
         <source>Step 3: Deploy Modlist</source>
@@ -1907,12 +2212,12 @@ Installiere es und öffne diesen Assistenten anschließend erneut.</translation>
         <translation>Schritt 4: Creation Kit starten</translation>
     </message>
     <message>
-        <source>Note: on a brand-new prefix the first launch may open the plain Creation Kit without Creation Kit Platform Extended (CKPE). If you need CKPE, close the Creation Kit and run the wizard again — CKPE loads on the second launch once the prefix is initialised.
+        <source>Note: on a brand-new prefix the first launch may open the plain Creation Kit without Creation Kit Platform Extended (CKPE). If you need CKPE, close the Creation Kit and run the wizard again - CKPE loads on the second launch once the prefix is initialised.
 
 The Creation Kit can also occasionally crash on startup under Proton (a known Wine timing issue). If it closes immediately, just relaunch.</source>
-        <translation>Hinweis: Bei einem brandneuen Präfix wird beim ersten Start möglicherweise das einfache Creation Kit ohne „Creation Kit Platform Extended“ (CKPE) geöffnet. Wenn Sie CKPE benötigen, schließen Sie das Creation Kit und führen Sie den Assistenten erneut aus – CKPE wird beim zweiten Start geladen, sobald das Präfix initialisiert ist.
+        <translation>Hinweis: Bei einem brandneuen Präfix kann der erste Start das einfache Creation Kit ohne Creation Kit Platform Extended (CKPE) öffnen. Wenn Sie CKPE benötigen, schließen Sie das Creation Kit und führen Sie den Assistenten erneut aus - CKPE wird beim zweiten Start geladen, sobald das Präfix initialisiert wurde.
 
-Das Creation Kit kann unter Proton gelegentlich auch beim Start abstürzen (ein bekanntes Timing-Problem von Wine). Sollte es sich sofort schließen, starten Sie es einfach erneut.</translation>
+Das Creation Kit kann auch gelegentlich beim Start unter Proton abstürzen (ein bekanntes Wein-Timing-Problem). Wenn es sofort geschlossen wird, einfach neu starten.</translation>
     </message>
     <message>
         <source>Done</source>
@@ -1949,7 +2254,7 @@ Installieren Sie das Creation Kit von Steam und öffnen Sie diesen Assistenten e
         <translation>Creation Kit wird gestartet…</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' — check that it is installed in Steam.</source>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
         <translation>Konnte Proton '{0}' nicht finden - überprüfen Sie, ob es in Steam installiert ist.</translation>
     </message>
     <message>
@@ -1982,8 +2287,8 @@ Schließen Sie es, wenn Sie fertig sind, und klicken Sie auf Fertig.</translatio
 <context>
     <name>CuratedProfileView</name>
     <message>
-        <source>Install {0} — {1}</source>
-        <translation>{0} installieren – {1}</translation>
+        <source>Install {0} - {1}</source>
+        <translation>{0} installieren - {1}</translation>
     </message>
     <message>
         <source>Install the {0} modlist</source>
@@ -1992,10 +2297,10 @@ Schließen Sie es, wenn Sie fertig sind, und klicken Sie auf Fertig.</translatio
     <message>
         <source>This wizard downloads the curated '{0}' profile and opens the profile importer, which installs the modlist into a NEW profile.
 
-The mods are downloaded from Nexus Mods — log in first (Nexus ▸ Login to Nexus) if you haven't.</source>
+The mods are downloaded from Nexus Mods - log in first (Nexus ▸ Login to Nexus) if you haven't.</source>
         <translation>Dieser Assistent lädt das kuratierte '{0}'-Profil herunter und öffnet den Profilimporter, der die Modlist in ein NEUES Profil installiert.
 
-Die Mods werden von Nexus Mods heruntergeladen - melden Sie sich zuerst an (Nexus ▸ Login to Nexus), wenn Sie dies nicht getan haben.</translation>
+Die Mods werden von Nexus Mods heruntergeladen - loggen Sie sich zuerst ein (Nexus ▸ Login to Nexus), wenn Sie dies nicht getan haben.</translation>
     </message>
     <message>
         <source>Open guide website</source>
@@ -2006,16 +2311,16 @@ Die Mods werden von Nexus Mods heruntergeladen - melden Sie sich zuerst an (Nexu
         <translation>Installieren Sie auch Ultimate Edition ESM Fixes (empfohlen)</translation>
     </message>
     <message>
-        <source>Patches the vanilla .esm masters with community bugfixes after the modlist is installed. It is too large to bundle, so it runs as an extra step — needs the 'Ultimate Edition ESM Fixes Remastered' download from Nexus.</source>
-        <translation>Patchet die Vanilla .esm-Master mit Community-Bugfixes, nachdem die Modlist installiert wurde. Es ist zu groß, um es zu bündeln, daher läuft es als zusätzlicher Schritt - benötigt den Download der "Ultimate Edition ESM Fixes Remastered" von Nexus.</translation>
+        <source>Patches the vanilla .esm masters with community bugfixes after the modlist is installed. It is too large to bundle, so it runs as an extra step - needs the 'Ultimate Edition ESM Fixes Remastered' download from Nexus.</source>
+        <translation>Patchet die Vanilla .esm-Master mit Community-Bugfixes, nachdem die Modlist installiert wurde. Es ist zu groß, um es zu bündeln, also läuft es als zusätzlicher Schritt - benötigt die "Ultimate Edition ESM Fixes Remastered" Download von Nexus.</translation>
     </message>
     <message>
         <source>Also run the FNV BSA Decompressor (recommended)</source>
         <translation>Führen Sie auch den FNV BSA Dekompressor aus (empfohlen)</translation>
     </message>
     <message>
-        <source>Rebuilds the vanilla BSA archives without compression for faster loading, added as a mod after the modlist is installed — needs the 'FNV BSA Decompressor' download from Nexus. Can also be run later via its own wizard.</source>
-        <translation>Rebuilds the vanilla BSA archives without compression for faster loading, added as a mod after the modlist is installation — needs the 'FNV BSA Decompressor' download from Nexus. Kann auch später über einen eigenen Assistenten ausgeführt werden.</translation>
+        <source>Rebuilds the vanilla BSA archives without compression for faster loading, added as a mod after the modlist is installed - needs the 'FNV BSA Decompressor' download from Nexus. Can also be run later via its own wizard.</source>
+        <translation>Rebuilds the vanilla BSA archives without compression for faster loading, added as a mod after the modlist is installation - benötigt den "FNV BSA Decompressor" Download von Nexus. Kann auch später über einen eigenen Assistenten ausgeführt werden.</translation>
     </message>
     <message>
         <source>The 4GB patch is applied to FalloutNV.exe as the final step (original exe kept as a backup).</source>
@@ -2046,8 +2351,8 @@ Die Mods werden von Nexus Mods heruntergeladen - melden Sie sich zuerst an (Nexu
         <translation>Download fehlgeschlagen: {0}</translation>
     </message>
     <message>
-        <source>Premium account — the wizard continues automatically when the import completes.</source>
-        <translation>Premium-Konto - Der Wizard wird automatisch fortgesetzt, wenn der Import abgeschlossen ist.</translation>
+        <source>Premium account - the wizard continues automatically when the import completes.</source>
+        <translation>Premium-Account - Der Wizard wird automatisch fortgesetzt, wenn der Import abgeschlossen ist.</translation>
     </message>
     <message>
         <source>Could not read manifest: {0}</source>
@@ -2064,10 +2369,10 @@ Die Mods werden von Nexus Mods heruntergeladen - melden Sie sich zuerst an (Nexu
     <message>
         <source>Finish the install in the Import tab: choose the profile name and press Install. The mods are downloaded from Nexus, which can take a while.
 
-When it completes, the app switches to the new profile — then come back here and press Continue.</source>
+When it completes, the app switches to the new profile - then come back here and press Continue.</source>
         <translation>Beenden Sie die Installation auf der Registerkarte Import: Wählen Sie den Profilnamen und drücken Sie Installieren. Die Mods werden von Nexus heruntergeladen, was eine Weile dauern kann.
 
-Wenn es fertig ist, wechselt die app zum neuen profil - dann kommen sie hier zurück und drücken sie weiter.</translation>
+Wenn es fertig ist, wechselt die App zum neuen Profil - dann komm zurück und drücke Weiter.</translation>
     </message>
     <message>
         <source>Reopen import tab</source>
@@ -2078,7 +2383,7 @@ Wenn es fertig ist, wechselt die app zum neuen profil - dann kommen sie hier zur
         <translation>Weiter</translation>
     </message>
     <message>
-        <source>The active profile hasn't changed — the import doesn't look finished. Complete it in the Import tab first, or press Continue again to proceed anyway.</source>
+        <source>The active profile hasn't changed - the import doesn't look finished. Complete it in the Import tab first, or press Continue again to proceed anyway.</source>
         <translation>Das aktive Profil hat sich nicht geändert - der Import sieht nicht fertig aus. Füllen Sie es zuerst in der Registerkarte Import aus, oder drücken Sie erneut, um trotzdem fortzufahren.</translation>
     </message>
     <message>
@@ -2094,7 +2399,7 @@ Wenn es fertig ist, wechselt die app zum neuen profil - dann kommen sie hier zur
         <translation>FalloutNV.exe ist gepatcht, so dass das Spiel 4 GB Speicher verwenden kann und NVSE beim Start automatisch lädt. Der ursprüngliche Exe wird als Backup aufbewahrt (wiederherstellbar über den 4GB Patch-Assistenten).</translation>
     </message>
     <message>
-        <source>Game path is not configured — skipping the 4GB patch.</source>
+        <source>Game path is not configured - skipping the 4GB patch.</source>
         <translation>Der Spielpfad ist nicht konfiguriert - das Überspringen des 4GB-Patches.</translation>
     </message>
     <message>
@@ -2102,23 +2407,23 @@ Wenn es fertig ist, wechselt die app zum neuen profil - dann kommen sie hier zur
         <translation>{0} ist bereits 4GB gepatcht.</translation>
     </message>
     <message>
-        <source>{0} not found in the game folder — skipping the 4GB patch.</source>
+        <source>{0} not found in the game folder - skipping the 4GB patch.</source>
         <translation>{0} nicht im Spielordner gefunden - das Überspringen des 4GB-Patches.</translation>
     </message>
     <message>
-        <source>Unrecognised {0} version — skipping. Verify game files in Steam/Heroic, then run the 4GB Patch wizard manually.</source>
-        <translation>Nicht anerkannte {0}-Version — Überspringen. Überprüfen Sie die Spieldateien in Steam/Heroic und führen Sie dann den 4-GB-Patch-Assistenten manuell aus.</translation>
+        <source>Unrecognised {0} version - skipping. Verify game files in Steam/Heroic, then run the 4GB Patch wizard manually.</source>
+        <translation>Nicht anerkannte {0}-Version - Skipping. Überprüfen Sie die Spieldateien in Steam/Heroic und führen Sie dann den 4-GB-Patch-Assistenten manuell aus.</translation>
     </message>
     <message>
         <source>Patching {0}…</source>
         <translation>{0} patchen…</translation>
     </message>
     <message>
-        <source>Patched {0} ({1} version) — original kept as {2}.</source>
+        <source>Patched {0} ({1} version) - original kept as {2}.</source>
         <translation>Patched {0} ({1}-Version) - Original als {2} beibehalten.</translation>
     </message>
     <message>
-        <source>Patch failed: {0} — you can run the 4GB Patch wizard manually later.</source>
+        <source>Patch failed: {0} - you can run the 4GB Patch wizard manually later.</source>
         <translation>Patch fehlgeschlagen: {0} - Sie können den 4GB Patch-Assistenten später manuell ausführen.</translation>
     </message>
     <message>
@@ -2215,8 +2520,8 @@ Wenn es fertig ist, wechselt die app zum neuen profil - dann kommen sie hier zur
         <translation>UE5</translation>
     </message>
     <message>
-        <source>Unreal Engine 5 — pak files → Content/Paks/~mods/, UE4SS/lua → Binaries/Win64/, DLLs → Binaries/Win64/. Same routing as Hogwarts Legacy / Oblivion Remastered.</source>
-        <translation>Unreal Engine 5 – pak-Dateien → Content/Paks/~mods/, UE4SS/lua → Binaries/Win64/, DLLs → Binaries/Win64/. Gleiche Verzeichnisstruktur wie bei „Hogwarts Legacy“ und „Oblivion Remastered“.</translation>
+        <source>Unreal Engine 5 - pak files → Content/Paks/~mods/, UE4SS/lua → Binaries/Win64/, DLLs → Binaries/Win64/. Same routing as Hogwarts Legacy / Oblivion Remastered.</source>
+        <translation>Unreal Engine 5 - Pak-Dateien → Inhalt / Paks / ~ Mods /, UE4SS / lua → Binaries / Win64 /, DLLs → Binaries / Win64 /. Gleiches Routing wie Hogwarts Legacy / Oblivion Remastered.</translation>
     </message>
     <message>
         <source>Most uppercase</source>
@@ -2233,6 +2538,22 @@ Wenn es fertig ist, wechselt die app zum neuen profil - dann kommen sie hier zur
     <message>
         <source>Uppercase everything</source>
         <translation>Alles in Großbuchstaben</translation>
+    </message>
+    <message>
+        <source>Additional Nexus Domains</source>
+        <translation>Zusätzliche Nexus-Domains</translation>
+    </message>
+    <message>
+        <source>Comma-separated extra Nexus domain slugs whose mods are compatible with this game.</source>
+        <translation>Comma-getrennte zusätzliche Nexus-Domain-Slugs, deren Mods mit diesem Spiel kompatibel sind.</translation>
+    </message>
+    <message>
+        <source>Thunderstore Community</source>
+        <translation>Thunderstore Gemeinschaft</translation>
+    </message>
+    <message>
+        <source>The game's community slug on thunderstore.io. e.g. 'lethal-company'. Leave empty if the game has no Thunderstore page.</source>
+        <translation>Die Community-Schnecke des Spiels auf thunderstore.io. z.B. 'lethal-company'. Lassen Sie leer, wenn das Spiel keine Thunderstore-Seite hat.</translation>
     </message>
     <message>
         <source>Strip Prefixes</source>
@@ -2263,8 +2584,8 @@ Wenn es fertig ist, wechselt die app zum neuen profil - dann kommen sie hier zur
         <translation>Erforderliche Dateiformate</translation>
     </message>
     <message>
-        <source>Comma-separated file extensions a mod must contain at its root. e.g. .esp, .esm — works standalone or as a fallback after Required Top-Level Folders.</source>
-        <translation>Durch Kommas getrennte Dateiendungen, die ein Mod in seinem Stammverzeichnis enthalten muss. Z. B. .esp, .esm – funktioniert eigenständig oder als Ausweichlösung nach den erforderlichen Top-Level-Ordnern.</translation>
+        <source>Comma-separated file extensions a mod must contain at its root. e.g. .esp, .esm - works standalone or as a fallback after Required Top-Level Folders.</source>
+        <translation>Komma-getrennte Dateierweiterungen, die ein Mod an seiner Wurzel enthalten muss. z.B. .esp, .esm - funktioniert eigenständig oder als Fallback nach erforderlichen Top-Level-Ordnern.</translation>
     </message>
     <message>
         <source>Strip Prefixes (post-install)</source>
@@ -2331,8 +2652,8 @@ Wenn es fertig ist, wechselt die app zum neuen profil - dann kommen sie hier zur
         <translation>Füllen Sie die Felder unten aus einem vorhandenen benutzerdefinierten Spiel als Startvorlage vor. Sie müssen dem neuen Spiel immer noch einen eigenen eindeutigen Namen geben.</translation>
     </message>
     <message>
-        <source>— Select a game to copy from —</source>
-        <translation>— Wählen Sie ein Spiel zum Kopieren aus —</translation>
+        <source>- Select a game to copy from -</source>
+        <translation>- Wählen Sie ein Spiel zum Kopieren aus -</translation>
     </message>
     <message>
         <source>{0}  (built-in template)</source>
@@ -2443,8 +2764,8 @@ Wenn es fertig ist, wechselt die app zum neuen profil - dann kommen sie hier zur
         <translation>Whitelist wiederherstellen</translation>
     </message>
     <message>
-        <source>Protect runtime-generated files from being moved out of the game folder on restore. Each rule anchors at a path relative to the game root (empty = the game root) and matches folder names (protecting the folder's whole contents), filenames, or extensions directly at that path. Matching is case-insensitive and anchored — the same name at any other path needs its own rule. Folder and filename values accept wildcards (e.g. ego_dlc* or *.log).</source>
-        <translation>Schützen Sie laufzeitgenerierte Dateien davor, bei der Wiederherstellung aus dem Spielordner verschoben zu werden. Jede Regel verankert sich auf einem Pfad relativ zum Spielwurzel (leer = Spielwurzel) und passt Ordnernamen (Schutz des gesamten Inhalts des Ordners), Dateinamen oder Erweiterungen direkt an diesem Pfad. Matching ist fallunempfindlich und verankert - der gleiche name auf jedem anderen weg braucht seine eigene regel. Ordner und Dateinamen akzeptieren Platzhalter (z. B. ego dlc* oder *.log).</translation>
+        <source>Protect runtime-generated files from being moved out of the game folder on restore. Each rule anchors at a path relative to the game root (empty = the game root) and matches folder names (protecting the folder's whole contents), filenames, or extensions directly at that path. Matching is case-insensitive and anchored - the same name at any other path needs its own rule. Folder and filename values accept wildcards (e.g. ego_dlc* or *.log).</source>
+        <translation>Schützen Sie laufzeitgenerierte Dateien davor, bei der Wiederherstellung aus dem Spielordner verschoben zu werden. Jede Regel verankert sich auf einem Pfad relativ zum Spielwurzel (leer = Spielwurzel) und passt Ordnernamen (Schutz des gesamten Inhalts des Ordners), Dateinamen oder Erweiterungen direkt an diesem Pfad. Matching ist fallunempfindlich und verankert - der gleiche Name auf jedem anderen Weg braucht eine eigene Regel. Ordner und Dateinamen akzeptieren Platzhalter (z. B. ego dlc* oder *.log).</translation>
     </message>
     <message>
         <source>Path in game root</source>
@@ -2521,6 +2842,14 @@ Wenn es fertig ist, wechselt die app zum neuen profil - dann kommen sie hier zur
     <message>
         <source>Nexus Mods Domain</source>
         <translation>Nexus Mods Domain</translation>
+    </message>
+    <message>
+        <source>e.g. skyrimspecialedition, skyrim</source>
+        <translation>z. b. skyrimspecialedition, skyrim</translation>
+    </message>
+    <message>
+        <source>e.g. lethal-company</source>
+        <translation>z. b. letales unternehmen</translation>
     </message>
     <message>
         <source>Banner Image URL</source>
@@ -2674,8 +3003,8 @@ Wenn es fertig ist, wechselt die app zum neuen profil - dann kommen sie hier zur
 <context>
     <name>DllOverridesView</name>
     <message>
-        <source>Wine DLL Overrides — {0}</source>
-        <translation>Wine-DLL-Überschreibungen — {0}</translation>
+        <source>Wine DLL Overrides - {0}</source>
+        <translation>Wein DLL Overrides - {0}</translation>
     </message>
     <message>
         <source>DLL name (e.g. winhttp)</source>
@@ -2805,8 +3134,8 @@ Wenn es fertig ist, wechselt die app zum neuen profil - dann kommen sie hier zur
 <context>
     <name>DtkitPatchView</name>
     <message>
-        <source>Patch Game (dtkit-patch) — {0}</source>
-        <translation>Patch Game (dtkit-patch) — {0}</translation>
+        <source>Patch Game (dtkit-patch) - {0}</source>
+        <translation>Patch Game (dtkit-patch) - {0}</translation>
     </message>
     <message>
         <source>Step 1: Deploy mods</source>
@@ -2855,8 +3184,8 @@ Make sure the Darktide Mod Loader mod is enabled.</source>
 Stellen Sie sicher, dass der Darktide Mod Loader Mod aktiviert ist.</translation>
     </message>
     <message>
-        <source>Running dtkit-patch — toggle…</source>
-        <translation>Running dtkit-patch — toggle..</translation>
+        <source>Running dtkit-patch - toggle…</source>
+        <translation>Running dtkit-patch - toggle..</translation>
     </message>
     <message>
         <source>Error: {0}</source>
@@ -2878,7 +3207,7 @@ Check the output above and the log.</source>
 <context>
     <name>DynDOLODView</name>
     <message>
-        <source>{0} — {1}</source>
+        <source>{0} - {1}</source>
         <translation>{0} — {1}</translation>
     </message>
     <message>
@@ -3014,12 +3343,12 @@ Klicken Sie anschließend auf „Veröffentlichen“.</translation>
         <translation>Bereitstellung abgeschlossen.</translation>
     </message>
     <message>
-        <source>Deploy failed — see log.</source>
-        <translation>Die Bereitstellung ist fehlgeschlagen – siehe Protokoll.</translation>
+        <source>Deploy failed - see log.</source>
+        <translation>Deploy failed - siehe Protokoll.</translation>
     </message>
     <message>
-        <source>Could not start deploy — see log.</source>
-        <translation>Die Bereitstellung konnte nicht gestartet werden – siehe Protokoll.</translation>
+        <source>Could not start deploy - see log.</source>
+        <translation>Konnte die Bereitstellung nicht starten - siehe Protokoll.</translation>
     </message>
     <message>
         <source>{0} was not found.
@@ -3048,7 +3377,7 @@ Bitte starten Sie den Assistenten neu und installieren Sie zunächst „{1}“.<
         <translation>{0} wird gestartet…</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' — check that it is installed in Steam.</source>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
         <translation>Konnte Proton '{0}' nicht finden - überprüfen Sie, ob es in Steam installiert ist.</translation>
     </message>
     <message>
@@ -3085,8 +3414,8 @@ Schließen Sie es, wenn Sie fertig sind, und klicken Sie anschließend auf „Fe
 <context>
     <name>ESLifierView</name>
     <message>
-        <source>Run ESLifier — {0}</source>
-        <translation>Run ESLifier — {0}</translation>
+        <source>Run ESLifier - {0}</source>
+        <translation>ESLifier ausführen - {0}</translation>
     </message>
     <message>
         <source>Step 1: Install ESLifier</source>
@@ -3145,7 +3474,7 @@ Bitte starten Sie den Assistenten neu und lassen Sie ihn zuerst ESLifier install
         <translation>{0} wurde nicht gefunden.</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' — check that it is installed in Steam.</source>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
         <translation>Konnte Proton '{0}' nicht finden - überprüfen Sie, ob es in Steam installiert ist.</translation>
     </message>
     <message>
@@ -3170,8 +3499,8 @@ Schließen Sie es, wenn Sie fertig sind, und klicken Sie auf Fertig.</translatio
 <context>
     <name>ESMFixesView</name>
     <message>
-        <source>Ultimate Edition ESM Fixes — {0}</source>
-        <translation>Ultimate Edition ESM Fixes — {0}</translation>
+        <source>Ultimate Edition ESM Fixes - {0}</source>
+        <translation>Ultimate Edition ESM Fixes - {0}</translation>
     </message>
     <message>
         <source>Step 1: Install the MPI Installer</source>
@@ -3212,7 +3541,7 @@ Klicken Sie auf Installieren, um zu beginnen.</translation>
         <translation>Der ESM Fixes Ausgang ist bereits installiert</translation>
     </message>
     <message>
-        <source>The '{0}' mod is already in your mod list — there is nothing to re-apply, so you can simply close this wizard.
+        <source>The '{0}' mod is already in your mod list - there is nothing to re-apply, so you can simply close this wizard.
 
 Rebuild from scratch restores the game to vanilla and runs the patcher again (needs the .mpi package).</source>
         <translation>Der '{0}'-Mod ist bereits in Ihrer Mod-Liste - es gibt nichts, was Sie erneut anwenden können, so dass Sie diesen Assistenten einfach schließen können.
@@ -3234,7 +3563,7 @@ Rebuild von Grund auf stellt das Spiel auf Vanille wieder her und führt den Pat
     <message>
         <source>Ultimate Edition ESM Fixes patches the vanilla .esm masters (FalloutNV + all DLC) with community bugfixes, and the result is added as a mod.
 
-Download the 'Ultimate Edition ESM Fixes Remastered' main file from Nexus — the .mpi package inside the archive is detected automatically.</source>
+Download the 'Ultimate Edition ESM Fixes Remastered' main file from Nexus - the .mpi package inside the archive is detected automatically.</source>
         <translation>Ultimate Edition ESM Fixes patchet die Vanilla .esm Masters (FalloutNV + alle DLCs) mit Community-Bugfixes und das Ergebnis wird als Mod hinzugefügt.
 
 Laden Sie die "Ultimate Edition ESM Fixes Remastered"-Hauptdatei von Nexus herunter - das .mpi-Paket im Archiv wird automatisch erkannt.</translation>
@@ -3272,8 +3601,8 @@ Laden Sie die "Ultimate Edition ESM Fixes Remastered"-Hauptdatei von Nexus herun
         <translation>Durchsuchen…</translation>
     </message>
     <message>
-        <source>— not set —</source>
-        <translation>— nicht festgelegt —</translation>
+        <source>- not set -</source>
+        <translation>- nicht festgelegt -</translation>
     </message>
     <message>
         <source>Looking for the ESM Fixes download…</source>
@@ -3284,7 +3613,7 @@ Laden Sie die "Ultimate Edition ESM Fixes Remastered"-Hauptdatei von Nexus herun
         <translation>Verwenden Sie zuvor extrahiertes Paket.</translation>
     </message>
     <message>
-        <source>Archive not found in your download folders — download it from Nexus, then click Detect again (or Choose file…).</source>
+        <source>Archive not found in your download folders - download it from Nexus, then click Detect again (or Choose file…).</source>
         <translation>Archivieren Sie nicht in Ihren Download-Ordnern - laden Sie es von Nexus herunter und klicken Sie dann erneut auf Erkennen (oder Datei auswählen ...).</translation>
     </message>
     <message>
@@ -3304,11 +3633,11 @@ Laden Sie die "Ultimate Edition ESM Fixes Remastered"-Hauptdatei von Nexus herun
         <translation>Download des Pakets ESM Fixes von Nexus... {0}%</translation>
     </message>
     <message>
-        <source>Premium account — downloading the ESM Fixes package from Nexus…</source>
-        <translation>Premium-Konto — Download des Pakets ESM Fixes von Nexus..</translation>
+        <source>Premium account - downloading the ESM Fixes package from Nexus…</source>
+        <translation>Premium-Konto - Herunterladen des Pakets ESM Fixes von Nexus..</translation>
     </message>
     <message>
-        <source>Archive not found — download it from Nexus (button above). It will be picked up automatically as soon as the download finishes.</source>
+        <source>Archive not found - download it from Nexus (button above). It will be picked up automatically as soon as the download finishes.</source>
         <translation>Archiv nicht gefunden - laden Sie es von Nexus herunter (Button oben). Es wird automatisch abgeholt, sobald der Download beendet ist.</translation>
     </message>
     <message>
@@ -3370,8 +3699,8 @@ Die Ausgabe wird direkt in Ihre Mod-Liste als "{0}"-Mod geschrieben.</translatio
         <translation>Wiederherstellen des Spiels in einen Vanille-Zustand vor der Installation ..</translation>
     </message>
     <message>
-        <source>Restore failed — see the log. Fix the issue (or restore manually via the Restore button) and retry.</source>
-        <translation>Wiederherstellen fehlgeschlagen — siehe Protokoll. Beheben Sie das Problem (oder Wiederherstellen manuell über die Schaltfläche Wiederherstellen) und wiederholen Sie es.</translation>
+        <source>Restore failed - see the log. Fix the issue (or restore manually via the Restore button) and retry.</source>
+        <translation>Wiederherstellen fehlgeschlagen - siehe Protokoll. Beheben Sie das Problem (oder Wiederherstellen manuell über die Schaltfläche Wiederherstellen) und wiederholen Sie es.</translation>
     </message>
     <message>
         <source>Mod staging path is not configured.</source>
@@ -3384,7 +3713,7 @@ Die Ausgabe wird direkt in Ihre Mod-Liste als "{0}"-Mod geschrieben.</translatio
 {0}</translation>
     </message>
     <message>
-        <source>Missing vanilla plugin files even after restoring to vanilla — these were never backed up.
+        <source>Missing vanilla plugin files even after restoring to vanilla - these were never backed up.
 In Steam, right-click the game → Properties → Installed Files → Verify integrity of game files, then retry.
 
 {0}</source>
@@ -3394,7 +3723,7 @@ Klicken Sie in Steam mit der rechten Maustaste auf das Spiel → Eigenschaften �
 {0}</translation>
     </message>
     <message>
-        <source>WARNING: FalloutNV.exe is 4GB-patched. The installer verifies the game exe and may refuse to run — if it fails below, restore the original exe via the 4GB Patch wizard, run this again, then re-apply the 4GB patch.</source>
+        <source>WARNING: FalloutNV.exe is 4GB-patched. The installer verifies the game exe and may refuse to run - if it fails below, restore the original exe via the 4GB Patch wizard, run this again, then re-apply the 4GB patch.</source>
         <translation>WARNUNG: FalloutNV.exe ist 4GB-gepatcht. Der Installer überprüft das Spiel exe und kann sich weigern zu laufen - wenn es unten fehlschlägt, stellen Sie das ursprüngliche exe über den 4GB Patch-Assistenten wieder her, führen Sie es erneut aus und wenden Sie dann den 4GB-Patch erneut an.</translation>
     </message>
     <message>
@@ -3410,8 +3739,8 @@ Klicken Sie in Steam mit der rechten Maustaste auf das Spiel → Eigenschaften �
         <translation>Installer mit Fehler beendet (Code {0}). Siehe das Protokoll für Details.</translation>
     </message>
     <message>
-        <source>Patching complete — registering mod…</source>
-        <translation>Patching komplett — Registrieren mod..</translation>
+        <source>Patching complete - registering mod…</source>
+        <translation>Patching komplett - Registrieren mod..</translation>
     </message>
     <message>
         <source>Patching finished but registering the mod failed: {0}</source>
@@ -3437,8 +3766,8 @@ Klicken Sie in Steam mit der rechten Maustaste auf das Spiel → Eigenschaften �
         <translation>Schließen</translation>
     </message>
     <message>
-        <source>Engine Fixes — {0}</source>
-        <translation>Motorfeststeller — {0}</translation>
+        <source>Engine Fixes - {0}</source>
+        <translation>Motorfixes - {0}</translation>
     </message>
     <message>
         <source>Reset to defaults</source>
@@ -3537,10 +3866,10 @@ Changes take effect on the next launch. If a variable ever stops the app from st
     <message>
         <source>How to run this .jar:
 Host: run with your system's java (no Proton). Set the Java command in Launch Options, e.g. 'java -jar %command%' (%command% is the jar path).
-Proton prefix: click 'Install Java into prefix' once, then it runs automatically as 'java.exe -jar &lt;jar&gt;' — anything you put in Launch Options / Launch arguments is appended as extra flags. Which prefix follows the Proton version below ('Game default' = the game's prefix; a specific version = an isolated prefix next to the jar).</source>
+Proton prefix: click 'Install Java into prefix' once, then it runs automatically as 'java.exe -jar &lt;jar&gt;' - anything you put in Launch Options / Launch arguments is appended as extra flags. Which prefix follows the Proton version below ('Game default' = the game's prefix; a specific version = an isolated prefix next to the jar).</source>
         <translation>Wie läuft dieses .jar:
 Host: Laufen Sie mit Java Ihres Systems (kein Proton). Setzen Sie den Java-Befehl in Startoptionen, z. B. 'java -jar %command%' (%command% ist der jar-Pfad).
-Proton Präfix: Klicken Sie einmal auf "Java in Präfix installieren", dann wird es automatisch als "java.exe -jar &lt;jar&gt;" ausgeführt - alles, was Sie in Startoptionen / Startargumente einfügen, wird als zusätzliche Flags hinzugefügt. Welches Präfix folgt der Proton-Version unten ("Game default" = Präfix des Spiels; eine bestimmte Version = ein isoliertes Präfix neben dem Glas).</translation>
+Proton Präfix: Klicken Sie einmal auf "Java in Präfix installieren", dann läuft es automatisch als "java.exe -jar &lt;jar&gt;" - alles, was Sie in Startoptionen / Startargumente einfügen, wird als zusätzliche Flags angehängt. Welches Präfix folgt der Proton-Version unten ("Game default" = Präfix des Spiels; eine bestimmte Version = ein isoliertes Präfix neben dem Glas).</translation>
     </message>
     <message>
         <source>Host (system java)</source>
@@ -3555,7 +3884,7 @@ Proton Präfix: Klicken Sie einmal auf "Java in Präfix installieren", dann wird
         <translation>Startargumente</translation>
     </message>
     <message>
-        <source>Arguments passed to the exe. Use Wine paths for file arguments (e.g. Z:\home\...) — the buttons below insert them for you.</source>
+        <source>Arguments passed to the exe. Use Wine paths for file arguments (e.g. Z:\home\...) - the buttons below insert them for you.</source>
         <translation>Argumente gingen an den exe. Verwenden Sie Weinpfade für Dateiargumente (z. B. Z:\home\...) - die Schaltflächen unten fügen sie für Sie ein.</translation>
     </message>
     <message>
@@ -3579,8 +3908,8 @@ Proton Präfix: Klicken Sie einmal auf "Java in Präfix installieren", dann wird
         <translation>Script-Extender laufen immer im eigenen Präfix des Spiels mit der Proton-Version des Spiels: Sie starten das Spiel selbst, das die Steam-App-ID des Spiels und seine INIs, Speicher und Mod-DLLs benötigt. Ändern Sie stattdessen die Proton-Version des Spiels in den Spieleinstellungen.</translation>
     </message>
     <message>
-        <source>Run this exe with bare Wine against the same prefix instead of a Proton session — no Steam client attach, so Steam Input keeps the desktop controls (trackpad / on-screen keyboard). The prefix is still created and updated through Proton. Env vars in Launch Options still apply; wrappers and %command% are skipped in this mode.</source>
-        <translation>Führen Sie diesen Exe mit nacktem Wein gegen das gleiche Präfix anstelle einer Proton-Sitzung aus - kein Steam-Client-Anhang, so dass Steam Input die Desktop-Steuerelemente behält (Trackpad / Bildschirmtastatur). Das Präfix wird immer noch durch Proton erstellt und aktualisiert. Env vars in Startoptionen gelten weiterhin; Wrapper und %command% werden in diesem Modus übersprungen.</translation>
+        <source>Run this exe with bare Wine against the same prefix instead of a Proton session - no Steam client attach, so Steam Input keeps the desktop controls (trackpad / on-screen keyboard). The prefix is still created and updated through Proton. Env vars in Launch Options still apply; wrappers and %command% are skipped in this mode.</source>
+        <translation>Führen Sie diesen Exe mit nacktem Wein gegen das gleiche Präfix anstelle einer Proton-Sitzung aus - kein Steam-Client-Anhang, so dass Steam Input die Desktop-Steuerelemente (Trackpad / Bildschirmtastatur) behält. Das Präfix wird immer noch durch Proton erstellt und aktualisiert. Env vars in Startoptionen gelten weiterhin; Wrapper und %command% werden in diesem Modus übersprungen.</translation>
     </message>
     <message>
         <source>Launch with plain Wine (winetricks-style)</source>
@@ -3658,8 +3987,20 @@ Proton Präfix: Klicken Sie einmal auf "Java in Präfix installieren", dann wird
         <translation>Nexus</translation>
     </message>
     <message>
+        <source>Thunderstore</source>
+        <translation>Thunderstore</translation>
+    </message>
+    <message>
         <source>Direct</source>
         <translation>Direkt</translation>
+    </message>
+    <message>
+        <source>Browse</source>
+        <translation>Browsen</translation>
+    </message>
+    <message>
+        <source>Manual</source>
+        <translation>Handbuch</translation>
     </message>
     <message>
         <source>Bundle</source>
@@ -3688,6 +4029,14 @@ Proton Präfix: Klicken Sie einmal auf "Java in Präfix installieren", dann wird
     <message>
         <source>Only mods without a File ID</source>
         <translation>Nur Mods ohne Datei-ID</translation>
+    </message>
+    <message>
+        <source>Change Source</source>
+        <translation>Änderungsquelle</translation>
+    </message>
+    <message>
+        <source>Make Optional</source>
+        <translation>Machen Sie optional</translation>
     </message>
     <message>
         <source>Save settings</source>
@@ -3720,6 +4069,82 @@ Proton Präfix: Klicken Sie einmal auf "Java in Präfix installieren", dann wird
     <message>
         <source>Optional</source>
         <translation>Optional</translation>
+    </message>
+    <message>
+        <source>Edits</source>
+        <translation>Edits</translation>
+    </message>
+    <message>
+        <source>Change Source ({0})</source>
+        <translation>Änderungsquelle ({0})</translation>
+    </message>
+    <message>
+        <source>Clear Optional ({0})</source>
+        <translation>Klar optional ({0})</translation>
+    </message>
+    <message>
+        <source>Make Optional ({0})</source>
+        <translation>Machen Sie optional ({0})</translation>
+    </message>
+    <message>
+        <source>{0} of {1} selected mods are on Nexus and will be left unchanged.</source>
+        <translation>{0} von {1} ausgewählten Mods sind auf Nexus und bleiben unverändert.</translation>
+    </message>
+    <message>
+        <source>{0} of {1} selected mods have no Nexus File ID yet - set one on each before exporting.</source>
+        <translation>{0} von {1} ausgewählten Mods haben noch keine Nexus File ID - vor dem Export jeweils eine.</translation>
+    </message>
+    <message>
+        <source>None of the selected mods were installed from Thunderstore.</source>
+        <translation>Keiner der ausgewählten Mods wurde von Thunderstore installiert.</translation>
+    </message>
+    <message>
+        <source>{0} of {1} selected mods were not installed from Thunderstore and will be left unchanged.</source>
+        <translation>{0} von {1} ausgewählten Mods wurden nicht aus Thunderstore installiert und bleiben unverändert.</translation>
+    </message>
+    <message>
+        <source>The same URL and instructions are applied to all {0} selected mods.</source>
+        <translation>Die gleiche URL und Anweisungen werden auf alle von {0} ausgewählten Mods angewendet.</translation>
+    </message>
+    <message>
+        <source>{0} mods</source>
+        <translation>{0} Mods</translation>
+    </message>
+    <message>
+        <source>Source set on {0} mod(s); {1} left unchanged (not from Thunderstore).</source>
+        <translation>Quelle auf {0} mod(s); {1} unverändert gelassen (nicht von Thunderstore).</translation>
+    </message>
+    <message>
+        <source>Source set on {0} mod(s); {1} left unchanged (on Nexus).</source>
+        <translation>Quelle auf {0} mod(s); {1} unverändert (auf Nexus).</translation>
+    </message>
+    <message>
+        <source>Source set on {0} mod(s).</source>
+        <translation>Quelle eingestellt auf {0} mod(s).</translation>
+    </message>
+    <message>
+        <source>Marked {0} mod(s) optional.</source>
+        <translation>{0} mod(s) optional markiert.</translation>
+    </message>
+    <message>
+        <source>Cleared optional on {0} mod(s).</source>
+        <translation>Optional auf {0} mod(s) gelöscht.</translation>
+    </message>
+    <message>
+        <source>Ship changes to files that also exist in the original archive as binary patches. Locally added or deleted files cannot be included.</source>
+        <translation>Versenden Sie Änderungen an Dateien, die auch im Originalarchiv als binäre Patches vorhanden sind. Lokal hinzugefügte oder gelöschte Dateien können nicht einbezogen werden.</translation>
+    </message>
+    <message>
+        <source>This mod was not installed from Thunderstore.</source>
+        <translation>Dieser Mod wurde nicht von Thunderstore installiert.</translation>
+    </message>
+    <message>
+        <source>Could not load versions from Thunderstore.</source>
+        <translation>Konnte keine Versionen von Thunderstore laden.</translation>
+    </message>
+    <message>
+        <source>Could not load versions from Nexus.</source>
+        <translation>Konnte keine Versionen von Nexus laden.</translation>
     </message>
     <message>
         <source>Nothing to save.</source>
@@ -3774,6 +4199,22 @@ Proton Präfix: Klicken Sie einmal auf "Java in Präfix installieren", dann wird
         <translation>{0} Nexus {1} {2}: Es fehlt eine Datei-ID, die vor dem Export festgelegt werden muss.</translation>
     </message>
     <message>
+        <source>{0} bundled mod(s) below are available on Nexus, so their files will be packed into this export rather than downloaded on import.
+
+That is fine for your own backup. Do not share or upload the file in this state - set those mods to Nexus and use Edits to carry your local changes.</source>
+        <translation>{0} gebündelte Mods unten sind auf Nexus verfügbar, so dass ihre Dateien in diesen Export gepackt werden, anstatt beim Import heruntergeladen zu werden.
+
+Das ist in Ordnung für Ihr eigenes Backup. Teilen oder laden Sie die Datei nicht in diesem Zustand hoch - setzen Sie diese Mods auf Nexus und verwenden Sie Edits, um Ihre lokalen Änderungen zu übertragen.</translation>
+    </message>
+    <message>
+        <source>Bundled Nexus mods</source>
+        <translation>Gebündelte Nexus-Mods</translation>
+    </message>
+    <message>
+        <source>Export anyway</source>
+        <translation>Exportieren Sie sowieso</translation>
+    </message>
+    <message>
         <source>Export Amethyst Manifest</source>
         <translation>Export Amethyst Manifest</translation>
     </message>
@@ -3790,6 +4231,10 @@ Proton Präfix: Klicken Sie einmal auf "Java in Präfix installieren", dann wird
         <translation>Vorbereitung des Exports..</translation>
     </message>
     <message>
+        <source>Building file-edit patches…</source>
+        <translation>File-Editing Patches erstellen..</translation>
+    </message>
+    <message>
         <source>Packing mod: {0}</source>
         <translation>Verpackungs-Mod: {0}</translation>
     </message>
@@ -3800,6 +4245,10 @@ Proton Präfix: Klicken Sie einmal auf "Java in Präfix installieren", dann wird
     <message>
         <source>Packing profile files…</source>
         <translation>Packprofildateien..</translation>
+    </message>
+    <message>
+        <source>Packing file-edit patches…</source>
+        <translation>Packen File-Editing Patches..</translation>
     </message>
     <message>
         <source>Packing…</source>
@@ -3821,8 +4270,8 @@ Proton Präfix: Klicken Sie einmal auf "Java in Präfix installieren", dann wird
 <context>
     <name>FalloutDowngradeView</name>
     <message>
-        <source>Downgrade Fallout 3 — {0}</source>
-        <translation>Downgrade Fallout 3 — {0}</translation>
+        <source>Downgrade Fallout 3 - {0}</source>
+        <translation>Downgrade Fallout 3 - {0}</translation>
     </message>
     <message>
         <source>Step 1: Download the Patcher</source>
@@ -3897,10 +4346,22 @@ Das kann einen Moment dauern.</translation>
         <translation>Konnte die Proton-Version für dieses Spiel nicht bestimmen.</translation>
     </message>
     <message>
-        <source>Patcher has finished.
+        <source>The patcher did not respond within two minutes and was stopped.</source>
+        <translation>Der Patcher reagierte nicht innerhalb von zwei Minuten und wurde gestoppt.</translation>
+    </message>
+    <message>
+        <source>Patcher exited with code {0}.{1}</source>
+        <translation>Patcher mit Code {0}.{1} beendet</translation>
+    </message>
+    <message>
+        <source>The patcher exited without producing a recognised patched Fallout 3 executable.{0}</source>
+        <translation>Der Patcher verließ, ohne eine erkannte gepatchte Fallout 3 ausführbar zu machen. {0}</translation>
+    </message>
+    <message>
+        <source>{0} was downgraded successfully.
 
 Click Done to clean up the extracted files and close.</source>
-        <translation>Patcher ist fertig.
+        <translation>{0} wurde erfolgreich heruntergestuft.
 
 Klicken Sie auf Fertig, um die extrahierten Dateien zu bereinigen und zu schließen.</translation>
     </message>
@@ -4153,8 +4614,8 @@ Klicken Sie auf Fertig, um die extrahierten Dateien zu bereinigen und zu schlie�
 <context>
     <name>Fnv4GbView</name>
     <message>
-        <source>4GB Patch — {0}</source>
-        <translation>4GB Patch — {0}</translation>
+        <source>4GB Patch - {0}</source>
+        <translation>4GB Patch - {0}</translation>
     </message>
     <message>
         <source>Fallout New Vegas 4GB Patch</source>
@@ -4169,7 +4630,7 @@ that check for the patch, but it is safe and recommended.
 
 While "Apply the 4GB patch automatically" is enabled in
 Configure Game (the default), deploy applies the patch and
-restore reverts it — disable that option to manage the patch
+restore reverts it - disable that option to manage the patch
 manually here.
 
 The original exe is kept as {0}.</source>
@@ -4181,7 +4642,7 @@ dass für den Patch zu überprüfen, aber es ist sicher und empfohlen.
 
 Während "Apply the 4GB patch automatically" aktiviert ist
 Konfigurieren des Spiels (der Standard), Bereitstellen des Patches und
-Wiederherstellen kehrt es zurück - Deaktivieren Sie diese Option zum Verwalten des Patches
+Wiederherstellen kehrt es zurück - Deaktivieren Sie diese Option, um den Patch zu verwalten
 manuell hier.
 
 Die ursprüngliche Exe wird als {0} beibehalten.</translation>
@@ -4215,8 +4676,8 @@ Die ursprüngliche Exe wird als {0} beibehalten.</translation>
         <translation>{0} ist bereits 4GB gepatcht.</translation>
     </message>
     <message>
-        <source>Unpatched {0} detected ({1} version) — ready to patch.</source>
-        <translation>Nicht gepatchtes {0} erkannt ({1}-Version) - bereit zum Patchen.</translation>
+        <source>Unpatched {0} detected ({1} version) - ready to patch.</source>
+        <translation>Ungepatchtes {0} erkannt ({1}-Version) - bereit zum Patchen.</translation>
     </message>
     <message>
         <source>Unrecognised {0} version.
@@ -4282,11 +4743,11 @@ Es kann bereits geändert werden. Überprüfen Sie die Spieldateien in Steam / H
         <translation>Fertig</translation>
     </message>
     <message>
-        <source>Newly available — this option's required plugin is now installed since your last run of this installer.</source>
+        <source>Newly available - this option's required plugin is now installed since your last run of this installer.</source>
         <translation>Neu verfügbar - das erforderliche Plugin dieser Option ist seit Ihrer letzten Ausführung dieses Installationsprogramms installiert.</translation>
     </message>
     <message>
-        <source>This option's required plugin isn't enabled — enable it first, or select this only if you plan to add it.</source>
+        <source>This option's required plugin isn't enabled - enable it first, or select this only if you plan to add it.</source>
         <translation>Das erforderliche Plugin dieser Option ist nicht aktiviert - aktivieren Sie es zuerst oder wählen Sie es nur aus, wenn Sie es hinzufügen möchten.</translation>
     </message>
     <message>
@@ -4324,8 +4785,8 @@ Es kann bereits geändert werden. Überprüfen Sie die Spieldateien in Steam / H
 <context>
     <name>GpakView</name>
     <message>
-        <source>GPAK tools — {0}</source>
-        <translation>GPAK-Werkzeuge — {0}</translation>
+        <source>GPAK tools - {0}</source>
+        <translation>GPAK-Tools - {0}</translation>
     </message>
     <message>
         <source>GPAK unpack / repack</source>
@@ -4428,8 +4889,8 @@ Es kann bereits geändert werden. Überprüfen Sie die Spieldateien in Steam / H
         <translation>Benutzerdefinierte Regeln</translation>
     </message>
     <message>
-        <source>No rules yet — add one below.</source>
-        <translation>Es gibt noch keine Regeln – füge unten eine hinzu.</translation>
+        <source>No rules yet - add one below.</source>
+        <translation>Noch keine Regeln - fügen Sie unten eine hinzu.</translation>
     </message>
     <message>
         <source>Add rule</source>
@@ -4456,8 +4917,8 @@ Es kann bereits geändert werden. Überprüfen Sie die Spieldateien in Steam / H
         <translation>Das Speichern der Regeln ist fehlgeschlagen: {0}</translation>
     </message>
     <message>
-        <source>Result: {0}   (a rule has an invalid regex — skipped)</source>
-        <translation>Ergebnis: {0}   (Eine Regel enthält einen ungültigen regulären Ausdruck – wurde übersprungen)</translation>
+        <source>Result: {0}   (a rule has an invalid regex - skipped)</source>
+        <translation>Ergebnis: {0} (eine Regel hat einen ungültigen Regex - übersprungen)</translation>
     </message>
     <message>
         <source>Result: {0}</source>
@@ -4523,6 +4984,264 @@ Es kann bereits geändert werden. Überprüfen Sie die Spieldateien in Steam / H
     <message>
         <source>Loading…</source>
         <translation>Wird geladen…</translation>
+    </message>
+</context>
+<context>
+    <name>MCPView</name>
+    <message>
+        <source>Install MCP - {0}</source>
+        <translation>MCP installieren - {0}</translation>
+    </message>
+    <message>
+        <source>Step 1: Download Morrowind Code Patch</source>
+        <translation>Schritt 1: Download Morrowind Code Patch</translation>
+    </message>
+    <message>
+        <source>Click the button below to open the Morrowind Code Patch
+download page on Nexus Mods.
+
+Download the archive, then click Next.</source>
+        <translation>Klicken Sie auf die Schaltfläche unten, um den Morrowind Code Patch zu öffnen
+Download-Seite auf Nexus Mods.
+
+Laden Sie das Archiv herunter und klicken Sie dann auf Weiter.</translation>
+    </message>
+    <message>
+        <source>Step 2: Locate the Archive</source>
+        <translation>Schritt 2: Suchen Sie das Archiv</translation>
+    </message>
+    <message>
+        <source>Step 3: Extract Files</source>
+        <translation>Schritt 3: Dateien extrahieren</translation>
+    </message>
+    <message>
+        <source>Next →</source>
+        <translation>Nächste →</translation>
+    </message>
+    <message>
+        <source>Step 4: Run Morrowind Code Patch</source>
+        <translation>Schritt 4: Morrowind Code Patch ausführen</translation>
+    </message>
+    <message>
+        <source>Select the Morrowind Code Patch archive</source>
+        <translation>Wählen Sie das Morrowind Code Patch-Archiv</translation>
+    </message>
+    <message>
+        <source>Archive not found in Downloads.
+Make sure you downloaded it, then press Try Again,
+or use Browse to select it manually.</source>
+        <translation>Archiv nicht in Downloads gefunden.
+Stellen Sie sicher, dass Sie es heruntergeladen haben, und drücken Sie dann erneut versuchen,
+oder verwenden Sie Browse, um es manuell auszuwählen.</translation>
+    </message>
+    <message>
+        <source>Extracting archive to game folder…</source>
+        <translation>Extrahieren des Archivs in den Spielordner..</translation>
+    </message>
+    <message>
+        <source>Running {0} via Proton…
+Apply your desired patches, then come back and click Done.</source>
+        <translation>{0} über Proton...
+Wenden Sie Ihre gewünschten Patches an, kommen Sie dann zurück und klicken Sie auf Fertig.</translation>
+    </message>
+    <message>
+        <source>Game path is not configured.</source>
+        <translation>Der Spielpfad ist nicht konfiguriert.</translation>
+    </message>
+    <message>
+        <source>Archive not found.</source>
+        <translation>Archiv nicht gefunden.</translation>
+    </message>
+    <message>
+        <source>Extracted {0} file(s) to game folder.
+
+Click Next to run the patcher.</source>
+        <translation>Extrahierte {0}-Datei(en) im Spielordner.
+
+Klicken Sie auf Weiter, um den Patcher auszuführen.</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>Fehler: {0}</translation>
+    </message>
+    <message>
+        <source>{0} not found in game folder.</source>
+        <translation>{0} nicht im Spielordner gefunden.</translation>
+    </message>
+    <message>
+        <source>Could not determine Proton version for this game.</source>
+        <translation>Konnte die Proton-Version für dieses Spiel nicht bestimmen.</translation>
+    </message>
+    <message>
+        <source>{0} exited with code {1}.
+{2}</source>
+        <translation>{0} verließ mit Code {1}.
+{2}</translation>
+    </message>
+    <message>
+        <source>Morrowind Code Patch finished.
+
+Click Done to close.</source>
+        <translation>Morrowind Code Patch fertig.
+
+Klicken Sie auf Fertig zum Schließen.</translation>
+    </message>
+</context>
+<context>
+    <name>MGEXEView</name>
+    <message>
+        <source>Install MGE XE - {0}</source>
+        <translation>MGE XE - {0} installieren</translation>
+    </message>
+    <message>
+        <source>Step 1: Download MGE XE</source>
+        <translation>Schritt 1: MGE XE herunterladen</translation>
+    </message>
+    <message>
+        <source>Click the button below to open the MGE XE download page on Nexus Mods.
+
+Download either the Installer or the Manual Install archive, then click Next.</source>
+        <translation>Klicken Sie auf die Schaltfläche unten, um die MGE XE Download-Seite auf Nexus Mods zu öffnen.
+
+Laden Sie entweder das Installer- oder das Manual Install-Archiv herunter und klicken Sie dann auf Weiter.</translation>
+    </message>
+    <message>
+        <source>Step 2: Locate the Archive</source>
+        <translation>Schritt 2: Suchen Sie das Archiv</translation>
+    </message>
+    <message>
+        <source>Install MGE XE</source>
+        <translation>MGE XE installieren</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>Geschehen</translation>
+    </message>
+    <message>
+        <source>Step 3: Choose Destination</source>
+        <translation>Schritt 3: Wählen Sie Destination</translation>
+    </message>
+    <message>
+        <source>Choose where to install the MGE XE files. Installing as a managed mod lets you toggle and reorder it like any other mod; the Root_Folder staging deploys the files straight to the game root.</source>
+        <translation>Wählen Sie, wo Sie die MGE XE-Dateien installieren möchten. Mit der Installation als verwalteter Mod können Sie ihn wie jeder andere Mod umschalten und neu ordnen; Die Root Folder-Staging stellt die Dateien direkt auf die Spielwurzel bereit.</translation>
+    </message>
+    <message>
+        <source>Install destination</source>
+        <translation>Bestimmungsort</translation>
+    </message>
+    <message>
+        <source>Root_Folder (staging)</source>
+        <translation>Root Folder (Stufe)</translation>
+    </message>
+    <message>
+        <source>As a managed mod (root-flagged)</source>
+        <translation>Als Managed Mod (root-flaggt)</translation>
+    </message>
+    <message>
+        <source>Mod name</source>
+        <translation>Mod Name</translation>
+    </message>
+    <message>
+        <source>Install →</source>
+        <translation>Installieren</translation>
+    </message>
+    <message>
+        <source>Select the MGE XE archive</source>
+        <translation>Wählen Sie das MGE XE Archiv</translation>
+    </message>
+    <message>
+        <source>MGE XE archive not found in Downloads.
+Make sure you downloaded it, then press Try Again,
+or use Browse to select it manually.</source>
+        <translation>MGE XE-Archiv nicht in Downloads gefunden.
+Stellen Sie sicher, dass Sie es heruntergeladen haben, und drücken Sie dann erneut versuchen,
+oder verwenden Sie Browse, um es manuell auszuwählen.</translation>
+    </message>
+    <message>
+        <source>Extracting archive to game folder…</source>
+        <translation>Extrahieren des Archivs in den Spielordner..</translation>
+    </message>
+    <message>
+        <source>Extracting archive…</source>
+        <translation>Archiv extrahieren..</translation>
+    </message>
+    <message>
+        <source>Game path is not configured.</source>
+        <translation>Der Spielpfad ist nicht konfiguriert.</translation>
+    </message>
+    <message>
+        <source>Archive not found.</source>
+        <translation>Archiv nicht gefunden.</translation>
+    </message>
+    <message>
+        <source>Installer exe not found in game folder after extraction.
+Expected a file starting with '{0}' (.exe).</source>
+        <translation>Installer exe nicht im Spielordner nach der Extraktion gefunden.
+Erwartete eine Datei, die mit '{0}' (.exe) beginnt.</translation>
+    </message>
+    <message>
+        <source>Running {0} via Proton…
+Follow the installer steps, then come back and click Done.</source>
+        <translation>{0} über Proton...
+Folgen Sie den Installationsschritten, kommen Sie dann zurück und klicken Sie auf Fertig.</translation>
+    </message>
+    <message>
+        <source>MGE XE installer finished.
+
+Click Done to close.</source>
+        <translation>MGE XE Installateur fertig.
+
+Klicken Sie auf Fertig zum Schließen.</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>Fehler: {0}</translation>
+    </message>
+    <message>
+        <source>Installing MGE XE as mod '{0}'…</source>
+        <translation>Installieren von MGE XE als mod '{0}'..</translation>
+    </message>
+    <message>
+        <source>Extracting archive to Root_Folder…</source>
+        <translation>Extrahieren des Archivs nach Root Folder..</translation>
+    </message>
+    <message>
+        <source>MGE XE installed as mod '{0}'.
+{1} file(s) staged.
+
+Deploy to apply it.
+
+Click Done to close.</source>
+        <translation>MGE XE installiert als mod '{0}'.
+{1} Datei(en) inszeniert.
+
+Bereitstellen, um es anzuwenden.
+
+Klicken Sie auf Fertig zum Schließen.</translation>
+    </message>
+    <message>
+        <source>MGE XE installed to Root_Folder!
+{0} file(s) extracted.
+
+Deploy to apply it.
+
+Click Done to close.</source>
+        <translation>MGE XE auf Root Folder installiert!
+{0}-Datei(en) extrahiert.
+
+Bereitstellen, um es anzuwenden.
+
+Klicken Sie auf Fertig zum Schließen.</translation>
+    </message>
+    <message>
+        <source>Could not determine Proton version for this game.</source>
+        <translation>Konnte die Proton-Version für dieses Spiel nicht bestimmen.</translation>
+    </message>
+    <message>
+        <source>{0} exited with code {1}.
+{2}</source>
+        <translation>{0} verließ mit Code {1}.
+{2}</translation>
     </message>
 </context>
 <context>
@@ -5034,6 +5753,10 @@ Wenn Sie fortfahren, wird diese Warnung für {1} nicht erneut angezeigt, es sei 
         <translation>Prepend Load-Order-Nummern zu mod Ordner</translation>
     </message>
     <message>
+        <source>Manage load order in DFU</source>
+        <translation>Verwalten von Load Order in DFU</translation>
+    </message>
+    <message>
         <source>Game Patch Version</source>
         <translation>Version des Spiel-Patches</translation>
     </message>
@@ -5132,6 +5855,10 @@ Wenn Sie fortfahren, wird diese Warnung für {1} nicht erneut angezeigt, es sei 
     <message>
         <source>Install LAV Filters (radio/music codecs)</source>
         <translation>Installieren Sie LAV-Filter (Radio-/Musik-Codecs)</translation>
+    </message>
+    <message>
+        <source>Identify installed mods</source>
+        <translation>Installierte Mods identifizieren</translation>
     </message>
     <message>
         <source>Edit custom game…</source>
@@ -5498,6 +6225,14 @@ Soll der Eintrag zur angehängten Sammlung entfernt werden?</translation>
         <translation>Kurzes Update</translation>
     </message>
     <message>
+        <source>Apply the 4GB patch automatically on deploy</source>
+        <translation>Tragen Sie den 4GB-Patch automatisch bei der Bereitstellung an</translation>
+    </message>
+    <message>
+        <source>Create case-alias symlinks on deploy (Faster load times)</source>
+        <translation>Erstellen von Case-Alias-Symlinks beim Deployment (Schnellere Ladezeiten)</translation>
+    </message>
+    <message>
         <source>A game handler failed to load ({0}). Affected games are hidden, but your mods are safe - see the log.</source>
         <translation>Ein Spielhandler konnte nicht geladen werden ({0}). Betroffene Spiele sind versteckt, aber Ihre Mods sind sicher - siehe Protokoll.</translation>
     </message>
@@ -5510,12 +6245,20 @@ Soll der Eintrag zur angehängten Sammlung entfernt werden?</translation>
         <translation>Umweltvariablen</translation>
     </message>
     <message>
-        <source>Could not read {0} from {1}: {2}</source>
-        <translation>Ich konnte {0} nicht von {1} lesen: {2}</translation>
-    </message>
-    <message>
         <source>Could not read {0} from {1}</source>
         <translation>Ich konnte {0} nicht von {1} lesen</translation>
+    </message>
+    <message>
+        <source>Prefix health check…</source>
+        <translation>Präfix-Gesundheitscheck ..</translation>
+    </message>
+    <message>
+        <source>Create collection…</source>
+        <translation>Sammlung erstellen..</translation>
+    </message>
+    <message>
+        <source>My collections…</source>
+        <translation>Meine Sammlungen..</translation>
     </message>
     <message>
         <source>Handler update failed - check your connection.</source>
@@ -5882,6 +6625,14 @@ Führen Sie jetzt Quick Update für alle aus?</translation>
         <translation>Für diesen Mod gibt es keine Dateien zum Herunterladen.</translation>
     </message>
     <message>
+        <source>Create Collection</source>
+        <translation>Create Collection</translation>
+    </message>
+    <message>
+        <source>My Collections</source>
+        <translation>Meine Sammlungen</translation>
+    </message>
+    <message>
         <source>Log in first (Nexus ▸ Login) - opening the AMM page so you can endorse it there.</source>
         <translation>Loggen Sie sich zuerst ein (Nexus ▸ Login) - öffnen Sie die AMM-Seite, damit Sie sie dort unterstützen können.</translation>
     </message>
@@ -5932,10 +6683,6 @@ Führen Sie jetzt Quick Update für alle aus?</translation>
     <message>
         <source>No active profile to export.</source>
         <translation>Es gibt kein aktives Profil zum Exportieren.</translation>
-    </message>
-    <message>
-        <source>No mods with a Nexus mod + file ID to share.</source>
-        <translation>Keine Mods mit einer Nexus-Mod-Datei-ID zum Teilen.</translation>
     </message>
     <message>
         <source>Could not read code: {0}</source>
@@ -6274,6 +7021,134 @@ Führen Sie jetzt Quick Update für alle aus?</translation>
         <translation>Installieren abgesagt.</translation>
     </message>
     <message>
+        <source>Loading…</source>
+        <translation>Beladung..</translation>
+    </message>
+    <message>
+        <source>Thunderstore</source>
+        <translation>Thunderstore</translation>
+    </message>
+    <message>
+        <source>Browse Thunderstore</source>
+        <translation>Browse Thunderstore</translation>
+    </message>
+    <message>
+        <source>Open game on Thunderstore</source>
+        <translation>Offenes Spiel auf Thunderstore</translation>
+    </message>
+    <message>
+        <source>Received a malformed Thunderstore link.</source>
+        <translation>Erhielt einen fehlgeformten Thunderstore-Link.</translation>
+    </message>
+    <message>
+        <source>Select and configure a game before installing Thunderstore mods.</source>
+        <translation>Wählen und konfigurieren Sie ein Spiel, bevor Sie Thunderstore-Mods installieren.</translation>
+    </message>
+    <message>
+        <source>Checking Thunderstore dependencies…</source>
+        <translation>Thunderstore Abhängigkeiten überprüfen..</translation>
+    </message>
+    <message>
+        <source>Downloading mod from Thunderstore…</source>
+        <translation>Download Mod von Thunderstore..</translation>
+    </message>
+    <message>
+        <source>Thunderstore download failed - {0}</source>
+        <translation>Thunderstore Download fehlgeschlagen - {0}</translation>
+    </message>
+    <message>
+        <source>'{0}' isn't a Thunderstore mod.</source>
+        <translation>{0} ist kein Thunderstore-Mod.</translation>
+    </message>
+    <message>
+        <source>all</source>
+        <translation>alle</translation>
+    </message>
+    <message>
+        <source>Checking Thunderstore for updates ({0})…</source>
+        <translation>Thunderstore auf Updates überprüfen ({0})..</translation>
+    </message>
+    <message>
+        <source>Thunderstore update check failed - see the log.</source>
+        <translation>Thunderstore Update Check fehlgeschlagen - siehe Protokoll.</translation>
+    </message>
+    <message>
+        <source>{0} update(s) available</source>
+        <translation>{0} Update(s) verfügbar</translation>
+    </message>
+    <message>
+        <source>{0} unknown</source>
+        <translation>{0} unbekannt</translation>
+    </message>
+    <message>
+        <source>{0} package(s) could not be checked.</source>
+        <translation>{0}-Pakete konnten nicht überprüft werden.</translation>
+    </message>
+    <message>
+        <source>All Thunderstore mods are up to date.</source>
+        <translation>Alle Thunderstore Mods sind auf dem neuesten Stand.</translation>
+    </message>
+    <message>
+        <source>This mod has no Thunderstore metadata.</source>
+        <translation>Dieser Mod hat keine Thunderstore-Metadaten.</translation>
+    </message>
+    <message>
+        <source>Run Check Updates first to find the latest version.</source>
+        <translation>Führen Sie Check Updates zuerst aus, um die neueste Version zu finden.</translation>
+    </message>
+    <message>
+        <source>Update mod</source>
+        <translation>Update Mod</translation>
+    </message>
+    <message>
+        <source>Update {0} from {1} to {2}?</source>
+        <translation>Aktualisieren Sie {0} von {1} auf {2}?</translation>
+    </message>
+    <message>
+        <source>Update</source>
+        <translation>Aktualisierung</translation>
+    </message>
+    <message>
+        <source>'{0}' has no Thunderstore page.</source>
+        <translation>'{0}' hat keine Thunderstore-Seite.</translation>
+    </message>
+    <message>
+        <source>{0} did not launch</source>
+        <translation>{0} wurde nicht gestartet</translation>
+    </message>
+    <message>
+        <source>{0} is running - launch again when it finishes.</source>
+        <translation>{0} läuft - starten Sie erneut, wenn es fertig ist.</translation>
+    </message>
+    <message>
+        <source>Launching {0}…</source>
+        <translation>Start von {0}..</translation>
+    </message>
+    <message>
+        <source>Opening {0}…</source>
+        <translation>{0} öffnen..</translation>
+    </message>
+    <message>
+        <source>{0} started</source>
+        <translation>{0} startet</translation>
+    </message>
+    <message>
+        <source>Deploying, then launching {0}…</source>
+        <translation>Bereitstellung, dann starten {0}..</translation>
+    </message>
+    <message>
+        <source>{0} is running - deploy again when it finishes.</source>
+        <translation>{0} läuft - Deployment wieder, wenn es fertig ist.</translation>
+    </message>
+    <message>
+        <source>{0} is running - restore again when it finishes.</source>
+        <translation>{0} läuft - Wiederherstellen Sie wieder, wenn es fertig ist.</translation>
+    </message>
+    <message>
+        <source>Deploy failed - launch cancelled</source>
+        <translation>Deploy failed - Start abgesagt</translation>
+    </message>
+    <message>
         <source>Install</source>
         <translation>Installieren</translation>
     </message>
@@ -6284,6 +7159,74 @@ Führen Sie jetzt Quick Update für alle aus?</translation>
     <message>
         <source>Installed {0} mods</source>
         <translation>{0}-Mods installiert</translation>
+    </message>
+    <message>
+        <source>this mod</source>
+        <translation>diese mod</translation>
+    </message>
+    <message>
+        <source>Identifying Thunderstore mods…</source>
+        <translation>Identifizieren von Thunderstore Mods..</translation>
+    </message>
+    <message>
+        <source>Identifying mods failed - see the log.</source>
+        <translation>Identifizieren von Mods fehlgeschlagen - siehe Protokoll.</translation>
+    </message>
+    <message>
+        <source> (several teams publish this name)</source>
+        <translation>(mehrere teams veröffentlichen diesen namen)</translation>
+    </message>
+    <message>
+        <source>No unidentified Thunderstore mods found.</source>
+        <translation>Keine nicht identifizierten Thunderstore-Mods gefunden.</translation>
+    </message>
+    <message>
+        <source>Identified {0} mod(s).</source>
+        <translation>Identifizierte {0} Mod(s).</translation>
+    </message>
+    <message>
+        <source>{0} could not be matched.</source>
+        <translation>{0} konnte nicht gematcht werden.</translation>
+    </message>
+    <message>
+        <source>Could not identify any of the {0} mod(s) found.</source>
+        <translation>Konnte keine der gefundenen {0}-Mods identifizieren.</translation>
+    </message>
+    <message>
+        <source>Add the API path shown on mod.io's API Access page using the mod.io API Key tool.</source>
+        <translation>Fügen Sie den API-Pfad hinzu, der auf der API-Zugriffsseite von mod.io angezeigt wird, indem Sie das Tool mod.io API Key verwenden.</translation>
+    </message>
+    <message>
+        <source>mod.io update checking is disabled until its API path is added in the mod.io API Key tool.</source>
+        <translation>die Überprüfung der mod.io-Aktualisierung wird deaktiviert, bis der API-Pfad im mod.io-API-Schlüssel-Tool hinzugefügt wird.</translation>
+    </message>
+    <message>
+        <source>No mods to share - a code carries Nexus mods with a mod + file ID and Thunderstore mods.</source>
+        <translation>Keine Mods zum Teilen - ein Code trägt Nexus-Mods mit einer Mod + Datei-ID und Thunderstore-Mods.</translation>
+    </message>
+    <message>
+        <source>Fallout 3 needs downgrading</source>
+        <translation>Fallout 3 muss herabgestuft werden</translation>
+    </message>
+    <message>
+        <source>Fallout3.exe is version {0} - the Anniversary Edition update.
+
+The script extender (FOSE) does not work with this version, so mods that need it will not load, no matter how they are deployed.
+
+Run the Downgrade wizard to patch the game back to a version FOSE supports. Your modlist is restored before patching and redeployed afterwards.</source>
+        <translation>Fallout3.exe ist Version {0} - das Anniversary Edition Update.
+
+Der Script Extender (FOSE) funktioniert nicht mit dieser Version, daher werden Mods, die ihn benötigen, nicht geladen, egal wie sie bereitgestellt werden.
+
+Führen Sie den Downgrade-Assistenten aus, um das Spiel auf eine von FOSE unterstützte Version zu patchen. Ihre Modlist wird vor dem Patchen wiederhergestellt und anschließend neu bereitgestellt.</translation>
+    </message>
+    <message>
+        <source>Open Downgrade Wizard</source>
+        <translation>Open Downgrade Wizard</translation>
+    </message>
+    <message>
+        <source>Could not open the Downgrade wizard - open it from the Tools tab.</source>
+        <translation>Konnte den Downgrade-Assistenten nicht öffnen - öffnen Sie ihn über den Tab Tools.</translation>
     </message>
     <message>
         <source>Pack {0}</source>
@@ -6655,8 +7598,8 @@ Wie auch immer?</translation>
 <context>
     <name>MewgenicsDeployChoiceOverlay</name>
     <message>
-        <source>Mewgenics — Deploy method</source>
-        <translation>Mewgenik — Einsatzmethode</translation>
+        <source>Mewgenics - Deploy method</source>
+        <translation>Mewgenics - Einsatzmethode</translation>
     </message>
     <message>
         <source>Steam launch command  (Safer / Recommended)</source>
@@ -6682,8 +7625,8 @@ Wie auch immer?</translation>
 <context>
     <name>MewgenicsLaunchCommandOverlay</name>
     <message>
-        <source>Mewgenics — Steam / Lutris launch command</source>
-        <translation>Mewgenics — Startbefehl Steam / Lutris</translation>
+        <source>Mewgenics - Steam / Lutris launch command</source>
+        <translation>Mewgenics - Steam / Lutris Startbefehl</translation>
     </message>
     <message>
         <source>Paste this into Steam Launch Options (Properties → General):</source>
@@ -6712,15 +7655,102 @@ Aktualisieren Sie dies, wenn Sie Ihre Mod-Liste ändern.</translation>
         <translation>Kopiert ✓</translation>
     </message>
     <message>
-        <source>Copy failed — copy it manually</source>
+        <source>Copy failed - copy it manually</source>
         <translation>Kopieren Sie fehlgeschlagen - kopieren Sie es manuell</translation>
+    </message>
+</context>
+<context>
+    <name>MissingArchivesOverlay</name>
+    <message>
+        <source>Original archives needed</source>
+        <translation>Originalarchive benötigt</translation>
+    </message>
+    <message>
+        <source>{0} mod(s) use export features that read their original download archive (file edits become patches against it; installer choices are mapped through its FOMOD config), but the archive is no longer in the download cache.
+
+Download fetches the exact installed file again - automatically with a premium account, via each file's download page otherwise. Continuing without leaves those edits or choices out of the export.</source>
+        <translation>{0}-Mod(s) verwenden Exportfunktionen, die ihr ursprüngliches Download-Archiv lesen (Dateibearbeitungen werden zu Patches dagegen; Installationsoptionen werden über die FOMOD-Konfiguration abgebildet), aber das Archiv befindet sich nicht mehr im Download-Cache.
+
+Laden Sie die genau installierte Datei erneut herunter - automatisch mit einem Premium-Konto, ansonsten über die Download-Seite jeder Datei. Weiterfahren ohne lässt diese Änderungen oder Entscheidungen aus dem Export.</translation>
+    </message>
+    <message>
+        <source>file edits</source>
+        <translation>file edits</translation>
+    </message>
+    <message>
+        <source>installer choices</source>
+        <translation>installateurauswahl</translation>
+    </message>
+    <message>
+        <source> (can't redownload: no Nexus file id)</source>
+        <translation>(kann nicht erneut heruntergeladen werden: keine Nexus-Datei-ID)</translation>
+    </message>
+    <message>
+        <source>Open Download Page</source>
+        <translation>Open Download Seite</translation>
+    </message>
+    <message>
+        <source>Skip this mod</source>
+        <translation>Überspringen Sie diesen Mod</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Stornierung</translation>
+    </message>
+    <message>
+        <source>Continue without</source>
+        <translation>Weiterfahren ohne</translation>
+    </message>
+    <message>
+        <source>Download</source>
+        <translation>Download</translation>
+    </message>
+    <message>
+        <source>({0}/{1}) Downloading '{2}'… {3} / {4}</source>
+        <translation>({0}/{1}) Download '{2}'... {3} / {4}</translation>
+    </message>
+    <message>
+        <source>({0}/{1}) Fetching '{2}'…</source>
+        <translation>({0}/{1}) Abrufen '{2}'..</translation>
+    </message>
+    <message>
+        <source>({0}/{1}) Waiting for the browser download of '{2}'…</source>
+        <translation>({0}/{1}) Warten auf den Browser-Download von '{2}'..</translation>
+    </message>
+    <message>
+        <source>({0}/{1}) Waiting for the browser download of '{2}'… {3} / {4}</source>
+        <translation>({0}/{1}) Warten auf den Browser-Download von '{2}'... {3} / {4}</translation>
+    </message>
+    <message>
+        <source>Checking account…</source>
+        <translation>Girokonto ..</translation>
+    </message>
+    <message>
+        <source> - downloaded ✓</source>
+        <translation>download ✓</translation>
+    </message>
+    <message>
+        <source> - failed ✗</source>
+        <translation>- fehlgeschlagen ✗</translation>
+    </message>
+    <message>
+        <source>{0} archive(s) downloaded, {1} could not be fetched - their edits or installer choices will be left out.</source>
+        <translation>{0}-Archiv(s) heruntergeladen, {1} konnte nicht abgerufen werden - ihre Bearbeitungen oder Installationsoptionen werden ausgelassen.</translation>
+    </message>
+    <message>
+        <source>Continue anyway</source>
+        <translation>Weiter sowieso</translation>
+    </message>
+    <message>
+        <source>Retry</source>
+        <translation>Versuch</translation>
     </message>
 </context>
 <context>
     <name>MissingReqsView</name>
     <message>
-        <source>Missing requirements — {0}</source>
-        <translation>Fehlende Anforderungen — {0}</translation>
+        <source>Missing requirements - {0}</source>
+        <translation>Fehlende Anforderungen - {0}</translation>
     </message>
     <message>
         <source>Ignore requirements</source>
@@ -6925,12 +7955,12 @@ Wie möchten Sie mit dem bestehenden Mod umgehen?</translation>
         <translation>Ausgewählte empfehlen ({0})</translation>
     </message>
     <message>
-        <source>'{0}' belongs to the locked profile '{1}' — switch to that profile to remove it, or unlock it.</source>
+        <source>'{0}' belongs to the locked profile '{1}' - switch to that profile to remove it, or unlock it.</source>
         <translation>'{0}' gehört zum gesperrten Profil '{1}' - wechseln Sie zu diesem Profil, um es zu entfernen, oder entsperren Sie es.</translation>
     </message>
     <message>
-        <source>{0} mod(s) skipped — they belong to locked profile(s): {1}.</source>
-        <translation>{0} mod(s) übersprungen – sie gehören zu gesperrten Profil(s): {1}.</translation>
+        <source>{0} mod(s) skipped - they belong to locked profile(s): {1}.</source>
+        <translation>{0} mod(s) übersprungen - sie gehören zu gesperrten Profil(s): {1}.</translation>
     </message>
     <message>
         <source>Lock Separator</source>
@@ -7005,6 +8035,14 @@ Wie möchten Sie mit dem bestehenden Mod umgehen?</translation>
         <translation>Auf mod.io öffnen</translation>
     </message>
     <message>
+        <source>Open on Thunderstore</source>
+        <translation>Geöffnet bei Thunderstore</translation>
+    </message>
+    <message>
+        <source>Thunderstore Actions</source>
+        <translation>Thunderstore Aktionen</translation>
+    </message>
+    <message>
         <source>Quick Update</source>
         <translation>Kurzes Update</translation>
     </message>
@@ -7055,6 +8093,10 @@ Wie möchten Sie mit dem bestehenden Mod umgehen?</translation>
     <message>
         <source>Rename separator</source>
         <translation>Trennzeichen umbenennen</translation>
+    </message>
+    <message>
+        <source>Search…</source>
+        <translation>Suche ..</translation>
     </message>
     <message>
         <source>Separator name:</source>
@@ -7182,8 +8224,8 @@ Wie möchten Sie mit dem bestehenden Mod umgehen?</translation>
         <translation>Wählen Sie das Archiv</translation>
     </message>
     <message>
-        <source>Install {0} — {1}</source>
-        <translation>{0} installieren – {1}</translation>
+        <source>Install {0} - {1}</source>
+        <translation>{0} installieren - {1}</translation>
     </message>
     <message>
         <source>Step 1: Download {0}</source>
@@ -7260,8 +8302,8 @@ Check that the archive extracted correctly.</source>
 Überprüfen Sie, ob das Archiv korrekt extrahiert wurde.</translation>
     </message>
     <message>
-        <source>Could not find Proton — check that the prefix is configured.</source>
-        <translation>Proton konnte nicht gefunden werden - überprüfen Sie, ob das Präfix konfiguriert ist.</translation>
+        <source>Could not find Proton - check that the prefix is configured.</source>
+        <translation>Konnte Proton nicht finden - überprüfen Sie, ob das Präfix konfiguriert ist.</translation>
     </message>
     <message>
         <source>{0} is running.
@@ -7293,7 +8335,7 @@ Klicken Sie auf Fertig zum Schließen.</translation>
         <translation>Fehlende Anforderungen</translation>
     </message>
     <message>
-        <source>A FOMOD patch option's plugin is now installed — click to re-run the FOMOD installer</source>
+        <source>A FOMOD patch option's plugin is now installed - click to re-run the FOMOD installer</source>
         <translation>Das Plugin einer FOMOD-Patchoption ist jetzt installiert - klicken Sie, um das FOMOD-Installationsprogramm erneut auszuführen</translation>
     </message>
     <message>
@@ -7303,6 +8345,10 @@ Klicken Sie auf Fertig zum Schließen.</translation>
     <message>
         <source>Update available on mod.io</source>
         <translation>Update verfügbar auf mod.io</translation>
+    </message>
+    <message>
+        <source>Update available on Thunderstore</source>
+        <translation>Update verfügbar auf Thunderstore</translation>
     </message>
     <message>
         <source>Endorsed</source>
@@ -7372,6 +8418,14 @@ Klicken Sie auf Fertig zum Schließen.</translation>
         <source>UUID Conflict</source>
         <translation>UUID Konflikt</translation>
     </message>
+    <message>
+        <source>A plugin an installed FOMOD option requires left the load order ({0}) - click to re-run the FOMOD installer</source>
+        <translation>Ein Plugin, das eine installierte FOMOD-Option benötigt, hat die Ladereihenfolge verlassen ({0}) - klicken Sie, um das FOMOD-Installationsprogramm erneut auszuführen</translation>
+    </message>
+    <message>
+        <source>A FOMOD option you didn't select is now relevant ({0} is in the load order) - click to re-run the FOMOD installer</source>
+        <translation>Eine FOMOD-Option, die Sie nicht ausgewählt haben, ist jetzt relevant ({0} befindet sich in der Ladereihenfolge) - Klicken Sie, um das FOMOD-Installationsprogramm erneut auszuführen</translation>
+    </message>
 </context>
 <context>
     <name>ModeOverlay</name>
@@ -7423,18 +8477,6 @@ Klicken Sie auf Fertig zum Schließen.</translation>
         <translation>mod.io-API-Schlüssel</translation>
     </message>
     <message>
-        <source>Paste your mod.io read-only API key to enable update checks
-for Baldur's Gate 3 mods installed manually from mod.io.
-
-The key is read-only and stored securely (system keyring,
-or an encrypted file when no keyring is available).</source>
-        <translation>Fügen Sie Ihren schreibgeschützten mod.io-API-Schlüssel ein, um die Überprüfung auf Updates
-für „Baldur’s Gate 3“-Mods zu aktivieren, die manuell über mod.io installiert wurden.
-
-Der Schlüssel ist schreibgeschützt und wird sicher gespeichert (im System-Schlüsselbund
-oder in einer verschlüsselten Datei, falls kein Schlüsselbund verfügbar ist).</translation>
-    </message>
-    <message>
         <source>Get my API key (mod.io)</source>
         <translation>Meinen API-Schlüssel abrufen (mod.io)</translation>
     </message>
@@ -7451,8 +8493,26 @@ oder in einer verschlüsselten Datei, falls kein Schlüsselbund verfügbar ist).
         <translation>Testen &amp;&amp; Speichern</translation>
     </message>
     <message>
-        <source>Enter a key first.</source>
-        <translation>Geben Sie zuerst einen Schlüssel ein.</translation>
+        <source>Paste your mod.io API path and read-only API key to enable update checks
+for Baldur's Gate 3 mods installed manually from mod.io.
+
+Both values are shown on the linked API Access page. The key is
+read-only and stored securely (system keyring,
+or an encrypted file when no keyring is available).</source>
+        <translation>Fügen Sie Ihren mod.io API-Pfad und den schreibgeschützten API-Schlüssel ein, um Update-Checks zu ermöglichen
+für Baldur's Gate 3 Mods, die manuell von mod.io installiert wurden.
+
+Beide Werte werden auf der verknüpften API Access-Seite angezeigt. Der Schlüssel ist
+schreibgeschützt und sicher gespeichert (Systemschlüsselring),
+oder eine verschlüsselte Datei, wenn kein Keyring verfügbar ist.</translation>
+    </message>
+    <message>
+        <source>API path (for example https://u-123.modapi.io/v1)</source>
+        <translation>API-Pfad (z. B. https://u-123.modapi.io/v1)</translation>
+    </message>
+    <message>
+        <source>Enter the API path and key first.</source>
+        <translation>Geben Sie zuerst den API-Pfad und den Schlüssel ein.</translation>
     </message>
     <message>
         <source>Testing key…</source>
@@ -7503,6 +8563,276 @@ oder in einer verschlüsselten Datei, falls kein Schlüsselbund verfügbar ist).
     </message>
 </context>
 <context>
+    <name>MyCollectionsView</name>
+    <message>
+        <source>Listed</source>
+        <translation>Aufgeführt</translation>
+    </message>
+    <message>
+        <source>Unlisted</source>
+        <translation>Nicht aufgeführt</translation>
+    </message>
+    <message>
+        <source>Under moderation</source>
+        <translation>Unter Mäßigung</translation>
+    </message>
+    <message>
+        <source>Discarded</source>
+        <translation>Zurückgeworfen</translation>
+    </message>
+    <message>
+        <source>My Collections</source>
+        <translation>Meine Sammlungen</translation>
+    </message>
+    <message>
+        <source>Refresh</source>
+        <translation>Erfrischend</translation>
+    </message>
+    <message>
+        <source>✕ Close</source>
+        <translation>geschlossen</translation>
+    </message>
+    <message>
+        <source>Collection</source>
+        <translation>Sammlung</translation>
+    </message>
+    <message>
+        <source>Game</source>
+        <translation>Spiel</translation>
+    </message>
+    <message>
+        <source>Status</source>
+        <translation>Status</translation>
+    </message>
+    <message>
+        <source>Revision</source>
+        <translation>Revision</translation>
+    </message>
+    <message>
+        <source>Downloads</source>
+        <translation>Downloads</translation>
+    </message>
+    <message>
+        <source>Select a collection</source>
+        <translation>Wählen Sie eine Sammlung</translation>
+    </message>
+    <message>
+        <source>One-line summary</source>
+        <translation>Einzeilige Zusammenfassung</translation>
+    </message>
+    <message>
+        <source>Name</source>
+        <translation>Name</translation>
+    </message>
+    <message>
+        <source>Summary</source>
+        <translation>Zusammenfassung</translation>
+    </message>
+    <message>
+        <source>Category</source>
+        <translation>Kategorie</translation>
+    </message>
+    <message>
+        <source>Description</source>
+        <translation>Beschreibung</translation>
+    </message>
+    <message>
+        <source>Save changes</source>
+        <translation>Änderungen speichern</translation>
+    </message>
+    <message>
+        <source>Revision changelog</source>
+        <translation>Änderungsprotokoll</translation>
+    </message>
+    <message>
+        <source>What changed in this revision - optional</source>
+        <translation>Was sich in dieser Revision geändert hat - optional</translation>
+    </message>
+    <message>
+        <source>Save changelog</source>
+        <translation>Speichern Sie Changelog</translation>
+    </message>
+    <message>
+        <source>Publish draft revision</source>
+        <translation>Veröffentlichung des Revisionsentwurfs</translation>
+    </message>
+    <message>
+        <source>Install collection</source>
+        <translation>Installationssammlung</translation>
+    </message>
+    <message>
+        <source>Unlist</source>
+        <translation>Nicht aufgeführt</translation>
+    </message>
+    <message>
+        <source>Open on Nexus</source>
+        <translation>Offen auf Nexus</translation>
+    </message>
+    <message>
+        <source>Log in to Nexus to manage your collections.</source>
+        <translation>Melden Sie sich bei Nexus an, um Ihre Sammlungen zu verwalten.</translation>
+    </message>
+    <message>
+        <source>Loading…</source>
+        <translation>Beladung..</translation>
+    </message>
+    <message>
+        <source>(no category)</source>
+        <translation>(keine kategorie)</translation>
+    </message>
+    <message>
+        <source>Could not load collections: {0}</source>
+        <translation>Konnte keine Sammlungen laden: {0}</translation>
+    </message>
+    <message>
+        <source>You have no collections yet. Use Nexus ▸ Collections ▸ Create collection… to upload one.</source>
+        <translation>Sie haben noch keine Sammlungen. Verwenden Sie Nexus ▸ Collections ▸ Collection erstellen ... um eine hochzuladen.</translation>
+    </message>
+    <message>
+        <source>{0} (draft)</source>
+        <translation>{0} (Entwurf)</translation>
+    </message>
+    <message>
+        <source>Revision {0} is an unpublished draft ({1} mods). Publish it to make it the version users install.</source>
+        <translation>Die Revision {0} ist ein unveröffentlichter Entwurf ({1}-Mods). Veröffentlichen Sie es, damit es die Version ist, die Benutzer installieren.</translation>
+    </message>
+    <message>
+        <source>Publish revision {0}</source>
+        <translation>Veröffentlichen Revision {0}</translation>
+    </message>
+    <message>
+        <source>Revision {0} is live. Upload a new revision from Create Collection to publish an update.</source>
+        <translation>Die Revision {0} ist live. Laden Sie eine neue Revision aus Create Collection hoch, um ein Update zu veröffentlichen.</translation>
+    </message>
+    <message>
+        <source>No revisions yet.</source>
+        <translation>Noch keine Revisionen.</translation>
+    </message>
+    <message>
+        <source>No draft to publish</source>
+        <translation>Kein Entwurf zur Veröffentlichung</translation>
+    </message>
+    <message>
+        <source>List publicly</source>
+        <translation>Öffentliches Verzeichnis</translation>
+    </message>
+    <message>
+        <source>This collection has no revisions yet.</source>
+        <translation>Diese Sammlung hat noch keine Revisionen.</translation>
+    </message>
+    <message>
+        <source>Install draft revision {0}</source>
+        <translation>Installieren Sie den Entwurf der Revision {0}</translation>
+    </message>
+    <message>
+        <source>Installs your unpublished draft so you can test it.</source>
+        <translation>Installiert Ihren unveröffentlichten Entwurf, damit Sie ihn testen können.</translation>
+    </message>
+    <message>
+        <source>Install revision {0}</source>
+        <translation>Installieren Sie die Revision {0}</translation>
+    </message>
+    <message>
+        <source>Opens this collection's install page.</source>
+        <translation>Öffnet die Installationsseite dieser Sammlung.</translation>
+    </message>
+    <message>
+        <source>No image yet. Collection images are set on the Nexus site (Open on Nexus).</source>
+        <translation>Noch kein Bild. Sammlungsbilder werden auf der Nexus-Website (Open on Nexus) eingestellt.</translation>
+    </message>
+    <message>
+        <source>Loading image…</source>
+        <translation>Ladebild..</translation>
+    </message>
+    <message>
+        <source>Could not load the image.</source>
+        <translation>Ich konnte das Bild nicht laden.</translation>
+    </message>
+    <message>
+        <source>Change the image on the Nexus site (Open on Nexus).</source>
+        <translation>Ändern Sie das Bild auf der Nexus-Website (Open on Nexus).</translation>
+    </message>
+    <message>
+        <source>Failed: {0}</source>
+        <translation>Fehlgeschlagen: {0}</translation>
+    </message>
+    <message>
+        <source>Nothing to save.</source>
+        <translation>Nichts zu retten.</translation>
+    </message>
+    <message>
+        <source>Saved '{0}'</source>
+        <translation>Gespeichert "{0}"</translation>
+    </message>
+    <message>
+        <source>Nexus rejected the edit (see log).</source>
+        <translation>Nexus lehnte die Bearbeitung ab (siehe Protokoll).</translation>
+    </message>
+    <message>
+        <source>Saving…</source>
+        <translation>Rettung..</translation>
+    </message>
+    <message>
+        <source>Changelog saved for revision {0}</source>
+        <translation>Changelog für die Revision {0} gespeichert</translation>
+    </message>
+    <message>
+        <source>Nexus rejected the changelog (see log).</source>
+        <translation>Nexus lehnte das Changelog ab (siehe Protokoll).</translation>
+    </message>
+    <message>
+        <source>Saving changelog…</source>
+        <translation>Changelog speichern..</translation>
+    </message>
+    <message>
+        <source>Published revision {0}</source>
+        <translation>Veröffentlichte Revision {0}</translation>
+    </message>
+    <message>
+        <source>Nexus rejected the publish (see log).</source>
+        <translation>Nexus lehnte die Veröffentlichung ab (siehe Protokoll).</translation>
+    </message>
+    <message>
+        <source>Publishing…</source>
+        <translation>Veröffentlichen..</translation>
+    </message>
+    <message>
+        <source>'{0}' is now listed</source>
+        <translation>'{0}' ist jetzt aufgeführt</translation>
+    </message>
+    <message>
+        <source>'{0}' is now unlisted</source>
+        <translation>'{0}' ist jetzt nicht gelistet</translation>
+    </message>
+    <message>
+        <source>Nexus rejected the change (see log).</source>
+        <translation>Nexus lehnte die Änderung ab (siehe Protokoll).</translation>
+    </message>
+    <message>
+        <source>Updating visibility…</source>
+        <translation>Aktualisieren der Sichtbarkeit..</translation>
+    </message>
+    <message>
+        <source>No configured game selected.</source>
+        <translation>Kein konfiguriertes Spiel ausgewählt.</translation>
+    </message>
+    <message>
+        <source>'{0}' is for {1}, but the selected game is {2}. Switch games first, then install.</source>
+        <translation>'{0}' ist für {1}, aber das ausgewählte Spiel ist {2}. Spiele zuerst wechseln, dann installieren.</translation>
+    </message>
+    <message>
+        <source>Install is unavailable in this build.</source>
+        <translation>Installieren ist in diesem Build nicht verfügbar.</translation>
+    </message>
+</context>
+<context>
+    <name>NameSuggestions</name>
+    <message>
+        <source>Suggested names</source>
+        <translation>Vorgeschlagene Namen</translation>
+    </message>
+</context>
+<context>
     <name>NewProfileBar</name>
     <message>
         <source>New profile:</source>
@@ -7532,24 +8862,20 @@ oder in einer verschlüsselten Datei, falls kein Schlüsselbund verfügbar ist).
 <context>
     <name>NexusBrowserView</name>
     <message>
-        <source>☰ Categories</source>
-        <translation>☰ Kategorien</translation>
+        <source>Domain: </source>
+        <translation>Bereich:</translation>
+    </message>
+    <message>
+        <source>Choose which compatible Nexus game to browse.</source>
+        <translation>Wählen Sie aus, welches kompatible Nexus-Spiel Sie durchsuchen möchten.</translation>
     </message>
     <message>
         <source>Custom…</source>
         <translation>Zoll ..</translation>
     </message>
     <message>
-        <source>Show adult</source>
-        <translation>Für Erwachsene anzeigen</translation>
-    </message>
-    <message>
         <source>Refresh</source>
         <translation>Aktualisieren</translation>
-    </message>
-    <message>
-        <source>Categories</source>
-        <translation>Kategorien</translation>
     </message>
     <message>
         <source>Loading…</source>
@@ -7622,6 +8948,114 @@ oder in einer verschlüsselten Datei, falls kein Schlüsselbund verfügbar ist).
     <message>
         <source>Install</source>
         <translation>Installieren</translation>
+    </message>
+    <message>
+        <source>Tags</source>
+        <translation>Tags</translation>
+    </message>
+    <message>
+        <source>Includes</source>
+        <translation>Einschließlich</translation>
+    </message>
+    <message>
+        <source>Type a tag, press Enter…</source>
+        <translation>Tippen Sie ein Tag, drücken Sie Enter..</translation>
+    </message>
+    <message>
+        <source>Excludes</source>
+        <translation>Ausgenommen sind</translation>
+    </message>
+    <message>
+        <source>Search Parameters</source>
+        <translation>Suchparameter</translation>
+    </message>
+    <message>
+        <source>Title contains</source>
+        <translation>Titel enthält</translation>
+    </message>
+    <message>
+        <source>Description contains</source>
+        <translation>Beschreibung enthält</translation>
+    </message>
+    <message>
+        <source>Author contains</source>
+        <translation>Autor enthält</translation>
+    </message>
+    <message>
+        <source>Uploader contains</source>
+        <translation>Uploader enthält</translation>
+    </message>
+    <message>
+        <source>Language Support</source>
+        <translation>Sprachunterstützung</translation>
+    </message>
+    <message>
+        <source>Hide translations</source>
+        <translation>Verstecke Übersetzungen</translation>
+    </message>
+    <message>
+        <source>Content Options</source>
+        <translation>Inhaltsoptionen</translation>
+    </message>
+    <message>
+        <source>Hide adult content</source>
+        <translation>Verstecken Sie Erwachseneninhalte</translation>
+    </message>
+    <message>
+        <source>Show only adult content</source>
+        <translation>Nur Erwachseneninhalte anzeigen</translation>
+    </message>
+    <message>
+        <source>Supported by Vortex</source>
+        <translation>Unterstützt von Vortex</translation>
+    </message>
+    <message>
+        <source>Show only updated mods</source>
+        <translation>Nur aktualisierte Mods anzeigen</translation>
+    </message>
+    <message>
+        <source>File Size</source>
+        <translation>Dateigröße</translation>
+    </message>
+    <message>
+        <source>No min</source>
+        <translation>Keine Min</translation>
+    </message>
+    <message>
+        <source>No max</source>
+        <translation>Nr. max</translation>
+    </message>
+    <message>
+        <source>to</source>
+        <translation>bis</translation>
+    </message>
+    <message>
+        <source>Downloads</source>
+        <translation>Downloads</translation>
+    </message>
+    <message>
+        <source>Endorsements</source>
+        <translation>Vermerke</translation>
+    </message>
+    <message>
+        <source>Clear advanced filters</source>
+        <translation>Klare fortgeschrittene Filter</translation>
+    </message>
+    <message>
+        <source>☰ Filters</source>
+        <translation>☰ Filter</translation>
+    </message>
+    <message>
+        <source>Filters</source>
+        <translation>Filter</translation>
+    </message>
+    <message>
+        <source>Category</source>
+        <translation>Kategorie</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>Entfernen</translation>
     </message>
     <message>
         <source>Mods by this author</source>
@@ -7710,10 +9144,10 @@ oder in einer verschlüsselten Datei, falls kein Schlüsselbund verfügbar ist).
         <translation>Nicht angemeldet</translation>
     </message>
     <message>
-        <source>Nexus API rate limits — no data yet.
+        <source>Nexus API rate limits - no data yet.
 Values appear after the first API request.</source>
-        <translation>Ratenbeschränkungen der Nexus-API – noch keine Daten verfügbar.
-Die Werte werden nach der ersten API-Anfrage angezeigt.</translation>
+        <translation>Nexus API-Ratenlimits - noch keine Daten.
+Werte werden nach der ersten API-Anfrage angezeigt.</translation>
     </message>
     <message>
         <source>Remaining API requests:
@@ -7877,12 +9311,12 @@ Täglich: {1}</translation>
 <context>
     <name>NifViewerView</name>
     <message>
-        <source>NIF Viewer — {0} ▸ {1}</source>
-        <translation>NIF Viewer — {0} ▸ {1}</translation>
+        <source>NIF Viewer - {0} ▸ {1}</source>
+        <translation>NIF Viewer - {0} ▸ {1}</translation>
     </message>
     <message>
-        <source>NIF Viewer — {0}</source>
-        <translation>NIF Viewer — {0}</translation>
+        <source>NIF Viewer - {0}</source>
+        <translation>NIF Viewer - {0}</translation>
     </message>
     <message>
         <source>Scanning…</source>
@@ -7960,11 +9394,11 @@ Täglich: {1}</translation>
 <context>
     <name>NoteEditorOverlay</name>
     <message>
-        <source>Note — {0}</source>
-        <translation>Hinweis — {0}</translation>
+        <source>Note - {0}</source>
+        <translation>Hinweis - {0}</translation>
     </message>
     <message>
-        <source>Markdown is supported — it renders in the note tooltip.</source>
+        <source>Markdown is supported - it renders in the note tooltip.</source>
         <translation>Markdown wird unterstützt - es wird im Notiz-Tooltip dargestellt.</translation>
     </message>
     <message>
@@ -8048,8 +9482,8 @@ Sie können diesen Schritt überspringen und sich später über die Nexus-Schalt
         <translation>Warten auf den Browser...</translation>
     </message>
     <message>
-        <source>Browser login started — complete it in your browser.</source>
-        <translation>Browser-Login gestartet - vervollständigen Sie es in Ihrem Browser.</translation>
+        <source>Browser login started - complete it in your browser.</source>
+        <translation>Browser-Login gestartet - Vervollständigen Sie es in Ihrem Browser.</translation>
     </message>
     <message>
         <source>✓ Logged in to Nexus Mods!</source>
@@ -8149,8 +9583,8 @@ Override paks (no meta.lsx, or only overwriting the game's own modules) deploy t
 <context>
     <name>PGPatcherView</name>
     <message>
-        <source>Run PGPatcher — {0}</source>
-        <translation>Run PGPatcher — {0}</translation>
+        <source>Run PGPatcher - {0}</source>
+        <translation>Run PGPatcher - {0}</translation>
     </message>
     <message>
         <source>Step 1: Download PGPatcher</source>
@@ -8227,12 +9661,12 @@ Bitte starten Sie den Assistenten neu und laden Sie zuerst PGPatcher herunter.</
         <translation>Herstellung von PGPatcher's Wine Präfix..</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' — check that it is installed in Steam, then reopen this wizard.</source>
-        <translation>Konnte Proton '{0}' nicht finden - überprüfen Sie, ob es in Steam installiert ist, und öffnen Sie diesen Assistenten erneut.</translation>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, then reopen this wizard.</source>
+        <translation>Konnte Proton '{0}' nicht finden - überprüfen Sie, ob es in Steam installiert ist, und öffnen Sie dann diesen Assistenten erneut.</translation>
     </message>
     <message>
-        <source>d3dcompiler_47 already installed — skipping.</source>
-        <translation>d3dcompiler 47 bereits installiert — überspringen.</translation>
+        <source>d3dcompiler_47 already installed - skipping.</source>
+        <translation>d3dcompiler 47 bereits installiert - überspringen.</translation>
     </message>
     <message>
         <source>Installing d3dcompiler_47… (may take a minute)</source>
@@ -8243,16 +9677,16 @@ Bitte starten Sie den Assistenten neu und laden Sie zuerst PGPatcher herunter.</
         <translation>d3dcompiler 47 installiert.</translation>
     </message>
     <message>
-        <source>d3dcompiler_47 install failed — continuing anyway.</source>
-        <translation>d3dcompiler 47 installation fehlgeschlagen — weiterhin sowieso.</translation>
+        <source>d3dcompiler_47 install failed - continuing anyway.</source>
+        <translation>d3dcompiler 47 install fehlgeschlagen - weiter sowieso.</translation>
     </message>
     <message>
         <source>Checking .NET 8…</source>
         <translation>.NET 8 wird überprüft…</translation>
     </message>
     <message>
-        <source>.NET 8 already installed — skipping.</source>
-        <translation>.NET 8 bereits installiert — Skipping.</translation>
+        <source>.NET 8 already installed - skipping.</source>
+        <translation>.NET 8 bereits installiert - Überspringen.</translation>
     </message>
     <message>
         <source>.NET 8 install failed (see log).</source>
@@ -8267,8 +9701,8 @@ Bitte starten Sie den Assistenten neu und laden Sie zuerst PGPatcher herunter.</
         <translation>Fehler: {0}</translation>
     </message>
     <message>
-        <source>{0} not found — please restart the wizard.</source>
-        <translation>{0} nicht gefunden – bitte starten Sie den Wizard neu.</translation>
+        <source>{0} not found - please restart the wizard.</source>
+        <translation>{0} nicht gefunden - bitte starten Sie den Wizard neu.</translation>
     </message>
     <message>
         <source>Config applied.</source>
@@ -8291,7 +9725,7 @@ Bitte starten Sie den Assistenten neu und laden Sie zuerst PGPatcher herunter.</
         <translation>{0} wurde nicht gefunden.</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' — check that it is installed in Steam.</source>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
         <translation>Konnte Proton '{0}' nicht finden - überprüfen Sie, ob es in Steam installiert ist.</translation>
     </message>
     <message>
@@ -8312,8 +9746,8 @@ Warten Sie, bis es fertig ist, und klicken Sie auf Fertig.</translation>
 <context>
     <name>PandoraView</name>
     <message>
-        <source>Run Pandora — {0}</source>
-        <translation>Pandora starten — {0}</translation>
+        <source>Run Pandora - {0}</source>
+        <translation>Run Pandora - {0}</translation>
     </message>
     <message>
         <source>✕ Close</source>
@@ -8354,12 +9788,12 @@ Klicke anschließend auf „Bereitstellen“.</translation>
         <translation>Bereitstellung abgeschlossen.</translation>
     </message>
     <message>
-        <source>Deploy failed — see log.</source>
-        <translation>Die Bereitstellung ist fehlgeschlagen – siehe Protokoll.</translation>
+        <source>Deploy failed - see log.</source>
+        <translation>Deploy failed - siehe Protokoll.</translation>
     </message>
     <message>
-        <source>Could not start deploy — see log.</source>
-        <translation>Die Bereitstellung konnte nicht gestartet werden – siehe Protokoll.</translation>
+        <source>Could not start deploy - see log.</source>
+        <translation>Konnte die Bereitstellung nicht starten - siehe Protokoll.</translation>
     </message>
     <message>
         <source>Step 2: Choose Proton Version</source>
@@ -8386,12 +9820,12 @@ Installieren Sie „Pandora Behaviour Engine+“ als Mod und öffnen Sie diesen 
         <translation>Vorbereiten von Pandora's Wine Prefix ..</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' — check that it is installed in Steam, then reopen this wizard.</source>
-        <translation>Konnte Proton '{0}' nicht finden - überprüfen Sie, ob es in Steam installiert ist, und öffnen Sie diesen Assistenten erneut.</translation>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, then reopen this wizard.</source>
+        <translation>Konnte Proton '{0}' nicht finden - überprüfen Sie, ob es in Steam installiert ist, und öffnen Sie dann diesen Assistenten erneut.</translation>
     </message>
     <message>
-        <source>.NET 10 already installed — skipping.</source>
-        <translation>.NET 10 bereits installiert — Überspringen.</translation>
+        <source>.NET 10 already installed - skipping.</source>
+        <translation>.NET 10 bereits installiert - Überspringen.</translation>
     </message>
     <message>
         <source>.NET 10 installed successfully.</source>
@@ -8414,7 +9848,7 @@ Installieren Sie „Pandora Behaviour Engine+“ als Mod und öffnen Sie diesen 
         <translation>Fertig</translation>
     </message>
     <message>
-        <source>Prefix was not prepared — go back and retry.</source>
+        <source>Prefix was not prepared - go back and retry.</source>
         <translation>Präfix wurde nicht vorbereitet - gehen Sie zurück und versuchen Sie es erneut.</translation>
     </message>
     <message>
@@ -8441,8 +9875,8 @@ Schließen Sie das Programm, wenn Sie fertig sind, und klicken Sie anschließend
 <context>
     <name>PluginAuditView</name>
     <message>
-        <source>Plugin Audit — {0}</source>
-        <translation>Plugin Audit — {0}</translation>
+        <source>Plugin Audit - {0}</source>
+        <translation>Plugin Audit - {0}</translation>
     </message>
     <message>
         <source>Scan Load Order</source>
@@ -8501,16 +9935,16 @@ Schließen Sie das Programm, wenn Sie fertig sind, und klicken Sie anschließend
         <translation>Sicher zu deaktivieren ({0})</translation>
     </message>
     <message>
-        <source>Blocked — adds new records ({0})</source>
-        <translation>Blockiert — fügt neue Datensätze hinzu ({0})</translation>
+        <source>Blocked - adds new records ({0})</source>
+        <translation>Blockiert - fügt neue Datensätze hinzu ({0})</translation>
     </message>
     <message>
-        <source>Blocked — required by other plugins ({0})</source>
-        <translation>Blockiert - von anderen Plugins benötigt ({0})</translation>
+        <source>Blocked - required by other plugins ({0})</source>
+        <translation>Blockiert - wird von anderen Plugins benötigt ({0})</translation>
     </message>
     <message>
-        <source>Audit complete — {0} plugins, {1} safe to disable.</source>
-        <translation>Prüfung abgeschlossen – „{0}“-Plugins, „{1}“ können sicher deaktiviert werden.</translation>
+        <source>Audit complete - {0} plugins, {1} safe to disable.</source>
+        <translation>Audit abgeschlossen - {0}-Plugins, {1} sicher zu deaktivieren.</translation>
     </message>
     <message>
         <source>Disable Selected Plugins</source>
@@ -8549,12 +9983,12 @@ Dadurch werden INIs in den Ausgabemods SkyGen BOS und SkyGen SkyPatcher entfernt
         <translation>Sauber</translation>
     </message>
     <message>
-        <source>Cleanup complete — deleted {0} of {1} INI(s) found.
+        <source>Cleanup complete - deleted {0} of {1} INI(s) found.
 
 Re-scan to verify.</source>
-        <translation>Bereinigung abgeschlossen – {0} der gefundenen {1}-INI-Datei(en) wurden gelöscht.
+        <translation>Bereinigung vollständig - gelöschtes {0} von {1} INI(s) gefunden.
 
-Zur Überprüfung erneut scannen.</translation>
+Re-Scan zur Überprüfung.</translation>
     </message>
     <message>
         <source>No SkyGen INIs found to clean.</source>
@@ -8584,12 +10018,12 @@ Zur Überprüfung erneut scannen.</translation>
         <translation>Regeln zwischen diesen Plugins</translation>
     </message>
     <message>
-        <source>Userlist rules (1 plugin) — anchor: {0}</source>
-        <translation>Regeln für die Benutzerliste (1 Plugin) — Link: {0}</translation>
+        <source>Userlist rules (1 plugin) - anchor: {0}</source>
+        <translation>Benutzerlistenregeln (1 Plugin) - Anker: {0}</translation>
     </message>
     <message>
-        <source>Userlist rules ({0} plugins) — anchor: {1}</source>
-        <translation>Regeln für die Benutzerliste (Plugins von {0}) — Anker: {1}</translation>
+        <source>Userlist rules ({0} plugins) - anchor: {1}</source>
+        <translation>Benutzerlistenregeln ({0}-Plugins) - Anker: {1}</translation>
     </message>
     <message>
         <source>No rules between these plugins.</source>
@@ -8600,8 +10034,8 @@ Zur Überprüfung erneut scannen.</translation>
         <translation>Flip-Regel</translation>
     </message>
     <message>
-        <source>(group rule — edit via Groups overlay)</source>
-        <translation>(Gruppenregel – Bearbeitung über das Gruppen-Overlay)</translation>
+        <source>(group rule - edit via Groups overlay)</source>
+        <translation>(Gruppenregel - Bearbeiten über Gruppen-Overlay)</translation>
     </message>
 </context>
 <context>
@@ -8689,8 +10123,8 @@ Zur Überprüfung erneut scannen.</translation>
         <translation>{0}, BOS/SP-gepatcht, deaktivieren (kann bedenkenlos deaktiviert werden)</translation>
     </message>
     <message>
-        <source>Disable — {0} patch replaces it</source>
-        <translation>Deaktivieren — Der „{0}“-Patch ersetzt ihn</translation>
+        <source>Disable - {0} patch replaces it</source>
+        <translation>Deaktivieren - {0} Patch ersetzt es</translation>
     </message>
     <message>
         <source>Enable plugin</source>
@@ -8705,16 +10139,16 @@ Zur Überprüfung erneut scannen.</translation>
         <translation>Als „Light“ markieren (ESL)</translation>
     </message>
     <message>
-        <source>Mark as Light (ESL) — none eligible </source>
-        <translation>Als „Light“ (ESL) kennzeichnen – keine berechtigten Personen </translation>
+        <source>Mark as Light (ESL) - none eligible </source>
+        <translation>Mark as Light (ESL) - keine Berechtigung</translation>
     </message>
     <message>
         <source>Mark selected as Light (ESL) ({0})</source>
         <translation>Mark wurde als „Light (ESL)“ ausgewählt ({0})</translation>
     </message>
     <message>
-        <source>Not ESL-safe (per LOOT — compact in xEdit first)</source>
-        <translation>Nicht ESL-kompatibel (laut LOOT – zuerst in xEdit komprimieren)</translation>
+        <source>Not ESL-safe (per LOOT - compact in xEdit first)</source>
+        <translation>Nicht ESL-safe (per LOOT - compact in xEdit first)</translation>
     </message>
     <message>
         <source>Remove ESL flag (un-light)</source>
@@ -8771,15 +10205,15 @@ Zur Überprüfung erneut scannen.</translation>
         <translation>LOOT-Plugin-Regeln – Wähle ein Plugin im Plugin-Fenster aus</translation>
     </message>
     <message>
-        <source>Plugins  —  drag onto rules pane</source>
-        <translation>Plugins  —  per Drag &amp; Drop in den Regelbereich ziehen</translation>
+        <source>Plugins  -  drag onto rules pane</source>
+        <translation>Plugins - Drag on Rules Pane</translation>
     </message>
     <message>
         <source>Filter</source>
         <translation>Filter</translation>
     </message>
     <message>
-        <source>— no plugin selected —</source>
+        <source>- no plugin selected -</source>
         <translation>- kein plugin ausgewählt -</translation>
     </message>
     <message>
@@ -8815,14 +10249,105 @@ Ziehe ein Plugin aus dem linken Bereich, um eine Regel hinzuzufügen.</translati
     </message>
 </context>
 <context>
+    <name>PrefixHealthOverlay</name>
+    <message>
+        <source>Prefix health check - {0}</source>
+        <translation>Präfix Gesundheitscheck - {0}</translation>
+    </message>
+    <message>
+        <source>Re-check</source>
+        <translation>Überprüfung erneut</translation>
+    </message>
+    <message>
+        <source>Fix</source>
+        <translation>Fix</translation>
+    </message>
+    <message>
+        <source>Proton prefix</source>
+        <translation>Protonenpräfix</translation>
+    </message>
+    <message>
+        <source>Prefix structure</source>
+        <translation>Präfixstruktur</translation>
+    </message>
+    <message>
+        <source>Prefix runner</source>
+        <translation>Präfixläufer</translation>
+    </message>
+    <message>
+        <source>Steam first-launch setup</source>
+        <translation>Steam First-Launch-Setup</translation>
+    </message>
+    <message>
+        <source>Game INI files</source>
+        <translation>INI-Dateien von Spielen</translation>
+    </message>
+    <message>
+        <source>Proton build</source>
+        <translation>Protonenaufbau</translation>
+    </message>
+    <message>
+        <source>Proton / prefix version</source>
+        <translation>Proton/Präfixversion</translation>
+    </message>
+    <message>
+        <source>VC++ Redistributable (x64)</source>
+        <translation>VC++ Verteilbar (x64)</translation>
+    </message>
+    <message>
+        <source>d3dcompiler_47 (shader compiler)</source>
+        <translation>d3dcompiler 47 (shader-compiler)</translation>
+    </message>
+    <message>
+        <source>LAV Filters (DirectShow codecs)</source>
+        <translation>LAV Filter (DirectShow Codecs)</translation>
+    </message>
+    <message>
+        <source>Game path in prefix registry</source>
+        <translation>Spielpfad in der Präfix-Registrierung</translation>
+    </message>
+    <message>
+        <source>No prefix configured</source>
+        <translation>Kein Präfix konfiguriert</translation>
+    </message>
+    <message>
+        <source>Everything looks healthy.</source>
+        <translation>Alles sieht gesund aus.</translation>
+    </message>
+    <message>
+        <source>{0} item(s) need attention.</source>
+        <translation>{0}-Artikel benötigen Aufmerksamkeit.</translation>
+    </message>
+    <message>
+        <source>Checking prefix…</source>
+        <translation>Kontrollpräfix ..</translation>
+    </message>
+    <message>
+        <source>Fixing {0}</source>
+        <translation>Fixing {0}</translation>
+    </message>
+    <message>
+        <source>Fixing {0}… (details in the log)</source>
+        <translation>Fixing {0}... (Details im Protokoll)</translation>
+    </message>
+    <message>
+        <source>Another Proton installer is running - try again shortly.</source>
+        <translation>Ein weiterer Proton-Installer läuft - versuchen Sie es in Kürze erneut.</translation>
+    </message>
+    <message>
+        <source>A fix is running - please wait for it to finish.</source>
+        <translation>Ein Fix läuft - bitte warten Sie, bis er fertig ist.</translation>
+    </message>
+</context>
+<context>
     <name>PrefixManagerView</name>
     <message>
         <source>Manage Prefixes</source>
         <translation>Präfixe verwalten</translation>
     </message>
     <message>
-        <source>Wizard tools each run in their own Wine prefix (created next to the tool's exe or in the app config folder). Deleting one only reclaims disk space — it is recreated automatically the next time the tool runs.</source>
-        <translation>Die Wizard-Tools werden jeweils in einem eigenen Wine-Präfix ausgeführt (das neben der EXE-Datei des Tools oder im Konfigurationsordner der Anwendung angelegt wird). Durch das Löschen eines Präfixes wird lediglich Speicherplatz freigegeben – es wird beim nächsten Start des Tools automatisch neu erstellt.</translation>
+        <source>Wizard tools each run in their own Wine prefix (created next to the tool's exe or in the app config folder). Deleting one only reclaims disk space - it is recreated automatically the next time the tool runs.</source>
+        <translation>Wizard-Tools laufen jeweils in ihrem eigenen Weinpräfix (erstellt neben dem Exe des Tools oder im App-Konfigurationsordner). Löschen Sie nur Speicherplatz - es wird automatisch neu erstellt, wenn das Tool das nächste Mal ausgeführt wird.</translation>
     </message>
     <message>
         <source>Scanning for prefixes…</source>
@@ -8849,15 +10374,15 @@ Ziehe ein Plugin aus dem linken Bereich, um eine Regel hinzuzufügen.</translati
         <translation>Es wurden keine Werkzeugpräfixe gefunden.</translation>
     </message>
     <message>
-        <source>1 prefix found — calculating sizes…</source>
-        <translation>1 Präfix gefunden – Größen werden berechnet…</translation>
+        <source>1 prefix found - calculating sizes…</source>
+        <translation>1 präfix gefunden - berechnung der größen..</translation>
     </message>
     <message>
-        <source>{0} prefixes found — calculating sizes…</source>
-        <translation>{0} Präfixe gefunden – Größen werden berechnet…</translation>
+        <source>{0} prefixes found - calculating sizes…</source>
+        <translation>{0} Präfixe gefunden - Größenberechnung..</translation>
     </message>
     <message>
-        <source>{0} — {1}</source>
+        <source>{0} - {1}</source>
         <translation>{0} — {1}</translation>
     </message>
     <message>
@@ -8885,8 +10410,8 @@ Ziehe ein Plugin aus dem linken Bereich, um eine Regel hinzuzufügen.</translati
         <translation>Wird gelöscht…</translation>
     </message>
     <message>
-        <source>Deleted {0}; {1} problem(s) — see log.</source>
-        <translation>{0} gelöscht; Problem(e) mit {1} – siehe Protokoll.</translation>
+        <source>Deleted {0}; {1} problem(s) - see log.</source>
+        <translation>Gelöschtes {0}; {1}-Problem(e) - siehe Protokoll.</translation>
     </message>
 </context>
 <context>
@@ -8908,7 +10433,7 @@ Ziehe ein Plugin aus dem linken Bereich, um eine Regel hinzuzufügen.</translati
         <translation>Nicht förderfähig (Shared Mod Pool)</translation>
     </message>
     <message>
-        <source>Group members need profile-specific mods so the group only sees mods deliberately added to them. Convert copies a profile's mods into its own folder (hardlinked where possible — no extra disk on the same filesystem); the shared pool and other profiles are untouched.</source>
+        <source>Group members need profile-specific mods so the group only sees mods deliberately added to them. Convert copies a profile's mods into its own folder (hardlinked where possible - no extra disk on the same filesystem); the shared pool and other profiles are untouched.</source>
         <translation>Gruppenmitglieder benötigen profilspezifische Mods, sodass die Gruppe nur Mods sieht, die absichtlich hinzugefügt wurden. Konvertieren Sie die Mods eines Profils in einen eigenen Ordner (wenn möglich Hardlinks - keine zusätzliche Festplatte auf demselben Dateisystem); der freigegebene Pool und andere Profile sind unberührt.</translation>
     </message>
     <message>
@@ -8956,8 +10481,8 @@ Ziehe ein Plugin aus dem linken Bereich, um eine Regel hinzuzufügen.</translati
         <translation>Name:</translation>
     </message>
     <message>
-        <source>No eligible member profiles yet — create a profile with profile-specific mods, or convert one below.</source>
-        <translation>Noch keine berechtigten mitgliederprofile erstellen sie ein profil mit profilspezifischen mods oder konvertieren sie eines unten.</translation>
+        <source>No eligible member profiles yet - create a profile with profile-specific mods, or convert one below.</source>
+        <translation>Noch keine berechtigten Mitgliederprofile - erstellen Sie ein Profil mit profilspezifischen Mods oder konvertieren Sie eines unten.</translation>
     </message>
     <message>
         <source>Merge overwrite / Root Folder files from:</source>
@@ -8988,12 +10513,12 @@ Ziehe ein Plugin aus dem linken Bereich, um eine Regel hinzuzufügen.</translati
         <translation>Überprüfen Sie Mitgliederprofile in der Prioritätsreihenfolge (erst geprüft = höchste Priorität).</translation>
     </message>
     <message>
-        <source>An install or deploy is in progress — try again shortly.</source>
+        <source>An install or deploy is in progress - try again shortly.</source>
         <translation>Eine Installation oder Bereitstellung ist im Gange - versuchen Sie es in Kürze erneut.</translation>
     </message>
     <message>
-        <source>'{0}' is currently deployed — restore the game first, then edit the group.</source>
-        <translation>'{0}' wird derzeit bereitgestellt - stellen Sie zuerst das Spiel wieder her und bearbeiten Sie dann die Gruppe.</translation>
+        <source>'{0}' is currently deployed - restore the game first, then edit the group.</source>
+        <translation>'{0}' wird derzeit bereitgestellt - Wiederherstellen des Spiels zuerst, dann die Gruppe bearbeiten.</translation>
     </message>
     <message>
         <source>Enter a group name.</source>
@@ -9024,10 +10549,10 @@ Welche INI-Dateien des Profils sollte die Gruppe für diese verwenden?</translat
     <message>
         <source>Remove the profile group '{0}'?
 
-Only the group itself is deleted — its member profiles and their mods are untouched. The game will be restored first if this group is deployed.</source>
+Only the group itself is deleted - its member profiles and their mods are untouched. The game will be restored first if this group is deployed.</source>
         <translation>Entfernen Sie die Profilgruppe '{0}'?
 
-Nur die Gruppe selbst wird gelöscht - ihre Mitgliederprofile und ihre Mods sind unberührt. Das Spiel wird zuerst wiederhergestellt, wenn diese Gruppe eingesetzt wird.</translation>
+Nur die Gruppe selbst wird gelöscht - ihre Mitgliederprofile und ihre Mods bleiben unberührt. Das Spiel wird zuerst wiederhergestellt, wenn diese Gruppe eingesetzt wird.</translation>
     </message>
     <message>
         <source>Remove Group</source>
@@ -9050,12 +10575,12 @@ Seine aufgelisteten mods werden in den eigenen mods-ordner des profils kopiert (
         <translation>Konvertieren</translation>
     </message>
     <message>
-        <source>Profile '{0}' converted — it can now join groups.</source>
+        <source>Profile '{0}' converted - it can now join groups.</source>
         <translation>Profil '{0}' konvertiert - es kann jetzt Gruppen beitreten.</translation>
     </message>
     <message>
-        <source>Convert of '{0}' failed — see the log.</source>
-        <translation>Konvertieren von '{0}' fehlgeschlagen — siehe Protokoll.</translation>
+        <source>Convert of '{0}' failed - see the log.</source>
+        <translation>Konvertieren von '{0}' fehlgeschlagen - siehe Protokoll.</translation>
     </message>
 </context>
 <context>
@@ -9089,12 +10614,12 @@ Seine aufgelisteten mods werden in den eigenen mods-ordner des profils kopiert (
         <translation>Abbrechen</translation>
     </message>
     <message>
-        <source>'{0}' is a member of the deployed group '{1}' — restore the game first, then remove it.</source>
+        <source>'{0}' is a member of the deployed group '{1}' - restore the game first, then remove it.</source>
         <translation>'{0}' ist ein Mitglied der eingesetzten Gruppe '{1}' - stellen Sie das Spiel zuerst wieder her und entfernen Sie es dann.</translation>
     </message>
     <message>
-        <source>A deploy is in progress — try again shortly.</source>
-        <translation>Der Deployment-Vorgang läuft gerade – bitte versuchen Sie es in Kürze erneut.</translation>
+        <source>A deploy is in progress - try again shortly.</source>
+        <translation>Ein Deployment ist im Gange - versuchen Sie es in Kürze erneut.</translation>
     </message>
     <message>
         <source>Profile '{0}' removed</source>
@@ -9195,14 +10720,14 @@ Installieren Sie eine Proton-Version in Steam (oder mit Heroic's Wine Manager), 
         <translation>Weiter</translation>
     </message>
     <message>
-        <source>Using the game's existing prefix — Proton version follows the game's Steam setting and no new prefix is created.</source>
-        <translation>Verwendung des bestehenden Präfixes des Spiels – Die Proton-Version orientiert sich an der Steam-Einstellung des Spiels, und es wird kein neues Präfix erstellt.</translation>
+        <source>Using the game's existing prefix - Proton version follows the game's Steam setting and no new prefix is created.</source>
+        <translation>Die Verwendung des vorhandenen Präfixes des Spiels - Proton-Version folgt der Steam-Einstellung des Spiels und es wird kein neues Präfix erstellt.</translation>
     </message>
     <message>
         <source>A prefix already exists for this version. Delete it if {0}
-has issues — it is recreated automatically on the next step.</source>
-        <translation>Für diese Version existiert bereits ein Präfix. Löschen Sie es, falls es bei{0}
-zu Problemen kommt – es wird im nächsten Schritt automatisch neu erstellt.</translation>
+has issues - it is recreated automatically on the next step.</source>
+        <translation>Ein Präfix existiert bereits für diese Version. Löschen, wenn {0}
+hat Probleme - es wird automatisch im nächsten Schritt neu erstellt.</translation>
     </message>
     <message>
         <source>Confirm Delete</source>
@@ -9221,8 +10746,8 @@ zu Problemen kommt – es wird im nächsten Schritt automatisch neu erstellt.</t
         <translation>„{0}“ wird gelöscht…</translation>
     </message>
     <message>
-        <source>Prefix deleted — a fresh one is created on the next step.</source>
-        <translation>Präfix gelöscht – im nächsten Schritt wird ein neues erstellt.</translation>
+        <source>Prefix deleted - a fresh one is created on the next step.</source>
+        <translation>Präfix gelöscht - ein neues wird im nächsten Schritt erstellt.</translation>
     </message>
     <message>
         <source>Could not delete prefix: {0}</source>
@@ -9232,8 +10757,8 @@ zu Problemen kommt – es wird im nächsten Schritt automatisch neu erstellt.</t
 <context>
     <name>RePakRestoreView</name>
     <message>
-        <source>Repair PAK files — {0}</source>
-        <translation>PAK-Dateien reparieren — {0}</translation>
+        <source>Repair PAK files - {0}</source>
+        <translation>PAK-Dateien reparieren - {0}</translation>
     </message>
     <message>
         <source>✕ Close</source>
@@ -9252,12 +10777,12 @@ zu Problemen kommt – es wird im nächsten Schritt automatisch neu erstellt.</t
         <translation>Spiel-Stammverzeichnis: {0}</translation>
     </message>
     <message>
-        <source>No restore manifest ({0}) found in the game root. There is nothing to repair — either no PAK-patching mods were deployed, or the manifest was already consumed by a clean restore.
+        <source>No restore manifest ({0}) found in the game root. There is nothing to repair - either no PAK-patching mods were deployed, or the manifest was already consumed by a clean restore.
 
 If the game is still broken, verify the game files via Steam.</source>
-        <translation>Im Spielverzeichnis wurde kein Wiederherstellungsmanifest ({0}) gefunden. Es gibt nichts zu reparieren – entweder wurden keine PAK-Patch-Mods installiert, oder das Manifest wurde bereits bei einer vollständigen Wiederherstellung verwendet.
+        <translation>Kein Wiederherstellungsmanifest ({0}), das in der Spielwurzel gefunden wurde. Es gibt nichts zu reparieren - entweder wurden keine PAK-Patching-Mods eingesetzt, oder das Manifest wurde bereits durch eine saubere Wiederherstellung verbraucht.
 
-Falls das Spiel weiterhin nicht funktioniert, überprüfe die Spieledateien über Steam.</translation>
+Wenn das Spiel immer noch kaputt ist, überprüfen Sie die Spieldateien über Steam.</translation>
     </message>
     <message>
         <source>{0} PAK file</source>
@@ -9292,15 +10817,15 @@ Falls das Spiel weiterhin nicht funktioniert, überprüfe die Spieledateien übe
         <translation>Reparatur von PAK-Dateien aus dem Game-Root-Manifest ..</translation>
     </message>
     <message>
-        <source>Repair complete — restored {0} entry to vanilla.</source>
+        <source>Repair complete - restored {0} entry to vanilla.</source>
         <translation>Reparatur komplett - wiederhergestellt {0} Eingang zu Vanille.</translation>
     </message>
     <message>
-        <source>Repair complete — restored {0} entries to vanilla.</source>
-        <translation>Reparatur komplett - wiederhergestellte {0}-Einträge zu Vanille.</translation>
+        <source>Repair complete - restored {0} entries to vanilla.</source>
+        <translation>Reparatur komplett - restaurierte {0}-Einträge zu Vanille.</translation>
     </message>
     <message>
-        <source>Nothing to repair — the PAK entries are already vanilla (or no manifest was found).</source>
+        <source>Nothing to repair - the PAK entries are already vanilla (or no manifest was found).</source>
         <translation>Nichts zu reparieren - die PAK-Einträge sind bereits Vanille (oder es wurde kein Manifest gefunden).</translation>
     </message>
     <message>
@@ -9311,8 +10836,8 @@ Falls das Spiel weiterhin nicht funktioniert, überprüfe die Spieledateien übe
 <context>
     <name>ReShadeView</name>
     <message>
-        <source>Install ReShade — {0}</source>
-        <translation>ReShade installieren — {0}</translation>
+        <source>Install ReShade - {0}</source>
+        <translation>ReShade installieren - {0}</translation>
     </message>
     <message>
         <source>✕ Close</source>
@@ -9383,12 +10908,12 @@ Falls das Spiel weiterhin nicht funktioniert, überprüfe die Spieledateien übe
         <translation>Wählen Sie ein ReShade Preset (.ini)</translation>
     </message>
     <message>
-        <source>{0} (no effects found — using pack selection)</source>
-        <translation>{0} (keine Effekte gefunden – Auswahl über das Paket)</translation>
+        <source>{0} (no effects found - using pack selection)</source>
+        <translation>{0} (keine Effekte gefunden - mit Packungsauswahl)</translation>
     </message>
     <message>
-        <source>A preset is loaded — all packs will be downloaded and trimmed to it, so individual selection is disabled.</source>
-        <translation>Ein Preset wurde geladen – alle Pakete werden heruntergeladen und daran angepasst, daher ist die individuelle Auswahl deaktiviert.</translation>
+        <source>A preset is loaded - all packs will be downloaded and trimmed to it, so individual selection is disabled.</source>
+        <translation>Ein Preset wird geladen - alle Pakete werden heruntergeladen und darauf zugeschnitten, so dass die individuelle Auswahl deaktiviert ist.</translation>
     </message>
     <message>
         <source>Step 3: Download ReShade</source>
@@ -9459,8 +10984,8 @@ You can skip this step.</source>
 Sie können diesen Schritt überspringen.</translation>
     </message>
     <message>
-        <source>No Proton prefix or Steam ID is configured for this game — d3dcompiler_47 cannot be installed automatically. Install it manually via winecfg before running the game with ReShade.</source>
-        <translation>Für dieses Spiel ist weder ein Proton-Präfix noch eine Steam-ID konfiguriert – d3dcompiler_47 kann nicht automatisch installiert werden. Installiere es manuell über winecfg, bevor du das Spiel mit ReShade startest.</translation>
+        <source>No Proton prefix or Steam ID is configured for this game - d3dcompiler_47 cannot be installed automatically. Install it manually via winecfg before running the game with ReShade.</source>
+        <translation>Für dieses Spiel ist kein Proton-Präfix oder keine Steam ID konfiguriert - d3dcompiler 47 kann nicht automatisch installiert werden. Installieren Sie es manuell über winecfg, bevor Sie das Spiel mit ReShade ausführen.</translation>
     </message>
     <message>
         <source>d3dcompiler_47 will be installed into the Proton prefix for this game (via protontricks if available, otherwise bundled winetricks).
@@ -9485,7 +11010,7 @@ Click Next to continue.</source>
 Klicken Sie auf Weiter, um weiterzumachen.</translation>
     </message>
     <message>
-        <source>Install failed — you can Skip and install it manually.</source>
+        <source>Install failed - you can Skip and install it manually.</source>
         <translation>Installieren Sie fehlgeschlagen - Sie können überspringen und manuell installieren.</translation>
     </message>
     <message>
@@ -9544,8 +11069,8 @@ wird in das Proton-Präfix geschrieben.</translation>
 <context>
     <name>RegisterGamePathView</name>
     <message>
-        <source>Register Game Path — {0}</source>
-        <translation>Register Game Path — {0}</translation>
+        <source>Register Game Path - {0}</source>
+        <translation>Registrieren Game Path - {0}</translation>
     </message>
     <message>
         <source>not configured</source>
@@ -9564,20 +11089,20 @@ Proton-Präfix: {2}</translation>
         <translation>Registrierungsschlüssel schreiben</translation>
     </message>
     <message>
-        <source>Game path is not configured — set it first.</source>
-        <translation>Der Spielpfad ist nicht konfiguriert – bitte zuerst einrichten.</translation>
+        <source>Game path is not configured - set it first.</source>
+        <translation>Der Spielpfad ist nicht konfiguriert - legen Sie ihn zuerst fest.</translation>
     </message>
     <message>
-        <source>Proton prefix not found — launch the game once via Steam first.</source>
-        <translation>Proton-Präfix nicht gefunden – starte das Spiel zunächst einmal über Steam.</translation>
+        <source>Proton prefix not found - launch the game once via Steam first.</source>
+        <translation>Proton Präfix nicht gefunden - starten Sie das Spiel einmal über Steam zuerst.</translation>
     </message>
     <message>
         <source>Writing …</source>
         <translation>Schreiben …</translation>
     </message>
     <message>
-        <source>Done — Write Again</source>
-        <translation>Fertig — Noch einmal schreiben</translation>
+        <source>Done - Write Again</source>
+        <translation>Erledigt - Write Again</translation>
     </message>
     <message>
         <source>Retry</source>
@@ -9608,8 +11133,8 @@ Proton-Präfix: {2}</translation>
         <translation>Geschriebene Registrierungsschlüssel (64-Bit + Wow6432) Node Views.</translation>
     </message>
     <message>
-        <source>Registry write finished with errors — see log above.</source>
-        <translation>Registrierung schreiben mit Fehlern beendet — siehe Protokoll oben.</translation>
+        <source>Registry write finished with errors - see log above.</source>
+        <translation>Registry Write mit Fehlern beendet - siehe Log oben.</translation>
     </message>
 </context>
 <context>
@@ -9658,12 +11183,12 @@ Wähle „Behalten“, wenn es sich um eine optionale/alternative Variante und n
         <translation>Fehlende Anforderungen anzeigen</translation>
     </message>
     <message>
-        <source>Requirements — {0}</source>
-        <translation>Anforderungen — {0}</translation>
+        <source>Requirements - {0}</source>
+        <translation>Anforderungen - {0}</translation>
     </message>
     <message>
-        <source>Requirements — {0} mods</source>
-        <translation>Anforderungen — {0}-Mods</translation>
+        <source>Requirements - {0} mods</source>
+        <translation>Anforderungen - {0} Mods</translation>
     </message>
     <message>
         <source>Select one or more mods.</source>
@@ -9705,8 +11230,8 @@ Wähle „Behalten“, wenn es sich um eine optionale/alternative Variante und n
         <translation>Schließen</translation>
     </message>
     <message>
-        <source>SSE Display Tweaks — {0}</source>
-        <translation>SSE Display Tweaks — {0}</translation>
+        <source>SSE Display Tweaks - {0}</source>
+        <translation>SSE Display Tweaks - {0}</translation>
     </message>
     <message>
         <source>Reset to defaults</source>
@@ -9839,12 +11364,20 @@ Wähle „Behalten“, wenn es sich um eine optionale/alternative Variante und n
         <translation>Name</translation>
     </message>
     <message>
+        <source>File type</source>
+        <translation>Dateityp</translation>
+    </message>
+    <message>
         <source>Size</source>
         <translation>Größe</translation>
     </message>
     <message>
         <source>Modified</source>
         <translation>Geändert</translation>
+    </message>
+    <message>
+        <source>Folder</source>
+        <translation>Ordner</translation>
     </message>
     <message>
         <source>No configured game selected.</source>
@@ -9865,6 +11398,10 @@ Wähle „Behalten“, wenn es sich um eine optionale/alternative Variante und n
     <message>
         <source>{0}   ({1})</source>
         <translation>{0} ({1})</translation>
+    </message>
+    <message>
+        <source>File</source>
+        <translation>Datei</translation>
     </message>
     <message>
         <source>(not created yet -the game saves here)</source>
@@ -9893,6 +11430,124 @@ Wähle „Behalten“, wenn es sich um eine optionale/alternative Variante und n
     <message>
         <source>Reading save…</source>
         <translation>Reading Save..</translation>
+    </message>
+    <message>
+        <source>Open folder</source>
+        <translation>Ordner öffnen</translation>
+    </message>
+    <message>
+        <source>Open containing folder</source>
+        <translation>Offene enthaltende Ordner</translation>
+    </message>
+    <message>
+        <source>Delete…</source>
+        <translation>Streichen..</translation>
+    </message>
+    <message>
+        <source>Move to profile saves</source>
+        <translation>Wechseln Sie zu Profil Saves</translation>
+    </message>
+    <message>
+        <source>Copy to profile saves</source>
+        <translation>Copy to Profil speichert</translation>
+    </message>
+    <message>
+        <source>{0} ({1})</source>
+        <translation>{0} ({1})</translation>
+    </message>
+    <message>
+        <source>{0} (current)</source>
+        <translation>{0} (aktuell)</translation>
+    </message>
+    <message>
+        <source>Replace {0}?</source>
+        <translation>{0} ersetzen?</translation>
+    </message>
+    <message>
+        <source>{0} already exists in the {1} saves folder:
+{2}
+
+It is replaced by the one you picked.</source>
+        <translation>{0} existiert bereits im Ordner {1} speichert:
+{2}
+
+Es wird durch das ersetzt, das Sie ausgewählt haben.</translation>
+    </message>
+    <message>
+        <source>Replace</source>
+        <translation>Ersetzen</translation>
+    </message>
+    <message>
+        <source>Moving {0}…</source>
+        <translation>{0} bewegen..</translation>
+    </message>
+    <message>
+        <source>Copying {0}…</source>
+        <translation>Kopieren von {0}..</translation>
+    </message>
+    <message>
+        <source>Could not move the save.</source>
+        <translation>Ich konnte das Save nicht bewegen.</translation>
+    </message>
+    <message>
+        <source>Could not copy the save.</source>
+        <translation>Ich konnte das Save nicht kopieren.</translation>
+    </message>
+    <message>
+        <source>Transfer failed: {0}</source>
+        <translation>Transfer fehlgeschlagen: {0}</translation>
+    </message>
+    <message>
+        <source>Moved {0} ({1}) to the {2} saves folder.</source>
+        <translation>{0} ({1}) in den {2} verschoben speichert Ordner.</translation>
+    </message>
+    <message>
+        <source>Copied {0} ({1}) to the {2} saves folder.</source>
+        <translation>Kopiert {0} ({1}) in den {2} speichert Ordner.</translation>
+    </message>
+    <message>
+        <source>Delete the folder {0} and everything in it?
+{1}
+
+This cannot be undone.</source>
+        <translation>Löschen Sie den Ordner {0} und alles darin?
+{1}
+
+Dies kann nicht rückgängig gemacht werden.</translation>
+    </message>
+    <message>
+        <source>Delete {0}?
+{1}
+
+This cannot be undone.</source>
+        <translation>{0} löschen?
+{1}
+
+Dies kann nicht rückgängig gemacht werden.</translation>
+    </message>
+    <message>
+        <source>Delete save?</source>
+        <translation>Save löschen?</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>Löschung</translation>
+    </message>
+    <message>
+        <source>Deleting {0}…</source>
+        <translation>{0} löschen..</translation>
+    </message>
+    <message>
+        <source>Could not delete the save.</source>
+        <translation>Das Save konnte nicht gelöscht werden.</translation>
+    </message>
+    <message>
+        <source>Delete failed: {0}</source>
+        <translation>Löschen fehlgeschlagen: {0}</translation>
+    </message>
+    <message>
+        <source>Deleted {0} ({1}).</source>
+        <translation>Gelöschtes {0} ({1}).</translation>
     </message>
     <message>
         <source>Export saves</source>
@@ -9988,8 +11643,8 @@ Wähle „Behalten“, wenn es sich um eine optionale/alternative Variante und n
 <context>
     <name>ScriptExtenderView</name>
     <message>
-        <source>Install Script Extender — {0}</source>
-        <translation>Script Extender installieren — {0}</translation>
+        <source>Install Script Extender - {0}</source>
+        <translation>Script Extender installieren - {0}</translation>
     </message>
     <message>
         <source>✕ Close</source>
@@ -10016,8 +11671,8 @@ Wähle „Behalten“, wenn es sich um eine optionale/alternative Variante und n
         <translation>Wählen Sie eine Version aus</translation>
     </message>
     <message>
-        <source>Multiple builds are available for this game — pick the one that matches your game version.</source>
-        <translation>Für dieses Spiel stehen mehrere Versionen zur Verfügung – wähle diejenige aus, die zu deiner Spielversion passt.</translation>
+        <source>Multiple builds are available for this game - pick the one that matches your game version.</source>
+        <translation>Mehrere Builds sind für dieses Spiel verfügbar - wählen Sie den, der zu Ihrer Spielversion passt.</translation>
     </message>
     <message>
         <source>Select</source>
@@ -10091,7 +11746,7 @@ Klicken Sie auf Weiter, um es zu installieren.</translation>
     </message>
     <message>
         <source>No archive matching '{0}' was found in your Downloads folder.
-Download it first, then Try Again — or Browse… to pick the file.</source>
+Download it first, then Try Again - or Browse… to pick the file.</source>
         <translation>Kein Archiv, das mit '{0}' übereinstimmt, wurde in Ihrem Downloads-Ordner gefunden.
 Laden Sie es zuerst herunter, dann versuchen Sie es erneut - oder durchsuchen Sie ..., um die Datei auszuwählen.</translation>
     </message>
@@ -10207,12 +11862,12 @@ oder verwenden Sie Browse, um es manuell auszuwählen.</translation>
         <translation>Vorbereiten von Script Merger's Wine Präfix ..</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' — check that it is installed in Steam, then reopen this wizard.</source>
-        <translation>Konnte Proton '{0}' nicht finden - überprüfen Sie, ob es in Steam installiert ist, und öffnen Sie diesen Assistenten erneut.</translation>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, then reopen this wizard.</source>
+        <translation>Konnte Proton '{0}' nicht finden - überprüfen Sie, ob es in Steam installiert ist, und öffnen Sie dann diesen Assistenten erneut.</translation>
     </message>
     <message>
-        <source>.NET 8 already installed — skipping.</source>
-        <translation>.NET 8 bereits installiert — Skipping.</translation>
+        <source>.NET 8 already installed - skipping.</source>
+        <translation>.NET 8 bereits installiert - Überspringen.</translation>
     </message>
     <message>
         <source>.NET 8 install failed (see log).</source>
@@ -10253,16 +11908,16 @@ Brechen Sie den Vorgang ab und aktivieren Sie die aufgeführten Mods erneut, um 
         <translation>Zusammenführungen löschen</translation>
     </message>
     <message>
-        <source>Launch cancelled — re-enable the merges' source mods, then reopen this wizard.</source>
-        <translation>Start abgebrochen – Aktivieren Sie die Quellmods der Zusammenführungen erneut und öffnen Sie diesen Assistenten dann erneut.</translation>
+        <source>Launch cancelled - re-enable the merges' source mods, then reopen this wizard.</source>
+        <translation>Start abgesagt - Aktivieren Sie die Quellmods der Mergers erneut und öffnen Sie dann diesen Assistenten erneut.</translation>
     </message>
     <message>
         <source>Launching WitcherScriptMerger…</source>
         <translation>WitcherScriptMerger wird gestartet…</translation>
     </message>
     <message>
-        <source>Run Script Merger — {0}</source>
-        <translation>Run Script Merger — {0}</translation>
+        <source>Run Script Merger - {0}</source>
+        <translation>Run Script Merger - {0}</translation>
     </message>
     <message>
         <source>{0} was not found.
@@ -10271,7 +11926,7 @@ Please restart the wizard and install Script Merger first.</source>
 Bitte starten Sie den Assistenten neu und installieren Sie zunächst Script Merger.</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' — check that it is installed in Steam.</source>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
         <translation>Konnte Proton '{0}' nicht finden - überprüfen Sie, ob es in Steam installiert ist.</translation>
     </message>
     <message>
@@ -10307,8 +11962,8 @@ Fügen Sie Ihre Konflikte zusammen, schließen Sie sie und klicken Sie auf Ferti
 <context>
     <name>SeparatorSettingsView</name>
     <message>
-        <source>Separator Settings — {0}</source>
-        <translation>Trennzeichen-Einstellungen — {0}</translation>
+        <source>Separator Settings - {0}</source>
+        <translation>Separatoreinstellungen - {0}</translation>
     </message>
     <message>
         <source>Separator Color</source>
@@ -10609,6 +12264,22 @@ Fügen Sie Ihre Konflikte zusammen, schließen Sie sie und klicken Sie auf Ferti
         <translation>Wechseln Sie dieses Flatpak auf die Amethyst-Update-Fernbedienung, damit zukünftige Updates automatisch über Ihren Paketmanager (GNOME Software / Discover) mit kleineren Downloads eintreffen. Dadurch wird die App einmal aus der Fernbedienung neu installiert und neu gestartet.</translation>
     </message>
     <message>
+        <source>Hide Ko-Fi button</source>
+        <translation>Verstecken Sie den Ko-Fi-Button</translation>
+    </message>
+    <message>
+        <source>Hide the Ko-Fi donation button in the status bar.</source>
+        <translation>Verstecken Sie den Ko-Fi Spenden-Button in der Statusleiste.</translation>
+    </message>
+    <message>
+        <source>Hide Endorse button</source>
+        <translation>Endorse Button ausblenden</translation>
+    </message>
+    <message>
+        <source>Hide the Endorse AMM button in the status bar.</source>
+        <translation>Verstecken Sie die Endorse AMM-Taste in der Statusleiste.</translation>
+    </message>
+    <message>
         <source>Archives</source>
         <translation>Archive</translation>
     </message>
@@ -10874,8 +12545,8 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
         <translation>Konflikte berechnen…</translation>
     </message>
     <message>
-        <source>Could not compute conflicts — see the log.</source>
-        <translation>Konflikte konnten nicht aufgelöst werden – siehe Protokoll.</translation>
+        <source>Could not compute conflicts - see the log.</source>
+        <translation>Konnte keine Konflikte berechnen - siehe Protokoll.</translation>
     </message>
     <message>
         <source>{0}  ({1})</source>
@@ -10885,7 +12556,7 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
 <context>
     <name>SkyGenView</name>
     <message>
-        <source>SkyGen — Patch Generator — {0}</source>
+        <source>SkyGen - Patch Generator - {0}</source>
         <translation>SkyGen — Patch Generator — {0}</translation>
     </message>
     <message>
@@ -10987,8 +12658,8 @@ Ausgabemodul:{2}
 <context>
     <name>SmapiView</name>
     <message>
-        <source>Install SMAPI — {0}</source>
-        <translation>Installieren SMAPI — {0}</translation>
+        <source>Install SMAPI - {0}</source>
+        <translation>Installieren Sie SMAPI - {0}</translation>
     </message>
     <message>
         <source>Install destination</source>
@@ -11015,8 +12686,8 @@ Ausgabemodul:{2}
         <translation>Es wird nach der neuesten SMAPI-Version gesucht…</translation>
     </message>
     <message>
-        <source>SMAPI is installed automatically — no terminal window and no prompts to answer.</source>
-        <translation>SMAPI wird automatisch installiert – kein Terminalfenster und keine Aufforderungen zur Antwort.</translation>
+        <source>SMAPI is installed automatically - no terminal window and no prompts to answer.</source>
+        <translation>SMAPI wird automatisch installiert - kein Terminalfenster und keine Aufforderungen zur Antwort.</translation>
     </message>
     <message>
         <source>Downloaded SMAPI {0}: {1}
@@ -11128,8 +12799,8 @@ Verwenden Sie Browse, um ein manuell heruntergeladenes Archiv auszuwählen.</tra
 <context>
     <name>SynthesisView</name>
     <message>
-        <source>Run Synthesis — {0}</source>
-        <translation>Run Synthesis — {0}</translation>
+        <source>Run Synthesis - {0}</source>
+        <translation>Run Synthesis - {0}</translation>
     </message>
     <message>
         <source>Step 1: Download Synthesis</source>
@@ -11210,8 +12881,8 @@ Wählen Sie eine Proton-Version aus, mit der dieses Präfix erstellt werden soll
         <translation>Präfix bereit. Klicken Sie auf Launch Synthesis.</translation>
     </message>
     <message>
-        <source>Setup completed with errors — launch may still work.</source>
-        <translation>Setup mit Fehlern abgeschlossen - der Start funktioniert möglicherweise noch.</translation>
+        <source>Setup completed with errors - launch may still work.</source>
+        <translation>Setup mit Fehlern abgeschlossen - Start kann noch funktionieren.</translation>
     </message>
     <message>
         <source>Running …</source>
@@ -11221,8 +12892,8 @@ Wählen Sie eine Proton-Version aus, mit der dieses Präfix erstellt werden soll
 <context>
     <name>TTWView</name>
     <message>
-        <source>Install Tale of Two Wastelands — {0}</source>
-        <translation>Installieren Sie die Geschichte von zwei Ödländern - {0}</translation>
+        <source>Install Tale of Two Wastelands - {0}</source>
+        <translation>Die Geschichte von zwei Ödländern - {0}</translation>
     </message>
     <message>
         <source>Step 1: Install the TTW MPI Installer</source>
@@ -11269,14 +12940,14 @@ Klicken Sie auf „Installieren“, um zu beginnen.</translation>
     <message>
         <source>The '{0}' mod is already in your mod list, so the ~18 GB build can be skipped.
 
-• Re-apply setup only — re-runs the profile INI + FalloutCustom.ini setup without rebuilding (fast).
+• Re-apply setup only - re-runs the profile INI + FalloutCustom.ini setup without rebuilding (fast).
 
-• Rebuild from scratch — restores to vanilla and runs the full installer again (needs the .mpi + both games).</source>
-        <translation>Der Mod „{0}“ befindet sich bereits in Ihrer Mod-Liste, sodass der ~18 GB große Build übersprungen werden kann.
+• Rebuild from scratch - restores to vanilla and runs the full installer again (needs the .mpi + both games).</source>
+        <translation>Der '{0}'-Mod ist bereits in Ihrer Mod-Liste, so dass der ~18 GB Build übersprungen werden kann.
 
-• Nur Setup erneut anwenden – führt das Setup für die Profil-INI-Datei und die „FalloutCustom.ini“ erneut aus, ohne neu zu kompilieren (schnell).
+• Nur das Setup erneut anwenden - Führt das Profil INI + FalloutCustom.ini-Setup erneut aus, ohne es neu zu erstellen (schnell).
 
-• Von Grund auf neu kompilieren – setzt das Spiel auf den Originalzustand zurück und führt das vollständige Installationsprogramm erneut aus (erfordert die .mpi-Datei sowie beide Spiele).</translation>
+Rebuild von Grund auf neu - stellt Vanille wieder her und führt das vollständige Installationsprogramm erneut aus (erfordert die .mpi + beide Spiele).</translation>
     </message>
     <message>
         <source>Re-apply setup only</source>
@@ -11297,10 +12968,10 @@ Klicken Sie auf „Installieren“, um zu beginnen.</translation>
     <message>
         <source>TTW merges assets from both Fallout 3 and Fallout New Vegas, so both games must be installed. Confirm the folders below, then select the TTW .mpi package.
 
-Get the latest TTW .mpi from mod.pub (free account required) — extract the download and the .mpi is inside.</source>
-        <translation>TTW vereint Inhalte aus „Fallout 3“ und „Fallout: New Vegas“, daher müssen beide Spiele installiert sein. Überprüfe die unten aufgeführten Ordner und wähle anschließend das TTW-.mpi-Paket aus.
+Get the latest TTW .mpi from mod.pub (free account required) - extract the download and the .mpi is inside.</source>
+        <translation>TTW vereint Assets von Fallout 3 und Fallout New Vegas, so dass beide Spiele installiert werden müssen. Bestätigen Sie die Ordner unten und wählen Sie dann das TTW .mpi-Paket aus.
 
-Lade die neueste TTW-.mpi-Datei von mod.pub herunter (kostenloses Konto erforderlich) – entpacke den Download, die .mpi-Datei befindet sich darin.</translation>
+Holen Sie sich die neueste TTW .mpi von mod.pub (kostenloser Account erforderlich) - extrahieren Sie den Download und die .mpi ist drin.</translation>
     </message>
     <message>
         <source>Open mod.pub TTW page</source>
@@ -11339,8 +13010,8 @@ Lade die neueste TTW-.mpi-Datei von mod.pub herunter (kostenloses Konto erforder
         <translation>Durchsuchen…</translation>
     </message>
     <message>
-        <source>— not set —</source>
-        <translation>— nicht festgelegt —</translation>
+        <source>- not set -</source>
+        <translation>- nicht festgelegt -</translation>
     </message>
     <message>
         <source>Select the TTW .mpi package</source>
@@ -11376,11 +13047,11 @@ Lade die neueste TTW-.mpi-Datei von mod.pub herunter (kostenloses Konto erforder
     </message>
     <message>
         <source>The game is first restored to a vanilla state, then the installer
-merges Fallout 3 and Fallout New Vegas assets. This produces ~18 GB of output and can take a long while — please leave it running.
+merges Fallout 3 and Fallout New Vegas assets. This produces ~18 GB of output and can take a long while - please leave it running.
 Output is written directly into your mod list as the '{0}' mod.</source>
-        <translation>Das Spiel wird zunächst in den Originalzustand zurückversetzt, anschließend führt das Installationsprogramm
-die Assets von „Fallout 3“ und „Fallout: New Vegas“ zusammen. Dabei entstehen etwa 18 GB an Daten, was eine ganze Weile dauern kann – bitte lassen Sie den Vorgang laufen.
-Das Ergebnis wird direkt in Ihre Mod-Liste als Mod „{0}“ eingetragen.</translation>
+        <translation>Das Spiel wird zuerst in einen Vanille-Zustand wiederhergestellt, dann der Installer
+Zusammenführung von Fallout 3 und Fallout New Vegas. Dies erzeugt ~ 18 GB Ausgabe und kann eine lange Zeit dauern - bitte lassen Sie es laufen.
+Die Ausgabe wird direkt in Ihre Mod-Liste als "{0}"-Mod geschrieben.</translation>
     </message>
     <message>
         <source>Done</source>
@@ -11399,8 +13070,8 @@ Das Ergebnis wird direkt in Ihre Mod-Liste als Mod „{0}“ eingetragen.</trans
         <translation>Wiederherstellen des Spiels in einen Vanille-Zustand vor der Installation ..</translation>
     </message>
     <message>
-        <source>Restore failed — see the log. Fix the issue (or restore manually via the Restore button) and retry.</source>
-        <translation>Wiederherstellen fehlgeschlagen — siehe Protokoll. Beheben Sie das Problem (oder Wiederherstellen manuell über die Schaltfläche Wiederherstellen) und wiederholen Sie es.</translation>
+        <source>Restore failed - see the log. Fix the issue (or restore manually via the Restore button) and retry.</source>
+        <translation>Wiederherstellen fehlgeschlagen - siehe Protokoll. Beheben Sie das Problem (oder Wiederherstellen manuell über die Schaltfläche Wiederherstellen) und wiederholen Sie es.</translation>
     </message>
     <message>
         <source>Mod staging path is not configured.</source>
@@ -11421,7 +13092,7 @@ Das Ergebnis wird direkt in Ihre Mod-Liste als Mod „{0}“ eingetragen.</trans
 {0}</translation>
     </message>
     <message>
-        <source>Missing vanilla plugin files even after restoring to vanilla — these were never backed up.
+        <source>Missing vanilla plugin files even after restoring to vanilla - these were never backed up.
 In Steam, right-click each game → Properties → Installed Files → Verify integrity of game files, then retry.
 
 {0}</source>
@@ -11443,8 +13114,8 @@ Klicken Sie in Steam mit der rechten Maustaste auf jedes Spiel → Eigenschaften
         <translation>Installer mit Fehler beendet (Code {0}). Siehe das Protokoll für Details.</translation>
     </message>
     <message>
-        <source>Install complete — registering mod…</source>
-        <translation>Vollständig installieren — Registrieren mod..</translation>
+        <source>Install complete - registering mod…</source>
+        <translation>Installieren Sie komplett - Registrieren mod..</translation>
     </message>
     <message>
         <source>Install finished but registering the mod failed: {0}</source>
@@ -11469,7 +13140,7 @@ Klicken Sie in Steam mit der rechten Maustaste auf jedes Spiel → Eigenschaften
     <message>
         <source>
 
-TTW needs several supporting mods (script extender plugins, patches, etc.). These are flagged on the TTW mod via the red 'missing requirements' marker — click it to install them, then deploy.</source>
+TTW needs several supporting mods (script extender plugins, patches, etc.). These are flagged on the TTW mod via the red 'missing requirements' marker - click it to install them, then deploy.</source>
         <translation>TTW benötigt mehrere unterstützende Mods (Script Extender Plugins, Patches usw.). Diese werden auf dem TTW-Mod über den roten Marker "fehlende Anforderungen" markiert - klicken Sie darauf, um sie zu installieren und dann bereitzustellen.</translation>
     </message>
 </context>
@@ -11494,6 +13165,10 @@ TTW needs several supporting mods (script extender plugins, patches, etc.). Thes
     <message>
         <source>Save</source>
         <translation>Speichern</translation>
+    </message>
+    <message>
+        <source>Save (Ctrl+S)</source>
+        <translation>Speichern (Strg + S)</translation>
     </message>
 </context>
 <context>
@@ -11547,8 +13222,8 @@ TTW needs several supporting mods (script extender plugins, patches, etc.). Thes
         <translation>Verarbeitet Parallaxen-Texturen: BSA-Extrakt → Filterpaare → Höhenkarten → Ausgang QC</translation>
     </message>
     <message>
-        <source>Run {0} — {1}</source>
-        <translation>{0} ausführen — {1}</translation>
+        <source>Run {0} - {1}</source>
+        <translation>{0} ausführen - {1}</translation>
     </message>
     <message>
         <source>Step 1: Download {0}</source>
@@ -11587,12 +13262,32 @@ Stellen Sie zuerst Ihre Modlist bereit und klicken Sie dann auf Run.</translatio
         <translation>Schritt 5: Führen Sie „{0}“ aus.</translation>
     </message>
     <message>
+        <source>Prefer discrete GPU (hybrid systems)</source>
+        <translation>Bevorzugt diskrete GPU (Hybridsysteme)</translation>
+    </message>
+    <message>
+        <source>Runs the texture encoder through Proton/DXVK and exposes the discrete GPU as adapter 0. This may use more power.</source>
+        <translation>Läuft den Textur-Encoder über Proton/DXVK aus und stellt die diskrete GPU als Adapter 0 frei. Dies kann mehr Energie verbrauchen.</translation>
+    </message>
+    <message>
+        <source>VRAMr and BENDr use texconv's GPU BC7 encoder when DirectCompute is available; otherwise texconv falls back to its CPU encoder.</source>
+        <translation>VRAMr und BENDr verwenden den GPU BC7-Encoder von texconv, wenn DirectCompute verfügbar ist; andernfalls fällt texconv auf seinen CPU-Encoder zurück.</translation>
+    </message>
+    <message>
         <source>Output: {0}</source>
         <translation>Ausgabe: {0}</translation>
     </message>
     <message>
         <source>▶  Run {0}</source>
         <translation>▶  {0} ausführen</translation>
+    </message>
+    <message>
+        <source>■  Stop</source>
+        <translation>■ Stopp</translation>
+    </message>
+    <message>
+        <source>Stop the running tool and discard its partial output.</source>
+        <translation>Stoppen Sie das laufende Werkzeug und verwerfen Sie seine Teilausgabe.</translation>
     </message>
     <message>
         <source>Done</source>
@@ -11609,6 +13304,14 @@ or use Browse to select it manually.</source>
         <translation>{0} Das Archiv wurde im Ordner „Downloads“ nicht gefunden.
 Vergewissern Sie sich, dass Sie es heruntergeladen haben, und klicken Sie dann auf „Erneut versuchen“,
 oder wählen Sie die Datei manuell über „Durchsuchen“ aus.</translation>
+    </message>
+    <message>
+        <source>Stopping…</source>
+        <translation>Stoppen..</translation>
+    </message>
+    <message>
+        <source>Stopping {0}…</source>
+        <translation>{0} stoppen..</translation>
     </message>
     <message>
         <source>{0} not found. Please restart the wizard.</source>
@@ -11629,6 +13332,10 @@ oder wählen Sie die Datei manuell über „Durchsuchen“ aus.</translation>
     <message>
         <source>{0} complete! Output is ready as a mod.</source>
         <translation>{0} komplett! Der Output ist als Mod bereit.</translation>
+    </message>
+    <message>
+        <source>{0} stopped. Partial output discarded.</source>
+        <translation>{0} gestoppt. Teiloutput verworfen.</translation>
     </message>
     <message>
         <source>Error: {0}</source>
@@ -11794,8 +13501,8 @@ oder wählen Sie die Datei manuell über „Durchsuchen“ aus.</translation>
         <translation>Grenze (schwach)</translation>
     </message>
     <message>
-        <source>Buttons — Red</source>
-        <translation>Knöpfe — rot</translation>
+        <source>Buttons - Red</source>
+        <translation>Knöpfe — Rot</translation>
     </message>
     <message>
         <source>Danger</source>
@@ -11838,8 +13545,8 @@ oder wählen Sie die Datei manuell über „Durchsuchen“ aus.</translation>
         <translation>Roter Schwebebelag</translation>
     </message>
     <message>
-        <source>Buttons — Green</source>
-        <translation>Knöpfe — Grün</translation>
+        <source>Buttons - Green</source>
+        <translation>Knöpfe - Grün</translation>
     </message>
     <message>
         <source>Success</source>
@@ -11866,7 +13573,7 @@ oder wählen Sie die Datei manuell über „Durchsuchen“ aus.</translation>
         <translation>Erfolgreicher Deep Hover</translation>
     </message>
     <message>
-        <source>Buttons — Orange</source>
+        <source>Buttons - Orange</source>
         <translation>Knöpfe — Orange</translation>
     </message>
     <message>
@@ -11902,7 +13609,7 @@ oder wählen Sie die Datei manuell über „Durchsuchen“ aus.</translation>
         <translation>Warnung orange Hover</translation>
     </message>
     <message>
-        <source>Buttons — Blue</source>
+        <source>Buttons - Blue</source>
         <translation>Knöpfe — Blau</translation>
     </message>
     <message>
@@ -11930,8 +13637,8 @@ oder wählen Sie die Datei manuell über „Durchsuchen“ aus.</translation>
         <translation>Neutralschwebe</translation>
     </message>
     <message>
-        <source>Buttons — Grey</source>
-        <translation>Knöpfe — Grau</translation>
+        <source>Buttons - Grey</source>
+        <translation>Buttons — Grau</translation>
     </message>
     <message>
         <source>Grey</source>
@@ -11950,7 +13657,7 @@ oder wählen Sie die Datei manuell über „Durchsuchen“ aus.</translation>
         <translation>Grey Alt Hover</translation>
     </message>
     <message>
-        <source>Buttons — Purple</source>
+        <source>Buttons - Purple</source>
         <translation>Knöpfe — Purpur</translation>
     </message>
     <message>
@@ -12210,16 +13917,16 @@ oder wählen Sie die Datei manuell über „Durchsuchen“ aus.</translation>
         <translation>Konflikt-Highlights</translation>
     </message>
     <message>
-        <source>Conflict row — winning</source>
-        <translation>Konfliktreihe — gewinnend</translation>
+        <source>Conflict row - winning</source>
+        <translation>Konfliktreihe - gewinnen</translation>
     </message>
     <message>
-        <source>Conflict row — overridden</source>
-        <translation>Konfliktzeile — außer Kraft gesetzt</translation>
+        <source>Conflict row - overridden</source>
+        <translation>Konfliktreihe - außer Kraft gesetzt</translation>
     </message>
     <message>
-        <source>Conflict row — anchor</source>
-        <translation>Konfliktzeile — Anker</translation>
+        <source>Conflict row - anchor</source>
+        <translation>Konfliktreihe - Anker</translation>
     </message>
     <message>
         <source>Framework detection</source>
@@ -12286,7 +13993,7 @@ oder wählen Sie die Datei manuell über „Durchsuchen“ aus.</translation>
         <translation>Checkbox füllen (überprüft)</translation>
     </message>
     <message>
-        <source>Window, panels, list rows and input fields — the app's surfaces.</source>
+        <source>Window, panels, list rows and input fields - the app's surfaces.</source>
         <translation>Fenster, Panels, Listenzeilen und Eingabefelder - die Oberflächen der App.</translation>
     </message>
     <message>
@@ -12437,8 +14144,8 @@ oder wählen Sie die Datei manuell über „Durchsuchen“ aus.</translation>
 <context>
     <name>ThemePreviewPanel</name>
     <message>
-        <source>Preview — approximate; use "Restart to apply" to see the theme across the whole app.</source>
-        <translation>Vorschau - ungefähr; Verwenden Sie "Restart to apply", um das Thema in der gesamten App anzuzeigen.</translation>
+        <source>Preview - approximate; use "Restart to apply" to see the theme across the whole app.</source>
+        <translation>Vorschau - ungefähr; Verwenden Sie "Restart to apply", um das Thema in der gesamten App zu sehen.</translation>
     </message>
     <message>
         <source>Header &amp; tabs</source>
@@ -12493,8 +14200,8 @@ oder wählen Sie die Datei manuell über „Durchsuchen“ aus.</translation>
         <translation>Wurzelordner</translation>
     </message>
     <message>
-        <source>— Gameplay —</source>
-        <translation>— Gameplay —</translation>
+        <source>- Gameplay -</source>
+        <translation>- Gameplay -</translation>
     </message>
     <message>
         <source>Unofficial Patch</source>
@@ -12710,6 +14417,175 @@ oder wählen Sie die Datei manuell über „Durchsuchen“ aus.</translation>
     </message>
 </context>
 <context>
+    <name>ThunderstoreBrowserView</name>
+    <message>
+        <source>☰ Categories</source>
+        <translation>☰ Kategorien</translation>
+    </message>
+    <message>
+        <source>Section: </source>
+        <translation>Abschnitt:</translation>
+    </message>
+    <message>
+        <source>Sort: </source>
+        <translation>Sortierung:</translation>
+    </message>
+    <message>
+        <source>Deprecated</source>
+        <translation>Abgeschrieben</translation>
+    </message>
+    <message>
+        <source>NSFW</source>
+        <translation>NSFW</translation>
+    </message>
+    <message>
+        <source>Refresh</source>
+        <translation>Erfrischend</translation>
+    </message>
+    <message>
+        <source>Categories</source>
+        <translation>Kategorien</translation>
+    </message>
+    <message>
+        <source>Search mods…</source>
+        <translation>Suchmodi..</translation>
+    </message>
+    <message>
+        <source>Search</source>
+        <translation>Suche</translation>
+    </message>
+    <message>
+        <source>Clear</source>
+        <translation>Klar</translation>
+    </message>
+    <message>
+        <source>◂ Prev</source>
+        <translation>◂ Prev</translation>
+    </message>
+    <message>
+        <source>Next ▸</source>
+        <translation>Nächste ▸</translation>
+    </message>
+    <message>
+        <source>Page</source>
+        <translation>Seite</translation>
+    </message>
+    <message>
+        <source>No categories</source>
+        <translation>Keine Kategorien</translation>
+    </message>
+    <message>
+        <source>Click once to include, twice to exclude.</source>
+        <translation>Klicken Sie einmal, um einzuschließen, zweimal, um auszuschließen.</translation>
+    </message>
+    <message>
+        <source>No Thunderstore community.</source>
+        <translation>Keine Thunderstore Community.</translation>
+    </message>
+    <message>
+        <source>{0} mod(s)</source>
+        <translation>{0} mod(s)</translation>
+    </message>
+    <message>
+        <source>/ {0}</source>
+        <translation>/ {0}</translation>
+    </message>
+    <message>
+        <source>Loading…</source>
+        <translation>Beladung..</translation>
+    </message>
+    <message>
+        <source>Open on Thunderstore</source>
+        <translation>Geöffnet bei Thunderstore</translation>
+    </message>
+    <message>
+        <source>Mods by {0}</source>
+        <translation>Mods von {0}</translation>
+    </message>
+</context>
+<context>
+    <name>ThunderstoreDepsOverlay</name>
+    <message>
+        <source>Install dependencies?</source>
+        <translation>Abhängigkeiten installieren?</translation>
+    </message>
+    <message>
+        <source>{0} needs {1} other mod(s). They will be installed first.</source>
+        <translation>{0} benötigt {1} andere Mods. Sie werden zuerst installiert.</translation>
+    </message>
+    <message>
+        <source>requested</source>
+        <translation>beantragt</translation>
+    </message>
+    <message>
+        <source>required at {0} - installing {1}</source>
+        <translation>erforderlich bei {0} - Installation von {1}</translation>
+    </message>
+    <message>
+        <source>Skip all</source>
+        <translation>Überspringen alle</translation>
+    </message>
+    <message>
+        <source>Select all</source>
+        <translation>Wählen Sie alle</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Stornierung</translation>
+    </message>
+    <message>
+        <source>Install</source>
+        <translation>Installieren</translation>
+    </message>
+    <message>
+        <source>{0} of {1} dependencies selected - {2} to download</source>
+        <translation>{0} von {1} Abhängigkeiten ausgewählt - {2} zum Download</translation>
+    </message>
+</context>
+<context>
+    <name>ThunderstoreVersionView</name>
+    <message>
+        <source>Change Version - {0}</source>
+        <translation>Version ändern - {0}</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Schließen</translation>
+    </message>
+    <message>
+        <source>Loading versions…</source>
+        <translation>Ladeversionen..</translation>
+    </message>
+    <message>
+        <source>Could not load versions for {0}.</source>
+        <translation>Konnte keine Versionen für {0} laden.</translation>
+    </message>
+    <message>
+        <source>{0} version(s) - installed: {1}</source>
+        <translation>{0} Version(en) - installiert: {1}</translation>
+    </message>
+    <message>
+        <source>unknown</source>
+        <translation>unbekannt</translation>
+    </message>
+    <message>
+        <source>installed</source>
+        <translation>installiert</translation>
+    </message>
+    <message>
+        <source>{0} downloads</source>
+        <translation>{0} Downloads</translation>
+    </message>
+    <message>
+        <source>Reinstall</source>
+        <translation>Neuinstallieren</translation>
+    </message>
+    <message>
+        <source>Install</source>
+        <translation>Installieren</translation>
+    </message>
+</context>
+<context>
     <name>UpdateOverlay</name>
     <message>
         <source>Update Collection</source>
@@ -12724,8 +14600,8 @@ oder wählen Sie die Datei manuell über „Durchsuchen“ aus.</translation>
         <translation>?</translation>
     </message>
     <message>
-        <source>Profile '{0}' — {1} → {2}</source>
-        <translation>Profil „{0}“ — {1} → {2}</translation>
+        <source>Profile '{0}' - {1} → {2}</source>
+        <translation>Profil '{0}' - {1} → {2}</translation>
     </message>
     <message>
         <source>{0} to remove · {1} to update · {2} to add · {3} orphan(s)</source>
@@ -12877,10 +14753,10 @@ Neueste Version:  {1}</translation>
     <message>
         <source>Could not reach the wiki.
 
-Check your connection and press Refresh — pages you have already opened stay readable offline.</source>
+Check your connection and press Refresh - pages you have already opened stay readable offline.</source>
         <translation>Ich konnte das Wiki nicht erreichen.
 
-Überprüfen Sie Ihre Verbindung und drücken Sie auf Aktualisieren - Seiten, die Sie bereits geöffnet haben, bleiben offline lesbar.</translation>
+Überprüfen Sie Ihre Verbindung und drücken Sie Refresh - Seiten, die Sie bereits geöffnet haben, bleiben offline lesbar.</translation>
     </message>
     <message>
         <source>Other pages</source>
@@ -12895,7 +14771,7 @@ Press Refresh to try again.</source>
 Drücken Sie Refresh, um es erneut zu versuchen.</translation>
     </message>
     <message>
-        <source>No change yet — GitHub caches wiki pages for up to 5 minutes.</source>
+        <source>No change yet - GitHub caches wiki pages for up to 5 minutes.</source>
         <translation>Noch keine Änderung - GitHub Caches Wikiseiten für bis zu 5 Minuten.</translation>
     </message>
     <message>
@@ -12944,6 +14820,18 @@ Drücken Sie Refresh, um es erneut zu versuchen.</translation>
     <message>
         <source>Done</source>
         <translation>Fertig</translation>
+    </message>
+    <message>
+        <source>Downloading {0} from Nexus… {1}%</source>
+        <translation>{0} von Nexus herunterladen... {1}%</translation>
+    </message>
+    <message>
+        <source>Premium account - downloading {0} from Nexus…</source>
+        <translation>Premium Account - {0} von Nexus herunterladen..</translation>
+    </message>
+    <message>
+        <source>The archive is picked up automatically once the download finishes.</source>
+        <translation>Das Archiv wird automatisch abgeholt, sobald der Download abgeschlossen ist.</translation>
     </message>
     <message>
         <source>Open Download Page</source>
@@ -13032,12 +14920,12 @@ Reopen this wizard.</source>
         <translation>Bereitstellung abgeschlossen.</translation>
     </message>
     <message>
-        <source>Deploy failed — see log.</source>
-        <translation>Die Bereitstellung ist fehlgeschlagen – siehe Protokoll.</translation>
+        <source>Deploy failed - see log.</source>
+        <translation>Deploy failed - siehe Protokoll.</translation>
     </message>
     <message>
-        <source>Could not start deploy — see log.</source>
-        <translation>Die Bereitstellung konnte nicht gestartet werden – siehe Protokoll.</translation>
+        <source>Could not start deploy - see log.</source>
+        <translation>Konnte die Bereitstellung nicht starten - siehe Protokoll.</translation>
     </message>
     <message>
         <source>Restore is unavailable here.</source>
@@ -13048,12 +14936,12 @@ Reopen this wizard.</source>
         <translation>Modlist wiederherstellen..</translation>
     </message>
     <message>
-        <source>Restore failed — see log.</source>
-        <translation>Wiederherstellung fehlgeschlagen – siehe Protokoll.</translation>
+        <source>Restore failed - see log.</source>
+        <translation>Wiederherstellen fehlgeschlagen - siehe Protokoll.</translation>
     </message>
     <message>
-        <source>Could not start restore — see log.</source>
-        <translation>Konnte die Wiederherstellung nicht starten — siehe Protokoll.</translation>
+        <source>Could not start restore - see log.</source>
+        <translation>Konnte die Wiederherstellung nicht starten - siehe Protokoll.</translation>
     </message>
     <message>
         <source>Skip</source>
@@ -13067,8 +14955,8 @@ Reopen this wizard.</source>
 <context>
     <name>WryeBashView</name>
     <message>
-        <source>Run Wrye Bash — {0}</source>
-        <translation>Run Wrye Bash — {0}</translation>
+        <source>Run Wrye Bash - {0}</source>
+        <translation>Run Wrye Bash - {0}</translation>
     </message>
     <message>
         <source>Step 1: Download Wrye Bash</source>
@@ -13109,7 +14997,7 @@ Bitte starten Sie den Assistenten neu, um Wrye Bash neu zu installieren.</transl
         <translation>Wrye Bash wird gestartet…</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' — check that it is installed in Steam.</source>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
         <translation>Konnte Proton '{0}' nicht finden - überprüfen Sie, ob es in Steam installiert ist.</translation>
     </message>
     <message>
@@ -13130,8 +15018,8 @@ Schließen Sie es, wenn Sie fertig sind, und klicken Sie auf Fertig.</translatio
 <context>
     <name>XEditView</name>
     <message>
-        <source>Run {0} — {1}</source>
-        <translation>{0} ausführen — {1}</translation>
+        <source>Run {0} - {1}</source>
+        <translation>{0} ausführen - {1}</translation>
     </message>
     <message>
         <source>✕ Close</source>
@@ -13162,22 +15050,22 @@ Laden Sie das Archiv manuell herunter (verwenden Sie NICHT die Download-Schaltfl
         <translation>Schritt 1: xEdit (Discord-Version) herunterladen</translation>
     </message>
     <message>
-        <source>The latest official xEdit is now released through the xEdit Discord — a single multi-game download that is NOT on Nexus Mods.
+        <source>The latest official xEdit is now released through the xEdit Discord - a single multi-game download that is NOT on Nexus Mods.
 
 To get it:
-  1. Find and join the xEdit Discord server (search for it yourself — we do not link it here as the invite can change).
+  1. Find and join the xEdit Discord server (search for it yourself - we do not link it here as the invite can change).
   2. Download the latest xEdit archive (e.g. "xEdit 4.1.5q.7z") from the #xedit-builds channel.
   3. Leave the archive in your Downloads folder and click Next.
 
 It contains xFOEdit (Fallout), xSFEdit (Starfield) and xTESEdit (Elder Scrolls); the wizard runs the one for this game automatically.</source>
-        <translation>Die neueste offizielle xEdit-Version wurde nun über den xEdit-Discord-Server veröffentlicht – ein einziger Download für mehrere Spiele, der NICHT auf Nexus Mods verfügbar ist.
+        <translation>Der neueste offizielle xEdit wird jetzt über den xEdit Discord veröffentlicht - ein einziger Multi-Game-Download, der NICHT auf Nexus Mods verfügbar ist.
 
-So erhältst du sie:
-  1. Suche den xEdit-Discord-Server und trete ihm bei (suche selbst danach – wir verlinken ihn hier nicht, da sich die Einladung ändern kann).
-  2. Lade das neueste xEdit-Archiv (z. B. „xEdit 4.1.5q.7z“) aus dem Kanal #xedit-builds herunter.
-  3. Lass das Archiv in deinem Download-Ordner und klicke auf „Weiter“.
+Um es zu bekommen:
+1. Finden und treten Sie dem xEdit Discord-Server bei (suchen Sie selbst danach - wir verlinken ihn hier nicht, da sich die Einladung ändern kann).
+2. Laden Sie das neueste xEdit-Archiv (z. B. "xEdit 4.1.5q.7z") aus dem #xedit-Builds-Kanal herunter.
+3. Lassen Sie das Archiv in Ihrem Downloads-Ordner und klicken Sie auf Weiter.
 
-Es enthält xFOEdit (Fallout), xSFEdit (Starfield) und xTESEdit (Elder Scrolls); der Assistent startet automatisch die für das jeweilige Spiel passende Version.</translation>
+Es enthält xFOEdit (Fallout), xSFEdit (Starfield) und xTESEdit (Elder Scrolls); der Zauberer führt das Spiel automatisch aus.</translation>
     </message>
     <message>
         <source>Downloaded: {0}</source>
@@ -13250,8 +15138,8 @@ Check that the archive contains {0}.</source>
         <translation>Überspringen</translation>
     </message>
     <message>
-        <source>Deploy is unavailable here — Skip to continue.</source>
-        <translation>„Deploy“ ist hier nicht verfügbar – Weiter, um fortzufahren.</translation>
+        <source>Deploy is unavailable here - Skip to continue.</source>
+        <translation>Deploy ist hier nicht verfügbar - Skip to continue.</translation>
     </message>
     <message>
         <source>Deploying…</source>
@@ -13262,12 +15150,12 @@ Check that the archive contains {0}.</source>
         <translation>Bereitstellung abgeschlossen.</translation>
     </message>
     <message>
-        <source>Deploy failed — see log.</source>
-        <translation>Die Bereitstellung ist fehlgeschlagen – siehe Protokoll.</translation>
+        <source>Deploy failed - see log.</source>
+        <translation>Deploy failed - siehe Protokoll.</translation>
     </message>
     <message>
-        <source>Could not start deploy — see log.</source>
-        <translation>Die Bereitstellung konnte nicht gestartet werden – siehe Protokoll.</translation>
+        <source>Could not start deploy - see log.</source>
+        <translation>Konnte die Bereitstellung nicht starten - siehe Protokoll.</translation>
     </message>
     <message>
         <source>{0} was not found.
@@ -13292,7 +15180,7 @@ Bitte starten Sie den Assistenten neu und installieren Sie zunächst „{1}“.<
         <translation>QAC Alle</translation>
     </message>
     <message>
-        <source>{0} is running — close it to continue.</source>
+        <source>{0} is running - close it to continue.</source>
         <translation>{0} läuft - schließen Sie es, um fortzufahren.</translation>
     </message>
     <message>
@@ -13326,15 +15214,15 @@ Wenn Sie es schließen, werden Ihre Änderungen automatisch wiederhergestellt.</
         <translation>Reinigung {0} von {1}: {2}..</translation>
     </message>
     <message>
-        <source>QAC All finished — cleaned {0} plugin(s).</source>
-        <translation>QAC Alle fertig — gereinigt {0} Plugin(s).</translation>
+        <source>QAC All finished - cleaned {0} plugin(s).</source>
+        <translation>QAC Alle fertig - gereinigt {0} Plugins.</translation>
     </message>
     <message>
         <source>QAC All error: {0}</source>
         <translation>QAC Alle Fehler: {0}</translation>
     </message>
     <message>
-        <source>{0} is cleaning plugins — please wait.</source>
+        <source>{0} is cleaning plugins - please wait.</source>
         <translation>{0} reinigt Plugins - bitte warten Sie.</translation>
     </message>
     <message>
@@ -13350,7 +15238,7 @@ Wenn Sie es schließen, werden Ihre Änderungen automatisch wiederhergestellt.</
         <translation>{0} wird gestartet…</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' — check that it is installed in Steam.</source>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
         <translation>Konnte Proton '{0}' nicht finden - überprüfen Sie, ob es in Steam installiert ist.</translation>
     </message>
     <message>
@@ -13453,6 +15341,49 @@ Wenn Sie es schließen, werden Ihre Änderungen automatisch wiederhergestellt.</
     </message>
 </context>
 <context>
+    <name>_PolicyOverlay</name>
+    <message>
+        <source>Update policy - {0}</source>
+        <translation>Richtlinien aktualisieren - {0}</translation>
+    </message>
+    <message>
+        <source>What installers download when a newer file exists:</source>
+        <translation>Welche Installateure herunterladen, wenn eine neuere Datei vorhanden ist:</translation>
+    </message>
+    <message>
+        <source>Exact only</source>
+        <translation>Nur genau</translation>
+    </message>
+    <message>
+        <source>Always install this exact file</source>
+        <translation>Installieren Sie immer diese genaue Datei</translation>
+    </message>
+    <message>
+        <source>Prefer exact</source>
+        <translation>Bevorzugen Sie genau</translation>
+    </message>
+    <message>
+        <source>This file while it exists, otherwise the newest</source>
+        <translation>Diese Datei, solange sie existiert, ansonsten die neueste</translation>
+    </message>
+    <message>
+        <source>Latest</source>
+        <translation>Letzte</translation>
+    </message>
+    <message>
+        <source>Always install the newest file</source>
+        <translation>Installieren Sie immer die neueste Datei</translation>
+    </message>
+    <message>
+        <source>{0}   - {1}</source>
+        <translation>{0} — {1}</translation>
+    </message>
+    <message>
+        <source>Apply</source>
+        <translation>Beantragen</translation>
+    </message>
+</context>
+<context>
     <name>_PreviewPane</name>
     <message>
         <source>Preview</source>
@@ -13461,6 +15392,49 @@ Wenn Sie es schließen, werden Ihre Änderungen automatisch wiederhergestellt.</
     <message>
         <source>No preview</source>
         <translation>Keine Vorschau</translation>
+    </message>
+</context>
+<context>
+    <name>_PublishOverlay</name>
+    <message>
+        <source>Publish revision {0}</source>
+        <translation>Veröffentlichen Revision {0}</translation>
+    </message>
+    <message>
+        <source>'{0}' - {1} mod(s).
+
+Publishing makes this revision the one users install. It cannot be un-published, only retracted.</source>
+        <translation>'{0}' - {1} mod(s).
+
+Das Veröffentlichen macht diese Revision zu dem, den Benutzer installieren. Es kann nicht unveröffentlicht, nur zurückgezogen werden.</translation>
+    </message>
+    <message>
+        <source>Listed</source>
+        <translation>Aufgeführt</translation>
+    </message>
+    <message>
+        <source>Public - appears in collection search</source>
+        <translation>Öffentlich - erscheint in der Sammlungssuche</translation>
+    </message>
+    <message>
+        <source>Unlisted</source>
+        <translation>Nicht aufgeführt</translation>
+    </message>
+    <message>
+        <source>Only reachable by direct link</source>
+        <translation>Nur über direkten Link erreichbar</translation>
+    </message>
+    <message>
+        <source>{0}   - {1}</source>
+        <translation>{0} — {1}</translation>
+    </message>
+    <message>
+        <source>Contains adult content</source>
+        <translation>Enthält Inhalte für Erwachsene</translation>
+    </message>
+    <message>
+        <source>Publish</source>
+        <translation>Veröffentlichen</translation>
     </message>
 </context>
 <context>
@@ -13501,8 +15475,8 @@ Wenn Sie es schließen, werden Ihre Änderungen automatisch wiederhergestellt.</
 <context>
     <name>_SourceOverlay</name>
     <message>
-        <source>Source — {0}</source>
-        <translation>Quelle — {0}</translation>
+        <source>Source - {0}</source>
+        <translation>Quelle - {0}</translation>
     </message>
     <message>
         <source>Nexus Mods</source>
@@ -13529,6 +15503,30 @@ Wenn Sie es schließen, werden Ihre Änderungen automatisch wiederhergestellt.</
         <translation>Mod in den Output einbeziehen (z. B. DynDOLOD-Output)</translation>
     </message>
     <message>
+        <source>Thunderstore</source>
+        <translation>Thunderstore</translation>
+    </message>
+    <message>
+        <source>Download package from Thunderstore</source>
+        <translation>Download Paket von Thunderstore</translation>
+    </message>
+    <message>
+        <source>Browse page</source>
+        <translation>Seite durchsuchen</translation>
+    </message>
+    <message>
+        <source>User downloads from a web page (e.g. Patreon)</source>
+        <translation>Downloads von einer Webseite (z.B. Patreon)</translation>
+    </message>
+    <message>
+        <source>Manual</source>
+        <translation>Handbuch</translation>
+    </message>
+    <message>
+        <source>User obtains the file; instructions are shown</source>
+        <translation>Benutzer erhält die Datei; Anweisungen werden angezeigt</translation>
+    </message>
+    <message>
         <source>Ignore</source>
         <translation>Ignorieren</translation>
     </message>
@@ -13537,8 +15535,12 @@ Wenn Sie es schließen, werden Ihre Änderungen automatisch wiederhergestellt.</
         <translation>Schließen Sie diesen Mod vollständig aus dem Export aus</translation>
     </message>
     <message>
-        <source>{0}   — {1}</source>
-        <translation>{0}   — {1}</translation>
+        <source>{0}   - {1}</source>
+        <translation>{0} — {1}</translation>
+    </message>
+    <message>
+        <source>Bundled files are distributed with the collection itself. Only bundle content you have the right to share - generated output (DynDOLOD, Synthesis), config files, or your own work.</source>
+        <translation>Gebündelte Dateien werden mit der Sammlung selbst verteilt. Nur gebündelte Inhalte haben Sie das Recht, generierte Ausgaben (DynDOLOD, Synthesis), Konfigurationsdateien oder Ihre eigene Arbeit zu teilen.</translation>
     </message>
     <message>
         <source>Download URL:</source>
@@ -13549,6 +15551,14 @@ Wenn Sie es schließen, werden Ihre Änderungen automatisch wiederhergestellt.</
         <translation>https://…</translation>
     </message>
     <message>
+        <source>Instructions shown to the user:</source>
+        <translation>Anweisungen für den Benutzer:</translation>
+    </message>
+    <message>
+        <source>e.g. Download the 2K version from the linked page</source>
+        <translation>z.B. die 2K-Version von der verlinkten Seite herunterladen</translation>
+    </message>
+    <message>
         <source>Apply</source>
         <translation>Beantragen</translation>
     </message>
@@ -13556,12 +15566,16 @@ Wenn Sie es schließen, werden Ihre Änderungen automatisch wiederhergestellt.</
 <context>
     <name>_VersionOverlay</name>
     <message>
-        <source>Version — {0}</source>
-        <translation>Version — {0}</translation>
+        <source>Version - {0}</source>
+        <translation>Version - {0}</translation>
     </message>
     <message>
-        <source>Preferred version (file id — version):</source>
-        <translation>Bevorzugte Version (Datei-ID – Version):</translation>
+        <source>Preferred version (file id - version):</source>
+        <translation>Bevorzugte Version (file id - version):</translation>
+    </message>
+    <message>
+        <source>Fetching versions from Nexus…</source>
+        <translation>Versionen von Nexus abrufen..</translation>
     </message>
     <message>
         <source>Select</source>
@@ -13604,10 +15618,6 @@ Wenn Sie es schließen, werden Ihre Änderungen automatisch wiederhergestellt.</
     <message>
         <source>Apply this variable at startup</source>
         <translation>Diese Variable beim Start anwenden</translation>
-    </message>
-    <message>
-        <source>VARIABLE_NAME</source>
-        <translation>VARIABLE NAME</translation>
     </message>
     <message>
         <source>value</source>
