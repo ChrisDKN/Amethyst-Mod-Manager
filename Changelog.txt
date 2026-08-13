@@ -13,6 +13,8 @@
 - Added right click options to files in the saves tab
 - Added a ctrl+s shortcut for saving while in the text editor
 - Added options to hide the Kofi and Endorse buttons on the bottom bar
+- Added advanced search options to the Nexus browser
+- Added an option to the Vramr and Bendr wizards to prefer using the discrete gpu
 ### Changes
 - The move to separator menu can now be searched if the list of separators is long enough
 - Changed the root folder icon and made it more visible with light themes
@@ -20,6 +22,7 @@
 - If a game is installed on multiple launchers, you can now quickly swap between them in the game config
 - Improved how games with multiple Nexus domains are handled to make them easier to add in future
 - Deploying Fallout 3 now detects if 1.7.0.4 is installed and warns that the downgrader should be run first
+- When running redmod mods for Cyberpunk the -modded flag is automatically applied
 ### Bug Fixes
 - Fixed deploy for users who have the non RT versions of Resident Evil games installed
 - Fixed archives not installing that have a unix permission attribute of zero
@@ -30,6 +33,7 @@
 - Fixed scrollbars not being affected by the selected theme
 - Fixed html files used by PrismaUI not deploying
 - Fixed an issue where the onboarding screen could still appear even with configured games added
+- Fixed issues where mods were not detected from the downloads folder on systems in non english languages
 
 ---
 
