@@ -4,15 +4,17 @@ modio_update_checker.py  (Baldur's Gate 3)
 Check installed mod.io mods for available updates.
 
 Workflow:
-  1. For each staging folder, read its mod.io meta.ini keys.  Folders with no
+  1. For each staging folder, read its ``[modio]`` metadata. Folders with no
      mod.io id yet (e.g. installed before a key was entered) are resolved on
      demand from the pak's PublishHandle via ``modio_meta.resolve_modio_meta``.
-  2. Compare the stored ``modioFileId`` against the newest released file's id.
-  3. ``modioLatestFileId`` / ``modioLatestVersion`` are refreshed in meta.ini
+  2. Compare the stored ``fileId`` against the newest released file's id,
+     or compare the pak's embedded version when the installed file is absent
+     from mod.io's response.
+  3. ``latestFileId`` / ``latestVersion`` are refreshed in ``[modio]``
      and updated mods are returned to the caller.
 
-Update detection is a straight file-id comparison.  A mod whose installed
-file id was never identified (``modioFileId == 0``) is reported as "unknown".
+When neither an installed file id nor a parseable embedded version is
+available, the mod is reported as "unknown".
 
 Loaded by file path (BG3 folder has spaces), so it imports only from
 ``Utils.*`` and loads its siblings via :func:`_load_sibling`.
@@ -21,6 +23,7 @@ Loaded by file path (BG3 folder has spaces), so it imports only from
 from __future__ import annotations
 
 import importlib.util
+import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -55,14 +58,31 @@ class ModioUpdateInfo:
     latest_file_id: int = 0
     latest_version: str = ""
     has_update: bool = False
-    # True when we never identified the installed file (file_id == 0), so the
-    # update state is genuinely unknown rather than up-to-date.
+    # True when neither the installed file nor its version can be compared.
     unknown: bool = False
+
+
+def _numeric_version(value: str) -> Optional[tuple[int, ...]]:
+    parts = tuple(int(part) for part in re.findall(r"\d+", value or ""))
+    return parts or None
+
+
+def _version_is_newer(latest: str, installed: str) -> Optional[bool]:
+    """Compare dotted numeric versions, returning None when unparseable."""
+    latest_parts = _numeric_version(latest)
+    installed_parts = _numeric_version(installed)
+    if latest_parts is None or installed_parts is None:
+        return None
+    width = max(len(latest_parts), len(installed_parts))
+    latest_parts += (0,) * (width - len(latest_parts))
+    installed_parts += (0,) * (width - len(installed_parts))
+    return latest_parts > installed_parts
 
 
 def check_for_updates(
     staging_root: Path,
     api_key: str,
+    api_path: str,
     progress_cb: Optional[ProgressCallback] = None,
     only_names: Optional[set[str]] = None,
 ) -> list[ModioUpdateInfo]:
@@ -83,7 +103,7 @@ def check_for_updates(
     modio_meta = _load_sibling("modio_meta")
     modio_api = _load_sibling("modio_api")
     try:
-        api = modio_api.ModioAPI(api_key)
+        api = modio_api.ModioAPI(api_key, api_path)
     except Exception as e:
         _log(f"mod.io: cannot init API - {e}")
         return results
@@ -98,27 +118,38 @@ def check_for_updates(
         meta_path = folder / "meta.ini"
         meta = (modio_meta.read_modio_meta(meta_path)
                 if meta_path.is_file() else modio_meta.ModioMeta())
+        metadata_changed = meta.legacy_storage
 
+        publish_metadata = None
+        if meta.mod_id <= 0 or not meta.version:
+            publish_metadata = modio_meta.read_publish_metadata_from_staging(folder)
+            mod_id, _name, embedded_version, _pak = publish_metadata
         if meta.mod_id <= 0:
-            mod_id, _name, _pak = modio_meta.read_publish_handle_from_staging(folder)
             if mod_id <= 0:
                 continue  # not a mod.io pak
             _log(f"mod.io: resolving '{folder.name}' (mod {mod_id})...")
             try:
                 resolved = modio_meta.resolve_modio_meta(
-                    archive_path=(_pak if _pak is not None else folder),
-                    staging_dir=folder, api_key=api_key, log_fn=_log,
+                    archive_path=None, staging_dir=folder, api_key=api_key,
+                    api_path=api_path, log_fn=_log,
+                    publish_metadata=publish_metadata, api=api,
                 )
             except Exception as e:
                 _log(f"mod.io: resolve failed for '{folder.name}' - {e}")
                 continue
             if resolved is None or resolved.mod_id <= 0:
                 continue
+            meta = resolved
+            metadata_changed = True
+        elif not meta.version and embedded_version and mod_id == meta.mod_id:
+            meta.version = embedded_version
+            metadata_changed = True
+
+        if metadata_changed:
             try:
-                modio_meta.write_modio_meta(meta_path, resolved)
+                modio_meta.write_modio_meta(meta_path, meta)
             except OSError as e:
                 app_log(f"mod.io: could not write meta.ini for '{folder.name}': {e}")
-            meta = resolved
         targets.append((folder, meta_path, meta))
 
     if not targets:
@@ -143,19 +174,27 @@ def check_for_updates(
             installed_file_id=meta.file_id, installed_version=meta.version,
             latest_file_id=s.latest_file_id, latest_version=s.latest_version,
         )
-        if meta.file_id <= 0:
-            info.unknown = True
+        if meta.file_id > 0:
+            info.has_update = s.latest_file_id != meta.file_id
+        else:
+            version_update = _version_is_newer(s.latest_version, meta.version)
+            if version_update is None:
+                info.unknown = True
+            else:
+                info.has_update = version_update
+        if info.has_update or info.unknown:
             results.append(info)
-        elif s.latest_file_id != meta.file_id:
-            info.has_update = True
-            results.append(info)
+
+        previous_has_update = meta.has_update
+        meta.has_update = info.has_update
 
         # Persist refreshed latest-file fields + backfill the page URL (the
         # batch already fetched it, so this is free).
         url = meta.profile_url or s.profile_url
         if (meta.latest_file_id != s.latest_file_id
                 or meta.latest_version != s.latest_version
-                or meta.profile_url != url):
+                or meta.profile_url != url
+                or previous_has_update != meta.has_update):
             meta.latest_file_id = s.latest_file_id
             meta.latest_version = s.latest_version
             meta.profile_url = url

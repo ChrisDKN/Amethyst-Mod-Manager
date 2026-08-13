@@ -58,11 +58,23 @@ def _load_bg3_modio(stem: str):
 
 
 def _modio_key_present(game) -> bool:
-    """True if this is BG3 and a mod.io API key is configured."""
+    """True if this is BG3 and complete mod.io credentials are configured."""
     try:
         if getattr(game, "game_id", "") != "baldurs_gate_3":
             return False
-        return bool(_load_bg3_modio("modio_key").load_modio_key())
+        key, api_path = _load_bg3_modio("modio_key").load_modio_credentials()
+        return bool(key and api_path)
+    except Exception:
+        return False
+
+
+def _modio_api_path_missing(game) -> bool:
+    """True for a migrated BG3 setup that has a key but no API path."""
+    try:
+        if getattr(game, "game_id", "") != "baldurs_gate_3":
+            return False
+        key, api_path = _load_bg3_modio("modio_key").load_modio_credentials()
+        return bool(key and not api_path)
     except Exception:
         return False
 
@@ -75,12 +87,15 @@ def _check_modio_updates(game, staging, log_fn, only_names=None):
     try:
         if getattr(game, "game_id", "") != "baldurs_gate_3":
             return []
-        api_key = _load_bg3_modio("modio_key").load_modio_key()
-        if not api_key:
+        api_key, api_path = _load_bg3_modio("modio_key").load_modio_credentials()
+        if not api_key or not api_path:
+            if api_key:
+                log_fn("mod.io: API path missing - open the mod.io API Key tool.")
             return []
         checker = _load_bg3_modio("modio_update_checker")
         return checker.check_for_updates(
-            Path(staging), api_key, progress_cb=log_fn, only_names=only_names)
+            Path(staging), api_key, api_path, progress_cb=log_fn,
+            only_names=only_names)
     except Exception as e:
         log_fn(f"mod.io: update check failed - {e}")
         return []
@@ -6365,6 +6380,7 @@ class MainWindow(QMainWindow):
         api = self._ensure_nexus_api() if domain else None
         have_nexus = domain and api is not None
         have_modio = _modio_key_present(game)
+        modio_api_path_missing = _modio_api_path_missing(game)
         # Thunderstore needs no key or login at all - a profile of purely
         # Thunderstore mods must still be checkable.
         have_thunderstore = False
@@ -6378,7 +6394,11 @@ class MainWindow(QMainWindow):
         # mod.io (BG3) and Thunderstore can run without a Nexus login. Only bail
         # for "needs Nexus login" when there is nothing else to fall back on.
         if not have_nexus and not have_modio and not have_thunderstore:
-            if getattr(game, "game_id", "") == "baldurs_gate_3":
+            if modio_api_path_missing:
+                self._notify(
+                    self.tr("Add the API path shown on mod.io's API Access page "
+                            "using the mod.io API Key tool."), "warning")
+            elif getattr(game, "game_id", "") == "baldurs_gate_3":
                 self._notify(
                     self.tr("Log in to Nexus (Nexus ▸ Login) or set a mod.io API key "
                     "(mod.io API Key tool) to check for updates."), "warning")
@@ -6389,6 +6409,11 @@ class MainWindow(QMainWindow):
                     self.tr("Log in first: Nexus ▸ Login to Nexus ▸ Login via SSO."),
                     "warning")
             return
+
+        if modio_api_path_missing:
+            self._notify(
+                self.tr("mod.io update checking is disabled until its API path "
+                        "is added in the mod.io API Key tool."), "warning")
 
         staging = self._gs.staging_dir()
         if staging is None:

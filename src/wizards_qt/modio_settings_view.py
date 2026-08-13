@@ -1,7 +1,7 @@
-"""mod.io API key wizard (Baldur's Gate 3) - Qt port of wizards/modio_settings.py.
+"""mod.io API access wizard (Baldur's Gate 3).
 
-Paste the free read-only mod.io API key, test it against the API and store
-it (system keyring / encrypted file).  The mod.io logic lives in the BG3
+Paste the assigned API path and free read-only key, test them and store them
+(system keyring / encrypted file). The mod.io logic lives in the BG3
 game folder (Games/Baldur's Gate 3/modio_*.py); that folder isn't
 importable by dotted path (space in the name), so modules load by file path.
 """
@@ -44,9 +44,9 @@ def _load_bg3_modio(stem: str):
 
 
 class ModioSettingsView(WizardViewBase):
-    """Enter, test and store the mod.io API key."""
+    """Enter, test and store the mod.io API path and key."""
 
-    _save_done_sig = Signal(str, bool, str)   # (key, ok, err)
+    _save_done_sig = Signal(str, str, bool, str)  # (key, API path, ok, err)
 
     def __init__(self, game: "BaseGame", log_fn=None, on_close=None, ctx=None,
                  **_extra):
@@ -60,9 +60,10 @@ class ModioSettingsView(WizardViewBase):
     def _build_page(self) -> QWidget:
         page, lay = self._step_page(self.tr("mod.io API Key"))
         self._make_note(lay, (
-            self.tr("Paste your mod.io read-only API key to enable update checks\n"
+            self.tr("Paste your mod.io API path and read-only API key to enable update checks\n"
             "for Baldur's Gate 3 mods installed manually from mod.io.\n\n"
-            "The key is read-only and stored securely (system keyring,\n"
+            "Both values are shown on the linked API Access page. The key is\n"
+            "read-only and stored securely (system keyring,\n"
             "or an encrypted file when no keyring is available).")))
 
         link = QPushButton(self.tr("Get my API key (mod.io)"))
@@ -70,15 +71,23 @@ class ModioSettingsView(WizardViewBase):
         link.clicked.connect(lambda: self._open_url(_KEY_URL))
         lay.addWidget(link, 0, Qt.AlignHCenter)
 
+        self._api_path_entry = QLineEdit()
+        self._api_path_entry.setPlaceholderText(
+            self.tr("API path (for example https://u-123.modapi.io/v1)"))
+        self._api_path_entry.setMinimumWidth(480)
+
         self._entry = QLineEdit()
         self._entry.setPlaceholderText(self.tr("mod.io API key"))
-        self._entry.setMinimumWidth(420)
+        self._entry.setMinimumWidth(480)
         try:
-            existing = self._modio_key.load_modio_key()
+            existing, existing_path = self._modio_key.load_modio_credentials()
         except Exception:
-            existing = ""
+            existing, existing_path = "", ""
+        if existing_path:
+            self._api_path_entry.setText(existing_path)
         if existing:
             self._entry.setText(existing)
+        lay.addWidget(self._api_path_entry, 0, Qt.AlignHCenter)
         lay.addWidget(self._entry, 0, Qt.AlignHCenter)
 
         self._status = self._make_status(lay)
@@ -111,8 +120,9 @@ class ModioSettingsView(WizardViewBase):
         if self._busy:
             return
         key = self._entry.text().strip()
-        if not key:
-            self._set_result(self.tr("Enter a key first."), ok=False)
+        api_path = self._api_path_entry.text().strip()
+        if not key or not api_path:
+            self._set_result(self.tr("Enter the API path and key first."), ok=False)
             return
         self._busy = True
         self._save_btn.setEnabled(False)
@@ -121,16 +131,18 @@ class ModioSettingsView(WizardViewBase):
         def worker():
             ok = False
             err = ""
+            normalized_path = api_path
             try:
                 modio_api = _load_bg3_modio("modio_api")
-                ok = modio_api.ModioAPI(key).test_key()
+                normalized_path = modio_api.normalize_api_path(api_path)
+                ok = modio_api.ModioAPI(key, normalized_path).test_key()
             except Exception as e:
                 err = str(e)
-            safe_emit(self._save_done_sig, key, ok, err)
+            safe_emit(self._save_done_sig, key, normalized_path, ok, err)
 
         threading.Thread(target=worker, daemon=True, name="modio-test").start()
 
-    def _save_done(self, key: str, ok: bool, err: str):
+    def _save_done(self, key: str, api_path: str, ok: bool, err: str):
         self._busy = False
         self._save_btn.setEnabled(True)
         if not ok:
@@ -139,7 +151,7 @@ class ModioSettingsView(WizardViewBase):
             self._set_result(msg, ok=False)
             return
         try:
-            self._modio_key.save_modio_key(key)
+            self._modio_key.save_modio_credentials(key, api_path)
             self._set_result(
                 self.tr("Key saved. mod.io update checks are now enabled."),
                 ok=True)
@@ -150,6 +162,7 @@ class ModioSettingsView(WizardViewBase):
     def _on_clear(self):
         try:
             self._modio_key.clear_modio_key()
+            self._api_path_entry.clear()
             self._entry.clear()
             self._set_result(self.tr("Key cleared."))
             self._log("mod.io: API key cleared.")

@@ -8,18 +8,19 @@ Requests route through ``resolve_ca_bundle()`` with a small session cache.
 
 from __future__ import annotations
 
+import re
 import time
 from dataclasses import dataclass
+from urllib.parse import urlparse
 
 import requests
 
 from Utils.app_log import app_log
 from Utils.ca_bundle import resolve_ca_bundle
 
-# mod.io's BG3 game is addressable by name-id ("@baldursgate3") so we never
-# need to resolve the numeric game id (6715) ourselves.
-_API_ROOT = "https://api.mod.io/v1"
-_GAME = "@baldursgate3"
+_GAME = 6715
+_MAX_INLINE_RETRY_DELAY = 10.0
+_LEGACY_API_ROOT = "https://api.mod.io/v1"
 
 # Cache mod_id -> (timestamp, list[ModioFile]) for the session.
 _FILES_CACHE: dict[int, tuple[float, "list[ModioFile]"]] = {}
@@ -81,42 +82,121 @@ class ModioAPIError(Exception):
     """Raised on a failed mod.io API request (network or HTTP error)."""
 
 
+def normalize_api_path(api_path: str) -> str:
+    """Validate and normalize the per-user/per-game mod.io API path."""
+    value = (api_path or "").strip().rstrip("/")
+    try:
+        parsed = urlparse(value)
+        host = (parsed.hostname or "").lower()
+        port = parsed.port
+    except ValueError:
+        parsed, host, port = None, "", None
+    if (parsed is None or parsed.scheme != "https"
+            or parsed.username or parsed.password or port is not None
+            or re.fullmatch(r"[ug]-\d+\.modapi\.io", host) is None
+            or parsed.path.rstrip("/") != "/v1"
+            or parsed.params or parsed.query or parsed.fragment):
+        raise ValueError(
+            "Enter the API path shown on mod.io's API Access page "
+            "(for example https://u-123.modapi.io/v1)"
+        )
+    return f"https://{host}/v1"
+
+
 class ModioAPI:
     """Read-only mod.io client.  Requires a public read-only API key."""
 
-    def __init__(self, api_key: str, timeout: float = 30.0):
+    def __init__(self, api_key: str, api_path: str, timeout: float = 30.0):
         if not api_key:
             raise ValueError("mod.io API key is required")
         self._api_key = api_key.strip()
+        self._api_root = normalize_api_path(api_path)
+        self._use_legacy_read_api = False
         self._timeout = timeout
         self._session = requests.Session()
         self._session.verify = resolve_ca_bundle() or True
         self._session.headers.update({
             "Accept": "application/json",
             "User-Agent": "AmethystModManager",
+            # BG3 enables per-platform moderation. Amethyst manages the Windows
+            # game build (including through Proton), so request its live files.
+            "X-Modio-Platform": "windows",
         })
 
-    def _get(self, url: str, params: dict, *, retries: int = 3):
-        """GET with retry on 429 (honouring ``retry-after``) and transient 403.
+    @staticmethod
+    def _error_message(resp, fallback: str = "mod.io request failed") -> str:
+        """Return mod.io's structured error message without discarding its ref."""
+        message = ""
+        error_ref = 0
+        try:
+            error = (resp.json() or {}).get("error") or {}
+            message = str(error.get("message") or "").strip()
+            error_ref = int(error.get("error_ref") or 0)
+        except (AttributeError, TypeError, ValueError):
+            pass
+        if not message:
+            message = fallback
+        suffix = f"HTTP {resp.status_code}"
+        if error_ref:
+            suffix += f", error_ref {error_ref}"
+        return f"{message} ({suffix})"
 
-        Under bulk checking mod.io occasionally throttles with 429 or returns a
-        spurious 403; both clear on retry, so we back off rather than fail the
-        mod.  Returns the final ``requests.Response`` (caller checks status).
+    def _get(self, url: str, params: dict, *, retries: int = 3):
+        """GET with bounded retry for HTTP 429 rate limits.
+
+        A 403 is a permanent permission failure according to mod.io and returns
+        immediately. Long or rolling rate limits also return immediately so an
+        interactive update check does not block for up to a minute. Returns the
+        final ``requests.Response``; the caller reports unsuccessful statuses.
         """
         delay = 1.0
         for attempt in range(retries + 1):
             resp = self._session.get(url, params=params, timeout=self._timeout)
-            if resp.status_code in (429, 403) and attempt < retries:
+            if resp.status_code != 429 or attempt >= retries:
+                return resp
+
+            retry_after = resp.headers.get("retry-after")
+            if retry_after is None:
                 wait = delay
-                if resp.status_code == 429:
-                    try:
-                        wait = max(wait, float(resp.headers.get("retry-after", 0)))
-                    except (TypeError, ValueError):
-                        pass
-                time.sleep(min(wait, 10.0))
-                delay *= 2
-                continue
+            else:
+                try:
+                    wait = float(retry_after)
+                except (TypeError, ValueError):
+                    wait = delay
+
+            # retry-after=0 is a rolling rate limit for which mod.io recommends
+            # waiting 60 seconds. Leave that retry to the user instead of
+            # freezing the current update check. The same applies to long waits.
+            if wait <= 0 or wait > _MAX_INLINE_RETRY_DELAY:
+                return resp
+            time.sleep(wait)
+            delay *= 2
+
+        return resp
+
+    def _get_api(self, path: str, params: dict):
+        """GET an API path, falling back for incompatible user API hosts.
+
+        Some personal ``u-*.modapi.io`` paths accept the key and game lookup
+        but return 403 for BG3's read-only mod/file endpoints. The legacy host
+        still serves those endpoints. Probe it once after such a 403 and, only
+        when that probe succeeds, retain it for the rest of this short-lived
+        client session. No 403 is retried against the same endpoint.
+        """
+        path = "/" + path.lstrip("/")
+        if self._use_legacy_read_api:
+            return self._get(f"{_LEGACY_API_ROOT}{path}", params)
+
+        resp = self._get(f"{self._api_root}{path}", params)
+        if resp.status_code != 403:
             return resp
+
+        legacy = self._get(f"{_LEGACY_API_ROOT}{path}", params)
+        if legacy.status_code == 200:
+            self._use_legacy_read_api = True
+            app_log("mod.io: assigned API path denied BG3 reads; using compatibility endpoint.")
+            return legacy
+        return resp
 
     def get_mod_files(self, mod_id: int, *, use_cache: bool = True) -> "list[ModioFile]":
         """Return all released files for *mod_id*, newest first.
@@ -131,23 +211,27 @@ class ModioAPI:
             if cached and (time.time() - cached[0]) < _CACHE_TTL:
                 return cached[1]
 
-        url = f"{_API_ROOT}/games/{_GAME}/mods/{mod_id}/files"
+        path = f"/games/{_GAME}/mods/{mod_id}/files"
         params = {
             "api_key": self._api_key,
             "_sort": "-date_added",
             "_limit": 100,
         }
         try:
-            resp = self._get(url, params)
+            resp = self._get_api(path, params)
         except requests.RequestException as e:
             raise ModioAPIError(f"network error: {e}") from e
 
         if resp.status_code == 401:
-            raise ModioAPIError("invalid or missing mod.io API key (HTTP 401)")
-        if resp.status_code in (403, 404):
-            raise ModioAPIError(f"mod {mod_id} not found on mod.io (HTTP {resp.status_code})")
+            raise ModioAPIError(self._error_message(
+                resp, "invalid or missing mod.io API key"))
+        if resp.status_code == 403:
+            raise ModioAPIError(self._error_message(resp, "access forbidden by mod.io"))
+        if resp.status_code == 404:
+            raise ModioAPIError(self._error_message(
+                resp, f"mod {mod_id} not found on mod.io"))
         if resp.status_code != 200:
-            raise ModioAPIError(f"HTTP {resp.status_code}: {resp.text[:200]}")
+            raise ModioAPIError(self._error_message(resp))
 
         try:
             data = resp.json().get("data", [])
@@ -171,20 +255,21 @@ class ModioAPI:
         out: dict[int, ModioModSummary] = {}
         for start in range(0, len(ids), 100):
             chunk = ids[start:start + 100]
-            url = f"{_API_ROOT}/games/{_GAME}/mods"
+            path = f"/games/{_GAME}/mods"
             params = {
                 "api_key": self._api_key,
                 "id-in": ",".join(str(i) for i in chunk),
                 "_limit": 100,
             }
             try:
-                resp = self._get(url, params)
+                resp = self._get_api(path, params)
             except requests.RequestException as e:
                 raise ModioAPIError(f"network error: {e}") from e
             if resp.status_code == 401:
-                raise ModioAPIError("invalid or missing mod.io API key (HTTP 401)")
+                raise ModioAPIError(self._error_message(
+                    resp, "invalid or missing mod.io API key"))
             if resp.status_code != 200:
-                raise ModioAPIError(f"HTTP {resp.status_code}: {resp.text[:200]}")
+                raise ModioAPIError(self._error_message(resp))
             try:
                 data = resp.json().get("data", [])
             except ValueError as e:
@@ -204,9 +289,9 @@ class ModioAPI:
         """
         if mod_id <= 0:
             return ""
-        url = f"{_API_ROOT}/games/{_GAME}/mods/{mod_id}"
+        path = f"/games/{_GAME}/mods/{mod_id}"
         try:
-            resp = self._get(url, {"api_key": self._api_key})
+            resp = self._get_api(path, {"api_key": self._api_key})
             if resp.status_code != 200:
                 return ""
             return str(resp.json().get("profile_url") or "")
@@ -219,7 +304,7 @@ class ModioAPI:
 
         Returns True if the key is accepted, False otherwise.  Never raises.
         """
-        url = f"{_API_ROOT}/games/{_GAME}"
+        url = f"{self._api_root}/games/{_GAME}"
         try:
             resp = self._session.get(url, params={"api_key": self._api_key},
                                      timeout=self._timeout)

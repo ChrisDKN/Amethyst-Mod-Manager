@@ -738,7 +738,10 @@ def _modio_url(view, name: str) -> str:
         import configparser
         cp = configparser.ConfigParser(interpolation=None)
         cp.read(str(meta_path), encoding="utf-8")
-        return (cp.get("General", "modioProfileUrl", fallback="") or "").strip()
+        if cp.has_option("modio", "profileUrl"):
+            return (cp.get("modio", "profileUrl", fallback="") or "").strip()
+        return (cp.get(
+            "General", "modioProfileUrl", fallback="") or "").strip()
     except Exception:
         return ""
 

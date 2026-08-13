@@ -24,7 +24,7 @@ FLAG_COLLECTION_PATCHED = 1 << 6  # meta.from_collection_patched (diff-patched b
 FLAG_NOTE = 1 << 7         # a saved per-profile user note (read_mod_notes)
 FLAG_XEDIT = 1 << 8        # meta.xedit_modified_plugins non-empty (xEdit-edited plugins)
 FLAG_BUNDLE = 1 << 9       # RE/Fluffy bundle (a [Bundle] section in meta.ini)
-FLAG_MODIO_UPDATE = 1 << 10  # BG3 mod.io update (modioFileId != modioLatestFileId)
+FLAG_MODIO_UPDATE = 1 << 10  # BG3 mod.io update (file id or embedded version)
 FLAG_PRERTX = 1 << 11      # contains pre-RTX (natives/x64) files - filemap-derived
 FLAG_ROOT_RULE = 1 << 12   # owns files with a custom root-routing rule - filemap-derived
 FLAG_RERUN_FOMOD = 1 << 13  # a FOMOD option's fileDependency plugin is now in the load order - live overlay
@@ -222,15 +222,27 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
                 bits |= FLAG_BUNDLE
         except Exception:
             pass
-        # BG3 mod.io update (installed file id differs from the latest).
+        # BG3 mod.io update (file-id or embedded-version comparison).
         if is_bg3:
             try:
                 import configparser as _cp_modio
                 cp = _cp_modio.ConfigParser(interpolation=None)
                 cp.read(str(meta_path), encoding="utf-8")
-                _fid = int(cp.get("General", "modioFileId", fallback="0") or "0")
-                _lfid = int(cp.get("General", "modioLatestFileId", fallback="0") or "0")
-                if _lfid and _fid and _lfid != _fid:
+
+                def _modio_value(key, legacy_key, fallback):
+                    if cp.has_option("modio", key):
+                        return cp.get("modio", key, fallback=fallback)
+                    return cp.get(
+                        "General", legacy_key, fallback=fallback)
+
+                _fid = int(_modio_value(
+                    "fileId", "modioFileId", "0") or "0")
+                _lfid = int(_modio_value(
+                    "latestFileId", "modioLatestFileId", "0") or "0")
+                _has_update = _modio_value(
+                    "hasUpdate", "modioHasUpdate", "false"
+                ).strip().lower() in ("true", "1", "yes")
+                if _has_update or (_lfid and _fid and _lfid != _fid):
                     bits |= FLAG_MODIO_UPDATE
                     updates.add(e.name)
             except Exception:

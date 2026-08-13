@@ -1,8 +1,8 @@
 """
 modio_key.py  (Baldur's Gate 3)
 
-Secure storage for the user's read-only mod.io API key.  Mirrors the Nexus
-key (``Nexus/nexus_api.py``): system keyring under the shared
+Secure storage for the user's read-only mod.io API key and assigned API path.
+Mirrors the Nexus key (``Nexus/nexus_api.py``): system keyring under the shared
 ``AmethystModManager`` service, with a machine-bound Fernet-encrypted
 ``modio_api_key.bin`` fallback when no keyring backend is available.
 """
@@ -56,28 +56,30 @@ def _derive_key() -> bytes:
     return base64.urlsafe_b64encode(dk)
 
 
-def _load_key_file() -> str:
+def _load_credentials_file() -> tuple[str, str]:
     p = _api_key_file_path()
     try:
         if not p.is_file():
-            return ""
+            return "", ""
         from cryptography.fernet import Fernet
         import json as _json
         cipher = Fernet(_derive_key())
         data = _json.loads(cipher.decrypt(p.read_bytes()))
-        return data.get("api_key", "").strip()
+        return (str(data.get("api_key", "")).strip(),
+                str(data.get("api_path", "")).strip())
     except Exception:
-        return ""
+        return "", ""
 
 
-def _save_key_file(key: str) -> None:
+def _save_credentials_file(key: str, api_path: str) -> None:
     from cryptography.fernet import Fernet
     import json as _json
     import os as _os
     p = _api_key_file_path()
     p.parent.mkdir(parents=True, exist_ok=True)
     cipher = Fernet(_derive_key())
-    p.write_bytes(cipher.encrypt(_json.dumps({"api_key": key}).encode()))
+    payload = {"api_key": key, "api_path": api_path}
+    p.write_bytes(cipher.encrypt(_json.dumps(payload).encode()))
     _os.chmod(p, 0o600)
 
 
@@ -90,40 +92,71 @@ def _clear_key_file() -> None:
         pass
 
 
-def load_modio_key() -> str:
-    """Return the saved mod.io API key, or "" if none is stored."""
+def load_modio_credentials() -> tuple[str, str]:
+    """Return ``(API key, API path)``; either value may be empty."""
     if not _keyring_ok():
-        return _load_key_file()
+        return _load_credentials_file()
     try:
-        key = keyring.get_password(_KEYRING_SERVICE, _KEYRING_USER)
-        return key.strip() if key else ""
+        stored = keyring.get_password(_KEYRING_SERVICE, _KEYRING_USER)
+        if not stored:
+            return "", ""
+        # Older releases stored the key as a plain string. Treat that as an
+        # incomplete credential so the wizard can preserve it while asking for
+        # the API path once.
+        try:
+            import json as _json
+            data = _json.loads(stored)
+        except (TypeError, ValueError):
+            return stored.strip(), ""
+        if not isinstance(data, dict):
+            return stored.strip(), ""
+        return (str(data.get("api_key", "")).strip(),
+                str(data.get("api_path", "")).strip())
     except UnicodeDecodeError as e:
-        app_log(f"mod.io API key in keyring is corrupted ({e}); clearing.")
+        app_log(f"mod.io credentials in keyring are corrupted ({e}); clearing.")
         try:
             keyring.delete_password(_KEYRING_SERVICE, _KEYRING_USER)
         except Exception:
             pass
-        return ""
+        return "", ""
     except keyring.errors.KeyringError as e:
-        app_log(f"Keyring unavailable for mod.io API key: {e} - using file fallback")
-        return _load_key_file()
+        app_log(f"Keyring unavailable for mod.io credentials: {e} - using file fallback")
+        return _load_credentials_file()
+
+
+def load_modio_key() -> str:
+    """Return the saved mod.io API key, or "" if none is stored."""
+    return load_modio_credentials()[0]
+
+
+def load_modio_api_path() -> str:
+    """Return the saved per-user/per-game mod.io API path, or ""."""
+    return load_modio_credentials()[1]
+
+
+def save_modio_credentials(key: str, api_path: str) -> None:
+    """Persist the mod.io key and API path together."""
+    key = key.strip()
+    api_path = api_path.strip()
+    if not _keyring_ok():
+        _save_credentials_file(key, api_path)
+        return
+    try:
+        import json as _json
+        payload = _json.dumps({"api_key": key, "api_path": api_path})
+        keyring.set_password(_KEYRING_SERVICE, _KEYRING_USER, payload)
+    except keyring.errors.KeyringError as e:
+        app_log(f"Keyring unavailable for saving mod.io credentials: {e} - using file fallback")
+        _save_credentials_file(key, api_path)
 
 
 def save_modio_key(key: str) -> None:
-    """Persist the mod.io API key to the keyring (or encrypted file fallback)."""
-    key = key.strip()
-    if not _keyring_ok():
-        _save_key_file(key)
-        return
-    try:
-        keyring.set_password(_KEYRING_SERVICE, _KEYRING_USER, key)
-    except keyring.errors.KeyringError as e:
-        app_log(f"Keyring unavailable for saving mod.io API key: {e} - using file fallback")
-        _save_key_file(key)
+    """Compatibility helper that preserves the currently saved API path."""
+    save_modio_credentials(key, load_modio_api_path())
 
 
 def clear_modio_key() -> None:
-    """Delete any stored mod.io API key from keyring and file."""
+    """Delete stored mod.io credentials from the keyring and fallback file."""
     _clear_key_file()
     if _keyring_ok():
         try:
@@ -131,4 +164,4 @@ def clear_modio_key() -> None:
         except keyring.errors.PasswordDeleteError:
             pass
         except keyring.errors.KeyringError as e:
-            app_log(f"Keyring unavailable when clearing mod.io API key: {e}")
+            app_log(f"Keyring unavailable when clearing mod.io credentials: {e}")
