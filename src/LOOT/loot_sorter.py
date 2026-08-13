@@ -158,17 +158,38 @@ def _write_branch_cache(cache: dict) -> None:
         pass
 
 
-def _head_ok(url: str, timeout: float = 5.0) -> bool:
-    """True if a HEAD request to url returns 2xx."""
+def _probe_url(url: str, timeout: float = 5.0) -> tuple[bool | None, str]:
+    """Check whether *url* exists without downloading the whole file.
+
+    Returns ``(True, "")`` for a successful response, ``(False, "")`` for a
+    definitive 404, and ``(None, detail)`` for a network or server error.
+
+    A ranged GET is used instead of HEAD because some proxies and content
+    filters reject HEAD even though the subsequent download would work.  Only
+    one byte is read before the response is closed.
+    """
     try:
-        req = urllib.request.Request(url, method="HEAD")
+        req = urllib.request.Request(
+            url,
+            headers={
+                "Range": "bytes=0-0",
+                "User-Agent": "Amethyst-Mod-Manager",
+            },
+            method="GET",
+        )
         from Utils.ca_bundle import get_ssl_context
         with urllib.request.urlopen(req, timeout=timeout, context=get_ssl_context()) as resp:
-            return 200 <= getattr(resp, "status", 200) < 300
+            status = getattr(resp, "status", 200)
+            if 200 <= status < 300:
+                resp.read(1)
+                return True, ""
+            return None, f"HTTP {status}"
     except urllib.error.HTTPError as e:
-        return 200 <= e.code < 300
-    except Exception:
-        return False
+        if e.code == 404:
+            return False, ""
+        return None, f"HTTP {e.code}: {e.reason}"
+    except Exception as exc:
+        return None, str(exc)
 
 
 def _walk_down_branches(start: tuple[int, int]) -> list[tuple[int, int]]:
@@ -203,14 +224,29 @@ def _resolve_branch(
     cache_key = f"{repo}::{filename}"
     cache = _read_branch_cache()
     branches = cache.get("branches") or {}
-    if cache_key in branches:
-        return branches[cache_key]
+    if not isinstance(branches, dict):
+        branches = {}
+
+    # Older versions cached ``None`` after any failed probe, including DNS,
+    # TLS and timeout errors.  Ignore those poisoned negative entries so an
+    # existing install recovers automatically once connectivity returns.
+    cached_branch = branches.get(cache_key)
+    if isinstance(cached_branch, str) and cached_branch:
+        return cached_branch
+    branches.pop(cache_key, None)
 
     target = _libloot_branch_target()
     for major, minor in _walk_down_branches(target):
         branch = _branch_label(major, minor)
         url = _build_masterlist_url(repo, branch, filename)
-        if _head_ok(url):
+        exists, error = _probe_url(url)
+        if exists is None:
+            _log(
+                f"loot/{repo}: could not check {branch}: {error}. "
+                "Branch discovery will be retried next time."
+            )
+            return None
+        if exists:
             branches[cache_key] = branch
             cache["branches"] = branches
             _write_branch_cache(cache)
@@ -221,10 +257,10 @@ def _resolve_branch(
                 )
             return branch
 
-    # Nothing found. Cache the negative result so we don't probe every launch.
-    branches[cache_key] = None
-    cache["branches"] = branches
-    _write_branch_cache(cache)
+    # Do not negatively cache this result.  Apart from allowing newly-created
+    # upstream branches to be discovered, this ensures an ambiguous transport
+    # failure can never permanently disable LOOT for the current libloot
+    # version.
     _log(f"loot/{repo}: no compatible masterlist branch found.")
     return None
 
