@@ -48,10 +48,16 @@ GRAPHQL_BASE = "https://api.nexusmods.com/v2/graphql"
 # ModsFilter schema, but GRAPHQL_BASE silently no-ops the `tag` filter (parses
 # fine, matches nothing - confirmed by testing a tag id attached to a mod that
 # GRAPHQL_BASE still refused to return). Used only for the public mods-listing
-# queries (get_top_mods/search_mods*/get_trending_mods_graphql); everything
-# auth-gated (tracked/endorsed, downloads, collections, mutations) stays on
-# GRAPHQL_BASE, which is proven to work with the OAuth session.
+# queries (get_top_mods/search_mods*/get_trending_mods_graphql), and always via
+# _post_search_graphql, which falls back to GRAPHQL_BASE if this host fails;
+# everything auth-gated (tracked/endorsed, downloads, collections, mutations)
+# stays on GRAPHQL_BASE, which is proven to work with the OAuth session.
 GRAPHQL_SEARCH_BASE = "https://api-router.nexusmods.com/graphql"
+# Credential headers are stripped for GRAPHQL_SEARCH_BASE: it is an
+# undocumented host the app has no auth contract with, and the mods-listing
+# queries sent there are public (the site serves them logged-out). No reason to
+# hand a user's APIKEY / OAuth token to an endpoint that doesn't need it.
+_CREDENTIAL_HEADERS = ("APIKEY", "Authorization")
 V3_BASE = "https://api.nexusmods.com/v3"
 APP_NAME = "amethyst"
 APP_VERSION = __version__
@@ -137,20 +143,20 @@ class NexusCategory:
 @dataclass
 class NexusTag:
     """A mod tag (as offered by the site's Tags include/exclude picker)."""
+    # ModsFilter matches tags by name, not id - tag_id is carried because
+    # legacyTags returns it and it's the stable handle if a name-keyed filter
+    # ever proves ambiguous.
     tag_id: int
     name: str
-    adult: bool = False
 
 
 @dataclass
 class NexusSearchFilters:
-    """Advanced ModsFilter fields layered on top of category/domain/query.
-
-    tag_includes/tag_excludes are ANDed together (a mod must carry every
-    included tag and none of the excluded ones) - each tag name becomes its
-    own ModsFilter clause since the schema has no native "one of" list op for
-    mixed EQUALS/NOT_EQUALS conditions on the same field.
-    """
+    """Advanced ModsFilter fields layered on top of category/domain/query."""
+    # tag_includes/tag_excludes are ANDed together (a mod must carry every
+    # included tag and none of the excluded ones) - each tag name becomes its
+    # own ModsFilter clause since the schema has no native "one of" list op for
+    # mixed EQUALS/NOT_EQUALS conditions on the same field.
     tag_includes: tuple[str, ...] = ()
     tag_excludes: tuple[str, ...] = ()
     languages: tuple[str, ...] = ()   # OR'd together - a mod matching ANY selected language
@@ -873,16 +879,22 @@ class NexusAPI:
                       op: str = "GraphQL",
                       retries: int = _MAX_RETRIES,
                       base_url: str = GRAPHQL_BASE) -> requests.Response:
-        """POST to a Nexus GraphQL endpoint (OAuth refresh + 429 retry); returns
-        the raw response. Pass base_url=GRAPHQL_SEARCH_BASE for the public
-        mods-listing queries (see the constant's docstring for why)."""
+        """POST to a Nexus GraphQL endpoint (OAuth refresh + 429 retry)."""
+        # Returns the raw response. Pass base_url=GRAPHQL_SEARCH_BASE for the
+        # public mods-listing queries (see the constant's comment for why).
         self._refresh_oauth_if_needed()
         payload: dict[str, Any] = {"query": query}
         if variables is not None:
             payload["variables"] = variables
+        # The public search host gets no credentials - see _CREDENTIAL_HEADERS.
+        # requests merges None-valued per-request headers as "remove this one",
+        # so this strips them for the single call without touching the session.
+        headers = ({h: None for h in _CREDENTIAL_HEADERS}
+                   if base_url == GRAPHQL_SEARCH_BASE else None)
         for attempt in range(retries):
             try:
                 resp = self._session.post(base_url, json=payload,
+                                          headers=headers,
                                           timeout=self._timeout)
             except requests.ConnectionError as exc:
                 raise NexusAPIError(
@@ -906,6 +918,30 @@ class NexusAPI:
             return resp
 
         raise RateLimitError(base_url)
+
+    def _post_search_graphql(self, query: str, variables: dict | None = None,
+                             op: str = "GraphQL") -> requests.Response:
+        """POST a public mods-listing query, falling back to GRAPHQL_BASE."""
+        # GRAPHQL_SEARCH_BASE is the site's own undocumented router. It is the
+        # only host where the tag/language/size/downloads/endorsements filters
+        # actually work, so it is tried first - but if it ever changes shape or
+        # starts refusing non-browser clients, falling back keeps Browse/Search
+        # /Trending alive (degraded: the advanced filters silently widen, the
+        # results still arrive) instead of blacking out the whole browser.
+        try:
+            resp = self._post_graphql(query, variables, op=op,
+                                      base_url=GRAPHQL_SEARCH_BASE)
+            if resp.ok:
+                return resp
+            reason = f"HTTP {resp.status_code}"
+        except RateLimitError:
+            raise                       # a real 429 - retrying elsewhere won't help
+        except NexusAPIError as exc:
+            reason = str(exc)
+        app_log(f"Nexus {op}: search host failed ({reason}) - retrying on "
+                f"{GRAPHQL_BASE} without advanced filters")
+        return self._post_graphql(query, variables, op=op,
+                                  base_url=GRAPHQL_BASE)
 
     @property
     def rate_limits(self) -> NexusRateLimits:
@@ -1057,16 +1093,17 @@ class NexusAPI:
         return result
 
     def get_game_tags(self, game_domain: str) -> list[NexusTag]:
-        """Return the tags offered for a game's mods (backs the Tags
-        include/exclude picker). Uses GRAPHQL_BASE, and specifically the
-        `legacyTags` query - NOT `tags`, which despite the more obvious name
-        only returns a couple dozen high-level meta tags (ids in the low
-        double digits). `legacyTags` returns the real, full vocabulary mods
-        are actually tagged with (confirmed against live per-mod `tags{}`
-        data: e.g. id 4532 "Version 1.6 Compatible" appears in both; ~140
-        entries for Stardew Valley vs. 23 from `tags`)."""
+        """Return the tags offered for a game's mods."""
+        # Backs the Tags include/exclude picker. Uses GRAPHQL_BASE, and
+        # specifically the `legacyTags` query - NOT `tags`, which despite the
+        # more obvious name only returns a couple dozen high-level meta tags
+        # (ids in the low double digits). `legacyTags` returns the real, full
+        # vocabulary mods are actually tagged with (confirmed against live
+        # per-mod `tags{}` data: e.g. id 4532 "Version 1.6 Compatible" appears
+        # in both; ~140 entries for Stardew Valley vs. 23 from `tags`).
         game_id = self._resolve_game_id(game_domain)
         if not game_id:
+            app_log(f"Nexus tags: no game id for domain '{game_domain}'")
             return []
         query = """
         query GameLegacyTags($gameId: ID) {
@@ -1079,15 +1116,23 @@ class NexusAPI:
         # legacyTags' gameId arg is ID, not Int (unlike tags()/modFiles()) -
         # the server 400s on a bare int variable, so stringify it.
         variables = {"gameId": str(game_id)}
+        # An empty list is indistinguishable from "this game has no tags" in
+        # the UI, so log why it was empty - otherwise a broken query just looks
+        # like dead autocomplete.
         try:
             resp = self._post_graphql(query, variables, op="GraphQL gameTags")
             if not resp.ok:
+                app_log(f"Nexus tags: query failed for '{game_domain}' "
+                        f"→ {resp.status_code}")
                 return []
             data = resp.json()
             if "errors" in data:
+                app_log(f"Nexus tags: GraphQL errors for '{game_domain}': "
+                        f"{data['errors']}")
                 return []
             nodes = data.get("data", {}).get("legacyTags", []) or []
-        except Exception:
+        except Exception as exc:
+            app_log(f"Nexus tags: query for '{game_domain}' raised: {exc}")
             return []
         result: list[NexusTag] = []
         for n in nodes:
@@ -1103,15 +1148,14 @@ class NexusAPI:
 
     @staticmethod
     def _advanced_filter_clauses(extra: "NexusSearchFilters | None") -> list[dict]:
-        """One ModsFilter clause dict per NexusSearchFilters condition.
-
-        Each tag name is its own clause (see NexusSearchFilters docstring for
-        why); size/downloads/endorsements are GTE/LTE on the numeric fields.
-        Multiple languages are OR'd (any match) inside one sub-clause - unlike
-        tags, a flat multi-entry `languageName` list is ANDed by the server
-        (confirmed live: two languages in one list clause matches nothing),
-        so "any of" needs an explicit op:OR the way multi-category does.
-        """
+        """One ModsFilter clause dict per NexusSearchFilters condition."""
+        # Each tag name is its own clause (see NexusSearchFilters for why);
+        # size/downloads/endorsements are GTE/LTE on the numeric fields.
+        # Multiple languages are OR'd (any match) inside one sub-clause -
+        # unlike tags, a flat multi-entry `languageName` list is ANDed by the
+        # server (confirmed live: two languages in one list clause matches
+        # nothing), so "any of" needs an explicit op:OR the way multi-category
+        # does.
         if not extra:
             return []
         clauses: list[dict] = []
@@ -1169,10 +1213,10 @@ class NexusAPI:
         cls, game_domain: str, category_names: list[str] | None = None,
         extra: "NexusSearchFilters | None" = None,
     ) -> dict:
-        """Build a ModsFilter dict: gameDomainName AND category(ies) AND any
-        advanced *extra* conditions. Always returns the {op: AND, filter: […]}
-        shape (even for a single clause) so every caller can unconditionally
-        append more clauses to base_filter["filter"]."""
+        """Build a ModsFilter: domain AND category(ies) AND advanced *extra*."""
+        # Always returns the {op: AND, filter: […]} shape (even for a single
+        # clause) so every caller can unconditionally append more clauses to
+        # base_filter["filter"].
         clauses: list[dict] = [{"gameDomainName": {"value": game_domain}}]
         if category_names:
             if len(category_names) == 1:
@@ -1297,9 +1341,8 @@ class NexusAPI:
             "offset": offset,
         }
         try:
-            resp = self._post_graphql(query, variables,
-                                      op="GraphQL trendingMods",
-                                      base_url=GRAPHQL_SEARCH_BASE)
+            resp = self._post_search_graphql(query, variables,
+                                             op="GraphQL trendingMods")
             if not resp.ok:
                 raise NexusAPIError(
                     f"GraphQL trending query failed: {resp.status_code}",
@@ -2332,8 +2375,8 @@ class NexusAPI:
             "offset": offset,
         }
         try:
-            resp = self._post_graphql(query, variables, op="GraphQL topMods",
-                                      base_url=GRAPHQL_SEARCH_BASE)
+            resp = self._post_search_graphql(query, variables,
+                                             op="GraphQL topMods")
             if not resp.ok:
                 raise NexusAPIError(
                     f"GraphQL top-mods query failed: {resp.status_code}",
@@ -2508,9 +2551,8 @@ class NexusAPI:
             "offset": offset,
         }
         try:
-            resp = self._post_graphql(query, variables,
-                                      op="GraphQL searchMods",
-                                      base_url=GRAPHQL_SEARCH_BASE)
+            resp = self._post_search_graphql(query, variables,
+                                             op="GraphQL searchMods")
             if not resp.ok:
                 raise NexusAPIError(
                     f"GraphQL search query failed: {resp.status_code}",

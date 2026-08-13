@@ -1598,6 +1598,10 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</translati
         <translation>Prepend load-order numbers to mod folders</translation>
     </message>
     <message>
+        <source>Manage load order in DFU</source>
+        <translation>Manage load order in DFU</translation>
+    </message>
+    <message>
         <source>Game Patch Version</source>
         <translation>Game Patch Version</translation>
     </message>
@@ -3977,6 +3981,10 @@ Proton prefix: click 'Install Java into prefix' once, then it runs automatically
         <translation>Nexus</translation>
     </message>
     <message>
+        <source>Thunderstore</source>
+        <translation>Thunderstore</translation>
+    </message>
+    <message>
         <source>Direct</source>
         <translation>Direct</translation>
     </message>
@@ -4081,12 +4089,24 @@ Proton prefix: click 'Install Java into prefix' once, then it runs automatically
         <translation>{0} of {1} selected mods have no Nexus File ID yet - set one on each before exporting.</translation>
     </message>
     <message>
+        <source>None of the selected mods were installed from Thunderstore.</source>
+        <translation>None of the selected mods were installed from Thunderstore.</translation>
+    </message>
+    <message>
+        <source>{0} of {1} selected mods were not installed from Thunderstore and will be left unchanged.</source>
+        <translation>{0} of {1} selected mods were not installed from Thunderstore and will be left unchanged.</translation>
+    </message>
+    <message>
         <source>The same URL and instructions are applied to all {0} selected mods.</source>
         <translation>The same URL and instructions are applied to all {0} selected mods.</translation>
     </message>
     <message>
         <source>{0} mods</source>
         <translation>{0} mods</translation>
+    </message>
+    <message>
+        <source>Source set on {0} mod(s); {1} left unchanged (not from Thunderstore).</source>
+        <translation>Source set on {0} mod(s); {1} left unchanged (not from Thunderstore).</translation>
     </message>
     <message>
         <source>Source set on {0} mod(s); {1} left unchanged (on Nexus).</source>
@@ -4107,6 +4127,14 @@ Proton prefix: click 'Install Java into prefix' once, then it runs automatically
     <message>
         <source>Ship your local changes to this mod's files as binary patches, so users get the mod exactly as you have it.</source>
         <translation>Ship your local changes to this mod's files as binary patches, so users get the mod exactly as you have it.</translation>
+    </message>
+    <message>
+        <source>This mod was not installed from Thunderstore.</source>
+        <translation>This mod was not installed from Thunderstore.</translation>
+    </message>
+    <message>
+        <source>Could not load versions from Thunderstore.</source>
+        <translation>Could not load versions from Thunderstore.</translation>
     </message>
     <message>
         <source>Could not load versions from Nexus.</source>
@@ -4312,10 +4340,22 @@ This may take a moment.</translation>
         <translation>Could not determine Proton version for this game.</translation>
     </message>
     <message>
-        <source>Patcher has finished.
+        <source>The patcher did not respond within two minutes and was stopped.</source>
+        <translation>The patcher did not respond within two minutes and was stopped.</translation>
+    </message>
+    <message>
+        <source>Patcher exited with code {0}.{1}</source>
+        <translation>Patcher exited with code {0}.{1}</translation>
+    </message>
+    <message>
+        <source>The patcher exited without producing a recognised patched Fallout 3 executable.{0}</source>
+        <translation>The patcher exited without producing a recognised patched Fallout 3 executable.{0}</translation>
+    </message>
+    <message>
+        <source>{0} was downgraded successfully.
 
 Click Done to clean up the extracted files and close.</source>
-        <translation>Patcher has finished.
+        <translation>{0} was downgraded successfully.
 
 Click Done to clean up the extracted files and close.</translation>
     </message>
@@ -5707,6 +5747,10 @@ If you continue, this warning won't be shown again for {1} unless the drives cha
         <translation>Prepend load-order numbers to mod folders</translation>
     </message>
     <message>
+        <source>Manage load order in DFU</source>
+        <translation>Manage load order in DFU</translation>
+    </message>
+    <message>
         <source>Game Patch Version</source>
         <translation>Game Patch Version</translation>
     </message>
@@ -5805,6 +5849,10 @@ If you continue, this warning won't be shown again for {1} unless the drives cha
     <message>
         <source>Install LAV Filters (radio/music codecs)</source>
         <translation>Install LAV Filters (radio/music codecs)</translation>
+    </message>
+    <message>
+        <source>Identify installed mods</source>
+        <translation>Identify installed mods</translation>
     </message>
     <message>
         <source>Edit custom game…</source>
@@ -6631,10 +6679,6 @@ Run Quick Update on all of them now?</translation>
         <translation>No active profile to export.</translation>
     </message>
     <message>
-        <source>No mods with a Nexus mod + file ID to share.</source>
-        <translation>No mods with a Nexus mod + file ID to share.</translation>
-    </message>
-    <message>
         <source>Could not read code: {0}</source>
         <translation>Could not read code: {0}</translation>
     </message>
@@ -7109,6 +7153,74 @@ Run Quick Update on all of them now?</translation>
     <message>
         <source>Installed {0} mods</source>
         <translation>Installed {0} mods</translation>
+    </message>
+    <message>
+        <source>this mod</source>
+        <translation>this mod</translation>
+    </message>
+    <message>
+        <source>Identifying Thunderstore mods…</source>
+        <translation>Identifying Thunderstore mods…</translation>
+    </message>
+    <message>
+        <source>Identifying mods failed - see the log.</source>
+        <translation>Identifying mods failed - see the log.</translation>
+    </message>
+    <message>
+        <source> (several teams publish this name)</source>
+        <translation> (several teams publish this name)</translation>
+    </message>
+    <message>
+        <source>No unidentified Thunderstore mods found.</source>
+        <translation>No unidentified Thunderstore mods found.</translation>
+    </message>
+    <message>
+        <source>Identified {0} mod(s).</source>
+        <translation>Identified {0} mod(s).</translation>
+    </message>
+    <message>
+        <source>{0} could not be matched.</source>
+        <translation>{0} could not be matched.</translation>
+    </message>
+    <message>
+        <source>Could not identify any of the {0} mod(s) found.</source>
+        <translation>Could not identify any of the {0} mod(s) found.</translation>
+    </message>
+    <message>
+        <source>Add the API path shown on mod.io's API Access page using the mod.io API Key tool.</source>
+        <translation>Add the API path shown on mod.io's API Access page using the mod.io API Key tool.</translation>
+    </message>
+    <message>
+        <source>mod.io update checking is disabled until its API path is added in the mod.io API Key tool.</source>
+        <translation>mod.io update checking is disabled until its API path is added in the mod.io API Key tool.</translation>
+    </message>
+    <message>
+        <source>No mods to share - a code carries Nexus mods with a mod + file ID and Thunderstore mods.</source>
+        <translation>No mods to share - a code carries Nexus mods with a mod + file ID and Thunderstore mods.</translation>
+    </message>
+    <message>
+        <source>Fallout 3 needs downgrading</source>
+        <translation>Fallout 3 needs downgrading</translation>
+    </message>
+    <message>
+        <source>Fallout3.exe is version {0} - the Anniversary Edition update.
+
+The script extender (FOSE) does not work with this version, so mods that need it will not load, no matter how they are deployed.
+
+Run the Downgrade wizard to patch the game back to a version FOSE supports. Your modlist is restored before patching and redeployed afterwards.</source>
+        <translation>Fallout3.exe is version {0} - the Anniversary Edition update.
+
+The script extender (FOSE) does not work with this version, so mods that need it will not load, no matter how they are deployed.
+
+Run the Downgrade wizard to patch the game back to a version FOSE supports. Your modlist is restored before patching and redeployed afterwards.</translation>
+    </message>
+    <message>
+        <source>Open Downgrade Wizard</source>
+        <translation>Open Downgrade Wizard</translation>
+    </message>
+    <message>
+        <source>Could not open the Downgrade wizard - open it from the Tools tab.</source>
+        <translation>Could not open the Downgrade wizard - open it from the Tools tab.</translation>
     </message>
     <message>
         <source>Pack {0}</source>
@@ -8359,18 +8471,6 @@ Click Done to close.</translation>
         <translation>mod.io API Key</translation>
     </message>
     <message>
-        <source>Paste your mod.io read-only API key to enable update checks
-for Baldur's Gate 3 mods installed manually from mod.io.
-
-The key is read-only and stored securely (system keyring,
-or an encrypted file when no keyring is available).</source>
-        <translation>Paste your mod.io read-only API key to enable update checks
-for Baldur's Gate 3 mods installed manually from mod.io.
-
-The key is read-only and stored securely (system keyring,
-or an encrypted file when no keyring is available).</translation>
-    </message>
-    <message>
         <source>Get my API key (mod.io)</source>
         <translation>Get my API key (mod.io)</translation>
     </message>
@@ -8387,8 +8487,26 @@ or an encrypted file when no keyring is available).</translation>
         <translation>Test &amp;&amp; Save</translation>
     </message>
     <message>
-        <source>Enter a key first.</source>
-        <translation>Enter a key first.</translation>
+        <source>Paste your mod.io API path and read-only API key to enable update checks
+for Baldur's Gate 3 mods installed manually from mod.io.
+
+Both values are shown on the linked API Access page. The key is
+read-only and stored securely (system keyring,
+or an encrypted file when no keyring is available).</source>
+        <translation>Paste your mod.io API path and read-only API key to enable update checks
+for Baldur's Gate 3 mods installed manually from mod.io.
+
+Both values are shown on the linked API Access page. The key is
+read-only and stored securely (system keyring,
+or an encrypted file when no keyring is available).</translation>
+    </message>
+    <message>
+        <source>API path (for example https://u-123.modapi.io/v1)</source>
+        <translation>API path (for example https://u-123.modapi.io/v1)</translation>
+    </message>
+    <message>
+        <source>Enter the API path and key first.</source>
+        <translation>Enter the API path and key first.</translation>
     </message>
     <message>
         <source>Testing key…</source>
@@ -8738,10 +8856,6 @@ or an encrypted file when no keyring is available).</translation>
 <context>
     <name>NexusBrowserView</name>
     <message>
-        <source>☰ Categories</source>
-        <translation>☰ Categories</translation>
-    </message>
-    <message>
         <source>Domain: </source>
         <translation>Domain: </translation>
     </message>
@@ -8754,16 +8868,8 @@ or an encrypted file when no keyring is available).</translation>
         <translation>Custom…</translation>
     </message>
     <message>
-        <source>Show adult</source>
-        <translation>Show adult</translation>
-    </message>
-    <message>
         <source>Refresh</source>
         <translation>Refresh</translation>
-    </message>
-    <message>
-        <source>Categories</source>
-        <translation>Categories</translation>
     </message>
     <message>
         <source>Loading…</source>
@@ -8836,6 +8942,114 @@ or an encrypted file when no keyring is available).</translation>
     <message>
         <source>Install</source>
         <translation>Install</translation>
+    </message>
+    <message>
+        <source>Tags</source>
+        <translation>Tags</translation>
+    </message>
+    <message>
+        <source>Includes</source>
+        <translation>Includes</translation>
+    </message>
+    <message>
+        <source>Type a tag, press Enter…</source>
+        <translation>Type a tag, press Enter…</translation>
+    </message>
+    <message>
+        <source>Excludes</source>
+        <translation>Excludes</translation>
+    </message>
+    <message>
+        <source>Search Parameters</source>
+        <translation>Search Parameters</translation>
+    </message>
+    <message>
+        <source>Title contains</source>
+        <translation>Title contains</translation>
+    </message>
+    <message>
+        <source>Description contains</source>
+        <translation>Description contains</translation>
+    </message>
+    <message>
+        <source>Author contains</source>
+        <translation>Author contains</translation>
+    </message>
+    <message>
+        <source>Uploader contains</source>
+        <translation>Uploader contains</translation>
+    </message>
+    <message>
+        <source>Language Support</source>
+        <translation>Language Support</translation>
+    </message>
+    <message>
+        <source>Hide translations</source>
+        <translation>Hide translations</translation>
+    </message>
+    <message>
+        <source>Content Options</source>
+        <translation>Content Options</translation>
+    </message>
+    <message>
+        <source>Hide adult content</source>
+        <translation>Hide adult content</translation>
+    </message>
+    <message>
+        <source>Show only adult content</source>
+        <translation>Show only adult content</translation>
+    </message>
+    <message>
+        <source>Supported by Vortex</source>
+        <translation>Supported by Vortex</translation>
+    </message>
+    <message>
+        <source>Show only updated mods</source>
+        <translation>Show only updated mods</translation>
+    </message>
+    <message>
+        <source>File Size</source>
+        <translation>File Size</translation>
+    </message>
+    <message>
+        <source>No min</source>
+        <translation>No min</translation>
+    </message>
+    <message>
+        <source>No max</source>
+        <translation>No max</translation>
+    </message>
+    <message>
+        <source>to</source>
+        <translation>to</translation>
+    </message>
+    <message>
+        <source>Downloads</source>
+        <translation>Downloads</translation>
+    </message>
+    <message>
+        <source>Endorsements</source>
+        <translation>Endorsements</translation>
+    </message>
+    <message>
+        <source>Clear advanced filters</source>
+        <translation>Clear advanced filters</translation>
+    </message>
+    <message>
+        <source>☰ Filters</source>
+        <translation>☰ Filters</translation>
+    </message>
+    <message>
+        <source>Filters</source>
+        <translation>Filters</translation>
+    </message>
+    <message>
+        <source>Category</source>
+        <translation>Category</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>Remove</translation>
     </message>
     <message>
         <source>Mods by this author</source>
@@ -12040,6 +12254,22 @@ Merge your conflicts, then close it and click Done.</translation>
     <message>
         <source>Switch this Flatpak to the Amethyst update remote so future updates arrive automatically through your package manager (GNOME Software / Discover) with smaller downloads. This reinstalls the app once from the remote and relaunches it.</source>
         <translation>Switch this Flatpak to the Amethyst update remote so future updates arrive automatically through your package manager (GNOME Software / Discover) with smaller downloads. This reinstalls the app once from the remote and relaunches it.</translation>
+    </message>
+    <message>
+        <source>Hide Ko-Fi button</source>
+        <translation>Hide Ko-Fi button</translation>
+    </message>
+    <message>
+        <source>Hide the Ko-Fi donation button in the status bar.</source>
+        <translation>Hide the Ko-Fi donation button in the status bar.</translation>
+    </message>
+    <message>
+        <source>Hide Endorse button</source>
+        <translation>Hide Endorse button</translation>
+    </message>
+    <message>
+        <source>Hide the Endorse AMM button in the status bar.</source>
+        <translation>Hide the Endorse AMM button in the status bar.</translation>
     </message>
     <message>
         <source>Archives</source>
@@ -15260,6 +15490,14 @@ Publishing makes this revision the one users install. It cannot be un-published,
     <message>
         <source>Include mod in the output (e.g. DynDOLOD output)</source>
         <translation>Include mod in the output (e.g. DynDOLOD output)</translation>
+    </message>
+    <message>
+        <source>Thunderstore</source>
+        <translation>Thunderstore</translation>
+    </message>
+    <message>
+        <source>Download package from Thunderstore</source>
+        <translation>Download package from Thunderstore</translation>
     </message>
     <message>
         <source>Browse page</source>

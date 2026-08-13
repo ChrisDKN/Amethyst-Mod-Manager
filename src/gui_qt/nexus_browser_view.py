@@ -164,6 +164,11 @@ class NexusBrowserView(QWidget):
         self._description_contains = ""
         self._author_contains = ""
         self._uploader_contains = ""
+        # Coalesces a burst of advanced-filter edits into one refetch.
+        self._advanced_timer = QTimer(self)
+        self._advanced_timer.setSingleShot(True)
+        self._advanced_timer.setInterval(600)
+        self._advanced_timer.timeout.connect(self._apply_advanced_filters)
 
         self._thumbs = ThumbnailLoader(self)
         self._thumbs.loaded.connect(self._on_thumb)
@@ -254,8 +259,7 @@ class NexusBrowserView(QWidget):
 
     def _add_filter_section(self, host_layout: QVBoxLayout, title: str,
                             *, expanded: bool = False):
-        """Add an openable/closable section (site parity) to *host_layout*;
-        returns its body layout to fill in."""
+        """Add an openable/closable section, returning its body layout."""
         from gui_qt.collapsible_section import CollapsibleSection
         sec = CollapsibleSection(title)
         if expanded:
@@ -268,20 +272,22 @@ class NexusBrowserView(QWidget):
 
     @staticmethod
     def _range_combo(presets: list[tuple[str, int]], no_label: str) -> "QComboBox":
-        """A min/max dropdown: "No min"/"No max" (data=None) plus the site's
-        exact preset breakpoints (data=the raw filter value)."""
+        """A min/max dropdown: a "no limit" entry plus the site's presets."""
+        # "No min"/"No max" carries data=None; each preset carries the raw
+        # filter value the site itself sends.
         cb = QComboBox()
         cb.addItem(no_label, None)
         for label, value in presets:
             cb.addItem(label, value)
         return cb
 
-    def _build_advanced_search_section(self, host_layout: QVBoxLayout, p) -> None:
-        """Tags, Search Parameters, Language Support, Content Options, File
-        Size, Downloads, Endorsements - the rest of the site's filter panel,
-        each its own openable/closable section like the site's. Built once
-        (unlike Category, this doesn't get rebuilt per game); _reload() reads
-        the live widget state each fetch."""
+    def _build_advanced_search_section(self, host_layout: QVBoxLayout) -> None:
+        """Build the rest of the site's filter panel below Category."""
+        # Tags, Search Parameters, Language Support, Content Options, File
+        # Size, Downloads, Endorsements - each its own openable/closable
+        # section like the site's. Built once (unlike Category, this doesn't
+        # get rebuilt per game); _reload() reads the live widget state each
+        # fetch.
 
         def _tag_edit(placeholder: str) -> QLineEdit:
             e = QLineEdit()
@@ -314,10 +320,9 @@ class NexusBrowserView(QWidget):
 
         # -- Search Parameters -------------------------------------------
         # title_contains overlaps with the browse bar's search (ANDs with it
-        # rather than replacing it - see NexusSearchFilters docstring).
-        # Debounced like the numeric dropdowns below react instantly, not a
-        # separate Apply button like the site - this panel already auto-
-        # applies on pause everywhere else, so these match that convention.
+        # rather than replacing it - see NexusSearchFilters). Debounced via
+        # _on_advanced_changed rather than sitting behind a separate Apply
+        # button like the site's panel does.
         lay = self._add_filter_section(host_layout, self.tr("Search Parameters"))
         self._title_contains_edit = QLineEdit()
         self._title_contains_edit.setPlaceholderText(self.tr("Title contains"))
@@ -333,7 +338,7 @@ class NexusBrowserView(QWidget):
         lay.addWidget(self._uploader_contains_edit)
         for edit in (self._title_contains_edit, self._description_contains_edit,
                      self._author_contains_edit, self._uploader_contains_edit):
-            edit.textChanged.connect(self._on_advanced_text_changed)
+            edit.textChanged.connect(self._on_advanced_changed)
 
         # -- Language Support ---------------------------------------------
         # Multi-select (OR'd - "any of these languages"), same TriStateCheckBox
@@ -344,13 +349,13 @@ class NexusBrowserView(QWidget):
         self._hide_translations_cb = TriStateCheckBox(
             self.tr("Hide translations"), two_state=True)
         self._hide_translations_cb.stateChanged.connect(
-            lambda _s: self._on_hide_translations_toggled())
+            lambda _s: self._on_advanced_changed())
         lay.addWidget(self._hide_translations_cb)
         self._lang_checks: list[TriStateCheckBox] = []
         for lang in LANGUAGES:
             cb = TriStateCheckBox(lang, two_state=True)
             cb._lang_name = lang
-            cb.stateChanged.connect(lambda _s: self._on_language_toggled())
+            cb.stateChanged.connect(lambda _s: self._on_advanced_changed())
             lay.addWidget(cb)
             self._lang_checks.append(cb)
 
@@ -368,11 +373,11 @@ class NexusBrowserView(QWidget):
         lay.addWidget(self._show_only_adult_cb)
         self._supports_vortex_cb = TriStateCheckBox(self.tr("Supported by Vortex"), two_state=True)
         self._supports_vortex_cb.stateChanged.connect(
-            lambda _s: self._on_content_option_toggled())
+            lambda _s: self._on_advanced_changed())
         lay.addWidget(self._supports_vortex_cb)
         self._only_updated_cb = TriStateCheckBox(self.tr("Show only updated mods"), two_state=True)
         self._only_updated_cb.stateChanged.connect(
-            lambda _s: self._on_content_option_toggled())
+            lambda _s: self._on_advanced_changed())
         lay.addWidget(self._only_updated_cb)
         self._hide_adult_cb.set_state(1 if self._adult is False else 0)
 
@@ -409,7 +414,7 @@ class NexusBrowserView(QWidget):
         for combo in (self._min_size_combo, self._max_size_combo,
                      self._min_downloads_combo, self._max_downloads_combo,
                      self._min_endorsements_combo, self._max_endorsements_combo):
-            combo.currentIndexChanged.connect(lambda _i: self._apply_advanced_text_filters())
+            combo.currentIndexChanged.connect(lambda _i: self._on_advanced_changed())
 
         clear_btn = QToolButton()
         clear_btn.setText(self.tr("Clear advanced filters"))
@@ -557,7 +562,7 @@ class NexusBrowserView(QWidget):
         self._cat_layout.addWidget(self._cat_status)
         host_layout.addWidget(cat_section)
 
-        self._build_advanced_search_section(host_layout, p)
+        self._build_advanced_search_section(host_layout)
 
         self._cat_scroll.setWidget(self._cat_host)
         cv.addWidget(self._cat_scroll, 1)
@@ -839,27 +844,21 @@ class NexusBrowserView(QWidget):
                     lambda _=False, n=name, inc=include: self._remove_tag(n, inc))
                 flow.addWidget(chip)
 
-    def _on_language_toggled(self):
+    def _on_advanced_changed(self, _ignored=None):
+        """Queue an advanced-filter refetch (debounced)."""
+        # Every advanced control funnels through here so a burst of edits -
+        # typing, ticking five languages, picking a min then a max - collapses
+        # into a single reload instead of one round trip per keystroke/click.
+        # Doubles as the fix for the read-your-own-writes race: the widget
+        # state is scraped once, in _apply_advanced_filters, after the pause.
+        self._advanced_timer.start()
+
+    def _apply_advanced_filters(self):
+        """Scrape every advanced widget into filter state and refetch."""
         self._languages = [cb._lang_name for cb in self._lang_checks if cb.state()]
-        self._page = 0
-        self._reload()
-
-    def _on_hide_translations_toggled(self):
         self._hide_translations = bool(self._hide_translations_cb.state())
-        self._page = 0
-        self._reload()
-
-    def _on_advanced_text_changed(self, _text=None):
-        t = getattr(self, "_advanced_timer", None)
-        if t is None:
-            t = QTimer(self)
-            t.setSingleShot(True)
-            t.setInterval(600)
-            t.timeout.connect(self._apply_advanced_text_filters)
-            self._advanced_timer = t
-        t.start()
-
-    def _apply_advanced_text_filters(self):
+        self._supports_vortex = True if self._supports_vortex_cb.state() else None
+        self._has_updated = bool(self._only_updated_cb.state())
         self._min_size_kb = self._min_size_combo.currentData()
         self._max_size_kb = self._max_size_combo.currentData()
         self._min_downloads = self._min_downloads_combo.currentData()
@@ -873,11 +872,14 @@ class NexusBrowserView(QWidget):
         self._page = 0
         self._reload()
 
-    def _reset_advanced_filter_state(self):
-        """Clear tags/language/content-options/size/downloads/endorsements/
-        search-parameters without reloading - used both by the "Clear" button
-        (which does reload) and domain retargeting (which reloads once,
-        later, after everything else resets)."""
+    def _reset_advanced_filter_state(self, *, keep_adult: bool = True):
+        """Clear the advanced filters without reloading."""
+        # Used by the "Clear" button (which reloads after) and by domain
+        # retargeting (which reloads once, later, after everything else
+        # resets). keep_adult: the adult choice is a user preference, not a
+        # game-scoped filter - a game switch must NOT silently un-hide adult
+        # content, so only the explicit "Clear" button passes keep_adult=False.
+        self._advanced_timer.stop()      # drop any refetch queued pre-reset
         self._tag_includes.clear()
         self._tag_excludes.clear()
         self._rebuild_tag_chips()
@@ -886,9 +888,11 @@ class NexusBrowserView(QWidget):
             cb.set_state(0)              # emit=False: no reload storm here
         self._hide_translations = False
         self._hide_translations_cb.set_state(0)
-        self._adult = None
-        self._hide_adult_cb.set_state(0)
-        self._show_only_adult_cb.set_state(0)
+        if not keep_adult:
+            self._adult = None
+            self._hide_adult_cb.set_state(0)
+            self._show_only_adult_cb.set_state(0)
+            self._save_adult_pref()
         self._supports_vortex = None
         self._supports_vortex_cb.set_state(0)
         self._has_updated = False
@@ -911,7 +915,7 @@ class NexusBrowserView(QWidget):
         self._author_contains = self._uploader_contains = ""
 
     def _clear_advanced_filters(self):
-        self._reset_advanced_filter_state()
+        self._reset_advanced_filter_state(keep_adult=False)
         self._page = 0
         self._reload()
 
@@ -988,32 +992,37 @@ class NexusBrowserView(QWidget):
         self._page = 0
         self._reload()
 
+    def _save_adult_pref(self):
+        """Persist the current adult choice."""
+        # Single writer for both adult checkboxes - persisting from only one of
+        # them let the stored preference drift out of sync with the UI. The
+        # stored flag is the legacy "show adult" boolean: only an explicit
+        # "Hide adult content" counts as hidden.
+        try:
+            from Utils.ui_config import save_nexus_show_adult
+            save_nexus_show_adult(self._adult is not False)
+        except Exception:
+            pass
+
     def _on_hide_adult_toggled(self):
-        """Hide/Show-only adult are mutually exclusive (site behaves the same
-        even though it renders them as two independent checkboxes)."""
+        """Apply the "Hide adult content" checkbox."""
+        # Hide/Show-only adult are mutually exclusive (the site behaves the
+        # same even though it renders them as two independent checkboxes).
         on = bool(self._hide_adult_cb.state())
         if on:
             self._show_only_adult_cb.set_state(0)   # emit=False: no double reload
         self._adult = False if on else None
-        try:
-            from Utils.ui_config import save_nexus_show_adult
-            save_nexus_show_adult(not on)
-        except Exception:
-            pass
+        self._save_adult_pref()
         self._page = 0
         self._reload()
 
     def _on_show_only_adult_toggled(self):
+        """Apply the "Show only adult content" checkbox."""
         on = bool(self._show_only_adult_cb.state())
         if on:
             self._hide_adult_cb.set_state(0)
         self._adult = True if on else None
-        self._page = 0
-        self._reload()
-
-    def _on_content_option_toggled(self):
-        self._supports_vortex = True if self._supports_vortex_cb.state() else None
-        self._has_updated = bool(self._only_updated_cb.state())
+        self._save_adult_pref()
         self._page = 0
         self._reload()
 
@@ -1334,9 +1343,13 @@ class NexusBrowserView(QWidget):
 
     # -- cards / grid -------------------------------------------------------
     def _visible_entries(self):
-        """Client-side adult filter for Tracked/Endorsed (Browse/Trending
-        already get it server-side via NexusSearchFilters.adult)."""
-        if self._adult is None:
+        """Client-side adult filter for Tracked/Endorsed."""
+        # Browse/Trending/search already filter server-side via
+        # NexusSearchFilters.adult - re-filtering them here would be a no-op at
+        # best and, if a node ever came back without adultContent populated,
+        # would silently empty the page. Tracked/Endorsed fetch by id list, so
+        # they get no ModsFilter and still need this pass.
+        if self._adult is None or self._section not in ("Tracked", "Endorsed"):
             return self._entries
         want_adult = self._adult
         return [e for e in self._entries
