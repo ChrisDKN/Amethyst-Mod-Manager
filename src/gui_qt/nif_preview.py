@@ -14,13 +14,17 @@ from __future__ import annotations
 
 import array
 import math
+import os
+import threading
+from collections import OrderedDict
 from itertools import chain
 from pathlib import Path
 from shiboken6 import VoidPtr
 
-from PySide6.QtCore import QEvent, Qt, QTimer, Signal
+from PySide6.QtCore import QEvent, QRect, Qt, QTimer, Signal
 from PySide6.QtGui import (
-    QActionGroup, QColor, QMatrix4x4, QSurfaceFormat, QVector3D,
+    QActionGroup, QColor, QImage, QMatrix4x4, QPainter, QSurfaceFormat,
+    QVector3D,
 )
 from PySide6.QtWidgets import (
     QComboBox, QLabel, QMenu, QSlider, QToolButton, QVBoxLayout, QWidget,
@@ -57,6 +61,72 @@ PREVIEW_EXTS = {".nif"}
 # exhausts memory on a handheld.
 TEXTURE_MAX_DIM = 1024
 
+# NPCs repeatedly share body, eye, mouth and armour maps.  Keep their capped
+# CPU images across preview loads, but put a hard ceiling on it: 160 MiB holds
+# roughly forty 1024x1024 RGBA maps and cannot grow with a long browsing
+# session.  GPU textures remain scene-owned and are released normally.
+TEXTURE_CACHE_BYTES = 160 * 1024 * 1024
+
+_CACHE_MISS = object()
+
+
+def _image_cost(value) -> int:
+    """Approximate the QImage storage retained by a cache value."""
+    if isinstance(value, (tuple, list)):
+        return sum(_image_cost(item) for item in value)
+    size = getattr(value, "sizeInBytes", None)
+    if size is None:
+        return 0
+    try:
+        return max(0, int(size()))
+    except (RuntimeError, TypeError, ValueError):
+        return 0
+
+
+class _DecodedTextureCache:
+    """Thread-safe, byte-bounded LRU of capped CPU-side texture images."""
+
+    def __init__(self, max_bytes: int = TEXTURE_CACHE_BYTES):
+        self.max_bytes = max(0, int(max_bytes))
+        self._items = OrderedDict()
+        self._bytes = 0
+        self._lock = threading.Lock()
+
+    def get(self, key):
+        with self._lock:
+            try:
+                value, cost = self._items.pop(key)
+            except KeyError:
+                return _CACHE_MISS
+            self._items[key] = (value, cost)
+            return value
+
+    def put(self, key, value) -> None:
+        cost = _image_cost(value)
+        if value is None or cost <= 0 or cost > self.max_bytes:
+            return
+        with self._lock:
+            old = self._items.pop(key, None)
+            if old is not None:
+                self._bytes -= old[1]
+            self._items[key] = (value, cost)
+            self._bytes += cost
+            while self._bytes > self.max_bytes and self._items:
+                _old_key, (_old_value, old_cost) = \
+                    self._items.popitem(last=False)
+                self._bytes -= old_cost
+
+    def clear(self) -> None:
+        with self._lock:
+            self._items.clear()
+            self._bytes = 0
+
+    @property
+    def usage(self) -> tuple[int, int]:
+        with self._lock:
+            return len(self._items), self._bytes
+
+
 _IDENTITY_ROT = (1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
 
 # Indexed asset subtrees. materials/ (FO4 texture paths live there) and
@@ -64,19 +134,46 @@ _IDENTITY_ROT = (1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
 ASSET_PREFIXES = ("textures/", "materials/", "geometries/")
 
 # Backdrops; light default because many game textures are near-black.
+# "green" is the broadcast chroma-key green, for keying the model out of a
+# screenshot in an image editor - it is deliberately a colour no skin, hair or
+# armour texture lands on.
 BACKGROUNDS = {
     "light": "#d4d7db",
     "grey": "#8b8f94",
     "dark": "#2b2d30",
     "black": "#0b0b0c",
+    "green": "#00b140",
 }
-BACKGROUND_ORDER = ["light", "grey", "dark", "black"]
+BACKGROUND_ORDER = ["light", "grey", "dark", "black", "green"]
+# Export-only pseudo-backdrop: not a colour, so it is deliberately NOT in
+# BACKGROUNDS - the viewport never paints it and it never reaches the ini.
+BACKGROUND_TRANSPARENT = "transparent"
 
 # Brightness is a gamma lift: 1.0 neutral, higher raises shadows. Stored as an
 # int percent so it round-trips through the ini and the slider unchanged.
 BRIGHTNESS_MIN, BRIGHTNESS_MAX, BRIGHTNESS_DEFAULT = 60, 260, 100
 
 # The fixed camera's angles; also where the light rig is anchored.
+# Portrait framing, both measured off real vanilla heads rather than guessed.
+# FILL > 1 leaves a sliver of margin so the chin and crown are not clipped
+# flush to the edge; at 1.15 the face spans ~87% of the frame's height.
+# EYE_LINE lifts the camera off the face mesh's bounding-box centre, which
+# sits low because the mesh runs down into the neck - the eyes are 63-66% of
+# the way up it on every head sampled.
+_PORTRAIT_FILL = 1.15
+_PORTRAIT_EYE_LINE = 0.64
+# Ceiling on the inset as a fraction of the pane's smaller side, so a narrow
+# pane gets a smaller portrait instead of one covering the model.
+_PORTRAIT_MAX_PANE = 0.45
+
+# NPC image export: four narrow turntable views and one wider face panel.  The
+# ratios deliberately mirror a traditional character reference sheet while
+# deriving the actual resolution from the live framebuffer (never upscaling a
+# small viewport into a blurry nominal size).
+_SHEET_BODY_ASPECT = 0.42
+_SHEET_FACE_ASPECT = 0.86
+_SHEET_MAX_HEIGHT = 1200
+
 _HOME_YAW = math.radians(-60.0)
 _HOME_PITCH = math.radians(22.0)
 
@@ -103,6 +200,7 @@ _GL_COLOR_BUFFER_BIT = 0x4000
 _GL_BLEND = 0x0BE2
 _GL_SRC_ALPHA = 0x0302
 _GL_ONE_MINUS_SRC_ALPHA = 0x0303
+_GL_ONE = 0x0001
 
 # PySide6 binds glDrawElements' `indices` as a real pointer, so an integer 0 is
 # rejected; with an element buffer bound it must be a null VoidPtr offset.
@@ -112,17 +210,21 @@ _VERT_SRC = """#version 330 core
 layout(location = 0) in vec3 aPos;
 layout(location = 1) in vec3 aNormal;
 layout(location = 2) in vec2 aUV;
-layout(location = 3) in vec3 aTangent;
+// xyz is Bethesda's tangent (the texture-V direction); w preserves the
+// stored bitangent handedness for mirrored UV islands.
+layout(location = 3) in vec4 aTangent;
 layout(location = 4) in vec4 aColor;
 uniform mat4 uMVP;
 out vec3 vNormal;
 out vec2 vUV;
 out vec3 vTangent;
+out float vBitangentSign;
 out vec3 vWorld;
 out vec4 vColor;
 void main() {
     vNormal = aNormal;
-    vTangent = aTangent;
+    vTangent = aTangent.xyz;
+    vBitangentSign = aTangent.w;
     vColor = aColor;
     vWorld = aPos;          // positions are already baked to world space
     // NO V flip: QOpenGLTexture(QImage) already mirrors on upload; flipping
@@ -136,6 +238,7 @@ _FRAG_SRC = """#version 330 core
 in vec3 vNormal;
 in vec2 vUV;
 in vec3 vTangent;
+in float vBitangentSign;
 in vec3 vWorld;
 in vec4 vColor;
 // Only 1 where the mesh HAS colours and SLSF2_Vertex_Colors is set - plenty
@@ -143,11 +246,14 @@ in vec4 vColor;
 uniform float uHasVColor;
 // Runtime colour multiply (FaceGen hair). White for everything else.
 uniform vec3 uTint;
-// TruePBR ambient occlusion - blue channel of the _rmaos map. We do not
-// implement PBR shading, but AO is a plain multiply and without it recessed
-// detail (roof shingles, beam joints) washes out.
-uniform sampler2D uAoTex;
-uniform float uHasAo;
+// Community Shaders TruePBR packed material map: roughness, metallic, AO and
+// specular in RGBA.  It is deliberately kept linear (unlike the albedo).
+uniform sampler2D uRmaosTex;
+uniform float uPbr;
+uniform float uHasRmaos;
+// x = NIF Specular Level, y = NIF Roughness Scale. PGPatcher repurposes the
+// legacy glossiness and specular-strength fields for these values.
+uniform vec2 uPbrParams;
 // 1 when the diffuse DDS declared an sRGB format (PBR packs do; legacy
 // Skyrim textures never declare one). Those meshes get a colour-managed
 // path - decode to linear, light, tonemap, re-encode - which is why their
@@ -212,6 +318,49 @@ void addLight(vec3 dir, float diffuse, vec3 n, vec3 v, float gloss,
                   * pow(ndh, uShininess), 0.0, 1.0) * diffuse;
 }
 
+// Compact Cook-Torrance/GGX path for TruePBR. The real Community Shaders
+// renderer also has an HDR sky probe; the preview uses a neutral procedural
+// studio environment so metals still have something to reflect.
+const float PI = 3.14159265359;
+
+float distributionGGX(float ndh, float roughness) {
+    float a = roughness * roughness;
+    float a2 = a * a;
+    float d = ndh * ndh * (a2 - 1.0) + 1.0;
+    return a2 / max(PI * d * d, 0.0001);
+}
+
+float geometrySchlickGGX(float nd, float roughness) {
+    float r = roughness + 1.0;
+    float k = r * r / 8.0;
+    return nd / max(nd * (1.0 - k) + k, 0.0001);
+}
+
+vec3 fresnelSchlick(float cosTheta, vec3 f0) {
+    return f0 + (1.0 - f0) * pow(1.0 - cosTheta, 5.0);
+}
+
+vec3 fresnelSchlickRoughness(float cosTheta, vec3 f0, float roughness) {
+    return f0 + (max(vec3(1.0 - roughness), f0) - f0)
+                * pow(1.0 - cosTheta, 5.0);
+}
+
+void addPbrLight(vec3 dir, float strength, vec3 n, vec3 v, vec3 albedo,
+                 float roughness, float metallic, vec3 f0, inout vec3 outCol) {
+    vec3 h = normalize(v + dir);
+    float ndl = max(dot(n, dir), 0.0);
+    float ndv = max(dot(n, v), 0.001);
+    float ndh = max(dot(n, h), 0.0);
+    float vdh = max(dot(v, h), 0.0);
+    vec3 f = fresnelSchlick(vdh, f0);
+    float d = distributionGGX(ndh, roughness);
+    float g = geometrySchlickGGX(ndv, roughness)
+              * geometrySchlickGGX(ndl, roughness);
+    vec3 specular = d * g * f / max(4.0 * ndv * ndl, 0.001);
+    vec3 diffuse = (1.0 - f) * (1.0 - metallic) * albedo / PI;
+    outCol += (diffuse + specular) * strength * ndl;
+}
+
 void main() {
     // Wireframe overlay pass: unlit, ungraded, so lines stay legible.
     if (uFlat > 0.5) { FragColor = vec4(uBaseColor, 1.0); return; }
@@ -239,7 +388,11 @@ void main() {
         vec3 t = vTangent - n * dot(n, vTangent);   // Gram-Schmidt
         if (length(t) > 1e-4) {
             t = normalize(t);
-            mat3 tbn = mat3(t, cross(n, t), n);
+            // NIF/BodySlide convention: bitangent is texture U (normal-map
+            // X), tangent is texture V (normal-map Y). The sign is essential
+            // where an atlas mirrors an island.
+            vec3 b = vBitangentSign * cross(n, t);
+            mat3 tbn = mat3(b, t, n);
             n = normalize(tbn * (nm.rgb * 2.0 - 1.0));
         }
         // Skyrim keeps its gloss/spec mask in the normal map's ALPHA.
@@ -251,7 +404,45 @@ void main() {
     vec3 albedo = texel.rgb;
     if (uSrgbAlbedo > 0.5) albedo = pow(albedo, vec3(2.2));
     albedo *= uTint;
-    if (uHasAo > 0.5) albedo *= texture(uAoTex, vUV).b;
+
+    // TruePBR cannot be approximated by feeding its albedo to the legacy
+    // diffuse shader: metals put their reflectance colour in that map and
+    // therefore turn into bright chalk. Consume all four RMAOS channels and
+    // use a metallic/roughness BRDF instead.
+    if (uPbr > 0.5) {
+        vec4 rmaos = uHasRmaos > 0.5
+                     ? texture(uRmaosTex, vUV) : vec4(0.5, 0.0, 1.0, 1.0);
+        float roughness = clamp(rmaos.r * max(uPbrParams.y, 0.01), 0.045, 1.0);
+        float metallic = clamp(rmaos.g, 0.0, 1.0);
+        float ao = clamp(rmaos.b, 0.0, 1.0);
+        float dielectric = clamp(uPbrParams.x * rmaos.a, 0.0, 1.0);
+        vec3 f0 = mix(vec3(dielectric), albedo, metallic);
+
+        vec3 pbr = vec3(0.0);
+        addPbrLight(v,    0.35, n, v, albedo, roughness, metallic, f0, pbr);
+        addPbrLight(uLd0, 1.10, n, v, albedo, roughness, metallic, f0, pbr);
+        addPbrLight(uLd1, 1.10, n, v, albedo, roughness, metallic, f0, pbr);
+        addPbrLight(uLd2, 1.45, n, v, albedo, roughness, metallic, f0, pbr);
+
+        float ndv = max(dot(n, v), 0.0);
+        vec3 rfl = reflect(-v, n);
+        float skyMix = clamp(rfl.z * 0.5 + 0.5, 0.0, 1.0);
+        vec3 studio = mix(vec3(0.055, 0.045, 0.040),
+                          vec3(0.62, 0.68, 0.76), skyMix);
+        vec3 fEnv = fresnelSchlickRoughness(ndv, f0, roughness);
+        vec3 diffuseEnv = albedo * (1.0 - metallic) * 0.22;
+        vec3 specularEnv = studio * fEnv * mix(0.85, 0.35, roughness);
+        pbr += (diffuseEnv + specularEnv) * ao;
+
+        vec3 col = tonemap(pbr) / tonemap(vec3(1.0));
+        // PBR lighting is always linear even when the source albedo itself
+        // was authored/stored linear, so the framebuffer always needs an
+        // sRGB transfer here.
+        col = pow(max(col, 0.0), vec3(1.0 / 2.2));
+        FragColor = vec4(pow(clamp(col, 0.0, 1.0), vec3(1.0 / uGamma)),
+                         mix(1.0, texel.a, uBlend));
+        return;
+    }
 
     if (uEnvScale > 0.0) {
         vec3 rfl = reflect(-v, n);
@@ -285,7 +476,8 @@ class _Mesh:
                  "normal_image", "model_space_normals", "spec",
                  "env_image", "mask_image", "env_scale",
                  "alpha_threshold", "alpha_blend", "center", "has_colors",
-                 "tint", "ao_image", "ao_tex", "srgb_albedo",
+                 "tint", "rmaos_image", "rmaos_tex", "pbr", "pbr_params",
+                 "srgb_albedo",
                  "vao", "vbo", "ibo", "texture", "normal_tex",
                  "env_tex", "mask_tex")
 
@@ -293,8 +485,8 @@ class _Mesh:
                  normal_image=None, model_space_normals=False, spec=None,
                  env_image=None, mask_image=None, env_scale=0.0,
                  alpha_threshold=-1.0, alpha_blend=False, center=(0.0, 0.0, 0.0),
-                 has_colors=False, tint=(1.0, 1.0, 1.0), ao_image=None,
-                 srgb_albedo=False):
+                 has_colors=False, tint=(1.0, 1.0, 1.0), rmaos_image=None,
+                 pbr=False, pbr_params=(0.04, 1.0), srgb_albedo=False):
         self.name = name
         self.verts = verts
         self.indices = indices
@@ -312,12 +504,14 @@ class _Mesh:
         self.alpha_threshold = alpha_threshold
         self.alpha_blend = alpha_blend
         self.center = center
-        # Widens the vertex from 11 floats to 15; only meshes that use it pay.
+        # Widens the vertex from 12 floats to 16; only meshes that use it pay.
         self.has_colors = has_colors
         # Runtime colour multiply (FaceGen hair); white otherwise.
         self.tint = tint
-        self.ao_image = ao_image
-        self.ao_tex = None
+        self.rmaos_image = rmaos_image
+        self.rmaos_tex = None
+        self.pbr = pbr
+        self.pbr_params = pbr_params
         # The DDS declared an sRGB format, so its values need
         # linearising before lighting. Legacy files never say.
         self.srgb_albedo = srgb_albedo
@@ -365,6 +559,90 @@ def _fit_texture(img):
         Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
 
+def _multiply_tint_map(base, tint):
+    """Composite a FaceGen tint map over a head's base skin texture.
+
+    Bethesda's tint-mask convention: the map is multiplied at DOUBLE strength,
+    so its flat field (which carries the NPC's skin tone, not a fixed grey)
+    leaves the skin near enough alone while the painted regions - brows,
+    eyeshadow, lipstick, freckles - darken and colour it. Done here rather
+    than in the shader so the existing single-diffuse path is untouched.
+
+    An approximation of the engine's blend, not a reproduction of it.
+    """
+    from PySide6.QtGui import QImage, QPainter
+
+    scaled = tint.scaled(base.width(), base.height(),
+                         Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
+    doubled = scaled.convertToFormat(QImage.Format_RGB32)
+    p = QPainter(doubled)
+    # Plus against itself is a saturating x2 - the mask's own brightening step.
+    p.setCompositionMode(QPainter.CompositionMode_Plus)
+    p.drawImage(0, 0, doubled.copy())
+    p.end()
+
+    out = base.convertToFormat(QImage.Format_ARGB32)
+    p = QPainter(out)
+    p.setCompositionMode(QPainter.CompositionMode_Multiply)
+    p.drawImage(0, 0, doubled)
+    p.end()
+    return out
+
+
+def _legacy_dds_pil(data: bytes, PilImage):
+    """Fast Pillow image for an ordinary uncompressed RGB(A) DDS.
+
+    Pillow's DDS plugin expands these legacy files through a very slow pixel
+    path (a 2K 24-bit skin specular map takes about 6.5 seconds on the target
+    handheld).  Their payload is already packed RGB/BGR rows, so Pillow's C
+    raw decoder can expose it directly in a few milliseconds.  Compressed,
+    DX10 and unusual bit-mask layouts fall back to the normal DDS plugin.
+    """
+    import struct
+
+    if len(data) < 128 or not data.startswith(b"DDS "):
+        return None
+    try:
+        height, width, pitch, depth = struct.unpack_from("<4I", data, 12)
+        pf_flags, fourcc, bits, rmask, gmask, bmask, amask = \
+            struct.unpack_from("<I4s5I", data, 80)
+    except struct.error:
+        return None
+    if (not (pf_flags & 0x40) or (pf_flags & 0x4) or fourcc.strip(b"\0")
+            or depth > 1 or not 0 < width <= 32768 or not 0 < height <= 32768):
+        return None
+
+    if bits == 24:
+        mode = "RGB"
+        if (rmask, gmask, bmask, amask) == (0xFF0000, 0xFF00, 0xFF, 0):
+            raw_mode = "BGR"
+        elif (rmask, gmask, bmask, amask) == (0xFF, 0xFF00, 0xFF0000, 0):
+            raw_mode = "RGB"
+        else:
+            return None
+    elif bits == 32:
+        bgr = (rmask, gmask, bmask) == (0xFF0000, 0xFF00, 0xFF)
+        rgb = (rmask, gmask, bmask) == (0xFF, 0xFF00, 0xFF0000)
+        if not (bgr or rgb) or amask not in (0, 0xFF000000):
+            return None
+        mode = "RGBA" if amask else "RGB"
+        raw_mode = (("BGRA" if bgr else "RGBA") if amask
+                    else ("BGRX" if bgr else "RGBX"))
+    else:
+        return None
+
+    row_bytes = ((width * bits + 31) // 32) * 4
+    pitch = max(pitch, row_bytes)
+    end = 128 + pitch * height
+    if end > len(data):
+        return None
+    try:
+        return PilImage.frombytes(mode, (width, height), data[128:end],
+                                  "raw", raw_mode, pitch, 1)
+    except (TypeError, ValueError):
+        return None
+
+
 def _model_space_normal(nrm_blob, spec_blob, log=None):
     """Decode an _msn normal map, packing a separate spec map into its alpha.
 
@@ -387,10 +665,14 @@ def _model_space_normal(nrm_blob, spec_blob, log=None):
             rgb = im.convert("RGB")
         if spec_blob:
             spec_blob = skip_dds_mips(spec_blob, TEXTURE_MAX_DIM)
-            with PilImage.open(io.BytesIO(sanitise_dds(spec_blob))) as sp:
-                gloss = sp.convert("RGB").split()[0]        # red channel
-                if gloss.size != rgb.size:
-                    gloss = gloss.resize(rgb.size)
+            fast = _legacy_dds_pil(spec_blob, PilImage)
+            if fast is not None:
+                gloss = fast.getchannel("R")                # red channel
+            else:
+                with PilImage.open(io.BytesIO(sanitise_dds(spec_blob))) as sp:
+                    gloss = sp.convert("RGB").split()[0]    # red channel
+            if gloss.size != rgb.size:
+                gloss = gloss.resize(rgb.size)
         else:
             gloss = PilImage.new("L", rgb.size, 0)
         rgb.putalpha(gloss)
@@ -455,7 +737,8 @@ def _qimage_from_bytes(data: bytes, log=None):
 
 
 def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None,
-                         override=None, slot: int = 0, log=None, cancel=None):
+                         override=None, slot: int = 0, log=None, cancel=None,
+                         decoded_cache: _DecodedTextureCache | None = None):
     """Return ``shape -> QImage|None``; resolver first, then roots/archives.
 
     FO4/Starfield shapes name a material file whose textures override the
@@ -464,26 +747,106 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
     ``load.requested``.
     """
     cache = _DirCache()
-    seen: dict[str, object] = {}
+    seen: dict[object, object] = {}
     # Which diffuse maps DECLARE an sRGB DXGI format (PBR packs do).
     srgb_albedo: dict[str, bool] = {}
     materials: dict[str, object] = {}
     requested: list[str] = []
     requested_seen: set[str] = set()
     missing: list[str] = []
+    resolver_hits: set[str] = set()
+    archive_hits: set[str] = set()
+    cache_stats = {"hits": 0, "misses": 0}
 
-    def note_request(rel: str) -> None:
+    def asset_key(rel: str) -> str:
         key = rel.replace("\\", "/").lower().strip().lstrip("/")
         if key.startswith("data/"):
             key = key[5:]
-        if not key.startswith(("textures/", "materials/")):
+        if not key.startswith(("textures/", "materials/", "geometries/")):
             if key.endswith((".bgsm", ".bgem", ".mat")):
                 key = "materials/" + key
             elif key.endswith((".dds", ".tga", ".png", ".bmp", ".jpg",
                                ".jpeg")):
                 key = "textures/" + key
+        return key
+
+    def source_stamp(path) -> tuple:
+        try:
+            stat = os.stat(path)
+            return str(path), stat.st_mtime_ns, stat.st_size
+        except OSError:
+            return str(path), 0, -1
+
+    # A selected texture-source override is deliberately excluded: its
+    # callback may return different bytes for the same path on every reload.
+    # Resolver hits share one namespace across NPCs. A selected mod's sibling
+    # archive fallback gets a second, archive-stamped namespace so its private
+    # maps are reusable without leaking into another replacer's preview.
+    shared_namespace = None
+    fallback_namespace = None
+    if decoded_cache is not None and override is None:
+        if resolver is not None:
+            shared_namespace = ("resolver", resolver)
+            archive_paths = getattr(archives, "_archives", ()) if archives else ()
+            if archives is not None:
+                fallback_namespace = (
+                    "resolver-fallback", resolver,
+                    tuple(source_stamp(Path(p)) for p in archive_paths),
+                    id(archives) if not archive_paths else 0,
+                )
+        else:
+            archive_paths = getattr(archives, "_archives", ()) if archives else ()
+            shared_namespace = (
+                "roots", tuple(source_stamp(Path(p)) for p in texture_roots),
+                "archives", tuple(source_stamp(Path(p)) for p in archive_paths),
+                id(archives) if archives is not None and not archive_paths else 0,
+            )
+
+    def shared_key(namespace, kind: str, *rels: str):
+        return (namespace, kind,
+                tuple(asset_key(rel) for rel in rels if rel))
+
+    def shared_get(kind: str, *rels: str):
+        if shared_namespace is None:
+            return _CACHE_MISS
+        for rel in rels:
+            if rel:
+                note_request(rel)
+        for namespace in (shared_namespace, fallback_namespace):
+            if namespace is None:
+                continue
+            value = decoded_cache.get(shared_key(namespace, kind, *rels))
+            if value is not _CACHE_MISS:
+                cache_stats["hits"] += 1
+                names = ", ".join(asset_key(rel).rsplit("/", 1)[-1]
+                                  for rel in rels if rel)
+                _log(log, f"      cache {names}")
+                return value
+        cache_stats["misses"] += 1
+        return _CACHE_MISS
+
+    def shared_put(kind: str, rels, value) -> None:
+        if shared_namespace is None or value is None:
+            return
+        paths = tuple(rel for rel in rels if rel)
+        namespace = shared_namespace
+        if resolver is not None:
+            keys = tuple(asset_key(rel) for rel in paths)
+            if all(key in resolver_hits for key in keys):
+                namespace = shared_namespace
+            elif (fallback_namespace is not None
+                  and all(key in archive_hits for key in keys)):
+                namespace = fallback_namespace
             else:
+                # A composite using maps from different sources is uncommon;
+                # rebuilding it is safer than giving it an ambiguous identity.
                 return
+        decoded_cache.put(shared_key(namespace, kind, *paths), value)
+
+    def note_request(rel: str) -> None:
+        key = asset_key(rel)
+        if not key.startswith(("textures/", "materials/")):
+            return
         if key not in requested_seen:
             requested_seen.add(key)
             requested.append(key)
@@ -524,6 +887,7 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
         if resolver is not None:
             blob = resolver.read(rel)
             if blob:
+                resolver_hits.add(asset_key(rel))
                 _log(log, f"      hit  {rel.replace(chr(92), '/')} <- resolver "
                           f"({_fmt_bytes(len(blob))})")
                 return blob
@@ -545,7 +909,49 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
             # Only source for a mesh previewed out of an uninstalled mod's archive.
             blob = archives.read(rel)
             if blob:
+                archive_hits.add(asset_key(rel))
                 _log(log, f"      hit  {rel.replace(chr(92), '/')} <- archive "
+                          f"({_fmt_bytes(len(blob))})")
+            return blob
+        return None
+
+    def _fetch_selected_exact(rel: str):
+        """Read an NPC-copy-specific asset before the profile winner.
+
+        FaceTint is baked as a pair with FaceGeom. When the user selects a
+        losing/vanilla head for comparison, applying the winning replacer's
+        FaceTint changes that head's skin colour and makeup. Ordinary mesh
+        textures still use _fetch_exact's game-load precedence; only callers
+        explicitly asking for the selected copy use this route.
+        """
+        note_request(rel)
+        if override is not None:
+            blob = override(rel)
+            if blob:
+                _log(log, f"      hit  {rel.replace(chr(92), '/')} <- source override "
+                          f"({_fmt_bytes(len(blob))})")
+                return blob
+        for root in texture_roots:
+            found = cache.resolve(root, rel)
+            if found is None:
+                continue
+            try:
+                blob = found.read_bytes()
+            except OSError:
+                continue
+            _log(log, f"      hit  {rel.replace(chr(92), '/')} <- selected copy "
+                      f"({_fmt_bytes(len(blob))})")
+            return blob
+        if archives is not None:
+            blob = archives.read(rel)
+            if blob:
+                _log(log, f"      hit  {rel.replace(chr(92), '/')} <- selected archive "
+                          f"({_fmt_bytes(len(blob))})")
+                return blob
+        if resolver is not None:
+            blob = resolver.read(rel)
+            if blob:
+                _log(log, f"      hit  {rel.replace(chr(92), '/')} <- resolver "
                           f"({_fmt_bytes(len(blob))})")
             return blob
         return None
@@ -568,6 +974,24 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
             return shape.diffuse
         return shape.textures[slot] if slot < len(shape.textures) else ""
 
+    def decoded_image(rel: str, *, exact: bool = False):
+        """Decode one ordinary image, sharing successful capped results."""
+        # `exact` is the selected FaceGeom copy's optional FaceTint. Its source
+        # identity differs from the profile winner, so it must not reuse the
+        # resolver-wide cache (that made vanilla Nazeem inherit a replacer's
+        # much lighter tint map after viewing the replacer first).
+        cached = _CACHE_MISS if exact else shared_get("image", rel)
+        if cached is not _CACHE_MISS:
+            return cached
+        blob = _fetch_selected_exact(rel) if exact else fetch(rel)
+        img = _qimage_from_bytes(blob, log) if blob else None
+        if img is not None and img.isNull():
+            img = None
+        img = _fit_texture(img)
+        if img is not None and not exact:
+            shared_put("image", (rel,), img)
+        return img
+
     def normal_map(shape):
         """(QImage|None, model_space) for the shape's normal map (slot 1)."""
         rel = ""
@@ -585,19 +1009,45 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
         # Bethesda body maps are MODEL space (_msn); they must not be run
         # through a tangent basis.
         model_space = rel.replace("\\", "/").lower().endswith("msn.dds")
-        key = "N:" + rel.lower()
+        # Skyrim slot 7 is the dedicated specular map for skin. It is part of
+        # the key: two skins may share an _msn but use different gloss maps.
+        spec_rel = (shape.textures[7]
+                    if model_space and len(shape.textures) > 7 else "")
+        key = ("N:", rel.lower(), spec_rel.lower())
         if key in seen:
             return seen[key], model_space
-        blob = fetch(rel)
-        if blob and model_space:
-            # Skyrim slot 7 is the dedicated specular map for skin.
-            spec_rel = shape.textures[7] if len(shape.textures) > 7 else ""
-            img = _model_space_normal(blob, fetch(spec_rel) if spec_rel else None, log)
+        found = False
+        if model_space:
+            cached = shared_get("model-normal", rel, spec_rel)
+            if cached is not _CACHE_MISS:
+                img = cached
+                found = True
+            else:
+                blob = fetch(rel)
+                spec_blob = fetch(spec_rel) if spec_rel else None
+                found = bool(blob)
+                img = (_model_space_normal(blob, spec_blob, log)
+                       if blob else None)
+                if img is not None:
+                    img = _fit_texture(img)
+                    shared_put("model-normal", (rel, spec_rel), img)
         else:
-            img = _qimage_from_bytes(blob, log) if blob else None
+            cached = shared_get("image", rel)
+            if cached is not _CACHE_MISS:
+                img = cached
+                found = True
+            else:
+                blob = fetch(rel)
+                found = bool(blob)
+                img = _qimage_from_bytes(blob, log) if blob else None
+                if img is not None and img.isNull():
+                    img = None
+                img = _fit_texture(img)
+                if img is not None:
+                    shared_put("image", (rel,), img)
         if img is not None and img.isNull():
             img = None
-        if blob and img is None:
+        if found and img is None:
             _log(log, f"      ! normal map {rel.replace(chr(92), '/')} found but not decodable")
         elif img is not None:
             _log(log, f"      normal {img.width()}x{img.height()}"
@@ -622,33 +1072,20 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
                 continue
             key = "E:" + rel.lower()
             if key not in seen:
-                blob = fetch(rel)
-                img = _qimage_from_bytes(blob, log) if blob else None
-                if img is not None and img.isNull():
-                    img = None
-                seen[key] = _fit_texture(img)
+                seen[key] = decoded_image(rel)
             out.append(seen[key])
         return out[0], out[1]
 
-    def ao_map(shape):
-        """TruePBR ambient occlusion: the BLUE channel of slot 5's _rmaos.
-
-        Roughness/metallic/subsurface in the other channels need real PBR
-        shading, but AO is a plain multiply and it is what keeps recessed
-        detail (roof shingles, beam joints) from washing out.
-        """
+    def rmaos_map(shape):
+        """TruePBR roughness/metallic/AO/specular map from texture slot 5."""
         if not shape.pbr or len(shape.textures) <= 5:
             return None
         rel = shape.textures[5]
         if not rel:
             return None
-        key = "AO:" + rel.lower()
+        key = "RMAOS:" + rel.lower()
         if key not in seen:
-            blob = fetch(rel)
-            img = _qimage_from_bytes(blob, log) if blob else None
-            if img is not None and img.isNull():
-                img = None
-            seen[key] = _fit_texture(img)
+            seen[key] = decoded_image(rel)
         return seen[key]
 
     def diffuse_key(shape) -> str:
@@ -669,37 +1106,62 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
             rel = shape_slot(shape)
         if not rel:
             return None
+        # The overlay belongs in the key: the head shares its base texture with
+        # every other NPC using that skin, but the tint map is per-NPC.
         key = diffuse_key(shape)
-        if key in seen:
-            return seen[key]
-        blob = fetch(rel)
-        image = _qimage_from_bytes(blob, log) if blob else None
-        if image is not None and image.isNull():
-            image = None
-        if blob and image is None:
-            _log(log, f"      ! {rel.replace(chr(92), '/')} was found but could NOT be decoded "
-                      f"({_fmt_bytes(len(blob))}) - unsupported DDS format?")
-        pre = (image.width(), image.height()) if image is not None else None
-        image = _fit_texture(image)
-        if blob:
+        overlay = getattr(shape, "tint_overlay", "")
+        cache_key = (key, overlay) if overlay else key
+        if cache_key in seen:
+            return seen[cache_key]
+        cached = shared_get("diffuse", rel)
+        blob = None
+        pre = None
+        if cached is not _CACHE_MISS:
+            image, is_srgb = cached
+        else:
+            blob = fetch(rel)
+            image = _qimage_from_bytes(blob, log) if blob else None
+            if image is not None and image.isNull():
+                image = None
+            if blob and image is None:
+                _log(log, f"      ! {rel.replace(chr(92), '/')} was found but could NOT be "
+                          f"decoded ({_fmt_bytes(len(blob))}) - unsupported DDS format?")
+            pre = (image.width(), image.height()) if image is not None else None
+            image = _fit_texture(image)
             from Utils.dds_compat import is_srgb_dds
-            srgb_albedo[key] = is_srgb_dds(blob)
+            is_srgb = is_srgb_dds(blob) if blob else False
             if image is not None:
-                shrunk = ("" if pre == (image.width(), image.height())
-                          else f" (downscaled from {pre[0]}x{pre[1]})")
-                _log(log, f"      diffuse {image.width()}x{image.height()}"
-                          f"{shrunk}"
-                          f"{' sRGB' if srgb_albedo[key] else ''}")
-        seen[key] = image
+                shared_put("diffuse", (rel,), (image, is_srgb))
+        if image is not None and overlay:
+            # _fetch_exact, not fetch: plenty of NPCs ship no tint map and its
+            # absence is normal, so it must not be reported as a missing
+            # texture the way a mesh's own maps are.
+            tint_img = decoded_image(overlay, exact=True)
+            if tint_img is not None and not tint_img.isNull():
+                image = _multiply_tint_map(image, tint_img)
+                _log(log, f"      face tint {overlay.rsplit('/', 1)[-1]} "
+                          f"({tint_img.width()}x{tint_img.height()}) multiplied "
+                          f"over {rel.replace(chr(92), '/').rsplit('/', 1)[-1]}")
+        srgb_albedo[key] = is_srgb
+        if image is not None:
+            shrunk = ("" if pre is None or pre == (image.width(), image.height())
+                      else f" (downscaled from {pre[0]}x{pre[1]})")
+            _log(log, f"      diffuse {image.width()}x{image.height()}"
+                      f"{shrunk}"
+                      f"{' sRGB' if srgb_albedo[key] else ''}")
+        seen[cache_key] = image
         return image
 
     load.fetch = fetch
+    load.fetch_selected = _fetch_selected_exact
     load.requested = requested
     load.normal_map = normal_map
     load.env_maps = env_maps
-    load.ao_map = ao_map
+    load.rmaos_map = rmaos_map
     load.is_srgb = lambda shape: srgb_albedo.get(diffuse_key(shape), False)
     load.missing = missing
+    load.cache_stats = cache_stats
+    load.decoded_cache = decoded_cache
     return load
 
 
@@ -728,6 +1190,10 @@ def _build_meshes(model, load_texture, cancel=None):
     meshes: list[_Mesh] = []
     lo = [float("inf")] * 3
     hi = [float("-inf")] * 3
+    # The FaceGen head's own extent, kept apart from the assembled actor's so
+    # a portrait can frame the face even with a whole body on screen.
+    head_lo = [float("inf")] * 3
+    head_hi = [float("-inf")] * 3
 
     for shape in model.shapes:
         if cancel is not None and cancel():
@@ -747,6 +1213,9 @@ def _build_meshes(model, load_texture, cancel=None):
         tangents = shape.tangents
         if len(tangents) != len(verts):
             tangents = [(0.0, 0.0, 0.0)] * len(verts)
+        signs = getattr(shape, "bitangent_signs", ())
+        if len(signs) != len(verts):
+            signs = [1.0] * len(verts)
         # The engine ignores the colour array unless SLSF2_Vertex_Colors is
         # set, and 405 shapes in one real load order carry a stale one.
         use_colors = shape.vertex_colors and len(shape.colors) == len(verts)
@@ -779,6 +1248,11 @@ def _build_meshes(model, load_texture, cancel=None):
                       r6 * x + r7 * y + r8 * z)
                      for x, y, z in tangents]
 
+        # Compact tangent frame: xyz plus the one bit needed to reconstruct
+        # the stored bitangent direction in the shader.
+        wtans = [(x, y, z, sign)
+                 for (x, y, z), sign in zip(wtans, signs)]
+
         # Interleave pos/normal/uv/tangent(/colour) without a per-vertex
         # Python loop: chain flattens the zipped tuples at C speed.
         groups = (zip(wverts, wnorms, uvs, wtans, colors) if colors is not None
@@ -788,7 +1262,7 @@ def _build_meshes(model, load_texture, cancel=None):
 
         # Bounds from strided slices of the final buffer (C speed); the
         # per-shape centroid orders the blended pass.
-        fpv = 15 if colors is not None else 11
+        fpv = 16 if colors is not None else 12
         xs, ys, zs = flat[0::fpv], flat[1::fpv], flat[2::fpv]
         mlo = (min(xs), min(ys), min(zs))
         mhi = (max(xs), max(ys), max(zs))
@@ -797,6 +1271,12 @@ def _build_meshes(model, load_texture, cancel=None):
                 lo[k] = mlo[k]
             if mhi[k] > hi[k]:
                 hi[k] = mhi[k]
+        if getattr(shape, "is_head", False):
+            for k in range(3):
+                if mlo[k] < head_lo[k]:
+                    head_lo[k] = mlo[k]
+                if mhi[k] > head_hi[k]:
+                    head_hi[k] = mhi[k]
 
         nv = len(verts)
         idx = array.array("I", chain.from_iterable(tris))
@@ -816,10 +1296,8 @@ def _build_meshes(model, load_texture, cancel=None):
         # BodySlide drives its highlight from these material fields; a mesh
         # with SLSF1_Specular off renders matte (strength 0).
         strength = shape.spec_strength if shape.spec_enabled else 0.0
-        # TruePBR repurposes the whole block: glossiness reads 0, the normal
-        # map's alpha is not a gloss mask, and slot 5 is _rmaos rather than an
-        # env mask. We do not implement PBR, so shade those diffuse-only
-        # instead of feeding junk into the Blinn-Phong lobe.
+        # TruePBR repurposes the whole block: its values are handed separately
+        # to the PBR path below, never fed into the legacy Blinn-Phong lobe.
         if shape.pbr or shape.glossiness < 1.0:
             strength = 0.0
         spec = (*shape.spec_color, strength, max(1.0, shape.glossiness))
@@ -837,15 +1315,19 @@ def _build_meshes(model, load_texture, cancel=None):
                             shape.env_map_scale if env_img else 0.0,
                             thr, shape.alpha_blend and image is not None,
                             centre, colors is not None, shape.tint,
-                            load_texture.ao_map(shape)
-                            if hasattr(load_texture, 'ao_map') else None,
+                            load_texture.rmaos_map(shape)
+                            if hasattr(load_texture, 'rmaos_map') else None,
+                            shape.pbr,
+                            (shape.glossiness, shape.spec_strength),
                             bool(load_texture.is_srgb(shape))
                             if hasattr(load_texture, 'is_srgb') else False))
 
     if not meshes:
-        return [], None
+        return [], None, None
     bounds = (tuple(lo), tuple(hi))
-    return meshes, bounds
+    head = ((tuple(head_lo), tuple(head_hi))
+            if head_lo[0] != float("inf") else None)
+    return meshes, bounds, head
 
 
 def _neutralise_meshes(meshes) -> None:
@@ -856,14 +1338,14 @@ def _neutralise_meshes(meshes) -> None:
     import shiboken6
     for m in meshes:
         for obj in (m.vao, m.vbo, m.ibo, m.texture, m.normal_tex,
-                    m.env_tex, m.mask_tex, m.ao_tex):
+                    m.env_tex, m.mask_tex, m.rmaos_tex):
             if obj is not None:
                 try:
                     shiboken6.invalidate(obj)
                 except Exception:                        # noqa: BLE001
                     pass
         m.vao = m.vbo = m.ibo = m.texture = m.normal_tex = None
-        m.env_tex = m.mask_tex = m.ao_tex = None
+        m.env_tex = m.mask_tex = m.rmaos_tex = None
 
 
 def _log(fn, message: str) -> None:
@@ -888,8 +1370,127 @@ def _fmt_bytes(n: int) -> str:
     return f"{n:.1f}GB"
 
 
+def _add_parts(model, parts, plugin_dirs, log, cancel, bones=None,
+               skin_tint=None) -> None:
+    """Append an actor's other meshes - body, hands, armour - to *model*.
+
+    Each part is parsed, texture-overridden and POSED on its own: overrides are
+    keyed on the mesh path, and an unskinned piece (a shield) needs the
+    skeleton node its own slot names, which only makes sense per part.
+    """
+    from Utils.nif_reader import read_nif
+    from Utils.nif_skin import morph_weight_model, pose_model
+    from Utils.txst_lookup import apply_alt_textures
+    for entry in parts:
+        data, rel = entry[0], entry[1]
+        attach = entry[2] if len(entry) > 2 else ""
+        low_data = entry[3] if len(entry) > 3 else None
+        weight = entry[4] if len(entry) > 4 else 1.0
+        skin_textures = entry[5] if len(entry) > 5 else ()
+        # Each part's OWN mod, so its plugin's TXST overrides are seen; the
+        # head's plugins know nothing about the armour's dead texture paths.
+        part_dirs = (entry[6] if len(entry) > 6 and entry[6] else plugin_dirs)
+        if cancel():
+            return
+        try:
+            part = read_nif(data)
+        except Exception as exc:                         # noqa: BLE001
+            _log(log, f"  ! body part {rel} could not be parsed: {exc!r}")
+            continue
+        morphed = 0
+        if low_data is not None and weight < 0.999:
+            try:
+                morphed = morph_weight_model(part, read_nif(low_data), weight)
+            except Exception as exc:                     # noqa: BLE001
+                _log(log, f"  ! body weight morph failed for {rel}: {exc!r}")
+        if rel and part_dirs:
+            try:
+                n = apply_alt_textures(part, rel, part_dirs, cancel=cancel)
+                if n:
+                    _log(log, f"      {rel.rsplit('/', 1)[-1]}: {n} shape(s) "
+                              f"retextured from its mod's plugin")
+            except Exception:                            # noqa: BLE001
+                pass
+        texture_hits = 0
+        if skin_textures:
+            for shape in part.shapes:
+                # ARMA NAM0/NAM1 is a direct runtime texture set for skin
+                # shader shapes, independent of the mesh's alternate textures.
+                if getattr(shape, "lighting_shader_type", 0) == 5:
+                    shape.textures = list(skin_textures)
+                    texture_hits += 1
+        # Cloth/HDT nifs often carry skinned collision volumes alongside the
+        # visible garment. They are BSTriShapes with geometry but no shader at
+        # all (CapeProxy, PantsCol, Stabilizer, ...). Skyrim feeds those to the
+        # physics system; treating them as ordinary untextured geometry puts
+        # opaque clay shells over the actor.
+        part.shapes, helpers = _actor_visible_shapes(part.shapes)
+        posed = pose_model(part, bones, attach) if bones else 0
+        tinted = 0
+        if skin_tint is not None:
+            for shape in part.shapes:
+                # Skyrim shader subtype 5 is the authoritative Skin Tint
+                # marker. It also catches exposed skin included in outfit
+                # meshes without recolouring the clothing around it.
+                if getattr(shape, "lighting_shader_type", 0) == 5:
+                    shape.tint = skin_tint
+                    tinted += 1
+        _log(log, f"  + {rel.rsplit('/', 1)[-1]}: {len(part.shapes)} shape(s)"
+                  f", posed {posed}"
+                  + (f", weight {weight * 100:.0f} ({morphed} morphed)"
+                     if morphed else "")
+                  + (f", skin texture-set {texture_hits}"
+                     if texture_hits else "")
+                  + (f", skin-tinted {tinted}" if tinted else "")
+                  + (f", hid {len(helpers)} physics helper(s)"
+                     if helpers else "")
+                  + (f", attached to {attach}" if attach else ""))
+        model.shapes.extend(part.shapes)
+
+
+def _actor_visible_shapes(shapes):
+    """Separate game-rendered actor shapes from shaderless physics helpers.
+
+    A named texture may still be missing and must remain visible as clay so
+    the diagnostic can report it. Only a shape with no shader, material or
+    texture reference is excluded.
+    """
+    visible = []
+    helpers = []
+    for shape in shapes:
+        textures = getattr(shape, "textures", ()) or ()
+        if (getattr(shape, "shader_type", "")
+                or getattr(shape, "material", "")
+                or any(textures)):
+            visible.append(shape)
+        else:
+            helpers.append(shape)
+    return visible, helpers
+
+
+def _pose_actor(model, bones, log) -> None:
+    """Place the head's own shapes in the skeleton's space."""
+    from Utils.nif_skin import pose_model
+    posed = pose_model(model, bones)
+    _log(log, f"  posed {posed}/{len(model.shapes)} head shape(s) "
+              f"against {len(bones)} bones")
+
+
+def _read_bones(skeleton_data, log):
+    from Utils.nif_skin import read_skeleton
+    try:
+        bones = read_skeleton(skeleton_data)
+    except Exception as exc:                             # noqa: BLE001
+        _log(log, f"  ! skeleton could not be read: {exc!r}")
+        return {}
+    if not bones:
+        _log(log, "  ! skeleton named no bones - parts left unposed")
+    return bones
+
+
 def _model_cache_key(source, texture_roots, archive_roots, resolver, archives,
-                     mesh_rel, plugin_dirs):
+                     mesh_rel, plugin_dirs, parts=None, skeleton=None,
+                     skin_tint=None, hide_hair=False):
     """Identity of every input that can change the parsed/augmented model.
 
     Texture choice and texture slot are deliberately absent: they only affect
@@ -909,9 +1510,16 @@ def _model_cache_key(source, texture_roots, archive_roots, resolver, archives,
         return tuple(str(Path(p)) for p in (paths or ()))
 
     effective_plugins = plugin_dirs or texture_roots
+    # Parts and skeleton change the SHAPES of the cached model, so a head-only
+    # parse must never be reused for a whole actor (or the reverse).
+    parts_key = tuple((e[1], e[4] if len(e) > 4 else 1.0,
+                       bool(e[3]) if len(e) > 3 else False,
+                       tuple(e[5]) if len(e) > 5 else ())
+                      for e in (parts or ()))
     return (source_key, mesh_rel.replace("\\", "/").lower(),
             path_key(texture_roots), path_key(archive_roots),
-            path_key(effective_plugins), id(resolver), id(archives))
+            path_key(effective_plugins), id(resolver), id(archives),
+            parts_key, bool(skeleton), skin_tint)
 
 
 def _log_model(log, model) -> None:
@@ -936,8 +1544,6 @@ def _log_model(log, model) -> None:
             _log(log, f"  ! block walk failed: {walk_error}")
     for s in model.shapes:
         flags = []
-        if s.pbr:
-            flags.append("PBR")
         if s.vertex_colors:
             flags.append("vcolor" if s.colors else "vcolor-flag-no-data")
         elif s.colors:
@@ -948,13 +1554,20 @@ def _log_model(log, model) -> None:
             flags.append("alpha-blend")
         if s.env_map_scale:
             flags.append(f"envmap x{s.env_map_scale:.2f}")
+        if s.tint != (1.0, 1.0, 1.0):
+            flags.append("baked-tint=" + ",".join(
+                str(round(c * 255)) for c in s.tint))
         if s.material:
             flags.append(f"material={s.material}")
         if s.mesh_path:
             flags.append(f"geom={s.mesh_path}")
+        material = (f"PBR spec-level {s.glossiness:.3f} "
+                    f"roughness x{s.spec_strength:.2f}"
+                    if s.pbr else
+                    f"gloss {s.glossiness:.0f} spec {s.spec_strength:.2f}")
         _log(log, f"    shape {s.name!r} [{s.block_type}] "
                   f"{len(s.vertices)}v/{len(s.triangles)}t"
-                  f" · gloss {s.glossiness:.0f} spec {s.spec_strength:.2f}"
+                  f" · {material}"
                   f"{' ' + ' '.join(flags) if flags else ''}")
         if s.vertices and not s.triangles:
             _log(log, f"      ! {s.name!r} has vertices but no triangles")
@@ -975,12 +1588,21 @@ def _log_build(log, meshes, bounds, loader) -> None:
     textured = sum(1 for m in meshes if m.has_image)
     normals = sum(1 for m in meshes if m.normal_image is not None)
     vcols = sum(1 for m in meshes if m.has_colors)
-    aos = sum(1 for m in meshes if m.ao_image is not None)
+    pbrs = sum(1 for m in meshes if m.pbr)
+    rmaos = sum(1 for m in meshes if m.rmaos_image is not None)
     srgb = sum(1 for m in meshes if m.srgb_albedo)
     envs = sum(1 for m in meshes if m.env_image is not None)
     _log(log, f"  totals: {tris} triangles · {textured}/{len(meshes)} textured"
               f" · {normals} normal-mapped · {vcols} vertex-coloured"
-              f" · {aos} with AO · {srgb} sRGB-decoded · {envs} env-mapped")
+              f" · {pbrs} PBR ({rmaos} RMAOS)"
+              f" · {srgb} sRGB-decoded · {envs} env-mapped")
+    cache_stats = getattr(loader, "cache_stats", None)
+    decoded_cache = getattr(loader, "decoded_cache", None)
+    if cache_stats and decoded_cache is not None:
+        items, size = decoded_cache.usage
+        _log(log, f"  decoded texture cache: {cache_stats['hits']} hit(s), "
+                  f"{cache_stats['misses']} miss(es) · {items} item(s), "
+                  f"{_fmt_bytes(size)} retained")
     if bounds:
         lo, hi = bounds
         size = tuple(round(hi[i] - lo[i], 1) for i in range(3))
@@ -1003,10 +1625,75 @@ def _neutralise_view(view) -> None:
     view._pending = None
 
 
+def _sheet_panel(image: QImage, width: int, height: int) -> QImage:
+    """Centre-crop *image* to a panel without stretching it."""
+    target_aspect = width / max(1, height)
+    source_aspect = image.width() / max(1, image.height())
+    if source_aspect > target_aspect:
+        crop_h = image.height()
+        crop_w = max(1, round(crop_h * target_aspect))
+        crop_x = (image.width() - crop_w) // 2
+        rect = QRect(crop_x, 0, crop_w, crop_h)
+    else:
+        crop_w = image.width()
+        crop_h = max(1, round(crop_w / target_aspect))
+        crop_y = (image.height() - crop_h) // 2
+        rect = QRect(0, crop_y, crop_w, crop_h)
+    return image.copy(rect).scaled(width, height, Qt.IgnoreAspectRatio,
+                                   Qt.SmoothTransformation)
+
+
+def _compose_turntable_sheet(frames: list[QImage], portrait: QImage,
+                             transparent: bool = False,
+                             fill: str | None = None):
+    """Lay four actor frames and a close-up into one reference-sheet image."""
+    if len(frames) != 4 or portrait is None or portrait.isNull():
+        return None
+    images = [*frames, portrait]
+    if any(image is None or image.isNull() for image in images):
+        return None
+
+    # Restrict height to what every source can supply at its panel ratio. This
+    # normally resolves to the framebuffer height, but also behaves sensibly
+    # when the viewer has been squeezed unusually narrow in the splitter.
+    usable = [image.height() for image in images]
+    usable.extend(int(image.width() / _SHEET_BODY_ASPECT)
+                  for image in frames)
+    usable.append(int(portrait.width() / _SHEET_FACE_ASPECT))
+    height = min(_SHEET_MAX_HEIGHT, *usable)
+    if height <= 0:
+        return None
+    body_w = max(1, round(height * _SHEET_BODY_ASPECT))
+    face_w = max(1, round(height * _SHEET_FACE_ASPECT))
+    # Premultiplied for the transparent sheet: that is what the GL grab hands
+    # back, and both the smooth scale in _sheet_panel and the compositing
+    # below are only correct on premultiplied data. Qt un-premultiplies again
+    # when it writes the PNG.
+    if transparent:
+        sheet = QImage(body_w * 4 + face_w, height,
+                       QImage.Format_ARGB32_Premultiplied)
+        sheet.fill(Qt.transparent)
+    else:
+        sheet = QImage(body_w * 4 + face_w, height, QImage.Format_RGB32)
+        sheet.fill(QColor(fill or BACKGROUNDS["dark"]))
+    painter = QPainter(sheet)
+    try:
+        x = 0
+        for frame in frames:
+            panel = _sheet_panel(frame, body_w, height)
+            painter.drawImage(x, 0, panel)
+            x += body_w
+        painter.drawImage(x, 0, _sheet_panel(portrait, face_w, height))
+    finally:
+        painter.end()
+    return sheet
+
+
 class _Viewport(QOpenGLWidget):
     """The GL canvas: turntable rotate/pan/zoom over the parsed shapes."""
 
-    loaded = Signal(object, object, int, object)  # meshes, bounds, gen, tex paths
+    # meshes, bounds, gen, tex paths, head bounds
+    loaded = Signal(object, object, int, object, object)
     failed = Signal(str, int)
 
     def __init__(self, parent=None, log_fn=None):
@@ -1019,6 +1706,11 @@ class _Viewport(QOpenGLWidget):
         fmt.setProfile(QSurfaceFormat.CoreProfile)
         fmt.setDepthBufferSize(24)
         fmt.setSamples(4)
+        # An alpha channel in the default framebuffer: without one Qt hands
+        # back an opaque RGB32 from grabFramebuffer() and a transparent export
+        # is impossible. On screen the clear below keeps alpha at 1, so the
+        # canvas still paints solid.
+        fmt.setAlphaBufferSize(8)
         self.setFormat(fmt)
 
         self._program: QOpenGLShaderProgram | None = None
@@ -1031,13 +1723,15 @@ class _Viewport(QOpenGLWidget):
         self._u_envtex = self._u_masktex = self._u_envscale = -1
         self._u_hasmask = self._u_camright = self._u_camup = -1
         self._u_athresh = self._u_blend = self._u_hasvcol = -1
-        self._u_tint = self._u_aotex = self._u_hasao = self._u_srgb = -1
+        self._u_tint = self._u_rmaostex = self._u_pbr = self._u_hasrmaos = -1
+        self._u_pbrparams = self._u_srgb = -1
         self._meshes: list[_Mesh] = []
         self._pending: list[_Mesh] | None = None
         self._uploaded = False
         self._gl_error = ""
         self._generation = 0
         self._load_jobs = LatestWorker("nif-preview-load")
+        self._decoded_textures = _DecodedTextureCache()
         # Parsing, plugin overrides, hair tint and Starfield .mesh expansion
         # are invariant when only the texture source/slot changes.
         self._cached_model_key = None
@@ -1051,6 +1745,14 @@ class _Viewport(QOpenGLWidget):
         self._yaw = _HOME_YAW
         self._pitch = _HOME_PITCH
         self._distance = 100.0
+        # (yaw, pitch, look-at height as a fraction of the model) or None for
+        # the mesh-browser 3/4 default. Set by a host that shows ACTORS.
+        self.home_view = None
+        # Bounds the camera was last framed against; keep_view only holds the
+        # view for geometry that has ALREADY been framed.
+        self._framed_bounds = None
+        self._bounds = None
+        self._head_bounds = None
         self._center = QVector3D(0, 0, 0)    # rotation pivot: the mesh centre
         # Pan lives in view-plane coordinates, not world space: rotation then
         # always spins the asset about its own centre instead of arcing a
@@ -1068,6 +1770,9 @@ class _Viewport(QOpenGLWidget):
         self._bg = QColor(BACKGROUNDS["light"])
         self._base = (0.40, 0.39, 0.37)
         self._gamma = 1.0
+        # Set only for the duration of an export grab; never while painting to
+        # the screen, where a see-through canvas would show the window behind.
+        self._clear_transparent = False
 
         self.setMinimumSize(1, 1)
         self.setFocusPolicy(Qt.StrongFocus)
@@ -1076,13 +1781,20 @@ class _Viewport(QOpenGLWidget):
     # -- loading ------------------------------------------------------------
     def load(self, source, texture_roots: list[Path], archive_roots=None,
              resolver=None, archives=None, tex_override=None,
-             mesh_rel: str = "", plugin_dirs=None,
+             mesh_rel: str = "", plugin_dirs=None, parts=None, skeleton=None,
+             skin_tint=None, hide_hair: bool = False,
              keep_view: bool = False):
         """Parse and build *source* (path or raw bytes) off-thread, then swap.
 
         *archives* lets a mesh read from inside a BSA find its own textures.
         *mesh_rel* (the mesh's data-relative path) enables plugin TXST
         overrides, scanned from *plugin_dirs* (default: the texture roots).
+
+        *parts* are extra meshes to show in the same scene - an actor's body,
+        hands and feet alongside its head. They may include the ``_0.nif``
+        endpoint and NPC weight used to morph a ``_1.nif`` part. *skeleton* is
+        a skeleton nif's bytes; without it each mesh sits in its own bones'
+        space and the pieces pile up on each other rather than assembling.
         """
         self._generation += 1
         gen = self._generation
@@ -1091,7 +1803,8 @@ class _Viewport(QOpenGLWidget):
         # Kept so the mesh can be rebuilt after a context loss (tab detach).
         self._reload_args = (source, texture_roots, archive_roots,
                              resolver, archives, tex_override,
-                             mesh_rel, plugin_dirs)
+                             mesh_rel, plugin_dirs, parts, skeleton, skin_tint,
+                             hide_hair)
         self._discard_pending()
         log = self.log_fn
 
@@ -1117,7 +1830,8 @@ class _Viewport(QOpenGLWidget):
             try:
                 model_key = _model_cache_key(
                     source, texture_roots, archive_roots, resolver, archives,
-                    mesh_rel, plugin_dirs)
+                    mesh_rel, plugin_dirs, parts, skeleton, skin_tint,
+                    hide_hair)
                 extra = archives
                 if extra is None and archive_roots:
                     from Utils.archive_lookup import ArchiveLookup, find_archives
@@ -1128,7 +1842,8 @@ class _Viewport(QOpenGLWidget):
                 loader = _make_texture_loader(texture_roots, extra, resolver,
                                               tex_override, self.texture_slot,
                                               log,
-                                              cancel=lambda: gen != self._generation)
+                                              cancel=lambda: gen != self._generation,
+                                              decoded_cache=self._decoded_textures)
                 if (model_key == self._cached_model_key
                         and self._cached_model is not None):
                     model = self._cached_model
@@ -1172,6 +1887,48 @@ class _Viewport(QOpenGLWidget):
                                           f" ({(time.monotonic() - t0) * 1000:.0f}ms)")
                         except Exception as exc:         # noqa: BLE001
                             _log(log, f"  ! hair tint lookup failed: {exc!r}")
+                        # The baked mesh names a generic head texture; makeup,
+                        # brows and skin tone live in the per-NPC FaceTint map
+                        # the engine multiplies over it.
+                        try:
+                            from Utils.facegen_tint import apply_face_tint
+                            apply_face_tint(model, mesh_rel)
+                        except Exception as exc:         # noqa: BLE001
+                            _log(log, f"  ! face tint lookup failed: {exc!r}")
+                    if hide_hair:
+                        # A hood or helmet claims the hair slot, so the engine
+                        # hides the hair. The baked head still carries it and
+                        # it would grow straight through the hat.
+                        try:
+                            from Utils.facegen_tint import remove_hair
+                            gone = remove_hair(model)
+                            _log(log, f"  outfit covers the hair slot: "
+                                      f"{gone} hair shape(s) hidden")
+                        except Exception as exc:         # noqa: BLE001
+                            _log(log, f"  ! hiding hair failed: {exc!r}")
+                    # Tag the FACE shape - not the hair - before the body is
+                    # appended. A portrait framed on head+hair shrinks the face
+                    # to fit a tall hairstyle in; framing on the face itself
+                    # keeps every NPC the same size and simply crops the hair.
+                    if "facegeom" in mesh_rel.replace("\\", "/").lower():
+                        try:
+                            from Utils.facegen_tint import head_shape
+                            _face = head_shape(model)
+                        except Exception:                # noqa: BLE001
+                            _face = None
+                        if _face is not None:
+                            _face.is_head = True
+                    bones = _read_bones(skeleton, log) if skeleton else {}
+                    # The head first, so its shapes are posed before the body
+                    # meshes are appended and posed with their own attachments.
+                    if bones:
+                        _pose_actor(model, bones, log)
+                    if parts:
+                        _add_parts(model, parts, plugin_dirs or texture_roots,
+                                   log, lambda: gen != self._generation, bones,
+                                   skin_tint)
+                    if gen != self._generation:
+                        return
                     if gen != self._generation:
                         return
                     # Starfield keeps geometry in external .mesh files.
@@ -1188,7 +1945,7 @@ class _Viewport(QOpenGLWidget):
                     self._cached_model_key = model_key
                     self._cached_model = model
                 t0 = time.monotonic()
-                meshes, bounds = _build_meshes(
+                meshes, bounds, head_bounds = _build_meshes(
                     model, loader, cancel=lambda: gen != self._generation)
                 if gen != self._generation:
                     return
@@ -1205,7 +1962,7 @@ class _Viewport(QOpenGLWidget):
             _log(log, f"  load #{gen} done in "
                       f"{(time.monotonic() - t_start) * 1000:.0f}ms")
             safe_emit(self.loaded, meshes, bounds, gen,
-                      list(dict.fromkeys(loader.requested)))
+                      list(dict.fromkeys(loader.requested)), head_bounds)
 
         self._load_jobs.submit(work)
 
@@ -1241,9 +1998,12 @@ class _Viewport(QOpenGLWidget):
             _neutralise_meshes(self._meshes)
             self._meshes = []
         self._uploaded = False
+        self._bounds = None
+        self._head_bounds = None
         self.update()
 
-    def _on_loaded(self, meshes, bounds, gen, _tex_paths=None):
+    def _on_loaded(self, meshes, bounds, gen, _tex_paths=None,
+                   head_bounds=None):
         if gen != self._generation:
             return                                   # a newer file won the race
         # GL deletes need the context current or the driver keeps the objects.
@@ -1256,20 +2016,176 @@ class _Viewport(QOpenGLWidget):
             self._meshes = []
         self._pending = meshes
         self._uploaded = False
-        if bounds is not None and not self._keep_view:
+        self._bounds = bounds
+        self._head_bounds = head_bounds
+        # keep_view means "same geometry, different textures" - it must not
+        # hold the camera on geometry that has never been framed. A texture
+        # reload is armed the moment a mesh opens and can SUPERSEDE the first
+        # load, so the only load that completes carries keep_view=True and the
+        # actor was left at the startup camera: distance 100 looking at the
+        # origin, i.e. staring at its boots from behind. Framing is therefore
+        # keyed on the BOUNDS, which a texture change cannot alter.
+        if bounds is not None and (not self._keep_view
+                                   or bounds != self._framed_bounds):
             self._frame(bounds)
+            self._framed_bounds = bounds
+            _log(self.log_fn,
+                 f"  framed: yaw {math.degrees(self._yaw):.0f}° "
+                 f"pitch {math.degrees(self._pitch):.0f}° "
+                 f"dist {self._distance:.0f} "
+                 f"look-at z {self._center.z():.1f}"
+                 f"{' (actor home)' if self.home_view else ''}")
+        else:
+            _log(self.log_fn,
+                 f"  camera HELD: {'no bounds' if bounds is None else 'keep_view'}"
+                 f" - dist {self._distance:.0f} look-at z {self._center.z():.1f}")
         self._keep_view = False
         self.update()
+
+    def capture_portrait(self, size: int = 308):
+        """A front-on still of the head, or None.
+
+        Rendered by re-running the normal paint with the camera moved, then
+        moved straight back: one extra frame per NPC rather than a second GL
+        context. Skyrim heads face +Y (verified over 119/120 vanilla FaceGen
+        meshes: the eyes sit on the +Y side of the head's centre), so a yaw of
+        +90 degrees looks the actor in the face.
+
+        Framed tight on the FACE, head-and-shoulders: the distance is solved
+        from the viewport's real 45-degree vertical FOV rather than guessed at
+        with a multiplier, so the face fills the frame at any pane size and
+        tall hair simply crops instead of shrinking the head.
+        """
+        bounds = self._head_bounds
+        if bounds is None or not (self._meshes or self._pending):
+            return None
+        if self.context() is None:
+            return None
+        saved = (self._yaw, self._pitch, self._distance,
+                 QVector3D(self._center), list(self._pan))
+        try:
+            (lx, ly, lz), (hx, hy, hz) = bounds
+            # Sit the camera slightly ABOVE the face's midpoint: the mesh runs
+            # down into the neck, and centring on it leaves the eyes high in
+            # the frame instead of level with the viewer.
+            self._center = QVector3D((lx + hx) / 2, (ly + hy) / 2,
+                                     lz + (hz - lz) * _PORTRAIT_EYE_LINE)
+            self._pan = [0.0, 0.0]
+            # Fit the face's height and width in the 45-degree vertical FOV.
+            # The square crop below takes the smaller viewport side, so the
+            # width has to clear that same extent, not the pane's aspect.
+            want = max(hz - lz, hx - lx, 1e-3) * _PORTRAIT_FILL
+            self._distance = want / (2.0 * math.tan(math.radians(22.5)))
+            self._yaw = math.radians(90.0)
+            self._pitch = 0.0
+            image = self.grabFramebuffer()
+        except Exception as exc:                         # noqa: BLE001
+            _log(self.log_fn, f"  ! portrait capture failed: {exc!r}")
+            image = None
+        finally:
+            (self._yaw, self._pitch, self._distance,
+             self._center, self._pan) = saved
+            self.update()
+        if image is None or image.isNull():
+            return None
+        side = min(image.width(), image.height())
+        if side <= 0:
+            return None
+        square = image.copy((image.width() - side) // 2,
+                            (image.height() - side) // 2, side, side)
+        # Never upscale past what was actually rendered, and never let the
+        # inset swallow a narrow pane - it is a corner reference, not a second
+        # viewport. Both caps only bite on a small pane; at any ordinary size
+        # the requested size wins.
+        pane = min(self.width(), self.height())
+        want = min(size, side, int(pane * _PORTRAIT_MAX_PANE) or size)
+        if want <= 0:
+            return None
+        return square.scaled(want, want, Qt.KeepAspectRatio,
+                             Qt.SmoothTransformation)
+
+    def capture_turntable_sheet(self, background: str | None = None):
+        """Return a four-angle actor sheet with a face close-up, or None.
+
+        All five panels are rendered from the already-loaded scene.  Camera
+        state AND the on-screen backdrop are restored even if a driver refuses
+        one of the framebuffer grabs, so exporting never disturbs the
+        interactive view.  *background* is a BACKGROUNDS key to export on,
+        ``"transparent"`` for a cut-out of the actor alone, or None to keep
+        whatever the viewport is showing.
+        """
+        bounds = self._bounds
+        head_bounds = self._head_bounds
+        if (bounds is None or head_bounds is None
+                or not (self._meshes or self._pending)):
+            return None
+        if self.context() is None:
+            return None
+        saved = (self._yaw, self._pitch, self._distance,
+                 QVector3D(self._center), list(self._pan), self._home)
+        # The backdrop drives the clay and wireframe colours too, so swapping
+        # it for the grab means saving the whole trio, not just _bg.
+        saved_bg = (QColor(self._bg), self._base)
+        frames = []
+        portrait = None
+        transparent = background == BACKGROUND_TRANSPARENT
+        self._clear_transparent = transparent
+        if not transparent and background in BACKGROUNDS:
+            self.set_background(background)
+        try:
+            # A level, consistently framed turntable. Skyrim actors face +Y,
+            # hence +90 is front and -90 is back.
+            self._frame(bounds)
+            self._pitch = 0.0
+            for degrees in (0.0, 90.0, -90.0, 180.0):
+                self._yaw = math.radians(degrees)
+                frame = self.grabFramebuffer()
+                if frame is None or frame.isNull():
+                    return None
+                frames.append(frame)
+
+            (lx, ly, lz), (hx, hy, hz) = head_bounds
+            self._center = QVector3D((lx + hx) / 2, (ly + hy) / 2,
+                                     lz + (hz - lz) * _PORTRAIT_EYE_LINE)
+            self._pan = [0.0, 0.0]
+            want = max(hz - lz, hx - lx, 1e-3) * _PORTRAIT_FILL
+            self._distance = want / (2.0 * math.tan(math.radians(22.5)))
+            self._yaw = math.radians(90.0)
+            self._pitch = 0.0
+            portrait = self.grabFramebuffer()
+        except Exception as exc:                         # noqa: BLE001
+            _log(self.log_fn, f"  ! image-sheet capture failed: {exc!r}")
+            return None
+        finally:
+            self._clear_transparent = False
+            self._bg, self._base = saved_bg
+            (self._yaw, self._pitch, self._distance,
+             self._center, self._pan, self._home) = saved
+            self.update()
+        if portrait is None or portrait.isNull():
+            return None
+        # The gutter colour only shows if panel rounding ever leaves a seam,
+        # but it must be the EXPORTED backdrop when it does, not the viewer's.
+        fill = BACKGROUNDS.get(background, self._bg.name())
+        return _compose_turntable_sheet(frames, portrait, transparent, fill)
 
     def _frame(self, bounds):
         (lx, ly, lz), (hx, hy, hz) = bounds
         cx, cy, cz = (lx + hx) / 2, (ly + hy) / 2, (lz + hz) / 2
         radius = max(hx - lx, hy - ly, hz - lz, 1e-3) * 0.5
+        if self.home_view is not None:
+            # An actor viewer wants the person facing the camera, framed like
+            # a character sheet; a mesh browser wants the 3/4 view that shows
+            # an object's form. Only the host knows which it is.
+            yaw, pitch, look = self.home_view
+            cz = lz + (hz - lz) * look
+        else:
+            yaw, pitch = _HOME_YAW, _HOME_PITCH
         self._center = QVector3D(cx, cy, cz)
         self._pan = [0.0, 0.0]
         self._distance = radius * 3.0
-        self._yaw = _HOME_YAW
-        self._pitch = _HOME_PITCH
+        self._yaw = yaw
+        self._pitch = pitch
         self._home = (self._yaw, self._pitch, self._distance,
                       QVector3D(cx, cy, cz))
 
@@ -1335,8 +2251,10 @@ class _Viewport(QOpenGLWidget):
         self._u_blend = prog.uniformLocation("uBlend")
         self._u_hasvcol = prog.uniformLocation("uHasVColor")
         self._u_tint = prog.uniformLocation("uTint")
-        self._u_aotex = prog.uniformLocation("uAoTex")
-        self._u_hasao = prog.uniformLocation("uHasAo")
+        self._u_rmaostex = prog.uniformLocation("uRmaosTex")
+        self._u_pbr = prog.uniformLocation("uPbr")
+        self._u_hasrmaos = prog.uniformLocation("uHasRmaos")
+        self._u_pbrparams = prog.uniformLocation("uPbrParams")
         self._u_srgb = prog.uniformLocation("uSrgbAlbedo")
         # A -1 means the name is missing or the compiler dropped it as unused.
         # Setting one is a silent no-op, which has cost real debugging time.
@@ -1352,8 +2270,10 @@ class _Viewport(QOpenGLWidget):
             ("uHasMask", self._u_hasmask), ("uCamRight", self._u_camright),
             ("uCamUp", self._u_camup), ("uAlphaThreshold", self._u_athresh),
             ("uBlend", self._u_blend), ("uHasVColor", self._u_hasvcol),
-            ("uTint", self._u_tint), ("uAoTex", self._u_aotex),
-            ("uHasAo", self._u_hasao), ("uSrgbAlbedo", self._u_srgb),
+            ("uTint", self._u_tint), ("uRmaosTex", self._u_rmaostex),
+            ("uPbr", self._u_pbr), ("uHasRmaos", self._u_hasrmaos),
+            ("uPbrParams", self._u_pbrparams),
+            ("uSrgbAlbedo", self._u_srgb),
         ) if loc < 0]
         if unresolved:
             _log(log, "  ! uniforms not resolved (writes to these do nothing): "
@@ -1429,14 +2349,14 @@ class _Viewport(QOpenGLWidget):
     def _release_gpu(self):
         for m in self._meshes:
             for obj in (m.vao, m.vbo, m.ibo, m.texture, m.normal_tex,
-                        m.env_tex, m.mask_tex, m.ao_tex):
+                        m.env_tex, m.mask_tex, m.rmaos_tex):
                 if obj is not None:
                     try:
                         obj.destroy()
                     except RuntimeError:
                         pass
             m.vao = m.vbo = m.ibo = m.texture = m.normal_tex = None
-            m.env_tex = m.mask_tex = m.ao_tex = None
+            m.env_tex = m.mask_tex = m.rmaos_tex = None
         self._meshes = []
 
     def _upload(self):
@@ -1455,7 +2375,7 @@ class _Viewport(QOpenGLWidget):
 
             # Colours widen the vertex; the enable state is captured by this
             # mesh's VAO, so meshes without them never read attribute 4.
-            stride = (15 if m.has_colors else 11) * 4
+            stride = (16 if m.has_colors else 12) * 4
             prog.enableAttributeArray(0)
             prog.setAttributeBuffer(0, _GL_FLOAT, 0, 3, stride)
             prog.enableAttributeArray(1)
@@ -1463,10 +2383,10 @@ class _Viewport(QOpenGLWidget):
             prog.enableAttributeArray(2)
             prog.setAttributeBuffer(2, _GL_FLOAT, 6 * 4, 2, stride)
             prog.enableAttributeArray(3)
-            prog.setAttributeBuffer(3, _GL_FLOAT, 8 * 4, 3, stride)
+            prog.setAttributeBuffer(3, _GL_FLOAT, 8 * 4, 4, stride)
             if m.has_colors:
                 prog.enableAttributeArray(4)
-                prog.setAttributeBuffer(4, _GL_FLOAT, 11 * 4, 4, stride)
+                prog.setAttributeBuffer(4, _GL_FLOAT, 12 * 4, 4, stride)
 
             m.ibo = QOpenGLBuffer(QOpenGLBuffer.IndexBuffer)
             m.ibo.create()
@@ -1483,7 +2403,7 @@ class _Viewport(QOpenGLWidget):
                               ("normal_tex", m.normal_image),
                               ("env_tex", m.env_image),
                               ("mask_tex", m.mask_image),
-                              ("ao_tex", m.ao_image)):
+                              ("rmaos_tex", m.rmaos_image)):
                 tex = _make_gl_texture(img)
                 if tex is not None:
                     setattr(m, attr, tex)
@@ -1493,7 +2413,7 @@ class _Viewport(QOpenGLWidget):
                     _log(self.log_fn, f"  ! {m.name!r}: {attr} failed to "
                                       f"upload to the GPU")
             m.normal_image = m.env_image = m.mask_image = None
-            m.ao_image = None
+            m.rmaos_image = None
             # Free both CPU copies now the GPU owns the data.
             m.verts = array.array("f")
             m.image = None
@@ -1508,7 +2428,15 @@ class _Viewport(QOpenGLWidget):
     def paintGL(self):
         f = self.context().functions()
         col = self._bg
-        f.glClearColor(col.redF(), col.greenF(), col.blueF(), 1.0)
+        if self._clear_transparent:
+            # Black, not the backdrop colour: multisampled silhouette edges
+            # resolve to a blend of the mesh and whatever the buffer was
+            # cleared to, and the grab is read back as PREMULTIPLIED alpha -
+            # which is exactly what blending against black produces. Any other
+            # clear colour would fringe the cut-out in that colour.
+            f.glClearColor(0.0, 0.0, 0.0, 0.0)
+        else:
+            f.glClearColor(col.redF(), col.greenF(), col.blueF(), 1.0)
         f.glClear(_GL_COLOR_BUFFER_BIT | _GL_DEPTH_BUFFER_BIT)
         if self._program is None:
             return
@@ -1544,7 +2472,7 @@ class _Viewport(QOpenGLWidget):
         f.glUniform3f(self._u_camup, up.x(), up.y(), up.z())
         f.glUniform1i(self._u_envtex, 2)
         f.glUniform1i(self._u_masktex, 3)
-        f.glUniform1i(self._u_aotex, 4)
+        f.glUniform1i(self._u_rmaostex, 4)
         # BodySlide's default specularStrength.
         f.glUniform1f(self._u_spec, 1.0 if self.detail else 0.0)
 
@@ -1568,7 +2496,13 @@ class _Viewport(QOpenGLWidget):
                                     + (m.center[1] - eye.y()) ** 2
                                     + (m.center[2] - eye.z()) ** 2))
                 f.glEnable(_GL_BLEND)
-                f.glBlendFunc(_GL_SRC_ALPHA, _GL_ONE_MINUS_SRC_ALPHA)
+                # Separate alpha: the plain SRC_ALPHA function would leave
+                # a*a + (1-a) in the alpha channel, punching translucent holes
+                # through hair and eyelashes now that the buffer HAS an alpha
+                # channel. ONE/ONE_MINUS_SRC_ALPHA keeps an opaque backdrop
+                # opaque and accumulates true coverage over a cleared one.
+                f.glBlendFuncSeparate(_GL_SRC_ALPHA, _GL_ONE_MINUS_SRC_ALPHA,
+                                      _GL_ONE, _GL_ONE_MINUS_SRC_ALPHA)
                 f.glDepthMask(False)
                 self._draw_meshes(f, solid=True, meshes=blended)
                 f.glDepthMask(True)
@@ -1615,13 +2549,14 @@ class _Viewport(QOpenGLWidget):
             f.glUniform1f(self._u_hasvcol,
                           1.0 if (solid and m.has_colors) else 0.0)
             f.glUniform3f(self._u_tint, *(m.tint if solid else (1.0, 1.0, 1.0)))
-            # AO rides with the diffuse, not the "shine" toggle: it is part of
-            # the base colour, not a lighting effect.
-            use_ao = (solid and self.textured and m.ao_tex is not None
-                      and self.texture_slot == 0)
-            if use_ao:
-                m.ao_tex.bind(4)
-            f.glUniform1f(self._u_hasao, 1.0 if use_ao else 0.0)
+            use_pbr = (solid and self.detail and use_tex and m.pbr
+                       and self.texture_slot == 0)
+            use_rmaos = use_pbr and m.rmaos_tex is not None
+            if use_rmaos:
+                m.rmaos_tex.bind(4)
+            f.glUniform1f(self._u_pbr, 1.0 if use_pbr else 0.0)
+            f.glUniform1f(self._u_hasrmaos, 1.0 if use_rmaos else 0.0)
+            f.glUniform2f(self._u_pbrparams, *m.pbr_params)
             f.glUniform1f(self._u_srgb,
                           1.0 if (use_tex and m.srgb_albedo) else 0.0)
             sr, sg, sb, sstr, shine = m.spec
@@ -1650,8 +2585,8 @@ class _Viewport(QOpenGLWidget):
                 f.glUniform1f(self._u_hasnorm, 0.0)
             f.glDrawElements(_GL_TRIANGLES, len(m.indices),
                              _GL_UNSIGNED_INT, _NULL_OFFSET)
-            if use_ao:
-                m.ao_tex.release(4)
+            if use_rmaos:
+                m.rmaos_tex.release(4)
             if use_env:
                 m.env_tex.release(2)
                 if m.mask_tex is not None:
@@ -1824,12 +2759,13 @@ class _NoGLViewport(QWidget):
     keeps the surrounding preview UI intact and explains itself instead.
     """
 
-    loaded = Signal(object, object, int, object)
+    loaded = Signal(object, object, int, object, object)
     failed = Signal(str, int)
 
     def __init__(self, reason: str = "", parent=None):
         super().__init__(parent)
         self._reason = reason
+        self.home_view = None       # hosts set this unconditionally
         pal = active_palette()
         self.setStyleSheet(f"background:{BACKGROUNDS['dark']};")
         lay = QVBoxLayout(self)
@@ -1851,6 +2787,12 @@ class _NoGLViewport(QWidget):
         self.wireframe = WIRE_OFF
         self.texture_slot = 0
         self._generation = 0
+
+    def capture_portrait(self, *_a, **_kw):
+        return None
+
+    def capture_turntable_sheet(self, *_a, **_kw):
+        return None
 
     def load(self, *_a, **_kw):
         # Report through the normal channel so the header stops at a reason
@@ -1882,6 +2824,10 @@ class NifPreview(QWidget):
 
     # Texture paths the last-loaded mesh asked for (drives the source picker).
     textures_seen = Signal(object)
+    # A front-on still of the head, once per load (QImage).
+    portrait_ready = Signal(object)
+    # Whether the currently requested scene has finished and can be captured.
+    scene_ready = Signal(bool)
     # A texture source was picked: its opaque data, None = as the game loads.
     texture_source_changed = Signal(object)
 
@@ -1892,6 +2838,10 @@ class NifPreview(QWidget):
         # path None = caller feeds bytes via set_nif_data() (archive member).
         super().__init__(parent)
         self.log_fn = log_fn
+        self._capture_ready = False
+        # Overwritten from the ini further down; set here so background_key()
+        # is answerable from the moment the widget exists.
+        self._bg_key = "light"
         self.setObjectName("NifPreview")
         v = QVBoxLayout(self)
         v.setContentsMargins(0, 0, 0, 0)
@@ -1946,7 +2896,8 @@ class NifPreview(QWidget):
         self._act_detail.setCheckable(True)
         self._act_detail.setChecked(True)
         self._act_detail.setToolTip(self.tr(
-            "Apply the mesh's normal map and its gloss mask"))
+            "Apply normal maps and material shine, including PBR "
+            "roughness and metallic maps"))
         self._act_detail.triggered.connect(self._on_detail)
 
         self._act_cull = self._menu.addAction(self.tr("Cull backfaces"))
@@ -1981,7 +2932,8 @@ class NifPreview(QWidget):
         bg_menu = self._menu.addMenu(self.tr("Background"))
         self._bg_group = QActionGroup(self)
         for key, label in (("light", self.tr("Light")), ("grey", self.tr("Grey")),
-                           ("dark", self.tr("Dark")), ("black", self.tr("Black"))):
+                           ("dark", self.tr("Dark")), ("black", self.tr("Black")),
+                           ("green", self.tr("Green screen"))):
             act = bg_menu.addAction(label)
             act.setCheckable(True)
             act.setData(key)
@@ -2065,6 +3017,7 @@ class NifPreview(QWidget):
             saved = "light"
         if saved not in BACKGROUNDS:
             saved = "light"
+        self._bg_key = saved
         self._view.set_background(saved)
         for act in self._bg_group.actions():
             act.setChecked(act.data() == saved)
@@ -2080,6 +3033,7 @@ class NifPreview(QWidget):
                 archive_roots: list[Path] | None = None, resolver=None,
                 tex_override=None, keep_view: bool = False):
         """Swap the previewed mesh in place; *keep_view* skips re-framing."""
+        self._set_capture_ready(False)
         self._header.setText(display_name or path.name)
         self._stats.setText(self.tr("Loading…"))
         roots = (default_texture_roots(path)
@@ -2094,6 +3048,7 @@ class NifPreview(QWidget):
 
     def clear(self, status: str = ""):
         """Clear a stale model after a definitive read/parse failure."""
+        self._set_capture_ready(False)
         self._view.clear()
         self._stats.setText(status)
 
@@ -2114,6 +3069,7 @@ class NifPreview(QWidget):
 
     def reload_textures(self):
         """Re-resolve textures, keeping the camera where it is."""
+        self._set_capture_ready(False)
         self._stats.setText(self.tr("Loading…"))
         self._view.reload(keep_view=True)
 
@@ -2126,6 +3082,15 @@ class NifPreview(QWidget):
              f"option: texture source = {self._tex_box.currentText()!r}")
         self.texture_source_changed.emit(self._tex_box.currentData())
 
+    def set_home_view(self, yaw: float, pitch: float, look: float = 0.5):
+        """Where the camera rests on load and on reset.
+
+        *yaw*/*pitch* are radians; *look* is the look-at height as a fraction
+        of the model (0.5 = its centre). Leave unset for the mesh-browser 3/4
+        view - an ACTOR viewer wants the person facing the camera instead.
+        """
+        self._view.home_view = (yaw, pitch, look)
+
     def set_title(self, display_name: str, status: str = ""):
         """Retitle without loading - a browser showing what it is about to read."""
         self._header.setText(display_name)
@@ -2134,16 +3099,22 @@ class NifPreview(QWidget):
     def set_nif_data(self, data: bytes, display_name: str,
                      resolver=None, archives=None, tex_override=None,
                      keep_view: bool = False, mesh_rel: str = "",
-                     plugin_dirs=None):
+                     plugin_dirs=None, parts=None, skeleton=None,
+                     skin_tint=None, hide_hair=False, selected_roots=None):
         """Preview in-memory bytes (a BSA/BA2 member); *keep_view* skips
-        re-framing."""
+        re-framing. *parts*/*skeleton* assemble a whole actor (see load)."""
+        self._set_capture_ready(False)
         self._header.setText(display_name)
         self._stats.setText(self.tr("Loading…"))
-        self._view.load(data, [], None, resolver, archives, tex_override,
+        self._view.load(data, list(selected_roots or ()), None,
+                        resolver, archives, tex_override,
                         mesh_rel=mesh_rel, plugin_dirs=plugin_dirs,
+                        parts=parts, skeleton=skeleton, skin_tint=skin_tint,
+                        hide_hair=hide_hair,
                         keep_view=keep_view)
 
-    def _on_loaded(self, meshes, bounds, gen, tex_paths=None):
+    def _on_loaded(self, meshes, bounds, gen, tex_paths=None,
+                   head_bounds=None):
         if gen != self._view._generation:
             return          # a stale load must not retitle or repopulate the picker
         # Emitted even for a geometry-less mesh: the host's texture picker is
@@ -2152,6 +3123,7 @@ class NifPreview(QWidget):
         if not meshes:
             _log(self.log_fn, "displayed: no drawable geometry")
             self._stats.setText(self.tr("no drawable geometry"))
+            self._set_capture_ready(False)
             return
         tris = sum(m.tri_count for m in meshes)
         textured = sum(1 for m in meshes if m.has_image)
@@ -2160,6 +3132,47 @@ class NifPreview(QWidget):
         if textured < len(meshes):
             parts.append(self.tr("{0}/{1} textured").format(textured, len(meshes)))
         self._stats.setText(" · ".join(parts))
+        self._set_capture_ready(head_bounds is not None)
+        if head_bounds is not None:
+            # After the paint that uploads these meshes: grabbing now would
+            # capture the previous NPC, or nothing at all on the first load.
+            QTimer.singleShot(0, self._emit_portrait)
+
+    def _emit_portrait(self):
+        try:
+            image = self._view.capture_portrait()
+        except Exception:                                # noqa: BLE001
+            image = None
+        if image is not None:
+            safe_emit(self.portrait_ready, image)
+
+    def _set_capture_ready(self, ready: bool):
+        ready = bool(ready)
+        if ready == self._capture_ready:
+            return
+        self._capture_ready = ready
+        safe_emit(self.scene_ready, ready)
+
+    def can_capture(self) -> bool:
+        return self._capture_ready
+
+    def capture_turntable_sheet(self, background: str | None = None):
+        """Capture the loaded actor as a multi-angle PNG-ready QImage.
+
+        *background* is a BACKGROUNDS key, ``"transparent"``, or None to
+        export on whatever backdrop the viewport is showing.
+        """
+        if not self._capture_ready:
+            return None
+        return self._view.capture_turntable_sheet(background)
+
+    def background_key(self) -> str:
+        """The backdrop preset the viewport is currently showing.
+
+        Tracked here rather than read back off the viewport: _NoGLViewport has
+        no colour to read, and it still has to answer.
+        """
+        return self._bg_key
 
     def _on_failed(self, message, gen):
         if gen != self._view._generation:
@@ -2233,6 +3246,7 @@ class NifPreview(QWidget):
     def _on_background(self, act):
         key = act.data() or "light"
         _log(self.log_fn, f"option: background = {key}")
+        self._bg_key = key
         self._view.set_background(key)
         try:
             from Utils.ui_config import save_nif_background

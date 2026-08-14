@@ -255,6 +255,9 @@ REGISTRY: dict[str, QtWizardSpec] = {
     "wizards.nif_viewer.NifViewerWizard":
         QtWizardSpec(_simple("wizards_qt.nif_viewer_view", "NifViewerView"),
                      panel="full"),
+    "wizards.npc_viewer.NpcViewerWizard":
+        QtWizardSpec(_simple("wizards_qt.npc_viewer_view", "NpcViewerView"),
+                     panel="full"),
 
     # -- ported former external plugins (attached per game_id via
     #    Utils.plugin_loader.BUILTIN_WIZARD_TOOLS) --

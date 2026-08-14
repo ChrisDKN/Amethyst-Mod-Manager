@@ -51,6 +51,7 @@ py.install_sources(
   'help_marker.py',
   'i18n.py',
   'icons.py',
+  'image_export_overlay.py',
   'image_preview.py',
   'image_view.py',
   'install_name_patterns_view.py',

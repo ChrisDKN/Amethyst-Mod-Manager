@@ -100,6 +100,21 @@ BUILTIN_WIZARD_TOOLS: list[dict] = [
         "category": "Other",
     },
     {
+        "id": "npc_viewer",
+        "label": "View NPCs",
+        "description": ("See what this profile's NPCs actually look like: every "
+                        "NPC with a baked FaceGen head, named, previewed in 3D, "
+                        "with the winning face flagged when mods disagree."),
+        # FaceGeom paths and the NPC_ -> HCLF -> CLFM hair chain are verified on
+        # the Skyrim generation; other Bethesda titles lay records out
+        # differently and are not claimed here.
+        "game_ids": ["skyrim_se", "skyrim", "skyrimvr", "enderal", "enderalse"],
+        "all_games": False,
+        # Qt-only tool: no Tk class exists behind this path, it is a registry key.
+        "dialog_class": "wizards.npc_viewer.NpcViewerWizard",
+        "category": "Other",
+    },
+    {
         "id": "bg3_import_modlist_json",
         "label": "Import BG3MM Load Order (.json)",
         "description": ("Convert a BG3 Mod Manager modlist.json into this "

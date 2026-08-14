@@ -76,6 +76,7 @@ class NifViewerView(QWidget):
         self._resolver = None
         self._current_entry = None
         self._current_data = None
+        self._restore = None
         self._tree_jobs = LatestWorker("nif-catalog-tree")
         self._mesh_reads = LatestWorker("nif-mesh-read")
 
@@ -147,6 +148,15 @@ class NifViewerView(QWidget):
         self._only_mod.setVisible(bool(self._mod))
         if self._mod:
             hb.addWidget(self._only_mod)
+
+        self._refresh_btn = QPushButton(self.tr("⟳ Refresh"))
+        self._refresh_btn.setCursor(Qt.PointingHandCursor)
+        self._refresh_btn.setToolTip(self.tr(
+            "Re-scan the profile after changing the modlist or load order"))
+        self._refresh_btn.setStyleSheet(
+            button_qss("BTN_NEUTRAL", pal=pal, padding="5px 12px"))
+        self._refresh_btn.clicked.connect(self._refresh)
+        hb.addWidget(self._refresh_btn)
 
         close = QPushButton(self.tr("✕ Close"))
         close.setCursor(Qt.PointingHandCursor)
@@ -222,6 +232,45 @@ class NifViewerView(QWidget):
     # ---- teardown ---------------------------------------------------------
     def _guard(self, fn):
         return lambda *a: None if self._closing else fn(*a)
+
+    def _refresh(self):
+        """Re-scan after the modlist or load order changed.
+
+        The catalogue and the shown mesh are dropped; the process-wide caches
+        beneath (AssetResolver's winner map, the per-archive indexes) key on
+        file mtimes, so an untouched profile re-scans cheaply.
+        """
+        if self._closing:
+            return
+        self._restore = (self._current_entry.rel_key
+                         if self._current_entry is not None else None)
+        self._current_entry = None
+        self._current_data = None
+        self._open_gen += 1
+        self._mesh_reads.discard_pending()
+        self._tex_sources.cancel()
+        self._preview.cancel_load()
+        self._log("NIF Viewer: refreshing from the profile…")
+        self._start_scan()
+
+    def _restore_selection(self):
+        """Re-open the mesh that was on screen before a refresh, by PATH.
+
+        Not by entry: the point of refreshing is that the winning copy may
+        have changed, and the user wants whichever one now wins that path.
+        """
+        want, self._restore = self._restore, None
+        if want is None:
+            return
+        match = next((e for e in self._entries
+                      if e.rel_key == want and e.wins), None)
+        if match is None:
+            match = next((e for e in self._entries if e.rel_key == want), None)
+        if match is None:
+            self._log("NIF Viewer: the mesh that was open is no longer in the "
+                      "profile")
+            return
+        self._open_entry(match)
 
     def _finish(self):
         if self._closing:
@@ -316,6 +365,8 @@ class NifViewerView(QWidget):
         # (expandAll is ~1 s on the full 22.7k-path vanilla tree - hence the cap.)
         if self._mod and 0 < count <= _AUTO_EXPAND_MAX:
             self._tree.expandAll()
+        if self._restore is not None:
+            self._restore_selection()
 
     def _expand_all(self):
         # ~1 s on a full vanilla Skyrim tree (22.7k paths) - busy cursor so an

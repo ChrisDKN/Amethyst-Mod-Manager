@@ -39,6 +39,17 @@ def _index_one(path: Path, keep_prefix: str) -> dict:
         got = _INDEX_CACHE.get(key)
         if got is not None:
             return got
+        # A catalogue often indexes the whole archive just before a resolver
+        # asks for a few asset subtrees.  Re-filter that already-built map
+        # instead of reparsing the same BSA/BA2 TOC under another cache key.
+        if keep_prefix:
+            full_key = _cache_key(path, "")
+            full = _INDEX_CACHE.get(full_key) if full_key is not None else None
+            if full is not None:
+                got = {rel: rec for rel, rec in full.items()
+                       if rel.startswith(keep_prefix)}
+                _INDEX_CACHE[key] = got
+                return got
         # NIF catalogue, texture-provider and preview workers may all touch the
         # same archive together.  One per-key lock prevents duplicate TOC
         # parsing without serialising unrelated archives.
