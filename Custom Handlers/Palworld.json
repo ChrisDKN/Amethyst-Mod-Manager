@@ -6,6 +6,7 @@
   "mod_data_path": "Pal",
   "steam_id": "1623730",
   "nexus_game_domain": "palworld",
+  "additional_nexus_domains": [],
   "thunderstore_community": "palworld",
   "image_url": "https://cdn2.steamgriddb.com/icon/74428c0a6c8f499e67f96908f425fdd3/32/256x256.png",
   "mod_folder_strip_prefixes": [
@@ -14,7 +15,8 @@
     "Win64",
     "Mods",
     "Content",
-    "Paks"
+    "Paks",
+    "LogicMods"
   ],
   "conflict_ignore_filenames": [
     "*.png",
@@ -26,6 +28,7 @@
     "LocalizationExample.zip",
     "*read*.txt"
   ],
+  "conflict_ignore_foldernames": [],
   "mod_folder_strip_prefixes_post": [],
   "mod_install_prefix": "",
   "mod_required_top_level_folders": [],
@@ -114,9 +117,29 @@
     {
       "dest": "Binaries/Win64/ue4ss/Mods",
       "folders": [
-        "Shared"
+        "Shared",
+        "PalSchema"
       ],
       "flatten": true
+    },
+    {
+      "dest": "Binaries/Win64/ue4ss/Mods/PalSchema/Mods",
+      "folders": [
+        "appearance",
+        "blueprints",
+        "buildings",
+        "enums",
+        "helpguide",
+        "items",
+        "npcs",
+        "pals",
+        "raw",
+        "resources",
+        "skins",
+        "spawns",
+        "translations"
+      ],
+      "include_siblings": true
     },
     {
       "dest": "Content/Paks/~mods/SwapJSON",
@@ -124,19 +147,13 @@
         ".json"
       ],
       "loose_only": true
-    },
-    {
-      "dest": "unused",
-      "extensions": [
-        ".json"
-      ],
-      "include_siblings": true
     }
   ],
   "restore_whitelist": [],
   "custom_frameworks": {
-    "UE4SS": "Binaries/Win64/dwmapi.dll"
+    "UE4SS": "Binaries/Win64/dwmapi.dll",
+    "PalSchema": "Binaries/Win64/ue4ss/Mods/PalSchema/dlls/main.dll"
   },
-  "version": 6,
+  "version": 7,
   "editable": false
 }
