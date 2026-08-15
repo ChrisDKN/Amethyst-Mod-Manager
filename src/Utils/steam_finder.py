@@ -1366,6 +1366,67 @@ def parse_acf_beta_key(acf_path: Path) -> str | None:
     return (m.group(1) or None) if m else None
 
 
+# ---------------------------------------------------------------------------
+# Steam update lock (read-only appmanifest)
+# ---------------------------------------------------------------------------
+# Steam rewrites appmanifest_<id>.acf as part of applying an update; making it
+# read-only makes that write fail, so the on-disk build stays put. This locks a
+# modded install to a known-good version. Caveats worth knowing:
+#   - Steam still *downloads* the update and retries the write periodically.
+#   - "Verify integrity of game files" clears the flag, silently unlocking.
+# Only the write bits are touched, so the flag round-trips cleanly.
+
+_OWNER_WRITE_BITS = stat.S_IWUSR | stat.S_IWGRP | stat.S_IWOTH
+
+
+def steam_appmanifest_path(steam_id: str,
+                           game_path: "Path | str | None" = None) -> Path | None:
+    """Return the appmanifest_<steam_id>.acf of the library owning the game.
+
+    Returns None when there is no App ID or no manifest exists (game not
+    installed through Steam, or hand-copied into a library).
+    """
+    if not steam_id:
+        return None
+    steamapps = owning_steamapps_dir(steam_id, game_path)
+    if steamapps is None:
+        return None
+    acf = steamapps / f"appmanifest_{steam_id}.acf"
+    return acf if acf.is_file() else None
+
+
+def steam_updates_disabled(steam_id: str,
+                           game_path: "Path | str | None" = None) -> bool:
+    """True when the game's appmanifest exists and carries no write bits."""
+    acf = steam_appmanifest_path(steam_id, game_path)
+    if acf is None:
+        return False
+    try:
+        return not (acf.stat().st_mode & _OWNER_WRITE_BITS)
+    except OSError:
+        return False
+
+
+def set_steam_updates_disabled(steam_id: str, disabled: bool,
+                               game_path: "Path | str | None" = None) -> bool:
+    """Add or clear the read-only flag on the game's appmanifest.
+
+    Returns True when the manifest ends up in the requested state, False when
+    it can't be found or chmod fails (e.g. the file is owned by another user).
+    """
+    acf = steam_appmanifest_path(steam_id, game_path)
+    if acf is None:
+        return False
+    try:
+        mode = acf.stat().st_mode
+        new_mode = (mode & ~_OWNER_WRITE_BITS) if disabled else (mode | stat.S_IWUSR)
+        if new_mode != mode:
+            acf.chmod(new_mode)
+    except OSError:
+        return False
+    return steam_updates_disabled(steam_id, game_path) == disabled
+
+
 def find_game_by_steam_id(
     libraries: list[Path], steam_id: str, exe_name: str
 ) -> Path | None:
