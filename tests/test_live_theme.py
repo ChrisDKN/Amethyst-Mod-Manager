@@ -23,11 +23,12 @@ from PySide6.QtWidgets import (  # noqa: E402
 )
 
 from Utils.themes import load_palettes as real_load_palettes  # noqa: E402
-from gui_qt import theme_qt  # noqa: E402
+from gui_qt import theme_editor_groups, theme_qt  # noqa: E402
 from gui_qt.data_model import DataModel, _DataNode  # noqa: E402
 from gui_qt.detachable_tabs import DetachableTabWidget  # noqa: E402
 from gui_qt.mod_files_delegate import ModFilesDelegate  # noqa: E402
 from gui_qt.mod_files_model import ModFilesModel, _Node  # noqa: E402
+from gui_qt.notifications import NotificationManager, ProgressPopup  # noqa: E402
 from gui_qt.settings_view import SettingsView  # noqa: E402
 from gui_qt.theme_editor_view import ThemeEditorView  # noqa: E402
 from gui_qt.theme_preview import ThemePreviewPanel  # noqa: E402
@@ -229,12 +230,52 @@ class LiveThemeRuntimeTests(unittest.TestCase):
     def test_preview_can_skip_redundant_local_stylesheet_reset(self):
         content = Mock()
         content.styleSheet.return_value = "color:#fff/*@amm-theme:TEXT_MAIN:direct*/;"
-        fake = SimpleNamespace(_content=content, _updaters=[])
+        fake = SimpleNamespace(
+            _content=content, _updaters=[], _inspector=Mock())
         with patch("gui_qt.theme_preview.build_qpalette", return_value=QPalette()):
             ThemePreviewPanel.refresh(
                 fake, self.palettes["dark"], restyle=False)
         content.setStyleSheet.assert_not_called()
         content.setPalette.assert_called_once()
+
+    def test_preview_role_inspector_uses_editor_categories(self):
+        preview = ThemePreviewPanel()
+        self.widgets.append(preview)
+        selected: list[tuple[str, tuple[str, ...]]] = []
+        preview.rolesSelected.connect(
+            lambda label, roles: selected.append((label, tuple(roles))))
+
+        preview._select_roles(
+            "Drag selection outline", ("HIGHLIGHT_DRAG",))
+
+        self.assertFalse(preview._inspector.isHidden())
+        self.assertIn("Selection and focus", preview._inspector.text())
+        self.assertIn("Drag selection outline (HIGHLIGHT_DRAG)",
+                      preview._inspector.text())
+        self.assertEqual(
+            selected, [("Drag selection outline", ("HIGHLIGHT_DRAG",))])
+
+    def test_feedback_popups_render_opaque_panel_backgrounds(self):
+        host = QWidget()
+        host.resize(900, 700)
+        host.show()
+        self.widgets.append(host)
+
+        progress = ProgressPopup(host)
+        progress.set_progress(1, 2, "Downloading", title="Nexus Download")
+        manager = NotificationManager(host)
+        manager.notify("Installing dependency…", "info", sticky=True)
+        toast = manager._toasts[0]
+        self.app.processEvents()
+
+        expected = self.palettes["dark"]["BG_PANEL"].lower()
+        for popup in (progress, toast):
+            image = popup.grab().toImage()
+            actual = image.pixelColor(8, popup.height() // 2).name()
+            self.assertEqual(actual, expected)
+            self.assertIsNone(popup.graphicsEffect())
+            self.assertFalse(
+                popup.testAttribute(Qt.WA_TransparentForMouseEvents))
 
     def test_bindings_are_immediate_isolated_and_weak(self):
         calls: list[str] = []
@@ -292,6 +333,52 @@ class SettingsAndEditorTests(unittest.TestCase):
         self.assertEqual(saved, ["light"])
         apply.assert_called_once_with(self.app)
 
+    def test_editor_defaults_to_compact_implemented_palette(self):
+        palette = real_load_palettes()["dark"]
+        simple = theme_editor_groups.simple_grouped_for_palette(palette)
+        fine = theme_editor_groups.grouped_for_palette(palette)
+        simple_keys = {key for _title, rows in simple for key, _label in rows}
+        fine_keys = {key for _title, rows in fine for key, _label in rows}
+
+        self.assertEqual(len(simple_keys), 18)
+        self.assertEqual(len(fine_keys), 100)
+        self.assertIn("ACCENT", simple_keys)
+        self.assertIn("CONFLICT_HL_WIN", fine_keys)
+        self.assertEqual(
+            theme_editor_groups.role_group("HIGHLIGHT_DRAG"),
+            "Selection and focus")
+        self.assertEqual(
+            theme_editor_groups.role_group("PLUGIN_CYCLE_ERR_BG"),
+            "Plugin cycle")
+        self.assertEqual(
+            theme_editor_groups.role_group("FILE_WIN"), "File conflicts")
+        # Legacy/preview-only roles used to imply customisation that no real
+        # application screen consumed.
+        self.assertNotIn("TAG_FOLDER", fine_keys)
+        self.assertNotIn("BTN_DANGER_ALT", fine_keys)
+
+    def test_simple_editor_links_equivalent_roles_and_preserves_light_hover(self):
+        light = dict(real_load_palettes()["light"])
+
+        accent = theme_editor_groups.derive_simple(
+            "ACCENT", "#8844cc", light)
+        for linked in ("LINK_BLUE", "DROPDOWN_ARROW", "SCROLL_ACTIVE",
+                       "CHECK_FILL"):
+            self.assertEqual(accent[linked], "#8844cc")
+
+        button = theme_editor_groups.derive_simple(
+            "BTN_SUCCESS", "#55aa66", light)
+        base_lum = theme_editor_groups._luminance(button["BTN_SUCCESS"])
+        hover_lum = theme_editor_groups._luminance(
+            button["BTN_SUCCESS_HOV"])
+        self.assertIsNotNone(base_lum)
+        self.assertIsNotNone(hover_lum)
+        self.assertLess(hover_lum, base_lum)
+
+        selection = theme_editor_groups.derive_simple(
+            "BG_SELECT", "#f0f0f0", light)
+        self.assertEqual(selection["TEXT_ON_ACCENT"], "#000000")
+
     def test_editor_source_and_confirmed_colour_preview_but_cancel_does_not(self):
         combo = Mock()
         combo.findData.return_value = 0
@@ -306,6 +393,7 @@ class SettingsAndEditorTests(unittest.TestCase):
             _start_combo=combo,
             _delete_btn=Mock(),
             _save_btn=Mock(),
+            _save_as_btn=Mock(),
             _preview=Mock(),
             _apply_working_preview=Mock(),
             _rebuild_body=Mock(),
@@ -315,6 +403,7 @@ class SettingsAndEditorTests(unittest.TestCase):
         with patch("gui_qt.theme_editor_view.ct.is_custom_theme", return_value=False):
             ThemeEditorView._load_theme(fake, "light")
         self.assertEqual(fake._working["ACCENT"], "#abcdef")
+        fake._save_as_btn.setVisible.assert_called_once_with(False)
         fake._apply_working_preview.assert_called_once_with()
         fake._preview.refresh.assert_called_once_with(
             fake._working, restyle=False)
@@ -353,6 +442,7 @@ class SettingsAndEditorTests(unittest.TestCase):
             _closing=False,
             _delete_btn=Mock(),
             _save_btn=Mock(),
+            _save_as_btn=Mock(),
             _refresh_start_combo=Mock(),
             _refresh_open_theme_selectors=Mock(),
             tr=lambda text: text,
@@ -374,6 +464,7 @@ class SettingsAndEditorTests(unittest.TestCase):
         self.assertEqual(mode["value"], "custom:violet")
         self.assertEqual(apply.call_count, 2)
         apply.assert_any_call(self.app)
+        fake._save_as_btn.setVisible.assert_called_once_with(True)
         fake._refresh_open_theme_selectors.assert_called_once_with("custom:violet")
 
     def test_deleting_active_custom_theme_persists_and_previews_dark_fallback(self):
@@ -390,6 +481,7 @@ class SettingsAndEditorTests(unittest.TestCase):
             _start_combo=combo,
             _delete_btn=Mock(),
             _save_btn=Mock(),
+            _save_as_btn=Mock(),
             _preview=Mock(),
             _refresh_open_theme_selectors=Mock(),
             _refresh_start_combo=Mock(),

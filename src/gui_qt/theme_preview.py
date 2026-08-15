@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import Callable
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QEvent, Qt, Signal
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QScrollArea, QFrame,
     QLabel, QComboBox, QLineEdit, QPushButton, QCheckBox, QRadioButton,
@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
 from gui_qt.theme_qt import (
     build_qss, build_qpalette, button_qss, contrast_text, qc, qc_contrast, _c,
 )
+from gui_qt import theme_editor_groups as teg
 from gui_qt.wheel_guard import no_wheel
 
 
@@ -34,7 +35,6 @@ from gui_qt.wheel_guard import no_wheel
 # interactive: button_qss emits a real :hover rule from the working palette.
 _BUTTON_FAMILIES = (
     ("BTN_DANGER", "BTN_DANGER_HOV", "Danger"),
-    ("BTN_CANCEL", "BTN_CANCEL_HOV", "Cancel"),
     ("BTN_SUCCESS", "BTN_SUCCESS_HOV", "Success"),
     ("BTN_WARN", "BTN_WARN_HOV", "Warning"),
     ("BTN_INFO", "BTN_INFO_HOV", "Info"),
@@ -46,7 +46,6 @@ _BUTTON_FAMILIES = (
 _TEXT_SAMPLES = (
     ("TEXT_MAIN", "Primary text"),
     ("TEXT_DIM", "Dimmed text"),
-    ("TEXT_MUTED", "Muted text"),
     ("TEXT_FAINT", "Faint text"),
     ("TEXT_OK", "Success text"),
     ("TEXT_ERR", "Error text"),
@@ -59,14 +58,11 @@ _TEXT_SAMPLES = (
 )
 
 _TONES = ("TONE_GREEN", "TONE_RED", "TONE_BLUE", "TONE_CYAN",
-          "TONE_BLUE_SOFT", "TONE_FLAG")
+          "TONE_BLUE_SOFT")
 
 _STATUS_PILLS = (
     ("STATUS_BADGE_RED", "3 errors"),
-    ("STATUS_BADGE_GREEN", "Up to date"),
     ("STATUS_QUEUED", "Queued"),
-    ("STATUS_DL_GREEN", "Downloading"),
-    ("STATUS_SUCCESS_SOLID", "Installed"),
 )
 
 
@@ -74,11 +70,15 @@ class ThemePreviewPanel(QWidget):
     """Right-hand live preview for the theme editor. Build once, then call
     ``refresh(working_palette)`` after every colour change / theme load."""
 
+    rolesSelected = Signal(str, object)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         # Manual repaint hooks, each called with the palette dict on refresh.
         self._updaters: list[Callable[[dict], None]] = []
         self._base_palette = None
+        self._role_widgets: dict[QWidget, tuple[str, tuple[str, ...]]] = {}
+        self._tree_roles: dict[int, tuple[str, tuple[str, ...]]] = {}
         # (item, column, bg_key, fg_key) - tree cells painted via brushes,
         # mirroring how the real modlist delegate colours its rows.
         self._tree_cells: list[tuple[QTreeWidgetItem, int, str | None, str | None]] = []
@@ -89,10 +89,17 @@ class ThemePreviewPanel(QWidget):
 
         caption = QLabel(self.tr(
             "Preview - changes are also applied temporarily across the open "
-            "app. Save the theme to keep them."))
+            "app. Click any item to reveal the settings that colour it."))
         caption.setWordWrap(True)
         caption.setContentsMargins(12, 8, 12, 8)
         outer.addWidget(caption)
+
+        self._inspector = QLabel()
+        self._inspector.setObjectName("PreviewRoleInspector")
+        self._inspector.setWordWrap(True)
+        self._inspector.setContentsMargins(12, 7, 12, 7)
+        self._inspector.hide()
+        outer.addWidget(self._inspector)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -139,6 +146,42 @@ class ThemePreviewPanel(QWidget):
             self._content.setStyleSheet(build_qss(p) + self._extra_qss(p))
         for fn in self._updaters:
             fn(p)
+        self._inspector.setStyleSheet(
+            f"background:{_c(p, 'BG_HEADER')}; color:{_c(p, 'TEXT_MAIN')};"
+            f"border-top:1px solid {_c(p, 'BORDER')};"
+            f"border-bottom:1px solid {_c(p, 'BORDER')};")
+
+    # ---- role inspector ----------------------------------------------------
+    def _role_description(self, roles: tuple[str, ...]) -> str:
+        return " · ".join(
+            f"{self.tr(teg.role_group(key))} › "
+            f"{self.tr(teg.role_label(key))} ({key})"
+            for key in roles)
+
+    def _map_roles(self, widget: QWidget, label: str,
+                   roles: tuple[str, ...] | list[str]) -> None:
+        mapped = tuple(dict.fromkeys(role for role in roles if role))
+        if not mapped:
+            return
+        display = self.tr(label)
+        self._role_widgets[widget] = (display, mapped)
+        widget.installEventFilter(self)
+        widget.setCursor(Qt.PointingHandCursor)
+        widget.setToolTip(self.tr("Click to reveal theme settings:\n{0}").format(
+            self._role_description(mapped)))
+
+    def _select_roles(self, label: str, roles: tuple[str, ...]) -> None:
+        self._inspector.setText(
+            self.tr("{0} uses: {1}").format(
+                label, self._role_description(roles)))
+        self._inspector.show()
+        self.rolesSelected.emit(label, roles)
+
+    def eventFilter(self, watched, event):
+        mapped = self._role_widgets.get(watched)
+        if mapped and event.type() == QEvent.MouseButtonRelease:
+            self._select_roles(*mapped)
+        return super().eventFilter(watched, event)
 
     # ---- section scaffolding ------------------------------------------------
     def _extra_qss(self, p: dict) -> str:
@@ -158,7 +201,7 @@ class ThemePreviewPanel(QWidget):
             border: 1px solid {c('BORDER')};
             border-radius: 8px;
         }}
-        #PreviewCardTitle {{ color: {c('TEXT_CARD')}; font-weight: 600; }}
+        #PreviewCardTitle {{ color: {c('TEXT_MAIN')}; font-weight: 600; }}
         """
 
     def _section(self, title: str) -> tuple[QFrame, QVBoxLayout]:
@@ -169,6 +212,9 @@ class ThemePreviewPanel(QWidget):
         lay.setSpacing(8)
         t = QLabel(title)
         t.setObjectName("PreviewSectionTitle")
+        self._map_roles(
+            t, self.tr("{0} section").format(title),
+            ("BG_PANEL", "BORDER", "TEXT_MAIN"))
         lay.addWidget(t)
         return frame, lay
 
@@ -176,13 +222,17 @@ class ThemePreviewPanel(QWidget):
         self._updaters.append(fn)
 
     def _inline_label(self, text: str, style: Callable[[dict], str],
-                      height: int | None = None) -> QLabel:
+                      height: int | None = None, *,
+                      roles: tuple[str, ...] = (),
+                      role_label: str | None = None) -> QLabel:
         """Label restyled from the palette on every refresh (mirrors the app's
         inline-styled rows: framework banner, plugin-cycle status, pills)."""
         lbl = QLabel(text)
         if height:
             lbl.setFixedHeight(height)
         self._register(lambda p, w=lbl: w.setStyleSheet(style(p)))
+        if roles:
+            self._map_roles(lbl, role_label or text, roles)
         return lbl
 
     # ---- sections -----------------------------------------------------------
@@ -201,8 +251,16 @@ class ThemePreviewPanel(QWidget):
             b = QPushButton(name)
             b.setObjectName(obj)
             b.setFocusPolicy(Qt.NoFocus)
+            roles = (("BG_ROW", "TEXT_MAIN", "BORDER", "BG_ROW_HOVER")
+                     if obj == "ActionButton" else
+                     ("ACCENT", "ACCENT_HOV")
+                     if obj == "PrimaryButton" else
+                     ("BTN_SUCCESS", "BTN_SUCCESS_HOV"))
+            self._map_roles(b, name, roles)
             h.addWidget(b)
         h.addStretch(1)
+        self._map_roles(bar, self.tr("Header background"),
+                        ("BG_HEADER", "BORDER"))
         lay.addWidget(bar)
 
         tabs = QTabBar()
@@ -211,6 +269,10 @@ class ThemePreviewPanel(QWidget):
         tabs.setFocusPolicy(Qt.NoFocus)
         for name in (self.tr("Mods"), self.tr("Plugins"), self.tr("Data")):
             tabs.addTab(name)
+        self._map_roles(
+            tabs, self.tr("Tabs"),
+            ("BG_HEADER", "BG_PANEL", "TEXT_DIM", "TEXT_MAIN",
+             "BG_ROW_HOVER", "ACCENT"))
         lay.addWidget(tabs)
         return frame
 
@@ -230,7 +292,8 @@ class ThemePreviewPanel(QWidget):
 
         def add(name: str, note: str = "",
                 bg: str | None = None, fg: str | None = None,
-                cell_bg: str | None = None, cell_fg: str | None = None):
+                cell_bg: str | None = None, cell_fg: str | None = None,
+                roles: tuple[str, ...] = ()):
             it = QTreeWidgetItem([name, note])
             tree.addTopLevelItem(it)
             if bg or fg:
@@ -238,6 +301,10 @@ class ThemePreviewPanel(QWidget):
                     self._tree_cells.append((it, col, bg, fg))
             if cell_bg or cell_fg:
                 self._tree_cells.append((it, 1, cell_bg, cell_fg))
+            mapped = tuple(dict.fromkeys(
+                roles or tuple(k for k in (bg, fg, cell_bg, cell_fg) if k)
+                or ("BG_ROW", "TEXT_MAIN")))
+            self._tree_roles[id(it)] = (name, mapped)
             return it
 
         # Mirrors the bands/tints the modlist delegate paints via brushes.
@@ -245,7 +312,7 @@ class ThemePreviewPanel(QWidget):
         add(self.tr("Root Folder"), "", "ROOT_SEP_BG", "ROOT_SEP_FG")
         add(self.tr("- Gameplay -"), "", "BG_SEP", "TEXT_SEP")
         add(self.tr("Unofficial Patch"))
-        sel = add(self.tr("Selected mod"))
+        sel = add(self.tr("Selected mod"), roles=("BG_SELECT", "TEXT_ON_ACCENT"))
         add(self.tr("Wins over selection"), self.tr("conflict"),
             "CONFLICT_HL_LOSE")
         add(self.tr("Loses to selection"), self.tr("conflict"),
@@ -255,15 +322,14 @@ class ThemePreviewPanel(QWidget):
             "REQ_HL_REQUIRES")
         add(self.tr("Requires selection"), self.tr("requirement"),
             "REQ_HL_REQUIRED_BY")
-        add(self.tr("Textures folder"), "", None, "TAG_FOLDER")
-        add(self.tr("Archive.bsa"), "", None, "TAG_BSA",
-            cell_bg="TAG_BUNDLED_BG", cell_fg="TAG_BUNDLED_FG")
-        add(self.tr("Profile.ini"), self.tr("Installed"), None,
-            "TAG_INI_PROFILE", cell_bg="TAG_INSTALLED_BG")
-        add(self.tr("Unordered plugin"), "", None, "TAG_UNORDERED_FG")
-
+        tree.itemClicked.connect(
+            lambda item, _column: self._select_roles(
+                *self._tree_roles[id(item)]))
         tree.setCurrentItem(sel)
         tree.header().setStretchLastSection(True)
+        self._map_roles(
+            tree.header(), self.tr("List header"),
+            ("BG_HEADER", "TEXT_MAIN", "BORDER"))
         tree.setColumnWidth(0, 220)
         rows = tree.topLevelItemCount()
         tree.setFixedHeight(tree.header().sizeHint().height()
@@ -298,7 +364,8 @@ class ThemePreviewPanel(QWidget):
                  self.tr("●  SKSE present in modlist but not enabled")),
                 ("FRAMEWORK_MISSING_BG", "FRAMEWORK_MISSING_FG",
                  self.tr("✘  SKSE Not Present"))):
-            lay.addWidget(self._inline_label(text, row_style(bg, fg), 22))
+            lay.addWidget(self._inline_label(
+                text, row_style(bg, fg), 22, roles=(bg, fg)))
 
         # Plugin-cycle status rows + rule keywords (plugin_cycle_view.py).
         for bg, fg, text in (
@@ -308,7 +375,8 @@ class ThemePreviewPanel(QWidget):
                  self.tr("Cycle resolved")),
                 ("PLUGIN_CYCLE_WARN_BG", "PLUGIN_CYCLE_WARN_FG",
                  self.tr("Flipping this rule resolves the cycle"))):
-            lbl = self._inline_label(text, row_style(bg, fg), 22)
+            lbl = self._inline_label(
+                text, row_style(bg, fg), 22, roles=(bg, fg))
             lay.addWidget(lbl)
 
         words = QHBoxLayout()
@@ -320,14 +388,16 @@ class ThemePreviewPanel(QWidget):
                           ("FILE_DIM", self.tr("inactive file")),
                           ("FILE_ANCHOR", self.tr("anchor file"))):
             words.addWidget(self._inline_label(
-                text, lambda p, k=key: f"color:{_c(p, k)};"))
+                text, lambda p, k=key: f"color:{_c(p, k)};",
+                roles=(key,)))
         words.addStretch(1)
         lay.addLayout(words)
 
         drag = self._inline_label(
             self.tr("Drag selection outline"),
             lambda p: (f"border:2px solid {_c(p, 'HIGHLIGHT_DRAG')};"
-                       f" border-radius:4px; padding:3px 8px;"))
+                       f" border-radius:4px; padding:3px 8px;"),
+            roles=("HIGHLIGHT_DRAG",))
         drag.setAlignment(Qt.AlignCenter)
         lay.addWidget(drag)
         return frame
@@ -346,6 +416,7 @@ class ThemePreviewPanel(QWidget):
             b.setFocusPolicy(Qt.NoFocus)
             self._register(lambda p, w=b, k=key, h=hov: w.setStyleSheet(
                 button_qss(k, hover_key=h, pal=p, padding="6px 14px")))
+            self._map_roles(b, self.tr(label), (key, hov))
             grid.addWidget(b, i // 4, i % 4)
         grid.setColumnStretch(4, 1)
         lay.addLayout(grid)
@@ -358,10 +429,16 @@ class ThemePreviewPanel(QWidget):
         row.setSpacing(10)
         edit = QLineEdit()
         edit.setPlaceholderText(self.tr("Search…"))
+        self._map_roles(
+            edit, self.tr("Text input"),
+            ("BG_ROW", "TEXT_MAIN", "TEXT_DIM", "BORDER"))
         row.addWidget(edit, 1)
         combo = QComboBox()
         no_wheel(combo)
         combo.addItems([self.tr("Default profile"), self.tr("Testing")])
+        self._map_roles(
+            combo, self.tr("Dropdown"),
+            ("BG_ROW", "TEXT_MAIN", "BORDER", "DROPDOWN_ARROW"))
         row.addWidget(combo, 1)
         lay.addLayout(row)
 
@@ -369,10 +446,20 @@ class ThemePreviewPanel(QWidget):
         row2.setSpacing(14)
         cb_on = QCheckBox(self.tr("Enabled"))
         cb_on.setChecked(True)
+        self._map_roles(
+            cb_on, self.tr("Checked checkbox"),
+            ("CHECK_FILL", "BORDER_FAINT", "BG_DEEP"))
         row2.addWidget(cb_on)
-        row2.addWidget(QCheckBox(self.tr("Disabled")))
+        cb_off = QCheckBox(self.tr("Disabled"))
+        self._map_roles(
+            cb_off, self.tr("Unchecked checkbox"),
+            ("BORDER_FAINT", "BG_DEEP"))
+        row2.addWidget(cb_off)
         rb = QRadioButton(self.tr("Selected option"))
         rb.setChecked(True)
+        self._map_roles(
+            rb, self.tr("Radio button"),
+            ("ACCENT", "BORDER_FAINT", "BG_DEEP"))
         row2.addWidget(rb)
         row2.addStretch(1)
         lay.addLayout(row2)
@@ -382,6 +469,12 @@ class ThemePreviewPanel(QWidget):
         lst.setAlternatingRowColors(True)
         lst.addItems([self.tr("List row {0}").format(i) for i in range(1, 13)])
         lst.setFixedHeight(110)
+        list_roles = ("BG_LIST", "BG_ROW_ALT", "BG_SELECT", "TEXT_ON_ACCENT")
+        lst.itemClicked.connect(
+            lambda _item: self._select_roles(self.tr("List"), list_roles))
+        self._map_roles(
+            lst.verticalScrollBar(), self.tr("Scrollbar"),
+            ("SCROLL_TROUGH", "SCROLL_BG", "SCROLL_ACTIVE"))
         lay.addWidget(lst)
         return frame
 
@@ -390,20 +483,26 @@ class ThemePreviewPanel(QWidget):
 
         card = QFrame()
         card.setObjectName("PreviewCard")
+        self._map_roles(card, self.tr("Card background"),
+                        ("BG_CARD", "BORDER"))
         cv = QVBoxLayout(card)
         cv.setContentsMargins(10, 8, 10, 8)
         cv.setSpacing(3)
         title = QLabel(self.tr("Card title"))
         title.setObjectName("PreviewCardTitle")
+        self._map_roles(title, self.tr("Card title"), ("TEXT_MAIN",))
         cv.addWidget(title)
-        for key, text in (("TEXT_CARD_MED", self.tr("Card detail text")),
-                          ("TEXT_CARD_DIM", self.tr("Card secondary text"))):
+        for key, text in (("TEXT_MAIN", self.tr("Card detail text")),
+                          ("TEXT_DIM", self.tr("Card secondary text"))):
             cv.addWidget(self._inline_label(
-                text, lambda p, k=key: f"color:{_c(p, k)};"))
+                text, lambda p, k=key: f"color:{_c(p, k)};",
+                roles=(key,)))
         lay.addWidget(card)
 
         toast = QFrame()
         toast.setObjectName("Toast")
+        self._map_roles(toast, self.tr("Toast background"),
+                        ("BG_PANEL", "BORDER"))
         th = QHBoxLayout(toast)
         th.setContentsMargins(10, 6, 10, 6)
         th.setSpacing(8)
@@ -414,8 +513,20 @@ class ThemePreviewPanel(QWidget):
             dot = QLabel("●")
             dot.setObjectName("ToastDot")
             dot.setProperty("state", state)
+            dot_roles = {
+                "info": ("ACCENT",),
+                "success": ("TEXT_OK_BRIGHT",),
+                "warning": ("TEXT_WARN_BRIGHT",),
+                "error": ("STATUS_ERR_BRIGHT",),
+            }
+            self._map_roles(dot, self.tr("{0} toast").format(text),
+                            dot_roles[state])
             th.addWidget(dot)
-            th.addWidget(QLabel(text))
+            toast_label = QLabel(text)
+            self._map_roles(
+                toast_label, self.tr("{0} toast").format(text),
+                dot_roles[state])
+            th.addWidget(toast_label)
         th.addStretch(1)
         lay.addWidget(toast)
 
@@ -424,6 +535,8 @@ class ThemePreviewPanel(QWidget):
         bar.setValue(60)
         bar.setTextVisible(False)
         bar.setFixedHeight(10)
+        self._map_roles(bar, self.tr("Progress bar"),
+                        ("BG_ROW", "ACCENT"))
         lay.addWidget(bar)
 
         for key, text in (("BG_MOD_REQ", self.tr("Required mod")),
@@ -434,7 +547,7 @@ class ThemePreviewPanel(QWidget):
                     f"background:{_c(p, k)};"
                     f" color:{contrast_text(_c(p, k))};"
                     f" padding:3px 10px; border-radius:3px;"),
-                22))
+                22, roles=(key,)))
         return frame
 
     def _build_status_section(self) -> QWidget:
@@ -443,6 +556,7 @@ class ThemePreviewPanel(QWidget):
         row.setSpacing(8)
         chip = QLabel(self.tr("Deployed"))
         chip.setObjectName("StatusChip")
+        self._map_roles(chip, self.tr("Deployed status"), ("ACCENT",))
         row.addWidget(chip)
         for key, text in _STATUS_PILLS:
             row.addWidget(self._inline_label(
@@ -450,7 +564,8 @@ class ThemePreviewPanel(QWidget):
                 lambda p, k=key: (
                     f"background:{_c(p, k)};"
                     f" color:{contrast_text(_c(p, k))};"
-                    f" padding:3px 8px; border-radius:3px;")))
+                    f" padding:3px 8px; border-radius:3px;"),
+                roles=(key,)))
         row.addStretch(1)
         lay.addLayout(row)
         return frame
@@ -464,7 +579,8 @@ class ThemePreviewPanel(QWidget):
             deco = "text-decoration:underline;" if key == "LINK_BLUE" else ""
             grid.addWidget(self._inline_label(
                 self.tr(text),
-                lambda p, k=key, d=deco: f"color:{_c(p, k)}; {d}"),
+                lambda p, k=key, d=deco: f"color:{_c(p, k)}; {d}",
+                roles=(key,)),
                 i // 2, i % 2)
         lay.addLayout(grid)
 
@@ -475,6 +591,7 @@ class ThemePreviewPanel(QWidget):
             chipf.setFixedSize(22, 22)
             self._register(lambda p, w=chipf, k=key: w.setStyleSheet(
                 f"background:{_c(p, k)}; border-radius:4px;"))
+            self._map_roles(chipf, teg.role_label(key), (key,))
             tones.addWidget(chipf)
         tones.addStretch(1)
         lay.addLayout(tones)

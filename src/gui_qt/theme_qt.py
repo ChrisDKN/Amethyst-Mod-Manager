@@ -153,7 +153,10 @@ _QSS_PALETTE_EXPRESSIONS = {
     "BG_ROW_HOVER": "palette(shadow)",
     "BG_SELECT": "palette(highlight)",
     "TEXT_ON_ACCENT": "palette(highlighted-text)",
-    "BG_PANEL": "palette(tool-tip-base)",
+    # Qt's stylesheet role is `tooltip-base` (unlike the QPalette enum name
+    # ToolTipBase). `tool-tip-base` is silently treated as Window, which made
+    # panel-backed floating cards appear to have no background of their own.
+    "BG_PANEL": "palette(tooltip-base)",
     "TEXT_FAINT": "palette(placeholder-text)",
     "LINK_BLUE": "palette(link)",
     "ACCENT": "palette(accent)",

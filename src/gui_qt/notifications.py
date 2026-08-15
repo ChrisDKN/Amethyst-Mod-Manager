@@ -13,10 +13,9 @@ on the UI thread (deploy/restore workers marshal via Qt signals).
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QProgressBar, QFrame,
-    QGraphicsOpacityEffect,
 )
 
 from gui_qt.theme_qt import active_palette, _c
@@ -26,62 +25,7 @@ def _pal():
     return active_palette()
 
 
-class _HoverFadeMixin:
-    """Makes a floating popup get out of the way when the cursor is over it.
-
-    On mouse-enter the card fades to near-transparent and lets clicks pass
-    through to whatever is underneath; on mouse-leave it fades back. Reused by
-    both the progress card and the notification toasts, which anchor to the
-    corners and can otherwise cover clickable UI.
-    """
-
-    _FADED_OPACITY = 0.12
-
-    def _install_hover_fade(self):
-        self._fade_effect = QGraphicsOpacityEffect(self)
-        self._fade_effect.setOpacity(1.0)
-        self.setGraphicsEffect(self._fade_effect)
-        self._fade_anim = QPropertyAnimation(self._fade_effect, b"opacity", self)
-        self._fade_anim.setDuration(140)
-        self._fade_anim.setEasingCurve(QEasingCurve.InOutQuad)
-        # Once faded we set WA_TransparentForMouseEvents so clicks fall through,
-        # which also stops us receiving leaveEvent - so poll the cursor to know
-        # when it has moved off us and we can fade back in.
-        self._faded = False
-        self._unhover_timer = QTimer(self)
-        self._unhover_timer.setInterval(120)
-        self._unhover_timer.timeout.connect(self._check_unhover)
-
-    def _fade_to(self, target: float):
-        anim = getattr(self, "_fade_anim", None)
-        if anim is None:
-            return
-        anim.stop()
-        anim.setStartValue(self._fade_effect.opacity())
-        anim.setEndValue(target)
-        anim.start()
-        # While faded, don't intercept clicks meant for widgets underneath.
-        self.setAttribute(Qt.WA_TransparentForMouseEvents, target < 1.0)
-
-    def _cursor_over_self(self) -> bool:
-        from PySide6.QtGui import QCursor
-        return self.rect().contains(self.mapFromGlobal(QCursor.pos()))
-
-    def _check_unhover(self):
-        if not self._cursor_over_self():
-            self._faded = False
-            self._unhover_timer.stop()
-            self._fade_to(1.0)
-
-    def enterEvent(self, event):
-        if not self._faded:
-            self._faded = True
-            self._fade_to(self._FADED_OPACITY)
-            self._unhover_timer.start()
-        super().enterEvent(event)
-
-
-class ProgressPopup(_HoverFadeMixin, QFrame):
+class ProgressPopup(QFrame):
     """A bottom-right progress card. One instance is reused per host; create via
     the host's NotificationHost (or directly) and drive with set_progress()."""
 
@@ -94,7 +38,6 @@ class ProgressPopup(_HoverFadeMixin, QFrame):
         self.setFixedWidth(self.WIDTH)
         self.setAttribute(Qt.WA_StyledBackground, True)
         self._stack_offset = 0    # extra bottom margin when stacked (ProgressStack)
-        self._install_hover_fade()
 
         v = QVBoxLayout(self)
         v.setContentsMargins(20, 18, 20, 18)
@@ -219,7 +162,7 @@ class ProgressStack:
             offset += p.height() + 8
 
 
-class _Toast(_HoverFadeMixin, QFrame):
+class _Toast(QFrame):
     """A single notification card. Auto-dismisses after a few seconds unless
     *sticky* is set, in which case it lingers until dismissed programmatically
     (via the handle returned by NotificationManager.notify)."""
@@ -233,7 +176,6 @@ class _Toast(_HoverFadeMixin, QFrame):
         self.setAttribute(Qt.WA_StyledBackground, True)
         self.setMinimumWidth(340)
         self.setMaximumWidth(460)
-        self._install_hover_fade()
 
         h = QHBoxLayout(self)
         h.setContentsMargins(18, 14, 18, 14)

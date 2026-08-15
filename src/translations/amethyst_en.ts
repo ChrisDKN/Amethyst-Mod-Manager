@@ -14299,6 +14299,286 @@ or use Browse to select it manually.</translation>
         <translation>Checkbox fill (checked)</translation>
     </message>
     <message>
+        <source>Surfaces</source>
+        <translation>Surfaces</translation>
+    </message>
+    <message>
+        <source>Window background</source>
+        <translation>Window background</translation>
+    </message>
+    <message>
+        <source>Panels and dialogs</source>
+        <translation>Panels and dialogs</translation>
+    </message>
+    <message>
+        <source>Toolbars and headers</source>
+        <translation>Toolbars and headers</translation>
+    </message>
+    <message>
+        <source>List / tree background</source>
+        <translation>List / tree background</translation>
+    </message>
+    <message>
+        <source>List row background</source>
+        <translation>List row background</translation>
+    </message>
+    <message>
+        <source>Secondary text</source>
+        <translation>Secondary text</translation>
+    </message>
+    <message>
+        <source>Accent and selection</source>
+        <translation>Accent and selection</translation>
+    </message>
+    <message>
+        <source>Accent, links and controls</source>
+        <translation>Accent, links and controls</translation>
+    </message>
+    <message>
+        <source>Selected rows</source>
+        <translation>Selected rows</translation>
+    </message>
+    <message>
+        <source>Borders and dividers</source>
+        <translation>Borders and dividers</translation>
+    </message>
+    <message>
+        <source>Action buttons</source>
+        <translation>Action buttons</translation>
+    </message>
+    <message>
+        <source>Confirm / install</source>
+        <translation>Confirm / install</translation>
+    </message>
+    <message>
+        <source>Delete / remove</source>
+        <translation>Delete / remove</translation>
+    </message>
+    <message>
+        <source>Warning / update</source>
+        <translation>Warning / update</translation>
+    </message>
+    <message>
+        <source>Info / select</source>
+        <translation>Info / select</translation>
+    </message>
+    <message>
+        <source>Secondary action</source>
+        <translation>Secondary action</translation>
+    </message>
+    <message>
+        <source>The main layers of the app, from the window to list rows.</source>
+        <translation>The main layers of the app, from the window to list rows.</translation>
+    </message>
+    <message>
+        <source>General text plus the three semantic status colours.</source>
+        <translation>General text plus the three semantic status colours.</translation>
+    </message>
+    <message>
+        <source>Brand colour, selected rows, focus controls and dividers.</source>
+        <translation>Brand colour, selected rows, focus controls and dividers.</translation>
+    </message>
+    <message>
+        <source>Button colours are shared by actions with the same meaning.</source>
+        <translation>Button colours are shared by actions with the same meaning.</translation>
+    </message>
+    <message>
+        <source>Surfaces and rows</source>
+        <translation>Surfaces and rows</translation>
+    </message>
+    <message>
+        <source>Status text</source>
+        <translation>Status text</translation>
+    </message>
+    <message>
+        <source>Accent and links</source>
+        <translation>Accent and links</translation>
+    </message>
+    <message>
+        <source>Selection and focus</source>
+        <translation>Selection and focus</translation>
+    </message>
+    <message>
+        <source>Borders and separators</source>
+        <translation>Borders and separators</translation>
+    </message>
+    <message>
+        <source>Danger buttons</source>
+        <translation>Danger buttons</translation>
+    </message>
+    <message>
+        <source>Success buttons</source>
+        <translation>Success buttons</translation>
+    </message>
+    <message>
+        <source>Warning buttons</source>
+        <translation>Warning buttons</translation>
+    </message>
+    <message>
+        <source>Information buttons</source>
+        <translation>Information buttons</translation>
+    </message>
+    <message>
+        <source>Secondary buttons</source>
+        <translation>Secondary buttons</translation>
+    </message>
+    <message>
+        <source>Special accent buttons</source>
+        <translation>Special accent buttons</translation>
+    </message>
+    <message>
+        <source>Scrollbars and checkboxes</source>
+        <translation>Scrollbars and checkboxes</translation>
+    </message>
+    <message>
+        <source>Icons and small highlights</source>
+        <translation>Icons and small highlights</translation>
+    </message>
+    <message>
+        <source>Tinted content rows</source>
+        <translation>Tinted content rows</translation>
+    </message>
+    <message>
+        <source>Required and optional mods</source>
+        <translation>Required and optional mods</translation>
+    </message>
+    <message>
+        <source>Notifications and queues</source>
+        <translation>Notifications and queues</translation>
+    </message>
+    <message>
+        <source>Plugin cycle</source>
+        <translation>Plugin cycle</translation>
+    </message>
+    <message>
+        <source>File conflicts</source>
+        <translation>File conflicts</translation>
+    </message>
+    <message>
+        <source>Conflict and requirement highlights</source>
+        <translation>Conflict and requirement highlights</translation>
+    </message>
+    <message>
+        <source>Framework status</source>
+        <translation>Framework status</translation>
+    </message>
+    <message>
+        <source>Mod list separator bands</source>
+        <translation>Mod list separator bands</translation>
+    </message>
+    <message>
+        <source>Alternate list row</source>
+        <translation>Alternate list row</translation>
+    </message>
+    <message>
+        <source>Hovered list row</source>
+        <translation>Hovered list row</translation>
+    </message>
+    <message>
+        <source>Card background</source>
+        <translation>Card background</translation>
+    </message>
+    <message>
+        <source>Text on accent / selection</source>
+        <translation>Text on accent / selection</translation>
+    </message>
+    <message>
+        <source>Brand accent, contrasting text, hyperlinks and control glyphs.</source>
+        <translation>Brand accent, contrasting text, hyperlinks and control glyphs.</translation>
+    </message>
+    <message>
+        <source>Separator row background</source>
+        <translation>Separator row background</translation>
+    </message>
+    <message>
+        <source>Separator row text</source>
+        <translation>Separator row text</translation>
+    </message>
+    <message>
+        <source>Window, panel, card, list and row backgrounds.</source>
+        <translation>Window, panel, card, list and row backgrounds.</translation>
+    </message>
+    <message>
+        <source>Primary, secondary and faint text used throughout the app.</source>
+        <translation>Primary, secondary and faint text used throughout the app.</translation>
+    </message>
+    <message>
+        <source>Success, warning and error messages shown on neutral backgrounds.</source>
+        <translation>Success, warning and error messages shown on neutral backgrounds.</translation>
+    </message>
+    <message>
+        <source>Hover, selected-row and drag-selection colours.</source>
+        <translation>Hover, selected-row and drag-selection colours.</translation>
+    </message>
+    <message>
+        <source>Frames, divider lines and separator rows.</source>
+        <translation>Frames, divider lines and separator rows.</translation>
+    </message>
+    <message>
+        <source>Delete, remove and other destructive actions.</source>
+        <translation>Delete, remove and other destructive actions.</translation>
+    </message>
+    <message>
+        <source>Install, confirm, Done and Play actions.</source>
+        <translation>Install, confirm, Done and Play actions.</translation>
+    </message>
+    <message>
+        <source>Update, reinstall and cautionary actions.</source>
+        <translation>Update, reinstall and cautionary actions.</translation>
+    </message>
+    <message>
+        <source>Select, Groups, Plugin Rules and similar actions.</source>
+        <translation>Select, Groups, Plugin Rules and similar actions.</translation>
+    </message>
+    <message>
+        <source>View and other low-emphasis actions.</source>
+        <translation>View and other low-emphasis actions.</translation>
+    </message>
+    <message>
+        <source>Special-purpose accent buttons such as Ko-Fi.</source>
+        <translation>Special-purpose accent buttons such as Ko-Fi.</translation>
+    </message>
+    <message>
+        <source>Scrollbar track/thumb and checked-box fill.</source>
+        <translation>Scrollbar track/thumb and checked-box fill.</translation>
+    </message>
+    <message>
+        <source>Shared tones used by icons, flags and file-tree markers.</source>
+        <translation>Shared tones used by icons, flags and file-tree markers.</translation>
+    </message>
+    <message>
+        <source>Coloured information rows and their foreground text.</source>
+        <translation>Coloured information rows and their foreground text.</translation>
+    </message>
+    <message>
+        <source>Required/optional indicators in collection views.</source>
+        <translation>Required/optional indicators in collection views.</translation>
+    </message>
+    <message>
+        <source>Error badges, notifications and queued states.</source>
+        <translation>Error badges, notifications and queued states.</translation>
+    </message>
+    <message>
+        <source>Cycle status rows and before/after rule keywords.</source>
+        <translation>Cycle status rows and before/after rule keywords.</translation>
+    </message>
+    <message>
+        <source>Winning, overridden, inactive and anchor files.</source>
+        <translation>Winning, overridden, inactive and anchor files.</translation>
+    </message>
+    <message>
+        <source>Related mod rows highlighted across Mods, Plugins and Data.</source>
+        <translation>Related mod rows highlighted across Mods, Plugins and Data.</translation>
+    </message>
+    <message>
+        <source>Installed, staged, disabled and missing framework banners.</source>
+        <translation>Installed, staged, disabled and missing framework banners.</translation>
+    </message>
+    <message>
+        <source>Pinned Overwrite and Root Folder rows.</source>
+        <translation>Pinned Overwrite and Root Folder rows.</translation>
+    </message>
+    <message>
         <source>Window, panels, list rows and input fields - the app's surfaces.</source>
         <translation>Window, panels, list rows and input fields - the app's surfaces.</translation>
     </message>
@@ -14387,8 +14667,8 @@ or use Browse to select it manually.</translation>
         <translation>Start from:</translation>
     </message>
     <message>
-        <source>Advanced (show all colours)</source>
-        <translation>Advanced (show all colours)</translation>
+        <source>Fine tune app-specific colours</source>
+        <translation>Fine tune app-specific colours</translation>
     </message>
     <message>
         <source>Save</source>
@@ -14403,16 +14683,16 @@ or use Browse to select it manually.</translation>
         <translation>Delete</translation>
     </message>
     <message>
-        <source>Editing a base colour adjusts its hover/variants automatically. Tick Advanced to edit every colour individually. Changes preview across the open app; save the theme to keep them.</source>
-        <translation>Editing a base colour adjusts its hover/variants automatically. Tick Advanced to edit every colour individually. Changes preview across the open app; save the theme to keep them.</translation>
-    </message>
-    <message>
         <source>✕ Close</source>
         <translation>✕ Close</translation>
     </message>
     <message>
         <source>Save As New…</source>
         <translation>Save As New…</translation>
+    </message>
+    <message>
+        <source>Related colours are linked automatically. Enable fine tuning to adjust individual app-specific colours. Changes preview across the open app; save the theme to keep them.</source>
+        <translation>Related colours are linked automatically. Enable fine tuning to adjust individual app-specific colours. Changes preview across the open app; save the theme to keep them.</translation>
     </message>
     <message>
         <source>Pick colour: {0}</source>
@@ -14442,8 +14722,22 @@ or use Browse to select it manually.</translation>
 <context>
     <name>ThemePreviewPanel</name>
     <message>
-        <source>Preview - changes are also applied temporarily across the open app. Save the theme to keep them.</source>
-        <translation>Preview - changes are also applied temporarily across the open app. Save the theme to keep them.</translation>
+        <source>Preview - changes are also applied temporarily across the open app. Click any item to reveal the settings that colour it.</source>
+        <translation>Preview - changes are also applied temporarily across the open app. Click any item to reveal the settings that colour it.</translation>
+    </message>
+    <message>
+        <source>Click to reveal theme settings:
+{0}</source>
+        <translation>Click to reveal theme settings:
+{0}</translation>
+    </message>
+    <message>
+        <source>{0} uses: {1}</source>
+        <translation>{0} uses: {1}</translation>
+    </message>
+    <message>
+        <source>{0} section</source>
+        <translation>{0} section</translation>
     </message>
     <message>
         <source>Header &amp; tabs</source>
@@ -14466,6 +14760,10 @@ or use Browse to select it manually.</translation>
         <translation>▶ Play</translation>
     </message>
     <message>
+        <source>Header background</source>
+        <translation>Header background</translation>
+    </message>
+    <message>
         <source>Mods</source>
         <translation>Mods</translation>
     </message>
@@ -14476,6 +14774,10 @@ or use Browse to select it manually.</translation>
     <message>
         <source>Data</source>
         <translation>Data</translation>
+    </message>
+    <message>
+        <source>Tabs</source>
+        <translation>Tabs</translation>
     </message>
     <message>
         <source>Mod list</source>
@@ -14542,24 +14844,8 @@ or use Browse to select it manually.</translation>
         <translation>Requires selection</translation>
     </message>
     <message>
-        <source>Textures folder</source>
-        <translation>Textures folder</translation>
-    </message>
-    <message>
-        <source>Archive.bsa</source>
-        <translation>Archive.bsa</translation>
-    </message>
-    <message>
-        <source>Profile.ini</source>
-        <translation>Profile.ini</translation>
-    </message>
-    <message>
-        <source>Installed</source>
-        <translation>Installed</translation>
-    </message>
-    <message>
-        <source>Unordered plugin</source>
-        <translation>Unordered plugin</translation>
+        <source>List header</source>
+        <translation>List header</translation>
     </message>
     <message>
         <source>Plugins &amp; files</source>
@@ -14638,6 +14924,10 @@ or use Browse to select it manually.</translation>
         <translation>Search…</translation>
     </message>
     <message>
+        <source>Text input</source>
+        <translation>Text input</translation>
+    </message>
+    <message>
         <source>Default profile</source>
         <translation>Default profile</translation>
     </message>
@@ -14646,24 +14936,52 @@ or use Browse to select it manually.</translation>
         <translation>Testing</translation>
     </message>
     <message>
+        <source>Dropdown</source>
+        <translation>Dropdown</translation>
+    </message>
+    <message>
         <source>Enabled</source>
         <translation>Enabled</translation>
+    </message>
+    <message>
+        <source>Checked checkbox</source>
+        <translation>Checked checkbox</translation>
     </message>
     <message>
         <source>Disabled</source>
         <translation>Disabled</translation>
     </message>
     <message>
+        <source>Unchecked checkbox</source>
+        <translation>Unchecked checkbox</translation>
+    </message>
+    <message>
         <source>Selected option</source>
         <translation>Selected option</translation>
+    </message>
+    <message>
+        <source>Radio button</source>
+        <translation>Radio button</translation>
     </message>
     <message>
         <source>List row {0}</source>
         <translation>List row {0}</translation>
     </message>
     <message>
+        <source>List</source>
+        <translation>List</translation>
+    </message>
+    <message>
+        <source>Scrollbar</source>
+        <translation>Scrollbar</translation>
+    </message>
+    <message>
         <source>Cards, toasts &amp; progress</source>
         <translation>Cards, toasts &amp; progress</translation>
+    </message>
+    <message>
+        <source>Card background</source>
+        <translation>Card background</translation>
     </message>
     <message>
         <source>Card title</source>
@@ -14676,6 +14994,10 @@ or use Browse to select it manually.</translation>
     <message>
         <source>Card secondary text</source>
         <translation>Card secondary text</translation>
+    </message>
+    <message>
+        <source>Toast background</source>
+        <translation>Toast background</translation>
     </message>
     <message>
         <source>Info</source>
@@ -14694,6 +15016,14 @@ or use Browse to select it manually.</translation>
         <translation>Error</translation>
     </message>
     <message>
+        <source>{0} toast</source>
+        <translation>{0} toast</translation>
+    </message>
+    <message>
+        <source>Progress bar</source>
+        <translation>Progress bar</translation>
+    </message>
+    <message>
         <source>Required mod</source>
         <translation>Required mod</translation>
     </message>
@@ -14708,6 +15038,10 @@ or use Browse to select it manually.</translation>
     <message>
         <source>Deployed</source>
         <translation>Deployed</translation>
+    </message>
+    <message>
+        <source>Deployed status</source>
+        <translation>Deployed status</translation>
     </message>
     <message>
         <source>Text &amp; tones</source>

@@ -2,16 +2,13 @@
 
 Pure data + colour maths, no Qt widgets. Two jobs:
 
-1. ``GROUPS`` lays the ~180 palette keys out into human-labelled sections so the
-   editor can render them in a sensible order instead of one flat wall of keys.
+1. ``SIMPLE_GROUPS`` exposes the small semantic palette most authors need, while
+   ``GROUPS`` keeps implemented app-specific roles available for fine tuning.
 
 2. The derivation map lets a user edit a single *base* colour and have its
-   related variants (hover / deep / alt) recomputed automatically. Each variant
-   is produced by blending the base toward white (lighten) or black (darken) by
-   a fixed factor. The factors were calibrated from the built-in ``dark`` palette
-   so that, e.g., ``derive("BTN_CANCEL", <dark BTN_CANCEL>)`` reproduces the
-   shipped ``BTN_CANCEL_HOV`` closely. The editor's "Advanced" mode bypasses
-   derivation and exposes every key for direct editing.
+   related variants recomputed automatically. The source palette determines
+   whether a variant moves lighter or darker, so light themes retain their
+   intentionally darker hover states. Fine-tuning mode bypasses derivation.
 """
 
 from __future__ import annotations
@@ -82,22 +79,68 @@ DERIVE: dict[str, dict[str, float]] = {
     "BTN_PURPLE":   {"BTN_PURPLE_HOV": 0.16},
     # Accent
     "ACCENT":       {"ACCENT_HOV": 0.06},
+    # Borders
+    "BORDER":       {"BORDER_DIM": 0.10, "BORDER_FAINT": 0.18},
     # Rows
     "BG_ROW":       {"BG_ROW_ALT": 0.04, "BG_ROW_HOVER": 0.10, "BG_HOVER_ROW": 0.10},
 }
 
-# Set of keys that are variants driven by some base (hidden unless Advanced).
-DERIVED_KEYS: set[str] = {v for variants in DERIVE.values() for v in variants}
+
+def _luminance(hex_color: str) -> float | None:
+    rgb = _rgb(hex_color)
+    if rgb is None:
+        return None
+    return 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]
 
 
-def derive(base_key: str, hex_color: str) -> dict[str, str]:
+def contrast_color(hex_color: str) -> str:
+    """Return readable black/white text for a solid background colour."""
+    lum = _luminance(hex_color)
+    return "#000000" if lum is not None and lum > 140 else "#ffffff"
+
+
+def derive(base_key: str, hex_color: str,
+           source_palette: dict | None = None) -> dict[str, str]:
     """Return ``{base_key: hex, <variant>: <computed>, ...}`` for a base edit.
 
-    If *base_key* drives no variants, returns just ``{base_key: hex_color}``.
+    If *source_palette* contains the existing base/variant pair, its luminance
+    direction wins over the dark-theme-calibrated default. This preserves the
+    darker hover states used by light themes.
     """
     out = {base_key: hex_color}
     for variant, factor in DERIVE.get(base_key, {}).items():
+        if source_palette:
+            base_lum = _luminance(str(source_palette.get(base_key, "")))
+            variant_lum = _luminance(str(source_palette.get(variant, "")))
+            if (base_lum is not None and variant_lum is not None
+                    and abs(variant_lum - base_lum) > 0.5):
+                factor = abs(factor) if variant_lum > base_lum else -abs(factor)
         out[variant] = blend(hex_color, factor)
+    return out
+
+
+# Roles that represent the same author-facing choice. They remain separate in
+# saved palettes for backwards compatibility and direct fine tuning, but a
+# simple-mode edit updates them together.
+SIMPLE_LINKS: dict[str, tuple[str, ...]] = {
+    "ACCENT": ("LINK_BLUE", "DROPDOWN_ARROW", "SCROLL_ACTIVE", "CHECK_FILL"),
+    "TEXT_OK": ("TONE_GREEN",),
+    "TEXT_ERR": ("TONE_RED",),
+    "TEXT_WARN": ("TONE_FLAG",),
+    "BTN_DANGER": ("RED_BTN",),
+    "BTN_WARN": ("BTN_WARN_BROWN", "BTN_WARN_ORANGE"),
+    "BTN_INFO": ("BTN_NEUTRAL",),
+}
+
+
+def derive_simple(base_key: str, hex_color: str,
+                  source_palette: dict | None = None) -> dict[str, str]:
+    """Expand a simple-mode edit to hover states and equivalent roles."""
+    out = derive(base_key, hex_color, source_palette)
+    for linked_key in SIMPLE_LINKS.get(base_key, ()):
+        out.update(derive(linked_key, hex_color, source_palette))
+    if base_key == "BG_SELECT":
+        out["TEXT_ON_ACCENT"] = contrast_color(hex_color)
     return out
 
 
@@ -107,151 +150,112 @@ def derive(base_key: str, hex_color: str) -> dict[str, str]:
 # live palette) so a new palette key is never silently uneditable.
 # --------------------------------------------------------------------------- #
 GROUPS: list[tuple[str, list[tuple[str, str]]]] = [
-    ("Backgrounds", [
-        ("BG_DEEP", "App background (deepest)"),
-        ("BG_PANEL", "Panel / card surface"),
-        ("BG_HEADER", "Header / toolbar"),
-        ("BG_ROW", "List row"),
-        ("BG_ROW_ALT", "List row (alt stripe)"),
-        ("BG_ROW_HOVER", "List row hover"),
-        ("BG_LIST", "Tree / list surface"),
-        ("BG_SEP", "Separator fill"),
-        ("BG_HOVER", "Hover highlight"),
-        ("BG_SELECT", "Selection highlight"),
-        ("BG_ENTRY", "Text input field"),
+    ("Surfaces and rows", [
+        ("BG_DEEP", "Window background"),
+        ("BG_PANEL", "Panels and dialogs"),
+        ("BG_HEADER", "Toolbars and headers"),
+        ("BG_LIST", "List / tree background"),
+        ("BG_ROW", "List row background"),
+        ("BG_ROW_ALT", "Alternate list row"),
+        ("BG_ROW_HOVER", "Hovered list row"),
+        ("BG_CARD", "Card background"),
     ]),
     ("Text", [
         ("TEXT_MAIN", "Primary text"),
-        ("TEXT_DIM", "Dimmed text"),
-        ("TEXT_MUTED", "Muted text"),
+        ("TEXT_DIM", "Secondary text"),
         ("TEXT_FAINT", "Faint text"),
-        ("TEXT_SEP", "Separator text"),
         ("TEXT_WHITE", "White"),
-        ("TEXT_BLACK", "Black"),
+    ]),
+    ("Status text", [
         ("TEXT_OK", "Success text"),
         ("TEXT_ERR", "Error text"),
         ("TEXT_WARN", "Warning text"),
         ("TEXT_OK_BRIGHT", "Success text (bright)"),
         ("TEXT_ERR_BRIGHT", "Error text (bright)"),
         ("TEXT_WARN_BRIGHT", "Warning text (bright)"),
-        ("TEXT_CARD", "Card text"),
-        ("TEXT_CARD_DIM", "Card text (dim)"),
-        ("TEXT_CARD_MED", "Card text (medium)"),
-        ("TEXT_TREE_FG", "Tree foreground"),
     ]),
-    ("Accent", [
+    ("Accent and links", [
         ("ACCENT", "Accent"),
         ("ACCENT_HOV", "Accent hover"),
-        ("TEXT_ON_ACCENT", "Text on accent"),
+        ("TEXT_ON_ACCENT", "Text on accent / selection"),
         ("LINK_BLUE", "Hyperlink"),
         ("DROPDOWN_ARROW", "Dropdown arrow"),
     ]),
-    ("Borders", [
+    ("Selection and focus", [
+        ("BG_HOVER", "Hover highlight"),
+        ("BG_SELECT", "Selection highlight"),
+        ("HIGHLIGHT_DRAG", "Drag selection outline"),
+    ]),
+    ("Borders and separators", [
         ("BORDER", "Border"),
         ("BORDER_DIM", "Border (dim)"),
         ("BORDER_FAINT", "Border (faint)"),
+        ("BG_SEP", "Separator row background"),
+        ("TEXT_SEP", "Separator row text"),
     ]),
-    ("Buttons - Red", [
+    ("Danger buttons", [
         ("BTN_DANGER", "Danger"),
         ("BTN_DANGER_HOV", "Danger hover"),
-        ("BTN_DANGER_ALT", "Danger (alt)"),
-        ("BTN_DANGER_ALT_HOV", "Danger alt hover"),
-        ("BTN_DANGER_DEEP", "Danger (deep)"),
-        ("BTN_DANGER_DEEP_HOV", "Danger deep hover"),
-        ("BTN_CANCEL", "Cancel"),
-        ("BTN_CANCEL_HOV", "Cancel hover"),
         ("RED_BTN", "Red (legacy)"),
         ("RED_HOV", "Red hover (legacy)"),
     ]),
-    ("Buttons - Green", [
+    ("Success buttons", [
         ("BTN_SUCCESS", "Success"),
         ("BTN_SUCCESS_HOV", "Success hover"),
-        ("BTN_SUCCESS_ALT", "Success (alt)"),
-        ("BTN_SUCCESS_ALT_HOV", "Success alt hover"),
-        ("BTN_SUCCESS_DEEP", "Success (deep)"),
-        ("BTN_SUCCESS_DEEP_HOV", "Success deep hover"),
     ]),
-    ("Buttons - Orange", [
+    ("Warning buttons", [
         ("BTN_WARN", "Warning"),
         ("BTN_WARN_HOV", "Warning hover"),
-        ("BTN_WARN_DEEP", "Warning (deep)"),
-        ("BTN_WARN_DEEP_HOV", "Warning deep hover"),
         ("BTN_WARN_BROWN", "Warning (brown)"),
         ("BTN_WARN_BROWN_HOV", "Warning brown hover"),
         ("BTN_WARN_ORANGE", "Warning (orange)"),
         ("BTN_WARN_ORANGE_HOV", "Warning orange hover"),
     ]),
-    ("Buttons - Blue", [
+    ("Information buttons", [
         ("BTN_INFO", "Info"),
         ("BTN_INFO_HOV", "Info hover"),
-        ("BTN_INFO_DEEP", "Info (deep)"),
-        ("BTN_INFO_DEEP_HOV", "Info deep hover"),
         ("BTN_NEUTRAL", "Neutral"),
         ("BTN_NEUTRAL_HOV", "Neutral hover"),
     ]),
-    ("Buttons - Grey", [
+    ("Secondary buttons", [
         ("BTN_GREY", "Grey"),
         ("BTN_GREY_HOV", "Grey hover"),
-        ("BTN_GREY_ALT", "Grey (alt)"),
-        ("BTN_GREY_ALT_HOV", "Grey alt hover"),
     ]),
-    ("Buttons - Purple", [
+    ("Special accent buttons", [
         ("BTN_PURPLE", "Purple"),
         ("BTN_PURPLE_HOV", "Purple hover"),
     ]),
-    ("Tree tags", [
-        ("TAG_FOLDER", "Folder"),
-        ("TAG_BSA", "BSA archive"),
-        ("TAG_BSA_ALT", "BSA archive (alt)"),
-        ("TAG_INI_PROFILE", "INI profile"),
-        ("TAG_BUNDLED_FG", "Bundled (text)"),
-        ("TAG_BUNDLED_BG", "Bundled (background)"),
-        ("TAG_INSTALLED_BG", "Installed (background)"),
-        ("TAG_UNORDERED_FG", "Unordered (text)"),
+    ("Scrollbars and checkboxes", [
+        ("SCROLL_BG", "Scrollbar background"),
+        ("SCROLL_TROUGH", "Scrollbar trough"),
+        ("SCROLL_ACTIVE", "Scrollbar thumb (active)"),
+        ("CHECK_FILL", "Checkbox fill (checked)"),
     ]),
-    ("Tones", [
+    ("Icons and small highlights", [
         ("TONE_GREEN", "Green tone"),
         ("TONE_RED", "Red tone"),
         ("TONE_BLUE", "Blue tone"),
         ("TONE_CYAN", "Cyan tone"),
         ("TONE_BLUE_SOFT", "Soft blue tone"),
-        ("TONE_FLAG", "Flag tone"),
     ]),
-    ("Scrollbars", [
-        ("SCROLL_BG", "Scrollbar background"),
-        ("SCROLL_TROUGH", "Scrollbar trough"),
-        ("SCROLL_ACTIVE", "Scrollbar thumb (active)"),
-    ]),
-    ("Overlays & tinted rows", [
-        ("BG_OVERLAY_ERR", "Error overlay"),
-        ("BG_OVERLAY_DEEP", "Deep overlay"),
-        ("BG_CARD", "Card"),
-        ("BG_CARD_ALT", "Card (alt)"),
+    ("Tinted content rows", [
         ("BG_GREEN_ROW", "Green row"),
         ("BG_GREEN_DEEP", "Green (deep)"),
         ("BG_RED_DEEP", "Red (deep)"),
         ("BG_ORANGE_DEEP", "Orange (deep)"),
-        ("BG_BLUE_DEEP", "Blue (deep)"),
         ("BG_GREEN_TEXT", "Green tint text"),
         ("BG_RED_TEXT", "Red tint text"),
-        ("BG_ORANGE_TEXT", "Orange tint text"),
-        ("BG_BLUE_TEXT", "Blue tint text"),
-        ("BG_DARK_BLUE", "Dark blue"),
-        ("BG_DARK_GREEN", "Dark green"),
-        ("BG_BTN_SAVE", "Save button"),
-        ("BG_SELECT_BAR", "Selection bar"),
+    ]),
+    ("Required and optional mods", [
         ("BG_MOD_REQ", "Required mod"),
         ("BG_MOD_OPT", "Optional mod"),
     ]),
-    ("Status", [
+    ("Notifications and queues", [
         ("STATUS_ERR_BRIGHT", "Error (bright)"),
         ("STATUS_BADGE_RED", "Badge red"),
-        ("STATUS_BADGE_GREEN", "Badge green"),
-        ("STATUS_SUCCESS_SOLID", "Success (solid)"),
         ("STATUS_QUEUED", "Queued"),
-        ("STATUS_DL_GREEN", "Download green"),
     ]),
-    ("Plugin cycle & files", [
+    ("Plugin cycle", [
         ("PLUGIN_CYCLE_ERR_BG", "Cycle error row (bg)"),
         ("PLUGIN_CYCLE_ERR_FG", "Cycle error row (text)"),
         ("PLUGIN_CYCLE_OK_BG", "Cycle ok row (bg)"),
@@ -260,20 +264,21 @@ GROUPS: list[tuple[str, list[tuple[str, str]]]] = [
         ("PLUGIN_CYCLE_WARN_FG", "Cycle warn row (text)"),
         ("PLUGIN_CYCLE_ANCHOR", "Cycle anchor"),
         ("PLUGIN_CYCLE_LINK", "Cycle link"),
+    ]),
+    ("File conflicts", [
         ("FILE_WIN", "File winning"),
         ("FILE_LOSE", "File overridden"),
         ("FILE_DIM", "File dim"),
         ("FILE_ANCHOR", "File anchor"),
-        ("HIGHLIGHT_DRAG", "Drag selection outline"),
     ]),
-    ("Conflict highlights", [
+    ("Conflict and requirement highlights", [
         ("CONFLICT_HL_WIN", "Conflict row - winning"),
         ("CONFLICT_HL_LOSE", "Conflict row - overridden"),
         ("CONFLICT_HL_ANCHOR", "Conflict row - anchor"),
         ("REQ_HL_REQUIRES", "Requirement row - requires"),
         ("REQ_HL_REQUIRED_BY", "Requirement row - required by"),
     ]),
-    ("Framework detection", [
+    ("Framework status", [
         ("FRAMEWORK_INSTALLED_BG", "Installed (bg)"),
         ("FRAMEWORK_INSTALLED_FG", "Installed (text)"),
         ("FRAMEWORK_STAGED_BG", "Staged (bg)"),
@@ -283,44 +288,123 @@ GROUPS: list[tuple[str, list[tuple[str, str]]]] = [
         ("FRAMEWORK_MISSING_BG", "Missing (bg)"),
         ("FRAMEWORK_MISSING_FG", "Missing (text)"),
     ]),
-    ("Separator bands", [
+    ("Mod list separator bands", [
         ("OVERWRITE_SEP_BG", "Overwrite band (bg)"),
         ("OVERWRITE_SEP_FG", "Overwrite band (text)"),
         ("ROOT_SEP_BG", "Root Folder band (bg)"),
         ("ROOT_SEP_FG", "Root Folder band (text)"),
     ]),
-    ("Checkboxes", [
-        ("CHECK_FILL", "Checkbox fill (checked)"),
+]
+
+# The default editor deliberately stays small. These are semantic choices a
+# theme author can understand without knowing which individual widget consumes
+# a palette role. Closely related implementation roles are updated through
+# SIMPLE_LINKS / DERIVE above.
+SIMPLE_GROUPS: list[tuple[str, list[tuple[str, str]]]] = [
+    ("Surfaces", [
+        ("BG_DEEP", "Window background"),
+        ("BG_PANEL", "Panels and dialogs"),
+        ("BG_HEADER", "Toolbars and headers"),
+        ("BG_LIST", "List / tree background"),
+        ("BG_ROW", "List row background"),
+    ]),
+    ("Text", [
+        ("TEXT_MAIN", "Primary text"),
+        ("TEXT_DIM", "Secondary text"),
+        ("TEXT_OK", "Success text"),
+        ("TEXT_WARN", "Warning text"),
+        ("TEXT_ERR", "Error text"),
+    ]),
+    ("Accent and selection", [
+        ("ACCENT", "Accent, links and controls"),
+        ("BG_SELECT", "Selected rows"),
+        ("BORDER", "Borders and dividers"),
+    ]),
+    ("Action buttons", [
+        ("BTN_SUCCESS", "Confirm / install"),
+        ("BTN_DANGER", "Delete / remove"),
+        ("BTN_WARN", "Warning / update"),
+        ("BTN_INFO", "Info / select"),
+        ("BTN_GREY", "Secondary action"),
     ]),
 ]
+
+SIMPLE_GROUP_DESCRIPTIONS: dict[str, str] = {
+    "Surfaces": "The main layers of the app, from the window to list rows.",
+    "Text": "General text plus the three semantic status colours.",
+    "Accent and selection": "Brand colour, selected rows, focus controls and dividers.",
+    "Action buttons": "Button colours are shared by actions with the same meaning.",
+}
+
+# These historical palette roles are retained in theme files so older custom
+# themes remain loadable, but the Qt app never consumes them. Showing them in
+# the editor suggested an effect that did not exist. Preview-only samples are
+# included here as they likewise do not style any real application screen.
+EDITOR_HIDDEN_KEYS: set[str] = {
+    "BG_BLUE_DEEP", "BG_BLUE_TEXT", "BG_BTN_SAVE", "BG_CARD_ALT",
+    "BG_DARK_BLUE", "BG_DARK_GREEN", "BG_ENTRY", "BG_HOVER_ROW",
+    "BG_ORANGE_TEXT", "BG_OVERLAY_DEEP", "BG_OVERLAY_ERR", "BG_SELECT_BAR",
+    "BTN_CANCEL", "BTN_CANCEL_HOV",
+    "BTN_DANGER_ALT", "BTN_DANGER_ALT_HOV",
+    "BTN_DANGER_DEEP", "BTN_DANGER_DEEP_HOV",
+    "BTN_GREY_ALT", "BTN_GREY_ALT_HOV",
+    "BTN_INFO_DEEP", "BTN_INFO_DEEP_HOV",
+    "BTN_SUCCESS_ALT", "BTN_SUCCESS_ALT_HOV",
+    "BTN_SUCCESS_DEEP", "BTN_SUCCESS_DEEP_HOV",
+    "BTN_WARN_DEEP", "BTN_WARN_DEEP_HOV",
+    "STATUS_BADGE_GREEN", "STATUS_DL_GREEN", "STATUS_SUCCESS_SOLID",
+    "TAG_BSA", "TAG_BSA_ALT", "TAG_BUNDLED_BG", "TAG_BUNDLED_FG",
+    "TAG_FOLDER", "TAG_INI_PROFILE", "TAG_INSTALLED_BG", "TAG_UNORDERED_FG",
+    "TEXT_BLACK", "TEXT_CARD", "TEXT_CARD_DIM", "TEXT_CARD_MED",
+    "TEXT_MUTED", "TEXT_TREE_FG", "TONE_FLAG",
+}
 
 # One-line "where does this show up" hint per section, rendered under the group
 # title in the editor so it's obvious what each block of colours affects.
 GROUP_DESCRIPTIONS: dict[str, str] = {
-    "Backgrounds": "Window, panels, list rows and input fields - the app's surfaces.",
-    "Text": "Label and list text throughout the app, plus success/warning/error text.",
-    "Accent": "The highlight colour: links, dropdown arrows and accented controls.",
-    "Borders": "Lines and frames around panels, lists and inputs.",
-    "Buttons - Red": "Danger / cancel / remove buttons (delete, remove profile, ✕ close).",
-    "Buttons - Green": "Success / confirm buttons (Install, Done, Play).",
-    "Buttons - Orange": "Warning buttons (Reinstall, download / update actions).",
-    "Buttons - Blue": "Info / neutral action buttons (Select, Groups, Plugin Rules).",
-    "Buttons - Grey": "Secondary / neutral buttons (View, minor actions).",
-    "Buttons - Purple": "Accent buttons like Ko-Fi.",
-    "Tree tags": "Coloured labels in file trees (folders, BSA archives, bundled/installed).",
-    "Tones": "Shared accent tones reused by flags, icons and small highlights.",
-    "Scrollbars": "The scrollbar track and thumb.",
-    "Overlays & tinted rows": "Popup/overlay backgrounds and coloured info rows (required/optional mods, cards).",
-    "Status": "Small status pills and badges (queued, download progress, error/success).",
-    "Plugin cycle & files": "Plugin-cycle rows and file-conflict colours in the Data / Mod Files views.",
-    "Conflict highlights": "Row tints when a conflicting mod is selected (winning / overridden / anchor), plus the requirement tints used by the View Requirements tab.",
-    "Framework detection": "The framework-status banner above the Plugins list (installed / staged / disabled / missing).",
-    "Separator bands": "The pinned Overwrite and Root Folder bands at the top of the modlist.",
-    "Checkboxes": "The fill colour of a ticked checkbox (the tick stays auto-contrasted).",
+    "Surfaces and rows": "Window, panel, card, list and row backgrounds.",
+    "Text": "Primary, secondary and faint text used throughout the app.",
+    "Status text": "Success, warning and error messages shown on neutral backgrounds.",
+    "Accent and links": "Brand accent, contrasting text, hyperlinks and control glyphs.",
+    "Selection and focus": "Hover, selected-row and drag-selection colours.",
+    "Borders and separators": "Frames, divider lines and separator rows.",
+    "Danger buttons": "Delete, remove and other destructive actions.",
+    "Success buttons": "Install, confirm, Done and Play actions.",
+    "Warning buttons": "Update, reinstall and cautionary actions.",
+    "Information buttons": "Select, Groups, Plugin Rules and similar actions.",
+    "Secondary buttons": "View and other low-emphasis actions.",
+    "Special accent buttons": "Special-purpose accent buttons such as Ko-Fi.",
+    "Scrollbars and checkboxes": "Scrollbar track/thumb and checked-box fill.",
+    "Icons and small highlights": "Shared tones used by icons, flags and file-tree markers.",
+    "Tinted content rows": "Coloured information rows and their foreground text.",
+    "Required and optional mods": "Required/optional indicators in collection views.",
+    "Notifications and queues": "Error badges, notifications and queued states.",
+    "Plugin cycle": "Cycle status rows and before/after rule keywords.",
+    "File conflicts": "Winning, overridden, inactive and anchor files.",
+    "Conflict and requirement highlights": "Related mod rows highlighted across Mods, Plugins and Data.",
+    "Framework status": "Installed, staged, disabled and missing framework banners.",
+    "Mod list separator bands": "Pinned Overwrite and Root Folder rows.",
 }
 
-# Flattened set of every key that appears in an explicit group above.
-_KNOWN_KEYS: set[str] = {k for _, keys in GROUPS for k, _ in keys}
+# Shared role metadata lets the preview use the exact same names as the editor.
+ROLE_LABELS: dict[str, str] = {
+    key: label for _title, keys in GROUPS for key, label in keys
+}
+ROLE_GROUPS: dict[str, str] = {
+    key: title for title, keys in GROUPS for key, _label in keys
+}
+
+
+def role_label(key: str) -> str:
+    return ROLE_LABELS.get(key, key)
+
+
+def role_group(key: str) -> str:
+    return ROLE_GROUPS.get(key, "Other")
+
+
+# Hidden roles are known schema keys rather than newly introduced "Other" keys.
+_KNOWN_KEYS: set[str] = set(ROLE_LABELS) | EDITOR_HIDDEN_KEYS
 
 
 def is_editable_value(value) -> bool:
@@ -330,16 +414,31 @@ def is_editable_value(value) -> bool:
 
 
 def grouped_for_palette(palette: dict) -> list[tuple[str, list[tuple[str, str]]]]:
-    """Return GROUPS filtered to keys present in *palette*, plus a trailing
-    "Other" group for any editable palette key not covered above (so new keys
-    are never silently uneditable)."""
+    """Return implemented fine-tuning roles present in *palette*.
+
+    A trailing "Other" group keeps newly introduced editable keys discoverable;
+    known legacy/no-op roles are intentionally excluded.
+    """
     result: list[tuple[str, list[tuple[str, str]]]] = []
     for title, keys in GROUPS:
-        present = [(k, label) for k, label in keys if k in palette]
+        present = [(k, label) for k, label in keys
+                   if k in palette and k not in EDITOR_HIDDEN_KEYS]
         if present:
             result.append((title, present))
     extras = [(k, k) for k, v in palette.items()
-              if k not in _KNOWN_KEYS and is_editable_value(v)]
+              if (k not in _KNOWN_KEYS and k not in EDITOR_HIDDEN_KEYS
+                  and is_editable_value(v))]
     if extras:
         result.append(("Other", sorted(extras)))
+    return result
+
+
+def simple_grouped_for_palette(
+        palette: dict) -> list[tuple[str, list[tuple[str, str]]]]:
+    """Return the compact semantic palette filtered to available keys."""
+    result: list[tuple[str, list[tuple[str, str]]]] = []
+    for title, keys in SIMPLE_GROUPS:
+        present = [(key, label) for key, label in keys if key in palette]
+        if present:
+            result.append((title, present))
     return result

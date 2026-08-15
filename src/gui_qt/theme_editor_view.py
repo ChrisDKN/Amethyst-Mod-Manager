@@ -7,9 +7,10 @@ custom theme), edits colours grouped by role, and saves the result as a JSON
 theme in ``<config>/themes/`` (see ``Utils.custom_themes``). Saving selects the
 new theme as the active ``appearance_mode``.
 
-Grouping + derivation come from ``theme_editor_groups``: editing a *base* colour
-(e.g. ``BTN_CANCEL``) recomputes its variants (``BTN_CANCEL_HOV``) automatically
-unless "Advanced" is ticked, which reveals and unlocks every individual key.
+Grouping + derivation come from ``theme_editor_groups``. The default view is a
+compact semantic palette; editing a colour also updates equivalent roles and
+hover variants. "Fine tune" reveals the implemented app-specific roles and
+unlocks each one individually.
 
 The working palette is applied to the running Qt application after a source
 theme is loaded or a colour is confirmed. It remains temporary until Save/Save
@@ -20,7 +21,7 @@ real application.
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, QT_TRANSLATE_NOOP
+from PySide6.QtCore import Qt, QT_TRANSLATE_NOOP, QTimer
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QScrollArea, QFrame,
@@ -208,6 +209,76 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("ThemeEditorView", "Root Folder band (text)"),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Checkboxes"),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Checkbox fill (checked)"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Surfaces"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Window background"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Panels and dialogs"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Toolbars and headers"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "List / tree background"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "List row background"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Secondary text"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Accent and selection"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Accent, links and controls"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Selected rows"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Borders and dividers"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Action buttons"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Confirm / install"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Delete / remove"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Warning / update"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Info / select"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Secondary action"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "The main layers of the app, from the window to list rows."),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "General text plus the three semantic status colours."),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Brand colour, selected rows, focus controls and dividers."),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Button colours are shared by actions with the same meaning."),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Surfaces and rows"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Status text"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Accent and links"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Selection and focus"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Borders and separators"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Danger buttons"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Success buttons"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Warning buttons"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Information buttons"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Secondary buttons"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Special accent buttons"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Scrollbars and checkboxes"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Icons and small highlights"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Tinted content rows"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Required and optional mods"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Notifications and queues"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Plugin cycle"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "File conflicts"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Conflict and requirement highlights"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Framework status"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Mod list separator bands"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Alternate list row"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Hovered list row"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Card background"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Text on accent / selection"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Separator row background"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Separator row text"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Window, panel, card, list and row backgrounds."),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Primary, secondary and faint text used throughout the app."),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Success, warning and error messages shown on neutral backgrounds."),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Brand accent, contrasting text, hyperlinks and control glyphs."),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Hover, selected-row and drag-selection colours."),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Frames, divider lines and separator rows."),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Delete, remove and other destructive actions."),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Install, confirm, Done and Play actions."),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Update, reinstall and cautionary actions."),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Select, Groups, Plugin Rules and similar actions."),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "View and other low-emphasis actions."),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Special-purpose accent buttons such as Ko-Fi."),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Scrollbar track/thumb and checked-box fill."),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Shared tones used by icons, flags and file-tree markers."),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Coloured information rows and their foreground text."),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Required/optional indicators in collection views."),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Error badges, notifications and queued states."),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Cycle status rows and before/after rule keywords."),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Winning, overridden, inactive and anchor files."),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Related mod rows highlighted across Mods, Plugins and Data."),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Installed, staged, disabled and missing framework banners."),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Pinned Overwrite and Root Folder rows."),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Window, panels, list rows and input fields - the app's surfaces."),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Label and list text throughout the app, plus success/warning/error text."),
     QT_TRANSLATE_NOOP("ThemeEditorView", "The highlight colour: links, dropdown arrows and accented controls."),
@@ -249,6 +320,7 @@ class ThemeEditorView(QWidget):
         self._editing_id: str | None = None
         self._working: dict = {}                 # palette being edited
         self._swatches: dict[str, QPushButton] = {}
+        self._swatch_labels: dict[str, QLabel] = {}
         self._dirty = False                      # unsaved edits since last save
         self._closing = False
 
@@ -267,6 +339,7 @@ class ThemeEditorView(QWidget):
         # Left: colour swatches. Right: a compact preview that remains visible
         # while this full-screen editor covers the rest of the application.
         self._preview = ThemePreviewPanel()
+        self._preview.rolesSelected.connect(self._reveal_preview_roles)
         split = QSplitter(Qt.Horizontal)
         split.addWidget(self._scroll)
         split.addWidget(self._preview)
@@ -326,7 +399,7 @@ class ThemeEditorView(QWidget):
         self._start_combo.activated.connect(self._on_start_changed)
         h.addWidget(self._start_combo)
 
-        self._advanced_cb = QCheckBox(self.tr("Advanced (show all colours)"))
+        self._advanced_cb = QCheckBox(self.tr("Fine tune app-specific colours"))
         self._advanced_cb.toggled.connect(self._on_advanced_toggled)
         h.addWidget(self._advanced_cb)
 
@@ -338,11 +411,11 @@ class ThemeEditorView(QWidget):
         self._save_btn.clicked.connect(lambda: self._save(save_as=False))
         h.addWidget(self._save_btn)
 
-        save_as = QPushButton(self.tr("Save As…"))
-        save_as.setObjectName("FormButton")
-        save_as.setCursor(Qt.PointingHandCursor)
-        save_as.clicked.connect(lambda: self._save(save_as=True))
-        h.addWidget(save_as)
+        self._save_as_btn = QPushButton(self.tr("Save As…"))
+        self._save_as_btn.setObjectName("FormButton")
+        self._save_as_btn.setCursor(Qt.PointingHandCursor)
+        self._save_as_btn.clicked.connect(lambda: self._save(save_as=True))
+        h.addWidget(self._save_as_btn)
 
         self._delete_btn = QPushButton(self.tr("Delete"))
         self._delete_btn.setObjectName("FormButton")
@@ -378,6 +451,9 @@ class ThemeEditorView(QWidget):
         self._delete_btn.setVisible(ct.is_custom_theme(theme_id))
         self._save_btn.setText(self.tr("Save") if self._editing_id
                                else self.tr("Save As New…"))
+        # A built-in cannot be overwritten, so its primary action is already
+        # Save As. Avoid presenting two buttons that perform the same action.
+        self._save_as_btn.setVisible(self._editing_id is not None)
         self._dirty = False
         self._rebuild_body()
         # Seed the preview's explicit QPalette before the app-wide apply. The
@@ -393,26 +469,27 @@ class ThemeEditorView(QWidget):
         v.setSpacing(14)
 
         note = QLabel(self.tr(
-            "Editing a base colour adjusts its hover/variants automatically. "
-            "Tick Advanced to edit every colour individually. Changes preview "
-            "across the open app; save the theme to keep them."))
+            "Related colours are linked automatically. Enable fine tuning to "
+            "adjust individual app-specific colours. Changes preview across "
+            "the open app; save the theme to keep them."))
         note.setWordWrap(True)
         note.setStyleSheet(f"color:{_c(self._pal, 'TEXT_DIM')};")
         v.addWidget(note)
 
         self._swatches.clear()
-        for title, keys in teg.grouped_for_palette(self._working):
-            visible_keys = [(k, lbl) for k, lbl in keys
-                            if self._advanced or k not in teg.DERIVED_KEYS]
-            if not visible_keys:
-                continue
+        self._swatch_labels.clear()
+        groups = (teg.grouped_for_palette(self._working) if self._advanced
+                  else teg.simple_grouped_for_palette(self._working))
+        descriptions = (teg.GROUP_DESCRIPTIONS if self._advanced
+                        else teg.SIMPLE_GROUP_DESCRIPTIONS)
+        for title, visible_keys in groups:
             box = QGroupBox(self.tr(title))
             grid = QGridLayout(box)
             grid.setContentsMargins(12, 8, 12, 12)
             grid.setHorizontalSpacing(12)
             grid.setVerticalSpacing(6)
             row = 0
-            desc = teg.GROUP_DESCRIPTIONS.get(title)
+            desc = descriptions.get(title)
             if desc:
                 d = QLabel(self.tr(desc))
                 d.setWordWrap(True)
@@ -420,7 +497,9 @@ class ThemeEditorView(QWidget):
                 grid.addWidget(d, row, 0, 1, 3)
                 row += 1
             for key, label in visible_keys:
-                grid.addWidget(QLabel(self.tr(label)), row, 0)
+                key_label = QLabel(self.tr(label))
+                self._swatch_labels[key] = key_label
+                grid.addWidget(key_label, row, 0)
                 grid.addWidget(self._make_swatch(key), row, 1, Qt.AlignLeft)
                 row += 1
             grid.setColumnStretch(2, 1)
@@ -468,7 +547,8 @@ class ThemeEditorView(QWidget):
             self._working[key] = hexval
             self._paint_swatch(key)
         else:
-            for k, v in teg.derive(key, hexval).items():
+            for k, v in teg.derive_simple(
+                    key, hexval, self._working).items():
                 self._working[k] = v
                 self._paint_swatch(k)
         self._dirty = True
@@ -478,6 +558,35 @@ class ThemeEditorView(QWidget):
     def _on_advanced_toggled(self, on: bool):
         self._advanced = bool(on)
         self._rebuild_body()
+
+    def _reveal_preview_roles(self, _label: str, roles) -> None:
+        """Reveal and highlight the settings used by a preview item."""
+        role_keys = tuple(role for role in roles if role in teg.ROLE_LABELS)
+        visible = [role for role in role_keys if role in self._swatches]
+        if not visible and role_keys and not self._advanced:
+            # App-specific samples such as framework or plugin-cycle rows have
+            # no compact equivalent. Fine tuning is the only place their exact
+            # roles can be shown, so reveal it automatically.
+            self._advanced_cb.setChecked(True)
+            visible = [role for role in role_keys if role in self._swatches]
+        if not visible:
+            return
+
+        self._clear_role_highlight()
+        accent = _c(self._working, "ACCENT")
+        for role in visible:
+            label = self._swatch_labels.get(role)
+            if label is not None:
+                label.setStyleSheet(
+                    f"color:{accent}; font-weight:700;")
+
+        target = self._swatches[visible[0]]
+        QTimer.singleShot(
+            0, lambda w=target: self._scroll.ensureWidgetVisible(w, 40, 100))
+
+    def _clear_role_highlight(self) -> None:
+        for label in self._swatch_labels.values():
+            label.setStyleSheet("")
 
     def _on_start_changed(self, idx: int):
         tid = self._start_combo.itemData(idx)
@@ -533,6 +642,7 @@ class ThemeEditorView(QWidget):
         self._refresh_open_theme_selectors(new_id)
         self._delete_btn.setVisible(True)
         self._save_btn.setText(self.tr("Save"))
+        self._save_as_btn.setVisible(True)
         return new_id
 
     def _apply_working_preview(self):
