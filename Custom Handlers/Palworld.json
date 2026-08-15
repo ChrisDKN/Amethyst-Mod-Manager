@@ -123,7 +123,7 @@
       "flatten": true
     },
     {
-      "dest": "Binaries/Win64/ue4ss/Mods/PalSchema/Mods",
+      "dest": "Binaries/Win64/ue4ss/Mods/PalSchema/mods",
       "folders": [
         "appearance",
         "blueprints",
