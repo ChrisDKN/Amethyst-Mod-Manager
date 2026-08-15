@@ -3186,6 +3186,86 @@ class NexusAPI:
             app_log(f"get_collection_archive_full error: {exc}")
             return {}
 
+    def download_collection_archive(
+        self, download_link_path: str, dest_path: str,
+        progress_fn=None,
+    ) -> bool:
+        """Download a collection's ``.7z`` archive to ``dest_path`` verbatim.
+
+        Unlike the two ``get_collection_archive_*`` methods this neither extracts
+        nor parses anything - it is the raw manifest-archive fetch behind the dev
+        menu's "Download Manifest". ``progress_fn(done_bytes, total_bytes)`` is
+        called as the stream advances (``total`` is 0 when unknown).
+        Returns True on success; never raises.
+        """
+        import os as _os
+
+        import requests as _requests
+
+        try:
+            self._refresh_oauth_if_needed()
+        except Exception as exc:
+            app_log(f"download_collection_archive: OAuth refresh failed: {exc}")
+        _verify = self._session.verify
+        api_headers = dict(self._session.headers)
+        try:
+            link_resp = _requests.get(
+                f"https://api.nexusmods.com{download_link_path}",
+                headers=api_headers, timeout=30, verify=_verify,
+            )
+            link_resp.raise_for_status()
+            cdn_urls = [e.get("URI", "")
+                        for e in (link_resp.json().get("download_links") or [])
+                        if e.get("URI")]
+            if not cdn_urls:
+                app_log("download_collection_archive: no CDN URI returned")
+                return False
+
+            _os.makedirs(_os.path.dirname(dest_path) or ".", exist_ok=True)
+            # Same mirror walk as get_collection_archive_full - some CDN nodes
+            # geo-restrict collection archives and answer 401.
+            dl_resp = None
+            for cdn_url in cdn_urls:
+                try:
+                    r = _requests.get(cdn_url, headers={}, stream=True,
+                                      timeout=300, verify=_verify)
+                    r.raise_for_status()
+                    dl_resp = r
+                    break
+                except Exception as _mirror_exc:
+                    app_log(f"download_collection_archive: mirror {cdn_url!r} "
+                            f"failed: {_mirror_exc}")
+            if dl_resp is None:
+                raise RuntimeError("all CDN mirrors failed")
+
+            total = int(dl_resp.headers.get("Content-Length") or 0)
+            done = 0
+            # Stream to a .part sidecar so an interrupted download never leaves a
+            # truncated .7z that later looks like a complete archive.
+            part_path = f"{dest_path}.part"
+            from Utils import bandwidth_limit as _bw
+            with open(part_path, "wb") as fh:
+                for chunk in dl_resp.iter_content(chunk_size=65536):
+                    if chunk:
+                        fh.write(chunk)
+                        _bw.throttle(len(chunk))
+                        done += len(chunk)
+                        if progress_fn is not None:
+                            try:
+                                progress_fn(done, total)
+                            except Exception:
+                                pass
+            _os.replace(part_path, dest_path)
+            app_log(f"download_collection_archive: saved {dest_path}")
+            return True
+        except Exception as exc:
+            app_log(f"download_collection_archive error: {exc}")
+            try:
+                _os.unlink(f"{dest_path}.part")
+            except OSError:
+                pass
+            return False
+
     # -- Collection upload (create / revise) --------------------------------
     # Mirrors Vortex's submit pipeline (nexus_integration/eventHandlers.ts
     # onSubmitCollection): presigned-URL query → raw PUT of the .7z →

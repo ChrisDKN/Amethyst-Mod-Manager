@@ -113,6 +113,56 @@ def load_collection_manifest(api, game_name: str, slug: str,
         return {}
 
 
+def download_manifest_archive(api, url: str, dest_dir: "str | Path",
+                              log_fn=None, progress_fn=None) -> dict:
+    """Download the collection ``.7z`` behind ``url`` into ``dest_dir``.
+
+    The archive IS the manifest bundle (it carries ``collection.json``), so this
+    keeps the whole thing rather than extracting - the dev menu's "Download
+    Manifest" entry. Resolves the revision from the URL when it pins one,
+    otherwise takes the latest published revision.
+
+    Returns ``{'ok': bool, 'url': str, 'path': str, 'name': str, 'error': str}``.
+    Never raises.
+    """
+    log = log_fn or (lambda _m: None)
+    out = {"ok": False, "url": url, "path": "", "name": "", "error": ""}
+    slug, domain, rev = parse_collection_url(url)
+    if not slug:
+        out["error"] = "not a collection URL"
+        return out
+    out["name"] = slug
+    try:
+        (_n, _s, _c, _mods, dl_path, revs, _card) = api.get_collection_detail(
+            slug, domain, revision_number=rev)
+        if not dl_path:
+            out["error"] = "no download link (collection private or removed?)"
+            return out
+        # get_collection_detail only reports the revision list on a latest-fetch,
+        # so fall back to the URL's pin, then to a bare slug name.
+        if rev is None:
+            try:
+                pub = [int(r.get("revisionNumber") or 0) for r in (revs or [])
+                       if (r.get("revisionStatus") or "").lower() == "published"]
+                rev = max(pub) if pub else None
+            except Exception:
+                rev = None
+        stem = f"{slug}_rev{rev}" if rev is not None else slug
+        dest = Path(dest_dir) / f"{stem}.7z"
+        log(f"Manifest: downloading {slug} ({domain}) → {dest.name}")
+        if not api.download_collection_archive(dl_path, str(dest),
+                                               progress_fn=progress_fn):
+            out["error"] = "download failed - see the log"
+            return out
+        out["ok"] = True
+        out["path"] = str(dest)
+        out["name"] = stem
+        return out
+    except Exception as exc:
+        out["error"] = str(exc)
+        return out
+
+
 def extract_offsite_mods(manifest: dict) -> "list[tuple[str, str]]":
     """Return ``[(mod_name, url), …]`` for off-site mods (source.type browse/direct)
     from a collection manifest. Bundled/Nexus entries are skipped."""

@@ -331,6 +331,8 @@ class MainWindow(QMainWindow):
     _req_install_prog = Signal(object, object, "qlonglong", "qlonglong")  # (dl_key, name, downloaded, total bytes; 64-bit: >2GB)
     # Collection reset-load-order worker → UI thread (result dict).
     _reset_done = Signal(object)
+    # Dev-mode manifest downloader worker → UI thread (list of result dicts).
+    _manifest_dl_done = Signal(object)
     # Collection INSTALL worker → UI thread. Every callback is a single emit; the
     # connected slots (UI thread) update the install overlay. (verb, payload)
     # batches keep the surface small. See _install_collection.
@@ -669,6 +671,8 @@ class MainWindow(QMainWindow):
             lambda key, name, d, t: self._nexus_download_progress(key, name, d, t))
         self._reset_done.connect(self._on_reset_done)
         self._reset_running = False
+        self._manifest_dl_done.connect(self._on_manifest_dl_done)
+        self._manifest_dl_running = False
         # Collection install state + Signal→UI-thread wiring.
         self._col_install_running = False
         self._col_install_overlay = None
@@ -2418,6 +2422,9 @@ class MainWindow(QMainWindow):
                     (self.tr("My collections…"), self._open_my_collections_tab),
                     (self.tr("Open current collection"), self._open_current_collection),
                     (self.tr("Reset load order"), self._reset_collection_load_order),
+                    # Dev-only - hidden unless dev mode is on (_sync_nexus_menu).
+                    (self.tr("Download Manifest…"),
+                     self._download_collection_manifests, "dl_manifest"),
                 ]),
             ]),
             # Shown only for games declaring a thunderstore_community (see
@@ -2452,6 +2459,7 @@ class MainWindow(QMainWindow):
                 self._thunderstore_btn = b
             elif label == "Nexus":
                 self._nexus_btn = b
+                b._menu.aboutToShow.connect(self._sync_nexus_menu)
             self._action_buttons.append(b)
             h.addWidget(b)
 
@@ -6247,6 +6255,78 @@ class MainWindow(QMainWindow):
             f"Load order reset - {res.get('ordered', 0)} mods ordered{_extra or '.'}",
             "info")
         self._reload_modlist()
+
+    # ---- Dev mode: Nexus ▸ Collections ▸ Download Manifest -----------------
+
+    def _download_collection_manifests(self):
+        """Prompt for collection URLs and download each manifest ``.7z`` into
+        the Downloads folder. Dev-mode only (the menu entry is hidden otherwise);
+        needs a Nexus login, but no configured game - the URL carries the domain."""
+        if self._manifest_dl_running:
+            self._notify(self.tr("A manifest download is already running."),
+                         "warning")
+            return
+        if self._ensure_nexus_api() is None:
+            self._notify(self.tr("Log in to Nexus first."), "warning")
+            return
+        from Utils.download_locations import get_default_downloads_dir
+        from gui_qt.download_manifest_overlay import DownloadManifestOverlay
+        dest = get_default_downloads_dir()
+        DownloadManifestOverlay.show_over(
+            self, str(dest),
+            lambda urls: self._start_manifest_downloads(urls, dest))
+
+    def _start_manifest_downloads(self, urls: "list[str]", dest_dir):
+        """Run the manifest fetches back-to-back on one worker thread."""
+        if self._manifest_dl_running or not urls:
+            return
+        self._manifest_dl_running = True
+        self._notify(
+            self.tr("Downloading {0} collection manifest(s)…").format(len(urls)),
+            "info")
+
+        import threading
+
+        def worker():
+            results = []
+            try:
+                from Utils.collection_manifest import download_manifest_archive
+                _log = lambda m: self._op_log.emit(str(m))
+                api = self._ensure_nexus_api()
+                for url in urls:
+                    if api is None:
+                        results.append({"ok": False, "url": url,
+                                        "error": "not logged in"})
+                        continue
+                    res = download_manifest_archive(
+                        api, url, dest_dir, log_fn=_log)
+                    if not res.get("ok"):
+                        _log(f"Manifest: {url} failed - {res.get('error')}")
+                    results.append(res)
+            except Exception as exc:
+                self._op_log.emit(f"Manifest download failed: {exc}")
+            self._manifest_dl_done.emit(results)
+
+        threading.Thread(target=worker, daemon=True,
+                         name="manifest-download").start()
+
+    def _on_manifest_dl_done(self, results):
+        self._manifest_dl_running = False
+        results = results or []
+        ok = [r for r in results if r.get("ok")]
+        failed = [r for r in results if not r.get("ok")]
+        if ok and not failed:
+            self._notify(
+                self.tr("Downloaded {0} manifest(s) to Downloads.").format(len(ok)),
+                "info")
+        elif ok:
+            self._notify(
+                self.tr("Downloaded {0} manifest(s); {1} failed - see the log.")
+                .format(len(ok), len(failed)), "warning")
+        else:
+            first = (failed[0].get("error") if failed else "") or "unknown"
+            self._notify(
+                self.tr("Manifest download failed: {0}").format(first), "warning")
 
     # ---- Nexus login (header menu ▸ Login to Nexus) ------------------------
     # Thin wiring over the toolkit-neutral OAuth/NXM backend in src/Nexus/,
@@ -10936,6 +11016,17 @@ class MainWindow(QMainWindow):
         game = self._gs.game
         deps = list(getattr(game, "auto_install_deps", []) or []) if game else []
         act.setVisible("lavfilters" in deps)
+
+    def _sync_nexus_menu(self):
+        """Show the dev-only entries in the Nexus menu.
+
+        Dev mode is read per open rather than at build time so toggling
+        ``[dev] devmode`` in amethyst.ini takes effect without a restart."""
+        act = getattr(self, "_menu_actions", {}).get("dl_manifest")
+        if act is None:
+            return
+        from Utils.ui_config import load_dev_mode
+        act.setVisible(load_dev_mode())
 
     def _sync_thunderstore_button(self):
         """Show each store's header button only for games that use that store.

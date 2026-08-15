@@ -32,6 +32,7 @@ py.install_sources(
   'eliding_label.py',
   'dll_overrides_view.py',
   'download_locations_overlay.py',
+  'download_manifest_overlay.py',
   'downloads_delegate.py',
   'downloads_model.py',
   'downloads_view.py',
