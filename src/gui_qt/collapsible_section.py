@@ -22,7 +22,7 @@ from PySide6.QtWidgets import QFrame, QHBoxLayout, QToolButton, QVBoxLayout, QWi
 
 from gui_qt.help_marker import make_help_marker
 from gui_qt.icons import icon
-from gui_qt.theme_qt import active_palette, _c
+from gui_qt.theme_qt import bind_theme, _c
 
 _ARROW_SZ = 12
 
@@ -50,7 +50,6 @@ class CollapsibleSection(QFrame):
         head = QHBoxLayout()
         head.setContentsMargins(0, 0, 0, 0)
         head.setSpacing(6)
-        self._arrow_color = _c(active_palette(), "DROPDOWN_ARROW")
         self._toggle = QToolButton()
         self._toggle.setObjectName("SectionToggle")
         self._toggle.setCheckable(True)
@@ -68,6 +67,10 @@ class CollapsibleSection(QFrame):
         self.body.setVisible(False)
         v.addWidget(self.body)
 
+        bind_theme(self, roles={"DROPDOWN_ARROW"})
+
+    def refresh_theme(self, pal: dict) -> None:
+        self._arrow_color = _c(pal, "DROPDOWN_ARROW")
         self._sync_arrow()
 
     # ---- state -------------------------------------------------------------

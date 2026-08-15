@@ -34,6 +34,7 @@ from gui_qt.path_tree import (
     PathTreeModel as _ArchiveModel, build_tree as _build_tree,
     node_path as _node_path,
 )
+from gui_qt.theme_qt import active_palette, _c
 
 # Archive extensions that get a content-preview tab instead of an image preview.
 ARCHIVE_EXTS = {".bsa", ".ba2", ".pak", ".utoc"}
@@ -66,7 +67,8 @@ class BsaPreview(QWidget):
         tbl = QHBoxLayout(tb)
         tbl.setContentsMargins(8, 4, 8, 4)
         self._header = QLabel(display_name or path.name)
-        self._header.setStyleSheet("color:#ddd; font-weight:600;")
+        self._header.setStyleSheet(
+            f"color:{_c(active_palette(), 'TEXT_MAIN')}; font-weight:600;")
         self._header.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         tbl.addWidget(self._header, 1)
 

@@ -9,7 +9,10 @@ mechanism the Tk app uses.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+import re
+import weakref
+from collections.abc import Iterable
+from typing import TYPE_CHECKING, Callable
 
 from Utils.themes import load_palettes
 from Utils.ui_config import get_appearance_mode
@@ -78,6 +81,164 @@ _QT_DEFAULT_THEME = "dark"
 # changed (settings / theme editor save paths).
 _active_palette_cache: dict | None = None
 
+# Palette values embedded in a widget-local stylesheet carry a tiny CSS comment
+# describing the palette role that produced them.  Qt preserves comments in
+# QWidget.styleSheet(), which lets apply_theme() regenerate stylesheets that
+# were assembled by a view at construction time without rebuilding that view.
+# This is the scalable half of live theming; delegates/models/icons that cache
+# non-CSS objects use bind_theme() below.
+_THEME_TOKEN_RE = re.compile(
+    r"(?:#[0-9a-fA-F]{3,8}|[A-Za-z][A-Za-z0-9_-]*)"
+    r"/\*@amm-theme:(?P<key>[A-Z0-9_]+):"
+    r"(?P<transform>direct|contrast|lighten)\*/")
+
+
+class _ThemeValue(str):
+    """A normal colour string that retains its palette role in f-strings.
+
+    QColor, comparisons and ordinary string operations see the plain ``#hex``
+    value.  Formatting it into QSS additionally emits a valid CSS comment, so
+    the value can be replaced accurately even when several roles shared the
+    same old colour and diverge in the new theme.
+    """
+
+    def __new__(cls, value: str, key: str, transform: str = "direct"):
+        obj = super().__new__(cls, value)
+        obj.theme_key = key
+        obj.theme_transform = transform
+        return obj
+
+    def __format__(self, spec: str) -> str:
+        value = super().__format__(spec)
+        return (f"{value}/*@amm-theme:{self.theme_key}:"
+                f"{self.theme_transform}*/")
+
+
+# id(owner) -> (weak owner, [(updater kind, updater, roles), ...]). Updaters are
+# weak when they are bound methods; unbound callbacks receive (owner, palette),
+# so they need not close over the owner and accidentally keep it alive.  A
+# binding may declare the semantic roles it consumes, allowing single-colour
+# editor changes to avoid unrelated model resets, icon work and rich-text
+# rendering.
+_theme_bindings: dict[
+    int,
+    tuple[weakref.ReferenceType,
+          list[tuple[str, object, frozenset[str] | None]]],
+] = {}
+_applied_base_style_name: str | None = None
+
+# Changing any of these roles changes a QPalette role.  Most of the editor's
+# specialised colours (conflict bands, status pills, etc.) do not, so avoid a
+# costly PaletteChange cascade through every widget for those edits.
+_QPALETTE_ROLES = frozenset({
+    "BG_DEEP", "TEXT_MAIN", "BG_LIST", "BG_ROW_ALT", "BG_HEADER",
+    "BG_SELECT", "TEXT_ON_ACCENT", "BG_PANEL", "TEXT_FAINT",
+    "LINK_BLUE", "BORDER_FAINT", "BORDER_DIM", "BORDER",
+    "BG_ROW", "BG_ROW_HOVER", "TEXT_DIM", "ACCENT", "ACCENT_HOV",
+})
+
+# Application QSS can refer to QPalette roles instead of embedding a literal.
+# Palette-only updates are substantially cheaper than resetting the whole app
+# stylesheet, so give the most widely used semantic colours stable Qt roles.
+# LinkVisited and BrightText are intentionally used for accent hover/contrast;
+# the app does not expose visited-link styling and these meanings match their
+# normal visual purpose closely.
+_QSS_PALETTE_EXPRESSIONS = {
+    "BG_DEEP": "palette(window)",
+    "TEXT_MAIN": "palette(window-text)",
+    "BG_LIST": "palette(base)",
+    "BG_ROW_ALT": "palette(alternate-base)",
+    "BG_HEADER": "palette(button)",
+    "BG_ROW": "palette(dark)",
+    "BG_ROW_HOVER": "palette(shadow)",
+    "BG_SELECT": "palette(highlight)",
+    "TEXT_ON_ACCENT": "palette(highlighted-text)",
+    "BG_PANEL": "palette(tool-tip-base)",
+    "TEXT_FAINT": "palette(placeholder-text)",
+    "LINK_BLUE": "palette(link)",
+    "ACCENT": "palette(accent)",
+    "ACCENT_HOV": "palette(link-visited)",
+    "BORDER_FAINT": "palette(light)",
+    "BORDER_DIM": "palette(midlight)",
+    "BORDER": "palette(mid)",
+}
+
+# These values are baked into paths to pre-tinted PNGs and therefore are not
+# represented by the semantic comments in the QSS text itself.  Rebuild the
+# application QSS when one changes; all other roles can be updated in-place.
+_QSS_IMAGE_ROLES = frozenset({
+    "CHECK_FILL", "DROPDOWN_ARROW", "TEXT_DIM", "BTN_DANGER",
+})
+
+
+def bind_theme(owner, updater: Callable | None = None, *,
+               roles: Iterable[str] | None = None) -> None:
+    """Refresh *owner* now and whenever the runtime theme changes.
+
+    With no *updater*, ``owner.refresh_theme(palette)`` is used.  A bound method
+    may be supplied directly, or an unbound callback accepting ``(owner,
+    palette)``.  Ownership is weak: closing a tab/overlay removes its binding
+    without requiring explicit teardown.  ``roles`` optionally identifies the
+    palette roles consumed by this updater; it is still invoked immediately,
+    but later single-role changes skip it when none of those roles changed.
+    """
+    oid = id(owner)
+
+    def _gone(_ref, key=oid):
+        _theme_bindings.pop(key, None)
+
+    owner_ref = weakref.ref(owner, _gone)
+    if updater is None:
+        kind, stored = "name", "refresh_theme"
+    elif getattr(updater, "__self__", None) is owner:
+        kind, stored = "weakmethod", weakref.WeakMethod(updater)
+    else:
+        kind, stored = "callback", updater
+    entry = _theme_bindings.get(oid)
+    if entry is None or entry[0]() is not owner:
+        entry = (owner_ref, [])
+        _theme_bindings[oid] = entry
+    watched = frozenset(roles) if roles is not None else None
+    entry[1].append((kind, stored, watched))
+    _invoke_theme_binding(owner, kind, stored, active_palette())
+
+
+def bind_theme_icon(owner, name: str, size: int, key: str, *,
+                    degrees: int | None = None) -> None:
+    """Keep a button/action icon tinted from a semantic palette role."""
+    def _update(target, palette, icon_name=name, px=size, role=key,
+                rotation=degrees):
+        from gui_qt.icons import icon, icon_rotated
+        colour = _c(palette, role)
+        themed = (icon_rotated(icon_name, rotation, px, colour)
+                  if rotation is not None else icon(icon_name, px, colour))
+        target.setIcon(themed)
+
+    bind_theme(owner, _update, roles={key})
+
+
+def _invoke_theme_binding(owner, kind: str, stored, palette: dict) -> None:
+    try:
+        if kind == "name":
+            callback = getattr(owner, stored, None)
+            if callable(callback):
+                callback(palette)
+        elif kind == "weakmethod":
+            callback = stored()
+            if callback is not None:
+                callback(palette)
+        else:
+            stored(owner, palette)
+    except (RuntimeError, ReferenceError):
+        # The C++ QObject may already have been deleted while its Python wrapper
+        # is waiting for GC.  Its weak entry will disappear shortly.
+        pass
+    except Exception as exc:
+        # A single optional view must never prevent the rest of the application
+        # from adopting the new palette.
+        print(f"[theme] live refresh failed for {type(owner).__name__}: {exc}",
+              flush=True)
+
 
 def invalidate_palette_cache() -> None:
     """Drop the memoised active palette (call after the theme changes)."""
@@ -110,16 +271,189 @@ def _c(pal: dict, key: str) -> str:
     # Palette values may be (light, dark) tuples in some themes; take a string.
     if isinstance(val, (tuple, list)):
         val = val[-1]
-    return str(val)
+    return _ThemeValue(str(val), key)
+
+
+def _render_theme_tokens(stylesheet: str, pal: dict, *,
+                         roles: frozenset[str] | None = None) -> str:
+    """Replace tagged palette values in a previously-built stylesheet."""
+    if not stylesheet or "/*@amm-theme:" not in stylesheet:
+        return stylesheet
+    if roles is not None and not any(
+            f"@amm-theme:{key}:" in stylesheet for key in roles):
+        return stylesheet
+
+    def _replace(match: re.Match) -> str:
+        key = match.group("key")
+        if roles is not None and key not in roles:
+            return match.group(0)
+        transform = match.group("transform")
+        value = _theme_value(pal, key, transform)
+        # Keep the token for the next live change. str() deliberately strips
+        # _ThemeValue.__format__ so the marker is emitted exactly once.
+        return (f"{str(value)}/*@amm-theme:{key}:{transform}*/")
+
+    return _THEME_TOKEN_RE.sub(_replace, stylesheet)
+
+
+def _theme_value(pal: dict, key: str, transform: str = "direct") -> str:
+    value = _c(pal, key)
+    if transform == "contrast":
+        return contrast_text(value)
+    if transform == "lighten":
+        return _lighten(value)
+    return value
+
+
+def _replace_cached_palette_refs(owner, old: dict | None, new: dict, *,
+                                 roles: frozenset[str] | None = None) -> None:
+    """Point widget ``_pal``/``_p``-style snapshots at the runtime palette.
+
+    Identity matching makes this safe without knowing attribute names: only
+    references to the exact former active palette are replaced. Working theme
+    dictionaries and unrelated application dictionaries are left untouched.
+    """
+    if old is None:
+        return
+    try:
+        attrs = vars(owner)
+    except (TypeError, RuntimeError):
+        return
+    for name, value in list(attrs.items()):
+        replacement = None
+        if value is old:
+            replacement = new
+        elif (isinstance(value, _ThemeValue)
+              and (roles is None or value.theme_key in roles)):
+            replacement = _theme_value(
+                new, value.theme_key, value.theme_transform)
+        if replacement is not None:
+            try:
+                setattr(owner, name, replacement)
+            except (AttributeError, RuntimeError):
+                pass
+
+
+def _refresh_widget_styles(app, old: dict | None, new: dict,
+                           changed_roles: frozenset[str]) -> list:
+    """Refresh all currently-open widget-local QSS without rebuilding UI."""
+    restyled = []
+    try:
+        widgets = list(app.allWidgets())
+    except Exception:
+        widgets = []
+    for widget in widgets:
+        try:
+            _replace_cached_palette_refs(
+                widget, old, new, roles=changed_roles)
+            sheet = widget.styleSheet()
+            rendered = _render_theme_tokens(
+                sheet, new, roles=changed_roles)
+            if rendered != sheet:
+                widget.setStyleSheet(rendered)
+                restyled.append(widget)
+        except (RuntimeError, ReferenceError):
+            pass
+    return restyled
+
+
+def _repolish_palette_qss(app, already_restyled: list) -> None:
+    """Resolve ``palette(...)`` QSS values without resetting application QSS.
+
+    Qt caches palette expressions when a widget is polished; a PaletteChange
+    alone does not update those cached brushes. Unpolishing/polishing individual
+    widgets is considerably cheaper than QApplication.setStyleSheet. Subtrees
+    whose local stylesheet was just reset have already been repolished by Qt.
+    """
+    roots = {id(widget) for widget in already_restyled}
+    try:
+        widgets = list(app.allWidgets())
+    except Exception:
+        widgets = []
+    for widget in widgets:
+        try:
+            current = widget
+            covered = False
+            while current is not None:
+                if id(current) in roots:
+                    covered = True
+                    break
+                current = current.parentWidget()
+            if covered:
+                continue
+            style = widget.style()
+            style.unpolish(widget)
+            style.polish(widget)
+            widget.update()
+        except (RuntimeError, ReferenceError):
+            pass
+
+
+def _notify_theme_bindings(old: dict | None, new: dict,
+                           changed_roles: frozenset[str]) -> None:
+    for oid, entry in list(_theme_bindings.items()):
+        owner = entry[0]()
+        if owner is None:
+            _theme_bindings.pop(oid, None)
+            continue
+        _replace_cached_palette_refs(owner, old, new, roles=changed_roles)
+        for kind, stored, roles in list(entry[1]):
+            if roles is not None and roles.isdisjoint(changed_roles):
+                continue
+            _invoke_theme_binding(owner, kind, stored, new)
+
+
+def _resolved_palette_value(pal: dict, key: str) -> str:
+    """Comparable runtime value for a palette role (without theme tokens)."""
+    value = pal.get(key, _FALLBACK)
+    if isinstance(value, (tuple, list)):
+        value = value[-1]
+    return str(value)
+
+
+def _changed_palette_roles(old: dict | None, new: dict) -> frozenset[str]:
+    """Semantic roles whose resolved values differ between two palettes."""
+    if old is None:
+        return frozenset(new)
+    return frozenset(
+        key for key in old.keys() | new.keys()
+        if _resolved_palette_value(old, key) != _resolved_palette_value(new, key)
+    )
+
+
+def _refresh_application_stylesheet(app, old: dict | None, new: dict,
+                                    changed_roles: frozenset[str]) -> bool:
+    """Update application QSS with the least expensive safe operation.
+
+    Re-rendering semantic comments avoids rebuilding the large stylesheet and,
+    crucially, avoids calling QApplication.setStyleSheet when the edited role
+    is not used by global QSS.  Image tint roles and palette-schema changes need
+    a full rebuild because their generated URLs cannot carry CSS comments.
+    """
+    current = app.styleSheet()
+    needs_rebuild = (
+        not current
+        or "/*@amm-theme:" not in current
+        or old is None
+        or old.keys() != new.keys()
+        or not _QSS_IMAGE_ROLES.isdisjoint(changed_roles)
+    )
+    rendered = build_qss(new) if needs_rebuild else _render_theme_tokens(
+        current, new, roles=changed_roles)
+    if rendered != current:
+        app.setStyleSheet(rendered)
+        return True
+    return False
 
 
 def build_qss(pal: dict | None = None) -> str:
     """Build the application QSS from a palette (default: active palette)."""
     p = pal or active_palette()
-    c = lambda k: _c(p, k)
+    c = lambda k: _QSS_PALETTE_EXPRESSIONS.get(k, _c(p, k))
     # Auto-contrast text for a coloured fill: label visibility beats palette
     # choice, so button text is never editable - it's derived from the fill.
-    ct = lambda k: contrast_text(_c(p, k))
+    ct = lambda k: ("palette(bright-text)" if k == "ACCENT"
+                    else contrast_text(_c(p, k)))
     cf = lambda k, fallback: _c(p, k) if k in p else _c(p, fallback)
     return f"""
     QWidget {{
@@ -284,7 +618,7 @@ def build_qss(pal: dict | None = None) -> str:
     /* Close button - a clear square on the right of the tab (matches the
        mockup). Larger hit area, subtle by default, soft rounded red on hover. */
     QTabBar::close-button {{
-        image: url({_tinted_icon_url('close_white.png', c('TEXT_DIM'))});
+        image: url({_tinted_icon_url('close_white.png', _c(p, 'TEXT_DIM'))});
         subcontrol-position: right;
         margin: 3px 6px 3px 4px;
         border-radius: 4px;
@@ -616,15 +950,20 @@ def build_qpalette(p: dict) -> "QPalette":
     pal.setColor(QPalette.ToolTipText, c("TEXT_MAIN"))
     pal.setColor(QPalette.PlaceholderText, c("TEXT_FAINT"))
     pal.setColor(QPalette.Link, c("LINK_BLUE"))
-    pal.setColor(QPalette.BrightText, c("TEXT_WHITE"))
-    # Fusion draws bevels/frames from these shade roles - seed them so panels,
-    # group boxes, frames and sunken borders read on the dark theme instead of
-    # the default near-black/near-white guesses.
+    pal.setColor(QPalette.LinkVisited, c("ACCENT_HOV"))
+    pal.setColor(QPalette.Accent, c("ACCENT"))
+    # Used by global QSS as the auto-contrasted label on accent fills.
+    pal.setColor(QPalette.BrightText, qc_contrast(p, "ACCENT"))
+    # Fusion draws bevels/frames from these shade roles. The three border roles
+    # keep that chrome coherent; Dark/Shadow double as two frequently used row
+    # surfaces in QSS (both remain suitably dark shade colours in stock themes).
     pal.setColor(QPalette.Light, c("BORDER_FAINT"))
     pal.setColor(QPalette.Midlight, c("BORDER_DIM"))
     pal.setColor(QPalette.Mid, c("BORDER"))
-    pal.setColor(QPalette.Dark, c("BG_DEEP"))
-    pal.setColor(QPalette.Shadow, c("BG_OVERLAY_DEEP"))
+    # Dark/Shadow are close semantic fits for the ordinary/hover row surfaces
+    # and let the very common base-background edit avoid a global QSS reset.
+    pal.setColor(QPalette.Dark, c("BG_ROW"))
+    pal.setColor(QPalette.Shadow, c("BG_ROW_HOVER"))
     # Keep selection vivid even when the window/widget isn't focused (otherwise
     # Fusion greys the Inactive-group highlight, which looks broken in lists).
     pal.setColor(QPalette.Inactive, QPalette.Highlight, c("BG_SELECT"))
@@ -665,11 +1004,8 @@ def _make_proxy_style(base):
     return proxy
 
 
-def _resolve_base_style(p: dict):
-    """Return a created QStyle for the theme's declared base style. A palette may
-    set BASE_QSTYLE (MO2-style 'base style per theme'); default Fusion, and a
-    real 'Breeze' QStyle is used when the plugin is installed. Falls back through
-    Breeze→Fusion→whatever's available."""
+def _resolve_base_style_name(p: dict) -> str | None:
+    """Resolve the installed QStyle name requested by *p*."""
     from PySide6.QtWidgets import QStyleFactory
     keys = {k.lower(): k for k in QStyleFactory.keys()}
     wanted = str(p.get("BASE_QSTYLE", "") or "").lower()
@@ -682,6 +1018,13 @@ def _resolve_base_style(p: dict):
             or keys.get("fusion")
             or keys.get("breeze")
             or (QStyleFactory.keys()[0] if QStyleFactory.keys() else None))
+    return pick
+
+
+def _resolve_base_style(p: dict):
+    """Create the installed QStyle selected for *p*."""
+    from PySide6.QtWidgets import QStyleFactory
+    pick = _resolve_base_style_name(p)
     return QStyleFactory.create(pick) if pick else None
 
 
@@ -698,7 +1041,10 @@ def _lighten(hex_color: str, factor: float = 0.18) -> str:
     r = int(r + (255 - r) * factor)
     g = int(g + (255 - g) * factor)
     b = int(b + (255 - b) * factor)
-    return f"#{r:02x}{g:02x}{b:02x}"
+    value = f"#{r:02x}{g:02x}{b:02x}"
+    if isinstance(hex_color, _ThemeValue) and abs(factor - 0.18) < 0.0001:
+        return _ThemeValue(value, hex_color.theme_key, "lighten")
+    return value
 
 
 def contrast_text(bg: str, dark: str = "#101010", light: str = "#ffffff") -> str:
@@ -719,7 +1065,11 @@ def contrast_text(bg: str, dark: str = "#101010", light: str = "#ffffff") -> str
     def _lin(c):
         return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
     lum = 0.2126 * _lin(r) + 0.7152 * _lin(g) + 0.0722 * _lin(b)
-    return dark if lum > 0.4 else light
+    value = dark if lum > 0.4 else light
+    if (isinstance(bg, _ThemeValue)
+            and dark == "#101010" and light == "#ffffff"):
+        return _ThemeValue(value, bg.theme_key, "contrast")
+    return value
 
 
 def qc(pal: dict, key: str) -> "QColor":
@@ -767,11 +1117,10 @@ def button_qss(key: str, *, hover_key: str | None = None,
     dis_bg = _c(pal, disabled_bg_key)
     dis_fg = _c(pal, disabled_fg_key)
     return (
-        "QPushButton{background:%s; color:%s; border:none;"
-        " padding:%s; border-radius:4px; font-weight:600;}"
-        "QPushButton:hover{background:%s;}"
-        "QPushButton:disabled{background:%s; color:%s;}"
-        % (bg, fg, padding, hover, dis_bg, dis_fg))
+        f"QPushButton{{background:{bg}; color:{fg}; border:none;"
+        f" padding:{padding}; border-radius:4px; font-weight:600;}}"
+        f"QPushButton:hover{{background:{hover};}}"
+        f"QPushButton:disabled{{background:{dis_bg}; color:{dis_fg};}}")
 
 
 def ok_text(pal: dict | None = None) -> str:
@@ -803,21 +1152,62 @@ def danger_close_button(text: str = "✕ Close", pal: dict | None = None):
     btn.setFixedSize(*CLOSE_BTN_SIZE)
     btn.setCursor(Qt.PointingHandCursor)
     btn.setStyleSheet(
-        "QPushButton{background:%s; color:%s; border:none;"
-        " border-radius:4px; font-weight:600;}"
-        "QPushButton:hover{background:%s;}" % (danger, fg, hover))
+        f"QPushButton{{background:{danger}; color:{fg}; border:none;"
+        f" border-radius:4px; font-weight:600;}}"
+        f"QPushButton:hover{{background:{hover};}}")
     return btn
 
 
-def apply_theme(app) -> None:
-    """Apply the active theme: a base QStyle (Fusion, or the theme's declared
-    BASE_QSTYLE / system Breeze when present) wrapped in a ProxyStyle (enlarged
-    tab close button) + a role-based QPalette + the QSS overlay. Mirrors MO2's
-    QStyle+QSS model, with QPalette added so Fusion's disabled/tooltip/frame/
-    inactive states look right (MO2 leans on native styles for those)."""
-    invalidate_palette_cache()
-    p = active_palette()
-    base = _resolve_base_style(p)
-    app.setStyle(_make_proxy_style(base))
-    _apply_qpalette(app, p)
-    app.setStyleSheet(build_qss(p))
+def apply_theme(app, palette: dict | None = None) -> dict:
+    """Apply a saved theme or an explicit non-persistent preview palette.
+
+    ``palette is None`` clears any editor preview and reloads the theme selected
+    in ``amethyst.ini``.  An explicit palette is copied before becoming the
+    runtime active palette, so subsequent editor mutations do not leak into the
+    UI until the editor deliberately applies them.
+
+    Existing widgets keep their state. Their tagged local QSS is regenerated,
+    then bound non-QSS consumers (delegates, models, icons and rich text) are
+    notified. The resulting palette is returned for focused tests/callers.
+    """
+    global _active_palette_cache, _applied_base_style_name
+    old = _active_palette_cache
+    if palette is None:
+        _active_palette_cache = None
+        p = active_palette()
+    else:
+        p = dict(palette)
+        _active_palette_cache = p
+
+    changed_roles = _changed_palette_roles(old, p)
+    style_name = _resolve_base_style_name(p)
+    style_changed = _applied_base_style_name != style_name
+
+    # The editor can confirm the currently selected colour. Keep the existing
+    # runtime snapshot in that case so identity-based palette references remain
+    # connected for the next real update, and do no Qt work at all.
+    if old is not None and not changed_roles and not style_changed:
+        _active_palette_cache = old
+        return old
+
+    if style_changed:
+        base = _resolve_base_style(p)
+        app.setStyle(_make_proxy_style(base))
+        _applied_base_style_name = style_name
+
+    if style_changed or old is None or not _QPALETTE_ROLES.isdisjoint(changed_roles):
+        _apply_qpalette(app, p)
+    application_restyled = _refresh_application_stylesheet(
+        app, old, p, changed_roles)
+    locally_restyled = _refresh_widget_styles(app, old, p, changed_roles)
+    if (not application_restyled
+            and not frozenset(_QSS_PALETTE_EXPRESSIONS).isdisjoint(
+                changed_roles)):
+        _repolish_palette_qss(app, locally_restyled)
+    _notify_theme_bindings(old, p, changed_roles)
+    try:
+        for top in app.topLevelWidgets():
+            top.update()
+    except Exception:
+        pass
+    return p

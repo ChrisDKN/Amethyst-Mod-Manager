@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
 
 from gui_qt import column_state
 
-from gui_qt.theme_qt import active_palette, _c, qc, qc_contrast
+from gui_qt.theme_qt import active_palette, bind_theme, _c, qc, qc_contrast
 from gui_qt.icons import icon
 from gui_qt.modlist_header import TkStyleHeader
 from gui_qt.plugin_model import (
@@ -95,7 +95,15 @@ _TWO_STATE_KEYS = {"priority", "index"}
 class PluginDelegate(QStyledItemDelegate):
     def __init__(self, parent=None):
         super().__init__(parent)
-        p = active_palette()
+        bind_theme(self, roles={
+            "BG_ROW", "BG_ROW_ALT", "BG_SELECT", "BG_ROW_HOVER",
+            "TEXT_MAIN", "TEXT_DIM", "TEXT_ON_ACCENT", "TEXT_ERR",
+            "CHECK_FILL", "BORDER", "BG_DEEP", "TONE_BLUE_SOFT",
+            "TEXT_WARN", "TEXT_WHITE", "STATUS_BADGE_RED", "FILE_WIN",
+            "FILE_LOSE", "FILE_ANCHOR", "BG_GREEN_ROW",
+        })
+
+    def refresh_theme(self, p: dict) -> None:
         self.c_row = qc(p, "BG_ROW")
         self.c_row_alt = qc(p, "BG_ROW_ALT")
         self.c_sel = qc(p, "BG_SELECT")
@@ -122,6 +130,12 @@ class PluginDelegate(QStyledItemDelegate):
         # Masters of the selected plugin get their own green row tint (Tk
         # BG_GREEN_ROW), distinct from the conflict-higher green.
         self.c_hl_master = qc(p, "BG_GREEN_ROW")
+        parent = self.parent()
+        if parent is not None:
+            try:
+                parent.viewport().update()
+            except AttributeError:
+                parent.update()
 
     def sizeHint(self, opt, index):
         return QSize(opt.rect.width(), ROW_H)
@@ -458,18 +472,27 @@ class PluginView(QTreeView):
         self._build_column_menu_button(h)
         self._restore_column_state()
 
-        from gui_qt.marker_strip import install_marker_strip, MarkerScrollBar
+        from gui_qt.marker_strip import install_marker_strip
         install_marker_strip(self, PHighlightRole, code_map={
-            -1: MarkerScrollBar._C_LOWER,    # loses conflict (red)
-            1: MarkerScrollBar._C_HIGHER,    # wins conflict (green)
-            2: MarkerScrollBar._C_ANCHOR,    # selected mod's plugins (orange)
-            3: MarkerScrollBar._C_MASTER,    # master of selected plugin (green)
+            -1: "CONFLICT_HL_LOSE",   # loses conflict (red)
+            1: "CONFLICT_HL_WIN",     # wins conflict (green)
+            2: "CONFLICT_HL_ANCHOR",  # selected mod's plugins (orange)
+            3: "TONE_GREEN",          # master of selected plugin (green)
         })
         self._reposition_marker_strip()
 
         # Right-click context menu (mirrors modlist_view).
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self._on_context_menu)
+        bind_theme(self, roles={"TEXT_MAIN"})
+
+    def refresh_theme(self, palette: dict) -> None:
+        btn = getattr(self, "_col_menu_btn", None)
+        if btn is not None:
+            btn.setIcon(icon("eye1_white.png", 16,
+                             color=_c(palette, "TEXT_MAIN")))
+        self.viewport().update()
+        self.header().viewport().update()
 
     def _on_context_menu(self, pos):
         index = self.indexAt(pos)

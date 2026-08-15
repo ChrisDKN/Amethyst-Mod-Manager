@@ -28,7 +28,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui_qt.safe_emit import safe_emit
-from gui_qt.theme_qt import active_palette, _c
+from gui_qt.theme_qt import active_palette, bind_theme, _c
 from gui_qt.worker import run_in_worker
 from Utils import wiki_sync
 
@@ -204,8 +204,22 @@ class WikiView(QWidget):
         self._page_ready.connect(self._on_page_ready)
         self._image_ready.connect(self._on_image_ready)
 
+        bind_theme(self, roles={
+            "TONE_BLUE", "ACCENT", "BORDER", "BG_HEADER", "BG_ROW_ALT",
+        })
+
         self._set_message(self.tr("Loading the wiki…"))
         self._start_list_fetch(force=False)
+
+    def refresh_theme(self, p: dict) -> None:
+        self._pal = p
+        key = "TONE_BLUE" if p.get("TONE_BLUE") else "ACCENT"
+        for i in range(self._list.count()):
+            item = self._list.item(i)
+            if not item.data(_SLUG_ROLE) and item.flags() != Qt.NoItemFlags:
+                item.setForeground(QColor(_c(p, key)))
+        self._style_tables()
+        self._view.viewport().update()
 
     @staticmethod
     def _flat_button(text: str) -> QToolButton:

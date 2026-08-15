@@ -17,7 +17,7 @@ from PySide6.QtCore import (
     Qt, QAbstractItemModel, QModelIndex, QT_TRANSLATE_NOOP,
 )
 
-from gui_qt.theme_qt import active_palette, qc
+from gui_qt.theme_qt import bind_theme, qc
 
 COL_NAME = 0
 COL_MOD = 1
@@ -57,9 +57,26 @@ class DataModel(QAbstractItemModel):
         super().__init__(parent)
         self._root = _DataNode("", "", is_dir=True)
         self._highlight_mod: str | None = None
-        # Highlight QColor cached once - data() runs per cell per repaint
-        # (mirrors modlist_delegate; matches the modlist anchor tint).
-        self._c_highlight = qc(active_palette(), "CONFLICT_HL_ANCHOR")
+        # data() runs per visible cell; keep the QColor cached but live-refresh
+        # it without resetting the model/selection.
+        bind_theme(self, roles={"CONFLICT_HL_ANCHOR"})
+
+    def refresh_theme(self, p: dict) -> None:
+        self._c_highlight = qc(p, "CONFLICT_HL_ANCHOR")
+        self._emit_theme_changed()
+
+    def _emit_theme_changed(self, parent=QModelIndex()) -> None:
+        rows = self.rowCount(parent)
+        if not rows:
+            return
+        self.dataChanged.emit(
+            self.index(0, 0, parent),
+            self.index(rows - 1, COL_MOD, parent),
+            [Qt.BackgroundRole])
+        for row in range(rows):
+            child = self.index(row, 0, parent)
+            if self.rowCount(child):
+                self._emit_theme_changed(child)
 
     # ---- population -------------------------------------------------------
     def set_root(self, root: _DataNode):

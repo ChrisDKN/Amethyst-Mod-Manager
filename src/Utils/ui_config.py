@@ -2288,7 +2288,7 @@ def load_theme_colors() -> dict[str, str]:
 
 
 # ---------------------------------------------------------------------------
-# Appearance mode - applied at startup, requires restart.
+# Appearance mode - persisted here; the Qt frontend can apply it live.
 #
 # Valid values are theme IDs (filenames) under src/gui/themes/ (e.g. "dark",
 # "light"). ui_config doesn't validate against that list to avoid importing

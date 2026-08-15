@@ -22,23 +22,7 @@ from PySide6.QtWidgets import (
     QFrame, QScrollArea,
 )
 
-from gui_qt.theme_qt import active_palette, _c, danger_close_button
-
-_PAL = active_palette()
-STATUS_BROKEN_BG = _c(_PAL, "PLUGIN_CYCLE_ERR_BG")
-STATUS_BROKEN_FG = _c(_PAL, "PLUGIN_CYCLE_ERR_FG")
-STATUS_OK_BG = _c(_PAL, "PLUGIN_CYCLE_OK_BG")
-STATUS_OK_FG = _c(_PAL, "PLUGIN_CYCLE_OK_FG")
-
-# Background for rule rows whose flip (on its own) would resolve every cycle
-# currently present in the scope. Chosen to read as a warm highlight against
-# the normal BG_ROW / BG_ROW_ALT palette without mimicking the red error tone.
-FIXABLE_ROW_BG = _c(_PAL, "PLUGIN_CYCLE_WARN_BG")
-FIXABLE_ROW_FG = _c(_PAL, "PLUGIN_CYCLE_WARN_FG")
-
-# Per-keyword colors so "before" and "after" read as opposites at a glance.
-BEFORE_FG = _c(_PAL, "PLUGIN_CYCLE_ANCHOR")
-AFTER_FG = _c(_PAL, "PLUGIN_CYCLE_LINK")
+from gui_qt.theme_qt import active_palette, bind_theme, _c, danger_close_button
 
 
 class PluginCycleView(QWidget):
@@ -65,9 +49,30 @@ class PluginCycleView(QWidget):
         self._fixable_reasons: set[tuple[str, str, str]] = set()
         self._display: dict[str, str] = {}
         self._is_broken: bool = True
+        self._cache_theme(active_palette())
 
         self.setObjectName("PluginCycleView")
         self._build()
+        bind_theme(self, roles={
+            "PLUGIN_CYCLE_ERR_BG", "PLUGIN_CYCLE_ERR_FG",
+            "PLUGIN_CYCLE_OK_BG", "PLUGIN_CYCLE_OK_FG",
+            "PLUGIN_CYCLE_WARN_BG", "PLUGIN_CYCLE_WARN_FG",
+            "PLUGIN_CYCLE_ANCHOR", "PLUGIN_CYCLE_LINK",
+        })
+
+    def refresh_theme(self, p: dict) -> None:
+        self._cache_theme(p)
+
+    def _cache_theme(self, p: dict) -> None:
+        """Cache semantic roles used when dynamic rule rows are created."""
+        self._status_broken_bg = _c(p, "PLUGIN_CYCLE_ERR_BG")
+        self._status_broken_fg = _c(p, "PLUGIN_CYCLE_ERR_FG")
+        self._status_ok_bg = _c(p, "PLUGIN_CYCLE_OK_BG")
+        self._status_ok_fg = _c(p, "PLUGIN_CYCLE_OK_FG")
+        self._fixable_row_bg = _c(p, "PLUGIN_CYCLE_WARN_BG")
+        self._fixable_row_fg = _c(p, "PLUGIN_CYCLE_WARN_FG")
+        self._before_fg = _c(p, "PLUGIN_CYCLE_ANCHOR")
+        self._after_fg = _c(p, "PLUGIN_CYCLE_LINK")
 
     # ------------------------------------------------------------------
     # Data updates
@@ -131,7 +136,7 @@ class PluginCycleView(QWidget):
             QListWidget {{ background:{self._c_bg_panel}; color:{self._c_text};
                            border:1px solid {self._c_border}; }}
             QListWidget::item:selected {{ background:{self._c_accent};
-                                          color:white; }}
+                                          color:{_c(p, 'TEXT_ON_ACCENT')}; }}
         """)
 
         root = QVBoxLayout(self)
@@ -156,7 +161,8 @@ class PluginCycleView(QWidget):
         # ---- status banner (red while broken, green when resolved) ----
         self._status_label = QLabel("")
         self._status_label.setStyleSheet(
-            f"background:{STATUS_BROKEN_BG}; color:{STATUS_BROKEN_FG};"
+            f"background:{self._status_broken_bg};"
+            f" color:{self._status_broken_fg};"
             " font-weight:bold; padding:8px 12px;")
         banner_row = QWidget()
         br = QHBoxLayout(banner_row)
@@ -238,10 +244,10 @@ class PluginCycleView(QWidget):
 
     def _repaint_status(self):
         if self._is_broken:
-            bg, fg = STATUS_BROKEN_BG, STATUS_BROKEN_FG
+            bg, fg = self._status_broken_bg, self._status_broken_fg
             text = "Status: BROKEN - these plugins still form a cycle."
         else:
-            bg, fg = STATUS_OK_BG, STATUS_OK_FG
+            bg, fg = self._status_ok_bg, self._status_ok_fg
             text = "Status: OK - no cycle among these plugins."
         self._status_label.setText(text)
         self._status_label.setStyleSheet(
@@ -281,8 +287,8 @@ class PluginCycleView(QWidget):
             rid = reason.get("id")
             fixable = rid is not None and rid in self._fixable_reasons
             if fixable:
-                row_bg = FIXABLE_ROW_BG
-                text_fg = FIXABLE_ROW_FG
+                row_bg = self._fixable_row_bg
+                text_fg = self._fixable_row_fg
             else:
                 row_bg = self._c_bg_row if i % 2 == 0 else self._c_bg_row_alt
                 text_fg = self._c_text
@@ -309,7 +315,7 @@ class PluginCycleView(QWidget):
                     flip = QPushButton(self.tr("Flip rule"))
                     flip.setFixedSize(90, 22)
                     flip.setCursor(Qt.PointingHandCursor)
-                    flip_fg = FIXABLE_ROW_FG if fixable else self._c_accent
+                    flip_fg = self._fixable_row_fg if fixable else self._c_accent
                     flip.setStyleSheet(
                         f"QPushButton {{ background:{self._c_bg_header};"
                         f" color:{flip_fg}; border:none; border-radius:4px; }}"
@@ -342,7 +348,7 @@ class PluginCycleView(QWidget):
             field = reason.get("field", "")
             target = reason.get("target", "")
             if owner and target and field in ("after", "before"):
-                kw_fg = AFTER_FG if field == "after" else BEFORE_FG
+                kw_fg = self._after_fg if field == "after" else self._before_fg
                 layout.addWidget(_lbl(owner, text_fg))
                 layout.addWidget(_lbl(f"  {field}  ", kw_fg, bold=True))
                 layout.addWidget(_lbl(target, text_fg))
@@ -355,7 +361,7 @@ class PluginCycleView(QWidget):
             if marker in text:
                 left, right = text.split(marker, 1)
                 layout.addWidget(_lbl(left, self._c_text_dim))
-                lbl = _lbl(" after ", AFTER_FG, bold=True)  # i18n: skip - LOOT rule match token
+                lbl = _lbl(" after ", self._after_fg, bold=True)  # i18n: skip - LOOT rule match token
                 layout.addWidget(lbl)
                 layout.addWidget(_lbl(right, self._c_text_dim))
                 layout.addStretch(1)

@@ -411,6 +411,7 @@ class DetachableTabWidget(QTabWidget):
                 if getattr(flt, "_tab_key", None) == key:
                     self._floats = [f for f in self._floats if f is not flt]
                     page = flt.take_page()      # release without redock
+                    self._notify_tab_closing(page)
                     flt.close()
                     if page is not None:
                         page.deleteLater()
@@ -424,6 +425,7 @@ class DetachableTabWidget(QTabWidget):
         # Docked tab?
         idx = self.indexOf(widget)
         if idx != -1:
+            self._notify_tab_closing(widget)
             self.removeTab(idx)
             self._forget(widget)
             self._modes.pop(id(widget), None)
@@ -436,6 +438,7 @@ class DetachableTabWidget(QTabWidget):
                 self._floats = [f for f in self._floats if f is not flt]
                 self._forget(widget)
                 page = flt.take_page()      # release without redock
+                self._notify_tab_closing(page)
                 flt.close()
                 if page is not None:
                     page.deleteLater()
@@ -457,6 +460,7 @@ class DetachableTabWidget(QTabWidget):
         if scoped is not None:
             self._close_scoped(w)
             return
+        self._notify_tab_closing(content)
         self.removeTab(index)
         self._forget(w)
         self._modes.pop(id(w), None)
@@ -469,6 +473,7 @@ class DetachableTabWidget(QTabWidget):
         previously active tab (SelectPreviousTab), not forced to the permanent
         page."""
         target_stack, scoped_widget, _idx = self._scoped.pop(id(placeholder))
+        self._notify_tab_closing(scoped_widget)
         target_stack.setCurrentIndex(0)
         target_stack.removeWidget(scoped_widget)
         self._modes.pop(id(scoped_widget), None)
@@ -757,9 +762,11 @@ class DetachableTabWidget(QTabWidget):
                     "DetachableTabWidget", "Drop to redock"))
                 ind.setAlignment(Qt.AlignCenter)
                 from gui_qt.theme_qt import active_palette, _c
-                acc = _c(active_palette(), "ACCENT")
+                palette = active_palette()
+                acc = _c(palette, "ACCENT")
                 ind.setStyleSheet(
-                    f"background: rgba(61,174,233,60); color: #fff;"
+                    f"background: {_c(palette, 'BG_SELECT')};"
+                    f" color: {_c(palette, 'TEXT_ON_ACCENT')};"
                     f" border: 2px dashed {acc}; border-radius: 6px;"
                     f" font-size: 14px; font-weight: 600;")
                 self._drop_ind = ind
@@ -789,6 +796,22 @@ class DetachableTabWidget(QTabWidget):
         key = widget.property("_tab_key")
         if key and key in self._keys:
             del self._keys[key]
+
+    @staticmethod
+    def _notify_tab_closing(widget: QWidget | None) -> None:
+        """Give content a final cleanup hook before permanent dismissal.
+
+        Detaching and closing a floating window merely move/redock content and
+        deliberately do not call this hook.
+        """
+        if widget is None:
+            return
+        callback = getattr(widget, "tab_closing", None)
+        if callable(callback):
+            try:
+                callback()
+            except (RuntimeError, ReferenceError):
+                pass
 
     # -- key-based helpers --------------------------------------------------
     def has_key(self, key: str) -> bool:

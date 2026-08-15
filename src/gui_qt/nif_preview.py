@@ -2157,14 +2157,7 @@ class _Viewport(QOpenGLWidget):
                     return None
                 frames.append(frame)
 
-            (lx, ly, lz), (hx, hy, hz) = head_bounds
-            self._center = QVector3D((lx + hx) / 2, (ly + hy) / 2,
-                                     lz + (hz - lz) * _PORTRAIT_EYE_LINE)
-            self._pan = [0.0, 0.0]
-            want = max(hz - lz, hx - lx, 1e-3) * _PORTRAIT_FILL
-            self._distance = want / (2.0 * math.tan(math.radians(22.5)))
-            self._yaw = math.radians(90.0)
-            self._pitch = 0.0
+            self._aim_at_face(head_bounds)
             portrait = self._grab(
                 (max(1, round(height * _SHEET_FACE_ASPECT)), height))
         except Exception as exc:                         # noqa: BLE001
@@ -2183,6 +2176,50 @@ class _Viewport(QOpenGLWidget):
         fill = BACKGROUNDS.get(background, self._bg.name())
         return _compose_turntable_sheet(frames, portrait, transparent, fill,
                                        max_height=max(height, _SHEET_MAX_HEIGHT))
+
+    def _aim_at_face(self, head_bounds):
+        """Point the camera at the head, framed head-and-shoulders."""
+        (lx, ly, lz), (hx, hy, hz) = head_bounds
+        self._center = QVector3D((lx + hx) / 2, (ly + hy) / 2,
+                                 lz + (hz - lz) * _PORTRAIT_EYE_LINE)
+        self._pan = [0.0, 0.0]
+        want = max(hz - lz, hx - lx, 1e-3) * _PORTRAIT_FILL
+        self._distance = want / (2.0 * math.tan(math.radians(22.5)))
+        self._yaw = math.radians(90.0)
+        self._pitch = 0.0
+
+    def capture_face_image(self, background: str | None = None,
+                           size: int = _SHEET_EXPORT_HEIGHT):
+        """Just the head close-up, at export resolution, or None.
+
+        The same framing the sheet's fifth panel uses, on its own - a portrait
+        rather than a reference sheet. Square, because a face has no reason to
+        inherit the sheet's tall body aspect.
+        """
+        head_bounds = self._head_bounds
+        if head_bounds is None or not (self._meshes or self._pending):
+            return None
+        if self.context() is None:
+            return None
+        saved = (self._yaw, self._pitch, self._distance,
+                 QVector3D(self._center), list(self._pan), self._home)
+        saved_bg = (QColor(self._bg), self._base)
+        transparent = background == BACKGROUND_TRANSPARENT
+        self._clear_transparent = transparent
+        if not transparent and background in BACKGROUNDS:
+            self.set_background(background)
+        try:
+            self._aim_at_face(head_bounds)
+            return self._grab((size, size))
+        except Exception as exc:                         # noqa: BLE001
+            _log(self.log_fn, f"  ! face capture failed: {exc!r}")
+            return None
+        finally:
+            self._clear_transparent = False
+            self._bg, self._base = saved_bg
+            (self._yaw, self._pitch, self._distance,
+             self._center, self._pan, self._home) = saved
+            self.update()
 
     def _render_offscreen(self, width: int, height: int):
         """Render one frame at an arbitrary size, or None.
@@ -2872,6 +2909,9 @@ class _NoGLViewport(QWidget):
     def capture_turntable_sheet(self, *_a, **_kw):
         return None
 
+    def capture_face_image(self, *_a, **_kw):
+        return None
+
     def load(self, *_a, **_kw):
         # Report through the normal channel so the header stops at a reason
         # instead of sitting on "Loading…" forever.
@@ -3244,6 +3284,16 @@ class NifPreview(QWidget):
         if not self._capture_ready:
             return None
         return self._view.capture_turntable_sheet(background, height)
+
+    def capture_face_image(self, background: str | None = None,
+                           size: int = _SHEET_EXPORT_HEIGHT):
+        """Capture only the head close-up, at export resolution.
+
+        *background* is a BACKGROUNDS key, ``"transparent"``, or None.
+        """
+        if not self._capture_ready:
+            return None
+        return self._view.capture_face_image(background, size)
 
     def background_key(self) -> str:
         """The backdrop preset the viewport is currently showing.

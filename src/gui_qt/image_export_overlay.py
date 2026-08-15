@@ -5,8 +5,9 @@ mode opens top-levels behind the app) offering every viewer backdrop plus a
 transparent cut-out, so the exported PNG's background is chosen at save time
 rather than by whatever the viewport happens to be showing.
 
-``on_done`` receives a BACKGROUNDS key, ``"transparent"``, or ``None`` when
-the user cancels.
+``on_done`` receives ``(background, face_only)`` - a BACKGROUNDS key or
+``"transparent"``, plus whether to export the head close-up alone instead of
+the four-angle sheet - or ``None`` when the user cancels.
 """
 
 from __future__ import annotations
@@ -14,8 +15,8 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
-    QWidget, QButtonGroup, QGridLayout, QHBoxLayout, QLabel, QPushButton,
-    QRadioButton,
+    QWidget, QButtonGroup, QCheckBox, QGridLayout, QHBoxLayout, QLabel,
+    QPushButton, QRadioButton,
 )
 
 from gui_qt.nif_preview import BACKGROUNDS, BACKGROUND_ORDER
@@ -31,15 +32,18 @@ _CHIP_W, _CHIP_H = 24, 14
 
 
 class ImageExportOverlay(OverlayBase):
-    """Pick the exported image's backdrop. ``on_done(key | None)``."""
+    """Pick the exported image's backdrop and layout.
 
-    # Six rows + title + hint + a button bar. OverlayBase fixes the card size
-    # and gives it no scroll area, so this has to be tall enough for all of
-    # them or the bottom row is clipped - measured against a rendered card,
-    # not guessed, because too MUCH height leaves an obvious dead band above
-    # the buttons.
+    ``on_done((background key, face_only) | None)`` - None when cancelled.
+    """
+
+    # Six rows + title + one line of body text + the face-only tick + a button
+    # bar. OverlayBase fixes the card size and gives it no scroll area, so this
+    # has to be tall enough or the bottom row is clipped - measured against a
+    # rendered card, not guessed, because too MUCH height leaves an obvious
+    # dead band above the buttons.
     CARD_W = 400
-    CARD_H = 326
+    CARD_H = 320
     MIN_H = 300
     ESC_RESULT = None
     CLICK_OUTSIDE_CANCELS = True
@@ -80,12 +84,14 @@ class ImageExportOverlay(OverlayBase):
         grid.setColumnStretch(1, 1)
         v.addLayout(grid)
 
-        hint = QLabel(self.tr(
-            "Transparent cuts the actor out with no backdrop at all. Green "
-            "screen does the same for editors that key by colour."))
-        hint.setStyleSheet(f"color:{_c(p,'TEXT_DIM')}; font-size:11px;")
-        hint.setWordWrap(True)
-        v.addWidget(hint)
+        self._face_only = QCheckBox(self.tr("Face portrait only"))
+        self._face_only.setCursor(Qt.PointingHandCursor)
+        self._face_only.setToolTip(self.tr(
+            "Export just the head close-up instead of the four-angle sheet"))
+        self._face_only.setStyleSheet(
+            f"color:{_c(p,'TEXT_MAIN')}; font-size:13px;")
+        v.addSpacing(4)
+        v.addWidget(self._face_only)
         v.addStretch(1)
 
         chosen = self._group.button(self._index_of(current))
@@ -153,4 +159,4 @@ class ImageExportOverlay(OverlayBase):
         if not 0 <= checked < len(keys):
             self._finish(None)
             return
-        self._finish(keys[checked])
+        self._finish((keys[checked], self._face_only.isChecked()))

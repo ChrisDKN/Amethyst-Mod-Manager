@@ -8,8 +8,8 @@ panel, headers, footers) stays live; closing the tab restores the modlist.
 
 Save-on-change: every control writes straight to amethyst.ini through the
 toolkit-free `Utils.ui_config` load_*/save_* helpers the moment it changes - there
-is no Save/Cancel button. A few settings (Language, Theme, UI Scale) only take
-effect on restart and say so inline.
+is no Save/Cancel button. Language and UI Scale take effect on restart; themes
+are applied to the running Qt application immediately.
 
 A curated subset of the Tk Settings panel (gui/status_bar.py `SettingsPanel`):
 User Interface (incl. Theme + UI Scale), Archives, Downloads, Extraction,
@@ -38,6 +38,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QScrollArea, QFrame,
     QLabel, QCheckBox, QComboBox, QSlider, QLineEdit, QPushButton, QGroupBox,
+    QApplication,
 )
 
 from gui_qt.theme_qt import active_palette, _c
@@ -263,8 +264,8 @@ class SettingsView(QWidget):
         return cb
 
     def _combo(self, grid: QGridLayout, label: str,
-               pairs: list[tuple[str, str]], current_value: str, save_fn,
-               restart_note: bool = False) -> QComboBox:
+               pairs: list[tuple[str, str]], current_value: str,
+               save_fn) -> QComboBox:
         """`pairs` = [(display, value), ...]; selecting saves the value."""
         row = self._next_row(grid)
         grid.addWidget(QLabel(label), row, self.COL_LABEL)
@@ -279,10 +280,6 @@ class SettingsView(QWidget):
         no_wheel(combo)
         combo.setFixedWidth(self.COMBO_W)
         grid.addWidget(combo, row, self.COL_CTRL, Qt.AlignLeft)
-        if restart_note:
-            note = QLabel(self.tr("Changes take effect after restart."))
-            note.setObjectName("RestartNote")
-            grid.addWidget(note, self._next_row(grid), self.COL_CTRL)
         return combo
 
     def _slider(self, grid: QGridLayout, label: str, lo: int, hi: int,
@@ -373,11 +370,7 @@ class SettingsView(QWidget):
 
     # ---- sections ---------------------------------------------------------
     def _build_user_interface(self):
-        # Language, Theme and UI Scale are all applied once at startup (Qt reads
-        # QT_SCALE_FACTOR / the palette / the translator only at launch), so each
-        # change persists to amethyst.ini and offers a self-restart. They are
-        # grouped together with a single shared restart note beneath them; the
-        # Hide BSA conflicts toggle (which applies live) sits below that.
+        # Language and UI scale are startup-only. Themes persist and apply live.
         g = self._section(self.tr("User Interface"))
         # Language row: the combo sits in the shared control column; its
         # "Sync language files" button moves to the section footer with the
@@ -394,10 +387,11 @@ class SettingsView(QWidget):
         self._build_theme(g)
         self._build_ui_scale(g)
 
-        # Single shared restart note beneath Language / Theme / UI Scale.
+        # Theme is live; only Language / UI Scale still need a restart.
         # Indented to the control column so it reads as a note about the
         # controls above rather than a row label of its own.
-        note = QLabel(self.tr("Changes take effect after restart."))
+        note = QLabel(self.tr(
+            "Language and UI scale changes take effect after restart."))
         note.setObjectName("RestartNote")
         g.addWidget(note, self._next_row(g), self.COL_CTRL)
 
@@ -444,43 +438,56 @@ class SettingsView(QWidget):
                 pass
 
     def _build_theme(self, g):
-        """Theme picker (formerly its own Appearance section). Takes effect on
-        restart, like Language / UI Scale - selecting a new theme persists it and
-        offers a self-restart via the window's theme restart prompt. The
-        "Edit / Create Theme…" button lives in the section footer, beside
-        "Sync language files"."""
+        """Theme picker. Selections persist and are applied immediately."""
+        row = self._next_row(g)
+        g.addWidget(QLabel(self.tr("Theme")), row, self.COL_LABEL)
+
+        self._theme_combo = QComboBox()
+        no_wheel(self._theme_combo)
+        self._theme_combo.setFixedWidth(self.COMBO_W)
+        g.addWidget(self._theme_combo, row, self.COL_CTRL, Qt.AlignLeft)
+        self.refresh_theme_options()
+
+    def refresh_theme_options(self, select_id: str | None = None):
+        """Reload theme discovery after a custom theme is saved/deleted."""
         try:
             from Utils.themes import load_display_names
             themes = load_display_names() or {"dark": "Dark"}
         except Exception:
             themes = {"dark": "Dark", "light": "Light"}
-        try:
-            current = uc.get_appearance_mode()
-        except Exception:
-            current = "dark"
-
-        row = self._next_row(g)
-        g.addWidget(QLabel(self.tr("Theme")), row, self.COL_LABEL)
-
-        combo = QComboBox()
-        no_wheel(combo)
-        combo.setFixedWidth(self.COMBO_W)
-        values = [tid for tid in themes]
+        current = select_id
+        if current is None:
+            try:
+                current = uc.get_appearance_mode()
+            except Exception:
+                current = "dark"
+        combo = getattr(self, "_theme_combo", None)
+        if combo is None:
+            return
+        combo.blockSignals(True)
+        combo.clear()
         for tid, disp in themes.items():
             combo.addItem(disp, tid)
-        if current in values:
-            combo.setCurrentIndex(values.index(current))
-        combo.currentIndexChanged.connect(
-            lambda i: self._on_theme_changed(values[i]))
-        g.addWidget(combo, row, self.COL_CTRL, Qt.AlignLeft)
+        idx = combo.findData(current)
+        if idx >= 0:
+            combo.setCurrentIndex(idx)
+        combo.blockSignals(False)
+        if not getattr(self, "_theme_combo_connected", False):
+            combo.currentIndexChanged.connect(self._on_theme_index_changed)
+            self._theme_combo_connected = True
+
+    def _on_theme_index_changed(self, index: int):
+        tid = self._theme_combo.itemData(index)
+        if tid:
+            self._on_theme_changed(tid)
 
     def _on_theme_changed(self, tid: str):
-        """Persist the chosen theme, then offer a restart (same pattern as UI
-        scale / language) so the new palette applies on a fresh launch."""
+        """Persist and immediately apply the selected theme."""
         self._safe_save(uc.save_appearance_mode, tid)
-        from gui_qt.theme_qt import invalidate_palette_cache
-        invalidate_palette_cache()
-        self._prompt_restart("theme")
+        from gui_qt.theme_qt import apply_theme
+        app = QApplication.instance()
+        if app is not None:
+            apply_theme(app)
 
     def _open_theme_editor(self):
         """Open the full-screen theme editor tab via the main window."""
@@ -581,18 +588,14 @@ class SettingsView(QWidget):
         self._prompt_restart("scale")
 
     def _prompt_restart(self, kind: str):
-        """Offer a self-restart so a startup-only setting (UI scale / theme /
-        language) applies. Reuses the window's matching restart flow, falling
-        back to the UI-scale prompt (any of them just re-execs the app)."""
+        """Offer a self-restart for startup-only UI scale/language changes."""
         win = self._window
         by_kind = {
             "scale": "_prompt_ui_scale_restart",
-            "theme": "_prompt_theme_restart",
             "language": "_prompt_language_restart",
         }
         names = [by_kind.get(kind, "")]
-        names += ["_prompt_ui_scale_restart", "_prompt_theme_restart",
-                  "_prompt_language_restart"]
+        names += ["_prompt_ui_scale_restart", "_prompt_language_restart"]
         for name in names:
             prompt = getattr(win, name, None)
             if callable(prompt):
@@ -632,7 +635,7 @@ class SettingsView(QWidget):
 
     def _on_language_changed(self, code):
         """Persist the chosen language, then offer a restart (same pattern as UI
-        scale / theme) so the new translator applies on a fresh launch."""
+        scale) so the new translator applies on a fresh launch."""
         self._safe_save(uc.save_language, code)
         self._prompt_restart("language")
 

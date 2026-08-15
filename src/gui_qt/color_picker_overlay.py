@@ -8,7 +8,7 @@ embedding Qt's non-native ``QColorDialog`` as a plain child widget
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QWidget, QHBoxLayout, QLabel, QPushButton, QColorDialog,
@@ -64,3 +64,20 @@ class ColorPickerOverlay(OverlayBase):
     def show_over(cls, host, title, initial, on_done):
         top = host.window() if host is not None else None
         return cls(top or host, title, initial, on_done)
+
+    def _finish(self, result=None):
+        """Dismiss the heavyweight QColorDialog before applying the preview.
+
+        QApplication stylesheet changes visit every live widget. Queuing the
+        result callback for the next event-loop turn lets deleteLater remove
+        the colour dialog and all of its internal controls first, shortening
+        the subsequent theme pass and making the OK button respond at once.
+        """
+        if self._done:
+            return
+        callback = self._on_done
+        self._on_done = None
+        super()._finish(None)
+        if callback is not None:
+            QTimer.singleShot(
+                0, lambda value=result, done=callback: done(value))

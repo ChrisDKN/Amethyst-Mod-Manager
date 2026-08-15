@@ -15,19 +15,12 @@ from PySide6.QtCore import Qt, Signal, QRectF
 from PySide6.QtGui import QColor, QPainter, QPen, QPainterPath
 from PySide6.QtWidgets import QAbstractButton, QSizePolicy
 
+from gui_qt.theme_qt import bind_theme, _c, contrast_text
+
 
 STATE_OFF = 0
 STATE_INCLUDE = 1
 STATE_EXCLUDE = 2
-
-# Colours - accent (include) is themed; exclude matches the Tk red palette.
-_INCLUDE = "#1c7fd6"      # overridden from the active palette in __init__
-_EXCLUDE = "#c0392b"
-_BORDER = "#5a5a5a"
-_BORDER_HOVER = "#1c7fd6"
-_BG = "#2a2a2a"
-_TEXT = "#dddddd"
-_TEXT_DISABLED = "#777777"
 
 _BOX = 16            # indicator box size (px)
 _GAP = 8             # gap between box and label
@@ -43,27 +36,20 @@ class TriStateCheckBox(QAbstractButton):
                  include_color: str | None = None, two_state: bool = False):
         super().__init__(parent)
         self._state = STATE_OFF
-        # Resolve neutral colours from the active palette so the label + empty
-        # box read in both light and dark modes (the module defaults are dark).
-        try:
-            from gui_qt.theme_qt import active_palette, _c, contrast_text
-            pal = active_palette()
-            self._include = include_color or _c(pal, "CHECK_FILL")
-            self._box_bg = _c(pal, "BG_ROW")
-            self._box_border = _c(pal, "BORDER_FAINT")
-            self._box_border_hover = _c(pal, "ACCENT")
-            self._text_color = _c(pal, "TEXT_MAIN")
-            self._text_disabled = _c(pal, "TEXT_DIM")
-            # Tick glyph auto-contrasted off the check fill so it's always visible.
-            self._glyph = contrast_text(self._include)
-        except Exception:
-            self._include = include_color or _INCLUDE
-            self._box_bg = _BG
-            self._box_border = _BORDER
-            self._box_border_hover = _BORDER_HOVER
-            self._text_color = _TEXT
-            self._text_disabled = _TEXT_DISABLED
-            self._glyph = "#ffffff"
+        self._include_override = (str(include_color)
+                                  if include_color is not None
+                                  and not getattr(include_color, "theme_key", None)
+                                  else None)
+        self._include_role = getattr(include_color, "theme_key", None)
+        roles = {
+            "BTN_DANGER", "BG_ROW", "BORDER_FAINT", "ACCENT",
+            "TEXT_MAIN", "TEXT_DIM",
+        }
+        if self._include_role:
+            roles.add(self._include_role)
+        elif self._include_override is None:
+            roles.add("CHECK_FILL")
+        bind_theme(self, roles=roles)
         # two_state: cycle off <-> include only (no exclude). Used where a plain
         # on/off check is wanted but the row must look identical to the tri-state
         # filter rows (e.g. the Nexus categories panel).
@@ -73,6 +59,19 @@ class TriStateCheckBox(QAbstractButton):
         self.setCursor(Qt.PointingHandCursor)
         self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         self.clicked.connect(self._cycle)
+
+    def refresh_theme(self, pal: dict) -> None:
+        self._include = (self._include_override
+                         or _c(pal, self._include_role or "CHECK_FILL"))
+        self._exclude = _c(pal, "BTN_DANGER")
+        self._box_bg = _c(pal, "BG_ROW")
+        self._box_border = _c(pal, "BORDER_FAINT")
+        self._box_border_hover = _c(pal, "ACCENT")
+        self._text_color = _c(pal, "TEXT_MAIN")
+        self._text_disabled = _c(pal, "TEXT_DIM")
+        self._glyph = contrast_text(self._include)
+        self._exclude_glyph = contrast_text(self._exclude)
+        self.update()
 
     # -- state ----------------------------------------------------------------
     def state(self) -> int:
@@ -115,8 +114,8 @@ class TriStateCheckBox(QAbstractButton):
             fill = QColor(self._include)
             border = QColor(self._include)
         elif self._state == STATE_EXCLUDE:
-            fill = QColor(_EXCLUDE)
-            border = QColor(_EXCLUDE)
+            fill = QColor(self._exclude)
+            border = QColor(self._exclude)
         else:
             fill = QColor(self._box_bg)
             border = QColor(self._box_border_hover if hover else self._box_border)
@@ -166,7 +165,7 @@ class TriStateCheckBox(QAbstractButton):
         p.drawPath(path)
 
     def _draw_minus(self, p: QPainter, box: QRectF) -> None:
-        glyph = QColor("white")
+        glyph = QColor(self._exclude_glyph)
         if not self.isEnabled():
             glyph.setAlpha(150)
         pen = QPen(glyph, 2)

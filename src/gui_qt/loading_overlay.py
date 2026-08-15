@@ -19,6 +19,8 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QWidget, QLabel, QVBoxLayout
 
+from gui_qt.theme_qt import active_palette, _c
+
 _LOGO = Path(__file__).resolve().parent.parent / "icons" / "Logo.png"
 _LOGO_SIZE = 160
 
@@ -55,7 +57,9 @@ class LoadingOverlay(QWidget):
 
         self._text = QLabel(self.tr("Loading…"))
         self._text.setAlignment(Qt.AlignCenter)
-        self._text.setStyleSheet("color: white; font-size: 15px; font-weight: 600;")
+        self._text.setStyleSheet(
+            f"color:{_c(active_palette(), 'TEXT_WHITE')};"
+            " font-size:15px; font-weight:600;")
         lay.addWidget(self._text)
 
         parent.installEventFilter(self)

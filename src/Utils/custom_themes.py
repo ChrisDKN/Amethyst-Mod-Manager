@@ -126,8 +126,7 @@ def save_custom_theme(name: str, palette: dict,
     existing custom id the same file is overwritten (an edit); otherwise a stem
     is derived from *name*. By default the stem is de-duplicated against existing
     files (Save As → a distinct new theme); pass ``overwrite=True`` to reuse the
-    stem verbatim (the "Restart to apply" auto-theme, which should update in
-    place rather than pile up copies).
+    stem verbatim when a caller intentionally updates an existing name.
     """
     full: dict = dict(base_palette or {})
     full.update(palette or {})

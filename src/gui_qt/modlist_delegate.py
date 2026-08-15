@@ -14,7 +14,7 @@ from PySide6.QtCore import Qt, QRect, QSize, QEvent, QT_TRANSLATE_NOOP
 from PySide6.QtGui import QColor, QFont, QPen, QBrush, QLinearGradient
 from PySide6.QtWidgets import QStyledItemDelegate, QStyle, QToolTip
 
-from gui_qt.theme_qt import active_palette, _c, qc, qc_contrast
+from gui_qt.theme_qt import bind_theme, _c, qc, qc_contrast
 from gui_qt.icons import icon
 from gui_qt.modlist_model import (
     EntryRole, ConflictRole, BsaConflictRole, UuidConflictRole, FlagsRole,
@@ -34,7 +34,7 @@ from gui_qt.modlist_data import (
 # mutually exclusive, handled in _flag_icons), modified-MF, xEdit, root.
 _FLAG_ICONS = [
     (FLAG_NOTE, "note.png"),
-    (FLAG_BUNDLE, "bundle_settings.png#ffffff"),
+    (FLAG_BUNDLE, "bundle_settings.png"),
     (FLAG_MISSING_REQS, "warning.png"),
     (FLAG_RERUN_FOMOD, "rerun_fomod.png"),
     (FLAG_UPDATE, "update.png"),
@@ -53,7 +53,7 @@ _FLAG_ICONS = [
     (FLAG_ROOT_RULE, "root.png"),
 ]
 
-_MONO_FLAG_ICONS = {"root.png", "eye2_white.png"}
+_MONO_FLAG_ICONS = {"bundle_settings.png", "root.png", "eye2_white.png"}
 
 # The info-icon flags, in precedence order (Tk: pre-RTX wins, else collection).
 _INFO_FLAGS = (FLAG_PRERTX, FLAG_COLLECTION_BUNDLED, FLAG_COLLECTION_PATCHED)
@@ -197,7 +197,24 @@ FONT_PX = 14        # row text size
 class ModRowDelegate(QStyledItemDelegate):
     def __init__(self, parent=None):
         super().__init__(parent)
-        p = active_palette()
+        bind_theme(self, roles={
+            "BG_ROW", "BG_ROW_ALT", "BG_ROW_HOVER", "BG_SELECT", "BG_SEP",
+            "BG_DEEP", "TEXT_MAIN", "TEXT_DIM", "TEXT_ON_ACCENT",
+            "TEXT_SEP", "TEXT_WARN", "TEXT_ERR_BRIGHT", "TEXT_OK_BRIGHT",
+            "BORDER", "CHECK_FILL", "DROPDOWN_ARROW", "LINK_BLUE",
+            "CONFLICT_HL_WIN", "CONFLICT_HL_LOSE", "CONFLICT_HL_ANCHOR",
+            "REQ_HL_REQUIRES", "REQ_HL_REQUIRED_BY", "OVERWRITE_SEP_BG",
+            "OVERWRITE_SEP_FG", "ROOT_SEP_BG", "ROOT_SEP_FG",
+        })
+        # Shared row/label fonts - paint() runs per visible cell, so build
+        # these once instead of allocating a QFont per call.
+        self.f_row = QFont()
+        self.f_row.setPixelSize(FONT_PX)
+        self.f_bold = QFont()
+        self.f_bold.setBold(True)
+        self.f_bold.setPixelSize(FONT_PX)
+
+    def refresh_theme(self, p: dict) -> None:
         self.c_sep_bg = qc(p, "BG_SEP")
         self.c_sep_text = qc(p, "TEXT_SEP")
         self.c_row = qc(p, "BG_ROW")
@@ -227,13 +244,12 @@ class ModRowDelegate(QStyledItemDelegate):
         self.c_root_text = qc(p, "ROOT_SEP_FG")
         self.c_overwrite_text = qc(p, "OVERWRITE_SEP_FG")
         self.c_badge = qc(p, "LINK_BLUE")   # separator deploy-path badge
-        # Shared row/label fonts - paint() runs per visible cell, so build
-        # these once instead of allocating a QFont per call.
-        self.f_row = QFont()
-        self.f_row.setPixelSize(FONT_PX)
-        self.f_bold = QFont()
-        self.f_bold.setBold(True)
-        self.f_bold.setPixelSize(FONT_PX)
+        parent = self.parent()
+        if parent is not None:
+            try:
+                parent.viewport().update()
+            except AttributeError:
+                parent.update()
 
     def sizeHint(self, opt, index):
         e = index.data(EntryRole)

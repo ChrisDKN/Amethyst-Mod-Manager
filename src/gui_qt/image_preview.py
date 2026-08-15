@@ -172,7 +172,8 @@ class _ImageCanvas(QLabel):
         p = QPainter(self)
         self._paint_checker(p)
         if self._pm is None or self._pm.isNull():
-            p.setPen(QColor("#aaa"))
+            from gui_qt.theme_qt import active_palette, _c
+            p.setPen(QColor(_c(active_palette(), "TEXT_DIM")))
             p.drawText(self.rect(), Qt.AlignCenter, "Image could not be loaded")
             p.end()
             return

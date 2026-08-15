@@ -31,11 +31,7 @@ from PySide6.QtWidgets import (
     QProgressBar, QSizePolicy, QSpinBox,
 )
 
-from gui_qt.theme_qt import active_palette, _c
-
-# Status tones (match the Tk overlay: queued = amber, active = normal text).
-_QUEUED_TONE = "#e5a640"
-_GREEN_TONE = "#5fb35f"
+from gui_qt.theme_qt import active_palette, bind_theme, _c
 
 # Fixed number of visible download rows (matches the Tk overlay's 8 slots).
 _DL_SLOTS = 8
@@ -131,6 +127,7 @@ class CollectionInstallOverlay(QWidget):
         self.setStyleSheet("#OverlayBackdrop { background: rgba(0,0,0,150); }")
         self.setGeometry(host.rect())
         self._build(title)
+        bind_theme(self, roles={"TEXT_MAIN", "STATUS_QUEUED"})
         host.installEventFilter(self)
         self._reposition()
         self.show()
@@ -147,7 +144,7 @@ class CollectionInstallOverlay(QWidget):
     def _c(self, k):
         return _c(self._p, k)
 
-    def _panel(self, label: str, accent: str):
+    def _panel(self, label: str, accent_key: str):
         """A titled bordered panel. Returns (frame, content_vbox) so the caller
         adds its (pre-built, parented) content widgets."""
         frame = QFrame(self._card)
@@ -160,7 +157,8 @@ class CollectionInstallOverlay(QWidget):
         v.setContentsMargins(8, 6, 8, 8)
         v.setSpacing(4)
         hdr = QLabel(label, frame)
-        hdr.setStyleSheet(f"color:{accent}; font-weight:600; font-size:12px;")
+        hdr.setStyleSheet(
+            f"color:{self._c(accent_key)}; font-weight:600; font-size:12px;")
         v.addWidget(hdr)
         return frame, v
 
@@ -197,7 +195,7 @@ class CollectionInstallOverlay(QWidget):
         lists.setSpacing(10)
 
         # RED - a FIXED pool of download-row widgets (built once, parented now).
-        dl_frame, dl_v = self._panel(self.tr("Downloading"), "#c86464")
+        dl_frame, dl_v = self._panel(self.tr("Downloading"), "TONE_RED")
         self._dl_rows: list[_DownloadRow] = []
         for _ in range(_DL_SLOTS):
             row = _DownloadRow(dl_frame)
@@ -210,7 +208,8 @@ class CollectionInstallOverlay(QWidget):
 
         # GREEN - a FIXED pool of bar rows for active extractions (same widget as
         # the download rows) + ONE text label for overflow-active/queued names.
-        ex_frame, ex_v = self._panel(self.tr("Installing / Extracting"), _GREEN_TONE)
+        ex_frame, ex_v = self._panel(
+            self.tr("Installing / Extracting"), "TONE_GREEN")
         self._ex_rows: list[_DownloadRow] = []
         for _ in range(_EX_SLOTS):
             row = _DownloadRow(ex_frame)
@@ -276,6 +275,10 @@ class CollectionInstallOverlay(QWidget):
     # ---- progress slots (UI thread only) - NO widget creation -------------
     def set_status(self, text: str):
         self._status_lbl.setText(text or "")
+
+    def refresh_theme(self, palette):
+        self._p = palette
+        self._render_extract()
 
     def set_display_total(self, n: int):
         """The true collection size (installed/uncompressed bytes). Shown as the
@@ -388,7 +391,8 @@ class CollectionInstallOverlay(QWidget):
                     f"<div style='color:{self._c('TEXT_MAIN')}'>{escape(name)}</div>")
         for name in self._extract_queued.values():
             lines.append(
-                f"<div style='color:{_QUEUED_TONE}'>{escape(name)} {self.tr('- Queued')}</div>")
+                f"<div style='color:{self._c('STATUS_QUEUED')}'>{escape(name)} "
+                f"{self.tr('- Queued')}</div>")
         self._ex_label.setText("".join(lines))
 
     # ---- lifecycle --------------------------------------------------------

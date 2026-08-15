@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui_qt.overlay_base import OverlayBase
-from gui_qt.theme_qt import active_palette, _c
+from gui_qt.theme_qt import active_palette, bind_theme, _c
 
 
 def parse_overwrite_log(text: str) -> "list[tuple[str, list[str]]]":
@@ -52,6 +52,7 @@ class OverwriteLogOverlay(OverlayBase):
                  title: "str | None" = None):
         super().__init__(host)
         p = active_palette()
+        self._sections = sections
 
         _card, v = self._make_card("_OvlLogCard", margins=(16, 14, 16, 14))
 
@@ -68,16 +69,20 @@ class OverwriteLogOverlay(OverlayBase):
         header.addWidget(close)
         v.addLayout(header)
 
-        body = QTextEdit()
-        body.setReadOnly(True)
-        body.setStyleSheet(
+        self._body = QTextEdit()
+        self._body.setReadOnly(True)
+        self._body.setStyleSheet(
             f"QTextEdit {{ background:{_c(p,'BG_LIST')}; color:{_c(p,'TEXT_MAIN')};"
             f" border:1px solid {_c(p,'BORDER')}; border-radius:4px; }}")
-        body.setHtml(self._render(sections, p))
-        v.addWidget(body, 1)
+        self._body.setHtml(self._render(sections, p))
+        v.addWidget(self._body, 1)
 
+        bind_theme(self, roles={"TEXT_MAIN", "TEXT_DIM"})
         self._present()
         self.setFocus()
+
+    def refresh_theme(self, palette):
+        self._body.setHtml(self._render(self._sections, palette))
 
     @classmethod
     def show_over(cls, host, sections, title=None):

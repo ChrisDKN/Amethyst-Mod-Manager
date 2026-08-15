@@ -44,23 +44,24 @@ _SOURCE_LABELS = {
     "ignore": QT_TRANSLATE_NOOP("ExportProfileView", "Ignore"),
 }
 
-# Per-source button colours - matched to the Tk workshop (_source_btn_style):
-# Nexus orange, Direct green, Bundle purple, Ignore grey. Text is white on all.
-# Thunderstore blue is deliberately far from Nexus orange: the two stores are
-# the pair a user most needs to tell apart at a glance.
-_SOURCE_COLORS = {
-    "nexus":  ("#c77a3a", "#d98c4c"),   # (base, hover)
-    "thunderstore": ("#3a6ea5", "#4a7eb5"),
-    "direct": ("#5a7a5a", "#6b8b6b"),
-    "browse": ("#5a6b8a", "#6b7c9b"),
-    "manual": ("#8a7a4a", "#9b8b5b"),
-    "bundle": ("#7a5a7a", "#8b6b8b"),
-    "ignore": ("#555555", "#666666"),
+# Semantic theme roles preserve the visual source distinction while allowing
+# every custom palette to control the actual colours.
+_SOURCE_COLOR_KEYS = {
+    "nexus": ("BTN_WARN_ORANGE", "BTN_WARN_ORANGE_HOV"),
+    "thunderstore": ("BTN_INFO", "BTN_INFO_HOV"),
+    "direct": ("BTN_SUCCESS", "BTN_SUCCESS_HOV"),
+    "browse": ("BTN_NEUTRAL", "BTN_NEUTRAL_HOV"),
+    "manual": ("BTN_WARN_BROWN", "BTN_WARN_BROWN_HOV"),
+    "bundle": ("BTN_PURPLE", "BTN_PURPLE_HOV"),
+    "ignore": ("BTN_GREY", "BTN_GREY_HOV"),
 }
 
 
 def _source_button_qss(source: str) -> str:
-    base, hover = _SOURCE_COLORS.get(source, _SOURCE_COLORS["nexus"])
+    p = active_palette()
+    base_key, hover_key = _SOURCE_COLOR_KEYS.get(
+        source, _SOURCE_COLOR_KEYS["nexus"])
+    base, hover = _c(p, base_key), _c(p, hover_key)
     return (f"QPushButton {{ background:{base}; color:{contrast_text(base)}; border:none;"
             f" border-radius:4px; padding:3px 12px; font-weight:600; }}"
             f"QPushButton:hover {{ background:{hover}; }}")
@@ -122,7 +123,7 @@ def _card_qss(p) -> str:
     #CardCancelBtn:hover {{ background: {c('BG_ROW_HOVER')}; }}
     #GameSelectBtn {{
         background: {c('BTN_SUCCESS')};
-        color: #ffffff;
+        color: {contrast_text(c('BTN_SUCCESS'))};
         border: none;
         border-radius: 5px;
         padding: 6px 18px;

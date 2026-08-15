@@ -1602,6 +1602,18 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</translati
         <translation>Manage load order in DFU</translation>
     </message>
     <message>
+        <source>Disable Steam updates</source>
+        <translation>Disable Steam updates</translation>
+    </message>
+    <message>
+        <source>Marks Steam's appmanifest file read-only so an update cannot be applied, keeping mods working against the current build.
+
+Steam may still download the update and show a disk write error. Verifying the game's files in Steam clears this, re-enabling updates.</source>
+        <translation>Marks Steam's appmanifest file read-only so an update cannot be applied, keeping mods working against the current build.
+
+Steam may still download the update and show a disk write error. Verifying the game's files in Steam clears this, re-enabling updates.</translation>
+    </message>
+    <message>
         <source>Game Patch Version</source>
         <translation>Game Patch Version</translation>
     </message>
@@ -3090,6 +3102,29 @@ When it completes, the app switches to the new profile - then come back here and
     <message>
         <source>Add download folder</source>
         <translation>Add download folder</translation>
+    </message>
+</context>
+<context>
+    <name>DownloadManifestOverlay</name>
+    <message>
+        <source>Download collection manifest</source>
+        <translation>Download collection manifest</translation>
+    </message>
+    <message>
+        <source>One collection URL per line, e.g. https://www.nexusmods.com/games/fallout4/collections/f1rzym</source>
+        <translation>One collection URL per line, e.g. https://www.nexusmods.com/games/fallout4/collections/f1rzym</translation>
+    </message>
+    <message>
+        <source>Saving to: {0}</source>
+        <translation>Saving to: {0}</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>Download</source>
+        <translation>Download</translation>
     </message>
 </context>
 <context>
@@ -4847,6 +4882,37 @@ It may already be modified. Verify game files in Steam/Heroic to get a clean exe
     </message>
 </context>
 <context>
+    <name>ImageExportOverlay</name>
+    <message>
+        <source>Save as image</source>
+        <translation>Save as image</translation>
+    </message>
+    <message>
+        <source>Choose the background for the exported PNG.</source>
+        <translation>Choose the background for the exported PNG.</translation>
+    </message>
+    <message>
+        <source>Transparent</source>
+        <translation>Transparent</translation>
+    </message>
+    <message>
+        <source>Face portrait only</source>
+        <translation>Face portrait only</translation>
+    </message>
+    <message>
+        <source>Export just the head close-up instead of the four-angle sheet</source>
+        <translation>Export just the head close-up instead of the four-angle sheet</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>Save…</source>
+        <translation>Save…</translation>
+    </message>
+</context>
+<context>
     <name>ImagePreview</name>
     <message>
         <source>Scroll to zoom · drag to pan · double-click to fit</source>
@@ -5873,14 +5939,6 @@ If you continue, this warning won't be shown again for {1} unless the drives cha
     <message>
         <source>Later</source>
         <translation>Later</translation>
-    </message>
-    <message>
-        <source>Restart to change theme?</source>
-        <translation>Restart to change theme?</translation>
-    </message>
-    <message>
-        <source>The theme change takes effect after a restart. Restart now?</source>
-        <translation>The theme change takes effect after a restart. Restart now?</translation>
     </message>
     <message>
         <source>Syncing language files…</source>
@@ -7155,6 +7213,10 @@ Run Quick Update on all of them now?</translation>
         <translation>Installed {0} mods</translation>
     </message>
     <message>
+        <source>Download Manifest…</source>
+        <translation>Download Manifest…</translation>
+    </message>
+    <message>
         <source>this mod</source>
         <translation>this mod</translation>
     </message>
@@ -7185,6 +7247,26 @@ Run Quick Update on all of them now?</translation>
     <message>
         <source>Could not identify any of the {0} mod(s) found.</source>
         <translation>Could not identify any of the {0} mod(s) found.</translation>
+    </message>
+    <message>
+        <source>A manifest download is already running.</source>
+        <translation>A manifest download is already running.</translation>
+    </message>
+    <message>
+        <source>Downloading {0} collection manifest(s)…</source>
+        <translation>Downloading {0} collection manifest(s)…</translation>
+    </message>
+    <message>
+        <source>Downloaded {0} manifest(s) to Downloads.</source>
+        <translation>Downloaded {0} manifest(s) to Downloads.</translation>
+    </message>
+    <message>
+        <source>Downloaded {0} manifest(s); {1} failed - see the log.</source>
+        <translation>Downloaded {0} manifest(s); {1} failed - see the log.</translation>
+    </message>
+    <message>
+        <source>Manifest download failed: {0}</source>
+        <translation>Manifest download failed: {0}</translation>
     </message>
     <message>
         <source>Add the API path shown on mod.io's API Access page using the mod.io API Key tool.</source>
@@ -9198,8 +9280,8 @@ Daily: {1}</translation>
         <translation>Normal maps + shine</translation>
     </message>
     <message>
-        <source>Apply the mesh's normal map and its gloss mask</source>
-        <translation>Apply the mesh's normal map and its gloss mask</translation>
+        <source>Apply normal maps and material shine, including PBR roughness and metallic maps</source>
+        <translation>Apply normal maps and material shine, including PBR roughness and metallic maps</translation>
     </message>
     <message>
         <source>Cull backfaces</source>
@@ -9256,6 +9338,10 @@ Daily: {1}</translation>
     <message>
         <source>Black</source>
         <translation>Black</translation>
+    </message>
+    <message>
+        <source>Green screen</source>
+        <translation>Green screen</translation>
     </message>
     <message>
         <source>Invert mouse</source>
@@ -9357,6 +9443,14 @@ Daily: {1}</translation>
         <translation>Show only meshes {0} provides, alongside the copies they compete with</translation>
     </message>
     <message>
+        <source>⟳ Refresh</source>
+        <translation>⟳ Refresh</translation>
+    </message>
+    <message>
+        <source>Re-scan the profile after changing the modlist or load order</source>
+        <translation>Re-scan the profile after changing the modlist or load order</translation>
+    </message>
+    <message>
         <source>✕ Close</source>
         <translation>✕ Close</translation>
     </message>
@@ -9421,6 +9515,169 @@ Daily: {1}</translation>
     <message>
         <source>Clear all</source>
         <translation>Clear all</translation>
+    </message>
+</context>
+<context>
+    <name>NpcViewerView</name>
+    <message>
+        <source>View NPCs - {0} ▸ {1}</source>
+        <translation>View NPCs - {0} ▸ {1}</translation>
+    </message>
+    <message>
+        <source>View NPCs - {0}</source>
+        <translation>View NPCs - {0}</translation>
+    </message>
+    <message>
+        <source>Scanning…</source>
+        <translation>Scanning…</translation>
+    </message>
+    <message>
+        <source>Search NPCs and mods…</source>
+        <translation>Search NPCs and mods…</translation>
+    </message>
+    <message>
+        <source>Match an NPC name, editor id, FormID, or the mod providing the face</source>
+        <translation>Match an NPC name, editor id, FormID, or the mod providing the face</translation>
+    </message>
+    <message>
+        <source>Limit the list to one side of the setup</source>
+        <translation>Limit the list to one side of the setup</translation>
+    </message>
+    <message>
+        <source>All sources</source>
+        <translation>All sources</translation>
+    </message>
+    <message>
+        <source>Mods only</source>
+        <translation>Mods only</translation>
+    </message>
+    <message>
+        <source>Vanilla only</source>
+        <translation>Vanilla only</translation>
+    </message>
+    <message>
+        <source>Whole body</source>
+        <translation>Whole body</translation>
+    </message>
+    <message>
+        <source>Show the NPC's body, hands and feet with the head, posed on the race's skeleton</source>
+        <translation>Show the NPC's body, hands and feet with the head, posed on the race's skeleton</translation>
+    </message>
+    <message>
+        <source>Outfit</source>
+        <translation>Outfit</translation>
+    </message>
+    <message>
+        <source>Dress the NPC in its default outfit. NPCs that equip from their inventory instead have none, and show bare.</source>
+        <translation>Dress the NPC in its default outfit. NPCs that equip from their inventory instead have none, and show bare.</translation>
+    </message>
+    <message>
+        <source>Only overridden</source>
+        <translation>Only overridden</translation>
+    </message>
+    <message>
+        <source>Show only NPCs whose face is provided by more than one mod</source>
+        <translation>Show only NPCs whose face is provided by more than one mod</translation>
+    </message>
+    <message>
+        <source>Only this mod</source>
+        <translation>Only this mod</translation>
+    </message>
+    <message>
+        <source>Show only NPCs {0} provides a face for, alongside the versions they compete with</source>
+        <translation>Show only NPCs {0} provides a face for, alongside the versions they compete with</translation>
+    </message>
+    <message>
+        <source>Save as image…</source>
+        <translation>Save as image…</translation>
+    </message>
+    <message>
+        <source>Save four turntable angles and a face close-up as one PNG image, on a background you pick</source>
+        <translation>Save four turntable angles and a face close-up as one PNG image, on a background you pick</translation>
+    </message>
+    <message>
+        <source>⟳ Refresh</source>
+        <translation>⟳ Refresh</translation>
+    </message>
+    <message>
+        <source>Re-read the profile after changing the modlist or load order</source>
+        <translation>Re-read the profile after changing the modlist or load order</translation>
+    </message>
+    <message>
+        <source>✕ Close</source>
+        <translation>✕ Close</translation>
+    </message>
+    <message>
+        <source>Select an NPC</source>
+        <translation>Select an NPC</translation>
+    </message>
+    <message>
+        <source>{0} NPCs</source>
+        <translation>{0} NPCs</translation>
+    </message>
+    <message>
+        <source>Reading…</source>
+        <translation>Reading…</translation>
+    </message>
+    <message>
+        <source>Choosing background…</source>
+        <translation>Choosing background…</translation>
+    </message>
+    <message>
+        <source>Light</source>
+        <translation>Light</translation>
+    </message>
+    <message>
+        <source>Grey</source>
+        <translation>Grey</translation>
+    </message>
+    <message>
+        <source>Dark</source>
+        <translation>Dark</translation>
+    </message>
+    <message>
+        <source>Black</source>
+        <translation>Black</translation>
+    </message>
+    <message>
+        <source>Green screen</source>
+        <translation>Green screen</translation>
+    </message>
+    <message>
+        <source>Capturing…</source>
+        <translation>Capturing…</translation>
+    </message>
+    <message>
+        <source>Capture failed</source>
+        <translation>Capture failed</translation>
+    </message>
+    <message>
+        <source>Choose location…</source>
+        <translation>Choose location…</translation>
+    </message>
+    <message>
+        <source>Save NPC image</source>
+        <translation>Save NPC image</translation>
+    </message>
+    <message>
+        <source>PNG images (*.png)</source>
+        <translation>PNG images (*.png)</translation>
+    </message>
+    <message>
+        <source>All files</source>
+        <translation>All files</translation>
+    </message>
+    <message>
+        <source>Saved!</source>
+        <translation>Saved!</translation>
+    </message>
+    <message>
+        <source>Save failed</source>
+        <translation>Save failed</translation>
+    </message>
+    <message>
+        <source>could not be read</source>
+        <translation>could not be read</translation>
     </message>
 </context>
 <context>
@@ -12068,10 +12325,6 @@ Merge your conflicts, then close it and click Done.</translation>
         <translation>Settings</translation>
     </message>
     <message>
-        <source>Changes take effect after restart.</source>
-        <translation>Changes take effect after restart.</translation>
-    </message>
-    <message>
         <source>Browse</source>
         <translation>Browse</translation>
     </message>
@@ -12196,10 +12449,6 @@ Merge your conflicts, then close it and click Done.</translation>
         <translation>Run extractions at low CPU and disk priority so they yield to other applications instead of slowing them down. Extraction speed is unaffected while the system is otherwise idle.</translation>
     </message>
     <message>
-        <source>Caches</source>
-        <translation>Caches</translation>
-    </message>
-    <message>
         <source>Manage Caches…</source>
         <translation>Manage Caches…</translation>
     </message>
@@ -12258,6 +12507,10 @@ Merge your conflicts, then close it and click Done.</translation>
     <message>
         <source>Hide Ko-Fi button</source>
         <translation>Hide Ko-Fi button</translation>
+    </message>
+    <message>
+        <source>Language and UI scale changes take effect after restart.</source>
+        <translation>Language and UI scale changes take effect after restart.</translation>
     </message>
     <message>
         <source>Hide the Ko-Fi donation button in the status bar.</source>
@@ -12438,6 +12691,66 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     <message>
         <source>None set</source>
         <translation>None set</translation>
+    </message>
+    <message>
+        <source>System Information</source>
+        <translation>System Information</translation>
+    </message>
+    <message>
+        <source>App version</source>
+        <translation>App version</translation>
+    </message>
+    <message>
+        <source>OS</source>
+        <translation>OS</translation>
+    </message>
+    <message>
+        <source>Distribution</source>
+        <translation>Distribution</translation>
+    </message>
+    <message>
+        <source>Kernel</source>
+        <translation>Kernel</translation>
+    </message>
+    <message>
+        <source>Python</source>
+        <translation>Python</translation>
+    </message>
+    <message>
+        <source>Qt</source>
+        <translation>Qt</translation>
+    </message>
+    <message>
+        <source>Run mode</source>
+        <translation>Run mode</translation>
+    </message>
+    <message>
+        <source>Package</source>
+        <translation>Package</translation>
+    </message>
+    <message>
+        <source>Desktop</source>
+        <translation>Desktop</translation>
+    </message>
+    <message>
+        <source>Session</source>
+        <translation>Session</translation>
+    </message>
+    <message>
+        <source>OpenGL</source>
+        <translation>OpenGL</translation>
+    </message>
+    <message>
+        <source>Env overrides</source>
+        <translation>Env overrides</translation>
+    </message>
+    <message>
+        <source>Copy to clipboard</source>
+        <translation>Copy to clipboard</translation>
+    </message>
+    <message>
+        <source>System information copied.</source>
+        <translation>System information copied.</translation>
     </message>
     <message>
         <source>Failed to save setting: {0}</source>
@@ -14090,8 +14403,8 @@ or use Browse to select it manually.</translation>
         <translation>Delete</translation>
     </message>
     <message>
-        <source>Restart to apply</source>
-        <translation>Restart to apply</translation>
+        <source>Editing a base colour adjusts its hover/variants automatically. Tick Advanced to edit every colour individually. Changes preview across the open app; save the theme to keep them.</source>
+        <translation>Editing a base colour adjusts its hover/variants automatically. Tick Advanced to edit every colour individually. Changes preview across the open app; save the theme to keep them.</translation>
     </message>
     <message>
         <source>✕ Close</source>
@@ -14100,10 +14413,6 @@ or use Browse to select it manually.</translation>
     <message>
         <source>Save As New…</source>
         <translation>Save As New…</translation>
-    </message>
-    <message>
-        <source>Editing a base colour adjusts its hover/variants automatically. Tick Advanced to edit every colour individually. Use "Restart to apply" to save your theme and see it across the whole app.</source>
-        <translation>Editing a base colour adjusts its hover/variants automatically. Tick Advanced to edit every colour individually. Use "Restart to apply" to save your theme and see it across the whole app.</translation>
     </message>
     <message>
         <source>Pick colour: {0}</source>
@@ -14122,10 +14431,6 @@ or use Browse to select it manually.</translation>
         <translation>Save failed</translation>
     </message>
     <message>
-        <source>{0} (edited)</source>
-        <translation>{0} (edited)</translation>
-    </message>
-    <message>
         <source>Delete theme?</source>
         <translation>Delete theme?</translation>
     </message>
@@ -14137,8 +14442,8 @@ or use Browse to select it manually.</translation>
 <context>
     <name>ThemePreviewPanel</name>
     <message>
-        <source>Preview - approximate; use "Restart to apply" to see the theme across the whole app.</source>
-        <translation>Preview - approximate; use "Restart to apply" to see the theme across the whole app.</translation>
+        <source>Preview - changes are also applied temporarily across the open app. Save the theme to keep them.</source>
+        <translation>Preview - changes are also applied temporarily across the open app. Save the theme to keep them.</translation>
     </message>
     <message>
         <source>Header &amp; tabs</source>

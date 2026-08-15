@@ -17,7 +17,7 @@ from __future__ import annotations
 from PySide6.QtCore import (
     Qt, QAbstractItemModel, QCoreApplication, QModelIndex, QT_TRANSLATE_NOOP)
 
-from gui_qt.theme_qt import active_palette, qc
+from gui_qt.theme_qt import bind_theme, qc
 
 COL_NAME = 0
 COL_TOPLEVEL = 1
@@ -70,12 +70,28 @@ class ModFilesModel(QAbstractItemModel):
         self._root = _Node("", "", is_dir=True)
         # path(lower) -> node, for ancestor/folder lookups
         self._by_path: dict[str, _Node] = {}
-        # Foreground QColors cached once - data() runs per cell per repaint
-        # (mirrors modlist_delegate; theme changes take effect on restart).
-        p = active_palette()
+        # data() runs per visible cell; keep QColors cached but refresh them on
+        # a live theme change rather than rebuilding the model.
+        bind_theme(self, roles={"FILE_DIM", "FILE_LOSE", "FILE_WIN"})
+
+    def refresh_theme(self, p: dict) -> None:
         self._c_dim = qc(p, "FILE_DIM")
         self._c_win = qc(p, "FILE_WIN")
         self._c_lose = qc(p, "FILE_LOSE")
+        self._emit_theme_changed()
+
+    def _emit_theme_changed(self, parent=QModelIndex()) -> None:
+        rows = self.rowCount(parent)
+        if not rows:
+            return
+        self.dataChanged.emit(
+            self.index(0, 0, parent),
+            self.index(rows - 1, COL_DISABLE, parent),
+            [Qt.ForegroundRole])
+        for row in range(rows):
+            child = self.index(row, 0, parent)
+            if self.rowCount(child):
+                self._emit_theme_changed(child)
 
     # ---- population -------------------------------------------------------
     def set_root(self, root: _Node, by_path: dict[str, _Node]):

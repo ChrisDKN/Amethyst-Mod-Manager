@@ -10,6 +10,8 @@ from PySide6.QtWidgets import QHeaderView
 from PySide6.QtCore import Qt, QPointF
 from PySide6.QtGui import QColor, QPolygonF
 
+from gui_qt.theme_qt import bind_theme, _c
+
 
 _GRAB_PX = 8   # pixels either side of a boundary that count as "on the line"
 
@@ -44,6 +46,12 @@ class TkStyleHeader(QHeaderView):
         self._tri_active = None      # lazily-resolved triangle colours
         self._tri_idle = None
         self._tri_text = None
+        bind_theme(self, roles={"ACCENT", "TEXT_DIM"})
+
+    def refresh_theme(self, palette):
+        self._tri_active = QColor(_c(palette, "ACCENT"))
+        self._tri_idle = QColor(_c(palette, "TEXT_DIM"))
+        self.viewport().update()
 
     # -- per-section sort triangles ------------------------------------------
     # Painted when the owning view provides sort_triangle_spec(logical) →
@@ -94,10 +102,8 @@ class TkStyleHeader(QHeaderView):
             return
         active, ascending = spec
         if self._tri_active is None:
-            from gui_qt.theme_qt import active_palette, _c
-            p = active_palette()
-            self._tri_active = QColor(_c(p, "ACCENT"))
-            self._tri_idle = QColor(_c(p, "TEXT_DIM"))
+            from gui_qt.theme_qt import active_palette
+            self.refresh_theme(active_palette())
         # Paint the section chrome (QSS background/borders/hover) with the
         # label suppressed, then draw the text ourselves elided into the space
         # LEFT of the triangle strip so the two can never overlap.

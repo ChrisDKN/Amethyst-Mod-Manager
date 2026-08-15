@@ -9,7 +9,7 @@ from PySide6.QtCore import Qt, QRect, QEvent, QSize
 from PySide6.QtGui import QPen, QBrush, QFont
 from PySide6.QtWidgets import QStyledItemDelegate
 
-from gui_qt.theme_qt import active_palette, qc, qc_contrast
+from gui_qt.theme_qt import bind_theme, qc, qc_contrast
 from gui_qt.downloads_model import (
     COL_CHECK, COL_NAME, COL_SIZE, COL_INSTALL, EntryRole, InstalledRole,
 )
@@ -28,7 +28,13 @@ class DownloadsDelegate(QStyledItemDelegate):
         self._view = view
         self.on_install = None       # callback(path) when an Install button hit
         self.on_toggle_section = None  # callback(header_row) - select-all toggle
-        p = active_palette()
+        bind_theme(self, roles={
+            "TEXT_MAIN", "TEXT_DIM", "BORDER_FAINT", "CHECK_FILL",
+            "BG_DEEP", "BG_SELECT", "BG_HEADER", "BTN_SUCCESS",
+            "BTN_WARN", "ACCENT",
+        })
+
+    def refresh_theme(self, p: dict) -> None:
         self.c_text = qc(p, "TEXT_MAIN")
         self.c_dim = qc(p, "TEXT_DIM")
         self.c_border = qc(p, "BORDER_FAINT")
@@ -46,6 +52,7 @@ class DownloadsDelegate(QStyledItemDelegate):
         self.c_install_text = qc_contrast(p, "BTN_SUCCESS")
         self.c_reinstall_text = qc_contrast(p, "BTN_WARN")
         self.c_selall_text = qc_contrast(p, "ACCENT")
+        self._view.viewport().update()
 
     # -- paint --------------------------------------------------------------
     def paint(self, p, opt, index):

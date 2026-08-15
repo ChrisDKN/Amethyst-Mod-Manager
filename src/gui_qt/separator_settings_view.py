@@ -240,15 +240,17 @@ class SeparatorSettingsView(QWidget):
     # ---- colour handling -------------------------------------------------
     def _sync_colour_ui(self):
         """Repaint the swatch + hex field from self._color."""
+        p = active_palette()
         if self._color:
             self._swatch.setStyleSheet(
-                f"background:{self._color}; border:1px solid #000;")
+                f"background:{self._color};"
+                f" border:1px solid {_c(p, 'BORDER_FAINT')};")
             if self._hex.text().strip().lower() != self._color.lower():
                 self._hex.setText(self._color)
         else:
             self._swatch.setStyleSheet(
-                f"background:{_c(active_palette(), 'BG_SEP')};"
-                " border:1px dashed #888;")
+                f"background:{_c(p, 'BG_SEP')};"
+                f" border:1px dashed {_c(p, 'TEXT_DIM')};")
             self._hex.clear()
 
     def _on_choose_colour(self):

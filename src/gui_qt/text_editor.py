@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
     QPushButton, QTextEdit,
 )
 
-from gui_qt.theme_qt import active_palette, _c, qc
+from gui_qt.theme_qt import active_palette, bind_theme, bind_theme_icon, _c, qc
 
 
 class _LineNumberArea(QWidget):
@@ -138,7 +138,21 @@ class TextEditor(QWidget):
         self._matches: list[int] = []     # match start positions
         self._match_idx = -1
         self._build()
+        bind_theme(self, roles={
+            "BG_HEADER", "TEXT_DIM", "ACCENT", "TEXT_ON_ACCENT",
+        })
         self._do_load()
+
+    def refresh_theme(self, p: dict) -> None:
+        if not hasattr(self, "_edit"):
+            return
+        self._edit._gutter_bg = qc(p, "BG_HEADER")
+        self._edit._gutter_fg = qc(p, "TEXT_DIM")
+        self._edit._gutter.update()
+        self._hl_format.setBackground(qc(p, "ACCENT"))
+        self._hl_format.setForeground(qc(p, "TEXT_ON_ACCENT"))
+        if self._find.text():
+            self._on_find(self._find.text())
 
     # -- construction -------------------------------------------------------
     def _build(self):
@@ -163,18 +177,16 @@ class TextEditor(QWidget):
         self._find.textChanged.connect(self._on_find)
         self._find.returnPressed.connect(self._find_next)
         hb.addWidget(self._find)
-        from gui_qt.icons import icon_rotated
-        # White chevrons - the default blue arrow was hard to see on the blue
-        # button. Buttons stay blue (default).
-        arrow_clr = "#ffffff"
         self._prev_btn = QPushButton()
-        self._prev_btn.setIcon(icon_rotated("arrow.png", 180, 14, arrow_clr))  # up
+        bind_theme_icon(self._prev_btn, "arrow.png", 14, "TEXT_MAIN",
+                        degrees=180)
         self._prev_btn.setFixedWidth(28)
         self._prev_btn.setToolTip(self.tr("Previous match"))
         self._prev_btn.clicked.connect(self._find_prev)
         hb.addWidget(self._prev_btn)
         self._next_btn = QPushButton()
-        self._next_btn.setIcon(icon_rotated("arrow.png", 0, 14, arrow_clr))    # down
+        bind_theme_icon(self._next_btn, "arrow.png", 14, "TEXT_MAIN",
+                        degrees=0)
         self._next_btn.setFixedWidth(28)
         self._next_btn.setToolTip(self.tr("Next match"))
         self._next_btn.clicked.connect(self._find_next)

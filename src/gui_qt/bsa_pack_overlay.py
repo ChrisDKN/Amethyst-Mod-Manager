@@ -43,7 +43,8 @@ class BsaPackOverlay(OverlayBase):
             warn = QLabel(
                 self.tr("⚠  {0} already exists in this mod and will be overwritten.").format(archive_name))
             warn.setWordWrap(True)
-            warn.setStyleSheet("color:#e8a83a; font-size:12px;")
+            warn.setStyleSheet(
+                f"color:{_c(p, 'TEXT_WARN')}; font-size:12px;")
             v.addWidget(warn)
 
         # -- delete loose --------------------------------------------------

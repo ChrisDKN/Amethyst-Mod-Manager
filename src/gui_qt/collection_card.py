@@ -16,7 +16,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton
 
-from gui_qt.theme_qt import active_palette, _c
+from gui_qt.theme_qt import active_palette, contrast_text, _c
 from gui_qt.nexus_mod_card import _TwoLineLabel, _fmt_count, cap_summary, wrap_tooltip
 
 CARD_W = 240          # portrait card (Tk collection tile was ~220 wide)
@@ -124,7 +124,7 @@ class CollectionCard(QWidget):
             remove.setCursor(Qt.PointingHandCursor)
             remove.setStyleSheet(
                 f"QPushButton {{ background:{danger};"
-                f" color:#ffffff; border:none; border-radius:4px;"
+                f" color:{contrast_text(danger)}; border:none; border-radius:4px;"
                 f" padding:4px 10px; }}"
                 f"QPushButton:hover {{ background:{_lighten(danger)}; }}")
             remove.clicked.connect(lambda: on_remove(entry))

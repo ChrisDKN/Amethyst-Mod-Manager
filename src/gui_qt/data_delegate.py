@@ -9,7 +9,7 @@ from PySide6.QtCore import Qt, QRect
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QStyledItemDelegate
 
-from gui_qt.theme_qt import active_palette, _c, qc
+from gui_qt.theme_qt import bind_theme, _c, qc
 from gui_qt.icons import icon
 from gui_qt.data_model import COL_NAME, COL_MOD
 
@@ -22,12 +22,18 @@ class DataDelegate(QStyledItemDelegate):
     def __init__(self, view, parent=None):
         super().__init__(parent or view)
         self._view = view
-        p = active_palette()
+        bind_theme(self, roles={
+            "TEXT_MAIN", "TEXT_DIM", "BG_SELECT", "DROPDOWN_ARROW",
+            "FILE_WIN",
+        })
+
+    def refresh_theme(self, p: dict) -> None:
         self.c_text = qc(p, "TEXT_MAIN")
         self.c_dim = qc(p, "TEXT_DIM")
         self.c_win = qc(p, "FILE_WIN")
         self.c_sel = qc(p, "BG_SELECT")
         self.c_arrow = _c(p, "DROPDOWN_ARROW")   # expand/collapse arrow tint
+        self._view.viewport().update()
 
     def paint(self, p, opt, index):
         r = opt.rect

@@ -20,9 +20,10 @@ from PySide6.QtWidgets import (
     QPushButton, QScrollArea, QVBoxLayout, QWidget,
 )
 
-from gui_qt.icons import icon_rotated
 from gui_qt.safe_emit import safe_emit
-from gui_qt.theme_qt import _c, active_palette, contrast_text, danger_close_button
+from gui_qt.theme_qt import (
+    _c, active_palette, bind_theme_icon, contrast_text, danger_close_button,
+)
 from Utils import profile_groups as pg
 from Utils.profile_groups import GroupValidationError
 from Utils.profile_state import profile_uses_specific_mods
@@ -236,17 +237,16 @@ class ProfileGroupsView(QWidget):
             lbl = QLabel(member + (self.tr("  (missing)") if missing else ""))
             lbl.setStyleSheet(f"color:{_c(p, 'TEXT_MAIN')};")
             row.addWidget(lbl, 1)
-            # White-tinted arrow.png chevrons (the glyph font has no ▲/▼ here
-            # - same icon pair the text editor / bundle options use).
+            # Theme-tinted arrow.png chevrons (the glyph font has no ▲/▼ here).
             up = QPushButton(); up.setFixedSize(26, 24)
-            up.setIcon(icon_rotated("arrow.png", 180, 12, "#ffffff"))
+            bind_theme_icon(up, "arrow.png", 12, "TEXT_MAIN", degrees=180)
             up.setToolTip(self.tr("Move up"))
             up.setEnabled(i > 0)
             up.clicked.connect(lambda _=False, g=group_name, m=member, j=i:
                                self._move_member(g, m, j - 1))
             row.addWidget(up)
             down = QPushButton(); down.setFixedSize(26, 24)
-            down.setIcon(icon_rotated("arrow.png", 0, 12, "#ffffff"))
+            bind_theme_icon(down, "arrow.png", 12, "TEXT_MAIN", degrees=0)
             down.setToolTip(self.tr("Move down"))
             down.setEnabled(i < len(members) - 1)
             down.clicked.connect(lambda _=False, g=group_name, m=member, j=i:

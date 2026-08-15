@@ -17,15 +17,12 @@ from PySide6.QtWidgets import (
     QSplitter, QTreeWidget, QTreeWidgetItem,
 )
 
-from gui_qt.theme_qt import active_palette, _c, danger_close_button
+from gui_qt.theme_qt import active_palette, bind_theme, _c, danger_close_button
 from gui_qt.worker import run_in_worker
 from Utils.conflicts_view import BSA_ROW_RE
 
-# Exact Tk tone colours (section headers) + BSA row tint.
-_TONE_GREEN = "#98c379"
-_TONE_RED = "#e06c75"
-_TONE_BLUE = "#61afef"
-_TAG_BSA = QColor("#56d8e4")
+_BSA_ROLE = Qt.UserRole + 20
+_INFO_ROLE = Qt.UserRole + 21
 
 
 class ShowConflictsView(QWidget):
@@ -43,7 +40,22 @@ class ShowConflictsView(QWidget):
         self.setObjectName("ShowConflictsView")
         self._ready.connect(self._on_ready)
         self._build()
+        bind_theme(self, roles={"TEXT_DIM", "TONE_CYAN"})
         self._start()
+
+    def refresh_theme(self, p: dict) -> None:
+        for tree in (getattr(self, "_over_tree", None),
+                     getattr(self, "_under_tree", None),
+                     getattr(self, "_none_tree", None)):
+            if tree is None:
+                continue
+            for row in range(tree.topLevelItemCount()):
+                item = tree.topLevelItem(row)
+                if item.data(0, _BSA_ROLE):
+                    item.setForeground(0, QColor(_c(p, "TONE_CYAN")))
+                elif item.data(0, _INFO_ROLE):
+                    item.setForeground(0, QColor(_c(p, "TEXT_DIM")))
+            tree.viewport().update()
 
     # ---- layout -----------------------------------------------------------
     def _build(self):
@@ -66,13 +78,13 @@ class ShowConflictsView(QWidget):
 
         # Body: left column (2 stacked panes) | right column (1 pane).
         self._over_pane, self._over_tree = self._make_pane(
-            p, self.tr("Files overriding others"), _TONE_GREEN,
+            p, self.tr("Files overriding others"), "TONE_GREEN",
             [self.tr("File path"), self.tr("Mod(s) beaten")])
         self._under_pane, self._under_tree = self._make_pane(
-            p, self.tr("Files overridden by others"), _TONE_RED,
+            p, self.tr("Files overridden by others"), "TONE_RED",
             [self.tr("File path"), self.tr("Winning mod")])
         self._none_pane, self._none_tree = self._make_pane(
-            p, self.tr("Files with no conflicts"), _TONE_BLUE, [self.tr("File path")])
+            p, self.tr("Files with no conflicts"), "TONE_BLUE", [self.tr("File path")])
 
         left = QSplitter(Qt.Vertical)
         left.addWidget(self._over_pane)
@@ -103,7 +115,7 @@ class ShowConflictsView(QWidget):
         pv = QVBoxLayout(pane); pv.setContentsMargins(0, 0, 0, 0); pv.setSpacing(0)
         hdr = QLabel(title)
         hdr.setStyleSheet(
-            f"color:{tone}; font-weight:700; font-size:12px;"
+            f"color:{_c(p, tone)}; font-weight:700; font-size:12px;"
             f" background:{_c(p,'BG_PANEL')}; padding:6px 8px;")
         pv.addWidget(hdr)
         tree = QTreeWidget()
@@ -151,12 +163,14 @@ class ShowConflictsView(QWidget):
         if not rows:
             it = QTreeWidgetItem(["(none)", ""])
             it.setForeground(0, QColor(_c(active_palette(), "TEXT_DIM")))
+            it.setData(0, _INFO_ROLE, True)
             tree.addTopLevelItem(it)
             return
         for path, other in rows:
             it = QTreeWidgetItem([path, other])
             if BSA_ROW_RE.match(path) or path in bsa_paths:
-                it.setForeground(0, _TAG_BSA)
+                it.setForeground(0, QColor(_c(active_palette(), "TONE_CYAN")))
+                it.setData(0, _BSA_ROLE, True)
             tree.addTopLevelItem(it)
 
     def _fill_one(self, pane, tree, rows):
@@ -166,10 +180,12 @@ class ShowConflictsView(QWidget):
         if not rows:
             it = QTreeWidgetItem(["(none)"])
             it.setForeground(0, QColor(_c(active_palette(), "TEXT_DIM")))
+            it.setData(0, _INFO_ROLE, True)
             tree.addTopLevelItem(it)
             return
         for path in rows:
             it = QTreeWidgetItem([path])
             if BSA_ROW_RE.match(path):
-                it.setForeground(0, _TAG_BSA)
+                it.setForeground(0, QColor(_c(active_palette(), "TONE_CYAN")))
+                it.setData(0, _BSA_ROLE, True)
             tree.addTopLevelItem(it)

@@ -17,28 +17,21 @@ index so they line up with the visible scroll position.
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor, QPainter
+from PySide6.QtGui import QPainter
 from PySide6.QtWidgets import QScrollBar, QStyle, QStyleOptionSlider
+
+from gui_qt.theme_qt import bind_theme, qc
 
 
 class MarkerScrollBar(QScrollBar):
-    _C_ANCHOR = QColor("#e08a2a")   # anchor (orange)
-    _C_HIGHER = QColor("#3ad13a")   # selection beats this row (green)
-    _C_LOWER = QColor("#e05050")    # this row beats selection (red)
-    _C_REQUIRES = QColor("#a86ae0")     # selection requires this row (purple)
-    _C_REQUIRED_BY = QColor("#4a90e0")  # this row requires selection (blue)
-    _C_MISSING = QColor("#e05050")  # plugin has missing masters (red)
-    _C_MASTER = QColor("#3ad13a")   # master of the selected plugin (green)
-    _C_CYCLE = QColor("#e05050")    # plugin's userlist rules form a cycle (red)
-
     def __init__(self, view, highlight_role: int, code_map: dict | None = None):
         super().__init__(Qt.Vertical, view)
         self._view = view
         self._role = highlight_role
-        self._code_cols = code_map if code_map is not None else {
-            -1: self._C_LOWER, 1: self._C_HIGHER,
-            -3: self._C_REQUIRED_BY, 3: self._C_REQUIRES,
-            2: self._C_ANCHOR,
+        self._code_roles = code_map if code_map is not None else {
+            -1: "CONFLICT_HL_LOSE", 1: "CONFLICT_HL_WIN",
+            -3: "REQ_HL_REQUIRED_BY", 3: "REQ_HL_REQUIRES",
+            2: "CONFLICT_HL_ANCHOR",
         }
         # Persistent, selection-independent overlays (plugins panel). Rows are
         # model row indices. Painted on top of the role-driven conflict ticks,
@@ -48,6 +41,16 @@ class MarkerScrollBar(QScrollBar):
         self._master_rows: set[int] = set()    # masters of the selected plugin
         self._cycle_rows: set[int] = set()     # plugins with a broken cycle
         self.setStyleSheet("QScrollBar:vertical { background: transparent; }")
+        bind_theme(self, roles=(
+            set(self._code_roles.values()) | {"TONE_RED", "TONE_GREEN"}))
+
+    def refresh_theme(self, palette):
+        self._code_cols = {code: qc(palette, role)
+                           for code, role in self._code_roles.items()}
+        self._c_missing = qc(palette, "TONE_RED")
+        self._c_master = qc(palette, "TONE_GREEN")
+        self._c_cycle = qc(palette, "TONE_RED")
+        self.update()
 
     def set_persistent_rows(self, missing=None, master=None, cycle=None) -> None:
         """Set the persistent overlay row sets (missing masters / selected
@@ -120,7 +123,7 @@ class MarkerScrollBar(QScrollBar):
             # master(green) < conflict_lower(red) < conflict_higher(green)
             #   < highlighted/anchor(orange) < missing(red).
             for r in self._master_rows:
-                tick(r, self._C_MASTER)
+                tick(r, self._c_master)
             # lower → higher → required-by → requires → anchor so the anchor
             # wins on coincidence (the requirement codes never coexist with the
             # conflict ones - set_highlights swaps all sets at once). The map is
@@ -130,9 +133,9 @@ class MarkerScrollBar(QScrollBar):
                     if code == wanted:
                         tick(r, col)
             for r in self._cycle_rows:
-                tick(r, self._C_CYCLE)
+                tick(r, self._c_cycle)
             for r in self._missing_rows:
-                tick(r, self._C_MISSING)
+                tick(r, self._c_missing)
             p.end()
 
         # Groove + handle on top → ticks read as being "under" the scrollbar.
@@ -144,7 +147,7 @@ def install_marker_strip(view, highlight_role: int,
     """Replace *view*'s vertical scrollbar with a MarkerScrollBar that paints
     conflict ticks. Refreshes on scroll + any highlight-role change. Returns the
     scrollbar (also stored on the view as ``_marker_strip``). Pass *code_map*
-    (highlight code → QColor) to override the default modlist tick colours - the
+    (highlight code → palette role) to override the default modlist tick colours - the
     plugins panel does this because it reuses code 3 for masters, not requires."""
     sb = MarkerScrollBar(view, highlight_role, code_map)
     view.setVerticalScrollBar(sb)

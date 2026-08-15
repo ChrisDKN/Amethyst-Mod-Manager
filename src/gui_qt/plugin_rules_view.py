@@ -166,7 +166,7 @@ class PluginRulesView(QWidget):
             QListWidget {{ background:{self._c_bg_panel}; color:{self._c_text};
                            border:1px solid {self._c_border}; }}
             QListWidget::item:selected {{ background:{self._c_accent};
-                                          color:white; }}
+                                          color:{_c(p, 'TEXT_ON_ACCENT')}; }}
         """)
 
         root = QVBoxLayout(self)

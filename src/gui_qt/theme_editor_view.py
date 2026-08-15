@@ -11,14 +11,11 @@ Grouping + derivation come from ``theme_editor_groups``: editing a *base* colour
 (e.g. ``BTN_CANCEL``) recomputes its variants (``BTN_CANCEL_HOV``) automatically
 unless "Advanced" is ticked, which reveals and unlocks every individual key.
 
-The app itself is never live-restyled: ~72 widgets snapshot the palette at
-build time and set inline stylesheets, so a partial live re-style looked broken
-(some elements updated, others didn't). Instead the theme is applied on a full
-app restart - the top bar has a **Restart to apply** button, and Save offers
-the same. To still see choices before committing, the editor is split: colour
-swatches on the left, and a sandboxed dummy preview (``ThemePreviewPanel``) on
-the right that re-renders the working palette after every pick without
-touching the rest of the app.
+The working palette is applied to the running Qt application after a source
+theme is loaded or a colour is confirmed. It remains temporary until Save/Save
+As persists it; permanently closing the editor restores the persisted theme.
+The sandbox preview stays useful while this full-screen tab hides most of the
+real application.
 """
 
 from __future__ import annotations
@@ -28,9 +25,10 @@ from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QScrollArea, QFrame,
     QLabel, QComboBox, QPushButton, QCheckBox, QGroupBox, QSplitter,
+    QApplication,
 )
 
-from gui_qt.theme_qt import active_palette, _c
+from gui_qt.theme_qt import active_palette, apply_theme, _c
 from gui_qt.theme_preview import ThemePreviewPanel
 from gui_qt.color_picker_overlay import ColorPickerOverlay
 from gui_qt.confirm_overlay import ConfirmOverlay
@@ -252,6 +250,7 @@ class ThemeEditorView(QWidget):
         self._working: dict = {}                 # palette being edited
         self._swatches: dict[str, QPushButton] = {}
         self._dirty = False                      # unsaved edits since last save
+        self._closing = False
 
         # UI ----------------------------------------------------------------
         outer = QVBoxLayout(self)
@@ -265,8 +264,8 @@ class ThemeEditorView(QWidget):
         self._scroll.setWidgetResizable(True)
         self._scroll.setFrameShape(QFrame.NoFrame)
 
-        # Left: colour swatches. Right: sandboxed live preview of the working
-        # palette (only the preview subtree is restyled, never the app).
+        # Left: colour swatches. Right: a compact preview that remains visible
+        # while this full-screen editor covers the rest of the application.
         self._preview = ThemePreviewPanel()
         split = QSplitter(Qt.Horizontal)
         split.addWidget(self._scroll)
@@ -351,15 +350,6 @@ class ThemeEditorView(QWidget):
         self._delete_btn.clicked.connect(self._delete)
         h.addWidget(self._delete_btn)
 
-        # Applying a theme touches ~72 widgets that cache their colours at build
-        # time, so it's applied by a full restart rather than a partial live
-        # re-style. This button saves (if needed) then restarts.
-        self._restart_btn = QPushButton(self.tr("Restart to apply"))
-        self._restart_btn.setObjectName("PrimaryButton")
-        self._restart_btn.setCursor(Qt.PointingHandCursor)
-        self._restart_btn.clicked.connect(self._restart_to_apply)
-        h.addWidget(self._restart_btn)
-
         close = QPushButton(self.tr("✕ Close"))
         close.setObjectName("FormButton")
         close.setCursor(Qt.PointingHandCursor)
@@ -390,7 +380,11 @@ class ThemeEditorView(QWidget):
                                else self.tr("Save As New…"))
         self._dirty = False
         self._rebuild_body()
-        self._preview.refresh(self._working)
+        # Seed the preview's explicit QPalette before the app-wide apply. The
+        # runtime's selective repolish then resolves palette(...) expressions
+        # in this subtree once, using the new working colours.
+        self._preview.refresh(self._working, restyle=False)
+        self._apply_working_preview()
 
     def _rebuild_body(self):
         body = QWidget()
@@ -400,8 +394,8 @@ class ThemeEditorView(QWidget):
 
         note = QLabel(self.tr(
             "Editing a base colour adjusts its hover/variants automatically. "
-            "Tick Advanced to edit every colour individually. Use \"Restart to "
-            "apply\" to save your theme and see it across the whole app."))
+            "Tick Advanced to edit every colour individually. Changes preview "
+            "across the open app; save the theme to keep them."))
         note.setWordWrap(True)
         note.setStyleSheet(f"color:{_c(self._pal, 'TEXT_DIM')};")
         v.addWidget(note)
@@ -478,7 +472,8 @@ class ThemeEditorView(QWidget):
                 self._working[k] = v
                 self._paint_swatch(k)
         self._dirty = True
-        self._preview.refresh(self._working)
+        self._preview.refresh(self._working, restyle=False)
+        self._apply_working_preview()
 
     def _on_advanced_toggled(self, on: bool):
         self._advanced = bool(on)
@@ -490,27 +485,25 @@ class ThemeEditorView(QWidget):
             self._load_theme(tid)
 
     # ---- save / delete ----------------------------------------------------
-    def _save(self, save_as: bool, then_restart: bool = False):
+    def _save(self, save_as: bool):
         if not save_as and self._editing_id:
             self._do_save(self._editing_id,
-                          self._names.get(self._editing_id, "Theme"),
-                          then_restart=then_restart)
+                          self._names.get(self._editing_id, "Theme"))
             return
         # Save As (or a first save on a built-in): ask for a name.
         from gui_qt.text_input_overlay import TextInputOverlay
         suggestion = self._names.get(self._start_combo.currentData(), "My Theme")
         TextInputOverlay.show_over(
             self, self.tr("Save Theme"), self.tr("Theme name:"),
-            lambda name: self._on_name_entered(name, then_restart),
+            self._on_name_entered,
             initial=suggestion, ok_label=self.tr("Save"))
 
-    def _on_name_entered(self, name, then_restart: bool = False):
+    def _on_name_entered(self, name):
         if not name or not name.strip():
             return
-        self._do_save(None, name.strip(), then_restart=then_restart)
+        self._do_save(None, name.strip())
 
-    def _do_save(self, theme_id, name, then_restart: bool = False,
-                 overwrite: bool = False) -> str | None:
+    def _do_save(self, theme_id, name, overwrite: bool = False) -> str | None:
         # Base clone from the palette we started from guarantees a full key set.
         start_id = self._start_combo.currentData() or "dark"
         base = self._palettes.get(start_id, {})
@@ -528,56 +521,36 @@ class ThemeEditorView(QWidget):
         self._names = load_display_names()
         self._editing_id = new_id
         self._dirty = False
-        # Make the saved theme the active one (applied on next launch).
+        # Make the saved theme active now and on subsequent launches.
         try:
             uc.save_appearance_mode(new_id)
         except Exception:
             pass
+        app = QApplication.instance()
+        if app is not None:
+            apply_theme(app)
         self._refresh_start_combo(new_id)
+        self._refresh_open_theme_selectors(new_id)
         self._delete_btn.setVisible(True)
         self._save_btn.setText(self.tr("Save"))
-        if then_restart:
-            self._request_restart()
         return new_id
 
-    def _restart_to_apply(self):
-        """Apply the palette CURRENTLY on screen and restart - no name prompt.
+    def _apply_working_preview(self):
+        app = QApplication.instance()
+        if app is not None and self._working:
+            apply_theme(app, self._working)
 
-        Whatever colours are shown are written verbatim and made the active
-        theme, so "Restart to apply" always applies exactly what you're editing:
-          * editing an existing custom theme  → overwrite it in place;
-          * a pristine custom theme selected  → just re-select + restart;
-          * editing a built-in (or unsaved)   → write to an auto-named custom
-            theme (e.g. "Dark (edited)") so the on-screen palette applies as-is
-            and stays re-editable. Use Save As to give it a different name.
-        """
-        # Pristine existing custom theme: nothing to write, just select it.
-        if self._editing_id is not None and not self._dirty:
-            try:
-                uc.save_appearance_mode(self._editing_id)
-            except Exception:
-                pass
-            self._request_restart()
+    def _refresh_open_theme_selectors(self, select_id: str | None = None):
+        app = QApplication.instance()
+        if app is None:
             return
-
-        # Editing an existing custom theme: overwrite it in place.
-        if self._editing_id is not None:
-            self._do_save(self._editing_id,
-                          self._names.get(self._editing_id, "Theme"),
-                          then_restart=True)
-            return
-
-        # Editing a built-in / unsaved: apply verbatim to an auto-named theme,
-        # overwriting a prior auto-theme of the same name in place.
-        start_id = self._start_combo.currentData() or "dark"
-        base_name = self._names.get(start_id, "Custom")
-        self._do_save(None, self.tr("{0} (edited)").format(base_name),
-                      then_restart=True, overwrite=True)
-
-    def _request_restart(self):
-        fn = getattr(self._window, "_request_restart", None)
-        if callable(fn):
-            fn()
+        for widget in app.allWidgets():
+            refresh = getattr(widget, "refresh_theme_options", None)
+            if callable(refresh):
+                try:
+                    refresh(select_id)
+                except (RuntimeError, TypeError):
+                    pass
 
     def _refresh_start_combo(self, select_id):
         self._start_combo.blockSignals(True)
@@ -611,6 +584,7 @@ class ThemeEditorView(QWidget):
             pass
         self._palettes = load_palettes()
         self._names = load_display_names()
+        self._refresh_open_theme_selectors()
         self._refresh_start_combo("dark")
         self._load_theme("dark" if "dark" in self._palettes
                          else next(iter(self._palettes), "dark"))
@@ -624,4 +598,14 @@ class ThemeEditorView(QWidget):
                 return
             except Exception:
                 pass
+        self.tab_closing()
         self.hide()
+
+    def tab_closing(self):
+        """Restore the persisted theme before this editor is destroyed."""
+        if self._closing:
+            return
+        self._closing = True
+        app = QApplication.instance()
+        if app is not None:
+            apply_theme(app)

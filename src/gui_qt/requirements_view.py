@@ -18,8 +18,13 @@ from PySide6.QtWidgets import (
     QFrame, QSizePolicy, QPushButton,
 )
 
-from gui_qt.theme_qt import active_palette, _c, danger_close_button, button_qss
-from gui_qt.modlist_delegate import _contrasting_text_color
+from gui_qt.theme_qt import (
+    active_palette, bind_theme, contrast_text, _c, danger_close_button,
+    button_qss,
+)
+
+
+_DIM_ITEM_ROLE = Qt.UserRole + 37
 
 
 class _ElidedLabel(QLabel):
@@ -83,6 +88,15 @@ class RequirementsView(QWidget):
 
         self.setObjectName("RequirementsView")
         self._build()
+        bind_theme(self, roles={"TEXT_DIM"})
+
+    def refresh_theme(self, p):
+        for lst in (self._requires_list, self._required_by_list):
+            for i in range(lst.count()):
+                item = lst.item(i)
+                if item.data(_DIM_ITEM_ROLE):
+                    item.setForeground(QColor(_c(p, "TEXT_DIM")))
+            lst.viewport().update()
 
     # ---- layout -----------------------------------------------------------
     def _build(self):
@@ -140,7 +154,7 @@ class RequirementsView(QWidget):
         head.setAlignment(Qt.AlignCenter)
         head.setStyleSheet(
             f"background:{header_bg};"
-            f" color:{_contrasting_text_color(header_bg)};"
+            f" color:{contrast_text(header_bg)};"
             f" font-weight:600; padding:6px;"
             f" border:1px solid {_c(p,'BORDER')}; border-bottom:none;")
         col.addWidget(head)
@@ -306,6 +320,7 @@ class RequirementsView(QWidget):
 
     def _add_row(self, lst: QListWidget, text: str, *, dim: bool):
         it = QListWidgetItem(text)
+        it.setData(_DIM_ITEM_ROLE, dim)
         if dim:
             it.setForeground(QColor(_c(active_palette(), "TEXT_DIM")))
         it.setToolTip(text)

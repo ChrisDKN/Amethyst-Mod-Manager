@@ -95,7 +95,7 @@ class PluginGroupsView(QWidget):
             QListWidget {{ background:{self._c_bg_panel}; color:{self._c_text};
                            border:1px solid {self._c_border}; }}
             QListWidget::item:selected {{ background:{self._c_accent};
-                                          color:white; }}
+                                          color:{self._c_on_accent}; }}
             QComboBox {{ background:{self._c_bg_header}; color:{self._c_text};
                          border:1px solid {self._c_border}; border-radius:4px;
                          padding:3px 6px; }}

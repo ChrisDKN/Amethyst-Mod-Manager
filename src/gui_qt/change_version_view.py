@@ -13,29 +13,16 @@ from __future__ import annotations
 import threading
 
 from PySide6.QtCore import Qt, Signal, QT_TRANSLATE_NOOP
-from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QPushButton,
     QCheckBox, QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView,
 )
 
-from gui_qt.theme_qt import active_palette, _c, danger_close_button, button_qss, qc
+from gui_qt.theme_qt import (
+    active_palette, bind_theme, _c, danger_close_button, button_qss, qc,
+)
 from gui_qt.safe_emit import safe_emit
 from Utils.mod_files_versions import resolve_latest_name_match, fmt_size, sort_key
-
-# File-row highlight colours, resolved from the active theme so a monotone /
-# high-contrast theme actually takes effect (were hardcoded Tk hex before).
-def _hl_colors(p: dict | None = None) -> dict[str, QColor]:
-    p = p or active_palette()
-    return {
-        "installed_bg": qc(p, "BG_GREEN_DEEP"),
-        "installed_fg": qc(p, "TEXT_OK_BRIGHT"),
-        "match_bg":     qc(p, "BG_ORANGE_DEEP"),
-        "match_fg":     qc(p, "STATUS_QUEUED"),
-        "old_bg":       qc(p, "BG_RED_DEEP"),
-        "old_fg":       qc(p, "TEXT_ERR_BRIGHT"),
-    }
-
 
 # Translated at display time (setHorizontalHeaderLabels); register for lupdate.
 _COLS = [
@@ -45,6 +32,8 @@ _COLS = [
     QT_TRANSLATE_NOOP("ChangeVersionView", "Size"),
     "",
 ]
+
+_ROW_THEME_ROLE = Qt.UserRole + 41
 
 
 class _LegendBar(QWidget):
@@ -62,24 +51,25 @@ class _LegendBar(QWidget):
         self._grid.setContentsMargins(self._MARGIN, 4, self._MARGIN, 4)
         self._grid.setHorizontalSpacing(self._COL_GAP)
         self._grid.setVerticalSpacing(2)
-        hl = _hl_colors(p)
         legend_items = [
-            (hl["installed_fg"], "Currently installed"),
-            (hl["match_fg"], "Newest matching version"),
-            (hl["old_fg"], "Older matching version"),
+            ("TEXT_OK_BRIGHT", "Currently installed"),
+            ("STATUS_QUEUED", "Newest matching version"),
+            ("TEXT_ERR_BRIGHT", "Older matching version"),
             (None, "No name match"),
         ]
-        self._entries = [self._make_entry(p, c, lbl) for c, lbl in legend_items]
+        self._entries = [self._make_entry(p, key, lbl)
+                         for key, lbl in legend_items]
         self._cols = 0          # force first layout
         self._one_row_min = self._one_row_width()
         self._relayout(force=True)
 
-    def _make_entry(self, p, color, label) -> QWidget:
+    def _make_entry(self, p, color_key, label) -> QWidget:
         e = QWidget()
         h = QHBoxLayout(e); h.setContentsMargins(0, 0, 0, 0); h.setSpacing(6)
         sw = QLabel(); sw.setFixedSize(12, 12)
-        bg = color.name() if color is not None else _c(p, "BG_DEEP")
-        border = "" if color is not None else f" border:1px solid {_c(p,'TEXT_DIM')};"
+        bg = _c(p, color_key) if color_key else _c(p, "BG_DEEP")
+        border = ("" if color_key else
+                  f" border:1px solid {_c(p,'TEXT_DIM')};")
         sw.setStyleSheet(f"background:{bg}; border-radius:2px;{border}")
         h.addWidget(sw)
         lbl = QLabel(label); lbl.setStyleSheet(f"color:{_c(p,'TEXT_DIM')};")
@@ -187,7 +177,28 @@ class ChangeVersionView(QWidget):
             lambda k, n, d, t: self._progress_fn(k, n, int(d), int(t)))
 
         self._build()
+        bind_theme(self, roles={
+            "BG_GREEN_DEEP", "TEXT_OK_BRIGHT", "BG_ORANGE_DEEP",
+            "STATUS_QUEUED", "BG_RED_DEEP", "TEXT_ERR_BRIGHT",
+        })
         self._start_fetch()
+
+    def refresh_theme(self, p):
+        """Recolour populated rows without replacing their widgets or state."""
+        for row in range(self._table.rowCount()):
+            for col in range(4):
+                item = self._table.item(row, col)
+                if item is None:
+                    continue
+                spec = item.data(_ROW_THEME_ROLE)
+                if not spec:
+                    continue
+                bg_key, fg_key = spec
+                if bg_key:
+                    item.setBackground(qc(p, bg_key))
+                if fg_key:
+                    item.setForeground(qc(p, fg_key))
+        self._table.viewport().update()
 
     # ---- layout -----------------------------------------------------------
     def _build(self):
@@ -308,7 +319,7 @@ class ChangeVersionView(QWidget):
         domain = self._effective_domain()
         mod_id = int(getattr(self._meta, "mod_id", 0) or 0)
 
-        hl = _hl_colors()
+        p = active_palette()
         self._install_btns = []      # the old row widgets are about to be replaced
         if not self._install_status:
             self._status.setVisible(False)   # drop a stale download-only notice
@@ -319,13 +330,13 @@ class ChangeVersionView(QWidget):
             is_match = not is_installed and match_id > 0 and f.file_id == match_id
             is_old = not is_installed and not is_match and f.file_id in old_ids
             if is_installed:
-                bg, name_fg = hl["installed_bg"], hl["installed_fg"]
+                bg_key, name_fg_key = "BG_GREEN_DEEP", "TEXT_OK_BRIGHT"
             elif is_match:
-                bg, name_fg = hl["match_bg"], hl["match_fg"]
+                bg_key, name_fg_key = "BG_ORANGE_DEEP", "STATUS_QUEUED"
             elif is_old:
-                bg, name_fg = hl["old_bg"], hl["old_fg"]
+                bg_key, name_fg_key = "BG_RED_DEEP", "TEXT_ERR_BRIGHT"
             else:
-                bg = name_fg = None
+                bg_key = name_fg_key = None
 
             name_text = (f.name or f.file_name or "") + ("  ✓" if is_installed else "")
             size = f.size_in_bytes or (f.size_kb * 1024 if f.size_kb else 0)
@@ -333,17 +344,19 @@ class ChangeVersionView(QWidget):
                      (f.category_name or "").capitalize(), fmt_size(size)]
             for col, text in enumerate(cells):
                 it = QTableWidgetItem(text)
-                if bg is not None:
-                    it.setBackground(bg)
-                if col == 0 and name_fg is not None:
-                    it.setForeground(name_fg)
+                fg_key = name_fg_key if col == 0 else None
+                it.setData(_ROW_THEME_ROLE, (bg_key, fg_key))
+                if bg_key is not None:
+                    it.setBackground(qc(p, bg_key))
+                if fg_key is not None:
+                    it.setForeground(qc(p, fg_key))
                 self._table.setItem(row, col, it)
 
             # Buttons cell (View + Install).
             cell = QWidget()
-            if bg is not None:
+            if bg_key is not None:
                 cell.setAutoFillBackground(True)
-                cell.setStyleSheet(f"background:{bg.name()};")
+                cell.setStyleSheet(f"background:{_c(p, bg_key)};")
             cb = QHBoxLayout(cell); cb.setContentsMargins(8, 4, 8, 4); cb.setSpacing(6)
             view_url = (f"https://www.nexusmods.com/{domain}/mods/{mod_id}"
                         f"?tab=files&file_id={f.file_id}")

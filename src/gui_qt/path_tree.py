@@ -15,7 +15,7 @@ from PySide6.QtCore import Qt, QModelIndex, QAbstractItemModel, QRect
 from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import QStyledItemDelegate
 
-from gui_qt.theme_qt import active_palette, _c
+from gui_qt.theme_qt import bind_theme, _c, qc
 from gui_qt.icons import icon
 
 __all__ = ["Node", "node_path", "build_tree", "sort_tree", "split_row_width",
@@ -186,15 +186,20 @@ class PathTreeDelegate(QStyledItemDelegate):
     def __init__(self, view, parent=None):
         super().__init__(parent or view)
         self._view = view
-        p = active_palette()
-        self.c_text = QColor(_c(p, "TEXT_MAIN"))
-        self.c_dim = QColor("#9a9a9a")
-        self.c_sel = QColor(_c(p, "BG_SELECT"))
-        self.c_arrow = _c(p, "DROPDOWN_ARROW")   # expand/collapse arrow tint
-        # Same tones as the Show Conflicts tab panes.
-        self.c_win = QColor("#98c379")
-        self.c_lose = QColor("#e06c75")
-        self.c_mixed = QColor("#e5c07b")
+        bind_theme(self, roles={
+            "TEXT_MAIN", "TEXT_DIM", "TEXT_WARN", "BG_SELECT",
+            "DROPDOWN_ARROW", "TONE_GREEN", "TONE_RED",
+        })
+
+    def refresh_theme(self, p: dict) -> None:
+        self.c_text = qc(p, "TEXT_MAIN")
+        self.c_dim = qc(p, "TEXT_DIM")
+        self.c_sel = qc(p, "BG_SELECT")
+        self.c_arrow = _c(p, "DROPDOWN_ARROW")
+        self.c_win = qc(p, "TONE_GREEN")
+        self.c_lose = qc(p, "TONE_RED")
+        self.c_mixed = qc(p, "TEXT_WARN")
+        self._view.viewport().update()
 
     def paint(self, p, opt, index):
         r = opt.rect

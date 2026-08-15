@@ -6,12 +6,11 @@ palette is rendered via ``build_qss``/``build_qpalette`` set on the preview
 root (Qt's nearest-ancestor stylesheet wins over the app-wide one), plus a
 list of registered updaters for elements the real app paints manually
 (delegate brushes, inline-styled banner rows, palette-driven buttons). The
-real application is never restyled; applying a theme app-wide still requires
-the editor's "Restart to apply".
+same working palette is also applied temporarily across the open application.
 
-Known limitation: popup windows (the combo's dropdown list, menus) are
-top-level widgets styled by the app-wide active theme, so they don't track
-the working palette. Everything inline does.
+Popup windows such as combo lists and menus follow the same app-wide temporary
+palette, while the embedded panel continues to make the full set of roles easy
+to inspect inside the editor.
 """
 
 from __future__ import annotations
@@ -79,6 +78,7 @@ class ThemePreviewPanel(QWidget):
         super().__init__(parent)
         # Manual repaint hooks, each called with the palette dict on refresh.
         self._updaters: list[Callable[[dict], None]] = []
+        self._base_palette = None
         # (item, column, bg_key, fg_key) - tree cells painted via brushes,
         # mirroring how the real modlist delegate colours its rows.
         self._tree_cells: list[tuple[QTreeWidgetItem, int, str | None, str | None]] = []
@@ -88,8 +88,8 @@ class ThemePreviewPanel(QWidget):
         outer.setSpacing(0)
 
         caption = QLabel(self.tr(
-            "Preview - approximate; use \"Restart to apply\" to see the theme "
-            "across the whole app."))
+            "Preview - changes are also applied temporarily across the open "
+            "app. Save the theme to keep them."))
         caption.setWordWrap(True)
         caption.setContentsMargins(12, 8, 12, 8)
         outer.addWidget(caption)
@@ -119,13 +119,24 @@ class ThemePreviewPanel(QWidget):
         scroll.setWidget(self._content)
 
     # ---- public -------------------------------------------------------------
-    def refresh(self, pal: dict) -> None:
+    def refresh(self, pal: dict, *, restyle: bool = True) -> None:
         """Re-render the preview from *pal*. Standard widgets pick the new
         colours up from the regenerated QSS/QPalette; manually painted samples
-        are repainted by the registered updaters."""
+        are repainted by the registered updaters.
+
+        The theme editor passes ``restyle=False`` immediately before its
+        app-wide live apply. This seeds the subtree's explicit palette, then the
+        runtime rewrites/repolishes its tagged rules once; setting the same
+        large local QSS again here would trigger a duplicate layout pass. A new
+        preview has no stylesheet and is always initialised in full regardless.
+        """
         p = dict(pal)   # snapshot - the editor mutates its working dict in place
-        self._content.setStyleSheet(build_qss(p) + self._extra_qss(p))
-        self._content.setPalette(build_qpalette(p))
+        qpalette = build_qpalette(p)
+        if getattr(self, "_base_palette", None) != qpalette:
+            self._base_palette = qpalette
+            self._content.setPalette(qpalette)
+        if restyle or not self._content.styleSheet():
+            self._content.setStyleSheet(build_qss(p) + self._extra_qss(p))
         for fn in self._updaters:
             fn(p)
 

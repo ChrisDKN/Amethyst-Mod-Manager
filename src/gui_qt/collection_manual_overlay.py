@@ -32,10 +32,7 @@ from PySide6.QtWidgets import (
     QCheckBox,
 )
 
-from gui_qt.theme_qt import active_palette, _c
-
-_REQ_TONE = "#3c8a3c"    # "Required" badge (green, matches Tk BG_MOD_REQ)
-_OPT_TONE = "#b07c28"    # "Optional" badge (amber, matches Tk BG_MOD_OPT)
+from gui_qt.theme_qt import active_palette, contrast_text, _c
 
 
 def _fmt_size(n: int) -> str:
@@ -143,8 +140,9 @@ class CollectionManualOverlay(QWidget):
             f"color:{self._tc('TEXT_DIM')}; font-size:11px;")
         info_row.addWidget(self._size_lbl)
         self._badge_lbl = QLabel("", card)
+        badge_bg = self._tc("BG_MOD_REQ")
         self._badge_lbl.setStyleSheet(
-            f"background:{_REQ_TONE}; color:#ffffff; font-weight:600;"
+            f"background:{badge_bg}; color:{contrast_text(badge_bg)}; font-weight:600;"
             " font-size:10px; padding:1px 6px; border-radius:3px;")
         self._badge_lbl.hide()
         info_row.addWidget(self._badge_lbl)
@@ -283,9 +281,10 @@ class CollectionManualOverlay(QWidget):
         self._size_lbl.setText(_fmt_size(payload.get("size", 0)))
         optional = bool(payload.get("optional"))
         self._badge_lbl.setText(self.tr("Optional") if optional else self.tr("Required"))
+        badge_bg = self._tc("BG_MOD_OPT" if optional else "BG_MOD_REQ")
         self._badge_lbl.setStyleSheet(
-            f"background:{_OPT_TONE if optional else _REQ_TONE};"
-            " color:#ffffff; font-weight:600; font-size:10px;"
+            f"background:{badge_bg}; color:{contrast_text(badge_bg)};"
+            " font-weight:600; font-size:10px;"
             " padding:1px 6px; border-radius:3px;")
         self._badge_lbl.show()
         self._cur_optional = optional

@@ -25,6 +25,7 @@ from gui_qt.modlist_model import (
 from gui_qt.modlist_delegate import ModRowDelegate, SEP_H
 from gui_qt import column_state
 from gui_qt.modlist_header import TkStyleHeader
+from gui_qt.theme_qt import bind_theme, _c
 
 
 class _StayOpenMenu(QMenu):
@@ -184,6 +185,16 @@ class ModListView(QTreeView):
         from gui_qt.marker_strip import install_marker_strip
         install_marker_strip(self, HighlightRole)
         self._reposition_marker_strip()
+        bind_theme(self, roles={"TEXT_MAIN"})
+
+    def refresh_theme(self, palette: dict) -> None:
+        btn = getattr(self, "_col_menu_btn", None)
+        if btn is not None:
+            from gui_qt.icons import icon
+            btn.setIcon(icon("eye1_white.png", 16,
+                             color=_c(palette, "TEXT_MAIN")))
+        self.viewport().update()
+        self.header().viewport().update()
 
     def _reposition_marker_strip(self):
         from gui_qt.marker_strip import reposition_marker_strip

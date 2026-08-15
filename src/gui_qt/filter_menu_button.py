@@ -20,6 +20,8 @@ from PySide6.QtCore import Qt, QSize, QEvent
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QToolButton, QListWidget, QWidgetAction
 
+from gui_qt.theme_qt import bind_theme, _c
+
 BTN_W = 26
 
 # Past this many entries a category becomes one scrollable checklist instead of
@@ -61,6 +63,11 @@ class FilterMenuButton(QToolButton):
         header.installEventFilter(self)
         self.reposition()
         self.show()
+        bind_theme(self, roles={"TEXT_MAIN"})
+
+    def refresh_theme(self, p: dict) -> None:
+        from gui_qt.icons import icon
+        self.setIcon(icon("eye1_white.png", 16, color=_c(p, "TEXT_MAIN")))
 
     # -- geometry -----------------------------------------------------------
     def eventFilter(self, obj, event):

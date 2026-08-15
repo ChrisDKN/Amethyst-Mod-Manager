@@ -9,7 +9,7 @@ from PySide6.QtCore import Qt, QRect
 from PySide6.QtGui import QPen, QBrush, QFont
 from PySide6.QtWidgets import QStyledItemDelegate
 
-from gui_qt.theme_qt import active_palette, _c, qc, qc_contrast
+from gui_qt.theme_qt import bind_theme, _c, qc, qc_contrast
 from gui_qt.icons import icon
 from gui_qt.mod_files_model import COL_NAME, COL_TOPLEVEL, COL_ROOT, COL_DISABLE
 
@@ -23,7 +23,13 @@ class ModFilesDelegate(QStyledItemDelegate):
     def __init__(self, view, parent=None):
         super().__init__(parent or view)
         self._view = view
-        p = active_palette()
+        bind_theme(self, roles={
+            "TEXT_MAIN", "BORDER_FAINT", "CHECK_FILL", "BG_DEEP",
+            "BG_SELECT", "DROPDOWN_ARROW", "FILE_WIN", "FILE_LOSE",
+            "FILE_DIM", "ACCENT",
+        })
+
+    def refresh_theme(self, p: dict) -> None:
         self.c_text = qc(p, "TEXT_MAIN")
         self.c_dim = qc(p, "FILE_DIM")
         self.c_win = qc(p, "FILE_WIN")
@@ -35,6 +41,7 @@ class ModFilesDelegate(QStyledItemDelegate):
         self.c_sel = qc(p, "BG_SELECT")
         self.c_part = qc(p, "ACCENT")
         self.c_arrow = _c(p, "DROPDOWN_ARROW")   # expand/collapse arrow tint
+        self._view.viewport().update()
 
     def paint(self, p, opt, index):
         r = opt.rect

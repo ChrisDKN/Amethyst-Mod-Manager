@@ -26,8 +26,9 @@ from PySide6.QtWidgets import (
     QCheckBox, QButtonGroup, QScrollArea, QSizePolicy, QSplitter,
 )
 
-from gui_qt.theme_qt import active_palette, _c, danger_close_button
-from gui_qt.icons import icon_rotated
+from gui_qt.theme_qt import (
+    active_palette, bind_theme_icon, _c, danger_close_button,
+)
 from gui_qt.image_preview import _load_qimage
 from PySide6.QtGui import QPixmap
 
@@ -277,13 +278,13 @@ class BundleOptionsView(QWidget):
             h.addWidget(marker)
             h.addStretch(1)
             up = QPushButton(); up.setFixedSize(26, 24)
-            up.setIcon(icon_rotated("arrow.png", 180, 12, "#ffffff"))  # up
+            bind_theme_icon(up, "arrow.png", 12, "TEXT_MAIN", degrees=180)
             up.setToolTip(self.tr("Move up"))
             up.setEnabled(oi > 0)
             up.clicked.connect(lambda _=False, g=group, i=oi: self._move(g, i, -1))
             h.addWidget(up)
             down = QPushButton(); down.setFixedSize(26, 24)
-            down.setIcon(icon_rotated("arrow.png", 0, 12, "#ffffff"))  # down
+            bind_theme_icon(down, "arrow.png", 12, "TEXT_MAIN", degrees=0)
             down.setToolTip(self.tr("Move down"))
             down.setEnabled(oi < n - 1)
             down.clicked.connect(lambda _=False, g=group, i=oi: self._move(g, i, 1))

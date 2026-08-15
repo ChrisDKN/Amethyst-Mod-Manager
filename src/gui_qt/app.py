@@ -19,7 +19,9 @@ from PySide6.QtWidgets import (
     QFrame, QLineEdit, QPushButton, QMenu, QStackedWidget, QSizePolicy,
 )
 
-from gui_qt.theme_qt import apply_theme, active_palette, _c, contrast_text
+from gui_qt.theme_qt import (
+    apply_theme, active_palette, bind_theme, _c, contrast_text,
+)
 from gui_qt.icons import icon, hamburger_icon
 from gui_qt.modlist_model import ModListModel, COL_SIZE
 from gui_qt.modlist_view import ModListView
@@ -765,12 +767,41 @@ class MainWindow(QMainWindow):
         self._i386_toast = None
         QTimer.singleShot(1000, self._check_flatpak_i386)
 
+        # Non-QSS theme consumers owned by the main window (tinted toolbar
+        # icons and rich-text log spans) refresh without rebuilding the UI.
+        bind_theme(self, roles={
+            "TEXT_MAIN", "TEXT_DIM", "ACCENT", "TEXT_ERR", "TEXT_WARN",
+        })
+
         # Splash watchdog: the splash is normally dismissed by the first
         # _on_conflicts_ready, but a game with no profile / empty modlist may
         # never trigger a conflict rebuild. Close it unconditionally after a
         # short grace period so it can never hang on screen.
         if self._splash is not None:
             QTimer.singleShot(4000, self._dismiss_splash)
+
+    def refresh_theme(self, palette: dict) -> None:
+        self._pal = palette
+        # Buttons record only semantic tint roles, never a concrete colour.
+        for widget in self.findChildren(QWidget):
+            spec = getattr(widget, "_theme_icon_spec", None)
+            if not spec:
+                continue
+            builder, name, px, key = spec
+            colour = _c(palette, key)
+            try:
+                themed = (hamburger_icon(px, color=colour)
+                          if builder == "hamburger"
+                          else icon(name, px, color=colour))
+                widget.setIcon(themed)
+            except (AttributeError, RuntimeError):
+                pass
+        if hasattr(self, "_plugin_stack"):
+            self._select_plugin_tab(self._plugin_stack.currentIndex())
+        if hasattr(self, "_errors_lbl"):
+            self._refresh_log_filter_labels()
+        if hasattr(self, "_log_view"):
+            self._render_log()
 
     def _dismiss_splash(self):
         """Reveal the finished window and close the startup splash, exactly once.
@@ -2523,6 +2554,10 @@ class MainWindow(QMainWindow):
         b.setObjectName("IconButton")
         b.setCursor(Qt.PointingHandCursor)
         b.setFixedSize(self._BTN_H, self._BTN_H)
+        tint_key = getattr(tint, "theme_key", None)
+        if tint_key:
+            b._theme_icon_spec = (
+                "icon", icon_name, self._ICON_PX, tint_key)
         if tooltip:
             b.setToolTip(tooltip)
         return b
@@ -3287,26 +3322,6 @@ class MainWindow(QMainWindow):
                 self,
                 self.tr("Restart to change UI scale?"),
                 self.tr("The UI scale change takes effect after a restart. "
-                        "Restart now?"),
-                lambda ok: self._request_restart() if ok else None,
-                confirm_label=self.tr("Restart now"),
-                cancel_label=self.tr("Later"),
-                danger=False,
-            )
-        except Exception:
-            self._request_restart()
-
-    def _prompt_theme_restart(self):
-        """Offer a self-restart after the theme changed (Settings). The palette/
-        QSS is applied once at startup, so a theme change only takes full effect
-        on a fresh launch. The value is already persisted by the caller; confirm,
-        then restart on OK - on Cancel it applies next launch."""
-        try:
-            from gui_qt.confirm_overlay import ConfirmOverlay
-            ConfirmOverlay.show_over(
-                self,
-                self.tr("Restart to change theme?"),
-                self.tr("The theme change takes effect after a restart. "
                         "Restart now?"),
                 lambda ok: self._request_restart() if ok else None,
                 confirm_label=self.tr("Restart now"),
@@ -16464,6 +16479,8 @@ class MainWindow(QMainWindow):
                 (self.tr("Open application folder"), lambda: self._on_play_action("folder")),
             ],
         )
+        self._exe_settings_btn._theme_icon_spec = (
+            "hamburger", "", self._ICON_PX, "TEXT_MAIN")
         self._exe_settings_btn.setFixedSize(self._BTN_H, self._BTN_H)
         h.addWidget(self._exe_settings_btn)
         return bar
@@ -16656,6 +16673,9 @@ class MainWindow(QMainWindow):
         b.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
         b.setObjectName("FooterButton" if compact else "ActionButton")
         b.setCursor(Qt.PointingHandCursor)
+        tint_key = getattr(tint, "theme_key", None)
+        if tint_key:
+            b._theme_icon_spec = ("icon", icon_name, px, tint_key)
         return b
 
     def _populate_menu(self, menu: "QMenu", items: "list[tuple]") -> None:

@@ -26,10 +26,10 @@ from PySide6.QtWidgets import (
     QComboBox, QPlainTextEdit, QGroupBox,
 )
 
-from gui_qt.theme_qt import active_palette, _c
+from gui_qt.theme_qt import active_palette, bind_theme_icon, _c
 from gui_qt.help_marker import tip_text, make_help_marker, help_mark_qss
 from gui_qt.collapsible_section import CollapsibleSection
-from gui_qt.icons import icon, icon_rotated
+from gui_qt.icons import icon
 from gui_qt.safe_emit import safe_emit
 from Games.Custom.custom_game import (
     _make_game_id,
@@ -752,10 +752,10 @@ class CustomGameView(QWidget):
         hb = QHBoxLayout(row); hb.setContentsMargins(4, 4, 4, 4); hb.setSpacing(4)
 
         up = QPushButton(); up.setFixedWidth(24)
-        up.setIcon(icon_rotated("arrow.png", 180, 12, "#ffffff"))
+        bind_theme_icon(up, "arrow.png", 12, "TEXT_MAIN", degrees=180)
         up.setToolTip(self.tr("Move up"))
         down = QPushButton(); down.setFixedWidth(24)
-        down.setIcon(icon_rotated("arrow.png", 0, 12, "#ffffff"))
+        bind_theme_icon(down, "arrow.png", 12, "TEXT_MAIN", degrees=0)
         down.setToolTip(self.tr("Move down"))
 
         dest_edit = self._mono_edit(self.tr("Destination"))
@@ -870,10 +870,10 @@ class CustomGameView(QWidget):
         hb = QHBoxLayout(row); hb.setContentsMargins(4, 4, 4, 4); hb.setSpacing(4)
 
         up = QPushButton(); up.setFixedWidth(24)
-        up.setIcon(icon_rotated("arrow.png", 180, 12, "#ffffff"))
+        bind_theme_icon(up, "arrow.png", 12, "TEXT_MAIN", degrees=180)
         up.setToolTip(self.tr("Move up"))
         down = QPushButton(); down.setFixedWidth(24)
-        down.setIcon(icon_rotated("arrow.png", 0, 12, "#ffffff"))
+        bind_theme_icon(down, "arrow.png", 12, "TEXT_MAIN", degrees=0)
         down.setToolTip(self.tr("Move down"))
 
         path_edit = self._mono_edit(self.tr("e.g. output/extensions"))

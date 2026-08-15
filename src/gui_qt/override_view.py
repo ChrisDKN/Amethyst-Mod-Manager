@@ -28,6 +28,7 @@ from Utils.override_scan import (
 from Utils.profile_state import (
     read_excluded_mod_files, write_excluded_mod_files,
 )
+from gui_qt.theme_qt import bind_theme, qc, qc_contrast
 
 COL_PAK = 0
 COL_MOD = 1
@@ -44,8 +45,13 @@ class _OverridesDelegate(QStyledItemDelegate):
 
     def __init__(self, view, parent=None):
         super().__init__(parent or view)
-        from gui_qt.theme_qt import active_palette, qc, qc_contrast
-        p = active_palette()
+        self._view = view
+        bind_theme(self, roles={
+            "TEXT_MAIN", "TEXT_DIM", "BORDER_FAINT", "CHECK_FILL",
+            "BG_DEEP", "BG_SELECT",
+        })
+
+    def refresh_theme(self, p):
         self.c_text = qc(p, "TEXT_MAIN")
         self.c_dim = qc(p, "TEXT_DIM")
         self.c_border = qc(p, "BORDER_FAINT")
@@ -53,6 +59,7 @@ class _OverridesDelegate(QStyledItemDelegate):
         self.c_check_off = qc(p, "BG_DEEP")
         self.c_tick = qc_contrast(p, "CHECK_FILL")
         self.c_sel = qc(p, "BG_SELECT")
+        self._view.viewport().update()
 
     def paint(self, p, opt, index):
         r = opt.rect

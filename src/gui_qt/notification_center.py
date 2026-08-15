@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui_qt.icons import icon
-from gui_qt.theme_qt import active_palette, _c
+from gui_qt.theme_qt import active_palette, bind_theme, _c
 
 MAX_ENTRIES = 100
 
@@ -76,6 +76,13 @@ class NotificationButton(QToolButton):
         self.setToolTip(self.tr("Notifications"))
         history.entry_added.connect(self._on_entry_added)
         self.clicked.connect(self._show_menu)
+        self._icon_px = icon_px
+        bind_theme(self, roles={"TEXT_MAIN"})
+
+    def refresh_theme(self, pal: dict) -> None:
+        self.setIcon(icon("notification.png", self._icon_px,
+                          color=_c(pal, "TEXT_MAIN")))
+        self.update()
 
     # -- unread dot ----------------------------------------------------------
     def _on_entry_added(self):

@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui_qt.overlay_base import OverlayBase
-from gui_qt.theme_qt import active_palette, _c
+from gui_qt.theme_qt import active_palette, bind_theme, _c
 
 
 def tr_name_source(label: str) -> str:
@@ -51,6 +51,11 @@ def make_suggestion_button(on_click) -> QPushButton:
     btn.setToolTip(QCoreApplication.translate("NameSuggestions",
                                               "Suggested names"))
     btn.clicked.connect(lambda: on_click(btn))
+    bind_theme(
+        btn,
+        lambda owner, pal: owner.setIcon(
+            icon("arrow.png", 12, _c(pal, "DROPDOWN_ARROW"))),
+        roles={"DROPDOWN_ARROW"})
     return btn
 
 
