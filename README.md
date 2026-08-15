@@ -87,55 +87,14 @@ flatpak install --user flathub org.freedesktop.Platform.Compat.i386//24.08 org.f
 
 ## Games Supported
 
-<table>
-<tr>
-  <th>Game</th><th>Notes</th>
-  <th>Game</th><th>Notes</th>
-</tr>
-<tr><td>7 Days to Die</td><td></td><td>No Mans Sky</td><td></td></tr>
-<tr><td>Abiotic Factor</td><td></td><td>Oblivion</td><td></td></tr>
-<tr><td>Baldur's Gate 3</td><td></td><td>Oblivion Remastered</td><td></td></tr>
-<tr><td>Blade &amp; Sorcery</td><td></td><td>Pacific Drive</td><td></td></tr>
-<tr><td>Crash Bandicoot 4</td><td></td><td>Palworld</td><td></td></tr>
-<tr><td>Cyberpunk 2077</td><td></td><td>Payday 2</td><td></td></tr>
-<tr><td>Daggerfall Unity</td><td>Native Linux build</td><td>Peak</td><td></td></tr>
-<tr><td>Darktide</td><td></td><td>Planet Zoo</td><td></td></tr>
-<tr><td>Devil May Cry 5</td><td></td><td>Pragmata</td><td></td></tr>
-<tr><td>Dragon Age Origins</td><td></td><td>Pseudoregalia</td><td></td></tr>
-<tr><td>Dragons Dogma 2</td><td></td><td>Ready Or Not</td><td></td></tr>
-<tr><td>DragonSword: Awakening</td><td></td><td>Red Dead Redemption 2</td><td></td></tr>
-<tr><td>Dyson Sphere Program</td><td></td><td>R.E.P.O</td><td></td></tr>
-<tr><td>Enderal</td><td>Normal and SE</td><td>Resident Evil</td><td>2, 3, 4, 7, Village, Requiem</td></tr>
-<tr><td>Expedition 33</td><td></td><td>Rimworld</td><td></td></tr>
-<tr><td>Fallout 3</td><td>Normal and Goty</td><td>Risk of Rain 2</td><td></td></tr>
-<tr><td>Fallout 4</td><td>Normal and VR</td><td>RuneScape: Dragonwilds</td><td></td></tr>
-<tr><td>Fallout 76</td><td></td><td>Schedule 1</td><td></td></tr>
-<tr><td>Fallout New Vegas</td><td></td><td>Skyrim</td><td>Normal, SE and VR</td></tr>
-<tr><td>FF VII Remake Intergrade</td><td></td><td>Slay The Spire 2</td><td></td></tr>
-<tr><td>FF XII: The Zodiac Age</td><td></td><td>Slime Rancher</td><td></td></tr>
-<tr><td>Gothic 1 Remake</td><td></td><td>Spyro Reignited Trilogy</td><td></td></tr>
-<tr><td>Green Hell</td><td></td><td>Stalker 2</td><td></td></tr>
-<tr><td>Grounded</td><td>1 and 2</td><td>Stardew Valley</td><td></td></tr>
-<tr><td>Halo: Campaign Evolved</td><td></td><td>Starfield</td><td></td></tr>
-<tr><td>Hogwarts Legacy</td><td></td><td>StarRupture</td><td></td></tr>
-<tr><td>Hollow Knight: Silksong</td><td></td><td>Stellar Blade</td><td></td></tr>
-<tr><td>ICARUS</td><td></td><td>Street Fighter 6</td><td></td></tr>
-<tr><td>Infection Free Zone</td><td></td><td>Subnautica</td><td></td></tr>
-<tr><td>Inscryption</td><td></td><td>Subnautica 2</td><td></td></tr>
-<tr><td>Jagged Alliance 3</td><td></td><td>Subnautica Below Zero</td><td></td></tr>
-<tr><td>Kingdom Come Deliverance</td><td>1 and 2</td><td>Supermarket Simulator</td><td></td></tr>
-<tr><td>Kingdom Hearts 3</td><td></td><td>SW: Jedi Fallen Order</td><td></td></tr>
-<tr><td>Lethal Company</td><td></td><td>Tainted Grail: The Fall of Avalon</td><td></td></tr>
-<tr><td>Marvel Rivals</td><td></td><td>TCG Card Shop Simulator</td><td></td></tr>
-<tr><td>MechWarrior 5: Mercenaries</td><td></td><td>The First Berserker: Khazan</td><td></td></tr>
-<tr><td>Mewgenics</td><td></td><td>The Last Caretaker</td><td></td></tr>
-<tr><td>Monster Hunter Rise</td><td></td><td>The Sims 4</td><td></td></tr>
-<tr><td>Monster Hunter Wilds</td><td></td><td>Valheim</td><td></td></tr>
-<tr><td>Monster Hunter World</td><td></td><td>Windrose</td><td></td></tr>
-<tr><td>Morrowind</td><td>Normal and OpenMW</td><td>Witcher 3</td><td></td></tr>
-<tr><td>Mount &amp; Blade II: Bannerlord</td><td></td><td>X4 Foundations</td><td></td></tr>
-<tr><td>My Summer Car</td><td></td><td></td><td></td></tr>
-</table>
+Almost 100 games are currently added/supported. See the [wiki](https://github.com/ChrisDKN/Amethyst-Mod-Manager/wiki#supported-games) for the full list
+- All Bethesda titles
+- Cyberpunk 2077
+- Baldurs Gate 3
+- Stardew Valley
+- RE Engine Titles
+- BepInEx Games
+- A lot of Ue5 Titles
 
 ---
 
