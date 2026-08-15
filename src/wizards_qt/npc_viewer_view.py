@@ -531,24 +531,29 @@ class NpcViewerView(QWidget):
                     "dark": self.tr("Dark"), "black": self.tr("Black"),
                     "green": self.tr("Green screen")})
 
-    def _on_background_chosen(self, background):
-        """Capture on *background*, then ask where to write the PNG.
+    def _on_background_chosen(self, choice):
+        """Capture as chosen, then ask where to write the PNG.
 
-        Capturing before opening the asynchronous chooser keeps the image tied
-        to the NPC the user clicked, even if they browse elsewhere while the
-        chooser is open.
+        *choice* is ``(background, face_only)`` from the overlay, or None when
+        cancelled. Capturing before opening the asynchronous chooser keeps the
+        image tied to the NPC the user clicked, even if they browse elsewhere
+        while the chooser is open.
         """
-        if background is None:                       # cancelled / Esc
+        if choice is None:                           # cancelled / Esc
             self._save_reset()
             return
+        background, face_only = choice
         # The overlay outlives a profile refresh or a tab close, so re-check
         # rather than trust the state that opened it.
         if self._current is None or not self._preview.can_capture():
             self._save_reset()
             return
         self._save_btn.setText(self.tr("Capturing…"))
-        self._log(f"View NPCs: capturing image on {background} background")
-        image = self._preview.capture_turntable_sheet(background)
+        self._log(f"View NPCs: capturing "
+                  f"{'face portrait' if face_only else 'turntable sheet'}"
+                  f" on {background} background")
+        image = (self._preview.capture_face_image(background) if face_only
+                 else self._preview.capture_turntable_sheet(background))
         if image is None or image.isNull():
             self._log("View NPCs: image capture failed")
             self._save_feedback(self.tr("Capture failed"))
@@ -560,7 +565,7 @@ class NpcViewerView(QWidget):
         pick_save_file(
             self.tr("Save NPC image"),
             lambda path: safe_emit(self._save_path_picked, path),
-            current_name=_image_name_for(self._current),
+            current_name=_image_name_for(self._current, face_only),
             filters=[(self.tr("PNG images (*.png)"), ["*.png"]),
                      (self.tr("All files"), ["*"])])
 
@@ -864,12 +869,13 @@ def _title_for(npc) -> str:
     return f"{npc_label(npc)}  ·  {npc.formid_hex}  ·  {npc.source}"
 
 
-def _image_name_for(npc) -> str:
-    """A portable, identifiable default name for an NPC reference sheet."""
+def _image_name_for(npc, face_only: bool = False) -> str:
+    """A portable, identifiable default name for an exported NPC image."""
     label = npc_label(npc).strip() or "NPC"
     safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in label)
     safe = "_".join(part for part in safe.split("_") if part).strip("-_")
-    return f"{safe or 'NPC'}_{npc.formid_hex}_reference.png"
+    kind = "portrait" if face_only else "reference"
+    return f"{safe or 'NPC'}_{npc.formid_hex}_{kind}.png"
 
 
 def _keep(npc, source: str) -> bool:
