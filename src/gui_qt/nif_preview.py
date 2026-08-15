@@ -173,6 +173,10 @@ _PORTRAIT_MAX_PANE = 0.45
 _SHEET_BODY_ASPECT = 0.42
 _SHEET_FACE_ASPECT = 0.86
 _SHEET_MAX_HEIGHT = 1200
+# Panels are rendered offscreen, so the export is NOT limited by the preview
+# pane's size on screen. 2048 gives a ~5000px-wide sheet - poster-sized for a
+# reference image, and still one frame per angle.
+_SHEET_EXPORT_HEIGHT = 2048
 
 _HOME_YAW = math.radians(-60.0)
 _HOME_PITCH = math.radians(22.0)
@@ -1645,7 +1649,8 @@ def _sheet_panel(image: QImage, width: int, height: int) -> QImage:
 
 def _compose_turntable_sheet(frames: list[QImage], portrait: QImage,
                              transparent: bool = False,
-                             fill: str | None = None):
+                             fill: str | None = None,
+                             max_height: int = _SHEET_MAX_HEIGHT):
     """Lay four actor frames and a close-up into one reference-sheet image."""
     if len(frames) != 4 or portrait is None or portrait.isNull():
         return None
@@ -1660,7 +1665,7 @@ def _compose_turntable_sheet(frames: list[QImage], portrait: QImage,
     usable.extend(int(image.width() / _SHEET_BODY_ASPECT)
                   for image in frames)
     usable.append(int(portrait.width() / _SHEET_FACE_ASPECT))
-    height = min(_SHEET_MAX_HEIGHT, *usable)
+    height = min(max_height, *usable)
     if height <= 0:
         return None
     body_w = max(1, round(height * _SHEET_BODY_ASPECT))
@@ -1751,6 +1756,9 @@ class _Viewport(QOpenGLWidget):
         # Bounds the camera was last framed against; keep_view only holds the
         # view for geometry that has ALREADY been framed.
         self._framed_bounds = None
+        # Set only while rendering into an export FBO, so _mvp uses that
+        # size's aspect instead of the widget's.
+        self._render_size = None
         self._bounds = None
         self._head_bounds = None
         self._center = QVector3D(0, 0, 0)    # rotation pivot: the mesh centre
@@ -2104,7 +2112,8 @@ class _Viewport(QOpenGLWidget):
         return square.scaled(want, want, Qt.KeepAspectRatio,
                              Qt.SmoothTransformation)
 
-    def capture_turntable_sheet(self, background: str | None = None):
+    def capture_turntable_sheet(self, background: str | None = None,
+                                height: int = _SHEET_EXPORT_HEIGHT):
         """Return a four-angle actor sheet with a face close-up, or None.
 
         All five panels are rendered from the already-loaded scene.  Camera
@@ -2113,6 +2122,9 @@ class _Viewport(QOpenGLWidget):
         interactive view.  *background* is a BACKGROUNDS key to export on,
         ``"transparent"`` for a cut-out of the actor alone, or None to keep
         whatever the viewport is showing.
+
+        Panels are rendered OFFSCREEN at *height*, so the sheet is not capped
+        by however large the preview pane happens to be on screen.
         """
         bounds = self._bounds
         head_bounds = self._head_bounds
@@ -2137,9 +2149,10 @@ class _Viewport(QOpenGLWidget):
             # hence +90 is front and -90 is back.
             self._frame(bounds)
             self._pitch = 0.0
+            body_size = (max(1, round(height * _SHEET_BODY_ASPECT)), height)
             for degrees in (0.0, 90.0, -90.0, 180.0):
                 self._yaw = math.radians(degrees)
-                frame = self.grabFramebuffer()
+                frame = self._grab(body_size)
                 if frame is None or frame.isNull():
                     return None
                 frames.append(frame)
@@ -2152,7 +2165,8 @@ class _Viewport(QOpenGLWidget):
             self._distance = want / (2.0 * math.tan(math.radians(22.5)))
             self._yaw = math.radians(90.0)
             self._pitch = 0.0
-            portrait = self.grabFramebuffer()
+            portrait = self._grab(
+                (max(1, round(height * _SHEET_FACE_ASPECT)), height))
         except Exception as exc:                         # noqa: BLE001
             _log(self.log_fn, f"  ! image-sheet capture failed: {exc!r}")
             return None
@@ -2167,7 +2181,66 @@ class _Viewport(QOpenGLWidget):
         # The gutter colour only shows if panel rounding ever leaves a seam,
         # but it must be the EXPORTED backdrop when it does, not the viewer's.
         fill = BACKGROUNDS.get(background, self._bg.name())
-        return _compose_turntable_sheet(frames, portrait, transparent, fill)
+        return _compose_turntable_sheet(frames, portrait, transparent, fill,
+                                       max_height=max(height, _SHEET_MAX_HEIGHT))
+
+    def _render_offscreen(self, width: int, height: int):
+        """Render one frame at an arbitrary size, or None.
+
+        `grabFramebuffer()` renders at the WIDGET's size, so an export was
+        capped by however large the preview pane happened to be - a few
+        hundred pixels. Drawing into a private multisampled FBO instead lets
+        the sheet be exported far larger than anything on screen.
+        """
+        from PySide6.QtOpenGL import (QOpenGLFramebufferObject,
+                                      QOpenGLFramebufferObjectFormat)
+        width = max(1, int(width))
+        height = max(1, int(height))
+        self.makeCurrent()
+        fbo = None
+        try:
+            fmt = QOpenGLFramebufferObjectFormat()
+            fmt.setAttachment(QOpenGLFramebufferObject.CombinedDepthStencil)
+            # Match the widget's own multisampling so exported edges are as
+            # smooth as the preview's; drop to 0 if the driver refuses.
+            try:
+                fmt.setSamples(self.format().samples() or 0)
+            except Exception:                            # noqa: BLE001
+                pass
+            fbo = QOpenGLFramebufferObject(width, height, fmt)
+            if not fbo.isValid():
+                return None
+            self._render_size = (width, height)
+            fbo.bind()
+            self.context().functions().glViewport(0, 0, width, height)
+            self.paintGL()
+            fbo.release()
+            return fbo.toImage()
+        except Exception as exc:                         # noqa: BLE001
+            _log(self.log_fn, f"  ! offscreen render failed: {exc!r}")
+            return None
+        finally:
+            self._render_size = None
+            if fbo is not None and fbo.isBound():
+                fbo.release()
+            # Put the viewport back or the next on-screen paint is clipped to
+            # the export's dimensions.
+            try:
+                ratio = self.devicePixelRatioF()
+                self.context().functions().glViewport(
+                    0, 0, max(1, int(self.width() * ratio)),
+                    max(1, int(self.height() * ratio)))
+            except Exception:                            # noqa: BLE001
+                pass
+            self.doneCurrent()
+
+    def _grab(self, size=None):
+        """One frame, offscreen at *size* when given, else the on-screen grab."""
+        if size is not None:
+            image = self._render_offscreen(*size)
+            if image is not None and not image.isNull():
+                return image
+        return self.grabFramebuffer()
 
     def _frame(self, bounds):
         (lx, ly, lz), (hx, hy, hz) = bounds
@@ -2684,8 +2757,13 @@ class _Viewport(QOpenGLWidget):
         )
 
     def _mvp(self) -> QMatrix4x4:
-        w = max(1, self.width())
-        h = max(1, self.height())
+        # An offscreen grab renders at its own size, not the widget's, and the
+        # aspect has to follow or the export is stretched.
+        if self._render_size is not None:
+            w, h = self._render_size
+        else:
+            w = max(1, self.width())
+            h = max(1, self.height())
         d = max(self._distance, 1e-3)
         eye = self._eye()
         proj = QMatrix4x4()
@@ -3156,7 +3234,8 @@ class NifPreview(QWidget):
     def can_capture(self) -> bool:
         return self._capture_ready
 
-    def capture_turntable_sheet(self, background: str | None = None):
+    def capture_turntable_sheet(self, background: str | None = None,
+                                height: int = _SHEET_EXPORT_HEIGHT):
         """Capture the loaded actor as a multi-angle PNG-ready QImage.
 
         *background* is a BACKGROUNDS key, ``"transparent"``, or None to
@@ -3164,7 +3243,7 @@ class NifPreview(QWidget):
         """
         if not self._capture_ready:
             return None
-        return self._view.capture_turntable_sheet(background)
+        return self._view.capture_turntable_sheet(background, height)
 
     def background_key(self) -> str:
         """The backdrop preset the viewport is currently showing.

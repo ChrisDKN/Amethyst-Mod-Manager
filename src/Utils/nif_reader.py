@@ -1117,7 +1117,13 @@ def read_nif(source: "str | Path | bytes", *,
                 local[i] = av
                 sh = NifShape(name=av["name"], block_index=i, block_type=bt)
                 data_ref = c.i32()
-                c.i32()                            # skin instance
+                # Skyrim LE keeps geometry in NiTriShape, and its FaceGen
+                # heads are skinned exactly like the SSE BSTriShape ones.
+                # Dropping the reference here left every LE shape looking
+                # unskinned, so nothing could be posed: a Bijin head rendered
+                # with the hair already at neck height while the face, brows
+                # and eyes sat at the origin, a metre below it.
+                sh._skin_ref = c.i32()             # type: ignore[attr-defined]
                 if h.version >= 0x14020005:        # MaterialData
                     nm = c.u32()
                     c.skip(4 * nm)                 # material names
@@ -1310,6 +1316,76 @@ def _skin_bone_names(data: bytes, offs, h: "NifHeader", n: int, skin: int,
     return out
 
 
+def _le_vertex_weights(data: bytes, offs, h: "NifHeader", part: int,
+                       count: int):
+    """Per-vertex ``(bone indices, weights)`` from a pre-SSE skin partition.
+
+    Skyrim LE keeps skinning in the partition's PARALLEL ARRAYS rather than
+    SSE's interleaved vertex buffer, and its bone indices are LOCAL to each
+    partition - they index that partition's own bone list, which in turn
+    indexes the skin instance's. Without this an LE hand mesh reports 36 bones
+    and no weights, so it is placed rigidly on ONE of them and the fingers
+    collapse into a flat paddle.
+    """
+    base = offs[part]
+    end = base + h.block_sizes[part]
+    cur = _Cur(data[base:end])
+    try:
+        num_partitions = cur.u32()
+        out: list = [None] * count
+        for _ in range(num_partitions):
+            num_verts = cur.u16()
+            num_tris = cur.u16()
+            num_bones = cur.u16()
+            num_strips = cur.u16()
+            num_weights = cur.u16()
+            bones = struct.unpack_from(f"<{num_bones}H", cur.d,
+                                       cur._adv(2 * num_bones))
+            has_map = cur.u8() if h.version >= 0x0A010000 else 1
+            vmap = (struct.unpack_from(f"<{num_verts}H", cur.d,
+                                       cur._adv(2 * num_verts))
+                    if has_map else range(num_verts))
+            has_weights = cur.u8() if h.version >= 0x0A010000 else 1
+            weights = (struct.unpack_from(
+                f"<{num_verts * num_weights}f", cur.d,
+                cur._adv(4 * num_verts * num_weights))
+                if has_weights else ())
+            if num_strips:
+                lengths = struct.unpack_from(f"<{num_strips}H", cur.d,
+                                             cur._adv(2 * num_strips))
+            else:
+                lengths = ()
+            has_faces = cur.u8() if h.version >= 0x0A010000 else 1
+            if has_faces and num_strips:
+                for length in lengths:
+                    cur.skip(length * 2)
+            elif has_faces and num_tris:
+                cur.skip(num_tris * 6)
+            has_indices = cur.u8()
+            local = (struct.unpack_from(f"<{num_verts * num_weights}B", cur.d,
+                                        cur._adv(num_verts * num_weights))
+                     if has_indices else ())
+            if h.bs_version > 34:
+                cur.u8()                           # LOD level
+                cur.u8()                           # global VB
+            if not (has_weights and has_indices):
+                continue
+            for i in range(num_verts):
+                vert = vmap[i] if has_map else i
+                if not 0 <= vert < count:
+                    continue
+                lo = i * num_weights
+                idx = tuple(bones[b] if b < num_bones else 0
+                            for b in local[lo:lo + num_weights])
+                out[vert] = (idx, weights[lo:lo + num_weights])
+        if not any(out):
+            return None
+        blank = ((0,) * 4, (0.0,) * 4)
+        return [v if v is not None else blank for v in out]
+    except (NifError, struct.error, IndexError):
+        return None
+
+
 def _skin_vertex_weights(data: bytes, offs, h: "NifHeader", n: int, part: int,
                          count: int):
     """Per-vertex ``(bone indices, weights)`` from an SSE skin partition.
@@ -1322,6 +1398,11 @@ def _skin_vertex_weights(data: bytes, offs, h: "NifHeader", n: int, part: int,
     """
     if not 0 <= part < n or h.type_of(part) != "NiSkinPartition":
         return None
+    if h.bs_version != 100:
+        # Only SSE puts an interleaved vertex buffer at the head of the
+        # partition; earlier games go straight into the per-partition arrays,
+        # so the data_size/vertex_size read below would be garbage.
+        return _le_vertex_weights(data, offs, h, part, count)
     base = offs[part]
     try:
         data_size, vertex_size = struct.unpack_from("<II", data, base + 4)

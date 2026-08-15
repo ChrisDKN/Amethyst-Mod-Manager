@@ -553,6 +553,7 @@ class NpcViewerView(QWidget):
             self._log("View NPCs: image capture failed")
             self._save_feedback(self.tr("Capture failed"))
             return
+        self._log(f"View NPCs: captured {image.width()}x{image.height()}")
         self._pending_export = image
         self._save_btn.setText(self.tr("Choose location…"))
         from Utils.portal_filechooser import pick_save_file
