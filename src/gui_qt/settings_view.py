@@ -18,6 +18,18 @@ intentionally omitted (Qt has no colour-override system yet).
 
 Option descriptions are tooltips (on the row and on its accent "?" marker), not
 inline labels - rows stay one line tall and nothing clips at narrow widths.
+
+Layout contract for every section (see :meth:`_section`):
+
+    col 0                col 1
+    label / checkbox     control (combo, slider, path row, …)
+
+so controls start at a common x down the whole page. The "?" marker is not a
+column - it rides inside each row's own layout, immediately after the widget it
+describes, which keeps it visibly attached to that option.
+
+Action buttons never sit between options: `_action_row` queues them into a
+per-section footer that `_finish_section` flushes at the bottom of the group.
 """
 
 from __future__ import annotations
@@ -50,6 +62,8 @@ class SettingsView(QWidget):
         super().__init__()
         self._window = window          # main window - for _notify, threads
         self._pal = active_palette()
+        # id(grid) -> [(button, help, extra), ...]; see _action_row.
+        self._pending_actions: dict[int, list] = {}
         self.setObjectName("SettingsView")
         self._folder_picked.connect(self._on_folder_picked)
 
@@ -129,24 +143,88 @@ class SettingsView(QWidget):
         """
 
     # ---- section + control builders --------------------------------------
+    # Grid columns shared by every section, so labels and controls line up down
+    # the whole page. Help markers are NOT a column - each "?" lives inside its
+    # own row's layout, right after the widget it describes.
+    COL_LABEL = 0
+    COL_CTRL = 1
+
     def _section(self, title: str) -> QGridLayout:
-        """Add a QGroupBox and return a QGridLayout to fill (label | control)."""
+        """Add a QGroupBox and return its (label | control) QGridLayout."""
         box = QGroupBox(title)
         grid = QGridLayout(box)
-        grid.setContentsMargins(8, 6, 8, 6)
+        grid.setContentsMargins(10, 8, 10, 8)
         grid.setHorizontalSpacing(12)
         grid.setVerticalSpacing(8)
-        grid.setColumnStretch(0, 0)
-        grid.setColumnStretch(1, 1)
+        grid.setColumnStretch(self.COL_LABEL, 0)
+        grid.setColumnStretch(self.COL_CTRL, 1)
         self._v.addWidget(box)
         # Track the next free row per grid via a dynamic attribute.
         grid.setProperty("_row", 0)
+        # Buttons queued by _action_row, flushed by _finish_section.
+        self._pending_actions[id(grid)] = []
         return grid
 
     def _next_row(self, grid: QGridLayout) -> int:
         r = int(grid.property("_row") or 0)
         grid.setProperty("_row", r + 1)
         return r
+
+    def _add_help(self, wrap: QHBoxLayout, help: str | None, *targets) -> None:
+        """Tooltip `targets` and append a "?" marker to the row's own layout.
+
+        Deliberately not a grid column: the marker belongs beside the text it
+        describes, so it rides in the row layout right after the widget.
+        """
+        if not help:
+            return
+        tip = self._tip_text(help)
+        for w in targets:
+            if w is not None:
+                w.setToolTip(tip)
+        wrap.addWidget(self._help_marker(help))
+
+    def _action_row(self, grid: QGridLayout, label: str, on_click,
+                    help: str | None = None,
+                    extra: QWidget | None = None) -> QPushButton:
+        """Queue an action button for this section's footer.
+
+        Buttons are collected rather than placed inline so they never split the
+        run of options above them (the screenshot bug: "Edit custom
+        install-name rules…" landed mid-list). :meth:`_finish_section` lays the
+        whole queue out as one left-aligned row at the bottom of the group.
+        """
+        btn = QPushButton(label)
+        btn.setCursor(Qt.PointingHandCursor)
+        btn.clicked.connect(on_click)
+        if help:
+            btn.setToolTip(self._tip_text(help))
+        self._pending_actions[id(grid)].append((btn, help, extra))
+        return btn
+
+    def _finish_section(self, grid: QGridLayout) -> None:
+        """Flush queued action buttons into a footer row at the group's bottom.
+
+        Call once per section, after every option row has been added.
+        """
+        pending = self._pending_actions.pop(id(grid), [])
+        if not pending:
+            return
+        row = self._next_row(grid)
+        wrap = QHBoxLayout()
+        # Top margin separates the action row from the options above it, so the
+        # footer reads as a distinct band rather than one more option.
+        wrap.setContentsMargins(0, 6, 0, 0)
+        wrap.setSpacing(8)
+        for btn, help, extra in pending:
+            wrap.addWidget(btn)
+            if help:
+                wrap.addWidget(self._help_marker(help))
+            if extra is not None:
+                wrap.addWidget(extra, 1)
+        wrap.addStretch(1)
+        holder = QWidget(); holder.setLayout(wrap)
+        grid.addWidget(holder, row, self.COL_LABEL, 1, 2)
 
     def _tip_text(self, text: str) -> str:
         return tip_text(text)
@@ -173,16 +251,15 @@ class SettingsView(QWidget):
         cb.toggled.connect(_toggled)
         row = self._next_row(grid)
         if help:
-            cb.setToolTip(self._tip_text(help))
             wrap = QHBoxLayout()
             wrap.setContentsMargins(0, 0, 0, 0)
             wrap.addWidget(cb)
-            wrap.addWidget(self._help_marker(help))
+            self._add_help(wrap, help, cb)
             wrap.addStretch(1)
             holder = QWidget(); holder.setLayout(wrap)
-            grid.addWidget(holder, row, 0, 1, 2)
+            grid.addWidget(holder, row, self.COL_LABEL, 1, 2)
         else:
-            grid.addWidget(cb, row, 0, 1, 2)
+            grid.addWidget(cb, row, self.COL_LABEL, 1, 2)
         return cb
 
     def _combo(self, grid: QGridLayout, label: str,
@@ -190,7 +267,7 @@ class SettingsView(QWidget):
                restart_note: bool = False) -> QComboBox:
         """`pairs` = [(display, value), ...]; selecting saves the value."""
         row = self._next_row(grid)
-        grid.addWidget(QLabel(label), row, 0)
+        grid.addWidget(QLabel(label), row, self.COL_LABEL)
         combo = QComboBox()
         values = [v for _d, v in pairs]
         for disp, _v in pairs:
@@ -200,11 +277,12 @@ class SettingsView(QWidget):
         combo.currentIndexChanged.connect(
             lambda i: self._safe_save(save_fn, values[i]))
         no_wheel(combo)
-        grid.addWidget(combo, row, 1, Qt.AlignLeft)
+        combo.setFixedWidth(self.COMBO_W)
+        grid.addWidget(combo, row, self.COL_CTRL, Qt.AlignLeft)
         if restart_note:
             note = QLabel(self.tr("Changes take effect after restart."))
             note.setObjectName("RestartNote")
-            grid.addWidget(note, self._next_row(grid), 0, 1, 2)
+            grid.addWidget(note, self._next_row(grid), self.COL_CTRL)
         return combo
 
     def _slider(self, grid: QGridLayout, label: str, lo: int, hi: int,
@@ -212,35 +290,43 @@ class SettingsView(QWidget):
         """Integer slider lo..hi with a live value label. `on_change(int)`."""
         row = self._next_row(grid)
         lbl = QLabel(label)
-        grid.addWidget(lbl, row, 0)
+        grid.addWidget(lbl, row, self.COL_LABEL)
         wrap = QHBoxLayout()
+        wrap.setContentsMargins(0, 0, 0, 0)
+        # Gap so a handle parked at maximum doesn't sit on top of the readout.
+        wrap.setSpacing(10)
         sld = QSlider(Qt.Horizontal)
         sld.setMinimum(lo); sld.setMaximum(hi)
         sld.setValue(max(lo, min(hi, value)))
-        sld.setFixedWidth(220)
+        sld.setFixedWidth(200)
         val_lbl = QLabel(str(sld.value()))
-        val_lbl.setMinimumWidth(48)
+        # Fixed (not minimum) width: the readout text varies per slider
+        # ("Unlimited", "All", "150%"), and a minimum width would let each one
+        # size itself, staggering the "?" markers that follow it.
+        val_lbl.setFixedWidth(68)
         sld.valueChanged.connect(lambda v: val_lbl.setText(str(v)))
         sld.valueChanged.connect(lambda v: on_change(v))
         no_wheel(sld)
         wrap.addWidget(sld)
         wrap.addWidget(val_lbl)
-        if help:
-            tip = self._tip_text(help)
-            lbl.setToolTip(tip)
-            sld.setToolTip(tip)
-            wrap.addWidget(self._help_marker(help))
+        self._add_help(wrap, help, lbl, sld)
         wrap.addStretch(1)
         holder = QWidget(); holder.setLayout(wrap)
-        grid.addWidget(holder, row, 1)
+        grid.addWidget(holder, row, self.COL_CTRL)
         return sld, val_lbl
 
-    def _path_row(self, grid: QGridLayout, label: str, load_fn, save_fn,
-                  help: str | None = None) -> QLineEdit:
+    def _browse_row(self, grid: QGridLayout, label: str, load_fn, save_fn,
+                    on_browse, help: str | None = None) -> QLineEdit:
+        """Shared body of :meth:`_path_row` / :meth:`_file_row`.
+
+        `on_browse()` opens whichever picker the caller wants; everything else
+        (edit, Browse/Clear buttons, alignment) is identical between them.
+        """
         row = self._next_row(grid)
         lbl = QLabel(label)
-        grid.addWidget(lbl, row, 0)
+        grid.addWidget(lbl, row, self.COL_LABEL)
         wrap = QHBoxLayout()
+        wrap.setContentsMargins(0, 0, 0, 0)
         edit = QLineEdit()
         try:
             edit.setText(load_fn() or "")
@@ -250,20 +336,28 @@ class SettingsView(QWidget):
             lambda: self._safe_save(save_fn, edit.text().strip()))
         browse = QPushButton(self.tr("Browse"))
         browse.setCursor(Qt.PointingHandCursor)
-        browse.clicked.connect(lambda: self._browse_into(edit, save_fn, label))
+        browse.clicked.connect(lambda: on_browse())
         clear = QPushButton(self.tr("Clear"))
         clear.setCursor(Qt.PointingHandCursor)
         clear.clicked.connect(lambda: self._clear_path(edit, save_fn))
+        # Equal widths so the Browse/Clear pair forms a straight right edge
+        # down the Paths section regardless of translated label lengths.
+        for b in (browse, clear):
+            b.setFixedWidth(max(browse.sizeHint().width(),
+                                clear.sizeHint().width()))
         wrap.addWidget(edit, 1)
         wrap.addWidget(browse)
         wrap.addWidget(clear)
-        if help:
-            tip = self._tip_text(help)
-            lbl.setToolTip(tip)
-            edit.setToolTip(tip)
-            wrap.addWidget(self._help_marker(help))
+        self._add_help(wrap, help, lbl, edit)
         holder = QWidget(); holder.setLayout(wrap)
-        grid.addWidget(holder, row, 1)
+        grid.addWidget(holder, row, self.COL_CTRL)
+        return edit
+
+    def _path_row(self, grid: QGridLayout, label: str, load_fn, save_fn,
+                  help: str | None = None) -> QLineEdit:
+        edit = self._browse_row(
+            grid, label, load_fn, save_fn,
+            lambda: self._browse_into(edit, save_fn, label), help=help)
         return edit
 
     def _file_row(self, grid: QGridLayout, label: str, load_fn, save_fn,
@@ -271,34 +365,10 @@ class SettingsView(QWidget):
                   help: str | None = None) -> QLineEdit:
         """Like :meth:`_path_row` but the Browse button picks a single file
         (e.g. an AppImage) instead of a folder."""
-        row = self._next_row(grid)
-        lbl = QLabel(label)
-        grid.addWidget(lbl, row, 0)
-        wrap = QHBoxLayout()
-        edit = QLineEdit()
-        try:
-            edit.setText(load_fn() or "")
-        except Exception:
-            pass
-        edit.editingFinished.connect(
-            lambda: self._safe_save(save_fn, edit.text().strip()))
-        browse = QPushButton(self.tr("Browse"))
-        browse.setCursor(Qt.PointingHandCursor)
-        browse.clicked.connect(
-            lambda: self._browse_file_into(edit, save_fn, label, filters))
-        clear = QPushButton(self.tr("Clear"))
-        clear.setCursor(Qt.PointingHandCursor)
-        clear.clicked.connect(lambda: self._clear_path(edit, save_fn))
-        wrap.addWidget(edit, 1)
-        wrap.addWidget(browse)
-        wrap.addWidget(clear)
-        if help:
-            tip = self._tip_text(help)
-            lbl.setToolTip(tip)
-            edit.setToolTip(tip)
-            wrap.addWidget(self._help_marker(help))
-        holder = QWidget(); holder.setLayout(wrap)
-        grid.addWidget(holder, row, 1)
+        edit = self._browse_row(
+            grid, label, load_fn, save_fn,
+            lambda: self._browse_file_into(edit, save_fn, label, filters),
+            help=help)
         return edit
 
     # ---- sections ---------------------------------------------------------
@@ -309,34 +379,27 @@ class SettingsView(QWidget):
         # grouped together with a single shared restart note beneath them; the
         # Hide BSA conflicts toggle (which applies live) sits below that.
         g = self._section(self.tr("User Interface"))
-        # Language row: combo + a "Sync language files" button that pulls the
-        # latest translations from the Resources branch on demand.
+        # Language row: the combo sits in the shared control column; its
+        # "Sync language files" button moves to the section footer with the
+        # other actions, so the option rows stay a clean label|control grid.
         row = self._next_row(g)
-        g.addWidget(QLabel(self.tr("Language")), row, 0)
+        g.addWidget(QLabel(self.tr("Language")), row, self.COL_LABEL)
         self._lang_combo = QComboBox()
         no_wheel(self._lang_combo)
-        # Fixed width shared with the Theme combo so both trailing buttons
-        # ("Sync language files" / "Edit / Create Theme…") start at the same x.
+        # Fixed width shared with the Theme combo so both line up.
         self._lang_combo.setFixedWidth(self.COMBO_W)
-        self._lang_sync_btn = QPushButton(self.tr("Sync language files"))
-        self._lang_sync_btn.setCursor(Qt.PointingHandCursor)
-        self._lang_sync_btn.clicked.connect(self._on_sync_languages)
-        lang_wrap = QHBoxLayout()
-        lang_wrap.setContentsMargins(0, 0, 0, 0)
-        lang_wrap.addWidget(self._lang_combo)
-        lang_wrap.addWidget(self._lang_sync_btn)
-        lang_wrap.addStretch(1)
-        lang_holder = QWidget(); lang_holder.setLayout(lang_wrap)
-        g.addWidget(lang_holder, row, 1)
+        g.addWidget(self._lang_combo, row, self.COL_CTRL, Qt.AlignLeft)
         self._populate_language_combo()
 
         self._build_theme(g)
         self._build_ui_scale(g)
 
         # Single shared restart note beneath Language / Theme / UI Scale.
+        # Indented to the control column so it reads as a note about the
+        # controls above rather than a row label of its own.
         note = QLabel(self.tr("Changes take effect after restart."))
         note.setObjectName("RestartNote")
-        g.addWidget(note, self._next_row(g), 0, 1, 2)
+        g.addWidget(note, self._next_row(g), self.COL_CTRL)
 
         self._checkbox(
             g, self.tr("Hide BSA conflicts"),
@@ -365,6 +428,12 @@ class SettingsView(QWidget):
             help=self.tr("Hide the Endorse AMM button in the status bar."),
             on_changed=lambda _v: self._apply_support_buttons())
 
+        self._lang_sync_btn = self._action_row(
+            g, self.tr("Sync language files"), self._on_sync_languages)
+        self._action_row(
+            g, self.tr("Edit / Create Theme…"), self._open_theme_editor)
+        self._finish_section(g)
+
     def _apply_support_buttons(self):
         """Ask the window to re-apply Ko-Fi / Endorse button visibility live."""
         win = self._window
@@ -378,8 +447,8 @@ class SettingsView(QWidget):
         """Theme picker (formerly its own Appearance section). Takes effect on
         restart, like Language / UI Scale - selecting a new theme persists it and
         offers a self-restart via the window's theme restart prompt. The
-        "Edit / Create Theme…" button sits to the right of the dropdown (mirrors
-        the Language row's combo + sync button layout)."""
+        "Edit / Create Theme…" button lives in the section footer, beside
+        "Sync language files"."""
         try:
             from Utils.themes import load_display_names
             themes = load_display_names() or {"dark": "Dark"}
@@ -391,7 +460,7 @@ class SettingsView(QWidget):
             current = "dark"
 
         row = self._next_row(g)
-        g.addWidget(QLabel(self.tr("Theme")), row, 0)
+        g.addWidget(QLabel(self.tr("Theme")), row, self.COL_LABEL)
 
         combo = QComboBox()
         no_wheel(combo)
@@ -403,18 +472,7 @@ class SettingsView(QWidget):
             combo.setCurrentIndex(values.index(current))
         combo.currentIndexChanged.connect(
             lambda i: self._on_theme_changed(values[i]))
-
-        edit_btn = QPushButton(self.tr("Edit / Create Theme…"))
-        edit_btn.setCursor(Qt.PointingHandCursor)
-        edit_btn.clicked.connect(self._open_theme_editor)
-
-        wrap = QHBoxLayout()
-        wrap.setContentsMargins(0, 0, 0, 0)
-        wrap.addWidget(combo)
-        wrap.addWidget(edit_btn)
-        wrap.addStretch(1)
-        holder = QWidget(); holder.setLayout(wrap)
-        g.addWidget(holder, row, 1)
+        g.addWidget(combo, row, self.COL_CTRL, Qt.AlignLeft)
 
     def _on_theme_changed(self, tid: str):
         """Persist the chosen theme, then offer a restart (same pattern as UI
@@ -476,10 +534,12 @@ class SettingsView(QWidget):
         self._scale_slider.setEnabled(not is_auto)
 
         # Auto checkbox - sits below the slider; ticking it disables the slider.
+        # Placed in the control column (not spanning from the label column) so
+        # it reads as a modifier of the UI Scale slider directly above it.
         self._scale_auto_cb = QCheckBox(self.tr("Auto (match display)"))
         self._scale_auto_cb.setChecked(is_auto)
         self._scale_auto_cb.toggled.connect(self._on_ui_scale_auto_toggled)
-        g.addWidget(self._scale_auto_cb, self._next_row(g), 0, 1, 2)
+        g.addWidget(self._scale_auto_cb, self._next_row(g), self.COL_CTRL, 1, 2)
 
     def _on_ui_scale_auto_toggled(self, on: bool):
         self._scale_slider.setEnabled(not on)
@@ -611,6 +671,7 @@ class SettingsView(QWidget):
             help=self.tr("Newly installed mods start disabled in the modlist instead "
                  "of enabled. Applies to every install path except collection "
                  "installs."))
+        self._finish_section(g)
 
     def _build_downloads(self):
         # Collection settings - all persisted together via save_collection_settings.
@@ -643,17 +704,12 @@ class SettingsView(QWidget):
                  "from the Downloads tab or the Install Mod button."),
             on_changed=self._on_download_only_changed)
 
-        # Manage Caches action.
-        row = self._next_row(g)
-        g.addWidget(QLabel(self.tr("Caches")), row, 0)
-        self._cache_btn = QPushButton(self.tr("Manage Caches…"))
-        self._cache_btn.setCursor(Qt.PointingHandCursor)
-        self._cache_btn.clicked.connect(self._on_manage_caches)
-        cwrap = QHBoxLayout()
-        cwrap.addWidget(self._cache_btn)
-        cwrap.addStretch(1)
-        holder = QWidget(); holder.setLayout(cwrap)
-        g.addWidget(holder, row, 1)
+        # Manage Caches action - a footer button like every other action,
+        # rather than a "Caches" label paired with a button as if it were a
+        # setting with a value.
+        self._cache_btn = self._action_row(
+            g, self.tr("Manage Caches…"), self._on_manage_caches)
+        self._finish_section(g)
 
     def _build_extraction(self):
         # Extraction resource limits - apply to every install (single mods,
@@ -685,6 +741,7 @@ class SettingsView(QWidget):
             help=self.tr("Run extractions at low CPU and disk priority so they yield "
                  "to other applications instead of slowing them down. Extraction "
                  "speed is unaffected while the system is otherwise idle."))
+        self._finish_section(g)
 
     def _build_general(self):
         g = self._section(self.tr("General"))
@@ -698,21 +755,15 @@ class SettingsView(QWidget):
             uc.load_rename_mod_after_install, uc.save_rename_mod_after_install,
             help=self.tr("Show a rename prompt after installing a mod."))
         # Custom install-name rules - a full editor (opened as its own tab)
-        # rather than a single control, so it gets a button row here.
-        patt_help = self.tr(
-            "Add your own regex search/replace rules to clean up mod names on "
-            "install - useful when a download site changes its filename format.")
-        patt_btn = QPushButton(self.tr("Edit custom install-name rules…"))
-        patt_btn.setCursor(Qt.PointingHandCursor)
-        patt_btn.clicked.connect(self._open_install_name_patterns)
-        patt_btn.setToolTip(self._tip_text(patt_help))
-        wrap = QHBoxLayout()
-        wrap.setContentsMargins(0, 0, 0, 0)
-        wrap.addWidget(patt_btn)
-        wrap.addWidget(self._help_marker(patt_help))
-        wrap.addStretch(1)
-        holder = QWidget(); holder.setLayout(wrap)
-        g.addWidget(holder, self._next_row(g), 0, 1, 2)
+        # rather than a single control, so it goes in the section footer
+        # instead of interrupting the run of checkboxes.
+        self._action_row(
+            g, self.tr("Edit custom install-name rules…"),
+            self._open_install_name_patterns,
+            help=self.tr(
+                "Add your own regex search/replace rules to clean up mod names "
+                "on install - useful when a download site changes its filename "
+                "format."))
         self._checkbox(
             g, self.tr("Restore on close"),
             uc.load_restore_on_close, uc.save_restore_on_close,
@@ -732,6 +783,7 @@ class SettingsView(QWidget):
                  "toggling the pre-release setting."))
 
         self._maybe_add_flatpak_enroll(g)
+        self._finish_section(g)
 
     def _maybe_add_flatpak_enroll(self, g):
         """Offer a one-time 'Enable automatic updates' button to flatpak users
@@ -746,22 +798,14 @@ class SettingsView(QWidget):
         )
         if not is_flatpak() or flatpak_installed_from_remote():
             return
-        enroll_help = self.tr(
-            "Switch this Flatpak to the Amethyst update remote so future "
-            "updates arrive automatically through your package manager "
-            "(GNOME Software / Discover) with smaller downloads. This "
-            "reinstalls the app once from the remote and relaunches it.")
-        btn = QPushButton(self.tr("Enable automatic updates…"))
-        btn.setCursor(Qt.PointingHandCursor)
-        btn.clicked.connect(self._on_enroll_flatpak_remote)
-        btn.setToolTip(self._tip_text(enroll_help))
-        wrap = QHBoxLayout()
-        wrap.setContentsMargins(0, 0, 0, 0)
-        wrap.addWidget(btn)
-        wrap.addWidget(self._help_marker(enroll_help))
-        wrap.addStretch(1)
-        holder = QWidget(); holder.setLayout(wrap)
-        g.addWidget(holder, self._next_row(g), 0, 1, 2)
+        self._action_row(
+            g, self.tr("Enable automatic updates…"),
+            self._on_enroll_flatpak_remote,
+            help=self.tr(
+                "Switch this Flatpak to the Amethyst update remote so future "
+                "updates arrive automatically through your package manager "
+                "(GNOME Software / Discover) with smaller downloads. This "
+                "reinstalls the app once from the remote and relaunches it."))
 
     def _on_enroll_flatpak_remote(self):
         """Confirm, then add the remote + reinstall-from-remote (relaunches)."""
@@ -857,18 +901,10 @@ class SettingsView(QWidget):
             uc.load_steam_libraries_vdf_path, uc.save_steam_libraries_vdf_path,
             help=self.tr("Path to libraryfolders.vdf (or its folder). Blank = auto-detect "
                  "(standard, Flatpak and Snap locations)."))
+        self._finish_section(g)
 
     def _build_advanced(self):
         g = self._section(self.tr("Advanced"))
-        env_help = self.tr(
-            "Set environment variables that Amethyst applies to itself every "
-            "time it starts - kill switches, diagnostics and graphics options "
-            "that otherwise need a terminal launch. Pick from the supported "
-            "list or add your own.")
-        env_btn = QPushButton(self.tr("Edit environment variables…"))
-        env_btn.setCursor(Qt.PointingHandCursor)
-        env_btn.clicked.connect(self._open_env_vars)
-        env_btn.setToolTip(self._tip_text(env_help))
         # Summarise what's already set so the section isn't a blind door.
         try:
             active = [e["name"] for e in uc.load_app_env_vars() if e.get("enabled")]
@@ -879,13 +915,15 @@ class SettingsView(QWidget):
             if active else self.tr("None set"))
         summary.setObjectName("Help")
         summary.setWordWrap(True)
-        wrap = QHBoxLayout()
-        wrap.setContentsMargins(0, 0, 0, 0)
-        wrap.addWidget(env_btn)
-        wrap.addWidget(self._help_marker(env_help))
-        wrap.addWidget(summary, 1)
-        holder = QWidget(); holder.setLayout(wrap)
-        g.addWidget(holder, self._next_row(g), 0, 1, 2)
+        self._action_row(
+            g, self.tr("Edit environment variables…"), self._open_env_vars,
+            help=self.tr(
+                "Set environment variables that Amethyst applies to itself "
+                "every time it starts - kill switches, diagnostics and "
+                "graphics options that otherwise need a terminal launch. Pick "
+                "from the supported list or add your own."),
+            extra=summary)
+        self._finish_section(g)
 
     def _build_system_info(self):
         """Read-only environment facts + a Copy button, for bug reports."""
@@ -914,25 +952,22 @@ class SettingsView(QWidget):
             "Env overrides": self.tr("Env overrides"),
         }
 
+        # Tighter than the option sections: these are dense read-only pairs,
+        # not controls that need room to be clicked.
+        g.setVerticalSpacing(4)
         for label, value in pairs:
             row = self._next_row(g)
-            g.addWidget(QLabel(names.get(label, label)), row, 0)
+            g.addWidget(QLabel(names.get(label, label)), row, self.COL_LABEL)
             edit = QLineEdit(str(value))
             edit.setReadOnly(True)
             # Selectable so a single value can be copied without the whole block.
             edit.setCursorPosition(0)
             edit.setToolTip(str(value))
-            g.addWidget(edit, row, 1)
+            g.addWidget(edit, row, self.COL_CTRL)
 
-        copy_btn = QPushButton(self.tr("Copy to clipboard"))
-        copy_btn.setCursor(Qt.PointingHandCursor)
-        copy_btn.clicked.connect(self._copy_system_info)
-        wrap = QHBoxLayout()
-        wrap.setContentsMargins(0, 0, 0, 0)
-        wrap.addWidget(copy_btn)
-        wrap.addStretch(1)
-        holder = QWidget(); holder.setLayout(wrap)
-        g.addWidget(holder, self._next_row(g), 0, 1, 2)
+        self._action_row(
+            g, self.tr("Copy to clipboard"), self._copy_system_info)
+        self._finish_section(g)
 
     def _copy_system_info(self):
         from PySide6.QtWidgets import QApplication
