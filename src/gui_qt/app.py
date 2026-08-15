@@ -2487,6 +2487,7 @@ class MainWindow(QMainWindow):
                 self._wizard_btn = b
                 b._menu.aboutToShow.connect(self._rebuild_wizard_menu)
             elif label == "Proton":
+                self._proton_btn = b
                 # Static menu, but a couple of entries are game-specific -
                 # re-evaluate their visibility each time it opens so game
                 # switches are handled for free.
@@ -2499,9 +2500,10 @@ class MainWindow(QMainWindow):
             self._action_buttons.append(b)
             h.addWidget(b)
 
-        # Gate the Nexus / Thunderstore buttons on the current game's stores.
-        # Done after the loop so both buttons exist; safe before the header is
-        # shown (the sync tracks intent, not isVisible()).
+        # Gate the Nexus / Thunderstore buttons on the current game's stores,
+        # and the Proton button on it having a wine prefix. Done after the loop
+        # so all three buttons exist; safe before the header is shown (the sync
+        # tracks intent, not isVisible()).
         self._sync_thunderstore_button()
 
         h.addStretch(1)
@@ -9007,6 +9009,10 @@ class MainWindow(QMainWindow):
                     # toggled - refresh the Open submenu (a same-game save is a
                     # no-op for _on_game_changed).
                     self._refresh_profile_actions()
+                    # A prefix may have just been set/cleared for this game -
+                    # same-game saves skip _on_game_changed's sync, so the
+                    # Proton button would keep its stale visibility.
+                    self._sync_thunderstore_button()
                 elif removed:
                     self._append_log(f"[game] removed instance: {game.name}")
                     # Don't leave the manager pointed at the now-removed game -
@@ -11052,12 +11058,19 @@ class MainWindow(QMainWindow):
         act.setVisible(load_dev_mode())
 
     def _sync_thunderstore_button(self):
-        """Show each store's header button only for games that use that store.
+        """Show the game-specific header buttons only when they apply.
 
-        A game can be on Nexus, on Thunderstore, on both (Subnautica, Valheim)
-        or - now that Risk of Rain 2 is supported - on Thunderstore alone. A
-        button for a store the game isn't on is a dead end, so it is hidden
-        rather than left to warn on click.
+        Stores: a game can be on Nexus, on Thunderstore, on both (Subnautica,
+        Valheim) or - now that Risk of Rain 2 is supported - on Thunderstore
+        alone. A button for a store the game isn't on is a dead end, so it is
+        hidden rather than left to warn on click.
+
+        Proton: every entry in that menu (winecfg, winetricks, registry, DLL
+        overrides, the dep installers) operates on a wine prefix, so a native
+        Linux game with no prefix configured has nothing the menu can do. The
+        prefix is the test rather than a per-handler "is native" flag - a
+        Windows game whose prefix hasn't been set yet is equally unable to run
+        any of these, and the button reappears the moment one is set.
 
         The wanted state is tracked on the button (``_store_wanted``) instead of
         read back from ``isVisible()`` - during ``_left_header()`` the widget is
@@ -11071,6 +11084,7 @@ class MainWindow(QMainWindow):
             "_nexus_btn": bool(
                 (getattr(game, "nexus_game_domain", "") or "").strip()
                 if game is not None else ""),
+            "_proton_btn": self._game_has_prefix(game),
         }
         changed = False
         for attr, want in wanted.items():
@@ -11085,6 +11099,20 @@ class MainWindow(QMainWindow):
         # the stage thresholds shift).
         if changed and getattr(self, "_action_btn_widths", False):
             self._sync_header_compact()
+
+    @staticmethod
+    def _game_has_prefix(game) -> bool:
+        """Whether *game* has a wine prefix the Proton tools can operate on.
+
+        get_prefix_path() is the handler's own answer and may hit paths.json,
+        so a broken/unconfigured handler must not take the header down with
+        it - anything raising is treated as "no prefix"."""
+        if game is None:
+            return False
+        try:
+            return game.get_prefix_path() is not None
+        except Exception:
+            return False
 
     def _proton_install_dotnet(self, version: str):
         from Utils.proton_tools import install_dotnet
