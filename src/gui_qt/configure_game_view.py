@@ -107,6 +107,9 @@ class _ScanSignals(QObject):
     staging_scanned = Signal(object, object, object, object)  # (old, new, files, size)
     staging_progress = Signal(int, int, str)                  # (done, total, message)
     staging_move_done = Signal(int, int, int)                 # (moved, skipped, failed)
+    # Game-version probe → GUI thread. Parsing the exe's version resource reads
+    # the whole binary, so it runs off the GUI thread.
+    version_found = Signal(object, object)                    # (path, version|"")
 
 
 class ConfigureGameView(QWidget):
@@ -150,6 +153,7 @@ class ConfigureGameView(QWidget):
         self._sig.staging_scanned.connect(g(self._on_staging_scanned))
         self._sig.staging_progress.connect(g(self._on_staging_progress))
         self._sig.staging_move_done.connect(g(self._on_staging_move_done))
+        self._sig.version_found.connect(g(self._on_version_found))
         self._staging_popup = None
         self._destructive_busy = False
         self.staging_migrated = False
@@ -312,6 +316,17 @@ class ConfigureGameView(QWidget):
         name.setWordWrap(True)
         name.setStyleSheet("font-size:14px; font-weight:600;")
         v.addWidget(name)
+
+        # Installed version, parsed from the game exe's PE version resource.
+        # Hidden until a probe actually finds one - an exe-less or non-PE
+        # install would otherwise leave a permanently blank row here.
+        self._version_lbl = QLabel()
+        self._version_lbl.setAlignment(Qt.AlignCenter)
+        self._version_lbl.setWordWrap(True)
+        self._version_lbl.setStyleSheet(
+            f"font-size:12px; color:{self._c('TEXT_DIM')};")
+        self._version_lbl.hide()
+        v.addWidget(self._version_lbl)
         return frame
 
     def _build_paths_panel(self) -> QFrame:
@@ -878,6 +893,36 @@ class ConfigureGameView(QWidget):
         self._game_status.setStyleSheet(f"color:{self._c(tone)};")
         self._save_btn.setEnabled(True)
         self._sync_install_combo(path)
+        self._probe_version(path)
+
+    # ---- installed-game version -------------------------------------------
+    def _probe_version(self, path: Path | None):
+        """Kick off a background read of the game exe's version resource."""
+        if not path:
+            self._version_lbl.hide()
+            return
+        self._version_path = path
+
+        def work():
+            from Utils.collection_export import detect_game_version
+            try:
+                version = detect_game_version(self._game, root=path)
+            except Exception:
+                version = ""
+            safe_emit(self._sig.version_found, path, version)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_version_found(self, path, version):
+        # A later path change supersedes an in-flight probe; drop stale answers.
+        if path != getattr(self, "_version_path", None):
+            return
+        if version:
+            self._version_lbl.setText(self.tr("Version {0}").format(version))
+            self._version_lbl.show()
+        else:
+            self._version_lbl.clear()
+            self._version_lbl.hide()
 
     def _set_prefix(self, path: Path, configured=False):
         self._found_prefix = path
@@ -905,6 +950,7 @@ class ConfigureGameView(QWidget):
                 self._game_status.setStyleSheet(f"color:{self._c('TEXT_OK')};")
             self._save_btn.setEnabled(True)
             self._sync_install_combo(path)
+            self._probe_version(path)
 
     def _on_prefix_typed(self):
         text = self._prefix_edit.text().strip()

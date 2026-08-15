@@ -316,11 +316,12 @@ _VERSION_EXE_SKIP = re.compile(
     re.IGNORECASE)
 
 
-def detect_game_version(game) -> str:
+def detect_game_version(game, root=None) -> str:
     """Best-effort installed-game version from top-level exe version resources."""
     from Utils.exe_icon import extract_exe_version
     try:
-        root = game.get_game_path() if game else None
+        if root is None:
+            root = game.get_game_path() if game else None
         if not root or not Path(root).is_dir():
             return ""
         exes = [p for p in Path(root).glob("*.exe")
