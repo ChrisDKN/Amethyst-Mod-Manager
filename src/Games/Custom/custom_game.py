@@ -14,7 +14,8 @@ JSON format (~/.config/AmethystModManager/custom_games/<game_id>.json):
   "additional_nexus_domains": [],     // optional extra Nexus domain slugs
   "thunderstore_community": "",      // optional Thunderstore community slug
   "image_url":         ""            // optional banner image URL
-  "editable":          true          // false = skip definition editor on reconfigure (for repo handlers)
+  "editable":          true          // false = skip definition editor on reconfigure (for repo handlers);
+                                     // dev mode ignores this so repo handlers stay editable
 }
 
 Deploy types

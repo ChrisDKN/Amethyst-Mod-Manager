@@ -2848,7 +2848,9 @@ class MainWindow(QMainWindow):
     def _game_actions(self):
         """Build the pinned entries for the game selector. The 'Edit custom
         game…' entry only appears when the active game is a custom game whose
-        definition is editable (i.e. not a repo handler with editable: false)."""
+        definition is editable (i.e. not a repo handler with editable: false).
+        Dev mode ignores that flag so repo handlers can be edited in place."""
+        from Utils.ui_config import load_dev_mode
         actions = [
             (self.tr("Add game…"), lambda: self._on_game_action("add")),
             (self.tr("Configure game…"), lambda: self._on_game_action("configure")),
@@ -2857,7 +2859,7 @@ class MainWindow(QMainWindow):
         game = getattr(self._gs, "game", None)
         if (game is not None
                 and getattr(game, "is_custom", False)
-                and getattr(game, "editable", False)):
+                and (getattr(game, "editable", False) or load_dev_mode())):
             actions.append(
                 (self.tr("Edit custom game…"), lambda: self._on_game_action("edit_custom")))
         # Repo handlers (downloaded from the Resources branch) carry version +
@@ -2941,8 +2943,9 @@ class MainWindow(QMainWindow):
 
     def _open_edit_custom_game_tab(self):
         """Open the custom-game form pre-filled with the active game's definition
-        so it can be edited in place. Only reachable for custom, editable games
-        (see _game_actions). On save, refresh the game list + reload the game so
+        so it can be edited in place. Only reachable for custom games that are
+        editable, or any custom game in dev mode (see _game_actions). On save,
+        refresh the game list + reload the game so
         any changed name/paths/routing take effect."""
         game = self._gs.game
         defn = getattr(game, "_defn", None) if game is not None else None
