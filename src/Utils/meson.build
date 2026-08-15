@@ -155,6 +155,7 @@ py.install_sources(
   'steam_finder.py',
   'strings_table.py',
   'synthesis_setup.py',
+  'system_info.py',
   'tex_convert.py',
   'text_files.py',
   'texture_tools.py',

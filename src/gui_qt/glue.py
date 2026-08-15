@@ -89,6 +89,17 @@ def register_all(app, *, log, parent_window, ask_choice=None, warn=None,
     except Exception as e:
         done.append(f"theme_resolver FAILED: {e!r}")
 
+    # 6b. GL status for the System Information report. Reads gl_support's
+    #     memoised verdict ONLY - gl_status() spawns a blocking child probe, so
+    #     the report must never be what triggers it.
+    try:
+        from Utils.system_info import set_gl_status_provider
+        from gui_qt import gl_support
+        set_gl_status_provider(lambda: getattr(gl_support, "_status", None))
+        done.append("gl_status_provider")
+    except Exception as e:
+        done.append(f"gl_status_provider FAILED: {e!r}")
+
     # 6. toolkit file pickers (QFileDialog) - last-resort behind portal/zenity.
     try:
         from Utils.portal_filechooser import set_toolkit_pickers

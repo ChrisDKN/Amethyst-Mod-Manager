@@ -616,6 +616,11 @@ class MainWindow(QMainWindow):
         )
         print("[gui_qt] glue wired:", ", ".join(wired))
 
+        # Environment banner at the very top of the session log - a pasted log
+        # then carries the same facts the Settings > System Information section
+        # shows, without walking the reporter through collecting them.
+        self._log_system_info()
+
         # Start with the log collapsed (deferred until the layout has real size).
         QTimer.singleShot(0, lambda: (self._vsplit.setSizes(
             [self._vsplit.height(), 0]), self._sync_log_controls()))
@@ -16956,6 +16961,18 @@ class MainWindow(QMainWindow):
                 f.write(f"[{timestamp}]  {line}\n")
         except OSError:
             pass
+
+    def _log_system_info(self):
+        """Write the environment banner to the log (startup, once)."""
+        try:
+            from Utils.system_info import log_lines
+            lines = log_lines()
+        except Exception:
+            return
+        self._append_log("--- System Information ---")
+        for line in lines:
+            self._append_log(line)
+        self._append_log("--------------------------")
 
     def _append_log(self, message: str):
         """Backend log_fn target - append a line to the log text area.

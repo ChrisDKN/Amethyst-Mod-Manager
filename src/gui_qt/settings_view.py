@@ -95,6 +95,7 @@ class SettingsView(QWidget):
         self._build_general()
         self._build_paths()
         self._build_advanced()
+        self._build_system_info()
         self._v.addStretch(1)
 
     # ---- styling ----------------------------------------------------------
@@ -885,6 +886,62 @@ class SettingsView(QWidget):
         wrap.addWidget(summary, 1)
         holder = QWidget(); holder.setLayout(wrap)
         g.addWidget(holder, self._next_row(g), 0, 1, 2)
+
+    def _build_system_info(self):
+        """Read-only environment facts + a Copy button, for bug reports."""
+        g = self._section(self.tr("System Information"))
+        from Utils import system_info
+
+        try:
+            pairs = system_info.collect()
+        except Exception:
+            pairs = []
+
+        # Labels are translated here as literals - lupdate cannot extract a
+        # `tr(variable)`, so the keys from system_info map to real tr() calls.
+        names = {
+            "App version": self.tr("App version"),
+            "OS": self.tr("OS"),
+            "Distribution": self.tr("Distribution"),
+            "Kernel": self.tr("Kernel"),
+            "Python": self.tr("Python"),
+            "Qt": self.tr("Qt"),
+            "Run mode": self.tr("Run mode"),
+            "Package": self.tr("Package"),
+            "Desktop": self.tr("Desktop"),
+            "Session": self.tr("Session"),
+            "OpenGL": self.tr("OpenGL"),
+            "Env overrides": self.tr("Env overrides"),
+        }
+
+        for label, value in pairs:
+            row = self._next_row(g)
+            g.addWidget(QLabel(names.get(label, label)), row, 0)
+            edit = QLineEdit(str(value))
+            edit.setReadOnly(True)
+            # Selectable so a single value can be copied without the whole block.
+            edit.setCursorPosition(0)
+            edit.setToolTip(str(value))
+            g.addWidget(edit, row, 1)
+
+        copy_btn = QPushButton(self.tr("Copy to clipboard"))
+        copy_btn.setCursor(Qt.PointingHandCursor)
+        copy_btn.clicked.connect(self._copy_system_info)
+        wrap = QHBoxLayout()
+        wrap.setContentsMargins(0, 0, 0, 0)
+        wrap.addWidget(copy_btn)
+        wrap.addStretch(1)
+        holder = QWidget(); holder.setLayout(wrap)
+        g.addWidget(holder, self._next_row(g), 0, 1, 2)
+
+    def _copy_system_info(self):
+        from PySide6.QtWidgets import QApplication
+        from Utils import system_info
+        try:
+            QApplication.clipboard().setText("\n".join(system_info.log_lines()))
+        except Exception:
+            return
+        self._notify(self.tr("System information copied."), "info")
 
     # ---- collection setting handlers (all persist the whole group) --------
     def _persist_collection(self):
