@@ -37,7 +37,7 @@
   "mod_install_as_is_if_no_match": true,
   "restore_before_deploy": true,
   "normalize_folder_case": true,
-  "filemap_casing": "upper",
+  "filemap_casing": "lower",
   "wine_dll_overrides": {
     "d3d9": "native,builtin",
     "dwmapi": "native,builtin"
@@ -154,6 +154,6 @@
     "UE4SS": "Binaries/Win64/dwmapi.dll",
     "PalSchema": "Binaries/Win64/ue4ss/Mods/PalSchema/dlls/main.dll"
   },
-  "version": 8,
+  "version": 9,
   "editable": false
 }
