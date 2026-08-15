@@ -54,8 +54,16 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from Games.base_game import BaseGame
-from Utils.deploy import LinkMode, load_per_mod_strip_prefixes, load_separator_deploy_paths, expand_separator_deploy_paths, expand_separator_raw_deploy, expand_separator_link_modes, _resolve_nocase, _write_deploy_snapshot, _move_runtime_files, _FILEMAP_SNAPSHOT_NAME
-from Utils.deploy_custom_rules import deploy_custom_rules, restore_custom_rules, compute_prefix_handled, canonicalize_declared_folders
+from Utils.deploy import (
+    LinkMode, load_per_mod_strip_prefixes, load_separator_deploy_paths,
+    expand_separator_deploy_paths, expand_separator_raw_deploy,
+    expand_separator_link_modes, _resolve_nocase, _resolve_root_path,
+    _write_deploy_snapshot, _move_runtime_files, _FILEMAP_SNAPSHOT_NAME,
+)
+from Utils.deploy_custom_rules import (
+    deploy_custom_rules, restore_custom_rules, compute_prefix_handled,
+    canonicalize_declared_folders,
+)
 from Utils.modlist import read_modlist
 from Utils.config_paths import get_profiles_dir
 
@@ -905,7 +913,70 @@ class UE5Game(BaseGame):
                         (sr, mn, self._PREFIX_SKIP_DEST, sr.replace("\\", "/"))
                     )
 
-        return self._apply_companion_routing(entries, per_entry)
+        per_entry = self._apply_companion_routing(entries, per_entry)
+        return self._canonicalize_routed_dir_casing(per_entry)
+
+    def _canonicalize_routed_dir_casing(
+        self, resolved: list[tuple[str, str, str, str]],
+    ) -> list[tuple[str, str, str, str]]:
+        """Unify folder casing after every UE5 route has been resolved.
+
+        The filemap's normal casing pass runs in *staged* coordinates. Two
+        paths can therefore be unrelated there but converge after a custom
+        rule strips their different wrappers. For example::
+
+            PalSchema/mods/A/file.lua
+            wrapper/PalSchema/Mods/B/file.lua
+
+        A flattening ``PalSchema`` rule puts both below the same deployed
+        ``PalSchema`` directory. On a case-sensitive host that used to create
+        sibling ``mods`` and ``Mods`` directories even though the Data tab's
+        final-coordinate casing pass displayed only one of them.
+
+        Canonicalize the complete ``dest/final`` paths here, after sibling,
+        companion, and LogicMods routing. Every consumer of this resolver
+        (deployment, conflict keys, and the Data tab) then sees the same final
+        layout. Prefix-routed entries are excluded because their sentinel path
+        is consumed by ``deploy_custom_rules`` in a separate namespace.
+        """
+        if not resolved or not getattr(self, "normalize_folder_case", True):
+            return resolved
+        try:
+            from Utils.ui_config import load_normalize_folder_case
+            if not load_normalize_folder_case():
+                return resolved
+            from Utils.filemap import canonicalize_dir_casing
+        except Exception:
+            return resolved
+
+        joined: list[str] = []
+        eligible: list[tuple[int, int]] = []
+        for idx, (_staged, _mod, dest, final) in enumerate(resolved):
+            if dest == self._PREFIX_SKIP_DEST:
+                continue
+            dest_norm = dest.replace("\\", "/").strip("/")
+            final_norm = final.replace("\\", "/").lstrip("/")
+            full = f"{dest_norm}/{final_norm}" if dest_norm else final_norm
+            joined.append(full)
+            eligible.append((idx, len(dest_norm.split("/")) if dest_norm else 0))
+        if not joined:
+            return resolved
+
+        mapping = canonicalize_dir_casing(
+            joined,
+            getattr(self, "filemap_casing", "upper") or "upper",
+            getattr(self, "filemap_casing_pins", None),
+        )
+        for (idx, dest_parts), full in zip(eligible, joined):
+            canonical = mapping.get(full, full)
+            if canonical == full:
+                continue
+            parts = canonical.split("/")
+            dest = "/".join(parts[:dest_parts]) if dest_parts else ""
+            final = "/".join(parts[dest_parts:])
+            staged, mod, _old_dest, _old_final = resolved[idx]
+            resolved[idx] = (staged, mod, dest, final)
+        return resolved
 
     def _logicmods_staging_root(self, core_entries) -> "Path | None":
         """Staging root the entries in *core_entries* actually live under.
@@ -1269,7 +1340,11 @@ class UE5Game(BaseGame):
         if game_path is None:
             return
 
-        mods_file = game_path / dest_rel / "mods.txt"
+        # Match every existing directory segment case-insensitively. A
+        # custom route may spell this destination ``mods`` while UE4SS or a
+        # framework already created ``Mods`` on the case-sensitive host.
+        mods_file = _resolve_root_path(
+            game_path, Path(dest_rel) / "mods.txt")
 
         existing_lines: list[str] = []
         if mods_file.is_file():
@@ -1424,7 +1499,8 @@ class UE5Game(BaseGame):
         game_path = self.get_game_path()
         if game_path is None:
             return candidate_folders
-        mods_root = game_path / dest_rel
+        mods_root = _resolve_root_path(
+            game_path, Path(dest_rel) / "mods.txt").parent
 
         kept: set[str] = set()
         for folder in candidate_folders:
@@ -1537,6 +1613,7 @@ class UE5Game(BaseGame):
             )
         }
         resolved_by_dest: dict[str, tuple[int, str, str, str, Path, Path, bool, str]] = {}
+        dest_case_cache: dict = {}
         prefix_skip_dest = getattr(self, "_PREFIX_SKIP_DEST", None)
         for staged_rel, mod_name in parsed:
             base_dir = per_mod_deploy.get(mod_name, game_path)
@@ -1544,17 +1621,23 @@ class UE5Game(BaseGame):
             if mod_name in per_mod_raw:
                 final_rel = staged_rel.replace("\\", "/")
                 dest_rel = ""
-                dest_dir = base_dir
-                dest_file = dest_dir / final_rel
             else:
                 dest_rel, final_rel = rule_resolved[(staged_rel, mod_name)]
                 # Files routed into the Proton/Wine prefix are placed by
                 # deploy_custom_rules before this loop runs; skip them here.
                 if prefix_skip_dest is not None and dest_rel == prefix_skip_dest:
                     continue
-                dest_dir = (base_dir / dest_rel) if dest_rel else base_dir
-                dest_file = dest_dir / final_rel
-            key = str(dest_file)
+            effective_rel = (Path(dest_rel) / final_rel
+                             if dest_rel else Path(final_rel))
+            # Resolve against folders already present in the target. This is
+            # the final guard against creating ``mods`` beside an existing
+            # ``Mods`` directory on Linux. The post-route canonicalization
+            # above handles case variants created within this deploy batch;
+            # this resolver handles directories that predate the deploy.
+            dest_file = _resolve_root_path(
+                base_dir, effective_rel, dest_case_cache)
+            dest_dir = dest_file.parent
+            key = str(dest_file).casefold()
             # Overwrite-folder files layer user/runtime edits on top of every
             # mod, so they must win destination collisions - without this the
             # sentinel name (absent from modlist.txt) would rank LAST.
@@ -1575,7 +1658,8 @@ class UE5Game(BaseGame):
         # any mod-shipped copy from being placed at this exact location.
         ue4ss_dest_rel = self._resolve_ue4ss_mods_dest()
         managed_mods_txt: Path | None = (
-            game_path / ue4ss_dest_rel / "mods.txt"
+            _resolve_root_path(
+                game_path, Path(ue4ss_dest_rel) / "mods.txt", dest_case_cache)
             if ue4ss_dest_rel is not None else None
         )
 
@@ -1638,9 +1722,9 @@ class UE5Game(BaseGame):
                 if in_custom_dir:
                     manifest.append(str(dest_file))
                 else:
-                    manifest.append(
-                        ((dest_rel + "/" + final_rel) if dest_rel else final_rel)
-                    )
+                    # Record the resolved, actual on-disk casing. Restore must
+                    # address the path Linux created, not the route's spelling.
+                    manifest.append(dest_file.relative_to(game_path).as_posix())
                 linked += 1
             except OSError as exc:
                 _log(f"  ERROR placing {final_rel}: {exc}")
@@ -1825,7 +1909,8 @@ class UE5Game(BaseGame):
                 self._update_ue4ss_mods_txt(set(), log_fn=_log)
                 # Add the mods dir to the empty-dir sweep set so it can be
                 # cleaned up if mods.txt was removed and nothing else remains.
-                dirs_to_check.add(game_path / ue4ss_dest)
+                dirs_to_check.add(_resolve_root_path(
+                    game_path, Path(ue4ss_dest) / "mods.txt").parent)
             except Exception as exc:
                 _log(f"  WARN: could not clean UE4SS mods.txt: {exc}")
 
