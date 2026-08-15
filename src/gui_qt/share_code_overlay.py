@@ -13,10 +13,12 @@ with the title/sub/text-area builders.
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+import threading
+
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
-    QWidget, QHBoxLayout, QLabel, QPushButton, QPlainTextEdit,
+    QWidget, QHBoxLayout, QLabel, QPushButton, QPlainTextEdit, QComboBox,
 )
 
 from gui_qt.custom_game_view import deploy_type_display
@@ -64,12 +66,26 @@ class _CodeOverlayBase(OverlayBase):
 
 class ShareCodeExportOverlay(_CodeOverlayBase):
     """Show a generated share code with a Copy-to-clipboard button. The code is
-    also copied to the clipboard automatically on open."""
+    also copied to the clipboard automatically on open.
+
+    A code for a big modlist is tens of kilobytes, which chat apps handle badly,
+    so "Get link" uploads it to a paste host and swaps the box for a short URL.
+    That upload is always an explicit click - it publishes the profile and mod
+    names to a third-party server - and if it fails the raw code is still sitting
+    on the clipboard, so the overlay can never leave the user with nothing."""
+
+    CARD_H = 360
+
+    # Worker → main thread. The upload runs off the UI thread; Qt widgets may
+    # only be touched from the main thread, so the result comes back by signal.
+    _upload_done = Signal(str, str)   # (url, error) - exactly one is non-empty
 
     def __init__(self, host: QWidget, code: str, mod_count: int, on_copy=None):
         super().__init__(host)
         self._code = code
         self._on_copy = on_copy
+        self._url = ""
+        self._uploading = False
 
         self._v.addWidget(self._title(self.tr("Export code")))
         noun = "mod" if mod_count == 1 else "mods"
@@ -80,6 +96,33 @@ class ShareCodeExportOverlay(_CodeOverlayBase):
         self._area = self._text_area(read_only=True)
         self._area.setPlainText(code)
         self._v.addWidget(self._area, 1)
+
+        # Upload row: what it does, where it goes, and how long it lasts. The
+        # host is named up front so the click is an informed one.
+        from Utils.profile_export import (
+            PASTE_HOST, PASTE_EXPIRY_CHOICES, DEFAULT_PASTE_EXPIRY)
+        self._status = self._sub(self.tr(
+            "Too long to paste into chat? Get a short link instead - this "
+            "uploads the code to {0}, where anyone with the link can read it."
+        ).format(PASTE_HOST))
+        self._v.addWidget(self._status)
+
+        up = QHBoxLayout()
+        self._expiry = QComboBox()
+        self._expiry.setCursor(Qt.PointingHandCursor)
+        for value, label in PASTE_EXPIRY_CHOICES:
+            self._expiry.addItem(self.tr(label), value)
+            if value == DEFAULT_PASTE_EXPIRY:
+                self._expiry.setCurrentIndex(self._expiry.count() - 1)
+        up.addWidget(QLabel(self.tr("Link expires:")))
+        up.addWidget(self._expiry)
+        up.addStretch(1)
+        self._link_btn = QPushButton(self.tr("Get link"))
+        self._link_btn.setObjectName("FormButton")
+        self._link_btn.setCursor(Qt.PointingHandCursor)
+        self._link_btn.clicked.connect(self._get_link)
+        up.addWidget(self._link_btn)
+        self._v.addLayout(up)
 
         bar = QHBoxLayout()
         bar.addStretch(1)
@@ -95,16 +138,70 @@ class ShareCodeExportOverlay(_CodeOverlayBase):
         bar.addWidget(self._copy_btn)
         self._v.addLayout(bar)
 
+        self._upload_done.connect(self._on_upload_done)
+
         self._present()
         self._copy()   # auto-copy on open
 
     def _copy(self):
+        """Copy whatever the box currently holds - the code, or the link once
+        one has been generated."""
         cb = QGuiApplication.clipboard()
         if cb is not None:
-            cb.setText(self._code)
+            cb.setText(self._url or self._code)
         self._copy_btn.setText(self.tr("Copied ✓"))
         if callable(self._on_copy):
             self._on_copy()
+
+    def _get_link(self):
+        if self._uploading:
+            return
+        self._uploading = True
+        self._link_btn.setEnabled(False)
+        self._expiry.setEnabled(False)
+        self._status.setText(self.tr("Uploading…"))
+        expires = self._expiry.currentData()
+        code = self._code
+
+        def _work():
+            try:
+                from Utils.profile_export import upload_code
+                url = upload_code(code, expires=expires)
+            except Exception as exc:
+                self._safe_emit(self._upload_done, "", str(exc))
+                return
+            self._safe_emit(self._upload_done, url, "")
+
+        threading.Thread(target=_work, daemon=True).start()
+
+    def _safe_emit(self, signal, *args):
+        """Emit from the worker thread, ignoring a C++-deleted overlay (the user
+        can close this before the upload returns)."""
+        try:
+            signal.emit(*args)
+        except RuntimeError:
+            pass
+
+    def _on_upload_done(self, url: str, error: str):
+        self._uploading = False
+        self._expiry.setEnabled(True)
+        if error:
+            # The raw code is still in the box and on the clipboard - the user
+            # loses nothing, so this is a note rather than a failure.
+            self._link_btn.setEnabled(True)
+            self._status.setText(self.tr(
+                "Could not get a link ({0}). The code above still works - copy "
+                "and send that instead.").format(error))
+            return
+        self._url = url
+        self._area.setPlainText(url)
+        self._link_btn.setText(self.tr("Link ready"))
+        self._link_btn.setEnabled(False)
+        self._status.setText(self.tr(
+            "Anyone with this link can import your load order. Paste it into "
+            "Import code."))
+        self._copy_btn.setText(self.tr("Copy to clipboard"))
+        self._copy()   # put the link on the clipboard, replacing the raw code
 
 
 class ShareCodeImportOverlay(_CodeOverlayBase):
@@ -114,15 +211,23 @@ class ShareCodeImportOverlay(_CodeOverlayBase):
     *initial_code* prefills the box - used when the code came from somewhere in
     the app (a code clicked in the wiki tab) rather than the user's clipboard.
     The overlay is still shown, so the preview says what is about to be
-    imported before anything is built."""
+    imported before anything is built.
+
+    A link to a hosted code is accepted too: pasting one swaps the Import button
+    for Fetch, which downloads the code and drops it into the box, from where the
+    normal preview-then-import path takes over."""
+
+    # Worker → main thread; see the note on ShareCodeExportOverlay.
+    _fetch_done = Signal(str, str)   # (code, error) - exactly one is non-empty
 
     def __init__(self, host: QWidget, on_done, initial_code: str = ""):
         super().__init__(host, on_done=on_done)
+        self._fetching = False
 
         self._v.addWidget(self._title(self.tr("Import code")))
         self._v.addWidget(self._sub(self.tr(
             "Paste a share code below to build a new profile from someone "
-            "else's load order.")))
+            "else's load order. A link to a code works too.")))
 
         self._area = self._text_area(read_only=False)
         self._area.setPlaceholderText("AMMCODE1:…")  # i18n: skip - share-code format token
@@ -141,7 +246,12 @@ class ShareCodeImportOverlay(_CodeOverlayBase):
         cb = QGuiApplication.clipboard()
         clip = cb.text() if cb is not None else ""
         bar = QHBoxLayout()
-        if clip and clip.strip().startswith("AMMCODE") and not initial_code:
+        # Offer the clipboard for a code OR a link - both are things a recipient
+        # is handed to paste in here.
+        from Utils.profile_export import is_code_url
+        clip_ok = bool(clip) and (clip.strip().startswith("AMMCODE")
+                                  or is_code_url(clip))
+        if clip_ok and not initial_code:
             paste = QPushButton(self.tr("Paste from clipboard"))
             paste.setObjectName("FormButton")
             paste.setCursor(Qt.PointingHandCursor)
@@ -153,21 +263,34 @@ class ShareCodeImportOverlay(_CodeOverlayBase):
         cancel.setCursor(Qt.PointingHandCursor)
         cancel.clicked.connect(lambda: self._finish(None))
         bar.addWidget(cancel)
-        ok = QPushButton(self.tr("Import"))
-        ok.setObjectName("PrimaryButton")
-        ok.setCursor(Qt.PointingHandCursor)
-        ok.clicked.connect(self._confirm)
-        bar.addWidget(ok)
+        self._ok = QPushButton(self.tr("Import"))
+        self._ok.setObjectName("PrimaryButton")
+        self._ok.setCursor(Qt.PointingHandCursor)
+        self._ok.clicked.connect(self._confirm)
+        bar.addWidget(self._ok)
         self._v.addLayout(bar)
+
+        self._fetch_done.connect(self._on_fetch_done)
 
         self._present()
         self._area.setFocus()
+        self._update_preview()   # initial_code may already fill the box
 
     def _update_preview(self):
         text = self._area.toPlainText().strip()
         if not text:
             self._preview.setText("")
+            self._set_fetch_mode(False)
             return
+        # A link can't be decoded - it has to be downloaded first. Flip the
+        # primary button to Fetch and wait for the click.
+        from Utils.profile_export import is_code_url
+        if is_code_url(text):
+            self._set_fetch_mode(True)
+            self._preview.setText(self.tr(
+                "A link - press Fetch to download the code from it."))
+            return
+        self._set_fetch_mode(False)
         try:
             from Utils.profile_export import decode_manifest
             manifest = decode_manifest(text)
@@ -195,10 +318,53 @@ class ShareCodeImportOverlay(_CodeOverlayBase):
             parts.append(self.tr("exported {0}").format(exported))
         self._preview.setText("  -  ".join(parts))
 
+    def _set_fetch_mode(self, on: bool):
+        """Swap the primary button between Fetch (box holds a link) and Import
+        (box holds a code)."""
+        self._fetch_mode = on
+        self._ok.setText(self.tr("Fetch") if on else self.tr("Import"))
+
     def _confirm(self):
         text = self._area.toPlainText().strip()
-        if text:
-            self._finish(text)
+        if not text or self._fetching:
+            return
+        if getattr(self, "_fetch_mode", False):
+            self._start_fetch(text)
+            return
+        self._finish(text)
+
+    def _start_fetch(self, url: str):
+        self._fetching = True
+        self._ok.setEnabled(False)
+        self._preview.setText(self.tr("Downloading…"))
+
+        def _work():
+            try:
+                from Utils.profile_export import fetch_code_url
+                code = fetch_code_url(url)
+            except Exception as exc:
+                self._safe_emit(self._fetch_done, "", str(exc))
+                return
+            self._safe_emit(self._fetch_done, code, "")
+
+        threading.Thread(target=_work, daemon=True).start()
+
+    def _safe_emit(self, signal, *args):
+        """Emit from the worker thread, ignoring a C++-deleted overlay."""
+        try:
+            signal.emit(*args)
+        except RuntimeError:
+            pass
+
+    def _on_fetch_done(self, code: str, error: str):
+        self._fetching = False
+        self._ok.setEnabled(True)
+        if error:
+            self._preview.setText(error)
+            return
+        # Dropping the code in fires textChanged → _update_preview, which leaves
+        # fetch mode and shows the real modlist preview.
+        self._area.setPlainText(code)
 
 
 class CustomGameExportOverlay(_CodeOverlayBase):
