@@ -16982,7 +16982,12 @@ class MainWindow(QMainWindow):
     def _line_visible(self, severity: str) -> bool:
         """Whether a line of this severity passes the current Error/Warning
         filter. With no filter active every line shows; when a filter is active
-        only lines of that severity show."""
+        only lines of that severity show.
+
+        The pinned System Information banner is exempt - it is context, not a
+        log event, and stays visible under every filter."""
+        if severity == "banner":
+            return True
         active = getattr(self, "_log_filter", None)
         if active is None:
             return True
@@ -17017,16 +17022,30 @@ class MainWindow(QMainWindow):
             pass
 
     def _log_system_info(self):
-        """Write the environment banner to the log (startup, once)."""
+        """Write the environment banner to the log (startup, once).
+
+        The banner is pinned: ``_log_banner_len`` marks how many leading lines it
+        occupies so Clear Log can keep them. A log a user hands us is only useful
+        with the environment it came from attached."""
         try:
             from Utils.system_info import log_lines
             lines = log_lines()
         except Exception:
             return
-        self._append_log("--- System Information ---")
-        for line in lines:
-            self._append_log(line)
-        self._append_log("--------------------------")
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        if not hasattr(self, "_log_lines"):
+            self._log_lines = []
+        before = len(self._log_lines)
+        banner = ["--- System Information ---", *lines, "--------------------------"]
+        for line in banner:
+            # Severity 'banner', not the keyword classifier: a GL status or path
+            # containing "failed"/"error" must not tint the banner red or make it
+            # the only line left under the Errors filter.
+            self._log_lines.append((line, "banner", timestamp))
+            self._write_log_file(line, timestamp)
+        self._log_banner_len = len(self._log_lines) - before
+        self._render_log()
 
     def _append_log(self, message: str):
         """Backend log_fn target - append a line to the log text area.
@@ -17134,15 +17153,12 @@ class MainWindow(QMainWindow):
                 pass
 
     def _clear_log(self):
-        """Clear both the docked log view and the full-screen log tab (if open)."""
-        self._log_lines = []
-        for view in (self._log_view, getattr(self, "_log_tab_view", None)):
-            if view is None:
-                continue
-            try:
-                view.clear()
-            except Exception:
-                pass
+        """Clear both the docked log view and the full-screen log tab (if open),
+        keeping the pinned System Information banner - a shared log has to carry
+        the environment it came from, however often the user clears it."""
+        banner = getattr(self, "_log_banner_len", 0)
+        self._log_lines = getattr(self, "_log_lines", [])[:banner]
+        self._render_log()
 
     def _open_logs_folder(self):
         """Open the session logs directory in the system file manager (Tk parity)."""
