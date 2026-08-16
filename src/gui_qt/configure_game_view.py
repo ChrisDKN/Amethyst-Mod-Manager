@@ -429,20 +429,6 @@ class ConfigureGameView(QWidget):
         v.addStretch(1)
         return frame
 
-    def _steam_manifest_path(self) -> Path | None:
-        """This game's Steam appmanifest, or None when it isn't a Steam install."""
-        try:
-            from Utils.steam_finder import game_steam_id, steam_appmanifest_path
-            sid = game_steam_id(self._game)
-            if not sid:
-                return None
-            gp = self._found_path
-            if gp is None and self._game.is_configured():
-                gp = self._game.get_game_path()
-            return steam_appmanifest_path(sid, gp)
-        except Exception:
-            return None
-
     def _build_options_panel(self) -> QFrame:
         """Bottom-left panel - deploy method + game-dependent options, in an
         independently-scrolling list so many options never blow out the frame."""
@@ -478,7 +464,7 @@ class ConfigureGameView(QWidget):
         # hasattr-gated option checkboxes (mirrors the Tk panel).
         self._opt_checks: dict[str, QCheckBox] = {}
 
-        def add_check(key: str, text: str, gate: bool, tip: str = ""):
+        def add_check(key: str, text: str, gate: bool):
             if not gate:
                 return
             # Pair a bare checkbox indicator with a wrapping label so long option
@@ -496,9 +482,6 @@ class ConfigureGameView(QWidget):
             # Click the label to toggle the box.
             lbl.mousePressEvent = lambda _e, box=cb: box.toggle()
             rl.addWidget(lbl, 1)
-            if tip:
-                cb.setToolTip(tip)
-                lbl.setToolTip(tip)
             ov.addWidget(roww)
             self._opt_checks[key] = cb
 
@@ -531,17 +514,6 @@ class ConfigureGameView(QWidget):
         add_check("manage_load_order_in_dfu",
                   self.tr("Manage load order in DFU"),
                   hasattr(self._game, "set_manage_load_order_in_dfu"))
-        # Steam-only: gated on an appmanifest actually existing for this game,
-        # so it stays hidden for Heroic/GOG/Lutris installs that have none.
-        add_check("disable_steam_updates",
-                  self.tr("Disable Steam updates"),
-                  self._steam_manifest_path() is not None,
-                  tip=self.tr("Marks Steam's appmanifest file read-only so an "
-                              "update cannot be applied, keeping mods working "
-                              "against the current build.\n\n"
-                              "Steam may still download the update and show a "
-                              "disk write error. Verifying the game's files in "
-                              "Steam clears this, re-enabling updates."))
 
         # BG3 patch-version radios.
         self._patch_group = None
@@ -621,7 +593,6 @@ class ConfigureGameView(QWidget):
             self._set_check("prefix_numbering", getattr(g, "prefix_numbering", True))
             self._set_check("manage_load_order_in_dfu",
                             getattr(g, "manage_load_order_in_dfu", False))
-            self._refresh_steam_updates_check()
             if self._patch_group is not None and hasattr(g, "get_patch_version"):
                 rb = self._patch_buttons.get(int(g.get_patch_version()))
                 if rb:
@@ -649,7 +620,6 @@ class ConfigureGameView(QWidget):
             self._set_check("profile_saves", False)
             self._set_check("prefix_numbering", True)
             self._set_check("manage_load_order_in_dfu", False)
-            self._refresh_steam_updates_check()
             if self._patch_group is not None and hasattr(g, "get_patch_version"):
                 rb = self._patch_buttons.get(int(g.get_patch_version()))
                 if rb:
@@ -662,48 +632,6 @@ class ConfigureGameView(QWidget):
         cb = self._opt_checks.get(key)
         if cb is not None:
             cb.setChecked(bool(value))
-
-    def _apply_steam_updates_setting(self):
-        """Write the Steam-updates choice through to the appmanifest's mode.
-
-        A chmod failure never blocks the save - the rest of the settings are
-        still valid - so it is logged and the box re-synced to what's real.
-        """
-        from Utils.app_log import app_log
-        from Utils.steam_finder import game_steam_id, set_steam_updates_disabled
-        want = self._opt_checks["disable_steam_updates"].isChecked()
-        try:
-            sid = game_steam_id(self._game)
-            gp = self._found_path or (self._game.get_game_path()
-                                      if self._game.is_configured() else None)
-            ok = set_steam_updates_disabled(sid, want, gp)
-        except Exception as e:
-            app_log(f"[Configure Game] Steam update lock failed: {e}")
-            ok = False
-        if not ok:
-            app_log("[Configure Game] Could not change the Steam update lock "
-                    f"for app {game_steam_id(self._game)!r}.")
-        self._refresh_steam_updates_check()
-
-    def _refresh_steam_updates_check(self):
-        """Seed the Steam-updates box from the manifest's actual permissions.
-
-        This option is filesystem state, not saved config - the user may have
-        set it by hand, or Steam's "verify files" may have cleared it since we
-        last looked, so the disk is the only source of truth.
-        """
-        if "disable_steam_updates" not in self._opt_checks:
-            return
-        try:
-            from Utils.steam_finder import game_steam_id, steam_updates_disabled
-            sid = game_steam_id(self._game)
-            gp = self._found_path
-            if gp is None and self._game.is_configured():
-                gp = self._game.get_game_path()
-            self._set_check("disable_steam_updates",
-                            steam_updates_disabled(sid, gp))
-        except Exception:
-            self._set_check("disable_steam_updates", False)
 
     # ---- per-profile overrides ---------------------------------------------
     def _overridable_keys(self) -> list[str]:
@@ -1483,10 +1411,6 @@ class ConfigureGameView(QWidget):
                 and "manage_load_order_in_dfu" in self._opt_checks):
             g.set_manage_load_order_in_dfu(
                 self._opt_checks["manage_load_order_in_dfu"].isChecked())
-        # Not persisted config: the read-only bit on Steam's appmanifest IS the
-        # setting, so this applies it to disk rather than storing a flag.
-        if "disable_steam_updates" in self._opt_checks:
-            self._apply_steam_updates_setting()
         if hasattr(g, "set_patch_version") and self._patch_group is not None:
             for val, rb in self._patch_buttons.items():
                 if rb.isChecked():
