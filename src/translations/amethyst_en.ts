@@ -10919,6 +10919,18 @@ Install a Proton version in Steam (or with Heroic's Wine Manager), then reopen t
 </translation>
     </message>
     <message>
+        <source>Prefer discrete GPU (hybrid systems)</source>
+        <translation>Prefer discrete GPU (hybrid systems)</translation>
+    </message>
+    <message>
+        <source>Expose the discrete GPU as adapter 0. May use more power.</source>
+        <translation>Expose the discrete GPU as adapter 0. May use more power.</translation>
+    </message>
+    <message>
+        <source>Uses the discrete GPU for texconv; falls back to CPU if unavailable.</source>
+        <translation>Uses the discrete GPU for texconv; falls back to CPU if unavailable.</translation>
+    </message>
+    <message>
         <source>Use shared prefix</source>
         <translation>Use shared prefix</translation>
     </message>

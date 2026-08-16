@@ -6,7 +6,8 @@ isolated (prefix_<Proton>/ next to the exe, default), shared
 (wine_prefixes/shared_<Proton>/), or the game's own prefix. The pick persists
 per-exe (shared with the Mod Files exe launcher and the Tk wizards) via
 Utils.exe_launch. Includes the optional env-vars entry and the
-double-click-to-confirm Delete Prefix button.
+double-click-to-confirm Delete Prefix button. Texture-tool callers can also
+request a hybrid-system discrete-GPU selector.
 
 Embed one per wizard view; `on_continue(proton_name, prefix_mode)` fires after
 the choices are saved.
@@ -53,7 +54,8 @@ class ProtonStepWidget(QWidget):
                  title: str | None = None,
                  deps_note: str | None = None,
                  show_launch_args: bool = False,
-                 default_launch_args: str = ""):
+                 default_launch_args: str = "",
+                 show_discrete_gpu: bool = False):
         super().__init__()
         if title is None:
             title = self.tr("Choose Proton Version")
@@ -71,6 +73,7 @@ class ProtonStepWidget(QWidget):
         self._show_launch_args = show_launch_args
         self._default_launch_args = default_launch_args
         self._args_entry = None
+        self._prefer_discrete_gpu_cb: QCheckBox | None = None
         # Hosts whose exe sits somewhere a prefix shouldn't go (e.g. Creation
         # Kit in the game root) relocate the isolated prefix; the Delete
         # button must target the same dir (mirrors Tk _isolated_prefix_dir).
@@ -115,13 +118,13 @@ class ProtonStepWidget(QWidget):
         v.addWidget(desc)
         v.addSpacing(6)
 
+        dim = f"color:{_c(p,'TEXT_DIM')};"
         # ---- prefix mode checkboxes ----
         mode = load_prefix_mode(game, tool_exe_name)
         game_pfx_ok = self._game_prefix_available()
         if mode == PREFIX_MODE_GAME and not (allow_game_prefix and game_pfx_ok):
             mode = PREFIX_MODE_ISOLATED
 
-        dim = f"color:{_c(p,'TEXT_DIM')};"
         self._shared_chk = QCheckBox(self.tr("Use shared prefix"))
         self._shared_chk.setChecked(mode == PREFIX_MODE_SHARED)
         self._shared_chk.toggled.connect(self._on_shared_toggle)
@@ -160,6 +163,21 @@ class ProtonStepWidget(QWidget):
         wt_note.setStyleSheet(dim)
         wt_note.setContentsMargins(26, 0, 0, 6)
         v.addWidget(wt_note)
+
+        if show_discrete_gpu:
+            self._prefer_discrete_gpu_cb = QCheckBox(
+                self.tr("Prefer discrete GPU (hybrid systems)"))
+            self._prefer_discrete_gpu_cb.setToolTip(self.tr(
+                "Expose the discrete GPU as adapter 0. May use more power."))
+            v.addWidget(self._prefer_discrete_gpu_cb)
+
+            gpu_note = QLabel(self.tr(
+                "Uses the discrete GPU for texconv; falls back to CPU if "
+                "unavailable."))
+            gpu_note.setWordWrap(True)
+            gpu_note.setStyleSheet(dim)
+            gpu_note.setContentsMargins(26, 0, 0, 6)
+            v.addWidget(gpu_note)
 
         # ---- proton picker row + delete ----
         row = QWidget()
@@ -267,6 +285,13 @@ class ProtonStepWidget(QWidget):
         if self._shared_chk.isChecked():
             return PREFIX_MODE_SHARED
         return PREFIX_MODE_ISOLATED
+
+    def prefer_discrete_gpu(self) -> bool:
+        """Whether the optional hybrid-GPU selector is enabled."""
+        return bool(
+            self._prefer_discrete_gpu_cb is not None
+            and self._prefer_discrete_gpu_cb.isChecked()
+        )
 
     def _on_shared_toggle(self, on: bool):
         if on and self._game_chk is not None:

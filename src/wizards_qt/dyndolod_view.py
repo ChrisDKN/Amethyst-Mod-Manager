@@ -78,11 +78,14 @@ class DynDOLODView(QWidget):
 
         (self._name, self._exe_name, self._output_dir, self._app_dir,
          self._archive_kw, self._auto_dl) = _TOOLS[tool]
+        self._tool_id = tool
 
         self._exe = tool_exe_path(game, self._exe_name, self._app_dir)
         self._archive_path: Path | None = None
         self._proton_name = ""
         self._prefix_mode = ""
+        self._prefer_discrete_gpu = False
+        self._proton_step = None
         self._ran = False
         self._closing = False
 
@@ -469,16 +472,22 @@ class DynDOLODView(QWidget):
             lay.addWidget(err)
             return
         from wizards_qt.proton_step import ProtonStepWidget
-        lay.addWidget(ProtonStepWidget(
+        self._proton_step = ProtonStepWidget(
             self._game, self._exe, self._exe_name, self._name,
             on_continue=self._on_proton_chosen,
             log_fn=self._log,
             title=self.tr("Step 5: Choose Proton Version"),
-        ))
+            show_discrete_gpu=self._tool_id in ("texgen", "dyndolod"),
+        )
+        lay.addWidget(self._proton_step)
 
     def _on_proton_chosen(self, proton_name: str, prefix_mode: str):
         self._proton_name = proton_name
         self._prefix_mode = prefix_mode
+        self._prefer_discrete_gpu = bool(
+            self._proton_step is not None
+            and self._proton_step.prefer_discrete_gpu()
+        )
         self._goto_step(_PG_RUN)
 
     # ---- step 6: run ----------------------------------------------------------------
@@ -505,6 +514,8 @@ class DynDOLODView(QWidget):
         name = self._name
         output_dir = self._output_dir
         proton_name, prefix_mode = self._proton_name, self._prefix_mode
+        prefer_discrete_gpu = self._prefer_discrete_gpu
+        tool_id = self._tool_id
 
         def worker():
             from Utils.exe_launch import (
@@ -523,6 +534,16 @@ class DynDOLODView(QWidget):
                         "check that it is installed in Steam.").format(proton_name), err_text())
                     return
                 proton_script, compat_data, env = result
+
+                if tool_id in ("texgen", "dyndolod"):
+                    # These tools spawn Texconvx64.exe themselves. Child
+                    # processes inherit this environment, so filtering the
+                    # Vulkan devices here makes the selected discrete GPU DXVK
+                    # adapter 0 for texconv's DirectCompute codec as well.
+                    from Utils.texture_tools import apply_discrete_gpu_environment
+                    gpu_selection = apply_discrete_gpu_environment(
+                        env, prefer_discrete_gpu)
+                    _wlog(f"GPU: {gpu_selection}")
 
                 game_path = game.get_game_path()
                 if game_path is None:

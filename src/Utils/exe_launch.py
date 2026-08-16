@@ -1706,15 +1706,35 @@ def run_tool_logged(
     if env.get("AMM_WINETRICKS_STYLE") == "1":
         prefix = env.get("STEAM_COMPAT_DATA_PATH") or env.get("WINEPREFIX")
         if prefix:
+            # The plain-Wine helper deliberately rebuilds a clean environment
+            # to drop Proton/Steam session state. Preserve only the host GPU
+            # selectors: TexGen/DynDOLOD's discrete-GPU option relies on these
+            # reaching the texconv child process even in winetricks-style mode.
+            gpu_env_keys = (
+                "DRI_PRIME", "__NV_PRIME_RENDER_OFFLOAD",
+                "__VK_LAYER_NV_optimus", "__GLX_VENDOR_LIBRARY_NAME",
+            )
             return run_tool_winetricks_style(
                 proton_script, exe, Path(prefix), log_fn=log_fn,
-                extra_args=extra_args, cwd=cwd, label=label)
+                extra_args=extra_args,
+                extra_env={key: env.get(key) for key in gpu_env_keys},
+                cwd=cwd, label=label)
         log_fn(f"{label}: winetricks-style launch requested but no prefix "
                "path in env - falling back to Proton.")
 
     # Only set WINEDEBUG when the caller hasn't chosen its own channels
     # (BodySlide sets +wgl,+opengl for its GL trace and must win).
     env.setdefault("WINEDEBUG", winedebug)
+
+    # Proton's Xalia UI-automation sidecar is useless to these tools and
+    # actively harmful: it crashes on its own (C# traces from
+    # NonclientScrollProvider land in our merged pipe, mislabelled with
+    # whichever tool we happen to be running) and it destabilises wxWidgets
+    # apps by flooding them with window-handle queries. It also inherits our
+    # stdout, so it keeps writing after the tool exits. Proton 10 renamed the
+    # knob, so set both; setdefault lets a caller opt back in.
+    env.setdefault("PROTON_DISABLE_XALIA", "1")
+    env.setdefault("PROTON_USE_XALIA", "0")
 
     # "runinprefix" (not "run"): the run verb boots Proton's steam.exe shim,
     # which attaches to the Steam client and shows the game as "Running" in
@@ -1817,6 +1837,10 @@ WINEPREFIX + Proton's bin on PATH, ``wine start.exe <exe>``), with only two
     env = strip_appimage_env(os.environ.copy())
     env["WINEPREFIX"] = str(pfx if pfx.is_dir() else Path(compat_data))
     env["PATH"] = str(bin_dir) + os.pathsep + env.get("PATH", "")
+    # Same Xalia suppression as the Proton path - set before the saved/extra
+    # overrides so a caller can still turn it back on.
+    env["PROTON_DISABLE_XALIA"] = "1"
+    env["PROTON_USE_XALIA"] = "0"
     saved = parse_env_overrides(load_tool_launch_env(exe))
     if saved:
         env.update(saved)
