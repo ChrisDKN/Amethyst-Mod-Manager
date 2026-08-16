@@ -1532,6 +1532,20 @@ class BaseGame(ABC):
                 pass
         return self.get_mod_staging_path()
 
+    def extra_save_paths(self) -> list[tuple[str, str, str]]:
+        """Manifest-shaped save paths the Ludusavi data is missing.
+
+        Same triple as a manifest entry -(token path, os, store constraint) -
+        and resolved through the same token tables, so a handler only has to
+        know the path, not how it expands.  For games Ludusavi describes on
+        Windows terms only, this is where the native Linux location goes.
+
+        Distinct from get_save_path_override(): that is the user's manual
+        answer and outranks everything, while these are merged in as further
+        manifest entries would be.
+        """
+        return []
+
     def get_save_path_override(self) -> "Path | None":
         """Return the user's manual save folder, or None to use the manifest."""
         return self._save_path_override

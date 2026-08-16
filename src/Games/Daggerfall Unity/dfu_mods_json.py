@@ -45,6 +45,10 @@ _CACHE_VERSION = 1
 # user's own file back.  A zero-byte backup means "there was no file here".
 BACKUP_SUFFIX = ".amm-backup"
 
+# Where a stashed set of per-mod settings folders lives inside overwrite/.
+# Sibling GUID folders of Mods.json, one per mod, holding modsettings.json.
+SETTINGS_STASH_DIR = "DFU_ModSettings"
+
 # Cap raw inspection of legacy UnityRaw/UnityWeb bundles.  Modern UnityFS
 # bundles are decompressed a block at a time until the manifest is found;
 # limiting that scan used to miss valid manifests stored after the first
@@ -726,6 +730,209 @@ def sync_mods_json(game_path: Path, ordered: list[Path], log_fn=None,
              " - DFU will keep its own load position for them. Order them in "
              "DFU's Mod Loader.")
     return total
+
+
+# ---------------------------------------------------------------------------
+# Per-mod runtime folders
+# ---------------------------------------------------------------------------
+
+# The sibling folders under <PersistentDataPath>/Mods that DFU fills with
+# per-mod, runtime-generated content, each keyed by the containing folder name:
+#   GameData/<GUID>/modsettings.json  - the user's settings for that mod
+#   ExtractedFiles/<mod title>/...    - assets a mod unpacked out of its bundle
+# Both hold one folder per mod and both are discarded for mods DFU is not
+# currently loading, so both need stashing across a profile switch.
+RUNTIME_DIRS = ("GameData", "ExtractedFiles")
+
+
+def mod_runtime_dir(game_path: Path, name: str) -> Path:
+    """Return one of DFU's per-mod runtime folders (see RUNTIME_DIRS)."""
+    return persistent_data_dir(game_path) / "Mods" / name
+
+
+def mod_settings_dir(game_path: Path) -> Path:
+    """Return the folder holding DFU's per-mod settings folders."""
+    return mod_runtime_dir(game_path, "GameData")
+
+
+def _settings_folders(parent: Path) -> list[Path]:
+    """Return the per-mod folders under a runtime folder.
+
+    Every mod gets one folder of its own - named for its GUID under GameData,
+    for its lowercased title under ExtractedFiles.  The only non-folder entries
+    are Mods.json and our own backup of it, both of which are left alone.
+    """
+    if not parent.is_dir():
+        return []
+    try:
+        return sorted(p for p in parent.iterdir() if p.is_dir())
+    except OSError:
+        return []
+
+
+def _link_tree(src: Path, dest: Path, mode) -> None:
+    """Mirror *src* into *dest*, linking each file with the deploy's mode."""
+    from Utils.deploy import _transfer
+
+    dest.mkdir(parents=True, exist_ok=True)
+    for child in src.iterdir():
+        target = dest / child.name
+        if child.is_dir() and not child.is_symlink():
+            _link_tree(child, target, mode)
+            continue
+        # A stale link (or a file DFU replaced) has to go before we relink, or
+        # os.link/os.symlink would raise EEXIST.
+        if target.is_dir() and not target.is_symlink():
+            shutil.rmtree(target, ignore_errors=True)
+        else:
+            target.unlink(missing_ok=True)
+        _transfer(child, target, mode)
+
+
+def _same_file(a: Path, b: Path) -> bool:
+    """True if *a* and *b* are the same inode, or *a* is a link to *b*."""
+    try:
+        if a.is_symlink() and Path(os.readlink(a)) == b:
+            return True
+        return a.samefile(b)
+    except OSError:
+        return False
+
+
+def _merge_dir(src: Path, dest: Path) -> None:
+    """Move *src* onto *dest*, replacing colliding files but keeping the rest."""
+    dest.mkdir(parents=True, exist_ok=True)
+    for child in src.iterdir():
+        target = dest / child.name
+        if child.is_dir() and not child.is_symlink():
+            _merge_dir(child, target)
+            continue
+        # Already the stash's own file, linked in by a previous deploy: there
+        # is nothing to move, and unlinking the target first would throw the
+        # only copy away.
+        if _same_file(child, target):
+            child.unlink(missing_ok=True)
+            continue
+        if target.is_dir() and not target.is_symlink():
+            shutil.rmtree(target, ignore_errors=True)
+        else:
+            target.unlink(missing_ok=True)
+        shutil.move(str(child), str(target))
+    shutil.rmtree(src, ignore_errors=True)
+
+
+def _migrate_flat_stash(overwrite_dir: Path, log_fn=None) -> None:
+    """Move a pre-RUNTIME_DIRS stash into its GameData/ subfolder.
+
+    The first version of this stash held the GUID folders directly, before
+    ExtractedFiles was handled too.  Anything sitting at the top level that is
+    not one of the runtime folder names is one of those GUIDs.
+    """
+    _log = log_fn or _noop
+    stash = overwrite_dir / SETTINGS_STASH_DIR
+    stale = [p for p in _settings_folders(stash) if p.name not in RUNTIME_DIRS]
+    if not stale:
+        return
+    target_root = stash / "GameData"
+    for folder in stale:
+        try:
+            target = target_root / folder.name
+            if target.exists():
+                _merge_dir(folder, target)
+            else:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(folder), str(target))
+        except OSError as exc:
+            _log(f"  Could not migrate stashed settings "
+                 f"'{folder.name}': {exc}")
+    _log(f"  Migrated {len(stale)} stashed settings folder(s) into GameData/.")
+
+
+def stash_mod_settings(game_path: Path, overwrite_dir: Path, log_fn=None) -> int:
+    """Move DFU's per-mod runtime folders into overwrite/; returns how many.
+
+    DFU keeps per-mod state outside the game folder entirely, under
+    <PersistentDataPath>/Mods - so nothing in the StreamingAssets deploy
+    protects it:
+
+      GameData/<GUID>/modsettings.json  the user's settings for that mod
+      ExtractedFiles/<mod title>/...    assets the mod unpacked from its bundle
+
+    DFU discards both for any mod it is not currently loading, which means
+    deploying a second profile silently resets the first profile's settings.
+    Restore therefore parks them in the profile's overwrite/ folder and deploy
+    links them back.
+
+    The folders are keyed by GUID and by mod title, neither of which Amethyst
+    can map back to a staged mod, so each set moves as a unit rather than per
+    mod.  Files that are already links into this stash (put there by the
+    matching restore_mod_settings) are simply dropped - the stash copy IS the
+    file.
+    """
+    _log = log_fn or _noop
+    moved = 0
+    for name in RUNTIME_DIRS:
+        source = mod_runtime_dir(game_path, name)
+        folders = _settings_folders(source)
+        if not folders:
+            continue
+        stash = overwrite_dir / SETTINGS_STASH_DIR / name
+        for folder in folders:
+            try:
+                target = stash / folder.name
+                if target.exists():
+                    # A previous stash for the same mod: the folder now in the
+                    # game is the newer one, so let it win file by file.
+                    _merge_dir(folder, target)
+                else:
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.move(str(folder), str(target))
+                moved += 1
+            except OSError as exc:
+                _log(f"  Could not stash {name} folder '{folder.name}': {exc}")
+        _log(f"  Stashed {len(folders)} {name} folder(s) → "
+             f"{SETTINGS_STASH_DIR}/{name}/.")
+    return moved
+
+
+def restore_mod_settings(game_path: Path, overwrite_dir: Path,
+                         mode: "LinkMode | None" = None, log_fn=None) -> int:
+    """Link DFU's stashed per-mod runtime folders back; returns how many.
+
+    The stash stays the canonical copy - each file is hardlinked (or symlinked)
+    back into place rather than moved out, exactly like a deployed mod file.  So
+    an interrupted session, a crash, or DFU pruning a folder outright can never
+    lose the data: overwrite/ still holds it.
+
+    With a hardlink the game's own writes are seen by both paths, so settings
+    changed in-game persist to the stash for free.  A symlink behaves the same
+    as long as DFU rewrites the file in place; if it replaces the file instead,
+    the next stash_mod_settings() picks the new copy up.
+    """
+    from Utils.deploy import LinkMode
+
+    _log = log_fn or _noop
+    if mode is None:
+        mode = LinkMode.HARDLINK
+
+    _migrate_flat_stash(overwrite_dir, log_fn=_log)
+
+    linked = 0
+    for name in RUNTIME_DIRS:
+        stash = overwrite_dir / SETTINGS_STASH_DIR / name
+        folders = _settings_folders(stash)
+        if not folders:
+            continue
+        dest_root = mod_runtime_dir(game_path, name)
+        for folder in folders:
+            try:
+                _link_tree(folder, dest_root / folder.name, mode)
+                linked += 1
+            except OSError as exc:
+                _log(f"  Could not restore {name} folder "
+                     f"'{folder.name}': {exc}")
+        _log(f"  Linked {len(folders)} {name} folder(s) into {dest_root}.")
+    return linked
 
 
 def restore_mods_json(game_path: Path, log_fn=None) -> bool:

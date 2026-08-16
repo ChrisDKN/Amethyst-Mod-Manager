@@ -215,10 +215,16 @@ def resolve_save_paths(
     prefix_path: "Path | None" = None,
     store: str = "",
     existing_only: bool = True,
+    extra_paths: "list[tuple[str, str, str]] | None" = None,
 ) -> list[SaveLocation]:
     """Return the game's save locations, disk-verified unless told otherwise."""
     entry = lookup(steam_id, game_name)
-    if entry is None:
+    # A handler's extra paths stand on their own: DFU has no Steam id and the
+    # manifest knows only its Windows folder, so requiring a manifest hit here
+    # would throw away the only location that exists on Linux.
+    manifest_paths = list(entry.paths) if entry is not None else []
+    all_paths = manifest_paths + list(extra_paths or [])
+    if not all_paths:
         return []
 
     prefix_table, native_table = _token_tables(game_path, prefix_path)
@@ -242,7 +248,7 @@ def resolve_save_paths(
         if merged != old.patterns:
             results[seat] = replace(old, patterns=merged)
 
-    for token_path, os_name, store_constraint in entry.paths:
+    for token_path, os_name, store_constraint in all_paths:
         if store and store_constraint and store_constraint != store:
             continue
         tables: list[tuple[dict, bool]] = []
@@ -364,12 +370,17 @@ def save_paths_for_game(game, existing_only: bool = True) -> list[SaveLocation]:
         prefix_path = game.get_prefix_path()
     except Exception:
         prefix_path = None
+    try:
+        extra_paths = game.extra_save_paths()
+    except Exception:
+        extra_paths = None
     found = resolve_save_paths(
         steam_id=str(steam_id or ""),
         game_name=getattr(game, "name", "") or "",
         game_path=game_path,
         prefix_path=prefix_path,
         existing_only=existing_only,
+        extra_paths=extra_paths,
     )
     override = save_path_override_for_game(game)
     if override is None:

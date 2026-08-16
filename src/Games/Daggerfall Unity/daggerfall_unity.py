@@ -22,6 +22,13 @@ Notes:
   - The load order lives outside the game folder, in DFU's own Mods.json.
     Amethyst synchronises it by default; users can instead leave it entirely
     to DFU with the "Manage load order in DFU" option.
+  - Per-mod runtime state also lives outside the game folder, under
+    <PersistentDataPath>/Mods/: settings in GameData/<GUID>/ and unpacked
+    assets in ExtractedFiles/<mod title>/.  DFU discards both for mods it is
+    not loading, so restore() stashes them in overwrite/ and deploy() links
+    them back - otherwise switching profiles resets them.  They are linked,
+    not moved, so overwrite/ keeps the data even if the game (or a crash)
+    removes what is in place.
 """
 
 from __future__ import annotations
@@ -323,6 +330,21 @@ class DaggerfallUnity(BaseGame):
             return None
         return self._game_path / _DATA_DIR / _STREAMING
 
+    def extra_save_paths(self) -> list[tuple[str, str, str]]:
+        """DFU's native Linux save folder, which the Ludusavi data omits.
+
+        The manifest lists only the Windows location (AppData/LocalLow/…).  A
+        Linux build is the normal way to run DFU here and writes to the Unity
+        persistent-data path instead, so without this the Saves tab finds
+        nothing unless the user is running under Wine.  Resolved rather than
+        tokenised because a Portable.txt next to the player moves the whole
+        persistent path into the install folder - see persistent_data_dir.
+        """
+        if self._game_path is None:
+            return []
+        saves = _mods_json().persistent_data_dir(self._game_path) / "Saves"
+        return [(str(saves), "linux", "")]
+
     def runtime_snapshot_exclude_dirs(self) -> set[str] | None:
         # StreamingAssets/ is reverted via its _Core backup; capture only
         # files that appear outside the player's data folder.
@@ -542,6 +564,13 @@ class DaggerfallUnity(BaseGame):
 
         self._sync_mods_json(profile, _log)
 
+        _log("Step 5: Linking stashed mod settings and extracted files back ...")
+        settings = _mods_json().restore_mod_settings(
+            self._game_path, self.get_effective_overwrite_path(),
+            mode=mode, log_fn=_log)
+        if not settings:
+            _log("  Nothing stashed to restore.")
+
         _log(
             f"Deploy complete. "
             f"{linked_mod} mod + {linked_core} vanilla "
@@ -567,8 +596,20 @@ class DaggerfallUnity(BaseGame):
         _entries = read_modlist(_profile_dir / "modlist.txt") if _profile_dir else []
         cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log)
 
+        _mj = _mods_json()
+
+        # Before anything else: DFU deletes the GameData and ExtractedFiles
+        # folders of any mod it no longer loads, so the next profile's deploy
+        # would otherwise wipe this profile's settings.  Park them in
+        # overwrite/.
+        _log("Restore: stashing per-mod settings and extracted files ...")
+        stashed = _mj.stash_mod_settings(
+            self._game_path, self.get_effective_overwrite_path(), log_fn=_log)
+        if not stashed:
+            _log("  No per-mod runtime folders found.")
+
         _log("Restore: reverting DFU's Mods.json ...")
-        _mods_json().restore_mods_json(self._game_path, log_fn=_log)
+        _mj.restore_mods_json(self._game_path, log_fn=_log)
 
         if core_dir.is_dir():
             _log(f"Restore: clearing {_STREAMING}/ and moving {core}/ back ...")
