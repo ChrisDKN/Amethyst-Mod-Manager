@@ -18,7 +18,7 @@ import threading
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
-    QWidget, QHBoxLayout, QLabel, QPushButton, QPlainTextEdit, QComboBox,
+    QWidget, QHBoxLayout, QLabel, QPushButton, QPlainTextEdit,
 )
 
 from gui_qt.custom_game_view import deploy_type_display
@@ -99,23 +99,15 @@ class ShareCodeExportOverlay(_CodeOverlayBase):
 
         # Upload row: what it does, where it goes, and how long it lasts. The
         # host is named up front so the click is an informed one.
-        from Utils.profile_export import (
-            PASTE_HOST, PASTE_EXPIRY_CHOICES, DEFAULT_PASTE_EXPIRY)
+        from Utils.profile_export import PASTE_HOST, RETENTION_NOTE
         self._status = self._sub(self.tr(
-            "Too long to paste into chat? Get a short link instead - this "
-            "uploads the code to {0}, where anyone with the link can read it."
-        ).format(PASTE_HOST))
+            "Too long to paste? Get a short link instead - this "
+            "uploads the code to {0}, where anyone with the link can read it. "
+            "The link stops working {1}."
+        ).format(PASTE_HOST, RETENTION_NOTE))
         self._v.addWidget(self._status)
 
         up = QHBoxLayout()
-        self._expiry = QComboBox()
-        self._expiry.setCursor(Qt.PointingHandCursor)
-        for value, label in PASTE_EXPIRY_CHOICES:
-            self._expiry.addItem(self.tr(label), value)
-            if value == DEFAULT_PASTE_EXPIRY:
-                self._expiry.setCurrentIndex(self._expiry.count() - 1)
-        up.addWidget(QLabel(self.tr("Link expires:")))
-        up.addWidget(self._expiry)
         up.addStretch(1)
         self._link_btn = QPushButton(self.tr("Get link"))
         self._link_btn.setObjectName("FormButton")
@@ -158,15 +150,13 @@ class ShareCodeExportOverlay(_CodeOverlayBase):
             return
         self._uploading = True
         self._link_btn.setEnabled(False)
-        self._expiry.setEnabled(False)
         self._status.setText(self.tr("Uploading…"))
-        expires = self._expiry.currentData()
         code = self._code
 
         def _work():
             try:
                 from Utils.profile_export import upload_code
-                url = upload_code(code, expires=expires)
+                url = upload_code(code)
             except Exception as exc:
                 self._safe_emit(self._upload_done, "", str(exc))
                 return
@@ -184,7 +174,6 @@ class ShareCodeExportOverlay(_CodeOverlayBase):
 
     def _on_upload_done(self, url: str, error: str):
         self._uploading = False
-        self._expiry.setEnabled(True)
         if error:
             # The raw code is still in the box and on the clipboard - the user
             # loses nothing, so this is a note rather than a failure.

@@ -16875,6 +16875,9 @@ class MainWindow(QMainWindow):
         self._open_logs_btn = self._text_button(self.tr("Open Log Folder"), compact=True)
         self._open_logs_btn.clicked.connect(self._open_logs_folder)
         h.addWidget(self._open_logs_btn)
+        self._upload_log_btn = self._text_button(self.tr("Upload Log"), compact=True)
+        self._upload_log_btn.clicked.connect(self._upload_log)
+        h.addWidget(self._upload_log_btn)
 
         h.addStretch(1)
 
@@ -16918,7 +16921,7 @@ class MainWindow(QMainWindow):
 
         self._log_open_widgets = [self._errors_lbl, self._warnings_lbl,
                                   self._open_log_tab_btn, self._clear_log_btn,
-                                  self._open_logs_btn]
+                                  self._open_logs_btn, self._upload_log_btn]
         for w in self._log_open_widgets:
             w.setVisible(False)
         return bar
@@ -17152,6 +17155,26 @@ class MainWindow(QMainWindow):
         except Exception as exc:
             self._append_log(f"[log] could not open logs folder: {exc}")
 
+    def _upload_log(self):
+        """Upload the session log to a paste host and hand back a short URL -
+        what a user needs when a bug report asks for their log.
+
+        Uploads the FULL retained log, not the on-screen view: an Error/Warning
+        filter is a reading aid, and a log stripped of everything but its error
+        lines is close to useless for diagnosing one."""
+        lines = getattr(self, "_log_lines", [])
+        if not lines:
+            self._notify(self.tr("The log is empty."), "warning")
+            return
+        text = "\n".join(f"[{ts}]  {line}" for line, _sev, ts in lines)
+
+        def _done(url):
+            if url:
+                self._append_log(f"[log] uploaded → {url}")
+
+        from gui_qt.log_upload_overlay import LogUploadOverlay
+        LogUploadOverlay(self.window(), text, on_done=_done)
+
     def _open_log_tab(self):
         """Open the log as a full-screen (detachable) tab. It mirrors the docked
         log view: new lines land in both, and Clear Log wipes both.
@@ -17199,6 +17222,9 @@ class MainWindow(QMainWindow):
         open_btn = self._text_button(self.tr("Open Log Folder"), compact=True)
         open_btn.clicked.connect(self._open_logs_folder)
         h.addWidget(open_btn)
+        upload_btn = self._text_button(self.tr("Upload Log"), compact=True)
+        upload_btn.clicked.connect(self._upload_log)
+        h.addWidget(upload_btn)
         h.addStretch(1)
         col.addWidget(bar)
 

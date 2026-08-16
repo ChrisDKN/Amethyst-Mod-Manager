@@ -1074,7 +1074,8 @@ def decode_manifest(code: str) -> dict:
     # A pasted paste-service link is not a code - tell the user that rather than
     # letting base64 fail with something meaningless. The caller (the import
     # overlay) resolves links via fetch_code_url before ever getting here.
-    if _PASTE_URL_RE.match(text):
+    from Utils.paste_upload import is_url
+    if is_url(text):
         raise ValueError("That looks like a link, not a code - it could not be "
                          "downloaded.")
     try:
@@ -1088,6 +1089,7 @@ def decode_manifest(code: str) -> dict:
     return manifest
 
 
+
 # ---------------------------------------------------------------------------
 # Share code links - uploading a code to a paste service
 # ---------------------------------------------------------------------------
@@ -1096,135 +1098,22 @@ def decode_manifest(code: str) -> dict:
 # over chat. Uploading it to a paste host turns it into a short URL the recipient
 # pastes into the same Import code box.
 #
-# dpaste.com is the host: no API key (nothing to ship in the binary or leak), an
-# anonymous POST API, and a caller-chosen expiry. This is the ONLY outbound use
-# of it - the upload is always user-initiated from the export overlay, never
-# automatic, because it publishes profile and mod names to a third-party server
-# where anyone with the link can read them.
-#
-# NOTE the host: dpaste.ORG's documented /api/ endpoint answers 405 to a POST
-# (its docs are stale). dpaste.COM's v2 API is the one that works - verified
-# posting and re-fetching a full-size code byte-for-byte. Re-check with a live
-# POST before switching hosts or endpoints.
+# The transport lives in Utils/paste_upload.py (the log panel uploads through it
+# too). These wrappers keep the code-flavoured names and defaults.
 
-PASTE_HOST = "dpaste.com"
-_PASTE_API = f"https://{PASTE_HOST}/api/v2/"
-
-#: Expiry choices offered in the UI, as (api value in days, English label).
-#: dpaste caps anonymous pastes at 365 days - there is no "never", so the
-#: longest option is a year. 30 days is the default: most codes are a one-off
-#: share with a friend.
-PASTE_EXPIRY_CHOICES = (
-    ("7",   "1 week"),
-    ("30",  "30 days"),
-    ("365", "1 year"),
+from Utils.paste_upload import (            # noqa: E402  (kept beside its users)
+    PASTE_HOST, RETENTION_NOTE, is_url as is_code_url,
 )
-DEFAULT_PASTE_EXPIRY = "30"
-
-#: Matches a URL we are willing to fetch a code from: any https host, since a
-#: user may well re-host a code themselves. The fetch is hard-limited by size
-#: and the body still has to decode as a real code, so a wrong link fails
-#: harmlessly rather than doing anything with whatever came back.
-_PASTE_URL_RE = re.compile(r"^https?://", re.IGNORECASE)
-
-#: Ceiling on a fetched body. A code is base64 - even a huge modlist is well
-#: under this, so anything larger is not a code and is not worth reading.
-_MAX_FETCH_BYTES = 8 * 1024 * 1024
 
 
-def is_code_url(text: str) -> bool:
-    """True when *text* looks like a link to a hosted code rather than a code."""
-    return bool(_PASTE_URL_RE.match((text or "").strip()))
-
-
-def upload_code(code: str, *, expires: str = DEFAULT_PASTE_EXPIRY,
-                timeout: float = 20.0) -> str:
-    """Upload a share *code* to dpaste.org and return the resulting URL.
-
-    *expires* is one of :data:`PASTE_EXPIRY_CHOICES` (an API value). Raises
-    ``RuntimeError`` with a user-facing message if the upload fails - callers
-    fall back to handing the user the raw code, which always works.
-    """
-    import urllib.error
-    import urllib.parse
-    import urllib.request
-
-    if not code:
-        raise RuntimeError("Nothing to upload.")
-
-    # syntax=text stops dpaste trying to syntax-highlight a base64 blob. The v2
-    # API replies with the bare URL as the body, so there is nothing to parse.
-    body = urllib.parse.urlencode({
-        "content": code,
-        "syntax": "text",
-        "expiry_days": expires or DEFAULT_PASTE_EXPIRY,
-    }).encode("utf-8")
-    req = urllib.request.Request(
-        _PASTE_API, data=body, method="POST",
-        headers={"User-Agent": "Amethyst-Mod-Manager",
-                 "Content-Type": "application/x-www-form-urlencoded"})
-    try:
-        from Utils.gh_cache import _get_ssl_context
-        ctx = _get_ssl_context()
-    except Exception:
-        ctx = None
-    try:
-        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
-            url = resp.read(2048).decode("utf-8", "replace").strip().strip('"')
-    except urllib.error.HTTPError as exc:
-        # 429 is a real possibility on a free host if the user clicks a few
-        # times - say so plainly instead of showing a bare status code.
-        if exc.code == 429:
-            raise RuntimeError(
-                f"{PASTE_HOST} is rate-limiting - wait a minute and try again."
-            ) from exc
-        raise RuntimeError(f"{PASTE_HOST} refused the upload (HTTP {exc.code}).") from exc
-    except Exception as exc:
-        raise RuntimeError(f"Could not reach {PASTE_HOST}: {exc}") from exc
-    if not url.lower().startswith("http"):
-        raise RuntimeError(f"{PASTE_HOST} returned an unexpected response.")
-    return url
+def upload_code(code: str, *, timeout: float = 30.0) -> str:
+    """Upload a share *code* and return its URL. Raises ``RuntimeError`` with a
+    user-facing message on failure - callers fall back to the raw code."""
+    from Utils.paste_upload import upload_text
+    return upload_text(code, timeout=timeout)
 
 
 def fetch_code_url(url: str, *, timeout: float = 20.0) -> str:
-    """Download a share code from *url* and return its text.
-
-    Handles a dpaste.com page link by rewriting it to the ``.txt`` raw form; any
-    other host is fetched as given. The body is size-capped and must still
-    decode as a real code downstream, so a wrong link fails harmlessly.
-    """
-    import urllib.error
-    import urllib.request
-
-    text = (url or "").strip()
-    if not text:
-        raise RuntimeError("No link to open.")
-    # dpaste serves the paste as an HTML page at the bare URL; appending .txt
-    # gives the plain text back exactly as posted.
-    low = text.lower()
-    if PASTE_HOST in low and not low.endswith(".txt"):
-        text = text.rstrip("/") + ".txt"
-
-    req = urllib.request.Request(
-        text, headers={"User-Agent": "Amethyst-Mod-Manager"})
-    try:
-        from Utils.gh_cache import _get_ssl_context
-        ctx = _get_ssl_context()
-    except Exception:
-        ctx = None
-    try:
-        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
-            raw = resp.read(_MAX_FETCH_BYTES + 1)
-    except urllib.error.HTTPError as exc:
-        if exc.code == 429:
-            raise RuntimeError(
-                "The paste host is rate-limiting - wait a minute and try again."
-            ) from exc
-        if exc.code in (404, 410):
-            raise RuntimeError("That link no longer exists - it may have expired.") from exc
-        raise RuntimeError(f"Link returned HTTP {exc.code}.") from exc
-    except Exception as exc:
-        raise RuntimeError(f"Could not open the link: {exc}") from exc
-    if len(raw) > _MAX_FETCH_BYTES:
-        raise RuntimeError("That link is too large to be a share code.")
-    return raw.decode("utf-8", "replace").strip()
+    """Download a share code from *url*. Raises ``RuntimeError`` on failure."""
+    from Utils.paste_upload import fetch_text
+    return fetch_text(url, timeout=timeout)
