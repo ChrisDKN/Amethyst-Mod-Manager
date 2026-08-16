@@ -11367,6 +11367,30 @@ class MainWindow(QMainWindow):
             key_suffix=f":mod:{mod_name}",
             label=self.tr("NIF Viewer - {0}").format(short))
 
+    def _open_qac_for_plugin(self, plugin_name: str = ""):
+        """Clicking a plugin's dirty-edit brush opens the xEdit QAC wizard,
+        which lists every LOOT-flagged plugin and can clean them one at a time
+        or in one pass. Prefers the game's native QAC build, falling back to
+        the Discord xEdit one for games that only register that."""
+        game = self._gs.game
+        if game is None:
+            return
+        try:
+            tools = list(game.wizard_tools or [])
+        except Exception:
+            tools = []
+        tool = None
+        for path in ("wizards.sseedit.SSEEditQACWizard",
+                     "wizards.sseedit.XEditDiscordQACWizard"):
+            tool = next((t for t in tools if t.dialog_class_path == path), None)
+            if tool is not None:
+                break
+        if tool is None:
+            self._notify(self.tr("No QuickAutoClean tool is available for this "
+                                 "game."), "warning")
+            return
+        self._open_wizard_tool(tool)
+
     def _wizard_run_deploy(self, on_done) -> bool:
         """Start a deploy for a wizard step through the normal deploy path
         (mutex/coalesce + progress popup). *on_done(ok)* fires on the UI
@@ -15177,6 +15201,7 @@ class MainWindow(QMainWindow):
         self._plugin_view.game = self._gs.game
         self._plugin_view.profile_dir = self._gs.profile_dir()
         self._plugin_view.on_plugins_changed = self._reload_plugins
+        self._plugin_view.on_dirty_flag_clicked = self._open_qac_for_plugin
         # The Saves details pane flags plugins a save was made with that are no
         # longer in the load order - reuse the list we just loaded.
         if hasattr(self, "_saves_view"):

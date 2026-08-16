@@ -395,6 +395,16 @@ class PluginDelegate(QStyledItemDelegate):
             if self._lock_rect(opt.rect).contains(pos):
                 model.toggle_lock(index.row())
                 return True
+        elif index.column() == COL_FLAGS:
+            # Click the dirty-edit brush → open the xEdit QAC wizard, which
+            # lists the LOOT-flagged plugins and can clean them.
+            bits = index.data(PFlagsRole) or 0
+            if bits & PF_DIRTY and self._hit_flag_bit(pos, opt.rect, bits) == PF_DIRTY:
+                cb = getattr(self.parent(), "on_dirty_flag_clicked", None)
+                if callable(cb):
+                    row = index.data(RowRole)
+                    cb(row.name if row is not None else "")
+                    return True
         return False
 
 
@@ -410,6 +420,10 @@ class PluginView(QTreeView):
         self.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
+
+        # Set by the app: called with the plugin name when the dirty-edit brush
+        # glyph is clicked (opens the xEdit QAC wizard).
+        self.on_dirty_flag_clicked = None
 
         self._plugin_owner: dict = {}
         self._search_hidden: set[int] = set()
@@ -887,6 +901,26 @@ class PluginView(QTreeView):
                 return carry
         return [row]
 
+    def _update_flag_cursor(self, pos):
+        """Pointing-hand over the clickable dirty-edit brush glyph, so it reads
+        as a button rather than a static badge."""
+        over = False
+        try:
+            idx = self.indexAt(pos)
+            if (idx.isValid() and idx.column() == COL_FLAGS
+                    and callable(self.on_dirty_flag_clicked)):
+                bits = idx.data(PFlagsRole) or 0
+                if bits & PF_DIRTY:
+                    deleg = self.itemDelegate()
+                    over = deleg._hit_flag_bit(
+                        pos, self.visualRect(idx), bits) == PF_DIRTY
+        except Exception:
+            over = False
+        if over:
+            self.viewport().setCursor(Qt.PointingHandCursor)
+        else:
+            self.viewport().unsetCursor()
+
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
             idx = self.indexAt(event.position().toPoint())
@@ -896,6 +930,7 @@ class PluginView(QTreeView):
 
     def mouseMoveEvent(self, event):
         if not (event.buttons() & Qt.LeftButton) or self._press_row < 0:
+            self._update_flag_cursor(event.position().toPoint())
             super().mouseMoveEvent(event)
             return
         if not self._drag_active:
@@ -926,6 +961,8 @@ class PluginView(QTreeView):
                 return
             self._drag_active = True
             self._drag_rows = block
+            # The viewport cursor (flag hover) would otherwise mask the drag one.
+            self.viewport().unsetCursor()
             self.setCursor(Qt.ClosedHandCursor)
         self._last_mouse_y = event.position().toPoint().y()
         self._update_drop_slot(self._last_mouse_y)
