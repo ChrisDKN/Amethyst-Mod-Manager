@@ -228,23 +228,35 @@ def _fill_missing_bones(shape, resolved):
     that did resolve - the head - drags every strand up to the skull and the
     hair renders as a stretched smear down the body.
 
-    Those bones hang off the head, and their binds are small HEAD-LOCAL
-    offsets (a few units), not skin-to-world transforms. So a missing bone is
-    stood up as "wherever the bone it hangs from is": the resolved bone the
-    shape shares - the head - composed over the missing bone's own bind. The
-    strand then sits where it was authored, in the actor's frame.
+    The stand-in reproduces the shape's OWN skin-to-world map, which every
+    RESOLVED bone agrees on for a rigidly-authored piece:
+
+        skin_to_world = BoneWorld_j . Bind_j        (any resolved bone j)
+        stand_in_i    = skin_to_world . Bind_i^-1
+
+    so posing resolves to ``skin_to_world . v`` and the vertex lands where the
+    shape was authored. Taking the resolved bone's WORLD transform alone -
+    without its own bind - is what an earlier version did, and it is wrong the
+    moment the shape is not authored in that bone's space: Serana's SMP robe
+    anchors on NPC Spine2 (world z~91) while being authored in ACTOR space, so
+    every cloak segment was lifted 91 units and the robe stretched to z=191
+    with the head buried inside it. Including Bind_j makes that map identity,
+    which is exactly what an actor-space mesh needs.
     """
     if all(r is not None for r in resolved):
         return resolved
-    anchor = next((r for r in resolved if r is not None), None)
-    if anchor is None:
-        return resolved
     binds = shape.binds
+    skin_to_world = next(
+        (_compose(bone, binds[i])
+         for i, bone in enumerate(resolved)
+         if bone is not None and i < len(binds)), None)
+    if skin_to_world is None:
+        return resolved
     out = list(resolved)
     for i, bone in enumerate(out):
         if bone is not None or i >= len(binds):
             continue
-        out[i] = _compose(anchor, _invert(binds[i]) or IDENTITY)
+        out[i] = _compose(skin_to_world, _invert(binds[i]) or IDENTITY)
     return out
 
 
