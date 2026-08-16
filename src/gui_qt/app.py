@@ -1616,6 +1616,9 @@ class MainWindow(QMainWindow):
         # File content changed on disk → the Text Files content search may shift.
         if hasattr(self, "_text_files_view"):
             self._text_files_view.mark_dirty()
+        # A save-folder .txt edited from the Saves tab changes its size/date.
+        if hasattr(self, "_saves_view"):
+            self._saves_view.mark_dirty()
         self._notify(self.tr("Saved"), "success")
 
     def _on_mod_files_changed(self):
@@ -16623,6 +16626,10 @@ class MainWindow(QMainWindow):
         # Page 6: the Saves view (Ludusavi-resolved save folders, read-only).
         from gui_qt.saves_view import SavesView
         self._saves_view = SavesView(log_fn=self._append_log)
+        # Screenshot.jpg / mod_*.txt beside a save open the same way a mod's
+        # files do -image preview and text editor, both panel-scoped tabs.
+        self._saves_view.on_open_image = self._open_image_preview_tab
+        self._saves_view.on_open_text = self._open_text_editor_tab
         self._plugin_stack.addWidget(self._saves_view)
         self._TEXT_FILES_TAB_IDX = 2
         self._DATA_TAB_IDX = 3

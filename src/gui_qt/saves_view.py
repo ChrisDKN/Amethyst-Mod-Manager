@@ -480,9 +480,31 @@ class SavesView(QWidget):
 
     # ---- rendering --------------------------------------------------------
     def _on_item_clicked(self, item, _column):
-        """Toggle a location or folder row's children on a plain click."""
+        """Toggle a folder row on a plain click; open a file row's preview."""
         if item.childCount() or item.data(0, _DIR_ROLE):
             item.setExpanded(not item.isExpanded())
+            return
+        self._maybe_open_file(item)
+
+    def _maybe_open_file(self, item):
+        """Single-click a file → open a panel-scoped image preview or text
+        editor, the way the Mod Files tree does, via the host's callback."""
+        raw = item.data(0, _PATH_ROLE)
+        if not raw:
+            return
+        path = Path(raw)
+        ext = path.suffix.lower()
+        from gui_qt.image_preview import PREVIEW_EXTS
+        from Utils.text_files import TEXT_EXTENSIONS
+        if ext in PREVIEW_EXTS:
+            cb = getattr(self, "on_open_image", None)
+        elif ext in TEXT_EXTENSIONS:
+            cb = getattr(self, "on_open_text", None)
+        else:
+            return
+        if cb is None or not path.is_file():
+            return
+        cb(path, path.name)
 
     def _on_item_double_clicked(self, _item, _column):
         """Open the folder. A double-click's two clicks toggle the row twice,
