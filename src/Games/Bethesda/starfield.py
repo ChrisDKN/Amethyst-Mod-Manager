@@ -15,6 +15,7 @@ class Starfield(Fallout_3):
     plugins_use_star_prefix = True
     plugins_include_vanilla = False
     supports_esl_flag = True
+    plugins_have_blueprints = True
     vanilla_plugins = [
         "Starfield.esm", "Constellation.esm", "ShatteredSpace.esm",
         "OldMars.esm", "SFBGS003.esm", "SFBGS004.esm", "SFBGS006.esm",

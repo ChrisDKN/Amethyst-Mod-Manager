@@ -29,7 +29,7 @@ from gui_qt.plugin_model import (
 )
 from gui_qt.plugin_state import (
     PF_MISSING, PF_LATE, PF_VMM, PF_ESL, PF_LOOT, PF_DIRTY, PF_TAGS,
-    PF_USERLIST, PF_UL_CYCLE, format_loot_tooltip,
+    PF_USERLIST, PF_UL_CYCLE, format_loot_tooltip, is_master_group,
 )
 
 _FLAG_SZ = 18
@@ -226,11 +226,24 @@ class PluginDelegate(QStyledItemDelegate):
 
         tx = box.right() + 10
         p.setPen(text_color)
-        _f = QFont(); _f.setPixelSize(FONT_PX); p.setFont(_f)
+        _f = QFont(); _f.setPixelSize(FONT_PX)
+        # MO2 parity: bold reads as "in the master block".
+        if row is not None and self._row_is_master(row):
+            _f.setBold(True)
+        p.setFont(_f)
         name_rect = QRect(tx, r.top(), r.right() - tx - 6, r.height())
+        # Elide with the bold metrics just installed, or the name overflows.
         elided = p.fontMetrics().elidedText(row.name if row else "",
                                             Qt.ElideRight, name_rect.width())
         p.drawText(name_rect, Qt.AlignVCenter | Qt.AlignLeft, elided)
+
+    def _row_is_master(self, row) -> bool:
+        """Whether *row* is in the master block (gated on the game flag)."""
+        view = self.parent()
+        model = view.model() if view is not None else None
+        if model is None or not getattr(model, "_master_block", False):
+            return False
+        return is_master_group(row)
 
     @staticmethod
     def _flag_items(bits):
@@ -440,6 +453,14 @@ class PluginView(QTreeView):
         # Custom drag-reorder (vanilla pinned at top, locked rows immovable).
         self._drag_rows: list[int] = []
         self._drag_active = False
+        # Drop range for the dragged block, computed once at drag start (the row
+        # list can't change mid-drag) - read every mouse-move and 16ms tick.
+        self._drag_bounds: "tuple[int, int] | None" = None
+        # (direction, scroll value when the drop slot first hit its limit) - the
+        # autoscroll runs _scroll_overrun further before freezing, so the limit
+        # row isn't left jammed against the viewport edge.
+        self._freeze_anchor: "tuple[int, int] | None" = None
+        self._scroll_overrun = 3 * ROW_H
         self._press_row = -1
         self._press_pos = None
         self._drop_slot = -1
@@ -961,6 +982,8 @@ class PluginView(QTreeView):
                 return
             self._drag_active = True
             self._drag_rows = block
+            self._drag_bounds = m.drop_bounds(block)
+            self._freeze_anchor = None
             # The viewport cursor (flag hover) would otherwise mask the drag one.
             self.viewport().unsetCursor()
             self.setCursor(Qt.ClosedHandCursor)
@@ -977,6 +1000,8 @@ class PluginView(QTreeView):
                 self.model().move_rows(self._drag_rows, self._drop_slot)
             self._drag_active = False
             self._drag_rows = []
+            self._drag_bounds = None
+            self._freeze_anchor = None
             self._drop_slot = -1
             self.unsetCursor()
             self.viewport().update()
@@ -1015,6 +1040,11 @@ class PluginView(QTreeView):
         if 0 < slot < n and self.isRowHidden(slot, self.rootIndex()):
             nxt = next((r for r in vis if r >= slot), None)
             slot = nxt if nxt is not None else n
+        # Keep the indicator in the block's legal range so the line visibly
+        # refuses to cross rather than snapping back on release.
+        if self._drag_bounds is not None:
+            lo, hi = self._drag_bounds
+            slot = max(lo, min(slot, hi))
         self._drop_slot = slot
 
     def _autoscroll_tick(self):
@@ -1030,6 +1060,23 @@ class PluginView(QTreeView):
             step = -int(2 + (zone - y) / zone * 22)
         elif y > h - zone:
             step = int(2 + (y - (h - zone)) / zone * 22)
+        # With the slot pinned at its limit, scrolling on just slides the list
+        # under a stationary indicator. Freeze that direction (the other stays
+        # free) after a short overrun.
+        at_limit = 0
+        if step and self._drag_bounds is not None and self._drop_slot >= 0:
+            lo, hi = self._drag_bounds
+            if step < 0 and self._drop_slot <= lo:
+                at_limit = -1
+            elif step > 0 and self._drop_slot >= hi:
+                at_limit = 1
+        if at_limit:
+            if self._freeze_anchor is None or self._freeze_anchor[0] != at_limit:
+                self._freeze_anchor = (at_limit, bar.value())
+            if abs(bar.value() - self._freeze_anchor[1]) >= self._scroll_overrun:
+                step = 0
+        else:
+            self._freeze_anchor = None
         if step:
             bar.setValue(bar.value() + step)
             self._update_drop_slot(y)

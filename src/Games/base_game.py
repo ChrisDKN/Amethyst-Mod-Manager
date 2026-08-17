@@ -1043,6 +1043,9 @@ class BaseGame(ABC):
     # enforces that partition like MO2/Wrye Bash do.
     plugins_master_block: bool = False
 
+    # Starfield Blueprint plugins (0x800) load after every non-blueprint one.
+    plugins_have_blueprints: bool = False
+
     @property
     def plugins_include_vanilla(self) -> bool:
         """

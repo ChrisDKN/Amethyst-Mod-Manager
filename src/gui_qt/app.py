@@ -15829,12 +15829,24 @@ class MainWindow(QMainWindow):
             self._notify(self.tr("Plugin metadata refreshed."), "success")
             return
 
-        from gui_qt.plugin_state import apply_loot_sort, save_plugins
+        from gui_qt.plugin_state import (
+            apply_loot_sort, save_plugins, enforce_master_block,
+            master_block_enabled)
+        pre_rows = ctx.get("rows", [])
         new_rows, moved = apply_loot_sort(
-            ctx.get("rows", []), ctx.get("locked_indices", {}),
+            pre_rows, ctx.get("locked_indices", {}),
             list(result.sorted_names), ctx.get("include_vanilla", False))
 
         game, profile = ctx.get("game"), ctx.get("profile")
+        # Re-interleaving LOCKED rows can drop a locked .esp back inside the
+        # master block, so re-partition - the engine rule wins over the lock.
+        # apply_loot_sort rebuilds rows with flags=0, so restore them first or
+        # every master-flagged .esp looks like a normal plugin here.
+        if master_block_enabled(game):
+            flags_by_name = {r.name.lower(): r.flags for r in pre_rows}
+            for r in new_rows:
+                r.flags = flags_by_name.get(r.name.lower(), r.flags)
+            new_rows, _ = enforce_master_block(new_rows)
         if game is not None and profile:
             self._plugin_model.set_natural_rows(new_rows)
             try:

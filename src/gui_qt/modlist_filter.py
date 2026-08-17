@@ -271,6 +271,7 @@ PLUGIN_STATUS_FILTERS = [
     ("filter_ext_esl",        "Extension .esl"),
     ("filter_ext_esm",        "Extension .esm"),
     ("filter_ext_esp",        "Extension .esp"),
+    ("filter_master",         "Master (loads first)"),
     ("filter_missing",        "Missing masters"),
     ("filter_dirty",          "Dirty (needs cleaning)"),
     ("filter_userlist",       "Managed by userlist"),
@@ -320,6 +321,11 @@ def plugin_filter_hidden_rows(rows, state: dict, disabled_mf=None) -> set[int]:
                 return r.name.lower().endswith(".esm")
             if key == "filter_ext_esp":
                 return r.name.lower().endswith(".esp")
+            if key == "filter_master":
+                # Master block - unlike the literal "Extension ." keys above,
+                # this also catches a master-flagged .esp.
+                from gui_qt.plugin_state import is_master_group
+                return is_master_group(r)
             if key == "filter_missing":
                 return bool(r.flags & PF_MISSING)
             if key == "filter_dirty":

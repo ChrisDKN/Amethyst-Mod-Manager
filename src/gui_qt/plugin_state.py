@@ -57,6 +57,7 @@ PF_USERLIST = 1 << 8   # managed in userlist.yaml (white dot)
 PF_UL_CYCLE = 1 << 9   # userlist rules form a broken cycle (dot turns red)
 PF_ESL_SAFE = 1 << 10  # .esp/.esm eligible for the ESL flag (libloot verdict)
 PF_ESL_UNSAFE = 1 << 11  # .esp/.esm too many records for ESL (libloot verdict)
+PF_BLUEPRINT = 1 << 12   # Starfield Blueprint (0x800) - loads after everything
 
 # Bump when check_esl_eligible() changes its verdict criteria so cached
 # eligibility results are invalidated (mirrors Tk _ESL_ELIG_CACHE_VERSION).
@@ -89,6 +90,8 @@ class PluginRow:
     loot_info: dict | None = None
     # BOS/SkyPatcher patch kind: "" (none), "bos", "sp", or "both".
     bos_sp: str = ""
+    # Lowercase MAST dependencies; None = unreadable, so no move constraints.
+    masters: list[str] | None = None
 
 
 _EXT_ORDER = {".esm": 0, ".esp": 1, ".esl": 2}
@@ -122,6 +125,117 @@ def compute_game_indexes(rows: list[PluginRow]) -> list[str]:
         else:
             out.append(f"{pos - num_esl - num_skipped:02X}")
     return out
+
+
+def master_block_enabled(game) -> bool:
+    """Whether *game*'s engine loads the master block before all non-masters."""
+    return bool(getattr(game, "plugins_master_block", False))
+
+
+def is_master_group(row: PluginRow) -> bool:
+    """Master-flagged, .esm or .esl - the block the engine loads first."""
+    # NOT keyed on PF_ESL: that's also set on an ESL-flagged .esp (an ESPFE),
+    # which is a normal plugin loaded after the master block.
+    return bool(row.flags & PF_MASTER) or row.name.lower().endswith(".esl")
+
+
+def is_blueprint(row: PluginRow) -> bool:
+    """Starfield Blueprint plugin - loads after every non-blueprint plugin."""
+    return bool(row.flags & PF_BLUEPRINT)
+
+
+def plugin_rank(row: PluginRow) -> int:
+    """Load-order region, lowest first: master, normal, bp master, bp normal."""
+    return (2 if is_blueprint(row) else 0) + (0 if is_master_group(row) else 1)
+
+
+def master_boundary(rows: list[PluginRow]) -> int:
+    """Index of the first non-master row in an already-partitioned *rows*."""
+    return sum(1 for r in rows if is_master_group(r))
+
+
+def master_flags_resolved(rows: list[PluginRow],
+                          resolved: dict[str, Path]) -> bool:
+    """Whether every row's master-ness is known from a real file on disk."""
+    # _to_row falls back to extension-only detection for unresolved plugins, so
+    # a master-flagged .esp would look normal and get demoted out of the master
+    # block. .esm/.esl need no header read and never block the check.
+    for r in rows:
+        low = r.name.lower()
+        if low.endswith((".esm", ".esl")):
+            continue
+        path = resolved.get(low)
+        if path is None or not Path(path).is_file():
+            return False
+    return True
+
+
+def enforce_master_block(rows: list[PluginRow]
+                         ) -> "tuple[list[PluginRow], bool]":
+    """Stable-partition *rows* by rank -> (new_rows, changed); MO2 parity."""
+    # Row objects are reused, never copied, so callers can remap selection by id.
+    if not rows:
+        return rows, False
+    new_rows = sorted(rows, key=plugin_rank)
+    if all(a is b for a, b in zip(new_rows, rows)):
+        return rows, False
+    return new_rows, True
+
+
+def movable_bounds(rest: list[PluginRow], rank: int,
+                   enabled: bool) -> "tuple[int, int]":
+    """Legal (lo, hi) insert range in *rest* (block removed) for a *rank*."""
+    # Scanned, not counted, like MO2's setPluginPriority: a counted boundary is
+    # only meaningful on an already-partitioned list. lo = after the last row
+    # that must load first, hi = before the first that must load after; if they
+    # cross on an unpartitioned list, lo wins.
+    n = len(rest)
+    lo = 0
+    hi = n
+    if enabled:
+        for i, r in enumerate(rest):
+            rr = plugin_rank(r)
+            if rr < rank:
+                lo = i + 1
+            elif rr > rank:
+                hi = i
+                break
+        if hi < lo:
+            hi = lo
+    # Pinned vanilla rows sit at the head of their region and never move, so a
+    # block may not be inserted above them.
+    while lo < hi and rest[lo].vanilla:
+        lo += 1
+    return lo, hi
+
+
+def dependency_bounds(rest: list[PluginRow], block: list[PluginRow],
+                      moving_up: bool) -> "tuple[int, int]":
+    """Legal (lo, hi) insert range in *rest* honouring master/child links."""
+    # MO2 pluginlist.cpp 1983-2013: moving up, a plugin can't go above its own
+    # masters; moving down, a master can't go below a plugin that needs it.
+    # Same blueprint side only. masters=None (unreadable) imposes nothing.
+    lo, hi = 0, len(rest)
+    block_names = {r.name.lower() for r in block}
+    block_bp = {is_blueprint(r) for r in block}
+    if moving_up:
+        needed = set()
+        for r in block:
+            for m in (r.masters or ()):
+                if m not in block_names:
+                    needed.add(m)
+        if needed:
+            for i, r in enumerate(rest):
+                if r.name.lower() in needed and is_blueprint(r) in block_bp:
+                    lo = max(lo, i + 1)
+    else:
+        for i, r in enumerate(rest):
+            if r.masters and is_blueprint(r) in block_bp and (
+                    block_names & set(r.masters)):
+                hi = min(hi, i)
+    if hi < lo:
+        hi = lo
+    return lo, hi
 
 
 def plugins_path(game, profile: str) -> Path | None:
@@ -734,9 +848,25 @@ def load_plugins(game, profile: str,
     if cancelled():
         return None
     with span("plugins.header_flags(to_row)"):
-        rows = [_to_row(e, vanilla, resolved, data_dir) for e in ordered]
+        _bp = bool(getattr(game, "plugins_have_blueprints", False))
+        rows = [_to_row(e, vanilla, resolved, data_dir, _bp) for e in ordered]
     if cancelled():
         return None
+    # MO2 parity (fixPluginRelationships). Must run before the checks below -
+    # late-master warnings are computed from row positions.
+    if master_block_enabled(game) and master_flags_resolved(rows, resolved):
+        with span("plugins.master_block"):
+            hoisted_rows, hoisted = enforce_master_block(rows)
+            if hoisted:
+                moved = sum(1 for a, b in zip(rows, hoisted_rows) if a is not b)
+                rows = hoisted_rows
+                # Persist so the mtime-ordered games (Oblivion/FO3/FNV) stamp the
+                # corrected order. Same SAFETY guard as the writes above.
+                if _active_matches:
+                    save_plugins(game, profile, rows)
+                    app_log(f"Plugins: hoisted the master block above the "
+                            f"non-masters ({moved} row(s) moved) - the engine "
+                            f"loads masters first regardless of load order.")
     with span("plugins.master_checks"):
         _apply_master_checks(rows, resolved, data_dir)
     with span("plugins.loot_flags"):
@@ -874,17 +1004,24 @@ def prune_listed_plugins(game, profile: str, names: list[str]) -> None:
 
 
 def _to_row(e: PluginEntry, vanilla: dict, resolved: dict[str, Path],
-            data_dir: Path | None) -> PluginRow:
+            data_dir: Path | None, blueprints: bool = False) -> PluginRow:
     low = e.name.lower()
     flags = 0
+    masters: list[str] | None = None
     path = resolved.get(low) or ((data_dir / e.name) if data_dir else None)
     if path and path.is_file():
         try:
-            from Utils.plugin_parser import is_esl_flagged, is_master_flagged
+            from Utils.plugin_parser import (
+                is_esl_flagged, is_master_flagged, is_blueprint_flagged,
+                read_masters)
             if is_esl_flagged(path) or low.endswith(".esl"):
                 flags |= PF_ESL
             if is_master_flagged(path) or low.endswith(".esm"):
                 flags |= PF_MASTER
+            # Gated: 0x800 only means "blueprint" on Starfield.
+            if blueprints and is_blueprint_flagged(path):
+                flags |= PF_BLUEPRINT
+            masters = [m.lower() for m in read_masters(path)]
         except Exception:
             if low.endswith(".esl"):
                 flags |= PF_ESL
@@ -895,7 +1032,7 @@ def _to_row(e: PluginEntry, vanilla: dict, resolved: dict[str, Path],
             flags |= PF_ESL
         if low.endswith(".esm"):
             flags |= PF_MASTER
-    return PluginRow(e.name, e.enabled, flags, low in vanilla)
+    return PluginRow(e.name, e.enabled, flags, low in vanilla, masters=masters)
 
 
 def _apply_master_checks(rows: list[PluginRow], resolved: dict[str, Path],

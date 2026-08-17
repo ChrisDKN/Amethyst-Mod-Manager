@@ -14,7 +14,11 @@ from PySide6.QtCore import (
     Qt, QAbstractTableModel, QModelIndex, Signal, QT_TRANSLATE_NOOP,
 )
 
-from gui_qt.plugin_state import PluginRow, save_plugins, compute_game_indexes
+from gui_qt.plugin_state import (
+    PluginRow, save_plugins, compute_game_indexes,
+    enforce_master_block, master_block_enabled, plugin_rank,
+    movable_bounds, dependency_bounds,
+)
 
 COL_NAME = 0
 COL_FLAGS = 1
@@ -69,6 +73,9 @@ class PluginModel(QAbstractTableModel):
         self._highlights: dict[str, int] = {}
         # plugin name (lower) → non-default userlist group (flags tooltip).
         self._ul_groups: dict[str, str] = {}
+        # Engine parity: masters load before non-masters, so a drag/keyboard
+        # move may not cross that boundary. Set from game.plugins_master_block.
+        self._master_block = False
 
     def set_rows(self, rows, game=None, profile=None, profile_dir=None):
         self.beginResetModel()
@@ -76,6 +83,7 @@ class PluginModel(QAbstractTableModel):
         self._game = game
         self._profile = profile
         self._profile_dir = profile_dir
+        self._master_block = master_block_enabled(game)
         self._locks = {}
         self._highlights = {}
         self._refresh_natural_caches()
@@ -327,10 +335,43 @@ class PluginModel(QAbstractTableModel):
             i += 1
         return i
 
+    def _clamp_dest(self, src: list[int], dest: int) -> int:
+        """Clamp an insert-before *dest* for the contiguous block *src*."""
+        # Works on the "rest" list (rows minus the block) so every bound is a
+        # plain insertion point. MO2's order: rank region, then dependencies.
+        first, last = src[0], src[-1]
+        block = self._rows[first:last + 1]
+        rest = self._rows[:first] + self._rows[last + 1:]
+        d = dest if dest <= first else dest - len(block)
+        d = max(0, min(d, len(rest)))
+        ranks = {plugin_rank(r) for r in block}
+        if self._master_block and len(ranks) == 1:
+            lo, hi = movable_bounds(rest, ranks.pop(), True)
+        else:
+            # Mixed-rank block: let it land, then re-partition.
+            lo, hi = movable_bounds(rest, 0, False)
+        d = max(lo, min(d, hi))
+        dlo, dhi = dependency_bounds(rest, block, moving_up=(d <= first))
+        return max(dlo, min(d, dhi))
+
+    def drop_bounds(self, src_rows: list[int]) -> "tuple[int, int]":
+        """Legal (lo, hi) drop range in FULL-list coords, for the view."""
+        # Dependency limits are direction-dependent, so evaluate both ends.
+        src = sorted({i for i in src_rows if 0 <= i < len(self._rows)})
+        if not src or src[-1] - src[0] != len(src) - 1:
+            return self._first_movable(), len(self._rows)
+        first, last = src[0], src[-1]
+        span = len(src)
+        lo = self._clamp_dest(src, 0)
+        hi = self._clamp_dest(src, len(self._rows))
+        # Back to full-list coords: rest indices past the block sit `span` lower.
+        return (lo if lo <= first else lo + span,
+                hi if hi <= first else hi + span)
+
     def move_rows(self, src_rows: list[int], dest: int) -> bool:
         """Move a contiguous block of movable rows so it lands before *dest*.
-        Vanilla rows stay pinned at the top; locked rows never move. Persists
-        order to loadorder.txt (+ plugins.txt) on success."""
+        Vanilla rows stay pinned; locked rows never move; the block may not
+        cross a rank boundary. Persists on success."""
         if not self.display_is_natural:
             # Display rows aren't load-order rows under a column sort - the
             # view clears the sort before a drag, so this only guards callers
@@ -343,17 +384,33 @@ class PluginModel(QAbstractTableModel):
         if src[-1] - src[0] != len(src) - 1:
             return False
         first, last = src[0], src[-1]
-        floor = self._first_movable()
-        dest = max(floor, min(dest, len(self._rows)))
-        if first <= dest <= last + 1:
+        # A nudge across a boundary clamps back to where the block already is,
+        # which the no-op check turns into a silent False (Tk parity).
+        insert_at = self._clamp_dest(src, dest)
+        if insert_at == first:
             return False   # no-op / inside the moved span
-        if not self.beginMoveRows(QModelIndex(), first, last, QModelIndex(), dest):
-            return False
-        block = self._rows[first:last + 1]
-        del self._rows[first:last + 1]
-        insert_at = dest if dest < first else dest - len(block)
-        self._rows[insert_at:insert_at] = block
-        self.endMoveRows()
+        # A block spanning a rank boundary can't be one beginMoveRows plus a
+        # partition, so move it and re-partition under a model reset.
+        mixed = self._master_block and len({
+            plugin_rank(self._rows[i]) for i in src}) != 1
+        if mixed:
+            self.beginResetModel()
+            block = self._rows[first:last + 1]
+            del self._rows[first:last + 1]
+            self._rows[insert_at:insert_at] = block
+            new_rows, _ = enforce_master_block(self._rows)
+            self._rows[:] = new_rows
+            self.endResetModel()
+        else:
+            # beginMoveRows wants the destination in FULL-list coordinates.
+            dest_full = insert_at if insert_at <= first else insert_at + len(src)
+            if not self.beginMoveRows(QModelIndex(), first, last,
+                                      QModelIndex(), dest_full):
+                return False
+            block = self._rows[first:last + 1]
+            del self._rows[first:last + 1]
+            self._rows[insert_at:insert_at] = block
+            self.endMoveRows()
         self._refresh_game_indexes()
         self._save()
         return True

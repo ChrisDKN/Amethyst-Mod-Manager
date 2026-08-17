@@ -77,6 +77,7 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("FilterSidePanel", "Extension .esl"),
     QT_TRANSLATE_NOOP("FilterSidePanel", "Extension .esm"),
     QT_TRANSLATE_NOOP("FilterSidePanel", "Extension .esp"),
+    QT_TRANSLATE_NOOP("FilterSidePanel", "Master (loads first)"),
     QT_TRANSLATE_NOOP("FilterSidePanel", "Missing masters"),
     QT_TRANSLATE_NOOP("FilterSidePanel", "Dirty (needs cleaning)"),
     QT_TRANSLATE_NOOP("FilterSidePanel", "Managed by userlist"),
