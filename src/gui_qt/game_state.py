@@ -20,6 +20,63 @@ from Utils.game_helpers import (
 from Utils.ui_config import load_last_session, save_last_session
 
 
+def _root_rule_cache_token(g) -> tuple:
+    """A hashable digest of the dest="" routing rules, for the flag-mods cache
+    key. Only the fields that affect which mods match are included, so cosmetic
+    edits elsewhere in the rule list don't force a rescan."""
+    try:
+        return tuple(
+            (r.dest,
+             tuple(getattr(r, "extensions", None) or ()),
+             tuple(getattr(r, "folders", None) or ()),
+             tuple(getattr(r, "filenames", None) or ()),
+             bool(getattr(r, "loose_only", False)),
+             bool(getattr(r, "to_prefix", False)))
+            for r in (getattr(g, "custom_routing_rules", None) or []))
+    except Exception:
+        return ()
+
+
+def _root_rule_flag_candidates(g) -> list:
+    """The dest="" routing rules that should raise the root-rule flag.
+
+    A rule sending a REQUIRED top-level folder to the game root is a no-op
+    under root deploy - the mod already ships its files at their final
+    location (e.g. NieR's data/ routed to ""), so flagging it tells the user
+    nothing and buries the genuine root-routers. Such rules are dropped here
+    when the game deploys to root; a rule matching anything else (extensions,
+    filenames, or a non-required folder) still flags as before.
+
+    Returns [] when nothing can flag, letting the caller skip the scan.
+    """
+    rules = [r for r in (getattr(g, "custom_routing_rules", None) or [])
+             if r.dest == "" and not r.to_prefix]
+    if not rules:
+        return []
+    try:
+        root_deploy = g.get_mod_data_path() == getattr(g, "_game_path", None)
+    except Exception:
+        root_deploy = False
+    if not root_deploy:
+        return rules
+    required = {str(f).strip().strip("/\\").lower()
+                for f in (getattr(g, "mod_required_top_level_folders", None) or ())}
+    if not required:
+        return rules
+    keep = []
+    for r in rules:
+        folders = [str(f).strip().strip("/\\").lower()
+                   for f in (getattr(r, "folders", None) or [])]
+        # Only a folders-only rule is a candidate no-op: an extension or
+        # filename match can pull files out of ANY folder, so it still routes.
+        if (folders and all(f in required for f in folders)
+                and not (getattr(r, "extensions", None)
+                         or getattr(r, "filenames", None))):
+            continue
+        keep.append(r)
+    return keep
+
+
 @dataclass
 class ConflictData:
     """Everything the modlist/plugins panels need to draw conflicts + cross-panel
@@ -285,7 +342,12 @@ class GameState:
             stat_key = (_st.st_mtime_ns, _st.st_size)
         except OSError:
             return _empty
-        cache_key = (str(index_path), stat_key, getattr(g, "name", None))
+        # The routing rules are part of the key: a custom game's rules are
+        # editable at runtime and root_rule is derived from them, but editing
+        # one doesn't touch modindex.bin - keying on the index alone served a
+        # stale flag set until the next reinstall.
+        cache_key = (str(index_path), stat_key, getattr(g, "name", None),
+                     _root_rule_cache_token(g))
         cached = getattr(self, "_flag_mods_cache", None)
         if cached is not None and cached[0] == cache_key:
             return cached[1]
@@ -348,8 +410,8 @@ class GameState:
         # root-rule: mods owning files matched by a dest="" custom routing rule.
         root_rule: set = set()
         try:
-            rules = list(getattr(g, "custom_routing_rules", None) or [])
-            if any(r.dest == "" and not r.to_prefix for r in rules):
+            rules = _root_rule_flag_candidates(g)
+            if rules:
                 from Utils.deploy_custom_rules import mods_matching_root_rules
                 with span("flag_mods: root-rule match"):
                     mod_files = {
