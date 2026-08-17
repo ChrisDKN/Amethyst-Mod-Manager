@@ -10086,7 +10086,7 @@ class MainWindow(QMainWindow):
             apps_dir = game.get_mod_staging_path().parent / "Applications"
             try:
                 apps_dir.mkdir(parents=True, exist_ok=True)
-                xdg_open(apps_dir)
+                xdg_open(apps_dir, log_fn=self._append_log)
             except Exception as e:
                 self._append_log(f"[play] could not open Applications folder: {e}")
         elif which == "settings":
@@ -10735,7 +10735,9 @@ class MainWindow(QMainWindow):
             return
         from Utils.xdg import xdg_open
         try:
-            xdg_open(str(path))
+            # log_fn so a failing opener chain reaches the log instead of only
+            # app_log - on Flatpak the host side can fail with no visible sign.
+            xdg_open(str(path), log_fn=self._append_log)
         except Exception as e:
             self._append_log(f"Open {descr} error: {e}")
 

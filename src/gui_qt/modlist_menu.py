@@ -550,9 +550,11 @@ def _open_folder(view, model, row):
         path = staging / model.entry(row).name
     try:
         from Utils.xdg import xdg_open
-        xdg_open(str(path))
-    except Exception:
-        pass
+        # Surface opener failures - the whole chain can fail on the host side
+        # (no file-manager association) and would otherwise be silent.
+        xdg_open(str(path), log_fn=lambda m: _notify(view, m, "warning"))
+    except Exception as e:
+        _notify(view, f"Open folder failed: {e}", "warning")
 
 
 def _check_updates(view, names):

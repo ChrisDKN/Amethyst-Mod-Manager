@@ -167,17 +167,56 @@ def xdg_open(path: str | Path, log_fn: Callable[[str], None] | None = None) -> N
     its own system libraries. Failures are logged to app_log (always) and
     log_fn (if provided), so they don't disappear silently.
 
-    Inside a Flatpak sandbox the runtime's xdg-open usually can't resolve
-    host MIME associations (or lacks the target app entirely), so we route
-    through ``flatpak-spawn --host`` when available. Fall back to bare
-    xdg-open if flatpak-spawn isn't usable.
+    Inside a Flatpak sandbox, mirror open_url's chain rather than betting
+    everything on one command - a single `flatpak-spawn --host xdg-open`
+    silently does nothing when the *host* has no inode/directory handler
+    (a Deck that never booted to Desktop Mode), when its mimeapps.list
+    points at a removed .desktop, or when a user revoked
+    org.freedesktop.Flatpak in Flatseal (flatpak-spawn is still on PATH
+    inside the sandbox, so which() can't detect that). Try, in order:
+      1. `flatpak-spawn --host xdg-open <path>` - host handler, opens the
+         user's real file manager outside the sandbox.
+      2. `gio open <path>` - OpenURI portal from *inside* the sandbox;
+         works with no host MIME association and no host-talk permission.
+      3. bare `xdg-open <path>` - last resort (runtime handler).
+    Each step's failure is logged and triggers the next.
     """
     target = str(path)
-    if _in_flatpak() and shutil.which("flatpak-spawn"):
-        cmd = ["flatpak-spawn", "--host", "xdg-open", target]
+    if not _in_flatpak():
+        spawn_watched(["xdg-open", target], f"xdg-open {target!r}", log_fn)
+        return
+
+    def try_gio() -> None:
+        if shutil.which("gio"):
+            spawn_watched(["gio", "open", target], f"gio open {target!r}",
+                          log_fn, on_fail=try_xdg)
+        else:
+            try_xdg()
+
+    def try_xdg() -> None:
+        if shutil.which("xdg-open"):
+            spawn_watched(["xdg-open", target], f"xdg-open {target!r}", log_fn,
+                          on_fail=_exhausted)
+        else:
+            _exhausted()
+
+    def _exhausted() -> None:
+        msg = (f"xdg_open: no working handler for {target!r} - check the host "
+               f"file-manager association (xdg-open) and that "
+               f"org.freedesktop.Flatpak talk is permitted")
+        app_log(msg)
+        if log_fn:
+            log_fn(msg)
+
+    if shutil.which("flatpak-spawn"):
+        spawn_watched(
+            ["flatpak-spawn", "--host", "xdg-open", target],
+            f"flatpak-spawn xdg-open {target!r}",
+            log_fn,
+            on_fail=try_gio,
+        )
     else:
-        cmd = ["xdg-open", target]
-    spawn_watched(cmd, f"xdg-open {target!r}", log_fn)
+        try_gio()
 
 
 def open_url(url: str, log_fn: Callable[[str], None] | None = None) -> None:

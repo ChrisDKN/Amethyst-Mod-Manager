@@ -533,4 +533,4 @@ class ExeSettingsView(QWidget):
                       "run the exe once first.")
             return
         from Utils.xdg import xdg_open
-        xdg_open(prefix_dir)
+        xdg_open(prefix_dir, log_fn=self._log)

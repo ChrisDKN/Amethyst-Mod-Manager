@@ -531,9 +531,15 @@ class ModListView(QTreeView):
         if folder is not None:
             try:
                 from Utils.xdg import xdg_open
-                xdg_open(str(folder))
-            except Exception:
-                pass
+                from gui_qt.modlist_menu import _notify
+                # Surface opener failures - the whole chain can fail on the
+                # host side (no file-manager association) and would otherwise
+                # leave a double-click looking like a no-op.
+                xdg_open(str(folder),
+                         log_fn=lambda m: _notify(self, m, "warning"))
+            except Exception as e:
+                from gui_qt.modlist_menu import _notify
+                _notify(self, f"Open folder failed: {e}", "warning")
 
     def _resolve_entry_folder(self, row: int):
         """On-disk folder for the entry at *row* (Path), or None for real

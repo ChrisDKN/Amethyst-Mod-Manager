@@ -281,4 +281,5 @@ class SkyGenView(WizardViewBase):
     def _open_output(self):
         if self._out_dir is not None:
             from Utils.xdg import xdg_open
-            xdg_open(self._out_dir)
+            xdg_open(self._out_dir,
+                     log_fn=lambda m: self._log(f"SkyGen: {m}"))
