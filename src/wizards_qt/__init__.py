@@ -273,6 +273,9 @@ REGISTRY: dict[str, QtWizardSpec] = {
         QtWizardSpec(_simple("wizards_qt.srml_view", "SRMLView")),
     "wizards.msc_mscloader.MSCLoaderWizard":
         QtWizardSpec(_simple("wizards_qt.mscloader_view", "MSCLoaderView")),
+    # Qt-only tool: no Tk class exists behind this path, it is a registry key.
+    "wizards.special_k.SpecialKWizard":
+        QtWizardSpec(_simple("wizards_qt.special_k_view", "SpecialKView")),
 }
 
 

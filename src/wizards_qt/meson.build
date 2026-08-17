@@ -34,6 +34,7 @@ py.install_sources(
   'sdt_view.py',
   'skygen_view.py',
   'smapi_view.py',
+  'special_k_view.py',
   'srml_view.py',
   'synthesis_view.py',
   'texture_tool_view.py',

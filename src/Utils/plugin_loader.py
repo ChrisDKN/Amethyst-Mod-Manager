@@ -152,6 +152,17 @@ BUILTIN_WIZARD_TOOLS: list[dict] = [
         "dialog_class": "wizards.msc_mscloader.MSCLoaderWizard",
         "category": "Setup and Installers",
     },
+    {
+        "id": "nier_special_k",
+        "label": "Install Special K",
+        "description": ("Download Special K and install SpecialK64.dll as a "
+                        "root-flagged mod renamed to dxgi.dll."),
+        "game_ids": ["NieR__Automata"],
+        "all_games": False,
+        # Qt-only tool: no Tk class exists behind this path, it is a registry key.
+        "dialog_class": "wizards.special_k.SpecialKWizard",
+        "category": "Setup and Installers",
+    },
 ]
 
 
