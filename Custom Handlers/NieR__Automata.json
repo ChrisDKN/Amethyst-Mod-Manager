@@ -1,0 +1,176 @@
+{
+  "name": "NieR: Automata",
+  "game_id": "NieR__Automata",
+  "exe_name": "NieRAutomata.exe",
+  "deploy_type": "root",
+  "mod_data_path": "",
+  "steam_id": "524220",
+  "nexus_game_domain": "nierautomata",
+  "additional_nexus_domains": [],
+  "thunderstore_community": "",
+  "image_url": "https://cdn2.steamgriddb.com/icon/56034e3017a60728e3f1ce4ba40aeeeb/32/256x256.png",
+  "mod_folder_strip_prefixes": [],
+  "conflict_ignore_filenames": [
+    "*read*.txt",
+    "*.png"
+  ],
+  "conflict_ignore_foldernames": [],
+  "mod_folder_strip_prefixes_post": [],
+  "mod_install_prefix": "",
+  "mod_required_top_level_folders": [
+    "sk_res",
+    "data",
+    "far_res",
+    "namh"
+  ],
+  "mod_auto_strip_until_required": true,
+  "mod_required_file_types": [],
+  "mod_install_as_is_if_no_match": true,
+  "restore_before_deploy": true,
+  "normalize_folder_case": true,
+  "filemap_casing": "upper",
+  "wine_dll_overrides": {
+    "d3d11": "native,builtin",
+    "dxgi": "native,builtin",
+    "dinput8": "native,builtin",
+    "xinput1_4": "native,builtin",
+    "d3dcompiler_46": "native,builtin"
+  },
+  "custom_routing_rules": [
+    {
+      "dest": "",
+      "folders": [
+        "data",
+        "SK_Res"
+      ],
+      "loose_only": true
+    },
+    {
+      "dest": "SK_Res",
+      "folders": [
+        "inject"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "data",
+      "folders": [
+        "ba",
+        "bg",
+        "bh",
+        "core",
+        "effect",
+        "em",
+        "Enlighten",
+        "et",
+        "font",
+        "it",
+        "misctex",
+        "movie",
+        "movie_logo",
+        "novel",
+        "ph1",
+        "ph2",
+        "ph3",
+        "phf",
+        "pl",
+        "quest",
+        "sound",
+        "st1",
+        "st2",
+        "st5",
+        "subtitle",
+        "txtmess",
+        "ui",
+        "um",
+        "wd1",
+        "wd2",
+        "wd3",
+        "wd4",
+        "wd5",
+        "wda",
+        "wp"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "data/ba",
+      "filenames": [
+        "ba*.dat",
+        "ba*.dtt"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "data/bg",
+      "filenames": [
+        "bh*.dat",
+        "bh*.dtt",
+        "bg*.dat",
+        "bg*.dtt"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "data/em",
+      "filenames": [
+        "em*.dat",
+        "em*.dtt"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "data/et",
+      "filenames": [
+        "et*.dat",
+        "et*.dtt"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "data/it",
+      "filenames": [
+        "it*.dat",
+        "it*.dtt"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "data/pl",
+      "filenames": [
+        "pl*.dat",
+        "pl*.dtt"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "data/um",
+      "filenames": [
+        "um*.dat",
+        "um*.dtt"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "data/wp",
+      "filenames": [
+        "wp*.dat",
+        "wp*.dtt"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "SK_Res/inject/textures",
+      "extensions": [
+        ".dds"
+      ],
+      "flatten": true
+    }
+  ],
+  "restore_whitelist": [],
+  "custom_frameworks": {
+    "Special K (Dxgi)": "dxgi.dll"
+  },
+  "version": 1,
+  "editable": false
+}
