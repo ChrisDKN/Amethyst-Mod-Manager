@@ -120,6 +120,11 @@ class BaseGame(ABC):
     # a standalone Deploy, and for wizard/CLI deploys.
     deploy_launch_pending: bool = False
 
+    # Saved Proton prefix, managed entirely by load_paths()/save_paths(). The
+    # class-level default keeps get_prefix_path() answering for a handler whose
+    # __init__ hasn't assigned it yet, rather than raising AttributeError.
+    _prefix_path: "Path | None" = None
+
     # True for games that deploy by copying files (so the saved "copy" deploy
     # mode is preserved instead of collapsing to symlink).
     deploy_mode_supports_copy: bool = False
@@ -997,17 +1002,18 @@ class BaseGame(ABC):
             return []
 
     def get_prefix_path(self) -> Path | None:
-        """
-        Return the saved Proton prefix path (the pfx/ directory) for this game,
-        or None if not set.  Subclasses persist this in paths.json.
-        """
-        return None
+        """Return the saved Proton prefix (pfx/) for this game, or None."""
+        # load_paths()/save_paths() already read, write, auto-locate and heal
+        # self._prefix_path for every handler, so the attribute is the answer.
+        # This used to be a `return None` stub each handler had to override;
+        # one that forgot (Elden Ring, Mewgenics) reported "no prefix" forever,
+        # which silently hid the prefix-gated Proton menu in the header.
+        return self._prefix_path
 
     def set_prefix_path(self, path: "Path | str | None") -> None:
-        """
-        Save the Proton prefix path and persist it to paths.json.
-        Subclasses should override this to write it alongside game_path.
-        """
+        """Save the Proton prefix path and persist it to paths.json."""
+        self._prefix_path = Path(path) if path else None
+        self.save_paths()
 
     @property
     def plugin_extensions(self) -> list[str]:
