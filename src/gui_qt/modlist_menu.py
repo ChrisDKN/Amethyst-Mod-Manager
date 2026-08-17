@@ -155,6 +155,11 @@ def build_context_menu(view, index):
             enabled=has_game)
         if entry.name == OVERWRITE_NAME and _has_conflict(model, row):
             act(_mt("Show Conflicts"), lambda: _show_conflicts(view, entry.name))
+            act(_mt("Clear Conflict Filter")
+                if _conflict_filter_on(view, entry.name) else _mt("Filter Conflicts"),
+                lambda: _filter_conflicts(view, entry.name))
+        elif _conflict_filter_on(view):
+            act(_mt("Clear Conflict Filter"), lambda: _clear_conflict_filter(view))
         # Create an empty mod below - lives on the Overwrite row in normal mode
         # and the Root Folder row in reverse-priority mode, so it stays usable
         # even when the modlist has no mods to right-click.
@@ -394,6 +399,14 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
         act(_mt("Open in NIF Viewer"), lambda: _open_nif_viewer(view, name))
     if _has_conflict(model, row):
         act(_mt("Show Conflicts"), lambda: _show_conflicts(view, name))
+        act(_mt("Clear Conflict Filter") if _conflict_filter_on(view, name)
+            else _mt("Filter Conflicts"),
+            lambda: _filter_conflicts(view, name))
+    elif _conflict_filter_on(view):
+        # Conflict-free rows can't start the filter, but they stay reachable
+        # while it's on (they show up inside a separator block that has a
+        # match) - so keep the off switch on them too.
+        act(_mt("Clear Conflict Filter"), lambda: _clear_conflict_filter(view))
     if _has_missing_reqs(view, name):
         act(_mt("Missing Requirements"), lambda: _missing_reqs(view, [name]))
     if _has_id:
@@ -651,6 +664,32 @@ def _show_conflicts(view, name):
     cb = getattr(view, "on_show_conflicts", None)
     if cb is not None and name:
         cb(name)
+
+
+def _filter_conflicts(view, name):
+    """Narrow the modlist to *name* + the mods it conflicts with (window installs
+    the callback in _reload_modlist). No-op if it isn't wired (e.g. headless)."""
+    cb = getattr(view, "on_filter_conflicts", None)
+    if cb is not None and name:
+        cb(name)
+
+
+def _clear_conflict_filter(view):
+    """Drop the Filter Conflicts narrowing. No-op if it isn't wired."""
+    cb = getattr(view, "on_clear_conflict_filter", None)
+    if cb is not None:
+        cb()
+
+
+def _conflict_filter_on(view, name: str | None = None) -> bool:
+    """True while a Filter Conflicts narrowing is active - and, when *name* is
+    given, only if it's anchored on that mod (so its menu entry flips to Clear
+    instead of re-filtering to the same set)."""
+    cb = getattr(view, "conflict_filter_anchor", None)
+    if cb is None:
+        return False
+    anchor = cb() or ""
+    return anchor == name if name is not None else bool(anchor)
 
 
 def _nif_viewer_available(view) -> bool:
@@ -1691,6 +1730,7 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("ModListMenu", "Change Version"),
     QT_TRANSLATE_NOOP("ModListMenu", "Check Updates"),
     QT_TRANSLATE_NOOP("ModListMenu", "Check Updates ({0})"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Clear Conflict Filter"),
     QT_TRANSLATE_NOOP("ModListMenu", "Copy to profile"),
     QT_TRANSLATE_NOOP("ModListMenu", "Copy to profile ({0})"),
     QT_TRANSLATE_NOOP("ModListMenu", "Could not create the mod folder:\n{0}"),
@@ -1707,6 +1747,7 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("ModListMenu", "Enable selected ({0})"),
     QT_TRANSLATE_NOOP("ModListMenu", "Endorse Mod"),
     QT_TRANSLATE_NOOP("ModListMenu", "Endorse selected ({0})"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Filter Conflicts"),
     QT_TRANSLATE_NOOP("ModListMenu", "'{0}' belongs to the locked profile "
                       "'{1}' - switch to that profile to remove it, or "
                       "unlock it."),

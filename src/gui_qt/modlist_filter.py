@@ -220,6 +220,28 @@ def search_hidden_rows(entries, query: str, data: "FilterData | None" = None) ->
     return hide
 
 
+def conflict_filter_hidden_rows(entries, names) -> set[int]:
+    """Rows to HIDE for the right-click "Filter Conflicts" action: keep only the
+    mods in *names* (the anchor mod plus everything that conflicts with it).
+
+    Boundary rows (Overwrite / Root Folder) are treated as mods, not separators:
+    Overwrite takes part in conflicts and shows up when it's in the set, while
+    Root Folder (no conflict data of its own) always hides. A real separator
+    survives only while one of its mods does, so the list keeps its structure
+    without leaving empty headers behind. Empty *names* hides nothing."""
+    keep = set(names or ())
+    if not keep:
+        return set()
+    hide: set[int] = set()
+    for i, e in enumerate(entries):
+        if e.is_separator and e.name not in _BOUNDARY:
+            if not _sep_block_has(entries, i, lambda m: m.name in keep):
+                hide.add(i)
+        elif e.name not in keep:
+            hide.add(i)
+    return hide
+
+
 def plugin_search_hidden_rows(rows, query: str, owner: dict | None = None) -> set[int]:
     """Rows to HIDE for the plugins search box (Tk parity): a plugin is shown
     when its name OR its owning mod name contains *query* (case-insensitive).

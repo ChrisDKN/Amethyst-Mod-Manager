@@ -507,6 +507,10 @@ class MainWindow(QMainWindow):
         self._modlist_meta_ready.connect(self._on_modlist_meta_ready)
         self._filter_data_gen = 0
         self._filter_data_ready.connect(self._on_filter_data_ready)
+        # Right-click "Filter Conflicts": mods kept visible (empty = inactive)
+        # and the mod it is anchored on (so the menu entry reads as a toggle).
+        self._modlist_conflict_filter: set = set()
+        self._modlist_conflict_filter_anchor: str = ""
         try:
             from version import __version__ as _mm_version
         except Exception:
@@ -2783,6 +2787,11 @@ class MainWindow(QMainWindow):
             if box is not None and box.text():
                 box.clear()   # textChanged → debounced apply sees empty
             setattr(self, text_attr, "")
+        # Same staleness problem, worse outcome: a Filter Conflicts set holds mod
+        # names from the OLD profile, so keeping it would blank the new modlist.
+        # No reapply - the switch reloads the modlist (which reapplies) anyway.
+        self._clear_conflict_filter(reapply=False)
+        self._update_filters_btn_active()
 
     def _on_profile_changed(self, name):
         if name == self._gs.profile:
@@ -8346,6 +8355,52 @@ class MainWindow(QMainWindow):
             log_fn=self._append_log)
         self._tabs.open_tab(view, self.tr("Conflicts: {0}").format(mod_name), key="show_conflicts")
 
+    # ---- Filter Conflicts (narrow the modlist to one mod's conflict set) -----
+    def _filter_conflicts(self, mod_name: str):
+        """Right-click "Filter Conflicts": show only *mod_name* and the mods it
+        conflicts with (loose + BSA, both directions). Toggles off when it is
+        already the active anchor, so the same menu entry undoes it."""
+        if getattr(self, "_modlist_conflict_filter_anchor", "") == mod_name:
+            self._clear_conflict_filter()
+            return
+        cd = getattr(self, "_conflict_data", None)
+        if cd is None:
+            self._notify(self.tr("Conflict data is still building."), "warning")
+            return
+        others = (set(cd.overrides.get(mod_name, set()))
+                  | set(cd.overridden_by.get(mod_name, set()))
+                  | set(cd.bsa_overrides.get(mod_name, set()))
+                  | set(cd.bsa_overridden_by.get(mod_name, set())))
+        others.discard(mod_name)
+        if not others:
+            self._notify(
+                self.tr("{0} has no conflicting mods.").format(mod_name), "info")
+            return
+        self._modlist_conflict_filter = others | {mod_name}
+        self._modlist_conflict_filter_anchor = mod_name
+        self._apply_modlist_filters()
+        self._update_filters_btn_active()
+        self._notify(self.tr("Filtered to {0} mods conflicting with {1}.").format(
+            len(others), mod_name), "info")
+
+    def _clear_conflict_filter(self, *, reapply: bool = True):
+        """Drop the Filter Conflicts narrowing (no-op when it isn't active)."""
+        if not getattr(self, "_modlist_conflict_filter", None):
+            self._modlist_conflict_filter_anchor = ""
+            return
+        self._modlist_conflict_filter = set()
+        self._modlist_conflict_filter_anchor = ""
+        if reapply:
+            self._apply_modlist_filters()
+            self._update_filters_btn_active()
+
+    def _conflict_filter_anchor(self) -> str:
+        """Mod the Filter Conflicts narrowing is anchored on ("" = inactive).
+        Read by the modlist context menu to label the entry as a toggle."""
+        if not getattr(self, "_modlist_conflict_filter", None):
+            return ""
+        return getattr(self, "_modlist_conflict_filter_anchor", "") or ""
+
     def _on_modlist_endorse(self, names, endorse: bool):
         """Endorse / abstain the given mods on Nexus (right-click). Runs on a
         worker thread via the shared API, updates each mod's meta.ini `endorsed`
@@ -13369,6 +13424,21 @@ class MainWindow(QMainWindow):
         if panel is not None:
             panel.clear_all()   # emits changed -> re-filter + footer tint
 
+    def _modlist_filters_active(self) -> bool:
+        """Like _panel_filters_active for the modlist, plus the right-click
+        Filter Conflicts set - it narrows the list without being a panel
+        checkbox, so "Clear all filters" must not grey out while it's on."""
+        return (self._panel_filters_active("_modlist_filter_panel")
+                or bool(getattr(self, "_modlist_conflict_filter", None)))
+
+    def _clear_modlist_filters(self):
+        """Column-menu "Clear all filters" for the modlist: the panel checkboxes
+        AND the Filter Conflicts set. Clearing the panel emits `cleared`, which
+        already drops the conflict set - but do it explicitly so this works
+        before the (lazily built) panel exists."""
+        self._clear_conflict_filter()
+        self._clear_panel_filters("_modlist_filter_panel")
+
     def _on_filter_menu_toggle(self, panel, key, on: bool):
         """Apply a filter picked from a header menu by driving the tab's filter
         panel, so the panel stays in sync and the normal pipeline (re-filter +
@@ -13968,6 +14038,10 @@ class MainWindow(QMainWindow):
         ]
         panel = FilterSidePanel(spec, title=self.tr("Filters"))
         panel.changed.connect(self._on_modlist_filter_changed)
+        # "Clear all" must also drop the Filter Conflicts set - it isn't a panel
+        # checkbox, so clear_all can't reach it on its own. reapply=False: the
+        # `changed` that follows re-filters anyway.
+        panel.cleared.connect(lambda: self._clear_conflict_filter(reapply=False))
         panel.close_requested.connect(self._toggle_modlist_filters)
         self._modlist_filter_state: dict = {}
         self._modlist_filter_data = None
@@ -14180,18 +14254,25 @@ class MainWindow(QMainWindow):
             self._update_filters_btn_active()
 
     def _apply_modlist_filters(self):
-        from gui_qt.modlist_filter import compute_hidden_rows
+        from gui_qt.modlist_filter import (
+            compute_hidden_rows, conflict_filter_hidden_rows,
+        )
         state = getattr(self, "_modlist_filter_state", {}) or {}
         # Flatten the column sort across separator groups while separators are
         # hidden (must run before reading _entries - it may re-derive the sort).
         self._modlist_model.set_separators_hidden(
             state.get("filter_hide_separators") == 1)
+        entries = self._modlist_model._entries
+        # "Filter Conflicts" (right-click) narrows to one mod's conflict set. It
+        # needs no FilterData, so it applies even before the scan lands, and it
+        # ANDs with the panel filters (row indices union to hide).
+        conflict_hide = conflict_filter_hidden_rows(
+            entries, getattr(self, "_modlist_conflict_filter", None))
         data = getattr(self, "_modlist_filter_data", None)
         if data is None:
-            self._modlist_view.set_filter_hidden(set())
+            self._modlist_view.set_filter_hidden(conflict_hide)
             return
-        entries = self._modlist_model._entries
-        hide = compute_hidden_rows(entries, state, data)
+        hide = compute_hidden_rows(entries, state, data) | conflict_hide
         self._modlist_view.set_filter_hidden(hide)
 
     def _update_filters_btn_active(self):
@@ -14214,6 +14295,10 @@ class MainWindow(QMainWindow):
         search = getattr(self, search_attr, None)
         active = bool(panel is not None and panel.any_active()) or bool(
             search is not None and search.text().strip())
+        # The modlist has a third route: the right-click Filter Conflicts set,
+        # which lives on the window rather than in the panel.
+        if btn_attr == "_modlist_filters_btn":
+            active = active or bool(getattr(self, "_modlist_conflict_filter", None))
         if bool(btn.property("active")) == active:
             return
         btn.setProperty("active", active)
@@ -14667,6 +14752,11 @@ class MainWindow(QMainWindow):
         self._modlist_view.on_reinstall = self._reinstall_mods
         # Show Conflicts: right-click item.
         self._modlist_view.on_show_conflicts = self._open_show_conflicts_tab
+        # Filter Conflicts: narrow the list to one mod's conflict set (and the
+        # anchor getter the menu reads to label the entry as a toggle).
+        self._modlist_view.on_filter_conflicts = self._filter_conflicts
+        self._modlist_view.on_clear_conflict_filter = self._clear_conflict_filter
+        self._modlist_view.conflict_filter_anchor = self._conflict_filter_anchor
         # Open in NIF Viewer: right-click item on a Bethesda mod with meshes.
         self._modlist_view.on_open_nif_viewer = self._open_nif_viewer_for_mod
         # Mod removal strips plugins from plugins.txt/loadorder.txt - reload the
@@ -14699,10 +14789,10 @@ class MainWindow(QMainWindow):
         self._modlist_view.on_sizes_requested = self._apply_modlist_sizes
         self._modlist_view.on_quick_filter = self._on_quick_modlist_filter
         self._modlist_view.quick_filter_state = self._quick_modlist_filter_state
-        self._modlist_view.filters_active = lambda: self._panel_filters_active(
-            "_modlist_filter_panel")
-        self._modlist_view.on_clear_filters = lambda: self._clear_panel_filters(
-            "_modlist_filter_panel")
+        # The column menu's "Clear all filters" mirrors the panel's - so it has
+        # to see (and clear) the Filter Conflicts set the panel can't hold.
+        self._modlist_view.filters_active = self._modlist_filters_active
+        self._modlist_view.on_clear_filters = self._clear_modlist_filters
         self._modlist_model._sizes = {}
         if not self._modlist_view.isColumnHidden(COL_SIZE):
             self._apply_modlist_sizes()

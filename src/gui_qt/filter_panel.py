@@ -102,9 +102,14 @@ _TR_MARKERS = (
 class FilterSidePanel(QWidget):
     """Collapsible filter panel. `changed(dict)` fires on every edit; the dict
     is the full current state (every check key + dynamic include/exclude sets).
+    `cleared()` fires on "Clear all" only - a tab with filters of its own that
+    the panel can't see (e.g. the modlist's Filter Conflicts set) hooks it to
+    drop those too, which an all-off `changed` can't be told apart from the
+    user simply unchecking their last box.
     """
 
     changed = Signal(dict)
+    cleared = Signal()
     close_requested = Signal()
 
     def __init__(self, spec: list[dict], parent=None, *, title: str = "Filters"):
@@ -298,6 +303,9 @@ class FilterSidePanel(QWidget):
         for _clay, checks in self._dynamic.values():
             for cb in checks.values():
                 cb.set_state(STATE_OFF, emit=False)
+        # `cleared` first: a listener dropping its own out-of-panel filters must
+        # do so before `changed` runs the re-filter, or the list stays narrowed.
+        self.cleared.emit()
         self._emit()
 
     def any_active(self) -> bool:
