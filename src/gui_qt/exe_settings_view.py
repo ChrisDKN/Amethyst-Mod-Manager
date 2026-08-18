@@ -128,6 +128,9 @@ class ExeSettingsView(QWidget):
             return sec, sv
 
         self._is_jar = exe_launch.is_jar(self._exe_path)
+        # Native Linux launcher: runs on the host, so every Proton/Wine
+        # control below is meaningless for it and the section is skipped.
+        self._is_sh = exe_launch.is_shell_script(self._exe_path)
 
         # -- Java runtime (.jar only) ----------------------------------------
         if self._is_jar:
@@ -160,9 +163,12 @@ class ExeSettingsView(QWidget):
             bv.addWidget(sec_jar)
 
         # -- Launch arguments ------------------------------------------------
-        sec_args, sa = section(self.tr("Launch arguments"), self.tr(
+        args_help = self.tr(
+            "Arguments passed to the script. The buttons below insert Linux "
+            "paths for file arguments.") if self._is_sh else self.tr(
             "Arguments passed to the exe. Use Wine paths for file arguments "
-            "(e.g. Z:\\home\\...) - the buttons below insert them for you."))
+            "(e.g. Z:\\home\\...) - the buttons below insert them for you.")
+        sec_args, sa = section(self.tr("Launch arguments"), args_help)
         self._args_box = QPlainTextEdit()
         self._args_box.setFixedHeight(90)
         sa.addWidget(self._args_box)
@@ -183,65 +189,69 @@ class ExeSettingsView(QWidget):
         bv.addWidget(sec_args)
 
         # -- Proton version ---------------------------------------------------
-        proton_help = self.tr(
-            "Use a specific Proton version with an isolated prefix next to the "
-            "exe, instead of the game's prefix. Useful for tools that don't "
-            "work with the game's Proton version. For Bethesda games the game "
-            "path (registry), plugins.txt and My Games INIs are set up in the "
-            "prefix automatically at launch.")
-        if self._is_framework:
-            proton_help = self.tr(
-                "Script extenders always run in the game's own prefix with the "
-                "game's Proton version: they launch the game itself, which "
-                "needs the game's Steam app ID and its INIs, saves and mod "
-                "DLLs. Change the game's Proton version in the game settings "
-                "instead.")
-        sec_proton, sp = section(self.tr("Proton version"), proton_help)
-        proton_row = QHBoxLayout()
-        proton_row.setSpacing(8)
-        self._proton_combo = QComboBox()
-        self._proton_combo.addItems(self._proton_versions)
-        no_wheel(self._proton_combo)
-        if self._is_framework:
-            self._proton_combo.setCurrentText("Game default")
-            self._proton_combo.setEnabled(False)
-            self._proton_combo.setToolTip(self._tip_text(proton_help))
-        proton_row.addWidget(self._proton_combo)
-        proton_row.addStretch(1)
-        sp.addLayout(proton_row)
+        # A .sh runs on the host, so it gets no Proton picker and no prefix
+        # tools; _proton_combo / _winetricks_chk stay None for it.
+        self._proton_combo = None
         self._winetricks_chk = None
-        if not self._is_jar:
-            wt_help = self.tr(
-                "Run this exe with bare Wine against the same prefix instead "
-                "of a Proton session - no Steam client attach, so Steam Input "
-                "keeps the desktop controls (trackpad / on-screen keyboard). "
-                "The prefix is still created and updated through Proton. Env "
-                "vars in Launch Options still apply; wrappers and %command% "
-                "are skipped in this mode.")
-            self._winetricks_chk = QCheckBox(
-                self.tr("Launch with plain Wine (winetricks-style)"))
-            self._winetricks_chk.setStyleSheet(f"color:{_c(p,'TEXT_MAIN')};")
-            self._winetricks_chk.setToolTip(self._tip_text(wt_help))
-            wt_row = QHBoxLayout(); wt_row.setContentsMargins(0, 0, 0, 0)
-            wt_row.setSpacing(6)
-            wt_row.addWidget(self._winetricks_chk)
-            wt_row.addWidget(self._help_marker(wt_help))
-            wt_row.addStretch(1)
-            sp.addLayout(wt_row)
-        tool_row = QHBoxLayout()
-        tool_row.setSpacing(6)
-        for label, cb in ((self.tr("Run EXE in prefix…"), self._run_exe_in_prefix),
-                          (self.tr("Run winecfg"), self._run_winecfg_in_prefix),
-                          (self.tr("Run winetricks"), self._run_winetricks_in_prefix),
-                          (self.tr("Open prefix folder"), self._open_prefix_folder)):
-            b = QPushButton(label)
-            b.setObjectName("FormButton")
-            b.setCursor(Qt.PointingHandCursor)
-            b.clicked.connect(cb)
-            tool_row.addWidget(b)
-        tool_row.addStretch(1)
-        sp.addLayout(tool_row)
-        bv.addWidget(sec_proton)
+        if not self._is_sh:
+            proton_help = self.tr(
+                "Use a specific Proton version with an isolated prefix next to the "
+                "exe, instead of the game's prefix. Useful for tools that don't "
+                "work with the game's Proton version. For Bethesda games the game "
+                "path (registry), plugins.txt and My Games INIs are set up in the "
+                "prefix automatically at launch.")
+            if self._is_framework:
+                proton_help = self.tr(
+                    "Script extenders always run in the game's own prefix with the "
+                    "game's Proton version: they launch the game itself, which "
+                    "needs the game's Steam app ID and its INIs, saves and mod "
+                    "DLLs. Change the game's Proton version in the game settings "
+                    "instead.")
+            sec_proton, sp = section(self.tr("Proton version"), proton_help)
+            proton_row = QHBoxLayout()
+            proton_row.setSpacing(8)
+            self._proton_combo = QComboBox()
+            self._proton_combo.addItems(self._proton_versions)
+            no_wheel(self._proton_combo)
+            if self._is_framework:
+                self._proton_combo.setCurrentText("Game default")
+                self._proton_combo.setEnabled(False)
+                self._proton_combo.setToolTip(self._tip_text(proton_help))
+            proton_row.addWidget(self._proton_combo)
+            proton_row.addStretch(1)
+            sp.addLayout(proton_row)
+            if not self._is_jar:
+                wt_help = self.tr(
+                    "Run this exe with bare Wine against the same prefix instead "
+                    "of a Proton session - no Steam client attach, so Steam Input "
+                    "keeps the desktop controls (trackpad / on-screen keyboard). "
+                    "The prefix is still created and updated through Proton. Env "
+                    "vars in Launch Options still apply; wrappers and %command% "
+                    "are skipped in this mode.")
+                self._winetricks_chk = QCheckBox(
+                    self.tr("Launch with plain Wine (winetricks-style)"))
+                self._winetricks_chk.setStyleSheet(f"color:{_c(p,'TEXT_MAIN')};")
+                self._winetricks_chk.setToolTip(self._tip_text(wt_help))
+                wt_row = QHBoxLayout(); wt_row.setContentsMargins(0, 0, 0, 0)
+                wt_row.setSpacing(6)
+                wt_row.addWidget(self._winetricks_chk)
+                wt_row.addWidget(self._help_marker(wt_help))
+                wt_row.addStretch(1)
+                sp.addLayout(wt_row)
+            tool_row = QHBoxLayout()
+            tool_row.setSpacing(6)
+            for label, cb in ((self.tr("Run EXE in prefix…"), self._run_exe_in_prefix),
+                              (self.tr("Run winecfg"), self._run_winecfg_in_prefix),
+                              (self.tr("Run winetricks"), self._run_winetricks_in_prefix),
+                              (self.tr("Open prefix folder"), self._open_prefix_folder)):
+                b = QPushButton(label)
+                b.setObjectName("FormButton")
+                b.setCursor(Qt.PointingHandCursor)
+                b.clicked.connect(cb)
+                tool_row.addWidget(b)
+            tool_row.addStretch(1)
+            sp.addLayout(tool_row)
+            bv.addWidget(sec_proton)
 
         # -- Launch options ----------------------------------------------------
         sec_opts, so = section(self.tr("Launch Options"), self.tr(
@@ -300,7 +310,7 @@ class ExeSettingsView(QWidget):
         self._options_edit.setText(exe_launch.load_launch_options(game, name))
         # Script extenders stay on "Game default" whatever was saved before the
         # picker was gated (the launch path ignores it too).
-        if not self._is_framework:
+        if self._proton_combo is not None and not self._is_framework:
             saved = exe_launch.load_proton_override(game, name) or ""
             self._proton_combo.setCurrentText(self._best_proton_match(saved))
         self._deploy_on_run_chk.setChecked(
@@ -329,9 +339,10 @@ class ExeSettingsView(QWidget):
     def _on_save(self):
         game, name = self._game, self._exe_path.name
         exe_launch.save_exe_args(game, name, self._args_box.toPlainText().strip())
-        selected = self._proton_combo.currentText()
-        exe_launch.save_proton_override(
-            game, name, "" if selected == "Game default" else selected)
+        if self._proton_combo is not None:
+            selected = self._proton_combo.currentText()
+            exe_launch.save_proton_override(
+                game, name, "" if selected == "Game default" else selected)
         exe_launch.save_launch_options(game, name,
                                        self._options_edit.text().strip())
         exe_launch.save_deploy_on_run(
@@ -365,13 +376,18 @@ class ExeSettingsView(QWidget):
         self._args_box.moveCursor(self._args_box.textCursor().MoveOperation.End)
         self._args_box.insertPlainText(text)
 
+    def _path_token(self, path) -> str:
+        """Quoted path for the args box: a Wine path for Wine targets, the
+        plain Linux path for a .sh, which runs on the host."""
+        return f'"{path if self._is_sh else to_wine_path(path)}"'
+
     def _insert_game_path(self):
         game_path = (self._game.get_game_path()
                      if hasattr(self._game, "get_game_path") else None)
         if game_path is None:
             self._log("[exe] game path not set.")
             return
-        self._insert_arg_text(f'"{to_wine_path(game_path)}"')
+        self._insert_arg_text(self._path_token(game_path))
 
     def _mod_entries(self) -> list[tuple[str, Path]]:
         """overwrite + staging mod dirs, like Tk's insert-mod-path popup."""
@@ -395,7 +411,7 @@ class ExeSettingsView(QWidget):
             menu.addAction(self.tr("(no mods found)")).setEnabled(False)
         for name, path in entries:
             menu.addAction(name, lambda pa=path:
-                           self._insert_arg_text(f'"{to_wine_path(pa)}"'))
+                           self._insert_arg_text(self._path_token(pa)))
         menu.exec(self._insert_mod_btn.mapToGlobal(
             self._insert_mod_btn.rect().bottomLeft()))
 

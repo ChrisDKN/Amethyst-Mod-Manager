@@ -9862,7 +9862,8 @@ class MainWindow(QMainWindow):
             subtitle=self.tr(
                 "Check the executables to add to the Run menu. These run "
                 "from their location in the game folder - including files "
-                "deployed there by mods."))
+                "deployed there by mods. Linux-native games launch through "
+                "their .sh script (e.g. run_bepinex.sh)."))
 
     def _on_staging_exes_picked(self, paths):
         game = self._gs.game
@@ -10013,8 +10014,14 @@ class MainWindow(QMainWindow):
                     self.tr("Executable not found: {0}").format(exe_path),
                     entry=label)
                 return
-            target = (exe_launch.launch_jar if exe_launch.is_jar(exe_path)
-                      else exe_launch.launch_exe_via_proton)
+            if exe_launch.is_jar(exe_path):
+                target = exe_launch.launch_jar
+            elif exe_launch.is_shell_script(exe_path):
+                # Linux-native launcher (BepInEx's run_bepinex.sh) - runs on
+                # the host, never through Proton.
+                target = exe_launch.launch_shell_script
+            else:
+                target = exe_launch.launch_exe_via_proton
 
             def _launch_exe():
                 run_path = exe_path

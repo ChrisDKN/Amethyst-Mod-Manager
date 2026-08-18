@@ -45,7 +45,8 @@ _LAUNCH_MODE_FILE = "exe_launch_mode.json"
 _CUSTOM_EXES_FILE = "custom_exes.json"
 
 EXE_PICKER_FILTERS = [
-    ("Executables (*.exe, *.bat, *.jar)", ["*.exe", "*.bat", "*.jar"]),
+    ("Executables (*.exe, *.bat, *.jar, *.sh)",
+     ["*.exe", "*.bat", "*.jar", "*.sh"]),
     ("All files", ["*"]),
 ]
 
@@ -56,6 +57,11 @@ JAR_RUNTIME_PROTON = "proton"  # run a Windows Java inside the game's Proton pre
 
 def is_jar(path) -> bool:
     return str(path).lower().endswith(".jar")
+
+
+def is_shell_script(path) -> bool:
+    """True for a .sh entry - a native Linux launcher, never a Wine target."""
+    return str(path).lower().endswith(".sh")
 
 
 def _noop_log(_msg: str) -> None:
@@ -137,8 +143,9 @@ def remove_custom_exe(game, path: Path) -> None:
         save_custom_exes(game, remaining)
 
 
-# Launchable file types picked up by the staging scan.
-STAGING_EXE_SUFFIXES = (".exe", ".bat", ".jar")
+# Launchable file types picked up by the staging scan. ``.sh`` is here for
+# Linux-native games, whose loaders (BepInEx) ship as shell scripts.
+STAGING_EXE_SUFFIXES = (".exe", ".bat", ".jar", ".sh")
 
 # Directory names that mark a wine/Proton prefix. The Applications/ folder holds
 # some tools alongside their own prefixes, which are full of Windows system exes
@@ -198,9 +205,9 @@ def scan_staging_exes(game) -> list[Path]:
 
     Scans both the profile ``mods/`` folder (installed mod tools) and the
     sibling ``Applications/`` folder (wizard tools like xEdit / BodySlide /
-    Script Merger) recursively for ``.exe`` / ``.bat`` / ``.jar`` files, while
-    pruning wine/Proton prefix trees (``pfx`` / ``drive_c``) that would
-    otherwise flood the list with Windows system exes. Results are
+    Script Merger) recursively for ``.exe`` / ``.bat`` / ``.jar`` / ``.sh``
+    files, while pruning wine/Proton prefix trees (``pfx`` / ``drive_c``) that
+    would otherwise flood the list with Windows system exes. Results are
     de-duplicated by resolved path and sorted by name for a stable, searchable
     picker list. Returns ``[]`` when the game has no staging path or the
     folders can't be read.
@@ -241,10 +248,11 @@ def scan_staging_exes(game) -> list[Path]:
 def scan_game_folder_exes(game) -> list[Path]:
     """Return launchable files found under the game's install folder.
 
-    Recursively scans the game root for ``.exe`` / ``.bat`` / ``.jar`` files -
-    including files deployed there by mods - so tools that must run from the
-    game folder (patchers, injectors, bundled utilities) can be added to the
-    play-bar dropdown. Prunes wine/Proton prefix trees (isolated tool prefixes
+    Recursively scans the game root for ``.exe`` / ``.bat`` / ``.jar`` /
+    ``.sh`` files - including files deployed there by mods - so tools that must
+    run from the game folder (patchers, injectors, bundled utilities, a
+    Linux-native game's ``run_bepinex.sh``) can be added to the play-bar
+    dropdown. Prunes wine/Proton prefix trees (isolated tool prefixes
     live in ``prefix_<Proton>/`` next to their exe) and skips the game's own
     resolved launch exe, which already is the Play entry. Same dedup/sort as
     scan_staging_exes. Returns ``[]`` when the game has no configured path.
@@ -2682,6 +2690,61 @@ def resolve_jar_prefix_env(jar_path: Path, game, log_fn=_noop_log):
         jar_path, override, prefix_dir=prefix_dir,
         steam_id=effective_steam_id(game))
     return result
+
+
+def launch_shell_script(sh_path: Path, game, log_fn=_noop_log) -> None:
+    """Run a .sh entry natively on the host. Call from a worker thread.
+
+    Linux-native games launch through a shell script (BepInEx's
+    run_bepinex.sh sets the loader's env, then execs the game binary), so this
+    never goes near Proton - handing a text file to wine would just fail. cwd
+    is the script's own folder because those scripts resolve the game
+    executable relative to themselves.
+    """
+    from Utils.xdg import host_env
+    env = host_env()
+
+    try:
+        extra_args = shlex.split(load_exe_args(game, sh_path.name))
+    except ValueError as e:
+        log_fn(f"Run SH: invalid arguments - {e}")
+        return
+
+    cmd = [str(sh_path)]
+    if not os.access(sh_path, os.X_OK):
+        # Mod archives routinely lose the exec bit; restore it, and fall back
+        # to an explicit interpreter when the file can't be chmod'ed.
+        try:
+            os.chmod(sh_path, os.stat(sh_path).st_mode | 0o111)
+            log_fn(f"Run SH: {sh_path.name} was not executable - "
+                   "added the executable bit.")
+        except OSError as e:
+            log_fn(f"Run SH: {sh_path.name} is not executable ({e}) - "
+                   "running it with /bin/sh instead.")
+            cmd = ["/bin/sh", str(sh_path)]
+
+    launch_opts = load_launch_options(game, sh_path.name)
+    if launch_opts:
+        env_updates, cmd = parse_launch_options(launch_opts, cmd)
+        if env_updates:
+            env.update(env_updates)
+        if not cmd:
+            log_fn("Run SH: launch options produced no command.")
+            return
+    cmd += extra_args
+
+    # A wrapper from Launch Options (gamemoderun, mangohud) that isn't
+    # installed would otherwise fail as a bare Popen error.
+    launcher = cmd[0]
+    if os.sep not in launcher and shutil.which(launcher) is None:
+        log_fn(f"Run SH error: '{launcher}' not found - check Launch Options.")
+        launch_report.mark_failed(f"'{launcher}' not found")
+        return
+
+    log_fn(f"Run SH: launching {sh_path.name} ...")
+    log_fn(f"Run SH:   cmd: {' '.join(cmd)}")
+    spawn_process_watched(cmd, env=env, cwd=sh_path.parent,
+                          label=f"Run SH ({sh_path.name})", log_fn=log_fn)
 
 
 def launch_jar(jar_path: Path, game, log_fn=_noop_log) -> None:
