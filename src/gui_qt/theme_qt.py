@@ -1136,6 +1136,15 @@ def err_text(pal: dict | None = None) -> str:
     return _c(pal or active_palette(), "TEXT_ERR_BRIGHT")
 
 
+def warn_text(pal: dict | None = None) -> str:
+    """Palette colour for warning/amber status labels.
+
+    For an operation that finished but whose result needs checking - neither
+    ok_text()'s "all good" nor err_text()'s "it failed".
+    """
+    return _c(pal or active_palette(), "TEXT_WARN_BRIGHT")
+
+
 def danger_close_button(text: str = "✕ Close", pal: dict | None = None):
     """Shared red close button for tab/scoped views.
 

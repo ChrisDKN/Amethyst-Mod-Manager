@@ -514,6 +514,18 @@ class ConfigureGameView(QWidget):
         add_check("manage_load_order_in_dfu",
                   self.tr("Manage load order in DFU"),
                   hasattr(self._game, "set_manage_load_order_in_dfu"))
+        add_check("me3_save_isolation",
+                  self.tr("Use a separate save file for each profile (me3)"),
+                  hasattr(self._game, "set_me3_save_isolation"))
+        add_check("me3_start_online",
+                  self.tr("Enable online play (me3, risks a ban with mods)"),
+                  hasattr(self._game, "set_me3_start_online"))
+        add_check("me3_disable_arxan",
+                  self.tr("Neutralize Arxan anti-tamper (me3, improves stability)"),
+                  hasattr(self._game, "set_me3_disable_arxan"))
+        add_check("me3_mem_patch",
+                  self.tr("Raise the game's memory limits (me3)"),
+                  hasattr(self._game, "set_me3_mem_patch"))
 
         # BG3 patch-version radios.
         self._patch_group = None
@@ -593,6 +605,13 @@ class ConfigureGameView(QWidget):
             self._set_check("prefix_numbering", getattr(g, "prefix_numbering", True))
             self._set_check("manage_load_order_in_dfu",
                             getattr(g, "manage_load_order_in_dfu", False))
+            self._set_check("me3_save_isolation",
+                            getattr(g, "me3_save_isolation", True))
+            self._set_check("me3_start_online",
+                            getattr(g, "me3_start_online", False))
+            self._set_check("me3_disable_arxan",
+                            getattr(g, "me3_disable_arxan", True))
+            self._set_check("me3_mem_patch", getattr(g, "me3_mem_patch", False))
             if self._patch_group is not None and hasattr(g, "get_patch_version"):
                 rb = self._patch_buttons.get(int(g.get_patch_version()))
                 if rb:
@@ -620,6 +639,12 @@ class ConfigureGameView(QWidget):
             self._set_check("profile_saves", False)
             self._set_check("prefix_numbering", True)
             self._set_check("manage_load_order_in_dfu", False)
+            # me3 defaults: isolate saves and neutralize Arxan (both safety
+            # measures), stay offline, leave the memory patch off.
+            self._set_check("me3_save_isolation", True)
+            self._set_check("me3_start_online", False)
+            self._set_check("me3_disable_arxan", True)
+            self._set_check("me3_mem_patch", False)
             if self._patch_group is not None and hasattr(g, "get_patch_version"):
                 rb = self._patch_buttons.get(int(g.get_patch_version()))
                 if rb:
@@ -1411,6 +1436,12 @@ class ConfigureGameView(QWidget):
                 and "manage_load_order_in_dfu" in self._opt_checks):
             g.set_manage_load_order_in_dfu(
                 self._opt_checks["manage_load_order_in_dfu"].isChecked())
+        for _key, _setter in (("me3_save_isolation", "set_me3_save_isolation"),
+                              ("me3_start_online", "set_me3_start_online"),
+                              ("me3_disable_arxan", "set_me3_disable_arxan"),
+                              ("me3_mem_patch", "set_me3_mem_patch")):
+            if hasattr(g, _setter) and _key in self._opt_checks:
+                getattr(g, _setter)(self._opt_checks[_key].isChecked())
         if hasattr(g, "set_patch_version") and self._patch_group is not None:
             for val, rb in self._patch_buttons.items():
                 if rb.isChecked():

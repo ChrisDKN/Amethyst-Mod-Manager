@@ -129,6 +129,21 @@ def build_quick_configure_options(game) -> list[dict[str, Any]]:
             getattr(game, "manage_load_order_in_dfu", False),
             lambda v: game.set_manage_load_order_in_dfu(v))
 
+    # me3 options are read-only properties with explicit setters, so bind the
+    # setter rather than going through _toggle_attr's setattr().
+    for _key, _label, _default in (
+            ("me3_save_isolation",
+             "Use a separate save file for each profile (me3)", True),
+            ("me3_start_online",
+             "Enable online play (me3, risks a ban with mods)", False),
+            ("me3_disable_arxan",
+             "Neutralize Arxan anti-tamper (me3, improves stability)", True),
+            ("me3_mem_patch", "Raise the game's memory limits (me3)", False)):
+        setter = getattr(game, f"set_{_key}", None)
+        if setter is not None:
+            add_toggle(_key, _label, getattr(game, _key, _default),
+                       (lambda s: lambda v: s(bool(v)))(setter))
+
     # --- Game patch version (BG3-style) -------------------------------------
     if hasattr(game, "get_patch_version") and hasattr(game, "set_patch_version"):
         try:

@@ -9897,19 +9897,32 @@ class MainWindow(QMainWindow):
         usually still works from there, with the deployed mods active either
         way.
         """
+        from Utils import launch_report
         target = entry or (self._gs.game.name if self._gs.game is not None
                            else self.tr("the game"))
-        body = self.tr(
-            "Amethyst could not launch {0}.\n\n"
-            "Press Deploy to apply your mods, then start the game from "
-            "Steam, Heroic, Lutris or Faugus instead - the deployed mods "
-            "stay active however the game is started.").format(target)
-        if detail:
-            body += "\n\n" + self.tr("Details: {0}").format(detail)
+        # When the failure was diagnosed into a concrete fix (see
+        # launch_report.explain_stderr) that fix IS the message: the generic
+        # "start it from Steam instead" advice would bury it, and for a game
+        # whose mods are served by an external loader (me3) it is also wrong -
+        # launching from Steam would start the game unmodded.
+        actionable = bool(detail) and launch_report.is_actionable(detail)
+        if actionable:
+            body = self.tr("Amethyst could not launch {0}.\n\n{1}").format(
+                target, launch_report.strip_marker(detail))
+        else:
+            body = self.tr(
+                "Amethyst could not launch {0}.\n\n"
+                "Press Deploy to apply your mods, then start the game from "
+                "Steam, Heroic, Lutris or Faugus instead - the deployed mods "
+                "stay active however the game is started.").format(target)
+            if detail:
+                body += "\n\n" + self.tr("Details: {0}").format(detail)
         self._play_toast_done.emit(
             self.tr("{0} did not launch").format(target), "error")
-        self._warn_popup.emit(self.tr("The game did not launch"), body,
-                              340 if detail else 280)
+        # The diagnosed message is several lines of instructions - give it room
+        # so the fix is not scrolled out of sight.
+        height = 420 if actionable else (340 if detail else 280)
+        self._warn_popup.emit(self.tr("The game did not launch"), body, height)
 
     def _do_play(self):
         game = self._gs.game
@@ -10599,6 +10612,9 @@ class MainWindow(QMainWindow):
 
     def _on_op_done(self, kind: str, success: bool, warnings):
         self._deploy_running = False
+        # Captured before the reset below: auto-deploy runs silently and must
+        # not raise a modal in the middle of the user toggling mods.
+        self._op_was_silent = bool(self._op_silent)
         self._op_silent = False
         if not (getattr(self, "_install_running", False)
                 or self._col_install_running or self._tool_busy):
@@ -10675,6 +10691,12 @@ class MainWindow(QMainWindow):
                 # nothing left to resolve it and sits there for good.
                 self._end_play_toast(
                     self.tr("Deploy failed - launch cancelled"), "error")
+            # A loader-based game (me3) will not pick up mods when started from
+            # Steam directly - offer the launch option that fixes that. Only
+            # after a real user deploy: not for auto-deploy, and not when the
+            # Play button is about to launch anyway.
+            if success and action is None and not self._op_was_silent:
+                QTimer.singleShot(0, self._maybe_offer_steam_launch)
             # Wizard deploy steps: one-shot completion hooks (get the outcome
             # either way so the wizard can show failure and re-enable Deploy).
             hooks, self._deploy_done_hooks = self._deploy_done_hooks, []
@@ -10691,6 +10713,38 @@ class MainWindow(QMainWindow):
                     h(success)
                 except Exception as exc:
                     self._append_log(f"Wizards: restore hook error: {exc}")
+
+    def _maybe_offer_steam_launch(self):
+        """After a deploy, show the Steam launch command for loader-based games.
+
+        Elden Ring's mods live behind me3, so starting it from Steam the normal
+        way runs it unmodded with no sign anything is wrong. Handlers opt in via
+        get_steam_launch_string(); everything else returns "" and is skipped.
+        """
+        game = self._gs.game
+        if game is None or not hasattr(game, "get_steam_launch_string"):
+            return
+        try:
+            # No profile pinned: the CLI picks up whichever profile was last
+            # deployed, so switching profiles here needs no change in Steam.
+            launch_string = game.get_steam_launch_string()
+        except Exception as exc:
+            self._append_log(f"Steam launch command: {exc}")
+            return
+        if not launch_string:
+            return
+        from Utils.ui_config import (
+            get_steam_launch_notice_hidden, save_steam_launch_notice_hidden)
+        if get_steam_launch_notice_hidden(game.name):
+            return
+        from gui_qt.steam_launch_overlay import SteamLaunchCommandOverlay
+
+        def _done(hidden):
+            if hidden:
+                save_steam_launch_notice_hidden(game.name, True)
+
+        SteamLaunchCommandOverlay(self.window(), game.name, launch_string,
+                                  on_done=_done)
 
     # ----------------------------------------------------------------- install
     def _on_install_mod(self):

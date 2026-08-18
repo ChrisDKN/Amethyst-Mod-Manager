@@ -838,9 +838,55 @@ class BaseGame(ABC):
 
             ["flatpak", "run", "org.openmw.OpenMW"]
 
-        Return None (the default) to use the normal Proton launch path.
+        Return None (the default) to use the normal Proton launch path - unless
+        :attr:`native_launch_required` is True, in which case a None refuses
+        the launch outright.
         """
         return None
+
+    @property
+    def native_launch_required(self) -> bool:
+        """Whether this game can ONLY be launched by get_launch_command().
+
+        True for games whose mods are served by an external loader rather than
+        deployed to disk (me3): the Proton fallback would start the game with
+        no mods at all, which looks like a successful launch.  Such handlers
+        refuse instead, with :meth:`native_launch_blocked_reason` explaining
+        what to fix.
+        """
+        return False
+
+    def native_launch_blocked_reason(self) -> str:
+        """Why get_launch_command() returned None, phrased for the user."""
+        return ""
+
+    def get_steam_launch_string(self, profile: "str | None" = None) -> str:
+        """Return the Steam Launch Options string that starts this game modded.
+
+        Only meaningful for handlers whose mods are served by an external
+        loader (:attr:`native_launch_required`); everything else is launched by
+        Steam normally and needs no launch option.  Returns "" otherwise, which
+        is the signal to the GUI not to offer one.
+
+        No profile is pinned by default: the CLI resolves the last *deployed*
+        profile at launch time, so switching profiles in the manager is picked
+        up without editing anything in Steam.  Pass *profile* only to hard-wire
+        one (e.g. a second Steam entry that always plays a specific list).
+
+        The command deploys first, so pressing Play in Steam picks up mod-list
+        changes made in the manager.  ``%command%`` is appended because Steam
+        substitutes the vanilla command there; the CLI drops everything after
+        ``--``.
+        """
+        if not getattr(self, "native_launch_required", False):
+            return ""
+        from Utils.config_paths import cli_invocation
+        import shlex
+
+        argv = [*cli_invocation(), "launch", self.game_id]
+        if profile:
+            argv += ["--profile", profile]
+        return " ".join(shlex.quote(a) for a in argv) + " -- %command%"
 
     @property
     def play_button_callback(self) -> "Callable[[], None] | None":

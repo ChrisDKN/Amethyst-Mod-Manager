@@ -276,6 +276,12 @@ REGISTRY: dict[str, QtWizardSpec] = {
     # Qt-only tool: no Tk class exists behind this path, it is a registry key.
     "wizards.special_k.SpecialKWizard":
         QtWizardSpec(_simple("wizards_qt.special_k_view", "SpecialKView")),
+    # Qt-only tool (FROMSOFTWARE / me3): registry key only, no Tk counterpart.
+    "wizards.me3_install.Me3InstallWizard":
+        QtWizardSpec(_simple("wizards_qt.me3_install_view", "Me3InstallView")),
+    "wizards.regulation_merge.RegulationMergeWizard":
+        QtWizardSpec(_simple("wizards_qt.regulation_merge_view",
+                             "RegulationMergeView")),
 }
 
 

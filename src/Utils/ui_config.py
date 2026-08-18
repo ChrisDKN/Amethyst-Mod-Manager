@@ -676,6 +676,43 @@ def save_fs_warning_ack(game_name: str, fingerprint: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Steam launch-command notice for loader-based games (Elden Ring via me3):
+# records that the user ticked "don't show this again" after a deploy.
+# ---------------------------------------------------------------------------
+_STEAM_LAUNCH_SECTION = "steam_launch_notice"
+
+
+def get_steam_launch_notice_hidden(game_name: str) -> bool:
+    """Whether the post-deploy Steam launch-command notice is suppressed."""
+    if not game_name:
+        return False
+    path = get_ui_config_path()
+    if not path.is_file():
+        return False
+    try:
+        parser = _read_ini(path)
+        return parser.getboolean(_STEAM_LAUNCH_SECTION, game_name,
+                                 fallback=False)
+    except Exception:
+        return False
+
+
+def save_steam_launch_notice_hidden(game_name: str, hidden: bool) -> None:
+    """Persist whether to stop showing the Steam launch-command notice."""
+    if not game_name:
+        return
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _STEAM_LAUNCH_SECTION not in parser:
+        parser[_STEAM_LAUNCH_SECTION] = {}
+    parser[_STEAM_LAUNCH_SECTION][game_name] = "true" if hidden else "false"
+    _write_ini(parser, path)
+
+
+# ---------------------------------------------------------------------------
 # Fallout 3 Anniversary-Edition downgrade prompt: records the exe version the
 # user chose to "Deploy anyway" on (see Utils.fo3_version_check). Stored so the
 # prompt shows once per game, re-arming if a game update changes the exe again.

@@ -119,6 +119,7 @@ py.install_sources(
   'show_conflicts_view.py',
   'splash.py',
   'staging_exe_picker_overlay.py',
+  'steam_launch_overlay.py',
   'text_editor.py',
   'text_files_delegate.py',
   'text_files_model.py',

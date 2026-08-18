@@ -32,7 +32,8 @@ from PySide6.QtWidgets import (
 )
 
 from gui_qt.safe_emit import safe_emit
-from gui_qt.theme_qt import active_palette, _c, button_qss, ok_text, err_text
+from gui_qt.theme_qt import (active_palette, _c, button_qss, ok_text, err_text,
+                             warn_text)
 
 if TYPE_CHECKING:
     from Games.base_game import BaseGame
@@ -43,6 +44,7 @@ if TYPE_CHECKING:
 # theme, which is fine for wizards (created after the theme is applied).
 GREEN = ok_text()
 RED = err_text()
+AMBER = warn_text()
 
 
 def parse_nexus_mod_url(url: str) -> "tuple[str, int] | None":

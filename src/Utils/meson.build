@@ -50,6 +50,7 @@ py.install_sources(
   'deploy_game_root.py',
   'deploy_incremental.py',
   'deploy_pipeline.py',
+  'dsms_portable.py',
   'deploy_root.py',
   'deploy_shared.py',
   'deploy_standard.py',

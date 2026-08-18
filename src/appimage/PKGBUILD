@@ -142,7 +142,7 @@ export QT_QPA_PLATFORM
 : "\${FONTCONFIG_FILE:=\$APP_SHARE/fonts.conf}"
 export FONTCONFIG_FILE
 case "\$1" in
-    deploy|restore|list-games|list-profiles|clear-credentials)
+    deploy|launch|restore|list-games|list-profiles|clear-credentials)
         exec python3 "\$APP_SHARE/cli.py" "\$@" ;;
     *)
         exec python3 "\$APP_SHARE/run_qt.py" "\$@" ;;

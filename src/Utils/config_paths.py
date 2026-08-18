@@ -244,6 +244,44 @@ def get_custom_game_images_dir() -> Path:
     return d
 
 
+def cli_invocation() -> "list[str]":
+    """Return the argv prefix that re-runs this app's CLI from outside it.
+
+    Steam launch options run on the host, so the command has to be whatever the
+    user's install actually exposes:
+
+      * Flatpak - ``flatpak run --command=... <app-id>``. Steam is outside the
+        sandbox, so it cannot call our interpreter directly.
+      * AppImage - the ``.AppImage`` itself, from ``APPIMAGE`` (set by the
+        runtime; ``sys.executable`` points inside the mounted squashfs, which
+        disappears when the app exits).
+      * Source checkout - the running interpreter plus ``src/cli.py``.
+    """
+    import os
+    import sys
+
+    app_id = os.environ.get("FLATPAK_ID")
+    if app_id:
+        # meson installs this wrapper (`exec python3 -m cli "$@"`) into bindir.
+        return ["flatpak", "run", "--command=amethyst-mod-manager-cli", app_id]
+
+    # APPIMAGE is set by whatever AppImage is running, which is not necessarily
+    # ours - a developer's editor may be one (and then this would hand out the
+    # editor's path). Only trust it when this module was actually loaded from
+    # inside that image's mount point.
+    appimage = os.environ.get("APPIMAGE")
+    appdir = os.environ.get("APPDIR")
+    here = str(Path(__file__).resolve())
+    if appimage and appdir and here.startswith(str(Path(appdir).resolve())):
+        # The AppImage wrapper dispatches on the subcommand name itself (see
+        # src/appimage/PKGBUILD) - anything it does not recognise starts the
+        # GUI, so "launch" has to stay in that case list.
+        return [appimage]
+
+    cli_py = Path(__file__).resolve().parent.parent / "cli.py"
+    return [sys.executable, str(cli_py)]
+
+
 def get_tools_dir() -> Path:
     """Return the directory holding helper binaries we download on demand.
 

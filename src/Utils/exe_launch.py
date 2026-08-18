@@ -859,7 +859,10 @@ def spawn_process_watched(cmd: list, *, env: "dict | None" = None,
 
     def _watch() -> None:
         rc = proc.wait()
-        launch_report.mark_exit(rep, started, rc, label)
+        # Read stderr BEFORE reporting the exit: a launcher that refuses to
+        # start (me3 with no matching Proton, say) explains itself there, and
+        # that explanation is what the failure popup should show instead of a
+        # bare exit code.
         tail = ""
         if errfile is not None:
             try:
@@ -874,6 +877,7 @@ def spawn_process_watched(cmd: list, *, env: "dict | None" = None,
                     errfile.close()
                 except Exception:
                     pass
+        launch_report.mark_exit(rep, started, rc, label, stderr_tail=tail)
         if rc == 0:
             log_fn(f"{label}: exited cleanly (rc=0)")
             return
@@ -1974,6 +1978,23 @@ def launch_game(game, log_fn=_noop_log) -> None:
         log_fn(f"Play: launching natively: {' '.join(native_cmd)}")
         spawn_process_watched(native_cmd, env=host_env(),
                               label="Play (native)", log_fn=log_fn)
+        return
+
+    # A game whose mods are served by an external loader (me3) has no usable
+    # Proton route: falling through would start it VANILLA - no mods, and none
+    # of the profile's save isolation - while looking like a success. Refuse
+    # with the handler's own reason instead.
+    if getattr(game, "native_launch_required", False):
+        reason = ""
+        try:
+            reason = game.native_launch_blocked_reason() or ""
+        except Exception:
+            pass
+        reason = reason or (
+            "the external mod loader is not ready, and launching without it "
+            "would start the game with no mods.")
+        log_fn(f"Play: refusing to launch - {reason}")
+        launch_report.mark_failed(launch_report.actionable(reason))
         return
 
     mode = load_launch_mode(game, game_exe_key(game))

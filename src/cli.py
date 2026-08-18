@@ -7,6 +7,7 @@ Usage:
     python cli.py list-games
     python cli.py list-profiles <game>
     python cli.py deploy <game> <profile_name>
+    python cli.py launch <game> [--profile <name>] [--no-deploy]
     python cli.py restore <game>
     python cli.py clear-credentials
 
@@ -105,6 +106,92 @@ def cmd_deploy(games: dict, key: str, profile: str):
     _log(f"Deploy complete: {game.name} / {profile}")
 
 
+def cmd_launch(games: dict, key: str, profile: "str | None" = None,
+               deploy: bool = True):
+    """Deploy, then replace this process with the game's launch command.
+
+    Intended for a Steam launch option, so the game becomes a child of Steam
+    and keeps the overlay, playtime tracking and the Deck's Play button. Steam
+    appends the vanilla command as ``%command%``; it is deliberately ignored -
+    the whole point is to run the mod loader instead.
+
+    Only handlers that launch natively (``native_launch_required``) are
+    supported. Everything else goes through the Proton/Steam/Heroic routing in
+    exe_launch, which cannot sensibly run *inside* a Steam-launched process.
+    """
+    import os
+
+    game = _find_game(games, key)
+    if game is None:
+        print(f"Error: game '{key}' not found.", file=sys.stderr)
+        sys.exit(1)
+    if not game.is_configured():
+        print(f"Error: game '{game.name}' is not configured (game path not set).",
+              file=sys.stderr)
+        sys.exit(1)
+    if not hasattr(game, "get_launch_command"):
+        print(f"Error: '{game.name}' cannot be launched from the CLI.",
+              file=sys.stderr)
+        sys.exit(1)
+    if not getattr(game, "native_launch_required", False):
+        # Refusing beats launching the wrong thing: without a native command
+        # this would need the full Proton/Steam routing, and a Steam-launched
+        # process re-entering Steam is not something to do implicitly.
+        print(f"Error: '{game.name}' does not use an external mod loader, so "
+              "there is nothing for a Steam launch option to do. Launch it "
+              "from Steam as normal.", file=sys.stderr)
+        sys.exit(1)
+
+    # Default to the profile that was last DEPLOYED, not the one merely
+    # selected in the GUI. That keeps a bare "launch <game>" launch option
+    # correct across profile switches: the user switches and deploys in the
+    # manager, and Steam follows without the command being edited. Selecting a
+    # profile without deploying it is not a decision to play it.
+    if not profile:
+        profile = (game.get_last_deployed_profile()
+                   or game.get_last_active_profile() or "default")
+    profile_dir = game.get_profile_root() / "profiles" / profile
+    if not profile_dir.is_dir():
+        print(f"Error: profile '{profile}' does not exist at {profile_dir}",
+              file=sys.stderr)
+        sys.exit(1)
+
+    if deploy:
+        # Without this, toggling a mod in the GUI and then pressing Play in
+        # Steam would silently run the previous mod list.
+        from Utils.deploy_pipeline import run_deploy_pipeline
+        _log(f"Deploying {game.name} / {profile} ...")
+        if not run_deploy_pipeline(game, profile, log_fn=_log):
+            print("Error: deploy failed - refusing to launch.", file=sys.stderr)
+            sys.exit(1)
+
+    cmd = None
+    try:
+        cmd = game.get_launch_command()
+    except Exception as exc:
+        print(f"Error: could not build the launch command: {exc}",
+              file=sys.stderr)
+        sys.exit(1)
+    if not cmd:
+        reason = ""
+        try:
+            reason = game.native_launch_blocked_reason() or ""
+        except Exception:
+            pass
+        print(f"Error: cannot launch {game.name} - "
+              f"{reason or 'the mod loader is not ready.'}", file=sys.stderr)
+        sys.exit(1)
+
+    _log("Launching: " + " ".join(cmd))
+    try:
+        # exec, don't spawn: Steam tracks the process it started, so replacing
+        # it keeps the overlay and "Stop" button attached to the real game.
+        os.execvp(cmd[0], cmd)
+    except OSError as exc:
+        print(f"Error: could not run {cmd[0]}: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+
 def cmd_clear_credentials():
     from Nexus.nexus_api import clear_api_key
     from Nexus.nexus_oauth import clear_oauth_tokens
@@ -167,12 +254,27 @@ def main():
     dp.add_argument("game", help="game_id or display name (case-insensitive)")
     dp.add_argument("profile", help="Profile name")
 
+    gp = subparsers.add_parser(
+        "launch", help="Deploy, then launch the game through its mod loader")
+    gp.add_argument("game", help="game_id or display name (case-insensitive)")
+    gp.add_argument("--profile", default=None,
+                    help="Profile to deploy and launch (default: last active)")
+    gp.add_argument("--no-deploy", action="store_true",
+                    help="Launch the existing mod list without deploying first")
+
     rp = subparsers.add_parser("restore", help="Restore the game directory (undo last deploy)")
     rp.add_argument("game", help="game_id or display name (case-insensitive)")
 
     subparsers.add_parser("clear-credentials", help="Remove stored Nexus Mods API key and OAuth tokens")
 
-    args = parser.parse_args()
+    # Steam expands %command% into the vanilla launch command and appends it.
+    # Those trailing arguments are not ours to interpret - the mod loader
+    # starts the game itself - so drop anything after a "--" separator rather
+    # than letting argparse reject the whole invocation.
+    argv = sys.argv[1:]
+    if "--" in argv:
+        argv = argv[:argv.index("--")]
+    args = parser.parse_args(argv)
 
     if args.command == "clear-credentials":
         cmd_clear_credentials()
@@ -187,6 +289,8 @@ def main():
         cmd_list_profiles(games, args.game)
     elif args.command == "deploy":
         cmd_deploy(games, args.game, args.profile)
+    elif args.command == "launch":
+        cmd_launch(games, args.game, args.profile, deploy=not args.no_deploy)
     elif args.command == "restore":
         cmd_restore(games, args.game)
 

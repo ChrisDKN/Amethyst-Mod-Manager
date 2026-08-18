@@ -764,7 +764,10 @@ def run_deploy_pipeline(
             if count:
                 log_fn("Root Folder: transferred files to game root.")
 
-        if game_root:
+        # rf_allowed=False means this game never writes into the game folder at
+        # all (its mods are served by an external loader), so per-mod root-flagged
+        # files must be skipped too - not just the shared Root_Folder above.
+        if game_root and rf_allowed:
             filemap_root_path = (
                 game.get_effective_filemap_path().parent / "filemap_root.txt"
             )
