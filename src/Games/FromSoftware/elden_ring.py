@@ -2,18 +2,20 @@
 elden_ring.py
 Game handler for ELDEN RING, modded through the me3 loader.
 
-Why this handler deploys nothing:
+Why this handler normally deploys nothing:
   ELDEN RING reads its assets from encrypted DVDBND archives (.bhd/.bdt), never
   from loose files on disk, and the retail exe is wrapped in Arxan anti-tamper.
   Copying mod files into the game folder would silently do nothing.  The me3
   loader (https://github.com/garyttierney/me3) injects a DLL that hooks the
   archive layer and serves overrides from a VFS, driven by a TOML mod list.
 
-  So deploy() writes a .me3 profile pointing at the staged mod folders and moves
-  no files at all, and get_launch_command() hands the Play button over to
-  ``me3 launch``, which discovers Proton and starts the game itself.  Mods stay
-  in staging permanently: nothing is ever written into the game directory, so
-  there is no restore step beyond deleting the generated profile.
+  So deploy() writes a .me3 profile pointing at the staged mod folders and
+  get_launch_command() hands the Play button over to ``me3 launch``, which
+  discovers Proton and starts the game itself.  Mods stay in staging
+  permanently.  The exception is Elden Mod Loader: its proxy DLL and DLL mods
+  must be copied beside the game executable.  A deploy-time root snapshot lets
+  restore rescue any files/folders those DLL mods generate at runtime before it
+  removes the copied loader files.
 
 Mod structure:
   Staged mods live in Profiles/Elden Ring/mods/, each holding either DVDBND
@@ -42,7 +44,13 @@ from Games.base_game import BaseGame, WizardTool
 from Games.FromSoftware import me3_profile, me3_runtime
 from Utils.atomic_write import write_atomic_text
 from Utils.config_paths import get_profiles_dir
-from Utils.deploy import LinkMode
+from Utils.deploy import (
+    LinkMode,
+    _FILEMAP_SNAPSHOT_NAME,
+    _move_runtime_files,
+    deploy_root_folder,
+    restore_root_folder,
+)
 from Utils.mod_files import excluded_raw_by_mod
 from Utils.modlist import read_modlist
 
@@ -64,16 +72,16 @@ _SAVE_SUFFIX = ".sl2"
 
 class EldenRing(BaseGame):
 
-    # Nothing is linked or copied into the game folder, so the copy/hardlink
-    # distinction is meaningless here.
+    # Normal me3 packages stay in staging, while captured runtime files are
+    # linked back from overwrite/.  Copy mode would not preserve later edits.
     deploy_mode_supports_copy = False
 
-    # me3 owns the load order, so the generic Root_Folder machinery stays off.
-    # The one exception is a proxy loader (Elden Mod Loader), which HAS to live
-    # next to the exe - deploy()/restore() manage those few files themselves,
-    # tracked in a manifest, and deploy clears the previous set first.
+    # me3 owns normal asset/DLL loading, but a proxy loader (Elden Mod Loader)
+    # HAS to live next to the exe.  Its DLL mods can create configs/logs under
+    # Game/mods at runtime.  Capture those additions into overwrite/ and deploy
+    # overwrite as a root payload; arbitrary Root_Folder installs remain off.
     root_folder_deploy_enabled = False
-    restore_before_deploy = False
+    restore_before_deploy = True
 
     profile_overridable_settings = (
         *BaseGame.profile_overridable_settings,
@@ -411,6 +419,103 @@ class EldenRing(BaseGame):
         if removed:
             log_fn(f"  Removed {removed} mod-loader file(s) from the game folder.")
 
+    def _rescue_legacy_proxy_runtime(self, log_fn) -> int:
+        """Preserve untracked Game/mods files from a pre-snapshot deployment.
+
+        This migration only runs when restore saw an old Amethyst EML manifest
+        but no deploy snapshot.  The manifest-owned payload has already been
+        removed, so everything remaining is conservatively moved rather than
+        deleted.  Once a new deploy writes its snapshot, normal runtime capture
+        takes over and this path is no longer used.
+        """
+        exe_dir = self.get_exe_dir()
+        game_root = self.get_game_path()
+        if exe_dir is None or game_root is None:
+            return 0
+        mods_dir = exe_dir / me3_profile.PROXY_LOADER_MODS_DIR
+        if not mods_dir.is_dir():
+            return 0
+        try:
+            rel_root = mods_dir.relative_to(game_root)
+        except ValueError:
+            return 0
+
+        destination = self.get_effective_overwrite_path() / rel_root
+        moved = 0
+        try:
+            files = sorted(
+                p for p in mods_dir.rglob("*")
+                if p.is_file() and not p.is_symlink()
+            )
+        except OSError:
+            return 0
+        for src in files:
+            dst = destination / src.relative_to(mods_dir)
+            if dst.exists() or dst.is_symlink():
+                log_fn(f"  Could not rescue {src}: overwrite/{rel_root}/"
+                       f"{src.relative_to(mods_dir)} already exists.")
+                continue
+            try:
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(src), str(dst))
+                moved += 1
+            except OSError as exc:
+                log_fn(f"  Could not rescue {src} ({exc}).")
+
+        # Remove only directories left empty by the moves above.  Conflicts or
+        # unreadable files remain in place rather than being destroyed.
+        try:
+            dirs = sorted(
+                (p for p in mods_dir.rglob("*") if p.is_dir()),
+                key=lambda p: len(p.parts), reverse=True,
+            )
+        except OSError:
+            dirs = []
+        for directory in [*dirs, mods_dir]:
+            try:
+                directory.rmdir()
+            except OSError:
+                pass
+        return moved
+
+    def _capture_runtime_files_to_overwrite(self, log_fn) -> int:
+        """Move game-root additions since deploy into this profile's overwrite."""
+        game_root = self.get_game_path()
+        snapshot = (
+            self.get_effective_filemap_path().parent / _FILEMAP_SNAPSHOT_NAME
+        )
+        if game_root is None or not snapshot.is_file():
+            return 0
+        moved = _move_runtime_files(
+            Path(game_root), snapshot, self.get_effective_overwrite_path(),
+            log_fn=log_fn,
+            restore_whitelist=self.restore_whitelist_matcher(),
+        )
+        try:
+            snapshot.unlink()
+        except OSError:
+            pass
+        return moved
+
+    def _restore_overwrite_runtime(self, log_fn) -> int:
+        """Remove the root payload previously deployed from overwrite/."""
+        game_root = self.get_game_path()
+        if game_root is None:
+            return 0
+        return restore_root_folder(
+            self.get_effective_overwrite_path(), Path(game_root), log_fn=log_fn,
+        )
+
+    def _deploy_overwrite_runtime(self, mode: LinkMode, log_fn) -> int:
+        """Deploy overwrite/ at game-root-relative paths."""
+        game_root = self.get_game_path()
+        if game_root is None:
+            return 0
+        return deploy_root_folder(
+            self.get_effective_overwrite_path(), Path(game_root),
+            mode=mode, log_fn=log_fn,
+        )
+
     def _report_unloadable(self, entries, log_fn, loader=None,
                            routed_mods=None) -> None:
         """Tell the user about enabled mods that will not actually load.
@@ -457,7 +562,7 @@ class EldenRing(BaseGame):
 
     def deploy(self, log_fn=None, mode: LinkMode = LinkMode.HARDLINK,
                profile: str = "default", progress_fn=None) -> None:
-        """Write the me3 mod list for *profile*; nothing is copied or linked."""
+        """Write the me3 mod list and, when enabled, install the proxy loader."""
         _log = log_fn or (lambda _: None)
 
         if self._game_path is None:
@@ -510,6 +615,11 @@ class EldenRing(BaseGame):
         self._report_unloadable(entries, _log, loader=loader,
                                routed_mods=routed_mods)
 
+        # A direct deploy caller may not have run restore() first.  Undo the
+        # previous overwrite payload before clearing/replacing the EML files;
+        # this also restores any manifest-owned file overwrite had shadowed.
+        self._restore_overwrite_runtime(_log)
+
         if loader is not None:
             _log(f"Step 3: Installing {loader.name} and {len(dll_mods)} DLL "
                  "mod(s) into the game folder ...")
@@ -518,6 +628,11 @@ class EldenRing(BaseGame):
         else:
             # Nothing of ours should be left behind when the loader is removed.
             self._restore_proxy_loader(_log)
+
+        overwrite_count = self._deploy_overwrite_runtime(mode, _log)
+        if overwrite_count:
+            _log(f"  Deployed {overwrite_count} overwrite file(s) to the game "
+                 "root.")
 
         _log(f"Step 4: Writing {out_path.name} "
              f"({packages} package(s), {natives} native(s)) ...")
@@ -542,6 +657,13 @@ class EldenRing(BaseGame):
         _log("  Highest-priority mods are listed last (me3 loads last-wins).")
 
         self._ensure_loader(_log)
+
+        # Elden Mod Loader and its DLL mods can create configs, logs and empty
+        # folders under Game/mods while the game runs.  Snapshot after both the
+        # proxy files and overwrite payload have landed so restore can
+        # distinguish runtime additions from manager-deployed paths.  The
+        # shared pipeline defers the walk until every root mutation has landed.
+        self.snapshot_root_for_runtime_capture(log_fn=_log)
 
     def _ensure_loader(self, log_fn) -> None:
         """Install me3 if it is missing, so Play works right after a deploy."""
@@ -579,12 +701,42 @@ class EldenRing(BaseGame):
         log_fn("  WARNING: me3 is still unavailable - see the deploy warning.")
 
     def restore(self, log_fn=None, progress_fn=None) -> None:
-        """Remove the generated mod list and any proxy-loader files we placed."""
+        """Capture runtime output, then remove generated/proxy-loader files."""
         _log = log_fn or (lambda _: None)
+
+        snapshot_path = (
+            self.get_effective_filemap_path().parent / _FILEMAP_SNAPSHOT_NAME
+        )
+        # Upgrade path for an EML deploy made before runtime snapshots were
+        # supported.  The manifest proves Amethyst owns an active proxy deploy;
+        # without it, an unrelated manually-managed mods/ folder is untouched.
+        rescue_legacy_runtime = (
+            not snapshot_path.is_file() and self._eml_manifest_path().is_file()
+        )
+
+        # Capture before deleting the proxy manifest's files: paths present in
+        # the deploy snapshot are ours, while anything new is runtime output.
+        # Moving the latter first also lets _restore_proxy_loader prune the now
+        # empty Game/mods directories cleanly.
+        moved = self._capture_runtime_files_to_overwrite(_log)
+        if moved:
+            _log(f"  Moved {moved} runtime file(s) to overwrite/.")
+
+        # Undo overwrite before the manifest payload.  If overwrite shadowed an
+        # EML file, root restore first puts that manifest-owned file back and
+        # _restore_proxy_loader then removes it normally.
+        self._restore_overwrite_runtime(_log)
+
         try:
             self._restore_proxy_loader(_log)
         except Exception as exc:
             _log(f"Could not clean the mod-loader files ({exc}).")
+
+        if rescue_legacy_runtime:
+            moved_legacy = self._rescue_legacy_proxy_runtime(_log)
+            if moved_legacy:
+                _log(f"  Rescued {moved_legacy} pre-snapshot runtime file(s) "
+                     "to overwrite/.")
 
         # Routed files are hardlinks we made, not the user's mod content.
         try:

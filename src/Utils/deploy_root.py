@@ -20,6 +20,7 @@ from Utils.app_log import safe_log as _safe_log
 from Utils.atomic_write import write_atomic_text
 from Utils.deploy_shared import (
     LinkMode,
+    OVERWRITE_LOG_NAME,
     _deploy_workers,
     _do_link_ex,
     _get_staging_source_path,
@@ -156,6 +157,10 @@ def deploy_root_folder(
     _root_plen = len(_root_str) + 1
     for dirpath, _dirnames, filenames in os.walk(_root_str):
         for fname in filenames:
+            # Runtime-capture history belongs in overwrite/ but must never
+            # become payload when overwrite is deployed to the game root.
+            if fname == OVERWRITE_LOG_NAME:
+                continue
             full = dirpath + "/" + fname
             sources.append((Path(full), Path(full[_root_plen:])))
 
