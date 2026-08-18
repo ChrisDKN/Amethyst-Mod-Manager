@@ -98,8 +98,8 @@ def _install_d3dcompiler(game, log_fn) -> bool:
 
 
 def _install_lavfilters(game, log_fn) -> bool:
-    from Utils.proton_tools import install_lavfilters
-    return install_lavfilters(game, log_fn=log_fn)
+    from Utils.proton_tools import repair_lavfilters
+    return repair_lavfilters(game, log_fn=log_fn)
 
 
 # fix_token -> (installer, progress title key). One entry per fixable component.
