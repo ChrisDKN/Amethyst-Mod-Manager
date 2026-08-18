@@ -6,6 +6,7 @@
 - The proton dropdown is now hidden if a game is Linux native or the prefix is not configured
 - Added an option to the profile export code menu to upload it as a shareable link. The import code menu also accepts the link. 
 - Added an option to upload logs as a sharable link
+- Added a Filter conflicts right click option for mods with conflicts
 
 ---
 
