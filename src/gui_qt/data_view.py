@@ -69,6 +69,7 @@ class DataView(QWidget):
         self.index_path = index_path
         self._resolved_cache = None
         self._dirty = True
+        self._label.setText(self._data_title())
 
     def set_visible_tab(self, visible: bool):
         """Tell the view whether the Data sub-tab is showing. Switching TO it
@@ -251,12 +252,14 @@ class DataView(QWidget):
                 if q and not (q in rk or q in mod.casefold()):
                     return False
                 return True
+        display_paths = dtlogic.data_display_paths(self.game, entries)
         tree_dict = dtlogic.build_data_tree(
             entries, contested,
             only_conflicts=self._only_conflicts,
             inc_exts=frozenset(self._inc_exts) or None,
             exc_exts=frozenset(self._exc_exts) or None,
-            keep_extra=keep)
+            keep_extra=keep,
+            display_paths=display_paths)
 
         root = _DataNode("", "", is_dir=True)
 
@@ -311,8 +314,14 @@ class DataView(QWidget):
     def _update_label(self, entries):
         n_files = len(entries)
         n_mods = len({mod for _rk, mod in entries})
-        self._label.setText(self.tr("Deployed files - {0} files in {1} mods").format(
-            n_files, n_mods))
+        self._label.setText(
+            self.tr("{0} - {1} files in {2} mods").format(
+                self._data_title(), n_files, n_mods))
+
+    def _data_title(self) -> str:
+        """Game-specific caption, falling back to the normal deployed view."""
+        title = getattr(self.game, "data_tab_title", "") if self.game else ""
+        return str(title) if title else self.tr("Deployed files")
 
     # -- search -------------------------------------------------------------
     def _on_search(self, text: str):

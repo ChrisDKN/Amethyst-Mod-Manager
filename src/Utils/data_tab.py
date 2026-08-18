@@ -14,6 +14,7 @@ Utils.mod_files.build_conflict_cache - reused, not duplicated here.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 import fnmatch
 import os
 from pathlib import Path
@@ -416,26 +417,59 @@ def resolve_data_entries(game, entries: list[tuple[str, str]],
 # ---------------------------------------------------------------------------
 # Tree dict (with the file-type / only-conflicts filter applied)
 # ---------------------------------------------------------------------------
+def data_display_paths(game, entries: list[tuple[str, str]]) -> list[str]:
+    """Return the path shown for each resolved Data-tab entry.
+
+    Most games display the resolved deployment path verbatim.  Loader-based
+    games can provide ``data_tab_display_paths(entries)`` to add meaningful
+    destination roots without changing the logical paths used by conflict
+    detection.  Keeping those two concepts separate matters for Elden Ring:
+    me3 assets are served from staging, while Elden Mod Loader files are
+    physically copied below ``<root>/Game``.
+    """
+    fallback = [path for path, _mod in entries]
+    hook = getattr(game, "data_tab_display_paths", None)
+    if not callable(hook):
+        return fallback
+    try:
+        shown = list(hook(entries))
+    except Exception:
+        return fallback
+    if len(shown) != len(entries) or not all(
+            isinstance(path, str) and path for path in shown):
+        return fallback
+    return shown
+
+
 def build_data_tree(entries: list[tuple[str, str]],
                     contested_keys: set[str] | None = None, *,
                     only_conflicts: bool = False,
                     inc_exts: frozenset | None = None,
                     exc_exts: frozenset | None = None,
-                    keep_extra=None) -> dict:
+                    keep_extra=None,
+                    display_paths: Sequence[str] | None = None) -> dict:
     """Build the nested tree dict from resolved [(rel_path, mod_name)] entries.
 
     Folders are sub-dicts; files live in a "__files__" list of
     (fname, mod_name, rel_key_lower). Mirrors Tk _build_data_tree_from_entries
     (plugin_panel_data.py:879-903). only_conflicts / inc_exts / exc_exts apply the
     filter side panel; keep_extra(rel_key_lower, mod) is an optional extra
-    predicate (used for the search box)."""
+    predicate (used for the search box).  ``display_paths`` may supply a
+    presentation-only path for each entry; filtering and conflict lookup still
+    use the original resolved path."""
     contested_keys = contested_keys or set()
     inc_exts = inc_exts or frozenset()
     exc_exts = exc_exts or frozenset()
     tree: dict = {}
-    for rel_path, mod_name in entries:
+    if display_paths is not None and len(display_paths) != len(entries):
+        display_paths = None
+    for entry_idx, (rel_path, mod_name) in enumerate(entries):
         rel_norm = rel_path.replace("\\", "/")
         rel_key_lower = rel_norm.lower()
+        display_norm = (
+            display_paths[entry_idx].replace("\\", "/")
+            if display_paths is not None else rel_norm
+        )
         if only_conflicts and rel_key_lower not in contested_keys:
             continue
         if inc_exts or exc_exts:
@@ -452,7 +486,7 @@ def build_data_tree(entries: list[tuple[str, str]],
                     continue
         if keep_extra is not None and not keep_extra(rel_key_lower, mod_name):
             continue
-        parts = rel_norm.split("/")
+        parts = display_norm.split("/")
         node = tree
         for part in parts[:-1]:
             node = node.setdefault(part, {})

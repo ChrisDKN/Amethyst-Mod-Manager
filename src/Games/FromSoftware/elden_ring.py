@@ -176,10 +176,101 @@ class EldenRing(BaseGame):
         # No plugin system - the Plugins tab stays empty.
         return []
 
-    # No wine_dll_overrides: an override only matters for a DLL that exists in
-    # the game folder, and this handler deploys nothing there. A dinput8-style
-    # proxy loader cannot work alongside me3 at all (see PROXY_LOADER_DLLS);
-    # deploy warns about those mods instead of pretending an override helps.
+    @property
+    def data_tab_title(self) -> str:
+        # "Deployed files" is misleading here: most entries stay in staging
+        # and are served through me3, while EML DLL mods really do get copied.
+        return "Mod destinations"
+
+    def data_tab_display_paths(
+            self, entries: list[tuple[str, str]]) -> list[str]:
+        """Give the Data tab destination roots that match Elden Ring's loaders.
+
+        Normal assets and me3-native DLLs remain in staging.  When an Elden Mod
+        Loader proxy is enabled, DLL-only mods are instead copied to the
+        executable's ``mods`` folder, while the proxy itself sits beside the
+        executable.  Root-filemap entries (normally captured runtime config)
+        already carry their game-root-relative path and stay under ``<root>``.
+
+        This only changes presentation.  The original paths remain the keys for
+        conflicts, filters and deployment.
+        """
+        flags: dict[str, dict[str, bool]] = {}
+        for rel_path, mod_name in entries:
+            state = flags.setdefault(mod_name, {
+                "package": False, "native": False, "proxy": False,
+            })
+            norm = rel_path.replace("\\", "/").strip("/")
+            parts = norm.lower().split("/")
+            filename = parts[-1]
+            if parts[0] in me3_profile.ACCEPTABLE_FOLDERS \
+                    or norm.lower() == "regulation.bin":
+                state["package"] = True
+            if filename.endswith(".dll"):
+                if filename in me3_profile.PROXY_LOADER_DLLS:
+                    state["proxy"] = True
+                elif filename not in me3_profile.IGNORED_DLLS:
+                    state["native"] = True
+
+        loader_mods = {
+            mod_name for mod_name, state in flags.items()
+            if state["proxy"] and not state["package"]
+        }
+        has_proxy_loader = bool(loader_mods)
+        dll_only_mods = {
+            mod_name for mod_name, state in flags.items()
+            if state["native"] and not state["package"]
+        }
+
+        root_label = "<root>"
+        virtual_label = "Loaded by me3 (from staging)"
+        exe_rel = ""
+        game_root = self.get_game_path()
+        exe_dir = self.get_exe_dir()
+        if game_root is not None and exe_dir is not None:
+            try:
+                exe_rel = exe_dir.relative_to(game_root).as_posix().strip("/")
+            except ValueError:
+                pass
+
+        # The normal Steam shape is <root>/Game.  This also handles a user who
+        # selected Game/ itself as the configured root without showing Game/Game.
+        exe_prefix = root_label + (f"/{exe_rel}" if exe_rel else "")
+        root_prefix = (exe_rel.lower() + "/") if exe_rel else ""
+
+        shown: list[str] = []
+        for rel_path, mod_name in entries:
+            norm = rel_path.replace("\\", "/").strip("/")
+            lower = norm.lower()
+
+            # filemap_root.txt entries are already relative to the configured
+            # game root.  They include captured Game/mods runtime settings.
+            if mod_name in {"[Overwrite]", "[Root_Folder]"} or \
+                    (root_prefix and lower.startswith(root_prefix)):
+                shown.append(f"{root_label}/{norm}")
+                continue
+
+            if mod_name in loader_mods:
+                # Deployment flattens recognized loader sidecars beside the exe.
+                shown.append(f"{exe_prefix}/{norm.rsplit('/', 1)[-1]}")
+                continue
+
+            if has_proxy_loader and mod_name in dll_only_mods:
+                # Archives sometimes retain their own mods/ wrapper; deployment
+                # deliberately strips it to avoid Game/mods/mods.
+                if lower.startswith(
+                        me3_profile.PROXY_LOADER_MODS_DIR.lower() + "/"):
+                    norm = norm.split("/", 1)[1]
+                shown.append(
+                    f"{exe_prefix}/{me3_profile.PROXY_LOADER_MODS_DIR}/{norm}")
+                continue
+
+            shown.append(f"{virtual_label}/{norm}")
+        return shown
+
+    # No wine_dll_overrides: me3 injects normal native DLLs itself, while the
+    # supported dinput8-style proxy is copied beside the exe for the game to
+    # import normally. Neither route needs a Wine DLL override.
 
     @property
     def wizard_tools(self) -> list[WizardTool]:
