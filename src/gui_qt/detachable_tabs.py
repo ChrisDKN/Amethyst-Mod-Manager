@@ -826,6 +826,22 @@ class DetachableTabWidget(QTabWidget):
         if w is not None:
             self._focus(w)
 
+    def content_for_key(self, key: str) -> QWidget | None:
+        """Return the real content widget registered under *key*.
+
+        A panel-pinned tab stores a placeholder in ``_keys`` while its actual
+        view lives in a panel stack, so callers must not use ``_keys`` directly
+        when they need to refresh the view itself.
+        """
+        handle = self._keys.get(key)
+        if handle is not None:
+            scoped = self._scoped.get(id(handle))
+            return scoped[1] if scoped is not None else handle
+        for flt in self._floats:
+            if getattr(flt, "_tab_key", None) == key:
+                return getattr(flt, "_page", None)
+        return None
+
     def set_tab_title(self, key: str, title: str):
         w = self._keys.get(key)
         if w is not None:

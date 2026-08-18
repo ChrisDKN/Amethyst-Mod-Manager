@@ -81,6 +81,29 @@ def _faugus_available(game) -> bool:
         return False
 
 
+def _shortcut_available(game) -> bool:
+    """True when this game has a saved or detectable non-Steam shortcut.
+
+    A shortcut is a prefix source in its own right, so a handler with no
+    steam_id and no other launcher still gets a working prefix section when
+    the user added the game to Steam themselves."""
+    try:
+        if game is not None and game.get_shortcut_appid():
+            return True
+    except AttributeError:
+        pass
+    exe_names = [getattr(game, "exe_name", None),
+                 *(getattr(game, "exe_name_alts", []) or [])]
+    exe_names = [e for e in exe_names if e]
+    if not exe_names:
+        return False
+    try:
+        from Utils.steam_shortcuts import find_shortcut_appids_by_exes
+        return bool(find_shortcut_appids_by_exes(exe_names))
+    except Exception:
+        return False
+
+
 class _ScanSignals(QObject):
     # Scan results carry everything the worker discovered so the worker thread
     # never writes view attributes directly (the slots run on the GUI thread).
@@ -116,9 +139,10 @@ class ConfigureGameView(QWidget):
     """*on_done(saved: bool, removed: bool)* is called after Save/Remove so the
     window can refresh the game list and close the tab."""
 
-    def __init__(self, game, on_done, parent=None):
+    def __init__(self, game, on_done, parent=None, profile_name=None):
         super().__init__(parent)
         self._game = game
+        self._profile_name = profile_name
         self._on_done = on_done or (lambda saved, removed: None)
         self._p = active_palette()
 
@@ -127,6 +151,7 @@ class ConfigureGameView(QWidget):
         self._found_lutris_slug: str | None = None
         self._found_heroic_app: str | None = None
         self._found_faugus_gameid: str | None = None
+        self._found_shortcut_appid: str | None = None
         # Dropdown choices when the game is installed via more than one
         # launcher: {source, path, prefix, id} dicts, aligned with the combo.
         self._install_choices: list[dict] = []
@@ -137,6 +162,10 @@ class ConfigureGameView(QWidget):
         self._install_explicit = False   # user picked from the dropdown
         self._custom_staging: Path | None = None
         self._custom_saves: Path | None = None
+        # Bumped on every profile switch. The scan workers capture it and drop
+        # their results if it moved, so a scan started for one profile can't
+        # land in the form after the user has switched to another.
+        self._scan_gen = 0
 
         # Closing the tab deleteLater()'s the view while scan workers may still
         # be running; the guards drop late slot runs so they never touch
@@ -376,7 +405,8 @@ class ConfigureGameView(QWidget):
         has_prefix_src = bool(getattr(g, "steam_id", None)
                               or _heroic_app_names(g)
                               or _lutris_available(g)
-                              or _faugus_available(g))
+                              or _faugus_available(g)
+                              or _shortcut_available(g))
         self._prefix_status = self._status(
             self.tr("Scanning for prefix…") if has_prefix_src
             else self.tr("No launcher ID - prefix not applicable."),
@@ -670,6 +700,10 @@ class ConfigureGameView(QWidget):
         override (paths + deploy mode + overridable options)."""
         g = self._game
         keys = ["game_path", "prefix_path", "deploy_mode"]
+        # Launcher ids pin with the paths they identify, so releasing a profile
+        # back to the shared settings has to release them too - a left-behind
+        # id would keep the profile on the launcher it was un-pinned from.
+        keys += list(getattr(g, "launcher_id_keys", ()) or ())
         keys += list(getattr(g, "profile_overridable_paths_extras", ()) or ())
         keys += list(getattr(g, "profile_overridable_settings", ()) or ())
         return keys
@@ -730,6 +764,8 @@ class ConfigureGameView(QWidget):
         """Sync the scope label + un-pin button to the game's active profile.
         Records ``self._profile_dir`` (None for the default profile)."""
         active = getattr(self._game, "_active_profile_dir", None)
+        if active is not None:
+            self._profile_name = active.name
         self._profile_dir = (active if active is not None
                              and active.name != "default" else None)
         if self._profile_dir is not None:
@@ -741,14 +777,58 @@ class ConfigureGameView(QWidget):
         self._unpin_btn.setVisible(
             self._profile_dir is not None and self._profile_has_overrides())
 
-    def refresh_for_profile(self):
+    def _activate_profile_scope(self, profile_name=None):
+        """Make the handler resolve paths for the profile owned by this form.
+
+        Configure tabs live across registry reloads and profile switches. Keep
+        their scope explicit instead of trusting whichever profile a shared
+        handler happened to have active most recently.
+        """
+        if profile_name is not None:
+            self._profile_name = str(profile_name)
+        if not self._profile_name:
+            active = getattr(self._game, "_active_profile_dir", None)
+            self._profile_name = active.name if active is not None else "default"
+        try:
+            target = (self._game.get_profile_root() / "profiles"
+                      / self._profile_name)
+            self._game.set_active_profile_dir(target)
+            self._game.load_paths()
+        except Exception as exc:
+            print(f"[gui_qt] configure profile activation failed: {exc}",
+                  flush=True)
+
+    def refresh_for_profile(self, game=None, profile_name=None):
         """Re-read the game's paths/options for the now-active profile and
         re-fill the form, without stealing focus. Called by the app when the
         user switches profiles while this tab is open, so it always reflects
-        the profile being configured. Assumes GameState has already switched
-        the game's active profile dir (and run load_paths)."""
+        the profile being configured. ``game`` replaces the handler retained by
+        the view when the app has rebuilt the game registry (for example after
+        Save). The view explicitly activates ``profile_name`` and reloads its
+        paths before repopulating the widgets."""
+        if game is not None:
+            # A Configure tab is built for one handler's capabilities. A live
+            # handler with another name is a game switch, not a registry
+            # replacement, and must never be installed into these widgets.
+            if (getattr(game, "name", None)
+                    != getattr(self._game, "name", None)):
+                return
+            self._game = game
+        self._activate_profile_scope(profile_name)
         self._found_path = None
         self._found_prefix = None
+        # Everything describing WHICH install was picked belongs to the profile
+        # that was open, not to this one. Leaving it behind saved the previous
+        # profile's launcher into this profile on the next Save - back to None
+        # ("nothing picked here yet"), which Save leaves untouched.
+        self._found_lutris_slug = None
+        self._found_heroic_app = None
+        self._found_faugus_gameid = None
+        self._found_shortcut_appid = None
+        self._install_source = None
+        self._install_explicit = False
+        self._install_choices = []
+        self._scan_gen += 1
         self._prepopulate()
         self._refresh_scope_header()
 
@@ -1043,16 +1123,25 @@ class ConfigureGameView(QWidget):
         if auto_apply:
             self._game_status.setText(self.tr("Scanning Steam libraries…"))
             self._game_status.setStyleSheet(f"color:{self._c('TEXT_WARN')};")
-        threading.Thread(target=self._game_scan_worker, args=(auto_apply,),
+        # Capture both values before starting the thread. If the new thread is
+        # scheduled only after a profile switch, reading them inside the worker
+        # would incorrectly make an old scan look current.
+        game = self._game
+        gen = self._scan_gen
+        threading.Thread(target=self._game_scan_worker,
+                         args=(auto_apply, game, gen),
                          daemon=True).start()
 
-    def _game_scan_worker(self, auto_apply=True):
+    def _game_scan_worker(self, auto_apply=True, game=None, gen=None):
         from Utils.app_log import app_log
-        g = self._game
+        g = game if game is not None else self._game
+        gen = self._scan_gen if gen is None else gen
         # One candidate per launcher the game is detected on, in the same
         # priority order the old first-hit scan used (Heroic > Lutris >
         # Faugus > Steam), so candidates[0] is what that scan would have
-        # returned.
+        # returned. Non-Steam shortcuts slot in ahead of Steam: a shortcut
+        # often just points at an install another launcher already owns, but
+        # it still beats a Steam-library copy that isn't what the user runs.
         candidates: list[dict] = []
 
         def _add(source, path, prefix, launcher_id):
@@ -1105,6 +1194,16 @@ class ConfigureGameView(QWidget):
                     _add("faugus", info[0], info[1], info[2])
                     app_log(f"[Configure Game] Found via Faugus ({exe}): {info[0]}")
                     break
+            from Utils.steam_shortcuts import find_shortcut_game_info_by_exe
+            app_log(f"[Configure Game] Checking non-Steam shortcuts "
+                    f"(exe names: {exe_names})")
+            for exe in exe_names:
+                info = find_shortcut_game_info_by_exe(exe)
+                if info:
+                    _add("shortcut", info[0], info[1], info[2])
+                    app_log(f"[Configure Game] Found via non-Steam shortcut "
+                            f"({exe}, app ID {info[2]}): {info[0]}")
+                    break
             libs = find_steam_libraries()
             app_log(f"[Configure Game] Steam libraries found: "
                     f"{libs if libs else 'none'}")
@@ -1142,6 +1241,10 @@ class ConfigureGameView(QWidget):
             app_log(f"[Configure Game] Scan failed: {exc}\n{traceback.format_exc()}")
         if not candidates:
             app_log(f"[Configure Game] Game location not auto-detected for: {game_name}")
+        if self._scan_gen != gen:
+            app_log("[Configure Game] Dropping scan results - the profile "
+                    "changed while the scan was running")
+            return
         safe_emit(self._sig.game_found, candidates, auto_apply)
 
     def _on_game_found(self, candidates, auto_apply):
@@ -1161,22 +1264,22 @@ class ConfigureGameView(QWidget):
 
     # ---- launcher dropdown -------------------------------------------------
     def _saved_launcher_source(self):
-        """Launcher a configured game was last resolved through, from paths.json.
+        """Launcher this profile's game was last resolved through, or None.
 
         The saved id is the only persisted hint of which entry to reopen on
-        when two launchers share the install folder."""
-        import json
-        try:
-            from Utils.config_paths import get_game_config_path
-            pf = get_game_config_path(self._game.name)
-            data = json.loads(pf.read_text(encoding="utf-8")) if pf.is_file() else {}
-        except (OSError, json.JSONDecodeError, ImportError, AttributeError):
-            return None
-        for key, source in (("heroic_app_name", "heroic"),
+        when two launchers share the install folder. Read through the handler
+        rather than paths.json so a profile that pins its own install shows
+        that launcher, not the default profile's."""
+        g = self._game
+        for key, source in (("shortcut_appid", "shortcut"),
+                            ("heroic_app_name", "heroic"),
                             ("lutris_slug", "lutris"),
                             ("faugus_gameid", "faugus")):
-            if str((data or {}).get(key, "") or "").strip():
-                return source
+            try:
+                if g.get_saved_launcher_id(key):
+                    return source
+            except AttributeError:
+                return None
         return None
 
     def _populate_install_choices(self, candidates):
@@ -1191,8 +1294,11 @@ class ConfigureGameView(QWidget):
                             "prefix": self._found_prefix, "id": None})
         choices.extend(candidates)
         self._install_choices = choices
+        # Launcher names are brands and stay untranslated; the shortcut entry
+        # is a description, so it goes through tr().
         names = {"steam": "Steam", "heroic": "Heroic", "lutris": "Lutris",
-                 "faugus": "Faugus"}
+                 "faugus": "Faugus",
+                 "shortcut": self.tr("Non-Steam Shortcut")}
         combo = self._install_combo
         combo.clear()
         for i, c in enumerate(choices):
@@ -1236,9 +1342,15 @@ class ConfigureGameView(QWidget):
         previous selection's id into the save."""
         source = c["source"]
         self._install_source = source
-        self._found_heroic_app = c["id"] if source == "heroic" else None
-        self._found_lutris_slug = c["id"] if source == "lutris" else None
-        self._found_faugus_gameid = c["id"] if source == "faugus" else None
+        # "" rather than None for the launchers that lost, so the save clears
+        # their stored ids instead of leaving them behind: a stale id keeps
+        # resolving the launcher the user just ruled out - and for a shortcut,
+        # the wrong prefix and Proton build, since it overrides
+        # effective_steam_id().
+        self._found_heroic_app = c["id"] if source == "heroic" else ""
+        self._found_lutris_slug = c["id"] if source == "lutris" else ""
+        self._found_faugus_gameid = c["id"] if source == "faugus" else ""
+        self._found_shortcut_appid = c["id"] if source == "shortcut" else ""
         if source == "current":
             self._set_game(Path(c["path"]), configured=True)
         else:
@@ -1308,11 +1420,15 @@ class ConfigureGameView(QWidget):
                                              if self._game else None)
         except Exception:
             game_path = None
-        threading.Thread(target=self._prefix_scan_worker, args=(game_path,),
+        game = self._game
+        gen = self._scan_gen
+        threading.Thread(target=self._prefix_scan_worker,
+                         args=(game_path, game, gen),
                          daemon=True).start()
 
-    def _prefix_scan_worker(self, game_path=None):
-        g = self._game
+    def _prefix_scan_worker(self, game_path=None, game=None, gen=None):
+        g = game if game is not None else self._game
+        gen = self._scan_gen if gen is None else gen
         found = None
         lutris_slug = None
         faugus_gameid = None
@@ -1321,6 +1437,16 @@ class ConfigureGameView(QWidget):
             from Utils.heroic_finder import find_heroic_prefix
             sid = getattr(g, "steam_id", None)
             ids = [sid] + [str(s) for s in getattr(g, "alt_steam_ids", []) or [] if s]
+            # A shortcut install's prefix is keyed on the shortcut's own app id,
+            # so it goes first - the handler's steam_id names the store release,
+            # whose compatdata belongs to a different copy of the game.
+            saved_appid = ""
+            try:
+                saved_appid = g.get_shortcut_appid() if g is not None else ""
+            except AttributeError:
+                saved_appid = ""
+            if saved_appid:
+                ids.insert(0, saved_appid)
             for s in [x for x in ids if x]:
                 found = find_prefix(s, game_path)
                 if found:
@@ -1346,8 +1472,19 @@ class ConfigureGameView(QWidget):
                         found = info[1]
                         faugus_gameid = info[2]
                         break
+            if not found:
+                from Utils.steam_shortcuts import find_shortcut_game_info_by_exe
+                for exe in exe_names:
+                    info = find_shortcut_game_info_by_exe(exe)
+                    if info and info[1] is not None:
+                        found = info[1]
+                        break
         except Exception:
             found = None
+        if self._scan_gen != gen:
+            # A prefix belongs to the install the scan was started for; landing
+            # it in another profile's form would point that profile at it.
+            return
         safe_emit(self._sig.prefix_found, found, lutris_slug, faugus_gameid)
 
     def _on_prefix_found(self, found, lutris_slug, faugus_gameid):
@@ -1367,6 +1504,10 @@ class ConfigureGameView(QWidget):
 
     # ---- save (live write) ------------------------------------------------
     def _on_save(self):
+        # Pin this write to the profile displayed by the form. The game handler
+        # is shared and can be re-scoped by a profile switch or registry reload
+        # while this long-lived tab remains open.
+        self._activate_profile_scope()
         g = self._game
         if self._found_path is None and self._game_edit.text().strip():
             self._found_path = Path(self._game_edit.text().strip())
@@ -1451,12 +1592,15 @@ class ConfigureGameView(QWidget):
         g.set_game_path(self._found_path)
         if self._found_prefix is not None:
             g.set_prefix_path(self._found_prefix)
-        if self._found_lutris_slug and hasattr(g, "set_lutris_slug"):
-            g.set_lutris_slug(self._found_lutris_slug)
-        if self._found_heroic_app and hasattr(g, "set_heroic_app_name"):
-            g.set_heroic_app_name(self._found_heroic_app)
-        if self._found_faugus_gameid and hasattr(g, "set_faugus_gameid"):
-            g.set_faugus_gameid(self._found_faugus_gameid)
+        # One call for the whole launcher-identity set: "" is as meaningful as an
+        # id ("the user ruled this launcher out") and must reach the backend,
+        # while None means the scan never resolved that launcher and the saved
+        # value stays. Writes land in the active profile's scope only.
+        if hasattr(g, "set_launcher_ids"):
+            g.set_launcher_ids(heroic_app_name=self._found_heroic_app,
+                               lutris_slug=self._found_lutris_slug,
+                               faugus_gameid=self._found_faugus_gameid,
+                               shortcut_appid=self._found_shortcut_appid)
         if hasattr(g, "set_deploy_mode"):
             g.set_deploy_mode(mode)
         if hasattr(g, "set_staging_path"):

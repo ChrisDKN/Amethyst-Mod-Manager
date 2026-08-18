@@ -2871,12 +2871,21 @@ class MainWindow(QMainWindow):
         # tab title in place (no focus change) so the user doesn't have to
         # reopen it to configure a different profile.
         if self._tabs.has_key("configure_game"):
-            v = getattr(self, "_configure_game_view", None)
+            v = self._tabs.content_for_key("configure_game")
             if v is not None:
+                self._configure_game_view = v
                 try:
-                    v.refresh_for_profile()
-                    self._tabs.set_tab_title(
-                        "configure_game", self._configure_tab_title(self._gs.game))
+                    # Configure Save rebuilds the game registry. Pass the live
+                    # handler explicitly so an open tab never keeps writing
+                    # through the replaced object (whose active profile may
+                    # still be the profile that was open at save time).
+                    live_game = self._gs.game
+                    tab_game = getattr(v, "_game", None)
+                    if (live_game is not None and tab_game is not None
+                            and live_game.name == tab_game.name):
+                        v.refresh_for_profile(live_game, name)
+                        self._tabs.set_tab_title(
+                            "configure_game", self._configure_tab_title(live_game))
                 except Exception:
                     pass
 
@@ -9036,6 +9045,24 @@ class MainWindow(QMainWindow):
         user can keep tweaking (only Remove/Cancel close it)."""
         from gui_qt.configure_game_view import ConfigureGameView
 
+        # open_tab() focuses an existing keyed tab instead of installing the
+        # newly-created widget. Resolve that real content first so the cached
+        # pointer can never drift to an unattached ConfigureGameView.
+        if self._tabs.has_key("configure_game"):
+            existing = self._tabs.content_for_key("configure_game")
+            if (existing is not None
+                    and getattr(getattr(existing, "_game", None), "name", None)
+                    == game.name):
+                self._configure_game_view = existing
+                existing.refresh_for_profile(game, self._gs.profile)
+                self._tabs.set_tab_title(
+                    "configure_game", self._configure_tab_title(game))
+                self._tabs.focus_key("configure_game")
+                return
+            # A Configure form's widgets depend on the handler's capabilities;
+            # replace it when Configure is requested for another game.
+            self._tabs.close_tab("configure_game")
+
         def _done(saved: bool, removed: bool):
             migrated = bool(getattr(page, "staging_migrated", False))
             if migrated:
@@ -9051,6 +9078,10 @@ class MainWindow(QMainWindow):
                 from Utils.game_helpers import _load_games
                 names = _load_games()
                 self._gs.game_names = names
+                # _load_games() replaces every handler object. Restore the
+                # active profile on the replacement before any view reads or
+                # writes profile-scoped paths through it.
+                self._gs.reassert_active_profile()
                 # _load_games returns the ["No games configured"] sentinel when
                 # nothing is configured - don't surface that as a menu item;
                 # show the "Add game" prompt instead.
@@ -9097,14 +9128,23 @@ class MainWindow(QMainWindow):
             # its header (a per-profile override may have just been pinned).
             if saved and not removed and not from_add_game \
                     and self._tabs.has_key("configure_game"):
-                v = getattr(self, "_configure_game_view", None)
+                v = self._tabs.content_for_key("configure_game")
                 if v is not None:
+                    self._configure_game_view = v
                     try:
+                        # Keep the tab on the replacement handler created by
+                        # _load_games(); otherwise its next Save still targets
+                        # the old handler's active profile.
+                        if (self._gs.game is not None
+                                and self._gs.game.name == game.name):
+                            v.refresh_for_profile(
+                                self._gs.game, self._gs.profile)
                         v.notify_saved()
                     except Exception:
                         pass
 
-        page = ConfigureGameView(game, on_done=_done)
+        page = ConfigureGameView(
+            game, on_done=_done, profile_name=self._gs.profile)
         self._configure_game_view = page
         self._tabs.open_tab(page, self._configure_tab_title(game),
                             key="configure_game")
@@ -10930,10 +10970,12 @@ class MainWindow(QMainWindow):
         # the click, and the next open rebuilds fresh from _profile_actions()
         # (via the selector's aboutToShow hook), so a toggle that adds/removes
         # the Open submenu takes effect the next time the dropdown is opened.
-        v = getattr(self, "_configure_game_view", None)
-        if v is not None and self._tabs.has_key("configure_game"):
+        v = (self._tabs.content_for_key("configure_game")
+             if self._tabs.has_key("configure_game") else None)
+        if v is not None:
+            self._configure_game_view = v
             try:
-                v.refresh_for_profile()
+                v.refresh_for_profile(self._gs.game, self._gs.profile)
             except Exception:
                 pass
         self._notify(self.tr("Setting saved."), "info")

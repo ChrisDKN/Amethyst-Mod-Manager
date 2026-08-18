@@ -681,6 +681,32 @@ def game_is_steam_install(game) -> bool:
     return False
 
 
+def _saved_launcher_id(game, key: str) -> str:
+    """Launcher id saved for the game's ACTIVE profile, or "".
+
+    Goes through the handler, which overlays the active profile's pinned
+    override on paths.json - a profile pointed at a different install of the
+    same game must launch its own, not the default profile's. Falls back to a
+    plain paths.json read for objects that predate the accessor.
+    """
+    getter = getattr(game, "get_saved_launcher_id", None)
+    if callable(getter):
+        try:
+            return (getter(key) or "").strip()
+        except Exception:
+            return ""
+    if not hasattr(game, "name"):
+        return ""
+    try:
+        paths_file = get_game_config_path(game.name)
+        if paths_file.is_file():
+            data = json.loads(paths_file.read_text(encoding="utf-8"))
+            return str((data or {}).get(key, "") or "").strip()
+    except (OSError, json.JSONDecodeError):
+        pass
+    return ""
+
+
 def heroic_app_names_for_launch(game) -> list:
     """Heroic app names for launch - handler-declared names and the value
     saved in paths.json at configure time are authoritative; the exe scan
@@ -688,18 +714,11 @@ def heroic_app_names_for_launch(game) -> list:
     across games (e.g. FalloutLauncher.exe ships with both Fallout 3 GOTY
     and classic Fallout on GOG)."""
     names = [n for n in (getattr(game, "heroic_app_names", []) or []) if n]
-    if hasattr(game, "name"):
-        try:
-            paths_file = get_game_config_path(game.name)
-            if paths_file.is_file():
-                data = json.loads(paths_file.read_text(encoding="utf-8"))
-                saved = data.get("heroic_app_name", "").strip()
-                if saved and saved not in names:
-                    # Saved first: it records what configure actually
-                    # resolved to, so it beats the handler's declared list.
-                    names.insert(0, saved)
-        except (OSError, json.JSONDecodeError):
-            pass
+    saved = _saved_launcher_id(game, "heroic_app_name")
+    if saved and saved not in names:
+        # Saved first: it records what configure actually resolved to, so it
+        # beats the handler's declared list.
+        names.insert(0, saved)
     if names:
         return names
 
@@ -741,16 +760,10 @@ def lutris_slugs_for_launch(game) -> list:
     except Exception:
         slugs = []
 
-    if not slugs and hasattr(game, "name"):
-        try:
-            paths_file = get_game_config_path(game.name)
-            if paths_file.is_file():
-                data = json.loads(paths_file.read_text(encoding="utf-8"))
-                saved = data.get("lutris_slug", "").strip()
-                if saved:
-                    slugs = [saved]
-        except (OSError, json.JSONDecodeError):
-            pass
+    if not slugs:
+        saved = _saved_launcher_id(game, "lutris_slug")
+        if saved:
+            slugs = [saved]
     return slugs
 
 
@@ -777,16 +790,10 @@ def faugus_gameids_for_launch(game) -> list:
     except Exception:
         gameids = []
 
-    if not gameids and hasattr(game, "name"):
-        try:
-            paths_file = get_game_config_path(game.name)
-            if paths_file.is_file():
-                data = json.loads(paths_file.read_text(encoding="utf-8"))
-                saved = data.get("faugus_gameid", "").strip()
-                if saved:
-                    gameids = [saved]
-        except (OSError, json.JSONDecodeError):
-            pass
+    if not gameids:
+        saved = _saved_launcher_id(game, "faugus_gameid")
+        if saved:
+            gameids = [saved]
     return gameids
 
 
@@ -911,12 +918,58 @@ def launch_via_steam(steam_id: str, log_fn=_noop_log,
          exits 0 once the URL is handed off, so a dropped arg can't be
          detected - which is why it must come *after* -applaunch here,
          reversing the argless candidate order.
+
+    A non-Steam shortcut is addressed differently: rungameid wants the 64-bit
+    composite id built from the shortcut's app id, and ``-applaunch`` doesn't
+    accept shortcuts at all (it only resolves real store app ids), so that
+    candidate is dropped for them.
     """
-    log_fn(f"Play: launching via Steam (app {steam_id}) ...")
-    url = f"steam://rungameid/{steam_id}"
     in_flatpak = Path("/.flatpak-info").exists()
     have_spawn = shutil.which("flatpak-spawn") is not None
-    if extra_args:
+
+    # Shortcuts have no appmanifest, so Steam addresses them by a composite id
+    # rather than the bare app id a store game uses.
+    is_shortcut = False
+    run_id = str(steam_id)
+    try:
+        from Utils.steam_shortcuts import is_shortcut_appid, run_gameid
+        if is_shortcut_appid(steam_id):
+            composite = run_gameid(steam_id)
+            if composite:
+                is_shortcut, run_id = True, composite
+    except Exception:
+        pass
+
+    def _url_candidates(target: str) -> "list[list[str]]":
+        """The steam:// routes, best first.
+
+        Host xdg-open leads: it hands the URL to whichever Steam the user
+        actually has - native, Flatpak com.valvesoftware.Steam or Snap -
+        whereas a bare ``steam`` binary only exists for a native install, so
+        it is the fallback rather than the primary.
+        """
+        if in_flatpak and have_spawn:
+            return [
+                ["flatpak-spawn", "--host", "xdg-open", target],
+                ["flatpak-spawn", "--host", "steam", target],
+                ["xdg-open", target],
+            ]
+        return [
+            ["xdg-open", target],
+            ["steam", target],
+        ]
+
+    log_fn(f"Play: launching via Steam "
+           f"({'non-Steam shortcut' if is_shortcut else 'app'} {steam_id}) ...")
+    url = f"steam://rungameid/{run_id}"
+    if extra_args and is_shortcut:
+        # No -applaunch route for a shortcut; the URL form is all there is, so
+        # it keeps the full route chain rather than a trimmed one.
+        from urllib.parse import quote
+        url += "//" + "+".join(quote(a, safe="-_.~") for a in extra_args)
+        log_fn(f"Play: forwarding launch args through Steam: {' '.join(extra_args)}")
+        candidates = _url_candidates(url)
+    elif extra_args:
         from urllib.parse import quote
         url += "//" + "+".join(quote(a, safe="-_.~") for a in extra_args)
         applaunch = ["steam", "-applaunch", steam_id, *extra_args]
@@ -932,21 +985,9 @@ def launch_via_steam(steam_id: str, log_fn=_noop_log,
                 applaunch,
                 ["xdg-open", url],
             ]
-    # Ordered candidates, each falling through to the next on non-zero exit.
-    # Host xdg-open goes first: it routes steam:// to whichever Steam the user
-    # actually has (native *or* Flatpak com.valvesoftware.Steam), whereas a
-    # bare `steam` binary only exists for native installs.
-    elif in_flatpak and have_spawn:
-        candidates = [
-            ["flatpak-spawn", "--host", "xdg-open", url],
-            ["flatpak-spawn", "--host", "steam", url],
-            ["xdg-open", url],
-        ]
     else:
-        candidates = [
-            ["xdg-open", url],
-            ["steam", url],
-        ]
+        # Ordered candidates, each falling through to the next on non-zero exit.
+        candidates = _url_candidates(url)
 
     def _try(idx: int) -> None:
         if idx >= len(candidates):
@@ -2001,6 +2042,18 @@ def launch_game(game, log_fn=_noop_log) -> None:
     steam_id = effective_steam_id(game)
     heroic_app_names = heroic_app_names_for_launch(game)
     is_steam = game_is_steam_install(game)
+    # A game added to Steam as a non-Steam shortcut is a Steam route too, even
+    # though its files sit outside every Steam library so game_is_steam_install
+    # is False. effective_steam_id() only returns a shortcut id when the user
+    # configured the game through that shortcut, so this can't hijack a game
+    # that merely happens to have one lying around.
+    is_shortcut = False
+    if steam_id:
+        try:
+            from Utils.steam_shortcuts import is_shortcut_appid
+            is_shortcut = is_shortcut_appid(steam_id)
+        except Exception:
+            is_shortcut = False
     default_args = list(getattr(game, "default_launch_args", []) or [])
 
     def _note_launcher_args(launcher: str) -> None:
@@ -2018,6 +2071,7 @@ def launch_game(game, log_fn=_noop_log) -> None:
            else "appimage" if os.environ.get("APPIMAGE") else "host")
     log_fn(f"Play: routing - mode={mode}, steam_id={steam_id or 'none'}, "
            f"steam_library_install={is_steam}, "
+           f"non_steam_shortcut={is_shortcut}, "
            f"heroic={','.join(heroic_app_names) if heroic_app_names else 'none'}, "
            f"pkg={pkg}")
 
@@ -2055,7 +2109,7 @@ def launch_game(game, log_fn=_noop_log) -> None:
         return
 
     if mode != "none":  # "auto"
-        if steam_id and is_steam:
+        if steam_id and (is_steam or is_shortcut):
             launch_via_steam(steam_id, log_fn, extra_args=default_args or None)
             return
         if heroic_app_names and game_is_heroic_install(game):

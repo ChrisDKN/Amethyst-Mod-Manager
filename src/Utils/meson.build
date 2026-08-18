@@ -154,6 +154,7 @@ py.install_sources(
   'staging_migrate.py',
   'stderr_capture.py',
   'steam_finder.py',
+  'steam_shortcuts.py',
   'strings_table.py',
   'synthesis_setup.py',
   'system_info.py',

@@ -56,6 +56,15 @@ _DEFAULT_DEPLOY_MODE = LinkMode.HARDLINK
 # confused with unset, and "no override to write" is distinct from a real value).
 _UNSET = object()
 
+# paths.json launcher-id key -> the public setter that persists it, so
+# set_launcher_ids() can go through a handler's own override of that setter.
+_LAUNCHER_ID_SETTERS = {
+    "heroic_app_name": "set_heroic_app_name",
+    "lutris_slug":     "set_lutris_slug",
+    "faugus_gameid":   "set_faugus_gameid",
+    "shortcut_appid":  "set_shortcut_appid",
+}
+
 
 def _ensure_lutris_prefix_compat(prefix_path: "Path | None") -> None:
     """When the game's prefix is Lutris-managed, make sure a ``steamuser``
@@ -125,6 +134,16 @@ class BaseGame(ABC):
     # __init__ hasn't assigned it yet, rather than raising AttributeError.
     _prefix_path: "Path | None" = None
 
+    # App ID of the non-Steam shortcut this game was configured through, or "".
+    # Set only when Configure Game resolved the install via shortcuts.vdf, and
+    # cleared when the user picks a different launcher. Unlike heroic_app_name
+    # / lutris_slug / faugus_gameid - informational fallbacks that live only in
+    # paths.json - this one is a real instance field, because it is
+    # authoritative: Steam keys the prefix, the compat tool and
+    # steam://rungameid off it, and it differs from the handler's hard-coded
+    # steam_id, so every load and save has to carry it.
+    _shortcut_appid: str = ""
+
     # True for games that deploy by copying files (so the saved "copy" deploy
     # mode is preserved instead of collapsing to symlink).
     deploy_mode_supports_copy: bool = False
@@ -146,6 +165,18 @@ class BaseGame(ABC):
         "prefix_numbering",
     )
     profile_overridable_paths_extras: tuple[str, ...] = ()
+
+    # paths.json keys naming WHICH install the game was configured through.
+    # They are part of the install choice - as much as game_path is - because
+    # two launchers can register the same folder (Lutris and Faugus both
+    # pointing at one The Sims 4 install), so a non-default profile pins them
+    # per profile instead of writing them globally.
+    launcher_id_keys: tuple[str, ...] = (
+        "shortcut_appid",
+        "heroic_app_name",
+        "lutris_slug",
+        "faugus_gameid",
+    )
 
     # User-set save folder, persisted in paths.json as "save_path_override".
     # The Saves tab resolves locations from the Ludusavi manifest, which can
@@ -1016,7 +1047,16 @@ class BaseGame(ABC):
         ``compatdata/<app_id>/pfx``, so when a prefix is set we read the App ID
         straight out of that path and use it if it matches one of this game's
         known IDs.  Falls back to the primary ``steam_id`` otherwise.
+
+        A game configured through a non-Steam shortcut overrides all of that:
+        Steam knows that install only by the shortcut's own App ID, which is
+        what its compatdata, its CompatToolMapping entry and any
+        ``steam://rungameid`` launch are keyed on. The handler's hard-coded
+        ``steam_id`` names the store release instead, and using it would
+        resolve the wrong prefix (or none).
         """
+        if self._shortcut_appid:
+            return self._shortcut_appid
         known = [self.steam_id, *self.alt_steam_ids]
         known = [str(s) for s in known if s]
         prefix = self.get_prefix_path()
@@ -1557,10 +1597,16 @@ class BaseGame(ABC):
             # Parse via the helper (not the already-loaded value), or a "hardlink"
             # override would silently revert to the default profile's mode.
             self._deploy_mode = self._deploy_mode_from_str(pset["deploy_mode"])
-        if self.profile_overridable_paths_extras:
+        # "" is a meaningful override for a launcher id (this profile uses no
+        # shortcut even though the default does), so an empty string applies.
+        if isinstance(pset.get("shortcut_appid"), str):
+            self._shortcut_appid = pset["shortcut_appid"]
+        overlay_keys = (*self.profile_overridable_paths_extras,
+                        *self.launcher_id_keys)
+        if overlay_keys:
             overlay = dict(paths_data or {})
             applied = False
-            for key in self.profile_overridable_paths_extras:
+            for key in overlay_keys:
                 if key in pset:
                     overlay[key] = pset[key]
                     applied = True
@@ -1998,15 +2044,24 @@ class BaseGame(ABC):
     def _find_prefix_for_load(self) -> "Path | None":
         """Locate a Proton prefix for this game during load_paths().
 
-        Tries ``steam_id`` first, then any ``alt_steam_ids``, then a Lutris
-        install matching the handler's exe name, then a Faugus install the
-        same way. Subclasses with other non-Steam prefix sources
-        (Heroic-only games, etc.) can override.
+        Tries a saved non-Steam shortcut App ID first, then ``steam_id``, then
+        any ``alt_steam_ids``, then a Lutris install matching the handler's exe
+        name, then a Faugus install the same way, and finally an unconfigured
+        non-Steam shortcut found by exe name. Subclasses with other non-Steam
+        prefix sources (Heroic-only games, etc.) can override.
 
         The game path is passed through so the Steam lookup can tell which
         library owns the app - without it a stale compatdata in another
         library can win.
         """
+        if self._shortcut_appid:
+            # The shortcut's own compatdata is the only prefix this install
+            # has; the handler's steam_id names the store release, whose
+            # prefix (if any) belongs to a different copy of the game.
+            found = _find_steam_prefix(self._shortcut_appid,
+                                       getattr(self, "_game_path", None))
+            if found:
+                return found
         for sid in [self.steam_id, *self.alt_steam_ids]:
             if not sid:
                 continue
@@ -2031,6 +2086,17 @@ class BaseGame(ABC):
                 if not exe:
                     continue
                 info = find_faugus_game_info_by_exe(exe)
+                if info is not None and info[1] is not None:
+                    return info[1]
+        except Exception:
+            pass
+        try:
+            from Utils.steam_shortcuts import find_shortcut_game_info_by_exe
+            for exe in [getattr(self, "exe_name", None),
+                        *(getattr(self, "exe_name_alts", []) or [])]:
+                if not exe:
+                    continue
+                info = find_shortcut_game_info_by_exe(exe)
                 if info is not None and info[1] is not None:
                     return info[1]
         except Exception:
@@ -2068,6 +2134,7 @@ class BaseGame(ABC):
                 self._staging_path = Path(raw_staging)
             raw_saves = data.get("save_path_override", "")
             self._save_path_override = Path(raw_saves) if raw_saves else None
+            self._shortcut_appid = str(data.get("shortcut_appid", "") or "")
             self._load_paths_extra(data)
             self._validate_staging()
             # Overlay any per-profile overrides on top of the default's values
@@ -2160,31 +2227,148 @@ class BaseGame(ABC):
             pass
         return {}
 
+    def _profile_pinnable_paths_keys(self) -> tuple[str, ...]:
+        """paths.json keys a non-default profile may pin as its own."""
+        return ("game_path", "prefix_path", "deploy_mode",
+                *self.launcher_id_keys,
+                *self.profile_overridable_paths_extras)
+
+    def _effective_paths_value(self, key: str, default: str = "") -> str:
+        """String value of a paths.json *key* as the active profile sees it.
+
+        A non-default profile's pinned override wins over the global value, so
+        a launcher id reads back per profile exactly as game_path does.
+        """
+        if not self._is_default_profile():
+            try:
+                from Utils.profile_state import read_profile_settings
+                pset = read_profile_settings(self._active_profile_dir)
+            except Exception:
+                pset = {}
+            if key in pset:
+                val = pset[key]
+                return default if val is None else str(val)
+        val = self._read_global_paths().get(key, default)
+        return default if val is None else str(val)
+
+    def get_saved_launcher_id(self, key: str) -> str:
+        """Launcher id saved for the active profile, or "" when unset.
+
+        *key* is one of :attr:`launcher_id_keys`. Reading through here rather
+        than straight out of paths.json is what makes a per-profile install
+        choice apply - launch routing must not see another profile's launcher.
+        """
+        if key not in self.launcher_id_keys:
+            return ""
+        return self._effective_paths_value(key).strip()
+
+    def _persist_paths_value(self, key: str, value: str) -> None:
+        """Write one paths.json *key* for the active profile only.
+
+        Default profile: into paths.json, after freezing the outgoing value
+        into every profile still inheriting it. Non-default profile: pinned
+        into that profile's profile_settings, so no other profile is touched.
+        """
+        value = "" if value is None else str(value)
+        if not self._is_default_profile():
+            if self._effective_paths_value(key) == value:
+                return
+            try:
+                from Utils.profile_state import merge_profile_settings
+                merge_profile_settings(self._active_profile_dir, {key: value})
+            except Exception:
+                pass
+            return
+        data = self._read_global_paths()
+        old = data.get(key, "")
+        old = "" if old is None else str(old)
+        if old == value:
+            return
+        self._freeze_inherited_paths_keys({key: old})
+        data[key] = value
+        try:
+            self._paths_file.parent.mkdir(parents=True, exist_ok=True)
+            self._paths_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        except OSError:
+            pass
+
+    def _other_profile_dirs(self) -> list[Path]:
+        """Every non-default profile folder of this game ([] if unknown)."""
+        try:
+            root = self.get_profile_root() / "profiles"
+            return [p for p in sorted(root.iterdir())
+                    if p.is_dir() and p.name != "default"]
+        except (OSError, AttributeError, TypeError):
+            return []
+
+    def _freeze_inherited_paths_keys(self, old_values: dict) -> None:
+        """Pin *old_values* into the profiles that were still inheriting them.
+
+        The default's paths are the fallback for every profile that never
+        pinned its own, so repointing the default at another install used to
+        drag every already-configured profile along with it. Freezing the
+        outgoing value first leaves those profiles exactly where they were,
+        while profiles created later still start from the new default.
+
+        Empty outgoing values are skipped: they carry no install to preserve,
+        and pinning one would only mask the default the profile still needs.
+        """
+        frozen = {k: v for k, v in old_values.items()
+                  if v not in ("", None) and k in self._profile_pinnable_paths_keys()}
+        if not frozen:
+            return
+        try:
+            from Utils.profile_state import (merge_profile_settings,
+                                             read_profile_settings)
+        except Exception:
+            return
+        for pdir in self._other_profile_dirs():
+            try:
+                pset = read_profile_settings(pdir)
+                updates = {k: v for k, v in frozen.items() if k not in pset}
+                if updates:
+                    merge_profile_settings(pdir, updates)
+            except Exception:
+                continue
+
     def save_paths(self) -> None:
         """Write path configuration to the user config directory.
 
-        Default profile: everything goes to paths.json. Non-default profile:
-        game_path/prefix_path/deploy_mode and overridable extras are stored as
-        sticky per-profile overrides, but only for fields whose new value differs
-        from the profile's current effective value (global overlaid with any
-        existing override). A field the user actually changed gets pinned and
-        survives later default changes; an unchanged field is not written and
-        keeps following the default. staging_path and non-overridable extras stay
-        global.
+        Default profile: everything goes to paths.json, and any value it
+        replaces is frozen into the profiles that were inheriting it, so
+        repointing the default never moves an already-configured profile.
+        Non-default profile: game_path/prefix_path/deploy_mode, the launcher
+        ids and overridable extras are stored as sticky per-profile overrides,
+        but only for fields whose new value differs from the profile's current
+        effective value (global overlaid with any existing override). A field
+        the user actually changed gets pinned and survives later default
+        changes; an unchanged field is not written and keeps following the
+        default. staging_path and non-overridable extras stay global.
         """
         self._paths_file.parent.mkdir(parents=True, exist_ok=True)
         mode_str = _DEPLOY_MODE_TO_STR.get(self._deploy_mode, "hardlink")
 
         if self._is_default_profile():
-            data = {
+            fresh = {
                 "game_path":    str(self._game_path)    if self._game_path    else "",
                 "prefix_path":  str(self._prefix_path)  if self._prefix_path  else "",
                 "deploy_mode":  mode_str,
                 "staging_path": str(self._staging_path) if self._staging_path else "",
                 "save_path_override": (str(self._save_path_override)
                                        if self._save_path_override else ""),
+                "shortcut_appid": self._shortcut_appid or "",
             }
-            data.update(self._save_paths_extra())
+            fresh.update(self._save_paths_extra())
+            # Merge over what's on disk rather than rebuilding: the launcher ids
+            # written by set_launcher_ids() are not part of *fresh*, and dropping
+            # them would strand a configured install without the id that
+            # identifies it. Mutual exclusivity is the caller's job - it clears
+            # the ruled-out launchers explicitly.
+            data = self._read_global_paths()
+            self._freeze_inherited_paths_keys(
+                {k: data[k] for k in self._profile_pinnable_paths_keys()
+                 if k in data and k in fresh and fresh[k] != data[k]})
+            data.update(fresh)
             self._paths_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
             return
 
@@ -2206,9 +2390,14 @@ class BaseGame(ABC):
             "game_path":   _pin("game_path",   str(self._game_path) if self._game_path else "", ""),
             "prefix_path": _pin("prefix_path", str(self._prefix_path) if self._prefix_path else "", ""),
             "deploy_mode": _pin("deploy_mode", mode_str, ""),
+            # Which install this profile manages, so it pins with the paths it
+            # belongs to. Writing it globally moved every other profile onto
+            # the launcher this one picked.
+            "shortcut_appid": _pin("shortcut_appid", self._shortcut_appid or "", ""),
         }
         for key, value in extras.items():
-            if key in self.profile_overridable_paths_extras:
+            if (key in self.profile_overridable_paths_extras
+                    or key in self.launcher_id_keys):
                 candidates[key] = _pin(key, value, None)
         override_updates = {k: v for k, v in candidates.items() if v is not _UNSET}
         if override_updates:
@@ -2219,6 +2408,7 @@ class BaseGame(ABC):
         global_extras = {
             k: v for k, v in extras.items()
             if k not in self.profile_overridable_paths_extras
+            and k not in self.launcher_id_keys
         }
         data = self._read_global_paths()
         data["staging_path"] = str(self._staging_path) if self._staging_path else ""
@@ -2235,7 +2425,7 @@ class BaseGame(ABC):
         self.save_paths()
 
     def set_heroic_app_name(self, app_name: str | None) -> None:
-        """Persist a discovered Heroic app name into paths.json.
+        """Persist a discovered Heroic app name for the active profile.
 
         Used by the Add Game dialog so GOG/Epic titles keep a record of
         which Heroic library entry they resolved to. Launch code still
@@ -2246,18 +2436,10 @@ class BaseGame(ABC):
             self.save_paths()
         except Exception:
             pass
-        try:
-            data: dict = {}
-            if self._paths_file.is_file():
-                data = json.loads(self._paths_file.read_text(encoding="utf-8")) or {}
-            data["heroic_app_name"] = app_name or ""
-            self._paths_file.parent.mkdir(parents=True, exist_ok=True)
-            self._paths_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
-        except (OSError, json.JSONDecodeError):
-            pass
+        self._persist_paths_value("heroic_app_name", app_name or "")
 
     def set_lutris_slug(self, slug: str | None) -> None:
-        """Persist a discovered Lutris slug into paths.json.
+        """Persist a discovered Lutris slug for the active profile.
 
         Written when the Configure-Game scan resolves the game via Lutris.
         Launch code still prefers live detection against Lutris's database,
@@ -2268,18 +2450,26 @@ class BaseGame(ABC):
             self.save_paths()
         except Exception:
             pass
-        try:
-            data: dict = {}
-            if self._paths_file.is_file():
-                data = json.loads(self._paths_file.read_text(encoding="utf-8")) or {}
-            data["lutris_slug"] = slug or ""
-            self._paths_file.parent.mkdir(parents=True, exist_ok=True)
-            self._paths_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
-        except (OSError, json.JSONDecodeError):
-            pass
+        self._persist_paths_value("lutris_slug", slug or "")
+
+    def set_shortcut_appid(self, appid: "str | int | None") -> None:
+        """Persist the non-Steam shortcut App ID this game resolved to.
+
+        Written when the Configure-Game scan resolves the install through
+        shortcuts.vdf, and cleared (pass None) when the user picks a different
+        launcher, so a stale shortcut never shadows the real Steam app.
+        Unlike the other launcher-id setters this goes through save_paths(),
+        which persists the field as a first-class key.
+        """
+        self._shortcut_appid = str(appid or "").strip()
+        self.save_paths()
+
+    def get_shortcut_appid(self) -> str:
+        """The saved non-Steam shortcut App ID, or ""."""
+        return self._shortcut_appid or ""
 
     def set_faugus_gameid(self, gameid: str | None) -> None:
-        """Persist a discovered Faugus gameid into paths.json.
+        """Persist a discovered Faugus gameid for the active profile.
 
         Written when the Configure-Game scan resolves the game via Faugus.
         Launch code still prefers live detection against games.json, so
@@ -2290,15 +2480,33 @@ class BaseGame(ABC):
             self.save_paths()
         except Exception:
             pass
-        try:
-            data: dict = {}
-            if self._paths_file.is_file():
-                data = json.loads(self._paths_file.read_text(encoding="utf-8")) or {}
-            data["faugus_gameid"] = gameid or ""
-            self._paths_file.parent.mkdir(parents=True, exist_ok=True)
-            self._paths_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
-        except (OSError, json.JSONDecodeError):
-            pass
+        self._persist_paths_value("faugus_gameid", gameid or "")
+
+    def set_launcher_ids(self, *, heroic_app_name: "str | None" = None,
+                         lutris_slug: "str | None" = None,
+                         faugus_gameid: "str | None" = None,
+                         shortcut_appid: "str | None" = None) -> None:
+        """Persist the whole launcher-identity set in one call.
+
+        An install is reached through exactly one launcher, so the ones the
+        user ruled out have to be cleared as deliberately as the winner is
+        written: pass "" to clear a key and None to leave it untouched.
+        Everything lands in the active profile's scope, so switching one
+        profile's install leaves the others on the launcher they had.
+        """
+        for key, value in (("heroic_app_name", heroic_app_name),
+                           ("lutris_slug", lutris_slug),
+                           ("faugus_gameid", faugus_gameid),
+                           ("shortcut_appid", shortcut_appid)):
+            if value is None:
+                continue
+            setter = getattr(self, _LAUNCHER_ID_SETTERS[key], None)
+            if callable(setter):
+                # Via the public setter so a handler that keeps its own copy of
+                # the id (BepInEx's _saved_heroic_app_name) stays in step.
+                setter(str(value).strip())
+            else:
+                self._persist_paths_value(key, str(value).strip())
 
     def _validate_staging(self) -> None:
         """Check that a custom staging path still exists on disk.

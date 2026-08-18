@@ -18,6 +18,8 @@ from memory:
   - Heroic: Epic/GOG/sideload manifests parsed once. GOG entries with no
     stored executable get their install tree walked once (not once per
     handler exe) into a filename index.
+  - Non-Steam shortcuts: every account's binary shortcuts.vdf parsed once
+    into an exe index.
 
 Detection semantics mirror the old per-game finder calls: steam-id+manifest
 first, then exe search across Steam libraries, then Heroic app names, then
@@ -46,6 +48,27 @@ def _exe_parts(exe_name: str) -> list[str]:
     return [p for p in exe_name.replace("\\", "/").lower().split("/") if p]
 
 
+def _tail_matches(stored_index: list[list[str]], exe_name: str) -> bool:
+    """True if any entry of *stored_index* ends with *exe_name*'s segments.
+
+    Matching mirrors find_lutris_game_info_by_exe: a bare handler name matches
+    on filename; a multi-segment name must match segment-for-segment at the
+    tail (same rule as _stored_exe_matches), since generic names like
+    Launcher.exe collide across games.
+    """
+    rel_parts = _exe_parts(exe_name)
+    if not rel_parts:
+        return False
+    for stored_parts in stored_index:
+        if len(rel_parts) > 1:
+            if (len(stored_parts) >= len(rel_parts)
+                    and stored_parts[-len(rel_parts):] == rel_parts):
+                return True
+        elif stored_parts and stored_parts[-1] == rel_parts[0]:
+            return True
+    return False
+
+
 class InstalledIndex:
     """Build once (worker thread), then call game_installed(game) per game."""
 
@@ -56,6 +79,7 @@ class InstalledIndex:
         # GOG install path (str) -> {lowercase filename: [relative part tuples]}
         self._gog_walks: dict[str, dict[str, list[tuple[str, ...]]]] = {}
         self._build_steam()
+        self._build_shortcuts()
         self._build_heroic()
         self._build_lutris()
         self._build_faugus()
@@ -134,6 +158,27 @@ class InstalledIndex:
                 return False
             cur = cur / name
         return False
+
+    # ------------------------------------------------------------------
+    # Non-Steam shortcuts
+    # ------------------------------------------------------------------
+
+    def _build_shortcuts(self) -> None:
+        # Per non-Steam shortcut: lowercase path segments of its target exe,
+        # read from every account's shortcuts.vdf in a single pass (same shape
+        # as the Lutris/Faugus indexes below).
+        self._shortcut_exes: list[list[str]] = []
+        try:
+            from Utils.steam_shortcuts import build_installed_exe_index
+            self._shortcut_exes = build_installed_exe_index()
+        except Exception as exc:
+            self._log(f"steam shortcut index build failed, continuing with none: {exc}")
+            self._shortcut_exes = []
+
+    def _shortcuts_by_exe(self, exe_name: str) -> bool:
+        """True if any non-Steam shortcut's exe tail matches exe_name (same
+        rules as _lutris_by_exe)."""
+        return _tail_matches(self._shortcut_exes, exe_name)
 
     # ------------------------------------------------------------------
     # Heroic
@@ -266,22 +311,8 @@ class InstalledIndex:
             self._lutris_exes = []
 
     def _lutris_by_exe(self, exe_name: str) -> bool:
-        """True if any installed Lutris game's exe tail matches exe_name.
-
-        Matching mirrors find_lutris_game_info_by_exe: a bare handler name
-        matches on filename; a multi-segment name must match segment-for-
-        segment at the tail (same rule as _stored_exe_matches)."""
-        rel_parts = _exe_parts(exe_name)
-        if not rel_parts:
-            return False
-        for stored_parts in self._lutris_exes:
-            if len(rel_parts) > 1:
-                if (len(stored_parts) >= len(rel_parts)
-                        and stored_parts[-len(rel_parts):] == rel_parts):
-                    return True
-            elif stored_parts and stored_parts[-1] == rel_parts[0]:
-                return True
-        return False
+        """True if any installed Lutris game's exe tail matches exe_name."""
+        return _tail_matches(self._lutris_exes, exe_name)
 
     # ------------------------------------------------------------------
     # Faugus
@@ -300,19 +331,8 @@ class InstalledIndex:
             self._faugus_exes = []
 
     def _faugus_by_exe(self, exe_name: str) -> bool:
-        """True if any Faugus game's exe tail matches exe_name (same rules
-        as _lutris_by_exe)."""
-        rel_parts = _exe_parts(exe_name)
-        if not rel_parts:
-            return False
-        for stored_parts in self._faugus_exes:
-            if len(rel_parts) > 1:
-                if (len(stored_parts) >= len(rel_parts)
-                        and stored_parts[-len(rel_parts):] == rel_parts):
-                    return True
-            elif stored_parts and stored_parts[-1] == rel_parts[0]:
-                return True
-        return False
+        """True if any Faugus game's exe tail matches exe_name."""
+        return _tail_matches(self._faugus_exes, exe_name)
 
     # ------------------------------------------------------------------
     # Public API
@@ -357,6 +377,13 @@ class InstalledIndex:
 
         for exe in all_exe:
             if self._faugus_by_exe(exe):
+                return True
+
+        # Last: a game the user added to Steam as a non-Steam shortcut. Checked
+        # after the real launchers because a shortcut often just points at an
+        # install one of them already owns.
+        for exe in all_exe:
+            if self._shortcuts_by_exe(exe):
                 return True
 
         return False
