@@ -51,6 +51,13 @@ _PROFILES_DIR = get_profiles_dir()
 # Name of the generated mod list, written beside mods/.
 _PROFILE_FILENAME = "amethyst.me3"
 
+# Folder the routing rules place loose DVDBND files into, beside mods/.  It is
+# emitted as one more package, so me3 sees them at the paths the game asks for.
+_ROUTED_DIRNAME = "routed"
+
+# Package name shown for that folder in logs / the .me3 id.
+_ROUTED_PACKAGE = "Routed Files"
+
 # Vanilla save file name, used to derive the per-profile isolated name.
 _SAVE_SUFFIX = ".sl2"
 
@@ -404,8 +411,15 @@ class EldenRing(BaseGame):
         if removed:
             log_fn(f"  Removed {removed} mod-loader file(s) from the game folder.")
 
-    def _report_unloadable(self, entries, log_fn, loader=None) -> None:
-        """Tell the user about enabled mods that will not actually load."""
+    def _report_unloadable(self, entries, log_fn, loader=None,
+                           routed_mods=None) -> None:
+        """Tell the user about enabled mods that will not actually load.
+
+        *routed_mods* names mods whose loose files the routing rules placed;
+        a mod made up entirely of those has no package of its own and would
+        otherwise be reported as empty right after it was loaded successfully.
+        """
+        routed_mods = routed_mods or set()
         for entry in entries:
             if entry is loader:
                 continue
@@ -435,7 +449,11 @@ class EldenRing(BaseGame):
                 self.add_deploy_warning(msg)
             if not entry.loadable and entry.bundled_profile is None \
                     and not entry.proxies:
-                log_fn(f"  '{entry.name}' has no assets or DLLs - skipped.")
+                if entry.name in routed_mods:
+                    log_fn(f"  '{entry.name}' ships loose files - routed to the "
+                           "folders the game reads them from.")
+                else:
+                    log_fn(f"  '{entry.name}' has no assets or DLLs - skipped.")
 
     def deploy(self, log_fn=None, mode: LinkMode = LinkMode.HARDLINK,
                profile: str = "default", progress_fn=None) -> None:
@@ -476,9 +494,21 @@ class EldenRing(BaseGame):
                     _log(f"  '{e.name}': DLLs routed to {loader.name}, "
                          "assets stay with me3.")
 
+        # Loose DVDBND files ("put these in chr/") are inert until they sit at
+        # the path the game asks for - place them into their own package.  It
+        # goes FIRST in the list, i.e. highest priority: its contents come from
+        # the filemap, which already picked one winner per destination using
+        # modlist order, so it has to outrank a losing copy that another mod
+        # happens to ship correctly nested.
+        routed_dir, routed_mods = self._route_loose_files(_log)
+        if routed_dir is not None:
+            me3_entries.insert(0, me3_profile.Me3ModEntry(
+                _ROUTED_PACKAGE, me3_profile.KIND_PACKAGE, routed_dir, []))
+
         packages = sum(1 for e in me3_entries if e.package_root is not None)
         natives = sum(len(e.natives) for e in me3_entries)
-        self._report_unloadable(entries, _log, loader=loader)
+        self._report_unloadable(entries, _log, loader=loader,
+                               routed_mods=routed_mods)
 
         if loader is not None:
             _log(f"Step 3: Installing {loader.name} and {len(dll_mods)} DLL "
@@ -556,6 +586,19 @@ class EldenRing(BaseGame):
         except Exception as exc:
             _log(f"Could not clean the mod-loader files ({exc}).")
 
+        # Routed files are hardlinks we made, not the user's mod content.
+        try:
+            from Utils.deploy_custom_rules import restore_custom_rules
+            routed = self.get_routed_package_path()
+            restore_custom_rules(self.get_effective_filemap_path(), routed,
+                                 self.custom_routing_rules,
+                                 log_fn=lambda m: None)
+            if routed.is_dir():
+                shutil.rmtree(routed)
+                _log(f"Removed {routed.name}/.")
+        except Exception as exc:
+            _log(f"Could not clean the routed files ({exc}).")
+
         out_path = self.get_me3_profile_path()
         try:
             if out_path.is_file():
@@ -567,6 +610,118 @@ class EldenRing(BaseGame):
             # Never raise: the pipeline treats a restore failure as fatal, and
             # a leftover profile is harmless (deploy overwrites it).
             _log(f"Could not remove {out_path} ({exc}); it will be overwritten.")
+
+    # -----------------------------------------------------------------------
+    # Routing: loose DVDBND files -> the folder the game reads them from
+    # -----------------------------------------------------------------------
+
+    @property
+    def custom_routing_rules(self) -> list:
+        """Place loose DVDBND files into the folder the engine looks in.
+
+        Mods are routinely distributed as bare files - "put these in chr/" - and
+        under me3 that silently does nothing: the VFS keys every file by its path
+        relative to the package root (``VfsKey::for_asset_path``), so a file at
+        the root is offered as ``c0000.anibnd.dcx`` while the game asks for
+        ``chr/c0000.anibnd.dcx`` and falls back to vanilla.
+
+        The bnd type in the extension names its folder - ``partsbnd`` -> parts/,
+        ``chrbnd``/``anibnd`` -> chr/ - which is how DSMapStudio's AssetLocator
+        builds these paths too (``chr\\{id}.chrbnd.dcx``, ``map\\{id}\\...``).
+
+        Only the FLAT categories are listed.  ``mapbnd`` (map/<mapid>/),
+        ``msgbnd`` (msg/<language>/), ``geombnd`` (asset/aeg/aeg<nnn>/) and
+        ``parambnd`` (param/gameparam/) each need a subfolder the filename does
+        not determine, and ``.tpf.dcx`` appears under chr, parts, map, menu and
+        sfx alike - guessing those would put files somewhere plausible but wrong,
+        so they are left alone and reported instead.
+
+        ``flatten=True`` puts the bare filename under ``dest``, so the rule works
+        whether the file sits at the mod root or inside an optional-variant
+        subfolder (only the copy Mod Files leaves enabled reaches the filemap).
+        """
+        from Utils.deploy import CustomRule
+        return [
+            CustomRule(dest="chr",
+                       extensions=[".anibnd.dcx", ".chrbnd.dcx", ".behbnd.dcx"],
+                       flatten=True),
+            CustomRule(dest="parts", extensions=[".partsbnd.dcx"], flatten=True),
+            CustomRule(dest="sfx", extensions=[".ffxbnd.dcx"], flatten=True),
+            CustomRule(dest="material", extensions=[".matbinbnd.dcx"],
+                       flatten=True),
+            CustomRule(dest="event", extensions=[".emevd.dcx"], flatten=True),
+            CustomRule(dest="script", extensions=[".luabnd.dcx"], flatten=True),
+        ]
+
+    def get_routed_package_path(self) -> Path:
+        """Return the folder routed files are placed in (a sibling of mods/)."""
+        return self.get_effective_mod_staging_path().parent / _ROUTED_DIRNAME
+
+    def _route_loose_files(self, log_fn) -> "tuple[Path | None, set[str]]":
+        """Place loose DVDBND files into a package.
+
+        Returns ``(package_dir_or_None, mods_that_contributed)`` - the mod names
+        are needed so a mod made up ENTIRELY of loose files is not then reported
+        as having nothing loadable.
+
+        Uses the shared routing engine, pointed at our package folder instead of
+        the game root - Elden Ring copies nothing into the game, so the rules'
+        destinations are resolved inside a folder me3 serves from.
+        """
+        from Utils.deploy_custom_rules import (deploy_custom_rules,
+                                               restore_custom_rules)
+        routed = self.get_routed_package_path()
+        filemap = self.get_effective_filemap_path()
+
+        # Always clear the previous run first: a file that stopped matching (mod
+        # disabled, or moved into chr/ by hand) must not linger and keep winning.
+        try:
+            restore_custom_rules(filemap, routed, self.custom_routing_rules,
+                                 log_fn=lambda m: None)
+        except Exception:
+            pass
+        try:
+            if routed.is_dir():
+                shutil.rmtree(routed)
+        except OSError as exc:
+            log_fn(f"  Could not clear {routed.name}/ ({exc}).")
+
+        if not filemap.is_file():
+            return None, set()
+        try:
+            handled = deploy_custom_rules(
+                filemap, routed, self.get_effective_mod_staging_path(),
+                self.custom_routing_rules, mode=LinkMode.HARDLINK,
+                log_fn=lambda m: log_fn(f"  {m}"),
+            )
+        except Exception as exc:
+            # A routing failure must not lose the whole mod list.
+            log_fn(f"  Could not place loose files ({exc}).")
+            return None, set()
+        if not handled:
+            return None, set()
+
+        # Map the handled paths back to the mods they came from.
+        mods: set[str] = set()
+        try:
+            with filemap.open(encoding="utf-8", errors="surrogateescape") as fh:
+                for line in fh:
+                    if "\t" not in line:
+                        continue
+                    rel, mod_name = line.rstrip("\n").split("\t", 1)
+                    if rel.lower() in handled:
+                        mods.add(mod_name)
+        except OSError:
+            pass
+
+        log_fn(f"  Placed {len(handled)} file(s) into {routed.name}/ "
+               "at the paths the game reads them from.")
+        try:
+            if not any(routed.iterdir()):
+                return None, mods
+        except OSError:
+            return None, mods
+        return routed, mods
 
     # -----------------------------------------------------------------------
     # Native launch (me3 owns Proton discovery)
