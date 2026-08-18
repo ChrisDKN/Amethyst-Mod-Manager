@@ -17,16 +17,17 @@ import shutil
 import threading
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal, QObject
-from PySide6.QtGui import QFont
+from PySide6.QtCore import Qt, Signal, QObject, QSize
+from PySide6.QtGui import QFont, QIcon
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QLineEdit,
     QPushButton, QScrollArea, QFrame, QRadioButton, QCheckBox, QButtonGroup,
-    QComboBox,
+    QToolButton,
 )
 
 from gui_qt.theme_qt import active_palette, _c
 from gui_qt.add_game_view import _game_logo
+from gui_qt.icons import icon
 from gui_qt.safe_emit import safe_emit
 from gui_qt.worker import run_in_worker, NO_EMIT
 # Crash-proof diagnostic prints (Flatpak stdout can raise BrokenPipeError and
@@ -37,6 +38,8 @@ from Utils.deploy import LinkMode
 # Left column width - the image panel and the options panel share it.
 _LEFT_COL_W = 240
 _LOGO_SQ = 200
+_INSTALL_BUTTON_SQ = 58
+_INSTALL_ICON_SQ = 42
 
 
 def _heroic_app_names(game) -> list[str]:
@@ -111,10 +114,10 @@ class _ScanSignals(QObject):
     # ^ (candidates: list of {source, path, prefix, id} dicts - one per
     #    launcher the game was detected on, in detection-priority order -
     #    and auto_apply: False for the candidates-only rescan that fills the
-    #    launcher dropdown of an already-configured game)
+    #    launcher picker of an already-configured game)
     drive_scan_found = Signal(object)       # (path|None) - full-drive Scan button
-    prefix_found = Signal(object, object, object)
-    # ^ (path|None, lutris_slug|None, faugus_gameid|None)
+    prefix_found = Signal(object, object, object, object)
+    # ^ (path|None, source|None, lutris_slug|None, faugus_gameid|None)
     # Browse (portal) picks - fired from the portal WORKER thread, so they must
     # be marshalled to the GUI thread via a Signal before touching any widget.
     game_picked = Signal(object)            # (path|None)
@@ -152,14 +155,14 @@ class ConfigureGameView(QWidget):
         self._found_heroic_app: str | None = None
         self._found_faugus_gameid: str | None = None
         self._found_shortcut_appid: str | None = None
-        # Dropdown choices when the game is installed via more than one
-        # launcher: {source, path, prefix, id} dicts, aligned with the combo.
+        # Choices when the game is installed via more than one launcher:
+        # {source, path, prefix, id} dicts, aligned with the icon buttons.
         self._install_choices: list[dict] = []
         # Launcher the current path is attributed to. Two launchers can point
         # at the SAME folder (a Lutris entry and a Faugus entry for one
-        # install), so the path alone can't say which dropdown row is selected.
+        # install), so the path alone can't say which icon is selected.
         self._install_source: str | None = None
-        self._install_explicit = False   # user picked from the dropdown
+        self._install_explicit = False   # user picked a launcher button
         self._custom_staging: Path | None = None
         self._custom_saves: Path | None = None
         # Bumped on every profile switch. The scan workers capture it and drop
@@ -206,6 +209,18 @@ class ConfigureGameView(QWidget):
         lbl = QLabel(text)
         lbl.setStyleSheet(f"font-size:14px; font-weight:600; color:{self._c('TEXT_SEP')};")
         return lbl
+
+    def _section_header_row(self, text: str, status: QLabel) -> QHBoxLayout:
+        """Put a section title and its status on one compact row."""
+        row = QHBoxLayout()
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(10)
+        row.addWidget(self._section_header(text))
+        row.addStretch(1)
+        status.setWordWrap(False)
+        status.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        row.addWidget(status)
+        return row
 
     def _panel(self, title: str | None = None) -> tuple[QFrame, QVBoxLayout]:
         """A bordered card panel. Returns (frame, inner vbox). If *title* is given
@@ -369,9 +384,9 @@ class ConfigureGameView(QWidget):
         g = self._game
 
         # --- Game install folder ---
-        v.addWidget(self._section_header(self.tr("Game Installation Folder")))
         self._game_status = self._status(self.tr("Scanning Steam libraries…"), "TEXT_WARN")
-        v.addWidget(self._game_status)
+        v.addLayout(self._section_header_row(
+            self.tr("Game Installation Folder"), self._game_status))
         # Launcher picker - hidden unless the scan detects the game in more
         # than one place (e.g. both a Heroic and a Lutris install).
         self._install_row = QWidget()
@@ -379,12 +394,15 @@ class ConfigureGameView(QWidget):
         pick.setContentsMargins(0, 0, 0, 0)
         pick.setSpacing(6)
         pick.addWidget(QLabel(self.tr("Detected installs:")))
-        self._install_combo = QComboBox()
-        self._install_combo.setSizeAdjustPolicy(
-            QComboBox.AdjustToMinimumContentsLengthWithIcon)
-        self._install_combo.setMinimumContentsLength(24)
-        self._install_combo.activated.connect(self._guard(self._on_install_combo))
-        pick.addWidget(self._install_combo, 1)
+        self._install_buttons_host = QWidget()
+        self._install_buttons_layout = QHBoxLayout(self._install_buttons_host)
+        self._install_buttons_layout.setContentsMargins(0, 0, 0, 0)
+        self._install_buttons_layout.setSpacing(6)
+        self._install_group = QButtonGroup(self)
+        self._install_group.setExclusive(True)
+        self._install_buttons: list[QToolButton] = []
+        pick.addWidget(self._install_buttons_host)
+        pick.addStretch(1)
         self._install_row.hide()
         v.addWidget(self._install_row)
         self._game_edit = self._path_edit()
@@ -401,7 +419,6 @@ class ConfigureGameView(QWidget):
         v.addWidget(self._divider())
 
         # --- Proton prefix ---
-        v.addWidget(self._section_header(self.tr("Proton Prefix (compatdata/pfx)")))
         has_prefix_src = bool(getattr(g, "steam_id", None)
                               or _heroic_app_names(g)
                               or _lutris_available(g)
@@ -411,7 +428,8 @@ class ConfigureGameView(QWidget):
             self.tr("Scanning for prefix…") if has_prefix_src
             else self.tr("No launcher ID - prefix not applicable."),
             "TEXT_WARN" if has_prefix_src else "TEXT_DIM")
-        v.addWidget(self._prefix_status)
+        v.addLayout(self._section_header_row(
+            self.tr("Proton Prefix (compatdata/pfx)"), self._prefix_status))
         self._prefix_edit = self._path_edit()
         self._prefix_edit.setEnabled(has_prefix_src)
         self._prefix_edit.editingFinished.connect(self._on_prefix_typed)
@@ -654,7 +672,7 @@ class ConfigureGameView(QWidget):
                     rb.setChecked(True)
             self._select_plugins_txt_default()
             self._save_btn.setEnabled(True)
-            # Candidates-only rescan: fills the launcher dropdown so the user
+            # Candidates-only rescan: fills the launcher picker so the user
             # can switch to another detected install without touching the
             # configured path until they pick one.
             self._start_game_scan(auto_apply=False)
@@ -903,7 +921,7 @@ class ConfigureGameView(QWidget):
         self._game_edit.setText(str(path))
         if source == "manual":
             # Browsed / drive-scanned path: no launcher claim to preserve, so
-            # let the dropdown re-derive which entry (if any) this folder is.
+            # let the picker re-derive which entry (if any) this folder is.
             self._install_source = None
             self._install_explicit = False
         # Steam/Heroic/Lutris/Faugus library detection already verified the exe
@@ -936,7 +954,7 @@ class ConfigureGameView(QWidget):
         self._game_status.setText(msg)
         self._game_status.setStyleSheet(f"color:{self._c(tone)};")
         self._save_btn.setEnabled(True)
-        self._sync_install_combo(path)
+        self._sync_install_buttons(path)
         self._probe_version(path)
 
     # ---- installed-game version -------------------------------------------
@@ -968,11 +986,26 @@ class ConfigureGameView(QWidget):
             self._version_lbl.clear()
             self._version_lbl.hide()
 
-    def _set_prefix(self, path: Path, configured=False):
+    def _set_prefix(self, path: Path, configured=False, source=None):
         self._found_prefix = path
         self._prefix_edit.setText(str(path))
-        msg = ("Prefix already configured. You can update the path below."
-               if configured else "Found via Steam compatdata.")
+        if configured:
+            msg = self.tr(
+                "Prefix already configured. You can update the path below.")
+        elif source == "steam":
+            msg = self.tr("Found via Steam compatdata.")
+        elif source == "shortcut":
+            msg = self.tr("Found via non-Steam shortcut compatdata.")
+        elif source == "heroic":
+            msg = self.tr("Found via Heroic Games Launcher.")
+        elif source == "lutris":
+            msg = self.tr("Found via Lutris.")
+        elif source == "faugus":
+            msg = self.tr("Found via Faugus Launcher.")
+        elif source == "manual":
+            msg = self.tr("Prefix selected manually.")
+        else:
+            msg = self.tr("Prefix found automatically.")
         self._prefix_status.setText(msg)
         self._prefix_status.setStyleSheet(f"color:{self._c('TEXT_OK')};")
 
@@ -995,7 +1028,7 @@ class ConfigureGameView(QWidget):
                 self._game_status.setText(self.tr("Executable found."))
                 self._game_status.setStyleSheet(f"color:{self._c('TEXT_OK')};")
             self._save_btn.setEnabled(True)
-            self._sync_install_combo(path)
+            self._sync_install_buttons(path)
             self._probe_version(path)
 
     def _on_prefix_typed(self):
@@ -1030,7 +1063,7 @@ class ConfigureGameView(QWidget):
 
     def _on_prefix_picked(self, path):
         if path:
-            self._set_prefix(Path(path))
+            self._set_prefix(Path(path), source="manual")
 
     def _browse_staging(self):
         from Utils.portal_filechooser import pick_folder
@@ -1119,7 +1152,7 @@ class ConfigureGameView(QWidget):
     def _start_game_scan(self, auto_apply=True):
         """Scan every launcher for the game. With *auto_apply* the first hit
         is written into the fields (fresh-game flow); without it the results
-        only feed the launcher dropdown (configured-game flow)."""
+        only feed the launcher picker (configured-game flow)."""
         if auto_apply:
             self._game_status.setText(self.tr("Scanning Steam libraries…"))
             self._game_status.setStyleSheet(f"color:{self._c('TEXT_WARN')};")
@@ -1262,7 +1295,7 @@ class ConfigureGameView(QWidget):
                 self.tr("Not found automatically. Browse manually to locate the game folder."))
             self._game_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
 
-    # ---- launcher dropdown -------------------------------------------------
+    # ---- launcher picker ---------------------------------------------------
     def _saved_launcher_source(self):
         """Launcher this profile's game was last resolved through, or None.
 
@@ -1283,7 +1316,7 @@ class ConfigureGameView(QWidget):
         return None
 
     def _populate_install_choices(self, candidates):
-        """Fill the launcher dropdown with every detected install, plus the
+        """Fill the launcher picker with every detected install, plus the
         current path when detection didn't produce it. Shown only when that
         leaves the user an actual choice (>= 2 entries)."""
         choices = []
@@ -1299,42 +1332,96 @@ class ConfigureGameView(QWidget):
         names = {"steam": "Steam", "heroic": "Heroic", "lutris": "Lutris",
                  "faugus": "Faugus",
                  "shortcut": self.tr("Non-Steam Shortcut")}
-        combo = self._install_combo
-        combo.clear()
+        icon_names = {"steam": "steam.png", "shortcut": "steam.png",
+                      "heroic": "heroic.png", "lutris": "lutris.png",
+                      "faugus": "faugus.png"}
+        self._clear_install_buttons()
         for i, c in enumerate(choices):
+            source = c["source"]
+            launcher = names.get(source, source)
             label = (self.tr("Current: {0}").format(c["path"])
-                     if c["source"] == "current"
-                     else f"{names.get(c['source'], c['source'])} - {c['path']}")
-            combo.addItem(label)
-            combo.setItemData(i, str(c["path"]), Qt.ToolTipRole)
+                     if source == "current"
+                     else f"{launcher} - {c['path']}")
+            button = QToolButton(self._install_buttons_host)
+            button.setObjectName("InstallChoiceButton")
+            button.setCheckable(True)
+            button.setCursor(Qt.PointingHandCursor)
+            button.setFixedSize(_INSTALL_BUTTON_SQ, _INSTALL_BUTTON_SQ)
+            button.setToolTip(label)
+            button.setAccessibleName(label)
+            image_name = icon_names.get(source)
+            if image_name:
+                button.setIcon(icon(image_name, _INSTALL_ICON_SQ))
+                button.setIconSize(QSize(_INSTALL_ICON_SQ, _INSTALL_ICON_SQ))
+                button.setToolButtonStyle(Qt.ToolButtonIconOnly)
+            else:
+                # A configured path that was not rediscovered is still a valid
+                # choice. Use its game artwork so it remains an icon tile too.
+                game_id = (getattr(self._game, "game_id", None)
+                           or self._game.name.lower().replace(" ", "_"))
+                pm = _game_logo(game_id, _INSTALL_ICON_SQ)
+                if pm is not None:
+                    button.setIcon(QIcon(pm))
+                    button.setIconSize(QSize(_INSTALL_ICON_SQ, _INSTALL_ICON_SQ))
+                    button.setToolButtonStyle(Qt.ToolButtonIconOnly)
+                else:
+                    button.setText("?")
+                    button.setToolButtonStyle(Qt.ToolButtonTextOnly)
+            button.clicked.connect(
+                self._guard(lambda _checked=False, index=i:
+                            self._on_install_choice(index)))
+            self._install_group.addButton(button, i)
+            self._install_buttons_layout.addWidget(button)
+            self._install_buttons.append(button)
         self._install_row.setVisible(len(choices) >= 2)
-        self._sync_install_combo(cur)
+        self._sync_install_buttons(cur)
 
-    def _sync_install_combo(self, path):
-        """Point the dropdown at the choice matching *path* (or nothing).
+    def _clear_install_buttons(self):
+        for button in self._install_buttons:
+            self._install_group.removeButton(button)
+            self._install_buttons_layout.removeWidget(button)
+            button.deleteLater()
+        self._install_buttons.clear()
+
+    def _set_checked_install_button(self, index: int | None):
+        """Check *index*, allowing the exclusive group to clear when absent."""
+        if index is None:
+            self._install_group.setExclusive(False)
+            for button in self._install_buttons:
+                button.setChecked(False)
+            self._install_group.setExclusive(True)
+            return
+        if 0 <= index < len(self._install_buttons):
+            self._install_buttons[index].setChecked(True)
+
+    def _sync_install_buttons(self, path):
+        """Select the icon button for the choice matching *path* (or nothing).
 
         Several launchers can register one folder, so a path-only match would
-        snap the label back to whichever launcher was detected first - picking
+        snap the outline back to whichever launcher was detected first - picking
         Faugus would redisplay as Lutris. ``_install_source`` breaks that tie."""
-        combo = getattr(self, "_install_combo", None)
-        if combo is None or not self._install_choices:
+        if not self._install_choices:
             return
         matches = [i for i, c in enumerate(self._install_choices)
                    if path is not None and Path(c["path"]) == Path(path)]
         if not matches:
-            combo.setCurrentIndex(-1)
+            self._set_checked_install_button(None)
             return
         for i in matches:
             if self._install_choices[i]["source"] == self._install_source:
-                combo.setCurrentIndex(i)
+                self._set_checked_install_button(i)
                 return
-        combo.setCurrentIndex(matches[0])
+        self._set_checked_install_button(matches[0])
         self._install_source = self._install_choices[matches[0]]["source"]
 
-    def _on_install_combo(self, index):
+    def _on_install_choice(self, index):
         if 0 <= index < len(self._install_choices):
             self._install_explicit = True
             self._apply_install_choice(self._install_choices[index])
+
+    # Kept as a small compatibility shim for callers from older integrations.
+    def _on_install_combo(self, index):
+        self._on_install_choice(index)
 
     def _apply_install_choice(self, c):
         """Write one scan candidate into the path fields + launcher-id state.
@@ -1356,7 +1443,8 @@ class ConfigureGameView(QWidget):
         else:
             self._set_game(Path(c["path"]), source=source)
         if c["prefix"] is not None:
-            self._set_prefix(Path(c["prefix"]), configured=(source == "current"))
+            self._set_prefix(Path(c["prefix"]),
+                             configured=(source == "current"), source=source)
         elif self._has_prefix_src:
             self._start_prefix_scan()
 
@@ -1430,6 +1518,7 @@ class ConfigureGameView(QWidget):
         g = game if game is not None else self._game
         gen = self._scan_gen if gen is None else gen
         found = None
+        found_source = None
         lutris_slug = None
         faugus_gameid = None
         try:
@@ -1450,9 +1539,13 @@ class ConfigureGameView(QWidget):
             for s in [x for x in ids if x]:
                 found = find_prefix(s, game_path)
                 if found:
+                    found_source = ("shortcut" if saved_appid
+                                    and s == saved_appid else "steam")
                     break
             if not found and _heroic_app_names(g):
                 found = find_heroic_prefix(_heroic_app_names(g))
+                if found:
+                    found_source = "heroic"
             exe_names = [getattr(g, "exe_name", None)] + list(
                 getattr(g, "exe_name_alts", []) or [])
             exe_names = [e for e in exe_names if e]
@@ -1462,6 +1555,7 @@ class ConfigureGameView(QWidget):
                     info = find_lutris_game_info_by_exe(exe)
                     if info and info[1] is not None:
                         found = info[1]
+                        found_source = "lutris"
                         lutris_slug = info[2]
                         break
             if not found:
@@ -1470,6 +1564,7 @@ class ConfigureGameView(QWidget):
                     info = find_faugus_game_info_by_exe(exe)
                     if info and info[1] is not None:
                         found = info[1]
+                        found_source = "faugus"
                         faugus_gameid = info[2]
                         break
             if not found:
@@ -1478,25 +1573,28 @@ class ConfigureGameView(QWidget):
                     info = find_shortcut_game_info_by_exe(exe)
                     if info and info[1] is not None:
                         found = info[1]
+                        found_source = "shortcut"
                         break
         except Exception:
             found = None
+            found_source = None
         if self._scan_gen != gen:
             # A prefix belongs to the install the scan was started for; landing
             # it in another profile's form would point that profile at it.
             return
-        safe_emit(self._sig.prefix_found, found, lutris_slug, faugus_gameid)
+        safe_emit(self._sig.prefix_found, found, found_source,
+                  lutris_slug, faugus_gameid)
 
-    def _on_prefix_found(self, found, lutris_slug, faugus_gameid):
+    def _on_prefix_found(self, found, source, lutris_slug, faugus_gameid):
         # The prefix scan probes every launcher, so it can hand back an id for
-        # one the user just ruled out in the dropdown - don't re-attach that.
+        # one the user just ruled out in the picker - don't re-attach that.
         picked = self._install_source if self._install_explicit else None
         if lutris_slug and picked in (None, "lutris"):
             self._found_lutris_slug = lutris_slug
         if faugus_gameid and picked in (None, "faugus"):
             self._found_faugus_gameid = faugus_gameid
         if found:
-            self._set_prefix(Path(found))
+            self._set_prefix(Path(found), source=source)
         else:
             self._prefix_status.setText(
                 self.tr("Prefix not found automatically. Not needed if game is Linux native."))

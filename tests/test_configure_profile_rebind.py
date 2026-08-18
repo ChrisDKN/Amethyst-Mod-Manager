@@ -234,7 +234,7 @@ class ConfigureProfileRebindTests(unittest.TestCase):
 
                 # test2 -> Lutris, then mimic Configure Save's registry rebuild.
                 view._populate_install_choices(choices)
-                view._on_install_combo(0)
+                view._on_install_choice(0)
                 view._on_save()
                 game = _ProfilePathGame(config)
                 activate(game, "test2")
@@ -244,7 +244,7 @@ class ConfigureProfileRebindTests(unittest.TestCase):
                 activate(game, "test")
                 view.refresh_for_profile(game, "test")
                 view._populate_install_choices(choices)
-                view._on_install_combo(1)
+                view._on_install_choice(1)
                 view._on_save()
                 game = _ProfilePathGame(config)
                 activate(game, "test")
@@ -259,10 +259,11 @@ class ConfigureProfileRebindTests(unittest.TestCase):
                 self.assertEqual(view._found_prefix, lutris_prefix)
                 self.assertEqual(view._prefix_edit.text(), str(lutris_prefix))
                 self.assertEqual(view._install_source, "lutris")
+                self.assertTrue(view._install_buttons[0].isChecked())
+                self.assertFalse(view._install_buttons[1].isChecked())
                 self.assertEqual(
-                    view._install_choices[view._install_combo.currentIndex()]["source"],
-                    "lutris",
-                )
+                    view._install_buttons[0].objectName(), "InstallChoiceButton")
+                self.assertFalse(view._install_buttons[0].icon().isNull())
                 test2_settings = json.loads(
                     (staging / "profiles" / "test2" / "profile_state.json")
                     .read_text(encoding="utf-8"))["profile_settings"]
@@ -278,6 +279,39 @@ class ConfigureProfileRebindTests(unittest.TestCase):
                     test_game.get_saved_launcher_id("faugus_gameid"),
                     "faugus-id",
                 )
+
+                # Launchers that really do point at separate copies must update
+                # the install and prefix fields together. The Sims setup above
+                # deliberately shares one game folder, so cover both shapes.
+                separate_choices = [
+                    {"source": "lutris", "path": root / "lutris-game",
+                     "prefix": lutris_prefix, "id": "lutris-id"},
+                    {"source": "faugus", "path": root / "faugus-game",
+                     "prefix": faugus_prefix, "id": "faugus-id"},
+                ]
+                view._found_path = separate_choices[0]["path"]
+                view._install_source = "lutris"
+                view._populate_install_choices(separate_choices)
+                view._on_install_choice(1)
+                self.assertEqual(
+                    view._game_edit.text(), str(root / "faugus-game"))
+                self.assertEqual(view._found_path, root / "faugus-game")
+                self.assertEqual(view._prefix_edit.text(), str(faugus_prefix))
+                self.assertEqual(
+                    view._prefix_status.text(), "Found via Faugus Launcher.")
+
+                expected_statuses = {
+                    "steam": "Found via Steam compatdata.",
+                    "shortcut": "Found via non-Steam shortcut compatdata.",
+                    "heroic": "Found via Heroic Games Launcher.",
+                    "lutris": "Found via Lutris.",
+                    "faugus": "Found via Faugus Launcher.",
+                    "manual": "Prefix selected manually.",
+                }
+                for source, expected in expected_statuses.items():
+                    with self.subTest(prefix_source=source):
+                        view._set_prefix(faugus_prefix, source=source)
+                        self.assertEqual(view._prefix_status.text(), expected)
 
                 view.deleteLater()
 

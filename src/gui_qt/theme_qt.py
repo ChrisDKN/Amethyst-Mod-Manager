@@ -834,6 +834,29 @@ def build_qss(pal: dict | None = None) -> str:
         border-radius: 4px;
         padding: 8px 10px;
     }}
+    /* Icon tiles for choosing between installs found through multiple
+       launchers. The active install follows the current theme accent. */
+    #InstallChoiceButton {{
+        background: {c('BG_ROW')};
+        color: {c('TEXT_MAIN')};
+        border: 1px solid {c('BORDER')};
+        border-radius: 6px;
+        padding: 6px;
+    }}
+    #InstallChoiceButton:hover {{
+        background: {c('BG_ROW_HOVER')};
+        border: 1px solid {c('ACCENT')};
+    }}
+    #InstallChoiceButton:pressed {{
+        background: {c('BG_ROW_HOVER')};
+        color: {c('TEXT_MAIN')};
+    }}
+    #InstallChoiceButton:checked {{
+        background: {c('BG_ROW')};
+        border: 2px solid {c('ACCENT')};
+        padding: 5px;
+    }}
+    #InstallChoiceButton:checked:hover {{ background: {c('BG_ROW_HOVER')}; }}
     /* Consistent form button (Browse/Open/Scan/Reset, Cancel) - same height as
        the primary Save/Danger buttons so rows line up. */
     #FormButton {{
