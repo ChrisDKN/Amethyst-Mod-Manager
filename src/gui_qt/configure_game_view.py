@@ -130,6 +130,11 @@ class ConfigureGameView(QWidget):
         # Dropdown choices when the game is installed via more than one
         # launcher: {source, path, prefix, id} dicts, aligned with the combo.
         self._install_choices: list[dict] = []
+        # Launcher the current path is attributed to. Two launchers can point
+        # at the SAME folder (a Lutris entry and a Faugus entry for one
+        # install), so the path alone can't say which dropdown row is selected.
+        self._install_source: str | None = None
+        self._install_explicit = False   # user picked from the dropdown
         self._custom_staging: Path | None = None
         self._custom_saves: Path | None = None
 
@@ -561,6 +566,7 @@ class ConfigureGameView(QWidget):
     def _prepopulate(self):
         g = self._game
         if g.is_configured():
+            self._install_source = self._saved_launcher_source()
             gp = g.get_game_path()
             if gp:
                 self._set_game(Path(gp), configured=True)
@@ -815,6 +821,11 @@ class ConfigureGameView(QWidget):
     def _set_game(self, path: Path, configured=False, source="steam"):
         self._found_path = path
         self._game_edit.setText(str(path))
+        if source == "manual":
+            # Browsed / drive-scanned path: no launcher claim to preserve, so
+            # let the dropdown re-derive which entry (if any) this folder is.
+            self._install_source = None
+            self._install_explicit = False
         # Steam/Heroic/Lutris/Faugus library detection already verified the exe
         # lives here, so trust those sources. For manual browse / drive-scan / typed
         # paths the folder is whatever the user picked - verify the exe is
@@ -891,6 +902,8 @@ class ConfigureGameView(QWidget):
         if text:
             path = Path(text)
             self._found_path = path
+            self._install_source = None
+            self._install_explicit = False
             present = self._exe_present_in(path)
             if present is False:
                 names = ", ".join(self._exe_names())
@@ -1147,6 +1160,25 @@ class ConfigureGameView(QWidget):
             self._game_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
 
     # ---- launcher dropdown -------------------------------------------------
+    def _saved_launcher_source(self):
+        """Launcher a configured game was last resolved through, from paths.json.
+
+        The saved id is the only persisted hint of which entry to reopen on
+        when two launchers share the install folder."""
+        import json
+        try:
+            from Utils.config_paths import get_game_config_path
+            pf = get_game_config_path(self._game.name)
+            data = json.loads(pf.read_text(encoding="utf-8")) if pf.is_file() else {}
+        except (OSError, json.JSONDecodeError, ImportError, AttributeError):
+            return None
+        for key, source in (("heroic_app_name", "heroic"),
+                            ("lutris_slug", "lutris"),
+                            ("faugus_gameid", "faugus")):
+            if str((data or {}).get(key, "") or "").strip():
+                return source
+        return None
+
     def _populate_install_choices(self, candidates):
         """Fill the launcher dropdown with every detected install, plus the
         current path when detection didn't produce it. Shown only when that
@@ -1173,18 +1205,29 @@ class ConfigureGameView(QWidget):
         self._sync_install_combo(cur)
 
     def _sync_install_combo(self, path):
-        """Point the dropdown at the choice matching *path* (or nothing)."""
+        """Point the dropdown at the choice matching *path* (or nothing).
+
+        Several launchers can register one folder, so a path-only match would
+        snap the label back to whichever launcher was detected first - picking
+        Faugus would redisplay as Lutris. ``_install_source`` breaks that tie."""
         combo = getattr(self, "_install_combo", None)
         if combo is None or not self._install_choices:
             return
-        for i, c in enumerate(self._install_choices):
-            if path is not None and Path(c["path"]) == Path(path):
+        matches = [i for i, c in enumerate(self._install_choices)
+                   if path is not None and Path(c["path"]) == Path(path)]
+        if not matches:
+            combo.setCurrentIndex(-1)
+            return
+        for i in matches:
+            if self._install_choices[i]["source"] == self._install_source:
                 combo.setCurrentIndex(i)
                 return
-        combo.setCurrentIndex(-1)
+        combo.setCurrentIndex(matches[0])
+        self._install_source = self._install_choices[matches[0]]["source"]
 
     def _on_install_combo(self, index):
         if 0 <= index < len(self._install_choices):
+            self._install_explicit = True
             self._apply_install_choice(self._install_choices[index])
 
     def _apply_install_choice(self, c):
@@ -1192,6 +1235,7 @@ class ConfigureGameView(QWidget):
         The ids are mutually exclusive - switching launchers must not leak the
         previous selection's id into the save."""
         source = c["source"]
+        self._install_source = source
         self._found_heroic_app = c["id"] if source == "heroic" else None
         self._found_lutris_slug = c["id"] if source == "lutris" else None
         self._found_faugus_gameid = c["id"] if source == "faugus" else None
@@ -1307,9 +1351,12 @@ class ConfigureGameView(QWidget):
         safe_emit(self._sig.prefix_found, found, lutris_slug, faugus_gameid)
 
     def _on_prefix_found(self, found, lutris_slug, faugus_gameid):
-        if lutris_slug:
+        # The prefix scan probes every launcher, so it can hand back an id for
+        # one the user just ruled out in the dropdown - don't re-attach that.
+        picked = self._install_source if self._install_explicit else None
+        if lutris_slug and picked in (None, "lutris"):
             self._found_lutris_slug = lutris_slug
-        if faugus_gameid:
+        if faugus_gameid and picked in (None, "faugus"):
             self._found_faugus_gameid = faugus_gameid
         if found:
             self._set_prefix(Path(found))
