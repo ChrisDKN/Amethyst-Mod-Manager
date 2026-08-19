@@ -615,6 +615,7 @@ class WizardViewBase(QWidget):
     def _enter_proton(self, exe, exe_name: str, display_name: str, on_chosen,
                       *, allow_game_prefix: bool = True,
                       isolated_prefix_dir_fn=None,
+                      default_prefix_mode: str | None = None,
                       title: str | None = None,
                       missing_text: str = ""):
         """(Re)build the Proton step on entry - the exe may only exist after
@@ -643,6 +644,7 @@ class WizardViewBase(QWidget):
             log_fn=self._log,
             allow_game_prefix=allow_game_prefix,
             isolated_prefix_dir_fn=isolated_prefix_dir_fn,
+            default_prefix_mode=default_prefix_mode,
             title=title,
         ))
 

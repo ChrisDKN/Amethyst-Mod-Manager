@@ -53,6 +53,7 @@ class ProtonStepWidget(QWidget):
                  isolated_prefix_dir_fn=None,
                  title: str | None = None,
                  deps_note: str | None = None,
+                 default_prefix_mode: str | None = None,
                  show_launch_args: bool = False,
                  default_launch_args: str = "",
                  show_discrete_gpu: bool = False):
@@ -121,6 +122,11 @@ class ProtonStepWidget(QWidget):
         dim = f"color:{_c(p,'TEXT_DIM')};"
         # ---- prefix mode checkboxes ----
         mode = load_prefix_mode(game, tool_exe_name)
+        # Apply a tool-specific default only before this exe has any saved
+        # Proton choice. After the first Continue, the user's selection wins.
+        if (default_prefix_mode is not None
+                and load_proton_override(game, tool_exe_name) is None):
+            mode = default_prefix_mode
         game_pfx_ok = self._game_prefix_available()
         if mode == PREFIX_MODE_GAME and not (allow_game_prefix and game_pfx_ok):
             mode = PREFIX_MODE_ISOLATED

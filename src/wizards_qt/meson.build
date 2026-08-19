@@ -17,6 +17,7 @@ py.install_sources(
   'eslifier_view.py',
   'esm_fixes_view.py',
   'fallout_downgrade_view.py',
+  'fallout_4_downgrader_view.py',
   'fnv_4gb_view.py',
   'gpak_view.py',
   'me3_install_view.py',

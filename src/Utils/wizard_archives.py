@@ -65,6 +65,61 @@ def fetch_latest_github_asset(api_url: str, archive_keywords: list[str]) -> tupl
     raise RuntimeError(f"No matching asset found in the latest GitHub release ({tag}).")
 
 
+def fetch_newest_github_asset(api_url: str, asset_keywords: list[str], *,
+                              extensions: "set[str] | None" = None,
+                              max_pages: int = 10) -> tuple[str, str]:
+    """Return the newest matching asset across a repository's releases.
+
+    Unlike :func:`fetch_latest_github_asset`, *api_url* points at the releases
+    collection (``.../releases``), not ``.../releases/latest``. Releases are
+    inspected newest-first and the first asset whose filename contains every
+    keyword is returned. This suits multi-tool repositories where the newest
+    release may not publish the requested application.
+
+    When *extensions* is supplied, only filenames ending in one of those
+    suffixes are considered. Up to *max_pages* of 100 releases are searched.
+    """
+    keywords = [str(keyword).lower() for keyword in asset_keywords]
+    suffixes = ({str(extension).lower() for extension in extensions}
+                if extensions is not None else None)
+
+    for page in range(1, max(1, max_pages) + 1):
+        separator = "&" if "?" in api_url else "?"
+        page_url = f"{api_url}{separator}per_page=100&page={page}"
+        req = urllib.request.Request(
+            page_url,
+            headers={"Accept": "application/vnd.github+json",
+                     "User-Agent": "ModManager/1.0"},
+        )
+        from Utils.ca_bundle import get_ssl_context
+        with urllib.request.urlopen(
+                req, timeout=15, context=get_ssl_context()) as resp:
+            releases = _json.loads(resp.read().decode())
+        if not isinstance(releases, list):
+            raise RuntimeError("GitHub returned an invalid releases response.")
+
+        for release in releases:
+            if not isinstance(release, dict) or release.get("draft"):
+                continue
+            tag = release.get("tag_name", "unknown")
+            for asset in release.get("assets", []):
+                name = str(asset.get("name", "")).lower()
+                if suffixes is not None and not any(
+                        name.endswith(extension) for extension in suffixes):
+                    continue
+                if all(keyword in name for keyword in keywords):
+                    url = asset.get("browser_download_url", "")
+                    if url:
+                        return str(tag), str(url)
+
+        if len(releases) < 100:
+            break
+
+    wanted = ", ".join(asset_keywords)
+    raise RuntimeError(
+        f"No GitHub release asset matching '{wanted}' was found.")
+
+
 # ---------------------------------------------------------------------------
 # Locate
 # ---------------------------------------------------------------------------

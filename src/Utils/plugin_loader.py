@@ -334,6 +334,9 @@ _WIZARD_CLASS_EXES: dict[str, set[str]] = {
     "wizards.bethini.BethINIWizard": {"bethini.exe"},
     "wizards.wrye_bash.WryeBashWizard": {"wrye bash.exe"},
     "wizards.script_merger_tw3.ScriptMergerWizard": {"witcherscriptmerger.exe"},
+    "wizards.fallout_4_downgrader.Fallout4DowngraderWizard": {
+        "fallout-4-steam-downgrader.exe",
+    },
 }
 
 

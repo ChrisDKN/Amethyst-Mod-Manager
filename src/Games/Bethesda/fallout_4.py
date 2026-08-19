@@ -67,6 +67,16 @@ class Fallout_4(Fallout_3):
         ))
         return self._base_wizard_tools() + bodyslide_tools + [
             WizardTool(
+                id="downgrade_fo4",
+                label="Downgrade Fallout 4",
+                description=(
+                    "Download the latest Fallout 4 Steam Downgrader and run "
+                    "it from the game folder."),
+                dialog_class_path=(
+                    "wizards.fallout_4_downgrader.Fallout4DowngraderWizard"),
+                category="Setup and Installers",
+            ),
+            WizardTool(
                 id="install_se_fo4",
                 label="Install Script Extender (F4SE)",
                 description="Download and install F4SE into the game folder.",
