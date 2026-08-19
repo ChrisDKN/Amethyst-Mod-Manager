@@ -86,6 +86,11 @@ class NpcViewerView(QWidget):
         self._npcs: list = []
         self._resolver = None
         self._records = None
+        self._records_gen = -1
+        # The catalogue worker preloads the complete record stack while the
+        # user scans the list. An immediate click shares that one operation
+        # instead of starting a second walk over the game's master plugins.
+        self._records_lock = threading.Lock()
         # Lazy per-mod archive lookups, for profiles with no BSA index.
         self._mod_archives: dict = {}
         self._archive_mod_list = None
@@ -294,6 +299,7 @@ class NpcViewerView(QWidget):
         if self._closing:
             return
         self._records = None
+        self._records_gen = -1
         self._mod_archives = {}
         self._archive_mod_list = None
         self._archive_owner = {}
@@ -401,24 +407,19 @@ class NpcViewerView(QWidget):
                 self._log(f"View NPCs: scan failed: {exc}")
                 npcs = []
             safe_emit(self._scan_done, gen, npcs)
-            # The vanilla master is the expensive, shared half of nearly
-            # every body lookup. Warm it after publishing the list, while the
-            # user is choosing an NPC; parse_cached single-flights an immediate
-            # click onto this same work rather than duplicating it.
-            if gen == self._gen and self._data is not None:
-                master_name = _primary_master(self._game)
-                master = (_find_named(Path(self._data), master_name)
-                          if master_name else None)
-                if master is not None:
-                    try:
-                        import time
-                        from Utils.npc_body import parse_cached
-                        started = time.monotonic()
-                        parse_cached(master)
-                        self._log("View NPCs: core body records ready "
+            # Publish the list first, then prepare every body/outfit record in
+            # the time the user spends choosing an NPC. Warming only the core
+            # master still left DLC and patch plugins on the first-click path.
+            if gen == self._gen:
+                try:
+                    import time
+                    started = time.monotonic()
+                    self._body_records()
+                    if gen == self._gen:
+                        self._log("View NPCs: body and outfit records ready "
                                   f"({(time.monotonic() - started) * 1000:.0f}ms)")
-                    except Exception as exc:             # noqa: BLE001
-                        self._log(f"View NPCs: body-record warm-up failed: {exc!r}")
+                except Exception as exc:                 # noqa: BLE001
+                    self._log(f"View NPCs: body-record warm-up failed: {exc!r}")
 
         threading.Thread(target=worker, daemon=True).start()
 
@@ -656,15 +657,23 @@ class NpcViewerView(QWidget):
         an NPC's outfit at another mod's armour while shipping no meshes at
         all, and nothing narrower would ever see it.
         """
-        if self._records is None:
-            from Utils.npc_body import load_order_records
-            gen = self._gen
-            self._records = load_order_records(
-                self._profile_dir, self._staging, self._data,
-                cancel=lambda: gen != self._gen) or []
-            self._log(f"View NPCs: read {len(self._records)} plugin(s) "
-                      f"for body and outfit records")
-        return self._records
+        with self._records_lock:
+            if self._records is None or self._records_gen != self._gen:
+                from Utils.npc_body import load_order_records
+                gen = self._gen
+                records = load_order_records(
+                    self._profile_dir, self._staging, self._data,
+                    cancel=lambda: gen != self._gen) or []
+                # A refresh can invalidate the profile while the background
+                # parse is running. Never publish that old stack into the new
+                # generation; its warm-up will acquire this lock next.
+                if gen != self._gen:
+                    return []
+                self._records = records
+                self._records_gen = gen
+                self._log(f"View NPCs: read {len(records)} plugin(s) "
+                          f"for body and outfit records")
+            return self._records
 
     def _from_mod_archives(self, rel: str):
         """Read a mesh from an enabled mod's own BSA, in modlist priority.
@@ -942,25 +951,6 @@ def _load_options(load_opts):
         return None, False, None
     tex_override, keep_view, *rest = load_opts
     return tex_override, keep_view, rest[0] if rest else None
-
-
-def _find_named(directory: Path, name: str) -> "Path | None":
-    low = name.lower()
-    try:
-        for p in directory.iterdir():
-            if p.name.lower() == low and p.is_file():
-                return p
-    except OSError:
-        pass
-    return None
-
-
-def _primary_master(game) -> str:
-    """The game's core plugin, used only to warm the body-record cache."""
-    for name in getattr(game, "vanilla_plugins", ()) or ():
-        if str(name).lower().endswith((".esm", ".esp", ".esl")):
-            return str(name)
-    return ""
 
 
 def _string_languages_for(game) -> tuple[str, ...]:

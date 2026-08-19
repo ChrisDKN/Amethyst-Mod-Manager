@@ -491,7 +491,8 @@ class _Mesh:
                  "env_image", "mask_image", "env_scale",
                  "alpha_threshold", "alpha_blend", "center", "has_colors",
                  "tint", "rmaos_image", "rmaos_tex", "pbr", "pbr_params",
-                 "srgb_albedo",
+                 "srgb_albedo", "texture_clamp_mode",
+                 "double_sided", "depth_test", "depth_write",
                  "vao", "vbo", "ibo", "texture", "normal_tex",
                  "env_tex", "mask_tex")
 
@@ -500,7 +501,9 @@ class _Mesh:
                  env_image=None, mask_image=None, env_scale=0.0,
                  alpha_threshold=-1.0, alpha_blend=False, center=(0.0, 0.0, 0.0),
                  has_colors=False, tint=(1.0, 1.0, 1.0), rmaos_image=None,
-                 pbr=False, pbr_params=(0.04, 1.0), srgb_albedo=False):
+                 pbr=False, pbr_params=(0.04, 1.0), srgb_albedo=False,
+                 texture_clamp_mode=3, double_sided=False,
+                 depth_test=True, depth_write=True):
         self.name = name
         self.verts = verts
         self.indices = indices
@@ -529,6 +532,10 @@ class _Mesh:
         # The DDS declared an sRGB format, so its values need
         # linearising before lighting. Legacy files never say.
         self.srgb_albedo = srgb_albedo
+        self.texture_clamp_mode = texture_clamp_mode
+        self.double_sided = double_sided
+        self.depth_test = depth_test
+        self.depth_write = depth_write
         self.tri_count = tri_count
         self.vao = self.vbo = self.ibo = None
         self.texture = self.normal_tex = None
@@ -576,31 +583,44 @@ def _fit_texture(img):
 def _multiply_tint_map(base, tint):
     """Composite a FaceGen tint map over a head's base skin texture.
 
-    Bethesda's tint-mask convention: the map is multiplied at DOUBLE strength,
-    so its flat field (which carries the NPC's skin tone, not a fixed grey)
-    leaves the skin near enough alone while the painted regions - brows,
-    eyeshadow, lipstick, freckles - darken and colour it. Done here rather
-    than in the shader so the existing single-diffuse path is untouched.
+    Bethesda's tint-mask convention: the map is multiplied at DOUBLE strength.
+    Its flat field carries the NPC's texture-lighting colour (rather than a
+    fixed grey), while painted regions add brows, eyeshadow, lipstick and
+    freckles. Done here rather than in the shader so the existing
+    single-diffuse path is untouched.
 
-    An approximation of the engine's blend, not a reproduction of it.
+    Keep the multiply in a wide intermediate.  Doubling the 8-bit tint image
+    first clips every value above 0.5 to white; a typical skin field is about
+    0.87, so that mistake removes the head's lighting-tint boost while the
+    body still receives it in the shader and creates a very visible neck seam.
     """
-    from PySide6.QtGui import QImage, QPainter
+    from PIL import Image as PilImage, ImageMath
+    from PySide6.QtGui import QImage
 
     scaled = tint.scaled(base.width(), base.height(),
                          Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
-    doubled = scaled.convertToFormat(QImage.Format_RGB32)
-    p = QPainter(doubled)
-    # Plus against itself is a saturating x2 - the mask's own brightening step.
-    p.setCompositionMode(QPainter.CompositionMode_Plus)
-    p.drawImage(0, 0, doubled.copy())
-    p.end()
-
-    out = base.convertToFormat(QImage.Format_ARGB32)
-    p = QPainter(out)
-    p.setCompositionMode(QPainter.CompositionMode_Multiply)
-    p.drawImage(0, 0, doubled)
-    p.end()
-    return out
+    base_rgba = base.convertToFormat(QImage.Format_RGBA8888)
+    tint_rgba = scaled.convertToFormat(QImage.Format_RGBA8888)
+    base_image = PilImage.frombytes(
+        "RGBA", (base_rgba.width(), base_rgba.height()),
+        bytes(base_rgba.constBits()))
+    tint_image = PilImage.frombytes(
+        "RGBA", (tint_rgba.width(), tint_rgba.height()),
+        bytes(tint_rgba.constBits()))
+    base_channels = base_image.split()
+    tint_channels = tint_image.split()
+    channels = [
+        ImageMath.lambda_eval(
+            lambda args: args["base"] * args["tint"] * 2 / 255,
+            base=base_channel, tint=tint_channel).convert("L")
+        for base_channel, tint_channel
+        in zip(base_channels[:3], tint_channels[:3])
+    ]
+    result = PilImage.merge("RGB", tuple(channels)).convert("RGBA")
+    result.putalpha(base_channels[3])
+    raw = result.tobytes("raw", "RGBA")
+    return QImage(raw, result.width, result.height,
+                  QImage.Format_RGBA8888).copy()
 
 
 def _remap_palette(base, palette, index: float):
@@ -732,7 +752,7 @@ def _model_space_normal(nrm_blob, spec_blob, log=None):
         return None
 
 
-def _make_gl_texture(img):
+def _make_gl_texture(img, clamp_mode=3):
     """Upload *img* explicitly rather than via QOpenGLTexture(QImage).
 
     The convenience constructor PREMULTIPLIES by alpha, which silently scales
@@ -753,7 +773,13 @@ def _make_gl_texture(img):
     tex.generateMipMaps()
     tex.setMinificationFilter(QOpenGLTexture.LinearMipMapLinear)
     tex.setMagnificationFilter(QOpenGLTexture.Linear)
-    tex.setWrapMode(QOpenGLTexture.Repeat)
+    # TexClampMode stores U/S in bit 1 and V/T in bit 0.
+    wrap_s = (QOpenGLTexture.Repeat if clamp_mode & 2
+              else QOpenGLTexture.ClampToEdge)
+    wrap_t = (QOpenGLTexture.Repeat if clamp_mode & 1
+              else QOpenGLTexture.ClampToEdge)
+    tex.setWrapMode(QOpenGLTexture.DirectionS, wrap_s)
+    tex.setWrapMode(QOpenGLTexture.DirectionT, wrap_t)
     return tex
 
 
@@ -764,6 +790,26 @@ def _qimage_from_bytes(data: bytes, log=None):
     # A DDS ships its own mip chain: decode the first level that fits the
     # cap rather than a 4K top mip (~400ms of BC7) we would only shrink.
     data = skip_dds_mips(data, TEXTURE_MAX_DIM)
+    # FaceTint and several specular maps are ordinary uncompressed DDS files.
+    # Pillow's DDS plugin expands those byte-by-byte in Python (an 8-9 second
+    # stall for Serana's 2K tint map), although their payload is already packed
+    # RGB(A).  The same direct decoder used by model-space spec maps turns that
+    # into a few milliseconds and preserves the exact channel layout.
+    if data.startswith(b"DDS "):
+        try:
+            from PIL import Image as PilImage
+            fast = _legacy_dds_pil(data, PilImage)
+            if fast is not None:
+                big = max(fast.width, fast.height)
+                if big > TEXTURE_MAX_DIM:
+                    fast = fast.reduce(max(1, big // TEXTURE_MAX_DIM))
+                fast = fast.convert("RGBA")
+                raw = fast.tobytes("raw", "RGBA")
+                return QImage(raw, fast.width, fast.height,
+                              QImage.Format_RGBA8888).copy()
+        except Exception:                               # noqa: BLE001
+            # Fall through to Qt/Pillow's general decoders for unusual files.
+            pass
     img = QImage()
     if img.loadFromData(data) and not img.isNull():
         return img
@@ -1017,6 +1063,15 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
             return mat.diffuse          # skips leading empty slots
         return mat.paths[slot] if slot < len(mat.paths) else ""
 
+    def material_state(shape):
+        """Load and return a shape's external BGSM/BGEM/MAT, if any."""
+        if not shape.material:
+            return None
+        key = shape.material.lower()
+        if key not in materials:
+            material_slot(shape.material)
+        return materials.get(key)
+
     def shape_slot(shape) -> str:
         if slot == 0:
             return shape.diffuse
@@ -1229,6 +1284,7 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
     load.fetch_selected = _fetch_selected_exact
     load.requested = requested
     load.normal_map = normal_map
+    load.material_state = material_state
     load.env_maps = env_maps
     load.rmaos_map = rmaos_map
     load.is_srgb = lambda shape: srgb_albedo.get(diffuse_key(shape), False)
@@ -1270,7 +1326,12 @@ def _build_meshes(model, load_texture, cancel=None):
 
     for shape in model.shapes:
         if cancel is not None and cancel():
-            return [], None
+            return [], None, None
+        if getattr(shape, "hidden", False):
+            continue
+        external_material = (load_texture.material_state(shape)
+                             if hasattr(load_texture, "material_state")
+                             else None)
         verts = shape.vertices
         tris = shape.triangles
         if not verts or not tris:
@@ -1278,9 +1339,22 @@ def _build_meshes(model, load_texture, cancel=None):
         normals = shape.normals
         if len(normals) != len(verts):
             normals = _face_normals(verts, tris)
+            # The parsed/assembled model is retained for texture-source and
+            # texture-slot reloads. Keep this geometry-only result with it so
+            # a 100k-triangle body does not regenerate identical normals on
+            # every reload.
+            shape.normals = normals
         uvs = shape.uvs
         if len(uvs) != len(verts):
             uvs = [(0.0, 0.0)] * len(verts)
+        uv_scale = (external_material.uv_scale if external_material is not None
+                    else getattr(shape, "uv_scale", (1.0, 1.0)))
+        uv_offset = (external_material.uv_offset if external_material is not None
+                     else getattr(shape, "uv_offset", (0.0, 0.0)))
+        if uv_scale != (1.0, 1.0) or uv_offset != (0.0, 0.0):
+            su, sv = uv_scale
+            ou, ov = uv_offset
+            uvs = [(u * su + ou, v * sv + ov) for u, v in uvs]
         # No tangents (Skyrim LE data blocks, Starfield, unskinned bodies) just
         # means no normal mapping for that shape; the shader falls back.
         tangents = shape.tangents
@@ -1379,21 +1453,42 @@ def _build_meshes(model, load_texture, cancel=None):
                              else (None, None))
         # NiAlphaProperty thresholds are 0-255; GL compares against 0-1.
         # Only useful with a texture - an untextured shape has alpha 1.
-        thr = (shape.alpha_threshold / 255.0
-               if shape.alpha_test and image is not None else -1.0)
+        material_alpha_test = bool(external_material is not None
+                                   and external_material.alpha_test)
+        alpha_test = shape.alpha_test or material_alpha_test
+        alpha_threshold = (external_material.alpha_threshold
+                           if material_alpha_test else shape.alpha_threshold)
+        alpha_blend = (shape.alpha_blend
+                       or bool(external_material is not None
+                               and external_material.alpha_blend))
+        thr = (alpha_threshold / 255.0
+               if alpha_test and image is not None else -1.0)
+        clamp_mode = (external_material.texture_clamp_mode
+                      if external_material is not None
+                      else getattr(shape, "texture_clamp_mode", 3))
+        double_sided = (external_material.double_sided
+                        if external_material is not None
+                        else getattr(shape, "double_sided", False))
+        depth_test = (external_material.depth_test
+                      if external_material is not None
+                      else getattr(shape, "depth_test", True))
+        depth_write = (external_material.depth_write
+                       if external_material is not None
+                       else getattr(shape, "depth_write", True))
         centre = tuple((mlo[k] + mhi[k]) * 0.5 for k in range(3))
         meshes.append(_Mesh(shape.name, flat, idx, image, len(idx) // 3,
                             nrm_img, model_space, spec,
                             env_img, mask_img,
                             shape.env_map_scale if env_img else 0.0,
-                            thr, shape.alpha_blend and image is not None,
+                            thr, alpha_blend and image is not None,
                             centre, colors is not None, shape.tint,
                             load_texture.rmaos_map(shape)
                             if hasattr(load_texture, 'rmaos_map') else None,
                             shape.pbr,
                             (shape.glossiness, shape.spec_strength),
                             bool(load_texture.is_srgb(shape))
-                            if hasattr(load_texture, 'is_srgb') else False))
+                            if hasattr(load_texture, 'is_srgb') else False,
+                            clamp_mode, double_sided, depth_test, depth_write))
 
     if not meshes:
         return [], None, None
@@ -1401,6 +1496,51 @@ def _build_meshes(model, load_texture, cancel=None):
     head = ((tuple(head_lo), tuple(head_hi))
             if head_lo[0] != float("inf") else None)
     return meshes, bounds, head
+
+
+def _render_passes(meshes, textured: bool):
+    """Split meshes into opaque, late-solid and alpha-blended passes.
+
+    Hair commonly alpha-tests its cards but disables depth WRITES. Drawing it
+    with ordinary opaque geometry lets a subsequently drawn collar overwrite
+    strands that are actually closer to the camera. The engine queues those
+    no-write cutouts after depth-writing surfaces: they still depth-TEST
+    against the jacket, so front strands pass and rear strands remain hidden.
+    Fully blended layers stay last and are sorted separately by the caller.
+    """
+    opaque = []
+    late_solid = []
+    blended = []
+    for mesh in meshes:
+        if (mesh.alpha_blend and textured
+                and getattr(mesh, "texture", None) is not None):
+            blended.append(mesh)
+        elif not mesh.depth_write or not mesh.depth_test:
+            late_solid.append(mesh)
+        else:
+            opaque.append(mesh)
+    return opaque, late_solid, blended
+
+
+def _depth_write_for_draw(mesh, solid: bool, use_texture: bool) -> bool:
+    """Return the depth-mask state needed for this viewport draw.
+
+    FO4's outer hair cards are alpha-tested (therefore opaque wherever they
+    survive the cutout) but commonly carry ``SLSF2_ZBuffer_Write`` disabled.
+    Keeping that flag verbatim leaves only the head in the depth buffer.  The
+    separately blended, scalp-hugging hairline then passes its depth test and
+    is composited over the outer cards, exposing a head-shaped silhouette.
+
+    The late-solid pass has already put clothing and skin in the depth buffer,
+    so letting textured cutouts establish their own depth here preserves the
+    jacket ordering and makes subsequent translucent layers respect the outer
+    hair surface.  True alpha blends and non-textured diagnostic modes retain
+    the source material's depth-write state.
+    """
+    return bool(mesh.depth_write or (
+        solid and use_texture and getattr(mesh, "depth_test", True)
+        and not mesh.alpha_blend
+        and mesh.alpha_threshold >= 0.0))
 
 
 def _neutralise_meshes(meshes) -> None:
@@ -1774,6 +1914,12 @@ def _log_model(log, model) -> None:
             flags.append(f"alpha-test>{s.alpha_threshold}")
         if s.alpha_blend:
             flags.append("alpha-blend")
+        if not getattr(s, "depth_test", True):
+            flags.append("no-depth-test")
+        if not getattr(s, "depth_write", True):
+            flags.append("no-depth-write")
+        if getattr(s, "double_sided", False):
+            flags.append("two-sided")
         if s.env_map_scale:
             flags.append(f"envmap x{s.env_map_scale:.2f}")
         if s.tint != (1.0, 1.0, 1.0):
@@ -2781,7 +2927,7 @@ class _Viewport(QOpenGLWidget):
                               ("env_tex", m.env_image),
                               ("mask_tex", m.mask_image),
                               ("rmaos_tex", m.rmaos_image)):
-                tex = _make_gl_texture(img)
+                tex = _make_gl_texture(img, m.texture_clamp_mode)
                 if tex is not None:
                     setattr(m, attr, tex)
                     tex_count += 1
@@ -2856,17 +3002,16 @@ class _Viewport(QOpenGLWidget):
         if wire != WIRE_ONLY:
             f.glUniform1f(self._u_flat, 0.0)
             f.glUniform3f(self._u_base, *self._base)
-            # Alpha-TESTED meshes stay in the opaque pass: a discarded
-            # fragment writes no depth, so they need no ordering. Only truly
-            # BLENDED ones must come last, back to front, without depth
-            # writes - per mesh, so surfaces inside one shape can still
-            # order wrong (BodySlide has the same limit).
-            blended = [m for m in self._meshes
-                       if m.alpha_blend and self.textured
-                       and m.texture is not None]
+            # Depth-writing surfaces establish the jacket/body first. Hair
+            # cutouts that deliberately do not write depth follow them: their
+            # depth TEST keeps rear strands hidden, while front strands are no
+            # longer overwritten by a collar drawn later. True alpha blends
+            # remain last and back-to-front.
+            opaque, late_solid, blended = _render_passes(
+                self._meshes, self.textured)
             if blended:
-                opaque = [m for m in self._meshes if m not in blended]
                 self._draw_meshes(f, solid=True, meshes=opaque)
+                self._draw_meshes(f, solid=True, meshes=late_solid)
                 eye = self._eye()
                 blended.sort(
                     key=lambda m: -((m.center[0] - eye.x()) ** 2
@@ -2880,12 +3025,12 @@ class _Viewport(QOpenGLWidget):
                 # opaque and accumulates true coverage over a cleared one.
                 f.glBlendFuncSeparate(_GL_SRC_ALPHA, _GL_ONE_MINUS_SRC_ALPHA,
                                       _GL_ONE, _GL_ONE_MINUS_SRC_ALPHA)
-                f.glDepthMask(False)
                 self._draw_meshes(f, solid=True, meshes=blended)
                 f.glDepthMask(True)
                 f.glDisable(_GL_BLEND)
             else:
-                self._draw_meshes(f, solid=True)
+                self._draw_meshes(f, solid=True, meshes=opaque)
+                self._draw_meshes(f, solid=True, meshes=late_solid)
 
         if wire != WIRE_OFF:
             self._core.glPolygonMode(_GL_FRONT_AND_BACK, _GL_LINE)
@@ -2911,9 +3056,19 @@ class _Viewport(QOpenGLWidget):
 
     def _draw_meshes(self, f, solid: bool, meshes=None):
         for m in self._meshes if meshes is None else meshes:
+            if m.depth_test:
+                f.glEnable(_GL_DEPTH_TEST)
+            else:
+                f.glDisable(_GL_DEPTH_TEST)
+            if self.cull_backfaces and not m.double_sided:
+                f.glEnable(_GL_CULL_FACE)
+                f.glCullFace(_GL_BACK)
+            else:
+                f.glDisable(_GL_CULL_FACE)
             m.vao.bind()
             m.ibo.bind()
             use_tex = solid and self.textured and m.texture is not None
+            f.glDepthMask(_depth_write_for_draw(m, solid, use_tex))
             if use_tex:
                 m.texture.bind(0)
             f.glUniform1f(self._u_hastex, 1.0 if use_tex else 0.0)
@@ -2974,6 +3129,9 @@ class _Viewport(QOpenGLWidget):
                 m.texture.release(0)
             m.ibo.release()
             m.vao.release()
+        # Leave predictable state for wire overlays and the next frame.
+        f.glDepthMask(True)
+        f.glEnable(_GL_DEPTH_TEST)
 
     def resizeGL(self, w, h):
         self.context().functions().glViewport(0, 0, max(1, w), max(1, h))

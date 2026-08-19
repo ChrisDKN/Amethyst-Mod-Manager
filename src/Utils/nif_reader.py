@@ -83,6 +83,13 @@ _BSTRISHAPE_TYPES = {
     "BSTriShape", "BSDynamicTriShape", "BSSubIndexTriShape", "BSMeshLODTriShape",
 }
 
+# These all inherit NiTriShape/NiTriBasedGeom and keep that base layout at the
+# start of their block. Their LOD/segment payload follows the base fields, so a
+# preview can decode the shared geometry without needing the derived metadata.
+_NITRISHAPE_TYPES = {
+    "NiTriShape", "NiTriStrips", "BSLODTriShape", "BSSegmentedTriShape",
+}
+
 _SKIN_INSTANCE_TYPES = {
     "NiSkinInstance", "BSDismemberSkinInstance", "BSSkinInstance",
     # Fallout 4/76 use the namespaced spelling in the NIF block table.
@@ -247,6 +254,14 @@ class NifShape:
     # Non-zero only for environment-mapped shaders (type 1): the cubemap in
     # texture slot 4 is added at this strength, masked by slot 5.
     env_map_scale: float = 0.0
+    # Bethesda shader-wide UV transform and sampler addressing. TexClampMode:
+    # 0 clamp/clamp, 1 clamp/wrap, 2 wrap/clamp, 3 wrap/wrap.
+    uv_offset: tuple[float, float] = (0.0, 0.0)
+    uv_scale: tuple[float, float] = (1.0, 1.0)
+    texture_clamp_mode: int = 3
+    double_sided: bool = False
+    depth_test: bool = True
+    depth_write: bool = True
     # Community Shaders TruePBR (PGPatcher output). The classic specular and
     # texture-slot meanings do NOT apply to these.
     pbr: bool = False
@@ -274,6 +289,9 @@ class NifShape:
     alpha_test: bool = False
     alpha_blend: bool = False
     alpha_threshold: int = 128
+    # NiAVObject bit 0, inherited from parent nodes. Hidden editor/helper
+    # geometry should remain parsed but must not be sent to the renderer.
+    hidden: bool = False
 
     @property
     def diffuse(self) -> str:
@@ -416,10 +434,7 @@ def _read_avobject(c: _Cur, h: NifHeader) -> dict:
     c.refs()                                       # extra data list
     c.i32()                                        # controller
     # Flags widened to 32 bits in Fallout 3 and later.
-    if h.bs_version > 26:
-        c.u32()
-    else:
-        c.u16()
+    flags = c.u32() if h.bs_version > 26 else c.u16()
     translation = c.vec3()
     rotation = c.mat33()
     scale = c.f32()
@@ -430,8 +445,21 @@ def _read_avobject(c: _Cur, h: NifHeader) -> dict:
         "translation": translation,
         "rotation": rotation,
         "scale": scale,
+        "flags": flags,
         "properties": properties,
     }
+
+
+def _hidden_in_graph(index: int, local: dict[int, dict],
+                     parent: dict[int, int]) -> bool:
+    """Whether *index* or one of its NiAVObject ancestors is app-culled."""
+    seen: set[int] = set()
+    while index in local and index not in seen:
+        seen.add(index)
+        if local[index].get("flags", 0) & 1:
+            return True
+        index = parent.get(index, -1)
+    return False
 
 
 def _decode_bstrishape(c: _Cur, h: NifHeader, av: dict, shape: NifShape,
@@ -784,8 +812,16 @@ def _decode_alpha_property(c: _Cur, h: NifHeader) -> "tuple[bool, bool, int]":
     return bool(flags & 0x200), bool(flags & 0x1), c.u8()
 
 
+def _record_shader_render_state(state: dict | None,
+                                flags1: int, flags2: int) -> None:
+    if state is not None:
+        state.update(depth_test=bool(flags1 & 0x80000000),
+                     depth_write=bool(flags2 & 0x1),
+                     double_sided=bool(flags2 & 0x10))
+
+
 def _decode_shader(c: _Cur, h: NifHeader,
-                   block_type: str
+                   block_type: str, material_state: dict | None = None
                    ) -> "tuple[int, int, str, tuple | None, int, int, int]":
     """Return texture/name/source/spec/type plus both shader flag words.
 
@@ -797,19 +833,29 @@ def _decode_shader(c: _Cur, h: NifHeader,
     *spec* is ``(enabled, color, strength, glossiness)`` from Skyrim/SSE
     BSLightingShaderProperty blocks, None elsewhere.
     """
+    if material_state is not None:
+        material_state.update(uv_offset=(0.0, 0.0), uv_scale=(1.0, 1.0),
+                              texture_clamp_mode=3)
     if block_type == "BSEffectShaderProperty":
         name_idx = c.u32() if h.version >= 0x14010003 else -1
         c.refs()                                   # extra data
         c.i32()                                    # controller
         flags1 = c.u32()                           # shader flags 1
         flags2 = c.u32()                           # shader flags 2
+        _record_shader_render_state(material_state, flags1, flags2)
         if h.bs_version >= 132:
             c.skip(4 * c.u32())                    # SF1 CRCs
             if h.bs_version >= 152:
                 c.skip(4 * c.u32())                # SF2 CRCs
-        c.skip(8)                                  # uv offset
-        c.skip(8)                                  # uv scale
-        return -1, name_idx, c.sized_str(), None, 0, flags1, flags2
+        uv_offset = (c.f32(), c.f32())
+        uv_scale = (c.f32(), c.f32())
+        source = c.sized_str()
+        clamp_mode = (c.u8() if h.bs_version <= 130 and c.p < len(c.d)
+                      else 3)
+        if material_state is not None:
+            material_state.update(uv_offset=uv_offset, uv_scale=uv_scale,
+                                  texture_clamp_mode=clamp_mode)
+        return -1, name_idx, source, None, 0, flags1, flags2
     if block_type == "BSLightingShaderProperty":
         shader_type = 0
         if 83 <= h.bs_version <= 130:
@@ -822,8 +868,11 @@ def _decode_shader(c: _Cur, h: NifHeader,
             c.i32()                                # controller
             flags1 = c.u32()                       # shader flags 1
             flags2 = c.u32()                       # shader flags 2
-            c.skip(8)                              # uv offset
-            c.skip(8)                              # uv scale
+            _record_shader_render_state(material_state, flags1, flags2)
+            uv_offset = (c.f32(), c.f32())
+            uv_scale = (c.f32(), c.f32())
+            if material_state is not None:
+                material_state.update(uv_offset=uv_offset, uv_scale=uv_scale)
             tref = c.i32()                         # texture set
         except (NifError, struct.error):
             return -1, name_idx, "", None, shader_type, 0, 0
@@ -834,7 +883,9 @@ def _decode_shader(c: _Cur, h: NifHeader,
             try:
                 c.skip(12)                         # emissive color
                 c.f32()                            # emissive multiple
-                c.u32()                            # texture clamp mode
+                clamp_mode = c.u32()               # texture clamp mode
+                if material_state is not None:
+                    material_state["texture_clamp_mode"] = clamp_mode
                 c.f32()                            # alpha
                 c.f32()                            # refraction strength
                 gloss = c.f32()
@@ -870,8 +921,11 @@ def _decode_shader(c: _Cur, h: NifHeader,
         c.u32()                                    # shader type
         flags1 = c.u32()                           # shader flags 1
         flags2 = c.u32()                           # shader flags 2
+        _record_shader_render_state(material_state, flags1, flags2)
         c.f32()                                    # env map scale
-        c.u32()                                    # texture clamp mode
+        clamp_mode = c.u32()                       # texture clamp mode
+        if material_state is not None:
+            material_state["texture_clamp_mode"] = clamp_mode
         return c.i32(), -1, "", None, 0, flags1, flags2  # texture set
     return -1, -1, "", None, 0, 0, 0
 
@@ -1111,6 +1165,7 @@ def read_nif(source: "str | Path | bytes", *,
     spec_of_shader: dict[int, tuple] = {}
     lighting_type_of_shader: dict[int, int] = {}
     flags_of_shader: dict[int, tuple[int, int]] = {}
+    material_state_of_shader: dict[int, dict] = {}
     shader_of_block: dict[int, int] = {}
     data_of_shape: dict[int, int] = {}
 
@@ -1152,7 +1207,7 @@ def read_nif(source: "str | Path | bytes", *,
                 _decode_bsgeometry(c, h, sh)
                 shader_of_block[i] = getattr(sh, "_shader_ref", -1)
                 shapes.append(sh)
-            elif bt in ("NiTriShape", "NiTriStrips"):
+            elif bt in _NITRISHAPE_TYPES:
                 c = _Cur(blob)
                 av = _read_avobject(c, h)
                 local[i] = av
@@ -1190,10 +1245,13 @@ def read_nif(source: "str | Path | bytes", *,
             elif bt == "BSShaderTextureSet":
                 tex_of_shader[i] = _decode_texture_set(_Cur(blob))
             elif bt in _SHADER_TYPES:
+                material_state: dict = {}
                 (ref, name_idx, src_tex, spec, lighting_type,
-                 flags1, flags2) = _decode_shader(_Cur(blob), h, bt)
+                 flags1, flags2) = _decode_shader(
+                     _Cur(blob), h, bt, material_state)
                 lighting_type_of_shader[i] = lighting_type
                 flags_of_shader[i] = flags1, flags2
+                material_state_of_shader[i] = material_state
                 if src_tex:
                     source_of_shader[i] = src_tex
                 if spec is not None:
@@ -1292,6 +1350,13 @@ def read_nif(source: "str | Path | bytes", *,
         sh.greyscale_to_palette = bool(flags1 & 0x10)
         sh.model_space_normals = bool(flags1 & 0x1000)
         sh.material = material_of_shader.get(sref, "")
+        material_state = material_state_of_shader.get(sref, {})
+        sh.uv_offset = material_state.get("uv_offset", (0.0, 0.0))
+        sh.uv_scale = material_state.get("uv_scale", (1.0, 1.0))
+        sh.texture_clamp_mode = material_state.get("texture_clamp_mode", 3)
+        sh.depth_test = material_state.get("depth_test", True)
+        sh.depth_write = material_state.get("depth_write", True)
+        sh.double_sided = material_state.get("double_sided", False)
         if sref in spec_of_shader:
             (sh.spec_enabled, sh.spec_color, sh.spec_strength,
              sh.glossiness, sh.env_map_scale, sh.pbr,
@@ -1313,6 +1378,7 @@ def read_nif(source: "str | Path | bytes", *,
     # sits at the skeleton's neck height (z~120) while the brows, eyes, mouth
     # and hair sit at zero, so the head alone flies off up the screen.
     for sh in shapes:
+        sh.hidden = _hidden_in_graph(sh.block_index, local, parent)
         if _is_skinned(sh, h, n):
             if want_geometry:
                 # Kept for Utils.nif_skin, which can pose the shape against a

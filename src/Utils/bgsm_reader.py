@@ -7,8 +7,9 @@ file and the real paths live there. Binary BGSM/BGEM (v1/v2): fixed 63-byte
 header, then length-prefixed strings (uint32 length INCLUDING trailing null).
 JSON variants share the same extensions, so the first byte is sniffed:
 FO4 Material Editor JSON has sDiffuseTexture-style keys; Starfield .mat is a
-component tree whose texture nodes carry "FileName". Material paths are
-relative to textures/, so that prefix is added when absent.
+component tree whose texture nodes carry "FileName". Material version 6 adds
+a write-mask byte before its texture table. Material paths are relative to
+textures/, so that prefix is added when absent.
 """
 
 from __future__ import annotations
@@ -19,8 +20,8 @@ from pathlib import Path
 
 __all__ = ["read_material", "MaterialTextures"]
 
-# Offset of the first texture string in every binary variant seen in the wild
-# (BGSM v1/v2 and BGEM v1 all agree; verified across 247 real material files).
+# Offset of the first texture string in the original binary layout. Version 6
+# added one mask-writes byte immediately before it.
 _TEXTURE_OFFSET = 63
 
 # Slot order for BGSM. BGEM front-loads its base/glow map, so slot 0 is still
@@ -29,14 +30,35 @@ _MAX_SLOTS = 10
 
 
 class MaterialTextures:
-    """The texture paths a material file supplies."""
+    """Texture paths and shared render state supplied by a material file."""
 
-    __slots__ = ("paths", "kind", "version")
+    __slots__ = ("paths", "kind", "version", "uv_offset", "uv_scale",
+                 "texture_clamp_mode", "alpha", "alpha_blend",
+                 "alpha_source", "alpha_destination", "alpha_test",
+                 "alpha_threshold", "depth_write", "depth_test",
+                 "double_sided")
 
-    def __init__(self, paths: list[str], kind: str = "", version: int = 0):
+    def __init__(self, paths: list[str], kind: str = "", version: int = 0,
+                 *, uv_offset=(0.0, 0.0), uv_scale=(1.0, 1.0),
+                 texture_clamp_mode=3, alpha=1.0, alpha_blend=False,
+                 alpha_source=6, alpha_destination=7, alpha_test=False,
+                 alpha_threshold=255, depth_write=True, depth_test=True,
+                 double_sided=False):
         self.paths = paths
         self.kind = kind
         self.version = version
+        self.uv_offset = uv_offset
+        self.uv_scale = uv_scale
+        self.texture_clamp_mode = texture_clamp_mode
+        self.alpha = alpha
+        self.alpha_blend = alpha_blend
+        self.alpha_source = alpha_source
+        self.alpha_destination = alpha_destination
+        self.alpha_test = alpha_test
+        self.alpha_threshold = alpha_threshold
+        self.depth_write = depth_write
+        self.depth_test = depth_test
+        self.double_sided = double_sided
 
     @property
     def diffuse(self) -> str:
@@ -67,8 +89,21 @@ def _normalise(path: str) -> str:
 def _read_binary(data: bytes) -> MaterialTextures:
     kind = data[:4].decode("latin-1")
     version = struct.unpack_from("<I", data, 4)[0]
+    tile_flags = struct.unpack_from("<I", data, 8)[0]
+    uv_offset = struct.unpack_from("<2f", data, 12)
+    uv_scale = struct.unpack_from("<2f", data, 20)
+    alpha = struct.unpack_from("<f", data, 28)[0]
+    alpha_blend = bool(data[32])
+    alpha_source = struct.unpack_from("<I", data, 33)[0]
+    alpha_destination = struct.unpack_from("<I", data, 37)[0]
+    alpha_threshold = data[41]
+    alpha_test = bool(data[42])
+    depth_write = bool(data[43])
+    depth_test = bool(data[44])
+    double_sided = bool(data[48])
+    clamp_mode = (2 if tile_flags & 2 else 0) | (1 if tile_flags & 1 else 0)
     paths: list[str] = []
-    pos = _TEXTURE_OFFSET
+    pos = _TEXTURE_OFFSET + (1 if version >= 6 else 0)
     for _ in range(_MAX_SLOTS):
         if pos + 4 > len(data):
             break
@@ -84,7 +119,13 @@ def _read_binary(data: bytes) -> MaterialTextures:
                 (".dds", ".png", ".tga", ".bmp")):
             break
         paths.append(_normalise(text))
-    return MaterialTextures(paths, kind, version)
+    return MaterialTextures(
+        paths, kind, version, uv_offset=uv_offset, uv_scale=uv_scale,
+        texture_clamp_mode=clamp_mode, alpha=alpha,
+        alpha_blend=alpha_blend, alpha_source=alpha_source,
+        alpha_destination=alpha_destination, alpha_test=alpha_test,
+        alpha_threshold=alpha_threshold, depth_write=depth_write,
+        depth_test=depth_test, double_sided=double_sided)
 
 
 def _read_json(data: bytes) -> MaterialTextures:
@@ -119,7 +160,25 @@ def _read_json(data: bytes) -> MaterialTextures:
              "sInnerLayerTexture", "sWrinklesTexture",
              "sDisplacementTexture", "sBaseTexture")
     paths = [_normalise(str(obj.get(k, "") or "")) for k in order]
-    return MaterialTextures(paths, "JSON", int(obj.get("iVersion", 0) or 0))
+    tile_u = bool(obj.get("bTileU", True))
+    tile_v = bool(obj.get("bTileV", True))
+    clamp_mode = (2 if tile_u else 0) | (1 if tile_v else 0)
+    return MaterialTextures(
+        paths, "JSON", int(obj.get("iVersion", 0) or 0),
+        uv_offset=(float(obj.get("fUOffset", 0.0) or 0.0),
+                   float(obj.get("fVOffset", 0.0) or 0.0)),
+        uv_scale=(float(obj.get("fUScale", 1.0) or 1.0),
+                  float(obj.get("fVScale", 1.0) or 1.0)),
+        texture_clamp_mode=clamp_mode,
+        alpha=float(obj.get("fAlpha", 1.0) or 0.0),
+        alpha_blend=bool(obj.get("bAlphaBlend", False)),
+        alpha_source=int(obj.get("iAlphaSrc", 6) or 0),
+        alpha_destination=int(obj.get("iAlphaDst", 7) or 0),
+        alpha_test=bool(obj.get("bAlphaTest", False)),
+        alpha_threshold=int(obj.get("iAlphaTestRef", 255) or 0),
+        depth_write=bool(obj.get("bZBufferWrite", True)),
+        depth_test=bool(obj.get("bZBufferTest", True)),
+        double_sided=bool(obj.get("bTwoSided", False)))
 
 
 def read_material(source: "str | Path | bytes") -> MaterialTextures | None:

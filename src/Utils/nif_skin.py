@@ -184,37 +184,78 @@ def _pose_shape(shape, skeleton: dict) -> bool:
         return True
 
     out = []
+    normals = getattr(shape, "normals", ())
+    tangents = getattr(shape, "tangents", ())
+    skin_normals = len(normals) == len(shape.vertices)
+    skin_tangents = len(tangents) == len(shape.vertices)
+    out_normals = []
+    out_tangents = []
     binds = shape.binds
     n_bones = min(len(binds), len(resolved))
+    transforms = [(_compose(resolved[i], binds[i])
+                   if resolved[i] is not None else None)
+                  for i in range(n_bones)]
     for i, vertex in enumerate(shape.vertices):
         if i >= len(shape.skin_weights):
             out.append(vertex)
+            if skin_normals:
+                out_normals.append(normals[i])
+            if skin_tangents:
+                out_tangents.append(tangents[i])
             continue
         indices, weights = shape.skin_weights[i]
         acc = [0.0, 0.0, 0.0]
+        nacc = [0.0, 0.0, 0.0]
+        tacc = [0.0, 0.0, 0.0]
         total = 0.0
         for slot in range(len(indices)):
             weight = weights[slot]
             bone_i = indices[slot]
             if weight <= 0.0 or bone_i >= n_bones:
                 continue
-            bone = resolved[bone_i]
-            if bone is None:
+            transform = transforms[bone_i]
+            if transform is None:
                 continue
-            moved = _apply(bone, _apply(binds[bone_i], vertex))
+            moved = _apply(transform, vertex)
             acc[0] += weight * moved[0]
             acc[1] += weight * moved[1]
             acc[2] += weight * moved[2]
+            if skin_normals:
+                moved_n = _apply_direction(transform, normals[i])
+                nacc[0] += weight * moved_n[0]
+                nacc[1] += weight * moved_n[1]
+                nacc[2] += weight * moved_n[2]
+            if skin_tangents:
+                moved_t = _apply_direction(transform, tangents[i])
+                tacc[0] += weight * moved_t[0]
+                tacc[1] += weight * moved_t[1]
+                tacc[2] += weight * moved_t[2]
             total += weight
         if total <= 0.0:
             out.append(vertex)
+            if skin_normals:
+                out_normals.append(normals[i])
+            if skin_tangents:
+                out_tangents.append(tangents[i])
         elif abs(total - 1.0) > 1e-3:
             # Weights that miss bones the skeleton lacks would shrink the
             # vertex toward the origin; renormalise onto what did resolve.
             out.append((acc[0] / total, acc[1] / total, acc[2] / total))
+            if skin_normals:
+                out_normals.append(_normalise(nacc, normals[i]))
+            if skin_tangents:
+                out_tangents.append(_normalise(tacc, tangents[i]))
         else:
             out.append((acc[0], acc[1], acc[2]))
+            if skin_normals:
+                out_normals.append(_normalise(nacc, normals[i]))
+            if skin_tangents:
+                out_tangents.append(_normalise(tacc, tangents[i]))
     shape.vertices = out
+    if skin_normals:
+        shape.normals = out_normals
+    if skin_tangents:
+        shape.tangents = out_tangents
     shape.translation, shape.rotation, shape.scale = IDENTITY
     return True
 
@@ -286,6 +327,22 @@ def _apply(transform, v):
     return (t[0] + s * (r[0] * x + r[1] * y + r[2] * z),
             t[1] + s * (r[3] * x + r[4] * y + r[5] * z),
             t[2] + s * (r[6] * x + r[7] * y + r[8] * z))
+
+
+def _apply_direction(transform, v):
+    """Apply a skin transform's linear part, without translating a direction."""
+    _t, r, s = transform
+    x, y, z = v[0], v[1], v[2]
+    return (s * (r[0] * x + r[1] * y + r[2] * z),
+            s * (r[3] * x + r[4] * y + r[5] * z),
+            s * (r[6] * x + r[7] * y + r[8] * z))
+
+
+def _normalise(v, fallback):
+    length = math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2])
+    if length <= 1e-12:
+        return fallback
+    return v[0] / length, v[1] / length, v[2] / length
 
 
 def _compose(outer, inner):
