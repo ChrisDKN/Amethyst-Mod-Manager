@@ -145,7 +145,8 @@ class ConfigureGameView(QWidget):
     def __init__(self, game, on_done, parent=None, profile_name=None):
         super().__init__(parent)
         self._game = game
-        self._profile_name = profile_name
+        self._profile_name = ("default" if not game.is_configured()
+                              else profile_name)
         self._on_done = on_done or (lambda saved, removed: None)
         self._p = active_palette()
 

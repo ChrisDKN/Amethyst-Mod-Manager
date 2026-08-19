@@ -9158,6 +9158,7 @@ class MainWindow(QMainWindow):
         reconfiguring an already-configured game, Save keeps the tab open so the
         user can keep tweaking (only Remove/Cancel close it)."""
         from gui_qt.configure_game_view import ConfigureGameView
+        configure_profile = "default" if from_add_game else self._gs.profile
 
         # open_tab() focuses an existing keyed tab instead of installing the
         # newly-created widget. Resolve that real content first so the cached
@@ -9168,9 +9169,10 @@ class MainWindow(QMainWindow):
                     and getattr(getattr(existing, "_game", None), "name", None)
                     == game.name):
                 self._configure_game_view = existing
-                existing.refresh_for_profile(game, self._gs.profile)
+                existing.refresh_for_profile(game, configure_profile)
                 self._tabs.set_tab_title(
-                    "configure_game", self._configure_tab_title(game))
+                    "configure_game",
+                    self._configure_tab_title(game, configure_profile))
                 self._tabs.focus_key("configure_game")
                 return
             # A Configure form's widgets depend on the handler's capabilities;
@@ -9258,16 +9260,16 @@ class MainWindow(QMainWindow):
                         pass
 
         page = ConfigureGameView(
-            game, on_done=_done, profile_name=self._gs.profile)
+            game, on_done=_done, profile_name=configure_profile)
         self._configure_game_view = page
-        self._tabs.open_tab(page, self._configure_tab_title(game),
+        self._tabs.open_tab(page,
+                            self._configure_tab_title(game, configure_profile),
                             key="configure_game")
 
-    def _configure_tab_title(self, game) -> str:
-        """Tab label for the configure view - includes the active profile name
-        so the user can see which profile they're configuring."""
+    def _configure_tab_title(self, game, profile_name=None) -> str:
+        """Tab label for the configure view, including its actual profile scope."""
         verb = "Reconfigure" if game.is_configured() else "Add"
-        prof = self._gs.profile
+        prof = self._gs.profile if profile_name is None else profile_name
         if prof:
             return self.tr("{0} game - {1}").format(verb, prof)
         return self.tr("{0} game").format(verb)
