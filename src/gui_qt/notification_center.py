@@ -269,6 +269,7 @@ class NotificationButton(QToolButton):
         self._progress_layout = None
         self._progress_rows: dict[str, _ProgressRow] = {}
         self._history_scroll = None
+        self._history_action = None
         self._mirrors: WeakSet = WeakSet()
         pal = active_palette()
         self.setIcon(icon("notification.png", icon_px,
@@ -374,6 +375,7 @@ class NotificationButton(QToolButton):
                 self._progress_layout = None
                 self._progress_rows = {}
                 self._history_scroll = None
+                self._history_action = None
             m.deleteLater()
 
         menu.aboutToHide.connect(_closed)
@@ -455,11 +457,16 @@ class NotificationButton(QToolButton):
 
     def _sync_progress_widget(self) -> None:
         layout = self._progress_layout
+        progress_height_changed = False
         if layout is not None:
             for key in list(self._progress_rows):
                 if key in self._progress:
                     continue
                 row = self._progress_rows.pop(key)
+                # deleteLater() leaves the widget alive until control returns to
+                # Qt.  Hide it now so a download row cannot keep painting over
+                # the extraction row that replaces it in the same event turn.
+                row.hide()
                 layout.removeWidget(row)
                 row.deleteLater()
             for key, entry in self._progress.items():
@@ -469,10 +476,33 @@ class NotificationButton(QToolButton):
                     self._progress_rows[key] = row
                     layout.addWidget(row)
                 row.update_progress(entry)
+                # A child added to an already-visible QWidgetAction remains
+                # explicitly hidden until the next event-loop pass.  Showing it
+                # here makes QLayout include it in the size calculation below.
+                row.show()
             if self._progress_box is not None:
-                self._progress_box.adjustSize()
+                layout.invalidate()
+                width = self._progress_box.width() or _MENU_W
+                height = layout.heightForWidth(width) \
+                    if layout.hasHeightForWidth() else -1
+                if height < 0:
+                    height = layout.sizeHint().height()
+                height = max(0, height)
+                progress_height_changed = \
+                    height != self._progress_box.height()
+                self._progress_box.setFixedHeight(height)
+                self._progress_box.updateGeometry()
         visible = bool(self._progress)
         if self._progress_action is not None:
+            # QMenu caches QWidgetAction geometry while it is open.  Merely
+            # resizing the default widget (or calling menu.adjustSize()) does
+            # not invalidate that cache, so a newly concurrent download and
+            # extraction get compressed into the old one-row slot.  A
+            # synchronous visibility flip invalidates the action geometry
+            # without a visible flash because painting happens later.
+            if visible and progress_height_changed \
+                    and self._progress_action.isVisible():
+                self._progress_action.setVisible(False)
             self._progress_action.setVisible(visible)
         if self._progress_separator is not None:
             self._progress_separator.setVisible(visible)
@@ -483,9 +513,23 @@ class NotificationButton(QToolButton):
             self._active_menu.adjustSize()
             self._place_menu()
         # Repaint on the busy flip only - this runs on every progress tick.
+        became_idle = self._busy and not visible
         if visible != self._busy:
             self._busy = visible
             self._refresh_badges()
+        if became_idle and self._active_menu is not None \
+                and self._active_menu.isVisible():
+            # Download completion commonly hands the archive straight to the
+            # installer.  Defer the close by one event turn so the extraction
+            # row can replace it without a close/reopen flicker.  The callback
+            # closes only this menu instance and only if no live work appeared.
+            menu = self._active_menu
+            QTimer.singleShot(0, lambda m=menu: self._close_menu_if_idle(m))
+
+    def _close_menu_if_idle(self, menu: QMenu) -> None:
+        if not self._progress and self._active_menu is menu \
+                and menu.isVisible():
+            menu.close()
 
     def _resize_history_scroll(self) -> None:
         scroll = self._history_scroll
@@ -495,12 +539,24 @@ class NotificationButton(QToolButton):
         # two pinned operations are present; the history remains independently
         # scrollable beneath them.
         max_h = max(140, _MENU_MAX_H - min(len(self._progress), 2) * 100)
-        scroll.setFixedHeight(min(scroll.widget().sizeHint().height(), max_h))
+        height = min(scroll.widget().sizeHint().height(), max_h)
+        height_changed = height != scroll.height()
+        scroll.setFixedHeight(height)
+        scroll.updateGeometry()
+        # Like the live-progress QWidgetAction above, QMenu caches the history
+        # action's height while open.  Invalidate it when the scroller grows or
+        # shrinks; otherwise its viewport can paint over the Clear-all footer.
+        if height_changed and self._history_action is not None \
+                and self._history_action.isVisible():
+            self._history_action.setVisible(False)
+            self._history_action.setVisible(True)
 
     def _build_menu(self) -> QMenu:
         """Fresh right-aligned menu: newest-first rows + a Clear-all action.
         Also clears the unread dot (built = seen)."""
         self._mark_read()
+        self._history_scroll = None
+        self._history_action = None
         menu = QMenu(self)
         progress = QWidgetAction(menu)
         progress.setDefaultWidget(self._progress_widget())
@@ -518,6 +574,7 @@ class NotificationButton(QToolButton):
             wa = QWidgetAction(menu)
             wa.setDefaultWidget(self._entries_widget(entries))
             menu.addAction(wa)
+            self._history_action = wa
         menu.addSeparator()
         clear = QAction(self.tr("Clear all"), menu)
         clear.setEnabled(bool(entries))
