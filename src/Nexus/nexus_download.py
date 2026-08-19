@@ -510,6 +510,12 @@ class NexusDownloader:
         -------
         DownloadResult with file_path on success, or error message on failure.
         """
+        if cancel is not None and cancel.is_set():
+            return DownloadResult(
+                success=False, error="Download cancelled",
+                game_domain=link.game_domain,
+                mod_id=link.mod_id, file_id=link.file_id,
+            )
         try:
             links = self._api.get_download_links(
                 game_domain=link.game_domain,
@@ -597,6 +603,11 @@ class NexusDownloader:
         -------
         DownloadResult with file_path on success.
         """
+        if cancel is not None and cancel.is_set():
+            return DownloadResult(
+                success=False, error="Download cancelled",
+                game_domain=game_domain, mod_id=mod_id, file_id=file_id,
+            )
         # ------------------------------------------------------------------
         # Cache / partial-download check
         # ------------------------------------------------------------------
@@ -729,6 +740,12 @@ class NexusDownloader:
 
         last_error = ""
         for link in links:
+            if cancel is not None and cancel.is_set():
+                return DownloadResult(
+                    success=False, error="Download cancelled",
+                    game_domain=game_domain,
+                    mod_id=mod_id, file_id=file_id,
+                )
             try:
                 result = self._stream_download(
                     url=link.URI,
@@ -833,7 +850,7 @@ class NexusDownloader:
                 for chunk in resp.iter_content(_CHUNK_SIZE):
                     if cancel and cancel.is_set():
                         fh.close()
-                        dest.unlink(missing_ok=True)
+                        delete_archive_and_sidecar(dest)
                         raise DownloadCancelled()
 
                     fh.write(chunk)

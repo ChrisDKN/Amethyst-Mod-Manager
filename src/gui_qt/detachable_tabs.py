@@ -282,6 +282,13 @@ class DetachableTabWidget(QTabWidget):
             self._panel_active.clear()
             self._sync_scoped_stacks()
 
+    def is_full_tab_active(self) -> bool:
+        """Whether the selected tab replaces the permanent main UI entirely."""
+        w = self.widget(self.currentIndex())
+        return (w is not None
+                and id(w) not in self._permanent
+                and id(w) not in self._scoped)
+
     def _sync_scoped_stacks(self):
         """Bring every panel stack in line with _panel_active: show the active
         scoped widget where one is recorded (and still open), else page 0.

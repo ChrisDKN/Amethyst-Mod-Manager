@@ -585,6 +585,18 @@ class MainWindow(QMainWindow):
         # in _build_body_row above.
         self._tabs.register_scope_targets(
             self._modlist_panel_stack, self._plugins_panel_stack)
+        # A full-screen tab covers the normal header notification button. Keep
+        # a mirrored entry point at the far right of the tab row only while a
+        # full-screen view is selected; both buttons share one live menu/state.
+        # These set the tile-to-icon proportion (the header button's); the strip
+        # then grows the tile to fill the tab row. create_mirror returns the
+        # strip, which is what gets placed.
+        self._tab_notif_button = self._notif_button.create_mirror(
+            btn_h=34, icon_px=20, parent=self._tabs)
+        self._tabs.setCornerWidget(
+            self._tab_notif_button, Qt.TopRightCorner)
+        self._tabs.currentChanged.connect(self._sync_tab_notification_button)
+        self._sync_tab_notification_button()
 
         self._log_view = QPlainTextEdit()
         self._log_view.setReadOnly(True)
@@ -655,6 +667,8 @@ class MainWindow(QMainWindow):
         self._updates_ready.connect(self._on_updates_ready)
         # Quick Update: resolve (worker) → download (worker) → install (batch).
         self._quick_updating = False
+        self._qu_dl_cancel = None
+        self._reinstall_dl_cancel = None
         self._qu_resolved.connect(self._on_qu_resolved)
         self._qu_downloaded.connect(self._on_qu_downloaded)
         self._qu_dl_progress.connect(self._on_qu_dl_progress)
@@ -1032,6 +1046,13 @@ class MainWindow(QMainWindow):
         window so the buttons have room. The Play section now lives at the top
         of the plugins panel (see _build_body_row), not here."""
         return self._left_header()
+
+    def _sync_tab_notification_button(self, *_):
+        """Expose notifications in the tab row when the main header is covered."""
+        button = getattr(self, "_tab_notif_button", None)
+        tabs = getattr(self, "_tabs", None)
+        if button is not None and tabs is not None:
+            button.setVisible(tabs.is_full_tab_active())
 
     # ---------------------------------------------------------- body row
     def _build_body_row(self) -> QWidget:
@@ -3791,9 +3812,10 @@ class MainWindow(QMainWindow):
             f"into '{self._gs.game_name}'…")
         self._notify(self.tr("Downloading mod from Thunderstore…"), "info")
         dl_key = self._new_dl_key()
-        self._nexus_download_progress(dl_key, "", 0, 0)   # show popup immediately
-
         import threading
+        cancel = threading.Event()
+        self._nexus_download_progress(
+            dl_key, "", 0, 0, cancel=cancel.set)   # show popup immediately
 
         def _worker():
             from Thunderstore.ror2mm_handler import Ror2mmLink
@@ -3812,6 +3834,8 @@ class MainWindow(QMainWindow):
 
             total = len(wanted)
             for idx, pkg in enumerate(wanted, 1):
+                if cancel.is_set():
+                    break
                 if pkg is None:
                     sub_link, expected, info = link, 0, None
                 else:
@@ -3835,10 +3859,12 @@ class MainWindow(QMainWindow):
                 result = download_package(
                     sub_link, dest_dir=dest, expected_size=expected,
                     progress_cb=lambda d, t, _l=label: safe_emit(
-                        self._req_install_prog, dl_key, _l, int(d), int(t)))
+                        self._req_install_prog, dl_key, _l, int(d), int(t)),
+                    cancel=cancel)
                 downloads.append((result, sub_link, info))
 
-            safe_emit(self._ror2mm_download_done, (downloads, link, dl_key))
+            safe_emit(self._ror2mm_download_done,
+                      (downloads, link, dl_key, cancel.is_set()))
 
         threading.Thread(target=_worker, daemon=True,
                          name="ror2mm-download").start()
@@ -3850,8 +3876,13 @@ class MainWindow(QMainWindow):
         dependencies-first, so installing the list in order satisfies each
         mod's requirements before it lands.
         """
-        downloads, link, dl_key = payload
+        downloads, link, dl_key, cancelled = payload
         self._nexus_download_progress(dl_key, "", 0, -1)   # hide this card
+
+        if cancelled:
+            self._append_log(f"[thunderstore] download of {link.full_name} cancelled")
+            self._notify(self.tr("Download cancelled."), "info")
+            return
 
         good = [(r, l, i) for (r, l, i) in downloads if r.success and r.file_path]
         for result, sub_link, _info in downloads:
@@ -4408,9 +4439,10 @@ class MainWindow(QMainWindow):
 
         self._notify(self.tr("Downloading mod from Nexus…"), "info")
         dl_key = self._new_dl_key()
-        self._nexus_download_progress(dl_key, "", 0, 0)   # show popup immediately
-
         import threading
+        cancel = threading.Event()
+        self._nexus_download_progress(
+            dl_key, "", 0, 0, cancel=cancel.set)   # show popup immediately
 
         def _worker():
             from Nexus.nexus_download import NexusDownloader
@@ -4432,7 +4464,8 @@ class MainWindow(QMainWindow):
                 link, dest_dir=dest,
                 known_file_name=dl_label,
                 progress_cb=lambda d, t: safe_emit(
-                    self._req_install_prog, dl_key, dl_label, int(d), int(t)))
+                    self._req_install_prog, dl_key, dl_label, int(d), int(t)),
+                cancel=cancel)
             safe_emit(self._nxm_download_done,
                       (result, mod_info, file_info, dl_key))
 
@@ -4444,6 +4477,10 @@ class MainWindow(QMainWindow):
         result, mod_info, file_info, dl_key = payload
         self._nexus_download_progress(dl_key, "", 0, -1)   # hide this download's card
         if not (result.success and result.file_path):
+            if "cancel" in (result.error or "").lower():
+                self._append_log("[nexus] download cancelled")
+                self._notify(self.tr("Download cancelled."), "info")
+                return
             self._append_log(f"[nexus] download failed - {result.error}")
             self._notify(self.tr("Nexus download failed - {0}").format(result.error), "error")
             return
@@ -6886,6 +6923,8 @@ class MainWindow(QMainWindow):
         """
         jobs = []
         failed = []
+        import threading
+        cancel = threading.Event()
         for mod_name, meta in items:
             try:
                 _path, link, info = self._thunderstore_reinstall_record(meta)
@@ -6894,7 +6933,8 @@ class MainWindow(QMainWindow):
                 continue
             dl_key = self._new_dl_key()
             label = f"{link.full_name}.zip"
-            self._nexus_download_progress(dl_key, label, 0, 0)
+            self._nexus_download_progress(
+                dl_key, label, 0, 0, cancel=cancel.set)
             jobs.append((mod_name, link, info, dl_key, label))
 
         if not jobs:
@@ -6912,8 +6952,6 @@ class MainWindow(QMainWindow):
             self.tr("Reinstall - redownloading {0} mod(s)…").format(len(jobs)),
             "info")
 
-        import threading
-
         def _worker():
             from Thunderstore.thunderstore_download import download_package
             from Utils.config_paths import get_download_cache_dir_for_game
@@ -6926,12 +6964,16 @@ class MainWindow(QMainWindow):
             worker_failed = list(failed)
             for mod_name, link, info, dl_key, label in jobs:
                 try:
+                    if cancel.is_set():
+                        worker_failed.append((mod_name, "download cancelled"))
+                        continue
                     result = download_package(
                         link, dest_dir=dest,
                         expected_size=int(info.get("size") or 0),
                         progress_cb=lambda d, t, _key=dl_key, _label=label:
                             safe_emit(self._req_install_prog, _key, _label,
-                                      int(d), int(t)))
+                                      int(d), int(t)),
+                        cancel=cancel)
                     if result.success and result.file_path:
                         downloads.append((mod_name, result, link, info))
                     else:
@@ -6943,7 +6985,7 @@ class MainWindow(QMainWindow):
                     safe_emit(self._req_install_prog, dl_key, "", 0, -1)
             safe_emit(
                 self._thunderstore_reinstall_downloaded,
-                (downloads, worker_failed))
+                (downloads, worker_failed, cancel.is_set()))
 
         threading.Thread(
             target=_worker, daemon=True,
@@ -6951,9 +6993,13 @@ class MainWindow(QMainWindow):
 
     def _on_thunderstore_reinstall_downloaded(self, payload):
         """Install completed Thunderstore redownloads on the UI thread."""
-        downloads, failed = payload
+        downloads, failed, cancelled = payload
         for name, reason in failed:
             self._append_log(f"[thunderstore reinstall] {name}: {reason}")
+
+        if cancelled:
+            self._notify(self.tr("Reinstall download cancelled."), "info")
+            return
 
         if not downloads:
             if failed:
@@ -7041,6 +7087,8 @@ class MainWindow(QMainWindow):
             dl_workers = 8
 
         import threading
+        cancel = threading.Event()
+        self._reinstall_dl_cancel = cancel
 
         # One shared progress card for the whole batch (aggregate bytes).
         self._reinstall_dl_phase = self.tr(
@@ -7080,6 +7128,10 @@ class MainWindow(QMainWindow):
                 (mod_name, domain, mod_id, file_id, filename, installed_meta,
                  installed_ts_meta) = item
                 try:
+                    if cancel.is_set():
+                        with lock:
+                            failed.append((mod_name, "download cancelled"))
+                        return
                     def _on_progress(cur, tot, _m=mod_name):
                         with progress_lock:
                             slot = progress[_m]
@@ -7091,7 +7143,7 @@ class MainWindow(QMainWindow):
                     result = downloader.download_file(
                         game_domain=domain, mod_id=mod_id, file_id=file_id,
                         dest_dir=dest, known_file_name=filename,
-                        progress_cb=_on_progress)
+                        progress_cb=_on_progress, cancel=cancel)
                     if not (result.success and result.file_path):
                         with lock:
                             failed.append((mod_name,
@@ -7335,19 +7387,27 @@ class MainWindow(QMainWindow):
                                on_all_done=on_done, clear_archives=False)
 
     def _on_reinstall_dl_progress(self, cur: int, tot: int):
-        """UI thread: drive the shared reinstall redownload progress card."""
-        self._ensure_feedback()
-        if self._progress_popup is None:
-            return
-        self._progress_popup.set_progress(
+        """UI thread: drive the pinned reinstall download progress item."""
+        cancel = self._reinstall_dl_cancel
+        self._notif_button.set_progress(
+            "reinstall-dl",
             cur, tot, getattr(self, "_reinstall_dl_phase", None),
-            title=self.tr("Reinstall"), bytes_mode=True, key="reinstall-dl")
+            title=self.tr("Reinstall download"), bytes_mode=True,
+            cancel_callback=(cancel.set if cancel is not None
+                             and not cancel.is_set() else None),
+            auto_open=True)
 
     def _on_reinstall_downloaded(self, dl_items, failed):
         """UI thread: redownloads finished. Install the batch via _install_paths
         with the folder name forced per archive (silent Replace-All)."""
-        if self._progress_popup is not None:
-            self._progress_popup.clear(key="reinstall-dl")
+        cancelled = bool(self._reinstall_dl_cancel is not None
+                         and self._reinstall_dl_cancel.is_set())
+        self._reinstall_dl_cancel = None
+        self._notif_button.clear_progress("reinstall-dl")
+        if cancelled:
+            self._append_log("[reinstall] redownload cancelled")
+            self._notify(self.tr("Reinstall download cancelled."), "info")
+            return
         for name, reason in failed:
             self._append_log(f"[reinstall] {name}: {reason}")
         if not dl_items:
@@ -7490,6 +7550,8 @@ class MainWindow(QMainWindow):
             dl_workers = 8
 
         import threading
+        cancel = threading.Event()
+        self._qu_dl_cancel = cancel
 
         # One shared progress card for the whole batch (Tk parity: a per-download
         # popup per mod stacks up fast). Progress is the aggregate byte count
@@ -7534,6 +7596,10 @@ class MainWindow(QMainWindow):
             def _one(item):
                 mod_name, game_domain, meta, file_id, file_info = item
                 try:
+                    if cancel.is_set():
+                        with lock:
+                            failed.append((mod_name, "download cancelled"))
+                        return
                     try:
                         mod_info = api.get_mod(game_domain, meta.mod_id)
                     except Exception as exc:
@@ -7558,7 +7624,7 @@ class MainWindow(QMainWindow):
                         file_id=file_id, dest_dir=dest,
                         known_file_name=getattr(file_info, "file_name", "") or "",
                         expected_size_bytes=int(size),
-                        progress_cb=_on_progress)
+                        progress_cb=_on_progress, cancel=cancel)
                     if not (result.success and result.file_path):
                         with lock:
                             failed.append((mod_name,
@@ -7596,21 +7662,31 @@ class MainWindow(QMainWindow):
                          name="quick-update-dl").start()
 
     def _on_qu_dl_progress(self, cur: int, tot: int):
-        """UI thread: drive the shared Quick Update download card (aggregate
+        """UI thread: drive the pinned Quick Update download item (aggregate
         bytes across every parallel download in the batch)."""
-        self._ensure_feedback()
-        if self._progress_popup is None:
-            return
-        self._progress_popup.set_progress(
+        cancel = self._qu_dl_cancel
+        self._notif_button.set_progress(
+            "qu-dl",
             cur, tot, getattr(self, "_qu_dl_phase", None),
-            title=self.tr("Quick Update"), bytes_mode=True, key="qu-dl")
+            title=self.tr("Quick Update"), bytes_mode=True,
+            cancel_callback=(cancel.set if cancel is not None
+                             and not cancel.is_set() else None),
+            auto_open=True)
 
     def _on_qu_downloaded(self, dl_items, failed):
         """UI thread: every download finished. Install the batch via _install_paths
         with the folder name forced per archive (silent Replace-All), then finish."""
-        if self._progress_popup is not None:
-            self._progress_popup.clear(key="qu-dl")
+        cancelled = bool(self._qu_dl_cancel is not None
+                         and self._qu_dl_cancel.is_set())
+        self._qu_dl_cancel = None
+        self._notif_button.clear_progress("qu-dl")
         skipped = getattr(self, "_qu_skipped", [])
+        if cancelled:
+            self._quick_updating = False
+            self._qu_skipped = []
+            self._append_log("[nexus] Quick Update download cancelled")
+            self._notify(self.tr("Quick Update download cancelled."), "info")
+            return
         if not dl_items:
             self._qu_finish(0, failed, skipped)
             return
@@ -8753,21 +8829,24 @@ class MainWindow(QMainWindow):
 
     def _new_dl_key(self) -> str:
         """Unique tracking key for one download operation, so concurrent
-        downloads can be told apart in the combined progress card."""
+        downloads can be told apart in the combined progress item."""
         self._dl_seq = getattr(self, "_dl_seq", 0) + 1
         return f"dl-{self._dl_seq}"
 
     def _nexus_download_progress(self, key: str, name: str,
-                                 downloaded: int, total: int):
-        """Drive the combined Nexus-download progress card. UI thread only.
+                                 downloaded: int, total: int, cancel=None):
+        """Drive the combined download progress item. UI thread only.
         All concurrent downloads (each identified by *key*) aggregate into ONE
         card: the bar shows summed bytes across them. Finished downloads stay
         in the totals until the last one completes, so the bar never jumps
-        backwards. total<0 marks *key* finished (done/failed/cancelled)."""
-        self._ensure_feedback()
-        if self._progress_popup is None:
-            return
+        backwards. total<0 marks *key* finished (done/failed/cancelled).
+
+        *cancel* is an optional UI-thread callback for stopping that transfer.
+        The combined item cancels every cancellable transfer it currently
+        represents, which keeps the action unambiguous when downloads overlap.
+        """
         dls = self._active_downloads
+        started = total >= 0 and key not in dls
         if total < 0:
             e = dls.get(key)
             if e is not None and e["total"] > 0:
@@ -8776,12 +8855,15 @@ class MainWindow(QMainWindow):
             else:
                 dls.pop(key, None)   # size never reported - just drop it
         else:
-            e = dls.setdefault(key, {"fin": False})
+            e = dls.setdefault(
+                key, {"fin": False, "cancel": None, "cancelling": False})
             e["name"], e["done"], e["total"] = name, downloaded, total
+            if cancel is not None:
+                e["cancel"] = cancel
         active = [e for e in dls.values() if not e["fin"]]
         if not active:
             dls.clear()
-            self._progress_popup.clear(key="downloads")
+            self._notif_button.clear_progress("downloads")
             return
         if len(dls) == 1:
             nm = active[0].get("name") or ""
@@ -8794,9 +8876,39 @@ class MainWindow(QMainWindow):
         tot = sum(e["total"] for e in dls.values())
         if any(e["total"] <= 0 for e in active):
             done = tot = 0   # a size is still unknown - indeterminate bar
-        self._progress_popup.set_progress(
-            done, tot, phase, title=self.tr("Nexus Download"),
-            bytes_mode=True, key="downloads")
+        cancellable = [e for e in active
+                       if callable(e.get("cancel"))
+                       and not e.get("cancelling", False)]
+        self._notif_button.set_progress(
+            "downloads", done, tot, phase, title=self.tr("Downloads"),
+            bytes_mode=True,
+            cancel_callback=(self._cancel_active_downloads
+                             if cancellable else None),
+            cancel_label=(self.tr("Cancel") if len(active) == 1
+                          else self.tr("Cancel all")),
+            auto_open=started)
+        # The pinned item is aggregate-keyed, so a second overlapping transfer
+        # is not a new item internally. It is still a new download and should
+        # reveal the menu once, just like the first one did.
+        if started and len(dls) > 1:
+            self._notif_button.open_menu()
+
+    def _cancel_active_downloads(self):
+        """Request cancellation for every transfer represented by the shared
+        download item. Workers remove their own entries when they stop."""
+        callbacks = []
+        for entry in self._active_downloads.values():
+            callback = entry.get("cancel")
+            if entry.get("fin") or entry.get("cancelling") \
+                    or not callable(callback):
+                continue
+            entry["cancelling"] = True
+            callbacks.append(callback)
+        for callback in callbacks:
+            try:
+                callback()
+            except Exception as exc:
+                self._append_log(f"[download] cancellation failed: {exc}")
 
     def _install_nexus_mod_by_id(self, mod_id: int, domain: str, name: str):
         if self._req_installing:
@@ -8882,7 +8994,10 @@ class MainWindow(QMainWindow):
         dl_label = f.file_name or name
         dl_key = self._new_dl_key()
         self._append_log(f"[nexus] downloading {dl_label}…")
-        self._nexus_download_progress(dl_key, dl_label, 0, 0)   # show popup immediately
+        import threading
+        cancel = threading.Event()
+        self._nexus_download_progress(
+            dl_key, dl_label, 0, 0, cancel=cancel.set)   # show popup immediately
 
         class _Info:
             pass
@@ -8890,8 +9005,6 @@ class MainWindow(QMainWindow):
         info.mod_id = mod_id
         info.domain_name = domain
         info.name = name
-        import threading
-
         def worker():
             archive = meta = None
             try:
@@ -8907,7 +9020,8 @@ class MainWindow(QMainWindow):
                     dest_dir=dest, known_file_name=f.file_name,
                     expected_size_bytes=size,
                     progress_cb=lambda d, t: self._req_install_prog.emit(
-                        dl_key, dl_label, int(d), int(t)))
+                        dl_key, dl_label, int(d), int(t)),
+                    cancel=cancel)
                 if result.success and result.file_path is not None:
                     archive = str(result.file_path)
                     try:
@@ -10231,8 +10345,8 @@ class MainWindow(QMainWindow):
     def _ensure_feedback(self):
         """Lazily create the progress popup stack + notifier (host = central
         widget). _progress_popup is a ProgressStack: default key "op" is the
-        shared install/deploy card; downloads pass their own key so concurrent
-        cards stack instead of clobbering each other."""
+        shared deploy/restore/tool card. Downloads and archive extraction use
+        pinned rows in the notification menu instead."""
         if self._notifier is None:
             from gui_qt.notifications import ProgressStack, NotificationManager
             host = self.centralWidget() or self
@@ -10631,30 +10745,40 @@ class MainWindow(QMainWindow):
         threading.Thread(target=worker, daemon=True).start()
 
     def _schedule_op_clear(self, delay_ms: int = 1200):
-        """Hide the shared "op" progress card after *delay_ms*. Cancellable -
-        if another operation emits progress before it fires, the pending clear
-        is dropped so it can't hide the NEW operation's card (e.g. a queued
-        install batch that starts right after the previous one finished)."""
+        """Hide operation progress after *delay_ms*. Cancellable if another
+        operation reports before the timer fires."""
         t = getattr(self, "_op_clear_timer", None)
         if t is None:
             t = QTimer(self)
             t.setSingleShot(True)
-            t.timeout.connect(
-                lambda: self._progress_popup.clear()
-                if self._progress_popup is not None else None)
+            t.timeout.connect(self._clear_op_progress)
             self._op_clear_timer = t
         t.start(delay_ms)
+
+    def _clear_op_progress(self):
+        """Clear both forms of operation feedback, without touching downloads."""
+        if self._progress_popup is not None:
+            self._progress_popup.clear()
+        if hasattr(self, "_notif_button"):
+            self._notif_button.clear_progress("extraction")
 
     def _on_op_progress(self, done: int, total: int, phase):
         if getattr(self, "_op_silent", False):
             return   # silent auto-deploy: no progress popup
+        # A new/ongoing op is reporting - a clear scheduled by the previous op
+        # must not hide this one (e.g. a queued install starts immediately).
+        t = getattr(self, "_op_clear_timer", None)
+        if t is not None:
+            t.stop()
+        title = getattr(self, "_op_title", "Working")
+        if title == "Installing":
+            # Archive preparation/extraction belongs in the persistent,
+            # dismissible notification menu rather than covering app content.
+            self._notif_button.set_progress(
+                "extraction", done, total, phase,
+                title=self.tr("Extracting / Installing"))
+            return
         if self._progress_popup is not None:
-            # A new/ongoing op is reporting - a clear scheduled by the previous
-            # op's completion must not hide this op's card.
-            t = getattr(self, "_op_clear_timer", None)
-            if t is not None:
-                t.stop()
-            title = getattr(self, "_op_title", "Working")
             self._progress_popup.set_progress(done, total, phase, title=title)
 
     def _on_op_done(self, kind: str, success: bool, warnings):
@@ -11320,8 +11444,7 @@ class MainWindow(QMainWindow):
 
     def _on_proton_done(self, title: str, success: bool):
         self._proton_busy = False
-        if self._progress_popup is not None:
-            self._progress_popup.clear()
+        self._clear_op_progress()
         if success:
             self._notify(self.tr("{0} - done.").format(title), "success")
         else:
@@ -11965,6 +12088,8 @@ class MainWindow(QMainWindow):
         self._install_place = place
         self._notify(self.tr("Installing {0} mod(s)…").format(len(paths)) if len(paths) > 1
                      else self.tr("Installing {0}…").format(Path(paths[0]).name), "info")
+        self._op_progress.emit(
+            0, len(paths), self.tr("Preparing extraction…"))
         # Multi-archive batch (Downloads tab multi-select, Nexus batches):
         # extract several archives at once like a collection install, deferring
         # FOMOD/BAIN wizards to a sequential phase at the end. Change Version
@@ -11996,8 +12121,7 @@ class MainWindow(QMainWindow):
     def _on_need_prefix_ui(self, payload):
         """UI thread: show the Set-Prefix overlay; unblock the worker when done.
         The progress popup is hidden while the user decides (no work running)."""
-        if self._progress_popup is not None:
-            self._progress_popup.clear()
+        self._clear_op_progress()
         from gui_qt.set_prefix_overlay import SetPrefixOverlay
 
         def _done(result):
@@ -12050,8 +12174,7 @@ class MainWindow(QMainWindow):
 
     def _on_mod_exists_ui(self, payload):
         """UI thread: show the Mod-Already-Exists overlay; unblock the worker."""
-        if self._progress_popup is not None:
-            self._progress_popup.clear()
+        self._clear_op_progress()
         from gui_qt.mod_exists_overlay import ModExistsOverlay
 
         def _done(result):
@@ -12089,8 +12212,7 @@ class MainWindow(QMainWindow):
     def _on_confirm_cet_ui(self, payload):
         """UI thread: show the CET-requires-Hardlink warning; unblock the worker.
         The progress popup is cleared while the user decides (no work running)."""
-        if self._progress_popup is not None:
-            self._progress_popup.clear()
+        self._clear_op_progress()
         from gui_qt.confirm_overlay import ConfirmOverlay
 
         def _done(ok):
@@ -12192,8 +12314,7 @@ class MainWindow(QMainWindow):
         unblock the worker. Confirming opens the Downgrade wizard and cancels
         the deploy (the wizard redeploys when it closes); declining persists the
         acknowledgement so the prompt shows once per exe build."""
-        if self._progress_popup is not None:
-            self._progress_popup.clear()
+        self._clear_op_progress()
         from gui_qt.confirm_overlay import ConfirmOverlay
 
         def _done(open_wizard):
@@ -12250,8 +12371,7 @@ class MainWindow(QMainWindow):
     def _on_confirm_windows_fs_ui(self, payload):
         """UI thread: show the Windows-filesystem advisory; unblock the worker.
         The progress popup is cleared while the user decides (no work running)."""
-        if self._progress_popup is not None:
-            self._progress_popup.clear()
+        self._clear_op_progress()
         from gui_qt.confirm_overlay import ConfirmOverlay
 
         lines = "\n".join(

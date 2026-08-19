@@ -103,6 +103,11 @@ def download_package(link, dest_dir: Path,
     result = ThunderstoreDownloadResult(
         namespace=link.namespace, name=link.name, version=link.version)
 
+    if cancel is not None and cancel.is_set():
+        result.error = "cancelled"
+        result.cancelled = True
+        return result
+
     file_name = f"{link.full_name}.zip"
     result.file_name = file_name
     dest_dir = Path(dest_dir)

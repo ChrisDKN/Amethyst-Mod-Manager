@@ -1,15 +1,16 @@
-"""Header notifications button: unread dot + dropdown history of recent toasts."""
+"""Header notifications button: active progress + recent toast history."""
 
 from __future__ import annotations
 
 from collections import deque
 from datetime import datetime
+from weakref import ref, WeakSet
 
-from PySide6.QtCore import Qt, QObject, QPoint, QSize, Signal
+from PySide6.QtCore import Qt, QObject, QPoint, QSize, Signal, QTimer
 from PySide6.QtGui import QAction, QColor, QPainter
 from PySide6.QtWidgets import (
-    QFrame, QHBoxLayout, QLabel, QMenu, QScrollArea, QToolButton, QVBoxLayout,
-    QWidget, QWidgetAction,
+    QFrame, QHBoxLayout, QLabel, QMenu, QProgressBar, QPushButton, QScrollArea,
+    QTabWidget, QToolButton, QVBoxLayout, QWidget, QWidgetAction,
 )
 
 from gui_qt.icons import icon
@@ -27,6 +28,84 @@ _STATE_COLOR_KEYS = {
 
 _MENU_W = 400          # dropdown content width
 _MENU_MAX_H = 380      # cap before the list scrolls (~10 rows)
+_UNCHANGED = object()
+
+
+class _ProgressRow(QFrame):
+    """Live progress item pinned above the notification-history scroller."""
+
+    def __init__(self, owner: "NotificationButton", key: str):
+        super().__init__()
+        self._owner = owner
+        self._key = key
+        self.setObjectName("NotificationProgressRow")
+        pal = active_palette()
+        self.setStyleSheet(
+            f"#NotificationProgressRow {{ background:{_c(pal, 'BG_PANEL')};"
+            f" border:1px solid {_c(pal, 'BORDER')}; border-radius:6px; }}")
+
+        v = QVBoxLayout(self)
+        v.setContentsMargins(10, 8, 10, 8)
+        v.setSpacing(6)
+        title_row = QHBoxLayout()
+        title_row.setContentsMargins(0, 0, 0, 0)
+        title_row.setSpacing(8)
+        self._title = QLabel()
+        self._title.setStyleSheet("font-size:14px; font-weight:600;")
+        title_row.addWidget(self._title, 1)
+        self._cancel = QPushButton(self.tr("Cancel"))
+        self._cancel.setObjectName("DangerButton")
+        self._cancel.setCursor(Qt.PointingHandCursor)
+        self._cancel.clicked.connect(
+            lambda: self._owner._cancel_progress(self._key))
+        title_row.addWidget(self._cancel)
+        v.addLayout(title_row)
+
+        self._phase = QLabel()
+        self._phase.setWordWrap(True)
+        self._phase.setStyleSheet(
+            f"font-size:12px; color:{_c(pal, 'TEXT_DIM')};")
+        v.addWidget(self._phase)
+        self._bar = QProgressBar()
+        self._bar.setTextVisible(False)
+        self._bar.setFixedHeight(10)
+        v.addWidget(self._bar)
+        self._count = QLabel()
+        self._count.setAlignment(Qt.AlignRight)
+        self._count.setStyleSheet(
+            f"font-size:12px; color:{_c(pal, 'TEXT_DIM')};")
+        v.addWidget(self._count)
+
+    def update_progress(self, entry: dict) -> None:
+        self._title.setText(entry.get("title") or self.tr("Working"))
+        self._phase.setText(entry.get("phase") or self.tr("Working…"))
+        done = max(0, int(entry.get("done") or 0))
+        total = max(0, int(entry.get("total") or 0))
+        if total > 0:
+            bar_done, bar_total = min(done, total), total
+            while bar_total > 0x7FFFFFFF:
+                bar_done >>= 10
+                bar_total >>= 10
+            self._bar.setRange(0, bar_total)
+            self._bar.setValue(bar_done)
+            if entry.get("bytes_mode"):
+                from Utils.cache_tools import format_size
+                self._count.setText(self.tr("{0} / {1}").format(
+                    format_size(min(done, total)), format_size(total)))
+            else:
+                self._count.setText(self.tr("{0} / {1}").format(
+                    min(done, total), total))
+        else:
+            self._bar.setRange(0, 0)
+            self._count.clear()
+
+        cancelling = bool(entry.get("cancelling"))
+        callback = entry.get("cancel")
+        self._cancel.setVisible(callable(callback) or cancelling)
+        self._cancel.setEnabled(callable(callback) and not cancelling)
+        self._cancel.setText(
+            self.tr("Cancelling…") if cancelling
+            else entry.get("cancel_label") or self.tr("Cancel"))
 
 
 class NotificationHistory(QObject):
@@ -56,6 +135,121 @@ class NotificationHistory(QObject):
         self.changed.emit()
 
 
+class _NotificationMirrorButton(QToolButton):
+    """Secondary entry point sharing a NotificationButton's state and menu."""
+
+    def __init__(self, source: "NotificationButton", btn_h: int, icon_px: int,
+                 parent: QWidget | None = None):
+        super().__init__(parent)
+        self._source = source
+        self._icon_px = icon_px
+        self._icon_ratio = icon_px / btn_h
+        self.setIconSize(QSize(icon_px, icon_px))
+        self.setToolButtonStyle(Qt.ToolButtonIconOnly)
+        # Same tile as the header button (see the global #IconButton QSS) - the
+        # strip behind it supplies the tab-bar background the header has.
+        self.setObjectName("IconButton")
+        self.setCursor(Qt.PointingHandCursor)
+        self.setFixedSize(btn_h, btn_h)
+        self.setToolTip(self.tr("Notifications"))
+        self.clicked.connect(lambda: source._toggle_menu(self))
+        self.refresh_theme(active_palette())
+
+    def sizeHint(self) -> QSize:
+        # setFixedSize() clamps resizes but leaves sizeHint() at the style's
+        # value.  A QTabWidget corner is laid out from the hint ALONE, so a
+        # smaller hint places the widget as if it were small and the fixed size
+        # then overflows the corner rect - the button hangs off the window edge
+        # and gets clipped.  Report what we are actually going to be.
+        return self.minimumSize()
+
+    def set_tile_size(self, px: int) -> None:
+        """Resize the tile, keeping the glyph's share of it."""
+        if px == self.height():
+            return
+        self._icon_px = max(12, round(px * self._icon_ratio))
+        self.setFixedSize(px, px)
+        self.setIconSize(QSize(self._icon_px, self._icon_px))
+        self.refresh_theme(active_palette())
+
+    def refresh_theme(self, pal: dict) -> None:
+        self.setIcon(icon("notification.png", self._icon_px,
+                          color=_c(pal, "TEXT_MAIN")))
+        self.update()
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        self._source._paint_badge(self)
+
+
+class _TabNotificationStrip(QWidget):
+    """Tab-bar-coloured host for a mirror button used as a QTabWidget corner."""
+
+    # QTabWidget paints nothing behind a corner widget, so a bare button there
+    # hangs over the window background - a dark hole beside the tab strip. This
+    # fills the corner with the tab bar's own colour and insets the button from
+    # the window edge.
+    _PAD_L, _PAD_R = 8, 10
+    _PAD_V = 3       # matches the tab tiles' top margin, so the two line up
+    _MAX_TILE = 42   # never outgrow the header button
+
+    def __init__(self, button: _NotificationMirrorButton,
+                 parent: QWidget | None = None):
+        super().__init__(parent)
+        self._button = button
+        self.setObjectName("TabCornerStrip")
+        # A plain QWidget ignores a stylesheet background without this.
+        self.setAttribute(Qt.WA_StyledBackground, True)
+        h = QHBoxLayout(self)
+        h.setContentsMargins(self._PAD_L, 0, self._PAD_R, 0)
+        h.setSpacing(0)
+        h.addWidget(button, 0, Qt.AlignVCenter)
+        bind_theme(self, roles={"BG_HEADER"})
+
+    def refresh_theme(self, pal: dict) -> None:
+        self.setStyleSheet(
+            f"#TabCornerStrip {{ background: {_c(pal, 'BG_HEADER')}; }}")
+
+    def sizeHint(self) -> QSize:
+        # The corner is laid out at exactly this size, so it must cover the
+        # button: a smaller hint would leave the (fixed-size) button overflowing
+        # the corner rect and clipped against the window edge.
+        return QSize(self._button.width() + self._PAD_L + self._PAD_R,
+                     max(self._button.height(), self._row_height()))
+
+    def _row_height(self) -> int:
+        tabs = self.parent()
+        if isinstance(tabs, QTabWidget) and tabs.tabBar() is not None:
+            return max(tabs.tabBar().height(), tabs.tabBar().sizeHint().height())
+        return 0
+
+    def moveEvent(self, event):
+        super().moveEvent(event)
+        self._fill_row()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._fill_row()
+
+    def _fill_row(self) -> None:
+        """Snap to the tab-bar row and grow the button to fill it."""
+        row_h = self._row_height()
+        if not row_h:
+            return
+        # The row's real height is only known once the bar is laid out (it grows
+        # with the theme's font/padding), so the tile is fitted here rather than
+        # hardcoded. updateGeometry() re-runs the corner layout for the new width.
+        tile = max(24, min(self._MAX_TILE, row_h - 2 * self._PAD_V))
+        if tile != self._button.height():
+            self._button.set_tile_size(tile)
+            self.updateGeometry()
+        # Qt bottom-aligns a corner widget in the row and shaves the style's tab
+        # base overlap off its top, leaving an unpainted sliver of window
+        # background above the strip.
+        if self.y() != 0 or self.height() != row_h:
+            self.setGeometry(self.x(), 0, self.width(), row_h)
+
+
 class NotificationButton(QToolButton):
     """Square header button (matches the Settings button) popping the
     notification history as a menu; shows an accent dot while unread."""
@@ -65,6 +259,17 @@ class NotificationButton(QToolButton):
         super().__init__(parent)
         self._history = history
         self._unread = False
+        self._busy = False          # tracks _progress for badge repaints
+        self._progress: dict[str, dict] = {}
+        self._active_menu: QMenu | None = None
+        self._menu_anchor = None
+        self._progress_action = None
+        self._progress_separator = None
+        self._progress_box = None
+        self._progress_layout = None
+        self._progress_rows: dict[str, _ProgressRow] = {}
+        self._history_scroll = None
+        self._mirrors: WeakSet = WeakSet()
         pal = active_palette()
         self.setIcon(icon("notification.png", icon_px,
                           color=_c(pal, "TEXT_MAIN")))
@@ -83,44 +288,228 @@ class NotificationButton(QToolButton):
         self.setIcon(icon("notification.png", self._icon_px,
                           color=_c(pal, "TEXT_MAIN")))
         self.update()
+        for mirror in list(self._mirrors):
+            mirror.refresh_theme(pal)
 
-    # -- unread dot ----------------------------------------------------------
+    def create_mirror(self, btn_h: int = 34, icon_px: int = 20,
+                      parent: QWidget | None = None) -> QWidget:
+        """Create another button backed by this button's live menu state.
+        Returns the strip hosting it - that is the widget to place."""
+        mirror = _NotificationMirrorButton(self, btn_h, icon_px)
+        self._mirrors.add(mirror)
+        return _TabNotificationStrip(mirror, parent)
+
+    # -- badge ---------------------------------------------------------------
     def _on_entry_added(self):
         self._unread = True
-        self.update()
+        self._refresh_badges()
 
     def _mark_read(self):
         self._unread = False
+        self._refresh_badges()
+
+    def _refresh_badges(self) -> None:
         self.update()
+        for mirror in list(self._mirrors):
+            mirror.update()
 
     def paintEvent(self, event):
         super().paintEvent(event)
-        if not self._unread:
+        self._paint_badge(self)
+
+    def _paint_badge(self, target: QWidget) -> None:
+        """Dot over the bell: work in progress outranks the unread marker."""
+        if self._progress:
+            key = "STATUS_DL_GREEN"
+        elif self._unread:
+            key = "ACCENT"
+        else:
             return
         pal = active_palette()
-        p = QPainter(self)
+        p = QPainter(target)
         p.setRenderHint(QPainter.Antialiasing)
         p.setPen(Qt.NoPen)
-        center = QPoint(self.width() - 12, 12)
+        edge = 12 if target.width() >= 40 else 9
+        center = QPoint(target.width() - edge, edge)
         # Background-coloured halo so the dot separates from the glyph.
         p.setBrush(QColor(_c(pal, "BG_ROW")))
         p.drawEllipse(center, 6, 6)
-        p.setBrush(QColor(_c(pal, "ACCENT")))
+        p.setBrush(QColor(_c(pal, key)))
         p.drawEllipse(center, 4, 4)
 
     # -- menu ----------------------------------------------------------------
     def _show_menu(self):
+        self._toggle_menu(self)
+
+    def _toggle_menu(self, anchor: QWidget):
+        if self._active_menu is not None and self._active_menu.isVisible():
+            self._active_menu.close()
+            return
+        self.open_menu(anchor)
+
+    def open_menu(self, anchor: QWidget | None = None):
+        """Open the live notification menu without blocking the caller."""
+        if self._active_menu is not None:
+            return
+        if anchor is None or not anchor.isVisible():
+            if self.isVisible():
+                anchor = self
+            else:
+                anchor = next(
+                    (m for m in list(self._mirrors) if m.isVisible()), self)
         menu = self._build_menu()
         menu.adjustSize()
-        anchor = self.mapToGlobal(self.rect().bottomRight())
-        x = max(anchor.x() - menu.sizeHint().width(), 0)
-        menu.exec(QPoint(x, anchor.y()))
+        anchor_pos = anchor.mapToGlobal(anchor.rect().bottomRight())
+        x = max(anchor_pos.x() - menu.sizeHint().width(), 0)
+        self._active_menu = menu
+        self._menu_anchor = ref(anchor)
+
+        def _closed(m=menu):
+            if self._active_menu is m:
+                self._active_menu = None
+                self._menu_anchor = None
+                self._progress_action = None
+                self._progress_separator = None
+                self._progress_box = None
+                self._progress_layout = None
+                self._progress_rows = {}
+                self._history_scroll = None
+            m.deleteLater()
+
+        menu.aboutToHide.connect(_closed)
+        menu.popup(QPoint(x, anchor_pos.y()))
+        # Re-anchor off the laid-out width now that popup() has shown it, so the
+        # initial placement can't disagree with later re-anchoring.
+        self._place_menu()
+
+    def _place_menu(self) -> None:
+        """Keep the open menu's top-right corner under the button."""
+        menu = self._active_menu
+        anchor = self._menu_anchor() if self._menu_anchor is not None else None
+        if menu is None or not menu.isVisible() or anchor is None \
+                or not anchor.isVisible():
+            return
+        corner = anchor.mapToGlobal(anchor.rect().bottomRight())
+        menu.move(QPoint(max(corner.x() - menu.width(), 0), corner.y()))
+
+    def set_progress(self, key: str, done: int, total: int,
+                     phase: str | None = None, title: str | None = None,
+                     bytes_mode: bool = False, cancel_callback=_UNCHANGED,
+                     cancel_label: str | None = None,
+                     auto_open: bool = False) -> None:
+        """Add or update a live progress item pinned above notifications.
+
+        ``auto_open`` only opens for a newly-created item, so progress updates
+        never reopen a menu that the user deliberately closed.
+        """
+        is_new = key not in self._progress
+        entry = self._progress.setdefault(key, {
+            "cancel": None, "cancelling": False,
+        })
+        entry.update({
+            "done": int(done), "total": int(total),
+            "phase": phase or "", "title": title or self.tr("Working"),
+            "bytes_mode": bool(bytes_mode),
+            "cancel_label": cancel_label or self.tr("Cancel"),
+        })
+        if cancel_callback is not _UNCHANGED:
+            if callable(cancel_callback):
+                entry["cancel"] = cancel_callback
+                entry["cancelling"] = False
+            elif not entry.get("cancelling"):
+                entry["cancel"] = None
+        self._sync_progress_widget()
+        if auto_open and is_new:
+            QTimer.singleShot(0, self.open_menu)
+
+    def clear_progress(self, key: str) -> None:
+        self._progress.pop(key, None)
+        self._sync_progress_widget()
+
+    def _cancel_progress(self, key: str) -> None:
+        entry = self._progress.get(key)
+        callback = entry.get("cancel") if entry is not None else None
+        if not callable(callback):
+            return
+        entry["cancel"] = None
+        entry["cancelling"] = True
+        self._sync_progress_widget()
+        try:
+            callback()
+        except Exception:
+            # A cancellation callback is best-effort UI plumbing. Its worker
+            # owns error reporting and completion cleanup.
+            pass
+
+    def _progress_widget(self) -> QWidget:
+        box = QWidget()
+        box.setFixedWidth(_MENU_W)
+        layout = QVBoxLayout(box)
+        layout.setContentsMargins(6, 6, 6, 6)
+        layout.setSpacing(6)
+        self._progress_box = box
+        self._progress_layout = layout
+        self._progress_rows = {}
+        self._sync_progress_widget()
+        return box
+
+    def _sync_progress_widget(self) -> None:
+        layout = self._progress_layout
+        if layout is not None:
+            for key in list(self._progress_rows):
+                if key in self._progress:
+                    continue
+                row = self._progress_rows.pop(key)
+                layout.removeWidget(row)
+                row.deleteLater()
+            for key, entry in self._progress.items():
+                row = self._progress_rows.get(key)
+                if row is None:
+                    row = _ProgressRow(self, key)
+                    self._progress_rows[key] = row
+                    layout.addWidget(row)
+                row.update_progress(entry)
+            if self._progress_box is not None:
+                self._progress_box.adjustSize()
+        visible = bool(self._progress)
+        if self._progress_action is not None:
+            self._progress_action.setVisible(visible)
+        if self._progress_separator is not None:
+            self._progress_separator.setVisible(visible)
+        self._resize_history_scroll()
+        if self._active_menu is not None and self._active_menu.isVisible():
+            # Progress rows appearing/finishing change the menu's width, so it
+            # has to be re-anchored or it drifts away from the button.
+            self._active_menu.adjustSize()
+            self._place_menu()
+        # Repaint on the busy flip only - this runs on every progress tick.
+        if visible != self._busy:
+            self._busy = visible
+            self._refresh_badges()
+
+    def _resize_history_scroll(self) -> None:
+        scroll = self._history_scroll
+        if scroll is None or scroll.widget() is None:
+            return
+        # Keep the complete menu close to its old maximum height when one or
+        # two pinned operations are present; the history remains independently
+        # scrollable beneath them.
+        max_h = max(140, _MENU_MAX_H - min(len(self._progress), 2) * 100)
+        scroll.setFixedHeight(min(scroll.widget().sizeHint().height(), max_h))
 
     def _build_menu(self) -> QMenu:
         """Fresh right-aligned menu: newest-first rows + a Clear-all action.
         Also clears the unread dot (built = seen)."""
         self._mark_read()
         menu = QMenu(self)
+        progress = QWidgetAction(menu)
+        progress.setDefaultWidget(self._progress_widget())
+        menu.addAction(progress)
+        progress_sep = menu.addSeparator()
+        self._progress_action = progress
+        self._progress_separator = progress_sep
+        progress.setVisible(bool(self._progress))
+        progress_sep.setVisible(bool(self._progress))
         entries = self._history.entries()
         if not entries:
             empty = menu.addAction(self.tr("No notifications"))
@@ -158,7 +547,8 @@ class NotificationButton(QToolButton):
         col.adjustSize()
         sbar_w = scroll.verticalScrollBar().sizeHint().width()
         scroll.setFixedWidth(_MENU_W + sbar_w + 2)
-        scroll.setFixedHeight(min(col.sizeHint().height(), _MENU_MAX_H))
+        self._history_scroll = scroll
+        self._resize_history_scroll()
         return scroll
 
     def _entry_row(self, pal, text: str, state: str, when) -> QFrame:

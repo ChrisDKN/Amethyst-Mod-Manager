@@ -131,7 +131,7 @@ class NexusBrowserView(QWidget):
         self._log = log_fn or (lambda m: None)
         # progress_fn(key, name, downloaded, total) reports one download's
         # bytes to the host (which combines concurrent downloads into a single
-        # progress card); total<0 means "this download finished". Defaults to
+        # progress item); total<0 means "this download finished". Defaults to
         # a no-op.
         self._progress_fn = progress_fn or (lambda *args: None)
         self._dl_seq = 0                # unique progress-card key per download
@@ -1816,7 +1816,7 @@ class NexusBrowserView(QWidget):
         self._installing = False
 
     def _on_download_progress(self, key, name, downloaded, total):
-        """UI thread: forward download bytes to this download's progress card."""
+        """UI thread: forward download bytes to its notification progress item."""
         self._progress_fn(key, name, downloaded, total)
 
     def _on_download_done(self, archive, meta, dl_key):
