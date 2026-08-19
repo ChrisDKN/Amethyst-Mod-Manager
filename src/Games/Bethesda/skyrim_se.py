@@ -33,6 +33,15 @@ class SkyrimSE(Fallout_3):
     ]
     vanilla_dlc_plugins: list[str] = []
     vanilla_ccc_filename = "Skyrim.ccc"
+    primary_plugin_order = [
+        "Skyrim.esm", "Update.esm",
+        "Dawnguard.esm", "HearthFires.esm", "Dragonborn.esm",
+        "ccBGSSSE001-Fish.esm",
+        "ccQDRSSE001-SurvivalMode.esl",
+        "ccBGSSSE037-Curios.esl",
+        "ccBGSSSE025-AdvDSGS.esm",
+        "_ResourcePack.esl",
+    ]
     synthesis_registry_name = "Skyrim Special Edition"
 
     # -----------------------------------------------------------------------

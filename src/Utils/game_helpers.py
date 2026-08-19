@@ -237,6 +237,57 @@ def _read_ccc_manifest(game, ccc_name: str, present: "set[str]") -> dict[str, st
     return result
 
 
+def _ensure_profile_primary_plugin_order(game, profile_dir: Path) -> None:
+    """Seed/fix a new profile's loadorder with present primary plugins.
+
+    Skyrim-era games omit native plugins from plugins.txt, so loadorder.txt is
+    the profile's durable copy of their display order.  Existing mod entries
+    and enabled states are preserved; this only inserts missing primary files
+    and moves that fixed block to the front.
+    """
+    from Utils.plugins import (
+        PluginEntry, enforce_primary_plugin_order, primary_plugin_order,
+        read_loadorder, read_plugins, write_loadorder, write_plugins,
+    )
+
+    preferred = primary_plugin_order(game)
+    if not preferred:
+        return
+    vanilla = _vanilla_plugins_for_game(game)
+    present_primary = [
+        vanilla[name.lower()] for name in preferred if name.lower() in vanilla
+    ]
+    if not present_primary:
+        return
+
+    loadorder_path = profile_dir / "loadorder.txt"
+    plugins_path = profile_dir / "plugins.txt"
+    star = bool(getattr(game, "plugins_use_star_prefix", True))
+    current = read_loadorder(loadorder_path)
+    if not current:
+        current = [e.name for e in read_plugins(plugins_path, star_prefix=star)]
+    seen = {name.lower() for name in current}
+    combined = [PluginEntry(name, True) for name in present_primary
+                if name.lower() not in seen]
+    combined.extend(PluginEntry(name, True) for name in current)
+    ordered, _ = enforce_primary_plugin_order(game, combined)
+    new_names = [e.name for e in ordered]
+    if new_names != current:
+        write_loadorder(loadorder_path, ordered)
+
+    # A few engines require native plugins in plugins.txt too.  Keep that file
+    # aligned when such a game opts into a primary order in the future.
+    if bool(getattr(game, "plugins_include_vanilla", False)):
+        listed = read_plugins(plugins_path, star_prefix=star)
+        listed_lower = {e.name.lower() for e in listed}
+        listed = [PluginEntry(name, True) for name in present_primary
+                  if name.lower() not in listed_lower] + listed
+        listed, changed = enforce_primary_plugin_order(game, listed)
+        if changed or any(name.lower() not in listed_lower
+                          for name in present_primary):
+            write_plugins(plugins_path, listed, star_prefix=star)
+
+
 def _load_games() -> list[str]:
     """Discover game handlers and return sorted display names (configured games only)."""
     new_games = discover_games()
@@ -358,6 +409,8 @@ def _create_profile(
             for k in ("original_default", "profile_locked", "profile_specific_mods"):
                 settings.pop(k, None)
             write_profile_settings(profile_dir, settings)
+            if game is not None:
+                _ensure_profile_primary_plugin_order(game, profile_dir)
             return profile_dir
 
     profile_dir.mkdir(parents=True, exist_ok=True)
@@ -394,6 +447,8 @@ def _create_profile(
         (profile_dir / "mods").mkdir(exist_ok=True)
         (profile_dir / "overwrite").mkdir(exist_ok=True)
         (profile_dir / "Root_Folder").mkdir(exist_ok=True)
+    if game is not None:
+        _ensure_profile_primary_plugin_order(game, profile_dir)
     return profile_dir
 
 

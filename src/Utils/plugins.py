@@ -31,6 +31,53 @@ class PluginEntry:
     enabled: bool
 
 
+def primary_plugin_order(game) -> list[str]:
+    """Return a game's case-preserving, de-duplicated fixed plugin order.
+
+    An empty list is intentional: games without a known engine-defined order
+    continue to use their saved order or LOOT result.
+    """
+    try:
+        configured = list(getattr(game, "primary_plugin_order", []) or [])
+    except Exception:
+        return []
+    result: list[str] = []
+    seen: set[str] = set()
+    for name in configured:
+        name = str(name).strip()
+        low = name.lower()
+        if name and low not in seen:
+            result.append(name)
+            seen.add(low)
+    return result
+
+
+def enforce_primary_plugin_order(game, entries: list) -> "tuple[list, bool]":
+    """Move present primary plugins to the front in the game's fixed order.
+
+    Entry objects are reused (``PluginEntry`` and the GUI's ``PluginRow`` both
+    expose ``.name``).  Non-primary entries retain their relative order.  The
+    returned boolean says whether the incoming order changed.
+    """
+    original = list(entries)
+    preferred = primary_plugin_order(game)
+    if not preferred or not original:
+        return original, False
+
+    rank = {name.lower(): i for i, name in enumerate(preferred)}
+    buckets: list[list] = [[] for _ in preferred]
+    rest: list = []
+    for entry in original:
+        name = entry if isinstance(entry, str) else getattr(entry, "name", "")
+        pos = rank.get(str(name).lower())
+        if pos is None:
+            rest.append(entry)
+        else:
+            buckets[pos].append(entry)
+    ordered = [entry for bucket in buckets for entry in bucket] + rest
+    return ordered, ordered != original
+
+
 # Per-path mtime-keyed cache of the *parsed* plugins.txt / loadorder.txt content.
 # A single plugin-tab refresh reads plugins.txt 2-3× (the two sync passes plus
 # _refresh_plugins_tab) for a ~1300-line file; on a toggle that writes nothing,

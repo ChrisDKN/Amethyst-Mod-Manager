@@ -25,6 +25,7 @@ from Utils.app_log import safe_print as print  # noqa: A004
 from Utils.perftrace import span
 from Utils.plugins import (
     read_plugins, read_loadorder, write_plugins, write_loadorder, PluginEntry,
+    enforce_primary_plugin_order,
 )
 
 # Verbose plugin-panel diagnostics. Set AMM_PLUGIN_DIAG=1 to log every stage of
@@ -693,6 +694,10 @@ def load_plugins(game, profile: str,
         if e.name.lower() not in seen:
             ordered.append(e); seen.add(e.name.lower())
 
+    # MO2 parity (fixPrimaryPlugins): a game may define an engine-owned block
+    # whose order wins over a stale profile, collection export, or LOOT result.
+    ordered, primary_order_changed = enforce_primary_plugin_order(game, ordered)
+
     # Resolve each plugin's REAL path (staging mod / overwrite / Data) so header
     # flags (ESL, master, missing-master) work for mod plugins, not just vanilla.
     if cancelled():
@@ -852,6 +857,9 @@ def load_plugins(game, profile: str,
         rows = [_to_row(e, vanilla, resolved, data_dir, _bp) for e in ordered]
     if cancelled():
         return None
+    if primary_order_changed and _active_matches:
+        save_plugins(game, profile, rows)
+        app_log("Plugins: restored the game's fixed primary-plugin order.")
     # MO2 parity (fixPluginRelationships). Must run before the checks below -
     # late-master warnings are computed from row positions.
     if master_block_enabled(game) and master_flags_resolved(rows, resolved):
@@ -1754,6 +1762,7 @@ def save_plugins(game, profile: str, rows: list[PluginRow]) -> None:
     p = plugins_path(game, profile)
     if p is None:
         return
+    rows, _ = enforce_primary_plugin_order(game, rows)
     star = getattr(game, "plugins_use_star_prefix", True)
     include_vanilla = bool(getattr(game, "plugins_include_vanilla", False))
     # The whole vanilla set - base masters, DLC AND .ccc-listed Creation Club

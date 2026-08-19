@@ -17,13 +17,18 @@ class Fallout_NV(Fallout_3):
     _archive_list_fix_name = "JIP LN NVSE"
     _archive_list_fix_path = "Data/NVSE/Plugins/jip_nvse.dll"
 
-    vanilla_plugins = ["FalloutNV.esm"]
-    vanilla_dlc_plugins = [
+    # MO2 fixes the base game, story DLC and preorder packs to the front in
+    # this order. FalloutNV_lang.esp (when a localized build ships it) remains
+    # vanilla, but is left to the saved order / LOOT after this primary block.
+    primary_plugin_order = [
+        "FalloutNV.esm",
         "DeadMoney.esm", "HonestHearts.esm", "OldWorldBlues.esm",
         "LonesomeRoad.esm", "GunRunnersArsenal.esm",
-        "CaravanPack.esm", "ClassicPack.esm",
-        "MercenaryPack.esm", "TribalPack.esm", "FalloutNV_lang.esp",
+        "ClassicPack.esm", "MercenaryPack.esm", "TribalPack.esm",
+        "CaravanPack.esm",
     ]
+    vanilla_plugins = ["FalloutNV.esm"]
+    vanilla_dlc_plugins = primary_plugin_order[1:] + ["FalloutNV_lang.esp"]
 
     @property
     def wizard_tools(self) -> list[WizardTool]:

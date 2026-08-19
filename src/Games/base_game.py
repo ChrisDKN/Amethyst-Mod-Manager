@@ -1157,6 +1157,15 @@ class BaseGame(ABC):
         return None
 
     @property
+    def primary_plugin_order(self) -> list[str]:
+        """Vanilla plugins whose engine-defined order must be kept fixed.
+
+        This is the equivalent of MO2's ordered ``primaryPlugins()`` list.
+        Most games leave it empty and let their saved order / LOOT decide.
+        """
+        return []
+
+    @property
     def supports_esl_flag(self) -> bool:
         """
         Whether this game supports the ESL (light plugin) flag in TES4 plugin headers.

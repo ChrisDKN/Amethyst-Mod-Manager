@@ -43,7 +43,9 @@ from Utils.extract_budget import ExtractionMemoryBudget, get_uncompressed_size
 from Utils.mod_install import (
     install_collection_archive, FOMOD_DEFERRED, BAIN_DEFERRED)
 from Utils.modlist import read_modlist, write_modlist, ModEntry
-from Utils.plugins import write_plugins, write_loadorder, PluginEntry
+from Utils.plugins import (
+    write_plugins, write_loadorder, PluginEntry, enforce_primary_plugin_order,
+)
 from Utils.ui_config import (
     load_collection_settings, load_clear_archive_after_install,
     load_keep_fomod_archives)
@@ -1781,6 +1783,14 @@ def run_collection_install(
             game, profile_dir, plugins_path, collection_schema,
             overwrite_existing, _is_append_run, log, _set_status,
             amethyst_state=_amethyst_state)
+        # Also covers manifests with no plugins array: a collection install
+        # must not leave a freshly-created/cloned profile with a stale native
+        # block simply because there was no authored plugin order to write.
+        try:
+            from Utils.game_helpers import _ensure_profile_primary_plugin_order
+            _ensure_profile_primary_plugin_order(game, profile_dir)
+        except Exception as exc:
+            log(f"Collection install: primary-plugin order repair failed: {exc}")
 
     # Final reconciliation - new-profile path only. Update runs were already
     # reconciled at Step 3 (order-preserving), append runs by
@@ -2748,6 +2758,14 @@ def _write_collection_plugins(game, profile_dir, plugins_path, collection_schema
                         key=lambda kv: (_ext_order.get(Path(kv[0]).suffix, 9), kv[0]))
                     if low not in author_lower]
                 final_entries = vanilla_prefix + author_entries
+            # MO2-style primary plugins are engine-owned: their fixed order
+            # overrides the collection manifest/export and LOOT alike.  Games
+            # without an explicit primary_plugin_order are unchanged.
+            final_entries, primary_changed = enforce_primary_plugin_order(
+                game, final_entries)
+            if primary_changed:
+                log("Collection install: restored the game's fixed "
+                    "primary-plugin order.")
             write_plugins(plugins_path,
                           [e for e in final_entries if e.name.lower() not in vanilla_lower],
                           star_prefix=star_prefix)

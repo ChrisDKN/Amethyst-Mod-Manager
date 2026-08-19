@@ -16055,6 +16055,7 @@ class MainWindow(QMainWindow):
         from gui_qt.plugin_state import (
             apply_loot_sort, save_plugins, enforce_master_block,
             master_block_enabled)
+        from Utils.plugins import enforce_primary_plugin_order
         pre_rows = ctx.get("rows", [])
         new_rows, moved = apply_loot_sort(
             pre_rows, ctx.get("locked_indices", {}),
@@ -16070,6 +16071,10 @@ class MainWindow(QMainWindow):
             for r in new_rows:
                 r.flags = flags_by_name.get(r.name.lower(), r.flags)
             new_rows, _ = enforce_master_block(new_rows)
+        # LOOT normally supplies the order for games with plugins.  A small
+        # engine-defined primary block (Skyrim SE/AE) is the exception, just as
+        # it is in MO2's fixPrimaryPlugins pass.
+        new_rows, _ = enforce_primary_plugin_order(game, new_rows)
         if game is not None and profile:
             self._plugin_model.set_natural_rows(new_rows)
             try:
