@@ -977,8 +977,9 @@ class BaseGame(ABC):
         play-bar Run dropdown automatically - no manual "Add custom EXE"
         needed. Unlike ``preferred_launch_exe`` the game's own Play entry is
         left untouched; the framework appears as an extra dropdown item and
-        runs through the normal exe-via-Proton path (game prefix, Steam
-        app-id env, cwd = the exe's folder).
+        runs in the game's own launch context. A verified Steam launcher swap
+        is handed back to Steam; other setups use the configured game prefix
+        and runner with the exe's folder as cwd.
 
         Only include launchers here - config GUIs / compilers declared in
         ``frameworks`` (MGE XE gui, scc.exe, …) don't belong in the Run

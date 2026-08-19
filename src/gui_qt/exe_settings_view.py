@@ -221,17 +221,24 @@ class ExeSettingsView(QWidget):
             proton_row.addStretch(1)
             sp.addLayout(proton_row)
             if not self._is_jar:
-                wt_help = self.tr(
-                    "Run this exe with bare Wine against the same prefix instead "
-                    "of a Proton session - no Steam client attach, so Steam Input "
-                    "keeps the desktop controls (trackpad / on-screen keyboard). "
-                    "The prefix is still created and updated through Proton. Env "
-                    "vars in Launch Options still apply; wrappers and %command% "
-                    "are skipped in this mode.")
+                if self._is_framework:
+                    wt_help = self.tr(
+                        "Script extenders must use the game's normal runner. Plain "
+                        "Wine removes the Steam/Proton context that Steam builds "
+                        "need to start the game.")
+                else:
+                    wt_help = self.tr(
+                        "Run this exe with bare Wine against the same prefix instead "
+                        "of a Proton session - no Steam client attach, so Steam Input "
+                        "keeps the desktop controls (trackpad / on-screen keyboard). "
+                        "The prefix is still created and updated through Proton. Env "
+                        "vars in Launch Options still apply; wrappers and %command% "
+                        "are skipped in this mode.")
                 self._winetricks_chk = QCheckBox(
                     self.tr("Launch with plain Wine (winetricks-style)"))
                 self._winetricks_chk.setStyleSheet(f"color:{_c(p,'TEXT_MAIN')};")
                 self._winetricks_chk.setToolTip(self._tip_text(wt_help))
+                self._winetricks_chk.setEnabled(not self._is_framework)
                 wt_row = QHBoxLayout(); wt_row.setContentsMargins(0, 0, 0, 0)
                 wt_row.setSpacing(6)
                 wt_row.addWidget(self._winetricks_chk)
@@ -315,7 +322,7 @@ class ExeSettingsView(QWidget):
             self._proton_combo.setCurrentText(self._best_proton_match(saved))
         self._deploy_on_run_chk.setChecked(
             exe_launch.load_deploy_on_run(game, name))
-        if self._winetricks_chk is not None:
+        if self._winetricks_chk is not None and not self._is_framework:
             self._winetricks_chk.setChecked(
                 exe_launch.load_winetricks_style(game, name))
         if self._is_jar:

@@ -28,6 +28,7 @@ _ALWAYS_FORWARD_EXACT = frozenset({
     "SteamAppId",
     "SteamGameId",
     "SteamOverlayGameId",
+    "SteamDeck",
     "GAMEID",
     "PROTONPATH",
     "WINEPREFIX",

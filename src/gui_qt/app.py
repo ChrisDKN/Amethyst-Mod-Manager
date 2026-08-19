@@ -9825,23 +9825,29 @@ class MainWindow(QMainWindow):
 
     # ------------------------------------------------------------- play bar
     def _refresh_play_selector(self):
-        """Repopulate the play-bar dropdown: the game + custom exes, restoring
-        this profile's saved selection (Tk stores the label in profile_state)."""
-        # Script extenders are deliberately NOT auto-listed any more - a loader
-        # only shows up when the user added it themselves (Add custom EXE / from
-        # game folder), where it launches exactly as before. The auto machinery
-        # (exe_launch.detect_framework_exes, _play_auto_exe_names, hide_auto_exe,
-        # the force-deploy branch in _do_play) is left intact.
+        """Repopulate the play-bar dropdown: the game, detected framework
+        launchers and custom exes, restoring this profile's saved selection."""
         game = self._gs.game
         if game is None:
             self._play_exe_paths = {}
             self._play_auto_exe_names = set()
             self._play_exe_selector.set_items(["-"], current="-")
             return
-        from Utils.exe_launch import load_custom_exes
+        from Utils.exe_launch import detect_framework_exes, load_custom_exes
         self._play_exe_paths = {}
         self._play_auto_exe_names = set()
         items = [game.name]
+        # The on-disk pass makes installed loaders available immediately. The
+        # cached framework state also exposes an enabled-but-not-yet-deployed
+        # loader: pressing Run deploys it before resolving the final path.
+        key = (game.name, self._gs.profile)
+        cached = getattr(self, "_framework_states", None)
+        states = cached[1] if cached is not None and cached[0] == key else None
+        for p in detect_framework_exes(game, states):
+            if p.name not in self._play_exe_paths and p.name != game.name:
+                self._play_exe_paths[p.name] = p
+                self._play_auto_exe_names.add(p.name)
+                items.append(p.name)
         for p in load_custom_exes(game):
             if p.name not in self._play_exe_paths and p.name != game.name:
                 self._play_exe_paths[p.name] = p
@@ -16304,8 +16310,16 @@ class MainWindow(QMainWindow):
         if gen != self._framework_gen or not hasattr(self, "_framework_banner"):
             return
         self._framework_banner.set_statuses(statuses)
-        # No play-bar refresh here: the dropdown no longer auto-lists script
-        # extenders, so framework state can't change what it shows.
+        self._cache_framework_states(statuses)
+
+    def _cache_framework_states(self, statuses) -> None:
+        """Cache banner states for staged framework entries in the Run menu."""
+        key = (self._gs.game.name if self._gs.game else None, self._gs.profile)
+        states = {s.label: s.state for s in (statuses or [])}
+        value = (key, states)
+        if getattr(self, "_framework_states", None) != value:
+            self._framework_states = value
+            self._refresh_play_selector()
 
     def _recompute_bsa_conflicts_async(self):
         """A plugin toggle/reorder changed the plugin load order. BSAs load at
@@ -16766,6 +16780,7 @@ class MainWindow(QMainWindow):
             if hasattr(self, "_framework_banner"):
                 self._framework_gen += 1
                 self._framework_banner.set_statuses(data.framework_statuses)
+                self._cache_framework_states(data.framework_statuses)
             # A mod was toggled / added / removed → the footer counts + size are
             # stale (token-guarded, so overlapping walks coalesce).
             with span("refresh_modlist_stats"):
