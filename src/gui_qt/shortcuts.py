@@ -91,12 +91,11 @@ def _unguarded(win, fn):
 class _ReturnOverride(QObject):
     """Hands Return/Enter back to text inputs and overlays.
 
-    The window-level Return/Enter shortcuts (toggle selected mods) consume the
-    key during Qt's ShortcutOverride phase even when ``_guard`` would then
-    no-op - QLineEdit only claims printable/editing keys in that phase, so
-    ``returnPressed`` never fired anywhere in the main window (e.g. the Nexus
-    browser page box). Accepting the override whenever the guard would refuse
-    the shortcut delivers the key press to the focused widget instead."""
+    The modlist Return/Enter shortcuts are scoped to the view below, but keep
+    this as a second line of defence for any text editor parented inside a list
+    view and against a future shortcut-context change. Accepting the override
+    whenever the guard would refuse the shortcut delivers the key press to the
+    focused widget instead."""
 
     def __init__(self, win):
         super().__init__(win)
@@ -462,9 +461,11 @@ def register_shortcuts(win) -> None:
     if shortcuts is None:
         shortcuts = win._shortcuts = []
 
-    def sc(seq, fn, guarded=True):
-        s = QShortcut(QKeySequence(seq), win)
-        s.setContext(Qt.WindowShortcut)
+    def sc(seq, fn, guarded=True, *, parent=None,
+           context=Qt.WindowShortcut, auto_repeat=True):
+        s = QShortcut(QKeySequence(seq), parent or win)
+        s.setContext(context)
+        s.setAutoRepeat(auto_repeat)
         s.activated.connect((_guard if guarded else _unguarded)(win, fn))
         shortcuts.append(s)
         return s
@@ -478,8 +479,11 @@ def register_shortcuts(win) -> None:
     sc("Alt+Up", _move_up)
     sc("Alt+Down", _move_down)
     sc("Delete", _delete_selected)
-    sc("Return", _toggle_selected)   # main Enter
-    sc("Enter", _toggle_selected)    # keypad Enter
+    mod_view = getattr(win, "_modlist_view", None)
+    if mod_view is not None:
+        for seq in ("Return", "Enter"):
+            sc(seq, _toggle_selected, parent=mod_view,
+               context=Qt.WidgetWithChildrenShortcut, auto_repeat=False)
     sc("Home", _scroll_top)
     sc("End", _scroll_bottom)
     sc("Shift+E", _toggle_all_seps)
