@@ -28,7 +28,7 @@ from gui_qt.theme_qt import active_palette, _c, contrast_text
 
 CARD_W = 300
 CARD_H = 392
-IMG_W = 284
+IMG_W = CARD_W - 2  # leave the card's 1px border visible on both sides
 IMG_H = 150
 IMG_CACHE_MAX = 120
 
@@ -147,14 +147,15 @@ class ThumbnailLoader(QObject):
     """Fetches thumbnails off the UI thread; emits `loaded(mod_id, QPixmap)`
     on the UI thread. Caches scaled pixmaps in an LRU dict (cover-cropped to the
     card image size). *crop_w*/*crop_h* set the target cover size - default is the
-    mod card (300×150 landscape); the collections browser passes a portrait size."""
+    mod card's inner width (298×150 landscape); the collections browser passes a
+    portrait size."""
 
     loaded = Signal(int, object)         # (mod_id, QPixmap)
     # Fetch worker → GUI thread: the decoded + cropped QImage. The QPixmap
     # conversion happens in the slot - QPixmap is GUI-thread-only.
     _img_ready = Signal(int, str, object)
 
-    def __init__(self, parent=None, crop_w: int = CARD_W, crop_h: int = IMG_H):
+    def __init__(self, parent=None, crop_w: int = IMG_W, crop_h: int = IMG_H):
         super().__init__(parent)
         self._cache: "OrderedDict[str, QPixmap]" = OrderedDict()
         self._inflight: set[str] = set()
@@ -277,13 +278,15 @@ class NexusModCard(QFrame):
         dim = _c(p, "TEXT_DIM")
 
         v = QVBoxLayout(self)
+        # QFrame's styled 1px border already insets the layout's content rect.
+        # IMG_W matches that inner width so the cover cannot paint over it.
         v.setContentsMargins(0, 0, 0, 0)
         v.setSpacing(0)
 
         # --- cover image (full-bleed top) ----------------------------------
         self._img = QLabel()
         self._img.setAlignment(Qt.AlignCenter)
-        self._img.setFixedSize(CARD_W, IMG_H)
+        self._img.setFixedSize(IMG_W, IMG_H)
         self._img.setStyleSheet(
             f"background:{_c(p,'BG_DEEP')};"
             f" border-top-left-radius:8px; border-top-right-radius:8px;"
