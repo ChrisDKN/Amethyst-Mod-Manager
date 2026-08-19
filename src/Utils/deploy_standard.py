@@ -441,6 +441,7 @@ def deploy_filemap(
     exclude: set[str] | None = None,
     core_dir: "Path | None" = None,
     flatten_extensions: set[str] | None = None,
+    per_mod_subdirs: dict[str, str] | None = None,
 ) -> tuple[int, set[str]]:
     """Read filemap.txt and transfer every listed file into deploy_dir.
 
@@ -461,6 +462,11 @@ def deploy_filemap(
                      the top of the deploy dir (basename only), regardless of
                      their staging subfolder.  BG3 passes {".pak"} because the
                      game only loads paks at the top level of the Mods folder.
+    per_mod_subdirs - optional mapping of mod name to one destination folder
+                     below deploy_dir.  Applied only to the normal deploy_dir,
+                     never separator/custom destinations.  BepInEx uses this
+                     to isolate Thunderstore plugins below their versionless
+                     package ID, matching r2modman's package layout.
 
     Returns:
         (count, placed_lower)
@@ -472,6 +478,15 @@ def deploy_filemap(
     _per_mod = per_mod_strip_prefixes or {}
     _flatten_exts = {e.lower() for e in flatten_extensions} if flatten_extensions else None
     _per_deploy = per_mod_deploy_dirs or {}
+    _per_subdir: dict[str, str] = {}
+    for _mod_name, _raw_subdir in (per_mod_subdirs or {}).items():
+        _subdir = str(_raw_subdir).strip()
+        if (not _subdir or _subdir in (".", "..") or "/" in _subdir
+                or "\\" in _subdir or "\x00" in _subdir):
+            _log(f"  WARN: ignoring unsafe deployment subdirectory "
+                 f"{_raw_subdir!r} for {_mod_name!r}")
+            continue
+        _per_subdir[_mod_name] = _subdir
     _per_mode = per_mod_link_modes
     _per_merge: set[str] = set()
     try:
@@ -616,6 +631,18 @@ def deploy_filemap(
             already_seen.add(dst_rel_lower)
 
         effective_dir = _per_deploy.get(mod_name, deploy_dir)
+        # r2modman installs each Thunderstore plugin package below its full,
+        # versionless package ID (e.g. RiskofThunder-RoR2BepInExPack). Apart
+        # from preventing package collisions, that keeps current payloads away
+        # from legacy paths which a loader may intentionally remove. Apply the
+        # namespace only to the normal destination: separator/custom deploy
+        # paths are explicit user choices and must retain their exact layout.
+        _package_subdir = _per_subdir.get(mod_name)
+        if _package_subdir and effective_dir is deploy_dir:
+            _first_segment = dst_rel.split("/", 1)[0]
+            if _first_segment.casefold() != _package_subdir.casefold():
+                dst_rel = f"{_package_subdir}/{dst_rel}"
+                dst_rel_lower = dst_rel.lower()
         _core_s = _core_base_str if effective_dir is deploy_dir else None
         _eff_s = _deploy_dir_str if effective_dir is deploy_dir else str(effective_dir)
         # Inline _resolve_root_path_str's two O(1) outcomes (no dir part /

@@ -20,6 +20,36 @@ from Utils.config_paths import get_profiles_dir
 _PROFILES_DIR = get_profiles_dir()
 
 
+def _thunderstore_plugin_subdirs(staging_root: Path, entries,
+                                 log_fn=None) -> dict[str, str]:
+    """Return enabled mod -> Thunderstore package-ID deployment folder.
+
+    Risk of Thunder's preloader deliberately removes the legacy direct child
+    ``BepInEx/plugins/RoR2BepInExPack``.  r2modman avoids that path (and keeps
+    packages isolated generally) by installing plugin payloads below the full,
+    versionless package ID.  Amethyst keeps its staging names user-facing, so
+    apply the same namespace only when deploying ordinary plugin files.
+    """
+    from Thunderstore.thunderstore_meta import read_meta
+
+    _log = log_fn or (lambda _message: None)
+    subdirs: dict[str, str] = {}
+    for entry in entries:
+        if entry.is_separator or not entry.enabled:
+            continue
+        package_id = read_meta(staging_root / entry.name / "meta.ini").package_id
+        package_id = package_id.strip()
+        if not package_id:
+            continue
+        if (package_id in (".", "..") or "/" in package_id
+                or "\\" in package_id or "\x00" in package_id):
+            _log(f"  WARN: ignoring unsafe Thunderstore package ID "
+                 f"{package_id!r} for {entry.name!r}")
+            continue
+        subdirs[entry.name] = package_id
+    return subdirs
+
+
 class Subnautica(BaseGame):
 
     def __init__(self):
@@ -232,11 +262,14 @@ class Subnautica(BaseGame):
 
         profile_dir = self.get_profile_root() / "profiles" / profile
         per_mod_strip = load_per_mod_strip_prefixes(profile_dir)
+        entries = read_modlist(profile_dir / "modlist.txt")
+        package_subdirs = _thunderstore_plugin_subdirs(
+            staging, entries, log_fn=_log)
 
         # Separator overrides - loaded from the real profile_dir and passed
         # explicitly so shared-staging layouts get the right link modes.
         _sep_deploy = load_separator_deploy_paths(profile_dir)
-        _sep_entries = read_modlist(profile_dir / "modlist.txt") if _sep_deploy else []
+        _sep_entries = entries if _sep_deploy else []
         per_mod_deploy = expand_separator_deploy_paths(_sep_deploy, _sep_entries) or None
         per_mod_modes = expand_separator_link_modes(_sep_deploy, _sep_entries) or None
         per_mod_raw = expand_separator_raw_deploy(_sep_deploy, _sep_entries) or None
@@ -267,7 +300,8 @@ class Subnautica(BaseGame):
                                             log_fn=_log,
                                             progress_fn=progress_fn,
                                             exclude=custom_exclude or None,
-                                            core_dir=plugins_dir.parent / (plugins_dir.name + "_Core"))
+                                            core_dir=plugins_dir.parent / (plugins_dir.name + "_Core"),
+                                            per_mod_subdirs=package_subdirs)
         _log(f"  Transferred {linked_mod} mod file(s).")
 
         _log(f"Step 3: Filling gaps with vanilla files from {core}/ ...")

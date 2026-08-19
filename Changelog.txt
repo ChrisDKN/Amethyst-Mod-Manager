@@ -13,6 +13,7 @@
 - The proton dropdown is now hidden if a game is Linux native or the prefix is not configured
 - Moved the download and extraction bars to the notification menu
 ### Bug Fixes
+- Fixed Thunderstore BepInEx plugins being deployed into legacy package paths that loaders may delete at startup
 - Fixed an issue where folder names may not merge/normalise in Ue5 games
 - Fixed an issue where esm flagged plugins could be moved to places where they shouldn't be
 
