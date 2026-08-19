@@ -26,8 +26,9 @@ from pathlib import Path
 
 from Utils.txst_lookup import _iter_subrecords, _record_payload
 
-__all__ = ["BodyRecords", "BodyPart", "parse_body_records", "resolve_body",
-           "load_order_records", "parse_cached"]
+__all__ = ["BodyRecords", "BodyPart", "HeadPart", "parse_body_records",
+           "resolve_body", "resolve_face", "load_order_records",
+           "parse_cached"]
 
 _ACBS_FEMALE = 0x00000001
 _PLUGIN_EXTS = (".esp", ".esm", ".esl")
@@ -87,6 +88,28 @@ class Arma:
 
 
 @dataclass
+class HeadPart:
+    """One FO4 HDPT record used to assemble a face at runtime."""
+
+    part_type: int = 0
+    model: str = ""
+    editor_id: str = ""
+    extras: tuple[int, ...] = ()
+    texture_set: int | None = None
+    # NAM0/NAM1 pairs: ordinary morph TRI (1), chargen TRI (2).
+    chargen_tri: str = ""
+
+
+@dataclass
+class RaceMorphs:
+    """FO4 Race chargen keys mapped to the TRI morph names they select."""
+
+    male_presets: dict[int, str] = field(default_factory=dict)
+    female_presets: dict[int, str] = field(default_factory=dict)
+    sliders: dict[int, tuple[str, str]] = field(default_factory=dict)
+
+
+@dataclass
 class BodyRecords:
     """One plugin's actor-assembly records."""
 
@@ -99,17 +122,23 @@ class BodyRecords:
     npc_weight: dict = field(default_factory=dict)     # key -> 0.0 .. 1.0
     npc_outfit: dict = field(default_factory=dict)     # key -> raw OTFT formid
     npc_skin: dict = field(default_factory=dict)       # key -> raw WNAM ARMO
-    # NPC_ QNAM texture-lighting colour, doubled/saturated as the game's skin
-    # tint shader treats it (and as the FaceTint compositor treats its map).
+    # NPC_ QNAM texture-lighting colour, doubled as the game's skin tint
+    # shader treats it. Values above 1 are intentional: pale FO4 skin uses
+    # them to lift the deliberately dark generic body texture to its baked
+    # FaceCustomization head, so clamping them creates a hard neck seam.
     npc_skin_tint: dict = field(default_factory=dict)  # key -> RGB floats
+    npc_head_parts: dict = field(default_factory=dict)  # key -> [raw HDPT ids]
+    npc_morphs: dict = field(default_factory=dict)     # key -> [(key, value)]
     race_skin: dict = field(default_factory=dict)      # key -> raw ARMO formid
     race_skeleton: dict = field(default_factory=dict)  # key -> (male, female)
+    race_morphs: dict = field(default_factory=dict)    # key -> RaceMorphs
     armo_armatures: dict = field(default_factory=dict)  # key -> [raw ARMA ids]
     armo_slots: dict = field(default_factory=dict)     # key -> biped slot bits
     armo_name: dict = field(default_factory=dict)      # key -> editor id
     outfit_items: dict = field(default_factory=dict)   # key -> [raw item ids]
     lvli: dict = field(default_factory=dict)           # key -> [raw entry ids]
     arma: dict = field(default_factory=dict)           # key -> Arma
+    head_parts: dict = field(default_factory=dict)     # key -> HeadPart
     txst: dict = field(default_factory=dict)           # key -> texture paths
 
     def owner(self, formid: int) -> str:
@@ -146,7 +175,7 @@ def parse_body_records(path: Path) -> BodyRecords:
                 if pos + size > end:
                     break
                 if sig in (b"NPC_", b"RACE", b"ARMO", b"ARMA", b"OTFT",
-                           b"LVLI", b"TXST"):
+                           b"LVLI", b"TXST", b"HDPT"):
                     try:
                         _read_record(out, sig, formid,
                                      _record_payload(data, pos, size, flags))
@@ -159,6 +188,9 @@ def parse_body_records(path: Path) -> BodyRecords:
 def _read_record(out: BodyRecords, sig: bytes, formid: int, body) -> None:
     key = out.key(formid)
     if sig == b"NPC_":
+        head_parts = []
+        morph_keys = []
+        morph_values = []
         for ssig, sdata in _iter_subrecords(body, 0, len(body)):
             if ssig == b"ACBS" and len(sdata) >= 4:
                 flags = struct.unpack_from("<I", sdata, 0)[0]
@@ -174,9 +206,17 @@ def _read_record(out: BodyRecords, sig: bytes, formid: int, body) -> None:
             elif ssig == b"WNAM" and len(sdata) >= 4:
                 out.npc_skin[key] = struct.unpack_from("<I", sdata, 0)[0]
             elif ssig == b"QNAM" and len(sdata) >= 12:
-                rgb = struct.unpack_from("<3f", sdata, 0)
-                out.npc_skin_tint[key] = tuple(
-                    min(1.0, max(0.0, channel * 2.0)) for channel in rgb)
+                out.npc_skin_tint[key] = _texture_lighting_tint(sdata)
+            elif ssig == b"PNAM" and len(sdata) >= 4:
+                head_parts.append(struct.unpack_from("<I", sdata, 0)[0])
+            elif ssig == b"MSDK":
+                morph_keys.extend(_uints(sdata))
+            elif ssig == b"MSDV":
+                morph_values.extend(_floats(sdata))
+        if head_parts:
+            out.npc_head_parts[key] = head_parts
+        if morph_keys and morph_values:
+            out.npc_morphs[key] = list(zip(morph_keys, morph_values))
         return
     if sig == b"TXST":
         paths = [""] * 8
@@ -216,15 +256,67 @@ def _read_record(out: BodyRecords, sig: bytes, formid: int, body) -> None:
         return
     if sig == b"RACE":
         skeleton = []
+        morphs = RaceMorphs()
+        gender = ""
+        pending_preset = None
+        pending_slider = None
+        pending_slider_names = []
         for ssig, sdata in _iter_subrecords(body, 0, len(body)):
             if ssig == b"WNAM" and len(sdata) >= 4:
                 out.race_skin[key] = struct.unpack_from("<I", sdata, 0)[0]
             elif ssig == b"ANAM":
                 skeleton.append(_text(sdata))
+            elif ssig == b"MNAM" and not sdata:
+                gender = "male"
+            elif ssig == b"FNAM" and not sdata:
+                gender = "female"
+            elif ssig == b"MPPI" and len(sdata) >= 4:
+                pending_preset = struct.unpack_from("<I", sdata, 0)[0]
+            elif ssig == b"MPPM" and pending_preset is not None:
+                table = (morphs.female_presets if gender == "female"
+                         else morphs.male_presets)
+                table[pending_preset] = _text(sdata)
+                pending_preset = None
+            elif ssig == b"MSID" and len(sdata) >= 4:
+                if pending_slider is not None and len(pending_slider_names) == 2:
+                    morphs.sliders[pending_slider] = tuple(pending_slider_names)
+                pending_slider = struct.unpack_from("<I", sdata, 0)[0]
+                pending_slider_names = []
+            elif ssig in (b"MSM0", b"MSM1") and pending_slider is not None:
+                pending_slider_names.append(_text(sdata))
+                if len(pending_slider_names) == 2:
+                    morphs.sliders[pending_slider] = tuple(pending_slider_names)
+                    pending_slider = None
+                    pending_slider_names = []
         if skeleton:
             male = skeleton[0]
             female = skeleton[1] if len(skeleton) > 1 else male
             out.race_skeleton[key] = (male, female)
+        if morphs.male_presets or morphs.female_presets or morphs.sliders:
+            out.race_morphs[key] = morphs
+        return
+    if sig == b"HDPT":
+        entry = HeadPart()
+        extras = []
+        morph_kind = 0
+        for ssig, sdata in _iter_subrecords(body, 0, len(body)):
+            if ssig == b"EDID":
+                entry.editor_id = _text(sdata)
+            elif ssig == b"MODL":
+                entry.model = _text(sdata)
+            elif ssig == b"PNAM" and len(sdata) >= 4:
+                entry.part_type = struct.unpack_from("<I", sdata, 0)[0]
+            elif ssig == b"HNAM" and len(sdata) >= 4:
+                extras.append(struct.unpack_from("<I", sdata, 0)[0])
+            elif ssig == b"TNAM" and len(sdata) >= 4:
+                entry.texture_set = struct.unpack_from("<I", sdata, 0)[0]
+            elif ssig == b"NAM0" and len(sdata) >= 4:
+                morph_kind = struct.unpack_from("<I", sdata, 0)[0]
+            elif ssig == b"NAM1" and morph_kind == 2:
+                entry.chargen_tri = _text(sdata)
+        entry.extras = tuple(extras)
+        if entry.model or entry.chargen_tri:
+            out.head_parts[key] = entry
         return
     if sig == b"ARMO":
         refs = []
@@ -266,6 +358,24 @@ def _read_record(out: BodyRecords, sig: bytes, formid: int, body) -> None:
 
 def _text(payload) -> str:
     return bytes(payload).split(b"\0")[0].decode("cp1252", "replace")
+
+
+def _uints(payload) -> tuple[int, ...]:
+    raw = bytes(payload)
+    return (struct.unpack_from(f"<{len(raw) // 4}I", raw, 0)
+            if len(raw) >= 4 else ())
+
+
+def _floats(payload) -> tuple[float, ...]:
+    raw = bytes(payload)
+    return (struct.unpack_from(f"<{len(raw) // 4}f", raw, 0)
+            if len(raw) >= 4 else ())
+
+
+def _texture_lighting_tint(payload) -> tuple[float, float, float]:
+    """Shader multiplier represented by NPC_ QNAM's first three floats."""
+    rgb = struct.unpack_from("<3f", payload, 0)
+    return tuple(max(0.0, channel * 2.0) for channel in rgb)
 
 
 def mesh_key(model_path: str) -> str:
@@ -373,6 +483,158 @@ def resolve_body(plugin: str, formid: int, records, outfit: bool = True) -> dict
             # hair; the FaceGen head still carries it, so it must be dropped
             # or it grows straight through the hat.
             "hide_hair": bool(covered & SLOT_HAIR)}
+
+
+def resolve_face(plugin: str, formid: int, records,
+                 baseline_records=None) -> dict:
+    """FO4 runtime appearance layered over a baked FaceGeom head.
+
+    ``records`` describes what the game loads. ``baseline_records`` describes
+    the plugin state that produced the NIF currently on screen.  Only their
+    difference is returned, otherwise applying absolute chargen morphs to an
+    already-generated face would double every slider.
+
+    The result contains replacement hair meshes, an eye texture-set override,
+    a chargen TRI path and named morph deltas.  Face Morph bone transforms and
+    runtime tint-layer compositing are intentionally separate concerns.
+    """
+    baseline_records = records if baseline_records is None else baseline_records
+    target_key = _npc_key(plugin, formid, records)
+    base_key = _npc_key(plugin, formid, baseline_records)
+    target_parts, target_owner = _resolved_head_parts(records, target_key)
+    base_parts, _base_owner = _resolved_head_parts(baseline_records, base_key)
+
+    target_types = _parts_by_type(target_parts)
+    base_types = _parts_by_type(base_parts)
+    target_hair = target_types.get(3)
+    base_hair = base_types.get(3)
+    hair: list[BodyPart] = []
+    if target_hair is not None and (base_hair is None
+                                    or target_hair[0] != base_hair[0]):
+        for _part_key, entry, owner in _head_part_tree(
+                records, target_hair):
+            if entry.model:
+                hair.append(BodyPart(
+                    rel=mesh_key(entry.model), editor_id=entry.editor_id,
+                    source=owner.mod if owner is not None else ""))
+
+    eye_textures = ()
+    target_eye = target_types.get(2)
+    base_eye = base_types.get(2)
+    if target_eye is not None and (base_eye is None
+                                   or target_eye[0] != base_eye[0]):
+        _eye_key, eye, eye_owner = target_eye
+        if eye.texture_set is not None:
+            txst_key = (eye_owner.key(eye.texture_set)
+                        if eye_owner is not None else
+                        (_eye_key[0], eye.texture_set & 0xFFFFFF))
+            eye_textures = tuple(_first(records, "txst", txst_key) or ())
+
+    target_weights = _npc_morph_weights(records, target_key)
+    base_weights = _npc_morph_weights(baseline_records, base_key)
+    morphs = {
+        name: target_weights.get(name, 0.0) - base_weights.get(name, 0.0)
+        for name in target_weights.keys() | base_weights.keys()
+        if abs(target_weights.get(name, 0.0)
+               - base_weights.get(name, 0.0)) > 1e-7
+    }
+    front = base_types.get(1) or target_types.get(1)
+    chargen_tri = ""
+    if front is not None and front[1].chargen_tri:
+        chargen_tri = mesh_key(front[1].chargen_tri)
+
+    # FaceCustomization is baked alongside the selected FaceGeom and already
+    # contains that record state's skin tone.  An ESP-only replacer can change
+    # QNAM without shipping a newly baked texture; correct the face by the
+    # winning/baseline ratio, while resolve_body continues to return the
+    # winning absolute colour for the generic body and rear-head textures.
+    target_skin = _first(records, "npc_skin_tint", target_key)
+    base_skin = _first(baseline_records, "npc_skin_tint", base_key)
+    face_skin_tint = None
+    if target_skin is not None and base_skin is not None:
+        delta = tuple(target / base if abs(base) > 1e-6 else 1.0
+                      for target, base in zip(target_skin, base_skin))
+        if any(abs(value - 1.0) > 1e-6 for value in delta):
+            face_skin_tint = delta
+
+    # The winning NPC record is the one hair-colour lookup must see first.
+    # Each head-part model gets its own provider directory separately.
+    mods = ([target_owner.mod]
+            if target_owner is not None and target_owner.mod else [])
+    return {"hair": _dedupe(hair), "eye_textures": eye_textures,
+            "chargen_tri": chargen_tri, "morphs": morphs,
+            "face_skin_tint": face_skin_tint, "record_mods": mods}
+
+
+def _resolved_head_parts(records, npc_key):
+    """Resolved ``(key, HeadPart, defining record)`` values for an NPC PNAM."""
+    raw_parts, npc_owner = _first_with_owner(records, "npc_head_parts", npc_key)
+    if not raw_parts or npc_owner is None:
+        return [], npc_owner
+    out = []
+    for raw in raw_parts:
+        part_key = npc_owner.key(raw)
+        entry, owner = _first_with_owner(records, "head_parts", part_key)
+        if entry is not None:
+            out.append((part_key, entry, owner))
+    return out, npc_owner
+
+
+def _parts_by_type(parts) -> dict:
+    """First direct PNAM head part of each non-zero engine part type."""
+    return {entry.part_type: (key, entry, owner)
+            for key, entry, owner in parts if entry.part_type}
+
+
+def _head_part_tree(records, root):
+    """A direct HDPT and its HNAM extras, de-duplicated."""
+    out = []
+    pending = [root]
+    seen = set()
+    while pending:
+        part_key, entry, owner = pending.pop(0)
+        if part_key in seen:
+            continue
+        seen.add(part_key)
+        out.append((part_key, entry, owner))
+        if owner is None:
+            continue
+        for raw in entry.extras:
+            extra_key = owner.key(raw)
+            extra, extra_owner = _first_with_owner(
+                records, "head_parts", extra_key)
+            if extra is not None:
+                pending.append((extra_key, extra, extra_owner))
+    return out
+
+
+def _npc_morph_weights(records, npc_key) -> dict[str, float]:
+    """Resolve an NPC's MSDK/MSDV values to chargen TRI morph names."""
+    values = _first(records, "npc_morphs", npc_key) or ()
+    race_raw = _first(records, "npc_race", npc_key)
+    if race_raw is None:
+        return {"DefaultFaceType0": 1.0}
+    race_key = _resolve_key(records, "npc_race", npc_key, race_raw)
+    mapping = _first(records, "race_morphs", race_key)
+    if mapping is None:
+        return {"DefaultFaceType0": 1.0}
+    female = bool(_first(records, "npc_female", npc_key))
+    presets = mapping.female_presets if female else mapping.male_presets
+    weights: dict[str, float] = {}
+    for morph_key, value in values:
+        name = presets.get(morph_key)
+        weight = value
+        if name is None and morph_key in mapping.sliders:
+            negative, positive = mapping.sliders[morph_key]
+            name = positive if value >= 0.0 else negative
+            weight = abs(value)
+        if name:
+            weights[name] = weights.get(name, 0.0) + float(weight)
+    # BaseFemaleHead already contains this morph at weight one.  Preset keys
+    # replace that implicit base (sometimes as two ~0.5 skin blends), while a
+    # record with no explicit face-type key retains it.
+    weights.setdefault("DefaultFaceType0", 1.0)
+    return weights
 
 
 def _outfit_parts(records, npc_key, race_key, female, skin_textures=None):

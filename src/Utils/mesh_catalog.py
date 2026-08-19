@@ -334,10 +334,11 @@ def _data_archives(data_dir: Path, prefix: str,
         return []
     out: list[MeshEntry] = []
     for archive in find_archives([data_dir]):
-        # Reuse archive_lookup's path+mtime+size cache.  The old name-only
-        # reader reparsed every vanilla TOC each time the viewer opened.
-        for key in index_archive(archive):
-            if key.startswith(prefix) and _ext_ok(key, exts):
+        # Keep only the requested subtree in the process-wide cache. Fallout 4
+        # splits hundreds of thousands of textures across large BA2s; retaining
+        # every unrelated path made a FaceGeom-only scan consume hundreds of MB.
+        for key in index_archive(archive, prefix):
+            if _ext_ok(key, exts):
                 out.append(MeshEntry(key, DATA_ARCHIVE, archive=archive))
     return out
 
@@ -434,14 +435,15 @@ def read_entry(entry: MeshEntry, staging: Path | None, data_dir: Path | None,
         return None
 
 
-def read_archive_member(archive: Path, inner_path: str) -> bytes | None:
+def read_archive_member(archive: Path, inner_path: str,
+                        keep_prefix="") -> bytes | None:
     """One member's bytes from a BSA/BA2, without unpacking the archive."""
     archive = Path(archive)
     try:
         from Utils.archive_lookup import index_archive, normalise
         # Direct access avoids rebuilding ArchiveLookup's merged map for every
         # texture while retaining its process-wide cached archive index.
-        got = index_archive(archive).get(normalise(inner_path))
+        got = index_archive(archive, keep_prefix).get(normalise(inner_path))
         if got is None:
             return None
         kind, record = got

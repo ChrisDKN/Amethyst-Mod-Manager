@@ -67,7 +67,8 @@ def npc_label(npc: NpcEntry) -> str:
 
 
 def build_npc_catalog(resolver, staging, modlist_path, data_dir, *,
-                      extra_mods=(), cancel=None) -> list[NpcEntry]:
+                      extra_mods=(), string_languages=("english",),
+                      cancel=None) -> list[NpcEntry]:
     """Every FaceGen head copy, named. Sorted by display name then source."""
     entries = build_catalog(resolver, staging, modlist_path, data_dir,
                             prefix=FACEGEN_PREFIX, exts=DEFAULT_EXTS,
@@ -78,7 +79,7 @@ def build_npc_catalog(resolver, staging, modlist_path, data_dir, *,
     forms = _load_forms(staging, data_dir, entries, modlist_path, cancel)
     if cancel and cancel():
         return []
-    strings = _StringsCache(data_dir)
+    strings = _StringsCache(data_dir, string_languages)
 
     out: list[NpcEntry] = []
     for e in entries:
@@ -206,8 +207,13 @@ def _find_named(name: str, staging, mods, data_dir) -> "Path | None":
 class _StringsCache:
     """Per-plugin localised string tables, loaded on first use."""
 
-    def __init__(self, data_dir):
+    def __init__(self, data_dir, languages=("english",)):
         self._data = Path(data_dir) if data_dir else None
+        # De-duplicate without losing preference order. An empty sequence is
+        # treated as the historical default rather than disabling names.
+        self._languages = tuple(dict.fromkeys(
+            str(language).lower() for language in (languages or ("english",))
+            if language))
         self._tables: dict[str, dict] = {}
         self._archives = None
 
@@ -217,23 +223,42 @@ class _StringsCache:
         hit = self._tables.get(plugin_name)
         if hit is None:
             from Utils.mesh_catalog import read_archive_member
-            hit = load_tables(plugin_name, [self._data], read_archive_member,
-                              self._interface_archives())
+            hit = {}
+            for language in self._languages:
+                hit = load_tables(
+                    plugin_name, [self._data],
+                    lambda archive, rel: read_archive_member(
+                        archive, rel, "strings/"),
+                    self._interface_archives(plugin_name), language=language)
+                if hit:
+                    break
             self._tables[plugin_name] = hit
         return hit
 
-    def _interface_archives(self) -> list:
-        """Vanilla STRINGS live inside an archive, not loose on disk."""
+    def _interface_archives(self, plugin_name: str = "") -> list:
+        """Likely STRINGS archives, the named plugin's archive first.
+
+        Fallout 4 BA2s declare their role in the filename: strings live in the
+        core Interface archive or a plugin's ``- Main.ba2``, never the enormous
+        Meshes/Textures/Voices archives. BSA games are less regular, so retain
+        every BSA there and merely prioritise Interface.
+        """
         if self._archives is None:
             found = []
             try:
                 for p in os.listdir(self._data):
                     if p.lower().endswith((".bsa", ".ba2")):
-                        found.append(self._data / p)
+                        path = self._data / p
+                        low = p.lower()
+                        if (path.suffix.lower() != ".ba2"
+                                or "interface" in low
+                                or low.endswith(" - main.ba2")):
+                            found.append(path)
             except OSError:
                 pass
-            # Interface archives hold the tables; try them before the rest.
-            found.sort(key=lambda p: ("interface" not in p.name.lower(),
-                                      p.name.lower()))
             self._archives = found
-        return self._archives
+        stem = Path(plugin_name).stem.lower()
+        return sorted(
+            self._archives,
+            key=lambda p: (stem not in p.name.lower(),
+                           "interface" not in p.name.lower(), p.name.lower()))

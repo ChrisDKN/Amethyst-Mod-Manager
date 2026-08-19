@@ -6,14 +6,17 @@ override (see [[txst_lookup]]) but a colour form:
 
     FaceGeom/<master>/<formid>.nif -> NPC_ record -> HCLF -> CLFM -> CNAM
 
-CNAM is RGBA byte order, confirmed against Skyrim.esm's own named colours
-(RedTintBright = 213,0,0; reading it as BGRA would make that blue).
+Skyrim CLFM records store CNAM as RGBA bytes. Fallout 4 hair colours instead
+set FNAM's ``Remapping Index`` flag and store a float selecting a row in the
+hair shader's gradient texture. Treating that float's bytes as RGB is what
+turns ordinary Fallout hair fluorescent yellow.
 
 Only the plugins actually needed are walked - the mod's own, plus the one or
 two masters named by the FormIDs - because the masters are large.
 """
 from __future__ import annotations
 
+import math
 import mmap
 import re
 import struct
@@ -41,6 +44,8 @@ class PluginForms:
     npc_hair: dict[tuple[str, int], int] = field(default_factory=dict)
     # (owning plugin, formid low 24) -> (r, g, b) in 0-1
     clfm: dict[tuple[str, int], tuple] = field(default_factory=dict)
+    # Fallout 4 CLFM records can select a row in texture slot 3's colour LUT.
+    clfm_remap: dict[tuple[str, int], float] = field(default_factory=dict)
     # (owning plugin, formid low 24) -> name, or a string id when localised.
     npc_name: dict[tuple[str, int], "str | int"] = field(default_factory=dict)
     # (owning plugin, formid low 24) -> editor id
@@ -99,6 +104,8 @@ def parse_plugin_forms(path: Path) -> PluginForms:
                     key = (out.owner(formid), formid & 0xFFFFFF)
                     try:
                         body = _record_payload(data, pos, size, flags)
+                        color_data = None
+                        color_flags = 0
                         for ssig, sdata in _iter_subrecords(body, 0, len(body)):
                             if sig == b"NPC_" and ssig == b"HCLF" and len(sdata) >= 4:
                                 out.npc_hair[key] = struct.unpack_from(
@@ -109,14 +116,39 @@ def parse_plugin_forms(path: Path) -> PluginForms:
                             elif sig == b"NPC_" and ssig == b"EDID":
                                 out.npc_edid[key] = bytes(sdata).split(
                                     b"\0")[0].decode("cp1252", "replace")
-                            elif sig == b"CLFM" and ssig == b"CNAM" and len(sdata) >= 3:
-                                out.clfm[key] = (sdata[0] / 255.0,
-                                                 sdata[1] / 255.0,
-                                                 sdata[2] / 255.0)
+                            elif sig == b"CLFM" and ssig == b"CNAM":
+                                color_data = bytes(sdata)
+                            elif (sig == b"CLFM" and ssig == b"FNAM"
+                                  and len(sdata) >= 4):
+                                color_flags = struct.unpack_from(
+                                    "<I", sdata, 0)[0]
+                        if sig == b"CLFM" and color_data is not None:
+                            rgb, remap = _decode_color_form(
+                                color_data, color_flags)
+                            if rgb is not None:
+                                out.clfm[key] = rgb
+                            if remap is not None:
+                                out.clfm_remap[key] = remap
                     except Exception:                    # noqa: BLE001
                         pass
                 pos += size
     return out
+
+
+def _decode_color_form(data: bytes, flags: int):
+    """Return ``(RGB, remap index)`` for Skyrim/FO4 CLFM payloads.
+
+    Fallout 4's FNAM bit 1 changes the four CNAM bytes from a packed colour to
+    a float remapping index. The value is normally 0..1; reject non-finite or
+    implausible values so a malformed plugin cannot poison texture sampling.
+    """
+    if flags & 0x2 and len(data) >= 4:
+        value = struct.unpack_from("<f", data, 0)[0]
+        if math.isfinite(value) and -1.0 <= value <= 2.0:
+            return None, min(1.0, max(0.0, value))
+    if len(data) >= 3:
+        return (data[0] / 255.0, data[1] / 255.0, data[2] / 255.0), None
+    return None, None
 
 
 _cache: dict[str, tuple[float, int, PluginForms]] = {}
@@ -194,10 +226,9 @@ class FormsContext:
         return self._by_name.get(name.lower())
 
 
-def hair_color(mesh_rel: str, plugin_dirs,
-               ctx: "FormsContext | None" = None
-               ) -> "tuple[float, float, float] | None":
-    """The NPC's hair colour for a FaceGen mesh path, or None.
+def _hair_form_value(mesh_rel: str, plugin_dirs, table: str,
+                     ctx: "FormsContext | None" = None):
+    """Resolve one table on the NPC's HCLF colour form.
 
     *plugin_dirs* should list the mesh's own mod first, then the data folder;
     the first plugin defining the NPC wins, which is what makes a mod's
@@ -233,16 +264,29 @@ def hair_color(mesh_rel: str, plugin_dirs,
     key = (src.owner(raw), raw & 0xFFFFFF)
 
     for pl in loaded:
-        rgb = pl.clfm.get(key)
-        if rgb is not None:
-            return rgb
+        value = getattr(pl, table).get(key)
+        if value is not None:
+            return value
     # The colour usually lives in a master the mod does not ship.
     owner = ctx.find(key[0])
     if owner is not None:
         parsed = _parse_cached(owner)
         if parsed is not None:
-            return parsed.clfm.get(key)
+            return getattr(parsed, table).get(key)
     return None
+
+
+def hair_color(mesh_rel: str, plugin_dirs,
+               ctx: "FormsContext | None" = None
+               ) -> "tuple[float, float, float] | None":
+    """The NPC's packed RGB hair colour (Skyrim), or None."""
+    return _hair_form_value(mesh_rel, plugin_dirs, "clfm", ctx)
+
+
+def hair_remap_index(mesh_rel: str, plugin_dirs,
+                     ctx: "FormsContext | None" = None) -> "float | None":
+    """The NPC's Fallout 4 hair-palette row (0..1), or None."""
+    return _hair_form_value(mesh_rel, plugin_dirs, "clfm_remap", ctx)
 
 
 # Head parts the engine tints with the NPC's HAIR colour. Eyebrows and facial
@@ -382,6 +426,12 @@ def apply_face_tint(model, mesh_rel: str) -> bool:
     """
     if "facegeom" not in mesh_rel.replace("\\", "/").lower():
         return False
+    # Fallout 4 bakes each face into FaceCustomization textures referenced by
+    # the NIF itself. It has no Skyrim-style FaceTint partner at the path below;
+    # asking for one only creates a guaranteed archive miss and can let a
+    # similarly named mod asset be multiplied over the wrong face.
+    if getattr(getattr(model, "header", None), "bs_version", 0) == 130:
+        return False
     rel = face_tint_path(mesh_rel)
     if not rel:
         return False
@@ -397,11 +447,23 @@ def apply_hair_tint(model, mesh_rel: str, plugin_dirs,
     """Set ``shape.tint`` on a FaceGen mesh's hair shapes. Returns how many."""
     if "facegeom" not in mesh_rel.replace("\\", "/").lower():
         return 0
+    shapes = _hair_shapes(model)
+    if not shapes:
+        return 0
+    # FO4's colour is not RGB: it selects a row in the gradient map stored in
+    # texture slot 3. The texture loader performs that remap while preserving
+    # the diffuse map's strand detail and alpha.
+    if getattr(getattr(model, "header", None), "bs_version", 0) == 130:
+        remap = hair_remap_index(mesh_rel, plugin_dirs, ctx)
+        if remap is not None:
+            for shape in shapes:
+                shape.palette_index = remap
+            return len(shapes)
     rgb = hair_color(mesh_rel, plugin_dirs, ctx)
     if rgb is None:
         return 0
     hits = 0
-    for shape in _hair_shapes(model):
+    for shape in shapes:
         shape.tint = rgb
         hits += 1
     return hits

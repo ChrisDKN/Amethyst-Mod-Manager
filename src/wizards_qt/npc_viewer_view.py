@@ -35,7 +35,7 @@ from gui_qt.worker import LatestWorker
 from Utils.mesh_catalog import (
     DATA_ARCHIVE, DATA_LOOSE, MOD_ARCHIVE, MOD_LOOSE, read_entry,
 )
-from Utils.npc_catalog import FACEGEN_PREFIX, build_npc_catalog, npc_label
+from Utils.npc_catalog import build_npc_catalog, npc_label
 
 if TYPE_CHECKING:
     from Games.base_game import BaseGame
@@ -261,6 +261,16 @@ class NpcViewerView(QWidget):
         self._debounce.setInterval(250)
         self._debounce.timeout.connect(self._rebuild_list)
 
+        # Keep feedback's delayed reset inside this widget's lifetime.  A
+        # static QTimer.singleShot retains its Python callback after a tab has
+        # deleteLater()d the view, at which point touching _save_btn raises
+        # "Internal C++ object already deleted".
+        self._save_feedback_timer = QTimer(self)
+        self._save_feedback_timer.setSingleShot(True)
+        self._save_feedback_timer.setInterval(1600)
+        self._save_feedback_timer.timeout.connect(
+            self._guard(self._restore_save_feedback))
+
         self._scan_done.connect(self._guard(self._on_scan_done))
         self._list_ready.connect(self._guard(self._on_list_ready))
         self._mesh_ready.connect(self._guard(self._on_mesh_ready))
@@ -326,10 +336,14 @@ class NpcViewerView(QWidget):
                 break
         self._open_npc(match)
 
-    def _finish(self):
+    def _begin_close(self):
         if self._closing:
-            return
+            return False
         self._closing = True
+        timer = getattr(self, "_save_feedback_timer", None)
+        if timer is not None:
+            timer.stop()
+        self._pending_export = None
         self._gen += 1
         self._list_gen += 1
         self._open_gen += 1
@@ -337,7 +351,16 @@ class NpcViewerView(QWidget):
         self._mesh_reads.discard_pending()
         self._tex_sources.cancel()
         self._preview.cancel_load()
+        return True
+
+    def _finish(self):
+        if not self._begin_close():
+            return
         self._on_close_cb()
+
+    def tab_closing(self):
+        """Let a tab-bar close cancel this view's asynchronous work."""
+        self._begin_close()
 
     def event(self, e):
         # The tab's close deleteLater()s THIS host; the embedded preview never
@@ -345,6 +368,7 @@ class NpcViewerView(QWidget):
         # while their context lives or their destructors deref a dead one.
         if e.type() == QEvent.DeferredDelete:
             try:
+                self._begin_close()
                 self._preview.cancel_load()
                 self._preview._view.release_gl()
             except Exception:                            # noqa: BLE001
@@ -371,6 +395,7 @@ class NpcViewerView(QWidget):
                 npcs = build_npc_catalog(
                     self._resolver, self._staging, self._modlist, self._data,
                     extra_mods=(self._mod,) if self._mod else (),
+                    string_languages=_string_languages_for(self._game),
                     cancel=lambda: gen != self._gen)
             except Exception as exc:                     # noqa: BLE001
                 self._log(f"View NPCs: scan failed: {exc}")
@@ -381,7 +406,9 @@ class NpcViewerView(QWidget):
             # user is choosing an NPC; parse_cached single-flights an immediate
             # click onto this same work rather than duplicating it.
             if gen == self._gen and self._data is not None:
-                master = _find_named(Path(self._data), "skyrim.esm")
+                master_name = _primary_master(self._game)
+                master = (_find_named(Path(self._data), master_name)
+                          if master_name else None)
                 if master is not None:
                     try:
                         import time
@@ -482,7 +509,10 @@ class NpcViewerView(QWidget):
 
         def worker():
             data = read_entry(entry, self._staging, self._data)
-            body = self._read_body(npc, outfit) if whole else None
+            # FO4 can override a face entirely through NPC_/HDPT records, with
+            # no replacement FaceGeom file.  Appearance therefore has to be
+            # resolved even for the head-only view.
+            body = self._read_body(npc, outfit, whole=whole)
             safe_emit(self._mesh_ready, gen, data, npc,
                       (tex_override, keep, body))
 
@@ -598,19 +628,21 @@ class NpcViewerView(QWidget):
         Cancelling the background picker is not an outcome worth reporting, so
         the button must not sit disabled under a stale caption afterwards.
         """
+        if self._closing:
+            return
         self._save_btn.setText(self.tr("Save as image…"))
         self._save_btn.setEnabled(
             self._current is not None and self._preview.can_capture())
 
     def _save_feedback(self, text: str):
+        if self._closing:
+            return
         self._save_btn.setText(text)
+        self._save_feedback_timer.start()
 
-        def restore():
-            if self._pending_export is not None:
-                return
+    def _restore_save_feedback(self):
+        if self._pending_export is None:
             self._save_reset()
-
-        QTimer.singleShot(1600, self._guard(restore))
 
     def _reload_current(self, *_a):
         """Re-open the shown NPC after the whole-body toggle changed."""
@@ -714,24 +746,70 @@ class NpcViewerView(QWidget):
             dirs.append(Path(self._data))
         return dirs
 
-    def _read_body(self, npc, outfit: bool = True):
-        """(parts, skeleton, skin tint), or None. Runs off the UI thread."""
+    def _read_body(self, npc, outfit: bool = True, whole: bool = True):
+        """Resolve runtime face changes and optional body off the UI thread."""
         try:
-            from Utils.npc_body import resolve_body, scope_records
-            records = self._body_records()
-            if not records:
+            from Utils.npc_body import resolve_body, resolve_face, scope_records
+            all_records = self._body_records()
+            if not all_records:
                 return None
             # The body follows the head ON SCREEN, not the one the game would
             # load: showing a vanilla face on the winning replacer's tanned
             # body leaves a seam at the neck.
-            records = scope_records(records, getattr(npc.entry, "mod", ""))
-            if not records:
+            baseline = scope_records(
+                all_records, getattr(npc.entry, "mod", ""))
+            if not baseline:
                 return None
-            got = resolve_body(npc.plugin, npc.formid, records, outfit=outfit)
+
+            # A winning FO4 asset can still be the vanilla NIF while a later
+            # ESP changes the runtime head.  Non-winning comparison rows stay
+            # scoped to the record state that generated their selected NIF.
+            game_id = str(getattr(self._game, "game_id", "") or "").lower()
+            runtime_face = game_id in ("fallout4", "fallout4vr") and npc.wins
+            records = all_records if runtime_face else baseline
+            got = resolve_body(
+                npc.plugin, npc.formid, records,
+                outfit=outfit if whole else False)
+            face = (resolve_face(npc.plugin, npc.formid, records, baseline)
+                    if runtime_face else {})
+
+            assembly = {
+                "parts": [], "skeleton": None,
+                "skin_tint": got.get("skin_tint"),
+                "hide_hair": bool(got.get("hide_hair")) if whole else False,
+                "head_parts": [], "eye_textures": face.get("eye_textures", ()),
+                "face_morph": None,
+                "face_skin_tint": face.get("face_skin_tint"),
+                "record_mods": face.get("record_mods", []),
+            }
+
+            for part in face.get("hair", ()):
+                blob = self._resolver.read(part.rel) if self._resolver else None
+                if not blob:
+                    blob = self._from_mod_archives(part.rel)
+                if blob:
+                    assembly["head_parts"].append(
+                        (blob, part.rel, part.textures,
+                         self._part_plugin_dirs(part.rel)))
+                else:
+                    self._log(f"View NPCs: head-part mesh not found: {part.rel}")
+            tri_rel = face.get("chargen_tri", "")
+            morphs = face.get("morphs", {})
+            if tri_rel and morphs:
+                tri = self._resolver.read(tri_rel) if self._resolver else None
+                if not tri:
+                    tri = self._from_mod_archives(tri_rel)
+                if tri:
+                    assembly["face_morph"] = (tri, morphs, tri_rel)
+                else:
+                    self._log(f"View NPCs: chargen TRI not found: {tri_rel}")
+
+            if not whole:
+                return assembly
             if not got["parts"]:
                 self._log(f"View NPCs: no body records for {npc_label(npc)} "
                           f"- showing the head alone")
-                return None
+                return assembly
             parts = []
             weight = got.get("weight", 1.0)
             for part in got["parts"]:
@@ -749,6 +827,7 @@ class NpcViewerView(QWidget):
                                   self._part_plugin_dirs(part.rel)))
                 else:
                     self._log(f"View NPCs: body mesh not found: {part.rel}")
+            assembly["parts"] = parts
             skeleton = None
             for rel in got["skeleton"]:
                 skeleton = self._resolver.read(rel) if self._resolver else None
@@ -758,9 +837,10 @@ class NpcViewerView(QWidget):
                 # Without one the parts cannot be placed relative to each
                 # other, so showing them would be worse than not.
                 self._log("View NPCs: no skeleton found - showing the head alone")
-                return None
-            return (parts, skeleton, got.get("skin_tint"),
-                    bool(got.get("hide_hair")))
+                assembly["parts"] = []
+                return assembly
+            assembly["skeleton"] = skeleton
+            return assembly
         except Exception as exc:                         # noqa: BLE001
             self._log(f"View NPCs: body assembly failed: {exc!r}")
             return None
@@ -792,16 +872,41 @@ class NpcViewerView(QWidget):
             selected_roots.append(mod_dir)
         elif entry.archive is not None:
             dirs.append(Path(entry.archive).parent)
+        # An ESP-only FO4 replacer has no mesh entry of its own, so the row's
+        # source remains the vanilla archive.  Its plugin directory still has
+        # to lead the hair-colour/TXST lookup.
+        if isinstance(body, dict) and self._staging is not None:
+            record_dirs = [Path(self._staging) / mod
+                           for mod in body.get("record_mods", ())]
+            dirs = [d for d in record_dirs if d not in dirs] + dirs
         if self._data is not None:
             dirs.append(Path(self._data))
-        parts, skeleton, skin_tint, hide_hair = (
-            body if body else (None, None, None, False))
+        if isinstance(body, dict):
+            parts = body.get("parts")
+            skeleton = body.get("skeleton")
+            skin_tint = body.get("skin_tint")
+            hide_hair = bool(body.get("hide_hair"))
+            head_parts = body.get("head_parts")
+            eye_textures = body.get("eye_textures")
+            face_morph = body.get("face_morph")
+            face_skin_tint = body.get("face_skin_tint")
+        else:
+            # Compatibility with in-flight payloads created before a hot UI
+            # reload, and with callers using the historical tuple.
+            parts, skeleton, skin_tint, hide_hair = (
+                body if body else (None, None, None, False))
+            head_parts = eye_textures = face_morph = None
+            face_skin_tint = None
         self._preview.set_nif_data(data, title, self._resolver, archives,
                                    tex_override, keep_view,
                                    mesh_rel=entry.rel_key, plugin_dirs=dirs,
                                    parts=parts, skeleton=skeleton,
                                    skin_tint=skin_tint,
                                    hide_hair=hide_hair,
+                                   head_parts=head_parts,
+                                   eye_textures=eye_textures,
+                                   face_morph=face_morph,
+                                   face_skin_tint=face_skin_tint,
                                    selected_roots=selected_roots)
 
 
@@ -848,6 +953,27 @@ def _find_named(directory: Path, name: str) -> "Path | None":
     except OSError:
         pass
     return None
+
+
+def _primary_master(game) -> str:
+    """The game's core plugin, used only to warm the body-record cache."""
+    for name in getattr(game, "vanilla_plugins", ()) or ():
+        if str(name).lower().endswith((".esm", ".esp", ".esl")):
+            return str(name)
+    return ""
+
+
+def _string_languages_for(game) -> tuple[str, ...]:
+    """String-table suffixes used by this game, preferred first.
+
+    Skyrim names its English tables ``*_english.strings``; Fallout 4 uses
+    ``*_en.strings``. Keeping the other spelling as a fallback also covers
+    mods authored with the opposite convention.
+    """
+    game_id = str(getattr(game, "game_id", "") or "").lower()
+    if game_id in ("fallout4", "fallout4vr"):
+        return "en", "english"
+    return "english", "en"
 
 
 def _resolver_for(staging, modlist, profile_dir, data, game):

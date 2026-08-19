@@ -267,7 +267,7 @@ uniform float uSrgbAlbedo;
 uniform sampler2D uTex;
 uniform sampler2D uNormTex;
 uniform float uHasTex;
-uniform float uHasNorm;      // 0 none, 1 tangent-space, 2 model-space (_msn)
+uniform float uHasNorm;      // 0 none, 1 tangent-space, 2 model-space (NIF flag)
 uniform float uSpecular;
 uniform vec3 uBaseColor;
 uniform vec3 uEye;
@@ -389,6 +389,16 @@ void main() {
         gloss = nm.a;
     } else if (uHasNorm > 0.5) {
         vec4 nm = texture(uNormTex, vUV);
+        vec3 tangentNormal = nm.rgb * 2.0 - 1.0;
+        // FO4 drops the third component from many tangent-space normal maps
+        // (including FaceGen's misleadingly named _msn maps).  Pillow quite
+        // correctly decodes the absent blue channel as zero; treating that
+        // encoded zero as -1 made every pore and crease point sideways.  The
+        // engine reconstructs the positive hemisphere from the stored RG.
+        if (nm.b < (0.5 / 255.0)) {
+            tangentNormal.z = sqrt(max(0.0,
+                1.0 - dot(tangentNormal.xy, tangentNormal.xy)));
+        }
         vec3 t = vTangent - n * dot(n, vTangent);   // Gram-Schmidt
         if (length(t) > 1e-4) {
             t = normalize(t);
@@ -397,7 +407,7 @@ void main() {
             // where an atlas mirrors an island.
             vec3 b = vBitangentSign * cross(n, t);
             mat3 tbn = mat3(b, t, n);
-            n = normalize(tbn * (nm.rgb * 2.0 - 1.0));
+            n = normalize(tbn * tangentNormal);
         }
         // Skyrim keeps its gloss/spec mask in the normal map's ALPHA.
         gloss = nm.a;
@@ -593,6 +603,39 @@ def _multiply_tint_map(base, tint):
     return out
 
 
+def _remap_palette(base, palette, index: float):
+    """Apply a FO4 greyscale-to-palette row while preserving diffuse alpha.
+
+    Hair CLFM records provide the vertical coordinate and the diffuse map's
+    greyscale value provides the horizontal coordinate. Pillow's channel LUTs
+    keep this a C-speed operation even for a 1K hair map.
+    """
+    from PIL import Image as PilImage
+    from PySide6.QtGui import QImage
+
+    if (base is None or base.isNull() or palette is None or palette.isNull()
+            or palette.width() < 1 or palette.height() < 1):
+        return base
+    rgba = base.convertToFormat(QImage.Format_RGBA8888)
+    image = PilImage.frombytes(
+        "RGBA", (rgba.width(), rgba.height()), bytes(rgba.constBits()))
+
+    # Vanilla's ramp is only 64 pixels wide. Expand it to one entry for each
+    # possible diffuse byte using the same interpolation a GPU sampler uses.
+    ramp = palette.scaled(
+        256, palette.height(), Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
+    row = round(min(1.0, max(0.0, index)) * (ramp.height() - 1))
+    colours = [ramp.pixelColor(x, row) for x in range(256)]
+    source = image.getchannel("R")
+    channels = [source.point([getattr(c, name)() for c in colours])
+                for name in ("red", "green", "blue")]
+    result = PilImage.merge("RGB", tuple(channels)).convert("RGBA")
+    result.putalpha(image.getchannel("A"))
+    raw = result.tobytes("raw", "RGBA")
+    return QImage(raw, result.width, result.height,
+                  QImage.Format_RGBA8888).copy()
+
+
 def _legacy_dds_pil(data: bytes, PilImage):
     """Fast Pillow image for an ordinary uncompressed RGB(A) DDS.
 
@@ -648,13 +691,14 @@ def _legacy_dds_pil(data: bytes, PilImage):
 
 
 def _model_space_normal(nrm_blob, spec_blob, log=None):
-    """Decode an _msn normal map, packing a separate spec map into its alpha.
+    """Decode a normal map, packing a separate spec map into its alpha.
 
     A model-space map's alpha is NOT a gloss mask (it is usually solid 255).
     Skyrim keeps skin gloss in a dedicated specular map (texture slot 7) and
-    uses its RED channel, per BodySlide's own shader. Packing that into alpha
-    lets the shader read gloss from one sampler for both map types; with no
-    spec map the alpha is zeroed, so skin renders matte rather than glossy.
+    FO4 FaceGen does the same for its tangent-space map. Both use the specular
+    map's RED channel. Packing that into alpha lets the shader read gloss from
+    one sampler for both map types; with no spec map the alpha is zeroed, so a
+    model-space skin map renders matte rather than using its opaque alpha.
     """
     try:
         import io
@@ -978,6 +1022,17 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
             return shape.diffuse
         return shape.textures[slot] if slot < len(shape.textures) else ""
 
+    def palette_slot(shape) -> str:
+        """FO4 greyscale colour LUT (texture slot 3), if the shader has one."""
+        if shape.material:
+            mat = materials.get(shape.material.lower())
+            if mat is None:
+                material_slot(shape.material)
+                mat = materials.get(shape.material.lower())
+            if mat is not None and len(mat.paths) > 3:
+                return mat.paths[3]
+        return shape.textures[3] if len(shape.textures) > 3 else ""
+
     def decoded_image(rel: str, *, exact: bool = False):
         """Decode one ordinary image, sharing successful capped results."""
         # `exact` is the selected FaceGeom copy's optional FaceTint. Its source
@@ -1010,18 +1065,20 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
             rel = shape.textures[1]
         if not rel:
             return None, False
-        # Bethesda body maps are MODEL space (_msn); they must not be run
-        # through a tangent basis.
-        model_space = rel.replace("\\", "/").lower().endswith("msn.dds")
-        # Skyrim slot 7 is the dedicated specular map for skin. It is part of
-        # the key: two skins may share an _msn but use different gloss maps.
-        spec_rel = (shape.textures[7]
-                    if model_space and len(shape.textures) > 7 else "")
+        # The shader flag, not the suffix, selects the coordinate space.  FO4
+        # FaceGen confusingly calls its per-NPC tangent-space map ``_msn``;
+        # classifying it like Skyrim's body maps produces severe facial
+        # creases and entirely wrong lighting.
+        model_space = bool(getattr(shape, "model_space_normals", False))
+        # Slot 7 is the dedicated specular map for skin in both Skyrim and
+        # FO4 FaceGen. It is part of the key because two skins may share a
+        # normal map but use different gloss maps.
+        spec_rel = shape.textures[7] if len(shape.textures) > 7 else ""
         key = ("N:", rel.lower(), spec_rel.lower())
         if key in seen:
             return seen[key], model_space
         found = False
-        if model_space:
+        if model_space or spec_rel:
             cached = shared_get("model-normal", rel, spec_rel)
             if cached is not _CACHE_MISS:
                 img = cached
@@ -1055,7 +1112,7 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
             _log(log, f"      ! normal map {rel.replace(chr(92), '/')} found but not decodable")
         elif img is not None:
             _log(log, f"      normal {img.width()}x{img.height()}"
-                      f"{' model-space (_msn)' if model_space else ' tangent-space'}")
+                      f"{' model-space' if model_space else ' tangent-space'}")
         img = _fit_texture(img)
         seen[key] = img
         return img, model_space
@@ -1114,7 +1171,13 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
         # every other NPC using that skin, but the tint map is per-NPC.
         key = diffuse_key(shape)
         overlay = getattr(shape, "tint_overlay", "")
-        cache_key = (key, overlay) if overlay else key
+        palette_index = getattr(shape, "palette_index", None)
+        palette_rel = (palette_slot(shape)
+                       if slot == 0 and palette_index is not None
+                       and getattr(shape, "greyscale_to_palette", False)
+                       else "")
+        cache_key = ((key, overlay, palette_rel, round(palette_index, 7))
+                     if palette_rel else ((key, overlay) if overlay else key))
         if cache_key in seen:
             return seen[cache_key]
         cached = shared_get("diffuse", rel)
@@ -1146,6 +1209,12 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
                 _log(log, f"      face tint {overlay.rsplit('/', 1)[-1]} "
                           f"({tint_img.width()}x{tint_img.height()}) multiplied "
                           f"over {rel.replace(chr(92), '/').rsplit('/', 1)[-1]}")
+        if image is not None and palette_rel:
+            palette = decoded_image(palette_rel)
+            if palette is not None and not palette.isNull():
+                image = _remap_palette(image, palette, palette_index)
+                _log(log, f"      hair palette {palette_rel.rsplit('/', 1)[-1]} "
+                          f"at row {palette_index:.4f}")
         srgb_albedo[key] = is_srgb
         if image is not None:
             shrunk = ("" if pre is None or pre == (image.width(), image.height())
@@ -1375,7 +1444,7 @@ def _fmt_bytes(n: int) -> str:
 
 
 def _add_parts(model, parts, plugin_dirs, log, cancel, bones=None,
-               skin_tint=None) -> None:
+               skin_tint=None, hair_mesh_rel: str = "") -> None:
     """Append an actor's other meshes - body, hands, armour - to *model*.
 
     Each part is parsed, texture-overridden and POSED on its own: overrides are
@@ -1385,6 +1454,13 @@ def _add_parts(model, parts, plugin_dirs, log, cancel, bones=None,
     from Utils.nif_reader import read_nif
     from Utils.nif_skin import morph_weight_model, pose_model
     from Utils.txst_lookup import apply_alt_textures
+    hair_ctx = None
+    if hair_mesh_rel:
+        # A FO4 hat can replace the hidden scalp hair with a wig built into
+        # the armour NIF. It still uses the NPC's CLFM palette row, so retain
+        # the FACE's plugin context while loading the outfit's own textures.
+        from Utils.facegen_tint import FormsContext
+        hair_ctx = FormsContext(plugin_dirs)
     for entry in parts:
         data, rel = entry[0], entry[1]
         attach = entry[2] if len(entry) > 2 else ""
@@ -1423,6 +1499,16 @@ def _add_parts(model, parts, plugin_dirs, log, cancel, bones=None,
                 if getattr(shape, "lighting_shader_type", 0) == 5:
                     shape.textures = list(skin_textures)
                     texture_hits += 1
+        hair_tinted = 0
+        if (hair_ctx is not None
+                and getattr(getattr(part, "header", None), "bs_version", 0)
+                == 130):
+            try:
+                from Utils.facegen_tint import apply_hair_tint
+                hair_tinted = apply_hair_tint(
+                    part, hair_mesh_rel, plugin_dirs, hair_ctx)
+            except Exception:                            # noqa: BLE001
+                hair_tinted = 0
         # Cloth/HDT nifs often carry skinned collision volumes alongside the
         # visible garment. They are BSTriShapes with geometry but no shader at
         # all (CapeProxy, PantsCol, Stabilizer, ...). Skyrim feeds those to the
@@ -1430,15 +1516,7 @@ def _add_parts(model, parts, plugin_dirs, log, cancel, bones=None,
         # opaque clay shells over the actor.
         part.shapes, helpers = _actor_visible_shapes(part.shapes)
         posed = pose_model(part, bones, attach) if bones else 0
-        tinted = 0
-        if skin_tint is not None:
-            for shape in part.shapes:
-                # Skyrim shader subtype 5 is the authoritative Skin Tint
-                # marker. It also catches exposed skin included in outfit
-                # meshes without recolouring the clothing around it.
-                if getattr(shape, "lighting_shader_type", 0) == 5:
-                    shape.tint = skin_tint
-                    tinted += 1
+        tinted = _tint_skin_shapes(part.shapes, skin_tint)
         _log(log, f"  + {rel.rsplit('/', 1)[-1]}: {len(part.shapes)} shape(s)"
                   f", posed {posed}"
                   + (f", weight {weight * 100:.0f} ({morphed} morphed)"
@@ -1446,10 +1524,114 @@ def _add_parts(model, parts, plugin_dirs, log, cancel, bones=None,
                   + (f", skin texture-set {texture_hits}"
                      if texture_hits else "")
                   + (f", skin-tinted {tinted}" if tinted else "")
+                  + (f", hair-palette {hair_tinted}"
+                     if hair_tinted else "")
                   + (f", hid {len(helpers)} physics helper(s)"
                      if helpers else "")
                   + (f", attached to {attach}" if attach else ""))
         model.shapes.extend(part.shapes)
+
+
+def _replace_head_parts(model, parts, plugin_dirs, log, cancel) -> None:
+    """Replace baked scalp hair with FO4 HDPT models selected by the ESP.
+
+    FO4 runtime hair is commonly BSSkin-authored in actor/skeleton space,
+    whereas a baked FaceGeom head is centred on the head itself. ``read_nif``
+    applies the dominant bone bind that brings the part into that face-local
+    space. Detach its skin metadata here so the later whole-actor pose does
+    not undo the normalisation and put the hair a head-height above the NPC.
+    """
+    from Utils.facegen_tint import remove_hair
+    from Utils.nif_reader import read_nif
+    from Utils.txst_lookup import apply_alt_textures
+
+    removed = remove_hair(model)
+    added = 0
+    for data, rel, textures, part_dirs in parts:
+        if cancel():
+            return
+        try:
+            part = read_nif(data)
+        except Exception as exc:                         # noqa: BLE001
+            _log(log, f"  ! head part {rel} could not be parsed: {exc!r}")
+            continue
+        dirs = part_dirs or plugin_dirs
+        if rel and dirs:
+            try:
+                apply_alt_textures(part, rel, dirs, cancel=cancel)
+            except Exception:                            # noqa: BLE001
+                pass
+        if textures:
+            for shape in part.shapes:
+                shape.textures = list(textures)
+        part.shapes, helpers = _actor_visible_shapes(part.shapes)
+        detached = _detach_head_part_skinning(part.shapes)
+        model.shapes.extend(part.shapes)
+        added += len(part.shapes)
+        _log(log, f"  + runtime head part {rel.rsplit('/', 1)[-1]}: "
+                  f"{len(part.shapes)} shape(s)"
+                  + (f", fixed {detached} to face space" if detached else "")
+                  + (f", hid {len(helpers)} helper(s)" if helpers else ""))
+    _log(log, f"  ESP hairstyle: replaced {removed} baked shape(s) with "
+              f"{added} runtime shape(s)")
+
+
+def _detach_head_part_skinning(shapes) -> int:
+    """Keep a parsed runtime head part in its bind-normalised face space."""
+    detached = 0
+    for shape in shapes:
+        if not (shape.bones or shape.binds or shape.skin_weights):
+            continue
+        shape.bones = []
+        shape.binds = []
+        shape.skin_weights = []
+        detached += 1
+    return detached
+
+
+def _apply_eye_textures(model, textures) -> int:
+    """Apply an FO4 eye HDPT's TNAM set to the baked eyeball geometry."""
+    if not textures:
+        return 0
+    changed = 0
+    for shape in model.shapes:
+        name = (shape.name or "").lower()
+        if ("eye" in name
+                and not any(part in name for part in ("wet", "ao", "lash"))):
+            shape.textures = list(textures)
+            changed += 1
+    return changed
+
+
+def _tint_skin_shapes(shapes, skin_tint) -> int:
+    """Apply NPC texture lighting to shader-subtype-5 skin shapes."""
+    if skin_tint is None:
+        return 0
+    tinted = 0
+    for shape in shapes:
+        # The marker catches exposed skin inside outfit meshes without
+        # recolouring the clothing around it. On FO4 the factor may exceed 1.
+        if getattr(shape, "lighting_shader_type", 0) == 5:
+            shape.tint = skin_tint
+            tinted += 1
+    return tinted
+
+
+def _tint_face_shapes(shapes, face_skin_tint) -> int:
+    """Correct a baked FO4 face from its baseline QNAM to the winning one."""
+    if face_skin_tint is None:
+        return 0
+    tinted = 0
+    for shape in shapes:
+        # FO4's FaceCustomization front head uses shader subtype 4. Generic
+        # rear-head/body skin is subtype 5 and receives the absolute QNAM via
+        # _tint_skin_shapes instead.
+        if getattr(shape, "lighting_shader_type", 0) != 4:
+            continue
+        current = getattr(shape, "tint", (1.0, 1.0, 1.0))
+        shape.tint = tuple(current[i] * face_skin_tint[i] for i in range(3))
+        tinted += 1
+    return tinted
 
 
 def _actor_visible_shapes(shapes):
@@ -1470,6 +1652,31 @@ def _actor_visible_shapes(shapes):
         else:
             helpers.append(shape)
     return visible, helpers
+
+
+def _hide_facegen_runtime_shapes(model, mesh_rel: str) -> list[str]:
+    """Drop FO4 FaceGen geometry that is enabled only by an engine event.
+
+    Fallout 4 bakes ``MaleNeckGore``/``FemaleNeckGore`` into otherwise normal
+    NPC FaceGeom files.  The game reveals that surface after dismemberment;
+    drawing every NIF shape unconditionally leaves pieces of the internal
+    gore shell protruding through the scalp and temples on an intact preview.
+
+    Match the explicit shape role rather than its meat texture: that keeps
+    ordinary scars, mouth parts and the rear-head cap visible, and also works
+    for replacers that supply their own gore material.
+    """
+    rel = (mesh_rel or "").replace("\\", "/").lower()
+    if (getattr(getattr(model, "header", None), "bs_version", 0) != 130
+            or "/facegendata/facegeom/" not in f"/{rel}"):
+        return []
+    hidden = [shape.name for shape in model.shapes
+              if (shape.name or "").lower().endswith("neckgore")]
+    if hidden:
+        model.shapes[:] = [shape for shape in model.shapes
+                           if not (shape.name or "").lower().endswith(
+                               "neckgore")]
+    return hidden
 
 
 def _pose_actor(model, bones, log) -> None:
@@ -1494,7 +1701,9 @@ def _read_bones(skeleton_data, log):
 
 def _model_cache_key(source, texture_roots, archive_roots, resolver, archives,
                      mesh_rel, plugin_dirs, parts=None, skeleton=None,
-                     skin_tint=None, hide_hair=False):
+                     skin_tint=None, hide_hair=False, head_parts=None,
+                     eye_textures=None, face_morph=None,
+                     face_skin_tint=None):
     """Identity of every input that can change the parsed/augmented model.
 
     Texture choice and texture slot are deliberately absent: they only affect
@@ -1520,10 +1729,19 @@ def _model_cache_key(source, texture_roots, archive_roots, resolver, archives,
                        bool(e[3]) if len(e) > 3 else False,
                        tuple(e[5]) if len(e) > 5 else ())
                       for e in (parts or ()))
+    head_key = tuple((entry[1], tuple(entry[2]))
+                     for entry in (head_parts or ()))
+    morph_key = ()
+    if face_morph:
+        tri, weights, rel = face_morph
+        morph_key = (rel, id(tri), len(tri),
+                     tuple(sorted((name, round(value, 7))
+                                  for name, value in weights.items())))
     return (source_key, mesh_rel.replace("\\", "/").lower(),
             path_key(texture_roots), path_key(archive_roots),
             path_key(effective_plugins), id(resolver), id(archives),
-            parts_key, bool(skeleton), skin_tint)
+            parts_key, bool(skeleton), skin_tint, bool(hide_hair), head_key,
+            tuple(eye_textures or ()), morph_key, face_skin_tint)
 
 
 def _log_model(log, model) -> None:
@@ -1791,6 +2009,8 @@ class _Viewport(QOpenGLWidget):
              resolver=None, archives=None, tex_override=None,
              mesh_rel: str = "", plugin_dirs=None, parts=None, skeleton=None,
              skin_tint=None, hide_hair: bool = False,
+             head_parts=None, eye_textures=None, face_morph=None,
+             face_skin_tint=None,
              keep_view: bool = False):
         """Parse and build *source* (path or raw bytes) off-thread, then swap.
 
@@ -1812,7 +2032,8 @@ class _Viewport(QOpenGLWidget):
         self._reload_args = (source, texture_roots, archive_roots,
                              resolver, archives, tex_override,
                              mesh_rel, plugin_dirs, parts, skeleton, skin_tint,
-                             hide_hair)
+                             hide_hair, head_parts, eye_textures, face_morph,
+                             face_skin_tint)
         self._discard_pending()
         log = self.log_fn
 
@@ -1839,7 +2060,8 @@ class _Viewport(QOpenGLWidget):
                 model_key = _model_cache_key(
                     source, texture_roots, archive_roots, resolver, archives,
                     mesh_rel, plugin_dirs, parts, skeleton, skin_tint,
-                    hide_hair)
+                    hide_hair, head_parts, eye_textures, face_morph,
+                    face_skin_tint)
                 extra = archives
                 if extra is None and archive_roots:
                     from Utils.archive_lookup import ArchiveLookup, find_archives
@@ -1863,6 +2085,11 @@ class _Viewport(QOpenGLWidget):
                               f"{(time.monotonic() - t0) * 1000:.0f}ms")
                     if gen != self._generation:
                         return
+                    hidden_runtime = _hide_facegen_runtime_shapes(
+                        model, mesh_rel)
+                    if hidden_runtime:
+                        _log(log, "  hid engine-controlled FaceGen shape(s): "
+                                  + ", ".join(hidden_runtime))
                     _log_model(log, model)
                     if mesh_rel:
                         # The game may swap the baked texture set via plugin
@@ -1880,6 +2107,29 @@ class _Viewport(QOpenGLWidget):
                                       f" ({(time.monotonic() - t0) * 1000:.0f}ms)")
                         except Exception as exc:         # noqa: BLE001
                             _log(log, f"  ! texture-set override scan failed: {exc!r}")
+                        if head_parts:
+                            try:
+                                _replace_head_parts(
+                                    model, head_parts, dirs, log,
+                                    lambda: gen != self._generation)
+                            except Exception as exc:     # noqa: BLE001
+                                _log(log, f"  ! runtime head parts failed: {exc!r}")
+                        if eye_textures:
+                            changed = _apply_eye_textures(model, eye_textures)
+                            _log(log, f"  ESP eye texture-set applied to "
+                                      f"{changed} shape(s)")
+                        if face_morph:
+                            try:
+                                from Utils.fo4_facegen import apply_face_morphs
+                                tri, weights, tri_rel = face_morph
+                                applied, vertices = apply_face_morphs(
+                                    model, tri, weights)
+                                _log(log, f"  ESP face sliders: {applied}/"
+                                          f"{len(weights)} morph(s), "
+                                          f"{vertices} vertices via "
+                                          f"{tri_rel.rsplit('/', 1)[-1]}")
+                            except Exception as exc:     # noqa: BLE001
+                                _log(log, f"  ! runtime face morph failed: {exc!r}")
                         # Skyrim ships hair textures greyscale and tints them from
                         # the NPC record, so FaceGen hair is white without this.
                         try:
@@ -1887,11 +2137,16 @@ class _Viewport(QOpenGLWidget):
                             t0 = time.monotonic()
                             n = apply_hair_tint(model, mesh_rel, dirs)
                             if n:
-                                tint = next((s.tint for s in model.shapes
-                                             if s.tint != (1.0, 1.0, 1.0)), None)
-                                rgb = (tuple(round(c * 255) for c in tint)
-                                       if tint else "?")
-                                _log(log, f"  hair tint {rgb} applied to {n} shape(s)"
+                                remap = next((s.palette_index for s in model.shapes
+                                              if s.palette_index is not None), None)
+                                if remap is not None:
+                                    detail = f"palette row {remap:.4f}"
+                                else:
+                                    tint = next((s.tint for s in model.shapes
+                                                 if s.tint != (1.0, 1.0, 1.0)), None)
+                                    detail = (str(tuple(round(c * 255) for c in tint))
+                                              if tint else "unknown colour")
+                                _log(log, f"  hair tint {detail} applied to {n} shape(s)"
                                           f" ({(time.monotonic() - t0) * 1000:.0f}ms)")
                         except Exception as exc:         # noqa: BLE001
                             _log(log, f"  ! hair tint lookup failed: {exc!r}")
@@ -1914,6 +2169,18 @@ class _Viewport(QOpenGLWidget):
                                       f"{gone} hair shape(s) hidden")
                         except Exception as exc:         # noqa: BLE001
                             _log(log, f"  ! hiding hair failed: {exc!r}")
+                    face_skin = _tint_face_shapes(
+                        model.shapes, face_skin_tint)
+                    if face_skin:
+                        detail = ", ".join(
+                            f"{value:.3f}" for value in face_skin_tint)
+                        _log(log, f"  corrected {face_skin} baked face shape(s) "
+                                  f"by winning/baseline skin ratio ({detail})")
+                    # FO4 bakes the front head into FaceCustomization, but its
+                    # rear-head/neck cap remains generic subtype-5 skin.
+                    head_skin = _tint_skin_shapes(model.shapes, skin_tint)
+                    if head_skin:
+                        _log(log, f"  skin-tinted {head_skin} head shape(s)")
                     # Tag the FACE shape - not the hair - before the body is
                     # appended. A portrait framed on head+hair shrinks the face
                     # to fit a tall hairstyle in; framing on the face itself
@@ -1934,7 +2201,7 @@ class _Viewport(QOpenGLWidget):
                     if parts:
                         _add_parts(model, parts, plugin_dirs or texture_roots,
                                    log, lambda: gen != self._generation, bones,
-                                   skin_tint)
+                                   skin_tint, mesh_rel)
                     if gen != self._generation:
                         return
                     if gen != self._generation:
@@ -3218,7 +3485,9 @@ class NifPreview(QWidget):
                      resolver=None, archives=None, tex_override=None,
                      keep_view: bool = False, mesh_rel: str = "",
                      plugin_dirs=None, parts=None, skeleton=None,
-                     skin_tint=None, hide_hair=False, selected_roots=None):
+                     skin_tint=None, hide_hair=False, selected_roots=None,
+                     head_parts=None, eye_textures=None, face_morph=None,
+                     face_skin_tint=None):
         """Preview in-memory bytes (a BSA/BA2 member); *keep_view* skips
         re-framing. *parts*/*skeleton* assemble a whole actor (see load)."""
         self._set_capture_ready(False)
@@ -3229,6 +3498,9 @@ class NifPreview(QWidget):
                         mesh_rel=mesh_rel, plugin_dirs=plugin_dirs,
                         parts=parts, skeleton=skeleton, skin_tint=skin_tint,
                         hide_hair=hide_hair,
+                        head_parts=head_parts, eye_textures=eye_textures,
+                        face_morph=face_morph,
+                        face_skin_tint=face_skin_tint,
                         keep_view=keep_view)
 
     def _on_loaded(self, meshes, bounds, gen, tex_paths=None,

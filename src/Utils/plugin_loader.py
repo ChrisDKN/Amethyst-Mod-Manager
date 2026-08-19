@@ -105,10 +105,13 @@ BUILTIN_WIZARD_TOOLS: list[dict] = [
         "description": ("See what this profile's NPCs actually look like: every "
                         "NPC with a baked FaceGen head, named, previewed in 3D, "
                         "with the winning face flagged when mods disagree."),
-        # FaceGeom paths and the NPC_ -> HCLF -> CLFM hair chain are verified on
-        # the Skyrim generation; other Bethesda titles lay records out
-        # differently and are not claimed here.
-        "game_ids": ["skyrim_se", "skyrim", "skyrimvr", "enderal", "enderalse"],
+        # FaceGeom paths, NPC identity and actor assembly are verified for the
+        # Skyrim generation and Fallout 4. Other Bethesda titles lay records
+        # out differently and are not claimed here.
+        "game_ids": [
+            "skyrim_se", "skyrim", "skyrimvr", "enderal", "enderalse",
+            "Fallout4",
+        ],
         "all_games": False,
         # Qt-only tool: no Tk class exists behind this path, it is a registry key.
         "dialog_class": "wizards.npc_viewer.NpcViewerWizard",
