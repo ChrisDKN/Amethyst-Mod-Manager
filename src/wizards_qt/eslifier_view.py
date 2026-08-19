@@ -89,7 +89,7 @@ class ESLifierView(WizardViewBase):
     def _start_install(self):
         self._install_btn.setEnabled(False)
         self._github_install_worker(
-            GITHUB_API_URL, [], APP_DIR, EXE_NAME, "ESLifier",
+            GITHUB_API_URL, ["eslifier.zip"], APP_DIR, EXE_NAME, "ESLifier",
             self._dl_status_sig, self._dl_done_sig)
 
     def _on_dl_done(self, ok: bool):
