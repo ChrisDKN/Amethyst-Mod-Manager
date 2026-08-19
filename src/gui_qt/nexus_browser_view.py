@@ -88,6 +88,22 @@ PAGE_SIZE_BROWSE = 30
 PAGE_SIZE_CHOICES = [20, 30, 40, 50]
 
 
+def _category_key(value: str) -> str:
+    """Normalise a category/game name for comparison with a Nexus domain."""
+    return "".join(char for char in (value or "").casefold()
+                   if char.isalnum())
+
+
+def _visible_categories(categories, game_name: str, domain: str):
+    """Exclude Nexus's synthetic game-name category from the filter list."""
+    game_keys = {_category_key(game_name), _category_key(domain)} - {""}
+    return [
+        category for category in categories
+        if category.category_id != 0
+        and _category_key(category.name) not in game_keys
+    ]
+
+
 class NexusBrowserView(QWidget):
     """Required: *api* (authed NexusAPI), *domain* (game.nexus_game_domain),
     *game*. Optional: *install_fn(list[str])* (defaults to a no-op), *log_fn*."""
@@ -117,7 +133,7 @@ class NexusBrowserView(QWidget):
         # bytes to the host (which combines concurrent downloads into a single
         # progress card); total<0 means "this download finished". Defaults to
         # a no-op.
-        self._progress_fn = progress_fn or (lambda key, name, d, t: None)
+        self._progress_fn = progress_fn or (lambda *args: None)
         self._dl_seq = 0                # unique progress-card key per download
 
         # state
@@ -726,6 +742,8 @@ class NexusBrowserView(QWidget):
         if domain != self._domain:
             return                       # stale result from the previous domain
         self._cats_loaded = True
+        cats = _visible_categories(
+            cats, getattr(self._game, "name", "") or "", domain)
         # clear existing (checks + any indent-wrapper rows + the status label)
         while self._cat_layout.count():
             it = self._cat_layout.takeAt(0)
@@ -1744,9 +1762,10 @@ class NexusBrowserView(QWidget):
         self._dl_seq += 1
         dl_key = f"nxb-{self._dl_seq}"
         self._log(f"Nexus: downloading {dl_label}…")
+        cancel = threading.Event()
         # Show the popup immediately (indeterminate) so there's feedback even
         # before the first progress callback arrives.
-        self._progress_fn(dl_key, dl_label, 0, 0)
+        self._progress_fn(dl_key, dl_label, 0, 0, cancel.set)
 
         def worker():
             archive = None
@@ -1764,7 +1783,8 @@ class NexusBrowserView(QWidget):
                     dest_dir=dest, known_file_name=file.file_name,
                     expected_size_bytes=size,
                     progress_cb=lambda d, t: safe_emit(
-                        self._download_progress, dl_key, dl_label, int(d), int(t)))
+                        self._download_progress, dl_key, dl_label, int(d), int(t)),
+                    cancel=cancel)
                 if result.success and result.file_path is not None:
                     archive = str(result.file_path)
                     # Build the meta from the KNOWN mod_id/file_id (the archive
@@ -1779,8 +1799,11 @@ class NexusBrowserView(QWidget):
                     except Exception:
                         meta = None
                 else:
-                    self._log(f"Nexus: download failed: "
-                              f"{result.error or 'unknown error'}")
+                    if "cancel" in (result.error or "").lower():
+                        self._log("Nexus: download cancelled.")
+                    else:
+                        self._log(f"Nexus: download failed: "
+                                  f"{result.error or 'unknown error'}")
             except Exception as exc:
                 self._log(f"Nexus: download error: {exc}")
             safe_emit(self._download_done, archive, meta, dl_key)
