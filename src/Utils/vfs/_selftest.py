@@ -48,11 +48,16 @@ from Utils.quick_configure import (  # noqa: E402
     deploy_mode_change_blocked,
 )
 from Utils.launch_handoff import build_launch_handoff  # noqa: E402
-from Utils.exe_launch import launch_game  # noqa: E402
+from Utils.exe_launch import is_game_launch_exe, launch_game  # noqa: E402
 from Games.Bethesda.fallout_3 import Fallout_3  # noqa: E402
 from Games.BepInEx.BepInEx import (  # noqa: E402
     Subnautica,
     Subnautica_Below_Zero,
+)
+from Games.ue5_game import UE5Game, UE5Rule  # noqa: E402
+from Games.Custom.custom_game import (  # noqa: E402
+    Ue5CustomGame,
+    make_custom_game,
 )
 
 _stardew_spec = importlib.util.spec_from_file_location(
@@ -229,6 +234,88 @@ class _FakeStardewGame(_FakeGame, StardewValley):
 
     def set_deploy_mode(self, mode: LinkMode) -> None:
         self._deploy_mode = mode
+
+
+class _FakeUE5Game(_FakeGame, UE5Game):
+    """UE project nested below an install that also contains Engine/."""
+
+    name = "UE5 VFS Test"
+    game_id = "ue5_vfs_test"
+    # Deliberately differ from the physical project's casing (Pseudoregalia
+    # has this exact shape in the custom definitions).
+    exe_name = "testproject/Binaries/Win64/TestProject-Win64-Shipping.exe"
+    preferred_launch_exe = "Binaries/Win64/ProfileLoader.exe"
+    mod_folder_strip_prefixes: set[str] = set()
+    custom_routing_rules: list[CustomRule] = []
+
+    def __init__(self, root: Path):
+        self.root = root
+        self.install = root / "ue5-install"
+        self.game = self.install / "TestProject"
+        self.profiles = root / "profiles-root"
+        self.profile = self.profiles / "profiles" / "default"
+        self.staging = self.profiles / "mods"
+        self.overwrite = self.profiles / "overwrite"
+        self.root_folder = self.profiles / "Root_Folder"
+        self._active_profile_dir = self.profile
+        self._game_path = self.game
+        self._staging_path = self.profiles
+        self._prefix_path = None
+        self._deploy_mode = LinkMode.HARDLINK
+        self._settings = {"vfs_enabled": True}
+        self.game.mkdir(parents=True)
+        self.profile.mkdir(parents=True)
+        self.staging.mkdir(parents=True)
+        self.overwrite.mkdir(parents=True)
+        self.root_folder.mkdir(parents=True)
+
+    def get_mod_data_path(self):
+        return self.game
+
+    def _load_settings(self) -> dict:
+        return dict(self._settings)
+
+    def _save_settings(self, data: dict) -> None:
+        self._settings = dict(data)
+
+
+class _FakeUE5RoutedGame(_FakeUE5Game):
+    custom_routing_rules = [
+        CustomRule(
+            dest="drive_c/users/test/AppData/Local/TestGame",
+            filenames=["Engine.ini"],
+            flatten=True,
+            to_prefix=True,
+        ),
+    ]
+
+    def __init__(self, root: Path):
+        super().__init__(root)
+        self.prefix = root / "prefix"
+        self.prefix.mkdir()
+
+    def get_prefix_path(self):
+        return self.prefix
+
+
+class _FakeUE5FailingGame(_FakeUE5RoutedGame):
+    def _vfs_populate_ue5_layer_files(
+        self, _destination: Path, _profile: str, _log_fn,
+    ) -> None:
+        raise RuntimeError("injected UE5 layer hook failure")
+
+
+class _FakeUE5ManagedModsGame(_FakeUE5Game):
+    """UE5 fixture whose Lua route enables managed UE4SS mods.txt handling."""
+
+    @property
+    def _ue5_post_passthrough_rules(self):
+        return [
+            UE5Rule(
+                dest="Binaries/Win64/ue4ss/Mods",
+                extensions=[".lua"],
+            ),
+        ]
 
 
 def _write_manifest(game: _FakeGame) -> Path:
@@ -499,6 +586,305 @@ def test_generic_mod_data_directory() -> None:
         assert not (game.game / "Content" / "assets" / "generic.txt").exists()
         cleanup_deployment(game)
     print("✓ generic primary mod-data directory adapter")
+
+
+def test_ue5_nested_project_shadow_view() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _FakeUE5Game(Path(tmp))
+        engine_file = game.install / "Engine" / "Binaries" / "ThirdParty" \
+            / "engine-runtime.dll"
+        engine_file.parent.mkdir(parents=True)
+        engine_file.write_text("vanilla-engine")
+        launcher = (
+            game.game / "bINARIES" / "wIN64"
+            / "TestProject-Win64-Shipping.exe"
+        )
+        launcher.parent.mkdir(parents=True)
+        launcher.write_text("vanilla-launcher")
+        vanilla_pak = game.game / "Content" / "Paks" / "~mods" \
+            / "ProfileBundle.pak"
+        vanilla_pak.parent.mkdir(parents=True)
+        vanilla_pak.write_text("vanilla-pak")
+
+        bundle = game.staging / "ProfileBundle" / "bundle"
+        bundle.mkdir(parents=True)
+        for extension in (".pak", ".utoc", ".ucas"):
+            (bundle / f"ProfileBundle{extension}").write_text(
+                f"profile{extension}")
+        ue4ss = game.staging / "ProfileBundle" / "Binaries" / "Win64" \
+            / "UE4SS" / "UE4SS.dll"
+        ue4ss.parent.mkdir(parents=True)
+        ue4ss.write_text("profile-ue4ss")
+
+        # The final filename differs too: Wine accepts this spelling, and the
+        # VFS selector must return the actual published path for Proton.
+        loader = game.root_folder / "Binaries" / "Win64" \
+            / "PROFILELOADER.EXE"
+        loader.parent.mkdir(parents=True)
+        loader.write_text("profile-loader")
+        project_config = game.root_folder / "Config" / "profile.ini"
+        project_config.parent.mkdir(parents=True)
+        project_config.write_text("profile-config")
+
+        (game.profile / "modlist.txt").write_text(
+            "+ProfileBundle\n", encoding="utf-8")
+        filemap = game.profiles / "filemap.txt"
+        filemap.write_text(
+            "bundle/ProfileBundle.pak\tProfileBundle\n"
+            "bundle/ProfileBundle.utoc\tProfileBundle\n"
+            "bundle/ProfileBundle.ucas\tProfileBundle\n"
+            "Binaries/Win64/UE4SS/UE4SS.dll\tProfileBundle\n",
+            encoding="utf-8",
+        )
+
+        mod_files_stub = types.ModuleType("Utils.mod_files")
+        mod_files_stub.excluded_raw_by_mod = lambda _profile: {}
+        with patch.dict(sys.modules, {"Utils.mod_files": mod_files_stub}):
+            game.deploy(profile="default")
+
+        state = game.profile / STATE_DIR_NAME
+        view = state / "view"
+        project_view = view / "TestProject"
+        manifest = json.loads((state / MANIFEST_NAME).read_text())
+        assert Path(manifest["game_root"]) == game.install
+        assert Path(manifest["data_root"]) == game.game
+        assert game.get_vfs_game_root() == game.install
+        assert game.get_vfs_data_root() == game.game
+
+        # The complete outer install is shadowed, not just the nested project.
+        assert (view / engine_file.relative_to(game.install)).read_text() == \
+            "vanilla-engine"
+        assert (view / launcher.relative_to(game.install)).read_text() == \
+            "vanilla-launcher"
+
+        pak_root = project_view / "Content" / "Paks" / "~mods"
+        for extension in (".pak", ".utoc", ".ucas"):
+            assert (pak_root / f"ProfileBundle{extension}").read_text() == \
+                f"profile{extension}"
+        assert (project_view / "bINARIES" / "wIN64" / "ue4ss"
+                / "UE4SS.dll").read_text() == "profile-ue4ss"
+
+        # UE5 Root_Folder is project-relative even though the VFS mount root
+        # is the outer install directory.
+        assert (project_view / "bINARIES" / "wIN64"
+                / "PROFILELOADER.EXE").read_text() == "profile-loader"
+        assert (project_view / "Config" / "profile.ini").read_text() == \
+            "profile-config"
+        assert not (view / "Binaries" / "Win64" / "ProfileLoader.exe").exists()
+        assert not (view / "Config" / "profile.ini").exists()
+
+        expected_loader = (
+            game.install / "TestProject" / "bINARIES" / "wIN64"
+            / "PROFILELOADER.EXE"
+        )
+        assert game.get_vfs_launch_exe() == expected_loader
+        assert is_game_launch_exe(game, expected_loader)
+        assert not is_game_launch_exe(
+            game, game.install / "TestProject" / "Tools" / "Editor.exe")
+        replaced = prefer_virtual_executable(
+            game, ["proton", str(launcher)], game.preferred_launch_exe)
+        assert replaced[-1] == str(expected_loader)
+
+        # Publishing the profile view must leave every physical install file
+        # and directory untouched.
+        assert engine_file.read_text() == "vanilla-engine"
+        assert launcher.read_text() == "vanilla-launcher"
+        assert vanilla_pak.read_text() == "vanilla-pak"
+        assert not (game.game / "Content" / "Paks" / "~mods"
+                    / "ProfileBundle.utoc").exists()
+        assert not (game.game / "Content" / "Paks" / "~mods"
+                    / "ProfileBundle.ucas").exists()
+        assert not (game.game / "bINARIES" / "wIN64" / "ue4ss").exists()
+        assert not (game.game / "bINARIES" / "wIN64"
+                    / "PROFILELOADER.EXE").exists()
+        assert not (game.game / "Config" / "profile.ini").exists()
+
+        game.restore()
+        assert not (state / MANIFEST_NAME).exists()
+        assert vanilla_pak.read_text() == "vanilla-pak"
+    print("✓ UE5 outer-install/project routing and executable resolution")
+
+
+def test_custom_ue5_factory_vfs_contract() -> None:
+    definition = {
+        "name": "Custom UE5 VFS Test",
+        "game_id": "custom_ue5_vfs_test",
+        "exe_name": "Project/Binaries/Win64/Project.exe",
+        "deploy_type": "ue5",
+    }
+    with patch.object(UE5Game, "load_paths", return_value=False):
+        game = make_custom_game(definition)
+    assert isinstance(game, Ue5CustomGame)
+    assert game.supports_profile_vfs
+    assert "vfs_enabled" in game.profile_overridable_settings
+    assert game.vfs_root_payload_targets_data
+    print("✓ custom UE5 factory exposes the profile VFS contract")
+
+
+def test_ue5_external_routes_restore_and_failure_rollback() -> None:
+    def _prepare(game: _FakeUE5RoutedGame, root: Path):
+        launcher = (
+            game.game / "Binaries" / "Win64"
+            / "TestProject-Win64-Shipping.exe"
+        )
+        launcher.parent.mkdir(parents=True)
+        launcher.write_text("launcher")
+
+        prefix_target = (
+            game.prefix / "drive_c" / "users" / "test" / "AppData"
+            / "Local" / "TestGame" / "Engine.ini"
+        )
+        prefix_target.parent.mkdir(parents=True)
+        prefix_target.write_text("vanilla-prefix")
+        external_root = root / "external-config"
+        external_target = external_root / "Settings.json"
+        external_root.mkdir()
+        external_target.write_text("vanilla-external")
+
+        prefix_source = game.staging / "PrefixMod" / "Engine.ini"
+        prefix_source.parent.mkdir(parents=True)
+        prefix_source.write_text("profile-prefix")
+        external_source = game.staging / "ExternalMod" / "Settings.json"
+        external_source.parent.mkdir(parents=True)
+        external_source.write_text("profile-external")
+
+        (game.profile / "modlist.txt").write_text(
+            "+PrefixMod\n-External_separator\n+ExternalMod\n",
+            encoding="utf-8",
+        )
+        (game.profile / "profile_state.json").write_text(json.dumps({
+            "separator_deploy_paths": {
+                "External_separator": {
+                    "path": str(external_root),
+                    "mode": "symlink",
+                },
+            },
+        }), encoding="utf-8")
+        (game.profiles / "filemap.txt").write_text(
+            "Engine.ini\tPrefixMod\nSettings.json\tExternalMod\n",
+            encoding="utf-8",
+        )
+        return prefix_target, external_target
+
+    mod_files_stub = types.ModuleType("Utils.mod_files")
+    mod_files_stub.excluded_raw_by_mod = lambda _profile: {}
+
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _FakeUE5RoutedGame(Path(tmp))
+        prefix_target, external_target = _prepare(game, Path(tmp))
+        with patch.dict(sys.modules, {"Utils.mod_files": mod_files_stub}):
+            game.deploy(profile="default")
+        assert prefix_target.read_text() == "profile-prefix"
+        assert external_target.read_text() == "profile-external"
+        assert external_target.is_symlink()
+        assert not (game.profiles / "ue5_deployed.txt").exists()
+        # Redeploy must first reverse the previous physical side effects; an
+        # old mod hardlink must never be mistaken for the vanilla backup.
+        with patch.dict(sys.modules, {"Utils.mod_files": mod_files_stub}):
+            game.deploy(profile="default")
+        assert prefix_target.read_text() == "profile-prefix"
+        assert external_target.read_text() == "profile-external"
+        assert external_target.is_symlink()
+        game.restore()
+        assert prefix_target.read_text() == "vanilla-prefix"
+        assert external_target.read_text() == "vanilla-external"
+
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _FakeUE5FailingGame(Path(tmp))
+        prefix_target, external_target = _prepare(game, Path(tmp))
+        try:
+            with patch.dict(sys.modules, {"Utils.mod_files": mod_files_stub}):
+                game.deploy(profile="default")
+        except RuntimeError as exc:
+            assert "injected UE5 layer hook failure" in str(exc)
+        else:
+            raise AssertionError("injected UE5 VFS failure did not propagate")
+        assert prefix_target.read_text() == "vanilla-prefix"
+        assert external_target.read_text() == "vanilla-external"
+        assert not (game.profiles / "ue5_deployed.txt").exists()
+        game.restore()
+        assert prefix_target.read_text() == "vanilla-prefix"
+        assert external_target.read_text() == "vanilla-external"
+
+    # A brand-new external file has no vanilla backup to reveal its path.
+    # The incremental journal must therefore be durable before placement so
+    # an exception between transfer and the final UE5 manifest cannot leak it.
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        game = _FakeUE5Game(root)
+        launcher = game.install / game.exe_name
+        launcher.parent.mkdir(parents=True)
+        launcher.write_text("launcher")
+        external_root = root / "new-external-config"
+        external_root.mkdir()
+        external_target = external_root / "NewSettings.json"
+        source = game.staging / "ExternalMod" / external_target.name
+        source.parent.mkdir(parents=True)
+        source.write_text("profile-external")
+        (game.profile / "modlist.txt").write_text(
+            "-External_separator\n+ExternalMod\n", encoding="utf-8")
+        (game.profile / "profile_state.json").write_text(json.dumps({
+            "separator_deploy_paths": {
+                "External_separator": {
+                    "path": str(external_root),
+                    "mode": "hardlink",
+                },
+            },
+        }), encoding="utf-8")
+        (game.profiles / "filemap.txt").write_text(
+            f"{external_target.name}\tExternalMod\n", encoding="utf-8")
+
+        def _interrupt_after_placement(_done: int, _total: int) -> None:
+            raise RuntimeError("injected progress callback failure")
+
+        try:
+            with patch.dict(sys.modules, {"Utils.mod_files": mod_files_stub}):
+                game.deploy(
+                    profile="default",
+                    progress_fn=_interrupt_after_placement,
+                )
+        except RuntimeError as exc:
+            assert "injected progress callback failure" in str(exc)
+        else:
+            raise AssertionError("progress callback failure did not propagate")
+        assert not external_target.exists()
+        game.restore()
+        assert not external_target.exists()
+    print("✓ UE5 prefix/external restore and failed-build rollback")
+
+
+def test_ue5_physical_mods_txt_restore() -> None:
+    """VFS-specific mods.txt handling must not alter physical deployment."""
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _FakeUE5ManagedModsGame(Path(tmp))
+        game._settings["vfs_enabled"] = False
+
+        mods_dir = game.game / "Binaries" / "Win64" / "ue4ss" / "Mods"
+        mods_dir.mkdir(parents=True)
+        mods_txt = mods_dir / "mods.txt"
+        original = "VanillaBuiltIn : 1\n; preserve this comment\n"
+        mods_txt.write_text(original, encoding="utf-8")
+
+        shipped_mods_txt = (
+            game.staging / "LuaMod" / "Binaries" / "Win64" / "ue4ss"
+            / "Mods" / "mods.txt"
+        )
+        shipped_mods_txt.parent.mkdir(parents=True)
+        shipped_mods_txt.write_text("ModBuiltIn : 1\n", encoding="utf-8")
+        main_lua = game.staging / "LuaMod" / "Example" / "Scripts" / "main.lua"
+        main_lua.parent.mkdir(parents=True)
+        main_lua.write_text("return {}\n", encoding="utf-8")
+        (game.profile / "modlist.txt").write_text("+LuaMod\n", encoding="utf-8")
+        (game.profiles / "filemap.txt").write_text(
+            "Binaries/Win64/ue4ss/Mods/mods.txt\tLuaMod\n"
+            "Example/Scripts/main.lua\tLuaMod\n",
+            encoding="utf-8",
+        )
+
+        game.deploy(profile="default")
+        game.restore()
+        assert mods_txt.read_text(encoding="utf-8") == original
+    print("✓ physical UE5 deploy restores the original UE4SS mods.txt")
 
 
 def test_subnautica_shadow_view() -> None:
@@ -794,17 +1180,27 @@ def test_flatpak_host_wrap() -> None:
 def test_umu_uses_shadow_directly() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         game = _FakeGame(Path(tmp))
+        # Saved game paths may be symlink aliases (notably Steam's historical
+        # ~/.steam path), while deployment manifests store canonical roots.
+        canonical_game = Path(tmp) / "canonical-game"
+        game.game.rename(canonical_game)
+        game.game.symlink_to(canonical_game, target_is_directory=True)
         state = _write_manifest(game)
         manifest_path = state / MANIFEST_NAME
         manifest = json.loads(manifest_path.read_text())
         view = state / "view"
         (view / "Data").mkdir(parents=True)
-        real_exe = game.game / "SkyrimSELauncher.exe"
-        shadow_exe = view / real_exe.name
+        real_exe = game.game / "Project" / "Binaries" / "Win64" \
+            / "SkyrimSELauncher.exe"
+        shadow_exe = view / real_exe.relative_to(game.game)
+        real_exe.parent.mkdir(parents=True)
+        shadow_exe.parent.mkdir(parents=True)
         real_exe.write_text("real")
         shadow_exe.write_text("shadow")
         manifest["backend"] = BACKEND_SHADOW
         manifest["view_root"] = str(view)
+        manifest["game_root"] = str(canonical_game.resolve())
+        manifest["data_root"] = str((canonical_game / "Data").resolve())
         manifest_path.write_text(json.dumps(manifest))
 
         # Stand in for umu-run and validate both the rewritten executable and
@@ -812,11 +1208,15 @@ def test_umu_uses_shadow_directly() -> None:
         fake_umu = Path(tmp) / "umu-run"
         fake_umu.write_text(
             '#!/bin/sh\n'
-            'test "$PWD" = "$2" && test "$1" = "$2/SkyrimSELauncher.exe"\n',
+            'test "$PWD" = "$2" && '
+            'test "$1" = "$2/SkyrimSELauncher.exe" && '
+            'test "$STEAM_COMPAT_INSTALL_PATH" = "$3"\n',
             encoding="utf-8",
         )
         fake_umu.chmod(0o755)
-        original = [str(fake_umu), str(real_exe), str(view)]
+        original = [
+            str(fake_umu), str(real_exe), str(shadow_exe.parent), str(view),
+        ]
         # Direct UMU shadow launches do not depend on an outer bwrap mount.
         with patch("Utils.vfs.overlay._bubblewrap_status",
                    return_value=(False, "bwrap unavailable")):
@@ -834,17 +1234,25 @@ def test_umu_uses_shadow_directly() -> None:
 def test_steam_runtime_uses_shadow_directly() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         game = _FakeGame(Path(tmp))
+        canonical_game = Path(tmp) / "canonical-game"
+        game.game.rename(canonical_game)
+        game.game.symlink_to(canonical_game, target_is_directory=True)
         state = _write_manifest(game)
         manifest_path = state / MANIFEST_NAME
         manifest = json.loads(manifest_path.read_text())
         view = state / "view"
         (view / "Data").mkdir(parents=True)
-        real_exe = game.game / "nvse_loader.exe"
-        shadow_exe = view / real_exe.name
+        real_exe = game.game / "Project" / "Binaries" / "Win64" \
+            / "nvse_loader.exe"
+        shadow_exe = view / real_exe.relative_to(game.game)
+        real_exe.parent.mkdir(parents=True)
+        shadow_exe.parent.mkdir(parents=True)
         real_exe.write_text("real")
         shadow_exe.write_text("shadow")
         manifest["backend"] = BACKEND_SHADOW
         manifest["view_root"] = str(view)
+        manifest["game_root"] = str(canonical_game.resolve())
+        manifest["data_root"] = str((canonical_game / "Data").resolve())
         manifest_path.write_text(json.dumps(manifest))
 
         runtime_dir = Path(tmp) / "SteamLinuxRuntime_sniper"
@@ -854,13 +1262,15 @@ def test_steam_runtime_uses_shadow_directly() -> None:
             '#!/bin/sh\n'
             'test "$PWD" = "$2" && '
             'test "$1" = "$2/nvse_loader.exe" && '
-            'test "$STEAM_COMPAT_INSTALL_PATH" = "$2" && '
+            'test "$STEAM_COMPAT_INSTALL_PATH" = "$3" && '
             'case ":$STEAM_COMPAT_MOUNTS:" in '
-            '*:"$2":*) exit 0 ;; *) exit 1 ;; esac\n',
+            '*:"$3":*) exit 0 ;; *) exit 1 ;; esac\n',
             encoding="utf-8",
         )
         fake_runtime.chmod(0o755)
-        original = [str(fake_runtime), str(real_exe), str(view)]
+        original = [
+            str(fake_runtime), str(real_exe), str(shadow_exe.parent), str(view),
+        ]
         env = os.environ.copy()
         env["STEAM_COMPAT_INSTALL_PATH"] = str(game.game)
         env["STEAM_COMPAT_MOUNTS"] = f"/mods:{game.game}"
@@ -876,6 +1286,16 @@ def test_steam_runtime_uses_shadow_directly() -> None:
         result = subprocess.run(
             wrapped, env=env, text=True, capture_output=True, check=False)
         assert result.returncode == 0, result.stderr
+
+        flatpak_original = [
+            "flatpak-spawn", "--host", str(fake_runtime), str(real_exe),
+            str(shadow_exe.parent), str(view),
+        ]
+        with patch("Utils.vfs.overlay._inside_flatpak", return_value=True):
+            flatpak_wrapped = wrap_command(game, flatpak_original, env=env)
+        assert flatpak_wrapped.count("flatpak-spawn") == 1
+        assert flatpak_wrapped[:2] == ["flatpak-spawn", "--host"]
+        assert flatpak_wrapped.index("/usr/bin/env") > flatpak_wrapped.index("/bin/sh")
     print("✓ Steam Linux Runtime launches the shadow directly")
 
 
@@ -933,6 +1353,10 @@ def main() -> None:
     test_layer_build_and_skse_selection()
     test_shared_bethesda_hooks()
     test_generic_mod_data_directory()
+    test_ue5_nested_project_shadow_view()
+    test_custom_ue5_factory_vfs_contract()
+    test_ue5_external_routes_restore_and_failure_rollback()
+    test_ue5_physical_mods_txt_restore()
     test_subnautica_shadow_view()
     test_stardew_shadow_view()
     test_vfs_as_deploy_method()

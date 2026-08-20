@@ -37,7 +37,7 @@ from Utils.deploy import (
     deploy_root_flagged_mods,
     deploy_root_folder,
 )
-from Utils.deploy_shared import _resolve_root_path
+from Utils.deploy_shared import _resolve_nocase, _resolve_root_path
 from Utils.deploy_shared import (
     _move_runtime_files,
     _transfer,
@@ -486,6 +486,13 @@ def _capture_shadow_runtime(payload: dict, state: Path, log_fn=None) -> int:
         Path(payload["data_upper"]),
         log_fn=_log,
     )
+    if not data_rel.parts:
+        if moved_data:
+            _log(
+                f"VFS: captured {moved_data} runtime-created file(s) from "
+                "the shadow view."
+            )
+        return moved_data
     moved_root = _move_runtime_files(
         view,
         state / ROOT_SNAPSHOT_NAME,
@@ -506,12 +513,15 @@ def finalize_deployment(game, *, log_fn=None) -> None:
         return
     state = manifest_path(game).parent
     view, view_data, data_rel = _shadow_paths(payload)
-    _write_deploy_snapshot(
-        view,
-        state / ROOT_SNAPSHOT_NAME,
-        log_fn=log_fn,
-        exclude_dirs=(data_rel.as_posix(),),
-    )
+    if data_rel.parts:
+        _write_deploy_snapshot(
+            view,
+            state / ROOT_SNAPSHOT_NAME,
+            log_fn=log_fn,
+            exclude_dirs=(data_rel.as_posix(),),
+        )
+    else:
+        (state / ROOT_SNAPSHOT_NAME).unlink(missing_ok=True)
     _write_deploy_snapshot(
         view_data,
         state / DATA_SNAPSHOT_NAME,
@@ -759,13 +769,30 @@ def build_layers(
     """Build and publish the active profile's resolved private game view."""
     _log = log_fn or (lambda _message: None)
 
-    game_root = Path(game.get_game_path()).resolve()
-    raw_data_root = game.get_mod_data_path()
+    game_root_getter = getattr(game, "get_vfs_game_root", None)
+    raw_game_root = (
+        game_root_getter() if callable(game_root_getter)
+        else game.get_game_path()
+    )
+    if raw_game_root is None:
+        raise RuntimeError("The game does not expose a VFS installation root.")
+    game_root = Path(raw_game_root).resolve()
+    data_root_getter = getattr(game, "get_vfs_data_root", None)
+    raw_data_root = (
+        data_root_getter() if callable(data_root_getter)
+        else game.get_mod_data_path()
+    )
     if raw_data_root is None:
         raise RuntimeError("The game does not expose a primary mod-data directory.")
     data_root = Path(raw_data_root).resolve()
     if data_root.exists() and not data_root.is_dir():
         raise RuntimeError(f"Mod-data path is not a directory: {data_root}")
+    try:
+        data_rel = data_root.relative_to(game_root)
+    except ValueError as exc:
+        raise RuntimeError(
+            f"VFS mod-data directory must be inside the game directory: {data_root}"
+        ) from exc
 
     state = state_dir(game, profile)
     # Putting VFS state below its own source would recursively materialize the
@@ -816,7 +843,11 @@ def build_layers(
     root_payload.mkdir()
 
     metadata_dir = filemap.parent
-    custom_rules = list(getattr(game, "custom_routing_rules", None) or [])
+    populate_data_layer = getattr(game, "_vfs_populate_data_layer", None)
+    custom_rules = (
+        [] if callable(populate_data_layer)
+        else list(getattr(game, "custom_routing_rules", None) or [])
+    )
     game_rules = [rule for rule in custom_rules if not rule.to_prefix]
     prefix_rules = [rule for rule in custom_rules if rule.to_prefix]
 
@@ -843,12 +874,6 @@ def build_layers(
         finally:
             _remove_artifacts(metadata_dir, _CUSTOM_RULE_ARTIFACTS)
 
-        try:
-            data_rel = data_root.relative_to(game_root)
-        except ValueError as exc:
-            raise RuntimeError(
-                f"VFS mod-data directory must be inside the game directory: {data_root}"
-            ) from exc
         routed_data = routed_layer.joinpath(*data_rel.parts)
         if routed_data.is_dir():
             for child in list(routed_data.iterdir()):
@@ -877,42 +902,61 @@ def build_layers(
     # Overwrite is materialized last and therefore wins. Do not duplicate its
     # winning entries into the temporary resolved mod layer.
     custom_exclude |= _overwrite_entries(filemap)
-    mapped_deploy, external_deploy_mods = _mapped_separator_dirs(
-        per_mod_deploy, game_root, data_root, root_layer, data_layer)
-    external_link_modes = {
-        mod_name: (per_mod_link_modes or {}).get(
-            mod_name, external_deploy_mode)
-        for mod_name in external_deploy_mods
-    }
-    if external_deploy_mods:
-        names = ", ".join(sorted(external_deploy_mods, key=str.casefold))
-        _log(
-            "VFS: deploying external separator target(s) physically with "
-            f"restore tracking: {names}."
-        )
+    if callable(populate_data_layer):
+        mapped_deploy: dict[str, Path] = {}
+        external_deploy_mods: set[str] = set()
+        external_link_modes: dict[str, LinkMode] = {}
+    else:
+        mapped_deploy, external_deploy_mods = _mapped_separator_dirs(
+            per_mod_deploy, game_root, data_root, root_layer, data_layer)
+        external_link_modes = {
+            mod_name: (per_mod_link_modes or {}).get(
+                mod_name, external_deploy_mode)
+            for mod_name in external_deploy_mods
+        }
+        if external_deploy_mods:
+            names = ", ".join(sorted(external_deploy_mods, key=str.casefold))
+            _log(
+                "VFS: deploying external separator target(s) physically with "
+                f"restore tracking: {names}."
+            )
 
     _log(f"VFS: building the resolved {data_root.name} layer ...")
     try:
-        linked_data, _placed = deploy_filemap(
-            filemap, data_layer, staging,
-            mode=LinkMode.HARDLINK,
-            strip_prefixes=game.mod_folder_strip_prefixes,
-            per_mod_strip_prefixes=per_mod_strip,
-            per_mod_deploy_dirs=mapped_deploy or None,
-            # Internal destinations must remain hardlinks in the private
-            # materialization.  Only external separator targets inherit their
-            # normal physical deploy mode or explicit separator override.
-            per_mod_link_modes=external_link_modes,
-            log_fn=_log,
-            progress_fn=progress_fn,
-            exclude=custom_exclude or None,
-            per_mod_subdirs=per_mod_subdirs,
-        )
+        if callable(populate_data_layer):
+            linked_data = int(populate_data_layer(
+                destination=data_layer,
+                outer_layer=root_layer,
+                game_root=game_root,
+                data_root=data_root,
+                profile=profile,
+                filemap=filemap,
+                staging=staging,
+                external_deploy_mode=external_deploy_mode,
+                log_fn=_log,
+                progress_fn=progress_fn,
+            ) or 0)
+        else:
+            linked_data, _placed = deploy_filemap(
+                filemap, data_layer, staging,
+                mode=LinkMode.HARDLINK,
+                strip_prefixes=game.mod_folder_strip_prefixes,
+                per_mod_strip_prefixes=per_mod_strip,
+                per_mod_deploy_dirs=mapped_deploy or None,
+                # Internal destinations must remain hardlinks in the private
+                # materialization. Only external separator targets inherit
+                # their physical mode or explicit separator override.
+                per_mod_link_modes=external_link_modes,
+                log_fn=_log,
+                progress_fn=progress_fn,
+                exclude=custom_exclude or None,
+                per_mod_subdirs=per_mod_subdirs,
+            )
     finally:
         # Paths mapped into lower.build are disposable, but external separator
         # targets need the standard log/backup until Restore removes the
         # deployed files and puts any originals back.
-        if not external_deploy_mods:
+        if not callable(populate_data_layer) and not external_deploy_mods:
             _remove_artifacts(metadata_dir, _CUSTOM_DEPLOY_ARTIFACTS)
 
     linked_root = 0
@@ -932,19 +976,24 @@ def build_layers(
     finally:
         _remove_artifacts(metadata_dir, _ROOT_DEPLOY_ARTIFACTS)
 
-    # The root payload may itself contain files for the primary mod-data path;
-    # merge those entries into the data payload before materialization.
-    payload_data = root_payload
-    for part in data_root.relative_to(game_root).parts:
-        payload_data = next(
-            (child for child in payload_data.iterdir()
-             if child.name.casefold() == part.casefold() and child.is_dir()),
-            payload_data / part,
-        )
-        if not payload_data.is_dir():
-            break
-    _merge_tree(payload_data, data_layer)
-    _merge_tree(root_payload, root_layer)
+    if getattr(game, "vfs_root_payload_targets_data", False):
+        # UE project handlers physically treat Root_Folder as relative to the
+        # nested project/deploy root, not the outer install we materialize.
+        _merge_tree(root_payload, data_layer)
+    else:
+        # The root payload may itself contain files for the primary mod-data
+        # path; merge those entries into Data before the remaining root files.
+        payload_data = root_payload
+        for part in data_root.relative_to(game_root).parts:
+            payload_data = next(
+                (child for child in payload_data.iterdir()
+                 if child.name.casefold() == part.casefold() and child.is_dir()),
+                payload_data / part,
+            )
+            if not payload_data.is_dir():
+                break
+        _merge_tree(payload_data, data_layer)
+        _merge_tree(root_payload, root_layer)
 
     # Reject links supplied by mods before adding our own controlled, sibling-
     # relative aliases. A mod-provided link could make a writable open escape
@@ -963,7 +1012,6 @@ def build_layers(
     shadow_build.mkdir(parents=True)
     base_counts = _materialize_tree(
         game_root, shadow_build, replace=False)
-    data_rel = data_root.relative_to(game_root)
     shadow_data = shadow_build.joinpath(*data_rel.parts)
     shadow_data.mkdir(parents=True, exist_ok=True)
     _materialize_tree(root_layer, shadow_build, replace=True, move=True)
@@ -1137,28 +1185,44 @@ def _uses_steam_linux_runtime(command: list[str]) -> bool:
 
 
 def _retarget_shadow_paths(command: list[str], game_root: Path,
-                           view: Path) -> tuple[list[str], bool]:
+                           view: Path) -> tuple[list[str], bool, Path | None]:
     """Rewrite existing absolute game-root arguments into *view*."""
     direct = list(command)
     replaced = False
+    launch_cwd: Path | None = None
+    resolved_root = game_root.resolve()
     for index, token in enumerate(direct):
         candidate = Path(token)
         if not candidate.is_absolute():
             continue
         try:
-            relative = candidate.relative_to(game_root)
-        except ValueError:
+            # Manifests deliberately store canonical paths. A launcher may
+            # still pass the user's saved spelling through a symlinked Steam
+            # library or custom install alias, so canonicalize the argument
+            # before deriving its position in the shadow tree. strict=False
+            # also handles mod-only executables that do not exist physically.
+            relative = candidate.resolve(strict=False).relative_to(
+                resolved_root)
+        except (OSError, ValueError):
             continue
         shadow_candidate = view / relative
         if not shadow_candidate.exists():
-            continue
+            # Wine paths are case-insensitive, while the materialized Linux
+            # tree retains the winning file's real spelling.
+            resolved_shadow = _resolve_nocase(view, relative.as_posix())
+            if resolved_shadow is None:
+                continue
+            shadow_candidate = resolved_shadow
         direct[index] = str(shadow_candidate)
         replaced = True
-    return direct, replaced
+        if launch_cwd is None and shadow_candidate.is_file():
+            launch_cwd = shadow_candidate.parent
+    return direct, replaced, launch_cwd
 
 
 def _direct_shadow_umu_command(command: list[str], game_root: Path,
-                               view: Path) -> list[str] | None:
+                               view: Path,
+                               env: dict[str, str] | None) -> list[str] | None:
     """Retarget an UMU game launch into the materialized shadow directory.
 
     UMU derives ``STEAM_COMPAT_INSTALL_PATH`` from the executable and starts
@@ -1168,19 +1232,30 @@ def _direct_shadow_umu_command(command: list[str], game_root: Path,
     """
     if not _uses_umu(command):
         return None
-    direct, replaced = _retarget_shadow_paths(command, game_root, view)
+    direct, replaced, launch_cwd = _retarget_shadow_paths(
+        command, game_root, view)
     if not replaced:
         return None
 
+    # UMU otherwise derives this from exe.parent, which is too deep for nested
+    # Unreal project binaries. UMU manages STEAM_COMPAT_MOUNTS itself.
+    shadow_env = {"STEAM_COMPAT_INSTALL_PATH": str(view)}
+    if env is not None:
+        env.update(shadow_env)
     # Make UMU and its Proton subprocess inherit the shadow directory as cwd.
     # Keep this wrapper inside an existing flatpak-spawn --host prefix when the
     # manager itself is sandboxed.
     wrapper, host_command = _place_wrapper_on_host([
         "/bin/sh", "-c",
         'cd "$1" && shift && exec "$@"',
-        "amethyst-vfs-umu", str(view),
+        "amethyst-vfs-umu", str(launch_cwd or view),
     ], direct)
-    return [*wrapper, *host_command]
+    return [
+        *wrapper,
+        "/usr/bin/env",
+        *(f"{key}={value}" for key, value in shadow_env.items()),
+        *host_command,
+    ]
 
 
 def _steam_runtime_shadow_env(source: dict[str, str], game_root: Path,
@@ -1207,7 +1282,8 @@ def _direct_shadow_steam_runtime_command(
     """Run pressure-vessel directly against the materialized shadow tree."""
     if not _uses_steam_linux_runtime(command):
         return None
-    direct, replaced = _retarget_shadow_paths(command, game_root, view)
+    direct, replaced, launch_cwd = _retarget_shadow_paths(
+        command, game_root, view)
     if not replaced:
         return None
 
@@ -1216,27 +1292,30 @@ def _direct_shadow_steam_runtime_command(
     if env is not None:
         env.update(shadow_env)
 
-    # Explicitly apply these values inside a possible flatpak-spawn --host
-    # prefix as that prefix was assembled before the VFS wrapper adjusted the
-    # launch environment. The shell also gives Proton the shadow as its cwd.
-    host_env = ["/usr/bin/env", *(
-        f"{key}={value}" for key, value in shadow_env.items()), *direct]
+    # Put the shell inside a pre-existing host portal before inserting env;
+    # otherwise the env prefix hides flatpak-spawn and nests a second portal.
     wrapper, host_command = _place_wrapper_on_host([
         "/bin/sh", "-c",
         'cd "$1" && shift && exec "$@"',
-        "amethyst-vfs-steam-runtime", str(view),
-    ], host_env)
-    return [*wrapper, *host_command]
+        "amethyst-vfs-steam-runtime", str(launch_cwd or view),
+    ], direct)
+    return [
+        *wrapper,
+        "/usr/bin/env",
+        *(f"{key}={value}" for key, value in shadow_env.items()),
+        *host_command,
+    ]
 
 
 def _direct_shadow_opt_in_command(command: list[str], game_root: Path,
                                   view: Path) -> list[str]:
     """Run an explicitly compatible native handler from the complete view."""
-    direct, _replaced = _retarget_shadow_paths(command, game_root, view)
+    direct, _replaced, launch_cwd = _retarget_shadow_paths(
+        command, game_root, view)
     wrapper, host_command = _place_wrapper_on_host([
         "/bin/sh", "-c",
         'cd "$1" && shift && exec "$@"',
-        "amethyst-vfs-direct", str(view),
+        "amethyst-vfs-direct", str(launch_cwd or view),
     ], direct)
     return [*wrapper, *host_command]
 
@@ -1262,7 +1341,8 @@ def wrap_command(game, command: list[str],
         ):
             if not path.is_dir():
                 raise RuntimeError(f"Profile VFS {label} is missing: {path}")
-        direct_umu = _direct_shadow_umu_command(command, game_root, view)
+        direct_umu = _direct_shadow_umu_command(
+            command, game_root, view, env)
         if direct_umu is not None:
             return direct_umu
         direct_runtime = _direct_shadow_steam_runtime_command(
@@ -1356,19 +1436,35 @@ def wrap_command(game, command: list[str],
     ]
 
 
-def virtual_file(game, relative: str) -> bool:
-    """Whether a root-relative file exists anywhere in the resolved VFS."""
+def _mapped_virtual_relative(game, relative: str | Path) -> Path:
+    """Return a validated path relative to the published outer view."""
+    mapper = getattr(game, "vfs_relative_path", None)
+    rel = Path(mapper(relative) if callable(mapper) else relative)
+    if rel.is_absolute() or ".." in rel.parts:
+        raise RuntimeError(
+            f"VFS paths must remain relative to the game view: {relative}"
+        )
+    return rel
+
+
+def _virtual_file_location(game, relative: str | Path) -> tuple[dict, Path] | None:
+    """Return the manifest and actual-cased outer-view path for a file."""
     try:
         payload = _load_manifest(game)
+        rel = _mapped_virtual_relative(game, relative)
     except RuntimeError:
-        return False
-    rel = Path(relative)
+        return None
     if payload.get("backend") == BACKEND_SHADOW:
         try:
             view, _view_data, _data_rel = _shadow_paths(payload)
-            return (view / rel).is_file()
+            candidate = view / rel
+            if not candidate.is_file():
+                candidate = _resolve_nocase(view, rel.as_posix())
+            if candidate is None or not candidate.is_file():
+                return None
+            return payload, candidate.relative_to(view)
         except (KeyError, RuntimeError):
-            return False
+            return None
 
     game_root = Path(payload["game_root"])
     data_root = Path(payload["data_root"])
@@ -1380,11 +1476,35 @@ def virtual_file(game, relative: str) -> bool:
     data_key = tuple(part.casefold() for part in data_rel.parts)
     if data_key and rel_key[:len(data_key)] == data_key:
         inner = Path(*rel.parts[len(data_key):])
-        return any((Path(payload[key]) / inner).is_file() for key in (
-            "data_upper", "data_layer", "data_root",
-        ))
-    return (Path(payload["root_layer"]) / rel).is_file() or (
-        game_root / rel).is_file()
+        for key in ("data_upper", "data_layer", "data_root"):
+            base = Path(payload[key])
+            candidate = base / inner
+            if not candidate.is_file():
+                candidate = _resolve_nocase(base, inner.as_posix())
+            if candidate is not None and candidate.is_file():
+                return payload, data_rel / candidate.relative_to(base)
+        return None
+    for base in (Path(payload["root_layer"]), game_root):
+        candidate = base / rel
+        if not candidate.is_file():
+            candidate = _resolve_nocase(base, rel.as_posix())
+        if candidate is not None and candidate.is_file():
+            return payload, candidate.relative_to(base)
+    return None
+
+
+def virtual_file_path(game, relative: str | Path) -> Path | None:
+    """Logical game-root path for a file, preserving its published casing."""
+    location = _virtual_file_location(game, relative)
+    if location is None:
+        return None
+    payload, rel = location
+    return Path(payload["game_root"]) / rel
+
+
+def virtual_file(game, relative: str) -> bool:
+    """Whether a root-relative file exists anywhere in the resolved VFS."""
+    return virtual_file_path(game, relative) is not None
 
 
 def virtual_data_write_path(game, relative: str | Path) -> Path:
@@ -1407,9 +1527,10 @@ def virtual_root_write_path(game, relative: str | Path) -> Path:
 
 def prefer_virtual_executable(game, command: list[str], relative: str) -> list[str]:
     """Replace the game executable in a launcher's passthrough command."""
-    if not virtual_file(game, relative):
+    target_path = virtual_file_path(game, relative)
+    if target_path is None:
         return list(command)
-    target = str(Path(game.get_game_path()) / relative)
+    target = str(target_path)
     declared = [getattr(game, "exe_name", "")]
     declared.extend(getattr(game, "exe_name_alts", None) or [])
     declared.extend(getattr(game, "direct_launch_exes", None) or [])

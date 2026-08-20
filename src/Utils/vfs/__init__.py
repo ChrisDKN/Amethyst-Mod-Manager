@@ -23,6 +23,7 @@ from .overlay import (
     state_dir,
     virtual_data_write_path,
     virtual_file,
+    virtual_file_path,
     virtual_root_write_path,
     wrap_command,
 )
@@ -47,6 +48,7 @@ __all__ = (
     "state_dir",
     "virtual_data_write_path",
     "virtual_file",
+    "virtual_file_path",
     "virtual_root_write_path",
     "wrap_command",
 )

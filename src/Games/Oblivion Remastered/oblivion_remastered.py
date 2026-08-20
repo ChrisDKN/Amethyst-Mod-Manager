@@ -293,13 +293,35 @@ class OblivionRemastered(UE5Game):
         if target is not None:
             remove_plugins_copy(target.parent, target.name, log_fn)
 
+    def _vfs_populate_ue5_layer_files(
+        self, destination: Path, profile: str, log_fn,
+    ) -> None:
+        """Generate Plugins.txt inside the private UE project layer."""
+        source = self.get_profile_root() / "profiles" / profile / "plugins.txt"
+        if not source.is_file():
+            log_fn(f"  WARN: plugins.txt not found at {source} - skipping deploy.")
+            return
+        from Utils.plugins import deploy_plugins_copy
+        target = Path(destination) / _PLUGINS_TXT_GAME_REL
+        content = source.read_text(encoding="utf-8")
+        deploy_plugins_copy(target.parent, target.name, content, log_fn)
+
     def deploy(self, log_fn=None, mode: LinkMode = LinkMode.HARDLINK,
                profile: str = "default", progress_fn=None) -> None:
         super().deploy(log_fn=log_fn, mode=mode, profile=profile, progress_fn=progress_fn)
+        if self.vfs_launch_enabled:
+            return
         _log = log_fn or (lambda _: None)
         _log("Symlinking Plugins.txt ...")
         self._symlink_plugins_txt(profile, _log)
 
     def restore(self, log_fn=None, progress_fn=None) -> None:
+        from Utils.vfs import manifest_path
+        was_vfs = (
+            manifest_path(self).is_file()
+            or self._vfs_external_manifest_path().exists()
+            or self._vfs_prefix_context_path().exists()
+        )
         super().restore(log_fn=log_fn, progress_fn=progress_fn)
-        self._remove_plugins_txt_symlink(log_fn or (lambda _: None))
+        if not was_vfs:
+            self._remove_plugins_txt_symlink(log_fn or (lambda _: None))

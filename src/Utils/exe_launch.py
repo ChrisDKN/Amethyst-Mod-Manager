@@ -2235,6 +2235,15 @@ def is_game_launch_exe(game, exe_path: Path) -> bool:
         return False
     if is_framework_launch_exe(game, exe_path.name):
         return True
+    if getattr(game, "vfs_launch_enabled", False):
+        try:
+            selected = game.get_vfs_launch_exe()
+        except Exception:
+            selected = None
+        if (selected is not None
+                and str(Path(selected)).casefold()
+                == str(Path(exe_path)).casefold()):
+            return True
     game_exe = resolve_game_exe(game)
     if (game_exe is not None
             and str(exe_path).lower() == str(game_exe).lower()):
@@ -2481,6 +2490,17 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
     missing audio vs a raw `proton run`).
     """
     framework_launch = is_framework_launch_exe(game, exe_path.name)
+    vfs_game_launch = False
+    if getattr(game, "vfs_launch_enabled", False):
+        try:
+            selected = game.get_vfs_launch_exe()
+        except Exception:
+            selected = None
+        vfs_game_launch = (
+            selected is not None
+            and str(Path(selected)).casefold() == str(exe_path).casefold()
+        )
+    protected_game_launch = framework_launch or vfs_game_launch
     if (framework_launch
             and not getattr(game, "vfs_launch_enabled", False)
             and launch_swapped_framework_via_steam(
@@ -2502,8 +2522,9 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
     # Script extenders always use the game's prefix. The settings UI disables
     # the picker for these, but an override saved before that gate existed (or
     # edited by hand) must not resurrect the isolated-prefix path.
-    if proton_override_name and framework_launch:
-        log_fn(f"Run EXE: {exe_path.name} is a script extender - ignoring the "
+    if proton_override_name and protected_game_launch:
+        launch_kind = "a script extender" if framework_launch else "the VFS game launcher"
+        log_fn(f"Run EXE: {exe_path.name} is {launch_kind} - ignoring the "
                f"'{proton_override_name}' override and using the game's prefix "
                "(it launches the game, which needs the game's Steam app ID).")
         proton_override_name = None
@@ -2662,7 +2683,11 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
         env["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = str(steam_root)
         # Proton expects these to locate the game install and per-game shader/
         # compat caches; without them GE-Proton falls back to app ID 0.
-        game_path = game.get_game_path() if hasattr(game, "get_game_path") else None
+        if getattr(game, "vfs_launch_enabled", False):
+            root_getter = getattr(game, "get_vfs_game_root", None)
+            game_path = root_getter() if callable(root_getter) else None
+        else:
+            game_path = game.get_game_path() if hasattr(game, "get_game_path") else None
         if game_path and not proton_override_name:
             env["STEAM_COMPAT_INSTALL_PATH"] = str(game_path)
         if not proton_override_name:
@@ -2704,7 +2729,7 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
         return
 
     winetricks_style = load_winetricks_style(game, exe_path.name)
-    if winetricks_style and framework_launch:
+    if winetricks_style and protected_game_launch:
         # Like a per-exe Proton override, this is a tool-only mode. It strips
         # the Steam/Proton session down to bare Wine, which makes Steam builds
         # of SKSE/NVSE/etc. fail DRM/SteamAPI initialisation. Keep a stale or

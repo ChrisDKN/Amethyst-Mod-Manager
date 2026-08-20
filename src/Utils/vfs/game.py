@@ -26,6 +26,19 @@ class ProfileVFSGameMixin:
     # their real working directory when they do not require the install path.
     vfs_direct_shadow_launch = False
     vfs_physical_supports_incremental_deploy = False
+    vfs_root_payload_targets_data = False
+
+    def get_vfs_game_root(self) -> Path | None:
+        """Outer install directory materialized and virtualized at launch."""
+        return self.get_game_path()
+
+    def get_vfs_data_root(self) -> Path | None:
+        """Primary deployment directory inside :meth:`get_vfs_game_root`."""
+        return self.get_mod_data_path()
+
+    def vfs_relative_path(self, relative: str | Path) -> Path:
+        """Translate a handler-relative path to the outer VFS root."""
+        return Path(relative)
 
     @property
     def vfs_enabled(self) -> bool:
@@ -80,23 +93,53 @@ class ProfileVFSGameMixin:
 
     def get_vfs_launch_exe(self) -> Path | None:
         """Executable seen inside the active profile's private game view."""
-        game_root = self.get_game_path()
+        game_root = self.get_vfs_game_root()
         if game_root is None:
             return None
-        game_root = Path(game_root)
-        from Utils.vfs import virtual_file
+        game_root = Path(game_root).resolve()
+        from Utils.vfs import virtual_file_path
+
+        def _virtual_candidate(relative: str) -> Path | None:
+            if not relative:
+                return None
+            return virtual_file_path(self, relative)
+
         extender = self._vfs_script_extender()
-        if extender and virtual_file(self, extender):
-            return game_root / extender
+        candidate = _virtual_candidate(extender)
+        if candidate is not None:
+            return candidate
+
+        preferred = getattr(self, "preferred_launch_exe", "") or ""
+        candidate = _virtual_candidate(preferred)
+        if candidate is not None:
+            return candidate
+
         launcher_resolver = getattr(self, "_launcher_name", None)
-        launcher_name = (
-            launcher_resolver() if callable(launcher_resolver)
-            else getattr(self, "exe_name", "")
-        )
-        if not launcher_name:
-            return None
-        launcher = game_root / launcher_name
-        return launcher if launcher.is_file() else None
+        launcher_names = []
+        if callable(launcher_resolver):
+            launcher_names.append(launcher_resolver())
+        else:
+            launcher_names.append(getattr(self, "exe_name", ""))
+            launcher_names.extend(getattr(self, "exe_name_alts", None) or ())
+        for launcher_name in launcher_names:
+            candidate = _virtual_candidate(launcher_name)
+            if candidate is not None:
+                return candidate
+
+        # Some handlers expose a nested project root while their configured
+        # executable is relative to the outer install. Reuse the normal
+        # recursive resolver, then ensure the result belongs to this view.
+        try:
+            from Utils.exe_launch import resolve_game_exe
+            resolved = resolve_game_exe(self)
+            if resolved is not None:
+                relative = resolved.resolve(strict=False).relative_to(game_root)
+                candidate = virtual_file_path(self, relative)
+                if candidate is not None:
+                    return candidate
+        except (OSError, ValueError):
+            pass
+        return None
 
     def vfs_file_exists(self, relative: str) -> bool:
         if not self.vfs_launch_enabled:
@@ -113,11 +156,15 @@ class ProfileVFSGameMixin:
 
     def get_vfs_passthrough_command(self, vanilla_command: list[str]) -> list[str]:
         """Wrap a launcher's command, preferring a configured script extender."""
-        from Utils.vfs import prefer_virtual_executable, wrap_command
+        from Utils.vfs import prefer_virtual_executable, virtual_file, wrap_command
         command = list(vanilla_command)
         extender = self._vfs_script_extender()
         if extender:
             command = prefer_virtual_executable(self, command, extender)
+        else:
+            preferred = getattr(self, "preferred_launch_exe", "") or ""
+            if preferred and virtual_file(self, preferred):
+                command = prefer_virtual_executable(self, command, preferred)
         return wrap_command(self, command)
 
     def get_vfs_steam_command(self, vanilla_command: list[str]) -> list[str]:
@@ -175,7 +222,11 @@ class ProfileVFSGameMixin:
                     for path in prepared
                 )
 
-        data_root = self.get_mod_data_path()
+        data_root_getter = getattr(self, "get_vfs_data_root", None)
+        data_root = (
+            data_root_getter() if callable(data_root_getter)
+            else self.get_mod_data_path()
+        )
         data_name = Path(data_root).name if data_root is not None else "data"
         log_fn(f"VFS deploy: resolving a private {self.name} game view ...")
         data_count, root_count = build_layers(
