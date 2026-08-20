@@ -9,9 +9,9 @@ readable for already-deployed manifests and as diagnostic fallbacks.
 
 UMU and Valve's Steam Linux Runtime create their own mount namespaces. Nesting
 either inside the outer bubblewrap namespace can crash Wine during bootstrap,
-so those launches execute the complete shadow tree directly instead. Other
-launchers keep the bind mount when preserving the original install path is
-required.
+so those launches execute the complete shadow tree directly instead. Native
+handlers may opt into that route when they do not require the original install
+path; other launchers keep the bind mount.
 
 Only the launched process and its children see the private view. The real game
 directory remains unmodified. Games opt into this module when their deployment
@@ -371,6 +371,7 @@ def _materialize_tree(
     *,
     replace: bool,
     move: bool = False,
+    exclude: set[str] | None = None,
 ) -> tuple[int, int, int]:
     """Merge *source* into a physical shadow tree.
 
@@ -380,7 +381,8 @@ def _materialize_tree(
     another set of directory entries.  Symbolic links are cloned verbatim and
     never followed while walking.
 
-    Returns ``(hardlinks_or_moves, symlinks, copies)``.
+    ``exclude`` contains lowercased, source-relative paths which must not be
+    published. Returns ``(hardlinks_or_moves, symlinks, copies)``.
     """
     if not source.is_dir():
         return 0, 0, 0
@@ -412,6 +414,8 @@ def _materialize_tree(
         for name in (*link_dirs, *filenames):
             src = base / name
             rel = rel_dir / name if rel_dir.parts else Path(name)
+            if exclude and rel.as_posix().lower() in exclude:
+                continue
             parent = _resolved_parent(destination, rel, cache)
             parent.mkdir(parents=True, exist_ok=True)
 
@@ -748,6 +752,7 @@ def build_layers(
     per_mod_subdirs: dict[str, str] | None = None,
     per_mod_link_modes: dict[str, LinkMode] | None = None,
     external_deploy_mode: LinkMode = LinkMode.HARDLINK,
+    file_exclude: set[str] | None = None,
     log_fn=None,
     progress_fn=None,
 ) -> tuple[int, int]:
@@ -816,7 +821,11 @@ def build_layers(
     prefix_rules = [rule for rule in custom_rules if rule.to_prefix]
 
     # Route root/Data rules against a private synthetic game directory.
-    custom_exclude: set[str] = set()
+    file_exclude_normalized: set[str] = {
+        str(path).replace("\\", "/").lower()
+        for path in (file_exclude or ())
+    }
+    custom_exclude: set[str] = set(file_exclude_normalized)
     if game_rules:
         _log("VFS: resolving custom root/Data routing rules ...")
         try:
@@ -960,7 +969,12 @@ def build_layers(
     _materialize_tree(root_layer, shadow_build, replace=True, move=True)
     _materialize_tree(data_layer, shadow_data, replace=True, move=True)
     _materialize_tree(root_upper, shadow_build, replace=True)
-    _materialize_tree(data_upper, shadow_data, replace=True)
+    _materialize_tree(
+        data_upper,
+        shadow_data,
+        replace=True,
+        exclude=file_exclude_normalized or None,
+    )
     _remove_tree(build)
 
     if getattr(game, "case_alias_links", True):
@@ -1037,28 +1051,36 @@ def build_layers(
         return probe.returncode == 0, (probe.stdout or "").strip()
 
     _publish_manifest()
-    # A shadow tree launched through UMU is used directly and needs no outer
-    # bubblewrap namespace. Probe the bind route when available, but do not
-    # discard a valid UMU deployment merely because bwrap is unavailable or a
-    # host policy rejects nested namespaces. Non-UMU launches re-check and
-    # report the same reason before starting.
+    # Some shadow launches are used directly and need no outer bubblewrap
+    # namespace. Probe the bind route when available, but do not discard an
+    # otherwise valid deployment merely because bwrap is unavailable or a host
+    # policy rejects nested namespaces. Bind-based launches re-check and report
+    # the same reason before starting.
+    direct_launch_available = bool(
+        getattr(game, "vfs_direct_shadow_launch", False))
+    fallback_label = (
+        "direct shadow/UMU/Steam Runtime launches remain available"
+        if direct_launch_available
+        else "direct UMU/Steam Runtime launches remain available"
+    )
     bind_available, bind_reason = _bubblewrap_status()
     if bind_available:
         shadow_ok, shadow_detail = _probe_bind_launch()
         if not shadow_ok:
             _log(
-                "  WARN: VFS bind-mount launch validation failed; direct UMU "
-                "launches remain available"
+                f"  WARN: VFS bind-mount launch validation failed; "
+                f"{fallback_label}"
                 + (f": {shadow_detail}" if shadow_detail else ".")
             )
     else:
         _log(
-            "  NOTE: VFS bind-mount launches are unavailable; direct UMU "
-            f"launches remain available ({bind_reason})."
+            f"  NOTE: VFS bind-mount launches are unavailable; "
+            f"{fallback_label} ({bind_reason})."
         )
 
     _log(
-        f"VFS: published {linked_data} Data + {linked_root} root file(s) "
+        f"VFS: published {linked_data} {data_root.name} + "
+        f"{linked_root} root file(s) "
         f"using {BACKEND_SHADOW}."
     )
     return linked_data, linked_root
@@ -1207,6 +1229,18 @@ def _direct_shadow_steam_runtime_command(
     return [*wrapper, *host_command]
 
 
+def _direct_shadow_opt_in_command(command: list[str], game_root: Path,
+                                  view: Path) -> list[str]:
+    """Run an explicitly compatible native handler from the complete view."""
+    direct, _replaced = _retarget_shadow_paths(command, game_root, view)
+    wrapper, host_command = _place_wrapper_on_host([
+        "/bin/sh", "-c",
+        'cd "$1" && shift && exec "$@"',
+        "amethyst-vfs-direct", str(view),
+    ], direct)
+    return [*wrapper, *host_command]
+
+
 def wrap_command(game, command: list[str],
                  env: dict[str, str] | None = None) -> list[str]:
     """Wrap *command* in the deployed profile's private game view."""
@@ -1235,6 +1269,8 @@ def wrap_command(game, command: list[str],
             command, game_root, view, env)
         if direct_runtime is not None:
             return direct_runtime
+        if getattr(game, "vfs_direct_shadow_launch", False):
+            return _direct_shadow_opt_in_command(command, game_root, view)
         ok, reason = _bubblewrap_status()
         if not ok:
             raise RuntimeError(f"Profile VFS is unavailable: {reason}.")

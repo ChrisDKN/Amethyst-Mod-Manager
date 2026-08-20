@@ -14,6 +14,7 @@ import re
 from pathlib import Path
 
 from Games.base_game import BaseGame, WizardTool
+from Utils.vfs import ProfileVFSGameMixin
 from Utils.deploy import LinkMode, deploy_core, deploy_filemap, load_per_mod_strip_prefixes, load_separator_deploy_paths, expand_separator_deploy_paths, cleanup_custom_deploy_dirs, move_to_core, restore_data_core
 from Utils.modlist import read_modlist
 from Utils.config_paths import get_profiles_dir
@@ -23,7 +24,16 @@ _PROFILES_DIR = get_profiles_dir()
 # Split-texture filename AT loads via a case-sensitive GetFiles("texture_*.png").
 _AT_SPLIT_PNG_RE = re.compile(r"^texture_\d+\.png$", re.IGNORECASE)
 
-class StardewValley(BaseGame):
+class StardewValley(ProfileVFSGameMixin, BaseGame):
+
+    # The native launcher and SMAPI resolve their payload relative to cwd/the
+    # executable, so the complete profile shadow can be launched directly.
+    vfs_direct_shadow_launch = True
+
+    profile_overridable_settings = (
+        *BaseGame.profile_overridable_settings,
+        *ProfileVFSGameMixin.vfs_profile_setting_keys,
+    )
 
     def __init__(self):
         self._game_path: Path | None = None
@@ -166,6 +176,15 @@ class StardewValley(BaseGame):
                 "Run 'Build Filemap' before deploying."
             )
 
+        if self.vfs_launch_enabled:
+            return self._deploy_vfs(
+                profile=profile,
+                filemap=filemap,
+                staging=staging,
+                log_fn=_log,
+                progress_fn=progress_fn,
+            )
+
         _log(f"Step 1: Moving {plugins_dir.name}/ → {core}/ ...")
         move_to_core(plugins_dir, log_fn=_log)
         _log(f"  Backed up existing files → {core}/.")
@@ -177,14 +196,8 @@ class StardewValley(BaseGame):
         _sep_deploy = load_separator_deploy_paths(profile_dir)
         _sep_entries = read_modlist(profile_dir / "modlist.txt") if _sep_deploy else []
         per_mod_deploy = expand_separator_deploy_paths(_sep_deploy, _sep_entries) or None
-        _at_fixed = self._fix_alt_textures_casing(filemap, staging)
-        if _at_fixed:
-            _log(f"  Fixed 'textures' → 'Textures' casing for {_at_fixed} "
-                 "Alternative Textures content pack file(s).")
-        _orphan_configs = self._orphaned_overwrite_configs(filemap)
-        if _orphan_configs:
-            _log(f"  Skipping {len(_orphan_configs)} orphaned overwrite file(s) "
-                 "(no matching manifest.json deployed).")
+        _orphan_configs = self._prepare_mod_filemap(
+            filemap, staging, log_fn=_log)
         linked_mod, placed = deploy_filemap(filemap, plugins_dir, staging,
                                             mode=mode,
                                             strip_prefixes=self.mod_folder_strip_prefixes,
@@ -208,6 +221,25 @@ class StardewValley(BaseGame):
 
         # Capture runtime files generated outside Mods/ on the next restore.
         self.snapshot_root_for_runtime_capture(log_fn=_log)
+
+    def _prepare_mod_filemap(self, filemap: Path, staging: Path,
+                             log_fn=None) -> set[str]:
+        """Apply SMAPI-specific filemap corrections shared by all backends."""
+        _log = log_fn or (lambda _: None)
+        fixed = self._fix_alt_textures_casing(filemap, staging)
+        if fixed:
+            _log(f"  Fixed 'textures' → 'Textures' casing for {fixed} "
+                 "Alternative Textures content pack file(s).")
+        orphan_configs = self._orphaned_overwrite_configs(filemap)
+        if orphan_configs:
+            _log(f"  Skipping {len(orphan_configs)} orphaned overwrite file(s) "
+                 "(no matching manifest.json deployed).")
+        return orphan_configs
+
+    def _vfs_prepare_filemap(self, filemap: Path, staging: Path,
+                             log_fn=None) -> set[str]:
+        """Preserve Stardew's SMAPI deployment rules in the private view."""
+        return self._prepare_mod_filemap(filemap, staging, log_fn=log_fn)
 
     def _fix_alt_textures_casing(self, filemap: Path, staging: Path) -> int:
         """Canonicalise Alternative Textures content pack casing in the filemap.
@@ -358,6 +390,15 @@ class StardewValley(BaseGame):
         _profile_dir = self._active_profile_dir
         _entries = read_modlist(_profile_dir / "modlist.txt") if _profile_dir else []
         cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log)
+
+        # Restore according to what is actually deployed. This also handles a
+        # profile whose VFS setting was changed after its private view was
+        # published, without touching the physical Mods directory.
+        from Utils.vfs import cleanup_deployment, manifest_path
+        if manifest_path(self).is_file():
+            cleanup_deployment(self, preserve_upper=True, log_fn=_log)
+            _log("Restore complete.")
+            return
 
         if core_dir.is_dir():
             _log(f"Restore: clearing {plugins_dir.name}/ and moving {core}/ back ...")

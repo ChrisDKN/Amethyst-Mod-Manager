@@ -2049,6 +2049,27 @@ def launch_game(game, log_fn=_noop_log) -> None:
             launch_report.mark_failed(launch_report.actionable(reason))
             return
         log_fn(f"Play: launching through the profile VFS: {exe_path.name}")
+        if exe_path.suffix.lower() not in (".exe", ".bat"):
+            launch_env = host_env()
+            command = [str(exe_path)]
+            wrapper = getattr(game, "wrap_launch_command", None)
+            try:
+                if callable(wrapper):
+                    command = wrapper(command, env=launch_env)
+            except Exception as exc:
+                reason = f"could not prepare the virtual filesystem launch: {exc}"
+                log_fn(f"Play: {reason}")
+                launch_report.mark_failed(launch_report.actionable(reason))
+                return
+            log_fn(f"Play: VFS native cmd: {' '.join(command)}")
+            spawn_process_watched(
+                command,
+                env=launch_env,
+                cwd=exe_path.parent,
+                label="Play (VFS native)",
+                log_fn=log_fn,
+            )
+            return
         launch_exe_via_proton(exe_path, game, log_fn)
         return
 

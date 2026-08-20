@@ -13,6 +13,7 @@ when fuse-overlayfs and /dev/fuse are available.
 from __future__ import annotations
 
 import json
+import importlib.util
 import os
 import shutil
 import subprocess
@@ -47,11 +48,22 @@ from Utils.quick_configure import (  # noqa: E402
     deploy_mode_change_blocked,
 )
 from Utils.launch_handoff import build_launch_handoff  # noqa: E402
+from Utils.exe_launch import launch_game  # noqa: E402
 from Games.Bethesda.fallout_3 import Fallout_3  # noqa: E402
 from Games.BepInEx.BepInEx import (  # noqa: E402
     Subnautica,
     Subnautica_Below_Zero,
 )
+
+_stardew_spec = importlib.util.spec_from_file_location(
+    "amethyst_vfs_selftest_stardew",
+    _SRC_ROOT / "Games" / "Stardew Valley" / "Stardew Valley.py",
+)
+if _stardew_spec is None or _stardew_spec.loader is None:
+    raise RuntimeError("Could not load the Stardew Valley game handler.")
+_stardew_module = importlib.util.module_from_spec(_stardew_spec)
+_stardew_spec.loader.exec_module(_stardew_module)
+StardewValley = _stardew_module.StardewValley
 
 
 class _FakeGame:
@@ -178,6 +190,33 @@ class _FakeSubnauticaGame(_FakeGame, Subnautica):
 
     def _load_settings(self) -> dict:
         return dict(self._settings)
+
+
+class _FakeStardewGame(_FakeGame, StardewValley):
+    """Stardew fixture retaining the real handler's SMAPI deploy rules."""
+
+    exe_name = "StardewValley"
+
+    def __init__(self, root: Path):
+        _FakeGame.__init__(self, root)
+        self._game_path = self.game
+        self._staging_path = self.profiles
+        self._deploy_mode = LinkMode.HARDLINK
+        self._settings = {"vfs_enabled": True}
+        (self.game / "Mods").mkdir()
+
+    @property
+    def mod_folder_strip_prefixes(self):
+        return {"mods"}
+
+    def get_mod_data_path(self):
+        return self.game / "Mods"
+
+    def _load_settings(self) -> dict:
+        return dict(self._settings)
+
+    def _save_settings(self, data: dict) -> None:
+        self._settings = dict(data)
 
     def _save_settings(self, data: dict) -> None:
         self._settings = dict(data)
@@ -564,6 +603,114 @@ def test_subnautica_shadow_view() -> None:
     print("✓ Subnautica root/BepInEx routing, external saves, and opt-in boundary")
 
 
+def test_stardew_shadow_view() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _FakeStardewGame(Path(tmp))
+        vanilla_launcher = game.game / "StardewValley"
+        vanilla_launcher.write_text("#!/bin/sh\nexit 9\n", encoding="utf-8")
+        vanilla_launcher.chmod(0o755)
+        vanilla_mod = game.game / "Mods" / "vanilla.txt"
+        vanilla_mod.write_text("vanilla")
+
+        good_manifest = game.staging / "GoodMod" / "GoodMod" / "manifest.json"
+        good_manifest.parent.mkdir(parents=True)
+        good_manifest.write_text('{"Name": "Good Mod"}')
+
+        at_manifest = game.staging / "ATPack" / "MyPack" / "manifest.json"
+        at_manifest.parent.mkdir(parents=True)
+        at_manifest.write_text(json.dumps({
+            "ContentPackFor": {
+                "UniqueID": "PeacefulEnd.AlternativeTextures",
+            },
+        }))
+        at_texture = (
+            game.staging / "ATPack" / "MyPack" / "textures" / "Chair"
+            / "Texture.PNG"
+        )
+        at_texture.parent.mkdir(parents=True)
+        at_texture.write_text("texture")
+
+        orphan_config = game.overwrite / "Orphan" / "config.json"
+        orphan_config.parent.mkdir(parents=True)
+        orphan_config.write_text("orphan")
+
+        (game.profile / "modlist.txt").write_text(
+            "+GoodMod\n+ATPack\n", encoding="utf-8")
+        filemap = game.profiles / "filemap.txt"
+        filemap.write_text(
+            "GoodMod/manifest.json\tGoodMod\n"
+            "MyPack/manifest.json\tATPack\n"
+            "MyPack/textures/Chair/Texture.PNG\tATPack\n"
+            "Orphan/config.json\t[Overwrite]\n",
+            encoding="utf-8",
+        )
+
+        # A staged SMAPI installation supplies this launcher shim. It must win
+        # inside the view while the physical vanilla launcher stays untouched.
+        staged_launcher = game.root_folder / "StardewValley"
+        staged_launcher.write_text(
+            "#!/bin/sh\n"
+            "test -f Mods/GoodMod/manifest.json && "
+            "test -f Mods/MyPack/Textures/Chair/texture.png && "
+            "test ! -e Mods/Orphan/config.json\n",
+            encoding="utf-8",
+        )
+        staged_launcher.chmod(0o755)
+
+        mod_files_stub = types.ModuleType("Utils.mod_files")
+        mod_files_stub.excluded_raw_by_mod = lambda _profile: {}
+        filemap_stub = types.ModuleType("Utils.filemap")
+        filemap_stub.OVERWRITE_NAME = "[Overwrite]"
+        with patch.dict(sys.modules, {
+            "Utils.mod_files": mod_files_stub,
+            "Utils.filemap": filemap_stub,
+        }):
+            game.deploy(profile="default")
+
+        state = game.profile / STATE_DIR_NAME
+        view = state / "view"
+        assert game.supports_profile_vfs
+        assert (view / "Mods" / "GoodMod" / "manifest.json").is_file()
+        assert (view / "Mods" / "MyPack" / "Textures" / "Chair"
+                / "texture.png").read_text() == "texture"
+        assert not (view / "Mods" / "Orphan" / "config.json").exists()
+        assert (view / "Mods" / "vanilla.txt").read_text() == "vanilla"
+        assert vanilla_launcher.read_text() == "#!/bin/sh\nexit 9\n"
+        assert not (game.game / "Mods" / "GoodMod").exists()
+
+        wrapped = game.wrap_launch_command(
+            [str(vanilla_launcher)], env=os.environ.copy())
+        assert "bwrap" not in [Path(token).name for token in wrapped]
+        assert str(view / "StardewValley") in wrapped
+
+        # The shared Play path must recognize the extensionless Linux binary
+        # and never hand it to Proton.
+        with patch("Utils.exe_launch.spawn_process_watched") as spawn, \
+                patch("Utils.exe_launch.launch_exe_via_proton") as proton:
+            launch_game(game)
+        proton.assert_not_called()
+        spawn.assert_called_once()
+        launched = spawn.call_args.args[0]
+        assert "bwrap" not in [Path(token).name for token in launched]
+        assert str(view / "StardewValley") in launched
+
+        result = subprocess.run(
+            wrapped,
+            cwd=game.game,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        assert result.returncode == 0, result.stderr
+
+        game.restore()
+        assert not (state / MANIFEST_NAME).exists()
+        assert vanilla_launcher.read_text() == "#!/bin/sh\nexit 9\n"
+        assert vanilla_mod.read_text() == "vanilla"
+        assert not (game.game / "Mods" / "GoodMod").exists()
+    print("✓ Stardew/SMAPI native shadow launch and deploy rules")
+
+
 def test_vfs_as_deploy_method() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         game = _FakeBethesdaGame(Path(tmp))
@@ -787,6 +934,7 @@ def main() -> None:
     test_shared_bethesda_hooks()
     test_generic_mod_data_directory()
     test_subnautica_shadow_view()
+    test_stardew_shadow_view()
     test_vfs_as_deploy_method()
     test_flatpak_host_wrap()
     test_umu_uses_shadow_directly()

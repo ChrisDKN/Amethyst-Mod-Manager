@@ -22,6 +22,9 @@ class ProfileVFSGameMixin:
     vfs_profile_setting_keys = ("vfs_enabled",)
     vfs_legacy_setting_keys: tuple[str, ...] = ()
     vfs_prefers_script_extender = False
+    # Native handlers can opt into using the complete materialized view as
+    # their real working directory when they do not require the install path.
+    vfs_direct_shadow_launch = False
     vfs_physical_supports_incremental_deploy = False
 
     @property
@@ -162,6 +165,16 @@ class ProfileVFSGameMixin:
         if external_deploy_mode not in (LinkMode.HARDLINK, LinkMode.SYMLINK):
             external_deploy_mode = LinkMode.HARDLINK
 
+        file_exclude: set[str] = set()
+        prepare_filemap = getattr(self, "_vfs_prepare_filemap", None)
+        if callable(prepare_filemap):
+            prepared = prepare_filemap(filemap, staging, log_fn=log_fn)
+            if prepared:
+                file_exclude.update(
+                    str(path).replace("\\", "/").lower()
+                    for path in prepared
+                )
+
         data_root = self.get_mod_data_path()
         data_name = Path(data_root).name if data_root is not None else "data"
         log_fn(f"VFS deploy: resolving a private {self.name} game view ...")
@@ -178,6 +191,7 @@ class ProfileVFSGameMixin:
             per_mod_subdirs=per_mod_subdirs,
             per_mod_link_modes=per_mod_link_modes,
             external_deploy_mode=external_deploy_mode,
+            file_exclude=file_exclude or None,
             log_fn=log_fn,
             progress_fn=progress_fn,
         )
