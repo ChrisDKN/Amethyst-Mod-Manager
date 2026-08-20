@@ -34,15 +34,25 @@ from Utils.vfs import (  # noqa: E402
     BACKEND_SHADOW,
     MANIFEST_NAME,
     MANIFEST_VERSION,
+    PENDING_NAME,
     RUNTIME_NAME,
     STATE_DIR_NAME,
     build_layers,
     cleanup_deployment,
+    deployment_state_profiles,
     finalize_deployment,
+    has_deployment_state,
     prefer_virtual_executable,
     wrap_command,
 )
-from Utils.deploy import CustomRule, LinkMode  # noqa: E402
+from Utils.deploy import (  # noqa: E402
+    CustomRule,
+    LinkMode,
+    RestoreIncompleteError,
+    cleanup_custom_deploy_dirs,
+    deploy_custom_rules,
+    restore_custom_rules,
+)
 from Utils.quick_configure import (  # noqa: E402
     build_quick_configure_options,
     deploy_mode_change_blocked,
@@ -56,6 +66,8 @@ from Games.BepInEx.BepInEx import (  # noqa: E402
 )
 from Games.ue5_game import UE5Game, UE5Rule  # noqa: E402
 from Games.Custom.custom_game import (  # noqa: E402
+    RootCustomGame,
+    StandardCustomGame,
     Ue5CustomGame,
     make_custom_game,
 )
@@ -69,6 +81,16 @@ if _stardew_spec is None or _stardew_spec.loader is None:
 _stardew_module = importlib.util.module_from_spec(_stardew_spec)
 _stardew_spec.loader.exec_module(_stardew_module)
 StardewValley = _stardew_module.StardewValley
+
+_oblivion_spec = importlib.util.spec_from_file_location(
+    "amethyst_vfs_selftest_oblivion_remastered",
+    _SRC_ROOT / "Games" / "Oblivion Remastered" / "oblivion_remastered.py",
+)
+if _oblivion_spec is None or _oblivion_spec.loader is None:
+    raise RuntimeError("Could not load the Oblivion Remastered game handler.")
+_oblivion_module = importlib.util.module_from_spec(_oblivion_spec)
+_oblivion_spec.loader.exec_module(_oblivion_module)
+OblivionRemastered = _oblivion_module.OblivionRemastered
 
 
 class _FakeGame:
@@ -316,6 +338,87 @@ class _FakeUE5ManagedModsGame(_FakeUE5Game):
                 extensions=[".lua"],
             ),
         ]
+
+
+class _FakeCustomPaths:
+    """Temporary paths/settings while retaining the real custom handlers."""
+
+    def __init__(self, root: Path, definition: dict):
+        self.root = root
+        self._defn = definition
+        self.game = root / "game"
+        self.profiles = root / "profiles-root"
+        self.profile = self.profiles / "profiles" / "default"
+        self.staging = self.profiles / "mods"
+        self.overwrite = self.profiles / "overwrite"
+        self.root_folder = self.profiles / "Root_Folder"
+        self.filemap = self.profiles / "filemap.txt"
+        self.prefix = root / "prefix"
+        self._game_path = self.game
+        self._prefix_path = self.prefix
+        self._staging_path = self.profiles
+        self._deploy_mode = LinkMode.HARDLINK
+        self._active_profile_dir = self.profile
+        self._settings = {"vfs_enabled": True}
+        for directory in (
+            self.game,
+            self.profile,
+            self.staging,
+            self.overwrite,
+            self.root_folder,
+            self.prefix,
+        ):
+            directory.mkdir(parents=True)
+
+    def get_profile_root(self) -> Path:
+        return self.profiles
+
+    def get_effective_filemap_path(self) -> Path:
+        return self.filemap
+
+    def get_effective_mod_staging_path(self) -> Path:
+        return self.staging
+
+    def get_effective_overwrite_path(self) -> Path:
+        return self.overwrite
+
+    def get_effective_root_folder_path(self) -> Path:
+        return self.root_folder
+
+    @property
+    def _deploy_state_file(self) -> Path:
+        return self.profiles / "deploy_state.json"
+
+    def _load_settings(self) -> dict:
+        return dict(self._settings)
+
+    def _save_settings(self, data: dict) -> None:
+        self._settings = dict(data)
+
+    def get_deploy_mode(self) -> LinkMode:
+        return self._deploy_mode
+
+    def set_deploy_mode(self, mode: LinkMode) -> None:
+        self._deploy_mode = mode
+
+    def is_configured(self) -> bool:
+        return True
+
+
+class _FakeStandardCustomGame(_FakeCustomPaths, StandardCustomGame):
+    pass
+
+
+class _FakeRootCustomGame(_FakeCustomPaths, RootCustomGame):
+    pass
+
+
+def _deploy_custom_fixture(game, **kwargs):
+    """Deploy without importing optional filemap-index dependencies."""
+    mod_files_stub = types.ModuleType("Utils.mod_files")
+    mod_files_stub.excluded_raw_by_mod = lambda _profile: {}
+    with patch.dict(sys.modules, {"Utils.mod_files": mod_files_stub}):
+        return game.deploy(**kwargs)
 
 
 def _write_manifest(game: _FakeGame) -> Path:
@@ -586,6 +689,911 @@ def test_generic_mod_data_directory() -> None:
         assert not (game.game / "Content" / "assets" / "generic.txt").exists()
         cleanup_deployment(game)
     print("✓ generic primary mod-data directory adapter")
+
+
+def test_vfs_cleanup_failure_remains_discoverable() -> None:
+    """A partial unpublish must retain a profile marker for retry."""
+    import Utils.vfs.overlay as vfs_overlay
+
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _FakeGame(Path(tmp))
+        state = _write_manifest(game)
+        lower = state / "lower"
+        assert not (state / PENDING_NAME).exists()
+
+        real_remove_tree = vfs_overlay._remove_tree
+        failed = False
+
+        def _fail_lower_once(path: Path) -> None:
+            nonlocal failed
+            if path == lower and not failed:
+                failed = True
+                raise PermissionError("injected VFS tree removal failure")
+            real_remove_tree(path)
+
+        try:
+            with patch.object(
+                vfs_overlay, "_remove_tree", _fail_lower_once,
+            ):
+                cleanup_deployment(game)
+        except PermissionError as exc:
+            assert "injected VFS tree removal failure" in str(exc)
+        else:
+            raise AssertionError("VFS cleanup tree-removal failure was ignored")
+
+        pending = state / PENDING_NAME
+        assert pending.read_text(encoding="utf-8") == "cleanup\n"
+        assert lower.is_dir()
+        assert has_deployment_state(game)
+        assert "default" in deployment_state_profiles(game)
+
+        cleanup_deployment(game)
+        assert not lower.exists()
+        assert not pending.exists()
+        assert not has_deployment_state(game)
+        assert "default" not in deployment_state_profiles(game)
+    print("✓ failed VFS cleanup remains discoverable until retry succeeds")
+
+
+def test_standard_custom_shadow_view() -> None:
+    definition = {
+        "name": "Standard Custom VFS Test",
+        "game_id": "standard_custom_vfs_test",
+        "exe_name": "bin/StandardGame.exe",
+        "deploy_type": "standard",
+        "mod_data_path": "Content/Mods",
+        "custom_routing_rules": [
+            {
+                "dest": "",
+                "filenames": ["root-loader.dll"],
+                "flatten": True,
+            },
+            {
+                "dest": "Content/Mods/Routed",
+                "extensions": [".route"],
+                "flatten": True,
+            },
+            {
+                "dest": "RoutedOverwrite",
+                "filenames": ["routed-overwrite.dll"],
+                "flatten": True,
+            },
+        ],
+    }
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _FakeStandardCustomGame(Path(tmp), definition)
+        data = game.get_mod_data_path()
+        assert data is not None
+        data.mkdir(parents=True)
+        launcher = game.game / game.exe_name
+        launcher.parent.mkdir(parents=True)
+        launcher.write_text("vanilla-launcher")
+        (data / "vanilla.txt").write_text("vanilla-data")
+
+        normal = game.staging / "Normal" / "normal.txt"
+        root_loader = game.staging / "RootRule" / "root-loader.dll"
+        routed = game.staging / "DataRule" / "nested" / "asset.route"
+        for source, body in (
+            (normal, "normal-mod"),
+            (root_loader, "root-loader"),
+            (routed, "routed-data"),
+        ):
+            source.parent.mkdir(parents=True, exist_ok=True)
+            source.write_text(body)
+        (game.overwrite / "overwrite-only.txt").write_text("overwrite")
+        (game.overwrite / "routed-overwrite.dll").write_text(
+            "routed-overwrite")
+
+        root_winner = game.root_folder / "Content" / "Mods" / "normal.txt"
+        root_winner.parent.mkdir(parents=True)
+        root_winner.write_text("root-folder-wins")
+        (game.root_folder / "root-config.ini").write_text("root-config")
+        (game.profile / "modlist.txt").write_text(
+            "+Normal\n+RootRule\n+DataRule\n", encoding="utf-8")
+        game.filemap.write_text(
+            "normal.txt\tNormal\n"
+            "root-loader.dll\tRootRule\n"
+            "nested/asset.route\tDataRule\n"
+            "overwrite-only.txt\t[Overwrite]\n"
+            "routed-overwrite.dll\t[Overwrite]\n",
+            encoding="utf-8",
+        )
+
+        _deploy_custom_fixture(game, profile="default")
+
+        state = game.profile / STATE_DIR_NAME
+        view = state / "view"
+        view_data = view / "Content" / "Mods"
+        manifest = json.loads((state / MANIFEST_NAME).read_text())
+        assert Path(manifest["game_root"]) == game.game
+        assert Path(manifest["data_root"]) == data
+        assert (view / "bin" / "StandardGame.exe").read_text() == \
+            "vanilla-launcher"
+        assert (view_data / "vanilla.txt").read_text() == "vanilla-data"
+        assert (view_data / "normal.txt").read_text() == "root-folder-wins"
+        assert (view_data / "Routed" / "asset.route").read_text() == \
+            "routed-data"
+        assert (view_data / "overwrite-only.txt").read_text() == "overwrite"
+        assert (view / "root-loader.dll").read_text() == "root-loader"
+        assert (view / "root-config.ini").read_text() == "root-config"
+        assert (view / "RoutedOverwrite" / "routed-overwrite.dll").read_text() \
+            == "routed-overwrite"
+        assert not (view_data / "routed-overwrite.dll").exists()
+        assert game.get_vfs_launch_exe() == launcher
+        assert is_game_launch_exe(game, launcher)
+
+        # Neither the normal layer, custom routes nor Root_Folder may touch
+        # the physical installation while VFS is active.
+        assert launcher.read_text() == "vanilla-launcher"
+        assert (data / "vanilla.txt").read_text() == "vanilla-data"
+        assert not (data / "normal.txt").exists()
+        assert not (data / "Routed").exists()
+        assert not (data / "overwrite-only.txt").exists()
+        assert not (data / "routed-overwrite.dll").exists()
+        assert not (game.game / "root-loader.dll").exists()
+        assert not (game.game / "RoutedOverwrite").exists()
+        assert not (game.game / "root-config.ini").exists()
+        assert not (game.game / "Content_Core").exists()
+
+        # Restore follows deployed state, not a setting changed afterwards.
+        game.set_vfs_enabled(False)
+        game.restore()
+        assert not (state / MANIFEST_NAME).exists()
+        assert not (state / "view").exists()
+        assert (data / "vanilla.txt").read_text() == "vanilla-data"
+    print("✓ standard custom nested-data VFS routing and launch selection")
+
+
+def test_root_custom_shadow_view() -> None:
+    definition = {
+        "name": "Root Custom VFS Test",
+        "game_id": "root_custom_vfs_test",
+        "exe_name": "Bin/RootGame.exe",
+        "deploy_type": "root",
+        "mod_data_path": "",
+        "custom_routing_rules": [
+            {
+                "dest": "Loader",
+                "filenames": ["loader.dll"],
+                "companion_extensions": [".ini"],
+                "flatten": True,
+            },
+        ],
+    }
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _FakeRootCustomGame(Path(tmp), definition)
+        launcher = game.game / game.exe_name
+        launcher.parent.mkdir(parents=True)
+        launcher.write_text("vanilla-launcher")
+        physical_collision = game.game / "normal.txt"
+        physical_collision.write_text("vanilla-root")
+
+        for source, body in (
+            (game.staging / "Normal" / "normal.txt", "normal-mod"),
+            (game.staging / "Loader" / "bin" / "loader.dll", "loader"),
+            (game.staging / "Loader" / "bin" / "loader.ini", "companion"),
+            (game.staging / "RootFlag" / "flagged.txt", "root-flagged"),
+        ):
+            source.parent.mkdir(parents=True, exist_ok=True)
+            source.write_text(body)
+        (game.overwrite / "overwrite-only.cfg").write_text("overwrite")
+        (game.root_folder / "root-only.cfg").write_text("root-folder")
+        (game.profile / "modlist.txt").write_text(
+            "+Normal\n+Loader\n+RootFlag\n", encoding="utf-8")
+        game.filemap.write_text(
+            "normal.txt\tNormal\n"
+            "bin/loader.dll\tLoader\n"
+            "bin/loader.ini\tLoader\n"
+            "overwrite-only.cfg\t[Overwrite]\n",
+            encoding="utf-8",
+        )
+        (game.filemap.parent / "filemap_root.txt").write_text(
+            "flagged.txt\tRootFlag\n", encoding="utf-8")
+
+        _deploy_custom_fixture(game, profile="default")
+
+        state = game.profile / STATE_DIR_NAME
+        view = state / "view"
+        manifest = json.loads((state / MANIFEST_NAME).read_text())
+        assert Path(manifest["game_root"]) == game.game
+        assert Path(manifest["data_root"]) == game.game
+        assert (view / "normal.txt").read_text() == "normal-mod"
+        assert (view / "Loader" / "loader.dll").read_text() == "loader"
+        assert (view / "Loader" / "loader.ini").read_text() == "companion"
+        assert (view / "root-only.cfg").read_text() == "root-folder"
+        assert (view / "flagged.txt").read_text() == "root-flagged"
+        assert (view / "overwrite-only.cfg").read_text() == "overwrite"
+        assert (view / "Bin" / "RootGame.exe").read_text() == \
+            "vanilla-launcher"
+        assert game.get_vfs_launch_exe() == launcher
+        assert is_game_launch_exe(game, launcher)
+
+        assert physical_collision.read_text() == "vanilla-root"
+        assert not (game.game / "Loader").exists()
+        assert not (game.game / "root-only.cfg").exists()
+        assert not (game.game / "flagged.txt").exists()
+        assert not (game.game / "overwrite-only.cfg").exists()
+        assert not (game.filemap.parent / "filemap_deployed.txt").exists()
+
+        game.restore()
+        assert not (state / MANIFEST_NAME).exists()
+        assert physical_collision.read_text() == "vanilla-root"
+    print("✓ root custom same-root rules, companions and payload layers")
+
+
+def test_custom_standard_root_factory_vfs_contract() -> None:
+    standard_definition = {
+        "name": "Custom Standard VFS Contract",
+        "game_id": "custom_standard_vfs_contract",
+        "exe_name": "Game.exe",
+        "deploy_type": "standard",
+        "mod_data_path": "Mods",
+    }
+    root_definition = {
+        "name": "Custom Root VFS Contract",
+        "game_id": "custom_root_vfs_contract",
+        "exe_name": "Game.exe",
+        "deploy_type": "root",
+    }
+    native_definition = {
+        **standard_definition,
+        "name": "Custom Native VFS Contract",
+        "game_id": "custom_native_vfs_contract",
+        "exe_name": "start-game.sh",
+    }
+    with patch.object(StandardCustomGame, "load_paths", return_value=False):
+        standard = make_custom_game(standard_definition)
+        root = make_custom_game(root_definition)
+        native = make_custom_game(native_definition)
+    assert isinstance(standard, StandardCustomGame)
+    assert isinstance(root, RootCustomGame)
+    for game in (standard, root, native):
+        assert game.supports_profile_vfs
+        assert "vfs_enabled" in game.profile_overridable_settings
+    assert not standard.vfs_direct_shadow_launch
+    assert native.vfs_direct_shadow_launch
+    print("✓ custom standard/root factory exposes the profile VFS contract")
+
+
+def test_custom_nondefault_pending_profile_discovery() -> None:
+    fixtures = (
+        (
+            _FakeStandardCustomGame,
+            {
+                "name": "Standard Pending Discovery Test",
+                "game_id": "standard_pending_discovery_test",
+                "exe_name": "Game.exe",
+                "deploy_type": "standard",
+                "mod_data_path": "Mods",
+            },
+        ),
+        (
+            _FakeRootCustomGame,
+            {
+                "name": "Root Pending Discovery Test",
+                "game_id": "root_pending_discovery_test",
+                "exe_name": "Game.exe",
+                "deploy_type": "root",
+            },
+        ),
+    )
+    for fixture, definition in fixtures:
+        with tempfile.TemporaryDirectory() as tmp:
+            game = fixture(Path(tmp), definition)
+            data = game.get_mod_data_path()
+            assert data is not None
+            data.mkdir(parents=True, exist_ok=True)
+            failed_profile = game.profiles / "profiles" / "Failed Profile"
+            failed_state = failed_profile / STATE_DIR_NAME
+            failed_state.mkdir(parents=True)
+            (failed_state / "pending").write_text(
+                "Failed Profile\n", encoding="utf-8")
+
+            # The selected profile is still default and there is no successful
+            # deploy_state record, but the global guard/restore selector must
+            # discover the failed non-default build.
+            assert game._active_profile_dir == game.profile
+            assert game.get_deploy_active()
+            assert game.get_last_deployed_profile() == "Failed Profile"
+
+            game.set_active_profile_dir(failed_profile)
+            game.set_vfs_enabled(False)
+            game.restore()
+            assert not (failed_state / "pending").exists()
+            assert not game.get_deploy_active()
+    print("✓ non-default pending VFS profiles are discoverable and restorable")
+
+
+def test_custom_missing_prefix_match_fails() -> None:
+    definition = {
+        "name": "Root Missing Prefix Test",
+        "game_id": "root_missing_prefix_test",
+        "exe_name": "Game.exe",
+        "deploy_type": "root",
+        "custom_routing_rules": [
+            {
+                "dest": "drive_c/users/test/Saves",
+                "filenames": ["Settings.ini"],
+                "flatten": True,
+                "to_prefix": True,
+            },
+        ],
+    }
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _FakeRootCustomGame(Path(tmp), definition)
+        game._prefix_path = None
+        (game.game / "Game.exe").write_text("launcher")
+        source = game.staging / "PrefixMod" / "Settings.ini"
+        source.parent.mkdir(parents=True)
+        source.write_text("profile-prefix")
+        (game.profile / "modlist.txt").write_text(
+            "+PrefixMod\n", encoding="utf-8")
+        game.filemap.write_text(
+            "Settings.ini\tPrefixMod\n", encoding="utf-8")
+
+        try:
+            _deploy_custom_fixture(game, profile="default")
+        except RuntimeError as exc:
+            message = str(exc).lower()
+            assert "no prefix configured" in message
+            assert "configure" in message
+        else:
+            raise AssertionError("matched prefix route deployed without a prefix")
+
+        state = game.profile / STATE_DIR_NAME
+        assert (state / "pending").is_file()
+        assert not (state / MANIFEST_NAME).exists()
+        assert not (game.game / "Settings.ini").exists()
+        assert not (state / "view").exists()
+        game.set_vfs_enabled(False)
+        game.restore()
+        assert not (state / "pending").exists()
+    print("✓ matched prefix routes fail clearly when no prefix is configured")
+
+
+def test_custom_rule_global_first_match_partition() -> None:
+    """Game and prefix passes must retain one global first-match ordering."""
+    game_first_definition = {
+        "name": "Custom Rule Game-First Test",
+        "game_id": "custom_rule_game_first_test",
+        "exe_name": "Game.exe",
+        "deploy_type": "standard",
+        "mod_data_path": "Mods",
+        "custom_routing_rules": [
+            {
+                "dest": "GameRoute",
+                "filenames": ["shared.ini"],
+                "flatten": True,
+            },
+            {
+                "dest": "drive_c/users/test/PrefixRoute",
+                "filenames": ["shared.ini"],
+                "flatten": True,
+                "to_prefix": True,
+            },
+        ],
+    }
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _FakeStandardCustomGame(Path(tmp), game_first_definition)
+        game._prefix_path = None
+        (game.game / "Mods").mkdir()
+        (game.game / "Game.exe").write_text("launcher")
+        source = game.staging / "Overlap" / "shared.ini"
+        source.parent.mkdir(parents=True)
+        source.write_text("game-first")
+        (game.profile / "modlist.txt").write_text(
+            "+Overlap\n", encoding="utf-8")
+        game.filemap.write_text(
+            "shared.ini\tOverlap\n", encoding="utf-8")
+
+        # The later prefix rule has no claim, so a missing prefix must not
+        # reject this profile or cause a second copy in the normal data layer.
+        _deploy_custom_fixture(game, profile="default")
+        view = game.profile / STATE_DIR_NAME / "view"
+        assert (view / "GameRoute" / "shared.ini").read_text() == \
+            "game-first"
+        assert not (view / "Mods" / "shared.ini").exists()
+        assert not (game.game / "GameRoute").exists()
+        game.restore()
+
+    prefix_first_definition = {
+        "name": "Custom Rule Prefix-First Test",
+        "game_id": "custom_rule_prefix_first_test",
+        "exe_name": "Game.exe",
+        "deploy_type": "standard",
+        "mod_data_path": "Mods",
+        "custom_routing_rules": [
+            {
+                "dest": "drive_c/users/test/PrefixRoute",
+                "filenames": ["shared.ini", "bundle.ini"],
+                "flatten": True,
+                "to_prefix": True,
+            },
+            {
+                "dest": "GameRoute",
+                "filenames": ["shared.ini"],
+                "flatten": True,
+            },
+            {
+                "dest": "GameRoute",
+                "extensions": [".dll"],
+                "companion_extensions": [".ini"],
+                "flatten": True,
+            },
+        ],
+    }
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _FakeStandardCustomGame(Path(tmp), prefix_first_definition)
+        (game.game / "Mods").mkdir()
+        (game.game / "Game.exe").write_text("launcher")
+        mod = game.staging / "Overlap"
+        mod.mkdir()
+        for name, body in (
+            ("shared.ini", "profile-shared"),
+            ("bundle.dll", "profile-dll"),
+            ("bundle.ini", "profile-companion"),
+        ):
+            (mod / name).write_text(body)
+        (game.profile / "modlist.txt").write_text(
+            "+Overlap\n", encoding="utf-8")
+        game.filemap.write_text(
+            "shared.ini\tOverlap\n"
+            "bundle.dll\tOverlap\n"
+            "bundle.ini\tOverlap\n",
+            encoding="utf-8",
+        )
+        prefix_route = game.prefix / "drive_c" / "users" / "test" \
+            / "PrefixRoute"
+        prefix_route.mkdir(parents=True)
+        (prefix_route / "shared.ini").write_text("vanilla-shared")
+        (prefix_route / "bundle.ini").write_text("vanilla-companion")
+
+        _deploy_custom_fixture(game, profile="default")
+        view = game.profile / STATE_DIR_NAME / "view"
+        assert (prefix_route / "shared.ini").read_text() == "profile-shared"
+        assert (prefix_route / "bundle.ini").read_text() == \
+            "profile-companion"
+        assert (view / "GameRoute" / "bundle.dll").read_text() == \
+            "profile-dll"
+        # The prefix-first overlap wins once, and its direct primary claim
+        # also prevents the later .dll rule's companion pass stealing it.
+        assert not (view / "GameRoute" / "shared.ini").exists()
+        assert not (view / "GameRoute" / "bundle.ini").exists()
+        assert not (view / "Mods" / "shared.ini").exists()
+        assert not (view / "Mods" / "bundle.ini").exists()
+
+        game.restore()
+        assert (prefix_route / "shared.ini").read_text() == "vanilla-shared"
+        assert (prefix_route / "bundle.ini").read_text() == \
+            "vanilla-companion"
+    print("✓ custom rules preserve global game/prefix first-match ordering")
+
+
+def test_custom_physical_deploy_modes_unchanged() -> None:
+    standard_definition = {
+        "name": "Standard Custom Physical Test",
+        "game_id": "standard_custom_physical_test",
+        "exe_name": "Game.exe",
+        "deploy_type": "standard",
+        "mod_data_path": "Mods",
+    }
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _FakeStandardCustomGame(Path(tmp), standard_definition)
+        game.set_vfs_enabled(False)
+        data = game.get_mod_data_path()
+        assert data is not None
+        data.mkdir()
+        (data / "vanilla.txt").write_text("vanilla")
+        source = game.staging / "Mod" / "mod.txt"
+        source.parent.mkdir(parents=True)
+        source.write_text("profile")
+        (game.profile / "modlist.txt").write_text(
+            "+Mod\n", encoding="utf-8")
+        game.filemap.write_text("mod.txt\tMod\n", encoding="utf-8")
+
+        game.deploy(profile="default", mode=LinkMode.HARDLINK)
+        assert (data / "mod.txt").read_text() == "profile"
+        assert (data / "vanilla.txt").read_text() == "vanilla"
+        assert data.with_name("Mods_Core").is_dir()
+        assert not (game.profile / STATE_DIR_NAME / MANIFEST_NAME).exists()
+        standard_state = game.profile / STATE_DIR_NAME
+        standard_state.mkdir()
+        (standard_state / "pending").write_text(
+            "default\n", encoding="utf-8")
+        game.restore()
+        assert not (data / "mod.txt").exists()
+        assert (data / "vanilla.txt").read_text() == "vanilla"
+        assert not data.with_name("Mods_Core").exists()
+        assert not (standard_state / "pending").exists()
+
+    root_definition = {
+        "name": "Root Custom Physical Test",
+        "game_id": "root_custom_physical_test",
+        "exe_name": "Game.exe",
+        "deploy_type": "root",
+    }
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _FakeRootCustomGame(Path(tmp), root_definition)
+        game.set_vfs_enabled(False)
+        target = game.game / "shared.txt"
+        target.write_text("vanilla")
+        source = game.staging / "Mod" / "shared.txt"
+        source.parent.mkdir(parents=True)
+        source.write_text("profile")
+        (game.profile / "modlist.txt").write_text(
+            "+Mod\n", encoding="utf-8")
+        game.filemap.write_text("shared.txt\tMod\n", encoding="utf-8")
+
+        game.deploy(profile="default", mode=LinkMode.HARDLINK)
+        assert target.read_text() == "profile"
+        assert (game.filemap.parent / "filemap_deployed.txt").is_file()
+        assert not (game.profile / STATE_DIR_NAME / MANIFEST_NAME).exists()
+        root_state = game.profile / STATE_DIR_NAME
+        root_state.mkdir()
+        (root_state / "pending").write_text(
+            "default\n", encoding="utf-8")
+        game.restore()
+        assert target.read_text() == "vanilla"
+        assert not (game.filemap.parent / "filemap_deployed.txt").exists()
+        assert not (root_state / "pending").exists()
+    print("✓ VFS cleanup coexists with standard/root physical restore markers")
+
+
+def test_custom_pending_prefix_restore_and_traversal_guard() -> None:
+    prefix_definition = {
+        "name": "Root Custom Prefix Recovery Test",
+        "game_id": "root_custom_prefix_recovery_test",
+        "exe_name": "Game.exe",
+        "deploy_type": "root",
+        "custom_routing_rules": [
+            {
+                "dest": "drive_c/users/test/Saves",
+                "filenames": ["Settings.ini"],
+                "flatten": True,
+                "to_prefix": True,
+            },
+        ],
+    }
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _FakeRootCustomGame(Path(tmp), prefix_definition)
+        (game.game / "Game.exe").write_text("launcher")
+        target = game.prefix / "drive_c" / "users" / "test" / "Saves" \
+            / "Settings.ini"
+        target.parent.mkdir(parents=True)
+        target.write_text("vanilla-prefix")
+        source = game.staging / "PrefixMod" / "Settings.ini"
+        source.parent.mkdir(parents=True)
+        source.write_text("profile-prefix")
+        (game.profile / "modlist.txt").write_text(
+            "+PrefixMod\n", encoding="utf-8")
+        game.filemap.write_text(
+            "Settings.ini\tPrefixMod\n", encoding="utf-8")
+
+        def _interrupt_after_transfer(_done: int, _total: int) -> None:
+            raise RuntimeError("injected custom-prefix interruption")
+
+        state = game.profile / STATE_DIR_NAME
+        state.mkdir()
+        (state / "pending").write_text("default\n", encoding="utf-8")
+        try:
+            deploy_custom_rules(
+                game.filemap,
+                game.game,
+                game.staging,
+                rules=game.custom_routing_rules,
+                mode=LinkMode.HARDLINK,
+                progress_fn=_interrupt_after_transfer,
+                prefix_root=game.prefix,
+            )
+        except RuntimeError as exc:
+            assert "injected custom-prefix interruption" in str(exc)
+        else:
+            raise AssertionError("custom-prefix interruption did not propagate")
+
+        assert (state / "pending").is_file()
+        assert not (state / MANIFEST_NAME).exists()
+        assert target.read_text() == "profile-prefix"
+        # The conservative destination journal is published before placement,
+        # so a callback interruption after transfer remains fully reversible.
+        assert (game.filemap.parent / "custom_rules_deployed.txt").is_file()
+        assert (game.filemap.parent / "custom_rules_prefix_backup").is_dir()
+        game.set_vfs_enabled(False)
+        game.restore()
+        assert target.read_text() == "vanilla-prefix"
+        assert not (game.filemap.parent / "custom_rules_prefix_backup").exists()
+        assert not (state / "pending").exists()
+
+    # Simulate the smaller interruption window after an original was moved to
+    # backup but before the planned destination journal was published.
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _FakeRootCustomGame(Path(tmp), prefix_definition)
+        target = game.prefix / "drive_c" / "users" / "test" / "Saves" \
+            / "Settings.ini"
+        target.parent.mkdir(parents=True)
+        target.write_text("vanilla-prefix")
+        backup = game.filemap.parent / "custom_rules_prefix_backup" \
+            / target.relative_to(game.prefix)
+        backup.parent.mkdir(parents=True)
+        target.rename(backup)
+        state = game.profile / STATE_DIR_NAME
+        state.mkdir()
+        (state / "pending").write_text("default\n", encoding="utf-8")
+        assert not (game.filemap.parent / "custom_rules_deployed.txt").exists()
+        game.set_vfs_enabled(False)
+        game.restore()
+        assert target.read_text() == "vanilla-prefix"
+        assert not (game.filemap.parent / "custom_rules_prefix_backup").exists()
+        assert not (state / "pending").exists()
+
+    traversal_definition = {
+        "name": "Standard Custom Traversal Test",
+        "game_id": "standard_custom_traversal_test",
+        "exe_name": "Game.exe",
+        "deploy_type": "standard",
+        "mod_data_path": "Mods",
+        "custom_routing_rules": [
+            {
+                "dest": "../escaped",
+                "filenames": ["escape.dll"],
+                "flatten": True,
+            },
+        ],
+    }
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        game = _FakeStandardCustomGame(root, traversal_definition)
+        (game.game / "Game.exe").write_text("launcher")
+        (game.game / "Mods").mkdir()
+        source = game.staging / "Escape" / "escape.dll"
+        source.parent.mkdir(parents=True)
+        source.write_text("escape")
+        (game.profile / "modlist.txt").write_text(
+            "+Escape\n", encoding="utf-8")
+        game.filemap.write_text("escape.dll\tEscape\n", encoding="utf-8")
+        try:
+            _deploy_custom_fixture(game, profile="default")
+        except RuntimeError as exc:
+            assert "must remain relative" in str(exc)
+        else:
+            raise AssertionError("VFS custom-rule traversal was accepted")
+        assert not (game.game.parent / "escaped").exists()
+        assert (game.profile / STATE_DIR_NAME / "pending").is_file()
+        game.set_vfs_enabled(False)
+        game.restore()
+        assert not (game.profile / STATE_DIR_NAME / "pending").exists()
+    print("✓ custom VFS pending-prefix recovery and routing traversal guard")
+
+
+def test_custom_rule_symlink_restore_and_redeploy_self_heal() -> None:
+    definition = {
+        "name": "Custom Rule Journal Test",
+        "game_id": "custom_rule_journal_test",
+        "exe_name": "Game.exe",
+        "deploy_type": "root",
+        "custom_routing_rules": [
+            {
+                "dest": "drive_c/users/test/Saves",
+                "filenames": ["Settings.ini"],
+                "flatten": True,
+                "to_prefix": True,
+            },
+        ],
+    }
+
+    # A symlink to a directory is reported by os.walk as a directory entry.
+    # Restore must move the link itself back, never traverse or discard it.
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _FakeRootCustomGame(Path(tmp), definition)
+        original_dir = game.prefix / "original-settings"
+        original_dir.mkdir()
+        target = game.prefix / "drive_c" / "users" / "test" / "Saves" \
+            / "Settings.ini"
+        target.parent.mkdir(parents=True)
+        target.symlink_to(original_dir, target_is_directory=True)
+        original_link = os.readlink(target)
+        source = game.staging / "PrefixMod" / "Settings.ini"
+        source.parent.mkdir(parents=True)
+        source.write_text("profile-settings")
+        game.filemap.write_text(
+            "Settings.ini\tPrefixMod\n", encoding="utf-8")
+
+        deploy_custom_rules(
+            game.filemap,
+            game.game,
+            game.staging,
+            rules=game.custom_routing_rules,
+            mode=LinkMode.HARDLINK,
+            prefix_root=game.prefix,
+        )
+        assert not target.is_symlink()
+        assert target.read_text() == "profile-settings"
+        restore_custom_rules(
+            game.filemap,
+            game.game,
+            rules=game.custom_routing_rules,
+            prefix_root=game.prefix,
+        )
+        assert target.is_symlink()
+        assert os.readlink(target) == original_link
+        assert target.resolve() == original_dir.resolve()
+
+    # A second deploy without an explicit restore must first recover the
+    # original from the first journal, then create a fresh backup of it.
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _FakeRootCustomGame(Path(tmp), definition)
+        target = game.prefix / "drive_c" / "users" / "test" / "Saves" \
+            / "Settings.ini"
+        target.parent.mkdir(parents=True)
+        target.write_text("vanilla-prefix")
+        source = game.staging / "PrefixMod" / "Settings.ini"
+        source.parent.mkdir(parents=True)
+        source.write_text("profile-one")
+        game.filemap.write_text(
+            "Settings.ini\tPrefixMod\n", encoding="utf-8")
+        kwargs = {
+            "rules": game.custom_routing_rules,
+            "mode": LinkMode.HARDLINK,
+            "prefix_root": game.prefix,
+        }
+
+        deploy_custom_rules(
+            game.filemap, game.game, game.staging, **kwargs)
+        assert target.read_text() == "profile-one"
+        source.unlink()
+        source.write_text("profile-two")
+        deploy_custom_rules(
+            game.filemap, game.game, game.staging, **kwargs)
+        assert target.read_text() == "profile-two"
+        backup = game.filemap.parent / "custom_rules_prefix_backup" \
+            / target.relative_to(game.prefix)
+        assert backup.read_text() == "vanilla-prefix"
+        restore_custom_rules(
+            game.filemap,
+            game.game,
+            rules=game.custom_routing_rules,
+            prefix_root=game.prefix,
+        )
+        assert target.read_text() == "vanilla-prefix"
+        assert not (game.filemap.parent / "custom_rules_deployed.txt").exists()
+        assert not (game.filemap.parent / "custom_rules_prefix_backup").exists()
+    print("✓ custom-rule symlink recovery and deploy-twice self-heal")
+
+
+def test_custom_rule_prefix_restore_failure_is_retryable() -> None:
+    """A failed prefix unlink must preserve both recovery artifacts."""
+    definition = {
+        "name": "Custom Rule Prefix Restore Retry Test",
+        "game_id": "custom_rule_prefix_restore_retry_test",
+        "exe_name": "Game.exe",
+        "deploy_type": "root",
+        "custom_routing_rules": [
+            {
+                "dest": "drive_c/users/test/Saves",
+                "filenames": ["Settings.ini"],
+                "flatten": True,
+                "to_prefix": True,
+            },
+        ],
+    }
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _FakeRootCustomGame(Path(tmp), definition)
+        target = game.prefix / "drive_c" / "users" / "test" / "Saves" \
+            / "Settings.ini"
+        target.parent.mkdir(parents=True)
+        target.write_text("vanilla-prefix")
+        source = game.staging / "PrefixMod" / "Settings.ini"
+        source.parent.mkdir(parents=True)
+        source.write_text("profile-prefix")
+        game.filemap.write_text(
+            "Settings.ini\tPrefixMod\n", encoding="utf-8")
+
+        deploy_custom_rules(
+            game.filemap,
+            game.game,
+            game.staging,
+            rules=game.custom_routing_rules,
+            mode=LinkMode.HARDLINK,
+            prefix_root=game.prefix,
+        )
+        log_path = game.filemap.parent / "custom_rules_deployed.txt"
+        backup_root = game.filemap.parent / "custom_rules_prefix_backup"
+        backup = backup_root / target.relative_to(game.prefix)
+        assert target.read_text() == "profile-prefix"
+        assert backup.read_text() == "vanilla-prefix"
+
+        real_unlink = os.unlink
+        failed = False
+
+        def _fail_target_once(path, *args, **kwargs) -> None:
+            nonlocal failed
+            if Path(path) == target and not failed:
+                failed = True
+                raise PermissionError("injected prefix unlink failure")
+            real_unlink(path, *args, **kwargs)
+
+        try:
+            with patch("Utils.deploy_custom_rules.os.unlink", _fail_target_once):
+                restore_custom_rules(
+                    game.filemap,
+                    game.game,
+                    rules=game.custom_routing_rules,
+                    prefix_root=game.prefix,
+                )
+        except RuntimeError as exc:
+            message = str(exc).lower()
+            assert "retained" in message
+            assert "another restore attempt" in message
+        else:
+            raise AssertionError("custom-rule prefix unlink failure was ignored")
+
+        assert target.read_text() == "profile-prefix"
+        assert log_path.read_text(encoding="utf-8").splitlines() == [
+            str(target),
+        ]
+        assert backup.read_text() == "vanilla-prefix"
+
+        removed = restore_custom_rules(
+            game.filemap,
+            game.game,
+            rules=game.custom_routing_rules,
+            prefix_root=game.prefix,
+        )
+        assert removed == 1
+        assert target.read_text() == "vanilla-prefix"
+        assert not log_path.exists()
+        assert not backup_root.exists()
+    print("✓ custom-rule prefix restore retains recovery state for retry")
+
+
+def test_external_separator_cleanup_failure_is_retryable() -> None:
+    """A failed destination unlink must not consume its original backup."""
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        profile = root / "profile"
+        profile.mkdir()
+        target = root / "external" / "nested" / "Settings.ini"
+        target.parent.mkdir(parents=True)
+        target.write_text("profile-settings")
+
+        log_path = profile / "custom_deploy_log.txt"
+        log_path.write_text(str(target) + "\n", encoding="utf-8")
+        backup_root = profile / "custom_deploy_backup"
+        backup = backup_root / target.relative_to(target.anchor)
+        backup.parent.mkdir(parents=True)
+        backup.write_text("vanilla-settings")
+
+        real_unlink = Path.unlink
+        failed = False
+
+        def _fail_target_once(path: Path, *args, **kwargs) -> None:
+            nonlocal failed
+            if path == target and not failed:
+                failed = True
+                raise PermissionError("injected external unlink failure")
+            real_unlink(path, *args, **kwargs)
+
+        try:
+            with patch.object(Path, "unlink", _fail_target_once):
+                cleanup_custom_deploy_dirs(profile, entries=[])
+        except RuntimeError as exc:
+            message = str(exc).lower()
+            assert "retained" in message
+            assert "another restore attempt" in message
+        else:
+            raise AssertionError("external cleanup unlink failure was ignored")
+
+        assert target.read_text() == "profile-settings"
+        assert log_path.read_text(encoding="utf-8").splitlines() == [
+            str(target),
+        ]
+        assert backup.read_text() == "vanilla-settings"
+
+        removed = cleanup_custom_deploy_dirs(profile, entries=[])
+        assert removed == 1
+        assert target.read_text() == "vanilla-settings"
+        assert not log_path.exists()
+        assert not backup_root.exists()
+    print("✓ external separator cleanup retains recovery state for retry")
 
 
 def test_ue5_nested_project_shadow_view() -> None:
@@ -887,6 +1895,54 @@ def test_ue5_physical_mods_txt_restore() -> None:
     print("✓ physical UE5 deploy restores the original UE4SS mods.txt")
 
 
+def test_oblivion_restore_handles_physical_vfs_coexistence() -> None:
+    """A physical UE5 marker must survive VFS-state classification."""
+    class _RestoreFixture(OblivionRemastered):
+        def __init__(self, root: Path):
+            self.physical_manifest = root / "ue5_deployed.txt"
+            self.external_manifest = root / "external_deployed.txt"
+            self.prefix_context = root / "prefix_context.json"
+            self.plugins_removals = 0
+
+        def _ue5_deployed_manifest_path(self) -> Path:
+            return self.physical_manifest
+
+        def _vfs_external_manifest_path(
+            self, profile: str | None = None,
+        ) -> Path:
+            return self.external_manifest
+
+        def _vfs_prefix_context_path(
+            self, profile: str | None = None,
+        ) -> Path:
+            return self.prefix_context
+
+        def _remove_plugins_txt_symlink(self, log_fn) -> None:
+            self.plugins_removals += 1
+
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _RestoreFixture(Path(tmp))
+        game.physical_manifest.write_text("physical")
+        with (
+            patch.object(UE5Game, "restore", return_value=None) as base_restore,
+            patch("Utils.vfs.has_deployment_state", return_value=True),
+        ):
+            game.restore()
+        base_restore.assert_called_once()
+        assert game.plugins_removals == 1
+
+        # Pure VFS state keeps Plugins.txt private to the view and must not
+        # run the physical plugin cleanup path.
+        game.physical_manifest.unlink()
+        with (
+            patch.object(UE5Game, "restore", return_value=None),
+            patch("Utils.vfs.has_deployment_state", return_value=True),
+        ):
+            game.restore()
+        assert game.plugins_removals == 1
+    print("✓ Oblivion restore distinguishes pure VFS from coexistence")
+
+
 def test_subnautica_shadow_view() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         game = _FakeSubnauticaGame(Path(tmp))
@@ -1122,6 +2178,162 @@ def test_vfs_as_deploy_method() -> None:
     print("✓ VFS is exposed as a third deploy method")
 
 
+def test_deploy_pipeline_stops_on_incomplete_restore() -> None:
+    """Only the typed recoverable-state error must abort before deploy."""
+    filemap_stub = types.ModuleType("Utils.filemap")
+    filemap_stub.build_filemap = lambda *_args, **_kwargs: None
+    with patch.dict(sys.modules, {"Utils.filemap": filemap_stub}):
+        from Utils.deploy_pipeline import run_deploy_pipeline
+
+    class _PipelineGame:
+        name = "Restore Pipeline Test"
+        restore_before_deploy = True
+        root_folder_deploy_enabled = True
+        wine_dll_overrides: dict[str, str] = {}
+        mod_folder_strip_prefixes: set[str] = set()
+
+        def __init__(self, root: Path, restore_error: RuntimeError):
+            self.root = root
+            self.game = root / "game"
+            self.profiles = root / "profiles-root"
+            self.profile = self.profiles / "profiles" / "default"
+            self.staging = self.profiles / "mods"
+            self.data = self.game / "Data"
+            self.filemap = self.profiles / "filemap.txt"
+            self.root_folder = root / "missing-root-folder"
+            self.restore_error = restore_error
+            self.restore_calls = 0
+            self.deploy_calls = 0
+            self.saved_profile: tuple[str, str] | None = None
+            self._active_profile_dir = self.profile
+            for directory in (
+                self.game, self.profile, self.staging, self.data,
+            ):
+                directory.mkdir(parents=True, exist_ok=True)
+            (self.game / "Game.exe").write_text("launcher")
+            self.filemap.write_text("", encoding="utf-8")
+
+        def get_game_path(self) -> Path:
+            return self.game
+
+        def get_profile_root(self) -> Path:
+            return self.profiles
+
+        def get_last_deployed_profile(self):
+            return None
+
+        def set_active_profile_dir(self, path: Path) -> None:
+            self._active_profile_dir = Path(path)
+
+        def load_paths(self) -> None:
+            return None
+
+        def restore(self, **_kwargs) -> None:
+            self.restore_calls += 1
+            raise self.restore_error
+
+        def get_effective_root_folder_path(self) -> Path:
+            return self.root_folder
+
+        def get_effective_mod_staging_path(self) -> Path:
+            return self.staging
+
+        def get_effective_filemap_path(self) -> Path:
+            return self.filemap
+
+        def get_mod_data_path(self) -> Path:
+            return self.data
+
+        def get_prefix_path(self):
+            return None
+
+        def get_deploy_mode(self) -> LinkMode:
+            return LinkMode.HARDLINK
+
+        def begin_deferred_runtime_snapshot(self) -> None:
+            return None
+
+        def end_deferred_runtime_snapshot(self):
+            return False, []
+
+        def deploy(self, **_kwargs) -> None:
+            self.deploy_calls += 1
+
+        def save_last_deployed_profile(
+            self, profile: str, *, deploy_mode: str,
+        ) -> None:
+            self.saved_profile = profile, deploy_mode
+
+        def post_deploy(self, **_kwargs) -> None:
+            return None
+
+    def _run(game: _PipelineGame) -> tuple[bool, list[str]]:
+        messages: list[str] = []
+        mod_files_stub = types.ModuleType("Utils.mod_files")
+        mod_files_stub.excluded_raw_by_mod = lambda _profile: {}
+        with (
+            patch.dict(sys.modules, {"Utils.mod_files": mod_files_stub}),
+            patch(
+                "Utils.profile_groups.materialize_if_group",
+                return_value=None,
+            ),
+            patch(
+                "Utils.deploy_pipeline._build_filemap_for_game",
+                return_value=None,
+            ),
+            patch(
+                "Utils.flatpak_sandbox.ensure_symlink_target_access",
+                return_value=None,
+            ),
+            patch(
+                "Utils.deploy_pipeline.load_per_mod_strip_prefixes",
+                return_value={},
+            ),
+            patch(
+                "Utils.deploy_pipeline.deploy_root_flagged_mods",
+                return_value=0,
+            ),
+        ):
+            result = run_deploy_pipeline(
+                game,
+                "default",
+                log_fn=messages.append,
+                do_backup=False,
+            )
+        return result, messages
+
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _PipelineGame(
+            Path(tmp),
+            RestoreIncompleteError("managed recovery state remains"),
+        )
+        result, messages = _run(game)
+        assert not result
+        assert game.restore_calls == 1
+        assert game.deploy_calls == 0
+        assert any("Deploy FAILED" in message for message in messages)
+        assert not any("continuing" in message for message in messages)
+        assert game._active_profile_dir == game.profile
+
+    # Ordinary RuntimeError remains the historical first-deploy path: it is
+    # logged, but deployment is still allowed to proceed to completion.
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _PipelineGame(
+            Path(tmp), RuntimeError("nothing has been deployed yet"))
+        result, messages = _run(game)
+        assert result
+        assert game.restore_calls == 1
+        assert game.deploy_calls == 1
+        assert game.saved_profile == ("default", "HARDLINK")
+        assert any(
+            "nothing has been deployed yet" in message
+            and "continuing" in message
+            for message in messages
+        )
+        assert any("Deploy finished OK" in message for message in messages)
+    print("✓ deploy pipeline stops only for incomplete managed restore state")
+
+
 def test_flatpak_host_wrap() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         game = _FakeGame(Path(tmp))
@@ -1353,13 +2565,27 @@ def main() -> None:
     test_layer_build_and_skse_selection()
     test_shared_bethesda_hooks()
     test_generic_mod_data_directory()
+    test_vfs_cleanup_failure_remains_discoverable()
+    test_standard_custom_shadow_view()
+    test_root_custom_shadow_view()
+    test_custom_standard_root_factory_vfs_contract()
+    test_custom_nondefault_pending_profile_discovery()
+    test_custom_missing_prefix_match_fails()
+    test_custom_rule_global_first_match_partition()
+    test_custom_physical_deploy_modes_unchanged()
+    test_custom_pending_prefix_restore_and_traversal_guard()
+    test_custom_rule_symlink_restore_and_redeploy_self_heal()
+    test_custom_rule_prefix_restore_failure_is_retryable()
+    test_external_separator_cleanup_failure_is_retryable()
     test_ue5_nested_project_shadow_view()
     test_custom_ue5_factory_vfs_contract()
     test_ue5_external_routes_restore_and_failure_rollback()
     test_ue5_physical_mods_txt_restore()
+    test_oblivion_restore_handles_physical_vfs_coexistence()
     test_subnautica_shadow_view()
     test_stardew_shadow_view()
     test_vfs_as_deploy_method()
+    test_deploy_pipeline_stops_on_incomplete_restore()
     test_flatpak_host_wrap()
     test_umu_uses_shadow_directly()
     test_steam_runtime_uses_shadow_directly()

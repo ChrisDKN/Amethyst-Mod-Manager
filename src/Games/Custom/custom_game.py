@@ -44,6 +44,7 @@ from pathlib import Path
 
 from Games.base_game import BaseGame
 from Games.ue5_game import UE5Game, UE5Rule
+from Utils.vfs import ProfileVFSGameMixin
 from Utils.deploy import (
     CustomRule,
     LinkMode,
@@ -415,8 +416,13 @@ def _make_game_id(name: str) -> str:
 # Standard-deploy custom game
 # ---------------------------------------------------------------------------
 
-class StandardCustomGame(BaseGame):
+class StandardCustomGame(ProfileVFSGameMixin, BaseGame):
     """Custom game that deploys mods into a single subdirectory ('standard' mode)."""
+
+    profile_overridable_settings = (
+        *BaseGame.profile_overridable_settings,
+        *ProfileVFSGameMixin.vfs_profile_setting_keys,
+    )
 
     def __init__(self, defn: dict) -> None:
         self._defn = defn
@@ -569,7 +575,7 @@ class StandardCustomGame(BaseGame):
     def get_mod_data_path(self) -> Path | None:
         if self._game_path is None:
             return None
-        rel = self._defn.get("mod_data_path", "").strip("/\\")
+        rel = self._defn.get("mod_data_path", "").strip("/\\").replace("\\", "/")
         if rel:
             return self._game_path / rel
         return self._game_path
@@ -577,11 +583,17 @@ class StandardCustomGame(BaseGame):
     def runtime_snapshot_exclude_dirs(self) -> set[str] | None:
         # Exclude the configured deploy subfolder. No subfolder = deploy target
         # is the game root, so there is nothing to snapshot around - None.
-        rel = self._defn.get("mod_data_path", "").strip("/\\")
+        rel = self._defn.get("mod_data_path", "").strip("/\\").replace("\\", "/")
         if not rel:
             return None
-        top = rel.replace("\\", "/").split("/")[0]
+        top = rel.split("/")[0]
         return {top} if top else None
+
+    @property
+    def vfs_direct_shadow_launch(self) -> bool:
+        # Native custom games need their executable and cwd inside the complete
+        # materialized view. Windows games continue through Proton/UMU/runtime.
+        return Path(self.exe_name).suffix.lower() not in (".exe", ".bat")
 
     def get_mod_staging_path(self) -> Path:
         if self._staging_path is not None:
@@ -592,8 +604,7 @@ class StandardCustomGame(BaseGame):
     # Persistence
     # ------------------------------------------------------------------
 
-    # load_paths / save_paths are inherited from BaseGame (profile-aware);
-    # custom games deploy via symlink/hardlink only.
+    # load_paths / save_paths are inherited from BaseGame (profile-aware).
 
     def set_staging_path(self, path: Path | str | None) -> None:
         self._staging_path = Path(path) if path else None
@@ -632,6 +643,15 @@ class StandardCustomGame(BaseGame):
         if not filemap.is_file():
             raise RuntimeError(f"filemap.txt not found: {filemap}\nRun 'Build Filemap' before deploying.")
 
+        if self.vfs_launch_enabled:
+            return self._deploy_vfs(
+                profile=profile,
+                filemap=filemap,
+                staging=staging,
+                log_fn=_log,
+                progress_fn=progress_fn,
+            )
+
         data_dir.mkdir(parents=True, exist_ok=True)
 
         profile_dir = self.get_profile_root() / "profiles" / profile
@@ -660,6 +680,7 @@ class StandardCustomGame(BaseGame):
                 log_fn=_log,
                 prefix_root=self.get_prefix_path(),
             )
+
             _log(f"Step 2: Moving {data_dir.name}/ → {data_dir.name}_Core/ ...")
         else:
             _log(f"Step 1: Moving {data_dir.name}/ → {data_dir.name}_Core/ ...")
@@ -704,11 +725,23 @@ class StandardCustomGame(BaseGame):
         custom_rules = self.custom_routing_rules
         if custom_rules:
             _log("Restore: removing custom-routed files ...")
-            restore_custom_rules(
-                self.get_effective_filemap_path(), self._game_path,
-                rules=custom_rules, log_fn=_log,
-                prefix_root=self.get_prefix_path(),
-            )
+        # The deployment log is authoritative and may outlive a definition
+        # edit that removed its rules, so always give restore a chance to
+        # consume both the log and backup-only interrupted state.
+        restore_custom_rules(
+            self.get_effective_filemap_path(), self._game_path,
+            rules=custom_rules, log_fn=_log,
+            prefix_root=self.get_prefix_path(),
+        )
+
+        from Utils.vfs import cleanup_deployment, has_deployment_state
+        if has_deployment_state(self):
+            cleanup_deployment(self, preserve_upper=True, log_fn=_log)
+            core_dir = data_dir.parent / (data_dir.name + "_Core")
+            if not core_dir.is_dir():
+                _log("Restore complete.")
+                return
+            _log("Restore: a physical deployment also remains; restoring it now ...")
 
         _log(f"Restore: clearing {data_dir.name}/ and moving {data_dir.name}_Core/ back ...")
         _data_rel = self._defn.get("mod_data_path", "").strip("/\\")
@@ -756,6 +789,15 @@ class RootCustomGame(StandardCustomGame):
 
         if not filemap.is_file():
             raise RuntimeError(f"filemap.txt not found: {filemap}\nRun 'Build Filemap' before deploying.")
+
+        if self.vfs_launch_enabled:
+            return self._deploy_vfs(
+                profile=profile,
+                filemap=filemap,
+                staging=staging,
+                log_fn=_log,
+                progress_fn=progress_fn,
+            )
 
         profile_dir = self.get_profile_root() / "profiles" / profile
         per_mod_strip = load_per_mod_strip_prefixes(profile_dir)
@@ -809,8 +851,22 @@ class RootCustomGame(StandardCustomGame):
         custom_rules = self.custom_routing_rules
         if custom_rules:
             _log("Restore: removing custom-routed files ...")
-            restore_custom_rules(filemap, game_root, rules=custom_rules, log_fn=_log,
-                                 prefix_root=self.get_prefix_path())
+        restore_custom_rules(
+            filemap, game_root, rules=custom_rules, log_fn=_log,
+            prefix_root=self.get_prefix_path())
+
+        from Utils.vfs import cleanup_deployment, has_deployment_state
+        if has_deployment_state(self):
+            cleanup_deployment(self, preserve_upper=True, log_fn=_log)
+            physical_state = (
+                filemap.parent / "filemap_deployed.txt"
+            ).is_file() or (
+                filemap.parent / "filemap_backup"
+            ).is_dir()
+            if not physical_state:
+                _log("Restore complete.")
+                return
+            _log("Restore: a physical deployment also remains; restoring it now ...")
 
         _log("Restore: removing mod files and restoring vanilla files ...")
         removed = restore_filemap_from_root(

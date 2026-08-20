@@ -20,8 +20,19 @@ from enum import Enum, auto
 from pathlib import Path
 
 from Utils.app_log import safe_log as _safe_log
-from Utils.atomic_write import atomic_writer
+from Utils.atomic_write import atomic_writer, write_atomic_text
 from Utils.path_utils import has_path_traversal as _has_traversal
+
+
+class RestoreIncompleteError(RuntimeError):
+    """A deployment restore retained recovery state and must be retried.
+
+    Deploy orchestration may tolerate an ordinary ``RuntimeError`` when there
+    is nothing to restore yet (for example, the first deploy of an
+    unconfigured game).  This exception marks the opposite case: managed
+    files or irreplaceable backups still exist, so starting another deploy
+    would risk overwriting the recovery journal.
+    """
 
 
 def _mkdir_leaves(dirs: "set[str]") -> None:
@@ -324,12 +335,21 @@ def cleanup_custom_deploy_dirs(
         file_list = _reconstruct_custom_deploy_list(
             profile_dir, entries, filemap_path, _log
         )
-        backup_dir = profile_dir / "custom_deploy_backup"
+        backup_candidates = (
+            profile_dir / "custom_deploy_backup",
+            profile_dir.parent.parent / "custom_deploy_backup",
+        )
+        backup_dir = next(
+            (candidate for candidate in backup_candidates
+             if candidate.is_dir()),
+            backup_candidates[0],
+        )
         if not file_list and not backup_dir.is_dir():
             return 0
 
     removed = 0
     skipped_unknown = 0
+    retry_entries: list[str] = []
     dirs_to_prune: set[Path] = set()
     # Seed stop_dirs with the user-configured custom deploy roots - those are
     # always-existing parents we must never remove. Subfolders we created
@@ -352,15 +372,23 @@ def cleanup_custom_deploy_dirs(
         _norm = abs_str.replace("\\", "/")
         if ".." in _norm.split("/"):
             _log(f"  WARN: skipping suspicious path in custom_deploy_log: {abs_str!r}")
+            if not fallback_mode:
+                retry_entries.append(abs_str)
             continue
         target = Path(abs_str)
         try:
             tgt_stat = os.lstat(abs_str)
-        except OSError:
+        except FileNotFoundError:
+            continue
+        except OSError as exc:
+            _log(f"  WARN: could not inspect custom-deployed {target}: {exc}")
+            retry_entries.append(abs_str)
             continue
         is_symlink = _stat.S_ISLNK(tgt_stat.st_mode)
         is_regular = _stat.S_ISREG(tgt_stat.st_mode)
         if not (is_symlink or is_regular):
+            if not fallback_mode:
+                retry_entries.append(abs_str)
             continue
 
         if fallback_mode and is_regular:
@@ -390,6 +418,43 @@ def cleanup_custom_deploy_dirs(
             dirs_to_prune.add(target.parent)
         except OSError as exc:
             _log(f"  WARN: could not remove custom-deployed {target}: {exc}")
+            retry_entries.append(abs_str)
+
+    # Never restore (or discard) originals while any managed destination could
+    # not be removed. Persist only those paths for a retry; already-cleared
+    # entries are harmlessly absent until the next Restore completes.
+    if retry_entries:
+        _prune_empty_dirs(dirs_to_prune, stop_dirs)
+        retry_log = log_path or (backup_dir.parent / "custom_deploy_log.txt")
+        try:
+            write_atomic_text(
+                retry_log,
+                "\n".join(retry_entries),
+                errors="surrogateescape",
+            )
+        except OSError as exc:
+            raise RestoreIncompleteError(
+                "Could not preserve external deployment recovery state: "
+                f"{exc}"
+            ) from exc
+        raise RestoreIncompleteError(
+            "Some files at external deployment locations could not be "
+            "removed; their backups and recovery journal were retained for "
+            "another Restore attempt."
+        )
+
+    # Clear the destination journal before moving originals back. If the
+    # process stops during backup restoration, a later call takes the
+    # backup-only path and never mistakes an already-restored original for a
+    # deployed mod file.
+    if log_path is not None:
+        try:
+            log_path.unlink()
+        except OSError as exc:
+            raise RestoreIncompleteError(
+                "Could not clear the external deployment journal before "
+                f"restoring originals: {exc}"
+            ) from exc
 
     # Restore any originals that were backed up before deployment.  Backups
     # under custom_deploy_backup/ mirror absolute filesystem paths, so we
@@ -398,14 +463,13 @@ def cleanup_custom_deploy_dirs(
         backup_dir, Path("/"), _log,
         check_traversal=False, swallow_errors=True,
     )
+    if backup_dir.is_dir():
+        raise RestoreIncompleteError(
+            "Some originals at external deployment locations could not be "
+            "restored; their backups were retained for another Restore attempt."
+        )
 
     _prune_empty_dirs(dirs_to_prune, stop_dirs)
-
-    if log_path is not None:
-        try:
-            log_path.unlink()
-        except OSError:
-            pass
 
     if removed:
         _log(f"  Removed {removed} file(s) from custom deployment location(s).")
@@ -522,7 +586,7 @@ def _restore_backup_dir(
     resolve_dir_case: bool = False,
 ) -> int:
     """Move every file under *backup_dir* back into *target_root* (preserving
-    relative path), then remove *backup_dir*.
+    relative path), then remove *backup_dir* after complete success.
 
     Used by every restore path that has a sibling backup directory holding
     pre-deployment originals (Root_Backup/, custom_rules_backup/,
@@ -546,8 +610,7 @@ def _restore_backup_dir(
         the root of the filesystem and the check is meaningless.
     swallow_errors
         When True, catch ``OSError`` per file and log a warning rather than
-        propagating.  Used by the cleanup paths that must keep going even if
-        a single file can't be restored.
+        propagating. Failed entries and their backup tree remain for retry.
     resolve_dir_case
         Match existing destination directory names case-insensitively.  Root
         deployment uses this on case-sensitive filesystems because deploy
@@ -561,6 +624,7 @@ def _restore_backup_dir(
 
     tag = label if label is not None else f"{backup_dir.name}/"
     restored = 0
+    restore_failed = False
     dir_cache: dict = {}
     _bak_files: list[Path] = []
     for _dp, _dns, _fns in os.walk(str(backup_dir)):
@@ -569,6 +633,14 @@ def _restore_backup_dir(
         for _dn in [d for d in _dns if d.endswith(_MOVE_TMP_SUFFIX)]:
             _dns.remove(_dn)
             shutil.rmtree(os.path.join(_dp, _dn), ignore_errors=True)
+        # os.walk classifies symlinks to directories as directories even when
+        # followlinks=False.  They are backed-up path entries, not containers,
+        # and must be moved back just like symlinks to files.
+        for _dn in list(_dns):
+            _candidate = Path(_dp) / _dn
+            if _candidate.is_symlink():
+                _dns.remove(_dn)
+                _bak_files.append(_candidate)
         for _fn in _fns:
             if _fn.endswith(_MOVE_TMP_SUFFIX):
                 _rm_any(os.path.join(_dp, _fn))
@@ -580,6 +652,7 @@ def _restore_backup_dir(
                 if resolve_dir_case else target_root / rel)
         if check_traversal and not _path_under_root(orig, target_root):
             _log(f"  SKIP: path traversal blocked - {rel}")
+            restore_failed = True
             continue
         try:
             _move_crash_safe(bak_src, orig)
@@ -589,8 +662,13 @@ def _restore_backup_dir(
             if not swallow_errors:
                 raise
             _log(f"  WARN: could not restore {orig}: {exc}")
+            restore_failed = True
 
-    shutil.rmtree(backup_dir, ignore_errors=True)
+    # Failed originals are the only recoverable copies. Never discard the
+    # backup tree merely because this cleanup path was asked to continue after
+    # an error; a later Restore can retry the entries which remain in it.
+    if not restore_failed:
+        shutil.rmtree(backup_dir, ignore_errors=True)
     return restored
 
 
@@ -2436,6 +2514,7 @@ __all__ = [
     "LinkMode",
     "CustomRule",
     "RestoreWhitelistRule",
+    "RestoreIncompleteError",
     "build_restore_whitelist_matcher",
     # Public helpers
     "load_per_mod_strip_prefixes",

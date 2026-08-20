@@ -316,12 +316,13 @@ class OblivionRemastered(UE5Game):
         self._symlink_plugins_txt(profile, _log)
 
     def restore(self, log_fn=None, progress_fn=None) -> None:
-        from Utils.vfs import manifest_path
+        from Utils.vfs import has_deployment_state
+        had_physical = self._ue5_deployed_manifest_path().is_file()
         was_vfs = (
-            manifest_path(self).is_file()
+            has_deployment_state(self)
             or self._vfs_external_manifest_path().exists()
             or self._vfs_prefix_context_path().exists()
         )
         super().restore(log_fn=log_fn, progress_fn=progress_fn)
-        if not was_vfs:
+        if had_physical or not was_vfs:
             self._remove_plugins_txt_symlink(log_fn or (lambda _: None))

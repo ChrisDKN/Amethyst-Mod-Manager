@@ -17,9 +17,11 @@ from functools import lru_cache
 from pathlib import Path
 
 from Utils.app_log import safe_log as _safe_log
+from Utils.atomic_write import write_atomic_text
 from Utils.deploy_shared import (
     CustomRule,
     LinkMode,
+    RestoreIncompleteError,
     _deploy_workers,
     _do_link,
     _iter_map_batched,
@@ -219,6 +221,108 @@ def compute_prefix_handled(
     return prefix_handled, prefix_primaries
 
 
+def compute_rule_claims(
+    entries: list[tuple[str, str]], rules: list["CustomRule"],
+) -> tuple[set[str], set[str]]:
+    """Return paths claimed by non-prefix and prefix rules respectively.
+
+    This is the source-free equivalent of :func:`deploy_custom_rules`: rules
+    are evaluated in declaration order, include-sibling drags happen before the
+    next rule, and companions are claimed only after all primary rules.  VFS
+    uses the result to populate its private game layer and the physical Proton
+    prefix in separate passes without breaking the normal global
+    first-match-wins contract.
+    """
+    norm_rules = [_normalise_rule(rule) for rule in rules]
+    indexed: list[tuple[str, str, str]] = []
+    entries_by_parent: dict[str, list[tuple[str, str, str]]] = {}
+    seen: set[str] = set()
+    for raw_rel, mod_name in entries:
+        rel_str = raw_rel.replace("\\", "/")
+        rel_lower = rel_str.lower()
+        if rel_lower in seen:
+            continue
+        seen.add(rel_lower)
+        indexed.append((rel_str, mod_name, rel_lower))
+        parent_lower, _, name_lower = rel_lower.rpartition("/")
+        entries_by_parent.setdefault(parent_lower, []).append(
+            (rel_str, mod_name, name_lower))
+
+    claims: dict[str, bool] = {}  # rel_lower -> to_prefix
+    primaries: list[tuple[str, str, str, "CustomRule", str]] = []
+    for rule, folders, exts, filenames in norm_rules:
+        new_primaries: list[tuple[str, str, int, str]] = []
+        for rel_str, mod_name, rel_lower in indexed:
+            if rel_lower in claims:
+                continue
+            hit = _match_single_rule(
+                rel_lower, rule, folders, exts, filenames)
+            if hit is None:
+                continue
+            strip_len, matched_ext = hit
+            claims[rel_lower] = bool(rule.to_prefix)
+            primaries.append(
+                (rel_lower, rel_str, mod_name, rule, matched_ext))
+            new_primaries.append(
+                (rel_str, mod_name, strip_len, matched_ext))
+
+        if not rule.include_siblings or not new_primaries:
+            continue
+        drags: list[tuple[str, str, bool]] = []
+        for rel_str, mod_name, strip_len, _matched_ext in new_primaries:
+            info = _sibling_container(rel_str, strip_len, mod_name)
+            if info is None:
+                continue
+            container_path, _container_name = info
+            drags.append(
+                (container_path.lower(), mod_name, container_path == ""))
+        drags.sort(key=lambda item: (0 if item[2] else 1, -len(item[0])))
+        seen_drags: set[tuple[str, str]] = set()
+        for container_lower, mod_name, whole_mod in drags:
+            key = (container_lower, mod_name)
+            if key in seen_drags:
+                continue
+            seen_drags.add(key)
+            prefix = container_lower + "/" if container_lower else ""
+            for _rel_str, sibling_mod, sibling_lower in indexed:
+                if sibling_lower in claims or sibling_mod != mod_name:
+                    continue
+                if not whole_mod and not sibling_lower.startswith(prefix):
+                    continue
+                claims[sibling_lower] = bool(rule.to_prefix)
+
+    # Companion files are considered only after every rule's primary and
+    # include-sibling claims, matching deploy_custom_rules' second pass.
+    for rel_lower, _rel_str, _mod_name, rule, matched_ext in primaries:
+        companions = sorted(
+            {extension.lower() for extension in rule.companion_extensions},
+            key=len,
+            reverse=True,
+        )
+        if not companions:
+            continue
+        parent_lower, _, name_lower = rel_lower.rpartition("/")
+        if matched_ext and name_lower.endswith(matched_ext):
+            stem_lower = name_lower[:-len(matched_ext)]
+        else:
+            stem_lower, _extension = os.path.splitext(name_lower)
+        stem_dot = stem_lower + "."
+        for sibling_rel, _sibling_mod, sibling_name in entries_by_parent.get(
+                parent_lower, ()):
+            sibling_lower = sibling_rel.lower()
+            if sibling_lower in claims or not sibling_name.startswith(stem_dot):
+                continue
+            if any(
+                    sibling_name.endswith(extension)
+                    and len(sibling_name) > len(extension)
+                    for extension in companions):
+                claims[sibling_lower] = bool(rule.to_prefix)
+
+    game_claims = {path for path, to_prefix in claims.items() if not to_prefix}
+    prefix_claims = {path for path, to_prefix in claims.items() if to_prefix}
+    return game_claims, prefix_claims
+
+
 def _sibling_container(
     rel_str: str, strip_len: int, mod_name: str,
 ) -> tuple[str, str] | None:
@@ -346,6 +450,7 @@ def deploy_custom_rules(
     log_fn=None,
     progress_fn=None,
     prefix_root: Path | None = None,
+    claim_paths: set[str] | None = None,
 ) -> set[str]:
     """Deploy filemap entries that match a CustomRule to their designated dirs.
 
@@ -360,6 +465,10 @@ def deploy_custom_rules(
 
     Returns the set of lowercased rel_paths that were handled so the caller
     can exclude them from the normal deploy step.
+
+    ``claim_paths`` optionally restricts the pass to a precomputed set of
+    lowercased filemap paths. It lets callers preserve rule ownership while
+    materializing different destination namespaces separately.
 
     A log of placed absolute paths is written to
     filemap_path.parent / "custom_rules_deployed.txt" for use by
@@ -406,6 +515,10 @@ def deploy_custom_rules(
         except Exception:
             _raw_mods = set()
     _raw_mods = _raw_mods or set()
+    _claim_paths = (
+        {path.replace("\\", "/").lower() for path in claim_paths}
+        if claim_paths is not None else None
+    )
 
     def _rule_base(rule: CustomRule) -> Path | None:
         """Return the root directory this rule's ``dest`` is resolved under,
@@ -480,6 +593,10 @@ def deploy_custom_rules(
             if "\t" not in line:
                 continue
             rel_str, mod_name = line.split("\t", 1)
+            rel_str = rel_str.replace("\\", "/")
+            if (_claim_paths is not None
+                    and rel_str.lower() not in _claim_paths):
+                continue
             # Raw-deploy mods bypass routing rules entirely - leave their files
             # for the normal deploy step (placed as-is under the custom dir).
             if mod_name in _raw_mods:
@@ -713,11 +830,14 @@ def deploy_custom_rules(
     backup_dir = filemap_path.parent / _CUSTOM_RULES_BACKUP_DIR
     prefix_backup_dir = filemap_path.parent / _CUSTOM_RULES_PREFIX_BACKUP_DIR
 
-    # Self-heal: a leftover deploy log means the previous deploy was never
-    # restored (crashed or failed restore).  Restore it now - otherwise the
-    # rmtree below would destroy the backed-up vanilla originals.
-    if (filemap_path.parent / _CUSTOM_RULES_LOG_NAME).is_file():
-        _log("  Previous custom-rules deploy log still present - restoring it before redeploying.")
+    log_path = filemap_path.parent / _CUSTOM_RULES_LOG_NAME
+
+    # Self-heal an interrupted prior deploy before discarding its backups.
+    # A process can stop after moving the first original aside but before the
+    # destination journal is published, so either a log *or* a backup tree is
+    # sufficient evidence that recovery is required.
+    if log_path.is_file() or backup_dir.exists() or prefix_backup_dir.exists():
+        _log("  Previous custom-rules deployment state found - restoring it before redeploying.")
         restore_custom_rules(filemap_path, game_root, rules=[],
                              log_fn=log_fn, prefix_root=prefix_root)
 
@@ -726,11 +846,7 @@ def deploy_custom_rules(
     if prefix_backup_dir.exists():
         shutil.rmtree(prefix_backup_dir)
 
-    # Create destination directories (skip parents implied by deeper leaves)
-    _mkdir_leaves({str(dst.parent) for _, dst, _ in tasks})
-
     placed_abs: list[str] = []
-    total = len(tasks)
     _game_root = game_root
     _prefix_root = prefix_root
 
@@ -749,33 +865,72 @@ def deploy_custom_rules(
         return None
 
     # Back up any vanilla files we are about to overwrite (must be serial).
-    # One lstat per destination instead of exists()+is_symlink().
+    # Only destinations that are absent, regular files, or symlinks are valid
+    # file-transfer targets.  A completed backup or a still-intact original is
+    # guaranteed before a destination enters the pre-mutation journal below.
     import stat as _stat
+    blocked: set[str] = set()
     for src, dst, _mod in tasks:
+        dst_key = str(dst)
+        if dst_key in blocked:
+            continue
         try:
             _st = os.lstat(dst)
-        except OSError:
+        except FileNotFoundError:
             continue
-        if _stat.S_ISLNK(_st.st_mode):
-            dst.unlink()
-        elif _stat.S_ISREG(_st.st_mode):
-            picked = _pick_backup(dst)
-            if picked is None:
-                _log(f"  WARN: could not back up {dst}: outside known roots")
-            else:
-                bak_root, rel = picked
-                try:
-                    bak = bak_root / rel
-                    _move_crash_safe(dst, bak)
-                except OSError as e:
-                    _log(f"  WARN: could not back up {dst}: {e}")
+        except OSError as exc:
+            blocked.add(dst_key)
+            _log(f"  WARN: could not inspect {dst}: {exc}")
+            continue
+        if not (_stat.S_ISLNK(_st.st_mode) or _stat.S_ISREG(_st.st_mode)):
+            blocked.add(dst_key)
+            _log(f"  WARN: refusing to replace non-file destination {dst}")
+            continue
+        picked = _pick_backup(dst)
+        if picked is None:
+            blocked.add(dst_key)
+            _log(f"  WARN: could not back up {dst}: outside known roots")
+            continue
+        bak_root, rel = picked
+        try:
+            _move_crash_safe(dst, bak_root / rel)
+        except OSError as exc:
+            blocked.add(dst_key)
+            _log(f"  WARN: could not back up {dst}: {exc}")
+
+    safe_tasks = [task for task in tasks if str(task[1]) not in blocked]
+    if not safe_tasks:
+        return handled_lower
+
+    # Publish every destination before creating/replacing any of them.  The
+    # final journal is narrowed to successful transfers below, but this planned
+    # form makes callback failures and process interruption recoverable: Restore
+    # can remove any path which may have been placed and then reinstate backups.
+    planned_abs = [str(dst) for _src, dst, _mod in safe_tasks]
+    try:
+        write_atomic_text(
+            log_path,
+            "\n".join(planned_abs),
+            errors="surrogateescape",
+        )
+    except OSError:
+        # No destination has been touched yet.  Put originals back immediately
+        # and surface the journal failure rather than deploying untracked files.
+        _restore_backup_dir(backup_dir, game_root, _log)
+        if prefix_root is not None:
+            _restore_backup_dir(prefix_backup_dir, prefix_root, _log)
+        raise
+
+    # Create destination directories (skip parents implied by deeper leaves).
+    _mkdir_leaves({str(dst.parent) for _, dst, _ in safe_tasks})
 
     # Transfer files in parallel. Each task carries the effective link mode:
     # a separator's File Transfer Method override (if any) wins over the global
     # mode, matching deploy_filemap's per-mod behaviour.
     transfer_tasks: list[tuple[str, str, LinkMode]] = [
-        (str(s), str(d), _per_mode.get(m, mode)) for s, d, m in tasks
+        (str(s), str(d), _per_mode.get(m, mode)) for s, d, m in safe_tasks
     ]
+    total = len(transfer_tasks)
 
     def _do_custom(item: tuple[str, str, LinkMode]) -> tuple[str | None, tuple[str, OSError] | None]:
         src_s, dst_s, eff_mode = item
@@ -795,15 +950,18 @@ def deploy_custom_rules(
         if progress_fn is not None and (done_count % 200 == 0 or done_count == total):
             progress_fn(done_count, total)
 
-    log_path = filemap_path.parent / _CUSTOM_RULES_LOG_NAME
     try:
         if placed_abs:
-            log_path.write_text("\n".join(placed_abs), encoding="utf-8",
-                                errors="surrogateescape")
+            write_atomic_text(
+                log_path,
+                "\n".join(placed_abs),
+                errors="surrogateescape",
+            )
         elif log_path.exists():
             log_path.unlink()
-    except OSError:
-        pass
+    except OSError as exc:
+        # Keep the conservative planned journal if narrowing it fails.
+        _log(f"  WARN: could not finalize custom-rules deploy journal: {exc}")
 
     _log(f"  Custom rules: placed {len(placed_abs)} file(s).")
     return handled_lower
@@ -833,17 +991,37 @@ def restore_custom_rules(
     prefix_backup_dir = filemap_path.parent / _CUSTOM_RULES_PREFIX_BACKUP_DIR
 
     if not log_path.is_file():
+        # An interruption during the backup phase can leave a recoverable
+        # original before the pre-mutation destination journal exists.
+        restored = _restore_backup_dir(backup_dir, game_root, _log)
+        if prefix_root is not None:
+            restored += _restore_backup_dir(
+                prefix_backup_dir, prefix_root, _log)
+        elif prefix_backup_dir.is_dir():
+            raise RestoreIncompleteError(
+                "A prefix-routed original still needs restoring, but no "
+                "Wine/Proton prefix is configured. Reconfigure the original "
+                "prefix and run Restore again."
+            )
+        if restored:
+            _log(
+                "  Custom rules restore: recovered "
+                f"{restored} original file(s) from an interrupted deploy."
+            )
         return 0
 
-    placed = [p for p in log_path.read_text(
-        encoding="utf-8", errors="surrogateescape").splitlines() if p]
+    placed = list(dict.fromkeys(
+        p for p in log_path.read_text(
+            encoding="utf-8", errors="surrogateescape").splitlines() if p
+    ))
     removed = 0
     dirs_to_prune: set[Path] = set()
+    retry_entries: list[str] = []
     _game_root_resolved = game_root.resolve()
     _prefix_root_resolved = prefix_root.resolve() if prefix_root else None
     # Pre-filter for path traversal (cheap, serial) so the worker pool only
     # does syscalls - one lstat + (maybe) one unlink per file.
-    safe_targets: list[Path] = []
+    safe_targets: list[tuple[str, Path]] = []
     for abs_str in placed:
         p = Path(abs_str)
         # Allow paths under either game_root or prefix_root. Try the
@@ -869,8 +1047,9 @@ def restore_custom_rules(
                     continue
         if under_root is None:
             _log(f"  SKIP: path traversal blocked - {abs_str}")
+            retry_entries.append(abs_str)
             continue
-        safe_targets.append(p)
+        safe_targets.append((abs_str, p))
         # Collect parent dirs for pruning (stop at the matched root)
         parent = p.parent
         while parent != under_root:
@@ -883,28 +1062,59 @@ def restore_custom_rules(
 
     import stat as _stat
 
-    def _unlink_one(p: Path) -> int:
+    def _unlink_one(item: tuple[str, Path]) -> tuple[str, bool, int]:
+        abs_str, p = item
         try:
             st = os.lstat(p)
+        except FileNotFoundError:
+            return abs_str, True, 0
         except OSError:
-            return 0
+            return abs_str, False, 0
         if _stat.S_ISLNK(st.st_mode) or _stat.S_ISREG(st.st_mode):
             try:
                 os.unlink(p)
-                return 1
+                return abs_str, True, 1
             except OSError:
-                return 0
-        return 0
+                return abs_str, False, 0
+        return abs_str, False, 0
 
     if safe_targets:
         with concurrent.futures.ThreadPoolExecutor(max_workers=_deploy_workers()) as pool:
-            for n in pool.map(_unlink_one, safe_targets):
+            for abs_str, cleared, n in pool.map(_unlink_one, safe_targets):
                 removed += n
+                if not cleared:
+                    retry_entries.append(abs_str)
+
+    if retry_entries:
+        stop_dirs = {game_root}
+        if prefix_root is not None:
+            stop_dirs.add(prefix_root)
+        _prune_empty_dirs(dirs_to_prune, stop_dirs=stop_dirs)
+        write_atomic_text(
+            log_path,
+            "\n".join(retry_entries),
+            errors="surrogateescape",
+        )
+        raise RestoreIncompleteError(
+            "Some custom-routed files could not be removed; their originals "
+            "and recovery journal were retained for another Restore attempt."
+        )
+
+    # Clear the journal before restoring originals. A retry after an
+    # interrupted restore then takes the backup-only path and cannot delete an
+    # original which was already moved back successfully.
+    log_path.unlink()
 
     # Restore backed-up vanilla files
     _restore_backup_dir(backup_dir, game_root, _log)
     if prefix_root is not None:
         _restore_backup_dir(prefix_backup_dir, prefix_root, _log)
+    elif prefix_backup_dir.is_dir():
+        raise RestoreIncompleteError(
+            "A prefix-routed original still needs restoring, but no "
+            "Wine/Proton prefix is configured. Reconfigure the original "
+            "prefix and run Restore again."
+        )
 
     # Prune empty subdirectories deepest-first; never touch either root itself
     stop_dirs = {game_root}
@@ -912,7 +1122,6 @@ def restore_custom_rules(
         stop_dirs.add(prefix_root)
     _prune_empty_dirs(dirs_to_prune, stop_dirs=stop_dirs)
 
-    log_path.unlink()
     _log(f"  Custom rules restore: removed {removed} file(s).")
     return removed
 
@@ -1020,6 +1229,7 @@ __all__ = [
     "_CUSTOM_RULES_BACKUP_DIR",
     "_CUSTOM_RULES_PREFIX_BACKUP_DIR",
     "deploy_custom_rules",
+    "compute_rule_claims",
     "restore_custom_rules",
     "mods_matching_root_rules",
 ]

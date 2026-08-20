@@ -394,11 +394,13 @@ class StardewValley(ProfileVFSGameMixin, BaseGame):
         # Restore according to what is actually deployed. This also handles a
         # profile whose VFS setting was changed after its private view was
         # published, without touching the physical Mods directory.
-        from Utils.vfs import cleanup_deployment, manifest_path
-        if manifest_path(self).is_file():
+        from Utils.vfs import cleanup_deployment, has_deployment_state
+        if has_deployment_state(self):
             cleanup_deployment(self, preserve_upper=True, log_fn=_log)
-            _log("Restore complete.")
-            return
+            if not core_dir.is_dir():
+                _log("Restore complete.")
+                return
+            _log("Restore: a physical deployment also remains; restoring it now ...")
 
         if core_dir.is_dir():
             _log(f"Restore: clearing {plugins_dir.name}/ and moving {core}/ back ...")

@@ -26,12 +26,13 @@ import os
 import shlex
 import shutil
 import subprocess
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Iterable
 
 from Utils.atomic_write import write_atomic_text
 from Utils.deploy import (
     LinkMode,
+    compute_rule_claims,
     deploy_custom_rules,
     deploy_filemap,
     deploy_root_flagged_mods,
@@ -49,6 +50,7 @@ from Utils.deploy_shared import (
 
 STATE_DIR_NAME = ".amethyst-vfs"
 MANIFEST_NAME = "manifest.json"
+PENDING_NAME = "pending"
 MANIFEST_VERSION = 1
 RUNTIME_NAME = "runtime.sh"
 BACKEND_KERNEL = "kernel-overlayfs"
@@ -96,6 +98,51 @@ def state_dir(game, profile: str | None = None) -> Path:
 
 def manifest_path(game, profile: str | None = None) -> Path:
     return state_dir(game, profile) / MANIFEST_NAME
+
+
+def pending_path(game, profile: str | None = None) -> Path:
+    """Marker retained when a VFS build stops before it can be published."""
+    return state_dir(game, profile) / PENDING_NAME
+
+
+def has_deployment_state(game, profile: str | None = None) -> bool:
+    """Whether a published or interrupted profile VFS deployment exists."""
+    return (manifest_path(game, profile).is_file()
+            or pending_path(game, profile).is_file())
+
+
+def deployment_state_profiles(game) -> tuple[str, ...]:
+    """Profiles with a published view or an interrupted-build marker.
+
+    VFS state is deliberately profile-local, while the application's Restore
+    worker starts from ``last_deployed``.  A first failed build has no successful
+    deploy record yet, so discover its marker here.  Newest state is returned
+    first; repeated Restore operations can therefore recover multiple stale
+    profiles deterministically if an older version ever left more than one.
+    """
+    profiles_root = game.get_profile_root() / "profiles"
+    try:
+        profiles = list(profiles_root.iterdir())
+    except OSError:
+        return ()
+    found: list[tuple[int, str]] = []
+    for profile_dir in profiles:
+        state = profile_dir / STATE_DIR_NAME
+        stamps: list[int] = []
+        for name in (MANIFEST_NAME, PENDING_NAME):
+            try:
+                stamps.append((state / name).stat().st_mtime_ns)
+            except OSError:
+                pass
+        if stamps:
+            found.append((max(stamps), profile_dir.name))
+    found.sort(key=lambda item: (-item[0], item[1].casefold()))
+    return tuple(name for _stamp, name in found)
+
+
+def has_any_deployment_state(game) -> bool:
+    """Whether any profile belonging to *game* retains VFS state."""
+    return bool(deployment_state_profiles(game))
 
 
 def _remove_tree(path: Path) -> None:
@@ -808,6 +855,10 @@ def build_layers(
         )
 
     state.mkdir(parents=True, exist_ok=True)
+    # Keep an explicit marker from before the first reversible physical side
+    # effect until the resolved view is published. Restore can then distinguish
+    # an interrupted first VFS build from an ordinary physical deployment.
+    write_atomic_text(state / PENDING_NAME, profile + "\n")
     existing_manifest = state / MANIFEST_NAME
     if existing_manifest.is_file():
         try:
@@ -850,6 +901,48 @@ def build_layers(
     )
     game_rules = [rule for rule in custom_rules if not rule.to_prefix]
     prefix_rules = [rule for rule in custom_rules if rule.to_prefix]
+    for rule in custom_rules:
+        for raw_dest in (rule.dest, *getattr(rule, "mirror_dests", ())):
+            normalized = str(raw_dest or "").replace("\\", "/")
+            dest = Path(normalized)
+            if (dest.is_absolute()
+                    or PureWindowsPath(normalized).is_absolute()
+                    or ".." in dest.parts):
+                raise RuntimeError(
+                    "Profile VFS custom-rule destinations must remain "
+                    f"relative to their game or prefix root: {raw_dest!r}"
+                )
+    # Most handlers route only inside the game and can use the established
+    # helper directly. Precompute ownership only when two namespaces compete,
+    # or when we must determine whether a missing prefix is actually needed.
+    game_claims: set[str] | None = None
+    prefix_claims: set[str] | None = None
+    needs_claim_partition = bool(game_rules and prefix_rules)
+    needs_prefix_probe = bool(
+        prefix_rules and game.get_prefix_path() is None)
+    routing_entries: list[tuple[str, str]] = []
+    if needs_claim_partition or needs_prefix_probe:
+        with filemap.open(encoding="utf-8", errors="surrogateescape") as handle:
+            for line in handle:
+                line = line.rstrip("\n")
+                if "\t" not in line:
+                    continue
+                relative, mod_name = line.split("\t", 1)
+                if not raw_mods or mod_name not in raw_mods:
+                    routing_entries.append((relative, mod_name))
+        game_claims, prefix_claims = compute_rule_claims(
+            routing_entries, custom_rules)
+
+    if prefix_claims and game.get_prefix_path() is None:
+        # A skipped prefix rule must never fall through into the game/data
+        # layer. Detect only rules that actually claim an enabled file so a
+        # definition may retain optional prefix routes without blocking an
+        # unrelated modlist.
+        raise RuntimeError(
+            "Profile VFS cannot route files into the Proton prefix because "
+            "this profile has no prefix configured. Configure the game's "
+            "Wine/Proton prefix, then deploy again."
+        )
 
     # Route root/Data rules against a private synthetic game directory.
     file_exclude_normalized: set[str] = {
@@ -857,11 +950,18 @@ def build_layers(
         for path in (file_exclude or ())
     }
     custom_exclude: set[str] = set(file_exclude_normalized)
-    if game_rules:
+    if game_rules and (game_claims is None or game_claims):
         _log("VFS: resolving custom root/Data routing rules ...")
+        # Synthetic game rules need private bookkeeping. Reusing the real
+        # filemap parent would let their self-heal/cleanup consume a previous
+        # physical prefix-route journal and destroy its recoverable backup.
+        routing_metadata = build / "routing-metadata"
+        routing_metadata.mkdir()
+        routing_filemap = routing_metadata / "filemap.txt"
+        shutil.copy2(filemap, routing_filemap)
         try:
             custom_exclude |= deploy_custom_rules(
-                filemap, routed_layer, staging,
+                routing_filemap, routed_layer, staging,
                 rules=game_rules,
                 mode=LinkMode.HARDLINK,
                 strip_prefixes=game.mod_folder_strip_prefixes,
@@ -870,38 +970,50 @@ def build_layers(
                 raw_mods=raw_mods,
                 log_fn=_log,
                 progress_fn=progress_fn,
+                claim_paths=game_claims,
             )
         finally:
-            _remove_artifacts(metadata_dir, _CUSTOM_RULE_ARTIFACTS)
+            _remove_artifacts(routing_metadata, _CUSTOM_RULE_ARTIFACTS)
 
-        routed_data = routed_layer.joinpath(*data_rel.parts)
-        if routed_data.is_dir():
-            for child in list(routed_data.iterdir()):
-                child.rename(data_layer / child.name)
-            routed_data.rmdir()
-        for child in list(routed_layer.iterdir()):
-            child.rename(root_layer / child.name)
-        routed_layer.rmdir()
+        if data_rel.parts:
+            routed_data = routed_layer.joinpath(*data_rel.parts)
+            _merge_tree(routed_data, data_layer)
+            _merge_tree(routed_layer, root_layer)
+        else:
+            # Root-deploy games use the same directory as both game and data
+            # root. Every non-prefix rule therefore belongs in the one private
+            # data layer; trying to split routed_layer from itself removes it
+            # before the root pass can run.
+            _merge_tree(routed_layer, data_layer)
+        if game_claims is not None:
+            custom_exclude |= game_claims
 
     # Prefix routes (loose saves) intentionally remain real prefix state and
     # retain the normal restore manifest. They never write to the game root.
-    if prefix_rules:
+    if prefix_rules and (prefix_claims is None or prefix_claims):
         custom_exclude |= deploy_custom_rules(
             filemap, game_root, staging,
             rules=prefix_rules,
-            mode=LinkMode.HARDLINK,
+            mode=external_deploy_mode,
             strip_prefixes=game.mod_folder_strip_prefixes,
             per_mod_strip_prefixes=per_mod_strip,
-            per_mod_link_modes={},
+            per_mod_link_modes=per_mod_link_modes or {},
             raw_mods=raw_mods,
             log_fn=_log,
+            # Prefix placement now journals every candidate before mutation,
+            # so even a cancelling/raising UI callback is recoverable.
             progress_fn=progress_fn,
             prefix_root=game.get_prefix_path(),
+            claim_paths=prefix_claims,
         )
+        if prefix_claims is not None:
+            custom_exclude |= prefix_claims
 
     # Overwrite is materialized last and therefore wins. Do not duplicate its
     # winning entries into the temporary resolved mod layer.
-    custom_exclude |= _overwrite_entries(filemap)
+    overwrite_entries = _overwrite_entries(filemap)
+    routed_overwrite_entries = custom_exclude & overwrite_entries
+    custom_exclude |= overwrite_entries
     if callable(populate_data_layer):
         mapped_deploy: dict[str, Path] = {}
         external_deploy_mods: set[str] = set()
@@ -1017,11 +1129,15 @@ def build_layers(
     _materialize_tree(root_layer, shadow_build, replace=True, move=True)
     _materialize_tree(data_layer, shadow_data, replace=True, move=True)
     _materialize_tree(root_upper, shadow_build, replace=True)
+    upper_exclude = file_exclude_normalized | routed_overwrite_entries
     _materialize_tree(
         data_upper,
         shadow_data,
         replace=True,
-        exclude=file_exclude_normalized or None,
+        # An overwrite-owned file claimed by a custom rule was already placed
+        # at that rule's destination. Do not also expose it at its original
+        # data-relative path; unrouted overwrite entries still win normally.
+        exclude=upper_exclude or None,
     )
     _remove_tree(build)
 
@@ -1083,6 +1199,7 @@ def build_layers(
             state / MANIFEST_NAME,
             json.dumps(payload, indent=2, sort_keys=True) + "\n",
         )
+        (state / PENDING_NAME).unlink(missing_ok=True)
 
     def _probe_bind_launch() -> tuple[bool, str]:
         try:
@@ -1554,6 +1671,12 @@ def cleanup_deployment(game, *, preserve_upper: bool = True, log_fn=None) -> Non
     state = state_dir(game)
     if not state.exists():
         return
+    pending = state / PENDING_NAME
+    # A cleanup can fail because a runtime still holds a mount or because the
+    # underlying drive becomes unavailable. Publish the retry marker before
+    # removing the manifest and retain it until every managed path is gone, so
+    # profile discovery can always direct a later Restore back here.
+    write_atomic_text(pending, "cleanup\n")
     manifest = state / MANIFEST_NAME
     if manifest.is_file():
         try:
@@ -1576,4 +1699,7 @@ def cleanup_deployment(game, *, preserve_upper: bool = True, log_fn=None) -> Non
         upper = state / "root-upper"
         if upper.is_dir() and not upper.is_symlink():
             _remove_tree(upper)
+    # Delete the discovery marker last. Any exception above intentionally
+    # leaves it in place and keeps the profile visible as deployed.
+    pending.unlink(missing_ok=True)
     _log("VFS: unpublished the profile's private game view.")

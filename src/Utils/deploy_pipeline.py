@@ -21,7 +21,7 @@ from Utils.deploy import (
     load_per_mod_strip_prefixes,
     restore_root_folder_for_game,
 )
-from Utils.deploy_shared import _FILEMAP_SNAPSHOT_NAME
+from Utils.deploy_shared import RestoreIncompleteError, _FILEMAP_SNAPSHOT_NAME
 from Utils.filemap import build_filemap
 from Utils.profile_backup import create_backup
 from Utils.profile_state import read_root_mod_files
@@ -620,6 +620,10 @@ def run_deploy_pipeline(
                     game.restore(log_fn=log_fn, progress_fn=progress_fn)
                 else:
                     game.restore(log_fn=log_fn)
+            except RestoreIncompleteError:
+                # Recovery state is still authoritative. Never place another
+                # deployment over files/backups which Restore could not clear.
+                raise
             except RuntimeError as restore_err:
                 # Expected on first deploy / unconfigured paths; the deploy
                 # steps have their own leftover-deploy guards, so continue -
@@ -678,6 +682,8 @@ def run_deploy_pipeline(
                     game.restore(log_fn=log_fn, progress_fn=progress_fn)
                 else:
                     game.restore(log_fn=log_fn)
+            except RestoreIncompleteError:
+                raise
             except RuntimeError as restore_err:
                 log_fn(f"Restore before deploy failed: {restore_err} - continuing.")
         # Games launched by a flatpak launcher (Heroic flatpak et al.) run in
@@ -739,6 +745,8 @@ def run_deploy_pipeline(
                             game.restore(log_fn=log_fn, progress_fn=progress_fn)
                         else:
                             game.restore(log_fn=log_fn)
+                    except RestoreIncompleteError:
+                        raise
                     except RuntimeError as restore_err:
                         log_fn(f"Restore before deploy failed: {restore_err} "
                                f"- continuing.")

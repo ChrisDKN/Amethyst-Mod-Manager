@@ -57,7 +57,8 @@ from pathlib import Path
 from Games.base_game import BaseGame
 from Utils.vfs import ProfileVFSGameMixin
 from Utils.deploy import (
-    LinkMode, load_per_mod_strip_prefixes, load_separator_deploy_paths,
+    LinkMode, RestoreIncompleteError, load_per_mod_strip_prefixes,
+    load_separator_deploy_paths,
     expand_separator_deploy_paths, expand_separator_raw_deploy,
     expand_separator_link_modes, _resolve_nocase, _resolve_root_path,
     _write_deploy_snapshot, _move_runtime_files, _FILEMAP_SNAPSHOT_NAME,
@@ -637,7 +638,7 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
             from Utils.deploy_shared import _restore_backup_dir
             _restore_backup_dir(artifacts[1], Path(prefix_root), log_fn)
         if any(path.exists() for path in artifacts):
-            raise RuntimeError(
+            raise RestoreIncompleteError(
                 "Could not fully restore UE5 VFS files routed into the game prefix."
             )
         context_path.unlink(missing_ok=True)
@@ -2417,7 +2418,7 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
                     for line in dict.fromkeys(unresolved)
                 ),
             )
-            raise RuntimeError(
+            raise RestoreIncompleteError(
                 "Some external UE5 VFS files could not be restored; "
                 "bookkeeping was retained for another Restore attempt."
             )
@@ -2446,10 +2447,10 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
         if game_path is None:
             raise RuntimeError("Game path is not configured.")
 
-        from Utils.vfs import cleanup_deployment, manifest_path as vfs_manifest_path
+        from Utils.vfs import cleanup_deployment, has_deployment_state
         external_manifest = self._vfs_external_manifest_path()
         prefix_context = self._vfs_prefix_context_path()
-        if (vfs_manifest_path(self).is_file()
+        if (has_deployment_state(self)
                 or external_manifest.exists()
                 or prefix_context.exists()):
             self._restore_vfs_prefix_targets(_log)
@@ -2464,8 +2465,13 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
                     f" ({removed} external file(s) removed, "
                     f"{restored} original file(s) restored)"
                 )
-            _log(f"Restore complete{detail}.")
-            return
+            if not self._ue5_deployed_manifest_path().is_file():
+                _log(f"Restore complete{detail}.")
+                return
+            _log(
+                f"VFS restore complete{detail}; a physical UE deployment "
+                "also remains and will be restored now."
+            )
 
         prefix_rules = self._prefix_routing_rules()
         if prefix_rules:

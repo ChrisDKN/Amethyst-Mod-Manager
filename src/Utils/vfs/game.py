@@ -40,6 +40,39 @@ class ProfileVFSGameMixin:
         """Translate a handler-relative path to the outer VFS root."""
         return Path(relative)
 
+    def get_deploy_active(self) -> bool:
+        """Include every profile's VFS state in the deployed-state guard."""
+        try:
+            from Utils.vfs import has_any_deployment_state
+            if has_any_deployment_state(self):
+                return True
+        except Exception:
+            pass
+        parent = getattr(super(), "get_deploy_active", None)
+        return bool(parent()) if callable(parent) else False
+
+    def get_last_deployed_profile(self) -> str:
+        """Direct Restore to a failed profile even before its first success."""
+        parent = getattr(super(), "get_last_deployed_profile", None)
+        recorded = str(parent() or "default") if callable(parent) else "default"
+        try:
+            from Utils.vfs import deployment_state_profiles
+            profiles = deployment_state_profiles(self)
+        except Exception:
+            profiles = ()
+        if not profiles:
+            return recorded
+
+        # Prefer the currently selected profile when it owns real state, then
+        # the successful deploy record, then the newest discovered marker.
+        active = getattr(self, "_active_profile_dir", None)
+        active_name = Path(active).name if active is not None else ""
+        if active_name in profiles:
+            return active_name
+        if recorded in profiles:
+            return recorded
+        return profiles[0]
+
     @property
     def vfs_enabled(self) -> bool:
         settings = self._load_settings()
@@ -229,23 +262,65 @@ class ProfileVFSGameMixin:
         )
         data_name = Path(data_root).name if data_root is not None else "data"
         log_fn(f"VFS deploy: resolving a private {self.name} game view ...")
-        data_count, root_count = build_layers(
-            self,
-            profile=profile,
-            filemap=filemap,
-            staging=staging,
-            per_mod_strip=per_mod_strip,
-            per_mod_deploy=per_mod_deploy,
-            raw_mods=per_mod_raw,
-            excluded_raw=excluded_raw_by_mod(profile_dir) or None,
-            root_folder_enabled=root_folder_enabled,
-            per_mod_subdirs=per_mod_subdirs,
-            per_mod_link_modes=per_mod_link_modes,
-            external_deploy_mode=external_deploy_mode,
-            file_exclude=file_exclude or None,
-            log_fn=log_fn,
-            progress_fn=progress_fn,
-        )
+        try:
+            data_count, root_count = build_layers(
+                self,
+                profile=profile,
+                filemap=filemap,
+                staging=staging,
+                per_mod_strip=per_mod_strip,
+                per_mod_deploy=per_mod_deploy,
+                raw_mods=per_mod_raw,
+                excluded_raw=excluded_raw_by_mod(profile_dir) or None,
+                root_folder_enabled=root_folder_enabled,
+                per_mod_subdirs=per_mod_subdirs,
+                per_mod_link_modes=per_mod_link_modes,
+                external_deploy_mode=external_deploy_mode,
+                file_exclude=file_exclude or None,
+                log_fn=log_fn,
+                progress_fn=progress_fn,
+            )
+        except BaseException:
+            # Generic VFS handlers may deliberately place separator payloads
+            # or prefix-routed files outside the private game view. Reverse
+            # those physical side effects immediately when the view fails to
+            # build. UE5 supplies its own richer transactional callback.
+            if not callable(getattr(self, "_vfs_populate_data_layer", None)):
+                try:
+                    from Utils.deploy import cleanup_custom_deploy_dirs
+                    cleanup_custom_deploy_dirs(
+                        profile_dir,
+                        sep_entries,
+                        log_fn=log_fn,
+                        filemap_path=filemap,
+                    )
+                except Exception as cleanup_exc:
+                    log_fn(
+                        "  WARN: failed to roll back external VFS separator "
+                        f"targets: {cleanup_exc}"
+                    )
+                try:
+                    from Utils.deploy import restore_custom_rules
+                    game_root_getter = getattr(self, "get_vfs_game_root", None)
+                    game_root = (
+                        game_root_getter()
+                        if callable(game_root_getter)
+                        else self.get_game_path()
+                    )
+                    if game_root is not None:
+                        restore_custom_rules(
+                            filemap,
+                            Path(game_root),
+                            rules=[],
+                            log_fn=log_fn,
+                            prefix_root=self.get_prefix_path(),
+                        )
+                except Exception as cleanup_exc:
+                    log_fn(
+                        "  WARN: failed to roll back prefix-routed VFS "
+                        f"targets: {cleanup_exc}"
+                    )
+            raise
 
         if getattr(self, "uses_plugins_txt", False):
             log_fn("VFS deploy: linking plugins.txt into the Proton prefix ...")

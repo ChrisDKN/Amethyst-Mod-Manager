@@ -1694,6 +1694,10 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
 
         core_dir = data_dir.parent / (data_dir.name + "_Core")
         physical_deploy = core_dir.exists()
+        from Utils.vfs import cleanup_deployment, has_deployment_state
+        vfs_deploy = has_deployment_state(self)
+        if vfs_deploy:
+            cleanup_deployment(self, preserve_upper=True, log_fn=_log)
         if physical_deploy:
             # A physical deploy may still be active after VFS was toggled on.
             _log("Restore: clearing Data/ and moving Data_Core/ back ...")
@@ -1707,8 +1711,7 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
                     rel_prefix="data/"),
             )
             _log(f"  Restored {restored} file(s). Data_Core/ removed.")
-        else:
-            from Utils.vfs import cleanup_deployment
+        elif not vfs_deploy:
             cleanup_deployment(self, preserve_upper=True, log_fn=_log)
 
         self._remove_plugins_txt_symlink(_log)

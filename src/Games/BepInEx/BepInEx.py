@@ -373,11 +373,13 @@ class Subnautica(ProfileVFSGameMixin, BaseGame):
         # Restore must follow what is actually deployed, not the current
         # setting: a stale/hand-edited setting must not strand the private view
         # or any physical external separator targets.
-        from Utils.vfs import cleanup_deployment, manifest_path
-        if manifest_path(self).is_file():
+        from Utils.vfs import cleanup_deployment, has_deployment_state
+        if has_deployment_state(self):
             cleanup_deployment(self, preserve_upper=True, log_fn=_log)
-            _log("Restore complete.")
-            return
+            if not core_dir.is_dir():
+                _log("Restore complete.")
+                return
+            _log("Restore: a physical deployment also remains; restoring it now ...")
 
         if core_dir.is_dir():
             _log(f"Restore: clearing {plugins_dir.name}/ and moving {core}/ back ...")
