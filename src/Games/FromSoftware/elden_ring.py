@@ -155,7 +155,7 @@ class EldenRing(BaseGame):
 
     @property
     def mod_required_file_types(self) -> set[str]:
-        return {".dll", ".bin"}
+        return {".dll", ".bin",".dcx"}
 
     @property
     def mod_install_as_is_if_no_match(self) -> bool:
