@@ -13,6 +13,7 @@ Mod structure:
 from pathlib import Path
 
 from Games.base_game import BaseGame
+from Utils.vfs import ProfileVFSGameMixin
 from Utils.deploy import (
     LinkMode,
     deploy_core,
@@ -30,7 +31,12 @@ from Utils.config_paths import get_profiles_dir
 _PROFILES_DIR = get_profiles_dir()
 
 
-class MountAndBlade2Bannerlord(BaseGame):
+class MountAndBlade2Bannerlord(ProfileVFSGameMixin, BaseGame):
+
+    profile_overridable_settings = (
+        *BaseGame.profile_overridable_settings,
+        *ProfileVFSGameMixin.vfs_profile_setting_keys,
+    )
 
     def __init__(self):
         self._game_path: Path | None = None
@@ -141,6 +147,15 @@ class MountAndBlade2Bannerlord(BaseGame):
                 "Run 'Build Filemap' before deploying."
             )
 
+        if self.vfs_launch_enabled:
+            return self._deploy_vfs(
+                profile=profile,
+                filemap=filemap,
+                staging=staging,
+                log_fn=_log,
+                progress_fn=progress_fn,
+            )
+
         _log(f"Step 1: Moving {modules_dir.name}/ → {core}/ ...")
         move_to_core(modules_dir, log_fn=_log)
         _log(f"  Backed up existing files → {core}/.")
@@ -191,6 +206,14 @@ class MountAndBlade2Bannerlord(BaseGame):
         _profile_dir = self._active_profile_dir
         _entries = read_modlist(_profile_dir / "modlist.txt") if _profile_dir else []
         cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log)
+
+        from Utils.vfs import cleanup_deployment, has_deployment_state
+        if has_deployment_state(self):
+            cleanup_deployment(self, preserve_upper=True, log_fn=_log)
+            if not core_dir.is_dir():
+                _log("Restore complete.")
+                return
+            _log("Restore: a physical deployment also remains; restoring it now ...")
 
         _log(f"Restore: clearing {modules_dir.name}/ and moving {core}/ back if present ...")
         restored = restore_data_core(

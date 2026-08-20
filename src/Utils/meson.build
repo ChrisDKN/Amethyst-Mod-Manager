@@ -156,6 +156,7 @@ py.install_sources(
   'smapi_installer.py',
   'staging_migrate.py',
   'stderr_capture.py',
+  'steam_client.py',
   'steam_finder.py',
   'steam_shortcuts.py',
   'strings_table.py',

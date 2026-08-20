@@ -15,6 +15,13 @@ from Games.base_game import WizardTool, MODERN_DIRECTX_DEPS
 
 class SkyrimSE(Fallout_3):
 
+    # Skyrim's BSResource loose-file traversal still encounters legacy Windows
+    # path limits.  Deep OAR animation paths that are safe below the normal
+    # Steam install can cross MAX_PATH when the process sees the longer profile
+    # `.amethyst-vfs/view` path.  Bind the view at the configured game path so
+    # Skyrim retains its short, stable working directory.
+    vfs_bind_launch_at_game_root = True
+
     # SSE auto-loads plugin-matched BSAs - it is NOT a FO3/FNV-style engine that
     # only reads archives listed in the INI. Override the Fallout_3 default.
     _archive_list_needs_mod_bsas = False

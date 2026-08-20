@@ -14,7 +14,7 @@ import re as _re
 import shutil
 import threading as _threading
 import time as _time
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 from Utils.app_log import safe_log as _safe_log, app_log as _app_log
 from Utils.atomic_write import atomic_writer
@@ -442,6 +442,8 @@ def deploy_filemap(
     core_dir: "Path | None" = None,
     flatten_extensions: set[str] | None = None,
     per_mod_subdirs: dict[str, str] | None = None,
+    path_remap: dict[str, str] | None = None,
+    replace_existing: bool = False,
 ) -> tuple[int, set[str]]:
     """Read filemap.txt and transfer every listed file into deploy_dir.
 
@@ -467,6 +469,15 @@ def deploy_filemap(
                      never separator/custom destinations.  BepInEx uses this
                      to isolate Thunderstore plugins below their versionless
                      package ID, matching r2modman's package layout.
+    path_remap     - optional destination-only path-prefix replacements. Source
+                     lookup always uses the original filemap path. This is the
+                     standard-directory equivalent of deploy_filemap_to_root's
+                     remapping support.
+    replace_existing - unlink regular files/symlinks already present at normal
+                     deploy destinations before transfer. Private VFS layer
+                     construction uses this to preserve physical deploy's
+                     ordering when an earlier custom route and a later normal
+                     or remapped entry converge on one destination.
 
     Returns:
         (count, placed_lower)
@@ -476,6 +487,22 @@ def deploy_filemap(
     _log = _safe_log(log_fn)
     _strip = {p.lower() for p in strip_prefixes} if strip_prefixes else set()
     _per_mod = per_mod_strip_prefixes or {}
+    _remap: list[tuple[str, str]] = []
+    for old, new in (path_remap or {}).items():
+        old_normalized = str(old).replace("\\", "/")
+        new_normalized = str(new).replace("\\", "/")
+        if (not old_normalized
+                or _has_traversal(old_normalized)
+                or Path(old_normalized).is_absolute()
+                or PureWindowsPath(old_normalized).is_absolute()
+                or _has_traversal(new_normalized)
+                or Path(new_normalized).is_absolute()
+                or PureWindowsPath(new_normalized).is_absolute()):
+            raise RuntimeError(
+                "Unsafe deployment path remap: "
+                f"{old!r} -> {new!r}"
+            )
+        _remap.append((old_normalized.lower(), new_normalized))
     _flatten_exts = {e.lower() for e in flatten_extensions} if flatten_extensions else None
     _per_deploy = per_mod_deploy_dirs or {}
     _per_subdir: dict[str, str] = {}
@@ -508,6 +535,11 @@ def deploy_filemap(
     overwrite_dir = staging_root.parent / "overwrite"
 
     already_seen: set[str] = set()
+    # Prefix remaps, flattening, and package subdirectories can make distinct
+    # filemap paths converge on one destination. Keep the first effective
+    # winner for each actual target, without conflating explicit separator
+    # targets that happen to use the same relative path.
+    already_seen_dst: set[tuple[str, str]] = set()
     tasks: list[tuple[Path, Path, str]] = []
     placed_lower: set[str] = set()
     _exclude: set[str] = exclude or set()
@@ -615,11 +647,20 @@ def deploy_filemap(
             _log(f"  WARN: source not found - {rel_str} ({mod_name})")
             continue
 
+        # Destination remapping deliberately happens after source resolution:
+        # staged files retain their original filemap layout. This is used by
+        # Cyberpunk, for example, to expose archive/pc/patch payloads below
+        # archive/pc/mod in the resolved view.
+        dst_rel = rel_str
+        for old_prefix, new_prefix in _remap:
+            if rel_lower.startswith(old_prefix):
+                dst_rel = new_prefix + rel_str[len(old_prefix):]
+                break
+        dst_rel_lower = dst_rel.lower()
+
         # Flatten matching files to the top of the deploy dir. Source
         # resolution above used the original rel path; only the destination
         # changes. Collisions on the flattened name keep the first entry.
-        dst_rel = rel_str
-        dst_rel_lower = rel_lower
         if _flatten_exts is not None and "/" in rel_str \
                 and os.path.splitext(rel_str)[1].lower() in _flatten_exts:
             dst_rel = rel_str.rsplit("/", 1)[1]
@@ -643,6 +684,20 @@ def deploy_filemap(
             if _first_segment.casefold() != _package_subdir.casefold():
                 dst_rel = f"{_package_subdir}/{dst_rel}"
                 dst_rel_lower = dst_rel.lower()
+
+        if (_has_traversal(dst_rel)
+                or Path(dst_rel).is_absolute()
+                or PureWindowsPath(dst_rel).is_absolute()):
+            _log(f"  WARN: skipping unsafe remapped destination - "
+                 f"{dst_rel!r} ({mod_name})")
+            continue
+
+        _dst_key = (str(effective_dir).casefold(), dst_rel_lower)
+        if _dst_key in already_seen_dst:
+            _log(f"  WARN: remapped destination collision - skipping "
+                 f"{rel_str} ({mod_name})")
+            continue
+        already_seen_dst.add(_dst_key)
         _core_s = _core_base_str if effective_dir is deploy_dir else None
         _eff_s = _deploy_dir_str if effective_dir is deploy_dir else str(effective_dir)
         # Inline _resolve_root_path_str's two O(1) outcomes (no dir part /
@@ -979,6 +1034,23 @@ def deploy_filemap(
             bak = _custom_backup_dir / dst_p.relative_to(dst_p.anchor)
             _move_crash_safe(dst_s, bak)
             _log(f"  Backed up existing {os.path.basename(dst_s)} → custom_deploy_backup/")
+
+    if replace_existing:
+        # Custom-rule placement runs before ordinary filemap placement in both
+        # the physical root flow and the VFS builder. Physical root deploy
+        # replaces an earlier routed target; the synthetic layer must do the
+        # same instead of letting os.link fail with EEXIST. Custom/external
+        # destinations already use the backup-and-replace loop above.
+        for _src_s, dst_s, _rel_lower, is_custom, _use_sym, _ov in tasks:
+            if is_custom:
+                continue
+            try:
+                _st = os.lstat(dst_s)
+            except OSError:
+                continue
+            if (_stat_module.S_ISREG(_st.st_mode)
+                    or _stat_module.S_ISLNK(_st.st_mode)):
+                os.unlink(dst_s)
 
     linked = 0
     done_count = 0

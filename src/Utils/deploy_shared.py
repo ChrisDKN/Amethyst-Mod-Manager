@@ -1811,11 +1811,16 @@ def _write_deploy_snapshot(
     snapshot_path: Path,
     log_fn=None,
     exclude_dirs=None,
+    *,
+    strict: bool = False,
 ) -> int:
     """Walk game_root and record every file's relative path, one per line.
 
     Written atomically via a .tmp sibling then renamed.  Returns the number
-    of files recorded, or 0 on error (the deploy is never aborted).
+    of files recorded, or 0 on error (the deploy is normally never aborted).
+    ``strict=True`` bypasses pipeline deferral and propagates walk/write
+    failures; transactional VFS publication uses it before clearing its
+    incomplete-view recovery marker.
 
     The format is one rel_path per line; v3 also records each directory as a
     rel_path with a trailing "/" so restore can distinguish runtime-created
@@ -1836,7 +1841,7 @@ def _write_deploy_snapshot(
     Data_Core path.  Nested paths like "BepInEx/plugins" are supported.
     """
     global _DEPLOY_SNAPSHOT_PENDING
-    if _DEPLOY_SNAPSHOT_DEFERRED:
+    if _DEPLOY_SNAPSHOT_DEFERRED and not strict:
         # Path-keyed storage preserves distinct restore consumers while
         # coalescing repeated requests for the same snapshot destination.
         _DEPLOY_SNAPSHOT_PENDING[str(snapshot_path)] = (
@@ -1878,10 +1883,13 @@ def _write_deploy_snapshot(
                                 fh.write("\n")
                                 count += 1
                 except OSError:
-                    pass
+                    if strict:
+                        raise
         _log(f"  Snapshot: recorded {count} files in game root.")
     except OSError as exc:
         _log(f"  WARN: could not write deploy snapshot: {exc}")
+        if strict:
+            raise
         return 0
     return count
 

@@ -40,9 +40,11 @@ from Utils.vfs import (  # noqa: E402
     build_layers,
     cleanup_deployment,
     deployment_state_profiles,
+    effective_shadow_root,
     finalize_deployment,
     has_deployment_state,
     prefer_virtual_executable,
+    virtual_root_write_path,
     wrap_command,
 )
 from Utils.deploy import (  # noqa: E402
@@ -51,7 +53,10 @@ from Utils.deploy import (  # noqa: E402
     RestoreIncompleteError,
     cleanup_custom_deploy_dirs,
     deploy_custom_rules,
+    deploy_filemap,
+    deploy_root_folder,
     restore_custom_rules,
+    restore_root_folder,
 )
 from Utils.quick_configure import (  # noqa: E402
     build_quick_configure_options,
@@ -63,6 +68,7 @@ from Games.Bethesda.fallout_3 import Fallout_3  # noqa: E402
 from Games.BepInEx.BepInEx import (  # noqa: E402
     Subnautica,
     Subnautica_Below_Zero,
+    Valheim,
 )
 from Games.ue5_game import UE5Game, UE5Rule  # noqa: E402
 from Games.Custom.custom_game import (  # noqa: E402
@@ -91,6 +97,16 @@ if _oblivion_spec is None or _oblivion_spec.loader is None:
 _oblivion_module = importlib.util.module_from_spec(_oblivion_spec)
 _oblivion_spec.loader.exec_module(_oblivion_module)
 OblivionRemastered = _oblivion_module.OblivionRemastered
+
+_cyberpunk_spec = importlib.util.spec_from_file_location(
+    "amethyst_vfs_selftest_cyberpunk_2077",
+    _SRC_ROOT / "Games" / "Cyberpunk 2077" / "cyberpunk_2077.py",
+)
+if _cyberpunk_spec is None or _cyberpunk_spec.loader is None:
+    raise RuntimeError("Could not load the Cyberpunk 2077 game handler.")
+_cyberpunk_module = importlib.util.module_from_spec(_cyberpunk_spec)
+_cyberpunk_spec.loader.exec_module(_cyberpunk_module)
+Cyberpunk2077 = _cyberpunk_module.Cyberpunk2077
 
 
 class _FakeGame:
@@ -217,6 +233,25 @@ class _FakeSubnauticaGame(_FakeGame, Subnautica):
 
     def _load_settings(self) -> dict:
         return dict(self._settings)
+
+
+class _FakeNativeBepInExGame(_FakeSubnauticaGame):
+    """A native Unity build using the shared BepInEx VFS launch hooks."""
+
+    exe_name = "NativeBepInEx.exe"
+    exe_name_alts = ["NativeBepInEx.x86_64"]
+    # Steam-client startup has its own mocked lifecycle test. Keep command-
+    # shaping fixtures hermetic even though the real BepInEx base opts in.
+    native_steam_client_required = False
+
+
+class _FakeNativeDirectGame(_FakeGame):
+    """A plain native player used to exercise Play's direct/None route."""
+
+    exe_name = "NativeDirectGame"
+    exe_name_alts: list[str] = []
+    direct_launch_exes: list[str] = []
+    default_launch_args = ["--default-argument"]
 
 
 class _FakeStardewGame(_FakeGame, StardewValley):
@@ -411,6 +446,13 @@ class _FakeStandardCustomGame(_FakeCustomPaths, StandardCustomGame):
 
 class _FakeRootCustomGame(_FakeCustomPaths, RootCustomGame):
     pass
+
+
+class _FakeCyberpunkGame(_FakeCustomPaths, Cyberpunk2077):
+    """Temporary install retaining Cyberpunk's real root-deploy contract."""
+
+    def __init__(self, root: Path):
+        _FakeCustomPaths.__init__(self, root, {})
 
 
 def _deploy_custom_fixture(game, **kwargs):
@@ -644,6 +686,293 @@ def test_layer_build_and_skse_selection() -> None:
     print("✓ layer build, virtual case aliases/stubs, SKSE selection, cleanup")
 
 
+def test_shadow_capture_survives_configured_path_change() -> None:
+    """Capture the old fixed view after the configured install has changed."""
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _FakeGame(Path(tmp))
+        (game.game / "root.txt").write_text("old-root", encoding="utf-8")
+        (game.game / "Data" / "data.txt").write_text(
+            "old-data", encoding="utf-8")
+        filemap = game.profiles / "filemap.txt"
+        filemap.write_text("", encoding="utf-8")
+
+        def _build() -> Path:
+            build_layers(
+                game,
+                profile="default",
+                filemap=filemap,
+                staging=game.staging,
+                per_mod_strip={},
+                per_mod_deploy={},
+                raw_mods=None,
+                excluded_raw=None,
+                root_folder_enabled=False,
+            )
+            finalize_deployment(game)
+            return game.profile / STATE_DIR_NAME / "view"
+
+        old_view = _build()
+        (old_view / "runtime-old-root.txt").write_text(
+            "old root runtime", encoding="utf-8")
+        (old_view / "Data" / "runtime-old-data.txt").write_text(
+            "old data runtime", encoding="utf-8")
+
+        # Configure a different install before redeploy. Capture must use the
+        # old manifest's data-relative path inside the fixed profile view; it
+        # must never walk either recorded/current physical install.
+        new_game = Path(tmp) / "new-game"
+        (new_game / "Data").mkdir(parents=True)
+        (new_game / "root.txt").write_text("new-root", encoding="utf-8")
+        (new_game / "Data" / "data.txt").write_text(
+            "new-data", encoding="utf-8")
+        game.game = new_game
+        new_view = _build()
+
+        root_upper = game.profile / STATE_DIR_NAME / "root-upper"
+        assert (root_upper / "runtime-old-root.txt").read_text(
+            encoding="utf-8") == "old root runtime"
+        assert (game.overwrite / "runtime-old-data.txt").read_text(
+            encoding="utf-8") == "old data runtime"
+        assert (new_view / "runtime-old-root.txt").is_file()
+        assert (new_view / "Data" / "runtime-old-data.txt").is_file()
+
+        # Exercise Restore's capture path under a second configured-root
+        # change as well; cleanup must preserve both newly-created files.
+        (new_view / "runtime-new-root.txt").write_text(
+            "new root runtime", encoding="utf-8")
+        (new_view / "Data" / "runtime-new-data.txt").write_text(
+            "new data runtime", encoding="utf-8")
+        third_game = Path(tmp) / "third-game"
+        (third_game / "Data").mkdir(parents=True)
+        game.game = third_game
+        cleanup_deployment(game, preserve_upper=True)
+
+        assert (root_upper / "runtime-new-root.txt").read_text(
+            encoding="utf-8") == "new root runtime"
+        assert (game.overwrite / "runtime-new-data.txt").read_text(
+            encoding="utf-8") == "new data runtime"
+        assert not (game.profile / STATE_DIR_NAME / MANIFEST_NAME).exists()
+        assert (Path(tmp) / "game" / "root.txt").read_text(
+            encoding="utf-8") == "old-root"
+        assert (new_game / "root.txt").read_text(
+            encoding="utf-8") == "new-root"
+    print("✓ shadow runtime capture survives configured path changes")
+
+
+def test_failed_post_view_hook_never_promotes_partial_output() -> None:
+    """An unfinalized generation is deploy output, never runtime output.
+
+    ``build_layers`` publishes the replacement view before handler-specific
+    post-view hooks run. If one of those hooks fails, Restore or a following
+    deploy must discard that generation without comparing it to an older
+    snapshot and promoting its new files into Overwrite/root-upper.
+    """
+    definition = {
+        "name": "Post-view Failure VFS Test",
+        "game_id": "post_view_failure_vfs_test",
+        "exe_name": "Game.exe",
+        "deploy_type": "standard",
+        "mod_data_path": "Mods",
+    }
+
+    def _exercise(*, redeploy: bool) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            game = _FakeStandardCustomGame(Path(tmp), definition)
+
+            def _pipeline_deploy() -> None:
+                # The real deploy pipeline defers ordinary snapshot requests.
+                # Transactional shadow snapshots must bypass that queue so the
+                # incomplete marker is never cleared ahead of the disk write.
+                game.begin_deferred_runtime_snapshot()
+                try:
+                    _deploy_custom_fixture(game, profile="default")
+                finally:
+                    _generic, requests = game.end_deferred_runtime_snapshot()
+                    assert not requests
+
+            data = game.get_mod_data_path()
+            assert data is not None
+            data.mkdir(parents=True)
+            (game.game / "Game.exe").write_text(
+                "vanilla executable", encoding="utf-8")
+            (data / "vanilla.txt").write_text("vanilla", encoding="utf-8")
+
+            old = game.staging / "Old" / "old.txt"
+            old.parent.mkdir(parents=True)
+            old.write_text("old generation", encoding="utf-8")
+            (game.profile / "modlist.txt").write_text(
+                "+Old\n", encoding="utf-8")
+            game.filemap.write_text("old.txt\tOld\n", encoding="utf-8")
+            _pipeline_deploy()
+
+            state = game.profile / STATE_DIR_NAME
+            assert not (state / "view.incomplete").exists()
+
+            new = game.staging / "New" / "new.txt"
+            new.parent.mkdir(parents=True)
+            new.write_text("new generation", encoding="utf-8")
+            root_payload = game.root_folder / "new-root-payload.txt"
+            root_payload.write_text("new root generation", encoding="utf-8")
+            (game.profile / "modlist.txt").write_text(
+                "+New\n", encoding="utf-8")
+            game.filemap.write_text("new.txt\tNew\n", encoding="utf-8")
+
+            def _fail_after_partial_output(*, view_root: Path,
+                                           **_kwargs) -> None:
+                (view_root / "Mods" / "hook-partial-data.txt").write_text(
+                    "partial data output", encoding="utf-8")
+                (view_root / "hook-partial-root.txt").write_text(
+                    "partial root output", encoding="utf-8")
+                raise RuntimeError("injected post-view hook failure")
+
+            game._vfs_post_view_build = _fail_after_partial_output
+            try:
+                _pipeline_deploy()
+            except RuntimeError as exc:
+                assert "injected post-view hook failure" in str(exc)
+            else:
+                raise AssertionError("the failing post-view hook was ignored")
+
+            failed_view = effective_shadow_root(game)
+            assert (state / "view.incomplete").is_file()
+            assert (failed_view / "Mods" / "new.txt").is_file()
+            assert (failed_view / "new-root-payload.txt").is_file()
+            assert (failed_view / "Mods" / "hook-partial-data.txt").is_file()
+            assert (failed_view / "hook-partial-root.txt").is_file()
+
+            if redeploy:
+                final = game.staging / "Final" / "final.txt"
+                final.parent.mkdir(parents=True)
+                final.write_text("final generation", encoding="utf-8")
+                root_payload.unlink()
+                (game.profile / "modlist.txt").write_text(
+                    "+Final\n", encoding="utf-8")
+                game.filemap.write_text(
+                    "final.txt\tFinal\n", encoding="utf-8")
+                game._vfs_post_view_build = None
+                _pipeline_deploy()
+
+                final_view = effective_shadow_root(game)
+                assert (final_view / "Mods" / "final.txt").is_file()
+                assert not (final_view / "Mods" / "new.txt").exists()
+                assert not (final_view / "new-root-payload.txt").exists()
+                assert not (final_view / "Mods"
+                            / "hook-partial-data.txt").exists()
+                assert not (final_view / "hook-partial-root.txt").exists()
+                assert not (state / "view.incomplete").exists()
+            else:
+                logs: list[str] = []
+                cleanup_deployment(
+                    game, preserve_upper=True, log_fn=logs.append)
+                assert not has_deployment_state(game)
+                assert any("unfinalized view" in line for line in logs)
+
+            # These paths came from the failed deployment or its hook. Neither
+            # recovery route may turn them into persistent user/runtime state.
+            for relative in ("new.txt", "hook-partial-data.txt"):
+                assert not (game.overwrite / relative).exists()
+            root_upper = state / "root-upper"
+            for relative in ("new-root-payload.txt", "hook-partial-root.txt"):
+                assert not (root_upper / relative).exists()
+
+            if redeploy:
+                cleanup_deployment(game, preserve_upper=True)
+
+    _exercise(redeploy=False)
+    _exercise(redeploy=True)
+
+    # Snapshot publication is itself part of the transaction. A failed disk
+    # write must leave the marker in place even while the deploy pipeline is
+    # deferring ordinary snapshots, so cleanup discards the view safely.
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _FakeStandardCustomGame(Path(tmp), definition)
+        data = game.get_mod_data_path()
+        assert data is not None
+        data.mkdir(parents=True)
+        (game.game / "Game.exe").write_text("vanilla", encoding="utf-8")
+        staged = game.staging / "SnapshotFail" / "snapshot-fail.txt"
+        staged.parent.mkdir(parents=True)
+        staged.write_text("deploy output", encoding="utf-8")
+        (game.profile / "modlist.txt").write_text(
+            "+SnapshotFail\n", encoding="utf-8")
+        game.filemap.write_text(
+            "snapshot-fail.txt\tSnapshotFail\n", encoding="utf-8")
+
+        game.begin_deferred_runtime_snapshot()
+        try:
+            with patch(
+                "Utils.vfs.overlay._write_deploy_snapshot",
+                side_effect=OSError("injected snapshot write failure"),
+            ) as snapshot_writer:
+                try:
+                    _deploy_custom_fixture(game, profile="default")
+                except OSError as exc:
+                    assert "injected snapshot write failure" in str(exc)
+                else:
+                    raise AssertionError("snapshot write failure was ignored")
+                assert snapshot_writer.call_args.kwargs["strict"] is True
+        finally:
+            _generic, requests = game.end_deferred_runtime_snapshot()
+            assert not requests
+
+        state = game.profile / STATE_DIR_NAME
+        assert (state / "view.incomplete").is_file()
+        cleanup_deployment(game, preserve_upper=True)
+        assert not (game.overwrite / "snapshot-fail.txt").exists()
+        assert not (state / "root-upper" / "snapshot-fail.txt").exists()
+
+    print("✓ failed post-view output is discarded on Restore and redeploy")
+
+
+def test_vfs_root_payload_preserves_physical_recovery() -> None:
+    """A private Root_Folder build must not consume physical restore state."""
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _FakeGame(Path(tmp))
+        vanilla = game.game / "root.dll"
+        vanilla.write_text("vanilla", encoding="utf-8")
+        payload = game.root_folder / "root.dll"
+        payload.write_text("physical mod", encoding="utf-8")
+
+        deploy_root_folder(
+            game.root_folder, game.game, mode=LinkMode.HARDLINK)
+        physical_log = game.profiles / "root_folder_deployed.txt"
+        physical_identities = game.profiles / "root_deploy_identities.json"
+        physical_backup = game.profiles / "Root_Backup" / "root.dll"
+        assert vanilla.read_text(encoding="utf-8") == "physical mod"
+        assert physical_log.is_file()
+        assert physical_identities.is_file()
+        assert physical_backup.read_text(encoding="utf-8") == "vanilla"
+
+        filemap = game.profiles / "filemap.txt"
+        filemap.write_text("", encoding="utf-8")
+        build_layers(
+            game,
+            profile="default",
+            filemap=filemap,
+            staging=game.staging,
+            per_mod_strip={},
+            per_mod_deploy={},
+            raw_mods=None,
+            excluded_raw=None,
+            root_folder_enabled=True,
+        )
+        state = game.profile / STATE_DIR_NAME
+        assert (state / "view" / "root.dll").read_text() == "physical mod"
+
+        # The VFS build used disposable bookkeeping; the older physical
+        # journal and original remain available for the migration restore.
+        assert physical_log.is_file()
+        assert physical_identities.is_file()
+        assert physical_backup.read_text(encoding="utf-8") == "vanilla"
+        cleanup_deployment(game, preserve_upper=True)
+        assert restore_root_folder(game.root_folder, game.game) == 1
+        assert vanilla.read_text(encoding="utf-8") == "vanilla"
+        assert not physical_log.exists()
+        assert not physical_identities.exists()
+        assert not (game.profiles / "Root_Backup").exists()
+    print("✓ VFS Root_Folder metadata preserves physical recovery state")
+
+
 def test_shared_bethesda_hooks() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         game = _FakeBethesdaGame(Path(tmp))
@@ -735,6 +1064,67 @@ def test_vfs_cleanup_failure_remains_discoverable() -> None:
     print("✓ failed VFS cleanup remains discoverable until retry succeeds")
 
 
+def test_symlinked_vfs_state_root_is_never_followed() -> None:
+    """Build and cleanup must not traverse a redirected state directory."""
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _FakeGame(Path(tmp))
+        external = Path(tmp) / "external-state"
+        for relative, content in (
+            ("manifest.json", "outside manifest"),
+            ("pending", "outside pending"),
+            ("lower/keep.txt", "outside lower"),
+            ("lower.build/keep.txt", "outside build"),
+            ("view/keep.txt", "outside view"),
+            ("root-upper/keep.txt", "outside upper"),
+        ):
+            target = external / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding="utf-8")
+
+        state = game.profile / STATE_DIR_NAME
+        state.symlink_to(external, target_is_directory=True)
+        before = {
+            path.relative_to(external).as_posix(): path.read_bytes()
+            for path in external.rglob("*") if path.is_file()
+        }
+
+        for operation in (
+            lambda: cleanup_deployment(game),
+            lambda: build_layers(
+                game,
+                profile="default",
+                filemap=game.profiles / "filemap.txt",
+                staging=game.staging,
+                per_mod_strip={},
+                per_mod_deploy={},
+                raw_mods=None,
+                excluded_raw=None,
+                root_folder_enabled=False,
+            ),
+            lambda: wrap_command(game, ["/bin/true"]),
+        ):
+            (game.profiles / "filemap.txt").write_text("", encoding="utf-8")
+            try:
+                operation()
+            except RuntimeError as exc:
+                assert "symlinked profile VFS state directory" in str(exc)
+            else:
+                raise AssertionError("symlinked VFS state root was accepted")
+
+            after = {
+                path.relative_to(external).as_posix(): path.read_bytes()
+                for path in external.rglob("*") if path.is_file()
+            }
+            assert after == before
+            assert state.is_symlink()
+
+        # Keep the unsafe state visible to the deployment guard so Restore
+        # reports the refusal instead of silently treating it as undeployed.
+        assert has_deployment_state(game)
+        assert "default" in deployment_state_profiles(game)
+    print("✓ symlinked VFS state roots are refused without external deletion")
+
+
 def test_standard_custom_shadow_view() -> None:
     definition = {
         "name": "Standard Custom VFS Test",
@@ -781,12 +1171,16 @@ def test_standard_custom_shadow_view() -> None:
             source.parent.mkdir(parents=True, exist_ok=True)
             source.write_text(body)
         (game.overwrite / "overwrite-only.txt").write_text("overwrite")
+        (game.overwrite / "upper-collision.txt").write_text(
+            "overwrite-loses-to-root")
         (game.overwrite / "routed-overwrite.dll").write_text(
             "routed-overwrite")
 
         root_winner = game.root_folder / "Content" / "Mods" / "normal.txt"
         root_winner.parent.mkdir(parents=True)
         root_winner.write_text("root-folder-wins")
+        (game.root_folder / "Content" / "Mods"
+         / "upper-collision.txt").write_text("root-folder-final-winner")
         (game.root_folder / "root-config.ini").write_text("root-config")
         (game.profile / "modlist.txt").write_text(
             "+Normal\n+RootRule\n+DataRule\n", encoding="utf-8")
@@ -795,6 +1189,7 @@ def test_standard_custom_shadow_view() -> None:
             "root-loader.dll\tRootRule\n"
             "nested/asset.route\tDataRule\n"
             "overwrite-only.txt\t[Overwrite]\n"
+            "upper-collision.txt\t[Overwrite]\n"
             "routed-overwrite.dll\t[Overwrite]\n",
             encoding="utf-8",
         )
@@ -814,6 +1209,8 @@ def test_standard_custom_shadow_view() -> None:
         assert (view_data / "Routed" / "asset.route").read_text() == \
             "routed-data"
         assert (view_data / "overwrite-only.txt").read_text() == "overwrite"
+        assert (view_data / "upper-collision.txt").read_text() == \
+            "root-folder-final-winner"
         assert (view / "root-loader.dll").read_text() == "root-loader"
         assert (view / "root-config.ini").read_text() == "root-config"
         assert (view / "RoutedOverwrite" / "routed-overwrite.dll").read_text() \
@@ -2022,6 +2419,21 @@ def test_subnautica_shadow_view() -> None:
                     / "gameinfo.json").exists()
         assert not (game.game / "BepInEx").exists()
         assert game.get_vfs_launch_exe() == game.game / "Subnautica.exe"
+        assert not game.vfs_direct_shadow_launch
+
+        # Enabling the remaining BepInEx subclasses must not alter the
+        # established Windows launch contract: no Unix loader is injected and
+        # the game-root bind remains the wrapper around the vanilla command.
+        windows_passthrough = game.get_vfs_passthrough_command([
+            "/usr/bin/env", str(game.game / "Subnautica.exe"),
+        ])
+        assert not any(
+            Path(token).name.casefold() in {
+                "run_bepinex.sh", "start_game_bepinex.sh",
+            }
+            for token in windows_passthrough
+        )
+        assert "bwrap" in [Path(token).name for token in windows_passthrough]
 
         visible = subprocess.run(
             wrap_command(game, [
@@ -2041,8 +2453,679 @@ def test_subnautica_shadow_view() -> None:
         assert not (game.profiles / "custom_deploy_backup").exists()
 
         below_zero = Subnautica_Below_Zero.__new__(Subnautica_Below_Zero)
-        assert not below_zero.supports_profile_vfs
-    print("✓ Subnautica root/BepInEx routing, external saves, and opt-in boundary")
+        assert below_zero.supports_profile_vfs
+    print("✓ Windows BepInEx routing, subclass coverage, and launch behavior")
+
+
+def test_native_bepinex_shadow_launch() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _FakeNativeBepInExGame(Path(tmp))
+        # Unified Steam depots such as Inscryption ship both players. The
+        # primary .exe therefore exists even though Steam's Linux default and
+        # the deployed Unix BepInEx pack must select the native alternative.
+        windows_exe = game.game / game.exe_name
+        windows_exe.write_text("windows player", encoding="utf-8")
+        native_exe = game.game / game.exe_name_alts[0]
+        native_exe.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        native_exe.chmod(0o755)
+
+        plugin = game.staging / "NativeMod" / "NativeMod.dll"
+        plugin.parent.mkdir(parents=True)
+        plugin.write_text("plugin")
+        pack = game.staging / "BepInExPack"
+        pack.mkdir()
+        loader_body = (
+            "#!/bin/sh\n"
+            "test -f BepInEx/plugins/NativeMod.dll || exit 41\n"
+            "exec \"$@\"\n"
+        )
+        # Include both supported spellings. The generic base prefers the stock
+        # run_bepinex script; Valheim reverses this order for its pack.
+        for launcher in ("run_bepinex.sh", "start_game_bepinex.sh"):
+            (pack / launcher).write_text(loader_body, encoding="utf-8")
+
+        (game.profile / "modlist.txt").write_text(
+            "+NativeMod\n+BepInExPack\n", encoding="utf-8")
+        filemap = game.profiles / "filemap.txt"
+        filemap.write_text(
+            "NativeMod.dll\tNativeMod\n"
+            "run_bepinex.sh\tBepInExPack\n"
+            "start_game_bepinex.sh\tBepInExPack\n",
+            encoding="utf-8",
+        )
+
+        mod_files_stub = types.ModuleType("Utils.mod_files")
+        mod_files_stub.excluded_raw_by_mod = lambda _profile: {}
+        with patch.dict(sys.modules, {"Utils.mod_files": mod_files_stub}):
+            game.deploy(profile="default")
+
+        state = game.profile / STATE_DIR_NAME
+        view = state / "view"
+        view_native = view / native_exe.name
+        view_run = view / "run_bepinex.sh"
+        view_start = view / "start_game_bepinex.sh"
+        assert view_native.is_file()
+        assert view_run.is_file() and view_start.is_file()
+        assert not (game.game / "run_bepinex.sh").exists()
+        assert game.supports_profile_vfs
+        assert game.vfs_direct_shadow_launch
+        assert game.get_vfs_launch_exe() == native_exe
+        assert game._vfs_native_launcher() == game.game / "run_bepinex.sh"
+        assert Valheim.vfs_native_launcher_names.fget(
+            Valheim.__new__(Valheim))[0] == "start_game_bepinex.sh"
+
+        # Manager Play selects the native game binary, then the handler puts
+        # the virtual loader in front of that same vanilla command. The direct
+        # shadow wrapper retargets both paths and sets cwd to the private view.
+        inherited_env = {
+            "SteamAppId": "999999",
+            "SteamGameId": "999999",
+            "SteamOverlayGameId": "999999",
+            "STEAM_COMPAT_APP_ID": "999999",
+        }
+        with patch("Utils.exe_launch.spawn_process_watched") as spawn, \
+                patch("Utils.exe_launch.launch_exe_via_proton") as proton, \
+                patch("Utils.exe_launch.game_is_steam_install",
+                      return_value=True), \
+                patch("Utils.exe_launch.effective_steam_id",
+                      return_value="1092790"), \
+                patch("Utils.exe_launch.load_exe_args",
+                      side_effect=lambda _game, key: (
+                          "--saved-argument"
+                          if key == game.exe_name else "--wrong-native-key"
+                      )) as load_args, \
+                patch("Utils.exe_launch.load_launch_options",
+                      side_effect=lambda _game, key: (
+                          "BEP_TEST_ENV=profile /usr/bin/env %command% "
+                          "--launch-suffix"
+                          if key == game.exe_name else "--wrong-option-key"
+                      )) as launch_options, \
+                patch("Utils.exe_launch.steam_launch_options_for_game") \
+                      as steam_options, \
+                patch.object(game, "default_launch_args_for_exe",
+                             return_value=["--default-argument"]), \
+                patch("Utils.xdg.host_env", return_value=dict(inherited_env)):
+            launch_game(game)
+        proton.assert_not_called()
+        steam_options.assert_not_called()
+        load_args.assert_called_once_with(game, game.exe_name)
+        launch_options.assert_called_once_with(game, game.exe_name)
+        spawn.assert_called_once()
+        manager_command = spawn.call_args.args[0]
+        manager_env = spawn.call_args.kwargs["env"]
+        assert all(manager_env[key] == "1092790" for key in inherited_env)
+        assert manager_env["BEP_TEST_ENV"] == "profile"
+        assert manager_command.count(str(view_run)) == 1
+        assert str(view_native) in manager_command
+        assert str(native_exe) not in manager_command
+        loader_index = manager_command.index(str(view_run))
+        native_index = manager_command.index(str(view_native))
+        env_index = manager_command.index("/usr/bin/env")
+        assert manager_command[loader_index - 1] == "/bin/sh"
+        assert env_index < loader_index < native_index
+        assert manager_command[native_index + 1:] == [
+            "--default-argument",
+            "--saved-argument",
+            "--launch-suffix",
+        ]
+        result = subprocess.run(
+            manager_command, text=True, capture_output=True, check=False)
+        assert result.returncode == 0, result.stderr
+
+        # With no per-executable value, native VFS Play inherits Steam's
+        # launch options just like the normal store/direct routes.
+        with patch("Utils.exe_launch.spawn_process_watched") as spawn, \
+                patch("Utils.exe_launch.game_is_steam_install",
+                      return_value=True), \
+                patch("Utils.exe_launch.effective_steam_id",
+                      return_value="1092790"), \
+                patch("Utils.exe_launch.load_exe_args",
+                      side_effect=lambda _game, key: (
+                          "" if key == game.exe_name else "--wrong-native-key"
+                      )) as load_args, \
+                patch("Utils.exe_launch.load_launch_options",
+                      side_effect=lambda _game, key: (
+                          "" if key == game.exe_name else "--wrong-option-key"
+                      )) as launch_options, \
+                patch("Utils.exe_launch.steam_launch_options_for_game",
+                      return_value=(
+                          "STEAM_FALLBACK_ENV=1 /usr/bin/env %command% "
+                          "--steam-fallback"
+                      )) as steam_options, \
+                patch.object(game, "default_launch_args_for_exe",
+                             return_value=[]), \
+                patch("Utils.xdg.host_env", return_value=dict(inherited_env)):
+            launch_game(game)
+        steam_options.assert_called_once()
+        load_args.assert_called_once_with(game, game.exe_name)
+        launch_options.assert_called_once_with(game, game.exe_name)
+        fallback_command = spawn.call_args.args[0]
+        fallback_env = spawn.call_args.kwargs["env"]
+        assert fallback_env["STEAM_FALLBACK_ENV"] == "1"
+        fallback_loader = fallback_command.index(str(view_run))
+        fallback_native = fallback_command.index(str(view_native))
+        fallback_env_wrapper = fallback_command.index("/usr/bin/env")
+        assert fallback_env_wrapper < fallback_loader < fallback_native
+        assert fallback_command[fallback_native + 1:] == ["--steam-fallback"]
+
+        # A launcher handoff keeps wrapper tokens ahead of the BepInEx script,
+        # then inserts the script immediately before the native executable.
+        # Unix BepInEx treats its first argument as the executable to inject
+        # into, so prefixing the whole wrapper command would target the wrapper
+        # rather than the Unity player.
+        vanilla = [
+            "steam-native-wrapper", "--", str(native_exe), "--test-argument",
+        ]
+        passthrough = game.get_vfs_passthrough_command(vanilla)
+        assert "bwrap" not in [Path(token).name for token in passthrough]
+        assert passthrough.count(str(view_run)) == 1
+        assert str(view_native) in passthrough
+        assert "steam-native-wrapper" in passthrough
+        assert "--test-argument" in passthrough
+        native_index = passthrough.index(str(view_native))
+        assert passthrough[native_index - 2:native_index] == [
+            "/bin/sh", str(view_run),
+        ]
+        assert passthrough.index("steam-native-wrapper") < native_index - 2
+
+        executable_prefix = game.get_vfs_passthrough_command([
+            "/usr/bin/env", str(native_exe),
+        ])
+        result = subprocess.run(
+            executable_prefix, text=True, capture_output=True, check=False)
+        assert result.returncode == 0, result.stderr
+
+        # A user retaining an old BepInEx launch option must not get a second
+        # copy of the loader when Amethyst's launcher wrapper is added.
+        already_wrapped = game.get_vfs_passthrough_command([
+            str(game.game / "run_bepinex.sh"), str(native_exe),
+        ])
+        assert sum(
+            Path(token).name.casefold() == "run_bepinex.sh"
+            for token in already_wrapped
+        ) == 1
+
+        # The generic game-folder tool path also calls wrap_launch_command;
+        # it must not accidentally be converted into a native game launch.
+        tool_command = game.wrap_launch_command(["/tmp/BepInExTool.exe"])
+        assert not any(
+            Path(token).name.casefold() in {
+                "run_bepinex.sh", "start_game_bepinex.sh",
+            }
+            for token in tool_command
+        )
+
+        with patch.object(game, "_vfs_native_game_exe",
+                          return_value=native_exe), \
+                patch.object(game, "_vfs_native_launcher", return_value=None):
+            try:
+                game.get_vfs_passthrough_command([str(native_exe)])
+            except RuntimeError as exc:
+                assert "native BepInEx launch script is missing" in str(exc)
+            else:
+                raise AssertionError("missing native BepInEx script was accepted")
+
+        game.restore()
+        assert not (state / MANIFEST_NAME).exists()
+
+    # Valheim's legacy physical deploy tells users to put the script directly
+    # in Steam's Launch Options. That command cannot see a profile-only view;
+    # VFS mode must point users at Amethyst's launcher-aware handoff instead.
+    valheim = Valheim.__new__(Valheim)
+    messages: list[str] = []
+    with patch.object(Subnautica, "deploy", return_value=None), \
+            patch.object(Valheim, "vfs_launch_enabled", True), \
+            patch.object(Valheim, "_vfs_native_game_exe",
+                         return_value=Path("/game/valheim.x86_64")):
+        valheim.deploy(log_fn=messages.append)
+    assert any("automatically wraps Valheim" in message for message in messages)
+    assert not any("Steam launch option" in message for message in messages)
+
+    messages.clear()
+    with patch.object(Subnautica, "deploy", return_value=None), \
+            patch.object(Valheim, "vfs_launch_enabled", True), \
+            patch.object(Valheim, "_vfs_native_game_exe", return_value=None):
+        valheim.deploy(log_fn=messages.append)
+    assert not any("automatically wraps Valheim" in message for message in messages)
+    assert any("private game view" in message for message in messages)
+    print("✓ native BepInEx manager and launcher-passthrough wrapping")
+
+
+def test_native_none_launch_steam_context() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _FakeNativeDirectGame(Path(tmp))
+        game.native_steam_client_required = True
+        native_exe = game.game / game.exe_name
+        native_exe.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        native_exe.chmod(0o755)
+        inherited_env = {
+            "SteamAppId": "999999",
+            "SteamGameId": "999999",
+            "SteamOverlayGameId": "999999",
+            "STEAM_COMPAT_APP_ID": "999999",
+        }
+        launch_order: list[str] = []
+
+        with patch("Utils.exe_launch.spawn_process_watched") as spawn, \
+                patch("Utils.exe_launch.load_launch_mode",
+                      return_value="none"), \
+                patch("Utils.exe_launch.game_is_steam_install",
+                      return_value=True), \
+                patch("Utils.exe_launch.effective_steam_id",
+                      return_value="2868840"), \
+                patch("Utils.exe_launch.load_exe_args",
+                      return_value="--saved-argument") as load_args, \
+                patch("Utils.exe_launch.load_launch_options",
+                      return_value=(
+                          "DIRECT_TEST_ENV=profile /usr/bin/env %command% "
+                          "--launch-suffix"
+                      )) as launch_options, \
+                patch("Utils.exe_launch.steam_launch_options_for_game") \
+                      as steam_options, \
+                patch("Utils.steam_client.ensure_steam_client_running",
+                      side_effect=lambda **_kwargs: (
+                          launch_order.append("client-ready") or True
+                      )) as ensure_steam, \
+                patch("Utils.xdg.host_env", return_value=dict(inherited_env)):
+            spawn.side_effect = lambda *_args, **_kwargs: (
+                launch_order.append("game-spawn"))
+            launch_game(game)
+
+        spawn.assert_called_once()
+        ensure_steam.assert_called_once()
+        assert launch_order == ["client-ready", "game-spawn"]
+        load_args.assert_called_once_with(game, native_exe.name)
+        launch_options.assert_called_once_with(game, native_exe.name)
+        steam_options.assert_not_called()
+        command = spawn.call_args.args[0]
+        env = spawn.call_args.kwargs["env"]
+        assert all(env[key] == "2868840" for key in inherited_env)
+        assert env["DIRECT_TEST_ENV"] == "profile"
+        assert spawn.call_args.kwargs["cwd"] == native_exe.parent
+
+        env_index = command.index("/usr/bin/env")
+        exe_index = command.index(str(native_exe))
+        assert env_index < exe_index
+        assert command[exe_index + 1:] == [
+            "--default-argument",
+            "--saved-argument",
+            "--launch-suffix",
+        ]
+
+        # Amethyst itself may have been started as a Steam shortcut. A native
+        # game outside Steam must not inherit that unrelated app identity.
+        inherited_nonsteam = {
+            "PATH": "/test/bin",
+            "SteamAppId": "999999",
+            "SteamGameId": "999999",
+            "SteamOverlayGameId": "999999",
+            "STEAM_COMPAT_APP_ID": "999999",
+        }
+        with patch("Utils.exe_launch.spawn_process_watched") as spawn, \
+                patch("Utils.exe_launch.load_launch_mode",
+                      return_value="none"), \
+                patch("Utils.exe_launch.game_is_steam_install",
+                      return_value=False), \
+                patch("Utils.exe_launch.effective_steam_id",
+                      return_value=""), \
+                patch("Utils.exe_launch.load_exe_args",
+                      return_value=""), \
+                patch("Utils.exe_launch.load_launch_options",
+                      return_value=""), \
+                patch("Utils.exe_launch.steam_launch_options_for_game",
+                      return_value=""), \
+                patch("Utils.steam_client.ensure_steam_client_running") \
+                      as ensure_steam, \
+                patch("Utils.xdg.host_env",
+                      return_value=dict(inherited_nonsteam)):
+            launch_game(game)
+        spawn.assert_called_once()
+        ensure_steam.assert_not_called()
+        nonsteam_command = spawn.call_args.args[0]
+        nonsteam_env = spawn.call_args.kwargs["env"]
+        assert str(native_exe) in nonsteam_command
+        assert all(key not in nonsteam_env for key in (
+            "SteamAppId", "SteamGameId", "SteamOverlayGameId",
+            "STEAM_COMPAT_APP_ID",
+        ))
+        assert nonsteam_env["PATH"] == "/test/bin"
+        assert not (native_exe.parent / "steam_appid.txt").exists()
+    print("✓ native None launch pins or clears inherited Steam context")
+
+
+def test_native_steam_client_lifecycle() -> None:
+    from Utils.steam_client import ensure_steam_client_running
+
+    # An existing client is accepted without touching any launcher process.
+    already_messages: list[str] = []
+    with patch("Utils.steam_client.steam_client_running",
+               return_value=True) as running, \
+            patch("Utils.steam_client.subprocess.Popen") as client_spawn:
+        assert ensure_steam_client_running(log_fn=already_messages.append)
+    running.assert_called_once_with(strict=True)
+    client_spawn.assert_not_called()
+    assert any("already running" in message for message in already_messages)
+
+    # A Flatpak-host PID that cannot be queried is intentionally ambiguous:
+    # config writers retain the historical conservative True, while native
+    # Steamworks launch readiness must fail its strict proof.
+    from Utils.steam_finder import steam_client_running
+    with tempfile.TemporaryDirectory() as tmp:
+        fake_home = Path(tmp)
+        pid_file = fake_home / ".steam" / "steam.pid"
+        pid_file.parent.mkdir(parents=True)
+        pid_file.write_text("424242\n", encoding="ascii")
+        real_exists = Path.exists
+
+        def _flatpak_exists(path: Path) -> bool:
+            if str(path) == "/.flatpak-info":
+                return True
+            return real_exists(path)
+
+        with patch("Utils.steam_finder._HOME", fake_home), \
+                patch.object(Path, "exists", autospec=True,
+                             side_effect=_flatpak_exists), \
+                patch("shutil.which", return_value=None):
+            assert steam_client_running()
+            assert not steam_client_running(strict=True)
+
+    # A closed client is started without a game URI. Process liveness is
+    # checked again after the PID appears, covering Steam's bootstrap/PID
+    # replacement window without claiming that login or IPC is ready.
+    with tempfile.TemporaryDirectory() as tmp:
+        fake_home = Path(tmp)
+        inherited = {
+            "PATH": "/test/bin",
+            "DISPLAY": ":99",
+            "SteamAppId": "999999",
+            "SteamGameId": "999999",
+            "SteamOverlayGameId": "999999",
+            "STEAM_COMPAT_APP_ID": "999999",
+            "SteamAppUser": "wrong-user",
+            "SteamUser": "wrong-user",
+            "SteamClientLaunch": "1",
+            "SteamEnv": "1",
+            "STEAM_COMPAT_DATA_PATH": "/wrong/prefix",
+            "STEAM_RUNTIME": "/wrong/runtime",
+            "STEAM_RUNTIME_LIBRARY_PATH": "/wrong/runtime/lib",
+            "PRESSURE_VESSEL_FILESYSTEMS_RW": "/wrong/mount",
+        }
+        ready_messages: list[str] = []
+        client_proc = types.SimpleNamespace(poll=lambda: None)
+        with patch("Utils.steam_client.Path") as path_type, \
+                patch("Utils.steam_client.steam_client_running",
+                      side_effect=[False, True, True]) as running, \
+                patch("Utils.steam_client.shutil.which",
+                      side_effect=lambda name: f"/usr/bin/{name}"), \
+                patch("Utils.steam_client.subprocess.Popen", side_effect=[
+                    OSError("injected stale xdg-open association"),
+                    OSError("injected missing native Steam"),
+                    client_proc,
+                ]) as client_spawn, \
+                patch("Utils.steam_client.time.sleep") as sleep, \
+                patch("Utils.xdg.host_env",
+                      return_value=dict(inherited)):
+            path_type.home.return_value = fake_home
+            path_type.return_value.exists.return_value = False
+            assert ensure_steam_client_running(
+                log_fn=ready_messages.append, timeout=5.0)
+        running.assert_called()
+        assert running.call_count == 3
+        assert all(call.kwargs == {"strict": True}
+                   for call in running.call_args_list)
+        sleep.assert_called_once_with(2.0)
+        assert [call.args[0] for call in client_spawn.call_args_list] == [
+            ["xdg-open", "steam://open/main"],
+            ["steam", "-silent"],
+            ["flatpak", "run", "com.valvesoftware.Steam", "-silent"],
+        ]
+        client_env = client_spawn.call_args_list[-1].kwargs["env"]
+        assert client_env["PATH"] == "/test/bin"
+        assert client_env["DISPLAY"] == ":99"
+        assert all(key not in client_env for key in (
+            "SteamAppId", "SteamGameId", "SteamOverlayGameId",
+            "STEAM_COMPAT_APP_ID", "SteamAppUser", "SteamUser",
+            "SteamClientLaunch", "SteamEnv", "STEAM_COMPAT_DATA_PATH",
+            "STEAM_RUNTIME", "STEAM_RUNTIME_LIBRARY_PATH",
+            "PRESSURE_VESSEL_FILESYSTEMS_RW",
+        ))
+        assert client_spawn.call_args_list[-1].kwargs["cwd"] == str(fake_home)
+        assert any("client process is running" in message
+                   for message in ready_messages)
+
+    # Launcher failure is returned to Manager Play, which must fail closed and
+    # report an actionable error instead of starting a Steamworks game anyway.
+    failed_messages: list[str] = []
+    with tempfile.TemporaryDirectory() as tmp:
+        fake_home = Path(tmp)
+        with patch("Utils.steam_client.Path") as path_type, \
+                patch("Utils.steam_client.steam_client_running",
+                      return_value=False), \
+                patch("Utils.steam_client.shutil.which",
+                      side_effect=lambda name: (
+                          "/usr/bin/xdg-open" if name == "xdg-open" else None
+                      )), \
+                patch("Utils.steam_client.subprocess.Popen",
+                      side_effect=OSError("injected client start failure")), \
+                patch("Utils.xdg.host_env", return_value={}):
+            path_type.home.return_value = fake_home
+            path_type.return_value.exists.return_value = False
+            assert not ensure_steam_client_running(
+                log_fn=failed_messages.append, timeout=1.0)
+        assert any("could not start Steam" in message
+                   for message in failed_messages)
+
+        game = _FakeNativeDirectGame(Path(tmp) / "launch")
+        game.native_steam_client_required = True
+        native_exe = game.game / game.exe_name
+        native_exe.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        native_exe.chmod(0o755)
+        launch_messages: list[str] = []
+        with patch("Utils.exe_launch.spawn_process_watched") as game_spawn, \
+                patch("Utils.exe_launch.load_launch_mode",
+                      return_value="none"), \
+                patch("Utils.exe_launch.game_is_steam_install",
+                      return_value=True), \
+                patch("Utils.exe_launch.effective_steam_id",
+                      return_value="2868840"), \
+                patch("Utils.exe_launch.load_exe_args", return_value=""), \
+                patch("Utils.exe_launch.load_launch_options",
+                      return_value=""), \
+                patch("Utils.exe_launch.steam_launch_options_for_game",
+                      return_value=""), \
+                patch("Utils.steam_client.ensure_steam_client_running",
+                      return_value=False) as ensure_steam, \
+                patch("Utils.exe_launch.launch_report.actionable",
+                      side_effect=lambda reason: reason), \
+                patch("Utils.exe_launch.launch_report.mark_failed") \
+                      as mark_failed, \
+                patch("Utils.xdg.host_env", return_value={}):
+            launch_game(game, log_fn=launch_messages.append)
+        ensure_steam.assert_called_once()
+        game_spawn.assert_not_called()
+        mark_failed.assert_called_once()
+        assert "Steam is required" in mark_failed.call_args.args[0]
+        assert any("refusing to launch" in message
+                   for message in launch_messages)
+        assert not (native_exe.parent / "steam_appid.txt").exists()
+
+        # Opt-in is handler-specific. A Steam install without it must retain
+        # the ordinary native launch path and never call the client helper.
+        game.native_steam_client_required = False
+        with patch("Utils.exe_launch.spawn_process_watched") as game_spawn, \
+                patch("Utils.exe_launch.load_launch_mode",
+                      return_value="none"), \
+                patch("Utils.exe_launch.game_is_steam_install",
+                      return_value=True), \
+                patch("Utils.exe_launch.effective_steam_id",
+                      return_value="2868840"), \
+                patch("Utils.exe_launch.load_exe_args", return_value=""), \
+                patch("Utils.exe_launch.load_launch_options",
+                      return_value=""), \
+                patch("Utils.exe_launch.steam_launch_options_for_game",
+                      return_value=""), \
+                patch("Utils.steam_client.ensure_steam_client_running") \
+                      as ensure_steam, \
+                patch("Utils.xdg.host_env", return_value={}):
+            launch_game(game)
+        ensure_steam.assert_not_called()
+        game_spawn.assert_called_once()
+    print("✓ native Steam client startup, readiness, and failure lifecycle")
+
+
+def test_native_vfs_flatpak_forwards_launch_environment() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _FakeNativeDirectGame(Path(tmp))
+        native_exe = game.game / game.exe_name
+        native_exe.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        native_exe.chmod(0o755)
+
+        state = _write_manifest(game)
+        manifest_path = state / MANIFEST_NAME
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        view = state / "view"
+        (view / "Data").mkdir(parents=True)
+        (view / native_exe.name).write_text(
+            "#!/bin/sh\nexit 0\n", encoding="utf-8")
+        manifest.update({
+            "backend": BACKEND_SHADOW,
+            "view_root": str(view),
+        })
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+        game.vfs_launch_enabled = True
+        game.vfs_direct_shadow_launch = True
+        game.native_steam_client_required = True
+        game.get_vfs_launch_exe = lambda: native_exe
+        game.wrap_launch_command = (
+            lambda command, *, env=None: wrap_command(
+                game, command, env=env)
+        )
+        inherited_env = {
+            "SteamAppId": "999999",
+            "SteamGameId": "999999",
+            "SteamOverlayGameId": "999999",
+            "STEAM_COMPAT_APP_ID": "999999",
+        }
+
+        # Give the launch-option variable a different sandbox baseline so the
+        # real forwarding filter must recognise it as an explicit override.
+        with patch.dict(os.environ, {
+                "FLATPAK_LAUNCH_OPTION": "sandbox-baseline",
+             }), patch("Utils.exe_launch.spawn_process_watched") as spawn, \
+                patch("Utils.exe_launch.game_is_steam_install",
+                      return_value=True), \
+                patch("Utils.exe_launch.effective_steam_id",
+                      return_value="2868840"), \
+                patch("Utils.exe_launch.load_exe_args", return_value=""), \
+                patch("Utils.exe_launch.load_launch_options", return_value=(
+                    "FLATPAK_LAUNCH_OPTION=profile /usr/bin/env %command%"
+                )), \
+                patch("Utils.steam_client.ensure_steam_client_running",
+                      return_value=True) as ensure_steam, \
+                patch("Utils.xdg.host_env",
+                      return_value=dict(inherited_env)), \
+                patch("Utils.vfs.overlay._inside_flatpak",
+                      return_value=True):
+            launch_game(game)
+
+        spawn.assert_called_once()
+        ensure_steam.assert_called_once()
+        command = spawn.call_args.args[0]
+        assert command[:2] == ["flatpak-spawn", "--host"]
+        host_index = command.index("--host")
+        shell_index = command.index("/bin/sh")
+        forwarded = [
+            "--env=SteamAppId=2868840",
+            "--env=SteamGameId=2868840",
+            "--env=SteamOverlayGameId=2868840",
+            "--env=STEAM_COMPAT_APP_ID=2868840",
+            "--env=FLATPAK_LAUNCH_OPTION=profile",
+        ]
+        for token in forwarded:
+            assert host_index < command.index(token) < shell_index
+        assert str(view / native_exe.name) in command
+        assert command.count("flatpak-spawn") == 1
+        assert not (game.game / "steam_appid.txt").exists()
+        assert not (view / "steam_appid.txt").exists()
+    print("✓ native Flatpak VFS forwards Steam and launch-option environment")
+
+
+def test_native_steam_handoff_fallback_is_not_recursive() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _FakeNativeDirectGame(Path(tmp))
+        game.game_id = "native_direct_test"
+        native_exe = game.game / game.exe_name
+        native_exe.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        native_exe.chmod(0o755)
+        inherited_env = {
+            "SteamAppId": "999999",
+            "SteamGameId": "999999",
+            "SteamOverlayGameId": "999999",
+            "STEAM_COMPAT_APP_ID": "999999",
+        }
+        generated_handoff = (
+            "/usr/bin/flatpak-spawn --host /usr/bin/python3 "
+            "'/home/test/Amethyst Mod Manager/src/cli.py' "
+            "launch native_direct_test --profile default -- %command%"
+        )
+        messages: list[str] = []
+
+        with patch("Utils.exe_launch.spawn_process_watched") as spawn, \
+                patch("Utils.exe_launch.load_launch_mode",
+                      return_value="none"), \
+                patch("Utils.exe_launch.game_is_steam_install",
+                      return_value=True), \
+                patch("Utils.exe_launch.effective_steam_id",
+                      return_value="2868840"), \
+                patch("Utils.exe_launch.load_exe_args", return_value=""), \
+                patch("Utils.exe_launch.load_launch_options",
+                      return_value=""), \
+                patch("Utils.exe_launch.steam_launch_options_for_game",
+                      return_value=generated_handoff) as steam_options, \
+                patch("Utils.xdg.host_env",
+                      return_value=dict(inherited_env)):
+            launch_game(game, log_fn=messages.append)
+
+        steam_options.assert_called_once()
+        spawn.assert_called_once()
+        command = spawn.call_args.args[0]
+        assert command == [str(native_exe), "--default-argument"]
+        assert "flatpak-spawn" not in command
+        assert "launch" not in command
+        assert all(spawn.call_args.kwargs["env"][key] == "2868840"
+                   for key in inherited_env)
+        assert any("ignoring Amethyst's Steam VFS handoff" in message
+                   for message in messages)
+
+        # Only Amethyst's generated handoff is special. Ordinary Steam
+        # wrappers and their environment/arguments must still be preserved.
+        normal_options = (
+            "NORMAL_STEAM_WRAPPER=1 mangohud %command% --steam-suffix"
+        )
+        with patch("Utils.exe_launch.spawn_process_watched") as spawn, \
+                patch("Utils.exe_launch.load_launch_mode",
+                      return_value="none"), \
+                patch("Utils.exe_launch.game_is_steam_install",
+                      return_value=True), \
+                patch("Utils.exe_launch.effective_steam_id",
+                      return_value="2868840"), \
+                patch("Utils.exe_launch.load_exe_args", return_value=""), \
+                patch("Utils.exe_launch.load_launch_options",
+                      return_value=""), \
+                patch("Utils.exe_launch.steam_launch_options_for_game",
+                      return_value=normal_options), \
+                patch("Utils.xdg.host_env",
+                      return_value=dict(inherited_env)):
+            launch_game(game)
+        normal_command = spawn.call_args.args[0]
+        normal_exe_index = normal_command.index(str(native_exe))
+        assert normal_command[:normal_exe_index] == ["mangohud"]
+        assert normal_command[normal_exe_index + 1:] == [
+            "--default-argument", "--steam-suffix",
+        ]
+        assert spawn.call_args.kwargs["env"]["NORMAL_STEAM_WRAPPER"] == "1"
+    print("✓ native Steam fallback skips only Amethyst's own VFS handoff")
 
 
 def test_stardew_shadow_view() -> None:
@@ -2151,6 +3234,277 @@ def test_stardew_shadow_view() -> None:
         assert vanilla_mod.read_text() == "vanilla"
         assert not (game.game / "Mods" / "GoodMod").exists()
     print("✓ Stardew/SMAPI native shadow launch and deploy rules")
+
+
+def test_cyberpunk_shadow_view() -> None:
+    """Cyberpunk remaps archives and generates metadata only in its view."""
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _FakeCyberpunkGame(Path(tmp))
+        vanilla_exe = game.game / game.exe_name
+        vanilla_exe.parent.mkdir(parents=True)
+        vanilla_exe.write_text("vanilla cyberpunk", encoding="utf-8")
+
+        physical_modlist = game.game / "archive/pc/mod/modlist.txt"
+        physical_modlist.parent.mkdir(parents=True)
+        physical_modlist.write_bytes(b"manual-vanilla.archive\r\n")
+
+        high_archive = game.staging / "High" / "archive/pc/patch/high.archive"
+        high_archive.parent.mkdir(parents=True)
+        high_archive.write_text("high", encoding="utf-8")
+        loose_archive = game.staging / "Loose" / "loose.archive"
+        loose_archive.parent.mkdir(parents=True)
+        loose_archive.write_text("loose", encoding="utf-8")
+        loose_archive.with_suffix(".xl").write_text(
+            "companion", encoding="utf-8")
+        cet = (game.staging / "CET"
+               / "bin/x64/plugins/cyber_engine_tweaks.asi")
+        cet.parent.mkdir(parents=True)
+        cet.write_text("cet", encoding="utf-8")
+        redmod = game.staging / "REDmod" / "mods/TestRED/info.json"
+        redmod.parent.mkdir(parents=True)
+        redmod.write_text("{}", encoding="utf-8")
+        overwrite_archive = (
+            game.overwrite / "archive/pc/patch/overwrite.archive")
+        overwrite_archive.parent.mkdir(parents=True)
+        overwrite_archive.write_text("overwrite", encoding="utf-8")
+        (game.root_folder / "version.dll").write_text(
+            "root loader", encoding="utf-8")
+
+        (game.profile / "modlist.txt").write_text(
+            "+High\n+Loose\n+CET\n+REDmod\n", encoding="utf-8")
+        game.filemap.write_text(
+            "archive/pc/patch/overwrite.archive\t[Overwrite]\n"
+            "archive/pc/patch/high.archive\tHigh\n"
+            "loose.archive\tLoose\n"
+            "loose.xl\tLoose\n"
+            "bin/x64/plugins/cyber_engine_tweaks.asi\tCET\n"
+            "mods/TestRED/info.json\tREDmod\n",
+            encoding="utf-8",
+        )
+
+        for unsafe_dest in ("../escape/", "/tmp/escape/", "C:/escape/"):
+            try:
+                deploy_filemap(
+                    game.filemap,
+                    game.root / "unsafe-target",
+                    game.staging,
+                    path_remap={"archive/pc/patch/": unsafe_dest},
+                )
+            except RuntimeError as exc:
+                assert "Unsafe deployment path remap" in str(exc)
+            else:
+                raise AssertionError(
+                    f"unsafe VFS destination remap was accepted: {unsafe_dest}")
+
+        logs: list[str] = []
+        _deploy_custom_fixture(
+            game, profile="default", log_fn=logs.append,
+        )
+        view = effective_shadow_root(game)
+        assert view == game.profile / STATE_DIR_NAME / "view"
+        manifest = game.profile / STATE_DIR_NAME / MANIFEST_NAME
+        manifest_payload = json.loads(manifest.read_text(encoding="utf-8"))
+        manifest_payload["view_root"] = str(game.game)
+        manifest.write_text(json.dumps(manifest_payload), encoding="utf-8")
+        try:
+            effective_shadow_root(game)
+        except RuntimeError as exc:
+            assert "Unsafe profile VFS manifest view_root path" in str(exc)
+        else:
+            raise AssertionError("an out-of-state VFS shadow root was accepted")
+        manifest_payload["view_root"] = str(view)
+        root_trap = game.root / "manifest-root-trap"
+        manifest_payload["root_layer"] = str(root_trap)
+        manifest.write_text(json.dumps(manifest_payload), encoding="utf-8")
+        generated_target = virtual_root_write_path(game, "generated.txt")
+        assert generated_target == view / "generated.txt"
+        assert root_trap not in generated_target.parents
+        manifest_payload["root_layer"] = str(view)
+        manifest.write_text(json.dumps(manifest_payload), encoding="utf-8")
+
+        assert (view / "archive/pc/mod/overwrite.archive").read_text() == "overwrite"
+        assert (view / "archive/pc/mod/high.archive").read_text() == "high"
+        assert not (view / "archive/pc/patch/high.archive").exists()
+        assert not (view / "archive/pc/patch/overwrite.archive").exists()
+        assert (view / "archive/pc/mod/loose.archive").read_text() == "loose"
+        assert (view / "archive/pc/mod/loose.xl").read_text() == "companion"
+        assert (view / "bin/x64/plugins/cyber_engine_tweaks.asi").read_text() == "cet"
+        assert (view / "version.dll").read_text() == "root loader"
+        assert (view / "mods/TestRED/info.json").read_text() == "{}"
+        assert (view / "archive/pc/mod/modlist.txt").read_bytes() == (
+            b"overwrite.archive\r\nhigh.archive\r\nloose.archive\r\n"
+        )
+
+        # The real install and physical-deploy ownership sidecars remain
+        # unchanged even though the view replaced an inherited hardlink.
+        assert physical_modlist.read_bytes() == b"manual-vanilla.archive\r\n"
+        assert not (game.game / "archive/pc/mod/high.archive").exists()
+        assert not (game.game / "bin/x64/plugins/cyber_engine_tweaks.asi").exists()
+        assert not (game.game / "version.dll").exists()
+        assert not (game.profiles / "archive_modlist.state").exists()
+        assert not (game.profiles / "archive_modlist_backup.txt").exists()
+
+        assert game._deployed_redmods() == ["TestRED"]
+        with patch.object(
+            game, "_external_launch_missing_modded", return_value=None,
+        ):
+            game.post_deploy(log_fn=logs.append)
+        assert any("1 mod(s) deployed under mods/" in line for line in logs)
+        assert game.default_launch_args == ["-modded", "--launcher-skip"]
+        assert game.default_launch_args_for_exe(
+            "REDprelauncher.exe") == ["-modded"]
+        assert game.framework_launch_exes == {
+            "REDLauncher": "REDprelauncher.exe"}
+
+        passthrough = game.get_vfs_passthrough_command([
+            "lutris-runner", str(vanilla_exe),
+        ])
+        assert "-modded" in passthrough
+        assert "--launcher-skip" in passthrough
+        assert passthrough.count("-modded") == 1
+        preconfigured = game.get_vfs_passthrough_command([
+            str(vanilla_exe), "-modded",
+        ])
+        assert preconfigured.count("-modded") == 1
+        assert "--launcher-skip" in preconfigured
+        redlauncher = game.get_vfs_passthrough_command([
+            "steam-wrapper", str(game.game / "REDprelauncher.exe"),
+        ])
+        assert "-modded" in redlauncher
+        assert "--launcher-skip" not in redlauncher
+
+        # Toggle-off restore still follows the published state and removes the
+        # generated modlist with the shadow, never the physical original.
+        game.set_vfs_enabled(False)
+        game.restore(log_fn=logs.append)
+        assert not has_deployment_state(game)
+        assert physical_modlist.read_bytes() == b"manual-vanilla.archive\r\n"
+        assert vanilla_exe.read_text(encoding="utf-8") == "vanilla cyberpunk"
+        assert not (game.game / "version.dll").exists()
+
+    # A migration can leave both kinds of state. Restore must unpublish the
+    # private view and then consume the root-deploy journal and archive backup.
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _FakeCyberpunkGame(Path(tmp))
+        exe = game.game / game.exe_name
+        exe.parent.mkdir(parents=True)
+        exe.write_text("vanilla", encoding="utf-8")
+        archive = game.staging / "Archive" / "archive/pc/mod/profile.archive"
+        archive.parent.mkdir(parents=True)
+        archive.write_text("profile", encoding="utf-8")
+        (game.profile / "modlist.txt").write_text(
+            "+Archive\n", encoding="utf-8")
+        game.filemap.write_text(
+            "archive/pc/mod/profile.archive\tArchive\n", encoding="utf-8")
+        _deploy_custom_fixture(game, profile="default")
+
+        physical_file = game.game / "r6/scripts/physical.reds"
+        physical_file.parent.mkdir(parents=True)
+        physical_file.write_text("legacy deploy", encoding="utf-8")
+        (game.profiles / "filemap_deployed.txt").write_text(
+            "r6/scripts/physical.reds", encoding="utf-8")
+        physical_modlist = game.game / "archive/pc/mod/modlist.txt"
+        physical_modlist.parent.mkdir(parents=True, exist_ok=True)
+        generated = b"physical.archive\r\n"
+        physical_modlist.write_bytes(generated)
+        (game.profiles / "archive_modlist.state").write_bytes(generated)
+        (game.profiles / "archive_modlist_backup.txt").write_bytes(
+            b"original-physical-order\r\n")
+
+        game.set_vfs_enabled(False)
+        game.restore()
+        assert not has_deployment_state(game)
+        assert not physical_file.exists()
+        assert physical_modlist.read_bytes() == b"original-physical-order\r\n"
+        assert not (game.profiles / "filemap_deployed.txt").exists()
+        assert not (game.profiles / "archive_modlist.state").exists()
+        assert not (game.profiles / "archive_modlist_backup.txt").exists()
+
+    # Root_Folder is applied after handler deploy in physical mode and thus
+    # owns an explicit modlist.txt. VFS resolves the root payload earlier, so
+    # its post-view generator must deliberately preserve that same winner.
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _FakeCyberpunkGame(Path(tmp))
+        exe = game.game / game.exe_name
+        exe.parent.mkdir(parents=True)
+        exe.write_text("vanilla", encoding="utf-8")
+        archive = game.staging / "Archive" / "profile.archive"
+        archive.parent.mkdir(parents=True)
+        archive.write_text("archive", encoding="utf-8")
+        root_modlist = game.root_folder / "archive/pc/mod/modlist.txt"
+        root_modlist.parent.mkdir(parents=True)
+        root_modlist.write_bytes(b"root-order.archive\r\n")
+        overwrite_modlist = (
+            game.overwrite / "archive/pc/mod/modlist.txt")
+        overwrite_modlist.parent.mkdir(parents=True)
+        overwrite_modlist.write_bytes(b"overwrite-order.archive\r\n")
+        (game.profile / "modlist.txt").write_text(
+            "+Archive\n", encoding="utf-8")
+        game.filemap.write_text(
+            "profile.archive\tArchive\n"
+            "archive/pc/mod/modlist.txt\t[Overwrite]\n",
+            encoding="utf-8")
+
+        _deploy_custom_fixture(game, profile="default")
+        view = effective_shadow_root(game)
+        assert (view / "archive/pc/mod/modlist.txt").read_bytes() == (
+            b"root-order.archive\r\n")
+        assert not (game.game / "archive/pc/mod/modlist.txt").exists()
+        game.restore()
+
+    # A stale root map line whose source is missing never reached the view and
+    # therefore cannot claim precedence over the generated load order.
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _FakeCyberpunkGame(Path(tmp))
+        exe = game.game / game.exe_name
+        exe.parent.mkdir(parents=True)
+        exe.write_text("vanilla", encoding="utf-8")
+        archive = game.staging / "Archive" / "profile.archive"
+        archive.parent.mkdir(parents=True)
+        archive.write_text("archive", encoding="utf-8")
+        (game.profile / "modlist.txt").write_text(
+            "+Archive\n", encoding="utf-8")
+        game.filemap.write_text(
+            "profile.archive\tArchive\n", encoding="utf-8")
+        (game.profiles / "filemap_root.txt").write_text(
+            "archive/pc/mod/modlist.txt\tMissingRoot\n",
+            encoding="utf-8",
+        )
+
+        _deploy_custom_fixture(game, profile="default")
+        view = effective_shadow_root(game)
+        assert (view / "archive/pc/mod/modlist.txt").read_bytes() == (
+            b"profile.archive\r\n")
+        game.restore()
+
+    # A manifest is bookkeeping, never authority to scan/move arbitrary
+    # directories. Corrupting view_root must make capture skip safely while
+    # cleanup still removes only the profile's fixed managed state.
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _FakeCyberpunkGame(Path(tmp))
+        exe = game.game / game.exe_name
+        exe.parent.mkdir(parents=True)
+        exe.write_text("vanilla", encoding="utf-8")
+        (game.profile / "modlist.txt").write_text("", encoding="utf-8")
+        game.filemap.write_text("", encoding="utf-8")
+        _deploy_custom_fixture(game, profile="default")
+
+        state = game.profile / STATE_DIR_NAME
+        manifest_path = state / MANIFEST_NAME
+        corrupt = json.loads(manifest_path.read_text(encoding="utf-8"))
+        corrupt["view_root"] = str(game.game)
+        manifest_path.write_text(json.dumps(corrupt), encoding="utf-8")
+        victim = game.game / "victim.txt"
+        victim.write_text("must remain physical", encoding="utf-8")
+
+        logs: list[str] = []
+        game.restore(log_fn=logs.append)
+        assert victim.read_text(encoding="utf-8") == "must remain physical"
+        assert not (game.overwrite / "victim.txt").exists()
+        assert not has_deployment_state(game)
+        assert any("Unsafe profile VFS manifest view_root" in line
+                   for line in logs)
+    print("✓ Cyberpunk root VFS remap, metadata, REDmod scan, and restore")
 
 
 def test_vfs_as_deploy_method() -> None:
@@ -2508,6 +3862,28 @@ def test_steam_runtime_uses_shadow_directly() -> None:
         assert flatpak_wrapped.count("flatpak-spawn") == 1
         assert flatpak_wrapped[:2] == ["flatpak-spawn", "--host"]
         assert flatpak_wrapped.index("/usr/bin/env") > flatpak_wrapped.index("/bin/sh")
+
+        # Legacy engines such as Skyrim must retain the configured install as
+        # their visible working path. Deep loose assets can be below MAX_PATH
+        # there but cross it when rooted below `.amethyst-vfs/view`. The
+        # handler opt-in deliberately bypasses direct runtime retargeting and
+        # restores the original bind-at-game-root launch shape.
+        game.vfs_bind_launch_at_game_root = True
+        bound_env = os.environ.copy()
+        bound_env["STEAM_COMPAT_INSTALL_PATH"] = str(canonical_game)
+        with patch("Utils.vfs.overlay._bubblewrap_status",
+                   return_value=(True, "")), \
+                patch("Utils.vfs.overlay._bubblewrap_binary",
+                      return_value="/usr/bin/bwrap"):
+            bound = wrap_command(game, original, env=bound_env)
+        assert Path(bound[0]).name == "bwrap"
+        bind_index = bound.index("--bind")
+        assert bound[bind_index + 1:bind_index + 3] == [
+            str(view), str(canonical_game.resolve()),
+        ]
+        assert str(real_exe) in bound
+        assert str(shadow_exe) not in bound
+        assert bound_env["STEAM_COMPAT_INSTALL_PATH"] == str(canonical_game)
     print("✓ Steam Linux Runtime launches the shadow directly")
 
 
@@ -2563,9 +3939,13 @@ def main() -> None:
     test_nested_overlay()
     test_fuse_overlay()
     test_layer_build_and_skse_selection()
+    test_shadow_capture_survives_configured_path_change()
+    test_failed_post_view_hook_never_promotes_partial_output()
+    test_vfs_root_payload_preserves_physical_recovery()
     test_shared_bethesda_hooks()
     test_generic_mod_data_directory()
     test_vfs_cleanup_failure_remains_discoverable()
+    test_symlinked_vfs_state_root_is_never_followed()
     test_standard_custom_shadow_view()
     test_root_custom_shadow_view()
     test_custom_standard_root_factory_vfs_contract()
@@ -2583,7 +3963,13 @@ def main() -> None:
     test_ue5_physical_mods_txt_restore()
     test_oblivion_restore_handles_physical_vfs_coexistence()
     test_subnautica_shadow_view()
+    test_native_bepinex_shadow_launch()
+    test_native_none_launch_steam_context()
+    test_native_steam_client_lifecycle()
+    test_native_vfs_flatpak_forwards_launch_environment()
+    test_native_steam_handoff_fallback_is_not_recursive()
     test_stardew_shadow_view()
+    test_cyberpunk_shadow_view()
     test_vfs_as_deploy_method()
     test_deploy_pipeline_stops_on_incomplete_restore()
     test_flatpak_host_wrap()

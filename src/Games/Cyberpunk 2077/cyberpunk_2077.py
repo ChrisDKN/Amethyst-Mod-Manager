@@ -19,6 +19,7 @@ import shutil
 from pathlib import Path
 
 from Games.base_game import BaseGame, MODERN_DIRECTX_DEPS
+from Utils.vfs import ProfileVFSGameMixin
 from Utils.deploy import (
     CustomRule,
     LinkMode,
@@ -38,7 +39,12 @@ from Utils.config_paths import get_profiles_dir
 _PROFILES_DIR = get_profiles_dir()
 
 
-class Cyberpunk2077(BaseGame):
+class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
+
+    profile_overridable_settings = (
+        *BaseGame.profile_overridable_settings,
+        *ProfileVFSGameMixin.vfs_profile_setting_keys,
+    )
 
     # Many script/ENB-style Cyberpunk mods need the VC++ x64 runtime + fxc2
     # d3dcompiler_47; auto-install them on add/save like the modern Bethesda
@@ -263,6 +269,15 @@ class Cyberpunk2077(BaseGame):
                 "Run 'Build Filemap' before deploying."
             )
 
+        if self.vfs_launch_enabled:
+            return self._deploy_vfs(
+                profile=profile,
+                filemap=filemap,
+                staging=staging,
+                log_fn=_log,
+                progress_fn=progress_fn,
+            )
+
         profile_dir = self.get_profile_root() / "profiles" / profile
         per_mod_strip = load_per_mod_strip_prefixes(profile_dir)
 
@@ -415,6 +430,164 @@ class Cyberpunk2077(BaseGame):
         _log(f"Archive load order: wrote modlist.txt with {len(names)} "
              "archive(s) - highest-priority mod loads first (first wins).")
 
+    def _write_vfs_archive_modlist(self, filemap: Path, view_root: Path,
+                                   profile_dir: Path,
+                                   exclude_mods: "set[str] | None" = None,
+                                   log_fn=None) -> None:
+        """Generate archive load order inside the disposable private view.
+
+        The physical writer uses sidecar ownership and backup files because it
+        replaces a file in the real install. The VFS view already contains a
+        complete copy-on-write-safe representation, so replacing its hardlink
+        directly is sufficient and deliberately must not claim the physical
+        writer's sidecars.
+        """
+        _log = log_fn or (lambda _m: None)
+        names = self._ordered_mod_archives(filemap, profile_dir, exclude_mods)
+        if not names:
+            return
+
+        dest = self._archive_modlist_dest(view_root)
+        try:
+            dest.resolve(strict=False).relative_to(view_root.resolve())
+        except ValueError as exc:
+            raise RuntimeError(
+                f"Unsafe private archive modlist path: {dest}"
+            ) from exc
+        if os.path.lexists(dest):
+            # Never write through a hardlink inherited from the install or a
+            # staged mod: unlink it from the shadow first, then create ours.
+            dest.unlink()
+        content = ("\r\n".join(names) + "\r\n").encode("utf-8")
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(content)
+        _log(f"Archive load order: wrote private modlist.txt with {len(names)} "
+             "archive(s) - highest-priority mod loads first (first wins).")
+
+    def _vfs_post_view_build(self, *, view_root: Path, profile: str,
+                             filemap: Path, staging: Path, log_fn) -> None:
+        """Create Cyberpunk's generated archive order in the resolved view."""
+        _log = log_fn or (lambda _m: None)
+        if os.environ.get("AMM_CP2077_ARCHIVE_MODLIST") == "0":
+            return
+        try:
+            # Physical deployment generates this file before the pipeline's
+            # Root_Folder/root-flagged pass, so an explicit root payload wins.
+            # The VFS resolves root payloads earlier; preserve that same
+            # highest-priority contract instead of overwriting it here.
+            rel = "archive/pc/mod/modlist.txt"
+            profile_dir = self.get_profile_root() / "profiles" / profile
+            root_owns = False
+            if bool(getattr(self, "_pipeline_root_folder_enabled", True)):
+                from Utils.deploy import _resolve_nocase
+                root_source = _resolve_nocase(
+                    self.get_effective_root_folder_path(), rel)
+                root_owns = bool(
+                    root_source is not None and root_source.is_file())
+            root_map = filemap.parent / "filemap_root.txt"
+            if not root_owns and root_map.is_file():
+                # A map entry is only a claim if its source actually survived
+                # exclusions/resolution and reached the view. A stale map line
+                # with a missing source must not suppress generation.
+                from Utils.deploy import _resolve_nocase
+                from Utils.mod_files import excluded_raw_by_mod
+                excluded = excluded_raw_by_mod(profile_dir) or {}
+                per_mod_strip = load_per_mod_strip_prefixes(profile_dir)
+                view_dest = _resolve_nocase(view_root, rel)
+                for line in root_map.read_text(
+                    encoding="utf-8", errors="surrogateescape"
+                ).splitlines():
+                    if "\t" not in line:
+                        continue
+                    mapped_rel, owner = line.split("\t", 1)
+                    if (mapped_rel.replace("\\", "/").casefold()
+                            != rel.casefold()):
+                        continue
+                    prefixes = list(per_mod_strip.get(owner) or ())
+                    shared = list(self.mod_folder_strip_prefixes or ())
+                    prefixes.extend(shared)
+                    if per_mod_strip.get(owner):
+                        prefixes.extend(
+                            f"{outer}/{inner}"
+                            for outer in per_mod_strip[owner]
+                            for inner in shared
+                        )
+                    candidates = [mapped_rel] + [
+                        f"{prefix}/{mapped_rel}" for prefix in prefixes
+                    ]
+                    owner_excluded = excluded.get(owner) or set()
+                    for candidate_rel in candidates:
+                        source = _resolve_nocase(
+                            staging / owner, candidate_rel)
+                        if source is None or not source.is_file():
+                            continue
+                        try:
+                            real_rel = source.relative_to(
+                                staging / owner).as_posix().casefold()
+                        except ValueError:
+                            real_rel = candidate_rel.casefold()
+                        if real_rel in owner_excluded:
+                            continue
+                        if view_dest is not None and view_dest.is_file():
+                            try:
+                                root_owns = view_dest.samefile(source)
+                            except OSError:
+                                root_owns = False
+                            if not root_owns:
+                                try:
+                                    root_owns = (
+                                        view_dest.stat().st_size
+                                        == source.stat().st_size
+                                        and view_dest.read_bytes()
+                                        == source.read_bytes()
+                                    )
+                                except OSError:
+                                    root_owns = False
+                        break
+                    if root_owns:
+                        break
+            if root_owns:
+                _log(
+                    "Archive load order: keeping root payload modlist.txt "
+                    "instead of generating a private replacement."
+                )
+                return
+
+            sep_deploy = load_separator_deploy_paths(profile_dir)
+            sep_entries = (
+                read_modlist(profile_dir / "modlist.txt")
+                if sep_deploy else []
+            )
+            raw_mods = expand_separator_raw_deploy(
+                sep_deploy, sep_entries) or set()
+            excluded = set(raw_mods)
+            if sep_deploy:
+                excluded.update(expand_separator_deploy_paths(
+                    sep_deploy, sep_entries))
+            self._write_vfs_archive_modlist(
+                filemap,
+                view_root,
+                profile_dir,
+                exclude_mods=excluded or None,
+                log_fn=_log,
+            )
+        except Exception as exc:
+            _log(f"WARN: private archive modlist.txt not written: {exc}")
+
+    def _cleanup_vfs_archive_modlist(self, view_root: Path, log_fn=None) -> None:
+        """Unlink the generated archive order from the private view only."""
+        _log = log_fn or (lambda _m: None)
+        dest = self._archive_modlist_dest(view_root)
+        try:
+            dest.resolve(strict=False).relative_to(view_root.resolve())
+        except ValueError as exc:
+            raise RuntimeError(
+                f"Unsafe private archive modlist path: {dest}"
+            ) from exc
+        if dest.is_symlink() or dest.is_file():
+            dest.unlink()
+            _log("Archive load order: removed private generated modlist.txt.")
+
     def _cleanup_archive_modlist(self, filemap: Path, game_root: Path,
                                  log_fn=None) -> None:
         """Remove our modlist.txt on restore and put back any backed-up one."""
@@ -435,9 +608,18 @@ class Cyberpunk2077(BaseGame):
         """Names of REDmods deployed in the game root (mods/<name>/info.json)."""
         if self._game_path is None:
             return []
+        root = self._game_path
+        if self.vfs_launch_enabled:
+            try:
+                from Utils.vfs import effective_shadow_root
+                root = effective_shadow_root(self)
+            except RuntimeError:
+                # A failed/unpublished VFS build has no effective REDmod set;
+                # do not accidentally report files from the untouched install.
+                return []
         try:
             return sorted(p.parent.name
-                          for p in (self._game_path / "mods").glob("*/info.json"))
+                          for p in (root / "mods").glob("*/info.json"))
         except OSError:
             return []
 
@@ -545,6 +727,39 @@ class Cyberpunk2077(BaseGame):
         if custom_rules:
             _log("Restore: removing custom-routed .archive files ...")
             restore_custom_rules(filemap, game_root, rules=custom_rules, log_fn=_log)
+
+        # Restore follows the state that actually exists rather than the
+        # current toggle. A user can turn VFS off after deploying, and an older
+        # physical deployment can coexist with a profile view during migration.
+        from Utils.vfs import cleanup_deployment, has_deployment_state
+        if has_deployment_state(self):
+            try:
+                from Utils.vfs import effective_shadow_root
+                shadow_root = effective_shadow_root(self)
+            except RuntimeError:
+                # An interrupted build may have only a pending marker and no
+                # published view. cleanup_deployment still owns that state.
+                pass
+            else:
+                try:
+                    self._cleanup_vfs_archive_modlist(
+                        shadow_root, log_fn=_log)
+                except Exception as exc:
+                    # Whole-view cleanup below remains the authoritative and
+                    # symlink-safe removal path; do not strand VFS state over
+                    # an optional generated-file cleanup warning.
+                    _log(f"WARN: private archive modlist cleanup failed: {exc}")
+            cleanup_deployment(self, preserve_upper=True, log_fn=_log)
+            physical_state = any((
+                (filemap.parent / "filemap_deployed.txt").is_file(),
+                (filemap.parent / "filemap_backup").exists(),
+                (filemap.parent / "archive_modlist.state").is_file(),
+                (filemap.parent / "archive_modlist_backup.txt").is_file(),
+            ))
+            if not physical_state:
+                _log("Restore complete.")
+                return
+            _log("Restore: a physical deployment also remains; restoring it now ...")
 
         _log("Restore: removing mod files and restoring vanilla files ...")
         removed = restore_filemap_from_root(

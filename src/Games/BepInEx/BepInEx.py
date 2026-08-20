@@ -58,12 +58,10 @@ class Subnautica(ProfileVFSGameMixin, BaseGame):
         *ProfileVFSGameMixin.vfs_profile_setting_keys,
     )
 
-    @property
-    def supports_profile_vfs(self) -> bool:
-        # This handler is also the base for many unrelated BepInEx games.
-        # Subnautica is the only layout validated so far; subclasses opt in
-        # independently once tested rather than inheriting the toggle blindly.
-        return self.game_id == "Subnautica"
+    # This is consulted only for direct native binaries. Windows BepInEx games
+    # keep their existing Proton/launcher route; native Steam depots get the
+    # Steamworks IPC session their run_bepinex.sh wrapper expects.
+    native_steam_client_required = True
 
     def __init__(self):
         self._game_path: Path | None = None
@@ -134,6 +132,160 @@ class Subnautica(ProfileVFSGameMixin, BaseGame):
     def mods_dir(self) -> str:
         return "BepInEx/plugins"
 
+    @property
+    def vfs_native_launcher_names(self) -> tuple[str, ...]:
+        """Root scripts that can inject BepInEx into a native Linux game.
+
+        The stock Unix distribution uses ``run_bepinex.sh``.  A few
+        game-specific packs use ``start_game_bepinex.sh`` instead, so retain
+        it as a fallback while allowing those handlers to reverse the order.
+        Both scripts wrap Steam's original command rather than replacing it.
+        """
+        return ("run_bepinex.sh", "start_game_bepinex.sh")
+
+    def _vfs_native_game_exe(self) -> Path | None:
+        """The selected native game executable, or ``None`` for Wine builds."""
+        from Utils.exe_launch import resolve_game_exe
+
+        resolved = resolve_game_exe(self)
+        if (resolved is not None
+                and resolved.suffix.lower() not in (".exe", ".bat")):
+            return resolved
+
+        # Some Steam depots (notably Inscryption) contain both the Windows and
+        # Linux players. resolve_game_exe prefers the declared .exe primary,
+        # even when this profile deployed the Unix BepInEx script. In that
+        # unified-depot case the deployed framework is the authoritative
+        # platform signal: choose a declared native alternative only when its
+        # loader exists in the private view.
+        if self._vfs_native_launcher() is None:
+            return None
+        game_root = self.get_game_path()
+        if game_root is None:
+            return None
+        from Utils.deploy import _resolve_nocase
+        for name in getattr(self, "exe_name_alts", None) or ():
+            if Path(name).suffix.lower() in (".exe", ".bat"):
+                continue
+            candidate = _resolve_nocase(Path(game_root), str(name))
+            if candidate is not None and candidate.is_file():
+                return candidate
+        return None
+
+    def get_vfs_launch_exe(self) -> Path | None:
+        """Prefer a native player selected by a deployed Unix BepInEx pack."""
+        native = self._vfs_native_game_exe()
+        game_root = self.get_vfs_game_root()
+        if native is not None and game_root is not None:
+            try:
+                relative = native.resolve(strict=False).relative_to(
+                    Path(game_root).resolve(strict=False))
+            except ValueError:
+                relative = None
+            if relative is not None:
+                from Utils.vfs import virtual_file_path
+                candidate = virtual_file_path(self, relative)
+                if candidate is not None:
+                    return candidate
+        return super().get_vfs_launch_exe()
+
+    @property
+    def vfs_direct_shadow_launch(self) -> bool:
+        # Native scripts must execute with the materialized view as cwd.  Keep
+        # Windows BepInEx games on their already-validated Proton/UMU/bwrap
+        # path by opting into direct shadow launch only for a native install.
+        return self._vfs_native_game_exe() is not None
+
+    def _vfs_native_launcher(self) -> Path | None:
+        """Return the first available loader script in the published view."""
+        from Utils.vfs import virtual_file_path
+
+        for name in self.vfs_native_launcher_names:
+            candidate = virtual_file_path(self, name)
+            if candidate is not None:
+                return candidate
+        return None
+
+    def _vfs_native_command_index(
+        self, command: list[str], native_exe: Path,
+    ) -> int | None:
+        """Index of the selected native game executable in a command."""
+        wanted = native_exe.name.casefold()
+        for index in range(len(command) - 1, -1, -1):
+            if Path(command[index]).name.casefold() == wanted:
+                return index
+        return None
+
+    def _vfs_wrap_native_loader(
+        self, command: list[str], *, require_selected_exe: bool,
+    ) -> list[str]:
+        """Prefix a native game command with its virtual BepInEx script."""
+        command = list(command)
+        if not self.vfs_launch_enabled:
+            return command
+
+        native_exe = self._vfs_native_game_exe()
+        if native_exe is None:
+            return command
+        exe_index = self._vfs_native_command_index(command, native_exe)
+        if require_selected_exe and exe_index is None:
+            # ``wrap_launch_command`` is also used for game-folder tools.  A
+            # native install must not turn an unrelated utility invocation
+            # into a second game launch.
+            return command
+
+        script_names = {
+            Path(name).name.casefold()
+            for name in self.vfs_native_launcher_names
+        }
+        if any(Path(token).name.casefold() in script_names for token in command):
+            return command
+
+        if exe_index is None:
+            raise RuntimeError(
+                "the launcher command does not contain the selected native "
+                f"game executable ({native_exe.name}); check the generated "
+                "VFS wrapper settings."
+            )
+
+        launcher = self._vfs_native_launcher()
+        if launcher is None:
+            expected = " or ".join(self.vfs_native_launcher_names)
+            raise RuntimeError(
+                "the native BepInEx launch script is missing from the "
+                f"profile VFS ({expected}); install the Linux BepInEx pack "
+                "and deploy again."
+            )
+
+        # Use an explicit interpreter: archives commonly lose executable bits.
+        # Insert the BepInEx script immediately before the actual Unity binary,
+        # not before launcher prefixes such as gamemoderun/SteamLaunch. Unix
+        # BepInEx treats its first argument as the executable it must inject
+        # into; wrapping the prefix itself would launch without BepInEx.
+        return [
+            *command[:exe_index],
+            "/bin/sh", str(launcher),
+            *command[exe_index:],
+        ]
+
+    def wrap_launch_command(self, command: list[str], *,
+                            env: dict[str, str] | None = None) -> list[str]:
+        command = self._vfs_wrap_native_loader(
+            command, require_selected_exe=True)
+        return super().wrap_launch_command(command, env=env)
+
+    def get_vfs_passthrough_command(
+        self, vanilla_command: list[str],
+    ) -> list[str]:
+        # Launcher passthrough can contain wrapper tokens before the selected
+        # executable. The native helper inserts the BepInEx script at that
+        # exact boundary so its first argument remains the Unity player.
+        if self._vfs_native_game_exe() is not None:
+            command = self._vfs_wrap_native_loader(
+                vanilla_command, require_selected_exe=False)
+            return super().wrap_launch_command(command)
+        return super().get_vfs_passthrough_command(vanilla_command)
+
     def runtime_snapshot_exclude_dirs(self) -> set[str] | None:
         # plugins/ is reverted via its _Core backup; capture everything else
         # (BepInEx/config, caches, root loader files) into Root_Folder/.
@@ -153,8 +305,10 @@ class Subnautica(ProfileVFSGameMixin, BaseGame):
     @property
     def frameworks(self) -> "dict[str, tuple[str, ...]]":
         # Windows builds proxy-load via winhttp.dll; native Linux builds ship
-        # run_bepinex.sh instead - either one means BepInEx is present.
-        return {"BepInEx": ("winhttp.dll", "run_bepinex.sh")}
+        # a game-launch script instead - any one means BepInEx is present.
+        return {"BepInEx": (
+            "winhttp.dll", "run_bepinex.sh", "start_game_bepinex.sh",
+        )}
 
     @property
     def custom_routing_rules(self) -> list:
@@ -189,6 +343,7 @@ class Subnautica(ProfileVFSGameMixin, BaseGame):
             CustomRule(dest="", folders=[
                 "qmods",
                 "doorstop_libs"
+                "dotnet",
             ], flatten=True, loose_only=True),
         ]
     
@@ -497,6 +652,12 @@ class Lethal_Company(Subnautica):
 
 class Valheim(Subnautica):
     @property
+    def vfs_native_launcher_names(self) -> tuple[str, ...]:
+        # The Thunderstore Valheim pack supplies this wrapper and documents it
+        # as `./start_game_bepinex.sh %command%`.
+        return ("start_game_bepinex.sh", "run_bepinex.sh")
+
+    @property
     def name(self) -> str:
         return "Valheim"
 
@@ -539,6 +700,20 @@ class Valheim(Subnautica):
 
         """Run after all deployment steps, including Root_Folder moves."""
         _log = log_fn or (lambda _: None)
+        if self.vfs_launch_enabled and self._vfs_native_game_exe() is not None:
+            _log(
+                "VFS launch: Amethyst automatically wraps Valheim with "
+                "start_game_bepinex.sh. Launch through Amethyst or the "
+                "launcher-specific VFS command."
+            )
+            return
+        if self.vfs_launch_enabled:
+            _log(
+                "VFS launch: launch Valheim through Amethyst or the "
+                "launcher-specific VFS command so the private game view is "
+                "active."
+            )
+            return
         game_path = self.get_game_path()
         root_folder = self.get_effective_root_folder_path()
         candidates = []

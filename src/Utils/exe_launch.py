@@ -44,6 +44,13 @@ from Utils.xdg import spawn_watched
 _LAUNCH_MODE_FILE = "exe_launch_mode.json"
 _CUSTOM_EXES_FILE = "custom_exes.json"
 
+_STEAM_APP_CONTEXT_KEYS = (
+    "SteamAppId",
+    "SteamGameId",
+    "SteamOverlayGameId",
+    "STEAM_COMPAT_APP_ID",
+)
+
 EXE_PICKER_FILTERS = [
     ("Executables (*.exe, *.bat, *.jar, *.sh)",
      ["*.exe", "*.bat", "*.jar", "*.sh"]),
@@ -676,6 +683,113 @@ def set_game_steam_context(env: dict, steam_id: str) -> None:
     env["SteamGameId"] = app_id
     env["SteamOverlayGameId"] = app_id
     env["STEAM_COMPAT_APP_ID"] = app_id
+
+
+def _is_amethyst_steam_handoff(options: str, game) -> bool:
+    """Whether Steam's saved options would re-enter this app's VFS CLI.
+
+    VFS onboarding asks Steam users to install an Amethyst command around
+    ``%command%``.  Manager Play also reads ordinary Steam Launch Options so
+    it can preserve wrappers such as gamescope or gamemoderun.  Replaying our
+    own handoff there would recursively invoke Amethyst and deploy a second
+    time, so recognise only the generated ``launch <game-id> -- %command%``
+    shape and leave every normal Steam option alone.
+    """
+    if not options or "%command%" not in options:
+        return False
+    prefix = options.split("%command%", 1)[0]
+    try:
+        tokens = shlex.split(prefix)
+    except ValueError:
+        return False
+    if not tokens or tokens[-1] != "--":
+        return False
+    tokens = tokens[:-1]
+    game_id = str(getattr(game, "game_id", "") or "")
+    if not game_id:
+        return False
+    return any(
+        tokens[index] == "launch" and tokens[index + 1] == game_id
+        for index in range(len(tokens) - 1)
+    )
+
+
+def _prepare_native_game_launch(game, exe_path: Path, env: dict,
+                                log_fn=_noop_log) -> "tuple[dict, list[str]] | None":
+    """Build the canonical command/environment for a native game binary.
+
+    Both profile-VFS Play and an explicit ``Run Via: None`` are direct native
+    launches. Keep them on one path so Steam app identity, saved arguments,
+    handler defaults and Steam-style Launch Options cannot drift apart.
+    """
+    # Never let a game inherit Amethyst's non-Steam-shortcut identity from
+    # Gaming Mode. Pin the child only when this is a real Steam-library
+    # install with a resolvable app ID; standalone native games stay neutral.
+    for key in _STEAM_APP_CONTEXT_KEYS:
+        env.pop(key, None)
+    is_steam_install = game_is_steam_install(game)
+    steam_id = ""
+    if is_steam_install:
+        steam_id = effective_steam_id(game)
+        if steam_id:
+            set_game_steam_context(env, steam_id)
+            log_fn(f"Play: native Steam app context: {steam_id}")
+
+    # Launcher Settings uses the normal resolved game key. Unified depots can
+    # select a Linux VFS alternative while the UI remains keyed by the
+    # declared Windows primary, so using exe_path.name alone loses settings.
+    settings_key = game_exe_key(game) or exe_path.name
+    try:
+        extra_args = shlex.split(load_exe_args(game, settings_key))
+    except ValueError as exc:
+        reason = f"invalid launch arguments: {exc}"
+        log_fn(f"Play: {reason}")
+        launch_report.mark_failed(launch_report.actionable(reason))
+        return None
+
+    try:
+        declared = game.default_launch_args_for_exe(exe_path.name)
+    except AttributeError:
+        declared = getattr(game, "default_launch_args", []) or []
+    default_args = [
+        str(arg) for arg in declared
+        if str(arg) not in extra_args
+    ]
+    if default_args:
+        log_fn("Play: adding default launch args: " + " ".join(default_args))
+    command = [str(exe_path), *default_args, *extra_args]
+
+    launch_opts = load_launch_options(game, settings_key)
+    if not launch_opts:
+        steam_opts = steam_launch_options_for_game(game, log_fn)
+        if _is_amethyst_steam_handoff(steam_opts, game):
+            log_fn(
+                "Play: ignoring Amethyst's Steam VFS handoff while already "
+                "launching from Amethyst."
+            )
+            steam_opts = ""
+        launch_opts = steam_opts
+    env_updates, command = parse_launch_options(launch_opts, command)
+    if env_updates:
+        env.update(env_updates)
+    if not command:
+        reason = "launch options produced no command"
+        log_fn(f"Play: {reason}.")
+        launch_report.mark_failed(launch_report.actionable(reason))
+        return None
+
+    if (is_steam_install and steam_id
+            and getattr(game, "native_steam_client_required", False)):
+        from Utils.steam_client import ensure_steam_client_running
+        if not ensure_steam_client_running(log_fn=log_fn):
+            reason = (
+                "Steam is required by this native game but its client did "
+                "not become ready. Start/sign in to Steam and try again."
+            )
+            log_fn(f"Play: refusing to launch - {reason}")
+            launch_report.mark_failed(launch_report.actionable(reason))
+            return None
+    return env, command
 
 
 def game_is_steam_install(game) -> bool:
@@ -2050,8 +2164,12 @@ def launch_game(game, log_fn=_noop_log) -> None:
             return
         log_fn(f"Play: launching through the profile VFS: {exe_path.name}")
         if exe_path.suffix.lower() not in (".exe", ".bat"):
-            launch_env = host_env()
-            command = [str(exe_path)]
+            prepared = _prepare_native_game_launch(
+                game, exe_path, host_env(), log_fn)
+            if prepared is None:
+                return
+            launch_env, command = prepared
+
             wrapper = getattr(game, "wrap_launch_command", None)
             try:
                 if callable(wrapper):
@@ -2199,7 +2317,12 @@ def launch_game(game, log_fn=_noop_log) -> None:
     # routing through Proton, which would fail on an ELF executable.
     if exe_path.suffix.lower() not in (".exe", ".bat"):
         log_fn(f"Play: launching native binary: {exe_path}")
-        spawn_process_watched([str(exe_path)], env=host_env(),
+        prepared = _prepare_native_game_launch(
+            game, exe_path, host_env(), log_fn)
+        if prepared is None:
+            return
+        launch_env, command = prepared
+        spawn_process_watched(command, env=launch_env,
                               cwd=exe_path.parent,
                               label="Play (native)", log_fn=log_fn)
         return

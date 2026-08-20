@@ -166,6 +166,19 @@ class BaseGame(ABC):
     supports_profile_vfs: bool = False
     vfs_launch_enabled: bool = False
     virtualizes_game_root: bool = False
+    # Some legacy Windows engines resolve loose assets from their process
+    # working/install directory using MAX_PATH-sized buffers.  A profile's
+    # materialized shadow can be much longer than the configured install path;
+    # opted-in handlers therefore keep the short logical game path and expose
+    # the shadow there with the outer bind wrapper instead of retargeting the
+    # runtime command directly into `.amethyst-vfs/view`.
+    vfs_bind_launch_at_game_root: bool = False
+
+    # Native games normally launch without a store process, but some call
+    # SteamAPI directly and cannot initialise unless the Steam client is live.
+    # The direct native Play path uses this opt-in to start/wait for Steam
+    # without asking Steam to launch the physical game outside a profile VFS.
+    native_steam_client_required: bool = False
 
     profile_overridable_settings: tuple[str, ...] = (
         "auto_deploy",

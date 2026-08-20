@@ -191,6 +191,33 @@ class ProfileVFSGameMixin:
         """Wrap a launcher's command, preferring a configured script extender."""
         from Utils.vfs import prefer_virtual_executable, virtual_file, wrap_command
         command = list(vanilla_command)
+
+        # Launcher handoffs execute this exact argv rather than going through
+        # the manager's normal game-launch argument path. Carry the handler's
+        # required defaults here too (notably Cyberpunk's -modded), while
+        # preserving any copy the launcher/user already supplied.
+        selected_name = ""
+        declared_names = [getattr(self, "exe_name", "")]
+        declared_names.extend(getattr(self, "exe_name_alts", None) or ())
+        declared_names.extend(getattr(self, "direct_launch_exes", None) or ())
+        framework_launch_exes = (
+            getattr(self, "framework_launch_exes", None) or {})
+        if isinstance(framework_launch_exes, dict):
+            declared_names.extend(framework_launch_exes.values())
+        declared_basenames = {
+            Path(name).name.casefold() for name in declared_names if name
+        }
+        for token in reversed(command):
+            candidate = Path(token.strip('"').replace("\\", "/")).name
+            if candidate.casefold() in declared_basenames:
+                selected_name = candidate
+                break
+        try:
+            defaults = self.default_launch_args_for_exe(selected_name)
+        except AttributeError:
+            defaults = getattr(self, "default_launch_args", []) or []
+        command.extend(str(arg) for arg in defaults if str(arg) not in command)
+
         extender = self._vfs_script_extender()
         if extender:
             command = prefer_virtual_executable(self, command, extender)
@@ -342,6 +369,21 @@ class ProfileVFSGameMixin:
         if callable(orders_by_mtime) and orders_by_mtime():
             log_fn("VFS deploy: setting plugin mtimes to match load order ...")
             self.stamp_plugin_load_order(profile, log_fn)
+
+        # Some handlers need the fully resolved shadow before they can create
+        # generated game metadata (for example Cyberpunk's archive modlist).
+        # Keep this hook immediately before the deployment snapshot so those
+        # generated files are treated as deploy artifacts, not runtime writes.
+        post_view_hook = getattr(self, "_vfs_post_view_build", None)
+        if callable(post_view_hook):
+            from Utils.vfs import effective_shadow_root
+            post_view_hook(
+                view_root=effective_shadow_root(self),
+                profile=profile,
+                filemap=filemap,
+                staging=staging,
+                log_fn=log_fn,
+            )
 
         # Game-specific hooks above may write generated files into the private
         # view. Snapshot only after they finish so restore can distinguish

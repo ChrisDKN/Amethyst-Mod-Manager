@@ -14,6 +14,7 @@ Mod structure:
 from pathlib import Path
 
 from Games.base_game import BaseGame
+from Utils.vfs import ProfileVFSGameMixin
 from Utils.deploy import (
     CustomRule,
     LinkMode,
@@ -35,7 +36,12 @@ from Utils.config_paths import get_profiles_dir
 _PROFILES_DIR = get_profiles_dir()
 
 
-class RedDeadRedemption2(BaseGame):
+class RedDeadRedemption2(ProfileVFSGameMixin, BaseGame):
+
+    profile_overridable_settings = (
+        *BaseGame.profile_overridable_settings,
+        *ProfileVFSGameMixin.vfs_profile_setting_keys,
+    )
 
     def __init__(self):
         self._game_path: Path | None = None
@@ -215,6 +221,15 @@ class RedDeadRedemption2(BaseGame):
                 "Run 'Build Filemap' before deploying."
             )
 
+        if self.vfs_launch_enabled:
+            return self._deploy_vfs(
+                profile=profile,
+                filemap=filemap,
+                staging=staging,
+                log_fn=_log,
+                progress_fn=progress_fn,
+            )
+
         profile_dir = self.get_profile_root() / "profiles" / profile
         per_mod_strip = load_per_mod_strip_prefixes(profile_dir)
 
@@ -298,6 +313,14 @@ class RedDeadRedemption2(BaseGame):
                 self.get_effective_filemap_path(), game_root,
                 rules=custom_rules, log_fn=_log,
             )
+
+        from Utils.vfs import cleanup_deployment, has_deployment_state
+        if has_deployment_state(self):
+            cleanup_deployment(self, preserve_upper=True, log_fn=_log)
+            if not core_dir.is_dir():
+                _log("Restore complete.")
+                return
+            _log("Restore: a physical deployment also remains; restoring it now ...")
 
         _log(f"Restore: clearing {data_dir.name}/ and moving {core}/ back if present ...")
         restored = restore_data_core(

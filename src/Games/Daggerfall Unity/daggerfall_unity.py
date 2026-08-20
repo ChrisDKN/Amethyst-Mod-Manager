@@ -34,11 +34,15 @@ Notes:
 from __future__ import annotations
 
 import importlib.util
+import os
+import shutil
 import stat
 import sys
+import tempfile
 from pathlib import Path
 
 from Games.base_game import BaseGame
+from Utils.vfs import ProfileVFSGameMixin
 from Utils.deploy import (
     LinkMode,
     cleanup_custom_deploy_dirs,
@@ -217,13 +221,22 @@ def normalise_dfu_mod(dest_root: Path, mod_name: str, log_fn) -> None:
         log_fn(f"Normalised {moved} path(s) for '{mod_name}'.")
 
 
-class DaggerfallUnity(BaseGame):
+class DaggerfallUnity(ProfileVFSGameMixin, BaseGame):
+
+    # DFU is a standalone native Linux build.  Its complete materialized game
+    # view can be run directly, without binding it back over the real install.
+    vfs_direct_shadow_launch = True
+    # There is no storefront command to wrap: VFS launches must go through the
+    # manager's Play button so the configured native binary is selected.
+    launch_passthrough_supported = False
+    steam_launch_passthrough_supported = False
 
     # The launch binary is a configured path, so make it per-profile like the
     # game/staging paths (stored as a paths.json extra).
     profile_overridable_paths_extras = ("launch_binary_path",)
     profile_overridable_settings = (
         *BaseGame.profile_overridable_settings,
+        *ProfileVFSGameMixin.vfs_profile_setting_keys,
         "manage_load_order_in_dfu",
     )
 
@@ -342,7 +355,14 @@ class DaggerfallUnity(BaseGame):
         """
         if self._game_path is None:
             return []
-        saves = _mods_json().persistent_data_dir(self._game_path) / "Saves"
+        game_root = self._game_path
+        if self.vfs_launch_enabled:
+            try:
+                from Utils.vfs import effective_shadow_root
+                game_root = effective_shadow_root(self)
+            except RuntimeError:
+                pass
+        saves = _mods_json().persistent_data_dir(game_root) / "Saves"
         return [(str(saves), "linux", "")]
 
     def runtime_snapshot_exclude_dirs(self) -> set[str] | None:
@@ -434,6 +454,60 @@ class DaggerfallUnity(BaseGame):
             pass
         return [str(exe)]
 
+    def _launch_path_in_view(self, view_root: Path) -> Path | None:
+        """Resolve the configured/fallback native player inside *view_root*."""
+        if self._game_path is None:
+            return None
+
+        physical = self.get_launch_binary_path()
+        if physical is not None:
+            try:
+                relative = physical.resolve(strict=False).relative_to(
+                    self._game_path.resolve())
+            except (OSError, ValueError) as exc:
+                raise RuntimeError(
+                    "Daggerfall Unity's VFS launch binary must be inside the "
+                    f"configured game directory: {physical}"
+                ) from exc
+            candidate = view_root / relative
+            if candidate.is_file():
+                return candidate
+
+        preferred = view_root / _EXE
+        if preferred.is_file():
+            return preferred
+        candidates = sorted(path for path in view_root.glob("*.x86_64")
+                            if path.is_file())
+        return candidates[0] if len(candidates) == 1 else None
+
+    def get_vfs_launch_exe(self) -> Path | None:
+        """Return the configured native player from the published profile view."""
+        if not self.vfs_launch_enabled:
+            return None
+        from Utils.vfs import effective_shadow_root
+        return self._launch_path_in_view(effective_shadow_root(self))
+
+    def get_vfs_passthrough_command(self, vanilla_command: list[str]) -> list[str]:
+        raise RuntimeError(
+            "Daggerfall Unity is a standalone native game; launch its profile "
+            "VFS with Amethyst's Play button, not a storefront wrapper."
+        )
+
+    def get_launch_handoff(self, profile: str | None = None):
+        """DFU has no store launcher that can own a VFS passthrough command."""
+        return None
+
+    def get_steam_launch_string(self, profile: str | None = None) -> str:
+        return ""
+
+    def native_launch_blocked_reason(self) -> str:
+        if not self.vfs_launch_enabled:
+            return ""
+        return (
+            "Daggerfall Unity's profile VFS must be launched with Amethyst's "
+            "Play button so its native player runs from the private game view."
+        )
+
     # -----------------------------------------------------------------------
     # Validation
     # -----------------------------------------------------------------------
@@ -441,22 +515,41 @@ class DaggerfallUnity(BaseGame):
     def validate_install(self) -> list[str]:
         errors = super().validate_install()
         if self._game_path is not None and (self._game_path / _DATA_DIR).is_dir():
-            if self.get_launch_binary_path() is None:
+            launch_binary = self.get_launch_binary_path()
+            if launch_binary is None:
                 errors.append(
                     f"'{_EXE}' not found in {self._game_path}. Set the launch "
                     "binary in the configure dialog if the player was renamed."
                 )
+            elif self.vfs_launch_enabled:
+                try:
+                    launch_binary.resolve(strict=False).relative_to(
+                        self._game_path.resolve())
+                except (OSError, ValueError):
+                    errors.append(
+                        "The VFS launch binary must be inside the configured "
+                        f"Daggerfall Unity directory: {launch_binary}"
+                    )
         return errors
 
     # -----------------------------------------------------------------------
     # Deployment
     # -----------------------------------------------------------------------
 
-    def _ordered_dfmods(self, profile: str) -> list[Path]:
+    def _ordered_dfmods(self, profile: str,
+                        game_root: Path | None = None) -> list[Path]:
         """Deployed .dfmod paths in top-to-bottom mod-list order."""
-        deploy_dir = self.get_mod_data_path()
-        if deploy_dir is None:
+        if game_root is None:
+            game_root = self._game_path
+            if self.vfs_launch_enabled:
+                try:
+                    from Utils.vfs import effective_shadow_root
+                    game_root = effective_shadow_root(self)
+                except RuntimeError:
+                    pass
+        if game_root is None:
             return []
+        deploy_dir = Path(game_root) / _DATA_DIR / _STREAMING
         mods_dir = deploy_dir / "Mods"
         if not mods_dir.is_dir():
             return []
@@ -481,7 +574,8 @@ class DaggerfallUnity(BaseGame):
                     ordered.append(hit)
         return ordered
 
-    def _sync_mods_json(self, profile: str, log_fn) -> None:
+    def _sync_mods_json(self, profile: str, log_fn,
+                        game_root: Path | None = None) -> None:
         """Sync Amethyst's order, unless the user delegated it to DFU."""
         if self.manage_load_order_in_dfu:
             log_fn("Step 4: Leaving Mods.json for DFU to manage.")
@@ -493,14 +587,298 @@ class DaggerfallUnity(BaseGame):
         # and mtime, so repeat deploys skip decompressing every bundle again.
         cache_path = (self.get_profile_root() / "profiles" / profile /
                       mods_json.CACHE_NAME)
+        target_root = Path(game_root) if game_root is not None else self._game_path
+        if target_root is None:
+            return
         try:
             mods_json.sync_mods_json(
-                self._game_path, self._ordered_dfmods(profile), log_fn=log_fn,
+                target_root,
+                self._ordered_dfmods(profile, game_root=target_root),
+                log_fn=log_fn,
                 cache_path=cache_path)
         except OSError as exc:
             # The load order is a convenience - never fail a deploy over it.
             log_fn(f"  Could not write Mods.json ({exc}); order mods in DFU's "
                    "Mod Loader instead.")
+
+    def _vfs_prepare_filemap(self, filemap: Path, staging: Path,
+                             log_fn=None) -> set[str]:
+        """Keep DFU's private runtime stash out of StreamingAssets/."""
+        excluded: set[str] = set()
+        stash_name = _mods_json().SETTINGS_STASH_DIR
+        prefix = stash_name.casefold() + "/"
+        overwrite = self.get_effective_overwrite_path()
+        stash = overwrite / stash_name
+        if stash.is_dir() and not stash.is_symlink():
+            for dirpath, dirnames, filenames in os.walk(stash, followlinks=False):
+                parent = Path(dirpath)
+                link_dirs = [name for name in dirnames
+                             if (parent / name).is_symlink()]
+                for name in (*link_dirs, *filenames):
+                    excluded.add((parent / name).relative_to(overwrite).as_posix())
+        try:
+            lines = filemap.read_text(
+                encoding="utf-8", errors="surrogateescape").splitlines()
+        except OSError:
+            return excluded
+        for line in lines:
+            if "\t" not in line:
+                continue
+            relative, owner = line.split("\t", 1)
+            normalized = relative.replace("\\", "/")
+            if owner == "[Overwrite]" and normalized.casefold().startswith(prefix):
+                excluded.add(normalized)
+        if excluded and log_fn is not None:
+            log_fn(
+                f"  Kept {len(excluded)} stashed DFU runtime file(s) outside "
+                "StreamingAssets/."
+            )
+        return excluded
+
+    @staticmethod
+    def _replace_with_private_copy(path: Path) -> None:
+        """Break a shadow hardlink before a manager-owned in-place write."""
+        descriptor, temporary_name = tempfile.mkstemp(
+            prefix=".amethyst-dfu-", dir=path.parent)
+        os.close(descriptor)
+        temporary = Path(temporary_name)
+        try:
+            shutil.copy2(path, temporary)
+            os.replace(temporary, path)
+        finally:
+            temporary.unlink(missing_ok=True)
+
+    @staticmethod
+    def _promote_to_profile_file(path: Path, profile_path: Path,
+                                 profile_root: Path) -> None:
+        """Copy *path* into profile storage and atomically link the view to it."""
+        if profile_root.is_symlink():
+            raise RuntimeError(
+                f"Refusing symlinked DFU profile runtime root: {profile_root}")
+        try:
+            profile_path.parent.resolve(strict=False).relative_to(
+                profile_root.resolve())
+        except (OSError, ValueError) as exc:
+            raise RuntimeError(
+                f"Unsafe DFU profile runtime path: {profile_path}"
+            ) from exc
+        profile_path.parent.mkdir(parents=True, exist_ok=True)
+        if profile_path.is_symlink():
+            raise RuntimeError(
+                "Refusing symlinked DFU profile runtime storage: "
+                f"{profile_path}"
+            )
+        if not profile_path.is_file():
+            descriptor, temporary_name = tempfile.mkstemp(
+                prefix=".amethyst-dfu-", dir=profile_path.parent)
+            os.close(descriptor)
+            temporary = Path(temporary_name)
+            try:
+                shutil.copy2(path, temporary)
+                os.replace(temporary, profile_path)
+            finally:
+                temporary.unlink(missing_ok=True)
+
+        descriptor, temporary_name = tempfile.mkstemp(
+            prefix=".amethyst-dfu-link-", dir=path.parent)
+        os.close(descriptor)
+        temporary = Path(temporary_name)
+        temporary.unlink()
+        try:
+            os.link(profile_path, temporary)
+            os.replace(temporary, path)
+        finally:
+            temporary.unlink(missing_ok=True)
+
+    def _isolate_portable_appdata(self, view_root: Path, profile: str,
+                                  log_fn) -> int:
+        """Move install-owned portable files onto profile-owned inodes.
+
+        The view stays hardlinked to root-upper so in-place game writes persist,
+        but never shares an inode with the physical PortableAppdata tree.
+        """
+        if self._game_path is None or not (view_root / "Portable.txt").is_file():
+            return 0
+        portable = view_root / "PortableAppdata"
+        physical = self._game_path / "PortableAppdata"
+        if not portable.exists():
+            return 0
+        if portable.is_symlink():
+            raise RuntimeError(
+                "Profile VFS cannot isolate a symlinked PortableAppdata "
+                f"directory: {portable}"
+            )
+
+        portable_root = portable.resolve()
+        from Utils.vfs import state_dir
+        profile_root = state_dir(self, profile) / "root-upper"
+        profile_portable = profile_root / "PortableAppdata"
+        detached = 0
+        for dirpath, dirnames, filenames in os.walk(portable, followlinks=False):
+            parent = Path(dirpath)
+            for name in dirnames:
+                candidate = parent / name
+                if not candidate.is_symlink():
+                    continue
+                try:
+                    candidate.resolve(strict=False).relative_to(portable_root)
+                except (OSError, ValueError) as exc:
+                    raise RuntimeError(
+                        "Profile VFS cannot isolate a PortableAppdata symlink "
+                        f"that escapes the private view: {candidate}"
+                    ) from exc
+
+            for name in filenames:
+                candidate = parent / name
+                if candidate.is_symlink():
+                    try:
+                        candidate.resolve(strict=True).relative_to(portable_root)
+                    except ValueError:
+                        # A cross-filesystem shadow falls back to absolute file
+                        # symlinks. Promote those into profile storage instead
+                        # of rejecting an otherwise supported staging layout.
+                        relative = candidate.relative_to(portable)
+                        self._promote_to_profile_file(
+                            candidate, profile_portable / relative, profile_root)
+                        detached += 1
+                    except OSError as exc:
+                        raise RuntimeError(
+                            "Profile VFS cannot isolate a broken "
+                            f"PortableAppdata symlink: {candidate}"
+                        ) from exc
+                    continue
+                if not candidate.is_file():
+                    continue
+                relative = candidate.relative_to(portable)
+                source = physical / relative
+                try:
+                    shares_install_inode = source.is_file() and candidate.samefile(source)
+                except OSError:
+                    shares_install_inode = False
+                if not shares_install_inode:
+                    continue
+                self._promote_to_profile_file(
+                    candidate, profile_portable / relative, profile_root)
+                detached += 1
+        if detached:
+            log_fn(
+                f"  Isolated {detached} PortableAppdata file(s) from the real "
+                "Daggerfall Unity installation."
+            )
+        return detached
+
+    def _stash_vfs_mod_runtime(self, view_root: Path, log_fn) -> int:
+        """Stash view-owned settings, retaining the view if any could not move."""
+        mods_json = _mods_json()
+        stashed = mods_json.stash_mod_settings(
+            view_root, self.get_effective_overwrite_path(), log_fn=log_fn)
+        remaining: list[Path] = []
+        for name in mods_json.RUNTIME_DIRS:
+            runtime_dir = mods_json.mod_runtime_dir(view_root, name)
+            try:
+                remaining.extend(path for path in runtime_dir.iterdir()
+                                 if path.is_dir())
+            except FileNotFoundError:
+                pass
+            except OSError as exc:
+                raise RuntimeError(
+                    f"Could not verify DFU runtime settings in {runtime_dir}: {exc}"
+                ) from exc
+        if remaining:
+            names = ", ".join(path.name for path in remaining[:5])
+            raise RuntimeError(
+                "Could not preserve all DFU runtime settings from the private "
+                f"view ({names}); the VFS was left published so Restore can retry."
+            )
+        return stashed
+
+    def _restore_vfs_mods_json(self, view_root: Path, log_fn) -> None:
+        """Unwind manager load order without discarding a failed backup restore."""
+        mods_json = _mods_json()
+        path = mods_json.mods_json_path(view_root)
+        backup = path.with_name(path.name + mods_json.BACKUP_SUFFIX)
+        had_backup = os.path.lexists(backup)
+        restored = mods_json.restore_mods_json(view_root, log_fn=log_fn)
+        if had_backup and (not restored or backup.exists()):
+            raise RuntimeError(
+                "Could not restore DFU's pre-deploy Mods.json in the private "
+                "view; the VFS was left published so Restore can retry."
+            )
+
+    def _prepare_existing_vfs_runtime(self, log_fn) -> None:
+        """Save DFU-owned state before replacing an already-published view."""
+        from Utils.vfs import effective_shadow_root, manifest_path
+        if not manifest_path(self).is_file():
+            return
+        try:
+            view_root = effective_shadow_root(self)
+        except RuntimeError:
+            return
+        stashed = self._stash_vfs_mod_runtime(view_root, log_fn)
+        if stashed:
+            log_fn(f"  Preserved {stashed} DFU runtime folder(s) before rebuild.")
+        if not self.manage_load_order_in_dfu:
+            self._restore_vfs_mods_json(view_root, log_fn)
+
+    def _validate_vfs_portable_layout(self) -> None:
+        """Reject directory links that could route profile writes out of view."""
+        if self._game_path is None or not (self._game_path / "Portable.txt").is_file():
+            return
+        portable = self._game_path / "PortableAppdata"
+        if not portable.exists():
+            return
+        if portable.is_symlink():
+            raise RuntimeError(
+                "Daggerfall Unity's profile VFS requires PortableAppdata to be "
+                f"a real directory, not a symbolic link: {portable}"
+            )
+        for dirpath, dirnames, _filenames in os.walk(portable, followlinks=False):
+            parent = Path(dirpath)
+            linked = next((parent / name for name in dirnames
+                           if (parent / name).is_symlink()), None)
+            if linked is not None:
+                raise RuntimeError(
+                    "Daggerfall Unity's profile VFS cannot safely isolate a "
+                    f"symlinked PortableAppdata subdirectory: {linked}"
+                )
+
+    def _vfs_post_view_build(self, *, view_root: Path, profile: str,
+                             filemap: Path, staging: Path, log_fn) -> None:
+        """Apply DFU metadata and runtime-state handling to the private view."""
+        self._isolate_portable_appdata(view_root, profile, log_fn)
+
+        launch_binary = self._launch_path_in_view(view_root)
+        if launch_binary is None:
+            raise RuntimeError(
+                "Daggerfall Unity's native launch binary is missing from the "
+                "resolved profile VFS view."
+            )
+        try:
+            mode = launch_binary.stat().st_mode
+            if launch_binary.is_symlink() or not mode & stat.S_IXUSR:
+                # A cross-filesystem shadow can fall back to a symlink. Unity
+                # may resolve /proc/self/exe and then look beside the physical
+                # target, bypassing the view, so always make the player a real
+                # private file. chmod also changes inode metadata, requiring the
+                # same detach for a non-executable base-game hardlink.
+                self._replace_with_private_copy(launch_binary)
+            if not mode & stat.S_IXUSR:
+                launch_binary.chmod(mode | stat.S_IXUSR)
+        except OSError as exc:
+            raise RuntimeError(
+                f"Could not make the private DFU player executable: {exc}"
+            ) from exc
+
+        self._sync_mods_json(profile, log_fn, game_root=view_root)
+        link_mode = self.get_deploy_mode()
+        if link_mode not in (LinkMode.HARDLINK, LinkMode.SYMLINK):
+            link_mode = LinkMode.HARDLINK
+        log_fn("VFS: linking stashed DFU settings into the private view ...")
+        settings = _mods_json().restore_mod_settings(
+            view_root, self.get_effective_overwrite_path(),
+            mode=link_mode, log_fn=log_fn)
+        if not settings:
+            log_fn("  Nothing stashed to restore.")
 
     def deploy(self, log_fn=None, mode: LinkMode = LinkMode.HARDLINK,
                profile: str = "default", progress_fn=None) -> None:
@@ -533,6 +911,29 @@ class DaggerfallUnity(BaseGame):
             raise RuntimeError(
                 f"filemap.txt not found: {filemap}\n"
                 "Run 'Build Filemap' before deploying."
+            )
+
+        if self.vfs_launch_enabled:
+            # A deploy can replace an existing view without an explicit Restore.
+            # Move settings out and unwind its temporary Mods.json first; the
+            # shared builder then captures every other runtime-created file.
+            from Utils.vfs import state_dir
+            vfs_state = state_dir(self, profile)
+            if vfs_state.is_symlink():
+                raise RuntimeError(
+                    f"Refusing symlinked Daggerfall VFS state: {vfs_state}")
+            root_upper = vfs_state / "root-upper"
+            if root_upper.is_symlink():
+                raise RuntimeError(
+                    f"Refusing symlinked Daggerfall VFS runtime state: {root_upper}")
+            self._validate_vfs_portable_layout()
+            self._prepare_existing_vfs_runtime(_log)
+            return self._deploy_vfs(
+                profile=profile,
+                filemap=filemap,
+                staging=staging,
+                log_fn=_log,
+                progress_fn=progress_fn,
             )
 
         _log(f"Step 1: Moving {_STREAMING}/ → {core}/ ...")
@@ -598,18 +999,60 @@ class DaggerfallUnity(BaseGame):
 
         _mj = _mods_json()
 
-        # Before anything else: DFU deletes the GameData and ExtractedFiles
-        # folders of any mod it no longer loads, so the next profile's deploy
-        # would otherwise wipe this profile's settings.  Park them in
-        # overwrite/.
-        _log("Restore: stashing per-mod settings and extracted files ...")
-        stashed = _mj.stash_mod_settings(
-            self._game_path, self.get_effective_overwrite_path(), log_fn=_log)
-        if not stashed:
-            _log("  No per-mod runtime folders found.")
+        # Inspect actual deployment state rather than the current toggle.  This
+        # recovers interrupted builds and restores a view after VFS was disabled
+        # in Quick Configure.  DFU's external/portable state must be rescued
+        # before the shared cleanup removes the materialized view.
+        from Utils.vfs import (
+            cleanup_deployment,
+            effective_shadow_root,
+            has_deployment_state,
+            manifest_path,
+        )
+        vfs_state = has_deployment_state(self)
+        physical_runtime_prepared = False
 
-        _log("Restore: reverting DFU's Mods.json ...")
-        _mj.restore_mods_json(self._game_path, log_fn=_log)
+        def _prepare_physical_runtime() -> None:
+            # Before anything else: DFU deletes the GameData and ExtractedFiles
+            # folders of any mod it no longer loads. Park them in overwrite/.
+            _log("Restore: stashing per-mod settings and extracted files ...")
+            stashed = _mj.stash_mod_settings(
+                self._game_path, self.get_effective_overwrite_path(), log_fn=_log)
+            if not stashed:
+                _log("  No per-mod runtime folders found.")
+            _log("Restore: reverting DFU's Mods.json ...")
+            _mj.restore_mods_json(self._game_path, log_fn=_log)
+
+        if vfs_state and core_dir.is_dir():
+            # A stale/coexisting physical deployment may hold the same GUID as
+            # the private view. Stash it first so the newer view rescue below
+            # wins collisions instead of being overwritten by physical state.
+            _log("Restore: preserving coexisting physical DFU runtime state ...")
+            _prepare_physical_runtime()
+            physical_runtime_prepared = True
+
+        if vfs_state:
+            if manifest_path(self).is_file():
+                try:
+                    view_root = effective_shadow_root(self)
+                except RuntimeError as exc:
+                    _log(f"  WARN: could not inspect DFU's VFS view: {exc}")
+                else:
+                    _log("Restore: stashing DFU runtime state from the private view ...")
+                    stashed = self._stash_vfs_mod_runtime(view_root, _log)
+                    if not stashed:
+                        _log("  No per-mod runtime folders found.")
+                    if not self.manage_load_order_in_dfu:
+                        _log("Restore: reverting the private view's Mods.json ...")
+                        self._restore_vfs_mods_json(view_root, _log)
+            cleanup_deployment(self, preserve_upper=True, log_fn=_log)
+            if not core_dir.is_dir():
+                _log("Restore complete.")
+                return
+            _log("Restore: a physical deployment also remains; restoring it now ...")
+
+        if not physical_runtime_prepared:
+            _prepare_physical_runtime()
 
         if core_dir.is_dir():
             _log(f"Restore: clearing {_STREAMING}/ and moving {core}/ back ...")

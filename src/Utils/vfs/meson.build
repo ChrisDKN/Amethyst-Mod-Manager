@@ -5,6 +5,8 @@ install_data(
 
 py.install_sources(
   '__init__.py',
+  '_builtin_phase1_selftest.py',
+  '_daggerfall_selftest.py',
   '_selftest.py',
   'game.py',
   'overlay.py',

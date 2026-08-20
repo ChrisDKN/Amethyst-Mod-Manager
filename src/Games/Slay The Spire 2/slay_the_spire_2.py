@@ -12,6 +12,7 @@ Mod structure:
 from pathlib import Path
 
 from Games.base_game import BaseGame
+from Utils.vfs import ProfileVFSGameMixin
 from Utils.deploy import (
     LinkMode,
     deploy_core,
@@ -29,7 +30,19 @@ from Utils.config_paths import get_profiles_dir
 _PROFILES_DIR = get_profiles_dir()
 
 
-class SlayTheSpire2(BaseGame):
+class SlayTheSpire2(ProfileVFSGameMixin, BaseGame):
+
+    profile_overridable_settings = (
+        *BaseGame.profile_overridable_settings,
+        *ProfileVFSGameMixin.vfs_profile_setting_keys,
+    )
+    # Slay the Spire 2 is a native Linux build.  The materialized shadow is a
+    # complete game tree, so it can be launched directly without a bind mount.
+    vfs_direct_shadow_launch = True
+    # Its Steamworks bootstrap fails with NoSteamClient when launched directly
+    # while Steam is closed.  Play starts only the client, then launches this
+    # profile's selected physical/VFS executable itself.
+    native_steam_client_required = True
 
     def __init__(self):
         self._game_path: Path | None = None
@@ -140,6 +153,15 @@ class SlayTheSpire2(BaseGame):
                 "Run 'Build Filemap' before deploying."
             )
 
+        if self.vfs_launch_enabled:
+            return self._deploy_vfs(
+                profile=profile,
+                filemap=filemap,
+                staging=staging,
+                log_fn=_log,
+                progress_fn=progress_fn,
+            )
+
         _log(f"Step 1: Moving {plugins_dir.name}/ → {core}/ ...")
         move_to_core(plugins_dir, log_fn=_log)
         _log(f"  Backed up existing files → {core}/.")
@@ -188,6 +210,14 @@ class SlayTheSpire2(BaseGame):
         _profile_dir = self._active_profile_dir
         _entries = read_modlist(_profile_dir / "modlist.txt") if _profile_dir else []
         cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log)
+
+        from Utils.vfs import cleanup_deployment, has_deployment_state
+        if has_deployment_state(self):
+            cleanup_deployment(self, preserve_upper=True, log_fn=_log)
+            if not core_dir.is_dir():
+                _log("Restore complete.")
+                return
+            _log("Restore: a physical deployment also remains; restoring it now ...")
 
         if core_dir.is_dir():
             _log(f"Restore: clearing {plugins_dir.name}/ and moving {core}/ back ...")

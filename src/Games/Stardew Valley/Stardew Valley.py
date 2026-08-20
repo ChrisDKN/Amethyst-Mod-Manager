@@ -29,6 +29,7 @@ class StardewValley(ProfileVFSGameMixin, BaseGame):
     # The native launcher and SMAPI resolve their payload relative to cwd/the
     # executable, so the complete profile shadow can be launched directly.
     vfs_direct_shadow_launch = True
+    native_steam_client_required = True
 
     profile_overridable_settings = (
         *BaseGame.profile_overridable_settings,
