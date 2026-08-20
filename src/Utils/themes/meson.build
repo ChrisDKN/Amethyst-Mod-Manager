@@ -7,6 +7,8 @@ py.install_sources(
   'cyberpunk.py',
   'dark.py',
   'light.py',
+  'noir.py',
   'oled.py',
+  'stardew.py',
   subdir: 'Utils' / 'themes',
 )
