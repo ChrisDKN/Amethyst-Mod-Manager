@@ -1,5 +1,6 @@
 subdir('nifxml')
 subdir('themes')
+subdir('vfs')
 
 py.install_sources(
   '__init__.py',
@@ -91,6 +92,7 @@ py.install_sources(
   'installed_collections.py',
   'installed_scan.py',
   'jre_prefix.py',
+  'launch_handoff.py',
   'launch_report.py',
   'ludusavi_manifest.py',
   'lutris_finder.py',

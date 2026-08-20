@@ -11,8 +11,6 @@ from pathlib import Path
 
 from Games.Bethesda.fallout_3 import Fallout_3
 from Games.base_game import WizardTool, MODERN_DIRECTX_DEPS
-from Utils.deploy import LinkMode, deploy_core, deploy_custom_rules, deploy_filemap, load_per_mod_strip_prefixes, load_separator_deploy_paths, expand_separator_deploy_paths, expand_separator_link_modes, expand_separator_raw_deploy, cleanup_custom_deploy_dirs, restore_custom_rules, restore_data_core, move_to_core, remove_case_alias_links, remove_probe_stub_dirs
-from Utils.modlist import read_modlist
 
 
 class SkyrimSE(Fallout_3):
@@ -151,6 +149,10 @@ class SkyrimSE(Fallout_3):
 
     @property
     def frameworks(self) -> dict[str, str]:
+        return {"Script Extender": "skse64_loader.exe"}
+
+    @property
+    def framework_launch_exes(self) -> dict[str, str]:
         return {"Script Extender": "skse64_loader.exe"}
 
     @property
@@ -470,172 +472,5 @@ class SkyrimSE(Fallout_3):
     # swap_launcher / _restore_launcher are inherited from Fallout_3: it
     # derives the launcher name from exe_name (SkyrimSELauncher.exe - GOG uses
     # the same name, unlike GOG Fallout 3) and the SE loader from
-    # _script_extender_exe above, so the base logic is already correct here.
-
-    def deploy(self, log_fn=None, mode: LinkMode = LinkMode.HARDLINK,
-               profile: str = "default", progress_fn=None) -> None:
-        """Deploy staged mods into the game's Data directory.
-
-        Workflow:
-          1. Move Data/ → Data_Core/
-          2. Transfer mod files listed in filemap.txt into Data/
-          3. Fill gaps with vanilla files from Data_Core/
-        (Root Folder deployment is handled by the GUI after this returns.)
-        """
-        _log = log_fn or (lambda _: None)
-
-        if self._game_path is None:
-            raise RuntimeError("Game path is not configured.")
-
-        data_dir      = self._game_path / "Data"
-        filemap       = self.get_effective_filemap_path()
-        staging       = self.get_effective_mod_staging_path()
-
-        if not data_dir.is_dir():
-            raise RuntimeError(f"Data directory not found: {data_dir}")
-        if not filemap.is_file():
-            raise RuntimeError(
-                f"filemap.txt not found: {filemap}\n"
-                "Run 'Build Filemap' before deploying."
-            )
-
-        _log("Step 1: Moving Data/ → Data_Core/ ...")
-        move_to_core(data_dir, log_fn=_log)
-        _log("  Backed up existing files → Data_Core/.")
-
-        profile_dir = self.get_profile_root() / "profiles" / profile
-        per_mod_strip = load_per_mod_strip_prefixes(profile_dir)
-
-        # Separator overrides - loaded from the real profile_dir (modlist.txt /
-        # profile_state.json live there, not necessarily next to the filemap) and
-        # passed explicitly so shared-staging layouts get the right link modes.
-        _sep_deploy = load_separator_deploy_paths(profile_dir)
-        _sep_entries = read_modlist(profile_dir / "modlist.txt") if _sep_deploy else []
-        per_mod_deploy = expand_separator_deploy_paths(_sep_deploy, _sep_entries) or None
-        per_mod_modes = expand_separator_link_modes(_sep_deploy, _sep_entries) or None
-        per_mod_raw = expand_separator_raw_deploy(_sep_deploy, _sep_entries) or None
-
-        custom_rules = self.custom_routing_rules
-        custom_exclude: set[str] = set()
-        if custom_rules:
-            _log("Step 1b: Routing files via custom rules ...")
-            custom_exclude = deploy_custom_rules(
-                filemap, self._game_path, staging,
-                rules=custom_rules,
-                mode=mode,
-                strip_prefixes=self.mod_folder_strip_prefixes,
-                per_mod_strip_prefixes=per_mod_strip,
-                per_mod_link_modes=per_mod_modes,
-                log_fn=_log,
-                progress_fn=progress_fn,
-                prefix_root=self.get_prefix_path(),
-                raw_mods=per_mod_raw,
-            )
-
-        _log(f"Step 2: Transferring mod files into Data/ ({mode.name}) ...")
-        linked_mod, placed = deploy_filemap(filemap, data_dir, staging,
-                                            mode=mode,
-                                            strip_prefixes=self.mod_folder_strip_prefixes,
-                                            per_mod_strip_prefixes=per_mod_strip,
-                                            per_mod_deploy_dirs=per_mod_deploy,
-                                            per_mod_link_modes=per_mod_modes,
-                                            log_fn=_log,
-                                            progress_fn=progress_fn,
-                                            exclude=custom_exclude or None,
-                                            core_dir=data_dir.parent / (data_dir.name + "_Core"))
-        _log(f"  Transferred {linked_mod} mod file(s).")
-
-        _log("Step 3: Filling gaps with vanilla files from Data_Core/ ...")
-        linked_core = deploy_core(data_dir, placed, mode=mode, log_fn=_log,
-                                  manifest_dir=filemap.parent)
-        _log(f"  Transferred {linked_core} vanilla file(s).")
-
-        _log("Step 4: Symlinking plugins.txt into Proton prefix ...")
-        self._symlink_plugins_txt(profile, _log)
-
-        _log("Step 5: Symlinking profile INI files ...")
-        self._symlink_profile_ini_files(profile, _log)
-
-        _log("Step 6: Symlinking profile saves ...")
-        self._symlink_profile_saves(profile, _log)
-
-        _log("Step 7: Applying archive invalidation ...")
-        self.apply_archive_invalidation(_log)
-
-        _log(
-            f"Deploy complete. "
-            f"{linked_mod} mod + {linked_core} vanilla "
-            f"= {linked_mod + linked_core} total file(s) in Data/."
-        )
-
-        # Capture runtime files generated outside Data/ on the next restore.
-        self.snapshot_root_for_runtime_capture(log_fn=_log)
-
-    def restore(self, log_fn=None, progress_fn=None) -> None:
-        """Restore Data/ to its vanilla state."""
-        _log = log_fn or (lambda _: None)
-
-        if self._game_path is None:
-            raise RuntimeError("Game path is not configured.")
-
-        data_dir      = self._game_path / "Data"
-        staging       = self.get_effective_mod_staging_path()
-        overwrite_dir = self.get_effective_overwrite_path()
-
-        _log("Restore: removing case-alias symlinks ...")
-        remove_case_alias_links(self._game_path, self.case_alias_dirs,
-                                log_fn=_log)
-        remove_probe_stub_dirs(self._game_path, self.probe_stub_dirs,
-                               log_fn=_log)
-
-        _log("Restore: removing plugins.txt symlink ...")
-        self._remove_plugins_txt_symlink(_log)
-
-        _log("Restore: reverting archive invalidation ...")
-        self.revert_archive_invalidation(_log)
-
-        _log("Restore: restoring launcher ...")
-        self._restore_launcher(_log)
-
-        _log("Restore: removing profile INI symlinks ...")
-        _profile_dir = self._active_profile_dir
-        if _profile_dir is not None:
-            self._remove_profile_ini_symlinks(_profile_dir.name, _log)
-            _log("Restore: removing profile saves symlinks ...")
-            self._remove_profile_saves_symlinks(_profile_dir.name, _log)
-
-        _profile_dir = self._active_profile_dir
-        _entries = read_modlist(_profile_dir / "modlist.txt") if _profile_dir else []
-        cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log)
-
-        custom_rules = self.custom_routing_rules
-        if custom_rules and self._game_path:
-            _log("Restore: removing custom-routed files ...")
-            restore_custom_rules(
-                self.get_effective_filemap_path(),
-                self._game_path,
-                rules=custom_rules,
-                log_fn=_log,
-                prefix_root=self.get_prefix_path(),
-            )
-
-        _log("Restore: clearing Data/ and moving Data_Core/ back ...")
-        try:
-            restored = restore_data_core(
-                data_dir,
-                overwrite_dir=overwrite_dir,
-                staging_root=staging,
-                strip_prefixes=self.mod_folder_strip_prefixes,
-                log_fn=_log,
-            )
-            _log(f"  Restored {restored} file(s). Data_Core/ removed.")
-        except RuntimeError as e:
-            _log(f"  Skipping data restore: {e}")
-
-        # After Data/ + launcher are restored, so the launcher .bak (created by
-        # swap_launcher *after* the deploy snapshot) isn't swept as a runtime file.
-        moved = self.capture_runtime_files_to_root_folder(log_fn=_log)
-        if moved:
-            _log(f"  Moved {moved} runtime file(s) to Root_Folder/.")
-
-        _log("Restore complete.")
+    # _script_extender_exe above, so the shared Bethesda implementation is
+    # already correct for both physical and profile-VFS deployment.

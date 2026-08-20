@@ -13,6 +13,7 @@ from pathlib import Path
 import stat
 
 from Games.base_game import BaseGame, WizardTool
+from Utils.vfs import ProfileVFSGameMixin
 from Utils.deploy import LinkMode, deploy_core, deploy_custom_rules, deploy_filemap, load_per_mod_strip_prefixes, load_separator_deploy_paths, expand_separator_deploy_paths, expand_separator_link_modes, expand_separator_raw_deploy, cleanup_custom_deploy_dirs, move_to_core, restore_custom_rules, restore_data_core
 from Utils.modlist import read_modlist
 from Utils.config_paths import get_profiles_dir
@@ -50,7 +51,19 @@ def _thunderstore_plugin_subdirs(staging_root: Path, entries,
     return subdirs
 
 
-class Subnautica(BaseGame):
+class Subnautica(ProfileVFSGameMixin, BaseGame):
+
+    profile_overridable_settings = (
+        *BaseGame.profile_overridable_settings,
+        *ProfileVFSGameMixin.vfs_profile_setting_keys,
+    )
+
+    @property
+    def supports_profile_vfs(self) -> bool:
+        # This handler is also the base for many unrelated BepInEx games.
+        # Subnautica is the only layout validated so far; subclasses opt in
+        # independently once tested rather than inheriting the toggle blindly.
+        return self.game_id == "Subnautica"
 
     def __init__(self):
         self._game_path: Path | None = None
@@ -229,6 +242,12 @@ class Subnautica(BaseGame):
     # Deployment
     # -----------------------------------------------------------------------
 
+    def _vfs_per_mod_subdirs(self, profile_dir: Path, staging: Path,
+                             log_fn=None) -> dict[str, str]:
+        entries = read_modlist(profile_dir / "modlist.txt")
+        return _thunderstore_plugin_subdirs(
+            staging, entries, log_fn=log_fn)
+
     def deploy(self, log_fn=None, mode: LinkMode = LinkMode.HARDLINK,
                profile: str = "default", progress_fn=None) -> None:
         """Deploy staged mods into BepInEx/Plugins/.
@@ -249,12 +268,21 @@ class Subnautica(BaseGame):
         staging     = self.get_effective_mod_staging_path()
         core        = self.mods_dir + "_Core"
 
-        plugins_dir.mkdir(parents=True, exist_ok=True)
         if not filemap.is_file():
             raise RuntimeError(
                 f"filemap.txt not found: {filemap}\n"
                 "Run 'Build Filemap' before deploying."
             )
+        if self.vfs_launch_enabled:
+            return self._deploy_vfs(
+                profile=profile,
+                filemap=filemap,
+                staging=staging,
+                log_fn=_log,
+                progress_fn=progress_fn,
+            )
+
+        plugins_dir.mkdir(parents=True, exist_ok=True)
 
         _log(f"Step 1: Moving {plugins_dir.name}/ → {core}/ ...")
         move_to_core(plugins_dir, log_fn=_log)
@@ -341,6 +369,15 @@ class Subnautica(BaseGame):
                 rules=custom_rules,
                 log_fn=_log,
             )
+
+        # Restore must follow what is actually deployed, not the current
+        # setting: a stale/hand-edited setting must not strand the private view
+        # or any physical external separator targets.
+        from Utils.vfs import cleanup_deployment, manifest_path
+        if manifest_path(self).is_file():
+            cleanup_deployment(self, preserve_upper=True, log_fn=_log)
+            _log("Restore complete.")
+            return
 
         if core_dir.is_dir():
             _log(f"Restore: clearing {plugins_dir.name}/ and moving {core}/ back ...")

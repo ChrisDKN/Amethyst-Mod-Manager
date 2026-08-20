@@ -159,6 +159,14 @@ class BaseGame(ABC):
     # opted-in family.
     supports_incremental_deploy: bool = False
 
+    # Opt-in contract for Utils.vfs. A compatible handler exposes a stable
+    # game root plus primary mod-data directory and implements the VFS setting,
+    # deploy and launch hooks. Keeping this False by default prevents a generic
+    # toggle from applying Bethesda-style semantics to unrelated layouts.
+    supports_profile_vfs: bool = False
+    vfs_launch_enabled: bool = False
+    virtualizes_game_root: bool = False
+
     profile_overridable_settings: tuple[str, ...] = (
         "auto_deploy",
         "archive_invalidation",
@@ -877,13 +885,12 @@ class BaseGame(ABC):
 
     @property
     def native_launch_required(self) -> bool:
-        """Whether this game can ONLY be launched by get_launch_command().
+        """Whether this game requires Amethyst's launch wrapper.
 
         True for games whose mods are served by an external loader rather than
-        deployed to disk (me3): the Proton fallback would start the game with
-        no mods at all, which looks like a successful launch.  Such handlers
-        refuse instead, with :meth:`native_launch_blocked_reason` explaining
-        what to fix.
+        deployed to disk (me3), and for launch-time VFS handlers that must wrap
+        Steam's normal command. A plain store/Proton fallback would start with
+        no mods while looking successful, so such handlers refuse instead.
         """
         return False
 
@@ -891,13 +898,27 @@ class BaseGame(ABC):
         """Why get_launch_command() returned None, phrased for the user."""
         return ""
 
+    def get_launch_handoff(self, profile: "str | None" = None):
+        """Return launcher-specific settings that keep Amethyst in the chain.
+
+        The configured profile records whether its install came from Steam,
+        Heroic, Lutris, or Faugus.  Each launcher has a different wrapper UI,
+        so the toolkit-neutral builder returns labelled fields for the GUI.
+        """
+        from Utils.launch_handoff import build_launch_handoff
+        return build_launch_handoff(self, profile)
+
     def get_steam_launch_string(self, profile: "str | None" = None) -> str:
         """Return the Steam Launch Options string that starts this game modded.
 
-        Only meaningful for handlers whose mods are served by an external
-        loader (:attr:`native_launch_required`); everything else is launched by
-        Steam normally and needs no launch option.  Returns "" otherwise, which
-        is the signal to the GUI not to offer one.
+        Kept for API compatibility. New UI code uses
+        :meth:`get_launch_handoff`, which also supports Heroic, Lutris, and
+        Faugus.
+
+        Only meaningful for handlers whose mods require an external loader or
+        launch-time VFS (:attr:`native_launch_required`); everything else is
+        launched by Steam normally and needs no launch option. Returns ""
+        otherwise, which is the signal to the GUI not to offer one.
 
         No profile is pinned by default: the CLI resolves the last *deployed*
         profile at launch time, so switching profiles in the manager is picked
@@ -905,9 +926,9 @@ class BaseGame(ABC):
         one (e.g. a second Steam entry that always plays a specific list).
 
         The command deploys first, so pressing Play in Steam picks up mod-list
-        changes made in the manager.  ``%command%`` is appended because Steam
-        substitutes the vanilla command there; the CLI drops everything after
-        ``--``.
+        changes made in the manager. ``%command%`` is appended because Steam
+        substitutes the vanilla command there; external loaders ignore it,
+        while launch-time VFS handlers wrap it inside their mount namespace.
         """
         if not getattr(self, "native_launch_required", False):
             return ""
@@ -917,7 +938,7 @@ class BaseGame(ABC):
         argv = [*cli_invocation(), "launch", self.game_id]
         if profile:
             argv += ["--profile", profile]
-        return " ".join(shlex.quote(a) for a in argv) + " -- %command%"
+        return shlex.join(argv) + " -- %command%"
 
     @property
     def play_button_callback(self) -> "Callable[[], None] | None":

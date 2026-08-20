@@ -11,6 +11,9 @@ from Games.Bethesda.fallout_3 import Fallout_3
 
 class EnderalSE(Fallout_3):
 
+    # Enderal Launcher.exe already bootstraps SKSE64 itself.
+    vfs_prefers_script_extender = False
+
     _archive_list_needs_mod_bsas = False
     plugins_use_star_prefix = True
     plugins_include_vanilla = False

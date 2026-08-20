@@ -240,6 +240,10 @@ class Fallout_NV(Fallout_3):
         _log = log_fn or (lambda _m: None)
         if not self._auto_4gb_active():
             return
+        if self.vfs_launch_enabled:
+            # The virtual patched copy disappears with the published root
+            # layer; the real FalloutNV.exe was never changed.
+            return
         game_root = self.get_game_path()
         if game_root is None or not game_root.is_dir():
             return
@@ -264,12 +268,26 @@ class Fallout_NV(Fallout_3):
         from Utils.fnv4gb_tools import (
             BACKUP_NAME, EXE_NAME, apply_4gb_patch, inspect_exe,
         )
-        info = inspect_exe(game_root)
+        patch_root = game_root
+        if self.vfs_launch_enabled:
+            from Utils.vfs import virtual_root_write_path
+            virtual_exe = virtual_root_write_path(self, EXE_NAME)
+            virtual_exe.parent.mkdir(parents=True, exist_ok=True)
+            if not virtual_exe.is_file():
+                import shutil
+                shutil.copy2(game_root / EXE_NAME, virtual_exe)
+            patch_root = virtual_exe.parent
+        info = inspect_exe(patch_root)
         state = info["state"]
         if state == "patchable":
-            variant = apply_4gb_patch(game_root)
-            _log(f"4GB patch: auto-patched {EXE_NAME} ({variant} version) - "
-                 f"original kept as {BACKUP_NAME}.")
+            variant = apply_4gb_patch(patch_root)
+            if self.vfs_launch_enabled:
+                (patch_root / BACKUP_NAME).unlink(missing_ok=True)
+                _log(f"4GB patch: added a virtual patched {EXE_NAME} "
+                     f"({variant} version); the game folder is unchanged.")
+            else:
+                _log(f"4GB patch: auto-patched {EXE_NAME} ({variant} version) - "
+                     f"original kept as {BACKUP_NAME}.")
         elif state == "unknown":
             _log(f"4GB patch: skipped - unrecognised {EXE_NAME} version "
                  f"(SHA-1 {info['hash']}). Verify game files, then use the "

@@ -180,6 +180,13 @@ def detect_frameworks(game, filemap_path, modlist_path,
         exe_path = Path(exe)
         if game_root is not None and file_exists_ci(game_root, exe_path):
             return STATE_INSTALLED
+        virtual_exists = getattr(game, "vfs_file_exists", None)
+        if callable(virtual_exists):
+            try:
+                if virtual_exists(exe):
+                    return STATE_INSTALLED
+            except Exception:
+                pass
 
         in_root_staging = (rf_allowed and root_folder is not None
                            and file_exists_ci(root_folder, exe_path))

@@ -321,6 +321,13 @@ def detect_framework_exes(game, framework_states: "dict | None" = None) -> list[
     for label, rel in declared.items():
         exe = resolve_file_ci(Path(game_path), Path(rel))
         if exe is None:
+            virtual_exists = getattr(game, "vfs_file_exists", None)
+            try:
+                if callable(virtual_exists) and virtual_exists(rel):
+                    exe = Path(game_path) / rel
+            except Exception:
+                exe = None
+        if exe is None:
             # Not in the game root - list it anyway when it's staged and a
             # deploy would put it there (Run deploys before launching).
             state = (framework_states or {}).get(label)
@@ -2020,6 +2027,31 @@ def launch_game(game, log_fn=_noop_log) -> None:
     """Launch the game itself: native command / Steam / Heroic / Proton,
     honouring the saved launch mode. Call from a worker thread."""
     from Utils.xdg import host_env
+
+    # A mount-namespace VFS must sit outside Proton/the store launcher so all
+    # descendants inherit the virtual game tree. Store URL routes cannot
+    # provide that parent process, so VFS handlers deliberately use the same
+    # direct Proton resolver as a game-like Run entry.
+    if getattr(game, "vfs_launch_enabled", False):
+        try:
+            exe_path = game.get_vfs_launch_exe()
+        except Exception as exc:
+            reason = f"could not resolve the VFS launch executable: {exc}"
+            log_fn(f"Play: refusing to launch - {reason}")
+            launch_report.mark_failed(launch_report.actionable(reason))
+            return
+        if exe_path is None:
+            reason = (
+                "the VFS launch executable is unavailable; deploy the profile "
+                "and verify the game installation."
+            )
+            log_fn(f"Play: refusing to launch - {reason}")
+            launch_report.mark_failed(launch_report.actionable(reason))
+            return
+        log_fn(f"Play: launching through the profile VFS: {exe_path.name}")
+        launch_exe_via_proton(exe_path, game, log_fn)
+        return
+
     native_cmd = getattr(game, "get_launch_command", lambda: None)()
     if native_cmd is not None:
         log_fn(f"Play: launching natively: {' '.join(native_cmd)}")
@@ -2428,8 +2460,10 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
     missing audio vs a raw `proton run`).
     """
     framework_launch = is_framework_launch_exe(game, exe_path.name)
-    if framework_launch and launch_swapped_framework_via_steam(
-            exe_path, game, log_fn):
+    if (framework_launch
+            and not getattr(game, "vfs_launch_enabled", False)
+            and launch_swapped_framework_via_steam(
+                exe_path, game, log_fn)):
         return
 
     from Utils.proton_prefix import read_prefix_runner, resolve_compat_data
@@ -2772,6 +2806,16 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
         final_cmd = base_cmd
     else:
         _, final_cmd = parse_launch_options(launch_opts, base_cmd)
+
+    wrapper = getattr(game, "wrap_launch_command", None)
+    if callable(wrapper):
+        try:
+            final_cmd = wrapper(final_cmd, env=env)
+        except Exception as exc:
+            reason = f"could not prepare the virtual filesystem launch: {exc}"
+            log_fn(f"Run EXE: {reason}")
+            launch_report.mark_failed(launch_report.actionable(reason))
+            return
 
     # The Epic exchange code is a live credential - never write it to a log the
     # user may attach to a bug report.

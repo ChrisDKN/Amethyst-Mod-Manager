@@ -11,6 +11,9 @@ from Games.Bethesda.fallout_3 import Fallout_3
 
 class Enderal(Fallout_3):
 
+    # Enderal Launcher.exe already bootstraps SKSE itself.
+    vfs_prefers_script_extender = False
+
     _archive_list_needs_mod_bsas = False
     # Skyrim LE engine - plugins.txt-ordered, not file mtimes.
     _plugin_load_order_by_mtime = False

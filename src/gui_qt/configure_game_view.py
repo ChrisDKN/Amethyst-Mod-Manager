@@ -509,10 +509,19 @@ class ConfigureGameView(QWidget):
             self.tr("Symlink (Recommended)") if rec == "symlink" else self.tr("Symlink"))
         self._rb_hardlink = QRadioButton(
             self.tr("Hardlink (Recommended)") if rec == "hardlink" else self.tr("Hardlink"))
+        self._rb_vfs = None
+        if (getattr(self._game, "supports_profile_vfs", False)
+                and hasattr(self._game, "set_vfs_enabled")):
+            self._rb_vfs = QRadioButton(
+                self.tr("Virtual filesystem (VFS, experimental)"))
         self._deploy_group.addButton(self._rb_symlink)
         self._deploy_group.addButton(self._rb_hardlink)
+        if self._rb_vfs is not None:
+            self._deploy_group.addButton(self._rb_vfs)
         ov.addWidget(self._rb_symlink)
         ov.addWidget(self._rb_hardlink)
+        if self._rb_vfs is not None:
+            ov.addWidget(self._rb_vfs)
         ov.addWidget(self._divider())
 
         # hasattr-gated option checkboxes (mirrors the Tk panel).
@@ -625,7 +634,9 @@ class ConfigureGameView(QWidget):
             elif self._has_prefix_src:
                 self._start_prefix_scan()
             # deploy mode
-            if hasattr(g, "get_deploy_mode"):
+            if self._rb_vfs is not None and getattr(g, "vfs_enabled", False):
+                self._rb_vfs.setChecked(True)
+            elif hasattr(g, "get_deploy_mode"):
                 mode = g.get_deploy_mode()
                 if mode == LinkMode.HARDLINK:
                     self._rb_hardlink.setChecked(True)
@@ -1650,8 +1661,36 @@ class ConfigureGameView(QWidget):
                 self._game_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
                 return
 
-        mode = (LinkMode.HARDLINK if self._rb_hardlink.isChecked()
-                else LinkMode.SYMLINK)
+        vfs_selected = bool(
+            self._rb_vfs is not None and self._rb_vfs.isChecked())
+        if vfs_selected and hasattr(g, "get_deploy_mode"):
+            # VFS is a deployment strategy, not a low-level transfer mode.
+            # Preserve the user's physical fallback for when VFS is disabled.
+            mode = g.get_deploy_mode()
+        else:
+            mode = (LinkMode.HARDLINK if self._rb_hardlink.isChecked()
+                    else LinkMode.SYMLINK)
+
+        selected_method = (
+            "vfs" if vfs_selected
+            else "hardlink" if mode is LinkMode.HARDLINK
+            else "symlink"
+        )
+        if g.is_configured() and g.get_deploy_active():
+            current_mode = (g.get_deploy_mode()
+                            if hasattr(g, "get_deploy_mode")
+                            else LinkMode.SYMLINK)
+            current_method = (
+                "vfs" if getattr(g, "vfs_enabled", False)
+                else "hardlink" if current_mode is LinkMode.HARDLINK
+                else "symlink"
+            )
+            if selected_method != current_method:
+                self._game_status.setText(self.tr(
+                    "Cannot change the deploy method while mods are deployed. "
+                    "Restore the game first."))
+                self._game_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
+                return
 
         # Capture the staging root currently on disk, before any setters mutate
         # it - needed to offer a migration if the staging location changed.
@@ -1669,7 +1708,7 @@ class ConfigureGameView(QWidget):
         # is on a different drive than the staging folder (Tk parity:
         # add_game_dialog save-time check). Setters persist, but so does the
         # save we're about to do - an invalid mode is never written.
-        if mode == LinkMode.HARDLINK:
+        if mode == LinkMode.HARDLINK and not vfs_selected:
             g.set_game_path(self._found_path)
             if self._found_prefix is not None and hasattr(g, "set_prefix_path"):
                 g.set_prefix_path(self._found_prefix)
@@ -1702,6 +1741,8 @@ class ConfigureGameView(QWidget):
                                shortcut_appid=self._found_shortcut_appid)
         if hasattr(g, "set_deploy_mode"):
             g.set_deploy_mode(mode)
+        if hasattr(g, "set_vfs_enabled") and self._rb_vfs is not None:
+            g.set_vfs_enabled(vfs_selected)
         if hasattr(g, "set_staging_path"):
             g.set_staging_path(self._custom_staging)
         if hasattr(g, "set_save_path_override"):

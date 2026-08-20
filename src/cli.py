@@ -107,17 +107,19 @@ def cmd_deploy(games: dict, key: str, profile: str):
 
 
 def cmd_launch(games: dict, key: str, profile: "str | None" = None,
-               deploy: bool = True):
+               deploy: bool = True,
+               vanilla_command: "list[str] | None" = None):
     """Deploy, then replace this process with the game's launch command.
 
-    Intended for a Steam launch option, so the game becomes a child of Steam
-    and keeps the overlay, playtime tracking and the Deck's Play button. Steam
-    appends the vanilla command as ``%command%``; it is deliberately ignored -
-    the whole point is to run the mod loader instead.
+    Intended for a launcher wrapper, so the game remains a child of Steam,
+    Heroic, Lutris, or Faugus and keeps that launcher's tracking/integration.
+    The launcher appends its normal game command after ``--``. External loaders
+    ignore it; profile-VFS handlers retarget it into the private game view.
 
-    Only handlers that launch natively (``native_launch_required``) are
-    supported. Everything else goes through the Proton/Steam/Heroic routing in
-    exe_launch, which cannot sensibly run *inside* a Steam-launched process.
+    Only handlers that require a launch wrapper (``native_launch_required``)
+    are supported: either a native external loader or a VFS wrapper around the
+    command the launcher supplied. Everything else uses the normal GUI launch
+    router.
     """
     import os
 
@@ -129,24 +131,12 @@ def cmd_launch(games: dict, key: str, profile: "str | None" = None,
         print(f"Error: game '{game.name}' is not configured (game path not set).",
               file=sys.stderr)
         sys.exit(1)
-    if not hasattr(game, "get_launch_command"):
-        print(f"Error: '{game.name}' cannot be launched from the CLI.",
-              file=sys.stderr)
-        sys.exit(1)
-    if not getattr(game, "native_launch_required", False):
-        # Refusing beats launching the wrong thing: without a native command
-        # this would need the full Proton/Steam routing, and a Steam-launched
-        # process re-entering Steam is not something to do implicitly.
-        print(f"Error: '{game.name}' does not use an external mod loader, so "
-              "there is nothing for a Steam launch option to do. Launch it "
-              "from Steam as normal.", file=sys.stderr)
-        sys.exit(1)
-
     # Default to the profile that was last DEPLOYED, not the one merely
     # selected in the GUI. That keeps a bare "launch <game>" launch option
     # correct across profile switches: the user switches and deploys in the
-    # manager, and Steam follows without the command being edited. Selecting a
-    # profile without deploying it is not a decision to play it.
+    # manager, and the configured launcher follows without its wrapper being
+    # edited. Selecting a profile without deploying it is not a decision to
+    # play it.
     if not profile:
         profile = (game.get_last_deployed_profile()
                    or game.get_last_active_profile() or "default")
@@ -156,9 +146,34 @@ def cmd_launch(games: dict, key: str, profile: "str | None" = None,
               file=sys.stderr)
         sys.exit(1)
 
+    # Profile settings can change the launch mechanism (for example VFS),
+    # so select and reload before checking native_launch_required.
+    game.set_active_profile_dir(profile_dir)
+    game.load_paths()
+    if not hasattr(game, "get_launch_command"):
+        print(f"Error: '{game.name}' cannot be launched from the CLI.",
+              file=sys.stderr)
+        sys.exit(1)
+    requires_wrapper = bool(getattr(game, "native_launch_required", False))
+    allows_passthrough = bool(
+        vanilla_command
+        and (
+            getattr(game, "launch_passthrough_supported", False)
+            or getattr(game, "steam_launch_passthrough_supported", False)
+        )
+    )
+    if not requires_wrapper and not allows_passthrough:
+        # Refusing beats launching the wrong thing: without a native command
+        # this would need the full Proton/store routing, and a
+        # launcher-owned process re-entering a store is unsafe.
+        print(f"Error: '{game.name}' does not need an external launch wrapper. "
+              "Launch it from the configured launcher as normal.",
+              file=sys.stderr)
+        sys.exit(1)
+
     if deploy:
         # Without this, toggling a mod in the GUI and then pressing Play in
-        # Steam would silently run the previous mod list.
+        # a launcher would silently run the previous mod list.
         from Utils.deploy_pipeline import run_deploy_pipeline
         _log(f"Deploying {game.name} / {profile} ...")
         if not run_deploy_pipeline(game, profile, log_fn=_log):
@@ -167,7 +182,19 @@ def cmd_launch(games: dict, key: str, profile: "str | None" = None,
 
     cmd = None
     try:
-        cmd = game.get_launch_command()
+        vfs_builder = getattr(game, "get_vfs_passthrough_command", None)
+        if not callable(vfs_builder):
+            vfs_builder = getattr(game, "get_vfs_steam_command", None)
+        if getattr(game, "vfs_launch_enabled", False) and callable(vfs_builder):
+            if not vanilla_command:
+                raise RuntimeError(
+                    "The launcher's game command was not supplied after '--'. "
+                    "Copy the complete wrapper settings from Amethyst.")
+            cmd = vfs_builder(vanilla_command)
+        elif allows_passthrough:
+            cmd = list(vanilla_command or [])
+        else:
+            cmd = game.get_launch_command()
     except Exception as exc:
         print(f"Error: could not build the launch command: {exc}",
               file=sys.stderr)
@@ -184,8 +211,8 @@ def cmd_launch(games: dict, key: str, profile: "str | None" = None,
 
     _log("Launching: " + " ".join(cmd))
     try:
-        # exec, don't spawn: Steam tracks the process it started, so replacing
-        # it keeps the overlay and "Stop" button attached to the real game.
+        # exec, don't spawn: launchers track the process they started, so
+        # replacing it keeps their Stop button attached to the real game.
         os.execvp(cmd[0], cmd)
     except OSError as exc:
         print(f"Error: could not run {cmd[0]}: {exc}", file=sys.stderr)
@@ -267,13 +294,15 @@ def main():
 
     subparsers.add_parser("clear-credentials", help="Remove stored Nexus Mods API key and OAuth tokens")
 
-    # Steam expands %command% into the vanilla launch command and appends it.
-    # Those trailing arguments are not ours to interpret - the mod loader
-    # starts the game itself - so drop anything after a "--" separator rather
-    # than letting argparse reject the whole invocation.
+    # Launcher wrappers append the vanilla launch command after ``--`` (Steam
+    # gets it from %command%; Heroic/Lutris/Faugus append it implicitly).
+    # Retain that command for VFS handlers; external loaders simply ignore it.
     argv = sys.argv[1:]
+    vanilla_command: list[str] = []
     if "--" in argv:
-        argv = argv[:argv.index("--")]
+        separator = argv.index("--")
+        vanilla_command = argv[separator + 1:]
+        argv = argv[:separator]
     args = parser.parse_args(argv)
 
     if args.command == "clear-credentials":
@@ -290,7 +319,8 @@ def main():
     elif args.command == "deploy":
         cmd_deploy(games, args.game, args.profile)
     elif args.command == "launch":
-        cmd_launch(games, args.game, args.profile, deploy=not args.no_deploy)
+        cmd_launch(games, args.game, args.profile, deploy=not args.no_deploy,
+                   vanilla_command=vanilla_command)
     elif args.command == "restore":
         cmd_restore(games, args.game)
 

@@ -143,12 +143,14 @@ class Fallout_76(Fallout_3):
         "vivoxsdk.dll", "xaudio2_9redist.dll"
     })
 
-    def _rename_non_whitelisted_dlls(self, log_fn) -> None:
+    def _rename_non_whitelisted_dlls(self, log_fn,
+                                     root: Path | None = None) -> None:
         """Rename non-whitelisted root *.dll → *.dll.nwmode so FO76 will launch."""
-        if self._game_path is None:
+        target_root = root or self._game_path
+        if target_root is None:
             return
         try:
-            entries = list(self._game_path.iterdir())
+            entries = list(target_root.iterdir())
         except OSError:
             return
         for dll in entries:
@@ -194,6 +196,13 @@ class Fallout_76(Fallout_3):
     def swap_launcher(self, log_fn) -> None:
         # FO76 has no SE launcher to swap - repurpose this post-deploy hook to
         # quarantine non-whitelisted DLLs (game files are all in place by now).
+        if self.vfs_launch_enabled:
+            from Utils.vfs import virtual_root_write_path
+            self._rename_non_whitelisted_dlls(
+                log_fn, virtual_root_write_path(self, "."))
+            log_fn("  VFS launch: quarantined root DLLs in the virtual layer; "
+                   "game files unchanged.")
+            return
         self._rename_non_whitelisted_dlls(log_fn)
 
     def _restore_launcher(self, log_fn) -> None:

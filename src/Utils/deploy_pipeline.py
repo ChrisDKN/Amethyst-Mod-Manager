@@ -131,12 +131,14 @@ def _log_deploy_context(game, profile: str, profile_dir: Path,
     prefix     = _safe(game.get_prefix_path)
     last_dep   = _safe(game.get_last_deployed_profile)
     enabled, seps = _count_enabled_mods(profile_dir)
+    vfs_active = bool(getattr(game, "vfs_launch_enabled", False))
+    method_name = "VFS" if vfs_active else deploy_mode.name
 
     log_fn("=" * 60)
     log_fn(f"Deploy: {game.name} - profile '{profile}'")
     log_fn(f"  Mod Manager {app_version} on {platform.system()} "
            f"{platform.release()}")
-    log_fn(f"  Deploy mode:   {deploy_mode.name}")
+    log_fn(f"  Deploy mode:   {method_name}")
     log_fn(f"  Game path:     {game_root or '(not set)'}")
     if data_path is not None and data_path != game_root:
         log_fn(f"  Mod data dir:  {data_path}")
@@ -152,7 +154,8 @@ def _log_deploy_context(game, profile: str, profile_dir: Path,
     # Hardlink viability: compare the filesystem of the deploy destination
     # against the staging folder. Different devices ⇒ hardlinks will fall
     # back to symlink/copy. Warn proactively rather than after-the-fact.
-    if deploy_mode is LinkMode.HARDLINK and staging is not None:
+    if (not vfs_active and deploy_mode is LinkMode.HARDLINK
+            and staging is not None):
         dest = data_path or game_root
         if dest is not None:
             dev_dest = _fs_id(Path(dest))
@@ -165,7 +168,7 @@ def _log_deploy_context(game, profile: str, profile_dir: Path,
 
     # Flatpak-sandboxed launchers can't read symlink targets outside their
     # own sandbox - symlinks into host-home staging look broken to the game.
-    if deploy_mode is LinkMode.SYMLINK and game_root:
+    if not vfs_active and deploy_mode is LinkMode.SYMLINK and game_root:
         _app = flatpak_runtime_app(Path(game_root))
         if _app and (staging is None or flatpak_runtime_app(Path(staging)) != _app):
             log_fn(f"  NOTE: game runs inside the {_app} flatpak - sandbox "
@@ -710,6 +713,11 @@ def run_deploy_pipeline(
         # the handler walking the game root now and the pipeline walking it
         # again for the refresh.
         game.begin_deferred_runtime_snapshot()
+        # A VFS-aware handler consumes Root_Folder itself while building its
+        # private layer. Keep the session toggle available without widening
+        # every game's long-standing deploy() signature.
+        if getattr(game, "virtualizes_game_root", False):
+            game._pipeline_root_folder_enabled = bool(root_folder_enabled)
         try:
             # Source resolution must never pick a disabled variant when two
             # staged files collapse onto one filemap key. Set inside the try so
@@ -741,6 +749,10 @@ def run_deploy_pipeline(
                 _run_game_deploy()
         finally:
             set_deploy_excluded_raw(None)
+            try:
+                delattr(game, "_pipeline_root_folder_enabled")
+            except AttributeError:
+                pass
             (generic_snapshot_requested,
              direct_snapshot_requests) = game.end_deferred_runtime_snapshot()
 
@@ -750,10 +762,17 @@ def run_deploy_pipeline(
                 game.name, pfx, game.wine_dll_overrides, log_fn=log_fn
             )
 
-        game.save_last_deployed_profile(profile, deploy_mode=deploy_mode.name)
+        method_name = (
+            "VFS" if getattr(game, "vfs_launch_enabled", False)
+            else deploy_mode.name
+        )
+        game.save_last_deployed_profile(profile, deploy_mode=method_name)
 
         target_rf = game.get_effective_root_folder_path()
-        rf_allowed = getattr(game, "root_folder_deploy_enabled", True)
+        rf_allowed = (
+            getattr(game, "root_folder_deploy_enabled", True)
+            and not getattr(game, "virtualizes_game_root", False)
+        )
 
         # Step A: shared Root_Folder must run first - its log file is what
         # Step B's root-flagged-mods deploy merges into.

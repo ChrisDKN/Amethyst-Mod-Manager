@@ -10882,12 +10882,11 @@ class MainWindow(QMainWindow):
                 # nothing left to resolve it and sits there for good.
                 self._end_play_toast(
                     self.tr("Deploy failed - launch cancelled"), "error")
-            # A loader-based game (me3) will not pick up mods when started from
-            # Steam directly - offer the launch option that fixes that. Only
-            # after a real user deploy: not for auto-deploy, and not when the
-            # Play button is about to launch anyway.
+            # Loader/VFS games need Amethyst in the launch chain. Offer the
+            # setting used by this profile's actual launcher after a real user
+            # deploy, but not for auto-deploy or an imminent Play action.
             if success and action is None and not self._op_was_silent:
-                QTimer.singleShot(0, self._maybe_offer_steam_launch)
+                QTimer.singleShot(0, self._maybe_offer_launch_handoff)
             # Wizard deploy steps: one-shot completion hooks (get the outcome
             # either way so the wizard can show failure and re-enable Deploy).
             hooks, self._deploy_done_hooks = self._deploy_done_hooks, []
@@ -10905,37 +10904,39 @@ class MainWindow(QMainWindow):
                 except Exception as exc:
                     self._append_log(f"Wizards: restore hook error: {exc}")
 
-    def _maybe_offer_steam_launch(self):
-        """After a deploy, show the Steam launch command for loader-based games.
-
-        Elden Ring's mods live behind me3, so starting it from Steam the normal
-        way runs it unmodded with no sign anything is wrong. Handlers opt in via
-        get_steam_launch_string(); everything else returns "" and is skipped.
-        """
+    def _maybe_offer_launch_handoff(self):
+        """Show settings for the profile's detected launcher after deploy."""
         game = self._gs.game
-        if game is None or not hasattr(game, "get_steam_launch_string"):
+        if game is None or not hasattr(game, "get_launch_handoff"):
             return
         try:
             # No profile pinned: the CLI picks up whichever profile was last
-            # deployed, so switching profiles here needs no change in Steam.
-            launch_string = game.get_steam_launch_string()
+            # deployed, so switching profiles needs no launcher setting change.
+            handoff = game.get_launch_handoff()
         except Exception as exc:
-            self._append_log(f"Steam launch command: {exc}")
+            self._append_log(f"Launcher handoff: {exc}")
             return
-        if not launch_string:
+        if handoff is None:
             return
         from Utils.ui_config import (
-            get_steam_launch_notice_hidden, save_steam_launch_notice_hidden)
-        if get_steam_launch_notice_hidden(game.name):
+            get_launch_handoff_notice_hidden,
+            save_launch_handoff_notice_hidden,
+        )
+        if get_launch_handoff_notice_hidden(
+                game.name, handoff.launcher_id):
             return
-        from gui_qt.steam_launch_overlay import SteamLaunchCommandOverlay
+        from gui_qt.launch_handoff_overlay import LaunchHandoffOverlay
 
         def _done(hidden):
             if hidden:
-                save_steam_launch_notice_hidden(game.name, True)
+                save_launch_handoff_notice_hidden(
+                    game.name, handoff.launcher_id, True)
 
-        SteamLaunchCommandOverlay(self.window(), game.name, launch_string,
-                                  on_done=_done)
+        LaunchHandoffOverlay(self.window(), game.name, handoff, on_done=_done)
+
+    # Compatibility for extensions that called the former private helper.
+    def _maybe_offer_steam_launch(self):
+        self._maybe_offer_launch_handoff()
 
     # ----------------------------------------------------------------- install
     def _on_install_mod(self):

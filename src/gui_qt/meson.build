@@ -56,6 +56,7 @@ py.install_sources(
   'image_preview.py',
   'image_view.py',
   'install_name_patterns_view.py',
+  'launch_handoff_overlay.py',
   'launcher_settings_overlay.py',
   'list_picker_overlay.py',
   'loading_overlay.py',

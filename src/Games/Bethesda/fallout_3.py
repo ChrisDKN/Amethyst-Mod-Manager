@@ -17,19 +17,38 @@ from Games.Bethesda.bethesda_ini import _read_ini_key, _set_ini_key
 from Utils.deploy import LinkMode, deploy_core, deploy_custom_rules, deploy_filemap, load_per_mod_strip_prefixes, load_separator_deploy_paths, expand_separator_deploy_paths, expand_separator_link_modes, expand_separator_raw_deploy, cleanup_custom_deploy_dirs, restore_custom_rules, move_to_core, restore_data_core, remove_case_alias_links, remove_probe_stub_dirs
 from Utils.modlist import read_modlist
 from Utils.config_paths import get_profiles_dir
+from Utils.vfs import ProfileVFSGameMixin
 
 _PROFILES_DIR = get_profiles_dir()
 
 # Games that need lavfilters for the radio music to play correctly
 _LAVFILTERS_GAME_IDS = frozenset({"Fallout3", "Fallout3GOTY", "FalloutNV"})
 
-class Fallout_3(BaseGame):
+class Fallout_3(ProfileVFSGameMixin, BaseGame):
 
-    # Opt in to the incremental redeploy fast path (deploy_incremental.py):
-    # the whole Bethesda family (all subclasses, incl. SkyrimSE) uses the
-    # plain move_to_core → deploy_filemap → deploy_core sequence with a
-    # single Data/ target, which is exactly what the diff supports.
-    supports_incremental_deploy = True
+    # This family uses one game-root plus one Data directory, matching the
+    # reusable profile VFS layer model. Individual subclasses may opt out.
+    vfs_legacy_setting_keys = ("skyrim_vfs_enabled",)
+    vfs_physical_supports_incremental_deploy = True
+
+    profile_overridable_settings = (
+        *BaseGame.profile_overridable_settings,
+        *ProfileVFSGameMixin.vfs_profile_setting_keys,
+        # Read old Skyrim profiles without forcing users to toggle/re-save.
+        *vfs_legacy_setting_keys,
+    )
+
+    # Compatibility aliases for profiles and callers from the original
+    # Skyrim-only implementation.
+    @property
+    def skyrim_vfs_enabled(self) -> bool:
+        return self.vfs_enabled
+
+    def set_skyrim_vfs_enabled(self, value: bool) -> None:
+        self.set_vfs_enabled(value)
+
+    # Enderal's own launcher already bootstraps its extender and overrides this.
+    vfs_prefers_script_extender = True
 
     plugins_use_star_prefix = False
     plugins_include_vanilla = True
@@ -794,9 +813,13 @@ class Fallout_3(BaseGame):
         if not ordered:
             return
         from Utils.plugin_mtimes import stamp_plugin_load_order
+        data_dir = self._game_path / "Data"
+        if self.vfs_launch_enabled:
+            from Utils.vfs import virtual_data_write_path
+            data_dir = virtual_data_write_path(self, ".")
         stamped = stamp_plugin_load_order(
             ordered,
-            self._game_path / "Data",
+            data_dir,
             staging_root=self.get_effective_mod_staging_path(),
             overwrite_dir=self.get_effective_overwrite_path(),
             log_fn=_log,
@@ -1216,7 +1239,13 @@ class Fallout_3(BaseGame):
             return
         from Utils.bsa_invalidation import write_dummy_bsa
         try:
-            write_dummy_bsa(self._game_path / "Data" / bsa_name, bsa_version)
+            if self.vfs_launch_enabled:
+                from Utils.vfs import virtual_data_write_path
+                target = virtual_data_write_path(self, bsa_name)
+            else:
+                target = self._game_path / "Data" / bsa_name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            write_dummy_bsa(target, bsa_version)
         except OSError as exc:
             _log(f"  WARN: Could not write {bsa_name}: {exc}")
 
@@ -1225,7 +1254,14 @@ class Fallout_3(BaseGame):
         bsa_name = self._invalidation_bsa_name
         if bsa_name is None or self._game_path is None:
             return
-        bsa_path = self._game_path / "Data" / bsa_name
+        if self.vfs_launch_enabled:
+            try:
+                from Utils.vfs import virtual_data_write_path
+                bsa_path = virtual_data_write_path(self, bsa_name)
+            except RuntimeError:
+                return
+        else:
+            bsa_path = self._game_path / "Data" / bsa_name
         if not bsa_path.is_file():
             return
         try:
@@ -1309,6 +1345,9 @@ class Fallout_3(BaseGame):
         disk (case-insensitive walk from the game root)."""
         if self._archive_list_fix_path is None or self._game_path is None:
             return False
+        if self.vfs_launch_enabled:
+            from Utils.vfs import virtual_file
+            return virtual_file(self, self._archive_list_fix_path)
         current = self._game_path
         for part in Path(self._archive_list_fix_path).parts:
             try:
@@ -1466,6 +1505,9 @@ class Fallout_3(BaseGame):
         _log = log_fn
         if self._game_path is None:
             return
+        if self.vfs_launch_enabled:
+            _log("  VFS launch: launcher swap is virtual - game files unchanged.")
+            return
         if not self._script_extender_swap:
             _log("  Script extender / launcher swap disabled - skipping.")
             return
@@ -1526,6 +1568,11 @@ class Fallout_3(BaseGame):
                 f"filemap.txt not found: {filemap}\n"
                 "Run 'Build Filemap' before deploying."
             )
+
+        if self.vfs_launch_enabled:
+            return self._deploy_vfs(
+                profile=profile, filemap=filemap, staging=staging,
+                log_fn=_log, progress_fn=progress_fn)
 
         profile_dir = self.get_profile_root() / "profiles" / profile
         per_mod_strip = load_per_mod_strip_prefixes(profile_dir)
@@ -1645,25 +1692,34 @@ class Fallout_3(BaseGame):
                 prefix_root=self.get_prefix_path(),
             )
 
-        _log("Restore: clearing Data/ and moving Data_Core/ back ...")
-        restored = restore_data_core(
-            data_dir,
-            overwrite_dir=self.get_effective_overwrite_path(),
-            staging_root=self.get_effective_mod_staging_path(),
-            strip_prefixes=self.mod_folder_strip_prefixes,
-            log_fn=_log,
-            restore_whitelist=self.restore_whitelist_matcher(rel_prefix="data/"),
-        )
-        _log(f"  Restored {restored} file(s). Data_Core/ removed.")
+        core_dir = data_dir.parent / (data_dir.name + "_Core")
+        physical_deploy = core_dir.exists()
+        if physical_deploy:
+            # A physical deploy may still be active after VFS was toggled on.
+            _log("Restore: clearing Data/ and moving Data_Core/ back ...")
+            restored = restore_data_core(
+                data_dir,
+                overwrite_dir=self.get_effective_overwrite_path(),
+                staging_root=self.get_effective_mod_staging_path(),
+                strip_prefixes=self.mod_folder_strip_prefixes,
+                log_fn=_log,
+                restore_whitelist=self.restore_whitelist_matcher(
+                    rel_prefix="data/"),
+            )
+            _log(f"  Restored {restored} file(s). Data_Core/ removed.")
+        else:
+            from Utils.vfs import cleanup_deployment
+            cleanup_deployment(self, preserve_upper=True, log_fn=_log)
 
         self._remove_plugins_txt_symlink(_log)
         self._restore_launcher(_log)
 
         # After Data/ + launcher are restored, so the launcher .bak (created by
         # swap_launcher *after* the deploy snapshot) isn't swept as a runtime file.
-        moved = self.capture_runtime_files_to_root_folder(log_fn=_log)
-        if moved:
-            _log(f"  Moved {moved} runtime file(s) to Root_Folder/.")
+        if physical_deploy:
+            moved = self.capture_runtime_files_to_root_folder(log_fn=_log)
+            if moved:
+                _log(f"  Moved {moved} runtime file(s) to Root_Folder/.")
 
         _active = self._active_profile_dir
         if _active is not None:

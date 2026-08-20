@@ -676,10 +676,53 @@ def save_fs_warning_ack(game_name: str, fingerprint: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Steam launch-command notice for loader-based games (Elden Ring via me3):
-# records that the user ticked "don't show this again" after a deploy.
+# Launcher handoff notice for loader/VFS games. The old Steam-only section is
+# retained below as a compatibility fallback for existing preferences.
 # ---------------------------------------------------------------------------
 _STEAM_LAUNCH_SECTION = "steam_launch_notice"
+_LAUNCH_HANDOFF_SECTION = "launch_handoff_notice"
+
+
+def get_launch_handoff_notice_hidden(game_name: str, launcher_id: str) -> bool:
+    """Whether this launcher's post-deploy wrapper notice is suppressed."""
+    if not game_name or not launcher_id:
+        return False
+    path = get_ui_config_path()
+    if not path.is_file():
+        return False
+    key = f"{launcher_id}.{game_name}"
+    try:
+        parser = _read_ini(path)
+        if parser.has_option(_LAUNCH_HANDOFF_SECTION, key):
+            return parser.getboolean(_LAUNCH_HANDOFF_SECTION, key,
+                                     fallback=False)
+        # Preserve the old Steam-only preference without suppressing a newly
+        # detected Heroic/Lutris/Faugus notice for the same game.
+        if launcher_id == "steam":
+            return parser.getboolean(_STEAM_LAUNCH_SECTION, game_name,
+                                     fallback=False)
+    except Exception:
+        pass
+    return False
+
+
+def save_launch_handoff_notice_hidden(
+    game_name: str, launcher_id: str, hidden: bool,
+) -> None:
+    """Persist suppression per game and launcher."""
+    if not game_name or not launcher_id:
+        return
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _LAUNCH_HANDOFF_SECTION not in parser:
+        parser[_LAUNCH_HANDOFF_SECTION] = {}
+    parser[_LAUNCH_HANDOFF_SECTION][f"{launcher_id}.{game_name}"] = (
+        "true" if hidden else "false"
+    )
+    _write_ini(parser, path)
 
 
 def get_steam_launch_notice_hidden(game_name: str) -> bool:
