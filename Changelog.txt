@@ -1,17 +1,19 @@
 - v2.2.1
 ### Game Support
 - Added Elden Ring
-## Additions
+### Additions
 - Added an option to the profile export code menu to upload it as a shareable link. The import code menu also accepts the link. 
 - Added an option to upload logs as a sharable link
 - Added a Filter conflicts right click option for mods with conflicts
 - Added a Npc viewer wizard for Skyrim SE
 - Added a cancel button for download progress
+- Added a Fallout 4 downgrade wizard
 ### Changes
 - System info is now shown in the settings menu and at the top of the log
 - Theme selection and theme-editor previews now apply live without restarting the application
 - The proton dropdown is now hidden if a game is Linux native or the prefix is not configured
 - Moved the download and extraction bars to the notification menu
+- Games added as non steam games are now detected
 ### Bug Fixes
 - Fixed Thunderstore BepInEx plugins being deployed into legacy package paths that loaders may delete at startup
 - Fixed an issue where folder names may not merge/normalise in Ue5 games
