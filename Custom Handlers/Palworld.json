@@ -19,8 +19,6 @@
     "LogicMods"
   ],
   "conflict_ignore_filenames": [
-    "*.png",
-    "*.jpg",
     "*readme*.txt",
     "*.md",
     "icon.png",
@@ -154,6 +152,6 @@
     "UE4SS": "Binaries/Win64/dwmapi.dll",
     "PalSchema": "Binaries/Win64/ue4ss/Mods/PalSchema/dlls/main.dll"
   },
-  "version": 9,
+  "version": 10,
   "editable": false
 }
