@@ -1446,6 +1446,22 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</translati
         <translation>{0} Game - {1}</translation>
     </message>
     <message>
+        <source>Use a separate save file for each profile (me3)</source>
+        <translation>Use a separate save file for each profile (me3)</translation>
+    </message>
+    <message>
+        <source>Enable online play (me3, risks a ban with mods)</source>
+        <translation>Enable online play (me3, risks a ban with mods)</translation>
+    </message>
+    <message>
+        <source>Neutralize Arxan anti-tamper (me3, improves stability)</source>
+        <translation>Neutralize Arxan anti-tamper (me3, improves stability)</translation>
+    </message>
+    <message>
+        <source>Raise the game's memory limits (me3)</source>
+        <translation>Raise the game's memory limits (me3)</translation>
+    </message>
+    <message>
         <source>Settings saved to profile: {0} (this profile only)</source>
         <translation>Settings saved to profile: {0} (this profile only)</translation>
     </message>
@@ -1602,18 +1618,6 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</translati
         <translation>Manage load order in DFU</translation>
     </message>
     <message>
-        <source>Disable Steam updates</source>
-        <translation>Disable Steam updates</translation>
-    </message>
-    <message>
-        <source>Marks Steam's appmanifest file read-only so an update cannot be applied, keeping mods working against the current build.
-
-Steam may still download the update and show a disk write error. Verifying the game's files in Steam clears this, re-enabling updates.</source>
-        <translation>Marks Steam's appmanifest file read-only so an update cannot be applied, keeping mods working against the current build.
-
-Steam may still download the update and show a disk write error. Verifying the game's files in Steam clears this, re-enabling updates.</translation>
-    </message>
-    <message>
         <source>Game Patch Version</source>
         <translation>Game Patch Version</translation>
     </message>
@@ -1674,6 +1678,34 @@ The default profile's settings are not affected.</translation>
         <translation>Executable ({0}) not found in this folder - double-check the path.</translation>
     </message>
     <message>
+        <source>Version {0}</source>
+        <translation>Version {0}</translation>
+    </message>
+    <message>
+        <source>Prefix already configured. You can update the path below.</source>
+        <translation>Prefix already configured. You can update the path below.</translation>
+    </message>
+    <message>
+        <source>Found via Steam compatdata.</source>
+        <translation>Found via Steam compatdata.</translation>
+    </message>
+    <message>
+        <source>Found via non-Steam shortcut compatdata.</source>
+        <translation>Found via non-Steam shortcut compatdata.</translation>
+    </message>
+    <message>
+        <source>Found via Heroic Games Launcher.</source>
+        <translation>Found via Heroic Games Launcher.</translation>
+    </message>
+    <message>
+        <source>Prefix selected manually.</source>
+        <translation>Prefix selected manually.</translation>
+    </message>
+    <message>
+        <source>Prefix found automatically.</source>
+        <translation>Prefix found automatically.</translation>
+    </message>
+    <message>
         <source>Executable found.</source>
         <translation>Executable found.</translation>
     </message>
@@ -1688,6 +1720,10 @@ The default profile's settings are not affected.</translation>
     <message>
         <source>Not found automatically. Browse manually to locate the game folder.</source>
         <translation>Not found automatically. Browse manually to locate the game folder.</translation>
+    </message>
+    <message>
+        <source>Non-Steam Shortcut</source>
+        <translation>Non-Steam Shortcut</translation>
     </message>
     <message>
         <source>Current: {0}</source>
@@ -2972,8 +3008,8 @@ When it completes, the app switches to the new profile - then come back here and
         <translation>Deployed files</translation>
     </message>
     <message>
-        <source>Deployed files - {0} files in {1} mods</source>
-        <translation>Deployed files - {0} files in {1} mods</translation>
+        <source>{0} - {1} files in {2} mods</source>
+        <translation>{0} - {1} files in {2} mods</translation>
     </message>
 </context>
 <context>
@@ -3933,8 +3969,16 @@ Proton prefix: click 'Install Java into prefix' once, then it runs automatically
         <translation>Use a specific Proton version with an isolated prefix next to the exe, instead of the game's prefix. Useful for tools that don't work with the game's Proton version. For Bethesda games the game path (registry), plugins.txt and My Games INIs are set up in the prefix automatically at launch.</translation>
     </message>
     <message>
+        <source>Arguments passed to the script. The buttons below insert Linux paths for file arguments.</source>
+        <translation>Arguments passed to the script. The buttons below insert Linux paths for file arguments.</translation>
+    </message>
+    <message>
         <source>Script extenders always run in the game's own prefix with the game's Proton version: they launch the game itself, which needs the game's Steam app ID and its INIs, saves and mod DLLs. Change the game's Proton version in the game settings instead.</source>
         <translation>Script extenders always run in the game's own prefix with the game's Proton version: they launch the game itself, which needs the game's Steam app ID and its INIs, saves and mod DLLs. Change the game's Proton version in the game settings instead.</translation>
+    </message>
+    <message>
+        <source>Script extenders must use the game's normal runner. Plain Wine removes the Steam/Proton context that Steam builds need to start the game.</source>
+        <translation>Script extenders must use the game's normal runner. Plain Wine removes the Steam/Proton context that Steam builds need to start the game.</translation>
     </message>
     <message>
         <source>Run this exe with bare Wine against the same prefix instead of a Proton session - no Steam client attach, so Steam Input keeps the desktop controls (trackpad / on-screen keyboard). The prefix is still created and updated through Proton. Env vars in Launch Options still apply; wrappers and %command% are skipped in this mode.</source>
@@ -4297,6 +4341,93 @@ That is fine for your own backup. Do not share or upload the file in this state 
     </message>
 </context>
 <context>
+    <name>Fallout4DowngraderView</name>
+    <message>
+        <source>Downgrade Fallout 4 - {0}</source>
+        <translation>Downgrade Fallout 4 - {0}</translation>
+    </message>
+    <message>
+        <source>Step 1: Download Fallout 4 Downgrader</source>
+        <translation>Step 1: Download Fallout 4 Downgrader</translation>
+    </message>
+    <message>
+        <source>The newest release containing the Fallout 4 Steam Downgrader will be downloaded from MulderLoad on GitHub and placed in the game folder.
+
+No modlist deploy is required.</source>
+        <translation>The newest release containing the Fallout 4 Steam Downgrader will be downloaded from MulderLoad on GitHub and placed in the game folder.
+
+No modlist deploy is required.</translation>
+    </message>
+    <message>
+        <source>Step 3: Run Fallout 4 Downgrader</source>
+        <translation>Step 3: Run Fallout 4 Downgrader</translation>
+    </message>
+    <message>
+        <source>Step 2: Choose Proton Version</source>
+        <translation>Step 2: Choose Proton Version</translation>
+    </message>
+    <message>
+        <source>The Fallout 4 Steam Downgrader was not downloaded.
+Close and reopen the wizard to try again.</source>
+        <translation>The Fallout 4 Steam Downgrader was not downloaded.
+Close and reopen the wizard to try again.</translation>
+    </message>
+    <message>
+        <source>Game path is not configured.</source>
+        <translation>Game path is not configured.</translation>
+    </message>
+    <message>
+        <source>Searching MulderLoad releases…</source>
+        <translation>Searching MulderLoad releases…</translation>
+    </message>
+    <message>
+        <source>Downloading {0}…</source>
+        <translation>Downloading {0}…</translation>
+    </message>
+    <message>
+        <source>The downgrader download did not create {0}.</source>
+        <translation>The downgrader download did not create {0}.</translation>
+    </message>
+    <message>
+        <source>Downloaded {0} to the game folder.</source>
+        <translation>Downloaded {0} to the game folder.</translation>
+    </message>
+    <message>
+        <source>Download error: {0}</source>
+        <translation>Download error: {0}</translation>
+    </message>
+    <message>
+        <source>{0} was not found in the game folder.</source>
+        <translation>{0} was not found in the game folder.</translation>
+    </message>
+    <message>
+        <source>Launching Fallout 4 Downgrader…</source>
+        <translation>Launching Fallout 4 Downgrader…</translation>
+    </message>
+    <message>
+        <source>Could not determine a Proton version for Fallout 4.</source>
+        <translation>Could not determine a Proton version for Fallout 4.</translation>
+    </message>
+    <message>
+        <source>Fallout 4 Downgrader is running.
+Follow its prompts, then close it when finished.</source>
+        <translation>Fallout 4 Downgrader is running.
+Follow its prompts, then close it when finished.</translation>
+    </message>
+    <message>
+        <source>Fallout 4 Downgrader finished. Click Done to close.</source>
+        <translation>Fallout 4 Downgrader finished. Click Done to close.</translation>
+    </message>
+    <message>
+        <source>Fallout 4 Downgrader exited with code {0}. See the log for details.</source>
+        <translation>Fallout 4 Downgrader exited with code {0}. See the log for details.</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>Launch error: {0}</translation>
+    </message>
+</context>
+<context>
     <name>FalloutDowngradeView</name>
     <message>
         <source>Downgrade Fallout 3 - {0}</source>
@@ -4562,6 +4693,10 @@ Click Done to clean up the extracted files and close.</translation>
     <message>
         <source>Extension .esp</source>
         <translation>Extension .esp</translation>
+    </message>
+    <message>
+        <source>Master (loads first)</source>
+        <translation>Master (loads first)</translation>
     </message>
     <message>
         <source>Missing masters</source>
@@ -5047,6 +5182,61 @@ It may already be modified. Verify game files in Steam/Heroic to get a clean exe
     </message>
 </context>
 <context>
+    <name>LogUploadOverlay</name>
+    <message>
+        <source>Upload log</source>
+        <translation>Upload log</translation>
+    </message>
+    <message>
+        <source>This uploads your session log ({0} lines, {1}) to {2}, where anyone with the link can read it. Logs contain file paths, which usually include your username. The link stops working {3}.</source>
+        <translation>This uploads your session log ({0} lines, {1}) to {2}, where anyone with the link can read it. Logs contain file paths, which usually include your username. The link stops working {3}.</translation>
+    </message>
+    <message>
+        <source>Only the most recent {0} will be uploaded.</source>
+        <translation>Only the most recent {0} will be uploaded.</translation>
+    </message>
+    <message>
+        <source>The link will appear here once the log is uploaded.</source>
+        <translation>The link will appear here once the log is uploaded.</translation>
+    </message>
+    <message>
+        <source>Replace my username with "user"</source>
+        <translation>Replace my username with "user"</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>Upload</source>
+        <translation>Upload</translation>
+    </message>
+    <message>
+        <source>Uploading…</source>
+        <translation>Uploading…</translation>
+    </message>
+    <message>
+        <source>Could not upload ({0}). The log is still saved locally - use Open Log Folder to attach the file instead.</source>
+        <translation>Could not upload ({0}). The log is still saved locally - use Open Log Folder to attach the file instead.</translation>
+    </message>
+    <message>
+        <source>Uploaded. Anyone with this link can read the log.</source>
+        <translation>Uploaded. Anyone with this link can read the log.</translation>
+    </message>
+    <message>
+        <source>Copy link</source>
+        <translation>Copy link</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Close</translation>
+    </message>
+    <message>
+        <source>Copied ✓</source>
+        <translation>Copied ✓</translation>
+    </message>
+</context>
+<context>
     <name>MCPView</name>
     <message>
         <source>Install MCP - {0}</source>
@@ -5373,10 +5563,6 @@ Click Done to close.</translation>
     <message>
         <source>{0} game - {1}</source>
         <translation>{0} game - {1}</translation>
-    </message>
-    <message>
-        <source>Check the executables to add to the Run menu. These run from their location in the game folder - including files deployed there by mods.</source>
-        <translation>Check the executables to add to the Run menu. These run from their location in the game folder - including files deployed there by mods.</translation>
     </message>
     <message>
         <source>Amethyst could not launch {0}.
@@ -6257,10 +6443,6 @@ Remove the appended-collection entry?</translation>
         <translation>Redownloading {0} mod(s)…</translation>
     </message>
     <message>
-        <source>Reinstall</source>
-        <translation>Reinstall</translation>
-    </message>
-    <message>
         <source>A Quick Update is already running.</source>
         <translation>A Quick Update is already running.</translation>
     </message>
@@ -6659,10 +6841,6 @@ Run Quick Update on all of them now?</translation>
     <message>
         <source>Downloading {0} files ({1} remaining)…</source>
         <translation>Downloading {0} files ({1} remaining)…</translation>
-    </message>
-    <message>
-        <source>Nexus Download</source>
-        <translation>Nexus Download</translation>
     </message>
     <message>
         <source>Log in to Nexus first.</source>
@@ -7217,6 +7395,10 @@ Run Quick Update on all of them now?</translation>
         <translation>Download Manifest…</translation>
     </message>
     <message>
+        <source>Download cancelled.</source>
+        <translation>Download cancelled.</translation>
+    </message>
+    <message>
         <source>this mod</source>
         <translation>this mod</translation>
     </message>
@@ -7277,8 +7459,60 @@ Run Quick Update on all of them now?</translation>
         <translation>mod.io update checking is disabled until its API path is added in the mod.io API Key tool.</translation>
     </message>
     <message>
+        <source>Reinstall download cancelled.</source>
+        <translation>Reinstall download cancelled.</translation>
+    </message>
+    <message>
+        <source>Reinstall download</source>
+        <translation>Reinstall download</translation>
+    </message>
+    <message>
+        <source>Quick Update download cancelled.</source>
+        <translation>Quick Update download cancelled.</translation>
+    </message>
+    <message>
+        <source>Conflict data is still building.</source>
+        <translation>Conflict data is still building.</translation>
+    </message>
+    <message>
+        <source>{0} has no conflicting mods.</source>
+        <translation>{0} has no conflicting mods.</translation>
+    </message>
+    <message>
+        <source>Filtered to {0} mods conflicting with {1}.</source>
+        <translation>Filtered to {0} mods conflicting with {1}.</translation>
+    </message>
+    <message>
+        <source>Cancel all</source>
+        <translation>Cancel all</translation>
+    </message>
+    <message>
         <source>No mods to share - a code carries Nexus mods with a mod + file ID and Thunderstore mods.</source>
         <translation>No mods to share - a code carries Nexus mods with a mod + file ID and Thunderstore mods.</translation>
+    </message>
+    <message>
+        <source>Check the executables to add to the Run menu. These run from their location in the game folder - including files deployed there by mods. Linux-native games launch through their .sh script (e.g. run_bepinex.sh).</source>
+        <translation>Check the executables to add to the Run menu. These run from their location in the game folder - including files deployed there by mods. Linux-native games launch through their .sh script (e.g. run_bepinex.sh).</translation>
+    </message>
+    <message>
+        <source>Amethyst could not launch {0}.
+
+{1}</source>
+        <translation>Amethyst could not launch {0}.
+
+{1}</translation>
+    </message>
+    <message>
+        <source>Extracting / Installing</source>
+        <translation>Extracting / Installing</translation>
+    </message>
+    <message>
+        <source>No QuickAutoClean tool is available for this game.</source>
+        <translation>No QuickAutoClean tool is available for this game.</translation>
+    </message>
+    <message>
+        <source>Preparing extraction…</source>
+        <translation>Preparing extraction…</translation>
     </message>
     <message>
         <source>Fallout 3 needs downgrading</source>
@@ -7629,6 +7863,10 @@ Deploy anyway?</translation>
         <translation>Open Log Folder</translation>
     </message>
     <message>
+        <source>Upload Log</source>
+        <translation>Upload Log</translation>
+    </message>
+    <message>
         <source>Wiki</source>
         <translation>Wiki</translation>
     </message>
@@ -7647,6 +7885,10 @@ Deploy anyway?</translation>
     <message>
         <source>♥ Endorse AMM</source>
         <translation>♥ Endorse AMM</translation>
+    </message>
+    <message>
+        <source>The log is empty.</source>
+        <translation>The log is empty.</translation>
     </message>
     <message>
         <source>Could not read the changelog:
@@ -7669,6 +7911,81 @@ Deploy anyway?</translation>
     <message>
         <source>Endorsing Amethyst Mod Manager…</source>
         <translation>Endorsing Amethyst Mod Manager…</translation>
+    </message>
+</context>
+<context>
+    <name>Me3InstallView</name>
+    <message>
+        <source>Install me3 - {0}</source>
+        <translation>Install me3 - {0}</translation>
+    </message>
+    <message>
+        <source>me3 mod loader</source>
+        <translation>me3 mod loader</translation>
+    </message>
+    <message>
+        <source>{0} mods are loaded by me3 at runtime rather than copied into the game folder, so me3 must be installed for the Play button to start a modded game.</source>
+        <translation>{0} mods are loaded by me3 at runtime rather than copied into the game folder, so me3 must be installed for the Play button to start a modded game.</translation>
+    </message>
+    <message>
+        <source>Amethyst is running as a Flatpak, so me3 has to be installed on the host system where Steam runs. Open a terminal on the host and run:</source>
+        <translation>Amethyst is running as a Flatpak, so me3 has to be installed on the host system where Steam runs. Open a terminal on the host and run:</translation>
+    </message>
+    <message>
+        <source>Download and install me3</source>
+        <translation>Download and install me3</translation>
+    </message>
+    <message>
+        <source>Re-check</source>
+        <translation>Re-check</translation>
+    </message>
+    <message>
+        <source>Open me3 website</source>
+        <translation>Open me3 website</translation>
+    </message>
+    <message>
+        <source>Log:</source>
+        <translation>Log:</translation>
+    </message>
+    <message>
+        <source>me3 was not found. It must be installed on the host system, not inside the Flatpak sandbox.</source>
+        <translation>me3 was not found. It must be installed on the host system, not inside the Flatpak sandbox.</translation>
+    </message>
+    <message>
+        <source>me3 is not installed.</source>
+        <translation>me3 is not installed.</translation>
+    </message>
+    <message>
+        <source>unknown version</source>
+        <translation>unknown version</translation>
+    </message>
+    <message>
+        <source>me3 {0} found at {1}, but its Windows files are missing. Re-install to repair it.</source>
+        <translation>me3 {0} found at {1}, but its Windows files are missing. Re-install to repair it.</translation>
+    </message>
+    <message>
+        <source>me3 {0} is installed at {1}.</source>
+        <translation>me3 {0} is installed at {1}.</translation>
+    </message>
+    <message>
+        <source>Fetching the latest me3 release…</source>
+        <translation>Fetching the latest me3 release…</translation>
+    </message>
+    <message>
+        <source>Installing…</source>
+        <translation>Installing…</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>Error: {0}</translation>
+    </message>
+    <message>
+        <source>Install finished.</source>
+        <translation>Install finished.</translation>
+    </message>
+    <message>
+        <source>Install did not complete.</source>
+        <translation>Install did not complete.</translation>
     </message>
 </context>
 <context>
@@ -7965,6 +8282,10 @@ How would you like to handle the existing mod?</translation>
         <translation>Check Updates ({0})</translation>
     </message>
     <message>
+        <source>Clear Conflict Filter</source>
+        <translation>Clear Conflict Filter</translation>
+    </message>
+    <message>
         <source>Copy to profile</source>
         <translation>Copy to profile</translation>
     </message>
@@ -8029,6 +8350,10 @@ How would you like to handle the existing mod?</translation>
     <message>
         <source>Endorse selected ({0})</source>
         <translation>Endorse selected ({0})</translation>
+    </message>
+    <message>
+        <source>Filter Conflicts</source>
+        <translation>Filter Conflicts</translation>
     </message>
     <message>
         <source>'{0}' belongs to the locked profile '{1}' - switch to that profile to remove it, or unlock it.</source>
@@ -9507,6 +9832,14 @@ Daily: {1}</translation>
     <message>
         <source>Notifications</source>
         <translation>Notifications</translation>
+    </message>
+    <message>
+        <source>Working</source>
+        <translation>Working</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
     </message>
     <message>
         <source>No notifications</source>
@@ -11401,6 +11734,101 @@ Proton prefix: {2}</translation>
     </message>
 </context>
 <context>
+    <name>RegulationMergeView</name>
+    <message>
+        <source>Merge regulation.bin - {0}</source>
+        <translation>Merge regulation.bin - {0}</translation>
+    </message>
+    <message>
+        <source>Step 1: Install WitchyBND</source>
+        <translation>Step 1: Install WitchyBND</translation>
+    </message>
+    <message>
+        <source>Only one regulation.bin can be active, so mods that ship one override each other completely. This installs WitchyBND's native Linux command-line build into the game's Applications folder; no Proton prefix or Windows .NET runtime is required.</source>
+        <translation>Only one regulation.bin can be active, so mods that ship one override each other completely. This installs WitchyBND's native Linux command-line build into the game's Applications folder; no Proton prefix or Windows .NET runtime is required.</translation>
+    </message>
+    <message>
+        <source>Download and install</source>
+        <translation>Download and install</translation>
+    </message>
+    <message>
+        <source>Step 2: Merge</source>
+        <translation>Step 2: Merge</translation>
+    </message>
+    <message>
+        <source>Each regulation is compared with the installed game at field level, then combined in mod priority order into the '{0}' mod. Keep the contributing mods enabled so their other files remain active; enable '{0}' above them afterwards.</source>
+        <translation>Each regulation is compared with the installed game at field level, then combined in mod priority order into the '{0}' mod. Keep the contributing mods enabled so their other files remain active; enable '{0}' above them afterwards.</translation>
+    </message>
+    <message>
+        <source>Mods contributing param edits (highest priority first):</source>
+        <translation>Mods contributing param edits (highest priority first):</translation>
+    </message>
+    <message>
+        <source>Merge into one mod</source>
+        <translation>Merge into one mod</translation>
+    </message>
+    <message>
+        <source>Log:</source>
+        <translation>Log:</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>Error: {0}</translation>
+    </message>
+    <message>
+        <source>Could not read the mod list: {0}</source>
+        <translation>Could not read the mod list: {0}</translation>
+    </message>
+    <message>
+        <source>{0} whole-row CSV(s)</source>
+        <translation>{0} whole-row CSV(s)</translation>
+    </message>
+    <message>
+        <source>  (none)</source>
+        <translation>  (none)</translation>
+    </message>
+    <message>
+        <source>{0} mods ship param edits; only one regulation would survive without merging.</source>
+        <translation>{0} mods ship param edits; only one regulation would survive without merging.</translation>
+    </message>
+    <message>
+        <source>Only one mod ships param edits, so nothing conflicts.</source>
+        <translation>Only one mod ships param edits, so nothing conflicts.</translation>
+    </message>
+    <message>
+        <source>No enabled mod ships param edits.</source>
+        <translation>No enabled mod ships param edits.</translation>
+    </message>
+    <message>
+        <source>Merging ...</source>
+        <translation>Merging ...</translation>
+    </message>
+    <message>
+        <source>WitchyBND is not installed.</source>
+        <translation>WitchyBND is not installed.</translation>
+    </message>
+    <message>
+        <source>Could not find the game's own regulation.bin. Restore the game before merging so the vanilla file is in place.</source>
+        <translation>Could not find the game's own regulation.bin. Restore the game before merging so the vanilla file is in place.</translation>
+    </message>
+    <message>
+        <source>Nothing to merge.</source>
+        <translation>Nothing to merge.</translation>
+    </message>
+    <message>
+        <source>Merged into '{0}' with {1} resolved overlap(s). Enable it above the contributing mods, then deploy.</source>
+        <translation>Merged into '{0}' with {1} resolved overlap(s). Enable it above the contributing mods, then deploy.</translation>
+    </message>
+    <message>
+        <source>Merged and validated into '{0}'. Enable it above the contributing mods, keep those mods enabled, then deploy.</source>
+        <translation>Merged and validated into '{0}'. Enable it above the contributing mods, keep those mods enabled, then deploy.</translation>
+    </message>
+    <message>
+        <source>Merge failed: {0}</source>
+        <translation>Merge failed: {0}</translation>
+    </message>
+</context>
+<context>
     <name>RemovePreviousOverlay</name>
     <message>
         <source>Remove previous version?</source>
@@ -12697,6 +13125,18 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
         <translation>Edit environment variables…</translation>
     </message>
     <message>
+        <source>Appearance</source>
+        <translation>Appearance</translation>
+    </message>
+    <message>
+        <source>About</source>
+        <translation>About</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Close</translation>
+    </message>
+    <message>
         <source>{0} set: {1}</source>
         <translation>{0} set: {1}</translation>
     </message>
@@ -12780,6 +13220,14 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
         <translation>Share this code with someone to send them your load order ({0} {1}). They can add it with Import code.</translation>
     </message>
     <message>
+        <source>Too long to paste? Get a short link instead - this uploads the code to {0}, where anyone with the link can read it. The link stops working {1}.</source>
+        <translation>Too long to paste? Get a short link instead - this uploads the code to {0}, where anyone with the link can read it. The link stops working {1}.</translation>
+    </message>
+    <message>
+        <source>Get link</source>
+        <translation>Get link</translation>
+    </message>
+    <message>
         <source>Close</source>
         <translation>Close</translation>
     </message>
@@ -12791,6 +13239,22 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
         <source>Copied ✓</source>
         <translation>Copied ✓</translation>
     </message>
+    <message>
+        <source>Uploading…</source>
+        <translation>Uploading…</translation>
+    </message>
+    <message>
+        <source>Could not get a link ({0}). The code above still works - copy and send that instead.</source>
+        <translation>Could not get a link ({0}). The code above still works - copy and send that instead.</translation>
+    </message>
+    <message>
+        <source>Link ready</source>
+        <translation>Link ready</translation>
+    </message>
+    <message>
+        <source>Anyone with this link can import your load order. Paste it into Import code.</source>
+        <translation>Anyone with this link can import your load order. Paste it into Import code.</translation>
+    </message>
 </context>
 <context>
     <name>ShareCodeImportOverlay</name>
@@ -12799,8 +13263,8 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
         <translation>Import code</translation>
     </message>
     <message>
-        <source>Paste a share code below to build a new profile from someone else's load order.</source>
-        <translation>Paste a share code below to build a new profile from someone else's load order.</translation>
+        <source>Paste a share code below to build a new profile from someone else's load order. A link to a code works too.</source>
+        <translation>Paste a share code below to build a new profile from someone else's load order. A link to a code works too.</translation>
     </message>
     <message>
         <source>Paste from clipboard</source>
@@ -12815,6 +13279,10 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
         <translation>Import</translation>
     </message>
     <message>
+        <source>A link - press Fetch to download the code from it.</source>
+        <translation>A link - press Fetch to download the code from it.</translation>
+    </message>
+    <message>
         <source>Not a valid share code.</source>
         <translation>Not a valid share code.</translation>
     </message>
@@ -12825,6 +13293,14 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     <message>
         <source>exported {0}</source>
         <translation>exported {0}</translation>
+    </message>
+    <message>
+        <source>Fetch</source>
+        <translation>Fetch</translation>
+    </message>
+    <message>
+        <source>Downloading…</source>
+        <translation>Downloading…</translation>
     </message>
 </context>
 <context>
@@ -13083,6 +13559,123 @@ Use Browse to select a manually downloaded archive.</translation>
     </message>
 </context>
 <context>
+    <name>SpecialKView</name>
+    <message>
+        <source>Install Special K - {0}</source>
+        <translation>Install Special K - {0}</translation>
+    </message>
+    <message>
+        <source>Proxy DLL name</source>
+        <translation>Proxy DLL name</translation>
+    </message>
+    <message>
+        <source>{0} is renamed to this. dxgi.dll is correct for NieR: Automata; pick another only if a different mod already uses that name.</source>
+        <translation>{0} is renamed to this. dxgi.dll is correct for NieR: Automata; pick another only if a different mod already uses that name.</translation>
+    </message>
+    <message>
+        <source>Install destination</source>
+        <translation>Install destination</translation>
+    </message>
+    <message>
+        <source>As a managed mod (root-flagged)</source>
+        <translation>As a managed mod (root-flagged)</translation>
+    </message>
+    <message>
+        <source>Root_Folder (staging)</source>
+        <translation>Root_Folder (staging)</translation>
+    </message>
+    <message>
+        <source>Game folder (restores to vanilla first)</source>
+        <translation>Game folder (restores to vanilla first)</translation>
+    </message>
+    <message>
+        <source>Step 1: Download Special K</source>
+        <translation>Step 1: Download Special K</translation>
+    </message>
+    <message>
+        <source>Checking for the latest Special K release…</source>
+        <translation>Checking for the latest Special K release…</translation>
+    </message>
+    <message>
+        <source>Browse…</source>
+        <translation>Browse…</translation>
+    </message>
+    <message>
+        <source>Next →</source>
+        <translation>Next →</translation>
+    </message>
+    <message>
+        <source>Fetching latest Special K release from GitHub…</source>
+        <translation>Fetching latest Special K release from GitHub…</translation>
+    </message>
+    <message>
+        <source>Downloading Special K {0}…</source>
+        <translation>Downloading Special K {0}…</translation>
+    </message>
+    <message>
+        <source>Downloaded Special K {0}: {1}
+Check the options below, then click Next.</source>
+        <translation>Downloaded Special K {0}: {1}
+Check the options below, then click Next.</translation>
+    </message>
+    <message>
+        <source>Download failed: {0}
+
+Use Browse to select a manually downloaded archive.</source>
+        <translation>Download failed: {0}
+
+Use Browse to select a manually downloaded archive.</translation>
+    </message>
+    <message>
+        <source>Select the Special K archive</source>
+        <translation>Select the Special K archive</translation>
+    </message>
+    <message>
+        <source>Selected: {0}
+Check the options below, then click Next.</source>
+        <translation>Selected: {0}
+Check the options below, then click Next.</translation>
+    </message>
+    <message>
+        <source>Step 2: Install Special K</source>
+        <translation>Step 2: Install Special K</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>Done</translation>
+    </message>
+    <message>
+        <source>Installing Special K…</source>
+        <translation>Installing Special K…</translation>
+    </message>
+    <message>
+        <source>Extracting {0}…</source>
+        <translation>Extracting {0}…</translation>
+    </message>
+    <message>
+        <source>
+
+Deploy your mods to activate it.</source>
+        <translation>
+
+Deploy your mods to activate it.</translation>
+    </message>
+    <message>
+        <source>Special K installed successfully!
+{0} installed as {1} into the {2}.{3}
+
+Click Done to close.</source>
+        <translation>Special K installed successfully!
+{0} installed as {1} into the {2}.{3}
+
+Click Done to close.</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>Error: {0}</translation>
+    </message>
+</context>
+<context>
     <name>Splash</name>
     <message>
         <source>Starting Amethyst…</source>
@@ -13110,6 +13703,45 @@ Use Browse to select a manually downloaded archive.</translation>
     <message>
         <source>Add</source>
         <translation>Add</translation>
+    </message>
+</context>
+<context>
+    <name>SteamLaunchCommandOverlay</name>
+    <message>
+        <source>{0} - launching from Steam</source>
+        <translation>{0} - launching from Steam</translation>
+    </message>
+    <message>
+        <source>Your mods are loaded by an external mod loader, so starting {0} from Steam normally would run it unmodded.
+
+Press Play here in the manager, or paste this into Steam (right-click {0} → Properties → General → Launch Options) to launch it modded from your library:</source>
+        <translation>Your mods are loaded by an external mod loader, so starting {0} from Steam normally would run it unmodded.
+
+Press Play here in the manager, or paste this into Steam (right-click {0} → Properties → General → Launch Options) to launch it modded from your library:</translation>
+    </message>
+    <message>
+        <source>Set this once. It always deploys and launches whichever profile you last deployed here, so switching profiles needs no change in Steam.</source>
+        <translation>Set this once. It always deploys and launches whichever profile you last deployed here, so switching profiles needs no change in Steam.</translation>
+    </message>
+    <message>
+        <source>Don't show this again</source>
+        <translation>Don't show this again</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Close</translation>
+    </message>
+    <message>
+        <source>Copy to clipboard</source>
+        <translation>Copy to clipboard</translation>
+    </message>
+    <message>
+        <source>Copied ✓</source>
+        <translation>Copied ✓</translation>
+    </message>
+    <message>
+        <source>Copy failed - copy it manually</source>
+        <translation>Copy failed - copy it manually</translation>
     </message>
 </context>
 <context>
@@ -15958,6 +16590,13 @@ When you close it, your changes are restored automatically.</translation>
     </message>
 </context>
 <context>
+    <name>_NotificationMirrorButton</name>
+    <message>
+        <source>Notifications</source>
+        <translation>Notifications</translation>
+    </message>
+</context>
+<context>
     <name>_OverridesModel</name>
     <message>
         <source>Pak</source>
@@ -16032,6 +16671,29 @@ When you close it, your changes are restored automatically.</translation>
     <message>
         <source>No preview</source>
         <translation>No preview</translation>
+    </message>
+</context>
+<context>
+    <name>_ProgressRow</name>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>Working</source>
+        <translation>Working</translation>
+    </message>
+    <message>
+        <source>Working…</source>
+        <translation>Working…</translation>
+    </message>
+    <message>
+        <source>{0} / {1}</source>
+        <translation>{0} / {1}</translation>
+    </message>
+    <message>
+        <source>Cancelling…</source>
+        <translation>Cancelling…</translation>
     </message>
 </context>
 <context>
@@ -16201,6 +16863,13 @@ Publishing makes this revision the one users install. It cannot be un-published,
     <message>
         <source>Apply</source>
         <translation>Apply</translation>
+    </message>
+</context>
+<context>
+    <name>_ThemePreviewButton</name>
+    <message>
+        <source>Theme preview</source>
+        <translation>Theme preview</translation>
     </message>
 </context>
 <context>

@@ -489,6 +489,8 @@ class MainWindow(QMainWindow):
         self._proton_busy = False
         self._proton_done_cb = None     # one-shot completion hook (health check)
         self._proton_done.connect(self._on_proton_done)
+        # Settings is a single-instance in-window modal.
+        self._settings_overlay = None
         # Game-scoped panel views (lazily built; closed on game change).
         self._profile_settings_view = None
         self._dll_overrides_view = None
@@ -1226,22 +1228,34 @@ class MainWindow(QMainWindow):
         else:
             mv.show_mod(e.name)
 
-    def _open_settings_tab(self):
-        """Open the Settings tab scoped over the MODLIST panel (like the image
-        preview / text editor): it shows in the modlist region (in the shared top
-        tab bar) while the plugins panel and the rest of the UI stay live.
-        Re-clicking the gear focuses the existing tab."""
+    def _open_settings_modal(self):
+        """Open one centered in-window Settings modal over the main window."""
         from gui_qt.settings_view import SettingsView
-        if self._tabs.has_key("settings"):
-            self._tabs.focus_key("settings")
-            return
-        view = SettingsView(self)
-        self._tabs.open_scoped_tab(
-            view, self.tr("Settings"), self._modlist_panel_stack, key="settings")
+        existing = getattr(self, "_settings_overlay", None)
+        if existing is not None:
+            try:
+                existing.show()
+                existing.raise_()
+                existing.setFocus(Qt.OtherFocusReason)
+                return existing
+            except (RuntimeError, ReferenceError):
+                self._settings_overlay = None
+
+        def _closed(_result=None):
+            self._settings_overlay = None
+
+        self._settings_overlay = SettingsView.show_over(
+            self, on_closed=_closed)
+        return self._settings_overlay
+
+    # Compatibility for internal callers/plugins that used the old private
+    # method name before Settings moved out of the detachable tab bar.
+    def _open_settings_tab(self):
+        return self._open_settings_modal()
 
     def _open_install_name_patterns_tab(self):
         """Open the custom install-name rules editor scoped over the MODLIST
-        panel (like Settings). Re-opening focuses the existing tab."""
+        panel. Re-opening focuses the existing tab."""
         from gui_qt.install_name_patterns_view import InstallNamePatternsView
         if self._tabs.has_key("install_name_patterns"):
             self._tabs.focus_key("install_name_patterns")
@@ -1253,7 +1267,7 @@ class MainWindow(QMainWindow):
 
     def _open_env_vars_tab(self):
         """Open the app environment-variable editor scoped over the MODLIST
-        panel (like Settings). Re-opening focuses the existing tab."""
+        panel. Re-opening focuses the existing tab."""
         from gui_qt.env_vars_view import EnvVarsView
         if self._tabs.has_key("env_vars"):
             self._tabs.focus_key("env_vars")
@@ -1265,9 +1279,8 @@ class MainWindow(QMainWindow):
 
     def _open_theme_editor_tab(self):
         """Open the Theme Editor as a full-screen tab (its own key). Editing a
-        theme touches the whole window, so unlike Settings it takes over the
-        entire UI rather than a single panel. Re-opening focuses the existing
-        tab."""
+        theme touches the whole window, so it takes over the entire UI rather
+        than a single panel. Re-opening focuses the existing tab."""
         from gui_qt.theme_editor_view import ThemeEditorView
         if self._tabs.has_key("theme_editor"):
             self._tabs.focus_key("theme_editor")
@@ -2541,11 +2554,11 @@ class MainWindow(QMainWindow):
             self._notif_history, btn_h=self._BTN_H, icon_px=self._ICON_PX)
         h.addWidget(self._notif_button)
 
-        # Settings - icon-only square button on the far right. Opens a Settings
-        # tab scoped over the Plugins panel.
+        # Settings - icon-only square button on the far right. Opens the
+        # centered in-window settings modal.
         self._settings_button = self._icon_square_button(
             "settings.png", tooltip=self.tr("Settings"), tint=_c(self._pal, "TEXT_MAIN"))
-        self._settings_button.clicked.connect(self._open_settings_tab)
+        self._settings_button.clicked.connect(self._open_settings_modal)
         h.addWidget(self._settings_button)
 
         self._left_header_widget = header
@@ -3480,12 +3493,11 @@ class MainWindow(QMainWindow):
 
     def _on_languages_synced(self):
         """A background/manual language sync wrote new/updated .qm files into the
-        config languages/ folder. Refresh any open language picker (Settings tab
-        or the onboarding page) so newly-available languages show up; the active
-        language only fully changes on restart."""
+        config languages/ folder. Refresh any open language picker (Settings
+        modal or the onboarding page) so newly-available languages show up; the
+        active language only fully changes on restart."""
         for view in (
-            (self._tabs._keys.get("settings")
-             if hasattr(self._tabs, "_keys") else None),
+            getattr(self, "_settings_overlay", None),
             getattr(self, "_onboarding_view", None),
         ):
             try:
