@@ -68,6 +68,7 @@ from Utils.quick_configure import (  # noqa: E402
 from Utils.launch_handoff import build_launch_handoff  # noqa: E402
 from Utils.exe_launch import (  # noqa: E402
     is_game_launch_exe,
+    launch_exe_via_proton,
     launch_game,
     run_tool_logged,
 )
@@ -3238,6 +3239,76 @@ def test_native_steam_handoff_fallback_is_not_recursive() -> None:
     print("✓ native Steam fallback skips only Amethyst's own VFS handoff")
 
 
+def test_proton_steam_handoff_fallback_is_not_recursive() -> None:
+    """Direct Proton/VFS Play must not replay its own Steam handoff."""
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        game = _FakeGame(root)
+        game.game_id = "skyrim_se"
+        game.vfs_launch_enabled = True
+        exe = game.game / "skse64_loader.exe"
+        exe.write_text("loader", encoding="utf-8")
+        game.get_vfs_launch_exe = lambda: exe
+        game.get_vfs_game_root = lambda: game.game
+        game.wrap_launch_command = lambda command, *, env=None: list(command)
+
+        compat_data = root / "steamapps" / "compatdata" / "489830"
+        prefix = compat_data / "pfx"
+        prefix.mkdir(parents=True)
+        game.get_prefix_path = lambda: prefix
+        proton = root / "compatibilitytools.d" / "GE-Proton" / "proton"
+        steam_root = root / "steam"
+        generated_handoff = (
+            "'/usr/bin/python3' '/opt/amethyst/src/cli.py' "
+            "launch skyrim_se -- %command%"
+        )
+        messages: list[str] = []
+
+        with patch("Utils.exe_launch.load_proton_override",
+                   return_value=None), \
+                patch("Utils.exe_launch.load_exe_args", return_value=""), \
+                patch("Utils.exe_launch.load_launch_options",
+                      return_value=""), \
+                patch("Utils.exe_launch.steam_launch_options_for_game",
+                      return_value=generated_handoff) as steam_options, \
+                patch("Utils.exe_launch.effective_steam_id",
+                      return_value="489830"), \
+                patch("Utils.exe_launch.game_is_steam_install",
+                      return_value=True), \
+                patch("Utils.umu_launcher.ensure_umu_run"), \
+                patch("Utils.proton_prefix.resolve_compat_data",
+                      return_value=compat_data), \
+                patch("Utils.steam_finder.find_proton_for_game",
+                      return_value=proton), \
+                patch("Utils.steam_finder.find_steam_root_for_proton_script",
+                      return_value=steam_root), \
+                patch("Utils.steam_finder.proton_run_command",
+                      return_value=["fake-runtime", str(exe)]), \
+                patch("Utils.lutris_finder.is_lutris_prefix",
+                      return_value=False), \
+                patch("Utils.exe_launch.spawn_process_watched") as spawn:
+            launch_exe_via_proton(exe, game, log_fn=messages.append)
+
+        steam_options.assert_called_once_with(game, messages.append)
+        spawn.assert_called_once()
+        command = spawn.call_args.args[0]
+        assert command == ["fake-runtime", str(exe)]
+        assert not any("cli.py" in token for token in command)
+        assert "launch" not in command
+        assert all(
+            spawn.call_args.kwargs["env"][key] == "489830"
+            for key in (
+                "SteamAppId", "SteamGameId", "SteamOverlayGameId",
+                "STEAM_COMPAT_APP_ID",
+            )
+        )
+        assert any(
+            "ignoring Amethyst's Steam VFS handoff" in message
+            for message in messages
+        )
+    print("✓ Proton/VFS Steam fallback skips Amethyst's own handoff")
+
+
 def test_stardew_shadow_view() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         game = _FakeStardewGame(Path(tmp))
@@ -4371,6 +4442,7 @@ def main() -> None:
     test_native_steam_client_lifecycle()
     test_native_vfs_flatpak_forwards_launch_environment()
     test_native_steam_handoff_fallback_is_not_recursive()
+    test_proton_steam_handoff_fallback_is_not_recursive()
     test_stardew_shadow_view()
     test_cyberpunk_shadow_view()
     test_witcher3_shadow_view_and_script_merger()

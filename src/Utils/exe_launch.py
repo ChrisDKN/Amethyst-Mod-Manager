@@ -714,6 +714,26 @@ def _is_amethyst_steam_handoff(options: str, game) -> bool:
     )
 
 
+def _direct_steam_launch_options_for_game(
+        game, log_fn=_noop_log, *, log_prefix: str = "Run EXE") -> str:
+    """Steam options that are safe to replay during a direct game launch.
+
+    Steam applies Amethyst's generated handoff when Steam owns the launch.
+    A launch already running inside Amethyst must not replay that command or
+    it recursively invokes ``cli.py launch`` and tries to deploy the profile
+    a second time.  Keep the raw reader separate because the Steam-owned
+    launcher-swap path still needs to compare Steam's actual saved options.
+    """
+    options = steam_launch_options_for_game(game, log_fn)
+    if _is_amethyst_steam_handoff(options, game):
+        log_fn(
+            f"{log_prefix}: ignoring Amethyst's Steam VFS handoff while "
+            "already launching from Amethyst."
+        )
+        return ""
+    return options
+
+
 def _prepare_native_game_launch(game, exe_path: Path, env: dict,
                                 log_fn=_noop_log) -> "tuple[dict, list[str]] | None":
     """Build the canonical command/environment for a native game binary.
@@ -761,14 +781,8 @@ def _prepare_native_game_launch(game, exe_path: Path, env: dict,
 
     launch_opts = load_launch_options(game, settings_key)
     if not launch_opts:
-        steam_opts = steam_launch_options_for_game(game, log_fn)
-        if _is_amethyst_steam_handoff(steam_opts, game):
-            log_fn(
-                "Play: ignoring Amethyst's Steam VFS handoff while already "
-                "launching from Amethyst."
-            )
-            steam_opts = ""
-        launch_opts = steam_opts
+        launch_opts = _direct_steam_launch_options_for_game(
+            game, log_fn, log_prefix="Play")
     env_updates, command = parse_launch_options(launch_opts, command)
     if env_updates:
         env.update(env_updates)
@@ -2955,7 +2969,7 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
     # be final here.
     launch_opts = load_launch_options(game, exe_path.name)
     if not launch_opts and launches_game:
-        launch_opts = steam_launch_options_for_game(game, log_fn)
+        launch_opts = _direct_steam_launch_options_for_game(game, log_fn)
     env_updates, _ = parse_launch_options(launch_opts, [])
     if env_updates:
         env.update(env_updates)
