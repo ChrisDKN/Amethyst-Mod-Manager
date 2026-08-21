@@ -10,9 +10,9 @@ never become the selection.
 from __future__ import annotations
 
 from typing import Callable
-from PySide6.QtWidgets import QToolButton, QMenu
+from PySide6.QtWidgets import QToolButton, QMenu, QListWidget
 from PySide6.QtGui import QActionGroup
-from PySide6.QtCore import Qt, QSize, QEvent, QObject, Signal
+from PySide6.QtCore import Qt, QSize, QEvent, QObject, QTimer, Signal
 
 
 class SplitPressHighlighter(QObject):
@@ -65,6 +65,89 @@ class _StayOpenMenu(QMenu):
         super().mouseReleaseEvent(event)
 
 
+def _item_list_qss() -> str:
+    """Menu-like look for the scrollable item list: transparent rows with the
+    QMenu hover highlight, and a faint tint on the current selection."""
+    from gui_qt.theme_qt import active_palette, _c
+    p = active_palette()
+    return f"""
+    QListWidget {{ background: transparent; outline: none; border: none; }}
+    QListWidget::item {{ padding: 7px 12px 7px 6px; border-radius: 4px;
+                         margin: 1px 2px; color: {_c(p, 'TEXT_MAIN')}; }}
+    QListWidget::item:selected {{
+        background: {_c(p, 'BG_ROW_ALT')}; color: {_c(p, 'TEXT_MAIN')}; }}
+    QListWidget::item:hover {{
+        background: {_c(p, 'BG_SELECT')}; color: {_c(p, 'TEXT_ON_ACCENT')}; }}
+    """
+
+
+class _ItemList(QListWidget):
+    """The selector's choices as one scrollable list, standing in for a run of
+    plain menu actions once they outgrow the button's scroll cap - the pinned
+    actions below it then stay on screen no matter how many items there are.
+
+    Rows read like menu items (icon, hover highlight, click picks and closes);
+    the current selection is the one selected row. Picking is deferred to the
+    event loop because the callback rebuilds the menu, which deletes this
+    widget - it must not happen inside its own event handler."""
+
+    def __init__(self, menu, on_pick):
+        super().__init__(menu)
+        self._menu = menu
+        self._on_pick = on_pick
+        self._labels: list[str | None] = []      # None = separator row
+        self.current_row = -1
+        self.setFrameShape(QListWidget.Shape.NoFrame)
+        self.setSelectionMode(QListWidget.SelectionMode.SingleSelection)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.setMouseTracking(True)
+        # Focus stays with the menu (its keyboard navigation still reaches the
+        # pinned actions); the list is mouse/wheel driven.
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+
+    def add_row(self, label: str, icon, text: str, bold: bool, current: bool):
+        from PySide6.QtWidgets import QListWidgetItem
+        item = QListWidgetItem(text, self)
+        if icon is not None:
+            item.setIcon(icon)
+        if bold:
+            f = item.font(); f.setBold(True); item.setFont(f)
+        self._labels.append(label)
+        if current:
+            self.current_row = self.count() - 1
+            item.setSelected(True)
+
+    def add_separator(self):
+        from PySide6.QtWidgets import QFrame, QListWidgetItem
+        from gui_qt.theme_qt import active_palette, _c
+        item = QListWidgetItem(self)
+        item.setFlags(Qt.NoItemFlags)
+        item.setSizeHint(QSize(0, 9))
+        # A hairline row widget - QMenu::separator can't reach inside the list.
+        line = QFrame(self)
+        line.setFixedHeight(1)
+        line.setStyleSheet(f"background: {_c(active_palette(), 'BORDER')};")
+        self.setItemWidget(item, line)
+        self._labels.append(None)
+
+    def row_height(self) -> int:
+        """Tallest ordinary row - separators are shorter, so a plain max over
+        the first few rows can't be fooled by one landing at index 0."""
+        hints = [self.sizeHintForRow(i) for i in range(min(self.count(), 8))]
+        return max([h for h in hints if h > 0] or [24])
+
+    def mouseReleaseEvent(self, event):
+        item = self.itemAt(event.position().toPoint())
+        row = self.row(item) if item is not None else -1
+        label = self._labels[row] if 0 <= row < len(self._labels) else None
+        if label is None:
+            super().mouseReleaseEvent(event)
+            return
+        self._menu.close()
+        QTimer.singleShot(0, lambda l=label: self._on_pick(l))
+
+
 class SelectorButton(QToolButton):
     # Fired whenever the face changes (selection, item icons, item list). A
     # responsive top bar re-runs its width budget on it - a longer game or
@@ -74,7 +157,8 @@ class SelectorButton(QToolButton):
     def __init__(self, *, items=None, current=None, actions=None,
                  on_select: "Callable[[str], None] | None" = None,
                  prefix="", min_width=170, icon=None, icon_px=18,
-                 item_icons=None, icon_provider=None, parent=None):
+                 item_icons=None, icon_provider=None, scroll_after=None,
+                 parent=None):
         """*items*   - list of selectable labels.
         *current*   - initially selected label (defaults to items[0]).
         *actions*   - list of (label, callback) pinned below a separator.
@@ -90,6 +174,9 @@ class SelectorButton(QToolButton):
                       (return None for "no icon"). Fills the gaps in
                       *item_icons* at rebuild, so callers that only ever pass an
                       item LIST still get icons.
+        *scroll_after* - past this many items the list becomes one scrollable
+                      block that tall, keeping the pinned actions in view
+                      instead of pushing them down the screen. None = never.
         """
         super().__init__(parent)
         self._items: list[str] = list(items or [])
@@ -100,6 +187,8 @@ class SelectorButton(QToolButton):
         self._item_icons: dict = dict(item_icons or {})
         self._icon_provider = icon_provider
         self._item_icon_px = icon_px
+        self._scroll_after = scroll_after
+        self._item_list: _ItemList | None = None
         # Narrow-bar compaction (see set_label_width / set_icon_only) and the
         # width measurements it runs on.
         self._min_width = min_width
@@ -152,6 +241,9 @@ class SelectorButton(QToolButton):
         self.setProperty("menuOpen", False)
         self._menu.aboutToShow.connect(lambda: self._set_menu_open(True))
         self._menu.aboutToHide.connect(lambda: self._set_menu_open(False))
+        # Connected once (the menu outlives every rebuild): re-reads the theme
+        # colours and parks the scrollable list on the current item.
+        self._menu.aboutToShow.connect(self._prep_item_list)
         self._group: QActionGroup | None = None
         self._rebuild()
 
@@ -382,29 +474,75 @@ class SelectorButton(QToolButton):
             f"QMenu {{ icon-size: {self._item_icon_px}px; }}"
             if self._item_icons else "")
         self._menu.clear()
+        self._item_list = None      # cleared with the menu
         # Exclusive action group → the selectable items render as radio buttons.
         self._group = QActionGroup(self._menu)
         self._group.setExclusive(True)
-        for label in self._items:
-            if label in self._item_separators:
-                self._menu.addSeparator()
-            a = self._menu.addAction(label)
-            a.setCheckable(True)
-            a.setChecked(label == self._current)
-            item_icon = self._item_icons.get(label)
-            if item_icon is not None:
-                a.setIcon(item_icon)
-            if self._highlighted is not None and label == self._highlighted:
-                # QAction can't set foreground colour; mark the deployed item
-                # with a green check + bold so it reads as active in the list.
-                a.setText(self.tr("{0}   ✓ deployed").format(label))
-                f = a.font(); f.setBold(True); a.setFont(f)
-            self._group.addAction(a)
-            a.triggered.connect(lambda _=False, l=label: self._choose(l))
+        if (self._scroll_after is not None
+                and len(self._items) > self._scroll_after):
+            self._add_item_list()
+        else:
+            for label in self._items:
+                if label in self._item_separators:
+                    self._menu.addSeparator()
+                a = self._menu.addAction(label)
+                a.setCheckable(True)
+                a.setChecked(label == self._current)
+                item_icon = self._item_icons.get(label)
+                if item_icon is not None:
+                    a.setIcon(item_icon)
+                if self._highlighted is not None and label == self._highlighted:
+                    # QAction can't set foreground colour; mark the deployed item
+                    # with a green check + bold so it reads as active in the list.
+                    a.setText(self._item_text(label))
+                    f = a.font(); f.setBold(True); a.setFont(f)
+                self._group.addAction(a)
+                a.triggered.connect(lambda _=False, l=label: self._choose(l))
         if self._items and self._actions:
             self._menu.addSeparator()
         self._add_actions(self._menu, self._actions)
         self.face_changed.emit()
+
+    def _item_text(self, label: str) -> str:
+        """Row text for *label* - the highlighted (deployed) item says so."""
+        if self._highlighted is not None and label == self._highlighted:
+            return self.tr("{0}   ✓ deployed").format(label)
+        return label
+
+    def _add_item_list(self):
+        """Add the selectable items as one scrollable list capped at
+        _scroll_after rows, so the pinned actions below stay in view."""
+        from PySide6.QtWidgets import QWidgetAction
+        lst = _ItemList(self._menu, self._choose)
+        lst.setIconSize(QSize(self._item_icon_px, self._item_icon_px))
+        lst.setStyleSheet(_item_list_qss())
+        for label in self._items:
+            if label in self._item_separators:
+                lst.add_separator()
+            lst.add_row(label, self._item_icons.get(label),
+                        self._item_text(label),
+                        bold=label == self._highlighted,
+                        current=label == self._current)
+        lst.setFixedHeight(lst.row_height() * self._scroll_after + 4)
+        # Room for the text, the scrollbar the cap guarantees, and the row
+        # padding/margins the QSS above adds around both.
+        lst.setMinimumWidth(lst.sizeHintForColumn(0)
+                            + lst.verticalScrollBar().sizeHint().width() + 24)
+        wa = QWidgetAction(self._menu)
+        wa.setDefaultWidget(lst)
+        self._menu.addAction(wa)
+        self._item_list = lst
+
+    def _prep_item_list(self):
+        """On each open: re-read the theme colours (a switch since the last
+        rebuild would leave stale ones) and scroll to the current item."""
+        lst = self._item_list
+        if lst is None:
+            return
+        lst.setStyleSheet(_item_list_qss())
+        if 0 <= lst.current_row < lst.count():
+            lst.scrollToItem(lst.item(lst.current_row),
+                             QListWidget.ScrollHint.PositionAtCenter)
 
     def _add_actions(self, menu, actions):
         """Append pinned action entries to *menu*. Each entry is (label, cb) or

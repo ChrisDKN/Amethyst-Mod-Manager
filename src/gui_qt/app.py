@@ -2394,6 +2394,10 @@ class MainWindow(QMainWindow):
             on_select=self._on_game_changed,
             icon_provider=self._game_logo_icon,
             icon_px=self._ICON_PX,
+            # Past five games the list scrolls in place, so "Add game…" and the
+            # rest of the pinned entries stay on screen instead of being pushed
+            # off the bottom by a long library.
+            scroll_after=7,
         )
         self._game_selector.setFixedHeight(self._BTN_H)
         h.addWidget(self._game_selector)
