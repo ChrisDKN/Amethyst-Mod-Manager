@@ -220,6 +220,11 @@ class ShareCodeImportOverlay(_CodeOverlayBase):
 
         self._area = self._text_area(read_only=False)
         self._area.setPlaceholderText("AMMCODE1:…")  # i18n: skip - share-code format token
+        # Prefill BEFORE connecting textChanged: _update_preview drives the
+        # primary button, which does not exist yet. The explicit call at the end
+        # of __init__ previews the prefilled code once everything is built.
+        if initial_code:
+            self._area.setPlainText(initial_code)
         self._v.addWidget(self._area, 1)
 
         # Live preview of the decoded code - profile / game / mod count / size /
@@ -227,8 +232,6 @@ class ShareCodeImportOverlay(_CodeOverlayBase):
         self._preview = self._sub("")
         self._v.addWidget(self._preview)
         self._area.textChanged.connect(self._update_preview)
-        if initial_code:
-            self._area.setPlainText(initial_code)
 
         # Offer to paste the clipboard contents in one tap - pointless once the
         # box is already filled in.
