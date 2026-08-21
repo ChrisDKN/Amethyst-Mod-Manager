@@ -316,9 +316,19 @@ class SkyrimSE(Fallout_3):
                 extra={
                     "versions": [
                         {
-                            "label": "Skyrim SE 1.6.1170 (Steam, current)",
-                            "description": "Latest SKSE64 release from GitHub. Use this for up-to-date Steam installs.",
+                            "label": "Latest",
+                            "description": "Newest SKSE64 release on GitHub. Use this if Steam has "
+                                           "updated Skyrim past the builds below.",
                             "github_api_url": "https://api.github.com/repos/ianpatt/skse64/releases/latest",
+                            "archive_keywords": ["skse64"],
+                        },
+                        {
+                            "label": "Skyrim SE 1.6.1170 (Steam, current)",
+                            "description": "SKSE64 2.2.6 for 1.6.1170 Steam installs.",
+                            # Pinned: /releases/latest would swap this entry to a
+                            # newer SKSE64 the moment ianpatt tags one for a newer
+                            # Skyrim build. Add a new entry for that build instead.
+                            "github_api_url": "https://api.github.com/repos/ianpatt/skse64/releases/tags/v2.2.6",
                             "archive_keywords": ["skse64"],
                         },
                         {
