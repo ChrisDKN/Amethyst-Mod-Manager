@@ -60,6 +60,7 @@ py.install_sources(
   'launcher_settings_overlay.py',
   'list_picker_overlay.py',
   'loading_overlay.py',
+  'log_upload_overlay.py',
   'marker_strip.py',
   'mewgenics_deploy_overlay.py',
   'missing_archives_overlay.py',

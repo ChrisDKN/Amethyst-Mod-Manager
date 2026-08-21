@@ -119,6 +119,7 @@ py.install_sources(
   'pak_identity.py',
   'pak_reader.py',
   'pandora_tools.py',
+  'paste_upload.py',
   'path_utils.py',
   'perftrace.py',
   'plugin_audit_core.py',
