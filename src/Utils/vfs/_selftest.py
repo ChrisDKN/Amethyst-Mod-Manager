@@ -3995,6 +3995,57 @@ def test_flatpak_host_wrap() -> None:
     print("✓ Flatpak host escape remains outside the VFS wrapper")
 
 
+def test_appimage_bubblewrap_fallback() -> None:
+    from Utils.vfs.overlay import _bubblewrap_binary
+
+    with tempfile.TemporaryDirectory() as tmp:
+        appdir = Path(tmp) / "AppDir"
+        module = appdir / "share" / "amethyst-mod-manager" / "Utils" / \
+            "vfs" / "overlay.py"
+        module.parent.mkdir(parents=True)
+        module.touch()
+        bundled = appdir / "bin" / "amethyst-bwrap"
+        bundled.parent.mkdir(parents=True)
+        bundled.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        bundled.chmod(0o755)
+
+        with patch.dict(os.environ, {"APPDIR": str(appdir)}, clear=False), \
+                patch("Utils.vfs.overlay.__file__", str(module)), \
+                patch("Utils.vfs.overlay._inside_flatpak", return_value=False), \
+                patch("Utils.vfs.overlay.shutil.which", return_value=None):
+            assert _bubblewrap_binary() == str(bundled)
+
+        # A host package remains authoritative over the bundled fallback.
+        with patch.dict(os.environ, {"APPDIR": str(appdir)}, clear=False), \
+                patch("Utils.vfs.overlay.__file__", str(module)), \
+                patch("Utils.vfs.overlay._inside_flatpak", return_value=False), \
+                patch("Utils.vfs.overlay.shutil.which",
+                      side_effect=lambda name: "/usr/bin/bwrap"
+                      if name == "bwrap" else None):
+            assert _bubblewrap_binary() == "/usr/bin/bwrap"
+
+        # Never trust an APPDIR inherited from some unrelated AppImage.
+        outside_module = Path(tmp) / "checkout" / "overlay.py"
+        outside_module.parent.mkdir(parents=True)
+        outside_module.touch()
+        with patch.dict(os.environ, {"APPDIR": str(appdir)}, clear=False), \
+                patch("Utils.vfs.overlay.__file__", str(outside_module)), \
+                patch("Utils.vfs.overlay._inside_flatpak", return_value=False), \
+                patch("Utils.vfs.overlay.shutil.which", return_value=None):
+            assert _bubblewrap_binary() is None
+
+        # Flatpak must continue resolving bwrap on the host; an AppImage
+        # fallback inside the sandbox is neither selected nor extracted.
+        with patch.dict(os.environ, {"APPDIR": str(appdir)}, clear=False), \
+                patch("Utils.vfs.overlay.__file__", str(module)), \
+                patch("Utils.vfs.overlay._inside_flatpak", return_value=True), \
+                patch("Utils.vfs.overlay.shutil.which",
+                      side_effect=lambda name: "/usr/bin/flatpak-spawn"
+                      if name == "flatpak-spawn" else None):
+            assert _bubblewrap_binary() == "bwrap"
+    print("✓ AppImage bwrap fallback preserves host and Flatpak precedence")
+
+
 def test_umu_uses_shadow_directly() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         game = _FakeGame(Path(tmp))
@@ -4326,6 +4377,7 @@ def main() -> None:
     test_vfs_as_deploy_method()
     test_deploy_pipeline_stops_on_incomplete_restore()
     test_flatpak_host_wrap()
+    test_appimage_bubblewrap_fallback()
     test_umu_uses_shadow_directly()
     test_steam_runtime_uses_shadow_directly()
     test_launcher_aware_handoffs()

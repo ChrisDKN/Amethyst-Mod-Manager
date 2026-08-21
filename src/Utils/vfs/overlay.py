@@ -231,7 +231,32 @@ def _bubblewrap_binary() -> str | None:
         # The host binary is resolved by flatpak-spawn, not against the
         # Freedesktop runtime's PATH inside Amethyst's sandbox.
         return "bwrap" if shutil.which("flatpak-spawn") else None
-    return shutil.which("bwrap")
+    system = shutil.which("bwrap")
+    if system:
+        return system
+
+    # Portable/AppImage builds carry an ordinary unprivileged fallback under
+    # a private name. Do not put it on PATH as `bwrap`: the distribution's
+    # package must remain authoritative when present (it may carry distro-
+    # specific hardening or a privileged installation for hosts which disable
+    # unprivileged user namespaces). APPDIR can leak from an unrelated
+    # AppImage into child processes, so trust it only when this module itself
+    # was loaded from that mount.
+    appdir_text = os.environ.get("APPDIR", "")
+    if not appdir_text:
+        return None
+    try:
+        appdir = Path(appdir_text).resolve()
+        Path(__file__).resolve().relative_to(appdir)
+    except (OSError, ValueError):
+        return None
+    for candidate in (
+        appdir / "bin" / "amethyst-bwrap",
+        appdir / "usr" / "bin" / "amethyst-bwrap",
+    ):
+        if candidate.is_file() and os.access(candidate, os.X_OK):
+            return str(candidate)
+    return None
 
 
 def _bubblewrap_invocation() -> list[str]:

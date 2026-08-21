@@ -243,6 +243,7 @@ quick-sharun \
     /usr/share/amethyst-mod-manager    \
     /usr/bin/7zzs                      \
     /usr/bin/zenity                    \
+    /usr/bin/amethyst-bwrap            \
     /usr/lib/libssl.so*                \
     /usr/lib/libcrypto.so*             \
     /usr/lib/libuuid.so*               \

@@ -11,6 +11,8 @@
 #                         stock GTK4 zenity that we deliberately don't install)
 #   * /usr/bin/7zzs     - 7-Zip 26.00 standalone binary
 #   * /usr/bin/{7z,7za} - symlinks to 7zzs
+#   * /usr/bin/amethyst-bwrap - unprivileged Bubblewrap fallback used only
+#                               when the host has no `bwrap`
 #
 # bsdtar is still staged outside this package - it would conflict with the
 # libarchive package.
@@ -29,7 +31,7 @@ license=('GPL-3.0-only')
 # qt6-imageformats provides libqwebp.so (omitted from qt6-base): Nexus serves
 # its mod/collection thumbnails as WebP, so without it the browser cards render
 # blank. Same "must exist on disk for quick-sharun to deploy" reasoning.
-depends=('python' 'pyside6' 'qt6-wayland' 'qt6-imageformats')
+depends=('python' 'pyside6' 'qt6-wayland' 'qt6-imageformats' 'bubblewrap')
 # `zenity` is listed as a conflict because we ship our own /usr/bin/zenity
 # (Utils/portal_filechooser.py falls back to it when the portal is missing).
 # If the build host happened to have the stock zenity package installed,
@@ -165,6 +167,12 @@ EOF
     ln -sf 7zzs "$pkgdir/usr/bin/7z"
     ln -sf 7zzs "$pkgdir/usr/bin/7za"
     install -Dm755 "$srcdir/zenity"    "$pkgdir/usr/bin/zenity"
+    # Keep a private name so the host package always wins at runtime. This is
+    # deliberately a normal 0755 executable: Amethyst never ships or creates
+    # a setuid/capability-bearing helper.
+    install -Dm755 /usr/bin/bwrap "$pkgdir/usr/bin/amethyst-bwrap"
 
     install -Dm644 "$SRC_TREE/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+    install -Dm644 /usr/share/licenses/spdx/LGPL-2.0-or-later.txt \
+        "$pkgdir/usr/share/licenses/$pkgname/bubblewrap-LGPL-2.0-or-later.txt"
 }

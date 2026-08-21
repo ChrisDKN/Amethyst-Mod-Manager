@@ -1,4 +1,8 @@
 - v2.2.1
+### VFS
+- Added a third deploy option to deploy mods into a Virtual file system instead of the game folder. 
+- Not every game has this option but most do.
+- The game must be run via the manager however the games can still be run via their launcher with the provided command
 ### Game Support
 - Added Elden Ring
 ### Additions
@@ -14,6 +18,7 @@
 - The proton dropdown is now hidden if a game is Linux native or the prefix is not configured
 - Moved the download and extraction bars to the notification menu
 - Games added as non steam games are now detected
+- The settings menu now opens as a modal instead of a tab
 ### Bug Fixes
 - Fixed Thunderstore BepInEx plugins being deployed into legacy package paths that loaders may delete at startup
 - Fixed an issue where folder names may not merge/normalise in Ue5 games
