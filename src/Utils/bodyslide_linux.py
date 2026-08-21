@@ -307,7 +307,11 @@ def build_env(game: "BaseGame", profile: str, output_dir: Path, *,
         log_fn(f"no BodySlide target game for {game.name}; "
                "the tool will keep its configured game.")
 
-    data_path = game.get_mod_data_path()
+    from Utils.vfs import effective_tool_data_root
+    try:
+        data_path = effective_tool_data_root(game)
+    except RuntimeError:
+        data_path = None
     if data_path is not None:
         env["BSOS_GAME_DATA_PATH"] = str(data_path)
 

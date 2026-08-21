@@ -300,7 +300,11 @@ class TextureToolView(WizardViewBase):
             self._set_status(self._run_status,
                              self.tr("{0} not found. Please restart the wizard.").format(self._name), RED)
             return
-        game_data_dir = game.get_mod_data_path()
+        from Utils.vfs import effective_tool_data_root
+        try:
+            game_data_dir = effective_tool_data_root(game)
+        except RuntimeError:
+            game_data_dir = None
         if game_data_dir is None or not game_data_dir.is_dir():
             self._set_status(self._run_status,
                              self.tr("Game Data folder not found. Deploy first."), RED)

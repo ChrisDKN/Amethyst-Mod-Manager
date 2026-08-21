@@ -152,11 +152,11 @@ def run_pandora(exe: Path, game: "BaseGame", proton_script: Path,
                     "DOTNET_BUNDLE_EXTRACT_BASE_DIR": None,
                     "WINE_D3D_CONFIG": "renderer=gdi",
                 },
-                label="Pandora")
+                label="Pandora", game=game)
         else:
             rc = run_tool_logged(proton_script, exe, env, log_fn=log_fn,
                                  extra_args=[game_arg] if game_arg else None,
-                                 label="Pandora")
+                                 label="Pandora", game=game)
     finally:
         # In finally: a tool that crashed is exactly when Proton sidecars are
         # most likely to be left holding the prefix.

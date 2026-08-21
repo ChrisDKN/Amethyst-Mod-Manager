@@ -1843,6 +1843,19 @@ def resolve_tool_prefix(exe: Path, game, proton_name: str, prefix_mode: str,
     return proton_script, compat_data, env
 
 
+def wrap_tool_command(game, command: list[str], env: dict,
+                      log_fn=_noop_log, label: str = "Tool") -> list[str]:
+    """Run a wizard command in its profile's published game view when present."""
+    if game is None:
+        return command
+    from Utils.vfs import manifest_path, wrap_command
+    if not manifest_path(game).is_file():
+        return command
+    wrapped = wrap_command(game, command, env=env)
+    log_fn(f"{label}: using the deployed profile VFS game view.")
+    return wrapped
+
+
 def run_tool_logged(
     proton_script: Path,
     exe: Path,
@@ -1853,6 +1866,7 @@ def run_tool_logged(
     cwd: "Path | None" = None,
     label: str | None = None,
     winedebug: str = "+err,+warn,fixme-all",
+    game=None,
 ) -> int:
     """Launch *exe* through Proton and stream its output to *log_fn*.
 
@@ -1890,7 +1904,7 @@ def run_tool_logged(
                 proton_script, exe, Path(prefix), log_fn=log_fn,
                 extra_args=extra_args,
                 extra_env={key: env.get(key) for key in gpu_env_keys},
-                cwd=cwd, label=label)
+                cwd=cwd, label=label, game=game)
         log_fn(f"{label}: winetricks-style launch requested but no prefix "
                "path in env - falling back to Proton.")
 
@@ -1924,6 +1938,13 @@ def run_tool_logged(
                              host_cwd=tool_cwd)
     if extra_args:
         cmd = cmd + list(extra_args)
+
+    # Wizard executables live outside the game folder, so replacing their exe
+    # path with the shadow path (the normal game-launch fast path) cannot work.
+    # Bind the published view over the configured game directory around the
+    # *whole tool process* instead. Registry/config paths remain the ordinary
+    # game paths and Wine tools see exactly the same resolved files as Skyrim.
+    cmd = wrap_tool_command(game, cmd, env, log_fn=log_fn, label=label)
 
     try:
         proc = subprocess.Popen(
@@ -1963,6 +1984,7 @@ def run_tool_winetricks_style(
     extra_env: "dict | None" = None,
     cwd: "Path | None" = None,
     label: str | None = None,
+    game=None,
 ) -> int:
     """Launch *exe* exactly the way winetricks' "Run an arbitrary executable"
     does: plain ``wine start.exe`` against WINEPREFIX, no ``proton`` script.
@@ -2027,6 +2049,7 @@ WINEPREFIX + Proton's bin on PATH, ``wine start.exe <exe>``), with only two
     cmd = [str(wine_bin), "start.exe", "/wait", "/unix", str(exe)]
     if extra_args:
         cmd = cmd + list(extra_args)
+    cmd = wrap_tool_command(game, cmd, env, log_fn=log_fn, label=label)
     log_fn(f"{label}: launching with plain Wine (winetricks-style): "
            f"{' '.join(cmd)}")
     try:

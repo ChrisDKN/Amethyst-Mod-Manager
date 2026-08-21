@@ -591,7 +591,9 @@ class XEditView(QWidget):
             )
             from Utils.wine_paths import to_wine_path
             from Utils.xedit_tools import (
-                finalize_xedit_saves, prepare_xedit_prefix, restore_after_xedit,
+                begin_xedit_vfs_session, finalize_xedit_saves,
+                persist_xedit_vfs_changes, prepare_xedit_prefix,
+                restore_after_xedit,
             )
             _wlog = lambda m: self._log(f"{name} Wizard: {m}")
             proton_script = compat_data = None
@@ -647,12 +649,15 @@ class XEditView(QWidget):
                 prepare_xedit_prefix(
                     game, compat_data, proton_script, env,
                     xedit_name=seed_name, exe=exe, log_fn=_wlog)
+                vfs_session = begin_xedit_vfs_session(game, log_fn=_wlog)
+                data_dir = (vfs_session.data_dir if vfs_session is not None
+                            else game_path / "Data")
 
                 self._log(f"{name} Wizard: launching {exe} via Proton with "
                           f"{' '.join(extra_args)}")
                 safe_emit(self._run_started_sig)
                 run_tool_logged(proton_script, exe, env, log_fn=_wlog,
-                                extra_args=extra_args, label=name)
+                                extra_args=extra_args, label=name, game=game)
 
                 shutdown_prefix_wineserver(proton_script, compat_data,
                                            log_fn=_wlog)
@@ -660,9 +665,14 @@ class XEditView(QWidget):
                 # xEdit can write the cleaned plugin to a temp and queue the
                 # rename "on shutdown"; the wineserver is down now, so
                 # finalise any temp that slipped through before the restore.
-                n = finalize_xedit_saves(game_path / "Data", log_fn=_wlog)
+                n = finalize_xedit_saves(data_dir, log_fn=_wlog)
                 if n:
                     self._log(f"{name} Wizard: finalised {n} pending xEdit save(s).")
+                saved = persist_xedit_vfs_changes(
+                    game, vfs_session, log_fn=_wlog)
+                if saved:
+                    self._log(
+                        f"{name} Wizard: preserved {saved} VFS plugin edit(s).")
 
                 # Move any edited plugin back into its mod folder while the
                 # modindex still knows it - BEFORE the close-refresh rescans
@@ -782,7 +792,9 @@ class XEditView(QWidget):
             )
             from Utils.wine_paths import to_wine_path
             from Utils.xedit_tools import (
-                finalize_xedit_saves, prepare_xedit_prefix, restore_after_xedit,
+                begin_xedit_vfs_session, finalize_xedit_saves,
+                persist_xedit_vfs_changes, prepare_xedit_prefix,
+                restore_after_xedit,
             )
             _wlog = lambda m: self._log(f"{name} Wizard: {m}")
             proton_script = compat_data = None
@@ -827,10 +839,12 @@ class XEditView(QWidget):
                 prepare_xedit_prefix(
                     game, compat_data, proton_script, env,
                     xedit_name=seed_name, exe=exe, log_fn=_wlog)
+                vfs_session = begin_xedit_vfs_session(game, log_fn=_wlog)
 
                 safe_emit(self._qac_all_started_sig)
                 total = len(plugins)
-                data_dir = game_path / "Data"
+                data_dir = (vfs_session.data_dir if vfs_session is not None
+                            else game_path / "Data")
                 cleaned = 0
                 for i, plugin in enumerate(plugins, 1):
                     if self._closing:
@@ -842,17 +856,21 @@ class XEditView(QWidget):
                               f"({i}/{total})")
                     run_tool_logged(proton_script, exe, env, log_fn=_wlog,
                                     extra_args=base_args + [plugin],
-                                    label=f"{name} [{plugin}]")
+                                    label=f"{name} [{plugin}]", game=game)
                     # Finalise this plugin's <name>.save.<ts> temp before the
                     # next launch reloads Data/ (QAC queues the rename to run on
                     # shutdown, but we relaunch into the same prefix).
                     finalize_xedit_saves(data_dir, log_fn=_wlog)
+                    persist_xedit_vfs_changes(
+                        game, vfs_session, log_fn=_wlog)
                     cleaned += 1
 
                 shutdown_prefix_wineserver(proton_script, compat_data,
                                            log_fn=_wlog)
                 # Catch any straggler temp the per-plugin pass missed.
                 finalize_xedit_saves(data_dir, log_fn=_wlog)
+                persist_xedit_vfs_changes(
+                    game, vfs_session, log_fn=_wlog)
 
                 # Un-deploy so every cleaned plugin lands back in its mod folder
                 # before the close-refresh rescans staging (same fix the

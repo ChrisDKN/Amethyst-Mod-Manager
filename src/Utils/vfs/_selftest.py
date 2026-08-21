@@ -40,7 +40,10 @@ from Utils.vfs import (  # noqa: E402
     build_layers,
     cleanup_deployment,
     deployment_state_profiles,
+    effective_shadow_data_root,
     effective_shadow_root,
+    effective_tool_data_root,
+    effective_tool_game_root,
     finalize_deployment,
     has_deployment_state,
     prefer_virtual_executable,
@@ -63,7 +66,15 @@ from Utils.quick_configure import (  # noqa: E402
     deploy_mode_change_blocked,
 )
 from Utils.launch_handoff import build_launch_handoff  # noqa: E402
-from Utils.exe_launch import is_game_launch_exe, launch_game  # noqa: E402
+from Utils.exe_launch import (  # noqa: E402
+    is_game_launch_exe,
+    launch_game,
+    run_tool_logged,
+)
+from Utils.xedit_tools import (  # noqa: E402
+    begin_xedit_vfs_session,
+    persist_xedit_vfs_changes,
+)
 from Games.Bethesda.fallout_3 import Fallout_3  # noqa: E402
 from Games.BepInEx.BepInEx import (  # noqa: E402
     Subnautica,
@@ -143,6 +154,12 @@ class _FakeGame:
 
     def get_effective_overwrite_path(self):
         return self.overwrite
+
+    def get_effective_mod_staging_path(self):
+        return self.staging
+
+    def get_effective_filemap_path(self):
+        return self.profiles / "filemap.txt"
 
     def get_effective_root_folder_path(self):
         return self.root_folder
@@ -995,6 +1012,82 @@ def test_shared_bethesda_hooks() -> None:
         assert not game.vfs_launch_enabled
         assert game.supports_incremental_deploy
     print("✓ shared Bethesda setting migration and launch hooks")
+
+
+def test_wizard_tools_use_vfs_and_xedit_edits_persist() -> None:
+    """External tools see the bound view; xEdit saves never touch vanilla."""
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _FakeGame(Path(tmp))
+        vanilla = game.game / "Data" / "Skyrim.esm"
+        vanilla.write_text("vanilla-master", encoding="utf-8")
+        staged = game.staging / "Plugin Mod" / "Test.esp"
+        staged.parent.mkdir(parents=True)
+        staged.write_text("original-plugin", encoding="utf-8")
+        body_exe = (game.staging / "BodySlide"
+                    / "CalienteTools/BodySlide/BodySlide.exe")
+        body_exe.parent.mkdir(parents=True)
+        body_exe.write_text("tool", encoding="utf-8")
+        (body_exe.parent / "res/xrc").mkdir(parents=True)
+        filemap = game.get_effective_filemap_path()
+        filemap.write_text(
+            "Test.esp\tPlugin Mod\n"
+            "CalienteTools/BodySlide/BodySlide.exe\tBodySlide\n",
+            encoding="utf-8",
+        )
+
+        build_layers(
+            game, profile="default", filemap=filemap, staging=game.staging,
+            per_mod_strip={}, per_mod_deploy={}, raw_mods=None,
+            excluded_raw=None, root_folder_enabled=False,
+        )
+        view_data = effective_shadow_data_root(game)
+        assert effective_tool_game_root(game) == effective_shadow_root(game)
+        assert effective_tool_data_root(game) == view_data
+        from Utils.bodyslide_tools import find_deployed_exe
+        assert find_deployed_exe(game, "BodySlide.exe") == (
+            view_data / "CalienteTools/BodySlide/BodySlide.exe")
+        session = begin_xedit_vfs_session(game)
+        assert session is not None and session.data_dir == view_data
+        assert not os.path.samefile(view_data / "Test.esp", staged)
+        assert not os.path.samefile(view_data / "Skyrim.esm", vanilla)
+
+        (view_data / "Test.esp").write_text(
+            "cleaned-plugin", encoding="utf-8")
+        (view_data / "Skyrim.esm").write_text(
+            "cleaned-vanilla", encoding="utf-8")
+        (view_data / "CreatedByXEdit.esl").write_text(
+            "new-plugin", encoding="utf-8")
+        assert persist_xedit_vfs_changes(game, session) == 3
+        assert staged.read_text(encoding="utf-8") == "cleaned-plugin"
+        assert vanilla.read_text(encoding="utf-8") == "vanilla-master"
+        assert (game.overwrite / "Skyrim.esm").read_text() == "cleaned-vanilla"
+        assert (game.overwrite / "CreatedByXEdit.esl").read_text() == "new-plugin"
+        assert "Test.esp" in (
+            staged.parent / "meta.ini").read_text(encoding="utf-8")
+        assert persist_xedit_vfs_changes(game, session) == 0
+
+        fake_proc = types.SimpleNamespace(stdout=[], wait=lambda: 0)
+        with patch(
+            "Utils.steam_finder.proton_run_command",
+            return_value=["proton", "runinprefix", "/tools/SSEEdit.exe"],
+        ), patch(
+            "Utils.vfs.wrap_command", return_value=["vfs-wrapped-tool"],
+        ) as wrap, patch(
+            "Utils.exe_launch.subprocess.Popen", return_value=fake_proc,
+        ) as popen:
+            rc = run_tool_logged(
+                Path("/proton"), Path("/tools/SSEEdit.exe"), {}, game=game)
+        assert rc == 0
+        wrap.assert_called_once()
+        assert wrap.call_args.args[0] is game
+        assert any(
+            call.args and call.args[0] == ["vfs-wrapped-tool"]
+            for call in popen.call_args_list
+        )
+
+        cleanup_deployment(game, preserve_upper=True)
+        assert vanilla.read_text(encoding="utf-8") == "vanilla-master"
+    print("✓ wizard tools use the VFS view and xEdit edits persist")
 
 
 def test_generic_mod_data_directory() -> None:
@@ -3943,6 +4036,7 @@ def main() -> None:
     test_failed_post_view_hook_never_promotes_partial_output()
     test_vfs_root_payload_preserves_physical_recovery()
     test_shared_bethesda_hooks()
+    test_wizard_tools_use_vfs_and_xedit_edits_persist()
     test_generic_mod_data_directory()
     test_vfs_cleanup_failure_remains_discoverable()
     test_symlinked_vfs_state_root_is_never_followed()

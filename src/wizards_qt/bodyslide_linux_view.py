@@ -357,7 +357,11 @@ class BodySlideLinuxView(WizardViewBase):
         """
         from Utils.bodyslide_tools import slider_data_root
 
-        data_path = game.get_mod_data_path()
+        from Utils.vfs import effective_tool_data_root
+        try:
+            data_path = effective_tool_data_root(game)
+        except RuntimeError:
+            data_path = None
         if data_path is None or not data_path.is_dir():
             self._log_tool("no deployed Data folder - deploy your modlist "
                            "before building.")

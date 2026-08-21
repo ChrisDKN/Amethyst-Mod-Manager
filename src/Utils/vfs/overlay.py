@@ -687,6 +687,50 @@ def effective_shadow_root(game) -> Path:
     return view
 
 
+def effective_shadow_data_root(game) -> Path:
+    """Return the validated primary data directory in the published view.
+
+    Wizard tools normally receive the configured, physical game path and see
+    the shadow through :func:`wrap_command`.  Host-side post-processing (for
+    example completing xEdit's deferred plugin rename) cannot see that mount
+    namespace, so it needs the corresponding real path inside the profile.
+    """
+    payload = _load_manifest(game)
+    state = manifest_path(game).parent
+    _view, view_data, _data_rel, *_rest = _validated_shadow_paths(
+        game, payload, state)
+    if not view_data.is_dir():
+        raise RuntimeError(
+            f"The profile VFS shadow data directory is missing: {view_data}")
+    return view_data
+
+
+def effective_tool_game_root(game) -> Path:
+    """Return the game tree host-side wizard code should inspect.
+
+    External processes normally keep using the configured path and receive a
+    bind mount through :func:`wrap_command`. Native tools and Python wrappers
+    inspect files in the manager's own namespace, so they need the materialized
+    view path directly while a VFS deployment is published.
+    """
+    if manifest_path(game).is_file():
+        return effective_shadow_root(game)
+    root = game.get_game_path()
+    if root is None:
+        raise RuntimeError("Game path not configured.")
+    return Path(root)
+
+
+def effective_tool_data_root(game) -> Path:
+    """Return the primary data tree host-side wizard code should inspect."""
+    if manifest_path(game).is_file():
+        return effective_shadow_data_root(game)
+    data = game.get_mod_data_path()
+    if data is None:
+        raise RuntimeError("Game data path not configured.")
+    return Path(data)
+
+
 def _capture_shadow_runtime(game, payload: dict, state: Path,
                             log_fn=None) -> int:
     """Move files created in a published shadow view into profile storage."""

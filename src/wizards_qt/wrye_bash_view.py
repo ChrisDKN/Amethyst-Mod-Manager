@@ -110,7 +110,10 @@ class WryeBashView(WizardViewBase):
             from Utils.exe_launch import (
                 resolve_tool_prefix, run_tool_logged, shutdown_prefix_wineserver,
             )
-            from Utils.xedit_tools import prepare_xedit_prefix
+            from Utils.xedit_tools import (
+                begin_xedit_vfs_session, persist_xedit_vfs_changes,
+                prepare_xedit_prefix,
+            )
             _wlog = lambda m: self._log(f"Wrye Bash Wizard: {m}")
             proton_script = compat_data = None
             try:
@@ -129,6 +132,7 @@ class WryeBashView(WizardViewBase):
                 # three; no viewsettings/WinXP for WB).
                 prepare_xedit_prefix(game, compat_data, proton_script, env,
                                      log_fn=_wlog)
+                vfs_session = begin_xedit_vfs_session(game, log_fn=_wlog)
 
                 # WB derives its .wbtemp dir from the drive letter of the -o
                 # path.  Z:\ (Wine's Linux root mapping) is not writable, so
@@ -153,7 +157,14 @@ class WryeBashView(WizardViewBase):
                           "done, then click Done."), GREEN)
                 safe_emit(self._run_started_sig)
                 run_tool_logged(proton_script, exe, env, log_fn=_wlog,
-                                extra_args=game_arg, label="Wrye Bash")
+                                extra_args=game_arg, label="Wrye Bash",
+                                game=game)
+                shutdown_prefix_wineserver(proton_script, compat_data,
+                                           log_fn=_wlog)
+                saved = persist_xedit_vfs_changes(
+                    game, vfs_session, log_fn=_wlog)
+                if saved:
+                    _wlog(f"preserved {saved} VFS plugin edit(s).")
                 _wlog("Wrye Bash closed.")
                 safe_emit(self._run_status_sig,
                           self.tr("Wrye Bash finished."), GREEN)

@@ -212,6 +212,10 @@ class CreationKitView(WizardViewBase):
                 D3D_DEP_KEY, VCREDIST_DEP_KEY, install_d3dcompiler_47,
                 install_vcredist, is_dep_installed,
             )
+            from Utils.vfs import effective_tool_game_root
+            from Utils.xedit_tools import (
+                begin_xedit_vfs_session, persist_xedit_vfs_changes,
+            )
             _wlog = lambda m: self._log(f"Creation Kit Wizard: {m}")
             proton_script = compat_data = None
             try:
@@ -231,6 +235,7 @@ class CreationKitView(WizardViewBase):
                               self.tr("Game path not configured."), RED)
                     return
                 pfx = compat_data / "pfx"
+                tool_game_path = effective_tool_game_root(game)
 
                 # CK reads the game's Installed Path from the registry - a
                 # fresh tool prefix never has it (idempotent, marker-guarded).
@@ -268,7 +273,7 @@ class CreationKitView(WizardViewBase):
                 # CKPE crashes on startup if CKPEPlugins/ is missing from the
                 # game root; the CKPE mod ships one - create it only as a
                 # fallback for manual CKPE installs.
-                ckpe_plugins = game_path / "CKPEPlugins"
+                ckpe_plugins = tool_game_path / "CKPEPlugins"
                 if ckpe_plugins.is_dir():
                     _wlog("CKPEPlugins/ present in game root (from CKPE mod).")
                 else:
@@ -279,13 +284,21 @@ class CreationKitView(WizardViewBase):
                     except OSError as exc:
                         _wlog(f"could not create CKPEPlugins/: {exc}")
 
+                vfs_session = begin_xedit_vfs_session(game, log_fn=_wlog)
+
                 _wlog(f"launching {exe} via Proton from {game_path}")
                 safe_emit(self._run_status_sig,
                           self.tr("Creation Kit is running.\nClose it when you are "
                           "done, then click Done."), GREEN)
                 safe_emit(self._run_started_sig)
                 run_tool_logged(proton_script, exe, env, log_fn=_wlog,
-                                cwd=game_path, label="Creation Kit")
+                                cwd=game_path, label="Creation Kit", game=game)
+                shutdown_prefix_wineserver(proton_script, compat_data,
+                                           log_fn=_wlog)
+                saved = persist_xedit_vfs_changes(
+                    game, vfs_session, log_fn=_wlog)
+                if saved:
+                    _wlog(f"preserved {saved} VFS plugin edit(s).")
                 _wlog("Creation Kit closed.")
                 safe_emit(self._run_status_sig, self.tr("Creation Kit finished."), GREEN)
                 safe_emit(self._run_finished_sig)

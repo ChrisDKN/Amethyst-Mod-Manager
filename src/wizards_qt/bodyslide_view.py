@@ -174,6 +174,7 @@ class BodySlideView(WizardViewBase):
             from Utils.bodyslide_tools import apply_output_redirect
             from Utils.exe_launch import (
                 resolve_tool_prefix, run_tool_logged, shutdown_prefix_wineserver,
+                wrap_tool_command,
             )
             from Utils.steam_finder import proton_run_command
             _wlog = lambda m: self._log(f"{name} Wizard: {m}")
@@ -238,11 +239,13 @@ class BodySlideView(WizardViewBase):
                 if gl_log is not None:
                     # GL trace mode: keep the raw file redirect (verbose OpenGL
                     # channels the log-panel stream would flood).
+                    raw_cmd = proton_run_command(
+                        proton_script, "runinprefix", str(deployed), env=env)
                     proc = subprocess.Popen(
                         # runinprefix - same verb as the normal
                         # run_tool_logged path (no steam.exe shim).
-                        proton_run_command(proton_script, "runinprefix",
-                                           str(deployed), env=env),
+                        wrap_tool_command(
+                            game, raw_cmd, env, log_fn=_wlog, label=name),
                         env=env,
                         cwd=str(deployed.parent),
                         stdout=gl_log,
@@ -251,7 +254,7 @@ class BodySlideView(WizardViewBase):
                     proc.wait()
                 else:
                     run_tool_logged(proton_script, deployed, env,
-                                    log_fn=_wlog, label=name)
+                                    log_fn=_wlog, label=name, game=game)
                 _wlog(f"{deployed.name} closed.")
                 safe_emit(self._run_status_sig, self.tr("{0} finished.").format(name), GREEN)
                 safe_emit(self._run_finished_sig)

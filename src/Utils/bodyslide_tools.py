@@ -31,8 +31,12 @@ def as_names(exe_name) -> tuple[str, ...]:
 
 def find_deployed_exe(game: "BaseGame", exe_name) -> Path | None:
     """Search the deployed Data directory for exe_name (launch time, after deploy)."""
-    data_path = game.get_mod_data_path()
-    if data_path is None or not data_path.is_dir():
+    from Utils.vfs import effective_tool_data_root
+    try:
+        data_path = effective_tool_data_root(game)
+    except RuntimeError:
+        return None
+    if not data_path.is_dir():
         return None
     fallback = None
     for name in as_names(exe_name):
@@ -214,7 +218,11 @@ def apply_output_redirect(game: "BaseGame", output_mod_name: str, profile: str,
                    f"{wine_z_path(output_mod)} (source)")
 
     if post_deploy:
-        data_path = game.get_mod_data_path()
+        from Utils.vfs import effective_tool_data_root
+        try:
+            data_path = effective_tool_data_root(game)
+        except RuntimeError:
+            data_path = None
         if data_path is not None and data_path.is_dir():
             deployed_cfg = config_xml_path(data_path)
             if deployed_cfg is not None and (

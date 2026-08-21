@@ -10885,7 +10885,12 @@ class MainWindow(QMainWindow):
             # Loader/VFS games need Amethyst in the launch chain. Offer the
             # setting used by this profile's actual launcher after a real user
             # deploy, but not for auto-deploy or an imminent Play action.
-            if success and action is None and not self._op_was_silent:
+            # A wizard deploy is immediately followed by a manager-controlled
+            # tool launch. Its one-shot completion hook is still queued here,
+            # so use that as the scoped signal to suppress launcher setup UI;
+            # ordinary Deploy keeps offering the handoff as before.
+            if (success and action is None and not self._op_was_silent
+                    and not self._deploy_done_hooks):
                 QTimer.singleShot(0, self._maybe_offer_launch_handoff)
             # Wizard deploy steps: one-shot completion hooks (get the outcome
             # either way so the wizard can show failure and re-enable Deploy).

@@ -10,9 +10,12 @@ download/locate/extract lives in Utils.wizard_archives.
 
 from __future__ import annotations
 
+import hashlib
 import os
 import re as _re
 import shutil
+import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -31,6 +34,155 @@ def _noop(_msg: str) -> None:
 # ``AlternatePerspective.esp.save.2026_06_19_00_38_14`` -> ``…esp``).  Matches
 # ``<plugin>.save.<timestamp>`` so finalize_xedit_saves can complete the rename.
 XEDIT_SAVE_TEMP_RE = _re.compile(r"^(?P<base>.+)\.save\.[0-9_]+$", _re.IGNORECASE)
+_PLUGIN_EXTS = (".esp", ".esm", ".esl")
+
+
+@dataclass
+class XEditVFSSession:
+    """Private plugin baseline used while xEdit runs in a VFS view."""
+
+    data_dir: Path
+    staging_root: Path
+    overwrite_dir: Path
+    filemap_path: Path
+    strip_prefixes: set[str]
+    baseline: dict[str, tuple[str, str]]
+
+
+def _plugin_digest(path: Path) -> str:
+    digest = hashlib.blake2b(digest_size=20)
+    with path.open("rb") as fh:
+        while chunk := fh.read(1024 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _plugin_files(data_dir: Path) -> list[Path]:
+    try:
+        return [
+            entry for entry in data_dir.iterdir()
+            if entry.is_file()
+            and entry.name.lower().endswith(_PLUGIN_EXTS)
+        ]
+    except OSError:
+        return []
+
+
+def _copy_file_atomic(source: Path, destination: Path) -> None:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(
+        prefix=f".{destination.name}.amm-xedit-", dir=destination.parent)
+    os.close(fd)
+    tmp = Path(tmp_name)
+    try:
+        shutil.copy2(source, tmp, follow_symlinks=True)
+        os.replace(tmp, destination)
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
+def begin_xedit_vfs_session(game: "BaseGame", log_fn=None) -> "XEditVFSSession | None":
+    """Privatise deployed plugins and remember their contents before xEdit.
+
+    Shadow views are assembled with hardlinks for speed. xEdit is specifically
+    expected to modify existing files, so each top-level plugin is replaced by
+    a private copy first; an in-place save can then never mutate a vanilla or
+    staging inode. Returns ``None`` for an ordinary physical deployment.
+    """
+    _log = log_fn or _noop
+    from Utils.vfs import effective_shadow_data_root, manifest_path
+
+    if not manifest_path(game).is_file():
+        return None
+    data_dir = effective_shadow_data_root(game)
+    baseline: dict[str, tuple[str, str]] = {}
+    plugins = _plugin_files(data_dir)
+    for plugin in plugins:
+        baseline[plugin.name.lower()] = (plugin.name, _plugin_digest(plugin))
+    for plugin in plugins:
+        _copy_file_atomic(plugin, plugin)
+    if plugins:
+        _log(
+            f"xEdit VFS: privatised {len(plugins)} deployed plugin(s) "
+            "before launch."
+        )
+    return XEditVFSSession(
+        data_dir=data_dir,
+        staging_root=Path(game.get_effective_mod_staging_path()),
+        overwrite_dir=Path(game.get_effective_overwrite_path()),
+        filemap_path=Path(game.get_effective_filemap_path()),
+        strip_prefixes={
+            str(prefix).lower()
+            for prefix in (getattr(game, "mod_folder_strip_prefixes", None)
+                           or {"data"})
+        },
+        baseline=baseline,
+    )
+
+
+def persist_xedit_vfs_changes(
+    game: "BaseGame", session: "XEditVFSSession | None", log_fn=None,
+) -> int:
+    """Persist plugins changed in a private xEdit view into profile storage.
+
+    A deployed mod's plugin is copied back to its owning staging folder and
+    tagged exactly like physical restore's xEdit rescue. New or vanilla-owned
+    plugins go to ``[Overwrite]`` so the real game installation stays intact.
+    The baseline is refreshed, allowing QAC All to persist after every pass.
+    """
+    if session is None:
+        return 0
+    _log = log_fn or _noop
+    current: dict[str, tuple[str, str, Path]] = {}
+    for plugin in _plugin_files(session.data_dir):
+        current[plugin.name.lower()] = (
+            plugin.name, _plugin_digest(plugin), plugin)
+
+    owners: dict[str, str] = {}
+    try:
+        with session.filemap_path.open(
+                encoding="utf-8", errors="surrogateescape") as fh:
+            for line in fh:
+                rel, sep, mod_name = line.rstrip("\n").partition("\t")
+                if sep and "/" not in rel.replace("\\", "/"):
+                    owners[rel.lower()] = mod_name
+    except OSError:
+        pass
+
+    from Utils.deploy_shared import _OVERWRITE_NAME, _get_staging_source_path
+    from Utils.deploy_standard import _tag_mod_xedit_modified
+
+    changed = 0
+    index_cache: dict[Path, dict] = {}
+    for key, (name, digest, source) in current.items():
+        old = session.baseline.get(key)
+        if old is not None and old[1] == digest:
+            continue
+        if source.stat().st_size == 0:
+            _log(f"xEdit VFS: refusing to persist empty plugin {name}.")
+            continue
+
+        owner = owners.get(key)
+        if owner and owner != _OVERWRITE_NAME:
+            mod_root = session.staging_root / owner
+            destination = _get_staging_source_path(
+                mod_root, name, session.strip_prefixes,
+                index_cache=index_cache)
+            if destination is None:
+                destination = mod_root / name
+            _copy_file_atomic(source, destination)
+            _tag_mod_xedit_modified(mod_root, name)
+            _log(f"xEdit VFS: saved {name} back to '{owner}'.")
+        else:
+            destination = session.overwrite_dir / name
+            _copy_file_atomic(source, destination)
+            _log(f"xEdit VFS: saved {name} to [Overwrite].")
+        changed += 1
+
+    session.baseline = {
+        key: (name, digest) for key, (name, digest, _path) in current.items()
+    }
+    return changed
 
 
 def finalize_xedit_saves(data_dir: Path, log_fn=None) -> int:
