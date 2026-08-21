@@ -1325,6 +1325,8 @@ def build_layers(
                 per_mod_subdirs=per_mod_subdirs,
                 path_remap=path_remap or None,
                 replace_existing=True,
+                source_resolver=getattr(
+                    game, "_vfs_resolve_staged_file", None),
             )
     finally:
         # Paths mapped into lower.build are disposable, but external separator
@@ -1397,6 +1399,19 @@ def build_layers(
         # data-relative path; unrouted overwrite entries still win normally.
         exclude=upper_exclude or None,
     )
+    # A small number of handlers generate metadata from the fully resolved
+    # mod view, but physical deployment creates that metadata before the
+    # pipeline applies Root_Folder/root-flagged payloads. Give them the same
+    # ordering here so explicit root payload remains the final authority.
+    pre_root_hook = getattr(game, "_vfs_pre_root_payload_build", None)
+    if callable(pre_root_hook):
+        pre_root_hook(
+            view_root=shadow_build,
+            profile=profile,
+            filemap=filemap,
+            staging=staging,
+            log_fn=_log,
+        )
     if getattr(game, "vfs_root_payload_targets_data", False):
         # UE project handlers physically treat Root_Folder as relative to the
         # nested project/deploy root, not the outer install we materialize.

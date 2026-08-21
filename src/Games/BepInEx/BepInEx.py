@@ -342,7 +342,7 @@ class Subnautica(ProfileVFSGameMixin, BaseGame):
             ], flatten=True, loose_only=True),
             CustomRule(dest="", folders=[
                 "qmods",
-                "doorstop_libs"
+                "doorstop_libs",
                 "dotnet",
             ], flatten=True, loose_only=True),
         ]

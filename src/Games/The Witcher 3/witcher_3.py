@@ -35,7 +35,8 @@ import shutil
 from pathlib import Path
 
 from Games.base_game import BaseGame
-from Utils.deploy import LinkMode, load_per_mod_strip_prefixes, load_separator_deploy_paths, expand_separator_deploy_paths, expand_separator_raw_deploy, _resolve_nocase, _resolve_root_path, _write_deploy_snapshot, _move_runtime_files, _FILEMAP_SNAPSHOT_NAME
+from Utils.vfs import ProfileVFSGameMixin
+from Utils.deploy import LinkMode, cleanup_custom_deploy_dirs, load_per_mod_strip_prefixes, load_separator_deploy_paths, expand_separator_deploy_paths, expand_separator_raw_deploy, _resolve_nocase, _resolve_root_path, _write_deploy_snapshot, _move_runtime_files, _FILEMAP_SNAPSHOT_NAME
 from Utils.modlist import read_modlist
 from Utils.config_paths import get_profiles_dir
 from Utils.tw3_filelist import update_menu_filelists
@@ -137,7 +138,12 @@ def _route_path(staged_rel: str) -> tuple[str, str]:
 # Game handler
 # ---------------------------------------------------------------------------
 
-class Witcher3(BaseGame):
+class Witcher3(ProfileVFSGameMixin, BaseGame):
+
+    profile_overridable_settings = (
+        *BaseGame.profile_overridable_settings,
+        *ProfileVFSGameMixin.vfs_profile_setting_keys,
+    )
 
     def __init__(self):
         self._game_path: Path | None = None
@@ -273,6 +279,15 @@ class Witcher3(BaseGame):
             raise RuntimeError(
                 f"filemap.txt not found: {filemap}\n"
                 "Run 'Build Filemap' before deploying."
+            )
+
+        if self.vfs_launch_enabled:
+            return self._deploy_vfs(
+                profile=profile,
+                filemap=filemap,
+                staging=staging,
+                log_fn=_log,
+                progress_fn=progress_fn,
             )
 
         profile_dir        = self.get_profile_root() / "profiles" / profile
@@ -529,6 +544,26 @@ class Witcher3(BaseGame):
 
         return None
 
+    def _vfs_resolve_staged_file(
+        self, *, staging_root: Path, mod_name: str, relative: str,
+        strip_prefixes: list[str], overwrite_dir: Path, cache: dict,
+    ) -> Path | None:
+        """Reverse Witcher's displayed deploy route back into staging."""
+        return self._find_staged_file(
+            staging_root,
+            mod_name,
+            relative,
+            strip_prefixes,
+            overwrite_dir,
+            cache,
+        )
+
+    def _vfs_pre_root_payload_build(self, *, view_root: Path, profile: str,
+                                    filemap: Path, staging: Path,
+                                    log_fn) -> None:
+        """Generate Next-Gen menu metadata only in the private game view."""
+        update_menu_filelists(view_root, log_fn=log_fn)
+
     # -----------------------------------------------------------------------
     # Filemap post-processing
     # -----------------------------------------------------------------------
@@ -609,6 +644,37 @@ class Witcher3(BaseGame):
         except Exception as exc:
             _log(f"WARN: could not re-index Merged_Mods: {exc}")
 
+    def _rescue_merged_files(self, game_root: Path, log_fn=None) -> int:
+        """Merge Script Merger output into the staged Merged_Mods mod.
+
+        ``game_root`` may be either the physical install or a published VFS
+        view. Removal is intentionally strict: if copied output cannot be
+        removed from the view, Restore aborts before generic VFS cleanup can
+        capture a second copy into Overwrite or discard the only copy.
+        """
+        _log = log_fn or (lambda _: None)
+        mods_dir = game_root / "mods"
+        if not mods_dir.is_dir():
+            return 0
+
+        merged_dir = self.merged_mods_staging_dir() / "mods"
+        merged_changed = False
+        rescued_total = 0
+        for folder in mods_dir.iterdir():
+            if not folder.is_dir() or "_mergedfiles" not in folder.name.lower():
+                continue
+            dest = merged_dir / folder.name
+            rescued = _merge_tree_into(folder, dest)
+            shutil.rmtree(folder)
+            merged_changed = True
+            rescued_total += rescued
+            _log(f"Rescued {rescued} merged file(s) from "
+                 f"'{folder.name}' into {merged_dir}.")
+
+        if merged_changed:
+            self._invalidate_merged_mods_index(log_fn=_log)
+        return rescued_total
+
     def restore(self, log_fn=None, progress_fn=None) -> None:
         """Remove every deployed mod file, restore displaced vanilla files,
         prune empty directories, and preserve _MergedFiles folders.
@@ -620,6 +686,47 @@ class Witcher3(BaseGame):
 
         game_path     = self._game_path
         manifest_path = self.get_profile_root() / _DEPLOYED_MANIFEST
+
+        # Separator targets outside the install remain physical under the
+        # generic VFS builder and have their own transactional journal.
+        profile_dir = self._active_profile_dir
+        entries = (
+            read_modlist(profile_dir / "modlist.txt")
+            if profile_dir is not None else []
+        )
+        cleanup_custom_deploy_dirs(
+            profile_dir, entries, log_fn=_log,
+            filemap_path=self.get_effective_filemap_path(),
+        )
+
+        # Restore follows the deployment state that exists, not today's VFS
+        # toggle. Script Merger writes into the bound private view, so rescue
+        # its output before shared cleanup removes that view.
+        from Utils.vfs import (
+            cleanup_deployment,
+            effective_shadow_root,
+            has_deployment_state,
+            manifest_path as vfs_manifest_path,
+        )
+        if has_deployment_state(self):
+            if vfs_manifest_path(self).is_file():
+                try:
+                    view_root = effective_shadow_root(self)
+                except RuntimeError as exc:
+                    _log(f"  WARN: could not inspect Witcher VFS view: {exc}")
+                else:
+                    _log("Restore: preserving Script Merger output from the "
+                         "private game view ...")
+                    self._rescue_merged_files(view_root, log_fn=_log)
+            cleanup_deployment(self, preserve_upper=True, log_fn=_log)
+            physical_state = (
+                manifest_path.is_file()
+                or (game_path / _VANILLA_BACKUP_DIR).exists()
+            )
+            if not physical_state:
+                _log("Restore complete.")
+                return
+            _log("Restore: a physical deployment also remains; restoring it now ...")
 
         if not manifest_path.is_file():
             _log("Restore: no deployed manifest found - nothing to remove.")
@@ -685,36 +792,8 @@ class Witcher3(BaseGame):
             )
             _log(f"Restore complete. {removed} file(s) removed{vanilla_msg}.")
 
-        # Preserve _MergedFiles folders so they survive the restore.
-        # Must run BEFORE runtime-file detection so merged files are moved to
-        # their dedicated staging location rather than ending up in overwrite/.
-        #
-        # MERGE into staging rather than replacing it: Script Merger only
-        # writes the files it merged THIS run into mod0000_MergedFiles, so an
-        # incremental merge session (merge some mods now, more later) leaves
-        # the game-folder copy holding only the deployed subset plus the new
-        # files.  A wholesale rmtree+move would drop every merge not touched
-        # this run.  Existing merged files are never rewritten by the merger,
-        # so a union (game-folder file wins on collision) is safe.
-        mods_dir = game_path / "mods"
-        if mods_dir.is_dir():
-            merged_dir = self.merged_mods_staging_dir() / "mods"
-            merged_dir.mkdir(parents=True, exist_ok=True)
-            merged_changed = False
-            for folder in mods_dir.iterdir():
-                if folder.is_dir() and "_MergedFiles" in folder.name:
-                    dest = merged_dir / folder.name
-                    rescued = _merge_tree_into(folder, dest)
-                    shutil.rmtree(folder, ignore_errors=True)
-                    merged_changed = True
-                    _log(f"Rescued {rescued} merged file(s) from "
-                         f"'{folder.name}' into {merged_dir}.")
-            # The Merged_Mods mod's file set just changed on disk; drop its
-            # cached modindex entry so the next build_filemap rescans it and
-            # deploys the full merge set (a stale index would redeploy only
-            # the previously-known subset, re-triggering the loss).
-            if merged_changed:
-                self._invalidate_merged_mods_index(log_fn=_log)
+        # Physical Script Merger runs use the same preservation path.
+        self._rescue_merged_files(game_path, log_fn=_log)
 
         # Move runtime-generated files to overwrite/ so they persist across
         # redeploys.  Runs after _MergedFiles preservation so those folders
@@ -732,4 +811,3 @@ class Witcher3(BaseGame):
                 pass
 
         update_menu_filelists(game_path, log_fn=_log)
-

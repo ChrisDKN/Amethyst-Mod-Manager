@@ -119,6 +119,16 @@ _cyberpunk_module = importlib.util.module_from_spec(_cyberpunk_spec)
 _cyberpunk_spec.loader.exec_module(_cyberpunk_module)
 Cyberpunk2077 = _cyberpunk_module.Cyberpunk2077
 
+_witcher_spec = importlib.util.spec_from_file_location(
+    "amethyst_vfs_selftest_witcher_3",
+    _SRC_ROOT / "Games" / "The Witcher 3" / "witcher_3.py",
+)
+if _witcher_spec is None or _witcher_spec.loader is None:
+    raise RuntimeError("Could not load The Witcher 3 game handler.")
+_witcher_module = importlib.util.module_from_spec(_witcher_spec)
+_witcher_spec.loader.exec_module(_witcher_module)
+Witcher3 = _witcher_module.Witcher3
+
 
 class _FakeGame:
     mod_folder_strip_prefixes = {"data"}
@@ -467,6 +477,13 @@ class _FakeRootCustomGame(_FakeCustomPaths, RootCustomGame):
 
 class _FakeCyberpunkGame(_FakeCustomPaths, Cyberpunk2077):
     """Temporary install retaining Cyberpunk's real root-deploy contract."""
+
+    def __init__(self, root: Path):
+        _FakeCustomPaths.__init__(self, root, {})
+
+
+class _FakeWitcher3Game(_FakeCustomPaths, Witcher3):
+    """Temporary install retaining Witcher's routed filemap contract."""
 
     def __init__(self, root: Path):
         _FakeCustomPaths.__init__(self, root, {})
@@ -3600,6 +3617,148 @@ def test_cyberpunk_shadow_view() -> None:
     print("✓ Cyberpunk root VFS remap, metadata, REDmod scan, and restore")
 
 
+def test_witcher3_shadow_view_and_script_merger() -> None:
+    """Witcher routing and Script Merger operate entirely in the view."""
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _FakeWitcher3Game(Path(tmp))
+        vanilla_exe = game.game / game.exe_name
+        vanilla_exe.parent.mkdir(parents=True)
+        vanilla_exe.write_text("vanilla witcher", encoding="utf-8")
+
+        menu_dir = game.game / "bin/config/r4game/user_config_matrix/pc"
+        menu_dir.mkdir(parents=True)
+        (menu_dir / "graphicsdx11.xml").write_text("dx11", encoding="utf-8")
+        (menu_dir / "graphics.xml").write_text("dx12", encoding="utf-8")
+        physical_dx11 = menu_dir / "dx11filelist.txt"
+        physical_dx12 = menu_dir / "dx12filelist.txt"
+        physical_dx11.write_text("physical-dx11;\n", encoding="utf-8")
+        physical_dx12.write_text("physical-dx12;\n", encoding="utf-8")
+
+        script = (
+            game.staging / "ScriptPack" / "Full" /
+            "modConflict/content/scripts/conflict.ws"
+        )
+        script.parent.mkdir(parents=True)
+        script.write_text("mod script", encoding="utf-8")
+        dlc = (
+            game.staging / "DlcPack" / "Wrapper" /
+            "dlcExample/content/content0.bundle"
+        )
+        dlc.parent.mkdir(parents=True)
+        dlc.write_text("dlc", encoding="utf-8")
+        menu_xml = (
+            game.staging / "MenuPack" / "Full" /
+            "bin/config/r4game/user_config_matrix/pc/modMenu.xml"
+        )
+        menu_xml.parent.mkdir(parents=True)
+        menu_xml.write_text("menu", encoding="utf-8")
+
+        # Explicit root payload is applied after generated metadata, matching
+        # the physical pipeline's precedence.
+        root_dx11 = (
+            game.root_folder /
+            "bin/config/r4game/user_config_matrix/pc/dx11filelist.txt"
+        )
+        root_dx11.parent.mkdir(parents=True)
+        root_dx11.write_text("root-owned;\n", encoding="utf-8")
+
+        (game.profile / "modlist.txt").write_text(
+            "+ScriptPack\n+DlcPack\n+MenuPack\n", encoding="utf-8")
+        game.filemap.write_text(
+            "mods/modConflict/content/scripts/conflict.ws\tScriptPack\n"
+            "dlc/dlcExample/content/content0.bundle\tDlcPack\n"
+            "bin/config/r4game/user_config_matrix/pc/modMenu.xml\tMenuPack\n",
+            encoding="utf-8",
+        )
+
+        logs: list[str] = []
+        _deploy_custom_fixture(
+            game, profile="default", log_fn=logs.append,
+        )
+        view = effective_shadow_root(game)
+        assert (view / "mods/modConflict/content/scripts/conflict.ws").read_text() == "mod script"
+        assert (view / "dlc/dlcExample/content/content0.bundle").read_text() == "dlc"
+        assert (view / "bin/config/r4game/user_config_matrix/pc/modMenu.xml").read_text() == "menu"
+        assert (view / "bin/config/r4game/user_config_matrix/pc/dx11filelist.txt").read_text() == "root-owned;\n"
+        dx12 = (view / "bin/config/r4game/user_config_matrix/pc/dx12filelist.txt")
+        assert "modMenu.xml;" in dx12.read_text(encoding="utf-8")
+        assert "graphicsdx11.xml;" not in dx12.read_text(encoding="utf-8")
+
+        # Host-side inventory validation must inspect the view, not the clean
+        # physical game directory. The merger-created output is then rescued
+        # into Merged_Mods before VFS cleanup.
+        merged = view / "mods/mod0000_MergedFiles/content/scripts/merged.ws"
+        merged.parent.mkdir(parents=True)
+        merged.write_text("merged output", encoding="utf-8")
+        from Utils.script_merger_inventory import (
+            app_inventory_path,
+            collateral_keys,
+            missing_merge_sources,
+            snapshot_inventory,
+            snapshot_path,
+        )
+        inventory = app_inventory_path(game)
+        inventory.parent.mkdir(parents=True, exist_ok=True)
+        inventory.write_text(
+            '<?xml version="1.0" encoding="utf-8"?>\n'
+            '<MergeInventory><Merge>'
+            '<RelativePath>merged.ws</RelativePath>'
+            '<MergedModName>mod0000_MergedFiles</MergedModName>'
+            '<IncludedMod>modConflict</IncludedMod>'
+            '</Merge></MergeInventory>',
+            encoding="utf-8",
+        )
+        assert missing_merge_sources(game) == []
+        assert collateral_keys(game) == set()
+
+        game.set_vfs_enabled(False)
+        game.restore(log_fn=logs.append)
+        staged_merge = (
+            game.merged_mods_staging_dir() /
+            "mods/mod0000_MergedFiles/content/scripts/merged.ws"
+        )
+        assert staged_merge.read_text(encoding="utf-8") == "merged output"
+        assert snapshot_inventory(game, log_fn=logs.append)
+        assert snapshot_path(game).is_file()
+        assert not has_deployment_state(game)
+
+        # Nothing from the VFS deploy or Script Merger escaped into the real
+        # game tree, and generated filelists never rewrote vanilla files.
+        assert vanilla_exe.read_text(encoding="utf-8") == "vanilla witcher"
+        assert not (game.game / "mods/modConflict").exists()
+        assert not (game.game / "mods/mod0000_MergedFiles").exists()
+        assert physical_dx11.read_text(encoding="utf-8") == "physical-dx11;\n"
+        assert physical_dx12.read_text(encoding="utf-8") == "physical-dx12;\n"
+
+    # Migration can leave a physical Witcher deployment underneath a newly
+    # published view. Restore must clean both rather than treating VFS state
+    # as authoritative and returning early.
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _FakeWitcher3Game(Path(tmp))
+        source = game.staging / "Physical" / "modPhysical/content/a.txt"
+        source.parent.mkdir(parents=True)
+        source.write_text("physical mod", encoding="utf-8")
+        (game.profile / "modlist.txt").write_text(
+            "+Physical\n", encoding="utf-8")
+        game.filemap.write_text(
+            "mods/modPhysical/content/a.txt\tPhysical\n",
+            encoding="utf-8",
+        )
+        game.set_vfs_enabled(False)
+        game.deploy(profile="default", mode=LinkMode.HARDLINK)
+        physical_target = game.game / "mods/modPhysical/content/a.txt"
+        assert physical_target.is_file()
+
+        game.set_vfs_enabled(True)
+        _deploy_custom_fixture(game, profile="default")
+        assert has_deployment_state(game)
+        game.set_vfs_enabled(False)
+        game.restore()
+        assert not has_deployment_state(game)
+        assert not physical_target.exists()
+    print("✓ Witcher 3 routed VFS, private filelists, and Script Merger rescue")
+
+
 def test_vfs_as_deploy_method() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         game = _FakeBethesdaGame(Path(tmp))
@@ -4064,6 +4223,7 @@ def main() -> None:
     test_native_steam_handoff_fallback_is_not_recursive()
     test_stardew_shadow_view()
     test_cyberpunk_shadow_view()
+    test_witcher3_shadow_view_and_script_merger()
     test_vfs_as_deploy_method()
     test_deploy_pipeline_stops_on_incomplete_restore()
     test_flatpak_host_wrap()

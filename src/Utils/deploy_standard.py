@@ -444,6 +444,7 @@ def deploy_filemap(
     per_mod_subdirs: dict[str, str] | None = None,
     path_remap: dict[str, str] | None = None,
     replace_existing: bool = False,
+    source_resolver=None,
 ) -> tuple[int, set[str]]:
     """Read filemap.txt and transfer every listed file into deploy_dir.
 
@@ -478,6 +479,12 @@ def deploy_filemap(
                      construction uses this to preserve physical deploy's
                      ordering when an earlier custom route and a later normal
                      or remapped entry converge on one destination.
+    source_resolver - optional handler callback for filemaps whose displayed
+                     destination differs from the staged source layout. It is
+                     called with keyword arguments ``staging_root``,
+                     ``mod_name``, ``relative``, ``strip_prefixes``,
+                     ``overwrite_dir``, and ``cache``. The normal resolver is
+                     unchanged when this is omitted.
 
     Returns:
         (count, placed_lower)
@@ -560,12 +567,13 @@ def deploy_filemap(
     total_lines = len(_tab_lines)
     line_idx = 0
 
-    _prebuild_mod_indexes(
-        _tab_lines, overwrite_dir, staging_root, mod_index_cache,
-        index_dir=filemap_path.parent,
-        strip_prefixes=strip_prefixes,
-        per_mod_strip_prefixes=per_mod_strip_prefixes,
-    )
+    if not callable(source_resolver):
+        _prebuild_mod_indexes(
+            _tab_lines, overwrite_dir, staging_root, mod_index_cache,
+            index_dir=filemap_path.parent,
+            strip_prefixes=strip_prefixes,
+            per_mod_strip_prefixes=per_mod_strip_prefixes,
+        )
     print(f"  [TIMER] deploy_filemap - pre-build mod indexes: "
           f"{_time.perf_counter() - _t_resolve_start:.3f}s")
 
@@ -619,30 +627,44 @@ def deploy_filemap(
             continue
         line_idx += 1
 
-        # --- Fast path: O(1) mod-index lookup (no syscall) ---
-        _idx = _mod_index_by_name.get(mod_name, _IDX_UNSET)
-        if _idx is _IDX_UNSET:
-            _mr = overwrite_dir if mod_name == _OVERWRITE_NAME else staging_root / mod_name
-            _mod_root_cache[mod_name] = _mr
-            _idx = mod_index_cache.get(_mr)
-            _mod_index_by_name[mod_name] = _idx
         src_str: str | None = None
-        if _idx is not None:
-            _hit = _idx.get(rel_lower)
-            if _hit is not None:
-                src_str = _hit if isinstance(_hit, str) else str(_hit)
-                _index_hits += 1
-        if src_str is None:
-            # Fall back to full resolve (stat-based)
-            src_str = _resolve_source(
-                mod_name, rel_str, rel_lower, overwrite_dir, staging_root,
-                _overwrite_str, _staging_str, sorted_strip, _per_mod,
-                nocase_cache, mod_index_cache,
+        if callable(source_resolver):
+            resolved = source_resolver(
+                staging_root=staging_root,
+                mod_name=mod_name,
+                relative=rel_str,
+                strip_prefixes=list(_per_mod.get(mod_name, ())),
+                overwrite_dir=overwrite_dir,
+                cache=nocase_cache,
             )
-            if src_str is not None:
+            if resolved is not None:
+                src_str = str(resolved)
                 _slow_hits += 1
-                _mod_index_by_name[mod_name] = mod_index_cache.get(
-                    _mod_root_cache[mod_name])
+        else:
+            # --- Fast path: O(1) mod-index lookup (no syscall) ---
+            _idx = _mod_index_by_name.get(mod_name, _IDX_UNSET)
+            if _idx is _IDX_UNSET:
+                _mr = (overwrite_dir if mod_name == _OVERWRITE_NAME
+                       else staging_root / mod_name)
+                _mod_root_cache[mod_name] = _mr
+                _idx = mod_index_cache.get(_mr)
+                _mod_index_by_name[mod_name] = _idx
+            if _idx is not None:
+                _hit = _idx.get(rel_lower)
+                if _hit is not None:
+                    src_str = _hit if isinstance(_hit, str) else str(_hit)
+                    _index_hits += 1
+            if src_str is None:
+                # Fall back to full resolve (stat-based)
+                src_str = _resolve_source(
+                    mod_name, rel_str, rel_lower, overwrite_dir, staging_root,
+                    _overwrite_str, _staging_str, sorted_strip, _per_mod,
+                    nocase_cache, mod_index_cache,
+                )
+                if src_str is not None:
+                    _slow_hits += 1
+                    _mod_index_by_name[mod_name] = mod_index_cache.get(
+                        _mod_root_cache[mod_name])
         if src_str is None:
             _log(f"  WARN: source not found - {rel_str} ({mod_name})")
             continue

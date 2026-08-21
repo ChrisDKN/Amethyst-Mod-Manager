@@ -94,8 +94,10 @@ def collateral_keys(game: "BaseGame") -> set[tuple[str, str]]:
         root = ET.parse(inv).getroot()
     except (ET.ParseError, OSError):
         return set()
-    game_path = game.get_game_path()
-    if game_path is None:
+    try:
+        from Utils.vfs import effective_tool_game_root
+        game_path = effective_tool_game_root(game)
+    except RuntimeError:
         return set()
     deployed: set[str] = set()
     for dirname in ("mods", "Mods"):
@@ -224,7 +226,11 @@ def purge_merges(game: "BaseGame", log_fn=None) -> None:
         shutil.rmtree(staged.parent, ignore_errors=True)
         _log("removed staged Merged_Mods folder.")
 
-    game_path = game.get_game_path()
+    try:
+        from Utils.vfs import effective_tool_game_root
+        game_path = effective_tool_game_root(game)
+    except RuntimeError:
+        game_path = None
     if game_path is not None:
         for dirname in ("mods", "Mods"):
             mods_dir = game_path / dirname
@@ -257,8 +263,10 @@ def missing_merge_sources(game: "BaseGame") -> list[tuple[str, list[str]]]:
     except (ET.ParseError, OSError):
         return []
 
-    game_path = game.get_game_path()
-    if game_path is None:
+    try:
+        from Utils.vfs import effective_tool_game_root
+        game_path = effective_tool_game_root(game)
+    except RuntimeError:
         return []
     deployed: set[str] = set()
     for dirname in ("mods", "Mods"):
