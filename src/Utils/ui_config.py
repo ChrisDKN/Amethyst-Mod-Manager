@@ -1980,6 +1980,90 @@ def save_onboarding_complete(value: bool) -> None:
 
 
 # ---------------------------------------------------------------------------
+# "Don't show this again" reset
+#
+# Every notice a user can silence permanently writes its flag to amethyst.ini.
+# Listing them in one place lets Settings > General re-arm the lot in a single
+# click. Entries are (section, option); option None means "the whole section" -
+# those sections hold nothing but per-game/per-launcher dismissals, so dropping
+# them is exactly the reset. A named option clears one key out of a section
+# that also holds unrelated settings.
+#
+# Excluded on purpose: the update-notification mute, which the update banner
+# also writes but which already has its own visible checkbox in this same
+# General tab - resetting it from here would silently undo a deliberate choice.
+# ---------------------------------------------------------------------------
+_DISMISSIBLE_NOTICES: tuple[tuple[str, "str | None"], ...] = (
+    (_LAUNCH_HANDOFF_SECTION, None),    # post-deploy launcher handoff notice
+    (_STEAM_LAUNCH_SECTION, None),      # its legacy Steam-only predecessor
+    (_FS_WARNINGS_SECTION, None),       # Windows-filesystem warning, per game
+    (_FO3_DOWNGRADE_SECTION, None),     # Fallout 3 Anniversary downgrade prompt
+    (_FLATPAK_SECTION, "suppress_i386_warning"),
+)
+
+# Values that mean "not dismissed" even though the key exists: boolean notices
+# write "false" when unticked, and an empty ack string never suppressed a thing.
+_UNSET_NOTICE_VALUES = {"", "false", "0", "no", "off"}
+
+
+def _notice_is_set(value: str) -> bool:
+    return value.strip().lower() not in _UNSET_NOTICE_VALUES
+
+
+def _count_notice_flags(parser: "configparser.ConfigParser") -> int:
+    """How many dismissal flags in *parser* are actually suppressing a prompt."""
+    total = 0
+    for section, option in _DISMISSIBLE_NOTICES:
+        if not parser.has_section(section):
+            continue
+        try:
+            if option is None:
+                total += sum(1 for _k, v in parser.items(section)
+                             if _notice_is_set(v))
+            elif parser.has_option(section, option):
+                total += 1 if _notice_is_set(
+                    parser.get(section, option, fallback="")) else 0
+        except Exception:
+            continue
+    return total
+
+
+def count_dismissed_notices() -> int:
+    """Number of prompts currently hidden by a "Don't show this again" tick."""
+    path = get_ui_config_path()
+    if not path.is_file():
+        return 0
+    try:
+        return _count_notice_flags(_read_ini(path))
+    except Exception:
+        return 0
+
+
+def reset_dismissed_notices() -> int:
+    """Clear every dismissal flag; returns how many prompts were hidden."""
+    path = get_ui_config_path()
+    if not path.is_file():
+        return 0
+    parser = _new_parser()
+    try:
+        parser.read(path)
+    except Exception:
+        return 0
+    cleared = _count_notice_flags(parser)
+    changed = False
+    for section, option in _DISMISSIBLE_NOTICES:
+        if not parser.has_section(section):
+            continue
+        if option is None:
+            changed = parser.remove_section(section) or changed
+        else:
+            changed = parser.remove_option(section, option) or changed
+    if changed:
+        _write_ini(parser, path)
+    return cleared
+
+
+# ---------------------------------------------------------------------------
 # Custom install-name regex patterns
 #
 # User-defined search/replace rules applied to a downloaded archive's filename

@@ -976,9 +976,50 @@ class SettingsView(OverlayBase):
                  "is available. Turning this off only mutes the notification "
                  "- you can still update via your package manager or by "
                  "toggling the pre-release setting."))
+        self._action_row(
+            g, self.tr("Reset dismissed prompts…"),
+            self._on_reset_dismissed_notices,
+            help=self.tr(
+                "Bring back every notice you hid by ticking \"Don't show this "
+                "again\" - the launcher handoff notice, the Windows filesystem "
+                "warning and the rest."))
 
         self._maybe_add_flatpak_enroll(g)
         self._finish_section(g)
+
+    def _on_reset_dismissed_notices(self):
+        """Confirm, then re-arm every "Don't show this again" notice."""
+        from gui_qt.confirm_overlay import ConfirmOverlay
+        hidden = uc.count_dismissed_notices()
+        if not hidden:
+            ConfirmOverlay.show_message(
+                self._window, self.tr("Nothing to reset"),
+                self.tr("No prompts are currently hidden."))
+            return
+
+        def _go(ok: bool):
+            if not ok:
+                return
+            n = uc.reset_dismissed_notices()
+            if n == 1:
+                done = self.tr("{0} hidden prompt will show again.").format(n)
+            else:
+                done = self.tr("{0} hidden prompts will show again.").format(n)
+            ConfirmOverlay.show_message(
+                self._window, self.tr("Prompts reset"), done)
+
+        if hidden == 1:
+            body = self.tr("{0} prompt is hidden. It will start showing "
+                           "again.").format(hidden)
+        else:
+            body = self.tr("{0} prompts are hidden. They will start showing "
+                           "again.").format(hidden)
+        ConfirmOverlay.show_over(
+            self._window, self.tr("Reset dismissed prompts?"), body, _go,
+            confirm_label=self.tr("Reset"),
+            cancel_label=self.tr("Cancel"),
+            danger=False,
+        )
 
     def _maybe_add_flatpak_enroll(self, g):
         """Offer a one-time 'Enable automatic updates' button to flatpak users
