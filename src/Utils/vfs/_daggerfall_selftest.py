@@ -274,14 +274,16 @@ def test_cross_filesystem_symlink_fallback_is_detached() -> None:
         _prepare_game(game)
         _prepare_mod(game)
 
-        def symlink_transfer(source: Path, target: Path, _mode) -> None:
-            target.parent.mkdir(parents=True, exist_ok=True)
+        def symlink_transfer(source: str, target: str, _mode):
+            Path(target).parent.mkdir(parents=True, exist_ok=True)
             os.symlink(source, target)
+            return LinkMode.SYMLINK, None
 
         with (
             patch("Utils.vfs.overlay._bubblewrap_status",
                   return_value=(False, "test")),
-            patch("Utils.vfs.overlay._transfer", side_effect=symlink_transfer),
+            patch("Utils.vfs.overlay._do_link_ex",
+                  side_effect=symlink_transfer),
         ):
             game.deploy(profile="test", mode=LinkMode.HARDLINK)
         view = json.loads(manifest_path(game, "test").read_text(encoding="utf-8"))

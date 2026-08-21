@@ -50,6 +50,7 @@ from Utils.vfs import (  # noqa: E402
     virtual_root_write_path,
     wrap_command,
 )
+from Utils.vfs.overlay import _move_materialized_tree  # noqa: E402
 from Utils.deploy import (  # noqa: E402
     CustomRule,
     LinkMode,
@@ -719,6 +720,63 @@ def test_layer_build_and_skse_selection() -> None:
         assert (game.overwrite / "runtime.txt").read_text() == "data-runtime"
         assert not (state / MANIFEST_NAME).exists()
     print("✓ layer build, virtual case aliases/stubs, SKSE selection, cleanup")
+
+
+def test_resolved_layer_subtree_move_preserves_merge_semantics() -> None:
+    """Fast subtree renames must retain case/collision winner behavior."""
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        source = root / "resolved"
+        destination = root / "view" / "Data"
+        source.mkdir(parents=True)
+        destination.mkdir(parents=True)
+
+        # No vanilla collision: the complete loose-file subtree can move as
+        # one directory entry regardless of how many files it contains.
+        loose = source / "meshes" / "actors" / "character"
+        loose.mkdir(parents=True)
+        (loose / "body.nif").write_text("mesh", encoding="utf-8")
+
+        # Unique case-insensitive collision: new children can move wholesale,
+        # while a file directly in the colliding directory uses the normal
+        # per-file fallback and keeps the destination's physical casing.
+        vanilla_textures = destination / "Textures"
+        vanilla_textures.mkdir()
+        (vanilla_textures / "vanilla.dds").write_text(
+            "vanilla", encoding="utf-8")
+        routed_textures = source / "textures"
+        (routed_textures / "actors").mkdir(parents=True)
+        (routed_textures / "actors" / "mod.dds").write_text(
+            "mod", encoding="utf-8")
+        (routed_textures / "root.dds").write_text(
+            "root", encoding="utf-8")
+
+        # Ambiguous case variants stay on the established resolver path.
+        (destination / "Scripts").mkdir()
+        (destination / "scripts").mkdir()
+        ambiguous = source / "SCRIPTS" / "new"
+        ambiguous.mkdir(parents=True)
+        (ambiguous / "mod.pex").write_text("script", encoding="utf-8")
+
+        (destination / "loader.dll").write_text("old", encoding="utf-8")
+        (source / "loader.dll").write_text("new", encoding="utf-8")
+
+        _move_materialized_tree(source, destination, replace=True)
+
+        assert not source.exists()
+        assert (destination / "meshes" / "actors" / "character"
+                / "body.nif").read_text(encoding="utf-8") == "mesh"
+        assert (vanilla_textures / "vanilla.dds").read_text(
+            encoding="utf-8") == "vanilla"
+        assert (vanilla_textures / "actors" / "mod.dds").read_text(
+            encoding="utf-8") == "mod"
+        assert (vanilla_textures / "root.dds").read_text(
+            encoding="utf-8") == "root"
+        assert (destination / "scripts" / "new" / "mod.pex").read_text(
+            encoding="utf-8") == "script"
+        assert (destination / "loader.dll").read_text(
+            encoding="utf-8") == "new"
+    print("✓ resolved VFS layers move disjoint subtrees atomically")
 
 
 def test_shadow_capture_survives_configured_path_change() -> None:
@@ -4412,6 +4470,7 @@ def main() -> None:
     test_nested_overlay()
     test_fuse_overlay()
     test_layer_build_and_skse_selection()
+    test_resolved_layer_subtree_move_preserves_merge_semantics()
     test_shadow_capture_survives_configured_path_change()
     test_failed_post_view_hook_never_promotes_partial_output()
     test_vfs_root_payload_preserves_physical_recovery()

@@ -29,6 +29,7 @@ import subprocess
 from pathlib import Path, PureWindowsPath
 from typing import Iterable
 
+from Utils import perftrace
 from Utils.atomic_write import write_atomic_text
 from Utils.deploy import (
     LinkMode,
@@ -40,12 +41,12 @@ from Utils.deploy import (
 )
 from Utils.deploy_shared import (
     RestoreIncompleteError,
+    _do_link_ex,
     _resolve_nocase,
     _resolve_root_path,
 )
 from Utils.deploy_shared import (
     _move_runtime_files,
-    _transfer,
     _write_deploy_snapshot,
     create_probe_stub_dirs,
     deploy_case_alias_links,
@@ -418,16 +419,30 @@ def _overwrite_entries(filemap: Path) -> set[str]:
 
 def _reject_symlink_payload(layer: Path) -> None:
     """A writable open through a lower-layer symlink could alter staging."""
-    for dirpath, dirnames, filenames in os.walk(layer):
-        base = Path(dirpath)
-        for name in (*dirnames, *filenames):
-            candidate = base / name
-            if candidate.is_symlink():
-                raise RuntimeError(
-                    "Profile VFS could not create a hardlink-safe layer; "
-                    f"a symbolic link was produced at {candidate}. Move the "
-                    "profile/staging folder to a hardlink-capable filesystem."
-                )
+    stack = [str(layer)]
+    while stack:
+        current = stack.pop()
+        try:
+            with os.scandir(current) as entries:
+                for entry in entries:
+                    # DirEntry normally answers both checks from d_type,
+                    # avoiding one lstat per deployed file on Linux.
+                    if entry.is_symlink():
+                        raise RuntimeError(
+                            "Profile VFS could not create a hardlink-safe "
+                            f"layer; a symbolic link was produced at "
+                            f"{entry.path}. Move the profile/staging folder "
+                            "to a hardlink-capable filesystem."
+                        )
+                    if entry.is_dir(follow_symlinks=False):
+                        stack.append(entry.path)
+        except RuntimeError:
+            raise
+        except OSError as exc:
+            raise RuntimeError(
+                f"Profile VFS could not validate its private layer at "
+                f"{current}: {exc}"
+            ) from exc
 
 
 def _merge_tree(source: Path, destination: Path) -> None:
@@ -496,6 +511,7 @@ def _materialize_tree(
 
     destination.mkdir(parents=True, exist_ok=True)
     cache: dict = {}
+    ensured_parents = {str(destination)}
     linked = symlinked = copied = 0
     source_text = str(source)
     prefix_len = len(source_text) + 1
@@ -524,7 +540,10 @@ def _materialize_tree(
             if exclude and rel.as_posix().lower() in exclude:
                 continue
             parent = _resolved_parent(destination, rel, cache)
-            parent.mkdir(parents=True, exist_ok=True)
+            parent_text = str(parent)
+            if parent_text not in ensured_parents:
+                parent.mkdir(parents=True, exist_ok=True)
+                ensured_parents.add(parent_text)
 
             # Directory aliases intentionally retain their exact sibling
             # spelling (Data/data/DATA). Regular files retain the filemap's
@@ -547,21 +566,102 @@ def _materialize_tree(
                 linked += 1
                 continue
 
-            _transfer(src, dst, LinkMode.HARDLINK)
-            if dst.is_symlink():
+            actual_mode, transfer_error = _do_link_ex(
+                str(src), str(dst), LinkMode.HARDLINK)
+            if transfer_error is not None:
+                raise transfer_error
+            if actual_mode is LinkMode.SYMLINK:
                 symlinked += 1
+            elif actual_mode is LinkMode.HARDLINK:
+                linked += 1
             else:
-                try:
-                    if os.path.samefile(src, dst):
-                        linked += 1
-                    else:
-                        copied += 1
-                except OSError:
-                    copied += 1
+                copied += 1
 
     if move:
         _remove_tree(source)
     return linked, symlinked, copied
+
+
+def _move_disjoint_subtrees(source: Path, destination: Path) -> int:
+    """Rename non-colliding directories from *source* into *destination*.
+
+    Resolved VFS mod layers are already private trees made from hardlinks. A
+    normal per-file merge would walk and rename every entry a second time even
+    when an entire loose-file subtree (``meshes/``, ``textures/``, etc.) has no
+    counterpart in the vanilla view. A same-filesystem directory rename is
+    atomic and independent of the number of files below it.
+
+    Only directories with no case-insensitive destination match are moved as
+    a unit. Unique matching directories are recursed into so their disjoint
+    children can still take the fast path. Ambiguous case-variant collisions
+    are deliberately left to :func:`_materialize_tree`, preserving its
+    established per-file destination resolution.
+    """
+    if not source.is_dir() or source.is_symlink():
+        return 0
+    destination.mkdir(parents=True, exist_ok=True)
+
+    try:
+        with os.scandir(destination) as entries:
+            destination_dirs: dict[str, list[str]] = {}
+            for entry in entries:
+                # Match the established casing resolver, which treats a
+                # symlink-to-directory as occupying that directory spelling.
+                # We never recurse through it below.
+                if entry.is_dir():
+                    destination_dirs.setdefault(
+                        entry.name.lower(), []).append(entry.name)
+        with os.scandir(source) as entries:
+            source_dirs = [
+                entry.name for entry in entries
+                if entry.is_dir(follow_symlinks=False)
+            ]
+    except OSError:
+        return 0
+
+    renamed = 0
+    for name in source_dirs:
+        src = source / name
+        matches = destination_dirs.get(name.lower(), ())
+        if not matches:
+            target = destination / name
+            # A non-directory with the same spelling is a real collision and
+            # must retain the normal replace/error behavior below.
+            if os.path.lexists(target):
+                continue
+            try:
+                src.rename(target)
+            except OSError:
+                continue
+            destination_dirs.setdefault(name.lower(), []).append(name)
+            renamed += 1
+            continue
+
+        if (len(matches) != 1
+                or (destination / matches[0]).is_symlink()):
+            continue
+        renamed += _move_disjoint_subtrees(src, destination / matches[0])
+        try:
+            src.rmdir()
+        except OSError:
+            pass
+    return renamed
+
+
+def _move_materialized_tree(
+    source: Path,
+    destination: Path,
+    *,
+    replace: bool,
+) -> None:
+    """Move a disposable resolved layer into the shadow efficiently."""
+    if not source.is_dir():
+        return
+    if replace:
+        _move_disjoint_subtrees(source, destination)
+    # Files in colliding directories, root-level files, symlinks, and any
+    # rename that the filesystem declined retain the established slow path.
+    _materialize_tree(source, destination, replace=replace, move=True)
 
 
 def _shadow_paths(payload: dict) -> tuple[Path, Path, Path]:
@@ -799,22 +899,23 @@ def _snapshot_shadow_view(
     log_fn=None,
 ) -> None:
     """Write the runtime-capture baseline for one published shadow view."""
-    if data_rel.parts:
+    with perftrace.span("vfs: snapshot published view"):
+        if data_rel.parts:
+            _write_deploy_snapshot(
+                view,
+                state / ROOT_SNAPSHOT_NAME,
+                log_fn=log_fn,
+                exclude_dirs=(data_rel.as_posix(),),
+                strict=True,
+            )
+        else:
+            (state / ROOT_SNAPSHOT_NAME).unlink(missing_ok=True)
         _write_deploy_snapshot(
-            view,
-            state / ROOT_SNAPSHOT_NAME,
+            view_data,
+            state / DATA_SNAPSHOT_NAME,
             log_fn=log_fn,
-            exclude_dirs=(data_rel.as_posix(),),
             strict=True,
         )
-    else:
-        (state / ROOT_SNAPSHOT_NAME).unlink(missing_ok=True)
-    _write_deploy_snapshot(
-        view_data,
-        state / DATA_SNAPSHOT_NAME,
-        log_fn=log_fn,
-        strict=True,
-    )
 
 
 def finalize_deployment(game, *, log_fn=None) -> None:
@@ -1320,39 +1421,40 @@ def build_layers(
 
     _log(f"VFS: building the resolved {data_root.name} layer ...")
     try:
-        if callable(populate_data_layer):
-            linked_data = int(populate_data_layer(
-                destination=data_layer,
-                outer_layer=root_layer,
-                game_root=game_root,
-                data_root=data_root,
-                profile=profile,
-                filemap=filemap,
-                staging=staging,
-                external_deploy_mode=external_deploy_mode,
-                log_fn=_log,
-                progress_fn=progress_fn,
-            ) or 0)
-        else:
-            linked_data, _placed = deploy_filemap(
-                filemap, data_layer, staging,
-                mode=LinkMode.HARDLINK,
-                strip_prefixes=game.mod_folder_strip_prefixes,
-                per_mod_strip_prefixes=per_mod_strip,
-                per_mod_deploy_dirs=mapped_deploy or None,
-                # Internal destinations must remain hardlinks in the private
-                # materialization. Only external separator targets inherit
-                # their physical mode or explicit separator override.
-                per_mod_link_modes=external_link_modes,
-                log_fn=_log,
-                progress_fn=progress_fn,
-                exclude=custom_exclude or None,
-                per_mod_subdirs=per_mod_subdirs,
-                path_remap=path_remap or None,
-                replace_existing=True,
-                source_resolver=getattr(
-                    game, "_vfs_resolve_staged_file", None),
-            )
+        with perftrace.span("vfs: resolve mod layer"):
+            if callable(populate_data_layer):
+                linked_data = int(populate_data_layer(
+                    destination=data_layer,
+                    outer_layer=root_layer,
+                    game_root=game_root,
+                    data_root=data_root,
+                    profile=profile,
+                    filemap=filemap,
+                    staging=staging,
+                    external_deploy_mode=external_deploy_mode,
+                    log_fn=_log,
+                    progress_fn=progress_fn,
+                ) or 0)
+            else:
+                linked_data, _placed = deploy_filemap(
+                    filemap, data_layer, staging,
+                    mode=LinkMode.HARDLINK,
+                    strip_prefixes=game.mod_folder_strip_prefixes,
+                    per_mod_strip_prefixes=per_mod_strip,
+                    per_mod_deploy_dirs=mapped_deploy or None,
+                    # Internal destinations must remain hardlinks in the private
+                    # materialization. Only external separator targets inherit
+                    # their physical mode or explicit separator override.
+                    per_mod_link_modes=external_link_modes,
+                    log_fn=_log,
+                    progress_fn=progress_fn,
+                    exclude=custom_exclude or None,
+                    per_mod_subdirs=per_mod_subdirs,
+                    path_remap=path_remap or None,
+                    replace_existing=True,
+                    source_resolver=getattr(
+                        game, "_vfs_resolve_staged_file", None),
+                )
     finally:
         # Paths mapped into lower.build are disposable, but external separator
         # targets need the standard log/backup until Restore removes the
@@ -1403,27 +1505,29 @@ def build_layers(
     # physical ordering: those explicit root sources are the final authority
     # even when they collide with an [Overwrite] entry.
     shadow_build.mkdir(parents=True)
-    base_counts = _materialize_tree(
-        game_root, shadow_build, replace=False)
+    with perftrace.span("vfs: materialize base game"):
+        base_counts = _materialize_tree(
+            game_root, shadow_build, replace=False)
     shadow_data = shadow_build.joinpath(*data_rel.parts)
     shadow_data.mkdir(parents=True, exist_ok=True)
-    _materialize_tree(root_layer, shadow_build, replace=True, move=True)
-    _materialize_tree(data_layer, shadow_data, replace=True, move=True)
-    _materialize_tree(root_upper, shadow_build, replace=True)
-    upper_exclude = (
-        file_exclude_normalized
-        | routed_overwrite_entries
-        | remapped_overwrite_entries
-    )
-    _materialize_tree(
-        data_upper,
-        shadow_data,
-        replace=True,
-        # An overwrite-owned file claimed by a custom rule was already placed
-        # at that rule's destination. Do not also expose it at its original
-        # data-relative path; unrouted overwrite entries still win normally.
-        exclude=upper_exclude or None,
-    )
+    with perftrace.span("vfs: merge resolved layers"):
+        _move_materialized_tree(root_layer, shadow_build, replace=True)
+        _move_materialized_tree(data_layer, shadow_data, replace=True)
+        _materialize_tree(root_upper, shadow_build, replace=True)
+        upper_exclude = (
+            file_exclude_normalized
+            | routed_overwrite_entries
+            | remapped_overwrite_entries
+        )
+        _materialize_tree(
+            data_upper,
+            shadow_data,
+            replace=True,
+            # An overwrite-owned file claimed by a custom rule was already placed
+            # at that rule's destination. Do not also expose it at its original
+            # data-relative path; unrouted overwrite entries still win normally.
+            exclude=upper_exclude or None,
+        )
     # A small number of handlers generate metadata from the fully resolved
     # mod view, but physical deployment creates that metadata before the
     # pipeline applies Root_Folder/root-flagged payloads. Give them the same
@@ -1440,26 +1544,27 @@ def build_layers(
     if getattr(game, "vfs_root_payload_targets_data", False):
         # UE project handlers physically treat Root_Folder as relative to the
         # nested project/deploy root, not the outer install we materialize.
-        _materialize_tree(
-            root_payload, shadow_data, replace=True, move=True)
+        _move_materialized_tree(
+            root_payload, shadow_data, replace=True)
     else:
         # Generic Root_Folder/filemap_root paths are outer-install-relative;
         # this naturally covers payload below a nested primary data folder.
-        _materialize_tree(
-            root_payload, shadow_build, replace=True, move=True)
+        _move_materialized_tree(
+            root_payload, shadow_build, replace=True)
     _remove_tree(build)
 
     if getattr(game, "case_alias_links", True):
-        stub_count = create_probe_stub_dirs(
-            shadow_build,
-            getattr(game, "probe_stub_dirs", None),
-            log_fn=_log,
-        )
-        alias_count = deploy_case_alias_links(
-            shadow_build,
-            getattr(game, "case_alias_dirs", None),
-            log_fn=_log,
-        )
+        with perftrace.span("vfs: case aliases"):
+            stub_count = create_probe_stub_dirs(
+                shadow_build,
+                getattr(game, "probe_stub_dirs", None),
+                log_fn=_log,
+            )
+            alias_count = deploy_case_alias_links(
+                shadow_build,
+                getattr(game, "case_alias_dirs", None),
+                log_fn=_log,
+            )
         if stub_count:
             _log(f"  VFS probe stubs: {stub_count} empty dir(s) created.")
         if alias_count:
