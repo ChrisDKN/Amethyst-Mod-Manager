@@ -35,7 +35,7 @@ for tool in quick-sharun cc awk find ldd strings wget makepkg pacman; do
     }
 done
 
-if ! /usr/bin/python3 -c 'import PySide6.QtCore' 2>/dev/null; then
+if ! /usr/bin/python3 -c 'import PySide6.QtCore'; then
     echo "ERROR: /usr/bin/python3 cannot import PySide6." >&2
     echo "Install the system 'pyside6' package (Arch: pacman -S pyside6)." >&2
     exit 1
