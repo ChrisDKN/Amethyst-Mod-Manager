@@ -247,6 +247,19 @@ jobs:
               libxml2-mini \
               qt6-base-mini
 
+          # The debloated repository is published independently from Arch.
+          # During an Arch Qt transition its continuous qt6-base-mini can lag
+          # behind pyside6 by one patch release (for example PySide 6.11.2
+          # with Qt 6.11.1), which makes even `import PySide6.QtCore` fail.
+          # Keep the smaller package when its ABI matches, but recover to the
+          # official synchronized Qt package rather than producing no
+          # AppImage at all.
+          if ! /usr/bin/python3 -c 'import PySide6.QtCore'; then
+              echo "WARN: qt6-base-mini is ABI-incompatible with PySide6; restoring the official qt6-base package." >&2
+              pacman -S --noconfirm qt6-base
+          fi
+          /usr/bin/python3 -c 'import PySide6.QtCore; print(PySide6.QtCore.qVersion())'
+
       - name: Create makepkg build user
         run: |
           # makepkg refuses to run as root. The container is root by
