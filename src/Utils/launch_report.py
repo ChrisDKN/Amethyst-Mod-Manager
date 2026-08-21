@@ -36,6 +36,7 @@ class LaunchReport:
         self._lock = threading.Lock()
         self._spawned = False
         self._fired = False
+        self._cancelled = False
         self._last_note = ""
 
     @property
@@ -51,9 +52,19 @@ class LaunchReport:
     def mark_spawned(self) -> None:
         self._spawned = True
 
+    def mark_cancelled(self) -> None:
+        """Suppress failure reporting after a user intentionally stops it.
+
+        Stop sends SIGTERM and may follow with SIGKILL, so the watched process
+        exits non-zero inside the normal early-failure window. That exit is an
+        expected result of the user's action, not evidence that launch failed.
+        """
+        with self._lock:
+            self._cancelled = True
+
     def mark_failed(self, detail: str = "") -> None:
         with self._lock:
-            if self._fired:
+            if self._fired or self._cancelled:
                 return
             self._fired = True
             cb, note = self._on_fail, self._last_note

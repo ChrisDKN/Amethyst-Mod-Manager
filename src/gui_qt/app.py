@@ -310,6 +310,8 @@ class MainWindow(QMainWindow):
     # ((title, message, card_h|None)).
     _warn_popup = Signal(str, str, object)
     _play_toast_done = Signal(str, str)
+    # Game-process monitor → UI thread: (LaunchSession, is_running).
+    _play_process_state = Signal(object, bool)
     # Copy/Move-to-profile worker → UI thread (result dict).
     _copy_done = Signal(object)
     # Collection update: staging meta.ini scan (worker) → apply (UI).
@@ -451,6 +453,9 @@ class MainWindow(QMainWindow):
         self._warn_popup.connect(self._show_warn_popup)
         self._play_toast_handle = None
         self._play_toast_done.connect(self._end_play_toast)
+        self._play_session = None
+        self._play_stop_requested = None
+        self._play_process_state.connect(self._on_play_process_state)
         self._init_log_file()   # one on-disk log file per session
         self._bsa_op_running = False
         self._bsa_op_done.connect(self._on_bsa_op_done)
@@ -9909,6 +9914,10 @@ class MainWindow(QMainWindow):
         return icons
 
     def _update_play_btn_label(self, label: str):
+        session = getattr(self, "_play_session", None)
+        if session is not None and session.active:
+            self._play_btn.setText(self.tr("■  Stop"))
+            return
         game = self._gs.game
         is_game = game is not None and label == game.name
         self._play_btn.setText(self.tr("▶  Play") if is_game else self.tr("▶  Run"))
@@ -10018,6 +10027,10 @@ class MainWindow(QMainWindow):
             self._on_play_exe_selected(paths[0].name)
 
     def _on_play(self):
+        session = getattr(self, "_play_session", None)
+        if session is not None and session.active:
+            self._stop_play_session(session)
+            return
         # An exception escaping a Qt slot only prints to stderr - invisible in
         # a flatpak/AppImage GUI launch, so the button would "do nothing".
         # Surface it in the log + a toast instead.
@@ -10029,6 +10042,61 @@ class MainWindow(QMainWindow):
             for ln in traceback.format_exc().strip().splitlines():
                 self._append_log(f"Play error:   {ln}")
             self._play_failed(f"{exc!r}")
+
+    def _new_play_session(self, label: str):
+        """Create the backend tracker used by this Play/Run attempt."""
+        from Utils.game_process import LaunchSession
+        old = getattr(self, "_play_session", None)
+        if old is not None and not old.active:
+            old.cancel()
+        session = LaunchSession(label, log_fn=self._append_log)
+        session.set_state_callback(
+            lambda active, s=session: self._play_process_state.emit(s, active))
+        self._play_session = session
+        return session
+
+    def _on_play_process_state(self, session, running: bool):
+        """Reflect a worker-side launch lifecycle on the Play button."""
+        if session is not getattr(self, "_play_session", None):
+            return
+        btn = getattr(self, "_play_btn", None)
+        if btn is None:
+            return
+        btn.setProperty("running", bool(running))
+        style = btn.style()
+        style.unpolish(btn)
+        style.polish(btn)
+        btn.update()
+        if running:
+            btn.setText(self.tr("■  Stop"))
+            btn.setEnabled(True)
+            self._play_exe_selector.setEnabled(False)
+            self._exe_settings_btn.setEnabled(False)
+            return
+
+        stopped_by_user = self._play_stop_requested is session
+        self._play_stop_requested = None
+        self._play_session = None
+        self._play_exe_selector.setEnabled(True)
+        self._exe_settings_btn.setEnabled(True)
+        self._update_play_btn_label(self._play_exe_selector.current())
+        busy = (getattr(self, "_deploy_running", False)
+                or getattr(self, "_install_running", False)
+                or self._col_install_running or self._tool_busy)
+        btn.setEnabled(not busy)
+        if stopped_by_user:
+            self._notify(self.tr("{0} stopped").format(session.label), "info")
+
+    def _stop_play_session(self, session) -> None:
+        """Handle the red Stop click without blocking the Qt event loop."""
+        if session.stopping:
+            return
+        if session.stop():
+            self._play_stop_requested = session
+            self._play_btn.setText(self.tr("■  Stopping…"))
+            self._play_btn.setEnabled(False)
+            self._notify(
+                self.tr("Stopping {0}…").format(session.label), "info")
 
     def _play_log(self, message: str):
         """Play-path log line. Also remembered as the failure reason: launch
@@ -10181,24 +10249,31 @@ class MainWindow(QMainWindow):
                         return
                     run_path = resolved
 
-                def _run(run_path=run_path):
+                session = self._new_play_session(label)
+
+                def _run(run_path=run_path, session=session):
                     # Worker-thread exceptions otherwise vanish to stderr, and
                     # most launch paths fail by logging and returning - the
                     # report catches both, plus a process that dies instantly.
                     from Utils import launch_report
-                    with launch_report.report(
-                            lambda d: self._play_failed(d, entry=label)) as rep:
-                        try:
-                            target(run_path, game, log_fn=self._play_log)
-                        except Exception as exc:
-                            self._append_log(f"Run EXE error: {exc!r}")
-                            rep.mark_failed(f"{exc!r}")
-                        else:
-                            rep.finish()
-                            if rep.spawned:
-                                self._play_toast_done.emit(
-                                    self.tr("{0} started").format(label),
-                                    "success")
+                    def _failed(detail):
+                        session.cancel()
+                        self._play_failed(detail, entry=label)
+
+                    from Utils import game_process
+                    with game_process.bind(session):
+                        with launch_report.report(_failed) as rep:
+                            try:
+                                target(run_path, game, log_fn=self._play_log)
+                            except Exception as exc:
+                                self._append_log(f"Run EXE error: {exc!r}")
+                                rep.mark_failed(f"{exc!r}")
+                            else:
+                                rep.finish()
+                                if rep.spawned:
+                                    self._play_toast_done.emit(
+                                        self.tr("{0} started").format(label),
+                                        "success")
                 threading.Thread(target=_run, daemon=True).start()
 
             # Auto-detected script extenders must run against the CURRENT
@@ -10238,23 +10313,31 @@ class MainWindow(QMainWindow):
 
         # Game entry → optional deploy first, then Steam/Heroic/Proton routing.
         def _launch():
-            def _run():
+            session = self._new_play_session(game.name)
+
+            def _run(session=session):
                 # Worker-thread exceptions otherwise vanish to stderr, and most
                 # launch paths fail by logging and returning - the report
                 # catches both, plus a process that dies instantly.
                 from Utils import launch_report
-                with launch_report.report(self._play_failed) as rep:
-                    try:
-                        exe_launch.launch_game(game, log_fn=self._play_log)
-                    except Exception as exc:
-                        self._append_log(f"Play error: {exc!r}")
-                        rep.mark_failed(f"{exc!r}")
-                    else:
-                        rep.finish()
-                        if rep.spawned:
-                            self._play_toast_done.emit(
-                                self.tr("{0} started").format(game.name),
-                                "success")
+                def _failed(detail):
+                    session.cancel()
+                    self._play_failed(detail)
+
+                from Utils import game_process
+                with game_process.bind(session):
+                    with launch_report.report(_failed) as rep:
+                        try:
+                            exe_launch.launch_game(game, log_fn=self._play_log)
+                        except Exception as exc:
+                            self._append_log(f"Play error: {exc!r}")
+                            rep.mark_failed(f"{exc!r}")
+                        else:
+                            rep.finish()
+                            if rep.spawned:
+                                self._play_toast_done.emit(
+                                    self.tr("{0} started").format(game.name),
+                                    "success")
             threading.Thread(target=_run, daemon=True).start()
 
         if exe_launch.load_deploy_before_launch(game) and hasattr(game, "deploy"):
@@ -10397,7 +10480,14 @@ class MainWindow(QMainWindow):
         for b in (getattr(self, "_deploy_btn", None), getattr(self, "_restore_btn", None),
                   getattr(self, "_play_btn", None)):
             if b is not None:
-                b.setEnabled(enabled)
+                # A running game's red Stop control must remain reachable even
+                # if an install/deploy lock disables the neighbouring actions.
+                session = getattr(self, "_play_session", None)
+                if b is getattr(self, "_play_btn", None) \
+                        and session is not None and session.active:
+                    b.setEnabled(not session.stopping)
+                else:
+                    b.setEnabled(enabled)
 
     @property
     def _col_install_running(self) -> bool:

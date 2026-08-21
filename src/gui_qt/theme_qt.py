@@ -912,6 +912,11 @@ def build_qss(pal: dict | None = None) -> str:
         border-radius: 5px;
     }}
     #PlayButton:hover {{ background: {c('BTN_SUCCESS')}; }}
+    #PlayButton[running="true"] {{
+        background: {c('RED_BTN')};
+        color: {ct('RED_BTN')};
+    }}
+    #PlayButton[running="true"]:hover {{ background: {c('RED_HOV')}; }}
 
     /* Bottom log panel */
     #LogBar {{

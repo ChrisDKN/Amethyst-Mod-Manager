@@ -37,6 +37,7 @@ from Utils.config_paths import (
     get_profile_exe_args_path,
 )
 from Utils import launch_report
+from Utils import game_process
 from Utils.protontricks import strip_appimage_env
 from Utils.sleep_inhibit import inhibit_sleep
 from Utils.xdg import spawn_watched
@@ -1015,6 +1016,7 @@ def spawn_process_watched(cmd: list, *, env: "dict | None" = None,
         # /dev/null remains a concrete standard handle. Do not fall back to
         # tempfile's private /tmp, which recreates the Wine crash above.
         pass
+    cmd, env = game_process.prepare_spawn(cmd, env)
     try:
         proc = subprocess.Popen(
             cmd,
@@ -1023,6 +1025,7 @@ def spawn_process_watched(cmd: list, *, env: "dict | None" = None,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=errfile if errfile is not None else subprocess.DEVNULL,
+            start_new_session=True,
         )
     except Exception as e:
         if errfile is not None:
@@ -1037,6 +1040,7 @@ def spawn_process_watched(cmd: list, *, env: "dict | None" = None,
     started = time.monotonic()
     if rep is not None:
         rep.mark_spawned()
+    game_process.attach_process(proc)
 
     def _watch() -> None:
         rc = proc.wait()
@@ -1163,6 +1167,15 @@ def launch_via_steam(steam_id: str, log_fn=_noop_log,
         # Ordered candidates, each falling through to the next on non-zero exit.
         candidates = _url_candidates(url)
 
+    # Steam owns the actual process tree, so the xdg-open/steam Popen below is
+    # only a hand-off. Steam stamps the game descendants with their app id;
+    # watch that identity rather than the short-lived hand-off process.
+    game_process.arm_external(
+        [f"{key}={steam_id}" for key in (
+            "SteamAppId", "SteamGameId", "SteamOverlayGameId",
+            "STEAM_COMPAT_APP_ID")],
+        "Steam")
+
     def _try(idx: int) -> None:
         if idx >= len(candidates):
             msg = "Play error: could not reach Steam (no working launcher)."
@@ -1180,7 +1193,8 @@ def launch_via_steam(steam_id: str, log_fn=_noop_log,
     _try(0)
 
 
-def launch_via_heroic(heroic_app_names: list, log_fn=_noop_log) -> bool:
+def launch_via_heroic(heroic_app_names: list, log_fn=_noop_log,
+                      process_markers: "list[str] | None" = None) -> bool:
     """Launch through Heroic (heroic://launch). Returns False if the game
     isn't in a Heroic library (caller may fall through to Proton).
 
@@ -1197,6 +1211,7 @@ def launch_via_heroic(heroic_app_names: list, log_fn=_noop_log) -> bool:
     store, app_name = info
     url = f"heroic://launch/{store}/{app_name}"
     log_fn(f"Play: launching via Heroic ({store}/{app_name}) ...")
+    game_process.arm_external(process_markers or (), "Heroic")
 
     in_flatpak = Path("/.flatpak-info").exists()
     host = (["flatpak-spawn", "--host"]
@@ -1225,7 +1240,8 @@ def launch_via_heroic(heroic_app_names: list, log_fn=_noop_log) -> bool:
     return True
 
 
-def launch_via_lutris(slugs: list, log_fn=_noop_log) -> bool:
+def launch_via_lutris(slugs: list, log_fn=_noop_log,
+                      process_markers: "list[str] | None" = None) -> bool:
     """Launch through Lutris (lutris:rungame/<slug>). Returns False if the
     game isn't in a Lutris library (caller may fall through to Proton).
 
@@ -1246,6 +1262,7 @@ def launch_via_lutris(slugs: list, log_fn=_noop_log) -> bool:
     url = f"lutris:rungame/{slug}"
     log_fn(f"Play: launching via Lutris ({slug}"
            f"{', flatpak' if lutris_is_flatpak else ''}) ...")
+    game_process.arm_external(process_markers or (), "Lutris")
 
     in_flatpak = Path("/.flatpak-info").exists()
     host = (["flatpak-spawn", "--host"]
@@ -1316,6 +1333,9 @@ def launch_via_faugus(gameids: list, log_fn=_noop_log) -> bool:
     gameid, faugus_is_flatpak = info
     log_fn(f"Play: launching via Faugus ({gameid}"
            f"{', flatpak' if faugus_is_flatpak else ''}) ...")
+    # Mirrors Faugus's own scoped kill_by_faugusid implementation. Every
+    # runner/game child inherits this value, including through umu/Proton.
+    game_process.arm_external([f"FAUGUSID={gameid}"], "Faugus")
 
     in_flatpak = Path("/.flatpak-info").exists()
     host = (["flatpak-spawn", "--host"]
@@ -2099,6 +2119,7 @@ WINEPREFIX + Proton's bin on PATH, ``wine start.exe <exe>``), with only two
     cmd = wrap_tool_command(game, cmd, env, log_fn=log_fn, label=label)
     log_fn(f"{label}: launching with plain Wine (winetricks-style): "
            f"{' '.join(cmd)}")
+    cmd, env = game_process.prepare_spawn(cmd, env)
     try:
         proc = subprocess.Popen(
             cmd,
@@ -2108,6 +2129,7 @@ WINEPREFIX + Proton's bin on PATH, ``wine start.exe <exe>``), with only two
             stderr=subprocess.STDOUT,
             bufsize=1,
             universal_newlines=True,
+            start_new_session=True,
         )
     except OSError as exc:
         log_fn(f"{label}: failed to launch - {exc}")
@@ -2118,6 +2140,7 @@ WINEPREFIX + Proton's bin on PATH, ``wine start.exe <exe>``), with only two
     started = _time.monotonic()
     if rep is not None:
         rep.mark_spawned()
+    game_process.attach_process(proc)
 
     with inhibit_sleep(f"{label} is running", lambda m: log_fn(f"{label}: {m}")):
         assert proc.stdout is not None
@@ -2304,6 +2327,11 @@ def launch_game(game, log_fn=_noop_log) -> None:
         except Exception:
             is_shortcut = False
     default_args = list(getattr(game, "default_launch_args", []) or [])
+    try:
+        launcher_process_markers = game_process.prefix_markers(
+            game.get_prefix_path())
+    except Exception:
+        launcher_process_markers = []
 
     def _note_launcher_args(launcher: str) -> None:
         # heroic:// / lutris: / faugus URLs can't carry a command line - the
@@ -2334,7 +2362,9 @@ def launch_game(game, log_fn=_noop_log) -> None:
     if mode == "heroic":
         if heroic_app_names:
             _note_launcher_args("Heroic")
-            launch_via_heroic(heroic_app_names, log_fn)
+            launch_via_heroic(
+                heroic_app_names, log_fn,
+                process_markers=launcher_process_markers)
         else:
             log_fn("Play: launch mode is Heroic but game has no Heroic app name.")
         return
@@ -2343,7 +2373,8 @@ def launch_game(game, log_fn=_noop_log) -> None:
         slugs = lutris_slugs_for_launch(game)
         if slugs:
             _note_launcher_args("Lutris")
-            launch_via_lutris(slugs, log_fn)
+            launch_via_lutris(
+                slugs, log_fn, process_markers=launcher_process_markers)
         else:
             log_fn("Play: launch mode is Lutris but the game was not found in Lutris.")
         return
@@ -2363,13 +2394,17 @@ def launch_game(game, log_fn=_noop_log) -> None:
             return
         if heroic_app_names and game_is_heroic_install(game):
             _note_launcher_args("Heroic")
-            if launch_via_heroic(heroic_app_names, log_fn):
+            if launch_via_heroic(
+                    heroic_app_names, log_fn,
+                    process_markers=launcher_process_markers):
                 return
         # Lutris/Faugus last among launchers (computed lazily - the scans
         # read Lutris's sqlite DB + yml configs / Faugus's games.json).
         lutris_slugs = lutris_slugs_for_launch(game)
         if lutris_slugs:
-            if launch_via_lutris(lutris_slugs, log_fn):
+            if launch_via_lutris(
+                    lutris_slugs, log_fn,
+                    process_markers=launcher_process_markers):
                 _note_launcher_args("Lutris")
                 return
         faugus_gameids = faugus_gameids_for_launch(game)
@@ -3268,6 +3303,7 @@ def launch_jar(jar_path: Path, game, log_fn=_noop_log) -> None:
 
     log_fn(f"Run JAR: launching {jar_path.name} ({runtime}) ...")
     log_fn(f"Run JAR:   cmd: {' '.join(final_cmd)}")
+    final_cmd, env = game_process.prepare_spawn(final_cmd, env)
     try:
         proc = subprocess.Popen(
             final_cmd,
@@ -3277,6 +3313,7 @@ def launch_jar(jar_path: Path, game, log_fn=_noop_log) -> None:
             stderr=subprocess.STDOUT,
             bufsize=1,
             universal_newlines=True,
+            start_new_session=True,
         )
     except Exception as e:
         log_fn(f"Run JAR error: {e}")
@@ -3287,6 +3324,7 @@ def launch_jar(jar_path: Path, game, log_fn=_noop_log) -> None:
     started = _time.monotonic()
     if rep is not None:
         rep.mark_spawned()
+    game_process.attach_process(proc)
 
     # Stream the launcher's output to the log so failures (missing java.exe in
     # the prefix, a jar that crashes on start) are visible instead of silent.
