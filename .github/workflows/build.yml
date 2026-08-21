@@ -227,6 +227,7 @@ jobs:
           # zenity is bundled from zenity-rs-bin (static) by the PKGBUILD;
           # not installed here.
           pacman -Syu --noconfirm \
+              bubblewrap \
               pyside6 \
               qt6-wayland \
               qt6-imageformats \
