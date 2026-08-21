@@ -690,7 +690,10 @@ def run_deploy_pipeline(
         # its sandbox and can't follow symlinks whose targets aren't mounted
         # there - grant staging/profile access up front (GH#275).
         try:
-            from Utils.flatpak_sandbox import ensure_symlink_target_access
+            from Utils.flatpak_sandbox import (
+                ensure_launcher_handoff_access,
+                ensure_symlink_target_access,
+            )
             ensure_symlink_target_access(
                 game,
                 game_root=Path(game_root) if game_root else None,
@@ -698,6 +701,7 @@ def run_deploy_pipeline(
                 profile_dir=profile_dir,
                 log_fn=log_fn,
             )
+            ensure_launcher_handoff_access(game, log_fn=log_fn)
         except Exception as exc:
             log_fn(f"  WARN: flatpak sandbox access check failed: {exc}")
 

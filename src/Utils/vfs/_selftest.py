@@ -4150,9 +4150,14 @@ def test_launcher_aware_handoffs() -> None:
         assert [field.label for field in heroic.fields] == [
             "Wrapper executable", "Wrapper arguments",
         ]
-        assert heroic.fields[0].value == "/usr/bin/flatpak-spawn"
-        assert heroic.fields[1].value.startswith("--host /usr/bin/python3 ")
-        assert heroic.fields[1].value.endswith(" launch Handoff_Test --")
+        assert heroic.fields[0].value == "/bin/sh"
+        heroic_args = __import__("shlex").split(heroic.fields[1].value)
+        assert heroic_args[0] == "-c"
+        assert heroic_args[2] == "amethyst-heroic"
+        assert "exec /usr/bin/flatpak-spawn --host" in heroic_args[1]
+        assert 'set -- /usr/bin/python3' in heroic_args[1]
+        assert 'launch Handoff_Test -- "$@"' in heroic_args[1]
+        assert '--env=WINEPREFIX=${WINEPREFIX}' in heroic_args[1]
 
         lutris_game = _FakeHandoffGame("lutris_slug", "lutris-id")
         with patch(
@@ -4172,9 +4177,33 @@ def test_launcher_aware_handoffs() -> None:
         ):
             faugus = build_launch_handoff(faugus_game)
         assert faugus is not None and faugus.launcher_id == "faugus"
-        assert faugus.fields[0].label == "Launch Arguments"
-        assert faugus.fields[0].value.startswith(
-            "/usr/bin/flatpak-spawn --host ")
+        assert [field.label for field in faugus.fields] == ["Launch Arguments"]
+        faugus_command = faugus.fields[0].value
+        faugus_argv = __import__("shlex").split(faugus_command)
+        assert faugus_argv[:2] == ["/bin/sh", "-c"]
+        assert faugus_argv[3] == "amethyst-faugus"
+        faugus_script = faugus_argv[2]
+        assert faugus_script.startswith("set -- /usr/bin/python3 ")
+        assert 'launch Handoff_Test -- "$@"' in faugus_script
+        assert '--env=WINEPREFIX=${WINEPREFIX}' in faugus_script
+        assert '--env=PROTONPATH=${PROTONPATH}' in faugus_script
+        assert '--env=GAMEID=${GAMEID}' in faugus_script
+        assert faugus_script.endswith(
+            'exec /usr/bin/flatpak-spawn --host "$@"')
+        assert "Do not put it in Game Arguments" in faugus.instructions
+        assert "grants the required Flatpak permission" in faugus.instructions
+
+        native_faugus_game = _FakeHandoffGame(
+            "faugus_gameid", "native-faugus-id")
+        with patch(
+            "Utils.faugus_finder.find_faugus_launch_info",
+            return_value=("native-faugus-id", False),
+        ):
+            native_faugus = build_launch_handoff(native_faugus_game)
+        assert native_faugus is not None
+        assert [field.label for field in native_faugus.fields] == [
+            "Launch Arguments"]
+        assert "flatpak-spawn" not in native_faugus.fields[0].value
 
         steam_game = _FakeHandoffGame("shortcut_appid", "123456")
         with patch("Utils.flatpak_sandbox.sandbox_app_for_game",
@@ -4182,7 +4211,77 @@ def test_launcher_aware_handoffs() -> None:
             steam = build_launch_handoff(steam_game)
         assert steam is not None and steam.launcher_id == "steam"
         assert steam.fields[0].value.endswith(" -- %command%")
+
+        with patch("Utils.flatpak_sandbox.sandbox_app_for_game",
+                   return_value="com.valvesoftware.Steam"):
+            flatpak_steam = build_launch_handoff(steam_game)
+        assert flatpak_steam is not None
+        steam_argv = __import__("shlex").split(
+            flatpak_steam.fields[0].value.replace(" %command%", ""))
+        assert steam_argv[:2] == ["/bin/sh", "-c"]
+        assert steam_argv[3] == "amethyst-steam"
+        assert "exec /usr/bin/flatpak-spawn --host" in steam_argv[2]
+        assert '--env=STEAM_COMPAT_DATA_PATH=${STEAM_COMPAT_DATA_PATH}' \
+            in steam_argv[2]
     print("✓ Steam/Heroic/Lutris/Faugus handoff formats")
+
+
+def test_flatpak_handoff_permission_is_deploy_managed() -> None:
+    from Utils.flatpak_sandbox import (
+        _has_session_bus_talk,
+        ensure_launcher_handoff_access,
+    )
+
+    assert _has_session_bus_talk(
+        "[Session Bus Policy]\norg.freedesktop.Flatpak=talk\n",
+        "org.freedesktop.Flatpak",
+    )
+    assert _has_session_bus_talk(
+        "[Session Bus Policy]\norg.freedesktop.Flatpak=own;\n",
+        "org.freedesktop.Flatpak",
+    )
+    assert not _has_session_bus_talk(
+        "[System Bus Policy]\norg.freedesktop.Flatpak=talk\n",
+        "org.freedesktop.Flatpak",
+    )
+
+    game = _FakeHandoffGame("faugus_gameid", "faugus-id")
+    logs: list[str] = []
+    completed = types.SimpleNamespace(returncode=0, stdout="", stderr="")
+    with patch(
+        "Utils.faugus_finder.find_faugus_launch_info",
+        return_value=("faugus-id", True),
+    ), patch(
+        "Utils.flatpak_sandbox._read_override_text", return_value="",
+    ), patch(
+        "Utils.flatpak_sandbox.subprocess.run", return_value=completed,
+    ) as run, patch(
+        "Utils.flatpak_sandbox._notify_handoff_restart_needed",
+    ) as notify:
+        ensure_launcher_handoff_access(game, log_fn=logs.append)
+    commands = [call.args[0] for call in run.call_args_list]
+    assert [
+        "flatpak", "override", "--user",
+        "io.github.Faugus.faugus-launcher",
+        "--talk-name=org.freedesktop.Flatpak",
+    ] in commands
+    notify.assert_called_once_with("io.github.Faugus.faugus-launcher")
+    assert any("Granted the Faugus flatpak permission" in line for line in logs)
+
+    # An existing manifest or user override is authoritative and must avoid
+    # re-running the idempotent command (and avoid another restart prompt).
+    with patch(
+        "Utils.faugus_finder.find_faugus_launch_info",
+        return_value=("faugus-id", True),
+    ), patch(
+        "Utils.flatpak_sandbox._read_override_text",
+        return_value=(
+            "[Session Bus Policy]\norg.freedesktop.Flatpak=talk\n"
+        ),
+    ), patch("Utils.flatpak_sandbox.subprocess.run") as run:
+        ensure_launcher_handoff_access(game, log_fn=logs.append)
+    run.assert_not_called()
+    print("✓ Flatpak launcher handoff permission is granted during deploy")
 
 
 def main() -> None:
@@ -4230,6 +4329,7 @@ def main() -> None:
     test_umu_uses_shadow_directly()
     test_steam_runtime_uses_shadow_directly()
     test_launcher_aware_handoffs()
+    test_flatpak_handoff_permission_is_deploy_managed()
     print("All profile VFS self-tests passed.")
 
 

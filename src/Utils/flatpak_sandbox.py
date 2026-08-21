@@ -11,10 +11,11 @@ FalloutCustom.ini unreadable under flatpak Heroic while hardlinks work).
 
 `flatpak override --user <app> --filesystem=<path>` makes a target visible
 inside the sandbox; this module applies that override automatically at
-deploy time.  Grants are read-write because Bethesda games write their ini
-files back through the My Games symlinks.  The override is persisted by
-flatpak (~/.local/share/flatpak/overrides/<app>), so after the first grant
-the coverage check short-circuits and nothing is spawned again.
+deploy time.  It also grants ``org.freedesktop.Flatpak`` talk access when a
+launcher handoff must use ``flatpak-spawn --host`` to reach Amethyst.  Grants
+are persisted by flatpak (~/.local/share/flatpak/overrides/<app>), so after
+the first grant the coverage check short-circuits and nothing is spawned
+again.
 
 Kill switch: AMM_FLATPAK_OVERRIDE=0.
 """
@@ -42,6 +43,7 @@ _APP_NAMES = {
 }
 
 _HOME = Path.home()
+_HOST_ESCAPE_BUS_NAME = "org.freedesktop.Flatpak"
 
 
 # ---------------------------------------------------------------------------
@@ -218,6 +220,25 @@ def _granted_filesystems(app_id: str) -> "tuple[set[str], list[Path]]":
     return _parse_filesystems(_read_override_text(app_id))
 
 
+def _has_session_bus_talk(text: str, bus_name: str) -> bool:
+    """Whether a Flatpak permission keyfile grants *bus_name* talk access."""
+    in_policy = False
+    for raw in text.splitlines():
+        line = raw.strip()
+        if line.startswith("["):
+            in_policy = line == "[Session Bus Policy]"
+            continue
+        if not in_policy or "=" not in line:
+            continue
+        name, value = line.split("=", 1)
+        if name.strip() != bus_name:
+            continue
+        permissions = {part.strip().casefold()
+                       for part in value.split(";") if part.strip()}
+        return bool(permissions & {"talk", "own"})
+    return False
+
+
 _baseline_cache: "dict[str, tuple[set[str], list[Path]]]" = {}
 
 
@@ -281,6 +302,30 @@ def _grant_paths(app_id: str, paths: "list[Path]", log_fn: LogFn) -> bool:
         log_fn(f"  WARN: flatpak override failed ({err}) - grant access "
                f"manually: flatpak override --user {app_id} " +
                " ".join(f"--filesystem='{p}'" for p in paths))
+        return False
+    return True
+
+
+def _grant_session_bus_talk(app_id: str, bus_name: str,
+                            log_fn: LogFn) -> bool:
+    cmd = [
+        "flatpak", "override", "--user", app_id,
+        f"--talk-name={bus_name}",
+    ]
+    try:
+        res = subprocess.run(
+            _host_cmd(cmd), capture_output=True, text=True, timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        log_fn(f"  WARN: flatpak override failed to run: {exc}")
+        return False
+    if res.returncode != 0:
+        err = (res.stderr or res.stdout or "").strip()
+        log_fn(
+            f"  WARN: flatpak override failed ({err}) - allow the launcher "
+            f"to call Amethyst manually: flatpak override --user {app_id} "
+            f"--talk-name={bus_name}"
+        )
         return False
     return True
 
@@ -362,6 +407,61 @@ def ensure_symlink_target_access(
         log_fn(f"  WARN: flatpak sandbox access check failed: {exc}")
 
 
+def ensure_launcher_handoff_access(game, *, log_fn: LogFn) -> None:
+    """Allow a Flatpak launcher handoff to escape back to host Amethyst.
+
+    Launcher wrappers use ``flatpak-spawn --host`` so a source checkout,
+    AppImage, native package, or Amethyst Flatpak can all be reached from the
+    launcher's sandbox.  That portal call requires a session-bus policy which
+    several launchers do not ship.  Apply it once during deploy instead of
+    asking the user to discover and paste an override manually.
+
+    No-op for ordinary deployments, native launchers, existing grants, or
+    when ``AMM_FLATPAK_OVERRIDE=0``.  Like filesystem grants, failure is
+    reported but never corrupts or aborts an otherwise valid deployment.
+    """
+    if os.environ.get("AMM_FLATPAK_OVERRIDE", "1") == "0":
+        return
+    if not getattr(game, "native_launch_required", False):
+        return
+    try:
+        from Utils.launch_handoff import flatpak_launcher_app_for_handoff
+
+        app_id = flatpak_launcher_app_for_handoff(game)
+        if not app_id:
+            return
+        override = _read_override_text(app_id)
+        if _has_session_bus_talk(override, _HOST_ESCAPE_BUS_NAME):
+            return
+        baseline = ""
+        try:
+            res = subprocess.run(
+                _host_cmd(["flatpak", "info", "--show-permissions", app_id]),
+                capture_output=True, text=True, timeout=15,
+            )
+            if res.returncode == 0:
+                baseline = res.stdout
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+        if _has_session_bus_talk(baseline, _HOST_ESCAPE_BUS_NAME):
+            return
+        if _grant_session_bus_talk(app_id, _HOST_ESCAPE_BUS_NAME, log_fn):
+            launcher = _APP_NAMES.get(app_id, app_id)
+            log_fn(
+                f"  Granted the {launcher} flatpak permission to start "
+                "Amethyst's launcher handoff on the host."
+            )
+            log_fn(
+                f"  NOTE: restart {launcher} for the new permission to "
+                "take effect."
+            )
+            _notify_handoff_restart_needed(app_id)
+        else:
+            _notify_handoff_permission_failed(app_id)
+    except Exception as exc:
+        log_fn(f"  WARN: flatpak launcher handoff access check failed: {exc}")
+
+
 def _notify_restart_needed(app_id: str, granted: "list[Path]") -> None:
     """Popup (when a GUI is attached) telling the user to restart the
     launcher - the sandbox only picks the new grants up on a fresh start."""
@@ -380,3 +480,38 @@ def _notify_restart_needed(app_id: str, granted: "list[Path]") -> None:
         )
     except Exception:
         pass  # a failed popup must never break the deploy
+
+
+def _notify_handoff_restart_needed(app_id: str) -> None:
+    launcher = _APP_NAMES.get(app_id, app_id)
+    try:
+        from Utils import ui_hooks
+        ui_hooks.warn(
+            f"Restart {launcher} to finish VFS setup",
+            (f"{launcher} was granted permission to start Amethyst's VFS "
+             "launcher on the host.\n\nFully close and restart {launcher} "
+             "before launching the game. This is only required after the "
+             "permission is first added."),
+            height=270,
+        )
+    except Exception:
+        pass
+
+
+def _notify_handoff_permission_failed(app_id: str) -> None:
+    launcher = _APP_NAMES.get(app_id, app_id)
+    command = (
+        f"flatpak override --user {app_id} "
+        f"--talk-name={_HOST_ESCAPE_BUS_NAME}"
+    )
+    try:
+        from Utils import ui_hooks
+        ui_hooks.warn(
+            f"{launcher} needs one Flatpak permission",
+            ("Amethyst could not grant the permission required by the VFS "
+             f"launcher handoff. Run this command, then restart {launcher}:"
+             f"\n\n{command}"),
+            height=290,
+        )
+    except Exception:
+        pass

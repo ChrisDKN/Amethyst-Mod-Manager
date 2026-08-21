@@ -16,6 +16,48 @@ from pathlib import Path
 import shlex
 
 
+_LAUNCHER_FLATPAK_IDS = {
+    "steam": "com.valvesoftware.Steam",
+    "heroic": "com.heroicgameslauncher.hgl",
+    "lutris": "net.lutris.Lutris",
+    "faugus": "io.github.Faugus.faugus-launcher",
+}
+
+# Runtime values a launcher commonly adds immediately before its custom
+# wrapper. flatpak-spawn starts with the host desktop environment, so these
+# must cross the sandbox boundary explicitly. Avoid forwarding PATH/XDG/LD_*
+# because those describe the launcher's Flatpak runtime, not the host.
+_FLATPAK_HANDOFF_ENV = (
+    "WINEPREFIX",
+    "PROTONPATH",
+    "GAMEID",
+    "WINEDLLOVERRIDES",
+    "WINEDEBUG",
+    "SteamAppId",
+    "SteamGameId",
+    "SteamOverlayGameId",
+    "STEAM_COMPAT_APP_ID",
+    "STEAM_COMPAT_DATA_PATH",
+    "STEAM_COMPAT_INSTALL_PATH",
+    "STEAM_COMPAT_CLIENT_INSTALL_PATH",
+    "STEAM_COMPAT_TOOL_PATHS",
+    "STEAM_COMPAT_MOUNTS",
+    "SteamEnv",
+    "SteamPath",
+    "PROTON_LOG",
+    "PROTON_USE_WINED3D",
+    "PROTON_NO_ESYNC",
+    "PROTON_NO_FSYNC",
+    "PROTON_ENABLE_NVAPI",
+    "PROTON_ENABLE_WAYLAND",
+    "DXVK_CONFIG_FILE",
+    "VKD3D_CONFIG",
+    "DRI_PRIME",
+    "MANGOHUD",
+    "MANGOHUD_CONFIG",
+)
+
+
 @dataclass(frozen=True)
 class LaunchHandoffField:
     """One launcher setting the user must fill in."""
@@ -192,6 +234,17 @@ def _detected_launcher(game) -> tuple[str, bool] | None:
     return None
 
 
+def flatpak_launcher_app_for_handoff(game) -> str | None:
+    """Flatpak app id used by this game's required launcher handoff."""
+    detected = _detected_launcher(game)
+    if detected is None:
+        return None
+    launcher, is_flatpak = detected
+    if not is_flatpak:
+        return None
+    return _LAUNCHER_FLATPAK_IDS.get(launcher)
+
+
 def _launch_argv(game, profile: str | None) -> list[str]:
     from Utils.config_paths import cli_invocation
 
@@ -201,16 +254,23 @@ def _launch_argv(game, profile: str | None) -> list[str]:
     return argv
 
 
-def _launcher_wrapper_argv(argv: list[str], is_flatpak: bool) -> list[str]:
-    """Make a host CLI invocation callable from a launcher Flatpak.
+def _flatpak_handoff_argv(argv: list[str], marker: str) -> list[str]:
+    """Shell wrapper that preserves a launcher's runner argv and environment.
 
-    Heroic/Faugus/Lutris store their UMU tools below ``~/.var/app`` at paths
-    also visible on the host.  Escaping before invoking Amethyst lets source,
-    AppImage, native-package and Amethyst-Flatpak installs share one command.
+    The launcher appends its original command after this wrapper. The shell
+    first makes that command part of Amethyst's CLI argv, prepends an
+    ``--env`` option for each runtime value which is actually set, then
+    escapes to the host. Positional arguments keep paths and values with
+    whitespace intact without evaluating launcher-provided text as shell.
     """
-    if is_flatpak:
-        return ["/usr/bin/flatpak-spawn", "--host", *argv]
-    return argv
+    script = f"set -- {shlex.join(argv)} -- \"$@\"; "
+    for name in _FLATPAK_HANDOFF_ENV:
+        script += (
+            f'if [ "${{{name}+x}}" = x ]; then '
+            f'set -- "--env={name}=${{{name}}}" "$@"; fi; '
+        )
+    script += 'exec /usr/bin/flatpak-spawn --host "$@"'
+    return ["/bin/sh", "-c", script, marker]
 
 
 def build_launch_handoff(game, profile: str | None = None
@@ -230,7 +290,13 @@ def build_launch_handoff(game, profile: str | None = None
     )
 
     if launcher == "steam":
-        command = shlex.join(argv) + " -- %command%"
+        if is_flatpak:
+            command = (
+                shlex.join(_flatpak_handoff_argv(argv, "amethyst-steam"))
+                + " %command%"
+            )
+        else:
+            command = shlex.join(argv) + " -- %command%"
         return LaunchHandoff(
             launcher_id="steam",
             launcher_name="Steam",
@@ -241,9 +307,14 @@ def build_launch_handoff(game, profile: str | None = None
             note=note,
         )
 
-    wrapper = _launcher_wrapper_argv(argv, is_flatpak)
-    # The launcher's original runner command is appended after this separator.
-    wrapper.append("--")
+    if is_flatpak:
+        wrapper = _flatpak_handoff_argv(
+            argv, f"amethyst-{launcher}")
+    else:
+        wrapper = list(argv)
+        # The launcher's original runner command is appended after this
+        # separator.
+        wrapper.append("--")
 
     if launcher == "heroic":
         return LaunchHandoff(
@@ -274,14 +345,23 @@ def build_launch_handoff(game, profile: str | None = None
         )
 
     if launcher == "faugus":
+        fields = [LaunchHandoffField("Launch Arguments", command)]
+        instructions = (
+            "Edit the game and open Launch Settings. Add the Launch Arguments "
+            "value below as one row in the Launch Arguments list. Do not put "
+            "it in Game Arguments, Pre-launch, or Post-launch."
+        )
+        if is_flatpak:
+            instructions = (
+                "Amethyst grants the required Flatpak permission during "
+                "deploy; restart Faugus if Amethyst asks you to. "
+                + instructions
+            )
         return LaunchHandoff(
             launcher_id="faugus",
             launcher_name="Faugus",
-            instructions=(
-                "Edit the game, open Launch Settings, and add this to Launch "
-                "Arguments. Keep any existing environment variables."
-            ),
-            fields=(LaunchHandoffField("Launch Arguments", command),),
+            instructions=instructions,
+            fields=tuple(fields),
             note=note,
         )
     return None
