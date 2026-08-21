@@ -1,4 +1,4 @@
-- v2.2.1
+- v2.3.0
 ### VFS
 - Added a third deploy option to deploy mods into a Virtual file system instead of the game folder. 
 - Not every game has this option but most do.
