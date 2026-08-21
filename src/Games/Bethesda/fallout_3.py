@@ -25,7 +25,6 @@ _PROFILES_DIR = get_profiles_dir()
 _LAVFILTERS_GAME_IDS = frozenset({"Fallout3", "Fallout3GOTY", "FalloutNV"})
 
 class Fallout_3(ProfileVFSGameMixin, BaseGame):
-
     # This family uses one game-root plus one Data directory, matching the
     # reusable profile VFS layer model. Individual subclasses may opt out.
     vfs_legacy_setting_keys = ("skyrim_vfs_enabled",)

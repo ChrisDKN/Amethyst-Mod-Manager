@@ -806,6 +806,22 @@ def _prepare_native_game_launch(game, exe_path: Path, env: dict,
     return env, command
 
 
+def _require_direct_steam_client(game, log_fn=_noop_log) -> bool:
+    """Refuse a direct Steam-install launch when its client is absent."""
+    if not game_is_steam_install(game):
+        return True
+    from Utils.steam_finder import steam_client_running
+    if steam_client_running(strict=True):
+        return True
+    reason = (
+        "Steam needs to be running for this game. Start Steam and sign in, "
+        "then press Play again."
+    )
+    log_fn(f"Play: refusing to launch - {reason}")
+    launch_report.mark_failed(launch_report.actionable(reason))
+    return False
+
+
 def game_is_steam_install(game) -> bool:
     """True if the game folder lives inside a Steam library (steamapps/common)."""
     game_path = game.get_game_path() if hasattr(game, "get_game_path") else None
@@ -2218,6 +2234,8 @@ def launch_game(game, log_fn=_noop_log) -> None:
             return
         log_fn(f"Play: launching through the profile VFS: {exe_path.name}")
         if exe_path.suffix.lower() not in (".exe", ".bat"):
+            if not _require_direct_steam_client(game, log_fn):
+                return
             prepared = _prepare_native_game_launch(
                 game, exe_path, host_env(), log_fn)
             if prepared is None:
@@ -2361,6 +2379,9 @@ def launch_game(game, log_fn=_noop_log) -> None:
                 return
         log_fn("Play: no Steam/Heroic/Lutris/Faugus route matched - launching "
                "the game executable directly.")
+
+    if mode == "none" and not _require_direct_steam_client(game, log_fn):
+        return
 
     exe_path = resolve_game_exe(game)
     if exe_path is None:
@@ -2678,6 +2699,8 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
             and str(Path(selected)).casefold() == str(exe_path).casefold()
         )
     protected_game_launch = framework_launch or vfs_game_launch
+    if protected_game_launch and not _require_direct_steam_client(game, log_fn):
+        return
     if (framework_launch
             and not getattr(game, "vfs_launch_enabled", False)
             and launch_swapped_framework_via_steam(

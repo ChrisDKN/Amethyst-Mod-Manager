@@ -2700,6 +2700,8 @@ def test_native_bepinex_shadow_launch() -> None:
                 patch("Utils.exe_launch.launch_exe_via_proton") as proton, \
                 patch("Utils.exe_launch.game_is_steam_install",
                       return_value=True), \
+                patch("Utils.steam_finder.steam_client_running",
+                      return_value=True), \
                 patch("Utils.exe_launch.effective_steam_id",
                       return_value="1092790"), \
                 patch("Utils.exe_launch.load_exe_args",
@@ -2749,6 +2751,8 @@ def test_native_bepinex_shadow_launch() -> None:
         # launch options just like the normal store/direct routes.
         with patch("Utils.exe_launch.spawn_process_watched") as spawn, \
                 patch("Utils.exe_launch.game_is_steam_install",
+                      return_value=True), \
+                patch("Utils.steam_finder.steam_client_running",
                       return_value=True), \
                 patch("Utils.exe_launch.effective_steam_id",
                       return_value="1092790"), \
@@ -2883,6 +2887,8 @@ def test_native_none_launch_steam_context() -> None:
                 patch("Utils.exe_launch.load_launch_mode",
                       return_value="none"), \
                 patch("Utils.exe_launch.game_is_steam_install",
+                      return_value=True), \
+                patch("Utils.steam_finder.steam_client_running",
                       return_value=True), \
                 patch("Utils.exe_launch.effective_steam_id",
                       return_value="2868840"), \
@@ -3066,8 +3072,8 @@ def test_native_steam_client_lifecycle() -> None:
         assert any("client process is running" in message
                    for message in ready_messages)
 
-    # Launcher failure is returned to Manager Play, which must fail closed and
-    # report an actionable error instead of starting a Steamworks game anyway.
+    # The legacy helper still safely handles client-start failures for callers
+    # which explicitly ask it to start Steam.
     failed_messages: list[str] = []
     with tempfile.TemporaryDirectory() as tmp:
         fake_home = Path(tmp)
@@ -3099,6 +3105,8 @@ def test_native_steam_client_lifecycle() -> None:
                       return_value="none"), \
                 patch("Utils.exe_launch.game_is_steam_install",
                       return_value=True), \
+                patch("Utils.steam_finder.steam_client_running",
+                      return_value=False), \
                 patch("Utils.exe_launch.effective_steam_id",
                       return_value="2868840"), \
                 patch("Utils.exe_launch.load_exe_args", return_value=""), \
@@ -3106,29 +3114,32 @@ def test_native_steam_client_lifecycle() -> None:
                       return_value=""), \
                 patch("Utils.exe_launch.steam_launch_options_for_game",
                       return_value=""), \
-                patch("Utils.steam_client.ensure_steam_client_running",
-                      return_value=False) as ensure_steam, \
+                patch("Utils.steam_client.ensure_steam_client_running") \
+                      as ensure_steam, \
                 patch("Utils.exe_launch.launch_report.actionable",
                       side_effect=lambda reason: reason), \
                 patch("Utils.exe_launch.launch_report.mark_failed") \
                       as mark_failed, \
                 patch("Utils.xdg.host_env", return_value={}):
             launch_game(game, log_fn=launch_messages.append)
-        ensure_steam.assert_called_once()
+        ensure_steam.assert_not_called()
         game_spawn.assert_not_called()
         mark_failed.assert_called_once()
-        assert "Steam is required" in mark_failed.call_args.args[0]
+        assert "Steam needs to be running" in mark_failed.call_args.args[0]
         assert any("refusing to launch" in message
                    for message in launch_messages)
         assert not (native_exe.parent / "steam_appid.txt").exists()
 
-        # Opt-in is handler-specific. A Steam install without it must retain
-        # the ordinary native launch path and never call the client helper.
+        # Once the preflight proves Steam is running, an ordinary direct
+        # native launch proceeds. The old native opt-in remains responsible
+        # only for its second/race-safe readiness check.
         game.native_steam_client_required = False
         with patch("Utils.exe_launch.spawn_process_watched") as game_spawn, \
                 patch("Utils.exe_launch.load_launch_mode",
                       return_value="none"), \
                 patch("Utils.exe_launch.game_is_steam_install",
+                      return_value=True), \
+                patch("Utils.steam_finder.steam_client_running",
                       return_value=True), \
                 patch("Utils.exe_launch.effective_steam_id",
                       return_value="2868840"), \
@@ -3144,6 +3155,57 @@ def test_native_steam_client_lifecycle() -> None:
         ensure_steam.assert_not_called()
         game_spawn.assert_called_once()
     print("✓ native Steam client startup, readiness, and failure lifecycle")
+
+
+def test_direct_steam_launch_requires_running_client() -> None:
+    """VFS and Run Via: None must fail visibly before starting Proton."""
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _FakeBethesdaGame(Path(tmp))
+        exe = game.game / "fose_loader.exe"
+        exe.write_text("loader", encoding="utf-8")
+        game.get_vfs_launch_exe = lambda: exe
+        failures: list[str] = []
+        messages: list[str] = []
+
+        from Utils import launch_report
+        with (
+            patch("Utils.exe_launch.game_is_steam_install",
+                  return_value=True),
+            patch("Utils.steam_finder.steam_client_running",
+                  return_value=False) as running,
+            patch("Utils.exe_launch.spawn_process_watched") as spawn,
+            launch_report.report(failures.append) as report,
+        ):
+            launch_game(game, log_fn=messages.append)
+            report.finish()
+        running.assert_called_once_with(strict=True)
+        spawn.assert_not_called()
+        assert len(failures) == 1
+        assert launch_report.is_actionable(failures[0])
+        assert "Steam needs to be running" in failures[0]
+        assert any("refusing to launch" in message for message in messages)
+
+        # The physical/None route uses the same preflight, without requiring
+        # VFS to be enabled or a script extender to be selected.
+        game._settings = {"vfs_enabled": False}
+        failures.clear()
+        messages.clear()
+        with (
+            patch("Utils.exe_launch.load_launch_mode", return_value="none"),
+            patch("Utils.exe_launch.game_is_steam_install",
+                  return_value=True),
+            patch("Utils.steam_finder.steam_client_running",
+                  return_value=False) as running,
+            patch("Utils.exe_launch.launch_exe_via_proton") as proton,
+            launch_report.report(failures.append) as report,
+        ):
+            launch_game(game, log_fn=messages.append)
+            report.finish()
+        running.assert_called_once_with(strict=True)
+        proton.assert_not_called()
+        assert len(failures) == 1
+        assert "Steam needs to be running" in failures[0]
+    print("✓ direct Steam Play reports when the client is not running")
 
 
 def test_native_vfs_flatpak_forwards_launch_environment() -> None:
@@ -3187,6 +3249,8 @@ def test_native_vfs_flatpak_forwards_launch_environment() -> None:
                 "FLATPAK_LAUNCH_OPTION": "sandbox-baseline",
              }), patch("Utils.exe_launch.spawn_process_watched") as spawn, \
                 patch("Utils.exe_launch.game_is_steam_install",
+                      return_value=True), \
+                patch("Utils.steam_finder.steam_client_running",
                       return_value=True), \
                 patch("Utils.exe_launch.effective_steam_id",
                       return_value="2868840"), \
@@ -3249,6 +3313,8 @@ def test_native_steam_handoff_fallback_is_not_recursive() -> None:
                       return_value="none"), \
                 patch("Utils.exe_launch.game_is_steam_install",
                       return_value=True), \
+                patch("Utils.steam_finder.steam_client_running",
+                      return_value=True), \
                 patch("Utils.exe_launch.effective_steam_id",
                       return_value="2868840"), \
                 patch("Utils.exe_launch.load_exe_args", return_value=""), \
@@ -3280,6 +3346,8 @@ def test_native_steam_handoff_fallback_is_not_recursive() -> None:
                 patch("Utils.exe_launch.load_launch_mode",
                       return_value="none"), \
                 patch("Utils.exe_launch.game_is_steam_install",
+                      return_value=True), \
+                patch("Utils.steam_finder.steam_client_running",
                       return_value=True), \
                 patch("Utils.exe_launch.effective_steam_id",
                       return_value="2868840"), \
@@ -3336,6 +3404,8 @@ def test_proton_steam_handoff_fallback_is_not_recursive() -> None:
                 patch("Utils.exe_launch.effective_steam_id",
                       return_value="489830"), \
                 patch("Utils.exe_launch.game_is_steam_install",
+                      return_value=True), \
+                patch("Utils.steam_finder.steam_client_running",
                       return_value=True), \
                 patch("Utils.umu_launcher.ensure_umu_run"), \
                 patch("Utils.proton_prefix.resolve_compat_data",
@@ -4864,6 +4934,7 @@ def main() -> None:
     test_native_bepinex_shadow_launch()
     test_native_none_launch_steam_context()
     test_native_steam_client_lifecycle()
+    test_direct_steam_launch_requires_running_client()
     test_native_vfs_flatpak_forwards_launch_environment()
     test_native_steam_handoff_fallback_is_not_recursive()
     test_proton_steam_handoff_fallback_is_not_recursive()
