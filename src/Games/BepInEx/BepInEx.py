@@ -286,6 +286,17 @@ class Subnautica(ProfileVFSGameMixin, BaseGame):
             return super().wrap_launch_command(command)
         return super().get_vfs_passthrough_command(vanilla_command)
 
+    def get_vfs_sandbox_passthrough_command(
+        self, vanilla_command: list[str],
+    ):
+        """Retain the native Unix loader inside a Flatpak launcher's argv."""
+        if self._vfs_native_game_exe() is not None:
+            from Utils.vfs import sandbox_passthrough_command
+            command = self._vfs_wrap_native_loader(
+                vanilla_command, require_selected_exe=False)
+            return sandbox_passthrough_command(self, command)
+        return super().get_vfs_sandbox_passthrough_command(vanilla_command)
+
     def runtime_snapshot_exclude_dirs(self) -> set[str] | None:
         # plugins/ is reverted via its _Core backup; capture everything else
         # (BepInEx/config, caches, root loader files) into Root_Folder/.

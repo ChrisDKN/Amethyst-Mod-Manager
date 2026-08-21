@@ -187,9 +187,11 @@ class ProfileVFSGameMixin:
         from Utils.vfs import wrap_command
         return wrap_command(self, command, env=env)
 
-    def get_vfs_passthrough_command(self, vanilla_command: list[str]) -> list[str]:
-        """Wrap a launcher's command, preferring a configured script extender."""
-        from Utils.vfs import prefer_virtual_executable, virtual_file, wrap_command
+    def _prepare_vfs_passthrough_command(
+        self, vanilla_command: list[str],
+    ) -> list[str]:
+        """Apply loader selection/default args without choosing a namespace."""
+        from Utils.vfs import prefer_virtual_executable, virtual_file
         command = list(vanilla_command)
 
         # Launcher handoffs execute this exact argv rather than going through
@@ -225,7 +227,21 @@ class ProfileVFSGameMixin:
             preferred = getattr(self, "preferred_launch_exe", "") or ""
             if preferred and virtual_file(self, preferred):
                 command = prefer_virtual_executable(self, command, preferred)
+        return command
+
+    def get_vfs_passthrough_command(self, vanilla_command: list[str]) -> list[str]:
+        """Wrap a launcher's command, preferring a configured script extender."""
+        from Utils.vfs import wrap_command
+        command = self._prepare_vfs_passthrough_command(vanilla_command)
         return wrap_command(self, command)
+
+    def get_vfs_sandbox_passthrough_command(
+        self, vanilla_command: list[str],
+    ) -> tuple[list[str], Path, dict[str, str]]:
+        """Build argv which a Flatpak launcher can execute in-place."""
+        from Utils.vfs import sandbox_passthrough_command
+        command = self._prepare_vfs_passthrough_command(vanilla_command)
+        return sandbox_passthrough_command(self, command)
 
     def get_vfs_steam_command(self, vanilla_command: list[str]) -> list[str]:
         """Compatibility alias for the original Steam-only CLI contract."""

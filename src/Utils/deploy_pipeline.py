@@ -882,6 +882,16 @@ def run_deploy_pipeline(
         except Exception as pd_err:
             log_fn(f"post_deploy warning: {pd_err}")
 
+        # External launchers retain one short per-game script. Refresh it after
+        # every successful deploy (including silent Play/wizard deployments),
+        # so an AppImage upgrade or moved source checkout cannot leave stale
+        # implementation details hidden in the launcher's saved settings.
+        try:
+            from Utils.launch_handoff import refresh_launch_handoff_script
+            refresh_launch_handoff_script(game, log_fn=log_fn)
+        except Exception as handoff_err:
+            log_fn(f"Launcher handoff warning: {handoff_err}")
+
         _tag = " (incremental)" if incr_plan is not None else ""
         log_fn(f"Deploy finished OK in {_time.perf_counter() - _t_start:.1f}s "
                f"- profile '{profile}'.{_tag}")

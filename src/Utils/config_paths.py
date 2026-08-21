@@ -250,8 +250,9 @@ def cli_invocation() -> "list[str]":
     Steam launch options run on the host, so the command has to be whatever the
     user's install actually exposes:
 
-      * Flatpak - ``flatpak run --command=... <app-id>``. Steam is outside the
-        sandbox, so it cannot call our interpreter directly.
+      * Flatpak - a clean ``flatpak run --command=... <app-id>``. Steam is
+        outside the sandbox, so it cannot call our interpreter directly, and
+        its legacy runtime loader paths must not reach the host Flatpak CLI.
       * AppImage - the ``.AppImage`` itself, from ``APPIMAGE`` (set by the
         runtime; ``sys.executable`` points inside the mounted squashfs, which
         disappears when the app exits).
@@ -263,7 +264,18 @@ def cli_invocation() -> "list[str]":
     app_id = os.environ.get("FLATPAK_ID")
     if app_id:
         # meson installs this wrapper (`exec python3 -m cli "$@"`) into bindir.
-        return ["flatpak", "run", "--command=amethyst-mod-manager-cli", app_id]
+        # Native Steam exports pinned legacy libraries into every Launch
+        # Options process. Those make /usr/bin/flatpak load Steam's libcurl
+        # and terminate before Amethyst can start (CURL_OPENSSL_4 mismatch).
+        # `env -u` is also valid after a launcher Flatpak's host escape.
+        return [
+            "/usr/bin/env",
+            "-u", "LD_LIBRARY_PATH",
+            "-u", "LD_PRELOAD",
+            "-u", "LD_AUDIT",
+            "/usr/bin/flatpak", "run",
+            "--command=amethyst-mod-manager-cli", app_id,
+        ]
 
     # APPIMAGE is set by whatever AppImage is running, which is not necessarily
     # ours - a developer's editor may be one (and then this would hand out the

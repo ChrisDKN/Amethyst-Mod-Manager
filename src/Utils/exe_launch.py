@@ -968,11 +968,13 @@ def spawn_process_watched(cmd: list, *, env: "dict | None" = None,
     line also fires on a normal quit hours later - that's fine, it confirms
     the lifecycle in the session log.
 
-    Must be a NAMED temp file: ``tempfile.TemporaryFile`` is an anonymous
-    O_TMPFILE fd on Linux, and 32-bit wine cold-boot segfaults (exit 245,
-    NULL read in host libc) when a std handle is a nameless fd - the cause
-    of the intermittent skse64_loader 245 crashes (fresh wineserver = crash,
-    warm = survives). Verified against GE-Proton10-33.
+    Every standard handle must also be a concrete, queryable file. A
+    desktop-started Flatpak can inherit an anonymous stdin from its launcher;
+    after ``flatpak-spawn --host`` GE-Proton10-33's Wine cold boot crashes in
+    ``NtQueryInformationFile/get_std_handle`` (exit 245) before the game
+    starts. Use /dev/null for stdin/stdout and a NAMED temp file for stderr.
+    ``tempfile.TemporaryFile`` is an anonymous O_TMPFILE fd and triggers the
+    same Wine bug. Verified against the GE-Proton10-33 coredumps.
     """
     import tempfile
     import threading
@@ -980,14 +982,29 @@ def spawn_process_watched(cmd: list, *, env: "dict | None" = None,
 
     errfile = None
     try:
-        errfile = tempfile.NamedTemporaryFile(prefix="amm-launch-stderr-")
+        # Flatpak gives the app a private /tmp. A named file created there is
+        # still effectively anonymous after flatpak-spawn hands its descriptor
+        # to a host process: the host cannot resolve the sandbox-only pathname,
+        # and GE-Proton10's Wine crashes while querying that std handle. XDG's
+        # per-app cache lives below ~/.var/app in Flatpak and is visible at the
+        # same absolute path from both namespaces. It is also the normal cache
+        # location for native/AppImage builds.
+        cache_base = Path(
+            os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
+        capture_dir = cache_base / "AmethystModManager"
+        capture_dir.mkdir(parents=True, exist_ok=True)
+        errfile = tempfile.NamedTemporaryFile(
+            prefix="amm-launch-stderr-", dir=capture_dir)
     except Exception:
+        # /dev/null remains a concrete standard handle. Do not fall back to
+        # tempfile's private /tmp, which recreates the Wine crash above.
         pass
     try:
         proc = subprocess.Popen(
             cmd,
             env=env,
             cwd=str(cwd) if cwd is not None else None,
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=errfile if errfile is not None else subprocess.DEVNULL,
         )

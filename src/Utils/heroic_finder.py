@@ -459,7 +459,13 @@ def _legendary_commands(heroic_root: Path) -> list[list[str]]:
         binary = Path(base) / _LEGENDARY_REL
         if os.access(binary, os.X_OK):
             cmds.append(["env", f"LEGENDARY_CONFIG_PATH={cfg}", str(binary)])
-    if shutil.which("flatpak"):
+    # A sandboxed Amethyst normally cannot see the host's ``flatpak`` binary;
+    # it reaches host commands through flatpak-spawn instead. The previous
+    # test therefore produced no Heroic/legendary candidate in our Flatpak and
+    # Epic games were launched without their required EOS exchange arguments.
+    host_flatpak_available = bool(
+        _in_flatpak_sandbox() and shutil.which("flatpak-spawn"))
+    if shutil.which("flatpak") or host_flatpak_available:
         # The flatpak's legendary only exists inside the sandbox, so the config
         # path must be the sandbox's own ($XDG_CONFIG_HOME), not the host path.
         cmds.append([

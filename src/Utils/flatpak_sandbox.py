@@ -386,6 +386,16 @@ def ensure_symlink_target_access(
         if not app_id:
             return
         wanted = _wanted_roots(staging, profile_dir)
+        if getattr(game, "native_launch_required", False):
+            from Utils.launch_handoff import launch_handoff_script_path
+            launcher_dir = launch_handoff_script_path(game).parent
+            launcher_dir.mkdir(parents=True, exist_ok=True)
+            if not _covered(launcher_dir, wanted):
+                wanted = [
+                    root for root in wanted
+                    if not _covered(root, [launcher_dir])
+                ]
+                wanted.append(launcher_dir)
         tokens, granted = _granted_filesystems(app_id)
         missing = [p for p in wanted if not _covered(p, granted, tokens)]
         if missing:

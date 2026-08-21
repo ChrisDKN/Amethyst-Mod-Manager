@@ -108,8 +108,9 @@ def cmd_deploy(games: dict, key: str, profile: str):
 
 def cmd_launch(games: dict, key: str, profile: "str | None" = None,
                deploy: bool = True,
-               vanilla_command: "list[str] | None" = None):
-    """Deploy, then replace this process with the game's launch command.
+               vanilla_command: "list[str] | None" = None,
+               sandbox_bridge: bool = False):
+    """Launch through the deployed profile, or pass through vanilla unchanged.
 
     Intended for a launcher wrapper, so the game remains a child of Steam,
     Heroic, Lutris, or Faugus and keeps that launcher's tracking/integration.
@@ -118,10 +119,52 @@ def cmd_launch(games: dict, key: str, profile: "str | None" = None,
 
     Only handlers that require a launch wrapper (``native_launch_required``)
     are supported: either a native external loader or a VFS wrapper around the
-    command the launcher supplied. Everything else uses the normal GUI launch
-    router.
+    command the launcher supplied. When no profile is deployed, a supplied
+    launcher command is executed unchanged and no profile is selected or
+    deployed. Everything else uses the normal GUI launch router.
     """
+    import base64
     import os
+    import shlex
+
+    def _launch_log(message: str) -> None:
+        # The Flatpak bridge reserves stdout for one shell-quoted command.
+        # Keeping deploy diagnostics on stderr also prevents launcher logs (or
+        # a mod name containing shell punctuation) from entering the command
+        # which the launcher evaluates.
+        if sandbox_bridge:
+            print(message, file=sys.stderr, flush=True)
+        else:
+            _log(message)
+
+    def _emit_sandbox_bridge(
+            command: list[str], *, cwd=None,
+            env: "dict[str, str] | None" = None) -> None:
+        env_command = [
+            "/usr/bin/env",
+            *(f"{name}={value}" for name, value in (env or {}).items()),
+            *command,
+        ]
+        prefix = f"cd {shlex.quote(str(cwd))} && " if cwd is not None else ""
+        bridge_command = f"{prefix}exec {shlex.join(env_command)}"
+        encoded = base64.b64encode(bridge_command.encode("utf-8")).decode(
+            "ascii")
+        print(f"AMETHYST_VFS_BRIDGE:{encoded}", flush=True)
+
+    def _vanilla_passthrough_command(command: list[str], game) -> list[str]:
+        """Return launcher argv on the side of the sandbox that owns it."""
+        if os.environ.get("FLATPAK_ID") != "io.github.Amethyst.ModManager":
+            return list(command)
+        from Utils.flatpak_env import flatpak_forward_env_args
+        portal = ["flatpak-spawn", "--host"]
+        try:
+            game_root = game.get_game_path()
+        except Exception:
+            game_root = None
+        if game_root:
+            portal.append(f"--directory={game_root}")
+        portal.extend(flatpak_forward_env_args(os.environ))
+        return [*portal, *command]
 
     game = _find_game(games, key)
     if game is None:
@@ -131,6 +174,37 @@ def cmd_launch(games: dict, key: str, profile: "str | None" = None,
         print(f"Error: game '{game.name}' is not configured (game path not set).",
               file=sys.stderr)
         sys.exit(1)
+
+    # A launcher handoff is a permanent setting, while deployment is
+    # temporary. Restore deliberately keeps the last-profile name for later
+    # convenience but clears deploy_active. In that state the saved wrapper
+    # must become transparent: do not select or redeploy a profile, just give
+    # Steam/Heroic/Lutris/Faugus its original command back unchanged.
+    if vanilla_command and not game.get_deploy_active():
+        _launch_log(
+            f"No Amethyst profile is deployed for {game.name}; "
+            "launching the original unmodded command.")
+        if sandbox_bridge:
+            _emit_sandbox_bridge(list(vanilla_command))
+            return
+        passthrough = _vanilla_passthrough_command(
+            list(vanilla_command), game)
+        try:
+            os.execvp(passthrough[0], passthrough)
+            return
+        except OSError as exc:
+            print(f"Error: could not run {passthrough[0]}: {exc}",
+                  file=sys.stderr)
+            sys.exit(1)
+
+    # A launcher handoff must never turn Play into an implicit deployment.
+    # Large profiles can take a long time to build, and the manager is the
+    # authoritative place where users choose when changed mods are applied.
+    # ``deploy`` remains meaningful for a direct CLI launch which did not
+    # receive a launcher-owned command after ``--``.
+    if vanilla_command:
+        deploy = False
+
     # Default to the profile that was last DEPLOYED, not the one merely
     # selected in the GUI. That keeps a bare "launch <game>" launch option
     # correct across profile switches: the user switches and deploys in the
@@ -172,11 +246,9 @@ def cmd_launch(games: dict, key: str, profile: "str | None" = None,
         sys.exit(1)
 
     if deploy:
-        # Without this, toggling a mod in the GUI and then pressing Play in
-        # a launcher would silently run the previous mod list.
         from Utils.deploy_pipeline import run_deploy_pipeline
-        _log(f"Deploying {game.name} / {profile} ...")
-        if not run_deploy_pipeline(game, profile, log_fn=_log):
+        _launch_log(f"Deploying {game.name} / {profile} ...")
+        if not run_deploy_pipeline(game, profile, log_fn=_launch_log):
             print("Error: deploy failed - refusing to launch.", file=sys.stderr)
             sys.exit(1)
 
@@ -190,7 +262,20 @@ def cmd_launch(games: dict, key: str, profile: "str | None" = None,
                 raise RuntimeError(
                     "The launcher's game command was not supplied after '--'. "
                     "Copy the complete wrapper settings from Amethyst.")
-            cmd = vfs_builder(vanilla_command)
+            if sandbox_bridge:
+                bridge_builder = getattr(
+                    game, "get_vfs_sandbox_passthrough_command", None)
+                if not callable(bridge_builder):
+                    raise RuntimeError(
+                        "this VFS handler does not support an in-sandbox "
+                        "Flatpak launcher bridge")
+                cmd, bridge_cwd, bridge_env = bridge_builder(vanilla_command)
+            else:
+                cmd = vfs_builder(vanilla_command)
+        elif sandbox_bridge:
+            raise RuntimeError(
+                "the in-sandbox launcher bridge is only available for an "
+                "active profile VFS deployment")
         elif allows_passthrough:
             cmd = list(vanilla_command or [])
         else:
@@ -209,7 +294,15 @@ def cmd_launch(games: dict, key: str, profile: "str | None" = None,
               f"{reason or 'the mod loader is not ready.'}", file=sys.stderr)
         sys.exit(1)
 
-    _log("Launching: " + " ".join(cmd))
+    if sandbox_bridge:
+        # This is consumed by a launcher-side Bash command substitution.  Each
+        # token is quoted independently; no launcher-provided argument is ever
+        # evaluated as shell source.  ``exec`` keeps Heroic/Steam/Lutris/Faugus
+        # attached to the actual game process rather than the coordinator.
+        _emit_sandbox_bridge(cmd, cwd=bridge_cwd, env=bridge_env)
+        return
+
+    _launch_log("Launching: " + " ".join(cmd))
     try:
         # exec, don't spawn: launchers track the process they started, so
         # replacing it keeps their Stop button attached to the real game.
@@ -282,12 +375,14 @@ def main():
     dp.add_argument("profile", help="Profile name")
 
     gp = subparsers.add_parser(
-        "launch", help="Deploy, then launch the game through its mod loader")
+        "launch", help="Launch through the active deployment or mod loader")
     gp.add_argument("game", help="game_id or display name (case-insensitive)")
     gp.add_argument("--profile", default=None,
                     help="Profile to deploy and launch (default: last active)")
     gp.add_argument("--no-deploy", action="store_true",
                     help="Launch the existing mod list without deploying first")
+    gp.add_argument(
+        "--sandbox-bridge", action="store_true", help=argparse.SUPPRESS)
 
     rp = subparsers.add_parser("restore", help="Restore the game directory (undo last deploy)")
     rp.add_argument("game", help="game_id or display name (case-insensitive)")
@@ -320,7 +415,8 @@ def main():
         cmd_deploy(games, args.game, args.profile)
     elif args.command == "launch":
         cmd_launch(games, args.game, args.profile, deploy=not args.no_deploy,
-                   vanilla_command=vanilla_command)
+                   vanilla_command=vanilla_command,
+                   sandbox_bridge=args.sandbox_bridge)
     elif args.command == "restore":
         cmd_restore(games, args.game)
 

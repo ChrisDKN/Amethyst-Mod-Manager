@@ -1711,6 +1711,23 @@ def _place_wrapper_on_host(wrapper: list[str], command: list[str]
     return ["flatpak-spawn", "--host", *wrapper], host_command
 
 
+def _forward_flatpak_host_environment(
+        wrapper: list[str], env: dict[str, str] | None,
+        *, directory: Path | None = None) -> None:
+    """Forward launch context through an existing host portal in place."""
+    if not wrapper or Path(wrapper[0]).name != "flatpak-spawn":
+        return
+    from Utils.flatpak_env import flatpak_forward_env_args
+    index = 1
+    while index < len(wrapper) and wrapper[index].startswith("-"):
+        index += 1
+    portal_args = flatpak_forward_env_args(env)
+    if directory is not None \
+            and not any(token.startswith("--directory=") for token in wrapper):
+        portal_args.insert(0, f"--directory={directory}")
+    wrapper[index:index] = portal_args
+
+
 def _uses_umu(command: list[str]) -> bool:
     """Whether *command* invokes umu-run, possibly behind another wrapper."""
     return any(Path(token).name == "umu-run" for token in command)
@@ -1757,6 +1774,72 @@ def _retarget_shadow_paths(command: list[str], game_root: Path,
     return direct, replaced, launch_cwd
 
 
+def sandbox_passthrough_command(
+        game, command: list[str],
+        ) -> tuple[list[str], Path, dict[str, str]]:
+    """Retarget a launcher command for execution in its existing sandbox.
+
+    Flatpak launchers append commands containing paths which only exist inside
+    *their* sandbox (for example Heroic's ``/app/bin/gamemoderun``).  Escaping
+    that whole argv to the host makes those paths invalid.  The CLI bridge
+    uses this helper on the host only to validate the deployed view and rewrite
+    game-root arguments; the launcher's original shell then executes the
+    returned argv inside the launcher Flatpak.
+
+    No mount namespace is created here.  Deploy grants the launcher read/write
+    access to the materialized view, so a direct shadow path is both sufficient
+    and the only way to preserve sandbox-private runner paths.
+    """
+    if not command:
+        raise RuntimeError("No launcher command was supplied to the VFS bridge.")
+
+    payload = _load_manifest(game)
+    if payload.get("backend", BACKEND_KERNEL) != BACKEND_SHADOW:
+        raise RuntimeError(
+            "The Flatpak launcher bridge requires a shadow-tree VFS deploy."
+        )
+    state = manifest_path(game).parent
+    (view, _view_data, _data_rel, game_root, _data_root,
+     _root_upper, _data_upper) = _validated_shadow_paths(
+        game, payload, state)
+    if not view.is_dir():
+        raise RuntimeError(f"Profile VFS shadow root is missing: {view}")
+
+    direct, _replaced, launch_cwd = _retarget_shadow_paths(
+        command, game_root, view)
+    have_virtual_exe = launch_cwd is not None
+    if launch_cwd is None:
+        # A preferred loader may already have been replaced with its virtual
+        # path before this helper is called. Derive its correct nested working
+        # directory even when some other install-root argument was rewritten.
+        resolved_view = view.resolve(strict=False)
+        for token in direct:
+            candidate = Path(token)
+            if not candidate.is_absolute():
+                continue
+            try:
+                candidate.resolve(strict=False).relative_to(resolved_view)
+            except (OSError, ValueError):
+                continue
+            if candidate.is_file():
+                have_virtual_exe = True
+                launch_cwd = candidate.parent
+                break
+    if not have_virtual_exe:
+        # Never emit a command which only rewrote an install-directory option
+        # but left its executable outside the private view.
+        raise RuntimeError(
+            "The launcher command does not contain a game executable "
+            f"under {game_root}; check the generated wrapper settings."
+        )
+
+    return (
+        direct,
+        launch_cwd or view,
+        {"STEAM_COMPAT_INSTALL_PATH": str(view)},
+    )
+
+
 def _direct_shadow_umu_command(command: list[str], game_root: Path,
                                view: Path,
                                env: dict[str, str] | None) -> list[str] | None:
@@ -1768,6 +1851,21 @@ def _direct_shadow_umu_command(command: list[str], game_root: Path,
     complete profile view without nesting two bubblewrap runtimes.
     """
     if not _uses_umu(command):
+        return None
+
+    # A host-started UMU launch can safely use the materialized profile path
+    # as its install root.  When Amethyst itself is a Flatpak, however, games
+    # launched that way consistently die in Proton before their own startup
+    # logging (exit 245).  The exact same UMU/Proton and prefix work through
+    # the portal when the view is instead bound over the original, short game
+    # path.  UMU's pressure-vessel preserves that outer host mount, so let the
+    # shared fallback below build ``flatpak-spawn --host bwrap --bind ...``
+    # rather than rewriting the executable to ``.amethyst-vfs/view``.
+    #
+    # Keeping this conditional also avoids adding a mount namespace to the
+    # native/AppImage path, where direct-shadow UMU launches are established
+    # and faster.
+    if _inside_flatpak():
         return None
     direct, replaced, launch_cwd = _retarget_shadow_paths(
         command, game_root, view)
@@ -1836,11 +1934,102 @@ def _direct_shadow_steam_runtime_command(
         'cd "$1" && shift && exec "$@"',
         "amethyst-vfs-steam-runtime", str(launch_cwd or view),
     ], direct)
+    forwarded_env = dict(env if env is not None else os.environ)
+    forwarded_env.update(shadow_env)
+    _forward_flatpak_host_environment(
+        wrapper, forwarded_env, directory=game_root)
     return [
         *wrapper,
         "/usr/bin/env",
         *(f"{key}={value}" for key, value in shadow_env.items()),
         *host_command,
+    ]
+
+
+def _bound_shadow_steam_runtime_command(
+        command: list[str], game_root: Path, view: Path,
+        env: dict[str, str] | None) -> list[str] | None:
+    """Bind the view at the short game path *inside* pressure-vessel.
+
+    Skyrim needs its configured install path to remain visible because deeply
+    nested loose assets can otherwise cross Windows' legacy path limit. An
+    outer bubblewrap works for bare Proton, but pressure-vessel constructs a
+    new filesystem namespace and can replace that outer view—most visibly
+    when Amethyst first escapes its Flatpak. Steam Linux Runtime ships its own
+    ``srt-bwrap`` specifically for this environment, so make the final bind
+    the command executed by the runtime and start Proton inside that bind.
+    """
+    runtime_index = next(
+        (index for index, token in enumerate(command)
+         if Path(token).name == "_v2-entry-point"),
+        None,
+    )
+    if runtime_index is None:
+        return None
+    try:
+        separator_index = command.index("--", runtime_index + 1)
+    except ValueError:
+        return None
+
+    runtime_root = Path(command[runtime_index]).parent
+    runtime_bwrap = (
+        runtime_root / "pressure-vessel" / "libexec"
+        / "steam-runtime-tools-0" / "srt-bwrap"
+    )
+    if not runtime_bwrap.is_file():
+        raise RuntimeError(
+            "Steam Linux Runtime does not contain its required srt-bwrap "
+            f"helper: {runtime_bwrap}"
+        )
+
+    source_env = env if env is not None else os.environ
+    shadow_env = _steam_runtime_shadow_env(source_env, game_root, view)
+    # Unlike direct-shadow mode, pressure-vessel must continue reporting the
+    # configured short install path. The nested bind supplies the private view
+    # at precisely that destination.
+    shadow_env["STEAM_COMPAT_INSTALL_PATH"] = str(game_root)
+    if env is not None:
+        env.update(shadow_env)
+
+    inner_bind = [
+        str(runtime_bwrap),
+        "--die-with-parent",
+        "--dev-bind", "/", "/",
+        "--bind", str(view), str(game_root),
+        "--",
+    ]
+    direct = [
+        *command[:separator_index + 1],
+        *inner_bind,
+        *command[separator_index + 1:],
+    ]
+    # A manager-Play Proton command already starts with flatpak-spawn --host,
+    # while a native Steam Launch Options command does not: Steam is on the
+    # host, but it re-enters Amethyst's Flatpak to deploy. Reuse the former or
+    # add the latter here so srt-bwrap never attempts a nested namespace inside
+    # Amethyst's sandbox. Keep the environment after the portal but before the
+    # runtime; sandbox-side variables are not forwarded automatically.
+    wrapper, host_command = _place_wrapper_on_host([], direct)
+    # ``flatpak-spawn --host`` starts from the desktop session rather than
+    # inheriting the environment of the Steam command that entered our
+    # Flatpak.  A native Steam Launch Options handoff therefore loses its app
+    # ID, compatdata path and selected runtime unless we forward them at the
+    # portal boundary.  Manager Play already supplies these flags in its
+    # Proton command; keep the generated Steam shortcut equivalent.
+    forwarded_env = dict(source_env)
+    forwarded_env.update(shadow_env)
+    _forward_flatpak_host_environment(
+        wrapper, forwarded_env, directory=game_root)
+    runtime_index = next(
+        index for index, token in enumerate(host_command)
+        if Path(token).name == "_v2-entry-point"
+    )
+    return [
+        *wrapper,
+        *host_command[:runtime_index],
+        "/usr/bin/env",
+        *(f"{key}={value}" for key, value in shadow_env.items()),
+        *host_command[runtime_index:],
     ]
 
 
@@ -1858,12 +2047,7 @@ def _direct_shadow_opt_in_command(command: list[str], game_root: Path,
     # ``flatpak-spawn --host`` starts from the desktop-session environment,
     # not from Popen's sandbox-side env. Forward the pinned Steam app ID and
     # any explicit Launch Options variables before the host shell starts.
-    if wrapper and Path(wrapper[0]).name == "flatpak-spawn" and env:
-        from Utils.flatpak_env import flatpak_forward_env_args
-        index = 1
-        while index < len(wrapper) and wrapper[index].startswith("-"):
-            index += 1
-        wrapper[index:index] = flatpak_forward_env_args(env)
+    _forward_flatpak_host_environment(wrapper, env, directory=game_root)
     return [*wrapper, *host_command]
 
 
@@ -1890,6 +2074,11 @@ def wrap_command(game, command: list[str],
                 raise RuntimeError(f"Profile VFS {label} is missing: {path}")
         bind_at_game_root = bool(
             getattr(game, "vfs_bind_launch_at_game_root", False))
+        if bind_at_game_root:
+            bound_runtime = _bound_shadow_steam_runtime_command(
+                command, game_root, view, env)
+            if bound_runtime is not None:
+                return bound_runtime
         if not bind_at_game_root:
             direct_umu = _direct_shadow_umu_command(
                 command, game_root, view, env)

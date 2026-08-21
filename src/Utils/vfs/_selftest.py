@@ -47,6 +47,7 @@ from Utils.vfs import (  # noqa: E402
     finalize_deployment,
     has_deployment_state,
     prefer_virtual_executable,
+    sandbox_passthrough_command,
     virtual_root_write_path,
     wrap_command,
 )
@@ -67,11 +68,13 @@ from Utils.quick_configure import (  # noqa: E402
     deploy_mode_change_blocked,
 )
 from Utils.launch_handoff import build_launch_handoff  # noqa: E402
+from cli import cmd_launch  # noqa: E402
 from Utils.exe_launch import (  # noqa: E402
     is_game_launch_exe,
     launch_exe_via_proton,
     launch_game,
     run_tool_logged,
+    spawn_process_watched,
 )
 from Utils.xedit_tools import (  # noqa: E402
     begin_xedit_vfs_session,
@@ -224,6 +227,7 @@ class _FakeHandoffGame:
     name = "Handoff Test"
     game_id = "Handoff_Test"
     native_launch_required = True
+    vfs_launch_enabled = True
 
     def __init__(self, launcher_key: str, launcher_value: str):
         self.launcher_key = launcher_key
@@ -4175,6 +4179,34 @@ def test_appimage_bubblewrap_fallback() -> None:
     print("✓ AppImage bwrap fallback preserves host and Flatpak precedence")
 
 
+def test_watched_game_launch_uses_safe_standard_handles() -> None:
+    """Desktop/Flatpak stdin must never reach Wine as an anonymous fd."""
+    fake_proc = types.SimpleNamespace(pid=1234)
+    with tempfile.TemporaryDirectory() as tmp:
+        cache = Path(tmp) / "flatpak-cache"
+        with (
+            patch.dict(os.environ, {"XDG_CACHE_HOME": str(cache)}),
+            patch("Utils.exe_launch.subprocess.Popen",
+                  return_value=fake_proc) as popen,
+            patch("threading.Thread") as thread,
+        ):
+            spawn_process_watched(
+                ["flatpak-spawn", "--host", "game.exe"],
+                label="Run EXE game.exe",
+            )
+
+        kwargs = popen.call_args.kwargs
+        assert kwargs["stdin"] is subprocess.DEVNULL
+        assert kwargs["stdout"] is subprocess.DEVNULL
+        stderr = kwargs["stderr"]
+        assert stderr is not subprocess.DEVNULL
+        assert Path(stderr.name).parent == cache / "AmethystModManager"
+        assert Path(stderr.name).name.startswith("amm-launch-stderr-")
+        thread.return_value.start.assert_called_once_with()
+        stderr.close()
+    print("✓ watched game launches use Wine-safe standard handles")
+
+
 def test_umu_uses_shadow_directly() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         game = _FakeGame(Path(tmp))
@@ -4226,6 +4258,48 @@ def test_umu_uses_shadow_directly() -> None:
         result = subprocess.run(
             wrapped, text=True, capture_output=True, check=False)
         assert result.returncode == 0, result.stderr
+
+        # A launcher Flatpak must retain its own /app runner tokens while only
+        # the physical game path is moved into the materialized view.
+        sandbox_original = [
+            "/app/bin/gamemoderun", "/app/lib/heroic/umu_run.py",
+            str(real_exe), "--epic-auth-token", "secret value",
+        ]
+        sandbox_cmd, sandbox_cwd, sandbox_env = sandbox_passthrough_command(
+            game, sandbox_original)
+        assert sandbox_cmd[:2] == sandbox_original[:2]
+        assert sandbox_cmd[2] == str(shadow_exe)
+        assert sandbox_cmd[3:] == sandbox_original[3:]
+        assert sandbox_cwd == shadow_exe.parent
+        assert sandbox_env == {"STEAM_COMPAT_INSTALL_PATH": str(view)}
+
+        # Through Amethyst's Flatpak, retain the original short install path
+        # and bind the profile view there on the host. UMU preserves this
+        # namespace when it starts pressure-vessel; launching the Windows EXE
+        # from the long shadow path is not reliable through the host portal.
+        flatpak_original = [
+            "flatpak-spawn", "--host", "--directory=/tmp",
+            str(fake_umu), str(real_exe), str(shadow_exe.parent), str(view),
+        ]
+        with (
+            patch("Utils.vfs.overlay._inside_flatpak", return_value=True),
+            patch("Utils.vfs.overlay._bubblewrap_status",
+                  return_value=(True, "available")),
+            patch("Utils.vfs.overlay._bubblewrap_binary",
+                  return_value="bwrap"),
+        ):
+            flatpak_wrapped = wrap_command(game, flatpak_original)
+
+        assert flatpak_wrapped[:4] == [
+            "flatpak-spawn", "--host", "--directory=/tmp", "bwrap",
+        ]
+        assert flatpak_wrapped.count("flatpak-spawn") == 1
+        bind_index = flatpak_wrapped.index("--bind")
+        assert flatpak_wrapped[bind_index + 1:bind_index + 3] == [
+            str(view), str(canonical_game.resolve()),
+        ]
+        assert str(real_exe) in flatpak_wrapped
+        assert str(shadow_exe) not in flatpak_wrapped
     print("✓ UMU launches the materialized shadow directly")
 
 
@@ -4298,17 +4372,29 @@ def test_steam_runtime_uses_shadow_directly() -> None:
         # Legacy engines such as Skyrim must retain the configured install as
         # their visible working path. Deep loose assets can be below MAX_PATH
         # there but cross it when rooted below `.amethyst-vfs/view`. The
-        # handler opt-in deliberately bypasses direct runtime retargeting and
-        # restores the original bind-at-game-root launch shape.
+        # handler opt-in keeps the bind-at-game-root shape, but the bind must
+        # be created inside pressure-vessel. An outer Flatpak/host bwrap mount
+        # is replaced when Steam Runtime constructs its own namespace.
         game.vfs_bind_launch_at_game_root = True
         bound_env = os.environ.copy()
         bound_env["STEAM_COMPAT_INSTALL_PATH"] = str(canonical_game)
-        with patch("Utils.vfs.overlay._bubblewrap_status",
-                   return_value=(True, "")), \
-                patch("Utils.vfs.overlay._bubblewrap_binary",
-                      return_value="/usr/bin/bwrap"):
-            bound = wrap_command(game, original, env=bound_env)
-        assert Path(bound[0]).name == "bwrap"
+        runtime_bwrap = (
+            runtime_dir / "pressure-vessel" / "libexec"
+            / "steam-runtime-tools-0" / "srt-bwrap"
+        )
+        runtime_bwrap.parent.mkdir(parents=True)
+        runtime_bwrap.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        runtime_bwrap.chmod(0o755)
+        realistic_runtime = [
+            "flatpak-spawn", "--host", str(fake_runtime),
+            "--verb=waitforexitandrun", "--", "python3", "proton",
+            "waitforexitandrun", str(real_exe),
+        ]
+        bound = wrap_command(game, realistic_runtime, env=bound_env)
+        assert Path(bound[0]).name == "flatpak-spawn"
+        assert bound.count("flatpak-spawn") == 1
+        assert str(runtime_bwrap) in bound
+        assert bound.index(str(fake_runtime)) < bound.index(str(runtime_bwrap))
         bind_index = bound.index("--bind")
         assert bound[bind_index + 1:bind_index + 3] == [
             str(view), str(canonical_game.resolve()),
@@ -4316,12 +4402,57 @@ def test_steam_runtime_uses_shadow_directly() -> None:
         assert str(real_exe) in bound
         assert str(shadow_exe) not in bound
         assert bound_env["STEAM_COMPAT_INSTALL_PATH"] == str(canonical_game)
+        assert str(view) in bound_env["STEAM_COMPAT_MOUNTS"].split(":")
+
+        # Native Steam calls the generated script on the host, which then
+        # enters Amethyst's Flatpak for deployment. Its vanilla command has no
+        # portal prefix; the VFS builder must add exactly one before srt-bwrap
+        # or nested user namespaces are rejected inside Amethyst's sandbox.
+        flatpak_cli_env = os.environ.copy()
+        flatpak_cli_env.update({
+            "SteamAppId": "489830",
+            "SteamGameId": "489830",
+            "SteamOverlayGameId": "489830",
+            "STEAM_COMPAT_APP_ID": "489830",
+            "STEAM_COMPAT_DATA_PATH": "/compatdata/489830",
+            "STEAM_COMPAT_CLIENT_INSTALL_PATH": "/steam",
+            "STEAM_COMPAT_TOOL_PATHS": "/proton:/sniper",
+        })
+        with patch("Utils.vfs.overlay._inside_flatpak", return_value=True):
+            native_steam_bound = wrap_command(
+                game, realistic_runtime[2:], env=flatpak_cli_env)
+        assert native_steam_bound[:2] == ["flatpak-spawn", "--host"]
+        assert native_steam_bound.count("flatpak-spawn") == 1
+        assert f"--directory={canonical_game.resolve()}" \
+            in native_steam_bound
+        assert "--env=SteamAppId=489830" in native_steam_bound
+        assert "--env=SteamGameId=489830" in native_steam_bound
+        assert "--env=SteamOverlayGameId=489830" in native_steam_bound
+        assert "--env=STEAM_COMPAT_APP_ID=489830" in native_steam_bound
+        assert "--env=STEAM_COMPAT_DATA_PATH=/compatdata/489830" \
+            in native_steam_bound
+        assert "--env=STEAM_COMPAT_CLIENT_INSTALL_PATH=/steam" \
+            in native_steam_bound
+        assert "--env=STEAM_COMPAT_TOOL_PATHS=/proton:/sniper" \
+            in native_steam_bound
+        assert any(token.startswith("--env=STEAM_COMPAT_MOUNTS=")
+                   and str(view) in token for token in native_steam_bound)
+        assert native_steam_bound.index("--env=SteamAppId=489830") \
+            < native_steam_bound.index(str(fake_runtime))
+        assert str(runtime_bwrap) in native_steam_bound
+        assert native_steam_bound.index("/usr/bin/env") \
+            < native_steam_bound.index(str(fake_runtime))
     print("✓ Steam Linux Runtime launches the shadow directly")
 
 
 def test_launcher_aware_handoffs() -> None:
     cli = ["/usr/bin/python3", "/home/test/Amethyst/src/cli.py"]
-    with patch("Utils.config_paths.cli_invocation", return_value=cli):
+    with tempfile.TemporaryDirectory() as tmp, \
+            patch("Utils.config_paths.cli_invocation", return_value=cli), \
+            patch("Utils.config_paths.get_default_staging_root",
+                  return_value=Path(tmp) / "Amethyst"):
+        short_script = Path(tmp) / "Amethyst" / "launchers" \
+            / "Handoff_Test.sh"
         heroic_game = _FakeHandoffGame("heroic_app_name", "heroic-id")
         with patch("Utils.launch_handoff._heroic_launch_is_flatpak",
                    return_value=True):
@@ -4330,14 +4461,15 @@ def test_launcher_aware_handoffs() -> None:
         assert [field.label for field in heroic.fields] == [
             "Wrapper executable", "Wrapper arguments",
         ]
-        assert heroic.fields[0].value == "/bin/sh"
-        heroic_args = __import__("shlex").split(heroic.fields[1].value)
-        assert heroic_args[0] == "-c"
-        assert heroic_args[2] == "amethyst-heroic"
-        assert "exec /usr/bin/flatpak-spawn --host" in heroic_args[1]
-        assert 'set -- /usr/bin/python3' in heroic_args[1]
-        assert 'launch Handoff_Test -- "$@"' in heroic_args[1]
-        assert '--env=WINEPREFIX=${WINEPREFIX}' in heroic_args[1]
+        assert heroic.fields[0].value == str(short_script)
+        assert heroic.fields[1].value == "--"
+        assert short_script.stat().st_mode & 0o111
+        heroic_script = short_script.read_text(encoding="utf-8")
+        assert "/usr/bin/flatpak-spawn --host" in heroic_script
+        assert "launch Handoff_Test --sandbox-bridge" in heroic_script
+        assert 'eval "$bridge"' in heroic_script
+        assert str(cli[1]) not in " ".join(
+            field.value for field in heroic.fields)
 
         lutris_game = _FakeHandoffGame("lutris_slug", "lutris-id")
         with patch(
@@ -4347,8 +4479,11 @@ def test_launcher_aware_handoffs() -> None:
             lutris = build_launch_handoff(lutris_game)
         assert lutris is not None and lutris.launcher_id == "lutris"
         assert lutris.fields[0].label == "Command prefix"
-        assert lutris.fields[0].value.endswith(" launch Handoff_Test --")
+        assert __import__("shlex").split(lutris.fields[0].value) == [
+            str(short_script), "--"]
         assert "flatpak-spawn" not in lutris.fields[0].value
+        assert "launch Handoff_Test --" in short_script.read_text(
+            encoding="utf-8")
 
         faugus_game = _FakeHandoffGame("faugus_gameid", "faugus-id")
         with patch(
@@ -4360,16 +4495,11 @@ def test_launcher_aware_handoffs() -> None:
         assert [field.label for field in faugus.fields] == ["Launch Arguments"]
         faugus_command = faugus.fields[0].value
         faugus_argv = __import__("shlex").split(faugus_command)
-        assert faugus_argv[:2] == ["/bin/sh", "-c"]
-        assert faugus_argv[3] == "amethyst-faugus"
-        faugus_script = faugus_argv[2]
-        assert faugus_script.startswith("set -- /usr/bin/python3 ")
-        assert 'launch Handoff_Test -- "$@"' in faugus_script
-        assert '--env=WINEPREFIX=${WINEPREFIX}' in faugus_script
-        assert '--env=PROTONPATH=${PROTONPATH}' in faugus_script
-        assert '--env=GAMEID=${GAMEID}' in faugus_script
-        assert faugus_script.endswith(
-            'exec /usr/bin/flatpak-spawn --host "$@"')
+        assert faugus_argv == [str(short_script), "--"]
+        faugus_script = short_script.read_text(encoding="utf-8")
+        assert "/usr/bin/flatpak-spawn --host" in faugus_script
+        assert "launch Handoff_Test --sandbox-bridge" in faugus_script
+        assert 'eval "$bridge"' in faugus_script
         assert "Do not put it in Game Arguments" in faugus.instructions
         assert "grants the required Flatpak permission" in faugus.instructions
 
@@ -4384,13 +4514,31 @@ def test_launcher_aware_handoffs() -> None:
         assert [field.label for field in native_faugus.fields] == [
             "Launch Arguments"]
         assert "flatpak-spawn" not in native_faugus.fields[0].value
+        assert "flatpak-spawn" not in short_script.read_text(encoding="utf-8")
+        # The visible ``--`` is only a wrapper marker; the generated script
+        # strips it and forwards the launcher's original argv losslessly.
+        with patch("Utils.config_paths.cli_invocation",
+                   return_value=["/bin/echo", "AMETHYST"]), patch(
+            "Utils.faugus_finder.find_faugus_launch_info",
+            return_value=("native-faugus-id", False),
+        ):
+            build_launch_handoff(native_faugus_game)
+        forwarded = subprocess.run(
+            [str(short_script), "--", "runner", "game path/Game.exe"],
+            capture_output=True, text=True, check=False,
+        )
+        assert forwarded.returncode == 0
+        assert forwarded.stdout.strip() == (
+            "AMETHYST launch Handoff_Test -- runner game path/Game.exe")
 
         steam_game = _FakeHandoffGame("shortcut_appid", "123456")
         with patch("Utils.flatpak_sandbox.sandbox_app_for_game",
                    return_value=None):
             steam = build_launch_handoff(steam_game)
         assert steam is not None and steam.launcher_id == "steam"
-        assert steam.fields[0].value.endswith(" -- %command%")
+        assert __import__("shlex").split(
+            steam.fields[0].value.replace(" %command%", "")) == [
+                str(short_script), "--"]
 
         with patch("Utils.flatpak_sandbox.sandbox_app_for_game",
                    return_value="com.valvesoftware.Steam"):
@@ -4398,18 +4546,205 @@ def test_launcher_aware_handoffs() -> None:
         assert flatpak_steam is not None
         steam_argv = __import__("shlex").split(
             flatpak_steam.fields[0].value.replace(" %command%", ""))
-        assert steam_argv[:2] == ["/bin/sh", "-c"]
-        assert steam_argv[3] == "amethyst-steam"
-        assert "exec /usr/bin/flatpak-spawn --host" in steam_argv[2]
-        assert '--env=STEAM_COMPAT_DATA_PATH=${STEAM_COMPAT_DATA_PATH}' \
-            in steam_argv[2]
+        assert steam_argv == [str(short_script), "--"]
+        steam_script = short_script.read_text(encoding="utf-8")
+        assert "launch Handoff_Test --sandbox-bridge" in steam_script
+        assert 'eval "$bridge"' in steam_script
+
+        # External loaders still run on the host and therefore retain the old
+        # environment-forwarding wrapper. Only VFS needs the runner to stay in
+        # the launcher sandbox.
+        external = _FakeHandoffGame("heroic_app_name", "heroic-id")
+        external.vfs_launch_enabled = False
+        with patch("Utils.launch_handoff._heroic_launch_is_flatpak",
+                   return_value=True):
+            external_handoff = build_launch_handoff(external)
+        assert external_handoff is not None
+        assert external_handoff.fields[0].value == str(short_script)
+        assert external_handoff.fields[1].value == "--"
+        external_script = short_script.read_text(encoding="utf-8")
+        assert "exec /usr/bin/flatpak-spawn --host" in external_script
+        assert '--env=WINEPREFIX=${WINEPREFIX}' in external_script
     print("✓ Steam/Heroic/Lutris/Faugus handoff formats")
+
+
+def test_launcher_handoff_is_transparent_when_undeployed() -> None:
+    """A permanent launcher setting must still allow an unmodded launch."""
+    class _UndeployedGame:
+        name = "Undeployed Test"
+        game_id = "undeployed_test"
+
+        def is_configured(self) -> bool:
+            return True
+
+        def get_deploy_active(self) -> bool:
+            return False
+
+        def get_game_path(self) -> Path:
+            return Path("/games/Undeployed Test")
+
+        def get_last_deployed_profile(self):
+            raise AssertionError("inactive handoff selected a profile")
+
+        def get_profile_root(self):
+            raise AssertionError("inactive handoff inspected profile storage")
+
+    game = _UndeployedGame()
+    games = {game.name: game}
+    vanilla = [
+        "/launcher/private runner", "--game", "/game/Game.exe",
+        "argument with spaces",
+    ]
+
+    with patch("os.execvp") as execvp:
+        cmd_launch(games, game.game_id, vanilla_command=vanilla)
+    execvp.assert_called_once_with(vanilla[0], vanilla)
+
+    # Native Steam enters Amethyst's Flatpak to check deployment state. Its
+    # original pressure-vessel command belongs on the host, so transparent
+    # passthrough must cross back out with the app/runtime context intact.
+    with (
+        patch.dict(os.environ, {
+            "FLATPAK_ID": "io.github.Amethyst.ModManager",
+            "SteamAppId": "22380",
+            "SteamEnv": "1",
+            "SteamPath": "/steam",
+            "STEAM_COMPAT_APP_ID": "22380",
+            "STEAM_COMPAT_DATA_PATH": "/compatdata/22380",
+        }),
+        patch("os.execvp") as execvp,
+    ):
+        cmd_launch(games, game.game_id, vanilla_command=vanilla)
+    host_command = execvp.call_args.args[1]
+    assert host_command[:3] == [
+        "flatpak-spawn", "--host",
+        "--directory=/games/Undeployed Test",
+    ]
+    assert "--env=SteamAppId=22380" in host_command
+    assert "--env=SteamEnv=1" in host_command
+    assert "--env=SteamPath=/steam" in host_command
+    assert "--env=STEAM_COMPAT_APP_ID=22380" in host_command
+    assert "--env=STEAM_COMPAT_DATA_PATH=/compatdata/22380" in host_command
+    assert host_command[-len(vanilla):] == vanilla
+    execvp.assert_called_once_with("flatpak-spawn", host_command)
+
+    # Flatpak launchers keep their /app runner inside their own sandbox. The
+    # host coordinator must return that exact argv through the existing bridge
+    # instead of trying to execute or reinterpret it on the host.
+    with patch("builtins.print") as printed:
+        cmd_launch(
+            games, game.game_id, vanilla_command=vanilla,
+            sandbox_bridge=True,
+        )
+    marker = next(
+        str(call.args[0]) for call in printed.call_args_list
+        if call.args and str(call.args[0]).startswith("AMETHYST_VFS_BRIDGE:")
+    )
+    import base64
+    import shlex
+    bridge = base64.b64decode(marker.split(":", 1)[1]).decode("utf-8")
+    assert shlex.split(bridge.removeprefix("exec ")) == [
+        "/usr/bin/env", *vanilla,
+    ]
+
+    # An active deployment is also launch-only. Changing a mod in the manager
+    # must not make an external launch unexpectedly spend minutes rebuilding
+    # a large profile; Deploy remains an explicit user action.
+    with tempfile.TemporaryDirectory() as tmp:
+        class _DeployedGame(_UndeployedGame):
+            launch_passthrough_supported = True
+            native_launch_required = False
+            vfs_launch_enabled = False
+
+            def __init__(self, root: Path):
+                self.root = root
+                (root / "profiles" / "deployed").mkdir(parents=True)
+
+            def get_deploy_active(self) -> bool:
+                return True
+
+            def get_last_deployed_profile(self):
+                return "deployed"
+
+            def get_profile_root(self):
+                return self.root
+
+            def set_active_profile_dir(self, path: Path) -> None:
+                self.active_profile = path
+
+            def load_paths(self) -> None:
+                return None
+
+            def get_launch_command(self):
+                return ["unexpected-loader"]
+
+        deployed = _DeployedGame(Path(tmp))
+        with (
+            patch("os.execvp") as execvp,
+            patch("Utils.deploy_pipeline.run_deploy_pipeline") as deploy,
+        ):
+            cmd_launch(
+                {deployed.name: deployed}, deployed.game_id,
+                vanilla_command=vanilla,
+            )
+        deploy.assert_not_called()
+        execvp.assert_called_once_with(vanilla[0], vanilla)
+    print("✓ launcher handoffs never deploy and become vanilla when inactive")
+
+
+def test_flatpak_cli_handoff_scrubs_steam_runtime_loader() -> None:
+    """Steam's pinned libraries must not be used to start host Flatpak."""
+    from Utils.config_paths import cli_invocation
+
+    with patch.dict(os.environ, {
+        "FLATPAK_ID": "io.github.Amethyst.ModManager",
+        "LD_LIBRARY_PATH": "/steam-runtime/pinned_libs_64",
+        "LD_PRELOAD": "/steam-runtime/gameoverlayrenderer.so",
+        "LD_AUDIT": "/steam-runtime/audit.so",
+    }):
+        argv = cli_invocation()
+    assert argv == [
+        "/usr/bin/env",
+        "-u", "LD_LIBRARY_PATH",
+        "-u", "LD_PRELOAD",
+        "-u", "LD_AUDIT",
+        "/usr/bin/flatpak", "run",
+        "--command=amethyst-mod-manager-cli",
+        "io.github.Amethyst.ModManager",
+    ]
+    print("✓ Flatpak CLI handoff scrubs Steam runtime loader variables")
+
+
+def test_flatpak_epic_auth_finds_host_heroic() -> None:
+    """Amethyst's sandbox must discover Heroic's host-side legendary."""
+    from Utils import heroic_finder
+
+    heroic_root = Path("/home/test/.var/app/com.heroicgameslauncher.hgl/config/heroic")
+
+    def _which(name: str):
+        if name == "flatpak-spawn":
+            return "/usr/bin/flatpak-spawn"
+        return None
+
+    with (
+        patch.object(heroic_finder, "_in_flatpak_sandbox", return_value=True),
+        patch.object(heroic_finder.shutil, "which", side_effect=_which),
+        patch.object(heroic_finder.os, "access", return_value=False),
+    ):
+        commands = heroic_finder._legendary_commands(heroic_root)
+
+    assert len(commands) == 1
+    assert commands[0][:4] == [
+        "flatpak", "run", "--command=sh", "com.heroicgameslauncher.hgl",
+    ]
+    print("✓ Flatpak Epic auth discovers Heroic's host-side legendary")
 
 
 def test_flatpak_handoff_permission_is_deploy_managed() -> None:
     from Utils.flatpak_sandbox import (
         _has_session_bus_talk,
         ensure_launcher_handoff_access,
+        ensure_symlink_target_access,
     )
 
     assert _has_session_bus_talk(
@@ -4461,6 +4796,36 @@ def test_flatpak_handoff_permission_is_deploy_managed() -> None:
     ), patch("Utils.flatpak_sandbox.subprocess.run") as run:
         ensure_launcher_handoff_access(game, log_fn=logs.append)
     run.assert_not_called()
+
+    # The short generated script must itself be visible inside the launcher
+    # Flatpak. Grant only its shared launchers directory, not all of $HOME.
+    with tempfile.TemporaryDirectory() as tmp:
+        launch_root = Path(tmp) / "Amethyst"
+        staging = Path(tmp) / "custom-staging" / "mods"
+        profile = Path(tmp) / "custom-staging" / "profiles" / "test"
+        with (
+            patch("Utils.config_paths.get_default_staging_root",
+                  return_value=launch_root),
+            patch("Utils.flatpak_sandbox.sandbox_app_for_game",
+                  return_value="io.github.Faugus.faugus-launcher"),
+            patch("Utils.flatpak_sandbox._granted_filesystems",
+                  return_value=(set(), [])),
+            patch("Utils.flatpak_sandbox._baseline_filesystems",
+                  return_value=(set(), [])),
+            patch("Utils.flatpak_sandbox._grant_paths",
+                  return_value=True) as grant,
+            patch("Utils.flatpak_sandbox._notify_restart_needed"),
+        ):
+            ensure_symlink_target_access(
+                game,
+                game_root=Path(tmp) / "game",
+                staging=staging,
+                profile_dir=profile,
+                log_fn=logs.append,
+            )
+        granted = grant.call_args.args[1]
+        assert launch_root / "launchers" in granted
+        assert Path.home() not in granted
     print("✓ Flatpak launcher handoff permission is granted during deploy")
 
 
@@ -4509,9 +4874,13 @@ def main() -> None:
     test_deploy_pipeline_stops_on_incomplete_restore()
     test_flatpak_host_wrap()
     test_appimage_bubblewrap_fallback()
+    test_watched_game_launch_uses_safe_standard_handles()
     test_umu_uses_shadow_directly()
     test_steam_runtime_uses_shadow_directly()
     test_launcher_aware_handoffs()
+    test_launcher_handoff_is_transparent_when_undeployed()
+    test_flatpak_cli_handoff_scrubs_steam_runtime_loader()
+    test_flatpak_epic_auth_finds_host_heroic()
     test_flatpak_handoff_permission_is_deploy_managed()
     print("All profile VFS self-tests passed.")
 
