@@ -42,6 +42,20 @@ _INSTALL_BUTTON_SQ = 58
 _INSTALL_ICON_SQ = 42
 
 
+def _is_strict_path_ancestor(parent, child) -> bool:
+    """Return whether *parent* contains, but is not equal to, *child*."""
+    try:
+        parent_path = Path(parent).resolve()
+        child_path = Path(child).resolve()
+    except (OSError, RuntimeError, TypeError):
+        try:
+            parent_path = Path(parent)
+            child_path = Path(child)
+        except TypeError:
+            return False
+    return parent_path != child_path and parent_path in child_path.parents
+
+
 def _heroic_app_names(game) -> list[str]:
     names = list(getattr(game, "heroic_app_names", []) or [])
     if not names and getattr(game, "name", None):
@@ -1333,6 +1347,16 @@ class ConfigureGameView(QWidget):
         leaves the user an actual choice (>= 2 entries)."""
         choices = []
         cur = self._found_path
+        if cur is not None:
+            # Steam manifests identify the outer install directory, while
+            # some handlers expose a nested effective game root (UE projects
+            # such as ``Crash Bandicoot 4/Lava`` are the common case).  The
+            # outer directory is the same install, not a second choice, and
+            # selecting it would replace the handler's more-specific path.
+            candidates = [
+                c for c in candidates
+                if not _is_strict_path_ancestor(c.get("path"), cur)
+            ]
         if cur is not None and not any(Path(c["path"]) == Path(cur)
                                        for c in candidates):
             choices.append({"source": "current", "path": cur,
