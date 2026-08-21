@@ -21,12 +21,17 @@ Mod structure:
     Profiles/Resident Evil Village/<profile>/pak_patches/<pak_stem>.json
   and restored on undeploy.
 
-  Deploy workflow:
+  Physical deploy workflow:
     1. Deploy mod files to game root via deploy_filemap_to_root()
        (natives/, reframework/ land at game root with vanilla backup)
     2. Compute RE Engine filepath hashes for every deployed file
     3. Scan re_chunk_000.pak (and .patch_NNN.pak files) and zero matching entries
     4. Apply dinput8.dll DLL override to the Proton prefix
+
+  Profile VFS workflow:
+    1. Resolve loose files into the profile-private game view
+    2. Apply the same required hash invalidation to the physical vanilla PAKs
+    3. Keep the existing per-profile backup and game-root repair ledger
 
   Restore workflow:
     1. Restore original PAK hash bytes from pak_patches/ backups
@@ -41,6 +46,7 @@ import tempfile
 from pathlib import Path
 
 from Games.base_game import BaseGame
+from Utils.vfs import ProfileVFSGameMixin
 from Utils.deploy import (
     LinkMode,
     cleanup_custom_deploy_dirs,
@@ -64,7 +70,19 @@ from Utils.tex_convert import convert_tex_v10_to_v34, tex_needs_conversion
 _PROFILES_DIR = get_profiles_dir()
 
 
-class ResidentEvilVillage(BaseGame):
+class ResidentEvilVillage(ProfileVFSGameMixin, BaseGame):
+
+    profile_overridable_settings = (
+        *BaseGame.profile_overridable_settings,
+        *ProfileVFSGameMixin.vfs_profile_setting_keys,
+    )
+
+    # Loose files live only in the private view, but these games still require
+    # transactional hash invalidation inside their physical vanilla PAKs.
+    vfs_physical_game_mutation_note = (
+        "loose files are private; required PAK invalidation is physical and "
+        "restore-tracked"
+    )
 
     # Remaps that only apply to the current (post-RT-update) game build.
     # RE2/RE3/RE7 set these; on the dx11_non-rt Steam beta branch the legacy
@@ -263,15 +281,279 @@ class ResidentEvilVillage(BaseGame):
     # Deployment
     # -----------------------------------------------------------------------
 
+    def _deploy_loose_filemap(
+        self,
+        *,
+        filemap: Path,
+        destination: Path,
+        staging: Path,
+        profile_dir: Path,
+        mode: LinkMode,
+        per_mod_strip: dict[str, list[str]],
+        log_fn,
+        progress_fn=None,
+        state_dir: Path | None = None,
+        write_snapshot: bool = True,
+    ) -> tuple[int, set[str]]:
+        """Place loose files physically or into a private VFS build layer."""
+        _log = log_fn or (lambda _: None)
+
+        # RTX-updated RE2/RE3/RE7 need both a destination extension remap and
+        # a converted TEX payload. Keep the generated source in profile-local
+        # temporary storage until hardlink/copy placement has completed.
+        tex_ext_remap = self.pak_hash_extension_remap
+        tex_tmp_dir: str | None = None
+        file_transform = None
+        convert_count = [0]
+        if tex_ext_remap:
+            profile_dir.mkdir(parents=True, exist_ok=True)
+            tex_tmp_dir = tempfile.mkdtemp(prefix="mm_tex_", dir=profile_dir)
+
+            def _tex_transform(src_path: str, _dst_rel: str) -> str | None:
+                src_lower = src_path.lower()
+                for old_ext, new_ext in tex_ext_remap.items():
+                    if src_lower.endswith(old_ext):
+                        break
+                else:
+                    return None
+                src_p = Path(src_path)
+                if not tex_needs_conversion(src_p):
+                    return None
+                target_ext = int(new_ext.rsplit(".", 1)[-1])
+                converted = (
+                    Path(tex_tmp_dir)
+                    / f"tex_{convert_count[0]}{new_ext}"
+                )
+                convert_count[0] += 1
+                try:
+                    if convert_tex_v10_to_v34(
+                        src_p, converted, target_extension=target_ext,
+                    ):
+                        return str(converted)
+                except OSError as exc:
+                    if exc.errno == errno.ENOSPC:
+                        raise RuntimeError(
+                            "Not enough space in the profile directory to "
+                            "convert TEX files.\nFree up space on the "
+                            f"filesystem containing {profile_dir} and try "
+                            "again."
+                        ) from exc
+                    raise
+                return None
+
+            file_transform = _tex_transform
+
+        try:
+            result = deploy_filemap_to_root(
+                filemap,
+                destination,
+                staging,
+                mode=mode,
+                strip_prefixes=self.mod_folder_strip_prefixes,
+                per_mod_strip_prefixes=per_mod_strip,
+                log_fn=_log,
+                progress_fn=progress_fn,
+                path_remap=self.mod_deploy_path_remap or None,
+                ext_remap=tex_ext_remap or None,
+                file_transform=file_transform,
+                state_dir=state_dir,
+                write_snapshot=write_snapshot,
+            )
+        finally:
+            # Symlink mode must retain converted sources. VFS always requests
+            # hardlinks and therefore safely removes these temporary names.
+            if tex_tmp_dir and mode is not LinkMode.SYMLINK:
+                shutil.rmtree(tex_tmp_dir, ignore_errors=True)
+
+        if tex_ext_remap and file_transform:
+            _log(
+                f"  Converted {convert_count[0]} TEX file(s) from pre-RTX "
+                "to post-RTX format."
+            )
+        return result
+
+    def _vfs_populate_data_layer(
+        self,
+        *,
+        destination: Path,
+        profile: str,
+        filemap: Path,
+        staging: Path,
+        log_fn=None,
+        progress_fn=None,
+        **_unused,
+    ) -> int:
+        """Build the private loose-file root and retain its PAK hash paths."""
+        profile_dir = self.get_profile_root() / "profiles" / profile
+        metadata_dir = destination.parent / "re-invalidation-metadata"
+        metadata_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            linked, placed_lower = self._deploy_loose_filemap(
+                filemap=filemap,
+                destination=destination,
+                staging=staging,
+                profile_dir=profile_dir,
+                mode=LinkMode.HARDLINK,
+                per_mod_strip=load_per_mod_strip_prefixes(profile_dir),
+                log_fn=log_fn,
+                progress_fn=progress_fn,
+                state_dir=metadata_dir,
+                write_snapshot=False,
+            )
+        finally:
+            shutil.rmtree(metadata_dir, ignore_errors=True)
+        self._vfs_re_placed_lower = placed_lower
+        return linked
+
+    def _vfs_prepare_filemap(
+        self, filemap: Path, _staging: Path, log_fn=None,
+    ) -> set[str]:
+        """Keep transformed/remapped Overwrite entries at one final path.
+
+        The specialized callback above resolves every filemap owner, including
+        ``[Overwrite]``. The generic builder must therefore not materialize
+        those same upper files again under their original pre-remap names.
+        Runtime-created upper files absent from the filemap remain unaffected.
+        """
+        entries: set[str] = set()
+        with filemap.open(
+            encoding="utf-8", errors="surrogateescape",
+        ) as handle:
+            for line in handle:
+                line = line.rstrip("\n")
+                if "\t" not in line:
+                    continue
+                relative, owner = line.split("\t", 1)
+                if owner == "[Overwrite]":
+                    entries.add(relative.replace("\\", "/").lower())
+        return entries
+
+    def _patch_pak_files(
+        self,
+        placed_lower: set[str],
+        *,
+        profile: str,
+        view_root: Path | None = None,
+        log_fn=None,
+    ) -> int:
+        """Apply physical invalidation and mirror it into copied view PAKs.
+
+        The shadow normally hardlinks (or symlinks) vanilla PAKs, so editing
+        the physical PAK is immediately visible in the view. On filesystems
+        where neither link type is available, materialization falls back to a
+        copy; patch that private copy too. Its disposable journal lives inside
+        VFS state and never participates in physical Restore.
+        """
+        _log = log_fn or (lambda _: None)
+        if not placed_lower or self._game_path is None:
+            return 0
+
+        _log("Step 2: Patching physical PAK files to allow loose-file loading ...")
+        ext_remap = self.pak_hash_extension_remap
+
+        def _remap_path(path: str) -> str:
+            if ext_remap:
+                for old_ext, new_ext in ext_remap.items():
+                    if path.endswith(old_ext):
+                        return path[:-len(old_ext)] + new_ext
+            return path
+
+        hashes = {hash_filepath(_remap_path(path)) for path in placed_lower}
+        pak_files = find_pak_files(self._game_path)
+        if not pak_files:
+            _log("  [WARN] No re_chunk_000.pak found - PAK patching skipped.")
+            return 0
+
+        total_patched = 0
+        private_backup_dir: Path | None = None
+        if view_root is not None:
+            from Utils.vfs import state_dir
+            private_backup_dir = state_dir(self, profile) / "view-pak-patches"
+        try:
+            for index, pak in enumerate(pak_files):
+                backup = self._backup_path_for_pak(pak, profile)
+                total_patched += patch_pak_file(
+                    pak, hashes, backup, log_fn=_log)
+                # This physical ledger is intentionally retained as a failsafe
+                # even in VFS mode; the Repair PAK Files wizard consumes it.
+                if backup.exists():
+                    update_root_manifest(
+                        self._game_path, pak, backup, log_fn=_log)
+
+                if view_root is None:
+                    continue
+                try:
+                    pak_relative = pak.relative_to(self._game_path)
+                except ValueError as exc:
+                    raise RuntimeError(
+                        f"RE Engine PAK is outside the configured game root: {pak}"
+                    ) from exc
+                view_pak = view_root / pak_relative
+                if not view_pak.is_file():
+                    raise RuntimeError(
+                        "The private VFS view is missing a required RE Engine "
+                        f"PAK: {pak_relative}"
+                    )
+                # For a hardlink/symlink this is an idempotent no-op because
+                # the physical pass already zeroed the shared entry. A copied
+                # base PAK receives the same invalidation here.
+                patch_pak_file(
+                    view_pak,
+                    hashes,
+                    private_backup_dir / f"{index}.json",
+                    log_fn=_log,
+                )
+        finally:
+            if private_backup_dir is not None:
+                shutil.rmtree(private_backup_dir, ignore_errors=True)
+
+        if total_patched == 0:
+            _log(
+                "  [INFO] No matching PAK entries found for deployed files.\n"
+                "  This is expected if the mod only adds new files (not "
+                "replacements),\n  or if the RE Engine path format needs "
+                "adjustment."
+            )
+        else:
+            suffix = "y" if total_patched == 1 else "ies"
+            _log(
+                f"  PAK patching complete - {total_patched} total "
+                f"entr{suffix} invalidated."
+            )
+        return total_patched
+
+    def _restore_pak_backups(self, patch_dirs, *, log_fn=None) -> int:
+        """Restore PAK journals from the supplied profile directories."""
+        _log = log_fn or (lambda _: None)
+        restored_entries = 0
+        for patches_dir in patch_dirs:
+            if not patches_dir.is_dir():
+                continue
+            for backup_file in sorted(patches_dir.glob("*.json")):
+                try:
+                    saved = json.loads(
+                        backup_file.read_text(encoding="utf-8"))
+                    pak_path = Path(saved.get("pak", ""))
+                except (json.JSONDecodeError, KeyError, OSError):
+                    backup_file.unlink(missing_ok=True)
+                    continue
+                restored_entries += restore_pak_file(
+                    pak_path, backup_file, log_fn=_log)
+            try:
+                patches_dir.rmdir()
+            except OSError:
+                pass
+        return restored_entries
+
     def deploy(self, log_fn=None, mode: LinkMode = LinkMode.HARDLINK,
                profile: str = "default", progress_fn=None) -> None:
-        """Deploy staged mods into the game root and patch PAK files.
+        """Deploy staged mods and apply the required physical PAK edits.
 
-        Workflow:
-          1. Deploy mod files to game root, backing up any overwritten vanilla files
-          2. Compute RE Engine filepath hashes for all deployed files
-          3. Find PAK files and zero out entries matching the deployed hashes
-          4. Apply dinput8.dll DLL override to the Proton prefix
+        Physical mode places loose files in the game root. Profile VFS keeps
+        those files in its private resolved view. Both modes must zero matching
+        entries in the real PAK archives so the engine falls back to loose
+        files; every physical edit retains the established repair journals.
+
         (Root Folder deployment is handled by the GUI after this returns.)
         """
         _log = log_fn or (lambda _: None)
@@ -295,102 +577,73 @@ class ResidentEvilVillage(BaseGame):
             _log(f"  Steam beta branch '{self._NON_RT_BETA_KEY}' detected - "
                  "legacy build: keeping natives/x64 paths and .tex.10 textures.")
 
-        _log("Step 1: Deploying mod files to game root, backing up overwritten vanilla files ...")
-
-        # Set up TEX conversion for RTX-updated games (RE2/RE3/RE7).
-        # When pak_hash_extension_remap is set, .tex.10 files need both a
-        # header conversion (v10→v34 format) and extension rename on deploy.
-        _tex_ext_remap = self.pak_hash_extension_remap  # e.g. {".tex.10": ".tex.34"}
-        _tex_tmp_dir: str | None = None
-        _file_transform = None
-        if _tex_ext_remap:
-            _tex_tmp_dir = tempfile.mkdtemp(prefix="mm_tex_", dir=profile_dir)
-            _convert_count = [0]
-
-            def _tex_transform(src_path: str, dst_rel: str) -> str | None:
-                """Convert .tex.10 files to .tex.34 format via a temp copy."""
-                src_lower = src_path.lower()
-                for old_ext, new_ext in _tex_ext_remap.items():
-                    if src_lower.endswith(old_ext):
-                        break
-                else:
-                    return None
-                src_p = Path(src_path)
-                if not tex_needs_conversion(src_p):
-                    return None
-                target_ext = int(new_ext.rsplit(".", 1)[-1])
-                converted = Path(_tex_tmp_dir) / f"tex_{_convert_count[0]}{new_ext}"
-                _convert_count[0] += 1
-                try:
-                    if convert_tex_v10_to_v34(src_p, converted, target_extension=target_ext):
-                        return str(converted)
-                except OSError as e:
-                    if e.errno == errno.ENOSPC:
-                        raise RuntimeError(
-                            f"Not enough space in the profile directory to convert TEX files.\n"
-                            f"Free up space on the filesystem containing {profile_dir} and try again."
-                        ) from e
-                    raise
-                return None
-
-            _file_transform = _tex_transform
-
-        try:
-            linked_mod, placed_lower = deploy_filemap_to_root(
-                filemap, self._game_path, staging,
-                mode=mode,
-                strip_prefixes=self.mod_folder_strip_prefixes,
-                per_mod_strip_prefixes=per_mod_strip,
-                log_fn=_log,
-                progress_fn=progress_fn,
-                path_remap=self.mod_deploy_path_remap or None,
-                ext_remap=_tex_ext_remap or None,
-                file_transform=_file_transform,
+        if self.vfs_launch_enabled:
+            _log(
+                "Step 1: Building a private VFS view for loose RE Engine "
+                "mod files ..."
             )
-        finally:
-            # Clean up temp converted files (safe for hardlink/copy since the
-            # deployed files are independent copies; skip for symlink mode
-            # since symlinks would point back to these temp files).
-            if _tex_tmp_dir and mode is not LinkMode.SYMLINK:
-                shutil.rmtree(_tex_tmp_dir, ignore_errors=True)
-
-        if _tex_ext_remap and _file_transform:
-            _log(f"  Converted {_convert_count[0]} TEX file(s) from pre-RTX to post-RTX format.")
-        _log(f"  Deployed {linked_mod} mod file(s).")
-
-        if placed_lower:
-            _log("Step 2: Patching PAK files to allow loose-file loading ...")
-            _ext_remap = self.pak_hash_extension_remap
-            def _remap_path(p: str) -> str:
-                if _ext_remap:
-                    for old_ext, new_ext in _ext_remap.items():
-                        if p.endswith(old_ext):
-                            return p[:-len(old_ext)] + new_ext
-                return p
-            hashes: set[tuple[int, int]] = {hash_filepath(_remap_path(p)) for p in placed_lower}
-            pak_files = find_pak_files(self._game_path)
-            if not pak_files:
-                _log("  [WARN] No re_chunk_000.pak found - PAK patching skipped.")
-            else:
-                total_patched = 0
-                for pak in pak_files:
-                    backup = self._backup_path_for_pak(pak, profile)
-                    count = patch_pak_file(pak, hashes, backup, log_fn=_log)
-                    total_patched += count
-                    # Mirror the backup into the game root as a failsafe so the
-                    # PAKs can be repaired even if Profiles/ is wiped while
-                    # deployed (see the PAK-restore wizard).
-                    if backup.exists():
-                        update_root_manifest(self._game_path, pak, backup, log_fn=_log)
-                if total_patched == 0:
+            self._vfs_re_placed_lower: set[str] = set()
+            try:
+                self._deploy_vfs(
+                    profile=profile,
+                    filemap=filemap,
+                    staging=staging,
+                    log_fn=_log,
+                    progress_fn=progress_fn,
+                )
+                placed_lower = set(self._vfs_re_placed_lower)
+                from Utils.vfs import effective_shadow_root
+                self._patch_pak_files(
+                    placed_lower,
+                    profile=profile,
+                    view_root=effective_shadow_root(self),
+                    log_fn=_log,
+                )
+            except BaseException:
+                # PAK patching happens only after the view is published. If a
+                # later PAK fails, restore completed journals first and then
+                # unpublish the loose-file view so no half-deploy survives.
+                self._restore_pak_backups(
+                    [self._pak_patches_dir(profile)], log_fn=_log)
+                try:
+                    from Utils.vfs import cleanup_deployment, has_deployment_state
+                    if has_deployment_state(self):
+                        cleanup_deployment(
+                            self, preserve_upper=True, log_fn=_log)
+                except Exception as cleanup_exc:
                     _log(
-                        "  [INFO] No matching PAK entries found for deployed files.\n"
-                        "  This is expected if the mod only adds new files (not replacements),\n"
-                        "  or if the RE Engine path format needs adjustment."
+                        "  WARN: hybrid VFS rollback could not remove the "
+                        f"private view: {cleanup_exc}"
                     )
-                else:
-                    _log(f"  PAK patching complete - {total_patched} total entr{'y' if total_patched == 1 else 'ies'} invalidated.")
+                raise
+            finally:
+                try:
+                    del self._vfs_re_placed_lower
+                except AttributeError:
+                    pass
+            _log(
+                f"Hybrid VFS deploy complete. {len(placed_lower)} loose "
+                "file(s) are private; vanilla PAK invalidation is physical."
+            )
+            return
 
+        _log(
+            "Step 1: Deploying mod files to game root, backing up "
+            "overwritten vanilla files ..."
+        )
+        linked_mod, placed_lower = self._deploy_loose_filemap(
+            filemap=filemap,
+            destination=self._game_path,
+            staging=staging,
+            profile_dir=profile_dir,
+            mode=mode,
+            per_mod_strip=per_mod_strip,
+            log_fn=_log,
+            progress_fn=progress_fn,
+        )
+        _log(f"  Deployed {linked_mod} mod file(s).")
+        self._patch_pak_files(
+            placed_lower, profile=profile, log_fn=_log)
         _log(f"Deploy complete. {linked_mod} mod file(s) deployed.")
 
     def restore(self, log_fn=None, progress_fn=None) -> None:
@@ -409,21 +662,8 @@ class ResidentEvilVillage(BaseGame):
         # must scan all profiles - looking only in default/ would permanently
         # strand zeroed entries patched under a non-default profile.
         _log("Restore: restoring PAK entries from backups ...")
-        restored_entries = 0
-        for patches_dir in self._all_pak_patch_dirs():
-            for backup_file in sorted(patches_dir.glob("*.json")):
-                try:
-                    saved = json.loads(backup_file.read_text(encoding="utf-8"))
-                    pak_path = Path(saved.get("pak", ""))
-                except (json.JSONDecodeError, KeyError, OSError):
-                    backup_file.unlink(missing_ok=True)
-                    continue
-                restored_entries += restore_pak_file(pak_path, backup_file, log_fn=_log)
-            # Clean up the directory if empty
-            try:
-                patches_dir.rmdir()
-            except OSError:
-                pass
+        restored_entries = self._restore_pak_backups(
+            self._all_pak_patch_dirs(), log_fn=_log)
         # If the per-profile backups were missing (e.g. stranded by an older
         # build, or Profiles/ partially wiped) fall back to the game-root
         # failsafe manifest so the PAKs are still healed.
@@ -441,6 +681,24 @@ class ResidentEvilVillage(BaseGame):
         # kept - it is an append-only ledger of every entry the manager has
         # ever invalidated, so the "Repair PAK files" wizard can always re-heal
         # the PAKs even if a future deploy/restore leaves them stranded.
+
+        from Utils.vfs import cleanup_deployment, has_deployment_state
+        if has_deployment_state(self):
+            _log("Restore: removing the private loose-file VFS view ...")
+            cleanup_deployment(self, preserve_upper=True, log_fn=_log)
+            filemap_dir = self.get_effective_filemap_path().parent
+            physical_state = (
+                filemap_dir / "filemap_deployed.txt"
+            ).is_file() or (
+                filemap_dir / "filemap_backup"
+            ).is_dir()
+            if not physical_state:
+                _log("Restore complete.")
+                return
+            _log(
+                "Restore: a physical loose-file deployment also remains; "
+                "restoring it now ..."
+            )
 
         _log("Restore: removing mod files from game root and restoring vanilla backups ...")
         restore_filemap_from_root(

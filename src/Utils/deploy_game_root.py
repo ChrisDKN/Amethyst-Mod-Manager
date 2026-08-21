@@ -50,6 +50,8 @@ def deploy_filemap_to_root(
     path_remap: dict[str, str] | None = None,
     ext_remap: dict[str, str] | None = None,
     file_transform=None,
+    state_dir: Path | None = None,
+    write_snapshot: bool = True,
 ) -> tuple[int, set[str]]:
     """Deploy mod files directly into game_root, backing up any files they
     overwrite so restore_filemap_from_root() can undo the operation cleanly.
@@ -74,6 +76,12 @@ def deploy_filemap_to_root(
     file_transform - optional callable(src_path: str, dst_path: str) -> str | None
                      If it returns a new path, that path is used as the source
                      for the transfer instead (e.g. for TEX format conversion).
+    state_dir      - optional directory for deploy log/backup bookkeeping.
+                     Private VFS builders use isolated temporary metadata while
+                     retaining the real filemap path for source-index lookup.
+    write_snapshot - whether to snapshot game_root for physical restore-time
+                     runtime capture. Private VFS publication owns its own
+                     strict shadow snapshots and disables this.
 
     Writes a log file next to filemap.txt so restore_filemap_from_root() knows
     exactly which files to remove.
@@ -93,8 +101,9 @@ def deploy_filemap_to_root(
         for old_ext, new_ext in ext_remap.items():
             _ext_remap.append((old_ext.lower(), new_ext))
     overwrite_dir = staging_root.parent / "overwrite"
-    backup_dir    = filemap_path.parent / _FILEMAP_BACKUP_DIR
-    log_path      = filemap_path.parent / _FILEMAP_LOG_NAME
+    metadata_dir = Path(state_dir) if state_dir is not None else filemap_path.parent
+    backup_dir    = metadata_dir / _FILEMAP_BACKUP_DIR
+    log_path      = metadata_dir / _FILEMAP_LOG_NAME
 
     # Self-heal: a leftover deploy log means the previous deploy was never
     # restored (crashed or failed restore).  Restore it now - otherwise the
@@ -219,11 +228,12 @@ def deploy_filemap_to_root(
     if total == 0:
         log_path.parent.mkdir(parents=True, exist_ok=True)
         log_path.write_text("", encoding="utf-8", errors="surrogateescape")
-        snapshot_path = filemap_path.parent / _FILEMAP_SNAPSHOT_NAME
-        try:
-            _write_deploy_snapshot(game_root, snapshot_path, log_fn=_log)
-        except Exception as exc:
-            _log(f"  WARN: could not write deploy snapshot: {exc}")
+        if write_snapshot:
+            snapshot_path = metadata_dir / _FILEMAP_SNAPSHOT_NAME
+            try:
+                _write_deploy_snapshot(game_root, snapshot_path, log_fn=_log)
+            except Exception as exc:
+                _log(f"  WARN: could not write deploy snapshot: {exc}")
         return 0, placed_lower
 
     # Write the deployment log BEFORE touching the game dir: if the deploy is
@@ -279,11 +289,12 @@ def deploy_filemap_to_root(
                         errors="surrogateescape")
 
     # Snapshot the game root so restore can identify runtime-generated files.
-    snapshot_path = filemap_path.parent / _FILEMAP_SNAPSHOT_NAME
-    try:
-        _write_deploy_snapshot(game_root, snapshot_path, log_fn=_log)
-    except Exception as exc:
-        _log(f"  WARN: could not write deploy snapshot: {exc}")
+    if write_snapshot:
+        snapshot_path = metadata_dir / _FILEMAP_SNAPSHOT_NAME
+        try:
+            _write_deploy_snapshot(game_root, snapshot_path, log_fn=_log)
+        except Exception as exc:
+            _log(f"  WARN: could not write deploy snapshot: {exc}")
 
     return linked, placed_lower
 

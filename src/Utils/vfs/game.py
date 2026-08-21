@@ -390,7 +390,15 @@ class ProfileVFSGameMixin:
         # those deploy artifacts from files created while the game is running.
         from Utils.vfs import finalize_deployment
         finalize_deployment(self, log_fn=log_fn)
+        physical_note = str(
+            getattr(self, "vfs_physical_game_mutation_note", "") or ""
+        ).strip()
+        completion = (
+            physical_note
+            if physical_note
+            else "the real game directory was not modified"
+        )
         log_fn(
             f"VFS deploy complete: {data_count} {data_name} + "
-            f"{root_count} root file(s); the real game directory was not modified."
+            f"{root_count} root file(s); {completion}."
         )
