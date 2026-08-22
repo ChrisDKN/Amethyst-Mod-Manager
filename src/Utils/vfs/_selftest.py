@@ -73,6 +73,7 @@ from Utils.exe_launch import (  # noqa: E402
     is_game_launch_exe,
     launch_exe_via_proton,
     launch_game,
+    resolve_deployed_exe,
     run_tool_logged,
     spawn_process_watched,
 )
@@ -1092,6 +1093,25 @@ def test_shared_bethesda_hooks() -> None:
         assert not game.vfs_launch_enabled
         assert game.supports_incremental_deploy
     print("✓ shared Bethesda setting migration and launch hooks")
+
+
+def test_vfs_only_framework_exe_resolves_for_dropdown_launch() -> None:
+    """The play bar must accept a loader which exists only in the VFS view."""
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _FakeBethesdaGame(Path(tmp))
+        state = _write_manifest(game)
+        virtual_loader = state / "lower" / "root" / "FOSE_LOADER.EXE"
+        virtual_loader.write_text("loader", encoding="utf-8")
+
+        logical_loader = game.game / "fose_loader.exe"
+        assert not logical_loader.exists()
+        assert resolve_deployed_exe(game, logical_loader) == (
+            game.game / "FOSE_LOADER.EXE"
+        )
+
+        game.set_vfs_enabled(False)
+        assert resolve_deployed_exe(game, logical_loader) is None
+    print("✓ VFS-only framework loader resolves for dropdown launch")
 
 
 def test_wizard_tools_use_vfs_and_xedit_edits_persist() -> None:
@@ -4910,6 +4930,7 @@ def main() -> None:
     test_failed_post_view_hook_never_promotes_partial_output()
     test_vfs_root_payload_preserves_physical_recovery()
     test_shared_bethesda_hooks()
+    test_vfs_only_framework_exe_resolves_for_dropdown_launch()
     test_wizard_tools_use_vfs_and_xedit_edits_persist()
     test_generic_mod_data_directory()
     test_vfs_cleanup_failure_remains_discoverable()

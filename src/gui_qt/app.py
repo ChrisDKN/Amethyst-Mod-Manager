@@ -10267,24 +10267,16 @@ class MainWindow(QMainWindow):
                 target = exe_launch.launch_exe_via_proton
 
             def _launch_exe():
-                run_path = exe_path
-                if not run_path.is_file():
-                    # Staged extender materialised by the deploy that just
-                    # ran - re-resolve so on-disk casing wins.
-                    from Utils.framework_detect import resolve_file_ci
-                    gp = game.get_game_path() if hasattr(game, "get_game_path") else None
-                    resolved = None
-                    if gp is not None:
-                        try:
-                            resolved = resolve_file_ci(gp, run_path.relative_to(gp))
-                        except ValueError:
-                            resolved = None
-                    if resolved is None:
-                        self._play_failed(
-                            self.tr("Executable not found: {0}").format(run_path),
-                            entry=label)
-                        return
-                    run_path = resolved
+                # Physical deploys materialise the loader in the game root;
+                # VFS deploys intentionally do not. In the latter case retain
+                # its logical game-root path so the launch wrapper can bind the
+                # deployed profile view over that directory.
+                run_path = exe_launch.resolve_deployed_exe(game, exe_path)
+                if run_path is None:
+                    self._play_failed(
+                        self.tr("Executable not found: {0}").format(exe_path),
+                        entry=label)
+                    return
 
                 session = self._new_play_session(label)
 

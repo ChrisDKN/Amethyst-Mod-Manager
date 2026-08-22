@@ -351,6 +351,44 @@ def detect_framework_exes(game, framework_states: "dict | None" = None) -> list[
     return out
 
 
+def resolve_deployed_exe(game, exe_path: Path) -> Path | None:
+    """Resolve an executable after a deploy, including VFS-only files.
+
+    A VFS deploy deliberately leaves root payloads such as script-extender
+    loaders out of the physical game directory.  Their launch command still
+    uses the logical game-root path so :meth:`wrap_launch_command` can bind the
+    profile view over it.  Checking only ``Path.is_file()`` here would reject
+    that valid path before the VFS wrapper gets a chance to run.
+    """
+    exe_path = Path(exe_path)
+    if exe_path.is_file():
+        return exe_path
+    if game is None or not hasattr(game, "get_game_path"):
+        return None
+    game_path = game.get_game_path()
+    if game_path is None:
+        return None
+    game_path = Path(game_path)
+    try:
+        relative = exe_path.relative_to(game_path)
+    except ValueError:
+        return None
+
+    # A physical deploy may have materialised the file with different casing.
+    from Utils.framework_detect import resolve_file_ci
+    resolved = resolve_file_ci(game_path, relative)
+    if resolved is not None:
+        return resolved
+
+    if not getattr(game, "vfs_launch_enabled", False):
+        return None
+    try:
+        from Utils.vfs import virtual_file_path
+        return virtual_file_path(game, relative)
+    except (OSError, RuntimeError):
+        return None
+
+
 # ---------------------------------------------------------------------------
 # exe_launch_mode.json - per-game launch settings
 # ---------------------------------------------------------------------------
