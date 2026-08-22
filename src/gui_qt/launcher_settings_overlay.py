@@ -2,8 +2,11 @@
 
 Qt port of the game-exe branch of Tk's ExeConfigPanel: a "Launch via"
 selector (Auto / Steam / Heroic / Lutris / Faugus / None), launch arguments,
-Steam-style launch options and the "Deploy mods before launching" checkbox.
-``on_done(mode, deploy, args, options)`` fires on Save, all-None on Cancel/Esc.
+Steam-style launch options and the "Deploy mods before launching" checkbox,
+plus any game-specific checkboxes the handler declares (BaseGame.launch_toggles
+- e.g. OpenMW's "skip the launcher").
+``on_done(mode, deploy, args, options, toggles)`` fires on Save, all-None on
+Cancel/Esc; *toggles* is {key: bool} and empty for a game that declares none.
 
 Dimmed child backdrop + centered card via gui_qt/overlay_base.py.
 """
@@ -29,8 +32,14 @@ class LauncherSettingsOverlay(OverlayBase):
     ESC_RESULT = False
 
     def __init__(self, host: QWidget, game_name: str, mode: str, deploy: bool,
-                 args: str, options: str, on_done):
-        super().__init__(host, on_done=on_done)
+                 args: str, options: str, on_done, toggles=None,
+                 toggle_values=None):
+        # Each extra checkbox (plus its optional hint) needs room, or the card
+        # clips them - OverlayBase gives the card a FIXED size.
+        toggles = list(toggles or [])
+        extra_h = sum(30 + (34 if t.hint else 0) for t in toggles)
+        super().__init__(host, on_done=on_done,
+                         card_h=self.CARD_H + extra_h if toggles else None)
         p = active_palette()
 
         _card, v = self._make_card("ConfirmCard")
@@ -84,6 +93,23 @@ class LauncherSettingsOverlay(OverlayBase):
         self._deploy_check = QCheckBox(self.tr("Deploy mods before launching"))
         self._deploy_check.setChecked(bool(deploy))
         v.addWidget(self._deploy_check)
+
+        # Handler-declared checkboxes. Labels/hints come from the game module,
+        # which has no Qt to translate with, so they are shown verbatim.
+        values = dict(toggle_values or {})
+        self._toggle_checks: dict = {}
+        for t in toggles:
+            box = QCheckBox(t.label)
+            box.setChecked(bool(values.get(t.key, t.default)))
+            v.addWidget(box)
+            if t.hint:
+                t_hint = QLabel(t.hint)
+                t_hint.setStyleSheet(
+                    f"color:{_c(p,'TEXT_DIM')}; font-size:13px;")
+                t_hint.setWordWrap(True)
+                t_hint.setIndent(22)
+                v.addWidget(t_hint)
+            self._toggle_checks[t.key] = box
         v.addStretch(1)
 
         bar = QHBoxLayout()
@@ -103,13 +129,15 @@ class LauncherSettingsOverlay(OverlayBase):
         self._present()
 
     @classmethod
-    def show_over(cls, host, *, game_name, mode, deploy, args, options, on_done):
+    def show_over(cls, host, *, game_name, mode, deploy, args, options, on_done,
+                  toggles=None, toggle_values=None):
         top = host.window() if host is not None else None
-        return cls(top or host, game_name, mode, deploy, args, options, on_done)
+        return cls(top or host, game_name, mode, deploy, args, options, on_done,
+                   toggles=toggles, toggle_values=toggle_values)
 
     # -- internals ----------------------------------------------------------
     def _finish(self, saved: bool = False):
-        """Override: on_done takes (mode, deploy, args, options); None on cancel."""
+        """Override: on_done takes (mode, deploy, args, options, toggles); None on cancel."""
         if self._done:
             return
         self._done = True
@@ -119,10 +147,11 @@ class LauncherSettingsOverlay(OverlayBase):
         deploy = self._deploy_check.isChecked()
         args = self._args_edit.text().strip()
         options = self._options_edit.text().strip()
+        toggles = {k: b.isChecked() for k, b in self._toggle_checks.items()}
         self.hide()
         self.deleteLater()
         if cb is not None:
             if saved:
-                cb(mode, deploy, args, options)
+                cb(mode, deploy, args, options, toggles)
             else:
-                cb(None, None, None, None)
+                cb(None, None, None, None, None)

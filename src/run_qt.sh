@@ -28,8 +28,15 @@ export PATH XDG_DATA_DIRS
 # tip) mis-anchors, badly once QT_SCALE_FACTOR != 1 compounds the logical/
 # physical size mismatch. XWayland exposes real global coords so tooltips place
 # correctly and scaling stays exact; it also fixes the Wayland splitter/colour-
-# picker lag. The flatpak build already does this. `:=` respects a user override.
-: "${QT_QPA_PLATFORM:=xcb}"
+# picker lag. The flatpak build already does this. A user override wins.
+# The marker tells Utils.xdg.host_env() the value is OURS, so it is scrubbed
+# from anything we launch - a child that can't reach an X server (the OpenMW
+# flatpak has fallback-x11 only) aborts on startup if it inherits xcb.
+if [ -z "${QT_QPA_PLATFORM:-}" ]; then
+    QT_QPA_PLATFORM=xcb
+    _AMM_OWNS_QT_PLATFORM=1
+    export _AMM_OWNS_QT_PLATFORM
+fi
 export QT_QPA_PLATFORM
 
 # The Qt app uses the PROJECT-ROOT .venv (../.venv), which has PySide6 -

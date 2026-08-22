@@ -24,10 +24,38 @@ from pathlib import Path
 # Vanilla masters are always present and always load first.
 _VANILLA_MASTERS = [
     "Morrowind.esm",
-    "builtin.omwscripts",
     "Tribunal.esm",
     "Bloodmoon.esm",
 ]
+
+# Content the ENGINE loads by itself, out of its own VFS
+# (resources/vfs/builtin.omwscripts). Listing it again in openmw.cfg is not a
+# harmless duplicate: OpenMW 0.51 refuses to start with
+#   E] Content file specified more than once: builtin.omwscripts. Aborting...
+#   I] Quitting peacefully.
+# and exits 0 - so the launch looked "clean" while the game never appeared. It
+# used to be a vanilla master here, which meant every deploy AND every restore
+# rewrote the game into that state; only opening OpenMW's own launcher (which
+# rewrites content= from its own profile) cleared it.
+_ENGINE_BUILTIN_CONTENT = {"builtin.omwscripts"}
+
+
+def _dedup_content(names: list[str]) -> list[str]:
+    """Drop engine-provided and repeated content names, keeping first position.
+
+    Any duplicate is fatal to OpenMW, not just the builtin one - a plugin that
+    reaches us twice (plugins.txt plus a vanilla master, two mods shipping the
+    same esp name) would kill the launch just as silently.
+    """
+    out: list[str] = []
+    seen: set[str] = set()
+    for name in names:
+        key = name.strip().lower()
+        if not key or key in seen or key in _ENGINE_BUILTIN_CONTENT:
+            continue
+        seen.add(key)
+        out.append(name)
+    return out
 
 # Vanilla BSAs - always included as fallback-archive entries before mod BSAs.
 _VANILLA_BSAS = [
@@ -135,7 +163,7 @@ def update_openmw_cfg(
     active = _read_plugins_txt(plugins_txt)
     vanilla_lower = {p.lower() for p in _VANILLA_MASTERS}
     user_plugins = [p for p in active if p.lower() not in vanilla_lower]
-    ordered = _VANILLA_MASTERS + user_plugins
+    ordered = _dedup_content(_VANILLA_MASTERS + user_plugins)
 
     # ------------------------------------------------------------------
     # Assemble managed block.
@@ -197,7 +225,8 @@ def restore_openmw_cfg(
     managed: list[str] = [""]
     for d in data_dirs:
         managed.append(f'data="{d}"')
-    for plugin in _VANILLA_MASTERS:
+    vanilla = _dedup_content(_VANILLA_MASTERS)
+    for plugin in vanilla:
         managed.append(f"content={plugin}")
     for bsa in _VANILLA_BSAS:
         managed.append(f"fallback-archive={bsa}")
@@ -205,5 +234,5 @@ def restore_openmw_cfg(
     cfg_path.write_text("\n".join(preserved + managed) + "\n", encoding="utf-8")
     _log(
         f"  Restored openmw.cfg to {len(data_dirs)} vanilla data dir(s) "
-        f"and {len(_VANILLA_MASTERS)} vanilla plugin(s)."
+        f"and {len(vanilla)} vanilla plugin(s)."
     )

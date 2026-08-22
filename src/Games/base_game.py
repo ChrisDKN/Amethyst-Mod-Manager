@@ -108,6 +108,32 @@ class WizardTool:
     category: str = ""  # optional grouping header in the wizard picker; inferred if empty
 
 
+# ---------------------------------------------------------------------------
+# Launch-settings toggle descriptor
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class LaunchToggle:
+    """A game-specific checkbox in the play-bar's Launch settings dialog.
+
+    For choices only a handler can describe - "skip the OpenMW launcher" -
+    that would otherwise need game-specific code in the Qt view. The dialog
+    renders whatever :attr:`BaseGame.launch_toggles` returns and stores the
+    state per game; the handler reads it back with
+    ``exe_launch.load_launch_toggle(game, key, default)``.
+
+    Attributes:
+        key:     Machine-readable, unique per game, e.g. ``"skip_launcher"``.
+        label:   Checkbox text.
+        hint:    Optional one-line explanation shown under the checkbox.
+        default: State when the user has never saved this toggle.
+    """
+    key: str
+    label: str
+    hint: str = ""
+    default: bool = False
+
+
 class BaseGame(ABC):
 
     # -----------------------------------------------------------------------
@@ -881,6 +907,18 @@ class BaseGame(ABC):
         self._deploy_user_warnings = []
         return out
 
+    @property
+    def launch_toggles(self) -> "list[LaunchToggle]":
+        """Game-specific checkboxes to show in the Launch settings dialog.
+
+        Empty (the default) means the dialog shows only its standard fields.
+        Read a saved state back in the handler with
+        ``exe_launch.load_launch_toggle(self, key, default)`` - typically from
+        :meth:`get_launch_command`, so the choice takes effect on the next
+        Play with no restart.
+        """
+        return []
+
     def get_launch_command(self) -> "list[str] | None":
         """Return a native Linux command used to launch this game, bypassing Proton.
 
@@ -1534,6 +1572,12 @@ class BaseGame(ABC):
         Return the root install directory of the game, or None if not set.
         e.g. /home/deck/.steam/steamapps/common/Skyrim Special Edition
         """
+
+    # Subpath that game_data_subpath() should report when the deploy dir is
+    # NOT inside the game root. Only handlers that deploy outside the install
+    # (OpenMW: profile folder + an extra openmw.cfg data= line) set this, so
+    # root-flagged 'Data Files/foo.esp' entries are still recognised.
+    game_data_subpath_override: str = ""
 
     @abstractmethod
     def get_mod_data_path(self) -> Path | None:

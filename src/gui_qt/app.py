@@ -1484,7 +1484,15 @@ class MainWindow(QMainWindow):
         """The configured game's data folder, or None when unavailable."""
         try:
             game = getattr(self._gs, "game", None)
-            data = game.get_mod_data_path() if game is not None else None
+            if game is None:
+                return None
+            # Handlers that deploy outside the install (OpenMW writes into the
+            # profile and adds an openmw.cfg data= line) still keep the game's
+            # own meshes/archives in the vanilla folder.
+            vanilla = getattr(game, "get_vanilla_data_path", None)
+            data = vanilla() if callable(vanilla) else None
+            if not data:
+                data = game.get_mod_data_path()
         except Exception:
             return None
         if not data:
@@ -10385,7 +10393,9 @@ class MainWindow(QMainWindow):
         from gui_qt.launcher_settings_overlay import LauncherSettingsOverlay
         exe_key = exe_launch.game_exe_key(game)
 
-        def _done(mode, deploy, args, options):
+        toggles = list(getattr(game, "launch_toggles", []) or [])
+
+        def _done(mode, deploy, args, options, toggle_states):
             if mode is None:
                 return
             exe_launch.save_launch_mode(game, exe_key, mode)
@@ -10394,10 +10404,15 @@ class MainWindow(QMainWindow):
             # launch we make ourselves (Steam's own options are the fallback).
             exe_launch.save_exe_args(game, exe_key, args)
             exe_launch.save_launch_options(game, exe_key, options)
+            for key, enabled in (toggle_states or {}).items():
+                exe_launch.save_launch_toggle(game, key, enabled)
+            extra = "".join(
+                f", {k}={'on' if v else 'off'}"
+                for k, v in (toggle_states or {}).items())
             self._append_log(f"[play] launch settings saved (via={mode}, "
                              f"deploy-before-launch={'on' if deploy else 'off'}"
                              f"{', args' if args else ''}"
-                             f"{', options' if options else ''})")
+                             f"{', options' if options else ''}{extra})")
 
         LauncherSettingsOverlay.show_over(
             self.centralWidget() or self,
@@ -10407,6 +10422,10 @@ class MainWindow(QMainWindow):
             args=exe_launch.load_exe_args(game, exe_key),
             options=exe_launch.load_launch_options(game, exe_key),
             on_done=_done,
+            toggles=toggles,
+            toggle_values={
+                t.key: exe_launch.load_launch_toggle(game, t.key, t.default)
+                for t in toggles},
         )
 
     def _open_exe_settings_tab(self, exe_path):

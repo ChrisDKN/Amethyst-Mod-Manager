@@ -72,7 +72,14 @@ def game_data_subpath(game) -> str:
     'foo.esp'. Consumers of filemap_root.txt (Data tab merge, plugins panel
     recovery/resolver, plugins.txt sync) use this prefix to recognise those
     entries instead of hiding them as game-root files.
+
+    Handlers whose deploy dir sits OUTSIDE the game root (OpenMW deploys into
+    the profile folder and points openmw.cfg at it) declare the subpath their
+    root-flagged entries still use via game_data_subpath_override.
     """
+    override = str(getattr(game, "game_data_subpath_override", "") or "").strip()
+    if override:
+        return override.replace("\\", "/").strip("/")
     try:
         gp = game.get_game_path()
         dp = game.get_mod_data_path()

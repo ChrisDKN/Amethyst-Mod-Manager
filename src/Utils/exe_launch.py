@@ -416,6 +416,20 @@ def save_deploy_before_launch(game, enabled: bool) -> None:
     _write_launch_mode_key(game, "__deploy_before_launch", bool(enabled))
 
 
+def load_launch_toggle(game, key: str, default: bool = False) -> bool:
+    """State of a handler-declared Launch settings checkbox (BaseGame.launch_toggles).
+
+    Per game, not per exe: these describe HOW the game itself starts, and the
+    same answer applies however the user got there.
+    """
+    val = _read_launch_mode_data(game).get(f"__toggle_{key}")
+    return bool(default) if val is None else bool(val)
+
+
+def save_launch_toggle(game, key: str, enabled: bool) -> None:
+    _write_launch_mode_key(game, f"__toggle_{key}", bool(enabled))
+
+
 def load_proton_override(game, exe_name: str) -> str | None:
     """Saved Proton override name, '' for game default, None if never saved."""
     data = _read_launch_mode_data(game)
@@ -1017,6 +1031,10 @@ def spawn_process_watched(cmd: list, *, env: "dict | None" = None,
         # tempfile's private /tmp, which recreates the Wine crash above.
         pass
     cmd, env = game_process.prepare_spawn(cmd, env)
+    # After prepare_spawn, so the `flatpak run` it may have rewritten is the
+    # command actually inspected.
+    from Utils.xdg import strip_sandbox_display_env
+    env = strip_sandbox_display_env(cmd, env)
     try:
         proc = subprocess.Popen(
             cmd,
@@ -1063,10 +1081,23 @@ def spawn_process_watched(cmd: list, *, env: "dict | None" = None,
                 except Exception:
                     pass
         launch_report.mark_exit(rep, started, rc, label, stderr_tail=tail)
-        if rc == 0:
+        elapsed = time.monotonic() - started
+        if rc == 0 and elapsed > launch_report.EARLY_EXIT_SECONDS:
             log_fn(f"{label}: exited cleanly (rc=0)")
             return
-        log_fn(f"{label}: exited with code {rc}")
+        if rc == 0:
+            # rc=0 seconds after starting is not a played session: the game
+            # started and then bailed, and whatever it said went to stderr.
+            # Reporting that as a clean exit and DROPPING the output left
+            # "it launches and instantly closes" with nothing to diagnose.
+            # Not a failure though - a launcher that hands the game off to
+            # another process (`flatpak run` on the OpenMW launcher, a Steam
+            # URL) legitimately exits 0 straight away.
+            log_fn(f"{label}: exited cleanly (rc=0) after {elapsed:.1f}s - too "
+                   "soon to be a played session; its output follows (empty "
+                   "means it handed off to another process).")
+        else:
+            log_fn(f"{label}: exited with code {rc} after {elapsed:.1f}s")
         for line in tail.splitlines()[-8:]:
             if line.strip():
                 log_fn(f"{label}:   {line}")
@@ -2288,9 +2319,38 @@ def launch_game(game, log_fn=_noop_log) -> None:
 
     native_cmd = getattr(game, "get_launch_command", lambda: None)()
     if native_cmd is not None:
-        log_fn(f"Play: launching natively: {' '.join(native_cmd)}")
-        spawn_process_watched(native_cmd, env=host_env(),
-                              label="Play (native)", log_fn=log_fn)
+        # Launch settings' arguments/options apply to a native command too - it
+        # IS the game, and those fields are the only way to pass e.g. openmw's
+        # --skip-menu or a gamemoderun wrapper. Same key the dialog saves under.
+        env = host_env()
+        settings_key = game_exe_key(game)
+        try:
+            extra_args = shlex.split(load_exe_args(game, settings_key))
+        except ValueError as exc:
+            reason = f"invalid launch arguments: {exc}"
+            log_fn(f"Play: {reason}")
+            launch_report.mark_failed(launch_report.actionable(reason))
+            return
+        cmd = list(native_cmd) + extra_args
+        launch_opts = load_launch_options(game, settings_key)
+        if launch_opts:
+            env_updates, cmd = parse_launch_options(launch_opts, cmd)
+            if env_updates:
+                env.update(env_updates)
+            if not cmd:
+                log_fn("Play: launch options produced no command.")
+                launch_report.mark_failed(launch_report.actionable(
+                    "the launch options produced no command to run."))
+                return
+        # A wrapper from Launch Options (gamemoderun, mangohud) that isn't
+        # installed would otherwise fail as a bare Popen error.
+        if os.sep not in cmd[0] and shutil.which(cmd[0]) is None:
+            reason = f"'{cmd[0]}' not found - check Launch Options."
+            log_fn(f"Play error: {reason}")
+            launch_report.mark_failed(launch_report.actionable(reason))
+            return
+        log_fn(f"Play: launching natively: {' '.join(cmd)}")
+        spawn_process_watched(cmd, env=env, label="Play (native)", log_fn=log_fn)
         return
 
     # A game whose mods are served by an external loader (me3) has no usable

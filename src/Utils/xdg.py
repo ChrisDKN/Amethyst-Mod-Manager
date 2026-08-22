@@ -28,6 +28,81 @@ from Utils.app_log import app_log
 from Utils.appimage_env import strip_appimage_vars
 
 
+# Env that configures OUR Qt UI and must not follow a launched program.
+# Amethyst forces QT_QPA_PLATFORM=xcb on itself (XWayland gives Qt the global
+# coordinates tooltips and exact scaling need) - but a child can be *unable*
+# to honour it: the OpenMW flatpak ships `fallback-x11`, so on a Wayland
+# session its sandbox gets no X socket at all, and its Qt launcher aborted
+# with "no Qt platform plugin could be initialized" (SIGABRT, rc 137) before
+# the game ever started. Same for a scale factor: ours would silently resize
+# somebody else's UI.
+#
+# Each name is dropped only when the value is OURS - a wrapper marker set
+# where we defaulted the var, or a name Settings ▸ Advanced applied this
+# launch - so a value the user exported in their own shell still reaches the
+# child, exactly as it would had they started it from that shell.
+_UI_ENV_MARKERS: dict[str, str] = {
+    "QT_QPA_PLATFORM": "_AMM_OWNS_QT_PLATFORM",
+    "QT_SCALE_FACTOR": "_AMM_OWNS_SCALE",
+}
+
+# Only ever set through Settings ▸ Advanced (app_env.KNOWN_VARS), never by a
+# wrapper - so being listed in _AMM_ENV_KEYS is the whole ownership test.
+_UI_ENV_APP_ONLY: tuple[str, ...] = ("QT_XCB_GL_INTEGRATION",)
+
+
+def strip_ui_env(env: dict) -> dict:
+    """Return *env* without the Qt display vars this app set for itself.
+
+    Also drops every ``_AMM_`` internal marker: they describe our own process
+    state (which vars we own across a re-exec) and mean nothing to a child.
+    """
+    app_set = {n for n in (env.get("_AMM_ENV_KEYS") or "").split(",") if n}
+    for name, marker in _UI_ENV_MARKERS.items():
+        if env.get(marker) == "1" or name in app_set:
+            env.pop(name, None)
+    for name in _UI_ENV_APP_ONLY:
+        if name in app_set:
+            env.pop(name, None)
+    for name in [n for n in env if n.startswith("_AMM_")]:
+        env.pop(name, None)
+    return env
+
+
+# Which display sockets a Flatpak app gets is decided by ITS manifest, not by
+# our session: org.openmw.OpenMW ships `fallback-x11`, which on a Wayland
+# session grants no X socket at all. Naming a platform plugin for a sandboxed
+# child therefore points it at something it may have no way to reach, and Qt
+# aborts (SIGABRT) rather than falling back. Inside the sandbox Qt's own
+# auto-detection is always the better-informed choice, so these are dropped for
+# a `flatpak run` child even when the value is the USER's - unlike
+# strip_ui_env, which only scrubs what we set ourselves. The value still has to
+# reach the sandbox to matter: `flatpak run` forwards the caller's environment,
+# and QT_QPA_PLATFORM is not on flatpak's own dont-export list.
+_SANDBOX_DISPLAY_VARS: tuple[str, ...] = (
+    "QT_QPA_PLATFORM", "QT_XCB_GL_INTEGRATION",
+)
+
+
+def is_flatpak_run(cmd) -> bool:
+    """True when *cmd* starts a Flatpak app (directly or via flatpak-spawn)."""
+    toks = [str(c) for c in cmd]
+    return any(os.path.basename(tok) == "flatpak" and toks[i + 1] == "run"
+               for i, tok in enumerate(toks[:-1]))
+
+
+def strip_sandbox_display_env(cmd, env: "dict | None") -> "dict | None":
+    """Drop display env a Flatpak child may be unable to honour.
+
+    ``env=None`` means "inherit ours", which for a Flatpak child is exactly the
+    leak we're closing - so it materialises the environment to scrub it.
+    """
+    if not is_flatpak_run(cmd):
+        return env
+    source = os.environ if env is None else env
+    return {k: v for k, v in source.items() if k not in _SANDBOX_DISPLAY_VARS}
+
+
 def host_env() -> dict[str, str]:
     """Return os.environ scrubbed of AppImage-injected pollution.
 
@@ -42,8 +117,11 @@ def host_env() -> dict[str, str]:
     user opened *from* a previous AppImage launch - `$PATH` still has
     `/tmp/.mount_<dead>/bin` in it, etc. The var list lives in
     :mod:`Utils.appimage_env` (single source of truth).
+
+    Also drops the Qt display env we set for our OWN window - see
+    :func:`strip_ui_env`.
     """
-    return strip_appimage_vars(os.environ.copy())
+    return strip_ui_env(strip_appimage_vars(os.environ.copy()))
 
 
 def _in_flatpak() -> bool:
@@ -122,7 +200,7 @@ def spawn_watched(
     try:
         proc = subprocess.Popen(
             cmd,
-            env=host_env(),
+            env=strip_sandbox_display_env(cmd, host_env()),
             cwd=cwd,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.PIPE,

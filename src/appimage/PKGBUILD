@@ -138,8 +138,15 @@ mkdir -p "\$MOD_MANAGER_PROFILES_DIR"
 # (window pos reports (0,0), mapToGlobal is wrong) so QToolTip mis-anchors,
 # badly once QT_SCALE_FACTOR != 1. XWayland exposes real global coords so
 # tooltips place correctly and scaling stays exact. Matches the flatpak build.
-# \`:=\` respects a user override.
-: "\${QT_QPA_PLATFORM:=xcb}"
+# A user override wins. The marker tells Utils.xdg.host_env() the value is
+# OURS, so it is scrubbed from anything we launch - a child that can't reach
+# an X server (the OpenMW flatpak has fallback-x11 only) aborts on startup if
+# it inherits xcb.
+if [ -z "\${QT_QPA_PLATFORM:-}" ]; then
+    QT_QPA_PLATFORM=xcb
+    _AMM_OWNS_QT_PLATFORM=1
+    export _AMM_OWNS_QT_PLATFORM
+fi
 export QT_QPA_PLATFORM
 : "\${FONTCONFIG_FILE:=\$APP_SHARE/fonts.conf}"
 export FONTCONFIG_FILE
