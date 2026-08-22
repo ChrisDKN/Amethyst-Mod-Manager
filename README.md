@@ -25,6 +25,7 @@
 - **Loot support** - Libloot is built into the application and optimised for fast plugin sorting
 - **Update checking** - Quickly check all mods for Nexus updates. Bg3 mods installed via mod.io can also be checked for updates
 - **Multi game support** - Bethesda, RE Engine (including pak invalidation), Bg3, CP2077 and a lot more. Designed to make adding game support easy
+- **Multiple Deploy methods** - Deploy as symlinks, Hardlinks or as a VFS
 - **Automated tool setup** - Run things like Pandora,pgpatcher,dyndolod with a few clicks
 - **Root folder building** - Most mods that need to go to root do so automatically, no setup needed. Anything else can be toggled to go to root with a couple clicks
 - **Smart game restore** - Amethyst uses hardlinks and symlinks but will restore the game to it's previous state while moving any runtime generated files back to staging

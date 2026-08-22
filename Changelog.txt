@@ -19,6 +19,8 @@
 - Moved the download and extraction bars to the notification menu
 - Games added as non steam games are now detected
 - The settings menu now opens as a modal instead of a tab
+- Pressing view on a mod in the Nexus browser will now show the mods description page within the manager
+- Mouse 4 and 5 can be used to move between pages in the nexus, thunderstore and collections browser
 ### Bug Fixes
 - Fixed Thunderstore BepInEx plugins being deployed into legacy package paths that loaders may delete at startup
 - Fixed an issue where folder names may not merge/normalise in Ue5 games
