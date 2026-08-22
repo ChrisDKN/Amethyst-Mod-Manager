@@ -738,33 +738,71 @@ def set_game_steam_context(env: dict, steam_id: str) -> None:
     env["STEAM_COMPAT_APP_ID"] = app_id
 
 
-def _is_amethyst_steam_handoff(options: str, game) -> bool:
-    """Whether Steam's saved options would re-enter this app's VFS CLI.
+def _without_amethyst_steam_handoff(options: str, game) -> str | None:
+    """Remove Amethyst's own wrapper from saved Steam launch options.
 
-    VFS onboarding asks Steam users to install an Amethyst command around
-    ``%command%``.  Manager Play also reads ordinary Steam Launch Options so
-    it can preserve wrappers such as gamescope or gamemoderun.  Replaying our
-    own handoff there would recursively invoke Amethyst and deploy a second
-    time, so recognise only the generated ``launch <game-id> -- %command%``
-    shape and leave every normal Steam option alone.
+    Return the options remaining after the handoff, ``"%command%"`` when
+    there are no additional options, or ``None`` when this is not Amethyst's
+    handoff. Tokens after the handoff's ``--`` marker are user wrappers and
+    must survive when the manager launches the game directly.
     """
     if not options or "%command%" not in options:
-        return False
-    prefix = options.split("%command%", 1)[0]
+        return None
+    prefix, suffix = options.split("%command%", 1)
     try:
         tokens = shlex.split(prefix)
     except ValueError:
-        return False
-    if not tokens or tokens[-1] != "--":
-        return False
-    tokens = tokens[:-1]
+        return None
+    if not tokens:
+        return None
     game_id = str(getattr(game, "game_id", "") or "")
     if not game_id:
-        return False
-    return any(
-        tokens[index] == "launch" and tokens[index + 1] == game_id
-        for index in range(len(tokens) - 1)
-    )
+        return None
+
+    def _remaining_options(remaining: list[str]) -> str:
+        before = shlex.join(remaining)
+        return f"{before + ' ' if before else ''}%command%{suffix}"
+
+    # Current handoffs use a stable short script so Steam's saved command does
+    # not depend on an AppImage mount or source-checkout path. Profile-pinned
+    # variants add ``-profile-<10 hex chars>`` to the same generated basename.
+    # Match only that exact directory/name contract; an unrelated user wrapper
+    # elsewhere must still be replayed by manager launches.
+    try:
+        from Utils.launch_handoff import launch_handoff_script_path
+        expected = launch_handoff_script_path(game).resolve(strict=False)
+        profile_name = re.compile(
+            rf"{re.escape(expected.stem)}-profile-[0-9a-f]{{10}}\.sh"
+        )
+        for index, token in enumerate(tokens[:-1]):
+            candidate = Path(token).expanduser().resolve(strict=False)
+            if tokens[index + 1] == "--" \
+                    and candidate.parent == expected.parent and (
+                    candidate.name == expected.name
+                    or profile_name.fullmatch(candidate.name)):
+                return _remaining_options(
+                    tokens[:index] + tokens[index + 2:])
+    except (OSError, RuntimeError, ValueError):
+        # The legacy inline check below remains usable if the configured data
+        # root cannot currently be resolved.
+        pass
+
+    # Older handoffs embedded the full CLI invocation. Everything through its
+    # ``--`` belongs to Amethyst; anything after that marker is a user wrapper.
+    for index in range(len(tokens) - 1):
+        if tokens[index] != "launch" or tokens[index + 1] != game_id:
+            continue
+        try:
+            marker = tokens.index("--", index + 2)
+        except ValueError:
+            return None
+        return _remaining_options(tokens[marker + 1:])
+    return None
+
+
+def _is_amethyst_steam_handoff(options: str, game) -> bool:
+    """Whether saved Steam options contain Amethyst's own launch handoff."""
+    return _without_amethyst_steam_handoff(options, game) is not None
 
 
 def _direct_steam_launch_options_for_game(
@@ -778,12 +816,13 @@ def _direct_steam_launch_options_for_game(
     launcher-swap path still needs to compare Steam's actual saved options.
     """
     options = steam_launch_options_for_game(game, log_fn)
-    if _is_amethyst_steam_handoff(options, game):
+    remaining = _without_amethyst_steam_handoff(options, game)
+    if remaining is not None:
         log_fn(
             f"{log_prefix}: ignoring Amethyst's Steam VFS handoff while "
             "already launching from Amethyst."
         )
-        return ""
+        return remaining
     return options
 
 

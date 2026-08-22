@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import importlib.util
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -70,6 +71,7 @@ from Utils.quick_configure import (  # noqa: E402
 from Utils.launch_handoff import build_launch_handoff  # noqa: E402
 from cli import cmd_launch  # noqa: E402
 from Utils.exe_launch import (  # noqa: E402
+    _is_amethyst_steam_handoff,
     is_game_launch_exe,
     launch_exe_via_proton,
     launch_game,
@@ -3310,7 +3312,8 @@ def test_native_vfs_flatpak_forwards_launch_environment() -> None:
 
 def test_native_steam_handoff_fallback_is_not_recursive() -> None:
     with tempfile.TemporaryDirectory() as tmp:
-        game = _FakeNativeDirectGame(Path(tmp))
+        root = Path(tmp)
+        game = _FakeNativeDirectGame(root)
         game.game_id = "native_direct_test"
         native_exe = game.game / game.exe_name
         native_exe.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
@@ -3321,14 +3324,27 @@ def test_native_steam_handoff_fallback_is_not_recursive() -> None:
             "SteamOverlayGameId": "999999",
             "STEAM_COMPAT_APP_ID": "999999",
         }
-        generated_handoff = (
-            "/usr/bin/flatpak-spawn --host /usr/bin/python3 "
-            "'/home/test/Amethyst Mod Manager/src/cli.py' "
-            "launch native_direct_test --profile default -- %command%"
-        )
+        generated_script = (
+            root / "Amethyst" / "launchers" / "native_direct_test.sh")
+        generated_handoff = f"{shlex.quote(str(generated_script))} -- %command%"
         messages: list[str] = []
 
-        with patch("Utils.exe_launch.spawn_process_watched") as spawn, \
+        with patch("Utils.config_paths.get_default_staging_root",
+                   return_value=root / "Amethyst"):
+            assert _is_amethyst_steam_handoff(generated_handoff, game)
+            profile_script = generated_script.with_name(
+                "native_direct_test-profile-0123456789.sh")
+            assert _is_amethyst_steam_handoff(
+                f"{shlex.quote(str(profile_script))} -- %command%", game)
+            assert _is_amethyst_steam_handoff(
+                "/usr/bin/python3 /opt/amethyst/src/cli.py "
+                "launch native_direct_test -- %command%", game)
+            assert not _is_amethyst_steam_handoff(
+                "/tmp/native_direct_test.sh -- %command%", game)
+
+        with patch("Utils.config_paths.get_default_staging_root",
+                   return_value=root / "Amethyst"), \
+                patch("Utils.exe_launch.spawn_process_watched") as spawn, \
                 patch("Utils.exe_launch.load_launch_mode",
                       return_value="none"), \
                 patch("Utils.exe_launch.game_is_steam_install",
@@ -3362,7 +3378,9 @@ def test_native_steam_handoff_fallback_is_not_recursive() -> None:
         normal_options = (
             "NORMAL_STEAM_WRAPPER=1 mangohud %command% --steam-suffix"
         )
-        with patch("Utils.exe_launch.spawn_process_watched") as spawn, \
+        with patch("Utils.config_paths.get_default_staging_root",
+                   return_value=root / "Amethyst"), \
+                patch("Utils.exe_launch.spawn_process_watched") as spawn, \
                 patch("Utils.exe_launch.load_launch_mode",
                       return_value="none"), \
                 patch("Utils.exe_launch.game_is_steam_install",
@@ -3408,13 +3426,18 @@ def test_proton_steam_handoff_fallback_is_not_recursive() -> None:
         game.get_prefix_path = lambda: prefix
         proton = root / "compatibilitytools.d" / "GE-Proton" / "proton"
         steam_root = root / "steam"
+        handoff_root = root / "Amethyst"
+        generated_script = handoff_root / "launchers" / "skyrim_se.sh"
+        user_wrapper = root / "lsfg"
         generated_handoff = (
-            "'/usr/bin/python3' '/opt/amethyst/src/cli.py' "
-            "launch skyrim_se -- %command%"
+            f"{shlex.quote(str(generated_script))} -- "
+            f"{shlex.quote(str(user_wrapper))} %command% --wrapper-suffix"
         )
         messages: list[str] = []
 
-        with patch("Utils.exe_launch.load_proton_override",
+        with patch("Utils.config_paths.get_default_staging_root",
+                   return_value=handoff_root), \
+                patch("Utils.exe_launch.load_proton_override",
                    return_value=None), \
                 patch("Utils.exe_launch.load_exe_args", return_value=""), \
                 patch("Utils.exe_launch.load_launch_options",
@@ -3444,7 +3467,9 @@ def test_proton_steam_handoff_fallback_is_not_recursive() -> None:
         steam_options.assert_called_once_with(game, messages.append)
         spawn.assert_called_once()
         command = spawn.call_args.args[0]
-        assert command == ["fake-runtime", str(exe)]
+        assert command == [
+            str(user_wrapper), "fake-runtime", str(exe), "--wrapper-suffix",
+        ]
         assert not any("cli.py" in token for token in command)
         assert "launch" not in command
         assert all(
