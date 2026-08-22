@@ -14,6 +14,9 @@ Mod structure:
   Staged mods live in Profiles/Daggerfall Unity/mods/.
   Root_Folder/ files deploy straight to the game install root (handled by GUI).
 
+  .dll files are the one exception: they are managed assemblies and route to
+  DaggerfallUnity_Data/Managed/ via a custom rule - see custom_routing_rules.
+
 Notes:
   - DFU is a native Linux binary shipped as a standalone zip - there is no
     Steam app id and no Proton prefix.  get_launch_command() runs the player
@@ -47,11 +50,13 @@ from Utils.deploy import (
     LinkMode,
     cleanup_custom_deploy_dirs,
     deploy_core,
+    deploy_custom_rules,
     deploy_filemap,
     expand_separator_deploy_paths,
     load_per_mod_strip_prefixes,
     load_separator_deploy_paths,
     move_to_core,
+    restore_custom_rules,
     restore_data_core,
 )
 from Utils.modlist import read_modlist
@@ -61,6 +66,7 @@ _PROFILES_DIR = get_profiles_dir()
 
 _DATA_DIR   = "DaggerfallUnity_Data"
 _STREAMING  = "StreamingAssets"
+_MANAGED    = "Managed"
 _EXE        = "DaggerfallUnity.x86_64"
 
 # The folders DFU itself reads out of StreamingAssets.  Doubles as the set of
@@ -312,6 +318,12 @@ class DaggerfallUnity(ProfileVFSGameMixin, BaseGame):
     @property
     def additional_install_logic(self) -> list:
         return [normalise_dfu_mod]
+
+    @property
+    def custom_routing_rules(self) -> list:
+        from Utils.deploy import CustomRule
+        return [CustomRule(dest=f"{_DATA_DIR}/{_MANAGED}",
+                           extensions=[".dll"], flatten=True)]
 
     @property
     def conflict_ignore_filenames(self) -> set[str]:
@@ -941,12 +953,27 @@ class DaggerfallUnity(ProfileVFSGameMixin, BaseGame):
         _log(f"  Backed up existing files → {core}/.")
         data_dir.mkdir(parents=True, exist_ok=True)
 
-        _log(f"Step 2: Transferring mod files into {data_dir} ({mode.name}) ...")
         profile_dir    = self.get_profile_root() / "profiles" / profile
         per_mod_strip  = load_per_mod_strip_prefixes(profile_dir)
         _sep_deploy    = load_separator_deploy_paths(profile_dir)
         _sep_entries   = read_modlist(profile_dir / "modlist.txt") if _sep_deploy else []
         per_mod_deploy = expand_separator_deploy_paths(_sep_deploy, _sep_entries) or None
+
+        # Managed assemblies (0Harmony.dll and friends) belong beside the
+        # player's own DLLs, not in StreamingAssets/ - route them first and
+        # keep the handled paths out of the normal deploy below.
+        _log(f"Step 1b: Routing managed assemblies into {_MANAGED}/ ...")
+        custom_exclude = deploy_custom_rules(
+            filemap, self._game_path, staging,
+            rules=self.custom_routing_rules,
+            mode=mode,
+            strip_prefixes=self.mod_folder_strip_prefixes,
+            per_mod_strip_prefixes=per_mod_strip,
+            log_fn=_log,
+            progress_fn=progress_fn,
+        )
+
+        _log(f"Step 2: Transferring mod files into {data_dir} ({mode.name}) ...")
         linked_mod, placed = deploy_filemap(
             filemap, data_dir, staging,
             mode=mode,
@@ -955,6 +982,7 @@ class DaggerfallUnity(ProfileVFSGameMixin, BaseGame):
             per_mod_deploy_dirs=per_mod_deploy,
             log_fn=_log,
             progress_fn=progress_fn,
+            exclude=custom_exclude or None,
             core_dir=data_dir.parent / core,
         )
         _log(f"  Transferred {linked_mod} mod file(s).")
@@ -996,6 +1024,19 @@ class DaggerfallUnity(ProfileVFSGameMixin, BaseGame):
         _profile_dir = self._active_profile_dir
         _entries = read_modlist(_profile_dir / "modlist.txt") if _profile_dir else []
         cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log)
+
+        # Managed assemblies live outside StreamingAssets/, so the _Core swap
+        # below never touches them.  A VFS deploy routes them inside its private
+        # view instead and leaves no journal here, making this a no-op - it
+        # still runs unconditionally so a physical deploy is undone even when
+        # VFS was switched on afterwards.
+        _log(f"Restore: removing routed assemblies from {_MANAGED}/ ...")
+        restore_custom_rules(
+            self.get_effective_filemap_path(),
+            self._game_path,
+            rules=self.custom_routing_rules,
+            log_fn=_log,
+        )
 
         _mj = _mods_json()
 
