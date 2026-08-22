@@ -173,8 +173,8 @@ class BodySlideView(WizardViewBase):
             import subprocess
             from Utils.bodyslide_tools import apply_output_redirect
             from Utils.exe_launch import (
-                resolve_tool_prefix, run_tool_logged, shutdown_prefix_wineserver,
-                wrap_tool_command,
+                PREFIX_MODE_GAME, resolve_tool_prefix, run_tool_logged,
+                shutdown_prefix_wineserver, wrap_tool_command,
             )
             from Utils.steam_finder import proton_run_command
             _wlog = lambda m: self._log(f"{name} Wizard: {m}")
@@ -194,9 +194,16 @@ class BodySlideView(WizardViewBase):
                 result = resolve_tool_prefix(
                     staged_exe, game, proton_name, prefix_mode, log_fn=_wlog)
                 if result is None:
-                    safe_emit(self._run_status_sig,
-                              self.tr("Could not find Proton '{0}' - "
-                              "check that it is installed in Steam.").format(proton_name), RED)
+                    if prefix_mode == PREFIX_MODE_GAME:
+                        safe_emit(self._run_status_sig,
+                            self.tr("Could not resolve the Proton version for the "
+                            "game's own prefix - launch the game once, or pick a "
+                            "different prefix option."), RED)
+                    else:
+                        safe_emit(self._run_status_sig,
+                            self.tr("Could not find Proton '{0}' - check that it "
+                            "is installed in Steam, Heroic or ProtonPlus.").format(
+                                proton_name), RED)
                     return
                 proton_script, compat_data, env = result
 

@@ -519,7 +519,8 @@ class DynDOLODView(QWidget):
 
         def worker():
             from Utils.exe_launch import (
-                resolve_tool_prefix, run_tool_logged, shutdown_prefix_wineserver,
+                PREFIX_MODE_GAME, resolve_tool_prefix, run_tool_logged,
+                shutdown_prefix_wineserver,
             )
             from Utils.wine_paths import to_wine_path
             from Utils.xedit_tools import prepare_xedit_prefix
@@ -529,9 +530,16 @@ class DynDOLODView(QWidget):
                 result = resolve_tool_prefix(
                     exe, game, proton_name, prefix_mode, log_fn=_wlog)
                 if result is None:
-                    safe_emit(self._run_status_sig,
-                        self.tr("Could not find Proton '{0}' - "
-                        "check that it is installed in Steam.").format(proton_name), err_text())
+                    if prefix_mode == PREFIX_MODE_GAME:
+                        safe_emit(self._run_status_sig,
+                            self.tr("Could not resolve the Proton version for the "
+                            "game's own prefix - launch the game once, or pick a "
+                            "different prefix option."), err_text())
+                    else:
+                        safe_emit(self._run_status_sig,
+                            self.tr("Could not find Proton '{0}' - check that it "
+                            "is installed in Steam, Heroic or ProtonPlus.").format(
+                                proton_name), err_text())
                     return
                 proton_script, compat_data, env = result
 

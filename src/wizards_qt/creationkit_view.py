@@ -205,8 +205,8 @@ class CreationKitView(WizardViewBase):
             from Utils.bethesda_registry import maybe_register_for_game
             from Utils.deploy import apply_wine_dll_overrides
             from Utils.exe_launch import (
-                link_mygames, link_plugins_txt, resolve_tool_prefix,
-                run_tool_logged, shutdown_prefix_wineserver,
+                PREFIX_MODE_GAME, link_mygames, link_plugins_txt,
+                resolve_tool_prefix, run_tool_logged, shutdown_prefix_wineserver,
             )
             from Utils.protontricks import (
                 D3D_DEP_KEY, VCREDIST_DEP_KEY, install_d3dcompiler_47,
@@ -223,9 +223,16 @@ class CreationKitView(WizardViewBase):
                     exe, game, proton_name, prefix_mode, log_fn=_wlog,
                     isolated_prefix_dir=_ck_isolated_prefix_dir(proton_name))
                 if result is None:
-                    safe_emit(self._run_status_sig,
-                              self.tr("Could not find Proton '{0}' - "
-                              "check that it is installed in Steam.").format(proton_name), RED)
+                    if prefix_mode == PREFIX_MODE_GAME:
+                        safe_emit(self._run_status_sig,
+                            self.tr("Could not resolve the Proton version for the "
+                            "game's own prefix - launch the game once, or pick a "
+                            "different prefix option."), RED)
+                    else:
+                        safe_emit(self._run_status_sig,
+                            self.tr("Could not find Proton '{0}' - check that it "
+                            "is installed in Steam, Heroic or ProtonPlus.").format(
+                                proton_name), RED)
                     return
                 proton_script, compat_data, env = result
 

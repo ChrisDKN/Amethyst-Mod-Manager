@@ -1941,7 +1941,8 @@ def resolve_tool_prefix(exe: Path, game, proton_name: str, prefix_mode: str,
     tuple order: compat_data before env, matching get_tool_prefix_env).
     """
     if prefix_mode == PREFIX_MODE_GAME:
-        result = get_game_prefix_env(game, log_fn=log_fn)
+        result = get_game_prefix_env(game, log_fn=log_fn,
+                                     allow_runner_fallback=True)
     else:
         target = isolated_prefix_dir
         if prefix_mode == PREFIX_MODE_SHARED:

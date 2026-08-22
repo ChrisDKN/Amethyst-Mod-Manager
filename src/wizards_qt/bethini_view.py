@@ -108,9 +108,16 @@ class BethiniView(WizardViewBase):
                 result = resolve_tool_prefix(
                     exe, game, proton_name, prefix_mode, log_fn=_wlog)
                 if result is None:
-                    safe_emit(self._run_status_sig,
-                              self.tr("Could not find Proton '{0}' - "
-                              "check that it is installed in Steam.").format(proton_name), RED)
+                    if prefix_mode == PREFIX_MODE_GAME:
+                        safe_emit(self._run_status_sig,
+                            self.tr("Could not resolve the Proton version for the "
+                            "game's own prefix - launch the game once, or pick a "
+                            "different prefix option."), RED)
+                    else:
+                        safe_emit(self._run_status_sig,
+                            self.tr("Could not find Proton '{0}' - check that it "
+                            "is installed in Steam, Heroic or ProtonPlus.").format(
+                                proton_name), RED)
                     return
                 proton_script, compat_data, env = result
 
