@@ -257,7 +257,7 @@ class _TwoLineLabel(QLabel):
 
 class NexusModCard(QFrame):
     """One mod in the grid. *entry* is a NexusModInfo. Callbacks:
-        on_view(entry)     - open the mod's Nexus page
+        on_view(entry)     - show the mod's details
         on_install(entry)  - download + install
         on_context(entry, global_pos) - show a right-click menu (optional)
     """
