@@ -112,6 +112,7 @@ py.install_sources(
   'safe_emit.py',
   'save_preview.py',
   'saves_view.py',
+  'scanline_overlay.py',
   'selector_button.py',
   'separator_settings_view.py',
   'set_prefix_overlay.py',

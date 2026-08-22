@@ -9,6 +9,8 @@ py.install_sources(
   'light.py',
   'noir.py',
   'oled.py',
+  'pipboy.py',
   'stardew.py',
+  'tokyonight.py',
   subdir: 'Utils' / 'themes',
 )

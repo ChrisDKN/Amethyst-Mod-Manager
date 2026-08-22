@@ -175,6 +175,13 @@ class _FloatingTab(QMainWindow):
         page.show()                            # was hidden by removeTab → show it
         self.resize(max(900, page.sizeHint().width()),
                     max(600, page.sizeHint().height()))
+        # A detached tab is its own window, so it needs its own scanline sheet
+        # (no-op unless the active theme asks for one).
+        try:
+            from gui_qt.scanline_overlay import attach as attach_scanlines
+            attach_scanlines(self)
+        except Exception:
+            pass
 
     def take_page(self) -> QWidget | None:
         """Release the page without deleting it (for redocking)."""

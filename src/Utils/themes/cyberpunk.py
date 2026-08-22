@@ -214,4 +214,15 @@ PALETTE: dict[str, str | tuple] = {
 
     # Checkbox fill when checked (tick auto-contrasts off this)
     "CHECK_FILL": "#f3e600",
+
+    # CRT scanline sheet - read by gui_qt/scanline_overlay.py, ignored by every
+    # theme that doesn't declare these. The lit row is cyan rather than white
+    # so the bloom reads as this theme's phosphor against the red-black base.
+    # Tune with AMM_SCANLINES=<n> before changing these.
+    "SCANLINE_COLOR":      "#000000",
+    "SCANLINE_ALPHA":      "96",
+    "SCANLINE_PITCH":      "3",
+    "SCANLINE_THICKNESS":  "1",
+    "SCANLINE_GLOW_COLOR": "#00ffff",
+    "SCANLINE_GLOW_ALPHA": "20",
 }

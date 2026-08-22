@@ -1245,6 +1245,13 @@ def apply_theme(app, palette: dict | None = None) -> dict:
                 changed_roles)):
         _repolish_palette_qss(app, locally_restyled)
     _notify_theme_bindings(old, p, changed_roles)
+    # Themes may ask for a CRT scanline sheet; themes that don't create no
+    # widget, so this is a no-op for all but Pip-Boy.
+    try:
+        from gui_qt.scanline_overlay import sync as sync_scanlines
+        sync_scanlines(app, p)
+    except Exception as exc:
+        print(f"[theme] scanline overlay failed: {exc}", flush=True)
     try:
         for top in app.topLevelWidgets():
             top.update()
