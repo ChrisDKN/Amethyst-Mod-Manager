@@ -18,12 +18,18 @@ from pathlib import Path
 # Known Steam base directories for different install methods
 # ---------------------------------------------------------------------------
 _HOME = Path.home()
+_XDG_DATA = Path(os.environ.get("XDG_DATA_HOME") or (_HOME / ".local" / "share"))
 
 _STEAM_CANDIDATES: list[Path] = [
     _HOME / ".local" / "share" / "Steam",                                          # Standard
+    _XDG_DATA / "Steam",                                                           # XDG_DATA_HOME override
     _HOME / ".var" / "app" / "com.valvesoftware.Steam" / ".local" / "share" / "Steam",  # Flatpak
+    _HOME / ".var" / "app" / "com.valvesoftware.Steam" / "data" / "Steam",         # Flatpak (ProtonPlus spelling)
     _HOME / "snap" / "steam" / "common" / ".local" / "share" / "Steam",            # Snap
+    _HOME / "snap" / "steam" / "common" / ".steam" / "root",                       # Snap (ProtonPlus spelling)
     _HOME / ".steam" / "steam",                                                     # Symlink fallback
+    _HOME / ".steam" / "root",                                                      # Symlink fallback (Debian/Arch)
+    _HOME / ".steam" / "debian-installation",                                       # Debian-packaged Steam
 ]
 
 # Steam normally writes "libraryfolders.vdf", but some installs (and older
