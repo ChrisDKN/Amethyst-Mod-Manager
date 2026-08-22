@@ -38,6 +38,7 @@ from Thunderstore.thunderstore_api import (
     ORDERINGS, fetch_filters, fetch_latest_version, fetch_listing, package_url,
     total_pages)
 from gui_qt.flow_layout import FlowLayout
+from gui_qt.mouse_navigation import MouseNavigationFilter
 from gui_qt.nexus_mod_card import CARD_W, NexusModCard, ThumbnailLoader
 from gui_qt.safe_emit import safe_emit
 from gui_qt.selector_button import SelectorButton
@@ -162,6 +163,8 @@ class ThunderstoreBrowserView(QWidget):
         self._version_ready.connect(self._on_version_ready)
 
         self._build()
+        self._mouse_navigation = MouseNavigationFilter(
+            self, self._prev_page, self._next_page)
         self._load_filters()
         self._reload()
 

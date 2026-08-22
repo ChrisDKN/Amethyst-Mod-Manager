@@ -79,6 +79,7 @@ py.install_sources(
   'modlist_sort.py',
   'modlist_view.py',
   'move_downloads_overlay.py',
+  'mouse_navigation.py',
   'new_profile_bar.py',
   'nexus_browser_view.py',
   'nexus_bbcode.py',

@@ -35,6 +35,7 @@ from gui_qt.safe_emit import safe_emit
 from gui_qt.worker import run_in_worker
 from gui_qt.selector_button import SelectorButton
 from gui_qt.nexus_mod_card import NexusModCard, ThumbnailLoader, CARD_W
+from gui_qt.mouse_navigation import MouseNavigationFilter
 
 # label → API value (verbatim from Tk browse_mods_panel.SORT_KEYS / TIME_RANGES)
 SORT_KEYS = [
@@ -222,6 +223,8 @@ class NexusBrowserView(QWidget):
         self.destroyed.connect(_stop_watchers)
 
         self._build()
+        self._mouse_navigation = MouseNavigationFilter(
+            self, self._mouse_back, self._mouse_forward)
         self._update_section_buttons()
         self._update_browse_controls_visibility()
         self._load_categories()
@@ -1151,6 +1154,18 @@ class NexusBrowserView(QWidget):
         if len(self._entries) >= self._page_size():
             self._page += 1
             self._reload()
+
+    def _mouse_back(self):
+        """Mouse 4: leave a mod detail page, otherwise go back one page."""
+        if getattr(self, "_detail_view", None) is not None:
+            self._close_detail()
+        else:
+            self._prev_page()
+
+    def _mouse_forward(self):
+        """Mouse 5: advance the listing, but never page behind a detail view."""
+        if getattr(self, "_detail_view", None) is None:
+            self._next_page()
 
     def _jump_to_page(self):
         txt = self._page_edit.text().strip()
