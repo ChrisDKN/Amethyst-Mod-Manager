@@ -246,6 +246,12 @@ class DaggerfallUnity(ProfileVFSGameMixin, BaseGame):
         "manage_load_order_in_dfu",
     )
 
+    # Unity writes DFU's settings.ini, mod settings and logs to the host's
+    # per-user config dir, nowhere near the game folder or a Proton prefix.
+    extra_open_locations = (
+        ("DFU Config", "~/.config/unity3d/Daggerfall Workshop/Daggerfall Unity"),
+    )
+
     def __init__(self):
         self._game_path: Path | None = None
         self._prefix_path: Path | None = None

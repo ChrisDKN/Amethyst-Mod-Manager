@@ -2982,16 +2982,27 @@ class MainWindow(QMainWindow):
             actions.append(
                 (self.tr("Force update handler"),
                  lambda: self._on_game_action("update_handler")))
-        actions.append(
-            (self.tr("Open"), [
-                (self.tr("Game folder"),     lambda: self._open_game_dir("game")),
-                (self.tr("Prefix folder"),   lambda: self._open_game_dir("prefix")),
-                (self.tr("My Games folder"), lambda: self._open_game_dir("mygames")),
-                (self.tr("AppData folder"),  lambda: self._open_game_dir("appdata")),
-                (self.tr("Staging folder"),  lambda: self._open_game_dir("staging")),
-                (self.tr("Profile folder"),  lambda: self._open_game_dir("profile")),
-                (self.tr(".config folder"),  lambda: self._open_game_dir("config")),
-            ]))
+        open_items = [
+            (self.tr("Game folder"),     lambda: self._open_game_dir("game")),
+            (self.tr("Prefix folder"),   lambda: self._open_game_dir("prefix")),
+            (self.tr("My Games folder"), lambda: self._open_game_dir("mygames")),
+            (self.tr("AppData folder"),  lambda: self._open_game_dir("appdata")),
+            (self.tr("Staging folder"),  lambda: self._open_game_dir("staging")),
+            (self.tr("Profile folder"),  lambda: self._open_game_dir("profile")),
+            (self.tr(".config folder"),  lambda: self._open_game_dir("config")),
+        ]
+        # Handler-declared locations (base_game.extra_open_locations). Labels
+        # come from the handler, so they stay untranslated like other
+        # handler-supplied strings.
+        for entry in (getattr(game, "extra_open_locations", ()) or ()):
+            try:
+                label, template = entry
+            except Exception:
+                continue
+            open_items.append(
+                (str(label),
+                 lambda t=template, d=str(label): self._open_extra_location(t, d)))
+        actions.append((self.tr("Open"), open_items))
         return actions
 
     def _refresh_game_actions(self):
@@ -11336,6 +11347,23 @@ class MainWindow(QMainWindow):
                 Path(path).mkdir(parents=True, exist_ok=True)
             except Exception:
                 pass
+        self._open_folder_path(path, descr)
+
+    def _open_extra_location(self, template: str, descr: str):
+        """Open a handler-declared extra location (game selector ▸ Open ▸ …)."""
+        game = self._gs.game
+        if game is None or not game.is_configured():
+            self._notify(self.tr("No configured game selected."), "warning")
+            return
+        # {staging}/{profile} resolve against the active profile dir, which a
+        # background worker may have left stale - same reason _open_game_dir
+        # re-asserts it.
+        self._gs.reassert_active_profile()
+        try:
+            path = game.resolve_open_location(template)
+        except Exception as e:
+            self._append_log(f"Open {descr} error: {e}")
+            path = None
         self._open_folder_path(path, descr)
 
     def _open_game_dir(self, which: str):

@@ -200,6 +200,19 @@ class BaseGame(ABC):
     # runtime command directly into `.amethyst-vfs/view`.
     vfs_bind_launch_at_game_root: bool = False
 
+    # Extra entries for the game selector's "Open ▸" submenu, as
+    # (label, path template) pairs.  The template is a str expanded by
+    # resolve_open_location(): "~" and $ENV expand as usual, and the tokens
+    # {prefix}, {game}, {staging}, {profile}, {mygames}, {appdata} and
+    # {config} stand for the folders the built-in entries open, so a handler
+    # can name a location inside the Proton prefix or out on the host system
+    # with one syntax.  A token whose folder is unknown drops the entry.
+    #   extra_open_locations = (
+    #       ("DFU Config", "~/.config/unity3d/Daggerfall Workshop/Daggerfall Unity"),
+    #       ("Engine logs", "{prefix}/drive_c/users/steamuser/AppData/Local/Foo"),
+    #   )
+    extra_open_locations: tuple[tuple[str, str], ...] = ()
+
     # Native games normally launch without a store process, but some call
     # SteamAPI directly and cannot initialise unless the Steam client is live.
     # The direct native Play path uses this opt-in to start/wait for Steam
@@ -1168,6 +1181,66 @@ class BaseGame(ABC):
         # one that forgot (Elden Ring, Mewgenics) reported "no prefix" forever,
         # which silently hid the prefix-gated Proton menu in the header.
         return self._prefix_path
+
+    def resolve_open_location(self, template: str) -> "Path | None":
+        """Expand one extra_open_locations template to a path, or None when a
+        token in it names a folder this game has no answer for."""
+        import os
+        import re
+
+        def _token(name: str) -> "Path | None":
+            if name == "prefix":
+                return self.get_prefix_path()
+            if name == "game":
+                return self.get_game_path()
+            if name == "staging":
+                getter = getattr(self, "get_effective_mod_staging_path", None) \
+                    or getattr(self, "get_mod_staging_path", None)
+                return getter() if callable(getter) else None
+            if name == "profile":
+                return getattr(self, "_active_profile_dir", None)
+            if name == "mygames":
+                getter = getattr(self, "_mygames_path", None)
+                path = getter() if callable(getter) else None
+                if path is not None:
+                    return path
+                prefix = self.get_prefix_path()
+                return (prefix / "drive_c/users/steamuser/Documents/My Games"
+                        if prefix is not None else None)
+            if name == "appdata":
+                prefix = self.get_prefix_path()
+                if prefix is None:
+                    return None
+                sub = getattr(self, "_APPDATA_SUBPATH", None)
+                return prefix / (sub if sub is not None
+                                 else Path("drive_c/users/steamuser/AppData/Local"))
+            if name == "config":
+                from Utils.config_paths import get_config_dir
+                return get_config_dir()
+            return None
+
+        # Substitute {token}s first so a resolved path containing a '$' or '~'
+        # is never re-expanded as a shell construct.
+        missing = False
+        parts: list[str] = []
+        for chunk in re.split(r"(\{[a-z_]+\})", str(template)):
+            if chunk.startswith("{") and chunk.endswith("}"):
+                try:
+                    value = _token(chunk[1:-1])
+                except Exception:
+                    value = None
+                if value is None:
+                    missing = True
+                    break
+                parts.append(str(value))
+            else:
+                # $VARs expand anywhere; a leading ~ only means $HOME when it
+                # actually starts the template.
+                chunk = os.path.expandvars(chunk)
+                parts.append(os.path.expanduser(chunk) if not parts else chunk)
+        if missing or not parts:
+            return None
+        return Path("".join(parts))
 
     def set_prefix_path(self, path: "Path | str | None") -> None:
         """Save the Proton prefix path and persist it to paths.json."""
