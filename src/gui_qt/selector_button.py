@@ -156,7 +156,7 @@ class SelectorButton(QToolButton):
 
     def __init__(self, *, items=None, current=None, actions=None,
                  on_select: "Callable[[str], None] | None" = None,
-                 prefix="", min_width=170, icon=None, icon_px=18,
+                 prefix="", suffix="", min_width=170, icon=None, icon_px=18,
                  item_icons=None, icon_provider=None, scroll_after=None,
                  parent=None):
         """*items*   - list of selectable labels.
@@ -165,6 +165,10 @@ class SelectorButton(QToolButton):
         *on_select* - called with the chosen label when a list item is picked.
         *prefix*    - text shown before the current label on the button itself
                       (e.g. "Profile: "); not part of the selectable values.
+        *suffix*    - text shown AFTER the current label on the button itself
+                      (e.g. " (Symlink)"); an annotation, never part of the
+                      selectable values, and the first thing dropped when the
+                      label has to be elided.
         *icon*      - a QIcon to show INSTEAD of the current-label text (the
                       button becomes an icon button; the menu is unchanged).
         *item_icons* - {label: QIcon} shown next to each menu entry, and on the
@@ -183,6 +187,7 @@ class SelectorButton(QToolButton):
         self._actions = list(actions or [])
         self._on_select = on_select
         self._prefix = prefix
+        self._suffix = suffix or ""
         self._icon = icon
         self._item_icons: dict = dict(item_icons or {})
         self._icon_provider = icon_provider
@@ -296,6 +301,16 @@ class SelectorButton(QToolButton):
             self._current = label
             self._rebuild()
 
+    def set_suffix(self, suffix: str):
+        """Replace the face annotation drawn after the current label (e.g. the
+        active game's deploy method). Empty string removes it."""
+        suffix = suffix or ""
+        if suffix == self._suffix:
+            return
+        self._suffix = suffix
+        self._apply_face()
+        self.face_changed.emit()    # the top bar's width budget must re-run
+
     def set_highlighted_item(self, label: str | None):
         """Mark one item as 'active' - its menu entry is coloured green and, when
         it's also the current selection, the button itself goes green. Used to
@@ -311,8 +326,9 @@ class SelectorButton(QToolButton):
     # MainWindow._sync_header_compact.
 
     def full_text(self) -> str:
-        """The unelided button label (prefix + current item)."""
-        return self.tr("{0}{1}").format(self._prefix, self._current or "-")
+        """The unelided button label (prefix + current item + suffix)."""
+        return self.tr("{0}{1}{2}").format(
+            self._prefix, self._current or "-", self._suffix)
 
     def natural_width(self) -> int:
         """Layout width with the full label - its minimum width floors it."""
@@ -412,8 +428,8 @@ class SelectorButton(QToolButton):
             self.setToolTip("")
             self._repolish()
             return
-        # Drop the prefix before eliding the name itself: "Gate_To_Sovn…" says
-        # more in the same pixels than "Profile: Gate_To…".
+        # Drop the suffix and the prefix before eliding the name itself:
+        # "Gate_To_Sovn…" says more in the same pixels than "Profile: Gate_To…".
         room = max(0, cap - self._text_chrome())
         fm = self.fontMetrics()
         if fm.horizontalAdvance(full) <= room:

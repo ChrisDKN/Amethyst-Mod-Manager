@@ -36,6 +36,22 @@ def _toggle_attr(game, attr: str, default: bool):
     return bool(getattr(game, attr, default)), apply
 
 
+def current_deploy_method(game) -> str | None:
+    """The deploy method *game* is set to right now - ``"symlink"``,
+    ``"hardlink"`` or ``"vfs"`` - or None when the handler has no deploy-method
+    setting at all. VFS is profile-scoped, so this follows the active profile."""
+    if game is None or not hasattr(game, "get_deploy_mode"):
+        return None
+    try:
+        if (getattr(game, "supports_profile_vfs", False)
+                and getattr(game, "vfs_enabled", False)):
+            return "vfs"
+        return ("hardlink" if game.get_deploy_mode() == LinkMode.HARDLINK
+                else "symlink")
+    except Exception:
+        return None
+
+
 def build_quick_configure_options(game) -> list[dict[str, Any]]:
     """Return the quick-configure descriptors for *game*'s active profile.
 
@@ -58,8 +74,6 @@ def build_quick_configure_options(game) -> list[dict[str, Any]]:
 
     # --- Deploy method (Symlink / Hardlink / optional VFS) ------------------
     if hasattr(game, "set_deploy_mode") and hasattr(game, "get_deploy_mode"):
-        cur = (LinkMode.HARDLINK if game.get_deploy_mode() == LinkMode.HARDLINK
-               else LinkMode.SYMLINK)
         rec = getattr(game, "default_deploy_mode", "symlink")
         supports_vfs = bool(
             getattr(game, "supports_profile_vfs", False)
@@ -72,7 +86,7 @@ def build_quick_configure_options(game) -> list[dict[str, Any]]:
              "Hardlink (Recommended)" if rec == "hardlink" else "Hardlink"),
         ]
         if supports_vfs:
-            choices.append(("vfs", "Virtual filesystem (VFS, experimental)"))
+            choices.append(("vfs", "Virtual filesystem (VFS)"))
 
         def apply_deploy_method(value: str) -> None:
             if value == "vfs":
@@ -85,8 +99,7 @@ def build_quick_configure_options(game) -> list[dict[str, Any]]:
 
         add_choice(
             "deploy_mode", "Deploy Method",
-            ("vfs" if supports_vfs and getattr(game, "vfs_enabled", False)
-             else "hardlink" if cur == LinkMode.HARDLINK else "symlink"),
+            current_deploy_method(game) or "symlink",
             choices,
             apply_deploy_method,
         )
@@ -196,9 +209,4 @@ def deploy_mode_change_blocked(game, new_value: str) -> bool:
             return False
     except Exception:
         return False
-    cur = (
-        "vfs" if getattr(game, "vfs_enabled", False)
-        else "hardlink" if game.get_deploy_mode() == LinkMode.HARDLINK
-        else "symlink"
-    )
-    return new_value != cur
+    return new_value != current_deploy_method(game)

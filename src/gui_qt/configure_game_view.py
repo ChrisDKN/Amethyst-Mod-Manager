@@ -527,7 +527,7 @@ class ConfigureGameView(QWidget):
         if (getattr(self._game, "supports_profile_vfs", False)
                 and hasattr(self._game, "set_vfs_enabled")):
             self._rb_vfs = QRadioButton(
-                self.tr("Virtual filesystem (VFS, experimental)"))
+                self.tr("Virtual filesystem (VFS)"))
         self._deploy_group.addButton(self._rb_symlink)
         self._deploy_group.addButton(self._rb_hardlink)
         if self._rb_vfs is not None:

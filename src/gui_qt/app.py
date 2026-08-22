@@ -3000,6 +3000,29 @@ class MainWindow(QMainWindow):
         if getattr(self, "_game_selector", None) is not None:
             self._game_selector.set_actions(self._game_actions())
 
+    def _sync_play_deploy_suffix(self, current: str | None = None):
+        """Annotate the play-bar dropdown's game entry with the deploy method in
+        force, e.g. "Skyrim Special Edition (Symlink)". Re-run whenever the
+        game, the profile (VFS is profile-scoped), the dropdown selection or the
+        setting itself changes."""
+        sel = getattr(self, "_play_exe_selector", None)
+        if sel is None:
+            return
+        if current is None:
+            current = sel.current()
+        game = self._gs.game
+        # The deploy method describes the game/profile, not a tool exe - an
+        # "skse64_loader.exe (Symlink)" face would read as a property of the exe.
+        if game is None or current != game.name:
+            sel.set_suffix("")
+            return
+        from Utils.quick_configure import current_deploy_method
+        names = {"symlink": self.tr("Symlink"),
+                 "hardlink": self.tr("Hardlink"),
+                 "vfs": self.tr("VFS")}
+        name = names.get(current_deploy_method(game) or "")
+        sel.set_suffix(self.tr(" ({0})").format(name) if name else "")
+
     def _on_game_action(self, which):
         if which == "add":
             self._open_add_game_tab()
@@ -9239,6 +9262,10 @@ class MainWindow(QMainWindow):
                 if saved and game.name in names:
                     self._on_game_changed(game.name)
                     self._game_selector.set_current(game.name)
+                    # The deploy method may have just been switched - a
+                    # same-game save no-ops _on_game_changed (and with it the
+                    # play-selector refresh), so re-annotate explicitly.
+                    self._sync_play_deploy_suffix()
                     # profile_ini_files / profile_saves may have just been
                     # toggled - refresh the Open submenu (a same-game save is a
                     # no-op for _on_game_changed).
@@ -9891,6 +9918,7 @@ class MainWindow(QMainWindow):
         self._play_exe_selector.set_items(
             items, current=current, item_icons=self._build_exe_icon_map(game))
         self._update_play_btn_label(current)
+        self._sync_play_deploy_suffix(current)
 
     def _build_exe_icon_map(self, game) -> dict:
         """{label: QIcon} for the play-bar dropdown: the game's logo for the
@@ -9938,6 +9966,7 @@ class MainWindow(QMainWindow):
             is_game = game is not None and label == game.name
             write_selected_exe(pdir, None if is_game else label)
         self._update_play_btn_label(label)
+        self._sync_play_deploy_suffix(label)
 
     def _on_add_custom_exe(self):
         if self._gs.game is None:
@@ -11225,6 +11254,8 @@ class MainWindow(QMainWindow):
         # Track the new value so a later revert (in this still-open menu) knows
         # what the checkbox/radio should snap back to.
         opt["value"] = value
+        if opt["key"] == "deploy_mode":
+            self._sync_play_deploy_suffix()
         if opt.get("needs_reload"):
             # A path-changing option (e.g. game patch version) - reload the
             # game's paths, then refresh the lists that depend on them (mirrors
