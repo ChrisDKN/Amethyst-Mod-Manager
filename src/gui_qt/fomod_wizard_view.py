@@ -107,9 +107,11 @@ class FomodWizardView(QWidget):
         self._desc.setWordWrap(True)
         self._desc.setAlignment(Qt.AlignTop)
         self._desc.setStyleSheet(f"color:{self._c('TEXT_MAIN')};")
-        desc_scroll = QScrollArea(); desc_scroll.setWidgetResizable(True)
-        desc_scroll.setFrameShape(QFrame.NoFrame); desc_scroll.setWidget(self._desc)
-        lv.addWidget(desc_scroll, 4)
+        self._desc_scroll = QScrollArea()
+        self._desc_scroll.setWidgetResizable(True)
+        self._desc_scroll.setFrameShape(QFrame.NoFrame)
+        self._desc_scroll.setWidget(self._desc)
+        lv.addWidget(self._desc_scroll, 4)
         body.addWidget(left)
 
         self._opts_scroll = QScrollArea(); self._opts_scroll.setWidgetResizable(True)
@@ -301,6 +303,8 @@ class FomodWizardView(QWidget):
         self._back_btn.setEnabled(self._cur > 0)
         self._next_btn.setText(self.tr("Finish") if self._cur >= total - 1 else self.tr("Next"))
         self._err.setText("")
+        self._opts_scroll.verticalScrollBar().setValue(0)
+        self._desc_scroll.verticalScrollBar().setValue(0)
 
     def _build_group(self, group, selected_names, previously_saved=frozenset()):
         gtype = group.group_type
