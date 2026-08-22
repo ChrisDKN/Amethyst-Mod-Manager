@@ -593,6 +593,7 @@ def run_deploy_pipeline(
         # deployed with the same link mode → skip the restore and let the
         # standard primitives diff against the previous deploy instead.
         incr_plan = None
+        vfs_redeploy = False
         if last_deployed == profile:
             _probe_mode = (
                 game.get_deploy_mode()
@@ -601,6 +602,9 @@ def run_deploy_pipeline(
             )
             incr_plan = _incr.plan_incremental(game, profile, _probe_mode,
                                                log_fn=log_fn)
+            if incr_plan is None:
+                vfs_redeploy = _incr.plan_vfs_redeploy(
+                    game, profile, log_fn=log_fn)
         if incr_plan is not None:
             log_fn("Incremental deploy: existing deployment reused - "
                    "skipping restore.")
@@ -614,6 +618,9 @@ def run_deploy_pipeline(
                     game._restore_launcher(log_fn)
                 except Exception as exc:
                     log_fn(f"  WARN: launcher un-swap failed: {exc}")
+        elif vfs_redeploy:
+            log_fn("Incremental VFS deploy: existing private view retained - "
+                   "skipping restore.")
         elif getattr(game, "restore_before_deploy", True) and hasattr(game, "restore"):
             try:
                 if progress_fn is not None:
@@ -892,7 +899,12 @@ def run_deploy_pipeline(
         except Exception as handoff_err:
             log_fn(f"Launcher handoff warning: {handoff_err}")
 
-        _tag = " (incremental)" if incr_plan is not None else ""
+        if incr_plan is not None:
+            _tag = " (incremental)"
+        elif vfs_redeploy:
+            _tag = " (incremental VFS rebuild)"
+        else:
+            _tag = ""
         log_fn(f"Deploy finished OK in {_time.perf_counter() - _t_start:.1f}s "
                f"- profile '{profile}'.{_tag}")
         return True

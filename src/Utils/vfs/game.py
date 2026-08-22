@@ -97,6 +97,10 @@ class ProfileVFSGameMixin:
     @property
     def supports_incremental_deploy(self) -> bool:
         # VFS publishes a fresh resolved layer and has no physical diff target.
+        # Same-profile VFS redeploys are handled separately by
+        # deploy_incremental.plan_vfs_redeploy: the pipeline retains the old
+        # shadow so build_layers can capture its runtime writes and replace it
+        # atomically without a preliminary Restore.
         return (self.vfs_physical_supports_incremental_deploy
                 and not self.vfs_launch_enabled)
 

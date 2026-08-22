@@ -1,6 +1,7 @@
 """
 deploy_incremental.py
-Incremental redeploy for standard-mode (Data/) games.
+Incremental redeploy for standard-mode (Data/) games, plus the VFS redeploy
+eligibility gate used to retain an existing private view during replacement.
 
 When nothing structural changed since the last deploy - same profile, same
 link mode, deployment still on disk - the deploy pipeline activates an
@@ -32,6 +33,7 @@ State on disk (all in the profile root, beside filemap.txt):
 from __future__ import annotations
 
 import errno
+import json
 import os
 import stat as _stat_m
 from dataclasses import dataclass
@@ -230,6 +232,69 @@ def plan_incremental(game, profile: str, mode: LinkMode,
             deploy_stats=_load_deploy_stats(stats_path),
         )
     except Exception as exc:                    # noqa: BLE001 - never block a deploy
+        return _skip(f"eligibility check failed ({exc})")
+
+
+def plan_vfs_redeploy(game, profile: str, log_fn=None) -> bool:
+    """Return whether an existing profile VFS view can be redeployed in place.
+
+    The physical incremental plan above cannot target a VFS deployment: its
+    diff primitives operate on a live ``Data/`` plus ``Data_Core/`` pair.
+    VFS has a separate safe fast path.  ``build_layers`` captures runtime
+    writes from the published shadow, builds its replacement beside it, and
+    atomically swaps the completed view into place.  Keeping the old state
+    until that builder runs avoids a redundant destructive ``restore()`` and
+    also leaves the last working view available if the replacement fails.
+
+    This predicate is deliberately conservative.  Mode/profile migrations and
+    old/non-shadow manifests still take the full restore path once.
+    """
+    if not incremental_enabled():
+        return False
+    if not getattr(game, "vfs_launch_enabled", False):
+        return False
+
+    _log = _safe_log(log_fn)
+
+    def _skip(reason: str) -> bool:
+        _log(
+            f"Incremental VFS deploy unavailable - {reason}; "
+            "using the full path."
+        )
+        return False
+
+    try:
+        if game.get_last_deployed_profile() != profile:
+            return _skip("a different profile was deployed last")
+        if not game.get_deploy_active():
+            return _skip("no active deployment")
+        if game.get_last_deploy_mode() != "VFS":
+            return _skip("the previous deployment was not VFS")
+
+        # A leftover physical Data_Core means VFS and physical recovery state
+        # coexist.  Let the handler's full restore reconcile that exceptional
+        # migration before attempting a direct VFS redeploy.
+        data_root_getter = getattr(game, "get_vfs_data_root", None)
+        data_root = (
+            data_root_getter() if callable(data_root_getter)
+            else game.get_mod_data_path()
+        )
+        if data_root is not None and _default_core(Path(data_root)).is_dir():
+            return _skip("physical deployment recovery state is still present")
+
+        from Utils.vfs import BACKEND_SHADOW, manifest_path
+
+        manifest = manifest_path(game, profile)
+        if not manifest.is_file():
+            return _skip("published view manifest missing")
+        payload = json.loads(manifest.read_text(encoding="utf-8"))
+        if (not isinstance(payload, dict)
+                or payload.get("backend") != BACKEND_SHADOW):
+            return _skip("the published view uses an older backend")
+        if payload.get("profile") != profile:
+            return _skip("published view belongs to a different profile")
+        return True
+    except Exception as exc:                    # noqa: BLE001 - never block deploy
         return _skip(f"eligibility check failed ({exc})")
 
 

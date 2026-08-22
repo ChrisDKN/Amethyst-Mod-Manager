@@ -729,6 +729,72 @@ def test_layer_build_and_skse_selection() -> None:
     print("✓ layer build, virtual case aliases/stubs, SKSE selection, cleanup")
 
 
+def test_incremental_vfs_redeploy() -> None:
+    """Same-profile redeploy retains, captures, then replaces the old view."""
+    from Utils.deploy_incremental import plan_vfs_redeploy
+
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _FakeGame(Path(tmp))
+        game.vfs_launch_enabled = True
+        game.get_last_deployed_profile = lambda: "default"
+        game.get_deploy_active = lambda: True
+        game.get_last_deploy_mode = lambda: "VFS"
+
+        old_source = game.staging / "Old Mod" / "old.txt"
+        old_source.parent.mkdir(parents=True)
+        old_source.write_text("old mod", encoding="utf-8")
+        filemap = game.get_effective_filemap_path()
+        filemap.write_text("old.txt\tOld Mod\n", encoding="utf-8")
+        build_layers(
+            game,
+            profile="default",
+            filemap=filemap,
+            staging=game.staging,
+            per_mod_strip={},
+            per_mod_deploy={},
+            raw_mods=None,
+            excluded_raw=None,
+            root_folder_enabled=True,
+        )
+        finalize_deployment(game)
+
+        state = game.profile / STATE_DIR_NAME
+        runtime = state / "view" / "Data" / "runtime.log"
+        runtime.write_text("runtime", encoding="utf-8")
+
+        new_source = game.staging / "New Mod" / "new.txt"
+        new_source.parent.mkdir(parents=True)
+        new_source.write_text("new mod", encoding="utf-8")
+        filemap.write_text("new.txt\tNew Mod\n", encoding="utf-8")
+
+        assert plan_vfs_redeploy(game, "default")
+        build_layers(
+            game,
+            profile="default",
+            filemap=filemap,
+            staging=game.staging,
+            per_mod_strip={},
+            per_mod_deploy={},
+            raw_mods=None,
+            excluded_raw=None,
+            root_folder_enabled=True,
+        )
+        finalize_deployment(game)
+
+        new_view = state / "view"
+        assert not (new_view / "Data" / "old.txt").exists()
+        assert (new_view / "Data" / "new.txt").read_text() == "new mod"
+        assert game.overwrite.joinpath("runtime.log").read_text() == "runtime"
+        assert (new_view / "Data" / "runtime.log").read_text() == "runtime"
+
+        os.environ["AMM_DEPLOY_INCREMENTAL"] = "0"
+        try:
+            assert not plan_vfs_redeploy(game, "default")
+        finally:
+            os.environ.pop("AMM_DEPLOY_INCREMENTAL", None)
+    print("✓ incremental VFS redeploy retains and replaces the private view")
+
+
 def test_resolved_layer_subtree_move_preserves_merge_semantics() -> None:
     """Fast subtree renames must retain case/collision winner behavior."""
     with tempfile.TemporaryDirectory() as tmp:
@@ -4121,6 +4187,38 @@ def test_deploy_pipeline_stops_on_incomplete_restore() -> None:
         def post_deploy(self, **_kwargs) -> None:
             return None
 
+    class _VFSPipelineGame(_PipelineGame):
+        supports_incremental_deploy = False
+        vfs_launch_enabled = True
+        virtualizes_game_root = True
+
+        def __init__(self, root: Path):
+            super().__init__(root, RuntimeError("restore must be skipped"))
+            state = self.profile / STATE_DIR_NAME
+            state.mkdir()
+            self.manifest = state / MANIFEST_NAME
+            self.manifest.write_text(json.dumps({
+                "version": MANIFEST_VERSION,
+                "profile": "default",
+                "backend": BACKEND_SHADOW,
+            }), encoding="utf-8")
+
+        def get_last_deployed_profile(self):
+            return "default"
+
+        def get_deploy_active(self) -> bool:
+            return True
+
+        def get_last_deploy_mode(self) -> str:
+            return "VFS"
+
+        def get_vfs_data_root(self) -> Path:
+            return self.data
+
+        def deploy(self, **_kwargs) -> None:
+            self.deploy_calls += 1
+            assert self.manifest.is_file()
+
     def _run(game: _PipelineGame) -> tuple[bool, list[str]]:
         messages: list[str] = []
         mod_files_stub = types.ModuleType("Utils.mod_files")
@@ -4185,7 +4283,20 @@ def test_deploy_pipeline_stops_on_incomplete_restore() -> None:
             for message in messages
         )
         assert any("Deploy finished OK" in message for message in messages)
-    print("✓ deploy pipeline stops only for incomplete managed restore state")
+
+    # VFS owns a separate redeploy path: retain the published shadow until
+    # build_layers captures runtime writes and atomically publishes its
+    # replacement. A preliminary Restore would delete the manifest here.
+    with tempfile.TemporaryDirectory() as tmp:
+        game = _VFSPipelineGame(Path(tmp))
+        result, messages = _run(game)
+        assert result
+        assert game.restore_calls == 0
+        assert game.deploy_calls == 1
+        assert game.saved_profile == ("default", "VFS")
+        assert any("Incremental VFS deploy" in message
+                   for message in messages)
+    print("✓ deploy pipeline preserves recoverable state and VFS redeploys")
 
 
 def test_flatpak_host_wrap() -> None:
@@ -4950,6 +5061,7 @@ def main() -> None:
     test_nested_overlay()
     test_fuse_overlay()
     test_layer_build_and_skse_selection()
+    test_incremental_vfs_redeploy()
     test_resolved_layer_subtree_move_preserves_merge_semantics()
     test_shadow_capture_survives_configured_path_change()
     test_failed_post_view_hook_never_promotes_partial_output()
