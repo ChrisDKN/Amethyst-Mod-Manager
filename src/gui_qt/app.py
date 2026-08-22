@@ -10106,9 +10106,12 @@ class MainWindow(QMainWindow):
         btn.update()
         if running:
             btn.setText(self.tr("■  Stop"))
-            btn.setEnabled(True)
             self._play_exe_selector.setEnabled(False)
             self._exe_settings_btn.setEnabled(False)
+            # The launched game/tool is using the deployed files until its
+            # Stop control disappears.  Keep Stop reachable, but prevent the
+            # neighbouring actions from changing those files underneath it.
+            self._set_deploy_buttons_enabled(False)
             return
 
         stopped_by_user = self._play_stop_requested is session
@@ -10120,7 +10123,7 @@ class MainWindow(QMainWindow):
         busy = (getattr(self, "_deploy_running", False)
                 or getattr(self, "_install_running", False)
                 or self._col_install_running or self._tool_busy)
-        btn.setEnabled(not busy)
+        self._set_deploy_buttons_enabled(not busy)
         if stopped_by_user:
             self._notify(self.tr("{0} stopped").format(session.label), "info")
 
@@ -10517,17 +10520,19 @@ class MainWindow(QMainWindow):
             card_h=card_h if isinstance(card_h, int) else None)
 
     def _set_deploy_buttons_enabled(self, enabled: bool):
+        session = getattr(self, "_play_session", None)
+        play_running = session is not None and session.active
         for b in (getattr(self, "_deploy_btn", None), getattr(self, "_restore_btn", None),
                   getattr(self, "_play_btn", None)):
             if b is not None:
                 # A running game's red Stop control must remain reachable even
-                # if an install/deploy lock disables the neighbouring actions.
-                session = getattr(self, "_play_session", None)
-                if b is getattr(self, "_play_btn", None) \
-                        and session is not None and session.active:
+                # if its own play lock (or an install/deploy lock) disables the
+                # neighbouring actions.  Deploy/Restore remain disabled until
+                # the Stop control has returned to Play/Run.
+                if b is getattr(self, "_play_btn", None) and play_running:
                     b.setEnabled(not session.stopping)
                 else:
-                    b.setEnabled(enabled)
+                    b.setEnabled(enabled and not play_running)
 
     @property
     def _col_install_running(self) -> bool:
