@@ -2735,6 +2735,12 @@ class MainWindow(QMainWindow):
     def _on_game_changed(self, name):
         if name == self._gs.game_name:
             return
+        if self._tool_busy:
+            self._notify(self.tr("{0} is running - switch games when it "
+                                 "finishes.").format(self._tool_busy_label()),
+                         "warning")
+            self._game_selector.set_current(self._gs.game_name)
+            return
         self._gs.set_game(name)
         # The Profile Settings tab is scoped to the previous game - close it.
         if self._tabs.has_key("profile_settings"):

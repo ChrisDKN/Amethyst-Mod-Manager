@@ -1939,10 +1939,12 @@ class ConfigureGameView(QWidget):
             from Utils.protontricks import (
                 D3D_DEP_KEY,
                 VCREDIST_DEP_KEY,
+                WINETRICKS_VERB_DEPS,
                 _install_via_winetricks,
                 build_proton_env_for_game,
                 install_d3dcompiler_47,
                 install_vcredist,
+                install_winetricks_verb,
                 is_dep_installed,
                 winetricks_verb_dep_key,
             )
@@ -1996,6 +1998,18 @@ class ConfigureGameView(QWidget):
                     app_log(f"{game.name}: auto-installing LAV Filters (radio/music codecs) …")
                     ok = install_lavfilters(game, log_fn=app_log)
                     (installed if ok else failed).append("lavfilters")
+                elif dep in WINETRICKS_VERB_DEPS:
+                    # Plain winetricks verbs (legacy DirectX redist DLLs).
+                    # install_winetricks_verb does its own marker check, but
+                    # test first so an already-provisioned prefix is reported
+                    # as skipped rather than installed.
+                    if is_dep_installed(prefix, winetricks_verb_dep_key(dep)):
+                        app_log(f"{game.name}: {dep} already installed - skipping.")
+                        skipped.append(dep)
+                        continue
+                    app_log(f"{game.name}: auto-installing {dep} …")
+                    ok = install_winetricks_verb(game, dep, log_fn=app_log)
+                    (installed if ok else failed).append(dep)
                 else:
                     app_log(f"{game.name}: unknown auto_install dep '{dep}' - skipping.")
                     skipped.append(dep)

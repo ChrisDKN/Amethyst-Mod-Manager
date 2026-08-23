@@ -102,12 +102,23 @@ def _install_lavfilters(game, log_fn) -> bool:
     return repair_lavfilters(game, log_fn=log_fn)
 
 
+from Utils.protontricks import WINETRICKS_VERB_DEPS as _WINETRICKS_VERB_DEPS
+
+def _install_winetricks_verb(verb: str):
+    """Fix handler for a component that is just a winetricks verb."""
+    def _install(game, log_fn) -> bool:
+        from Utils.protontricks import install_winetricks_verb
+        return install_winetricks_verb(game, verb, log_fn=log_fn)
+    return _install
+
+
 # fix_token -> (installer, progress title key). One entry per fixable component.
 _FIX_INSTALLERS = {
     "vcredist": _install_vcredist,
     "d3dcompiler_47": _install_d3dcompiler,
     "lavfilters": _install_lavfilters,
     "game_registry": _fix_game_registry,
+    **{_v: _install_winetricks_verb(_v) for _v in _WINETRICKS_VERB_DEPS},
 }
 
 
@@ -129,6 +140,9 @@ class PrefixHealthOverlay(OverlayBase):
         self._window = window
         self._fixing = False
         self._fix_buttons: dict[str, QPushButton] = {}
+        # (check_id, fix_token, label) for every row Fix All should run, in
+        # display order. Rebuilt on each render.
+        self._fixable: list[tuple[str, str, str]] = []
         self._rows_layout: QVBoxLayout | None = None
 
         self._scan_done.connect(self._render)
@@ -221,6 +235,14 @@ class PrefixHealthOverlay(OverlayBase):
         self._recheck.setCursor(Qt.PointingHandCursor)
         self._recheck.clicked.connect(self._rescan)
         bar.addWidget(self._recheck)
+
+        self._fix_all = QPushButton(self.tr("Fix All"))
+        self._fix_all.setObjectName("FormButton")
+        self._fix_all.setCursor(Qt.PointingHandCursor)
+        self._fix_all.clicked.connect(self._on_fix_all)
+        self._fix_all.setVisible(False)          # shown once a scan finds work
+        bar.addWidget(self._fix_all)
+
         bar.addStretch(1)
         self._close_btn = danger_close_button()
         self._close_btn.clicked.connect(lambda: self._finish(None))
@@ -239,6 +261,7 @@ class PrefixHealthOverlay(OverlayBase):
                 w.setParent(None)
                 w.deleteLater()
         self._fix_buttons.clear()
+        self._fixable.clear()
 
     def _make_row(self, check, alt: bool) -> QWidget:
         p = active_palette()
@@ -286,6 +309,8 @@ class PrefixHealthOverlay(OverlayBase):
                 lambda _=False, cid=check.check_id, tok=check.fix_token,
                 lbl=self._label_for(check): self._on_fix(cid, tok, lbl))
             self._fix_buttons[check.check_id] = btn
+            self._fixable.append(
+                (check.check_id, check.fix_token, self._label_for(check)))
             h.addWidget(btn, 0, Qt.AlignTop)
 
         return row
@@ -304,6 +329,11 @@ class PrefixHealthOverlay(OverlayBase):
             "d3dcompiler_47": self.tr("d3dcompiler_47 (shader compiler)"),
             "lavfilters": self.tr("LAV Filters (DirectShow codecs)"),
             "game_registry": self.tr("Game path in prefix registry"),
+            "d3dx9": self.tr("d3dx9 (all legacy DirectX 9 runtimes)"),
+            "d3dx10": self.tr("d3dx10 (all legacy DirectX 10 runtimes)"),
+            "quartz": self.tr("quartz (DirectShow runtime)"),
+            "dx8vb": self.tr("dx8vb (DirectX 8 Visual Basic runtime)"),
+            "dxvk": self.tr("DXVK (Direct3D → Vulkan)"),
         }.get(check.check_id, check.label)
 
     def _render(self, checks):
@@ -320,6 +350,9 @@ class PrefixHealthOverlay(OverlayBase):
         except Exception:
             prefix = ""
         self._sub.setText(prefix or self.tr("No prefix configured"))
+
+        # Only worth its own button when it would batch more than one Fix.
+        self._fix_all.setVisible(len(self._fixable) > 1)
 
         bad = sum(1 for c in (checks or [])
                   if c.status in (HealthStatus.MISSING, HealthStatus.WARN))
@@ -341,6 +374,7 @@ class PrefixHealthOverlay(OverlayBase):
         self._fixing = busy and fixing
         self._bar.setVisible(busy)
         self._recheck.setEnabled(not busy)
+        self._fix_all.setEnabled(not busy)
         self._close_btn.setEnabled(not self._fixing)
         for btn in self._fix_buttons.values():
             btn.setEnabled(not busy)
@@ -388,6 +422,55 @@ class PrefixHealthOverlay(OverlayBase):
         started = win._run_proton_installer(
             title,
             lambda plog: installer(self._game, plog),
+            on_done=lambda ok: self._on_fix_done(ok))
+        if not started:
+            self._set_busy(
+                False,
+                self.tr("Another Proton installer is running - try again shortly."))
+
+    def _on_fix_all(self):
+        """Run every fixable row's installer back-to-back in ONE Proton job.
+
+        _run_proton_installer is serialized and refuses a second installer
+        while one runs, so this cannot be a loop over _on_fix - the whole
+        sequence has to live inside a single worker.
+        """
+        if self._done or self._fixing:
+            return
+        win = self._window
+        if win is None:
+            return
+
+        # Snapshot now: _rescan() replaces the rows this list came from.
+        targets = [(cid, tok, lbl) for cid, tok, lbl in self._fixable]
+        if not targets:
+            return
+
+        self._set_busy(True, self.tr("Fixing {0} item(s)… (details in the log)")
+                       .format(len(targets)), fixing=True)
+
+        def _run_all(plog) -> bool:
+            done = 0
+            for _cid, tok, lbl in targets:
+                installer = _FIX_INSTALLERS.get(tok)
+                if installer is None:
+                    continue
+                plog(f"--- {lbl} ---")
+                try:
+                    ok = installer(self._game, plog)
+                except Exception as exc:            # keep going: one bad verb
+                    plog(f"{lbl}: {exc}")           # must not strand the rest
+                    ok = False
+                if ok:
+                    done += 1
+                else:
+                    plog(f"{lbl}: failed - continuing with the remaining items.")
+            plog(f"Fix All finished: {done}/{len(targets)} succeeded.")
+            return done > 0
+
+        started = win._run_proton_installer(
+            self.tr("Fixing {0} prefix item(s)").format(len(targets)),
+            _run_all,
             on_done=lambda ok: self._on_fix_done(ok))
         if not started:
             self._set_busy(

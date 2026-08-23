@@ -81,7 +81,25 @@ _DETECTABLE_DEPS: dict[str, str] = {
     VCREDIST_DEP_KEY: "vcredist",
     D3D_DEP_KEY: "d3dcompiler_47",
     winetricks_verb_dep_key("lavfilters"): "lavfilters",
+    **{winetricks_verb_dep_key(_v): _v for _v in (
+        "d3dx9_43", "d3dx11_43", "d3dcompiler_43",
+        "d3dcompiler_42", "d3dcompiler_46", "d3dx10_43", "d3dx11_42",
+        "d3dx9", "d3dx10", "quartz", "dx8vb",
+    )},
 }
+
+# Tokens that are plain winetricks verbs - no bespoke installer, no ordering
+# constraints. Used both by auto_install_deps and by the health overlay's Fix
+# buttons, so the two can never disagree about how a component is installed.
+#
+# Deliberately excludes dxvk: Proton ships its own DXVK, and the winetricks
+# verb overwrites it with an older bundled build. vcrun2022 is excluded too -
+# it is the same runtime our vcredist installer already provides (vc_redist.x64).
+WINETRICKS_VERB_DEPS: frozenset[str] = frozenset((
+    "d3dx9_43", "d3dx11_43", "d3dcompiler_43",
+    "d3dcompiler_42", "d3dcompiler_46", "d3dx10_43", "d3dx11_42",
+    "d3dx9", "d3dx10", "quartz", "dx8vb",
+))
 
 
 def _deps_file(prefix_path: Path) -> Path:

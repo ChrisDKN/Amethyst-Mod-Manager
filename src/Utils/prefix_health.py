@@ -255,6 +255,119 @@ def check_d3dcompiler_47(prefix_path: Path) -> HealthCheck:
                        f"{build}, override = {override}", None, evidence)
 
 
+# --- legacy DirectX redist DLLs ---------------------------------------------
+_DX_REDIST_SPECS: dict[str, tuple[str, tuple[str, ...]]] = {
+    # Single-DLL verbs.
+    "d3dcompiler_42": ("d3dcompiler_42 (legacy shader compiler)",
+                       ("d3dcompiler_42",)),
+    "d3dcompiler_43": ("d3dcompiler_43 (legacy shader compiler)",
+                       ("d3dcompiler_43",)),
+    "d3dcompiler_46": ("d3dcompiler_46 (legacy shader compiler)",
+                       ("d3dcompiler_46",)),
+    "d3dx9_43": ("d3dx9_43 (legacy DirectX 9 runtime)", ("d3dx9_43",)),
+    "d3dx10_43": ("d3dx10_43 (legacy DirectX 10 runtime)", ("d3dx10_43",)),
+    "d3dx11_42": ("d3dx11_42 (legacy DirectX 11 runtime)", ("d3dx11_42",)),
+    "d3dx11_43": ("d3dx11_43 (legacy DirectX 11 runtime)", ("d3dx11_43",)),
+    # Meta-verbs: the newest member is the one games actually bind to, so it
+    # decides the verdict for the whole family.
+    "d3dx9": ("d3dx9 (all legacy DirectX 9 runtimes)",
+              ("d3dx9_43", "d3dx9_42", "d3dx9_36")),
+    "d3dx10": ("d3dx10 (all legacy DirectX 10 runtimes)",
+               ("d3dx10_43", "d3dx10_42")),
+    # DirectShow / VB runtime verbs.
+    "quartz": ("quartz (DirectShow runtime)", ("quartz",)),
+    "dx8vb": ("dx8vb (DirectX 8 Visual Basic runtime)", ("dx8vb",)),
+}
+
+
+def _dx_redist_present(pfx: Path, dlls: "tuple[str, ...]") -> bool:
+    """True when every required DLL is native in at least one bitness dir."""
+    return all(
+        any(dll_origin(pfx, f"{d}.dll", subdir=sub) is DllOrigin.NATIVE
+            for sub in ("system32", "syswow64"))
+        for d in dlls
+    )
+
+
+def _detect_dx_redist(dlls: "tuple[str, ...]") -> "Callable[[Path], bool | None]":
+    def _detect(prefix_path: Path) -> "bool | None":
+        pfx = wine_reg.normalize_pfx(Path(prefix_path))
+        if not _prefix_usable(pfx):
+            return None
+        return _dx_redist_present(pfx, dlls)
+    return _detect
+
+
+def _check_dx_redist(verb: str) -> "Callable[[Path], HealthCheck]":
+    label, dlls = _DX_REDIST_SPECS[verb]
+
+    def _check(prefix_path: Path) -> HealthCheck:
+        pfx = wine_reg.normalize_pfx(Path(prefix_path))
+        native: list[str] = []
+        stubbed: list[str] = []
+        for d in dlls:
+            origins = {sub: dll_origin(pfx, f"{d}.dll", subdir=sub)
+                       for sub in ("system32", "syswow64")}
+            if any(o is DllOrigin.NATIVE for o in origins.values()):
+                native.append(d)
+            elif any(o is not DllOrigin.ABSENT for o in origins.values()):
+                stubbed.append(d)
+        evidence = {"native": native, "stubbed": stubbed,
+                    "required": list(dlls)}
+
+        missing = [d for d in dlls if d not in native]
+        if missing:
+            detail = f"not installed - missing {', '.join(f'{d}.dll' for d in missing)}"
+            if stubbed:
+                detail += f" (stub/builtin present for {', '.join(stubbed)})"
+            return HealthCheck(verb, HealthStatus.MISSING, label, detail,
+                               verb, evidence)
+
+        return HealthCheck(verb, HealthStatus.OK, label,
+                           f"native DLL(s) present: {', '.join(native)}",
+                           None, evidence)
+    return _check
+
+
+# --- DXVK -------------------------------------------------------------------
+# Proton ALREADY ships DXVK and wires it up; the winetricks dxvk verb overwrites
+# those DLLs with whatever build winetricks bundles, which is usually older than
+# Proton's and is a known way to break a working prefix. So this is reported for
+# information only - never MISSING, and deliberately no fix_token, so no Fix
+# button and no participation in Fix All.
+_DXVK_DLLS = ("d3d11", "d3d10core", "d3d9", "dxgi")
+
+
+def detect_dxvk(prefix_path: Path) -> "bool | None":
+    """True when the prefix's d3d11.dll is DXVK rather than Wine's builtin."""
+    pfx = wine_reg.normalize_pfx(Path(prefix_path))
+    if not _prefix_usable(pfx):
+        return None
+    return dll_origin(pfx, "d3d11.dll") is DllOrigin.NATIVE
+
+
+def check_dxvk(prefix_path: Path) -> HealthCheck:
+    """Report which DXVK DLLs are in place, without ever demanding a change."""
+    label = "DXVK (Direct3D → Vulkan)"
+    pfx = wine_reg.normalize_pfx(Path(prefix_path))
+    native = [d for d in _DXVK_DLLS
+              if dll_origin(pfx, f"{d}.dll") is DllOrigin.NATIVE]
+    evidence = {"native": native}
+
+    if len(native) == len(_DXVK_DLLS):
+        return HealthCheck("dxvk", HealthStatus.OK, label,
+                           "active (Proton normally provides this)",
+                           None, evidence)
+    if native:
+        return HealthCheck("dxvk", HealthStatus.OK, label,
+                           f"partially present: {', '.join(native)} "
+                           "- normal for some Proton builds", None, evidence)
+    return HealthCheck("dxvk", HealthStatus.OK, label,
+                       "using Wine's builtin D3D - Proton usually supplies DXVK "
+                       "itself; installing it by hand can override a newer build",
+                       None, evidence)
+
+
 # --- LAV Filters ------------------------------------------------------------
 def detect_lavfilters(prefix_path: Path) -> "bool | None":
     """True when the LAV Filters DirectShow codecs are installed."""
@@ -657,6 +770,15 @@ COMPONENT_SPECS: dict[str, ComponentSpec] = {
     "lavfilters": ComponentSpec(
         "lavfilters", "LAV Filters (DirectShow codecs)",
         detect_lavfilters, check_lavfilters, "lavfilters"),
+    **{
+        _verb: ComponentSpec(_verb, _label,
+                             _detect_dx_redist(_dlls), _check_dx_redist(_verb),
+                             _verb)
+        for _verb, (_label, _dlls) in _DX_REDIST_SPECS.items()
+    },
+    # Informational only - no fix_token, so no Fix button (see check_dxvk).
+    "dxvk": ComponentSpec("dxvk", "DXVK (Direct3D → Vulkan)",
+                          detect_dxvk, check_dxvk, ""),
 }
 
 
@@ -681,11 +803,21 @@ def check_component(token: str, prefix_path: Path) -> "HealthCheck | None":
 
 # --- composition ------------------------------------------------------------
 def _declared_tokens(game) -> list[str]:
-    """Tokens from the handler that we have a detector for, in declared order."""
+    """Tokens from the handler that we have a detector for, in declared order.
+
+    ``auto_install_deps`` comes first (installed automatically when the game is
+    added), then ``prefix_health_extras`` - components a handler wants reported
+    and offered as a Fix, but that are too slow or too situational to install
+    for every user up front.
+    """
     try:
         deps = list(getattr(game, "auto_install_deps", []) or [])
     except Exception:
         deps = []
+    try:
+        deps += list(getattr(game, "prefix_health_extras", []) or [])
+    except Exception:
+        pass
     seen: set[str] = set()
     out: list[str] = []
     for token in deps:

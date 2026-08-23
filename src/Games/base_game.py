@@ -1484,6 +1484,21 @@ class BaseGame(ABC):
         return ["vcredist"]
 
     @property
+    def prefix_health_extras(self) -> list[str]:
+        """
+        Extra ``Utils.prefix_health`` component tokens to REPORT (and offer a
+        Fix / Fix All for) without installing them when the game is added.
+
+        Use this for components a community guide recommends but that are too
+        many, too slow, or too situational to inflict on every user up front -
+        the user opts in from the prefix health overlay. Tokens must exist in
+        ``prefix_health.COMPONENT_SPECS``; unknown ones are ignored.
+
+        Rows appear after ``auto_install_deps``, in declared order.
+        """
+        return []
+
+    @property
     def custom_routing_rules(self) -> list:
         """
         A list of CustomRule objects (from Utils.deploy) that route specific
