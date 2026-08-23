@@ -190,6 +190,14 @@ def resolve_proton_env(game, log_fn: LogFn = _noop):
         log_fn("Proton Tools: prefix not configured for this game.")
         return None, None
 
+    # winecfg's "Show dot files", so anything we run in this prefix (Run EXE,
+    # winecfg, winetricks, dependency installers) can browse to the manager's
+    # dot-dirs from a Wine file dialog. A cheap user.reg edit - this resolver is
+    # called on the UI thread - applied before the prefix has a live wineserver
+    # that would rewrite user.reg from memory and drop the edit.
+    from Utils.deploy_wine_dll import set_show_dot_files
+    set_show_dot_files(prefix_path, log_fn=lambda m: log_fn(f"Proton Tools: {m}"))
+
     wine_bin, wenv = _resolve_lutris_wine_env(prefix_path, log_fn)
     if wine_bin is not None:
         return wine_bin, wenv
@@ -371,6 +379,11 @@ def launch_winetricks(game, log_fn: LogFn = _noop) -> None:
     if prefix_path is None or not prefix_path.is_dir():
         log_fn("Proton Tools: prefix not configured for this game - cannot launch winetricks.")
         return
+
+    # This path never goes through resolve_proton_env, so apply "Show dot files"
+    # here too (winetricks' own file pickers benefit as much as the tools').
+    from Utils.deploy_wine_dll import set_show_dot_files
+    set_show_dot_files(prefix_path, log_fn=lambda m: log_fn(f"Proton Tools: {m}"))
 
     if not winetricks_installed():
         log_fn("Proton Tools: winetricks not found - downloading …")

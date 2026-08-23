@@ -1569,7 +1569,17 @@ def enable_show_dotfiles(proton_script: Path, env: dict,
     tools can reach mod-manager data. Idempotent - ``reg add /f`` overwrites any
     existing value - so it's safe to call on every prefix resolution, not just
     on first creation; that also repairs prefixes made before this behaviour.
+
+    Prefers a direct user.reg edit (no wine startup, so callers on the UI thread
+    don't stall) and only falls back to ``reg add`` for a prefix too young to
+    have a user.reg yet.
     """
+    compat_data = env.get("STEAM_COMPAT_DATA_PATH") or env.get("WINEPREFIX")
+    if compat_data:
+        from Utils.deploy_wine_dll import set_show_dot_files
+        if set_show_dot_files(Path(compat_data), log_fn=log_fn):
+            return
+
     from Utils.steam_finder import proton_run_command
     try:
         subprocess.run(
@@ -1905,6 +1915,14 @@ def get_game_prefix_env(game, log_fn=_noop_log, *,
                "- deploy/launch the game once, or pick a different prefix option.")
         return None
     log_fn(f"game prefix: {pfx}")
+
+    # winecfg's "Show dot files": tools launched into the game's prefix must be
+    # able to browse to the manager's dot-dirs (profiles, staged mods) through
+    # their own file dialogs. Done here so every caller of this resolver gets
+    # it, and before anything is launched into the prefix (a live wineserver
+    # would rewrite user.reg from memory on shutdown and drop the edit).
+    from Utils.deploy_wine_dll import set_show_dot_files
+    set_show_dot_files(Path(pfx), log_fn=log_fn)
 
     # Classic lutris-wine prefixes run tools with the Lutris runner's own
     # wine binary (proton_run_command handles the wine-binary form); the
@@ -2339,6 +2357,8 @@ def launch_winetricks_in_prefix(wineprefix: Path, log_fn=_noop_log) -> None:
     if not wineprefix.is_dir():
         log_fn("Prefix tools: no Wine prefix is available - cannot launch winetricks.")
         return
+    from Utils.deploy_wine_dll import set_show_dot_files
+    set_show_dot_files(wineprefix, log_fn=lambda m: log_fn(f"Prefix tools: {m}"))
     if not winetricks_installed():
         log_fn("Prefix tools: winetricks not found - downloading …")
         if not install_winetricks(log_fn=lambda m: log_fn(f"Prefix tools: {m}")):
@@ -3080,6 +3100,16 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
             if umu_bin is None:
                 log_fn("Run EXE: umu-run not found - falling back to Proton "
                        "without the Steam Linux Runtime container.")
+
+    # winecfg's "Show dot files", so the exe's own file dialogs can browse to
+    # the manager's dot-dirs (profiles, staged mods). This resolver doesn't go
+    # through get_game_prefix_env/resolve_proton_env, so it needs its own call;
+    # compat_data is set by both branches above (game prefix or the override's
+    # isolated one). Must happen before the launch below - a live wineserver
+    # rewrites user.reg from memory on shutdown and would drop the edit.
+    from Utils.deploy_wine_dll import set_show_dot_files
+    set_show_dot_files(prefix_path if lutris_is_prefix else compat_data,
+                       log_fn=lambda m: log_fn(f"Run EXE: {m}"))
 
     env = strip_appimage_env(os.environ.copy())
     if lutris_env_extra is not None:

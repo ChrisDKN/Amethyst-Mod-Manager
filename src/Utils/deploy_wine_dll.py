@@ -285,6 +285,114 @@ def apply_wine_dll_overrides(
         _log(f"Warning: could not write user.reg: {exc}")
 
 
+def set_show_dot_files(prefix_path: Path, log_fn=None) -> bool:
+    """Set ``[Software\\\\Wine]`` ``"ShowDotFiles"="Y"`` in the prefix's user.reg.
+
+    This is winecfg's "Show dot files" checkbox: without it Wine hides every
+    Unix dotfile/dot-directory, so file dialogs inside the prefix cannot browse
+    to ``~/.local/share/...`` or ``~/.config/...`` - which is where the mod
+    manager keeps profiles, staged mods and tool data.  Tools that ask the user
+    to pick a Data folder are unusable in a prefix without it.
+
+    Written straight into user.reg rather than through ``reg add`` because the
+    caller may be on the UI thread: a ``reg add`` costs a full wine startup
+    (seconds), while this is a small text edit.  Returns True when the value is
+    already correct or was written, False when the prefix couldn't be touched.
+
+    Wine reads user.reg when a wineserver starts and rewrites it on shutdown,
+    so this must run while no process is live in the prefix - which is the case
+    at env-resolution time, before the tool is launched.
+    """
+    _log = _safe_log(log_fn)
+
+    # Accept either the pfx/ directory directly or its parent (compatdata/<id>/)
+    prefix_path = Path(prefix_path)
+    if not (prefix_path / "user.reg").is_file() and (prefix_path / "pfx" / "user.reg").is_file():
+        prefix_path = prefix_path / "pfx"
+    user_reg = prefix_path / "user.reg"
+    if not user_reg.is_file():
+        _log(f"Show dot files: user.reg not found at {user_reg}; skipping.")
+        return False
+
+    try:
+        text = user_reg.read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        _log(f"Show dot files: could not read user.reg: {exc}")
+        return False
+
+    lines = text.splitlines(keepends=True)
+    section_header = "[Software\\\\Wine]"
+    entry_line = '"ShowDotFiles"="Y"\n'
+
+    # Locate the section. The header match must be exact up to the closing
+    # bracket - a plain startswith() would also match [Software\\Wine\\Explorer]
+    # and friends, and the value would land in the wrong key.
+    section_start: int | None = None
+    section_end: int | None = None  # index of first line after this section
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if section_start is None:
+            if stripped.lower().startswith(section_header.lower() + " ") \
+                    or stripped.lower() == section_header.lower():
+                section_start = i
+        elif stripped.startswith("["):
+            section_end = i
+            break
+
+    _unix_ts = int(_time.time())
+    _filetime_hex = format(int((_unix_ts + 11644473600) * 1e7), "x")
+
+    if section_start is None:
+        if lines and not lines[-1].endswith("\n"):
+            lines.append("\n")
+        lines.append("\n")
+        lines.append(f"{section_header} {_unix_ts}\n")
+        lines.append(f"#time={_filetime_hex}\n")
+        lines.append(entry_line)
+        _log(r"Show dot files: added [Software\\Wine] to user.reg.")
+    else:
+        body_start = section_start + 1
+        body_end = section_end if section_end is not None else len(lines)
+        key_lines = lines[body_start:body_end]
+
+        # Trailing blanks terminate the section in Wine's .reg format - a new
+        # entry has to go before them, not after.
+        trailing: list[str] = []
+        while key_lines and not key_lines[-1].strip():
+            trailing.insert(0, key_lines.pop())
+
+        found_at: int | None = None
+        for j, kline in enumerate(key_lines):
+            if kline.strip().lower().startswith('"showdotfiles"='):
+                found_at = j
+                break
+
+        if found_at is not None and key_lines[found_at] == entry_line:
+            # Already correct - leave user.reg completely untouched so Wine's
+            # own state (and its mtime) is preserved.
+            return True
+        if found_at is not None:
+            key_lines[found_at] = entry_line
+        else:
+            key_lines.append(entry_line)
+
+        key_lines.extend(trailing)
+        lines[section_start] = f"{section_header} {_unix_ts}\n"
+        for j, kline in enumerate(key_lines):
+            if kline.lower().startswith("#time="):
+                key_lines[j] = f"#time={_filetime_hex}\n"
+                break
+        lines[body_start:body_end] = key_lines
+        _log("Show dot files: enabled in user.reg.")
+
+    try:
+        write_atomic_text(user_reg, "".join(lines))
+    except OSError as exc:
+        _log(f"Show dot files: could not write user.reg: {exc}")
+        return False
+    return True
+
+
 def remove_wine_dll_overrides(
     prefix_path: Path,
     dlls: "list[str] | set[str]",
@@ -378,4 +486,5 @@ __all__ = [
     "remove_deployed_files",
     "apply_wine_dll_overrides",
     "remove_wine_dll_overrides",
+    "set_show_dot_files",
 ]

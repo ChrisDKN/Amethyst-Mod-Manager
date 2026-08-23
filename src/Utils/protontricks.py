@@ -760,6 +760,12 @@ def build_proton_env_for_game(game) -> "tuple[Path, dict] | tuple[None, None]":
     if prefix_path is None or not prefix_path.is_dir():
         return None, None
 
+    # winecfg's "Show dot files", matching the other prefix-env resolvers so
+    # installers run from here get file dialogs that can see the manager's
+    # dot-dirs. Applied before anything is launched into the prefix.
+    from Utils.deploy_wine_dll import set_show_dot_files
+    set_show_dot_files(prefix_path)
+
     # Classic lutris-wine prefixes run the installer with the Lutris runner's
     # own wine binary (proton_run_command handles the wine-binary form).
     from Utils.proton_tools import _resolve_lutris_wine_env
