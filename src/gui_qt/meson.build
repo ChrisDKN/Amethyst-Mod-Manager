@@ -143,6 +143,7 @@ py.install_sources(
   'userlist_bars.py',
   'wheel_guard.py',
   'wiki_view.py',
+  'wizard_tr_markers.py',
   'worker.py',
   subdir: 'gui_qt',
 )

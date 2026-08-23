@@ -13,7 +13,7 @@ Dimmed child backdrop + centered card via gui_qt/overlay_base.py.
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QCoreApplication, Qt
 from PySide6.QtWidgets import (
     QWidget, QHBoxLayout, QLabel, QPushButton, QComboBox, QCheckBox, QLineEdit,
 )
@@ -95,15 +95,19 @@ class LauncherSettingsOverlay(OverlayBase):
         v.addWidget(self._deploy_check)
 
         # Handler-declared checkboxes. Labels/hints come from the game module,
-        # which has no Qt to translate with, so they are shown verbatim.
+        # which has no Qt to translate with, so they stay canonical English
+        # there and are translated here, at display. The literals are extracted
+        # from gui_qt/wizard_tr_markers.py (LAUNCH_TOGGLES) under the shared
+        # "WizardTools" context, so the lookup must name that context too.
         values = dict(toggle_values or {})
         self._toggle_checks: dict = {}
         for t in toggles:
-            box = QCheckBox(t.label)
+            box = QCheckBox(QCoreApplication.translate("WizardTools", t.label))
             box.setChecked(bool(values.get(t.key, t.default)))
             v.addWidget(box)
             if t.hint:
-                t_hint = QLabel(t.hint)
+                t_hint = QLabel(
+                    QCoreApplication.translate("WizardTools", t.hint))
                 t_hint.setStyleSheet(
                     f"color:{_c(p,'TEXT_DIM')}; font-size:13px;")
                 t_hint.setWordWrap(True)

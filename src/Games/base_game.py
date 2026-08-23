@@ -106,6 +106,13 @@ class WizardTool:
     dialog_class_path: str = ""
     extra: dict = field(default_factory=dict)
     category: str = ""  # optional grouping header in the wizard picker; inferred if empty
+    # Handlers are toolkit-neutral (no self.tr here), so label/description stay
+    # canonical English and the Qt layer translates them at display time. When
+    # a label varies by build name, keep the frame translatable by writing it
+    # as a "{0}" template and passing the runtime values here, e.g.
+    # label="Run {0}", label_args=("SSEEdit",).
+    label_args: tuple = ()
+    description_args: tuple = ()
 
 
 # ---------------------------------------------------------------------------

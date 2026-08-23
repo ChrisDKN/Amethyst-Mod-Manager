@@ -69,7 +69,7 @@ class _EnvRow(QWidget):
             self._name = name
         else:
             self.name_edit = QLineEdit(name)
-            self.name_edit.setPlaceholderText("VARIABLE_NAME")
+            self.name_edit.setPlaceholderText("VARIABLE_NAME")  # i18n: skip — env var syntax, not prose
             self.name_edit.setMinimumWidth(230)
             self.name_edit.textChanged.connect(lambda _t: self._view._on_changed())
             row.addWidget(self.name_edit)

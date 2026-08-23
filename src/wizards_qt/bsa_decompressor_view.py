@@ -377,7 +377,7 @@ class BSADecompressorView(WizardViewBase):
             find_archive_fn=find_decompressor_archive,
             on_archive=lambda p: safe_emit(self._paths_picked_sig, "mpi", p),
             cancel=self._auto_fetch_cancel,
-            label="FNV BSA Decompressor",
+            label="FNV BSA Decompressor",  # i18n: skip — mod name, used in log lines
             on_download_started=lambda: safe_emit(
                 self._detect_status_sig,
                 self.tr("Premium account - downloading the BSA Decompressor "

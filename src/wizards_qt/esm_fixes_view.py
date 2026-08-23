@@ -378,7 +378,7 @@ class ESMFixesView(WizardViewBase):
             find_archive_fn=find_esm_fixes_archive,
             on_archive=lambda p: safe_emit(self._paths_picked_sig, "mpi", p),
             cancel=self._auto_fetch_cancel,
-            label="Ultimate Edition ESM Fixes",
+            label="Ultimate Edition ESM Fixes",  # i18n: skip — mod name, used in log lines
             on_download_started=lambda: safe_emit(
                 self._detect_status_sig,
                 self.tr("Premium account - downloading the ESM Fixes "

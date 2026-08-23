@@ -64,7 +64,8 @@ class FalloutDowngradeView(WizardViewBase):
         self._stack.setCurrentIndex(_PG_DOWNLOAD)
         self._nexus_auto_fetch(
             url=_NEXUS_URL, file_id=_NEXUS_FILE_ID,
-            keywords=_ARCHIVE_KEYWORDS, label="Fallout Anniversary Patcher",
+            keywords=_ARCHIVE_KEYWORDS,
+            label="Fallout Anniversary Patcher",  # i18n: skip — mod name, used in log lines
             pages=(_PG_DOWNLOAD, _PG_LOCATE),
             on_archive=lambda _p: self._goto_step(_PG_RUN))
 
@@ -171,7 +172,7 @@ class FalloutDowngradeView(WizardViewBase):
                                    env=env),
                 env,
                 game_root,
-                label="Fallout 3 Anniversary Patcher",
+                label="Fallout 3 Anniversary Patcher",  # i18n: skip — patcher name, used in log lines
                 log_fn=lambda m: self._log(f"Downgrade Wizard: {m}"),
                 proton_script=proton_script,
                 compat_data=compat_data,

@@ -1,6 +1,7 @@
 subdir('games')
 
 py.install_sources(
+  'AmethystBanner.png',
   'archive-conflict-loser.png',
   'archive-conflict-mixed.png',
   'archive-conflict-redundant.png',

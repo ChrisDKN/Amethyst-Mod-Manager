@@ -28,8 +28,9 @@ _SHOT_MAX_W = 420
 _DATE_FMT = "%d %b %Y  %H:%M"
 
 # Format id → the label shown next to the save's engine version.
+# i18n: skip — game titles are proper names, identical in every locale.
 _KIND_LABELS = {
-    "TESV": "Skyrim",
+    "TESV": "Skyrim",  # i18n: skip — game titles are proper names
     "FO4": "Fallout 4",
     "FO3": "Fallout 3 / New Vegas",
     "TES4": "Oblivion",

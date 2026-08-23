@@ -107,7 +107,7 @@ class Me3InstallView(WizardViewBase):
                 "on the host system where Steam runs. Open a terminal on the "
                 "host and run:"))
             cmd = QLabel(
-                "curl --proto '=https' --tlsv1.2 -sSfL "
+                "curl --proto '=https' --tlsv1.2 -sSfL "  # i18n: skip — shell command, copied verbatim
                 "https://github.com/garyttierney/me3/releases/latest/download/"
                 "installer.sh | sh")
             cmd.setWordWrap(True)

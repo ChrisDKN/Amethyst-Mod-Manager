@@ -417,8 +417,9 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
             tools.append(
                 WizardTool(
                     id=f"run_{build.lower()}_{id_suffix}",
-                    label=f"Run {build}",
-                    description=f"Install {build}, deploy mods, and run {exe}.",
+                    label="Run {0}", label_args=(build,),
+                    description="Install {0}, deploy mods, and run {1}.",
+                    description_args=(build, exe),
                     dialog_class_path="wizards.sseedit.SSEEditWizard",
                     extra=dict(nexus_extra),
                 )
@@ -427,8 +428,9 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
                 tools.append(
                     WizardTool(
                         id=f"run_{build.lower()}_qac_{id_suffix}",
-                        label=f"Run {build} QAC",
-                        description=f"Deploy mods and run {build}QuickAutoClean.exe.",
+                        label="Run {0} QAC", label_args=(build,),
+                        description="Deploy mods and run {0}QuickAutoClean.exe.",
+                        description_args=(build,),
                         dialog_class_path="wizards.sseedit.SSEEditQACWizard",
                         extra=dict(nexus_extra),
                     )
@@ -450,8 +452,9 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
                 id=f"run_xedit_discord_{id_suffix}",
                 label="Run xEdit (Discord version)",
                 description=(
-                    f"Deploy mods and run {discord_exe} -{mode} from the latest "
+                    "Deploy mods and run {0} -{1} from the latest "
                     "xEdit build, released through the xEdit Discord."),
+                description_args=(discord_exe, mode),
                 dialog_class_path="wizards.sseedit.XEditDiscordWizard",
                 extra=dict(discord_extra),
             )
@@ -461,8 +464,9 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
                 id=f"run_xedit_discord_qac_{id_suffix}",
                 label="Run xEdit QAC (Discord version)",
                 description=(
-                    f"Deploy mods and run {discord_exe} -{mode} -quickautoclean "
+                    "Deploy mods and run {0} -{1} -quickautoclean "
                     "from the latest xEdit build, released through the xEdit Discord."),
+                description_args=(discord_exe, mode),
                 dialog_class_path="wizards.sseedit.XEditDiscordQACWizard",
                 extra=dict(discord_extra),
             )

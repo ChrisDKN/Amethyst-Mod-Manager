@@ -11,7 +11,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from PySide6.QtCore import QByteArray, QBuffer, QIODevice, Qt, Signal, QTimer, QUrl
+from PySide6.QtCore import (
+    QByteArray, QBuffer, QIODevice, Qt, QT_TRANSLATE_NOOP, Signal, QTimer, QUrl)
 from PySide6.QtGui import QColor, QImage, QMovie, QTextCursor, QTextDocument
 from PySide6.QtWidgets import (
     QAbstractItemView, QFrame, QHeaderView, QHBoxLayout, QLabel, QPushButton,
@@ -177,6 +178,21 @@ _FILE_CATEGORY_ORDER = {
     "OLD_VERSION": 4,
     "ARCHIVED": 5,
 }
+
+
+# lupdate only extracts QT_TRANSLATE_NOOP when the literal is spelled out at
+# the call, so the canonical labels below are listed here one by one. The dict
+# stays English (it is the display fallback); translation happens where the
+# label is rendered, via self.tr(_category_label(...)).
+_TR_MARKERS = (
+    QT_TRANSLATE_NOOP("NexusModDetailView", "Main files"),
+    QT_TRANSLATE_NOOP("NexusModDetailView", "Miscellaneous files"),
+    QT_TRANSLATE_NOOP("NexusModDetailView", "Optional files"),
+    QT_TRANSLATE_NOOP("NexusModDetailView", "Update files"),
+    QT_TRANSLATE_NOOP("NexusModDetailView", "Old versions"),
+    QT_TRANSLATE_NOOP("NexusModDetailView", "Archived files"),
+    QT_TRANSLATE_NOOP("NexusModDetailView", "Other files"),
+)
 
 
 def _category_label(category: str) -> str:

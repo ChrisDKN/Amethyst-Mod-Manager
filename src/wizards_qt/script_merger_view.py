@@ -126,7 +126,7 @@ class ScriptMergerView(WizardViewBase):
             self._goto_step(_PG_DOWNLOAD)
             self._nexus_auto_fetch(
                 url=_NEXUS_URL, file_id=_NEXUS_FILE_ID,
-                keywords=["sm-fae"], label="Script Merger",
+                keywords=["sm-fae"], label="Script Merger",  # i18n: skip — mod name, used in log lines
                 pages=(_PG_DOWNLOAD, _PG_LOCATE),
                 on_archive=lambda _p: self._goto_step(_PG_EXTRACT))
 

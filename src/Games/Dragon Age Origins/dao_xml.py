@@ -173,9 +173,11 @@ def _baseline_items(out_path: Path, subdir: str, item_tag: str, list_tag: str,
 
     # 2. Snapshot (if any), else 3. the live registry on first deploy.
     if _vanilla_path(out_path).exists():
-        _fill_gaps(_vanilla_items(out_path, item_tag, list_tag), "vanilla snapshot")
+        _fill_gaps(_vanilla_items(out_path, item_tag, list_tag),
+                   "vanilla snapshot")  # i18n: skip — log source name
     else:
-        _fill_gaps(_read_items(out_path, item_tag, list_tag), "live registry")
+        _fill_gaps(_read_items(out_path, item_tag, list_tag),
+                   "live registry")  # i18n: skip — log source name
 
     # 4. Game-install Manifests (recovery), if a game path was provided.
     if recovery_root is not None and recovery_root.is_dir():
@@ -192,7 +194,7 @@ def _baseline_items(out_path: Path, subdir: str, item_tag: str, list_tag: str,
                 uid = item.get("UID")
                 if uid:
                     game_items[uid] = item
-        _fill_gaps(game_items, "game install")
+        _fill_gaps(game_items, "game install")  # i18n: skip — log source name
 
     return items
 

@@ -97,7 +97,7 @@ def build_context_menu(view, index):
             # label rather than QAction.setShortcut() so no duplicate accelerator
             # is registered (which would trigger Qt's ambiguous-shortcut warning
             # and could steal the key from the real window-level QShortcut).
-            a.setText(f"{label}\t{shortcut}")
+            a.setText(f"{label}\t{shortcut}")  # i18n: skip — label already tr'd by caller
         menu.addAction(a)
         state["group_started"] = True
         state["any"] = True

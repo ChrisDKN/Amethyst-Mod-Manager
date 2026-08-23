@@ -40,6 +40,27 @@ from Utils.proton_tools import DOTNET_VERSIONS
 from Utils.app_log import safe_print as print  # noqa: A004
 
 
+def _tr_wizard(text: str, args: tuple = ()) -> str:
+    """Translate a wizard-tool label/description/category at display time.
+
+    Game handlers are toolkit-neutral, so these strings are authored in
+    canonical English and extracted via gui_qt/wizard_tr_markers.py. *args*
+    fills a "{0}" template (e.g. "Run {0}" + ("SSEEdit",)) so the sentence
+    frame stays translatable while the build name remains data.
+    """
+    if not text:
+        return text
+    from PySide6.QtCore import QCoreApplication
+    out = QCoreApplication.translate("WizardTools", text)
+    if args:
+        try:
+            return out.format(*args)
+        except (IndexError, KeyError):
+            # A translation with the wrong placeholders must not break the menu.
+            return text.format(*args)
+    return out
+
+
 def _load_bg3_modio(stem: str):
     """Load a Games/Baldur's Gate 3/<stem>.py module by file path (the folder
     name has a space, so it isn't importable by dotted path). Cached in
@@ -6399,13 +6420,21 @@ class MainWindow(QMainWindow):
             reason = (res or {}).get("error", "unknown") if isinstance(res, dict) else "unknown"
             self._notify(self.tr("Load order reset failed: {0}").format(reason), "warning")
             return
-        _extra = ""
-        if res.get("unordered"):
-            _extra = (f", {res['unordered']} kept below."
-                      if res.get("amethyst") else f", {res['unordered']} at top.")
-        self._notify(
-            f"Load order reset - {res.get('ordered', 0)} mods ordered{_extra or '.'}",
-            "info")
+        # One whole sentence per tr() - a translated tail glued onto a
+        # translated head does not survive languages that reorder clauses.
+        ordered = res.get("ordered", 0)
+        unordered = res.get("unordered")
+        if unordered and res.get("amethyst"):
+            msg = self.tr(
+                "Load order reset - {0} mods ordered, {1} kept below."
+            ).format(ordered, unordered)
+        elif unordered:
+            msg = self.tr(
+                "Load order reset - {0} mods ordered, {1} at top."
+            ).format(ordered, unordered)
+        else:
+            msg = self.tr("Load order reset - {0} mods ordered.").format(ordered)
+        self._notify(msg, "info")
         self._reload_modlist()
 
     # ---- Dev mode: Nexus ▸ Collections ▸ Download Manifest -----------------
@@ -11697,9 +11726,12 @@ class MainWindow(QMainWindow):
             fav_menu = menu.addMenu(self.tr("★ Favourites"))
             fav_menu.setToolTipsVisible(True)
             for tool in fav_tools:
-                act = fav_menu.addAction(tool.label)
+                # Handlers live outside Qt (Games/*.py are plain ABCs with no
+                # self.tr), so their canonical-English label/description are
+                # translated here, at display. See _TR_WIZARD_MARKERS.
+                act = fav_menu.addAction(_tr_wizard(tool.label, tool.label_args))
                 if tool.description:
-                    act.setToolTip(tool.description)
+                    act.setToolTip(_tr_wizard(tool.description, tool.description_args))
                 if get_spec(tool.dialog_class_path) is None:
                     act.setEnabled(False)   # not ported to Qt yet
                 else:
@@ -11708,12 +11740,12 @@ class MainWindow(QMainWindow):
             menu.addSeparator()
         groups = group_by_category(tools)
         for cat, cat_tools in groups:
-            target = menu if len(groups) == 1 else menu.addMenu(cat)
+            target = menu if len(groups) == 1 else menu.addMenu(_tr_wizard(cat))
             target.setToolTipsVisible(True)
             for tool in cat_tools:
-                act = target.addAction(tool.label)
+                act = target.addAction(_tr_wizard(tool.label, tool.label_args))
                 if tool.description:
-                    act.setToolTip(tool.description)
+                    act.setToolTip(_tr_wizard(tool.description, tool.description_args))
                 if get_spec(tool.dialog_class_path) is None:
                     act.setEnabled(False)   # not ported to Qt yet
                 else:
@@ -11746,7 +11778,8 @@ class MainWindow(QMainWindow):
         from Utils.ui_config import load_favourite_wizards, save_favourite_wizards
         # Only offer tools that are actually openable (ported to Qt).
         from wizards_qt import get_spec
-        items = [(t.label, t.id) for t in tools
+        # Display half translated; t.id stays canonical (it is the saved key).
+        items = [(_tr_wizard(t.label, t.label_args), t.id) for t in tools
                  if get_spec(t.dialog_class_path) is not None]
         if not items:
             return
@@ -11828,7 +11861,7 @@ class MainWindow(QMainWindow):
         except Exception as exc:
             self._append_log(f"Wizards: failed to open {tool.label}: {exc}")
             return
-        title = label or tool.label
+        title = label or _tr_wizard(tool.label, tool.label_args)   # visible tab title
         if full:
             self._tabs.open_tab(view, title, key=key)
         else:
