@@ -15,6 +15,7 @@ to inspect inside the editor.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Callable
 
 from PySide6.QtCore import QEvent, Qt, Signal
@@ -28,7 +29,11 @@ from gui_qt.theme_qt import (
     build_qss, build_qpalette, button_qss, contrast_text, qc, qc_contrast, _c,
 )
 from gui_qt import theme_editor_groups as teg
+from gui_qt.icons import icon as _icon
 from gui_qt.wheel_guard import no_wheel
+
+# src/icons/ - same directory gui_qt.icons loads from (gui_qt/ is a sibling).
+_ICONS_DIR = Path(__file__).resolve().parent.parent / "icons"
 
 
 # (base fill key, hover key, label) - one sample button per family. Hover is
@@ -64,6 +69,36 @@ _STATUS_PILLS = (
     ("STATUS_BADGE_RED", "3 errors"),
     ("STATUS_QUEUED", "Queued"),
 )
+
+# Icons the app recolours from the palette, with the role each one follows.
+# Mirrors the real tint sites: DROPDOWN_ARROW for the expand/collapse chevrons
+# (theme_qt QSS, collapsible_section, the data/text/mod-files delegates),
+# TEXT_MAIN for the toolbar and modlist mono flags (_MONO_FLAG_ICONS), and
+# CHECK_FILL for the checkbox tick. Rendered here at the size the app uses.
+_TINTED_ICONS = (
+    ("arrow.png", "DROPDOWN_ARROW", "Dropdown / collapse arrow"),
+    ("right.png", "DROPDOWN_ARROW", "Expand arrow"),
+    ("settings.png", "TEXT_MAIN", "Settings"),
+    ("notification.png", "TEXT_MAIN", "Notifications"),
+    ("eye1_white.png", "TEXT_MAIN", "Filter / visibility"),
+    ("eye2_white.png", "TEXT_MAIN", "Modified mod files flag"),
+    ("root.png", "TEXT_MAIN", "Root folder flag"),
+    ("bundle_settings.png", "TEXT_MAIN", "Bundle settings flag"),
+    ("close_white.png", "TEXT_DIM", "Close / clear"),
+    ("check_white.png", "CHECK_FILL", "Checkbox tick"),
+    ("proton.png", "TEXT_MAIN", "Proton menu"),
+)
+
+# Fixed artwork - shown so the theme's surfaces can be checked against the
+# icons that keep their own colours. AmethystBanner/Logo are the app branding
+# rather than UI icons, and ui.png / title-bar.png are screenshots, so they are
+# all excluded. The remainder is discovered from src/icons/ at build time.
+_UNTINTED_EXCLUDE = frozenset({
+    "AmethystBanner.png", "Logo.png", "ui.png", "title-bar.png",
+}) | {name for name, _role, _label in _TINTED_ICONS}
+
+_ICON_PX = 20
+_ICONS_PER_ROW = 12
 
 
 class ThemePreviewPanel(QWidget):
@@ -121,6 +156,7 @@ class ThemePreviewPanel(QWidget):
         v.addWidget(self._build_card_section())
         v.addWidget(self._build_status_section())
         v.addWidget(self._build_text_section())
+        v.addWidget(self._build_icons_section())
         v.addStretch(1)
 
         scroll.setWidget(self._content)
@@ -596,3 +632,51 @@ class ThemePreviewPanel(QWidget):
         tones.addStretch(1)
         lay.addLayout(tones)
         return frame
+
+    def _build_icons_section(self) -> QWidget:
+        """The app's icons - tinted ones re-rendered live from the palette."""
+        frame, lay = self._section(self.tr("Icons"))
+
+        themed = QLabel(self.tr("Themed - follow the palette"))
+        self._register(lambda p, w=themed: w.setStyleSheet(
+            f"color:{_c(p, 'TEXT_DIM')}; font-size:11px;"))
+        lay.addWidget(themed)
+        lay.addLayout(self._icon_grid(_TINTED_ICONS))
+
+        fixed_names = sorted(
+            (p.name for p in _ICONS_DIR.glob("*.png")
+             if p.name not in _UNTINTED_EXCLUDE),
+            key=str.lower)
+        if fixed_names:
+            fixed = QLabel(self.tr("Fixed artwork"))
+            self._register(lambda p, w=fixed: w.setStyleSheet(
+                f"color:{_c(p, 'TEXT_DIM')}; font-size:11px;"))
+            lay.addWidget(fixed)
+            lay.addLayout(self._icon_grid(
+                [(name, None, name) for name in fixed_names]))
+        return frame
+
+    def _icon_grid(self, entries) -> QGridLayout:
+        """Lay (filename, role or None, label) tiles out as a wrapping strip."""
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(6)
+        grid.setVerticalSpacing(6)
+        for i, (name, role, label) in enumerate(entries):
+            tile = QLabel()
+            tile.setFixedSize(_ICON_PX + 10, _ICON_PX + 10)
+            tile.setAlignment(Qt.AlignCenter)
+            if role:
+                self._register(
+                    lambda p, w=tile, n=name, k=role: w.setPixmap(
+                        _icon(n, _ICON_PX, color=_c(p, k)).pixmap(
+                            _ICON_PX, _ICON_PX)))
+                self._map_roles(
+                    tile, self.tr("{0} ({1})").format(self.tr(label), name),
+                    (role,))
+            else:
+                tile.setPixmap(_icon(name, _ICON_PX).pixmap(
+                    _ICON_PX, _ICON_PX))
+                tile.setToolTip(name)
+            grid.addWidget(tile, i // _ICONS_PER_ROW, i % _ICONS_PER_ROW)
+        grid.setColumnStretch(_ICONS_PER_ROW, 1)
+        return grid
