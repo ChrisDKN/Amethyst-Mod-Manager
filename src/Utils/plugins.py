@@ -239,18 +239,52 @@ def insert_by_loadorder(entries: list[PluginEntry], entry: PluginEntry,
     entries.append(entry)
 
 
+def sweep_plugins_variants(directory: Path, filename: str, log_fn=None,
+                           keep: "Path | None" = None) -> int:
+    """Delete every case-variant of `filename` in `directory`; return the count.
+
+    Wine resolves paths case-insensitively but the prefix sits on a
+    case-sensitive Linux filesystem, so `plugins.txt` and `Plugins.txt` can
+    both exist on disk at once. The engine then reads whichever one Wine
+    happens to resolve first, which may be a stale file we didn't write.
+    `keep` (already-resolved path) is left in place.
+    """
+    _log = log_fn or (lambda _msg: None)
+    wanted = filename.lower()
+    removed = 0
+    try:
+        entries = list(directory.iterdir())
+    except OSError:
+        return 0
+    for entry in entries:
+        if entry.name.lower() != wanted:
+            continue
+        if keep is not None and entry == keep:
+            continue
+        try:
+            entry.unlink()
+        except OSError as exc:
+            _log(f"  WARN: could not remove stale {entry}: {exc}")
+            continue
+        removed += 1
+        _log(f"  Removed stale {entry.name}: {entry}")
+    return removed
+
+
 def deploy_plugins_copy(directory: Path, filename: str, content: str, log_fn=None) -> None:
     """Write `content` into `directory / filename` as a real file (not a symlink).
 
     GOG builds of Bethesda games can't read a *symlinked* plugins.txt, so we
-    deploy a real copy. The Proton prefix is case-insensitive, so a single file
-    resolves under any casing; games that write to a real (case-sensitive) game
+    deploy a real copy. Any pre-existing case-variant (`Plugins.txt` next to
+    `plugins.txt`) is swept first so the one we write is the only one the
+    engine can resolve; games that write to a real (case-sensitive) game
     directory pass their own `filename` casing.
     """
     _log = log_fn or (lambda _msg: None)
     directory.mkdir(parents=True, exist_ok=True)
     target = directory / filename
     try:
+        sweep_plugins_variants(directory, filename, _log)
         if target.exists() or target.is_symlink():
             target.unlink()
         # The engine parses plugins.txt as Windows-1252 - write the copy it
@@ -262,7 +296,11 @@ def deploy_plugins_copy(directory: Path, filename: str, content: str, log_fn=Non
 
 
 def remove_plugins_copy(directory: Path, filename: str, log_fn=None) -> None:
-    """Remove `directory / filename` (a deployed copy or legacy symlink)."""
+    """Remove `directory / filename` (a deployed copy or legacy symlink).
+
+    Sweeps every case-variant so restore can't leave a stray `Plugins.txt`
+    behind for the engine to pick up on the next launch.
+    """
     _log = log_fn or (lambda _msg: None)
     target = directory / filename
     if target.exists() or target.is_symlink():
@@ -271,6 +309,7 @@ def remove_plugins_copy(directory: Path, filename: str, log_fn=None) -> None:
             _log(f"  Removed {filename}: {target}")
         except OSError as exc:
             _log(f"  WARN: could not remove {target}: {exc}")
+    sweep_plugins_variants(directory, filename, _log)
 
 
 def read_loadorder(path: Path) -> list[str]:
