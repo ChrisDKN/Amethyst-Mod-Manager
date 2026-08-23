@@ -26,6 +26,7 @@ py.install_sources(
   'Lethal_Company.png',
   'marvel_rivals.png',
   'mewgenics.png',
+  'nightreign.png',
   'monster_hunter_rise.png',
   'monster_hunter_wilds.png',
   'morrowind_openmw.png',

@@ -546,8 +546,13 @@ class BaseGame(ABC):
 
         Use for games like Cyberpunk 2077 where authors ship extra top-level
         folders (e.g. screenshots, "aboutMods", source dumps) that must not be
-        deployed into the game root.  Loose top-level files (no folder) are
-        also excluded under this rule.
+        deployed into the game root.  Loose top-level files (no folder) are NOT
+        affected - they are left to the loose-exclusion / routing rules.
+
+        A handler can exempt individual mods from this filter by implementing
+        ``filemap_top_level_exempt_mods(modlist_path, staging)``; see Elden
+        Ring, where proxy-loader DLL mods ship arbitrarily-named sidecar
+        folders that are deployed and so must stay in the filemap.
 
         Return False (the default) to keep every entry regardless of its
         top-level folder.

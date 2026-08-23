@@ -108,6 +108,27 @@ def _safe(fn, default=None):
         return default
 
 
+def _top_level_exempt_mods(game, modlist_path: Path, staging: Path,
+                           log_fn: LogFn) -> "set[str] | None":
+    """Mods the game exempts from its allowed-top-level-folder filter.
+
+    Only meaningful when the game sets ``filemap_exclude_unknown_top_level``;
+    a handler opts individual mods out by implementing
+    ``filemap_top_level_exempt_mods(modlist_path, staging)``.  A handler that
+    raises must not fail the deploy - the filter simply stays fully applied.
+    """
+    if not getattr(game, "filemap_exclude_unknown_top_level", False):
+        return None
+    hook = getattr(game, "filemap_top_level_exempt_mods", None)
+    if not callable(hook):
+        return None
+    try:
+        return set(hook(modlist_path, staging)) or None
+    except Exception as exc:
+        log_fn(f"Top-level exemption check failed, filtering all mods: {exc}")
+        return None
+
+
 def _log_deploy_context(game, profile: str, profile_dir: Path,
                         deploy_mode: "LinkMode", *, log_fn: LogFn) -> None:
     """Emit a diagnostic header describing the full deploy environment.
@@ -453,6 +474,8 @@ def _build_filemap_for_game(game, profile, *, log_fn: LogFn,
                     if getattr(game, "filemap_exclude_unknown_top_level", False)
                     else None
                 ),
+                allowed_top_level_exempt_mods=_top_level_exempt_mods(
+                    game, modlist_path, staging, log_fn),
                 exclude_dirs=getattr(game, "filemap_exclude_dirs", None) or None,
                 normalize_folder_case=norm_case,
                 filemap_casing=getattr(game, "filemap_casing", "upper"),

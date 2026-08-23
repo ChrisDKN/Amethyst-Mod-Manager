@@ -342,6 +342,7 @@ def _build_incr_fingerprint(
     conflict_ignore_foldernames,
     excluded_loose_filenames,
     allowed_top_level_folders,
+    allowed_top_level_exempt_mods,
     excluded_mod_files,
     normalize_folder_case: bool,
     filemap_casing: str,
@@ -371,6 +372,7 @@ def _build_incr_fingerprint(
         frozenset(conflict_ignore_foldernames or ()),
         frozenset(excluded_loose_filenames or ()),
         frozenset(allowed_top_level_folders or ()),
+        frozenset(allowed_top_level_exempt_mods or ()),
         tuple(sorted(
             (m, frozenset(v))
             for m, v in (excluded_mod_files or {}).items()
@@ -771,6 +773,7 @@ def _try_incremental(
             "exclude_dirs", "conflict_ignore_filenames",
             "conflict_ignore_foldernames",
             "excluded_loose_filenames", "allowed_top_level_folders",
+            "allowed_top_level_exempt_mods",
             "excluded_mod_files", "normalize_folder_case", "filemap_casing",
             "filemap_casing_pins",
             "no_conflict_key_fn", "root_folder_mods", "root_mod_files",
@@ -2390,7 +2393,7 @@ class _PathFilters:
     compiled regex objects, same check order).
     """
     __slots__ = ("ignore_re", "loose_excl_re", "allowed_top", "excluded",
-                 "folder_ignore_re", "_dir_cache")
+                 "folder_ignore_re", "allowed_top_exempt", "_dir_cache")
 
     def __init__(
         self,
@@ -2399,12 +2402,15 @@ class _PathFilters:
         allowed_top: "set[str] | None",
         excluded: dict[str, set[str]],
         folder_ignore_re: "re.Pattern[str] | None" = None,
+        allowed_top_exempt: "frozenset[str] | None" = None,
     ):
         self.ignore_re = ignore_re
         self.loose_excl_re = loose_excl_re
         self.allowed_top = allowed_top
         self.excluded = excluded
         self.folder_ignore_re = folder_ignore_re
+        # Mods the allowed_top rule does not apply to (see build_filemap).
+        self.allowed_top_exempt = allowed_top_exempt or frozenset()
         self._dir_cache: dict[str, bool] = {}
 
     def dir_ignored(self, rel_key: str) -> bool:
@@ -2427,7 +2433,7 @@ class _PathFilters:
         if (self.loose_excl_re is not None and "/" not in rel_key
                 and self.loose_excl_re.match(rel_key)):
             return False
-        if self.allowed_top is not None:
+        if self.allowed_top is not None and mod not in self.allowed_top_exempt:
             slash = rel_key.find("/")
             if slash != -1 and rel_key[:slash] not in self.allowed_top:
                 return False
@@ -2445,6 +2451,7 @@ def _build_path_filters(
     allowed_top_level_folders: "set[str] | None",
     excluded_mod_files: "dict[str, set[str]] | None",
     conflict_ignore_foldernames: "set[str] | None" = None,
+    allowed_top_level_exempt_mods: "set[str] | None" = None,
 ) -> _PathFilters:
     """Compile the per-file filter inputs into a shared _PathFilters object."""
     # Pre-compile ignore patterns once into a single regex for O(1) matching.
@@ -2488,7 +2495,8 @@ def _build_path_filters(
     )
 
     return _PathFilters(_ignore_re, _loose_excl_re, _allowed_top,
-                        excluded_mod_files or {}, _folder_ignore_re)
+                        excluded_mod_files or {}, _folder_ignore_re,
+                        frozenset(allowed_top_level_exempt_mods or ()))
 
 
 # ---------------------------------------------------------------------------
@@ -2508,6 +2516,7 @@ def build_filemap(
     conflict_ignore_foldernames: set[str] | None = None,
     excluded_loose_filenames: set[str] | None = None,
     allowed_top_level_folders: set[str] | None = None,
+    allowed_top_level_exempt_mods: set[str] | None = None,
     excluded_mod_files: dict[str, set[str]] | None = None,
     normalize_folder_case: bool = True,
     filemap_casing: str = FILEMAP_CASING_UPPER,
@@ -2557,6 +2566,15 @@ def build_filemap(
     allowed_top_level_folders - when non-empty, any foldered entry whose first
     path segment is not in this set is dropped from the filemap.  Loose
     top-level files (no folder) are not affected by this rule.
+
+    allowed_top_level_exempt_mods - mod names the rule above does not apply to,
+    so their whole tree is kept whatever its top-level folders are called.  For
+    games where one allow-list cannot describe every mod: Elden Ring / Nightreign
+    filter me3 asset packages down to the DVDBND folder names, but an Elden Mod
+    Loader DLL mod ships arbitrarily-named sidecar folders (profiles/, configs
+    per mod) that are real payload and ARE deployed - without the exemption they
+    are absent from the filemap, so the Data tab, conflict detection and Mod
+    Files never see files that exist in the game.
 
     excluded_mod_files - dict mapping mod name to a set of lowercase rel_key
     paths that should be excluded from the filemap for that mod.  Excluded
@@ -2653,6 +2671,7 @@ def build_filemap(
                 exclude_dirs, conflict_ignore_filenames,
                 conflict_ignore_foldernames,
                 excluded_loose_filenames, allowed_top_level_folders,
+                allowed_top_level_exempt_mods,
                 excluded_mod_files, normalize_folder_case, filemap_casing,
                 _pins, conflict_key_fn, root_folder_mods, _root_files,
                 _utf8_bad,
@@ -2665,7 +2684,7 @@ def build_filemap(
     _pf = _build_path_filters(
         conflict_ignore_filenames, excluded_loose_filenames,
         allowed_top_level_folders, excluded_mod_files,
-        conflict_ignore_foldernames,
+        conflict_ignore_foldernames, allowed_top_level_exempt_mods,
     )
     _ignore_re = _pf.ignore_re
     _loose_excl_re = _pf.loose_excl_re
@@ -2764,6 +2783,7 @@ def build_filemap(
     # the ~100k+ files rather than calling a helper that immediately returns.
     _has_excluded_loose = _loose_excl_re is not None
     _has_unknown_top    = _allowed_top is not None
+    _allowed_top_exempt = _pf.allowed_top_exempt
     _has_ignore         = _ignore_re is not None
     _has_folder_ignore  = _pf.folder_ignore_re is not None
     _dir_ignored        = _pf.dir_ignored
@@ -2833,6 +2853,8 @@ def build_filemap(
         had_file = False
         _acc = 0
         _is_root_mod = bool(root_folder_mods and name in root_folder_mods)
+        # Per-mod, so it is resolved once here rather than per file.
+        _check_top = _has_unknown_top and name not in _allowed_top_exempt
         _rf = None if _is_root_mod else _root_files.get(name)
         # Pick which namespace this mod writes into.
         _winner_ns = filemap_root_winner if _is_root_mod else filemap_winner
@@ -2844,7 +2866,7 @@ def build_filemap(
                 continue
             if _has_excluded_loose and _is_excluded_loose(rel_key):
                 continue
-            if _has_unknown_top and _is_unknown_top_level(rel_key):
+            if _check_top and _is_unknown_top_level(rel_key):
                 continue
             if _has_ignore and _is_ignored(rel_key):
                 continue

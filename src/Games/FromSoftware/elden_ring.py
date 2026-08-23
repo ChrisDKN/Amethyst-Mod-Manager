@@ -470,6 +470,45 @@ class EldenRing(BaseGame):
     def _staged_dir_of(self, entry) -> Path:
         return self.get_effective_mod_staging_path() / entry.name
 
+    def filemap_top_level_exempt_mods(self, modlist_path: Path,
+                                      staging: Path) -> set:
+        """Mods whose sidecar folders must survive the DVDBND top-level filter.
+
+        ``filemap_exclude_unknown_top_level`` keeps stray readme/screenshot
+        folders out of me3 asset packages by dropping any top-level folder that
+        is not a DVDBND name.  Proxy-loader DLL mods are the exception: their
+        sidecar folders are named after the mod (``profiles/``, ``configs/``)
+        and are REAL payload, copied into the game by ``_deploy_proxy_loader``,
+        which walks staging directly and never consults the filemap.  Without
+        this exemption those files deploy but appear nowhere in the filemap, so
+        the Data tab under-reports, two DLL mods shipping the same sidecar never
+        register a conflict, and Mod Files cannot disable them.
+
+        The loader itself is exempt too - its own tree is copied wholesale.
+        """
+        try:
+            entries = me3_profile.build_entries(
+                [(e.name, staging / e.name)
+                 for e in read_modlist(modlist_path)
+                 if e.enabled and not e.is_separator],
+                {},
+            )
+        except Exception:
+            return set()
+
+        loader = next((e for e in entries if self._is_proxy_loader(e)), None)
+        if loader is None:
+            # No proxy loader deployed, so no mod is copied by that path and the
+            # normal me3 filtering describes every mod correctly.
+            return set()
+        # Same rule deploy() uses to hand a mod to the loader: DLLs and no
+        # package of its own.  A mod with assets stays a me3 package, where the
+        # DVDBND allow-list is exactly right.
+        return {loader.name} | {
+            e.name for e in entries
+            if e is not loader and e.natives and e.package_root is None
+        }
+
     def _restore_proxy_loader(self, log_fn) -> None:
         """Remove exactly the files _deploy_proxy_loader recorded."""
         manifest = self._eml_manifest_path()
