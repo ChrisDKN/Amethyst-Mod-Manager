@@ -153,15 +153,37 @@ BACKGROUND_TRANSPARENT = "transparent"
 # int percent so it round-trips through the ini and the slider unchanged.
 BRIGHTNESS_MIN, BRIGHTNESS_MAX, BRIGHTNESS_DEFAULT = 60, 260, 100
 
-# The fixed camera's angles; also where the light rig is anchored.
-# Portrait framing, both measured off real vanilla heads rather than guessed.
-# FILL > 1 leaves a sliver of margin so the chin and crown are not clipped
-# flush to the edge; at 1.15 the face spans ~87% of the frame's height.
-# EYE_LINE lifts the camera off the face mesh's bounding-box centre, which
-# sits low because the mesh runs down into the neck - the eyes are 63-66% of
-# the way up it on every head sampled.
-_PORTRAIT_FILL = 1.15
-_PORTRAIT_EYE_LINE = 0.64
+# Portrait framing, matched to NPC Plugin Chooser 2's own portrait renderer so
+# an exported mugshot sits beside its packs without jumping scale. Its
+# defaults (Models/Settings.cs): CamYaw 90, CamPitch 2, HeadTopOffset 0.0,
+# HeadBottomOffset -0.05, output 750x750.
+#
+# The framed subject is the WHOLE head - hair included - not the face shape
+# alone. Framing on the face crops tall hairstyles, which is exactly what the
+# reference shot does not do.
+#
+# NPC2 renders at a 25-degree vertical FOV; this viewport's projection is a
+# fixed 45 (see _Viewport.paintGL). Distance is therefore solved from OUR 45,
+# not NPC2's 25 - using the wrong one puts the head at roughly half size. The
+# resulting COMPOSITION matches; only the lens differs, so a wider FOV shows
+# slightly more perspective foreshortening.
+_VIEWPORT_FOV = 45.0
+_PORTRAIT_YAW = 90.0
+_PORTRAIT_PITCH = 2.0
+# Fractions of head height added above the crown and below the chin; the
+# negative bottom extends the crop DOWN into the neck and shoulders, which is
+# what gives the composition its head-and-shoulders look.
+#
+# SOLVED from a real NPC2 mugshot rather than copied from its settings: its
+# own offsets (0.0 / -0.05) are relative to a head measured on a FULL BODY
+# render, where the torso already fills the lower frame. We render the head
+# alone, so the same numbers would crop at the chin. Measured off the
+# reference (750px): crown 1.5% down, neck at 70%, i.e. the head is 68.5% of
+# frame height with 30% below it. That needs a visible height of 1.46x the
+# head, distributed to leave only a sliver of headroom.
+_PORTRAIT_TOP_OFFSET = 0.022
+_PORTRAIT_BOTTOM_OFFSET = -0.437
+_PORTRAIT_FILL = 1.0
 # Ceiling on the inset as a fraction of the pane's smaller side, so a narrow
 # pane gets a smaller portrait instead of one covering the model.
 _PORTRAIT_MAX_PANE = 0.45
@@ -2472,10 +2494,8 @@ class _Viewport(QOpenGLWidget):
         meshes: the eyes sit on the +Y side of the head's centre), so a yaw of
         +90 degrees looks the actor in the face.
 
-        Framed tight on the FACE, head-and-shoulders: the distance is solved
-        from the viewport's real 45-degree vertical FOV rather than guessed at
-        with a multiplier, so the face fills the frame at any pane size and
-        tall hair simply crops instead of shrinking the head.
+        Framed head-and-shoulders by _aim_at_face, the same framing the
+        exported mugshot uses, so this corner thumbnail previews the file.
         """
         bounds = self._head_bounds
         if bounds is None or not (self._meshes or self._pending):
@@ -2485,20 +2505,9 @@ class _Viewport(QOpenGLWidget):
         saved = (self._yaw, self._pitch, self._distance,
                  QVector3D(self._center), list(self._pan))
         try:
-            (lx, ly, lz), (hx, hy, hz) = bounds
-            # Sit the camera slightly ABOVE the face's midpoint: the mesh runs
-            # down into the neck, and centring on it leaves the eyes high in
-            # the frame instead of level with the viewer.
-            self._center = QVector3D((lx + hx) / 2, (ly + hy) / 2,
-                                     lz + (hz - lz) * _PORTRAIT_EYE_LINE)
-            self._pan = [0.0, 0.0]
-            # Fit the face's height and width in the 45-degree vertical FOV.
-            # The square crop below takes the smaller viewport side, so the
-            # width has to clear that same extent, not the pane's aspect.
-            want = max(hz - lz, hx - lx, 1e-3) * _PORTRAIT_FILL
-            self._distance = want / (2.0 * math.tan(math.radians(22.5)))
-            self._yaw = math.radians(90.0)
-            self._pitch = 0.0
+            # One framing for the inset, the single export and the batch, so
+            # the corner thumbnail matches the file it will produce.
+            self._aim_at_face(bounds)
             image = self.grabFramebuffer()
         except Exception as exc:                         # noqa: BLE001
             _log(self.log_fn, f"  ! portrait capture failed: {exc!r}")
@@ -2591,15 +2600,39 @@ class _Viewport(QOpenGLWidget):
                                        max_height=max(height, _SHEET_MAX_HEIGHT))
 
     def _aim_at_face(self, head_bounds):
-        """Point the camera at the head, framed head-and-shoulders."""
-        (lx, ly, lz), (hx, hy, hz) = head_bounds
+        """Point the camera at the head, framed head-and-shoulders.
+
+        *head_bounds* is the face shape's extent. The framed subject is the
+        whole head where one is loaded, so hair is included rather than
+        cropped, and the bottom edge is pushed into the neck and shoulders -
+        NPC Plugin Chooser 2's composition, using its own parameters.
+        """
+        (fx0, fy0, fz0), (fx1, fy1, fz1) = head_bounds
+        # Prefer the full model: on a FaceGen head that is face + hair + brows
+        # + eyes, i.e. the whole head. Fall back to the face when a caller has
+        # no scene bounds (nothing else is loaded to widen to).
+        (lx, ly, lz), (hx, hy, hz) = self._bounds or head_bounds
+        # Guard against a whole BODY being on screen: the portrait must stay a
+        # portrait, so never frame anything much taller than the head itself.
+        if (hz - lz) > (fz1 - fz0) * 2.5:
+            lx, ly, lz = fx0, fy0, fz0
+            hx, hy, hz = fx1, fy1, fz1
+
+        head_h = max(hz - lz, 1e-3)
+        # Offsets are fractions of head height; the negative bottom extends the
+        # view DOWN past the chin, which is what puts shoulders in frame.
+        top = hz + head_h * _PORTRAIT_TOP_OFFSET
+        bottom = lz + head_h * _PORTRAIT_BOTTOM_OFFSET
         self._center = QVector3D((lx + hx) / 2, (ly + hy) / 2,
-                                 lz + (hz - lz) * _PORTRAIT_EYE_LINE)
+                                 (top + bottom) / 2)
         self._pan = [0.0, 0.0]
-        want = max(hz - lz, hx - lx, 1e-3) * _PORTRAIT_FILL
-        self._distance = want / (2.0 * math.tan(math.radians(22.5)))
-        self._yaw = math.radians(90.0)
-        self._pitch = 0.0
+        # The square crop takes the smaller viewport side, so the width has to
+        # clear the same extent as the height, not the pane's aspect.
+        want = max(top - bottom, hx - lx, 1e-3) * _PORTRAIT_FILL
+        half_fov = math.radians(_VIEWPORT_FOV / 2.0)
+        self._distance = want / (2.0 * math.tan(half_fov))
+        self._yaw = math.radians(_PORTRAIT_YAW)
+        self._pitch = math.radians(_PORTRAIT_PITCH)
 
     def capture_face_image(self, background: str | None = None,
                            size: int = _SHEET_EXPORT_HEIGHT):
@@ -3229,7 +3262,7 @@ class _Viewport(QOpenGLWidget):
         d = max(self._distance, 1e-3)
         eye = self._eye()
         proj = QMatrix4x4()
-        proj.perspective(45.0, w / h, max(d * 0.001, 1e-3), d * 50.0)
+        proj.perspective(_VIEWPORT_FOV, w / h, max(d * 0.001, 1e-3), d * 50.0)
         view = QMatrix4x4()
         view.lookAt(eye, self._look_target(), QVector3D(0, 0, 1))
         return proj * view
