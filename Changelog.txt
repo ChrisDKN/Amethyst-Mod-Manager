@@ -1,17 +1,18 @@
 - v2.3.0
-### VFS
-- Added a third deploy option to deploy mods into a Virtual file system instead of the game folder. 
-- Not every game has this option but most do.
+### VFS Deploy
+- Added a third deploy option to deploy mods into a Virtual file system instead of the game folder. Not every game has this option but most do.
 - The game must be run via the manager however the games can still be run via their launcher with the provided command
 ### Game Support
 - Added Elden Ring
+- Added Elden Ring Nightreign
 ### Additions
 - Added an option to the profile export code menu to upload it as a shareable link. The import code menu also accepts the link. 
 - Added an option to upload logs as a sharable link
 - Added a Filter conflicts right click option for mods with conflicts
-- Added a Npc viewer wizard for Skyrim SE
+- Added a Npc viewer wizard for Skyrim SE and Fallout 4
 - Added a cancel button for download progress
 - Added a Fallout 4 downgrade wizard
+- Added 2 new themes
 ### Changes
 - System info is now shown in the settings menu and at the top of the log
 - Theme selection and theme-editor previews now apply live without restarting the application
@@ -21,10 +22,12 @@
 - The settings menu now opens as a modal instead of a tab
 - Pressing view on a mod in the Nexus browser will now show the mods description page within the manager
 - Mouse 4 and 5 can be used to move between pages in the nexus, thunderstore and collections browser
+- OpenMW now deploys to the profile folder and adds an extra Data location to the openmw.cfg
 ### Bug Fixes
 - Fixed Thunderstore BepInEx plugins being deployed into legacy package paths that loaders may delete at startup
 - Fixed an issue where folder names may not merge/normalise in Ue5 games
 - Fixed an issue where esm flagged plugins could be moved to places where they shouldn't be
+- Fixed the elsifer wizard downloading the wrong release file
 
 ---
 

@@ -44,6 +44,8 @@ Run the following command in a terminal. It will appear in your applications men
 curl -sSL https://raw.githubusercontent.com/ChrisDKN/Amethyst-Mod-Manager/main/src/appimage/Amethyst-MM-installer.sh | bash
 ```
 
+Alternatively you download the appimage via the release page and install via gear lever
+
 The application will notifiy when a new update goes live, Pressing the update button will rerun the script and update to any new version
 
 ### Flatpak

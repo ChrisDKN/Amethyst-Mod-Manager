@@ -541,8 +541,12 @@ Please restart the wizard and install BethINI Pie first.</translation>
         <translation>Preparing BethINI Pie's Wine prefix…</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
-        <translation>Could not find Proton '{0}' - check that it is installed in Steam.</translation>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</translation>
     </message>
     <message>
         <source>BethINI Pie is running.
@@ -755,8 +759,12 @@ Deploy your modlist first, then reopen this wizard.</source>
 Deploy your modlist first, then reopen this wizard.</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
-        <translation>Could not find Proton '{0}' - check that it is installed in Steam.</translation>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</translation>
     </message>
     <message>
         <source>{0} is running.
@@ -1582,6 +1590,10 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</translati
         <translation>Hardlink</translation>
     </message>
     <message>
+        <source>Virtual filesystem (VFS)</source>
+        <translation>Virtual filesystem (VFS)</translation>
+    </message>
+    <message>
         <source>Swap launcher with script extender on deploy</source>
         <translation>Swap launcher with script extender on deploy</translation>
     </message>
@@ -1764,6 +1776,10 @@ The default profile's settings are not affected.</translation>
     <message>
         <source>Cannot change the game/prefix path while mods are deployed. Restore the game first.</source>
         <translation>Cannot change the game/prefix path while mods are deployed. Restore the game first.</translation>
+    </message>
+    <message>
+        <source>Cannot change the deploy method while mods are deployed. Restore the game first.</source>
+        <translation>Cannot change the deploy method while mods are deployed. Restore the game first.</translation>
     </message>
     <message>
         <source>Cannot use hardlinks: the staging folder and {0} are on different drives or filesystems. Switch to Symlink instead.</source>
@@ -2296,8 +2312,12 @@ Install the Creation Kit from Steam, then reopen this wizard.</translation>
         <translation>Launching Creation Kit…</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
-        <translation>Could not find Proton '{0}' - check that it is installed in Steam.</translation>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</translation>
     </message>
     <message>
         <source>Game path not configured.</source>
@@ -3442,10 +3462,6 @@ Please restart the wizard and install {1} first.</translation>
         <translation>Launching {0}…</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
-        <translation>Could not find Proton '{0}' - check that it is installed in Steam.</translation>
-    </message>
-    <message>
         <source>Game path not configured.</source>
         <translation>Game path not configured.</translation>
     </message>
@@ -3466,6 +3482,14 @@ Close it when you are done, then click Done.</translation>
     <message>
         <source>Fetching latest release from GitHub…</source>
         <translation>Fetching latest release from GitHub…</translation>
+    </message>
+    <message>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</translation>
     </message>
     <message>
         <source>Searching Downloads folder…</source>
@@ -3539,8 +3563,12 @@ Please restart the wizard and let it install ESLifier first.</translation>
         <translation>{0} was not found.</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
-        <translation>Could not find Proton '{0}' - check that it is installed in Steam.</translation>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</translation>
     </message>
     <message>
         <source>Could not write settings: {0}</source>
@@ -5118,6 +5146,41 @@ It may already be modified. Verify game files in Steam/Heroic to get a clean exe
     <message>
         <source>Result: {0}</source>
         <translation>Result: {0}</translation>
+    </message>
+</context>
+<context>
+    <name>LaunchHandoffOverlay</name>
+    <message>
+        <source>{0} - launching from {1}</source>
+        <translation>{0} - launching from {1}</translation>
+    </message>
+    <message>
+        <source>This deployment uses an external loader or virtual filesystem, so the launcher must start the game through Amethyst. Press Play in Amethyst, or configure {0} as follows:
+
+{1}</source>
+        <translation>This deployment uses an external loader or virtual filesystem, so the launcher must start the game through Amethyst. Press Play in Amethyst, or configure {0} as follows:
+
+{1}</translation>
+    </message>
+    <message>
+        <source>Copy</source>
+        <translation>Copy</translation>
+    </message>
+    <message>
+        <source>Don't show this again for {0}</source>
+        <translation>Don't show this again for {0}</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Close</translation>
+    </message>
+    <message>
+        <source>Copied ✓</source>
+        <translation>Copied ✓</translation>
+    </message>
+    <message>
+        <source>Copy failed</source>
+        <translation>Copy failed</translation>
     </message>
 </context>
 <context>
@@ -7395,6 +7458,18 @@ Run Quick Update on all of them now?</translation>
         <translation>Download Manifest…</translation>
     </message>
     <message>
+        <source>{0} is running - switch games when it finishes.</source>
+        <translation>{0} is running - switch games when it finishes.</translation>
+    </message>
+    <message>
+        <source>VFS</source>
+        <translation>VFS</translation>
+    </message>
+    <message>
+        <source> ({0})</source>
+        <translation> ({0})</translation>
+    </message>
+    <message>
         <source>Download cancelled.</source>
         <translation>Download cancelled.</translation>
     </message>
@@ -7491,8 +7566,24 @@ Run Quick Update on all of them now?</translation>
         <translation>No mods to share - a code carries Nexus mods with a mod + file ID and Thunderstore mods.</translation>
     </message>
     <message>
+        <source>■  Stop</source>
+        <translation>■  Stop</translation>
+    </message>
+    <message>
         <source>Check the executables to add to the Run menu. These run from their location in the game folder - including files deployed there by mods. Linux-native games launch through their .sh script (e.g. run_bepinex.sh).</source>
         <translation>Check the executables to add to the Run menu. These run from their location in the game folder - including files deployed there by mods. Linux-native games launch through their .sh script (e.g. run_bepinex.sh).</translation>
+    </message>
+    <message>
+        <source>{0} stopped</source>
+        <translation>{0} stopped</translation>
+    </message>
+    <message>
+        <source>■  Stopping…</source>
+        <translation>■  Stopping…</translation>
+    </message>
+    <message>
+        <source>Stopping {0}…</source>
+        <translation>Stopping {0}…</translation>
     </message>
     <message>
         <source>Amethyst could not launch {0}.
@@ -9459,6 +9550,10 @@ or an encrypted file when no keyring is available).</translation>
         <translation>Remove</translation>
     </message>
     <message>
+        <source>View details</source>
+        <translation>View details</translation>
+    </message>
+    <message>
         <source>Mods by this author</source>
         <translation>Mods by this author</translation>
     </message>
@@ -9568,6 +9663,129 @@ Daily: {1}</translation>
     <message>
         <source>View</source>
         <translation>View</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>Redownload</source>
+        <translation>Redownload</translation>
+    </message>
+    <message>
+        <source>Reinstall</source>
+        <translation>Reinstall</translation>
+    </message>
+    <message>
+        <source>Download</source>
+        <translation>Download</translation>
+    </message>
+    <message>
+        <source>Install</source>
+        <translation>Install</translation>
+    </message>
+</context>
+<context>
+    <name>NexusModDetailView</name>
+    <message>
+        <source>← Back to mods</source>
+        <translation>← Back to mods</translation>
+    </message>
+    <message>
+        <source>Open on Nexus ↗</source>
+        <translation>Open on Nexus ↗</translation>
+    </message>
+    <message>
+        <source>Loading image…</source>
+        <translation>Loading image…</translation>
+    </message>
+    <message>
+        <source>Description</source>
+        <translation>Description</translation>
+    </message>
+    <message>
+        <source>Loading files…</source>
+        <translation>Loading files…</translation>
+    </message>
+    <message>
+        <source>Name</source>
+        <translation>Name</translation>
+    </message>
+    <message>
+        <source>Version</source>
+        <translation>Version</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>Size</translation>
+    </message>
+    <message>
+        <source>Uploaded</source>
+        <translation>Uploaded</translation>
+    </message>
+    <message>
+        <source>Files</source>
+        <translation>Files</translation>
+    </message>
+    <message>
+        <source>Mod {0}</source>
+        <translation>Mod {0}</translation>
+    </message>
+    <message>
+        <source>No summary provided.</source>
+        <translation>No summary provided.</translation>
+    </message>
+    <message>
+        <source>Unknown author</source>
+        <translation>Unknown author</translation>
+    </message>
+    <message>
+        <source>by {0}  •  {1}</source>
+        <translation>by {0}  •  {1}</translation>
+    </message>
+    <message>
+        <source>by {0}</source>
+        <translation>by {0}</translation>
+    </message>
+    <message>
+        <source>Version: {0}</source>
+        <translation>Version: {0}</translation>
+    </message>
+    <message>
+        <source>Endorsements: {0}</source>
+        <translation>Endorsements: {0}</translation>
+    </message>
+    <message>
+        <source>Downloads: {0}</source>
+        <translation>Downloads: {0}</translation>
+    </message>
+    <message>
+        <source>Uploaded: {0}</source>
+        <translation>Uploaded: {0}</translation>
+    </message>
+    <message>
+        <source>Updated: {0}</source>
+        <translation>Updated: {0}</translation>
+    </message>
+    <message>
+        <source>No image available</source>
+        <translation>No image available</translation>
+    </message>
+    <message>
+        <source>Description unavailable.</source>
+        <translation>Description unavailable.</translation>
+    </message>
+    <message>
+        <source>Could not load the file list.</source>
+        <translation>Could not load the file list.</translation>
+    </message>
+    <message>
+        <source>{0} ({1})</source>
+        <translation>{0} ({1})</translation>
+    </message>
+    <message>
+        <source>{0} file(s)</source>
+        <translation>{0} file(s)</translation>
     </message>
     <message>
         <source>Cancel</source>
@@ -10245,8 +10463,16 @@ Please restart the wizard and download PGPatcher first.</translation>
         <translation>Preparing PGPatcher's Wine prefix…</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam, then reopen this wizard.</source>
-        <translation>Could not find Proton '{0}' - check that it is installed in Steam, then reopen this wizard.</translation>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus, then reopen this wizard.</source>
+        <translation>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus, then reopen this wizard.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</translation>
     </message>
     <message>
         <source>d3dcompiler_47 already installed - skipping.</source>
@@ -10307,10 +10533,6 @@ Please restart the wizard and download PGPatcher first.</translation>
     <message>
         <source>{0} was not found.</source>
         <translation>{0} was not found.</translation>
-    </message>
-    <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
-        <translation>Could not find Proton '{0}' - check that it is installed in Steam.</translation>
     </message>
     <message>
         <source>PGPatcher is running.
@@ -10404,8 +10626,12 @@ Install Pandora Behaviour Engine+ as a mod, then reopen this wizard.</translatio
         <translation>Preparing Pandora's Wine prefix…</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam, then reopen this wizard.</source>
-        <translation>Could not find Proton '{0}' - check that it is installed in Steam, then reopen this wizard.</translation>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus, then reopen this wizard.</source>
+        <translation>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus, then reopen this wizard.</translation>
     </message>
     <message>
         <source>.NET 10 already installed - skipping.</source>
@@ -10843,6 +11069,10 @@ Drag a plugin from the left pane to add a rule.</translation>
         <translation>Re-check</translation>
     </message>
     <message>
+        <source>Fix All</source>
+        <translation>Fix All</translation>
+    </message>
+    <message>
         <source>Fix</source>
         <translation>Fix</translation>
     </message>
@@ -10891,6 +11121,26 @@ Drag a plugin from the left pane to add a rule.</translation>
         <translation>Game path in prefix registry</translation>
     </message>
     <message>
+        <source>d3dx9 (all legacy DirectX 9 runtimes)</source>
+        <translation>d3dx9 (all legacy DirectX 9 runtimes)</translation>
+    </message>
+    <message>
+        <source>d3dx10 (all legacy DirectX 10 runtimes)</source>
+        <translation>d3dx10 (all legacy DirectX 10 runtimes)</translation>
+    </message>
+    <message>
+        <source>quartz (DirectShow runtime)</source>
+        <translation>quartz (DirectShow runtime)</translation>
+    </message>
+    <message>
+        <source>dx8vb (DirectX 8 Visual Basic runtime)</source>
+        <translation>dx8vb (DirectX 8 Visual Basic runtime)</translation>
+    </message>
+    <message>
+        <source>DXVK (Direct3D → Vulkan)</source>
+        <translation>DXVK (Direct3D → Vulkan)</translation>
+    </message>
+    <message>
         <source>No prefix configured</source>
         <translation>No prefix configured</translation>
     </message>
@@ -10917,6 +11167,14 @@ Drag a plugin from the left pane to add a rule.</translation>
     <message>
         <source>Another Proton installer is running - try again shortly.</source>
         <translation>Another Proton installer is running - try again shortly.</translation>
+    </message>
+    <message>
+        <source>Fixing {0} item(s)… (details in the log)</source>
+        <translation>Fixing {0} item(s)… (details in the log)</translation>
+    </message>
+    <message>
+        <source>Fixing {0} prefix item(s)</source>
+        <translation>Fixing {0} prefix item(s)</translation>
     </message>
     <message>
         <source>A fix is running - please wait for it to finish.</source>
@@ -12553,8 +12811,16 @@ or use Browse to select it manually.</translation>
         <translation>Preparing Script Merger's Wine prefix…</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam, then reopen this wizard.</source>
-        <translation>Could not find Proton '{0}' - check that it is installed in Steam, then reopen this wizard.</translation>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus, then reopen this wizard.</source>
+        <translation>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus, then reopen this wizard.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</translation>
     </message>
     <message>
         <source>.NET 8 already installed - skipping.</source>
@@ -12615,10 +12881,6 @@ Please restart the wizard and install Script Merger first.</source>
 Please restart the wizard and install Script Merger first.</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
-        <translation>Could not find Proton '{0}' - check that it is installed in Steam.</translation>
-    </message>
-    <message>
         <source>WitcherScriptMerger is running.
 Merge your conflicts, then close it and click Done.</source>
         <translation>WitcherScriptMerger is running.
@@ -12640,8 +12902,8 @@ Merge your conflicts, then close it and click Done.</translation>
 <context>
     <name>SelectorButton</name>
     <message>
-        <source>{0}{1}</source>
-        <translation>{0}{1}</translation>
+        <source>{0}{1}{2}</source>
+        <translation>{0}{1}{2}</translation>
     </message>
     <message>
         <source>{0}   ✓ deployed</source>
@@ -13135,6 +13397,50 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     <message>
         <source>Close</source>
         <translation>Close</translation>
+    </message>
+    <message>
+        <source>Reset dismissed prompts…</source>
+        <translation>Reset dismissed prompts…</translation>
+    </message>
+    <message>
+        <source>Bring back every notice you hid by ticking "Don't show this again" - the launcher handoff notice, the Windows filesystem warning and the rest.</source>
+        <translation>Bring back every notice you hid by ticking "Don't show this again" - the launcher handoff notice, the Windows filesystem warning and the rest.</translation>
+    </message>
+    <message>
+        <source>Nothing to reset</source>
+        <translation>Nothing to reset</translation>
+    </message>
+    <message>
+        <source>No prompts are currently hidden.</source>
+        <translation>No prompts are currently hidden.</translation>
+    </message>
+    <message>
+        <source>{0} hidden prompt will show again.</source>
+        <translation>{0} hidden prompt will show again.</translation>
+    </message>
+    <message>
+        <source>{0} hidden prompts will show again.</source>
+        <translation>{0} hidden prompts will show again.</translation>
+    </message>
+    <message>
+        <source>Prompts reset</source>
+        <translation>Prompts reset</translation>
+    </message>
+    <message>
+        <source>{0} prompt is hidden. It will start showing again.</source>
+        <translation>{0} prompt is hidden. It will start showing again.</translation>
+    </message>
+    <message>
+        <source>{0} prompts are hidden. They will start showing again.</source>
+        <translation>{0} prompts are hidden. They will start showing again.</translation>
+    </message>
+    <message>
+        <source>Reset dismissed prompts?</source>
+        <translation>Reset dismissed prompts?</translation>
+    </message>
+    <message>
+        <source>Reset</source>
+        <translation>Reset</translation>
     </message>
     <message>
         <source>{0} set: {1}</source>
@@ -13703,45 +14009,6 @@ Click Done to close.</translation>
     <message>
         <source>Add</source>
         <translation>Add</translation>
-    </message>
-</context>
-<context>
-    <name>SteamLaunchCommandOverlay</name>
-    <message>
-        <source>{0} - launching from Steam</source>
-        <translation>{0} - launching from Steam</translation>
-    </message>
-    <message>
-        <source>Your mods are loaded by an external mod loader, so starting {0} from Steam normally would run it unmodded.
-
-Press Play here in the manager, or paste this into Steam (right-click {0} → Properties → General → Launch Options) to launch it modded from your library:</source>
-        <translation>Your mods are loaded by an external mod loader, so starting {0} from Steam normally would run it unmodded.
-
-Press Play here in the manager, or paste this into Steam (right-click {0} → Properties → General → Launch Options) to launch it modded from your library:</translation>
-    </message>
-    <message>
-        <source>Set this once. It always deploys and launches whichever profile you last deployed here, so switching profiles needs no change in Steam.</source>
-        <translation>Set this once. It always deploys and launches whichever profile you last deployed here, so switching profiles needs no change in Steam.</translation>
-    </message>
-    <message>
-        <source>Don't show this again</source>
-        <translation>Don't show this again</translation>
-    </message>
-    <message>
-        <source>Close</source>
-        <translation>Close</translation>
-    </message>
-    <message>
-        <source>Copy to clipboard</source>
-        <translation>Copy to clipboard</translation>
-    </message>
-    <message>
-        <source>Copied ✓</source>
-        <translation>Copied ✓</translation>
-    </message>
-    <message>
-        <source>Copy failed - copy it manually</source>
-        <translation>Copy failed - copy it manually</translation>
     </message>
 </context>
 <context>
@@ -15691,6 +15958,22 @@ or use Browse to select it manually.</translation>
         <source>Text &amp; tones</source>
         <translation>Text &amp; tones</translation>
     </message>
+    <message>
+        <source>Icons</source>
+        <translation>Icons</translation>
+    </message>
+    <message>
+        <source>Themed - follow the palette</source>
+        <translation>Themed - follow the palette</translation>
+    </message>
+    <message>
+        <source>Fixed artwork</source>
+        <translation>Fixed artwork</translation>
+    </message>
+    <message>
+        <source>{0} ({1})</source>
+        <translation>{0} ({1})</translation>
+    </message>
 </context>
 <context>
     <name>ThunderstoreBrowserView</name>
@@ -16269,8 +16552,12 @@ Please restart the wizard to reinstall Wrye Bash.</translation>
         <translation>Launching Wrye Bash…</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
-        <translation>Could not find Proton '{0}' - check that it is installed in Steam.</translation>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</translation>
     </message>
     <message>
         <source>Wrye Bash is running.
@@ -16452,6 +16739,14 @@ Please restart the wizard and install {1} first.</translation>
         <translation>QAC All</translation>
     </message>
     <message>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</translation>
+    </message>
+    <message>
         <source>{0} is running - close it to continue.</source>
         <translation>{0} is running - close it to continue.</translation>
     </message>
@@ -16508,10 +16803,6 @@ When you close it, your changes are restored automatically.</translation>
     <message>
         <source>Launching {0}…</source>
         <translation>Launching {0}…</translation>
-    </message>
-    <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
-        <translation>Could not find Proton '{0}' - check that it is installed in Steam.</translation>
     </message>
     <message>
         <source>Game path not configured.</source>
