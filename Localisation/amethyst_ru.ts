@@ -541,8 +541,12 @@ Please restart the wizard and install BethINI Pie first.</source>
         <translation>Подготовка винного префикса для BethINI Pie…</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
-        <translation>Протон «{0}» найти не удалось — проверьте, установлен ли он в Steam.</translation>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>Не удалось решить версию Proton для собственного префикса игры — запустить игру один раз или выбрать другой вариант префикса.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>Не удалось найти протон {0} — проверьте, установлен ли он в Steam, Heroic или ProtonPlus.</translation>
     </message>
     <message>
         <source>BethINI Pie is running.
@@ -755,8 +759,12 @@ Deploy your modlist first, then reopen this wizard.</source>
 Сначала разверните список модификаций, а затем заново откройте этот мастер.</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
-        <translation>Протон «{0}» найти не удалось — проверьте, установлен ли он в Steam.</translation>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>Не удалось решить версию Proton для собственного префикса игры — запустить игру один раз или выбрать другой вариант префикса.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>Не удалось найти протон {0} — проверьте, установлен ли он в Steam, Heroic или ProtonPlus.</translation>
     </message>
     <message>
         <source>{0} is running.
@@ -1452,6 +1460,22 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</source>
         <translation>Игра {0} - {1}</translation>
     </message>
     <message>
+        <source>Use a separate save file for each profile (me3)</source>
+        <translation>Используйте отдельный файл сохранения для каждого профиля (me3)</translation>
+    </message>
+    <message>
+        <source>Enable online play (me3, risks a ban with mods)</source>
+        <translation>Возможность онлайн-игры (me3, риск запрета с модами)</translation>
+    </message>
+    <message>
+        <source>Neutralize Arxan anti-tamper (me3, improves stability)</source>
+        <translation>Нейтрализовать антитампер Arxan (me3, улучшает стабильность)</translation>
+    </message>
+    <message>
+        <source>Raise the game's memory limits (me3)</source>
+        <translation>Повысьте лимиты памяти игры (me3)</translation>
+    </message>
+    <message>
         <source>Settings saved to profile: {0} (this profile only)</source>
         <translation>Настройки сохранены в профиле: {0} (только в этом профиле)</translation>
     </message>
@@ -1572,6 +1596,10 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</source>
         <translation>Жесткая ссылка</translation>
     </message>
     <message>
+        <source>Virtual filesystem (VFS)</source>
+        <translation>Виртуальная файловая система (VFS)</translation>
+    </message>
+    <message>
         <source>Swap launcher with script extender on deploy</source>
         <translation>Swap Launcher с расширением скрипта для развертывания</translation>
     </message>
@@ -1668,6 +1696,34 @@ The default profile's settings are not affected.</source>
         <translation>Исполняемый ({0}) не найден в этой папке - дважды проверьте путь.</translation>
     </message>
     <message>
+        <source>Version {0}</source>
+        <translation>Версия {0}</translation>
+    </message>
+    <message>
+        <source>Prefix already configured. You can update the path below.</source>
+        <translation>Префикс уже настроен. Вы можете обновить путь ниже.</translation>
+    </message>
+    <message>
+        <source>Found via Steam compatdata.</source>
+        <translation>Найдено через Steam Compatdata.</translation>
+    </message>
+    <message>
+        <source>Found via non-Steam shortcut compatdata.</source>
+        <translation>Найдено с помощью не-Steam Shortcut Compatdata.</translation>
+    </message>
+    <message>
+        <source>Found via Heroic Games Launcher.</source>
+        <translation>Об этом сообщает Heroic Games Launcher.</translation>
+    </message>
+    <message>
+        <source>Prefix selected manually.</source>
+        <translation>Префикс выбран вручную.</translation>
+    </message>
+    <message>
+        <source>Prefix found automatically.</source>
+        <translation>Префикс найден автоматически.</translation>
+    </message>
+    <message>
         <source>Executable found.</source>
         <translation>Исполняемый найден.</translation>
     </message>
@@ -1682,6 +1738,10 @@ The default profile's settings are not affected.</source>
     <message>
         <source>Not found automatically. Browse manually to locate the game folder.</source>
         <translation>Не найдено автоматически. Найдите папку с игрой вручную.</translation>
+    </message>
+    <message>
+        <source>Non-Steam Shortcut</source>
+        <translation>Непаровой короткий путь</translation>
     </message>
     <message>
         <source>Current: {0}</source>
@@ -1722,6 +1782,10 @@ The default profile's settings are not affected.</source>
     <message>
         <source>Cannot change the game/prefix path while mods are deployed. Restore the game first.</source>
         <translation>Невозможно изменить путь к игре/префиксу, пока моды развернуты. Сначала восстановите игру.</translation>
+    </message>
+    <message>
+        <source>Cannot change the deploy method while mods are deployed. Restore the game first.</source>
+        <translation>Невозможно изменить метод развертывания, пока используются модифицированные модули. Сначала восстановите игру.</translation>
     </message>
     <message>
         <source>Cannot use hardlinks: the staging folder and {0} are on different drives or filesystems. Switch to Symlink instead.</source>
@@ -2254,8 +2318,12 @@ Install the Creation Kit from Steam, then reopen this wizard.</source>
         <translation>Запуск Creation Kit…</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
-        <translation>Протон «{0}» найти не удалось — проверьте, установлен ли он в Steam.</translation>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>Не удалось решить версию Proton для собственного префикса игры — запустить игру один раз или выбрать другой вариант префикса.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>Не удалось найти протон {0} — проверьте, установлен ли он в Steam, Heroic или ProtonPlus.</translation>
     </message>
     <message>
         <source>Game path not configured.</source>
@@ -2966,8 +3034,8 @@ When it completes, the app switches to the new profile - then come back here and
         <translation>Размещенные файлы</translation>
     </message>
     <message>
-        <source>Deployed files - {0} files in {1} mods</source>
-        <translation>Размещенные файлы — файлы из «{0}» в модах «{1}»</translation>
+        <source>{0} - {1} files in {2} mods</source>
+        <translation>{0} - {1} файлы в модах {2}</translation>
     </message>
 </context>
 <context>
@@ -3096,6 +3164,29 @@ When it completes, the app switches to the new profile - then come back here and
     <message>
         <source>Add download folder</source>
         <translation>Добавить download folder</translation>
+    </message>
+</context>
+<context>
+    <name>DownloadManifestOverlay</name>
+    <message>
+        <source>Download collection manifest</source>
+        <translation>Скачать Collection manifest</translation>
+    </message>
+    <message>
+        <source>One collection URL per line, e.g. https://www.nexusmods.com/games/fallout4/collections/f1rzym</source>
+        <translation>Один URL-адрес для каждой строки, например https://www.nexusmods.com/games/fallout4/collections/f1rzym</translation>
+    </message>
+    <message>
+        <source>Saving to: {0}</source>
+        <translation>Экономия на: {0}</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Отменить</translation>
+    </message>
+    <message>
+        <source>Download</source>
+        <translation>Скачать</translation>
     </message>
 </context>
 <context>
@@ -3377,10 +3468,6 @@ Please restart the wizard and install {1} first.</source>
         <translation>Запуск {0}…</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
-        <translation>Протон «{0}» найти не удалось — проверьте, установлен ли он в Steam.</translation>
-    </message>
-    <message>
         <source>Game path not configured.</source>
         <translation>Путь игры не настроен.</translation>
     </message>
@@ -3401,6 +3488,14 @@ Close it when you are done, then click Done.</source>
     <message>
         <source>Fetching latest release from GitHub…</source>
         <translation>Загрузка последней версии с GitHub…</translation>
+    </message>
+    <message>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>Не удалось решить версию Proton для собственного префикса игры — запустить игру один раз или выбрать другой вариант префикса.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>Не удалось найти протон {0} — проверьте, установлен ли он в Steam, Heroic или ProtonPlus.</translation>
     </message>
     <message>
         <source>Searching Downloads folder…</source>
@@ -3474,8 +3569,12 @@ Please restart the wizard and let it install ESLifier first.</source>
         <translation>{0} не найдено.</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
-        <translation>Протон «{0}» найти не удалось — проверьте, установлен ли он в Steam.</translation>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>Не удалось решить версию Proton для собственного префикса игры — запустить игру один раз или выбрать другой вариант префикса.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>Не удалось найти протон {0} — проверьте, установлен ли он в Steam, Heroic или ProtonPlus.</translation>
     </message>
     <message>
         <source>Could not write settings: {0}</source>
@@ -3904,8 +4003,16 @@ Proton prefix: click 'Install Java into prefix' once, then it runs automatically
         <translation>Используйте конкретную версию Proton с изолированным префиксом рядом с exe, вместо префикса игры. Полезен для инструментов, которые не работают с протонной версией игры. Для игр Bethesda игровой путь (реестр), plugins.txt и My Games INIs устанавливаются в префиксе автоматически при запуске.</translation>
     </message>
     <message>
+        <source>Arguments passed to the script. The buttons below insert Linux paths for file arguments.</source>
+        <translation>Аргументы перешли к сценарию. Кнопки ниже вставляют пути Linux для аргументов файла.</translation>
+    </message>
+    <message>
         <source>Script extenders always run in the game's own prefix with the game's Proton version: they launch the game itself, which needs the game's Steam app ID and its INIs, saves and mod DLLs. Change the game's Proton version in the game settings instead.</source>
         <translation>Расширители сценариев всегда работают в собственном префиксе игры с версией Proton: они запускают саму игру, для которой нужен идентификатор приложения Steam и его INI, сохранения и мод DLL. Вместо этого измените версию игры Proton в настройках игры.</translation>
+    </message>
+    <message>
+        <source>Script extenders must use the game's normal runner. Plain Wine removes the Steam/Proton context that Steam builds need to start the game.</source>
+        <translation>Расширители сценариев должны использовать обычный бегун игры. Plain Wine удаляет контекст Steam/Proton, который создает Steam.</translation>
     </message>
     <message>
         <source>Run this exe with bare Wine against the same prefix instead of a Proton session - no Steam client attach, so Steam Input keeps the desktop controls (trackpad / on-screen keyboard). The prefix is still created and updated through Proton. Env vars in Launch Options still apply; wrappers and %command% are skipped in this mode.</source>
@@ -4268,6 +4375,93 @@ That is fine for your own backup. Do not share or upload the file in this state 
     </message>
 </context>
 <context>
+    <name>Fallout4DowngraderView</name>
+    <message>
+        <source>Downgrade Fallout 4 - {0}</source>
+        <translation>Скачать Fallout 4 - {0}</translation>
+    </message>
+    <message>
+        <source>Step 1: Download Fallout 4 Downgrader</source>
+        <translation>Шаг 1: Скачать Fallout 4 Downgrader</translation>
+    </message>
+    <message>
+        <source>The newest release containing the Fallout 4 Steam Downgrader will be downloaded from MulderLoad on GitHub and placed in the game folder.
+
+No modlist deploy is required.</source>
+        <translation>Новейший релиз, содержащий Fallout 4 Steam Downgrader, будет загружен из MulderLoad на GitHub и помещен в папку игры.
+
+Развертывание модалей не требуется.</translation>
+    </message>
+    <message>
+        <source>Step 3: Run Fallout 4 Downgrader</source>
+        <translation>Шаг 3: Run Fallout 4 Downgrader</translation>
+    </message>
+    <message>
+        <source>Step 2: Choose Proton Version</source>
+        <translation>Шаг 2: Выберите протонную версию</translation>
+    </message>
+    <message>
+        <source>The Fallout 4 Steam Downgrader was not downloaded.
+Close and reopen the wizard to try again.</source>
+        <translation>Fallout 4 Steam Downgrader не был загружен.
+Закройте и откройте волшебника, чтобы попробовать снова.</translation>
+    </message>
+    <message>
+        <source>Game path is not configured.</source>
+        <translation>Путь игры не настроен.</translation>
+    </message>
+    <message>
+        <source>Searching MulderLoad releases…</source>
+        <translation>Поисковая система MulderLoad выпускает..</translation>
+    </message>
+    <message>
+        <source>Downloading {0}…</source>
+        <translation>Скачать {0}..</translation>
+    </message>
+    <message>
+        <source>The downgrader download did not create {0}.</source>
+        <translation>Скачивание понижателя не создало {0}.</translation>
+    </message>
+    <message>
+        <source>Downloaded {0} to the game folder.</source>
+        <translation>Скачать {0} в папку игры.</translation>
+    </message>
+    <message>
+        <source>Download error: {0}</source>
+        <translation>Ошибка загрузки: {0}</translation>
+    </message>
+    <message>
+        <source>{0} was not found in the game folder.</source>
+        <translation>{0} не был найден в игровой папке.</translation>
+    </message>
+    <message>
+        <source>Launching Fallout 4 Downgrader…</source>
+        <translation>Скачать Fallout 4 Downgrader</translation>
+    </message>
+    <message>
+        <source>Could not determine a Proton version for Fallout 4.</source>
+        <translation>Не удалось определить версию Proton для Fallout 4.</translation>
+    </message>
+    <message>
+        <source>Fallout 4 Downgrader is running.
+Follow its prompts, then close it when finished.</source>
+        <translation>Fallout 4 Downgrader работает
+Следуйте его указаниям, а затем закройте его, когда закончите.</translation>
+    </message>
+    <message>
+        <source>Fallout 4 Downgrader finished. Click Done to close.</source>
+        <translation>Fallout 4 Downgrader закончился Нажмите Сделано, чтобы закрыть.</translation>
+    </message>
+    <message>
+        <source>Fallout 4 Downgrader exited with code {0}. See the log for details.</source>
+        <translation>Fallout 4 Downgrader вышел с кодом {0}. Смотрите журнал для деталей.</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>Ошибка запуска: {0}</translation>
+    </message>
+</context>
+<context>
     <name>FalloutDowngradeView</name>
     <message>
         <source>Downgrade Fallout 3 - {0}</source>
@@ -4533,6 +4727,10 @@ Click Done to clean up the extracted files and close.</source>
     <message>
         <source>Extension .esp</source>
         <translation>Расширение .esp</translation>
+    </message>
+    <message>
+        <source>Master (loads first)</source>
+        <translation>Мастер (загружает первым)</translation>
     </message>
     <message>
         <source>Missing masters</source>
@@ -4853,6 +5051,37 @@ SHA-1: {1}
     </message>
 </context>
 <context>
+    <name>ImageExportOverlay</name>
+    <message>
+        <source>Save as image</source>
+        <translation>Сохранить как изображение</translation>
+    </message>
+    <message>
+        <source>Choose the background for the exported PNG.</source>
+        <translation>Выберите фон для экспортируемого PNG.</translation>
+    </message>
+    <message>
+        <source>Transparent</source>
+        <translation>Прозрачный</translation>
+    </message>
+    <message>
+        <source>Face portrait only</source>
+        <translation>Только портрет</translation>
+    </message>
+    <message>
+        <source>Export just the head close-up instead of the four-angle sheet</source>
+        <translation>Экспортируйте только крупный план головы вместо четырехугольного листа</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Отменить</translation>
+    </message>
+    <message>
+        <source>Save…</source>
+        <translation>Спасти..</translation>
+    </message>
+</context>
+<context>
     <name>ImagePreview</name>
     <message>
         <source>Scroll to zoom · drag to pan · double-click to fit</source>
@@ -4926,6 +5155,41 @@ SHA-1: {1}
     </message>
 </context>
 <context>
+    <name>LaunchHandoffOverlay</name>
+    <message>
+        <source>{0} - launching from {1}</source>
+        <translation>{0} - запуск с {1}</translation>
+    </message>
+    <message>
+        <source>This deployment uses an external loader or virtual filesystem, so the launcher must start the game through Amethyst. Press Play in Amethyst, or configure {0} as follows:
+
+{1}</source>
+        <translation>В этом развертывании используется внешний загрузчик или виртуальная файловая система, поэтому пусковая установка должна запустить игру через Amethyst. Нажмите Play в Amethyst или настройте {0} следующим образом:
+
+{1}X</translation>
+    </message>
+    <message>
+        <source>Copy</source>
+        <translation>Копия</translation>
+    </message>
+    <message>
+        <source>Don't show this again for {0}</source>
+        <translation>Не показывайте это снова для {0}</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Закрыть</translation>
+    </message>
+    <message>
+        <source>Copied ✓</source>
+        <translation>Копирован ✓</translation>
+    </message>
+    <message>
+        <source>Copy failed</source>
+        <translation>Копия провалилась</translation>
+    </message>
+</context>
+<context>
     <name>LauncherSettingsOverlay</name>
     <message>
         <source>Launch settings - {0}</source>
@@ -4984,6 +5248,61 @@ SHA-1: {1}
     <message>
         <source>Loading…</source>
         <translation>Загрузка…</translation>
+    </message>
+</context>
+<context>
+    <name>LogUploadOverlay</name>
+    <message>
+        <source>Upload log</source>
+        <translation>Скачать log</translation>
+    </message>
+    <message>
+        <source>This uploads your session log ({0} lines, {1}) to {2}, where anyone with the link can read it. Logs contain file paths, which usually include your username. The link stops working {3}.</source>
+        <translation>Это загружает журнал сеанса (линии {0}, {1}) в {2}, где любой, у кого есть ссылка, может прочитать его. Логи содержат пути файлов, которые обычно включают ваше имя пользователя. Ссылка прекращает работу {3}.</translation>
+    </message>
+    <message>
+        <source>Only the most recent {0} will be uploaded.</source>
+        <translation>Будет загружен только последний {0}.</translation>
+    </message>
+    <message>
+        <source>The link will appear here once the log is uploaded.</source>
+        <translation>Ссылка появится здесь после загрузки журнала.</translation>
+    </message>
+    <message>
+        <source>Replace my username with "user"</source>
+        <translation>Заменить имя пользователя на «пользователь»</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Отменить</translation>
+    </message>
+    <message>
+        <source>Upload</source>
+        <translation>Загрузить</translation>
+    </message>
+    <message>
+        <source>Uploading…</source>
+        <translation>Загрузить..</translation>
+    </message>
+    <message>
+        <source>Could not upload ({0}). The log is still saved locally - use Open Log Folder to attach the file instead.</source>
+        <translation>Не удалось загрузить ({0}). Журнал все еще сохраняется локально - используйте Open Log Folder для прикрепления файла.</translation>
+    </message>
+    <message>
+        <source>Uploaded. Anyone with this link can read the log.</source>
+        <translation>Загружено. Любой человек с этой ссылкой может прочитать журнал.</translation>
+    </message>
+    <message>
+        <source>Copy link</source>
+        <translation>Копировать ссылку</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Закрыть</translation>
+    </message>
+    <message>
+        <source>Copied ✓</source>
+        <translation>Копирован ✓</translation>
     </message>
 </context>
 <context>
@@ -5313,10 +5632,6 @@ Click Done to close.</source>
     <message>
         <source>{0} game - {1}</source>
         <translation>Игра {0} - {1}</translation>
-    </message>
-    <message>
-        <source>Check the executables to add to the Run menu. These run from their location in the game folder - including files deployed there by mods.</source>
-        <translation>Проверьте исполняемые файлы, чтобы добавить в меню Run. Они выполняются из их местоположения в папке игры, включая файлы, развернутые там модами.</translation>
     </message>
     <message>
         <source>Amethyst could not launch {0}.
@@ -5881,14 +6196,6 @@ If you continue, this warning won't be shown again for {1} unless the drives cha
         <translation>Позже</translation>
     </message>
     <message>
-        <source>Restart to change theme?</source>
-        <translation>Перезапустить, чтобы сменить тему?</translation>
-    </message>
-    <message>
-        <source>The theme change takes effect after a restart. Restart now?</source>
-        <translation>Изменения темы вступят в силу после перезапуска. Перезапустить сейчас?</translation>
-    </message>
-    <message>
         <source>Syncing language files…</source>
         <translation>Синхронизация языковых файлов…</translation>
     </message>
@@ -6203,10 +6510,6 @@ Remove the appended-collection entry?</source>
     <message>
         <source>Redownloading {0} mod(s)…</source>
         <translation>Перезагрузка {0} mod(s)</translation>
-    </message>
-    <message>
-        <source>Reinstall</source>
-        <translation>Переустановить</translation>
     </message>
     <message>
         <source>A Quick Update is already running.</source>
@@ -6607,10 +6910,6 @@ Run Quick Update on all of them now?</source>
     <message>
         <source>Downloading {0} files ({1} remaining)…</source>
         <translation>Загрузка файлов «{0}» (осталось {1})…</translation>
-    </message>
-    <message>
-        <source>Nexus Download</source>
-        <translation>Скачать Nexus</translation>
     </message>
     <message>
         <source>Log in to Nexus first.</source>
@@ -7161,6 +7460,26 @@ Run Quick Update on all of them now?</source>
         <translation>Установленные модификации для игры «{0}»</translation>
     </message>
     <message>
+        <source>Download Manifest…</source>
+        <translation>Скачать Манифест..</translation>
+    </message>
+    <message>
+        <source>{0} is running - switch games when it finishes.</source>
+        <translation>{0} работает - переключайте игры, когда закончите.</translation>
+    </message>
+    <message>
+        <source>VFS</source>
+        <translation>ВФС</translation>
+    </message>
+    <message>
+        <source> ({0})</source>
+        <translation>({0})</translation>
+    </message>
+    <message>
+        <source>Download cancelled.</source>
+        <translation>Скачать отменено.</translation>
+    </message>
+    <message>
         <source>this mod</source>
         <translation>этот мод</translation>
     </message>
@@ -7193,6 +7512,38 @@ Run Quick Update on all of them now?</source>
         <translation>Не удалось идентифицировать ни один из найденных модов {0}.</translation>
     </message>
     <message>
+        <source>Load order reset - {0} mods ordered, {1} kept below.</source>
+        <translation>Перезагрузка заказа - Моды {0} заказаны, {1} сохранен ниже.</translation>
+    </message>
+    <message>
+        <source>Load order reset - {0} mods ordered, {1} at top.</source>
+        <translation>Перезагрузка заказа - Моды {0} заказаны, {1} сверху.</translation>
+    </message>
+    <message>
+        <source>Load order reset - {0} mods ordered.</source>
+        <translation>Перезагрузка заказа - Моды {0} заказаны.</translation>
+    </message>
+    <message>
+        <source>A manifest download is already running.</source>
+        <translation>Загрузка манифеста уже запущена.</translation>
+    </message>
+    <message>
+        <source>Downloading {0} collection manifest(s)…</source>
+        <translation>Загрузка манифеста(ов) коллекции {0}..</translation>
+    </message>
+    <message>
+        <source>Downloaded {0} manifest(s) to Downloads.</source>
+        <translation>Скачать манифест(ы) {0} для загрузки.</translation>
+    </message>
+    <message>
+        <source>Downloaded {0} manifest(s); {1} failed - see the log.</source>
+        <translation>Скачать манифест(ы) {0}; {1} не удалось - см. журнал.</translation>
+    </message>
+    <message>
+        <source>Manifest download failed: {0}</source>
+        <translation>Скачать Manifest не удалось: {0}</translation>
+    </message>
+    <message>
         <source>Add the API path shown on mod.io's API Access page using the mod.io API Key tool.</source>
         <translation>Добавьте путь API, показанный на странице доступа API Mod.io, используя инструмент API Key.</translation>
     </message>
@@ -7201,8 +7552,76 @@ Run Quick Update on all of them now?</source>
         <translation>проверка обновлений mod.io отключается до добавления пути API в инструмент Mod.io API Key.</translation>
     </message>
     <message>
+        <source>Reinstall download cancelled.</source>
+        <translation>Reinstall скачать отменено.</translation>
+    </message>
+    <message>
+        <source>Reinstall download</source>
+        <translation>Reinstall скачать</translation>
+    </message>
+    <message>
+        <source>Quick Update download cancelled.</source>
+        <translation>Быстрая загрузка обновлений отменена.</translation>
+    </message>
+    <message>
+        <source>Conflict data is still building.</source>
+        <translation>Данные о конфликтах продолжают накапливаться.</translation>
+    </message>
+    <message>
+        <source>{0} has no conflicting mods.</source>
+        <translation>{0} не имеет противоречивых модов.</translation>
+    </message>
+    <message>
+        <source>Filtered to {0} mods conflicting with {1}.</source>
+        <translation>Отфильтрованный до модов {0}, конфликтующих с {1}.</translation>
+    </message>
+    <message>
+        <source>Cancel all</source>
+        <translation>Отменить все</translation>
+    </message>
+    <message>
         <source>No mods to share - a code carries Nexus mods with a mod + file ID and Thunderstore mods.</source>
         <translation>Нет модов для совместного использования - код несет моды Nexus с идентификатором файла mod + и модами Thunderstore.</translation>
+    </message>
+    <message>
+        <source>■  Stop</source>
+        <translation>• Остановка</translation>
+    </message>
+    <message>
+        <source>Check the executables to add to the Run menu. These run from their location in the game folder - including files deployed there by mods. Linux-native games launch through their .sh script (e.g. run_bepinex.sh).</source>
+        <translation>Проверьте исполняемые файлы, чтобы добавить в меню Run. Они выполняются из их местоположения в папке игры, включая файлы, развернутые там модами. Игры для Linux запускаются через скрипт .sh (например, run bepinex.sh).</translation>
+    </message>
+    <message>
+        <source>{0} stopped</source>
+        <translation>{0} остановился</translation>
+    </message>
+    <message>
+        <source>■  Stopping…</source>
+        <translation>• Остановка..</translation>
+    </message>
+    <message>
+        <source>Stopping {0}…</source>
+        <translation>Остановить {0}..</translation>
+    </message>
+    <message>
+        <source>Amethyst could not launch {0}.
+
+{1}</source>
+        <translation>Amethyst не смог запустить {0}
+
+{1}X</translation>
+    </message>
+    <message>
+        <source>Extracting / Installing</source>
+        <translation>Извлечение/установка</translation>
+    </message>
+    <message>
+        <source>No QuickAutoClean tool is available for this game.</source>
+        <translation>Для этой игры нет инструмента QuickAutoClean.</translation>
+    </message>
+    <message>
+        <source>Preparing extraction…</source>
+        <translation>Подготовка к экстракции..</translation>
     </message>
     <message>
         <source>Fallout 3 needs downgrading</source>
@@ -7553,6 +7972,10 @@ CET не будет загружаться из symlinked asi. Это проис
         <translation>Открыть папку с журналами</translation>
     </message>
     <message>
+        <source>Upload Log</source>
+        <translation>Скачать Log</translation>
+    </message>
+    <message>
         <source>Wiki</source>
         <translation>Вики</translation>
     </message>
@@ -7571,6 +7994,10 @@ CET не будет загружаться из symlinked asi. Это проис
     <message>
         <source>♥ Endorse AMM</source>
         <translation>♥ Поддержите AMM</translation>
+    </message>
+    <message>
+        <source>The log is empty.</source>
+        <translation>Журнал пуст.</translation>
     </message>
     <message>
         <source>Could not read the changelog:
@@ -7593,6 +8020,81 @@ CET не будет загружаться из symlinked asi. Это проис
     <message>
         <source>Endorsing Amethyst Mod Manager…</source>
         <translation>Рекомендую Amethyst Mod Manager…</translation>
+    </message>
+</context>
+<context>
+    <name>Me3InstallView</name>
+    <message>
+        <source>Install me3 - {0}</source>
+        <translation>Установите Me3 - {0}</translation>
+    </message>
+    <message>
+        <source>me3 mod loader</source>
+        <translation>погрузчик me3 mod</translation>
+    </message>
+    <message>
+        <source>{0} mods are loaded by me3 at runtime rather than copied into the game folder, so me3 must be installed for the Play button to start a modded game.</source>
+        <translation>Моды {0} загружаются me3 во время выполнения, а не копируются в папку игры, поэтому me3 должен быть установлен для кнопки Play, чтобы начать модифицированную игру.</translation>
+    </message>
+    <message>
+        <source>Amethyst is running as a Flatpak, so me3 has to be installed on the host system where Steam runs. Open a terminal on the host and run:</source>
+        <translation>Amethyst работает как Flatpak, поэтому me3 должен быть установлен на хост-системе, где работает Steam. Откройте терминал на хосте и запустите:</translation>
+    </message>
+    <message>
+        <source>Download and install me3</source>
+        <translation>Скачать и установить me3</translation>
+    </message>
+    <message>
+        <source>Re-check</source>
+        <translation>Перепроверить</translation>
+    </message>
+    <message>
+        <source>Open me3 website</source>
+        <translation>Открыть сайт me3</translation>
+    </message>
+    <message>
+        <source>Log:</source>
+        <translation>Лог:</translation>
+    </message>
+    <message>
+        <source>me3 was not found. It must be installed on the host system, not inside the Flatpak sandbox.</source>
+        <translation>м3 не найдено. Он должен быть установлен на хост-системе, а не внутри песочницы Flatpak.</translation>
+    </message>
+    <message>
+        <source>me3 is not installed.</source>
+        <translation>м3 не устанавливается.</translation>
+    </message>
+    <message>
+        <source>unknown version</source>
+        <translation>неизвестная версия</translation>
+    </message>
+    <message>
+        <source>me3 {0} found at {1}, but its Windows files are missing. Re-install to repair it.</source>
+        <translation>me3 {0} найден в {1}, но его файлы Windows отсутствуют. Переустановить, чтобы отремонтировать.</translation>
+    </message>
+    <message>
+        <source>me3 {0} is installed at {1}.</source>
+        <translation>me3 {0} устанавливается на {1}.</translation>
+    </message>
+    <message>
+        <source>Fetching the latest me3 release…</source>
+        <translation>Последний релиз Me3..</translation>
+    </message>
+    <message>
+        <source>Installing…</source>
+        <translation>Установка..</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>Ошибка: {0}</translation>
+    </message>
+    <message>
+        <source>Install finished.</source>
+        <translation>Установка закончена.</translation>
+    </message>
+    <message>
+        <source>Install did not complete.</source>
+        <translation>Установка не была завершена.</translation>
     </message>
 </context>
 <context>
@@ -7889,6 +8391,10 @@ How would you like to handle the existing mod?</source>
         <translation>Проверить наличие обновлений ({0})</translation>
     </message>
     <message>
+        <source>Clear Conflict Filter</source>
+        <translation>Ясный конфликтный фильтр</translation>
+    </message>
+    <message>
         <source>Copy to profile</source>
         <translation>Копировать в профиль</translation>
     </message>
@@ -7953,6 +8459,10 @@ How would you like to handle the existing mod?</source>
     <message>
         <source>Endorse selected ({0})</source>
         <translation>Подтвердить выбор ({0})</translation>
+    </message>
+    <message>
+        <source>Filter Conflicts</source>
+        <translation>Фильтровые конфликты</translation>
     </message>
     <message>
         <source>'{0}' belongs to the locked profile '{1}' - switch to that profile to remove it, or unlock it.</source>
@@ -9058,6 +9568,10 @@ or an encrypted file when no keyring is available).</source>
         <translation>Удалить</translation>
     </message>
     <message>
+        <source>View details</source>
+        <translation>Посмотреть детали</translation>
+    </message>
+    <message>
         <source>Mods by this author</source>
         <translation>Моды этого автора</translation>
     </message>
@@ -9190,6 +9704,157 @@ Daily: {1}</source>
     </message>
 </context>
 <context>
+    <name>NexusModDetailView</name>
+    <message>
+        <source>Main files</source>
+        <translation>Основные файлы</translation>
+    </message>
+    <message>
+        <source>Miscellaneous files</source>
+        <translation>Разные файлы</translation>
+    </message>
+    <message>
+        <source>Optional files</source>
+        <translation>Дополнительные файлы</translation>
+    </message>
+    <message>
+        <source>Update files</source>
+        <translation>Обновление файлов</translation>
+    </message>
+    <message>
+        <source>Old versions</source>
+        <translation>Старые версии</translation>
+    </message>
+    <message>
+        <source>Archived files</source>
+        <translation>Архивированные файлы</translation>
+    </message>
+    <message>
+        <source>Other files</source>
+        <translation>Другие файлы</translation>
+    </message>
+    <message>
+        <source>← Back to mods</source>
+        <translation>← Назад к модам</translation>
+    </message>
+    <message>
+        <source>Open on Nexus ↗</source>
+        <translation>Открыть на Nexus</translation>
+    </message>
+    <message>
+        <source>Loading image…</source>
+        <translation>Загрузка изображения..</translation>
+    </message>
+    <message>
+        <source>Description</source>
+        <translation>Описание</translation>
+    </message>
+    <message>
+        <source>Loading files…</source>
+        <translation>Загрузка файлов..</translation>
+    </message>
+    <message>
+        <source>Name</source>
+        <translation>Имя</translation>
+    </message>
+    <message>
+        <source>Version</source>
+        <translation>Версия</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>Размер</translation>
+    </message>
+    <message>
+        <source>Uploaded</source>
+        <translation>Загруженный</translation>
+    </message>
+    <message>
+        <source>Files</source>
+        <translation>Файлы</translation>
+    </message>
+    <message>
+        <source>Mod {0}</source>
+        <translation>Модификация {0}</translation>
+    </message>
+    <message>
+        <source>No summary provided.</source>
+        <translation>Резюме не приводится.</translation>
+    </message>
+    <message>
+        <source>Unknown author</source>
+        <translation>Неизвестный автор</translation>
+    </message>
+    <message>
+        <source>by {0}  •  {1}</source>
+        <translation>xPH0X • {1}</translation>
+    </message>
+    <message>
+        <source>by {0}</source>
+        <translation>производитель {0}</translation>
+    </message>
+    <message>
+        <source>Version: {0}</source>
+        <translation>Версия: {0}</translation>
+    </message>
+    <message>
+        <source>Endorsements: {0}</source>
+        <translation>Разработчик: {0}</translation>
+    </message>
+    <message>
+        <source>Downloads: {0}</source>
+        <translation>Скачать: {0}</translation>
+    </message>
+    <message>
+        <source>Uploaded: {0}</source>
+        <translation>Скачать: {0}</translation>
+    </message>
+    <message>
+        <source>Updated: {0}</source>
+        <translation>Обновлено: {0}</translation>
+    </message>
+    <message>
+        <source>No image available</source>
+        <translation>Изображение не доступно</translation>
+    </message>
+    <message>
+        <source>Description unavailable.</source>
+        <translation>Описание недоступно.</translation>
+    </message>
+    <message>
+        <source>Could not load the file list.</source>
+        <translation>Не удалось загрузить список файлов.</translation>
+    </message>
+    <message>
+        <source>{0} ({1})</source>
+        <translation>{0} ({1})</translation>
+    </message>
+    <message>
+        <source>{0} file(s)</source>
+        <translation>{0} файл(ы)</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Отменить</translation>
+    </message>
+    <message>
+        <source>Redownload</source>
+        <translation>Перезагрузка</translation>
+    </message>
+    <message>
+        <source>Reinstall</source>
+        <translation>Реинсталлировать</translation>
+    </message>
+    <message>
+        <source>Download</source>
+        <translation>Скачать</translation>
+    </message>
+    <message>
+        <source>Install</source>
+        <translation>Устанавливать</translation>
+    </message>
+</context>
+<context>
     <name>NifPreview</name>
     <message>
         <source>View</source>
@@ -9204,8 +9869,8 @@ Daily: {1}</source>
         <translation>Нормальные карты + блеск</translation>
     </message>
     <message>
-        <source>Apply the mesh's normal map and its gloss mask</source>
-        <translation>Примените обычную карту сетки и ее глянцевую маску</translation>
+        <source>Apply normal maps and material shine, including PBR roughness and metallic maps</source>
+        <translation>Применяйте обычные карты и блеск материала, включая шероховатость PBR и металлические карты</translation>
     </message>
     <message>
         <source>Cull backfaces</source>
@@ -9262,6 +9927,10 @@ Daily: {1}</source>
     <message>
         <source>Black</source>
         <translation>Черный</translation>
+    </message>
+    <message>
+        <source>Green screen</source>
+        <translation>Зеленый экран</translation>
     </message>
     <message>
         <source>Invert mouse</source>
@@ -9363,6 +10032,14 @@ Daily: {1}</source>
         <translation>Показать только сетки {0}, наряду с копиями, с которыми они конкурируют</translation>
     </message>
     <message>
+        <source>⟳ Refresh</source>
+        <translation>Свежий</translation>
+    </message>
+    <message>
+        <source>Re-scan the profile after changing the modlist or load order</source>
+        <translation>Повторное сканирование профиля после изменения модуля или порядка загрузки</translation>
+    </message>
+    <message>
         <source>✕ Close</source>
         <translation>✕ Закрыть</translation>
     </message>
@@ -9421,12 +10098,183 @@ Daily: {1}</source>
         <translation>Уведомления</translation>
     </message>
     <message>
+        <source>Working</source>
+        <translation>Работа</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Отменить</translation>
+    </message>
+    <message>
         <source>No notifications</source>
         <translation>Никаких уведомлений</translation>
     </message>
     <message>
         <source>Clear all</source>
         <translation>Очистить всё</translation>
+    </message>
+</context>
+<context>
+    <name>NpcViewerView</name>
+    <message>
+        <source>View NPCs - {0} ▸ {1}</source>
+        <translation>Просмотр NPC - {0} 😉 {1}</translation>
+    </message>
+    <message>
+        <source>View NPCs - {0}</source>
+        <translation>Посмотреть NPC - {0}</translation>
+    </message>
+    <message>
+        <source>Scanning…</source>
+        <translation>Сканирование..</translation>
+    </message>
+    <message>
+        <source>Search NPCs and mods…</source>
+        <translation>Поиск NPC и модов..</translation>
+    </message>
+    <message>
+        <source>Match an NPC name, editor id, FormID, or the mod providing the face</source>
+        <translation>Сопоставьте имя NPC, идентификатор редактора, FormID или мод, обеспечивающий лицо</translation>
+    </message>
+    <message>
+        <source>Limit the list to one side of the setup</source>
+        <translation>Ограничьте список одной стороной настройки</translation>
+    </message>
+    <message>
+        <source>All sources</source>
+        <translation>Все источники</translation>
+    </message>
+    <message>
+        <source>Mods only</source>
+        <translation>Моды только</translation>
+    </message>
+    <message>
+        <source>Vanilla only</source>
+        <translation>Только ваниль</translation>
+    </message>
+    <message>
+        <source>Whole body</source>
+        <translation>Все тело</translation>
+    </message>
+    <message>
+        <source>Show the NPC's body, hands and feet with the head, posed on the race's skeleton</source>
+        <translation>Покажите тело, руки и ноги NPC с головой, наложенной на скелет расы</translation>
+    </message>
+    <message>
+        <source>Outfit</source>
+        <translation>Приличный</translation>
+    </message>
+    <message>
+        <source>Dress the NPC in its default outfit. NPCs that equip from their inventory instead have none, and show bare.</source>
+        <translation>Одевайте NPC в наряд по умолчанию. NPC, которые оснащаются из своего инвентаря, вместо этого не имеют и показывают голые.</translation>
+    </message>
+    <message>
+        <source>Only overridden</source>
+        <translation>Только переохлажденный</translation>
+    </message>
+    <message>
+        <source>Show only NPCs whose face is provided by more than one mod</source>
+        <translation>Показать только NPC, лицо которых представлено более чем одним модом</translation>
+    </message>
+    <message>
+        <source>Only this mod</source>
+        <translation>Только этот мод</translation>
+    </message>
+    <message>
+        <source>Show only NPCs {0} provides a face for, alongside the versions they compete with</source>
+        <translation>Показать только NPC {0} обеспечивает лицо, наряду с версиями, с которыми они конкурируют</translation>
+    </message>
+    <message>
+        <source>Save as image…</source>
+        <translation>Сохранить как образ..</translation>
+    </message>
+    <message>
+        <source>Save four turntable angles and a face close-up as one PNG image, on a background you pick</source>
+        <translation>Сохраните четыре угла поворота и крупный план лица в виде одного изображения PNG на фоне, который вы выбираете</translation>
+    </message>
+    <message>
+        <source>⟳ Refresh</source>
+        <translation>Свежий</translation>
+    </message>
+    <message>
+        <source>Re-read the profile after changing the modlist or load order</source>
+        <translation>Перечитайте профиль после изменения списка или порядка загрузки</translation>
+    </message>
+    <message>
+        <source>✕ Close</source>
+        <translation>Закрыть</translation>
+    </message>
+    <message>
+        <source>Select an NPC</source>
+        <translation>Выберите NPC</translation>
+    </message>
+    <message>
+        <source>{0} NPCs</source>
+        <translation>{0} NPC</translation>
+    </message>
+    <message>
+        <source>Reading…</source>
+        <translation>Чтение..</translation>
+    </message>
+    <message>
+        <source>Choosing background…</source>
+        <translation>Выбор фона..</translation>
+    </message>
+    <message>
+        <source>Light</source>
+        <translation>Свет</translation>
+    </message>
+    <message>
+        <source>Grey</source>
+        <translation>Серый</translation>
+    </message>
+    <message>
+        <source>Dark</source>
+        <translation>Темный</translation>
+    </message>
+    <message>
+        <source>Black</source>
+        <translation>Черный</translation>
+    </message>
+    <message>
+        <source>Green screen</source>
+        <translation>Зеленый экран</translation>
+    </message>
+    <message>
+        <source>Capturing…</source>
+        <translation>Захватывая..</translation>
+    </message>
+    <message>
+        <source>Capture failed</source>
+        <translation>Захват провалился</translation>
+    </message>
+    <message>
+        <source>Choose location…</source>
+        <translation>Выберите местоположение..</translation>
+    </message>
+    <message>
+        <source>Save NPC image</source>
+        <translation>Сохранение изображения NPC</translation>
+    </message>
+    <message>
+        <source>PNG images (*.png)</source>
+        <translation>PNG изображения (*.png)</translation>
+    </message>
+    <message>
+        <source>All files</source>
+        <translation>Все файлы</translation>
+    </message>
+    <message>
+        <source>Saved!</source>
+        <translation>Спасён!</translation>
+    </message>
+    <message>
+        <source>Save failed</source>
+        <translation>Спасти не удалось</translation>
+    </message>
+    <message>
+        <source>could not be read</source>
+        <translation>нельзя было читать</translation>
     </message>
 </context>
 <context>
@@ -9661,8 +10509,16 @@ Please restart the wizard and download PGPatcher first.</source>
         <translation>Приготовление префикса вина PGPatcher</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam, then reopen this wizard.</source>
-        <translation>Не удалось найти Протон «{0}» — проверьте, что он установлен в Steam, затем снова откройте этот мастер.</translation>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>Не удалось решить версию Proton для собственного префикса игры — запустить игру один раз или выбрать другой вариант префикса.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus, then reopen this wizard.</source>
+        <translation>Не удалось найти Протон «{0}» — проверьте, установлен ли он в Steam, Heroic или ProtonPlus, затем снова откройте этого волшебника.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>Не удалось найти протон {0} — проверьте, установлен ли он в Steam, Heroic или ProtonPlus.</translation>
     </message>
     <message>
         <source>d3dcompiler_47 already installed - skipping.</source>
@@ -9723,10 +10579,6 @@ Please restart the wizard and download PGPatcher first.</source>
     <message>
         <source>{0} was not found.</source>
         <translation>{0} не найдено.</translation>
-    </message>
-    <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
-        <translation>Протон «{0}» найти не удалось — проверьте, установлен ли он в Steam.</translation>
     </message>
     <message>
         <source>PGPatcher is running.
@@ -9820,8 +10672,12 @@ Install Pandora Behaviour Engine+ as a mod, then reopen this wizard.</source>
         <translation>Приготовление префикса вина Пандоры..</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam, then reopen this wizard.</source>
-        <translation>Не удалось найти Протон «{0}» — проверьте, что он установлен в Steam, затем снова откройте этот мастер.</translation>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>Не удалось решить версию Proton для собственного префикса игры — запустить игру один раз или выбрать другой вариант префикса.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus, then reopen this wizard.</source>
+        <translation>Не удалось найти Протон «{0}» — проверьте, установлен ли он в Steam, Heroic или ProtonPlus, затем снова откройте этого волшебника.</translation>
     </message>
     <message>
         <source>.NET 10 already installed - skipping.</source>
@@ -10259,6 +11115,10 @@ Drag a plugin from the left pane to add a rule.</source>
         <translation>Перепроверить</translation>
     </message>
     <message>
+        <source>Fix All</source>
+        <translation>Исправить все</translation>
+    </message>
+    <message>
         <source>Fix</source>
         <translation>Исправлять</translation>
     </message>
@@ -10307,6 +11167,26 @@ Drag a plugin from the left pane to add a rule.</source>
         <translation>Путь игры в реестре префиксов</translation>
     </message>
     <message>
+        <source>d3dx9 (all legacy DirectX 9 runtimes)</source>
+        <translation>d3dx9 (все устаревшие среды выполнения DirectX 9)</translation>
+    </message>
+    <message>
+        <source>d3dx10 (all legacy DirectX 10 runtimes)</source>
+        <translation>d3dx10 (все устаревшие среды выполнения DirectX 10)</translation>
+    </message>
+    <message>
+        <source>quartz (DirectShow runtime)</source>
+        <translation>кварц (DirectShow Runtime)</translation>
+    </message>
+    <message>
+        <source>dx8vb (DirectX 8 Visual Basic runtime)</source>
+        <translation>dx8vb (DirectX 8 Visual Basic)</translation>
+    </message>
+    <message>
+        <source>DXVK (Direct3D → Vulkan)</source>
+        <translation>DXVK (Direct3D → Vulkan)</translation>
+    </message>
+    <message>
         <source>No prefix configured</source>
         <translation>Префикс не настроен</translation>
     </message>
@@ -10333,6 +11213,14 @@ Drag a plugin from the left pane to add a rule.</source>
     <message>
         <source>Another Proton installer is running - try again shortly.</source>
         <translation>Еще один инсталлятор Proton работает - попробуйте еще раз в ближайшее время.</translation>
+    </message>
+    <message>
+        <source>Fixing {0} item(s)… (details in the log)</source>
+        <translation>Фиксация элемента(ов) {0}... (подробности в журнале)</translation>
+    </message>
+    <message>
+        <source>Fixing {0} prefix item(s)</source>
+        <translation>Фиксация префиксного элемента(ов) {0}</translation>
     </message>
     <message>
         <source>A fix is running - please wait for it to finish.</source>
@@ -10666,6 +11554,18 @@ Install a Proton version in Steam (or with Heroic's Wine Manager), then reopen t
         <translation>{0} работает в собственном префиксе Wine, хранится рядом с его префиксом и отделяется от префикса игры, поэтому вы можете выбрать любую версию Proton, не влияя на игру.
 
 .</translation>
+    </message>
+    <message>
+        <source>Prefer discrete GPU (hybrid systems)</source>
+        <translation>Предпочитает дискретный GPU (гибридные системы)</translation>
+    </message>
+    <message>
+        <source>Expose the discrete GPU as adapter 0. May use more power.</source>
+        <translation>Раскройте дискретный графический процессор как адаптер 0. Может использовать больше энергии.</translation>
+    </message>
+    <message>
+        <source>Uses the discrete GPU for texconv; falls back to CPU if unavailable.</source>
+        <translation>Использует дискретный GPU для texconv; возвращается к CPU, если он недоступен.</translation>
     </message>
     <message>
         <source>Use shared prefix</source>
@@ -11135,6 +12035,101 @@ Proton prefix: {2}</source>
     <message>
         <source>Registry write finished with errors - see log above.</source>
         <translation>Запись заканчивается ошибками - см. журнал выше.</translation>
+    </message>
+</context>
+<context>
+    <name>RegulationMergeView</name>
+    <message>
+        <source>Merge regulation.bin - {0}</source>
+        <translation>Слияние regulation.bin - {0}</translation>
+    </message>
+    <message>
+        <source>Step 1: Install WitchyBND</source>
+        <translation>Шаг 1: Установите WitchyBND</translation>
+    </message>
+    <message>
+        <source>Only one regulation.bin can be active, so mods that ship one override each other completely. This installs WitchyBND's native Linux command-line build into the game's Applications folder; no Proton prefix or Windows .NET runtime is required.</source>
+        <translation>Активным может быть только один regulation.bin, поэтому моды, которые отправляют один, полностью перекрывают друг друга. Это устанавливает встроенную командную строку WitchyBND Linux в папку приложений игры; не требуется префикс Proton или время выполнения Windows .NET.</translation>
+    </message>
+    <message>
+        <source>Download and install</source>
+        <translation>Скачать и установить</translation>
+    </message>
+    <message>
+        <source>Step 2: Merge</source>
+        <translation>Шаг 2: Слияние</translation>
+    </message>
+    <message>
+        <source>Each regulation is compared with the installed game at field level, then combined in mod priority order into the '{0}' mod. Keep the contributing mods enabled so their other files remain active; enable '{0}' above them afterwards.</source>
+        <translation>Каждое регулирование сравнивается с установленной игрой на полевом уровне, а затем объединяется в порядке приоритета мода в мод {0}. Сохраняйте включенные модули, чтобы другие файлы оставались активными; после этого включите «{0}» над ними.</translation>
+    </message>
+    <message>
+        <source>Mods contributing param edits (highest priority first):</source>
+        <translation>Моды, способствующие редактированию парамов (первый приоритет):</translation>
+    </message>
+    <message>
+        <source>Merge into one mod</source>
+        <translation>Слиться в один мод</translation>
+    </message>
+    <message>
+        <source>Log:</source>
+        <translation>Лог:</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>Ошибка: {0}</translation>
+    </message>
+    <message>
+        <source>Could not read the mod list: {0}</source>
+        <translation>Не удалось прочитать список модов: {0}</translation>
+    </message>
+    <message>
+        <source>{0} whole-row CSV(s)</source>
+        <translation>{0} Целый ряд CSV(s)</translation>
+    </message>
+    <message>
+        <source>  (none)</source>
+        <translation>(нет)</translation>
+    </message>
+    <message>
+        <source>{0} mods ship param edits; only one regulation would survive without merging.</source>
+        <translation>Моды {0} редактируют парам корабля; только одно регулирование выживет без слияния.</translation>
+    </message>
+    <message>
+        <source>Only one mod ships param edits, so nothing conflicts.</source>
+        <translation>Только один мод отгружает парам, так что ничего не конфликтует.</translation>
+    </message>
+    <message>
+        <source>No enabled mod ships param edits.</source>
+        <translation>Нет включенных редакторов модов.</translation>
+    </message>
+    <message>
+        <source>Merging ...</source>
+        <translation>Слияние...</translation>
+    </message>
+    <message>
+        <source>WitchyBND is not installed.</source>
+        <translation>WitchyBND не устанавливается.</translation>
+    </message>
+    <message>
+        <source>Could not find the game's own regulation.bin. Restore the game before merging so the vanilla file is in place.</source>
+        <translation>Не удалось найти собственный регламент игры. Восстановите игру перед слиянием, чтобы файл ванили был на месте.</translation>
+    </message>
+    <message>
+        <source>Nothing to merge.</source>
+        <translation>Нечего объединять.</translation>
+    </message>
+    <message>
+        <source>Merged into '{0}' with {1} resolved overlap(s). Enable it above the contributing mods, then deploy.</source>
+        <translation>Слились в '{0}' с {1} решенным перекрытием(ами). Включите его выше способствующих модов, затем развертывайте.</translation>
+    </message>
+    <message>
+        <source>Merged and validated into '{0}'. Enable it above the contributing mods, keep those mods enabled, then deploy.</source>
+        <translation>Слияние и валидация в {0}. Включите его выше способствующих модов, сохраните эти моды включенными, а затем разверните.</translation>
+    </message>
+    <message>
+        <source>Merge failed: {0}</source>
+        <translation>Слияние провалилось: {0}</translation>
     </message>
 </context>
 <context>
@@ -11862,8 +12857,16 @@ or use Browse to select it manually.</source>
         <translation>Приставка для вина Script Merger..</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam, then reopen this wizard.</source>
-        <translation>Не удалось найти Протон «{0}» — проверьте, что он установлен в Steam, затем снова откройте этот мастер.</translation>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>Не удалось решить версию Proton для собственного префикса игры — запустить игру один раз или выбрать другой вариант префикса.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus, then reopen this wizard.</source>
+        <translation>Не удалось найти Протон «{0}» — проверьте, установлен ли он в Steam, Heroic или ProtonPlus, затем снова откройте этого волшебника.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>Не удалось найти протон {0} — проверьте, установлен ли он в Steam, Heroic или ProtonPlus.</translation>
     </message>
     <message>
         <source>.NET 8 already installed - skipping.</source>
@@ -11926,10 +12929,6 @@ Please restart the wizard and install Script Merger first.</source>
 Пожалуйста, перезапустите мастер и сначала установите Script Merger.</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
-        <translation>Протон «{0}» найти не удалось — проверьте, установлен ли он в Steam.</translation>
-    </message>
-    <message>
         <source>WitcherScriptMerger is running.
 Merge your conflicts, then close it and click Done.</source>
         <translation>WitcherScriptMerger работает
@@ -11951,8 +12950,8 @@ Merge your conflicts, then close it and click Done.</source>
 <context>
     <name>SelectorButton</name>
     <message>
-        <source>{0}{1}</source>
-        <translation>{0}{1}</translation>
+        <source>{0}{1}{2}</source>
+        <translation>{0}{1}{2}</translation>
     </message>
     <message>
         <source>{0}   ✓ deployed</source>
@@ -12074,10 +13073,6 @@ Merge your conflicts, then close it and click Done.</source>
     <message>
         <source>Settings</source>
         <translation>Настройки</translation>
-    </message>
-    <message>
-        <source>Changes take effect after restart.</source>
-        <translation>Изменения вступают в силу после перезапуска.</translation>
     </message>
     <message>
         <source>Browse</source>
@@ -12204,10 +13199,6 @@ Merge your conflicts, then close it and click Done.</source>
         <translation>Запускайте извлечения с низким приоритетом процессора и диска, чтобы они уступали другим приложениям, а не замедляли их. Скорость извлечения не влияет, в то время как система в противном случае простаивает.</translation>
     </message>
     <message>
-        <source>Caches</source>
-        <translation>Кэши</translation>
-    </message>
-    <message>
         <source>Manage Caches…</source>
         <translation>Управление кэшами…</translation>
     </message>
@@ -12266,6 +13257,10 @@ Merge your conflicts, then close it and click Done.</source>
     <message>
         <source>Hide Ko-Fi button</source>
         <translation>Скрыть кнопку Ko-Fi</translation>
+    </message>
+    <message>
+        <source>Language and UI scale changes take effect after restart.</source>
+        <translation>Изменения языка и масштаба пользовательского интерфейса вступают в силу после перезапуска.</translation>
     </message>
     <message>
         <source>Hide the Ko-Fi donation button in the status bar.</source>
@@ -12440,12 +13435,128 @@ flatpak remote-add - пользователь аметист https://chrisdkn.gi
         <translation>Редактировать переменные среды..</translation>
     </message>
     <message>
+        <source>Appearance</source>
+        <translation>Внешний вид</translation>
+    </message>
+    <message>
+        <source>About</source>
+        <translation>О нас</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Закрыть</translation>
+    </message>
+    <message>
+        <source>Reset dismissed prompts…</source>
+        <translation>Перезагрузка уволенных подсказок..</translation>
+    </message>
+    <message>
+        <source>Bring back every notice you hid by ticking "Don't show this again" - the launcher handoff notice, the Windows filesystem warning and the rest.</source>
+        <translation>Верните каждое уведомление, которое вы спрятали, указав «Не показывайте это снова» - уведомление о передаче запуска, предупреждение файловой системы Windows и все остальное.</translation>
+    </message>
+    <message>
+        <source>Nothing to reset</source>
+        <translation>Нечего сбрасывать</translation>
+    </message>
+    <message>
+        <source>No prompts are currently hidden.</source>
+        <translation>В настоящее время подсказки не скрыты.</translation>
+    </message>
+    <message>
+        <source>{0} hidden prompt will show again.</source>
+        <translation>Скрытая подсказка {0} снова появится.</translation>
+    </message>
+    <message>
+        <source>{0} hidden prompts will show again.</source>
+        <translation>Скрытые подсказки {0} покажут снова.</translation>
+    </message>
+    <message>
+        <source>Prompts reset</source>
+        <translation>Быстрый сброс</translation>
+    </message>
+    <message>
+        <source>{0} prompt is hidden. It will start showing again.</source>
+        <translation>Подсказка {0} скрыта. Он снова начнет показываться.</translation>
+    </message>
+    <message>
+        <source>{0} prompts are hidden. They will start showing again.</source>
+        <translation>Подсказки {0} скрыты. Они снова начнут показываться.</translation>
+    </message>
+    <message>
+        <source>Reset dismissed prompts?</source>
+        <translation>Перезагрузка отклоненных подсказок?</translation>
+    </message>
+    <message>
+        <source>Reset</source>
+        <translation>Сброс</translation>
+    </message>
+    <message>
         <source>{0} set: {1}</source>
         <translation>Набор {0}: {1}</translation>
     </message>
     <message>
         <source>None set</source>
         <translation>Ни одного набора</translation>
+    </message>
+    <message>
+        <source>System Information</source>
+        <translation>Системная информация</translation>
+    </message>
+    <message>
+        <source>App version</source>
+        <translation>Версия приложения</translation>
+    </message>
+    <message>
+        <source>OS</source>
+        <translation>ОС</translation>
+    </message>
+    <message>
+        <source>Distribution</source>
+        <translation>Распределение</translation>
+    </message>
+    <message>
+        <source>Kernel</source>
+        <translation>Ядро</translation>
+    </message>
+    <message>
+        <source>Python</source>
+        <translation>Python</translation>
+    </message>
+    <message>
+        <source>Qt</source>
+        <translation>Qt</translation>
+    </message>
+    <message>
+        <source>Run mode</source>
+        <translation>Режим работы</translation>
+    </message>
+    <message>
+        <source>Package</source>
+        <translation>Пакет</translation>
+    </message>
+    <message>
+        <source>Desktop</source>
+        <translation>Рабочий стол</translation>
+    </message>
+    <message>
+        <source>Session</source>
+        <translation>Заседание</translation>
+    </message>
+    <message>
+        <source>OpenGL</source>
+        <translation>OpenGL</translation>
+    </message>
+    <message>
+        <source>Env overrides</source>
+        <translation>Env Overrides</translation>
+    </message>
+    <message>
+        <source>Copy to clipboard</source>
+        <translation>Копия клипборда</translation>
+    </message>
+    <message>
+        <source>System information copied.</source>
+        <translation>Системная информация копируется.</translation>
     </message>
     <message>
         <source>Failed to save setting: {0}</source>
@@ -12463,6 +13574,14 @@ flatpak remote-add - пользователь аметист https://chrisdkn.gi
         <translation>Поделитесь этим кодом с кем-нибудь, чтобы отправить ему свой порядок загрузки ({0} {1}). Он сможет добавить его с помощью функции «Импорт кода».</translation>
     </message>
     <message>
+        <source>Too long to paste? Get a short link instead - this uploads the code to {0}, where anyone with the link can read it. The link stops working {1}.</source>
+        <translation>Слишком долго для вставки? Получите короткую ссылку вместо этого - это загружает код в {0}, где любой человек со ссылкой может прочитать его. Ссылка прекращает работу {1}.</translation>
+    </message>
+    <message>
+        <source>Get link</source>
+        <translation>Получить ссылку</translation>
+    </message>
+    <message>
         <source>Close</source>
         <translation>Закрыть</translation>
     </message>
@@ -12474,6 +13593,22 @@ flatpak remote-add - пользователь аметист https://chrisdkn.gi
         <source>Copied ✓</source>
         <translation>Скопировано ✓</translation>
     </message>
+    <message>
+        <source>Uploading…</source>
+        <translation>Загрузить..</translation>
+    </message>
+    <message>
+        <source>Could not get a link ({0}). The code above still works - copy and send that instead.</source>
+        <translation>Не удалось получить ссылку ({0}). Приведенный выше код все еще работает - скопируйте и отправьте его.</translation>
+    </message>
+    <message>
+        <source>Link ready</source>
+        <translation>Ссылка готова</translation>
+    </message>
+    <message>
+        <source>Anyone with this link can import your load order. Paste it into Import code.</source>
+        <translation>Любой, у кого есть эта ссылка, может импортировать ваш заказ. Вставьте его в код импорта.</translation>
+    </message>
 </context>
 <context>
     <name>ShareCodeImportOverlay</name>
@@ -12482,8 +13617,8 @@ flatpak remote-add - пользователь аметист https://chrisdkn.gi
         <translation>Импортировать код</translation>
     </message>
     <message>
-        <source>Paste a share code below to build a new profile from someone else's load order.</source>
-        <translation>Вставьте ниже код для публикации, чтобы создать новый профиль на основе чужого порядка загрузки.</translation>
+        <source>Paste a share code below to build a new profile from someone else's load order. A link to a code works too.</source>
+        <translation>Вставьте код акции ниже, чтобы создать новый профиль из чужого заказа загрузки. Ссылка на код тоже работает.</translation>
     </message>
     <message>
         <source>Paste from clipboard</source>
@@ -12498,6 +13633,10 @@ flatpak remote-add - пользователь аметист https://chrisdkn.gi
         <translation>Импорт</translation>
     </message>
     <message>
+        <source>A link - press Fetch to download the code from it.</source>
+        <translation>Ссылка - нажмите Fetch, чтобы загрузить код из него.</translation>
+    </message>
+    <message>
         <source>Not a valid share code.</source>
         <translation>Не действительный код акций.</translation>
     </message>
@@ -12508,6 +13647,14 @@ flatpak remote-add - пользователь аметист https://chrisdkn.gi
     <message>
         <source>exported {0}</source>
         <translation>экспорт {0}</translation>
+    </message>
+    <message>
+        <source>Fetch</source>
+        <translation>Приносить</translation>
+    </message>
+    <message>
+        <source>Downloading…</source>
+        <translation>Скачать..</translation>
     </message>
 </context>
 <context>
@@ -12767,6 +13914,121 @@ Use Browse to select a manually downloaded archive.</source>
     </message>
 </context>
 <context>
+    <name>SpecialKView</name>
+    <message>
+        <source>Install Special K - {0}</source>
+        <translation>Установить Special K - {0}</translation>
+    </message>
+    <message>
+        <source>Proxy DLL name</source>
+        <translation>Имя Proxy DLL</translation>
+    </message>
+    <message>
+        <source>{0} is renamed to this. dxgi.dll is correct for NieR: Automata; pick another only if a different mod already uses that name.</source>
+        <translation>{0} переименовывается в это. dxgi.dll подходит для NieR: Automata; выберите другой, только если другой мод уже использует это имя.</translation>
+    </message>
+    <message>
+        <source>Install destination</source>
+        <translation>Установить пункт назначения</translation>
+    </message>
+    <message>
+        <source>As a managed mod (root-flagged)</source>
+        <translation>Как управляемый мод (root-flagged)</translation>
+    </message>
+    <message>
+        <source>Root_Folder (staging)</source>
+        <translation>Root Folder (постановка)</translation>
+    </message>
+    <message>
+        <source>Game folder (restores to vanilla first)</source>
+        <translation>Игровая папка (восстановление ванили первым)</translation>
+    </message>
+    <message>
+        <source>Step 1: Download Special K</source>
+        <translation>Шаг 1: Скачать Special K</translation>
+    </message>
+    <message>
+        <source>Checking for the latest Special K release…</source>
+        <translation>Очередной выпуск Special K..</translation>
+    </message>
+    <message>
+        <source>Browse…</source>
+        <translation>Просмотреть..</translation>
+    </message>
+    <message>
+        <source>Next →</source>
+        <translation>Следующий</translation>
+    </message>
+    <message>
+        <source>Fetching latest Special K release from GitHub…</source>
+        <translation>Новый релиз Special K от GitHub</translation>
+    </message>
+    <message>
+        <source>Downloading Special K {0}…</source>
+        <translation>Скачать Special K {0}</translation>
+    </message>
+    <message>
+        <source>Downloaded Special K {0}: {1}
+Check the options below, then click Next.</source>
+        <translation>Скачать Special K {0}: {1}
+Проверьте опции ниже, затем нажмите Далее.</translation>
+    </message>
+    <message>
+        <source>Download failed: {0}
+
+Use Browse to select a manually downloaded archive.</source>
+        <translation>Скачать не удалось: {0}
+
+Используйте браузер, чтобы выбрать вручную загруженный архив.</translation>
+    </message>
+    <message>
+        <source>Select the Special K archive</source>
+        <translation>Выберите специальный архив K</translation>
+    </message>
+    <message>
+        <source>Selected: {0}
+Check the options below, then click Next.</source>
+        <translation>Выбрано: {0}
+Проверьте опции ниже, затем нажмите Далее.</translation>
+    </message>
+    <message>
+        <source>Step 2: Install Special K</source>
+        <translation>Шаг 2: Установите специальный K</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>Сделано</translation>
+    </message>
+    <message>
+        <source>Installing Special K…</source>
+        <translation>Установка специального К..</translation>
+    </message>
+    <message>
+        <source>Extracting {0}…</source>
+        <translation>Извлечение {0}..</translation>
+    </message>
+    <message>
+        <source>
+
+Deploy your mods to activate it.</source>
+        <translation>Разверните свои моды, чтобы активировать его.</translation>
+    </message>
+    <message>
+        <source>Special K installed successfully!
+{0} installed as {1} into the {2}.{3}
+
+Click Done to close.</source>
+        <translation>Специальный К успешно установлен!
+{0} установлен как {1} в {2}.{3}
+
+Нажмите Сделано, чтобы закрыть.</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>Ошибка: {0}</translation>
+    </message>
+</context>
+<context>
     <name>Splash</name>
     <message>
         <source>Starting Amethyst…</source>
@@ -12794,6 +14056,21 @@ Use Browse to select a manually downloaded archive.</source>
     <message>
         <source>Add</source>
         <translation>Добавить</translation>
+    </message>
+</context>
+<context>
+    <name>SteamLaunchCommandOverlay</name>
+    <message>
+        <source>Open Properties → General and paste this into Launch Options.</source>
+        <translation>Открытые свойства → Общие и вставьте это в параметры запуска.</translation>
+    </message>
+    <message>
+        <source>Launch Options</source>
+        <translation>Запуск опций</translation>
+    </message>
+    <message>
+        <source>Set this once. It deploys and launches whichever profile was last deployed in Amethyst.</source>
+        <translation>Поставь один раз. Он развертывает и запускает любой профиль, который был последний раз развернут в Amethyst.</translation>
     </message>
 </context>
 <context>
@@ -13993,6 +15270,286 @@ or use Browse to select it manually.</source>
         <translation>Checkbox fill (проверено)</translation>
     </message>
     <message>
+        <source>Surfaces</source>
+        <translation>Поверхности</translation>
+    </message>
+    <message>
+        <source>Window background</source>
+        <translation>Оконный фон</translation>
+    </message>
+    <message>
+        <source>Panels and dialogs</source>
+        <translation>Панели и диалоги</translation>
+    </message>
+    <message>
+        <source>Toolbars and headers</source>
+        <translation>Панели инструментов и заголовки</translation>
+    </message>
+    <message>
+        <source>List / tree background</source>
+        <translation>Список / древесный фон</translation>
+    </message>
+    <message>
+        <source>List row background</source>
+        <translation>Список строк</translation>
+    </message>
+    <message>
+        <source>Secondary text</source>
+        <translation>Второй текст</translation>
+    </message>
+    <message>
+        <source>Accent and selection</source>
+        <translation>Акцент и выбор</translation>
+    </message>
+    <message>
+        <source>Accent, links and controls</source>
+        <translation>Акцент, ссылки и элементы управления</translation>
+    </message>
+    <message>
+        <source>Selected rows</source>
+        <translation>Выбранные строки</translation>
+    </message>
+    <message>
+        <source>Borders and dividers</source>
+        <translation>Границы и разделители</translation>
+    </message>
+    <message>
+        <source>Action buttons</source>
+        <translation>Кнопки действий</translation>
+    </message>
+    <message>
+        <source>Confirm / install</source>
+        <translation>Подтвердить / установить</translation>
+    </message>
+    <message>
+        <source>Delete / remove</source>
+        <translation>Удалить/удалить</translation>
+    </message>
+    <message>
+        <source>Warning / update</source>
+        <translation>Предупреждение/обновление</translation>
+    </message>
+    <message>
+        <source>Info / select</source>
+        <translation>Информация / Выберите</translation>
+    </message>
+    <message>
+        <source>Secondary action</source>
+        <translation>Вторичное действие</translation>
+    </message>
+    <message>
+        <source>The main layers of the app, from the window to list rows.</source>
+        <translation>Основные слои приложения, от окна до списка строк.</translation>
+    </message>
+    <message>
+        <source>General text plus the three semantic status colours.</source>
+        <translation>Общий текст плюс три цвета семантического статуса.</translation>
+    </message>
+    <message>
+        <source>Brand colour, selected rows, focus controls and dividers.</source>
+        <translation>Цвет бренда, выбранные строки, элементы управления фокусировкой и разделители.</translation>
+    </message>
+    <message>
+        <source>Button colours are shared by actions with the same meaning.</source>
+        <translation>Цвета кнопок разделяются действиями с одинаковым значением.</translation>
+    </message>
+    <message>
+        <source>Surfaces and rows</source>
+        <translation>Поверхности и ряды</translation>
+    </message>
+    <message>
+        <source>Status text</source>
+        <translation>Статусный текст</translation>
+    </message>
+    <message>
+        <source>Accent and links</source>
+        <translation>Акцент и ссылки</translation>
+    </message>
+    <message>
+        <source>Selection and focus</source>
+        <translation>Выбор и фокус</translation>
+    </message>
+    <message>
+        <source>Borders and separators</source>
+        <translation>Границы и разделители</translation>
+    </message>
+    <message>
+        <source>Danger buttons</source>
+        <translation>Кнопки опасности</translation>
+    </message>
+    <message>
+        <source>Success buttons</source>
+        <translation>Кнопки успеха</translation>
+    </message>
+    <message>
+        <source>Warning buttons</source>
+        <translation>Кнопки предупреждения</translation>
+    </message>
+    <message>
+        <source>Information buttons</source>
+        <translation>Информационные кнопки</translation>
+    </message>
+    <message>
+        <source>Secondary buttons</source>
+        <translation>Вторичные кнопки</translation>
+    </message>
+    <message>
+        <source>Special accent buttons</source>
+        <translation>Специальные кнопки акцента</translation>
+    </message>
+    <message>
+        <source>Scrollbars and checkboxes</source>
+        <translation>Скроллбары и чекбоксы</translation>
+    </message>
+    <message>
+        <source>Icons and small highlights</source>
+        <translation>Иконки и маленькие блики</translation>
+    </message>
+    <message>
+        <source>Tinted content rows</source>
+        <translation>Рисованные строки контента</translation>
+    </message>
+    <message>
+        <source>Required and optional mods</source>
+        <translation>Необходимые и необязательные моды</translation>
+    </message>
+    <message>
+        <source>Notifications and queues</source>
+        <translation>Уведомления и очереди</translation>
+    </message>
+    <message>
+        <source>Plugin cycle</source>
+        <translation>Плагиновый цикл</translation>
+    </message>
+    <message>
+        <source>File conflicts</source>
+        <translation>Файлы конфликтов</translation>
+    </message>
+    <message>
+        <source>Conflict and requirement highlights</source>
+        <translation>Конфликт и требования подчеркивают</translation>
+    </message>
+    <message>
+        <source>Framework status</source>
+        <translation>Рамочный статус</translation>
+    </message>
+    <message>
+        <source>Mod list separator bands</source>
+        <translation>Мод список разделительных полос</translation>
+    </message>
+    <message>
+        <source>Alternate list row</source>
+        <translation>Переменная строка списка</translation>
+    </message>
+    <message>
+        <source>Hovered list row</source>
+        <translation>Закрученный список</translation>
+    </message>
+    <message>
+        <source>Card background</source>
+        <translation>Карточный фон</translation>
+    </message>
+    <message>
+        <source>Text on accent / selection</source>
+        <translation>Текст по акценту / выбору</translation>
+    </message>
+    <message>
+        <source>Brand accent, contrasting text, hyperlinks and control glyphs.</source>
+        <translation>Акцент бренда, контрастный текст, гиперссылки и контрольные глифы.</translation>
+    </message>
+    <message>
+        <source>Separator row background</source>
+        <translation>Отдельный ряд фона</translation>
+    </message>
+    <message>
+        <source>Separator row text</source>
+        <translation>Текст строки разделителя</translation>
+    </message>
+    <message>
+        <source>Window, panel, card, list and row backgrounds.</source>
+        <translation>Окно, панель, карта, список и фоны строк.</translation>
+    </message>
+    <message>
+        <source>Primary, secondary and faint text used throughout the app.</source>
+        <translation>Первичный, вторичный и слабый текст, используемый во всем приложении.</translation>
+    </message>
+    <message>
+        <source>Success, warning and error messages shown on neutral backgrounds.</source>
+        <translation>Сообщения об успехах, предупреждениях и ошибках отображаются на нейтральном фоне.</translation>
+    </message>
+    <message>
+        <source>Hover, selected-row and drag-selection colours.</source>
+        <translation>Наведите курсор, выбранный ряд и перетаскивание цветов.</translation>
+    </message>
+    <message>
+        <source>Frames, divider lines and separator rows.</source>
+        <translation>Рамы, разделительные линии и разделительные ряды.</translation>
+    </message>
+    <message>
+        <source>Delete, remove and other destructive actions.</source>
+        <translation>Удаление, удаление и другие деструктивные действия.</translation>
+    </message>
+    <message>
+        <source>Install, confirm, Done and Play actions.</source>
+        <translation>Установите, подтвердите, совершите и сыграйте действия.</translation>
+    </message>
+    <message>
+        <source>Update, reinstall and cautionary actions.</source>
+        <translation>Обновление, переустановка и предостерегающие действия.</translation>
+    </message>
+    <message>
+        <source>Select, Groups, Plugin Rules and similar actions.</source>
+        <translation>Выберите, Группы, Правила плагинов и аналогичные действия.</translation>
+    </message>
+    <message>
+        <source>View and other low-emphasis actions.</source>
+        <translation>Вид и другие действия с низким акцентом.</translation>
+    </message>
+    <message>
+        <source>Special-purpose accent buttons such as Ko-Fi.</source>
+        <translation>Специальные кнопки акцента, такие как Ko-Fi.</translation>
+    </message>
+    <message>
+        <source>Scrollbar track/thumb and checked-box fill.</source>
+        <translation>Scrollbar track/thumb и check-box fill.</translation>
+    </message>
+    <message>
+        <source>Shared tones used by icons, flags and file-tree markers.</source>
+        <translation>Общие тона, используемые значками, флагами и маркерами файлового дерева.</translation>
+    </message>
+    <message>
+        <source>Coloured information rows and their foreground text.</source>
+        <translation>Цветные информационные строки и текст на переднем плане.</translation>
+    </message>
+    <message>
+        <source>Required/optional indicators in collection views.</source>
+        <translation>Необходимые/факультативные показатели в обзорах.</translation>
+    </message>
+    <message>
+        <source>Error badges, notifications and queued states.</source>
+        <translation>Значки ошибок, уведомления и состояния в очереди.</translation>
+    </message>
+    <message>
+        <source>Cycle status rows and before/after rule keywords.</source>
+        <translation>Строки состояния цикла и ключевые слова до / после правила.</translation>
+    </message>
+    <message>
+        <source>Winning, overridden, inactive and anchor files.</source>
+        <translation>Выигрышные, перезагруженные, неактивные и якорные файлы.</translation>
+    </message>
+    <message>
+        <source>Related mod rows highlighted across Mods, Plugins and Data.</source>
+        <translation>Связанные строки модов выделены по модам, плагинам и данным.</translation>
+    </message>
+    <message>
+        <source>Installed, staged, disabled and missing framework banners.</source>
+        <translation>Установленные, постановочные, отключенные и отсутствующие фреймворки баннеров.</translation>
+    </message>
+    <message>
+        <source>Pinned Overwrite and Root Folder rows.</source>
+        <translation>Pinned Overwrite и Root Folder.</translation>
+    </message>
+    <message>
         <source>Window, panels, list rows and input fields - the app's surfaces.</source>
         <translation>Окно, панели, строки списка и поля ввода - поверхности приложения.</translation>
     </message>
@@ -14081,8 +15638,8 @@ or use Browse to select it manually.</source>
         <translation>Начать с:</translation>
     </message>
     <message>
-        <source>Advanced (show all colours)</source>
-        <translation>Расширенный (показать все цвета)</translation>
+        <source>Fine tune app-specific colours</source>
+        <translation>Отличная мелодия для конкретных цветов приложений</translation>
     </message>
     <message>
         <source>Save</source>
@@ -14097,10 +15654,6 @@ or use Browse to select it manually.</source>
         <translation>Удалить</translation>
     </message>
     <message>
-        <source>Restart to apply</source>
-        <translation>Перезапустите, чтобы применить изменения</translation>
-    </message>
-    <message>
         <source>✕ Close</source>
         <translation>✕ Закрыть</translation>
     </message>
@@ -14109,8 +15662,8 @@ or use Browse to select it manually.</source>
         <translation>Сохранить как новый…</translation>
     </message>
     <message>
-        <source>Editing a base colour adjusts its hover/variants automatically. Tick Advanced to edit every colour individually. Use "Restart to apply" to save your theme and see it across the whole app.</source>
-        <translation>При изменении основного цвета его варианты и цвета при наведении курсора обновляются автоматически. Установите флажок «Расширенные настройки», чтобы редактировать каждый цвет отдельно. Нажмите «Перезапустить для применения», чтобы сохранить тему и увидеть её во всём приложении.</translation>
+        <source>Related colours are linked automatically. Enable fine tuning to adjust individual app-specific colours. Changes preview across the open app; save the theme to keep them.</source>
+        <translation>Связанные цвета связаны автоматически. Включите тонкую настройку для настройки индивидуальных цветов приложения. Изменяет предварительный просмотр в открытом приложении; сохранить тему, чтобы сохранить их.</translation>
     </message>
     <message>
         <source>Pick colour: {0}</source>
@@ -14129,10 +15682,6 @@ or use Browse to select it manually.</source>
         <translation>Сохранение не удалось</translation>
     </message>
     <message>
-        <source>{0} (edited)</source>
-        <translation>{0} (отредактировано)</translation>
-    </message>
-    <message>
         <source>Delete theme?</source>
         <translation>Удалить тему?</translation>
     </message>
@@ -14144,8 +15693,22 @@ or use Browse to select it manually.</source>
 <context>
     <name>ThemePreviewPanel</name>
     <message>
-        <source>Preview - approximate; use "Restart to apply" to see the theme across the whole app.</source>
-        <translation>Предварительный просмотр - приблизительный; используйте «Restart to apply», чтобы увидеть тему во всем приложении.</translation>
+        <source>Preview - changes are also applied temporarily across the open app. Click any item to reveal the settings that colour it.</source>
+        <translation>Предварительный просмотр - изменения также временно применяются в открытом приложении. Нажмите на любой элемент, чтобы показать настройки, которые его окрашивают.</translation>
+    </message>
+    <message>
+        <source>Click to reveal theme settings:
+{0}</source>
+        <translation>Нажмите, чтобы раскрыть настройки темы:
+{0}X</translation>
+    </message>
+    <message>
+        <source>{0} uses: {1}</source>
+        <translation>Использование {0}: {1}</translation>
+    </message>
+    <message>
+        <source>{0} section</source>
+        <translation>Раздел {0}</translation>
     </message>
     <message>
         <source>Header &amp; tabs</source>
@@ -14168,6 +15731,10 @@ or use Browse to select it manually.</source>
         <translation>▶ Играть</translation>
     </message>
     <message>
+        <source>Header background</source>
+        <translation>Заголовок фона</translation>
+    </message>
+    <message>
         <source>Mods</source>
         <translation>Модификации</translation>
     </message>
@@ -14178,6 +15745,10 @@ or use Browse to select it manually.</source>
     <message>
         <source>Data</source>
         <translation>Данные</translation>
+    </message>
+    <message>
+        <source>Tabs</source>
+        <translation>Таблички</translation>
     </message>
     <message>
         <source>Mod list</source>
@@ -14244,24 +15815,8 @@ or use Browse to select it manually.</source>
         <translation>Требуется выбор</translation>
     </message>
     <message>
-        <source>Textures folder</source>
-        <translation>Текстурная папка</translation>
-    </message>
-    <message>
-        <source>Archive.bsa</source>
-        <translation>Архив.bsa</translation>
-    </message>
-    <message>
-        <source>Profile.ini</source>
-        <translation>Профиль.ini</translation>
-    </message>
-    <message>
-        <source>Installed</source>
-        <translation>Установлено</translation>
-    </message>
-    <message>
-        <source>Unordered plugin</source>
-        <translation>Неупорядоченный плагин</translation>
+        <source>List header</source>
+        <translation>Заголовок списка</translation>
     </message>
     <message>
         <source>Plugins &amp; files</source>
@@ -14340,6 +15895,10 @@ or use Browse to select it manually.</source>
         <translation>Поиск..</translation>
     </message>
     <message>
+        <source>Text input</source>
+        <translation>Ввод текста</translation>
+    </message>
+    <message>
         <source>Default profile</source>
         <translation>Профиль по умолчанию</translation>
     </message>
@@ -14348,24 +15907,52 @@ or use Browse to select it manually.</source>
         <translation>Испытание</translation>
     </message>
     <message>
+        <source>Dropdown</source>
+        <translation>Бросить</translation>
+    </message>
+    <message>
         <source>Enabled</source>
         <translation>Включенный</translation>
+    </message>
+    <message>
+        <source>Checked checkbox</source>
+        <translation>Проверенный чекбокс</translation>
     </message>
     <message>
         <source>Disabled</source>
         <translation>Инвалид</translation>
     </message>
     <message>
+        <source>Unchecked checkbox</source>
+        <translation>Непроверенный чекбокс</translation>
+    </message>
+    <message>
         <source>Selected option</source>
         <translation>Выбранный вариант</translation>
+    </message>
+    <message>
+        <source>Radio button</source>
+        <translation>Радио кнопка</translation>
     </message>
     <message>
         <source>List row {0}</source>
         <translation>Список строк {0}</translation>
     </message>
     <message>
+        <source>List</source>
+        <translation>Список</translation>
+    </message>
+    <message>
+        <source>Scrollbar</source>
+        <translation>Свиток</translation>
+    </message>
+    <message>
         <source>Cards, toasts &amp; progress</source>
         <translation>Карты, тосты и прогресс</translation>
+    </message>
+    <message>
+        <source>Card background</source>
+        <translation>Карточный фон</translation>
     </message>
     <message>
         <source>Card title</source>
@@ -14378,6 +15965,10 @@ or use Browse to select it manually.</source>
     <message>
         <source>Card secondary text</source>
         <translation>Вторичный текст карточки</translation>
+    </message>
+    <message>
+        <source>Toast background</source>
+        <translation>Тостовый фон</translation>
     </message>
     <message>
         <source>Info</source>
@@ -14396,6 +15987,14 @@ or use Browse to select it manually.</source>
         <translation>Ошибка</translation>
     </message>
     <message>
+        <source>{0} toast</source>
+        <translation>Тост {0}</translation>
+    </message>
+    <message>
+        <source>Progress bar</source>
+        <translation>Прогресс-бар</translation>
+    </message>
+    <message>
         <source>Required mod</source>
         <translation>Требуемый мод</translation>
     </message>
@@ -14412,8 +16011,28 @@ or use Browse to select it manually.</source>
         <translation>Развернутый</translation>
     </message>
     <message>
+        <source>Deployed status</source>
+        <translation>Развернутый статус</translation>
+    </message>
+    <message>
         <source>Text &amp; tones</source>
         <translation>Текст и тона</translation>
+    </message>
+    <message>
+        <source>Icons</source>
+        <translation>Иконы</translation>
+    </message>
+    <message>
+        <source>Themed - follow the palette</source>
+        <translation>Тема: Следуйте за палитрой</translation>
+    </message>
+    <message>
+        <source>Fixed artwork</source>
+        <translation>Неподвижное произведение искусства</translation>
+    </message>
+    <message>
+        <source>{0} ({1})</source>
+        <translation>{0} ({1})</translation>
     </message>
 </context>
 <context>
@@ -14792,6 +16411,513 @@ Press Refresh to try again.</source>
     </message>
 </context>
 <context>
+    <name>WizardTools</name>
+    <message>
+        <source>mod.io API Key</source>
+        <translation>mod.io API Key</translation>
+    </message>
+    <message>
+        <source>Run Wrye Bash</source>
+        <translation>Скачать Wrye Bash</translation>
+    </message>
+    <message>
+        <source>Run xEdit (Discord version)</source>
+        <translation>Run xEdit (версия Discord)</translation>
+    </message>
+    <message>
+        <source>Run xEdit QAC (Discord version)</source>
+        <translation>Запуск xEdit QAC (версия Discord)</translation>
+    </message>
+    <message>
+        <source>Downgrade Fallout 3</source>
+        <translation>Скачать Fallout 3</translation>
+    </message>
+    <message>
+        <source>Install Script Extender (FOSE)</source>
+        <translation>Скачать Script Extender (FOSE)</translation>
+    </message>
+    <message>
+        <source>Run {0}</source>
+        <translation>Запуск {0}</translation>
+    </message>
+    <message>
+        <source>Run {0} QAC</source>
+        <translation>Запуск {0} QAC</translation>
+    </message>
+    <message>
+        <source>Downgrade Fallout 3 GOTY</source>
+        <translation>Скачать Fallout 3 GOTY</translation>
+    </message>
+    <message>
+        <source>Run BodySlide (Linux)</source>
+        <translation>Run BodySlide (Linux)</translation>
+    </message>
+    <message>
+        <source>Run Outfit Studio (Linux)</source>
+        <translation>Run Outfit Studio (Linux)</translation>
+    </message>
+    <message>
+        <source>Run BodySlide</source>
+        <translation>Скачать BodySlide</translation>
+    </message>
+    <message>
+        <source>Run Outfit Studio</source>
+        <translation>Скачать Outfit Studio</translation>
+    </message>
+    <message>
+        <source>Downgrade Fallout 4</source>
+        <translation>Скачать Fallout 4</translation>
+    </message>
+    <message>
+        <source>Install Script Extender (F4SE)</source>
+        <translation>Скачать Script Extender (F4SE)</translation>
+    </message>
+    <message>
+        <source>Run BethINI Pie</source>
+        <translation>Скачать Bethini Pie</translation>
+    </message>
+    <message>
+        <source>Install Script Extender (F4SEVR)</source>
+        <translation>Скачать Script Extender (F4SEVR)</translation>
+    </message>
+    <message>
+        <source>Install Script Extender (xNVSE)</source>
+        <translation>Установите Script Extender (xNVSE)</translation>
+    </message>
+    <message>
+        <source>Apply 4GB Patch</source>
+        <translation>Применяется 4GB Patch</translation>
+    </message>
+    <message>
+        <source>Install Tale of Two Wastelands</source>
+        <translation>Обсуждение Tale of Two Wastelands</translation>
+    </message>
+    <message>
+        <source>BSA Decompressor</source>
+        <translation>Декомпрессор BSA</translation>
+    </message>
+    <message>
+        <source>Install Ultimate Edition ESM Fixes</source>
+        <translation>Скачать Ultimate Edition ESM Fixes</translation>
+    </message>
+    <message>
+        <source>Install Viva New Vegas</source>
+        <translation>Установить Viva New Vegas</translation>
+    </message>
+    <message>
+        <source>Install Viva New Vegas Extended</source>
+        <translation>Скачать Viva New Vegas Extended</translation>
+    </message>
+    <message>
+        <source>Install Script Extender (OBSE)</source>
+        <translation>Скачать Script Extender (OBSE)</translation>
+    </message>
+    <message>
+        <source>Install Script Extender (SKSE)</source>
+        <translation>Скачать Script Extender (SKSE)</translation>
+    </message>
+    <message>
+        <source>SkyGen - Patch Generator</source>
+        <translation>SkyGen — генератор патчей</translation>
+    </message>
+    <message>
+        <source>Plugin Audit &amp; Cleanup</source>
+        <translation>Плагиновый аудит и очистка</translation>
+    </message>
+    <message>
+        <source>SSE Display Tweaks Config</source>
+        <translation>SSE Display Tweaks Конфигурация</translation>
+    </message>
+    <message>
+        <source>Engine Fixes Config</source>
+        <translation>Фиксация двигателя Config</translation>
+    </message>
+    <message>
+        <source>Run Pandora</source>
+        <translation>Беги Пандора</translation>
+    </message>
+    <message>
+        <source>Install Script Extender (SKSE64)</source>
+        <translation>Установите расширитель сценариев (SKSE64)</translation>
+    </message>
+    <message>
+        <source>Run PGPatcher</source>
+        <translation>Скачать PGPatcher</translation>
+    </message>
+    <message>
+        <source>Run SSEEdit</source>
+        <translation>Запуск SSEEdit</translation>
+    </message>
+    <message>
+        <source>Run SSEEdit QAC</source>
+        <translation>Скачать SSEEdit QAC</translation>
+    </message>
+    <message>
+        <source>Run Creation Kit</source>
+        <translation>Скачать игру Creation Kit</translation>
+    </message>
+    <message>
+        <source>Run ESLifier</source>
+        <translation>Скачать ESLifier</translation>
+    </message>
+    <message>
+        <source>Run TexGen</source>
+        <translation>Запуск TexGen</translation>
+    </message>
+    <message>
+        <source>Run DynDOLOD</source>
+        <translation>Беги Диндолод</translation>
+    </message>
+    <message>
+        <source>Run xLODGen</source>
+        <translation>Скачать xLODGEN</translation>
+    </message>
+    <message>
+        <source>Run VRAMr</source>
+        <translation>Скачать VRAMR</translation>
+    </message>
+    <message>
+        <source>Run BENDr</source>
+        <translation>Бегите Бендра</translation>
+    </message>
+    <message>
+        <source>Run ParallaxR</source>
+        <translation>Запуск ParallaxR</translation>
+    </message>
+    <message>
+        <source>Install Script Extender (SKSEVR)</source>
+        <translation>Установите Script Extender (SKSEVR)</translation>
+    </message>
+    <message>
+        <source>Install Script Extender (SFSE)</source>
+        <translation>Скачать Script Extender (SFSE)</translation>
+    </message>
+    <message>
+        <source>Patch Game (dtkit-patch)</source>
+        <translation>Патч-игра (dtkit-patch)</translation>
+    </message>
+    <message>
+        <source>Install me3</source>
+        <translation>Установить Me3</translation>
+    </message>
+    <message>
+        <source>Merge regulation.bin</source>
+        <translation>Объединить regulation.bin</translation>
+    </message>
+    <message>
+        <source>GPAK unpack / repack</source>
+        <translation>GPAK распаковка / repack</translation>
+    </message>
+    <message>
+        <source>Install MGE XE</source>
+        <translation>Установить MGE XE</translation>
+    </message>
+    <message>
+        <source>Install Morrowind Code Patch</source>
+        <translation>Скачать Morrowind Code Patch</translation>
+    </message>
+    <message>
+        <source>Repair PAK files</source>
+        <translation>Ремонт файлов PAK</translation>
+    </message>
+    <message>
+        <source>Run Script Merger</source>
+        <translation>Слияние сценариев</translation>
+    </message>
+    <message>
+        <source>Install ReShade</source>
+        <translation>Установить ReShade</translation>
+    </message>
+    <message>
+        <source>Enter a mod.io key to enable update checks for manually-installed mod.io mods.</source>
+        <translation>Введите ключ mod.io, чтобы включить проверку обновлений для установленных вручную модов mod.io.</translation>
+    </message>
+    <message>
+        <source>Download and run Wrye Bash.</source>
+        <translation>Скачать и запустить Wrye Bash.</translation>
+    </message>
+    <message>
+        <source>Deploy mods and run {0} -{1} from the latest xEdit build, released through the xEdit Discord.</source>
+        <translation>Разверните моды и запустите {0} -{1} из последней сборки xEdit, выпущенной через xEdit Discord.</translation>
+    </message>
+    <message>
+        <source>Deploy mods and run {0} -{1} -quickautoclean from the latest xEdit build, released through the xEdit Discord.</source>
+        <translation>Разверните моды и запустите {0} -{1} -quickautoclean из последней сборки xEdit, выпущенной через xEdit Discord.</translation>
+    </message>
+    <message>
+        <source>Downgrade to pre-Anniversary Edition so that the script extender (FOSE) works correctly.</source>
+        <translation>Понизить до предюбного издания, чтобы расширитель сценария (FOSE) работал правильно.</translation>
+    </message>
+    <message>
+        <source>Download and install FOSE into the game folder.</source>
+        <translation>Скачать и установить FOSE в папку игры.</translation>
+    </message>
+    <message>
+        <source>Install {0}, deploy mods, and run {1}.</source>
+        <translation>Установите {0}, разверните моды и запустите {1}.</translation>
+    </message>
+    <message>
+        <source>Deploy mods and run {0}QuickAutoClean.exe.</source>
+        <translation>Развернуть мод и запустить {0}QuickAutoClean.exe.</translation>
+    </message>
+    <message>
+        <source>Download and run the native Linux BodySlide, no Proton prefix needed.</source>
+        <translation>Загрузите и запустите нативный Linux BodySlide, приставка Proton не нужна.</translation>
+    </message>
+    <message>
+        <source>Download and run the native Linux Outfit Studio, no Proton prefix needed.</source>
+        <translation>Загрузите и запустите нативную Linux Outfit Studio, приставка Proton не нужна.</translation>
+    </message>
+    <message>
+        <source>Deploy mods and run BodySlide from the Data folder.</source>
+        <translation>Разверните моды и запустите BodySlide из папки Data.</translation>
+    </message>
+    <message>
+        <source>Deploy mods and run Outfit Studio from the Data folder.</source>
+        <translation>Разверните моды и запустите Outfit Studio из папки Data.</translation>
+    </message>
+    <message>
+        <source>Download the latest Fallout 4 Steam Downgrader and run it from the game folder.</source>
+        <translation>Загрузите последний Fallout 4 Steam Downgrader и запустите его из папки игры.</translation>
+    </message>
+    <message>
+        <source>Download and install F4SE into the game folder.</source>
+        <translation>Скачать и установить F4SE в папку игры.</translation>
+    </message>
+    <message>
+        <source>Install BethINI Pie and configure Fallout 4 INI settings.</source>
+        <translation>Установите BethINI Pie и настройте настройки Fallout 4 INI.</translation>
+    </message>
+    <message>
+        <source>Download and install F4SEVR into the game folder.</source>
+        <translation>Скачать и установить F4SEVR в папку игры.</translation>
+    </message>
+    <message>
+        <source>Download and install xNVSE into the game folder.</source>
+        <translation>Скачать и установить xNVSE в папку игры.</translation>
+    </message>
+    <message>
+        <source>Patch FalloutNV.exe to use 4 GB of memory (keeps a backup that can be restored).</source>
+        <translation>Патч FalloutNV.exe использует 4 ГБ памяти (сохраняет резервную копию, которую можно восстановить).</translation>
+    </message>
+    <message>
+        <source>Run the native Linux TTW installer (merges Fallout 3 + New Vegas) and add the result as a mod. Requires Fallout 3 installed and a TTW .mpi package from mod.pub.</source>
+        <translation>Запустите собственный установщик Linux TTW (сливает Fallout 3 + New Vegas) и добавьте результат в мод. Требуется установка Fallout 3 и пакет TTW .mpi от mod.pub.</translation>
+    </message>
+    <message>
+        <source>Decompress the vanilla BSA archives for faster loading (native Linux MPI installer) and add the result as a mod. Needs the FNV BSA Decompressor download from Nexus.</source>
+        <translation>Декомпрессируйте ванильные архивы BSA для более быстрой загрузки (родной установщик MPI Linux) и добавьте результат в виде мода. Нужен декомпрессор FNV BSA от Nexus.</translation>
+    </message>
+    <message>
+        <source>Patch the vanilla .esm masters with community bugfixes (native Linux MPI installer) and add the result as a mod. Needs the Ultimate Edition ESM Fixes Remastered download from Nexus.</source>
+        <translation>Найдите мастера vanilla .esm с ошибками сообщества (родной установщик MPI Linux) и добавьте результат в виде мода. Требуется Ultimate Edition ESM Fixes Remastered скачать с Nexus.</translation>
+    </message>
+    <message>
+        <source>Download the curated Viva New Vegas modlist profile and install it</source>
+        <translation>Скачайте шаблонный профиль Viva New Vegas и установите его</translation>
+    </message>
+    <message>
+        <source>Download the curated Viva New Vegas Extended modlist profile and install it</source>
+        <translation>Скачать кураторский профиль Viva New Vegas Extended и установить его</translation>
+    </message>
+    <message>
+        <source>Install BethINI Pie and configure Fallout New Vegas INI settings.</source>
+        <translation>Установите BethINI Pie и настройте настройки Fallout New Vegas INI.</translation>
+    </message>
+    <message>
+        <source>Download and install OBSE into the game folder.</source>
+        <translation>Скачать и установить OBSE в папку игры.</translation>
+    </message>
+    <message>
+        <source>Download and install SKSE into the game folder.</source>
+        <translation>Скачать и установить SKSE в папку игры.</translation>
+    </message>
+    <message>
+        <source>Scan your load order for BOS / SkyPatcher patch coverage and generate new patches.</source>
+        <translation>Сканируйте порядок загрузки для покрытия патчей BOS / SkyPatcher и генерируйте новые патчи.</translation>
+    </message>
+    <message>
+        <source>Scan load order for safe-to-disable plugins, then clean up orphaned SkyGen BOS/SkyPatcher INIs for plugins that must stay enabled.</source>
+        <translation>Заказ загрузки сканирования для безопасных для отключения плагинов, а затем очистите осиротевшие SkyGen BOS / SkyPatcher INI для плагинов, которые должны оставаться включенными.</translation>
+    </message>
+    <message>
+        <source>Create or edit SSEDisplayTweaks.ini with per-setting toggles and descriptions.</source>
+        <translation>Создавайте или редактируйте SSEDisplayTweaks.ini с помощью настроек и описаний.</translation>
+    </message>
+    <message>
+        <source>Create or edit EngineFixes.toml with per-setting toggles and descriptions.</source>
+        <translation>Создавайте или редактируйте EngineFixes.toml с помощью настроек и описаний.</translation>
+    </message>
+    <message>
+        <source>Deploy mods and run Pandora Behaviour Engine+.</source>
+        <translation>Развернуть мод и запустить Pandora Behaviour Engine+.</translation>
+    </message>
+    <message>
+        <source>Download and install SKSE64 into the game folder.</source>
+        <translation>Скачать и установить SKSE64 в папку игры.</translation>
+    </message>
+    <message>
+        <source>Install PGPatcher, deploy mods, and run PGPatcher.exe.</source>
+        <translation>Установите PGPatcher, разверните моды и запустите PGPatcher.exe.</translation>
+    </message>
+    <message>
+        <source>Install SSEEdit, deploy mods, and run SSEEdit.exe.</source>
+        <translation>Установите SSEEdit, разверните моды и запустите SSEEdit.exe.</translation>
+    </message>
+    <message>
+        <source>Deploy mods and run SSEEditQuickAutoClean.exe.</source>
+        <translation>Развернуть мод и запустить SSEEditQuickAutoClean.exe.</translation>
+    </message>
+    <message>
+        <source>Deploy mods and run xTESEdit.exe -SSE from the latest xEdit build, released through the xEdit Discord.</source>
+        <translation>Разверните моды и запустите xTESEdit.exe -SSE из последней сборки xEdit, выпущенной через xEdit Discord.</translation>
+    </message>
+    <message>
+        <source>Deploy mods and run xTESEdit.exe -SSE -quickautoclean from the latest xEdit build, released through the xEdit Discord.</source>
+        <translation>Разверните моды и запустите xTESEdit.exe -SSE -quickautoclean из последней сборки xEdit, выпущенной через xEdit Discord.</translation>
+    </message>
+    <message>
+        <source>Install Creation Kit Platform Extended, deploy mods, and run CreationKit.exe.</source>
+        <translation>Установите Creation Kit Platform Extended, разверните моды и запустите CreationKit.exe.</translation>
+    </message>
+    <message>
+        <source>Install ESLifier and flag/compact plugins into the light (ESL) space.</source>
+        <translation>Установите ESLifier и флагманские / компактные плагины в светлое (ESL) пространство.</translation>
+    </message>
+    <message>
+        <source>Install DynDOLOD tools, deploy mods, and run TexGenx64.exe.</source>
+        <translation>Установите инструменты DynDOLOD, разверните моды и запустите TexGenx64.exe.</translation>
+    </message>
+    <message>
+        <source>Install DynDOLOD tools, deploy mods, and run DynDOLODx64.exe.</source>
+        <translation>Установите инструменты DynDOLOD, разверните моды и запустите DynDOLODx64.exe.</translation>
+    </message>
+    <message>
+        <source>Install xLODGen, deploy mods, and run xLODGenx64.exe.</source>
+        <translation>Установите xLODGen, разверните моды и запустите xLODGenx64.exe.</translation>
+    </message>
+    <message>
+        <source>Install BethINI Pie and configure Skyrim SE INI settings.</source>
+        <translation>Установите BethINI Pie и настройте настройки Skyrim SE INI.</translation>
+    </message>
+    <message>
+        <source>Download VRAMr from Nexus, deploy mods, and run texture optimisation.</source>
+        <translation>Загрузите VRAMr из Nexus, разверните моды и запустите оптимизацию текстуры.</translation>
+    </message>
+    <message>
+        <source>Download BENDr from Nexus, deploy mods, and process normal maps.</source>
+        <translation>Загрузите BENDr из Nexus, разверните моды и обработайте обычные карты.</translation>
+    </message>
+    <message>
+        <source>Download ParallaxR from Nexus, deploy mods, and process parallax textures.</source>
+        <translation>Загрузите ParallaxR из Nexus, разверните моды и обработайте текстуры параллакса.</translation>
+    </message>
+    <message>
+        <source>Scan your load order for Base Object Swapper / SkyPatcher patch coverage and generate new BOS or SP INI patches.</source>
+        <translation>Отсканируйте заказ загрузки для покрытия патчей Base Object Swapper / SkyPatcher и создайте новые патчи BOS или SP INI.</translation>
+    </message>
+    <message>
+        <source>Scan load order for safe-to-disable plugins, then disable them or clean up orphaned SkyGen BOS/SkyPatcher INIs for plugins that must stay enabled.</source>
+        <translation>Заказ загрузки сканирования для безопасных для отключения плагинов, затем отключите их или очистите осиротевшие SkyGen BOS / SkyPatcher INI для плагинов, которые должны оставаться включенными.</translation>
+    </message>
+    <message>
+        <source>Download and install SKSEVR into the game folder.</source>
+        <translation>Скачать и установить SKSEVR в папку игры.</translation>
+    </message>
+    <message>
+        <source>Download and install SFSE into the game folder.</source>
+        <translation>Скачать и установить SFSE в папку игры.</translation>
+    </message>
+    <message>
+        <source>Install BethINI Pie and configure Starfield INI settings.</source>
+        <translation>Установите BethINI Pie и настройте настройки Starfield INI.</translation>
+    </message>
+    <message>
+        <source>Deploy mods and toggle the Darktide Mod Loader bundle patch (runs the shipped dtkit-patch.exe under Proton). Re-run this wizard after every game update.</source>
+        <translation>Развернуть модифицировать и переключать пакет Darktide Mod Loader (запускает отправленный dtkit-patch.exe под Proton). Повторно запускайте этого мастера после каждого обновления игры.</translation>
+    </message>
+    <message>
+        <source>Download and install the me3 mod loader that loads mods for this game.</source>
+        <translation>Скачайте и установите загрузчик модов me3, который загружает моды для этой игры.</translation>
+    </message>
+    <message>
+        <source>Combine the param edits of every enabled mod into one regulation.bin, instead of only the highest-priority one taking effect.</source>
+        <translation>Объедините парам-редактирование каждого включенного мода в один regulation.bin, а не только самый приоритетный.</translation>
+    </message>
+    <message>
+        <source>Unpack resources.gpak to Unpacked/ or repack Unpacked/ to resources.gpak in the game root.</source>
+        <translation>Unpack resources.gpak в Unpacked/ или repack Unpacked/ в resources.gpak в корневой версии игры.</translation>
+    </message>
+    <message>
+        <source>Download and install MGE XE (Morrowind Graphics Extender), which includes MWSE.</source>
+        <translation>Скачать и установить MGE XE (Morrowind Graphics Extender), который включает в себя MWSE.</translation>
+    </message>
+    <message>
+        <source>Download and run the Morrowind Code Patch to apply engine-level bug fixes and improvements.</source>
+        <translation>Загрузите и запустите Morrowind Code Patch, чтобы применить исправления и улучшения ошибок на уровне двигателя.</translation>
+    </message>
+    <message>
+        <source>Restore vanilla PAK entries from the failsafe manifest in the game root. Use if the game won't load after mods were removed.</source>
+        <translation>Восстановление ванильных записей PAK из отказоустойчивого манифеста в корне игры. Используйте, если игра не загружается после удаления модов.</translation>
+    </message>
+    <message>
+        <source>Deploy mods, install Script Merger, and run WitcherScriptMerger.exe.</source>
+        <translation>Разверните моды, установите Script Merger и запустите WitcherScriptMerger.exe.</translation>
+    </message>
+    <message>
+        <source>Download and install ReShade into the game folder.</source>
+        <translation>Скачать и установить ReShade в папку игры.</translation>
+    </message>
+    <message>
+        <source>Setup and Installers</source>
+        <translation>Настройка и установщики</translation>
+    </message>
+    <message>
+        <source>Body and Outfits</source>
+        <translation>Тело и выходки</translation>
+    </message>
+    <message>
+        <source>Animation and Physics</source>
+        <translation>Анимация и физика</translation>
+    </message>
+    <message>
+        <source>DynDOLOD</source>
+        <translation>Диндолод</translation>
+    </message>
+    <message>
+        <source>RSuite (experimental)</source>
+        <translation>RSuite (экспериментальный)</translation>
+    </message>
+    <message>
+        <source>Patchers and Cleanup</source>
+        <translation>Патчеры и уборка</translation>
+    </message>
+    <message>
+        <source>xEdit</source>
+        <translation>xEdit</translation>
+    </message>
+    <message>
+        <source>Load Order and Config</source>
+        <translation>Заказ груза и конфигурация</translation>
+    </message>
+    <message>
+        <source>INI Tweaks</source>
+        <translation>INI Tweaks</translation>
+    </message>
+    <message>
+        <source>Other</source>
+        <translation>Другой</translation>
+    </message>
+    <message>
+        <source>Skip the OpenMW launcher (start the game directly)</source>
+        <translation>Пропустите запуск OpenMW (начните игру напрямую)</translation>
+    </message>
+    <message>
+        <source>The launcher keeps its own copy of the load order and writes it back to openmw.cfg, which can overwrite what Amethyst deployed. Off: the launcher opens as usual.</source>
+        <translation>Пусковая установка сохраняет собственную копию заказа на загрузку и записывает ее обратно на openmw.cfg, который может перезаписывать то, что развернул Amethyst. Выключено: пусковая установка открывается как обычно.</translation>
+    </message>
+</context>
+<context>
     <name>WizardViewBase</name>
     <message>
         <source>✕ Close</source>
@@ -14997,8 +17123,12 @@ Please restart the wizard to reinstall Wrye Bash.</source>
         <translation>Запуск Wrye Bash…</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
-        <translation>Протон «{0}» найти не удалось — проверьте, установлен ли он в Steam.</translation>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>Не удалось решить версию Proton для собственного префикса игры — запустить игру один раз или выбрать другой вариант префикса.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>Не удалось найти протон {0} — проверьте, установлен ли он в Steam, Heroic или ProtonPlus.</translation>
     </message>
     <message>
         <source>Wrye Bash is running.
@@ -15180,6 +17310,14 @@ Please restart the wizard and install {1} first.</source>
         <translation>Все QAC</translation>
     </message>
     <message>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>Не удалось решить версию Proton для собственного префикса игры — запустить игру один раз или выбрать другой вариант префикса.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>Не удалось найти протон {0} — проверьте, установлен ли он в Steam, Heroic или ProtonPlus.</translation>
+    </message>
+    <message>
         <source>{0} is running - close it to continue.</source>
         <translation>{0} работает - закройте его, чтобы продолжить.</translation>
     </message>
@@ -15236,10 +17374,6 @@ When you close it, your changes are restored automatically.</source>
     <message>
         <source>Launching {0}…</source>
         <translation>Запуск {0}…</translation>
-    </message>
-    <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
-        <translation>Протон «{0}» найти не удалось — проверьте, установлен ли он в Steam.</translation>
     </message>
     <message>
         <source>Game path not configured.</source>
@@ -15318,6 +17452,13 @@ When you close it, your changes are restored automatically.</source>
     </message>
 </context>
 <context>
+    <name>_NotificationMirrorButton</name>
+    <message>
+        <source>Notifications</source>
+        <translation>Уведомления</translation>
+    </message>
+</context>
+<context>
     <name>_OverridesModel</name>
     <message>
         <source>Pak</source>
@@ -15392,6 +17533,29 @@ When you close it, your changes are restored automatically.</source>
     <message>
         <source>No preview</source>
         <translation>Предварительный просмотр отсутствует</translation>
+    </message>
+</context>
+<context>
+    <name>_ProgressRow</name>
+    <message>
+        <source>Cancel</source>
+        <translation>Отменить</translation>
+    </message>
+    <message>
+        <source>Working</source>
+        <translation>Работа</translation>
+    </message>
+    <message>
+        <source>Working…</source>
+        <translation>Работать..</translation>
+    </message>
+    <message>
+        <source>{0} / {1}</source>
+        <translation>{0} / {1}</translation>
+    </message>
+    <message>
+        <source>Cancelling…</source>
+        <translation>Отмена..</translation>
     </message>
 </context>
 <context>
@@ -15561,6 +17725,13 @@ Publishing makes this revision the one users install. It cannot be un-published,
     <message>
         <source>Apply</source>
         <translation>Применять</translation>
+    </message>
+</context>
+<context>
+    <name>_ThemePreviewButton</name>
+    <message>
+        <source>Theme preview</source>
+        <translation>Превью темы</translation>
     </message>
 </context>
 <context>

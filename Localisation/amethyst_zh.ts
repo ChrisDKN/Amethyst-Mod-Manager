@@ -541,8 +541,12 @@ Please restart the wizard and install BethINI Pie first.</source>
         <translation>正在准备 BethINI Pie 的“Wine”前缀……</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
-        <translation>找不到质子 '{0}' - 检查是否安装在Steam中 .</translation>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>无法解决游戏自身前缀的质子版本——一次推出游戏,或者选择不同的前缀选项.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>找不到质子 '{0}' - 检查它是否安装在Steam, Heroic 或质子Plus上.</translation>
     </message>
     <message>
         <source>BethINI Pie is running.
@@ -755,8 +759,12 @@ Deploy your modlist first, then reopen this wizard.</source>
 请先部署您的模组列表，然后重新打开此向导。</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
-        <translation>找不到质子 '{0}' - 检查是否安装在Steam中 .</translation>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>无法解决游戏自身前缀的质子版本——一次推出游戏,或者选择不同的前缀选项.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>找不到质子 '{0}' - 检查它是否安装在Steam, Heroic 或质子Plus上.</translation>
     </message>
     <message>
         <source>{0} is running.
@@ -1452,6 +1460,22 @@ MD5缓存将被保留。压缩包将根据需要重新下载。</translation>
         <translation>{0} 游戏 - {1}</translation>
     </message>
     <message>
+        <source>Use a separate save file for each profile (me3)</source>
+        <translation>为每个配置文件( me3)使用单独的保存文件</translation>
+    </message>
+    <message>
+        <source>Enable online play (me3, risks a ban with mods)</source>
+        <translation>启用在线播放( me3, 冒着与 Mods 的禁用)</translation>
+    </message>
+    <message>
+        <source>Neutralize Arxan anti-tamper (me3, improves stability)</source>
+        <translation>中立 Arxan 防潮剂( me3, 提高稳定性)</translation>
+    </message>
+    <message>
+        <source>Raise the game's memory limits (me3)</source>
+        <translation>提高游戏的内存限制( me3)</translation>
+    </message>
+    <message>
         <source>Settings saved to profile: {0} (this profile only)</source>
         <translation>已保存至个人资料的设置：{0}（仅限此个人资料）</translation>
     </message>
@@ -1572,6 +1596,10 @@ MD5缓存将被保留。压缩包将根据需要重新下载。</translation>
         <translation>硬链接</translation>
     </message>
     <message>
+        <source>Virtual filesystem (VFS)</source>
+        <translation>虚拟文件系统( VFS)</translation>
+    </message>
+    <message>
         <source>Swap launcher with script extender on deploy</source>
         <translation>部署时使用脚本扩展器的交换发射器</translation>
     </message>
@@ -1668,6 +1696,34 @@ The default profile's settings are not affected.</source>
         <translation>在此文件夹中找不到可执行文件( {0}) - 双检查路径 .</translation>
     </message>
     <message>
+        <source>Version {0}</source>
+        <translation>版本 {0}</translation>
+    </message>
+    <message>
+        <source>Prefix already configured. You can update the path below.</source>
+        <translation>前缀已配置 。 您可以在下面更新路径 .</translation>
+    </message>
+    <message>
+        <source>Found via Steam compatdata.</source>
+        <translation>通过Steam Compatdata找到的.</translation>
+    </message>
+    <message>
+        <source>Found via non-Steam shortcut compatdata.</source>
+        <translation>通过非Steam快捷键compatdata找到.</translation>
+    </message>
+    <message>
+        <source>Found via Heroic Games Launcher.</source>
+        <translation>通过"英雄游戏"发射器找到.</translation>
+    </message>
+    <message>
+        <source>Prefix selected manually.</source>
+        <translation>手动选择前缀 .</translation>
+    </message>
+    <message>
+        <source>Prefix found automatically.</source>
+        <translation>自动找到前缀 .</translation>
+    </message>
+    <message>
         <source>Executable found.</source>
         <translation>找到可执行文件 .</translation>
     </message>
@@ -1682,6 +1738,10 @@ The default profile's settings are not affected.</source>
     <message>
         <source>Not found automatically. Browse manually to locate the game folder.</source>
         <translation>未自动找到。请手动浏览以定位游戏文件夹。</translation>
+    </message>
+    <message>
+        <source>Non-Steam Shortcut</source>
+        <translation>非团队快捷键</translation>
     </message>
     <message>
         <source>Current: {0}</source>
@@ -1722,6 +1782,10 @@ The default profile's settings are not affected.</source>
     <message>
         <source>Cannot change the game/prefix path while mods are deployed. Restore the game first.</source>
         <translation>在模组已部署的情况下，无法更改游戏/前缀路径。请先还原游戏。</translation>
+    </message>
+    <message>
+        <source>Cannot change the deploy method while mods are deployed. Restore the game first.</source>
+        <translation>无法在部署 Mods 时更改部署方法 。 先恢复游戏.</translation>
     </message>
     <message>
         <source>Cannot use hardlinks: the staging folder and {0} are on different drives or filesystems. Switch to Symlink instead.</source>
@@ -2254,8 +2318,12 @@ Install the Creation Kit from Steam, then reopen this wizard.</source>
         <translation>正在启动 Creation Kit…</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
-        <translation>找不到质子 '{0}' - 检查是否安装在Steam中 .</translation>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>无法解决游戏自身前缀的质子版本——一次推出游戏,或者选择不同的前缀选项.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>找不到质子 '{0}' - 检查它是否安装在Steam, Heroic 或质子Plus上.</translation>
     </message>
     <message>
         <source>Game path not configured.</source>
@@ -2966,8 +3034,8 @@ When it completes, the app switches to the new profile - then come back here and
         <translation>已部署的文件</translation>
     </message>
     <message>
-        <source>Deployed files - {0} files in {1} mods</source>
-        <translation>已部署的文件——{1}模组中的{0}文件</translation>
+        <source>{0} - {1} files in {2} mods</source>
+        <translation>{0} - {1} 文件在 {2} mods中</translation>
     </message>
 </context>
 <context>
@@ -3096,6 +3164,29 @@ When it completes, the app switches to the new profile - then come back here and
     <message>
         <source>Add download folder</source>
         <translation>添加下载文件夹</translation>
+    </message>
+</context>
+<context>
+    <name>DownloadManifestOverlay</name>
+    <message>
+        <source>Download collection manifest</source>
+        <translation>下载收藏清单</translation>
+    </message>
+    <message>
+        <source>One collection URL per line, e.g. https://www.nexusmods.com/games/fallout4/collections/f1rzym</source>
+        <translation>每行一个收藏 URL,例如 https://www.nexusmods.com/games/fallout4/collections/f1rzym</translation>
+    </message>
+    <message>
+        <source>Saving to: {0}</source>
+        <translation>保存到: {0}</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+    <message>
+        <source>Download</source>
+        <translation>下载</translation>
     </message>
 </context>
 <context>
@@ -3377,10 +3468,6 @@ Please restart the wizard and install {1} first.</source>
         <translation>正在启动 {0}…</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
-        <translation>找不到质子 '{0}' - 检查是否安装在Steam中 .</translation>
-    </message>
-    <message>
         <source>Game path not configured.</source>
         <translation>未配置游戏路径 .</translation>
     </message>
@@ -3401,6 +3488,14 @@ Close it when you are done, then click Done.</source>
     <message>
         <source>Fetching latest release from GitHub…</source>
         <translation>正在从 GitHub 获取最新版本……</translation>
+    </message>
+    <message>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>无法解决游戏自身前缀的质子版本——一次推出游戏,或者选择不同的前缀选项.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>找不到质子 '{0}' - 检查它是否安装在Steam, Heroic 或质子Plus上.</translation>
     </message>
     <message>
         <source>Searching Downloads folder…</source>
@@ -3474,8 +3569,12 @@ Please restart the wizard and let it install ESLifier first.</source>
         <translation>{0} 未找到。</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
-        <translation>找不到质子 '{0}' - 检查是否安装在Steam中 .</translation>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>无法解决游戏自身前缀的质子版本——一次推出游戏,或者选择不同的前缀选项.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>找不到质子 '{0}' - 检查它是否安装在Steam, Heroic 或质子Plus上.</translation>
     </message>
     <message>
         <source>Could not write settings: {0}</source>
@@ -3904,8 +4003,16 @@ Proton prefix: click 'Install Java into prefix' once, then it runs automatically
         <translation>使用一个特定的质子版本,在exe旁边有一个孤立的前缀,而不是游戏的前缀. 对与游戏质子版本不相通的工具有用. 对于贝塞斯达游戏,游戏路径(registry),插件.txt和My Games INIs在发布时自动被设置在前缀.</translation>
     </message>
     <message>
+        <source>Arguments passed to the script. The buttons below insert Linux paths for file arguments.</source>
+        <translation>辩相相相传入正文. 以下按钮插入文件参数的 Linux 路径 .</translation>
+    </message>
+    <message>
         <source>Script extenders always run in the game's own prefix with the game's Proton version: they launch the game itself, which needs the game's Steam app ID and its INIs, saves and mod DLLs. Change the game's Proton version in the game settings instead.</source>
         <translation>脚本扩展器总是用游戏的质子版本在游戏自己的前缀中运行:它们自己发布游戏,这需要游戏的Steam应用ID及其INIS,保存和mod DLLs. 在游戏设置中更改游戏的质子版本取而代之.</translation>
+    </message>
+    <message>
+        <source>Script extenders must use the game's normal runner. Plain Wine removes the Steam/Proton context that Steam builds need to start the game.</source>
+        <translation>脚本扩展器必须使用游戏的正常跑取. Plain Wine删除了Steam所建游戏启动所需的Steam/Proton上下文.</translation>
     </message>
     <message>
         <source>Run this exe with bare Wine against the same prefix instead of a Proton session - no Steam client attach, so Steam Input keeps the desktop controls (trackpad / on-screen keyboard). The prefix is still created and updated through Proton. Env vars in Launch Options still apply; wrappers and %command% are skipped in this mode.</source>
@@ -4268,6 +4375,93 @@ That is fine for your own backup. Do not share or upload the file in this state 
     </message>
 </context>
 <context>
+    <name>Fallout4DowngraderView</name>
+    <message>
+        <source>Downgrade Fallout 4 - {0}</source>
+        <translation>降级降级 4 - {0}</translation>
+    </message>
+    <message>
+        <source>Step 1: Download Fallout 4 Downgrader</source>
+        <translation>第一步:下载降级4</translation>
+    </message>
+    <message>
+        <source>The newest release containing the Fallout 4 Steam Downgrader will be downloaded from MulderLoad on GitHub and placed in the game folder.
+
+No modlist deploy is required.</source>
+        <translation>包含"Fallout 4 Steam Downgrader"的最新发行会从GitHub上的MulderLoad下载并放入游戏文件夹.
+
+不需要部署模块.</translation>
+    </message>
+    <message>
+        <source>Step 3: Run Fallout 4 Downgrader</source>
+        <translation>第3步:运行倒下4</translation>
+    </message>
+    <message>
+        <source>Step 2: Choose Proton Version</source>
+        <translation>步骤2:选择质子版本</translation>
+    </message>
+    <message>
+        <source>The Fallout 4 Steam Downgrader was not downloaded.
+Close and reopen the wizard to try again.</source>
+        <translation>Fallout 4 Steam Downgrader没有被下载.
+关闭并重新打开向导再次尝试 .</translation>
+    </message>
+    <message>
+        <source>Game path is not configured.</source>
+        <translation>未配置游戏路径 .</translation>
+    </message>
+    <message>
+        <source>Searching MulderLoad releases…</source>
+        <translation>正在搜索穆德路德发布..</translation>
+    </message>
+    <message>
+        <source>Downloading {0}…</source>
+        <translation>正在下载 {0}..</translation>
+    </message>
+    <message>
+        <source>The downgrader download did not create {0}.</source>
+        <translation>降级下载没有创建{0}.</translation>
+    </message>
+    <message>
+        <source>Downloaded {0} to the game folder.</source>
+        <translation>已下载{0}到游戏文件夹.</translation>
+    </message>
+    <message>
+        <source>Download error: {0}</source>
+        <translation>下载错误: {0}</translation>
+    </message>
+    <message>
+        <source>{0} was not found in the game folder.</source>
+        <translation>{0} 在游戏文件夹中找不到.</translation>
+    </message>
+    <message>
+        <source>Launching Fallout 4 Downgrader…</source>
+        <translation>4号降级机..</translation>
+    </message>
+    <message>
+        <source>Could not determine a Proton version for Fallout 4.</source>
+        <translation>无法确定 Fallout 4 的质子版本 .</translation>
+    </message>
+    <message>
+        <source>Fallout 4 Downgrader is running.
+Follow its prompts, then close it when finished.</source>
+        <translation>Fallout 4 Downgrader正在运行。
+跟随它的提示,完成后关闭它.</translation>
+    </message>
+    <message>
+        <source>Fallout 4 Downgrader finished. Click Done to close.</source>
+        <translation>降级4号完成 点击完成以关闭 .</translation>
+    </message>
+    <message>
+        <source>Fallout 4 Downgrader exited with code {0}. See the log for details.</source>
+        <translation>Fallout 4 Downgrader以代码{0}退出. 详情见日志.</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>发射错误: {0}</translation>
+    </message>
+</context>
+<context>
     <name>FalloutDowngradeView</name>
     <message>
         <source>Downgrade Fallout 3 - {0}</source>
@@ -4533,6 +4727,10 @@ Click Done to clean up the extracted files and close.</source>
     <message>
         <source>Extension .esp</source>
         <translation>扩展名 .esp</translation>
+    </message>
+    <message>
+        <source>Master (loads first)</source>
+        <translation>师子(先入为出</translation>
     </message>
     <message>
         <source>Missing masters</source>
@@ -4853,6 +5051,37 @@ SHA-1: {1} (英语).
     </message>
 </context>
 <context>
+    <name>ImageExportOverlay</name>
+    <message>
+        <source>Save as image</source>
+        <translation>另存为图像</translation>
+    </message>
+    <message>
+        <source>Choose the background for the exported PNG.</source>
+        <translation>选择导出 PNG 的背景 .</translation>
+    </message>
+    <message>
+        <source>Transparent</source>
+        <translation>透明</translation>
+    </message>
+    <message>
+        <source>Face portrait only</source>
+        <translation>只画相</translation>
+    </message>
+    <message>
+        <source>Export just the head close-up instead of the four-angle sheet</source>
+        <translation>只导出头部特写而不是四角工作表</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+    <message>
+        <source>Save…</source>
+        <translation>保存..</translation>
+    </message>
+</context>
+<context>
     <name>ImagePreview</name>
     <message>
         <source>Scroll to zoom · drag to pan · double-click to fit</source>
@@ -4926,6 +5155,41 @@ SHA-1: {1} (英语).
     </message>
 </context>
 <context>
+    <name>LaunchHandoffOverlay</name>
+    <message>
+        <source>{0} - launching from {1}</source>
+        <translation>{0} - 从{1}发射</translation>
+    </message>
+    <message>
+        <source>This deployment uses an external loader or virtual filesystem, so the launcher must start the game through Amethyst. Press Play in Amethyst, or configure {0} as follows:
+
+{1}</source>
+        <translation>这种部署使用外部加载器或虚拟文件系统,所以发射机必须通过Amethyst开始游戏. 按 Amethyst 播放,或配置 {0}如下:
+
+第{1}号</translation>
+    </message>
+    <message>
+        <source>Copy</source>
+        <translation>复制</translation>
+    </message>
+    <message>
+        <source>Don't show this again for {0}</source>
+        <translation>不要再次显示这个为 {0}</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>关闭</translation>
+    </message>
+    <message>
+        <source>Copied ✓</source>
+        <translation>复制</translation>
+    </message>
+    <message>
+        <source>Copy failed</source>
+        <translation>复制失败</translation>
+    </message>
+</context>
+<context>
     <name>LauncherSettingsOverlay</name>
     <message>
         <source>Launch settings - {0}</source>
@@ -4984,6 +5248,61 @@ SHA-1: {1} (英语).
     <message>
         <source>Loading…</source>
         <translation>正在加载……</translation>
+    </message>
+</context>
+<context>
+    <name>LogUploadOverlay</name>
+    <message>
+        <source>Upload log</source>
+        <translation>上传日志</translation>
+    </message>
+    <message>
+        <source>This uploads your session log ({0} lines, {1}) to {2}, where anyone with the link can read it. Logs contain file paths, which usually include your username. The link stops working {3}.</source>
+        <translation>这将您的会话日志({0}行, {1})上传到{2},任何有链接的人都可以在那里读取. 日志包含文件路径,通常包括您的用户名. 链接停止工作 {3}.</translation>
+    </message>
+    <message>
+        <source>Only the most recent {0} will be uploaded.</source>
+        <translation>只有最新的{0}会被上传.</translation>
+    </message>
+    <message>
+        <source>The link will appear here once the log is uploaded.</source>
+        <translation>此链接将在日志上传后在此显示 .</translation>
+    </message>
+    <message>
+        <source>Replace my username with "user"</source>
+        <translation>将我的用户名替换为"用户"</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+    <message>
+        <source>Upload</source>
+        <translation>上传</translation>
+    </message>
+    <message>
+        <source>Uploading…</source>
+        <translation>正在上传..</translation>
+    </message>
+    <message>
+        <source>Could not upload ({0}). The log is still saved locally - use Open Log Folder to attach the file instead.</source>
+        <translation>无法上传 ({0}). 日志仍然保存在本地 - 使用 Open Log 文件夹来附加文件 .</translation>
+    </message>
+    <message>
+        <source>Uploaded. Anyone with this link can read the log.</source>
+        <translation>上传. 任何有这个链接的人都可以读取日志.</translation>
+    </message>
+    <message>
+        <source>Copy link</source>
+        <translation>复制链接</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>关闭</translation>
+    </message>
+    <message>
+        <source>Copied ✓</source>
+        <translation>复制</translation>
     </message>
 </context>
 <context>
@@ -5313,10 +5632,6 @@ Click Done to close.</source>
     <message>
         <source>{0} game - {1}</source>
         <translation>{0}游戏 - {1}</translation>
-    </message>
-    <message>
-        <source>Check the executables to add to the Run menu. These run from their location in the game folder - including files deployed there by mods.</source>
-        <translation>检查可执行文件以添加到运行菜单中 。 这些从他们在游戏文件夹中的位置运行——包括Mods部署在那里的文件.</translation>
     </message>
     <message>
         <source>Amethyst could not launch {0}.
@@ -5881,14 +6196,6 @@ NTFS 和 exFAT 驱动器在 Linux 上有很弱的写保证: 不干净的卸载, 
         <translation>稍后</translation>
     </message>
     <message>
-        <source>Restart to change theme?</source>
-        <translation>重启以更改主题？</translation>
-    </message>
-    <message>
-        <source>The theme change takes effect after a restart. Restart now?</source>
-        <translation>主题更改将在重启后生效。现在重启吗？</translation>
-    </message>
-    <message>
         <source>Syncing language files…</source>
         <translation>正在同步语言文件……</translation>
     </message>
@@ -6203,10 +6510,6 @@ Remove the appended-collection entry?</source>
     <message>
         <source>Redownloading {0} mod(s)…</source>
         <translation>正在重新下载 {0} mod(s)..</translation>
-    </message>
-    <message>
-        <source>Reinstall</source>
-        <translation>重新安装</translation>
     </message>
     <message>
         <source>A Quick Update is already running.</source>
@@ -6607,10 +6910,6 @@ Run Quick Update on all of them now?</source>
     <message>
         <source>Downloading {0} files ({1} remaining)…</source>
         <translation>正在下载{0}文件（还剩{1}）……</translation>
-    </message>
-    <message>
-        <source>Nexus Download</source>
-        <translation>Nexus 下载</translation>
     </message>
     <message>
         <source>Log in to Nexus first.</source>
@@ -7161,6 +7460,26 @@ Run Quick Update on all of them now?</source>
         <translation>已安装的{0}模组</translation>
     </message>
     <message>
+        <source>Download Manifest…</source>
+        <translation>下载声明..</translation>
+    </message>
+    <message>
+        <source>{0} is running - switch games when it finishes.</source>
+        <translation>{0}正在运行 - 游戏完成后切换.</translation>
+    </message>
+    <message>
+        <source>VFS</source>
+        <translation>VFS 飞行器</translation>
+    </message>
+    <message>
+        <source> ({0})</source>
+        <translation>({0}) (韩语)</translation>
+    </message>
+    <message>
+        <source>Download cancelled.</source>
+        <translation>下载已取消 .</translation>
+    </message>
+    <message>
         <source>this mod</source>
         <translation>这个模式</translation>
     </message>
@@ -7193,6 +7512,38 @@ Run Quick Update on all of them now?</source>
         <translation>无法识别找到的 {0} mod(s) .</translation>
     </message>
     <message>
+        <source>Load order reset - {0} mods ordered, {1} kept below.</source>
+        <translation>装入订单重置 - 订购了{0} Mods,{1}保存在下面.</translation>
+    </message>
+    <message>
+        <source>Load order reset - {0} mods ordered, {1} at top.</source>
+        <translation>装入命令重置 - 订购了{0} mods,上部为{1}.</translation>
+    </message>
+    <message>
+        <source>Load order reset - {0} mods ordered.</source>
+        <translation>装入命令重置 - {0} mods 已订购.</translation>
+    </message>
+    <message>
+        <source>A manifest download is already running.</source>
+        <translation>正在运行一个列表下载 .</translation>
+    </message>
+    <message>
+        <source>Downloading {0} collection manifest(s)…</source>
+        <translation>正在下载 {0} 收藏清单..</translation>
+    </message>
+    <message>
+        <source>Downloaded {0} manifest(s) to Downloads.</source>
+        <translation>已下载到下载的 {0} 列表 .</translation>
+    </message>
+    <message>
+        <source>Downloaded {0} manifest(s); {1} failed - see the log.</source>
+        <translation>已下载 {0} 运算表; {1} 失败 - 见日志 .</translation>
+    </message>
+    <message>
+        <source>Manifest download failed: {0}</source>
+        <translation>显示下载失败: {0}</translation>
+    </message>
+    <message>
         <source>Add the API path shown on mod.io's API Access page using the mod.io API Key tool.</source>
         <translation>在mod.io的API Access页面上使用mod.io API键工具添加所显示的API路径.</translation>
     </message>
@@ -7201,8 +7552,76 @@ Run Quick Update on all of them now?</source>
         <translation>mod.io更新检查被禁用,直到它的API路径被添加到mod.io API密钥工具中.</translation>
     </message>
     <message>
+        <source>Reinstall download cancelled.</source>
+        <translation>Reinstall 下载取消.</translation>
+    </message>
+    <message>
+        <source>Reinstall download</source>
+        <translation>Reinstall 下载</translation>
+    </message>
+    <message>
+        <source>Quick Update download cancelled.</source>
+        <translation>快更新下载被取消.</translation>
+    </message>
+    <message>
+        <source>Conflict data is still building.</source>
+        <translation>冲突数据仍在积累.</translation>
+    </message>
+    <message>
+        <source>{0} has no conflicting mods.</source>
+        <translation>{0}没有相冲突的模式.</translation>
+    </message>
+    <message>
+        <source>Filtered to {0} mods conflicting with {1}.</source>
+        <translation>被过滤到与{1}相冲突的{0} Mods.</translation>
+    </message>
+    <message>
+        <source>Cancel all</source>
+        <translation>全部取消</translation>
+    </message>
+    <message>
         <source>No mods to share - a code carries Nexus mods with a mod + file ID and Thunderstore mods.</source>
         <translation>不可共享的mods - 一个代码携带有mod + 文件ID和Thunderstore mods的Nexus mods.</translation>
+    </message>
+    <message>
+        <source>■  Stop</source>
+        <translation>* 停下来</translation>
+    </message>
+    <message>
+        <source>Check the executables to add to the Run menu. These run from their location in the game folder - including files deployed there by mods. Linux-native games launch through their .sh script (e.g. run_bepinex.sh).</source>
+        <translation>检查可执行文件以添加到运行菜单中 。 这些从他们在游戏文件夹中的位置运行——包括Mods部署在那里的文件. Linux-native游戏通过他们的.sh脚本发布(如run bepinex.sh).</translation>
+    </message>
+    <message>
+        <source>{0} stopped</source>
+        <translation>{0} 已停止</translation>
+    </message>
+    <message>
+        <source>■  Stopping…</source>
+        <translation>正在停止..</translation>
+    </message>
+    <message>
+        <source>Stopping {0}…</source>
+        <translation>正在停止 {0}..</translation>
+    </message>
+    <message>
+        <source>Amethyst could not launch {0}.
+
+{1}</source>
+        <translation>Amethyst无法发射{0}.
+
+第{1}号</translation>
+    </message>
+    <message>
+        <source>Extracting / Installing</source>
+        <translation>正在提取/ 安装</translation>
+    </message>
+    <message>
+        <source>No QuickAutoClean tool is available for this game.</source>
+        <translation>本游戏没有QuickAutoClean工具可用.</translation>
+    </message>
+    <message>
+        <source>Preparing extraction…</source>
+        <translation>正在准备提取..</translation>
     </message>
     <message>
         <source>Fallout 3 needs downgrading</source>
@@ -7553,6 +7972,10 @@ CET 将不会从一个连在一起的同位素加载 。 当部署模式是Symli
         <translation>打开日志文件夹</translation>
     </message>
     <message>
+        <source>Upload Log</source>
+        <translation>上传日志</translation>
+    </message>
+    <message>
         <source>Wiki</source>
         <translation>维基</translation>
     </message>
@@ -7571,6 +7994,10 @@ CET 将不会从一个连在一起的同位素加载 。 当部署模式是Symli
     <message>
         <source>♥ Endorse AMM</source>
         <translation>♥ 支持 AMM</translation>
+    </message>
+    <message>
+        <source>The log is empty.</source>
+        <translation>日志为空.</translation>
     </message>
     <message>
         <source>Could not read the changelog:
@@ -7593,6 +8020,81 @@ CET 将不会从一个连在一起的同位素加载 。 当部署模式是Symli
     <message>
         <source>Endorsing Amethyst Mod Manager…</source>
         <translation>推荐 Amethyst Mod Manager……</translation>
+    </message>
+</context>
+<context>
+    <name>Me3InstallView</name>
+    <message>
+        <source>Install me3 - {0}</source>
+        <translation>安装 me3 - {0}</translation>
+    </message>
+    <message>
+        <source>me3 mod loader</source>
+        <translation>me3 mod 加载器</translation>
+    </message>
+    <message>
+        <source>{0} mods are loaded by me3 at runtime rather than copied into the game folder, so me3 must be installed for the Play button to start a modded game.</source>
+        <translation>{0} mods在运行时被me3加载,而不是被复制到游戏文件夹中,因此me3必须被安装用于Play按钮来启动moded游戏.</translation>
+    </message>
+    <message>
+        <source>Amethyst is running as a Flatpak, so me3 has to be installed on the host system where Steam runs. Open a terminal on the host and run:</source>
+        <translation>Amethyst作为平板电脑运行,所以我3必须安装在Steam运行的宿主系统上. 在主机上打开终端并运行 :</translation>
+    </message>
+    <message>
+        <source>Download and install me3</source>
+        <translation>下载并安装 me3</translation>
+    </message>
+    <message>
+        <source>Re-check</source>
+        <translation>重新检查</translation>
+    </message>
+    <message>
+        <source>Open me3 website</source>
+        <translation>打开 me3 网站</translation>
+    </message>
+    <message>
+        <source>Log:</source>
+        <translation>日志 :</translation>
+    </message>
+    <message>
+        <source>me3 was not found. It must be installed on the host system, not inside the Flatpak sandbox.</source>
+        <translation>找不到 me3 。 它必须安装在主机系统上,而不是平板沙盒内.</translation>
+    </message>
+    <message>
+        <source>me3 is not installed.</source>
+        <translation>me3 没有安装 .</translation>
+    </message>
+    <message>
+        <source>unknown version</source>
+        <translation>未知版本</translation>
+    </message>
+    <message>
+        <source>me3 {0} found at {1}, but its Windows files are missing. Re-install to repair it.</source>
+        <translation>在{1}找到的 me3 {0},但其Windows文件已丢失. 复入所修道场.</translation>
+    </message>
+    <message>
+        <source>me3 {0} is installed at {1}.</source>
+        <translation>me3 {0}安装于{1}.</translation>
+    </message>
+    <message>
+        <source>Fetching the latest me3 release…</source>
+        <translation>正在获取最新的 me3 发布..</translation>
+    </message>
+    <message>
+        <source>Installing…</source>
+        <translation>正在安装..</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>错误: {0}</translation>
+    </message>
+    <message>
+        <source>Install finished.</source>
+        <translation>安装完成 .</translation>
+    </message>
+    <message>
+        <source>Install did not complete.</source>
+        <translation>安装未完成 .</translation>
     </message>
 </context>
 <context>
@@ -7889,6 +8391,10 @@ How would you like to handle the existing mod?</source>
         <translation>检查更新（{0}）</translation>
     </message>
     <message>
+        <source>Clear Conflict Filter</source>
+        <translation>清除冲突过滤器</translation>
+    </message>
+    <message>
         <source>Copy to profile</source>
         <translation>复制到个人资料</translation>
     </message>
@@ -7953,6 +8459,10 @@ How would you like to handle the existing mod?</source>
     <message>
         <source>Endorse selected ({0})</source>
         <translation>推荐选定内容（{0}）</translation>
+    </message>
+    <message>
+        <source>Filter Conflicts</source>
+        <translation>过滤冲突</translation>
     </message>
     <message>
         <source>'{0}' belongs to the locked profile '{1}' - switch to that profile to remove it, or unlock it.</source>
@@ -9058,6 +9568,10 @@ or an encrypted file when no keyring is available).</source>
         <translation>删除</translation>
     </message>
     <message>
+        <source>View details</source>
+        <translation>查看细节</translation>
+    </message>
+    <message>
         <source>Mods by this author</source>
         <translation>这个作者的模样</translation>
     </message>
@@ -9190,6 +9704,157 @@ Daily: {1}</source>
     </message>
 </context>
 <context>
+    <name>NexusModDetailView</name>
+    <message>
+        <source>Main files</source>
+        <translation>主要文件</translation>
+    </message>
+    <message>
+        <source>Miscellaneous files</source>
+        <translation>杂项文件</translation>
+    </message>
+    <message>
+        <source>Optional files</source>
+        <translation>可选文件</translation>
+    </message>
+    <message>
+        <source>Update files</source>
+        <translation>更新文件</translation>
+    </message>
+    <message>
+        <source>Old versions</source>
+        <translation>旧版本</translation>
+    </message>
+    <message>
+        <source>Archived files</source>
+        <translation>存档文件</translation>
+    </message>
+    <message>
+        <source>Other files</source>
+        <translation>其他文件</translation>
+    </message>
+    <message>
+        <source>← Back to mods</source>
+        <translation>回到模组</translation>
+    </message>
+    <message>
+        <source>Open on Nexus ↗</source>
+        <translation>在 Nexus 上打开</translation>
+    </message>
+    <message>
+        <source>Loading image…</source>
+        <translation>正在装入图像..</translation>
+    </message>
+    <message>
+        <source>Description</source>
+        <translation>说明</translation>
+    </message>
+    <message>
+        <source>Loading files…</source>
+        <translation>正在装入文件..</translation>
+    </message>
+    <message>
+        <source>Name</source>
+        <translation>名称</translation>
+    </message>
+    <message>
+        <source>Version</source>
+        <translation>版本</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>大小</translation>
+    </message>
+    <message>
+        <source>Uploaded</source>
+        <translation>上传</translation>
+    </message>
+    <message>
+        <source>Files</source>
+        <translation>文件</translation>
+    </message>
+    <message>
+        <source>Mod {0}</source>
+        <translation>调制 {0}</translation>
+    </message>
+    <message>
+        <source>No summary provided.</source>
+        <translation>未提供摘要.</translation>
+    </message>
+    <message>
+        <source>Unknown author</source>
+        <translation>未知的作者</translation>
+    </message>
+    <message>
+        <source>by {0}  •  {1}</source>
+        <translation>• {1}</translation>
+    </message>
+    <message>
+        <source>by {0}</source>
+        <translation>由 {0} 编辑</translation>
+    </message>
+    <message>
+        <source>Version: {0}</source>
+        <translation>版本: {0} (英语)</translation>
+    </message>
+    <message>
+        <source>Endorsements: {0}</source>
+        <translation>认可:{0}</translation>
+    </message>
+    <message>
+        <source>Downloads: {0}</source>
+        <translation>下载: {0}</translation>
+    </message>
+    <message>
+        <source>Uploaded: {0}</source>
+        <translation>上传: {0}</translation>
+    </message>
+    <message>
+        <source>Updated: {0}</source>
+        <translation>更新:{0}</translation>
+    </message>
+    <message>
+        <source>No image available</source>
+        <translation>没有可用的图像</translation>
+    </message>
+    <message>
+        <source>Description unavailable.</source>
+        <translation>无描述 .</translation>
+    </message>
+    <message>
+        <source>Could not load the file list.</source>
+        <translation>无法装入文件列表 .</translation>
+    </message>
+    <message>
+        <source>{0} ({1})</source>
+        <translation>{0} ({1}) (英语)</translation>
+    </message>
+    <message>
+        <source>{0} file(s)</source>
+        <translation>{0} 文件</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+    <message>
+        <source>Redownload</source>
+        <translation>重新下载</translation>
+    </message>
+    <message>
+        <source>Reinstall</source>
+        <translation>莱因斯托尔</translation>
+    </message>
+    <message>
+        <source>Download</source>
+        <translation>下载</translation>
+    </message>
+    <message>
+        <source>Install</source>
+        <translation>安装</translation>
+    </message>
+</context>
+<context>
     <name>NifPreview</name>
     <message>
         <source>View</source>
@@ -9204,8 +9869,8 @@ Daily: {1}</source>
         <translation>普通地图+发光</translation>
     </message>
     <message>
-        <source>Apply the mesh's normal map and its gloss mask</source>
-        <translation>应用网格的普通地图及其光泽遮罩</translation>
+        <source>Apply normal maps and material shine, including PBR roughness and metallic maps</source>
+        <translation>应用普通地图和材料闪光,包括PBR粗糙度和金属图</translation>
     </message>
     <message>
         <source>Cull backfaces</source>
@@ -9262,6 +9927,10 @@ Daily: {1}</source>
     <message>
         <source>Black</source>
         <translation>黑色</translation>
+    </message>
+    <message>
+        <source>Green screen</source>
+        <translation>绿色屏幕</translation>
     </message>
     <message>
         <source>Invert mouse</source>
@@ -9363,6 +10032,14 @@ Daily: {1}</source>
         <translation>仅显示 {0} 提供的 Meshes , 以及它们竞争的复制件</translation>
     </message>
     <message>
+        <source>⟳ Refresh</source>
+        <translation>⟳ 刷新</translation>
+    </message>
+    <message>
+        <source>Re-scan the profile after changing the modlist or load order</source>
+        <translation>更改调制列表或加载顺序后重新扫描配置文件</translation>
+    </message>
+    <message>
         <source>✕ Close</source>
         <translation>✕ 关闭</translation>
     </message>
@@ -9421,12 +10098,183 @@ Daily: {1}</source>
         <translation>通知</translation>
     </message>
     <message>
+        <source>Working</source>
+        <translation>工作</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+    <message>
         <source>No notifications</source>
         <translation>无通知</translation>
     </message>
     <message>
         <source>Clear all</source>
         <translation>清除全部</translation>
+    </message>
+</context>
+<context>
+    <name>NpcViewerView</name>
+    <message>
+        <source>View NPCs - {0} ▸ {1}</source>
+        <translation>查看 NPC - {0} {1}</translation>
+    </message>
+    <message>
+        <source>View NPCs - {0}</source>
+        <translation>查看 NPC - {0}</translation>
+    </message>
+    <message>
+        <source>Scanning…</source>
+        <translation>正在扫描..</translation>
+    </message>
+    <message>
+        <source>Search NPCs and mods…</source>
+        <translation>搜索 NPC 和 mods..</translation>
+    </message>
+    <message>
+        <source>Match an NPC name, editor id, FormID, or the mod providing the face</source>
+        <translation>匹配 NPC 名称、 编辑器 ID、 FormID 或提供面相的 mod</translation>
+    </message>
+    <message>
+        <source>Limit the list to one side of the setup</source>
+        <translation>列表仅限于设置的一面</translation>
+    </message>
+    <message>
+        <source>All sources</source>
+        <translation>所有来源</translation>
+    </message>
+    <message>
+        <source>Mods only</source>
+        <translation>只计数</translation>
+    </message>
+    <message>
+        <source>Vanilla only</source>
+        <translation>只有香草</translation>
+    </message>
+    <message>
+        <source>Whole body</source>
+        <translation>整体</translation>
+    </message>
+    <message>
+        <source>Show the NPC's body, hands and feet with the head, posed on the race's skeleton</source>
+        <translation>展示NPC的身体,手和脚与头, 摆在比赛的骨架上</translation>
+    </message>
+    <message>
+        <source>Outfit</source>
+        <translation>外观</translation>
+    </message>
+    <message>
+        <source>Dress the NPC in its default outfit. NPCs that equip from their inventory instead have none, and show bare.</source>
+        <translation>把国家警察局穿上默认的服装 从库存中装配的NPC却没有,露出裸露.</translation>
+    </message>
+    <message>
+        <source>Only overridden</source>
+        <translation>仅被推翻</translation>
+    </message>
+    <message>
+        <source>Show only NPCs whose face is provided by more than one mod</source>
+        <translation>只显示由多个 Mod 提供面孔的 NPC</translation>
+    </message>
+    <message>
+        <source>Only this mod</source>
+        <translation>只有这个模式</translation>
+    </message>
+    <message>
+        <source>Show only NPCs {0} provides a face for, alongside the versions they compete with</source>
+        <translation>只显示 NPCs {0} 提供一张面相, 与它们竞争的版本同时显示</translation>
+    </message>
+    <message>
+        <source>Save as image…</source>
+        <translation>另存为图像..</translation>
+    </message>
+    <message>
+        <source>Save four turntable angles and a face close-up as one PNG image, on a background you pick</source>
+        <translation>在您选择的背景上, 将四个倒转角和一个相貌特写保存为 PNG 图像</translation>
+    </message>
+    <message>
+        <source>⟳ Refresh</source>
+        <translation>⟳ 刷新</translation>
+    </message>
+    <message>
+        <source>Re-read the profile after changing the modlist or load order</source>
+        <translation>在修改了调用列表或加载顺序后重新读取配置文件</translation>
+    </message>
+    <message>
+        <source>✕ Close</source>
+        <translation>关闭</translation>
+    </message>
+    <message>
+        <source>Select an NPC</source>
+        <translation>选择一个 NPC</translation>
+    </message>
+    <message>
+        <source>{0} NPCs</source>
+        <translation>{0} 国家规划中心</translation>
+    </message>
+    <message>
+        <source>Reading…</source>
+        <translation>正在读取..</translation>
+    </message>
+    <message>
+        <source>Choosing background…</source>
+        <translation>选择背景..</translation>
+    </message>
+    <message>
+        <source>Light</source>
+        <translation>光线</translation>
+    </message>
+    <message>
+        <source>Grey</source>
+        <translation>灰色</translation>
+    </message>
+    <message>
+        <source>Dark</source>
+        <translation>阴暗</translation>
+    </message>
+    <message>
+        <source>Black</source>
+        <translation>黑色</translation>
+    </message>
+    <message>
+        <source>Green screen</source>
+        <translation>绿色屏幕</translation>
+    </message>
+    <message>
+        <source>Capturing…</source>
+        <translation>捕捉..</translation>
+    </message>
+    <message>
+        <source>Capture failed</source>
+        <translation>抓取失败</translation>
+    </message>
+    <message>
+        <source>Choose location…</source>
+        <translation>选择位置..</translation>
+    </message>
+    <message>
+        <source>Save NPC image</source>
+        <translation>保存 NPC 图像</translation>
+    </message>
+    <message>
+        <source>PNG images (*.png)</source>
+        <translation>PNG 图像 (*. png)</translation>
+    </message>
+    <message>
+        <source>All files</source>
+        <translation>所有文件</translation>
+    </message>
+    <message>
+        <source>Saved!</source>
+        <translation>救出来了!</translation>
+    </message>
+    <message>
+        <source>Save failed</source>
+        <translation>保存失败</translation>
+    </message>
+    <message>
+        <source>could not be read</source>
+        <translation>无法读取</translation>
     </message>
 </context>
 <context>
@@ -9661,8 +10509,16 @@ Please restart the wizard and download PGPatcher first.</source>
         <translation>准备 PGPatcher 的酒前缀..</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam, then reopen this wizard.</source>
-        <translation>找不到质子 '{0}' - 检查它是否安装在Steam, 然后重新打开此向导 .</translation>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>无法解决游戏自身前缀的质子版本——一次推出游戏,或者选择不同的前缀选项.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus, then reopen this wizard.</source>
+        <translation>找不到质子 '{0}' - 检查它是否安装在Steam, Heroic 或质子Plus中, 然后重新打开此向导 .</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>找不到质子 '{0}' - 检查它是否安装在Steam, Heroic 或质子Plus上.</translation>
     </message>
     <message>
         <source>d3dcompiler_47 already installed - skipping.</source>
@@ -9723,10 +10579,6 @@ Please restart the wizard and download PGPatcher first.</source>
     <message>
         <source>{0} was not found.</source>
         <translation>{0} 未找到。</translation>
-    </message>
-    <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
-        <translation>找不到质子 '{0}' - 检查是否安装在Steam中 .</translation>
     </message>
     <message>
         <source>PGPatcher is running.
@@ -9820,8 +10672,12 @@ Install Pandora Behaviour Engine+ as a mod, then reopen this wizard.</source>
         <translation>准备 Pandora 的酒前缀..</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam, then reopen this wizard.</source>
-        <translation>找不到质子 '{0}' - 检查它是否安装在Steam, 然后重新打开此向导 .</translation>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>无法解决游戏自身前缀的质子版本——一次推出游戏,或者选择不同的前缀选项.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus, then reopen this wizard.</source>
+        <translation>找不到质子 '{0}' - 检查它是否安装在Steam, Heroic 或质子Plus中, 然后重新打开此向导 .</translation>
     </message>
     <message>
         <source>.NET 10 already installed - skipping.</source>
@@ -10259,6 +11115,10 @@ Drag a plugin from the left pane to add a rule.</source>
         <translation>重新检查</translation>
     </message>
     <message>
+        <source>Fix All</source>
+        <translation>全部修复</translation>
+    </message>
+    <message>
         <source>Fix</source>
         <translation>修补</translation>
     </message>
@@ -10307,6 +11167,26 @@ Drag a plugin from the left pane to add a rule.</source>
         <translation>前缀注册中的游戏路径</translation>
     </message>
     <message>
+        <source>d3dx9 (all legacy DirectX 9 runtimes)</source>
+        <translation>d3dx9(所有遗留 DirectX 9 运行时间)</translation>
+    </message>
+    <message>
+        <source>d3dx10 (all legacy DirectX 10 runtimes)</source>
+        <translation>d3dx10(所有遗留 DirectX 10 运行时间)</translation>
+    </message>
+    <message>
+        <source>quartz (DirectShow runtime)</source>
+        <translation>石英( DirectShow 运行时间)</translation>
+    </message>
+    <message>
+        <source>dx8vb (DirectX 8 Visual Basic runtime)</source>
+        <translation>dx8vb (DirectX 8 视觉基本运行时间)</translation>
+    </message>
+    <message>
+        <source>DXVK (Direct3D → Vulkan)</source>
+        <translation>DXVK (Direct3D → Vulkan) (德语)</translation>
+    </message>
+    <message>
         <source>No prefix configured</source>
         <translation>没有配置前缀</translation>
     </message>
@@ -10333,6 +11213,14 @@ Drag a plugin from the left pane to add a rule.</source>
     <message>
         <source>Another Proton installer is running - try again shortly.</source>
         <translation>另一个质子安装器正在运行 - 很快再试一次.</translation>
+    </message>
+    <message>
+        <source>Fixing {0} item(s)… (details in the log)</source>
+        <translation>修复 {0} 项... (详细记录)</translation>
+    </message>
+    <message>
+        <source>Fixing {0} prefix item(s)</source>
+        <translation>修复 {0} 前缀项目</translation>
     </message>
     <message>
         <source>A fix is running - please wait for it to finish.</source>
@@ -10666,6 +11554,18 @@ Install a Proton version in Steam (or with Heroic's Wine Manager), then reopen t
         <translation>{0}以自有的"酒"前缀运行,存储在其前缀旁边并独立于游戏前缀,因此可以选择任何质子版本而不影响游戏.
 
 .</translation>
+    </message>
+    <message>
+        <source>Prefer discrete GPU (hybrid systems)</source>
+        <translation>偏好离散GPU(hybrid systems)</translation>
+    </message>
+    <message>
+        <source>Expose the discrete GPU as adapter 0. May use more power.</source>
+        <translation>将离散的GPU曝光为适配器 0. 可能使用更多的权力.</translation>
+    </message>
+    <message>
+        <source>Uses the discrete GPU for texconv; falls back to CPU if unavailable.</source>
+        <translation>将离散的 GPU 用于 texconv; 如果无法使用, 返回到 CPU .</translation>
     </message>
     <message>
         <source>Use shared prefix</source>
@@ -11135,6 +12035,101 @@ Proton 前缀：{2}</translation>
     <message>
         <source>Registry write finished with errors - see log above.</source>
         <translation>登记书写完成时有出错----见上文日志.</translation>
+    </message>
+</context>
+<context>
+    <name>RegulationMergeView</name>
+    <message>
+        <source>Merge regulation.bin - {0}</source>
+        <translation>合并管理.bin - {0}</translation>
+    </message>
+    <message>
+        <source>Step 1: Install WitchyBND</source>
+        <translation>步骤1:安装巫术BND</translation>
+    </message>
+    <message>
+        <source>Only one regulation.bin can be active, so mods that ship one override each other completely. This installs WitchyBND's native Linux command-line build into the game's Applications folder; no Proton prefix or Windows .NET runtime is required.</source>
+        <translation>只有一个规范,Bin可以活动, 所以调制一个船完全超越对方。 这安装了WitchyBND本地Linux命令行构建到游戏的应用程序文件夹;不需要质子前缀或Windows.NET运行时间.</translation>
+    </message>
+    <message>
+        <source>Download and install</source>
+        <translation>下载和安装</translation>
+    </message>
+    <message>
+        <source>Step 2: Merge</source>
+        <translation>第2步:合并</translation>
+    </message>
+    <message>
+        <source>Each regulation is compared with the installed game at field level, then combined in mod priority order into the '{0}' mod. Keep the contributing mods enabled so their other files remain active; enable '{0}' above them afterwards.</source>
+        <translation>每个规范都与已安装的场级游戏相提并论,再以mod优先级顺序组合为"{0}"mod. 继续启用贡献的 Mods , 使其其他文件继续激活; 之后启用“ {0} ” .</translation>
+    </message>
+    <message>
+        <source>Mods contributing param edits (highest priority first):</source>
+        <translation>提供参数编辑的模块( 优先级最高):</translation>
+    </message>
+    <message>
+        <source>Merge into one mod</source>
+        <translation>合并到一个模式</translation>
+    </message>
+    <message>
+        <source>Log:</source>
+        <translation>日志 :</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>错误: {0}</translation>
+    </message>
+    <message>
+        <source>Could not read the mod list: {0}</source>
+        <translation>无法读取 mod 列表: {0}</translation>
+    </message>
+    <message>
+        <source>{0} whole-row CSV(s)</source>
+        <translation>{0} 整行CSV(s)</translation>
+    </message>
+    <message>
+        <source>  (none)</source>
+        <translation>(无)</translation>
+    </message>
+    <message>
+        <source>{0} mods ship param edits; only one regulation would survive without merging.</source>
+        <translation>{0} Mods ship param 编辑;没有合并,只有一条法规能活下来.</translation>
+    </message>
+    <message>
+        <source>Only one mod ships param edits, so nothing conflicts.</source>
+        <translation>只有一个mod ship param编辑,所以没有冲突.</translation>
+    </message>
+    <message>
+        <source>No enabled mod ships param edits.</source>
+        <translation>没有启用 mod ship 参数编辑 .</translation>
+    </message>
+    <message>
+        <source>Merging ...</source>
+        <translation>合并...</translation>
+    </message>
+    <message>
+        <source>WitchyBND is not installed.</source>
+        <translation>WitchyBND 没有安装.</translation>
+    </message>
+    <message>
+        <source>Could not find the game's own regulation.bin. Restore the game before merging so the vanilla file is in place.</source>
+        <translation>找不到游戏本身的调控. bin. 在合并之前恢复游戏, 因此香草文件已经到位 .</translation>
+    </message>
+    <message>
+        <source>Nothing to merge.</source>
+        <translation>没什么好合并的.</translation>
+    </message>
+    <message>
+        <source>Merged into '{0}' with {1} resolved overlap(s). Enable it above the contributing mods, then deploy.</source>
+        <translation>与 {1} 解析重叠后合并为" {0}" 。 启用在贡献模式上方, 然后部署 .</translation>
+    </message>
+    <message>
+        <source>Merged and validated into '{0}'. Enable it above the contributing mods, keep those mods enabled, then deploy.</source>
+        <translation>合并并验证为"{0}". 启用在贡献的 Mods 上方, 继续启用这些 Mods , 然后部署 .</translation>
+    </message>
+    <message>
+        <source>Merge failed: {0}</source>
+        <translation>合并失败: {0}</translation>
     </message>
 </context>
 <context>
@@ -11862,8 +12857,16 @@ or use Browse to select it manually.</source>
         <translation>准备脚本兼并的葡萄酒前缀..</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam, then reopen this wizard.</source>
-        <translation>找不到质子 '{0}' - 检查它是否安装在Steam, 然后重新打开此向导 .</translation>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>无法解决游戏自身前缀的质子版本——一次推出游戏,或者选择不同的前缀选项.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus, then reopen this wizard.</source>
+        <translation>找不到质子 '{0}' - 检查它是否安装在Steam, Heroic 或质子Plus中, 然后重新打开此向导 .</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>找不到质子 '{0}' - 检查它是否安装在Steam, Heroic 或质子Plus上.</translation>
     </message>
     <message>
         <source>.NET 8 already installed - skipping.</source>
@@ -11926,10 +12929,6 @@ Please restart the wizard and install Script Merger first.</source>
 请重新启动向导，并先安装 Script Merger。</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
-        <translation>找不到质子 '{0}' - 检查是否安装在Steam中 .</translation>
-    </message>
-    <message>
         <source>WitcherScriptMerger is running.
 Merge your conflicts, then close it and click Done.</source>
         <translation>WitcherScriptMerger正在运行中.
@@ -11951,8 +12950,8 @@ Merge your conflicts, then close it and click Done.</source>
 <context>
     <name>SelectorButton</name>
     <message>
-        <source>{0}{1}</source>
-        <translation>{0}{1}</translation>
+        <source>{0}{1}{2}</source>
+        <translation>{0}{1}{2} (英语)</translation>
     </message>
     <message>
         <source>{0}   ✓ deployed</source>
@@ -12074,10 +13073,6 @@ Merge your conflicts, then close it and click Done.</source>
     <message>
         <source>Settings</source>
         <translation>设置</translation>
-    </message>
-    <message>
-        <source>Changes take effect after restart.</source>
-        <translation>更改将在重启后生效。</translation>
     </message>
     <message>
         <source>Browse</source>
@@ -12204,10 +13199,6 @@ Merge your conflicts, then close it and click Done.</source>
         <translation>运行低 CPU 和磁盘优先级的提取程序,使其屈服于其他应用程序而不是减速. 采掘速度不受系统闲置的影响.</translation>
     </message>
     <message>
-        <source>Caches</source>
-        <translation>缓存</translation>
-    </message>
-    <message>
         <source>Manage Caches…</source>
         <translation>管理缓存……</translation>
     </message>
@@ -12266,6 +13257,10 @@ Merge your conflicts, then close it and click Done.</source>
     <message>
         <source>Hide Ko-Fi button</source>
         <translation>隐藏 Ko-Fi 按钮</translation>
+    </message>
+    <message>
+        <source>Language and UI scale changes take effect after restart.</source>
+        <translation>语言和UI比例变化在重启后生效.</translation>
     </message>
     <message>
         <source>Hide the Ko-Fi donation button in the status bar.</source>
@@ -12440,12 +13435,128 @@ flatpak 远程添加-user amethyst https://chrisdkn.github.io/ Amethyst-Mod-Mana
         <translation>编辑环境变量..</translation>
     </message>
     <message>
+        <source>Appearance</source>
+        <translation>外观</translation>
+    </message>
+    <message>
+        <source>About</source>
+        <translation>关于</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>关闭</translation>
+    </message>
+    <message>
+        <source>Reset dismissed prompts…</source>
+        <translation>重置已删除的提示..</translation>
+    </message>
+    <message>
+        <source>Bring back every notice you hid by ticking "Don't show this again" - the launcher handoff notice, the Windows filesystem warning and the rest.</source>
+        <translation>将您隐藏的每一个通知都带回, 选中“ 不要再次显示” —— 发射装置的交接通知, Windows 文件系统警告和其余部分 .</translation>
+    </message>
+    <message>
+        <source>Nothing to reset</source>
+        <translation>没有要重置的</translation>
+    </message>
+    <message>
+        <source>No prompts are currently hidden.</source>
+        <translation>目前没有隐藏提示 .</translation>
+    </message>
+    <message>
+        <source>{0} hidden prompt will show again.</source>
+        <translation>{0}隐藏提示会再次显示.</translation>
+    </message>
+    <message>
+        <source>{0} hidden prompts will show again.</source>
+        <translation>{0}隐藏提示会再次显示.</translation>
+    </message>
+    <message>
+        <source>Prompts reset</source>
+        <translation>提示重设</translation>
+    </message>
+    <message>
+        <source>{0} prompt is hidden. It will start showing again.</source>
+        <translation>{0} 提示被隐藏. 它会重新开始显示.</translation>
+    </message>
+    <message>
+        <source>{0} prompts are hidden. They will start showing again.</source>
+        <translation>{0}提示被隐藏. 他们将再次出现.</translation>
+    </message>
+    <message>
+        <source>Reset dismissed prompts?</source>
+        <translation>重置解职提示?</translation>
+    </message>
+    <message>
+        <source>Reset</source>
+        <translation>重设</translation>
+    </message>
+    <message>
         <source>{0} set: {1}</source>
         <translation>{0}套装:{1}</translation>
     </message>
     <message>
         <source>None set</source>
         <translation>无设置</translation>
+    </message>
+    <message>
+        <source>System Information</source>
+        <translation>系统信息</translation>
+    </message>
+    <message>
+        <source>App version</source>
+        <translation>App 版本</translation>
+    </message>
+    <message>
+        <source>OS</source>
+        <translation>监督办</translation>
+    </message>
+    <message>
+        <source>Distribution</source>
+        <translation>分发</translation>
+    </message>
+    <message>
+        <source>Kernel</source>
+        <translation>内核</translation>
+    </message>
+    <message>
+        <source>Python</source>
+        <translation>Py</translation>
+    </message>
+    <message>
+        <source>Qt</source>
+        <translation>数量t</translation>
+    </message>
+    <message>
+        <source>Run mode</source>
+        <translation>运行模式</translation>
+    </message>
+    <message>
+        <source>Package</source>
+        <translation>软件包</translation>
+    </message>
+    <message>
+        <source>Desktop</source>
+        <translation>桌面</translation>
+    </message>
+    <message>
+        <source>Session</source>
+        <translation>会议</translation>
+    </message>
+    <message>
+        <source>OpenGL</source>
+        <translation>打开GL</translation>
+    </message>
+    <message>
+        <source>Env overrides</source>
+        <translation>信封覆盖</translation>
+    </message>
+    <message>
+        <source>Copy to clipboard</source>
+        <translation>复制到剪贴板</translation>
+    </message>
+    <message>
+        <source>System information copied.</source>
+        <translation>系统信息被复制.</translation>
     </message>
     <message>
         <source>Failed to save setting: {0}</source>
@@ -12463,6 +13574,14 @@ flatpak 远程添加-user amethyst https://chrisdkn.github.io/ Amethyst-Mod-Mana
         <translation>将此代码分享给他人，向他们发送您的加载顺序（{0} {1}）。他们可以通过“导入代码”功能将其添加进去。</translation>
     </message>
     <message>
+        <source>Too long to paste? Get a short link instead - this uploads the code to {0}, where anyone with the link can read it. The link stops working {1}.</source>
+        <translation>粘太久了吗? 获取一个简短的链接 - 这将代码上传到 {0}, 任何有链接的人都可以读取. 链接停止工作 {1}.</translation>
+    </message>
+    <message>
+        <source>Get link</source>
+        <translation>获取链接</translation>
+    </message>
+    <message>
         <source>Close</source>
         <translation>关闭</translation>
     </message>
@@ -12474,6 +13593,22 @@ flatpak 远程添加-user amethyst https://chrisdkn.github.io/ Amethyst-Mod-Mana
         <source>Copied ✓</source>
         <translation>已复制 ✓</translation>
     </message>
+    <message>
+        <source>Uploading…</source>
+        <translation>正在上传..</translation>
+    </message>
+    <message>
+        <source>Could not get a link ({0}). The code above still works - copy and send that instead.</source>
+        <translation>无法获得链接( {0}). 上面的代码仍然有效 - 复制并发送它代替.</translation>
+    </message>
+    <message>
+        <source>Link ready</source>
+        <translation>链接准备</translation>
+    </message>
+    <message>
+        <source>Anyone with this link can import your load order. Paste it into Import code.</source>
+        <translation>拥有此链接的任何人都可以导入您的负载顺序 。 把它粘入导入代码 .</translation>
+    </message>
 </context>
 <context>
     <name>ShareCodeImportOverlay</name>
@@ -12482,8 +13617,8 @@ flatpak 远程添加-user amethyst https://chrisdkn.github.io/ Amethyst-Mod-Mana
         <translation>导入代码</translation>
     </message>
     <message>
-        <source>Paste a share code below to build a new profile from someone else's load order.</source>
-        <translation>在下方粘贴分享代码，即可根据他人的加载顺序创建一个新配置文件。</translation>
+        <source>Paste a share code below to build a new profile from someone else's load order. A link to a code works too.</source>
+        <translation>在下面粘贴一个共享代码来从别人的负载顺序构建一个新的配置文件. 连接到密码也行.</translation>
     </message>
     <message>
         <source>Paste from clipboard</source>
@@ -12498,6 +13633,10 @@ flatpak 远程添加-user amethyst https://chrisdkn.github.io/ Amethyst-Mod-Mana
         <translation>导入</translation>
     </message>
     <message>
+        <source>A link - press Fetch to download the code from it.</source>
+        <translation>链接 - 按 Fetch 从中下载代码 .</translation>
+    </message>
+    <message>
         <source>Not a valid share code.</source>
         <translation>无效的共享代码 .</translation>
     </message>
@@ -12508,6 +13647,14 @@ flatpak 远程添加-user amethyst https://chrisdkn.github.io/ Amethyst-Mod-Mana
     <message>
         <source>exported {0}</source>
         <translation>导出 {0}</translation>
+    </message>
+    <message>
+        <source>Fetch</source>
+        <translation>获取</translation>
+    </message>
+    <message>
+        <source>Downloading…</source>
+        <translation>正在下载..</translation>
     </message>
 </context>
 <context>
@@ -12767,6 +13914,121 @@ Use Browse to select a manually downloaded archive.</source>
     </message>
 </context>
 <context>
+    <name>SpecialKView</name>
+    <message>
+        <source>Install Special K - {0}</source>
+        <translation>安装特殊的 K - {0}</translation>
+    </message>
+    <message>
+        <source>Proxy DLL name</source>
+        <translation>代理 DLL 名称</translation>
+    </message>
+    <message>
+        <source>{0} is renamed to this. dxgi.dll is correct for NieR: Automata; pick another only if a different mod already uses that name.</source>
+        <translation>{0}更名为此. dxgi.dll对 NieR: Automata 是正确的;只有在不同的mod已经使用过这个名称时,才选择另一个.</translation>
+    </message>
+    <message>
+        <source>Install destination</source>
+        <translation>安装目的地</translation>
+    </message>
+    <message>
+        <source>As a managed mod (root-flagged)</source>
+        <translation>作为管理模式( root- fllag)</translation>
+    </message>
+    <message>
+        <source>Root_Folder (staging)</source>
+        <translation>Root folder (竖起)</translation>
+    </message>
+    <message>
+        <source>Game folder (restores to vanilla first)</source>
+        <translation>游戏文件夹( 先恢复到香草)</translation>
+    </message>
+    <message>
+        <source>Step 1: Download Special K</source>
+        <translation>步骤1: 下载特殊 K</translation>
+    </message>
+    <message>
+        <source>Checking for the latest Special K release…</source>
+        <translation>正在检查最新的 Special K 版本..</translation>
+    </message>
+    <message>
+        <source>Browse…</source>
+        <translation>浏览..</translation>
+    </message>
+    <message>
+        <source>Next →</source>
+        <translation>下一个</translation>
+    </message>
+    <message>
+        <source>Fetching latest Special K release from GitHub…</source>
+        <translation>从 GitHub 获取最新的 Special K 版本..</translation>
+    </message>
+    <message>
+        <source>Downloading Special K {0}…</source>
+        <translation>正在下载特殊的 K {0}..</translation>
+    </message>
+    <message>
+        <source>Downloaded Special K {0}: {1}
+Check the options below, then click Next.</source>
+        <translation>已下载特殊 K {0}: {1}
+检查下面的选项,然后单击 Next.</translation>
+    </message>
+    <message>
+        <source>Download failed: {0}
+
+Use Browse to select a manually downloaded archive.</source>
+        <translation>下载失败: {0}
+
+使用浏览来选择手动下载的归档 .</translation>
+    </message>
+    <message>
+        <source>Select the Special K archive</source>
+        <translation>选择特殊的 K 归档</translation>
+    </message>
+    <message>
+        <source>Selected: {0}
+Check the options below, then click Next.</source>
+        <translation>选中: {0}
+检查下面的选项,然后单击 Next.</translation>
+    </message>
+    <message>
+        <source>Step 2: Install Special K</source>
+        <translation>步骤2: 安装特殊的 K</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>完成</translation>
+    </message>
+    <message>
+        <source>Installing Special K…</source>
+        <translation>正在安装特殊的 K..</translation>
+    </message>
+    <message>
+        <source>Extracting {0}…</source>
+        <translation>正在提取 {0}..</translation>
+    </message>
+    <message>
+        <source>
+
+Deploy your mods to activate it.</source>
+        <translation>调用你的模型启动它.</translation>
+    </message>
+    <message>
+        <source>Special K installed successfully!
+{0} installed as {1} into the {2}.{3}
+
+Click Done to close.</source>
+        <translation>特别 K 成功安装 !
+{0}作为{1}被安装入{2}. {3}
+
+点击完成以关闭 .</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>错误: {0}</translation>
+    </message>
+</context>
+<context>
     <name>Splash</name>
     <message>
         <source>Starting Amethyst…</source>
@@ -12794,6 +14056,21 @@ Use Browse to select a manually downloaded archive.</source>
     <message>
         <source>Add</source>
         <translation>添加</translation>
+    </message>
+</context>
+<context>
+    <name>SteamLaunchCommandOverlay</name>
+    <message>
+        <source>Open Properties → General and paste this into Launch Options.</source>
+        <translation>打开属性 = 常规并粘贴到启动选项中 .</translation>
+    </message>
+    <message>
+        <source>Launch Options</source>
+        <translation>启动选项</translation>
+    </message>
+    <message>
+        <source>Set this once. It deploys and launches whichever profile was last deployed in Amethyst.</source>
+        <translation>设此一回. 它部署和发射的装备,无论上次部署在阿梅西斯特.</translation>
     </message>
 </context>
 <context>
@@ -13993,6 +15270,286 @@ or use Browse to select it manually.</source>
         <translation>复选框填充( 已选中)</translation>
     </message>
     <message>
+        <source>Surfaces</source>
+        <translation>表面</translation>
+    </message>
+    <message>
+        <source>Window background</source>
+        <translation>窗口背景</translation>
+    </message>
+    <message>
+        <source>Panels and dialogs</source>
+        <translation>面板和对话框</translation>
+    </message>
+    <message>
+        <source>Toolbars and headers</source>
+        <translation>工具栏和页眉</translation>
+    </message>
+    <message>
+        <source>List / tree background</source>
+        <translation>列表/ 树的背景</translation>
+    </message>
+    <message>
+        <source>List row background</source>
+        <translation>列表行背景</translation>
+    </message>
+    <message>
+        <source>Secondary text</source>
+        <translation>副文本</translation>
+    </message>
+    <message>
+        <source>Accent and selection</source>
+        <translation>百分比和选择</translation>
+    </message>
+    <message>
+        <source>Accent, links and controls</source>
+        <translation>百分率、链接和控制</translation>
+    </message>
+    <message>
+        <source>Selected rows</source>
+        <translation>所选行</translation>
+    </message>
+    <message>
+        <source>Borders and dividers</source>
+        <translation>边界和分界线</translation>
+    </message>
+    <message>
+        <source>Action buttons</source>
+        <translation>动作按钮</translation>
+    </message>
+    <message>
+        <source>Confirm / install</source>
+        <translation>确认/ 安装</translation>
+    </message>
+    <message>
+        <source>Delete / remove</source>
+        <translation>删除/ 删除</translation>
+    </message>
+    <message>
+        <source>Warning / update</source>
+        <translation>警告/ 更新</translation>
+    </message>
+    <message>
+        <source>Info / select</source>
+        <translation>信息/ 选择</translation>
+    </message>
+    <message>
+        <source>Secondary action</source>
+        <translation>次要行动</translation>
+    </message>
+    <message>
+        <source>The main layers of the app, from the window to list rows.</source>
+        <translation>应用程序的主层,从窗口到列表行.</translation>
+    </message>
+    <message>
+        <source>General text plus the three semantic status colours.</source>
+        <translation>一般文字加上三种语义状态颜色.</translation>
+    </message>
+    <message>
+        <source>Brand colour, selected rows, focus controls and dividers.</source>
+        <translation>品牌颜色,所选行,焦点控制和分隔符.</translation>
+    </message>
+    <message>
+        <source>Button colours are shared by actions with the same meaning.</source>
+        <translation>按钮颜色被具有相同含义的动作所共享.</translation>
+    </message>
+    <message>
+        <source>Surfaces and rows</source>
+        <translation>表面和行数</translation>
+    </message>
+    <message>
+        <source>Status text</source>
+        <translation>状态文本</translation>
+    </message>
+    <message>
+        <source>Accent and links</source>
+        <translation>坐标和链接</translation>
+    </message>
+    <message>
+        <source>Selection and focus</source>
+        <translation>选择和重点</translation>
+    </message>
+    <message>
+        <source>Borders and separators</source>
+        <translation>边框和分隔器</translation>
+    </message>
+    <message>
+        <source>Danger buttons</source>
+        <translation>危险按钮</translation>
+    </message>
+    <message>
+        <source>Success buttons</source>
+        <translation>成功按钮</translation>
+    </message>
+    <message>
+        <source>Warning buttons</source>
+        <translation>警告按钮</translation>
+    </message>
+    <message>
+        <source>Information buttons</source>
+        <translation>信息按钮</translation>
+    </message>
+    <message>
+        <source>Secondary buttons</source>
+        <translation>次要按钮</translation>
+    </message>
+    <message>
+        <source>Special accent buttons</source>
+        <translation>特殊口音按钮</translation>
+    </message>
+    <message>
+        <source>Scrollbars and checkboxes</source>
+        <translation>滚动栏和复选框</translation>
+    </message>
+    <message>
+        <source>Icons and small highlights</source>
+        <translation>图标和小亮点</translation>
+    </message>
+    <message>
+        <source>Tinted content rows</source>
+        <translation>线性内容行</translation>
+    </message>
+    <message>
+        <source>Required and optional mods</source>
+        <translation>所需和可选模式</translation>
+    </message>
+    <message>
+        <source>Notifications and queues</source>
+        <translation>通知和队列</translation>
+    </message>
+    <message>
+        <source>Plugin cycle</source>
+        <translation>插件循环</translation>
+    </message>
+    <message>
+        <source>File conflicts</source>
+        <translation>文件冲突</translation>
+    </message>
+    <message>
+        <source>Conflict and requirement highlights</source>
+        <translation>冲突与需求重点</translation>
+    </message>
+    <message>
+        <source>Framework status</source>
+        <translation>框架状况</translation>
+    </message>
+    <message>
+        <source>Mod list separator bands</source>
+        <translation>模式列表分隔带</translation>
+    </message>
+    <message>
+        <source>Alternate list row</source>
+        <translation>备选列表行</translation>
+    </message>
+    <message>
+        <source>Hovered list row</source>
+        <translation>隐藏列表行</translation>
+    </message>
+    <message>
+        <source>Card background</source>
+        <translation>纸牌背景</translation>
+    </message>
+    <message>
+        <source>Text on accent / selection</source>
+        <translation>关于重音/ 选择的文本</translation>
+    </message>
+    <message>
+        <source>Brand accent, contrasting text, hyperlinks and control glyphs.</source>
+        <translation>品牌口音,对比文本,超链接和控制格言.</translation>
+    </message>
+    <message>
+        <source>Separator row background</source>
+        <translation>分隔行背景</translation>
+    </message>
+    <message>
+        <source>Separator row text</source>
+        <translation>分隔行文本</translation>
+    </message>
+    <message>
+        <source>Window, panel, card, list and row backgrounds.</source>
+        <translation>窗口、面板、卡片、列表和行背景.</translation>
+    </message>
+    <message>
+        <source>Primary, secondary and faint text used throughout the app.</source>
+        <translation>整个应用程序使用的初等、二级和微弱文字.</translation>
+    </message>
+    <message>
+        <source>Success, warning and error messages shown on neutral backgrounds.</source>
+        <translation>在中性背景上显示成功、警告和错误消息 .</translation>
+    </message>
+    <message>
+        <source>Hover, selected-row and drag-selection colours.</source>
+        <translation>Hover, 所选行和拖选颜色 .</translation>
+    </message>
+    <message>
+        <source>Frames, divider lines and separator rows.</source>
+        <translation>框架、分线和分隔行.</translation>
+    </message>
+    <message>
+        <source>Delete, remove and other destructive actions.</source>
+        <translation>删除、删除和其他破坏性行动.</translation>
+    </message>
+    <message>
+        <source>Install, confirm, Done and Play actions.</source>
+        <translation>安装、 确认、 完成并播放动作 .</translation>
+    </message>
+    <message>
+        <source>Update, reinstall and cautionary actions.</source>
+        <translation>更新、重新安装和提醒行动.</translation>
+    </message>
+    <message>
+        <source>Select, Groups, Plugin Rules and similar actions.</source>
+        <translation>选择、组合、插件规则和类似动作.</translation>
+    </message>
+    <message>
+        <source>View and other low-emphasis actions.</source>
+        <translation>视图和其他低亮动作.</translation>
+    </message>
+    <message>
+        <source>Special-purpose accent buttons such as Ko-Fi.</source>
+        <translation>Ko-Fi等特殊用途口音按钮.</translation>
+    </message>
+    <message>
+        <source>Scrollbar track/thumb and checked-box fill.</source>
+        <translation>滚动栏音轨/thumb和复选框填充 .</translation>
+    </message>
+    <message>
+        <source>Shared tones used by icons, flags and file-tree markers.</source>
+        <translation>共享图标、旗帜和文件树标记所用的音量.</translation>
+    </message>
+    <message>
+        <source>Coloured information rows and their foreground text.</source>
+        <translation>彩色信息行及其前方文本.</translation>
+    </message>
+    <message>
+        <source>Required/optional indicators in collection views.</source>
+        <translation>收集视图中的必要/可选指标.</translation>
+    </message>
+    <message>
+        <source>Error badges, notifications and queued states.</source>
+        <translation>错误的徽章、通知和队列状态 .</translation>
+    </message>
+    <message>
+        <source>Cycle status rows and before/after rule keywords.</source>
+        <translation>循环状态行和规则关键字前/后.</translation>
+    </message>
+    <message>
+        <source>Winning, overridden, inactive and anchor files.</source>
+        <translation>胜出,覆被,不活动并锁定文件.</translation>
+    </message>
+    <message>
+        <source>Related mod rows highlighted across Mods, Plugins and Data.</source>
+        <translation>在 Mods 、 插件和 Data 中突出显示相关的模式行 .</translation>
+    </message>
+    <message>
+        <source>Installed, staged, disabled and missing framework banners.</source>
+        <translation>已安装、已安装、已安装、已禁用和缺失框架横幅.</translation>
+    </message>
+    <message>
+        <source>Pinned Overwrite and Root Folder rows.</source>
+        <translation>Pinned 覆盖和根文件夹行.</translation>
+    </message>
+    <message>
         <source>Window, panels, list rows and input fields - the app's surfaces.</source>
         <translation>窗口,面板,列表行和输入字段 - 该应用的表面.</translation>
     </message>
@@ -14081,8 +15638,8 @@ or use Browse to select it manually.</source>
         <translation>从以下内容开始：</translation>
     </message>
     <message>
-        <source>Advanced (show all colours)</source>
-        <translation>高级（显示所有颜色）</translation>
+        <source>Fine tune app-specific colours</source>
+        <translation>精细调谐的应用特定颜色</translation>
     </message>
     <message>
         <source>Save</source>
@@ -14097,10 +15654,6 @@ or use Browse to select it manually.</source>
         <translation>删除</translation>
     </message>
     <message>
-        <source>Restart to apply</source>
-        <translation>重新启动以应用更改</translation>
-    </message>
-    <message>
         <source>✕ Close</source>
         <translation>✕ 关闭</translation>
     </message>
@@ -14109,8 +15662,8 @@ or use Browse to select it manually.</source>
         <translation>另存为新文件…</translation>
     </message>
     <message>
-        <source>Editing a base colour adjusts its hover/variants automatically. Tick Advanced to edit every colour individually. Use "Restart to apply" to save your theme and see it across the whole app.</source>
-        <translation>编辑基础颜色会自动调整其悬停效果/变体。勾选“高级”选项可单独编辑每种颜色。点击“重新启动以应用”可保存主题，并在整个应用中查看效果。</translation>
+        <source>Related colours are linked automatically. Enable fine tuning to adjust individual app-specific colours. Changes preview across the open app; save the theme to keep them.</source>
+        <translation>相关的颜色会自动链接. 启用微调以调整单个应用特定颜色. 更改整个开放应用程序的预览; 保存主题以保留它们 .</translation>
     </message>
     <message>
         <source>Pick colour: {0}</source>
@@ -14129,10 +15682,6 @@ or use Browse to select it manually.</source>
         <translation>保存失败</translation>
     </message>
     <message>
-        <source>{0} (edited)</source>
-        <translation>{0} （已编辑）</translation>
-    </message>
-    <message>
         <source>Delete theme?</source>
         <translation>删除主题？</translation>
     </message>
@@ -14144,8 +15693,22 @@ or use Browse to select it manually.</source>
 <context>
     <name>ThemePreviewPanel</name>
     <message>
-        <source>Preview - approximate; use "Restart to apply" to see the theme across the whole app.</source>
-        <translation>预览 - 大致; 使用"重新启动应用"来查看整个应用程序的主题.</translation>
+        <source>Preview - changes are also applied temporarily across the open app. Click any item to reveal the settings that colour it.</source>
+        <translation>预览 - 更改也暂时被应用在开放的应用程序上. 单击任意项目以显示其颜色的设置.</translation>
+    </message>
+    <message>
+        <source>Click to reveal theme settings:
+{0}</source>
+        <translation>点击以显示主题设置 :
+第{0}号</translation>
+    </message>
+    <message>
+        <source>{0} uses: {1}</source>
+        <translation>{0}用途: {1}</translation>
+    </message>
+    <message>
+        <source>{0} section</source>
+        <translation>{0} 节</translation>
     </message>
     <message>
         <source>Header &amp; tabs</source>
@@ -14168,6 +15731,10 @@ or use Browse to select it manually.</source>
         <translation>游戏</translation>
     </message>
     <message>
+        <source>Header background</source>
+        <translation>页眉背景</translation>
+    </message>
+    <message>
         <source>Mods</source>
         <translation>Mods</translation>
     </message>
@@ -14178,6 +15745,10 @@ or use Browse to select it manually.</source>
     <message>
         <source>Data</source>
         <translation>数据</translation>
+    </message>
+    <message>
+        <source>Tabs</source>
+        <translation>标签</translation>
     </message>
     <message>
         <source>Mod list</source>
@@ -14244,24 +15815,8 @@ or use Browse to select it manually.</source>
         <translation>需要选择</translation>
     </message>
     <message>
-        <source>Textures folder</source>
-        <translation>纹理文件夹</translation>
-    </message>
-    <message>
-        <source>Archive.bsa</source>
-        <translation>存档. bsa</translation>
-    </message>
-    <message>
-        <source>Profile.ini</source>
-        <translation>简介.ini</translation>
-    </message>
-    <message>
-        <source>Installed</source>
-        <translation>已安装</translation>
-    </message>
-    <message>
-        <source>Unordered plugin</source>
-        <translation>无序插件</translation>
+        <source>List header</source>
+        <translation>列表标题</translation>
     </message>
     <message>
         <source>Plugins &amp; files</source>
@@ -14340,6 +15895,10 @@ or use Browse to select it manually.</source>
         <translation>搜索..</translation>
     </message>
     <message>
+        <source>Text input</source>
+        <translation>文本输入</translation>
+    </message>
+    <message>
         <source>Default profile</source>
         <translation>默认配置文件</translation>
     </message>
@@ -14348,24 +15907,52 @@ or use Browse to select it manually.</source>
         <translation>测试</translation>
     </message>
     <message>
+        <source>Dropdown</source>
+        <translation>放下来</translation>
+    </message>
+    <message>
         <source>Enabled</source>
         <translation>已启用</translation>
+    </message>
+    <message>
+        <source>Checked checkbox</source>
+        <translation>已检查复选框</translation>
     </message>
     <message>
         <source>Disabled</source>
         <translation>已禁用</translation>
     </message>
     <message>
+        <source>Unchecked checkbox</source>
+        <translation>未检查的复选框</translation>
+    </message>
+    <message>
         <source>Selected option</source>
         <translation>选中选项</translation>
+    </message>
+    <message>
+        <source>Radio button</source>
+        <translation>无线电按钮</translation>
     </message>
     <message>
         <source>List row {0}</source>
         <translation>列表行 {0}</translation>
     </message>
     <message>
+        <source>List</source>
+        <translation>列表</translation>
+    </message>
+    <message>
+        <source>Scrollbar</source>
+        <translation>滚动栏</translation>
+    </message>
+    <message>
         <source>Cards, toasts &amp; progress</source>
         <translation>纸牌、土司和进度</translation>
+    </message>
+    <message>
+        <source>Card background</source>
+        <translation>纸牌背景</translation>
     </message>
     <message>
         <source>Card title</source>
@@ -14378,6 +15965,10 @@ or use Browse to select it manually.</source>
     <message>
         <source>Card secondary text</source>
         <translation>纸牌副文本</translation>
+    </message>
+    <message>
+        <source>Toast background</source>
+        <translation>二. 背景</translation>
     </message>
     <message>
         <source>Info</source>
@@ -14396,6 +15987,14 @@ or use Browse to select it manually.</source>
         <translation>错误</translation>
     </message>
     <message>
+        <source>{0} toast</source>
+        <translation>{0} 土司(简体中文)</translation>
+    </message>
+    <message>
+        <source>Progress bar</source>
+        <translation>进步栏</translation>
+    </message>
+    <message>
         <source>Required mod</source>
         <translation>所需模式</translation>
     </message>
@@ -14412,8 +16011,28 @@ or use Browse to select it manually.</source>
         <translation>已部署</translation>
     </message>
     <message>
+        <source>Deployed status</source>
+        <translation>部署状态</translation>
+    </message>
+    <message>
         <source>Text &amp; tones</source>
         <translation>文本音调( T)</translation>
+    </message>
+    <message>
+        <source>Icons</source>
+        <translation>图标</translation>
+    </message>
+    <message>
+        <source>Themed - follow the palette</source>
+        <translation>Themed - 跟着调色板</translation>
+    </message>
+    <message>
+        <source>Fixed artwork</source>
+        <translation>固定艺术品</translation>
+    </message>
+    <message>
+        <source>{0} ({1})</source>
+        <translation>{0} ({1}) (英语)</translation>
     </message>
 </context>
 <context>
@@ -14792,6 +16411,513 @@ Press Refresh to try again.</source>
     </message>
 </context>
 <context>
+    <name>WizardTools</name>
+    <message>
+        <source>mod.io API Key</source>
+        <translation>mod.io API 密钥</translation>
+    </message>
+    <message>
+        <source>Run Wrye Bash</source>
+        <translation>运行 Wrye Bash</translation>
+    </message>
+    <message>
+        <source>Run xEdit (Discord version)</source>
+        <translation>运行 xEdit( Discord 版本)</translation>
+    </message>
+    <message>
+        <source>Run xEdit QAC (Discord version)</source>
+        <translation>运行 xEdit QAC( Discord 版本)</translation>
+    </message>
+    <message>
+        <source>Downgrade Fallout 3</source>
+        <translation>降级 3</translation>
+    </message>
+    <message>
+        <source>Install Script Extender (FOSE)</source>
+        <translation>安装脚本扩展名( FOSE)</translation>
+    </message>
+    <message>
+        <source>Run {0}</source>
+        <translation>运行 {0}</translation>
+    </message>
+    <message>
+        <source>Run {0} QAC</source>
+        <translation>运行 {0} QAC</translation>
+    </message>
+    <message>
+        <source>Downgrade Fallout 3 GOTY</source>
+        <translation>降级降级 3 GOY</translation>
+    </message>
+    <message>
+        <source>Run BodySlide (Linux)</source>
+        <translation>运行 bodySlide (Linux)</translation>
+    </message>
+    <message>
+        <source>Run Outfit Studio (Linux)</source>
+        <translation>运行外接工作室( Linux)</translation>
+    </message>
+    <message>
+        <source>Run BodySlide</source>
+        <translation>运行正体滑动</translation>
+    </message>
+    <message>
+        <source>Run Outfit Studio</source>
+        <translation>运行外接工作室</translation>
+    </message>
+    <message>
+        <source>Downgrade Fallout 4</source>
+        <translation>降级 4</translation>
+    </message>
+    <message>
+        <source>Install Script Extender (F4SE)</source>
+        <translation>安装脚本扩展名( F4SE)</translation>
+    </message>
+    <message>
+        <source>Run BethINI Pie</source>
+        <translation>运行 Bethini 派</translation>
+    </message>
+    <message>
+        <source>Install Script Extender (F4SEVR)</source>
+        <translation>安装脚本扩展( F4SEVR)</translation>
+    </message>
+    <message>
+        <source>Install Script Extender (xNVSE)</source>
+        <translation>安装脚本扩展器 (xNVSE)</translation>
+    </message>
+    <message>
+        <source>Apply 4GB Patch</source>
+        <translation>应用 4GB 补丁</translation>
+    </message>
+    <message>
+        <source>Install Tale of Two Wastelands</source>
+        <translation>安装两个荒地的故事</translation>
+    </message>
+    <message>
+        <source>BSA Decompressor</source>
+        <translation>BSA 减压器</translation>
+    </message>
+    <message>
+        <source>Install Ultimate Edition ESM Fixes</source>
+        <translation>安装最终版无害环境管理</translation>
+    </message>
+    <message>
+        <source>Install Viva New Vegas</source>
+        <translation>安装 Viva 新拉斯维加斯</translation>
+    </message>
+    <message>
+        <source>Install Viva New Vegas Extended</source>
+        <translation>安装 Viva 新维加斯扩展</translation>
+    </message>
+    <message>
+        <source>Install Script Extender (OBSE)</source>
+        <translation>安装脚本扩展器( OBSE)</translation>
+    </message>
+    <message>
+        <source>Install Script Extender (SKSE)</source>
+        <translation>安装脚本扩展器( SKSE)</translation>
+    </message>
+    <message>
+        <source>SkyGen - Patch Generator</source>
+        <translation>SkyGen - 补丁生成器</translation>
+    </message>
+    <message>
+        <source>Plugin Audit &amp; Cleanup</source>
+        <translation>插件审计和清理</translation>
+    </message>
+    <message>
+        <source>SSE Display Tweaks Config</source>
+        <translation>SSE 显示曲折配置</translation>
+    </message>
+    <message>
+        <source>Engine Fixes Config</source>
+        <translation>引擎修复配置</translation>
+    </message>
+    <message>
+        <source>Run Pandora</source>
+        <translation>运行潘多拉</translation>
+    </message>
+    <message>
+        <source>Install Script Extender (SKSE64)</source>
+        <translation>安装脚本扩展器( SKSE64)</translation>
+    </message>
+    <message>
+        <source>Run PGPatcher</source>
+        <translation>运行 PGPatcher</translation>
+    </message>
+    <message>
+        <source>Run SSEEdit</source>
+        <translation>运行 SSEEDit</translation>
+    </message>
+    <message>
+        <source>Run SSEEdit QAC</source>
+        <translation>运行 SSEedit QAC</translation>
+    </message>
+    <message>
+        <source>Run Creation Kit</source>
+        <translation>运行创建套件</translation>
+    </message>
+    <message>
+        <source>Run ESLifier</source>
+        <translation>运行电子解析器</translation>
+    </message>
+    <message>
+        <source>Run TexGen</source>
+        <translation>运行 TexGen</translation>
+    </message>
+    <message>
+        <source>Run DynDOLOD</source>
+        <translation>运行 DynDOLOD</translation>
+    </message>
+    <message>
+        <source>Run xLODGen</source>
+        <translation>运行 xLODGen</translation>
+    </message>
+    <message>
+        <source>Run VRAMr</source>
+        <translation>运行 VRAMr</translation>
+    </message>
+    <message>
+        <source>Run BENDr</source>
+        <translation>运行 Bendr</translation>
+    </message>
+    <message>
+        <source>Run ParallaxR</source>
+        <translation>运行 ParallaxR</translation>
+    </message>
+    <message>
+        <source>Install Script Extender (SKSEVR)</source>
+        <translation>安装脚本扩展器( SKSEVR)</translation>
+    </message>
+    <message>
+        <source>Install Script Extender (SFSE)</source>
+        <translation>安装脚本扩展名( SFSE)</translation>
+    </message>
+    <message>
+        <source>Patch Game (dtkit-patch)</source>
+        <translation>补丁游戏( dtkit- patch)</translation>
+    </message>
+    <message>
+        <source>Install me3</source>
+        <translation>安装我 3</translation>
+    </message>
+    <message>
+        <source>Merge regulation.bin</source>
+        <translation>合并条例.bin</translation>
+    </message>
+    <message>
+        <source>GPAK unpack / repack</source>
+        <translation>包装/重新包装</translation>
+    </message>
+    <message>
+        <source>Install MGE XE</source>
+        <translation>安装 MGE XE</translation>
+    </message>
+    <message>
+        <source>Install Morrowind Code Patch</source>
+        <translation>安装 Morrowind 代码补丁</translation>
+    </message>
+    <message>
+        <source>Repair PAK files</source>
+        <translation>修复 PAK 文件</translation>
+    </message>
+    <message>
+        <source>Run Script Merger</source>
+        <translation>运行脚本合并</translation>
+    </message>
+    <message>
+        <source>Install ReShade</source>
+        <translation>安装再阴影</translation>
+    </message>
+    <message>
+        <source>Enter a mod.io key to enable update checks for manually-installed mod.io mods.</source>
+        <translation>输入一个mod.io 键,以允许对手动安装的mod.io mods进行更新检查.</translation>
+    </message>
+    <message>
+        <source>Download and run Wrye Bash.</source>
+        <translation>下载并运行Wrye Bash.</translation>
+    </message>
+    <message>
+        <source>Deploy mods and run {0} -{1} from the latest xEdit build, released through the xEdit Discord.</source>
+        <translation>从最新xEdit构建中部署mods并运行{0}-{1},通过xEdit Discord发布.</translation>
+    </message>
+    <message>
+        <source>Deploy mods and run {0} -{1} -quickautoclean from the latest xEdit build, released through the xEdit Discord.</source>
+        <translation>部署 Mods并运行 {0} - {1} - 从最新的xEdit构建中运行quickautoclean,通过xEdit Discord发布.</translation>
+    </message>
+    <message>
+        <source>Downgrade to pre-Anniversary Edition so that the script extender (FOSE) works correctly.</source>
+        <translation>降级为"纪念前版",使脚本扩展器(FOSE)工作正确.</translation>
+    </message>
+    <message>
+        <source>Download and install FOSE into the game folder.</source>
+        <translation>下载并安装 FOSE 到游戏文件夹中 .</translation>
+    </message>
+    <message>
+        <source>Install {0}, deploy mods, and run {1}.</source>
+        <translation>安装{0},部署mods,并运行{1}.</translation>
+    </message>
+    <message>
+        <source>Deploy mods and run {0}QuickAutoClean.exe.</source>
+        <translation>部署 Mods 并运行 XPH0 QuickAutoClean.exe.</translation>
+    </message>
+    <message>
+        <source>Download and run the native Linux BodySlide, no Proton prefix needed.</source>
+        <translation>下载并运行本地的 Linux bodySlide,不需要质子前缀 .</translation>
+    </message>
+    <message>
+        <source>Download and run the native Linux Outfit Studio, no Proton prefix needed.</source>
+        <translation>下载并运行本地Linux Outfit Studio,不需要质子前缀.</translation>
+    </message>
+    <message>
+        <source>Deploy mods and run BodySlide from the Data folder.</source>
+        <translation>从数据文件夹中部署 Mods并运行 BodySlide .</translation>
+    </message>
+    <message>
+        <source>Deploy mods and run Outfit Studio from the Data folder.</source>
+        <translation>从数据文件夹中部署 Mods 并运行 Outfit Studio .</translation>
+    </message>
+    <message>
+        <source>Download the latest Fallout 4 Steam Downgrader and run it from the game folder.</source>
+        <translation>下载最新的Fallout 4 Steam Downgrader,并从游戏文件夹运行.</translation>
+    </message>
+    <message>
+        <source>Download and install F4SE into the game folder.</source>
+        <translation>将 F4SE 下载并安装到游戏文件夹中.</translation>
+    </message>
+    <message>
+        <source>Install BethINI Pie and configure Fallout 4 INI settings.</source>
+        <translation>安装 BethINI Pie并配置 Fallout 4 INI 设置 .</translation>
+    </message>
+    <message>
+        <source>Download and install F4SEVR into the game folder.</source>
+        <translation>将F4SEVR下载并安装到游戏文件夹中.</translation>
+    </message>
+    <message>
+        <source>Download and install xNVSE into the game folder.</source>
+        <translation>将xNVSE下载并安装到游戏文件夹中.</translation>
+    </message>
+    <message>
+        <source>Patch FalloutNV.exe to use 4 GB of memory (keeps a backup that can be restored).</source>
+        <translation>补丁FalloutNV.exe用于4GB内存(保留一个可以还原的备份).</translation>
+    </message>
+    <message>
+        <source>Run the native Linux TTW installer (merges Fallout 3 + New Vegas) and add the result as a mod. Requires Fallout 3 installed and a TTW .mpi package from mod.pub.</source>
+        <translation>运行本地的Linux TTW安装器(Commers Fallout 3 + New Vegas)并添加结果为mod. 需要安装 Fallout 3 从mod.pub 的 TTW .mpi 包.</translation>
+    </message>
+    <message>
+        <source>Decompress the vanilla BSA archives for faster loading (native Linux MPI installer) and add the result as a mod. Needs the FNV BSA Decompressor download from Nexus.</source>
+        <translation>解压缩香草 BSA 档案以更快地加载(native Linux MPI 安装器)并添加结果为mod. 需要从Nexus下载FNV BSA解压缩器.</translation>
+    </message>
+    <message>
+        <source>Patch the vanilla .esm masters with community bugfixes (native Linux MPI installer) and add the result as a mod. Needs the Ultimate Edition ESM Fixes Remastered download from Nexus.</source>
+        <translation>用社区bugfix(native Linux MPI安装器)补上香草.esm母版并添加结果为mod. 需要终极版的ESM修复器从Nexus重做下载.</translation>
+    </message>
+    <message>
+        <source>Download the curated Viva New Vegas modlist profile and install it</source>
+        <translation>下载 维瓦 新拉斯维加斯 modlist 简介并安装</translation>
+    </message>
+    <message>
+        <source>Download the curated Viva New Vegas Extended modlist profile and install it</source>
+        <translation>下载 由 Viva New Vegas 扩展的 modlist 简介并安装</translation>
+    </message>
+    <message>
+        <source>Install BethINI Pie and configure Fallout New Vegas INI settings.</source>
+        <translation>安装 BethINI Pie并配置 Fallout 新拉斯维加斯 INI 设置 .</translation>
+    </message>
+    <message>
+        <source>Download and install OBSE into the game folder.</source>
+        <translation>下载并安装OBSE到游戏文件夹.</translation>
+    </message>
+    <message>
+        <source>Download and install SKSE into the game folder.</source>
+        <translation>将 SKSE 下载并安装到游戏文件夹中.</translation>
+    </message>
+    <message>
+        <source>Scan your load order for BOS / SkyPatcher patch coverage and generate new patches.</source>
+        <translation>为 BOS / SkyPatcher 补丁覆盖扫描您的负载顺序并生成新补丁 .</translation>
+    </message>
+    <message>
+        <source>Scan load order for safe-to-disable plugins, then clean up orphaned SkyGen BOS/SkyPatcher INIs for plugins that must stay enabled.</source>
+        <translation>扫描安全到失效插件的负载顺序,然后清理孤儿SkyGen BOS/SkyPatcher INIs的插件必须保持启用.</translation>
+    </message>
+    <message>
+        <source>Create or edit SSEDisplayTweaks.ini with per-setting toggles and descriptions.</source>
+        <translation>创建或编辑 SSEDisplayTweaks.ini 有每设定切换和描述.</translation>
+    </message>
+    <message>
+        <source>Create or edit EngineFixes.toml with per-setting toggles and descriptions.</source>
+        <translation>创建或编辑 EngineFixes.toml ,每设定切换和描述.</translation>
+    </message>
+    <message>
+        <source>Deploy mods and run Pandora Behaviour Engine+.</source>
+        <translation>部署 Mods 并运行 Pandora 行为引擎+.</translation>
+    </message>
+    <message>
+        <source>Download and install SKSE64 into the game folder.</source>
+        <translation>将SKSE64下载并安装到游戏文件夹中.</translation>
+    </message>
+    <message>
+        <source>Install PGPatcher, deploy mods, and run PGPatcher.exe.</source>
+        <translation>安装 PGPatcher, 部署 Mods,并运行 PGPatcher.exe.</translation>
+    </message>
+    <message>
+        <source>Install SSEEdit, deploy mods, and run SSEEdit.exe.</source>
+        <translation>安装SSEEdit,部署mods,并运行SSEEdit.exe.</translation>
+    </message>
+    <message>
+        <source>Deploy mods and run SSEEditQuickAutoClean.exe.</source>
+        <translation>部署mods并运行 SSEEDitQuickAutoClean.exe.</translation>
+    </message>
+    <message>
+        <source>Deploy mods and run xTESEdit.exe -SSE from the latest xEdit build, released through the xEdit Discord.</source>
+        <translation>部署 Mods并运行xTESEdit.exe - SSE 从最新的xEdit构建,通过xEdit Discord发布.</translation>
+    </message>
+    <message>
+        <source>Deploy mods and run xTESEdit.exe -SSE -quickautoclean from the latest xEdit build, released through the xEdit Discord.</source>
+        <translation>部署 Mods并运行 xTESEdit.exe - SSE - 从最新的xEdit构建中释放出 quickautoclean,通过xEdit Discord.</translation>
+    </message>
+    <message>
+        <source>Install Creation Kit Platform Extended, deploy mods, and run CreationKit.exe.</source>
+        <translation>安装创建 Kit 平台扩展, 部署 Mods, 并运行创建 Kit. exe .</translation>
+    </message>
+    <message>
+        <source>Install ESLifier and flag/compact plugins into the light (ESL) space.</source>
+        <translation>在光线(ESL)空间中安装 EsLifer 和旗/条形插件.</translation>
+    </message>
+    <message>
+        <source>Install DynDOLOD tools, deploy mods, and run TexGenx64.exe.</source>
+        <translation>安装 DynDOLOD 工具,部署 Mods,并运行 TexGenx64.exe.</translation>
+    </message>
+    <message>
+        <source>Install DynDOLOD tools, deploy mods, and run DynDOLODx64.exe.</source>
+        <translation>安装 DynDOLOD 工具,部署 Mods,并运行 DynDOLODx64.exe.</translation>
+    </message>
+    <message>
+        <source>Install xLODGen, deploy mods, and run xLODGenx64.exe.</source>
+        <translation>安装xLODGen,部署mods,并运行xLODGenx64.exe.</translation>
+    </message>
+    <message>
+        <source>Install BethINI Pie and configure Skyrim SE INI settings.</source>
+        <translation>安装 BethINI Pie并配置 Skyrim SE INI 设置 .</translation>
+    </message>
+    <message>
+        <source>Download VRAMr from Nexus, deploy mods, and run texture optimisation.</source>
+        <translation>从Nexus下载VRAMr,部署mods,并运行纹理优化.</translation>
+    </message>
+    <message>
+        <source>Download BENDr from Nexus, deploy mods, and process normal maps.</source>
+        <translation>从Nexus下载BENDR,部署mods,并处理普通地图.</translation>
+    </message>
+    <message>
+        <source>Download ParallaxR from Nexus, deploy mods, and process parallax textures.</source>
+        <translation>从Nexus下载 ParallaxR,部署mods,并处理parallax纹理.</translation>
+    </message>
+    <message>
+        <source>Scan your load order for Base Object Swapper / SkyPatcher patch coverage and generate new BOS or SP INI patches.</source>
+        <translation>为 Base Object Swapper / SkyPatcher 补丁覆盖扫描您的负载顺序, 并生成新的 BOS 或 SP INI 补丁 .</translation>
+    </message>
+    <message>
+        <source>Scan load order for safe-to-disable plugins, then disable them or clean up orphaned SkyGen BOS/SkyPatcher INIs for plugins that must stay enabled.</source>
+        <translation>扫描安全到失效插件的负载顺序,然后将其禁用或清理为孤儿的SkyGen BOS/SkyPatcher INIs,用于必须保持启用的插件.</translation>
+    </message>
+    <message>
+        <source>Download and install SKSEVR into the game folder.</source>
+        <translation>将 SKSEVR 下载并安装到游戏文件夹中.</translation>
+    </message>
+    <message>
+        <source>Download and install SFSE into the game folder.</source>
+        <translation>将 SFSE 下载并安装到游戏文件夹中.</translation>
+    </message>
+    <message>
+        <source>Install BethINI Pie and configure Starfield INI settings.</source>
+        <translation>安装 BethINI Pie并配置 Starfield INI 设置 .</translation>
+    </message>
+    <message>
+        <source>Deploy mods and toggle the Darktide Mod Loader bundle patch (runs the shipped dtkit-patch.exe under Proton). Re-run this wizard after every game update.</source>
+        <translation>部署 Mods并切换Darktide Mod Loader 捆绑补丁(运行质子下运出dtkit-patch.exe). 每次游戏更新后再运行此向导.</translation>
+    </message>
+    <message>
+        <source>Download and install the me3 mod loader that loads mods for this game.</source>
+        <translation>下载并安装为本游戏装入了mods的 me3 mod 加载器.</translation>
+    </message>
+    <message>
+        <source>Combine the param edits of every enabled mod into one regulation.bin, instead of only the highest-priority one taking effect.</source>
+        <translation>将每个启用的 Mod 的参数编辑合并为一个调控. bin, 而不是只进行最高优先的生效 .</translation>
+    </message>
+    <message>
+        <source>Unpack resources.gpak to Unpacked/ or repack Unpacked/ to resources.gpak in the game root.</source>
+        <translation>Unpack resource.gpak to Unpacked/或重新包装 Unpacked/ to resource.gpak in the game root.</translation>
+    </message>
+    <message>
+        <source>Download and install MGE XE (Morrowind Graphics Extender), which includes MWSE.</source>
+        <translation>下载并安装了MGE XE(Morrowind Graphics扩展),其中包括了MWSE.</translation>
+    </message>
+    <message>
+        <source>Download and run the Morrowind Code Patch to apply engine-level bug fixes and improvements.</source>
+        <translation>下载并运行Morrowind代码补丁来应用引擎级bug修正和改进.</translation>
+    </message>
+    <message>
+        <source>Restore vanilla PAK entries from the failsafe manifest in the game root. Use if the game won't load after mods were removed.</source>
+        <translation>从游戏根中的故障安全表恢复香草PAK条目. 如果游戏在mods被移除后不会加载,则使用.</translation>
+    </message>
+    <message>
+        <source>Deploy mods, install Script Merger, and run WitcherScriptMerger.exe.</source>
+        <translation>部署mods,安装脚本并购,并运行WitcherScriptMerger.exe.</translation>
+    </message>
+    <message>
+        <source>Download and install ReShade into the game folder.</source>
+        <translation>下载并安装到游戏文件夹中的 ReShade .</translation>
+    </message>
+    <message>
+        <source>Setup and Installers</source>
+        <translation>设置和安装器</translation>
+    </message>
+    <message>
+        <source>Body and Outfits</source>
+        <translation>身体和外观</translation>
+    </message>
+    <message>
+        <source>Animation and Physics</source>
+        <translation>动画与物理</translation>
+    </message>
+    <message>
+        <source>DynDOLOD</source>
+        <translation>状态</translation>
+    </message>
+    <message>
+        <source>RSuite (experimental)</source>
+        <translation>RSUTE(实验)</translation>
+    </message>
+    <message>
+        <source>Patchers and Cleanup</source>
+        <translation>补丁和清理</translation>
+    </message>
+    <message>
+        <source>xEdit</source>
+        <translation>x 编辑</translation>
+    </message>
+    <message>
+        <source>Load Order and Config</source>
+        <translation>装入顺序和配置</translation>
+    </message>
+    <message>
+        <source>INI Tweaks</source>
+        <translation>INI 图文</translation>
+    </message>
+    <message>
+        <source>Other</source>
+        <translation>其它</translation>
+    </message>
+    <message>
+        <source>Skip the OpenMW launcher (start the game directly)</source>
+        <translation>跳过 OpenMW 启动器( 直接启动游戏)</translation>
+    </message>
+    <message>
+        <source>The launcher keeps its own copy of the load order and writes it back to openmw.cfg, which can overwrite what Amethyst deployed. Off: the launcher opens as usual.</source>
+        <translation>发射装置保留了自己的负载命令副本并写回了openmw.cfg,它可以覆盖Amethyst部署的内容. 关闭:发射台照常打开.</translation>
+    </message>
+</context>
+<context>
     <name>WizardViewBase</name>
     <message>
         <source>✕ Close</source>
@@ -14997,8 +17123,12 @@ Please restart the wizard to reinstall Wrye Bash.</source>
         <translation>启动 Wrye Bash……</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
-        <translation>找不到质子 '{0}' - 检查是否安装在Steam中 .</translation>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>无法解决游戏自身前缀的质子版本——一次推出游戏,或者选择不同的前缀选项.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>找不到质子 '{0}' - 检查它是否安装在Steam, Heroic 或质子Plus上.</translation>
     </message>
     <message>
         <source>Wrye Bash is running.
@@ -15180,6 +17310,14 @@ Please restart the wizard and install {1} first.</source>
         <translation>QAC 全数</translation>
     </message>
     <message>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>无法解决游戏自身前缀的质子版本——一次推出游戏,或者选择不同的前缀选项.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>找不到质子 '{0}' - 检查它是否安装在Steam, Heroic 或质子Plus上.</translation>
+    </message>
+    <message>
         <source>{0} is running - close it to continue.</source>
         <translation>{0}正在运行 - 关闭继续.</translation>
     </message>
@@ -15236,10 +17374,6 @@ When you close it, your changes are restored automatically.</source>
     <message>
         <source>Launching {0}…</source>
         <translation>正在启动 {0}…</translation>
-    </message>
-    <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
-        <translation>找不到质子 '{0}' - 检查是否安装在Steam中 .</translation>
     </message>
     <message>
         <source>Game path not configured.</source>
@@ -15318,6 +17452,13 @@ When you close it, your changes are restored automatically.</source>
     </message>
 </context>
 <context>
+    <name>_NotificationMirrorButton</name>
+    <message>
+        <source>Notifications</source>
+        <translation>通知</translation>
+    </message>
+</context>
+<context>
     <name>_OverridesModel</name>
     <message>
         <source>Pak</source>
@@ -15392,6 +17533,29 @@ When you close it, your changes are restored automatically.</source>
     <message>
         <source>No preview</source>
         <translation>无预览</translation>
+    </message>
+</context>
+<context>
+    <name>_ProgressRow</name>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+    <message>
+        <source>Working</source>
+        <translation>工作</translation>
+    </message>
+    <message>
+        <source>Working…</source>
+        <translation>工作时..</translation>
+    </message>
+    <message>
+        <source>{0} / {1}</source>
+        <translation>{0} / {1} (韩语)</translation>
+    </message>
+    <message>
+        <source>Cancelling…</source>
+        <translation>正在取消..</translation>
     </message>
 </context>
 <context>
@@ -15561,6 +17725,13 @@ Publishing makes this revision the one users install. It cannot be un-published,
     <message>
         <source>Apply</source>
         <translation>应用</translation>
+    </message>
+</context>
+<context>
+    <name>_ThemePreviewButton</name>
+    <message>
+        <source>Theme preview</source>
+        <translation>主题预览</translation>
     </message>
 </context>
 <context>

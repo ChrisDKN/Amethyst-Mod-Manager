@@ -541,8 +541,12 @@ Please restart the wizard and install BethINI Pie first.</source>
         <translation>BethINI Pieの「Wine」プレフィックスの準備中…</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
-        <translation>Proton '{0}' - Steam にインストールされていることを確認してください.</translation>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>ゲーム独自のプレフィックスのProtonバージョンを解決できません。一度ゲームを起動するか、異なるプレフィックスオプションを選択します.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>Proton '{0}'が見つかりません - Steam、Heric、ProtonPlusにインストールされていることを確認してください.</translation>
     </message>
     <message>
         <source>BethINI Pie is running.
@@ -755,8 +759,12 @@ Deploy your modlist first, then reopen this wizard.</source>
 まずmodlistをデプロイしてから、このウィザードを再度開いてください。</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
-        <translation>Proton '{0}' - Steam にインストールされていることを確認してください.</translation>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>ゲーム独自のプレフィックスのProtonバージョンを解決できません。一度ゲームを起動するか、異なるプレフィックスオプションを選択します.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>Proton '{0}'が見つかりません - Steam、Heric、ProtonPlusにインストールされていることを確認してください.</translation>
     </message>
     <message>
         <source>{0} is running.
@@ -1452,6 +1460,22 @@ MD5キャッシュは保持されます。アーカイブは必要に応じて�
         <translation>{0} ゲーム - {1}</translation>
     </message>
     <message>
+        <source>Use a separate save file for each profile (me3)</source>
+        <translation>プロファイルごとに別の保存ファイルを使用する(me3)</translation>
+    </message>
+    <message>
+        <source>Enable online play (me3, risks a ban with mods)</source>
+        <translation>オンラインプレイを有効にする(me3、mods で禁止するリスク)</translation>
+    </message>
+    <message>
+        <source>Neutralize Arxan anti-tamper (me3, improves stability)</source>
+        <translation>Arxan の反タンパーを中立化して下さい(me3 は安定性を改善します)</translation>
+    </message>
+    <message>
+        <source>Raise the game's memory limits (me3)</source>
+        <translation>ゲームのメモリ制限を上げる(me3)</translation>
+    </message>
+    <message>
         <source>Settings saved to profile: {0} (this profile only)</source>
         <translation>プロファイルに保存された設定：{0}（このプロファイルのみ）</translation>
     </message>
@@ -1572,6 +1596,10 @@ MD5キャッシュは保持されます。アーカイブは必要に応じて�
         <translation>ハードリンク</translation>
     </message>
     <message>
+        <source>Virtual filesystem (VFS)</source>
+        <translation>仮想ファイルシステム(VFS)</translation>
+    </message>
+    <message>
         <source>Swap launcher with script extender on deploy</source>
         <translation>スワップランチャーとスクリプトエクステンダーをデプロイ</translation>
     </message>
@@ -1668,6 +1696,34 @@ The default profile's settings are not affected.</source>
         <translation>実行可能 ({0}) このフォルダに見つかりません - パスをダブルチェックします.</translation>
     </message>
     <message>
+        <source>Version {0}</source>
+        <translation>バージョン{0}</translation>
+    </message>
+    <message>
+        <source>Prefix already configured. You can update the path below.</source>
+        <translation>Prefix は既に設定されています。 以下のパスを更新することができます.</translation>
+    </message>
+    <message>
+        <source>Found via Steam compatdata.</source>
+        <translation>Steamのcompatdataによって見つけられる.</translation>
+    </message>
+    <message>
+        <source>Found via non-Steam shortcut compatdata.</source>
+        <translation>非Steam ショートカットコンパットデータで発見.</translation>
+    </message>
+    <message>
+        <source>Found via Heroic Games Launcher.</source>
+        <translation>ヒーローゲームランチャーで見つけました.</translation>
+    </message>
+    <message>
+        <source>Prefix selected manually.</source>
+        <translation>手動で選択したプレフィックス.</translation>
+    </message>
+    <message>
+        <source>Prefix found automatically.</source>
+        <translation>プレフィックスは自動的に検出されました.</translation>
+    </message>
+    <message>
         <source>Executable found.</source>
         <translation>実行可能が見つかりました.</translation>
     </message>
@@ -1682,6 +1738,10 @@ The default profile's settings are not affected.</source>
     <message>
         <source>Not found automatically. Browse manually to locate the game folder.</source>
         <translation>自動的に見つかりませんでした。手動でゲームフォルダを探してください。</translation>
+    </message>
+    <message>
+        <source>Non-Steam Shortcut</source>
+        <translation>非蒸気ショートカット</translation>
     </message>
     <message>
         <source>Current: {0}</source>
@@ -1722,6 +1782,10 @@ The default profile's settings are not affected.</source>
     <message>
         <source>Cannot change the game/prefix path while mods are deployed. Restore the game first.</source>
         <translation>MODが展開されている間は、ゲームのパスやプレフィックスを変更できません。まずゲームを復元してください。</translation>
+    </message>
+    <message>
+        <source>Cannot change the deploy method while mods are deployed. Restore the game first.</source>
+        <translation>Mods がデプロイされる間、デプロイメソッドを変更できません。 ゲームを最初に復元します.</translation>
     </message>
     <message>
         <source>Cannot use hardlinks: the staging folder and {0} are on different drives or filesystems. Switch to Symlink instead.</source>
@@ -2254,8 +2318,12 @@ Install the Creation Kit from Steam, then reopen this wizard.</source>
         <translation>Creation Kit を起動中…</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
-        <translation>Proton '{0}' - Steam にインストールされていることを確認してください.</translation>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>ゲーム独自のプレフィックスのProtonバージョンを解決できません。一度ゲームを起動するか、異なるプレフィックスオプションを選択します.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>Proton '{0}'が見つかりません - Steam、Heric、ProtonPlusにインストールされていることを確認してください.</translation>
     </message>
     <message>
         <source>Game path not configured.</source>
@@ -2966,8 +3034,8 @@ When it completes, the app switches to the new profile - then come back here and
         <translation>展開されたファイル</translation>
     </message>
     <message>
-        <source>Deployed files - {0} files in {1} mods</source>
-        <translation>デプロイされたファイル - {1} 個のMod内の {0} 個のファイル</translation>
+        <source>{0} - {1} files in {2} mods</source>
+        <translation>{0} - {2} MOD の {1} ファイル</translation>
     </message>
 </context>
 <context>
@@ -3096,6 +3164,29 @@ When it completes, the app switches to the new profile - then come back here and
     <message>
         <source>Add download folder</source>
         <translation>ダウンロードフォルダの追加</translation>
+    </message>
+</context>
+<context>
+    <name>DownloadManifestOverlay</name>
+    <message>
+        <source>Download collection manifest</source>
+        <translation>コレクションマニフェストをダウンロード</translation>
+    </message>
+    <message>
+        <source>One collection URL per line, e.g. https://www.nexusmods.com/games/fallout4/collections/f1rzym</source>
+        <translation>ラインごとの1つのコレクションURL、例えばhttps://www.nexusmods.com/games/fallout4/collections/f1rzym</translation>
+    </message>
+    <message>
+        <source>Saving to: {0}</source>
+        <translation>保存: {0}</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>キャンセル</translation>
+    </message>
+    <message>
+        <source>Download</source>
+        <translation>ダウンロード</translation>
     </message>
 </context>
 <context>
@@ -3377,10 +3468,6 @@ Please restart the wizard and install {1} first.</source>
         <translation>{0}の起動中…</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
-        <translation>Proton '{0}' - Steam にインストールされていることを確認してください.</translation>
-    </message>
-    <message>
         <source>Game path not configured.</source>
         <translation>設定されていないゲームパス.</translation>
     </message>
@@ -3401,6 +3488,14 @@ Close it when you are done, then click Done.</source>
     <message>
         <source>Fetching latest release from GitHub…</source>
         <translation>GitHubから最新リリースを取得中…</translation>
+    </message>
+    <message>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>ゲーム独自のプレフィックスのProtonバージョンを解決できません。一度ゲームを起動するか、異なるプレフィックスオプションを選択します.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>Proton '{0}'が見つかりません - Steam、Heric、ProtonPlusにインストールされていることを確認してください.</translation>
     </message>
     <message>
         <source>Searching Downloads folder…</source>
@@ -3474,8 +3569,12 @@ Please restart the wizard and let it install ESLifier first.</source>
         <translation>{0} 見つかりませんでした。</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
-        <translation>Proton '{0}' - Steam にインストールされていることを確認してください.</translation>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>ゲーム独自のプレフィックスのProtonバージョンを解決できません。一度ゲームを起動するか、異なるプレフィックスオプションを選択します.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>Proton '{0}'が見つかりません - Steam、Heric、ProtonPlusにインストールされていることを確認してください.</translation>
     </message>
     <message>
         <source>Could not write settings: {0}</source>
@@ -3904,8 +4003,16 @@ Proton プレフィックス: 'Install Java をプレフィックスに一度ク
         <translation>ゲームのプレフィックスの代わりに、exeの横にある独立したプレフィックスで特定のProtonバージョンを使用します。 ゲームのProtonバージョンで動作しないツールに便利です。 Bethesdaゲームでは、ゲームパス(Registry)、プラグイン.txt、My Games INIsが起動時に自動的にプレフィックスで設定されます.</translation>
     </message>
     <message>
+        <source>Arguments passed to the script. The buttons below insert Linux paths for file arguments.</source>
+        <translation>スクリプトに渡された引数。 下のボタンはファイル引数のLinuxパスをインサートします.</translation>
+    </message>
+    <message>
         <source>Script extenders always run in the game's own prefix with the game's Proton version: they launch the game itself, which needs the game's Steam app ID and its INIs, saves and mod DLLs. Change the game's Proton version in the game settings instead.</source>
         <translation>スクリプトエクステンダーは、ゲームのProtonバージョンとゲームの独自のプレフィックスで常に実行します。ゲームのSteamアプリIDとINIs、保存、MOD DLLを必要とします。 代わりにゲームのProtonバージョンを変更します.</translation>
+    </message>
+    <message>
+        <source>Script extenders must use the game's normal runner. Plain Wine removes the Steam/Proton context that Steam builds need to start the game.</source>
+        <translation>スクリプトエクステンダーは、ゲームの通常のランナーを使用する必要があります。 プレーン ワインは、Steam ビルドがゲームを開始するために必要な Steam/Proton コンテキストを削除します.</translation>
     </message>
     <message>
         <source>Run this exe with bare Wine against the same prefix instead of a Proton session - no Steam client attach, so Steam Input keeps the desktop controls (trackpad / on-screen keyboard). The prefix is still created and updated through Proton. Env vars in Launch Options still apply; wrappers and %command% are skipped in this mode.</source>
@@ -4268,6 +4375,93 @@ That is fine for your own backup. Do not share or upload the file in this state 
     </message>
 </context>
 <context>
+    <name>Fallout4DowngraderView</name>
+    <message>
+        <source>Downgrade Fallout 4 - {0}</source>
+        <translation>ダウングレードのフォールアウト4 - {0}</translation>
+    </message>
+    <message>
+        <source>Step 1: Download Fallout 4 Downgrader</source>
+        <translation>ステップ1:フォールアウト4ダウングラダーをダウンロード</translation>
+    </message>
+    <message>
+        <source>The newest release containing the Fallout 4 Steam Downgrader will be downloaded from MulderLoad on GitHub and placed in the game folder.
+
+No modlist deploy is required.</source>
+        <translation>Fallout 4 Steam Downgrader を含む最新リリースは、GitHub の MulderLoad からダウンロードされ、ゲームフォルダに保存されます。
+
+modlist デプロイは不要です.</translation>
+    </message>
+    <message>
+        <source>Step 3: Run Fallout 4 Downgrader</source>
+        <translation>ステップ3:フォールアウト4ダウングラダーを実行</translation>
+    </message>
+    <message>
+        <source>Step 2: Choose Proton Version</source>
+        <translation>ステップ2: Protonバージョンを選択してください</translation>
+    </message>
+    <message>
+        <source>The Fallout 4 Steam Downgrader was not downloaded.
+Close and reopen the wizard to try again.</source>
+        <translation>Fallout 4 Steam Downgraderはダウンロードできませんでした。
+ウィザードを閉じて再び開く.</translation>
+    </message>
+    <message>
+        <source>Game path is not configured.</source>
+        <translation>ゲームパスの設定は行いません.</translation>
+    </message>
+    <message>
+        <source>Searching MulderLoad releases…</source>
+        <translation>MulderLoadリリースを検索..</translation>
+    </message>
+    <message>
+        <source>Downloading {0}…</source>
+        <translation>{0}をダウンロード..</translation>
+    </message>
+    <message>
+        <source>The downgrader download did not create {0}.</source>
+        <translation>ダウングラダのダウンロードは{0}を作成していませんでした.</translation>
+    </message>
+    <message>
+        <source>Downloaded {0} to the game folder.</source>
+        <translation>ゲームフォルダに{0}をダウンロードしました.</translation>
+    </message>
+    <message>
+        <source>Download error: {0}</source>
+        <translation>ダウンロードエラー: {0}</translation>
+    </message>
+    <message>
+        <source>{0} was not found in the game folder.</source>
+        <translation>ゲームフォルダに{0}が見つかりませんでした.</translation>
+    </message>
+    <message>
+        <source>Launching Fallout 4 Downgrader…</source>
+        <translation>フォールアウト4ダウングラダーを発売..</translation>
+    </message>
+    <message>
+        <source>Could not determine a Proton version for Fallout 4.</source>
+        <translation>フォールアウト4のProtonバージョンを判断できませんでした.</translation>
+    </message>
+    <message>
+        <source>Fallout 4 Downgrader is running.
+Follow its prompts, then close it when finished.</source>
+        <translation>フォールアウト4ダウングラダーが稼働しています。
+プロンプトに従って、終了したら閉じます.</translation>
+    </message>
+    <message>
+        <source>Fallout 4 Downgrader finished. Click Done to close.</source>
+        <translation>フォールアウト4ダウングラダー仕上げ。 Done をクリックして閉じます.</translation>
+    </message>
+    <message>
+        <source>Fallout 4 Downgrader exited with code {0}. See the log for details.</source>
+        <translation>フォールアウト4 ダウングラダーは、コード{0}で終了します。 詳細はログを参照してください.</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>起動エラー: {0}</translation>
+    </message>
+</context>
+<context>
     <name>FalloutDowngradeView</name>
     <message>
         <source>Downgrade Fallout 3 - {0}</source>
@@ -4533,6 +4727,10 @@ Doneをクリックして抽出されたファイルをクリーンアップし�
     <message>
         <source>Extension .esp</source>
         <translation>拡張子 .esp</translation>
+    </message>
+    <message>
+        <source>Master (loads first)</source>
+        <translation>マスター(最初のロード)</translation>
     </message>
     <message>
         <source>Missing masters</source>
@@ -4853,6 +5051,37 @@ SHA-1:{1}
     </message>
 </context>
 <context>
+    <name>ImageExportOverlay</name>
+    <message>
+        <source>Save as image</source>
+        <translation>画像として保存</translation>
+    </message>
+    <message>
+        <source>Choose the background for the exported PNG.</source>
+        <translation>エクスポートされたPNGの背景を選択します.</translation>
+    </message>
+    <message>
+        <source>Transparent</source>
+        <translation>トランスペアレント</translation>
+    </message>
+    <message>
+        <source>Face portrait only</source>
+        <translation>顔の肖像画のみ</translation>
+    </message>
+    <message>
+        <source>Export just the head close-up instead of the four-angle sheet</source>
+        <translation>4角シートの代わりにヘッドクローズアップだけをエクスポート</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>キャンセル</translation>
+    </message>
+    <message>
+        <source>Save…</source>
+        <translation>保存..</translation>
+    </message>
+</context>
+<context>
     <name>ImagePreview</name>
     <message>
         <source>Scroll to zoom · drag to pan · double-click to fit</source>
@@ -4926,6 +5155,41 @@ SHA-1:{1}
     </message>
 </context>
 <context>
+    <name>LaunchHandoffOverlay</name>
+    <message>
+        <source>{0} - launching from {1}</source>
+        <translation>{0} - {1}から起動</translation>
+    </message>
+    <message>
+        <source>This deployment uses an external loader or virtual filesystem, so the launcher must start the game through Amethyst. Press Play in Amethyst, or configure {0} as follows:
+
+{1}</source>
+        <translation>この展開では、外部のローダーや仮想ファイルシステムを使用しているため、ランチャーはAmethystを通してゲームを始める必要があります。 Amethyst で再生を押すか、{0} を以下のように設定します。
+
+{1}シリーズ</translation>
+    </message>
+    <message>
+        <source>Copy</source>
+        <translation>コピー</translation>
+    </message>
+    <message>
+        <source>Don't show this again for {0}</source>
+        <translation>{0} で再びこれを表示しないでください</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>ふりがな</translation>
+    </message>
+    <message>
+        <source>Copied ✓</source>
+        <translation>コピッド ✓</translation>
+    </message>
+    <message>
+        <source>Copy failed</source>
+        <translation>コピー失敗</translation>
+    </message>
+</context>
+<context>
     <name>LauncherSettingsOverlay</name>
     <message>
         <source>Launch settings - {0}</source>
@@ -4984,6 +5248,61 @@ SHA-1:{1}
     <message>
         <source>Loading…</source>
         <translation>読み込み中…</translation>
+    </message>
+</context>
+<context>
+    <name>LogUploadOverlay</name>
+    <message>
+        <source>Upload log</source>
+        <translation>アップロードログ</translation>
+    </message>
+    <message>
+        <source>This uploads your session log ({0} lines, {1}) to {2}, where anyone with the link can read it. Logs contain file paths, which usually include your username. The link stops working {3}.</source>
+        <translation>セッションログ({0}線、{1})を{2}にアップロードし、リンクのある人でも読み取れます。 ログには、通常、ユーザー名を含むファイルパスが含まれています。 リンクは{3}の動作を停止します.</translation>
+    </message>
+    <message>
+        <source>Only the most recent {0} will be uploaded.</source>
+        <translation>最新の{0}のみがアップロードされます.</translation>
+    </message>
+    <message>
+        <source>The link will appear here once the log is uploaded.</source>
+        <translation>ログをアップロードすると、リンクが表示されます.</translation>
+    </message>
+    <message>
+        <source>Replace my username with "user"</source>
+        <translation>ユーザー名を "user" に置換する</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>キャンセル</translation>
+    </message>
+    <message>
+        <source>Upload</source>
+        <translation>アップロード</translation>
+    </message>
+    <message>
+        <source>Uploading…</source>
+        <translation>アップロード..</translation>
+    </message>
+    <message>
+        <source>Could not upload ({0}). The log is still saved locally - use Open Log Folder to attach the file instead.</source>
+        <translation>アップロードできません({0})。 ログはローカルに保存されます - 代わりにファイルを添付するために開いたログフォルダを使用します.</translation>
+    </message>
+    <message>
+        <source>Uploaded. Anyone with this link can read the log.</source>
+        <translation>アップロード。 このリンクをお持ちの方は、ログをお読みください.</translation>
+    </message>
+    <message>
+        <source>Copy link</source>
+        <translation>コピーリンク</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>ふりがな</translation>
+    </message>
+    <message>
+        <source>Copied ✓</source>
+        <translation>コピッド ✓</translation>
     </message>
 </context>
 <context>
@@ -5313,10 +5632,6 @@ Done をクリックして閉じます.</translation>
     <message>
         <source>{0} game - {1}</source>
         <translation>{0}のゲーム - {1}</translation>
-    </message>
-    <message>
-        <source>Check the executables to add to the Run menu. These run from their location in the game folder - including files deployed there by mods.</source>
-        <translation>実行可能値をチェックして実行メニューに追加します。 これらは、mods によって展開されたファイルを含む、ゲームフォルダ内の場所から実行されます.</translation>
     </message>
     <message>
         <source>Amethyst could not launch {0}.
@@ -5881,14 +6196,6 @@ Linuxファイルシステム(ext4/btrfs)は、ゲームとMODのステージン
         <translation>また後で</translation>
     </message>
     <message>
-        <source>Restart to change theme?</source>
-        <translation>テーマを変更するには再起動が必要ですか？</translation>
-    </message>
-    <message>
-        <source>The theme change takes effect after a restart. Restart now?</source>
-        <translation>テーマの変更は、再起動後に反映されます。今すぐ再起動しますか？</translation>
-    </message>
-    <message>
         <source>Syncing language files…</source>
         <translation>言語ファイルの同期中…</translation>
     </message>
@@ -6203,10 +6510,6 @@ Remove the appended-collection entry?</source>
     <message>
         <source>Redownloading {0} mod(s)…</source>
         <translation>{0} mod(s) をダウンロード..</translation>
-    </message>
-    <message>
-        <source>Reinstall</source>
-        <translation>再インストール</translation>
     </message>
     <message>
         <source>A Quick Update is already running.</source>
@@ -6607,10 +6910,6 @@ Run Quick Update on all of them now?</source>
     <message>
         <source>Downloading {0} files ({1} remaining)…</source>
         <translation>{0}のファイルをダウンロード中（残り{1}）…</translation>
-    </message>
-    <message>
-        <source>Nexus Download</source>
-        <translation>Nexusのダウンロード</translation>
     </message>
     <message>
         <source>Log in to Nexus first.</source>
@@ -7161,6 +7460,26 @@ Run Quick Update on all of them now?</source>
         <translation>{0}のMODをインストールしました</translation>
     </message>
     <message>
+        <source>Download Manifest…</source>
+        <translation>マニフェストをダウンロード..</translation>
+    </message>
+    <message>
+        <source>{0} is running - switch games when it finishes.</source>
+        <translation>{0}は実行中 - 終了時にゲームを切り替えます.</translation>
+    </message>
+    <message>
+        <source>VFS</source>
+        <translation>VFSシリーズ</translation>
+    </message>
+    <message>
+        <source> ({0})</source>
+        <translation>({0})</translation>
+    </message>
+    <message>
+        <source>Download cancelled.</source>
+        <translation>ダウンロードはキャンセルされます.</translation>
+    </message>
+    <message>
         <source>this mod</source>
         <translation>この商品</translation>
     </message>
@@ -7193,6 +7512,38 @@ Run Quick Update on all of them now?</source>
         <translation>{0} MOD(s) が見つかりませんでした.</translation>
     </message>
     <message>
+        <source>Load order reset - {0} mods ordered, {1} kept below.</source>
+        <translation>ロードオーダーリセット - {0} mods 注文、{1} 以下に保存されます.</translation>
+    </message>
+    <message>
+        <source>Load order reset - {0} mods ordered, {1} at top.</source>
+        <translation>負荷順序のリセット - {0} mods 注文、{1} 上.</translation>
+    </message>
+    <message>
+        <source>Load order reset - {0} mods ordered.</source>
+        <translation>負荷順序のリセット - {0} mods 注文.</translation>
+    </message>
+    <message>
+        <source>A manifest download is already running.</source>
+        <translation>マニフェストのダウンロードは既に実行中です.</translation>
+    </message>
+    <message>
+        <source>Downloading {0} collection manifest(s)…</source>
+        <translation>{0}コレクションマニフェストをダウンロード..</translation>
+    </message>
+    <message>
+        <source>Downloaded {0} manifest(s) to Downloads.</source>
+        <translation>ダウンロードする{0}マニフェストをダウンロード.</translation>
+    </message>
+    <message>
+        <source>Downloaded {0} manifest(s); {1} failed - see the log.</source>
+        <translation>{0}マニフェストをダウンロードしました。 {1}失敗 - ログを参照してください.</translation>
+    </message>
+    <message>
+        <source>Manifest download failed: {0}</source>
+        <translation>マニフェストのダウンロードが失敗しました: {0}</translation>
+    </message>
+    <message>
         <source>Add the API path shown on mod.io's API Access page using the mod.io API Key tool.</source>
         <translation>Mod.io の API Access ページに mod.io API Key ツールを使用して示されている API パスを追加します.</translation>
     </message>
@@ -7201,8 +7552,76 @@ Run Quick Update on all of them now?</source>
         <translation>mod.io 更新チェックは mod.io API キーツールで API パスが追加されるまで無効です.</translation>
     </message>
     <message>
+        <source>Reinstall download cancelled.</source>
+        <translation>ダウンロードを取り消しました.</translation>
+    </message>
+    <message>
+        <source>Reinstall download</source>
+        <translation>ダウンロード</translation>
+    </message>
+    <message>
+        <source>Quick Update download cancelled.</source>
+        <translation>クイックアップデートのダウンロードはキャンセルされました.</translation>
+    </message>
+    <message>
+        <source>Conflict data is still building.</source>
+        <translation>機密データはまだ構築されています.</translation>
+    </message>
+    <message>
+        <source>{0} has no conflicting mods.</source>
+        <translation>{0} は、競合するモジュールがありません.</translation>
+    </message>
+    <message>
+        <source>Filtered to {0} mods conflicting with {1}.</source>
+        <translation>{1} と競合する {0} MOD にフィルタリング.</translation>
+    </message>
+    <message>
+        <source>Cancel all</source>
+        <translation>キャンセル</translation>
+    </message>
+    <message>
         <source>No mods to share - a code carries Nexus mods with a mod + file ID and Thunderstore mods.</source>
         <translation>共有するMODはありません - コードは、MOD +ファイルIDとThunderstoreのMODでNexusのMODを運びます.</translation>
+    </message>
+    <message>
+        <source>■  Stop</source>
+        <translation>■ ストップ</translation>
+    </message>
+    <message>
+        <source>Check the executables to add to the Run menu. These run from their location in the game folder - including files deployed there by mods. Linux-native games launch through their .sh script (e.g. run_bepinex.sh).</source>
+        <translation>実行可能値をチェックして実行メニューに追加します。 これらは、mods によって展開されたファイルを含む、ゲームフォルダ内の場所から実行されます。 .shスクリプト(例: run bepinex.sh)でLinuxネイティブゲームが起動します.</translation>
+    </message>
+    <message>
+        <source>{0} stopped</source>
+        <translation>{0} 停止</translation>
+    </message>
+    <message>
+        <source>■  Stopping…</source>
+        <translation>■ 停止..</translation>
+    </message>
+    <message>
+        <source>Stopping {0}…</source>
+        <translation>{0}の停止..</translation>
+    </message>
+    <message>
+        <source>Amethyst could not launch {0}.
+
+{1}</source>
+        <translation>Amethystは{0}を起動できませんでした。
+
+{1}シリーズ</translation>
+    </message>
+    <message>
+        <source>Extracting / Installing</source>
+        <translation>抽出/インストール</translation>
+    </message>
+    <message>
+        <source>No QuickAutoClean tool is available for this game.</source>
+        <translation>このゲームでは、QuickAutoCleanツールは使用できません.</translation>
+    </message>
+    <message>
+        <source>Preparing extraction…</source>
+        <translation>抽出物を準備する..</translation>
     </message>
     <message>
         <source>Fallout 3 needs downgrading</source>
@@ -7553,6 +7972,10 @@ CETは、symlinked asiから読み込まれません。 これは、展開モー
         <translation>ログフォルダを開く</translation>
     </message>
     <message>
+        <source>Upload Log</source>
+        <translation>アップロード ログ</translation>
+    </message>
+    <message>
         <source>Wiki</source>
         <translation>メニュー</translation>
     </message>
@@ -7571,6 +7994,10 @@ CETは、symlinked asiから読み込まれません。 これは、展開モー
     <message>
         <source>♥ Endorse AMM</source>
         <translation>♥ AMMを応援しよう</translation>
+    </message>
+    <message>
+        <source>The log is empty.</source>
+        <translation>ログは空です.</translation>
     </message>
     <message>
         <source>Could not read the changelog:
@@ -7593,6 +8020,81 @@ CETは、symlinked asiから読み込まれません。 これは、展開モー
     <message>
         <source>Endorsing Amethyst Mod Manager…</source>
         <translation>Amethyst Mod Managerを推奨…</translation>
+    </message>
+</context>
+<context>
+    <name>Me3InstallView</name>
+    <message>
+        <source>Install me3 - {0}</source>
+        <translation>インストール me3 - {0}</translation>
+    </message>
+    <message>
+        <source>me3 mod loader</source>
+        <translation>me3 mod ローダー</translation>
+    </message>
+    <message>
+        <source>{0} mods are loaded by me3 at runtime rather than copied into the game folder, so me3 must be installed for the Play button to start a modded game.</source>
+        <translation>{0} mods は、ゲームフォルダにコピーするのではなく、実行時に me3 によってロードされますので、modded ゲームを開始するには、Play ボタンに me3 をインストールする必要があります.</translation>
+    </message>
+    <message>
+        <source>Amethyst is running as a Flatpak, so me3 has to be installed on the host system where Steam runs. Open a terminal on the host and run:</source>
+        <translation>Amethyst は Flatpak として実行されているため、Steam が実行するホストシステムに me3 をインストールする必要があります。 ホストのターミナルを開き、実行します</translation>
+    </message>
+    <message>
+        <source>Download and install me3</source>
+        <translation>ダウンロードとインストール me3</translation>
+    </message>
+    <message>
+        <source>Re-check</source>
+        <translation>再確認</translation>
+    </message>
+    <message>
+        <source>Open me3 website</source>
+        <translation>ホームページをリニューアルしました</translation>
+    </message>
+    <message>
+        <source>Log:</source>
+        <translation>ログイン:</translation>
+    </message>
+    <message>
+        <source>me3 was not found. It must be installed on the host system, not inside the Flatpak sandbox.</source>
+        <translation>me3が見つかりませんでした。 フラットパックサンドボックス内ではなく、ホストシステムにインストールする必要があります.</translation>
+    </message>
+    <message>
+        <source>me3 is not installed.</source>
+        <translation>me3はインストールされていません.</translation>
+    </message>
+    <message>
+        <source>unknown version</source>
+        <translation>未知のバージョン</translation>
+    </message>
+    <message>
+        <source>me3 {0} found at {1}, but its Windows files are missing. Re-install to repair it.</source>
+        <translation>xPH1X で見つかった me3 {0}, しかし、その Windows ファイルは欠落しています. 再インストールして修復します.</translation>
+    </message>
+    <message>
+        <source>me3 {0} is installed at {1}.</source>
+        <translation>xPH1X にインストールされます.</translation>
+    </message>
+    <message>
+        <source>Fetching the latest me3 release…</source>
+        <translation>最新の me3 リリースを取得..</translation>
+    </message>
+    <message>
+        <source>Installing…</source>
+        <translation>インストール..</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>エラー: {0}</translation>
+    </message>
+    <message>
+        <source>Install finished.</source>
+        <translation>終了する取付けて下さい.</translation>
+    </message>
+    <message>
+        <source>Install did not complete.</source>
+        <translation>インストールが完了しなかった.</translation>
     </message>
 </context>
 <context>
@@ -7889,6 +8391,10 @@ How would you like to handle the existing mod?</source>
         <translation>更新情報の確認（{0}）</translation>
     </message>
     <message>
+        <source>Clear Conflict Filter</source>
+        <translation>明確なコンフリクト フィルター</translation>
+    </message>
+    <message>
         <source>Copy to profile</source>
         <translation>プロフィールにコピー</translation>
     </message>
@@ -7953,6 +8459,10 @@ How would you like to handle the existing mod?</source>
     <message>
         <source>Endorse selected ({0})</source>
         <translation>選択したものを推奨（{0}）</translation>
+    </message>
+    <message>
+        <source>Filter Conflicts</source>
+        <translation>フィルターコンフリクト</translation>
     </message>
     <message>
         <source>'{0}' belongs to the locked profile '{1}' - switch to that profile to remove it, or unlock it.</source>
@@ -9058,6 +9568,10 @@ Baldur's Gate 3 mods は mod.io から手動でインストールします。
         <translation>削除</translation>
     </message>
     <message>
+        <source>View details</source>
+        <translation>詳細を見る</translation>
+    </message>
+    <message>
         <source>Mods by this author</source>
         <translation>この著者による変更</translation>
     </message>
@@ -9190,6 +9704,157 @@ Daily: {1}</source>
     </message>
 </context>
 <context>
+    <name>NexusModDetailView</name>
+    <message>
+        <source>Main files</source>
+        <translation>メインファイル</translation>
+    </message>
+    <message>
+        <source>Miscellaneous files</source>
+        <translation>その他のファイル</translation>
+    </message>
+    <message>
+        <source>Optional files</source>
+        <translation>任意ファイル</translation>
+    </message>
+    <message>
+        <source>Update files</source>
+        <translation>ファイルの更新</translation>
+    </message>
+    <message>
+        <source>Old versions</source>
+        <translation>古いバージョン</translation>
+    </message>
+    <message>
+        <source>Archived files</source>
+        <translation>ファイルのアーカイブ</translation>
+    </message>
+    <message>
+        <source>Other files</source>
+        <translation>その他のファイル</translation>
+    </message>
+    <message>
+        <source>← Back to mods</source>
+        <translation>← アイテムに戻る</translation>
+    </message>
+    <message>
+        <source>Open on Nexus ↗</source>
+        <translation>ネクサス ◀</translation>
+    </message>
+    <message>
+        <source>Loading image…</source>
+        <translation>画像をロードする..</translation>
+    </message>
+    <message>
+        <source>Description</source>
+        <translation>コンテンツ</translation>
+    </message>
+    <message>
+        <source>Loading files…</source>
+        <translation>ファイルの読み込み</translation>
+    </message>
+    <message>
+        <source>Name</source>
+        <translation>お名前 (必須)</translation>
+    </message>
+    <message>
+        <source>Version</source>
+        <translation>バージョン</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>サイズ:</translation>
+    </message>
+    <message>
+        <source>Uploaded</source>
+        <translation>アップロード</translation>
+    </message>
+    <message>
+        <source>Files</source>
+        <translation>ファイル</translation>
+    </message>
+    <message>
+        <source>Mod {0}</source>
+        <translation>変更 {0}</translation>
+    </message>
+    <message>
+        <source>No summary provided.</source>
+        <translation>要約はありません.</translation>
+    </message>
+    <message>
+        <source>Unknown author</source>
+        <translation>未知の著者</translation>
+    </message>
+    <message>
+        <source>by {0}  •  {1}</source>
+        <translation>によって {0} • {1}</translation>
+    </message>
+    <message>
+        <source>by {0}</source>
+        <translation>によって {0}</translation>
+    </message>
+    <message>
+        <source>Version: {0}</source>
+        <translation>バージョン: {0}</translation>
+    </message>
+    <message>
+        <source>Endorsements: {0}</source>
+        <translation>終了: {0}</translation>
+    </message>
+    <message>
+        <source>Downloads: {0}</source>
+        <translation>ダウンロード: {0}</translation>
+    </message>
+    <message>
+        <source>Uploaded: {0}</source>
+        <translation>アップロード: {0}</translation>
+    </message>
+    <message>
+        <source>Updated: {0}</source>
+        <translation>更新: {0}</translation>
+    </message>
+    <message>
+        <source>No image available</source>
+        <translation>撮影不可</translation>
+    </message>
+    <message>
+        <source>Description unavailable.</source>
+        <translation>説明は利用できません.</translation>
+    </message>
+    <message>
+        <source>Could not load the file list.</source>
+        <translation>ファイルリストをロードできません.</translation>
+    </message>
+    <message>
+        <source>{0} ({1})</source>
+        <translation>{0}({1})</translation>
+    </message>
+    <message>
+        <source>{0} file(s)</source>
+        <translation>{0}ファイル(s)</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>キャンセル</translation>
+    </message>
+    <message>
+        <source>Redownload</source>
+        <translation>リダウンロード</translation>
+    </message>
+    <message>
+        <source>Reinstall</source>
+        <translation>再インストール</translation>
+    </message>
+    <message>
+        <source>Download</source>
+        <translation>ダウンロード</translation>
+    </message>
+    <message>
+        <source>Install</source>
+        <translation>インストール</translation>
+    </message>
+</context>
+<context>
     <name>NifPreview</name>
     <message>
         <source>View</source>
@@ -9204,8 +9869,8 @@ Daily: {1}</source>
         <translation>ノーマルマップ+輝き</translation>
     </message>
     <message>
-        <source>Apply the mesh's normal map and its gloss mask</source>
-        <translation>メッシュの通常のマップと光沢マスクを適用します</translation>
+        <source>Apply normal maps and material shine, including PBR roughness and metallic maps</source>
+        <translation>PBRの荒さおよび金属地図を含む正常な地図そして物質的な輝きを、適用して下さい</translation>
     </message>
     <message>
         <source>Cull backfaces</source>
@@ -9262,6 +9927,10 @@ Daily: {1}</source>
     <message>
         <source>Black</source>
         <translation>ブラック</translation>
+    </message>
+    <message>
+        <source>Green screen</source>
+        <translation>グリーンスクリーン</translation>
     </message>
     <message>
         <source>Invert mouse</source>
@@ -9363,6 +10032,14 @@ Daily: {1}</source>
         <translation>{0}が提供するメッシュのみを表示し、競合するコピーと一緒に</translation>
     </message>
     <message>
+        <source>⟳ Refresh</source>
+        <translation>⟳ リフレッシュ</translation>
+    </message>
+    <message>
+        <source>Re-scan the profile after changing the modlist or load order</source>
+        <translation>Modlist または load 順序を変更した後、プロファイルを再スキャン</translation>
+    </message>
+    <message>
         <source>✕ Close</source>
         <translation>✕ 閉じる</translation>
     </message>
@@ -9421,12 +10098,183 @@ Daily: {1}</source>
         <translation>お知らせ</translation>
     </message>
     <message>
+        <source>Working</source>
+        <translation>スタッフ</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>キャンセル</translation>
+    </message>
+    <message>
         <source>No notifications</source>
         <translation>通知なし</translation>
     </message>
     <message>
         <source>Clear all</source>
         <translation>すべてクリア</translation>
+    </message>
+</context>
+<context>
+    <name>NpcViewerView</name>
+    <message>
+        <source>View NPCs - {0} ▸ {1}</source>
+        <translation>NPCを見る - {0} ▸ {1}</translation>
+    </message>
+    <message>
+        <source>View NPCs - {0}</source>
+        <translation>NPCを見る - {0}</translation>
+    </message>
+    <message>
+        <source>Scanning…</source>
+        <translation>スキャン..</translation>
+    </message>
+    <message>
+        <source>Search NPCs and mods…</source>
+        <translation>NPCとMODを検索..</translation>
+    </message>
+    <message>
+        <source>Match an NPC name, editor id, FormID, or the mod providing the face</source>
+        <translation>NPC 名、エディタ ID、FormID、または mod をマッチして、顔を提供</translation>
+    </message>
+    <message>
+        <source>Limit the list to one side of the setup</source>
+        <translation>セットアップの片側にリストを制限する</translation>
+    </message>
+    <message>
+        <source>All sources</source>
+        <translation>すべてのソース</translation>
+    </message>
+    <message>
+        <source>Mods only</source>
+        <translation>変更のみ</translation>
+    </message>
+    <message>
+        <source>Vanilla only</source>
+        <translation>バニラのみ</translation>
+    </message>
+    <message>
+        <source>Whole body</source>
+        <translation>全身ボディ</translation>
+    </message>
+    <message>
+        <source>Show the NPC's body, hands and feet with the head, posed on the race's skeleton</source>
+        <translation>レースのスケルトンに置かれるNPCのボディ、手およびフィートを、示して下さい</translation>
+    </message>
+    <message>
+        <source>Outfit</source>
+        <translation>アウトフィット</translation>
+    </message>
+    <message>
+        <source>Dress the NPC in its default outfit. NPCs that equip from their inventory instead have none, and show bare.</source>
+        <translation>デフォルトの衣装でNPCをドレスアップします。 在庫から装備するNPCは、どれも持っていないし、ベアを表示します.</translation>
+    </message>
+    <message>
+        <source>Only overridden</source>
+        <translation>オーバーライドデンのみ</translation>
+    </message>
+    <message>
+        <source>Show only NPCs whose face is provided by more than one mod</source>
+        <translation>顔が複数のモモモによって提供されるNPCだけを示す</translation>
+    </message>
+    <message>
+        <source>Only this mod</source>
+        <translation>この商品だけ</translation>
+    </message>
+    <message>
+        <source>Show only NPCs {0} provides a face for, alongside the versions they compete with</source>
+        <translation>NPCs {0} のみを表示すると、競合するバージョンと対面</translation>
+    </message>
+    <message>
+        <source>Save as image…</source>
+        <translation>画像として保存..</translation>
+    </message>
+    <message>
+        <source>Save four turntable angles and a face close-up as one PNG image, on a background you pick</source>
+        <translation>4つのターンテーブルの角度と顔のクローズアップを1つのPNGイメージとして保存します</translation>
+    </message>
+    <message>
+        <source>⟳ Refresh</source>
+        <translation>⟳ リフレッシュ</translation>
+    </message>
+    <message>
+        <source>Re-read the profile after changing the modlist or load order</source>
+        <translation>Modlist または load 順序を変更した後、プロファイルを再読み込み</translation>
+    </message>
+    <message>
+        <source>✕ Close</source>
+        <translation>✕ 閉じる</translation>
+    </message>
+    <message>
+        <source>Select an NPC</source>
+        <translation>NPCを選択</translation>
+    </message>
+    <message>
+        <source>{0} NPCs</source>
+        <translation>{0} NPCの</translation>
+    </message>
+    <message>
+        <source>Reading…</source>
+        <translation>読書..</translation>
+    </message>
+    <message>
+        <source>Choosing background…</source>
+        <translation>背景の選択..</translation>
+    </message>
+    <message>
+        <source>Light</source>
+        <translation>ライトライト</translation>
+    </message>
+    <message>
+        <source>Grey</source>
+        <translation>グレー</translation>
+    </message>
+    <message>
+        <source>Dark</source>
+        <translation>ダーク</translation>
+    </message>
+    <message>
+        <source>Black</source>
+        <translation>ブラック</translation>
+    </message>
+    <message>
+        <source>Green screen</source>
+        <translation>グリーンスクリーン</translation>
+    </message>
+    <message>
+        <source>Capturing…</source>
+        <translation>キャプチャ..</translation>
+    </message>
+    <message>
+        <source>Capture failed</source>
+        <translation>キャプチャ失敗</translation>
+    </message>
+    <message>
+        <source>Choose location…</source>
+        <translation>場所を選択してください..</translation>
+    </message>
+    <message>
+        <source>Save NPC image</source>
+        <translation>NPCイメージを保存</translation>
+    </message>
+    <message>
+        <source>PNG images (*.png)</source>
+        <translation>PNG画像(*.png)</translation>
+    </message>
+    <message>
+        <source>All files</source>
+        <translation>すべてのファイル</translation>
+    </message>
+    <message>
+        <source>Saved!</source>
+        <translation>保存!</translation>
+    </message>
+    <message>
+        <source>Save failed</source>
+        <translation>失敗した保存</translation>
+    </message>
+    <message>
+        <source>could not be read</source>
+        <translation>読むことができません</translation>
     </message>
 </context>
 <context>
@@ -9661,8 +10509,16 @@ Please restart the wizard and download PGPatcher first.</source>
         <translation>PGPatcherのワインプレフィックスの準備..</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam, then reopen this wizard.</source>
-        <translation>Proton '{0}' が見つかりません - Steam にインストールされていることを確認して、このウィザードを再オープンしてください.</translation>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>ゲーム独自のプレフィックスのProtonバージョンを解決できません。一度ゲームを起動するか、異なるプレフィックスオプションを選択します.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus, then reopen this wizard.</source>
+        <translation>Proton '{0}'が見つかりません - Steam、Heric、ProtonPlusにインストールされていることを確認して、このウィザードを再オープンしてください.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>Proton '{0}'が見つかりません - Steam、Heric、ProtonPlusにインストールされていることを確認してください.</translation>
     </message>
     <message>
         <source>d3dcompiler_47 already installed - skipping.</source>
@@ -9723,10 +10579,6 @@ Please restart the wizard and download PGPatcher first.</source>
     <message>
         <source>{0} was not found.</source>
         <translation>{0} 見つかりませんでした。</translation>
-    </message>
-    <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
-        <translation>Proton '{0}' - Steam にインストールされていることを確認してください.</translation>
     </message>
     <message>
         <source>PGPatcher is running.
@@ -9820,8 +10672,12 @@ Install Pandora Behaviour Engine+ as a mod, then reopen this wizard.</source>
         <translation>パンドラのワインプレフィックスの準備..</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam, then reopen this wizard.</source>
-        <translation>Proton '{0}' が見つかりません - Steam にインストールされていることを確認して、このウィザードを再オープンしてください.</translation>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>ゲーム独自のプレフィックスのProtonバージョンを解決できません。一度ゲームを起動するか、異なるプレフィックスオプションを選択します.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus, then reopen this wizard.</source>
+        <translation>Proton '{0}'が見つかりません - Steam、Heric、ProtonPlusにインストールされていることを確認して、このウィザードを再オープンしてください.</translation>
     </message>
     <message>
         <source>.NET 10 already installed - skipping.</source>
@@ -10259,6 +11115,10 @@ Drag a plugin from the left pane to add a rule.</source>
         <translation>再確認</translation>
     </message>
     <message>
+        <source>Fix All</source>
+        <translation>Fix すべて</translation>
+    </message>
+    <message>
         <source>Fix</source>
         <translation>インストール</translation>
     </message>
@@ -10307,6 +11167,26 @@ Drag a plugin from the left pane to add a rule.</source>
         <translation>プレフィックスレジストリのゲームパス</translation>
     </message>
     <message>
+        <source>d3dx9 (all legacy DirectX 9 runtimes)</source>
+        <translation>d3dx9 (すべてのレガシーDirectX 9ランタイム)</translation>
+    </message>
+    <message>
+        <source>d3dx10 (all legacy DirectX 10 runtimes)</source>
+        <translation>d3dx10 (すべてのレガシーDirectX 10ランタイム)</translation>
+    </message>
+    <message>
+        <source>quartz (DirectShow runtime)</source>
+        <translation>水晶(DirectShowのランタイム)</translation>
+    </message>
+    <message>
+        <source>dx8vb (DirectX 8 Visual Basic runtime)</source>
+        <translation>dx8vb(DirectX 8 Visual Basicランタイム)</translation>
+    </message>
+    <message>
+        <source>DXVK (Direct3D → Vulkan)</source>
+        <translation>DXVK(Direct3D→Vulkan)</translation>
+    </message>
+    <message>
         <source>No prefix configured</source>
         <translation>プレフィックスの設定なし</translation>
     </message>
@@ -10333,6 +11213,14 @@ Drag a plugin from the left pane to add a rule.</source>
     <message>
         <source>Another Proton installer is running - try again shortly.</source>
         <translation>別の Proton インストーラーが実行中 - もう一度お試しください.</translation>
+    </message>
+    <message>
+        <source>Fixing {0} item(s)… (details in the log)</source>
+        <translation>{0} アイテムの修正... (ログの詳細は)</translation>
+    </message>
+    <message>
+        <source>Fixing {0} prefix item(s)</source>
+        <translation>{0}プレフィックス項目の修正</translation>
     </message>
     <message>
         <source>A fix is running - please wait for it to finish.</source>
@@ -10666,6 +11554,18 @@ Steam(またはHermic's Wine Manager)にProtonバージョンをインストー�
         <translation>{0} は、独自の Wine 接頭辞で実行し、ゲームの接頭辞から分離するので、ゲームに影響を与えることなく Proton バージョンを選ぶことができます。
 
 .</translation>
+    </message>
+    <message>
+        <source>Prefer discrete GPU (hybrid systems)</source>
+        <translation>プリファーディスクリートGPU(ハイブリッドシステム)</translation>
+    </message>
+    <message>
+        <source>Expose the discrete GPU as adapter 0. May use more power.</source>
+        <translation>アダプター 0 としてディスクリート GPU を公開します。 より多くの力を使用するかもしれない.</translation>
+    </message>
+    <message>
+        <source>Uses the discrete GPU for texconv; falls back to CPU if unavailable.</source>
+        <translation>Texconv 用のディスクリート GPU を使用します。利用できなくなった場合は CPU に戻ります.</translation>
     </message>
     <message>
         <source>Use shared prefix</source>
@@ -11135,6 +12035,101 @@ Protonのプレフィックス：{2}</translation>
     <message>
         <source>Registry write finished with errors - see log above.</source>
         <translation>レジストリは、エラーで終了 - 上記のログを参照してください.</translation>
+    </message>
+</context>
+<context>
+    <name>RegulationMergeView</name>
+    <message>
+        <source>Merge regulation.bin - {0}</source>
+        <translation>マージ規制.bin - {0}</translation>
+    </message>
+    <message>
+        <source>Step 1: Install WitchyBND</source>
+        <translation>ステップ1:WitchyBNDをインストールする</translation>
+    </message>
+    <message>
+        <source>Only one regulation.bin can be active, so mods that ship one override each other completely. This installs WitchyBND's native Linux command-line build into the game's Applications folder; no Proton prefix or Windows .NET runtime is required.</source>
+        <translation>1つのrelation.binだけがアクティブにできるので、お互いを完全に上書きするmods。 これは、WitchyBNDのネイティブLinuxコマンドラインビルドをゲームのアプリケーションフォルダにインストールします。 ProtonプレフィックスやWindows .NETランタイムは必要ありません.</translation>
+    </message>
+    <message>
+        <source>Download and install</source>
+        <translation>ダウンロードとインストール</translation>
+    </message>
+    <message>
+        <source>Step 2: Merge</source>
+        <translation>ステップ2:マージ</translation>
+    </message>
+    <message>
+        <source>Each regulation is compared with the installed game at field level, then combined in mod priority order into the '{0}' mod. Keep the contributing mods enabled so their other files remain active; enable '{0}' above them afterwards.</source>
+        <translation>各規則は、フィールドレベルでインストールされたゲームと比較し、「{0}」MODにmod優先オーダーで組み合わせられます。 貢献したmods が有効になっているので、他のファイルがアクティブのままになります。その後の '{0}' を有効にします.</translation>
+    </message>
+    <message>
+        <source>Mods contributing param edits (highest priority first):</source>
+        <translation>Mods は、param の編集に最も優先的に貢献します</translation>
+    </message>
+    <message>
+        <source>Merge into one mod</source>
+        <translation>1つの項目にマージ</translation>
+    </message>
+    <message>
+        <source>Log:</source>
+        <translation>ログイン:</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>エラー: {0}</translation>
+    </message>
+    <message>
+        <source>Could not read the mod list: {0}</source>
+        <translation>Mod リストは読みません: {0}</translation>
+    </message>
+    <message>
+        <source>{0} whole-row CSV(s)</source>
+        <translation>{0} 全列 CSV(s)</translation>
+    </message>
+    <message>
+        <source>  (none)</source>
+        <translation>(なし)</translation>
+    </message>
+    <message>
+        <source>{0} mods ship param edits; only one regulation would survive without merging.</source>
+        <translation>{0} mods はパラムの編集を出荷します。1つの規則だけはマージなしで存続します.</translation>
+    </message>
+    <message>
+        <source>Only one mod ships param edits, so nothing conflicts.</source>
+        <translation>1つのMODのみがパラム編集を行ないます.</translation>
+    </message>
+    <message>
+        <source>No enabled mod ships param edits.</source>
+        <translation>修飾された mod は param の編集を出荷しません.</translation>
+    </message>
+    <message>
+        <source>Merging ...</source>
+        <translation>マージ...</translation>
+    </message>
+    <message>
+        <source>WitchyBND is not installed.</source>
+        <translation>WitchyBND はインストールされていません.</translation>
+    </message>
+    <message>
+        <source>Could not find the game's own regulation.bin. Restore the game before merging so the vanilla file is in place.</source>
+        <translation>ゲーム自身の規制.binが見つかりませんでした。 mergingの前にゲームを復元すると、バニラファイルが配置されます.</translation>
+    </message>
+    <message>
+        <source>Nothing to merge.</source>
+        <translation>合併してはならない.</translation>
+    </message>
+    <message>
+        <source>Merged into '{0}' with {1} resolved overlap(s). Enable it above the contributing mods, then deploy.</source>
+        <translation>{1} で '{0}' にマージすると、オーバーラップを解決しました。 貢献したmods の上で有効化し、デプロイします.</translation>
+    </message>
+    <message>
+        <source>Merged and validated into '{0}'. Enable it above the contributing mods, keep those mods enabled, then deploy.</source>
+        <translation>'{0}' にマージして検証します。 貢献した mods の上で有効化し、その mods を有効にしてからデプロイします.</translation>
+    </message>
+    <message>
+        <source>Merge failed: {0}</source>
+        <translation>マージ失敗: {0}</translation>
     </message>
 </context>
 <context>
@@ -11862,8 +12857,16 @@ or use Browse to select it manually.</source>
         <translation>スクリプトマーガーのワインプレフィックスの準備..</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam, then reopen this wizard.</source>
-        <translation>Proton '{0}' が見つかりません - Steam にインストールされていることを確認して、このウィザードを再オープンしてください.</translation>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>ゲーム独自のプレフィックスのProtonバージョンを解決できません。一度ゲームを起動するか、異なるプレフィックスオプションを選択します.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus, then reopen this wizard.</source>
+        <translation>Proton '{0}'が見つかりません - Steam、Heric、ProtonPlusにインストールされていることを確認して、このウィザードを再オープンしてください.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>Proton '{0}'が見つかりません - Steam、Heric、ProtonPlusにインストールされていることを確認してください.</translation>
     </message>
     <message>
         <source>.NET 8 already installed - skipping.</source>
@@ -11926,10 +12929,6 @@ Please restart the wizard and install Script Merger first.</source>
 ウィザードを再起動し、まずScript Mergerをインストールしてください。</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
-        <translation>Proton '{0}' - Steam にインストールされていることを確認してください.</translation>
-    </message>
-    <message>
         <source>WitcherScriptMerger is running.
 Merge your conflicts, then close it and click Done.</source>
         <translation>WitcherScriptMerger は実行中です。
@@ -11951,8 +12950,8 @@ Merge your conflicts, then close it and click Done.</source>
 <context>
     <name>SelectorButton</name>
     <message>
-        <source>{0}{1}</source>
-        <translation>{0}{1}</translation>
+        <source>{0}{1}{2}</source>
+        <translation>{0}{1}{2}</translation>
     </message>
     <message>
         <source>{0}   ✓ deployed</source>
@@ -12074,10 +13073,6 @@ Merge your conflicts, then close it and click Done.</source>
     <message>
         <source>Settings</source>
         <translation>設定</translation>
-    </message>
-    <message>
-        <source>Changes take effect after restart.</source>
-        <translation>変更は再起動後に反映されます。</translation>
     </message>
     <message>
         <source>Browse</source>
@@ -12204,10 +13199,6 @@ Merge your conflicts, then close it and click Done.</source>
         <translation>低いCPUとディスクの優先度で抽出を実行し、それらを遅くするのではなく、他のアプリケーションに収まります。 システムがそうでなければアイドルである間、抽出の速度は影響しません.</translation>
     </message>
     <message>
-        <source>Caches</source>
-        <translation>キャッシュ</translation>
-    </message>
-    <message>
         <source>Manage Caches…</source>
         <translation>キャッシュの管理…</translation>
     </message>
@@ -12266,6 +13257,10 @@ Merge your conflicts, then close it and click Done.</source>
     <message>
         <source>Hide Ko-Fi button</source>
         <translation>Ko-Fiボタンを隠す</translation>
+    </message>
+    <message>
+        <source>Language and UI scale changes take effect after restart.</source>
+        <translation>言語とUIスケールの変更は、再起動後に有効になります.</translation>
     </message>
     <message>
         <source>Hide the Ko-Fi donation button in the status bar.</source>
@@ -12440,12 +13435,128 @@ flatpak リモート追加 --user amethyst https://chrisdkn.github.io/Amethyst-M
         <translation>環境変数の編集..</translation>
     </message>
     <message>
+        <source>Appearance</source>
+        <translation>インフォメーション</translation>
+    </message>
+    <message>
+        <source>About</source>
+        <translation>お問い合わせ</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>ふりがな</translation>
+    </message>
+    <message>
+        <source>Reset dismissed prompts…</source>
+        <translation>解読されたプロンプトをリセット..</translation>
+    </message>
+    <message>
+        <source>Bring back every notice you hid by ticking "Don't show this again" - the launcher handoff notice, the Windows filesystem warning and the rest.</source>
+        <translation>"再び表示しないでください" - ランチャーハンドオフ通知、Windowsのファイルシステム警告と残りの部分をチェックして、あなたが隠したすべての通知を戻してください.</translation>
+    </message>
+    <message>
+        <source>Nothing to reset</source>
+        <translation>リセットなし</translation>
+    </message>
+    <message>
+        <source>No prompts are currently hidden.</source>
+        <translation>現在、プロンプトが隠されていません.</translation>
+    </message>
+    <message>
+        <source>{0} hidden prompt will show again.</source>
+        <translation>{0} 隠しプロンプトが再び表示されます.</translation>
+    </message>
+    <message>
+        <source>{0} hidden prompts will show again.</source>
+        <translation>{0} 隠しプロンプトが再び表示されます.</translation>
+    </message>
+    <message>
+        <source>Prompts reset</source>
+        <translation>プロンプトのリセット</translation>
+    </message>
+    <message>
+        <source>{0} prompt is hidden. It will start showing again.</source>
+        <translation>{0} プロンプトが隠されています。 再び表示を開始します.</translation>
+    </message>
+    <message>
+        <source>{0} prompts are hidden. They will start showing again.</source>
+        <translation>{0} のプロンプトは隠されます。 次回も開催します.</translation>
+    </message>
+    <message>
+        <source>Reset dismissed prompts?</source>
+        <translation>却下されたプロンプトをリセットしますか?</translation>
+    </message>
+    <message>
+        <source>Reset</source>
+        <translation>リセット</translation>
+    </message>
+    <message>
         <source>{0} set: {1}</source>
         <translation>{0}セット:{1}</translation>
     </message>
     <message>
         <source>None set</source>
         <translation>なしセット</translation>
+    </message>
+    <message>
+        <source>System Information</source>
+        <translation>システム情報</translation>
+    </message>
+    <message>
+        <source>App version</source>
+        <translation>アプリ版</translation>
+    </message>
+    <message>
+        <source>OS</source>
+        <translation>ログアウト</translation>
+    </message>
+    <message>
+        <source>Distribution</source>
+        <translation>コンテンツ</translation>
+    </message>
+    <message>
+        <source>Kernel</source>
+        <translation>カーネル</translation>
+    </message>
+    <message>
+        <source>Python</source>
+        <translation>トピックス</translation>
+    </message>
+    <message>
+        <source>Qt</source>
+        <translation>よくある質問</translation>
+    </message>
+    <message>
+        <source>Run mode</source>
+        <translation>モードの実行</translation>
+    </message>
+    <message>
+        <source>Package</source>
+        <translation>パッケージ</translation>
+    </message>
+    <message>
+        <source>Desktop</source>
+        <translation>デスクトップ</translation>
+    </message>
+    <message>
+        <source>Session</source>
+        <translation>セッション</translation>
+    </message>
+    <message>
+        <source>OpenGL</source>
+        <translation>オープンGL</translation>
+    </message>
+    <message>
+        <source>Env overrides</source>
+        <translation>Env オーバーライド</translation>
+    </message>
+    <message>
+        <source>Copy to clipboard</source>
+        <translation>クリップボードへのコピー</translation>
+    </message>
+    <message>
+        <source>System information copied.</source>
+        <translation>コピーしたシステム情報.</translation>
     </message>
     <message>
         <source>Failed to save setting: {0}</source>
@@ -12463,6 +13574,14 @@ flatpak リモート追加 --user amethyst https://chrisdkn.github.io/Amethyst-M
         <translation>このコードを誰かに共有して、自分のロード順を送ってください（{0} {1}）。相手は「コードをインポート」からそれを追加できます。</translation>
     </message>
     <message>
+        <source>Too long to paste? Get a short link instead - this uploads the code to {0}, where anyone with the link can read it. The link stops working {1}.</source>
+        <translation>貼るまで長く? 代わりに短いリンクを取得する - これは、リンクを持つ誰もがそれを読むことができる{0}にコードをアップロードします。 リンクは{1}の動作を停止します.</translation>
+    </message>
+    <message>
+        <source>Get link</source>
+        <translation>サイトマップ</translation>
+    </message>
+    <message>
         <source>Close</source>
         <translation>閉じる</translation>
     </message>
@@ -12474,6 +13593,22 @@ flatpak リモート追加 --user amethyst https://chrisdkn.github.io/Amethyst-M
         <source>Copied ✓</source>
         <translation>コピー済み ✓</translation>
     </message>
+    <message>
+        <source>Uploading…</source>
+        <translation>アップロード..</translation>
+    </message>
+    <message>
+        <source>Could not get a link ({0}). The code above still works - copy and send that instead.</source>
+        <translation>リンク({0})は取得できません。 上記のコードはまだ機能します - コピーして、代わりにそれを送信します.</translation>
+    </message>
+    <message>
+        <source>Link ready</source>
+        <translation>リンクの準備</translation>
+    </message>
+    <message>
+        <source>Anyone with this link can import your load order. Paste it into Import code.</source>
+        <translation>このリンクをお持ちの方は、ロード注文をインポートできます。 インポートコードに貼り付けます.</translation>
+    </message>
 </context>
 <context>
     <name>ShareCodeImportOverlay</name>
@@ -12482,8 +13617,8 @@ flatpak リモート追加 --user amethyst https://chrisdkn.github.io/Amethyst-M
         <translation>コードをインポート</translation>
     </message>
     <message>
-        <source>Paste a share code below to build a new profile from someone else's load order.</source>
-        <translation>以下の共有コードを貼り付けると、他のユーザーのロード順に基づいて新しいプロフィールを作成できます。</translation>
+        <source>Paste a share code below to build a new profile from someone else's load order. A link to a code works too.</source>
+        <translation>他の人のロード注文から新しいプロファイルを作成するために、下の共有コードを貼り付けます。 コードにリンクしても構いません.</translation>
     </message>
     <message>
         <source>Paste from clipboard</source>
@@ -12498,6 +13633,10 @@ flatpak リモート追加 --user amethyst https://chrisdkn.github.io/Amethyst-M
         <translation>インポート</translation>
     </message>
     <message>
+        <source>A link - press Fetch to download the code from it.</source>
+        <translation>リンク - Fetchを押してからコードをダウンロードします.</translation>
+    </message>
+    <message>
         <source>Not a valid share code.</source>
         <translation>有効な共有コードではありません.</translation>
     </message>
@@ -12508,6 +13647,14 @@ flatpak リモート追加 --user amethyst https://chrisdkn.github.io/Amethyst-M
     <message>
         <source>exported {0}</source>
         <translation>エクスポート {0}</translation>
+    </message>
+    <message>
+        <source>Fetch</source>
+        <translation>フェッチ</translation>
+    </message>
+    <message>
+        <source>Downloading…</source>
+        <translation>ダウンロード..</translation>
     </message>
 </context>
 <context>
@@ -12767,6 +13914,121 @@ Use Browse to select a manually downloaded archive.</source>
     </message>
 </context>
 <context>
+    <name>SpecialKView</name>
+    <message>
+        <source>Install Special K - {0}</source>
+        <translation>特別なK - {0}をインストール</translation>
+    </message>
+    <message>
+        <source>Proxy DLL name</source>
+        <translation>Proxy DLLの名前</translation>
+    </message>
+    <message>
+        <source>{0} is renamed to this. dxgi.dll is correct for NieR: Automata; pick another only if a different mod already uses that name.</source>
+        <translation>{0} は、この名前を変更します。 dxgi.dll は NieR: Automata で正しいです。 別の mod が既にその名前を使用している場合は、別の のみを選択します.</translation>
+    </message>
+    <message>
+        <source>Install destination</source>
+        <translation>目的地をインストール</translation>
+    </message>
+    <message>
+        <source>As a managed mod (root-flagged)</source>
+        <translation>管理されたMODとして(root-flagged)</translation>
+    </message>
+    <message>
+        <source>Root_Folder (staging)</source>
+        <translation>Root Folder(ステージング)</translation>
+    </message>
+    <message>
+        <source>Game folder (restores to vanilla first)</source>
+        <translation>ゲームフォルダ(最初にバニラに復元)</translation>
+    </message>
+    <message>
+        <source>Step 1: Download Special K</source>
+        <translation>ステップ1:特別なKをダウンロード</translation>
+    </message>
+    <message>
+        <source>Checking for the latest Special K release…</source>
+        <translation>最新スペシャルKリリースのお知らせ</translation>
+    </message>
+    <message>
+        <source>Browse…</source>
+        <translation>ブラウザ</translation>
+    </message>
+    <message>
+        <source>Next →</source>
+        <translation>次へ →</translation>
+    </message>
+    <message>
+        <source>Fetching latest Special K release from GitHub…</source>
+        <translation>GitHubから最新の特別なKリリースをフェッチ..</translation>
+    </message>
+    <message>
+        <source>Downloading Special K {0}…</source>
+        <translation>特別K {0}をダウンロード..</translation>
+    </message>
+    <message>
+        <source>Downloaded Special K {0}: {1}
+Check the options below, then click Next.</source>
+        <translation>ダウンロード特別K {0}:{1}
+以下のオプションをチェックし、次へをクリックします.</translation>
+    </message>
+    <message>
+        <source>Download failed: {0}
+
+Use Browse to select a manually downloaded archive.</source>
+        <translation>ダウンロード失敗: {0}
+
+手動でダウンロードしたアーカイブを選択するには、ブラウザを使用します.</translation>
+    </message>
+    <message>
+        <source>Select the Special K archive</source>
+        <translation>特別なKアーカイブを選択</translation>
+    </message>
+    <message>
+        <source>Selected: {0}
+Check the options below, then click Next.</source>
+        <translation>選択: {0}
+以下のオプションをチェックし、次へをクリックします.</translation>
+    </message>
+    <message>
+        <source>Step 2: Install Special K</source>
+        <translation>ステップ2:特別なKをインストールする</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>ログイン</translation>
+    </message>
+    <message>
+        <source>Installing Special K…</source>
+        <translation>特別なKをインストールする..</translation>
+    </message>
+    <message>
+        <source>Extracting {0}…</source>
+        <translation>{0}を抽出する..</translation>
+    </message>
+    <message>
+        <source>
+
+Deploy your mods to activate it.</source>
+        <translation>Mod をデプロイしてアクティブにします.</translation>
+    </message>
+    <message>
+        <source>Special K installed successfully!
+{0} installed as {1} into the {2}.{3}
+
+Click Done to close.</source>
+        <translation>特別なKは首尾よく取付けました!
+{1} として {1} として {2}.{3} にインストール
+
+Done をクリックして閉じます.</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>エラー: {0}</translation>
+    </message>
+</context>
+<context>
     <name>Splash</name>
     <message>
         <source>Starting Amethyst…</source>
@@ -12794,6 +14056,21 @@ Use Browse to select a manually downloaded archive.</source>
     <message>
         <source>Add</source>
         <translation>追加</translation>
+    </message>
+</context>
+<context>
+    <name>SteamLaunchCommandOverlay</name>
+    <message>
+        <source>Open Properties → General and paste this into Launch Options.</source>
+        <translation>プロパティ → 全般を開き、起動オプションに貼り付けます.</translation>
+    </message>
+    <message>
+        <source>Launch Options</source>
+        <translation>起動オプション</translation>
+    </message>
+    <message>
+        <source>Set this once. It deploys and launches whichever profile was last deployed in Amethyst.</source>
+        <translation>一度設定してください。 どのプロファイルがAmethystに最後にデプロイされたかをデプロイして起動します.</translation>
     </message>
 </context>
 <context>
@@ -13993,6 +15270,286 @@ or use Browse to select it manually.</source>
         <translation>チェックボックス充填(チェック)</translation>
     </message>
     <message>
+        <source>Surfaces</source>
+        <translation>サーフェス</translation>
+    </message>
+    <message>
+        <source>Window background</source>
+        <translation>ウィンドウの背景</translation>
+    </message>
+    <message>
+        <source>Panels and dialogs</source>
+        <translation>パネルとダイアログ</translation>
+    </message>
+    <message>
+        <source>Toolbars and headers</source>
+        <translation>ツールバーとヘッダー</translation>
+    </message>
+    <message>
+        <source>List / tree background</source>
+        <translation>リスト/ツリーの背景</translation>
+    </message>
+    <message>
+        <source>List row background</source>
+        <translation>リストの行の背景</translation>
+    </message>
+    <message>
+        <source>Secondary text</source>
+        <translation>二次テキスト</translation>
+    </message>
+    <message>
+        <source>Accent and selection</source>
+        <translation>アクセントおよび選択</translation>
+    </message>
+    <message>
+        <source>Accent, links and controls</source>
+        <translation>アクセント、リンクおよび制御</translation>
+    </message>
+    <message>
+        <source>Selected rows</source>
+        <translation>選択した行</translation>
+    </message>
+    <message>
+        <source>Borders and dividers</source>
+        <translation>ボーダーとディバイダー</translation>
+    </message>
+    <message>
+        <source>Action buttons</source>
+        <translation>アクションボタン</translation>
+    </message>
+    <message>
+        <source>Confirm / install</source>
+        <translation>確認・インストール</translation>
+    </message>
+    <message>
+        <source>Delete / remove</source>
+        <translation>削除/削除</translation>
+    </message>
+    <message>
+        <source>Warning / update</source>
+        <translation>警告/更新</translation>
+    </message>
+    <message>
+        <source>Info / select</source>
+        <translation>情報/選択</translation>
+    </message>
+    <message>
+        <source>Secondary action</source>
+        <translation>二次アクション</translation>
+    </message>
+    <message>
+        <source>The main layers of the app, from the window to list rows.</source>
+        <translation>アプリの主要なレイヤーは、ウィンドウからリスト行までです.</translation>
+    </message>
+    <message>
+        <source>General text plus the three semantic status colours.</source>
+        <translation>一般的なテキストと3つのセマンティックステータスカラー.</translation>
+    </message>
+    <message>
+        <source>Brand colour, selected rows, focus controls and dividers.</source>
+        <translation>ブランドカラー、選択した行、フォーカスコントロール、ディバイダー.</translation>
+    </message>
+    <message>
+        <source>Button colours are shared by actions with the same meaning.</source>
+        <translation>ボタンの色は、同じ意味でアクションによって共有されます.</translation>
+    </message>
+    <message>
+        <source>Surfaces and rows</source>
+        <translation>表面と行</translation>
+    </message>
+    <message>
+        <source>Status text</source>
+        <translation>ステータステキスト</translation>
+    </message>
+    <message>
+        <source>Accent and links</source>
+        <translation>アクセントとリンク</translation>
+    </message>
+    <message>
+        <source>Selection and focus</source>
+        <translation>選択および焦点</translation>
+    </message>
+    <message>
+        <source>Borders and separators</source>
+        <translation>ボーダーとセパレータ</translation>
+    </message>
+    <message>
+        <source>Danger buttons</source>
+        <translation>危険ボタン</translation>
+    </message>
+    <message>
+        <source>Success buttons</source>
+        <translation>成功ボタン</translation>
+    </message>
+    <message>
+        <source>Warning buttons</source>
+        <translation>警告ボタン</translation>
+    </message>
+    <message>
+        <source>Information buttons</source>
+        <translation>情報ボタン</translation>
+    </message>
+    <message>
+        <source>Secondary buttons</source>
+        <translation>二次ボタン</translation>
+    </message>
+    <message>
+        <source>Special accent buttons</source>
+        <translation>特別なアクセント ボタン</translation>
+    </message>
+    <message>
+        <source>Scrollbars and checkboxes</source>
+        <translation>スクロールバーとチェックボックス</translation>
+    </message>
+    <message>
+        <source>Icons and small highlights</source>
+        <translation>アイコンと小さなハイライト</translation>
+    </message>
+    <message>
+        <source>Tinted content rows</source>
+        <translation>小さなコンテンツ行</translation>
+    </message>
+    <message>
+        <source>Required and optional mods</source>
+        <translation>必須および任意項目</translation>
+    </message>
+    <message>
+        <source>Notifications and queues</source>
+        <translation>通知とキュー</translation>
+    </message>
+    <message>
+        <source>Plugin cycle</source>
+        <translation>プラグインサイクル</translation>
+    </message>
+    <message>
+        <source>File conflicts</source>
+        <translation>ファイルコンフリクト</translation>
+    </message>
+    <message>
+        <source>Conflict and requirement highlights</source>
+        <translation>紛争と要件のハイライト</translation>
+    </message>
+    <message>
+        <source>Framework status</source>
+        <translation>フレームワークの状態</translation>
+    </message>
+    <message>
+        <source>Mod list separator bands</source>
+        <translation>Mod リストの分離器バンド</translation>
+    </message>
+    <message>
+        <source>Alternate list row</source>
+        <translation>代替リスト行</translation>
+    </message>
+    <message>
+        <source>Hovered list row</source>
+        <translation>ホバーリスト行</translation>
+    </message>
+    <message>
+        <source>Card background</source>
+        <translation>カードの背景</translation>
+    </message>
+    <message>
+        <source>Text on accent / selection</source>
+        <translation>アクセント/選択のテキスト</translation>
+    </message>
+    <message>
+        <source>Brand accent, contrasting text, hyperlinks and control glyphs.</source>
+        <translation>ブランドアクセント、対照的なテキスト、ハイパーリンクおよび制御のグリフ.</translation>
+    </message>
+    <message>
+        <source>Separator row background</source>
+        <translation>分離器の列の背景</translation>
+    </message>
+    <message>
+        <source>Separator row text</source>
+        <translation>セパレータ行テキスト</translation>
+    </message>
+    <message>
+        <source>Window, panel, card, list and row backgrounds.</source>
+        <translation>ウィンドウ、パネル、カード、リスト、行の背景.</translation>
+    </message>
+    <message>
+        <source>Primary, secondary and faint text used throughout the app.</source>
+        <translation>プライマリ、セカンダリ、フェントテキストはアプリ全体で使用されます.</translation>
+    </message>
+    <message>
+        <source>Success, warning and error messages shown on neutral backgrounds.</source>
+        <translation>中立的な背景に示す成功、警告、エラーメッセージ.</translation>
+    </message>
+    <message>
+        <source>Hover, selected-row and drag-selection colours.</source>
+        <translation>Hover、選択列、ドラッグ選択色.</translation>
+    </message>
+    <message>
+        <source>Frames, divider lines and separator rows.</source>
+        <translation>フレーム、ディバイダー ラインおよび分離器列.</translation>
+    </message>
+    <message>
+        <source>Delete, remove and other destructive actions.</source>
+        <translation>削除、削除、その他の破壊的なアクション.</translation>
+    </message>
+    <message>
+        <source>Install, confirm, Done and Play actions.</source>
+        <translation>アクションをインストール、確認、完了、再生します.</translation>
+    </message>
+    <message>
+        <source>Update, reinstall and cautionary actions.</source>
+        <translation>アップデート、再インストール、および注意操作.</translation>
+    </message>
+    <message>
+        <source>Select, Groups, Plugin Rules and similar actions.</source>
+        <translation>選択、グループ、プラグインルール、同様の操作.</translation>
+    </message>
+    <message>
+        <source>View and other low-emphasis actions.</source>
+        <translation>ほかの低エンファシスの行動を見る.</translation>
+    </message>
+    <message>
+        <source>Special-purpose accent buttons such as Ko-Fi.</source>
+        <translation>コフィなどの特殊アクセントボタン.</translation>
+    </message>
+    <message>
+        <source>Scrollbar track/thumb and checked-box fill.</source>
+        <translation>スクロールバーのトラック/親指およびチェックボックスの盛り土.</translation>
+    </message>
+    <message>
+        <source>Shared tones used by icons, flags and file-tree markers.</source>
+        <translation>アイコン、フラグ、ファイルツリーマーカーで使用される共有トーン.</translation>
+    </message>
+    <message>
+        <source>Coloured information rows and their foreground text.</source>
+        <translation>着色された情報列とフォアグラウンドテキスト.</translation>
+    </message>
+    <message>
+        <source>Required/optional indicators in collection views.</source>
+        <translation>収集ビューの必須/オプションの表示器.</translation>
+    </message>
+    <message>
+        <source>Error badges, notifications and queued states.</source>
+        <translation>エラーバッジ、通知、キューされた状態.</translation>
+    </message>
+    <message>
+        <source>Cycle status rows and before/after rule keywords.</source>
+        <translation>サイクルステータス行とルールキーワード前後.</translation>
+    </message>
+    <message>
+        <source>Winning, overridden, inactive and anchor files.</source>
+        <translation>勝つ、過度に、非アクティブおよびアンカーファイル.</translation>
+    </message>
+    <message>
+        <source>Related mod rows highlighted across Mods, Plugins and Data.</source>
+        <translation>Mods、Plugins、Data 間でハイライトされた関連するmod 行.</translation>
+    </message>
+    <message>
+        <source>Installed, staged, disabled and missing framework banners.</source>
+        <translation>インストール, 段階的, 無効化し、フレームワークバナーを欠落.</translation>
+    </message>
+    <message>
+        <source>Pinned Overwrite and Root Folder rows.</source>
+        <translation>ピン化された上書きとルートフォルダ行.</translation>
+    </message>
+    <message>
         <source>Window, panels, list rows and input fields - the app's surfaces.</source>
         <translation>ウィンドウ、パネル、リスト行、入力フィールド - アプリの表面.</translation>
     </message>
@@ -14081,8 +15638,8 @@ or use Browse to select it manually.</source>
         <translation>開始地点：</translation>
     </message>
     <message>
-        <source>Advanced (show all colours)</source>
-        <translation>詳細（すべての色を表示）</translation>
+        <source>Fine tune app-specific colours</source>
+        <translation>良いチューンアプリ固有の色</translation>
     </message>
     <message>
         <source>Save</source>
@@ -14097,10 +15654,6 @@ or use Browse to select it manually.</source>
         <translation>削除</translation>
     </message>
     <message>
-        <source>Restart to apply</source>
-        <translation>変更を反映するには再起動してください</translation>
-    </message>
-    <message>
         <source>✕ Close</source>
         <translation>✕ 閉じる</translation>
     </message>
@@ -14109,8 +15662,8 @@ or use Browse to select it manually.</source>
         <translation>「新しい名前で保存…」</translation>
     </message>
     <message>
-        <source>Editing a base colour adjusts its hover/variants automatically. Tick Advanced to edit every colour individually. Use "Restart to apply" to save your theme and see it across the whole app.</source>
-        <translation>ベースカラーを編集すると、ホバー時の色やバリエーションが自動的に調整されます。「詳細設定」にチェックを入れると、各色を個別に編集できます。「再起動して適用」を選択すると、テーマが保存され、アプリ全体で反映されます。</translation>
+        <source>Related colours are linked automatically. Enable fine tuning to adjust individual app-specific colours. Changes preview across the open app; save the theme to keep them.</source>
+        <translation>関連する色が自動的にリンクされます。 個々のアプリ固有の色を調整するために微調整を有効にします。 オープンアプリでプレビューを変更し、テーマを保存して保存します.</translation>
     </message>
     <message>
         <source>Pick colour: {0}</source>
@@ -14129,10 +15682,6 @@ or use Browse to select it manually.</source>
         <translation>保存に失敗しました</translation>
     </message>
     <message>
-        <source>{0} (edited)</source>
-        <translation>{0} （編集済み）</translation>
-    </message>
-    <message>
         <source>Delete theme?</source>
         <translation>テーマを削除しますか？</translation>
     </message>
@@ -14144,8 +15693,22 @@ or use Browse to select it manually.</source>
 <context>
     <name>ThemePreviewPanel</name>
     <message>
-        <source>Preview - approximate; use "Restart to apply" to see the theme across the whole app.</source>
-        <translation>プレビュー - 近似; "Restart to Apply" を使用して、アプリ全体でテーマを見ることができます.</translation>
+        <source>Preview - changes are also applied temporarily across the open app. Click any item to reveal the settings that colour it.</source>
+        <translation>プレビュー - 変更は、オープンアプリ間で一時的に適用されます。 任意の項目をクリックすると、その色設定が表示されます.</translation>
+    </message>
+    <message>
+        <source>Click to reveal theme settings:
+{0}</source>
+        <translation>クリックしてテーマの設定を明らかにします。
+{0}の</translation>
+    </message>
+    <message>
+        <source>{0} uses: {1}</source>
+        <translation>{0} の使用: {1}</translation>
+    </message>
+    <message>
+        <source>{0} section</source>
+        <translation>{0} セクション</translation>
     </message>
     <message>
         <source>Header &amp; tabs</source>
@@ -14168,6 +15731,10 @@ or use Browse to select it manually.</source>
         <translation>▶ プレイ</translation>
     </message>
     <message>
+        <source>Header background</source>
+        <translation>ヘッダーの背景</translation>
+    </message>
+    <message>
         <source>Mods</source>
         <translation>Mods</translation>
     </message>
@@ -14178,6 +15745,10 @@ or use Browse to select it manually.</source>
     <message>
         <source>Data</source>
         <translation>データ</translation>
+    </message>
+    <message>
+        <source>Tabs</source>
+        <translation>タブ</translation>
     </message>
     <message>
         <source>Mod list</source>
@@ -14244,24 +15815,8 @@ or use Browse to select it manually.</source>
         <translation>選択を要求して下さい</translation>
     </message>
     <message>
-        <source>Textures folder</source>
-        <translation>テクスチャフォルダ</translation>
-    </message>
-    <message>
-        <source>Archive.bsa</source>
-        <translation>アーカイブ.bsa</translation>
-    </message>
-    <message>
-        <source>Profile.ini</source>
-        <translation>プロフィール.ini</translation>
-    </message>
-    <message>
-        <source>Installed</source>
-        <translation>インストール済み</translation>
-    </message>
-    <message>
-        <source>Unordered plugin</source>
-        <translation>無秩序なプラグイン</translation>
+        <source>List header</source>
+        <translation>リストヘッダ</translation>
     </message>
     <message>
         <source>Plugins &amp; files</source>
@@ -14340,6 +15895,10 @@ or use Browse to select it manually.</source>
         <translation>お問い合わせ</translation>
     </message>
     <message>
+        <source>Text input</source>
+        <translation>テキスト入力</translation>
+    </message>
+    <message>
         <source>Default profile</source>
         <translation>デフォルトプロファイル</translation>
     </message>
@@ -14348,24 +15907,52 @@ or use Browse to select it manually.</source>
         <translation>テスト</translation>
     </message>
     <message>
+        <source>Dropdown</source>
+        <translation>ドロップダウン</translation>
+    </message>
+    <message>
         <source>Enabled</source>
         <translation>有効化</translation>
+    </message>
+    <message>
+        <source>Checked checkbox</source>
+        <translation>チェックボックス</translation>
     </message>
     <message>
         <source>Disabled</source>
         <translation>バリアフリー</translation>
     </message>
     <message>
+        <source>Unchecked checkbox</source>
+        <translation>チェックボックスを外す</translation>
+    </message>
+    <message>
         <source>Selected option</source>
         <translation>選択されたオプション</translation>
+    </message>
+    <message>
+        <source>Radio button</source>
+        <translation>ラジオボタン</translation>
     </message>
     <message>
         <source>List row {0}</source>
         <translation>リスト行 {0}</translation>
     </message>
     <message>
+        <source>List</source>
+        <translation>プロフィール</translation>
+    </message>
+    <message>
+        <source>Scrollbar</source>
+        <translation>スクロールバー</translation>
+    </message>
+    <message>
         <source>Cards, toasts &amp; progress</source>
         <translation>カード、トースト&amp;進行</translation>
+    </message>
+    <message>
+        <source>Card background</source>
+        <translation>カードの背景</translation>
     </message>
     <message>
         <source>Card title</source>
@@ -14378,6 +15965,10 @@ or use Browse to select it manually.</source>
     <message>
         <source>Card secondary text</source>
         <translation>カード二次テキスト</translation>
+    </message>
+    <message>
+        <source>Toast background</source>
+        <translation>トーストの背景</translation>
     </message>
     <message>
         <source>Info</source>
@@ -14396,6 +15987,14 @@ or use Browse to select it manually.</source>
         <translation>エラー</translation>
     </message>
     <message>
+        <source>{0} toast</source>
+        <translation>{0} トースト</translation>
+    </message>
+    <message>
+        <source>Progress bar</source>
+        <translation>プログレスバー</translation>
+    </message>
+    <message>
         <source>Required mod</source>
         <translation>必須項目</translation>
     </message>
@@ -14412,8 +16011,28 @@ or use Browse to select it manually.</source>
         <translation>導入事例</translation>
     </message>
     <message>
+        <source>Deployed status</source>
+        <translation>展開状況</translation>
+    </message>
+    <message>
         <source>Text &amp; tones</source>
         <translation>テキストとトーン</translation>
+    </message>
+    <message>
+        <source>Icons</source>
+        <translation>アイコン</translation>
+    </message>
+    <message>
+        <source>Themed - follow the palette</source>
+        <translation>テーマ - パレットに従う</translation>
+    </message>
+    <message>
+        <source>Fixed artwork</source>
+        <translation>固定アートワーク</translation>
+    </message>
+    <message>
+        <source>{0} ({1})</source>
+        <translation>{0}({1})</translation>
     </message>
 </context>
 <context>
@@ -14792,6 +16411,513 @@ Press Refresh to try again.</source>
     </message>
 </context>
 <context>
+    <name>WizardTools</name>
+    <message>
+        <source>mod.io API Key</source>
+        <translation>mod.io API キー</translation>
+    </message>
+    <message>
+        <source>Run Wrye Bash</source>
+        <translation>Wrye Bashを実行する</translation>
+    </message>
+    <message>
+        <source>Run xEdit (Discord version)</source>
+        <translation>XEdit(Discordバージョン)を実行</translation>
+    </message>
+    <message>
+        <source>Run xEdit QAC (Discord version)</source>
+        <translation>XEdit QACを実行(Discordバージョン)</translation>
+    </message>
+    <message>
+        <source>Downgrade Fallout 3</source>
+        <translation>ダウングレードのフォールアウト 3</translation>
+    </message>
+    <message>
+        <source>Install Script Extender (FOSE)</source>
+        <translation>スクリプトエクステンダーをインストール (FOSE)</translation>
+    </message>
+    <message>
+        <source>Run {0}</source>
+        <translation>{0}を実行</translation>
+    </message>
+    <message>
+        <source>Run {0} QAC</source>
+        <translation>{0} QACを実行する</translation>
+    </message>
+    <message>
+        <source>Downgrade Fallout 3 GOTY</source>
+        <translation>ダウングレードのフォールアウト3 GOTY</translation>
+    </message>
+    <message>
+        <source>Run BodySlide (Linux)</source>
+        <translation>BodySlideを実行します。 (Linux)</translation>
+    </message>
+    <message>
+        <source>Run Outfit Studio (Linux)</source>
+        <translation>Outfit Studio (Linux) を実行します</translation>
+    </message>
+    <message>
+        <source>Run BodySlide</source>
+        <translation>ボディスライドの実行</translation>
+    </message>
+    <message>
+        <source>Run Outfit Studio</source>
+        <translation>Run Outfit Studio, オーストラリア</translation>
+    </message>
+    <message>
+        <source>Downgrade Fallout 4</source>
+        <translation>ダウングレードのフォールアウト 4</translation>
+    </message>
+    <message>
+        <source>Install Script Extender (F4SE)</source>
+        <translation>スクリプトエクステンダー(F4SE)をインストールする</translation>
+    </message>
+    <message>
+        <source>Run BethINI Pie</source>
+        <translation>BethINI Pieを実行</translation>
+    </message>
+    <message>
+        <source>Install Script Extender (F4SEVR)</source>
+        <translation>スクリプトエクステンダーをインストール (F4SEVR)</translation>
+    </message>
+    <message>
+        <source>Install Script Extender (xNVSE)</source>
+        <translation>スクリプトエクステンダー(xNVSE)をインストールする</translation>
+    </message>
+    <message>
+        <source>Apply 4GB Patch</source>
+        <translation>4GBパッチを適用</translation>
+    </message>
+    <message>
+        <source>Install Tale of Two Wastelands</source>
+        <translation>2つの廃棄物の物語をインストールする</translation>
+    </message>
+    <message>
+        <source>BSA Decompressor</source>
+        <translation>BSAデコンプレッサー</translation>
+    </message>
+    <message>
+        <source>Install Ultimate Edition ESM Fixes</source>
+        <translation>Ultimate Edition ESMの修正をインストールする</translation>
+    </message>
+    <message>
+        <source>Install Viva New Vegas</source>
+        <translation>Vivaニューベガスをインストールする</translation>
+    </message>
+    <message>
+        <source>Install Viva New Vegas Extended</source>
+        <translation>Viva New Vegasをインストール</translation>
+    </message>
+    <message>
+        <source>Install Script Extender (OBSE)</source>
+        <translation>スクリプトエクステンダーをインストール (OBSE)</translation>
+    </message>
+    <message>
+        <source>Install Script Extender (SKSE)</source>
+        <translation>スクリプトエクステンダーをインストール (SKSE)</translation>
+    </message>
+    <message>
+        <source>SkyGen - Patch Generator</source>
+        <translation>SkyGen - パッチジェネレータ</translation>
+    </message>
+    <message>
+        <source>Plugin Audit &amp; Cleanup</source>
+        <translation>プラグインの監査とクリーンアップ</translation>
+    </message>
+    <message>
+        <source>SSE Display Tweaks Config</source>
+        <translation>SSE ディスプレイ 調整 設定</translation>
+    </message>
+    <message>
+        <source>Engine Fixes Config</source>
+        <translation>エンジンの修正 Config</translation>
+    </message>
+    <message>
+        <source>Run Pandora</source>
+        <translation>パンドラを実行</translation>
+    </message>
+    <message>
+        <source>Install Script Extender (SKSE64)</source>
+        <translation>スクリプトエクステンダーをインストール (SKSE64)</translation>
+    </message>
+    <message>
+        <source>Run PGPatcher</source>
+        <translation>PGPatcherを実行</translation>
+    </message>
+    <message>
+        <source>Run SSEEdit</source>
+        <translation>SSEEditの実行</translation>
+    </message>
+    <message>
+        <source>Run SSEEdit QAC</source>
+        <translation>SSEEditQACを実行する</translation>
+    </message>
+    <message>
+        <source>Run Creation Kit</source>
+        <translation>クリエイションキットの実行</translation>
+    </message>
+    <message>
+        <source>Run ESLifier</source>
+        <translation>ESLifierの実行</translation>
+    </message>
+    <message>
+        <source>Run TexGen</source>
+        <translation>TexGenを実行する</translation>
+    </message>
+    <message>
+        <source>Run DynDOLOD</source>
+        <translation>DynDOLODの実行</translation>
+    </message>
+    <message>
+        <source>Run xLODGen</source>
+        <translation>XLODGenを実行</translation>
+    </message>
+    <message>
+        <source>Run VRAMr</source>
+        <translation>VRAMrの実行</translation>
+    </message>
+    <message>
+        <source>Run BENDr</source>
+        <translation>BENDrを実行</translation>
+    </message>
+    <message>
+        <source>Run ParallaxR</source>
+        <translation>ParallaxRの実行</translation>
+    </message>
+    <message>
+        <source>Install Script Extender (SKSEVR)</source>
+        <translation>スクリプトエクステンダーをインストール (SKSEVR)</translation>
+    </message>
+    <message>
+        <source>Install Script Extender (SFSE)</source>
+        <translation>スクリプトエクステンダーをインストール (SFSE)</translation>
+    </message>
+    <message>
+        <source>Patch Game (dtkit-patch)</source>
+        <translation>パッチゲーム(dtkit-patch)</translation>
+    </message>
+    <message>
+        <source>Install me3</source>
+        <translation>インストール me3</translation>
+    </message>
+    <message>
+        <source>Merge regulation.bin</source>
+        <translation>マージ規制.bin</translation>
+    </message>
+    <message>
+        <source>GPAK unpack / repack</source>
+        <translation>GPAKアンパック/リパック</translation>
+    </message>
+    <message>
+        <source>Install MGE XE</source>
+        <translation>MGE XEをインストールする</translation>
+    </message>
+    <message>
+        <source>Install Morrowind Code Patch</source>
+        <translation>Morrowindコードパッチをインストールする</translation>
+    </message>
+    <message>
+        <source>Repair PAK files</source>
+        <translation>PAKファイルの修復</translation>
+    </message>
+    <message>
+        <source>Run Script Merger</source>
+        <translation>スクリプト・マーガを実行</translation>
+    </message>
+    <message>
+        <source>Install ReShade</source>
+        <translation>ReShade をインストールする</translation>
+    </message>
+    <message>
+        <source>Enter a mod.io key to enable update checks for manually-installed mod.io mods.</source>
+        <translation>Mod.io キーを入力して、手動でインストールされた mod.io mods の更新チェックを有効にします.</translation>
+    </message>
+    <message>
+        <source>Download and run Wrye Bash.</source>
+        <translation>Wrye Bashをダウンロードして実行します.</translation>
+    </message>
+    <message>
+        <source>Deploy mods and run {0} -{1} from the latest xEdit build, released through the xEdit Discord.</source>
+        <translation>Mod を展開し、XEdit Discord でリリースされた最新の xEdit ビルドから {0} -{1} を実行します.</translation>
+    </message>
+    <message>
+        <source>Deploy mods and run {0} -{1} -quickautoclean from the latest xEdit build, released through the xEdit Discord.</source>
+        <translation>Mods を展開し、{0} -{1} -quickautoclean を xEdit Discord でリリースしました.</translation>
+    </message>
+    <message>
+        <source>Downgrade to pre-Anniversary Edition so that the script extender (FOSE) works correctly.</source>
+        <translation>スクリプトのエクステンダー(FOSE)が正しく動作するように、以前のバージョンにダウングレードします.</translation>
+    </message>
+    <message>
+        <source>Download and install FOSE into the game folder.</source>
+        <translation>FOSEをゲームフォルダにダウンロードしてインストールします.</translation>
+    </message>
+    <message>
+        <source>Install {0}, deploy mods, and run {1}.</source>
+        <translation>{0} をインストールし、mods を展開し、{1} を実行します.</translation>
+    </message>
+    <message>
+        <source>Deploy mods and run {0}QuickAutoClean.exe.</source>
+        <translation>Mods を展開し、{0}QuickAutoClean.exe を実行します.</translation>
+    </message>
+    <message>
+        <source>Download and run the native Linux BodySlide, no Proton prefix needed.</source>
+        <translation>ネイティブLinux BodySlideをダウンロードして実行し、Protonプレフィックスは必要ありません.</translation>
+    </message>
+    <message>
+        <source>Download and run the native Linux Outfit Studio, no Proton prefix needed.</source>
+        <translation>ネイティブLinux Outfit Studioをダウンロードして、Protonプレフィックスは必要ありません.</translation>
+    </message>
+    <message>
+        <source>Deploy mods and run BodySlide from the Data folder.</source>
+        <translation>Mods を展開し、Data フォルダーから BodySlide を実行します.</translation>
+    </message>
+    <message>
+        <source>Deploy mods and run Outfit Studio from the Data folder.</source>
+        <translation>Mod を展開し、 Data フォルダーから Outfit Studio を実行します.</translation>
+    </message>
+    <message>
+        <source>Download the latest Fallout 4 Steam Downgrader and run it from the game folder.</source>
+        <translation>最新のFallout 4 Steam Downgraderをダウンロードし、ゲームフォルダから実行します.</translation>
+    </message>
+    <message>
+        <source>Download and install F4SE into the game folder.</source>
+        <translation>ゲームフォルダにF4SEをダウンロードしてインストールします.</translation>
+    </message>
+    <message>
+        <source>Install BethINI Pie and configure Fallout 4 INI settings.</source>
+        <translation>BethINI Pieをインストールし、Fallout 4 INIの設定を設定します.</translation>
+    </message>
+    <message>
+        <source>Download and install F4SEVR into the game folder.</source>
+        <translation>ゲームフォルダにF4SEVRをダウンロードしてインストールします.</translation>
+    </message>
+    <message>
+        <source>Download and install xNVSE into the game folder.</source>
+        <translation>XNVSEをゲームフォルダにダウンロードしてインストールします.</translation>
+    </message>
+    <message>
+        <source>Patch FalloutNV.exe to use 4 GB of memory (keeps a backup that can be restored).</source>
+        <translation>パッチ FalloutNV.exe を使用して 4 GB のメモリ (復元できるバックアップをキープ).</translation>
+    </message>
+    <message>
+        <source>Run the native Linux TTW installer (merges Fallout 3 + New Vegas) and add the result as a mod. Requires Fallout 3 installed and a TTW .mpi package from mod.pub.</source>
+        <translation>ネイティブLinux TTWインストーラーを実行(フォールアウト3 +ニューベガスをマージ)し、結果をMODとして追加します。 Fallout 3 をインストールし、 TTW .mpi パッケージを mod.pub から要求します.</translation>
+    </message>
+    <message>
+        <source>Decompress the vanilla BSA archives for faster loading (native Linux MPI installer) and add the result as a mod. Needs the FNV BSA Decompressor download from Nexus.</source>
+        <translation>バニラ BSA アーカイブの読み込みを高速化(ネイティブ Linux MPI インストーラー)し、結果を mod として追加します。 NexusからFNV BSA Decompressorのダウンロードが必要です.</translation>
+    </message>
+    <message>
+        <source>Patch the vanilla .esm masters with community bugfixes (native Linux MPI installer) and add the result as a mod. Needs the Ultimate Edition ESM Fixes Remastered download from Nexus.</source>
+        <translation>コミュニティバグ修正(ネイティブLinux MPIインストーラ)でバニラ .esm マスターをパッチし、結果を mod として追加します。 ネクサスから究極のエディションESM Fixes Remasteredダウンロードが必要です.</translation>
+    </message>
+    <message>
+        <source>Download the curated Viva New Vegas modlist profile and install it</source>
+        <translation>キュレーションされたViva New Vegas modlistプロファイルをダウンロードしてインストールします</translation>
+    </message>
+    <message>
+        <source>Download the curated Viva New Vegas Extended modlist profile and install it</source>
+        <translation>キュレーションされたViva New Vegas拡張モリストプロファイルをダウンロードしてインストールします</translation>
+    </message>
+    <message>
+        <source>Install BethINI Pie and configure Fallout New Vegas INI settings.</source>
+        <translation>BethINI Pieをインストールし、Fallout New Vegas INIの設定を設定します.</translation>
+    </message>
+    <message>
+        <source>Download and install OBSE into the game folder.</source>
+        <translation>ゲームフォルダにOBSEをダウンロードしてインストールします.</translation>
+    </message>
+    <message>
+        <source>Download and install SKSE into the game folder.</source>
+        <translation>ゲームフォルダにSKSEをダウンロードしてインストールします.</translation>
+    </message>
+    <message>
+        <source>Scan your load order for BOS / SkyPatcher patch coverage and generate new patches.</source>
+        <translation>BOS / SkyPatcherパッチカバレッジのロードオーダーをスキャンし、新しいパッチを作成します.</translation>
+    </message>
+    <message>
+        <source>Scan load order for safe-to-disable plugins, then clean up orphaned SkyGen BOS/SkyPatcher INIs for plugins that must stay enabled.</source>
+        <translation>安全な無効なプラグインのロード注文をスキャンし、有効にする必要があるプラグインのSkyGen BOS / SkyPatcher INIをクリーンアップします.</translation>
+    </message>
+    <message>
+        <source>Create or edit SSEDisplayTweaks.ini with per-setting toggles and descriptions.</source>
+        <translation>設定したトグルと説明でSSEDisplayTweaks.iniを作成または編集します.</translation>
+    </message>
+    <message>
+        <source>Create or edit EngineFixes.toml with per-setting toggles and descriptions.</source>
+        <translation>パーセットトグルと説明でEngineFixes.tomlを作成または編集します.</translation>
+    </message>
+    <message>
+        <source>Deploy mods and run Pandora Behaviour Engine+.</source>
+        <translation>Mods を展開し、Pandora Behaviour Engine+ を実行します.</translation>
+    </message>
+    <message>
+        <source>Download and install SKSE64 into the game folder.</source>
+        <translation>ゲームフォルダにSKSE64をダウンロードしてインストールします.</translation>
+    </message>
+    <message>
+        <source>Install PGPatcher, deploy mods, and run PGPatcher.exe.</source>
+        <translation>PGPatcherをインストールし、mods を展開し、PGPatcher.exe を実行します.</translation>
+    </message>
+    <message>
+        <source>Install SSEEdit, deploy mods, and run SSEEdit.exe.</source>
+        <translation>SSEEdit をインストールし、mod を展開し、SSEEdit.exe を実行します.</translation>
+    </message>
+    <message>
+        <source>Deploy mods and run SSEEditQuickAutoClean.exe.</source>
+        <translation>Mod を展開し、SSEEditQuickAutoClean.exe を実行します.</translation>
+    </message>
+    <message>
+        <source>Deploy mods and run xTESEdit.exe -SSE from the latest xEdit build, released through the xEdit Discord.</source>
+        <translation>Mod を展開し、xEdit.exe -SSE を最新の xEdit ビルドから実行し、xEdit Discord からリリースしました.</translation>
+    </message>
+    <message>
+        <source>Deploy mods and run xTESEdit.exe -SSE -quickautoclean from the latest xEdit build, released through the xEdit Discord.</source>
+        <translation>Mod を展開して xTESEdit.exe -SSE -quickautoclean を xEdit Discord でリリースしました.</translation>
+    </message>
+    <message>
+        <source>Install Creation Kit Platform Extended, deploy mods, and run CreationKit.exe.</source>
+        <translation>Create Kit Platform を拡張し、mod を展開し、CreateKit.exe を実行します.</translation>
+    </message>
+    <message>
+        <source>Install ESLifier and flag/compact plugins into the light (ESL) space.</source>
+        <translation>ESLifier と flag/compact プラグインを light(ESL) 空間にインストールします.</translation>
+    </message>
+    <message>
+        <source>Install DynDOLOD tools, deploy mods, and run TexGenx64.exe.</source>
+        <translation>DynDOLOD ツールをインストールし、mod を展開し、TexGenx64.exe を実行します.</translation>
+    </message>
+    <message>
+        <source>Install DynDOLOD tools, deploy mods, and run DynDOLODx64.exe.</source>
+        <translation>DynDOLOD ツールをインストールし、mod を展開し、DynDOLODx64.exe を実行します.</translation>
+    </message>
+    <message>
+        <source>Install xLODGen, deploy mods, and run xLODGenx64.exe.</source>
+        <translation>XLODGen をインストールし、mod を展開し、xLODGenx64.exe を実行します.</translation>
+    </message>
+    <message>
+        <source>Install BethINI Pie and configure Skyrim SE INI settings.</source>
+        <translation>BethINI Pieをインストールし、Skyrim SE INIの設定を設定します.</translation>
+    </message>
+    <message>
+        <source>Download VRAMr from Nexus, deploy mods, and run texture optimisation.</source>
+        <translation>NexusからVRAMrをダウンロードし、modsを展開し、テクスチャの最適化を実行します.</translation>
+    </message>
+    <message>
+        <source>Download BENDr from Nexus, deploy mods, and process normal maps.</source>
+        <translation>NexusからBENDrをダウンロードし、modsを展開し、通常のマップを処理します.</translation>
+    </message>
+    <message>
+        <source>Download ParallaxR from Nexus, deploy mods, and process parallax textures.</source>
+        <translation>NexusからParallaxRをダウンロードし、modsを展開し、parallaxテクスチャーを処理します.</translation>
+    </message>
+    <message>
+        <source>Scan your load order for Base Object Swapper / SkyPatcher patch coverage and generate new BOS or SP INI patches.</source>
+        <translation>ベースオブジェクトスワッパー/SkyPatcherパッチカバレッジのロードオーダーをスキャンし、新しいBOSまたはSP INIパッチを生成します.</translation>
+    </message>
+    <message>
+        <source>Scan load order for safe-to-disable plugins, then disable them or clean up orphaned SkyGen BOS/SkyPatcher INIs for plugins that must stay enabled.</source>
+        <translation>安全な無効なプラグインのロードオーダーをスキャンし、それらを無効にするか、または有効にする必要があるプラグインのSkyGen BOS / SkyPatcher INIsをクリーンアップします.</translation>
+    </message>
+    <message>
+        <source>Download and install SKSEVR into the game folder.</source>
+        <translation>ゲームフォルダにSKSEVRをダウンロードしてインストールします.</translation>
+    </message>
+    <message>
+        <source>Download and install SFSE into the game folder.</source>
+        <translation>ゲームフォルダにSFSEをダウンロードしてインストールします.</translation>
+    </message>
+    <message>
+        <source>Install BethINI Pie and configure Starfield INI settings.</source>
+        <translation>BethINI Pieをインストールし、Starfield INIの設定を設定します.</translation>
+    </message>
+    <message>
+        <source>Deploy mods and toggle the Darktide Mod Loader bundle patch (runs the shipped dtkit-patch.exe under Proton). Re-run this wizard after every game update.</source>
+        <translation>Mods を展開し、Darktide Mod Loader バンドル パッチを切り替える (Proton の dtkit-patch.exe を実行)。 すべてのゲーム更新後にこのウィザードを再実行します.</translation>
+    </message>
+    <message>
+        <source>Download and install the me3 mod loader that loads mods for this game.</source>
+        <translation>このゲームでmods を読み込む me3 mod loader をダウンロードしてインストールします.</translation>
+    </message>
+    <message>
+        <source>Combine the param edits of every enabled mod into one regulation.bin, instead of only the highest-priority one taking effect.</source>
+        <translation>すべての有効なMODのパラメータ編集を1つのrelation.binに結合します。, 唯一の最高優先度1の服用効果.</translation>
+    </message>
+    <message>
+        <source>Unpack resources.gpak to Unpacked/ or repack Unpacked/ to resources.gpak in the game root.</source>
+        <translation>Unpack リソース.gpak を Unpacked/ または unpacked/ をリソースに再パックします。ゲームのルートで gpak します.</translation>
+    </message>
+    <message>
+        <source>Download and install MGE XE (Morrowind Graphics Extender), which includes MWSE.</source>
+        <translation>MWSEを含むMGE XE(Morrowind Graphics Extender)をダウンロードしてインストールします.</translation>
+    </message>
+    <message>
+        <source>Download and run the Morrowind Code Patch to apply engine-level bug fixes and improvements.</source>
+        <translation>Morrowind Code Patchをダウンロードしてエンジンレベルのバグ修正と改善を適用します.</translation>
+    </message>
+    <message>
+        <source>Restore vanilla PAK entries from the failsafe manifest in the game root. Use if the game won't load after mods were removed.</source>
+        <translation>ゲームのルートでフェイルセーフマニフェストからバニラPAKエントリを復元する. mods が削除された後にゲームがロードされていない場合は使用してください.</translation>
+    </message>
+    <message>
+        <source>Deploy mods, install Script Merger, and run WitcherScriptMerger.exe.</source>
+        <translation>Mods を展開し、スクリプト・マーガーをインストールし、WitcherScriptMerger.exe を実行します.</translation>
+    </message>
+    <message>
+        <source>Download and install ReShade into the game folder.</source>
+        <translation>ゲームフォルダにReShadeをダウンロードしてインストールします.</translation>
+    </message>
+    <message>
+        <source>Setup and Installers</source>
+        <translation>セットアップとインストーラ</translation>
+    </message>
+    <message>
+        <source>Body and Outfits</source>
+        <translation>ボディとアウトフィット</translation>
+    </message>
+    <message>
+        <source>Animation and Physics</source>
+        <translation>アニメーションと物理学</translation>
+    </message>
+    <message>
+        <source>DynDOLOD</source>
+        <translation>DynDOLODの特長</translation>
+    </message>
+    <message>
+        <source>RSuite (experimental)</source>
+        <translation>RSuite(実験)</translation>
+    </message>
+    <message>
+        <source>Patchers and Cleanup</source>
+        <translation>パッチャとクリーンアップ</translation>
+    </message>
+    <message>
+        <source>xEdit</source>
+        <translation>x編集</translation>
+    </message>
+    <message>
+        <source>Load Order and Config</source>
+        <translation>注文をロードし、構成して下さい</translation>
+    </message>
+    <message>
+        <source>INI Tweaks</source>
+        <translation>INI の微調整</translation>
+    </message>
+    <message>
+        <source>Other</source>
+        <translation>その他</translation>
+    </message>
+    <message>
+        <source>Skip the OpenMW launcher (start the game directly)</source>
+        <translation>OpenMWランチャーをスキップ(ゲームを直接起動)</translation>
+    </message>
+    <message>
+        <source>The launcher keeps its own copy of the load order and writes it back to openmw.cfg, which can overwrite what Amethyst deployed. Off: the launcher opens as usual.</source>
+        <translation>ランチャーは、ロードオーダーの独自のコピーを保持し、Amethyst がデプロイしたものを上書きできる openmw.cfg に戻します。 オフ:ランチャーはいつも通り開きます.</translation>
+    </message>
+</context>
+<context>
     <name>WizardViewBase</name>
     <message>
         <source>✕ Close</source>
@@ -14997,8 +17123,12 @@ Wrye Bashを再インストールするには、ウィザードを再起動し�
         <translation>「Wrye Bash」を起動中…</translation>
     </message>
     <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
-        <translation>Proton '{0}' - Steam にインストールされていることを確認してください.</translation>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>ゲーム独自のプレフィックスのProtonバージョンを解決できません。一度ゲームを起動するか、異なるプレフィックスオプションを選択します.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>Proton '{0}'が見つかりません - Steam、Heric、ProtonPlusにインストールされていることを確認してください.</translation>
     </message>
     <message>
         <source>Wrye Bash is running.
@@ -15180,6 +17310,14 @@ Please restart the wizard and install {1} first.</source>
         <translation>QAC すべて</translation>
     </message>
     <message>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>ゲーム独自のプレフィックスのProtonバージョンを解決できません。一度ゲームを起動するか、異なるプレフィックスオプションを選択します.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>Proton '{0}'が見つかりません - Steam、Heric、ProtonPlusにインストールされていることを確認してください.</translation>
+    </message>
+    <message>
         <source>{0} is running - close it to continue.</source>
         <translation>{0} は実行中です.</translation>
     </message>
@@ -15236,10 +17374,6 @@ When you close it, your changes are restored automatically.</source>
     <message>
         <source>Launching {0}…</source>
         <translation>{0}の起動中…</translation>
-    </message>
-    <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam.</source>
-        <translation>Proton '{0}' - Steam にインストールされていることを確認してください.</translation>
     </message>
     <message>
         <source>Game path not configured.</source>
@@ -15318,6 +17452,13 @@ When you close it, your changes are restored automatically.</source>
     </message>
 </context>
 <context>
+    <name>_NotificationMirrorButton</name>
+    <message>
+        <source>Notifications</source>
+        <translation>お知らせ</translation>
+    </message>
+</context>
+<context>
     <name>_OverridesModel</name>
     <message>
         <source>Pak</source>
@@ -15392,6 +17533,29 @@ When you close it, your changes are restored automatically.</source>
     <message>
         <source>No preview</source>
         <translation>プレビューなし</translation>
+    </message>
+</context>
+<context>
+    <name>_ProgressRow</name>
+    <message>
+        <source>Cancel</source>
+        <translation>キャンセル</translation>
+    </message>
+    <message>
+        <source>Working</source>
+        <translation>スタッフ</translation>
+    </message>
+    <message>
+        <source>Working…</source>
+        <translation>働く..</translation>
+    </message>
+    <message>
+        <source>{0} / {1}</source>
+        <translation>{0} / {1} / {1} / {1} / {1} / {1} / {1} / {1} / {1} / {1} / {1} / {1} / {1} / {1} / {1} / {1} / {1} / {1} / {1} / {1} / {1} / {1} / {1} / {1} / {1} / {1} / {1} / {1}</translation>
+    </message>
+    <message>
+        <source>Cancelling…</source>
+        <translation>キャンセル..</translation>
     </message>
 </context>
 <context>
@@ -15561,6 +17725,13 @@ Publishing makes this revision the one users install. It cannot be un-published,
     <message>
         <source>Apply</source>
         <translation>お問い合わせ</translation>
+    </message>
+</context>
+<context>
+    <name>_ThemePreviewButton</name>
+    <message>
+        <source>Theme preview</source>
+        <translation>テーマプレビュー</translation>
     </message>
 </context>
 <context>

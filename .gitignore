@@ -19,3 +19,5 @@ decky/
 .mcp.json
 **/__pycache__/
 /tools
+/assets
+/tests
