@@ -1901,9 +1901,10 @@ def get_game_prefix_env(game, log_fn=_noop_log, *,
 
     pfx = game.get_prefix_path() if hasattr(game, "get_prefix_path") else None
     if pfx is None or not Path(pfx).is_dir():
-        log_fn("game prefix not found - deploy/launch the game once, or pick "
-               "a different prefix option.")
+        log_fn(f"game prefix not found (looked for: {pfx or 'no path configured'}) "
+               "- deploy/launch the game once, or pick a different prefix option.")
         return None
+    log_fn(f"game prefix: {pfx}")
 
     # Classic lutris-wine prefixes run tools with the Lutris runner's own
     # wine binary (proton_run_command handles the wine-binary form); the
@@ -1911,14 +1912,23 @@ def get_game_prefix_env(game, log_fn=_noop_log, *,
     from Utils.proton_tools import _resolve_lutris_wine_env
     wine_bin, wenv = _resolve_lutris_wine_env(Path(pfx), log_fn)
     if wine_bin is not None:
+        log_fn(f"using Lutris wine binary: {wine_bin}")
         return wine_bin, Path(pfx), wenv
 
     from Utils.proton_prefix import resolve_compat_data
     steam_id = effective_steam_id(game)
     proton_script = find_proton_for_game(steam_id) if steam_id else None
+    if proton_script is not None:
+        log_fn(f"Proton from this game's Steam mapping (app id {steam_id}): "
+               f"{proton_script}")
+    elif steam_id:
+        log_fn(f"no Proton mapping in Steam's config for app id {steam_id}.")
+    else:
+        log_fn("no Steam app id for this game (Heroic/GOG/Lutris install).")
     if proton_script is None and allow_runner_fallback:
         from Utils.proton_prefix import read_prefix_runner
         from Utils.steam_finder import find_any_installed_proton
+        runner_source = "the prefix's recorded runner"
         preferred_runner = read_prefix_runner(resolve_compat_data(Path(pfx)))
         if not preferred_runner:
             # Fresh Lutris umu prefixes record the runner in the game yml
@@ -1926,6 +1936,8 @@ def get_game_prefix_env(game, log_fn=_noop_log, *,
             try:
                 from Utils.lutris_finder import find_lutris_proton_name_for_prefix
                 preferred_runner = find_lutris_proton_name_for_prefix(Path(pfx)) or ""
+                if preferred_runner:
+                    runner_source = "Lutris' game config"
             except Exception:
                 preferred_runner = ""
         if not preferred_runner:
@@ -1936,18 +1948,39 @@ def get_game_prefix_env(game, log_fn=_noop_log, *,
                 faugus_script = find_faugus_proton_for_prefix(Path(pfx))
                 if faugus_script is not None:
                     preferred_runner = faugus_script.parent.name
+                    runner_source = "Faugus' games.json"
             except Exception:
                 pass
+        if preferred_runner:
+            log_fn(f"preferred runner '{preferred_runner}' (from {runner_source}).")
+        else:
+            log_fn("no runner recorded for this prefix - taking the newest "
+                   "installed Proton.")
         proton_script = find_any_installed_proton(preferred_runner)
         if proton_script is not None:
             log_fn(f"using fallback Proton tool {proton_script.parent.name} "
-                   "(no per-game Steam mapping found).")
+                   f"(no per-game Steam mapping found): {proton_script}")
     if proton_script is None:
+        # List what we DID find, so a report shows whether the problem is "no
+        # Proton installed anywhere" or "installed somewhere we don't scan"
+        # (GH#414: builds under a Steam root that was missing from the list).
+        from Utils.steam_finder import list_installed_proton
+        try:
+            installed = [p.parent.name for p in list_installed_proton()]
+        except Exception:
+            installed = []
+        if installed:
+            log_fn("Proton versions found on this system: " + ", ".join(installed))
+        else:
+            log_fn("no Proton installs were found in any known Steam, Heroic "
+                   "or ProtonPlus location.")
         log_fn("could not resolve the game's Proton version - pick a "
                "different prefix option.")
         return None
     steam_root = find_steam_root_for_proton_script(proton_script)
     if steam_root is None:
+        log_fn(f"could not resolve a Steam client root for {proton_script} - "
+               "pick a different prefix option.")
         return None
     # Steam layout: compat data is the pfx's parent; Heroic/Lutris layouts:
     # the prefix root itself.
@@ -1955,6 +1988,8 @@ def get_game_prefix_env(game, log_fn=_noop_log, *,
     env = strip_appimage_env(os.environ.copy())
     env["STEAM_COMPAT_DATA_PATH"] = str(compat_data)
     env["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = str(steam_root)
+    log_fn(f"STEAM_COMPAT_DATA_PATH={compat_data}")
+    log_fn(f"STEAM_COMPAT_CLIENT_INSTALL_PATH={steam_root}")
     if steam_id:
         set_game_steam_context(env, steam_id)
     return proton_script, compat_data, env
@@ -1979,6 +2014,11 @@ def resolve_tool_prefix(exe: Path, game, proton_name: str, prefix_mode: str,
     Port of the Tk ProtonPrefixStepMixin._get_tool_env (note the different
     tuple order: compat_data before env, matching get_tool_prefix_env).
     """
+    log_fn(f"prefix mode: {prefix_mode}"
+           + (f", selected Proton '{proton_name}'"
+              if prefix_mode != PREFIX_MODE_GAME else
+              " (the selected Proton version is not used in this mode - "
+              "the game's own prefix decides it)"))
     if prefix_mode == PREFIX_MODE_GAME:
         result = get_game_prefix_env(game, log_fn=log_fn,
                                      allow_runner_fallback=True)
@@ -1988,8 +2028,24 @@ def resolve_tool_prefix(exe: Path, game, proton_name: str, prefix_mode: str,
             from Utils.steam_finder import find_any_installed_proton
             proton_script = find_any_installed_proton(proton_name)
             if proton_script is None:
-                log_fn(f"could not find Proton '{proton_name}'.")
+                from Utils.steam_finder import list_installed_proton
+                try:
+                    installed = [p.parent.name for p in list_installed_proton()]
+                except Exception:
+                    installed = []
+                log_fn(f"could not find Proton '{proton_name}'. "
+                       + ("Found instead: " + ", ".join(installed) if installed
+                          else "No Proton installs were found in any known "
+                               "Steam, Heroic or ProtonPlus location."))
                 return None
+            # find_any_installed_proton() treats the name as a preference, not
+            # a requirement - say so when it substitutes, or the prefix ends up
+            # named after a build the user never picked.
+            if proton_script.parent.name != proton_name:
+                log_fn(f"Proton '{proton_name}' is not installed - falling back "
+                       f"to {proton_script.parent.name}: {proton_script}")
+            else:
+                log_fn(f"using Proton: {proton_script}")
             target = shared_prefix_dir(proton_script.parent.name)
         result = get_tool_prefix_env(
             exe, proton_name, prefix_dir=target,
@@ -2005,6 +2061,10 @@ def resolve_tool_prefix(exe: Path, game, proton_name: str, prefix_mode: str,
             log_fn(reason)
         return None
     proton_script, compat_data, env = result
+    # One line that pins down the whole resolution for a bug report: which
+    # build, from which install root, against which prefix.
+    log_fn(f"resolved Proton {Path(proton_script).parent.name} -> "
+           f"{proton_script} (prefix: {compat_data})")
     extra = parse_env_overrides(load_tool_launch_env(exe))
     if extra:
         env.update(extra)

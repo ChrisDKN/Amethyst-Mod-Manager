@@ -241,7 +241,7 @@ class PandoraView(QWidget):
         proton_name, prefix_mode = self._proton_name, self._prefix_mode
 
         def worker():
-            from Utils.exe_launch import resolve_tool_prefix
+            from Utils.exe_launch import PREFIX_MODE_GAME, resolve_tool_prefix
             from Utils.pandora_tools import install_net10, net10_installed
             try:
                 safe_emit(self._deps_status_sig,
@@ -250,11 +250,17 @@ class PandoraView(QWidget):
                     exe, game, proton_name, prefix_mode,
                     log_fn=lambda m: self._log(f"Pandora Wizard: {m}"))
                 if result is None:
-                    safe_emit(self._deps_status_sig,
-                        self.tr("Could not find Proton '{0}' - check that "
-                        "it is installed in Steam, then reopen this wizard.")
-                        .format(proton_name),
-                        err_text())
+                    if prefix_mode == PREFIX_MODE_GAME:
+                        safe_emit(self._deps_status_sig,
+                            self.tr("Could not resolve the Proton version for "
+                            "the game's own prefix - launch the game once, or "
+                            "pick a different prefix option."), err_text())
+                    else:
+                        safe_emit(self._deps_status_sig,
+                            self.tr("Could not find Proton '{0}' - check that "
+                            "it is installed in Steam, Heroic or ProtonPlus, "
+                            "then reopen this wizard.").format(proton_name),
+                            err_text())
                     return
                 self._prefix_env = result
                 proton_script, compat_data, env = result

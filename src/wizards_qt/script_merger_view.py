@@ -146,7 +146,7 @@ class ScriptMergerView(WizardViewBase):
         proton_name, prefix_mode = self._proton_name, self._prefix_mode
 
         def worker():
-            from Utils.exe_launch import resolve_tool_prefix
+            from Utils.exe_launch import PREFIX_MODE_GAME, resolve_tool_prefix
             from Utils.protontricks import dotnet_dep_key, is_dep_installed
             _wlog = lambda m: self._log(f"Script Merger Wizard: {m}")
             try:
@@ -155,10 +155,16 @@ class ScriptMergerView(WizardViewBase):
                 result = resolve_tool_prefix(
                     exe, game, proton_name, prefix_mode, log_fn=_wlog)
                 if result is None:
-                    safe_emit(self._net8_status_sig,
-                              self.tr("Could not find Proton '{0}' - check "
-                              "that it is installed in Steam, then reopen this "
-                              "wizard.").format(proton_name), RED)
+                    if prefix_mode == PREFIX_MODE_GAME:
+                        safe_emit(self._net8_status_sig,
+                            self.tr("Could not resolve the Proton version for "
+                            "the game's own prefix - launch the game once, or "
+                            "pick a different prefix option."), RED)
+                    else:
+                        safe_emit(self._net8_status_sig,
+                            self.tr("Could not find Proton '{0}' - check that "
+                            "it is installed in Steam, Heroic or ProtonPlus, "
+                            "then reopen this wizard.").format(proton_name), RED)
                     safe_emit(self._net8_done_sig, False)
                     return
                 self._prefix_env = result
@@ -287,8 +293,8 @@ class ScriptMergerView(WizardViewBase):
 
         def worker():
             from Utils.exe_launch import (
-                link_game_documents, resolve_tool_prefix, run_tool_logged,
-                shutdown_prefix_wineserver,
+                PREFIX_MODE_GAME, link_game_documents, resolve_tool_prefix,
+                run_tool_logged, shutdown_prefix_wineserver,
             )
             _wlog = lambda m: self._log(f"Script Merger Wizard: {m}")
             proton_script = compat_data = None
@@ -296,10 +302,16 @@ class ScriptMergerView(WizardViewBase):
                 result = prefix_env or resolve_tool_prefix(
                     exe, game, proton_name, prefix_mode, log_fn=_wlog)
                 if result is None:
-                    safe_emit(self._run_status_sig,
-                              self.tr("Could not find Proton '{0}' - check "
-                              "that it is installed in Steam.").format(
-                                  proton_name), RED)
+                    if prefix_mode == PREFIX_MODE_GAME:
+                        safe_emit(self._run_status_sig,
+                            self.tr("Could not resolve the Proton version for "
+                            "the game's own prefix - launch the game once, or "
+                            "pick a different prefix option."), RED)
+                    else:
+                        safe_emit(self._run_status_sig,
+                            self.tr("Could not find Proton '{0}' - check that "
+                            "it is installed in Steam, Heroic or "
+                            "ProtonPlus.").format(proton_name), RED)
                     return
                 proton_script, compat_data, env = result
 
