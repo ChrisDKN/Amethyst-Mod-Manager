@@ -72,6 +72,10 @@ class QtWizardContext:
     a long-running external tool that reads the DEPLOYED Data folder: while
     held, Deploy/Restore/Play are disabled and refuse to start. Keyed so
     concurrent tools nest; ALWAYS release on the GUI thread in a finally.
+    show_mod_files(mod_name) selects that mod and opens the Mod Files tab - for
+    report-style wizards whose rows link to the mod they are talking about, so
+    the user lands on the footer buttons (Pack BSA, Unpack) that act on it.
+    Call it on the GUI thread.
     """
     profile_name: str = "default"
     run_deploy: Callable | None = None
@@ -83,6 +87,7 @@ class QtWizardContext:
     nexus_api: Callable | None = None
     open_log_tab: Callable | None = None
     set_tool_lock: Callable | None = None
+    show_mod_files: Callable | None = None
 
 
 # Deliberately dropped from the Qt app (not even shown greyed out).
@@ -253,6 +258,9 @@ REGISTRY: dict[str, QtWizardSpec] = {
         QtWizardSpec(_simple("wizards_qt.skygen_view", "SkyGenView"), panel="modlist"),
     "wizards.plugin_audit.PluginAuditWizard":
         QtWizardSpec(_simple("wizards_qt.plugin_audit_view", "PluginAuditView"), panel="modlist"),
+    "wizards.bsa_pack_candidates.BsaPackCandidatesWizard":
+        QtWizardSpec(_simple("wizards_qt.bsa_pack_candidates_view",
+                             "BsaPackCandidatesView"), panel="modlist"),
 
     # -- full-UI tools (tree + 3D viewport needs the whole window) --
     "wizards.nif_viewer.NifViewerWizard":

@@ -28,6 +28,7 @@ py.install_sources(
   'bsa_extract.py',
   'bsa_filemap.py',
   'bsa_invalidation.py',
+  'bsa_pack_candidates.py',
   'bsa_pack_ops.py',
   'bsa_reader.py',
   'bsa_writer.py',

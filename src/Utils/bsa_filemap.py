@@ -300,6 +300,37 @@ def rebuild_bsa_index(
         )
 
 
+def ensure_bsa_index(
+    index_path: Path,
+    staging_root: Path,
+    archive_extensions: frozenset[str],
+    log_fn: "Callable[[str], None] | None" = None,
+    follow_toplevel_links_under: "Path | None" = None,
+) -> _BsaIndex:
+    """Return the parsed BSA index, scanning first when nothing usable is cached.
+
+    The conflict scan in ``game_state`` is the only other thing that builds this
+    index, and it is skipped entirely when the "Hide BSA conflicts" setting is
+    on - that setting is about conflict *flags* (and their scan cost), so every
+    other consumer was left with no index at all. Features that merely need to
+    know which mods ship archives call this instead of reading the file directly.
+
+    Gated on whether the index PARSES, never on ``is_file()``: missing, corrupt
+    and older-version indexes all mean "nothing usable has been scanned", and an
+    empty index is a legitimate answer that existence checks can never heal.
+
+    Blocking - a cold scan walks every mod folder, so call it off the UI thread.
+    """
+    index = read_bsa_index(index_path)
+    if index is not None:
+        return index
+    rebuild_bsa_index(
+        index_path, staging_root, archive_extensions, log_fn=log_fn,
+        follow_toplevel_links_under=follow_toplevel_links_under,
+    )
+    return read_bsa_index(index_path) or {}
+
+
 def update_bsa_index(
     index_path: Path,
     mod_name: str,

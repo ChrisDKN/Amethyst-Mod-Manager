@@ -616,14 +616,34 @@ def build_index_data(staging_parent: Path) -> tuple[dict, dict, set]:
     return counts, mod_ft, pbr
 
 
-def build_mods_with_bsa(staging_parent: Path) -> set[str]:
-    """Mods that contain at least one BSA/BA2 with files (from bsa_index.bin)."""
+def build_mods_with_bsa(staging_parent: Path,
+                        staging_root: Path | None = None,
+                        archive_extensions=None,
+                        follow_toplevel_links_under: Path | None = None,
+                        ) -> set[str]:
+    """Mods that contain at least one BSA/BA2 with files (from bsa_index.bin).
+
+    Builds the index when nothing usable is cached, rather than reporting "no
+    mod has archives": the conflict scan that used to be its only producer is
+    skipped whenever "Hide BSA conflicts" is on, which silently emptied this
+    filter (an include-filter with no matches hides every row). Pass
+    *staging_root* + *archive_extensions* to enable that scan; without them this
+    falls back to read-only behaviour.
+
+    Blocking on a cold scan - callers run it on the filter-data worker thread.
+    """
     idx = staging_parent / "bsa_index.bin"
-    if not idx.is_file():
-        return set()
     try:
-        from Utils.bsa_filemap import read_bsa_index
-        index = read_bsa_index(idx) or {}
+        if staging_root is not None and archive_extensions:
+            from Utils.bsa_filemap import ensure_bsa_index
+            index = ensure_bsa_index(
+                idx, staging_root, frozenset(archive_extensions),
+                follow_toplevel_links_under=follow_toplevel_links_under) or {}
+        else:
+            if not idx.is_file():
+                return set()
+            from Utils.bsa_filemap import read_bsa_index
+            index = read_bsa_index(idx) or {}
     except Exception:
         return set()
     return {name for name, archives in index.items()

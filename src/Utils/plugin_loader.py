@@ -68,6 +68,15 @@ _BETHESDA_GAME_IDS = [
     "enderal", "enderalse",
 ]
 
+# Games we can actually WRITE an archive for - the keys of archive_rules'
+# _GAME_RULES. Deliberately not _BETHESDA_GAME_IDS: Starfield has archive
+# extensions but no allowlist, so archive_kind_for_game returns None there and
+# a pack tool would be a dead menu entry.
+_BSA_PACKABLE_GAME_IDS = [
+    "skyrim_se", "skyrimvr", "enderalse", "skyrim", "enderal", "Oblivion",
+    "Fallout3", "Fallout3GOTY", "FalloutNV", "Fallout4", "Fallout4VR",
+]
+
 BUILTIN_WIZARD_TOOLS: list[dict] = [
     {
         "id": "bethesda_register_game_path",
@@ -116,6 +125,17 @@ BUILTIN_WIZARD_TOOLS: list[dict] = [
         # Qt-only tool: no Tk class exists behind this path, it is a registry key.
         "dialog_class": "wizards.npc_viewer.NpcViewerWizard",
         "category": "Other",
+    },
+    {
+        "id": "bsa_pack_candidates",
+        "label": "BSA Pack Candidates",
+        "description": ("Rank mods by how many files they could pack into a "
+                        "BSA/BA2, and flag the ones that would break if packed."),
+        "game_ids": _BSA_PACKABLE_GAME_IDS,
+        "all_games": False,
+        # Qt-only tool: no Tk class exists behind this path, it is a registry key.
+        "dialog_class": "wizards.bsa_pack_candidates.BsaPackCandidatesWizard",
+        "category": "Patchers and Cleanup",
     },
     {
         "id": "bg3_import_modlist_json",

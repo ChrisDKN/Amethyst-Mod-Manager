@@ -45,6 +45,7 @@ WIZARD_LABELS = (
     QT_TRANSLATE_NOOP("WizardTools", "Install Script Extender (SKSE)"),
     QT_TRANSLATE_NOOP("WizardTools", "SkyGen - Patch Generator"),
     QT_TRANSLATE_NOOP("WizardTools", "Plugin Audit & Cleanup"),
+    QT_TRANSLATE_NOOP("WizardTools", "BSA Pack Candidates"),
     QT_TRANSLATE_NOOP("WizardTools", "SSE Display Tweaks Config"),
     QT_TRANSLATE_NOOP("WizardTools", "Engine Fixes Config"),
     QT_TRANSLATE_NOOP("WizardTools", "Run Pandora"),
@@ -230,6 +231,10 @@ WIZARD_DESCRIPTIONS = (
         "Scan load order for safe-to-disable plugins, then disable them or "
         "clean up orphaned SkyGen BOS/SkyPatcher INIs for plugins that must "
         "stay enabled."),
+    QT_TRANSLATE_NOOP(
+        "WizardTools",
+        "Rank mods by how many files they could pack into a BSA/BA2, and flag "
+        "the ones that would break if packed."),
     QT_TRANSLATE_NOOP(
         "WizardTools",
         "Download and install SKSEVR into the game folder."),

@@ -1773,6 +1773,37 @@ class MainWindow(QMainWindow):
         finally:
             self._xpanel_busy = False
 
+    def _wizard_show_mod_files(self, mod_name: str) -> None:
+        """Open *mod_name* in the Mod Files tab - a wizard's "jump to this mod".
+
+        Selects the modlist row first so every cross-panel highlight agrees with
+        what Mod Files shows, then swaps the right column to Mod Files, whose
+        footer carries the Pack BSA / Unpack buttons. The row may be hidden
+        behind a modlist-scoped wizard tab; the selection still applies and is
+        visible once that tab closes.
+        """
+        if not mod_name:
+            return
+        try:
+            from PySide6.QtCore import QItemSelectionModel
+            from PySide6.QtWidgets import QAbstractItemView
+            from gui_qt.modlist_model import COL_NAME
+            m = self._modlist_model
+            row = next((i for i in range(m.rowCount())
+                        if m.entry(i).name == mod_name), None)
+            if row is not None:
+                idx = m.index(row, COL_NAME)
+                self._modlist_view.setCurrentIndex(idx)
+                self._modlist_view.selectionModel().select(
+                    idx, QItemSelectionModel.ClearAndSelect
+                    | QItemSelectionModel.Rows)
+                self._modlist_view.scrollTo(
+                    idx, QAbstractItemView.PositionAtCenter)
+            self._select_plugin_tab(1)
+            self._mod_files_view.show_mod(mod_name)
+        except Exception as exc:
+            self._append_log(f"[wizard] show mod files failed: {exc}")
+
     # ---------------------------------------------------------- panel footers
     @staticmethod
     def _enable_height_for_width(w: QWidget) -> None:
@@ -11861,6 +11892,7 @@ class MainWindow(QMainWindow):
             nexus_api=self._ensure_nexus_api,
             open_log_tab=self._open_log_tab,
             set_tool_lock=self._set_tool_lock,
+            show_mod_files=self._wizard_show_mod_files,
         )
         try:
             view = spec.view_factory(
@@ -14907,7 +14939,16 @@ class MainWindow(QMainWindow):
         import threading
         staging = self._gs.staging_dir()
         staging_parent = staging.parent if staging is not None else None
-        plugin_exts = getattr(self._gs.game, "plugin_extensions", None)
+        game = self._gs.game
+        plugin_exts = getattr(game, "plugin_extensions", None)
+        # Resolved here, not in the worker: the BSA index is built on demand when
+        # nothing usable is cached, and the scan needs the game's archive
+        # extensions plus the bounded symlink allowance rebuild_bsa_index takes.
+        archive_exts = frozenset(getattr(game, "archive_extensions", None) or ())
+        try:
+            links_under = game.get_profile_root() / "profiles"
+        except Exception:
+            links_under = None
         self._filter_data_gen += 1
         gen = self._filter_data_gen
 
@@ -14923,7 +14964,8 @@ class MainWindow(QMainWindow):
                         "filetype_counts": counts,
                         "mod_filetypes": mod_ft,
                         "mods_with_pbr": pbr,
-                        "mods_with_bsa": build_mods_with_bsa(staging_parent),
+                        "mods_with_bsa": build_mods_with_bsa(
+                            staging_parent, staging, archive_exts, links_under),
                         "mods_with_plugins": build_mods_with_plugins(
                             staging_parent, plugin_exts),
                     }
@@ -15220,6 +15262,10 @@ class MainWindow(QMainWindow):
             panel.set_check_label("filter_has_bsa", self.tr("Mods with PAK archives"))
         else:
             panel.set_check_label("filter_has_bsa", self.tr("Mods with BSA archives"))
+        # A game with no archive format can never match: leaving the box enabled
+        # just blanks the list (include-filter, empty set) with no way to tell
+        # that from a broken scan.
+        panel.set_check_enabled("filter_has_bsa", bool(archive_exts))
         # PGPatcher (PBR) is Skyrim SE only.
         is_sse = bool(g and getattr(g, "nexus_game_domain", "")
                       == "skyrimspecialedition")
