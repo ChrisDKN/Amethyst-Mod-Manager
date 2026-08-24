@@ -261,7 +261,8 @@ class BodySlideView(WizardViewBase):
                     proc.wait()
                 else:
                     run_tool_logged(proton_script, deployed, env,
-                                    log_fn=_wlog, label=name, game=game)
+                                    log_fn=_wlog, label=name, game=game,
+                                    owner=self)
                 _wlog(f"{deployed.name} closed.")
                 safe_emit(self._run_status_sig, self.tr("{0} finished.").format(name), GREEN)
                 safe_emit(self._run_finished_sig)

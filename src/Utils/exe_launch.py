@@ -26,7 +26,9 @@ import json
 import os
 import shlex
 import shutil
+import signal
 import subprocess
+import threading
 import re
 from pathlib import Path
 
@@ -1855,6 +1857,139 @@ def parse_env_overrides(text: str) -> dict:
     return out
 
 
+# --------------------------------------------------------------------------
+# Live wizard-tool registry
+#
+# Every wizard wraps its tool launch in `finally: shutdown_prefix_wineserver`,
+# and that cleanup is correct - but it is unreachable when a tool finishes its
+# work and then fails to exit. PGPatcher does exactly that: it writes its last
+# file, logs "took N seconds to complete", then busy-spins its main thread
+# forever. A spinning process holds its stdout pipe open, so the reader loop in
+# run_tool_logged never sees EOF, never returns, and the `finally` never runs.
+# The tool then outlives the app itself - it belongs to wineserver, not to us,
+# so killing the Python process just reparents it to init.
+#
+# So every launch registers here, and the app-exit / wizard-close paths reap
+# what the tool would not release on its own.
+# --------------------------------------------------------------------------
+
+_live_tools: "dict[int, dict]" = {}
+_live_tools_lock = threading.Lock()
+_live_tools_seq = 0
+
+
+def _register_live_tool(proc, label: str, proton_script, compat_data,
+                        owner=None) -> int:
+    """Record a running tool process; returns a token for _forget_live_tool."""
+    global _live_tools_seq
+    with _live_tools_lock:
+        _live_tools_seq += 1
+        token = _live_tools_seq
+        _live_tools[token] = {
+            "proc": proc, "label": label, "owner": owner,
+            "proton_script": proton_script, "compat_data": compat_data,
+        }
+    return token
+
+
+def _forget_live_tool(token: int) -> None:
+    """Drop a registry entry - the tool exited on its own, as most do."""
+    with _live_tools_lock:
+        _live_tools.pop(token, None)
+
+
+def live_tool_labels(owner=None) -> "list[str]":
+    """Labels of tools still running (optionally only *owner*'s).
+
+    Lets a caller ask "is anything still up?" before deciding to prompt.
+    """
+    with _live_tools_lock:
+        entries = list(_live_tools.values())
+    return [e["label"] for e in entries
+            if (owner is None or e["owner"] is owner)
+            and e["proc"].poll() is None]
+
+
+def _kill_process_group(proc, sig) -> bool:
+    """Signal the tool's whole process group. False if it was already gone."""
+    try:
+        os.killpg(os.getpgid(proc.pid), sig)
+        return True
+    except (ProcessLookupError, PermissionError, OSError):
+        # No process group (already reaped) - fall back to the direct child.
+        try:
+            proc.send_signal(sig)
+            return True
+        except Exception:
+            return False
+
+
+def reap_live_tools(owner=None, log_fn=None, timeout: float = 4.0) -> int:
+    """Terminate registered tools that are still running; returns how many.
+
+    Escalates deliberately, because the Popen we hold is only the *launcher*
+    (the Proton script). SIGTERM to the group gives a well-behaved tool the
+    chance to exit; the wineserver kill is what actually reaches an .exe
+    spinning inside the prefix; SIGKILL is the backstop for the launcher
+    itself. Killing the tool closes its pipe, which unblocks run_tool_logged
+    and lets each wizard's own `finally` cleanup finally run.
+
+    With *owner* set, only that owner's tools are touched - one wizard tab
+    closing must not kill a tool another tab is still using.
+    """
+    def _log(msg):
+        if log_fn is not None:
+            try:
+                log_fn(msg)
+            except Exception:
+                pass
+
+    with _live_tools_lock:
+        entries = [(tok, dict(e)) for tok, e in _live_tools.items()
+                   if owner is None or e["owner"] is owner]
+
+    reaped = 0
+    for token, entry in entries:
+        proc = entry["proc"]
+        label = entry["label"]
+        if proc.poll() is not None:
+            _forget_live_tool(token)
+            continue
+
+        _log(f"{label}: still running at shutdown - terminating")
+        _kill_process_group(proc, signal.SIGTERM)
+        try:
+            proc.wait(timeout=timeout / 2)
+        except Exception:
+            pass
+
+        if proc.poll() is None:
+            # The launcher is blocked on an .exe that will not exit. The
+            # prefix's wineserver owns that .exe, so this is what reaches it.
+            script, compat = entry["proton_script"], entry["compat_data"]
+            if script is not None and compat is not None:
+                _log(f"{label}: unresponsive - shutting down its wineserver")
+                shutdown_prefix_wineserver(Path(script), Path(compat),
+                                           log_fn=None)
+            try:
+                proc.wait(timeout=timeout / 2)
+            except Exception:
+                pass
+
+        if proc.poll() is None:
+            _log(f"{label}: forcing SIGKILL")
+            _kill_process_group(proc, signal.SIGKILL)
+            try:
+                proc.wait(timeout=1.0)
+            except Exception:
+                pass
+
+        _forget_live_tool(token)
+        reaped += 1
+
+    return reaped
+
+
 def shutdown_prefix_wineserver(proton_script: Path, compat_data: Path,
                                log_fn=None) -> None:
     """Kill leftover wine processes still attached to a tool prefix.
@@ -2121,6 +2256,7 @@ def run_tool_logged(
     label: str | None = None,
     winedebug: str = "+err,+warn,fixme-all",
     game=None,
+    owner=None,
 ) -> int:
     """Launch *exe* through Proton and stream its output to *log_fn*.
 
@@ -2135,6 +2271,11 @@ def run_tool_logged(
     Blocks until the process exits (call from a worker thread) and returns the
     exit code. *proton_script* and *env* come from ``resolve_tool_prefix``;
     *extra_args* are appended after the exe (e.g. xEdit's data-path flag).
+
+    The launch is registered in the live-tool registry for as long as it runs,
+    so ``reap_live_tools`` can kill a tool that finishes its work and then
+    refuses to exit (see the registry comment above). Pass *owner* - normally
+    the wizard view - to let that wizard reap only its own tools.
     """
     from Utils.steam_finder import proton_run_command
 
@@ -2158,7 +2299,7 @@ def run_tool_logged(
                 proton_script, exe, Path(prefix), log_fn=log_fn,
                 extra_args=extra_args,
                 extra_env={key: env.get(key) for key in gpu_env_keys},
-                cwd=cwd, label=label, game=game)
+                cwd=cwd, label=label, game=game, owner=owner)
         log_fn(f"{label}: winetricks-style launch requested but no prefix "
                "path in env - falling back to Proton.")
 
@@ -2209,20 +2350,34 @@ def run_tool_logged(
             stderr=subprocess.STDOUT,
             bufsize=1,
             universal_newlines=True,
+            # Own session/process group, so reap_live_tools can signal the
+            # whole tool tree without that signal also reaching Amethyst.
+            start_new_session=True,
         )
     except OSError as exc:
         log_fn(f"{label}: failed to launch - {exc}")
         raise
 
-    # A patcher can run for an hour with no input; without this the Deck
-    # autosuspends mid-build and Wine rarely survives the resume.
-    with inhibit_sleep(f"{label} is running", lambda m: log_fn(f"{label}: {m}")):
-        assert proc.stdout is not None
-        for line in proc.stdout:
-            line = line.rstrip("\n")
-            if line:
-                log_fn(f"{label}: {line}")
-        rc = proc.wait()
+    # Registered for the whole blocking read below: this loop is exactly where
+    # a tool that never exits strands us, so the reaper has to be able to find
+    # the process while we are stuck here.
+    token = _register_live_tool(
+        proc, label, proton_script,
+        env.get("STEAM_COMPAT_DATA_PATH") or env.get("WINEPREFIX"),
+        owner=owner)
+    try:
+        # A patcher can run for an hour with no input; without this the Deck
+        # autosuspends mid-build and Wine rarely survives the resume.
+        with inhibit_sleep(f"{label} is running",
+                           lambda m: log_fn(f"{label}: {m}")):
+            assert proc.stdout is not None
+            for line in proc.stdout:
+                line = line.rstrip("\n")
+                if line:
+                    log_fn(f"{label}: {line}")
+            rc = proc.wait()
+    finally:
+        _forget_live_tool(token)
     if rc != 0:
         log_fn(f"{label}: exited with code {rc}")
     return rc
@@ -2239,6 +2394,7 @@ def run_tool_winetricks_style(
     cwd: "Path | None" = None,
     label: str | None = None,
     game=None,
+    owner=None,
 ) -> int:
     """Launch *exe* exactly the way winetricks' "Run an arbitrary executable"
     does: plain ``wine start.exe`` against WINEPREFIX, no ``proton`` script.
@@ -2329,13 +2485,20 @@ WINEPREFIX + Proton's bin on PATH, ``wine start.exe <exe>``), with only two
         rep.mark_spawned()
     game_process.attach_process(proc)
 
-    with inhibit_sleep(f"{label} is running", lambda m: log_fn(f"{label}: {m}")):
-        assert proc.stdout is not None
-        for line in proc.stdout:
-            line = line.rstrip("\n")
-            if line:
-                log_fn(f"{label}: {line}")
-        rc = proc.wait()
+    # Same stranding risk as the Proton path - see the live-tool registry.
+    token = _register_live_tool(proc, label, proton_script, compat_data,
+                                owner=owner)
+    try:
+        with inhibit_sleep(f"{label} is running",
+                           lambda m: log_fn(f"{label}: {m}")):
+            assert proc.stdout is not None
+            for line in proc.stdout:
+                line = line.rstrip("\n")
+                if line:
+                    log_fn(f"{label}: {line}")
+            rc = proc.wait()
+    finally:
+        _forget_live_tool(token)
     launch_report.mark_exit(rep, started, rc, label)
     if rc != 0:
         log_fn(f"{label}: exited with code {rc}")

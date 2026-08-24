@@ -417,7 +417,7 @@ class PGPatcherView(WizardViewBase):
                 safe_emit(self._run_started_sig)
                 run_tool_logged(proton_script, exe, env, log_fn=_wlog,
                                 extra_args=extra_args, label="PGPatcher",
-                                game=game)
+                                game=game, owner=self)
                 _wlog("PGPatcher closed.")
                 safe_emit(self._run_status_sig, self.tr("PGPatcher finished."), GREEN)
                 safe_emit(self._run_finished_sig)

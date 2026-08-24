@@ -146,7 +146,7 @@ class BethiniView(WizardViewBase):
                           "settings, then close it and click Done."), GREEN)
                 safe_emit(self._run_started_sig)
                 run_tool_logged(proton_script, exe, env, log_fn=_wlog,
-                                label="BethINI Pie")
+                                label="BethINI Pie", owner=self)
                 _wlog("BethINI Pie closed.")
                 safe_emit(self._run_status_sig, self.tr("BethINI Pie finished."), GREEN)
                 safe_emit(self._run_finished_sig)

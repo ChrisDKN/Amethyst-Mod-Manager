@@ -299,7 +299,8 @@ class CreationKitView(WizardViewBase):
                           "done, then click Done."), GREEN)
                 safe_emit(self._run_started_sig)
                 run_tool_logged(proton_script, exe, env, log_fn=_wlog,
-                                cwd=game_path, label="Creation Kit", game=game)
+                                cwd=game_path, label="Creation Kit", game=game,
+                                owner=self)
                 shutdown_prefix_wineserver(proton_script, compat_data,
                                            log_fn=_wlog)
                 saved = persist_xedit_vfs_changes(

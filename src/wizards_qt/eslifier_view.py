@@ -155,7 +155,7 @@ class ESLifierView(WizardViewBase):
                           "then click Done."), GREEN)
                 safe_emit(self._run_started_sig)
                 run_tool_logged(proton_script, exe, env, log_fn=_wlog,
-                                label="ESLifier")
+                                label="ESLifier", owner=self)
                 _wlog("ESLifier closed.")
                 cleanup_scan_mirror(scan_mirror, log_fn=_wlog)
                 scan_mirror = None

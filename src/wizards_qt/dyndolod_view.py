@@ -579,7 +579,7 @@ class DynDOLODView(QWidget):
                 run_tool_logged(
                     proton_script, exe, env, log_fn=_wlog,
                     extra_args=[data_arg, output_arg, "-sse"], label=name,
-                    game=game)
+                    game=game, owner=self)
 
                 self._log(f"{name} Wizard: {exe.name} closed.")
                 safe_emit(self._run_status_sig, self.tr("{0} finished.").format(name), ok_text())

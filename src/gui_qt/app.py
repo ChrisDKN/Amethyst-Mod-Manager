@@ -10820,6 +10820,15 @@ class MainWindow(QMainWindow):
                 self._restore_all_on_close()
         except Exception as exc:
             print(f"[gui_qt] restore-on-close error: {exc}", flush=True)
+        # Wizard tools belong to their prefix's wineserver, not to us, so a
+        # tool still up at this point does NOT die with the app - it reparents
+        # to init and keeps its CPU. Reap before we go.
+        try:
+            from Utils.exe_launch import reap_live_tools
+            reap_live_tools(
+                log_fn=lambda m: print(f"[tool-reap] {m}", flush=True))
+        except Exception as exc:
+            print(f"[gui_qt] tool-reap error: {exc}", flush=True)
         super().closeEvent(event)
 
     def _restore_all_on_close(self):
@@ -11965,8 +11974,48 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(0, self._on_refresh_plugins)
 
     def _close_wizard_tab(self, key: str):
-        if self._tabs.has_key(key):
+        if not self._tabs.has_key(key):
+            return
+        view = self._tabs.content_for_key(key)
+        try:
+            from Utils.exe_launch import live_tool_labels
+            live = (sorted(set(live_tool_labels(owner=view)))
+                    if view is not None else [])
+        except Exception:
+            live = []
+        if not live:
             self._tabs.close_tab(key)
+            return
+
+        # A tool still up here is usually one that finished its work and never
+        # exited - it would otherwise keep a core busy until the app quits.
+        # Still ask: the user may have deliberately left xEdit or the CK open.
+        def _confirmed(ok):
+            if ok:
+                self._reap_wizard_tools(view)
+            self._tabs.close_tab(key)
+
+        from gui_qt.confirm_overlay import ConfirmOverlay
+        ConfirmOverlay.show_over(
+            self, self.tr("Tool still running"),
+            self.tr("This tab still has a tool running. Close the tool too?\n"
+                    "The tab closes either way; choosing Leave running keeps "
+                    "the tool alive until you quit Amethyst."),
+            _confirmed, confirm_label=self.tr("Close tool"),
+            cancel_label=self.tr("Leave running"), list_items=live)
+
+    def _reap_wizard_tools(self, view):
+        """Terminate the tools *view* launched, off the UI thread.
+
+        Reaping escalates as far as a wineserver kill and can take a couple of
+        seconds against a wedged tool, which must not freeze the UI - and
+        `_append_log` is thread-safe, so the worker can report directly.
+        """
+        import threading
+        from Utils.exe_launch import reap_live_tools
+        threading.Thread(
+            target=lambda: reap_live_tools(owner=view, log_fn=self._append_log),
+            daemon=True, name="tool-reap").start()
 
     def _close_wizard_tabs(self):
         """Close every open wizard tab (game switch - they're game-scoped).

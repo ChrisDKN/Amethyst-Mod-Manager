@@ -663,7 +663,8 @@ class XEditView(QWidget):
                           f"{' '.join(extra_args)}")
                 safe_emit(self._run_started_sig)
                 run_tool_logged(proton_script, exe, env, log_fn=_wlog,
-                                extra_args=extra_args, label=name, game=game)
+                                extra_args=extra_args, label=name, game=game,
+                                owner=self)
 
                 shutdown_prefix_wineserver(proton_script, compat_data,
                                            log_fn=_wlog)
@@ -869,7 +870,8 @@ class XEditView(QWidget):
                               f"({i}/{total})")
                     run_tool_logged(proton_script, exe, env, log_fn=_wlog,
                                     extra_args=base_args + [plugin],
-                                    label=f"{name} [{plugin}]", game=game)
+                                    label=f"{name} [{plugin}]", game=game,
+                                    owner=self)
                     # Finalise this plugin's <name>.save.<ts> temp before the
                     # next launch reloads Data/ (QAC queues the rename to run on
                     # shutdown, but we relaunch into the same prefix).

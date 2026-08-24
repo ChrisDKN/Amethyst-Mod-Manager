@@ -342,7 +342,8 @@ class ScriptMergerView(WizardViewBase):
                           "conflicts, then close it and click Done."), GREEN)
                 safe_emit(self._run_started_sig)
                 run_tool_logged(proton_script, exe, env, log_fn=_wlog,
-                                label="WitcherScriptMerger", game=game)
+                                label="WitcherScriptMerger", game=game,
+                                owner=self)
                 _wlog("WitcherScriptMerger closed.")
                 safe_emit(self._run_status_sig,
                           self.tr("WitcherScriptMerger closed."), GREEN)

@@ -184,7 +184,7 @@ class Fallout4DowngraderView(WizardViewBase):
                 safe_emit(self._run_started_sig)
                 returncode = run_tool_logged(
                     proton_script, exe, env, log_fn=log, cwd=exe.parent,
-                    label="Fallout 4 Steam Downgrader")
+                    label="Fallout 4 Steam Downgrader", owner=self)
                 if returncode == 0:
                     safe_emit(
                         self._run_status_sig,
