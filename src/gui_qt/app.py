@@ -12832,7 +12832,7 @@ class MainWindow(QMainWindow):
                 self._install_results[_path] = final
                 _chain(_next)
 
-            self._maybe_prompt_rename(name, _named)
+            self._maybe_prompt_rename(name, _named, defer_reload=True)
 
         _chain(0)
 
@@ -13145,24 +13145,33 @@ class MainWindow(QMainWindow):
                 self._apply_install_placement(
                     [final], place,
                     profile_dir=getattr(prepared, "profile_dir", None))
-            self._reload_modlist()
-            # Plugins reload comes from _on_conflicts_ready after the rebuild -
-            # an immediate reload prunes the fresh plugins.txt entry against the
-            # stale filemap (see _on_install_done).
-            if not getattr(self, "_reload_had_entries", False):
-                self._reload_plugins()
-            self._notify(self.tr("Installed {0}").format(final), "success")
+
+            def _finalize():
+                # Keep and Remove converge here, after the modlist has reached
+                # its final state. This is the single reload/conflict rebuild
+                # for the completed wizard install.
+                self._reload_modlist()
+                # Plugins reload comes from _on_conflicts_ready after the
+                # rebuild. Only load directly when no rebuild is coming.
+                if not getattr(self, "_reload_had_entries", False):
+                    self._reload_plugins()
+                self._notify(self.tr("Installed {0}").format(final), "success")
+                _drain_next()
+
             # Change Version tab stays open - refresh its highlights.
             if prev_name:
                 self._sync_change_version_after_install(final)
             # Change Version landed a different-named version → offer to remove
-            # the previous version (Tk parity with _finish_one_install).
+            # the previous version before rebuilding the filemap.
             if prev_name and final != prev_name:
-                self._maybe_prompt_remove_previous(prev_name, final)
-            _drain_next()
+                self._maybe_prompt_remove_previous(
+                    prev_name, final, on_done=_finalize,
+                    defer_reload=True)
+                return
+            _finalize()
 
         if name:
-            self._maybe_prompt_rename(name, _after_named)
+            self._maybe_prompt_rename(name, _after_named, defer_reload=True)
         else:
             archive_path = str(getattr(prepared, "archive", "") or "")
             self._pending_thunderstore_meta.pop(archive_path, None)
@@ -13208,7 +13217,8 @@ class MainWindow(QMainWindow):
         if name:
             # Optional post-install rename prompt (Tk parity). Modal, before the
             # next queued install - keeps one dialog at a time.
-            self._maybe_prompt_rename(name, self._finish_one_install)
+            self._maybe_prompt_rename(
+                name, self._finish_one_install, defer_reload=True)
         else:
             self._install_next()   # continue the queue
 
@@ -13228,7 +13238,27 @@ class MainWindow(QMainWindow):
             self._sync_change_version_after_install(name)
         if prev and name != prev:
             self._install_prev_name = None   # don't re-prompt for later items
-            self._maybe_prompt_remove_previous(prev, name)
+            # Preserve the existing Profile Group ordering contract: reconcile
+            # the newly-installed member mod before capturing the old entry's
+            # owner/slot for the prompt. This updates group metadata only; the
+            # UI reload and conflict rebuild remain deferred until the choice.
+            try:
+                from Utils.profile_groups import is_group, materialize_if_group
+                active = self._gs.profile_dir()
+                if active is not None and is_group(active):
+                    materialize_if_group(self._gs.game, active,
+                                         log_fn=self._append_log)
+            except Exception as exc:
+                print(f"[gui_qt] group reconcile before remove-previous "
+                      f"failed: {exc}", flush=True)
+            # The overlay is modeless. Pause the install queue here so its
+            # empty-queue completion cannot reload/rebuild before the user has
+            # chosen Keep or Remove. _on_install_done performs the one reload
+            # after either choice; Remove therefore defers its own reload.
+            self._maybe_prompt_remove_previous(
+                prev, name, on_done=self._install_next,
+                defer_reload=True)
+            return
         self._install_next()   # continue the queue
 
     def _prev_version_profile(self, old_name: str):
@@ -13250,16 +13280,30 @@ class MainWindow(QMainWindow):
                   flush=True)
         return pdir, old_name
 
-    def _maybe_prompt_remove_previous(self, old_name: str, new_name: str):
+    def _maybe_prompt_remove_previous(self, old_name: str, new_name: str,
+                                      on_done=None, defer_reload: bool = False):
         """Show the borderless 'Remove previous version?' overlay if both the old
         and new mods exist. Remove → the new mod inherits the old one's modlist
-        position + enabled state, then the old mod is removed."""
+        position + enabled state, then the old mod is removed. *on_done* is the
+        owning install flow's continuation and runs after either choice (or
+        immediately when there is nothing to prompt)."""
+        continued = False
+
+        def _continue():
+            nonlocal continued
+            if continued:
+                return
+            continued = True
+            if on_done is not None:
+                on_done()
+
         from Utils.mod_copy import resolve_target_staging
         game = self._gs.game
         old_dir, old_folder = self._prev_version_profile(old_name)
         new_dir = getattr(self, "_install_profile_dir", None) \
             or self._gs.profile_dir()
         if game is None or old_dir is None or new_dir is None:
+            _continue()
             return
         # In a group these are two DIFFERENT profiles' staging roots (the new
         # version was just installed into a member; the group only links to it).
@@ -13267,29 +13311,36 @@ class MainWindow(QMainWindow):
             old_staging = Path(resolve_target_staging(game, Path(old_dir)))
             new_staging = Path(resolve_target_staging(game, Path(new_dir)))
         except Exception:
+            _continue()
             return
         if not (old_staging / old_folder).is_dir() \
                 or not (new_staging / new_name).is_dir():
+            _continue()
             return
         from gui_qt.remove_previous_overlay import RemovePreviousOverlay
 
         def _done(result):
-            if result == "remove":
-                # Resolved NOW, not when the user answers: the install's
-                # group reconcile runs first and renames the group entry to
-                # the new version in place (same identity, newer version), so
-                # a late lookup of the old name would find nothing and fall
-                # back to the group - where the old row no longer exists and
-                # the new mod would be repositioned to the top.
-                self._remove_previous_version(
-                    old_name, new_name, profile_dir=old_dir,
-                    old_folder=old_folder)
+            try:
+                if result == "remove":
+                    # Resolved NOW, not when the user answers: the install's
+                    # group reconcile runs first and renames the group entry to
+                    # the new version in place (same identity, newer version),
+                    # so a late lookup of the old name would find nothing and
+                    # fall back to the group - where the old row no longer
+                    # exists and the new mod would move to the top.
+                    self._remove_previous_version(
+                        old_name, new_name, profile_dir=old_dir,
+                        old_folder=old_folder,
+                        reload_modlist=not defer_reload)
+            finally:
+                _continue()
 
         RemovePreviousOverlay.show_over(self, old_name, new_name, _done)
 
     def _remove_previous_version(self, old_name: str, new_name: str, *,
                                  profile_dir: Path | None = None,
-                                 old_folder: str | None = None):
+                                 old_folder: str | None = None,
+                                 reload_modlist: bool = True):
         """New mod inherits old's modlist slot + enabled state; old is removed.
         In a Profile Group the files live in a MEMBER profile
         (*profile_dir*/*old_folder*, captured when the prompt was raised), so
@@ -13354,16 +13405,21 @@ class MainWindow(QMainWindow):
         except Exception as exc:
             print(f"[gui_qt] group reconcile after remove-previous failed: "
                   f"{exc}", flush=True)
-        self._reload_modlist()
-        self._rebuild_conflicts_async()
+        if reload_modlist:
+            # _reload_modlist sequences its own conflict rebuild after the meta
+            # pass; starting another one here duplicates the full scan.
+            self._reload_modlist()
         # The Change Version tab may still be open on the mod that was just
         # removed - swap it to the version that replaced it.
         self._sync_change_version_after_install(new_name)
 
-    def _maybe_prompt_rename(self, name: str, on_done):
+    def _maybe_prompt_rename(self, name: str, on_done,
+                             defer_reload: bool = False):
         """If 'Rename mod after install' is on, prompt for a new name and rename
         the mod (staging folder + index + modlist entry). Calls ``on_done`` with
-        the final name (unchanged if the user cancels or the rename fails)."""
+        the final name (unchanged if the user cancels or the rename fails).
+        Install flows defer the rename's reload because their completion path
+        reloads once after all follow-up decisions have resolved."""
         try:
             from Utils.ui_config import load_rename_mod_after_install
             if not load_rename_mod_after_install():
@@ -13377,8 +13433,9 @@ class MainWindow(QMainWindow):
             if new is None or not new.strip():
                 on_done(name)
                 return
-            renamed = self._rename_mod_on_disk(name, new.strip())
-            on_done(renamed or name)
+            self._rename_mod_on_disk(
+                name, new.strip(), reload_modlist=not defer_reload,
+                on_done=lambda renamed: on_done(renamed or name))
 
         from gui_qt.text_input_overlay import TextInputOverlay
         TextInputOverlay.show_over(
@@ -13398,19 +13455,27 @@ class MainWindow(QMainWindow):
                   flush=True)
             return []
 
-    def _rename_mod_on_disk(self, old_name: str, new_name: str) -> str | None:
+    def _rename_mod_on_disk(self, old_name: str, new_name: str, *,
+                            reload_modlist: bool = True,
+                            on_done=None) -> str | None:
         """Rename a mod: staging folder → new, modindex entry, modlist entry,
-        then reload. Returns the sanitised new name on success, else None.
+        then optionally reload. Returns the sanitised new name on success, else
+        None. ``on_done`` also covers the asynchronous collision overlay.
         Mirrors the Tk modlist_panel.rename_mod_by_name operation.
 
         If the target name is already taken, this shows the Mod-Already-Exists
         overlay (Replace All / Rename… / Cancel) rather than failing outright,
         and the rename completes asynchronously through that flow (so the return
         value is None - the folder is still under ``old_name`` at that point)."""
+        def _finish(result):
+            if on_done is not None:
+                on_done(result)
+            return result
+
         from Utils.mod_name_utils import sanitize_mod_folder_name
         new_name = sanitize_mod_folder_name(new_name)
         if not old_name or not new_name or old_name == new_name:
-            return None
+            return _finish(None)
         # In a group the staging entry is a symlink and the folder name comes
         # from the OWNING MEMBER - renaming the link would just be fought by
         # the next reconcile. Rename it in the member profile instead.
@@ -13423,12 +13488,12 @@ class MainWindow(QMainWindow):
                     "'{0}' belongs to the member profile '{1}' - switch to "
                     "that profile to rename it.").format(
                         old_name, owner[0] if owner else "?"), "warning")
-                return None
+                return _finish(None)
         except Exception:
             pass
         staging = self._gs.staging_dir()
         if staging is None:
-            return None
+            return _finish(None)
         new_folder = staging / new_name
         if new_folder.exists():
             # Collision → let the user Replace the existing mod, pick another
@@ -13437,20 +13502,30 @@ class MainWindow(QMainWindow):
 
             def _resolved(result):
                 if not result or result == "cancel":
+                    _finish(None)
                     return
                 if result == "replace":
-                    self._replace_then_rename(old_name, new_name)
+                    self._replace_then_rename(
+                        old_name, new_name, reload_modlist=reload_modlist,
+                        on_done=_finish)
                 elif result.startswith("rename:"):
-                    self._rename_mod_on_disk(old_name, result[len("rename:"):])
+                    self._rename_mod_on_disk(
+                        old_name, result[len("rename:"):],
+                        reload_modlist=reload_modlist, on_done=_finish)
+                else:
+                    _finish(None)
 
             # Suggestions come from the mod BEING renamed, not the occupant.
             ModExistsOverlay.show_over(
                 self, new_name, False, _resolved,
                 suggestions=self._mod_name_suggestions(old_name))
             return None
-        return self._do_rename_mod_on_disk(old_name, new_name)
+        return _finish(self._do_rename_mod_on_disk(
+            old_name, new_name, reload_modlist=reload_modlist))
 
-    def _replace_then_rename(self, old_name: str, new_name: str) -> None:
+    def _replace_then_rename(self, old_name: str, new_name: str, *,
+                             reload_modlist: bool = True,
+                             on_done=None) -> None:
         """Fully remove the existing mod occupying *new_name*, drop its modlist
         row, then rename *old_name* → *new_name* (used by the rename-collision
         Replace-All path)."""
@@ -13460,6 +13535,8 @@ class MainWindow(QMainWindow):
                         log_fn=self._append_log)
         except Exception as exc:
             self._notify(self.tr("Replace failed: {0}").format(exc), "warning")
+            if on_done is not None:
+                on_done(None)
             return
         # Drop the replaced mod's modlist row so it isn't left dangling. Edit
         # the file, not self._modlist_model - see _do_rename_mod_on_disk: for a
@@ -13476,9 +13553,13 @@ class MainWindow(QMainWindow):
         except Exception as exc:
             print(f"[gui_qt] replace-then-rename modlist update failed: {exc}",
                   flush=True)
-        self._do_rename_mod_on_disk(old_name, new_name)
+        renamed = self._do_rename_mod_on_disk(
+            old_name, new_name, reload_modlist=reload_modlist)
+        if on_done is not None:
+            on_done(renamed)
 
-    def _do_rename_mod_on_disk(self, old_name: str, new_name: str) -> str | None:
+    def _do_rename_mod_on_disk(self, old_name: str, new_name: str, *,
+                               reload_modlist: bool = True) -> str | None:
         """Perform the actual rename (staging folder + index + state + modlist),
         assuming *new_name* is free. Returns the new name on success."""
         staging = self._gs.staging_dir()
@@ -13513,7 +13594,8 @@ class MainWindow(QMainWindow):
         # install prompt resolves before _on_install_done's reload, so the row
         # isn't in the model yet - editing it was a silent no-op and save()
         # then clobbered the just-installed entry (mods "vanishing until
-        # Refresh"). The reload below catches the model up.
+        # Refresh"). The rename's reload, or the owning install completion
+        # reload when deferred, catches the model up.
         try:
             from Utils.modlist import read_modlist, write_modlist, modlist_lock
             ml_path = self._gs.modlist_path()
@@ -13530,7 +13612,8 @@ class MainWindow(QMainWindow):
                     write_modlist(ml_path, entries)
         except Exception as exc:
             print(f"[gui_qt] rename modlist update failed: {exc}", flush=True)
-        self._reload_modlist()
+        if reload_modlist:
+            self._reload_modlist()
         self._notify(self.tr("Renamed to '{0}'.").format(new_name), "info")
         return new_name
 
@@ -14767,8 +14850,8 @@ class MainWindow(QMainWindow):
     def _rebuild_filter_data(self):
         """(Re)build FilterData: the disk-derived parts (modindex read + BSA /
         plugin folder walks) run on a worker; _on_filter_data_ready assembles
-        the FilterData and updates the panel on the UI thread. Runs after every
-        conflict rebuild, so the scans must not block the UI."""
+        the FilterData and updates the panel on the UI thread. Runs after
+        structural conflict rebuilds, so the scans must not block the UI."""
         panel = getattr(self, "_modlist_filter_panel", None)
         if panel is None:
             return
@@ -14801,6 +14884,26 @@ class MainWindow(QMainWindow):
 
         threading.Thread(target=worker, daemon=True,
                          name="filter-data").start()
+
+    def _refresh_filter_conflicts(self):
+        """Refresh the toggle-sensitive part of the current FilterData.
+
+        A mod toggle changes enabled state and conflict codes, but leaves the
+        mod index, archive/plugin membership, metadata, notes and Mod Files
+        settings untouched. Reusing those products avoids another staging scan
+        and another dynamic-filter-panel rebuild after every checkbox click.
+        """
+        data = getattr(self, "_modlist_filter_data", None)
+        if data is None:
+            self._rebuild_filter_data()
+            return
+        cd = getattr(self, "_conflict_data", None)
+        if cd is not None:
+            data.conflict_codes = self._loose_backend_codes(cd)
+            data.bsa_conflict_codes = self._bsa_backend_codes(cd)
+        self._apply_modlist_filters()
+        if self._modlist_token_search_active():
+            self._apply_modlist_search()
 
     def _on_filter_data_ready(self, gen: int, payload):
         """UI thread: merge the worker's disk-derived sets with the in-memory
@@ -16629,7 +16732,7 @@ class MainWindow(QMainWindow):
             if kind == "toggle" and self._toggle_skips_conflict_scan(edit_ctx[1]):
                 self._rebuild_filemap_light_async()
                 return
-        self._rebuild_conflicts_async()
+        self._rebuild_conflicts_async(edit_ctx=edit_ctx)
 
     def _move_skips_rebuild(self, move_ctx) -> bool:
         """True when a reorder left every moved mod on the same side of all
@@ -16775,17 +16878,32 @@ class MainWindow(QMainWindow):
             self._apply_modlist_filters()
         self._maybe_auto_deploy()
 
-    def _rebuild_conflicts_async(self, rescan_index: bool = False):
+    def _rebuild_conflicts_async(self, rescan_index: bool = False,
+                                 edit_ctx=None):
         """Build the filemap off-thread; the worker emits _conflicts_ready
         (queued → UI thread). A generation counter drops results from a
         superseded reload (user switched game before the build finished).
         rescan_index=True forces a full disk rescan (Refresh button)."""
         import threading
+        # Snapshot this before invalidating the maps below. Toggle-specific UI
+        # reuse is valid only when an accepted build described the pre-toggle
+        # index and no explicit/latched Refresh is about to replace that index.
+        toggle_reuse_ok = bool(
+            edit_ctx and edit_ctx[0] == "toggle"
+            and getattr(self, "_conflict_maps_current", False)
+            and not rescan_index
+            and not getattr(self, "_pending_rescan_index", False))
         # The maps the move fast-path tests are about to be superseded.
         self._conflict_maps_current = False
         self._reassert_profile_paths()
         gen = getattr(self, "_conflict_gen", 0) + 1
         self._conflict_gen = gen
+        # Keep the edit classification attached to the generation whose result
+        # will be applied. A toggle changes enabled/winner state, but it cannot
+        # change the installed library, index-derived flags, or the filter
+        # panel's disk-derived lists. The ready handler uses this to avoid
+        # repeating those structural refreshes on the Qt thread.
+        self._conflict_gen_edit_ctx = (gen, edit_ctx, toggle_reuse_ok)
         # A requested full rescan must SURVIVE supersession. Previously
         # rescan_index lived only in this call's worker closure: if a Refresh's
         # rescan build (rescan_index=True) was superseded - e.g. by the enable
@@ -16954,20 +17072,32 @@ class MainWindow(QMainWindow):
         if getattr(self, "_switch_t0", None) is not None:
             self._mark_since_switch("switch→conflicts_applied")  # i18n: skip - perftrace marker label
             self._switch_conflicts_done = True
+        _edit = getattr(self, "_conflict_gen_edit_ctx", None)
+        toggle_only = bool(
+            _edit is not None and _edit[0] == gen and _edit[1]
+            and _edit[1][0] == "toggle" and _edit[2])
         with span("on_conflicts_ready"):
             self._conflict_data = data
             # These maps now describe the on-disk modlist - arm the move
             # fast-path (see _move_skips_rebuild). Only valid if no newer
             # rebuild was queued meanwhile; the gen check above ensures that.
             self._conflict_maps_current = True
-            with span("model.set_filemap_results"):
+            with span("model.set_conflicts" if toggle_only
+                      else "model.set_filemap_results"):
                 # Conflicts + the filemap-derived flag overlays (info=pre-RTX,
                 # root=custom root rule) in one dataChanged pass.
-                self._modlist_model.set_filemap_results(
-                    data.loose_codes, data.bsa_codes,
-                    getattr(data, "prertx_mods", set()),
-                    getattr(data, "root_rule_mods", set()),
-                    uuid_conflicts=getattr(data, "uuid_codes", None))
+                if toggle_only:
+                    # Enabling/disabling cannot change modindex.bin, so the
+                    # pre-RTX/root-rule flag overlays are already current.
+                    self._modlist_model.set_conflicts(
+                        data.loose_codes, bsa_conflicts=data.bsa_codes,
+                        uuid_conflicts=getattr(data, "uuid_codes", None))
+                else:
+                    self._modlist_model.set_filemap_results(
+                        data.loose_codes, data.bsa_codes,
+                        getattr(data, "prertx_mods", set()),
+                        getattr(data, "root_rule_mods", set()),
+                        uuid_conflicts=getattr(data, "uuid_codes", None))
             # Cross-panel highlighting needs the override + owner maps.
             with span("view.set_conflict_maps"):
                 self._modlist_view.set_conflict_maps(
@@ -16976,13 +17106,17 @@ class MainWindow(QMainWindow):
             self._plugin_view.set_plugin_owner(data.plugin_owner)
             # Rebuild the filter data + repopulate the filter panel's dynamic lists,
             # then reapply whatever filters are currently active.
-            with span("rebuild_filter_data"):
-                self._rebuild_filter_data()
+            if toggle_only:
+                with span("refresh_filter_conflicts"):
+                    self._refresh_filter_conflicts()
+            else:
+                with span("rebuild_filter_data"):
+                    self._rebuild_filter_data()
             # The deployed filemap changed → the Data tab is stale (rebuilds lazily).
             if hasattr(self, "_data_view"):
                 self._data_view.mark_dirty()
             # A mod may have been added/removed → re-evaluate Install vs Reinstall.
-            if hasattr(self, "_downloads_view"):
+            if not toggle_only and hasattr(self, "_downloads_view"):
                 self._downloads_view.mark_dirty()
             # The deployed file set changed → the Text Files list is stale.
             if hasattr(self, "_text_files_view"):
@@ -16990,12 +17124,13 @@ class MainWindow(QMainWindow):
             # A mod may have been removed/added → re-evaluate the Nexus browser's
             # Install/Reinstall buttons (remove goes through save()→conflict rebuild,
             # which is the only signal the Nexus tab gets for a removal).
-            nv = getattr(self, "_nexus_view", None)
-            if nv is not None:
-                nv.refresh_installed()
-            tv = getattr(self, "_thunderstore_view", None)
-            if tv is not None:
-                tv.refresh_installed()
+            if not toggle_only:
+                nv = getattr(self, "_nexus_view", None)
+                if nv is not None:
+                    nv.refresh_installed()
+                tv = getattr(self, "_thunderstore_view", None)
+                if tv is not None:
+                    tv.refresh_installed()
             # The filemap (staged/deployed file set) changed → framework states may
             # have flipped (e.g. a framework mod toggled, deployed, or removed).
             # Precomputed on the conflict worker (detect_frameworks re-reads
@@ -17013,7 +17148,8 @@ class MainWindow(QMainWindow):
                 self._refresh_modlist_stats()
             # A deploy/restore/install writes into overwrite/ (and Root_Folder)
             # without a modlist reload → re-count for the boundary rows' "(N)".
-            self._refresh_boundary_counts()
+            if not toggle_only:
+                self._refresh_boundary_counts()
             # The filemap is now fresh → reload the Plugins tab so ESL/master flags
             # resolve against the winning (e.g. patcher-provided light) copies and
             # plugins still deployed by another enabled mod are recovered. Tk parity:
