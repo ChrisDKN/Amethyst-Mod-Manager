@@ -102,14 +102,16 @@ def run_pandora(exe: Path, game: "BaseGame", proton_script: Path,
     )
 
     # The output folder (<staging>/Pandora_output) is configured by rewriting
-    # Pandora's Settings.json inside the prefix - newer Pandora builds ignore
-    # the --output: CLI flag.
+    # Pandora's Settings.json - newer Pandora builds ignore the --output: CLI
+    # flag. Written to the prefix and beside the exe: 4.4 seeds from the
+    # prefix copy but thereafter reads the one in its own folder.
     _bootstrap_pandora_settings(
         getattr(game, "game_id", None),
         game_path,
         staging,
         compat_data,
         log_fn,
+        exe_path=exe,
     )
 
     pfx = Path(compat_data) / "pfx"

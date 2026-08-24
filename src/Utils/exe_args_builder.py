@@ -438,6 +438,7 @@ def _bootstrap_pandora_settings(
     staging_path: "Path | None",
     prefix_path: "Path | None",
     log_fn: "Callable[[str], None]",
+    exe_path: "Path | None" = None,
 ) -> None:
     """
     Update Pandora Behaviour Engine's Settings.json inside the Wine prefix so
@@ -447,7 +448,13 @@ def _bootstrap_pandora_settings(
     than the ``--output:`` CLI flag, so we have to rewrite it at launch time
     to follow the active profile's staging folder.
 
+    As of Pandora 4.4 the engine seeds itself from the prefix copy on first
+    run but then writes Settings.json next to its own exe and reads *that*
+    on every later launch, so the same payload goes to both locations -
+    otherwise our output path is honoured once and then silently ignored.
+
     prefix_path : Path to the compatdata folder (containing ``pfx/``).
+    exe_path    : Path to Pandora's exe; its folder gets the second copy.
     """
     if staging_path is None or prefix_path is None:
         log_fn("Pandora: staging or prefix path missing; skipping Settings.json update")
@@ -464,10 +471,24 @@ def _bootstrap_pandora_settings(
     output_mod_dir = staging_path / "Pandora_output"
     output_mod_dir.mkdir(parents=True, exist_ok=True)
 
-    try:
-        settings: dict = json.loads(settings_file.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        settings = {}
+    exe_settings_file = (
+        Path(exe_path).parent / "Settings.json" if exe_path is not None else None
+    )
+
+    # Read back the copy Pandora last touched so user-side choices (theme, any
+    # keys we don't manage) survive. Once Pandora has written beside its exe
+    # that file is the live one, so prefer whichever is newer.
+    def _load(path: "Path | None") -> "tuple[dict, float] | None":
+        if path is None:
+            return None
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            return (data if isinstance(data, dict) else {}, path.stat().st_mtime)
+        except (OSError, ValueError):
+            return None
+
+    candidates = [c for c in (_load(settings_file), _load(exe_settings_file)) if c]
+    settings: dict = max(candidates, key=lambda c: c[1])[0] if candidates else {}
 
     # Default to the dark theme (theme 2) on first setup; leave the user's
     # choice alone if they've already picked one.
@@ -483,12 +504,21 @@ def _bootstrap_pandora_settings(
         # profile points at a different game install.
         entry["gameDataPath"] = _to_wine_path(game_path / "Data", pfx)
 
-    try:
-        settings_file.parent.mkdir(parents=True, exist_ok=True)
-        settings_file.write_text(json.dumps(settings, indent=2), encoding="utf-8")
-        log_fn(f"Pandora: updated {settings_file}")
-    except OSError as exc:
-        log_fn(f"Pandora: could not write Settings.json: {exc}")
+    payload = json.dumps(settings, indent=2)
+
+    targets = [settings_file]
+    if exe_settings_file is not None:
+        # Pandora reads the copy beside its exe once it has written one, so
+        # keep it in lockstep with the prefix copy.
+        targets.append(exe_settings_file)
+
+    for target in targets:
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(payload, encoding="utf-8")
+            log_fn(f"Pandora: updated {target}")
+        except OSError as exc:
+            log_fn(f"Pandora: could not write {target}: {exc}")
 
 
 # ---------------------------------------------------------------------------
