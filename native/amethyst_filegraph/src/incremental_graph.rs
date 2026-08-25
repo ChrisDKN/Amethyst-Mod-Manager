@@ -955,6 +955,57 @@ impl GraphSnapshot {
             || self.enabled_mods.contains(candidate.mod_key.as_ref())
     }
 
+    /// Return only the plugin spellings needed by activation sync.
+    ///
+    /// The former caller requested `mod_files()` and then discarded every
+    /// non-plugin record. For patcher outputs that meant constructing,
+    /// serialising, decoding, and allocating tens of thousands of rich
+    /// conflict records to discover one or two plugin names.
+    pub fn mod_plugins(&self, mod_name: &str) -> Vec<String> {
+        let mod_key = mod_name.to_lowercase();
+        let mut selected_plugins: HashMap<&[u8], ProviderIndex> = HashMap::new();
+        for index in self
+            .inventory
+            .mod_candidates
+            .get(mod_key.as_str())
+            .into_iter()
+            .flatten()
+        {
+            let candidate = &self.candidates[*index as usize];
+            if candidate.kind == ProviderKind::ArchiveMember
+                || candidate.plugin_key.is_none()
+                || !self.selected(candidate)
+            {
+                continue;
+            }
+            selected_plugins
+                .entry(candidate.source_rel.as_ref())
+                .or_insert(*index);
+        }
+
+        let mut plugins: Vec<(&[u8], String)> = self
+            .raw_files
+            .iter()
+            .filter(|raw| raw.mod_key.as_ref() == mod_key && raw.flags & (1 << 7) != 0)
+            .map(|raw| {
+                let spelling = selected_plugins
+                    .get(raw.source_rel.as_ref())
+                    .and_then(|index| self.candidates.get(*index as usize))
+                    .map(|candidate| self.casing.apply(candidate))
+                    .unwrap_or_else(|| raw.index_display.to_string());
+                let basename = spelling
+                    .replace('\\', "/")
+                    .rsplit('/')
+                    .next()
+                    .unwrap_or(&spelling)
+                    .to_owned();
+                (raw.source_rel.as_ref(), basename)
+            })
+            .collect();
+        plugins.sort_by(|left, right| (left.0, &left.1).cmp(&(right.0, &right.1)));
+        plugins.into_iter().map(|(_source, name)| name).collect()
+    }
+
     pub fn mod_files(&self, mod_name: &str) -> Vec<ModFileRecord> {
         let mod_key = mod_name.to_lowercase();
         let mut selected_candidates: HashMap<&[u8], ProviderIndex> = HashMap::new();
@@ -3609,6 +3660,21 @@ mod tests {
         }
     }
 
+    fn raw_file(id: i64, owner: &str, source: &str, display: &str, flags: u32) -> RawCatalogFile {
+        RawCatalogFile {
+            id,
+            mod_name: Arc::from(owner),
+            mod_key: Arc::from(owner.to_lowercase()),
+            source_rel: Arc::from(source.as_bytes()),
+            source_display: Arc::from(source),
+            index_display: Arc::from(display),
+            size: 1,
+            mtime_ns: 1,
+            ordinal: id as u32,
+            flags,
+        }
+    }
+
     fn displayed_candidate(id: i64, owner: &str, key: &str, display: &str) -> Candidate {
         let mut value = candidate(id, owner, key);
         value.destination_display = Arc::from(display);
@@ -3714,6 +3780,46 @@ mod tests {
                 .any(|edge| edge.loser == "A" && edge.winner == "C")
         );
         assert_eq!(export.winners[0].mod_name, "C");
+    }
+
+    #[test]
+    fn compact_mod_plugin_query_matches_full_mod_file_projection() {
+        let mut plugin = candidate(1, "A", "plugin.esp");
+        plugin.destination_display = Arc::from("Data/Plugin.ESP");
+        plugin.destination_key = Arc::from(&b"data/plugin.esp"[..]);
+        plugin.legacy_rel = Arc::from("Plugin.ESP");
+        plugin.plugin_key = Some(Arc::from("plugin.esp"));
+        plugin.flags = 1 << 7;
+        let snapshot = build_full(
+            Arc::new(vec![plugin]),
+            Arc::new(vec![
+                // A flagged raw plugin without a deploy candidate retains the
+                // same fallback spelling exposed by mod_files().
+                raw_file(2, "A", "excluded.esl", "Excluded.ESL", 1 << 7),
+                raw_file(1, "A", "plugin.esp", "plugin.esp", 1 << 7),
+                raw_file(3, "A", "textures/a.dds", "textures/a.dds", 0),
+            ]),
+            &intent(),
+            1,
+            1,
+        );
+        let projected: Vec<_> = snapshot
+            .mod_files("A")
+            .into_iter()
+            .filter(|record| record.plugin_key.is_some())
+            .map(|record| {
+                record
+                    .destination_display
+                    .replace('\\', "/")
+                    .rsplit('/')
+                    .next()
+                    .unwrap_or(&record.destination_display)
+                    .to_owned()
+            })
+            .collect();
+
+        assert_eq!(snapshot.mod_plugins("A"), projected);
+        assert_eq!(projected, vec!["Excluded.ESL", "Plugin.ESP"]);
     }
 
     #[test]

@@ -3,8 +3,8 @@
 Disabling a mod removes its top-level plugins from plugins.txt (star games
 keep the loadorder.txt entry as position memory); enabling adds missing ones
 back at their remembered load-order slot. The whole batch is one
-read-modify-write per file. Per-mod plugin sets come from modindex.bin, with
-a staging disk scan as fallback for unindexed mods."""
+read-modify-write per file. Per-mod plugin spellings come from a compact
+Filegraph snapshot query without materialising the complete file list."""
 
 from __future__ import annotations
 
@@ -33,15 +33,17 @@ def sync_plugins_for_mods(game, profile_dir: Path | None,
                    (getattr(game, "plugin_extensions", []) or [])}
     if not plugin_exts:
         return False
+    from Utils.perftrace import span
     from Utils.filegraph_service import FileGraphService
-    library = FileGraphService.open_library(game, profile_dir, log_fn=log)
-    status = library.ensure_ready(profile_dir)
-    profile = library.open_profile(profile_dir)
-    snapshot = profile.snapshot()
-    if (snapshot.generation == 0
-            or snapshot.inventory_generation != status.inventory_generation):
-        profile.reconcile(operation_hint={"kind": "inventory_change"})
+    with span("plugin_sync.open_snapshot"):
+        library = FileGraphService.open_library(game, profile_dir, log_fn=log)
+        status = library.ensure_ready(profile_dir)
+        profile = library.open_profile(profile_dir)
         snapshot = profile.snapshot()
+        if (snapshot.generation == 0
+                or snapshot.inventory_generation != status.inventory_generation):
+            profile.reconcile(operation_hint={"kind": "inventory_change"})
+            snapshot = profile.snapshot()
     plugins_path = profile_dir / "plugins.txt"
     # NB: do NOT bail when plugins.txt is missing. A game that has no plugins.txt
     # concept was already filtered out above (empty plugin_exts), so a missing
@@ -55,12 +57,15 @@ def sync_plugins_for_mods(game, profile_dir: Path | None,
     add: list[str] = []
     add_seen: set[str] = set()
     remove_lower: set[str] = set()
-    for mod_name, now_enabled in changes:
-        found = [
-            record.destination.rsplit("/", 1)[-1]
-            for record in snapshot.mod_files(mod_name)
-            if record.plugin_key is not None
+    with span("plugin_sync.mod_plugins"):
+        plugin_changes = [
+            (mod_name, now_enabled, snapshot.mod_plugins(mod_name))
+            for mod_name, now_enabled in changes
         ]
+    for mod_name, now_enabled, found in plugin_changes:
+        # This native point query returns only the handful of plugin spellings.
+        # Materialising every rich ModFile/conflict record made toggling a
+        # patcher output with 25k files spend hundreds of milliseconds here.
         if now_enabled and not found:
             # Enabling a mod whose staging folder has NO top-level plugin files
             # for this game's extensions. This is completely normal for

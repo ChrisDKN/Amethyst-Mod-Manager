@@ -17303,7 +17303,6 @@ class MainWindow(QMainWindow):
             # partially reset/profile-mismatched UI.
             self._conflict_ui_profile_id = data.profile_id
             self._conflict_ui_generation = data.snapshot.generation
-            self._schedule_deployment_plan_warm(data)
             if timing is not None:
                 timing.mark("post-conflict Plugins reload queued")
         if getattr(self, "_deploy_refresh_pending", False):
@@ -17319,124 +17318,6 @@ class MainWindow(QMainWindow):
         if timing is not None:
             timing.mark("post-conflict auto-deploy check complete",
                         phase_started=phase_started)
-
-    def _schedule_deployment_plan_warm(self, data) -> None:
-        """Prepare the accepted generation after a short idle debounce.
-
-        Plan expansion is disposable optimization work: a newer profile result
-        supersedes it, while Deploy retains a synchronous fallback if the user
-        clicks before the timer or worker finishes.
-        """
-        session = getattr(self._gs, "_filegraph_profile", None)
-        snapshot = getattr(data, "snapshot", None)
-        if session is None or snapshot is None:
-            return
-        try:
-            session_profile = str(
-                session.profile_dir.resolve(strict=False))
-        except Exception:
-            return
-        if session_profile != getattr(data, "profile_id", None):
-            return
-
-        serial = getattr(self, "_deployment_warm_serial", 0) + 1
-        self._deployment_warm_serial = serial
-        game = self._gs.game
-        selected_profile = self._gs.profile
-        warm_standard_paths = None
-        try:
-            if (game is not None and selected_profile
-                    == game.get_last_deployed_profile()):
-                from Utils.data_tab import deploys_to_subfolder
-                if deploys_to_subfolder(game):
-                    deploy_dir = game.get_mod_data_path()
-                    if deploy_dir is not None:
-                        deploy_dir = Path(deploy_dir)
-                        warm_standard_paths = (
-                            deploy_dir,
-                            deploy_dir.parent / (deploy_dir.name + "_Core"),
-                        )
-        except Exception:
-            warm_standard_paths = None
-        self._deployment_warm_request = (
-            serial, session, int(snapshot.generation), session_profile,
-            game, selected_profile, warm_standard_paths)
-        timer = getattr(self, "_deployment_warm_timer", None)
-        if timer is None:
-            timer = QTimer(self)
-            timer.setSingleShot(True)
-            timer.timeout.connect(self._start_deployment_plan_warm)
-            self._deployment_warm_timer = timer
-        # Coalesce rapid toggles/moves and let their visible Qt deltas settle
-        # before the background thread expands a large immutable plan.
-        timer.start(400)
-
-    def _start_deployment_plan_warm(self) -> None:
-        request = getattr(self, "_deployment_warm_request", None)
-        if request is None or getattr(self, "_deploy_running", False):
-            return
-        (serial, session, generation, profile_id, game, selected_profile,
-         warm_standard_paths) = request
-        current = getattr(self, "_conflict_data", None)
-        if (serial != getattr(self, "_deployment_warm_serial", 0)
-                or getattr(current, "profile_id", None) != profile_id
-                or getattr(getattr(current, "snapshot", None),
-                           "generation", 0) != generation
-                or self._gs.game is not game
-                or self._gs.profile != selected_profile):
-            return
-
-        import threading
-
-        def worker():
-            import time
-            started = time.perf_counter()
-            try:
-                def warm_projection(plan):
-                    if warm_standard_paths is None:
-                        return
-                    # The first incremental deployment after application
-                    # startup otherwise decodes the complete persisted
-                    # deployed set only after Deploy is pressed. Keep that
-                    # SQLite/MessagePack restoration in this idle worker.
-                    session.deployed_entries()
-                    from Utils.deploy_standard import (
-                        warm_standard_destination_casing,
-                    )
-                    deploy_dir, core_dir = warm_standard_paths
-                    warm_standard_destination_casing(
-                        session, plan, deploy_dir, core_dir)
-
-                # The session keeps this projection warm-up and a concurrent
-                # Deploy mutually exclusive, so destination inspection cannot
-                # race Data -> Data_Core mutation.
-                session.prepare_deployment_plan(
-                    generation, projection_warmer=warm_projection)
-            except Exception as exc:
-                # Stale work is expected when another edit lands during plan
-                # expansion. Warming is never authoritative; Deploy rebuilds
-                # synchronously if needed.
-                from Utils import perftrace
-                if perftrace.is_enabled():
-                    from Utils.app_log import safe_print
-                    safe_print(
-                        f"[FILEGRAPH-TIMING][BACKGROUND] deployment plan "
-                        f"warm discarded "
-                        f"for gen={generation}: {exc}", flush=True)
-                return
-            from Utils import perftrace
-            if perftrace.is_enabled():
-                from Utils.app_log import safe_print
-                safe_print(
-                    f"[FILEGRAPH-TIMING][BACKGROUND][CPU + DB/FS I/O] "
-                    f"deployment plan warmed "
-                    f"gen={generation} in "
-                    f"{time.perf_counter() - started:.3f}s",
-                    flush=True)
-
-        threading.Thread(
-            target=worker, daemon=True,
-            name=f"filegraph-deploy-warm-{generation}").start()
 
     def _maybe_auto_deploy(self):
         """Auto deploy: if the game has auto_deploy enabled, deploy after every

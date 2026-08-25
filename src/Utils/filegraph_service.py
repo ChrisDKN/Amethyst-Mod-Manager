@@ -132,6 +132,10 @@ class ResolvedSnapshot:
             for value in unpack(self._native.mod_files(mod_name))
         )
 
+    def mod_plugins(self, mod_name: str) -> tuple[str, ...]:
+        """Compact plugin-name query used by toggle activation sync."""
+        return tuple(map(str, unpack(self._native.mod_plugins(mod_name))))
+
     def archive_files(self, mod_name: str) -> tuple[ModFile, ...]:
         return tuple(
             ModFile.from_wire(value)
@@ -336,15 +340,12 @@ class ProfileSession:
             str, tuple[object, object]
         ] = {}
         self._prepared_deployment_plan: DeploymentPlan | None = None
-        # Do not let a synchronous Deploy fallback duplicate an idle warmer
-        # which is already expanding the same large generation.
+        # Serialize deployment-plan expansion with deployment journalling.
         self._deployment_prepare_lock = threading.RLock()
         self._intent_identity: bytes | None = None
-        # Restoring 100k+ deployed rows from SQLite/MessagePack is useful for
-        # the first incremental deploy after startup, but it does not belong
-        # on the Deploy-button critical path. The idle plan warmer populates
-        # this disposable cache; a successful commit or targeted forget drops
-        # it because those operations change the authoritative rows.
+        # Restoring 100k+ deployed rows from SQLite/MessagePack is cached after
+        # the first incremental-deploy probe. A successful commit or targeted
+        # forget drops it because those operations change authoritative rows.
         self._deployed_entries_cache: (
             tuple[DeployedStateEntry, ...] | None
         ) = None
@@ -399,7 +400,7 @@ class ProfileSession:
             self._snapshot = ResolvedSnapshot(self._native.snapshot())
             self._intent_identity = self._semantic_intent_identity(intent)
             # Retain at most the previous generation's disposable deployment
-            # plan until a new warmer/Deploy replaces it.  Every read validates
+            # plan until Deploy replaces it. Every read validates
             # generation (and projection caches validate plan identity), so it
             # cannot be consumed after this reconcile.  Clearing it here made
             # the conflict worker synchronously decref tens of thousands of
@@ -557,9 +558,9 @@ class ProfileSession:
                     f"current generation is {current}")
             try:
                 # Native construction + wire encoding releases the GIL. Do not
-                # hold the profile reconcile lock while it runs: a newer edit
-                # may supersede this warm-up and the generation check below
-                # will simply discard it.
+                # hold the profile reconcile lock while it runs: an external
+                # edit may supersede it and the generation check below rejects
+                # the stale plan.
                 value = unpack(
                     self._native.build_deployment_plan(generation))
             except BaseException as exc:
@@ -580,27 +581,6 @@ class ProfileSession:
                             self._deployment_projection_cache.pop(
                                 cache_key, None)
             return plan
-
-    def prepare_deployment_plan(
-        self, snapshot_generation: int, projection_warmer=None,
-    ) -> DeploymentPlan:
-        """Warm and retain one immutable generation for a later Deploy."""
-        with self._deployment_prepare_lock:
-            plan = self.build_deployment_plan(snapshot_generation)
-            if projection_warmer is not None:
-                projection_warmer(plan)
-            return plan
-
-    def prepared_deployment_plan(
-        self, snapshot_generation: int,
-    ) -> DeploymentPlan | None:
-        """Return a warmed plan without doing synchronous construction."""
-        with self._lock:
-            plan = self._prepared_deployment_plan
-            if (plan is not None
-                    and plan.generation == int(snapshot_generation)):
-                return plan
-        return None
 
     def _deployment_plan_from_wire(self, value) -> DeploymentPlan:
         roots = {
@@ -629,9 +609,9 @@ class ProfileSession:
     ) -> tuple[str, DeploymentPlan]:
         transaction_id = transaction_id or str(uuid.uuid4())
         generation = int(snapshot_generation)
-        # Usually an O(1) cache hit from the idle warmer. If the user presses
-        # Deploy immediately, this is the correctness-preserving synchronous
-        # fallback and shares the prepare lock with that warmer.
+        # Expand the immutable plan here, after Deploy was requested. A cached
+        # same-generation plan is still reused when another deployment-stage
+        # consumer already requested it.
         with self._deployment_prepare_lock:
             plan = self.build_deployment_plan(generation)
             with self._lock:
@@ -652,7 +632,7 @@ class ProfileSession:
     def cached_deployment_plan(
         self, link_mode: str | None = None,
     ) -> DeploymentPlan | None:
-        """Last plan committed through this warm profile session, if any."""
+        """Last plan committed through this profile session, if any."""
         if self._committed_deployment_plan is None:
             return None
         if (link_mode is not None

@@ -246,8 +246,8 @@ impl ProfileSession {
     ) -> PyResult<Py<PyBytes>> {
         let core = self.core.clone();
         // Sorting the winners and serialising tens of thousands of entries is
-        // background preparation work.  Return to the Python UI only to create
-        // the final immutable bytes object.
+        // Deploy-stage work. Release the GIL while constructing the plan and
+        // return to Python only to create the immutable bytes object.
         let bytes = py
             .detach(move || {
                 let plan = core.deployment_plan(snapshot_generation)?;
@@ -456,6 +456,12 @@ impl ResolvedSnapshot {
 
     fn mod_files(&self, py: Python<'_>, mod_name: &str) -> PyResult<Py<PyBytes>> {
         encoded_py(py, &self.snapshot.mod_files(mod_name))
+    }
+
+    fn mod_plugins(&self, py: Python<'_>, mod_name: String) -> PyResult<Py<PyBytes>> {
+        let snapshot = self.snapshot.clone();
+        let plugins = py.detach(move || snapshot.mod_plugins(&mod_name));
+        encoded_py(py, &plugins)
     }
 
     #[pyo3(signature = (mod_name, winners_only=false, kinds=Vec::new(), cursor=0, limit=1000))]

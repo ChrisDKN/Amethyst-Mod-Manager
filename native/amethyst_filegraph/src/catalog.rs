@@ -1794,8 +1794,8 @@ impl ProfileCore {
         // can be returned, so retaining one stale Arc is safe and bounded.
         // Eagerly dropping 100k+ DeployEntryRecords here made an otherwise
         // tiny toggle spend well over 100 ms freeing deployment-only data on
-        // the conflict worker.  Replacement happens on the idle warmer (or
-        // Deploy fallback) instead of the interactive reconcile path.
+        // the conflict worker. Replacement happens while Deploy builds the
+        // next generation instead of on the interactive reconcile path.
         if crate::model::perftrace_enabled() {
             eprintln!(
                 "[FILEGRAPH-TIMING] reconcile: [DB I/O + CPU] candidates {:.3}s, \

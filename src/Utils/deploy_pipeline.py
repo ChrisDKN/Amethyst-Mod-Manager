@@ -384,6 +384,8 @@ def run_deploy_pipeline(
         incr_plan = None
         vfs_redeploy = False
         if last_deployed == profile:
+            if progress_fn is not None:
+                progress_fn(0, 0, "Inspecting the current deployment…")
             probe_mode = (
                 game.get_deploy_mode()
                 if hasattr(game, "get_deploy_mode")
@@ -486,6 +488,8 @@ def run_deploy_pipeline(
         # Open/reconcile the required native catalog and pin the generation
         # that every deploy handler below will consume. No legacy map is built
         # or refreshed here.
+        if progress_fn is not None:
+            progress_fn(0, 0, "Reconciling the selected profile…")
         from Utils.filegraph_service import FileGraphService
         profile_dir = game.get_profile_root() / "profiles" / profile
         filegraph_library = FileGraphService.open_library(
@@ -521,6 +525,8 @@ def run_deploy_pipeline(
             else LinkMode.HARDLINK
         )
         from Utils.filegraph_deploy import begin as begin_filegraph_deployment
+        if progress_fn is not None:
+            progress_fn(0, 0, "Building the deployment plan…")
         active_deployment = begin_filegraph_deployment(
             filegraph_profile, filegraph_generation, deploy_mode.name.lower())
         _filegraph_deployment_started = True

@@ -94,51 +94,6 @@ def _phase_progress(progress_fn):
     return lambda done, total, _phase: progress_fn(done, total)
 
 
-def _destination_casing_cache_key(deploy_dir: Path, core_dir: Path) -> str:
-    return f"standard-casing:{deploy_dir}:{core_dir}"
-
-
-def warm_standard_destination_casing(
-    profile_session,
-    deployment_plan,
-    deploy_dir: Path,
-    core_dir: Path,
-) -> int:
-    """Warm directory spelling lookups for a same-profile standard deploy.
-
-    This is deliberately narrower than a speculative filesystem plan: it only
-    records how logical destination directories merge with the currently
-    deployed/Data_Core tree. Callers must use it only while that same profile
-    is deployed. Missing/custom/remapped paths still resolve normally later.
-    """
-    deploy_dir = Path(deploy_dir)
-    core_dir = Path(core_dir)
-    base = str(deploy_dir)
-    core = str(core_dir)
-    listings: dict[str, dict[str, str]] = {}
-    resolved: dict[str, str] = {}
-    directories: dict[str, str] = {}
-    for entry in deployment_plan.entries:
-        if (entry.legacy_root or not entry.legacy_rel
-                or entry.mod_name == "[Root_Folder]"):
-            continue
-        relative = entry.legacy_rel.replace("\\", "/")
-        slash = relative.rfind("/")
-        if slash >= 0:
-            directory = relative[:slash]
-            directories.setdefault(directory.lower(), directory)
-    for relative in directories.values():
-        _resolve_root_path_str(
-            base, relative + "/.warm", listings,
-            core_base_str=core, resolved_dir_cache=resolved)
-    profile_session.cache_deployment_projection(
-        _destination_casing_cache_key(deploy_dir, core_dir),
-        deployment_plan,
-        (listings, resolved),
-    )
-    return len(directories)
-
-
 class CoreBackupConflictError(RuntimeError):
     """Raised when move_to_core would overwrite a good vanilla backup with a
     deploy dir that still contains mod files - a sign of an interrupted or
@@ -774,27 +729,9 @@ def deploy_filemap(
     _core_base_str = str(core_dir) if core_dir is not None else None
     _dir_listing_cache: dict[str, dict[str, str]] = {}
     _resolved_dir_cache: dict[str, str] = {}
-    # The idle warmer may already have resolved every directory spelling for
-    # this exact immutable plan. Reuse it only by object identity; a new graph
-    # generation or target/core path necessarily misses the cache.
-    try:
-        from Utils.filegraph_deploy import current as _current_deployment
-        _active_for_casing = _current_deployment()
-        if _active_for_casing is not None and core_dir is not None:
-            _warmed_casing = (
-                _active_for_casing.profile_session
-                .cached_deployment_projection(
-                    _destination_casing_cache_key(
-                        deploy_dir, Path(core_dir)),
-                    _active_for_casing.plan,
-                )
-            )
-            if _warmed_casing is not None:
-                _dir_listing_cache, _resolved_dir_cache = _warmed_casing
-    except Exception:
-        # A warm projection is disposable. The ordinary resolver below is the
-        # authoritative fallback and retains all existing behaviour.
-        pass
+    # Destination casing is deliberately resolved after Deploy is requested.
+    # Keeping these caches local ensures toggles and moves do no speculative
+    # filesystem work for a deployment which may never happen.
     # {custom_deploy_dir_str: {top_level_folder_name, ...}} - populated as we
     # build tasks, consumed by the folder-replace pass below.
     _custom_top_roots: dict[str, set[str]] = {}
