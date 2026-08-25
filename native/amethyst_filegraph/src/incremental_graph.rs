@@ -3862,6 +3862,15 @@ mod tests {
                 .mod_name,
             "A"
         );
+        assert_eq!(update.snapshot.summaries["B"].loose_code, 0);
+        assert_eq!(update.delta.changed_summaries["B"].loose_code, 0);
+        assert!(
+            update
+                .delta
+                .changed_edges
+                .iter()
+                .any(|edge| edge.loser == "A" && edge.winner == "B" && edge.refcount == 0)
+        );
     }
 
     #[test]

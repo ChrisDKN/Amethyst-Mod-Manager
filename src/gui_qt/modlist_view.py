@@ -833,6 +833,14 @@ class ModListView(QTreeView):
     def conflict_partners(self, names: set[str]) -> tuple[set[str], set[str]]:
         """For a set of mod names, return (higher, lower): the mods they beat
         (loose+BSA) and the mods that beat them, excluding the selection."""
+        # Conflict maps are replaced asynchronously after a toggle.  Filter
+        # both anchors and partners through the synchronous modlist state so a
+        # selected disabled mod cannot keep stale highlights during that gap.
+        # Overwrite is always active even though it is represented by a pinned
+        # separator rather than an enabled ModEntry.
+        from Utils.filegraph_constants import OVERWRITE_NAME
+        active = self.model().enabled_mod_names() | {OVERWRITE_NAME}
+        names = set(names) & active
         ov = getattr(self, "_overrides", {})
         ob = getattr(self, "_overridden_by", {})
         bov = getattr(self, "_bsa_overrides", {})
@@ -844,11 +852,15 @@ class ModListView(QTreeView):
             lower |= ob.get(n, set()) | bob.get(n, set())
         higher -= names
         lower -= names
+        higher &= active
+        lower &= active
         return higher, lower
 
     def bsa_conflict_partners(self, names: set[str]) -> tuple[set[str], set[str]]:
         """Like conflict_partners but BSA-only - used to colour plugins (Tk only
         tints plugins for BSA conflicts, never loose-file ones)."""
+        active = self.model().enabled_mod_names()
+        names = set(names) & active
         bov = getattr(self, "_bsa_overrides", {})
         bob = getattr(self, "_bsa_overridden_by", {})
         higher: set[str] = set()
@@ -858,6 +870,8 @@ class ModListView(QTreeView):
             lower |= bob.get(n, set())
         higher -= names
         lower -= names
+        higher &= active
+        lower &= active
         return higher, lower
 
     def _refresh_self_highlights(self):

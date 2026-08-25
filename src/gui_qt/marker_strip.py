@@ -92,6 +92,16 @@ class MarkerScrollBar(QScrollBar):
         model = self._view.model()
         n = model.rowCount() if model is not None else 0
 
+        # The scrollbar background is transparent.  Without explicitly
+        # clearing its backing-store pixels, ticks removed by a conflict delta
+        # remain visible until another widget happens to expose that area.
+        # Source composition replaces old pixels with transparency before the
+        # current marks and native scrollbar controls are painted.
+        clear = QPainter(self)
+        clear.setCompositionMode(QPainter.CompositionMode_Source)
+        clear.fillRect(event.rect(), Qt.transparent)
+        clear.end()
+
         # Ticks paint UNDER the scrollbar handle: draw them first, then let the
         # styled groove + handle paint on top (the handle hides ticks only where
         # it currently sits; the rest of the track shows every tick).

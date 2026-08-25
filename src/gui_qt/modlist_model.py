@@ -643,11 +643,19 @@ class ModListModel(QAbstractTableModel):
         if role == EntryRole:
             return e
         if role == ConflictRole:
-            return 0 if e.is_separator else self._conflicts.get(e.name, 0)
+            # Filegraph publishes the authoritative zero shortly after a
+            # toggle, but the row's enabled state changes synchronously.  A
+            # disabled provider must never retain its previous conflict icon
+            # while that reconcile is in flight (or if a stale presentation
+            # cache survives a profile switch).
+            return (0 if e.is_separator or not e.enabled
+                    else self._conflicts.get(e.name, 0))
         if role == BsaConflictRole:
-            return 0 if e.is_separator else self._bsa_conflicts.get(e.name, 0)
+            return (0 if e.is_separator or not e.enabled
+                    else self._bsa_conflicts.get(e.name, 0))
         if role == UuidConflictRole:
-            return 0 if e.is_separator else self._uuid_conflicts.get(e.name, 0)
+            return (0 if e.is_separator or not e.enabled
+                    else self._uuid_conflicts.get(e.name, 0))
         if role == HighlightRole:
             if e.is_separator:
                 return self._separator_highlight(index.row(), e)
@@ -746,7 +754,8 @@ class ModListModel(QAbstractTableModel):
             # just the Name cell with the checkbox.
             self.dataChanged.emit(self.index(row, 0),
                                   self.index(row, len(COLUMNS) - 1),
-                                  [EntryRole, Qt.DisplayRole])
+                                  [EntryRole, ConflictRole, BsaConflictRole,
+                                   UuidConflictRole, Qt.DisplayRole])
             timing.mark("mod row state and repaint notification updated",
                         phase_started=phase_started)
             self.save(edit_ctx=(
@@ -787,7 +796,9 @@ class ModListModel(QAbstractTableModel):
             if prev is not None and (r is None or r != prev + 1):
                 self.dataChanged.emit(self.index(run_start, 0),
                                       self.index(prev, len(COLUMNS) - 1),
-                                      [EntryRole, Qt.DisplayRole])
+                                      [EntryRole, ConflictRole,
+                                       BsaConflictRole, UuidConflictRole,
+                                       Qt.DisplayRole])
                 run_start = None
             if r is not None and run_start is None:
                 run_start = r
@@ -950,7 +961,8 @@ class ModListModel(QAbstractTableModel):
             self.dataChanged.emit(
                 self.index(0, 0),
                 self.index(len(self._entries) - 1, len(COLUMNS) - 1),
-                [EntryRole, Qt.DisplayRole])
+                [EntryRole, ConflictRole, BsaConflictRole,
+                 UuidConflictRole, Qt.DisplayRole])
             timing.mark(
                 f"{len(changed)} mod row state(s) and repaint notification updated",
                 phase_started=phase_started)
