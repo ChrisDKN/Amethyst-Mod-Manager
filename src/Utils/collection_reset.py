@@ -525,10 +525,14 @@ def reset_collection_load_order(profile_dir: Path, manifest: dict,
                 _write_collection_plugins, _loot_available)
             if getattr(game, "loot_sort_enabled", False) and _loot_available():
                 try:
-                    from Utils.deploy_pipeline import _build_filemap_for_game
-                    _build_filemap_for_game(game, profile_dir.name, log_fn=log)
+                    from Utils.filegraph_service import FileGraphService
+                    _library = FileGraphService.open_library(
+                        game, profile_dir, log_fn=log)
+                    _library.ensure_ready(profile_dir)
+                    _library.open_profile(profile_dir).reconcile(
+                        operation_hint={"kind": "collection_reset"})
                 except Exception as exc:
-                    log(f"Reset load order: filemap rebuild before LOOT failed: {exc}")
+                    log(f"Reset load order: Filegraph reconcile before LOOT failed: {exc}")
             _write_collection_plugins(
                 game, profile_dir, profile_dir / "plugins.txt", manifest,
                 overwrite_existing=None, _is_append_run=False,
@@ -599,10 +603,14 @@ def _reset_from_amethyst(profile_dir: Path, manifest: dict, amethyst_state,
             # staged-but-unlisted recovery in _write_collection_plugins (the
             # LOOT sort itself is skipped by the exported order).
             try:
-                from Utils.deploy_pipeline import _build_filemap_for_game
-                _build_filemap_for_game(game, profile_dir.name, log_fn=log)
+                from Utils.filegraph_service import FileGraphService
+                _library = FileGraphService.open_library(
+                    game, profile_dir, log_fn=log)
+                _library.ensure_ready(profile_dir)
+                _library.open_profile(profile_dir).reconcile(
+                    operation_hint={"kind": "collection_reset"})
             except Exception as exc:
-                log(f"Reset load order: filemap rebuild failed: {exc}")
+                log(f"Reset load order: Filegraph reconcile failed: {exc}")
             _write_collection_plugins(
                 game, profile_dir, profile_dir / "plugins.txt", manifest,
                 overwrite_existing=None, _is_append_run=False,

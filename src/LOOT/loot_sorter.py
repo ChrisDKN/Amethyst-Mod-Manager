@@ -698,52 +698,14 @@ def _is_valid_plugin_file(path: Path) -> bool:
 def _read_filemap_winners(
     staging_root: Path | None,
     needed_lower: set[str],
+    winner_paths: dict[str, Path] | None = None,
 ) -> dict[str, Path]:
-    """Resolve plugin names to the staging file of their *winning* enabled mod.
-
-    `filemap.txt` (Profiles/<game>/filemap.txt) maps each deployed relative
-    path to the mod folder that wins the conflict - it already encodes both the
-    enabled/disabled state and mod priority. We use it to pin each plugin to the
-    copy that would actually be deployed, rather than letting an arbitrary
-    staging tree walk return a *disabled* mod's copy (e.g. a stale ESLifier
-    "cleaned" plugin left in staging after the mod is turned off).
-
-    Root-level plugins appear in filemap.txt as a bare basename key, which is
-    exactly what we match on. Returns a map of lowercase basename → resolved
-    staging path, only for names whose winning mod folder actually contains the
-    file. Names without a usable filemap entry are omitted so the caller can
-    fall back to the tree walk (covers a stale/missing filemap).
-    """
-    if not staging_root or not needed_lower:
-        return {}
-    filemap_path = staging_root.parent / "filemap.txt"
-    if not filemap_path.is_file():
-        return {}
-
-    resolved: dict[str, Path] = {}
-    try:
-        with filemap_path.open("r", encoding="utf-8", errors="replace") as f:
-            for line in f:
-                tab = line.find("\t")
-                if tab < 0:
-                    continue
-                rel = line[:tab]
-                # Only root-level plugin entries (bare basename, no subfolder)
-                # correspond to a loadable plugin name.
-                if "/" in rel or "\\" in rel:
-                    continue
-                rel_lower = rel.lower()
-                if rel_lower not in needed_lower or rel_lower in resolved:
-                    continue
-                mod = line[tab + 1:].rstrip("\r\n")
-                if not mod:
-                    continue
-                candidate = staging_root / mod / rel
-                if candidate.is_file():
-                    resolved[rel_lower] = candidate
-    except OSError:
-        return resolved
-    return resolved
+    """Filter generation-pinned Filegraph plugin sources to requested names."""
+    del staging_root  # Retained while callers transition to the snapshot API.
+    return {
+        name: path for name, path in (winner_paths or {}).items()
+        if name in needed_lower and path.is_file()
+    }
 
 
 def _scan_tree_for_plugins(
@@ -797,6 +759,7 @@ def _find_plugin_paths(
     plugin_names: list[str],
     game_data_dir: Path,
     staging_root: Path | None,
+    winner_paths: dict[str, Path] | None = None,
 ) -> tuple[list[str], list[str]]:
     """
     Locate plugin files on disk, searching the game's Data directory first,
@@ -846,7 +809,7 @@ def _find_plugin_paths(
             #     plugin still in staging after the mod is turned off). This
             #     resolution drives the CRC libloot uses for dirty/clean flags.
             for name_lower, path in _read_filemap_winners(
-                    staging_root, missing_lower).items():
+                    staging_root, missing_lower, winner_paths).items():
                 orig = names_lower.get(name_lower)
                 if (orig and orig not in found
                         and name_lower not in found_basenames
@@ -902,6 +865,7 @@ def sort_plugins(
     masterlist_repo: str = "",
     game_data_dir: Path | None = None,
     userlist_path: Path | None = None,
+    plugin_winner_paths: dict[str, Path] | None = None,
 ) -> SortResult:
     """
     Sort plugins using libloot's masterlist rules.
@@ -1022,7 +986,8 @@ def sort_plugins(
             # the CRC used for dirty/clean flags - comes from the file that
             # would actually deploy, not a disabled mod's leftover copy. Fall
             # back to a recursive scan for anything the filemap can't resolve.
-            staging_plugin_map = _read_filemap_winners(staging_root, needed)
+            staging_plugin_map = _read_filemap_winners(
+                staging_root, needed, plugin_winner_paths)
             still_needed = needed - set(staging_plugin_map)
             if still_needed:
                 staging_plugin_map.update(_scan_tree_for_plugins(
@@ -1067,6 +1032,7 @@ def sort_plugins(
         # Find plugin files on disk - check game Data dir AND staging mods
         plugin_paths, missing = _find_plugin_paths(
             plugin_names, effective_data_dir, staging_root,
+            plugin_winner_paths,
         )
 
         if missing:
@@ -1155,6 +1121,7 @@ def find_overlapping_plugins(
     log_fn=None,
     game_type_attr: str = "",
     game_data_dir: Path | None = None,
+    plugin_winner_paths: dict[str, Path] | None = None,
 ) -> list[str]:
     """Return plugins whose records overlap with `target_plugin`.
 
@@ -1205,6 +1172,7 @@ def find_overlapping_plugins(
 
     plugin_paths, missing = _find_plugin_paths(
         plugin_names, effective_data_dir, staging_root,
+        plugin_winner_paths,
     )
     if not plugin_paths:
         return []

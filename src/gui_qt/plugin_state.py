@@ -274,7 +274,7 @@ def _resolve_plugin_paths(staging_dir: Path | None, data_dir: Path | None,
                           plugin_exts: tuple[str, ...],
                           root_filemap_path: Path | None = None,
                           root_prefix: str = "",
-                          routing_ctx=None) -> dict[str, Path]:
+                          routing_ctx=None, snapshot=None) -> dict[str, Path]:
     """Map plugin filename (lowercase) → its on-disk path, from THREE sources in
     priority order (Tk parity: gui/plugin_panel.py:_check_all_masters).
 
@@ -285,75 +285,18 @@ def _resolve_plugin_paths(staging_dir: Path | None, data_dir: Path | None,
     paths: dict[str, Path] = {}
     exts = tuple(e.lower() for e in plugin_exts)
 
-    # 1. filemap.txt → staging mods (and overwrite).
+    # 1. Filegraph winners → exact staged source paths.
     overwrite_dir = staging_dir.parent / "overwrite" if staging_dir else None
-    if filemap_path is not None and staging_dir is not None and filemap_path.is_file():
-        try:
-            for line in filemap_path.read_text(encoding="utf-8").splitlines():
-                if "\t" not in line:
-                    continue
-                rel_path, mod_name = line.split("\t", 1)
-                rel_path = rel_path.replace("\\", "/")
-                if "/" in rel_path:
-                    # Rule-routing games (Oblivion Remastered): a NESTED
-                    # staged path can still deploy to the top of the plugins
-                    # data dir - resolve it via the game's routing rules. The
-                    # staged rel is the real on-disk path under the mod dir.
-                    if routing_ctx is None:
-                        continue
-                    from Utils.game_helpers import routed_plugin_name
-                    name = routed_plugin_name(routing_ctx, rel_path, exts)
-                    if name is None:
-                        continue
-                    if mod_name == _OVERWRITE_NAME and overwrite_dir is not None:
-                        paths[name.lower()] = overwrite_dir / rel_path
-                    else:
-                        paths[name.lower()] = staging_dir / mod_name / rel_path
-                    continue
-                if not rel_path.lower().endswith(exts):
-                    continue
-                low = rel_path.lower()
-                if mod_name == _OVERWRITE_NAME and overwrite_dir is not None:
-                    paths[low] = overwrite_dir / rel_path
-                else:
-                    direct = staging_dir / mod_name / rel_path
-                    if direct.is_file():
-                        paths[low] = direct
-                    else:
-                        found = _find_plugin_in_mod_dir(
-                            staging_dir / mod_name, rel_path)
-                        paths[low] = found or direct
-        except OSError:
-            pass
-
-    # 1b. filemap_root.txt → root-flagged mods. Their entries deploy VERBATIM
-    # to the game root, so '<root_prefix>/<plugin>' (Morrowind:
-    # 'Data Files/XE Sky Variations.esp') lands at the top level of the deploy
-    # dir. Rel paths are UNSTRIPPED, so staging/<mod>/<rel> resolves directly.
-    # Root deploy runs after the main deploy and overwrites, so these win over
-    # same-named filemap.txt entries.
-    if (root_filemap_path is not None and staging_dir is not None
-            and root_prefix and root_filemap_path.is_file()):
-        prefix_low = root_prefix.lower() + "/"
-        plen = len(root_prefix) + 1
-        try:
-            for line in root_filemap_path.read_text(encoding="utf-8").splitlines():
-                if "\t" not in line:
-                    continue
-                rel_path, mod_name = line.split("\t", 1)
-                rel_path = rel_path.replace("\\", "/")
-                if not rel_path.lower().startswith(prefix_low):
-                    continue
-                name = rel_path[plen:]
-                if "/" in name or not name.lower().endswith(exts):
-                    continue   # nested below the data dir - not loadable
-                src = staging_dir / mod_name / rel_path
-                if not src.is_file():
-                    found = _find_plugin_in_mod_dir(staging_dir / mod_name, name)
-                    src = found or src
-                paths[name.lower()] = src
-        except OSError:
-            pass
+    del filemap_path, root_filemap_path, root_prefix, routing_ctx
+    if snapshot is not None and staging_dir is not None:
+        for plugin, winner in snapshot.plugin_winners().items():
+            if not plugin.lower().endswith(exts):
+                continue
+            relative = winner.source_rel.decode("utf-8", "surrogateescape")
+            source_root = (overwrite_dir if winner.mod_name == _OVERWRITE_NAME
+                           else staging_dir / winner.mod_name)
+            if source_root is not None:
+                paths[plugin.lower()] = source_root / relative
 
     # 2. overwrite/ + overwrite/Data/ direct scan (plugins not yet in filemap).
     if overwrite_dir is not None and overwrite_dir.is_dir():
@@ -381,7 +324,8 @@ def _resolve_plugin_paths(staging_dir: Path | None, data_dir: Path | None,
     return paths
 
 
-def resolve_plugin_paths_for_game(game, data_dir: Path | None = None
+def resolve_plugin_paths_for_game(game, data_dir: Path | None = None,
+                                  snapshot=None
                                   ) -> dict[str, Path]:
     """Map each plugin filename (lowercase) → its REAL on-disk path (staging mod
     / overwrite / vanilla Data), using the same resolver load_plugins uses. Used
@@ -393,180 +337,50 @@ def resolve_plugin_paths_for_game(game, data_dir: Path | None = None
     try:
         staging = (game.get_effective_mod_staging_path()
                    if hasattr(game, "get_effective_mod_staging_path") else None)
-        filemap_path = (staging.parent / "filemap.txt") if staging else None
-        root_fm = (staging.parent / "filemap_root.txt") if staging else None
-        try:
-            from Utils.game_helpers import game_data_subpath
-            root_prefix = game_data_subpath(game)
-        except Exception:
-            root_prefix = ""
-        try:
-            from Utils.game_helpers import plugins_routing_ctx
-            routing_ctx = plugins_routing_ctx(game)
-        except Exception:
-            routing_ctx = None
         exts = tuple(x.lower() for x in (getattr(game, "plugin_extensions", []) or ())) \
             or (".esp", ".esm", ".esl")
-        return _resolve_plugin_paths(staging, data_dir, filemap_path, exts,
-                                     root_filemap_path=root_fm,
-                                     root_prefix=root_prefix,
-                                     routing_ctx=routing_ctx)
+        return _resolve_plugin_paths(
+            staging, data_dir, None, exts, snapshot=snapshot)
     except Exception:
         return {}
 
 
 def _filemap_deployed_plugins(game, plugin_exts: tuple[str, ...],
-                              enabled_mods_lower: "set[str] | None" = None
-                              ) -> dict[str, str]:
-    """Top-level plugin names that the CURRENT filemap.txt deploys - i.e. still
-    provided by some enabled mod (or overwrite). Returns {lower: original_name}.
-
-    A patcher mod (e.g. ESLifier Output) ships duplicate copies of plugins that
-    other enabled mods also provide. Disabling it strips those names from
-    plugins.txt (Tk parity: _sync_plugins_for_toggle removes a mod's own
-    plugins unconditionally), but the other mods still deploy identically-named
-    copies. Without this recovery those plugins vanish from the panel until a
-    full re-sync. Tk recovers them in _refresh_plugins_tab via its Data/ orphan
-    scan; we recover them from the freshly-rebuilt filemap instead.
-
-    *enabled_mods_lower* (from the CURRENT modlist.txt) filters out entries
-    whose providing mod is no longer enabled: the filemap on disk can be a
-    rebuild behind the modlist (a reload racing a mass disable), and without
-    the filter a stale filemap resurrects every just-disabled mod's plugins
-    in the panel. None = no filtering (modlist unavailable).
-    """
-    staging = (game.get_effective_mod_staging_path()
-               if hasattr(game, "get_effective_mod_staging_path") else None)
-    if staging is None:
-        _diag("_filemap_deployed_plugins: no staging path")
+                              enabled_mods_lower: "set[str] | None" = None,
+                              snapshot=None) -> dict[str, str]:
+    """Plugin winners from one pinned graph generation."""
+    del game
+    if snapshot is None:
         return {}
-    fm = staging.parent / "filemap.txt"
-    if not fm.is_file():
-        _diag(f"_filemap_deployed_plugins: filemap.txt MISSING at {fm}")
-        return {}
-    exts = tuple(e.lower() for e in plugin_exts)
-    # Rule-routing games (Oblivion Remastered): a nested staged path can still
-    # deploy to the top of the plugins data dir - treat those the same as
-    # top-level entries. See Utils.game_helpers.plugins_routing_ctx.
-    try:
-        from Utils.game_helpers import plugins_routing_ctx, routed_plugin_name
-        routing_ctx = plugins_routing_ctx(game)
-    except Exception:
-        routing_ctx = None
-    found: dict[str, str] = {}
-    total_lines = 0
-    try:
-        for line in fm.read_text(encoding="utf-8").splitlines():
-            total_lines += 1
-            if "\t" not in line:
-                continue
-            rel_path, mod_name = line.split("\t", 1)
-            if (enabled_mods_lower is not None
-                    and mod_name != _OVERWRITE_NAME
-                    and mod_name.lower() not in enabled_mods_lower):
-                continue   # provider disabled since this filemap was built
-            rel_path = rel_path.replace("\\", "/")
-            if "/" in rel_path:
-                # Top-level entries match the deploy layout directly; nested
-                # ones only count when the routing rules land them in the
-                # data dir.
-                if routing_ctx is None:
-                    continue
-                name = routed_plugin_name(routing_ctx, rel_path, exts)
-                if name is not None:
-                    found.setdefault(name.lower(), name)
-                continue
-            low = rel_path.lower()
-            if low.endswith(exts):
-                found.setdefault(low, rel_path)
-    except OSError as exc:
-        _diag(f"_filemap_deployed_plugins: read error on {fm}: {exc}")
-        return {}
-    # Root-flagged mods (filemap_root.txt) deploy VERBATIM to the game root:
-    # '<data subpath>/<plugin>' lands at the top level of the deploy dir, the
-    # same place a top-level filemap.txt entry does - recover those too (e.g.
-    # a root MGE XE install shipping 'Data Files/XE Sky Variations.esp').
-    fm_root = staging.parent / "filemap_root.txt"
-    if fm_root.is_file():
-        try:
-            from Utils.game_helpers import game_data_subpath
-            prefix = game_data_subpath(game)
-        except Exception:
-            prefix = ""
-        if prefix:
-            prefix_low = prefix.lower() + "/"
-            plen = len(prefix) + 1
-            try:
-                for line in fm_root.read_text(encoding="utf-8").splitlines():
-                    if "\t" not in line:
-                        continue
-                    rel_path, mod_name = line.split("\t", 1)
-                    if (enabled_mods_lower is not None
-                            and mod_name != _OVERWRITE_NAME
-                            and mod_name.lower() not in enabled_mods_lower):
-                        continue
-                    rel_path = rel_path.replace("\\", "/")
-                    if not rel_path.lower().startswith(prefix_low):
-                        continue
-                    name = rel_path[plen:]
-                    if "/" in name:
-                        continue   # nested below the data dir - not loadable
-                    low = name.lower()
-                    if low.endswith(exts):
-                        found.setdefault(low, name)
-            except OSError as exc:
-                _diag(f"_filemap_deployed_plugins: read error on {fm_root}: {exc}")
-    _diag(f"_filemap_deployed_plugins: {fm} has {total_lines} line(s), "
-          f"{len(found)} top-level plugin(s) with exts {exts}")
+    exts = tuple(extension.lower() for extension in plugin_exts)
+    found = {
+        name.lower(): name
+        for name, winner in snapshot.plugin_winners().items()
+        if name.lower().endswith(exts)
+        and (enabled_mods_lower is None
+             or winner.mod_name == _OVERWRITE_NAME
+             or winner.mod_name.lower() in enabled_mods_lower)
+    }
+    _diag(f"filegraph deploys {len(found)} plugin winner(s)")
     return found
 
 
 def _staged_top_level_plugins(game, staging: "Path | None",
-                              exts: tuple[str, ...]) -> "set[str] | None":
-    """Lowercase top-level plugin names across ALL staged mods (enabled or
-    not), from modindex.bin. None when the index is unavailable - callers
-    must treat that as unknown, not empty."""
-    if staging is None:
+                              exts: tuple[str, ...], snapshot=None
+                              ) -> "set[str] | None":
+    """Plugin identities across all catalogued mods in the selected variants."""
+    del game, staging
+    if snapshot is None:
         return None
-    try:
-        from Utils.filemap import read_mod_index, OVERWRITE_NAME
-        index = read_mod_index(staging.parent / "modindex.bin")
-    except Exception:
-        return None
-    if not index:
-        return None
-    try:
-        from Utils.game_helpers import (
-            plugins_routing_ctx, routed_plugin_name, game_data_subpath)
-        routing_ctx = plugins_routing_ctx(game)
-        prefix = game_data_subpath(game)
-    except Exception:
-        routing_ctx, prefix = None, ""
-    prefix_low = (prefix.lower() + "/") if prefix else ""
-    plen = len(prefix) + 1 if prefix else 0
-    out: set[str] = set()
-    for mod_name, (normal, root) in index.items():
-        if mod_name == OVERWRITE_NAME:
-            continue   # overwrite plugins always resolve via the direct scan
-        for rel_low, rel_orig in normal.items():
-            if "/" not in rel_low:
-                if rel_low.endswith(exts):
-                    out.add(rel_low)
-            elif routing_ctx is not None:
-                n = routed_plugin_name(routing_ctx, rel_orig, exts)
-                if n is not None:
-                    out.add(n.lower())
-        if prefix_low and root:
-            for rel_low in root:
-                if rel_low.startswith(prefix_low):
-                    name = rel_low[plen:]
-                    if "/" not in name and name.endswith(exts):
-                        out.add(name)
-    return out
+    extensions = tuple(extension.lower() for extension in exts)
+    return {
+        name for name in snapshot.staged_plugins()
+        if name.lower().endswith(extensions)
+    }
 
 
 def load_plugins(game, profile: str,
-                 cancelled=None, report: dict | None = None
+                 cancelled=None, report: dict | None = None, snapshot=None
                  ) -> "list[PluginRow] | None":
     """Return the ordered plugin rows for *game*/*profile*, or [] if none.
 
@@ -641,7 +455,8 @@ def load_plugins(game, profile: str,
         except Exception:
             enabled_mods = None
     with span("plugins.filemap_deployed"):
-        deployed = _filemap_deployed_plugins(game, exts, enabled_mods)
+        deployed = _filemap_deployed_plugins(
+            game, exts, enabled_mods, snapshot=snapshot)
     recovered: list[str] = []
     for low, orig in deployed.items():
         if low in listed_lower or low in vanilla:
@@ -703,7 +518,8 @@ def load_plugins(game, profile: str,
     if cancelled():
         return None
     with span("plugins.resolve_paths"):
-        resolved = resolve_plugin_paths_for_game(game, data_dir)
+        resolved = resolve_plugin_paths_for_game(
+            game, data_dir, snapshot=snapshot)
     _diag(f"load_plugins: ordered={len(ordered)} resolver mapped "
           f"{len(resolved)} plugin(s) to on-disk paths")
 
@@ -721,28 +537,11 @@ def load_plugins(game, profile: str,
     # resolver to have found at least one path before trusting a miss.
     staging = (game.get_effective_mod_staging_path()
                if hasattr(game, "get_effective_mod_staging_path") else None)
-    fm_path = (staging.parent / "filemap.txt") if staging is not None else None
-    # SAFETY 4 (freshness): plugins.txt newer than filemap.txt means entries
-    # were appended AFTER the filemap was built - a just-committed install
-    # (_add_plugins) or toggle sync whose conflict rebuild hasn't landed yet.
-    # The resolver can't see those mods, so an unresolved name proves nothing.
-    # Without this guard the prune deleted a freshly installed mod's plugin
-    # from plugins.txt within the same second as its install (SkyUI_SE.esp,
-    # 2026-07-17); later reloads then recovered it from the fresh filemap for
-    # DISPLAY only, so it never returned to plugins.txt. Also gates the
-    # recovered-entry persist below (a stale filemap could re-add a
-    # just-disabled mod's plugins).
-    filemap_fresh = True
-    try:
-        if fm_path is not None and fm_path.is_file():
-            filemap_fresh = fm_path.stat().st_mtime >= p.stat().st_mtime
-    except OSError:
-        pass
-    if not filemap_fresh:
-        _diag(f"load_plugins: SAFETY-4 filemap OLDER than plugins.txt "
-              f"({fm_path}) - prune + recovered-persist skipped this reload")
-    filemap_ok = (fm_path is not None and fm_path.is_file()
-                  and bool(resolved) and filemap_fresh)
+    # The caller passes a snapshot only after its intent transaction is
+    # accepted. An absent snapshot means a newer reconcile is pending, so
+    # recovery/pruning remains read-only and conservative for this reload.
+    filemap_fresh = snapshot is not None
+    filemap_ok = snapshot is not None and bool(resolved)
     # SAFETY 2: never prune while the game object points at a DIFFERENT
     # profile than the one being loaded. Background workers (deploy pipeline,
     # collection install/cleanup) swap game._active_profile_dir and can leave
@@ -788,7 +587,8 @@ def load_plugins(game, profile: str,
         # case SAFETY 3 exists for and prunes uncapped (self-heals the
         # GH#318 state). plugins.txt only on star games - loadorder.txt
         # keeps the position for a re-enable. AMM_PRUNE_OWNED=0 kills it.
-        staged = (_staged_top_level_plugins(game, staging, exts)
+        staged = (_staged_top_level_plugins(
+            game, staging, exts, snapshot=snapshot)
                   if pruned else None)
         if os.environ.get("AMM_PRUNE_OWNED") == "0":
             staged = None
@@ -879,7 +679,8 @@ def load_plugins(game, profile: str,
         _apply_master_checks(rows, resolved, data_dir)
     with span("plugins.loot_flags"):
         enabled_lower = {r.name.lower() for r in rows if r.enabled}
-        resolver = RequirementResolver(game, p.parent, staging, enabled_lower)
+        resolver = RequirementResolver(
+            game, p.parent, staging, enabled_lower, snapshot=snapshot)
         _apply_loot_flags(rows, p.parent, resolver)
     with span("plugins.userlist_flags"):
         _apply_userlist_flags(rows, p.parent)
@@ -888,7 +689,7 @@ def load_plugins(game, profile: str,
     # ESL eligibility deliberately NOT computed here - see
     # compute_esl_eligibility (deferred to its own post-apply worker).
     with span("plugins.bos_sp"):
-        _apply_bos_sp(rows, staging)
+        _apply_bos_sp(rows, staging, snapshot=snapshot)
     return rows
 
 
@@ -1110,36 +911,22 @@ class RequirementResolver:
     """
 
     def __init__(self, game, profile_dir: Path, staging_root: Path | None,
-                 enabled_plugins_lower: set[str]):
+                 enabled_plugins_lower: set[str], snapshot=None):
         self._game = game
         self._profile_dir = profile_dir
         self._staging_root = staging_root
         self._enabled_lower = enabled_plugins_lower
-        self._staged_paths: set[str] | None = None
+        self._snapshot = snapshot
         self._mod_ids: set[int] | None = None
         self._root_files: set[str] | None = None
         self._se_detected: bool | None = None
 
     # -- lazy context sets ------------------------------------------------
-    def _staged(self) -> set[str]:
-        if self._staged_paths is not None:
-            return self._staged_paths
-        paths: set[str] = set()
-        fm = (self._staging_root.parent / "filemap.txt") \
-            if self._staging_root is not None else None
-        if fm is not None and fm.is_file():
-            try:
-                with fm.open(encoding="utf-8") as f:
-                    for line in f:
-                        if "\t" not in line:
-                            continue
-                        rel = line.split("\t", 1)[0].strip()
-                        if rel:
-                            paths.add(rel.replace("\\", "/").lower())
-            except OSError:
-                pass
-        self._staged_paths = paths
-        return paths
+    def _staged_contains(self, path: str, *, basename: bool = False) -> bool:
+        return bool(
+            self._snapshot is not None
+            and self._snapshot.has_deployed_path(path, basename=basename)
+        )
 
     def _enabled_mod_ids(self) -> set[int]:
         if self._mod_ids is not None:
@@ -1221,13 +1008,13 @@ class RequirementResolver:
         if not se_exes:
             return False
         root_files = self._game_root_files()
-        staged = self._staged()
         for exe in se_exes:
             base = exe.replace("\\", "/").rsplit("/", 1)[-1].lower()
             if base in root_files:
                 return True
             rel = exe.replace("\\", "/").lstrip("./").lstrip("../").lower()
-            if rel in staged or any(p.rsplit("/", 1)[-1] == base for p in staged):
+            if (self._staged_contains(rel)
+                    or self._staged_contains(base, basename=True)):
                 return True
         return False
 
@@ -1240,7 +1027,7 @@ class RequirementResolver:
             inner_lower = inner.lower()
             if inner_lower in self._enabled_lower:
                 return True
-            if inner_lower in self._staged():
+            if self._staged_contains(inner_lower):
                 return True
             base = inner_lower.rsplit("/", 1)[-1]
             if base and base in self._game_root_files():
@@ -1402,7 +1189,7 @@ def compute_esl_eligibility(names: list[str], resolved: dict[str, Path],
     return out
 
 
-def scan_bos_sp_patches(staging_root: Path | None) -> dict[str, str]:
+def scan_bos_sp_patches(staging_root: Path | None, snapshot=None) -> dict[str, str]:
     """Scan staging mods for BOS (Base Object Swapper) / SkyPatcher patches.
 
     Returns {plugin_name_lower: "bos" | "sp" | "both"} for every staged plugin
@@ -1413,35 +1200,47 @@ def scan_bos_sp_patches(staging_root: Path | None) -> dict[str, str]:
            line referencing the plugin. Patch mods target *other* mods' plugins,
            so every mod is scanned, not just the plugin's owner.
 
-    Fast path: derive everything from modindex.bin (already an in-memory-cached
-    parse) instead of walking the staging tree - a full rglob over hundreds of
-    mods costs seconds, the index pass costs milliseconds. Only SkyPatcher INI
-    contents are read from disk. Cached by the index's mtime, which only changes
-    on install/remove/refresh - deploys touch staging dir mtimes but not the
-    index, so the cache survives an auto-deploy (the old mtime-sum key didn't).
-    Falls back to the original disk walk when the index is missing/unreadable.
+    The fast path requests only relevant raw rows from the pinned filegraph
+    snapshot. Only SkyPatcher INI contents are read from disk. Before initial
+    graph publication it falls back to the original disk walk.
     A lock serializes concurrent scans (overlapping plugin reloads) so the
     second waits and hits the first's cache instead of duplicating the work.
     Safe to call off the UI thread (pure filesystem)."""
     if staging_root is None:
         return {}
-    index_path = staging_root.parent / "modindex.bin"
-    try:
-        idx_key = ("modindex", str(index_path), index_path.stat().st_mtime_ns)
-    except OSError:
-        idx_key = None
     with _BOS_SP_LOCK:
-        if idx_key is not None:
-            cached = _BOS_SP_CACHE.get(idx_key)
+        if snapshot is not None:
+            cache_key = (
+                "filegraph", str(staging_root), snapshot.inventory_generation)
+            cached = _BOS_SP_CACHE.get(cache_key)
             if cached is not None:
                 return cached
-            from Utils.filemap import read_mod_index, OVERWRITE_NAME
-            index = read_mod_index(index_path)
-            if index:
-                result = _scan_bos_sp_from_index(
-                    index, staging_root, OVERWRITE_NAME)
-                _BOS_SP_CACHE[idx_key] = result
-                return result
+            all_plugins: set[str] = set()
+            bos_stems: set[str] = set()
+            sp_plugins: set[str] = set()
+            for mod_name, relative_bytes in snapshot.patch_files():
+                if mod_name == _OVERWRITE_NAME:
+                    continue
+                relative = relative_bytes.decode("utf-8", "surrogateescape")
+                lower = relative.replace("\\", "/").lower()
+                basename = lower.rsplit("/", 1)[-1]
+                if basename.endswith((".esp", ".esm", ".esl")):
+                    all_plugins.add(basename)
+                if basename.endswith("_swap.ini"):
+                    bos_stems.add(basename[:-len("_swap.ini")])
+                if (basename.endswith(".ini")
+                        and ("/skse/plugins/skypatcher/" in "/" + lower
+                             or "/skse/plugins/skypatcher2/" in "/" + lower)):
+                    try:
+                        _parse_sp_ini_text(
+                            (staging_root / mod_name / relative).read_text(
+                                encoding="utf-8", errors="ignore"),
+                            sp_plugins)
+                    except OSError:
+                        pass
+            result = _combine_bos_sp(all_plugins, bos_stems, sp_plugins)
+            _BOS_SP_CACHE[cache_key] = result
+            return result
         return _scan_bos_sp_disk(staging_root)
 
 
@@ -1586,9 +1385,10 @@ def _scan_bos_sp_disk(staging_root: Path) -> dict[str, str]:
     return result
 
 
-def _apply_bos_sp(rows: list[PluginRow], staging_root: Path | None) -> None:
+def _apply_bos_sp(rows: list[PluginRow], staging_root: Path | None,
+                  snapshot=None) -> None:
     """Tag each row with its BOS/SP patch kind (see scan_bos_sp_patches)."""
-    kinds = scan_bos_sp_patches(staging_root)
+    kinds = scan_bos_sp_patches(staging_root, snapshot=snapshot)
     if not kinds:
         return
     for r in rows:

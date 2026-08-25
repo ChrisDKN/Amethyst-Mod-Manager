@@ -73,3 +73,9 @@ def setup_environment() -> None:
         install_faulthandler()
     except Exception:
         pass
+
+    # Filegraph is part of Amethyst's runtime, not an optional acceleration.
+    # Validate it before profile state can be opened or mutated so a damaged
+    # package fails with the loader's actionable reinstall/version message.
+    from Utils.filegraph_native import require_native
+    require_native()

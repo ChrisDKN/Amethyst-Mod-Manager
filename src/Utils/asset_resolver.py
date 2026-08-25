@@ -2,10 +2,10 @@
 asset_resolver.py
 Resolve a game-data-relative asset path to the bytes the GAME would load.
 
-Order mirrors the engine: winning mod's loose file (filemap.txt), loose file
-in the game data folder, winning mod's archive (bsa_filemap winner map), then
-vanilla archives. Loose always beats archived. Tables build lazily and are
-cached per process by mtime; pass keep_prefix to bound them to subtrees.
+Order mirrors the engine: Filegraph's winning loose provider, a loose file in
+the game data folder, Filegraph's winning archive provider, then vanilla
+archives. Loose always beats archived. Tables build lazily; pass keep_prefix
+to bound archive and catalog queries to asset subtrees.
 """
 
 from __future__ import annotations
@@ -14,19 +14,6 @@ import os
 from pathlib import Path
 
 __all__ = ["AssetResolver"]
-
-# Per-process caches keyed by input mtimes (filemap can be ~200k lines).
-_LOOSE_CACHE: dict[tuple, dict] = {}
-_WINNER_CACHE: dict[tuple, tuple] = {}
-
-
-def _stamp(path) -> tuple:
-    try:
-        st = os.stat(path)
-        return (str(path), st.st_mtime_ns, st.st_size)
-    except OSError:
-        return (str(path), 0, -1)
-
 
 def normalise(rel: str) -> str:
     """Normalise an asset path to the lowercase forward-slash form used as a key."""
@@ -86,113 +73,116 @@ class AssetResolver:
     """Resolves asset paths the way the running game would."""
 
     def __init__(self, staging_dir=None, modlist_path=None, profile_dir=None,
-                 data_dir=None, game=None, keep_prefix: str = ""):
+                 data_dir=None, game=None, keep_prefix: str | tuple[str, ...] = "",
+                 snapshot=None):
         self.staging = Path(staging_dir) if staging_dir else None
         self.modlist_path = Path(modlist_path) if modlist_path else None
         self.profile_dir = Path(profile_dir) if profile_dir else None
         self.data_dir = Path(data_dir) if data_dir else None
         self.game = game
         self.keep_prefix = keep_prefix
+        if snapshot is None and game is not None:
+            try:
+                from Utils.filegraph_service import active_snapshot
+                snapshot = active_snapshot(game)
+            except Exception:
+                snapshot = None
+        self.snapshot = snapshot
 
         self._dirs = _DirCache()
         self._loose: dict[str, str] | None = None      # rel_key -> mod name
         self._bsa_winner: dict[str, str] | None = None  # rel_key -> mod name
         self._bsa_index = None
+        self._loose_sources: dict[str, Path] = {}
+        self._archive_sources: dict[str, Path] = {}
         self._vanilla = None                            # ArchiveLookup, lazy
         self._mod_archive_lookups: dict[Path, object] = {}
         self._stats = {"loose_mod": 0, "loose_data": 0,
                        "archive_mod": 0, "archive_data": 0, "missing": 0}
 
+    def _query_prefixes(self) -> tuple[str, ...]:
+        """Catalog prefixes, including the game-data coordinate used by root
+        providers.  A root mod may expose ``Data Files/textures/...`` while
+        callers consistently ask for ``textures/...``.
+        """
+        raw = ((self.keep_prefix,) if isinstance(self.keep_prefix, str)
+               else tuple(self.keep_prefix))
+        prefixes = tuple(
+            value.replace("\\", "/").lower().lstrip("/")
+            for value in raw if value
+        )
+        if not prefixes or self.game is None:
+            return prefixes
+        try:
+            from Utils.game_helpers import game_data_subpath
+            data_prefix = game_data_subpath(self.game).replace(
+                "\\", "/").lower().strip("/")
+        except Exception:
+            data_prefix = ""
+        if not data_prefix:
+            return prefixes
+        return prefixes + tuple(f"{data_prefix}/{value}" for value in prefixes)
+
+    def _wanted_asset(self, key: str) -> bool:
+        raw = ((self.keep_prefix,) if isinstance(self.keep_prefix, str)
+               else tuple(self.keep_prefix))
+        prefixes = tuple(
+            value.replace("\\", "/").lower().lstrip("/")
+            for value in raw if value
+        )
+        return not prefixes or key.startswith(prefixes)
+
     # -- lazy tables --------------------------------------------------------
     def _loose_map(self) -> dict[str, str]:
-        """rel_key -> winning mod name, straight from the resolved deploy map."""
+        """Asset-relative loose winners from the pinned graph generation."""
         if self._loose is not None:
             return self._loose
         out: dict[str, str] = {}
-        if self.staging is not None:
-            fm = self.staging.parent / "filemap.txt"
-            ckey = (_stamp(fm), self.keep_prefix)
-            cached = _LOOSE_CACHE.get(ckey)
-            if cached is not None:
-                self._loose = cached
-                return cached
-            try:
-                # surrogateescape: filemap paths come from on-disk names that
-                # are not guaranteed to be valid UTF-8.
-                with open(fm, "r", encoding="utf-8",
-                          errors="surrogateescape") as f:
-                    for line in f:
-                        tab = line.find("\t")
-                        if tab < 0:
-                            continue
-                        key = line[:tab].replace("\\", "/").lower()
-                        if self.keep_prefix and not key.startswith(self.keep_prefix):
-                            continue
-                        out[key] = line[tab + 1:].rstrip("\r\n")
-            except OSError:
-                pass
-            _LOOSE_CACHE[ckey] = out
+        if self.snapshot is not None and self.game is not None:
+            from Utils.filegraph_service import source_path
+            for winner in self.snapshot.asset_winners(self._query_prefixes()):
+                if winner.namespace == "archive":
+                    continue
+                key = self._asset_key(winner.legacy_rel, winner.namespace)
+                if not self._wanted_asset(key):
+                    continue
+                out[key] = winner.mod_name
+                self._loose_sources[key] = source_path(
+                    self.game, winner.mod_name, winner.source_rel)
         self._loose = out
         return out
 
     def _archive_winner(self) -> dict[str, str]:
-        """rel_key -> winning mod name, replaying the engine's archive order."""
+        """Asset-relative archive winners from the pinned graph generation."""
         if self._bsa_winner is not None:
             return self._bsa_winner
         winner: dict[str, str] = {}
-        index = {}
-        ckey = None
-        if self.staging is not None and self.modlist_path is not None:
-            ckey = (_stamp(self.staging.parent / "bsa_index.bin"),
-                    _stamp(self.modlist_path),
-                    _stamp((self.profile_dir / "loadorder.txt")
-                           if self.profile_dir is not None else "-"),
-                    self.keep_prefix)
-            cached = _WINNER_CACHE.get(ckey)
-            if cached is not None:
-                self._bsa_winner, self._bsa_index = cached
-                return self._bsa_winner
-        try:
-            if self.staging is not None and self.modlist_path is not None:
-                from Utils.bsa_filemap import (
-                    compute_bsa_winner_map, read_bsa_index,
-                )
-                from Utils.modlist import read_modlist
-                from Utils.ue_pak_reader import UE_ARCHIVE_EXTENSIONS
-
-                index = read_bsa_index(self.staging.parent / "bsa_index.bin") or {}
-                enabled = [e for e in read_modlist(self.modlist_path)
-                           if not e.is_separator and e.enabled]
-                prio = [e.name for e in reversed(enabled)]
-                exts = frozenset(
-                    getattr(self.game, "archive_extensions", frozenset())
-                    or frozenset())
-                plugin_order = None
-                plugin_exts = None
-                if getattr(self.game, "archive_plugin_ordering", True) \
-                        and self.profile_dir is not None:
-                    from Utils.plugins import read_loadorder
-                    plugin_order = read_loadorder(
-                        self.profile_dir / "loadorder.txt")
-                    plugin_exts = frozenset(
-                        getattr(self.game, "plugin_extensions", []) or [])
-                is_ue = bool(exts & UE_ARCHIVE_EXTENSIONS)
-                full, _losers = compute_bsa_winner_map(
-                    index, prio, plugin_order or None, plugin_exts or None,
-                    self.staging.parent / "modindex.bin", is_ue)
-                if self.keep_prefix:
-                    winner = {k: v for k, v in full.items()
-                              if k.startswith(self.keep_prefix)}
-                else:
-                    winner = full
-        except Exception:                                # noqa: BLE001
-            winner = {}
-            index = {}
-        if ckey is not None:
-            _WINNER_CACHE[ckey] = (winner, index)
+        if self.snapshot is not None and self.game is not None:
+            from Utils.filegraph_service import source_path
+            for record in self.snapshot.asset_winners(self._query_prefixes()):
+                if record.namespace != "archive":
+                    continue
+                key = self._asset_key(record.legacy_rel, record.namespace)
+                if not self._wanted_asset(key):
+                    continue
+                winner[key] = record.mod_name
+                self._archive_sources[key] = source_path(
+                    self.game, record.mod_name, record.source_rel)
         self._bsa_winner = winner
-        self._bsa_index = index
         return winner
+
+    def _asset_key(self, relative: str, namespace: str) -> str:
+        path = relative.replace("\\", "/").lstrip("/")
+        if namespace == "root" and self.game is not None:
+            try:
+                from Utils.game_helpers import game_data_subpath
+                prefix = game_data_subpath(self.game).replace(
+                    "\\", "/").strip("/")
+            except Exception:
+                prefix = ""
+            if prefix and path.lower().startswith(prefix.lower() + "/"):
+                path = path[len(prefix) + 1:]
+        return normalise(path)
 
     def _vanilla_archives(self):
         if self._vanilla is None:
@@ -216,11 +206,10 @@ class AssetResolver:
         """The loose file the game would load, or None if it is archived only."""
         key = normalise(rel)
 
-        mod = self._loose_map().get(key)
-        if mod and self.staging is not None:
-            hit = self._dirs.resolve(self.staging / mod, key)
-            if hit is not None:
-                return hit
+        self._loose_map()
+        hit = self._loose_sources.get(key)
+        if hit is not None and hit.is_file():
+            return hit
 
         if self.data_dir is not None:
             hit = self._dirs.resolve(self.data_dir, key)
@@ -244,8 +233,8 @@ class AssetResolver:
                 return data
 
         mod = self._archive_winner().get(key)
-        if mod and self.staging is not None:
-            data = self._read_from_mod_archives(mod, key)
+        if mod:
+            data = self._read_from_mod_archives(key)
             if data:
                 self._stats["archive_mod"] += 1
                 return data
@@ -258,25 +247,20 @@ class AssetResolver:
         self._stats["missing"] += 1
         return None
 
-    def _read_from_mod_archives(self, mod: str, key: str) -> bytes | None:
-        """Pull *key* out of whichever of *mod*'s archives contains it."""
-        for archive_name, _mtime, paths in (self._bsa_index or {}).get(mod, []):
-            if key not in paths:
-                continue
-            archive = self._dirs.resolve(self.staging / mod, archive_name)
-            if archive is None:
-                continue
-            try:
-                lookup = self._mod_archive_lookups.get(archive)
-                if lookup is None:
-                    from Utils.archive_lookup import ArchiveLookup
-                    lookup = ArchiveLookup([archive],
-                                           keep_prefix=self.keep_prefix)
-                    self._mod_archive_lookups[archive] = lookup
-                return lookup.read(key)
-            except Exception:                            # noqa: BLE001
-                return None
-        return None
+    def _read_from_mod_archives(self, key: str) -> bytes | None:
+        """Pull *key* from the exact archive provider selected by Filegraph."""
+        archive = self._archive_sources.get(key)
+        if archive is None:
+            return None
+        try:
+            lookup = self._mod_archive_lookups.get(archive)
+            if lookup is None:
+                from Utils.archive_lookup import ArchiveLookup
+                lookup = ArchiveLookup([archive], keep_prefix=self.keep_prefix)
+                self._mod_archive_lookups[archive] = lookup
+            return lookup.read(key)
+        except Exception:                                # noqa: BLE001
+            return None
 
     @property
     def stats(self) -> dict:

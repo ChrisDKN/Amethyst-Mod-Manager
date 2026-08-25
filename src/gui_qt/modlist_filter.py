@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from os.path import splitext
 from pathlib import Path
 
-from Utils.filemap import (
+from Utils.filegraph_constants import (
     OVERWRITE_NAME, ROOT_FOLDER_NAME,
     CONFLICT_NONE, CONFLICT_WINS, CONFLICT_LOSES, CONFLICT_PARTIAL, CONFLICT_FULL,
 )
@@ -574,102 +574,3 @@ def _any_active(state: dict) -> bool:
     if state.get("filetypes") or state.get("filetypes_exclude"):
         return True
     return False
-
-
-# --------------------------------------------------------------------------
-# Data builders (read the persisted backend indexes - same sources as Tk)
-# --------------------------------------------------------------------------
-def _read_mod_index(staging_parent: Path) -> dict:
-    """{mod: (normal, root)} from modindex.bin, or {}."""
-    idx = staging_parent / "modindex.bin"
-    if not idx.is_file():
-        return {}
-    try:
-        from Utils.filemap import read_mod_index
-        return read_mod_index(idx) or {}
-    except Exception:
-        return {}
-
-
-def build_index_data(staging_parent: Path) -> tuple[dict, dict, set]:
-    """From modindex.bin build (filetype_counts, mod_filetypes, mods_with_pbr).
-    One pass over the index so the panel is cheap to populate."""
-    counts: dict[str, int] = {}
-    mod_ft: dict[str, set[str]] = {}
-    pbr: set[str] = set()
-    for mod, (normal, root) in _read_mod_index(staging_parent).items():
-        exts: set[str] = set()
-        has_pbr = False
-        for rel_key in (*normal, *root):
-            ext = splitext(rel_key)[1]
-            if ext:
-                counts[ext] = counts.get(ext, 0) + 1
-                exts.add(ext)
-            if not has_pbr and rel_key.endswith(".dds"):
-                stem = rel_key[:-4]
-                if any(stem.endswith(suf) for suf in _PGPATCHER_TEX_SUFFIXES):
-                    has_pbr = True
-        if exts:
-            mod_ft[mod] = exts
-        if has_pbr:
-            pbr.add(mod)
-    return counts, mod_ft, pbr
-
-
-def build_mods_with_bsa(staging_parent: Path,
-                        staging_root: Path | None = None,
-                        archive_extensions=None,
-                        follow_toplevel_links_under: Path | None = None,
-                        ) -> set[str]:
-    """Mods that contain at least one BSA/BA2 with files (from bsa_index.bin).
-
-    Builds the index when nothing usable is cached, rather than reporting "no
-    mod has archives": the conflict scan that used to be its only producer is
-    skipped whenever "Hide BSA conflicts" is on, which silently emptied this
-    filter (an include-filter with no matches hides every row). Pass
-    *staging_root* + *archive_extensions* to enable that scan; without them this
-    falls back to read-only behaviour.
-
-    Blocking on a cold scan - callers run it on the filter-data worker thread.
-    """
-    idx = staging_parent / "bsa_index.bin"
-    try:
-        if staging_root is not None and archive_extensions:
-            from Utils.bsa_filemap import ensure_bsa_index
-            index = ensure_bsa_index(
-                idx, staging_root, frozenset(archive_extensions),
-                follow_toplevel_links_under=follow_toplevel_links_under) or {}
-        else:
-            if not idx.is_file():
-                return set()
-            from Utils.bsa_filemap import read_bsa_index
-            index = read_bsa_index(idx) or {}
-    except Exception:
-        return set()
-    return {name for name, archives in index.items()
-            if any(paths for _bsa, _mt, paths in archives)}
-
-
-def build_mods_with_plugins(staging_parent: Path, plugin_exts) -> set[str]:
-    """Mods that win at least one plugin, from filemap.txt."""
-    fm = staging_parent / "filemap.txt"
-    if not fm.is_file():
-        return set()
-    exts = tuple(e.lower() for e in (plugin_exts or ()))
-    if not exts:
-        exts = (".esp", ".esm", ".esl")
-    out: set[str] = set()
-    try:
-        # surrogateescape: filemap.txt carries filesystem-derived relative
-        # paths whose non-UTF-8 bytes decode to surrogate code points - a plain
-        # utf-8 read raises UnicodeDecodeError/EncodeError on them.
-        for line in fm.read_text(encoding="utf-8",
-                                 errors="surrogateescape").splitlines():
-            if "\t" not in line:
-                continue
-            rel_key, mod = line.split("\t", 1)
-            if rel_key.rsplit("/", 1)[-1].lower().endswith(exts):
-                out.add(mod)
-    except Exception:
-        return set()
-    return out

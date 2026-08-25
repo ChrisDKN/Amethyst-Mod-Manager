@@ -6,7 +6,7 @@ members must be profile-specific - see Utils/profile_groups.py).
 Clones every listed mod from the shared pool into the profile's own mods/
 (bulk assets hardlinked, in-place-editable files copied - see _COPY_EXTS),
 creates overwrite/ and Root_Folder/, flips profile_specific_mods, and
-rebuilds the profile's indexes. The shared pool is untouched; a clone
+catalogs the profile's new library. The shared pool is untouched; a clone
 failure aborts and rolls back. No reverse direction.
 """
 
@@ -123,34 +123,16 @@ def convert_profile_to_specific(game, profile_dir: Path, *, log_fn=None,
             f"{', '.join(missing[:8])}{'…' if len(missing) > 8 else ''}")
 
     # Flip the flag only after every clone landed (helpers that resolve the
-    # profile's staging must see the new layout for the index rebuild below).
+    # profile's staging must see the new layout for the catalog refresh below).
     merge_profile_settings(profile_dir, {"profile_specific_mods": True})
 
     try:
-        from Nexus.nexus_meta import collect_root_flagged_mods
-        from Utils.deploy_shared import load_per_mod_strip_prefixes
-        from Utils.filemap import rebuild_mod_index
-        rf_mods = collect_root_flagged_mods(profile_dir / "modlist.txt",
-                                            dest_staging, log_fn=log)
-        rebuild_mod_index(
-            profile_dir / "modindex.bin", dest_staging,
-            strip_prefixes=set(getattr(game, "mod_folder_strip_prefixes", None) or ()) or None,
-            per_mod_strip_prefixes=load_per_mod_strip_prefixes(profile_dir),
-            allowed_extensions=set(getattr(game, "mod_install_extensions", None) or ()) or None,
-            normalize_folder_case=getattr(game, "normalize_folder_case", True),
-            root_folder_mods=set(rf_mods or ()) or None,
-            log_fn=log,
-        )
+        from Utils.filegraph_service import FileGraphService
+        library = FileGraphService.open_library(game, profile_dir)
+        library.refresh(profile_dir, mod_names=cloned)
+        library.ensure_ready(profile_dir)
     except Exception as exc:
-        log(f"Convert: index rebuild failed ({exc}) - run Refresh to rebuild.")
-    archive_exts = frozenset(getattr(game, "archive_extensions", frozenset()) or frozenset())
-    if archive_exts:
-        try:
-            from Utils.bsa_filemap import rebuild_bsa_index
-            rebuild_bsa_index(profile_dir / "bsa_index.bin", dest_staging,
-                              archive_exts, log_fn=log)
-        except Exception:
-            pass
+        log(f"Convert: Filegraph catalog failed ({exc}) - run Refresh to repair it.")
 
     log(f"Convert: '{profile_dir.name}' now uses profile-specific mods "
         f"({len(cloned)} mod(s) cloned from the shared pool).")

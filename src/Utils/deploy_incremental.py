@@ -1,101 +1,58 @@
-"""
-deploy_incremental.py
-Incremental redeploy for standard-mode (Data/) games, plus the VFS redeploy
-eligibility gate used to retain an existing private view during replacement.
-
-When nothing structural changed since the last deploy - same profile, same
-link mode, deployment still on disk - the deploy pipeline activates an
-"incremental plan" and the three standard primitives cooperate instead of
-tearing everything down and rebuilding it:
-
-  move_to_core    - keeps the deployed Data/ and its <Data>_Core backup
-  deploy_filemap  - diffs the new task set against the previous deploy
-                    (apply_incremental below) and only unlinks/links deltas
-  deploy_core     - no-op; the diff refills vanilla gaps itself
-
-The handler's own post-deploy steps (plugins.txt symlink, archive
-invalidation, plugin mtime stamping, …) run unchanged.  Any anomaly raises
-IncrementalFallback, which run_deploy_pipeline catches to rerun the classic
-full restore + deploy - restore_data_core is built to recover an arbitrary
-half-mutated Data/, so a partial incremental pass is always safe to abandon.
-
-Kill switch: AMM_DEPLOY_INCREMENTAL=0 forces the full path.
-Verify mode:  AMM_DEPLOY_VERIFY=1 re-checks every deployed file after an
-incremental deploy and logs mismatches (never fails the deploy).
-
-State on disk (all in the profile root, beside filemap.txt):
-  deployed_filemap.txt - rel→mod of the last deploy's effective placed set,
-                         written by every successful deploy_filemap run
-  deploy_stats.txt     - (size, mtime_ns) per placed regular file (existing)
-  last_deploy_mode     - key in deploy_state.json (see BaseGame)
-"""
+"""Changed-path physical deployment backed by Filegraph committed state."""
 
 from __future__ import annotations
 
 import errno
 import json
 import os
-import stat as _stat_m
+import stat as _stat
 from dataclasses import dataclass
 from pathlib import Path
 
 from Utils.app_log import safe_log as _safe_log
-from Utils.atomic_write import atomic_writer
 from Utils.deploy_shared import (
     LinkMode,
-    _OVERWRITE_NAME,
     _append_overwrite_log,
     _default_core,
     _do_link_ex,
     _iter_map_batched,
-    _map_batched,
     _mkdir_leaves,
     _move_crash_safe,
     _resolve_root_path_str,
 )
 
-DEPLOYED_FILEMAP_NAME = "deployed_filemap.txt"
 
-# When more than this share of the (old ∪ new) deployment changed, a full
-# deploy is cheaper/safer than a diff - mirrors filemap.py's incremental cap.
 _DELTA_FALLBACK_RATIO = 0.40
 
 
 class IncrementalFallback(RuntimeError):
-    """The incremental fast path cannot (or should not) proceed.
-
-    Raised by the primitive hooks / apply_incremental and caught in exactly
-    one place: run_deploy_pipeline, which then reruns the full restore +
-    deploy.  Safe even after partial mutation - restore_data_core recovers
-    any intermediate Data/ state (fresh links are symlinks / nlink>1 files,
-    rescued runtime files are already in overwrite/)."""
+    """A retained deployment cannot safely continue in place."""
 
 
 def incremental_enabled() -> bool:
-    """Kill switch - set AMM_DEPLOY_INCREMENTAL=0 to force full deploys."""
     return os.environ.get("AMM_DEPLOY_INCREMENTAL") != "0"
 
 
 def verify_enabled() -> bool:
-    """AMM_DEPLOY_VERIFY=1 → re-check the deployed tree after the diff."""
     return os.environ.get("AMM_DEPLOY_VERIFY") == "1"
 
 
-@dataclass
+@dataclass(slots=True)
 class IncrementalPlan:
-    """Everything the primitives need to run one incremental deploy."""
+    game: object
     deploy_dir_str: str
     core_dir: Path
-    state_dir: Path                 # profile root holding deploy_stats.txt etc.
+    state_dir: Path
     mode: LinkMode
-    old_filemap: dict               # rel_lower -> (rel_str, mod_name)
-    deploy_stats: dict              # rel_lower -> (size, mtime_ns)
-    ran_incremental: bool = False   # set once apply_incremental completed
+    old_entries: dict
+    deploy_stats: dict | None
+    new_entries: dict | None = None
+    ran_incremental: bool = False
+    profile_session: object | None = None
+    projection_cache_key: str | None = None
 
 
-# Exactly one deploy runs at a time (the Qt app coalesces Deploy requests and
-# the CLI is single-threaded), so a module global is sufficient.
-_ACTIVE: "IncrementalPlan | None" = None
+_ACTIVE: IncrementalPlan | None = None
 
 
 def activate(plan: IncrementalPlan) -> None:
@@ -112,12 +69,7 @@ def is_active() -> bool:
     return _ACTIVE is not None
 
 
-def active_for(deploy_dir) -> "IncrementalPlan | None":
-    """Return the active plan when *deploy_dir* is its target, else None.
-
-    A primitive invoked for a *different* directory while a plan is active
-    (e.g. a chained second deploy target) is a state we never planned for -
-    fall back to the full path rather than guess."""
+def active_for(deploy_dir) -> IncrementalPlan | None:
     if _ACTIVE is None:
         return None
     if str(deploy_dir) != _ACTIVE.deploy_dir_str:
@@ -127,137 +79,473 @@ def active_for(deploy_dir) -> "IncrementalPlan | None":
     return _ACTIVE
 
 
-# ---------------------------------------------------------------------------
-# deployed_filemap.txt
-# ---------------------------------------------------------------------------
-
-def write_deployed_filemap(path: Path, entries, log_fn=None) -> None:
-    """Atomically write the deployed rel→mod record (one entry per line)."""
-    try:
-        with atomic_writer(path, "w", errors="surrogateescape") as fh:
-            fh.write("# deployed_filemap v1\n")
-            for rel_str, mod_name in entries:
-                fh.write(f"{rel_str}\t{mod_name}\n")
-    except OSError as exc:
-        _safe_log(log_fn)(f"  WARN: could not write deployed filemap: {exc}")
+def _entry_relative(
+    game, entry, deploy_dir: Path, target_roots: dict[str, str] | None = None,
+) -> str | None:
+    from Utils.filegraph_deploy import entry_relative_to
+    return entry_relative_to(game, entry, deploy_dir, target_roots)
 
 
-def load_deployed_filemap(path: Path) -> "dict[str, tuple[str, str]]":
-    """Read deployed_filemap.txt into {rel_lower: (rel_str, mod)}; {} if absent."""
-    out: dict[str, tuple[str, str]] = {}
-    try:
-        with path.open(encoding="utf-8", errors="surrogateescape") as fh:
-            for line in fh:
-                if line.startswith("#") or "\t" not in line:
-                    continue
-                rel_str, mod_name = line.rstrip("\n").split("\t", 1)
-                out[rel_str.lower()] = (rel_str, mod_name)
-    except OSError:
-        return {}
-    return out
+def _project_entries(game, entries, deploy_dir: Path) -> dict | None:
+    """Project exact catalog destinations into one standard deploy root."""
+    result = {}
+    target_roots: dict[str, str] = {}
+    for entry in entries:
+        if entry.provider_kind == "root" or getattr(entry, "legacy_root", False):
+            # Root_Folder/root-flagged deployment has its own restore/deploy
+            # phase in the pipeline and is not part of the retained Data tree.
+            continue
+        relative = _entry_relative(game, entry, deploy_dir, target_roots)
+        if relative is None:
+            # Custom/prefix/game-root routes are likewise restored and placed
+            # by their dedicated handlers. The standard handler's task-set
+            # equality check below remains the final guard: an unrecognised
+            # custom placement forces a safe full-path fallback.
+            continue
+        key = relative.lower()
+        if key in result:
+            return None
+        result[key] = entry
+    return result
 
 
-# ---------------------------------------------------------------------------
-# Eligibility
-# ---------------------------------------------------------------------------
-
-def plan_incremental(game, profile: str, mode: LinkMode,
-                     log_fn=None) -> "IncrementalPlan | None":
-    """Return an IncrementalPlan when this deploy can run incrementally.
-
-    Every miss is logged with its reason and returns None (full path).
-    Read-only - nothing on disk is touched here."""
-    _log = _safe_log(log_fn)
-    if not incremental_enabled():
-        return None
-    if not getattr(game, "supports_incremental_deploy", False):
+def plan_incremental(
+    game,
+    profile: str,
+    mode: LinkMode,
+    profile_session,
+    log_fn=None,
+) -> IncrementalPlan | None:
+    """Validate the retained deployment without reading a legacy map."""
+    log = _safe_log(log_fn)
+    if not incremental_enabled() or not getattr(
+            game, "supports_incremental_deploy", False):
         return None
 
-    def _skip(reason: str) -> None:
-        _log(f"Incremental deploy unavailable - {reason}; using the full path.")
+    def skip(reason: str):
+        log(f"Incremental deploy unavailable - {reason}; using the full path.")
         return None
 
     try:
         if game.get_last_deployed_profile() != profile:
-            return _skip("a different profile was deployed last")
+            return skip("a different profile was deployed last")
         if not game.get_deploy_active():
-            return _skip("no active deployment")
+            return skip("no active deployment")
         if game.get_last_deploy_mode() != mode.name:
-            return _skip("deploy mode changed")
-
+            return skip("deploy mode changed")
+        if profile_session is None or profile_session.incomplete_operations():
+            return skip("deployment recovery is pending")
         deploy_dir = game.get_mod_data_path()
-        if deploy_dir is None or not deploy_dir.is_dir():
-            return _skip("no deploy directory")
-
+        if deploy_dir is None or not Path(deploy_dir).is_dir():
+            return skip("no deploy directory")
+        deploy_dir = Path(deploy_dir)
         from Utils.deploy_standard import (
-            _DEPLOY_MARKER_NAME, _DEPLOY_STATS_NAME, _load_deploy_stats)
-
-        if not (deploy_dir / _DEPLOY_MARKER_NAME).is_file():
-            return _skip("deploy marker missing")
+            _DEPLOY_MARKER_NAME,
+            _DEPLOY_STATS_NAME,
+        )
         core_dir = _default_core(deploy_dir)
+        if not (deploy_dir / _DEPLOY_MARKER_NAME).is_file():
+            return skip("deploy marker missing")
         if not core_dir.is_dir():
-            return _skip(f"{core_dir.name}/ backup missing")
-
+            return skip(f"{core_dir.name}/ backup missing")
         state_dir = game.get_effective_filemap_path().parent
         stats_path = state_dir / _DEPLOY_STATS_NAME
-        dfm_path = state_dir / DEPLOYED_FILEMAP_NAME
-        if not stats_path.is_file() or not dfm_path.is_file():
-            return _skip("previous deploy record missing")
+        if not stats_path.is_file():
+            return skip("previous deploy statistics missing")
         if (state_dir / "custom_deploy_log.txt").is_file():
-            return _skip("leftover custom-deploy log present")
-
-        # Per-separator overrides drive the wholesale-replace / dir-symlink /
-        # per-mod link-mode machinery in the full path - v1 of the diff does
-        # not mirror them, so any configured override falls back.
+            return skip("custom-location recovery is pending")
         from Utils.deploy_shared import load_separator_deploy_paths
         profile_dir = game.get_profile_root() / "profiles" / profile
         for info in (load_separator_deploy_paths(profile_dir) or {}).values():
             if not isinstance(info, dict):
                 continue
             if info.get("path") or info.get("raw") or info.get("merge"):
-                return _skip("separator deploy overrides configured")
-            if (info.get("mode") or "").strip().lower() in ("hardlink", "symlink"):
-                return _skip("separator link-mode overrides configured")
-
-        old_filemap = load_deployed_filemap(dfm_path)
-        if not old_filemap:
-            return _skip("previous deploy record empty or unreadable")
-
+                return skip("separator deployment overrides are configured")
+            if (info.get("mode") or "").strip().lower() in (
+                    "hardlink", "symlink"):
+                return skip("separator link-mode overrides are configured")
+        cached_plan = profile_session.cached_deployment_plan(mode.name.lower())
+        deployed = (cached_plan.entries if cached_plan is not None
+                    else profile_session.deployed_entries())
+        projection_cache_key = f"standard:{deploy_dir}"
+        old_entries = (
+            profile_session.cached_deployment_projection(
+                projection_cache_key, cached_plan)
+            if cached_plan is not None else None
+        )
+        if old_entries is None:
+            old_entries = _project_entries(game, deployed, deploy_dir)
+            if cached_plan is not None and old_entries is not None:
+                profile_session.cache_deployment_projection(
+                    projection_cache_key, cached_plan, old_entries)
+        if not old_entries:
+            return skip("committed deployed state is empty or not Data-only")
         return IncrementalPlan(
+            game=game,
             deploy_dir_str=str(deploy_dir),
             core_dir=core_dir,
             state_dir=state_dir,
             mode=mode,
-            old_filemap=old_filemap,
-            deploy_stats=_load_deploy_stats(stats_path),
+            old_entries=old_entries,
+            # Hardlinks and symlinks can be identified without this large
+            # file.  Load it lazily only if a copy-mode destination actually
+            # needs its recorded fingerprint.
+            deploy_stats=None,
+            profile_session=profile_session,
+            projection_cache_key=projection_cache_key,
         )
-    except Exception as exc:                    # noqa: BLE001 - never block a deploy
-        return _skip(f"eligibility check failed ({exc})")
+    except Exception as exc:
+        return skip(f"eligibility check failed ({exc})")
+
+
+def bind_deployment_plan(plan: IncrementalPlan, deployment_plan) -> None:
+    """Bind the newly reconciled generation before any filesystem mutation."""
+    projected = _project_entries(
+        plan.game, deployment_plan.entries, Path(plan.deploy_dir_str))
+    if projected is None:
+        raise IncrementalFallback(
+            "the new plan contains root, prefix, or custom destinations")
+    plan.new_entries = projected
+    if plan.profile_session is not None and plan.projection_cache_key is not None:
+        plan.profile_session.cache_deployment_projection(
+            plan.projection_cache_key, deployment_plan, projected)
+
+
+def deployment_unchanged(
+    profile_session,
+    snapshot_generation: int,
+    link_mode: str,
+) -> bool:
+    """Whether the pinned plan exactly matches committed deployed state.
+
+    This is the zero-I/O deployment fast path. It deliberately refuses to
+    answer true while a recovery journal is outstanding.
+    """
+    if not incremental_enabled():
+        return False
+    return profile_session.deployment_unchanged(
+        snapshot_generation, str(link_mode).lower())
+
+
+def _entry_signature(entry, link_mode: str) -> tuple:
+    return (
+        entry.mod_key,
+        entry.provider_kind,
+        entry.source_rel,
+        entry.source_display,
+        entry.source_fingerprint,
+        str(link_mode).lower(),
+    )
+
+
+def apply_incremental(
+    plan: IncrementalPlan,
+    tasks: list,
+    rel_mod: dict[str, tuple[str, str]],
+    *,
+    deploy_dir: Path,
+    core_dir: Path,
+    overwrite_dir: Path,
+    mode: LinkMode,
+    state_dir: Path,
+    staging_root: Path | None = None,
+    excluded_plan_keys: set[str] | None = None,
+    log_fn=None,
+    progress_fn=None,
+) -> tuple[int, set[str]]:
+    """Apply only changed destinations from two catalog generations."""
+    del state_dir, staging_root
+    log = _safe_log(log_fn)
+    if plan.new_entries is None:
+        raise IncrementalFallback("the new Filegraph plan was not bound")
+    if any(task[3] for task in tasks):
+        raise IncrementalFallback("custom-location tasks are present")
+    if Path(core_dir) != plan.core_dir or mode is not plan.mode:
+        raise IncrementalFallback("deployment target or link mode changed")
+
+    new_tasks = {task[2]: task for task in tasks}
+    excluded = excluded_plan_keys or set()
+    old = {
+        key: entry for key, entry in plan.old_entries.items()
+        if key not in excluded
+    }
+    new = {
+        key: entry for key, entry in plan.new_entries.items()
+        if key not in excluded
+    }
+    if set(new_tasks) != set(new):
+        raise IncrementalFallback(
+            "the handler task projection differs from the pinned Filegraph plan")
+    old_keys = set(old)
+    new_keys = set(new)
+    removed = old_keys - new_keys
+    added = new_keys - old_keys
+    changed = {
+        key for key in old_keys & new_keys
+        if _entry_signature(
+            old[key], getattr(old[key], "link_mode", None) or plan.mode.name)
+        != _entry_signature(new[key], mode.name)
+    }
+    relink = added | changed
+    delta = len(removed) + len(relink)
+    scale = max(len(old), len(new), 1)
+    if delta > _DELTA_FALLBACK_RATIO * scale:
+        raise IncrementalFallback(
+            f"too many changed destinations ({delta} of {scale})")
+
+    log(
+        f"  Incremental: {len(added)} added, {len(removed)} removed, "
+        f"{len(changed)} replaced, {len(new_keys - relink)} unchanged."
+    )
+    from Utils.filegraph_deploy import current as current_deployment, mark_phase
+    if current_deployment() is not None:
+        mark_phase("removing")
+    deploy_dir_str = str(deploy_dir)
+    prefix_length = len(deploy_dir_str) + 1
+    stats = plan.deploy_stats
+
+    def recorded_stat(relative_key: str):
+        nonlocal stats
+        if stats is None:
+            from Utils.deploy_standard import (
+                _DEPLOY_STATS_NAME, _load_deploy_stats,
+            )
+            stats = _load_deploy_stats(
+                plan.state_dir / _DEPLOY_STATS_NAME)
+        return stats.get(relative_key)
+    listing_cache: dict[str, dict[str, str]] = {}
+    resolved_cache: dict[str, str] = {}
+    core_listing_cache: dict[str, dict[str, str]] = {}
+    core_resolved_cache: dict[str, str] = {}
+
+    def old_relative(key: str) -> str:
+        value = _entry_relative(plan.game, old[key], deploy_dir)
+        if value is None:
+            raise IncrementalFallback(
+                f"committed destination escaped deploy root: {key}")
+        return value
+
+    def core_lookup(relative: str) -> str | None:
+        path = _resolve_root_path_str(
+            str(core_dir), relative, core_listing_cache,
+            resolved_dir_cache=core_resolved_cache)
+        return path if os.path.lexists(path) else None
+
+    rescued_overwrite: list[str] = []
+    rescued_to_mod = 0
+
+    def clear_destination(
+        destination: str,
+        relative_key: str,
+        relative_display: str,
+        staging_destination: str | None = None,
+    ) -> None:
+        nonlocal rescued_to_mod
+        try:
+            deployed_stat = os.lstat(destination)
+        except OSError:
+            return
+        if _stat.S_ISLNK(deployed_stat.st_mode):
+            os.unlink(destination)
+            return
+        if not _stat.S_ISREG(deployed_stat.st_mode):
+            raise IncrementalFallback(
+                f"unexpected non-file entry at {destination}")
+        if deployed_stat.st_nlink > 1:
+            os.unlink(destination)
+            return
+        recorded = recorded_stat(relative_key)
+        from Utils.deploy_standard import _MTIME_TOLERANCE_NS
+        if (recorded is not None
+                and deployed_stat.st_size == recorded[0]
+                and abs(deployed_stat.st_mtime_ns - recorded[1])
+                <= _MTIME_TOLERANCE_NS):
+            os.unlink(destination)
+            return
+        vanilla = core_lookup(relative_display)
+        if vanilla is not None:
+            try:
+                vanilla_stat = os.lstat(vanilla)
+                if (
+                    (deployed_stat.st_dev == vanilla_stat.st_dev
+                     and deployed_stat.st_ino == vanilla_stat.st_ino)
+                    or (
+                        deployed_stat.st_size == vanilla_stat.st_size
+                        and abs(deployed_stat.st_mtime_ns
+                                - vanilla_stat.st_mtime_ns)
+                        <= _MTIME_TOLERANCE_NS
+                    )
+                ):
+                    os.unlink(destination)
+                    return
+            except OSError:
+                pass
+        if staging_destination is not None:
+            _move_crash_safe(destination, staging_destination)
+            rescued_to_mod += 1
+            return
+        overwrite_destination = str(overwrite_dir / relative_display)
+        _move_crash_safe(destination, overwrite_destination)
+        rescued_overwrite.append(relative_display)
+
+    refill_tasks: list[tuple[str, str]] = []
+    prune_dirs: set[str] = set()
+    for key in removed:
+        relative = old_relative(key)
+        destination = _resolve_root_path_str(
+            deploy_dir_str, relative, listing_cache,
+            resolved_dir_cache=resolved_cache)
+        clear_destination(destination, key, relative)
+        prune_dirs.add(os.path.dirname(destination))
+        vanilla = core_lookup(relative)
+        if vanilla is not None:
+            refill_tasks.append((vanilla, destination))
+
+    for key in relink:
+        task = new_tasks[key]
+        old_destination = None
+        old_display = task[1][prefix_length:]
+        if key in old:
+            old_display = old_relative(key)
+            old_destination = _resolve_root_path_str(
+                deploy_dir_str, old_display, listing_cache,
+                resolved_dir_cache=resolved_cache)
+        new_destination = task[1]
+        staging_destination = task[0] if key in changed else None
+        if old_destination is not None:
+            clear_destination(
+                old_destination, key, old_display, staging_destination)
+        if old_destination != new_destination:
+            clear_destination(
+                new_destination, key, task[1][prefix_length:],
+                staging_destination)
+
+    def effective_mode(task) -> LinkMode:
+        if task[4]:
+            return LinkMode.SYMLINK
+        return task[5] if task[5] is not None else mode
+
+    link_specs = [
+        (new_tasks[key][0], new_tasks[key][1], key,
+         effective_mode(new_tasks[key]))
+        for key in relink
+    ]
+    required_dirs = {os.path.dirname(item[1]) for item in link_specs}
+    required_dirs.update(os.path.dirname(item[1]) for item in refill_tasks)
+    _mkdir_leaves(required_dirs)
+    if current_deployment() is not None:
+        mark_phase("placing")
+    linked = 0
+    completed = 0
+    total_operations = len(link_specs) + len(refill_tasks)
+    placed_relinked: set[str] = set()
+    new_stats: dict[str, tuple[str, int, int]] = {}
+
+    def place(spec):
+        source, destination, key, transfer_mode = spec
+        actual, error = _do_link_ex(source, destination, transfer_mode)
+        stat_record = None
+        if error is None and actual is not LinkMode.SYMLINK:
+            try:
+                placed_stat = os.lstat(destination)
+                if _stat.S_ISREG(placed_stat.st_mode):
+                    stat_record = (
+                        destination[prefix_length:], placed_stat.st_size,
+                        placed_stat.st_mtime_ns,
+                    )
+            except OSError:
+                pass
+        return key, actual, error, destination, stat_record
+
+    def fatal_place(result) -> bool:
+        return result[2] is not None and getattr(
+            result[2], "errno", None) == errno.ENOSPC
+
+    for key, _actual, error, destination, stat_record in _iter_map_batched(
+            place, link_specs, stop_on=fatal_place):
+        completed += 1
+        if error is not None:
+            if getattr(error, "errno", None) == errno.ENOSPC:
+                raise OSError(errno.ENOSPC, f"game drive full at {destination}")
+            log(f"  WARN: could not transfer {destination}: {error}")
+        else:
+            linked += 1
+            placed_relinked.add(key)
+            if stat_record is not None:
+                new_stats[key] = stat_record
+        if progress_fn is not None and (
+                completed % 200 == 0 or completed == total_operations):
+            progress_fn(completed, total_operations)
+
+    def refill(item):
+        source, destination = item
+        actual, error = _do_link_ex(source, destination, mode)
+        return destination, actual, error
+
+    for destination, _actual, error in _iter_map_batched(
+            refill, refill_tasks,
+            stop_on=lambda result: getattr(
+                result[2], "errno", None) == errno.ENOSPC):
+        completed += 1
+        if error is not None:
+            if getattr(error, "errno", None) == errno.ENOSPC:
+                raise OSError(errno.ENOSPC, f"game drive full at {destination}")
+            log(f"  WARN: could not restore vanilla {destination}: {error}")
+        if progress_fn is not None and (
+                completed % 200 == 0 or completed == total_operations):
+            progress_fn(completed, total_operations)
+
+    for directory in sorted(
+            prune_dirs, key=lambda value: value.count("/"), reverse=True):
+        current = directory
+        while current != deploy_dir_str and current.startswith(
+                deploy_dir_str + "/"):
+            try:
+                os.rmdir(current)
+            except OSError:
+                break
+            current = os.path.dirname(current)
+
+    if rescued_to_mod:
+        log(f"  Rescued {rescued_to_mod} edited file(s) back to mod folders.")
+    if rescued_overwrite:
+        log(
+            f"  Rescued {len(rescued_overwrite)} runtime/edited file(s) "
+            "to overwrite/."
+        )
+        _append_overwrite_log(overwrite_dir, rescued_overwrite, log)
+
+    final_placed = (new_keys - relink) | placed_relinked
+    from Utils.deploy_standard import (
+        _DEPLOY_STATS_NAME, _write_deploy_stats_delta,
+    )
+    # Keep the large full-deploy file as an immutable baseline and record only
+    # destinations touched by this deployment.  Tombstones suppress stale
+    # baseline records for removed, failed, and symlinked destinations.
+    stats_updates: dict[str, tuple[str, int | None, int | None]] = {}
+    for key in removed:
+        stats_updates[key] = (old_relative(key), None, None)
+    for key in relink:
+        stats_updates[key] = (
+            new_tasks[key][1][prefix_length:], None, None)
+    stats_updates.update(new_stats)
+    _write_deploy_stats_delta(
+        plan.state_dir / _DEPLOY_STATS_NAME, stats_updates, log_fn=log_fn)
+    plan.ran_incremental = True
+    return linked, final_placed
 
 
 def plan_vfs_redeploy(game, profile: str, log_fn=None) -> bool:
-    """Return whether an existing profile VFS view can be redeployed in place.
-
-    The physical incremental plan above cannot target a VFS deployment: its
-    diff primitives operate on a live ``Data/`` plus ``Data_Core/`` pair.
-    VFS has a separate safe fast path.  ``build_layers`` captures runtime
-    writes from the published shadow, builds its replacement beside it, and
-    atomically swaps the completed view into place.  Keeping the old state
-    until that builder runs avoids a redundant destructive ``restore()`` and
-    also leaves the last working view available if the replacement fails.
-
-    This predicate is deliberately conservative.  Mode/profile migrations and
-    old/non-shadow manifests still take the full restore path once.
-    """
+    """Return whether an existing profile VFS view can be replaced in place."""
     if not incremental_enabled():
         return False
     if not getattr(game, "vfs_launch_enabled", False):
         return False
 
-    _log = _safe_log(log_fn)
+    log = _safe_log(log_fn)
 
-    def _skip(reason: str) -> bool:
-        _log(
+    def skip(reason: str) -> bool:
+        log(
             f"Incremental VFS deploy unavailable - {reason}; "
             "using the full path."
         )
@@ -265,504 +553,38 @@ def plan_vfs_redeploy(game, profile: str, log_fn=None) -> bool:
 
     try:
         if game.get_last_deployed_profile() != profile:
-            return _skip("a different profile was deployed last")
+            return skip("a different profile was deployed last")
         if not game.get_deploy_active():
-            return _skip("no active deployment")
+            return skip("no active deployment")
         if game.get_last_deploy_mode() != "VFS":
-            return _skip("the previous deployment was not VFS")
+            return skip("the previous deployment was not VFS")
 
-        # A leftover physical Data_Core means VFS and physical recovery state
-        # coexist.  Let the handler's full restore reconcile that exceptional
-        # migration before attempting a direct VFS redeploy.
         data_root_getter = getattr(game, "get_vfs_data_root", None)
         data_root = (
             data_root_getter() if callable(data_root_getter)
             else game.get_mod_data_path()
         )
         if data_root is not None and _default_core(Path(data_root)).is_dir():
-            return _skip("physical deployment recovery state is still present")
+            return skip("physical deployment recovery state is still present")
 
         from Utils.vfs import BACKEND_SHADOW, manifest_path
-
         manifest = manifest_path(game, profile)
         if not manifest.is_file():
-            return _skip("published view manifest missing")
+            return skip("published view manifest missing")
         payload = json.loads(manifest.read_text(encoding="utf-8"))
         if (not isinstance(payload, dict)
                 or payload.get("backend") != BACKEND_SHADOW):
-            return _skip("the published view uses an older backend")
+            return skip("the published view uses an older backend")
         if payload.get("profile") != profile:
-            return _skip("published view belongs to a different profile")
+            return skip("published view belongs to a different profile")
         return True
-    except Exception as exc:                    # noqa: BLE001 - never block deploy
-        return _skip(f"eligibility check failed ({exc})")
-
-
-# ---------------------------------------------------------------------------
-# The diff-apply pass (called from deploy_filemap under an active plan)
-# ---------------------------------------------------------------------------
-
-def apply_incremental(
-    plan: IncrementalPlan,
-    tasks: list,
-    rel_mod: "dict[str, tuple[str, str]]",
-    *,
-    deploy_dir: Path,
-    core_dir: Path,
-    overwrite_dir: Path,
-    mode: LinkMode,
-    state_dir: Path,
-    staging_root: "Path | None" = None,
-    log_fn=None,
-    progress_fn=None,
-) -> "tuple[int, set[str]]":
-    """Diff *tasks* (the new deployment) against plan.old_filemap and apply.
-
-    tasks   - deploy_filemap's resolved task list:
-              (src_str, dst_str, rel_lower, is_custom, use_symlink, override_mode)
-    rel_mod - rel_lower -> (rel_str, mod_name) for the new deployment.
-
-    Returns (files_linked, placed_lower) exactly like the full deploy_filemap
-    path, so the calling handler code is none the wiser.  Raises
-    IncrementalFallback on any anomaly.
-    """
-    _log = _safe_log(log_fn)
-    from Utils.deploy_standard import (
-        _DEPLOY_STATS_NAME, _MTIME_TOLERANCE_NS, _VANILLA_DEPLOYED_NAME,
-        _load_vanilla_deployed, _write_deploy_stats, _write_vanilla_deployed)
-
-    if any(t[3] for t in tasks):
-        raise IncrementalFallback("custom-location tasks present")
-
-    deploy_dir_str = str(deploy_dir)
-    plen = len(deploy_dir_str) + 1
-    old = plan.old_filemap
-    stats = plan.deploy_stats
-
-    new_tasks: dict[str, tuple] = {t[2]: t for t in tasks}
-    new_rels = set(new_tasks)
-    if not new_rels:
-        raise IncrementalFallback("new deployment set is empty")
-
-    def _eff_mode(t) -> LinkMode:
-        return LinkMode.SYMLINK if t[4] else (t[5] if t[5] is not None else mode)
-
-    # ---- read-only phase: classify --------------------------------------
-    removed = [r for r in old if r not in new_rels]
-    added = [r for r in new_rels if r not in old]
-    moved = [r for r in new_rels
-             if r in old and old[r][1] != rel_mod[r][1]]
-
-    # Same-rel-same-mod entries: the staged file may have been replaced
-    # (reinstall/update breaks hardlinks and stales copies).  Non-symlink
-    # placements compare the *source* stat against the recorded deploy stat
-    # (hardlinks share the inode, copy2 preserves mtime, so an untouched
-    # source still matches).  Symlink placements just verify the link target.
-    to_check = [new_tasks[r] for r in new_rels
-                if r in old and old[r][1] == rel_mod[r][1]]
-    changed: list[str] = []
-
-    def _check_one(t) -> "str | None":
-        src, dst, rel_lower, _ic, _us, _ov = t
-        try:
-            dstat = os.lstat(dst)
-        except OSError:
-            return rel_lower                # destination vanished - relink
-        if _stat_m.S_ISLNK(dstat.st_mode):
-            # Symlink placement (requested, or hardlink fell back to it):
-            # intact iff it still points at the staging source.
-            try:
-                return None if os.readlink(dst) == src else rel_lower
-            except OSError:
-                return rel_lower
-        try:
-            sst = os.lstat(src)
-        except OSError:
-            return rel_lower                # source vanished - relink WARNs
-        if dstat.st_ino == sst.st_ino and dstat.st_dev == sst.st_dev:
-            return None                     # hardlink intact - airtight check
-        # Copy placement (or a hardlink whose staging side was replaced,
-        # breaking the link).  Unchanged only when BOTH sides still match the
-        # recorded deploy-time stat: the destination check catches in-place
-        # edits / runtime files overwriting a deployed path (mirrors the
-        # restore rescue logic), the source check catches replaced staging
-        # files.  copy2 preserves mtime, so an untouched pair matches; the
-        # FAT/exFAT tolerance mirrors _MTIME_TOLERANCE_NS's purpose there.
-        ds = stats.get(rel_lower)
-        if ds is None:
-            return rel_lower
-        if dstat.st_size != ds[0] or abs(dstat.st_mtime_ns - ds[1]) > _MTIME_TOLERANCE_NS:
-            return rel_lower
-        if sst.st_size != ds[0] or abs(sst.st_mtime_ns - ds[1]) > _MTIME_TOLERANCE_NS:
-            return rel_lower
-        return None
-
-    # Batched: at ~125k entries a per-item pool.map spends seconds on future
-    # dispatch alone (the whole reason a no-change redeploy felt slow).
-    for r in _map_batched(_check_one, to_check):
-        if r is not None:
-            changed.append(r)
-
-    relink = set(added) | set(moved) | set(changed)
-    delta = len(relink) + len(removed)
-    scale = max(len(old), len(new_rels))
-    if delta > _DELTA_FALLBACK_RATIO * scale:
-        raise IncrementalFallback(
-            f"too many changes for an incremental deploy ({delta} of {scale})")
-
-    _log(f"  Incremental: {len(added)} added, {len(removed)} removed, "
-         f"{len(moved)} moved, {len(changed)} refreshed, "
-         f"{len(new_rels) - len(relink)} unchanged.")
-
-    # ---- mutation phase ---------------------------------------------------
-    dir_listing_cache: dict[str, dict[str, str]] = {}
-    resolved_dir_cache: dict[str, str] = {}
-    core_str = str(core_dir)
-
-    _core_index_cache: "list[dict[str, tuple[str, str]]]" = []
-
-    def _core_index() -> "dict[str, tuple[str, str]]":
-        """rel_lower → (rel_str, path) map of the vanilla backup (lazy walk)."""
-        if not _core_index_cache:
-            idx: dict[str, tuple[str, str]] = {}
-            cplen = len(core_str) + 1
-            for dp, _dns, fns in os.walk(core_str):
-                for fn in fns:
-                    cp = dp + "/" + fn
-                    rel = cp[cplen:]
-                    idx[rel.lower()] = (rel, cp)
-            _core_index_cache.append(idx)
-        return _core_index_cache[0]
-
-    def _core_lookup(rel_lower: str) -> "str | None":
-        hit = _core_index().get(rel_lower)
-        return hit[1] if hit is not None else None
-
-    rescued_overwrite: list[str] = []
-    rescued_to_mod = 0
-
-    def _clear_dst(dst: str, rel_lower: str,
-                   staging_dst: "str | None" = None) -> None:
-        """Clear whatever sits at *dst* so a new link can land (or the path
-        can stay vacant).  Managed placements - symlinks, hardlinks, copies
-        still matching the deploy record or the vanilla backup - are
-        discarded (staging/core owns the data); anything else is a runtime
-        or externally-edited file.  When *staging_dst* is given (same-mod
-        "changed" rels), an edited file is moved back onto its staging
-        source - the restore path's xEdit semantics - so the relink deploys
-        the edited content; otherwise it is rescued to overwrite/."""
-        try:
-            st = os.lstat(dst)
-        except OSError:
-            return
-        if _stat_m.S_ISLNK(st.st_mode):
-            os.unlink(dst)
-            return
-        if not _stat_m.S_ISREG(st.st_mode):
-            raise IncrementalFallback(f"unexpected non-file entry at {dst}")
-        if st.st_nlink > 1:
-            os.unlink(dst)              # our hardlink (mod file or vanilla fill)
-            return
-        ds = stats.get(rel_lower)
-        if ds is not None and st.st_size == ds[0] \
-                and abs(st.st_mtime_ns - ds[1]) <= _MTIME_TOLERANCE_NS:
-            os.unlink(dst)              # our copied mod file, unmodified
-            return
-        cp = _core_lookup(rel_lower)
-        if cp is not None:
-            try:
-                cst = os.lstat(cp)
-                if st.st_ino == cst.st_ino or (
-                        st.st_size == cst.st_size
-                        and abs(st.st_mtime_ns - cst.st_mtime_ns)
-                        <= _MTIME_TOLERANCE_NS):
-                    os.unlink(dst)      # vanilla gap-fill copy
-                    return
-            except OSError:
-                pass
-        rel_str = dst[plen:]
-        if staging_dst is not None:
-            nonlocal rescued_to_mod
-            _move_crash_safe(dst, staging_dst)
-            rescued_to_mod += 1
-            mod_name = rel_mod[rel_lower][1]
-            if mod_name != _OVERWRITE_NAME and staging_root is not None \
-                    and rel_str.lower().endswith((".esp", ".esm", ".esl")):
-                from Utils.deploy_standard import _tag_mod_xedit_modified
-                _tag_mod_xedit_modified(Path(staging_root) / mod_name,
-                                        os.path.basename(rel_str))
-            return
-        _move_crash_safe(dst, str(overwrite_dir) + "/" + rel_str)
-        rescued_overwrite.append(rel_str)
-
-    # Removed rels: clear the deployed file, then refill the path from the
-    # vanilla backup when the game shipped a file there.
-    refill_tasks: list[tuple[str, str]] = []       # (core_src, dst)
-    prune_dirs: set[str] = set()
-    for rel_lower in removed:
-        rel_str = old[rel_lower][0].replace("\\", "/")
-        dst = _resolve_root_path_str(deploy_dir_str, rel_str,
-                                     dir_listing_cache,
-                                     resolved_dir_cache=resolved_dir_cache)
-        _clear_dst(dst, rel_lower)
-        prune_dirs.add(os.path.dirname(dst))
-        cp = _core_lookup(rel_lower)
-        if cp is not None:
-            refill_tasks.append((cp, dst))
-
-    # Relinked rels: clear whatever occupies the destination (stale vanilla
-    # fill, old mod link, runtime file) before the new link lands.  For
-    # same-mod "changed" rels an edited destination goes back onto its
-    # staging source (xEdit semantics - the relink then redeploys the edit);
-    # added/moved rels rescue foreign content to overwrite/.
-    changed_set = set(changed)
-    for rel_lower in relink:
-        t = new_tasks[rel_lower]
-        _clear_dst(t[1], rel_lower,
-                   staging_dst=t[0] if rel_lower in changed_set else None)
-
-    link_specs = [
-        (new_tasks[r][0], new_tasks[r][1], r, _eff_mode(new_tasks[r]))
-        for r in relink
-    ]
-    needed_dirs = {os.path.dirname(d) for _s, d, _r, _m in link_specs}
-    needed_dirs.update(os.path.dirname(d) for _s, d in refill_tasks)
-    _mkdir_leaves(needed_dirs)
-
-    linked = 0
-    done = 0
-    total_ops = len(link_specs) + len(refill_tasks)
-    placed_relinked: set[str] = set()
-    stats_new: dict[str, str] = {}
-    vanilla_added: list[str] = []
-
-    def _do_one(spec):
-        src, dst, rel_lower, em = spec
-        actual, err = _do_link_ex(src, dst, em)
-        if err is not None:
-            return rel_lower, None, (dst, err), None
-        line = None
-        if actual is not LinkMode.SYMLINK:
-            try:
-                dstat = os.lstat(dst)
-                if _stat_m.S_ISREG(dstat.st_mode):
-                    line = (f"{dst[plen:]}\t{dstat.st_size}"
-                            f"\t{dstat.st_mtime_ns}\n")
-            except OSError:
-                pass
-        return rel_lower, actual, None, line
-
-    if link_specs:
-        def _link_fatal(result) -> bool:
-            err = result[2]
-            return (err is not None
-                    and getattr(err[1], "errno", None) == errno.ENOSPC)
-
-        for rel_lower, actual, err, line in _iter_map_batched(
-                _do_one, link_specs, stop_on=_link_fatal):
-            done += 1
-            if err is not None:
-                dst_err, exc = err
-                if getattr(exc, "errno", None) == errno.ENOSPC:
-                    _log(f"  ERROR: game drive is full - aborting deploy "
-                         f"(failed at {dst_err}). Free up space, then run "
-                         f"Restore and deploy again.")
-                    raise OSError(errno.ENOSPC,
-                                  f"Game drive full while deploying {dst_err}")
-                _log(f"  WARN: could not transfer {dst_err}: {exc}")
-                continue
-            placed_relinked.add(rel_lower)
-            linked += 1
-            if line is not None:
-                stats_new[rel_lower] = line
-            if progress_fn is not None and (done % 200 == 0 or done == total_ops):
-                progress_fn(done, total_ops)
-
-    def _do_refill(item):
-        cp, dst = item
-        actual, err = _do_link_ex(cp, dst, mode)
-        return dst, actual, err
-
-    if refill_tasks:
-        def _refill_fatal(result) -> bool:
-            return getattr(result[2], "errno", None) == errno.ENOSPC
-
-        for dst, actual, err in _iter_map_batched(
-                _do_refill, refill_tasks, stop_on=_refill_fatal):
-            done += 1
-            if err is not None:
-                if getattr(err, "errno", None) == errno.ENOSPC:
-                    raise OSError(errno.ENOSPC,
-                                  f"Game drive full while deploying {dst}")
-                _log(f"  WARN: could not restore vanilla {dst}: {err}")
-                continue
-            if actual is LinkMode.SYMLINK:
-                vanilla_added.append(dst[plen:])
-            if progress_fn is not None and (done % 200 == 0 or done == total_ops):
-                progress_fn(done, total_ops)
-
-    # Prune directories emptied by the removals (deepest first; rmdir only
-    # succeeds on empty dirs, so refilled/live paths are naturally kept).
-    for d in sorted(prune_dirs, key=lambda p: p.count("/"), reverse=True):
-        cur = d
-        while cur != deploy_dir_str and cur.startswith(deploy_dir_str + "/"):
-            try:
-                os.rmdir(cur)
-            except OSError:
-                break
-            cur = os.path.dirname(cur)
-
-    if rescued_to_mod:
-        _log(f"  Rescued {rescued_to_mod} edited file(s) back to mod folder(s).")
-    if rescued_overwrite:
-        _log(f"  Rescued {len(rescued_overwrite)} runtime/edited file(s) → overwrite/.")
-        _append_overwrite_log(overwrite_dir, rescued_overwrite, _log)
-        _record_overwrite_index(overwrite_dir, rescued_overwrite, _log)
-
-    # ---- refresh the on-disk records ---------------------------------------
-    final_placed = (new_rels - relink) | placed_relinked
-
-    stats_lines: list[str] = []
-    for rel_lower in new_tasks:
-        if rel_lower not in final_placed:
-            continue
-        if rel_lower in placed_relinked:
-            line = stats_new.get(rel_lower)
-            if line is not None:
-                stats_lines.append(line)
-        else:
-            ds = stats.get(rel_lower)
-            if ds is not None:
-                # Kept file - previous record still accurate.  The loader
-                # lowercases rels, so the new filemap's casing is fine here.
-                stats_lines.append(f"{rel_mod[rel_lower][0]}\t{ds[0]}\t{ds[1]}\n")
-    _write_deploy_stats(state_dir / _DEPLOY_STATS_NAME, stats_lines,
-                        log_fn=log_fn)
-
-    write_deployed_filemap(
-        state_dir / DEPLOYED_FILEMAP_NAME,
-        [(rel_mod[r][0], rel_mod[r][1]) for r in new_tasks if r in final_placed],
-        log_fn=log_fn)
-
-    # Vanilla symlink manifest: rels that became mod-covered leave the set,
-    # symlink-mode refills join it.
-    manifest_path = state_dir / _VANILLA_DEPLOYED_NAME
-    vanilla = _load_vanilla_deployed(manifest_path)
-    dropped = vanilla & relink
-    new_vanilla = [v for v in vanilla_added if v.lower() not in vanilla]
-    if dropped or new_vanilla:
-        vanilla -= dropped
-        _write_vanilla_deployed(
-            manifest_path, sorted(vanilla) + new_vanilla, log_fn=log_fn)
-
-    if verify_enabled():
-        _verify(new_tasks, final_placed, _eff_mode, _core_index(),
-                deploy_dir_str, dir_listing_cache, resolved_dir_cache, _log)
-
-    plan.ran_incremental = True
-    return linked, final_placed
-
-
-def _record_overwrite_index(overwrite_dir: Path, rels: "list[str]", _log) -> None:
-    """Append rescued rels to modindex.bin under [Overwrite] (mirror of the
-    restore_data_core bookkeeping) so the next filemap build sees them."""
-    try:
-        from Utils.filemap import (
-            read_mod_index, update_mod_index, _is_utf8_safe, _safe_log_str,
-        )
-        index_path = overwrite_dir.parent / "modindex.bin"
-        existing = read_mod_index(index_path) or {}
-        existing_normal, existing_root = existing.get(_OVERWRITE_NAME, ({}, {}))
-        new_normal: dict[str, str] = dict(existing_normal)
-        for rel_str in rels:
-            # Game-created names can be arbitrary bytes; a non-UTF-8 name
-            # can't be msgpack-serialized and would abort the whole update.
-            if not _is_utf8_safe(rel_str):
-                _log(f"  WARN: rescued file has a non-UTF-8 name, "
-                     f"not indexed: {_safe_log_str(rel_str)}")
-                continue
-            rel_posix = rel_str.replace("\\", "/")
-            new_normal[rel_posix.lower()] = rel_posix
-        update_mod_index(index_path, _OVERWRITE_NAME, new_normal,
-                         existing_root, log_fn=_log)
-    except Exception as idx_err:
-        try:
-            _log(f"  WARN: could not update modindex.bin with rescued "
-                 f"file(s): {idx_err}")
-        except Exception:
-            pass
-
-
-def _verify(new_tasks: dict, final_placed: "set[str]", eff_mode_fn,
-            core_index: "dict[str, tuple[str, str]]", deploy_dir_str: str,
-            dir_listing_cache: dict, resolved_dir_cache: dict, _log) -> None:
-    """AMM_DEPLOY_VERIFY=1 - check every placed rel is correctly linked and
-    every uncovered vanilla file is present.  Logs a summary, never raises.
-    A debugging aid: clarity over speed."""
-    from Utils.deploy_standard import _MTIME_TOLERANCE_NS
-
-    mismatches = 0
-
-    def _check(rel_lower: str) -> int:
-        t = new_tasks[rel_lower]
-        src, dst = t[0], t[1]
-        em = eff_mode_fn(t)
-        try:
-            st = os.lstat(dst)
-        except OSError:
-            return 1
-        if em is LinkMode.SYMLINK:
-            try:
-                return 0 if os.readlink(dst) == src else 1
-            except OSError:
-                return 1
-        try:
-            sst = os.lstat(src)
-        except OSError:
-            return 1
-        if st.st_ino == sst.st_ino and st.st_dev == sst.st_dev:
-            return 0
-        # copy / fell back to copy - size + mtime parity
-        if st.st_size == sst.st_size \
-                and abs(st.st_mtime_ns - sst.st_mtime_ns) <= _MTIME_TOLERANCE_NS:
-            return 0
-        return 1
-
-    for r in _map_batched(_check, list(final_placed)):
-        mismatches += r
-
-    # Vanilla coverage: every core rel not shadowed by a mod must exist at
-    # its (case-resolved) deploy path.
-    missing_vanilla = 0
-    for rel_lower, (rel_str, _cp) in core_index.items():
-        if rel_lower in final_placed:
-            continue
-        dst = _resolve_root_path_str(deploy_dir_str, rel_str.replace("\\", "/"),
-                                     dir_listing_cache,
-                                     resolved_dir_cache=resolved_dir_cache)
-        if not os.path.lexists(dst):
-            missing_vanilla += 1
-
-    if mismatches or missing_vanilla:
-        _log(f"  VERIFY: {mismatches} mismatched deployed file(s), "
-             f"{missing_vanilla} missing vanilla file(s) - incremental deploy "
-             f"diverged; run a full deploy (AMM_DEPLOY_INCREMENTAL=0) and report.")
-    else:
-        _log("  VERIFY: incremental deploy matches expectation.")
+    except Exception as exc:
+        return skip(f"eligibility check failed ({exc})")
 
 
 __all__ = [
-    "DEPLOYED_FILEMAP_NAME",
-    "IncrementalFallback",
-    "IncrementalPlan",
-    "active_for",
-    "activate",
-    "apply_incremental",
-    "deactivate",
-    "incremental_enabled",
-    "is_active",
-    "load_deployed_filemap",
-    "plan_incremental",
-    "verify_enabled",
-    "write_deployed_filemap",
+    "IncrementalFallback", "IncrementalPlan", "active_for", "activate",
+    "apply_incremental", "bind_deployment_plan", "deactivate",
+    "deployment_unchanged", "incremental_enabled", "is_active",
+    "plan_incremental", "plan_vfs_redeploy", "verify_enabled",
 ]

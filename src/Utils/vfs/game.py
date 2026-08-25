@@ -340,6 +340,7 @@ class ProfileVFSGameMixin:
                         sep_entries,
                         log_fn=log_fn,
                         filemap_path=filemap,
+                        game=self,
                     )
                 except Exception as cleanup_exc:
                     log_fn(

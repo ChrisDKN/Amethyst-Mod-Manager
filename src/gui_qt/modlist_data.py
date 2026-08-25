@@ -386,7 +386,7 @@ def display_codes_from_conflict_map(conflict_map: dict):
     NONE=0 WINS=1 LOSES=2 PARTIAL=3 FULL=4) to the Qt delegate's display codes.
     This preserves FULL (fully-overridden / redundant) which the old
     override-set re-derivation lost."""
-    from Utils.filemap import (
+    from Utils.filegraph_constants import (
         CONFLICT_WINS, CONFLICT_LOSES, CONFLICT_PARTIAL, CONFLICT_FULL,
     )
     out: dict[str, int] = {}

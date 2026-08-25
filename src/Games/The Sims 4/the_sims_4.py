@@ -166,7 +166,8 @@ class TheSims4(BaseGame):
 
         mods_dir.mkdir(parents=True, exist_ok=True)
 
-        if not filemap.is_file():
+        from Utils.filegraph_deploy import input_ready
+        if not input_ready():
             raise RuntimeError(
                 f"filemap.txt not found: {filemap}\n"
                 "Run 'Build Filemap' before deploying."
@@ -230,7 +231,7 @@ class TheSims4(BaseGame):
 
         _profile_dir = self._active_profile_dir
         _entries = read_modlist(_profile_dir / "modlist.txt") if _profile_dir else []
-        cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log)
+        cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log, game=self)
 
         custom_rules = self.custom_routing_rules
         if custom_rules:
@@ -244,7 +245,9 @@ class TheSims4(BaseGame):
             )
 
         _log("Restore: clearing Mods/ and moving Mods_Core/ back ...")
-        restored = restore_data_core(mods_dir, overwrite_dir=self.get_effective_overwrite_path(), log_fn=_log)
+        restored = restore_data_core(
+            mods_dir, overwrite_dir=self.get_effective_overwrite_path(),
+            log_fn=_log, game=self, profile_dir=self._active_profile_dir)
         _log(f"  Restored {restored} file(s). Mods_Core/ removed.")
 
         _log("Restore complete.")

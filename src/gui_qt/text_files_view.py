@@ -33,8 +33,7 @@ class TextFilesView(QWidget):
         super().__init__(parent)
         self.game = None
         self.profile_dir: Path | None = None
-        self.filemap_path: Path | None = None
-        self.staging_root: Path | None = None
+        self._snapshot = None
         self.on_open_file = None        # callback(full_path, rel_path)
         self._dirty = True
         self._is_visible = False
@@ -60,16 +59,19 @@ class TextFilesView(QWidget):
             self._loading_overlay.hide_overlay()
 
     # -- context ------------------------------------------------------------
-    def configure(self, game, profile_dir, filemap_path, staging_root):
+    def configure(self, game, profile_dir):
         self.game = game
         self.profile_dir = profile_dir
-        self.filemap_path = filemap_path
-        self.staging_root = staging_root
+        self._snapshot = None
         self._dirty = True
         # A profile/game switch invalidates any active content search.
         self._content_matches = None
         self._content_keyword = None
         self.content_status_changed.emit(None)
+
+    def set_snapshot(self, snapshot):
+        self._snapshot = snapshot
+        self.mark_dirty()
 
     def set_visible_tab(self, visible: bool):
         self._is_visible = visible
@@ -145,8 +147,7 @@ class TextFilesView(QWidget):
         gen = self._scan_gen
         game = self.game
         profile_dir = self.profile_dir
-        filemap_path = self.filemap_path
-        staging_root = self.staging_root
+        snapshot = self._snapshot
         keyword = self._content_keyword if self._content_matches is not None else None
         self._scanning = True
         self.scan_status_changed.emit(True)
@@ -154,7 +155,7 @@ class TextFilesView(QWidget):
         def worker():
             try:
                 entries = tf.discover_text_files(
-                    game, profile_dir, filemap_path, staging_root)
+                    game, profile_dir, snapshot=snapshot)
                 # A new scan invalidates the content-match set (paths may have
                 # changed) - recompute it here, still off the UI thread.
                 matches = (tf.content_search(entries, keyword)

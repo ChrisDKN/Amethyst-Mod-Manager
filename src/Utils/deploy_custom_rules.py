@@ -430,6 +430,125 @@ def compute_routed_dest(
     return f"{_dp}/{tail}" if _dp else tail
 
 
+def compute_routed_destinations(
+    relative_paths: list[str], rules: list["CustomRule"],
+) -> dict[str, list[tuple[bool, str]]]:
+    """Resolve every custom-rule claim for one whole mod manifest.
+
+    The result maps a lowercased staged path to all of its primary deployment
+    destinations as ``(to_prefix, relative_destination)``. Unlike the older
+    single-path helper this preserves rule ordering, ``include_siblings``
+    drags, companion files, declared folder casing, and mirror destinations.
+    Unclaimed paths are omitted so callers can place them in their normal Data
+    domain.
+    """
+    if not relative_paths or not rules:
+        return {}
+    indexed: list[tuple[str, str]] = []
+    by_parent: dict[str, list[tuple[str, str]]] = {}
+    seen: set[str] = set()
+    for raw in relative_paths:
+        relative = str(raw).replace("\\", "/").strip("/")
+        lower = relative.lower()
+        if not relative or lower in seen:
+            continue
+        seen.add(lower)
+        indexed.append((relative, lower))
+        by_parent.setdefault(
+            lower.rpartition("/")[0], []).append((relative, lower))
+
+    claims: dict[str, list[tuple[bool, str]]] = {}
+    primaries: dict[str, tuple["CustomRule", int, str]] = {}
+
+    def destinations(rule: "CustomRule", tail: str) -> list[tuple[bool, str]]:
+        result = []
+        for raw_dest in (rule.dest, *rule.mirror_dests):
+            destination = str(raw_dest).replace("\\", "/").strip("/")
+            full = (
+                f"{destination}/{tail}"
+                if destination and tail else destination or tail
+            )
+            result.append((bool(rule.to_prefix), full))
+        return result
+
+    for rule, folders, extensions, filenames in normalise_rules(rules):
+        new_primaries: list[str] = []
+        for relative, lower in indexed:
+            if lower in claims:
+                continue
+            hit = _match_single_rule(
+                lower, rule, folders, extensions, filenames)
+            if hit is None:
+                continue
+            strip_len, matched_extension = hit
+            if rule.include_siblings and "/" in relative:
+                tail = relative
+            elif rule.flatten:
+                tail = (
+                    relative[strip_len:].lstrip("/")
+                    if strip_len >= 0
+                    else relative.rsplit("/", 1)[-1]
+                )
+            else:
+                tail = relative
+            tail = canonicalize_declared_folders(
+                tail, tuple(rule.folders))
+            claims[lower] = destinations(rule, tail)
+            primaries[lower] = (rule, strip_len, matched_extension)
+            new_primaries.append(relative)
+
+        if not rule.include_siblings:
+            continue
+        containers = sorted({
+            relative.split("/", 1)[0].lower()
+            for relative in new_primaries if "/" in relative
+        }, key=len, reverse=True)
+        for container in containers:
+            prefix = container + "/"
+            for sibling, sibling_lower in indexed:
+                if (sibling_lower in claims
+                        or not sibling_lower.startswith(prefix)):
+                    continue
+                tail = canonicalize_declared_folders(
+                    sibling, tuple(rule.folders))
+                claims[sibling_lower] = destinations(rule, tail)
+
+    # Companion files are claimed only after every primary rule has run.
+    for primary_lower, (rule, strip_len, matched_ext) in primaries.items():
+        companions = sorted(
+            {str(ext).lower() for ext in rule.companion_extensions},
+            key=len, reverse=True,
+        )
+        if not companions:
+            continue
+        parent, _, filename = primary_lower.rpartition("/")
+        if matched_ext and filename.endswith(matched_ext):
+            stem = filename[:-len(matched_ext)]
+        else:
+            stem, _extension = os.path.splitext(filename)
+        for sibling, sibling_lower in by_parent.get(parent, ()):
+            if sibling_lower in claims:
+                continue
+            sibling_name = sibling_lower.rsplit("/", 1)[-1]
+            if not sibling_name.startswith(stem + "."):
+                continue
+            if not any(
+                    sibling_name.endswith(extension)
+                    and len(sibling_name) > len(extension)
+                    for extension in companions):
+                continue
+            if rule.flatten:
+                tail = (
+                    sibling[strip_len:].lstrip("/")
+                    if strip_len >= 0
+                    else sibling.rsplit("/", 1)[-1]
+                )
+            else:
+                tail = sibling
+            claims[sibling_lower] = destinations(rule, tail)
+    return claims
+
+
 def normalise_rules(
     rules: list["CustomRule"],
 ) -> list[tuple["CustomRule", set[str], list[str], set[str]]]:
@@ -587,29 +706,45 @@ def deploy_custom_rules(
     # surrogateescape throughout: filemap.txt entries and the deploy log carry
     # filesystem-derived paths whose non-UTF-8 bytes decode to surrogate code
     # points; a plain utf-8 read/write raises on them.
-    with filemap_path.open(encoding="utf-8", errors="surrogateescape") as f:
-        for line in f:
-            line = line.rstrip("\n")
-            if "\t" not in line:
-                continue
-            rel_str, mod_name = line.split("\t", 1)
-            rel_str = rel_str.replace("\\", "/")
-            if (_claim_paths is not None
-                    and rel_str.lower() not in _claim_paths):
-                continue
-            # Raw-deploy mods bypass routing rules entirely - leave their files
-            # for the normal deploy step (placed as-is under the custom dir).
-            if mod_name in _raw_mods:
-                continue
-            rel_lower = rel_str.lower()
-            if rel_lower in seen_lower:
-                continue
-            seen_lower.add(rel_lower)
-            parent_lower, _, name_lower = rel_lower.rpartition("/")
-            entries_by_parent.setdefault(parent_lower, []).append(
-                (rel_str, mod_name, name_lower)
-            )
-            all_entries.append((rel_str, mod_name, rel_lower))
+    from Utils.filegraph_deploy import entries as filegraph_entries
+    _filegraph_sources: dict[tuple[str, str], str] = {}
+    _legacy_rows: list[tuple[str, str]] = []
+    _source_roots: dict[str, str] = {}
+    for _entry in filegraph_entries():
+        if not _entry.legacy_rel or _entry.mod_name == "[Root_Folder]":
+            continue
+        _legacy_rows.append((_entry.legacy_rel, _entry.mod_name))
+        if _entry.source_root is None:
+            continue
+        _root_string = _source_roots.get(_entry.mod_name)
+        if _root_string is None:
+            _root_string = str(_entry.source_root)
+            _source_roots[_entry.mod_name] = _root_string
+        _filegraph_sources[
+            (_entry.legacy_rel.lower(), _entry.mod_name)
+        ] = _root_string + "/" + os.fsdecode(_entry.source_rel)
+
+    def _source(relative: str, mod_name: str) -> str | None:
+        return _filegraph_sources.get((relative.lower(), mod_name))
+
+    for rel_str, mod_name in _legacy_rows:
+        rel_str = rel_str.replace("\\", "/")
+        if (_claim_paths is not None
+                and rel_str.lower() not in _claim_paths):
+            continue
+        # Raw-deploy mods bypass routing rules entirely - leave their files
+        # for the normal deploy step (placed as-is under the custom dir).
+        if mod_name in _raw_mods:
+            continue
+        rel_lower = rel_str.lower()
+        if rel_lower in seen_lower:
+            continue
+        seen_lower.add(rel_lower)
+        parent_lower, _, name_lower = rel_lower.rpartition("/")
+        entries_by_parent.setdefault(parent_lower, []).append(
+            (rel_str, mod_name, name_lower)
+        )
+        all_entries.append((rel_str, mod_name, rel_lower))
 
     # Global pre-filter: a file cannot be a *primary* match for any rule
     # unless its path contains one of the rules' folders, extensions, or
@@ -661,11 +796,7 @@ def deploy_custom_rules(
         """
         rel_lower = rel_str.lower()
         primary_matches[rel_lower] = (rule, strip_len, rel_str, mod_name, matched_ext)
-        src_str = _resolve_source(
-            mod_name, rel_str, rel_lower, overwrite_dir, staging_root,
-            _overwrite_str, _staging_str, sorted_strip, _per_mod_strip,
-            nocase_cache,
-        )
+        src_str = _source(rel_str, mod_name)
         if src_str is None:
             _log(f"  WARN: source not found - {rel_str} ({mod_name})")
             handled_lower.add(rel_lower)  # claim it anyway so later rules don't re-try
@@ -712,11 +843,7 @@ def deploy_custom_rules(
                 if not sib_lower.startswith(prefix_lower):
                     continue
                 rel_in_container = sib_rel_str.replace("\\", "/")[len(container_lower) + 1:]
-            src_str = _resolve_source(
-                sib_mod_name, sib_rel_str, sib_lower, overwrite_dir, staging_root,
-                _overwrite_str, _staging_str, sorted_strip, _per_mod_strip,
-                nocase_cache,
-            )
+            src_str = _source(sib_rel_str, sib_mod_name)
             if src_str is None:
                 _log(f"  WARN: source not found - {sib_rel_str} ({sib_mod_name})")
                 handled_lower.add(sib_lower)
@@ -800,11 +927,7 @@ def deploy_custom_rules(
                     break
             if sib_ext is None:
                 continue
-            src_str = _resolve_source(
-                sib_mod_name, sib_rel_str, sib_lower, overwrite_dir, staging_root,
-                _overwrite_str, _staging_str, sorted_strip, _per_mod_strip,
-                nocase_cache,
-            )
+            src_str = _source(sib_rel_str, sib_mod_name)
             if src_str is None:
                 _log(f"  WARN: source not found - {sib_rel_str} ({sib_mod_name})")
                 continue
@@ -1224,12 +1347,71 @@ def mods_matching_root_rules(
     return hits
 
 
+def root_rule_flag_candidates(game) -> list["CustomRule"]:
+    """Return the game-root rules that carry the mod-list root-rule flag.
+
+    This is deliberately a presentation-capability test, not an inference
+    from the final deployment destination.  In particular, prefix rules do
+    not count and a required top-level folder routed to ``dest == ""`` is a
+    no-op for games whose normal mod root is already the game directory.
+    Keeping this rule beside the deployment matcher prevents Filegraph and
+    the legacy UI semantics from drifting apart again.
+    """
+    rules = [
+        rule
+        for rule in (getattr(game, "custom_routing_rules", None) or ())
+        if rule.dest == "" and not rule.to_prefix
+    ]
+    if not rules:
+        return []
+    try:
+        root_deploy = (
+            game.get_mod_data_path() == getattr(game, "_game_path", None)
+        )
+    except Exception:
+        root_deploy = False
+    if not root_deploy:
+        return rules
+
+    required = {
+        str(folder).strip().strip("/\\").lower()
+        for folder in (
+            getattr(game, "mod_required_top_level_folders", None) or ()
+        )
+    }
+    if not required:
+        return rules
+
+    keep: list["CustomRule"] = []
+    for rule in rules:
+        folders = [
+            str(folder).strip().strip("/\\").lower()
+            for folder in (getattr(rule, "folders", None) or ())
+        ]
+        # Extensions and filenames may match at any depth, so only a pure
+        # required-folder rule can be a no-op under root deployment.
+        if (
+            folders
+            and all(folder in required for folder in folders)
+            and not (
+                getattr(rule, "extensions", None)
+                or getattr(rule, "filenames", None)
+            )
+        ):
+            continue
+        keep.append(rule)
+    return keep
+
+
 __all__ = [
     "_CUSTOM_RULES_LOG_NAME",
     "_CUSTOM_RULES_BACKUP_DIR",
     "_CUSTOM_RULES_PREFIX_BACKUP_DIR",
     "deploy_custom_rules",
+    "compute_routed_dest",
+    "compute_routed_destinations",
     "compute_rule_claims",
     "restore_custom_rules",
     "mods_matching_root_rules",
+    "root_rule_flag_candidates",
 ]

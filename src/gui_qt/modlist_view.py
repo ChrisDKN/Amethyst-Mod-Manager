@@ -134,6 +134,15 @@ class ModListView(QTreeView):
         self._filter_hidden: set[int] = set()
         self._search_hidden: set[int] = set()
         self._searching: bool = False
+        # Conflict results normally arrive as a full snapshot first, but a
+        # restored Filegraph profile can legitimately publish an incremental
+        # delta as its first UI update.  Keep the four partner maps valid from
+        # construction so that path does not abort the rest of snapshot
+        # publication (Plugins, Filters, Data, and FOMOD dependency state).
+        self._overrides: dict[str, set[str]] = {}
+        self._overridden_by: dict[str, set[str]] = {}
+        self._bsa_overrides: dict[str, set[str]] = {}
+        self._bsa_overridden_by: dict[str, set[str]] = {}
         # Last hidden-row set actually applied via setRowHidden - lets
         # apply_collapse touch only the delta. Row indices go stale on any
         # structural change, so drop the cache there.
@@ -760,6 +769,26 @@ class ModListView(QTreeView):
         self._bsa_overridden_by = {k: set(v)
                                    for k, v in (bsa_overridden_by or {}).items()}
         # Re-apply any active highlight against the fresh maps.
+        self._refresh_self_highlights()
+
+    def apply_conflict_map_delta(
+        self, overrides, overridden_by, bsa_overrides, bsa_overridden_by,
+        changed_mods,
+    ) -> None:
+        """Copy partner sets only for mods named by a resolution delta."""
+        names = set(changed_mods or ())
+        for current, source in (
+            (self._overrides, overrides),
+            (self._overridden_by, overridden_by),
+            (self._bsa_overrides, bsa_overrides),
+            (self._bsa_overridden_by, bsa_overridden_by),
+        ):
+            for name in names:
+                partners = (source or {}).get(name)
+                if partners:
+                    current[name] = set(partners)
+                else:
+                    current.pop(name, None)
         self._refresh_self_highlights()
 
     def selectAll(self) -> None:

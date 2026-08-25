@@ -11,6 +11,7 @@ flatpak/repo
 *.AppImage
 /AUR
 src/loot.cpython-*.so
+src/amethyst_filegraph*.so
 /Nexus
 release.sh
 release/
@@ -23,4 +24,5 @@ AmethystModManager-AppImage/
 *.AppImage.zsync
 src/appimage/dist/
 /tests
+/native/amethyst_filegraph/target/
 /assets

@@ -1113,7 +1113,7 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
             from Utils.ui_config import load_normalize_folder_case
             if not load_normalize_folder_case():
                 return resolved
-            from Utils.filemap import canonicalize_dir_casing
+            from Utils.filegraph_paths import canonicalize_dir_casing
         except Exception:
             return resolved
 
@@ -1409,8 +1409,7 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
         return name, val == "1"
 
     def _collect_ue4ss_disabled_consensus(
-        self, staging: Path, mod_names: list[str],
-        index: dict[str, tuple[dict[str, str], dict[str, str]]] | None = None,
+        self, mod_names: list[str], snapshot,
     ) -> set[str]:
         """Scan staged mod folders for ``mods.txt`` files and return the set
         of folder names that should default to ``: 0``.
@@ -1420,11 +1419,8 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
         Any ``: 1`` mention flips it to enabled. Folders not mentioned in
         any source default to enabled.
 
-        ``index`` is the modindex.bin contents (mod_name → (normal_files,
-        root_files), each a {rel_key: rel_str} dict). When provided, we use
-        it to locate ``Mods/mods.txt`` files without walking disk; only the
-        handful of matching files are actually opened. Falls back to
-        ``rglob`` if the index isn't available.
+        Filegraph locates the small set of raw ``Mods/mods.txt`` sources; only
+        those exact files are opened.
 
         Returns a set of lowercased folder names.
         """
@@ -1441,45 +1437,21 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
                 if not enabled:
                     slot[1] += 1
 
-        mod_set = set(mod_names)
-        used_index = False
-        if index is not None:
-            used_index = True
-            for mod_name in mod_names:
-                entry = index.get(mod_name)
-                if entry is None:
-                    continue
-                normal_files, root_files = entry
-                # rel_key is lowercased - match endings like "/mods/mods.txt"
-                # or exactly "mods/mods.txt" (no leading slash).
-                for rel_key, rel_str in normal_files.items():
-                    if not (rel_key.endswith("/mods/mods.txt") or rel_key == "mods/mods.txt"):
-                        continue
-                    src = staging / mod_name / rel_str
-                    try:
-                        _ingest(src.read_text(encoding="utf-8", errors="replace"))
-                    except OSError:
-                        continue
-
-        if not used_index:
-            # Fallback: rglob each mod root. Slower; only used when the
-            # modindex.bin isn't available.
-            for mod_name in mod_names:
-                mod_root = staging / mod_name
-                if not mod_root.is_dir():
-                    continue
-                try:
-                    for p in mod_root.rglob("mods.txt"):
-                        if not p.is_file():
-                            continue
-                        if p.parent.name.lower() != "mods":
-                            continue
-                        try:
-                            _ingest(p.read_text(encoding="utf-8", errors="replace"))
-                        except OSError:
-                            continue
-                except OSError:
-                    continue
+        enabled = {name.lower() for name in mod_names}
+        from Utils.filegraph_service import source_path
+        for mod_name, relative in snapshot.raw_files_by_basename(["mods.txt"]):
+            if mod_name.lower() not in enabled:
+                continue
+            rel_text = bytes(relative).decode("utf-8", "surrogateescape")
+            parent = rel_text.replace("\\", "/").rsplit("/", 2)[-2:-1]
+            if not parent or parent[0].lower() != "mods":
+                continue
+            try:
+                _ingest(source_path(
+                    self, mod_name, relative).read_text(
+                        encoding="utf-8", errors="replace"))
+            except OSError:
+                continue
 
         return {k for k, (mentions, zeros) in counts.items()
                 if mentions > 0 and mentions == zeros}
@@ -1704,7 +1676,8 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
             raise RuntimeError("Game path is not configured.")
 
         filemap = self.get_effective_filemap_path()
-        if not filemap.is_file():
+        from Utils.filegraph_deploy import input_ready
+        if not input_ready():
             raise RuntimeError(
                 f"filemap.txt not found: {filemap}\n"
                 "Run 'Build Filemap' before deploying."
@@ -1812,11 +1785,13 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
         skipped = 0
         backed_up = 0
 
-        lines = [
-            line.rstrip("\n")
-            for line in filemap.read_text(encoding="utf-8").splitlines()
-            if "\t" in line
-        ]
+        from Utils.filegraph_deploy import entries as filegraph_entries, legacy_lines
+        lines = list(legacy_lines())
+        filegraph_sources = {
+            (entry.legacy_rel.lower(), entry.mod_name): entry.source_path
+            for entry in filegraph_entries()
+            if entry.legacy_rel and entry.source_path is not None
+        }
 
         # Build priority map so flatten/strip collisions resolve to the highest
         # priority mod's file rather than whichever line happens to deploy last.
@@ -1915,13 +1890,7 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
                     progress_fn(i + 1, total)
                 continue
 
-            src = self._find_staged_file(
-                staging, mod_name, staged_rel,
-                per_mod_strip.get(mod_name, []),
-                overwrite_dir,
-                global_strips=self.mod_folder_strip_prefixes,
-                overwrite_lookup=overwrite_lookup,
-            )
+            src = filegraph_sources.get((staged_rel.lower(), mod_name))
             if src is None:
                 _log(f"  WARN: source not found for {staged_rel} ({mod_name})")
                 skipped += 1
@@ -2031,15 +2000,15 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
                 # Build the disabled-by-consensus set from every source
                 # mods.txt across staging - a folder defaults to ``: 0`` only
                 # if every mod that mentions it sets it to 0. Reuses the
-                # cached modindex.bin to avoid walking disk per mod.
-                from Utils.filemap import read_mod_index as _read_mod_index
-                _index = _read_mod_index(filemap.parent / "modindex.bin")
+                # catalog to avoid walking disk per mod.
+                from Utils.filegraph_service import active_snapshot
+                snapshot = active_snapshot(self)
                 enabled_mods = [
                     e.name for e in read_modlist(modlist_path)
                     if e.enabled and not e.is_separator
                 ]
                 disabled = self._collect_ue4ss_disabled_consensus(
-                    staging, enabled_mods, index=_index,
+                    enabled_mods, snapshot,
                 )
                 self._update_ue4ss_mods_txt(folders, disabled_folders=disabled, log_fn=_log)
             except Exception as exc:

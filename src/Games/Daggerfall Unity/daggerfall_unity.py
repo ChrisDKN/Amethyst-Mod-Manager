@@ -634,15 +634,8 @@ class DaggerfallUnity(ProfileVFSGameMixin, BaseGame):
                              if (parent / name).is_symlink()]
                 for name in (*link_dirs, *filenames):
                     excluded.add((parent / name).relative_to(overwrite).as_posix())
-        try:
-            lines = filemap.read_text(
-                encoding="utf-8", errors="surrogateescape").splitlines()
-        except OSError:
-            return excluded
-        for line in lines:
-            if "\t" not in line:
-                continue
-            relative, owner = line.split("\t", 1)
+        from Utils.filegraph_deploy import legacy_rows
+        for relative, owner in legacy_rows():
             normalized = relative.replace("\\", "/")
             if owner == "[Overwrite]" and normalized.casefold().startswith(prefix):
                 excluded.add(normalized)
@@ -925,7 +918,8 @@ class DaggerfallUnity(ProfileVFSGameMixin, BaseGame):
                 f"'{_DATA_DIR}' not found in {self._game_path} - the game path "
                 "must be the folder containing DaggerfallUnity.x86_64."
             )
-        if not filemap.is_file():
+        from Utils.filegraph_deploy import input_ready
+        if not input_ready():
             raise RuntimeError(
                 f"filemap.txt not found: {filemap}\n"
                 "Run 'Build Filemap' before deploying."
@@ -1029,7 +1023,7 @@ class DaggerfallUnity(ProfileVFSGameMixin, BaseGame):
 
         _profile_dir = self._active_profile_dir
         _entries = read_modlist(_profile_dir / "modlist.txt") if _profile_dir else []
-        cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log)
+        cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log, game=self)
 
         # Managed assemblies live outside StreamingAssets/, so the _Core swap
         # below never touches them.  A VFS deploy routes them inside its private
@@ -1110,6 +1104,7 @@ class DaggerfallUnity(ProfileVFSGameMixin, BaseGame):
                 staging_root=self.get_effective_mod_staging_path(),
                 strip_prefixes=self.mod_folder_strip_prefixes,
                 log_fn=_log,
+                game=self, profile_dir=self._active_profile_dir,
             )
             _log(f"  Restored {restored} file(s). {core}/ removed.")
         else:

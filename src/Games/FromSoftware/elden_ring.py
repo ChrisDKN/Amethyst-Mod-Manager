@@ -972,7 +972,8 @@ class EldenRing(BaseGame):
         except OSError as exc:
             log_fn(f"  Could not clear {routed.name}/ ({exc}).")
 
-        if not filemap.is_file():
+        from Utils.filegraph_deploy import input_ready, legacy_rows
+        if not input_ready():
             return None, set()
         try:
             handled = deploy_custom_rules(
@@ -989,16 +990,9 @@ class EldenRing(BaseGame):
 
         # Map the handled paths back to the mods they came from.
         mods: set[str] = set()
-        try:
-            with filemap.open(encoding="utf-8", errors="surrogateescape") as fh:
-                for line in fh:
-                    if "\t" not in line:
-                        continue
-                    rel, mod_name = line.rstrip("\n").split("\t", 1)
-                    if rel.lower() in handled:
-                        mods.add(mod_name)
-        except OSError:
-            pass
+        for rel, mod_name in legacy_rows():
+            if rel.lower() in handled:
+                mods.add(mod_name)
 
         log_fn(f"  Placed {len(handled)} file(s) into {routed.name}/ "
                "at the paths the game reads them from.")

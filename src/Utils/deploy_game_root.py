@@ -23,9 +23,7 @@ from Utils.deploy_shared import (
     _mkdir_leaves,
     _move_crash_safe,
     _move_runtime_files,
-    _prebuild_mod_indexes,
     _resolve_root_path_str,
-    _resolve_source,
     _restore_from_log,
     _write_deploy_snapshot,
 )
@@ -137,17 +135,15 @@ def deploy_filemap_to_root(
     # surrogateescape throughout: filemap.txt entries and the deploy log carry
     # filesystem-derived relative paths whose non-UTF-8 bytes decode to
     # surrogate code points; a plain utf-8 read/write raises on them.
-    with filemap_path.open(encoding="utf-8", errors="surrogateescape") as f:
-        _tab_lines = [ln.rstrip("\n") for ln in f if "\t" in ln]
+    from Utils.filegraph_deploy import entries as filegraph_entries, legacy_lines
+    _tab_lines = list(legacy_lines())
+    _filegraph_sources = {
+        (entry.legacy_rel.lower(), entry.mod_name): entry.source_path
+        for entry in filegraph_entries()
+        if entry.legacy_rel and entry.source_path is not None
+    }
     total_lines = len(_tab_lines)
     line_idx = 0
-
-    _prebuild_mod_indexes(
-        _tab_lines, overwrite_dir, staging_root, mod_index_cache,
-        index_dir=filemap_path.parent,
-        strip_prefixes=strip_prefixes,
-        per_mod_strip_prefixes=per_mod_strip_prefixes,
-    )
 
     for line in _tab_lines:
         rel_str, mod_name = line.split("\t", 1)
@@ -183,24 +179,8 @@ def deploy_filemap_to_root(
             continue
         already_seen_dst.add(_dst_rel_lower)
 
-        # --- Fast path: O(1) mod-index lookup (no syscall) ---
-        _mr = _mod_root_cache.get(mod_name)
-        if _mr is None:
-            _mr = overwrite_dir if mod_name == _OVERWRITE_NAME else staging_root / mod_name
-            _mod_root_cache[mod_name] = _mr
-        _idx = mod_index_cache.get(_mr)
-        src_str: str | None = None
-        if _idx is not None:
-            _hit = _idx.get(rel_lower)
-            if _hit is not None:
-                src_str = _hit if isinstance(_hit, str) else str(_hit)
-        if src_str is None:
-            # Fall back to full resolve (stat-based)
-            src_str = _resolve_source(
-                mod_name, rel_str, rel_lower, overwrite_dir, staging_root,
-                _overwrite_str, _staging_str, sorted_strip, _per_mod,
-                nocase_cache, mod_index_cache,
-            )
+        source_path = _filegraph_sources.get((rel_lower, mod_name))
+        src_str = str(source_path) if source_path is not None else None
         if src_str is None:
             _log(f"  WARN: source not found - {rel_str} ({mod_name})")
             continue

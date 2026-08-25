@@ -207,23 +207,21 @@ def plan_pack(
 
 
 def compute_skip_winners(
-    index_path: Path | None, profile_dir: Path | None, mod_name: str,
-    root_ctx: tuple | None = None,
+    snapshot, mod_name: str,
 ) -> set[str]:
-    """rel_keys this mod currently *wins a real conflict on* (post-strip, lower).
+    """Deploy-relative keys this mod wins a real loose/archive conflict on.
 
-    A "real" winner needs both filemap_winner[rk] == this mod and rk contested
-    (>1 enabled mod ships it). Packing these would lose to subsequent mods' loose
-    files, so the caller adds them to the exclusion set. Port of the skip_winners
-    block in Tk ``_on_pack_bsa_click``; reuses ``mod_files.build_conflict_cache``.
+    Packing these would make the file lose to a later loose provider, so the
+    caller adds them to the exclusion set. The immutable snapshot keeps this
+    query on the same generation as the rest of the Mod Files view.
     """
-    from Utils.mod_files import build_conflict_cache
-
-    # Data-namespace only: root-routed files never go into a BSA.
-    cc = build_conflict_cache(index_path, profile_dir, root_ctx=root_ctx)
+    if snapshot is None:
+        return set()
     return {
-        rk for rk, owner in cc.winner.items()
-        if owner == mod_name and rk in cc.contested
+        record.legacy_rel.replace("\\", "/").lower()
+        for record in snapshot.mod_files(mod_name)
+        if (record.namespace == "normal" and record.winning
+            and record.conflict_status > 0 and record.legacy_rel)
     }
 
 

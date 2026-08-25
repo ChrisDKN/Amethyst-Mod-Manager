@@ -133,31 +133,23 @@ def analyse(
     if kind is None:
         _log("this game has no BSA/BA2 format we can write - nothing to assess")
         return []
-    if index_path is None or not Path(index_path).is_file():
-        _log("no mod index for this profile yet - run a refresh first")
-        return []
-
-    from Utils.bsa_filemap import ensure_bsa_index
-    from Utils.filemap import read_mod_index
-    from Utils.mod_files import (
-        bsa_conflict_index_path,
-        build_conflict_cache,
-        conflict_root_context,
-    )
     from Utils.modlist import read_modlist
+    from Utils.filegraph_service import FileGraphService, source_path
 
     game_id = game_id_of(game)
-    index_path = Path(index_path)
     staging = Path(staging)
-
-    full_index = read_mod_index(index_path) or {}
-    if not full_index:
-        _log("mod index is empty - nothing to assess")
+    if profile_dir is None:
+        _log("no active profile - nothing to assess")
         return []
+    library = FileGraphService.open_library(game, profile_dir, log_fn=log_fn)
+    library.ensure_ready(profile_dir)
+    profile = library.open_profile(profile_dir)
+    profile.reconcile(operation_hint={"kind": "pack_analysis"})
+    snapshot = profile.snapshot()
 
     # bsa_pack_ops.is_packable_mod screens the bare pseudo-mod names; the index
     # and filemap use the bracketed sentinels, so screen those too.
-    from Utils.filemap import OVERWRITE_NAME, ROOT_FOLDER_NAME
+    from Utils.filegraph_constants import OVERWRITE_NAME, ROOT_FOLDER_NAME
     pseudo = {OVERWRITE_NAME, ROOT_FOLDER_NAME}
     enabled = [
         e.name for e in read_modlist(profile_dir / "modlist.txt")
@@ -168,30 +160,6 @@ def analyse(
         _log("no enabled mods in this profile")
         return []
 
-    # Loose-vs-loose winners. Pass the helper-derived kwargs verbatim: the cache
-    # is single-slot, so a caller that disagrees with the GUI thrashes it.
-    root_ctx = conflict_root_context(game, profile_dir)
-    cc = build_conflict_cache(
-        index_path, profile_dir,
-        bsa_index_path=bsa_conflict_index_path(game, index_path),
-        root_ctx=root_ctx,
-    )
-
-    # Loose-vs-archive is read straight from the archive index rather than
-    # through the conflict cache: bsa_conflict_index_path() returns None while
-    # "Hide BSA conflicts" is on, and that display preference must not silently
-    # drop half of the safety rule.
-    exts = frozenset(getattr(game, "archive_extensions", None) or ())
-    try:
-        links_under = game.get_profile_root() / "profiles"
-    except Exception:
-        links_under = None
-    bsa_index = ensure_bsa_index(
-        index_path.parent / "bsa_index.bin", staging, exts,
-        log_fn=log_fn, follow_toplevel_links_under=links_under,
-    ) if exts else {}
-    owners = _archive_owners(bsa_index)
-    enabled_set = set(enabled)
     archive_max, file_max = _limits(kind)
     # Bare extensions (no dot) so the per-file test is a plain suffix compare.
     tex_exts = {e.lstrip(".")
@@ -202,14 +170,14 @@ def analyse(
     for i, mod_name in enumerate(enabled):
         if progress_fn:
             progress_fn((i + 1) / total)
-        entry = full_index.get(mod_name)
-        if entry is None:
-            continue
-        normal = entry[0] or {}
+        normal = [
+            record for record in snapshot.mod_files(mod_name)
+            if record.candidate_id and record.provider_kind != "archive_member"
+        ]
         mod_dir = staging / mod_name
 
-        own_archives = bsa_index.get(mod_name) or []
-        archived_count = sum(len(paths) for _n, _m, paths in own_archives)
+        own_archives = snapshot.archive_files(mod_name)
+        archived_count = len(own_archives)
         # Fall back to a disk check: an archive the TOC parser choked on is
         # absent from the index, and "already ships an archive" must not depend
         # on our ability to read it.
@@ -220,10 +188,11 @@ def analyse(
         texture_bytes = 0
         oversize_files = 0
         winning_count = 0
-        for rel_key, rel_str in normal.items():
+        for record in normal:
+            rel_key = record.legacy_rel.replace("\\", "/").lower()
             # Root-routed files deploy to the game root, never into a Data
             # archive, so they are outside this question entirely.
-            if cc.is_root(mod_name, rel_key):
+            if record.namespace == "root":
                 continue
             # A BSA stores everything under a folder; bsa_writer._collect_files
             # silently drops root-level files, so they can never be packed.
@@ -233,7 +202,7 @@ def analyse(
                 continue
             packable_count += 1
             try:
-                fsize = (mod_dir / rel_str).stat().st_size
+                fsize = source_path(game, mod_name, record.source_rel).stat().st_size
             except OSError:
                 fsize = 0
             packable_bytes += fsize
@@ -241,15 +210,9 @@ def analyse(
                 oversize_files += 1
             if rel_key.rsplit(".", 1)[-1] in tex_exts:
                 texture_bytes += fsize
-            # Winner against another mod's loose copy...
-            if cc.winner.get(rel_key) == mod_name and rel_key in cc.contested:
-                winning_count += 1
-                continue
-            # ...or against another enabled mod's archived copy. The engine
-            # mounts archives first, so this loose file wins outright today and
-            # would become load-order dependent once packed.
-            ow = owners.get(rel_key)
-            if ow and any(m != mod_name and m in enabled_set for m in ow):
+            # Any surviving conflict win (loose or archive opponent) becomes
+            # load-order-dependent once this provider moves into an archive.
+            if record.conflict_status > 0:
                 winning_count += 1
 
         # Does this fit the format? Textures can go to a sibling archive, which

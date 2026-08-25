@@ -24,6 +24,13 @@ from Utils.atomic_write import atomic_writer, write_atomic_text
 from Utils.path_utils import has_path_traversal as _has_traversal
 
 
+def _timing_print(message: str) -> None:
+    """Print detailed deployment timings only in an opt-in perftrace run."""
+    from Utils import perftrace
+    if perftrace.is_enabled():
+        print(message)
+
+
 class RestoreIncompleteError(RuntimeError):
     """A deployment restore retained recovery state and must be retried.
 
@@ -149,12 +156,12 @@ def _iter_map_batched(fn, items: list, chunk: int = 256, stop_on=None):
 
 
 @_contextmanager
-def _timer(label: str):
-    """Print elapsed wall-clock time for a labelled block to stderr."""
+def _timer(label: str, *, work: str = "FS I/O"):
+    """Print elapsed wall-clock time for a labelled block when enabled."""
     t0 = _time.perf_counter()
     yield
     dt = _time.perf_counter() - t0
-    print(f"  [TIMER] {label}: {dt:.3f}s")
+    _timing_print(f"  [TIMER][{work}] {label}: {dt:.3f}s")
 
 
 def load_per_mod_strip_prefixes(profile_dir: Path) -> dict[str, list[str]]:
@@ -212,77 +219,41 @@ def expand_separator_raw_deploy(
     return result
 
 
-def _default_filemap_for(profile_dir: "Path") -> "Path | None":
-    """Locate filemap.txt for a profile without help from the game handler.
-
-    Mirrors ``BaseGame.get_effective_filemap_path()``: profile-specific-mods
-    profiles keep their filemap next to the profile (``<profile_dir>/filemap.txt``),
-    shared-staging profiles use the one at the profile root
-    (``<profile_dir>/../../filemap.txt``).  Returns the first one that exists,
-    or None if neither does.
-    """
-    for candidate in (profile_dir / "filemap.txt",
-                      profile_dir.parent.parent / "filemap.txt"):
-        if candidate.is_file():
-            return candidate
-    return None
-
-
-def _reconstruct_custom_deploy_list(
+def _catalog_custom_deploy_list(
     profile_dir: "Path",
-    entries,
-    filemap_path: "Path | None",
+    game,
     log_fn,
 ) -> list[tuple[str, str | None]]:
-    """Recompute the list of deployed custom-location paths from the filemap.
+    """Recover custom destinations from the committed Filegraph generation."""
+    if game is None:
+        return []
+    from Utils.filegraph_deploy import absolute_destination, deployed_entries_for
+    from Utils.filegraph_service import source_path
 
-    Used by cleanup when ``custom_deploy_log.txt`` is missing (older deploys,
-    profile dir moved, manual deletion, etc.).  Walks the active filemap and
-    expands every entry whose mod sits under a separator with a custom deploy
-    path, producing ``(dst, src)`` pairs.  ``src`` is the staging-side source
-    path (used to verify the destination genuinely came from us via inode
-    comparison) or ``None`` if it can't be located.
-    """
-    fm = filemap_path if filemap_path is not None else _default_filemap_for(profile_dir)
-    if fm is None or not fm.is_file():
-        return []
-    sep_paths = load_separator_deploy_paths(profile_dir)
-    if not sep_paths:
-        return []
-    per_mod_deploy = expand_separator_deploy_paths(sep_paths, entries)
-    if not per_mod_deploy:
-        return []
-    # Profile dir layout: profile_dir/mods/<mod_name>/...
-    staging_root = profile_dir / "mods"
     result: list[tuple[str, str | None]] = []
     seen: set[str] = set()
-    _dir_listing_cache: dict[str, dict[str, str]] = {}
-    _resolved_dir_cache: dict[str, str] = {}
     try:
-        with fm.open(encoding="utf-8", errors="surrogateescape") as f:
-            for line in f:
-                if "\t" not in line:
-                    continue
-                rel_str, mod_name = line.rstrip("\n").split("\t", 1)
-                if _has_traversal(rel_str) or _has_traversal(mod_name):
-                    continue
-                eff_dir = per_mod_deploy.get(mod_name)
-                if eff_dir is None:
-                    continue
-                dst = _resolve_root_path_str(
-                    str(eff_dir), rel_str, _dir_listing_cache,
-                    resolved_dir_cache=_resolved_dir_cache,
-                )
-                src_candidate = str(staging_root / mod_name / rel_str)
-                src: str | None = src_candidate if os.path.isfile(src_candidate) else None
-                if dst not in seen:
-                    seen.add(dst)
-                    result.append((dst, src))
-    except OSError as exc:
-        log_fn(f"  WARN: could not read filemap for cleanup fallback: {exc}")
+        deployed = deployed_entries_for(game, profile_dir)
+    except Exception as exc:
+        log_fn(f"  WARN: could not read deployed catalog state: {exc}")
         return []
+    for entry in deployed:
+        if not entry.target.startswith("custom:"):
+            continue
+        destination = absolute_destination(game, entry)
+        if destination is None:
+            continue
+        dst = str(destination)
+        if dst in seen:
+            continue
+        seen.add(dst)
+        src = source_path(game, entry.mod_name, entry.source_rel)
+        result.append((dst, str(src) if src.is_file() else None))
     if result:
-        log_fn(f"  custom_deploy_log.txt missing - reconstructed {len(result)} entry/entries from filemap.")
+        log_fn(
+            "  custom_deploy_log.txt missing - reconstructed "
+            f"{len(result)} entry/entries from committed catalog state."
+        )
     return result
 
 
@@ -291,6 +262,7 @@ def cleanup_custom_deploy_dirs(
     entries,
     log_fn=None,
     filemap_path: "Path | None" = None,
+    game=None,
 ) -> int:
     """Remove files deployed to custom separator locations and restore originals.
 
@@ -303,11 +275,6 @@ def cleanup_custom_deploy_dirs(
 
     if profile_dir is None:
         return 0
-
-    # Auto-discover the filemap when the caller didn't supply one, so handlers
-    # that haven't been updated still get a working fallback path.
-    if filemap_path is None:
-        filemap_path = _default_filemap_for(profile_dir)
 
     # Locate log: search profile_dir and two levels up (profile root)
     log_path: Path | None = None
@@ -329,12 +296,10 @@ def cleanup_custom_deploy_dirs(
     else:
         # No log on disk (e.g. deploy happened with an older build, log got
         # cleared mid-restore, or the profile dir moved). Fall back to
-        # reconstructing the deployed file list from the current filemap +
-        # separator deploy paths.
+        # reconstructing the deployed file list from the last committed
+        # Filegraph generation.
         fallback_mode = True
-        file_list = _reconstruct_custom_deploy_list(
-            profile_dir, entries, filemap_path, _log
-        )
+        file_list = _catalog_custom_deploy_list(profile_dir, game, _log)
         backup_candidates = (
             profile_dir / "custom_deploy_backup",
             profile_dir.parent.parent / "custom_deploy_backup",
@@ -1416,160 +1381,6 @@ def _wrapper_chains(
     return out
 
 
-def _prebuild_mod_indexes(
-    tab_lines: list[str],
-    overwrite_dir: Path,
-    staging_root: Path,
-    mod_index_cache: dict,
-    *,
-    index_dir: "Path | None" = None,
-    strip_prefixes: "set[str] | None" = None,
-    per_mod_strip_prefixes: "dict[str, list[str]] | None" = None,
-) -> None:
-    """Pre-build per-mod file indexes for all mods referenced in the filemap.
-
-    Fast path: synthesize on-disk paths from ``<index_dir>/modindex.bin``
-    (already built by filemap.py) - no filesystem walk.  The index stores
-    *stripped* rel paths, so when strip prefixes are in play the actual file
-    may sit behind a wrapper folder (e.g. Data/); those wrapper chains are
-    rediscovered with a couple of scandir calls per mod and each entry is
-    mapped back to its physical location by checking its first path segment
-    against the cached directory listings.
-
-    index_dir - the directory holding filemap.txt + modindex.bin, i.e. the
-    STAGING PARENT (callers pass ``filemap_path.parent``). For shared-mods
-    profiles that is ``Profiles/<game>/`` - NEVER the per-profile folder
-    (``profiles/<name>/``): all shared profiles use the one shared mods/
-    folder, so a single modindex.bin next to it is valid for every profile.
-    (Only profile-specific-mods profiles keep their filemap + index inside
-    the profile dir, and there staging parent == profile dir anyway.) The
-    parameter was previously named ``profile_dir``, which wrongly suggested
-    the per-profile folder - the Tk-era install path wrote a stray
-    ``profiles/<name>/modindex.bin`` because of exactly that confusion.
-
-    Slow path: os.walk each mod folder (index missing/stale, or per-mod
-    *path*-style strip prefixes whose semantics we don't mirror here).
-    Misses in a synthesized index fall back to _resolve_source per file, so
-    the fast path is always safe.
-    """
-    mod_names: set[str] = set()
-    for ln in tab_lines:
-        tab_pos = ln.find("\t")
-        if tab_pos > 0:
-            mod_names.add(ln[tab_pos + 1:])
-
-    index_from_disk: dict | None = None
-    if index_dir is not None:
-        try:
-            from Utils.filemap import read_mod_index
-            index_from_disk = read_mod_index(index_dir / "modindex.bin")
-        except Exception:
-            index_from_disk = None
-
-    _global_strip = {s.lower() for s in strip_prefixes} if strip_prefixes else set()
-    _per_mod = per_mod_strip_prefixes or {}
-    _isfile = os.path.isfile
-    walk_targets: list[Path] = []
-
-    for mn in mod_names:
-        if _has_traversal(mn):
-            continue
-        mr = overwrite_dir if mn == _OVERWRITE_NAME else staging_root / mn
-        if mr in mod_index_cache:
-            continue
-
-        entry = index_from_disk.get(mn) if index_from_disk is not None else None
-        per_mod_list = _per_mod.get(mn) or []
-
-        if entry is None or any("/" in p for p in per_mod_list):
-            walk_targets.append((mn, mr))
-            continue
-
-        normal, root = entry
-        mr_str = str(mr)
-        strip_set = _global_strip | {s.lower() for s in per_mod_list}
-        built: dict[str, str] = {}
-        # Leave disabled variants unmapped so the (also exclusion-aware)
-        # per-file resolver picks the surviving one.
-        _exc = _DEPLOY_EXCLUDED_RAW.get(mn)
-
-        chains = _wrapper_chains(mr_str, strip_set) if strip_set else []
-        if len(chains) <= 1:
-            # No wrapper folders on disk - nothing was stripped for this mod,
-            # so the index rel paths are the on-disk paths.
-            #
-            # For [Overwrite] specifically, verify each synthesized path exists.
-            # The overwrite index entry is append-only on restore and can carry
-            # STALE rels for files no longer in overwrite/ (folder cleared,
-            # profile switch, manual delete). Without this check the synthesized
-            # path is trusted verbatim and deploy_filemap symlinks to a source
-            # that isn't there - producing a DANGLING symlink in the game folder
-            # (the "ghost [Overwrite] file deploys as a dead link" bug). A miss
-            # here correctly falls through to _resolve_source, which returns None
-            # and the entry is skipped. overwrite/ is small (runtime files only)
-            # so the per-file isfile() is cheap; real mods keep the fast path.
-            _verify = (mn == _OVERWRITE_NAME)
-            for rel_lower, rel_str in normal.items():
-                if _exc and rel_lower in _exc:
-                    continue
-                _p = mr_str + "/" + rel_str
-                if not _verify or _isfile(_p):
-                    built[rel_lower] = _p
-            for rel_lower, rel_str in root.items():
-                if _exc and rel_lower in _exc:
-                    continue
-                _p = mr_str + "/" + rel_str
-                if not _verify or _isfile(_p):
-                    built[rel_lower] = _p
-            mod_index_cache[mr] = built
-            continue
-
-        for src_map in (normal, root):
-            for rel_lower, rel_str in src_map.items():
-                slash = rel_str.find("/")
-                seg = (rel_str[:slash] if slash > 0 else rel_str).lower()
-                hits = [chain for chain, names in chains if seg in names]
-                if _exc:
-                    hits = [c for c in hits
-                            if ((c.lower() + "/" + rel_lower) if c
-                                else rel_lower) not in _exc]
-                if not hits:
-                    continue  # stale entry - per-file fallback handles it
-                if len(hits) == 1:
-                    chain = hits[0]
-                    built[rel_lower] = (
-                        mr_str + "/" + chain + "/" + rel_str if chain
-                        else mr_str + "/" + rel_str
-                    )
-                    continue
-                # Same first segment exists at multiple wrapper levels -
-                # verify which physical file is real.
-                for chain in hits:
-                    cand = (
-                        mr_str + "/" + chain + "/" + rel_str if chain
-                        else mr_str + "/" + rel_str
-                    )
-                    if _isfile(cand):
-                        built[rel_lower] = cand
-                        break
-        mod_index_cache[mr] = built
-
-    if not walk_targets:
-        return
-    if len(walk_targets) == 1:
-        mn, mr = walk_targets[0]
-        mod_index_cache[mr] = _build_mod_index_deploy(mr, mn)
-        return
-    with concurrent.futures.ThreadPoolExecutor(
-        max_workers=min(_deploy_workers(), len(walk_targets))
-    ) as pool:
-        for (mn, mr), built_idx in zip(
-                walk_targets,
-                pool.map(lambda t: _build_mod_index_deploy(t[1], t[0]),
-                         walk_targets)):
-            mod_index_cache[mr] = built_idx
-
-
 def _pick_case_variant(variants: "list[str]", requested: str, parent_str: str,
                        next_lower: "str | None", listing_fn) -> str:
     """Choose among same-named-but-differently-cased sibling directories.
@@ -2552,7 +2363,6 @@ __all__ = [
     "_do_link",
     "_do_link_ex",
     "_restore_from_log",
-    "_prebuild_mod_indexes",
     "_resolve_root_path",
     "_resolve_root_path_str",
     "_log_case_collisions",

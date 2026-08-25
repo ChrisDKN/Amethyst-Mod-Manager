@@ -8,9 +8,9 @@ profile_settings.is_group == True and an ordered group_members list (index 0
 = highest priority). Its ``mods/`` is a PER-MOD-DIRECTORY SYMLINK FARM: one
 relative link per merged mod pointing at the owning member's real mod folder.
 Because every consumer resolves mod files as ``<staging root>/<mod name>``,
-dir-level links keep that invariant intact - filemap/index, deploy/undeploy,
+dir-level links keep that invariant intact - Filegraph, deploy/undeploy,
 plugin sync, conflicts, Mod Files and LOOT treat a group like any profile.
-The group owns a real overwrite/, Root_Folder/, filemap.txt and indexes.
+The group owns a real overwrite/, Root_Folder/, and Filegraph catalog.
 Members must themselves be profile-specific (a shared-pool member's modlist
 carries the whole synced pool - see Utils/profile_convert.py to convert).
 
@@ -24,10 +24,10 @@ Merge semantics - "adopt once, reconcile thereafter":
     win) is the highest-priority ENABLING member, overtaken only by a
     strictly newer version. Afterwards the group's own order/enabled/locked
     state is authoritative and never re-flipped by member changes.
-  - Vanished mods drop (entry, link, index, state, plugins); new member mods
+  - Vanished mods drop (entry, link, catalog, state, plugins); new member mods
     append at the END. A REAL (non-link) folder in the group's mods/ is a
     group-LOCAL mod - wizard output installed while the group was active
-    (SMAPI, generated patches) - kept as-is with its index entry; group
+    (SMAPI, generated patches) - kept as-is with its catalog entry; group
     removal deletes it like a normal profile's mod. Member separators import once (a name several members
     use is qualified per source profile so each member's section survives,
     with colour/lock/collapse/deploy state carried over); the group owns its
@@ -48,7 +48,6 @@ active group - never on ordinary reloads.
 
 from __future__ import annotations
 
-import hashlib
 import os
 import re
 import shutil
@@ -418,18 +417,6 @@ def _write_identity_map(group_dir: Path, value: dict[str, str]) -> None:
     _update_key(group_dir, "group_identity_map", dict(value))
 
 
-def _read_index_fingerprints(group_dir: Path) -> dict[str, str]:
-    raw = _read_key(group_dir, None, "group_index_fingerprints")
-    if isinstance(raw, dict):
-        return {k: v for k, v in raw.items()
-                if isinstance(k, str) and isinstance(v, str)}
-    return {}
-
-
-def _write_index_fingerprints(group_dir: Path, value: dict[str, str]) -> None:
-    _update_key(group_dir, "group_index_fingerprints", dict(value))
-
-
 def _adopted_separators(group_dir: Path) -> bool:
     return bool(_read_key(group_dir, None, "group_adopted_separators"))
 
@@ -728,20 +715,6 @@ def _merge_plugins(profiles_dir: Path, members: list[str], star_prefix: bool):
 # Materialization
 # ---------------------------------------------------------------------------
 
-def _entry_fingerprint(index_entry) -> "str | None":
-    """Stable content fingerprint of one mod's (normal, root) index entry -
-    used to detect that a member's copy changed on disk (update-in-place)
-    since the group's own index last scanned it."""
-    if index_entry is None:
-        return None
-    try:
-        normal, root = index_entry
-        payload = repr((sorted(normal.items()), sorted(root.items())))
-        return hashlib.md5(payload.encode("utf-8", "surrogateescape")).hexdigest()
-    except Exception:
-        return None
-
-
 def _desired_link_target(profiles_dir: Path, group_mods: Path,
                          member: str, folder: str) -> str:
     """Relative symlink target for a group link → the member's real mod dir."""
@@ -812,59 +785,49 @@ def _sync_link_farm(group_dir: Path, owners: dict[str, tuple[str, str]],
     return changed, removed
 
 
-def _rescan_profile_mods(game, profile_dir: Path, mod_names: list[str],
-                         log_fn) -> None:
-    """(Re)index *mod_names* in *profile_dir*'s own modindex.bin/bsa_index.bin
-    (profile-specific layout: staging is <profile_dir>/mods), with the same
-    params a full Refresh uses. Used for both the group (resolving through
-    its links) and for healing a member's never-built index."""
+def _refresh_profile_mods(game, profile_dir: Path, mod_names: list[str],
+                          log_fn) -> None:
+    """Refresh selected manifests in a profile-specific Filegraph catalog.
+
+    An unready catalog is rebuilt in full so a targeted refresh can never
+    accidentally mark a partial first-migration catalog ready.
+    """
     if not mod_names:
         return
-    from Utils.deploy_shared import load_per_mod_strip_prefixes
-    from Utils.filemap import rescan_mods_in_index
-    staging = profile_dir / "mods"
-    root_mods: set[str] = set()
     try:
-        from Nexus.nexus_meta import read_meta
-        for name in mod_names:
-            meta = staging / name / "meta.ini"
-            if meta.is_file() and read_meta(meta).root_folder:
-                root_mods.add(name)
-    except Exception:
-        pass
-    try:
-        rescan_mods_in_index(
-            profile_dir / "modindex.bin", staging, list(mod_names),
-            strip_prefixes=set(getattr(game, "mod_folder_strip_prefixes", None) or ()) or None,
-            per_mod_strip_prefixes=load_per_mod_strip_prefixes(profile_dir),
-            allowed_extensions=set(getattr(game, "mod_install_extensions", None) or ()) or None,
-            normalize_folder_case=getattr(game, "normalize_folder_case", True),
-            root_folder_mods=root_mods or None,
-            log_fn=log_fn,
-        )
+        from Utils.filegraph_service import FileGraphService
+        library = FileGraphService.open_library(game, profile_dir, log_fn=log_fn)
+        if library.status().ready:
+            library.refresh(profile_dir, mod_names=mod_names)
+        else:
+            library.rebuild(profile_dir)
     except Exception as exc:
-        log_fn(f"Profile Group: index update failed ({exc}) - a Refresh will "
-               f"rebuild it.")
-    archive_exts = frozenset(getattr(game, "archive_extensions", frozenset()) or frozenset())
-    if archive_exts:
-        try:
-            from Utils.bsa_filemap import update_bsa_index
-            for name in mod_names:
-                update_bsa_index(profile_dir / "bsa_index.bin", name,
-                                 staging / name, archive_exts)
-        except Exception:
-            pass
+        log_fn(f"Profile Group: Filegraph update failed ({exc}) - Refresh "
+               f"will rebuild the catalog.")
 
 
-def _top_level_plugins(index_entry, exts: tuple[str, ...]) -> set[str]:
-    """Top-level plugin filenames recorded in one mod's index entry."""
-    if index_entry is None or not exts:
+def _catalog_plugins(game, profile_dir: Path, mod_names, log_fn) -> set[str]:
+    """Loadable plugin names exposed by selected cataloged mods."""
+    if not mod_names:
         return set()
     try:
-        normal, _root = index_entry
-        return {rel for low, rel in normal.items()
-                if "/" not in low and low.endswith(exts)}
-    except Exception:
+        from Utils.filegraph_service import FileGraphService
+        library = FileGraphService.open_library(game, profile_dir, log_fn=log_fn)
+        status = library.ensure_ready(profile_dir)
+        profile = library.open_profile(profile_dir)
+        snapshot = profile.snapshot()
+        if (snapshot.generation == 0
+                or snapshot.inventory_generation != status.inventory_generation):
+            profile.reconcile()
+            snapshot = profile.snapshot()
+        result: set[str] = set()
+        for name in mod_names:
+            for record in snapshot.mod_files(name):
+                if record.plugin_key:
+                    result.add(record.plugin_key)
+        return result
+    except Exception as exc:
+        log_fn(f"Profile Group: plugin catalog query failed ({exc}).")
         return set()
 
 
@@ -1031,7 +994,7 @@ def materialize_group(game, profile_dir: Path, *, log_fn=None) -> None:
                 final[:0] = new_block
 
             # 1. Plugin removal FIRST - dropped mods' plugins resolve from the
-            # group's still-present index entries / links. Renames are NOT
+            # group's still-present catalog entries / links. Renames are NOT
             # dropped here: a drop+re-add cycle would reset the group's own
             # plugin enabled state. Their plugins are diffed after the rescan
             # (unchanged names keep their state; only vanished ones strip).
@@ -1041,14 +1004,8 @@ def materialize_group(game, profile_dir: Path, *, log_fn=None) -> None:
                                 [(n, False) for n in drops], _log)
             rename_old_plugins: set[str] = set()
             if renames and plugin_exts:
-                try:
-                    from Utils.filemap import read_mod_index
-                    gidx = read_mod_index(profile_dir / "modindex.bin") or {}
-                    for old, _new in renames:
-                        rename_old_plugins |= _top_level_plugins(
-                            gidx.get(old), plugin_exts)
-                except Exception:
-                    rename_old_plugins = set()
+                rename_old_plugins = _catalog_plugins(
+                    game, profile_dir, (old for old, _new in renames), _log)
 
             # 2. Per-mod group-owned state: migrate renames, drop vanished,
             # adopt new arrivals' state once from the owning member. Imported
@@ -1065,57 +1022,24 @@ def materialize_group(game, profile_dir: Path, *, log_fn=None) -> None:
             # 3. Link farm (group-local real dirs are left alone).
             _sync_link_farm(profile_dir, owners, _log, local_mods)
 
-            # 4. Index maintenance: drop removed/renamed-away entries, then
-            # (re)scan entries whose member copy changed since last time.
-            index_path = profile_dir / "modindex.bin"
+            # 4. Catalog maintenance: drop removed/renamed-away entries, then
+            # refresh only entries whose owning member manifest changed.
             gone = drops + [old for old, _new in renames]
-            if gone:
+            from Utils.filegraph_service import FileGraphService
+            group_library = FileGraphService.open_library(
+                game, profile_dir, log_fn=_log)
+            for name in gone:
                 try:
-                    from Utils.filemap import remove_from_mod_index
-                    remove_from_mod_index(index_path, gone)
-                except Exception:
-                    pass
-                try:
-                    from Utils.bsa_filemap import remove_from_bsa_index
-                    remove_from_bsa_index(profile_dir / "bsa_index.bin", gone)
-                except Exception:
-                    pass
+                    group_library.remove_mod(name)
+                except Exception as exc:
+                    _log(f"Profile Group: could not remove '{name}' from "
+                         f"Filegraph ({exc}).")
 
-            to_rescan, fingerprints, unindexed = _stale_group_entries(
-                profile_dir, owners)
-            _rescan_profile_mods(game, profile_dir, to_rescan, _log)
-            if unindexed:
-                # Heal member indexes so unindexed mods don't force a rescan
-                # on every future materialize, then fingerprint the healed
-                # entries.
-                from Utils.filemap import read_mod_index
-                owner_by_pair = {(m, f): n for n, (m, f) in owners.items()}
-                for member, folders in unindexed.items():
-                    member_dir = profiles_dir / member
-                    _rescan_profile_mods(game, member_dir, folders, _log)
-                    try:
-                        midx = read_mod_index(member_dir / "modindex.bin") or {}
-                    except Exception:
-                        midx = {}
-                    for folder in folders:
-                        fp = _entry_fingerprint(midx.get(folder))
-                        name = owner_by_pair.get((member, folder))
-                        if fp is not None and name is not None:
-                            fingerprints[name] = fp
-            # Only record a fingerprint when the group index really holds the
-            # entry - a failed rescan must retry next time, not read as done.
-            if to_rescan:
-                try:
-                    from Utils.filemap import read_mod_index
-                    gidx = read_mod_index(profile_dir / "modindex.bin")
-                except Exception:
-                    gidx = None
-                for n in to_rescan:
-                    if gidx is None or n not in gidx:
-                        fingerprints.pop(n, None)
-            _write_index_fingerprints(profile_dir, fingerprints)
+            to_refresh = _stale_group_entries(
+                game, profile_dir, owners, _log)
+            _refresh_profile_mods(game, profile_dir, to_refresh, _log)
 
-            # 5. Plugin adoption for new/renamed arrivals (index now has them;
+            # 5. Plugin adoption for new/renamed arrivals (catalog now has them;
             # sync only APPENDS missing plugins, so plugins a renamed mod kept
             # retain the group's enabled state). Then strip plugins the
             # renames no longer provide anywhere.
@@ -1127,18 +1051,11 @@ def materialize_group(game, profile_dir: Path, *, log_fn=None) -> None:
             else:
                 _sync_group_plugins(game, profile_dir, plugin_adds, _log)
             if rename_old_plugins:
-                try:
-                    from Utils.filemap import read_mod_index
-                    gidx = read_mod_index(profile_dir / "modindex.bin") or {}
-                    still_provided: set[str] = set()
-                    for n in owners:
-                        still_provided |= _top_level_plugins(gidx.get(n),
-                                                             plugin_exts)
-                    stale = rename_old_plugins - still_provided
-                    if stale:
-                        _strip_plugins(game, profile_dir, stale, _log)
-                except Exception:
-                    pass
+                still_provided = _catalog_plugins(
+                    game, profile_dir, owners, _log)
+                stale = rename_old_plugins - still_provided
+                if stale:
+                    _strip_plugins(game, profile_dir, stale, _log)
 
             # 6. Persist the adopted modlist + identity map + flags.
             # group_members is deliberately NOT written back: it was read at
@@ -1163,45 +1080,45 @@ def materialize_group(game, profile_dir: Path, *, log_fn=None) -> None:
                  f"(total {sum(1 for e in final if not e.is_separator)} mods).")
 
 
-def _stale_group_entries(group_dir: Path,
-                         owners: dict[str, tuple[str, str]]):
-    """Returns (stale_names, fingerprints, unindexed): entries whose member
-    index entry changed since the group last scanned them (fingerprints come
-    from the MEMBER's modindex.bin, so in-place updates are caught without
-    walking any tree), the refreshed fingerprint map, and member folders with
-    no index entry at all - those get the member index healed, else every
-    materialize would rescan them forever."""
-    from Utils.filemap import read_mod_index
-    stored = _read_index_fingerprints(group_dir)
-    group_index = None
-    try:
-        group_index = read_mod_index(group_dir / "modindex.bin")
-    except Exception:
-        group_index = None
-    member_indexes: dict[str, dict] = {}
+def _stale_group_entries(game, group_dir: Path,
+                         owners: dict[str, tuple[str, str]], log_fn):
+    """Return entries whose member raw-manifest fingerprint changed.
+
+    Member catalogs are the cheap change detector; a missing first-migration
+    catalog is rebuilt once. The group keeps its own candidate variants, so a
+    changed member manifest is refreshed through the group's symlink and its
+    profile-specific routing rules.
+    """
+    from Utils.filegraph_service import FileGraphService
+    group_library = FileGraphService.open_library(game, group_dir, log_fn=log_fn)
+    group_library.ensure_ready(group_dir)
+    group_catalog = {
+        name.lower(): fingerprint
+        for name, fingerprint in group_library.manifest_fingerprints().items()
+    }
+    member_catalogs: dict[str, dict[str, bytes]] = {}
     stale: list[str] = []
-    fingerprints: dict[str, str] = {}
-    unindexed: dict[str, list[str]] = {}
     for name, (member, folder) in owners.items():
-        midx = member_indexes.get(member)
-        if midx is None:
-            try:
-                midx = read_mod_index(group_dir.parent / member / "modindex.bin") or {}
-            except Exception:
-                midx = {}
-            member_indexes[member] = midx
-        fp = _entry_fingerprint(midx.get(folder))
-        if fp is None:
-            # Member copy unindexed - scan through the link to stay correct,
-            # and heal the member's own index so this converges.
+        catalog = member_catalogs.get(member)
+        if catalog is None:
+            member_dir = group_dir.parent / member
+            library = FileGraphService.open_library(
+                game, member_dir, log_fn=log_fn)
+            library.ensure_ready(member_dir)
+            catalog = {
+                mod_name.lower(): fingerprint
+                for mod_name, fingerprint in library.manifest_fingerprints().items()
+            }
+            member_catalogs[member] = catalog
+        raw = catalog.get(folder.lower())
+        if raw is None:
+            # The member's manifest is absent despite a ready catalog. Scan
+            # the group link now, but do not mark it clean so Refresh retries.
             stale.append(name)
-            unindexed.setdefault(member, []).append(folder)
             continue
-        fingerprints[name] = fp
-        if stored.get(name) != fp or (group_index is not None
-                                      and name not in group_index):
+        if group_catalog.get(name.lower()) != raw:
             stale.append(name)
-    return stale, fingerprints, unindexed
+    return stale
 
 
 def _reconcile_mod_state(group_dir: Path, profiles_dir: Path,
@@ -1550,7 +1467,7 @@ def _adopt_first_plugins(game, group_dir: Path, profiles_dir: Path,
 def _member_side_remove(game, profiles_dir: Path, member: str, folder: str,
                         log) -> None:
     """Delete one member's copy of a mod: plugins, folder, modlist row,
-    index rows."""
+    and catalog rows."""
     member_dir = profiles_dir / member
     member_staging = member_dir / "mods"
     try:
@@ -1576,21 +1493,19 @@ def _member_side_remove(game, profiles_dir: Path, member: str, folder: str,
     except Exception as exc:
         log(f"could not update '{member}' modlist: {exc}")
     try:
-        from Utils.filemap import remove_from_mod_index
-        remove_from_mod_index(member_dir / "modindex.bin", [folder])
-    except Exception:
-        pass
-    try:
-        from Utils.bsa_filemap import remove_from_bsa_index
-        remove_from_bsa_index(member_dir / "bsa_index.bin", [folder])
-    except Exception:
-        pass
+        from Utils.filegraph_service import FileGraphService
+        library = FileGraphService.open_library(game, member_dir, log_fn=log)
+        profile = library.open_profile(member_dir)
+        profile.forget_deployed_mods([folder])
+        library.remove_mod(folder)
+    except Exception as exc:
+        log(f"member catalog cleanup failed for '{folder}': {exc}")
 
 
 def remove_member_mod(game, member_dir: Path, folder: str, *,
                       log_fn=None) -> None:
     """Delete ONE member profile's copy of a mod - files, plugins, modlist row,
-    index rows - without touching the group.
+    catalog rows - without touching the group.
 
     For when the group has already moved on from that folder: a Change Version
     update whose reconcile renamed the group entry to the newly installed
@@ -1606,10 +1521,10 @@ def remove_member_mod(game, member_dir: Path, folder: str, *,
 def remove_mods_from_group(game, group_dir: Path, mod_names: list[str],
                            log_fn=None, *,
                            delete_member_copies: bool = True) -> list[str]:
-    """Fully remove *mod_names* from a group: undeploy via the group index,
+    """Fully remove *mod_names* from a group: undeploy via Filegraph state,
     strip plugins group-side, delete EVERY member copy of each identity (a
     second lister would otherwise resurrect it next materialize), then the
-    group link/index/adopted state. delete_member_copies=False = DETACH
+    group link/catalog/adopted state. delete_member_copies=False = DETACH
     (move-to-owning-member): members keep their files, so a locked member
     doesn't block it. Does NOT touch the group's modlist.txt - the caller
     removes the rows (remove_mods contract) for the names RETURNED."""
@@ -1629,10 +1544,14 @@ def remove_mods_from_group(game, group_dir: Path, mod_names: list[str],
     with group_build_lock(group_dir):
         profiles_dir = group_dir.parent
         staging = group_dir / "mods"
-        index_path = group_dir / "modindex.bin"
         identity_map = _read_identity_map(group_dir)
 
-        # 1. Undeploy from the game dir while the group's index/links are
+        from Utils.filegraph_service import FileGraphService
+        group_library = FileGraphService.open_library(
+            game, group_dir, log_fn=log)
+        group_profile = group_library.open_profile(group_dir)
+
+        # 1. Undeploy from the game dir while the group's catalog/links are
         # still intact (identity checks resolve through the links).
         try:
             deploy_active = bool(game.get_deploy_active())
@@ -1640,21 +1559,15 @@ def remove_mods_from_group(game, group_dir: Path, mod_names: list[str],
             deploy_active = True
         if deploy_active:
             try:
-                from Utils.deploy import undeploy_mod_files
-                undeploy_mod_files(
-                    mod_names,
-                    game.get_mod_data_path(),
-                    game.get_game_path(),
-                    index_path,
-                    log_fn=log,
-                    staging_root=staging,
-                )
+                from Utils.mod_remove import undeploy_catalog_mods
+                undeploy_catalog_mods(
+                    game, group_profile, staging, mod_names, log_fn=log)
             except Exception as exc:
                 log(f"undeploy during group remove failed: {exc}")
         else:
             log("no deployment is active - skipping undeploy of removed mod(s).")
 
-        # 2. Group-side plugin cleanup (resolves via group index/links).
+        # 2. Group-side plugin cleanup (resolves via group catalog/links).
         try:
             from Utils.mod_remove import _remove_plugins_for_mods
             _remove_plugins_for_mods(game, group_dir, staging, mod_names, log)
@@ -1697,7 +1610,7 @@ def remove_mods_from_group(game, group_dir: Path, mod_names: list[str],
                                                 e.name, log)
 
         # 4. Group-side cleanup: links (or the real folder, for a group-LOCAL
-        # mod like wizard-installed SMAPI), index rows, adopted per-mod state.
+        # mod like wizard-installed SMAPI), catalog rows, adopted per-mod state.
         for name in mod_names:
             link = staging / name
             try:
@@ -1708,21 +1621,14 @@ def remove_mods_from_group(game, group_dir: Path, mod_names: list[str],
             except OSError as exc:
                 log(f"could not remove group entry '{name}': {exc}")
         try:
-            from Utils.filemap import remove_from_mod_index
-            remove_from_mod_index(index_path, list(mod_names))
+            group_profile.forget_deployed_mods(mod_names)
+            for name in mod_names:
+                group_library.remove_mod(name)
         except Exception as exc:
-            log(f"group index cleanup during remove failed: {exc}")
-        try:
-            from Utils.bsa_filemap import remove_from_bsa_index
-            remove_from_bsa_index(group_dir / "bsa_index.bin", list(mod_names))
-        except Exception:
-            pass
+            log(f"group catalog cleanup during remove failed: {exc}")
         _reconcile_mod_state(group_dir, profiles_dir, [], list(mod_names), [])
         identity_map = _read_identity_map(group_dir)
-        fingerprints = _read_index_fingerprints(group_dir)
         for name in mod_names:
             identity_map.pop(name, None)
-            fingerprints.pop(name, None)
         _write_identity_map(group_dir, identity_map)
-        _write_index_fingerprints(group_dir, fingerprints)
     return list(mod_names)

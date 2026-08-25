@@ -1,6 +1,6 @@
 """Toolkit-neutral discovery + content search for the Text Files tab.
 
-Lists config/text files from four sources - mod folders (via filemap.txt), the
+Lists config/text files from four sources - resolved mod winners, the
 active profile folder, the vanilla game folder, and (Bethesda) My Games - grouped
 by source. Ported from the pure-Python parts of the Tk `gui/plugin_panel_ini.py`
 (internally "Ini Files"; the UI is "Text Files") so the Qt tab stays in lockstep.
@@ -59,70 +59,6 @@ def sort_key(entry: tuple[str, str, Path]) -> tuple:
     src = entry_source(mod_name)
     return (_SOURCE_ORDER.get(src, len(_SOURCE_ORDER)),
             rel_path.lower(), mod_name.lower())
-
-
-def resolve_file_path(rel_path: str, mod_name: str,
-                      staging_root: Path,
-                      dir_cache: dict | None = None) -> Path | None:
-    """Resolve a filemap entry to a full path (case-insensitive fallback).
-
-    *dir_cache* - optional {dir_path: {lower_name: real_name}} memo shared across
-    calls. Filemap entries under the same mod share parent directories, so caching
-    each directory's case-folded listing turns the fallback from O(entries × depth)
-    ``iterdir`` calls into one listing per directory. Pass an empty dict once per
-    scan; omit it (None) for a one-off resolve."""
-    if staging_root is None:
-        return None
-    from Utils.filemap import OVERWRITE_NAME, ROOT_FOLDER_NAME
-    rel_path = rel_path.replace("\\", "/")
-    if mod_name == OVERWRITE_NAME:
-        base = staging_root.parent / "overwrite"
-    elif mod_name == ROOT_FOLDER_NAME:
-        base = staging_root.parent / "Root_Folder"
-    else:
-        base = staging_root / mod_name
-    exact = base / rel_path
-    if exact.exists():
-        return exact
-
-    def _listing(d: Path) -> dict | None:
-        """{lower_name: real_name} for directory *d*, or None if not a dir."""
-        if dir_cache is not None:
-            cached = dir_cache.get(d)
-            if cached is not None:
-                return cached if cached else None
-        try:
-            entries = {c.name.lower(): c.name for c in d.iterdir()}
-        except OSError:
-            entries = {}
-        if dir_cache is not None:
-            dir_cache[d] = entries
-        return entries or None
-
-    current = base
-    for segment in rel_path.split("/"):
-        listing = _listing(current)
-        if listing is None:
-            return exact
-        real = listing.get(segment.lower())
-        if real is None:
-            return exact
-        current = current / real
-    return current
-
-
-def _parse_filemap(filemap_path: Path) -> list[tuple[str, str]]:
-    out: list[tuple[str, str]] = []
-    try:
-        with filemap_path.open(encoding="utf-8") as f:
-            for line in f:
-                line = line.rstrip("\n")
-                if "\t" in line:
-                    rel, mod = line.split("\t", 1)
-                    out.append((rel, mod))
-    except OSError:
-        return []
-    return out
 
 
 def _collect_profile_files(profile_dir: Path,
@@ -195,26 +131,22 @@ def _collect_mygames_files(game, exts: frozenset) -> list[tuple[str, Path]]:
 
 
 def discover_text_files(game, profile_dir: Path | None,
-                        filemap_path: Path | None,
-                        staging_root: Path | None) -> list[tuple[str, str, Path]]:
+                        snapshot=None) -> list[tuple[str, str, Path]]:
     """Return sorted [(rel_path, source_mod, full_path)] across all four sources.
     Port of Tk `_refresh_ini_files_tab`. Deferred/expensive - call off the hot
     path (recursive game + My Games scans)."""
     entries: list[tuple[str, str, Path]] = []
 
-    # 1. Mod-deployed text files (filemap). Entries under the same mod share
-    #    parent dirs, so a listing cache makes the case-insensitive fallback
-    #    resolve each directory once instead of per-file.
-    if filemap_path and Path(filemap_path).is_file() and staging_root is not None:
-        dir_cache: dict = {}
-        for rel, mod in _parse_filemap(Path(filemap_path)):
-            dot = rel.rfind(".")
-            slash = max(rel.rfind("/"), rel.rfind("\\"))
-            if dot <= slash or rel[dot:].lower() not in TEXT_EXTENSIONS:
-                continue
-            full = resolve_file_path(rel, mod, staging_root, dir_cache)
-            if full is not None:
-                entries.append((rel, mod, full))
+    # 1. Mod-deployed text winners from one pinned graph generation.
+    if snapshot is not None and game is not None:
+        from Utils.filegraph_adapter import FLAG_TEXT
+        from Utils.filegraph_service import source_path
+        for winner in snapshot.flagged_winners(FLAG_TEXT):
+            entries.append((
+                winner.legacy_rel,
+                winner.mod_name,
+                source_path(game, winner.mod_name, winner.source_rel),
+            ))
 
     # 2. Vanilla game folder (skip symlinks/hardlinks = deployed files). Use
     #    os.walk + scandir so the extension check (cheap) gates the stat (costly)

@@ -3,7 +3,7 @@
 A thin vertical stack of colored rows, one per framework the active game declares
 (SKSE, BepInEx, RED4ext, …), each saying whether it's installed / staged / present
 but disabled / missing. Display-only, mirroring the Tk plugin-panel banner. Data
-comes from `Utils.framework_detect.detect_frameworks` (toolkit-neutral); this
+comes from `Utils.framework_detect.detect_frameworks_snapshot`; this
 widget only maps each state to the matching theme colors.
 """
 

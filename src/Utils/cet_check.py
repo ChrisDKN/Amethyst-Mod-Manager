@@ -2,16 +2,13 @@
 
 CET's ASI loader refuses to load a symlinked ``cyber_engine_tweaks.asi``, so the
 mod silently fails when Cyberpunk 2077 is deployed in SYMLINK mode. This module
-holds the pure detection - scan the effective filemap for the asi and report
+holds the pure detection - query the resolved snapshot for the ASI and report
 whether a warning is warranted. The GUI layer owns the actual prompt.
 
 Ported from the Tk ``gui.dialogs.confirm_cet_symlink`` (its detection half).
 """
 
 from __future__ import annotations
-
-from pathlib import Path
-
 
 CET_ASI = "cyber_engine_tweaks.asi"
 
@@ -31,7 +28,7 @@ def cet_symlink_conflict(game) -> bool:
       all the same.
 
     Any missing attribute, non-Cyberpunk game, hardlink mode with matching
-    devices, or unreadable filemap returns False (nothing to warn about)."""
+    devices, or unavailable catalog returns False (nothing to warn about)."""
     if getattr(game, "name", "") != "Cyberpunk 2077":
         return False
     try:
@@ -52,19 +49,7 @@ def cet_symlink_conflict(game) -> bool:
     except Exception:
         return False
     try:
-        filemap_path = game.get_effective_filemap_path()
+        from Utils.filegraph_service import active_snapshot
+        return active_snapshot(game).winner_by_suffix(CET_ASI) is not None
     except Exception:
         return False
-    if not filemap_path or not Path(filemap_path).is_file():
-        return False
-    try:
-        with Path(filemap_path).open(encoding="utf-8") as f:
-            for line in f:
-                if "\t" not in line:
-                    continue
-                rel_str, _ = line.rstrip("\n").split("\t", 1)
-                if rel_str.lower().endswith(CET_ASI):
-                    return True
-    except Exception:
-        return False
-    return False

@@ -500,3 +500,7 @@ def register_shortcuts(win) -> None:
         import sys
         print("[PERF] perftrace enabled - F11 = summary table, "
               "Shift+F11 = reset counters.", file=sys.stderr)
+        print("[PERF] work tags: [CPU] in-memory computation; [FS I/O] "
+              "filesystem calls (which may be cache-backed); [DB I/O] "
+              "SQLite/catalog access; [BACKGROUND] outside the button's "
+              "critical path.", file=sys.stderr)

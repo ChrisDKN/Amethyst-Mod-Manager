@@ -90,6 +90,9 @@ package() {
     install -d "$app_share" "$pkgdir/usr/bin"
 
     local _src="$SRC_TREE/src"
+    install -Dm755 \
+        "$_src/amethyst_filegraph.abi3.so" \
+        "$app_share/amethyst_filegraph.abi3.so"
     install -Dm644 "$_src/run_qt.py"        "$app_share/run_qt.py"
     install -Dm644 "$_src/cli.py"           "$app_share/cli.py"
     install -Dm644 "$_src/app_bootstrap.py" "$app_share/app_bootstrap.py"
@@ -151,7 +154,7 @@ export QT_QPA_PLATFORM
 : "\${FONTCONFIG_FILE:=\$APP_SHARE/fonts.conf}"
 export FONTCONFIG_FILE
 case "\$1" in
-    deploy|launch|restore|list-games|list-profiles|clear-credentials)
+    deploy|launch|restore|list-games|list-profiles|clear-credentials|export-filemap)
         exec python3 "\$APP_SHARE/cli.py" "\$@" ;;
     *)
         exec python3 "\$APP_SHARE/run_qt.py" "\$@" ;;

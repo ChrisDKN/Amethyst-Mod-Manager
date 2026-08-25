@@ -141,7 +141,8 @@ class MountAndBlade2Bannerlord(ProfileVFSGameMixin, BaseGame):
         staging = self.get_effective_mod_staging_path()
         core = self.mods_dir + "_Core"
 
-        if not filemap.is_file():
+        from Utils.filegraph_deploy import input_ready
+        if not input_ready():
             raise RuntimeError(
                 f"filemap.txt not found: {filemap}\n"
                 "Run 'Build Filemap' before deploying."
@@ -205,7 +206,7 @@ class MountAndBlade2Bannerlord(ProfileVFSGameMixin, BaseGame):
 
         _profile_dir = self._active_profile_dir
         _entries = read_modlist(_profile_dir / "modlist.txt") if _profile_dir else []
-        cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log)
+        cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log, game=self)
 
         from Utils.vfs import cleanup_deployment, has_deployment_state
         if has_deployment_state(self):
@@ -218,7 +219,8 @@ class MountAndBlade2Bannerlord(ProfileVFSGameMixin, BaseGame):
         _log(f"Restore: clearing {modules_dir.name}/ and moving {core}/ back if present ...")
         restored = restore_data_core(
             modules_dir, core_dir=core_dir,
-            overwrite_dir=self.get_effective_overwrite_path(), log_fn=_log
+            overwrite_dir=self.get_effective_overwrite_path(), log_fn=_log,
+            game=self, profile_dir=self._active_profile_dir,
         )
         if restored > 0:
             _log(f"  Restored {restored} file(s). {core}/ removed.")

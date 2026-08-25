@@ -248,7 +248,8 @@ class Morrowind(BaseGame):
 
         if not data_dir.is_dir():
             raise RuntimeError(f"'Data Files' directory not found: {data_dir}")
-        if not filemap.is_file():
+        from Utils.filegraph_deploy import input_ready
+        if not input_ready():
             raise RuntimeError(
                 f"filemap.txt not found: {filemap}\n"
                 "Run 'Build Filemap' before deploying."
@@ -347,7 +348,7 @@ class Morrowind(BaseGame):
 
         _profile_dir = self._active_profile_dir
         _entries = read_modlist(_profile_dir / "modlist.txt") if _profile_dir else []
-        cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log)
+        cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log, game=self)
 
         custom_rules = self.custom_routing_rules
         if custom_rules and self._game_path:
@@ -373,6 +374,7 @@ class Morrowind(BaseGame):
                 staging_root=self.get_effective_mod_staging_path(),
                 strip_prefixes=self.mod_folder_strip_prefixes,
                 log_fn=_log,
+                game=self, profile_dir=self._active_profile_dir,
             )
             _log(f"  Restored {restored} file(s). 'Data Files_Core/' removed.")
         except RuntimeError as e:

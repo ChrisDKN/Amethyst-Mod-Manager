@@ -24,7 +24,7 @@ from pathlib import Path
 from Utils.modlist import ModEntry, read_modlist
 from Utils.pak_reader import extract_meta_lsx, read_pak_info
 from Utils.app_log import app_log, safe_log as _safe_log
-from Utils.filemap import OVERWRITE_NAME as _OVERWRITE_NAME
+from Utils.filegraph_constants import OVERWRITE_NAME as _OVERWRITE_NAME
 
 # ---------------------------------------------------------------------------
 # Constants

@@ -265,13 +265,13 @@ class SevenDaysToDie(BaseGame):
         # tab). Exclusions are stored as RAW keys but the keep-filter offset
         # below has these prefixes peeled off, so translate into that same
         # space - otherwise "Disable" silently misses and the files deploy.
-        from Utils.filemap import _build_path_filters
+        from Utils.filegraph_paths import build_path_filters
         from Utils.mod_files import translate_exclusions_for_engine
         from Utils.profile_state import read_mod_strip_prefixes
         per_mod_prefs = read_mod_strip_prefixes(profile_dir)
         excluded_by_mod = translate_exclusions_for_engine(
             profile_dir, staging, None, per_mod_prefs)
-        path_filters = _build_path_filters(
+        path_filters = build_path_filters(
             self.conflict_ignore_filenames, None, None, excluded_by_mod)
         strip_map = {
             m: {p.lower() for p in prefs}

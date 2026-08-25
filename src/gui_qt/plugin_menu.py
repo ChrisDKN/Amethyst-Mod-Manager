@@ -286,6 +286,9 @@ def _plugin_paths(view) -> dict:
     game = getattr(view, "game", None)
     if game is None:
         return {}
+    resolved = getattr(view, "resolved_paths", None)
+    if resolved is not None:
+        return resolved
     try:
         from gui_qt.plugin_state import resolve_plugin_paths_for_game
         return resolve_plugin_paths_for_game(game)

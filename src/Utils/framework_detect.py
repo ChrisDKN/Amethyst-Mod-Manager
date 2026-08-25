@@ -89,65 +89,10 @@ def exe_in_staged(exe: str, staged_keys: set[str], mods_dir: str) -> bool:
     return False
 
 
-def disabled_basenames(modlist_path, index_path) -> set[str]:
-    """Lowercased basenames of every file belonging to a DISABLED mod - lets us
-    flag a framework that's installed but toggled off. Port of the Tk
-    ``_framework_disabled_basenames``."""
-    if not modlist_path or not index_path:
-        return set()
-    modlist_path = Path(modlist_path)
-    index_path = Path(index_path)
-    if not modlist_path.is_file() or not index_path.is_file():
-        return set()
-    try:
-        from Utils.modlist import read_modlist
-        from Utils.filemap import read_mod_index
-        disabled = {e.name for e in read_modlist(modlist_path)
-                    if not e.is_separator and not e.enabled}
-        if not disabled:
-            return set()
-        index = read_mod_index(index_path) or {}
-    except Exception:
-        return set()
-    names: set[str] = set()
-    for mod_name in disabled:
-        entry = index.get(mod_name)
-        if not entry:
-            continue
-        normal, root = entry
-        for k in (*normal.keys(), *root.keys()):
-            names.add(k.rsplit("/", 1)[-1].lower())
-    return names
-
-
-def _load_staged_keys(filemap_path) -> set[str]:
-    """Lowercased deploy-relative paths from filemap.txt + filemap_root.txt."""
-    keys: set[str] = set()
-    if not filemap_path:
-        return keys
-    fm_path = Path(filemap_path)
-    for fm in (fm_path, fm_path.parent / "filemap_root.txt"):
-        if not fm.is_file():
-            continue
-        try:
-            with fm.open(encoding="utf-8") as f:
-                for line in f:
-                    if "\t" not in line:
-                        continue
-                    rel = line.split("\t", 1)[0].replace("\\", "/")
-                    keys.add(rel.lower())
-        except OSError:
-            pass
-    return keys
-
-
-def detect_frameworks(game, filemap_path, modlist_path,
-                      rf_toggle_enabled: bool = True) -> list[FrameworkStatus]:
-    """Return one FrameworkStatus per framework the *game* declares, in order.
-
-    Empty list if *game* is None or declares no frameworks. *rf_toggle_enabled*
-    is the modlist's Root_Folder toggle (Root_Folder staging only reaches the
-    game root on deploy AND only while that toggle is on)."""
+def detect_frameworks_snapshot(game, snapshot, modlist_path,
+                               rf_toggle_enabled: bool = True
+                               ) -> list[FrameworkStatus]:
+    """Filegraph-backed framework detection with no legacy map/index reads."""
     if game is None:
         return []
     try:
@@ -157,24 +102,36 @@ def detect_frameworks(game, filemap_path, modlist_path,
     if not frameworks:
         return []
 
-    game_root = None
     try:
-        game_root = game.get_game_path() if hasattr(game, "get_game_path") else None
+        game_root = game.get_game_path()
     except Exception:
         game_root = None
-
-    root_folder = None
     try:
         root_folder = game.get_effective_root_folder_path()
     except Exception:
         root_folder = None
-
     rf_allowed = bool(getattr(game, "root_folder_deploy_enabled", True))
     mods_dir = getattr(game, "mods_dir", "") or ""
 
-    staged_keys = _load_staged_keys(filemap_path)
-    index_path = (Path(filemap_path).parent / "modindex.bin") if filemap_path else None
-    disabled = disabled_basenames(modlist_path, index_path)
+    staged_keys: set[str] = set()
+    for winner in snapshot.framework_winners():
+        if winner.legacy_rel:
+            staged_keys.add(winner.legacy_rel.replace("\\", "/").lower())
+        if winner.destination_display:
+            staged_keys.add(
+                winner.destination_display.replace("\\", "/").lower())
+
+    disabled_mods: set[str] = set()
+    if modlist_path:
+        try:
+            from Utils.modlist import read_modlist
+            disabled_mods = {
+                entry.name for entry in read_modlist(Path(modlist_path))
+                if not entry.is_separator and not entry.enabled
+            }
+        except Exception:
+            disabled_mods = set()
+    disabled = snapshot.framework_basenames(disabled_mods)
 
     def state_for_exe(exe: str) -> str:
         exe_path = Path(exe)
@@ -187,45 +144,41 @@ def detect_frameworks(game, filemap_path, modlist_path,
                     return STATE_INSTALLED
             except Exception:
                 pass
-
-        in_root_staging = (rf_allowed and root_folder is not None
-                           and file_exists_ci(root_folder, exe_path))
-
+        in_root_staging = (
+            rf_allowed and root_folder is not None
+            and file_exists_ci(root_folder, exe_path)
+        )
         if in_root_staging and not rf_toggle_enabled:
             return STATE_NOT_ENABLED
         if in_root_staging or exe_in_staged(exe, staged_keys, mods_dir):
             return STATE_NOT_DEPLOYED
-        exe_basename = exe.replace("\\", "/").rsplit("/", 1)[-1].lower()
-        if exe_basename and exe_basename in disabled:
+        basename = exe.replace("\\", "/").rsplit("/", 1)[-1].lower()
+        if basename and basename in disabled:
             return STATE_NOT_ENABLED
         return STATE_MISSING
 
-    # Any one candidate satisfies the framework - report the best state.
-    rank = {STATE_INSTALLED: 3, STATE_NOT_DEPLOYED: 2,
-            STATE_NOT_ENABLED: 1, STATE_MISSING: 0}
-    out: list[FrameworkStatus] = []
+    rank = {
+        STATE_INSTALLED: 3,
+        STATE_NOT_DEPLOYED: 2,
+        STATE_NOT_ENABLED: 1,
+        STATE_MISSING: 0,
+    }
+    result: list[FrameworkStatus] = []
     for label, exes in frameworks.items():
-        candidates = framework_exe_candidates(exes)
         state = STATE_MISSING
-        for exe in candidates:
-            s = state_for_exe(exe)
-            if rank[s] > rank[state]:
-                state = s
+        for exe in framework_exe_candidates(exes):
+            candidate_state = state_for_exe(exe)
+            if rank[candidate_state] > rank[state]:
+                state = candidate_state
             if state == STATE_INSTALLED:
                 break
-
         if state == STATE_INSTALLED:
-            out.append(FrameworkStatus(label, state,
-                                       f"✔  {label} Installed"))
+            message = f"✔  {label} Installed"
         elif state == STATE_NOT_DEPLOYED:
-            out.append(FrameworkStatus(
-                label, state,
-                f"●  {label} present in modlist but not deployed"))
+            message = f"●  {label} present in modlist but not deployed"
         elif state == STATE_NOT_ENABLED:
-            out.append(FrameworkStatus(
-                label, state,
-                f"●  {label} present in modlist but not enabled"))
+            message = f"●  {label} present in modlist but not enabled"
         else:
-            out.append(FrameworkStatus(label, state,
-                                       f"✘  {label} Not Present"))
-    return out
+            message = f"✘  {label} Not Present"
+        result.append(FrameworkStatus(label, state, message))
+    return result

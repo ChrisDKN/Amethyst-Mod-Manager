@@ -113,7 +113,7 @@ def build_catalog(resolver, staging: Path | None, modlist_path: Path | None,
         return bool(cancel and cancel())
 
     if staging is not None:
-        entries += _mod_loose(staging, prio, prefix, exts)
+        entries += _mod_loose(resolver, prio, prefix, exts)
     if stop():
         return []
 
@@ -129,7 +129,7 @@ def build_catalog(resolver, staging: Path | None, modlist_path: Path | None,
         return []
 
     if staging is not None:
-        entries += _mod_archives(staging, prio, prefix, exts)
+        entries += _mod_archives(resolver, prio, prefix, exts)
     if stop():
         return []
 
@@ -161,18 +161,16 @@ def find_copies(rel_keys, resolver, staging: Path | None,
     from Utils.asset_resolver import DirCache
     dirs = DirCache()
 
-    if staging is not None:
-        try:
-            from Utils.filemap import read_mod_index
-            index = read_mod_index(staging.parent / "modindex.bin") or {}
-        except Exception:                                # noqa: BLE001
-            index = {}
+    snapshot = getattr(resolver, "snapshot", None)
+    if staging is not None and snapshot is not None:
+        from Utils.filegraph_adapter import FLAG_INDEXED
         for mod in prio:
-            got = index.get(mod)
-            if not got:
-                continue
-            for key in wanted.intersection(got[0]):
-                entries.append(MeshEntry(key, MOD_LOOSE, mod=mod))
+            for record in snapshot.mod_files(mod):
+                if record.candidate_id == 0 and not (record.flags & FLAG_INDEXED):
+                    continue
+                key = resolver._asset_key(record.legacy_rel, record.namespace)
+                if key in wanted:
+                    entries.append(MeshEntry(key, MOD_LOOSE, mod=mod))
 
     if data_dir is not None:
         deployed = set(_winner_map(resolver, "loose_winners"))
@@ -180,21 +178,14 @@ def find_copies(rel_keys, resolver, staging: Path | None,
             if key not in deployed and dirs.resolve(data_dir, key) is not None:
                 entries.append(MeshEntry(key, DATA_LOOSE))
 
-    if staging is not None:
-        try:
-            from Utils.bsa_filemap import read_bsa_index
-            bsa = read_bsa_index(staging.parent / "bsa_index.bin") or {}
-        except Exception:                                # noqa: BLE001
-            bsa = {}
+    if staging is not None and snapshot is not None:
+        from Utils.filegraph_service import source_path
         for mod in prio:
-            for archive_name, _mtime, paths in bsa.get(mod, ()):
-                hits = wanted.intersection(paths)
-                if not hits:
-                    continue
-                archive = dirs.resolve(staging / mod, archive_name)
-                if archive is None:
-                    continue
-                for key in hits:
+            for record in snapshot.archive_files(mod):
+                key = resolver._asset_key(record.legacy_rel, "archive")
+                if key in wanted:
+                    archive = source_path(game=resolver.game, mod_name=mod,
+                                          relative=record.source_rel)
                     entries.append(MeshEntry(key, MOD_ARCHIVE, mod=mod,
                                              archive=archive))
 
@@ -209,7 +200,8 @@ def find_copies(rel_keys, resolver, staging: Path | None,
 
 def mod_has_assets(staging: Path | None, mod: str, *,
                    prefix: str = DEFAULT_PREFIX,
-                   exts: tuple[str, ...] = DEFAULT_EXTS) -> bool:
+                   exts: tuple[str, ...] = DEFAULT_EXTS,
+                   game=None) -> bool:
     """True if *mod* ships at least one matching asset, loose or in its own
     BSA/BA2 - the right-click gate for "is there anything to view here".
 
@@ -218,31 +210,22 @@ def mod_has_assets(staging: Path | None, mod: str, *,
     """
     if staging is None or not mod:
         return False
-    staging = Path(staging)
-
-    index = None
     try:
-        from Utils.filemap import read_mod_index
-        index = read_mod_index(staging.parent / "modindex.bin")
-    except Exception:                                    # noqa: BLE001
-        index = None
-    if index is not None:
-        got = index.get(mod)
-        for key in (got[0] if got else ()):
+        from Utils.filegraph_adapter import FLAG_INDEXED
+        from Utils.filegraph_service import active_snapshot
+        snapshot = active_snapshot(game)
+        for record in snapshot.mod_files(mod):
+            if record.candidate_id == 0 and not (record.flags & FLAG_INDEXED):
+                continue
+            key = normalise(record.legacy_rel)
             if key.startswith(prefix) and _ext_ok(key, exts):
                 return True
-    elif _walk_ext(staging / mod, prefix, exts):
-        return True
-
-    try:
-        from Utils.bsa_filemap import read_bsa_index
-        bsa = read_bsa_index(staging.parent / "bsa_index.bin") or {}
-    except Exception:                                    # noqa: BLE001
-        bsa = {}
-    for _archive_name, _mtime, paths in bsa.get(mod, ()):
-        for key in paths:
+        for record in snapshot.archive_files(mod):
+            key = normalise(record.legacy_rel)
             if key.startswith(prefix) and _ext_ok(key, exts):
                 return True
+    except Exception:                                    # noqa: BLE001
+        return False
     return False
 
 
@@ -273,54 +256,38 @@ def _enabled_mods(modlist_path: Path | None) -> list[str]:
         return []
 
 
-def _mod_loose(staging: Path, mods: list[str], prefix: str,
+def _mod_loose(resolver, mods: list[str], prefix: str,
                exts: tuple[str, ...]) -> list[MeshEntry]:
-    """Loose copies from every enabled mod - modindex.bin (NOT filemap.txt,
-    which holds only winners), or a disk walk if the index is absent."""
+    """Loose copies from every enabled mod in the pinned graph inventory."""
     out: list[MeshEntry] = []
-    index = None
-    try:
-        from Utils.filemap import read_mod_index
-        index = read_mod_index(staging.parent / "modindex.bin")
-    except Exception:                                    # noqa: BLE001
-        index = None
-
+    snapshot = getattr(resolver, "snapshot", None)
+    if snapshot is None:
+        return out
+    from Utils.filegraph_adapter import FLAG_INDEXED
     for mod in mods:
-        if index is not None:
-            got = index.get(mod)
-            keys = got[0].keys() if got else ()
-            for key in keys:
-                if key.startswith(prefix) and _ext_ok(key, exts):
-                    out.append(MeshEntry(key, MOD_LOOSE, mod=mod))
-        else:
-            for key in _walk_ext(staging / mod, prefix, exts):
+        for record in snapshot.mod_files(mod):
+            if record.candidate_id == 0 and not (record.flags & FLAG_INDEXED):
+                continue
+            key = resolver._asset_key(record.legacy_rel, record.namespace)
+            if key.startswith(prefix) and _ext_ok(key, exts):
                 out.append(MeshEntry(key, MOD_LOOSE, mod=mod))
     return out
 
 
-def _mod_archives(staging: Path, mods: list[str], prefix: str,
+def _mod_archives(resolver, mods: list[str], prefix: str,
                   exts: tuple[str, ...]) -> list[MeshEntry]:
     """Archived copies inside every enabled mod's own BSA/BA2 files."""
-    try:
-        from Utils.bsa_filemap import read_bsa_index
-        index = read_bsa_index(staging.parent / "bsa_index.bin") or {}
-    except Exception:                                    # noqa: BLE001
+    snapshot = getattr(resolver, "snapshot", None)
+    if snapshot is None:
         return []
-    from Utils.asset_resolver import DirCache
-    dirs = DirCache()
+    from Utils.filegraph_service import source_path
     out: list[MeshEntry] = []
-    wanted = set(mods)
-    for mod, archives in index.items():
-        if mod not in wanted:
-            continue
-        for archive_name, _mtime, paths in archives:
-            hits = [p for p in paths if p.startswith(prefix) and _ext_ok(p, exts)]
-            if not hits:
-                continue
-            archive = dirs.resolve(staging / mod, archive_name)
-            if archive is None:
-                continue
-            for key in hits:
+    for mod in mods:
+        for record in snapshot.archive_files(mod):
+            key = resolver._asset_key(record.legacy_rel, "archive")
+            if key.startswith(prefix) and _ext_ok(key, exts):
+                archive = source_path(
+                    resolver.game, mod, record.source_rel)
                 out.append(MeshEntry(key, MOD_ARCHIVE, mod=mod, archive=archive))
     return out
 

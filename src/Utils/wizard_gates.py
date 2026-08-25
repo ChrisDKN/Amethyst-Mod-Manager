@@ -51,31 +51,15 @@ def find_staged_exe(game: "BaseGame", exe_name) -> Path | None:
     if not wanted:
         return None
 
-    # Fast path: scan the in-memory index. rel_key is lowercased with "/"
-    # separators, so a basename match is the last path segment.
     try:
-        from Utils.filemap import read_mod_index
-        index = read_mod_index(staging.parent / "modindex.bin")
-    except Exception:
-        index = None
-    if index is not None:
-        for mod_name, (normal_files, root_files) in index.items():
-            for files in (normal_files, root_files):
-                for rel_key, rel_str in files.items():
-                    if rel_key.rsplit("/", 1)[-1] in wanted:
-                        candidate = staging / mod_name / rel_str
-                        if candidate.is_file():
-                            return candidate
-        # Index present but no match - trust it (it's the deploy source of
-        # truth) rather than paying for a full-tree walk that would find the
-        # same nothing.
-        return None
-
-    # No usable index - fall back to the disk walk.
-    for name in _as_names(exe_name):
-        for candidate in staging.rglob(name):
+        from Utils.filegraph_service import active_snapshot, source_path
+        snapshot = active_snapshot(game)
+        for mod_name, relative in snapshot.raw_files_by_basename(wanted):
+            candidate = source_path(game, mod_name, relative)
             if candidate.is_file():
                 return candidate
+    except Exception:
+        return None
     return None
 
 
@@ -84,34 +68,16 @@ find_mod_exe = find_staged_exe
 
 
 def filemap_find(game: "BaseGame", rel_suffix: str) -> Path | None:
-    """Return the staging path of the file whose filemap entry ends with
-    rel_suffix.
-
-    Matches the winning mod for that relative path in the active profile's
-    ``filemap.txt`` and resolves it to ``<staging>/<mod>/<rel>``.
-    """
+    """Return the exact source of the winning destination suffix."""
     try:
-        filemap_path = game.get_effective_filemap_path()
-        staging = game.get_effective_mod_staging_path()
+        from Utils.filegraph_service import active_snapshot, source_path
+        winner = active_snapshot(game).winner_by_suffix(rel_suffix)
+        if winner is None:
+            return None
+        candidate = source_path(game, winner.mod_name, winner.source_rel)
+        return candidate if candidate.is_file() else None
     except Exception:
         return None
-    if not filemap_path.is_file():
-        return None
-    target = rel_suffix.lower().replace("\\", "/")
-    try:
-        text = filemap_path.read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        return None
-    for line in text.splitlines():
-        if "\t" not in line:
-            continue
-        rel_str, mod_name = line.split("\t", 1)
-        norm = rel_str.replace("\\", "/").lower()
-        if norm.endswith(target):
-            candidate = staging / mod_name / rel_str.replace("\\", "/")
-            if candidate.is_file():
-                return candidate
-    return None
 
 
 def sse_display_tweaks_installed(game: "BaseGame") -> bool:

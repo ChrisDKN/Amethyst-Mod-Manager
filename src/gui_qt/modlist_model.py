@@ -17,8 +17,9 @@ from PySide6.QtCore import (
 # Crash-proof diagnostic prints (Flatpak stdout can raise BrokenPipeError and
 # kill worker threads). See Utils.app_log.safe_print.
 from Utils.app_log import safe_print as print  # noqa: A004
+from Utils.conflict_timing import ConflictTimeline, ensure_timeline
 from Utils.modlist import ModEntry, read_modlist
-from Utils.filemap import OVERWRITE_NAME, ROOT_FOLDER_NAME
+from Utils.filegraph_constants import OVERWRITE_NAME, ROOT_FOLDER_NAME
 from gui_qt.modlist_sort import (
     DIVIDER_NAME, build_display, uninvert_display, make_divider, is_reverse,
 )
@@ -426,6 +427,39 @@ class ModListModel(QAbstractTableModel):
                                    UuidConflictRole, Qt.DisplayRole])
         self._resort_if_key("conflicts")
 
+    def apply_conflict_delta(
+        self,
+        conflicts: dict[str, int],
+        bsa_conflicts: dict[str, int],
+        uuid_conflicts: dict[str, int],
+        changed_mods,
+    ) -> None:
+        """Publish one native delta and repaint only affected mod rows."""
+        self._conflicts = conflicts or {}
+        self._bsa_conflicts = bsa_conflicts or {}
+        self._uuid_conflicts = uuid_conflicts or {}
+        names = set(changed_mods or ())
+        rows = sorted(
+            index for index, entry in enumerate(self._entries)
+            if not entry.is_separator and entry.name in names
+        )
+        start = previous = None
+        for row in rows + [None]:
+            if start is None:
+                start = previous = row
+                continue
+            if row is not None and row == previous + 1:
+                previous = row
+                continue
+            self.dataChanged.emit(
+                self.index(start, COL_NAME),
+                self.index(previous, COL_CONFLICTS),
+                [ConflictRole, BsaConflictRole, UuidConflictRole,
+                 Qt.DisplayRole],
+            )
+            start = previous = row
+        self._resort_if_key("conflicts")
+
     def set_bsa_conflicts(self, bsa_conflicts: dict[str, int]) -> None:
         """Update ONLY the BSA conflict codes, leaving loose conflicts + flags
         untouched. Used when a plugin toggle/reorder changes BSA load order -
@@ -705,18 +739,37 @@ class ModListModel(QAbstractTableModel):
             e = self._entries[row]
             if e.is_separator or e.locked:
                 return
+            timing = ConflictTimeline("toggle", [e.name])
+            phase_started = timing.now()
             e.enabled = not e.enabled
             # Whole row: the enabled state dims the text in EVERY column, not
             # just the Name cell with the checkbox.
             self.dataChanged.emit(self.index(row, 0),
                                   self.index(row, len(COLUMNS) - 1),
                                   [EntryRole, Qt.DisplayRole])
-            self.save(edit_ctx=("toggle", [(e.name, e.enabled)]))
+            timing.mark("mod row state and repaint notification updated",
+                        phase_started=phase_started)
+            self.save(edit_ctx=(
+                "toggle", [(e.name, e.enabled)], timing))
+            phase_started = timing.now()
             self.enabled_changed.emit([(e.name, e.enabled)])
+            timing.mark("plugin activation sync signal complete",
+                        phase_started=phase_started)
 
     def set_rows_enabled(self, rows, enabled: bool) -> None:
         """Enable/disable the mods at *rows* (skips separators + locked), then
         save + emit enabled_changed ONCE for the whole batch."""
+        rows = list(rows)
+        candidates = [
+            self._entries[r].name for r in rows
+            if not self._entries[r].is_separator
+            and not self._entries[r].locked
+            and self._entries[r].enabled != enabled
+        ]
+        if not candidates:
+            return
+        timing = ConflictTimeline("toggle", candidates)
+        phase_started = timing.now()
         changed: list[tuple[str, bool]] = []
         changed_rows: list[int] = []
         for r in rows:
@@ -740,8 +793,14 @@ class ModListModel(QAbstractTableModel):
                 run_start = r
             prev = r
         if changed:
-            self.save(edit_ctx=("toggle", list(changed)))
+            timing.mark(
+                f"{len(changed)} mod row state(s) and repaint notifications updated",
+                phase_started=phase_started)
+            self.save(edit_ctx=("toggle", list(changed), timing))
+            phase_started = timing.now()
             self.enabled_changed.emit(changed)
+            timing.mark("plugin activation sync signal complete",
+                        phase_started=phase_started)
 
     def entry(self, row: int) -> ModEntry:
         return self._entries[row]
@@ -872,6 +931,14 @@ class ModListModel(QAbstractTableModel):
 
     def set_all_enabled(self, enabled: bool) -> None:
         """Enable/disable every toggleable mod, then save once."""
+        candidates = [
+            e.name for e in self._entries
+            if not e.is_separator and not e.locked and e.enabled != enabled
+        ]
+        if not candidates:
+            return
+        timing = ConflictTimeline("toggle", candidates)
+        phase_started = timing.now()
         changed: list[tuple[str, bool]] = []
         for r, e in enumerate(self._entries):
             if e.is_separator or e.locked:
@@ -884,8 +951,14 @@ class ModListModel(QAbstractTableModel):
                 self.index(0, 0),
                 self.index(len(self._entries) - 1, len(COLUMNS) - 1),
                 [EntryRole, Qt.DisplayRole])
-            self.save(edit_ctx=("toggle", list(changed)))
+            timing.mark(
+                f"{len(changed)} mod row state(s) and repaint notification updated",
+                phase_started=phase_started)
+            self.save(edit_ctx=("toggle", list(changed), timing))
+            phase_started = timing.now()
             self.enabled_changed.emit(changed)
+            timing.mark("plugin activation sync signal complete",
+                        phase_started=phase_started)
 
     def hidden_rows(self) -> set[int]:
         """Rows to hide: mods that fall under a collapsed separator (up to the
@@ -970,7 +1043,10 @@ class ModListModel(QAbstractTableModel):
             set_priority / move-to-separator / sort-selection)
           ("toggle", [(name, enabled), ...])   - enable/disable only
           None - anything else (or an unclassifiable edit) → full rebuild."""
+        edit_ctx, timing = ensure_timeline(edit_ctx)
         if self.modlist_path is None:
+            if timing is not None:
+                timing.finish("modlist save skipped: no active profile")
             return
         # Every structural edit (drag, remove, add-separator, set_priority…)
         # funnels through here - row→block mapping may have changed.
@@ -980,6 +1056,7 @@ class ModListModel(QAbstractTableModel):
         # ALWAYS write the natural order - the display list may be a sorted /
         # inverted permutation (and contains the divider in reverse mode).
         body = [e for e in self._natural if e.name not in _PINNED_NAMES]
+        phase_started = timing.now() if timing is not None else None
         try:
             # This model can be a stale snapshot - a background install writes
             # its new entry before our _reload_modlist lands - so writing body
@@ -1000,10 +1077,22 @@ class ModListModel(QAbstractTableModel):
         except Exception as exc:
             print(f"[gui_qt] modlist save failed: {exc}", flush=True)
             self.save_failed.emit(f"Modlist save failed: {exc}")
+            if timing is not None:
+                timing.finish(f"modlist write failed: {exc}")
             return
+        if timing is not None:
+            timing.mark(
+                f"modlist.txt committed ({len(body)} entries)",
+                phase_started=phase_started)
         if self.on_saved:
+            phase_started = timing.now() if timing is not None else None
             with span("modlist.on_saved(kickoff)"):
                 self.on_saved(edit_ctx)
+            if timing is not None:
+                timing.mark("modlist on-saved callback returned",
+                            phase_started=phase_started)
+        elif timing is not None:
+            timing.finish("modlist saved; no conflict callback is connected")
 
     # ---- structural edits (context-menu actions) --------------------------
     def rename(self, row: int, new_name: str) -> None:
@@ -1046,13 +1135,21 @@ class ModListModel(QAbstractTableModel):
         src = self._natural_row_of(e)
         if src < 0 or dest_row == src:
             return
+        timing = ConflictTimeline("move", [e.name])
+        phase_started = timing.now()
+        old_order = self._mod_name_order()
         nat.pop(src)
         # Pre-removal target is dest_row (moving up: before it) or dest_row+1
         # (moving down: after it); the pop shifts the latter down by one, so
         # both cases land at dest_row post-pop.
         nat.insert(dest_row, e)
         self._rebuild_display()
-        self.save()
+        ctx = self._move_ctx(old_order, self._mod_name_order(), [e.name])
+        timing.mark("priority edit reordered the Qt model",
+                    phase_started=phase_started)
+        save_ctx = (("move",) + ctx + (timing,) if ctx is not None
+                    else ("full", timing))
+        self.save(edit_ctx=save_ctx)
 
     def add_separator(self, row: int, name: str, above: bool) -> None:
         from Utils.modlist import _SEPARATOR_SUFFIX
@@ -1274,8 +1371,13 @@ class ModListModel(QAbstractTableModel):
         # Qt's beginMoveRows requires dest outside the moved range.
         if first <= dest <= last + 1:
             return False
+        preview = self._entries[first:last + 1]
+        moved_preview = [e.name for e in preview if not e.is_separator]
+        timing = ConflictTimeline("move", moved_preview)
+        phase_started = timing.now()
         if not self.beginMoveRows(QModelIndex(), first, last,
                                   QModelIndex(), dest):
+            timing.finish("Qt rejected the requested row move")
             return False
         from Utils.perftrace import span
         with span("model.move_block"):
@@ -1287,7 +1389,12 @@ class ModListModel(QAbstractTableModel):
             self.endMoveRows()
             moved = [e.name for e in block if not e.is_separator]
             ctx = self._move_ctx(old_order, self._mod_name_order(), moved)
-            self.save(edit_ctx=None if ctx is None else ("move",) + ctx)
+            timing.mark(
+                f"Qt model reordered ({len(moved)} moved mod(s))",
+                phase_started=phase_started)
+            save_ctx = (("move",) + ctx + (timing,) if ctx is not None
+                        else ("full", timing))
+            self.save(edit_ctx=save_ctx)
         return True
 
     def move_block_display(self, src_rows: list[int], slot: int,
@@ -1324,8 +1431,13 @@ class ModListModel(QAbstractTableModel):
         ins = max(lo, min(ins, hi + 1))
         if first <= ins <= last + 1:
             return False
+        preview = self._entries[first:last + 1]
+        moved_preview = [e.name for e in preview if not e.is_separator]
+        timing = ConflictTimeline("move", moved_preview)
+        phase_started = timing.now()
         if not self.beginMoveRows(QModelIndex(), first, last,
                                   QModelIndex(), ins):
+            timing.finish("Qt rejected the requested reverse-order row move")
             return False
         old_order = self._mod_name_order()
         block = self._entries[first:last + 1]
@@ -1345,5 +1457,10 @@ class ModListModel(QAbstractTableModel):
         self._rebuild_display()
         moved = [e.name for e in block if not e.is_separator]
         ctx = self._move_ctx(old_order, self._mod_name_order(), moved)
-        self.save(edit_ctx=None if ctx is None else ("move",) + ctx)
+        timing.mark(
+            f"Qt reverse-order model reordered ({len(moved)} moved mod(s))",
+            phase_started=phase_started)
+        save_ctx = (("move",) + ctx + (timing,) if ctx is not None
+                    else ("full", timing))
+        self.save(edit_ctx=save_ctx)
         return True

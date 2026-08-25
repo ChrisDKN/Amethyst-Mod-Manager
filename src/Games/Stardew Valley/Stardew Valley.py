@@ -75,6 +75,51 @@ class StardewValley(ProfileVFSGameMixin, BaseGame):
         # Mods/ is reverted via its _Core backup; capture only files outside it.
         return {self.mods_dir.split("/")[0]}
 
+    @staticmethod
+    def filegraph_manifest_spelling(
+        mod_root: Path, entries: list[tuple[str, str]],
+    ) -> dict[str, str]:
+        """Apply Alternative Textures' case-sensitive spelling before resolve."""
+        at_prefixes: set[str] = set()
+        for raw_relative, staged_relative in entries:
+            if staged_relative.rsplit("/", 1)[-1].lower() != "manifest.json":
+                continue
+            try:
+                data = json.loads(
+                    (mod_root / raw_relative).read_text(encoding="utf-8-sig"))
+            except (OSError, ValueError):
+                continue
+            content_pack = data.get("ContentPackFor")
+            unique_id = (content_pack.get("UniqueID")
+                         if isinstance(content_pack, dict) else None)
+            if unique_id == "PeacefulEnd.AlternativeTextures":
+                at_prefixes.add(
+                    staged_relative.rsplit("/", 1)[0].lower()
+                    if "/" in staged_relative else "")
+
+        replacements: dict[str, str] = {}
+        for _raw_relative, staged_relative in entries:
+            parts = staged_relative.split("/")
+            lower = staged_relative.lower()
+            matching = next((
+                prefix for prefix in at_prefixes
+                if ((not prefix and "/" in lower)
+                    or (prefix and lower.startswith(prefix + "/")))
+            ), None)
+            if matching is None:
+                continue
+            texture_index = 0 if matching == "" else matching.count("/") + 1
+            if (len(parts) < texture_index + 3
+                    or parts[texture_index].lower() != "textures"):
+                continue
+            parts[texture_index] = "Textures"
+            basename = parts[-1]
+            if (basename.lower() in ("texture.json", "texture.png")
+                    or _AT_SPLIT_PNG_RE.match(basename)):
+                parts[-1] = basename.lower()
+            replacements[lower] = "/".join(parts)
+        return replacements
+
     @property
     def mod_folder_strip_prefixes(self) -> set[str]:
         return {"mods"}
@@ -171,7 +216,8 @@ class StardewValley(ProfileVFSGameMixin, BaseGame):
         staging     = self.get_effective_mod_staging_path()
         core        = self.mods_dir + "_Core"
 
-        if not filemap.is_file():
+        from Utils.filegraph_deploy import input_ready
+        if not input_ready():
             raise RuntimeError(
                 f"filemap.txt not found: {filemap}\n"
                 "Run 'Build Filemap' before deploying."
@@ -257,87 +303,14 @@ class StardewValley(ProfileVFSGameMixin, BaseGame):
         resolution stays case-insensitive, so the on-disk casing is still found.
         Returns the number of filemap lines rewritten.
         """
-        if not filemap.is_file():
-            return 0
+        # Candidate derivation applies this transform before the immutable
+        # deployment generation is published, so deploy-time rewriting is no
+        # longer necessary or permitted.
+        return 0
 
-        try:
-            lines = filemap.read_text(encoding="utf-8").splitlines()
-        except OSError:
-            return 0
-
-        # Lowercased deploy-path prefixes of the directory holding an AT content
-        # pack's manifest.json (e.g. "test/[at] drink water...").  An empty
-        # string marks a pack whose manifest sits at the deploy root.  Its
-        # Textures folder is the path segment immediately after this prefix.
-        at_prefixes: set[str] = set()
-        for line in lines:
-            if "\t" not in line:
-                continue
-            rel_str, mod_name = line.split("\t", 1)
-            if rel_str.rsplit("/", 1)[-1].lower() != "manifest.json":
-                continue
-            mod_src = staging / mod_name / rel_str
-            try:
-                data = json.loads(mod_src.read_text(encoding="utf-8-sig"))
-            except (OSError, ValueError):
-                continue
-            cp = data.get("ContentPackFor")
-            uid = cp.get("UniqueID") if isinstance(cp, dict) else None
-            if isinstance(uid, str) and uid == "PeacefulEnd.AlternativeTextures":
-                pack_dir = rel_str.rsplit("/", 1)[0] if "/" in rel_str else ""
-                at_prefixes.add(pack_dir.lower())
-
-        if not at_prefixes:
-            return 0
-
-        def _match_prefix(rel_lower: str) -> "str | None":
-            # The Textures folder must be the segment right after the pack dir.
-            for pre in at_prefixes:
-                if pre == "":
-                    if "/" in rel_lower:
-                        return ""
-                elif rel_lower.startswith(pre + "/"):
-                    return pre
-            return None
-
-        fixed = 0
-        out: list[str] = []
-        for line in lines:
-            if "\t" in line:
-                rel_str, mod_name = line.split("\t", 1)
-                parts = rel_str.split("/")
-                pre = _match_prefix(rel_str.lower())
-                # depth of the segment right after the pack dir (the Textures lvl)
-                tex_idx = -1 if pre is None else (0 if pre == "" else pre.count("/") + 1)
-                # Need a Textures folder AND at least one file beneath it.
-                if tex_idx >= 0 and len(parts) >= tex_idx + 3 \
-                        and parts[tex_idx].lower() == "textures":
-                    changed = False
-                    # Folder: .../textures/... → .../Textures/...
-                    if parts[tex_idx] != "Textures":
-                        parts[tex_idx] = "Textures"
-                        changed = True
-                    # Filename: texture.json / texture.png / texture_N.png -
-                    # AT gates these via case-sensitive File.Exists / GetFiles.
-                    base = parts[-1]
-                    if base != base.lower() and (
-                            base.lower() in ("texture.json", "texture.png")
-                            or _AT_SPLIT_PNG_RE.match(base)):
-                        parts[-1] = base.lower()
-                        changed = True
-                    if changed:
-                        line = "/".join(parts) + "\t" + mod_name
-                        fixed += 1
-            out.append(line)
-
-        if fixed:
-            try:
-                filemap.write_text("\n".join(out) + "\n", encoding="utf-8")
-            except OSError:
-                return 0
-        return fixed
-
-    def _orphaned_overwrite_configs(self, filemap: Path) -> set[str]:
+    def _orphaned_overwrite_configs(
+        self, filemap: Path | None = None, *, snapshot=None,
+    ) -> set[str]:
         """Lowercased rel paths of [Overwrite] files to skip on deploy.
 
         SMAPI errors when a Mods/<Name>/ folder holds files but no manifest.json.
@@ -348,28 +321,33 @@ class StardewValley(ProfileVFSGameMixin, BaseGame):
         filemap (i.e. no enabled mod provides it). Overwrite files at the root
         (no <Name>/ subfolder) and the manifest.json itself are never skipped.
         """
-        from Utils.filemap import OVERWRITE_NAME
+        from Utils.filegraph_constants import OVERWRITE_NAME
 
-        if not filemap.is_file():
-            return set()
+        if snapshot is not None:
+            rows = (
+                (entry.legacy_rel, entry.mod_name)
+                for entry in snapshot.deployment_plan().entries
+                if entry.provider_kind != "archive_member" and entry.legacy_rel
+            )
+        else:
+            from Utils.filegraph_deploy import input_ready, legacy_rows
+            if not input_ready():
+                return set()
+            rows = legacy_rows()
 
         manifest_dirs: set[str] = set()              # top dirs (lower) with a manifest.json
         overwrite_files: list[tuple[str, str]] = []  # (rel_lower, top_dir_lower)
         try:
-            with filemap.open(encoding="utf-8") as f:
-                for line in f:
-                    if "\t" not in line:
-                        continue
-                    rel_str, mod_name = line.rstrip("\n").split("\t", 1)
-                    rel_lower = rel_str.lower()
-                    slash = rel_lower.find("/")
-                    top_dir = rel_lower[:slash] if slash != -1 else ""
-                    base = rel_lower.rsplit("/", 1)[-1]
-                    if base == "manifest.json" and top_dir:
-                        manifest_dirs.add(top_dir)
-                    if mod_name == OVERWRITE_NAME and top_dir and base != "manifest.json":
-                        overwrite_files.append((rel_lower, top_dir))
-        except OSError:
+            for rel_str, mod_name in rows:
+                rel_lower = rel_str.lower()
+                slash = rel_lower.find("/")
+                top_dir = rel_lower[:slash] if slash != -1 else ""
+                base = rel_lower.rsplit("/", 1)[-1]
+                if base == "manifest.json" and top_dir:
+                    manifest_dirs.add(top_dir)
+                if mod_name == OVERWRITE_NAME and top_dir and base != "manifest.json":
+                    overwrite_files.append((rel_lower, top_dir))
+        except (OSError, RuntimeError):
             return set()
 
         return {
@@ -390,7 +368,7 @@ class StardewValley(ProfileVFSGameMixin, BaseGame):
         
         _profile_dir = self._active_profile_dir
         _entries = read_modlist(_profile_dir / "modlist.txt") if _profile_dir else []
-        cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log)
+        cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log, game=self)
 
         # Restore according to what is actually deployed. This also handles a
         # profile whose VFS setting was changed after its private view was
@@ -405,7 +383,10 @@ class StardewValley(ProfileVFSGameMixin, BaseGame):
 
         if core_dir.is_dir():
             _log(f"Restore: clearing {plugins_dir.name}/ and moving {core}/ back ...")
-            restored = restore_data_core(plugins_dir, core_dir=core_dir, overwrite_dir=self.get_effective_overwrite_path(), log_fn=_log)
+            restored = restore_data_core(
+                plugins_dir, core_dir=core_dir,
+                overwrite_dir=self.get_effective_overwrite_path(),
+                log_fn=_log, game=self, profile_dir=self._active_profile_dir)
             _log(f"  Restored {restored} file(s). {core}/ removed.")
         else:
             _log(f"Restore: no {core}/ found - nothing to restore.")

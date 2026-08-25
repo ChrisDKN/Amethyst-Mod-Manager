@@ -1155,8 +1155,8 @@ def _amethyst_state_jobs(profile_dir, bundle_folders: dict,
     return jobs
 
 
-def _conflict_mod_rules(ordered_names: list, refs: dict, staging_root,
-                        index_path=None) -> list:
+def _conflict_mod_rules(ordered_names: list, refs: dict, game,
+                        profile_dir: Path) -> list:
     """Emit ``after`` rules so loose-file conflicts resolve exactly as they do
     in the modlist panel.
 
@@ -1172,51 +1172,37 @@ def _conflict_mod_rules(ordered_names: list, refs: dict, staging_root,
     emitted - the transitive order follows - which keeps the rule count near
     the number of real conflicts rather than their square.
     """
-    if index_path is None:
-        if not staging_root:
-            return []
-        index_path = Path(staging_root).parent / "modindex.bin"
     try:
-        from Utils.filemap import read_mod_index
-        index = read_mod_index(Path(index_path)) or {}
+        from Utils.filegraph_service import FileGraphService
+        library = FileGraphService.open_library(game, profile_dir)
+        status = library.ensure_ready(profile_dir)
+        profile = library.open_profile(profile_dir)
+        snapshot = profile.snapshot()
+        if (snapshot.generation == 0
+                or snapshot.inventory_generation != status.inventory_generation):
+            profile.reconcile(operation_hint={"kind": "collection_export"})
+            snapshot = profile.snapshot()
+        edges = snapshot.conflict_state().edges
     except Exception:
-        index = {}
-    if not index:
         return []
-
-    # Higher number = higher modlist priority = wins the file.
-    priority = {name: i for i, name in enumerate(ordered_names)}
-    providers: dict = {}   # (namespace, rel_key) -> [mod names]
-    for name in ordered_names:
-        entry = index.get(name)
-        if not entry:
-            continue
-        normal_files = entry[0] or {}
-        root_files = (entry[1] if len(entry) > 1 else None) or {}
-        # Root-deployed files live in a different target tree, so a shared
-        # relative path there is not a conflict with a normal-deploy file.
-        for rel_key in normal_files:
-            providers.setdefault(("data", rel_key), []).append(name)
-        for rel_key in root_files:
-            providers.setdefault(("root", rel_key), []).append(name)
 
     rules: list = []
     seen: set = set()
-    for mods in providers.values():
-        if len(mods) < 2:
+    allowed = set(ordered_names)
+    for edge in edges:
+        if edge.kind != "loose":
             continue
-        # Winner (highest priority) first, then each mod it overwrites.
-        mods.sort(key=lambda n: priority[n], reverse=True)
-        for winner, loser in zip(mods, mods[1:]):
-            pair = (winner, loser)
-            if pair in seen or winner not in refs or loser not in refs:
-                continue
-            seen.add(pair)
-            rules.append({
+        winner, loser = edge.winner, edge.loser
+        pair = (winner, loser)
+        if (winner not in allowed or loser not in allowed or pair in seen
+                or winner not in refs or loser not in refs):
+            continue
+        seen.add(pair)
+        rules.append({
                 "type": "after",
                 "source": refs[winner],
                 "reference": refs[loser],
-            })
+        })
     return rules
 
 
@@ -1607,7 +1593,8 @@ def build_collection_manifest(rows, game, info: dict, *,
             "gameVersions": list(info.get("gameVersions") or []),
         },
         "mods": mods,
-        "modRules": (_conflict_mod_rules(ordered_names, refs, staging_root)
+        "modRules": (_conflict_mod_rules(
+            ordered_names, refs, game, Path(profile_dir))
                      if staging_root else []),
         "collectionConfig": {
             "recommendNewProfile": bool(info.get("recommendNewProfile", True)),

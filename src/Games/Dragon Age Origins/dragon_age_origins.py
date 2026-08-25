@@ -260,7 +260,8 @@ class DragonAgeOrigins(BaseGame):
 
         deploy_dir.mkdir(parents=True, exist_ok=True)
 
-        if not filemap.is_file():
+        from Utils.filegraph_deploy import input_ready
+        if not input_ready():
             raise RuntimeError(
                 f"filemap.txt not found: {filemap}\n"
                 "Run 'Build Filemap' before deploying."
@@ -384,7 +385,7 @@ class DragonAgeOrigins(BaseGame):
 
         _profile_dir = self._active_profile_dir
         _entries = read_modlist(_profile_dir / "modlist.txt") if _profile_dir else []
-        cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log)
+        cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log, game=self)
 
         # Filemap-driven cleanup. DAO mods deploy as bare, mod-relative paths
         # under the data root (e.g. "50 Tactics Slots/exptable.gda"), so we
@@ -413,6 +414,7 @@ class DragonAgeOrigins(BaseGame):
                 overwrite_dir=overwrite_dir / sub if overwrite_dir else None,
                 index_path=index_path,
                 log_fn=_log,
+                game=self, profile_dir=self._active_profile_dir,
             )
             _log(f"  {sub}: restored {n} vanilla file(s).")
             restored += n
@@ -446,22 +448,18 @@ class DragonAgeOrigins(BaseGame):
         that aren't in the filemap. Returns the count removed.
         """
         _log = log_fn or (lambda _: None)
-        filemap = self.get_effective_filemap_path()
-        if not filemap.is_file():
-            _log("  No filemap found - nothing to remove.")
+        if self._active_profile_dir is None:
+            _log("  No active profile - nothing to remove.")
             return 0
         removed = 0
         try:
-            lines = filemap.read_text(encoding="utf-8").splitlines()
-        except OSError as exc:
-            _log(f"  Warning: could not read filemap: {exc}")
+            from Utils.filegraph_deploy import deployed_paths_below
+            deployed_paths = deployed_paths_below(
+                self, self._active_profile_dir, data_root)
+        except Exception as exc:
+            _log(f"  Warning: could not read deployed catalog state: {exc}")
             return 0
-        for line in lines:
-            if not line.strip():
-                continue
-            rel = line.split("\t", 1)[0].strip()
-            if not rel:
-                continue
+        for rel in deployed_paths:
             target = data_root / rel
             try:
                 if target.is_symlink() or target.is_file():

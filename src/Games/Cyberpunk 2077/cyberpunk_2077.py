@@ -263,7 +263,8 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
         filemap   = self.get_effective_filemap_path()
         staging   = self.get_effective_mod_staging_path()
 
-        if not filemap.is_file():
+        from Utils.filegraph_deploy import input_ready
+        if not input_ready():
             raise RuntimeError(
                 f"filemap.txt not found: {filemap}\n"
                 "Run 'Build Filemap' before deploying."
@@ -349,7 +350,7 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
         (raw-deploy / custom-location separator mods) never land in
         archive/pc/mod, so their archives are dropped entirely.
         """
-        from Utils.data_tab import parse_filemap
+        from Utils.filegraph_deploy import legacy_rows
 
         mods = [e.name for e in read_modlist(profile_dir / "modlist.txt")
                 if e.enabled and not e.is_separator]
@@ -364,7 +365,7 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
         # apply the same substitution before deciding what lands in the dir.
         remap = [(k.lower(), v) for k, v in (self.mod_deploy_path_remap or {}).items()]
         best: dict[str, tuple[int, str]] = {}  # filename_lower → (rank, filename)
-        for rel, mod in parse_filemap(filemap):
+        for rel, mod in legacy_rows():
             rl = rel.lower()
             if not rl.endswith(".archive") or mod in excluded:
                 continue
@@ -484,66 +485,33 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
                     self.get_effective_root_folder_path(), rel)
                 root_owns = bool(
                     root_source is not None and root_source.is_file())
-            root_map = filemap.parent / "filemap_root.txt"
-            if not root_owns and root_map.is_file():
-                # A map entry is only a claim if its source actually survived
-                # exclusions/resolution and reached the view. A stale map line
-                # with a missing source must not suppress generation.
+            if not root_owns:
+                # The pinned plan already incorporates exclusions, routing,
+                # and exact staged source identity.
                 from Utils.deploy import _resolve_nocase
-                from Utils.mod_files import excluded_raw_by_mod
-                excluded = excluded_raw_by_mod(profile_dir) or {}
-                per_mod_strip = load_per_mod_strip_prefixes(profile_dir)
+                from Utils.filegraph_deploy import entries as filegraph_entries
                 view_dest = _resolve_nocase(view_root, rel)
-                for line in root_map.read_text(
-                    encoding="utf-8", errors="surrogateescape"
-                ).splitlines():
-                    if "\t" not in line:
+                for entry in filegraph_entries(include_root=True):
+                    if (entry.destination.replace("\\", "/").casefold()
+                            != rel.casefold()
+                            or entry.source_path is None):
                         continue
-                    mapped_rel, owner = line.split("\t", 1)
-                    if (mapped_rel.replace("\\", "/").casefold()
-                            != rel.casefold()):
-                        continue
-                    prefixes = list(per_mod_strip.get(owner) or ())
-                    shared = list(self.mod_folder_strip_prefixes or ())
-                    prefixes.extend(shared)
-                    if per_mod_strip.get(owner):
-                        prefixes.extend(
-                            f"{outer}/{inner}"
-                            for outer in per_mod_strip[owner]
-                            for inner in shared
-                        )
-                    candidates = [mapped_rel] + [
-                        f"{prefix}/{mapped_rel}" for prefix in prefixes
-                    ]
-                    owner_excluded = excluded.get(owner) or set()
-                    for candidate_rel in candidates:
-                        source = _resolve_nocase(
-                            staging / owner, candidate_rel)
-                        if source is None or not source.is_file():
-                            continue
+                    source = Path(entry.source_path)
+                    if source.is_file() and view_dest is not None and view_dest.is_file():
                         try:
-                            real_rel = source.relative_to(
-                                staging / owner).as_posix().casefold()
-                        except ValueError:
-                            real_rel = candidate_rel.casefold()
-                        if real_rel in owner_excluded:
-                            continue
-                        if view_dest is not None and view_dest.is_file():
+                            root_owns = view_dest.samefile(source)
+                        except OSError:
+                            root_owns = False
+                        if not root_owns:
                             try:
-                                root_owns = view_dest.samefile(source)
+                                root_owns = (
+                                    view_dest.stat().st_size
+                                    == source.stat().st_size
+                                    and view_dest.read_bytes()
+                                    == source.read_bytes()
+                                )
                             except OSError:
                                 root_owns = False
-                            if not root_owns:
-                                try:
-                                    root_owns = (
-                                        view_dest.stat().st_size
-                                        == source.stat().st_size
-                                        and view_dest.read_bytes()
-                                        == source.read_bytes()
-                                    )
-                                except OSError:
-                                    root_owns = False
-                        break
                     if root_owns:
                         break
             if root_owns:

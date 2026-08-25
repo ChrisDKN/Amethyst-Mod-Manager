@@ -204,25 +204,6 @@ class BaldursGate3(BaseGame):
     def pak_uuid_conflicts(self) -> bool:
         return True
 
-    def make_filemap_conflict_key_fn(self, staging: Path, index_path: Path,
-                                     log_fn=None, fallback=None):
-        """Key .pak conflicts by module UUID, not by pak file name."""
-        from Utils.pak_identity import (make_pak_uuid_conflict_key_fn,
-                                        uuid_conflicts_enabled)
-        if not uuid_conflicts_enabled():
-            return None
-        # Paks under a custom-routed folder (data/, bin/, …) are game-Data
-        # paks, not Mods-folder paks - keep those keyed by path.
-        routed: set[str] = set()
-        for rule in self.custom_routing_rules:
-            if ".pak" in {e.lower() for e in (rule.exclude_extensions or ())}:
-                continue
-            routed.update(f.lower() for f in (rule.folders or ()))
-        return make_pak_uuid_conflict_key_fn(
-            staging, self.get_effective_overwrite_path(), index_path,
-            log_fn=log_fn, fallback=fallback, skip_top_level=routed,
-        )
-
     def runtime_snapshot_exclude_dirs(self) -> set[str] | None:
         # Custom rules route loose mods into Data/ (undone via restore_custom_rules)
         # and the .pak Mods folder lives outside the game root, so only capture
@@ -362,7 +343,8 @@ class BaldursGate3(BaseGame):
 
         mods_dir.mkdir(parents=True, exist_ok=True)
 
-        if not filemap.is_file():
+        from Utils.filegraph_deploy import input_ready
+        if not input_ready():
             raise RuntimeError(
                 f"filemap.txt not found: {filemap}\n"
                 "Run 'Build Filemap' before deploying."
@@ -495,10 +477,12 @@ class BaldursGate3(BaseGame):
 
         _profile_dir = self._active_profile_dir
         _entries = read_modlist(_profile_dir / "modlist.txt") if _profile_dir else []
-        cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log)
+        cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log, game=self)
 
         _log("Restore: clearing Mods/ and moving Mods_Core/ back ...")
-        restored = restore_data_core(mods_dir, overwrite_dir=self.get_effective_overwrite_path(), log_fn=_log)
+        restored = restore_data_core(
+            mods_dir, overwrite_dir=self.get_effective_overwrite_path(),
+            log_fn=_log, game=self, profile_dir=self._active_profile_dir)
         _log(f"  Restored {restored} file(s). Mods_Core/ removed.")
 
         _log("Restore: resetting modsettings.lsx to vanilla ...")

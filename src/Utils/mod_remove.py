@@ -1,5 +1,5 @@
 """Toolkit-neutral full mod removal - delete a mod's deployed files + staging
-folder + index/BSA entries + its plugins from plugins.txt/loadorder.txt.
+folder + Filegraph rows + its plugins from plugins.txt/loadorder.txt.
 
 Ported from the Tk ModListPanel._remove_mod / _remove_plugins_for_mods so the Qt
 remove does the SAME complete cleanup (not just dropping the modlist line, which
@@ -20,7 +20,7 @@ def remove_mods(game, profile_dir: Path, mod_names: list[str], log_fn=None) -> N
          leftover hardlinks/copies aren't misclassified as runtime files),
       2. drop their plugins from plugins.txt + loadorder.txt,
       3. delete the staging folders,
-      4. drop them from modindex.bin + bsa_index.bin.
+      4. drop them from the Filegraph catalog and deployed-state table.
 
     Does NOT touch modlist.txt - the caller removes the rows from the model
     (which saves the modlist). Mirrors Tk _remove_mod.
@@ -32,29 +32,23 @@ def remove_mods(game, profile_dir: Path, mod_names: list[str], log_fn=None) -> N
         staging_root = game.get_effective_mod_staging_path()
     except Exception:
         return
-    index_path = staging_root.parent / "modindex.bin"
+    from Utils.filegraph_service import FileGraphService
+    library = FileGraphService.open_library(game, profile_dir, log_fn=log)
+    profile = library.open_profile(profile_dir)
 
     # 1. Undeploy deployed files first - but only when a deployment is
     #    actually active: after a restore the game folder holds the REAL
     #    game files, and a mod that shadows vanilla names (e.g. a patched
-    #    FalloutNV.esm) would otherwise delete them.  undeploy_mod_files
-    #    additionally verifies per file (via staging_root) that the deployed
-    #    copy belongs to the mod before unlinking it.
+    #    FalloutNV.esm) would otherwise delete them. Ownership is verified per
+    #    file against the committed deployed-state row and staged source.
     try:
         deploy_active = bool(game.get_deploy_active())
     except Exception:
         deploy_active = True
     if deploy_active:
         try:
-            from Utils.deploy import undeploy_mod_files
-            undeploy_mod_files(
-                mod_names,
-                game.get_mod_data_path(),
-                game.get_game_path(),
-                index_path,
-                log_fn=log,
-                staging_root=staging_root,
-            )
+            undeploy_catalog_mods(
+                game, profile, Path(staging_root), mod_names, log_fn=log)
         except Exception as exc:
             log(f"undeploy during remove failed: {exc}")
     else:
@@ -82,17 +76,51 @@ def remove_mods(game, profile_dir: Path, mod_names: list[str], log_fn=None) -> N
             except OSError as exc:
                 log(f"could not delete staging folder for '{name}': {exc}")
 
-    # 4. Drop from the mod index + BSA index.
+    # 4. Drop targeted catalog/deployed-state rows.
     try:
-        from Utils.filemap import remove_from_mod_index
-        remove_from_mod_index(index_path, mod_names)
+        profile.forget_deployed_mods(mod_names)
+        for name in mod_names:
+            library.remove_mod(name)
     except Exception as exc:
-        log(f"index cleanup during remove failed: {exc}")
-    try:
-        from Utils.bsa_filemap import remove_from_bsa_index
-        remove_from_bsa_index(index_path.parent / "bsa_index.bin", mod_names)
-    except Exception:
-        pass
+        log(f"catalog cleanup during remove failed: {exc}")
+
+
+def undeploy_catalog_mods(game, profile, staging_root: Path,
+                          mod_names: list[str], log_fn=None) -> int:
+    """Safely unlink committed deployment entries owned by *mod_names*.
+
+    The source tree must still exist. Copies are accepted only when size and
+    mtime match; links must resolve to the exact staged source.
+    """
+    from Utils.filegraph_deploy import absolute_destination
+    log = log_fn or (lambda _message: None)
+    remove_keys = {name.lower() for name in mod_names}
+    removed = 0
+    for entry in profile.deployed_entries():
+        if entry.mod_key not in remove_keys:
+            continue
+        destination = absolute_destination(game, entry)
+        if destination is None:
+            continue
+        source = staging_root / entry.mod_name / entry.source_display
+        try:
+            safe = False
+            if destination.is_symlink():
+                safe = destination.resolve() == source.resolve()
+            elif destination.is_file() and source.is_file():
+                dst_stat = destination.stat()
+                src_stat = source.stat()
+                safe = (dst_stat.st_ino == src_stat.st_ino or (
+                    dst_stat.st_size == src_stat.st_size
+                    and dst_stat.st_mtime_ns == src_stat.st_mtime_ns))
+            if safe:
+                destination.unlink()
+                removed += 1
+        except OSError as exc:
+            log(f"could not undeploy {destination}: {exc}")
+    if removed:
+        log(f"undeployed {removed} file(s) owned by removed mod(s).")
+    return removed
 
 
 def _remove_plugins_for_mods(game, profile_dir: Path, staging_root: Path,

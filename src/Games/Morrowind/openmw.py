@@ -354,7 +354,8 @@ class OpenMW(BaseGame):
 
         if not vanilla_dir.is_dir():
             raise RuntimeError(f"'Data Files' directory not found: {vanilla_dir}")
-        if not filemap.is_file():
+        from Utils.filegraph_deploy import input_ready
+        if not input_ready():
             raise RuntimeError(
                 f"filemap.txt not found: {filemap}\n"
                 "Run 'Build Filemap' before deploying."
@@ -404,13 +405,9 @@ class OpenMW(BaseGame):
         # These are BSAs that were deployed from mods and need fallback-archive= entries.
         bsa_archives: list[str] = []
         _seen_bsa: set[str] = set()
-        if filemap.is_file():
-            for _line in filemap.read_text(encoding="utf-8", errors="replace").splitlines():
-                _line = _line.strip()
-                if not _line or _line.startswith("#"):
-                    continue
-                parts = _line.split("\t", 1)
-                rel_path = parts[0]
+        from Utils.filegraph_deploy import input_ready, legacy_rows
+        if input_ready():
+            for rel_path, _owner in legacy_rows():
                 if rel_path.lower().endswith(".bsa"):
                     _bsa_name = Path(rel_path).name
                     _key = _bsa_name.lower()
@@ -448,7 +445,7 @@ class OpenMW(BaseGame):
 
         _profile_dir = self._active_profile_dir
         _entries = read_modlist(_profile_dir / "modlist.txt") if _profile_dir else []
-        cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log)
+        cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log, game=self)
 
         _log("Restore: removing mod content from openmw.cfg ...")
         from Games.Morrowind.openmw_cfg import restore_openmw_cfg
@@ -580,6 +577,7 @@ class OpenMW(BaseGame):
                 staging_root=self.get_effective_mod_staging_path(),
                 strip_prefixes=self.mod_folder_strip_prefixes,
                 log_fn=_log,
+                game=self, profile_dir=self._active_profile_dir,
             )
             _log(f"  Restored {restored} file(s). 'Data Files_Core/' removed.")
         except RuntimeError as e:

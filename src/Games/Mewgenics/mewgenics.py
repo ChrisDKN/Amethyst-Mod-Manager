@@ -49,13 +49,8 @@ def _remove_filemap_paths_from_dir(
     Returns count removed.
     """
     removed = 0
-    if not filemap_path.is_file():
-        return 0
-    lines = [
-        line.rstrip("\n").split("\t", 1)[0]
-        for line in filemap_path.read_text(encoding="utf-8").splitlines()
-        if "\t" in line
-    ]
+    from Utils.filegraph_deploy import legacy_rows
+    lines = [relative for relative, _owner in legacy_rows()]
     seen: set[str] = set()
     total = len(lines)
     report = (lambda d, t: progress_fn(d, t, phase)) if progress_fn else None
@@ -93,12 +88,11 @@ def _restore_vanilla_from_backup(
 ) -> int:
     """Copy from backup_dir into unpack_dir for every path in filemap_path where backup exists. Returns count restored."""
     restored = 0
-    if not filemap_path.is_file() or not backup_dir.is_dir():
+    if not backup_dir.is_dir():
         return 0
     lines = [
-        line.rstrip("\n").split("\t", 1)[0]
-        for line in filemap_path.read_text(encoding="utf-8").splitlines()
-        if "\t" in line
+        path.relative_to(backup_dir).as_posix()
+        for path in backup_dir.rglob("*") if path.is_file()
     ]
     seen: set[str] = set()
     total = len(lines)
@@ -327,7 +321,7 @@ class Mewgenics(BaseGame):
         )
         if removed:
             _log(f"Removed {removed} modded file(s) from Unpacked (vanilla backed up).")
-        elif filemap.is_file():
+        else:
             _log("No modded files to remove.")
 
         staging = self.get_effective_mod_staging_path()
@@ -337,21 +331,18 @@ class Mewgenics(BaseGame):
         _sep_entries = read_modlist(profile_dir / "modlist.txt") if _sep_deploy else []
         per_mod_deploy = expand_separator_deploy_paths(_sep_deploy, _sep_entries) or None
 
-        if filemap.is_file():
-            linked, _ = deploy_filemap(
-                filemap,
-                unpack_dir,
-                staging,
-                mode=mode,
-                strip_prefixes=self.mod_folder_strip_prefixes,
-                per_mod_strip_prefixes=per_mod_strip,
-                per_mod_deploy_dirs=per_mod_deploy,
-                log_fn=_log,
-                progress_fn=progress_fn,
-            )
-            _log(f"Deployed {linked} mod file(s) into Unpacked.")
-        else:
-            _log("No filemap.txt - skipping mod merge.")
+        linked, _ = deploy_filemap(
+            filemap,
+            unpack_dir,
+            staging,
+            mode=mode,
+            strip_prefixes=self.mod_folder_strip_prefixes,
+            per_mod_strip_prefixes=per_mod_strip,
+            per_mod_deploy_dirs=per_mod_deploy,
+            log_fn=_log,
+            progress_fn=progress_fn,
+        )
+        _log(f"Deployed {linked} mod file(s) into Unpacked.")
 
         # 3. Repack Unpacked → resources.gpak (uncompressed)
         _log("Repacking to resources.gpak…")
@@ -402,7 +393,7 @@ class Mewgenics(BaseGame):
         filemap = self.get_effective_filemap_path()
         _profile_dir = self._active_profile_dir
         _entries = read_modlist(_profile_dir / "modlist.txt") if _profile_dir else []
-        cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log)
+        cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log, game=self)
         removed = _remove_filemap_paths_from_dir(
             unpack_dir, filemap, _log, progress_fn, phase="Removing mod files"
         )

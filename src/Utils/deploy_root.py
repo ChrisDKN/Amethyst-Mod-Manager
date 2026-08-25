@@ -23,7 +23,6 @@ from Utils.deploy_shared import (
     OVERWRITE_LOG_NAME,
     _deploy_workers,
     _do_link_ex,
-    _get_staging_source_path,
     _iter_map_batched,
     _mkdir_leaves,
     _move_crash_safe,
@@ -32,7 +31,7 @@ from Utils.deploy_shared import (
     _resolve_nocase,
     _resolve_root_path,
     _restore_backup_dir,
-    load_per_mod_strip_prefixes,
+    _timing_print,
 )
 
 
@@ -257,7 +256,8 @@ def deploy_root_folder(
     ]
     _write_root_identities(identity_path, identities, _log)
 
-    print(f"  [TIMER] deploy_root_folder: transferred {len(placed)} files")
+    _timing_print(
+        f"  [TIMER] deploy_root_folder: transferred {len(placed)} files")
     _log(f"  Root Folder: {len(placed)} file(s) transferred to game root.")
     return len(placed)
 
@@ -291,18 +291,14 @@ def deploy_root_flagged_mods(
     """
     _log = _safe_log(log_fn)
 
-    if not filemap_root_path.is_file():
-        return 0
-
-    # Read filemap_root.txt - each line is "rel_str\tmod_name"
-    entries: list[tuple[str, str]] = []
-    with filemap_root_path.open(encoding="utf-8") as f:
-        for line in f:
-            line = line.rstrip("\n")
-            if "\t" not in line:
-                continue
-            rel_str, mod_name = line.split("\t", 1)
-            entries.append((rel_str, mod_name))
+    from Utils.filegraph_deploy import entries as filegraph_entries, legacy_rows
+    entries = list(legacy_rows(root=True))
+    sources = {
+        (entry.legacy_rel.lower(), entry.mod_name): entry.source_path
+        for entry in filegraph_entries(include_root=True)
+        if entry.mod_name != "[Root_Folder]"
+        and entry.legacy_rel and entry.source_path is not None
+    }
 
     if not entries:
         return 0
@@ -348,44 +344,7 @@ def deploy_root_flagged_mods(
         return candidate.is_file()
 
     for rel_str, mod_name in entries:
-        _exc = _excluded_raw.get(mod_name)
-        mod_root = staging_root / mod_name
-        # Candidate mod-relative paths: the bare path, then each strip prefix
-        # the scan peeled off (per-mod, shared, and the stacked combination -
-        # e.g. a "MyPreset" Top Level strip followed by "Data").
-        _mod_prefixes = (per_mod_strip_prefixes or {}).get(mod_name)
-        _prefixes = list(_mod_prefixes) if _mod_prefixes else []
-        if strip_prefixes:
-            _prefixes.extend(strip_prefixes)
-            if _mod_prefixes:
-                _prefixes.extend(f"{mp}/{sp}"
-                                 for mp in _mod_prefixes for sp in strip_prefixes)
-        _rels = [rel_str] + [f"{p}/{rel_str}" for p in _prefixes]
-
-        src = None
-        for cand_rel in _rels:
-            candidate = mod_root / cand_rel
-            if _usable(candidate, cand_rel, _exc):
-                src = candidate
-                break
-        if src is None:
-            # filemap casing is canonicalised across ALL mods, so a mod whose
-            # folder is `sound` gets listed as `Sound` when another mod spells
-            # it that way - on a case-sensitive FS the literal path above then
-            # misses and the file silently never deploys. Resolve the real
-            # on-disk casing instead.
-            for cand_rel in _rels:
-                candidate = _resolve_nocase(mod_root, cand_rel,
-                                            cache=_nocase_cache)
-                if candidate is None:
-                    continue
-                try:
-                    _rel_real = candidate.relative_to(mod_root).as_posix()
-                except ValueError:
-                    _rel_real = cand_rel
-                if _usable(candidate, _rel_real, _exc):
-                    src = candidate
-                    break
+        src = sources.get((rel_str.lower(), mod_name))
         if src is None or not src.is_file():
             _log(f"  WARN: source not found for root-flagged file: {mod_name}/{rel_str}")
             continue
@@ -486,10 +445,6 @@ def restore_root_folder(
     game_root: Path,
     log_fn=None,
     data_deploy_dirs: "set[str] | None" = None,
-    staging_root: "Path | None" = None,
-    filemap_root_path: "Path | None" = None,
-    strip_prefixes: "set[str] | None" = None,
-    per_mod_strip_prefixes: "dict[str, list[str]] | None" = None,
 ) -> int:
     """Undo a deploy_root_folder() operation.
 
@@ -509,20 +464,9 @@ def restore_root_folder(
                      to no protection; callers pass the game's
                      root_restore_protect_dirs() (e.g. {"Data"} for Bethesda).
                      The protection is lifted only when the file still has its
-                     recorded deployment identity (or, for legacy deployments,
-                     shares an inode with its staging source).
-    staging_root   - the mod staging root (Profiles/<game>/mods/).  Together
-                     with filemap_root_path it supports the safe shared-inode
-                     fallback for deployments created before the identity
-                     manifest existed.
-    filemap_root_path - Profiles/<game>/filemap_root.txt, mapping a placed rel
-                     path to the mod that owns it.  Defaults to the sibling of
-                     root_folder_dir.
-    strip_prefixes - top-level folder names stripped during staging (e.g.
-                     {"Data"}), used to locate a rel path's staging source.
-    per_mod_strip_prefixes - per-mod wrapper folders stripped during staging.
-                     Used only for the safe legacy hardlink fallback when a
-                     deployment predates root_deploy_identities.json.
+                     recorded deployment identity. Deployments which predate
+                     that identity record stay protected and require one full
+                     legacy Refresh/restore before downgrade.
     Returns the number of files removed from game_root.
     Silently does nothing if the log file is absent (no prior deploy).
     """
@@ -571,28 +515,6 @@ def restore_root_folder(
         head = rel_str.replace("\\", "/").split("/", 1)[0].lower()
         return head in _protect_dirs
 
-    # Owner lookup for the protection override below: rel path -> mod name.
-    # Only built when we have both a staging root and a filemap_root.txt, and
-    # only consulted for files the blanket rule would otherwise protect.
-    _fmr_path = filemap_root_path
-    if _fmr_path is None:
-        _fmr_path = root_folder_dir.parent / "filemap_root.txt"
-    _rel_to_mod: dict[str, str] = {}
-    if staging_root is not None and _fmr_path.is_file():
-        try:
-            with _fmr_path.open(encoding="utf-8", errors="surrogateescape") as f:
-                for line in f:
-                    line = line.rstrip("\n")
-                    if "\t" not in line:
-                        continue
-                    _r, _m = line.split("\t", 1)
-                    _rel_to_mod[_r.replace("\\", "/").lower()] = _m
-        except OSError as exc:
-            _log(f"  WARN: could not read {_fmr_path.name} for restore: {exc}")
-
-    _strip = {p.lower() for p in (strip_prefixes or set())}
-    _per_mod_strip = per_mod_strip_prefixes or {}
-    _staging_index_cache: dict = {}
     _deployed_identities = _load_root_identities(identity_path)
 
     def _still_mod_payload(rel_str: str, st: "os.stat_result") -> bool:
@@ -606,33 +528,16 @@ def restore_root_folder(
         the protection kept them forever, and the next move_to_core() renamed
         them into Data_Core/, promoting mod payload to permanent "vanilla".
 
-        New deployments persist the destination's exact filesystem identity,
-        which remains usable after the mod or live filemap is removed.  For a
-        deployment created before that manifest existed, only a shared inode
-        with the staging source is strong enough to lift protection.  Metadata
-        or content equality alone cannot distinguish a restored vanilla file
-        from a copied mod payload at the same path.
+        Deployments persist the destination's exact filesystem identity, which
+        remains usable after the mod is disabled or removed. Metadata or
+        content equality alone cannot distinguish a restored vanilla file from
+        a copied mod payload at the same path, so no legacy map fallback is
+        permitted.
         """
         rel_key = rel_str.replace("\\", "/").lower()
         record = _deployed_identities.get(rel_key)
         if record is not None:
             return _matches_root_identity(st, record)
-        mod_name = _rel_to_mod.get(rel_str.replace("\\", "/").lower())
-        if not mod_name or staging_root is None:
-            return False
-        mod_strip = {p.lower() for p in _per_mod_strip.get(mod_name, [])}
-        src = _get_staging_source_path(
-            staging_root / mod_name, rel_str, _strip | mod_strip,
-            index_cache=_staging_index_cache,
-        )
-        if src is None:
-            return False
-        try:
-            sst = os.lstat(src)
-        except OSError:
-            return False
-        if st.st_ino == sst.st_ino and st.st_dev == sst.st_dev:
-            return True
         return False
 
     # Remove files we placed (parallelised - one lstat + one unlink per worker).
@@ -653,10 +558,8 @@ def restore_root_folder(
         protect = _under_data_deploy(rel_str) and not _has_backup(rel_str)
         verified_identity = None
         if protect:
-            # Resolve ownership serially: _still_mod_payload memoizes a walk of
-            # the whole mod folder, and only the rare protected-and-owned path
-            # reaches it.  Doing it here keeps the parallel unlink below to one
-            # lstat + one unlink per worker and the index cache single-threaded.
+            # Resolve the persisted identity serially so the parallel unlink
+            # below remains one lstat + one unlink per worker.
             dst_str = str(dst)
             try:
                 st = os.lstat(dst_str)
@@ -733,7 +636,9 @@ def restore_root_folder(
     dirs_to_check: set[Path] = {Path(path).parent for path, _p, _i in safe_targets}
     _prune_empty_dirs(dirs_to_check, stop_dirs={game_root})
 
-    print(f"  [TIMER] restore_root_folder: {_time.perf_counter() - _t_root_restore:.3f}s")
+    _timing_print(
+        f"  [TIMER] restore_root_folder: "
+        f"{_time.perf_counter() - _t_root_restore:.3f}s")
     _log(f"  Root Folder restore: removed {removed} file(s) from game root.")
     return removed
 
@@ -759,26 +664,12 @@ def restore_root_folder_for_game(
     if not root_folder_dir.is_dir() or not game_root:
         return 0
 
-    profile_dir = getattr(game, "_active_profile_dir", None)
-    if profile_dir is None:
-        last_deployed = game.get_last_deployed_profile()
-        if last_deployed:
-            profile_dir = game.get_profile_root() / "profiles" / last_deployed
-    per_mod_strip = (
-        load_per_mod_strip_prefixes(Path(profile_dir))
-        if profile_dir is not None else None
-    )
-    filemap_path = game.get_effective_filemap_path()
     return restore_root_folder(
         Path(root_folder_dir), Path(game_root), log_fn=log_fn,
         data_deploy_dirs=(
             game.root_restore_protect_dirs()
             if hasattr(game, "root_restore_protect_dirs") else None
         ),
-        staging_root=game.get_effective_mod_staging_path(),
-        filemap_root_path=filemap_path.parent / "filemap_root.txt",
-        strip_prefixes=getattr(game, "mod_folder_strip_prefixes", None),
-        per_mod_strip_prefixes=per_mod_strip or None,
     )
 
 

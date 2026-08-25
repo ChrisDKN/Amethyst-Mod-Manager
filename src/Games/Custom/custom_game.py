@@ -640,7 +640,8 @@ class StandardCustomGame(ProfileVFSGameMixin, BaseGame):
 
         if data_dir is None:
             raise RuntimeError("Mod data path could not be resolved.")
-        if not filemap.is_file():
+        from Utils.filegraph_deploy import input_ready
+        if not input_ready():
             raise RuntimeError(f"filemap.txt not found: {filemap}\nRun 'Build Filemap' before deploying.")
 
         if self.vfs_launch_enabled:
@@ -720,7 +721,7 @@ class StandardCustomGame(ProfileVFSGameMixin, BaseGame):
             raise RuntimeError("Mod data path could not be resolved.")
         _profile_dir = self._active_profile_dir
         _entries = read_modlist(_profile_dir / "modlist.txt") if _profile_dir else []
-        cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log)
+        cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log, game=self)
 
         custom_rules = self.custom_routing_rules
         if custom_rules:
@@ -751,6 +752,7 @@ class StandardCustomGame(ProfileVFSGameMixin, BaseGame):
             overwrite_dir=self.get_effective_overwrite_path(),
             log_fn=_log,
             restore_whitelist=self.restore_whitelist_matcher(rel_prefix=_prefix),
+            game=self, profile_dir=self._active_profile_dir,
         )
         _log(f"  Restored {restored} file(s). {data_dir.name}_Core/ removed.")
 
@@ -787,7 +789,8 @@ class RootCustomGame(StandardCustomGame):
         filemap   = self.get_effective_filemap_path()
         staging   = self.get_effective_mod_staging_path()
 
-        if not filemap.is_file():
+        from Utils.filegraph_deploy import input_ready
+        if not input_ready():
             raise RuntimeError(f"filemap.txt not found: {filemap}\nRun 'Build Filemap' before deploying.")
 
         if self.vfs_launch_enabled:
@@ -846,7 +849,7 @@ class RootCustomGame(StandardCustomGame):
 
         _profile_dir = self._active_profile_dir
         _entries = read_modlist(_profile_dir / "modlist.txt") if _profile_dir else []
-        cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log)
+        cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log, game=self)
 
         custom_rules = self.custom_routing_rules
         if custom_rules:

@@ -1612,47 +1612,6 @@ def run_collection_install(
     installed += _install_counters["installed"]
     skipped += _install_counters["skipped"]
 
-    # rebuild mod index once for all newly installed mods.
-    # NB: use the *canonical* game attrs (mod_folder_strip_prefixes /
-    # mod_install_extensions) + per-mod strip prefixes + root-flag set - the
-    # same params deploy_pipeline's rescan/build_filemap uses. Reading the
-    # non-existent strip_prefixes / install_extensions attrs would return None
-    # → an UNSTRIPPED index (Bethesda appends index as "Data/…"), so appended
-    # mods deploy double-nested / with wrong conflicts until a manual Refresh.
-    #
-    # The index MUST land where build_filemap / the conflict rebuild reads it:
-    # next to the EFFECTIVE filemap (get_effective_filemap_path().parent), NOT
-    # profile_dir. For a normal (shared-mods) append target those two differ -
-    # the shared game root vs <profile_dir> - so writing to profile_dir left the
-    # appended mods invisible to the reload (no root flags, no conflicts, no
-    # plugins) until Refresh. Only profile-specific-mods profiles (fresh
-    # collection installs) coincide, which masked the bug. Mirrors
-    # mod_install._update_indexes.
-    if _install_counters["installed"] > 0:
-        try:
-            log("Updating mod index…")
-            from Utils.filemap import rebuild_mod_index
-            from Utils.deploy import load_per_mod_strip_prefixes
-            from Nexus.nexus_meta import collect_root_flagged_mods
-            _staging = game.get_effective_mod_staging_path()
-            try:
-                _index_dir = game.get_effective_filemap_path().parent
-            except Exception:
-                _index_dir = profile_dir
-            try:
-                _rf_mods = collect_root_flagged_mods(modlist_path, _staging, log_fn=log)
-            except Exception:
-                _rf_mods = set()
-            rebuild_mod_index(
-                _index_dir / "modindex.bin", _staging,
-                strip_prefixes=set(getattr(game, "mod_folder_strip_prefixes", None) or ()) or None,
-                per_mod_strip_prefixes=load_per_mod_strip_prefixes(profile_dir),
-                allowed_extensions=set(getattr(game, "mod_install_extensions", None) or ()) or None,
-                root_folder_mods=set(_rf_mods or ()) or None,
-                normalize_folder_case=getattr(game, "normalize_folder_case", True))
-        except Exception as _idx_exc:
-            log(f"Mod index rebuild skipped: {_idx_exc}")
-
     # build install_order from parallel results
     for mod in to_download:
         sort_key = _sort_key(mod)
@@ -1715,66 +1674,41 @@ def run_collection_install(
         except Exception as exc:
             log(f"Collection install: could not save Amethyst snapshot: {exc}")
 
-    # Bundled folders are copied straight into staging by Steps 2c/3b, which run
-    # AFTER the index rebuild above - so they have no modindex.bin entry, and
-    # build_filemap deploys NOTHING for a mod it can't find in the index (it
-    # warns "has NO index entry"). The mod is staged and in modlist.txt, so it
-    # looks installed while contributing no files: bundled DynDOLOD/Pandora
-    # output silently loses to the animation mods it is supposed to overwrite,
-    # and the game reports missing behaviours. Index them here rather than
-    # rebuilding the whole staging tree again - this is the same subset rescan
-    # the root-flag toggle uses.
+    # Manager-owned installs update just the affected raw manifests. Candidate
+    # derivation still runs whole-mod so sibling routing and archive identities
+    # remain correct, but unrelated staging folders are never scanned.
     def _rescan_staged_subset(mod_names, what):
-        from Utils.filemap import rescan_mods_in_index
-        from Utils.deploy import load_per_mod_strip_prefixes
-        from Nexus.nexus_meta import collect_root_flagged_mods
-        _staging = game.get_effective_mod_staging_path()
-        try:
-            _index_dir = game.get_effective_filemap_path().parent
-        except Exception:
-            _index_dir = profile_dir
-        try:
-            _rf_mods = collect_root_flagged_mods(modlist_path, _staging,
-                                                 log_fn=log)
-        except Exception:
-            _rf_mods = set()
         _uniq = list(dict.fromkeys(mod_names))
-        rescan_mods_in_index(
-            _index_dir / "modindex.bin", _staging, _uniq,
-            strip_prefixes=set(getattr(game, "mod_folder_strip_prefixes", None) or ()) or None,
-            per_mod_strip_prefixes=load_per_mod_strip_prefixes(profile_dir),
-            allowed_extensions=set(getattr(game, "mod_install_extensions", None) or ()) or None,
-            root_folder_mods=set(_rf_mods or ()) or None,
-            normalize_folder_case=getattr(game, "normalize_folder_case", True),
-            log_fn=log)
-        log(f"Collection install: indexed {len(_uniq)} {what}: "
+        if not _uniq:
+            return
+        from Utils.filegraph_service import FileGraphService
+        library = FileGraphService.open_library(game, profile_dir, log_fn=log)
+        library.refresh(profile_dir, mod_names=_uniq)
+        log(f"Collection install: catalogued {len(_uniq)} {what}: "
             f"{', '.join(_uniq[:5])}" + (" …" if len(_uniq) > 5 else ""))
 
-    if _bundled_folders and not _col_pause.is_set():
+    _catalog_folders = [folder for _order, folder in install_order]
+    _catalog_folders.extend(_bundled_folders)
+    if _catalog_folders and not _col_pause.is_set():
         try:
-            _rescan_staged_subset(_bundled_folders,
-                                  "bundled folder(s) so they deploy")
+            _rescan_staged_subset(
+                _catalog_folders, "installed/bundled mod folder(s)")
         except Exception as exc:
-            log(f"Collection install: could not index bundled folders ({exc}) "
+            log(f"Collection install: could not update the Filegraph catalog ({exc}) "
                 "- run Refresh if bundled content does not deploy")
 
-    # Step 3c: build filemap.txt BEFORE the LOOT sort in Step 4.
-    #   LOOT resolves each plugin to the copy of its *winning* enabled mod via
-    #   filemap.txt (LOOT/loot_sorter._read_filemap_winners) so it reads the
-    #   correct header (masters/ESL flags) - the same file that would deploy.
-    #   Without a fresh filemap it falls back to an arbitrary staging tree walk
-    #   and can sort against the wrong copy, producing an order that differs
-    #   from a post-deploy manual sort. The profile's active dir is already
-    #   pointed at profile_dir (set at Step 0), so this builds for the right
-    #   staging/modlist. New-profile/continue/update runs only (LOOT is gated
-    #   on overwrite_existing is None in _write_collection_plugins).
+    # Reconcile before LOOT so it reads each plugin from the exact winning
+    # provider of this completed modlist generation.
     if (not _col_pause.is_set() and overwrite_existing is None
             and getattr(game, "loot_sort_enabled", False) and _loot_available()):
         try:
-            from Utils.deploy_pipeline import _build_filemap_for_game
-            _build_filemap_for_game(game, profile_dir.name, log_fn=log)
+            from Utils.filegraph_service import FileGraphService
+            _library = FileGraphService.open_library(game, profile_dir, log_fn=log)
+            _library.ensure_ready(profile_dir)
+            _library.open_profile(profile_dir).reconcile(
+                operation_hint={"kind": "collection_install"})
         except Exception as exc:
-            log(f"Collection install: filemap rebuild before LOOT failed: {exc}")
+            log(f"Collection install: Filegraph reconcile before LOOT failed: {exc}")
 
     # Step 4: write plugins.txt / loadorder.txt from collection.json (or the
     # archive's exact exported order, which also skips the LOOT sort).
@@ -2659,7 +2593,8 @@ def _write_collection_plugins(game, profile_dir, plugins_path, collection_schema
             # of plugins.txt: the engine force-loads it before reading the file and
             # strips any such entries on launch. MO2/Vortex/LOOT exclude it too.
             vanilla_lower = set() if plugins_include_vanilla else set(vanilla_map.keys())
-            deployed = _filemap_deployed_plugins(game, profile_dir)
+            deployed, plugin_winner_paths = _filegraph_deployed_plugins(
+                game, profile_dir)
             # Drop manifest plugins whose file was never installed. A collection's
             # ``plugins`` array covers ALL its mods including optional ones the
             # user skipped (e.g. GTS's 119 Anniversary-Edition patch mods), and
@@ -2741,7 +2676,8 @@ def _write_collection_plugins(game, profile_dir, plugins_path, collection_schema
                         masterlist_repo=getattr(game, "loot_masterlist_repo", ""),
                         game_data_dir=(game.get_vanilla_plugins_path()
                                        if hasattr(game, "get_vanilla_plugins_path") else None),
-                        userlist_path=profile_dir / "userlist.yaml")
+                        userlist_path=profile_dir / "userlist.yaml",
+                        plugin_winner_paths=plugin_winner_paths)
                     final_entries = [
                         PluginEntry(name=n, enabled=name_to_enabled.get(n, True))
                         for n in loot_result.sorted_names]
@@ -2788,45 +2724,19 @@ def _loot_available() -> bool:
         return False
 
 
-def _filemap_deployed_plugins(game, profile_dir) -> "dict[str, str]":
-    """Top-level plugin names the freshly-built filemap.txt deploys, keyed
-    {lower: original_name}. Port of gui_qt.plugin_state._filemap_deployed_plugins
-    (kept here so the neutral install layer doesn't import the Qt module).
-
-    A collection's manifest ``plugins`` array doesn't always list every plugin
-    that its mods actually ship (FOMOD-conditional plugins, plugins bundled in a
-    mod but omitted from the author's list). Those show up in the panel/manual
-    sort via this same filemap recovery, so the install-time LOOT sort must feed
-    them in too - otherwise they're dropped from plugins.txt and a later manual
-    sort re-inserts them, reporting hundreds of "moved" plugins.
-    """
-    staging = (game.get_effective_mod_staging_path()
-               if hasattr(game, "get_effective_mod_staging_path") else None)
-    if staging is None:
-        return {}
-    fm = staging.parent / "filemap.txt"
-    if not fm.is_file():
-        return {}
-    exts = tuple(e.lower() for e in (getattr(game, "plugin_extensions", []) or [])) \
-        or (".esp", ".esm", ".esl")
-    found: "dict[str, str]" = {}
-    try:
-        # surrogateescape: filemap.txt paths derive from on-disk filenames that
-        # may contain non-UTF-8 bytes (decoded to surrogate code points); a
-        # plain utf-8 read would crash on them.
-        for line in fm.read_text(encoding="utf-8",
-                                 errors="surrogateescape").splitlines():
-            if "\t" not in line:
-                continue
-            rel_path = line.split("\t", 1)[0].replace("\\", "/")
-            if "/" in rel_path:
-                continue   # top-level plugins only (matches deploy layout)
-            low = rel_path.lower()
-            if low.endswith(exts):
-                found.setdefault(low, rel_path)
-    except OSError:
-        pass
-    return found
+def _filegraph_deployed_plugins(game, profile_dir):
+    """Winning plugin spellings and sources from one reconciled generation."""
+    from Utils.filegraph_service import FileGraphService, plugin_source_paths
+    library = FileGraphService.open_library(game, profile_dir)
+    library.ensure_ready(profile_dir)
+    profile = library.open_profile(profile_dir)
+    profile.reconcile(operation_hint={"kind": "collection_plugins"})
+    snapshot = profile.snapshot()
+    found = {
+        name.lower(): winner.destination_display.rsplit("/", 1)[-1]
+        for name, winner in snapshot.plugin_winners().items()
+    }
+    return found, plugin_source_paths(snapshot, game)
 
 
 def _on_disk_plugin_names(game) -> "set[str]":

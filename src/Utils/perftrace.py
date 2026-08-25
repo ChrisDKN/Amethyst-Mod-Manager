@@ -187,4 +187,7 @@ def install(root) -> None:
         pass
     print(f"[PERF] perftrace enabled - live-prints spans >{_threshold_s() * 1000:.0f}ms; "
           "F11 = summary table, Shift+F11 = reset counters.", file=sys.stderr)
+    print("[PERF] work tags: [CPU] in-memory computation; [FS I/O] filesystem "
+          "calls (which may be cache-backed); [DB I/O] SQLite/catalog access; "
+          "[BACKGROUND] outside the button's critical path.", file=sys.stderr)
     sys.stderr.flush()

@@ -46,19 +46,20 @@ def _iter_loose_hpks(filemap_path: Path, staging: Path):
     the mod folder is irrelevant - what matters is that it matches a vanilla
     pack by basename (checked by the caller).
     """
-    if not filemap_path.is_file():
-        return
-    for line in filemap_path.read_text(encoding="utf-8").splitlines():
-        if "\t" not in line:
-            continue
-        rel_str, mod_name = line.rstrip("\n").split("\t", 1)
+    from Utils.filegraph_deploy import entries as filegraph_entries, legacy_rows
+    sources = {
+        (entry.legacy_rel.lower(), entry.mod_name): entry.source_path
+        for entry in filegraph_entries()
+        if entry.legacy_rel and entry.source_path is not None
+    }
+    for rel_str, mod_name in legacy_rows():
         name = rel_str.replace("\\", "/").rsplit("/", 1)[-1]
         if not name.lower().endswith(".hpk"):
             continue
         if name.lower() == _SKIP_NAME:
             continue
-        src = staging / mod_name / rel_str
-        if src.is_file():
+        src = sources.get((rel_str.lower(), mod_name))
+        if src is not None and src.is_file():
             yield mod_name, rel_str, src
 
 

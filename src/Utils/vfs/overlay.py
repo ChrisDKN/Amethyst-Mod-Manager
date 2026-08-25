@@ -403,18 +403,14 @@ def _mapped_separator_dirs(per_mod_deploy: dict[str, Path], game_root: Path,
     return mapped, external
 
 
-def _overwrite_entries(filemap: Path) -> set[str]:
+def _overwrite_entries() -> set[str]:
     """Paths supplied by [Overwrite], which is mounted as Data's upper layer."""
-    out: set[str] = set()
-    with filemap.open(encoding="utf-8", errors="surrogateescape") as handle:
-        for line in handle:
-            line = line.rstrip("\n")
-            if "\t" not in line:
-                continue
-            rel, owner = line.split("\t", 1)
-            if owner == "[Overwrite]":
-                out.add(rel.replace("\\", "/").lower())
-    return out
+    from Utils.filegraph_deploy import legacy_rows
+    return {
+        rel.replace("\\", "/").lower()
+        for rel, owner in legacy_rows()
+        if owner == "[Overwrite]"
+    }
 
 
 def _reject_symlink_payload(layer: Path) -> None:
@@ -1293,14 +1289,12 @@ def build_layers(
         prefix_rules and game.get_prefix_path() is None)
     routing_entries: list[tuple[str, str]] = []
     if needs_claim_partition or needs_prefix_probe:
-        with filemap.open(encoding="utf-8", errors="surrogateescape") as handle:
-            for line in handle:
-                line = line.rstrip("\n")
-                if "\t" not in line:
-                    continue
-                relative, mod_name = line.split("\t", 1)
-                if not raw_mods or mod_name not in raw_mods:
-                    routing_entries.append((relative, mod_name))
+        from Utils.filegraph_deploy import legacy_rows
+        routing_entries = [
+            (relative, mod_name)
+            for relative, mod_name in legacy_rows()
+            if not raw_mods or mod_name not in raw_mods
+        ]
         game_claims, prefix_claims = compute_rule_claims(
             routing_entries, custom_rules)
 
@@ -1328,11 +1322,10 @@ def build_layers(
         # physical prefix-route journal and destroy its recoverable backup.
         routing_metadata = build / "routing-metadata"
         routing_metadata.mkdir()
-        routing_filemap = routing_metadata / "filemap.txt"
-        shutil.copy2(filemap, routing_filemap)
+        routing_state = routing_metadata / "catalog-input"
         try:
             custom_exclude |= deploy_custom_rules(
-                routing_filemap, routed_layer, staging,
+                routing_state, routed_layer, staging,
                 rules=game_rules,
                 mode=LinkMode.HARDLINK,
                 strip_prefixes=game.mod_folder_strip_prefixes,
@@ -1385,7 +1378,7 @@ def build_layers(
     # destination is remapped are the exception: they must pass through
     # deploy_filemap so the source remains at its original overwrite path but
     # appears at the handler-defined destination in the shadow.
-    overwrite_entries = _overwrite_entries(filemap)
+    overwrite_entries = _overwrite_entries()
     routed_overwrite_entries = custom_exclude & overwrite_entries
     path_remap = dict(getattr(game, "mod_deploy_path_remap", None) or {})
     remap_prefixes = tuple(
@@ -1475,7 +1468,7 @@ def build_layers(
                 mode=LinkMode.HARDLINK, log_fn=_log,
                 metadata_dir=root_metadata)
         linked_root += deploy_root_flagged_mods(
-            filemap.parent / "filemap_root.txt", root_payload, staging,
+            root_metadata / "catalog-input", root_payload, staging,
             mode=LinkMode.HARDLINK,
             strip_prefixes=game.mod_folder_strip_prefixes,
             per_mod_strip_prefixes=per_mod_strip,

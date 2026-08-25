@@ -796,6 +796,13 @@ class PluginView(QTreeView):
         """owner maps plugin filename (lower) → owning mod name."""
         self._plugin_owner = dict(owner or {})
 
+    def apply_plugin_owner_delta(self, changed: dict) -> None:
+        for plugin, owner in (changed or {}).items():
+            if owner is None:
+                self._plugin_owner.pop(plugin, None)
+            else:
+                self._plugin_owner[plugin] = owner
+
     def selected_owner_mods(self, owner: dict) -> set:
         """The mods that own the currently-selected plugins."""
         m = self.model()
@@ -851,7 +858,7 @@ class PluginView(QTreeView):
 
     def set_highlight_from_mods(self, mod_names: set, bsa_higher: set,
                                 bsa_lower: set, owner: dict,
-                                bsa_index_path=None):
+                                archive_plugin_stems=None):
         """Highlight plugins from a modlist selection (Tk parity):
           - orange (anchor): plugins of the selected mod(s) - unconditional.
           - green/red: plugins of mods in a *BSA* conflict with the selection,
@@ -865,7 +872,7 @@ class PluginView(QTreeView):
 
         bsa_filter = self._bsa_owning_plugins(
             (bsa_higher or set()) | (bsa_lower or set()),
-            mod_to_plugins, bsa_index_path)
+            mod_to_plugins, archive_plugin_stems or {})
 
         hl: dict[str, int] = {}
         for mod in (bsa_lower or set()):
@@ -883,30 +890,14 @@ class PluginView(QTreeView):
         self.viewport().update()
 
     def _bsa_owning_plugins(self, mods: set, mod_to_plugins: dict,
-                            bsa_index_path) -> set:
-        """{plugin filename(lower)} for plugins in *mods* that own a BSA via
-        basename match - reuses the backend's _bsa_owning_plugin (Tk parity)."""
-        if not mods or bsa_index_path is None:
-            return set()
-        try:
-            from Utils.bsa_filemap import read_bsa_index, _bsa_owning_plugin
-        except Exception:
-            return set()
-        idx = read_bsa_index(bsa_index_path) or {}
+                            archive_plugin_stems) -> set:
+        """Plugin rows owning archives, from the pinned Filegraph generation."""
         result: set = set()
         for mod in mods:
-            archives = idx.get(mod)
-            if not archives:
-                continue
-            plugins = mod_to_plugins.get(mod, [])
-            stems = {p.rsplit(".", 1)[0].lower(): p for p in plugins}
-            if not stems:
-                continue
-            for bsa_name, _mt, _paths in archives:
-                bsa_stem = bsa_name.rsplit(".", 1)[0]
-                owning = _bsa_owning_plugin(bsa_stem, set(stems.keys()))
-                if owning is not None and owning in stems:
-                    result.add(stems[owning])
+            owning = archive_plugin_stems.get(mod, ())
+            for plugin in mod_to_plugins.get(mod, []):
+                if plugin.rsplit(".", 1)[0].lower() in owning:
+                    result.add(plugin)
         return result
 
     # ---- custom drag-reorder ---------------------------------------------

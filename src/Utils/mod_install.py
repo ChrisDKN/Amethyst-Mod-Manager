@@ -208,7 +208,7 @@ def _merge_case_variant_dirs(file_list, game, log_fn):
         from Utils.ui_config import load_normalize_folder_case
         if not load_normalize_folder_case():
             return file_list
-        from Utils.filemap import canonicalize_dir_casing
+        from Utils.filegraph_paths import canonicalize_dir_casing
     except Exception:
         return file_list
 
@@ -893,10 +893,10 @@ def _fix_nonutf8_names_extracted_tree(extract_dir: str, log_fn: LogFn) -> int:
     the file becomes addressable and the mod works). Deepest-first so a renamed
     parent dir doesn't invalidate child paths. Returns entries renamed.
     Idempotent; cheap when all names are already UTF-8 (the common case).
-    Thin wrapper over the neutral filemap.repair_nonutf8_names so the extract
+    Thin wrapper over the neutral path repair so the extract
     path and the Refresh (heal-on-disk) path share one implementation.
     """
-    from Utils.filemap import repair_nonutf8_names
+    from Utils.filegraph_paths import repair_nonutf8_names
     return repair_nonutf8_names(extract_dir, log_fn=log_fn)
 
 
@@ -1521,7 +1521,7 @@ def wrap_flat_mod_dir(mod_dir: Path, signal_names: "set[str]",
     already correctly structured and must not be touched (a loose root file
     alongside it is part of a multi-destination mod).
     """
-    from Utils.filemap import _EXCLUDE_NAMES
+    from Utils.filegraph_paths import EXCLUDE_NAMES
     if not mod_dir.is_dir():
         return False
     children = list(mod_dir.iterdir())
@@ -1549,7 +1549,7 @@ def wrap_flat_mod_dir(mod_dir: Path, signal_names: "set[str]",
     sub = mod_dir / mod_dir.name
     sub.mkdir(exist_ok=True)
     for child in children:
-        if child.is_file() and child.name.lower() in _EXCLUDE_NAMES:
+        if child.is_file() and child.name.lower() in EXCLUDE_NAMES:
             continue
         shutil.move(str(child), str(sub / child.name))
     return True
@@ -1887,8 +1887,8 @@ def _collection_plugin_context(game, profile_dir: "Path | None"
                                ) -> "tuple[set[str], set[str], set[str]]":
     """Build the (installed_files, active_files, loose_files) sets a collection
     FOMOD needs to evaluate its conditions - a tkinter-free port of the set-up
-    block in ``gui/install_mod.py`` (~1747-1794). Reads plugins.txt/loadorder.txt/
-    filemap.txt next to the profile, then seeds vanilla/DLC plugins (loaded
+    block in ``gui/install_mod.py`` (~1747-1794). Reads plugins.txt/loadorder.txt
+    and a pinned Filegraph snapshot, then seeds vanilla/DLC plugins (loaded
     implicitly by the engine, so never in plugins.txt)."""
     installed_files: set[str] = set()
     active_files: set[str] = set()
@@ -1911,15 +1911,26 @@ def _collection_plugin_context(game, profile_dir: "Path | None"
                 installed_files.add(name.lower())
         except Exception:
             pass
-        # <fileDependency> nodes can reference arbitrary asset paths; MO2 checks
-        # the whole virtual tree, so mirror the filemap's relative paths.
+        # <fileDependency> nodes can reference arbitrary asset paths; mirror
+        # the resolved loose virtual tree from one catalog generation.
         try:
-            with open(profile_dir / "filemap.txt", "r", encoding="utf-8") as fmf:
-                for line in fmf:
-                    rel = line.split("\t", 1)[0].strip()
-                    if rel:
-                        loose_files.add(rel.replace("\\", "/").lower())
-        except OSError:
+            from Utils.filegraph_service import FileGraphService
+            library = FileGraphService.open_library(game, profile_dir)
+            status = library.ensure_ready(profile_dir)
+            profile = library.open_profile(profile_dir)
+            snapshot = profile.snapshot()
+            if (snapshot.generation == 0
+                    or snapshot.inventory_generation != status.inventory_generation):
+                profile.reconcile(operation_hint={"kind": "wizard_gate"})
+                snapshot = profile.snapshot()
+            for entry in snapshot.deployment_plan().entries:
+                if (entry.provider_kind != "archive_member"
+                        and not entry.legacy_root and entry.legacy_rel):
+                    loose_files.add(entry.legacy_rel.replace(
+                        "\\", "/").lower())
+        except Exception:
+            # The installer can still evaluate plugin-only conditions; the
+            # required catalog error is surfaced by the surrounding workflow.
             pass
     if game is not None:
         try:
@@ -3029,50 +3040,12 @@ def _check_nexus_flags_after_install(game, mod_names, log_fn: LogFn,
 def _update_indexes(game, profile_dir: Path, mod_name: str, dest_root: Path,
                     log_fn: LogFn) -> None:
     try:
-        from Utils.filemap import rescan_mods_in_index
-        from Utils.deploy import load_per_mod_strip_prefixes
-        # The index MUST live where build_filemap reads it - next to the
-        # effective filemap (= staging.parent / game root), NOT the profile dir.
-        # Writing it to the profile dir leaves a fresh install invisible to the
-        # filemap rebuild → no conflicts detected (the bug this fixes).
-        try:
-            index_dir = game.get_effective_filemap_path().parent
-        except Exception:
-            index_dir = profile_dir
-        index_path = index_dir / "modindex.bin"
-        staging_root = Path(dest_root).parent
-        # Reuse rescan_mods_in_index (shares logic with rebuild_mod_index, the
-        # Refresh path) so the single-mod entry is written with EXACTLY the same
-        # strip-prefix / extension / per-mod / root-folder rules a full Refresh
-        # applies. The canonical game attributes are mod_folder_strip_prefixes /
-        # mod_install_extensions - the older strip_prefixes / install_extensions
-        # names don't exist on the game classes (getattr → None), which wrote an
-        # UNSTRIPPED entry (e.g. Bethesda "Data/…" kept), inconsistent with a
-        # Refresh → deploy double-nested paths / wrong conflicts until Refresh.
-        # A root-flagged mod (e.g. SKSE) must NOT be stripped - read the flag
-        # from the just-written meta.ini (the modlist isn't updated yet here).
-        root_mods = None
-        try:
-            from Nexus.nexus_meta import read_meta
-            if read_meta(Path(dest_root) / "meta.ini").root_folder:
-                root_mods = {mod_name}
-        except Exception:
-            root_mods = None
-        rescan_mods_in_index(
-            index_path, staging_root, [mod_name],
-            strip_prefixes=set(getattr(game, "mod_folder_strip_prefixes", None) or ()) or None,
-            per_mod_strip_prefixes=load_per_mod_strip_prefixes(profile_dir),
-            allowed_extensions=set(getattr(game, "mod_install_extensions", None) or ()) or None,
-            normalize_folder_case=getattr(game, "normalize_folder_case", True),
-            root_folder_mods=root_mods,
-            log_fn=log_fn,
-        )
-        archive_exts = frozenset(getattr(game, "archive_extensions", frozenset()) or frozenset())
-        if archive_exts:
-            from Utils.bsa_filemap import update_bsa_index
-            update_bsa_index(index_dir / "bsa_index.bin", mod_name, dest_root, archive_exts)
+        from Utils.filegraph_service import FileGraphService
+        library = FileGraphService.open_library(game, profile_dir, log_fn=log_fn)
+        session = library.open_profile(profile_dir)
+        library.replace_mod_manifest(session.adapter.build_manifest(mod_name))
     except Exception as exc:
-        log_fn(f"index update skipped ({exc}) - next rebuild will rescan.")
+        log_fn(f"catalog update skipped ({exc}) - explicit Refresh will repair it.")
 
 
 def _add_to_modlist(profile_dir: Path, mod_name: str, log_fn: LogFn,

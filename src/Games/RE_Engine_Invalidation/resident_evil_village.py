@@ -415,17 +415,11 @@ class ResidentEvilVillage(ProfileVFSGameMixin, BaseGame):
         those same upper files again under their original pre-remap names.
         Runtime-created upper files absent from the filemap remain unaffected.
         """
+        from Utils.filegraph_deploy import legacy_rows
         entries: set[str] = set()
-        with filemap.open(
-            encoding="utf-8", errors="surrogateescape",
-        ) as handle:
-            for line in handle:
-                line = line.rstrip("\n")
-                if "\t" not in line:
-                    continue
-                relative, owner = line.split("\t", 1)
-                if owner == "[Overwrite]":
-                    entries.add(relative.replace("\\", "/").lower())
+        for relative, owner in legacy_rows():
+            if owner == "[Overwrite]":
+                entries.add(relative.replace("\\", "/").lower())
         return entries
 
     def _patch_pak_files(
@@ -564,7 +558,8 @@ class ResidentEvilVillage(ProfileVFSGameMixin, BaseGame):
         filemap = self.get_effective_filemap_path()
         staging = self.get_effective_mod_staging_path()
 
-        if not filemap.is_file():
+        from Utils.filegraph_deploy import input_ready
+        if not input_ready():
             raise RuntimeError(
                 f"filemap.txt not found: {filemap}\n"
                 "Run 'Build Filemap' before deploying."
@@ -655,7 +650,7 @@ class ResidentEvilVillage(ProfileVFSGameMixin, BaseGame):
 
         _profile_dir = self._active_profile_dir
         _entries = read_modlist(_profile_dir / "modlist.txt") if _profile_dir else []
-        cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log)
+        cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log, game=self)
 
         # Restore PAK entries from every profile's pak_patches/ backups.
         # Deploy writes backups under whichever profile was active, so restore

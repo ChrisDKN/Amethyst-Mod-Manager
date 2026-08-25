@@ -20,61 +20,20 @@ from Utils.game_helpers import (
 from Utils.ui_config import load_last_session, save_last_session
 
 
-def _root_rule_cache_token(g) -> tuple:
-    """A hashable digest of the dest="" routing rules, for the flag-mods cache
-    key. Only the fields that affect which mods match are included, so cosmetic
-    edits elsewhere in the rule list don't force a rescan."""
-    try:
-        return tuple(
-            (r.dest,
-             tuple(getattr(r, "extensions", None) or ()),
-             tuple(getattr(r, "folders", None) or ()),
-             tuple(getattr(r, "filenames", None) or ()),
-             bool(getattr(r, "loose_only", False)),
-             bool(getattr(r, "to_prefix", False)))
-            for r in (getattr(g, "custom_routing_rules", None) or []))
-    except Exception:
-        return ()
+def _loose_code_without_archive_wins(summary, archive_wins: int) -> int:
+    """Return the legacy loose status with loose-over-archive wins hidden.
 
-
-def _root_rule_flag_candidates(g) -> list:
-    """The dest="" routing rules that should raise the root-rule flag.
-
-    A rule sending a REQUIRED top-level folder to the game root is a no-op
-    under root deploy - the mod already ships its files at their final
-    location (e.g. NieR's data/ routed to ""), so flagging it tells the user
-    nothing and buries the genuine root-routers. Such rules are dropped here
-    when the game deploys to root; a rule matching anything else (extensions,
-    filenames, or a non-required folder) still flags as before.
-
-    Returns [] when nothing can flag, letting the caller skip the scan.
+    Filegraph correctly counts a loose provider beating an archive member as a
+    loose win. Bethesda's ``Hide BSA conflicts`` presentation rule deliberately
+    hides that contribution as well as the archive icon and partner map.
     """
-    rules = [r for r in (getattr(g, "custom_routing_rules", None) or [])
-             if r.dest == "" and not r.to_prefix]
-    if not rules:
-        return []
-    try:
-        root_deploy = g.get_mod_data_path() == getattr(g, "_game_path", None)
-    except Exception:
-        root_deploy = False
-    if not root_deploy:
-        return rules
-    required = {str(f).strip().strip("/\\").lower()
-                for f in (getattr(g, "mod_required_top_level_folders", None) or ())}
-    if not required:
-        return rules
-    keep = []
-    for r in rules:
-        folders = [str(f).strip().strip("/\\").lower()
-                   for f in (getattr(r, "folders", None) or [])]
-        # Only a folders-only rule is a candidate no-op: an extension or
-        # filename match can pull files out of ANY folder, so it still routes.
-        if (folders and all(f in required for f in folders)
-                and not (getattr(r, "extensions", None)
-                         or getattr(r, "filenames", None))):
-            continue
-        keep.append(r)
-    return keep
+    wins = max(0, int(summary.loose_wins) - max(0, int(archive_wins)))
+    losses = max(0, int(summary.loose_losses))
+    if wins:
+        return 2 if losses else 1
+    if not losses:
+        return 0
+    return 3 if int(summary.loose_surviving) == 0 else -1
 
 
 @dataclass
@@ -114,12 +73,27 @@ class ConflictData:
     # framework statuses (see app._toggle_skips_conflict_scan).
     plugin_mods: set = field(default_factory=set)
     bsa_mods: set = field(default_factory=set)
+    archive_plugin_stems: dict[str, frozenset[str]] = field(default_factory=dict)
+    edge_refcounts: dict[tuple[str, str, str], int] = field(default_factory=dict)
+    loose_archive_winner_counts: dict[str, int] = field(default_factory=dict)
     framework_file_mods: set = field(default_factory=set)
     # Mods whose loose file overrides some archive's copy of it. In no other
     # capability set (they ship no archive; the loose maps can't see archives)
     # yet toggling one flips two icons - hence its own entry in the disable
     # fast-path guard (see app._toggle_skips_conflict_scan).
     loose_beats_bsa_mods: set = field(default_factory=set)
+    # Generation-pinned filegraph state used by downstream views. The UI
+    # applies summary/partner data from this same generation and never reparses
+    # a compatibility map to rediscover it.
+    snapshot: object | None = None
+    resolution_delta: object | None = None
+    # True only when this ConflictData instance already represented the
+    # delta's base generation and the maps above were updated in place.  A
+    # restored native profile may return a small/no-op delta while the Python
+    # presentation cache is empty (notably on application startup or profile
+    # switch).  Consumers must perform a full initial projection in that case.
+    projection_is_incremental: bool = False
+    profile_id: str = ""
 
 
 class GameState:
@@ -127,6 +101,15 @@ class GameState:
         self.game_names: list[str] = []
         self.game_name: str | None = None
         self.profile: str | None = None
+        self._filegraph_conflict_cache: dict[tuple[str, bool], ConflictData] = {}
+        # Keep the active native library warm.  FileGraphService's registry is
+        # intentionally weak so unused libraries can be reclaimed, but without
+        # an owner here every build_conflicts() call became a cold SQLite/graph
+        # restoration once its local variables went out of scope.  Deployment
+        # and the post-deploy refresh then rebuilt a million-provider graph
+        # repeatedly during one UI session.
+        self._filegraph_library = None
+        self._filegraph_profile = None
 
     # -- discovery / load ---------------------------------------------------
     def load(self) -> None:
@@ -233,28 +216,20 @@ class GameState:
         except Exception:
             return None
 
-    def bsa_index_path(self) -> Path | None:
-        """Location of bsa_index.bin (next to filemap.txt), or None."""
-        staging = self.staging_dir()
-        if staging is None:
-            return None
-        p = staging.parent / "bsa_index.bin"
-        return p if p.is_file() else None
-
-    def build_conflicts(self, log_fn=None, rescan_index: bool = False) -> "ConflictData":
-        """Build the filemap for the active game/profile and return a ConflictData
-        with loose + BSA conflict codes, the override maps (for highlights), and a
-        plugin→owner map. Expensive - run off-thread. Empty on failure.
-
-        rescan_index=True forces a full re-scan of every mod folder from disk
-        (the Refresh path) so file changes inside existing mods are picked up."""
+    def build_conflicts(self, log_fn=None, rescan_index: bool = False,
+                        operation_hint: dict | None = None,
+                        timing=None) -> "ConflictData":
+        """Reconcile and project one generation of native filegraph state."""
         g = self.game
         if g is None or not self.profile:
+            if timing is not None:
+                timing.finish("conflict build skipped: no active profile",
+                              lane="worker")
             return ConflictData()
-        from Utils.deploy_pipeline import _build_filemap_for_game
-        from gui_qt.modlist_data import display_codes_from_conflict_map
+        import time
         from Utils.perftrace import span
         log = log_fn or (lambda _m: None)
+        phase_started = time.perf_counter()
         # Flat-staging heal (Tk parity): wrap manually-copied flat mods before
         # the index/filemap build so deploy targets Mods/<Name>/ correctly. A
         # fix forces a full rescan - the index still has the pre-wrap layout.
@@ -274,312 +249,246 @@ class GameState:
                         f"structure: " + ", ".join(fixed))
             except Exception as exc:
                 log(f"Flat-staging check failed: {exc}")
-        with span("_build_filemap_for_game"):
-            result = _build_filemap_for_game(
-                g, self.profile, log_fn=log, rescan_index=rescan_index)
-        if not result:
+        if timing is not None:
+            timing.mark("flat-staging validation complete",
+                        phase_started=phase_started, lane="worker")
+        profile_dir = self.profile_dir()
+        if profile_dir is None:
+            if timing is not None:
+                timing.finish("conflict build skipped: profile path unavailable",
+                              lane="worker")
             return ConflictData()
-        _count, _conflict_map, overrides, overridden_by = result
-        with span("display_codes+copy_maps"):
+        from Utils.filegraph_service import FileGraphService
+        phase_started = time.perf_counter()
+        with span("filegraph.open_library"):
+            library = FileGraphService.open_library(
+                g, profile_dir, log_fn=log)
+        if timing is not None:
+            timing.mark("Filegraph library opened",
+                        phase_started=phase_started, lane="worker")
+        self._filegraph_library = library
+        phase_started = time.perf_counter()
+        with span("filegraph.refresh" if rescan_index else "filegraph.ensure_ready"):
+            if rescan_index:
+                library.refresh(profile_dir)
+            else:
+                library.ensure_ready(profile_dir)
+        if timing is not None:
+            timing.mark(
+                "Filegraph catalog refreshed" if rescan_index
+                else "Filegraph catalog readiness checked",
+                phase_started=phase_started, lane="worker")
+        phase_started = time.perf_counter()
+        session = library.open_profile(profile_dir)
+        self._filegraph_profile = session
+        if timing is not None:
+            timing.mark("profile session opened",
+                        phase_started=phase_started, lane="worker")
+        with span("filegraph.reconcile"):
+            delta = session.reconcile(operation_hint=operation_hint,
+                                      timing=timing)
+        snapshot = session.snapshot()
+        profile_id = str(profile_dir.resolve(strict=False))
+        phase_started = time.perf_counter()
+
+        # Archive visibility is presentation state, so include it in the cache
+        # key. Changing the setting performs one full projection, while ordinary
+        # toggles and moves apply only the native edge/summary delta.
+        archive_exts = frozenset(
+            getattr(g, "archive_extensions", frozenset()) or frozenset())
+        show_archives = bool(archive_exts)
+        if show_archives:
+            try:
+                from Utils.ue_pak_reader import UE_ARCHIVE_EXTENSIONS
+                is_ue = bool(archive_exts & UE_ARCHIVE_EXTENSIONS)
+            except Exception:
+                is_ue = False
+            if not is_ue:
+                try:
+                    from Utils.ui_config import load_hide_bsa_conflicts
+                    show_archives = not load_hide_bsa_conflicts()
+                except Exception:
+                    pass
+        cache_key = (profile_id, show_archives)
+        data = self._filegraph_conflict_cache.get(cache_key)
+        can_apply_delta = bool(
+            data is not None
+            and not delta.full_rebuild
+            and data.snapshot is not None
+            and data.snapshot.generation == delta.base_generation
+        )
+
+        if can_apply_delta:
+            data.snapshot = snapshot
+            data.resolution_delta = delta
+            data.projection_is_incremental = True
+            for name, summary in delta.changed_summaries.items():
+                data.loose_codes[name] = summary.loose_code
+                data.loose_codes_base[name] = summary.loose_code
+                if show_archives:
+                    data.bsa_codes[name] = summary.archive_code
+                if summary.identity_code:
+                    data.uuid_codes[name] = summary.identity_code
+                else:
+                    data.uuid_codes.pop(name, None)
+            for plugin, owner in delta.changed_plugin_owners.items():
+                if owner is None:
+                    data.plugin_owner.pop(plugin, None)
+                else:
+                    data.plugin_owner[plugin] = owner
+
+            def _set_partner(overrides, overridden_by, edge, present):
+                if present:
+                    overrides.setdefault(edge.winner, set()).add(edge.loser)
+                    overridden_by.setdefault(edge.loser, set()).add(edge.winner)
+                else:
+                    winners = overrides.get(edge.winner)
+                    if winners is not None:
+                        winners.discard(edge.loser)
+                        if not winners:
+                            overrides.pop(edge.winner, None)
+                    losers = overridden_by.get(edge.loser)
+                    if losers is not None:
+                        losers.discard(edge.winner)
+                        if not losers:
+                            overridden_by.pop(edge.loser, None)
+
+            for edge in delta.changed_edges:
+                edge_key = (edge.kind, edge.loser, edge.winner)
+                old_refcount = data.edge_refcounts.get(edge_key, 0)
+                if edge.refcount:
+                    data.edge_refcounts[edge_key] = edge.refcount
+                else:
+                    data.edge_refcounts.pop(edge_key, None)
+                if edge.kind in ("loose", "identity"):
+                    pair_present = any(
+                        data.edge_refcounts.get(
+                            (kind, edge.loser, edge.winner), 0)
+                        for kind in ("loose", "identity")
+                    )
+                    _set_partner(
+                        data.overrides, data.overridden_by, edge,
+                        pair_present)
+                elif edge.kind in ("archive", "loose_archive") and show_archives:
+                    pair_present = any(
+                        data.edge_refcounts.get((kind, edge.loser, edge.winner), 0)
+                        for kind in ("archive", "loose_archive")
+                    )
+                    _set_partner(
+                        data.bsa_overrides, data.bsa_overridden_by, edge,
+                        pair_present)
+                if edge.kind == "loose_archive":
+                    total = max(
+                        0,
+                        data.loose_archive_winner_counts.get(edge.winner, 0)
+                        + edge.refcount - old_refcount,
+                    )
+                    if total:
+                        data.loose_archive_winner_counts[edge.winner] = total
+                        if show_archives:
+                            data.loose_beats_bsa_mods.add(edge.winner)
+                    else:
+                        data.loose_archive_winner_counts.pop(edge.winner, None)
+                        data.loose_beats_bsa_mods.discard(edge.winner)
+            if not show_archives:
+                for name, summary in delta.changed_summaries.items():
+                    visible_code = _loose_code_without_archive_wins(
+                        summary,
+                        data.loose_archive_winner_counts.get(name, 0),
+                    )
+                    data.loose_codes[name] = visible_code
+                    data.loose_codes_base[name] = visible_code
+        else:
+            with span("filegraph.conflict_state"):
+                resolved = snapshot.conflict_state()
             data = ConflictData(
-                # Use the backend's real conflict_map so FULL (redundant) is kept.
-                loose_codes=display_codes_from_conflict_map(_conflict_map),
-                overrides={k: set(v) for k, v in (overrides or {}).items()},
-                overridden_by={k: set(v) for k, v in (overridden_by or {}).items()},
-                uuid_codes=dict(getattr(result, "uuid_codes", None) or {}),
+                snapshot=snapshot,
+                resolution_delta=delta,
+                projection_is_incremental=False,
+                profile_id=profile_id,
             )
-        with span("_build_bsa_conflicts"):
-            (data.bsa_codes, data.bsa_overrides,
-             data.bsa_overridden_by, lob) = self._build_bsa_conflicts(g, log)
-        # A loose file beating a BSA is a loose-file win the filemap can't see;
-        # fold it in or the winner shows no icon. Base copy = re-merge source.
-        data.loose_codes_base = dict(data.loose_codes)
-        self._merge_loose_beats_bsa(data.loose_codes, lob)
-        data.loose_beats_bsa_mods = {m for m, b in (lob or {}).items() if b}
-        with span("_build_plugin_owner"):
-            data.plugin_owner = self._build_plugin_owner(g)
-        with span("_build_index_flag_mods"):
-            (data.prertx_mods, data.root_rule_mods, data.plugin_mods,
-             data.bsa_mods, data.framework_file_mods) = \
-                self._build_index_flag_mods(g)
-        with span("detect_frameworks"):
-            data.framework_statuses = self._detect_frameworks(g)
+            data.loose_codes = {
+                name: summary.loose_code
+                for name, summary in resolved.summaries.items()
+            }
+            data.loose_codes_base = dict(data.loose_codes)
+            if show_archives:
+                data.bsa_codes = {
+                    name: summary.archive_code
+                    for name, summary in resolved.summaries.items()
+                }
+            data.uuid_codes = {
+                name: summary.identity_code
+                for name, summary in resolved.summaries.items()
+                if summary.identity_code
+            }
+            for edge in resolved.edges:
+                edge_key = (edge.kind, edge.loser, edge.winner)
+                data.edge_refcounts[edge_key] = edge.refcount
+                if edge.kind in ("loose", "identity"):
+                    data.overrides.setdefault(edge.winner, set()).add(edge.loser)
+                    data.overridden_by.setdefault(edge.loser, set()).add(edge.winner)
+                elif edge.kind in ("archive", "loose_archive") and show_archives:
+                    data.bsa_overrides.setdefault(edge.winner, set()).add(edge.loser)
+                    data.bsa_overridden_by.setdefault(edge.loser, set()).add(edge.winner)
+                if edge.kind == "loose_archive":
+                    data.loose_archive_winner_counts[edge.winner] = (
+                        data.loose_archive_winner_counts.get(edge.winner, 0)
+                        + edge.refcount)
+                    if show_archives:
+                        data.loose_beats_bsa_mods.add(edge.winner)
+            if not show_archives:
+                for name, summary in resolved.summaries.items():
+                    visible_code = _loose_code_without_archive_wins(
+                        summary,
+                        data.loose_archive_winner_counts.get(name, 0),
+                    )
+                    data.loose_codes[name] = visible_code
+                    data.loose_codes_base[name] = visible_code
+            data.plugin_owner = dict(resolved.plugin_owners)
+            data.archive_plugin_stems = dict(resolved.archive_plugin_stems)
+            from Utils.filegraph_adapter import (
+                FLAG_ARCHIVE, FLAG_FRAMEWORK, FLAG_PLUGIN, FLAG_PRE_RTX,
+                FLAG_ROOT_RULE,
+            )
+            for name, flags in resolved.capability_flags.items():
+                if flags & FLAG_PRE_RTX:
+                    data.prertx_mods.add(name)
+                if flags & FLAG_ROOT_RULE:
+                    data.root_rule_mods.add(name)
+                if flags & FLAG_PLUGIN:
+                    data.plugin_mods.add(name)
+                if flags & FLAG_ARCHIVE:
+                    data.bsa_mods.add(name)
+                if flags & FLAG_FRAMEWORK:
+                    data.framework_file_mods.add(name)
+
+        if timing is not None:
+            timing.mark(
+                "incremental conflict projection applied"
+                if can_apply_delta else "full conflict projection built",
+                phase_started=phase_started, lane="worker")
+        phase_started = time.perf_counter()
+        hinted_mods = set((operation_hint or {}).get("mods", ()))
+        reuse_frameworks = bool(
+            can_apply_delta
+            and (operation_hint or {}).get("kind") in {
+                "toggle", "enable", "disable", "move", "move_block",
+            }
+            and hinted_mods.isdisjoint(data.framework_file_mods)
+        )
+        if not reuse_frameworks:
+            with span("filegraph.detect_frameworks"):
+                from Utils.framework_detect import detect_frameworks_snapshot
+                data.framework_statuses = detect_frameworks_snapshot(
+                    g, snapshot, self.modlist_path(), rf_toggle_enabled=True)
+        if timing is not None:
+            timing.mark(
+                "framework statuses reused (changed mods have no framework files)"
+                if reuse_frameworks else "framework statuses resolved",
+                phase_started=phase_started, lane="worker")
+        self._filegraph_conflict_cache[cache_key] = data
         return data
-
-    def _detect_frameworks(self, g) -> list:
-        """Framework banner statuses (worker-side; see ConflictData)."""
-        try:
-            from Utils.framework_detect import detect_frameworks
-            staging = self.staging_dir()
-            fm = (staging.parent / "filemap.txt") if staging is not None else None
-            return detect_frameworks(g, fm, self.modlist_path(),
-                                     rf_toggle_enabled=True)
-        except Exception as exc:
-            print(f"[gui_qt] framework detect error: {exc}", flush=True)
-            return []
-
-    def _build_index_flag_mods(self, g) -> "tuple[set, set, set, set, set]":
-        """(prertx_mods, root_rule_mods, plugin_mods, bsa_mods,
-        framework_file_mods) from modindex.bin. pre-RTX = a mod with a file
-        under a remapped source prefix (e.g. natives/x64/); root-rule = a mod
-        owning files matched by a custom routing rule with dest="". Ports
-        gui/modlist_panel pre-RTX detect (~9307) + _compute_root_rule_mods
-        (1699). The last three are the toggle-capability sets (see
-        ConflictData). Runs on the conflict worker.
-
-        All scans depend only on the index content + static game rules - a
-        mod toggle/reorder doesn't touch modindex.bin - so the result is
-        cached by (index path, mtime) and per-toggle rebuilds skip the
-        ~100-150 ms file walk entirely."""
-        from Utils.perftrace import span
-        _empty = (set(), set(), set(), set(), set())
-        staging = self.staging_dir()
-        if staging is None:
-            return _empty
-        index_path = staging.parent / "modindex.bin"
-        try:
-            _st = index_path.stat()
-            stat_key = (_st.st_mtime_ns, _st.st_size)
-        except OSError:
-            return _empty
-        # The routing rules are part of the key: a custom game's rules are
-        # editable at runtime and root_rule is derived from them, but editing
-        # one doesn't touch modindex.bin - keying on the index alone served a
-        # stale flag set until the next reinstall.
-        cache_key = (str(index_path), stat_key, getattr(g, "name", None),
-                     _root_rule_cache_token(g))
-        cached = getattr(self, "_flag_mods_cache", None)
-        if cached is not None and cached[0] == cache_key:
-            return cached[1]
-        try:
-            from Utils.filemap import read_mod_index
-            with span("flag_mods: read_mod_index"):
-                index = read_mod_index(index_path)
-        except Exception:
-            index = None
-        if not index:
-            return _empty
-        # pre-RTX: any file under a remapped source prefix.
-        prertx: set = set()
-        try:
-            prefixes = [k.lower() for k in
-                        (getattr(g, "mod_deploy_path_remap", {}) or {})]
-        except Exception:
-            prefixes = []
-        if prefixes:
-            with span("flag_mods: prertx scan"):
-                for mod_name, entry in index.items():
-                    normal = entry[0] if isinstance(entry, tuple) else {}
-                    for rel_key in normal:
-                        if any(rel_key.startswith(p) for p in prefixes):
-                            prertx.add(mod_name)
-                            break
-        # Toggle capabilities: which mods ship plugin files / BSA-BA2s / files
-        # basename-matching a framework exe (framework_detect matches staged
-        # keys and disabled-mod files by basename). Root-namespace files
-        # included - broader only makes the fast path MORE conservative.
-        plugin_mods: set = set()
-        bsa_mods: set = set()
-        framework_mods: set = set()
-        plugin_exts = tuple(e.lower() for e in
-                            (getattr(g, "plugin_extensions", []) or [])) \
-            or (".esp", ".esm", ".esl")
-        archive_exts = tuple(e.lower() for e in
-                             (getattr(g, "archive_extensions", None) or ())) \
-            or (".bsa", ".ba2")
-        try:
-            fw_basenames = {
-                str(p).replace("\\", "/").rstrip("/").rsplit("/", 1)[-1].lower()
-                for p in (getattr(g, "frameworks", {}) or {}).values()}
-        except Exception:
-            fw_basenames = set()
-        with span("flag_mods: capability scan"):
-            for mod_name, entry in index.items():
-                if not isinstance(entry, tuple):
-                    continue
-                normal = entry[0] or {}
-                root = (entry[1] or {}) if len(entry) >= 2 else {}
-                for rel_key in (*normal, *root):
-                    base = rel_key.rsplit("/", 1)[-1]
-                    if base.endswith(plugin_exts):
-                        plugin_mods.add(mod_name)
-                    if base.endswith(archive_exts):
-                        bsa_mods.add(mod_name)
-                    if fw_basenames and base in fw_basenames:
-                        framework_mods.add(mod_name)
-        # root-rule: mods owning files matched by a dest="" custom routing rule.
-        root_rule: set = set()
-        try:
-            rules = _root_rule_flag_candidates(g)
-            if rules:
-                from Utils.deploy_custom_rules import mods_matching_root_rules
-                with span("flag_mods: root-rule match"):
-                    mod_files = {
-                        name: (list(entry[0].values()) + list(entry[1].values()))
-                        for name, entry in index.items()
-                        if isinstance(entry, tuple) and len(entry) >= 2}
-                    root_rule = mods_matching_root_rules(mod_files, rules)
-        except Exception:
-            root_rule = set()
-        result = (prertx, root_rule, plugin_mods, bsa_mods, framework_mods)
-        self._flag_mods_cache = (cache_key, result)
-        return result
-
-    def _build_plugin_owner(self, g) -> dict[str, str]:
-        """Map plugin filename (lower) → the mod that wins it, from filemap.txt.
-        Used for plugin↔mod cross-panel highlighting."""
-        staging = self.staging_dir()
-        if staging is None:
-            return {}
-        exts = tuple(e.lower() for e in (getattr(g, "plugin_extensions", []) or []))
-        if not exts:
-            exts = (".esp", ".esm", ".esl")
-        owner: dict[str, str] = {}
-        # filemap_root.txt second: root-flagged mods deploy after (and over)
-        # the main deploy, so they win same-named plugins.
-        for fm in (staging.parent / "filemap.txt",
-                   staging.parent / "filemap_root.txt"):
-            if not fm.is_file():
-                continue
-            try:
-                for line in fm.read_text(encoding="utf-8").splitlines():
-                    if "\t" not in line:
-                        continue
-                    rel_key, mod = line.split("\t", 1)
-                    base = rel_key.replace("\\", "/").rsplit("/", 1)[-1].lower()
-                    if base.endswith(exts):
-                        owner[base] = mod
-            except Exception:
-                continue
-        return owner
-
-    def _build_bsa_conflicts(self, g, log):
-        """Compute BSA/BA2 archive conflicts. Returns (codes, overrides,
-        overridden_by, loose_overrides_bsa) - codes as 1 win / -1 lose /
-        2 mixed / 3 fully-overridden; the maps key mod → set(mods). Empty
-        for non-archive games or on failure.
-
-        loose_overrides_bsa (loose_mod → {bsa_mod}) is handed back rather than
-        folded into ``codes``: that win belongs on the loose icon, not the
-        archive one (the winner often ships no archive). See
-        _merge_loose_beats_bsa.
-
-        The "Hide BSA conflicts" setting empties the pipeline entirely (Tk
-        parity) so the expensive parse is skipped and no codes are produced.
-        It only applies to Bethesda BSA/BA2 games - UE pak conflicts are
-        always shown (two paks touching the same asset is exactly the signal
-        pak-game users need; there's no vanilla-BSA noise to hide there)."""
-        empty = ({}, {}, {}, {})
-        exts = frozenset(getattr(g, "archive_extensions", frozenset()) or frozenset())
-        if not exts:
-            return empty
-        from Utils.ue_pak_reader import UE_ARCHIVE_EXTENSIONS
-        if not (exts & UE_ARCHIVE_EXTENSIONS):
-            try:
-                from Utils.ui_config import load_hide_bsa_conflicts
-                if load_hide_bsa_conflicts():
-                    return empty
-            except Exception:
-                pass
-        staging = self.staging_dir()
-        ml = self.modlist_path()
-        if staging is None or ml is None or not ml.is_file():
-            return empty
-        try:
-            from Utils.bsa_filemap import (
-                build_bsa_conflicts, read_bsa_index, rebuild_bsa_index,
-            )
-            from Utils.plugins import read_loadorder
-        except Exception:
-            return empty
-        out_dir = staging.parent
-        bsa_index = out_dir / "bsa_index.bin"
-        try:
-            # Gate on whether the index PARSES, not on whether the file exists.
-            # An index that is missing, corrupt, or written by an older version
-            # all mean "nothing usable has been scanned" - existence alone left
-            # a bad index (e.g. an older version's empty one) stuck forever,
-            # silently reporting zero archive conflicts for every mod.
-            if read_bsa_index(bsa_index) is None:
-                rebuild_bsa_index(bsa_index, staging, exts, log_fn=log,
-                                  follow_toplevel_links_under=g.get_profile_root() / "profiles")
-            pdir = self.profile_dir()
-            # UE pak mounting is not plugin-driven - winners follow pure mod
-            # priority there, so skip the plugin load-order refinement.
-            use_plugin_order = getattr(g, "archive_plugin_ordering", True)
-            plugin_order = (read_loadorder(pdir / "loadorder.txt")
-                            if (use_plugin_order and pdir is not None) else None)
-            plugin_exts = frozenset(getattr(g, "plugin_extensions", []) or [])
-            (bsa_map, bsa_over, bsa_overby, lob, bol) = build_bsa_conflicts(
-                ml, bsa_index, exts,
-                loose_index_path=out_dir / "modindex.bin",
-                plugin_order=plugin_order or None,
-                plugin_extensions=plugin_exts or None,
-                # UE paks resolve by (_P boost, basename) mount order.
-                archive_name_ordering=bool(exts & UE_ARCHIVE_EXTENSIONS),
-                log_fn=log,
-                # Resolved deploy map so Mod Files ▸ Disable exclusions clear
-                # the flag (modindex.bin still lists excluded files). Fresh
-                # here: the full path rebuilds it just before this, and the
-                # plugin-toggle path doesn't touch it.
-                loose_filemap_path=out_dir / "filemap.txt",
-            )
-        except Exception as exc:
-            log(f"BSA conflict build failed: {exc}")
-            return empty
-        # build_bsa_conflicts returns CONFLICT_* codes; normalise to our scheme
-        # (1 win / -1 lose / 2 mixed) matching conflicts_from_filemap.
-        from Utils.filemap import (
-            CONFLICT_WINS, CONFLICT_LOSES, CONFLICT_PARTIAL, CONFLICT_FULL,
-        )
-        codes: dict[str, int] = {}
-        for name, c in bsa_map.items():
-            if c == CONFLICT_WINS:
-                codes[name] = 1
-            elif c == CONFLICT_LOSES:
-                codes[name] = -1
-            elif c == CONFLICT_PARTIAL:
-                codes[name] = 2
-            elif c == CONFLICT_FULL:
-                # Zero surviving paths - every file in the mod's archives is
-                # overridden (by other archives and/or loose files). Its own
-                # icon, same split as the loose codes.
-                codes[name] = 3
-        # Fold loose↔BSA cross relationships so highlights match the engine's
-        # "loose beats BSA" rule (lob: loose_mod→{bsa_mod}, bol: bsa_mod→{loose}).
-        over = {k: set(v) for k, v in (bsa_over or {}).items()}
-        overby = {k: set(v) for k, v in (bsa_overby or {}).items()}
-        for loose_mod, bsa_mods in (lob or {}).items():
-            over.setdefault(loose_mod, set()).update(bsa_mods)
-        for bsa_mod, loose_mods in (bol or {}).items():
-            overby.setdefault(bsa_mod, set()).update(loose_mods)
-        return codes, over, overby, {k: set(v) for k, v in (lob or {}).items()}
-
-    @staticmethod
-    def _merge_loose_beats_bsa(loose_codes: dict, lob: dict) -> dict:
-        """Upgrade *loose_codes* in place for mods whose loose files override a
-        BSA (lob: loose_mod → {bsa_mod, ...}).
-
-        filemap.txt only ranks loose-vs-loose, so a mod winning solely against
-        an archive sits at NONE (no icon). Fold that win into the loose code:
-
-            NONE    → WINS      (its only conflict is over the BSA)
-            LOSES   → PARTIAL   (loses to a loose mod, but beats a BSA)
-            FULL    → PARTIAL   (fully overridden loosely, still beats a BSA -
-                                 a surviving win means it isn't redundant)
-            WINS/PARTIAL        unchanged - already showing a win."""
-        from gui_qt.modlist_data import (
-            DISP_WINS, DISP_LOSES, DISP_PARTIAL, DISP_FULL,
-        )
-        for loose_mod, bsa_mods in (lob or {}).items():
-            if not bsa_mods:
-                continue
-            cur = loose_codes.get(loose_mod)
-            if cur in (None, 0):
-                loose_codes[loose_mod] = DISP_WINS
-            elif cur in (DISP_LOSES, DISP_FULL):
-                loose_codes[loose_mod] = DISP_PARTIAL
-        return loose_codes
 
     # -- internals ----------------------------------------------------------
     def _select_profile(self, preferred: "str | None") -> "str | None":

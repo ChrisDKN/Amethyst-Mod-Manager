@@ -10,6 +10,7 @@ Usage:
     python cli.py launch <game> [--profile <name>] [--no-deploy]
     python cli.py restore <game>
     python cli.py clear-credentials
+    python cli.py export-filemap <game> <profile_name> [--output-dir DIR] [--refresh]
 
 <game> can be the game's game_id (e.g. 'skyrim_se'), its full display name
 (e.g. 'Skyrim Special Edition'), or a Steam app ID.  Matching is
@@ -356,6 +357,46 @@ def cmd_restore(games: dict, key: str):
     _log(f"Restore complete: {game.name}")
 
 
+def cmd_export_filemap(games: dict, key: str, profile: str, *,
+                       output_dir: "str | None" = None,
+                       refresh: bool = False):
+    """Write compatibility maps from one reconciled filegraph generation."""
+    from pathlib import Path
+
+    game = _find_game(games, key)
+    if game is None:
+        print(f"Error: game '{key}' not found.", file=sys.stderr)
+        sys.exit(1)
+    profile_dir = game.get_profile_root() / "profiles" / profile
+    if not profile_dir.is_dir():
+        print(f"Error: profile '{profile}' does not exist at {profile_dir}",
+              file=sys.stderr)
+        sys.exit(1)
+
+    game.set_active_profile_dir(profile_dir)
+    game.load_paths()
+    from Utils.filegraph_service import FileGraphService
+    library = FileGraphService.open_library(game, profile_dir, log_fn=_log)
+    try:
+        status = library.status()
+        if refresh:
+            status = library.refresh(profile_dir)
+        elif not status.ready:
+            raise RuntimeError(
+                "the filegraph catalog is not ready; open this profile in "
+                "Amethyst first or rerun with --refresh")
+        session = library.open_profile(profile_dir)
+        session.reconcile(operation_hint={"kind": "full"})
+        destination = (Path(output_dir) if output_dir else
+                       game.get_effective_filemap_path().parent)
+        normal, root = session.export_legacy_maps(destination)
+    except Exception as exc:
+        print(f"Error: could not export filemap: {exc}", file=sys.stderr)
+        sys.exit(1)
+    _log(f"Exported {normal}")
+    _log(f"Exported {root}")
+
+
 def main():
     _setup_path()
 
@@ -386,6 +427,15 @@ def main():
 
     rp = subparsers.add_parser("restore", help="Restore the game directory (undo last deploy)")
     rp.add_argument("game", help="game_id or display name (case-insensitive)")
+
+    ep = subparsers.add_parser(
+        "export-filemap", help="Export legacy maps from the filegraph catalog")
+    ep.add_argument("game", help="game_id or display name (case-insensitive)")
+    ep.add_argument("profile", help="Profile name")
+    ep.add_argument("--output-dir", default=None,
+                    help="Destination directory (default: former map directory)")
+    ep.add_argument("--refresh", action="store_true",
+                    help="Refresh raw manifests before exporting")
 
     subparsers.add_parser("clear-credentials", help="Remove stored Nexus Mods API key and OAuth tokens")
 
@@ -419,6 +469,10 @@ def main():
                    sandbox_bridge=args.sandbox_bridge)
     elif args.command == "restore":
         cmd_restore(games, args.game)
+    elif args.command == "export-filemap":
+        cmd_export_filemap(
+            games, args.game, args.profile,
+            output_dir=args.output_dir, refresh=args.refresh)
 
 
 if __name__ == "__main__":

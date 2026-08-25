@@ -145,7 +145,7 @@ def build_context_menu(view, index):
         #   Log         - both (files swept in on restore; Root Folder gets its
         #                 own .mm_overwrite_log.txt written by _move_runtime_files)
         #   Show Conflicts - Overwrite only (Root Folder has no conflict data)
-        from Utils.filemap import OVERWRITE_NAME, ROOT_FOLDER_NAME
+        from Utils.filegraph_constants import OVERWRITE_NAME, ROOT_FOLDER_NAME
         if multi_mods or multi_seps:
             return None
         has_game = getattr(view, "game", None) is not None
@@ -715,7 +715,7 @@ def _has_meshes(view, name: str) -> bool:
         return False
     try:
         from Utils.mesh_catalog import mod_has_assets
-        return mod_has_assets(staging, name)
+        return mod_has_assets(staging, name, game=getattr(view, "game", None))
     except Exception:
         return False
 
@@ -925,6 +925,9 @@ def _move_to_separator(view, model, mod_rows, sep_name):
     # splicing a display-ordered block into the natural list flips the mods'
     # relative priorities (GH#380).
     moved = [e for e in model.natural_entries() if e.name in moved_names]
+    from Utils.conflict_timing import ConflictTimeline
+    timing = ConflictTimeline("move", [e.name for e in moved])
+    phase_started = timing.now()
     old_order = [e.name for e in model.natural_entries() if not e.is_separator]
     # Body = the NATURAL order minus the moved mods - the display may be a
     # sorted/inverted permutation and must never be persisted as the new order.
@@ -940,10 +943,14 @@ def _move_to_separator(view, model, mod_rows, sep_name):
     # no conflicting mod skips the conflict rebuild (see app._on_modlist_saved).
     new_order = [e.name for e in model.natural_entries() if not e.is_separator]
     ctx = model._move_ctx(old_order, new_order, [e.name for e in moved])
+    timing.mark("move-to-separator Qt model update complete",
+                phase_started=phase_started)
     try:
-        model.save(edit_ctx=None if ctx is None else ("move",) + ctx)
-    except Exception:
-        pass
+        save_ctx = (("move",) + ctx + (timing,) if ctx is not None
+                    else ("full", timing))
+        model.save(edit_ctx=save_ctx)
+    except Exception as exc:
+        timing.finish(f"move-to-separator save failed: {exc}")
 
 
 # ---- Copy / Move to profile ------------------------------------------------
@@ -1290,6 +1297,9 @@ def _sort_selected_alphabetically(view, model, mod_rows):
     # permutation); at each selected slot drop in the next sorted entry.
     # set_entries re-appends boundaries.
     sel_ids = {id(e) for e in sel}
+    from Utils.conflict_timing import ConflictTimeline
+    timing = ConflictTimeline("move", [e.name for e in sel])
+    phase_started = timing.now()
     old_order = [e.name for e in model.natural_entries() if not e.is_separator]
     body: list = []
     it = iter(sorted_entries)
@@ -1302,10 +1312,14 @@ def _sort_selected_alphabetically(view, model, mod_rows):
     # a sort that flipped no conflicting pair skips the conflict rebuild.
     new_order = [e.name for e in model.natural_entries() if not e.is_separator]
     ctx = model._move_ctx(old_order, new_order, [e.name for e in sel])
+    timing.mark("sort-selection Qt model update complete",
+                phase_started=phase_started)
     try:
-        model.save(edit_ctx=None if ctx is None else ("move",) + ctx)
-    except Exception:
-        pass
+        save_ctx = (("move",) + ctx + (timing,) if ctx is not None
+                    else ("full", timing))
+        model.save(edit_ctx=save_ctx)
+    except Exception as exc:
+        timing.finish(f"sort-selection save failed: {exc}")
 
 
 def _create_empty_mod(view, model, row):
@@ -1372,7 +1386,7 @@ def _show_overwrite_log(view, boundary_name=None):
     game = getattr(view, "game", None)
     if game is None:
         return
-    from Utils.filemap import ROOT_FOLDER_NAME
+    from Utils.filegraph_constants import ROOT_FOLDER_NAME
     is_root = boundary_name == ROOT_FOLDER_NAME
     text = ""
     try:
