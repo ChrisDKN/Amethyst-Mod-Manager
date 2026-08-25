@@ -1,3 +1,6 @@
+- v2.3.1
+- Fully reworked how conflicts are detected. On a large modlist, enabling/installing a mod was slow due to the manager needing to rebuild a filemap for the entire modlist. This entire concept has been scrapped and replaced. As a result conflict calculation is much faster as well as deploy times  
+
 - v2.3.0
 ### VFS Deploy
 - Added a third deploy option to deploy mods into a Virtual file system instead of the game folder. Not every game has this option but most do.
