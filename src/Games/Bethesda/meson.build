@@ -11,6 +11,7 @@ py.install_sources(
   'fallout_nv.py',
   'oblivion.py',
   'skyrim.py',
+  'skyrim_common.py',
   'skyrim_se.py',
   'skyrim_vr.py',
   'starfield.py',

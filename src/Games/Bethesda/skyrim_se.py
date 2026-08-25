@@ -10,6 +10,7 @@ Mod structure:
 from pathlib import Path
 
 from Games.Bethesda.fallout_3 import Fallout_3
+from Games.Bethesda.skyrim_common import SKYRIM_MOD_REQUIRED_TOP_LEVEL_FOLDERS
 from Games.base_game import WizardTool, MODERN_DIRECTX_DEPS
 
 
@@ -79,42 +80,7 @@ class SkyrimSE(Fallout_3):
 
     @property
     def mod_required_top_level_folders(self) -> set[str]:
-        # Skyrim SE subset - excludes Fallout-specific folders (f4se, nvse,
-        # fose, config) that Fallout_3 includes.
-        return {
-            "skse",
-            "textures",
-            "sound",
-            "meshes",
-            "mcm",
-            "scripts",
-            "interface",
-            "lightplacer",
-            "mapmarkers",
-            "music",
-            "nemesis_engine",
-            "seq",
-            "shadercache",
-            "shaders",
-            "grass",
-            "video",
-            "source",
-            "calientetools",
-            "data",
-            "PBRNifPatcher",
-            "PBRTextureSets",
-            "distantlod",
-            "fonts",
-            "facegen",
-            "menus",
-            "lodsettings",
-            "lsdata",
-            "strings",
-            "trees",
-            "asi",
-            "tools",
-            "enbseries",
-        }
+        return set(SKYRIM_MOD_REQUIRED_TOP_LEVEL_FOLDERS)
 
     @property
     def mod_folder_strip_prefixes_post(self) -> set[str]:

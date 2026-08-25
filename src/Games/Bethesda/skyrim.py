@@ -7,6 +7,7 @@ from pathlib import Path
 
 from Games.base_game import WizardTool
 from Games.Bethesda.fallout_3 import Fallout_3
+from Games.Bethesda.skyrim_common import SKYRIM_MOD_REQUIRED_TOP_LEVEL_FOLDERS
 
 
 class Skyrim(Fallout_3):
@@ -84,6 +85,10 @@ class Skyrim(Fallout_3):
     @property
     def nexus_game_domain(self) -> str:
         return "skyrim"
+
+    @property
+    def mod_required_top_level_folders(self) -> set[str]:
+        return set(SKYRIM_MOD_REQUIRED_TOP_LEVEL_FOLDERS)
 
     @property
     def loot_game_type(self) -> str:
