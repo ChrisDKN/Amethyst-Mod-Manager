@@ -100,7 +100,15 @@ _check_keyring()
 # ---------------------------------------------------------------------------
 # Encrypted file-based fallback token storage
 # ---------------------------------------------------------------------------
-_TOKEN_FILE = "nexus_oauth_tokens.bin"
+_TOKEN_FILE = "nexus_oauth_tokens.bin"  # legacy fallback used before v2
+_STORAGE_FILE = "nexus_oauth_storage_v2.bin"
+
+_STORAGE_VERSION = 2
+_STORAGE_UNKNOWN = "unknown"
+_STORAGE_INVALID = "invalid"
+_STORAGE_KEYRING = "keyring"
+_STORAGE_FILE_MODE = "file"
+_STORAGE_CLEARED = "cleared"
 
 def _derive_key() -> bytes:
     """Derive a Fernet key from the machine ID so tokens are only usable on this device."""
@@ -122,57 +130,160 @@ def _derive_key() -> bytes:
 def _token_file_path() -> os.PathLike:
     return get_config_dir() / _TOKEN_FILE
 
+
+def _storage_file_path() -> os.PathLike:
+    return get_config_dir() / _STORAGE_FILE
+
+
+def _write_owner_only(path: os.PathLike, data: bytes) -> None:
+    """Atomically and durably write an owner-only file."""
+    path = os.fspath(path)
+    parent = os.path.dirname(path)
+    os.makedirs(parent, exist_ok=True)
+    tmp = f"{path}.tmp-{os.getpid()}-{secrets.token_hex(4)}"
+    fd = -1
+    try:
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "wb") as f:
+            fd = -1
+            f.write(data)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
+        os.chmod(path, 0o600)
+        if hasattr(os, "O_DIRECTORY"):
+            dir_fd = os.open(parent, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                os.fsync(dir_fd)
+            finally:
+                os.close(dir_fd)
+    finally:
+        if fd != -1:
+            os.close(fd)
+        try:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+        except OSError:
+            pass
+
+
+def _read_encrypted_json(path: os.PathLike) -> dict:
+    from cryptography.fernet import Fernet
+
+    cipher = Fernet(_derive_key())
+    with open(path, "rb") as f:
+        data = json.loads(cipher.decrypt(f.read()))
+    if not isinstance(data, dict):
+        raise ValueError("encrypted OAuth payload is not an object")
+    return data
+
+
+def _tokens_from_mapping(data: dict) -> OAuthTokens:
+    access = data.get("access_token")
+    refresh = data.get("refresh_token")
+    if not isinstance(access, str) or not isinstance(refresh, str):
+        raise ValueError("OAuth token payload is incomplete")
+    access = access.strip()
+    refresh = refresh.strip()
+    expires = float(data.get("expires_at"))
+    if not access or not refresh or not math.isfinite(expires):
+        raise ValueError("OAuth token payload is incomplete")
+    return OAuthTokens(access_token=access, refresh_token=refresh, expires_at=expires)
+
+
+def _encrypt_storage_tokens(tokens: OAuthTokens) -> str:
+    from cryptography.fernet import Fernet
+
+    payload = json.dumps({
+        "access_token": tokens.access_token,
+        "refresh_token": tokens.refresh_token,
+        "expires_at": tokens.expires_at,
+    }, separators=(",", ":")).encode()
+    return Fernet(_derive_key()).encrypt(payload).decode("ascii")
+
+
+def _decrypt_storage_tokens(payload: str) -> OAuthTokens:
+    from cryptography.fernet import Fernet
+
+    data = json.loads(Fernet(_derive_key()).decrypt(payload.encode("ascii")))
+    if not isinstance(data, dict):
+        raise ValueError("encrypted OAuth token payload is not an object")
+    return _tokens_from_mapping(data)
+
 def _load_tokens_file() -> Optional[OAuthTokens]:
+    """Load the pre-v2 encrypted fallback file, if one exists."""
     p = _token_file_path()
     try:
         if not os.path.isfile(p):
             return None
-        from cryptography.fernet import Fernet
-        cipher = Fernet(_derive_key())
-        with open(p, "rb") as f:
-            data = json.loads(cipher.decrypt(f.read()))
-        access = data.get("access_token", "")
-        refresh = data.get("refresh_token", "")
-        expires = data.get("expires_at", 0.0)
-        if not access or not refresh:
-            return None
-        return OAuthTokens(access_token=access, refresh_token=refresh, expires_at=float(expires))
+        return _tokens_from_mapping(_read_encrypted_json(p))
     except Exception as exc:
         app_log(f"OAuth: failed to load tokens from file: {exc}")
         return None
 
-def _save_tokens_file(tokens: OAuthTokens) -> None:
-    p = _token_file_path()
+
+def _read_storage_record() -> tuple[str, Optional[OAuthTokens]]:
+    """Read the v2 authority record without consulting the keyring.
+
+    The record makes a fallback or logout authoritative across restarts. In
+    particular, a failed refresh must not allow an older keyring item to win
+    over the newly-rotated token saved to disk.
+    """
+    p = _storage_file_path()
+    if not os.path.isfile(p):
+        return _STORAGE_UNKNOWN, None
     try:
-        from cryptography.fernet import Fernet
-        cipher = Fernet(_derive_key())
-        payload = json.dumps({
-            "access_token": tokens.access_token,
-            "refresh_token": tokens.refresh_token,
-            "expires_at": tokens.expires_at,
-        }).encode()
-        os.makedirs(os.path.dirname(p), exist_ok=True)
-        # Create owner-only from the start - no chmod window with looser perms.
-        fd = os.open(p, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-        try:
-            os.fchmod(fd, 0o600)  # tighten a pre-existing file too
-            with os.fdopen(fd, "wb") as f:
-                fd = -1
-                f.write(cipher.encrypt(payload))
-        finally:
-            if fd != -1:
-                os.close(fd)
+        with open(p, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if not isinstance(data, dict):
+            raise ValueError("OAuth storage record is not an object")
+        if data.get("version") != _STORAGE_VERSION:
+            raise ValueError("unsupported OAuth storage record version")
+        mode = data.get("mode")
+        if mode == _STORAGE_FILE_MODE:
+            encrypted_tokens = data.get("tokens")
+            if not isinstance(encrypted_tokens, str):
+                raise ValueError("file-backed OAuth storage has no token payload")
+            return mode, _decrypt_storage_tokens(encrypted_tokens)
+        if mode in (_STORAGE_KEYRING, _STORAGE_CLEARED):
+            return mode, None
+        raise ValueError("invalid OAuth storage record mode")
     except Exception as exc:
-        app_log(f"OAuth: failed to save tokens to file: {exc}")
+        # A present but unreadable authority record must not fall through to a
+        # potentially stale keyring credential. A fresh login will replace it.
+        app_log(f"OAuth: failed to load storage record: {exc}")
+        return _STORAGE_INVALID, None
+
+
+def _commit_storage_record(mode: str, tokens: Optional[OAuthTokens] = None) -> None:
+    if mode not in (_STORAGE_KEYRING, _STORAGE_FILE_MODE, _STORAGE_CLEARED):
+        raise ValueError(f"invalid OAuth storage mode: {mode}")
+    payload = {"version": _STORAGE_VERSION, "mode": mode}
+    if mode == _STORAGE_FILE_MODE:
+        if tokens is None:
+            raise ValueError("file-backed OAuth storage requires tokens")
+        payload["tokens"] = _encrypt_storage_tokens(tokens)
+    try:
+        encoded = json.dumps(payload, separators=(",", ":")).encode()
+        _write_owner_only(_storage_file_path(), encoded)
+    except Exception as exc:
+        app_log(f"OAuth: failed to save storage record: {exc}")
         raise RuntimeError(f"Cannot save OAuth tokens: {exc}") from exc
 
+
+def _save_tokens_file(tokens: OAuthTokens) -> None:
+    """Commit tokens to the authoritative encrypted-file backend."""
+    _commit_storage_record(_STORAGE_FILE_MODE, tokens)
+
 def _clear_tokens_file() -> None:
-    p = _token_file_path()
+    """Remove the legacy fallback; v2 state is updated separately."""
     try:
+        p = _token_file_path()
         if os.path.isfile(p):
             os.remove(p)
     except Exception as exc:
-        app_log(f"OAuth: failed to clear token file: {exc}")
+        app_log(f"OAuth: failed to clear legacy token file: {exc}")
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -234,7 +345,8 @@ class OAuthRefreshError(RuntimeError):
 # two concurrent refreshes with the same token would race - the second POST
 # gets a 400 and, worse, could overwrite the freshly-saved good token with a
 # now-revoked one. The lock + reload-under-lock below makes refresh atomic.
-_refresh_lock = threading.Lock()
+_refresh_lock = threading.RLock()
+_credential_generation = 0
 
 # Keep the persisted login in memory once it has been read.  Besides avoiding
 # needless keyring traffic, this matters for KeePassXC's Secret Service
@@ -265,26 +377,97 @@ def _decode_keyring_tokens(payload: str) -> OAuthTokens:
     data = json.loads(payload)
     if not isinstance(data, dict):
         raise ValueError("OAuth token payload is not an object")
-    access = data.get("access_token")
-    refresh = data.get("refresh_token")
-    if not isinstance(access, str) or not isinstance(refresh, str):
-        raise ValueError("OAuth token payload is incomplete")
-    access = access.strip()
-    refresh = refresh.strip()
-    expires = float(data.get("expires_at"))
-    if not access or not refresh or not math.isfinite(expires):
-        raise ValueError("OAuth token payload is incomplete")
-    return OAuthTokens(
-        access_token=access,
-        refresh_token=refresh,
-        expires_at=expires,
+    return _tokens_from_mapping(data)
+
+
+def _is_missing_secret_service_session_error(exc: Exception) -> bool:
+    """Match KWallet's misleading error for a failed Secret Service session.
+
+    Older KWallet versions can derive the wrong DH session key and report the
+    resulting decrypt failure as an invalid/missing object path. Retrying the
+    whole keyring call creates a fresh D-Bus connection and DH session.
+    """
+    return (
+        getattr(exc, "name", "") == "org.qtproject.QtDBus.Error.InvalidObjectPath"
+        and "Can't find session /org/freedesktop/secrets/session/" in str(exc)
     )
+
+
+def _set_keyring_tokens(tokens: OAuthTokens) -> None:
+    """Write the combined item, retrying one known-safe KWallet failure."""
+    args = (
+        _KEYRING_SERVICE,
+        _KEYRING_TOKENS_KEY,
+        _encode_keyring_tokens(tokens),
+    )
+    try:
+        keyring.set_password(*args)
+    except Exception as exc:
+        if not _is_missing_secret_service_session_error(exc):
+            raise
+        app_log("OAuth: Secret Service session failed; retrying keyring save once")
+        keyring.set_password(*args)
+
+
+def _disable_keyring_for_process() -> None:
+    """Stop all credential stores from repeatedly hitting a broken backend."""
+    global _keyring_available
+    _keyring_available = False
+
+
+def _commit_storage_record_best_effort(
+    mode: str,
+    tokens: Optional[OAuthTokens] = None,
+) -> None:
+    try:
+        _commit_storage_record(mode, tokens)
+    except Exception as exc:
+        app_log(f"OAuth: could not update storage authority: {exc}")
+
+
+def _load_legacy_fallback() -> Optional[OAuthTokens]:
+    """Import the pre-v2 fallback into an authoritative storage record."""
+    tokens = _load_tokens_file()
+    if tokens is not None:
+        try:
+            _commit_storage_record(_STORAGE_FILE_MODE, tokens)
+        except Exception as exc:
+            app_log(f"OAuth: could not migrate fallback storage: {exc}")
+        else:
+            _clear_tokens_file()
+    return tokens
 
 
 def _load_oauth_tokens_uncached() -> Optional[OAuthTokens]:
     """Read persisted tokens once, migrating the old three-item layout."""
+    storage_mode, stored_tokens = _read_storage_record()
+    if storage_mode == _STORAGE_FILE_MODE:
+        return stored_tokens
+    if storage_mode in (_STORAGE_CLEARED, _STORAGE_INVALID):
+        return None
+
+    # Once v2 records KEYRING as authoritative, neither a missing item nor a
+    # temporary backend outage may revive an older pre-v2 fallback.
+    if storage_mode == _STORAGE_KEYRING:
+        if not _keyring_available:
+            return None
+        try:
+            payload = keyring.get_password(_KEYRING_SERVICE, _KEYRING_TOKENS_KEY)
+        except Exception as exc:
+            app_log(f"OAuth: failed to load tokens from keyring: {exc}")
+            _disable_keyring_for_process()
+            return None
+        if not payload:
+            return None
+        try:
+            return _decode_keyring_tokens(payload)
+        except Exception as exc:
+            app_log(f"OAuth: combined keyring token is invalid: {exc}")
+            return None
+
     if not _keyring_available:
-        return _load_tokens_file()
+        return _load_legacy_fallback()
+
     try:
         payload = keyring.get_password(_KEYRING_SERVICE, _KEYRING_TOKENS_KEY)
     except Exception as exc:
@@ -292,10 +475,14 @@ def _load_oauth_tokens_uncached() -> Optional[OAuthTokens]:
         # legacy requests.  The encrypted fallback may contain credentials
         # from an earlier keyring failure.
         app_log(f"OAuth: failed to load tokens from keyring: {exc}")
-        return _load_tokens_file()
+        _disable_keyring_for_process()
+        return _load_legacy_fallback()
     if payload:
         try:
-            return _decode_keyring_tokens(payload)
+            tokens = _decode_keyring_tokens(payload)
+            _commit_storage_record_best_effort(_STORAGE_KEYRING)
+            _clear_tokens_file()
+            return tokens
         except Exception as exc:
             # A partial write should not hide still-valid legacy/file tokens.
             app_log(f"OAuth: combined keyring token is invalid: {exc}")
@@ -307,14 +494,23 @@ def _load_oauth_tokens_uncached() -> Optional[OAuthTokens]:
     # another series of confirmation dialogs in KeePassXC.
     try:
         access = keyring.get_password(_KEYRING_SERVICE, _KEYRING_ACCESS_KEY)
-        if not access:
-            return _load_tokens_file()
-        refresh = keyring.get_password(_KEYRING_SERVICE, _KEYRING_REFRESH_KEY)
-        if not refresh:
-            return _load_tokens_file()
-        exp_str = keyring.get_password(_KEYRING_SERVICE, _KEYRING_EXPIRES_KEY)
-        if not exp_str:
-            return _load_tokens_file()
+        refresh = (
+            keyring.get_password(_KEYRING_SERVICE, _KEYRING_REFRESH_KEY)
+            if access else None
+        )
+        exp_str = (
+            keyring.get_password(_KEYRING_SERVICE, _KEYRING_EXPIRES_KEY)
+            if refresh else None
+        )
+    except Exception as exc:
+        app_log(f"OAuth: failed to load tokens from keyring: {exc}")
+        _disable_keyring_for_process()
+        return _load_legacy_fallback()
+
+    if not access or not refresh or not exp_str:
+        return _load_legacy_fallback()
+
+    try:
         tokens = OAuthTokens(
             access_token=access.strip(),
             refresh_token=refresh.strip(),
@@ -323,20 +519,22 @@ def _load_oauth_tokens_uncached() -> Optional[OAuthTokens]:
         if (not tokens.access_token or not tokens.refresh_token
                 or not math.isfinite(tokens.expires_at)):
             raise ValueError("legacy OAuth token payload is invalid")
-        try:
-            keyring.set_password(
-                _KEYRING_SERVICE, _KEYRING_TOKENS_KEY,
-                _encode_keyring_tokens(tokens),
-            )
-            app_log("OAuth: migrated keyring tokens to combined storage")
-        except Exception as exc:
-            # The valid legacy login is still usable for this process.  Retry
-            # migration on a later launch instead of treating it as logged out.
-            app_log(f"OAuth: combined keyring migration failed: {exc}")
-        return tokens
     except Exception as exc:
-        app_log(f"OAuth: failed to load tokens from keyring: {exc}")
-        return _load_tokens_file()
+        app_log(f"OAuth: legacy keyring token is invalid: {exc}")
+        return _load_legacy_fallback()
+
+    try:
+        _set_keyring_tokens(tokens)
+        _commit_storage_record_best_effort(_STORAGE_KEYRING)
+        _clear_tokens_file()
+        app_log("OAuth: migrated keyring tokens to combined storage")
+    except Exception as exc:
+        # Preserve the valid legacy login without repeating a broken migration
+        # or letting an older keyring value win on the next launch.
+        app_log(f"OAuth: combined keyring migration failed, using file: {exc}")
+        _disable_keyring_for_process()
+        _commit_storage_record_best_effort(_STORAGE_FILE_MODE, tokens)
+    return tokens
 
 
 def load_oauth_tokens() -> Optional[OAuthTokens]:
@@ -352,30 +550,50 @@ def load_oauth_tokens() -> Optional[OAuthTokens]:
 def save_oauth_tokens(tokens: OAuthTokens) -> None:
     """Persist OAuth tokens to the system keyring, or file fallback."""
     global _token_cache, _token_cache_loaded
-    with _token_cache_lock:
-        if not _keyring_available:
+    # Serialise SSO writes with refresh-token rotation and explicit logout.
+    # RLock is required because refresh_if_needed already holds this lock.
+    with _refresh_lock:
+        with _token_cache_lock:
+            # Stage every newly-issued token before contacting the keyring.
+            # Refresh tokens rotate server-side, so this write-ahead record is
+            # what keeps the new token recoverable if the keyring call fails or
+            # the process dies between the two storage backends.
             _save_tokens_file(tokens)
-        else:
-            try:
-                keyring.set_password(
-                    _KEYRING_SERVICE, _KEYRING_TOKENS_KEY,
-                    _encode_keyring_tokens(tokens),
-                )
-            except Exception as exc:
-                app_log(f"OAuth: keyring save failed, falling back to file: {exc}")
-                _save_tokens_file(tokens)
-        _token_cache = tokens
-        _token_cache_loaded = True
+
+            if _keyring_available:
+                try:
+                    _set_keyring_tokens(tokens)
+                except Exception as exc:
+                    app_log(f"OAuth: keyring save failed, falling back to file: {exc}")
+                    _disable_keyring_for_process()
+                else:
+                    try:
+                        _commit_storage_record(_STORAGE_KEYRING)
+                    except Exception as exc:
+                        # The write-ahead FILE record already contains these
+                        # exact tokens and remains authoritative.
+                        app_log(
+                            "OAuth: keyring saved but storage authority "
+                            f"could not be updated: {exc}"
+                        )
+                    _clear_tokens_file()
+            _token_cache = tokens
+            _token_cache_loaded = True
 
 
 def clear_oauth_tokens() -> None:
     """Delete all stored OAuth tokens from keyring and file."""
-    global _token_cache, _token_cache_loaded
+    global _credential_generation, _token_cache, _token_cache_loaded
     # A refresh holds this lock while reloading and saving a rotated token.
     # Taking it here prevents an in-flight refresh from restoring credentials
     # immediately after the user logs out.
     with _refresh_lock:
         with _token_cache_lock:
+            # Commit logical logout before touching the remote backend. If the
+            # local write fails, propagate the error instead of claiming that
+            # credentials were cleared only to revive them next launch.
+            _commit_storage_record(_STORAGE_CLEARED)
+            _credential_generation += 1
             _clear_tokens_file()
             if _keyring_available:
                 keys = (
@@ -391,6 +609,7 @@ def clear_oauth_tokens() -> None:
                         pass
                     except Exception as exc:
                         app_log(f"OAuth: failed to clear token '{key}': {exc}")
+                        _disable_keyring_for_process()
             _token_cache = None
             _token_cache_loaded = True
 
@@ -732,6 +951,7 @@ class NexusOAuthClient:
         self._srv:      Optional[_CallbackServer]  = None
         self._verifier: Optional[str] = None
         self._state:    Optional[str] = None
+        self._credential_generation = 0
 
     # -- public API ---------------------------------------------------------
 
@@ -774,6 +994,8 @@ class NexusOAuthClient:
     def start(self) -> None:
         """Begin the OAuth flow in a background thread."""
         self._cancelled = False
+        with _refresh_lock:
+            self._credential_generation = _credential_generation
         self._thread = threading.Thread(
             target=self._run, daemon=True, name="nexus-oauth"
         )
@@ -874,12 +1096,19 @@ class NexusOAuthClient:
             expires_at=time.time() + data.get("expires_in", 3600),
         )
 
-        # 5. Persist and notify
-        try:
-            save_oauth_tokens(tokens)
-        except Exception as exc:
-            self._on_error(f"Failed to save tokens: {exc}")
-            return
+        # 5. Persist and notify. A credential clear that happened while the
+        # browser flow was open invalidates this result so a late callback
+        # cannot silently log the user back in.
+        with _refresh_lock:
+            if (self._cancelled
+                    or self._credential_generation != _credential_generation):
+                app_log("OAuth: discarded login completed after credentials were cleared")
+                return
+            try:
+                save_oauth_tokens(tokens)
+            except Exception as exc:
+                self._on_error(f"Failed to save tokens: {exc}")
+                return
 
         app_log("OAuth: tokens obtained and saved successfully")
         self._on_status("Logged in!")
