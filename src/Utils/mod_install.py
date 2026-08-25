@@ -2669,11 +2669,11 @@ def _resolve_nexus_meta_for_naming(archive: Path, game, log_fn: LogFn):
     are swallowed: naming from the archive name is always an acceptable fallback.
     """
     try:
-        api = _build_nexus_api()
-        if api is None:
-            return None
         domains = _nexus_domains_for(game)
         if not domains:
+            return None
+        api = _build_nexus_api()
+        if api is None:
             return None
         from Nexus.nexus_meta import resolve_nexus_meta_for_archive_domains
         return resolve_nexus_meta_for_archive_domains(
@@ -2879,7 +2879,7 @@ def _write_install_meta(dest_root: Path, archive: Path, game, log_fn: LogFn,
                 # Pass a live API so resolve_nexus_meta_for_archive can do the
                 # MD5 reverse lookup (its Strategy 2 is skipped when api=None) -
                 # this is what the Tk installer did and the Qt port dropped.
-                api = _build_nexus_api()
+                api = _build_nexus_api() if domains else None
                 meta = resolve_nexus_meta_for_archive_domains(
                     archive, domains, api=api, log_fn=log_fn)
             except Exception:
@@ -2956,11 +2956,11 @@ def _check_nexus_flags_after_install(game, mod_names, log_fn: LogFn,
         names = {mod_names} if isinstance(mod_names, str) else set(mod_names)
         if not names:
             return
-        api = _build_nexus_api()
-        if api is None:
-            return
         fallback_domain = _nexus_domain_for(game)
         if not fallback_domain:
+            return
+        api = _build_nexus_api()
+        if api is None:
             return
         try:
             from Utils.mod_copy import resolve_target_staging

@@ -36,6 +36,7 @@ import base64
 import hashlib
 import http.server
 import json
+import math
 import os
 import secrets
 import threading
@@ -194,6 +195,7 @@ _SCOPES = "openid profile public"
 _KEYRING_ACCESS_KEY   = "nexus_oauth_access_token"
 _KEYRING_REFRESH_KEY  = "nexus_oauth_refresh_token"
 _KEYRING_EXPIRES_KEY  = "nexus_oauth_expires_at"   # stored as str(float)
+_KEYRING_TOKENS_KEY   = "nexus_oauth_tokens"
 
 # Refresh when fewer than 5 minutes remain
 _REFRESH_MARGIN_SECS = 300
@@ -234,57 +236,163 @@ class OAuthRefreshError(RuntimeError):
 # now-revoked one. The lock + reload-under-lock below makes refresh atomic.
 _refresh_lock = threading.Lock()
 
+# Keep the persisted login in memory once it has been read.  Besides avoiding
+# needless keyring traffic, this matters for KeePassXC's Secret Service
+# provider: python-keyring opens a fresh D-Bus connection for every password
+# lookup, so KeePassXC can ask the user to approve every access separately.
+# Cache ``None`` too, otherwise every optional Nexus feature would probe the
+# keyring again for users who are not logged in.
+_token_cache_lock = threading.RLock()
+_token_cache_loaded = False
+_token_cache: Optional[OAuthTokens] = None
+
 
 # ---------------------------------------------------------------------------
 # Keyring persistence
 # ---------------------------------------------------------------------------
 
-def load_oauth_tokens() -> Optional[OAuthTokens]:
-    """Load OAuth tokens from the system keyring, or file fallback."""
+def _encode_keyring_tokens(tokens: OAuthTokens) -> str:
+    """Encode all OAuth fields into one keyring item (one Secret Service read)."""
+    return json.dumps({
+        "access_token": tokens.access_token,
+        "refresh_token": tokens.refresh_token,
+        "expires_at": tokens.expires_at,
+    }, separators=(",", ":"))
+
+
+def _decode_keyring_tokens(payload: str) -> OAuthTokens:
+    """Decode the combined keyring item, rejecting incomplete credentials."""
+    data = json.loads(payload)
+    if not isinstance(data, dict):
+        raise ValueError("OAuth token payload is not an object")
+    access = data.get("access_token")
+    refresh = data.get("refresh_token")
+    if not isinstance(access, str) or not isinstance(refresh, str):
+        raise ValueError("OAuth token payload is incomplete")
+    access = access.strip()
+    refresh = refresh.strip()
+    expires = float(data.get("expires_at"))
+    if not access or not refresh or not math.isfinite(expires):
+        raise ValueError("OAuth token payload is incomplete")
+    return OAuthTokens(
+        access_token=access,
+        refresh_token=refresh,
+        expires_at=expires,
+    )
+
+
+def _load_oauth_tokens_uncached() -> Optional[OAuthTokens]:
+    """Read persisted tokens once, migrating the old three-item layout."""
     if not _keyring_available:
         return _load_tokens_file()
     try:
-        access  = keyring.get_password(_KEYRING_SERVICE, _KEYRING_ACCESS_KEY)
+        payload = keyring.get_password(_KEYRING_SERVICE, _KEYRING_TOKENS_KEY)
+    except Exception as exc:
+        # Do not amplify an access denial or backend error with three more
+        # legacy requests.  The encrypted fallback may contain credentials
+        # from an earlier keyring failure.
+        app_log(f"OAuth: failed to load tokens from keyring: {exc}")
+        return _load_tokens_file()
+    if payload:
+        try:
+            return _decode_keyring_tokens(payload)
+        except Exception as exc:
+            # A partial write should not hide still-valid legacy/file tokens.
+            app_log(f"OAuth: combined keyring token is invalid: {exc}")
+
+    # Releases before 2.3.1 stored each OAuth field as a separate keyring
+    # item.  Read that layout once, then write the combined form so future
+    # launches need a single approval.  Leave the old items in place until
+    # an explicit credential clear: deleting them here can itself produce
+    # another series of confirmation dialogs in KeePassXC.
+    try:
+        access = keyring.get_password(_KEYRING_SERVICE, _KEYRING_ACCESS_KEY)
+        if not access:
+            return _load_tokens_file()
         refresh = keyring.get_password(_KEYRING_SERVICE, _KEYRING_REFRESH_KEY)
+        if not refresh:
+            return _load_tokens_file()
         exp_str = keyring.get_password(_KEYRING_SERVICE, _KEYRING_EXPIRES_KEY)
-        if not access or not refresh or not exp_str:
-            return None
-        return OAuthTokens(
-            access_token=access,
-            refresh_token=refresh,
+        if not exp_str:
+            return _load_tokens_file()
+        tokens = OAuthTokens(
+            access_token=access.strip(),
+            refresh_token=refresh.strip(),
             expires_at=float(exp_str),
         )
+        if (not tokens.access_token or not tokens.refresh_token
+                or not math.isfinite(tokens.expires_at)):
+            raise ValueError("legacy OAuth token payload is invalid")
+        try:
+            keyring.set_password(
+                _KEYRING_SERVICE, _KEYRING_TOKENS_KEY,
+                _encode_keyring_tokens(tokens),
+            )
+            app_log("OAuth: migrated keyring tokens to combined storage")
+        except Exception as exc:
+            # The valid legacy login is still usable for this process.  Retry
+            # migration on a later launch instead of treating it as logged out.
+            app_log(f"OAuth: combined keyring migration failed: {exc}")
+        return tokens
     except Exception as exc:
         app_log(f"OAuth: failed to load tokens from keyring: {exc}")
         return _load_tokens_file()
 
 
+def load_oauth_tokens() -> Optional[OAuthTokens]:
+    """Load OAuth tokens once per process, from keyring or file fallback."""
+    global _token_cache, _token_cache_loaded
+    with _token_cache_lock:
+        if not _token_cache_loaded:
+            _token_cache = _load_oauth_tokens_uncached()
+            _token_cache_loaded = True
+        return _token_cache
+
+
 def save_oauth_tokens(tokens: OAuthTokens) -> None:
     """Persist OAuth tokens to the system keyring, or file fallback."""
-    if not _keyring_available:
-        _save_tokens_file(tokens)
-        return
-    try:
-        keyring.set_password(_KEYRING_SERVICE, _KEYRING_ACCESS_KEY,  tokens.access_token)
-        keyring.set_password(_KEYRING_SERVICE, _KEYRING_REFRESH_KEY, tokens.refresh_token)
-        keyring.set_password(_KEYRING_SERVICE, _KEYRING_EXPIRES_KEY, str(tokens.expires_at))
-    except Exception as exc:
-        app_log(f"OAuth: keyring save failed, falling back to file: {exc}")
-        _save_tokens_file(tokens)
+    global _token_cache, _token_cache_loaded
+    with _token_cache_lock:
+        if not _keyring_available:
+            _save_tokens_file(tokens)
+        else:
+            try:
+                keyring.set_password(
+                    _KEYRING_SERVICE, _KEYRING_TOKENS_KEY,
+                    _encode_keyring_tokens(tokens),
+                )
+            except Exception as exc:
+                app_log(f"OAuth: keyring save failed, falling back to file: {exc}")
+                _save_tokens_file(tokens)
+        _token_cache = tokens
+        _token_cache_loaded = True
 
 
 def clear_oauth_tokens() -> None:
     """Delete all stored OAuth tokens from keyring and file."""
-    _clear_tokens_file()
-    if not _keyring_available:
-        return
-    for key in (_KEYRING_ACCESS_KEY, _KEYRING_REFRESH_KEY, _KEYRING_EXPIRES_KEY):
-        try:
-            keyring.delete_password(_KEYRING_SERVICE, key)
-        except keyring.errors.PasswordDeleteError:
-            pass
-        except Exception as exc:
-            app_log(f"OAuth: failed to clear token '{key}': {exc}")
+    global _token_cache, _token_cache_loaded
+    # A refresh holds this lock while reloading and saving a rotated token.
+    # Taking it here prevents an in-flight refresh from restoring credentials
+    # immediately after the user logs out.
+    with _refresh_lock:
+        with _token_cache_lock:
+            _clear_tokens_file()
+            if _keyring_available:
+                keys = (
+                    _KEYRING_TOKENS_KEY,
+                    _KEYRING_ACCESS_KEY,
+                    _KEYRING_REFRESH_KEY,
+                    _KEYRING_EXPIRES_KEY,
+                )
+                for key in keys:
+                    try:
+                        keyring.delete_password(_KEYRING_SERVICE, key)
+                    except keyring.errors.PasswordDeleteError:
+                        pass
+                    except Exception as exc:
+                        app_log(f"OAuth: failed to clear token '{key}': {exc}")
+            _token_cache = None
+            _token_cache_loaded = True
 
 
 # ---------------------------------------------------------------------------
