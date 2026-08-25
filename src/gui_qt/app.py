@@ -12791,10 +12791,9 @@ class MainWindow(QMainWindow):
 
         def driver():
             from concurrent.futures import ThreadPoolExecutor
-            from Utils.mod_install import (prepare_archive, finish_install,
-                                           _archive_lists_fomod_config)
+            from Utils.mod_install import prepare_archive, finish_install
             from Utils.extract_budget import (ExtractionMemoryBudget,
-                                              get_uncompressed_size)
+                                              probe_archive)
             try:
                 from Utils.ui_config import load_collection_settings
                 workers = int(load_collection_settings().get(
@@ -12816,24 +12815,27 @@ class MainWindow(QMainWindow):
                 acquired = False
                 try:
                     self._op_log.emit(f"Installing: {name_for_log}")
+                    # One archive probe supplies FOMOD detection, the memory
+                    # reservation and extraction placement below.
+                    probe = probe_archive(path, inspect_members=True)
                     # Archive listing already shows fomod/ModuleConfig.xml →
                     # defer NOW, skipping an extract that would be thrown away
                     # and repeated in the deferred phase (collection parity).
-                    if _archive_lists_fomod_config(path):
+                    if probe.has_fomod_config:
                         self._op_log.emit(
                             f"FOMOD installer detected: {name_for_log} - "
                             "deferred to the end of the batch.")
                         with lock:
                             deferred.append(path)
                         return
-                    est = get_uncompressed_size(path)
+                    est = probe.uncompressed_size
                     budget.acquire(est)
                     acquired = True
                     prepared = prepare_archive(
                         path, self._install_game, self._install_profile_dir,
                         log_fn=lambda m: self._op_log.emit(str(m)),
                         prebuilt_meta=meta, preferred_name=forced,
-                        on_need_prefix=prefix_cb)
+                        on_need_prefix=prefix_cb, archive_probe=probe)
                     if prepared is None:
                         return
                     if (prepared.is_fomod() and prepared.fomod_has_steps()) \

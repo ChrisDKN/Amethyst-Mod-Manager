@@ -28,7 +28,7 @@ import zipfile
 from pathlib import Path
 from typing import Callable, Optional
 
-from Utils.extract_budget import get_uncompressed_size
+from Utils.extract_budget import ArchiveProbe, probe_archive
 
 LogFn = Callable[[str], None]
 ProgressFn = Callable[[int, int, Optional[str]], None]
@@ -678,12 +678,16 @@ def _free_bytes(path: str) -> int:
 
 
 def _choose_extract_parent(archive_path: str, staging_root: Path,
-                           log_fn: LogFn) -> "tuple[Path | None, int]":
-    """Pick a temp-dir PARENT that can hold the extraction. Default /tmp is a
-    RAM-backed tmpfs (Steam Deck: roughly half of RAM) - if the archive won't
-    fit there with headroom, extract NEXT TO the staging folder (real disk)
-    instead. This mirrors the Tk app's reroute logic - without it large mods
-    fail with 'No space left on device'.
+                           log_fn: LogFn,
+                           archive_probe: "ArchiveProbe | None" = None
+                           ) -> "tuple[Path | None, int]":
+    """Pick a temp-dir PARENT that can hold the extraction.
+
+    Prefer the staging filesystem: staging can then hardlink selected files out
+    of the temporary tree instead of copying every byte across filesystems, and
+    a RAM-backed ``/tmp`` does not retain the whole expanded archive. ``/tmp``
+    remains a guarded fallback when the staging-side temporary directory cannot
+    be created.
 
     Returns ``(parent, tmp_reserved_bytes)``: *parent* None = use /tmp, in
     which case *tmp_reserved_bytes* has been claimed from the shared /tmp
@@ -691,30 +695,33 @@ def _choose_extract_parent(archive_path: str, staging_root: Path,
     release it with :func:`_release_tmp_reservation` once the extract dir is
     deleted."""
     global _tmp_space_reserved
-    # Real metadata size where available (`7z l` probe / zip headers), 15×
-    # fallback otherwise - a compressed-size multiple alone undershoots extreme
-    # texture packs (a 120 MB .7z that unpacks to 3.6 GB is 30×).
-    need = get_uncompressed_size(archive_path)
+    # Reuse the caller's metadata probe so memory gating, placement and FOMOD
+    # preflight do not independently list the same archive.
+    probe = archive_probe or probe_archive(archive_path)
+    need = probe.uncompressed_size
     headroom = 512 * 1024 * 1024
-    tmp = tempfile.gettempdir()
-    with _tmp_space_lock:
-        if need + headroom + _tmp_space_reserved < _free_bytes(tmp):
-            _tmp_space_reserved += need
-            return None, need   # /tmp has room - claimed
-    # /tmp too small (a RAM-backed tmpfs) → use the staging filesystem (real disk).
     disk_parent = staging_root.parent if staging_root else None
     if disk_parent is not None:
         try:
             disk_parent.mkdir(parents=True, exist_ok=True)
             if need + headroom < _free_bytes(str(disk_parent)):
-                log_fn(f"Extracting to disk ({disk_parent}) - /tmp too small for "
-                       f"~{need // (1024 * 1024)} MB.")
+                log_fn(f"Extracting beside staging ({disk_parent}) so installed "
+                       "files can be hardlinked.")
                 return disk_parent, 0
             log_fn(f"Warning: extract target {disk_parent} may also be low on "
                    "space.")
             return disk_parent, 0
         except OSError:
             pass
+
+    # Staging-side temp creation failed. Keep the original shared reservation
+    # and headroom checks before allowing the RAM-backed fallback.
+    tmp = tempfile.gettempdir()
+    with _tmp_space_lock:
+        if need + headroom + _tmp_space_reserved < _free_bytes(tmp):
+            _tmp_space_reserved += need
+            log_fn("Staging-side temporary folder unavailable; using guarded /tmp.")
+            return None, need
     return None, 0
 
 
@@ -731,7 +738,8 @@ def _log_extract_location(extract_dir: Path, log_fn: LogFn) -> None:
 
 def _extract_with_disk_retry(archive_path: str, staging_root: Path,
                              log_fn: LogFn, cancel: "threading.Event | None" = None,
-                             progress_cb=None
+                             progress_cb=None,
+                             archive_probe: "ArchiveProbe | None" = None,
                              ) -> "tuple[bool, Path, int, list[str]]":
     """Extract *archive_path* into a fresh temp dir under a parent with room
     (:func:`_choose_extract_parent`), retrying ONCE next to the staging folder
@@ -743,8 +751,8 @@ def _extract_with_disk_retry(archive_path: str, staging_root: Path,
 
     Returns ``(extracted, extract_dir, tmp_reserved, errors)``; the caller
     owns the directory and the /tmp reservation."""
-    parent, tmp_reserved = _choose_extract_parent(archive_path, staging_root,
-                                                  log_fn)
+    parent, tmp_reserved = _choose_extract_parent(
+        archive_path, staging_root, log_fn, archive_probe=archive_probe)
     extract_dir = Path(tempfile.mkdtemp(prefix="mm_install_",
                                         dir=str(parent) if parent else None))
     _log_extract_location(extract_dir, log_fn)
@@ -1261,7 +1269,9 @@ class PreparedInstall:
 def prepare_archive(archive_path: str, game, profile_dir: Path, *,
                     log_fn: LogFn, progress_fn: Optional[ProgressFn] = None,
                     preferred_name: str = "", prebuilt_meta=None,
-                    on_need_prefix=None, cancel=None) -> PreparedInstall | None:
+                    on_need_prefix=None, cancel=None,
+                    archive_probe: "ArchiveProbe | None" = None
+                    ) -> PreparedInstall | None:
     """Extract *archive_path* to a kept temp dir and detect FOMOD. The caller
     either runs the wizard (is_fomod) then `finish_install(prepared, selections)`,
     or just calls `finish_install(prepared, None)` for a plain/default install.
@@ -1325,11 +1335,12 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
         # so the (0, 0) indeterminate bar above stays for them.
         _p(pct, 100, "Extracting")
 
-    # Pick a temp parent big enough - /tmp is a RAM-backed tmpfs on the Deck, so
-    # a large mod must extract to the staging disk instead (Tk parity).
+    # Extract beside staging where possible so the staging pass can hardlink.
+    # Reuse metadata already gathered by a batch/collection memory gate.
     extracted, extract_dir, tmp_reserved, extract_errors = \
         _extract_with_disk_retry(str(archive), Path(staging_root), log_fn,
-                                 cancel=cancel, progress_cb=_extract_progress)
+                                 cancel=cancel, progress_cb=_extract_progress,
+                                 archive_probe=archive_probe)
     if not extracted:
         if cancel is not None and cancel.is_set():
             log_fn("Install: extraction cancelled - removing temp files.")
@@ -1952,44 +1963,8 @@ def _archive_lists_fomod_config(archive_path: str) -> bool:
     return False and the normal extract-then-detect path decides. A listed but
     unparseable ModuleConfig.xml means the mod defers and installs verbatim in
     the deferred phase instead of verbatim immediately - same outcome, later."""
-    target = "fomod/moduleconfig.xml"
-
-    def _hit(name: str) -> bool:
-        # Backslash-zip members (Windows Compress-Archive) use literal "\".
-        n = name.replace("\\", "/").lower()
-        return n == target or n.endswith("/" + target)
-
-    if archive_path.lower().endswith(".zip"):
-        try:
-            with zipfile.ZipFile(archive_path, "r") as zf:
-                return any(_hit(n) for n in zf.namelist())
-        except Exception:
-            return False
-    _7z = (shutil.which("7zzs") or shutil.which("7zz")
-           or shutil.which("7z") or shutil.which("7za"))
-    if _7z:
-        try:
-            res = subprocess.run(
-                [_7z, "l", "-slt", archive_path],
-                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                text=True, timeout=30)
-            if res.returncode != 0:
-                return False
-            for line in res.stdout.splitlines():
-                if line.startswith("Path = ") and _hit(line[7:].strip()):
-                    return True
-        except Exception:
-            pass
-        return False
-    if archive_path.lower().endswith(".7z"):
-        # No 7z binary (extraction falls back to bsdtar/py7zr) - list via py7zr.
-        try:
-            import py7zr
-            with py7zr.SevenZipFile(archive_path, "r") as z:
-                return any(_hit(n) for n in z.getnames())
-        except Exception:
-            return False
-    return False
+    return probe_archive(
+        archive_path, inspect_members=True).has_fomod_config
 
 
 def install_collection_archive(
@@ -2006,7 +1981,8 @@ def install_collection_archive(
         resolve_fomod=None,
         resolve_bain=None,
         on_installed=None,
-        cancel=None) -> "str | None":
+        cancel=None,
+        archive_probe: "ArchiveProbe | None" = None) -> "str | None":
     """Install ONE collection mod from a downloaded archive - the tkinter-free
     equivalent of ``gui/install_mod.py:install_mod_from_archive`` for the paths a
     collection install exercises (FOMOD with author selections or deferred, BAIN,
@@ -2042,8 +2018,12 @@ def install_collection_archive(
     # deferred phase (double extraction of every interactive FOMOD; minutes of
     # 7z time on big texture packs). Listing misses fall through to the normal
     # extract-then-detect defer below.
+    if defer_interactive_fomod and fomod_auto_selections is None:
+        if archive_probe is None or not archive_probe.members_inspected:
+            archive_probe = probe_archive(str(archive), inspect_members=True)
     if (defer_interactive_fomod and fomod_auto_selections is None
-            and _archive_lists_fomod_config(str(archive))):
+            and archive_probe is not None
+            and archive_probe.has_fomod_config):
         log_fn("FOMOD installer detected (archive listing) - deferring until "
                "dependencies are installed.")
         return FOMOD_DEFERRED
@@ -2051,7 +2031,8 @@ def install_collection_archive(
     # Extract + FOMOD-detect via the shared prepare step (kept temp dir).
     prepared = prepare_archive(
         str(archive), game, profile_dir, log_fn=log_fn, progress_fn=progress_fn,
-        preferred_name=preferred_name, prebuilt_meta=prebuilt_meta, cancel=cancel)
+        preferred_name=preferred_name, prebuilt_meta=prebuilt_meta, cancel=cancel,
+        archive_probe=archive_probe)
     if prepared is None:
         return None
 

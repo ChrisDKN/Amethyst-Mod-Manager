@@ -39,9 +39,10 @@ from Utils.config_paths import get_download_cache_dir_for_game, list_all_cache_d
 from Utils.download_locations import (
     is_default_downloads_disabled, load_extra_download_locations)
 from Utils.download_scheduler import order_by_size, run_pipelined
-from Utils.extract_budget import ExtractionMemoryBudget, get_uncompressed_size
+from Utils.extract_budget import ExtractionMemoryBudget, probe_archive
 from Utils.mod_install import (
-    install_collection_archive, FOMOD_DEFERRED, BAIN_DEFERRED)
+    install_collection_archive, FOMOD_DEFERRED, BAIN_DEFERRED,
+    _extract_archive, _link_or_copy)
 from Utils.modlist import read_modlist, write_modlist, ModEntry
 from Utils.plugins import (
     write_plugins, write_loadorder, PluginEntry, enforce_primary_plugin_order,
@@ -1199,7 +1200,12 @@ def run_collection_install(
         _pmeta = _build_prebuilt_meta(mod, effective_domain)
         _preferred = _preferred_name(mod)
 
-        _extract_est = get_uncompressed_size(archive_path)
+        # One listing supplies the memory estimate, optional FOMOD preflight and
+        # extraction-placement decision. Small archives without a preflight keep
+        # the conservative no-spawn fallback inside probe_archive.
+        _archive_probe = probe_archive(
+            archive_path, inspect_members=(auto_fomod is None))
+        _extract_est = _archive_probe.uncompressed_size
         _mem_budget.acquire(_extract_est)
         _fomod_flag = {"value": False}
 
@@ -1218,7 +1224,8 @@ def run_collection_install(
                 defer_interactive_fomod=(auto_fomod is None),
                 defer_interactive_bain=(auto_bain is None),
                 resolve_fomod=cb.resolve_fomod, resolve_bain=cb.resolve_bain,
-                on_installed=_capture_fomod, cancel=_col_stop)
+                on_installed=_capture_fomod, cancel=_col_stop,
+                archive_probe=_archive_probe)
         finally:
             _mem_budget.release(_extract_est)
             cb.on_extract_remove(mod.file_id)
@@ -1620,14 +1627,30 @@ def run_collection_install(
         if mod.file_id in _install_results:
             install_order.append((sort_key, folder))
 
-    # Step 2c: bundled assets from the collection archive
+    # Step 2c: bundled assets from the collection archive. Collections carrying
+    # bundled mods also need this same tree again in Step 3b; keep one native
+    # extraction alive across both phases instead of expanding the .7z twice.
     _bundled_folders: list[str] = []
+    _shared_collection_archive_root = None
+    _has_bundled_schema_mods = any(
+        ((entry.get("source") or {}).get("type") or "").lower() == "bundle"
+        for entry in schema_mods)
+    if (with_bundled and _has_bundled_schema_mods
+            and not _col_stop.is_set() and not local_bundle_zip):
+        try:
+            _set_status("Extracting collection archive for bundled content…")
+            _shared_collection_archive_root = _ensure_collection_archive_extracted(
+                game, api, collection_slug, revision_number,
+                download_link_path or "", log)
+        except Exception as exc:
+            log(f"Collection install: collection archive extraction failed: {exc}")
     if with_bundled:
         try:
             _n_bundled, _n_bundle_skipped, _b_names = _install_bundled_assets(
                 game, api, profile_dir, staging_path, collection_schema,
                 schema_mods, download_link_path, revision_number,
-                collection_slug, staging_lower_map, install_order, log, _set_status)
+                collection_slug, staging_lower_map, install_order, log, _set_status,
+                archive_root=_shared_collection_archive_root)
             installed += _n_bundled
             skipped += _n_bundle_skipped
             _bundled_folders.extend(_b_names)
@@ -1664,10 +1687,18 @@ def run_collection_install(
                 collection_schema, download_link_path,
                 collection_slug, revision_number,
                 _install_results, log,
-                local_bundle_zip=local_bundle_zip)
+                local_bundle_zip=local_bundle_zip,
+                archive_root=_shared_collection_archive_root)
             _bundled_folders.extend(_step3b_bundled or [])
         except Exception as exc:
             log(f"Collection install: Step 3b failed: {exc}")
+    if _shared_collection_archive_root is not None:
+        try:
+            import shutil as _shared_archive_shutil
+            _shared_archive_shutil.rmtree(
+                _shared_collection_archive_root, ignore_errors=True)
+        finally:
+            _shared_collection_archive_root = None
     if _amethyst_state and not _col_pause.is_set():
         try:
             _persist_amethyst_stash(profile_dir, _amethyst_state, log)
@@ -2786,49 +2817,29 @@ def _on_disk_plugin_names(game) -> "set[str]":
 def _install_bundled_assets(game, api, profile_dir, staging_path, collection_schema,
                             schema_mods, download_link_path, revision_number,
                             collection_slug, staging_lower_map, install_order, log,
-                            _set_status) -> "tuple[int, int, list[str]]":
+                            _set_status, *, archive_root=None
+                            ) -> "tuple[int, int, list[str]]":
     """Returns ``(installed, skipped, folders)`` - skipped counts bundled assets
     missing from the archive or that failed to copy (Tk counted these in the
     final "(N skipped)" summary). *folders* is every staging folder this touched,
     so the caller can get them into the mod index: they land AFTER the index
     rebuild, and build_filemap deploys nothing for a mod with no index entry."""
-    import tempfile as _tf
     import shutil as _shutil
     bundle_schema_mods = [
         m for m in schema_mods
         if (m.get("source") or {}).get("type", "").lower() == "bundle"]
-    if not (bundle_schema_mods and download_link_path):
+    if not bundle_schema_mods or archive_root is None:
         return 0, 0, []
     installed = 0
     skipped = 0
     touched: list[str] = []
-    _scratch_root = get_download_cache_dir_for_game(getattr(game, "name", "") or "")
-    bundle_extract_dir = _tf.mkdtemp(prefix="amethyst_bundle_", dir=str(_scratch_root))
+    bundle_extract_dir = Path(archive_root)
     try:
         _slug = (collection_slug or "").strip()
-        _rev = int(revision_number) if revision_number is not None else "x"
-        _cached_archive = _scratch_root / f"{_slug}_rev{_rev}.7z"
         cj_full: dict = {}
-        if _slug and _cached_archive.is_file():
-            _set_status(f"Extracting cached collection archive for "
-                        f"{len(bundle_schema_mods)} bundled mod(s)…")
-            log(f"Collection install: reusing cached archive {_cached_archive}")
-            try:
-                import py7zr as _py7zr_local
-                with _py7zr_local.SevenZipFile(str(_cached_archive), mode="r") as arc:
-                    arc.extractall(path=bundle_extract_dir)
-                _cj_path = Path(bundle_extract_dir) / "collection.json"
-                if _cj_path.is_file():
-                    cj_full = json.loads(_cj_path.read_text(encoding="utf-8"))
-            except Exception as exc:
-                log(f"Collection install: cached archive extract failed ({exc}) - re-downloading")
-                cj_full = {}
-        if not cj_full:
-            _set_status(f"Downloading collection archive for "
-                        f"{len(bundle_schema_mods)} bundled mod(s)…")
-            cj_full = api.get_collection_archive_full(
-                download_link_path, bundle_extract_dir,
-                keep_archive_at=str(_cached_archive) if _slug else None)
+        collection_json = bundle_extract_dir / "collection.json"
+        if collection_json.is_file():
+            cj_full = json.loads(collection_json.read_text(encoding="utf-8"))
         if cj_full:
             _bundled_meta_map = _installed_bundled_meta_map(staging_path, _slug)
             for bm in bundle_schema_mods:
@@ -2865,7 +2876,9 @@ def _install_bundled_assets(game, api, profile_dir, staging_path, collection_sch
                     dest = staging_path / mod_name_clean
                     if dest.exists():
                         _shutil.rmtree(dest)
-                    _shutil.copytree(str(bundle_subdir), str(dest))
+                    _shutil.copytree(
+                        str(bundle_subdir), str(dest),
+                        copy_function=_link_or_copy)
                     cp = _cpi.ConfigParser()
                     general = {
                         "modname": bm_name, "installationfile": file_expr,
@@ -2891,11 +2904,8 @@ def _install_bundled_assets(game, api, profile_dir, staging_path, collection_sch
                 except Exception as exc:
                     log(f"Collection install: failed to install bundled asset '{bm_name}': {exc}")
                     skipped += 1
-    finally:
-        try:
-            _shutil.rmtree(bundle_extract_dir, ignore_errors=True)
-        except Exception:
-            pass
+    except Exception as exc:
+        log(f"Collection install: bundled archive could not be read ({exc})")
     return installed, skipped, touched
 
 
@@ -2950,22 +2960,43 @@ def _ensure_collection_archive_extracted(game, api, collection_slug,
             log(f"Collection archive: not at {archive_path} and no link - skipping")
             return None
         log(f"Collection archive: not cached, downloading to {archive_path}")
-        _fetch_dir = Path(_tf.mkdtemp(prefix="amethyst_bundle_fetch_", dir=str(cache_dir)))
-        try:
-            cj = api.get_collection_archive_full(
-                download_link_path, str(_fetch_dir), keep_archive_at=str(archive_path))
-            if not cj or not archive_path.is_file():
-                log("Collection archive: fallback download failed")
+        # The normal Nexus API exposes a raw download method: use it so the
+        # shared native extractor below handles the archive instead of py7zr.
+        download_raw = getattr(api, "download_collection_archive", None)
+        if callable(download_raw):
+            if not download_raw(download_link_path, str(archive_path)):
+                log("Collection archive: download failed")
                 return None
-        finally:
-            _shutil.rmtree(_fetch_dir, ignore_errors=True)
+        else:
+            # Compatibility for older/fake API providers. This legacy method
+            # downloads and extracts in one call, so return that one extraction
+            # directly rather than extracting the cached copy a second time.
+            fetch_dir = Path(_tf.mkdtemp(
+                prefix="amethyst_bundle_fetch_", dir=str(cache_dir)))
+            cj = api.get_collection_archive_full(
+                download_link_path, str(fetch_dir),
+                keep_archive_at=str(archive_path))
+            if cj and (fetch_dir / "collection.json").is_file():
+                return fetch_dir
+            _shutil.rmtree(fetch_dir, ignore_errors=True)
+            log("Collection archive: fallback download failed")
+            return None
     extract_dir = Path(_tf.mkdtemp(prefix="amethyst_archive_extract_", dir=str(cache_dir)))
+    archive_probe = probe_archive(str(archive_path))
+    memory_budget = ExtractionMemoryBudget(max_workers=1)
+    memory_budget.acquire(archive_probe.uncompressed_size)
     try:
-        import py7zr
-        with py7zr.SevenZipFile(str(archive_path), mode="r") as arc:
-            arc.extractall(path=str(extract_dir))
+        extracted = _extract_archive(
+            str(archive_path), str(extract_dir), log,
+            error_sink=[])
     except Exception as exc:
         log(f"Collection archive: failed to extract {archive_path}: {exc}")
+        _shutil.rmtree(extract_dir, ignore_errors=True)
+        return None
+    finally:
+        memory_budget.release(archive_probe.uncompressed_size)
+    if not extracted:
+        log(f"Collection archive: failed to extract {archive_path}")
         _shutil.rmtree(extract_dir, ignore_errors=True)
         return None
     return extract_dir
@@ -3067,7 +3098,8 @@ def _install_bundled_from_extracted(archive_root, modlist_path, staging_path,
         dest = staging_path / clean
         if dest.exists():
             _shutil.rmtree(dest, ignore_errors=True)
-        _shutil.copytree(str(src_folder), str(dest))
+        _shutil.copytree(
+            str(src_folder), str(dest), copy_function=_link_or_copy)
         cp = _cpi.ConfigParser()
         general = {"modname": raw_name, "installationfile": raw_name,
                    "fromCollection": slug, "fromCollectionBundled": "true"}
@@ -3179,7 +3211,8 @@ def _apply_collection_ini_tweaks(archive_root, profile_dir, game, log):
 
 def _run_step3b(game, api, profile_dir, staging_path, collection_schema,
                 download_link_path, collection_slug, revision_number,
-                install_results, log, *, local_bundle_zip=""
+                install_results, log, *, local_bundle_zip="",
+                archive_root=None
                 ) -> "tuple[list[str], dict | None]":
     """Install bundled folders + apply binary patches + INI tweaks from the cached
     collection archive. Runs after modlist is written, before LOOT. Returns
@@ -3191,8 +3224,11 @@ def _run_step3b(game, api, profile_dir, staging_path, collection_schema,
     patches come out of the bundle zip itself (*local_bundle_zip*); the zip's
     bundled mods/profile files are handled by the caller afterwards."""
     import shutil as _shutil
-    archive_root = _ensure_collection_archive_extracted(
-        game, api, collection_slug, revision_number, download_link_path or "", log)
+    owns_archive_root = archive_root is None
+    if archive_root is None:
+        archive_root = _ensure_collection_archive_extracted(
+            game, api, collection_slug, revision_number,
+            download_link_path or "", log)
     if archive_root is None and local_bundle_zip:
         archive_root = _extract_local_bundle_patches(
             game, local_bundle_zip, log)
@@ -3223,7 +3259,8 @@ def _run_step3b(game, api, profile_dir, staging_path, collection_schema,
         except Exception as exc:
             log(f"Collection install: Amethyst state read failed: {exc}")
     finally:
-        _shutil.rmtree(archive_root, ignore_errors=True)
+        if owns_archive_root:
+            _shutil.rmtree(archive_root, ignore_errors=True)
     return bundled, amethyst_state
 
 

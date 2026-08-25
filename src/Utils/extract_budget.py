@@ -15,6 +15,8 @@ import os
 import shutil
 import threading
 import zipfile
+from dataclasses import dataclass
+from functools import lru_cache
 
 # Below this compressed size the `7z l -slt` metadata probe is skipped and the
 # 15× fallback used instead. The estimate only gates extraction memory, and the
@@ -22,6 +24,128 @@ import zipfile
 # while collections install thousands of tiny archives, so one process spawn
 # per mod adds real wall time to the (already bottlenecked) install consumers.
 _PROBE_MIN_COMPRESSED_BYTES = 64 * 1024 * 1024
+
+
+@dataclass(frozen=True)
+class ArchiveProbe:
+    """Reusable archive metadata gathered before an extraction starts.
+
+    ``members_inspected`` distinguishes a real negative FOMOD result from the
+    small-non-ZIP fast path, where starting ``7z l`` solely to estimate memory
+    would cost more than the conservative size fallback.
+    """
+
+    compressed_size: int
+    uncompressed_size: int
+    has_fomod_config: bool = False
+    members_inspected: bool = False
+
+
+def _is_fomod_member(name: str) -> bool:
+    member = name.replace("\\", "/").lstrip("/").lower()
+    target = "fomod/moduleconfig.xml"
+    return member == target or member.endswith("/" + target)
+
+
+@lru_cache(maxsize=512)
+def _probe_archive_cached(path: str, compressed_size: int, file_size: int,
+                          mtime_ns: int, inspect_members: bool) -> ArchiveProbe:
+    # file_size + mtime_ns deliberately participate in the cache key: a
+    # re-downloaded/replaced archive at the same path must be probed again.
+    del file_size, mtime_ns
+    total = 0
+    has_fomod = False
+    members_inspected = False
+    lower = path.lower()
+
+    # ZIP's central directory gives both answers in one cheap read, even for a
+    # small archive, so never run a second member scan for ZIP files.
+    if lower.endswith(".zip"):
+        try:
+            with zipfile.ZipFile(path, "r") as archive:
+                infos = archive.infolist()
+            total = sum(member.file_size for member in infos)
+            has_fomod = any(_is_fomod_member(member.filename) for member in infos)
+            members_inspected = True
+        except Exception:
+            pass
+
+    # For non-ZIP archives a single 7z listing supplies both expanded sizes and
+    # member paths. Preserve the old small-archive optimisation unless a caller
+    # specifically needs member detection (the batch/collection FOMOD preflight).
+    should_list = not members_inspected and (
+        inspect_members
+        or compressed_size <= 0
+        or compressed_size >= _PROBE_MIN_COMPRESSED_BYTES
+    )
+    if should_list:
+        binary = (shutil.which("7zzs") or shutil.which("7zz")
+                  or shutil.which("7z") or shutil.which("7za"))
+        if binary:
+            try:
+                import subprocess
+                result = subprocess.run(
+                    [binary, "l", "-slt", path],
+                    stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                    text=True, timeout=30,
+                )
+                if result.returncode == 0:
+                    members_inspected = True
+                    for line in result.stdout.splitlines():
+                        if line.startswith("Size = "):
+                            try:
+                                total += int(line.split("=", 1)[1].strip())
+                            except ValueError:
+                                pass
+                        elif (not has_fomod
+                              and line.startswith("Path = ")
+                              and _is_fomod_member(line[7:].strip())):
+                            has_fomod = True
+            except Exception:
+                pass
+        elif inspect_members and lower.endswith(".7z"):
+            # Match the old FOMOD preflight fallback on systems without a 7z
+            # executable. Size estimation remains the conservative 15× path.
+            try:
+                import py7zr
+                with py7zr.SevenZipFile(path, "r") as archive:
+                    names = archive.getnames()
+                has_fomod = any(_is_fomod_member(name) for name in names)
+                members_inspected = True
+            except Exception:
+                pass
+
+    if total <= 0:
+        # Generous fallback retained verbatim for extreme texture packs.
+        total = compressed_size * 15
+    return ArchiveProbe(
+        compressed_size=compressed_size,
+        uncompressed_size=total,
+        has_fomod_config=has_fomod,
+        members_inspected=members_inspected,
+    )
+
+
+def probe_archive(path: str, compressed_size: int = 0, *,
+                  inspect_members: bool = False) -> ArchiveProbe:
+    """Return cached size/member metadata for *path*.
+
+    The cache identity includes size and nanosecond mtime, so keeping a result
+    across the memory gate and extraction-location decision cannot make a newly
+    replaced archive inherit stale metadata.
+    """
+    try:
+        stat = os.stat(path)
+        file_size = int(stat.st_size)
+        mtime_ns = int(stat.st_mtime_ns)
+    except OSError:
+        file_size = 0
+        mtime_ns = 0
+    if compressed_size <= 0:
+        compressed_size = file_size
+    return _probe_archive_cached(
+        os.path.abspath(path), int(compressed_size), file_size, mtime_ns,
+        bool(inspect_members))
 
 
 def get_uncompressed_size(path: str, compressed_size: int = 0) -> int:
@@ -34,47 +158,7 @@ def get_uncompressed_size(path: str, compressed_size: int = 0) -> int:
     process spawn and go straight to the fallback (zip headers are still read -
     they're free).
     """
-    if compressed_size <= 0:
-        try:
-            compressed_size = os.path.getsize(path)
-        except OSError:
-            compressed_size = 0
-    _ext = path.lower()
-    # ZIP: fast metadata read via zipfile
-    if _ext.endswith(".zip"):
-        try:
-            with zipfile.ZipFile(path, "r") as _zf:
-                _total = sum(m.file_size for m in _zf.infolist())
-            if _total > 0:
-                return _total
-        except Exception:
-            pass
-    # Small archive: the spawn costs more than the accuracy is worth.
-    if 0 < compressed_size < _PROBE_MIN_COMPRESSED_BYTES:
-        return compressed_size * 15
-    # 7z/rar/zip fallback: use `7z l -slt` which prints Size: per entry
-    _7z_bin = shutil.which("7zzs") or shutil.which("7zz") or shutil.which("7z") or shutil.which("7za")
-    if _7z_bin:
-        try:
-            import subprocess
-            _res = subprocess.run(
-                [_7z_bin, "l", "-slt", path],
-                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                text=True, timeout=30,
-            )
-            _total = 0
-            for _line in _res.stdout.splitlines():
-                if _line.startswith("Size = "):
-                    try:
-                        _total += int(_line.split("=", 1)[1].strip())
-                    except ValueError:
-                        pass
-            if _total > 0:
-                return _total
-        except Exception:
-            pass
-    # Fallback: assume a generous 15× expansion (handles extreme texture packs)
-    return compressed_size * 15
+    return probe_archive(path, compressed_size).uncompressed_size
 
 
 def _get_available_memory_bytes() -> int:
