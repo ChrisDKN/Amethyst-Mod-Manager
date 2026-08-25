@@ -23,6 +23,23 @@ on:
         default: ""
 
 jobs:
+  filegraph-native:
+    name: Filegraph native extension
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build the required stable-ABI extension
+        run: |
+          cargo build --locked --release --manifest-path native/amethyst_filegraph/Cargo.toml
+          cp native/amethyst_filegraph/target/release/libamethyst_filegraph.so src/amethyst_filegraph.abi3.so
+      - uses: actions/upload-artifact@v4
+        with:
+          name: filegraph-native
+          path: src/amethyst_filegraph.abi3.so
+          if-no-files-found: error
+          retention-days: 1
+
   # ────────────────────────────────────────────────────────────────────
   # libloot must be built once per target Python ABI:
   #   - Arch container (AppImage): Python 3.14 → cp314 .so
@@ -122,7 +139,7 @@ jobs:
   appimage:
     name: AppImage
     if: ${{ inputs.build_appimage }}
-    needs: libloot-arch
+    needs: [libloot-arch, filegraph-native]
     runs-on: ubuntu-latest
     container: ghcr.io/pkgforge-dev/archlinux:latest
     steps:
@@ -276,6 +293,12 @@ jobs:
           name: libloot-cp314
           path: src/
 
+      - name: Download Filegraph extension
+        uses: actions/download-artifact@v4
+        with:
+          name: filegraph-native
+          path: src/
+
       - name: Disk space before build
         run: df -h && du -sh /tmp 2>/dev/null || true
 
@@ -341,7 +364,7 @@ jobs:
   flatpak:
     name: Flatpak
     if: ${{ inputs.build_flatpak }}
-    needs: libloot-flatpak
+    needs: [libloot-flatpak, filegraph-native]
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/flathub-infra/flatpak-github-actions:kde-6.9
@@ -357,6 +380,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: libloot-cp312
+          path: src/
+
+      - name: Download Filegraph extension
+        uses: actions/download-artifact@v4
+        with:
+          name: filegraph-native
           path: src/
 
       # Sign the export commits at BUILD time (the action passes --gpg-sign to
