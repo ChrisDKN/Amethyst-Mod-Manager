@@ -2,11 +2,12 @@
 
 Qt port of the game-exe branch of Tk's ExeConfigPanel: a "Launch via"
 selector (Auto / Steam / Heroic / Lutris / Faugus / None), launch arguments,
-Steam-style launch options and the "Deploy mods before launching" checkbox,
+Steam-style launch options, Wayland and deploy-before-launch checkboxes,
 plus any game-specific checkboxes the handler declares (BaseGame.launch_toggles
 - e.g. OpenMW's "skip the launcher").
-``on_done(mode, deploy, args, options, toggles)`` fires on Save, all-None on
-Cancel/Esc; *toggles* is {key: bool} and empty for a game that declares none.
+``on_done(mode, deploy, args, options, wayland, toggles)`` fires on Save,
+all-None on Cancel/Esc; *toggles* is {key: bool} and empty for a game that
+declares none.
 
 Dimmed child backdrop + centered card via gui_qt/overlay_base.py.
 """
@@ -27,12 +28,12 @@ _MODES = ["Auto", "Steam", "Heroic", "Lutris", "Faugus", "None"]
 
 class LauncherSettingsOverlay(OverlayBase):
     CARD_W = 520
-    CARD_H = 390
+    CARD_H = 420
     MIN_H = 340
     ESC_RESULT = False
 
     def __init__(self, host: QWidget, game_name: str, mode: str, deploy: bool,
-                 args: str, options: str, on_done, toggles=None,
+                 args: str, options: str, wayland: bool, on_done, toggles=None,
                  toggle_values=None):
         # Each extra checkbox (plus its optional hint) needs room, or the card
         # clips them - OverlayBase gives the card a FIXED size.
@@ -85,10 +86,16 @@ class LauncherSettingsOverlay(OverlayBase):
             self.tr("e.g. SteamDeck=0 gamemoderun %command%"))
         v.addWidget(self._options_edit)
         opts_hint = QLabel(self.tr(
-            "Steam syntax. Empty: the game's own Steam options are used."))
+            "Steam syntax. When set, the manager launches the game directly "
+            "so these options apply. Empty: the game's own launcher options "
+            "are used."))
         opts_hint.setStyleSheet(f"color:{_c(p,'TEXT_DIM')}; font-size:13px;")
         opts_hint.setWordWrap(True)
         v.addWidget(opts_hint)
+
+        self._wayland_check = QCheckBox(self.tr("Launch with wayland"))
+        self._wayland_check.setChecked(bool(wayland))
+        v.addWidget(self._wayland_check)
 
         self._deploy_check = QCheckBox(self.tr("Deploy mods before launching"))
         self._deploy_check.setChecked(bool(deploy))
@@ -133,15 +140,16 @@ class LauncherSettingsOverlay(OverlayBase):
         self._present()
 
     @classmethod
-    def show_over(cls, host, *, game_name, mode, deploy, args, options, on_done,
-                  toggles=None, toggle_values=None):
+    def show_over(cls, host, *, game_name, mode, deploy, args, options,
+                  wayland, on_done, toggles=None, toggle_values=None):
         top = host.window() if host is not None else None
-        return cls(top or host, game_name, mode, deploy, args, options, on_done,
-                   toggles=toggles, toggle_values=toggle_values)
+        return cls(top or host, game_name, mode, deploy, args, options,
+                   wayland, on_done, toggles=toggles,
+                   toggle_values=toggle_values)
 
     # -- internals ----------------------------------------------------------
     def _finish(self, saved: bool = False):
-        """Override: on_done takes (mode, deploy, args, options, toggles); None on cancel."""
+        """Return every launch setting on Save, or all None on cancellation."""
         if self._done:
             return
         self._done = True
@@ -151,11 +159,12 @@ class LauncherSettingsOverlay(OverlayBase):
         deploy = self._deploy_check.isChecked()
         args = self._args_edit.text().strip()
         options = self._options_edit.text().strip()
+        wayland = self._wayland_check.isChecked()
         toggles = {k: b.isChecked() for k, b in self._toggle_checks.items()}
         self.hide()
         self.deleteLater()
         if cb is not None:
             if saved:
-                cb(mode, deploy, args, options, toggles)
+                cb(mode, deploy, args, options, wayland, toggles)
             else:
-                cb(None, None, None, None, None)
+                cb(None, None, None, None, None, None)

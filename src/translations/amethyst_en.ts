@@ -5214,8 +5214,12 @@ It may already be modified. Verify game files in Steam/Heroic to get a clean exe
         <translation>e.g. SteamDeck=0 gamemoderun %command%</translation>
     </message>
     <message>
-        <source>Steam syntax. Empty: the game's own Steam options are used.</source>
-        <translation>Steam syntax. Empty: the game's own Steam options are used.</translation>
+        <source>Steam syntax. When set, the manager launches the game directly so these options apply. Empty: the game's own launcher options are used.</source>
+        <translation>Steam syntax. When set, the manager launches the game directly so these options apply. Empty: the game's own launcher options are used.</translation>
+    </message>
+    <message>
+        <source>Launch with wayland</source>
+        <translation>Launch with wayland</translation>
     </message>
     <message>
         <source>Deploy mods before launching</source>

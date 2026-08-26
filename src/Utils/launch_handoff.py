@@ -278,6 +278,69 @@ def launch_handoff_script_path(game, profile: str | None = None) -> Path:
     return get_default_staging_root() / "launchers" / f"{slug}.sh"
 
 
+def _handoff_native_target(game) -> tuple[bool, Path | None]:
+    """Return whether the generated handoff ultimately starts a native path."""
+    command = None
+    target = None
+    if getattr(game, "vfs_launch_enabled", False):
+        try:
+            target = game.get_vfs_launch_exe()
+        except Exception:
+            target = None
+        if target is not None:
+            target = Path(target)
+            return target.suffix.lower() not in (".exe", ".bat"), target
+    else:
+        try:
+            command = game.get_launch_command()
+        except Exception:
+            command = None
+    if command:
+        # A native loader command may itself start Proton (for example me3),
+        # but it still needs the same environment manager Play would supply.
+        if len(command) == 1:
+            candidate = Path(command[0])
+            target = candidate if candidate.is_file() else None
+        return True, target
+    return False, None
+
+
+def compose_steam_handoff_command(game, handoff_argv: list[str]) -> str:
+    """Compose manager-owned launch settings around a Steam handoff.
+
+    Environment assignments must precede the handoff executable so the CLI
+    and every eventual child inherit them. Wrappers retain their normal
+    Steam-style position around the handoff, while suffix arguments remain
+    after ``%command%``. This also makes stripping Amethyst's wrapper during a
+    manager-controlled launch recover the user's original options exactly.
+    """
+    from Utils.exe_launch import (
+        apply_wayland_launch_setting,
+        game_exe_key,
+        load_launch_options,
+        load_launch_with_wayland,
+        parse_launch_options,
+    )
+
+    settings_key = game_exe_key(game)
+    launch_options = load_launch_options(game, settings_key)
+    env, command = parse_launch_options(
+        launch_options, [*map(str, handoff_argv), "%command%"])
+    wayland = load_launch_with_wayland(game)
+    native, target = (
+        _handoff_native_target(game)
+        if wayland else (False, None)
+    )
+    command = apply_wayland_launch_setting(
+        game, env, command, native=native, exe_path=target, enabled=wayland)
+
+    assignments = " ".join(
+        f"{name}={shlex.quote(str(value))}" for name, value in env.items()
+    )
+    rendered = shlex.join(command)
+    return f"{assignments} {rendered}" if assignments else rendered
+
+
 def _flatpak_handoff_argv(argv: list[str], marker: str) -> list[str]:
     """Shell wrapper that preserves a launcher's runner argv and environment.
 
@@ -401,7 +464,7 @@ def build_launch_handoff(game, profile: str | None = None
     )
 
     if launcher == "steam":
-        command = shlex.join(short_argv) + " %command%"
+        command = compose_steam_handoff_command(game, short_argv)
         return LaunchHandoff(
             launcher_id="steam",
             launcher_name="Steam",

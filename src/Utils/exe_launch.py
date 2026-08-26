@@ -10,6 +10,7 @@ identical to the Tk app so settings are shared between both:
 - ~/.config/AmethystModManager/games/<game>/exe_launch_mode.json
       exe_name → "auto"|"steam"|"heroic"|"none"
       "__deploy_before_launch" → bool (default True)
+      "__launch_with_wayland" → bool (default False)
       "__proton_override_<exe>" → Proton dir name ('' = game default)
       "__launch_options_<exe>" → Steam-style launch options string
       "__hidden_auto_exes" → [exe names] hidden auto-detected framework exes
@@ -456,6 +457,17 @@ def save_deploy_before_launch(game, enabled: bool) -> None:
     _write_launch_mode_key(game, "__deploy_before_launch", bool(enabled))
 
 
+def load_launch_with_wayland(game) -> bool:
+    """Whether the game's Play entry should request a Wayland backend."""
+    return bool(_read_launch_mode_data(game).get("__launch_with_wayland", False))
+
+
+def save_launch_with_wayland(game, enabled: bool) -> None:
+    """Persist the off-by-default Wayland launch setting for manager Play."""
+    _write_launch_mode_key(
+        game, "__launch_with_wayland", True if enabled else None)
+
+
 def load_launch_toggle(game, key: str, default: bool = False) -> bool:
     """State of a handler-declared Launch settings checkbox (BaseGame.launch_toggles).
 
@@ -572,6 +584,13 @@ def save_exe_args(game, exe_name: str, args_str: str) -> None:
 
 _ENV_VAR_RE = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*=')
 
+_NATIVE_WAYLAND_ENV = {
+    "SDL_VIDEODRIVER": "wayland",
+    "QT_QPA_PLATFORM": "wayland",
+    "GDK_BACKEND": "wayland",
+}
+_WAYLAND_ENV_KEYS = ("PROTON_ENABLE_WAYLAND", *_NATIVE_WAYLAND_ENV)
+
 
 def split_preserving_backslash(s: str) -> list:
     """shlex.split but without treating ``\\`` as an escape character.
@@ -654,6 +673,71 @@ def parse_launch_options(opts: str, command: list,
                 suffix.append(token)
 
         return env_vars, list(command) + suffix
+
+
+def _is_native_unity_player(exe_path: "Path | None") -> bool:
+    """Whether *exe_path* has the normal Unity Linux player layout."""
+    if exe_path is None:
+        return False
+    exe_path = Path(exe_path)
+    if (exe_path.parent / "UnityPlayer.so").is_file():
+        return True
+    data_name = f"{exe_path.stem}_Data".casefold()
+    try:
+        return any(
+            child.is_dir() and child.name.casefold() == data_name
+            for child in exe_path.parent.iterdir()
+        )
+    except OSError:
+        return False
+
+
+def apply_wayland_launch_setting(
+        game, env: dict, command: list[str], *, native: bool,
+        exe_path: "Path | None" = None, log_fn=_noop_log,
+        log_prefix: str = "Play",
+        enabled: "bool | None" = None) -> list[str]:
+    """Apply the saved Wayland request to a concrete launch environment.
+
+    Proton consumes ``PROTON_ENABLE_WAYLAND``. Native games commonly select
+    their backend through SDL, Qt or GTK; Unity Linux players additionally
+    require their documented ``-force-wayland`` argument.
+    """
+    command = list(command)
+    if enabled is None:
+        enabled = load_launch_with_wayland(game)
+    if not enabled:
+        return command
+
+    env["PROTON_ENABLE_WAYLAND"] = "1"
+    if native:
+        env.update(_NATIVE_WAYLAND_ENV)
+        if (_is_native_unity_player(exe_path)
+                and "-force-wayland" not in command):
+            command.append("-force-wayland")
+    log_fn(f"{log_prefix}: Launch with Wayland enabled.")
+    return command
+
+
+def forward_wayland_env_through_flatpak_spawn(
+        command: list[str], env: dict) -> list[str]:
+    """Carry an explicit native Wayland request across a host portal."""
+    command = list(command)
+    if (len(command) < 2
+            or Path(command[0]).name != "flatpak-spawn"
+            or command[1] != "--host"):
+        return command
+    existing = {
+        token[len("--env="):].split("=", 1)[0]
+        for token in command
+        if token.startswith("--env=") and "=" in token[len("--env="):]
+    }
+    forwarded = [
+        f"--env={key}={env[key]}"
+        for key in _WAYLAND_ENV_KEYS
+        if key in env and key not in existing
+    ]
+    return [*command[:2], *forwarded, *command[2:]]
 
 
 # ---------------------------------------------------------------------------
@@ -745,8 +829,8 @@ def _without_amethyst_steam_handoff(options: str, game) -> str | None:
 
     Return the options remaining after the handoff, ``"%command%"`` when
     there are no additional options, or ``None`` when this is not Amethyst's
-    handoff. Tokens after the handoff's ``--`` marker are user wrappers and
-    must survive when the manager launches the game directly.
+    handoff. User environment, wrappers, and suffix arguments surrounding the
+    handoff must survive when the manager launches the game directly.
     """
     if not options or "%command%" not in options:
         return None
@@ -885,6 +969,8 @@ def _prepare_native_game_launch(game, exe_path: Path, env: dict,
         log_fn(f"Play: {reason}.")
         launch_report.mark_failed(launch_report.actionable(reason))
         return None
+    command = apply_wayland_launch_setting(
+        game, env, command, native=True, exe_path=exe_path, log_fn=log_fn)
 
     if (is_steam_install and steam_id
             and getattr(game, "native_steam_client_required", False)):
@@ -2587,6 +2673,13 @@ def launch_game(game, log_fn=_noop_log) -> None:
     honouring the saved launch mode. Call from a worker thread."""
     from Utils.xdg import host_env
 
+    # Launcher Settings belongs to the Play entry, not necessarily to the
+    # executable that ultimately starts.  A VFS profile may replace a stock
+    # launcher with a script extender (FalloutNVLauncher.exe ->
+    # nvse_loader.exe), while the settings dialog remains keyed by the normal
+    # resolved game entry.
+    settings_key = game_exe_key(game)
+
     # A mount-namespace VFS must sit outside Proton/the store launcher so all
     # descendants inherit the virtual game tree. Store URL routes cannot
     # provide that parent process, so VFS handlers deliberately use the same
@@ -2626,6 +2719,8 @@ def launch_game(game, log_fn=_noop_log) -> None:
                 log_fn(f"Play: {reason}")
                 launch_report.mark_failed(launch_report.actionable(reason))
                 return
+            command = forward_wayland_env_through_flatpak_spawn(
+                command, launch_env)
             log_fn(f"Play: VFS native cmd: {' '.join(command)}")
             spawn_process_watched(
                 command,
@@ -2635,7 +2730,8 @@ def launch_game(game, log_fn=_noop_log) -> None:
                 log_fn=log_fn,
             )
             return
-        launch_exe_via_proton(exe_path, game, log_fn)
+        launch_exe_via_proton(
+            exe_path, game, log_fn, launch_settings_key=settings_key)
         return
 
     native_cmd = getattr(game, "get_launch_command", lambda: None)()
@@ -2644,7 +2740,6 @@ def launch_game(game, log_fn=_noop_log) -> None:
         # IS the game, and those fields are the only way to pass e.g. openmw's
         # --skip-menu or a gamemoderun wrapper. Same key the dialog saves under.
         env = host_env()
-        settings_key = game_exe_key(game)
         try:
             extra_args = shlex.split(load_exe_args(game, settings_key))
         except ValueError as exc:
@@ -2663,6 +2758,10 @@ def launch_game(game, log_fn=_noop_log) -> None:
                 launch_report.mark_failed(launch_report.actionable(
                     "the launch options produced no command to run."))
                 return
+        cmd = apply_wayland_launch_setting(
+            game, env, cmd, native=True, exe_path=resolve_game_exe(game),
+            log_fn=log_fn)
+        cmd = forward_wayland_env_through_flatpak_spawn(cmd, env)
         # A wrapper from Launch Options (gamemoderun, mangohud) that isn't
         # installed would otherwise fail as a bare Popen error.
         if os.sep not in cmd[0] and shutil.which(cmd[0]) is None:
@@ -2691,7 +2790,30 @@ def launch_game(game, log_fn=_noop_log) -> None:
         launch_report.mark_failed(launch_report.actionable(reason))
         return
 
-    mode = load_launch_mode(game, game_exe_key(game))
+    mode = load_launch_mode(game, settings_key)
+    # The direct route consumes its settings below; only inspect them here
+    # when a launcher hand-off would otherwise bypass the manager entirely.
+    manager_launch_options = (
+        load_launch_options(game, settings_key) if mode != "none" else ""
+    )
+    launch_with_wayland = load_launch_with_wayland(game)
+    effective_mode = mode
+    if (manager_launch_options or launch_with_wayland) and mode != "none":
+        # steam://, heroic:// and the other launcher hand-offs talk to a
+        # normally already-running client.  Environment variables or wrappers
+        # placed around that short-lived IPC process do not reach the game;
+        # only options saved in the launcher's own configuration do.  Use the
+        # manager-controlled game command whenever manager-owned launch
+        # settings need to reach the game process.
+        effective_mode = "none"
+        if manager_launch_options and launch_with_wayland:
+            reason = "manager Launch Options and Launch with Wayland are set"
+        elif manager_launch_options:
+            reason = "manager Launch Options are set"
+        else:
+            reason = "Launch with Wayland is enabled"
+        log_fn(f"Play: {reason} - launching the game directly so the "
+               "manager-controlled launch environment is applied.")
     steam_id = effective_steam_id(game)
     heroic_app_names = heroic_app_names_for_launch(game)
     is_steam = game_is_steam_install(game)
@@ -2733,14 +2855,14 @@ def launch_game(game, log_fn=_noop_log) -> None:
            f"heroic={','.join(heroic_app_names) if heroic_app_names else 'none'}, "
            f"pkg={pkg}")
 
-    if mode == "steam":
+    if effective_mode == "steam":
         if steam_id:
             launch_via_steam(steam_id, log_fn, extra_args=default_args or None)
         else:
             log_fn("Play: launch mode is Steam but game has no Steam ID.")
         return
 
-    if mode == "heroic":
+    if effective_mode == "heroic":
         if heroic_app_names:
             _note_launcher_args("Heroic")
             launch_via_heroic(
@@ -2750,7 +2872,7 @@ def launch_game(game, log_fn=_noop_log) -> None:
             log_fn("Play: launch mode is Heroic but game has no Heroic app name.")
         return
 
-    if mode == "lutris":
+    if effective_mode == "lutris":
         slugs = lutris_slugs_for_launch(game)
         if slugs:
             _note_launcher_args("Lutris")
@@ -2760,7 +2882,7 @@ def launch_game(game, log_fn=_noop_log) -> None:
             log_fn("Play: launch mode is Lutris but the game was not found in Lutris.")
         return
 
-    if mode == "faugus":
+    if effective_mode == "faugus":
         gameids = faugus_gameids_for_launch(game)
         if gameids:
             _note_launcher_args("Faugus")
@@ -2769,7 +2891,7 @@ def launch_game(game, log_fn=_noop_log) -> None:
             log_fn("Play: launch mode is Faugus but the game was not found in Faugus.")
         return
 
-    if mode != "none":  # "auto"
+    if effective_mode != "none":  # "auto"
         if steam_id and (is_steam or is_shortcut):
             launch_via_steam(steam_id, log_fn, extra_args=default_args or None)
             return
@@ -2796,7 +2918,8 @@ def launch_game(game, log_fn=_noop_log) -> None:
         log_fn("Play: no Steam/Heroic/Lutris/Faugus route matched - launching "
                "the game executable directly.")
 
-    if mode == "none" and not _require_direct_steam_client(game, log_fn):
+    if effective_mode == "none" and not _require_direct_steam_client(
+            game, log_fn):
         return
 
     exe_path = resolve_game_exe(game)
@@ -2813,12 +2936,15 @@ def launch_game(game, log_fn=_noop_log) -> None:
         if prepared is None:
             return
         launch_env, command = prepared
+        command = forward_wayland_env_through_flatpak_spawn(
+            command, launch_env)
         spawn_process_watched(command, env=launch_env,
                               cwd=exe_path.parent,
                               label="Play (native)", log_fn=log_fn)
         return
 
-    launch_exe_via_proton(exe_path, game, log_fn)
+    launch_exe_via_proton(
+        exe_path, game, log_fn, launch_settings_key=settings_key)
 
 
 def is_framework_launch_exe(game, exe_name: str) -> bool:
@@ -3089,7 +3215,9 @@ def steam_compat_mounts(game, exe_path: Path) -> dict:
     return {"STEAM_COMPAT_MOUNTS": ":".join(paths)} if paths else {}
 
 
-def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
+def launch_exe_via_proton(
+        exe_path: Path, game, log_fn=_noop_log, *,
+        launch_settings_key: "str | None" = None) -> None:
     """Standard Proton launch path for .exe files. Call from a worker thread.
 
     Uses the game's prefix by default; a saved per-exe Proton override runs in
@@ -3103,6 +3231,11 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
     status in Steam, and the Steam Linux Runtime container is used (fixes
     missing audio vs a raw `proton run`).
     """
+    # A normal Run entry owns settings under its own filename.  Manager Play
+    # can intentionally resolve to another executable, notably a VFS-only
+    # script extender, so its caller supplies the canonical Play-entry key.
+    manager_play_launch = launch_settings_key is not None
+    settings_key = launch_settings_key or exe_path.name
     framework_launch = is_framework_launch_exe(game, exe_path.name)
     vfs_game_launch = False
     if getattr(game, "vfs_launch_enabled", False):
@@ -3349,7 +3482,7 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
         link_mygames(game, pfx, lambda m: log_fn(f"Run EXE: {m}"))
 
     try:
-        extra_args = shlex.split(load_exe_args(game, exe_path.name))
+        extra_args = shlex.split(load_exe_args(game, settings_key))
     except ValueError as e:
         log_fn(f"Run EXE: invalid arguments - {e}")
         return
@@ -3371,7 +3504,7 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
         # created/updated through Proton. Env vars from Launch Options are
         # applied; wrappers/%command% are not - there is no wrapped command.
         extra_env, _ = parse_launch_options(
-            load_launch_options(game, exe_path.name), [])
+            load_launch_options(game, settings_key), [])
         pfx_root = prefix_path if lutris_is_prefix else compat_data
         if (lutris_env_extra is None
                 and not (pfx_root / "pfx" / "user.reg").is_file()
@@ -3433,12 +3566,18 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
     # command gets wrapped in flatpak-spawn --host, proton_run_command
     # explicitly forwards launch/runtime values via --env= flags, so env must
     # be final here.
-    launch_opts = load_launch_options(game, exe_path.name)
-    if not launch_opts and launches_game:
+    launch_opts = load_launch_options(game, settings_key)
+    if launch_opts:
+        log_fn(f"Run EXE: applying manager Launch Options for {settings_key}.")
+    elif launches_game:
         launch_opts = _direct_steam_launch_options_for_game(game, log_fn)
     env_updates, _ = parse_launch_options(launch_opts, [])
     if env_updates:
         env.update(env_updates)
+    if manager_play_launch:
+        apply_wayland_launch_setting(
+            game, env, [], native=False, log_fn=log_fn,
+            log_prefix="Run EXE")
 
     if umu_bin is not None:
         from Utils.lutris_finder import umu_run_command

@@ -1009,12 +1009,12 @@ class BaseGame(ABC):
         if not getattr(self, "native_launch_required", False):
             return ""
         from Utils.config_paths import cli_invocation
-        import shlex
+        from Utils.launch_handoff import compose_steam_handoff_command
 
         argv = [*cli_invocation(), "launch", self.game_id]
         if profile:
             argv += ["--profile", profile]
-        return shlex.join(argv) + " -- %command%"
+        return compose_steam_handoff_command(self, [*argv, "--"])
 
     @property
     def play_button_callback(self) -> "Callable[[], None] | None":
