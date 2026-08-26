@@ -2,6 +2,8 @@
 - Fully reworked how conflicts are detected. On a large modlist, enabling/installing a mod was slow due to the manager needing to rebuild a filemap for the entire modlist. This entire concept has been scrapped and replaced. As a result conflict calculation is much faster as well as deploy times  
 - Fixed repeated and unnecessary Nexus oauth token requests from the keyring during startup and during mod install
 - Fixed Enderal using Fallout's top level folder set causing some mods to install incorrectly
+- Fixed game launch options not applying correctly
+- Fixed an issue where applications run via the wizard could be left running in the background forever
 
 - v2.3.0
 ### VFS Deploy
