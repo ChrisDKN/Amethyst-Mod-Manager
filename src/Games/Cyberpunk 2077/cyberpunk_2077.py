@@ -30,6 +30,7 @@ from Utils.deploy import (
     expand_separator_deploy_paths,
     expand_separator_link_modes,
     expand_separator_raw_deploy,
+    _prune_empty_dirs,
     _resolve_root_path,
     restore_custom_rules,
     restore_filemap_from_root,
@@ -569,6 +570,7 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
         dest = self._archive_modlist_dest(game_root)
         state = filemap.parent / "archive_modlist.state"
         backup = filemap.parent / "archive_modlist_backup.txt"
+        removed_generated = state.is_file()
         if state.is_file():
             if dest.is_file():
                 dest.unlink()
@@ -577,6 +579,12 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(backup), str(dest))
             _log("Archive load order: original modlist.txt restored.")
+        elif removed_generated:
+            # This generated file is removed after the routed/root file logs
+            # have already pruned their paths.  Revisit its parent now: when
+            # archive/pc/mod did not exist before deploy, modlist.txt was the
+            # last entry keeping that deployment-created directory alive.
+            _prune_empty_dirs({dest.parent}, stop_dirs={game_root})
 
     def _deployed_redmods(self) -> list[str]:
         """Names of REDmods deployed in the game root (mods/<name>/info.json)."""
