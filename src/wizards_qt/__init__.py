@@ -201,8 +201,22 @@ REGISTRY: dict[str, QtWizardSpec] = {
     "wizards.fallout_downgrade.FalloutDowngradeWizard":
         QtWizardSpec(_simple("wizards_qt.fallout_downgrade_view", "FalloutDowngradeView")),
     "wizards.fallout_4_downgrader.Fallout4DowngraderWizard":
-        QtWizardSpec(_simple("wizards_qt.fallout_4_downgrader_view",
-                             "Fallout4DowngraderView")),
+        QtWizardSpec(_param("wizards_qt.mulderload_downgrader_view",
+                            "MulderLoadDowngraderView",
+                            game_label="Fallout 4", slug="fallout4",
+                            game_exe="fallout-4-steam-downgrader.exe",
+                            ck_exe="fallout-4-creation-kit-steam-downgrader.exe")),
+    "wizards.skyrim_se_downgrader.SkyrimSEDowngraderWizard":
+        QtWizardSpec(_param(
+            "wizards_qt.mulderload_downgrader_view",
+            "MulderLoadDowngraderView",
+            game_label="Skyrim Special Edition", slug="skyrimse",
+            game_exe=(
+                "the-elder-scrolls-5-skyrim-special-edition-"
+                "steam-downgrader.exe"),
+            ck_exe=(
+                "the-elder-scrolls-5-skyrim-special-edition-creation-kit-"
+                "steam-downgrader.exe"))),
     "wizards.wrye_bash.WryeBashWizard":
         QtWizardSpec(_simple("wizards_qt.wrye_bash_view", "WryeBashView")),
     "wizards.bethini.BethINIWizard":

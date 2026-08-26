@@ -31,6 +31,7 @@ WIZARD_LABELS = (
     QT_TRANSLATE_NOOP("WizardTools", "Run BodySlide"),
     QT_TRANSLATE_NOOP("WizardTools", "Run Outfit Studio"),
     QT_TRANSLATE_NOOP("WizardTools", "Downgrade Fallout 4"),
+    QT_TRANSLATE_NOOP("WizardTools", "Downgrade Skyrim Special Edition"),
     QT_TRANSLATE_NOOP("WizardTools", "Install Script Extender (F4SE)"),
     QT_TRANSLATE_NOOP("WizardTools", "Run BethINI Pie"),
     QT_TRANSLATE_NOOP("WizardTools", "Install Script Extender (F4SEVR)"),
@@ -112,8 +113,12 @@ WIZARD_DESCRIPTIONS = (
         "Deploy mods and run Outfit Studio from the Data folder."),
     QT_TRANSLATE_NOOP(
         "WizardTools",
-        "Download the latest Fallout 4 Steam Downgrader and run it from the "
-        "game folder."),
+        "Download the latest Fallout 4 Steam Downgrader (game or Creation "
+        "Kit) and run it from the game folder."),
+    QT_TRANSLATE_NOOP(
+        "WizardTools",
+        "Download the latest Skyrim Special Edition Steam Downgrader (game "
+        "or Creation Kit) and run it from the game folder."),
     QT_TRANSLATE_NOOP("WizardTools", "Download and install F4SE into the game folder."),
     QT_TRANSLATE_NOOP(
         "WizardTools",

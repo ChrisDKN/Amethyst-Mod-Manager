@@ -70,8 +70,8 @@ class Fallout_4(Fallout_3):
                 id="downgrade_fo4",
                 label="Downgrade Fallout 4",
                 description=(
-                    "Download the latest Fallout 4 Steam Downgrader and run "
-                    "it from the game folder."),
+                    "Download the latest Fallout 4 Steam Downgrader (game or "
+                    "Creation Kit) and run it from the game folder."),
                 dialog_class_path=(
                     "wizards.fallout_4_downgrader.Fallout4DowngraderWizard"),
                 category="Setup and Installers",

@@ -275,6 +275,17 @@ class SkyrimSE(Fallout_3):
         ))
         return self._base_wizard_tools() + pandora_tools + [
             WizardTool(
+                id="downgrade_skyrimse",
+                label="Downgrade Skyrim Special Edition",
+                description=(
+                    "Download the latest Skyrim Special Edition Steam "
+                    "Downgrader (game or Creation Kit) and run it from the "
+                    "game folder."),
+                dialog_class_path=(
+                    "wizards.skyrim_se_downgrader.SkyrimSEDowngraderWizard"),
+                category="Setup and Installers",
+            ),
+            WizardTool(
                 id="install_se_skyrimse",
                 label="Install Script Extender (SKSE64)",
                 description="Download and install SKSE64 into the game folder.",

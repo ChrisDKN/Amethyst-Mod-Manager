@@ -172,6 +172,10 @@ class WizardViewBase(QWidget):
         self._auto_fetch_on_archive = None
         self._dl_status: QLabel | None = None
         self._dl_next_btn: QPushButton | None = None
+        # Set when a header is built; stays None for embedded views (the host
+        # owns the close button). _tool_running vetoes the tab-bar ✕.
+        self._close_btn: QPushButton | None = None
+        self._tool_running = False
 
         self._locate_status_sig.connect(self._guard(
             lambda t, c: self._set_status(self._locate_status, t, c)))
@@ -207,6 +211,9 @@ class WizardViewBase(QWidget):
             close.setStyleSheet(button_qss("BTN_DANGER", pal=p, padding="5px 12px"))
             close.clicked.connect(self._finish)
             hb.addWidget(close)
+            # Kept so subclasses can lock the header ✕ while a tool they
+            # launched is still running (see _lock_close).
+            self._close_btn = close
             v.addWidget(bar)
 
         self._stack = QStackedWidget()
@@ -216,11 +223,31 @@ class WizardViewBase(QWidget):
     def _guard(self, fn):
         return lambda *a: None if self._closing else fn(*a)
 
+    def _lock_close(self, running: bool, tooltip: str = ""):
+        """Block/allow closing while a launched tool is still running.
+
+        Disables the header ✕ and vetoes the tab-bar ✕ via tab_close_blocked,
+        so a wizard whose post-run step would disturb a live tool (restoring
+        the modlist, deleting the tool's own files) cannot be closed mid-run.
+        Call with running=False on every exit path, including failures, or the
+        wizard becomes unclosable.
+        """
+        self._tool_running = running
+        if self._close_btn is not None:
+            self._close_btn.setEnabled(not running)
+            self._close_btn.setToolTip(tooltip if running else "")
+
+    def tab_close_blocked(self) -> bool:
+        """Veto hook for the tab bar's ✕ (see detachable_tabs)."""
+        return self._tool_running
+
     def _finish(self):
         # ✕, Done, and any auto-close all land here. Idempotent; in-flight
         # daemon workers finish harmlessly (late signals dropped by guards,
         # late emits dropped by safe_emit).
-        if self._closing:
+        # _tool_running blocks programmatic closes too - the ✕ is already
+        # disabled, but closing mid-run is what the lock exists to prevent.
+        if self._closing or self._tool_running:
             return
         self._closing = True
         self._auto_fetch_cancel.set()

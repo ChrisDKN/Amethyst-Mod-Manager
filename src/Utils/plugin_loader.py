@@ -357,6 +357,12 @@ _WIZARD_CLASS_EXES: dict[str, set[str]] = {
     "wizards.script_merger_tw3.ScriptMergerWizard": {"witcherscriptmerger.exe"},
     "wizards.fallout_4_downgrader.Fallout4DowngraderWizard": {
         "fallout-4-steam-downgrader.exe",
+        "fallout-4-creation-kit-steam-downgrader.exe",
+    },
+    "wizards.skyrim_se_downgrader.SkyrimSEDowngraderWizard": {
+        "the-elder-scrolls-5-skyrim-special-edition-steam-downgrader.exe",
+        "the-elder-scrolls-5-skyrim-special-edition-creation-kit-"
+        "steam-downgrader.exe",
     },
 }
 
