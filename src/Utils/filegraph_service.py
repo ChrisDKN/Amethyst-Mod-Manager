@@ -350,6 +350,27 @@ class ProfileSession:
             tuple[DeployedStateEntry, ...] | None
         ) = None
 
+    def _rebind_game(self, game, log_fn) -> None:
+        """Replace game-derived policy after the handler object is reloaded.
+
+        Custom-game edits and handler updates rebuild the game registry while
+        keeping the native library warm.  The profile adapter owns the routing
+        projection, so leaving it attached to the previous object would keep
+        deriving route variants from stale custom rules.
+        """
+        if self.adapter.game is game:
+            self.adapter.log = log_fn
+            return
+        replacement = GameCandidateAdapter(
+            game, self.profile_dir, log_fn=log_fn,
+            staging_dir=self.library.root / "mods")
+        with self._lock:
+            self.adapter = replacement
+            self._archive_inventory_generation = -1
+            self._archive_selection = ()
+            self._archive_records = ()
+            self._invalidate_resolution_cache()
+
     @property
     def profile_dir(self) -> Path:
         return self.adapter.profile_dir
@@ -801,6 +822,25 @@ class LibrarySession:
         self._refresh_lock = threading.Lock()
         self._variant_keys_cache: dict[str, frozenset[str]] | None = None
 
+    def rebind_game(self, game, *, log_fn=None) -> None:
+        """Bind cached profile sessions to the current game-handler object."""
+        if self.game is game:
+            if log_fn is not None:
+                self.log = log_fn
+                for profile in self._profiles.values():
+                    profile.adapter.log = log_fn
+            return
+        with self._refresh_lock:
+            if log_fn is not None:
+                self.log = log_fn
+            if self.game is game:
+                for profile in self._profiles.values():
+                    profile.adapter.log = self.log
+                return
+            self.game = game
+            for profile in self._profiles.values():
+                profile._rebind_game(game, self.log)
+
     def _quarantine_corrupt_database(self) -> Path:
         database = self.root / "filegraph.sqlite3"
         stamp = time.strftime("%Y%m%d-%H%M%S")
@@ -1040,14 +1080,12 @@ class FileGraphService:
             key = str(root)
         with _library_guard:
             existing = _library_sessions.get(key)
-            if existing is not None:
-                existing.game = game
-                if log_fn is not None:
-                    existing.log = log_fn
-                return existing
-            session = LibrarySession(game, root, log_fn=log_fn)
-            _library_sessions[key] = session
-            return session
+            if existing is None:
+                session = LibrarySession(game, root, log_fn=log_fn)
+                _library_sessions[key] = session
+                return session
+        existing.rebind_game(game, log_fn=log_fn)
+        return existing
 
 
 def open_profile(game, profile_dir: Path, *, log_fn=None) -> ProfileSession:
