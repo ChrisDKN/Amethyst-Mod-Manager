@@ -10,6 +10,11 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Instant;
 
+// Stored after the source size/mtime in deployed_entries.source_fingerprint.
+// Bump when the physical deployment projection changes so an existing profile
+// cannot take the zero-I/O path with files laid out by older semantics.
+const DEPLOYMENT_PLAN_REVISION: u64 = 2;
+
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub(crate) struct PathKey {
     pub(crate) namespace: Namespace,
@@ -1547,9 +1552,10 @@ impl GraphSnapshot {
             ))
         });
         current.iter().zip(previous).all(|(candidate, deployed)| {
-            let mut fingerprint = [0_u8; 16];
+            let mut fingerprint = [0_u8; 24];
             fingerprint[..8].copy_from_slice(&candidate.size.to_le_bytes());
-            fingerprint[8..].copy_from_slice(&candidate.mtime_ns.to_le_bytes());
+            fingerprint[8..16].copy_from_slice(&candidate.mtime_ns.to_le_bytes());
+            fingerprint[16..].copy_from_slice(&DEPLOYMENT_PLAN_REVISION.to_le_bytes());
             deployed.target == candidate.target.as_ref()
                 && deployed.destination_key.as_slice() == candidate.destination_key.as_ref()
                 && deployed.destination_display == self.casing.apply(candidate)
@@ -1591,6 +1597,7 @@ impl GraphSnapshot {
 
     fn deployment_entry(&self, candidate_id: i64) -> Option<DeployEntryRecord> {
         let candidate = self.deployment_candidate(candidate_id)?;
+        let destination_display = self.casing.apply(candidate);
         Some(DeployEntryRecord {
             candidate_id: candidate.id,
             mod_name: candidate.mod_name.to_string(),
@@ -1598,16 +1605,17 @@ impl GraphSnapshot {
             provider_kind: candidate.kind,
             target: candidate.target.to_string(),
             destination_key: candidate.destination_key.to_vec(),
-            destination_display: self.casing.apply(candidate),
+            destination_display: destination_display.clone(),
             source_rel: candidate.source_rel.to_vec(),
             source_display: candidate.source_display.to_string(),
             source_fingerprint: [
                 candidate.size.to_le_bytes().as_slice(),
                 candidate.mtime_ns.to_le_bytes().as_slice(),
+                DEPLOYMENT_PLAN_REVISION.to_le_bytes().as_slice(),
             ]
             .concat(),
             legacy_root: candidate.legacy_root,
-            legacy_rel: candidate.legacy_rel.to_string(),
+            legacy_rel: self.casing.legacy(candidate, &destination_display),
             flags: candidate.flags,
         })
     }
@@ -4350,6 +4358,94 @@ mod tests {
         );
         assert!(update.delta.changed_winner_ids.contains(&2));
         assert!(update.delta.deployment_dirty);
+    }
+
+    #[test]
+    fn deployment_plan_merges_case_variant_folders() {
+        let mut profile = intent();
+        profile.normalize_folder_case = true;
+        let snapshot = build_full(
+            Arc::new(vec![
+                displayed_candidate(
+                    2,
+                    "B",
+                    "data/menus/prefabs/recipe_menu.xml",
+                    "Data/menus/prefabs/recipe_menu.xml",
+                ),
+                displayed_candidate(
+                    3,
+                    "C",
+                    "data/menus/prefabs/stew_menu.xml",
+                    "Data/Menus/Prefabs/stew_menu.xml",
+                ),
+            ]),
+            Arc::new(Vec::new()),
+            &profile,
+            1,
+            1,
+        );
+
+        let destinations: Vec<_> = snapshot
+            .deployment_plan()
+            .entries
+            .into_iter()
+            .map(|entry| entry.destination_display)
+            .collect();
+        assert_eq!(
+            destinations,
+            vec![
+                "Data/Menus/Prefabs/recipe_menu.xml",
+                "Data/Menus/Prefabs/stew_menu.xml",
+            ]
+        );
+        let legacy: Vec<_> = snapshot
+            .deployment_plan()
+            .entries
+            .into_iter()
+            .map(|entry| entry.legacy_rel)
+            .collect();
+        assert_eq!(
+            legacy,
+            vec![
+                "Menus/Prefabs/recipe_menu.xml",
+                "Menus/Prefabs/stew_menu.xml",
+            ]
+        );
+    }
+
+    #[test]
+    fn old_deployment_fingerprint_forces_projection_migration() {
+        let snapshot = build_full(
+            Arc::new(vec![displayed_candidate(
+                2,
+                "B",
+                "data/menus/prefabs/recipe_menu.xml",
+                "Data/menus/prefabs/recipe_menu.xml",
+            )]),
+            Arc::new(Vec::new()),
+            &intent(),
+            1,
+            1,
+        );
+        let entry = snapshot.deployment_plan().entries.remove(0);
+        let mut deployed = DeployedStateRecord {
+            target: entry.target,
+            destination_key: entry.destination_key,
+            destination_display: entry.destination_display,
+            candidate_id: entry.candidate_id,
+            mod_name: entry.mod_name,
+            mod_key: entry.mod_key,
+            provider_kind: entry.provider_kind,
+            source_rel: entry.source_rel,
+            source_display: entry.source_display,
+            source_fingerprint: entry.source_fingerprint,
+            link_mode: "copy".to_owned(),
+            deployed_generation: 1,
+        };
+        assert!(snapshot.deployment_matches(std::slice::from_ref(&deployed), "copy"));
+
+        deployed.source_fingerprint.truncate(16);
+        assert!(!snapshot.deployment_matches(&[deployed], "copy"));
     }
 
     #[test]
