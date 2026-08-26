@@ -30,6 +30,7 @@ from Utils.deploy import (
     expand_separator_deploy_paths,
     expand_separator_link_modes,
     expand_separator_raw_deploy,
+    _resolve_root_path,
     restore_custom_rules,
     restore_filemap_from_root,
 )
@@ -336,7 +337,12 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
 
     @staticmethod
     def _archive_modlist_dest(game_root: Path) -> Path:
-        return game_root / "archive" / "pc" / "mod" / "modlist.txt"
+        # The ordinary and custom-rule deploy paths merge case-insensitively
+        # into existing game directories.  Keep the generated load-order file
+        # on that same physical path too; otherwise an existing ``Mod`` folder
+        # receives the archives while this writer creates a sibling ``mod``.
+        return _resolve_root_path(
+            game_root, Path("archive/pc/mod/modlist.txt"))
 
     def _ordered_mod_archives(self, filemap: Path, profile_dir: Path,
                               exclude_mods: "set[str] | None" = None) -> list[str]:

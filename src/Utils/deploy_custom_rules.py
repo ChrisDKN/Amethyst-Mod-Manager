@@ -25,9 +25,11 @@ from Utils.deploy_shared import (
     _deploy_workers,
     _do_link,
     _iter_map_batched,
+    _log_case_collisions,
     _mkdir_leaves,
     _move_crash_safe,
     _prune_empty_dirs,
+    _resolve_root_path,
     _resolve_source,
     _restore_backup_dir,
 )
@@ -582,6 +584,9 @@ def deploy_custom_rules(
       keep matched folder + contents under dest
     - flatten=True + ext/filename match - bare filename under dest
 
+    Existing destination directories are matched case-insensitively at deploy
+    time, consistent with the normal game-root and Data deployment paths.
+
     Returns the set of lowercased rel_paths that were handled so the caller
     can exclude them from the normal deploy step.
 
@@ -651,6 +656,23 @@ def deploy_custom_rules(
         ``mirror_dests``, each resolved under the rule's base root."""
         base = _rule_base(rule)
         return [base / d if d else base for d in (rule.dest, *rule.mirror_dests)]
+
+    # Custom-rule paths bypass the normal deploy handler, so resolve their
+    # final destinations here too.  This is deliberately a deployment-time
+    # filesystem decision: a canonical route such as ``archive/pc/mod`` must
+    # merge into an existing ``archive/pc/Mod`` rather than creating a sibling
+    # directory on a case-sensitive filesystem.
+    _destination_case_cache: dict = {}
+
+    def _resolve_destination(rule: CustomRule, destination: Path) -> Path:
+        base = _rule_base(rule)
+        if base is None:
+            return destination
+        try:
+            relative = destination.relative_to(base)
+        except ValueError:
+            return destination
+        return _resolve_root_path(base, relative, _destination_case_cache)
 
     # Drop rules that want the prefix but have none - otherwise they'd silently
     # land at game_root, which is worse than skipping them.
@@ -822,7 +844,9 @@ def deploy_custom_rules(
         tail = canonicalize_declared_folders(
             tail.replace("\\", "/"), tuple(rule.folders))
         for dest_base in _rule_dest_bases(rule):
-            tasks.append((src, dest_base / tail if tail else dest_base, mod_name))
+            destination = dest_base / tail if tail else dest_base
+            tasks.append((
+                src, _resolve_destination(rule, destination), mod_name))
         handled_lower.add(rel_lower)
 
     def _drag_container(container_lower: str, container_name: str,
@@ -850,8 +874,9 @@ def deploy_custom_rules(
                 continue
             src = Path(src_str)
             for dest_base in dest_bases:
-                tasks.append((src, dest_base / container_name / rel_in_container,
-                              sib_mod_name))
+                destination = dest_base / container_name / rel_in_container
+                tasks.append((
+                    src, _resolve_destination(rule, destination), sib_mod_name))
             handled_lower.add(sib_lower)
 
     # Process rules in declaration order. For each rule:
@@ -940,11 +965,15 @@ def deploy_custom_rules(
             else:
                 tail = sib_rel_str
             for dest_base in _rule_dest_bases(rule):
-                tasks.append((src, dest_base / tail if tail else dest_base, sib_mod_name))
+                destination = dest_base / tail if tail else dest_base
+                tasks.append((
+                    src, _resolve_destination(rule, destination), sib_mod_name))
             handled_lower.add(sib_lower)
 
     if not tasks:
         return handled_lower
+
+    _log_case_collisions(_destination_case_cache, _log)
 
     # Backup directories for vanilla files that will be overwritten.
     # Game-root-routed files mirror under ``backup_dir``; prefix-routed files

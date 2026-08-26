@@ -13,7 +13,7 @@ use std::time::Instant;
 // Stored after the source size/mtime in deployed_entries.source_fingerprint.
 // Bump when the physical deployment projection changes so an existing profile
 // cannot take the zero-I/O path with files laid out by older semantics.
-const DEPLOYMENT_PLAN_REVISION: u64 = 2;
+const DEPLOYMENT_PLAN_REVISION: u64 = 3;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub(crate) struct PathKey {
