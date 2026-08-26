@@ -4,7 +4,7 @@ Mirrors the Tk menu (gui/plugin_panel.py `_show_plugin_context_menu`, 4760-4935)
 and follows the same show-vs-hide convention as the modlist menu
 (gui_qt/modlist_menu.py): each item is SHOWN only when its Tk condition holds and
 HIDDEN otherwise. The only greyed items are the ones still awaiting a Qt backend
-(BOS-SP / overlapping-plugins / LOOT links), and even those appear only when
+(BOS-SP / overlapping-plugins / LOOT location links), and even those appear only when
 their Tk show-condition passes.
 
 Vanilla (base-game) plugins are always-on and can't be toggled - right-clicking a
@@ -14,14 +14,23 @@ returns early if none remain).
 Core items wired: Enable / Disable (single + multi), the ESL flag toggle
 (single + multi), and the userlist items (Add to userlist / Add to group /
 Remove from userlist / Show cycle / Show userlist rules - via view callbacks
-set by app._reload_plugins). The rest are gated greyed stubs.
+set by app._reload_plugins), plus links embedded in LOOT messages. The rest are
+gated greyed stubs.
 """
 
 from __future__ import annotations
 
+import re
+from urllib.parse import urlsplit
+
 from PySide6.QtWidgets import QMenu
 from PySide6.QtGui import QAction
 from PySide6.QtCore import QCoreApplication, QT_TRANSLATE_NOOP
+
+
+_MARKDOWN_LINK_RE = re.compile(
+    r"\[([^\]]+)\]\(\s*(https?://[^\s)]+)\s*\)", re.IGNORECASE)
+_WEB_URL_RE = re.compile(r"https?://[^\s<>\"']+", re.IGNORECASE)
 
 
 def _mt(label: str) -> str:
@@ -186,6 +195,23 @@ def _build_plugin_menu(view, model, row, toggleable, multi,
         else:
             stub(_mt("Show overlapping plugins…"))
 
+    # ---- Links embedded in LOOT messages ---------------------------------
+    # LOOT message text is Markdown. Only offer an action when the selected
+    # plugin actually has an http(s) link; most LOOT messages are plain text.
+    if not multi:
+        links = _loot_message_links(model.row(row).loot_info)
+        if links:
+            divider()
+            if len(links) == 1:
+                act(_mt("Open LOOT message link"),
+                    lambda u=links[0][1]: _open_url(u))
+            else:
+                submenu(
+                    _mt("Open LOOT message link…"),
+                    [(label, lambda u=url: _open_url(u))
+                     for label, url in links],
+                )
+
     # ---- LOOT masterlist location links (stub - _loot_info not in Qt) -----
     if not multi:
         for text in _loot_locations(view, model.row(row).name):
@@ -318,6 +344,77 @@ def _in_cycle(view, name: str) -> bool:
     return name.lower() in (getattr(view, "userlist_cycles", None) or set())
 
 
+def _trim_url(url: str) -> str:
+    """Remove prose/Markdown punctuation captured after a bare web URL."""
+    url = url.rstrip(".,;:!?")
+    pairs = ((")", "("), ("]", "["), ("}", "{"))
+    changed = True
+    while changed and url:
+        changed = False
+        for close, opening in pairs:
+            if url.endswith(close) and url.count(close) > url.count(opening):
+                url = url[:-1]
+                changed = True
+    return url
+
+
+def _valid_web_url(url: str) -> bool:
+    try:
+        parsed = urlsplit(url)
+    except ValueError:
+        return False
+    return parsed.scheme.lower() in {"http", "https"} and bool(parsed.netloc)
+
+
+def _loot_message_links(info: dict | None) -> list[tuple[str, str]]:
+    """Return unique ``(label, URL)`` pairs from LOOT Markdown messages."""
+    if not isinstance(info, dict):
+        return []
+
+    links: list[tuple[str, str]] = []
+    seen: set[str] = set()
+
+    def add(label: str, raw_url: str) -> None:
+        url = _trim_url(raw_url.strip())
+        if not _valid_web_url(url) or url in seen:
+            return
+        seen.add(url)
+        clean_label = re.sub(r"[*_`]+", "", label).strip()
+        if not clean_label:
+            clean_label = urlsplit(url).netloc
+        if len(clean_label) > 80:
+            clean_label = clean_label[:77].rstrip() + "…"
+        links.append((clean_label, url))
+
+    for message in info.get("messages") or []:
+        if not isinstance(message, dict):
+            continue
+        text = message.get("text", "")
+        if not isinstance(text, str):
+            continue
+        markdown_spans = []
+        for match in _MARKDOWN_LINK_RE.finditer(text):
+            add(match.group(1), match.group(2))
+            markdown_spans.append(match.span())
+        # Also accept plain and angle-bracketed URLs. Markdown URLs found above
+        # are skipped here so surrounding emphasis markers cannot become part
+        # of a second, malformed URL (for example ``[link](url)**``).
+        for match in _WEB_URL_RE.finditer(text):
+            if any(start <= match.start() < end
+                   for start, end in markdown_spans):
+                continue
+            add("", match.group(0))
+    return links
+
+
+def _open_url(url: str) -> None:
+    """Open a validated LOOT link using the host/Flatpak-aware launcher."""
+    if not _valid_web_url(url):
+        return
+    from Utils.xdg import open_url
+    open_url(url)
+
+
 def _loot_locations(view, name: str) -> list:
     return []
 
@@ -340,6 +437,8 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("PluginMenu", "Mark as Light (ESL) - none eligible "),
     QT_TRANSLATE_NOOP("PluginMenu", "Mark selected as Light (ESL) ({0})"),
     QT_TRANSLATE_NOOP("PluginMenu", "Not ESL-safe (per LOOT - compact in xEdit first)"),
+    QT_TRANSLATE_NOOP("PluginMenu", "Open LOOT message link"),
+    QT_TRANSLATE_NOOP("PluginMenu", "Open LOOT message link…"),
     QT_TRANSLATE_NOOP("PluginMenu", "Remove ESL flag (un-light)"),
     QT_TRANSLATE_NOOP("PluginMenu", "Remove ESL flag from selected ({0})"),
     QT_TRANSLATE_NOOP("PluginMenu", "Remove from userlist"),
