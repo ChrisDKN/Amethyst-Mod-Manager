@@ -485,15 +485,22 @@ class GameCandidateAdapter:
                         for to_prefix, destination in destinations
                     ]
 
-        # BG3's primary .pak deployment is outside the game root and flattened.
+        # BG3's primary .pak deployment is the Larian Mods folder and flattened.
+        # That folder can physically sit below the configured game root when a
+        # user keeps their Proton prefix there, so retain _default_domain's
+        # relative prefix instead of treating every in-root target as <root>.
+        # A custom rule still wins: Data/foo.pak is a game Data pak, while an
+        # otherwise-unclaimed foo.pak belongs in the Larian Mods folder.
         game_id = str(getattr(self.game, "game_id", "")).lower()
         if game_id == "baldurs_gate_3":
-            custom_target, _unused = self._default_domain()
+            mods_target, mods_prefix = self._default_domain()
             for path in normal:
-                if path.lower().endswith(".pak"):
+                key = path.lower()
+                if key.endswith(".pak") and key not in out:
                     basename = path.rsplit("/", 1)[-1]
-                    out[path.lower()] = [_Route(
-                        custom_target, _wire_path(basename), basename, basename,
+                    destination = self._join(mods_prefix, basename)
+                    out[key] = [_Route(
+                        mods_target, _wire_path(destination), destination, basename,
                         deploy_remap=False)]
 
         for path in normal:

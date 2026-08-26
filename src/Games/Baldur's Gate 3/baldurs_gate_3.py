@@ -94,6 +94,13 @@ class BaldursGate3(BaseGame):
     # paths.json extra via _load/_save_paths_extra).
     profile_overridable_paths_extras = ("patch_version",)
 
+    # Unlike an ordinary subfolder-deploy game, BG3 has two meaningful output
+    # roots: loose/root-routed files go into the install while normal packages
+    # go into Larian's per-user Mods folder. Show both in the Data tab.
+    data_tab_include_game_root = True
+    data_tab_game_root_label = "<root>"
+    data_tab_data_root_label = "Larian Mods"
+
     def __init__(self):
         self._game_path: Path | None = None
         self._prefix_path: Path | None = None
@@ -113,6 +120,10 @@ class BaldursGate3(BaseGame):
     @property
     def game_id(self) -> str:
         return "baldurs_gate_3"
+
+    @property
+    def data_tab_title(self) -> str:
+        return "Mod destinations"
 
     @property
     def exe_name(self) -> str:

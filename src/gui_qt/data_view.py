@@ -56,6 +56,9 @@ class DataView(QWidget):
         self._deploys_to_subfolder = False
         self._data_prefix = ""
         self._expected_custom_target = None
+        self._include_game_root = False
+        self._game_root_label = "<root>"
+        self._data_root_label = "Data"
         self._build()
         self._data_ready.connect(self._on_data_ready)
         self.scan_status_changed.connect(self._on_scan_status)
@@ -83,6 +86,14 @@ class DataView(QWidget):
     def _refresh_projection_context(self) -> None:
         """Cache game routing facts once; they are invariant for every row."""
         self._deploys_to_subfolder = dtlogic.deploys_to_subfolder(self.game)
+        self._include_game_root = bool(
+            getattr(self.game, "data_tab_include_game_root", False))
+        self._game_root_label = str(
+            getattr(self.game, "data_tab_game_root_label", "<root>")
+            or "<root>").replace("\\", "/").strip("/")
+        self._data_root_label = str(
+            getattr(self.game, "data_tab_data_root_label", "Data")
+            or "Data").replace("\\", "/").strip("/")
         try:
             from Utils.game_helpers import game_data_subpath
             self._data_prefix = game_data_subpath(self.game).replace(
@@ -118,13 +129,26 @@ class DataView(QWidget):
                 prefix = (
                     self._data_prefix.lower() + "/"
                     if self._data_prefix else "")
-                if prefix and not path.lower().startswith(prefix):
-                    return None
                 if prefix:
-                    path = path[len(prefix):]
+                    if path.lower().startswith(prefix):
+                        path = path[len(prefix):]
+                        if self._include_game_root:
+                            path = f"{self._data_root_label}/{path}"
+                    elif self._include_game_root:
+                        path = f"{self._game_root_label}/{path}"
+                    else:
+                        return None
+                elif self._include_game_root:
+                    # The normal data target is outside the game root. Any
+                    # candidate in the game domain therefore belongs to root.
+                    path = f"{self._game_root_label}/{path}"
+            elif self._include_game_root:
+                path = f"{self._game_root_label}/{path}"
         elif (self._expected_custom_target is None
               or target != self._expected_custom_target):
             return None
+        elif self._include_game_root:
+            path = f"{self._data_root_label}/{path}"
         return (candidate_id, path, mod_name)
 
     @staticmethod

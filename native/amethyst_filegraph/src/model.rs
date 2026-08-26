@@ -5,7 +5,7 @@ use std::sync::Arc;
 pub const API_VERSION: u32 = 10;
 pub const SCHEMA_VERSION: u32 = 9;
 pub const ENGINE_REVISION: u64 = 1;
-pub const RULES_REVISION: u64 = 6;
+pub const RULES_REVISION: u64 = 7;
 
 pub fn perftrace_enabled() -> bool {
     std::env::var_os("MM_PERFTRACE").is_some_and(|value| {
