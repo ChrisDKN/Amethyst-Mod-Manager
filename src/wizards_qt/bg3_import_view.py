@@ -1,8 +1,9 @@
-"""Qt view: Import BG3 Mod Manager load order (.json) → this profile's order.
+"""Qt view: Import a BG3 load order (.json / modsettings.lsx) → this profile.
 
-Pick a BG3MM ``modlist.json`` → preview the computed reorder → apply.  All the
-matching/planning lives in ``Utils.bg3_import``; the view just handles the file
-pick, the preview text, and calling ``ctx.refresh_modlist`` after apply.
+Pick a BG3MM ``modlist.json`` or the game's ``modsettings.lsx`` → preview the
+computed reorder → apply.  All the matching/planning lives in
+``Utils.bg3_import``; the view just handles the file pick, the preview text, and
+calling ``ctx.refresh_modlist`` after apply.
 
 Port of the Tk ``bg3_import_modlist_json`` plugin.
 """
@@ -28,7 +29,8 @@ if TYPE_CHECKING:
 _PG_PICK, _PG_PREVIEW, _PG_DONE = range(3)
 
 _JSON_FILTERS = [
-    (QCoreApplication.translate("BG3ImportView", "Load Order (*.json)"), ["*.json"]),
+    (QCoreApplication.translate("BG3ImportView", "Load Order (*.json *.lsx)"),
+     ["*.json", "*.lsx"]),
     (QCoreApplication.translate("BG3ImportView", "All files"), ["*"]),
 ]
 
@@ -42,7 +44,7 @@ class BG3ImportView(WizardViewBase):
     def __init__(self, game: "BaseGame", log_fn=None, on_close=None, ctx=None,
                  **_extra):
         super().__init__(game, log_fn, on_close, ctx,
-                         title=self.tr("Import BG3MM Load Order - {0}").format(game.name))
+                         title=self.tr("Import BG3 Load Order - {0}").format(game.name))
         self._json_path: Path | None = None
         self._plan = None
 
@@ -57,11 +59,12 @@ class BG3ImportView(WizardViewBase):
 
     # ---- page 1: pick -----------------------------------------------------------
     def _build_pick_page(self) -> QWidget:
-        page, lay = self._step_page(self.tr("Step 1: Select a BG3 Mod Manager order file"))
+        page, lay = self._step_page(self.tr("Step 1: Select a load order file"))
         self._make_note(lay,
                         self.tr("Choose a modlist.json (or an exported saved-order .json) "
-                        "from BG3 Mod Manager.\nMods are matched to your installed "
-                        "mods by UUID."))
+                        "from BG3 Mod Manager, or a modsettings.lsx written by "
+                        "the game.\nMods are matched to your installed mods by "
+                        "UUID."))
         self._pick_status = self._make_status(lay)
         self._set_status(self._pick_status, self.tr("No file selected."))
         lay.addStretch(1)
@@ -82,7 +85,7 @@ class BG3ImportView(WizardViewBase):
 
     def _browse_json(self):
         from Utils.portal_filechooser import pick_file
-        pick_file(self.tr("Select a BG3MM order .json"),
+        pick_file(self.tr("Select a load order file (.json or .lsx)"),
                   lambda p: safe_emit(self._picked_sig, p), _JSON_FILTERS)
 
     def _on_picked(self, path):
@@ -168,7 +171,7 @@ class BG3ImportView(WizardViewBase):
     def _build_done_page(self) -> QWidget:
         page, lay = self._step_page(self.tr("Load order applied"))
         self._make_note(lay,
-                        self.tr("The modlist has been reordered to match the BG3MM order.\n"
+                        self.tr("The modlist has been reordered to match the imported order.\n"
                         "Deploy to push the new load order to the game."))
         lay.addStretch(1)
         done = self._green_btn(self.tr("Done"))

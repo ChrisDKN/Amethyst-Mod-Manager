@@ -1,9 +1,9 @@
 """Neutral (GUI-free) logic for the BG3 Mod Manager load-order import wizard.
 
 Extracted from the Tk ``bg3_import_modlist_json`` plugin.  Converts a BG3MM
-``modlist.json`` (or exported saved-order .json) into this profile's
-``modlist.txt`` order by matching each order entry's pak UUID against the UUIDs
-scanned out of the staged mods.
+``modlist.json`` (or exported saved-order .json), or the game's own
+``modsettings.lsx``, into this profile's ``modlist.txt`` order by matching each
+order entry's pak UUID against the UUIDs scanned out of the staged mods.
 
 BG3MM/modsettings.lsx is lowest-priority-first; our modlist.txt is
 highest-priority-first, so the matched run is reversed when written.
@@ -16,11 +16,12 @@ unit-tested headlessly.
 from __future__ import annotations
 
 import json
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
 
 from Utils.modlist import ModEntry, read_modlist, write_modlist
-from Utils.modsettings import scan_mod_paks
+from Utils.modsettings import _SYSTEM_UUIDS, _repair_meta_xml, scan_mod_paks
 
 
 # ---------------------------------------------------------------------------
@@ -59,6 +60,87 @@ def parse_order_json(path: Path) -> list[tuple[str, str]]:
         if uuid:
             result.append((uuid, name))
     return result
+
+
+# ---------------------------------------------------------------------------
+# Parsing modsettings.lsx
+# ---------------------------------------------------------------------------
+
+def _lsx_attr(node: ET.Element, attr_id: str) -> str:
+    """Return the value of <attribute id="attr_id" value="X"/> under *node*."""
+    for attr in node.findall("attribute"):
+        if attr.get("id") == attr_id:
+            return (attr.get("value") or "").strip()
+    return ""
+
+
+def parse_modsettings_lsx(path: Path) -> list[tuple[str, str]]:
+    """Return an ordered list of (uuid, name) from a ``modsettings.lsx``.
+
+    Reads the ``ModuleShortDesc`` entries under the ``Mods`` node, which is the
+    game's own load order - lowest-priority-first, same convention as a BG3MM
+    order .json, so the result feeds ``plan_reorder`` unchanged.
+
+    Base-game modules (GustavX/Shared/DiceSet/... and any Adventure campaign
+    entry sitting in the first slot) are dropped: they are engine entries, not
+    installed mods, and would otherwise show up as "in file but not installed".
+    Patch 6 files also carry a ``ModOrder`` node of bare UUID references; the
+    ``Mods`` node is already in load order, so ModOrder is ignored.
+    """
+    text = Path(path).read_text(encoding="utf-8-sig", errors="replace")
+    try:
+        root = ET.fromstring(text)
+    except ET.ParseError:
+        root = ET.fromstring(_repair_meta_xml(text))
+
+    # Locate the Mods node; fall back to scanning every ModuleShortDesc when a
+    # hand-edited file nests things differently.
+    mods_node = None
+    for node in root.iter("node"):
+        if node.get("id") == "Mods":
+            mods_node = node
+            break
+    scope = mods_node if mods_node is not None else root
+
+    result: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for node in scope.iter("node"):
+        if node.get("id") != "ModuleShortDesc":
+            continue
+        uuid = _lsx_attr(node, "UUID")
+        if not uuid or uuid in _SYSTEM_UUIDS:
+            continue
+        key = uuid.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append((uuid, _lsx_attr(node, "Name")))
+
+    # A custom campaign (Adventure) mod also sits in the first slot, replacing
+    # GustavX. It is left in: unlike the stock campaign it IS an installed mod,
+    # so it should be matched and positioned like any other.
+    return result
+
+
+def parse_order_file(path: Path) -> list[tuple[str, str]]:
+    """Parse a BG3MM order .json or a modsettings.lsx - dispatch on content.
+
+    Sniffing beats the extension: users rename these files, and a mis-typed
+    suffix should still import rather than throw a parser error.
+    """
+    p = Path(path)
+    head = p.read_text(encoding="utf-8-sig", errors="replace")[:512].lstrip()
+    if head.startswith("<"):
+        return parse_modsettings_lsx(p)
+    if head.startswith(("{", "[")):
+        return parse_order_json(p)
+    # No usable marker - go by extension, then try the other parser.
+    if p.suffix.lower() == ".lsx":
+        return parse_modsettings_lsx(p)
+    try:
+        return parse_order_json(p)
+    except Exception:
+        return parse_modsettings_lsx(p)
 
 
 # ---------------------------------------------------------------------------
@@ -122,19 +204,19 @@ def plan_reorder(
     uuid_to_mod: dict[str, str],
     mod_to_uuids: dict[str, list[str]],
 ) -> tuple[list[ModEntry], list[str], list[tuple[str, str]]]:
-    """Compute (new_entries, extra_mod_names, missing_json_entries).
+    """Compute (new_entries, extra_mod_names, missing_order_entries).
 
-    Each installed mod is positioned by where its UUID first appears in the
-    JSON's Order array; a folder with several paks sorts to the earliest
-    position among them; a folder with no pak UUID falls back to a
-    case-insensitive Name match.  Installed mods absent from the JSON are placed
-    above the imported run, UNTOUCHED (enabled state is left exactly as it was).
-    A BG3MM/Vortex order export only lists pak-module UUIDs it tracks - script
-    extender/native-loader/config installs never have a pak at all, and some
-    override-only paks are excluded too, so "absent from the JSON" carries no
-    information about the user's intent and must not be treated as "disable
-    this." The matched run is reversed (JSON is lowest-priority-first,
-    modlist.txt is highest-priority-first).
+    Each installed mod is positioned by where its UUID first appears in
+    *order_uuids*; a folder with several paks sorts to the earliest position
+    among them; a folder with no pak UUID falls back to a case-insensitive Name
+    match.  Installed mods absent from the order file are placed above the
+    imported run, UNTOUCHED (enabled state is left exactly as it was).
+    A BG3MM/Vortex export or a modsettings.lsx only lists pak-module UUIDs -
+    script extender/native-loader/config installs never have a pak at all, and
+    override-only paks are excluded too, so "absent from the order file" carries
+    no information about the user's intent and must not be treated as "disable
+    this." The matched run is reversed (both source formats are
+    lowest-priority-first, modlist.txt is highest-priority-first).
     """
     separators = [e for e in existing if e.is_separator]
     mods = {e.name: e for e in existing if not e.is_separator}
@@ -196,19 +278,22 @@ def plan_reorder(
 @dataclass
 class ImportPlan:
     new_entries: list[ModEntry]
-    extra: list[str]                    # installed but not in JSON (disabled)
-    missing: list[tuple[str, str]]      # in JSON but not installed
-    order_count: int                    # total entries in the JSON
+    extra: list[str]                    # installed but not in the order file
+    missing: list[tuple[str, str]]      # in the order file but not installed
+    order_count: int                    # total entries in the order file
     modlist_path: Path
 
 
 def compute_import_plan(game, json_path: Path,
                         profile_name: str = "") -> ImportPlan:
-    """Read the JSON + scan staging + plan the reorder.  Raises on error
-    (no order entries / undeterminable profile)."""
-    order_uuids = parse_order_json(json_path)
+    """Read the order file + scan staging + plan the reorder.  Raises on error
+    (no order entries / undeterminable profile).
+
+    *json_path* may be a BG3MM order .json or a modsettings.lsx.
+    """
+    order_uuids = parse_order_file(json_path)
     if not order_uuids:
-        raise RuntimeError("No mod entries found in that JSON.")
+        raise RuntimeError("No mod entries found in that file.")
 
     modlist_path = resolve_profile_modlist(game, profile_name)
     if modlist_path is None:
@@ -238,13 +323,13 @@ def format_preview(plan: ImportPlan) -> tuple[str, str]:
             lines.append(f"   --- {e.display_name} ---")
         elif e.name in extra_set:
             state = "enabled" if e.enabled else "disabled"
-            lines.append(f"   • {e.name}   [not in JSON – left {state}]")
+            lines.append(f"   • {e.name}   [not in order file – left {state}]")
         else:
             idx += 1
             lines.append(f"{idx:>3}. {e.name}")
     if plan.missing:
         lines.append("")
-        lines.append("=== IN JSON BUT NOT INSTALLED (skipped) ===")
+        lines.append("=== IN ORDER FILE BUT NOT INSTALLED (skipped) ===")
         for uuid, name in plan.missing:
             lines.append(f"   {name or '(unnamed)'}   [{uuid}]")
     return summary, "\n".join(lines)

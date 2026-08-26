@@ -139,9 +139,10 @@ BUILTIN_WIZARD_TOOLS: list[dict] = [
     },
     {
         "id": "bg3_import_modlist_json",
-        "label": "Import BG3MM Load Order (.json)",
-        "description": ("Convert a BG3 Mod Manager modlist.json into this "
-                        "profile's load order and apply it."),
+        "label": "Import Load Order (.json / modsettings.lsx)",
+        "description": ("Convert a BG3 Mod Manager modlist.json or a "
+                        "modsettings.lsx into this profile's load order and "
+                        "apply it."),
         "game_ids": ["baldurs_gate_3"],
         "all_games": False,
         "dialog_class": "wizards.bg3_import.BG3ImportWizard",
