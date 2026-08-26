@@ -3411,6 +3411,11 @@ pub fn reconcile_graph(
             (old != new).then(|| (name.clone(), new.cloned()))
         })
         .collect();
+    let changed_capability_flags = if raw_projection_changed {
+        diff_capability_flags(previous, &snapshot)
+    } else {
+        BTreeMap::new()
+    };
     let changed_summaries = changed_summary_names
         .iter()
         .map(|name| {
@@ -3444,6 +3449,7 @@ pub fn reconcile_graph(
         touched_winner_ids,
         changed_summaries,
         changed_plugin_owners,
+        changed_capability_flags,
         changed_edges: changed_edge_records,
     };
     if trace {
@@ -3526,6 +3532,24 @@ fn update_from_full(previous: &GraphSnapshot, snapshot: GraphSnapshot) -> GraphU
         changed_edge_keys,
         changed_summary_names,
     }
+}
+
+fn diff_capability_flags(
+    previous: &GraphSnapshot,
+    current: &GraphSnapshot,
+) -> BTreeMap<String, Option<u32>> {
+    previous
+        .capability_flags
+        .keys()
+        .chain(current.capability_flags.keys())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .filter_map(|name| {
+            let old = previous.capability_flags.get(name);
+            let new = current.capability_flags.get(name);
+            (old != new).then(|| (name.clone(), new.copied()))
+        })
+        .collect()
 }
 
 pub fn diff_snapshots(previous: &GraphSnapshot, current: &GraphSnapshot) -> ResolutionDelta {
@@ -3617,6 +3641,7 @@ pub fn diff_snapshots(previous: &GraphSnapshot, current: &GraphSnapshot) -> Reso
         touched_winner_ids,
         changed_summaries,
         changed_plugin_owners,
+        changed_capability_flags: diff_capability_flags(previous, current),
         changed_edges,
     }
 }

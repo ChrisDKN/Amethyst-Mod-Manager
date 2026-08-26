@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
-pub const API_VERSION: u32 = 9;
+pub const API_VERSION: u32 = 10;
 pub const SCHEMA_VERSION: u32 = 9;
 pub const ENGINE_REVISION: u64 = 1;
 pub const RULES_REVISION: u64 = 6;
@@ -306,6 +306,11 @@ pub struct ResolutionDelta {
     pub touched_winner_ids: Vec<i64>,
     pub changed_summaries: BTreeMap<String, ConflictSummary>,
     pub changed_plugin_owners: BTreeMap<String, Option<String>>,
+    /// Current aggregate raw-file flags for mods whose capabilities changed.
+    /// A missing mod is represented by `None` so incremental consumers can
+    /// remove stale presentation and fast-path capability state.
+    #[serde(default)]
+    pub changed_capability_flags: BTreeMap<String, Option<u32>>,
     pub changed_edges: Vec<ConflictEdgeRecord>,
     pub deployment_dirty: bool,
 }

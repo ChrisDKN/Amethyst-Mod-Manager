@@ -433,11 +433,19 @@ class ModListModel(QAbstractTableModel):
         bsa_conflicts: dict[str, int],
         uuid_conflicts: dict[str, int],
         changed_mods,
+        prertx_mods=None,
+        root_rule_mods=None,
     ) -> None:
         """Publish one native delta and repaint only affected mod rows."""
         self._conflicts = conflicts or {}
         self._bsa_conflicts = bsa_conflicts or {}
         self._uuid_conflicts = uuid_conflicts or {}
+        capabilities_changed = (
+            prertx_mods is not None or root_rule_mods is not None)
+        if prertx_mods is not None:
+            self._prertx_mods = set(prertx_mods)
+        if root_rule_mods is not None:
+            self._root_rule_mods = set(root_rule_mods)
         names = set(changed_mods or ())
         rows = sorted(
             index for index, entry in enumerate(self._entries)
@@ -451,14 +459,19 @@ class ModListModel(QAbstractTableModel):
             if row is not None and row == previous + 1:
                 previous = row
                 continue
+            roles = [ConflictRole, BsaConflictRole, UuidConflictRole]
+            if capabilities_changed:
+                roles.append(FlagsRole)
+            roles.append(Qt.DisplayRole)
             self.dataChanged.emit(
                 self.index(start, COL_NAME),
                 self.index(previous, COL_CONFLICTS),
-                [ConflictRole, BsaConflictRole, UuidConflictRole,
-                 Qt.DisplayRole],
+                roles,
             )
             start = previous = row
-        self._resort_if_key("conflicts")
+        sort_keys = (("conflicts", "flags") if capabilities_changed
+                     else ("conflicts",))
+        self._resort_if_key(*sort_keys)
 
     def set_bsa_conflicts(self, bsa_conflicts: dict[str, int]) -> None:
         """Update ONLY the BSA conflict codes, leaving loose conflicts + flags

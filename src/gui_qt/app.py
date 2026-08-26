@@ -17170,15 +17170,19 @@ class MainWindow(QMainWindow):
             and ui_base_matches
         )
         changed_conflict_mods = set()
+        changed_capability_mods = set()
         if incremental_delta:
             changed_conflict_mods.update(
                 resolution_delta.changed_summaries)
             for edge in resolution_delta.changed_edges:
                 changed_conflict_mods.update((edge.loser, edge.winner))
+            changed_capability_mods.update(
+                resolution_delta.changed_capability_flags)
         if timing is not None:
             detail = (
                 f"incremental={incremental_delta}, "
                 f"changed_mods={len(changed_conflict_mods)}, "
+                f"changed_capabilities={len(changed_capability_mods)}, "
                 f"changed_edges={len(resolution_delta.changed_edges) if resolution_delta else 0}"
             )
             timing.mark(f"Qt conflict update classified ({detail})")
@@ -17197,7 +17201,14 @@ class MainWindow(QMainWindow):
                     self._modlist_model.apply_conflict_delta(
                         data.loose_codes, bsa_conflicts=data.bsa_codes,
                         uuid_conflicts=getattr(data, "uuid_codes", None),
-                        changed_mods=changed_conflict_mods)
+                        changed_mods=(changed_conflict_mods
+                                      | changed_capability_mods),
+                        prertx_mods=(
+                            getattr(data, "prertx_mods", set())
+                            if changed_capability_mods else None),
+                        root_rule_mods=(
+                            getattr(data, "root_rule_mods", set())
+                            if changed_capability_mods else None))
                 else:
                     self._modlist_model.set_filemap_results(
                         data.loose_codes, data.bsa_codes,

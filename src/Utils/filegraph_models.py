@@ -158,6 +158,7 @@ class ResolutionDelta:
     touched_winner_ids: tuple[int, ...] = ()
     changed_summaries: dict[str, ConflictSummary] = field(default_factory=dict)
     changed_plugin_owners: dict[str, str | None] = field(default_factory=dict)
+    changed_capability_flags: dict[str, int | None] = field(default_factory=dict)
     changed_edges: tuple[ConflictEdge, ...] = ()
     deployment_dirty: bool = False
 
@@ -184,6 +185,11 @@ class ResolutionDelta:
                 for name, summary in value.get("changed_summaries", {}).items()
             },
             changed_plugin_owners=dict(value.get("changed_plugin_owners", {})),
+            changed_capability_flags={
+                name: None if flags is None else int(flags)
+                for name, flags in value.get(
+                    "changed_capability_flags", {}).items()
+            },
             changed_edges=tuple(
                 ConflictEdge.from_wire(edge)
                 for edge in value.get("changed_edges", ())

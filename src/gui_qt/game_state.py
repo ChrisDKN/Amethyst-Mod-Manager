@@ -317,6 +317,10 @@ class GameState:
             and data.snapshot is not None
             and data.snapshot.generation == delta.base_generation
         )
+        from Utils.filegraph_adapter import (
+            FLAG_ARCHIVE, FLAG_FRAMEWORK, FLAG_PLUGIN, FLAG_PRE_RTX,
+            FLAG_ROOT_RULE,
+        )
 
         if can_apply_delta:
             data.snapshot = snapshot
@@ -336,6 +340,19 @@ class GameState:
                     data.plugin_owner.pop(plugin, None)
                 else:
                     data.plugin_owner[plugin] = owner
+            for name, flags in delta.changed_capability_flags.items():
+                value = int(flags or 0)
+                for members, flag in (
+                    (data.prertx_mods, FLAG_PRE_RTX),
+                    (data.root_rule_mods, FLAG_ROOT_RULE),
+                    (data.plugin_mods, FLAG_PLUGIN),
+                    (data.bsa_mods, FLAG_ARCHIVE),
+                    (data.framework_file_mods, FLAG_FRAMEWORK),
+                ):
+                    if value & flag:
+                        members.add(name)
+                    else:
+                        members.discard(name)
 
             def _set_partner(overrides, overridden_by, edge, present):
                 if present:
@@ -447,10 +464,6 @@ class GameState:
                     data.loose_codes_base[name] = visible_code
             data.plugin_owner = dict(resolved.plugin_owners)
             data.archive_plugin_stems = dict(resolved.archive_plugin_stems)
-            from Utils.filegraph_adapter import (
-                FLAG_ARCHIVE, FLAG_FRAMEWORK, FLAG_PLUGIN, FLAG_PRE_RTX,
-                FLAG_ROOT_RULE,
-            )
             for name, flags in resolved.capability_flags.items():
                 if flags & FLAG_PRE_RTX:
                     data.prertx_mods.add(name)
