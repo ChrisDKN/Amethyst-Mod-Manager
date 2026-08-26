@@ -11,6 +11,7 @@ import os
 import re as _re
 import subprocess
 import threading
+import time
 from pathlib import Path
 
 from Utils.atomic_write import write_atomic_text
@@ -173,7 +174,7 @@ def _get_portal_scale() -> float:
     return scale
 
 
-def _get_compositor_scale() -> float:
+def _get_compositor_scale(portal_scale: "float | None" = None) -> float:
     """Return the display compositor's global scale factor (>1.0 on HiDPI).
 
     Tries, in order:
@@ -184,7 +185,12 @@ def _get_compositor_scale() -> float:
 
     Returns 1.0 if nothing is detected or all sources fail.
     """
-    portal = _get_portal_scale()
+    # get_screen_info() already queries the portal separately so it can expose
+    # that subprocess cost in the startup trace.  Reuse that result instead of
+    # making the same two D-Bus calls for a second time.  Direct callers retain
+    # the original behaviour by leaving *portal_scale* unset.
+    portal = (_get_portal_scale() if portal_scale is None
+              else float(portal_scale))
     if portal > 1.0:
         return portal
 
@@ -353,18 +359,31 @@ def set_screen_probe(fn: "callable | None") -> None:
     _screen_probe = fn
 
 
-def get_screen_info() -> tuple[int, int, float]:
+def _record_display_probe(timing, label: str, started: float) -> None:
+    if timing is not None:
+        timing.record(label, phase_started=started,
+                      category="display probe")
+
+
+def get_screen_info(timing=None) -> tuple[int, int, float]:
     """Return (screen_width, screen_height, detected_scale) for the primary display."""
+    probe_started = time.perf_counter()
     if _screen_probe is not None:
         try:
             w, h, de_scale = _screen_probe()
         except Exception:
+            _record_display_probe(
+                timing, "Probe display through GUI toolkit", probe_started)
             return 0, 0, _DEFAULT_SCALE
+        _record_display_probe(
+            timing, "Probe display through GUI toolkit", probe_started)
     else:
         # No GUI toolkit attached: derive size from xrandr/wlr-randr and let the
         # portal/compositor path below supply the scale.
         w, h = _get_primary_monitor_size()
         de_scale = 1.0
+        _record_display_probe(
+            timing, "Probe primary display geometry", probe_started)
     if w <= 0 or h <= 0:
         return w, h, _DEFAULT_SCALE
 
@@ -376,7 +395,10 @@ def get_screen_info() -> tuple[int, int, float]:
     # we set would multiply on top of it, not replace it. So auto must stay
     # at 1.0. (The opposite of the Tk era: Tk ignores Xft.dpi, which is why
     # this module used to apply the scale itself.)
-    if _get_xft_dpi_scale() > 1.05:
+    probe_started = time.perf_counter()
+    xft_scale = _get_xft_dpi_scale()
+    _record_display_probe(timing, "Probe Xft DPI scaling", probe_started)
+    if xft_scale > 1.05:
         return w, h, 1.0
 
     # Wayland guard: we force xcb, so on Wayland we run under XWayland and
@@ -384,7 +406,27 @@ def get_screen_info() -> tuple[int, int, float]:
     # the system" mode) upscale the window themselves. Either way the scale
     # is applied outside the app - scaling again would double-scale.
     on_wayland = bool(os.environ.get("WAYLAND_DISPLAY"))
-    compositor = max(_get_portal_scale(), _get_compositor_scale())
+    # Before QApplication exists there is no toolkit screen probe, so
+    # de_scale is necessarily 1.0.  In that exact startup case every branch
+    # below already resolves to 1.0 on Wayland, regardless of what the portal
+    # or compositor reports.  Return the same answer immediately instead of
+    # waiting on kscreen-doctor/gsettings subprocesses (kscreen-doctor alone
+    # can consume its full three-second timeout during login/startup).
+    if on_wayland and _screen_probe is None:
+        probe_started = time.perf_counter()
+        _record_display_probe(
+            timing, "Skip redundant XWayland compositor probes",
+            probe_started)
+        return w, h, 1.0
+
+    probe_started = time.perf_counter()
+    portal_scale = _get_portal_scale()
+    _record_display_probe(timing, "Probe XDG portal scaling", probe_started)
+    probe_started = time.perf_counter()
+    compositor_scale = _get_compositor_scale(portal_scale=portal_scale)
+    _record_display_probe(timing, "Probe desktop compositor scaling",
+                          probe_started)
+    compositor = max(portal_scale, compositor_scale)
     if on_wayland and compositor > 1.0 and de_scale <= 1.05:
         return w, h, 1.0
 
@@ -405,7 +447,10 @@ def get_screen_info() -> tuple[int, int, float]:
     # When xrandr is unavailable (e.g. Flatpak sandbox without host xrandr),
     # Tk's winfo_screenheight on Wayland/XWayland typically reports the
     # logical (already-scaled) size, so dividing again would halve the scale.
+    probe_started = time.perf_counter()
     pm_w, pm_h = _get_primary_monitor_size()
+    _record_display_probe(
+        timing, "Confirm primary display geometry", probe_started)
     if pm_h > 0:
         w, h = pm_w, pm_h
         physical_h = h / de_scale if de_scale > 1.0 else h
@@ -424,7 +469,7 @@ def get_screen_info() -> tuple[int, int, float]:
     return w, h, scale
 
 
-def detect_hidpi_scale() -> float:
+def detect_hidpi_scale(timing=None) -> float:
     """Detect suggested UI scale (compositor-reported, else screen height).
 
     Returns 1.0 whenever the scale is already applied outside the app: a
@@ -434,11 +479,11 @@ def detect_hidpi_scale() -> float:
     heights ≤1600 → 1.0; above scales by h/1080, capped at _AUTO_MAX_SCALE
     (1.5x); manual selection can still go higher.
     """
-    _, _, scale = get_screen_info()
+    _, _, scale = get_screen_info(timing=timing)
     return scale
 
 
-def load_ui_scale() -> float:
+def load_ui_scale(timing=None) -> float:
     """Load ui_scale from INI. Returns the value, clamped to [0.5, 3.0].
 
     When config is missing or scale=auto, uses detect_hidpi_scale() for automatic
@@ -447,7 +492,7 @@ def load_ui_scale() -> float:
     global _ui_scale
     path = get_ui_config_path()
     if not path.is_file():
-        _ui_scale = detect_hidpi_scale()
+        _ui_scale = detect_hidpi_scale(timing=timing)
         _write_scale_ini(path, _INI_AUTO)
         _seed_first_run_defaults(path)
         return _ui_scale
@@ -456,13 +501,13 @@ def load_ui_scale() -> float:
         if parser.has_section(_INI_SECTION) and parser.has_option(_INI_SECTION, _INI_OPTION):
             raw = parser.get(_INI_SECTION, _INI_OPTION).strip().lower()
             if raw == _INI_AUTO:
-                _ui_scale = detect_hidpi_scale()
+                _ui_scale = detect_hidpi_scale(timing=timing)
             else:
                 _ui_scale = _clamp(float(raw))
         else:
-            _ui_scale = detect_hidpi_scale()
+            _ui_scale = detect_hidpi_scale(timing=timing)
     except (configparser.Error, ValueError):
-        _ui_scale = detect_hidpi_scale()
+        _ui_scale = detect_hidpi_scale(timing=timing)
     return _ui_scale
 
 

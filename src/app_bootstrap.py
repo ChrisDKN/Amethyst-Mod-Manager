@@ -8,11 +8,19 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 from pathlib import Path
 
 
-def setup_environment() -> None:
-    """Ensure src/ is on sys.path so Utils/Games/etc can be imported."""
+def setup_environment() -> list[tuple[str, float, float, str]]:
+    """Prepare the runtime and return early-startup timing intervals.
+
+    This module must run before importing Utils, so it cannot use the shared
+    startup timer directly.  The entry point replays these standard-library
+    timestamps into that timer immediately afterwards.
+    """
+    timings: list[tuple[str, float, float, str]] = []
+    phase_started = time.perf_counter()
     # Drop dead /tmp/.mount_* entries from sys.path. Older AppImage builds
     # exported PYTHONPATH globally; a shell launched from the GUI inherits a
     # path pointing at a mount that vanishes the moment the AppImage exits.
@@ -50,16 +58,21 @@ def setup_environment() -> None:
         games_dir = src / "Games"
         if games_dir.is_dir():
             os.environ["MOD_MANAGER_GAMES"] = str(games_dir)
+    timings.append(("Prepare Python/runtime paths", phase_started,
+                    time.perf_counter(), "bootstrap"))
 
     # Apply the user's own env vars (Settings ▸ Advanced) before anything reads
     # one - that includes Qt, which latches QT_QPA_PLATFORM / QT_XCB_GL_INTEGRATION
     # when the QApplication is built. Runs after the sys.path setup above (it
     # imports Utils) and after MOD_MANAGER_GAMES, which it isn't allowed to set.
+    phase_started = time.perf_counter()
     try:
         from Utils.app_env import apply_saved_env
         apply_saved_env()
     except Exception:
         pass
+    timings.append(("Load saved environment settings", phase_started,
+                    time.perf_counter(), "configuration"))
 
     # Capture stderr to a file as early as possible - BEFORE any GUI/Qt import -
     # so a crash during startup leaves a trace on disk even when launched from a
@@ -67,15 +80,22 @@ def setup_environment() -> None:
     # of run_qt.sh's `2> >(tee …)`, which the AppImage/flatpak builds never run.
     # Native crashes (segfaults) write to fd 2 too, so this + faulthandler cover
     # them. Best-effort; must never block startup.
+    phase_started = time.perf_counter()
     try:
         from Utils.stderr_capture import install_stderr_file, install_faulthandler
         install_stderr_file()
         install_faulthandler()
     except Exception:
         pass
+    timings.append(("Initialize crash/stderr capture", phase_started,
+                    time.perf_counter(), "diagnostics"))
 
     # Filegraph is part of Amethyst's runtime, not an optional acceleration.
     # Validate it before profile state can be opened or mutated so a damaged
     # package fails with the loader's actionable reinstall/version message.
+    phase_started = time.perf_counter()
     from Utils.filegraph_native import require_native
     require_native()
+    timings.append(("Validate native filegraph extension", phase_started,
+                    time.perf_counter(), "filegraph"))
+    return timings

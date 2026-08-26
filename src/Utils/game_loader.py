@@ -20,6 +20,7 @@ import inspect
 import os
 import re
 import sys
+import time
 import traceback
 from pathlib import Path
 
@@ -27,6 +28,32 @@ from Games.base_game import BaseGame
 
 _EXCLUDED_STEMS   = {"__init__", "base_game", "ue5_game", "custom_game"}
 _EXCLUDED_FOLDERS = {"Example", "Custom"}
+
+# Support modules living beside handlers are imported by their real consumers
+# when needed. Loading them during discovery cannot register a game (none
+# defines a BaseGame subclass), and several pull in comparatively expensive UI,
+# HTTP, or keyring dependencies. Keep this path-specific so a future handler in
+# another folder is not accidentally excluded merely because its stem matches.
+_NON_HANDLER_FILES = {
+    "Baldur's Gate 3/modio_api.py",
+    "Baldur's Gate 3/modio_key.py",
+    "Baldur's Gate 3/modio_meta.py",
+    "Baldur's Gate 3/modio_update_checker.py",
+    "BepInEx/_bepinex_namespacing_selftest.py",
+    "Bethesda/bethesda_ini.py",
+    "Bethesda/skyrim_common.py",
+    "Daggerfall Unity/dfu_mods_json.py",
+    "Dragon Age Origins/dao_chargen.py",
+    "Dragon Age Origins/dao_install.py",
+    "Dragon Age Origins/dao_xml.py",
+    "FromSoftware/me3_profile.py",
+    "FromSoftware/me3_runtime.py",
+    "Jagged Alliance 3/ja3_packs.py",
+    "Morrowind/mcp_wizard_qt.py",
+    "Morrowind/mgexe_wizard_qt.py",
+    "Morrowind/morrowind_ini.py",
+    "Morrowind/openmw_cfg.py",
+}
 
 # Cache so we keep using the same path even if cwd changes later (e.g. after os.chdir in install_mod)
 _games_dir_cache: Path | None = None
@@ -224,13 +251,22 @@ def _record_load_failure(py_file: Path, games_dir: Path, exc: Exception) -> None
         pass
 
 
-def _scan_games_dir(games_dir: Path, games: dict[str, BaseGame]) -> int:
+def _scan_games_dir(games_dir: Path, games: dict[str, BaseGame],
+                    timing=None) -> int:
     """Load every handler under *games_dir* into *games*; return the file count."""
     n_files = 0
+    handler_timings: list[tuple[float, float, float, str]] = []
     for py_file in sorted(games_dir.glob("*/*.py")):
-        if py_file.stem in _EXCLUDED_STEMS or py_file.parent.name in _EXCLUDED_FOLDERS:
+        try:
+            relative_name = py_file.relative_to(games_dir).as_posix()
+        except ValueError:
+            relative_name = py_file.name
+        if (py_file.stem in _EXCLUDED_STEMS
+                or py_file.parent.name in _EXCLUDED_FOLDERS
+                or relative_name in _NON_HANDLER_FILES):
             continue
         n_files += 1
+        handler_started = time.perf_counter()
 
         # Key on folder AND stem - a bare stem collides in sys.modules when two
         # game folders ship a same-named handler file, silently dropping one.
@@ -285,10 +321,36 @@ def _scan_games_dir(games_dir: Path, games: dict[str, BaseGame]) -> int:
                 except Exception:
                     pass
 
+        if timing is not None:
+            handler_finished = time.perf_counter()
+            handler_timings.append((
+                handler_finished - handler_started,
+                handler_started,
+                handler_finished,
+                relative_name,
+            ))
+
+    # Ninety or so handlers are normally inspected. Reporting all of them
+    # would bury the rest of the startup trace, so retain the eight slowest
+    # files and put them back in chronological order. Their explicit start/end
+    # timestamps preserve the real wall-clock position even though the rows are
+    # emitted together after the scan.
+    if timing is not None:
+        slowest = sorted(handler_timings, reverse=True)[:8]
+        for _duration, started, finished, relative_name in sorted(
+                slowest, key=lambda item: item[2]):
+            timing.record(
+                f"Load game handler {relative_name}",
+                phase_started=started,
+                phase_finished=finished,
+                lane="game handlers",
+                category="game setup",
+            )
+
     return n_files
 
 
-def discover_games() -> dict[str, BaseGame]:
+def discover_games(timing=None) -> dict[str, BaseGame]:
     """
     Scan Games/<GameFolder>/*.py, load each module from its file path, find
     BaseGame subclasses, instantiate them, and return {game.name: instance}.
@@ -300,7 +362,7 @@ def discover_games() -> dict[str, BaseGame]:
     _load_failures.clear()
     games_dir = _find_games_dir()
     if games_dir is not None:
-        n_files = _scan_games_dir(games_dir, games)
+        n_files = _scan_games_dir(games_dir, games, timing=timing)
 
         # EVERY handler failing is never 50 broken handlers - it's a bad root
         # (a dying AppImage mount that was still listable when we globbed it,
@@ -319,7 +381,7 @@ def discover_games() -> dict[str, BaseGame]:
             alt = _find_games_dir(exclude=games_dir)
             if alt is not None:
                 _load_failures.clear()
-                _scan_games_dir(alt, games)
+                _scan_games_dir(alt, games, timing=timing)
 
     # Merge user-defined custom games (JSON files in ~/.config/.../custom_games/)
     try:

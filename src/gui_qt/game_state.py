@@ -8,6 +8,7 @@ active modlist.txt + staging dir.
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -112,11 +113,12 @@ class GameState:
         self._filegraph_profile = None
 
     # -- discovery / load ---------------------------------------------------
-    def load(self) -> None:
+    def load(self, timing=None) -> None:
         """Discover games and select the last-used game + profile (from
         amethyst.ini [session], falling back to last_game.json / first game and
         the first profile). Populates game_names / game_name / profile."""
-        self.game_names = _load_games()
+        self.game_names = _load_games(timing=timing)
+        phase_started = time.perf_counter()
         sess_game, sess_profile = load_last_session()
         last = _load_last_game()
         if sess_game and sess_game in self.game_names:
@@ -127,17 +129,41 @@ class GameState:
             self.game_name = self.game_names[0]
         else:
             self.game_name = None
+        if timing is not None:
+            timing.record("Restore the last active game",
+                          phase_started=phase_started,
+                          category="configuration")
         # Restore the profile: prefer the global session profile (the one open
         # when the app last closed), then this game's own last-active profile,
         # then the first profile. Records it as the game's last-active too.
         g = self.game
+        phase_started = time.perf_counter()
         per_game = g.get_last_active_profile() if g is not None else None
         self.profile = (self._select_profile(sess_profile)
                         if sess_profile else None) or \
             self._select_profile(per_game)
+        if timing is not None:
+            timing.record("Find and select the active profile",
+                          phase_started=phase_started,
+                          category="configuration")
+        phase_started = time.perf_counter()
         self._apply_active_profile()
-        self._materialize_if_group()
+        if timing is not None:
+            timing.record("Load active game/profile paths",
+                          phase_started=phase_started,
+                          category="game setup")
+        phase_started = time.perf_counter()
+        self._materialize_if_group(timing=timing)
+        if timing is not None:
+            timing.record("Reconcile active profile group (aggregate)",
+                          phase_started=phase_started,
+                          category="aggregate")
+        phase_started = time.perf_counter()
         self._save_last_active_profile()
+        if timing is not None:
+            timing.record("Persist active profile session",
+                          phase_started=phase_started,
+                          category="configuration")
 
     # -- current handler ----------------------------------------------------
     @property
@@ -172,7 +198,7 @@ class GameState:
         self._save_last_active_profile()
         save_last_session(self.game_name, self.profile)
 
-    def _materialize_if_group(self) -> None:
+    def _materialize_if_group(self, timing=None) -> None:
         """Reconcile the just-activated profile when it is a Profile Group.
 
         Runs ONLY on real profile-identity changes (load / set_game /
@@ -187,7 +213,7 @@ class GameState:
             return
         try:
             from Utils.profile_groups import materialize_if_group
-            materialize_if_group(g, pdir)
+            materialize_if_group(g, pdir, timing=timing)
         except Exception as exc:
             print(f"[gui_qt] profile-group reconcile failed: {exc}", flush=True)
 

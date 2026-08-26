@@ -1,4 +1,17 @@
 #!/bin/bash
+
+# Let run_qt.py include shell/venv setup and Python interpreter startup in the
+# same end-to-end timeline.  The Python entry point consumes this marker so a
+# later self-reexec starts a fresh clock instead of inheriting this launch.
+if [ -z "${_AMM_LAUNCH_WALL_STARTED:-}" ]; then
+    if [ -n "${EPOCHREALTIME:-}" ]; then
+        _AMM_LAUNCH_WALL_STARTED="$EPOCHREALTIME"
+    else
+        _AMM_LAUNCH_WALL_STARTED="$(date +%s.%N)"
+    fi
+    export _AMM_LAUNCH_WALL_STARTED
+fi
+
 cd "$(dirname "$0")" || exit 1
 
 # Drop AppImage-injected env that poisons a from-source run. If the user
@@ -45,15 +58,28 @@ VENV="../.venv"
 
 if [ ! -d "$VENV" ]; then
     python3 -m venv "$VENV"
-    [ -f requirements.txt ] && "$VENV/bin/pip" install -r requirements.txt -q
 fi
 
-# Install any missing or newly added requirements (incl. PySide6 for the Qt UI).
+# Dependency resolution used to run on every launch, followed by a second
+# interpreter that imported all of PySide6 just to check it.  Cache a checksum
+# of both requirement files instead: normal launches do no pip or extra Python
+# work, while a checkout that changes dependencies still updates the venv once.
 if [ -f requirements.txt ]; then
-    "$VENV/bin/pip" install -r requirements.txt -q --disable-pip-version-check
+    _req_stamp="$VENV/.amethyst-requirements.cksum"
+    _req_fingerprint="$(cksum requirements.txt requirements-vendor.txt 2>/dev/null)"
+    _installed_fingerprint=""
+    [ -f "$_req_stamp" ] && _installed_fingerprint="$(cat "$_req_stamp")"
+    if [ "$_req_fingerprint" != "$_installed_fingerprint" ] || \
+            ! compgen -G "$VENV/lib/python*/site-packages/PySide6/__init__.py" \
+                >/dev/null; then
+        if "$VENV/bin/pip" install -r requirements.txt -q \
+                --disable-pip-version-check; then
+            printf '%s\n' "$_req_fingerprint" > "$_req_stamp"
+        else
+            exit $?
+        fi
+    fi
 fi
-"$VENV/bin/python3" -c "import PySide6" 2>/dev/null || \
-    "$VENV/bin/pip" install -q PySide6
 
 # Tee stderr to a log so a native crash trace (faulthandler) and the bash
 # "Segmentation fault" line survive after the terminal closes. Still shown live.

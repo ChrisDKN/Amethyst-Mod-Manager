@@ -5,6 +5,7 @@ Used by TopBar, ModListPanel, PluginPanel, and App. No dependency on other gui m
 
 import json
 import shutil
+import time
 from pathlib import Path
 
 from Games.base_game import BaseGame
@@ -295,16 +296,28 @@ def _ensure_profile_primary_plugin_order(game, profile_dir: Path) -> None:
             write_plugins(plugins_path, listed, star_prefix=star)
 
 
-def _load_games() -> list[str]:
+def _load_games(timing=None) -> list[str]:
     """Discover game handlers and return sorted display names (configured games only)."""
-    new_games = discover_games()
+    phase_started = time.perf_counter()
+    new_games = discover_games(timing=timing)
+    if timing is not None:
+        timing.record("Discover and load game handlers",
+                      phase_started=phase_started, category="game setup")
+    phase_started = time.perf_counter()
     _GAMES.clear()
     _GAMES.update(new_games)
     discover_plugins()
+    if timing is not None:
+        timing.record("Discover game plugins",
+                      phase_started=phase_started, category="game setup")
+    phase_started = time.perf_counter()
     for game in _GAMES.values():
         if getattr(game, "loot_sort_enabled", False) and getattr(game, "game_id", None):
             get_loot_game_dir(game.game_id)
     names = sorted(name for name, game in _GAMES.items() if game.is_configured())
+    if timing is not None:
+        timing.record("Initialize game resources and configuration state",
+                      phase_started=phase_started, category="game setup")
     return names if names else ["No games configured"]
 
 

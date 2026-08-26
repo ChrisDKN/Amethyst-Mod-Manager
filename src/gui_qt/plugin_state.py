@@ -380,7 +380,8 @@ def _staged_top_level_plugins(game, staging: "Path | None",
 
 
 def load_plugins(game, profile: str,
-                 cancelled=None, report: dict | None = None, snapshot=None
+                 cancelled=None, report: dict | None = None, snapshot=None,
+                 include_bos_sp: bool = True,
                  ) -> "list[PluginRow] | None":
     """Return the ordered plugin rows for *game*/*profile*, or [] if none.
 
@@ -395,7 +396,11 @@ def load_plugins(game, profile: str,
     'prune_checked' (the phantom-prune actually ran, i.e. filemap_ok held)
     and 'mass_prune' (names SAFETY 3 refused to auto-prune - more unresolved
     entries than _PRUNE_MAX). An explicit Refresh uses this to offer the
-    user a confirmed cleanup the automatic path must not do on its own."""
+    user a confirmed cleanup the automatic path must not do on its own.
+
+    *include_bos_sp* may be False for an initial render that is guaranteed to
+    be followed by a snapshot-backed reload. All correctness/load-order flags
+    are still populated; only BOS/SkyPatcher decoration is deferred."""
     if cancelled is None:
         cancelled = lambda: False
     p = plugins_path(game, profile)
@@ -688,8 +693,9 @@ def load_plugins(game, profile: str,
         return None
     # ESL eligibility deliberately NOT computed here - see
     # compute_esl_eligibility (deferred to its own post-apply worker).
-    with span("plugins.bos_sp"):
-        _apply_bos_sp(rows, staging, snapshot=snapshot)
+    if include_bos_sp:
+        with span("plugins.bos_sp"):
+            _apply_bos_sp(rows, staging, snapshot=snapshot)
     return rows
 
 

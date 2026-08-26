@@ -52,6 +52,7 @@ import os
 import re
 import shutil
 import threading
+import time
 from pathlib import Path
 
 from Utils.app_log import app_log
@@ -867,14 +868,15 @@ def _sync_group_plugins(game, group_dir: Path, changes: list[tuple[str, bool]],
         log_fn(f"Profile Group: plugin sync failed ({exc}).")
 
 
-def materialize_if_group(game, profile_dir: "Path | None", *, log_fn=None) -> bool:
+def materialize_if_group(game, profile_dir: "Path | None", *, log_fn=None,
+                         timing=None) -> bool:
     """Materialize *profile_dir* when it is a group; never raises. Returns
     True when a materialize ran. This is the wiring entry point for the
     profile-switch / Refresh / deploy hooks."""
     try:
         if profile_dir is None or not is_group(profile_dir):
             return False
-        materialize_group(game, profile_dir, log_fn=log_fn)
+        materialize_group(game, profile_dir, log_fn=log_fn, timing=timing)
         return True
     except Exception as exc:
         (log_fn or app_log)(f"Profile Group: materialize failed for "
@@ -882,19 +884,33 @@ def materialize_if_group(game, profile_dir: "Path | None", *, log_fn=None) -> bo
         return True
 
 
-def materialize_group(game, profile_dir: Path, *, log_fn=None) -> None:
+def _record_materialize(timing, label: str, started: float,
+                        category: str = "profile group") -> None:
+    if timing is not None:
+        timing.record(label, phase_started=started, category=category)
+
+
+def materialize_group(game, profile_dir: Path, *, log_fn=None,
+                      timing=None) -> None:
     """Reconcile a group against its members' current state: adopt new mods,
     drop vanished ones, retarget links, keep every in-group edit. See the
     module docstring for the full contract."""
     _log = log_fn or app_log
     if not is_group(profile_dir):
         return
+    lock_started = time.perf_counter()
     with group_build_lock(profile_dir):
+        _record_materialize(
+            timing, "Wait for active profile-group build lock", lock_started)
         profiles_dir = profile_dir.parent
         members = get_members(profile_dir)
         modlist_path = profile_dir / "modlist.txt"
 
+        lock_started = time.perf_counter()
         with modlist_lock(modlist_path):
+            _record_materialize(
+                timing, "Wait for profile-group mod-list lock", lock_started)
+            phase_started = time.perf_counter()
             current = read_modlist(modlist_path)
             first = not current and not _adopted_separators(profile_dir)
             records, by_key = _merge_members(profiles_dir, members, _log, first)
@@ -992,12 +1008,15 @@ def materialize_group(game, profile_dir: Path, *, log_fn=None) -> None:
                 adds.append(rec)
             if new_block:
                 final[:0] = new_block
+            _record_materialize(
+                timing, "Merge profile-group member mod state", phase_started)
 
             # 1. Plugin removal FIRST - dropped mods' plugins resolve from the
             # group's still-present catalog entries / links. Renames are NOT
             # dropped here: a drop+re-add cycle would reset the group's own
             # plugin enabled state. Their plugins are diffed after the rescan
             # (unchanged names keep their state; only vanished ones strip).
+            phase_started = time.perf_counter()
             plugin_exts = tuple(e.lower() for e in
                                 (getattr(game, "plugin_extensions", []) or []))
             _sync_group_plugins(game, profile_dir,
@@ -1006,10 +1025,14 @@ def materialize_group(game, profile_dir: Path, *, log_fn=None) -> None:
             if renames and plugin_exts:
                 rename_old_plugins = _catalog_plugins(
                     game, profile_dir, (old for old, _new in renames), _log)
+            _record_materialize(
+                timing, "Reconcile removed profile-group plugins",
+                phase_started, category="plugins")
 
             # 2. Per-mod group-owned state: migrate renames, drop vanished,
             # adopt new arrivals' state once from the owning member. Imported
             # separators bring their own colour/lock/collapse/deploy state.
+            phase_started = time.perf_counter()
             _reconcile_mod_state(profile_dir, profiles_dir, renames, drops,
                                  adds)
             _adopt_separator_state(profile_dir, profiles_dir, sep_adopt)
@@ -1018,12 +1041,19 @@ def materialize_group(game, profile_dir: Path, *, log_fn=None) -> None:
             # gained after the group was created.
             _adopt_profile_inis(game, profile_dir, profiles_dir, members, _log)
             _adopt_runtime_dirs(profile_dir, profiles_dir, members, _log)
+            _record_materialize(
+                timing, "Reconcile profile-group settings and runtime files",
+                phase_started)
 
             # 3. Link farm (group-local real dirs are left alone).
+            phase_started = time.perf_counter()
             _sync_link_farm(profile_dir, owners, _log, local_mods)
+            _record_materialize(
+                timing, "Reconcile profile-group link farm", phase_started)
 
             # 4. Catalog maintenance: drop removed/renamed-away entries, then
             # refresh only entries whose owning member manifest changed.
+            phase_started = time.perf_counter()
             gone = drops + [old for old, _new in renames]
             from Utils.filegraph_service import FileGraphService
             group_library = FileGraphService.open_library(
@@ -1038,11 +1068,15 @@ def materialize_group(game, profile_dir: Path, *, log_fn=None) -> None:
             to_refresh = _stale_group_entries(
                 game, profile_dir, owners, _log)
             _refresh_profile_mods(game, profile_dir, to_refresh, _log)
+            _record_materialize(
+                timing, "Check and refresh profile-group catalogs",
+                phase_started, category="filegraph")
 
             # 5. Plugin adoption for new/renamed arrivals (catalog now has them;
             # sync only APPENDS missing plugins, so plugins a renamed mod kept
             # retain the group's enabled state). Then strip plugins the
             # renames no longer provide anywhere.
+            phase_started = time.perf_counter()
             plugin_adds = [(r["folder"], True) for r in adds if r["enabled"]]
             plugin_adds += [(new, True) for _old, new in renames
                             if rename_enabled.get(new, True)]
@@ -1056,12 +1090,16 @@ def materialize_group(game, profile_dir: Path, *, log_fn=None) -> None:
                 stale = rename_old_plugins - still_provided
                 if stale:
                     _strip_plugins(game, profile_dir, stale, _log)
+            _record_materialize(
+                timing, "Adopt profile-group plugin state", phase_started,
+                category="plugins")
 
             # 6. Persist the adopted modlist + identity map + flags.
             # group_members is deliberately NOT written back: it was read at
             # entry, and a membership edit that landed since would be
             # silently reverted (edits hold the group lock, but the deploy
             # worker's materialize does not wait for them to start).
+            phase_started = time.perf_counter()
             write_modlist(modlist_path, final)
             _write_identity_map(profile_dir, {
                 rec["folder"]: key for key, rec in by_key.items()
@@ -1073,6 +1111,9 @@ def materialize_group(game, profile_dir: Path, *, log_fn=None) -> None:
             })
             if first and records:
                 _update_key(profile_dir, "group_adopted_separators", True)
+            _record_materialize(
+                timing, "Persist reconciled profile-group state",
+                phase_started)
 
         if adds or drops or renames:
             _log(f"Profile Group '{profile_dir.name}': adopted {len(adds)}, "
