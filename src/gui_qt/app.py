@@ -15566,27 +15566,19 @@ class MainWindow(QMainWindow):
         if entries and not meta_started:
             # No meta worker (staging unresolved) → kick the rebuild directly.
             self._rebuild_conflicts_async(rescan_index=rescan_index)
-        elif not entries and rescan_index:
-            # Empty modlist but an explicit rescan was requested (Refresh /
-            # install / toggle). The conflict rebuild is normally skipped when
-            # there are no mods (nothing to conflict), but the [Overwrite]
-            # pseudo-mod is INDEPENDENT of the real modlist: files can sit in
-            # overwrite/ (and in modindex.bin's [Overwrite] entry) with zero
-            # enabled mods. Skipping the rebuild here left a stale [Overwrite]
-            # index entry + stale filemap.txt that no Refresh could clear once
-            # the modlist was empty - the file kept showing in the Data tab and
-            # kept deploying (as a dangling symlink). Run the rebuild so the
-            # index and filemap are reconciled against the folder; it also
-            # writes an empty filemap when the last mod is removed.
-            # _on_conflicts_ready sets _switch_conflicts_done when the build
-            # lands, so the switch-marker bookkeeping below is still covered.
-            self._rebuild_conflicts_async(rescan_index=rescan_index)
-        elif not entries and getattr(self, "_switch_t0", None) is not None:
-            # Empty profile, no rescan (plain profile switch) → no conflict
-            # rebuild will follow, so the first plugin pass IS the final one;
-            # without this the switch marks would leak into the next unrelated
-            # plugin reload.
-            self._switch_conflicts_done = True
+        elif not entries:
+            try:
+                has_frameworks = bool(self._gs.game.frameworks)
+            except Exception:
+                has_frameworks = False
+            if rescan_index or has_frameworks:
+                self._rebuild_conflicts_async(rescan_index=rescan_index)
+            elif getattr(self, "_switch_t0", None) is not None:
+                # Empty framework-less profile, no rescan → no conflict
+                # rebuild will follow, so the first plugin pass IS the final
+                # one; without this the switch marks would leak into the next
+                # unrelated plugin reload.
+                self._switch_conflicts_done = True
 
     def _on_modlist_meta_ready(self, gen, payload):
         """UI thread: apply the worker-read per-mod meta (see _reload_modlist).
