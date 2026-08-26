@@ -106,7 +106,7 @@ BUILTIN_WIZARD_TOOLS: list[dict] = [
         "all_games": False,
         # Qt-only tool: no Tk class exists behind this path, it is a registry key.
         "dialog_class": "wizards.nif_viewer.NifViewerWizard",
-        "category": "Other",
+        "category": "NIF Viewer",
     },
     {
         "id": "npc_viewer",
@@ -124,7 +124,7 @@ BUILTIN_WIZARD_TOOLS: list[dict] = [
         "all_games": False,
         # Qt-only tool: no Tk class exists behind this path, it is a registry key.
         "dialog_class": "wizards.npc_viewer.NpcViewerWizard",
-        "category": "Other",
+        "category": "NIF Viewer",
     },
     {
         "id": "bsa_pack_candidates",

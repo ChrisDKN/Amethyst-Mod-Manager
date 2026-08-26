@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 
 CATEGORY_ORDER = [
     "Setup and Installers",
+    "Install Modlist",
     "Body and Outfits",
     "Animation and Physics",
     "DynDOLOD",
@@ -25,6 +26,7 @@ CATEGORY_ORDER = [
     "xEdit",
     "Load Order and Config",
     "INI Tweaks",
+    "NIF Viewer",
     "Other",
 ]
 

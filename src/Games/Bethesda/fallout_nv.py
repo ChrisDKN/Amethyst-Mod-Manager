@@ -75,7 +75,7 @@ class Fallout_NV(Fallout_3):
                 label="Install Viva New Vegas",
                 description="Download the curated Viva New Vegas modlist profile and install it",
                 dialog_class_path="wizards.curated_profile.CuratedProfileWizard",
-                category="Setup and Installers",
+                category="Install Modlist",
                 extra={
                     "profile_repo_path": "Profiles/FalloutNV/Viva_New_Vegas.amethyst",
                     "display_name": "Viva New Vegas",
@@ -90,7 +90,7 @@ class Fallout_NV(Fallout_3):
                 label="Install Viva New Vegas Extended",
                 description="Download the curated Viva New Vegas Extended modlist profile and install it",
                 dialog_class_path="wizards.curated_profile.CuratedProfileWizard",
-                category="Setup and Installers",
+                category="Install Modlist",
                 extra={
                     "profile_repo_path": "Profiles/FalloutNV/Viva_New_Vegas_Extended.amethyst",
                     "display_name": "Viva New Vegas Extended",

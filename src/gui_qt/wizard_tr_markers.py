@@ -284,6 +284,7 @@ WIZARD_DESCRIPTIONS = (
 # Category headers -- the submenu titles (Utils/wizard_catalog.CATEGORY_ORDER).
 WIZARD_CATEGORIES = (
     QT_TRANSLATE_NOOP("WizardTools", "Setup and Installers"),
+    QT_TRANSLATE_NOOP("WizardTools", "Install Modlist"),
     QT_TRANSLATE_NOOP("WizardTools", "Body and Outfits"),
     QT_TRANSLATE_NOOP("WizardTools", "Animation and Physics"),
     QT_TRANSLATE_NOOP("WizardTools", "DynDOLOD"),
@@ -292,6 +293,7 @@ WIZARD_CATEGORIES = (
     QT_TRANSLATE_NOOP("WizardTools", "xEdit"),
     QT_TRANSLATE_NOOP("WizardTools", "Load Order and Config"),
     QT_TRANSLATE_NOOP("WizardTools", "INI Tweaks"),
+    QT_TRANSLATE_NOOP("WizardTools", "NIF Viewer"),
     QT_TRANSLATE_NOOP("WizardTools", "Other"),
 )
 
