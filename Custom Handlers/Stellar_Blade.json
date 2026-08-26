@@ -6,6 +6,8 @@
   "mod_data_path": "SB",
   "steam_id": "3489700",
   "nexus_game_domain": "stellarblade",
+  "additional_nexus_domains": [],
+  "thunderstore_community": "",
   "image_url": "https://cdn2.steamgriddb.com/icon_thumb/99dcd74be0b9763c45900e812fc37e6f.png",
   "mod_folder_strip_prefixes": [
     "~mods",
@@ -23,6 +25,7 @@
     "*.webp",
     "*changelog*.txt"
   ],
+  "conflict_ignore_foldernames": [],
   "mod_folder_strip_prefixes_post": [
     "~mods"
   ],
@@ -84,6 +87,13 @@
       "flatten": true
     },
     {
+      "dest": "Content/Splash",
+      "filenames": [
+        "splash.bmp"
+      ],
+      "flatten": true
+    },
+    {
       "dest": "Content/Paks",
       "folders": [
         "LogicMods"
@@ -105,7 +115,8 @@
       "flatten": true
     }
   ],
+  "restore_whitelist": [],
   "custom_frameworks": {},
-  "version": 5,
+  "version": 6,
   "editable": false
 }

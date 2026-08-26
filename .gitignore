@@ -11,6 +11,7 @@ flatpak/repo
 *.AppImage
 /AUR
 src/loot.cpython-*.so
+src/amethyst_filegraph*.so
 /Nexus
 release.sh
 release/
@@ -19,5 +20,9 @@ decky/
 .mcp.json
 **/__pycache__/
 /tools
-/assets
+AmethystModManager-AppImage/
+*.AppImage.zsync
+src/appimage/dist/
 /tests
+/native/amethyst_filegraph/target/
+/assets
