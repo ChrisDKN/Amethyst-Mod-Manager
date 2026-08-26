@@ -40,9 +40,9 @@ class MarkerScrollBar(QScrollBar):
         self._missing_rows: set[int] = set()   # plugins with missing masters
         self._master_rows: set[int] = set()    # masters of the selected plugin
         self._cycle_rows: set[int] = set()     # plugins with a broken cycle
-        self.setStyleSheet("QScrollBar:vertical { background: transparent; }")
         bind_theme(self, roles=(
-            set(self._code_roles.values()) | {"TONE_RED", "TONE_GREEN"}))
+            set(self._code_roles.values())
+            | {"TONE_RED", "TONE_GREEN", "SCROLL_TROUGH", "BG_MAIN"}))
 
     def refresh_theme(self, palette):
         self._code_cols = {code: qc(palette, role)
@@ -50,6 +50,8 @@ class MarkerScrollBar(QScrollBar):
         self._c_missing = qc(palette, "TONE_RED")
         self._c_master = qc(palette, "TONE_GREEN")
         self._c_cycle = qc(palette, "TONE_RED")
+        self._c_trough = qc(
+            palette, "SCROLL_TROUGH" if "SCROLL_TROUGH" in palette else "BG_MAIN")
         self.update()
 
     def set_persistent_rows(self, missing=None, master=None, cycle=None) -> None:
@@ -92,14 +94,14 @@ class MarkerScrollBar(QScrollBar):
         model = self._view.model()
         n = model.rowCount() if model is not None else 0
 
-        # The scrollbar background is transparent.  Without explicitly
-        # clearing its backing-store pixels, ticks removed by a conflict delta
-        # remain visible until another widget happens to expose that area.
-        # Source composition replaces old pixels with transparency before the
-        # current marks and native scrollbar controls are painted.
+        # Without explicitly clearing its backing-store pixels, ticks removed by
+        # a conflict delta remain visible until another widget happens to expose
+        # that area. Clear to the themed trough colour (NOT transparency - a
+        # Source-composited transparent fill punches a hole through the opaque
+        # window and renders black); the styled groove paints over it below.
         clear = QPainter(self)
         clear.setCompositionMode(QPainter.CompositionMode_Source)
-        clear.fillRect(event.rect(), Qt.transparent)
+        clear.fillRect(event.rect(), getattr(self, "_c_trough", Qt.transparent))
         clear.end()
 
         # Ticks paint UNDER the scrollbar handle: draw them first, then let the
