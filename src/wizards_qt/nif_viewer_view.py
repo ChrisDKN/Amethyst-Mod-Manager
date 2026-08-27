@@ -30,6 +30,7 @@ from gui_qt.safe_emit import safe_emit
 from gui_qt.theme_qt import active_palette, button_qss, _c
 from gui_qt.nif_texture_sources import TextureSourceController
 from gui_qt.worker import LatestWorker
+from Utils.asset_resolver import DirCache
 from Utils.mesh_catalog import (
     DATA_ARCHIVE, DATA_LOOSE, DEFAULT_PREFIX, MOD_ARCHIVE, MOD_LOOSE,
     build_catalog, read_entry, source_label,
@@ -74,6 +75,8 @@ class NifViewerView(QWidget):
         self._open_gen = 0
         self._entries: list = []
         self._resolver = None
+        self._dirs = DirCache()
+        self._archive_lookups: dict[Path, object] = {}
         self._current_entry = None
         self._current_data = None
         self._restore = None
@@ -246,6 +249,8 @@ class NifViewerView(QWidget):
                          if self._current_entry is not None else None)
         self._current_entry = None
         self._current_data = None
+        self._dirs = DirCache()
+        self._archive_lookups.clear()
         self._open_gen += 1
         self._mesh_reads.discard_pending()
         self._tex_sources.cancel()
@@ -304,9 +309,12 @@ class NifViewerView(QWidget):
         gen = self._gen
         self._count.setText(self.tr("Scanning…"))
         try:
+            snapshot_hook = getattr(
+                self._ctx, "filegraph_snapshot", None) if self._ctx else None
+            snapshot = snapshot_hook() if callable(snapshot_hook) else None
             self._resolver = _resolver_for(
                 self._staging, self._modlist, self._profile_dir, self._data,
-                self._game)
+                self._game, snapshot=snapshot)
         except Exception as exc:                         # noqa: BLE001
             self._log(f"NIF Viewer: could not build the asset resolver: {exc}")
             self._resolver = None
@@ -430,7 +438,8 @@ class NifViewerView(QWidget):
             return
 
         def worker():
-            data = read_entry(entry, self._staging, self._data)
+            data = read_entry(
+                entry, self._staging, self._data, dirs=self._dirs)
             safe_emit(self._mesh_ready, gen, data, entry, (tex_override, keep))
 
         self._mesh_reads.submit(worker)
@@ -454,8 +463,12 @@ class NifViewerView(QWidget):
             # that the resolver cannot see when the mod is not installed.
             try:
                 from Utils.archive_lookup import ArchiveLookup, find_archives
-                archives = ArchiveLookup(find_archives([Path(archive).parent]),
-                                         keep_prefix=ASSET_PREFIXES)
+                parent = Path(archive).parent
+                archives = self._archive_lookups.get(parent)
+                if archives is None:
+                    archives = ArchiveLookup(
+                        find_archives([parent]), keep_prefix=ASSET_PREFIXES)
+                    self._archive_lookups[parent] = archives
             except Exception:                            # noqa: BLE001
                 archives = None
         # Plugin TXST overrides: the copy's own mod folder first, then the
@@ -496,14 +509,14 @@ def _paths_for(game, profile: str):
     return staging, profile_dir, modlist, data
 
 
-def _resolver_for(staging, modlist, profile_dir, data, game):
+def _resolver_for(staging, modlist, profile_dir, data, game, snapshot=None):
     """One resolver for both the winner flags and the viewport's textures."""
     if staging is None:
         return None
     from Utils.asset_resolver import AssetResolver
     return AssetResolver(staging_dir=staging, modlist_path=modlist,
                          profile_dir=profile_dir, data_dir=data, game=game,
-                         keep_prefix=BROWSE_PREFIXES)
+                         keep_prefix=BROWSE_PREFIXES, snapshot=snapshot)
 
 
 def _title_for(entry) -> str:

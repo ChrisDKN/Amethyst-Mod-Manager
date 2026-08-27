@@ -12263,6 +12263,8 @@ class MainWindow(QMainWindow):
             open_log_tab=self._open_log_tab,
             set_tool_lock=self._set_tool_lock,
             show_mod_files=self._wizard_show_mod_files,
+            filegraph_snapshot=lambda: getattr(
+                getattr(self, "_conflict_data", None), "snapshot", None),
         )
         try:
             view = spec.view_factory(

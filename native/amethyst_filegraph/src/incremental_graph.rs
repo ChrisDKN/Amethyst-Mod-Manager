@@ -1,8 +1,8 @@
 use crate::model::{
-    Candidate, ConflictEdgeRecord, ConflictStateExport, ConflictSummary, DataEntryRecord,
-    DeployEntryRecord, DeployedStateRecord, DeploymentPlanRecord, InventoryFacets, ModFileRecord,
-    Namespace, ProfileIntent, ProviderKind, ProviderRecord, RawCatalogFile, ResolutionDelta,
-    SnapshotExport, WinnerRecord,
+    AssetCopyRecord, Candidate, ConflictEdgeRecord, ConflictStateExport, ConflictSummary,
+    DataEntryRecord, DeployEntryRecord, DeployedStateRecord, DeploymentPlanRecord, InventoryFacets,
+    ModFileRecord, Namespace, ProfileIntent, ProviderKind, ProviderRecord, RawCatalogFile,
+    ResolutionDelta, SnapshotExport, WinnerRecord,
 };
 use im::{HashMap as PersistentHashMap, HashSet as PersistentHashSet};
 use smallvec::SmallVec;
@@ -14,6 +14,61 @@ use std::time::Instant;
 // Bump when the physical deployment projection changes so an existing profile
 // cannot take the zero-I/O path with files laid out by older semantics.
 const DEPLOYMENT_PLAN_REVISION: u64 = 3;
+const FLAG_INDEXED: u32 = 1 << 6;
+const FLAG_INDEX_ROOT: u32 = 1 << 8;
+
+struct AssetCopyFilter {
+    prefixes: Vec<String>,
+    exact_paths: HashSet<String>,
+    extensions: Vec<String>,
+}
+
+impl AssetCopyFilter {
+    fn new(prefixes: &[String], exact_paths: &[String], extensions: &[String]) -> Self {
+        Self {
+            prefixes: prefixes
+                .iter()
+                .map(|value| normalise_asset_path(value))
+                .filter(|value| !value.is_empty())
+                .collect(),
+            exact_paths: exact_paths
+                .iter()
+                .map(|value| normalise_asset_path(value))
+                .filter(|value| !value.is_empty())
+                .collect(),
+            extensions: extensions
+                .iter()
+                .map(|value| value.to_lowercase())
+                .filter(|value| !value.is_empty())
+                .collect(),
+        }
+    }
+
+    fn matching_path(&self, relative: &str) -> Option<String> {
+        let relative = normalise_asset_path(relative);
+        let selected = (self.prefixes.is_empty() && self.exact_paths.is_empty())
+            || self.exact_paths.contains(&relative)
+            || self
+                .prefixes
+                .iter()
+                .any(|prefix| relative.starts_with(prefix));
+        (selected
+            && (self.extensions.is_empty()
+                || self
+                    .extensions
+                    .iter()
+                    .any(|extension| relative.ends_with(extension))))
+        .then_some(relative)
+    }
+}
+
+fn normalise_asset_path(value: &str) -> String {
+    value
+        .replace('\\', "/")
+        .trim()
+        .trim_start_matches('/')
+        .to_lowercase()
+}
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub(crate) struct PathKey {
@@ -1218,6 +1273,127 @@ impl GraphSnapshot {
         result
     }
 
+    pub fn asset_copies(
+        &self,
+        mod_names: &BTreeSet<String>,
+        prefixes: &[String],
+        exact_paths: &[String],
+        extensions: &[String],
+    ) -> Vec<AssetCopyRecord> {
+        if mod_names.is_empty() {
+            return Vec::new();
+        }
+        let allowed: HashSet<String> = mod_names.iter().map(|name| name.to_lowercase()).collect();
+        let filter = AssetCopyFilter::new(prefixes, exact_paths, extensions);
+        let mut selected_candidates: HashMap<(&str, &[u8]), ProviderIndex> = HashMap::new();
+        let mut result = Vec::new();
+
+        for (index, candidate) in self.candidates.iter().enumerate() {
+            if !allowed.contains(candidate.mod_key.as_ref()) || !self.selected(candidate) {
+                continue;
+            }
+            if candidate.kind != ProviderKind::ArchiveMember {
+                selected_candidates
+                    .entry((candidate.mod_key.as_ref(), candidate.source_rel.as_ref()))
+                    .and_modify(|existing| {
+                        let previous = &self.candidates[*existing as usize];
+                        if previous.plugin_key.is_none() && candidate.plugin_key.is_some() {
+                            *existing = index as ProviderIndex;
+                        }
+                    })
+                    .or_insert(index as ProviderIndex);
+                continue;
+            }
+            let Some(relative) = filter.matching_path(&candidate.legacy_rel) else {
+                continue;
+            };
+            let effective = self
+                .inventory
+                .effective(&candidate.target, &candidate.destination_key)
+                .expect("candidate destination is interned");
+            let winning = self
+                .winners
+                .get(&PathKey {
+                    namespace: Namespace::Archive,
+                    effective,
+                })
+                .and_then(|winner| self.candidate(*winner))
+                .is_some_and(|winner| winner.mod_key == candidate.mod_key);
+            result.push(AssetCopyRecord {
+                mod_name: candidate.mod_name.to_string(),
+                source_rel: candidate.source_rel.to_vec(),
+                legacy_rel: relative,
+                namespace: Namespace::Archive,
+                provider_kind: ProviderKind::ArchiveMember,
+                winning,
+            });
+        }
+
+        for raw in self
+            .raw_files
+            .iter()
+            .filter(|raw| allowed.contains(raw.mod_key.as_ref()))
+        {
+            let candidate = selected_candidates
+                .get(&(raw.mod_key.as_ref(), raw.source_rel.as_ref()))
+                .and_then(|index| self.candidates.get(*index as usize));
+            let (relative, namespace, provider_kind, winning) = if let Some(candidate) = candidate {
+                let Some(relative) = filter.matching_path(&candidate.legacy_rel) else {
+                    continue;
+                };
+                let namespace = candidate.kind.namespace();
+                let effective = self
+                    .inventory
+                    .effective(&candidate.target, &candidate.destination_key)
+                    .expect("candidate destination is interned");
+                let winning = self
+                    .winners
+                    .get(&PathKey {
+                        namespace,
+                        effective,
+                    })
+                    .and_then(|winner| self.candidate(*winner))
+                    .is_some_and(|winner| winner.mod_key == candidate.mod_key);
+                (relative, namespace, candidate.kind, winning)
+            } else {
+                if raw.flags & FLAG_INDEXED == 0 {
+                    continue;
+                }
+                let Some(relative) = filter.matching_path(&raw.index_display) else {
+                    continue;
+                };
+                if raw.flags & FLAG_INDEX_ROOT != 0 {
+                    (relative, Namespace::Root, ProviderKind::Root, false)
+                } else {
+                    (relative, Namespace::Normal, ProviderKind::Loose, false)
+                }
+            };
+            result.push(AssetCopyRecord {
+                mod_name: raw.mod_name.to_string(),
+                source_rel: raw.source_rel.to_vec(),
+                legacy_rel: relative,
+                namespace,
+                provider_kind,
+                winning,
+            });
+        }
+        result.sort_by(|left, right| {
+            (
+                &left.legacy_rel,
+                left.provider_kind,
+                &left.mod_name,
+                &left.source_rel,
+            )
+                .cmp(&(
+                    &right.legacy_rel,
+                    right.provider_kind,
+                    &right.mod_name,
+                    &right.source_rel,
+                ))
+        });
+        result
+    }
+
     pub fn iter_mod_files(
         &self,
         mod_name: &str,
@@ -1332,6 +1508,32 @@ impl GraphSnapshot {
                 let relative = candidate.legacy_rel.replace('\\', "/").to_lowercase();
                 (prefixes.is_empty() || prefixes.iter().any(|prefix| relative.starts_with(prefix)))
                     .then(|| self.winner_record(candidate, key.namespace))
+            })
+            .collect();
+        result.sort_by_key(|winner| match winner.namespace {
+            Namespace::Archive => 0,
+            Namespace::Normal => 1,
+            Namespace::Root => 2,
+        });
+        result
+    }
+
+    pub fn asset_winner_sources(&self, prefixes: &[String]) -> Vec<AssetCopyRecord> {
+        let filter = AssetCopyFilter::new(prefixes, &[], &[]);
+        let mut result: Vec<_> = self
+            .winners
+            .iter()
+            .filter_map(|(key, candidate_id)| {
+                let candidate = self.candidate(*candidate_id)?;
+                let relative = filter.matching_path(&candidate.legacy_rel)?;
+                Some(AssetCopyRecord {
+                    mod_name: candidate.mod_name.to_string(),
+                    source_rel: candidate.source_rel.to_vec(),
+                    legacy_rel: relative,
+                    namespace: key.namespace,
+                    provider_kind: candidate.kind,
+                    winning: true,
+                })
             })
             .collect();
         result.sort_by_key(|winner| match winner.namespace {

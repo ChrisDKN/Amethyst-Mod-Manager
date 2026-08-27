@@ -14,7 +14,7 @@ import msgpack
 from Utils.filegraph_models import FileGraphUnavailable
 
 
-API_VERSION = 10
+API_VERSION = 11
 SCHEMA_VERSION = 9
 ENGINE_REVISION = 1
 RULES_REVISION = 7

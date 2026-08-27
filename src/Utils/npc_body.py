@@ -817,7 +817,8 @@ def _dedupe(parts: list[BodyPart]) -> list[BodyPart]:
     return out
 
 
-def load_order_records(profile_dir, staging, data_dir, cancel=None) -> list:
+def load_order_records(profile_dir, staging, data_dir, cancel=None,
+                       plugin_paths=None) -> list:
     """Every enabled plugin's assembly records, HIGHEST PRIORITY FIRST.
 
     A mod can replace an NPC's outfit with a plugin alone - "Serana Lustmord
@@ -833,7 +834,8 @@ def load_order_records(profile_dir, staging, data_dir, cancel=None) -> list:
     order = _load_order(profile_dir)
     if not order:
         return []
-    index = _plugin_index(staging, profile_dir, data_dir)
+    index = _plugin_index(
+        staging, profile_dir, data_dir, plugin_paths=plugin_paths)
     records = []
     for name in reversed(order):
         if cancel and cancel():
@@ -911,11 +913,11 @@ def _load_order(profile_dir) -> list[str]:
     return out
 
 
-def _plugin_index(staging, profile_dir, data_dir) -> dict:
+def _plugin_index(staging, profile_dir, data_dir, plugin_paths=None) -> dict:
     """{plugin name: winning file}, mods in modlist priority then the data dir.
 
-    Built in one pass: probing each of a few hundred plugin names against a
-    thousand mod folders individually is minutes of stat() calls.
+    A filegraph projection can supply *plugin_paths* and avoid the mod-folder
+    scan; the one-pass scan remains as a fallback.
     """
     index: dict[str, Path] = {}
     if data_dir is not None:
@@ -926,6 +928,12 @@ def _plugin_index(staging, profile_dir, data_dir) -> dict:
         except OSError:
             pass
     if staging is None:
+        return index
+    if plugin_paths is not None:
+        index.update({
+            str(name).lower(): Path(path)
+            for name, path in plugin_paths.items()
+        })
         return index
     mods = _enabled_mods(profile_dir)
     # Reversed so the highest-priority mod overwrites the rest.

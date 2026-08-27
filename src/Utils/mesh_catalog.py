@@ -11,10 +11,10 @@ load, using the resolver's own winner tables so the two never disagree.
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
-from Utils.asset_resolver import normalise
+from Utils.asset_resolver import _graph_coordinates, normalise
 
 __all__ = [
     "MeshEntry", "build_catalog", "find_copies", "mod_has_assets",
@@ -112,8 +112,10 @@ def build_catalog(resolver, staging: Path | None, modlist_path: Path | None,
     def stop() -> bool:
         return bool(cancel and cancel())
 
+    mod_entries, loose_w, arch_w = _mod_copies(
+        resolver, prio, prefix=prefix, exts=exts)
     if staging is not None:
-        entries += _mod_loose(resolver, prio, prefix, exts)
+        entries += mod_entries
     if stop():
         return []
 
@@ -121,15 +123,10 @@ def build_catalog(resolver, staging: Path | None, modlist_path: Path | None,
     # winning mod file in the data folder too, so those keys are dropped here -
     # otherwise each one sprouts a phantom "Data" duplicate of itself.
     if data_dir is not None:
-        deployed = set(_winner_map(resolver, "loose_winners"))
+        deployed = set(loose_w)
         for key in _walk_ext(data_dir, prefix, exts):
             if key not in deployed:
                 entries.append(MeshEntry(key, DATA_LOOSE))
-    if stop():
-        return []
-
-    if staging is not None:
-        entries += _mod_archives(resolver, prio, prefix, exts)
     if stop():
         return []
 
@@ -138,7 +135,7 @@ def build_catalog(resolver, staging: Path | None, modlist_path: Path | None,
     if stop():
         return []
 
-    return _flag_winners(entries, resolver, prio_rank)
+    return _flag_winners(entries, resolver, prio_rank, loose_w, arch_w)
 
 
 def find_copies(rel_keys, resolver, staging: Path | None,
@@ -161,39 +158,22 @@ def find_copies(rel_keys, resolver, staging: Path | None,
     from Utils.asset_resolver import DirCache
     dirs = DirCache()
 
-    snapshot = getattr(resolver, "snapshot", None)
-    if staging is not None and snapshot is not None:
-        from Utils.filegraph_adapter import FLAG_INDEXED
-        for mod in prio:
-            for record in snapshot.mod_files(mod):
-                if record.candidate_id == 0 and not (record.flags & FLAG_INDEXED):
-                    continue
-                key = resolver._asset_key(record.legacy_rel, record.namespace)
-                if key in wanted:
-                    entries.append(MeshEntry(key, MOD_LOOSE, mod=mod))
+    mod_entries, loose_w, arch_w = _mod_copies(
+        resolver, prio, exact_paths=keys)
+    if staging is not None:
+        entries += mod_entries
 
     if data_dir is not None:
-        deployed = set(_winner_map(resolver, "loose_winners"))
+        deployed = set(loose_w)
         for key in keys:
             if key not in deployed and dirs.resolve(data_dir, key) is not None:
                 entries.append(MeshEntry(key, DATA_LOOSE))
-
-    if staging is not None and snapshot is not None:
-        from Utils.filegraph_service import source_path
-        for mod in prio:
-            for record in snapshot.archive_files(mod):
-                key = resolver._asset_key(record.legacy_rel, "archive")
-                if key in wanted:
-                    archive = source_path(game=resolver.game, mod_name=mod,
-                                          relative=record.source_rel)
-                    entries.append(MeshEntry(key, MOD_ARCHIVE, mod=mod,
-                                             archive=archive))
 
     if data_dir is not None:
         entries += _data_archive_copies(data_dir, wanted, keep_prefix)
 
     grouped: dict[str, list[MeshEntry]] = {k: [] for k in keys}
-    for e in _flag_winners(entries, resolver, prio_rank):
+    for e in _flag_winners(entries, resolver, prio_rank, loose_w, arch_w):
         grouped.setdefault(e.rel_key, []).append(e)
     return grouped
 
@@ -205,28 +185,18 @@ def mod_has_assets(staging: Path | None, mod: str, *,
     """True if *mod* ships at least one matching asset, loose or in its own
     BSA/BA2 - the right-click gate for "is there anything to view here".
 
-    Reads the cached modindex/bsa_index (no disk walk) when they exist, so it
-    is cheap enough to run while a context menu is being built.
+    Uses the cached filegraph inventory without walking the mod directory.
     """
     if staging is None or not mod:
         return False
     try:
-        from Utils.filegraph_adapter import FLAG_INDEXED
         from Utils.filegraph_service import active_snapshot
         snapshot = active_snapshot(game)
-        for record in snapshot.mod_files(mod):
-            if record.candidate_id == 0 and not (record.flags & FLAG_INDEXED):
-                continue
-            key = normalise(record.legacy_rel)
-            if key.startswith(prefix) and _ext_ok(key, exts):
-                return True
-        for record in snapshot.archive_files(mod):
-            key = normalise(record.legacy_rel)
-            if key.startswith(prefix) and _ext_ok(key, exts):
-                return True
+        return bool(snapshot.asset_copies(
+            (mod,), prefixes=_graph_coordinates((prefix,), game),
+            extensions=exts))
     except Exception:                                    # noqa: BLE001
         return False
-    return False
 
 
 def _data_archive_copies(data_dir: Path, wanted: set, keep_prefix) -> list:
@@ -256,40 +226,50 @@ def _enabled_mods(modlist_path: Path | None) -> list[str]:
         return []
 
 
-def _mod_loose(resolver, mods: list[str], prefix: str,
-               exts: tuple[str, ...]) -> list[MeshEntry]:
-    """Loose copies from every enabled mod in the pinned graph inventory."""
-    out: list[MeshEntry] = []
+def _mod_copies(resolver, mods: list[str], *, prefix: str = "",
+                exact_paths=(), exts: tuple[str, ...] = ()):
+    """Filtered loose and archive copies from one pinned graph projection."""
     snapshot = getattr(resolver, "snapshot", None)
     if snapshot is None:
-        return out
-    from Utils.filegraph_adapter import FLAG_INDEXED
-    for mod in mods:
-        for record in snapshot.mod_files(mod):
-            if record.candidate_id == 0 and not (record.flags & FLAG_INDEXED):
-                continue
-            key = resolver._asset_key(record.legacy_rel, record.namespace)
-            if key.startswith(prefix) and _ext_ok(key, exts):
-                out.append(MeshEntry(key, MOD_LOOSE, mod=mod))
-    return out
-
-
-def _mod_archives(resolver, mods: list[str], prefix: str,
-                  exts: tuple[str, ...]) -> list[MeshEntry]:
-    """Archived copies inside every enabled mod's own BSA/BA2 files."""
-    snapshot = getattr(resolver, "snapshot", None)
-    if snapshot is None:
-        return []
+        return [], {}, {}
+    normal_prefix = normalise(prefix) if prefix else ""
+    wanted = {normalise(path) for path in exact_paths if path}
+    from Utils.filegraph_adapter import OVERWRITE_NAME, ROOT_FOLDER_NAME
     from Utils.filegraph_service import source_path
+    listed_mods = {mod.lower() for mod in mods}
+    records = snapshot.asset_copies(
+        (*mods, OVERWRITE_NAME, ROOT_FOLDER_NAME),
+        prefixes=_graph_coordinates((prefix,), resolver.game) if prefix else (),
+        exact_paths=_graph_coordinates(wanted, resolver.game),
+        extensions=exts,
+    )
     out: list[MeshEntry] = []
-    for mod in mods:
-        for record in snapshot.archive_files(mod):
-            key = resolver._asset_key(record.legacy_rel, "archive")
-            if key.startswith(prefix) and _ext_ok(key, exts):
+    loose_w: dict[str, str] = {}
+    arch_w: dict[str, str] = {}
+    archive_paths: dict[tuple[str, bytes], Path] = {}
+    for record in records:
+        key = resolver._asset_key(record.legacy_rel, record.namespace)
+        if ((normal_prefix and not key.startswith(normal_prefix))
+                or (wanted and key not in wanted)
+                or (exts and not _ext_ok(key, exts))):
+            continue
+        if record.winning:
+            target = arch_w if record.provider_kind == "archive_member" else loose_w
+            target[key] = record.mod_name
+        if record.mod_name.lower() not in listed_mods:
+            continue
+        if record.provider_kind == "archive_member":
+            source_key = record.mod_name, record.source_rel
+            archive = archive_paths.get(source_key)
+            if archive is None:
                 archive = source_path(
-                    resolver.game, mod, record.source_rel)
-                out.append(MeshEntry(key, MOD_ARCHIVE, mod=mod, archive=archive))
-    return out
+                    resolver.game, record.mod_name, record.source_rel)
+                archive_paths[source_key] = archive
+            out.append(MeshEntry(
+                key, MOD_ARCHIVE, mod=record.mod_name, archive=archive))
+        else:
+            out.append(MeshEntry(key, MOD_LOOSE, mod=record.mod_name))
+    return out, loose_w, arch_w
 
 
 def _data_archives(data_dir: Path, prefix: str,
@@ -320,10 +300,13 @@ def _winner_map(resolver, attr: str) -> dict[str, str]:
 
 
 def _flag_winners(entries: list[MeshEntry], resolver,
-                  prio_rank: dict[str, int]) -> list[MeshEntry]:
+                  prio_rank: dict[str, int], loose_w=None,
+                  arch_w=None) -> list[MeshEntry]:
     """Mark one copy per path as the winner, mirroring AssetResolver.read()."""
-    loose_w = _winner_map(resolver, "loose_winners")
-    arch_w = _winner_map(resolver, "archive_winners")
+    if loose_w is None:
+        loose_w = _winner_map(resolver, "loose_winners")
+    if arch_w is None:
+        arch_w = _winner_map(resolver, "archive_winners")
 
     groups: dict[str, list[MeshEntry]] = {}
     for e in entries:
@@ -337,8 +320,7 @@ def _flag_winners(entries: list[MeshEntry], resolver,
                                   str(e.archive or "")))
         winner = _pick_winner(key, group, loose_w, arch_w)
         for e in group:
-            out.append(e if e is not winner else
-                       MeshEntry(e.rel_key, e.kind, e.mod, e.archive, True))
+            out.append(e if e is not winner else replace(e, wins=True))
     # Winner first inside each path group; paths already sorted.
     out.sort(key=lambda e: (e.rel_key, not e.wins, _ORDER[e.kind],
                             prio_rank.get(e.mod, 1 << 30), str(e.archive or "")))

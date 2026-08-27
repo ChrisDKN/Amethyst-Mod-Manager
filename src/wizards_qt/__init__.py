@@ -88,6 +88,7 @@ class QtWizardContext:
     open_log_tab: Callable | None = None
     set_tool_lock: Callable | None = None
     show_mod_files: Callable | None = None
+    filegraph_snapshot: Callable | None = None
 
 
 # Deliberately dropped from the Qt app (not even shown greyed out).

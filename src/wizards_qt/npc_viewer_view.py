@@ -32,6 +32,7 @@ from gui_qt.path_tree import Node, PathTreeDelegate, PathTreeModel
 from gui_qt.safe_emit import safe_emit
 from gui_qt.theme_qt import active_palette, button_qss, _c
 from gui_qt.worker import LatestWorker
+from Utils.asset_resolver import DirCache
 from Utils.mesh_catalog import (
     DATA_ARCHIVE, DATA_LOOSE, MOD_ARCHIVE, MOD_LOOSE, read_entry,
 )
@@ -85,6 +86,7 @@ class NpcViewerView(QWidget):
         self._open_gen = 0
         self._npcs: list = []
         self._resolver = None
+        self._dirs = DirCache()
         self._records = None
         self._records_gen = -1
         # The catalogue worker preloads the complete record stack while the
@@ -304,6 +306,7 @@ class NpcViewerView(QWidget):
         self._archive_mod_list = None
         self._archive_owner = {}
         self._current_data = None
+        self._dirs = DirCache()
         # Who was on screen, so the refresh lands back on them rather than
         # dumping the user at the top of a 4000-row list. Kept by IDENTITY,
         # not by entry: the mod providing the winning face may have changed,
@@ -387,9 +390,12 @@ class NpcViewerView(QWidget):
         gen = self._gen
         self._count.setText(self.tr("Scanning…"))
         try:
+            snapshot_hook = getattr(
+                self._ctx, "filegraph_snapshot", None) if self._ctx else None
+            snapshot = snapshot_hook() if callable(snapshot_hook) else None
             self._resolver = _resolver_for(
                 self._staging, self._modlist, self._profile_dir, self._data,
-                self._game)
+                self._game, snapshot=snapshot)
         except Exception as exc:                         # noqa: BLE001
             self._log(f"View NPCs: could not build the asset resolver: {exc}")
             self._resolver = None
@@ -509,7 +515,8 @@ class NpcViewerView(QWidget):
         outfit = self._outfit.isChecked()
 
         def worker():
-            data = read_entry(entry, self._staging, self._data)
+            data = read_entry(
+                entry, self._staging, self._data, dirs=self._dirs)
             # FO4 can override a face entirely through NPC_/HDPT records, with
             # no replacement FaceGeom file.  Appearance therefore has to be
             # resolved even for the head-only view.
@@ -661,9 +668,19 @@ class NpcViewerView(QWidget):
             if self._records is None or self._records_gen != self._gen:
                 from Utils.npc_body import load_order_records
                 gen = self._gen
+                plugin_paths = None
+                try:
+                    from Utils.filegraph_service import plugin_source_paths
+                    indexed = plugin_source_paths(
+                        getattr(self._resolver, "snapshot", None), self._game)
+                    if indexed:
+                        plugin_paths = indexed
+                except Exception:                        # noqa: BLE001
+                    pass
                 records = load_order_records(
                     self._profile_dir, self._staging, self._data,
-                    cancel=lambda: gen != self._gen) or []
+                    cancel=lambda: gen != self._gen,
+                    plugin_paths=plugin_paths) or []
                 # A refresh can invalidate the profile while the background
                 # parse is running. Never publish that old stack into the new
                 # generation; its warm-up will acquire this lock next.
@@ -966,7 +983,7 @@ def _string_languages_for(game) -> tuple[str, ...]:
     return "english", "en"
 
 
-def _resolver_for(staging, modlist, profile_dir, data, game):
+def _resolver_for(staging, modlist, profile_dir, data, game, snapshot=None):
     """One resolver for both the winner flags and the viewport's textures.
 
     Built with the FaceGeom prefix in keep_prefix from the start - the NIF
@@ -977,7 +994,7 @@ def _resolver_for(staging, modlist, profile_dir, data, game):
     from Utils.asset_resolver import AssetResolver
     return AssetResolver(staging_dir=staging, modlist_path=modlist,
                          profile_dir=profile_dir, data_dir=data, game=game,
-                         keep_prefix=BROWSE_PREFIXES)
+                         keep_prefix=BROWSE_PREFIXES, snapshot=snapshot)
 
 
 def _title_for(npc) -> str:

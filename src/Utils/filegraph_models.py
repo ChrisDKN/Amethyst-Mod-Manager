@@ -132,6 +132,33 @@ class ModFile:
 
 
 @dataclass(frozen=True, slots=True)
+class AssetCopy:
+    mod_name: str
+    source_rel: bytes
+    legacy_rel: str
+    namespace: str
+    provider_kind: str
+    winning: bool
+
+    @classmethod
+    def from_wire(cls, value: dict[str, Any] | list | tuple) -> "AssetCopy":
+        if isinstance(value, dict):
+            value = dict(value)
+            value["source_rel"] = bytes(value["source_rel"])
+            return cls(**value)
+        if len(value) != 6:
+            raise ValueError(f"invalid compact asset copy field count: {len(value)}")
+        return cls(
+            mod_name=str(value[0]),
+            source_rel=bytes(value[1]),
+            legacy_rel=str(value[2]),
+            namespace=str(value[3]),
+            provider_kind=str(value[4]),
+            winning=bool(value[5]),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class ConflictEdge:
     kind: str
     loser: str

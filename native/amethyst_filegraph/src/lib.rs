@@ -518,6 +518,36 @@ impl ResolvedSnapshot {
         encoded_py(py, &self.snapshot.asset_winners(&prefixes))
     }
 
+    #[pyo3(signature = (mod_names, prefixes=Vec::new(), exact_paths=Vec::new(), extensions=Vec::new()))]
+    fn asset_copies(
+        &self,
+        py: Python<'_>,
+        mod_names: BTreeSet<String>,
+        prefixes: Vec<String>,
+        exact_paths: Vec<String>,
+        extensions: Vec<String>,
+    ) -> PyResult<Py<PyBytes>> {
+        let snapshot = self.snapshot.clone();
+        let bytes = py
+            .detach(move || {
+                let rows = snapshot.asset_copies(&mod_names, &prefixes, &exact_paths, &extensions);
+                rmp_serde::to_vec(&rows).map_err(FileGraphError::from)
+            })
+            .map_err(PyErr::from)?;
+        Ok(PyBytes::new(py, &bytes).unbind())
+    }
+
+    fn asset_winner_sources(&self, py: Python<'_>, prefixes: Vec<String>) -> PyResult<Py<PyBytes>> {
+        let snapshot = self.snapshot.clone();
+        let bytes = py
+            .detach(move || {
+                let rows = snapshot.asset_winner_sources(&prefixes);
+                rmp_serde::to_vec(&rows).map_err(FileGraphError::from)
+            })
+            .map_err(PyErr::from)?;
+        Ok(PyBytes::new(py, &bytes).unbind())
+    }
+
     fn framework_basenames(
         &self,
         py: Python<'_>,

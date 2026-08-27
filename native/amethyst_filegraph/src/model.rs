@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
-pub const API_VERSION: u32 = 10;
+pub const API_VERSION: u32 = 11;
 pub const SCHEMA_VERSION: u32 = 9;
 pub const ENGINE_REVISION: u64 = 1;
 pub const RULES_REVISION: u64 = 7;
@@ -276,6 +276,16 @@ pub struct ModFileRecord {
     pub flags: u32,
     pub plugin_key: Option<String>,
     pub legacy_rel: String,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
+pub struct AssetCopyRecord {
+    pub mod_name: String,
+    pub source_rel: Vec<u8>,
+    pub legacy_rel: String,
+    pub namespace: Namespace,
+    pub provider_kind: ProviderKind,
+    pub winning: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]

@@ -25,6 +25,27 @@ def normalise(rel: str) -> str:
     return s
 
 
+def _graph_coordinates(values, game) -> tuple[str, ...]:
+    paths = tuple(dict.fromkeys(
+        key for key in (normalise(str(value)) for value in values) if key
+    ))
+    if not paths or game is None:
+        return paths
+    try:
+        from Utils.game_helpers import game_data_subpath
+        data_prefix = normalise(str(game_data_subpath(game))).strip("/")
+    except Exception:
+        data_prefix = ""
+    if not data_prefix:
+        return paths
+    rooted = (
+        path if path.startswith(data_prefix + "/")
+        else f"{data_prefix}/{path}"
+        for path in paths
+    )
+    return tuple(dict.fromkeys((*paths, *rooted)))
+
+
 class DirCache:
     """Case-insensitive path resolution, one scandir per directory.
 
@@ -107,21 +128,7 @@ class AssetResolver:
         """
         raw = ((self.keep_prefix,) if isinstance(self.keep_prefix, str)
                else tuple(self.keep_prefix))
-        prefixes = tuple(
-            value.replace("\\", "/").lower().lstrip("/")
-            for value in raw if value
-        )
-        if not prefixes or self.game is None:
-            return prefixes
-        try:
-            from Utils.game_helpers import game_data_subpath
-            data_prefix = game_data_subpath(self.game).replace(
-                "\\", "/").lower().strip("/")
-        except Exception:
-            data_prefix = ""
-        if not data_prefix:
-            return prefixes
-        return prefixes + tuple(f"{data_prefix}/{value}" for value in prefixes)
+        return _graph_coordinates(raw, self.game)
 
     def _wanted_asset(self, key: str) -> bool:
         raw = ((self.keep_prefix,) if isinstance(self.keep_prefix, str)
@@ -135,41 +142,43 @@ class AssetResolver:
     # -- lazy tables --------------------------------------------------------
     def _loose_map(self) -> dict[str, str]:
         """Asset-relative loose winners from the pinned graph generation."""
-        if self._loose is not None:
-            return self._loose
-        out: dict[str, str] = {}
+        self._ensure_winner_maps()
+        return self._loose or {}
+
+    def _ensure_winner_maps(self) -> None:
+        if self._loose is not None and self._bsa_winner is not None:
+            return
+        loose: dict[str, str] = {}
+        archived: dict[str, str] = {}
         if self.snapshot is not None and self.game is not None:
             from Utils.filegraph_service import source_path
-            for winner in self.snapshot.asset_winners(self._query_prefixes()):
-                if winner.namespace == "archive":
-                    continue
+            archive_paths: dict[tuple[str, bytes], Path] = {}
+            for winner in self.snapshot.asset_winner_sources(
+                    self._query_prefixes()):
                 key = self._asset_key(winner.legacy_rel, winner.namespace)
                 if not self._wanted_asset(key):
                     continue
-                out[key] = winner.mod_name
-                self._loose_sources[key] = source_path(
-                    self.game, winner.mod_name, winner.source_rel)
-        self._loose = out
-        return out
+                if winner.namespace == "archive":
+                    source_key = winner.mod_name, winner.source_rel
+                    path = archive_paths.get(source_key)
+                    if path is None:
+                        path = source_path(
+                            self.game, winner.mod_name, winner.source_rel)
+                        archive_paths[source_key] = path
+                    archived[key] = winner.mod_name
+                    self._archive_sources[key] = path
+                else:
+                    path = source_path(
+                        self.game, winner.mod_name, winner.source_rel)
+                    loose[key] = winner.mod_name
+                    self._loose_sources[key] = path
+        self._loose = loose
+        self._bsa_winner = archived
 
     def _archive_winner(self) -> dict[str, str]:
         """Asset-relative archive winners from the pinned graph generation."""
-        if self._bsa_winner is not None:
-            return self._bsa_winner
-        winner: dict[str, str] = {}
-        if self.snapshot is not None and self.game is not None:
-            from Utils.filegraph_service import source_path
-            for record in self.snapshot.asset_winners(self._query_prefixes()):
-                if record.namespace != "archive":
-                    continue
-                key = self._asset_key(record.legacy_rel, record.namespace)
-                if not self._wanted_asset(key):
-                    continue
-                winner[key] = record.mod_name
-                self._archive_sources[key] = source_path(
-                    self.game, record.mod_name, record.source_rel)
-        self._bsa_winner = winner
-        return winner
+        self._ensure_winner_maps()
+        return self._bsa_winner or {}
 
     def _asset_key(self, relative: str, namespace: str) -> str:
         path = relative.replace("\\", "/").lstrip("/")

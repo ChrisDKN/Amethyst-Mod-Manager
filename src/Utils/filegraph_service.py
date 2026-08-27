@@ -18,7 +18,7 @@ from Utils.filegraph_adapter import (
     OVERWRITE_NAME, ROOT_FOLDER_NAME, GameCandidateAdapter,
 )
 from Utils.filegraph_models import (
-    CatalogStatus, ConflictState, ConflictSummary, DeployedStateEntry,
+    AssetCopy, CatalogStatus, ConflictState, ConflictSummary, DeployedStateEntry,
     DeployEntry, DeploymentPlan, FileGraphBusy, FileGraphCancelled,
     FileGraphRecoveryRequired, FileGraphStale, ModFile, OperationRecord,
     ResolutionDelta, SnapshotExport, Winner,
@@ -66,11 +66,17 @@ class CancellationToken:
 class ResolvedSnapshot:
     """Immutable generation-pinned snapshot; safe across later reconciles."""
 
-    __slots__ = ("_native", "_export")
+    __slots__ = (
+        "_native", "_export", "_asset_winners_cache", "_asset_sources_cache",
+    )
 
     def __init__(self, native_snapshot):
         self._native = native_snapshot
         self._export: SnapshotExport | None = None
+        self._asset_winners_cache: dict[tuple[str, ...], tuple[Winner, ...]] = {}
+        self._asset_sources_cache: dict[
+            tuple[str, ...], tuple[AssetCopy, ...]
+        ] = {}
 
     @property
     def generation(self) -> int:
@@ -161,11 +167,45 @@ class ResolvedSnapshot:
         return Winner.from_wire(value) if value else None
 
     def asset_winners(self, prefixes: str | Iterable[str] = ()) -> tuple[Winner, ...]:
-        values = [prefixes] if isinstance(prefixes, str) else list(prefixes)
-        return tuple(
+        values = ((prefixes,) if isinstance(prefixes, str)
+                  else tuple(prefixes))
+        key = tuple(str(value).replace("\\", "/").lower() for value in values)
+        cached = self._asset_winners_cache.get(key)
+        if cached is not None:
+            return cached
+        cached = tuple(
             Winner.from_wire(value)
-            for value in unpack(self._native.asset_winners(values))
+            for value in unpack(self._native.asset_winners(list(key)))
         )
+        self._asset_winners_cache[key] = cached
+        return cached
+
+    def asset_copies(
+        self, mod_names: Iterable[str], *, prefixes: Iterable[str] = (),
+        exact_paths: Iterable[str] = (), extensions: Iterable[str] = (),
+    ) -> tuple[AssetCopy, ...]:
+        return tuple(
+            AssetCopy.from_wire(value)
+            for value in unpack(self._native.asset_copies(
+                set(mod_names), list(prefixes), list(exact_paths),
+                list(extensions)))
+        )
+
+    def asset_winner_sources(
+        self, prefixes: str | Iterable[str] = (),
+    ) -> tuple[AssetCopy, ...]:
+        values = ((prefixes,) if isinstance(prefixes, str)
+                  else tuple(prefixes))
+        key = tuple(str(value).replace("\\", "/").lower() for value in values)
+        cached = self._asset_sources_cache.get(key)
+        if cached is None:
+            cached = tuple(
+                AssetCopy.from_wire(value)
+                for value in unpack(
+                    self._native.asset_winner_sources(list(key)))
+            )
+            self._asset_sources_cache[key] = cached
+        return cached
 
     def framework_basenames(self, mod_names: Iterable[str]) -> set[str]:
         return set(unpack(self._native.framework_basenames(set(mod_names))))
