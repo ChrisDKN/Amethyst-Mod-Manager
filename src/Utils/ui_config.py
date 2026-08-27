@@ -1651,6 +1651,39 @@ def save_hide_endorse_button(value: bool) -> None:
     _write_ini(parser, path)
 
 
+_HEADER_POSITIONS = ("top", "left", "right")
+
+
+def load_header_position() -> str:
+    """Return where the main toolbar sits: "top" (default), "left" or "right"."""
+    path = get_ui_config_path()
+    if not path.is_file():
+        return "top"
+    try:
+        parser = _read_ini(path)
+        value = parser.get(
+            _FILEMAP_SECTION, "header_position", fallback="top").strip().lower()
+        return value if value in _HEADER_POSITIONS else "top"
+    except Exception:
+        return "top"
+
+
+def save_header_position(value: str) -> None:
+    """Persist the header_position setting to amethyst.ini."""
+    value = (value or "top").strip().lower()
+    if value not in _HEADER_POSITIONS:
+        value = "top"
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _FILEMAP_SECTION not in parser:
+        parser[_FILEMAP_SECTION] = {}
+    parser[_FILEMAP_SECTION]["header_position"] = value
+    _write_ini(parser, path)
+
+
 def load_rename_mod_after_install() -> bool:
     """Return the rename_mod_after_install setting (default False).
 

@@ -71,6 +71,10 @@ if _MODULE_STARTUP_TIMING is not None:
 # log anyway. Shadowing the builtin makes every print(...) below crash-proof.
 from Utils.app_log import safe_print as print  # noqa: A004
 
+# Qt's "no maximum" sentinel. PySide6 doesn't export QWIDGETSIZE_MAX, so undoing
+# a setFixedSize/setFixedWidth means writing the value out.
+_QWIDGETSIZE_MAX = (1 << 24) - 1
+
 
 def _tr_wizard(text: str, args: tuple = ()) -> str:
     """Translate a wizard-tool label/description/category at display time.
@@ -653,13 +657,18 @@ class MainWindow(QMainWindow):
 
         # Header+body+footer go in a vertical splitter with the log text area
         # so the log is drag-resizable; the log control bar stays fixed below.
+        # The toolbar is a row above the body by default; as a side bar it is a
+        # fixed-width icon column beside it, so the layout flips to horizontal.
+        header_pos = self._header_position()
         main_content = QWidget()
-        mc = QVBoxLayout(main_content)
+        mc = (QHBoxLayout(main_content) if header_pos in ("left", "right")
+              else QVBoxLayout(main_content))
         mc.setContentsMargins(0, 0, 0, 0)
         mc.setSpacing(0)
         phase_started = _startup_time.perf_counter()
         header_row = self._build_header_row()
-        mc.addWidget(header_row)
+        if header_pos != "right":
+            mc.addWidget(header_row)
         if startup_timing is not None:
             startup_timing.record(
                 "Build header controls", phase_started=phase_started,
@@ -667,6 +676,11 @@ class MainWindow(QMainWindow):
         phase_started = _startup_time.perf_counter()
         body_row = self._build_body_row(startup_timing=startup_timing)
         mc.addWidget(body_row, 1)
+        if header_pos == "right":
+            mc.addWidget(header_row)
+        # Kept for _apply_header_position, which re-lays out this container.
+        self._main_content = main_content
+        self._body_row = body_row
         if startup_timing is not None:
             startup_timing.record(
                 "Build mod and plugin panels", phase_started=phase_started,
@@ -2609,11 +2623,18 @@ class MainWindow(QMainWindow):
             self._tf_content_btn.setText(self.tr("Search Content"))
 
     def _left_header(self) -> QWidget:
-        # Single row: game/profile selectors, then the mod-action buttons.
+        # Single row: game/profile selectors, then the mod-action buttons. As a
+        # side bar the same widgets stack in a column and stay icon-only, so the
+        # staged compaction is skipped and the tooltips carry the labels.
+        vertical = self._header_vertical()
         header = _HeaderBar(self._sync_header_compact)
         header.setObjectName("HeaderBar")
-        h = QHBoxLayout(header)
-        h.setContentsMargins(8, 6, 8, 6)
+        header.setProperty("vertical", vertical)
+        h = QVBoxLayout(header) if vertical else QHBoxLayout(header)
+        if vertical:
+            h.setContentsMargins(6, 8, 6, 8)
+        else:
+            h.setContentsMargins(8, 6, 8, 6)
         h.setSpacing(6)
 
         # Game selector - no label; the game names make it self-evident. Items
@@ -2630,6 +2651,9 @@ class MainWindow(QMainWindow):
             # rest of the pinned entries stay on screen instead of being pushed
             # off the bottom by a long library.
             scroll_after=7,
+            # Side bar: a game with no logo (or none configured) would
+            # otherwise collapse to a blank square.
+            face_icon=(icon("Logo.png", self._ICON_PX) if vertical else None),
         )
         self._game_selector.setFixedHeight(self._BTN_H)
         h.addWidget(self._game_selector)
@@ -2645,6 +2669,12 @@ class MainWindow(QMainWindow):
             icon_px=16,
             actions=self._profile_actions(),
             on_select=self._on_profile_changed,
+            # Side bar: the per-item icons are Profile Group badges, so an
+            # ungrouped profile has none. Untinted - profile.png is full-colour
+            # artwork, not a mono glyph; recolouring flattens it to a disc.
+            face_icon=(icon("profile.png", self._ICON_PX) if vertical
+                       else None),
+            face_icon_px=self._ICON_PX,
         )
         self._profile_selector.setFixedHeight(self._BTN_H)
         # Rebuild the pinned actions on every open (like the Wizard menu): the
@@ -2655,12 +2685,19 @@ class MainWindow(QMainWindow):
             self._refresh_profile_actions)
         h.addWidget(self._profile_selector)
 
-        # A new game/profile name is a different width - re-run the width
-        # budget, since the bar itself isn't resized by it.
-        for sel in (self._game_selector, self._profile_selector):
-            sel.face_changed.connect(self._sync_header_compact)
+        if vertical:
+            # Locked icon-only. set_icon_only short-circuits when the current
+            # item has no icon, so the face_icon fallbacks above make it stick.
+            for sel in (self._game_selector, self._profile_selector):
+                sel.setMinimumWidth(0)
+                sel.set_icon_only(True)
+        else:
+            # A new game/profile name is a different width - re-run the width
+            # budget, since the bar itself isn't resized by it.
+            for sel in (self._game_selector, self._profile_selector):
+                sel.face_changed.connect(self._sync_header_compact)
 
-        h.addWidget(self._group_sep())
+        h.addWidget(self._group_sep(vertical=vertical))
 
         # Plain mod-action buttons. They drop to icon-only when the bar gets
         # too narrow for the labels (_sync_header_compact).
@@ -2777,6 +2814,18 @@ class MainWindow(QMainWindow):
             self._action_buttons.append(b)
             h.addWidget(b)
 
+        if vertical:
+            # Icon-only for good, not as a width-pressure stage. `compact` is
+            # the same QSS hook _set_header_compact uses: it drops the label
+            # padding while the split buttons keep their arrow section.
+            self._header_compact = True
+            for b in self._action_buttons:
+                b.setToolButtonStyle(Qt.ToolButtonIconOnly)
+                b.setProperty("compact", True)
+                b.style().unpolish(b); b.style().polish(b)
+                b.setMinimumWidth(0)
+                b.setFixedHeight(self._BTN_H)
+
         # Gate the Nexus / Thunderstore buttons on the current game's stores,
         # and the Proton button on it having a wine prefix. Done after the loop
         # so all three buttons exist; safe before the header is shown (the sync
@@ -2796,6 +2845,30 @@ class MainWindow(QMainWindow):
             "settings.png", tooltip=self.tr("Settings"), tint=_c(self._pal, "TEXT_MAIN"))
         self._settings_button.clicked.connect(self._open_settings_modal)
         h.addWidget(self._settings_button)
+
+        if vertical:
+            # Width comes from the widest button (the split ones, which reserve
+            # arrow room) rather than a constant, so a larger UI scale or font
+            # can't clip it. Hidden buttons still report a sizeHint, so the
+            # column doesn't change width from game to game.
+            header.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+            header.ensurePolished()
+            width = max([b.sizeHint().width() for b in self._action_buttons]
+                        + [self._BTN_H])
+            header.setFixedWidth(width + h.contentsMargins().left()
+                                 + h.contentsMargins().right())
+            # Stretch every tile to that width so the dropdown-less buttons
+            # match the split ones. They were built with setFixedSize, which
+            # pins BOTH bounds - clearing the maximum too is what lets the
+            # column size them. (The separator spans it already.)
+            for i in range(h.count()):
+                w = h.itemAt(i).widget()
+                if w is None or w.objectName() == "GroupSep":
+                    continue
+                w.setMinimumWidth(0)
+                w.setMaximumWidth(_QWIDGETSIZE_MAX)
+                w.setFixedHeight(self._BTN_H)
+                w.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
 
         self._left_header_widget = header
         return header
@@ -2840,6 +2913,91 @@ class MainWindow(QMainWindow):
         if tooltip:
             b.setToolTip(tooltip)
         return b
+
+    # ---- toolbar placement --------------------------------------------------
+    def _header_position(self) -> str:
+        """Where the toolbar sits: "top" (default), "left" or "right"."""
+        # Cached: this gates per-resize work (_sync_header_compact).
+        # _apply_header_position refreshes it when the setting changes.
+        pos = getattr(self, "_header_pos", None)
+        if pos is None:
+            try:
+                from Utils.ui_config import load_header_position
+                pos = load_header_position()
+            except Exception:
+                pos = "top"
+            self._header_pos = pos
+        return pos
+
+    def _header_vertical(self) -> bool:
+        """Whether the toolbar is a side bar (and so permanently icon-only)."""
+        return self._header_position() in ("left", "right")
+
+    def _apply_header_position(self) -> None:
+        """Move the toolbar to the newly saved position without a restart."""
+        # Only the bar is rebuilt; the body (mod list, plugin panel and their
+        # models) is re-parented into the new layout untouched.
+        main = getattr(self, "_main_content", None)
+        body = getattr(self, "_body_row", None)
+        old = getattr(self, "_left_header_widget", None)
+        if main is None or body is None or old is None:
+            return
+        try:
+            from Utils.ui_config import load_header_position
+            new_pos = load_header_position()
+        except Exception:
+            return
+        if new_pos == getattr(self, "_header_pos", None):
+            return
+        self._header_pos = new_pos
+
+        old_notif = getattr(self, "_notif_button", None)
+
+        # Detach both children before the layout goes, or they go with it.
+        old_layout = main.layout()
+        if old_layout is not None:
+            old_layout.removeWidget(old)
+            old_layout.removeWidget(body)
+            old.setParent(None)
+            body.setParent(None)
+            # setLayout() only works once the old layout is gone, and
+            # deleteLater() is too late - reparent it away now.
+            QWidget().setLayout(old_layout)
+        old.deleteLater()
+
+        # Widths measured for the previous orientation no longer apply.
+        self._action_btn_widths = False
+        self._header_compact = False
+
+        vertical = new_pos in ("left", "right")
+        mc = QHBoxLayout(main) if vertical else QVBoxLayout(main)
+        mc.setContentsMargins(0, 0, 0, 0)
+        mc.setSpacing(0)
+        header = self._build_header_row()
+        if new_pos == "right":
+            mc.addWidget(body, 1)
+            mc.addWidget(header)
+        else:
+            mc.addWidget(header)
+            mc.addWidget(body, 1)
+
+        # The tab-row bell mirrors the header one and outlives this rebuild;
+        # re-point it or it keeps painting from the discarded button.
+        if old_notif is not None and self._notif_button is not old_notif:
+            self._notif_button.adopt_mirrors(old_notif)
+
+        # The bar is a fresh set of widgets: re-seed the selectors from the live
+        # GameState (else it reads "Add game" / a stale profile) and re-apply
+        # the per-game button gating.
+        self._populate_selectors()
+        self._sync_thunderstore_button()
+        # New buttons default to enabled - re-assert any lock, or the user could
+        # start a second deploy on top of a running one.
+        busy = (self._deploy_running or self._install_running
+                or self._col_install_running or self._tool_busy)
+        self._set_deploy_buttons_enabled(not busy)
+        if not vertical:
+            self._sync_header_compact()
 
     # ---- narrow top bar: staged compaction ----------------------------------
     # The bar gives up width in stages, least destructive first: the profile
@@ -2897,6 +3055,9 @@ class MainWindow(QMainWindow):
         """Claw back the width the top bar is missing, one stage at a time:
         elide the profile label, then drop the game name to its logo, and only
         then collapse the action buttons to icon-only."""
+        # A side bar has no stages - it is icon-only at a fixed width already.
+        if self._header_vertical():
+            return
         hdr = getattr(self, "_left_header_widget", None)
         if (hdr is None or not getattr(self, "_action_buttons", None)
                 or getattr(self, "_measuring_buttons", False)
@@ -18470,11 +18631,16 @@ class MainWindow(QMainWindow):
         for b in buttons:
             b.setMinimumWidth(w)
 
-    def _group_sep(self) -> QFrame:
+    def _group_sep(self, vertical: bool = False) -> QFrame:
+        """Divider between toolbar groups; *vertical* = the bar is a side bar."""
         s = QFrame()
-        s.setFrameShape(QFrame.VLine)
         s.setObjectName("GroupSep")
-        s.setFixedWidth(2)
+        if vertical:
+            s.setFrameShape(QFrame.HLine)
+            s.setFixedHeight(2)
+        else:
+            s.setFrameShape(QFrame.VLine)
+            s.setFixedWidth(2)
         return s
 
     # ------------------------------------------------------ log control bar

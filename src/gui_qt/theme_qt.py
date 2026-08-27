@@ -759,6 +759,14 @@ def build_qss(pal: dict | None = None) -> str:
         background: {c('BG_HEADER')};
         border-bottom: 1px solid {c('BORDER')};
     }}
+    /* Side-bar mode: the rule dividing bar from body runs down the inner edge,
+       not along the bottom. Both sides are drawn - the outer edge is flush
+       against the window, so only the inner one is ever visible. */
+    #HeaderBar[vertical="true"] {{
+        border-bottom: none;
+        border-left: 1px solid {c('BORDER')};
+        border-right: 1px solid {c('BORDER')};
+    }}
     /* Dim caption above a tab's column header (Mod Files / Data / …). Palette-
        driven so it stays legible in light themes (was a hardcoded #aaa). */
     #HeaderCaption {{ color: {c('TEXT_DIM')}; }}

@@ -539,9 +539,18 @@ class SettingsView(OverlayBase):
 
         self._build_ui_scale(g)
 
-        # Theme is live; only Language / UI Scale still need a restart.
-        # Indented to the control column so it reads as a note about the
-        # controls above rather than a row label of its own.
+        # Applies live. As a side bar the buttons are icon-only, with their
+        # labels as tooltips.
+        self._combo(
+            g, self.tr("Toolbar position"),
+            [(self.tr("Top"), "top"),
+             (self.tr("Left side"), "left"),
+             (self.tr("Right side"), "right")],
+            uc.load_header_position(), self._save_header_position)
+
+        # Theme and toolbar position are live; only Language / UI Scale still
+        # need a restart. Indented to the control column so it reads as a note
+        # about the controls above rather than a row label of its own.
         note = QLabel(self.tr(
             "Language and UI scale changes take effect after restart."))
         note.setObjectName("RestartNote")
@@ -577,6 +586,19 @@ class SettingsView(OverlayBase):
         self._lang_sync_btn = self._action_row(
             g, self.tr("Sync language files"), self._on_sync_languages)
         self._finish_section(g)
+
+    def _save_header_position(self, value: str):
+        """Persist the toolbar position, then move the bar there immediately."""
+        uc.save_header_position(value)
+        win = self._window
+        if win is not None and hasattr(win, "_apply_header_position"):
+            try:
+                win._apply_header_position()
+            except Exception:
+                # Half-rebuilt bar is worth a log line; the saved value still
+                # takes effect on the next start.
+                import traceback
+                traceback.print_exc()
 
     def _apply_support_buttons(self):
         """Ask the window to re-apply Ko-Fi / Endorse button visibility live."""

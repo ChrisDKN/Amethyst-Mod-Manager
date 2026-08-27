@@ -39,6 +39,7 @@ py.install_sources(
   'note.png',
   'notification.png',
   'plus.png',
+  'profile.png',
   'proton.png',
   'protonBG.png',
   'radio_dot.png',

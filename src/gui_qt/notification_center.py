@@ -152,8 +152,15 @@ class _NotificationMirrorButton(QToolButton):
         self.setCursor(Qt.PointingHandCursor)
         self.setFixedSize(btn_h, btn_h)
         self.setToolTip(self.tr("Notifications"))
-        self.clicked.connect(lambda: source._toggle_menu(self))
+        # Routed through self._source (not the ctor arg) so rebind() re-aims
+        # the click without having to reconnect the signal.
+        self.clicked.connect(lambda: self._source._toggle_menu(self))
         self.refresh_theme(active_palette())
+
+    def rebind(self, source: "NotificationButton") -> None:
+        """Back this mirror with a different button (the old one was replaced)."""
+        self._source = source
+        self.update()
 
     def sizeHint(self) -> QSize:
         # setFixedSize() clamps resizes but leaves sizeHint() at the style's
@@ -299,6 +306,17 @@ class NotificationButton(QToolButton):
         mirror = _NotificationMirrorButton(self, btn_h, icon_px)
         self._mirrors.add(mirror)
         return _TabNotificationStrip(mirror, parent)
+
+    def adopt_mirrors(self, previous: "NotificationButton") -> None:
+        """Re-point *previous*'s mirrors at this button."""
+        # The toolbar can be rebuilt in place (moved to a side bar), which
+        # replaces this button while the tab-row mirror outlives it. Left
+        # attached to the discarded button the mirror stops getting badge
+        # updates and its menu is backed by a dead widget.
+        for mirror in list(previous._mirrors):
+            mirror.rebind(self)
+            self._mirrors.add(mirror)
+        previous._mirrors.clear()
 
     # -- badge ---------------------------------------------------------------
     def _on_entry_added(self):
