@@ -113,6 +113,7 @@ class MulderLoadDowngraderView(WizardViewBase):
         self._exe: Path | None = None
         self._proton_name = ""
         self._prefix_mode = ""
+        self._did_restore = False
 
         self._download_status_sig.connect(self._guard(
             lambda text, color: self._set_status(
@@ -208,6 +209,13 @@ class MulderLoadDowngraderView(WizardViewBase):
                             log)
                 except Exception as exc:
                     log(f"cleanup failed: {exc}")
+
+            # Deliberately no redeploy: the modlist stays restored so the user
+            # can verify the downgraded game first, then Deploy when ready.
+            if self._did_restore:
+                self._did_restore = False
+                log("modlist was restored before downgrading - use Deploy to "
+                    "put it back.")
         super()._finish()
 
     def _goto_step(self, idx: int):
@@ -228,6 +236,25 @@ class MulderLoadDowngraderView(WizardViewBase):
                     "Close and reopen the wizard to try again.").format(
                         self._display_name))
         elif idx == _PG_RUN:
+            # The downgrader rewrites the game exe and patches files in the
+            # game root. If a profile is deployed, Data is a tree of symlinks
+            # into the mods store - the patcher would write THROUGH them and
+            # corrupt managed mod files - and anything it creates is absent
+            # from the deploy snapshot, so the next restore would sweep it
+            # into overwrite/ as runtime files. Restore first and downgrade a
+            # vanilla root. The modlist is left restored afterwards - Deploy
+            # again once the downgrade is verified.
+            if getattr(self._game, "get_deploy_active", lambda: False)():
+                self._log(
+                    f"{self._display_name} Wizard: modlist is deployed - "
+                    "restoring before downgrading (stays restored; Deploy "
+                    "again when you are ready).")
+                if self._run_ctx_restore(self._run_status, self._start_run):
+                    self._did_restore = True
+                    return
+                # Restore couldn't start - fall through and downgrade the
+                # deployed root rather than dead-ending (matches the FO3
+                # downgrade wizard).
             self._start_run()
 
     # ---- download ---------------------------------------------------------------
@@ -333,10 +360,16 @@ class MulderLoadDowngraderView(WizardViewBase):
                     proton_script, exe, env, log_fn=log, cwd=exe.parent,
                     label=display_name, owner=self)
                 if returncode == 0:
+                    # The restore-first step took the modlist down and nothing
+                    # puts it back, so say so where the user will see it.
+                    restored_note = (
+                        self.tr("\n\nYour modlist was restored before "
+                                "downgrading - use Deploy to put it back.")
+                        if self._did_restore else "")
                     safe_emit(
                         self._run_status_sig,
                         self.tr("{0} finished. Click Done to close.").format(
-                            display_name), GREEN)
+                            display_name) + restored_note, GREEN)
                 else:
                     safe_emit(
                         self._run_status_sig,
