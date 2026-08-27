@@ -296,8 +296,15 @@ class BaldursGate3(BaseGame):
         self.save_paths()
 
     def set_prefix_path(self, path: Path | str | None) -> None:
-        self._prefix_path = Path(path) if path else None
-        self.save_paths()
+        super().set_prefix_path(path)
+
+    def deployment_preflight_error(self) -> str | None:
+        if self._larian_root() is not None:
+            return None
+        return (
+            "No Larian data folder found. Configure the Proton prefix, or "
+            f"run the native Linux build once so {_NATIVE_LARIAN_ROOT} exists."
+        )
 
     def get_patch_version(self) -> int:
         return self._patch_version

@@ -102,6 +102,31 @@ def check_paths_mounted(game) -> "str | None":
     return None
 
 
+def finalize_filegraph_recovery(
+    game,
+    profile_dir: Path,
+    *,
+    log_fn: LogFn,
+) -> int:
+    """Close interrupted journals after their filesystem restore succeeded."""
+    from Utils.filegraph_service import FileGraphService
+
+    profile_dir = Path(profile_dir)
+    library = FileGraphService.open_library(
+        game, profile_dir, log_fn=log_fn)
+    session = library.open_profile(profile_dir)
+    operations = session.incomplete_operations()
+    for operation in operations:
+        session.fail_deployment(operation.operation_id)
+    if operations:
+        log_fn(
+            f"Recovered {len(operations)} interrupted deployment "
+            "operation(s); the prior committed deployed state remains "
+            "authoritative."
+        )
+    return len(operations)
+
+
 def _fs_id(path: Path) -> "int | None":
     """Return the device id for *path* (or its nearest existing parent).
 
@@ -481,6 +506,12 @@ def run_deploy_pipeline(
         # Reload so the deploy uses the target profile's path overrides.
         game.load_paths()
         game_root = game.get_game_path()
+
+        deploy_preflight = getattr(game, "deployment_preflight_error", None)
+        if callable(deploy_preflight):
+            preflight_error = deploy_preflight()
+            if preflight_error:
+                raise RuntimeError(str(preflight_error))
 
         if on_pre_filemap is not None:
             on_pre_filemap()

@@ -1746,6 +1746,18 @@ The default profile's settings are not affected.</translation>
         <translation>Current: {0}</translation>
     </message>
     <message>
+        <source>native Linux</source>
+        <translation>native Linux</translation>
+    </message>
+    <message>
+        <source>Windows/Proton</source>
+        <translation>Windows/Proton</translation>
+    </message>
+    <message>
+        <source>Native Linux build selected; no Proton prefix will be used.</source>
+        <translation>Native Linux build selected; no Proton prefix will be used.</translation>
+    </message>
+    <message>
         <source>No executable name configured for this game.</source>
         <translation>No executable name configured for this game.</translation>
     </message>

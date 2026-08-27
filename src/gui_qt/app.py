@@ -11216,9 +11216,11 @@ class MainWindow(QMainWindow):
                 game_root = game.get_game_path()
                 last_deployed = game.get_last_deployed_profile()
                 original_profile_dir = getattr(game, "_active_profile_dir", None)
+                recovery_profile_dir = original_profile_dir
                 if last_deployed:
-                    game.set_active_profile_dir(
+                    recovery_profile_dir = (
                         game.get_profile_root() / "profiles" / last_deployed)
+                    game.set_active_profile_dir(recovery_profile_dir)
                     # Reload so the last-deployed profile's path overrides drive
                     # the restore (it may target a different game folder).
                     game.load_paths()
@@ -11232,6 +11234,12 @@ class MainWindow(QMainWindow):
                             game, root_folder_dir=root_folder_dir,
                             game_root=game_root, log_fn=log_fn,
                         )
+                    if recovery_profile_dir is not None:
+                        from Utils.deploy_pipeline import (
+                            finalize_filegraph_recovery,
+                        )
+                        finalize_filegraph_recovery(
+                            game, recovery_profile_dir, log_fn=log_fn)
                     game.clear_deploy_active()
                 finally:
                     if original_profile_dir is not None:
@@ -11299,9 +11307,11 @@ class MainWindow(QMainWindow):
                     ok = False
                 else:
                     last = game.get_last_deployed_profile()
+                    recovery_profile_dir = (
+                        game.get_profile_root() / "profiles" / (last or profile)
+                    )
                     if last:
-                        game.set_active_profile_dir(
-                            game.get_profile_root() / "profiles" / last)
+                        game.set_active_profile_dir(recovery_profile_dir)
                         game.load_paths()
                     self._restore_timing_mark(
                         "preflight and deployed-profile load complete",
@@ -11322,6 +11332,11 @@ class MainWindow(QMainWindow):
                             game, root_folder_dir=rf, game_root=game_root,
                             log_fn=lambda m: self._op_log.emit(str(m)),
                         )
+                    from Utils.deploy_pipeline import finalize_filegraph_recovery
+                    finalize_filegraph_recovery(
+                        game, recovery_profile_dir,
+                        log_fn=lambda m: self._op_log.emit(str(m)),
+                    )
                     self._restore_timing_mark(
                         "root-file restore complete", work="FS I/O",
                         log_fn=self._op_log.emit)

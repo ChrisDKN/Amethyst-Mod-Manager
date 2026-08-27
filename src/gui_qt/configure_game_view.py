@@ -121,6 +121,14 @@ def _shortcut_available(game) -> bool:
         return False
 
 
+def _is_native_exe_name(exe_name: str | None) -> bool:
+    if not exe_name:
+        return False
+    return Path(str(exe_name)).suffix.casefold() not in {
+        ".exe", ".bat", ".cmd", ".com", ".msi",
+    }
+
+
 class _ScanSignals(QObject):
     # Scan results carry everything the worker discovered so the worker thread
     # never writes view attributes directly (the slots run on the GUI thread).
@@ -130,8 +138,8 @@ class _ScanSignals(QObject):
     #    and auto_apply: False for the candidates-only rescan that fills the
     #    launcher picker of an already-configured game)
     drive_scan_found = Signal(object)       # (path|None) - full-drive Scan button
-    prefix_found = Signal(object, object, object, object)
-    # ^ (path|None, source|None, lutris_slug|None, faugus_gameid|None)
+    prefix_found = Signal(object, object, object, object, object)
+    # ^ (path|None, source|None, lutris_slug|None, faugus_gameid|None, scan gen)
     # Browse (portal) picks - fired from the portal WORKER thread, so they must
     # be marshalled to the GUI thread via a Signal before touching any widget.
     game_picked = Signal(object)            # (path|None)
@@ -184,6 +192,7 @@ class ConfigureGameView(QWidget):
         # their results if it moved, so a scan started for one profile can't
         # land in the form after the user has switched to another.
         self._scan_gen = 0
+        self._prefix_scan_gen = 0
 
         # Closing the tab deleteLater()'s the view while scan workers may still
         # be running; the guards drop late slot runs so they never touch
@@ -878,6 +887,7 @@ class ConfigureGameView(QWidget):
         self._install_explicit = False
         self._install_choices = []
         self._scan_gen += 1
+        self._prefix_scan_gen += 1
         self._prepopulate()
         self._refresh_scope_header()
 
@@ -1063,6 +1073,7 @@ class ConfigureGameView(QWidget):
             self._probe_version(path)
 
     def _on_prefix_typed(self):
+        self._prefix_scan_gen += 1
         text = self._prefix_edit.text().strip()
         self._found_prefix = Path(text) if text else None
 
@@ -1094,6 +1105,7 @@ class ConfigureGameView(QWidget):
 
     def _on_prefix_picked(self, path):
         if path:
+            self._prefix_scan_gen += 1
             self._set_prefix(Path(path), source="manual")
 
     def _browse_staging(self):
@@ -1175,6 +1187,7 @@ class ConfigureGameView(QWidget):
     def _reset_locations(self):
         self._found_path = None
         self._found_prefix = None
+        self._prefix_scan_gen += 1
         self._game_edit.clear()
         self._prefix_edit.clear()
         self._start_game_scan()
@@ -1208,9 +1221,16 @@ class ConfigureGameView(QWidget):
         # it still beats a Steam-library copy that isn't what the user runs.
         candidates: list[dict] = []
 
-        def _add(source, path, prefix, launcher_id):
+        def _add(source, path, prefix, launcher_id, matched_exe=None):
+            prefix_mode = (
+                "native" if _is_native_exe_name(matched_exe)
+                else "resolved" if prefix is not None
+                else "detect"
+            )
             candidates.append({"source": source, "path": path,
-                               "prefix": prefix, "id": launcher_id})
+                               "prefix": prefix, "id": launcher_id,
+                               "prefix_mode": prefix_mode,
+                               "executable": matched_exe})
 
         game_name = getattr(g, "name", repr(g))
         app_log(f"[Configure Game] Auto-detecting: {game_name}")
@@ -1239,7 +1259,7 @@ class ConfigureGameView(QWidget):
                 for exe in exe_names:
                     info = find_heroic_game_info_by_exe(exe)
                     if info:
-                        _add("heroic", info[0], info[1], info[2])
+                        _add("heroic", info[0], info[1], info[2], exe)
                         app_log(f"[Configure Game] Found via Heroic exe scan ({exe}): {info[0]}")
                         break
             from Utils.lutris_finder import find_lutris_game_info_by_exe
@@ -1247,7 +1267,7 @@ class ConfigureGameView(QWidget):
             for exe in exe_names:
                 info = find_lutris_game_info_by_exe(exe)
                 if info:
-                    _add("lutris", info[0], info[1], info[2])
+                    _add("lutris", info[0], info[1], info[2], exe)
                     app_log(f"[Configure Game] Found via Lutris ({exe}): {info[0]}")
                     break
             from Utils.faugus_finder import find_faugus_game_info_by_exe
@@ -1255,7 +1275,7 @@ class ConfigureGameView(QWidget):
             for exe in exe_names:
                 info = find_faugus_game_info_by_exe(exe)
                 if info:
-                    _add("faugus", info[0], info[1], info[2])
+                    _add("faugus", info[0], info[1], info[2], exe)
                     app_log(f"[Configure Game] Found via Faugus ({exe}): {info[0]}")
                     break
             from Utils.steam_shortcuts import find_shortcut_game_info_by_exe
@@ -1264,7 +1284,7 @@ class ConfigureGameView(QWidget):
             for exe in exe_names:
                 info = find_shortcut_game_info_by_exe(exe)
                 if info:
-                    _add("shortcut", info[0], info[1], info[2])
+                    _add("shortcut", info[0], info[1], info[2], exe)
                     app_log(f"[Configure Game] Found via non-Steam shortcut "
                             f"({exe}, app ID {info[2]}): {info[0]}")
                     break
@@ -1272,6 +1292,7 @@ class ConfigureGameView(QWidget):
             app_log(f"[Configure Game] Steam libraries found: "
                     f"{libs if libs else 'none'}")
             found = None
+            matched_steam_exe = None
             sid = getattr(g, "steam_id", None)
             if sid:
                 app_log(f"[Configure Game] Checking Steam manifest "
@@ -1279,6 +1300,7 @@ class ConfigureGameView(QWidget):
                 for exe in exe_names:
                     found = find_game_by_steam_id(libs, sid, exe)
                     if found:
+                        matched_steam_exe = exe
                         app_log(f"[Configure Game] Found via Steam manifest "
                                 f"({exe}): {found}")
                         break
@@ -1289,6 +1311,7 @@ class ConfigureGameView(QWidget):
                 for exe in exe_names:
                     found = find_game_in_libraries(libs, exe)
                     if found:
+                        matched_steam_exe = exe
                         app_log(f"[Configure Game] Found via Steam exe scan "
                                 f"({exe}): {found}")
                         break
@@ -1299,7 +1322,7 @@ class ConfigureGameView(QWidget):
                 # No prefix here: the Steam compatdata lookup needs the game
                 # path to pick the right library, so it runs as a follow-up
                 # scan once this candidate is applied.
-                _add("steam", found, None, None)
+                _add("steam", found, None, None, matched_steam_exe)
         except Exception as exc:
             import traceback
             app_log(f"[Configure Game] Scan failed: {exc}\n{traceback.format_exc()}")
@@ -1364,8 +1387,17 @@ class ConfigureGameView(QWidget):
             ]
         if cur is not None and not any(Path(c["path"]) == Path(cur)
                                        for c in candidates):
+            cleared = bool(
+                hasattr(self._game, "is_prefix_path_cleared")
+                and self._game.is_prefix_path_cleared()
+            )
             choices.append({"source": "current", "path": cur,
-                            "prefix": self._found_prefix, "id": None})
+                            "prefix": self._found_prefix, "id": None,
+                            "prefix_mode": (
+                                "native" if cleared
+                                else "resolved" if self._found_prefix is not None
+                                else "detect"),
+                            "executable": None})
         choices.extend(candidates)
         self._install_choices = choices
         # Launcher names are brands and stay untranslated; the shortcut entry
@@ -1376,13 +1408,20 @@ class ConfigureGameView(QWidget):
         icon_names = {"steam": "steam.png", "shortcut": "steam.png",
                       "heroic": "heroic.png", "lutris": "lutris.png",
                       "faugus": "faugus.png"}
+        platform_switch = (
+            any(c.get("prefix_mode") == "native" for c in choices)
+            and any(c.get("prefix_mode") != "native" for c in choices)
+        )
         self._clear_install_buttons()
         for i, c in enumerate(choices):
             source = c["source"]
             launcher = names.get(source, source)
+            target = c.get("prefix_mode")
+            platform = (self.tr("native Linux") if target == "native"
+                        else self.tr("Windows/Proton"))
             label = (self.tr("Current: {0}").format(c["path"])
                      if source == "current"
-                     else f"{launcher} - {c['path']}")
+                     else f"{launcher} ({platform}) - {c['path']}")
             button = QToolButton(self._install_buttons_host)
             button.setObjectName("InstallChoiceButton")
             button.setCheckable(True)
@@ -1390,7 +1429,11 @@ class ConfigureGameView(QWidget):
             button.setFixedSize(_INSTALL_BUTTON_SQ, _INSTALL_BUTTON_SQ)
             button.setToolTip(label)
             button.setAccessibleName(label)
-            image_name = icon_names.get(source)
+            if platform_switch:
+                image_name = ("tux.png" if target == "native"
+                              else "protonBG.png")
+            else:
+                image_name = icon_names.get(source)
             if image_name:
                 button.setIcon(icon(image_name, _INSTALL_ICON_SQ))
                 button.setIconSize(QSize(_INSTALL_ICON_SQ, _INSTALL_ICON_SQ))
@@ -1483,11 +1526,24 @@ class ConfigureGameView(QWidget):
             self._set_game(Path(c["path"]), configured=True)
         else:
             self._set_game(Path(c["path"]), source=source)
-        if c["prefix"] is not None:
+        prefix_mode = c.get("prefix_mode", "detect")
+        if prefix_mode == "native":
+            self._prefix_scan_gen += 1
+            self._found_prefix = None
+            self._prefix_edit.clear()
+            self._prefix_status.setText(self.tr(
+                "Native Linux build selected; no Proton prefix will be used."))
+            self._prefix_status.setStyleSheet(
+                f"color:{self._c('TEXT_OK')};")
+        elif c["prefix"] is not None:
+            self._prefix_scan_gen += 1
             self._set_prefix(Path(c["prefix"]),
                              configured=(source == "current"), source=source)
         elif self._has_prefix_src:
-            self._start_prefix_scan()
+            self._start_prefix_scan(
+                preferred_source=(None if source == "current" else source),
+                launcher_id=c.get("id"),
+            )
 
     # ---- full-drive Scan button -------------------------------------------
     def _start_drive_scan(self):
@@ -1538,7 +1594,9 @@ class ConfigureGameView(QWidget):
                 self.tr("Game executable not found on any drive."))
             self._game_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
 
-    def _start_prefix_scan(self):
+    def _start_prefix_scan(self, preferred_source=None, launcher_id=None):
+        self._prefix_scan_gen += 1
+        prefix_gen = self._prefix_scan_gen
         self._prefix_status.setText(self.tr("Scanning for Proton prefix…"))
         self._prefix_status.setStyleSheet(f"color:{self._c('TEXT_WARN')};")
         # Read the game path here, on the main thread, so the Steam lookup can
@@ -1552,10 +1610,13 @@ class ConfigureGameView(QWidget):
         game = self._game
         gen = self._scan_gen
         threading.Thread(target=self._prefix_scan_worker,
-                         args=(game_path, game, gen),
+                         args=(game_path, game, gen, prefix_gen,
+                               preferred_source, launcher_id),
                          daemon=True).start()
 
-    def _prefix_scan_worker(self, game_path=None, game=None, gen=None):
+    def _prefix_scan_worker(self, game_path=None, game=None, gen=None,
+                            prefix_gen=None, preferred_source=None,
+                            launcher_id=None):
         g = game if game is not None else self._game
         gen = self._scan_gen if gen is None else gen
         found = None
@@ -1566,7 +1627,8 @@ class ConfigureGameView(QWidget):
             from Utils.steam_finder import find_prefix
             from Utils.heroic_finder import find_heroic_prefix
             sid = getattr(g, "steam_id", None)
-            ids = [sid] + [str(s) for s in getattr(g, "alt_steam_ids", []) or [] if s]
+            ids = [sid] + [str(s) for s in getattr(
+                g, "alt_steam_ids", []) or [] if s]
             # A shortcut install's prefix is keyed on the shortcut's own app id,
             # so it goes first - the handler's steam_id names the store release,
             # whose compatdata belongs to a different copy of the game.
@@ -1575,58 +1637,75 @@ class ConfigureGameView(QWidget):
                 saved_appid = g.get_shortcut_appid() if g is not None else ""
             except AttributeError:
                 saved_appid = ""
-            if saved_appid:
+            if preferred_source == "shortcut" and launcher_id:
+                ids = [launcher_id]
+                saved_appid = str(launcher_id)
+            elif saved_appid:
                 ids.insert(0, saved_appid)
-            for s in [x for x in ids if x]:
-                found = find_prefix(s, game_path)
-                if found:
-                    found_source = ("shortcut" if saved_appid
-                                    and s == saved_appid else "steam")
-                    break
-            if not found and _heroic_app_names(g):
-                found = find_heroic_prefix(_heroic_app_names(g))
+            if preferred_source in (None, "steam", "shortcut"):
+                for s in [x for x in ids if x]:
+                    found = find_prefix(s, game_path)
+                    if found:
+                        found_source = ("shortcut" if saved_appid
+                                        and str(s) == str(saved_appid)
+                                        else "steam")
+                        break
+            if not found and preferred_source in (None, "heroic"):
+                heroic_names = ([str(launcher_id)] if launcher_id
+                                else _heroic_app_names(g))
+                found = find_heroic_prefix(heroic_names)
                 if found:
                     found_source = "heroic"
             exe_names = [getattr(g, "exe_name", None)] + list(
                 getattr(g, "exe_name_alts", []) or [])
             exe_names = [e for e in exe_names if e]
-            if not found:
+            if not found and preferred_source in (None, "lutris"):
                 from Utils.lutris_finder import find_lutris_game_info_by_exe
                 for exe in exe_names:
                     info = find_lutris_game_info_by_exe(exe)
-                    if info and info[1] is not None:
+                    if (info and info[1] is not None
+                            and (not launcher_id
+                                 or str(info[2]) == str(launcher_id))):
                         found = info[1]
                         found_source = "lutris"
                         lutris_slug = info[2]
                         break
-            if not found:
+            if not found and preferred_source in (None, "faugus"):
                 from Utils.faugus_finder import find_faugus_game_info_by_exe
                 for exe in exe_names:
                     info = find_faugus_game_info_by_exe(exe)
-                    if info and info[1] is not None:
+                    if (info and info[1] is not None
+                            and (not launcher_id
+                                 or str(info[2]) == str(launcher_id))):
                         found = info[1]
                         found_source = "faugus"
                         faugus_gameid = info[2]
                         break
-            if not found:
+            if not found and preferred_source in (None, "shortcut"):
                 from Utils.steam_shortcuts import find_shortcut_game_info_by_exe
                 for exe in exe_names:
                     info = find_shortcut_game_info_by_exe(exe)
-                    if info and info[1] is not None:
+                    if (info and info[1] is not None
+                            and (not launcher_id
+                                 or str(info[2]) == str(launcher_id))):
                         found = info[1]
                         found_source = "shortcut"
                         break
         except Exception:
             found = None
             found_source = None
-        if self._scan_gen != gen:
+        if (self._scan_gen != gen
+                or self._prefix_scan_gen != prefix_gen):
             # A prefix belongs to the install the scan was started for; landing
             # it in another profile's form would point that profile at it.
             return
         safe_emit(self._sig.prefix_found, found, found_source,
-                  lutris_slug, faugus_gameid)
+                  lutris_slug, faugus_gameid, prefix_gen)
 
-    def _on_prefix_found(self, found, source, lutris_slug, faugus_gameid):
+    def _on_prefix_found(self, found, source, lutris_slug, faugus_gameid,
+                         prefix_gen):
+        if self._prefix_scan_gen != prefix_gen:
+            return
         # The prefix scan probes every launcher, so it can hand back an id for
         # one the user just ruled out in the picker - don't re-attach that.
         picked = self._install_source if self._install_explicit else None
