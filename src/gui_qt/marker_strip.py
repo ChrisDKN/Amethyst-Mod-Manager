@@ -17,7 +17,7 @@ index so they line up with the visible scroll position.
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QPainter
+from PySide6.QtGui import QPainter, QRegion
 from PySide6.QtWidgets import QScrollBar, QStyle, QStyleOptionSlider
 
 from gui_qt.theme_qt import bind_theme, qc
@@ -41,8 +41,7 @@ class MarkerScrollBar(QScrollBar):
         self._master_rows: set[int] = set()    # masters of the selected plugin
         self._cycle_rows: set[int] = set()     # plugins with a broken cycle
         bind_theme(self, roles=(
-            set(self._code_roles.values())
-            | {"TONE_RED", "TONE_GREEN", "SCROLL_TROUGH", "BG_MAIN"}))
+            set(self._code_roles.values()) | {"TONE_RED", "TONE_GREEN"}))
 
     def refresh_theme(self, palette):
         self._code_cols = {code: qc(palette, role)
@@ -50,8 +49,6 @@ class MarkerScrollBar(QScrollBar):
         self._c_missing = qc(palette, "TONE_RED")
         self._c_master = qc(palette, "TONE_GREEN")
         self._c_cycle = qc(palette, "TONE_RED")
-        self._c_trough = qc(
-            palette, "SCROLL_TROUGH" if "SCROLL_TROUGH" in palette else "BG_MAIN")
         self.update()
 
     def set_persistent_rows(self, missing=None, master=None, cycle=None) -> None:
@@ -94,19 +91,10 @@ class MarkerScrollBar(QScrollBar):
         model = self._view.model()
         n = model.rowCount() if model is not None else 0
 
-        # Without explicitly clearing its backing-store pixels, ticks removed by
-        # a conflict delta remain visible until another widget happens to expose
-        # that area. Clear to the themed trough colour (NOT transparency - a
-        # Source-composited transparent fill punches a hole through the opaque
-        # window and renders black); the styled groove paints over it below.
-        clear = QPainter(self)
-        clear.setCompositionMode(QPainter.CompositionMode_Source)
-        clear.fillRect(event.rect(), getattr(self, "_c_trough", Qt.transparent))
-        clear.end()
+        # Paint the themed scrollbar first so it clears stale ticks, then keep
+        # new ticks out of the handle's rectangle so they still appear beneath it.
+        super().paintEvent(event)
 
-        # Ticks paint UNDER the scrollbar handle: draw them first, then let the
-        # styled groove + handle paint on top (the handle hides ticks only where
-        # it currently sits; the rest of the track shows every tick).
         marks = []
         if n > 0:
             for r in range(n):
@@ -119,11 +107,14 @@ class MarkerScrollBar(QScrollBar):
             self.initStyleOption(opt)
             groove = self.style().subControlRect(
                 QStyle.CC_ScrollBar, opt, QStyle.SC_ScrollBarGroove, self)
+            handle = self.style().subControlRect(
+                QStyle.CC_ScrollBar, opt, QStyle.SC_ScrollBarSlider, self)
             top = groove.top()
             h = max(1, groove.height())
             w = self.width()
             offsets, total = self._row_offsets(model)
             p = QPainter(self)
+            p.setClipRegion(QRegion(groove).subtracted(QRegion(handle)))
 
             def tick(r, col):
                 if 0 <= r < n:
@@ -149,9 +140,6 @@ class MarkerScrollBar(QScrollBar):
             for r in self._missing_rows:
                 tick(r, self._c_missing)
             p.end()
-
-        # Groove + handle on top → ticks read as being "under" the scrollbar.
-        super().paintEvent(event)
 
 
 def install_marker_strip(view, highlight_role: int,
