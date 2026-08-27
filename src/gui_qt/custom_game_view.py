@@ -407,6 +407,13 @@ class CustomGameView(QWidget):
             g, self.tr("Executable Filename"), self._exe_edit,
             self.tr("The .exe location from the game's root folder. e.g. bin/bg3.exe "
             "for BG3 or SkyrimSELauncher.exe for Skyrim SE"))
+        self._exe_alts_edit = self._mono_edit(
+            self.tr("e.g. MyGame.x86_64, Bin/alternate-launcher.exe"))
+        self._field_row(
+            g, self.tr("Additional Executables"), self._exe_alts_edit,
+            self.tr("Comma-separated alternate executable paths relative to the "
+                    "game root. Use these for native Linux builds or store-specific "
+                    "executables."))
 
         # --- Deployment ---
         g = self._section(self.tr("Deployment"))
@@ -1050,6 +1057,7 @@ class CustomGameView(QWidget):
         if keep_name:
             self._name_edit.setText(e.get("name", ""))
         self._exe_edit.setText(e.get("exe_name", ""))
+        self._exe_alts_edit.setText(_set_to_str(e.get("exe_name_alts", [])))
         dep = e.get("deploy_type", "standard")
         if dep in self._deploy_buttons:
             self._deploy_buttons[dep].setChecked(True)
@@ -1214,6 +1222,7 @@ class CustomGameView(QWidget):
             "name":              name,
             "game_id":           game_id,
             "exe_name":          exe,
+            "exe_name_alts":     _str_to_list(self._exe_alts_edit.text()),
             "deploy_type":       deploy,
             "mod_data_path":     data_path,
             "steam_id":          self._steam_edit.text().strip(),

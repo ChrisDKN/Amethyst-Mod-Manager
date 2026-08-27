@@ -2906,6 +2906,18 @@ When it completes, the app switches to the new profile - then come back here and
         <translation>e.g. MyGame.exe or Bin/x64/MyGame.exe</translation>
     </message>
     <message>
+        <source>e.g. MyGame.x86_64, Bin/alternate-launcher.exe</source>
+        <translation>e.g. MyGame.x86_64, Bin/alternate-launcher.exe</translation>
+    </message>
+    <message>
+        <source>Additional Executables</source>
+        <translation>Additional Executables</translation>
+    </message>
+    <message>
+        <source>Comma-separated alternate executable paths relative to the game root. Use these for native Linux builds or store-specific executables.</source>
+        <translation>Comma-separated alternate executable paths relative to the game root. Use these for native Linux builds or store-specific executables.</translation>
+    </message>
+    <message>
         <source>Deployment</source>
         <translation>Deployment</translation>
     </message>

@@ -7,6 +7,7 @@ JSON format (~/.config/AmethystModManager/custom_games/<game_id>.json):
   "name":              "My Game",
   "game_id":           "my_game",
   "exe_name":          "MyGame.exe",
+  "exe_name_alts":     ["MyGame.x86_64"], // optional alternate executable paths
   "deploy_type":       "standard",   // "standard" | "root" | "ue5"
   "mod_data_path":     "Data",       // relative path (standard only; ignored for root/ue5)
   "steam_id":          "",           // optional Steam App ID
@@ -205,6 +206,7 @@ BUILTIN_GAME_TEMPLATES: list[dict] = [
         "name": "BepInEx",
         "game_id": "",
         "exe_name": "",
+        "exe_name_alts": [],
         "deploy_type": "standard",
         "mod_data_path": "BepInEx/plugins",
         "steam_id": "",
@@ -243,6 +245,7 @@ BUILTIN_GAME_TEMPLATES: list[dict] = [
         "name": "UE5 (ue4ss)",
         "game_id": "",
         "exe_name": "GAMEID/Binaries/Win64/EXENAME.exe",
+        "exe_name_alts": [],
         "deploy_type": "ue5",
         "mod_data_path": "GAMEID",
         "steam_id": "",
@@ -451,6 +454,11 @@ class StandardCustomGame(ProfileVFSGameMixin, BaseGame):
         return self._defn.get("exe_name", "").replace("\\", "/")
 
     @property
+    def exe_name_alts(self) -> list[str]:
+        return [name.replace("\\", "/")
+                for name in _defn_to_list(self._defn, "exe_name_alts")]
+
+    @property
     def steam_id(self) -> str:
         return self._defn.get("steam_id", "")
 
@@ -592,8 +600,10 @@ class StandardCustomGame(ProfileVFSGameMixin, BaseGame):
     @property
     def vfs_direct_shadow_launch(self) -> bool:
         # Native custom games need their executable and cwd inside the complete
-        # materialized view. Windows games continue through Proton/UMU/runtime.
-        return Path(self.exe_name).suffix.lower() not in (".exe", ".bat")
+        # materialized view. Resolve first so a native alternative is honoured.
+        from Utils.exe_launch import resolve_game_exe
+        executable = resolve_game_exe(self) or Path(self.exe_name)
+        return executable.suffix.lower() not in (".exe", ".bat")
 
     def get_mod_staging_path(self) -> Path:
         if self._staging_path is not None:
@@ -912,6 +922,11 @@ class Ue5CustomGame(UE5Game):
         # Normalise Windows-style separators so game_path / exe_name resolves
         # correctly on Linux (e.g. "Binaries\\NMS.exe" → "Binaries/NMS.exe").
         return self._defn.get("exe_name", "").replace("\\", "/")
+
+    @property
+    def exe_name_alts(self) -> list[str]:
+        return [name.replace("\\", "/")
+                for name in _defn_to_list(self._defn, "exe_name_alts")]
 
     @property
     def steam_id(self) -> str:
