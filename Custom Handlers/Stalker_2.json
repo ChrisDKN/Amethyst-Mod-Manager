@@ -1,38 +1,102 @@
 {
   "name": "Stalker 2",
   "game_id": "Stalker_2",
-  "version": 1,
-  "exe_name": "Stalker2.exe",
+  "exe_name": "Stalker2/Binaries/Win64/Stalker2-Win64-Shipping.exe",
   "deploy_type": "ue5",
   "mod_data_path": "Stalker2",
   "steam_id": "1643320",
-  "editable": false,
   "nexus_game_domain": "stalker2heartofchornobyl",
+  "additional_nexus_domains": [],
+  "thunderstore_community": "",
   "image_url": "https://cdn2.steamgriddb.com/icon/b86585a736d63794976c43b1a504bb3e/32/512x512.png",
   "mod_folder_strip_prefixes": [
-    "Stalker2"
+    "Stalker2",
+    "Content",
+    "Paks",
+    "~mods"
   ],
   "conflict_ignore_filenames": [
     "*.txt"
   ],
+  "conflict_ignore_foldernames": [],
   "mod_folder_strip_prefixes_post": [],
   "mod_install_prefix": "",
-  "mod_required_top_level_folders": [
-    "~mods"
-  ],
+  "mod_required_top_level_folders": [],
   "mod_auto_strip_until_required": true,
-  "mod_required_file_types": [
-    ".pak",
-    ".utoc",
-    ".ucas"
-  ],
+  "mod_required_file_types": [],
   "mod_install_as_is_if_no_match": true,
   "restore_before_deploy": true,
   "normalize_folder_case": true,
+  "filemap_casing": "upper",
   "wine_dll_overrides": {
     "winmm": "native,builtin",
     "dwmapi": "native,builtin"
   },
-  "custom_routing_rules": [],
-  "custom_frameworks": {}
+  "custom_routing_rules": [
+    {
+      "dest": "Content/Paks/~mods",
+      "folders": [
+        "windows"
+      ],
+      "include_siblings": true
+    },
+    {
+      "dest": "Content/Paks/~mods",
+      "extensions": [
+        ".pak",
+        ".ucas",
+        ".utoc"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Content/Splash",
+      "filenames": [
+        "Splash.bmp"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Binaries/Win64",
+      "filenames": [
+        "winmm.dll",
+        "s2ae.cfg"
+      ]
+    },
+    {
+      "dest": "Binaries/Win64",
+      "folders": [
+        "ue4ss"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Binaries/Win64/ue4ss",
+      "folders": [
+        "Mods",
+        "ue4ss_signatures"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Binaries/Win64/ue4ss",
+      "filenames": [
+        "ue4ss.dll",
+        "dwmapi.dll",
+        "ue4ss-settings.ini"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Unused",
+      "filenames": [
+        "*.*"
+      ],
+      "include_siblings": true
+    }
+  ],
+  "restore_whitelist": [],
+  "custom_frameworks": {},
+  "version": 2,
+  "editable": false
 }
