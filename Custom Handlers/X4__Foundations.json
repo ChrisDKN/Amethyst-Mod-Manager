@@ -2,15 +2,21 @@
   "name": "X4: Foundations",
   "game_id": "X4__Foundations",
   "exe_name": "X4.exe",
+  "exe_name_alts": [
+    "testandlaunch"
+  ],
   "deploy_type": "root",
   "mod_data_path": "",
   "steam_id": "392160",
   "nexus_game_domain": "x4foundations",
+  "additional_nexus_domains": [],
+  "thunderstore_community": "",
   "image_url": "https://cdn2.steamgriddb.com/icon/3cd51a22948d29fe5b92de6dee576501/32/256x256.png",
   "mod_folder_strip_prefixes": [],
   "conflict_ignore_filenames": [
     "*read*.txt"
   ],
+  "conflict_ignore_foldernames": [],
   "mod_folder_strip_prefixes_post": [],
   "mod_install_prefix": "extensions",
   "mod_required_top_level_folders": [],
@@ -31,6 +37,6 @@
     }
   ],
   "custom_frameworks": {},
-  "version": 3,
+  "version": 4,
   "editable": false
 }
