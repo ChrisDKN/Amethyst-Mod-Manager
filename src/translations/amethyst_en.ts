@@ -1542,6 +1542,10 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</translati
         <translation>No launcher ID - prefix not applicable.</translation>
     </message>
     <message>
+        <source>No prefix configured.</source>
+        <translation>No prefix configured.</translation>
+    </message>
+    <message>
         <source>Mod Staging Folder</source>
         <translation>Mod Staging Folder</translation>
     </message>

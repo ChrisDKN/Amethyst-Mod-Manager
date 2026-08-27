@@ -166,6 +166,7 @@ class BaseGame(ABC):
     # class-level default keeps get_prefix_path() answering for a handler whose
     # __init__ hasn't assigned it yet, rather than raising AttributeError.
     _prefix_path: "Path | None" = None
+    _prefix_path_cleared: bool = False
 
     # App ID of the non-Steam shortcut this game was configured through, or "".
     # Set only when Configure Game resolved the install via shortcuts.vdf, and
@@ -1257,7 +1258,17 @@ class BaseGame(ABC):
     def set_prefix_path(self, path: "Path | str | None") -> None:
         """Save the Proton prefix path and persist it to paths.json."""
         self._prefix_path = Path(path) if path else None
+        self._prefix_path_cleared = self._prefix_path is None
         self.save_paths()
+
+    def clear_prefix_path(self) -> None:
+        """Clear the Proton prefix without allowing load-time auto-detection."""
+        self._prefix_path = None
+        self._prefix_path_cleared = True
+        self.save_paths()
+
+    def is_prefix_path_cleared(self) -> bool:
+        return self._prefix_path is None and self._prefix_path_cleared
 
     @property
     def plugin_extensions(self) -> list[str]:
@@ -1781,6 +1792,11 @@ class BaseGame(ABC):
             self._game_path = Path(pset["game_path"])
         if isinstance(pset.get("prefix_path"), str) and pset["prefix_path"]:
             self._prefix_path = Path(pset["prefix_path"])
+            self._prefix_path_cleared = False
+        if isinstance(pset.get("prefix_path_cleared"), bool):
+            self._prefix_path_cleared = pset["prefix_path_cleared"]
+            if self._prefix_path_cleared:
+                self._prefix_path = None
         if isinstance(pset.get("deploy_mode"), str) and pset["deploy_mode"]:
             # Parse via the helper (not the already-loaded value), or a "hardlink"
             # override would silently revert to the default profile's mode.
@@ -2302,6 +2318,7 @@ class BaseGame(ABC):
         if not self._paths_file.exists():
             self._game_path = None
             self._prefix_path = None
+            self._prefix_path_cleared = False
             self._staging_path = None
             # A non-default profile may still carry overrides even with no global
             # paths.json yet, so apply them before giving up.
@@ -2312,9 +2329,12 @@ class BaseGame(ABC):
             raw = data.get("game_path", "")
             if raw:
                 self._game_path = Path(raw)
+            self._prefix_path = None
+            self._prefix_path_cleared = data.get("prefix_path_cleared") is True
             raw_pfx = data.get("prefix_path", "")
             if raw_pfx:
                 self._prefix_path = Path(raw_pfx)
+                self._prefix_path_cleared = False
             raw_mode = data.get("deploy_mode", "hardlink")
             self._deploy_mode = self._deploy_mode_from_str(raw_mode)
             raw_staging = data.get("staging_path", "")
@@ -2329,7 +2349,8 @@ class BaseGame(ABC):
             # before the prefix-autolocate check, so a profile-specific prefix is
             # respected and never overwritten by the default's auto-detection.
             self._apply_profile_path_overrides(data)
-            if not self._prefix_path or not self._prefix_path.is_dir():
+            if (not self._prefix_path_cleared
+                    and (not self._prefix_path or not self._prefix_path.is_dir())):
                 found = self._find_prefix_for_load()
                 if found:
                     self._prefix_path = found
@@ -2345,10 +2366,11 @@ class BaseGame(ABC):
             pass
         self._game_path = None
         self._prefix_path = None
+        self._prefix_path_cleared = False
         return False
 
     def _profile_overrides_prefix(self) -> bool:
-        """True when the active non-default profile pins its own prefix_path."""
+        """True when the active non-default profile pins its prefix choice."""
         if self._is_default_profile():
             return False
         try:
@@ -2356,7 +2378,10 @@ class BaseGame(ABC):
             pset = read_profile_settings(self._active_profile_dir)
         except Exception:
             return False
-        return bool(isinstance(pset.get("prefix_path"), str) and pset["prefix_path"])
+        return bool(
+            (isinstance(pset.get("prefix_path"), str) and pset["prefix_path"])
+            or pset.get("prefix_path_cleared") is True
+        )
 
     def _heal_wrong_library_prefix(self) -> None:
         """Repoint a saved Steam prefix that lives in the wrong library.
@@ -2403,6 +2428,7 @@ class BaseGame(ABC):
         self._paths_file.parent.mkdir(parents=True, exist_ok=True)
         data = self._read_global_paths()
         data["prefix_path"] = str(prefix)
+        data["prefix_path_cleared"] = False
         self._paths_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
     def _read_global_paths(self) -> dict:
@@ -2417,7 +2443,7 @@ class BaseGame(ABC):
 
     def _profile_pinnable_paths_keys(self) -> tuple[str, ...]:
         """paths.json keys a non-default profile may pin as its own."""
-        return ("game_path", "prefix_path", "deploy_mode",
+        return ("game_path", "prefix_path", "prefix_path_cleared", "deploy_mode",
                 *self.launcher_id_keys,
                 *self.profile_overridable_paths_extras)
 
@@ -2540,6 +2566,8 @@ class BaseGame(ABC):
             fresh = {
                 "game_path":    str(self._game_path)    if self._game_path    else "",
                 "prefix_path":  str(self._prefix_path)  if self._prefix_path  else "",
+                "prefix_path_cleared": bool(
+                    self._prefix_path is None and self._prefix_path_cleared),
                 "deploy_mode":  mode_str,
                 "staging_path": str(self._staging_path) if self._staging_path else "",
                 "save_path_override": (str(self._save_path_override)
@@ -2577,6 +2605,10 @@ class BaseGame(ABC):
         candidates = {
             "game_path":   _pin("game_path",   str(self._game_path) if self._game_path else "", ""),
             "prefix_path": _pin("prefix_path", str(self._prefix_path) if self._prefix_path else "", ""),
+            "prefix_path_cleared": _pin(
+                "prefix_path_cleared",
+                bool(self._prefix_path is None and self._prefix_path_cleared),
+                False),
             "deploy_mode": _pin("deploy_mode", mode_str, ""),
             # Which install this profile manages, so it pins with the paths it
             # belongs to. Writing it globally moved every other profile onto
@@ -2707,6 +2739,7 @@ class BaseGame(ABC):
         if self._staging_path is not None and not self._staging_path.is_dir():
             self._game_path = None
             self._prefix_path = None
+            self._prefix_path_cleared = False
             self._staging_path = None
             # Wipe the persisted config so the game shows as unconfigured.
             try:

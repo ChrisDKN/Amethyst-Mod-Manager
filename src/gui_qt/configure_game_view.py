@@ -645,8 +645,13 @@ class ConfigureGameView(QWidget):
             pfx = g.get_prefix_path() if hasattr(g, "get_prefix_path") else None
             if pfx and Path(pfx).is_dir():
                 self._set_prefix(Path(pfx), configured=True)
-            elif self._has_prefix_src:
+            elif (self._has_prefix_src
+                  and not (hasattr(g, "is_prefix_path_cleared")
+                           and g.is_prefix_path_cleared())):
                 self._start_prefix_scan()
+            elif self._has_prefix_src:
+                self._prefix_status.setText(self.tr("No prefix configured."))
+                self._prefix_status.setStyleSheet(f"color:{self._c('TEXT_DIM')};")
             # deploy mode
             if self._rb_vfs is not None and getattr(g, "vfs_enabled", False):
                 self._rb_vfs.setChecked(True)
@@ -743,7 +748,7 @@ class ConfigureGameView(QWidget):
         """Every profile_settings key this game may pin as a per-profile
         override (paths + deploy mode + overridable options)."""
         g = self._game
-        keys = ["game_path", "prefix_path", "deploy_mode"]
+        keys = ["game_path", "prefix_path", "prefix_path_cleared", "deploy_mode"]
         # Launcher ids pin with the paths they identify, so releasing a profile
         # back to the shared settings has to release them too - a left-behind
         # id would keep the profile on the launcher it was un-pinned from.
@@ -1643,6 +1648,8 @@ class ConfigureGameView(QWidget):
         # while this long-lived tab remains open.
         self._activate_profile_scope()
         g = self._game
+        prefix_text = self._prefix_edit.text().strip()
+        self._found_prefix = Path(prefix_text) if prefix_text else None
         if self._found_path is None and self._game_edit.text().strip():
             self._found_path = Path(self._game_edit.text().strip())
         if self._found_path is None:
@@ -1676,9 +1683,8 @@ class ConfigureGameView(QWidget):
                     except Exception:
                         return str(old) != str(new)
                 return bool(old) != bool(new)
-            if _changed(g.get_game_path(), self._found_path) or (
-                    self._found_prefix is not None
-                    and _changed(g.get_prefix_path(), self._found_prefix)):
+            if (_changed(g.get_game_path(), self._found_path)
+                    or _changed(g.get_prefix_path(), self._found_prefix)):
                 self._game_status.setText(
                     self.tr("Cannot change the game/prefix path while mods are deployed. "
                     "Restore the game first."))
@@ -1736,6 +1742,8 @@ class ConfigureGameView(QWidget):
             g.set_game_path(self._found_path)
             if self._found_prefix is not None and hasattr(g, "set_prefix_path"):
                 g.set_prefix_path(self._found_prefix)
+            elif self._has_prefix_src and hasattr(g, "clear_prefix_path"):
+                g.clear_prefix_path()
             if hasattr(g, "set_staging_path"):
                 g.set_staging_path(self._custom_staging)
             from Utils.hardlink_check import hardlink_device_mismatches
@@ -1754,6 +1762,8 @@ class ConfigureGameView(QWidget):
         g.set_game_path(self._found_path)
         if self._found_prefix is not None:
             g.set_prefix_path(self._found_prefix)
+        elif self._has_prefix_src and hasattr(g, "clear_prefix_path"):
+            g.clear_prefix_path()
         # One call for the whole launcher-identity set: "" is as meaningful as an
         # id ("the user ruled this launcher out") and must reach the backend,
         # while None means the scan never resolved that launcher and the saved
