@@ -190,6 +190,7 @@ class CollectionDetailView(QWidget):
                 file_name=src.get("logicalFilename") or mod_name,
                 size_bytes=file_size, optional=bool(m.get("optional", False)),
                 source_type="nexus", version=m.get("version") or "",
+                update_policy=(src.get("updatePolicy") or "exact").lower(),
                 category_id=int(cat.get("id") or 0),
                 category_name=(cat.get("name") or "").strip(),
                 domain_name=(m.get("domainName") or "").strip()))
@@ -808,13 +809,16 @@ class CollectionDetailView(QWidget):
         e.g. hyphens collapsed to spaces - so it's only a fallback). We apply it
         whenever the current name is ambiguous: empty, or shared by >1 file in
         this collection. Unique, non-empty GraphQL names are left untouched."""
-        info: "dict[int, tuple[bool, str]]" = {}   # file_id → (optional, name)
+        info: "dict[int, tuple[bool, str, str]]" = {}
         for cm in (manifest or {}).get("mods", []):
             src = cm.get("source") or {}
             fid = src.get("fileId")
             if fid is not None:
                 cj_name = (cm.get("name") or src.get("logicalFilename") or "")
-                info[int(fid)] = (bool(cm.get("optional", False)), cj_name)
+                policy = (src.get("updatePolicy") or "exact").lower()
+                if policy not in ("exact", "prefer", "latest"):
+                    policy = "exact"
+                info[int(fid)] = (bool(cm.get("optional", False)), cj_name, policy)
         if not info:
             return False
         # An ambiguous display name is one that is empty (GraphQL couldn't
@@ -828,7 +832,7 @@ class CollectionDetailView(QWidget):
         changed = False
         for m in self._mods:
             if m.file_id and m.file_id in info:
-                opt, cj_name = info[m.file_id]
+                opt, cj_name, policy = info[m.file_id]
                 if bool(getattr(m, "optional", False)) != opt:
                     m.optional = opt
                     changed = True
@@ -836,6 +840,9 @@ class CollectionDetailView(QWidget):
                 ambiguous = (not cur) or name_counts.get(cur, 1) > 1
                 if cj_name and ambiguous and cur != cj_name:
                     m.mod_name = cj_name
+                    changed = True
+                if getattr(m, "update_policy", "exact") != policy:
+                    m.update_policy = policy
                     changed = True
         return changed
 

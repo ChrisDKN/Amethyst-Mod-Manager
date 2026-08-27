@@ -96,11 +96,16 @@ def _old_manifest_file_ids(old_manifest: dict) -> set[int]:
 def _read_installed_mods(
     staging_path: Path,
     installed_names_lower: set[str],
-) -> list[tuple[str, int, int, str]]:
-    """Return [(folder_name, mod_id, file_id, from_collection), ...] for every
+) -> list[tuple[str, int, int, int, str]]:
+    """Return installed folder identity, including the authored collection fileId.
+
+    The authored id differs from ``file_id`` when an update policy resolved a
+    replacement file.
+
+    Return tuples are ``(folder, mod_id, file_id, source_file_id, collection)`` for every
     folder whose lowercased name is in *installed_names_lower*. Missing meta.ini
-    is treated as (0, 0, "")."""
-    out: list[tuple[str, int, int, str]] = []
+    is treated as zero/empty identity."""
+    out: list[tuple[str, int, int, int, str]] = []
     if not staging_path.is_dir():
         return out
     for mod_dir in staging_path.iterdir():
@@ -110,6 +115,7 @@ def _read_installed_mods(
             continue
         mod_id = 0
         file_id = 0
+        source_file_id = 0
         from_collection = ""
         meta_ini = mod_dir / "meta.ini"
         if meta_ini.is_file():
@@ -125,12 +131,17 @@ def _read_installed_mods(
                         file_id = int(cp.get("General", "fileid", fallback="0") or "0")
                     except ValueError:
                         pass
+                    try:
+                        source_file_id = int(cp.get(
+                            "General", "collectionSourceFileId", fallback="0") or "0")
+                    except ValueError:
+                        pass
                     from_collection = cp.get(
                         "General", "fromCollection", fallback=""
                     ).strip()
             except Exception:
                 pass
-        out.append((mod_dir.name, mod_id, file_id, from_collection))
+        out.append((mod_dir.name, mod_id, file_id, source_file_id, from_collection))
     return out
 
 
@@ -170,10 +181,11 @@ def diff_collection(
     installed_by_mod_id: dict[int, tuple[str, int]] = {}
     collection_owned_folders: set[str] = set()
 
-    for folder, mod_id, file_id, origin in installed:
+    for folder, mod_id, file_id, source_file_id, origin in installed:
+        member_file_id = source_file_id or file_id
         is_owned_by_slug = bool(origin) and origin == collection_slug
         fallback_owned = (
-            not origin and file_id > 0 and file_id in old_fids
+            not origin and member_file_id > 0 and member_file_id in old_fids
         )
         if not (is_owned_by_slug or fallback_owned):
             continue
@@ -186,12 +198,13 @@ def diff_collection(
         if mod_id > 0:
             installed_by_mod_id[mod_id] = (folder, file_id)
 
-    for folder, mod_id, file_id, origin in installed:
+    for folder, mod_id, file_id, source_file_id, origin in installed:
         if folder not in collection_owned_folders:
             continue
         if mod_id <= 0 or file_id <= 0:
             continue
-        if file_id in new_fids:
+        member_file_id = source_file_id or file_id
+        if member_file_id in new_fids:
             continue
         matched_new_fid = None
         for nfid, nmod in new_fids_to_mod.items():
@@ -204,7 +217,9 @@ def diff_collection(
         else:
             diff.to_remove.append(folder)
 
-    installed_fids = {fid for _, _, fid, _ in installed if fid > 0}
+    installed_fids = {
+        source_fid or fid for _, _, fid, source_fid, _ in installed
+        if (source_fid or fid) > 0}
     update_new_set = set(diff.to_update_new_fids)
     for fid in new_fids:
         if fid in installed_fids:

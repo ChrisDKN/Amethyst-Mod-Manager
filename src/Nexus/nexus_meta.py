@@ -75,6 +75,7 @@ class NexusModMeta:
     from_collection: str = ""          # slug of the collection that installed this mod
     from_collection_bundled: bool = False  # True for mods extracted from collection bundled/ folder
     from_collection_patched: bool = False  # True for mods that received BSDIFF40 patches from a collection
+    collection_source_file_id: int = 0  # fileId authored in collection.json before policy resolution
     collection_optional: bool = False  # manifest ``optional`` flag at collection-install time
     collection_phase: int = 0          # manifest ``phase`` at collection-install time
     xedit_modified_plugins: str = ""   # semicolon-separated plugin names edited in xEdit (set on restore)
@@ -165,6 +166,7 @@ _KEY_MAP: dict[str, str] = {
     "fromCollection":    "from_collection",
     "fromCollectionBundled": "from_collection_bundled",
     "fromCollectionPatched": "from_collection_patched",
+    "collectionSourceFileId": "collection_source_file_id",
     "collectionOptional": "collection_optional",
     "collectionPhase":   "collection_phase",
     "xeditModifiedPlugins": "xedit_modified_plugins",
@@ -176,7 +178,7 @@ _KEY_MAP: dict[str, str] = {
 
 # Attributes that are ints
 _INT_FIELDS = {"mod_id", "file_id", "category_id", "latest_file_id", "file_size",
-               "collection_phase"}
+               "collection_source_file_id", "collection_phase"}
 
 # Attributes that are bools
 _BOOL_FIELDS = {
@@ -304,7 +306,7 @@ def write_meta(meta_ini_path: Path, meta: NexusModMeta) -> None:
             # Same for the collection phase: stamped by the collection install;
             # absence means phase 0, so 0 is never written and a stamped phase
             # survives fresh NexusModMeta writers.
-            if attr == "collection_phase" and not value:
+            if attr in ("collection_source_file_id", "collection_phase") and not value:
                 continue
             # Same for the uploader: stamped by the install lookup / update
             # check; a fresh NexusModMeta without it must not blank the value.
@@ -475,6 +477,7 @@ def merge_reinstall_metadata(
     meta.root_folder = installed.root_folder
     meta.from_collection = installed.from_collection
     meta.from_collection_bundled = installed.from_collection_bundled
+    meta.collection_source_file_id = installed.collection_source_file_id
     # A dismissed update nag survives reinstalling the SAME file - the update
     # checker un-ignores by itself when a version STRICTLY NEWER than
     # ignored_version appears (nexus_update_checker), so this can't hide a

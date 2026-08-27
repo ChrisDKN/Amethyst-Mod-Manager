@@ -218,6 +218,7 @@ class NexusModFile:
     version: str
     category_name: str       # "MAIN", "UPDATE", "OPTIONAL", "OLD_VERSION", "MISCELLANEOUS"
     file_name: str            # actual archive filename
+    category_id: int = 0
     size_in_bytes: int | None = None
     size_kb: int = 0
     mod_version: str = ""
@@ -447,6 +448,10 @@ class NexusCollectionMod:
     md5: str = ""           # collection.json mods[].source.md5 - used to verify cached archives
     domain_name: str = ""   # collection.json mods[].domainName - overrides collection-level domain
                             # (e.g. Skyrim mods inside an Enderal collection)
+    update_policy: str = "exact"
+    resolved_file_id: int = 0
+    resolved_nexus_file_name: str = ""
+    resolved_file_category: str = ""
 
 
 # ---------------------------------------------------------------------------
@@ -1525,6 +1530,7 @@ class NexusAPI:
                                 version=entry.get("version", "") or "",
                                 category_name=cat_name,
                                 file_name=entry.get("uri", "") or "",
+                                category_id=int(entry.get("categoryId") or 0),
                                 size_in_bytes=sz or None,
                                 size_kb=(sz // 1024) if sz else 0,
                                 mod_version="",
@@ -1545,6 +1551,7 @@ class NexusAPI:
                 version=f.get("version", ""),
                 category_name=f.get("category_name", ""),
                 file_name=f.get("file_name", ""),
+                category_id=int(f.get("category_id") or 0),
                 size_in_bytes=f.get("size_in_bytes"),
                 size_kb=f.get("size_kb", 0),
                 mod_version=f.get("mod_version", ""),
@@ -1561,6 +1568,12 @@ class NexusAPI:
             file_updates=data.get("file_updates", []),
         )
 
+    def get_mod_file_updates(self, game_domain: str, mod_id: int) -> list[dict]:
+        """Return the REST file-update chain for one Nexus mod."""
+        data = self._get(f"/games/{game_domain}/mods/{mod_id}/files")
+        updates = data.get("file_updates", [])
+        return updates if isinstance(updates, list) else []
+
     def get_file_info(self, game_domain: str, mod_id: int,
                       file_id: int) -> NexusModFile:
         """Get details about a specific file."""
@@ -1572,6 +1585,7 @@ class NexusAPI:
             version=f.get("version", ""),
             category_name=f.get("category_name", ""),
             file_name=f.get("file_name", ""),
+            category_id=int(f.get("category_id") or 0),
             size_in_bytes=f.get("size_in_bytes"),
             size_kb=f.get("size_kb", 0),
             mod_version=f.get("mod_version", ""),
@@ -2138,6 +2152,7 @@ class NexusAPI:
                             version=entry.get("version", "") or "",
                             category_name=cat_name,
                             file_name=entry.get("uri", "") or "",
+                            category_id=int(entry.get("categoryId") or 0),
                             size_in_bytes=sz or None,
                             size_kb=(sz // 1024) if sz else 0,
                             mod_version="",

@@ -134,6 +134,178 @@ def _fomod_choices_from_collection(choices: dict) -> "dict[str, dict[str, list[s
     return result
 
 
+_UPDATE_POLICIES = {"exact", "prefer", "latest"}
+
+
+def _resolved_file_id(mod) -> int:
+    return int(getattr(mod, "resolved_file_id", 0) or mod.file_id or 0)
+
+
+def _update_int(entry: dict, *keys: str) -> int:
+    for key in keys:
+        try:
+            value = int(entry.get(key) or 0)
+        except (TypeError, ValueError):
+            value = 0
+        if value:
+            return value
+    return 0
+
+
+def _update_chain(updates: list[dict], file_id: int) -> list[dict]:
+    chain: list[dict] = []
+    seen = {int(file_id)}
+    current = int(file_id)
+    while current:
+        edge = next((u for u in updates
+                     if _update_int(u, "old_file_id", "oldFileId") == current), None)
+        if edge is None:
+            break
+        new_id = _update_int(edge, "new_file_id", "newFileId")
+        if not new_id or new_id in seen:
+            break
+        chain.append(edge)
+        seen.add(new_id)
+        current = new_id
+    return chain
+
+
+def _version_at_least(candidate: str, authored: str) -> bool:
+    try:
+        from Nexus.nexus_update_checker import _parse_version
+        candidate_v = _parse_version(candidate)
+        authored_v = _parse_version(authored)
+        return candidate_v >= authored_v if candidate_v and authored_v else True
+    except Exception:
+        return True
+
+
+def _policy_candidate(files, updates, file_id: int, version: str, policy: str):
+    by_id = {int(f.file_id): f for f in files if getattr(f, "file_id", 0)}
+
+    def _uploaded(edge) -> int:
+        timestamp = _update_int(edge, "uploaded_timestamp", "uploadedTimestamp")
+        candidate = by_id.get(_update_int(edge, "new_file_id", "newFileId"))
+        return timestamp or int(getattr(candidate, "uploaded_timestamp", 0) or 0)
+
+    chain = sorted(
+        _update_chain(updates, file_id),
+        key=_uploaded,
+        reverse=True,
+    )
+    for edge in chain:
+        candidate = by_id.get(_update_int(edge, "new_file_id", "newFileId"))
+        if candidate is not None and (
+                policy == "latest" or _version_at_least(candidate.version, version)):
+            return candidate
+    active = [f for f in files
+              if int(getattr(f, "category_id", 0) or 0) not in (4, 6)
+              and (getattr(f, "category_name", "") or "").upper()
+              not in ("OLD_VERSION", "ARCHIVED")]
+    if len(active) == 1 and (
+            policy == "latest" or _version_at_least(active[0].version, version)):
+        return active[0]
+    return None
+
+
+def _activate_policy_candidate(mod, candidate) -> None:
+    if candidate is None:
+        return
+    mod.resolved_file_id = int(candidate.file_id)
+    mod.file_name = candidate.file_name or mod.file_name
+    mod.version = candidate.version or mod.version
+    mod.size_bytes = int(candidate.size_in_bytes
+                         or (candidate.size_kb or 0) * 1024 or mod.size_bytes or 0)
+    mod.resolved_nexus_file_name = candidate.name or ""
+    mod.resolved_file_category = candidate.category_name or ""
+
+
+def _prepare_collection_update_policies(api, mods: list, schema_mods: list[dict],
+                                        default_domain: str, status, log, stop) -> None:
+    schema_by_fid: dict[int, dict] = {}
+    for entry in schema_mods:
+        src = entry.get("source") or {}
+        try:
+            fid = int(src.get("fileId") or 0)
+        except (TypeError, ValueError):
+            fid = 0
+        if fid:
+            schema_by_fid[fid] = entry
+
+    targets: list[tuple[object, tuple[str, int], str]] = []
+    for mod in mods:
+        fid = int(getattr(mod, "file_id", 0) or 0)
+        mod.resolved_file_id = fid
+        entry = schema_by_fid.get(fid, {})
+        src = entry.get("source") or {}
+        policy = (src.get("updatePolicy")
+                  or getattr(mod, "update_policy", "exact") or "exact").lower()
+        if policy not in _UPDATE_POLICIES:
+            policy = "exact"
+        mod.update_policy = policy
+        if policy == "exact" or not fid or api is None:
+            continue
+        domain = normalise_game_domain(entry.get("domainName") or "") \
+            or normalise_game_domain(getattr(mod, "domain_name", "") or "") \
+            or default_domain
+        try:
+            mod_id = int(src.get("modId") or getattr(mod, "mod_id", 0) or 0)
+        except (TypeError, ValueError):
+            mod_id = 0
+        if domain and mod_id:
+            targets.append((mod, (domain, mod_id), entry.get("version") or mod.version or ""))
+
+    if not targets:
+        return
+    status(f"Resolving update policies for {len(targets)} mod(s)…")
+
+    page_data: dict[tuple[str, int], tuple[list, list[dict]]] = {}
+    keys = list(dict.fromkeys(key for _mod, key, _version in targets))
+
+    def _fetch(key):
+        if stop.is_set():
+            return key, [], []
+        domain, mod_id = key
+        listing = api.get_mod_files(domain, mod_id)
+        updates = list(getattr(listing, "file_updates", None) or [])
+        if not updates:
+            get_updates = getattr(api, "get_mod_file_updates", None)
+            if callable(get_updates):
+                updates = get_updates(domain, mod_id)
+        return key, list(listing.files or []), updates
+
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    with ThreadPoolExecutor(max_workers=min(8, len(keys)),
+                            thread_name_prefix="col-policy") as pool:
+        futures = {pool.submit(_fetch, key): key for key in keys}
+        for future in as_completed(futures):
+            key = futures[future]
+            try:
+                result_key, files, updates = future.result()
+                page_data[result_key] = (files, updates)
+            except Exception as exc:
+                log(f"Collection policy: could not inspect {key[0]}/mods/{key[1]}: {exc}")
+
+    for mod, key, version in targets:
+        files, updates = page_data.get(key, ([], []))
+        candidate = _policy_candidate(
+            files, updates, mod.file_id, version, mod.update_policy)
+        if candidate is None or int(candidate.file_id) == int(mod.file_id):
+            continue
+        mod._policy_fallback = candidate
+        pinned = next((f for f in files if int(f.file_id) == int(mod.file_id)), None)
+        archived = pinned is None or int(getattr(pinned, "category_id", 0) or 0) == 6 \
+            or (getattr(pinned, "category_name", "") or "").upper() == "ARCHIVED"
+        mod._policy_exact_unavailable = archived
+        if mod.update_policy == "latest":
+            _activate_policy_candidate(mod, candidate)
+            log(f"Collection policy: '{mod.mod_name}' latest resolved "
+                f"{mod.file_id} → {candidate.file_id}")
+        elif archived:
+            log(f"Collection policy: '{mod.mod_name}' exact file {mod.file_id} "
+                f"is unavailable; prepared fallback {candidate.file_id}")
+
+
 # ---------------------------------------------------------------------------
 # Callback / control interface (the Qt caller wires each to a Signal.emit).
 # ---------------------------------------------------------------------------
@@ -539,6 +711,9 @@ def run_collection_install(
             elif _ctype == "bain_selections":
                 bain_by_file_id[fid] = choices["selections"]
 
+    _prepare_collection_update_policies(
+        api, mods, schema_mods, game_domain, _set_status, log, ctl.stop)
+
     def _sort_key(m):
         return schema_file_id_to_pos.get(m.file_id, len(schema_mods))
 
@@ -553,6 +728,7 @@ def run_collection_install(
     # ------------------------------------------------------------------
     already_installed_by_ids: dict[tuple[str, int, int], str] = {}
     already_installed_by_fid: dict[tuple[str, int], str] = {}
+    already_installed_by_collection: dict[tuple[str, int], str] = {}
     staging_lower_map: dict[str, str] = {}
     # folder name (lower) -> file_id recorded in its meta.ini (0 if none). Used to
     # guard name-fallback removal of unticked optionals: a folder that carries a
@@ -585,6 +761,10 @@ def run_collection_install(
                 _parser.read(str(meta_ini), encoding="utf-8")
                 fid_str = _parser.get("General", "fileid", fallback="").strip()
                 mid_str = _parser.get("General", "modid", fallback="").strip()
+                source_fid_str = _parser.get(
+                    "General", "collectionSourceFileId", fallback="").strip()
+                source_slug = _parser.get(
+                    "General", "fromCollection", fallback="").strip().lower()
                 meta_domain = normalise_game_domain(
                     _parser.get("General", "gameName", fallback="")) \
                     or normalise_game_domain(game_domain)
@@ -601,19 +781,28 @@ def run_collection_install(
                     else:
                         already_installed_by_fid[
                             (meta_domain, _fid)] = mod_dir.name
+                    if source_slug and source_fid_str.isdigit() \
+                            and int(source_fid_str) > 0:
+                        already_installed_by_collection[
+                            (source_slug, int(source_fid_str))] = mod_dir.name
             except Exception:
                 pass
 
     def _match_existing(mod) -> str:
+        collection_match = already_installed_by_collection.get(
+            ((_slug or "").strip().lower(), int(mod.file_id or 0)))
+        if collection_match:
+            return collection_match
         _mid = (schema_file_id_to_mod_id.get(mod.file_id, 0)
                 or getattr(mod, "mod_id", 0) or 0)
         _domain = normalise_game_domain(
             getattr(mod, "domain_name", "")
             or schema_file_id_to_domain.get(mod.file_id, "")
             or game_domain)
-        if _mid > 0 and (_domain, _mid, mod.file_id) in already_installed_by_ids:
-            return already_installed_by_ids[(_domain, _mid, mod.file_id)]
-        return already_installed_by_fid.get((_domain, mod.file_id), "")
+        resolved_fid = _resolved_file_id(mod)
+        if _mid > 0 and (_domain, _mid, resolved_fid) in already_installed_by_ids:
+            return already_installed_by_ids[(_domain, _mid, resolved_fid)]
+        return already_installed_by_fid.get((_domain, resolved_fid), "")
 
     def _name_match_conflicts(mod, folder_name: str) -> bool:
         """Whether a name fallback points at a different Nexus identity."""
@@ -627,7 +816,7 @@ def run_collection_install(
             or game_domain)
         wanted_mid = (schema_file_id_to_mod_id.get(mod.file_id, 0)
                       or getattr(mod, "mod_id", 0) or 0)
-        if domain != wanted_domain or fid != mod.file_id:
+        if domain != wanted_domain or fid != _resolved_file_id(mod):
             return True
         return bool(mid and wanted_mid and mid != wanted_mid)
 
@@ -874,6 +1063,9 @@ def run_collection_install(
     _install_results.update(
         {fid: folder
          for (_domain, _mid, fid), folder in already_installed_by_ids.items()})
+    _install_results.update(
+        {source_fid: folder for (_slug_key, source_fid), folder
+         in already_installed_by_collection.items()})
     _fomod_deferred: list = []
     _bain_deferred: list = []
 
@@ -943,15 +1135,18 @@ def run_collection_install(
             effective_mod_id = _effective_mod_id(mod)
             pmeta = build_meta_from_download(
                 game_domain=effective_domain, mod_id=effective_mod_id,
-                file_id=mod.file_id, archive_name=mod.file_name or "",
+                file_id=_resolved_file_id(mod), archive_name=mod.file_name or "",
                 from_collection=_slug)
             pmeta.nexus_name = mod.mod_name or ""
+            pmeta.nexus_file_name = getattr(mod, "resolved_nexus_file_name", "") or ""
             pmeta.author = mod.mod_author or ""
             pmeta.version = mod.version or ""
             if getattr(mod, "category_id", 0):
                 pmeta.category_id = mod.category_id
             if getattr(mod, "category_name", ""):
                 pmeta.category_name = mod.category_name
+            pmeta.file_category = getattr(mod, "resolved_file_category", "") or ""
+            pmeta.collection_source_file_id = int(mod.file_id or 0)
             # Manifest category name (details.category) - the only source, as
             # the GraphQL mod list omits categories. Applied when the mod
             # object itself carries none.
@@ -973,20 +1168,42 @@ def run_collection_install(
         pref = logical or schema_name or mod.mod_name or ""
         return pref + schema_file_id_to_suffix.get(mod.file_id, "")
 
+    def _expected_size(mod) -> int:
+        if _resolved_file_id(mod) != int(mod.file_id or 0):
+            return int(getattr(mod, "size_bytes", 0) or 0)
+        return int(schema_file_id_to_size.get(mod.file_id, 0)
+                   or getattr(mod, "size_bytes", 0) or 0)
+
+    def _expected_md5(mod) -> str:
+        if _resolved_file_id(mod) != int(mod.file_id or 0):
+            return ""
+        return (schema_file_id_to_md5.get(mod.file_id, "")
+                or (getattr(mod, "md5", "") or "").strip().lower())
+
+    def _use_prefer_fallback(mod) -> bool:
+        candidate = getattr(mod, "_policy_fallback", None)
+        if (getattr(mod, "update_policy", "exact") != "prefer"
+                or candidate is None
+                or _resolved_file_id(mod) != int(mod.file_id or 0)):
+            return False
+        _activate_policy_candidate(mod, candidate)
+        log(f"Collection policy: '{mod.mod_name}' prefer fallback resolved "
+            f"{mod.file_id} → {candidate.file_id}")
+        return True
+
     # ---- link prefetch (stage 1 of the pipeline) ----------------------
     def _cached_archive_for(mod, mod_domain):
         """Return a ready-to-use DownloadResult if this mod's archive is already
         in a scanned download folder, else None. Runs in the link-fetch stage so
         cached mods cost NO get_download_links call and no download slot."""
-        _exp_size = (schema_file_id_to_size.get(mod.file_id, 0)
-                     or getattr(mod, "size_bytes", 0) or 0)
+        _exp_size = _expected_size(mod)
+        resolved_fid = _resolved_file_id(mod)
         for _ext_dir in _scan_dirs():
             effective_mod_id = _effective_mod_id(mod)
             _ext_found, _ext_complete = _find_cached_archive(
                 _ext_dir, mod.file_name or mod.mod_name or "",
-                _exp_size, effective_mod_id, mod.file_id,
-                expected_md5=(schema_file_id_to_md5.get(mod.file_id, "")
-                              or (getattr(mod, "md5", "") or "").strip().lower()))
+                _exp_size, effective_mod_id, resolved_fid,
+                expected_md5=_expected_md5(mod))
             if _ext_found and _ext_complete:
                 log(f"Collection install: '{mod.mod_name}' found in {_ext_dir} - "
                     "using local copy, skipping download")
@@ -995,7 +1212,7 @@ def run_collection_install(
                 return DownloadResult(
                     success=True, file_path=_ext_found, file_name=_ext_found.name,
                     bytes_downloaded=_ext_found.stat().st_size, game_domain=mod_domain,
-                    mod_id=effective_mod_id, file_id=mod.file_id)
+                    mod_id=effective_mod_id, file_id=resolved_fid)
         return None
 
     def _fetch_link_one(mod):
@@ -1012,13 +1229,29 @@ def run_collection_install(
         cached = _cached_archive_for(mod, mod_domain)
         if cached is not None:
             return ("cached", cached)
+        if getattr(mod, "_policy_exact_unavailable", False) \
+                and _use_prefer_fallback(mod):
+            cached = _cached_archive_for(mod, mod_domain)
+            if cached is not None:
+                return ("cached", cached)
         try:
             links = api.get_download_links(
                 game_domain=mod_domain, mod_id=effective_mod_id,
-                file_id=mod.file_id)
+                file_id=_resolved_file_id(mod))
         except Exception as exc:
+            if _use_prefer_fallback(mod):
+                cached = _cached_archive_for(mod, mod_domain)
+                if cached is not None:
+                    return ("cached", cached)
+                try:
+                    links = api.get_download_links(
+                        game_domain=mod_domain, mod_id=effective_mod_id,
+                        file_id=_resolved_file_id(mod))
+                    return ("links", links)
+                except Exception as fallback_exc:
+                    exc = fallback_exc
             log(f"Collection install: link prefetch failed for '{mod.mod_name}' "
-                f"(mod_id={effective_mod_id}, file_id={mod.file_id}): {exc} - will "
+                f"(mod_id={effective_mod_id}, file_id={_resolved_file_id(mod)}): {exc} - will "
                 "retry the fetch inline")
             links = None
         return ("links", links)
@@ -1035,8 +1268,7 @@ def run_collection_install(
         # this, expected_size_bytes=0 disables the 95%-truncation check and a
         # partially-downloaded archive gets extracted (and fails) instead of being
         # redownloaded.
-        _exp_size = (schema_file_id_to_size.get(mod.file_id, 0)
-                     or getattr(mod, "size_bytes", 0) or 0)
+        _exp_size = _expected_size(mod)
         if _col_stop.is_set():
             with _dl_lock:
                 _dl_done += 1
@@ -1093,7 +1325,7 @@ def run_collection_install(
             if result is None:
                 result = downloader.download_file(
                     game_domain=mod_domain, mod_id=effective_mod_id,
-                    file_id=mod.file_id,
+                    file_id=_resolved_file_id(mod),
                     progress_cb=_progress_cb, cancel=_col_stop,
                     known_file_name=mod.file_name or "",
                     expected_size_bytes=_exp_size,
@@ -1371,7 +1603,7 @@ def run_collection_install(
         # entries so "Open Download Page" lands on the mod's real Nexus page.
         _mid = _effective_mod_id(mod)
         return (f"https://www.nexusmods.com/{_effective_mod_domain(mod)}/mods/{_mid}"
-                f"?tab=files&file_id={mod.file_id}")
+                f"?tab=files&file_id={_resolved_file_id(mod)}")
 
     # file_id → (real archive filename, size_bytes) from the Nexus files API.
     # The manifest's file_name/logicalFilename is display-quality only (a
@@ -1387,10 +1619,10 @@ def run_collection_install(
         real_name, real_size = "", 0
         _mid = _effective_mod_id(mod)
         try:
-            if api is not None and _mid and mod.file_id:
+            if api is not None and _mid and _resolved_file_id(mod):
                 files = api.get_mod_files(_effective_mod_domain(mod), _mid)
                 for f in files.files:
-                    if f.file_id == mod.file_id:
+                    if f.file_id == _resolved_file_id(mod):
                         fn = (f.file_name or "").strip()
                         if fn and "/" not in fn:
                             real_name = fn
@@ -1399,7 +1631,7 @@ def run_collection_install(
                         break
         except Exception as exc:
             log(f"Manual install: file lookup failed for mod {_mid} "
-                f"file {mod.file_id} - {exc}")
+                f"file {_resolved_file_id(mod)} - {exc}")
         _manual_real_file[mod.file_id] = (real_name, real_size)
         return real_name, real_size
 
@@ -1409,11 +1641,8 @@ def run_collection_install(
         scan_dirs = _scan_dirs(include_all=True)
         _eff_mod_id = _effective_mod_id(mod)
         _real_name, _real_size = _resolve_manual_file(mod)
-        _exp_size = (schema_file_id_to_size.get(mod.file_id, 0)
-                     or getattr(mod, "size_bytes", 0) or 0
-                     or _real_size)
-        _exp_md5 = (schema_file_id_to_md5.get(mod.file_id, "")
-                    or (getattr(mod, "md5", "") or "").strip().lower())
+        _exp_size = _expected_size(mod) or _real_size
+        _exp_md5 = _expected_md5(mod)
         # Match on the real upload's display stem when known - the manifest
         # name may be a mod-page or staging-folder label that shares no stem
         # with the archive the browser actually saves.
@@ -1436,7 +1665,7 @@ def run_collection_install(
                     continue
                 found, is_complete = _find_cached_archive(
                     folder, _match_name,
-                    _exp_size, _eff_mod_id, mod.file_id,
+                    _exp_size, _eff_mod_id, _resolved_file_id(mod),
                     expected_md5=_exp_md5)
                 if found and is_complete:
                     return found
@@ -1445,6 +1674,9 @@ def run_collection_install(
 
     def _manual_produce(mods_seq: list) -> None:
         nonlocal _dl_done
+        for pending_mod in mods_seq:
+            if getattr(pending_mod, "_policy_exact_unavailable", False):
+                _use_prefer_fallback(pending_mod)
         _current_phase: "int | None" = None
         for i, mod in enumerate(mods_seq):
             mod_domain = _effective_mod_domain(mod)
@@ -1471,9 +1703,7 @@ def run_collection_install(
                 "n_manual": len(mods_seq),
                 "installed_base": installed,
                 "name": mod.mod_name or f"Mod {mod.mod_id}",
-                "size": (schema_file_id_to_size.get(mod.file_id, 0)
-                         or getattr(mod, "size_bytes", 0) or 0
-                         or _real_size),
+                "size": (_expected_size(mod) or _real_size),
                 "file_name": _real_name or mod.file_name or "",
                 "optional": bool(getattr(mod, "optional", False)),
                 "url": _manual_url(mod),
@@ -1501,7 +1731,7 @@ def run_collection_install(
                 success=True, file_path=archive, file_name=archive.name,
                 bytes_downloaded=archive.stat().st_size,
                 game_domain=mod_domain, mod_id=_effective_mod_id(mod),
-                file_id=mod.file_id)
+                file_id=_resolved_file_id(mod))
             with _dl_lock:
                 _dl_done += 1
             with _install_lock:
@@ -1900,15 +2130,18 @@ def _process_deferred(
         try:
             _mid = schema_file_id_to_mod_id.get(mod.file_id, 0) or mod.mod_id
             pmeta = build_meta_from_download(
-                game_domain=domain, mod_id=_mid, file_id=mod.file_id,
+                game_domain=domain, mod_id=_mid, file_id=_resolved_file_id(mod),
                 archive_name=mod.file_name or "", from_collection=_slug)
             pmeta.nexus_name = mod.mod_name or ""
+            pmeta.nexus_file_name = getattr(mod, "resolved_nexus_file_name", "") or ""
             pmeta.author = mod.mod_author or ""
             pmeta.version = mod.version or ""
             if getattr(mod, "category_id", 0):
                 pmeta.category_id = mod.category_id
             if getattr(mod, "category_name", ""):
                 pmeta.category_name = mod.category_name
+            pmeta.file_category = getattr(mod, "resolved_file_category", "") or ""
+            pmeta.collection_source_file_id = int(mod.file_id or 0)
             _schema_cat = schema_file_id_to_category.get(mod.file_id, "")
             if _schema_cat and not pmeta.category_name:
                 pmeta.category_name = _schema_cat
