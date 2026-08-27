@@ -48,6 +48,7 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
 
     # Enderal's own launcher already bootstraps its extender and overrides this.
     vfs_prefers_script_extender = True
+    supports_script_extender_swap = True
 
     plugins_use_star_prefix = False
     plugins_include_vanilla = True
@@ -1504,6 +1505,9 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
         """Replace the game launcher with the script extender if present."""
         _log = log_fn
         if self._game_path is None:
+            return
+        if not self.supports_script_extender_swap:
+            _log("  Launcher swap is not used for this game - skipping.")
             return
         if self.vfs_launch_enabled:
             _log("  VFS launch: launcher swap is virtual - game files unchanged.")

@@ -45,6 +45,8 @@ HEROIC_APP_NAMES: dict[str, list[str]] = {
         "Foxglove"],
     "Fallout_London": [
         "1897848199"],
+    "FalloutNC": [
+        "1168267909"],
 }
 
 

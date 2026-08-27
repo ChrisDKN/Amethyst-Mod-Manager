@@ -105,7 +105,8 @@ def build_quick_configure_options(game) -> list[dict[str, Any]]:
         )
 
     # --- Boolean option toggles (mirror the Configure view gating) ----------
-    if hasattr(game, "set_script_extender_swap"):
+    if (hasattr(game, "set_script_extender_swap")
+            and getattr(game, "supports_script_extender_swap", True)):
         add_toggle(
             "script_extender_swap",
             "Swap launcher with script extender on deploy",

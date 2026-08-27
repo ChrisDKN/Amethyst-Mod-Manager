@@ -573,7 +573,8 @@ class ConfigureGameView(QWidget):
 
         add_check("script_extender_swap",
                   self.tr("Swap launcher with script extender on deploy"),
-                  hasattr(self._game, "script_extender_swap"))
+                  hasattr(self._game, "script_extender_swap")
+                  and getattr(self._game, "supports_script_extender_swap", True))
         add_check("auto_4gb_patch",
                   self.tr("Apply the 4GB patch automatically (deploy patches "
                           "the exe, restore reverts it)"),
@@ -1288,13 +1289,13 @@ class ConfigureGameView(QWidget):
                     app_log(f"[Configure Game] Found via non-Steam shortcut "
                             f"({exe}, app ID {info[2]}): {info[0]}")
                     break
-            libs = find_steam_libraries()
-            app_log(f"[Configure Game] Steam libraries found: "
-                    f"{libs if libs else 'none'}")
             found = None
             matched_steam_exe = None
-            sid = getattr(g, "steam_id", None)
+            sid = str(getattr(g, "steam_id", "") or "")
             if sid:
+                libs = find_steam_libraries()
+                app_log(f"[Configure Game] Steam libraries found: "
+                        f"{libs if libs else 'none'}")
                 app_log(f"[Configure Game] Checking Steam manifest "
                         f"(app ID: {sid}, exes: {exe_names})")
                 for exe in exe_names:
@@ -1304,20 +1305,21 @@ class ConfigureGameView(QWidget):
                         app_log(f"[Configure Game] Found via Steam manifest "
                                 f"({exe}): {found}")
                         break
+                if not found:
+                    app_log("[Configure Game] Falling back to exe scan across "
+                            "Steam libraries")
+                    for exe in exe_names:
+                        found = find_game_in_libraries(libs, exe)
+                        if found:
+                            matched_steam_exe = exe
+                            app_log(f"[Configure Game] Found via Steam exe scan "
+                                    f"({exe}): {found}")
+                            break
+                    else:
+                        app_log(f"[Configure Game] Not found via Steam exe scan "
+                                f"(tried: {exe_names})")
             else:
                 app_log("[Configure Game] No Steam app ID configured for this game")
-            if not found:
-                app_log("[Configure Game] Falling back to exe scan across Steam libraries")
-                for exe in exe_names:
-                    found = find_game_in_libraries(libs, exe)
-                    if found:
-                        matched_steam_exe = exe
-                        app_log(f"[Configure Game] Found via Steam exe scan "
-                                f"({exe}): {found}")
-                        break
-                else:
-                    app_log(f"[Configure Game] Not found via Steam exe scan "
-                            f"(tried: {exe_names})")
             if found:
                 # No prefix here: the Steam compatdata lookup needs the game
                 # path to pick the right library, so it runs as a follow-up

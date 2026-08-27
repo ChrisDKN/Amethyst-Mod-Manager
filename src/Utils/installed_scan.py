@@ -21,9 +21,10 @@ from memory:
   - Non-Steam shortcuts: every account's binary shortcuts.vdf parsed once
     into an exe index.
 
-Detection semantics mirror the old per-game finder calls: steam-id+manifest
-first, then exe search across Steam libraries, then Heroic app names, then
-Heroic by bare exe name. All lookups are case-insensitive on names.
+Detection semantics mirror the old per-game finder calls: games with a Steam
+ID use the manifest first and then an exe search across Steam libraries;
+non-Steam games skip Steam matching. Heroic app names and bare exe matching
+follow. All lookups are case-insensitive on names.
 
 No UI, no game-specific knowledge.
 """
@@ -353,10 +354,11 @@ class InstalledIndex:
                 if self._exe_in_dir(game_dir, exe_name):
                     return True
 
-        for exe in all_exe:
-            for game_dir in self._steam_game_dirs:
-                if self._exe_in_dir(game_dir, exe):
-                    return True
+        if steam_id:
+            for exe in all_exe:
+                for game_dir in self._steam_game_dirs:
+                    if self._exe_in_dir(game_dir, exe):
+                        return True
 
         # Declared app names are authoritative for Heroic - when set, the exe
         # scan is skipped: generic launcher names collide across games

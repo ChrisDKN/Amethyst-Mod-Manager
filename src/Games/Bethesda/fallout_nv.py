@@ -373,3 +373,107 @@ class Fallout_NV(Fallout_3):
         for section, key, value in self._TTW_CUSTOM_INI_VALUES:
             _set_ini_key(custom_ini, section, key, value)
         _log(f"  Wrote TTW values to '{custom_ini.name}'.")
+
+
+class Fallout_NC(Fallout_NV):
+
+    supports_script_extender_swap = False
+    _new_california_plugins = [
+        "NewCalifornia.esm",
+        "NewCalifornia DLC Control.esp",
+        "NewCalifornia Courier Stash Control.esp",
+    ]
+    primary_plugin_order = [
+        *Fallout_NV.primary_plugin_order,
+        "NewCalifornia.esm",
+        "FalloutNV_lang.esp",
+        "NewCalifornia DLC Control.esp",
+        "NewCalifornia Courier Stash Control.esp",
+    ]
+    vanilla_plugins = [
+        *Fallout_NV.vanilla_plugins,
+        *_new_california_plugins,
+    ]
+    _ARCHIVE_INI_FILENAME = "FALLOUT.INI"
+
+    @property
+    def name(self) -> str:
+        return "Fallout New California (GOG)"
+
+    @property
+    def game_id(self) -> str:
+        return "FalloutNC"
+
+    @property
+    def exe_name(self) -> str:
+        return "FalloutNV.exe"
+
+    @property
+    def steam_id(self) -> str:
+        return ""
+
+    @property
+    def alt_steam_ids(self) -> list[str]:
+        return []
+
+    def _remove_plugins_txt_symlink(self, log_fn) -> None:
+        from Utils.plugins import deploy_plugins_copy
+
+        data_dir = self.get_vanilla_plugins_path()
+        try:
+            present = {
+                entry.name.casefold(): entry.name
+                for entry in data_dir.iterdir() if entry.is_file()
+            } if data_dir is not None else {}
+        except OSError:
+            present = {}
+        baseline = [
+            present[name.casefold()] for name in self.primary_plugin_order
+            if name.casefold() in present
+        ]
+        if not baseline:
+            super()._remove_plugins_txt_symlink(log_fn)
+            return
+
+        content = "\n".join(baseline) + "\n"
+        for target in self._plugins_txt_targets():
+            deploy_plugins_copy(target.parent, target.name, content, log_fn)
+        log_fn("  Restored the Fallout New California base plugins list.")
+
+    @property
+    def wizard_tools(self) -> list[WizardTool]:
+        return self._base_wizard_tools() + [
+            WizardTool(
+                id="fnv_4gb_patch",
+                label="Apply 4GB Patch",
+                description="Patch FalloutNV.exe to use 4 GB of memory (keeps a backup that can be restored).",
+                dialog_class_path="wizards.fnv_4gb_patch.Fnv4GbPatchWizard",
+            ),
+            WizardTool(
+                id="install_se_fonv",
+                label="Install Script Extender (xNVSE)",
+                description="Download and install xNVSE into the game folder.",
+                dialog_class_path="wizards.script_extender.ScriptExtenderWizard",
+                extra={
+                    "github_api_url": "https://api.github.com/repos/xNVSE/NVSE/releases/latest",
+                    "archive_keywords": ["nvse"],
+                },
+            ),
+            WizardTool(
+                id="run_bethini_fonv",
+                label="Run BethINI Pie",
+                description="Install BethINI Pie and configure Fallout New Vegas INI settings.",
+                dialog_class_path="wizards.bethini.BethINIWizard",
+            ),
+            WizardTool(
+                id="run_wrye_bash_fonv",
+                label="Run Wrye Bash",
+                description="Download and run Wrye Bash.",
+                dialog_class_path="wizards.wrye_bash.WryeBashWizard",
+            ),
+            *self._xedit_wizard_tools(
+                build="FNVEdit", id_suffix="fonv",
+                nexus_url="https://www.nexusmods.com/newvegas/mods/34703?tab=files",
+                nexus_file_id=1000128948,
+            ),
+        ]

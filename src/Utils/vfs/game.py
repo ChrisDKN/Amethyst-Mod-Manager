@@ -118,7 +118,8 @@ class ProfileVFSGameMixin:
         )
 
     def _vfs_script_extender(self) -> str:
-        if (not getattr(self, "script_extender_swap", False)
+        if (not getattr(self, "supports_script_extender_swap", True)
+                or not getattr(self, "script_extender_swap", False)
                 or not self.vfs_prefers_script_extender):
             return ""
         try:

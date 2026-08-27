@@ -2798,22 +2798,19 @@ def launch_game(game, log_fn=_noop_log) -> None:
     )
     launch_with_wayland = load_launch_with_wayland(game)
     effective_mode = mode
-    if (manager_launch_options or launch_with_wayland) and mode != "none":
+    if manager_launch_options and mode != "none":
         # steam://, heroic:// and the other launcher hand-offs talk to a
         # normally already-running client.  Environment variables or wrappers
         # placed around that short-lived IPC process do not reach the game;
-        # only options saved in the launcher's own configuration do.  Use the
-        # manager-controlled game command whenever manager-owned launch
-        # settings need to reach the game process.
+        # only options saved in the launcher's own configuration do.
         effective_mode = "none"
-        if manager_launch_options and launch_with_wayland:
-            reason = "manager Launch Options and Launch with Wayland are set"
-        elif manager_launch_options:
-            reason = "manager Launch Options are set"
-        else:
-            reason = "Launch with Wayland is enabled"
-        log_fn(f"Play: {reason} - launching the game directly so the "
-               "manager-controlled launch environment is applied.")
+        log_fn("Play: manager Launch Options are set - launching the game "
+               "directly so the manager-controlled launch environment is "
+               "applied.")
+    elif launch_with_wayland and mode != "none":
+        log_fn("Play: Launch with Wayland is enabled, but launcher routing "
+               "takes precedence. Configure Wayland in the selected launcher "
+               "or choose launch mode None to have the manager apply it.")
     steam_id = effective_steam_id(game)
     heroic_app_names = heroic_app_names_for_launch(game)
     is_steam = game_is_steam_install(game)
@@ -3032,7 +3029,8 @@ def swapped_framework_steam_id(game, exe_path: Path) -> str:
     if game is None or not is_framework_launch_exe(game, exe_path.name):
         return ""
     try:
-        if not bool(getattr(game, "script_extender_swap", False)):
+        if (not bool(getattr(game, "supports_script_extender_swap", True))
+                or not bool(getattr(game, "script_extender_swap", False))):
             return ""
     except Exception:
         return ""
