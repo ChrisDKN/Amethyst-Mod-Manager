@@ -1,8 +1,7 @@
 
 <p align="center">
-    <img width="200" src="src/icons/Logo.png" alt="Logo">
+    <img width="500" alt="ghbanner" src="https://github.com/user-attachments/assets/acb661d1-2619-4d2c-adbf-050b54d533ba" />
 </p>
-<h1 align="center">Amethyst Mod Manager</h1>
 
 <h3 align="center">A mod manager for Linux.</h3>
 <h5 align="center">

@@ -238,6 +238,8 @@ jobs:
           # QImage.fromData() returns null and the browser cards render
           # blank. quick-sharun only deploys imageformats/*.so that exist
           # on disk, so the plugin must be installed here to be bundled.
+          # qt6-multimedia + its FFmpeg backend provide Mod Files audio
+          # decoding and the multimedia plugin quick-sharun deploys.
           # libarchive: bsdtar + libarchive.so.13 for fast extraction.
           # sudo: needed for `sudo -u builder` makepkg invocation.
           # (base-devel is already pulled in by the container-prep step.)
@@ -248,6 +250,8 @@ jobs:
               pyside6 \
               qt6-wayland \
               qt6-imageformats \
+              qt6-multimedia \
+              qt6-multimedia-ffmpeg \
               python-pip \
               libarchive \
               wget \
@@ -271,11 +275,11 @@ jobs:
           # Keep the smaller package when its ABI matches, but recover to the
           # official synchronized Qt package rather than producing no
           # AppImage at all.
-          if ! /usr/bin/python3 -c 'import PySide6.QtCore'; then
+          if ! /usr/bin/python3 -c 'import PySide6.QtCore, PySide6.QtMultimedia'; then
               echo "WARN: qt6-base-mini is ABI-incompatible with PySide6; restoring the official qt6-base package." >&2
               pacman -S --noconfirm qt6-base
           fi
-          /usr/bin/python3 -c 'import PySide6.QtCore; print(PySide6.QtCore.qVersion())'
+          /usr/bin/python3 -c 'import PySide6.QtCore, PySide6.QtMultimedia; print(PySide6.QtCore.qVersion())'
 
       - name: Create makepkg build user
         run: |
