@@ -8,6 +8,7 @@ py.install_sources(
   '_bsa_writer_selftest.py',
   '_game_process_selftest.py',
   '_npc_viewer_selftest.py',
+  'acmos_tools.py',
   'app_env.py',
   'app_log.py',
   'appimage_env.py',

@@ -391,6 +391,15 @@ class SkyrimSE(Fallout_3):
                 dialog_class_path="wizards.dyndolod.xLODGenWizard",
             ),
             WizardTool(
+                id="run_acmos_skyrimse",
+                label="Run ACMOS Road Generator",
+                description=(
+                    "Install ACMOS Road Generator, choose a terrain LOD mod, "
+                    "and write generated road textures to ACMOS_Output."),
+                dialog_class_path="wizards.acmos.ACMOSWizard",
+                category="DynDOLOD",
+            ),
+            WizardTool(
                 id="run_bethini_skyrimse",
                 label="Run BethINI Pie",
                 description="Install BethINI Pie and configure Skyrim SE INI settings.",

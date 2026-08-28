@@ -3,6 +3,7 @@ py.install_sources(
   '__init__.py',
   '_mod_loader_installer_view.py',
   '_view_base.py',
+  'acmos_view.py',
   'bethesda_register_view.py',
   'bethini_view.py',
   'bg3_import_view.py',

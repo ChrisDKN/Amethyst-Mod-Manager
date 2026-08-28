@@ -643,6 +643,7 @@ class WizardViewBase(QWidget):
                       *, allow_game_prefix: bool = True,
                       isolated_prefix_dir_fn=None,
                       default_prefix_mode: str | None = None,
+                      show_discrete_gpu: bool = False,
                       title: str | None = None,
                       missing_text: str = ""):
         """(Re)build the Proton step on entry - the exe may only exist after
@@ -665,15 +666,18 @@ class WizardViewBase(QWidget):
             lay.addWidget(err)
             return
         from wizards_qt.proton_step import ProtonStepWidget
-        lay.addWidget(ProtonStepWidget(
+        step = ProtonStepWidget(
             self._game, exe, exe_name, display_name,
             on_continue=on_chosen,
             log_fn=self._log,
             allow_game_prefix=allow_game_prefix,
             isolated_prefix_dir_fn=isolated_prefix_dir_fn,
             default_prefix_mode=default_prefix_mode,
+            show_discrete_gpu=show_discrete_gpu,
             title=title,
-        ))
+        )
+        lay.addWidget(step)
+        return step
 
     # ---- deploy through the app machinery -------------------------------------------
     def _run_ctx_deploy(self, status_lbl: QLabel, on_ok, on_fail=None):

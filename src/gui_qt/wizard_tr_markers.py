@@ -59,6 +59,7 @@ WIZARD_LABELS = (
     QT_TRANSLATE_NOOP("WizardTools", "Run TexGen"),
     QT_TRANSLATE_NOOP("WizardTools", "Run DynDOLOD"),
     QT_TRANSLATE_NOOP("WizardTools", "Run xLODGen"),
+    QT_TRANSLATE_NOOP("WizardTools", "Run ACMOS Road Generator"),
     QT_TRANSLATE_NOOP("WizardTools", "Run VRAMr"),
     QT_TRANSLATE_NOOP("WizardTools", "Run BENDr"),
     QT_TRANSLATE_NOOP("WizardTools", "Run ParallaxR"),
@@ -213,6 +214,10 @@ WIZARD_DESCRIPTIONS = (
     QT_TRANSLATE_NOOP(
         "WizardTools",
         "Install xLODGen, deploy mods, and run xLODGenx64.exe."),
+    QT_TRANSLATE_NOOP(
+        "WizardTools",
+        "Install ACMOS Road Generator, choose a terrain LOD mod, and write "
+        "generated road textures to ACMOS_Output."),
     QT_TRANSLATE_NOOP(
         "WizardTools",
         "Install BethINI Pie and configure Skyrim SE INI settings."),

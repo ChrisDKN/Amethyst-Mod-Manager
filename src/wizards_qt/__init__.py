@@ -191,6 +191,8 @@ REGISTRY: dict[str, QtWizardSpec] = {
     "wizards.dyndolod.TexGenWizard": QtWizardSpec(_dyndolod_tool("texgen")),
     "wizards.dyndolod.DynDOLODWizard": QtWizardSpec(_dyndolod_tool("dyndolod")),
     "wizards.dyndolod.xLODGenWizard": QtWizardSpec(_dyndolod_tool("xlodgen")),
+    "wizards.acmos.ACMOSWizard":
+        QtWizardSpec(_simple("wizards_qt.acmos_view", "ACMOSView")),
 
     # -- phase 6: plugins-panel tools --
     "wizards.mewgenics_gpak.MewgenicsGpakWizard":
