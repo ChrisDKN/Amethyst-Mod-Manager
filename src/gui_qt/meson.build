@@ -143,6 +143,7 @@ py.install_sources(
   'tri_state_checkbox.py',
   'update_overlay.py',
   'userlist_bars.py',
+  'video_preview.py',
   'wheel_guard.py',
   'wiki_view.py',
   'wizard_tr_markers.py',

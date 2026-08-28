@@ -21,6 +21,7 @@ from gui_qt.mod_files_model import (
     ModFilesModel, _Node, COL_NAME, COL_TOPLEVEL, COL_ROOT, COL_DISABLE,
 )
 from gui_qt.audio_preview import AUDIO_EXTS, AudioControls
+from gui_qt.video_preview import VIDEO_EXTS
 
 
 class ModFilesView(QWidget):
@@ -547,6 +548,14 @@ class ModFilesView(QWidget):
             if target is None or not target.is_file():
                 return
             self._audio_controls.set_audio(target, node.rel_str)
+            return
+        if ext in VIDEO_EXTS:
+            target = self._disk_path_for(node)
+            if target is None or not target.is_file():
+                return
+            cb = getattr(self, "on_open_video", None)
+            if cb is not None:
+                cb(target, node.rel_str)
             return
         from Utils.text_files import TEXT_EXTENSIONS
         if ext in TEXT_EXTENSIONS:

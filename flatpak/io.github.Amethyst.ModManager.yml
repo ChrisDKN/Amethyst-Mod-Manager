@@ -9,11 +9,14 @@ sdk-extensions:
 base: io.qt.PySide.BaseApp
 base-version: "6.9"
 
-# 32-bit support for running Proton's bundled `wine` binary (ELF i386) during
-# Synthesis prefix setup. Without these, exec'ing wine fails with ENOENT - the
-# kernel reports the missing 32-bit ld-linux.so.2 interpreter as the error.
-# NOTE: version 24.08 matches KDE 6.9's freedesktop base (was 25.08 on GNOME 50).
 add-extensions:
+  org.freedesktop.Platform.ffmpeg-full:
+    directory: lib/ffmpeg
+    version: "24.08"
+    add-ld-path: .
+    autodelete: false
+  # 32-bit support for running Proton's bundled `wine` binary (ELF i386).
+  # Version 24.08 matches KDE 6.9's Freedesktop base.
   org.freedesktop.Platform.Compat.i386:
     directory: lib/i386-linux-gnu
     version: "24.08"
@@ -31,7 +34,7 @@ command: amethyst-mod-manager
 build-options:
   env:
     # cleanup-BaseApp.sh knobs - strip the QtWebEngine stack the BaseApp
-    # inherits. Qt Multimedia is retained for Mod Files audio previews.
+    # inherits. Qt Multimedia is retained for Mod Files media previews.
     BASEAPP_REMOVE_WEBENGINE: "true"
     BASEAPP_DISABLE_NUMPY: "true"
 
@@ -89,6 +92,7 @@ tags:
 cleanup-commands:
   # BaseApp housekeeping (WebEngine strip per build-options env above).
   - /app/cleanup-BaseApp.sh
+  - mkdir -p /app/lib/ffmpeg
   # Mount points for the 32-bit compat extensions declared above.
   - mkdir -p /app/lib/i386-linux-gnu/GL
 

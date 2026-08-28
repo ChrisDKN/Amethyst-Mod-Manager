@@ -1599,6 +1599,22 @@ class MainWindow(QMainWindow):
         self._tabs.open_scoped_tab(
             widget, name, self._modlist_panel_stack, key="mf_image_preview")
 
+    def _open_video_preview_tab(self, path, rel_str):
+        """Open a video in a reused modlist-panel-scoped player tab."""
+        from pathlib import Path as _P
+        from gui_qt.video_preview import VideoPreview
+        name = rel_str.replace("\\", "/").rsplit("/", 1)[-1]
+        existing = getattr(self, "_video_preview_widget", None)
+        if existing is not None and self._tabs.has_key("mf_video_preview"):
+            existing.set_video(_P(path), name)
+            self._tabs.focus_key("mf_video_preview")
+            self._tabs.set_tab_title("mf_video_preview", name)
+            return
+        widget = VideoPreview(_P(path), name)
+        self._video_preview_widget = widget
+        self._tabs.open_scoped_tab(
+            widget, name, self._modlist_panel_stack, key="mf_video_preview")
+
     def _open_nif_preview_tab(self, path, rel_str):
         """Open a .nif in the 3D viewer as a modlist-panel-scoped tab (reused)."""
         from pathlib import Path as _P
@@ -18417,6 +18433,7 @@ class MainWindow(QMainWindow):
         self._mod_files_view = ModFilesView()
         self._mod_files_view.changed.connect(self._on_mod_files_changed)
         self._mod_files_view.on_open_image = self._open_image_preview_tab
+        self._mod_files_view.on_open_video = self._open_video_preview_tab
         self._mod_files_view.on_open_archive = self._open_bsa_preview_tab
         self._mod_files_view.on_open_nif = self._open_nif_preview_tab
         self._mod_files_view.on_open_text = self._open_text_editor_tab
