@@ -2,9 +2,14 @@
 ### Performance Improvements
 - Fully reworked how conflicts are detected. Adding new mods, moving mods, enabling and disabling mods in a large modlist will feel much more responsive.
 - Improved application load and startup times
+### Game Support
+- Added Fallout New California (Gog)
 ### Additions
 - Added a right click option to plugins with loot messages that contain links to open them
 - Added a Skyrim downgrade wizard for running the Mulderload downgrader
+- Added a right click option to Fomod mods to display the options that you made for that mod
+### Changes
+- The top bar can now be moved to the right or left of the application in the UI settings
 ### Bug Fixes
 - Fixed repeated and unnecessary Nexus oauth token requests from the keyring during startup and during mod install
 - Fixed Enderal using Fallout's top level folder set causing some mods to install incorrectly
