@@ -1,6 +1,7 @@
 py.install_sources(
   '__init__.py',
   'add_game_view.py',
+  'audio_preview.py',
   'app.py',
   'backup_restore_view.py',
   'bain_picker_view.py',

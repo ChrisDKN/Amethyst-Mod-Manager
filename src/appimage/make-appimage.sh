@@ -28,16 +28,16 @@ APPDIR="${WORK_DIR}/AppDir"
 FINAL_OUTPATH="${SCRIPT_DIR}/dist"
 
 # ── Tooling check ────────────────────────────────────────────────────
-for tool in quick-sharun cc awk find ldd strings wget makepkg pacman; do
+for tool in quick-sharun cc awk find ldd strings unzip wget makepkg pacman; do
     command -v "$tool" >/dev/null || {
         echo "ERROR: '$tool' not found in PATH" >&2
         exit 1
     }
 done
 
-if ! /usr/bin/python3 -c 'import PySide6.QtCore'; then
-    echo "ERROR: /usr/bin/python3 cannot import PySide6." >&2
-    echo "Install the system 'pyside6' package (Arch: pacman -S pyside6)." >&2
+if ! /usr/bin/python3 -c 'import PySide6.QtCore, PySide6.QtMultimedia'; then
+    echo "ERROR: /usr/bin/python3 cannot import PySide6 QtCore/QtMultimedia." >&2
+    echo "Install Arch packages pyside6, qt6-multimedia, and qt6-multimedia-ffmpeg." >&2
     exit 1
 fi
 
@@ -161,9 +161,10 @@ pacman -U --noconfirm --overwrite '*' --nodeps "$PKG_FILE"
 # The fix is just to get the Qt LIBS into the arg list: once libQt6Gui.so
 # is traced, quick-sharun's own handler globs and deploys the plugin dirs
 # (platforms/imageformats/styles/wayland/xcbglintegrations), and libQt6-
-# Network.so pulls tls/. We do NOT pass the individual plugin .so files -
-# that just doubled the (expensive) per-file ldd work in quick-sharun's
-# dependency-collection pass, making the build take many extra minutes.
+# Network.so pulls tls/ and Multimedia.so pulls multimedia/ plus its FFmpeg
+# backend. We do NOT pass the individual plugin .so files - that just doubled
+# the (expensive) per-file ldd work in quick-sharun's dependency-collection
+# pass, making the build take many extra minutes.
 #
 # Arch's pyside6 depends on qt6-base and uses the SYSTEM Qt at
 # /usr/lib/libQt6*.so + /usr/lib/qt6/plugins/, so those paths are stable.
@@ -188,6 +189,7 @@ _qt_args=()
 # QOpenGLWidget (nif viewer) lives in libQt6OpenGLWidgets - without it the
 # loader falls back to the host's /usr/lib copy and dies on Qt_6_PRIVATE_API.
 for _l in libQt6Core libQt6Gui libQt6Widgets libQt6DBus libQt6Network \
+          libQt6Multimedia \
           libQt6XcbQpa libQt6WaylandClient libQt6OpenGL libQt6OpenGLWidgets; do
     for _so in /usr/lib/"$_l".so*; do
         [ -e "$_so" ] && _qt_args+=("$_so")
@@ -242,6 +244,7 @@ quick-sharun \
     /usr/bin/mod-manager               \
     /usr/share/amethyst-mod-manager    \
     /usr/bin/7zzs                      \
+    /usr/bin/vgmstream-cli             \
     /usr/bin/zenity                    \
     /usr/bin/amethyst-bwrap            \
     /usr/lib/libssl.so*                \
@@ -251,6 +254,11 @@ quick-sharun \
     "${_qt_args[@]}"                   \
     "${_pyside_libs[@]}"               \
     $( [ -f "$AUX_DIR/bin/bsdtar" ] && printf %s "$AUX_DIR/bin/bsdtar" )
+
+test -x "$APPDIR/bin/vgmstream-cli" || {
+    echo "ERROR: vgmstream-cli was not deployed into the AppImage." >&2
+    exit 1
+}
 
 # Rewrite the wrapper's /usr/share path to "$APPDIR"/share - quick-sharun's
 # built-in /usr → "$APPDIR" rewrite only fires for dotnet scripts, so plain

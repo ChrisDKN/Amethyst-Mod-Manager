@@ -20,6 +20,7 @@ import Utils.mod_files as mflogic
 from gui_qt.mod_files_model import (
     ModFilesModel, _Node, COL_NAME, COL_TOPLEVEL, COL_ROOT, COL_DISABLE,
 )
+from gui_qt.audio_preview import AUDIO_EXTS, AudioControls
 
 
 class ModFilesView(QWidget):
@@ -48,6 +49,8 @@ class ModFilesView(QWidget):
 
     # -- context ------------------------------------------------------------
     def configure(self, game, profile_dir):
+        if game is not self.game or profile_dir != self.profile_dir:
+            self._audio_controls.clear_audio()
         self.game = game
         self.profile_dir = profile_dir
         self._snapshot = None
@@ -69,10 +72,10 @@ class ModFilesView(QWidget):
 
     # -- construction -------------------------------------------------------
     def _build(self):
-        # Lean: just a mod-label header + the tree. The tool footer
+        # The tool footer
         # (Pack/Unpack + search + Filters/Expand), and the filter side panel,
         # are owned by the app so they sit in the shared column footer and the
-        # window-left filter slot (matching the modlist). See app.py.
+        # window-left filter slot (matching the modlist).
         self._filter_state: dict = {}
         v = QVBoxLayout(self)
         v.setContentsMargins(0, 0, 0, 0)
@@ -131,6 +134,9 @@ class ModFilesView(QWidget):
         self._tree.viewport().installEventFilter(self)
         v.addWidget(self._tree, 1)
 
+        self._audio_controls = AudioControls(self)
+        v.addWidget(self._audio_controls)
+
     def _header_min(self, col: int, floor: int) -> int:
         """Width that fits this column's header caption in full.
 
@@ -186,6 +192,8 @@ class ModFilesView(QWidget):
 
     # -- population ---------------------------------------------------------
     def show_mod(self, mod_name: str | None):
+        if mod_name != self._mod_name:
+            self._audio_controls.clear_audio()
         self._mod_name = mod_name
         self.mod_changed.emit(mod_name)
         if mod_name is None:
@@ -503,9 +511,7 @@ class ModFilesView(QWidget):
             self._maybe_open_file(node)
 
     def _maybe_open_file(self, node: _Node):
-        """Single-click a file → open a panel-scoped preview when we know how to
-        show it: an image/.dds preview, or a BSA/BA2 content tree. Delegates to
-        the host-supplied callback."""
+        """Single-click a file to preview supported content."""
         if node.rel_str is None:
             return
         ext = Path(node.rel_str).suffix.lower()
@@ -535,6 +541,12 @@ class ModFilesView(QWidget):
             cb = getattr(self, "on_open_image", None)
             if cb is not None:
                 cb(target, node.rel_str)
+            return
+        if ext in AUDIO_EXTS:
+            target = self._disk_path_for(node)
+            if target is None or not target.is_file():
+                return
+            self._audio_controls.set_audio(target, node.rel_str)
             return
         from Utils.text_files import TEXT_EXTENSIONS
         if ext in TEXT_EXTENSIONS:

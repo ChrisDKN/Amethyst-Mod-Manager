@@ -30,8 +30,8 @@ command: amethyst-mod-manager
 
 build-options:
   env:
-    # cleanup-BaseApp.sh knobs - the app only uses QtCore/QtGui/QtWidgets,
-    # so strip the QtWebEngine stack the BaseApp inherits.
+    # cleanup-BaseApp.sh knobs - strip the QtWebEngine stack the BaseApp
+    # inherits. Qt Multimedia is retained for Mod Files audio previews.
     BASEAPP_REMOVE_WEBENGINE: "true"
     BASEAPP_DISABLE_NUMPY: "true"
 
@@ -39,6 +39,7 @@ build-options:
 # - network: Nexus API send/receive, version checks, downloads
 # - x11 + wayland sockets: Qt picks Wayland natively when the session offers
 #   it and falls back to X11 otherwise.
+# - pulseaudio: audio preview playback
 # - dri: GPU rendering
 # - home: mod staging (user-configurable path, e.g. anywhere in ~/), game paths, Steam libraries.
 #   NOTE: app config does NOT live in ~/.config here - flatpak redirects
@@ -54,6 +55,7 @@ finish-args:
   - --share=network
   - --socket=x11
   - --socket=wayland
+  - --socket=pulseaudio
   - --device=dri
   - --share=ipc
   - --filesystem=home
@@ -106,6 +108,22 @@ modules:
           - https://www.7-zip.org/a/7z2501-src.tar.xz
         sha256: ed087f83ee789c1ea5f39c464c55a5c9d4008deb0efe900814f2df262b82c36e
         strip-components: 0
+
+  - name: vgmstream
+    buildsystem: simple
+    only-arches:
+      - x86_64
+    build-commands:
+      - install -Dm755 vgmstream-cli /app/bin/vgmstream-cli
+      - install -Dm644 vgmstream-COPYING /app/share/licenses/vgmstream/COPYING
+    sources:
+      - type: archive
+        url: https://github.com/vgmstream/vgmstream/releases/download/r2117/vgmstream-linux.zip
+        sha256: 2f98c77f756079f63fbd119939067f1ed461d77e70993bc4cc372736d859c84a
+      - type: file
+        url: https://raw.githubusercontent.com/vgmstream/vgmstream/r2117/COPYING
+        sha256: fcc26d35c4c4365e31f21734f846e4ee362ff0b57ba696085605a7b4768d8763
+        dest-filename: vgmstream-COPYING
 
   # cabextract is needed by winetricks (vcredist/d3dcompiler installs).
   # Bundling it means Utils/protontricks.py finds it on PATH and never falls

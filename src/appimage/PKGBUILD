@@ -11,6 +11,7 @@
 #                         stock GTK4 zenity that we deliberately don't install)
 #   * /usr/bin/7zzs     - 7-Zip 26.00 standalone binary
 #   * /usr/bin/{7z,7za} - symlinks to 7zzs
+#   * /usr/bin/vgmstream-cli - game-audio decoder used for XWM previews
 #   * /usr/bin/amethyst-bwrap - unprivileged Bubblewrap fallback used only
 #                               when the host has no `bwrap`
 #
@@ -31,7 +32,9 @@ license=('GPL-3.0-only')
 # qt6-imageformats provides libqwebp.so (omitted from qt6-base): Nexus serves
 # its mod/collection thumbnails as WebP, so without it the browser cards render
 # blank. Same "must exist on disk for quick-sharun to deploy" reasoning.
-depends=('python' 'pyside6' 'qt6-wayland' 'qt6-imageformats' 'bubblewrap')
+# qt6-multimedia-ffmpeg supplies the decoder backend used by audio previews.
+depends=('python' 'pyside6' 'qt6-wayland' 'qt6-imageformats'
+         'qt6-multimedia' 'qt6-multimedia-ffmpeg' 'bubblewrap')
 # `zenity` is listed as a conflict because we ship our own /usr/bin/zenity
 # (Utils/portal_filechooser.py falls back to it when the portal is missing).
 # If the build host happened to have the stock zenity package installed,
@@ -39,13 +42,17 @@ depends=('python' 'pyside6' 'qt6-wayland' 'qt6-imageformats' 'bubblewrap')
 # this makes the intent explicit and protects local builds.
 conflicts=('zenity')
 provides=('zenity')
-makedepends=('python-pip')
+makedepends=('python-pip' 'unzip' 'wget')
 options=('!strip' '!debug')
 
 source=()
 sha256sums=()
 
 _seven_zip_url='https://github.com/ip7z/7zip/releases/download/26.00/7z2600-linux-x64.tar.xz'
+_vgmstream_url='https://github.com/vgmstream/vgmstream/releases/download/r2117/vgmstream-linux.zip'
+_vgmstream_sha256='2f98c77f756079f63fbd119939067f1ed461d77e70993bc4cc372736d859c84a'
+_vgmstream_license_url='https://raw.githubusercontent.com/vgmstream/vgmstream/r2117/COPYING'
+_vgmstream_license_sha256='fcc26d35c4c4365e31f21734f846e4ee362ff0b57ba696085605a7b4768d8763'
 
 build() {
     # Vendor pip deps so package() can install a frozen tree. PySide6 is NOT
@@ -73,6 +80,14 @@ build() {
     mkdir -p "$srcdir/.7z"
     wget -q -O "$srcdir/.7z/7z.tar.xz" "$_seven_zip_url"
     tar -xf "$srcdir/.7z/7z.tar.xz" -C "$srcdir/.7z"
+
+    rm -rf "$srcdir/.vgmstream"
+    mkdir -p "$srcdir/.vgmstream"
+    wget -q -O "$srcdir/.vgmstream/vgmstream.zip" "$_vgmstream_url"
+    echo "$_vgmstream_sha256  $srcdir/.vgmstream/vgmstream.zip" | sha256sum -c -
+    unzip -q "$srcdir/.vgmstream/vgmstream.zip" -d "$srcdir/.vgmstream"
+    wget -q -O "$srcdir/.vgmstream/COPYING" "$_vgmstream_license_url"
+    echo "$_vgmstream_license_sha256  $srcdir/.vgmstream/COPYING" | sha256sum -c -
 
     # zenity-rs (static Rust drop-in for the GTK4 zenity)
     case "$CARCH" in
@@ -177,12 +192,16 @@ EOF
     ln -sf 7zzs "$pkgdir/usr/bin/7z"
     ln -sf 7zzs "$pkgdir/usr/bin/7za"
     install -Dm755 "$srcdir/zenity"    "$pkgdir/usr/bin/zenity"
+    install -Dm755 "$srcdir/.vgmstream/vgmstream-cli" \
+        "$pkgdir/usr/bin/vgmstream-cli"
     # Keep a private name so the host package always wins at runtime. This is
     # deliberately a normal 0755 executable: Amethyst never ships or creates
     # a setuid/capability-bearing helper.
     install -Dm755 /usr/bin/bwrap "$pkgdir/usr/bin/amethyst-bwrap"
 
     install -Dm644 "$SRC_TREE/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+    install -Dm644 "$srcdir/.vgmstream/COPYING" \
+        "$pkgdir/usr/share/licenses/$pkgname/vgmstream-COPYING"
     install -Dm644 /usr/share/licenses/spdx/LGPL-2.0-or-later.txt \
         "$pkgdir/usr/share/licenses/$pkgname/bubblewrap-LGPL-2.0-or-later.txt"
 }
