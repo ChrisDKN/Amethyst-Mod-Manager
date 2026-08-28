@@ -473,6 +473,21 @@ class NexusDownloader:
         self._api = api
         self._download_dir = download_dir or _get_downloads_dir()
         self._download_dir.mkdir(parents=True, exist_ok=True)
+        self._worker_state = threading.local()
+
+    def _worker_session(self) -> requests.Session:
+        session = getattr(self._worker_state, "session", None)
+        if session is None:
+            session = requests.Session()
+            session.verify = resolve_ca_bundle() or True
+            self._worker_state.session = session
+        return session
+
+    def close_worker_session(self) -> None:
+        session = getattr(self._worker_state, "session", None)
+        if session is not None:
+            session.close()
+            del self._worker_state.session
 
     @property
     def download_dir(self) -> Path:
@@ -791,7 +806,9 @@ class NexusDownloader:
     ) -> DownloadResult:
         """Stream-download a single URL to disk."""
 
-        with requests.get(url, stream=True, timeout=60, verify=resolve_ca_bundle() or True) as resp:
+        session = self._worker_session()
+        with session.get(url, stream=True, timeout=60,
+                         verify=session.verify) as resp:
             resp.raise_for_status()
 
             # Determine filename with the correct extension.

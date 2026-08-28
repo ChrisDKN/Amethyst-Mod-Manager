@@ -847,9 +847,9 @@ def _clamp(value: float) -> float:
 # ---------------------------------------------------------------------------
 _COLLECTIONS_SECTION = "collections"
 
-# Download order is no longer configurable - collection downloads always run
-# strictly smallest→largest (unknown-size mods last). Defaults are 8/8: more
-# concurrency past this gives little practical benefit on typical hardware.
+# Download order is no longer configurable. Up to two collection download lanes
+# take the largest remaining archives while the others run smallest-first.
+# Defaults are 8/8; more concurrency past this gives little practical benefit.
 _DEFAULT_MAX_CONCURRENT = 8
 _DEFAULT_MAX_EXTRACT_WORKERS = 8
 

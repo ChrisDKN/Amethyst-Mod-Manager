@@ -1754,20 +1754,12 @@ def run_collection_install(
                         else f"Downloading & installing {_dl_total} mod(s)…")
         _set_progress(_pre_done / total if total else 0.0)
         if not manual_mode:
-            # Download strictly smallest→largest: all workers pull from the head
-            # of the size-sorted list, so quick mods land first and the big
-            # archives come last. Deliberate Qt change - Tk honoured the
-            # `download_order` setting (default "largest" = largest-first); Qt
-            # ignores that legacy key and always goes smallest-first. (Was a
-            # double-ended scheduler that dedicated one worker to the
-            # largest-remaining mods.)
-            _to_download_sorted = order_by_size(to_download)
+            # Keep up to two lanes on the largest remaining archives while the
+            # other lanes process the smallest first. Two sustained CDN streams
+            # avoid leaving bandwidth idle when one connection tops out early.
+            _to_download_sorted = order_by_size(to_download, _expected_size)
             if _total_bytes > 0:
                 cb.on_agg_download(_dl_bytes_done, _total_bytes, 0.0)
-
-        # Each download fetches its own signed CDN link lazily inside
-        # download_file (exactly one get_download_links call per mod actually
-        # downloaded - cached mods cost nothing).
 
         _consumer_threads: list[threading.Thread] = []
         for _ci in range(_INSTALL_WORKERS):
@@ -1791,19 +1783,16 @@ def run_collection_install(
             # and starts transferring with zero link-fetch latency. This keeps
             # all _DL_WORKERS slots continuously saturated instead of stuttering
             # in bursts of _DL_WORKERS between synchronized get_download_links
-            # round-trips. Same rate-limit cost (one link fetch per downloaded
-            # mod); links are minted only ~1 step ahead so they never go stale.
+            # round-trips. Cached mods cost no link request; other links are
+            # fetched only a bounded distance ahead.
             #
-            # link_workers: for tiny archives the download finishes in ~100ms but
-            # a get_download_links round-trip is ~150ms, so a single fetch stream
-            # can't keep 8 download slots fed - throughput ends up capped by the
-            # fetch rate (2 fetchers ≈ 13 links/sec observed). Match the fetch
-            # pool to the download width so link fetches, not downloads, stop
-            # being the bottleneck; Nexus premium rate limits (~2.5k/hr) leave
-            # ample headroom (a whole collection is ~100 fetches).
+            # Match link prefetch width to download width so tiny archives do not
+            # leave transfer workers waiting between files.
             run_pipelined(_to_download_sorted, _fetch_link_one, _download_one,
                           _DL_WORKERS, link_workers=max(4, _DL_WORKERS),
-                          stop=_col_stop)
+                          large_workers=min(2, max(0, _DL_WORKERS - 1)),
+                          stop=_col_stop,
+                          worker_done=downloader.close_worker_session)
 
         _dl_finished.set()
         if not manual_mode:
