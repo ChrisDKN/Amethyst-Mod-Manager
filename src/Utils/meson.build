@@ -88,6 +88,7 @@ py.install_sources(
   'fnv4gb_tools.py',
   'fo4_facegen.py',
   'fo3_version_check.py',
+  'fomod_choices.py',
   'fomod_installer.py',
   'fomod_parser.py',
   'framework_detect.py',

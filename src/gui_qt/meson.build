@@ -44,6 +44,7 @@ py.install_sources(
   'filter_menu_button.py',
   'filter_panel.py',
   'flow_layout.py',
+  'fomod_choices_view.py',
   'fomod_wizard_view.py',
   'framework_banner.py',
   'game_state.py',

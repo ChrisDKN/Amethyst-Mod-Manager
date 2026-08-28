@@ -1457,6 +1457,8 @@ class MainWindow(QMainWindow):
             names = mv.selected_mod_names()
             # Change Version tab (if visible) follows the selection.
             self._follow_selection_change_version()
+            # FOMOD Choices tab (if visible) likewise.
+            self._follow_selection_fomod_choices()
             if self._req_tab_active():
                 # View Requirements mode: conflict highlights are disabled -
                 # the panel retargets to the selection (multiple mods pool
@@ -8513,6 +8515,44 @@ class MainWindow(QMainWindow):
             return    # not a Nexus mod - keep showing the current one
         view.retarget(e.name, meta)
 
+    def _follow_selection_fomod_choices(self):
+        """FOMOD Choices tab follows the modlist selection: while the tab is
+        visible, selecting a single mod that has saved choices retargets it.
+        Debounced so keyboard-scrolling the list doesn't read a sidecar per
+        row."""
+        view = self._tabs.content_for_key("fomod_choices")
+        if view is None or not view.isVisible():
+            return
+        t = getattr(self, "_fomod_follow_timer", None)
+        if t is None:
+            t = QTimer(self)
+            t.setSingleShot(True)
+            t.timeout.connect(self._retarget_fomod_choices_to_selection)
+            self._fomod_follow_timer = t
+        t.start(300)
+
+    def _retarget_fomod_choices_to_selection(self):
+        view = self._tabs.content_for_key("fomod_choices")
+        if view is None or not view.isVisible():
+            return
+        rows = self._modlist_view.selectionModel().selectedRows()
+        if len(rows) != 1:
+            return
+        e = self._modlist_model.entry(rows[0].row())
+        if e.is_separator or e.name == getattr(view, "current_mod_name", lambda: None)():
+            return
+        game = self._gs.game
+        profile_dir = self._gs.profile_dir()
+        game_name = getattr(game, "name", "") or ""
+        # A mod with no FOMOD sidecar leaves the tab on the last one that had
+        # choices, rather than blanking it while scrolling past plain mods.
+        from Utils.fomod_choices import has_choices
+        if not has_choices(e.name, profile_dir, game_name):
+            return
+        view.set_mod(e.name, profile_dir, game_name)
+        self._tabs.set_tab_title(
+            "fomod_choices", self.tr("FOMOD: {0}").format(e.name))
+
     # ---- Bundle options (plugins-panel-scoped overlay) --------------------
 
     def _open_bundle_tab(self, mod_name: str):
@@ -8990,6 +9030,33 @@ class MainWindow(QMainWindow):
             on_close=lambda: self._tabs.close_tab("show_conflicts"),
             log_fn=self._append_log)
         self._tabs.open_tab(view, self.tr("Conflicts: {0}").format(mod_name), key="show_conflicts")
+
+    # ---- View FOMOD Choices (full detachable tab) ---------------------------
+    def _open_fomod_choices_tab(self, mod_name: str):
+        """Open the saved-FOMOD-selections view for *mod_name* as a full tab.
+        The sidecars are read on a worker thread inside the view."""
+        game = self._gs.game
+        if game is None or not game.is_configured():
+            self._notify(self.tr("No configured game selected."), "warning")
+            return
+        profile_dir = self._gs.profile_dir()
+        game_name = getattr(game, "name", "") or ""
+        # Reuse one tab: retarget it in place (keeps the tab, its position and
+        # any detached window) rather than closing and rebuilding.
+        existing = self._tabs.content_for_key("fomod_choices")
+        if existing is not None and hasattr(existing, "set_mod"):
+            existing.set_mod(mod_name, profile_dir, game_name)
+            self._tabs.set_tab_title(
+                "fomod_choices", self.tr("FOMOD: {0}").format(mod_name))
+            self._tabs.focus_key("fomod_choices")
+            return
+        from gui_qt.fomod_choices_view import FomodChoicesView
+        view = FomodChoicesView(
+            mod_name, profile_dir, game_name,
+            on_close=lambda: self._tabs.close_tab("fomod_choices"),
+            log_fn=self._append_log)
+        self._tabs.open_tab(
+            view, self.tr("FOMOD: {0}").format(mod_name), key="fomod_choices")
 
     # ---- Filter Conflicts (narrow the modlist to one mod's conflict set) -----
     def _filter_conflicts(self, mod_name: str):
@@ -15978,6 +16045,8 @@ class MainWindow(QMainWindow):
         self._modlist_view.on_reinstall = self._reinstall_mods
         # Show Conflicts: right-click item.
         self._modlist_view.on_show_conflicts = self._open_show_conflicts_tab
+        # View FOMOD Choices: right-click item on a mod with saved selections.
+        self._modlist_view.on_show_fomod_choices = self._open_fomod_choices_tab
         # Filter Conflicts: narrow the list to one mod's conflict set (and the
         # anchor getter the menu reads to label the entry as a toggle).
         self._modlist_view.on_filter_conflicts = self._filter_conflicts

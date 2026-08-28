@@ -397,6 +397,8 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
         lambda: _open_note_editor(view, [name]))
     if _nif_viewer_available(view) and _has_meshes(view, name):
         act(_mt("Open in NIF Viewer"), lambda: _open_nif_viewer(view, name))
+    if _has_fomod_choices(view, name):
+        act(_mt("View FOMOD Choices"), lambda: _show_fomod_choices(view, name))
     if _has_conflict(model, row):
         act(_mt("Show Conflicts"), lambda: _show_conflicts(view, name))
         act(_mt("Clear Conflict Filter") if _conflict_filter_on(view, name)
@@ -692,6 +694,28 @@ def _conflict_filter_on(view, name: str | None = None) -> bool:
         return False
     anchor = cb() or ""
     return anchor == name if name is not None else bool(anchor)
+
+
+def _has_fomod_choices(view, name: str) -> bool:
+    """True when this mod was installed through the FOMOD wizard and its
+    selections were saved, so there is something to show."""
+    if not name:
+        return False
+    try:
+        from Utils.fomod_choices import has_choices
+        game = getattr(view, "game", None)
+        return has_choices(name, getattr(view, "profile_dir", None),
+                           getattr(game, "name", "") or "")
+    except Exception:
+        return False
+
+
+def _show_fomod_choices(view, name):
+    """Open the FOMOD Choices tab for *name* (window installs the callback in
+    _reload_modlist). No-op if it isn't wired (e.g. headless)."""
+    cb = getattr(view, "on_show_fomod_choices", None)
+    if cb is not None and name:
+        cb(name)
 
 
 def _nif_viewer_available(view) -> bool:
