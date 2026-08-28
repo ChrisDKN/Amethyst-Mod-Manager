@@ -14,6 +14,7 @@ from pathlib import Path
 class ProfileVFSGameMixin:
     """Opt-in settings, deployment, and launch hooks for ``Utils.vfs``."""
 
+    supports_vfs_deploy = True
     supports_profile_vfs = True
     launch_passthrough_supported = True
     # Compatibility for launch-option integrations written before launcher-

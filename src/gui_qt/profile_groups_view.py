@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui_qt.safe_emit import safe_emit
+from gui_qt.i18n import profile_display
 from gui_qt.theme_qt import (
     _c, active_palette, bind_theme_icon, contrast_text, danger_close_button,
 )
@@ -234,7 +235,8 @@ class ProfileGroupsView(QWidget):
             num.setStyleSheet(f"color:{_c(p, 'TEXT_DIM')}; min-width: 18px;")
             row.addWidget(num)
             missing = not (self._profiles_dir() / member).is_dir()
-            lbl = QLabel(member + (self.tr("  (missing)") if missing else ""))
+            lbl = QLabel(profile_display(member)
+                         + (self.tr("  (missing)") if missing else ""))
             lbl.setStyleSheet(f"color:{_c(p, 'TEXT_MAIN')};")
             row.addWidget(lbl, 1)
             # Theme-tinted arrow.png chevrons (the glyph font has no ▲/▼ here).
@@ -267,13 +269,15 @@ class ProfileGroupsView(QWidget):
         if addable:
             row = QHBoxLayout(); row.setSpacing(6)
             combo = QComboBox()
-            combo.addItems(addable)
+            # Folder name as item data - _add_member takes a real profile name.
+            for _m in addable:
+                combo.addItem(profile_display(_m), _m)
             row.addWidget(combo, 1)
             add = QPushButton(self.tr("+ Add member"))
             add.setObjectName("FormButton")
             add.setCursor(Qt.PointingHandCursor)
             add.clicked.connect(lambda _=False, g=group_name, cb=combo:
-                                self._add_member(g, cb.currentText()))
+                                self._add_member(g, cb.currentData()))
             row.addWidget(add)
             pl.addLayout(row)
         return panel
@@ -303,7 +307,7 @@ class ProfileGroupsView(QWidget):
             hint.setObjectName("PGHint"); hint.setWordWrap(True)
             pl.addWidget(hint)
         for name in eligible:
-            cb = QCheckBox(name)
+            cb = QCheckBox(profile_display(name))
             cb.setChecked(name in self._create_order)
             cb.toggled.connect(lambda on, n=name: self._on_create_check(n, on))
             self._create_checks[name] = cb
@@ -334,7 +338,7 @@ class ProfileGroupsView(QWidget):
             hint2.setObjectName("PGHint"); hint2.setWordWrap(True)
             pl.addWidget(hint2)
             for name in contributors:
-                cb = QCheckBox(name)
+                cb = QCheckBox(profile_display(name))
                 cb.setChecked(True)
                 self._ow_checks[name] = cb
                 pl.addWidget(cb)
@@ -351,7 +355,7 @@ class ProfileGroupsView(QWidget):
     def _build_shared_row(self, name: str, p) -> QFrame:
         row = QFrame(); row.setObjectName("GroupRow")
         rl = QHBoxLayout(row); rl.setContentsMargins(10, 4, 10, 4); rl.setSpacing(8)
-        lbl = QLabel(name)
+        lbl = QLabel(profile_display(name))
         lbl.setStyleSheet(f"color:{_c(p, 'TEXT_DIM')};")
         rl.addWidget(lbl, 1)
         conv = QPushButton(self.tr("Converting…") if self._converting == name

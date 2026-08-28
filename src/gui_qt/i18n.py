@@ -32,7 +32,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QLocale, QTranslator, QLibraryInfo
+from PySide6.QtCore import (QCoreApplication, QLocale, QTranslator,
+                            QLibraryInfo, QT_TRANSLATE_NOOP)
 
 # Built-in translations/ sits next to the icons/ dir at the src/ root.
 TRANSLATIONS_DIR = Path(__file__).resolve().parent.parent / "translations"
@@ -181,3 +182,56 @@ def install_translators(app, code: str) -> list[QTranslator]:
     # Keep references alive - Qt does not retain installed translators.
     app._i18n_translators = installed
     return installed
+
+
+# ---------------------------------------------------------------------------
+# Profile display names
+# ---------------------------------------------------------------------------
+# "default" is the DEFAULT PROFILE'S FOLDER NAME on disk
+# (Profiles/<game>/profiles/default/) and doubles as its persistence key - it
+# is joined into paths in ~140 places across Utils/ and Games/. It can never
+# become a translated string: the folder would not be found, and switching
+# language would orphan the profile.
+#
+# So it follows the same canonical-key/translate-at-display rule the deploy
+# options, model column headers and filter-panel specs use: the stored value
+# stays "default" everywhere, and ONLY the text drawn in the UI is translated.
+# Always send a user's pick back through profile_key() before it reaches any
+# path or config write.
+DEFAULT_PROFILE = "default"
+
+# lupdate needs the literal spelled out at an explicit QT_TRANSLATE_NOOP call
+# (a variable or loop var is NOT extracted), hence this marker.
+_TR_MARKERS = (
+    QT_TRANSLATE_NOOP("Profile", "Default"),
+)
+
+
+def default_profile_name() -> str:
+    """The translated display name of the default profile ("Default" in English)."""
+    return QCoreApplication.translate("Profile", "Default")
+
+
+def profile_display(name: str) -> str:
+    """Return the label to SHOW for profile folder *name*.
+
+    Only the literal ``default`` folder is translated; a renamed default (and
+    every other profile) keeps the user's own name verbatim in every language.
+    """
+    return default_profile_name() if name == DEFAULT_PROFILE else name
+
+
+def profile_key(label: str) -> str:
+    """Inverse of :func:`profile_display` - map a shown label back to the
+    folder name, so a translated "Default" never reaches a path join."""
+    return DEFAULT_PROFILE if label == default_profile_name() else label
+
+
+def is_reserved_profile_name(name: str) -> bool:
+    """True if *name* is the default profile's folder name OR its translation.
+
+    Blocks creating/renaming a profile to the translated word (e.g. "Standard"
+    under German), which would render as a second, indistinguishable "Default".
+    """
+    n = (name or "").strip().casefold()
+    return n in {DEFAULT_PROFILE.casefold(), default_profile_name().casefold()}

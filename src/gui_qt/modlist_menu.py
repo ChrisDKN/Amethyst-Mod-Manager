@@ -18,6 +18,7 @@ from PySide6.QtGui import QAction
 from PySide6.QtCore import QCoreApplication, QT_TRANSLATE_NOOP
 
 from gui_qt.confirm_overlay import ConfirmOverlay
+from gui_qt.i18n import profile_display
 from gui_qt.modlist_model import COL_NAME
 from gui_qt.text_input_overlay import TextInputOverlay
 
@@ -1014,8 +1015,9 @@ def _profile_submenu_items(view, names, mod_rows, others, move: bool):
         e = model.entry(r)
         if not e.is_separator:
             enabled_map[e.name] = e.enabled
+    # The label is display-only; the callback closes over the FOLDER name.
     return [
-        (prof, (lambda p=prof: _copy_to_profile(
+        (profile_display(prof), (lambda p=prof: _copy_to_profile(
             view, names, dict(enabled_map), p, move)))
         for prof in others
     ]

@@ -164,6 +164,13 @@ def _safe(fn, default=None):
         return default
 
 
+def _vfs_deploy_active(game) -> bool:
+    return bool(
+        getattr(game, "vfs_deploy_active", False)
+        or getattr(game, "vfs_launch_enabled", False)
+    )
+
+
 def _log_deploy_context(game, profile: str, profile_dir: Path,
                         deploy_mode: "LinkMode", *, log_fn: LogFn) -> None:
     """Emit a diagnostic header describing the full deploy environment.
@@ -187,7 +194,7 @@ def _log_deploy_context(game, profile: str, profile_dir: Path,
     prefix     = _safe(game.get_prefix_path)
     last_dep   = _safe(game.get_last_deployed_profile)
     enabled, seps = _count_enabled_mods(profile_dir)
-    vfs_active = bool(getattr(game, "vfs_launch_enabled", False))
+    vfs_active = _vfs_deploy_active(game)
     method_name = "VFS" if vfs_active else deploy_mode.name
 
     log_fn("=" * 60)
@@ -369,7 +376,7 @@ def run_deploy_pipeline(
         # reorder does not tear down and rebuild the whole game tree.
         if (last_deployed == profile
                 and on_pre_filemap is None
-                and not getattr(game, "vfs_launch_enabled", False)
+                and not _vfs_deploy_active(game)
                 and game.get_deploy_active()):
             try:
                 preview_mode = (
@@ -694,7 +701,7 @@ def run_deploy_pipeline(
             )
 
         method_name = (
-            "VFS" if getattr(game, "vfs_launch_enabled", False)
+            "VFS" if _vfs_deploy_active(game)
             else deploy_mode.name
         )
         game.save_last_deployed_profile(profile, deploy_mode=method_name)

@@ -193,6 +193,12 @@ class BaseGame(ABC):
     # opted-in family.
     supports_incremental_deploy: bool = False
 
+    # Opt-in for a third VFS choice in deploy-method controls. ProfileVFSGameMixin
+    # provides the launch-time overlay implementation; handlers such as OpenMW
+    # can expose a native, configuration-driven VFS without using that overlay.
+    supports_vfs_deploy: bool = False
+    vfs_deploy_label: str = "Virtual filesystem (VFS)"
+
     # Opt-in contract for Utils.vfs. A compatible handler exposes a stable
     # game root plus primary mod-data directory and implements the VFS setting,
     # deploy and launch hooks. Keeping this False by default prevents a generic
@@ -318,6 +324,13 @@ class BaseGame(ABC):
         this returns.
         """
         return "symlink"
+
+    @property
+    def vfs_deploy_active(self) -> bool:
+        return bool(
+            self.supports_vfs_deploy
+            and getattr(self, "vfs_enabled", False)
+        )
 
     @property
     def root_folder_deploy_enabled(self) -> bool:

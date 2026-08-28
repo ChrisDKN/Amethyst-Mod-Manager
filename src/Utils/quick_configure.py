@@ -43,8 +43,10 @@ def current_deploy_method(game) -> str | None:
     if game is None or not hasattr(game, "get_deploy_mode"):
         return None
     try:
-        if (getattr(game, "supports_profile_vfs", False)
-                and getattr(game, "vfs_enabled", False)):
+        if (getattr(game, "vfs_deploy_active", False)
+                or getattr(game, "vfs_launch_enabled", False)
+                or (getattr(game, "supports_profile_vfs", False)
+                    and getattr(game, "vfs_enabled", False))):
             return "vfs"
         return ("hardlink" if game.get_deploy_mode() == LinkMode.HARDLINK
                 else "symlink")
@@ -76,7 +78,8 @@ def build_quick_configure_options(game) -> list[dict[str, Any]]:
     if hasattr(game, "set_deploy_mode") and hasattr(game, "get_deploy_mode"):
         rec = getattr(game, "default_deploy_mode", "symlink")
         supports_vfs = bool(
-            getattr(game, "supports_profile_vfs", False)
+            (getattr(game, "supports_vfs_deploy", False)
+             or getattr(game, "supports_profile_vfs", False))
             and hasattr(game, "set_vfs_enabled")
         )
         choices = [
@@ -86,7 +89,10 @@ def build_quick_configure_options(game) -> list[dict[str, Any]]:
              "Hardlink (Recommended)" if rec == "hardlink" else "Hardlink"),
         ]
         if supports_vfs:
-            choices.append(("vfs", "Virtual filesystem (VFS)"))
+            choices.append((
+                "vfs",
+                getattr(game, "vfs_deploy_label", "Virtual filesystem (VFS)"),
+            ))
 
         def apply_deploy_method(value: str) -> None:
             if value == "vfs":

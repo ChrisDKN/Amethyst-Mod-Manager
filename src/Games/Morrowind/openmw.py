@@ -12,10 +12,9 @@ Key differences from the vanilla Morrowind handler:
     capabilities built in).
   - get_launch_command() provides the native launch command; the plugin
     panel uses this instead of a Proton prefix.
-  - The game's 'Data Files/' is never modified.  openmw.cfg accepts multiple
-    'data=' directories in increasing priority order, so mods deploy into a
-    profile-local folder that is appended below the vanilla one and OpenMW's
-    own VFS layers them.  No Data Files_Core backup, no vanilla gap-fill.
+  - The game's 'Data Files/' is never modified. Physical modes deploy into a
+    profile-local data folder; VFS (OpenMW) points openmw.cfg directly at each
+    enabled staging folder in priority order.
 """
 
 from __future__ import annotations
@@ -70,9 +69,14 @@ class OpenMW(BaseGame):
 
     # OpenMW can deploy by copying, so the saved "copy" mode must be honoured.
     deploy_mode_supports_copy = True
-    # Root-flagged mods still deploy verbatim into <game>/Data Files/, so the
-    # filemap_root consumers need that prefix even though the normal deploy
-    # dir now lives outside the install.
+    supports_vfs_deploy = True
+    vfs_deploy_label = "VFS (OpenMW)"
+    profile_overridable_settings = (
+        *BaseGame.profile_overridable_settings,
+        "vfs_enabled",
+    )
+    # Root-flagged mods in physical modes deploy verbatim into
+    # <game>/Data Files/, so filemap_root consumers still need that prefix.
     game_data_subpath_override = "Data Files"
     # The openmw.cfg path is a configured path, so make it per-profile like the
     # game/prefix paths (stored as a paths.json extra).
@@ -336,6 +340,19 @@ class OpenMW(BaseGame):
         self._deploy_mode = mode
         self.save_paths()
 
+    @property
+    def vfs_enabled(self) -> bool:
+        return bool(self._load_settings().get("vfs_enabled", False))
+
+    def set_vfs_enabled(self, value: bool) -> None:
+        settings = self._load_settings()
+        settings["vfs_enabled"] = bool(value)
+        self._save_settings(settings)
+
+    @property
+    def root_folder_deploy_enabled(self) -> bool:
+        return not self.vfs_enabled
+
     # -----------------------------------------------------------------------
     # Deployment
     # -----------------------------------------------------------------------
@@ -361,13 +378,20 @@ class OpenMW(BaseGame):
                 "Run 'Build Filemap' before deploying."
             )
 
+        profile_dir = self.get_profile_root() / "profiles" / profile
+        if self.vfs_enabled:
+            self._deploy_native_vfs(
+                vanilla_dir, profile_dir, staging, log_fn=_log,
+                progress_fn=progress_fn,
+            )
+            return
+
         _log("Step 1: Preparing the profile's OpenMW data directory ...")
         self._clear_deployed_dir(data_dir, log_fn=_log)
         data_dir.mkdir(parents=True, exist_ok=True)
         _log(f"  {data_dir}")
 
         _log(f"Step 2: Transferring mod files into '{data_dir.name}/' ({mode.name}) ...")
-        profile_dir    = self.get_profile_root() / "profiles" / profile
         per_mod_strip  = load_per_mod_strip_prefixes(profile_dir)
         _sep_deploy    = load_separator_deploy_paths(profile_dir)
         _sep_entries   = read_modlist(profile_dir / "modlist.txt") if _sep_deploy else []
@@ -401,19 +425,7 @@ class OpenMW(BaseGame):
         plugins_txt = profile_dir / "plugins.txt"
         cfg_path    = self.get_openmw_cfg_path()
 
-        # Collect mod .bsa files from the filemap (in priority order, top wins).
-        # These are BSAs that were deployed from mods and need fallback-archive= entries.
-        bsa_archives: list[str] = []
-        _seen_bsa: set[str] = set()
-        from Utils.filegraph_deploy import input_ready, legacy_rows
-        if input_ready():
-            for rel_path, _owner in legacy_rows():
-                if rel_path.lower().endswith(".bsa"):
-                    _bsa_name = Path(rel_path).name
-                    _key = _bsa_name.lower()
-                    if _key not in _seen_bsa:
-                        _seen_bsa.add(_key)
-                        bsa_archives.append(_bsa_name)
+        bsa_archives = self._deployed_bsa_archives()
 
         # The vanilla dir comes first, the profile's dir second: OpenMW reads
         # data= entries in increasing priority, so mods win every collision
@@ -435,6 +447,76 @@ class OpenMW(BaseGame):
         # capturing whatever appears alongside it.
         self.snapshot_root_for_runtime_capture(log_fn=_log)
 
+    def _deploy_native_vfs(self, vanilla_dir: Path, profile_dir: Path,
+                           staging: Path, log_fn=None,
+                           progress_fn=None) -> None:
+        _log = log_fn or (lambda _: None)
+        if progress_fn is not None:
+            progress_fn(0, 0, "Updating openmw.cfg…")
+
+        data_dirs = [vanilla_dir]
+        seen: set[str] = {str(vanilla_dir)}
+        enabled = [
+            entry for entry in read_modlist(profile_dir / "modlist.txt")
+            if entry.enabled and not entry.is_separator
+        ]
+        # Amethyst stores highest priority first; OpenMW gives later data
+        # lines priority.
+        ordered = list(reversed(enabled))
+        mod_priority = {entry.name: index for index, entry in enumerate(ordered)}
+        for entry in ordered:
+            mod_dir = staging / entry.name
+            if not mod_dir.is_dir():
+                _log(f"  WARN: enabled mod folder not found: {mod_dir}")
+                continue
+            key = str(mod_dir)
+            if key not in seen:
+                seen.add(key)
+                data_dirs.append(mod_dir)
+
+        from Utils.filegraph_constants import OVERWRITE_NAME
+        from Utils.filegraph_deploy import entries as filegraph_entries
+        if any(
+                entry.mod_name == OVERWRITE_NAME
+                for entry in filegraph_entries()):
+            overwrite = Path(self.get_effective_overwrite_path())
+            key = str(overwrite)
+            if overwrite.is_dir() and key not in seen:
+                data_dirs.append(overwrite)
+                mod_priority[OVERWRITE_NAME] = len(mod_priority)
+
+        from Games.Morrowind.openmw_cfg import update_openmw_cfg
+        bsa_archives = self._deployed_bsa_archives(mod_priority)
+        update_openmw_cfg(
+            cfg_path=self.get_openmw_cfg_path(),
+            data_dirs=data_dirs,
+            plugins_txt=profile_dir / "plugins.txt",
+            fallback_archives=bsa_archives,
+            log_fn=_log,
+        )
+        _log(
+            f"OpenMW VFS deploy complete. Added {len(data_dirs) - 1} "
+            "additional data director(y/ies); no mod files were transferred."
+        )
+
+    @staticmethod
+    def _deployed_bsa_archives(
+            mod_priority: dict[str, int] | None = None) -> list[str]:
+        archives: list[tuple[str, str]] = []
+        seen: set[str] = set()
+        from Utils.filegraph_deploy import legacy_rows
+        for rel_path, owner in legacy_rows():
+            if not rel_path.lower().endswith(".bsa"):
+                continue
+            name = Path(rel_path).name
+            key = name.lower()
+            if key not in seen:
+                seen.add(key)
+                archives.append((owner, name))
+        if mod_priority is not None:
+            archives.sort(key=lambda item: mod_priority.get(item[0], -1))
+        return [name for _owner, name in archives]
+
     def restore(self, log_fn=None, progress_fn=None) -> None:
         _log = log_fn or (lambda _: None)
 
@@ -442,10 +524,20 @@ class OpenMW(BaseGame):
             raise RuntimeError("Game path is not configured.")
 
         vanilla_dir = self.get_vanilla_data_path()
+        was_vfs = self.get_last_deploy_mode() == "VFS"
 
         _profile_dir = self._active_profile_dir
         _entries = read_modlist(_profile_dir / "modlist.txt") if _profile_dir else []
-        cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log, game=self)
+        custom_state = False
+        if _profile_dir is not None:
+            for state_root in (_profile_dir, _profile_dir.parent.parent):
+                if ((state_root / "custom_deploy_log.txt").is_file()
+                        or (state_root / "custom_deploy_backup").is_dir()):
+                    custom_state = True
+                    break
+        if not was_vfs or custom_state:
+            cleanup_custom_deploy_dirs(
+                _profile_dir, _entries, log_fn=_log, game=self)
 
         _log("Restore: removing mod content from openmw.cfg ...")
         from Games.Morrowind.openmw_cfg import restore_openmw_cfg
@@ -453,17 +545,18 @@ class OpenMW(BaseGame):
         if cfg_path.is_file():
             restore_openmw_cfg(cfg_path, data_dirs=[vanilla_dir], log_fn=_log)
 
-        _log("Restore: clearing the profile OpenMW data directories ...")
-        cleared = 0
-        for deployed in self._deployed_data_dirs():
-            cleared += self._clear_deployed_dir(deployed, log_fn=_log)
-        _log(f"  Removed {cleared} deployed director(y/ies).")
+        if not was_vfs:
+            _log("Restore: clearing the profile OpenMW data directories ...")
+            cleared = 0
+            for deployed in self._deployed_data_dirs():
+                cleared += self._clear_deployed_dir(deployed, log_fn=_log)
+            _log(f"  Removed {cleared} deployed director(y/ies).")
 
-        self._restore_legacy_data_core(vanilla_dir, log_fn=_log)
+            self._restore_legacy_data_core(vanilla_dir, log_fn=_log)
 
-        moved = self.capture_runtime_files_to_root_folder(log_fn=_log)
-        if moved:
-            _log(f"  Moved {moved} runtime file(s) to Root_Folder/.")
+            moved = self.capture_runtime_files_to_root_folder(log_fn=_log)
+            if moved:
+                _log(f"  Moved {moved} runtime file(s) to Root_Folder/.")
 
         _log("Restore complete.")
 

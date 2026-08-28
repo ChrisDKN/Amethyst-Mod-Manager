@@ -48,6 +48,8 @@ if _MODULE_STARTUP_TIMING is not None:
 
 _startup_import_started = _startup_time.perf_counter()
 from gui_qt.selector_button import SelectorButton, SplitPressHighlighter
+from gui_qt.i18n import (profile_display, is_reserved_profile_name,
+                         DEFAULT_PROFILE)
 from gui_qt.flow_layout import FlowLayout
 from gui_qt.game_state import GameState
 from gui_qt.detachable_tabs import DetachableTabWidget
@@ -2677,6 +2679,10 @@ class MainWindow(QMainWindow):
             face_icon=(icon("profile.png", self._ICON_PX) if vertical
                        else None),
             face_icon_px=self._ICON_PX,
+            # "default" is the profile's FOLDER NAME - it stays canonical in
+            # items/current/on_select (it gets joined into paths); only the
+            # drawn text is translated.
+            display_fn=profile_display,
         )
         self._profile_selector.setFixedHeight(self._BTN_H)
         # Rebuild the pinned actions on every open (like the Wizard menu): the
@@ -10400,6 +10406,13 @@ class MainWindow(QMainWindow):
         if not game_name:
             return
         existing = _profiles_for_game(game_name)
+        # The default profile's folder name is reserved, as is its translation -
+        # either would create a second row drawing as "Default".
+        if is_reserved_profile_name(name):
+            self._notify(self.tr("Profile '{0}' already exists.").format(
+                profile_display(DEFAULT_PROFILE)), "error")
+            self._new_profile_bar.open_for()
+            return
         if name in existing:
             self._notify(self.tr("Profile '{0}' already exists.").format(name), "error")
             # Re-open so the user can pick another name (fields reset).

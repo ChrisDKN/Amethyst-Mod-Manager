@@ -533,10 +533,16 @@ class ConfigureGameView(QWidget):
         self._rb_hardlink = QRadioButton(
             self.tr("Hardlink (Recommended)") if rec == "hardlink" else self.tr("Hardlink"))
         self._rb_vfs = None
-        if (getattr(self._game, "supports_profile_vfs", False)
+        if ((getattr(self._game, "supports_vfs_deploy", False)
+             or getattr(self._game, "supports_profile_vfs", False))
                 and hasattr(self._game, "set_vfs_enabled")):
-            self._rb_vfs = QRadioButton(
-                self.tr("Virtual filesystem (VFS)"))
+            label = getattr(
+                self._game, "vfs_deploy_label", "Virtual filesystem (VFS)")
+            if label == "VFS (OpenMW)":
+                label = self.tr("VFS (OpenMW)")
+            else:
+                label = self.tr("Virtual filesystem (VFS)")
+            self._rb_vfs = QRadioButton(label)
         self._deploy_group.addButton(self._rb_symlink)
         self._deploy_group.addButton(self._rb_hardlink)
         if self._rb_vfs is not None:

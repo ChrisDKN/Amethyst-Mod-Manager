@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (
 from gui_qt.icons import icon
 from gui_qt.theme_qt import active_palette, bind_theme, _c
 from gui_qt.worker import run_in_worker
+from gui_qt.i18n import profile_display
 from Utils.prefix_manager import fmt_size, get_dir_size
 from Utils.save_paths import matches_patterns, save_paths_for_game
 from Utils.xdg import xdg_open
@@ -992,7 +993,7 @@ class SavesView(QWidget):
         if len(targets) == 1:
             name, folder = targets[0]
             self._menu_action(
-                menu, self.tr("{0} ({1})").format(label, name),
+                menu, self.tr("{0} ({1})").format(label, profile_display(name)),
                 lambda: self._start_entry_transfer(path, folder, name, move),
                 enabled=self._can_transfer_to(path, folder))
             return None
@@ -1000,8 +1001,9 @@ class SavesView(QWidget):
         sub = QMenu(label, menu)
         menu.addMenu(sub)
         for name, folder in targets:
-            text = self.tr("{0} (current)").format(name) \
-                if name == self._profile_name else name
+            shown = profile_display(name)
+            text = self.tr("{0} (current)").format(shown) \
+                if name == self._profile_name else shown
             self._menu_action(
                 sub, text,
                 lambda f=folder, n=name: self._start_entry_transfer(path, f, n, move),
