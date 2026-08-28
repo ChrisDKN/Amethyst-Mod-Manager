@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
 from gui_qt.theme_qt import active_palette, _c, danger_close_button, contrast_text
 from gui_qt.icons import icon
 from gui_qt.safe_emit import safe_emit
+from gui_qt.i18n import profile_display, is_reserved_profile_name
 from Utils.profile_state import (
     read_profile_settings, merge_profile_settings, profile_uses_specific_mods,
 )
@@ -227,10 +228,11 @@ class ProfileSettingsView(QWidget):
                         lambda pr=profile: self._toggle_lock(pr))
         rl.addWidget(lock)
 
-        # (2) Name label.
-        text = profile
+        # (2) Name label. profile is the FOLDER NAME (the row's key for every
+        # button below); only the shown text is translated.
+        text = profile_display(profile)
         if is_default:
-            text += "  (default)"
+            text += self.tr("  (default)")
         if is_active:
             text += "  ★"
         name = QLabel(text)
@@ -300,9 +302,11 @@ class ProfileSettingsView(QWidget):
         hb = QHBoxLayout(bar)
         hb.setContentsMargins(12, 6, 12, 6)
         hb.setSpacing(6)
-        lbl = QLabel(self.tr("Rename '{0}' to:").format(profile))
+        lbl = QLabel(self.tr("Rename '{0}' to:").format(profile_display(profile)))
         lbl.setStyleSheet(f"color:{_c(p,'TEXT_DIM')};")
         hb.addWidget(lbl)
+        # Seeded with the FOLDER name, not the display name - what the user
+        # edits here becomes the new folder.
         edit = QLineEdit(profile)
         edit.setFixedWidth(200)
         edit.selectAll()
@@ -349,7 +353,9 @@ class ProfileSettingsView(QWidget):
         if new_name == old_name:
             self._cancel_rename()
             return
-        if new_name.lower() == "default":
+        # Reject the folder name AND its translation: a profile literally named
+        # "Standard" under German would draw identically to the default one.
+        if is_reserved_profile_name(new_name):
             self._log("Cannot rename to 'default'.")
             return
         if new_name in self._profiles():

@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui_qt.overlay_base import OverlayBase
+from gui_qt.i18n import profile_display
 from gui_qt.theme_qt import active_palette, _c
 
 
@@ -99,7 +100,13 @@ class ModeOverlay(_BaseModeOverlay):
             v.addWidget(self._append_radio)
             # Append controls (indented) - enabled only when Append is selected.
             self._profile_combo = QComboBox(self._card)
-            self._profile_combo.addItems(self._profiles or [self.tr("(no profiles)")])
+            # Show the translated name, carry the FOLDER name as item data - the
+            # pick is read back with currentData() and used as a profile name.
+            if self._profiles:
+                for _p in self._profiles:
+                    self._profile_combo.addItem(profile_display(_p), _p)
+            else:
+                self._profile_combo.addItem(self.tr("(no profiles)"), None)
             v.addWidget(self._profile_combo)
             self._overwrite_cb = QCheckBox(self.tr("Overwrite existing mods"), self._card)
             v.addWidget(self._overwrite_cb)
@@ -143,8 +150,8 @@ class ModeOverlay(_BaseModeOverlay):
         # Append
         if not self._profiles:
             return
-        profile = self._profile_combo.currentText()
-        if not profile or profile == "(no profiles)":
+        profile = self._profile_combo.currentData()
+        if not profile:
             return
         self._finish(("append", profile,
                       self._overwrite_cb.isChecked(),
