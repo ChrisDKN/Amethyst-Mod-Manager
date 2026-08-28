@@ -366,6 +366,31 @@ class NotificationButton(QToolButton):
             return
         self.open_menu(anchor)
 
+    @staticmethod
+    def _menu_origin(anchor: QWidget, size: QSize) -> QPoint:
+        """Top-left for the menu: below-left of *anchor*, flipped to stay on
+        screen (a left-hand side bar has no room to its left)."""
+        rect = anchor.rect()
+        below_left = anchor.mapToGlobal(rect.bottomRight())
+        screen = anchor.screen()
+        if screen is None:
+            return QPoint(max(below_left.x() - size.width(), 0), below_left.y())
+        area = screen.availableGeometry()
+        x = below_left.x() - size.width()
+        if x < area.left():
+            # Not enough room to the left - hang it off the anchor's right edge
+            # instead, and only then clamp (a menu wider than the screen).
+            x = anchor.mapToGlobal(rect.topLeft()).x()
+            x = min(x, area.right() - size.width())
+            x = max(x, area.left())
+        y = below_left.y()
+        if y + size.height() > area.bottom():
+            # Drop the menu above the button rather than run off the bottom.
+            above = anchor.mapToGlobal(rect.topLeft()).y() - size.height()
+            y = above if above >= area.top() else max(area.bottom() - size.height(),
+                                                      area.top())
+        return QPoint(x, y)
+
     def open_menu(self, anchor: QWidget | None = None):
         """Open the live notification menu without blocking the caller."""
         if self._active_menu is not None:
@@ -378,8 +403,6 @@ class NotificationButton(QToolButton):
                     (m for m in list(self._mirrors) if m.isVisible()), self)
         menu = self._build_menu()
         menu.adjustSize()
-        anchor_pos = anchor.mapToGlobal(anchor.rect().bottomRight())
-        x = max(anchor_pos.x() - menu.sizeHint().width(), 0)
         self._active_menu = menu
         self._menu_anchor = ref(anchor)
 
@@ -397,20 +420,21 @@ class NotificationButton(QToolButton):
             m.deleteLater()
 
         menu.aboutToHide.connect(_closed)
-        menu.popup(QPoint(x, anchor_pos.y()))
+        menu.popup(self._menu_origin(anchor, menu.sizeHint()))
         # Re-anchor off the laid-out width now that popup() has shown it, so the
         # initial placement can't disagree with later re-anchoring.
         self._place_menu()
 
     def _place_menu(self) -> None:
-        """Keep the open menu's top-right corner under the button."""
+        """Keep the open menu anchored to the button as its size changes."""
         menu = self._active_menu
         anchor = self._menu_anchor() if self._menu_anchor is not None else None
         if menu is None or not menu.isVisible() or anchor is None \
                 or not anchor.isVisible():
             return
-        corner = anchor.mapToGlobal(anchor.rect().bottomRight())
-        menu.move(QPoint(max(corner.x() - menu.width(), 0), corner.y()))
+        # Same rule as the initial popup - re-anchoring must not undo the flip
+        # that keeps the menu on screen beside a side bar.
+        menu.move(self._menu_origin(anchor, menu.size()))
 
     def set_progress(self, key: str, done: int, total: int,
                      phase: str | None = None, title: str | None = None,
