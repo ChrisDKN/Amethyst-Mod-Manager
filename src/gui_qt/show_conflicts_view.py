@@ -14,7 +14,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame,
-    QSplitter, QTreeWidget, QTreeWidgetItem,
+    QSplitter, QTreeWidget, QTreeWidgetItem, QHeaderView,
 )
 
 from gui_qt.theme_qt import active_palette, bind_theme, _c, danger_close_button
@@ -95,8 +95,8 @@ class ShowConflictsView(QWidget):
         body = QSplitter(Qt.Horizontal)
         body.addWidget(left)
         body.addWidget(self._none_pane)
-        body.setStretchFactor(0, 2)   # left column wider (2 panes)
-        body.setStretchFactor(1, 3)
+        body.setStretchFactor(0, 3)   # left column wider (2 panes, 2 columns each)
+        body.setStretchFactor(1, 2)
         v.addWidget(body, 1)
 
         # Loading/status footer line.
@@ -126,6 +126,12 @@ class ShowConflictsView(QWidget):
         tree.setUniformRowHeights(True)
         tree.setStyleSheet("QTreeWidget { font-size:12px; } "
                            "QTreeWidget::item { padding:1px 2px; }")
+        hv = tree.header()
+        hv.setStretchLastSection(False)
+        # File path takes the pane; the "other mod" column only what it needs.
+        hv.setSectionResizeMode(0, QHeaderView.Stretch)
+        for col in range(1, len(columns)):
+            hv.setSectionResizeMode(col, QHeaderView.Interactive)
         pv.addWidget(tree, 1)
         pane._header = hdr
         pane._title = title
@@ -156,6 +162,14 @@ class ShowConflictsView(QWidget):
         self._status.setVisible(False)
 
     # ---- populate helpers -------------------------------------------------
+    def _size_extra_columns(self, tree):
+        """Shrink the non-path columns to their contents so the path column keeps
+        the rest of the pane; column 0 stays stretched."""
+        hv = tree.header()
+        for col in range(1, tree.columnCount()):
+            tree.resizeColumnToContents(col)
+            hv.resizeSection(col, min(max(hv.sectionSize(col) + 12, 90), 320))
+
     def _fill_two(self, pane, tree, rows, bsa_paths=frozenset()):
         rows = sorted(rows or [], key=lambda r: r[0].lower())
         tree.clear()
@@ -165,6 +179,7 @@ class ShowConflictsView(QWidget):
             it.setForeground(0, QColor(_c(active_palette(), "TEXT_DIM")))
             it.setData(0, _INFO_ROLE, True)
             tree.addTopLevelItem(it)
+            self._size_extra_columns(tree)
             return
         for path, other in rows:
             it = QTreeWidgetItem([path, other])
@@ -172,6 +187,7 @@ class ShowConflictsView(QWidget):
                 it.setForeground(0, QColor(_c(active_palette(), "TONE_CYAN")))
                 it.setData(0, _BSA_ROLE, True)
             tree.addTopLevelItem(it)
+        self._size_extra_columns(tree)
 
     def _fill_one(self, pane, tree, rows):
         rows = sorted(rows or [], key=lambda s: s.lower())
