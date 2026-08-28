@@ -2537,7 +2537,8 @@ def load_theme_colors() -> dict[str, str]:
 # the gui package; theme.py handles unknown IDs by falling back to dark.
 # ---------------------------------------------------------------------------
 _APPEARANCE_OPTION = "appearance_mode"
-_APPEARANCE_DEFAULT = "dark"
+_APPEARANCE_DEFAULT = "amethyst"
+_APPEARANCE_LEGACY_DEFAULT = "dark"
 # Theme ids are lowercase word chars/digits/dashes/underscores; user-authored
 # JSON themes add a single "custom:" namespace prefix (see Utils.custom_themes),
 # so a colon is permitted between the prefix and the slug.
@@ -2545,7 +2546,7 @@ _APPEARANCE_ID_RE = _re.compile(r"^[a-z0-9_][a-z0-9_:-]*$")
 
 
 def get_appearance_mode() -> str:
-    """Return the saved appearance-mode theme ID, defaulting to 'dark'."""
+    """Return the saved appearance-mode theme ID, defaulting to 'amethyst'."""
     path = get_ui_config_path()
     if not path.is_file():
         return _APPEARANCE_DEFAULT
@@ -2622,6 +2623,9 @@ def ensure_ini_version() -> None:
     file exists stamping the current version. amethyst.ini only - other config
     (last_game.json, games/, profiles, caches) is left untouched.
 
+    Also pins appearance_mode=dark into any surviving ini that doesn't set it,
+    so the newer 'amethyst' default only reaches brand-new installs.
+
     Call this ONCE at the very start of startup, before anything reads the ini.
     Best-effort: any error falls back to wiping + rewriting so a corrupt/locked
     ini can never block startup.
@@ -2653,12 +2657,20 @@ def ensure_ini_version() -> None:
             # File is current but make sure the version key is present/correct.
             parser = _new_parser()
             parser.read(path)
+            dirty = False
             if (not parser.has_section(_META_SECTION)
                     or parser.get(_META_SECTION, "version", fallback="")
                     != str(_APP_INI_VERSION)):
                 if _META_SECTION not in parser:
                     parser[_META_SECTION] = {}
                 parser[_META_SECTION]["version"] = str(_APP_INI_VERSION)
+                dirty = True
+            if not parser.has_option(_INI_SECTION, _APPEARANCE_OPTION):
+                if _INI_SECTION not in parser:
+                    parser[_INI_SECTION] = {}
+                parser[_INI_SECTION][_APPEARANCE_OPTION] = _APPEARANCE_LEGACY_DEFAULT
+                dirty = True
+            if dirty:
                 _write_ini(parser, path)
     except Exception:
         # Last resort: try a clean rewrite; swallow anything so startup proceeds.

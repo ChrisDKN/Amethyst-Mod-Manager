@@ -69,10 +69,11 @@ def _tinted_icon_url(name: str, color: str) -> str:
     return out.as_posix()
 
 
-# The Qt app defaults to the original near-black "dark" palette. (Breeze Dark
-# stays available as a selectable theme - appearance_mode = "breeze".) The blue
-# checkboxes/selection come from this palette's ACCENT (#0078d4).
-_QT_DEFAULT_THEME = "dark"
+# The Qt app defaults to the signature "amethyst" palette (violet accent over
+# cool near-black zinc). The original near-black "dark" palette with the blue
+# #0078d4 accent stays available as appearance_mode = "dark", as does Breeze
+# Dark as "breeze". Existing installs keep "dark" - Utils.ui_config pins it.
+_QT_DEFAULT_THEME = "amethyst"
 
 
 # Memoised active_palette() result. Model data() methods call it per cell per
@@ -250,7 +251,7 @@ def invalidate_palette_cache() -> None:
 
 
 def active_palette() -> dict:
-    """Return the {KEY: hex} palette for the Qt app. Defaults to the dark palette;
+    """Return the {KEY: hex} palette for the Qt app. Defaults to the amethyst palette;
     an explicit saved appearance_mode theme wins when present. (Values may be str
     or (light,dark) tuples; _c() normalises them.) Memoised - see
     invalidate_palette_cache()."""

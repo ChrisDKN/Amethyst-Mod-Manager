@@ -41,7 +41,7 @@ from PySide6.QtWidgets import (
     QApplication, QTabWidget, QAbstractButton, QSizePolicy,
 )
 
-from gui_qt.theme_qt import active_palette, _c
+from gui_qt.theme_qt import active_palette, _c, _QT_DEFAULT_THEME
 from gui_qt.help_marker import tip_text, make_help_marker, help_mark_qss
 from gui_qt.wheel_guard import no_wheel
 from gui_qt.flow_layout import FlowLayout, enable_height_for_width
@@ -634,7 +634,7 @@ class SettingsView(OverlayBase):
             try:
                 current = uc.get_appearance_mode()
             except Exception:
-                current = "dark"
+                current = _QT_DEFAULT_THEME
         gallery = getattr(self, "_theme_gallery", None)
         if gallery is None:
             return
@@ -654,7 +654,8 @@ class SettingsView(OverlayBase):
             ordered_ids = ["dark"]
             names.setdefault("dark", "Dark")
         selected = (current if current in palettes else
-                    "dark" if "dark" in palettes else ordered_ids[0])
+                    _QT_DEFAULT_THEME if _QT_DEFAULT_THEME in palettes
+                    else ordered_ids[0])
 
         self._theme_buttons: dict[str, _ThemePreviewButton] = {}
         for tid in ordered_ids:
