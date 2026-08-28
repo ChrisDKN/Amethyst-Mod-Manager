@@ -3411,8 +3411,18 @@ pub fn reconcile_graph(
     let trace =
         crate::model::perftrace_enabled() || std::env::var_os("AMETHYST_FILEGRAPH_TRACE").is_some();
     let reconcile_started = Instant::now();
+    let rebound_candidate_id = previous.inventory_generation != inventory_generation
+        && candidates.iter().any(|candidate| {
+            previous
+                .inventory
+                .candidate_indexes
+                .get(&candidate.id)
+                .and_then(|index| previous.candidates.get(*index as usize))
+                .is_some_and(|previous| previous != candidate)
+        });
     let must_rebuild = previous_intent.is_none()
         || previous.rules_hash != intent.rules_hash
+        || rebound_candidate_id
         || previous_intent.is_some_and(|old| {
             old.normalize_folder_case != intent.normalize_folder_case
                 || old.casing_strategy != intent.casing_strategy
@@ -4407,6 +4417,42 @@ mod tests {
             update.snapshot.export().summaries,
             rebuilt.export().summaries
         );
+    }
+
+    #[test]
+    fn inventory_rebound_candidate_ids_force_full_rebuild() {
+        let mut profile = intent();
+        profile
+            .mods
+            .retain(|entry| matches!(entry.key.as_str(), "a" | "b"));
+        let first = build_full(
+            Arc::new(vec![
+                candidate(1, "A", "shared"),
+                candidate(2, "B", "shared"),
+            ]),
+            Arc::new(Vec::new()),
+            &profile,
+            1,
+            1,
+        );
+        let current = Arc::new(vec![
+            candidate(1, "B", "only-b"),
+            candidate(2, "A", "only-a"),
+        ]);
+        let update = reconcile_graph(
+            &first,
+            Some(&profile),
+            current,
+            Arc::new(Vec::new()),
+            &profile,
+            2,
+            2,
+        );
+
+        assert!(update.delta.full_rebuild);
+        assert!(update.snapshot.edges.is_empty());
+        assert_eq!(update.snapshot.summaries["A"].loose_code, 0);
+        assert_eq!(update.snapshot.summaries["B"].loose_code, 0);
     }
 
     #[test]
