@@ -1,9 +1,9 @@
 """Qt Data tab - the merged deployment tree (Path + Winning Mod), conflict
-highlighting, file-type/only-conflicts filter, search, and image preview.
+highlighting, filtering, search, and contextual file actions.
 
 Mirrors gui_qt.mod_files_view's structure/visuals (lean: header label + QTreeView,
-no embedded footer - the footer + filter panel are owned by the app) and reads a
-pinned Filegraph deployment plan instead of scanning individual mods. Built lazily: the
+with the shared footer + filter panel owned by the app) and reads a pinned
+Filegraph deployment plan instead of scanning individual mods. Built lazily: the
 tree is only (re)built when the Data sub-tab is visible (mark_dirty defers it).
 """
 
@@ -19,8 +19,10 @@ from PySide6.QtWidgets import (
 )
 
 import Utils.data_tab as dtlogic
+from gui_qt.audio_preview import AUDIO_EXTS, AudioControls
 from gui_qt.data_model import DataModel, _DataNode, COL_NAME, COL_MOD
 from gui_qt.safe_emit import safe_emit
+from gui_qt.video_preview import VIDEO_EXTS
 
 
 class DataView(QWidget):
@@ -72,6 +74,8 @@ class DataView(QWidget):
 
     # -- context ------------------------------------------------------------
     def configure(self, game, profile_dir, snapshot=None):
+        if game is not self.game or profile_dir != self.profile_dir:
+            self._audio_controls.clear_audio()
         self.game = game
         self.profile_dir = profile_dir
         self.snapshot = snapshot
@@ -300,6 +304,9 @@ class DataView(QWidget):
         self._name_min = col_mins[COL_NAME]
         self._tree.viewport().installEventFilter(self)
         v.addWidget(self._tree, 1)
+
+        self._audio_controls = AudioControls(self)
+        v.addWidget(self._audio_controls)
 
         from gui_qt.loading_overlay import LoadingOverlay
         self._loading_overlay = LoadingOverlay(self._tree)
@@ -595,5 +602,87 @@ class DataView(QWidget):
         node = self._model.node(rows[0])
         cb(node.mod if (node and not node.is_dir and node.mod) else None)
 
+    def _source_path_for(self, node: _DataNode) -> Path | None:
+        if self.game is None or self.snapshot is None or not node.candidate_id:
+            return None
+        try:
+            entries = self.snapshot.deployment_entries((node.candidate_id,))
+            entry = next(
+                (item for item in entries
+                 if item.candidate_id == node.candidate_id), None)
+            if entry is None:
+                return None
+            from Utils.filegraph_service import source_path
+            return source_path(self.game, entry.mod_name, entry.source_rel)
+        except Exception:
+            return None
+
+    @staticmethod
+    def _menu_action(menu, label, slot, enabled=True):
+        action = menu.addAction(label)
+        action.triggered.connect(lambda _checked=False, fn=slot: fn())
+        action.setEnabled(enabled)
+        return action
+
     def _on_context_menu(self, pos):
-        pass  # Open-in-browser - wired in a later step
+        index = self._tree.indexAt(pos)
+        if not index.isValid():
+            return
+        node = self._model.node(index)
+        if node is None or node.is_dir:
+            return
+        self._tree.setCurrentIndex(index.siblingAtColumn(COL_NAME))
+        menu = self._build_context_menu(node)
+        if menu is not None:
+            menu.exec(self._tree.viewport().mapToGlobal(pos))
+
+    def _build_context_menu(self, node: _DataNode):
+        from PySide6.QtWidgets import QMenu
+        target = self._source_path_for(node)
+        if target is None:
+            return None
+        menu = QMenu(self._tree)
+        open_browser = getattr(self, "on_open_file_browser", None)
+        if open_browser is not None:
+            self._menu_action(
+                menu, self.tr("Open in File Browser"),
+                lambda: open_browser(target.parent), target.parent.is_dir())
+
+        ext = Path(node.path).suffix.lower()
+        available = target.is_file()
+        from Utils.text_files import TEXT_EXTENSIONS
+        if ext in TEXT_EXTENSIONS:
+            cb = getattr(self, "on_open_text", None)
+            if cb is not None:
+                self._menu_action(
+                    menu, self.tr("Open in Text Editor"),
+                    lambda: cb(target, node.path), available)
+        else:
+            from gui_qt.nif_preview import PREVIEW_EXTS as NIF_EXTS
+            if ext in NIF_EXTS:
+                cb = getattr(self, "on_open_nif", None)
+                if cb is not None:
+                    self._menu_action(
+                        menu, self.tr("Open in NIF Viewer"),
+                        lambda: cb(target, node.path), available)
+            elif ext in AUDIO_EXTS:
+                self._menu_action(
+                    menu, self.tr("Play Audio"),
+                    lambda: self._audio_controls.set_audio(target, node.path),
+                    available)
+            elif ext in VIDEO_EXTS:
+                cb = getattr(self, "on_open_video", None)
+                if cb is not None:
+                    self._menu_action(
+                        menu, self.tr("Play Video"),
+                        lambda: cb(target, node.path), available)
+            else:
+                from gui_qt.bsa_preview import ARCHIVE_EXTS
+                if ext in ARCHIVE_EXTS:
+                    cb = getattr(self, "on_open_archive", None)
+                    if cb is not None:
+                        self._menu_action(
+                            menu, self.tr("Inspect Archive"),
+                            lambda: cb(target, node.path), available)
+
+        return menu if menu.actions() else None

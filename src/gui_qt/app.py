@@ -18461,6 +18461,12 @@ class MainWindow(QMainWindow):
         from gui_qt.data_view import DataView
         self._data_view = DataView()
         self._data_view.on_select_mod = self._on_data_select_mod
+        self._data_view.on_open_file_browser = lambda folder: \
+            self._open_folder_path(folder, self.tr("File location"))
+        self._data_view.on_open_text = self._open_text_editor_tab
+        self._data_view.on_open_nif = self._open_nif_preview_tab
+        self._data_view.on_open_video = self._open_video_preview_tab
+        self._data_view.on_open_archive = self._open_bsa_preview_tab
         self._plugin_stack.addWidget(self._data_view)
         if startup_timing is not None:
             startup_timing.record(
