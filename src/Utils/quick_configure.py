@@ -130,6 +130,12 @@ def build_quick_configure_options(game) -> list[dict[str, Any]]:
     add_toggle("auto_deploy",
                "Auto deploy (on enable/disable/reorder)", val, apply)
 
+    if hasattr(game, "set_prefer_appimage"):
+        add_toggle(
+            "prefer_appimage", "Prefer AppImage",
+            getattr(game, "prefer_appimage", False),
+            lambda v: game.set_prefer_appimage(v), needs_reload=True)
+
     if hasattr(game, "archive_invalidation_enabled"):
         val, apply = _toggle_attr(game, "archive_invalidation", True)
         add_toggle("archive_invalidation",

@@ -589,7 +589,8 @@ _NATIVE_WAYLAND_ENV = {
     "QT_QPA_PLATFORM": "wayland",
     "GDK_BACKEND": "wayland",
 }
-_WAYLAND_ENV_KEYS = ("PROTON_ENABLE_WAYLAND", *_NATIVE_WAYLAND_ENV)
+_WAYLAND_ENV_KEYS = (
+    "PROTON_ENABLE_WAYLAND", *_NATIVE_WAYLAND_ENV, "SDL_DYNAMIC_API")
 
 
 def split_preserving_backslash(s: str) -> list:
@@ -710,12 +711,18 @@ def apply_wayland_launch_setting(
         return command
 
     env["PROTON_ENABLE_WAYLAND"] = "1"
+    custom_message = None
     if native:
         env.update(_NATIVE_WAYLAND_ENV)
+        customize_env = getattr(game, "customize_native_wayland_env", None)
+        if callable(customize_env):
+            result = customize_env(env, command)
+            if isinstance(result, str):
+                custom_message = result
         if (_is_native_unity_player(exe_path)
                 and "-force-wayland" not in command):
             command.append("-force-wayland")
-    log_fn(f"{log_prefix}: Launch with Wayland enabled.")
+    log_fn(f"{log_prefix}: {custom_message or 'Launch with Wayland enabled.'}")
     return command
 
 

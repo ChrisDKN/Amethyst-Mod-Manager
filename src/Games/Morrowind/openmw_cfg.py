@@ -2,16 +2,17 @@
 openmw_cfg.py
 Utility for managing data= and content= entries in openmw.cfg.
 
-OpenMW uses ~/.config/openmw/openmw.cfg (native) or
+OpenMW uses ~/.config/openmw/openmw.cfg (native/AppImage) or
 ~/.var/app/org.openmw.OpenMW/config/openmw/openmw.cfg (Flatpak).
 
 Unlike Morrowind.ini, load order is determined solely by the order of
 content= lines - no mtime manipulation is needed.
 
 Managed keys (fully replaced on every deploy):
-  data=        - directories OpenMW searches for assets and plugins
-  content=     - ordered plugin load list
-  groundcover= - grass/groundcover plugins (preserved if caller passes None)
+  data=             - directories OpenMW searches for assets and plugins
+  content=          - ordered plugin load list
+  groundcover=      - grass/groundcover plugins (preserved if caller passes None)
+  fallback-archive= - BSA archives mounted by OpenMW
 
 All other lines (sections, comments, and other key=value pairs) are left
 untouched.

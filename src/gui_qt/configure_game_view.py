@@ -144,6 +144,8 @@ class _ScanSignals(QObject):
     # be marshalled to the GUI thread via a Signal before touching any widget.
     game_picked = Signal(object)            # (path|None)
     prefix_picked = Signal(object)          # (path|None)
+    appimage_picked = Signal(object)        # (path|None)
+    appimage_scan_found = Signal(object)    # (path|None)
     staging_picked = Signal(object)         # (path|None)
     saves_picked = Signal(object)           # (path|None)
     # Remove-instance / clean-game-folder workers → GUI thread. Both do heavy
@@ -174,6 +176,11 @@ class ConfigureGameView(QWidget):
 
         self._found_path: Path | None = None
         self._found_prefix: Path | None = None
+        self._found_appimage: Path | None = None
+        self._appimage_explicit = False
+        self._uses_appimage_path = all(callable(getattr(game, name, None)) for name in (
+            "get_appimage_path", "set_appimage_path", "detect_appimage", "scan_appimage",
+        ))
         self._found_lutris_slug: str | None = None
         self._found_heroic_app: str | None = None
         self._found_faugus_gameid: str | None = None
@@ -207,6 +214,8 @@ class ConfigureGameView(QWidget):
         self._sig.prefix_found.connect(g(self._on_prefix_found))
         self._sig.game_picked.connect(g(self._on_game_picked))
         self._sig.prefix_picked.connect(g(self._on_prefix_picked))
+        self._sig.appimage_picked.connect(g(self._on_appimage_picked))
+        self._sig.appimage_scan_found.connect(g(self._on_appimage_scan_found))
         self._sig.staging_picked.connect(g(self._on_staging_picked))
         self._sig.saves_picked.connect(g(self._on_saves_picked))
         self._sig.remove_done.connect(g(self._on_remove_finished))
@@ -442,31 +451,59 @@ class ConfigureGameView(QWidget):
         v.addLayout(row)
         v.addWidget(self._divider())
 
-        # --- Proton prefix ---
-        has_prefix_src = bool(getattr(g, "steam_id", None)
-                              or _heroic_app_names(g)
-                              or _lutris_available(g)
-                              or _faugus_available(g)
-                              or _shortcut_available(g))
-        self._prefix_status = self._status(
-            self.tr("Scanning for prefix…") if has_prefix_src
-            else self.tr("No launcher ID - prefix not applicable."),
-            "TEXT_WARN" if has_prefix_src else "TEXT_DIM")
-        v.addLayout(self._section_header_row(
-            self.tr("Proton Prefix (compatdata/pfx)"), self._prefix_status))
-        self._prefix_edit = self._path_edit()
-        self._prefix_edit.setEnabled(has_prefix_src)
-        self._prefix_edit.editingFinished.connect(self._on_prefix_typed)
-        v.addWidget(self._prefix_edit)
-        row = QHBoxLayout()
-        self._prefix_browse = self._small_btn(self.tr("Browse manually…"), self._browse_prefix)
-        self._prefix_browse.setEnabled(has_prefix_src)
-        row.addWidget(self._prefix_browse)
-        self._prefix_open = self._small_btn(self.tr("Open"), lambda: self._open_path(self._found_prefix))
-        row.addWidget(self._prefix_open)
-        row.addStretch(1)
-        v.addLayout(row)
-        self._has_prefix_src = has_prefix_src
+        if self._uses_appimage_path:
+            self._has_prefix_src = False
+            self._prefix_status = None
+            self._prefix_edit = None
+            self._prefix_browse = None
+            self._prefix_open = None
+            self._appimage_status = self._status(
+                self.tr("Searching common AppImage locations…"), "TEXT_WARN")
+            v.addLayout(self._section_header_row(
+                self.tr("AppImage Location (Optional)"), self._appimage_status))
+            self._appimage_edit = self._path_edit()
+            self._appimage_edit.editingFinished.connect(self._on_appimage_typed)
+            v.addWidget(self._appimage_edit)
+            row = QHBoxLayout()
+            row.addWidget(self._small_btn(
+                self.tr("Browse manually…"), self._browse_appimage))
+            row.addWidget(self._small_btn(
+                self.tr("Open"), self._open_appimage_location))
+            self._appimage_scan_btn = self._small_btn(
+                self.tr("Scan"), self._start_appimage_scan)
+            row.addWidget(self._appimage_scan_btn)
+            row.addStretch(1)
+            v.addLayout(row)
+        else:
+            self._appimage_status = None
+            self._appimage_edit = None
+            self._appimage_scan_btn = None
+            has_prefix_src = bool(getattr(g, "steam_id", None)
+                                  or _heroic_app_names(g)
+                                  or _lutris_available(g)
+                                  or _faugus_available(g)
+                                  or _shortcut_available(g))
+            self._prefix_status = self._status(
+                self.tr("Scanning for prefix…") if has_prefix_src
+                else self.tr("No launcher ID - prefix not applicable."),
+                "TEXT_WARN" if has_prefix_src else "TEXT_DIM")
+            v.addLayout(self._section_header_row(
+                self.tr("Proton Prefix (compatdata/pfx)"), self._prefix_status))
+            self._prefix_edit = self._path_edit()
+            self._prefix_edit.setEnabled(has_prefix_src)
+            self._prefix_edit.editingFinished.connect(self._on_prefix_typed)
+            v.addWidget(self._prefix_edit)
+            row = QHBoxLayout()
+            self._prefix_browse = self._small_btn(
+                self.tr("Browse manually…"), self._browse_prefix)
+            self._prefix_browse.setEnabled(has_prefix_src)
+            row.addWidget(self._prefix_browse)
+            self._prefix_open = self._small_btn(
+                self.tr("Open"), lambda: self._open_path(self._found_prefix))
+            row.addWidget(self._prefix_open)
+            row.addStretch(1)
+            v.addLayout(row)
+            self._has_prefix_src = has_prefix_src
         v.addWidget(self._divider())
 
         # --- Mod staging folder ---
@@ -588,6 +625,8 @@ class ConfigureGameView(QWidget):
         add_check("auto_deploy",
                   self.tr("Auto deploy (deploy automatically on enable/disable/reorder)"),
                   True)
+        add_check("prefer_appimage", self.tr("Prefer AppImage"),
+                  hasattr(self._game, "set_prefer_appimage"))
         add_check("archive_invalidation",
                   self.tr("Automatic archive invalidation (prefer loose files over BSAs)"),
                   hasattr(self._game, "archive_invalidation_enabled"))
@@ -653,21 +692,25 @@ class ConfigureGameView(QWidget):
     # ---- prepopulate ------------------------------------------------------
     def _prepopulate(self):
         g = self._game
+        if self._uses_appimage_path:
+            self._prepopulate_appimage()
         if g.is_configured():
             self._install_source = self._saved_launcher_source()
             gp = g.get_game_path()
             if gp:
                 self._set_game(Path(gp), configured=True)
-            pfx = g.get_prefix_path() if hasattr(g, "get_prefix_path") else None
-            if pfx and Path(pfx).is_dir():
-                self._set_prefix(Path(pfx), configured=True)
-            elif (self._has_prefix_src
-                  and not (hasattr(g, "is_prefix_path_cleared")
-                           and g.is_prefix_path_cleared())):
-                self._start_prefix_scan()
-            elif self._has_prefix_src:
-                self._prefix_status.setText(self.tr("No prefix configured."))
-                self._prefix_status.setStyleSheet(f"color:{self._c('TEXT_DIM')};")
+            if not self._uses_appimage_path:
+                pfx = g.get_prefix_path() if hasattr(g, "get_prefix_path") else None
+                if pfx and Path(pfx).is_dir():
+                    self._set_prefix(Path(pfx), configured=True)
+                elif (self._has_prefix_src
+                      and not (hasattr(g, "is_prefix_path_cleared")
+                               and g.is_prefix_path_cleared())):
+                    self._start_prefix_scan()
+                elif self._has_prefix_src:
+                    self._prefix_status.setText(self.tr("No prefix configured."))
+                    self._prefix_status.setStyleSheet(
+                        f"color:{self._c('TEXT_DIM')};")
             # deploy mode
             if self._rb_vfs is not None and getattr(g, "vfs_enabled", False):
                 self._rb_vfs.setChecked(True)
@@ -698,6 +741,8 @@ class ConfigureGameView(QWidget):
                             getattr(g, "script_extender_swap", True))
             self._set_check("auto_4gb_patch", getattr(g, "auto_4gb_patch", True))
             self._set_check("auto_deploy", getattr(g, "auto_deploy", False))
+            self._set_check("prefer_appimage",
+                            getattr(g, "prefer_appimage", False))
             self._set_check("archive_invalidation",
                             getattr(g, "archive_invalidation", True))
             self._set_check("case_alias_links", getattr(g, "case_alias_links", True))
@@ -734,6 +779,8 @@ class ConfigureGameView(QWidget):
             self._set_check("script_extender_swap", True)
             self._set_check("auto_4gb_patch", True)
             self._set_check("auto_deploy", False)
+            self._set_check("prefer_appimage",
+                            getattr(g, "prefer_appimage", False))
             self._set_check("archive_invalidation", True)
             self._set_check("case_alias_links", True)
             self._set_check("profile_ini_files", False)
@@ -819,6 +866,8 @@ class ConfigureGameView(QWidget):
         # Re-fill the form from the now-shared values.
         self._found_path = None
         self._found_prefix = None
+        self._found_appimage = None
+        self._appimage_explicit = False
         self._prepopulate()
         self._refresh_scope_header()
         self._game_status.setText(
@@ -882,6 +931,8 @@ class ConfigureGameView(QWidget):
         self._activate_profile_scope(profile_name)
         self._found_path = None
         self._found_prefix = None
+        self._found_appimage = None
+        self._appimage_explicit = False
         # Everything describing WHICH install was picked belongs to the profile
         # that was open, not to this one. Leaving it behind saved the previous
         # profile's launcher into this profile on the next Save - back to None
@@ -1057,6 +1108,46 @@ class ConfigureGameView(QWidget):
         self._prefix_status.setText(msg)
         self._prefix_status.setStyleSheet(f"color:{self._c('TEXT_OK')};")
 
+    def _prepopulate_appimage(self):
+        self._found_appimage = None
+        self._appimage_explicit = False
+        self._appimage_scan_btn.setEnabled(True)
+        self._appimage_edit.clear()
+        configured = self._game.get_appimage_path()
+        if configured:
+            self._set_appimage(Path(configured), configured=True, explicit=True)
+            return
+        detected = self._game.detect_appimage()
+        if detected:
+            self._set_appimage(Path(detected), source="automatic", explicit=False)
+            return
+        self._appimage_status.setText(self.tr(
+            "AppImage not found automatically. Browse or scan to locate it."))
+        self._appimage_status.setStyleSheet(f"color:{self._c('TEXT_WARN')};")
+
+    def _set_appimage(self, path: Path, configured=False, source=None,
+                      explicit=True):
+        self._found_appimage = path
+        self._appimage_explicit = explicit
+        self._appimage_edit.setText(str(path))
+        if not path.is_file():
+            msg = self.tr("Configured AppImage was not found.")
+            color = "TEXT_ERR"
+        elif configured:
+            msg = self.tr("AppImage already configured. You can update the path below.")
+            color = "TEXT_OK"
+        elif source == "manual":
+            msg = self.tr("AppImage selected manually.")
+            color = "TEXT_OK"
+        elif source == "scan":
+            msg = self.tr("Found via drive scan.")
+            color = "TEXT_OK"
+        else:
+            msg = self.tr("Found in a common AppImage location.")
+            color = "TEXT_OK"
+        self._appimage_status.setText(msg)
+        self._appimage_status.setStyleSheet(f"color:{self._c(color)};")
+
     # ---- typed-path handlers ----------------------------------------------
     def _on_game_typed(self):
         text = self._game_edit.text().strip()
@@ -1083,6 +1174,20 @@ class ConfigureGameView(QWidget):
         self._prefix_scan_gen += 1
         text = self._prefix_edit.text().strip()
         self._found_prefix = Path(text) if text else None
+
+    def _on_appimage_typed(self):
+        text = self._appimage_edit.text().strip()
+        self._found_appimage = Path(text) if text else None
+        self._appimage_explicit = True
+        if self._found_appimage and self._found_appimage.is_file():
+            self._appimage_status.setText(self.tr("AppImage path set."))
+            self._appimage_status.setStyleSheet(f"color:{self._c('TEXT_OK')};")
+        elif self._found_appimage:
+            self._appimage_status.setText(self.tr("AppImage file not found."))
+            self._appimage_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
+        else:
+            self._appimage_status.setText(self.tr("Automatic detection will be used."))
+            self._appimage_status.setStyleSheet(f"color:{self._c('TEXT_DIM')};")
 
     def _on_staging_typed(self):
         text = self._staging_edit.text().strip()
@@ -1114,6 +1219,23 @@ class ConfigureGameView(QWidget):
         if path:
             self._prefix_scan_gen += 1
             self._set_prefix(Path(path), source="manual")
+
+    def _browse_appimage(self):
+        from Utils.portal_filechooser import pick_file
+        pick_file(
+            "Select OpenMW AppImage",
+            lambda path: self._sig.appimage_picked.emit(path),
+            filters=[("AppImage", ["*.AppImage", "*.appimage"]),
+                     ("All files", ["*"])],
+        )
+
+    def _on_appimage_picked(self, path):
+        if path:
+            self._set_appimage(Path(path), source="manual", explicit=True)
+
+    def _open_appimage_location(self):
+        if self._found_appimage:
+            self._open_path(self._found_appimage.parent)
 
     def _browse_staging(self):
         from Utils.portal_filechooser import pick_folder
@@ -1194,9 +1316,14 @@ class ConfigureGameView(QWidget):
     def _reset_locations(self):
         self._found_path = None
         self._found_prefix = None
+        self._found_appimage = None
+        self._appimage_explicit = False
         self._prefix_scan_gen += 1
         self._game_edit.clear()
-        self._prefix_edit.clear()
+        if self._prefix_edit is not None:
+            self._prefix_edit.clear()
+        if self._appimage_edit is not None:
+            self._appimage_edit.clear()
         self._start_game_scan()
 
     # ---- auto-detection (worker thread → signals) -------------------------
@@ -1535,7 +1662,7 @@ class ConfigureGameView(QWidget):
         else:
             self._set_game(Path(c["path"]), source=source)
         prefix_mode = c.get("prefix_mode", "detect")
-        if prefix_mode == "native":
+        if self._has_prefix_src and prefix_mode == "native":
             self._prefix_scan_gen += 1
             self._found_prefix = None
             self._prefix_edit.clear()
@@ -1543,7 +1670,7 @@ class ConfigureGameView(QWidget):
                 "Native Linux build selected; no Proton prefix will be used."))
             self._prefix_status.setStyleSheet(
                 f"color:{self._c('TEXT_OK')};")
-        elif c["prefix"] is not None:
+        elif self._has_prefix_src and c["prefix"] is not None:
             self._prefix_scan_gen += 1
             self._set_prefix(Path(c["prefix"]),
                              configured=(source == "current"), source=source)
@@ -1601,6 +1728,40 @@ class ConfigureGameView(QWidget):
             self._game_status.setText(
                 self.tr("Game executable not found on any drive."))
             self._game_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
+
+    def _start_appimage_scan(self):
+        self._appimage_status.setText(self.tr("Scanning all drives…"))
+        self._appimage_status.setStyleSheet(f"color:{self._c('TEXT_WARN')};")
+        self._appimage_scan_btn.setEnabled(False)
+        game = self._game
+        gen = self._scan_gen
+        threading.Thread(
+            target=self._appimage_scan_worker,
+            args=(game, gen),
+            daemon=True,
+            name="appimage-scan",
+        ).start()
+
+    def _appimage_scan_worker(self, game, gen):
+        from Utils.app_log import app_log
+        try:
+            app_log("[Configure Game] Scanning all drives for OpenMW AppImage")
+            found = game.scan_appimage()
+            app_log(f"[Configure Game] AppImage scan result: {found or 'not found'}")
+        except Exception as exc:
+            app_log(f"[Configure Game] AppImage scan failed: {exc}")
+            found = None
+        if self._scan_gen == gen:
+            safe_emit(self._sig.appimage_scan_found, found)
+
+    def _on_appimage_scan_found(self, found):
+        self._appimage_scan_btn.setEnabled(True)
+        if found:
+            self._set_appimage(Path(found), source="scan", explicit=True)
+        else:
+            self._appimage_status.setText(
+                self.tr("OpenMW AppImage not found on any drive."))
+            self._appimage_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
 
     def _start_prefix_scan(self, preferred_source=None, launcher_id=None):
         self._prefix_scan_gen += 1
@@ -1735,8 +1896,20 @@ class ConfigureGameView(QWidget):
         # while this long-lived tab remains open.
         self._activate_profile_scope()
         g = self._game
-        prefix_text = self._prefix_edit.text().strip()
-        self._found_prefix = Path(prefix_text) if prefix_text else None
+        if self._uses_appimage_path:
+            appimage_text = self._appimage_edit.text().strip()
+            appimage_path = Path(appimage_text) if appimage_text else None
+            if appimage_path != self._found_appimage:
+                self._appimage_explicit = True
+            self._found_appimage = appimage_path
+            if self._found_appimage and not self._found_appimage.is_file():
+                self._appimage_status.setText(self.tr("AppImage file not found."))
+                self._appimage_status.setStyleSheet(
+                    f"color:{self._c('TEXT_ERR')};")
+                return
+        else:
+            prefix_text = self._prefix_edit.text().strip()
+            self._found_prefix = Path(prefix_text) if prefix_text else None
         if self._found_path is None and self._game_edit.text().strip():
             self._found_path = Path(self._game_edit.text().strip())
         if self._found_path is None:
@@ -1752,6 +1925,8 @@ class ConfigureGameView(QWidget):
         for candidate, status in (
             (self._found_path, self._game_status),
             (self._staging_edit.text().strip() or None, self._staging_status),
+            (self._found_appimage,
+             self._appimage_status if self._uses_appimage_path else None),
         ):
             hint = flatpak_blocked_path_hint(candidate) if candidate else None
             if hint:
@@ -1776,6 +1951,15 @@ class ConfigureGameView(QWidget):
                     self.tr("Cannot change the game/prefix path while mods are deployed. "
                     "Restore the game first."))
                 self._game_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
+                return
+            prefer_check = self._opt_checks.get("prefer_appimage")
+            if (prefer_check is not None
+                    and prefer_check.isChecked()
+                    != bool(getattr(g, "prefer_appimage", False))):
+                self._appimage_status.setText(self.tr(
+                    "Restore the game before changing the preferred OpenMW package."))
+                self._appimage_status.setStyleSheet(
+                    f"color:{self._c('TEXT_ERR')};")
                 return
 
         vfs_selected = bool(
@@ -1847,7 +2031,10 @@ class ConfigureGameView(QWidget):
 
         # Persist via the backend setters (live write to paths.json / overrides).
         g.set_game_path(self._found_path)
-        if self._found_prefix is not None:
+        if self._uses_appimage_path:
+            g.set_appimage_path(
+                self._found_appimage if self._appimage_explicit else None)
+        elif self._found_prefix is not None:
             g.set_prefix_path(self._found_prefix)
         elif self._has_prefix_src and hasattr(g, "clear_prefix_path"):
             g.clear_prefix_path()
@@ -1874,6 +2061,10 @@ class ConfigureGameView(QWidget):
             g.set_auto_4gb_patch(self._opt_checks["auto_4gb_patch"].isChecked())
         if "auto_deploy" in self._opt_checks:
             g.auto_deploy = self._opt_checks["auto_deploy"].isChecked()
+        if (hasattr(g, "set_prefer_appimage")
+                and "prefer_appimage" in self._opt_checks):
+            g.set_prefer_appimage(
+                self._opt_checks["prefer_appimage"].isChecked())
         if "archive_invalidation" in self._opt_checks:
             g.archive_invalidation = self._opt_checks["archive_invalidation"].isChecked()
         if "case_alias_links" in self._opt_checks:

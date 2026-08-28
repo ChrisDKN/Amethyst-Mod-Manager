@@ -186,6 +186,7 @@ _QUICK_CONFIGURE_TR = (
     QT_TRANSLATE_NOOP("MainWindow", "Swap launcher with script extender on deploy"),
     QT_TRANSLATE_NOOP("MainWindow", "Apply the 4GB patch automatically on deploy"),
     QT_TRANSLATE_NOOP("MainWindow", "Auto deploy (on enable/disable/reorder)"),
+    QT_TRANSLATE_NOOP("MainWindow", "Prefer AppImage"),
     QT_TRANSLATE_NOOP("MainWindow", "Automatic archive invalidation (prefer loose files over BSAs)"),
     QT_TRANSLATE_NOOP("MainWindow", "Create case-alias symlinks on deploy (Faster load times)"),
     QT_TRANSLATE_NOOP("MainWindow", "Use profile-specific INI files"),
@@ -11949,6 +11950,17 @@ class MainWindow(QMainWindow):
                 self._notify(
                     self.tr("Cannot change the deploy method while mods are "
                             "deployed. Restore first."), "warning")
+                self._revert_quick_configure(opt, action)
+                return
+        if opt["key"] == "prefer_appimage":
+            try:
+                deployed = game.is_configured() and game.get_deploy_active()
+            except Exception:
+                deployed = False
+            if deployed and bool(value) != bool(opt["value"]):
+                self._notify(self.tr(
+                    "Restore the game before changing the preferred OpenMW "
+                    "package."), "warning")
                 self._revert_quick_configure(opt, action)
                 return
         try:

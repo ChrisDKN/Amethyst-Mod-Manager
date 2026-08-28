@@ -7,6 +7,7 @@ No UI, no game-specific knowledge.
 from __future__ import annotations
 
 import collections
+import fnmatch
 import os
 import re
 import shutil
@@ -1492,16 +1493,36 @@ def scan_drives_for_exe(exe_names: list[str],
                         stop_event: "threading.Event | None" = None) -> Path | None:
     """Scan all mounted drives for any of *exe_names*, stopping at first match.
 
+    Returns the directory containing the executable, adjusted for any declared
+    relative subpath.
+    """
+    return _scan_drives(exe_names, stop_event, return_file=False)
+
+
+def scan_drives_for_file(file_patterns: list[str],
+                         stop_event: "threading.Event | None" = None,
+                         *, case_sensitive: bool = True) -> Path | None:
+    """Scan all mounted drives for a filename or glob and return the file."""
+    return _scan_drives(file_patterns, stop_event, return_file=True,
+                        case_sensitive=case_sensitive)
+
+
+def _scan_drives(file_names: list[str],
+                 stop_event: "threading.Event | None",
+                 return_file: bool,
+                 case_sensitive: bool = True) -> Path | None:
+    """Shared all-drive scanner for game executables and standalone files.
+
     Walks every real (non-pseudo) mount point from /proc/mounts, fanning
     subtree walks out across a thread pool - user trees (/home, /run/media,
     /media, /mnt) are split a level deeper and queued first, and each walk is
     breadth-first, since game dirs sit shallow. Per-session fuse mirrors
     (document portal, gvfs) are excluded so the scan never returns a
     /run/user/…/doc alias for a real path. Matching is on the bare filename
-    (case-sensitive, to match the Tk behaviour); *exe_names* entries with
+    (case-sensitive by default); *file_names* entries with
     sub-paths are matched on their final component, and the declared sub-path
     is then stripped from the result so the game root comes back (parity with
-    find_game_in_libraries). Returns the game root directory, or None.
+    find_game_in_libraries). Shell-style filename globs are supported.
 
     Pass *stop_event* to allow an external caller (e.g. a closing dialog) to
     abort the walk early.
@@ -1515,7 +1536,7 @@ def scan_drives_for_exe(exe_names: list[str],
     # strip is case-insensitive (Linux copies of Windows games vary in
     # casing); longest declared sub-path wins.
     name_parents: dict[str, list[tuple[str, ...]]] = {}
-    for e in exe_names:
+    for e in file_names:
         if not e:
             continue
         rel = Path(e.replace("\\", "/"))
@@ -1523,15 +1544,34 @@ def scan_drives_for_exe(exe_names: list[str],
         name_parents.setdefault(rel.name, []).append(parents)
     for subpaths in name_parents.values():
         subpaths.sort(key=len, reverse=True)
-    names = set(name_parents)
-    if not names:
+    patterns = tuple(name_parents)
+    if not patterns:
         return None
 
-    def _match_root(dirpath, matched: str) -> Path:
+    normalise = (lambda name: name) if case_sensitive else str.casefold
+    exact_names = {
+        normalise(name): name for name in patterns
+        if not any(char in name for char in "*?[")
+    }
+    glob_names = tuple(
+        (normalise(name), name) for name in patterns
+        if any(char in name for char in "*?[")
+    )
+
+    def _declared_match(name: str) -> str | None:
+        candidate = normalise(name)
+        if candidate in exact_names:
+            return exact_names[candidate]
+        return next((declared for pattern, declared in glob_names
+                     if fnmatch.fnmatchcase(candidate, pattern)), None)
+
+    def _match_result(dirpath, declared: str, matched: str) -> Path:
         """Strip the matched exe's declared sub-path off its directory."""
+        if return_file:
+            return Path(dirpath) / matched
         d = Path(dirpath)
         lower = tuple(p.lower() for p in d.parts)
-        for parents in name_parents[matched]:
+        for parents in name_parents[declared]:
             n = len(parents)
             if n and len(lower) > n and lower[-n:] == parents:
                 return Path(*d.parts[:-n])
@@ -1611,8 +1651,11 @@ def scan_drives_for_exe(exe_names: list[str],
                                 if (entry.name not in skip_dirs
                                         and entry.path not in all_mounts):
                                     queue.append(entry.path)
-                            elif entry.name in names:
-                                return _match_root(dirpath, entry.name)
+                            else:
+                                declared = _declared_match(entry.name)
+                                if declared is not None:
+                                    return _match_result(
+                                        dirpath, declared, entry.name)
                         except OSError:
                             continue
             except OSError:
@@ -1633,8 +1676,10 @@ def scan_drives_for_exe(exe_names: list[str],
                         if (entry.name not in skip_dirs
                                 and entry.path not in all_mounts):
                             subs.append(Path(entry.path))
-                    elif entry.name in names:
-                        return _match_root(d, entry.name), []
+                    else:
+                        declared = _declared_match(entry.name)
+                        if declared is not None:
+                            return _match_result(d, declared, entry.name), []
         except OSError:
             pass
         return None, subs
