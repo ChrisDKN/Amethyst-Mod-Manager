@@ -63,10 +63,9 @@ _ENABLED: bool | None = None     # cached is_enabled()
 _THRESHOLD_S: float | None = None
 
 
-# The Qt entry point installs this before importing gui_qt.app so module-level
-# imports can contribute to the same end-to-end startup report.  It is separate
-# from MM_PERFTRACE: startup emits one compact report per launch by default,
-# while the span tracer remains opt-in for noisy, action-level profiling.
+# When MM_PERFTRACE is enabled, the Qt entry point installs this before
+# importing gui_qt.app so module-level imports can contribute to the same
+# end-to-end startup report.
 _STARTUP_TIMELINE = None
 
 

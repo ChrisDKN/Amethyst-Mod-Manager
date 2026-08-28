@@ -35,29 +35,32 @@ _BOOTSTRAP_FINISHED = time.perf_counter()
 
 from Utils import perftrace
 
-_startup_timing = perftrace.StartupTimeline(_STARTUP_STARTED)
-if _LAUNCHER_TIMING_PRESENT:
+_startup_timing = (perftrace.StartupTimeline(_STARTUP_STARTED)
+                   if perftrace.is_enabled() else None)
+if _startup_timing is not None:
+    if _LAUNCHER_TIMING_PRESENT:
+        _startup_timing.record(
+            "Run source launcher and start Python",
+            phase_started=_STARTUP_STARTED,
+            phase_finished=_PYTHON_ENTRY_STARTED, category="launcher")
     _startup_timing.record(
-        "Run source launcher and start Python",
-        phase_started=_STARTUP_STARTED,
-        phase_finished=_PYTHON_ENTRY_STARTED, category="launcher")
-_startup_timing.record(
-    "Import startup bootstrap", phase_started=_BOOTSTRAP_IMPORT_STARTED,
-    phase_finished=_BOOTSTRAP_SETUP_STARTED, category="imports")
-for _label, _started, _finished, _category in _BOOTSTRAP_TIMINGS:
+        "Import startup bootstrap", phase_started=_BOOTSTRAP_IMPORT_STARTED,
+        phase_finished=_BOOTSTRAP_SETUP_STARTED, category="imports")
+    for _label, _started, _finished, _category in _BOOTSTRAP_TIMINGS:
+        _startup_timing.record(
+            _label, phase_started=_started, phase_finished=_finished,
+            category=_category)
     _startup_timing.record(
-        _label, phase_started=_started, phase_finished=_finished,
-        category=_category)
-_startup_timing.record(
-    "Load startup timing support", phase_started=_BOOTSTRAP_FINISHED,
-    category="diagnostics")
+        "Load startup timing support", phase_started=_BOOTSTRAP_FINISHED,
+        category="diagnostics")
 perftrace.set_startup_timeline(_startup_timing)
 
 _GUI_IMPORT_STARTED = time.perf_counter()
 from gui_qt.app import run
-_startup_timing.record(
-    "Import complete Qt application (aggregate)",
-    phase_started=_GUI_IMPORT_STARTED, category="aggregate")
+if _startup_timing is not None:
+    _startup_timing.record(
+        "Import complete Qt application (aggregate)",
+        phase_started=_GUI_IMPORT_STARTED, category="aggregate")
 
 if __name__ == "__main__":
     sys.exit(run(startup_timing=_startup_timing))
