@@ -39,6 +39,7 @@ _COL_TR = (
 RowRole = Qt.UserRole + 1      # the PluginRow
 PFlagsRole = Qt.UserRole + 2   # int flag bitmask
 PHighlightRole = Qt.UserRole + 3  # 0 none, 3 master(green), 2 anchor(orange), 1 higher, -1 lower
+_ITEM_FLAGS = Qt.ItemIsEnabled | Qt.ItemIsSelectable
 
 
 class PluginModel(QAbstractTableModel):
@@ -287,7 +288,7 @@ class PluginModel(QAbstractTableModel):
     def flags(self, index):
         if not index.isValid():
             return Qt.NoItemFlags
-        return Qt.ItemIsEnabled | Qt.ItemIsSelectable
+        return _ITEM_FLAGS
 
     def toggle(self, i: int):
         r = self._rows[i]

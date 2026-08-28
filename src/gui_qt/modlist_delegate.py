@@ -11,7 +11,9 @@ Colours come from the active palette so themes carry over.
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, QRect, QSize, QEvent, QT_TRANSLATE_NOOP
-from PySide6.QtGui import QColor, QFont, QPen, QBrush, QLinearGradient
+from PySide6.QtGui import (
+    QColor, QFont, QFontMetrics, QPen, QBrush, QLinearGradient,
+)
 from PySide6.QtWidgets import QStyledItemDelegate, QStyle, QToolTip
 
 from gui_qt.theme_qt import bind_theme, _c, qc, qc_contrast
@@ -59,6 +61,8 @@ _MONO_FLAG_ICONS = {"bundle_settings.png", "root.png", "eye2_white.png"}
 _INFO_FLAGS = (FLAG_PRERTX, FLAG_COLLECTION_BUNDLED, FLAG_COLLECTION_PATCHED)
 # The root-icon flags - only one root.png ever paints.
 _ROOT_FLAGS = (FLAG_ROOT, FLAG_ROOT_RULE)
+_ALIGN_CENTER = Qt.AlignVCenter | Qt.AlignHCenter
+_ALIGN_LEFT = Qt.AlignVCenter | Qt.AlignLeft
 
 # Flag bit → hover tooltip text (verbatim from the Tk modlist, ~5114). The two
 # root sources have DISTINCT text (meta root_folder vs a custom routing rule);
@@ -213,6 +217,8 @@ class ModRowDelegate(QStyledItemDelegate):
         self.f_bold = QFont()
         self.f_bold.setBold(True)
         self.f_bold.setPixelSize(FONT_PX)
+        self.fm_row = QFontMetrics(self.f_row)
+        self._name_widths: dict[str, int] = {}
 
     def refresh_theme(self, p: dict) -> None:
         self.c_sep_bg = qc(p, "BG_SEP")
@@ -257,7 +263,7 @@ class ModRowDelegate(QStyledItemDelegate):
         return QSize(opt.rect.width(), h)
 
     def paint(self, p, opt, index):
-        e = index.data(EntryRole)
+        e = index.model().entry(index.row())
         if e is None:
             super().paint(p, opt, index)
             return
@@ -354,7 +360,7 @@ class ModRowDelegate(QStyledItemDelegate):
             p.setPen(text_color)
             p.setFont(self.f_row)
             pad = QRect(r.left() + 6, r.top(), r.width() - 12, r.height())
-            p.drawText(pad, Qt.AlignVCenter | Qt.AlignHCenter, str(val))
+            p.drawText(pad, _ALIGN_CENTER, str(val))
 
         p.restore()
 
@@ -572,9 +578,15 @@ class ModRowDelegate(QStyledItemDelegate):
         p.setPen(text_color)
         p.setFont(self.f_row)
         name_rect = QRect(tx, r.top(), r.right() - tx - 6, r.height())
-        elided = opt_fm(p).elidedText(e.display_name, Qt.ElideRight,
-                                      name_rect.width())
-        p.drawText(name_rect, Qt.AlignVCenter | Qt.AlignLeft, elided)
+        name = e.display_name
+        text_width = self._name_widths.get(name)
+        if text_width is None:
+            text_width = self.fm_row.horizontalAdvance(name)
+            self._name_widths[name] = text_width
+        shown = (name if text_width <= name_rect.width()
+                 else self.fm_row.elidedText(name, Qt.ElideRight,
+                                             name_rect.width()))
+        p.drawText(name_rect, _ALIGN_LEFT, shown)
 
     def _paint_conflicts(self, p, r, loose, bsa, uuid=0):
         """Conflicts cell: loose-file conflict icon on the left, BSA/BA2 archive
@@ -823,8 +835,3 @@ class ModRowDelegate(QStyledItemDelegate):
             model.toggle(index.row())
             return True
         return False
-
-
-def opt_fm(painter):
-    """Font metrics from the painter's current font (for eliding)."""
-    return painter.fontMetrics()

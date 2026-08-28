@@ -16,10 +16,13 @@ index so they line up with the visible scroll position.
 
 from __future__ import annotations
 
+from time import perf_counter
+
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPainter, QRegion
 from PySide6.QtWidgets import QScrollBar, QStyle, QStyleOptionSlider
 
+from Utils import perftrace
 from gui_qt.theme_qt import bind_theme, qc
 
 
@@ -40,6 +43,9 @@ class MarkerScrollBar(QScrollBar):
         self._missing_rows: set[int] = set()   # plugins with missing masters
         self._master_rows: set[int] = set()    # masters of the selected plugin
         self._cycle_rows: set[int] = set()     # plugins with a broken cycle
+        self._marks: list[tuple[int, int]] | None = None
+        self._offsets: list[int] | None = None
+        self._content_height = 1
         bind_theme(self, roles=(
             set(self._code_roles.values()) | {"TONE_RED", "TONE_GREEN"}))
 
@@ -63,17 +69,40 @@ class MarkerScrollBar(QScrollBar):
             self._cycle_rows = set(cycle)
         self.update()
 
+    def invalidate_marks(self, *_args) -> None:
+        self._marks = None
+        self.update()
+
+    def invalidate_geometry(self, *_args) -> None:
+        self._offsets = None
+        self.update()
+
+    def invalidate_cache(self, *_args) -> None:
+        self._marks = None
+        self._offsets = None
+        self.update()
+
+    def _highlight_marks(self, model, n: int) -> list[tuple[int, int]]:
+        if self._marks is None:
+            self._marks = [
+                (r, code)
+                for r in range(n)
+                if (code := model.data(model.index(r, 0), self._role) or 0)
+            ]
+        return self._marks
+
     def _row_offsets(self, model):
         """Return (offsets, total) where offsets[row] is the row's content-space
         Y centre (px from the top of the full content) and *total* is the full
         content height. Hidden rows (under a collapsed separator) take 0 height -
         so ticks line up with where the row actually sits on the scroll track,
-        accounting for variable row heights (separators are taller). Returns
-        (None, 0) if geometry isn't available yet."""
-        view = self._view
+        accounting for the row heights supplied by the view."""
         n = model.rowCount()
+        if self._offsets is not None and len(self._offsets) == n:
+            return self._offsets, self._content_height
+        view = self._view
         cum = 0
-        offsets: dict[int, int] = {}
+        offsets = [0] * n
         root = view.rootIndex()
         for r in range(n):
             if view.isRowHidden(r, root):
@@ -85,9 +114,13 @@ class MarkerScrollBar(QScrollBar):
                 rh = 0
             offsets[r] = cum + rh // 2
             cum += rh
-        return offsets, max(1, cum)
+        self._offsets = offsets
+        self._content_height = max(1, cum)
+        return offsets, self._content_height
 
     def paintEvent(self, event):
+        tracing = perftrace.is_enabled()
+        trace_started = perf_counter() if tracing else 0.0
         model = self._view.model()
         n = model.rowCount() if model is not None else 0
 
@@ -95,12 +128,9 @@ class MarkerScrollBar(QScrollBar):
         # new ticks out of the handle's rectangle so they still appear beneath it.
         super().paintEvent(event)
 
-        marks = []
-        if n > 0:
-            for r in range(n):
-                code = model.data(model.index(r, 0), self._role) or 0
-                if code:
-                    marks.append((r, code))
+        native_finished = perf_counter() if tracing else 0.0
+        marks = self._highlight_marks(model, n) if n > 0 else []
+        marks_finished = perf_counter() if tracing else 0.0
         if n > 0 and (marks or self._missing_rows or self._master_rows
                       or self._cycle_rows):
             opt = QStyleOptionSlider()
@@ -140,6 +170,11 @@ class MarkerScrollBar(QScrollBar):
             for r in self._missing_rows:
                 tick(r, self._c_missing)
             p.end()
+        if tracing:
+            finished = perf_counter()
+            perftrace.mark("ui.marker.native_paint", native_finished - trace_started)
+            perftrace.mark("ui.marker.collect_marks", marks_finished - native_finished)
+            perftrace.mark("ui.marker.paint_total", finished - trace_started)
 
 
 def install_marker_strip(view, highlight_role: int,
@@ -153,12 +188,12 @@ def install_marker_strip(view, highlight_role: int,
     view.setVerticalScrollBar(sb)
     view._marker_strip = sb
 
-    def _refresh(*_):
-        s = getattr(view, "_marker_strip", None)
-        if s is not None:
-            s.update()
-    if view.model() is not None:
-        view.model().dataChanged.connect(_refresh)
+    model = view.model()
+    if model is not None:
+        model.dataChanged.connect(sb.invalidate_marks)
+        for signal in (model.modelReset, model.rowsInserted, model.rowsRemoved,
+                       model.rowsMoved, model.layoutChanged):
+            signal.connect(sb.invalidate_cache)
     return sb
 
 

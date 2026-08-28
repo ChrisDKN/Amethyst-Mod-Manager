@@ -6,9 +6,12 @@ TkStyleHeader owns column resizing; column state persists via column_state.
 
 from __future__ import annotations
 
+from time import perf_counter
+
 # Crash-proof diagnostic prints (Flatpak stdout can raise BrokenPipeError and
 # kill worker threads). See Utils.app_log.safe_print.
 from Utils.app_log import safe_print as print  # noqa: A004
+from Utils import perftrace
 
 from PySide6.QtCore import Qt, QTimer, QRect, QPoint, QCoreApplication, QEvent
 from PySide6.QtGui import QPainter, QColor, QPen, QAction
@@ -22,7 +25,7 @@ from gui_qt.modlist_model import (
     COL_CONFLICTS, COL_INSTALLED, COL_VERSION, COL_AUTHOR, COL_SIZE,
     HighlightRole,
 )
-from gui_qt.modlist_delegate import ModRowDelegate, SEP_H
+from gui_qt.modlist_delegate import ModRowDelegate, ROW_H, SEP_H
 from gui_qt import column_state
 from gui_qt.modlist_header import TkStyleHeader
 from gui_qt.theme_qt import bind_theme, _c
@@ -80,13 +83,15 @@ class ModListView(QTreeView):
         self.setItemDelegate(ModRowDelegate(self))
 
         self.setRootIsDecorated(False)        # flat list, not a tree
-        self.setUniformRowHeights(False)      # separators are taller
+        # Use Qt's large-list fast path while both delegate row sizes match.
+        self.setUniformRowHeights(ROW_H == SEP_H)
         self.setAlternatingRowColors(False)   # delegate paints zebra itself
         self.setMouseTracking(True)
         self.setExpandsOnDoubleClick(False)
         self.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
+        self._perf_resize_paint_pending = False
 
         # Custom drag-reorder (NOT Qt InternalMove): we drive the reorder by
         # hand so separators (spanned rows) drag correctly and autoscroll near
@@ -497,6 +502,9 @@ class ModListView(QTreeView):
         finally:
             self.setUpdatesEnabled(True)
         self._applied_hidden = hidden
+        marker = getattr(self, "_marker_strip", None)
+        if marker is not None:
+            marker.invalidate_geometry()
 
     def set_filter_hidden(self, rows: set[int]) -> None:
         """Set the rows the filter panel wants hidden, then reapply visibility.
@@ -718,11 +726,46 @@ class ModListView(QTreeView):
         self._position_column_menu_button()
 
     def resizeEvent(self, event):
-        super().resizeEvent(event)
-        self._fit_name_to_width()
-        self._position_column_menu_button()
-        if hasattr(self, "_marker_strip"):
-            self._reposition_marker_strip()
+        tracing = perftrace.is_enabled()
+        trace_started = perf_counter() if tracing else 0.0
+        viewport = self.viewport()
+        coalesce_paint = viewport.updatesEnabled()
+        if coalesce_paint:
+            viewport.setUpdatesEnabled(False)
+        try:
+            super().resizeEvent(event)
+            qt_finished = perf_counter() if tracing else 0.0
+            h = self.header()
+            widths_before = tuple(self.columnWidth(c)
+                                  for c in range(len(COLUMNS)))
+            # QTreeView otherwise queues another viewport update for the
+            # automatic section resize; the re-enable below already repaints it.
+            signals_were_blocked = h.blockSignals(True)
+            try:
+                self._fit_name_to_width()
+            finally:
+                h.blockSignals(signals_were_blocked)
+            if (widths_before != tuple(self.columnWidth(c)
+                                       for c in range(len(COLUMNS)))
+                    and hasattr(self, "_save_timer")):
+                self._schedule_save()
+            columns_finished = perf_counter() if tracing else 0.0
+            self._position_column_menu_button()
+            if hasattr(self, "_marker_strip"):
+                self._reposition_marker_strip()
+        finally:
+            if coalesce_paint:
+                if tracing:
+                    self._perf_resize_paint_pending = True
+                viewport.setUpdatesEnabled(True)
+        if tracing:
+            finished = perf_counter()
+            perftrace.mark("ui.resize.modlist.qt", qt_finished - trace_started)
+            perftrace.mark("ui.resize.modlist.columns",
+                           columns_finished - qt_finished)
+            perftrace.mark("ui.resize.modlist.overlays",
+                           finished - columns_finished)
+            perftrace.mark("ui.resize.modlist.total", finished - trace_started)
 
     def _fit_name_to_width(self):
         """Keep the table exactly filling the viewport on window resize.
@@ -1328,7 +1371,20 @@ class ModListView(QTreeView):
             self.viewport().update()
 
     def paintEvent(self, event):
+        tracing = perftrace.is_enabled()
+        paint_started = perf_counter() if tracing else 0.0
         super().paintEvent(event)
+        if tracing:
+            elapsed = perf_counter() - paint_started
+            kind = ("full" if event.rect().contains(self.viewport().rect())
+                    else "partial")
+            perftrace.mark("ui.paint.modlist.viewport", elapsed)
+            perftrace.mark(f"ui.paint.modlist.{kind}", elapsed)
+            if kind == "full":
+                source = ("after_resize" if self._perf_resize_paint_pending
+                          else "other")
+                self._perf_resize_paint_pending = False
+                perftrace.mark(f"ui.paint.modlist.full.{source}", elapsed)
         # Sticky separator band (hidden during a drag - it would cover the
         # drop zone while autoscrolling toward the top). An external archive
         # drag (Downloads tab) paints the same indicator.

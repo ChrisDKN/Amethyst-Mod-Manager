@@ -73,6 +73,10 @@ HighlightRole = Qt.UserRole + 6    # int: 0 none, 1 higher(green), -1 lower(red)
 UuidConflictRole = Qt.UserRole + 7  # int: BG3 pak module-UUID conflict code
 
 _MIME = "application/x-amethyst-modrows"
+_ITEM_BASE = Qt.ItemIsEnabled | Qt.ItemIsSelectable
+_ITEM_DRAG = _ITEM_BASE | Qt.ItemIsDragEnabled
+_ITEM_DROP = _ITEM_BASE | Qt.ItemIsDropEnabled
+_ITEM_DRAG_DROP = _ITEM_DRAG | Qt.ItemIsDropEnabled
 
 
 class ModListModel(QAbstractTableModel):
@@ -97,6 +101,7 @@ class ModListModel(QAbstractTableModel):
         # always writes from _natural.
         self._natural: list[ModEntry] = entries or []
         self._entries: list[ModEntry] = self._natural
+        self._priority_by_entry: dict[int, int] | None = None
         # Mod names as of the last load from disk. save() needs it to tell a
         # user removal (was in baseline, now gone → drop) from an entry an
         # install worker added after we loaded (in neither → keep).
@@ -182,6 +187,12 @@ class ModListModel(QAbstractTableModel):
         # counts files on disk. Filled by an async walk (see the app's
         # _refresh_boundary_counts); empty until it lands.
         self._boundary_counts: dict[str, int] = {}
+        for signal in (self.modelReset, self.rowsInserted, self.rowsRemoved,
+                       self.rowsMoved, self.layoutChanged):
+            signal.connect(self._invalidate_priority_cache)
+
+    def _invalidate_priority_cache(self, *_args) -> None:
+        self._priority_by_entry = None
 
     # ---- loading ----------------------------------------------------------
     @classmethod
@@ -272,6 +283,7 @@ class ModListModel(QAbstractTableModel):
         """Re-derive the display list from the natural order + active sort.
         Uses layoutChanged with a persistent-index remap (by entry identity)
         so selection/scroll follow the rows. No-op if the order is unchanged."""
+        self._priority_by_entry = None
         old = self._entries
         new = self._derive_display()
         if len(new) == len(old) and all(a is b for a, b in zip(new, old)):
@@ -611,26 +623,19 @@ class ModListModel(QAbstractTableModel):
         return None
 
     def _priority_for_row(self, row: int) -> int:
-        """Priority number for a display row. Normally the natural descending
-        number (top of natural order = largest); in reverse-priority mode the
-        display is the exact inversion, so counting non-separators ABOVE the
-        display row yields the same per-mod value with 0 at the top."""
+        """Natural-order priority number for a display row."""
         e = self._entries[row]
         if e.is_separator:
             return -1
-        if self.reverse_mode_active:
-            return sum(1 for x in self._entries[:row] if not x.is_separator)
-        if self._entries is self._natural:
-            below = sum(1 for x in self._entries[row:] if not x.is_separator)
-            return below - 1
-        # Non-priority sort: the number reflects the NATURAL position (Tk
-        # parity - sorting by name doesn't renumber priorities).
-        try:
-            ni = next(i for i, x in enumerate(self._natural) if x is e)
-        except StopIteration:
-            return -1
-        below = sum(1 for x in self._natural[ni:] if not x.is_separator)
-        return below - 1
+        if self._priority_by_entry is None:
+            priority = 0
+            cache = {}
+            for entry in reversed(self._natural):
+                if not entry.is_separator:
+                    cache[id(entry)] = priority
+                    priority += 1
+            self._priority_by_entry = cache
+        return self._priority_by_entry.get(id(e), -1)
 
     def _effective_flags(self, name: str) -> int:
         """Meta flag bits + the Mod-Files / filemap-derived overlays."""
@@ -717,15 +722,12 @@ class ModListModel(QAbstractTableModel):
         # (not selectable, not draggable, not a drop target).
         if e.name == DIVIDER_NAME:
             return Qt.ItemIsEnabled
-        f = Qt.ItemIsEnabled | Qt.ItemIsSelectable
         # Draggable unless pinned: boundary separators + locked MODS can't be
         # dragged (a regular separator reads as locked=True but IS draggable).
         pinned = e.name in _BOUNDARY_NAMES or (not e.is_separator and e.locked)
-        if not pinned:
-            f |= Qt.ItemIsDragEnabled
-        if not e.is_separator:
-            f |= Qt.ItemIsDropEnabled
-        return f
+        if e.is_separator:
+            return _ITEM_BASE if pinned else _ITEM_DRAG
+        return _ITEM_DROP if pinned else _ITEM_DRAG_DROP
 
     # ---- drop-validity (keep boundary separators pinned) ------------------
     def _movable_span(self) -> tuple[int, int]:
