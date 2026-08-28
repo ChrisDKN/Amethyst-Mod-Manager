@@ -160,6 +160,69 @@ Choose Roads or Paths Only, click Generate, then close it when finished.</transl
     </message>
 </context>
 <context>
+    <name>AudioControls</name>
+    <message>
+        <source>Qt Multimedia is not installed.</source>
+        <translation>Qt Multimedia is not installed.</translation>
+    </message>
+    <message>
+        <source>Play</source>
+        <translation>Play</translation>
+    </message>
+    <message>
+        <source>Stop</source>
+        <translation>Stop</translation>
+    </message>
+    <message>
+        <source>Volume</source>
+        <translation>Volume</translation>
+    </message>
+    <message>
+        <source>Audio file not found.</source>
+        <translation>Audio file not found.</translation>
+    </message>
+    <message>
+        <source>The FUZ audio stream could not be read.</source>
+        <translation>The FUZ audio stream could not be read.</translation>
+    </message>
+    <message>
+        <source>The audio stream could not be opened.</source>
+        <translation>The audio stream could not be opened.</translation>
+    </message>
+    <message>
+        <source>Preparing…</source>
+        <translation>Preparing…</translation>
+    </message>
+    <message>
+        <source>Preparing XWM audio…</source>
+        <translation>Preparing XWM audio…</translation>
+    </message>
+    <message>
+        <source>Unavailable</source>
+        <translation>Unavailable</translation>
+    </message>
+    <message>
+        <source>Pause</source>
+        <translation>Pause</translation>
+    </message>
+    <message>
+        <source>This audio format could not be played.</source>
+        <translation>This audio format could not be played.</translation>
+    </message>
+    <message>
+        <source>Could not play this audio file.</source>
+        <translation>Could not play this audio file.</translation>
+    </message>
+    <message>
+        <source>Unmute</source>
+        <translation>Unmute</translation>
+    </message>
+    <message>
+        <source>Mute</source>
+        <translation>Mute</translation>
+    </message>
+</context>
+<context>
     <name>BG3ImportView</name>
     <message>
         <source>All files</source>
@@ -3352,6 +3415,30 @@ When it completes, the app switches to the new profile - then come back here and
     <message>
         <source>{0} - {1} files in {2} mods</source>
         <translation>{0} - {1} files in {2} mods</translation>
+    </message>
+    <message>
+        <source>Open in File Browser</source>
+        <translation>Open in File Browser</translation>
+    </message>
+    <message>
+        <source>Open in Text Editor</source>
+        <translation>Open in Text Editor</translation>
+    </message>
+    <message>
+        <source>Open in NIF Viewer</source>
+        <translation>Open in NIF Viewer</translation>
+    </message>
+    <message>
+        <source>Play Audio</source>
+        <translation>Play Audio</translation>
+    </message>
+    <message>
+        <source>Play Video</source>
+        <translation>Play Video</translation>
+    </message>
+    <message>
+        <source>Inspect Archive</source>
+        <translation>Inspect Archive</translation>
     </message>
 </context>
 <context>
@@ -7908,6 +7995,14 @@ Run Quick Update on all of them now?</translation>
         <translation>Restore the game before changing the preferred OpenMW package.</translation>
     </message>
     <message>
+        <source>Wizard Settings…</source>
+        <translation>Wizard Settings…</translation>
+    </message>
+    <message>
+        <source>Reset wizard tools that automatically reuse their saved Proton settings.</source>
+        <translation>Reset wizard tools that automatically reuse their saved Proton settings.</translation>
+    </message>
+    <message>
         <source>No QuickAutoClean tool is available for this game.</source>
         <translation>No QuickAutoClean tool is available for this game.</translation>
     </message>
@@ -8256,6 +8351,10 @@ Deploy anyway?</translation>
     <message>
         <source>Overrides</source>
         <translation>Overrides</translation>
+    </message>
+    <message>
+        <source>File location</source>
+        <translation>File location</translation>
     </message>
     <message>
         <source>Log</source>
@@ -11996,6 +12095,10 @@ Its listed mods are copied into the profile's own mods folder (hardlinked where 
         <translation>Each version gets its own prefix; dependencies are installed into it automatically on the next step.</translation>
     </message>
     <message>
+        <source>{0} runs in its own Wine prefix, stored next to its exe and separate from the game's prefix, so you can pick any Proton version without affecting the game.</source>
+        <translation>{0} runs in its own Wine prefix, stored next to its exe and separate from the game's prefix, so you can pick any Proton version without affecting the game.</translation>
+    </message>
+    <message>
         <source>No Proton versions were found.
 
 Install a Proton version in Steam (or with Heroic's Wine Manager), then reopen this wizard.</source>
@@ -12004,24 +12107,8 @@ Install a Proton version in Steam (or with Heroic's Wine Manager), then reopen t
 Install a Proton version in Steam (or with Heroic's Wine Manager), then reopen this wizard.</translation>
     </message>
     <message>
-        <source>{0} runs in its own Wine prefix, stored next to its exe and separate from the game's prefix, so you can pick any Proton version without affecting the game.
-
-</source>
-        <translation>{0} runs in its own Wine prefix, stored next to its exe and separate from the game's prefix, so you can pick any Proton version without affecting the game.
-
-</translation>
-    </message>
-    <message>
         <source>Prefer discrete GPU (hybrid systems)</source>
         <translation>Prefer discrete GPU (hybrid systems)</translation>
-    </message>
-    <message>
-        <source>Expose the discrete GPU as adapter 0. May use more power.</source>
-        <translation>Expose the discrete GPU as adapter 0. May use more power.</translation>
-    </message>
-    <message>
-        <source>Uses the discrete GPU for texconv; falls back to CPU if unavailable.</source>
-        <translation>Uses the discrete GPU for texconv; falls back to CPU if unavailable.</translation>
     </message>
     <message>
         <source>Use shared prefix</source>
@@ -12044,8 +12131,24 @@ Install a Proton version in Steam (or with Heroic's Wine Manager), then reopen t
         <translation>Launch with plain Wine (winetricks-style)</translation>
     </message>
     <message>
-        <source>Use Winetricks style launch</source>
-        <translation>Use Winetricks style launch</translation>
+        <source>The saved game prefix is unavailable. Choose another prefix setting.</source>
+        <translation>The saved game prefix is unavailable. Choose another prefix setting.</translation>
+    </message>
+    <message>
+        <source>The saved Proton selection is incomplete. Choose a Proton version.</source>
+        <translation>The saved Proton selection is incomplete. Choose a Proton version.</translation>
+    </message>
+    <message>
+        <source>The saved Proton version '{0}' is no longer installed. Choose another version.</source>
+        <translation>The saved Proton version '{0}' is no longer installed. Choose another version.</translation>
+    </message>
+    <message>
+        <source>Run this tool with plain Wine against the selected prefix instead of starting a Proton session.</source>
+        <translation>Run this tool with plain Wine against the selected prefix instead of starting a Proton session.</translation>
+    </message>
+    <message>
+        <source>Expose the discrete GPU as adapter 0 for texconv. This may use more power and falls back to the CPU if unavailable.</source>
+        <translation>Expose the discrete GPU as adapter 0 for texconv. This may use more power and falls back to the CPU if unavailable.</translation>
     </message>
     <message>
         <source>Delete Prefix</source>
@@ -12070,6 +12173,14 @@ Install a Proton version in Steam (or with Heroic's Wine Manager), then reopen t
     <message>
         <source>e.g. PROTON_USE_WINED3D=1 WINEDLLOVERRIDES=dinput8=n,b</source>
         <translation>e.g. PROTON_USE_WINED3D=1 WINEDLLOVERRIDES=dinput8=n,b</translation>
+    </message>
+    <message>
+        <source>Always use these settings</source>
+        <translation>Always use these settings</translation>
+    </message>
+    <message>
+        <source>Skip this Proton step on future runs and reuse the saved values. Reset it from Wizard &gt; Wizard Settings.</source>
+        <translation>Skip this Proton step on future runs and reuse the saved values. Reset it from Wizard &gt; Wizard Settings.</translation>
     </message>
     <message>
         <source>Continue</source>
@@ -16824,6 +16935,57 @@ Latest:  {1}</translation>
     </message>
 </context>
 <context>
+    <name>VideoPreview</name>
+    <message>
+        <source>Qt Multimedia is not installed.</source>
+        <translation>Qt Multimedia is not installed.</translation>
+    </message>
+    <message>
+        <source>No video selected</source>
+        <translation>No video selected</translation>
+    </message>
+    <message>
+        <source>Play</source>
+        <translation>Play</translation>
+    </message>
+    <message>
+        <source>Stop</source>
+        <translation>Stop</translation>
+    </message>
+    <message>
+        <source>Volume</source>
+        <translation>Volume</translation>
+    </message>
+    <message>
+        <source>Video file not found.</source>
+        <translation>Video file not found.</translation>
+    </message>
+    <message>
+        <source>Unavailable</source>
+        <translation>Unavailable</translation>
+    </message>
+    <message>
+        <source>Pause</source>
+        <translation>Pause</translation>
+    </message>
+    <message>
+        <source>This video format could not be played.</source>
+        <translation>This video format could not be played.</translation>
+    </message>
+    <message>
+        <source>Could not play this video file.</source>
+        <translation>Could not play this video file.</translation>
+    </message>
+    <message>
+        <source>Unmute</source>
+        <translation>Unmute</translation>
+    </message>
+    <message>
+        <source>Mute</source>
+        <translation>Mute</translation>
+    </message>
+</context>
+<context>
     <name>WikiView</name>
     <message>
         <source>Refresh</source>
@@ -16877,6 +17039,33 @@ Press Refresh to try again.</translation>
     <message>
         <source>Refreshing…</source>
         <translation>Refreshing…</translation>
+    </message>
+</context>
+<context>
+    <name>WizardSettingsOverlay</name>
+    <message>
+        <source>Wizard Settings</source>
+        <translation>Wizard Settings</translation>
+    </message>
+    <message>
+        <source>These wizard tools skip their Proton settings step. Reset a tool to show the step again; its saved values are kept.</source>
+        <translation>These wizard tools skip their Proton settings step. Reset a tool to show the step again; its saved values are kept.</translation>
+    </message>
+    <message>
+        <source>No wizard tools are using saved settings.</source>
+        <translation>No wizard tools are using saved settings.</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Close</translation>
+    </message>
+    <message>
+        <source>Reset</source>
+        <translation>Reset</translation>
+    </message>
+    <message>
+        <source>Show this wizard's Proton settings step the next time it runs.</source>
+        <translation>Show this wizard's Proton settings step the next time it runs.</translation>
     </message>
 </context>
 <context>

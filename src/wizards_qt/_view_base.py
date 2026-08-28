@@ -675,6 +675,10 @@ class WizardViewBase(QWidget):
             default_prefix_mode=default_prefix_mode,
             show_discrete_gpu=show_discrete_gpu,
             title=title,
+            wizard_id=getattr(self._ctx, "wizard_tool_id", ""),
+            wizard_label=getattr(self._ctx, "wizard_tool_label", ""),
+            wizard_label_args=getattr(
+                self._ctx, "wizard_tool_label_args", ()),
         )
         lay.addWidget(step)
         return step

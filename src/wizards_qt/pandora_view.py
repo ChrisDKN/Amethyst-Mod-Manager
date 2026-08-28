@@ -217,6 +217,10 @@ class PandoraView(QWidget):
             on_continue=self._on_proton_chosen,
             log_fn=self._log,
             title=self.tr("Step 2: Choose Proton Version"),
+            wizard_id=getattr(self._ctx, "wizard_tool_id", ""),
+            wizard_label=getattr(self._ctx, "wizard_tool_label", ""),
+            wizard_label_args=getattr(
+                self._ctx, "wizard_tool_label_args", ()),
         )
 
     def _on_proton_chosen(self, proton_name: str, prefix_mode: str):

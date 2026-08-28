@@ -146,6 +146,7 @@ py.install_sources(
   'video_preview.py',
   'wheel_guard.py',
   'wiki_view.py',
+  'wizard_settings_overlay.py',
   'wizard_tr_markers.py',
   'worker.py',
   subdir: 'gui_qt',

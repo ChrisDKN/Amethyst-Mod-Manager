@@ -12397,7 +12397,7 @@ class MainWindow(QMainWindow):
         game = self._gs.game
         if game is None:
             menu.addAction(self.tr("No game selected")).setEnabled(False)
-            self._add_prefix_manager_action(menu)
+            self._add_wizard_management_actions(menu)
             return
         from Utils.plugin_loader import get_all_wizard_tools
         from Utils.wizard_catalog import group_by_category
@@ -12410,7 +12410,7 @@ class MainWindow(QMainWindow):
             tools = []
         if not tools:
             menu.addAction(self.tr("No wizard tools for this game")).setEnabled(False)
-            self._add_prefix_manager_action(menu, tools)
+            self._add_wizard_management_actions(menu, tools)
             return
         # Favourites submenu at the top - quick launch for pinned tools.
         from Utils.ui_config import load_favourite_wizards
@@ -12445,13 +12445,10 @@ class MainWindow(QMainWindow):
                 else:
                     act.triggered.connect(
                         lambda _=False, t=tool: self._open_wizard_tool(t))
-        self._add_prefix_manager_action(menu, tools)
+        self._add_wizard_management_actions(menu, tools)
 
-    def _add_prefix_manager_action(self, menu, tools=None):
-        """Trailing 'Add Favourites…' + 'Manage Prefixes…' entries. The prefix
-        manager is always available (it lists every game's tool prefixes, like
-        the Tk wizard picker's button); 'Add Favourites…' is only shown when the
-        current game has tools to favourite."""
+    def _add_wizard_management_actions(self, menu, tools=None):
+        """Add the trailing wizard-management actions."""
         menu.addSeparator()
         if tools:
             fav = menu.addAction(self.tr("Add Favourites…"))
@@ -12459,6 +12456,12 @@ class MainWindow(QMainWindow):
                            "this menu for quick access."))
             fav.triggered.connect(
                 lambda _=False, t=list(tools): self._open_favourite_wizards(t))
+        settings = menu.addAction(self.tr("Wizard Settings…"))
+        settings.setToolTip(self.tr(
+            "Reset wizard tools that automatically reuse their saved Proton "
+            "settings."))
+        settings.triggered.connect(
+            lambda _=False: self._open_wizard_settings())
         act = menu.addAction(self.tr("Manage Prefixes…"))
         act.setToolTip(self.tr("Browse every wizard-tool Wine prefix and delete them "
                        "to reclaim disk space."))
@@ -12488,6 +12491,62 @@ class MainWindow(QMainWindow):
 
         FavouriteWizardsOverlay.show_over(
             self, items, load_favourite_wizards(), _done)
+
+    def _open_wizard_settings(self):
+        from Utils.exe_launch import (
+            list_wizard_always_use_settings,
+            save_wizard_always_use_settings,
+        )
+        from Utils.game_helpers import _GAMES
+        from Utils.plugin_loader import get_all_wizard_tools
+
+        entries = []
+        for game_name, game in sorted(
+                _GAMES.items(), key=lambda item: item[0].casefold()):
+            try:
+                if not game.is_configured():
+                    continue
+                saved = list_wizard_always_use_settings(game)
+            except Exception as exc:
+                self._append_log(
+                    f"Wizards: failed to read settings for {game_name}: {exc}")
+                continue
+            if not saved:
+                continue
+            try:
+                live_tools = {tool.id: tool
+                              for tool in get_all_wizard_tools(game)}
+            except Exception:
+                live_tools = {}
+            for record in saved:
+                wizard_id = record["wizard_id"]
+                tool = live_tools.get(wizard_id)
+                label = (_tr_wizard(tool.label, tool.label_args)
+                         if tool is not None else
+                         _tr_wizard(record["label"], record["label_args"]))
+                entries.append({
+                    "game_name": game_name,
+                    "wizard_id": wizard_id,
+                    "label": label,
+                })
+        entries.sort(key=lambda item: (
+            item["game_name"].casefold(), item["label"].casefold()))
+
+        def _reset(game_name: str, wizard_id: str) -> bool:
+            game = _GAMES.get(game_name)
+            if game is None:
+                return False
+            try:
+                save_wizard_always_use_settings(game, wizard_id, False)
+                return True
+            except Exception as exc:
+                self._append_log(
+                    f"Wizards: failed to reset {wizard_id} for "
+                    f"{game_name}: {exc}")
+                return False
+
+        from gui_qt.wizard_settings_overlay import WizardSettingsOverlay
+        WizardSettingsOverlay.show_over(self, entries, _reset)
 
     def _open_prefix_manager(self):
         """Open the prefix manager as a plugins-panel-scoped tab."""
@@ -12549,6 +12608,9 @@ class MainWindow(QMainWindow):
             show_mod_files=self._wizard_show_mod_files,
             filegraph_snapshot=lambda: getattr(
                 getattr(self, "_conflict_data", None), "snapshot", None),
+            wizard_tool_id=tool.id,
+            wizard_tool_label=tool.label,
+            wizard_tool_label_args=tool.label_args,
         )
         try:
             view = spec.view_factory(

@@ -1818,6 +1818,8 @@ PREFIX_MODE_GAME = "game"          # reuse the game's own prefix
 _LAUNCH_ENV_FILE = "launch_env.json"
 _LAUNCH_ARGS_FILE = "launch_args.json"
 _ENV_VAR_RE = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*=')
+_WIZARD_ALWAYS_USE_PREFIX = "__wizard_always_use_"
+_WIZARD_DISCRETE_GPU_PREFIX = "__wizard_discrete_gpu_"
 
 
 def shared_prefix_dir(proton_dir_name: str) -> Path:
@@ -1854,6 +1856,68 @@ def save_winetricks_style(game, exe_name: str, enabled: bool) -> None:
     """Persist the winetricks-style launch choice (off = remove key)."""
     _write_launch_mode_key(game, f"__winetricks_style_{exe_name}",
                            True if enabled else None)
+
+
+def load_wizard_always_use_settings(game, wizard_id: str) -> bool:
+    if not wizard_id:
+        return False
+    return bool(_read_launch_mode_data(game).get(
+        f"{_WIZARD_ALWAYS_USE_PREFIX}{wizard_id}"))
+
+
+def save_wizard_always_use_settings(
+        game, wizard_id: str, enabled: bool, *, label: str = "",
+        label_args=()) -> None:
+    if not wizard_id:
+        return
+    value = None
+    if enabled:
+        value = {
+            "label": str(label or wizard_id),
+            "label_args": [str(arg) for arg in (label_args or ())],
+        }
+    _write_launch_mode_key(
+        game, f"{_WIZARD_ALWAYS_USE_PREFIX}{wizard_id}", value)
+
+
+def list_wizard_always_use_settings(game) -> list[dict]:
+    entries = []
+    for key, value in _read_launch_mode_data(game).items():
+        if not key.startswith(_WIZARD_ALWAYS_USE_PREFIX) or not value:
+            continue
+        wizard_id = key[len(_WIZARD_ALWAYS_USE_PREFIX):]
+        if not wizard_id:
+            continue
+        if isinstance(value, dict):
+            label = str(value.get("label") or wizard_id)
+            raw_args = value.get("label_args")
+            label_args = tuple(str(arg) for arg in raw_args) \
+                if isinstance(raw_args, list) else ()
+        else:
+            label = wizard_id
+            label_args = ()
+        entries.append({
+            "wizard_id": wizard_id,
+            "label": label,
+            "label_args": label_args,
+        })
+    return entries
+
+
+def load_wizard_prefer_discrete_gpu(game, wizard_id: str) -> bool:
+    if not wizard_id:
+        return False
+    return bool(_read_launch_mode_data(game).get(
+        f"{_WIZARD_DISCRETE_GPU_PREFIX}{wizard_id}"))
+
+
+def save_wizard_prefer_discrete_gpu(
+        game, wizard_id: str, enabled: bool) -> None:
+    if not wizard_id:
+        return
+    _write_launch_mode_key(
+        game, f"{_WIZARD_DISCRETE_GPU_PREFIX}{wizard_id}",
+        True if enabled else None)
 
 
 def load_tool_launch_env(exe: Path | None) -> str:

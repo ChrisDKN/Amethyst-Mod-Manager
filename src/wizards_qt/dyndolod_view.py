@@ -478,6 +478,10 @@ class DynDOLODView(QWidget):
             log_fn=self._log,
             title=self.tr("Step 5: Choose Proton Version"),
             show_discrete_gpu=self._tool_id in ("texgen", "dyndolod"),
+            wizard_id=getattr(self._ctx, "wizard_tool_id", ""),
+            wizard_label=getattr(self._ctx, "wizard_tool_label", ""),
+            wizard_label_args=getattr(
+                self._ctx, "wizard_tool_label_args", ()),
         )
         lay.addWidget(self._proton_step)
 

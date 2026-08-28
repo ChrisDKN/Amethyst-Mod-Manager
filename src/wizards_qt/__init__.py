@@ -75,7 +75,8 @@ class QtWizardContext:
     show_mod_files(mod_name) selects that mod and opens the Mod Files tab - for
     report-style wizards whose rows link to the mod they are talking about, so
     the user lands on the footer buttons (Pack BSA, Unpack) that act on it.
-    Call it on the GUI thread.
+    Call it on the GUI thread. wizard_tool_id/label/label_args carry the stable
+    descriptor identity used by remembered Proton settings.
     """
     profile_name: str = "default"
     run_deploy: Callable | None = None
@@ -89,6 +90,9 @@ class QtWizardContext:
     set_tool_lock: Callable | None = None
     show_mod_files: Callable | None = None
     filegraph_snapshot: Callable | None = None
+    wizard_tool_id: str = ""
+    wizard_tool_label: str = ""
+    wizard_tool_label_args: tuple = ()
 
 
 # Deliberately dropped from the Qt app (not even shown greyed out).
