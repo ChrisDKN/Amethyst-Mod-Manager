@@ -134,6 +134,7 @@ class CollectionDetailView(QWidget):
         self._pending_initial_rev = revision_number
         self._revisions_list: list[dict] = []
         self._detail_token = 0                     # guards stale revision fetches
+        self._unsupported_collection_schema = False
 
         self.setObjectName("CollectionDetailView")
         self._detail_ready.connect(self._on_detail_ready)
@@ -396,6 +397,7 @@ class CollectionDetailView(QWidget):
     def _start_detail_fetch(self):
         self._detail_token += 1
         token = self._detail_token
+        self._install_btn.setEnabled(False)
         slug = getattr(self._collection, "slug", "") or ""
         domain = self._domain
         # First fetch (no revisions list yet) is always "latest" so the dropdown
@@ -427,6 +429,29 @@ class CollectionDetailView(QWidget):
             self._title_lbl.setText(name)
             self._collection.name = name
             self.title_resolved.emit(name)
+        if isinstance(card, dict) and card.get("unsupported_collection_schema"):
+            self._unsupported_collection_schema = True
+            schema_id = int(card.get("collection_schema_id") or 0)
+            if schema_id == 2:
+                message = self.tr(
+                    "This is a Wabbajack list and cannot be installed by "
+                    "Amethyst. Install it with Wabbajack instead.")
+            else:
+                message = self.tr(
+                    "This collection uses an unsupported format and cannot "
+                    "be installed by Amethyst.")
+            self._mods = []
+            self._total_size = 0
+            self._table.setRowCount(0)
+            self._size_lbl.setText(message)
+            self._opt_empty.setText(self.tr("No installable collection data."))
+            self._install_btn.setText(self.tr("Unsupported collection"))
+            self._install_btn.setToolTip(message)
+            self._install_btn.setEnabled(False)
+            return
+        self._unsupported_collection_schema = False
+        self._install_btn.setEnabled(True)
+        self._install_btn.setToolTip("")
         # Enrich the (possibly bare NXM/"Open Current") collection with the
         # display fields we just fetched, so an append records a full card
         # (image + stats) into installed_collections/<slug>.json.
@@ -556,6 +581,10 @@ class CollectionDetailView(QWidget):
         Priority: Resume (paused) > Update (revision differs) > Install."""
         btn = getattr(self, "_install_btn", None)
         if btn is None:
+            return
+        if self._unsupported_collection_schema:
+            btn.setText(self.tr("Unsupported collection"))
+            btn.setEnabled(False)
             return
         from Utils.ui_config import load_download_only
         try:
