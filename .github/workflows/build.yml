@@ -29,6 +29,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - name: Test the required stable-ABI extension
+        run: cargo test --locked --manifest-path native/amethyst_filegraph/Cargo.toml
       - name: Build the required stable-ABI extension
         run: |
           cargo build --locked --release --manifest-path native/amethyst_filegraph/Cargo.toml
