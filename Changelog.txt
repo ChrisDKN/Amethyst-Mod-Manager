@@ -19,6 +19,7 @@
 - Fixed Enderal using Fallout's top level folder set causing some mods to install incorrectly
 - Fixed game launch options not applying correctly
 - Fixed an issue where applications run via the wizard could be left running in the background forever
+- Fixed wabbjack lists from showing up in the collection browser
 
 ---
 
