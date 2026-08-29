@@ -47,6 +47,49 @@ BAIN_DEFERRED = "__BAIN_DEFERRED__"
 _commit_lock = threading.Lock()
 
 
+class UnsafeInstallPath(ValueError):
+    pass
+
+
+def _normalise_relative_install_path(value, *, label: str,
+                                     allow_empty: bool = True) -> str:
+    raw = os.fspath(value)
+    if not isinstance(raw, str):
+        raw = os.fsdecode(raw)
+    if "\x00" in raw:
+        raise UnsafeInstallPath(f"{label} contains a NUL byte")
+
+    normalised = raw.replace("\\", "/")
+    if normalised.startswith("/") or re.match(r"^[A-Za-z]:", normalised):
+        raise UnsafeInstallPath(f"{label} is absolute: {raw!r}")
+
+    trailing = normalised.endswith("/")
+    parts: list[str] = []
+    for part in normalised.split("/"):
+        if part in ("", "."):
+            continue
+        if part == "..":
+            raise UnsafeInstallPath(
+                f"{label} escapes its managed root: {raw!r}")
+        parts.append(part)
+
+    if not parts:
+        if allow_empty:
+            return ""
+        raise UnsafeInstallPath(f"{label} is empty: {raw!r}")
+    result = "/".join(parts)
+    return result + "/" if trailing else result
+
+
+def _require_path_within(root: Path, candidate: Path, *, label: str) -> Path:
+    try:
+        candidate.resolve(strict=False).relative_to(root.resolve(strict=False))
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise UnsafeInstallPath(
+            f"{label} escapes its managed root: {candidate}") from exc
+    return candidate
+
+
 # ---- case-insensitive copy core (moved from gui/install_mod.py, shared) ------
 # These resolve FOMOD/archive paths case-insensitively against the real (case-
 # sensitive Linux) filesystem and dedup by destination - the accumulated fixes
@@ -263,12 +306,29 @@ def _copy_file_list(file_list, src_root: str, dest_root: Path, log_fn,
 
     file_list = _merge_case_variant_dirs(file_list, game, log_fn)
 
+    src_root_path = Path(src_root)
+    checked: list[tuple[str, str, bool]] = []
+    source_check_cache: dict = {}
+    for src_rel, dst_rel, is_folder in file_list:
+        safe_src = _normalise_relative_install_path(
+            src_rel, label="install source")
+        safe_dst = _normalise_relative_install_path(
+            dst_rel, label="install destination")
+        source_probe = _resolve_src_case(
+            src_root_path, safe_src, source_check_cache)
+        _require_path_within(
+            src_root_path, source_probe, label="install source")
+        destination_probe = dest_root.joinpath(
+            *safe_dst.rstrip("/").split("/")) if safe_dst else dest_root
+        _require_path_within(
+            dest_root, destination_probe, label="install destination")
+        checked.append((safe_src, safe_dst, is_folder))
+    file_list = checked
+
     folder_copied = 0
     file_entries: list = []
     _src_cache: dict = {}
     _dst_cache: dict = {}
-    src_root_path = Path(src_root)
-
     for src_rel, dst_rel, is_folder in file_list:
         if src_rel:
             # Always resolve the SOURCE case-insensitively. FOMOD XML paths are
@@ -281,11 +341,14 @@ def _copy_file_list(file_list, src_root: str, dest_root: Path, log_fn,
             src = _resolve_src_case(src_root_path, src_rel, _src_cache)
         else:
             src = src_root_path
+        _require_path_within(src_root_path, src, label="install source")
         dst = (_resolve_dst_case(dest_root, dst_rel, _dst_cache)
                if dst_rel else dest_root / dst_rel)
         if is_folder:
             if not dst_rel:
                 dst = dest_root
+            _require_path_within(
+                dest_root, dst, label="install destination")
             if src.is_dir():
                 folder_copied += _copytree_case_insensitive(src, dst)
                 _dst_cache.pop(dst.parent, None)
@@ -294,6 +357,8 @@ def _copy_file_list(file_list, src_root: str, dest_root: Path, log_fn,
                 dst = dest_root / src.name
             elif dst_rel.endswith("/") or dst_rel.endswith("\\"):
                 dst = _resolve_dst_case(dest_root, dst_rel.rstrip("/\\"), _dst_cache) / src.name
+            _require_path_within(
+                dest_root, dst, label="install destination")
             if src.is_file():
                 file_entries.append((src, dst))
 
@@ -813,12 +878,20 @@ def _debackslash_extracted_tree(extract_dir: str, log_fn: LogFn) -> int:
         return 0
     if not offenders:
         return 0
+    plans: list[tuple[Path, Path]] = []
+    for entry in offenders:
+        rel = _normalise_relative_install_path(
+            str(entry.relative_to(root)), label="archive member",
+            allow_empty=False)
+        target = root.joinpath(*rel.rstrip("/").split("/"))
+        plans.append((entry, _require_path_within(
+            root, target, label="archive member")))
+
     moved = 0
-    for entry in sorted(offenders, key=lambda p: len(str(p)), reverse=True):
+    for entry, target in sorted(
+            plans, key=lambda pair: len(str(pair[0])), reverse=True):
         if not entry.exists():
             continue
-        rel = str(entry.relative_to(root)).replace("\\", "/")
-        target = root / rel
         if target == entry:
             continue
         try:
@@ -844,6 +917,13 @@ def _debackslash_extracted_tree(extract_dir: str, log_fn: LogFn) -> int:
     if moved and log_fn is not None:
         log_fn(f"Normalised {moved} Windows backslash path(s) from archive.")
     return moved
+
+
+def _validate_zip_member_paths(archive_path: str) -> None:
+    with zipfile.ZipFile(archive_path, "r") as archive:
+        for member in archive.infolist():
+            _normalise_relative_install_path(
+                member.filename, label="archive member", allow_empty=False)
 
 
 def _fix_perms_extracted_tree(extract_dir: str, log_fn: LogFn) -> int:
@@ -934,6 +1014,14 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
         if error_sink is not None:
             error_sink.append(str(err))
 
+    try:
+        if zipfile.is_zipfile(archive_path):
+            _validate_zip_member_paths(archive_path)
+    except (OSError, ValueError, zipfile.BadZipFile) as exc:
+        _note(exc)
+        log_fn(f"Unsafe archive path rejected ({exc}).")
+        return False
+
     # tar.* and plain .tar → tarfile directly.
     if ext in (".tar", ".gz", ".bz2", ".xz", ".tgz") or \
             archive_path.lower().endswith((".tar.gz", ".tar.bz2", ".tar.xz")):
@@ -957,7 +1045,12 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
         # Native extractors (7z/bsdtar) and Python zipfile reproduce Windows
         # backslash member names as literal flat filenames; repair them into a
         # real tree so staging can resolve the paths (fixes "nothing staged").
-        _debackslash_extracted_tree(dest_dir, log_fn)
+        try:
+            _debackslash_extracted_tree(dest_dir, log_fn)
+        except UnsafeInstallPath as exc:
+            _note(exc)
+            log_fn(f"Unsafe archive path rejected ({exc}).")
+            return False
         # Repair non-UTF-8 (legacy code page) names so the mod isn't skipped by
         # the index (rebuild_mod_index drops any mod with a non-UTF-8 filename).
         _fix_nonutf8_names_extracted_tree(dest_dir, log_fn)
