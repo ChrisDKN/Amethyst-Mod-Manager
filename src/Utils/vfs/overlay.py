@@ -46,6 +46,7 @@ from Utils.deploy_shared import (
     _resolve_root_path,
 )
 from Utils.deploy_shared import (
+    OVERWRITE_LOG_NAME,
     _move_runtime_files,
     _write_deploy_snapshot,
     create_probe_stub_dirs,
@@ -130,14 +131,16 @@ def pending_path(game, profile: str | None = None) -> Path:
 
 
 def has_deployment_state(game, profile: str | None = None) -> bool:
-    """Whether a published or interrupted profile VFS deployment exists."""
+    """Whether published, interrupted, or retained profile VFS state exists."""
     state = state_dir(game, profile)
     # Keep an invalid state root discoverable so Restore reports the safety
     # problem instead of silently treating the profile as undeployed.
     if state.is_symlink():
         return True
     return (manifest_path(game, profile).is_file()
-            or pending_path(game, profile).is_file())
+            or pending_path(game, profile).is_file()
+            or (_uses_root_folder_runtime(game)
+                and _legacy_shadow_upper(state)))
 
 
 def deployment_state_profiles(game) -> tuple[str, ...]:
@@ -168,6 +171,12 @@ def deployment_state_profiles(game) -> tuple[str, ...]:
         for name in (MANIFEST_NAME, PENDING_NAME):
             try:
                 stamps.append((state / name).stat().st_mtime_ns)
+            except OSError:
+                pass
+        if _uses_root_folder_runtime(game) and _legacy_shadow_upper(state):
+            try:
+                log_path = state / "root-upper" / OVERWRITE_LOG_NAME
+                stamps.append(log_path.stat().st_mtime_ns)
             except OSError:
                 pass
         if stamps:
@@ -853,17 +862,29 @@ def effective_tool_data_root(game) -> Path:
 
 
 def _capture_shadow_runtime(game, payload: dict, state: Path,
-                            log_fn=None) -> int:
+                            log_fn=None, *, retain_root: bool = True) -> int:
     """Move files created in a published shadow view into profile storage."""
     if payload.get("backend") != BACKEND_SHADOW:
         return 0
     (view, view_data, data_rel, _game_root, _data_root,
      root_upper, data_upper) = _validated_shadow_paths(
         game, payload, state, use_recorded_roots=True)
-    if not view.is_dir() or not view_data.is_dir():
-        return 0
 
     _log = log_fn or (lambda _message: None)
+    root_destination = (
+        _root_runtime_destination(game, state, root_upper)
+        if retain_root else root_upper
+    )
+    promoted = (
+        _promote_shadow_root_upper(root_upper, root_destination)
+        if retain_root else 0
+    )
+    if promoted:
+        _log(
+            f"VFS: moved {promoted} retained root file(s) into Root_Folder/."
+        )
+    if not view.is_dir() or not view_data.is_dir():
+        return 0
     moved_data = _move_runtime_files(
         view_data,
         state / DATA_SNAPSHOT_NAME,
@@ -880,7 +901,7 @@ def _capture_shadow_runtime(game, payload: dict, state: Path,
     moved_root = _move_runtime_files(
         view,
         state / ROOT_SNAPSHOT_NAME,
-        root_upper,
+        root_destination,
         log_fn=_log,
         exclude_dirs=(data_rel.as_posix(),),
     )
@@ -888,6 +909,47 @@ def _capture_shadow_runtime(game, payload: dict, state: Path,
     if moved:
         _log(f"VFS: captured {moved} runtime-created file(s) from the shadow view.")
     return moved
+
+
+def _uses_root_folder_runtime(game) -> bool:
+    if getattr(game, "vfs_root_payload_targets_data", False):
+        return False
+    enabled = getattr(game, "root_folder_deploy_enabled", True)
+    if callable(enabled):
+        enabled = enabled()
+    return bool(enabled) and callable(
+        getattr(game, "get_effective_root_folder_path", None))
+
+
+def _legacy_shadow_upper(state: Path) -> bool:
+    root_upper = state / "root-upper"
+    return (not root_upper.is_symlink()
+            and (root_upper / OVERWRITE_LOG_NAME).is_file())
+
+
+def _root_runtime_destination(game, state: Path, root_upper: Path) -> Path:
+    if not _uses_root_folder_runtime(game):
+        return root_upper
+    try:
+        destination = Path(game.get_effective_root_folder_path())
+        destination.resolve(strict=False).relative_to(
+            state.resolve(strict=False))
+    except ValueError:
+        return destination
+    except (OSError, TypeError):
+        pass
+    return root_upper
+
+
+def _promote_shadow_root_upper(
+    root_upper: Path, destination: Path,
+) -> int:
+    if (destination.resolve(strict=False) == root_upper.resolve(strict=False)
+            or not root_upper.is_dir() or root_upper.is_symlink()):
+        return 0
+
+    return sum(_materialize_tree(
+        root_upper, destination, replace=False, move=True))
 
 
 def _snapshot_shadow_view(
@@ -2330,7 +2392,10 @@ def cleanup_deployment(game, *, preserve_upper: bool = True, log_fn=None) -> Non
         try:
             payload = json.loads(manifest.read_text(encoding="utf-8"))
             if isinstance(payload, dict):
-                _capture_shadow_runtime(game, payload, state, log_fn=_log)
+                _capture_shadow_runtime(
+                    game, payload, state, log_fn=_log,
+                    retain_root=preserve_upper,
+                )
         except (OSError, ValueError, RuntimeError) as exc:
             _log(f"  WARN: could not capture the VFS shadow view: {exc}")
     elif manifest.is_file():
@@ -2338,6 +2403,16 @@ def cleanup_deployment(game, *, preserve_upper: bool = True, log_fn=None) -> Non
             "VFS: removing an unfinalized view without capturing partial "
             "deploy output."
         )
+    if (preserve_upper and _uses_root_folder_runtime(game)
+            and _legacy_shadow_upper(state)):
+        root_upper = state / "root-upper"
+        root_destination = _root_runtime_destination(game, state, root_upper)
+        promoted = _promote_shadow_root_upper(root_upper, root_destination)
+        if promoted:
+            _log(
+                f"VFS: moved {promoted} retained root file(s) into "
+                "Root_Folder/."
+            )
     for name in (
         MANIFEST_NAME, RUNTIME_NAME, "runtime.lock", "lower", "lower.build",
         "root-work", "data-work", SHADOW_NAME, SHADOW_BUILD_NAME,

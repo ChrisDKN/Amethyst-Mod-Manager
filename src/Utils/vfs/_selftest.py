@@ -722,8 +722,10 @@ def test_layer_build_and_skse_selection() -> None:
         assert not (game.game / "runtime.log").exists()
         assert not (game.game / "Data" / "runtime.txt").exists()
         cleanup_deployment(game, preserve_upper=True)
-        assert (state / "root-upper" / "runtime.log").read_text() == \
+        assert (game.root_folder / "runtime.log").read_text() == \
             "root-runtime"
+        assert (game.root_folder / "persistent.log").read_text() == \
+            "persistent-root"
         assert (game.overwrite / "runtime.txt").read_text() == "data-runtime"
         assert not (state / MANIFEST_NAME).exists()
     print("✓ layer build, virtual case aliases/stubs, SKSE selection, cleanup")
@@ -894,8 +896,7 @@ def test_shadow_capture_survives_configured_path_change() -> None:
         game.game = new_game
         new_view = _build()
 
-        root_upper = game.profile / STATE_DIR_NAME / "root-upper"
-        assert (root_upper / "runtime-old-root.txt").read_text(
+        assert (game.root_folder / "runtime-old-root.txt").read_text(
             encoding="utf-8") == "old root runtime"
         assert (game.overwrite / "runtime-old-data.txt").read_text(
             encoding="utf-8") == "old data runtime"
@@ -913,7 +914,7 @@ def test_shadow_capture_survives_configured_path_change() -> None:
         game.game = third_game
         cleanup_deployment(game, preserve_upper=True)
 
-        assert (root_upper / "runtime-new-root.txt").read_text(
+        assert (game.root_folder / "runtime-new-root.txt").read_text(
             encoding="utf-8") == "new root runtime"
         assert (game.overwrite / "runtime-new-data.txt").read_text(
             encoding="utf-8") == "new data runtime"
