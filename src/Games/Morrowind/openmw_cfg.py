@@ -39,6 +39,7 @@ _VANILLA_MASTERS = [
 # rewrote the game into that state; only opening OpenMW's own launcher (which
 # rewrites content= from its own profile) cleared it.
 _ENGINE_BUILTIN_CONTENT = {"builtin.omwscripts"}
+_GROUNDCOVER_EXTENSIONS = (".esp", ".esm", ".omwaddon", ".omwgame")
 
 
 def _dedup_content(names: list[str]) -> list[str]:
@@ -85,21 +86,32 @@ def _read_plugins_txt(plugins_txt: Path) -> list[str]:
 
     Handles MO2-style '*' prefixes for active entries; '#' lines are comments.
     """
-    if not plugins_txt.is_file():
+    from Utils.plugins import read_plugins
+    return [
+        entry.name for entry in read_plugins(plugins_txt, star_prefix=True)
+        if entry.enabled
+    ]
+
+
+def read_groundcover_entries(cfg_path: Path) -> list[str]:
+    """Return active groundcover= values from an OpenMW config."""
+    if not cfg_path.is_file():
         return []
-    plugins: list[str] = []
-    for raw in plugins_txt.read_text(encoding="utf-8", errors="replace").splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#"):
+    result: list[str] = []
+    seen: set[str] = set()
+    for raw in cfg_path.read_text(encoding="utf-8", errors="replace").splitlines():
+        stripped = raw.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
             continue
-        if line.startswith("*"):
-            line = line[1:].strip()
-        # Normalise extension to lowercase.
-        dot = line.rfind(".")
-        if dot != -1:
-            line = line[:dot] + line[dot:].lower()
-        plugins.append(line)
-    return plugins
+        key, value = stripped.split("=", 1)
+        if key.strip().lower() != "groundcover":
+            continue
+        name = value.strip().strip('"')
+        low = name.lower()
+        if name and low not in seen:
+            seen.add(low)
+            result.append(name)
+    return result
 
 
 def update_openmw_cfg(
@@ -117,9 +129,10 @@ def update_openmw_cfg(
         data_dirs:           Ordered list of data directories to write as data= entries.
                              Later entries take priority in OpenMW's VFS (override earlier).
         plugins_txt:         Path to the profile's plugins.txt.
-        groundcover_plugins: Explicit list of groundcover plugin names to write.  When
-                             None, any existing groundcover= lines from the cfg are
-                             preserved unchanged.
+        groundcover_plugins: Plugin names classified as groundcover. Enabled matching
+                             entries are removed from content= and written as
+                             groundcover=. When None, existing groundcover= lines are
+                             preserved and kept out of content=.
         fallback_archives:   Ordered list of .bsa archive names to write as
                              fallback-archive= entries.  When None, existing
                              fallback-archive= lines from the cfg are preserved unchanged.
@@ -163,7 +176,21 @@ def update_openmw_cfg(
     # ------------------------------------------------------------------
     active = _read_plugins_txt(plugins_txt)
     vanilla_lower = {p.lower() for p in _VANILLA_MASTERS}
-    user_plugins = [p for p in active if p.lower() not in vanilla_lower]
+    if groundcover_plugins is None:
+        gc_list = _dedup_content(existing_groundcover)
+    else:
+        selected = {name.lower() for name in groundcover_plugins}
+        gc_list = _dedup_content([
+            plugin for plugin in active
+            if plugin.lower() in selected and plugin.lower() not in vanilla_lower
+            and plugin.lower().endswith(_GROUNDCOVER_EXTENSIONS)
+        ])
+    groundcover_lower = {name.lower() for name in gc_list}
+    user_plugins = [
+        plugin for plugin in active
+        if plugin.lower() not in vanilla_lower
+        and plugin.lower() not in groundcover_lower
+    ]
     ordered = _dedup_content(_VANILLA_MASTERS + user_plugins)
 
     # ------------------------------------------------------------------
@@ -174,7 +201,6 @@ def update_openmw_cfg(
         managed.append(f'data="{d}"')
     for plugin in ordered:
         managed.append(f"content={plugin}")
-    gc_list = groundcover_plugins if groundcover_plugins is not None else existing_groundcover
     for gc in gc_list:
         managed.append(f"groundcover={gc}")
     if fallback_archives is not None:
@@ -190,8 +216,9 @@ def update_openmw_cfg(
     cfg_path.parent.mkdir(parents=True, exist_ok=True)
     cfg_path.write_text("\n".join(preserved + managed) + "\n", encoding="utf-8")
     _log(
-        f"  Wrote {len(data_dirs)} data dir(s), {len(ordered)} plugin(s), "
-        f"and {len(fa_list)} fallback-archive(s) to {cfg_path}."
+        f"  Wrote {len(data_dirs)} data dir(s), {len(ordered)} content plugin(s), "
+        f"{len(gc_list)} groundcover plugin(s), and {len(fa_list)} "
+        f"fallback-archive(s) to {cfg_path}."
     )
 
 

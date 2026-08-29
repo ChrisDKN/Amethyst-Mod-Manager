@@ -10,6 +10,7 @@ consolidates all small per-profile JSON/text state files:
   root_folder_state           dict  ({"enabled": bool})
   mod_strip_prefixes          dict[str, list[str]]
   plugin_locks                dict[str, ...]
+  groundcover_plugins         list[str]
   disabled_plugins            dict[str, list[str]]  (mod_name -> [plugin, ...])
   excluded_mod_files          dict[str, list[str]]  (mod_name -> [raw_key_lower, ...])
   root_mod_files              dict[str, list[str]]  (mod_name -> [raw_key_lower, ...])
@@ -248,6 +249,31 @@ def read_plugin_locks(profile_dir: Path, state: dict | None = None) -> dict:
     return {}
 
 
+def groundcover_plugins_configured(profile_dir: Path,
+                                   state: dict | None = None) -> bool:
+    if state is not None and "groundcover_plugins" in state:
+        return True
+    return "groundcover_plugins" in read_profile_state(profile_dir)
+
+
+def read_groundcover_plugins(profile_dir: Path,
+                             state: dict | None = None) -> list[str]:
+    raw = _read_key(profile_dir, state, "groundcover_plugins")
+    if not isinstance(raw, list):
+        return []
+    result: list[str] = []
+    seen: set[str] = set()
+    for value in raw:
+        if not isinstance(value, str):
+            continue
+        name = value.strip()
+        key = name.lower()
+        if name and key not in seen:
+            seen.add(key)
+            result.append(name)
+    return result
+
+
 def _normalize_mod_child_str_list(v) -> list[str]:
     """Coerce JSON value to list[str] (single string or list; for per-mod string lists)."""
     if isinstance(v, str):
@@ -411,6 +437,20 @@ def write_mod_strip_prefixes(profile_dir: Path, value: dict[str, list[str]]) -> 
 
 def write_plugin_locks(profile_dir: Path, value: dict) -> None:
     _update_key(profile_dir, "plugin_locks", value)
+
+
+def write_groundcover_plugins(profile_dir: Path, value) -> None:
+    """Persist the classification, including an explicit empty selection."""
+    names: dict[str, str] = {}
+    for item in value or ():
+        if isinstance(item, str) and item.strip():
+            name = item.strip()
+            names.setdefault(name.lower(), name)
+    _update_key(
+        profile_dir,
+        "groundcover_plugins",
+        sorted(names.values(), key=str.casefold),
+    )
 
 
 def write_disabled_plugins(profile_dir: Path, value: dict[str, list[str]]) -> None:

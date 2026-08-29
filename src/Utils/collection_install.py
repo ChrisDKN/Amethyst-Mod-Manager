@@ -2607,6 +2607,21 @@ def _apply_amethyst_profile_state(profile_dir, modlist_path, data,
                 lambda raw: dict(raw) if isinstance(raw, dict) else {})
 
     try:
+        raw = state.get("groundcover_plugins")
+        if isinstance(raw, list):
+            merged = {
+                name.lower(): name
+                for name in _ps.read_groundcover_plugins(profile_dir)
+            } if raw else {}
+            for name in raw:
+                if isinstance(name, str) and name.strip():
+                    merged[name.strip().lower()] = name.strip()
+            _ps.write_groundcover_plugins(profile_dir, merged.values())
+            applied.append("groundcover_plugins")
+    except Exception as exc:
+        log(f"Collection install: groundcover plugins not applied: {exc}")
+
+    try:
         raw = state.get("collapsed_seps")
         if isinstance(raw, list) and raw:
             vals = {str(x) for x in raw if str(x).lower() in seps_lower}

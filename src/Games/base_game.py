@@ -1294,6 +1294,11 @@ class BaseGame(ABC):
         return []
 
     @property
+    def groundcover_plugin_extensions(self) -> tuple[str, ...]:
+        """Plugin types the game can register as groundcover instead of content."""
+        return ()
+
+    @property
     def has_override_pak_tab(self) -> bool:
         """Whether the plugins panel shows the BG3-style Overrides pak tab."""
         return False

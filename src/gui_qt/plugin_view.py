@@ -33,7 +33,8 @@ from gui_qt.plugin_model import (
 )
 from gui_qt.plugin_state import (
     PF_MISSING, PF_LATE, PF_VMM, PF_ESL, PF_LOOT, PF_DIRTY, PF_TAGS,
-    PF_USERLIST, PF_UL_CYCLE, format_loot_tooltip, is_master_group,
+    PF_USERLIST, PF_UL_CYCLE, PF_GROUNDCOVER, format_loot_tooltip,
+    is_master_group,
 )
 
 _FLAG_SZ = 18
@@ -50,8 +51,8 @@ _MASTER_TIP_HEADERS = {
 }
 
 # Flag bit → icon filename, painted left→right (order matches the Tk app:
-# missing, late, vmm, userlist dot, esl, loot, dirty, tags). The userlist dot
-# and the ESL cyan "L" badge are drawn specially, not as icons.
+# missing, late, vmm, userlist dot, groundcover, esl, loot, dirty, tags). The
+# userlist dot and letter badges are drawn specially, not as icons.
 _PLUGIN_FLAG_ICONS_PRE = [
     (PF_MISSING, "warning2.png"),
     (PF_LATE, "warning.png"),
@@ -112,7 +113,7 @@ class PluginDelegate(QStyledItemDelegate):
             "BG_ROW", "BG_ROW_ALT", "BG_SELECT", "BG_ROW_HOVER",
             "TEXT_MAIN", "TEXT_DIM", "TEXT_ON_ACCENT", "TEXT_ERR",
             "CHECK_FILL", "BORDER", "BG_DEEP", "TONE_BLUE_SOFT",
-            "TEXT_WARN", "TEXT_WHITE", "STATUS_BADGE_RED", "FILE_WIN",
+            "TONE_GREEN", "TEXT_WARN", "TEXT_WHITE", "STATUS_BADGE_RED", "FILE_WIN",
             "FILE_LOSE", "FILE_ANCHOR", "BG_GREEN_ROW",
         })
 
@@ -131,6 +132,7 @@ class PluginDelegate(QStyledItemDelegate):
         self.c_check = qc(p, "CHECK_FILL")   # checkbox fill when enabled
         self.c_check_off = qc(p, "BG_DEEP")
         self.c_esl = qc(p, "TONE_BLUE_SOFT")
+        self.c_groundcover = qc(p, "TONE_GREEN")
         self.c_master = qc(p, "TEXT_WARN")
         # Userlist dot (Tk parity: TEXT_WHITE fill, STATUS_BADGE_RED when the
         # plugin's userlist rules form a cycle).
@@ -276,6 +278,8 @@ class PluginDelegate(QStyledItemDelegate):
                 items.append(("icon", bit, name))
         if bits & PF_USERLIST:
             items.append(("uldot", PF_USERLIST, None))
+        if bits & PF_GROUNDCOVER:
+            items.append(("groundcover", PF_GROUNDCOVER, None))
         if bits & PF_ESL:
             items.append(("esl", PF_ESL, None))
         for bit, name in _PLUGIN_FLAG_ICONS_POST:
@@ -301,6 +305,10 @@ class PluginDelegate(QStyledItemDelegate):
                 f = QFont(); f.setBold(True); f.setPixelSize(13); p.setFont(f)
                 p.setPen(self.c_esl)
                 p.drawText(cell, Qt.AlignCenter, "L")
+            elif kind == "groundcover":
+                f = QFont(); f.setBold(True); f.setPixelSize(12); p.setFont(f)
+                p.setPen(self.c_groundcover)
+                p.drawText(cell, Qt.AlignCenter, "G")
             elif kind == "uldot":
                 # Small filled circle: white = managed in userlist.yaml,
                 # red = its rules currently form a broken cycle (Tk parity).
@@ -340,6 +348,11 @@ class PluginDelegate(QStyledItemDelegate):
         fixed strings. Returns None when there's nothing to show."""
         if hit == PF_ESL:
             return "This plugin is marked as Light (ESL)"
+        if hit == PF_GROUNDCOVER:
+            return self.tr(
+                "This plugin is classified as OpenMW groundcover. When enabled, "
+                "it loads as groundcover instead of normal content. OpenMW's "
+                "settings.cfg must also contain [Groundcover] enabled = true.")
 
         row = index.data(RowRole)
         if hit == PF_USERLIST:

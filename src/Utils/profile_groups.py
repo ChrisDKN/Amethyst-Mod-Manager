@@ -64,12 +64,14 @@ from Utils.profile_state import (
     profile_uses_specific_mods,
     read_disabled_plugins,
     read_excluded_mod_files,
+    read_groundcover_plugins,
     read_mod_notes,
     read_mod_strip_prefixes,
     read_profile_settings,
     read_root_mod_files,
     write_disabled_plugins,
     write_excluded_mod_files,
+    write_groundcover_plugins,
     write_mod_notes,
     write_mod_strip_prefixes,
     write_profile_settings,
@@ -1499,6 +1501,25 @@ def _adopt_first_plugins(game, group_dir: Path, profiles_dir: Path,
     entries = [PluginEntry(name=n, enabled=enabled.get(n, False)) for n in order]
     write_loadorder(group_dir / "loadorder.txt", entries)
     write_plugins(group_dir / "plugins.txt", entries, star_prefix=star)
+
+    if not (getattr(game, "groundcover_plugin_extensions", ()) or ()):
+        return
+    from Utils.profile_state import groundcover_plugins_configured
+    configured = False
+    selected: dict[str, str] = {}
+    for member in members:
+        member_dir = profiles_dir / member
+        if not groundcover_plugins_configured(member_dir):
+            continue
+        configured = True
+        for name in read_groundcover_plugins(member_dir):
+            selected.setdefault(name.lower(), name)
+    if configured:
+        available = {name.lower() for name in order}
+        write_groundcover_plugins(
+            group_dir,
+            [name for low, name in selected.items() if low in available],
+        )
 
 
 # ---------------------------------------------------------------------------

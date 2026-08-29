@@ -232,6 +232,10 @@ class OpenMW(BaseGame):
         return [".esp", ".esm", ".omwscripts", ".omwaddon"]
 
     @property
+    def groundcover_plugin_extensions(self) -> tuple[str, ...]:
+        return (".esp", ".esm", ".omwaddon")
+
+    @property
     def steam_id(self) -> str:
         return "22320"
 
@@ -574,6 +578,20 @@ class OpenMW(BaseGame):
     # Deployment
     # -----------------------------------------------------------------------
 
+    @staticmethod
+    def _profile_groundcover_plugins(profile_dir: Path,
+                                     cfg_path: Path) -> list[str]:
+        from Utils.profile_state import (
+            groundcover_plugins_configured,
+            read_groundcover_plugins,
+            write_groundcover_plugins,
+        )
+        if not groundcover_plugins_configured(profile_dir):
+            from Games.Morrowind.openmw_cfg import read_groundcover_entries
+            write_groundcover_plugins(
+                profile_dir, read_groundcover_entries(cfg_path))
+        return read_groundcover_plugins(profile_dir)
+
     def deploy(self, log_fn=None, mode: LinkMode = LinkMode.HARDLINK,
                profile: str = "default", progress_fn=None) -> None:
         _log = log_fn or (lambda _: None)
@@ -657,6 +675,8 @@ class OpenMW(BaseGame):
             cfg_path=cfg_path,
             data_dirs=[vanilla_dir, data_dir],
             plugins_txt=plugins_txt,
+            groundcover_plugins=self._profile_groundcover_plugins(
+                profile_dir, cfg_path),
             fallback_archives=bsa_archives,
             log_fn=_log,
         )
@@ -713,11 +733,14 @@ class OpenMW(BaseGame):
                 mod_priority[OVERWRITE_NAME] = len(mod_priority)
 
         from Games.Morrowind.openmw_cfg import update_openmw_cfg
+        cfg_path = self.get_openmw_cfg_path()
         bsa_archives = self._deployed_bsa_archives(mod_priority)
         update_openmw_cfg(
-            cfg_path=self.get_openmw_cfg_path(),
+            cfg_path=cfg_path,
             data_dirs=data_dirs,
             plugins_txt=profile_dir / "plugins.txt",
+            groundcover_plugins=self._profile_groundcover_plugins(
+                profile_dir, cfg_path),
             fallback_archives=bsa_archives,
             log_fn=_log,
         )
@@ -770,6 +793,8 @@ class OpenMW(BaseGame):
         from Games.Morrowind.openmw_cfg import restore_openmw_cfg
         cfg_path = self.get_openmw_cfg_path()
         if cfg_path.is_file():
+            if _profile_dir is not None:
+                self._profile_groundcover_plugins(_profile_dir, cfg_path)
             restore_openmw_cfg(cfg_path, data_dirs=[vanilla_dir], log_fn=_log)
 
         if not was_vfs:

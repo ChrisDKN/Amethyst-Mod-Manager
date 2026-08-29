@@ -59,6 +59,7 @@ PF_UL_CYCLE = 1 << 9   # userlist rules form a broken cycle (dot turns red)
 PF_ESL_SAFE = 1 << 10  # .esp/.esm eligible for the ESL flag (libloot verdict)
 PF_ESL_UNSAFE = 1 << 11  # .esp/.esm too many records for ESL (libloot verdict)
 PF_BLUEPRINT = 1 << 12   # Starfield Blueprint (0x800) - loads after everything
+PF_GROUNDCOVER = 1 << 13  # loaded through OpenMW's groundcover list
 
 # Bump when check_esl_eligible() changes its verdict criteria so cached
 # eligibility results are invalidated (mirrors Tk _ESL_ELIG_CACHE_VERSION).
@@ -689,6 +690,8 @@ def load_plugins(game, profile: str,
         _apply_loot_flags(rows, p.parent, resolver)
     with span("plugins.userlist_flags"):
         _apply_userlist_flags(rows, p.parent)
+    with span("plugins.groundcover_flags"):
+        _apply_groundcover_flags(rows, game, p.parent)
     if cancelled():
         return None
     # ESL eligibility deliberately NOT computed here - see
@@ -1143,6 +1146,44 @@ def _apply_userlist_flags(rows: list[PluginRow], profile_dir: Path) -> None:
             r.flags |= PF_USERLIST
             if low in state.cycle_plugins:
                 r.flags |= PF_UL_CYCLE
+
+
+def groundcover_plugins_for_profile(game, profile_dir: Path) -> list[str]:
+    extensions = tuple(
+        ext.lower() for ext in
+        (getattr(game, "groundcover_plugin_extensions", ()) or ())
+    )
+    if not extensions:
+        return []
+    try:
+        from Utils.profile_state import (
+            groundcover_plugins_configured,
+            read_groundcover_plugins,
+        )
+        if groundcover_plugins_configured(profile_dir):
+            return read_groundcover_plugins(profile_dir)
+    except Exception:
+        pass
+    try:
+        last_deployed = getattr(game, "get_last_deployed_profile", lambda: None)()
+        if last_deployed and profile_dir.name != last_deployed:
+            return []
+        from Games.Morrowind.openmw_cfg import read_groundcover_entries
+        return read_groundcover_entries(game.get_openmw_cfg_path())
+    except Exception:
+        return []
+
+
+def _apply_groundcover_flags(rows: list[PluginRow], game,
+                             profile_dir: Path) -> None:
+    names = {
+        name.lower() for name in groundcover_plugins_for_profile(game, profile_dir)
+    }
+    if not names:
+        return
+    for row in rows:
+        if row.name.lower() in names:
+            row.flags |= PF_GROUNDCOVER
 
 
 def compute_esl_eligibility(names: list[str], resolved: dict[str, Path],

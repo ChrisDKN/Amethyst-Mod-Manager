@@ -25,7 +25,7 @@ from urllib.parse import urlsplit
 
 from PySide6.QtWidgets import QMenu
 from PySide6.QtGui import QAction
-from PySide6.QtCore import QCoreApplication, QT_TRANSLATE_NOOP
+from PySide6.QtCore import Qt, QCoreApplication, QT_TRANSLATE_NOOP
 
 
 _MARKDOWN_LINK_RE = re.compile(
@@ -129,6 +129,39 @@ def _build_plugin_menu(view, model, row, toggleable, multi,
     else:
         act(_mt("Enable plugin"), lambda: _set_enabled(view, toggleable, True))
         act(_mt("Disable plugin"), lambda: _set_enabled(view, toggleable, False))
+
+    # ---- OpenMW groundcover classification -------------------------------
+    groundcover_exts = tuple(
+        ext.lower() for ext in
+        (getattr(game, "groundcover_plugin_extensions", ()) or ())
+    )
+    groundcover_rows = []
+    if groundcover_exts:
+        from gui_qt.plugin_state import PF_GROUNDCOVER
+        groundcover_rows = [
+            i for i in toggleable
+            if (model.row(i).name.lower().endswith(groundcover_exts)
+                or model.row(i).flags & PF_GROUNDCOVER)
+        ]
+    if groundcover_rows:
+        marked = [i for i in groundcover_rows
+                  if model.row(i).flags & PF_GROUNDCOVER]
+        normal = [i for i in groundcover_rows
+                  if not model.row(i).flags & PF_GROUNDCOVER]
+        divider()
+        if multi:
+            if normal:
+                act(_mtf("Use selected as OpenMW groundcover ({0})", len(normal)),
+                    lambda rows=normal: _set_groundcover(view, rows, True))
+            if marked:
+                act(_mtf("Use selected as normal OpenMW content ({0})", len(marked)),
+                    lambda rows=marked: _set_groundcover(view, rows, False))
+        elif marked:
+            act(_mt("Use as normal OpenMW content"),
+                lambda: _set_groundcover(view, groundcover_rows, False))
+        else:
+            act(_mt("Use as OpenMW groundcover"),
+                lambda: _set_groundcover(view, groundcover_rows, True))
 
     # ---- Disable - BOS/SkyPatcher patch replaces it (stub) ----------------
     # Tk: gated on _bos_sp_plugins detection. Qt has no BOS/SP backend yet, so
@@ -275,6 +308,56 @@ def _set_enabled(view, indices, enabled: bool):
     cb = getattr(view, "on_plugins_changed", None)
     if callable(cb):
         cb()
+
+
+def _set_groundcover(view, indices, enabled: bool):
+    model = view.model()
+    game = getattr(view, "game", None)
+    profile_dir = getattr(view, "profile_dir", None)
+    if game is None or profile_dir is None:
+        return
+    names = [
+        model.row(i).name for i in indices
+        if 0 <= i < model.rowCount()
+    ]
+    if not names:
+        return
+    try:
+        from gui_qt.plugin_state import (
+            PF_GROUNDCOVER,
+            groundcover_plugins_for_profile,
+        )
+        from Utils.profile_state import write_groundcover_plugins
+        current = {
+            name.lower(): name
+            for name in groundcover_plugins_for_profile(game, profile_dir)
+        }
+        for name in names:
+            if enabled:
+                current[name.lower()] = name
+            else:
+                current.pop(name.lower(), None)
+        write_groundcover_plugins(profile_dir, current.values())
+    except Exception as exc:
+        model.save_failed.emit(_mtf("Groundcover setting save failed: {0}", exc))
+        return
+
+    changed = {name.lower() for name in names}
+    for plugin in model.natural_rows():
+        if plugin.name.lower() not in changed:
+            continue
+        if enabled:
+            plugin.flags |= PF_GROUNDCOVER
+        else:
+            plugin.flags &= ~PF_GROUNDCOVER
+    if model.rowCount():
+        from gui_qt.plugin_model import COL_FLAGS, PFlagsRole
+        model.dataChanged.emit(
+            model.index(0, COL_FLAGS),
+            model.index(model.rowCount() - 1, COL_FLAGS),
+            [PFlagsRole, Qt.ToolTipRole],
+        )
+        model.flags_changed()
 
 
 def _toggle_esl(view, indices, enable: bool):
@@ -433,6 +516,7 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("PluginMenu", "Disable - {0} patch replaces it"),
     QT_TRANSLATE_NOOP("PluginMenu", "Enable plugin"),
     QT_TRANSLATE_NOOP("PluginMenu", "Enable selected ({0})"),
+    QT_TRANSLATE_NOOP("PluginMenu", "Groundcover setting save failed: {0}"),
     QT_TRANSLATE_NOOP("PluginMenu", "Mark as Light (ESL)"),
     QT_TRANSLATE_NOOP("PluginMenu", "Mark as Light (ESL) - none eligible "),
     QT_TRANSLATE_NOOP("PluginMenu", "Mark selected as Light (ESL) ({0})"),
@@ -446,4 +530,8 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("PluginMenu", "Show cycle…"),
     QT_TRANSLATE_NOOP("PluginMenu", "Show overlapping plugins…"),
     QT_TRANSLATE_NOOP("PluginMenu", "Show userlist rules…"),
+    QT_TRANSLATE_NOOP("PluginMenu", "Use as normal OpenMW content"),
+    QT_TRANSLATE_NOOP("PluginMenu", "Use as OpenMW groundcover"),
+    QT_TRANSLATE_NOOP("PluginMenu", "Use selected as normal OpenMW content ({0})"),
+    QT_TRANSLATE_NOOP("PluginMenu", "Use selected as OpenMW groundcover ({0})"),
 )
