@@ -21,6 +21,7 @@ from Utils.filegraph_archives import owning_plugin, pak_name_rank, scan_mod_arch
 from Utils.filegraph_identities import (
     bg3_uuid_conflicts_enabled, is_multipart_pak,
 )
+from Utils.framework_detect import framework_exe_candidates
 
 # Candidate flags consumed directly by ConflictSummary/UI filters.
 FLAG_PRE_RTX = 1 << 0
@@ -228,6 +229,7 @@ class GameCandidateAdapter:
             "normalize": self._normalize_folder_case,
             "archive_extensions": getattr(game, "archive_extensions", ()),
             "plugin_extensions": getattr(game, "plugin_extensions", ()),
+            "frameworks": getattr(game, "frameworks", {}),
             "root_mods": sorted(self._root_mods),
             "root_files": self._raw_root_files,
             "excluded": self._raw_excluded,
@@ -622,7 +624,8 @@ class GameCandidateAdapter:
         try:
             framework_names = {
                 str(path).replace("\\", "/").rstrip("/").rsplit("/", 1)[-1].lower()
-                for path in (getattr(self.game, "frameworks", {}) or {}).values()
+                for value in (getattr(self.game, "frameworks", {}) or {}).values()
+                for path in framework_exe_candidates(value)
             }
         except Exception:
             framework_names = set()
