@@ -371,45 +371,8 @@ def run_deploy_pipeline(
             log_fn(f"Profile Group reconcile warning: {_pg_err}")
         timeline.mark("recovery inspection and profile-group reconcile complete")
 
-        # A same-profile physical redeploy with an identical pinned plan has
-        # no filesystem work to do. Check before Restore so a conflict-only
-        # reorder does not tear down and rebuild the whole game tree.
-        if (last_deployed == profile
-                and on_pre_filemap is None
-                and not _vfs_deploy_active(game)
-                and game.get_deploy_active()):
-            try:
-                preview_mode = (
-                    game.get_deploy_mode()
-                    if hasattr(game, "get_deploy_mode")
-                    else LinkMode.HARDLINK
-                )
-                if game.get_last_deploy_mode() == preview_mode.name:
-                    from Utils.filegraph_service import FileGraphService
-                    preview_dir = game.get_profile_root() / "profiles" / profile
-                    preview_library = FileGraphService.open_library(
-                        game, preview_dir, log_fn=log_fn)
-                    preview_library.ensure_ready(preview_dir)
-                    preview_profile = preview_library.open_profile(preview_dir)
-                    preview_profile.ensure_reconciled(
-                        operation_hint={"kind": "deployment_preview"})
-                    preview_generation = preview_profile.snapshot().generation
-                    if _incr.deployment_unchanged(
-                            preview_profile, preview_generation,
-                            preview_mode.name.lower()):
-                        timeline.mark("unchanged-plan check complete: no-op deploy")
-                        log_fn(
-                            "Deploy skipped: the committed Filegraph plan is "
-                            "unchanged; no filesystem operations were needed."
-                        )
-                        return True
-            except Exception as preview_error:
-                log_fn(
-                    "Deployment no-op check was unavailable "
-                    f"({preview_error}); using the full path."
-                )
-        timeline.mark("same-profile unchanged-plan check complete")
-
+        # Even an unchanged file plan must continue through the handler: load
+        # order and game settings can regenerate files outside that plan.
         # Incremental fast path: redeploying the profile that is already
         # deployed with the same link mode → skip the restore and let the
         # standard primitives diff against the previous deploy instead.
