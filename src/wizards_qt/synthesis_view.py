@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QButtonGroup, QPlainTextEdit, QProgressBar, QRadioButton, QScrollArea,
-    QVBoxLayout, QWidget,
+    QHBoxLayout, QPushButton, QVBoxLayout, QWidget,
 )
 
 from gui_qt.safe_emit import safe_emit
@@ -38,6 +38,7 @@ class SynthesisView(WizardViewBase):
     _setup_status_sig = Signal(str, str)
     _setup_done_sig = Signal()             # enable Launch button
     _launch_done_sig = Signal()            # re-enable Launch button
+    _custom_proton_picked_sig = Signal(object)
 
     def __init__(self, game: "BaseGame", log_fn=None, on_close=None, ctx=None,
                  **_extra):
@@ -58,6 +59,8 @@ class SynthesisView(WizardViewBase):
         self._setup_done_sig.connect(self._guard(
             lambda: self._launch_btn.setEnabled(True)))
         self._launch_done_sig.connect(self._guard(self._on_launch_done))
+        self._custom_proton_picked_sig.connect(
+            self._guard(self._on_custom_proton_picked))
 
         self._stack.addWidget(self._build_download_page())
         self._stack.addWidget(self._build_proton_page())
@@ -124,6 +127,17 @@ class SynthesisView(WizardViewBase):
         scroll.setWidget(self._proton_holder)
         lay.addWidget(scroll, 1)
         self._proton_group = QButtonGroup(self)
+        custom_row = QHBoxLayout()
+        custom_row.addStretch(1)
+        self._custom_proton_btn = QPushButton(self.tr("Add Custom Build"))
+        self._custom_proton_btn.setCursor(Qt.PointingHandCursor)
+        self._custom_proton_btn.setToolTip(self.tr(
+            "Select a complete Proton build folder containing the top-level "
+            "'proton' launcher. Do not select files/bin/wine."))
+        self._custom_proton_btn.clicked.connect(self._browse_custom_proton)
+        custom_row.addWidget(self._custom_proton_btn)
+        custom_row.addStretch(1)
+        lay.addLayout(custom_row)
         self._proton_continue = self._accent_btn(self.tr("Continue →"))
         self._proton_continue.setEnabled(False)
         self._proton_continue.clicked.connect(self._on_proton_chosen)
@@ -132,8 +146,12 @@ class SynthesisView(WizardViewBase):
 
     def _goto_proton(self):
         self._stack.setCurrentIndex(_PG_PROTON)
+        self._reload_proton_candidates()
+
+    def _reload_proton_candidates(self, selected: str = ""):
         from Utils.synthesis_setup import list_proton, load_saved_proton
-        # clear any previous radios
+        for button in self._proton_group.buttons():
+            self._proton_group.removeButton(button)
         while self._proton_layout.count():
             item = self._proton_layout.takeAt(0)
             w = item.widget()
@@ -142,11 +160,12 @@ class SynthesisView(WizardViewBase):
         self._proton_candidates = list_proton()
         if not self._proton_candidates:
             self._set_status(self._proton_status,
-                             self.tr("No Proton installations found. Install Proton "
-                             "(e.g. GE-Proton) via Steam and try again."), RED)
+                             self.tr("No Proton installations found. Install one "
+                                     "through Steam or add a custom build."), RED)
+            self._proton_continue.setEnabled(False)
             return
         self._set_status(self._proton_status, "")
-        saved = load_saved_proton(self._game)
+        saved = selected or load_saved_proton(self._game)
         preselect = 0
         for i, script in enumerate(self._proton_candidates):
             if script.parent.name == saved:
@@ -161,12 +180,69 @@ class SynthesisView(WizardViewBase):
         self._proton_layout.addStretch(1)
         self._proton_continue.setEnabled(True)
 
+    def _browse_custom_proton(self):
+        from Utils.portal_filechooser import pick_folder
+        pick_folder(
+            self.tr("Select custom Proton build folder"),
+            lambda path: safe_emit(self._custom_proton_picked_sig, path))
+
+    def _on_custom_proton_picked(self, path):
+        if not path:
+            return
+        from Utils.steam_finder import resolve_custom_proton_script
+        script = resolve_custom_proton_script(path)
+        if script is None:
+            self._set_status(
+                self._proton_status,
+                self.tr("The selected folder does not contain a top-level "
+                        "'proton' launcher."), RED)
+            return
+        from Utils.ui_config import save_custom_proton_path
+        save_custom_proton_path(str(script.parent))
+        self._reload_proton_candidates(script.parent.name)
+        self._log(f"Synthesis: registered custom Proton build {script.parent}")
+        self._set_status(
+            self._proton_status,
+            self.tr("Custom Proton build added: {0}").format(
+                script.parent.name), GREEN)
+
     def _on_proton_chosen(self):
         idx = self._proton_group.checkedId()
         if idx < 0 or idx >= len(self._proton_candidates):
             return
+        selected = self._proton_candidates[idx]
+        from Utils.steam_finder import is_custom_proton_script
+        if is_custom_proton_script(selected):
+            from Utils.ui_config import load_custom_proton_warning_ack
+            if not load_custom_proton_warning_ack():
+                from gui_qt.confirm_overlay import ConfirmOverlay
+                ConfirmOverlay.show_over(
+                    self,
+                    self.tr("Use custom Proton build?"),
+                    self.tr(
+                        "This Proton build was added manually and is outside "
+                        "Amethyst's supported configurations. Support cannot "
+                        "be provided for issues that occur while using it.\n\n"
+                        "Continue with {0}?").format(selected.parent.name),
+                    lambda accepted: self._on_custom_warning_done(
+                        accepted, selected),
+                    confirm_label=self.tr("Use Custom Build"),
+                    cancel_label=self.tr("Cancel"),
+                    danger=False,
+                )
+                return
+        self._save_proton_and_setup(selected)
+
+    def _on_custom_warning_done(self, accepted: bool, selected: Path):
+        if not accepted:
+            return
+        from Utils.ui_config import save_custom_proton_warning_ack
+        save_custom_proton_warning_ack(True)
+        self._save_proton_and_setup(selected)
+
+    def _save_proton_and_setup(self, selected: Path):
         from Utils.synthesis_setup import save_proton
-        self._selected_proton = self._proton_candidates[idx]
+        self._selected_proton = selected
         save_proton(self._game, self._selected_proton.parent.name)
         self._goto_setup()
 

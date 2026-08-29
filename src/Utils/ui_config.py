@@ -1817,6 +1817,57 @@ def save_nexus_page_size(value: int) -> None:
 # Custom launcher paths
 # ---------------------------------------------------------------------------
 _PATHS_SECTION = "paths"
+_CUSTOM_PROTON_SECTION = "custom_proton"
+
+
+def load_custom_proton_path() -> str:
+    """Return the user-configured Proton build directory, or '' if unset."""
+    path = get_ui_config_path()
+    if not path.is_file():
+        return ""
+    try:
+        parser = _read_ini(path)
+        return parser.get(_PATHS_SECTION, "custom_proton_path", fallback="").strip()
+    except Exception:
+        return ""
+
+
+def save_custom_proton_path(value: str) -> None:
+    """Persist an additional Proton build directory. Pass '' to clear."""
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _PATHS_SECTION not in parser:
+        parser[_PATHS_SECTION] = {}
+    parser[_PATHS_SECTION]["custom_proton_path"] = value.strip()
+    _write_ini(parser, path)
+
+
+def load_custom_proton_warning_ack() -> bool:
+    """Whether the unsupported custom-Proton warning was accepted."""
+    path = get_ui_config_path()
+    if not path.is_file():
+        return False
+    try:
+        return _read_ini(path).getboolean(
+            _CUSTOM_PROTON_SECTION, "warning_ack", fallback=False)
+    except Exception:
+        return False
+
+
+def save_custom_proton_warning_ack(value: bool) -> None:
+    """Persist the custom-Proton warning acknowledgement."""
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _CUSTOM_PROTON_SECTION not in parser:
+        parser[_CUSTOM_PROTON_SECTION] = {}
+    parser[_CUSTOM_PROTON_SECTION]["warning_ack"] = "1" if value else "0"
+    _write_ini(parser, path)
 
 
 def load_heroic_config_path() -> str:
@@ -2077,6 +2128,7 @@ _DISMISSIBLE_NOTICES: tuple[tuple[str, "str | None"], ...] = (
     (_FS_WARNINGS_SECTION, None),       # Windows-filesystem warning, per game
     (_FO3_DOWNGRADE_SECTION, None),     # Fallout 3 Anniversary downgrade prompt
     (_FLATPAK_SECTION, "suppress_i386_warning"),
+    (_CUSTOM_PROTON_SECTION, "warning_ack"),
 )
 
 # Values that mean "not dismissed" even though the key exists: boolean notices

@@ -1127,6 +1127,12 @@ class SettingsView(OverlayBase):
             help=self.tr("Where downloaded mod archives are stored. "
                  "Blank = default ({0}).").format(base / 'download_cache'))
         self._path_row(
+            g, self.tr("Custom Proton Build"),
+            uc.load_custom_proton_path, uc.save_custom_proton_path,
+            help=self.tr("Additional Proton build not found automatically. "
+                         "Select the build folder containing the top-level "
+                         "'proton' launcher, not files/bin/wine. Blank disables it."))
+        self._path_row(
             g, self.tr("Heroic Config Location"),
             uc.load_heroic_config_path, uc.save_heroic_config_path,
             help=self.tr("Folder containing Heroic's config.json. Blank = auto-detect "

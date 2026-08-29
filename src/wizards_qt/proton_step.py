@@ -49,6 +49,7 @@ class ProtonStepWidget(QWidget):
 
     # (ok, message) from the delete-prefix worker → UI thread.
     _delete_done = Signal(bool, str)
+    _custom_picked = Signal(object)
 
     def __init__(self, game: "BaseGame", exe: Path,
                  tool_exe_name: str, tool_display_name: str,
@@ -96,6 +97,7 @@ class ProtonStepWidget(QWidget):
         self._confirm_delete = False
 
         self._delete_done.connect(self._on_delete_done)
+        self._custom_picked.connect(self._on_custom_picked)
 
         p = active_palette()
         self.setStyleSheet(help_mark_qss(p))
@@ -140,16 +142,14 @@ class ProtonStepWidget(QWidget):
 
         from Utils.steam_finder import list_installed_proton
         self._versions = [s.parent.name for s in list_installed_proton()]
-        if not self._versions:
-            err = QLabel(self.tr("No Proton versions were found.\n\n"
-                         "Install a Proton version in Steam (or with "
-                         "Heroic's Wine Manager), then reopen this wizard."))
-            err.setAlignment(Qt.AlignHCenter)
-            err.setWordWrap(True)
-            err.setStyleSheet(f"color:{err_text()};")
-            v.addWidget(err)
-            v.addStretch(1)
-            return
+        self._no_versions_label = QLabel(self.tr(
+            "No Proton versions were found. Install one through Steam or "
+            "Heroic, or add a custom Proton build below."))
+        self._no_versions_label.setAlignment(Qt.AlignHCenter)
+        self._no_versions_label.setWordWrap(True)
+        self._no_versions_label.setStyleSheet(f"color:{err_text()};")
+        self._no_versions_label.setVisible(not self._versions)
+        v.addWidget(self._no_versions_label)
 
         dim = f"color:{_c(p,'TEXT_DIM')};"
         # ---- prefix mode checkboxes ----
@@ -232,6 +232,13 @@ class ProtonStepWidget(QWidget):
         self._proton_combo.currentTextChanged.connect(
             lambda _t: self._update_prefix_delete_state())
         rh.addWidget(self._proton_combo)
+        self._custom_btn = QPushButton(self.tr("Add Custom Build"))
+        self._custom_btn.setCursor(Qt.PointingHandCursor)
+        self._custom_btn.setToolTip(tip_text(self.tr(
+            "Select a complete Proton build folder containing the top-level "
+            "'proton' launcher. Do not select files/bin/wine.")))
+        self._custom_btn.clicked.connect(self._browse_custom_proton)
+        rh.addWidget(self._custom_btn)
         self._delete_btn = QPushButton(self.tr("Delete Prefix"))
         self._delete_btn.setCursor(Qt.PointingHandCursor)
         self._delete_btn.clicked.connect(self._on_delete_prefix)
@@ -276,15 +283,19 @@ class ProtonStepWidget(QWidget):
         add_help_control(self._always_use_chk, self.tr(
             "Skip this Proton step on future runs and reuse the saved values. "
             "Reset it from Wizard > Wizard Settings."))
-        cont = QPushButton(self.tr("Continue"))
-        cont.setCursor(Qt.PointingHandCursor)
-        cont.setStyleSheet(button_qss("BTN_INFO"))
-        cont.clicked.connect(self._on_chosen)
-        v.addWidget(cont, 0, Qt.AlignHCenter)
+        self._continue_btn = QPushButton(self.tr("Continue"))
+        self._continue_btn.setCursor(Qt.PointingHandCursor)
+        self._continue_btn.setStyleSheet(button_qss("BTN_INFO"))
+        self._continue_btn.clicked.connect(self._on_chosen)
+        v.addWidget(self._continue_btn, 0, Qt.AlignHCenter)
 
         self._update_proton_row_state()
+        from Utils.ui_config import load_custom_proton_warning_ack
         self._auto_skip_pending = bool(
-            self._remembered and not self._remember_warning)
+            self._remembered and not self._remember_warning
+            and (self._current_prefix_mode() == PREFIX_MODE_GAME
+                 or not self._selected_is_custom()
+                 or load_custom_proton_warning_ack()))
 
     def showEvent(self, event):  # noqa: N802 (Qt override)
         super().showEvent(event)
@@ -328,7 +339,55 @@ class ProtonStepWidget(QWidget):
         matched = self._match_installed_version(saved)
         if matched is not None:
             return matched
-        return self._versions[0]
+        return self._versions[0] if self._versions else ""
+
+    def _reload_versions(self, selected: str = ""):
+        from Utils.steam_finder import list_installed_proton
+        current = selected or self._proton_combo.currentText()
+        self._versions = [s.parent.name for s in list_installed_proton()]
+        self._proton_combo.blockSignals(True)
+        self._proton_combo.clear()
+        self._proton_combo.addItems(self._versions)
+        matched = self._match_installed_version(current)
+        if matched is not None:
+            self._proton_combo.setCurrentText(matched)
+        self._proton_combo.blockSignals(False)
+        self._no_versions_label.setVisible(not self._versions)
+        self._update_proton_row_state()
+
+    def _browse_custom_proton(self):
+        from Utils.portal_filechooser import pick_folder
+        pick_folder(
+            self.tr("Select custom Proton build folder"),
+            lambda path: safe_emit(self._custom_picked, path))
+
+    def _on_custom_picked(self, path):
+        if not path:
+            return
+        from Utils.steam_finder import resolve_custom_proton_script
+        script = resolve_custom_proton_script(path)
+        if script is None:
+            self._set_prefix_status(
+                self.tr("The selected folder does not contain a top-level "
+                        "'proton' launcher."), err_text())
+            return
+        from Utils.ui_config import save_custom_proton_path
+        save_custom_proton_path(str(script.parent))
+        self._reload_versions(script.parent.name)
+        self._log(f"{self._tool_display_name} Wizard: registered custom "
+                  f"Proton build {script.parent}")
+        self._set_prefix_status(
+            self.tr("Custom Proton build added: {0}").format(
+                script.parent.name), ok_text())
+
+    def _selected_is_custom(self) -> bool:
+        name = self._proton_combo.currentText().strip()
+        if not name:
+            return False
+        from Utils.steam_finder import (
+            find_any_installed_proton, is_custom_proton_script)
+        script = find_any_installed_proton(name)
+        return script is not None and is_custom_proton_script(script)
 
     def _game_prefix_available(self) -> bool:
         try:
@@ -365,7 +424,9 @@ class ProtonStepWidget(QWidget):
     def _update_proton_row_state(self):
         """The game prefix has its own fixed Proton; grey the picker out then."""
         use_game = self._game_chk is not None and self._game_chk.isChecked()
-        self._proton_combo.setEnabled(not use_game)
+        self._proton_combo.setEnabled(not use_game and bool(self._versions))
+        self._custom_btn.setEnabled(not use_game)
+        self._continue_btn.setEnabled(use_game or bool(self._versions))
         if use_game:
             self._delete_btn.setEnabled(False)
             self._prefix_status.setText(
@@ -377,6 +438,42 @@ class ProtonStepWidget(QWidget):
             self._update_prefix_delete_state()
 
     def _on_chosen(self):
+        mode = self._current_prefix_mode()
+        name = self._proton_combo.currentText()
+        if mode != PREFIX_MODE_GAME and not name:
+            self._set_prefix_status(
+                self.tr("Select or add a Proton build before continuing."),
+                err_text())
+            return
+        if mode != PREFIX_MODE_GAME and self._selected_is_custom():
+            from Utils.ui_config import load_custom_proton_warning_ack
+            if not load_custom_proton_warning_ack():
+                from gui_qt.confirm_overlay import ConfirmOverlay
+                ConfirmOverlay.show_over(
+                    self,
+                    self.tr("Use custom Proton build?"),
+                    self.tr(
+                        "This Proton build was added manually and is outside "
+                        "Amethyst's supported configurations. Support cannot "
+                        "be provided for issues that occur while using it.\n\n"
+                        "Continue with {0}?").format(name),
+                    self._on_custom_warning_done,
+                    confirm_label=self.tr("Use Custom Build"),
+                    cancel_label=self.tr("Cancel"),
+                    danger=False,
+                )
+                return
+        self._save_and_continue()
+
+    def _on_custom_warning_done(self, accepted: bool):
+        if not accepted:
+            self.setVisible(True)
+            return
+        from Utils.ui_config import save_custom_proton_warning_ack
+        save_custom_proton_warning_ack(True)
+        self._save_and_continue()
+
+    def _save_and_continue(self):
         mode = self._current_prefix_mode()
         name = self._proton_combo.currentText()
         save_proton_override(self._game, self._tool_exe_name, name)

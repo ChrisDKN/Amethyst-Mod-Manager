@@ -664,13 +664,43 @@ def _proton_sort_key(name: str) -> tuple[int, tuple[int, ...], str]:
     return (0 if is_ge else 1, tuple(-n for n in nums), lower)
 
 
+def resolve_custom_proton_script(value: "str | Path | None" = None) -> Path | None:
+    """Resolve a configured build directory or top-level ``proton`` script."""
+    if value is None:
+        try:
+            from Utils.ui_config import load_custom_proton_path
+            value = load_custom_proton_path()
+        except Exception:
+            value = ""
+    if not value:
+        return None
+    try:
+        path = Path(value).expanduser()
+        script = path if path.is_file() else path / "proton"
+        return script if script.is_file() and script.name == "proton" else None
+    except OSError:
+        return None
+
+
+def is_custom_proton_script(script: "str | Path") -> bool:
+    custom = resolve_custom_proton_script()
+    if custom is None:
+        return False
+    try:
+        return Path(script).resolve() == custom.resolve()
+    except OSError:
+        return Path(script) == custom
+
+
 def list_installed_proton() -> list[Path]:
     """Return all installed Proton launcher scripts, sorted by _proton_sort_key.
 
     Covers the Steam roots (compatibilitytools.d + steamapps/common) and the
     Proton builds Heroic's Wine Manager downloads (the only source on
-    Steam-less systems, GH#320). Deduplicates by resolved path so symlinked
-    Steam roots (e.g. ~/.steam/steam) don't produce duplicate entries.
+    Steam-less systems, GH#320), plus one user-configured build. Deduplicates
+    by resolved path so symlinked Steam roots (e.g. ~/.steam/steam) don't
+    produce duplicate entries. The custom build is listed last so registering
+    one does not change the default selection in existing Proton pickers.
     """
     seen: set[Path] = set()
     candidates: list[Path] = []
@@ -714,6 +744,26 @@ def list_installed_proton() -> list[Path]:
         seen.add(resolved)
         candidates.append(proton_script)
     candidates.sort(key=lambda p: _proton_sort_key(p.parent.name))
+
+    custom = resolve_custom_proton_script()
+    if custom is not None:
+        try:
+            custom_resolved = custom.resolve()
+        except OSError:
+            custom_resolved = custom
+        custom_name = _normalize_tool_name(custom.parent.name)
+        filtered: list[Path] = []
+        for candidate in candidates:
+            try:
+                resolved = candidate.resolve()
+            except OSError:
+                resolved = candidate
+            if (resolved != custom_resolved
+                    and _normalize_tool_name(candidate.parent.name)
+                    != custom_name):
+                filtered.append(candidate)
+        candidates = filtered
+        candidates.append(custom)
     return candidates
 
 
@@ -740,12 +790,16 @@ def find_any_installed_proton(preferred_name: str = "") -> Path | None:
             if _normalize_tool_name(candidate.parent.name) == preferred_norm:
                 return candidate
 
+    standard = [c for c in candidates if not is_custom_proton_script(c)]
     proton_like = [
-        c for c in candidates
+        c for c in standard
         if c.parent.name.lower().startswith(("proton", "ge-proton"))
     ]
     if not proton_like:
-        proton_like = candidates
+        proton_like = standard
+
+    if not proton_like:
+        return candidates[-1]
 
     proton_like.sort(key=lambda p: _proton_sort_key(p.parent.name))
     return proton_like[0]
