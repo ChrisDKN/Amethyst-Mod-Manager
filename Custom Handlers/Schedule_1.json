@@ -10,6 +10,10 @@
   "additional_nexus_domains": [],
   "thunderstore_community": "schedule-i",
   "image_url": "https://cdn2.steamgriddb.com/icon_thumb/60a52d6250f2541bd7a002be5c30ab40.png",
+  "auto_install_deps": [
+    "vcredist",
+    "dotnet6"
+  ],
   "mod_folder_strip_prefixes": [
     "mods",
     "Mods"
@@ -70,6 +74,6 @@
   "custom_frameworks": {
     "Melon Loader": "version.dll"
   },
-  "version": 4,
+  "version": 5,
   "editable": false
 }

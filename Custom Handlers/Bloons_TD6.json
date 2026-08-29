@@ -10,6 +10,10 @@
   "additional_nexus_domains": [],
   "thunderstore_community": "bloons-td-6",
   "image_url": "https://cdn2.steamgriddb.com/icon/146ff1b077e7729999ed0b299a2fe639/32/256x256.png",
+  "auto_install_deps": [
+    "vcredist",
+    "dotnet6"
+  ],
   "mod_folder_strip_prefixes": [
     "mods",
     "Mods"
@@ -57,6 +61,6 @@
     "Melon Loader": "version.dll",
     "Btd6 Mod Helper": "Mods/Btd6Modhelper.dll"
   },
-  "version": 1,
+  "version": 2,
   "editable": false
 }
