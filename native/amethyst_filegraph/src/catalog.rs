@@ -46,6 +46,42 @@ fn now_ns() -> u64 {
         .unwrap_or(u64::MAX)
 }
 
+fn copy_deployed_state(source: &mut Connection, current_database: &Path) -> Result<()> {
+    let current_database = current_database.to_string_lossy();
+    source.execute(
+        "ATTACH DATABASE ?1 AS current_catalog",
+        [current_database.as_ref()],
+    )?;
+    let copied = (|| -> Result<()> {
+        let transaction = source.transaction()?;
+        transaction.execute("DELETE FROM profiles", [])?;
+        transaction.execute_batch(
+            "INSERT INTO profiles(
+                 profile_id, intent_hash, intent_payload, rules_hash,
+                 generation, inventory_generation, ready)
+             SELECT profile_id, intent_hash, intent_payload, rules_hash,
+                    generation, inventory_generation, 0
+             FROM current_catalog.profiles;
+             INSERT INTO deployed_entries(
+                 profile_id, target_key, destination_key, destination_display,
+                 candidate_id, mod_name, mod_key, provider_kind, source_rel,
+                 source_display, source_fingerprint, link_mode,
+                 deployed_generation)
+             SELECT profile_id, target_key, destination_key, destination_display,
+                    candidate_id, mod_name, mod_key, provider_kind, source_rel,
+                    source_display, source_fingerprint, link_mode,
+                    deployed_generation
+             FROM current_catalog.deployed_entries;",
+        )?;
+        transaction.commit()?;
+        Ok(())
+    })();
+    let detached = source
+        .execute_batch("DETACH DATABASE current_catalog")
+        .map_err(FileGraphError::from);
+    copied.and(detached)
+}
+
 /// Remove disposable persisted rows which reference a mod's current catalog
 /// identities before its candidates or the mod itself are replaced/deleted.
 ///
@@ -447,7 +483,11 @@ impl LibraryCore {
         checkpointed.and(synced)
     }
 
-    pub fn activate_catalog(&self, source_database: &Path) -> Result<()> {
+    pub fn activate_catalog(
+        &self,
+        source_database: &Path,
+        preserve_deployed_state: bool,
+    ) -> Result<()> {
         if source_database == self.database_path {
             return Err(FileGraphError::Invalid(
                 "replacement catalog must be a distinct sibling database".to_owned(),
@@ -462,7 +502,7 @@ impl LibraryCore {
             read_u64_meta(connection, "inventory_generation")?
         };
 
-        let source = Connection::open(source_database)?;
+        let mut source = Connection::open(source_database)?;
         crate::schema::configure_connection(&source)?;
         let check: String = source.query_row("PRAGMA quick_check(1)", [], |row| row.get(0))?;
         if check != "ok" {
@@ -480,6 +520,9 @@ impl LibraryCore {
             return Err(FileGraphError::Invalid(
                 "replacement catalog is not complete".to_owned(),
             ));
+        }
+        if preserve_deployed_state {
+            copy_deployed_state(&mut source, &self.database_path)?;
         }
         let replacement_generation = read_u64_meta(&source, "inventory_generation")?;
         let activated_generation = replacement_generation.max(old_generation.saturating_add(1));

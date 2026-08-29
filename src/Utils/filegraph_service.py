@@ -509,6 +509,24 @@ class ProfileSession:
                     if cached[0] is stale_plan:
                         self._deployment_projection_cache.pop(cache_key, None)
 
+    def _reset_after_catalog_rebuild(self, profile_id: str) -> None:
+        with self._deployment_prepare_lock:
+            with self._lock:
+                self._native = self.library._native.open_profile(profile_id)
+                self._snapshot = None
+                self._intent_identity = None
+                self._archive_inventory_generation = -1
+                self._archive_selection = ()
+                self._archive_records = ()
+                self._pending_deployment_plans.clear()
+                self._committed_deployment_plan = None
+                self._committed_deployment_mode = None
+                self._deployment_matches_committed = False
+                self._deployment_match_known = False
+                self._deployment_projection_cache.clear()
+                self._prepared_deployment_plan = None
+                self._deployed_entries_cache = None
+
     def ensure_reconciled(
         self,
         operation_hint: dict | None = None,
@@ -1068,10 +1086,11 @@ class LibrarySession:
                     temporary.replace_mod_manifest(pack(batch), token._native)
                 temporary.set_ready(True)
                 temporary.checkpoint()
-                self._native.activate_catalog(temporary.database_path)
+                self._native.activate_catalog(
+                    temporary.database_path, True)
                 self._variant_keys_cache = None
-                for profile in self._profiles.values():
-                    profile._invalidate_resolution_cache()
+                for profile_id, profile in self._profiles.items():
+                    profile._reset_after_catalog_rebuild(profile_id)
                 return self.status()
             except BaseException as exc:
                 if isinstance(exc, FileGraphCancelled):

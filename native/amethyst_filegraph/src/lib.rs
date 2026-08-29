@@ -148,9 +148,15 @@ impl LibrarySession {
         py.detach(move || core.checkpoint()).map_err(PyErr::from)
     }
 
-    fn activate_catalog(&self, py: Python<'_>, source_database: PathBuf) -> PyResult<()> {
+    #[pyo3(signature = (source_database, preserve_deployed_state=false))]
+    fn activate_catalog(
+        &self,
+        py: Python<'_>,
+        source_database: PathBuf,
+        preserve_deployed_state: bool,
+    ) -> PyResult<()> {
         let core = self.core.clone();
-        py.detach(move || core.activate_catalog(&source_database))
+        py.detach(move || core.activate_catalog(&source_database, preserve_deployed_state))
             .map_err(PyErr::from)
     }
 
