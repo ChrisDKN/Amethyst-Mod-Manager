@@ -47,6 +47,16 @@ HEROIC_APP_NAMES: dict[str, list[str]] = {
         "1897848199"],
     "FalloutNC": [
         "1168267909"],
+    "FalloutNV": [
+        "1312824873","1454587428",
+        "c8dae1ab0570475a8b38a9041e614840",
+        "7dcfb9cd9d134728b2646466c34c7b3b",
+        "562d4a2c1b3147b089a7c453e3ddbcbe",
+        "5daeb974a22a435988892319b3a4f476",
+        "ee9a44b4530942499ef1c8c390731fce",
+        "4fa3d8d9b2cb4714a19a38d1a598be8f",
+        "b290229eb58045cbab9501640f3278f3",
+        ],
 }
 
 
