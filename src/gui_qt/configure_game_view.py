@@ -2119,8 +2119,7 @@ class ConfigureGameView(QWidget):
         except Exception as exc:
             print(f"[gui_qt] profile structure create failed: {exc}", flush=True)
 
-        # Silently install this game's prefix dependencies (vcredist /
-        # d3dcompiler_47) in the background, exactly like the Tk add dialog did.
+        # Silently install this game's declared prefix dependencies.
         self._install_prefix_deps()
 
         self._on_done(True, False)
@@ -2204,8 +2203,8 @@ class ConfigureGameView(QWidget):
         """Silently install this game's prefix dependencies in the background.
 
         Two mechanisms, both skipped when no Proton prefix is available:
-          * ``auto_install_deps`` - vcredist / d3dcompiler_47 via the same
-            installers the Proton Tools menu uses (preferred; see base_game).
+          * ``auto_install_deps`` - curated native / winetricks / .NET
+            installers shared with the Proton Tools menu (see base_game).
           * ``winetricks_components`` - legacy winetricks verbs.
 
         Progress is reported via ``Utils.app_log.app_log`` (thread-safe; wired
@@ -2234,9 +2233,12 @@ class ConfigureGameView(QWidget):
                 install_vcredist,
                 install_winetricks_verb,
                 is_dep_installed,
+                dotnet_dep_key,
                 winetricks_verb_dep_key,
             )
-            from Utils.proton_tools import install_lavfilters
+            from Utils.proton_tools import (
+                DOTNET_VERSIONS, install_dotnet_runtime, install_lavfilters,
+            )
             from Utils.steam_finder import game_steam_id
 
             _proton: tuple = ()
@@ -2286,6 +2288,25 @@ class ConfigureGameView(QWidget):
                     app_log(f"{game.name}: auto-installing LAV Filters (radio/music codecs) …")
                     ok = install_lavfilters(game, log_fn=app_log)
                     (installed if ok else failed).append("lavfilters")
+                elif (dep.startswith("dotnet")
+                      and dep[len("dotnet"):] in DOTNET_VERSIONS):
+                    version = dep[len("dotnet"):]
+                    if is_dep_installed(prefix, dotnet_dep_key(version)):
+                        app_log(f"{game.name}: .NET {version} Desktop Runtime "
+                                "already installed - skipping.")
+                        skipped.append(dep)
+                        continue
+                    proton_script, env = _ensure_proton()
+                    if proton_script is None:
+                        app_log(f"{game.name}: skipping .NET {version} - no "
+                                "Proton prefix available.")
+                        skipped.append(dep)
+                        continue
+                    app_log(f"{game.name}: auto-installing .NET {version} "
+                            "Desktop Runtime …")
+                    ok = install_dotnet_runtime(
+                        version, proton_script, env, prefix, log_fn=app_log)
+                    (installed if ok else failed).append(dep)
                 elif dep in WINETRICKS_VERB_DEPS:
                     # Plain winetricks verbs (legacy DirectX redist DLLs).
                     # install_winetricks_verb does its own marker check, but

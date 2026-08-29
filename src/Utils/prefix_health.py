@@ -33,6 +33,7 @@ from pathlib import Path
 from typing import Callable
 
 from Utils import wine_reg
+from Utils.proton_tools import DOTNET_VERSIONS
 
 # --- Wine builtin detection -------------------------------------------------
 BUILTIN_MARKER = b"Wine builtin DLL"
@@ -412,6 +413,64 @@ def check_lavfilters(prefix_path: Path) -> HealthCheck:
                        None, evidence)
 
 
+# --- .NET Windows Desktop Runtime ------------------------------------------
+_DOTNET_VERSION_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$")
+_DOTNET_DESKTOP_PROBES = (
+    "WindowsBase.dll", "PresentationFramework.dll", "System.Windows.Forms.dll",
+)
+
+
+def _dotnet_desktop_versions(prefix_path: Path) -> list[str]:
+    pfx = wine_reg.normalize_pfx(Path(prefix_path))
+    dotnet_root = pfx / "drive_c" / "Program Files" / "dotnet"
+    shared = dotnet_root / "shared" / "Microsoft.WindowsDesktop.App"
+    if not (dotnet_root / "dotnet.exe").is_file() or not shared.is_dir():
+        return []
+
+    versions: list[str] = []
+    try:
+        children = list(shared.iterdir())
+    except OSError:
+        return []
+    for child in children:
+        if (child.is_dir() and _DOTNET_VERSION_RE.fullmatch(child.name)
+                and any((child / dll).is_file() for dll in _DOTNET_DESKTOP_PROBES)):
+            versions.append(child.name)
+    return sorted(versions, key=lambda value: tuple(
+        int(part) for part in _DOTNET_VERSION_RE.fullmatch(value).groups()[:3]))
+
+
+def _detect_dotnet_desktop(version: str):
+    def _detect(prefix_path: Path) -> "bool | None":
+        pfx = wine_reg.normalize_pfx(Path(prefix_path))
+        if not _prefix_usable(pfx):
+            return None
+        return any(item.split(".", 1)[0] == version
+                   for item in _dotnet_desktop_versions(pfx))
+    return _detect
+
+
+def _check_dotnet_desktop(version: str):
+    token = f"dotnet{version}"
+    label = f".NET {version} Desktop Runtime"
+
+    def _check(prefix_path: Path) -> HealthCheck:
+        pfx = wine_reg.normalize_pfx(Path(prefix_path))
+        versions = _dotnet_desktop_versions(pfx)
+        matching = [item for item in versions if item.split(".", 1)[0] == version]
+        evidence = {"required_major": version, "installed": versions}
+        if matching:
+            return HealthCheck(token, HealthStatus.OK, label,
+                               "installed: " + ", ".join(matching),
+                               None, evidence)
+        detail = f"not installed - no {version}.x Windows Desktop runtime found"
+        if versions:
+            detail += " (found " + ", ".join(versions) + ")"
+        return HealthCheck(token, HealthStatus.MISSING, label, detail,
+                           token, evidence)
+    return _check
+
+
 # --- game path in the prefix registry ---------------------------------------
 def _normalise_wine_path(value: str) -> str:
     """Fold a Wine path for comparison - case and trailing slash are moot."""
@@ -770,6 +829,13 @@ COMPONENT_SPECS: dict[str, ComponentSpec] = {
     "lavfilters": ComponentSpec(
         "lavfilters", "LAV Filters (DirectShow codecs)",
         detect_lavfilters, check_lavfilters, "lavfilters"),
+    **{
+        f"dotnet{_version}": ComponentSpec(
+            f"dotnet{_version}", f".NET {_version} Desktop Runtime",
+            _detect_dotnet_desktop(_version), _check_dotnet_desktop(_version),
+            f"dotnet{_version}")
+        for _version in DOTNET_VERSIONS
+    },
     **{
         _verb: ComponentSpec(_verb, _label,
                              _detect_dx_redist(_dlls), _check_dx_redist(_verb),

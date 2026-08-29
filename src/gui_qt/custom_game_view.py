@@ -17,13 +17,13 @@ import io
 import threading
 
 from PySide6.QtCore import Qt, Signal, QObject, QT_TRANSLATE_NOOP, QCoreApplication
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QAction, QFont
 
 from gui_qt.wheel_guard import no_wheel
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QLineEdit,
     QPushButton, QScrollArea, QFrame, QRadioButton, QCheckBox, QButtonGroup,
-    QComboBox, QPlainTextEdit, QGroupBox,
+    QComboBox, QPlainTextEdit, QGroupBox, QMenu,
 )
 
 from gui_qt.theme_qt import active_palette, bind_theme_icon, _c
@@ -42,6 +42,7 @@ from Games.Custom.custom_game import (
     save_custom_game_definition,
 )
 from Utils.config_paths import get_custom_game_images_dir
+from Utils.proton_tools import DOTNET_VERSIONS
 
 
 # Runtime passthrough used in the local _adv_fields list. The strings are
@@ -182,6 +183,65 @@ class _ImageSignals(QObject):
     status = Signal(str, str)   # (text, tone_key)
 
 
+class _StayOpenCheckMenu(QMenu):
+    def mouseReleaseEvent(self, event):
+        action = self.activeAction()
+        if action is not None and action.isEnabled() and action.isCheckable():
+            action.trigger()
+            return
+        super().mouseReleaseEvent(event)
+
+
+class _DependencyPicker(QPushButton):
+    def __init__(self, options, none_text: str, count_text: str, parent=None):
+        super().__init__(parent)
+        self._none_text = none_text
+        self._count_text = count_text
+        self._actions: dict[str, QAction] = {}
+        menu = _StayOpenCheckMenu(self)
+        for label, token in options:
+            if token is None:
+                menu.addSeparator()
+                continue
+            action = QAction(label, menu)
+            action.setCheckable(True)
+            action.toggled.connect(
+                lambda checked, dep=token: self._on_toggled(dep, checked))
+            menu.addAction(action)
+            self._actions[token] = action
+        self.setMenu(menu)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setMinimumWidth(230)
+        self._refresh_text()
+
+    def selected_tokens(self) -> list[str]:
+        return [token for token, action in self._actions.items()
+                if action.isChecked()]
+
+    def set_selected(self, tokens) -> None:
+        if isinstance(tokens, str):
+            tokens = [part.strip() for part in tokens.split(",") if part.strip()]
+        wanted = set(tokens or ())
+        for token, action in self._actions.items():
+            action.blockSignals(True)
+            action.setChecked(token in wanted)
+            action.blockSignals(False)
+        self._refresh_text()
+
+    def _on_toggled(self, _token: str, _checked: bool) -> None:
+        self._refresh_text()
+
+    def _refresh_text(self) -> None:
+        selected = [action.text() for action in self._actions.values()
+                    if action.isChecked()]
+        if not selected:
+            self.setText(self._none_text)
+        elif len(selected) == 1:
+            self.setText(selected[0])
+        else:
+            self.setText(self._count_text.format(len(selected)))
+
+
 class CustomGameView(QWidget):
     """*on_done(saved_defn: dict | None, deleted: bool)* is called after
     Save/Delete/Cancel so the window can refresh the game list and close the
@@ -252,6 +312,28 @@ class CustomGameView(QWidget):
         if placeholder:
             e.setPlaceholderText(placeholder)
         return e
+
+    def _dependency_options(self):
+        return [
+            (self.tr("VC++ Redistributable (x64)"), "vcredist"),
+            (None, None),
+            *[(self.tr(".NET {0} Desktop Runtime").format(version),
+               f"dotnet{version}") for version in DOTNET_VERSIONS],
+            (None, None),
+            (self.tr("d3dcompiler_47 (shader compiler)"), "d3dcompiler_47"),
+            (self.tr("LAV Filters (DirectShow codecs)"), "lavfilters"),
+            (self.tr("d3dx9 (all legacy DirectX 9 runtimes)"), "d3dx9"),
+            (self.tr("d3dx10 (all legacy DirectX 10 runtimes)"), "d3dx10"),
+            (self.tr("d3dx9_43 (legacy DirectX 9 runtime)"), "d3dx9_43"),
+            (self.tr("d3dx10_43 (legacy DirectX 10 runtime)"), "d3dx10_43"),
+            (self.tr("d3dx11_42 (legacy DirectX 11 runtime)"), "d3dx11_42"),
+            (self.tr("d3dx11_43 (legacy DirectX 11 runtime)"), "d3dx11_43"),
+            (self.tr("d3dcompiler_42 (legacy shader compiler)"), "d3dcompiler_42"),
+            (self.tr("d3dcompiler_43 (legacy shader compiler)"), "d3dcompiler_43"),
+            (self.tr("d3dcompiler_46 (legacy shader compiler)"), "d3dcompiler_46"),
+            (self.tr("quartz (DirectShow runtime)"), "quartz"),
+            (self.tr("dx8vb (DirectX 8 Visual Basic runtime)"), "dx8vb"),
+        ]
 
     # ---- section + row builders (settings_view look) ----------------------
     def _section(self, title: str) -> QGridLayout:
@@ -449,6 +531,19 @@ class CustomGameView(QWidget):
             self.tr("Path relative to the game root where mod files are installed. "
             "e.g. 'Data' for Bethesda games, 'BepInEx/plugins' for BepInEx. "
             "Leave empty to target the game root directly."))
+
+        # --- Windows Prefix ---
+        g = self._section(self.tr("Windows Prefix"))
+        self._dependency_picker = _DependencyPicker(
+            self._dependency_options(), self.tr("None selected"),
+            self.tr("{0} dependencies selected"))
+        self._dependency_picker.set_selected(["vcredist"])
+        self._field_row(
+            g, self.tr("Auto-install Dependencies"), self._dependency_picker,
+            self.tr("Selected components are installed automatically after the "
+                    "game and prefix configuration is saved. They are skipped "
+                    "when no Windows prefix is configured and are also shown "
+                    "in Prefix Health Check."))
 
         # --- Store & Artwork ---
         g = self._section(self.tr("Store & Artwork"))
@@ -1068,6 +1163,8 @@ class CustomGameView(QWidget):
             _set_to_str(e.get("additional_nexus_domains", [])))
         self._thunderstore_edit.setText(e.get("thunderstore_community", ""))
         self._image_edit.setText(e.get("image_url", ""))
+        self._dependency_picker.set_selected(
+            e.get("auto_install_deps", ["vcredist"]))
 
         self._adv_edits["mod_folder_strip_prefixes"].setText(
             _set_to_str(e.get("mod_folder_strip_prefixes", [])))
@@ -1234,6 +1331,7 @@ class CustomGameView(QWidget):
             "thunderstore_community":
                 self._thunderstore_edit.text().strip().lower(),
             "image_url":         image_url,
+            "auto_install_deps": self._dependency_picker.selected_tokens(),
             "mod_folder_strip_prefixes":
                 _str_to_list(self._adv_edits["mod_folder_strip_prefixes"].text()),
             "conflict_ignore_filenames":

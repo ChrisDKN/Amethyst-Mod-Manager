@@ -14,7 +14,8 @@ JSON format (~/.config/AmethystModManager/custom_games/<game_id>.json):
   "nexus_game_domain": "",           // optional Nexus domain slug
   "additional_nexus_domains": [],     // optional extra Nexus domain slugs
   "thunderstore_community": "",      // optional Thunderstore community slug
-  "image_url":         ""            // optional banner image URL
+  "image_url":         "",           // optional banner image URL
+  "auto_install_deps": ["vcredist", "dotnet6"], // optional prefix dependencies
   "editable":          true          // false = skip definition editor on reconfigure (for repo handlers);
                                      // dev mode ignores this so repo handlers stay editable
 }
@@ -555,6 +556,12 @@ class StandardCustomGame(ProfileVFSGameMixin, BaseGame):
         return _defn_to_dll_overrides(self._defn)
 
     @property
+    def auto_install_deps(self) -> list[str]:
+        if "auto_install_deps" not in self._defn:
+            return list(super().auto_install_deps)
+        return _defn_to_list(self._defn, "auto_install_deps")
+
+    @property
     def restore_before_deploy(self) -> bool:
         return bool(self._defn.get("restore_before_deploy", True))
 
@@ -1056,6 +1063,12 @@ class Ue5CustomGame(UE5Game):
     @property
     def wine_dll_overrides(self) -> dict[str, str]:
         return _defn_to_dll_overrides(self._defn)
+
+    @property
+    def auto_install_deps(self) -> list[str]:
+        if "auto_install_deps" not in self._defn:
+            return list(super().auto_install_deps)
+        return _defn_to_list(self._defn, "auto_install_deps")
 
     @property
     def restore_before_deploy(self) -> bool:

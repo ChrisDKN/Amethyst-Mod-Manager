@@ -133,6 +133,10 @@ def is_dep_installed(prefix_path: Path, key: str) -> bool:
         return True
     token = _DETECTABLE_DEPS.get(key)
     if token is None:
+        match = re.fullmatch(r"dotnet(\d+)_windowsdesktop", key)
+        if match:
+            token = f"dotnet{match.group(1)}"
+    if token is None:
         return False
     try:
         from Utils.prefix_health import detect_component

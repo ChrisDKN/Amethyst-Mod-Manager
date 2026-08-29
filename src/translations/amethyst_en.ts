@@ -3071,6 +3071,66 @@ When it completes, the app switches to the new profile - then come back here and
         <translation>When enabled (default), folder names that differ only in case across mods are unified to a single casing. Disable for Linux-native games where folder casing is significant.</translation>
     </message>
     <message>
+        <source>VC++ Redistributable (x64)</source>
+        <translation>VC++ Redistributable (x64)</translation>
+    </message>
+    <message>
+        <source>.NET {0} Desktop Runtime</source>
+        <translation>.NET {0} Desktop Runtime</translation>
+    </message>
+    <message>
+        <source>d3dcompiler_47 (shader compiler)</source>
+        <translation>d3dcompiler_47 (shader compiler)</translation>
+    </message>
+    <message>
+        <source>LAV Filters (DirectShow codecs)</source>
+        <translation>LAV Filters (DirectShow codecs)</translation>
+    </message>
+    <message>
+        <source>d3dx9 (all legacy DirectX 9 runtimes)</source>
+        <translation>d3dx9 (all legacy DirectX 9 runtimes)</translation>
+    </message>
+    <message>
+        <source>d3dx10 (all legacy DirectX 10 runtimes)</source>
+        <translation>d3dx10 (all legacy DirectX 10 runtimes)</translation>
+    </message>
+    <message>
+        <source>d3dx9_43 (legacy DirectX 9 runtime)</source>
+        <translation>d3dx9_43 (legacy DirectX 9 runtime)</translation>
+    </message>
+    <message>
+        <source>d3dx10_43 (legacy DirectX 10 runtime)</source>
+        <translation>d3dx10_43 (legacy DirectX 10 runtime)</translation>
+    </message>
+    <message>
+        <source>d3dx11_42 (legacy DirectX 11 runtime)</source>
+        <translation>d3dx11_42 (legacy DirectX 11 runtime)</translation>
+    </message>
+    <message>
+        <source>d3dx11_43 (legacy DirectX 11 runtime)</source>
+        <translation>d3dx11_43 (legacy DirectX 11 runtime)</translation>
+    </message>
+    <message>
+        <source>d3dcompiler_42 (legacy shader compiler)</source>
+        <translation>d3dcompiler_42 (legacy shader compiler)</translation>
+    </message>
+    <message>
+        <source>d3dcompiler_43 (legacy shader compiler)</source>
+        <translation>d3dcompiler_43 (legacy shader compiler)</translation>
+    </message>
+    <message>
+        <source>d3dcompiler_46 (legacy shader compiler)</source>
+        <translation>d3dcompiler_46 (legacy shader compiler)</translation>
+    </message>
+    <message>
+        <source>quartz (DirectShow runtime)</source>
+        <translation>quartz (DirectShow runtime)</translation>
+    </message>
+    <message>
+        <source>dx8vb (DirectX 8 Visual Basic runtime)</source>
+        <translation>dx8vb (DirectX 8 Visual Basic runtime)</translation>
+    </message>
+    <message>
         <source>Edit Custom Game</source>
         <translation>Edit Custom Game</translation>
     </message>
@@ -3277,6 +3337,26 @@ When it completes, the app switches to the new profile - then come back here and
     <message>
         <source>Deployment</source>
         <translation>Deployment</translation>
+    </message>
+    <message>
+        <source>Windows Prefix</source>
+        <translation>Windows Prefix</translation>
+    </message>
+    <message>
+        <source>None selected</source>
+        <translation>None selected</translation>
+    </message>
+    <message>
+        <source>{0} dependencies selected</source>
+        <translation>{0} dependencies selected</translation>
+    </message>
+    <message>
+        <source>Auto-install Dependencies</source>
+        <translation>Auto-install Dependencies</translation>
+    </message>
+    <message>
+        <source>Selected components are installed automatically after the game and prefix configuration is saved. They are skipped when no Windows prefix is configured and are also shown in Prefix Health Check.</source>
+        <translation>Selected components are installed automatically after the game and prefix configuration is saved. They are skipped when no Windows prefix is configured and are also shown in Prefix Health Check.</translation>
     </message>
     <message>
         <source>Store &amp; Artwork</source>
@@ -11444,6 +11524,10 @@ Re-scan to verify.</translation>
         <source>Version mismatched masters:</source>
         <translation>Version mismatched masters:</translation>
     </message>
+    <message>
+        <source>This plugin is classified as OpenMW groundcover. When enabled, it loads as groundcover instead of normal content. OpenMW's settings.cfg must also contain [Groundcover] enabled = true.</source>
+        <translation>This plugin is classified as OpenMW groundcover. When enabled, it loads as groundcover instead of normal content. OpenMW's settings.cfg must also contain [Groundcover] enabled = true.</translation>
+    </message>
 </context>
 <context>
     <name>PluginGroupsView</name>
@@ -11527,6 +11611,10 @@ Re-scan to verify.</translation>
         <translation>Enable selected ({0})</translation>
     </message>
     <message>
+        <source>Groundcover setting save failed: {0}</source>
+        <translation>Groundcover setting save failed: {0}</translation>
+    </message>
+    <message>
         <source>Mark as Light (ESL)</source>
         <translation>Mark as Light (ESL)</translation>
     </message>
@@ -11577,6 +11665,22 @@ Re-scan to verify.</translation>
     <message>
         <source>Show userlist rules…</source>
         <translation>Show userlist rules…</translation>
+    </message>
+    <message>
+        <source>Use as normal OpenMW content</source>
+        <translation>Use as normal OpenMW content</translation>
+    </message>
+    <message>
+        <source>Use as OpenMW groundcover</source>
+        <translation>Use as OpenMW groundcover</translation>
+    </message>
+    <message>
+        <source>Use selected as normal OpenMW content ({0})</source>
+        <translation>Use selected as normal OpenMW content ({0})</translation>
+    </message>
+    <message>
+        <source>Use selected as OpenMW groundcover ({0})</source>
+        <translation>Use selected as OpenMW groundcover ({0})</translation>
     </message>
 </context>
 <context>
@@ -11665,6 +11769,10 @@ Drag a plugin from the left pane to add a rule.</translation>
     <message>
         <source>Fix</source>
         <translation>Fix</translation>
+    </message>
+    <message>
+        <source>.NET {0} Desktop Runtime</source>
+        <translation>.NET {0} Desktop Runtime</translation>
     </message>
     <message>
         <source>Proton prefix</source>

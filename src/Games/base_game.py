@@ -1500,10 +1500,12 @@ class BaseGame(ABC):
     def auto_install_deps(self) -> list[str]:
         """
         Prefix dependencies to install automatically when this game is first
-        added, using the *same installers the Proton Tools menu uses* (not
-        winetricks). Supported keys: ``"vcredist"`` (Microsoft's official
-        vc_redist.x64.exe, run silently via Proton) and ``"d3dcompiler_47"``
-        (the Mozilla fxc2 Win 8.1 DLL drop).
+        added, using the same curated installers the Proton Tools menu uses.
+        Supported keys include ``"vcredist"`` (Microsoft's
+        official vc_redist.x64.exe), ``"d3dcompiler_47"`` (the Mozilla fxc2
+        Win 8.1 DLL drop), ``"dotnet6"`` (and the other .NET Desktop Runtime
+        versions offered by Proton Tools), ``"lavfilters"``, and the curated
+        legacy DirectX winetricks verbs in ``protontricks.WINETRICKS_VERB_DEPS``.
 
         These run silently in the background and are skipped per-dep when the
         prefix's amethyst_deps.json already records them, or when no Proton
