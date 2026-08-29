@@ -315,15 +315,14 @@ class BaseGame(ABC):
         return False
 
     @property
-    def default_deploy_mode(self) -> str:
+    def default_deploy_mode(self) -> str | None:
         """
-        The deploy method pre-selected in the configure dialog.
-        Returns ``"symlink"`` by default.  Override to ``"hardlink"`` for games
-        where symlinks are unsupported (e.g. Cyberpunk 2077 with CET mods).
-        The configure dialog will show "(Recommended)" next to whichever option
-        this returns.
+        The recommended deploy method in the configure menus.
+        Override with ``"symlink"`` or ``"hardlink"`` when a game needs a
+        specific method. The configure menus only mark explicit choices as
+        recommended.
         """
-        return "symlink"
+        return None
 
     @property
     def vfs_deploy_active(self) -> bool:

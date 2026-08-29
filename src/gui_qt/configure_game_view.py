@@ -563,7 +563,7 @@ class ConfigureGameView(QWidget):
 
         # --- Deploy method ---
         ov.addWidget(self._section_header(self.tr("Deploy Method")))
-        rec = getattr(self._game, "default_deploy_mode", "symlink")
+        rec = getattr(self._game, "default_deploy_mode", None)
         self._deploy_group = QButtonGroup(self)
         self._rb_symlink = QRadioButton(
             self.tr("Symlink (Recommended)") if rec == "symlink" else self.tr("Symlink"))
@@ -769,8 +769,9 @@ class ConfigureGameView(QWidget):
             # configured path until they pick one.
             self._start_game_scan(auto_apply=False)
         else:
-            self._rb_symlink.setChecked(rec_is_symlink := (
-                getattr(g, "default_deploy_mode", "symlink") == "symlink"))
+            default_mode = getattr(g, "default_deploy_mode", None) or "symlink"
+            self._rb_symlink.setChecked(
+                rec_is_symlink := default_mode == "symlink")
             if not rec_is_symlink:
                 self._rb_hardlink.setChecked(True)
             # Fresh-game option defaults (mirror the Tk BooleanVar initials in

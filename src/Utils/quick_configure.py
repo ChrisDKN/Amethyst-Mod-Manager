@@ -76,7 +76,7 @@ def build_quick_configure_options(game) -> list[dict[str, Any]]:
 
     # --- Deploy method (Symlink / Hardlink / optional VFS) ------------------
     if hasattr(game, "set_deploy_mode") and hasattr(game, "get_deploy_mode"):
-        rec = getattr(game, "default_deploy_mode", "symlink")
+        rec = getattr(game, "default_deploy_mode", None)
         supports_vfs = bool(
             (getattr(game, "supports_vfs_deploy", False)
              or getattr(game, "supports_profile_vfs", False))
