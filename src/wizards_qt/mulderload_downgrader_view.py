@@ -90,6 +90,17 @@ def _cleanup_leftovers(game_root: Path, exe_names: "list[str]", log) -> None:
         log(f"cleanup: scanning for .xdelta files failed: {exc}")
 
 
+def _cleanup_captured_exes(root_folder: Path, exe_names: "list[str]", log) -> None:
+    for exe_name in exe_names:
+        target = root_folder / exe_name
+        try:
+            if target.is_file() or target.is_symlink():
+                target.unlink()
+                log(f"cleanup: removed captured downgrader {target}")
+        except Exception as exc:
+            log(f"cleanup: could not remove {target}: {exc}")
+
+
 class MulderLoadDowngraderView(WizardViewBase):
     """Fetch the newest available downgrader and run it via Proton."""
 
@@ -207,6 +218,9 @@ class MulderLoadDowngraderView(WizardViewBase):
                         _cleanup_leftovers(
                             Path(game_root), [self._game_exe, self._ck_exe],
                             log)
+                    _cleanup_captured_exes(
+                        self._game.get_effective_root_folder_path(),
+                        [self._game_exe, self._ck_exe], log)
                 except Exception as exc:
                     log(f"cleanup failed: {exc}")
 
@@ -221,6 +235,26 @@ class MulderLoadDowngraderView(WizardViewBase):
     def _goto_step(self, idx: int):
         self._stack.setCurrentIndex(idx)
         if idx == _PG_DOWNLOAD:
+            log = lambda message: self._log(
+                f"{self._display_name} Wizard: {message}")
+            try:
+                _cleanup_captured_exes(
+                    self._game.get_effective_root_folder_path(),
+                    [self._game_exe, self._ck_exe], log)
+            except Exception as exc:
+                log(f"cleanup failed: {exc}")
+            # Restore before the download enters the game root. A restore made
+            # afterwards treats the new exe as a runtime file and moves it into
+            # Root_Folder/, leaving the run step pointing at a missing file.
+            if getattr(self._game, "get_deploy_active", lambda: False)():
+                self._log(
+                    f"{self._display_name} Wizard: modlist is deployed - "
+                    "restoring before downloading the downgrader (stays "
+                    "restored; Deploy again when you are ready).")
+                if self._run_ctx_restore(
+                        self._download_status, self._start_download_after_restore):
+                    return
+                return
             self._start_download()
         elif idx == _PG_PROTON:
             from Utils.exe_launch import PREFIX_MODE_GAME
@@ -236,26 +270,11 @@ class MulderLoadDowngraderView(WizardViewBase):
                     "Close and reopen the wizard to try again.").format(
                         self._display_name))
         elif idx == _PG_RUN:
-            # The downgrader rewrites the game exe and patches files in the
-            # game root. If a profile is deployed, Data is a tree of symlinks
-            # into the mods store - the patcher would write THROUGH them and
-            # corrupt managed mod files - and anything it creates is absent
-            # from the deploy snapshot, so the next restore would sweep it
-            # into overwrite/ as runtime files. Restore first and downgrade a
-            # vanilla root. The modlist is left restored afterwards - Deploy
-            # again once the downgrade is verified.
-            if getattr(self._game, "get_deploy_active", lambda: False)():
-                self._log(
-                    f"{self._display_name} Wizard: modlist is deployed - "
-                    "restoring before downgrading (stays restored; Deploy "
-                    "again when you are ready).")
-                if self._run_ctx_restore(self._run_status, self._start_run):
-                    self._did_restore = True
-                    return
-                # Restore couldn't start - fall through and downgrade the
-                # deployed root rather than dead-ending (matches the FO3
-                # downgrade wizard).
             self._start_run()
+
+    def _start_download_after_restore(self):
+        self._did_restore = True
+        self._start_download()
 
     # ---- download ---------------------------------------------------------------
     def _start_download(self):

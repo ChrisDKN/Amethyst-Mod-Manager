@@ -11670,14 +11670,14 @@ class MainWindow(QMainWindow):
             self._set_deploy_buttons_enabled(True)
         if self._progress_popup is not None:
             self._schedule_op_clear(1200)
-        # Any deploy (manual OR auto) is followed by a modlist reload → conflict
+        # A deploy or explicit restore is followed by a modlist reload → conflict
         # rebuild → _on_conflicts_ready. With auto_deploy on, that rebuild would
-        # otherwise start a *fresh* auto-deploy every time (an endless loop, and
-        # an extra deploy even after a manual Deploy press). Arm the guard so the
-        # rebuild caused by THIS deploy's reload is swallowed. (Tk parity: the
-        # gui.py entry path + top_bar._on_deploy_finished both set this flag.)
+        # otherwise start a fresh deploy. For deploy this loops; for restore it
+        # immediately undoes the requested restore. Arm the guard so either
+        # operation's own rebuild is swallowed.
         game = self._gs.game
-        if (kind == "deploy" and game is not None and game.is_configured()
+        if (kind in ("deploy", "restore")
+                and game is not None and game.is_configured()
                 and getattr(game, "auto_deploy", False)):
             self._auto_deploy_in_progress = True
         self._deploy_refresh_pending = kind == "deploy"
