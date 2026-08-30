@@ -46,6 +46,31 @@ def resolve_compat_data(prefix_path: Path) -> Path:
     return parent
 
 
+def normalize_prefix_path(prefix_path: Path) -> Path:
+    """Return the pfx/ folder for a hand-typed prefix path.
+
+    Callers store the prefix root (the folder holding drive_c/), and derive
+    compat_data from it via resolve_compat_data. Typing the compatdata/<id>
+    parent instead is an easy mistake: the launch env still works (Proton
+    appends pfx itself), but every drive_c-relative path built off the stored
+    value silently loses the pfx/ segment - plugins.txt then lands outside the
+    prefix, where the game never reads it.
+
+    Only rewrites when the answer is unambiguous: no drive_c here, a real
+    pfx/drive_c one level down. Heroic/Lutris/Faugus prefixes - where pfx is a
+    self-referencing symlink, or absent - are left exactly as given.
+    """
+    try:
+        if (prefix_path / "drive_c").is_dir():
+            return prefix_path
+        pfx = prefix_path / "pfx"
+        if pfx.is_symlink() or not (pfx / "drive_c").is_dir():
+            return prefix_path
+        return pfx
+    except OSError:
+        return prefix_path
+
+
 def read_prefix_runner(compat_data: Path) -> str:
     """Read the Proton runner name from <compat_data>/config_info (first line).
     Returns an empty string if the file is absent or unreadable."""

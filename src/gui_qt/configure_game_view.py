@@ -1172,9 +1172,10 @@ class ConfigureGameView(QWidget):
             self._probe_version(path)
 
     def _on_prefix_typed(self):
+        from Utils.proton_prefix import normalize_prefix_path
         self._prefix_scan_gen += 1
         text = self._prefix_edit.text().strip()
-        self._found_prefix = Path(text) if text else None
+        self._found_prefix = normalize_prefix_path(Path(text)) if text else None
 
     def _on_appimage_typed(self):
         text = self._appimage_edit.text().strip()
@@ -1909,8 +1910,10 @@ class ConfigureGameView(QWidget):
                     f"color:{self._c('TEXT_ERR')};")
                 return
         else:
+            from Utils.proton_prefix import normalize_prefix_path
             prefix_text = self._prefix_edit.text().strip()
-            self._found_prefix = Path(prefix_text) if prefix_text else None
+            self._found_prefix = (
+                normalize_prefix_path(Path(prefix_text)) if prefix_text else None)
         if self._found_path is None and self._game_edit.text().strip():
             self._found_path = Path(self._game_edit.text().strip())
         if self._found_path is None:
