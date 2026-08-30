@@ -4,6 +4,7 @@ py.install_sources(
   'amethyst.py',
   'breeze.py',
   'breezelight.py',
+  'catppuccin.py',
   'cyberpunk.py',
   'dark.py',
   'light.py',

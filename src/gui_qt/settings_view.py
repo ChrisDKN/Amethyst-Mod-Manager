@@ -33,7 +33,7 @@ per-section footer that `_finish_section` flushes at the bottom of the group.
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal, QRectF, QSize
+from PySide6.QtCore import Qt, Signal, QRect, QRectF, QSize
 from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QScrollArea, QFrame,
@@ -155,6 +155,9 @@ class SettingsView(OverlayBase):
 
     # Stable width for the language selector within the common settings grid.
     COMBO_W = 180
+
+    # Width of one theme-gallery tile holder (preview square + wrapped name).
+    THEME_TILE_W = 108
 
     def __init__(self, window, on_closed=None):
         super().__init__(window, on_done=on_closed)
@@ -658,11 +661,29 @@ class SettingsView(OverlayBase):
                     else ordered_ids[0])
 
         self._theme_buttons: dict[str, _ThemePreviewButton] = {}
+
+        # FlowLayout sizes its rows from sizeHint(), which ignores word
+        # wrapping - a name that wraps to two lines (e.g. "Catppuccin Mocha")
+        # would otherwise overflow its row and paint over the tile below.
+        # Measure the tallest wrapped name once and reserve that height on
+        # every holder, so rows never overlap and the grid stays aligned.
+        text_w = self.THEME_TILE_W - 4          # holder margins (2 + 2)
+        metrics = self.fontMetrics()
+        label_h = max(
+            metrics.boundingRect(
+                QRect(0, 0, text_w, 0),
+                int(Qt.TextWordWrap | Qt.AlignHCenter),
+                names.get(t, t.replace("_", " ").title())).height()
+            for t in ordered_ids)
+        # A long custom-theme name must not stretch every tile in the gallery;
+        # cap the reserved band at two lines and let the rest elide.
+        label_h = min(label_h, metrics.height() * 2)
+
         for tid in ordered_ids:
             display = names.get(tid, tid.replace("_", " ").title())
             holder = QWidget()
             holder.setObjectName("ThemeOption")
-            holder.setFixedWidth(108)
+            holder.setFixedWidth(self.THEME_TILE_W)
             holder.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
             layout = QVBoxLayout(holder)
             layout.setContentsMargins(2, 2, 2, 2)
@@ -680,6 +701,7 @@ class SettingsView(OverlayBase):
             label.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
             label.setWordWrap(True)
             label.setToolTip(display)
+            label.setFixedHeight(label_h)
             layout.addWidget(label)
             self._theme_buttons[tid] = tile
             gallery.addWidget(holder)
