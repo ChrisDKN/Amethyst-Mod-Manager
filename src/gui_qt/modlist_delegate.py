@@ -10,6 +10,8 @@ Colours come from the active palette so themes carry over.
 
 from __future__ import annotations
 
+from functools import lru_cache
+
 from PySide6.QtCore import Qt, QRect, QSize, QEvent, QT_TRANSLATE_NOOP
 from PySide6.QtGui import (
     QColor, QFont, QFontMetrics, QPen, QBrush, QLinearGradient,
@@ -190,6 +192,63 @@ def _sep_gradient(base: QColor, r) -> QLinearGradient:
     return g
 
 
+# Target contrast ratio of the strike line against the band behind it. ~2.1
+# reads clearly at 1px without competing with the label (which sits at 5-12).
+_SEP_RULE_CONTRAST = 1.5
+_SEP_RULE_ALPHA_MIN = 60
+_SEP_RULE_ALPHA_MAX = 160
+
+
+def _rel_luminance(c: QColor) -> float:
+    """WCAG relative luminance of *c* (sRGB, 0.0-1.0)."""
+    def _lin(v: float) -> float:
+        return v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4
+    return (0.2126 * _lin(c.redF()) + 0.7152 * _lin(c.greenF())
+            + 0.0722 * _lin(c.blueF()))
+
+
+def _contrast_ratio(a: QColor, b: QColor) -> float:
+    """WCAG contrast ratio between two opaque colours (1.0-21.0)."""
+    l1, l2 = sorted((_rel_luminance(a), _rel_luminance(b)), reverse=True)
+    return (l1 + 0.05) / (l2 + 0.05)
+
+
+@lru_cache(maxsize=64)
+def _sep_rule_alpha(text_rgb: int, band_rgb: int) -> int:
+    """Alpha that puts *text_rgb* over *band_rgb* at _SEP_RULE_CONTRAST.
+
+    Solved rather than fixed: themes vary a lot in how strongly TEXT_SEP reads
+    against BG_SEP (5.2 in light, 11.8 in adwaita), so one flat alpha leaves the
+    weaker ones washed out. Keying on the achieved contrast instead makes the
+    line equally visible everywhere, custom separator colours included. Cached
+    because paint() runs per visible cell."""
+    text, band = QColor.fromRgb(text_rgb), QColor.fromRgb(band_rgb)
+    # Monotonic in alpha, so a plain scan at integer precision is enough.
+    for a in range(_SEP_RULE_ALPHA_MIN, _SEP_RULE_ALPHA_MAX + 1):
+        f = a / 255.0
+        mixed = QColor.fromRgbF(
+            text.redF() * f + band.redF() * (1 - f),
+            text.greenF() * f + band.greenF() * (1 - f),
+            text.blueF() * f + band.blueF() * (1 - f))
+        if _contrast_ratio(mixed, band) >= _SEP_RULE_CONTRAST:
+            return a
+    return _SEP_RULE_ALPHA_MAX
+
+
+def _sep_rule_pen(text_color: QColor, band: QColor) -> QPen:
+    """1px pen for a separator's strike line, derived from its *text_color*.
+
+    BORDER is tuned for panel edges against the deep window background, so on
+    the lighter BG_SEP band it lands at a 1.0-1.7 contrast ratio - invisible in
+    every theme. The separator's own text colour is guaranteed to read against
+    the band it sits on (including user-picked custom colours, where it comes
+    from _contrasting_text_color), so the rule borrows it at the alpha that
+    hits _SEP_RULE_CONTRAST: clearly visible, still subordinate to the label."""
+    c = QColor(text_color)
+    c.setAlpha(_sep_rule_alpha(QColor(text_color).rgb(), QColor(band).rgb()))
+    return QPen(c, 1)
+
+
 # Row metrics - ~10% larger than the Tk baseline (30px) for readability.
 ROW_H = 33
 SEP_H = 33
@@ -281,7 +340,9 @@ class ModRowDelegate(QStyledItemDelegate):
                 # Reverse-priority float divider: a thin dashed centred line on
                 # a plain row background, no controls (Tk BOUNDARY_NAME row).
                 p.fillRect(r, self.c_row)
-                pen = QPen(self.c_border, 1)
+                # Sits on the plain row background, so it keys off TEXT_DIM
+                # rather than the separator band's TEXT_SEP.
+                pen = _sep_rule_pen(self.c_text_dim, self.c_row)
                 pen.setStyle(Qt.PenStyle.DashLine)
                 p.setPen(pen)
                 cy = r.center().y()
@@ -294,29 +355,41 @@ class ModRowDelegate(QStyledItemDelegate):
             # selection / cross-panel highlight band overrides it (Tk parity).
             custom = index.model().sep_color(e.name)
             sep_text = None
+            # The band actually filled below - the strike line contrasts
+            # against this, not against the default BG_SEP.
             if selected:
-                p.fillRect(r, self.c_sel)
+                sep_band = self.c_sel
+                p.fillRect(r, sep_band)
             elif sep_hl == 2:
-                p.fillRect(r, self.c_hl_anchor)
+                sep_band = self.c_hl_anchor
+                p.fillRect(r, sep_band)
             elif sep_hl == 3:
-                p.fillRect(r, self.c_hl_requires)
+                sep_band = self.c_hl_requires
+                p.fillRect(r, sep_band)
             elif sep_hl == -3:
-                p.fillRect(r, self.c_hl_required_by)
+                sep_band = self.c_hl_required_by
+                p.fillRect(r, sep_band)
             elif sep_hl == 1:
-                p.fillRect(r, self.c_hl_higher)
+                sep_band = self.c_hl_higher
+                p.fillRect(r, sep_band)
             elif sep_hl == -1:
-                p.fillRect(r, self.c_hl_lower)
+                sep_band = self.c_hl_lower
+                p.fillRect(r, sep_band)
             elif e.name == OVERWRITE_NAME:
-                p.fillRect(r, _sep_gradient(self.c_overwrite_bg, r))
+                sep_band = self.c_overwrite_bg
+                p.fillRect(r, _sep_gradient(sep_band, r))
             elif e.name == ROOT_FOLDER_NAME:
-                p.fillRect(r, _sep_gradient(self.c_root_bg, r))
+                sep_band = self.c_root_bg
+                p.fillRect(r, _sep_gradient(sep_band, r))
             elif custom:
-                p.fillRect(r, _sep_gradient(QColor(custom), r))
+                sep_band = QColor(custom)
+                p.fillRect(r, _sep_gradient(sep_band, r))
                 sep_text = QColor(_contrasting_text_color(custom))
             else:
-                p.fillRect(r, _sep_gradient(self.c_sep_bg, r))
+                sep_band = self.c_sep_bg
+                p.fillRect(r, _sep_gradient(sep_band, r))
             if index.column() == COL_NAME:
-                self._paint_separator(p, r, e, index, sep_text)
+                self._paint_separator(p, r, e, index, sep_text, sep_band)
             p.restore()
             return
 
@@ -389,9 +462,10 @@ class ModRowDelegate(QStyledItemDelegate):
         except Exception:
             return r
 
-    def _paint_separator(self, p, r, e, index, text_color=None):
+    def _paint_separator(self, p, r, e, index, text_color=None, band=None):
         model = index.model()
         text_color = text_color or self.c_sep_text
+        band = band if band is not None else self.c_sep_bg
         # Boundary separators (Overwrite / Root Folder) are pinned + not
         # collapsible/lockable: just a centred name + strikethrough, no controls.
         from gui_qt.modlist_model import (_BOUNDARY_NAMES, ROOT_FOLDER_NAME,
@@ -407,12 +481,12 @@ class ModRowDelegate(QStyledItemDelegate):
             label = e.display_name if n is None else f"{e.display_name}   ({n})"
             tw = p.fontMetrics().horizontalAdvance(label)
             cx = nr.center().x(); gap = tw // 2 + 12
-            p.setPen(QPen(self.c_border, 1))
-            p.drawLine(r.left() + 6, cy, cx - gap, cy)
-            p.drawLine(cx + gap, cy, r.right() - 6, cy)
             txt = (self.c_overwrite_text if e.name == OVERWRITE_NAME
                    else self.c_root_text if e.name == ROOT_FOLDER_NAME
                    else self.c_sep_text)
+            p.setPen(_sep_rule_pen(txt, band))
+            p.drawLine(r.left() + 6, cy, cx - gap, cy)
+            p.drawLine(cx + gap, cy, r.right() - 6, cy)
             p.setPen(txt)
             p.drawText(nr, Qt.AlignVCenter | Qt.AlignHCenter, label)
             return
@@ -450,7 +524,7 @@ class ModRowDelegate(QStyledItemDelegate):
             # Strikethrough line across the row, broken around the centred name
             # (Tk-style - makes separators easy to distinguish). The left line
             # starts just past the collapse arrow so it doesn't run under it.
-            p.setPen(QPen(self.c_border, 1))
+            p.setPen(_sep_rule_pen(text_color, band))
             gap = tw // 2 + 12
             left_start = a.right() + 8
             if left_start < cx - gap:

@@ -73,7 +73,7 @@ PALETTE: dict[str, str | tuple] = {
     "BTN_CANCEL_HOV":    "#991b1b",
 
     # Buttons - greens
-    "BTN_SUCCESS":          "#16a34a",
+    "BTN_SUCCESS":          "#137d36",
     "BTN_SUCCESS_HOV":      "#22c55e",
     "BTN_SUCCESS_ALT":      "#15803d",
     "BTN_SUCCESS_ALT_HOV":  "#16a34a",
