@@ -14,6 +14,12 @@ skyrimspecialedition:201
 skyrimspecialedition:106441
 skyrimspecialedition:60033#133232
 skyrimspecialedition:60033>133232|Pandora Behaviour Engine+
+skyrimspecialedition:59596
+# Core/Depracated Community shaders mods
+skyrimspecialedition:99548
+skyrimspecialedition:153542
+skyrimspecialedition:139185
+skyrimspecialedition:153543
 
 fallout4:2737
 fallout4:42147
