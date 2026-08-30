@@ -14,6 +14,8 @@ algorithms live in Utils.mod_files. The view drives saves on checkbox clicks.
 
 from __future__ import annotations
 
+import textwrap
+
 from PySide6.QtCore import (
     Qt, QAbstractItemModel, QCoreApplication, QModelIndex, QT_TRANSLATE_NOOP)
 
@@ -29,6 +31,28 @@ COLUMNS = [
     QT_TRANSLATE_NOOP("ModFilesModel", "Top Level"),
     QT_TRANSLATE_NOOP("ModFilesModel", "Root"),
     QT_TRANSLATE_NOOP("ModFilesModel", "Disable"),
+]
+# Header tooltips, one per column. Translated at display time in headerData.
+COLUMN_TIPS = [
+    QT_TRANSLATE_NOOP(
+        "ModFilesModel",
+        "The mod's files and folders as they are packaged in the archive."),
+    QT_TRANSLATE_NOOP(
+        "ModFilesModel",
+        "Promote this folder's contents up to the top of the mod, stripping "
+        "the wrapper folders above it. Use this when a mod is packaged one or "
+        "more folders too deep, so its files land in the right place on "
+        "deploy."),
+    QT_TRANSLATE_NOOP(
+        "ModFilesModel",
+        "Deploy this file or folder to the game's root folder (next to the "
+        "game executable) instead of the game's data folder. Use this for "
+        "loaders, DLLs and INIs that belong beside the .exe."),
+    QT_TRANSLATE_NOOP(
+        "ModFilesModel",
+        "Whether this file or folder is deployed. Unchecked excludes it: it "
+        "stays in the mod but is never written to the game, so it cannot win "
+        "conflicts."),
 ]
 
 # Custom roles.
@@ -147,9 +171,23 @@ class ModFilesModel(QAbstractItemModel):
         it for column minimums before a model exists."""
         return QCoreApplication.translate("ModFilesModel", COLUMNS[section])
 
+    @classmethod
+    def column_tip(cls, section: int) -> str:
+        """The translated header tooltip, hard-wrapped to a readable width.
+
+        Qt lays a tooltip out on one line however long it gets (and ignores CSS
+        widths in its rich-text subset), so we insert the breaks ourselves.
+        """
+        text = QCoreApplication.translate("ModFilesModel", COLUMN_TIPS[section])
+        return textwrap.fill(text, width=64, break_long_words=False,
+                             break_on_hyphens=False)
+
     def headerData(self, section, orientation, role=Qt.DisplayRole):
-        if orientation == Qt.Horizontal and role == Qt.DisplayRole:
-            return self.column_title(section)
+        if orientation == Qt.Horizontal:
+            if role == Qt.DisplayRole:
+                return self.column_title(section)
+            if role == Qt.ToolTipRole:
+                return self.column_tip(section)
         return None
 
     def flags(self, index):
