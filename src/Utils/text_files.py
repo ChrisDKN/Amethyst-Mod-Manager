@@ -27,8 +27,15 @@ SOURCE_LABELS = (
     ("profile", "Profile"),
     ("game", "Game folder"),
     ("mygames", "My Games"),
+    ("logs", "Logs"),
 )
 _SOURCE_ORDER = {key: i for i, (key, _label) in enumerate(SOURCE_LABELS)}
+
+# Game-folder / My-Games .log files get their own top-level source so crash and
+# script logs (the ones users are usually hunting for) aren't buried among the
+# INIs. Mod/profile logs stay under their own source - those are shipped files.
+LOG_EXTENSION = ".log"
+_LOG_SOURCES = frozenset({"game", "mygames"})
 
 # Profile subfolders surfaced by other sources / holding backups - skipped so we
 # don't dump thousands of duplicate mod files under "Profile".
@@ -36,14 +43,21 @@ _PROFILE_SKIP_DIRS = frozenset({"mods", "overwrite", "root_folder", "backups",
                                 "fomod"})
 
 
-def entry_source(mod_name: str) -> str:
+def entry_source(mod_name: str, rel_path: str | None = None) -> str:
+    """Source key for an entry. Pass *rel_path* to route game/My-Games .log
+    files into the synthetic "logs" source."""
     if mod_name == SRC_GAME:
-        return "game"
-    if mod_name == SRC_PROFILE:
-        return "profile"
-    if mod_name == SRC_MYGAMES:
-        return "mygames"
-    return "mod"
+        src = "game"
+    elif mod_name == SRC_PROFILE:
+        src = "profile"
+    elif mod_name == SRC_MYGAMES:
+        src = "mygames"
+    else:
+        src = "mod"
+    if (rel_path and src in _LOG_SOURCES
+            and rel_path.lower().endswith(LOG_EXTENSION)):
+        return "logs"
+    return src
 
 
 def display_name(rel_path: str) -> str:
@@ -56,7 +70,7 @@ def display_name(rel_path: str) -> str:
 
 def sort_key(entry: tuple[str, str, Path]) -> tuple:
     rel_path, mod_name, _p = entry
-    src = entry_source(mod_name)
+    src = entry_source(mod_name, rel_path)
     return (_SOURCE_ORDER.get(src, len(_SOURCE_ORDER)),
             rel_path.lower(), mod_name.lower())
 

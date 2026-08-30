@@ -97,6 +97,7 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("FilterSidePanel", "Profile"),
     QT_TRANSLATE_NOOP("FilterSidePanel", "Game folder"),
     QT_TRANSLATE_NOOP("FilterSidePanel", "My Games"),
+    QT_TRANSLATE_NOOP("FilterSidePanel", "Logs"),
 )
 
 
