@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui_qt.overlay_base import OverlayBase
-from gui_qt.theme_qt import active_palette, _c
+from gui_qt.theme_qt import active_palette, close_button, _c
 
 
 class LogUploadOverlay(OverlayBase):
@@ -93,9 +93,7 @@ class LogUploadOverlay(OverlayBase):
 
         bar = QHBoxLayout()
         bar.addStretch(1)
-        self._cancel = QPushButton(self.tr("Cancel"))
-        self._cancel.setObjectName("FormButton")
-        self._cancel.setCursor(Qt.PointingHandCursor)
+        self._cancel = close_button(self.tr("Cancel"), pal=p)
         self._cancel.clicked.connect(lambda: self._finish(self._url or None))
         bar.addWidget(self._cancel)
         self._ok = QPushButton(self.tr("Upload"))

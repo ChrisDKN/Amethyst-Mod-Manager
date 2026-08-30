@@ -26,7 +26,7 @@ from PySide6.QtWidgets import (
 
 from Utils.downloads_core import fmt_size
 from gui_qt.safe_emit import safe_emit
-from gui_qt.theme_qt import active_palette, _c, danger_close_button
+from gui_qt.theme_qt import active_palette, _c, close_button
 
 
 class ThunderstoreVersionView(QWidget):
@@ -55,7 +55,7 @@ class ThunderstoreVersionView(QWidget):
             f"color:{_c(p,'TEXT_MAIN')}; font-weight:600; font-size:15px;")
         head.addWidget(title)
         head.addStretch(1)
-        close = danger_close_button(self.tr("Close"))
+        close = close_button(self.tr("Close"))
         close.clicked.connect(lambda: self._on_close())
         head.addWidget(close)
         root.addLayout(head)

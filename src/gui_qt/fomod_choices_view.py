@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui_qt.theme_qt import (active_palette, bind_theme, _c, qc, qc_contrast,
-                             danger_close_button)
+                             close_button)
 from gui_qt.icons import icon
 from gui_qt.worker import run_in_worker
 
@@ -189,7 +189,7 @@ class FomodChoicesView(QWidget):
             f"color:{_c(p,'TEXT_MAIN')}; font-weight:600; font-size:15px;")
         hb.addWidget(self._title)
         hb.addStretch(1)
-        close = danger_close_button(pal=p)
+        close = close_button(pal=p)
         close.clicked.connect(lambda: self._on_close())
         hb.addWidget(close)
         v.addWidget(bar)

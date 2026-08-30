@@ -32,8 +32,9 @@ from PySide6.QtWidgets import (
 )
 
 from gui_qt.safe_emit import safe_emit
-from gui_qt.theme_qt import (active_palette, _c, button_qss, ok_text, err_text,
-                             warn_text)
+from gui_qt.theme_qt import (
+    active_palette, _c, button_qss, close_button, ok_text, err_text, warn_text,
+)
 
 if TYPE_CHECKING:
     from Games.base_game import BaseGame
@@ -206,9 +207,7 @@ class WizardViewBase(QWidget):
             head.setStyleSheet(f"color:{_c(p,'TEXT_MAIN')}; font-weight:600;")
             hb.addWidget(head)
             hb.addStretch(1)
-            close = QPushButton(self.tr("✕ Close"))
-            close.setCursor(Qt.PointingHandCursor)
-            close.setStyleSheet(button_qss("BTN_DANGER", pal=p, padding="5px 12px"))
+            close = close_button(self.tr("✕ Close"), pal=p)
             close.clicked.connect(self._finish)
             hb.addWidget(close)
             # Kept so subclasses can lock the header ✕ while a tool they

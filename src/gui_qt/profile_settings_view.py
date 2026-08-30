@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
     QFrame, QScrollArea,
 )
 
-from gui_qt.theme_qt import active_palette, _c, danger_close_button, contrast_text
+from gui_qt.theme_qt import active_palette, _c, close_button, contrast_text
 from gui_qt.icons import icon
 from gui_qt.safe_emit import safe_emit
 from gui_qt.i18n import profile_display, is_reserved_profile_name
@@ -134,7 +134,7 @@ class ProfileSettingsView(QWidget):
         hb = QHBoxLayout(bar); hb.setContentsMargins(12, 8, 12, 8)
         title = QLabel(self.tr("Profile Settings")); title.setObjectName("PSTitle")
         hb.addWidget(title); hb.addStretch(1)
-        close = danger_close_button(pal=p)
+        close = close_button(pal=p)
         close.clicked.connect(self._close)
         hb.addWidget(close)
         root.addWidget(bar)

@@ -41,7 +41,7 @@ from PySide6.QtWidgets import (
     QApplication, QTabWidget, QAbstractButton, QSizePolicy,
 )
 
-from gui_qt.theme_qt import active_palette, _c, _QT_DEFAULT_THEME
+from gui_qt.theme_qt import active_palette, close_button, _c, _QT_DEFAULT_THEME
 from gui_qt.help_marker import tip_text, make_help_marker, help_mark_qss
 from gui_qt.wheel_guard import no_wheel
 from gui_qt.flow_layout import FlowLayout, enable_height_for_width
@@ -221,9 +221,7 @@ class SettingsView(OverlayBase):
         title.setObjectName("SettingsTitle")
         row.addWidget(title)
         row.addStretch(1)
-        close = QPushButton(self.tr("Close"))
-        close.setObjectName("FormButton")
-        close.setCursor(Qt.PointingHandCursor)
+        close = close_button(self.tr("Close"), pal=self._pal)
         close.clicked.connect(self._finish)
         row.addWidget(close)
         outer.addWidget(bar)

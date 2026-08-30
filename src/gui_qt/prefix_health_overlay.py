@@ -30,7 +30,7 @@ from PySide6.QtWidgets import (
 from gui_qt.overlay_base import OverlayBase
 from gui_qt.safe_emit import safe_emit
 from gui_qt.theme_qt import (
-    _c, active_palette, button_qss, contrast_text, danger_close_button,
+    _c, active_palette, button_qss, contrast_text, close_button,
     err_text, ok_text,
 )
 from Utils.prefix_health import HealthStatus
@@ -253,7 +253,7 @@ class PrefixHealthOverlay(OverlayBase):
         bar.addWidget(self._fix_all)
 
         bar.addStretch(1)
-        self._close_btn = danger_close_button()
+        self._close_btn = close_button()
         self._close_btn.clicked.connect(lambda: self._finish(None))
         bar.addWidget(self._close_btn)
         v.addLayout(bar)

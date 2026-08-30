@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui_qt.safe_emit import safe_emit
-from gui_qt.theme_qt import active_palette, _c
+from gui_qt.theme_qt import active_palette, close_button, _c
 from wizards_qt._view_base import GREEN, RED, WizardViewBase
 import Utils.skygen_core as core
 
@@ -272,10 +272,9 @@ class SkyGenView(WizardViewBase):
         open_btn.setCursor(Qt.PointingHandCursor)
         open_btn.clicked.connect(self._open_output)
         lay.addWidget(open_btn, 0, Qt.AlignHCenter)
-        done = self._green_btn(self.tr("Close"))
-        done.setEnabled(True)
-        done.clicked.connect(self._finish)
-        lay.addWidget(done, 0, Qt.AlignHCenter)
+        close = close_button(self.tr("Close"))
+        close.clicked.connect(self._finish)
+        lay.addWidget(close, 0, Qt.AlignHCenter)
         return page
 
     def _open_output(self):

@@ -25,7 +25,7 @@ from PySide6.QtWidgets import (
     QCheckBox, QRadioButton, QButtonGroup, QFrame,
 )
 
-from gui_qt.theme_qt import active_palette, _c, danger_close_button
+from gui_qt.theme_qt import active_palette, _c, close_button
 
 
 def _hline(color: str) -> QFrame:
@@ -90,7 +90,7 @@ class SeparatorSettingsView(QWidget):
         title = QLabel(self.tr("Separator Settings - {0}").format(self._display_name()))
         title.setStyleSheet(f"color:{text_main}; font-weight:bold;")
         tb.addWidget(title, 1)
-        close_btn = danger_close_button(pal=p)
+        close_btn = close_button(pal=p)
         close_btn.clicked.connect(self._on_close)
         tb.addWidget(close_btn)
         root.addWidget(title_bar)

@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui_qt.theme_qt import (
-    active_palette, bind_theme, contrast_text, _c, danger_close_button,
+    active_palette, bind_theme, contrast_text, _c, close_button,
     button_qss,
 )
 
@@ -112,7 +112,7 @@ class RequirementsView(QWidget):
         # The title takes the stretch so it fills the space up to the Close
         # button and only elides when the name truly won't fit.
         hb.addWidget(self._title, 1)
-        close = danger_close_button(pal=p)
+        close = close_button(pal=p)
         close.clicked.connect(lambda: self._on_close())
         hb.addWidget(close, 0)
         v.addWidget(bar)

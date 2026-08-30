@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui_qt.overlay_base import OverlayBase
-from gui_qt.theme_qt import active_palette, _c
+from gui_qt.theme_qt import active_palette, close_button, _c
 
 
 class MewgenicsDeployChoiceOverlay(OverlayBase):
@@ -131,9 +131,7 @@ class MewgenicsLaunchCommandOverlay(OverlayBase):
 
         bar = QHBoxLayout()
         bar.addStretch(1)
-        close = QPushButton(self.tr("Close"))
-        close.setObjectName("FormButton")
-        close.setCursor(Qt.PointingHandCursor)
+        close = close_button(self.tr("Close"), pal=p)
         close.clicked.connect(lambda: self._finish(None))
         bar.addWidget(close)
         self._copy_btn = QPushButton(self.tr("Copy to clipboard"))

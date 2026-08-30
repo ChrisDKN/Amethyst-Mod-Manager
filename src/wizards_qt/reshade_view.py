@@ -27,7 +27,9 @@ from PySide6.QtWidgets import (
     QLineEdit, QProgressBar, QGridLayout,
 )
 
-from gui_qt.theme_qt import active_palette, _c, button_qss, ok_text, err_text
+from gui_qt.theme_qt import (
+    active_palette, _c, button_qss, close_button, ok_text, err_text,
+)
 from gui_qt.safe_emit import safe_emit
 from Utils.reshade_tools import (
     API_CHOICES, OPTIONAL_SHADER_PACKS, OBSOLETE_PRESET_EFFECTS,
@@ -111,10 +113,7 @@ class ReShadeView(QWidget):
         title.setStyleSheet(f"color:{_c(p,'TEXT_MAIN')}; font-weight:600;")
         hb.addWidget(title)
         hb.addStretch(1)
-        self._close_btn = QPushButton(self.tr("✕ Close"))
-        self._close_btn.setCursor(Qt.PointingHandCursor)
-        self._close_btn.setStyleSheet(
-            button_qss("BTN_DANGER", padding="5px 12px"))
+        self._close_btn = close_button(self.tr("✕ Close"), pal=p)
         self._close_btn.clicked.connect(self._finish)
         hb.addWidget(self._close_btn)
         v.addWidget(bar)

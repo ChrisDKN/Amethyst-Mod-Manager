@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
     QListWidget, QListWidgetItem, QAbstractItemView,
 )
 
-from gui_qt.theme_qt import active_palette, _c, danger_close_button, button_qss
+from gui_qt.theme_qt import active_palette, _c, close_button, button_qss
 from gui_qt.text_input_overlay import TextInputOverlay
 from gui_qt.confirm_overlay import ConfirmOverlay
 from Utils.profile_backup import (
@@ -70,7 +70,7 @@ class BackupRestoreView(QWidget):
         title.setStyleSheet(f"color:{_c(p,'TEXT_MAIN')}; font-weight:600;")
         hb.addWidget(title)
         hb.addStretch(1)
-        close = danger_close_button(pal=p)
+        close = close_button(pal=p)
         close.clicked.connect(lambda: self._on_close())
         hb.addWidget(close)
         v.addWidget(bar)

@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui_qt.overlay_base import OverlayBase
-from gui_qt.theme_qt import active_palette, bind_theme, _c
+from gui_qt.theme_qt import active_palette, bind_theme, close_button, _c
 
 
 def parse_overwrite_log(text: str) -> "list[tuple[str, list[str]]]":
@@ -62,9 +62,7 @@ class OverwriteLogOverlay(OverlayBase):
         title_lbl.setStyleSheet(f"color:{_c(p,'TEXT_MAIN')}; font-weight:600; font-size:14px;")
         header.addWidget(title_lbl)
         header.addStretch(1)
-        close = QPushButton(self.tr("Close"))
-        close.setObjectName("FormButton")
-        close.setCursor(Qt.PointingHandCursor)
+        close = close_button(self.tr("Close"), pal=p)
         close.clicked.connect(lambda: self._finish())
         header.addWidget(close)
         v.addLayout(header)

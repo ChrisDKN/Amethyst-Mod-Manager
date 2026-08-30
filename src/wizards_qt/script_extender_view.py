@@ -28,7 +28,9 @@ from PySide6.QtWidgets import (
     QRadioButton, QButtonGroup, QProgressBar, QFrame,
 )
 
-from gui_qt.theme_qt import active_palette, _c, button_qss, ok_text, err_text
+from gui_qt.theme_qt import (
+    active_palette, _c, button_qss, close_button, ok_text, err_text,
+)
 from gui_qt.safe_emit import safe_emit
 from Utils.wizard_archives import (
     fetch_latest_github_asset, find_archive, get_downloads_dir,
@@ -110,10 +112,7 @@ class ScriptExtenderView(QWidget):
         title.setStyleSheet(f"color:{_c(p,'TEXT_MAIN')}; font-weight:600;")
         hb.addWidget(title)
         hb.addStretch(1)
-        close = QPushButton(self.tr("✕ Close"))
-        close.setCursor(Qt.PointingHandCursor)
-        close.setStyleSheet(
-            button_qss("BTN_DANGER", padding="5px 12px"))
+        close = close_button(self.tr("✕ Close"), pal=p)
         close.clicked.connect(self._finish)
         hb.addWidget(close)
         v.addWidget(bar)

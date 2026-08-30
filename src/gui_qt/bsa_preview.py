@@ -86,8 +86,8 @@ class BsaPreview(QWidget):
         collapse_btn.clicked.connect(lambda: self._tree.collapseAll())
         tbl.addWidget(collapse_btn, 0)
 
-        from gui_qt.theme_qt import danger_close_button
-        close_btn = danger_close_button()
+        from gui_qt.theme_qt import close_button
+        close_btn = close_button()
         close_btn.clicked.connect(self.close_requested.emit)
         tbl.addWidget(close_btn, 0)
         v.addWidget(tb)

@@ -27,7 +27,7 @@ from gui_qt.path_tree import (
     Node, PathTreeDelegate, PathTreeModel, build_tree,
 )
 from gui_qt.safe_emit import safe_emit
-from gui_qt.theme_qt import active_palette, button_qss, _c
+from gui_qt.theme_qt import active_palette, button_qss, close_button, _c
 from gui_qt.nif_texture_sources import TextureSourceController
 from gui_qt.worker import LatestWorker
 from Utils.asset_resolver import DirCache
@@ -161,9 +161,7 @@ class NifViewerView(QWidget):
         self._refresh_btn.clicked.connect(self._refresh)
         hb.addWidget(self._refresh_btn)
 
-        close = QPushButton(self.tr("✕ Close"))
-        close.setCursor(Qt.PointingHandCursor)
-        close.setStyleSheet(button_qss("BTN_DANGER", pal=pal, padding="5px 12px"))
+        close = close_button(self.tr("✕ Close"), pal=pal)
         close.clicked.connect(self._finish)
         hb.addWidget(close)
         v.addWidget(bar)

@@ -27,7 +27,7 @@ from PySide6.QtWidgets import (
     QListWidget, QComboBox, QFrame, QScrollArea,
 )
 
-from gui_qt.theme_qt import active_palette, _c, danger_close_button, button_qss
+from gui_qt.theme_qt import active_palette, _c, close_button, button_qss
 from gui_qt.wheel_guard import no_wheel
 from Utils.userlist import (
     DEFAULT_GROUP, parse_userlist, write_userlist, remove_group,
@@ -127,7 +127,7 @@ class PluginGroupsView(QWidget):
         save_btn.clicked.connect(self._do_save)
         tb.addWidget(save_btn)
 
-        close_btn = danger_close_button(pal=p)
+        close_btn = close_button(pal=p)
         close_btn.clicked.connect(self._do_close)
         tb.addWidget(close_btn)
         root.addWidget(toolbar)

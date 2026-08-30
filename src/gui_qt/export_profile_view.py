@@ -30,7 +30,7 @@ from PySide6.QtWidgets import (
 
 from gui_qt import column_state
 from gui_qt.safe_emit import safe_emit
-from gui_qt.theme_qt import active_palette, _c, contrast_text
+from gui_qt.theme_qt import active_palette, close_button, _c, contrast_text
 from Utils import profile_export
 
 
@@ -653,9 +653,7 @@ class ExportProfileView(QWidget):
         hb = QHBoxLayout(bar); hb.setContentsMargins(12, 8, 12, 8)
         title = QLabel(self.tr("Export Profile")); title.setObjectName("EPTitle")
         hb.addWidget(title); hb.addStretch(1)
-        close = QPushButton(self.tr("✕ Close"))
-        close.setObjectName("FormButton")
-        close.setCursor(Qt.PointingHandCursor)
+        close = close_button(self.tr("✕ Close"))
         close.clicked.connect(self._close)
         hb.addWidget(close)
         root.addWidget(bar)

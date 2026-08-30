@@ -16258,8 +16258,8 @@ or use Browse to select it manually.</translation>
         <translation>Lines and frames around panels, lists and inputs.</translation>
     </message>
     <message>
-        <source>Danger / cancel / remove buttons (delete, remove profile, ✕ close).</source>
-        <translation>Danger / cancel / remove buttons (delete, remove profile, ✕ close).</translation>
+        <source>Danger buttons (delete, remove profile and other destructive actions).</source>
+        <translation>Danger buttons (delete, remove profile and other destructive actions).</translation>
     </message>
     <message>
         <source>Success / confirm buttons (Install, Done, Play).</source>

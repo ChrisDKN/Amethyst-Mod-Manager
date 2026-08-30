@@ -28,7 +28,9 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QStackedWidget,
 )
 
-from gui_qt.theme_qt import active_palette, _c, button_qss, ok_text, err_text
+from gui_qt.theme_qt import (
+    active_palette, _c, button_qss, close_button, ok_text, err_text,
+)
 from gui_qt.safe_emit import safe_emit
 from Utils.pandora_tools import EXE_NAME, find_pandora_exe
 
@@ -96,10 +98,7 @@ class PandoraView(QWidget):
         title.setStyleSheet(f"color:{_c(p,'TEXT_MAIN')}; font-weight:600;")
         hb.addWidget(title)
         hb.addStretch(1)
-        close = QPushButton(self.tr("✕ Close"))
-        close.setCursor(Qt.PointingHandCursor)
-        close.setStyleSheet(
-            button_qss("BTN_DANGER", padding="5px 12px"))
+        close = close_button(self.tr("✕ Close"), pal=p)
         close.clicked.connect(self._on_close)
         hb.addWidget(close)
         v.addWidget(bar)

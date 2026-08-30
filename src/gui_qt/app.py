@@ -2061,7 +2061,7 @@ class MainWindow(QMainWindow):
             self._modlist_footer_btns.append(b)
         v.addLayout(btns)
 
-        # Search row: an enabled/total count label (blue outline) to the left of
+        # Search row: an enabled/total count label (accent outline) to the left of
         # a full-width search box. The count label replaces the old Enabled /
         # Disabled stat pill row.
         search_row = QHBoxLayout()
@@ -2079,8 +2079,7 @@ class MainWindow(QMainWindow):
         self._modlist_count = count
         search_row.addWidget(count)
 
-        # Filters button - blue, to the left of the search icon (mirrors the
-        # plugins footer). Toggles the modlist filter side-panel.
+        # Filters is neutral at rest and accented while the list is narrowed.
         self._modlist_filters_btn = self._filters_button()
         self._modlist_filters_btn.clicked.connect(self._toggle_modlist_filters)
         self._modlist_footer_btns.append(self._modlist_filters_btn)
@@ -2109,7 +2108,7 @@ class MainWindow(QMainWindow):
         return bar
 
     def _plugins_footer(self) -> QWidget:
-        """Colored tool buttons + search, under the plugins."""
+        """Plugin tools + search, under the plugins."""
         bar = QWidget()
         bar.setObjectName("HeaderBar")
         v = QVBoxLayout(bar)
@@ -2119,13 +2118,16 @@ class MainWindow(QMainWindow):
         btns = FlowLayout(spacing=4)
         _made = {}
         self._plugin_footer_btns: list = []
-        for label, disp, key in [
-            ("Sort Plugins", self.tr("Sort Plugins"), "BTN_SUCCESS"),
-            ("Refresh Plugins", self.tr("Refresh Plugins"), "BTN_INFO"),
-            ("Groups", self.tr("Groups"), "BTN_INFO"),
-            ("Plugin Rules", self.tr("Plugin Rules"), "BTN_INFO"),
+        for label, disp in [
+            ("Sort Plugins", self.tr("Sort Plugins")),
+            ("Refresh Plugins", self.tr("Refresh Plugins")),
+            ("Groups", self.tr("Groups")),
+            ("Plugin Rules", self.tr("Plugin Rules")),
         ]:
-            b = self._color_button(disp, _c(self._pal, key), compact=True)
+            b = (self._color_button(
+                    disp, _c(self._pal, "ACCENT"), compact=True)
+                 if label == "Sort Plugins"
+                 else self._text_button(disp, compact=True))
             b.setFixedHeight(self._FOOT_BTN_H)
             btns.addWidget(b)
             _made[label] = b
@@ -2143,7 +2145,7 @@ class MainWindow(QMainWindow):
         self._plugin_rules_btn.clicked.connect(self._open_plugin_rules_tab)
         self._plugin_filters_btn.clicked.connect(self._toggle_plugin_filters)
 
-        # Search row: a total / non-ESL count label (blue outline) to the left
+        # Search row: a total / non-ESL count label (accent outline) to the left
         # of a full-width search box, mirroring the modlist footer.
         search_row = QHBoxLayout()
         search_row.setContentsMargins(0, 0, 0, 0)
@@ -2183,13 +2185,13 @@ class MainWindow(QMainWindow):
         v.setSpacing(6)
 
         btns = FlowLayout(spacing=4)
-        self._mf_pack_btn = self._color_button(
-            self.tr("Pack BSA"), _c(self._pal, "BTN_SUCCESS"), compact=True)
+        self._mf_pack_btn = self._text_button(
+            self.tr("Pack BSA"), compact=True)
         self._mf_pack_btn.setFixedHeight(self._FOOT_BTN_H)
         self._mf_pack_btn.setEnabled(False)
         self._mf_pack_btn.clicked.connect(self._on_pack_bsa)
-        self._mf_unpack_btn = self._color_button(
-            self.tr("Unpack BSA"), _c(self._pal, "BTN_DANGER"), compact=True)
+        self._mf_unpack_btn = self._text_button(
+            self.tr("Unpack BSA"), compact=True)
         self._mf_unpack_btn.setFixedHeight(self._FOOT_BTN_H)
         self._mf_unpack_btn.setEnabled(False)
         self._mf_unpack_btn.clicked.connect(self._on_unpack_bsa)
@@ -2297,22 +2299,22 @@ class MainWindow(QMainWindow):
         refresh.setFixedHeight(self._FOOT_BTN_H)
         refresh.clicked.connect(lambda: self._saves_view.mark_dirty())
         btns.addWidget(refresh)
-        self._saves_open_btn = self._color_button(
-            self.tr("Open folder"), _c(self._pal, "BTN_PURPLE"), compact=True)
+        self._saves_open_btn = self._text_button(
+            self.tr("Open folder"), compact=True)
         self._saves_open_btn.setFixedHeight(self._FOOT_BTN_H)
         self._saves_open_btn.setEnabled(False)
         self._saves_open_btn.clicked.connect(lambda: self._saves_view.open_folder())
         btns.addWidget(self._saves_open_btn)
         # Export packs the save folder into a zip; Import puts one back (after
         # moving the current contents aside).
-        self._saves_export_btn = self._color_button(
-            self.tr("Export"), _c(self._pal, "BTN_SUCCESS"), compact=True)
+        self._saves_export_btn = self._text_button(
+            self.tr("Export"), compact=True)
         self._saves_export_btn.setFixedHeight(self._FOOT_BTN_H)
         self._saves_export_btn.setEnabled(False)
         self._saves_export_btn.clicked.connect(lambda: self._saves_view.start_export())
         btns.addWidget(self._saves_export_btn)
-        self._saves_import_btn = self._color_button(
-            self.tr("Import"), _c(self._pal, "BTN_WARN_ORANGE"), compact=True)
+        self._saves_import_btn = self._text_button(
+            self.tr("Import"), compact=True)
         self._saves_import_btn.setFixedHeight(self._FOOT_BTN_H)
         self._saves_import_btn.setEnabled(False)
         self._saves_import_btn.clicked.connect(lambda: self._saves_view.start_import())
@@ -2373,13 +2375,13 @@ class MainWindow(QMainWindow):
 
         btns = FlowLayout(spacing=4)
         self._dl_install_btn = self._color_button(
-            self.tr("Install Selected"), _c(self._pal, "BTN_SUCCESS"), compact=True)
+            self.tr("Install Selected"), _c(self._pal, "ACCENT"), compact=True)
         self._dl_install_btn.setFixedHeight(self._FOOT_BTN_H)
         self._dl_install_btn.setEnabled(False)
         self._dl_install_btn.clicked.connect(
             lambda: self._downloads_view.install_selected())
-        self._dl_move_btn = self._color_button(
-            self.tr("Move Selected"), _c(self._pal, "BTN_INFO"), compact=True)
+        self._dl_move_btn = self._text_button(
+            self.tr("Move Selected"), compact=True)
         self._dl_move_btn.setFixedHeight(self._FOOT_BTN_H)
         self._dl_move_btn.setEnabled(False)
         self._dl_move_btn.clicked.connect(self._on_downloads_move)
@@ -2388,8 +2390,8 @@ class MainWindow(QMainWindow):
         self._dl_remove_btn.setFixedHeight(self._FOOT_BTN_H)
         self._dl_remove_btn.setEnabled(False)
         self._dl_remove_btn.clicked.connect(self._on_downloads_remove)
-        self._dl_locations_btn = self._color_button(
-            self.tr("Locations"), _c(self._pal, "BTN_INFO"), compact=True)
+        self._dl_locations_btn = self._text_button(
+            self.tr("Locations"), compact=True)
         self._dl_locations_btn.setFixedHeight(self._FOOT_BTN_H)
         self._dl_locations_btn.clicked.connect(self._on_downloads_locations)
         self._dl_filters_btn = self._filters_button()
@@ -2546,7 +2548,8 @@ class MainWindow(QMainWindow):
         self._tf_content_input.setClearButtonEnabled(True)
         self._tf_content_input.returnPressed.connect(self._run_tf_content_search)
         cbl.addWidget(self._tf_content_input, 1)
-        go = self._color_button(self.tr("Search"), _c(self._pal, "BTN_SUCCESS"), compact=True)
+        go = self._color_button(
+            self.tr("Search"), _c(self._pal, "ACCENT"), compact=True)
         go.setFixedHeight(self._FOOT_BTN_H)
         go.clicked.connect(self._run_tf_content_search)
         cbl.addWidget(go)
@@ -2558,8 +2561,8 @@ class MainWindow(QMainWindow):
         v.addWidget(self._tf_content_bar)
 
         btns = FlowLayout(spacing=4)
-        self._tf_content_btn = self._color_button(
-            self.tr("Search Content"), _c(self._pal, "BTN_INFO"), compact=True)
+        self._tf_content_btn = self._text_button(
+            self.tr("Search Content"), compact=True)
         self._tf_content_btn.setFixedHeight(self._FOOT_BTN_H)
         self._tf_content_btn.clicked.connect(self._on_text_files_content_search)
         self._tf_filters_btn = self._filters_button()
@@ -2642,6 +2645,9 @@ class MainWindow(QMainWindow):
         else:
             self._tf_content_status.setText("")
             self._tf_content_btn.setText(self.tr("Search Content"))
+        self._tf_content_btn.setProperty("active", bool(keyword))
+        self._tf_content_btn.style().unpolish(self._tf_content_btn)
+        self._tf_content_btn.style().polish(self._tf_content_btn)
 
     def _left_header(self) -> QWidget:
         # Single row: game/profile selectors, then the mod-action buttons. As a
@@ -15645,7 +15651,7 @@ class MainWindow(QMainWindow):
         self._sync_filters_btn("_modlist_filters_btn")
 
     def _sync_filters_btn(self, btn_attr: str):
-        """Light a Filters footer button purple while that panel is filtered.
+        """Accent a Filters footer button while that panel is filtered.
 
         "Filtered" covers both routes to a narrowed list: a checkbox set in the
         Filters side panel, and a non-empty search box - the button is the only
@@ -18764,41 +18770,29 @@ class MainWindow(QMainWindow):
         return b
 
     def _color_button(self, text: str, color: str,
-                      compact: bool = False,
-                      active_color: str | None = None) -> QPushButton:
-        """Solid colored button (plugin tools, matching the Tk app).
-
-        *active_color* adds an ``[active="true"]`` fill so the button can light
-        up in a second colour (the Filters footer buttons use it)."""
+                      compact: bool = False) -> QPushButton:
+        """Solid theme-coloured button for a prominent semantic action."""
         pad = "4px 10px" if compact else "6px 14px"
         fs = "12px" if compact else "14px"
         fg = contrast_text(color)   # black or white - whichever reads on the fill
+        disabled_bg = _c(self._pal, "BG_ROW")
+        disabled_fg = _c(self._pal, "TEXT_DIM")
+        disabled_border = _c(self._pal, "BORDER")
         b = QPushButton(text)
         b.setCursor(Qt.PointingHandCursor)
         sheet = (
             f"QPushButton{{background:{color}; color:{fg}; border:none;"
             f" padding:{pad}; border-radius:4px; font-size:{fs};"
             f" font-weight:600;}}"
-            f"QPushButton:hover{{background:{color};}}")
-        if active_color:
-            # The :hover rule above also matches while active, so the active
-            # fill needs its own hover rule to win (equal specificity, later).
-            afg = contrast_text(active_color)
-            sheet += (
-                f'QPushButton[active="true"]{{background:{active_color};'
-                f' color:{afg};}}'
-                f'QPushButton[active="true"]:hover{{background:{active_color};'
-                f' color:{afg};}}')
+            f"QPushButton:hover{{background:{color};}}"
+            f"QPushButton:disabled{{background:{disabled_bg}; color:{disabled_fg};"
+            f" border:1px solid {disabled_border};}}")
         b.setStyleSheet(sheet)
         return b
 
-    def _filters_button(self) -> QPushButton:
-        """A footer "Filters" button: blue at rest, theme purple (BTN_PURPLE)
-        while that panel has a filter set or its search box holds a query.
-        _sync_filters_btn flips the `active` property that swaps the fill."""
-        b = self._color_button(
-            self.tr("Filters"), _c(self._pal, "BTN_INFO"), compact=True,
-            active_color=_c(self._pal, "BTN_PURPLE"))
+    def _filters_button(self) -> QToolButton:
+        """Neutral footer button that uses the accent while filtering."""
+        b = self._text_button(self.tr("Filters"), compact=True)
         b.setFixedHeight(self._FOOT_BTN_H)
         b.setProperty("active", False)
         return b

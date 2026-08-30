@@ -25,7 +25,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui_qt.safe_emit import safe_emit
-from gui_qt.theme_qt import active_palette, _c, danger_close_button, button_qss
+from gui_qt.theme_qt import active_palette, _c, close_button, button_qss
 from gui_qt.help_marker import tip_text, make_help_marker, help_mark_qss
 from gui_qt.wheel_guard import no_wheel
 from gui_qt.worker import run_in_worker
@@ -90,7 +90,7 @@ class ExeSettingsView(QWidget):
         title.setStyleSheet(f"color:{_c(p,'TEXT_MAIN')}; font-weight:600;")
         hb.addWidget(title)
         hb.addStretch(1)
-        close = danger_close_button(pal=p)
+        close = close_button(pal=p)
         close.clicked.connect(lambda: self._on_close(False))
         hb.addWidget(close)
         v.addWidget(bar)

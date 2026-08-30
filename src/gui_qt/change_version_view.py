@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui_qt.theme_qt import (
-    active_palette, bind_theme, _c, danger_close_button, button_qss, qc,
+    active_palette, bind_theme, _c, close_button, button_qss, qc,
 )
 from gui_qt.safe_emit import safe_emit
 from Utils.mod_files_versions import resolve_latest_name_match, fmt_size, sort_key
@@ -227,7 +227,7 @@ class ChangeVersionView(QWidget):
         self._ignore_cb.toggled.connect(self._on_ignore_toggled)
         hb.addWidget(self._ignore_cb)
 
-        close = danger_close_button(pal=p)
+        close = close_button(pal=p)
         close.clicked.connect(lambda: self._on_close())
         hb.addWidget(close)
         v.addWidget(bar)

@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui_qt.overlay_base import OverlayBase
-from gui_qt.theme_qt import active_palette, _c
+from gui_qt.theme_qt import active_palette, close_button, _c
 
 
 class WizardSettingsOverlay(OverlayBase):
@@ -64,9 +64,7 @@ class WizardSettingsOverlay(OverlayBase):
 
         buttons = QHBoxLayout()
         buttons.addStretch(1)
-        close = QPushButton(self.tr("Close"))
-        close.setObjectName("FormButton")
-        close.setCursor(Qt.PointingHandCursor)
+        close = close_button(self.tr("Close"), pal=p)
         close.clicked.connect(lambda: self._finish(None))
         buttons.addWidget(close)
         outer.addLayout(buttons)

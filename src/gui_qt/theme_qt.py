@@ -171,7 +171,7 @@ _QSS_PALETTE_EXPRESSIONS = {
 # represented by the semantic comments in the QSS text itself.  Rebuild the
 # application QSS when one changes; all other roles can be updated in-place.
 _QSS_IMAGE_ROLES = frozenset({
-    "CHECK_FILL", "DROPDOWN_ARROW", "TEXT_DIM", "BTN_DANGER",
+    "CHECK_FILL", "DROPDOWN_ARROW", "TEXT_DIM", "TEXT_MAIN",
 })
 
 
@@ -619,8 +619,8 @@ def build_qss(pal: dict | None = None) -> str:
         color: {c('TEXT_MAIN')};
         border-bottom: 2px solid {c('ACCENT')};
     }}
-    /* Close button - a clear square on the right of the tab (matches the
-       mockup). Larger hit area, subtle by default, soft rounded red on hover. */
+    /* Close button - a clear square on the right of the tab with a larger hit
+       area and the same neutral hover treatment as other dismissal controls. */
     QTabBar::close-button {{
         image: url({_tinted_icon_url('close_white.png', _c(p, 'TEXT_DIM'))});
         subcontrol-position: right;
@@ -628,8 +628,8 @@ def build_qss(pal: dict | None = None) -> str:
         border-radius: 4px;
     }}
     QTabBar::close-button:hover {{
-        background: {c('BTN_DANGER')};
-        image: url({_tinted_icon_url('close_white.png', ct('BTN_DANGER'))});
+        background: {c('BG_ROW_HOVER')};
+        image: url({_tinted_icon_url('close_white.png', _c(p, 'TEXT_MAIN'))});
     }}
 
     /* Slim modern scrollbars - applied globally (modlist, plugins, log, …) */
@@ -902,9 +902,12 @@ def build_qss(pal: dict | None = None) -> str:
     }}
     #FooterButton:hover {{ background: {c('BG_ROW_HOVER')}; }}
     #FooterButton:pressed {{ background: {c('ACCENT')}; color: {ct('ACCENT')}; }}
-    /* Generic "this footer button is latched on" state. (The Filters buttons
-       are _color_button/QPushButton, not #FooterButton - they carry their own
-       active fill; see MainWindow._filters_button.) */
+    #FooterButton:disabled {{
+        background: {c('BG_ROW')};
+        color: {c('TEXT_DIM')};
+        border: 1px solid {c('BORDER_FAINT')};
+    }}
+    /* Generic "this footer button is latched on" state. */
     #FooterButton[active="true"] {{
         background: {c('ACCENT')};
         color: {ct('ACCENT')};
@@ -1126,7 +1129,7 @@ def qc_contrast(pal: dict, key: str) -> "QColor":
     return QColor(contrast_text(_c(pal, key)))
 
 
-# One fixed size for every in-view close button (see danger_close_button).
+# One fixed size for every labelled in-view close button.
 CLOSE_BTN_SIZE = (90, 30)
 
 
@@ -1139,8 +1142,8 @@ def button_qss(key: str, *, hover_key: str | None = None,
     """Return a palette-driven ``QPushButton`` stylesheet string.
 
     Central builder so the many tab/wizard views that used to hardcode
-    ``background:#2d6a9e``-style hex (blue "Select", green "Done", orange,
-    red close) all pull their colours from the active theme instead - which
+    ``background:#2d6a9e``-style hex (blue "Select", green "Done", orange)
+    all pull their colours from the active theme instead - which
     is what lets a monotone / high-contrast theme actually take effect.
 
     *key* is the palette key for the base fill; the hover is *hover_key* when
@@ -1182,28 +1185,31 @@ def warn_text(pal: dict | None = None) -> str:
     return _c(pal or active_palette(), "TEXT_WARN_BRIGHT")
 
 
-def danger_close_button(text: str = "✕ Close", pal: dict | None = None):
-    """Shared red close button for tab/scoped views.
-
-    Every view that opens in a tab dismisses itself with an identical control:
-    the theme's ``BTN_DANGER`` red (adapts to dark/light/breeze), a lighter
-    hover, a single fixed size, rounded corners, and a pointing-hand cursor.
-    Callers just connect ``.clicked``. Keeping this in one place is why the old
-    per-view hardcoded ``#6b3333`` maroon buttons could all be replaced."""
+def close_button(text: str = "✕ Close", pal: dict | None = None):
+    """Shared neutral close button for tab/scoped views and overlays."""
     from PySide6.QtCore import Qt
     from PySide6.QtWidgets import QPushButton
     if pal is None:
         pal = active_palette()
-    danger = _c(pal, "BTN_DANGER")
-    hover = _lighten(danger)
-    fg = contrast_text(danger)
+    bg = _c(pal, "BG_ROW")
+    hover = _c(pal, "BG_ROW_HOVER")
+    pressed = _c(pal, "ACCENT")
+    fg = _c(pal, "TEXT_MAIN")
+    pressed_fg = contrast_text(pressed)
+    border = _c(pal, "BORDER")
+    disabled_fg = _c(pal, "TEXT_DIM")
+    disabled_border = _c(pal, "BORDER_FAINT")
     btn = QPushButton(text)
+    btn.setObjectName("CloseButton")
     btn.setFixedSize(*CLOSE_BTN_SIZE)
     btn.setCursor(Qt.PointingHandCursor)
     btn.setStyleSheet(
-        f"QPushButton{{background:{danger}; color:{fg}; border:none;"
-        f" border-radius:4px; font-weight:600;}}"
-        f"QPushButton:hover{{background:{hover};}}")
+        f"QPushButton{{background:{bg}; color:{fg}; border:1px solid {border};"
+        f" border-radius:4px; padding:0 14px; font-size:13px;}}"
+        f"QPushButton:hover{{background:{hover};}}"
+        f"QPushButton:pressed{{background:{pressed}; color:{pressed_fg};}}"
+        f"QPushButton:disabled{{background:{bg}; color:{disabled_fg};"
+        f" border:1px solid {disabled_border};}}")
     return btn
 
 

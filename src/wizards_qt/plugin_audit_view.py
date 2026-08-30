@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui_qt.safe_emit import safe_emit
-from gui_qt.theme_qt import active_palette, _c
+from gui_qt.theme_qt import active_palette, close_button, _c
 from wizards_qt._view_base import GREEN, RED, WizardViewBase
 import Utils.plugin_audit_core as core
 
@@ -286,8 +286,7 @@ class PluginAuditView(WizardViewBase):
         rescan = self._accent_btn(self.tr("Re-Scan to Verify"))
         rescan.clicked.connect(lambda: self._stack.setCurrentIndex(_PG_SCAN))
         lay.addWidget(rescan, 0, Qt.AlignHCenter)
-        close = self._green_btn(self.tr("Close"))
-        close.setEnabled(True)
+        close = close_button(self.tr("Close"))
         close.clicked.connect(self._finish)
         lay.addWidget(close, 0, Qt.AlignHCenter)
         return page

@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
     QSplitter, QTreeWidget, QTreeWidgetItem, QHeaderView,
 )
 
-from gui_qt.theme_qt import active_palette, bind_theme, _c, danger_close_button
+from gui_qt.theme_qt import active_palette, bind_theme, _c, close_button
 from gui_qt.worker import run_in_worker
 from Utils.conflicts_view import BSA_ROW_RE
 
@@ -71,7 +71,7 @@ class ShowConflictsView(QWidget):
         title.setStyleSheet(f"color:{_c(p,'TEXT_MAIN')}; font-weight:600; font-size:15px;")
         hb.addWidget(title)
         hb.addStretch(1)
-        close = danger_close_button(pal=p)
+        close = close_button(pal=p)
         close.clicked.connect(lambda: self._on_close())
         hb.addWidget(close)
         v.addWidget(bar)

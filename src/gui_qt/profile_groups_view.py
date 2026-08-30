@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
 from gui_qt.safe_emit import safe_emit
 from gui_qt.i18n import profile_display
 from gui_qt.theme_qt import (
-    _c, active_palette, bind_theme_icon, contrast_text, danger_close_button,
+    _c, active_palette, bind_theme_icon, contrast_text, close_button,
 )
 from Utils import profile_groups as pg
 from Utils.profile_groups import GroupValidationError
@@ -88,7 +88,7 @@ class ProfileGroupsView(QWidget):
         hb = QHBoxLayout(bar); hb.setContentsMargins(12, 8, 12, 8)
         title = QLabel(self.tr("Profile Groups")); title.setObjectName("PGTitle")
         hb.addWidget(title); hb.addStretch(1)
-        close = danger_close_button(pal=p)
+        close = close_button(pal=p)
         close.clicked.connect(self._close)
         hb.addWidget(close)
         root.addWidget(bar)
