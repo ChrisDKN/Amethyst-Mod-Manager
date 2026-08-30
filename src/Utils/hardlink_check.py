@@ -21,7 +21,7 @@ import os
 from pathlib import Path
 
 
-def hardlink_device_mismatches(game) -> list[str]:
+def hardlink_device_mismatches(game, log_fn=None) -> list[str]:
     """Return the labels of deploy targets that are on a different filesystem
     than *game*'s mod staging folder.
 
@@ -34,17 +34,34 @@ def hardlink_device_mismatches(game) -> list[str]:
     Paths that don't exist yet are anchored to their nearest existing parent so
     a not-yet-created staging/prefix still gets a meaningful device.
     """
+    if log_fn is None:
+        try:
+            from Utils.app_log import app_log
+            log_fn = app_log
+        except Exception:
+            log_fn = lambda _message: None
+    target_log = log_fn
+
+    def log_fn(message):
+        try:
+            target_log(message)
+        except Exception:
+            pass
     try:
         staging = game.get_mod_staging_path()
-    except Exception:
+    except Exception as exc:
+        log_fn(f"Hardlink preflight: staging path lookup failed: {exc}")
         return []
     staging_dev = _device_of(staging)
     if staging_dev is None:
+        log_fn(f"Hardlink preflight: could not determine a device for staging: "
+               f"{staging}")
         return []
 
     try:
         targets = game.get_hardlink_deploy_targets()
-    except Exception:
+    except Exception as exc:
+        log_fn(f"Hardlink preflight: deploy target lookup failed: {exc}")
         return []
 
     mismatched: list[str] = []
@@ -52,7 +69,9 @@ def hardlink_device_mismatches(game) -> list[str]:
         if path is None:
             continue
         dev = _device_of(path)
-        if dev is not None and dev != staging_dev:
+        if dev is None:
+            log_fn(f"Hardlink preflight: device unknown for {label}: {path}")
+        elif dev != staging_dev:
             mismatched.append(label)
     return mismatched
 

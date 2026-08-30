@@ -28,6 +28,7 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import tempfile
 import threading
 from contextlib import contextmanager
 from typing import Callable
@@ -52,6 +53,20 @@ def _noop(_msg: str) -> None:
     pass
 
 
+def _bounded_detail(value, limit: int = 400) -> str:
+    detail = repr(value)
+    return detail if len(detail) <= limit else detail[:limit] + "..."
+
+
+def _safe_log(log_fn: LogFn) -> LogFn:
+    def emit(message: str) -> None:
+        try:
+            log_fn(message)
+        except Exception:
+            pass
+    return emit
+
+
 def disabled() -> bool:
     """True when the kill switch is set."""
     return os.environ.get("AMM_NO_SLEEP_INHIBIT", "") not in ("", "0", "false", "False")
@@ -71,7 +86,7 @@ class _Holder:
             pass
 
 
-def _portal_hold(reason: str) -> "_Holder | None":
+def _portal_hold(reason: str, failures: list[str]) -> "_Holder | None":
     """Take a portal Inhibit lock, or None when the portal can't provide one.
 
     The inhibition lives as long as the D-Bus connection, so the connection is
@@ -80,12 +95,14 @@ def _portal_hold(reason: str) -> "_Holder | None":
     try:
         from jeepney import DBusAddress, new_method_call
         from jeepney.io.blocking import open_dbus_connection
-    except ImportError:
+    except ImportError as exc:
+        failures.append(f"portal: jeepney unavailable ({exc})")
         return None
 
     try:
         conn = open_dbus_connection("SESSION")
-    except Exception:
+    except Exception as exc:
+        failures.append(f"portal: session D-Bus unavailable ({exc})")
         return None
 
     try:
@@ -97,6 +114,9 @@ def _portal_hold(reason: str) -> "_Holder | None":
         ver = conn.send_and_get_reply(
             new_method_call(props, "Get", "ss", (_INHIBIT_IFACE, "version")))
         if ver.header.message_type.name == "error":
+            failures.append(
+                "portal: Inhibit interface unavailable "
+                f"({_bounded_detail(ver.body)})")
             conn.close()
             return None
 
@@ -112,9 +132,12 @@ def _portal_hold(reason: str) -> "_Holder | None":
              {"reason": ("s", reason)}),
         ))
         if reply.header.message_type.name == "error":
+            failures.append(
+                f"portal: Inhibit request refused ({_bounded_detail(reply.body)})")
             conn.close()
             return None
-    except Exception:
+    except Exception as exc:
+        failures.append(f"portal: request failed ({type(exc).__name__}: {exc})")
         try:
             conn.close()
         except Exception:
@@ -124,7 +147,7 @@ def _portal_hold(reason: str) -> "_Holder | None":
     return _Holder("portal", conn.close)
 
 
-def _systemd_hold(reason: str) -> "_Holder | None":
+def _systemd_hold(reason: str, failures: list[str]) -> "_Holder | None":
     """Take a systemd-inhibit lock held open by a ``cat`` reading our pipe."""
     cmd = [
         "systemd-inhibit", "--what=sleep:idle", "--mode=block",
@@ -133,17 +156,45 @@ def _systemd_hold(reason: str) -> "_Holder | None":
     if os.path.exists("/.flatpak-info"):
         # systemd-inhibit isn't in the flatpak runtime; the host has it.
         if not shutil.which("flatpak-spawn"):
+            failures.append("systemd-inhibit: flatpak-spawn is unavailable")
             return None
         cmd = ["flatpak-spawn", "--host", *cmd]
     elif not shutil.which("systemd-inhibit"):
+        failures.append("systemd-inhibit: command not found")
         return None
 
     try:
+        stderr_capture = tempfile.TemporaryFile()
+    except OSError:
+        stderr_capture = None
+    try:
         proc = subprocess.Popen(
             cmd, stdin=subprocess.PIPE,
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=stderr_capture if stderr_capture is not None else subprocess.DEVNULL,
         )
-    except OSError:
+    except OSError as exc:
+        if stderr_capture is not None:
+            stderr_capture.close()
+        failures.append(f"systemd-inhibit: could not start ({exc})")
+        return None
+
+    try:
+        rc = proc.wait(timeout=0.1)
+    except subprocess.TimeoutExpired:
+        rc = None
+    if rc is not None:
+        detail = ""
+        if stderr_capture is not None:
+            try:
+                stderr_capture.seek(0)
+                detail = stderr_capture.read().decode("utf-8", "replace").strip()
+            except Exception:
+                pass
+        failures.append(f"systemd-inhibit: exited during setup (rc={rc})"
+                        + (f": {detail[-600:]}" if detail else ""))
+        if stderr_capture is not None:
+            stderr_capture.close()
         return None
 
     def _release() -> None:
@@ -156,27 +207,36 @@ def _systemd_hold(reason: str) -> "_Holder | None":
             proc.wait(timeout=5)
         except subprocess.TimeoutExpired:
             proc.kill()
+        if stderr_capture is not None:
+            stderr_capture.close()
 
     return _Holder("systemd-inhibit", _release)
 
 
-def _acquire(reason: str, log_fn: LogFn) -> bool:
-    """Take (or join) the system locks. Returns True if at least one is held."""
+def _acquire(reason: str, log_fn: LogFn) -> tuple[bool, list[str]]:
+    """Take (or join) the system locks and return backend failure details."""
     global _refcount
     with _lock:
         if _holders:
             _refcount += 1
-            return True
+            return True, []
         # Both, not first-wins: only systemd-inhibit takes a logind sleep lock,
         # and it is the one missing inside the Flatpak runtime.
-        taken = [h for h in (_systemd_hold(reason), _portal_hold(reason))
+        failures: list[str] = []
+        taken = [h for h in (
+            _systemd_hold(reason, failures), _portal_hold(reason, failures))
                  if h is not None]
         if not taken:
-            return False
+            return False, failures
         _holders.extend(taken)
         _refcount = 1
     log_fn(f"sleep inhibited via {', '.join(h.kind for h in taken)} - {reason}")
-    return True
+    if failures:
+        prefix = "WARNING: " if not any(
+            holder.kind == "systemd-inhibit" for holder in taken) else ""
+        log_fn(prefix + "sleep inhibit fallback diagnostics: "
+               + "; ".join(failures))
+    return True, failures
 
 
 def _release(log_fn: LogFn) -> None:
@@ -202,17 +262,19 @@ def inhibit_sleep(reason: str, log_fn: "LogFn | None" = None):
     Never raises and never blocks the work: if no backend is available the
     body just runs unprotected (one log line says so).
     """
-    log = log_fn or _noop
+    log = _safe_log(log_fn or _noop)
     if disabled():
+        log("sleep inhibition disabled by AMM_NO_SLEEP_INHIBIT.")
         yield False
         return
     try:
-        held = _acquire(reason, log)
-    except Exception:
-        held = False
+        held, failures = _acquire(reason, log)
+    except Exception as exc:
+        held, failures = False, [f"unexpected setup error: {type(exc).__name__}: {exc}"]
     if not held:
-        log("could not inhibit sleep (no portal or systemd-inhibit) - "
-            "the system may suspend during this run.")
+        detail = "; ".join(failures) or "no backend reported a reason"
+        log("could not inhibit sleep - the system may suspend during this run. "
+            f"Backend diagnostics: {detail}")
         yield False
         return
     try:

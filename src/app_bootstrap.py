@@ -20,11 +20,18 @@ def setup_environment() -> list[tuple[str, float, float, str]]:
     timestamps into that timer immediately afterwards.
     """
     timings: list[tuple[str, float, float, str]] = []
+    diagnostics: list[str] = []
     phase_started = time.perf_counter()
     # Drop dead /tmp/.mount_* entries from sys.path. Older AppImage builds
     # exported PYTHONPATH globally; a shell launched from the GUI inherits a
     # path pointing at a mount that vanishes the moment the AppImage exits.
-    sys.path[:] = [p for p in sys.path if not (p.startswith("/tmp/.mount_") and not Path(p).is_dir())]
+    old_path = list(sys.path)
+    sys.path[:] = [p for p in sys.path if not (
+        p.startswith("/tmp/.mount_") and not Path(p).is_dir())]
+    removed_paths = len(old_path) - len(sys.path)
+    if removed_paths:
+        diagnostics.append(
+            f"Startup paths: removed {removed_paths} stale AppImage path(s).")
 
     src = Path(__file__).resolve().parent
     if str(src) not in sys.path:
@@ -37,6 +44,7 @@ def setup_environment() -> list[tuple[str, float, float, str]]:
         vendor = Path(os.environ["APPDIR"]) / "share" / "amethyst-mod-manager" / "_vendor"
         if vendor.is_dir() and str(vendor) not in sys.path:
             sys.path.insert(0, str(vendor))
+            diagnostics.append(f"Startup paths: using bundled vendor directory: {vendor}")
 
     # Drop a stale MOD_MANAGER_GAMES pointing at /tmp/.mount_* (same leak path).
     # "Stale" is NOT just "gone": a previous AppImage's mount can still be alive
@@ -53,11 +61,16 @@ def setup_environment() -> list[tuple[str, float, float, str]]:
             ours = False
         if not ours or not Path(mmg).is_dir():
             os.environ.pop("MOD_MANAGER_GAMES", None)
+            diagnostics.append(
+                "Startup paths: removed stale MOD_MANAGER_GAMES from another AppImage.")
     # Set MOD_MANAGER_GAMES so game_loader can find the Games/ directory.
     if not os.environ.get("MOD_MANAGER_GAMES"):
         games_dir = src / "Games"
         if games_dir.is_dir():
             os.environ["MOD_MANAGER_GAMES"] = str(games_dir)
+    diagnostics.append(
+        "Startup paths: game handlers directory: "
+        + (os.environ.get("MOD_MANAGER_GAMES") or "not configured"))
     timings.append(("Prepare Python/runtime paths", phase_started,
                     time.perf_counter(), "bootstrap"))
 
@@ -68,9 +81,10 @@ def setup_environment() -> list[tuple[str, float, float, str]]:
     phase_started = time.perf_counter()
     try:
         from Utils.app_env import apply_saved_env
-        apply_saved_env()
-    except Exception:
-        pass
+        apply_saved_env(log_fn=diagnostics.append)
+    except Exception as exc:
+        diagnostics.append(
+            f"Startup environment: loader failed: {type(exc).__name__}: {exc}")
     timings.append(("Load saved environment settings", phase_started,
                     time.perf_counter(), "configuration"))
 
@@ -83,12 +97,28 @@ def setup_environment() -> list[tuple[str, float, float, str]]:
     phase_started = time.perf_counter()
     try:
         from Utils.stderr_capture import install_stderr_file, install_faulthandler
-        install_stderr_file()
-        install_faulthandler()
-    except Exception:
-        pass
+        stderr_ok = install_stderr_file()
+        fault_ok = install_faulthandler()
+        diagnostics.append(
+            f"Startup diagnostics: stderr capture={'ready' if stderr_ok else 'unavailable'}, "
+            f"faulthandler={'ready' if fault_ok else 'unavailable'}.")
+    except Exception as exc:
+        diagnostics.append(
+            f"Startup diagnostics: setup failed: {type(exc).__name__}: {exc}")
     timings.append(("Initialize crash/stderr capture", phase_started,
                     time.perf_counter(), "diagnostics"))
+
+    try:
+        from Utils.app_log import app_log
+        for message in diagnostics:
+            app_log(message)
+    except Exception:
+        pass
+    for message in diagnostics:
+        try:
+            print(f"[startup] {message}", file=sys.stderr)
+        except Exception:
+            pass
 
     # Filegraph is part of Amethyst's runtime, not an optional acceleration.
     # Validate it before profile state can be opened or mutated so a damaged

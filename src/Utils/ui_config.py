@@ -2667,7 +2667,7 @@ def save_last_session(game: "str | None", profile: "str | None") -> None:
 # amethyst.ini schema version gate (migration wipe)
 # ---------------------------------------------------------------------------
 
-def ensure_ini_version() -> None:
+def ensure_ini_version(log_fn=None) -> None:
     """Ensure amethyst.ini matches the current schema version.
 
     If the file exists but its ``[meta] version`` is missing or != _APP_INI_VERSION
@@ -2682,7 +2682,23 @@ def ensure_ini_version() -> None:
     Best-effort: any error falls back to wiping + rewriting so a corrupt/locked
     ini can never block startup.
     """
+    if log_fn is None:
+        try:
+            from Utils.app_log import app_log
+            log_fn = app_log
+        except Exception:
+            log_fn = lambda _message: None
+
+    target_log = log_fn
+
+    def log_fn(message):
+        try:
+            target_log(message)
+        except Exception:
+            pass
+
     path = get_ui_config_path()
+    log_fn(f"Startup configuration: path={path}, expected schema={_APP_INI_VERSION}.")
     try:
         needs_wipe = False
         if path.is_file():
@@ -2690,21 +2706,29 @@ def ensure_ini_version() -> None:
                 parser = _new_parser()
                 parser.read(path)
                 ver = parser.getint(_META_SECTION, "version", fallback=0)
-            except Exception:
+            except Exception as exc:
                 ver = -1   # unreadable → treat as outdated
+                log_fn(f"Startup configuration: could not parse existing INI; "
+                       f"resetting it ({type(exc).__name__}: {exc}).")
             if ver != _APP_INI_VERSION:
                 needs_wipe = True
+                if ver >= 0:
+                    log_fn(f"Startup configuration: schema {ver} does not match "
+                           f"{_APP_INI_VERSION}; resetting application UI settings.")
         if needs_wipe:
             try:
                 path.unlink()
-            except OSError:
-                pass
+                log_fn("Startup configuration: removed the incompatible INI.")
+            except OSError as exc:
+                log_fn(f"Startup configuration: could not remove incompatible INI: "
+                       f"{exc}.")
         if not path.is_file():
             # Fresh stamp (brand-new install or just-wiped).
             path.parent.mkdir(parents=True, exist_ok=True)
             parser = _new_parser()
             parser[_META_SECTION] = {"version": str(_APP_INI_VERSION)}
             _write_ini(parser, path)
+            log_fn(f"Startup configuration: created schema {_APP_INI_VERSION} INI.")
         else:
             # File is current but make sure the version key is present/correct.
             parser = _new_parser()
@@ -2724,11 +2748,18 @@ def ensure_ini_version() -> None:
                 dirty = True
             if dirty:
                 _write_ini(parser, path)
-    except Exception:
+                log_fn("Startup configuration: filled missing schema/default fields.")
+            else:
+                log_fn("Startup configuration: existing INI is current.")
+    except Exception as exc:
+        log_fn(f"Startup configuration: validation failed; attempting a clean "
+               f"rewrite ({type(exc).__name__}: {exc}).")
         # Last resort: try a clean rewrite; swallow anything so startup proceeds.
         try:
             parser = _new_parser()
             parser[_META_SECTION] = {"version": str(_APP_INI_VERSION)}
             _write_ini(parser, path)
-        except Exception:
-            pass
+            log_fn("Startup configuration: clean rewrite succeeded.")
+        except Exception as rewrite_exc:
+            log_fn(f"Startup configuration: clean rewrite failed: "
+                   f"{type(rewrite_exc).__name__}: {rewrite_exc}")

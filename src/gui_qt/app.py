@@ -18986,12 +18986,17 @@ class MainWindow(QMainWindow):
         appended to on every ``_append_log`` call so the file stays in sync with
         the on-screen log."""
         self._log_file = None
+        self._log_file_error = None
+        self._log_file_error_reported = False
         try:
             from datetime import datetime
             from Utils.config_paths import get_logs_dir
-            ts = datetime.now().strftime("%m-%d-%y-%H%M%S")
-            self._log_file = get_logs_dir() / f"amethyst-{ts}.log"
-        except Exception:
+            ts = datetime.now().strftime("%m-%d-%y-%H%M%S-%f")
+            self._log_file = get_logs_dir() / f"amethyst-{ts}-{os.getpid()}.log"
+        except Exception as exc:
+            self._log_file_error = (
+                f"could not resolve/create the logs directory: "
+                f"{type(exc).__name__}: {exc}")
             self._log_file = None
 
     def _write_log_file(self, line: str, timestamp: str):
@@ -19000,12 +19005,24 @@ class MainWindow(QMainWindow):
         *timestamp* is the same value shown on-screen so file and panel agree."""
         log_file = getattr(self, "_log_file", None)
         if log_file is None:
-            return
+            return None
         try:
             with open(log_file, "a", encoding="utf-8", errors="replace") as f:
                 f.write(f"[{timestamp}]  {line}\n")
-        except OSError:
-            pass
+        except OSError as exc:
+            self._log_file = None
+            self._log_file_error = f"could not write {log_file}: {exc}"
+            return self._log_file_error
+        return None
+
+    def _report_log_file_failure(self):
+        if getattr(self, "_log_file_error_reported", False):
+            return
+        error = getattr(self, "_log_file_error", None)
+        if not error:
+            return
+        self._log_file_error_reported = True
+        self._append_log(f"ERROR: persistent session log disabled: {error}")
 
     def _log_system_info(self):
         """Write the environment banner to the log (startup, once).
@@ -19032,6 +19049,9 @@ class MainWindow(QMainWindow):
             self._write_log_file(line, timestamp)
         self._log_banner_len = len(self._log_lines) - before
         self._render_log()
+        self._report_log_file_failure()
+        if getattr(self, "_log_file", None) is not None:
+            self._append_log(f"Session log file: {self._log_file}")
 
     def _append_log(self, message: str):
         """Backend log_fn target - append a line to the log text area.
@@ -19069,7 +19089,9 @@ class MainWindow(QMainWindow):
         self._log_lines.append((line, severity, timestamp))
         # Persist to the session log file (before the display filter, so the file
         # captures everything - Tk status_bar parity).
-        self._write_log_file(line, timestamp)
+        file_error = self._write_log_file(line, timestamp)
+        if file_error:
+            self._report_log_file_failure()
         if not self._line_visible(severity):
             return   # filtered out - retained but not shown
         html = self._log_line_html(line, severity, timestamp)
@@ -19566,14 +19588,22 @@ def run(startup_timing=None) -> int:
     # Migrate/clean amethyst.ini BEFORE anything reads it (theme loader, GameState).
     # Wipes a pre-Qt ini (missing [meta] version=2) so everyone starts fresh.
     phase_started = _startup_time.perf_counter()
-    from Utils.ui_config import ensure_ini_version, load_language, load_ui_scale
+    from Utils.ui_config import (
+        ensure_ini_version, load_language, load_ui_scale,
+        load_ui_scale_is_auto,
+    )
+    from Utils.app_log import app_log as _app_log, safe_print as _safe_print
+
+    def _startup_log(message):
+        _app_log(message)
+        _safe_print(f"[startup] {message}", file=sys.stderr)
     if startup_timing is not None:
         startup_timing.record(
             "Import UI configuration helpers", phase_started=phase_started,
             category="imports")
 
     phase_started = _startup_time.perf_counter()
-    ensure_ini_version()
+    ensure_ini_version(log_fn=_startup_log)
     if startup_timing is not None:
         startup_timing.record(
             "Validate/migrate application configuration",
@@ -19593,10 +19623,14 @@ def run(startup_timing=None) -> int:
     # it alone.
     import os as _os
     phase_started = _startup_time.perf_counter()
+    _scale_auto = False
     try:
         _scale = load_ui_scale(timing=startup_timing)
-    except Exception:
+        _scale_auto = load_ui_scale_is_auto()
+    except Exception as exc:
         _scale = None
+        _startup_log(f"Startup display: UI scale could not be loaded: "
+                     f"{type(exc).__name__}: {exc}")
     if startup_timing is not None:
         startup_timing.record(
             "Load UI scale setting (aggregate)",
@@ -19608,18 +19642,33 @@ def run(startup_timing=None) -> int:
             raise ValueError("UI scale could not be loaded")
         _ours = _os.environ.get("_AMM_OWNS_SCALE") == "1"
         _user_set = "QT_SCALE_FACTOR" in _os.environ and not _ours
-        if not _user_set:
+        if _user_set:
+            _app_names = set((_os.environ.get("_AMM_ENV_KEYS") or "").split(","))
+            _source = ("saved Amethyst environment setting"
+                       if "QT_SCALE_FACTOR" in _app_names
+                       else "inherited environment")
+            _startup_log(
+                f"Startup display: QT_SCALE_FACTOR={_os.environ['QT_SCALE_FACTOR']} "
+                f"from {_source}; UI scale setting {_scale:g} did not override it.")
+        else:
             if abs(_scale - 1.0) > 0.01:
                 _os.environ["QT_SCALE_FACTOR"] = (
                     f"{_scale:.4f}".rstrip("0").rstrip("."))
                 _os.environ["_AMM_OWNS_SCALE"] = "1"
+                _source = "automatic detection" if _scale_auto else "saved UI setting"
+                _startup_log(f"Startup display: applying UI scale {_scale:g} "
+                             f"from {_source}.")
             else:
                 # 1.0 / auto→1.0: drop any scale we set on a previous launch so
                 # Qt's native per-monitor DPI handling takes over again.
                 _os.environ.pop("QT_SCALE_FACTOR", None)
                 _os.environ.pop("_AMM_OWNS_SCALE", None)
-    except Exception:
-        pass
+                _source = "automatic detection" if _scale_auto else "saved UI setting"
+                _startup_log(f"Startup display: {_source} resolved to 1; "
+                             "using Qt native per-monitor scaling.")
+    except Exception as exc:
+        _startup_log(f"Startup display: could not apply UI scale: "
+                     f"{type(exc).__name__}: {exc}")
     if startup_timing is not None:
         startup_timing.record(
             "Apply UI scale environment",

@@ -11,7 +11,6 @@ identical across both front-ends.
 from __future__ import annotations
 
 import os
-import subprocess
 from pathlib import Path
 from typing import Callable
 
@@ -353,13 +352,9 @@ def launch_wine_tool(game, tool: str, log_fn: LogFn = _noop) -> bool:
         return False
     cmd = wine_tool_command(game, proton_script, env, tool, log_fn)
     log_fn(f"Proton Tools: launching {tool} …")
-    try:
-        subprocess.Popen(cmd, env=env,
-                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        return True
-    except Exception as e:
-        log_fn(f"Proton Tools error: {e}")
-        return False
+    from Utils.process_watch import spawn_process_logged
+    return spawn_process_logged(
+        cmd, env=env, label=f"Proton Tools {tool}", log_fn=log_fn)
 
 
 def launch_winetricks(game, log_fn: LogFn = _noop) -> None:
@@ -404,11 +399,10 @@ def launch_winetricks(game, log_fn: LogFn = _noop) -> None:
         path_prefix = proton_bin + os.pathsep + path_prefix
     env["PATH"] = path_prefix + os.pathsep + env.get("PATH", "")
     log_fn(f"Proton Tools: launching winetricks GUI against {prefix_path} …")
-    try:
-        subprocess.Popen([str(wt), "--gui"],
-                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env)
-    except Exception as e:
-        log_fn(f"Proton Tools error: {e}")
+    from Utils.process_watch import spawn_process_logged
+    spawn_process_logged(
+        [str(wt), "--gui"], env=env,
+        label="Proton Tools winetricks", log_fn=log_fn)
 
 
 def launch_exe_in_prefix(game, exe_path, log_fn: LogFn = _noop) -> bool:
@@ -421,15 +415,11 @@ def launch_exe_in_prefix(game, exe_path, log_fn: LogFn = _noop) -> bool:
         log_fn(f"Proton Tools: file not found: {exe_path}")
         return False
     log_fn(f"Proton Tools: launching {exe_path.name} via {proton_script.parent.name} …")
-    try:
-        subprocess.Popen(proton_run_command(proton_script, "run", str(exe_path),
-                                            env=env),
-                         env=env, cwd=exe_path.parent,
-                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        return True
-    except Exception as e:
-        log_fn(f"Proton Tools error: {e}")
-        return False
+    from Utils.process_watch import spawn_process_logged
+    return spawn_process_logged(
+        proton_run_command(proton_script, "run", str(exe_path), env=env),
+        env=env, cwd=exe_path.parent,
+        label=f"Proton Tools {exe_path.name}", log_fn=log_fn)
 
 
 # ---------------------------------------------------------------------------

@@ -938,17 +938,47 @@ _SYMLINK_FALLBACK_ERRNOS = frozenset(
 
 _hardlink_fallback_notified = False
 _symlink_fallback_notified = False
+_fallback_lock = threading.Lock()
+_fallback_counts: dict[tuple[str, int | None], int] = {}
+
+
+def _record_link_fallback(kind: str, exc: OSError) -> None:
+    key = (kind, getattr(exc, "errno", None))
+    with _fallback_lock:
+        _fallback_counts[key] = _fallback_counts.get(key, 0) + 1
+
+
+def _fallback_snapshot() -> dict[tuple[str, int | None], int]:
+    with _fallback_lock:
+        return dict(_fallback_counts)
+
+
+def _report_fallbacks(log_fn, before: dict[tuple[str, int | None], int]) -> None:
+    with _fallback_lock:
+        after = dict(_fallback_counts)
+    parts = []
+    for (kind, number), total in sorted(
+            after.items(), key=lambda item: (item[0][0], item[0][1] or -1)):
+        count = total - before.get((kind, number), 0)
+        if count <= 0:
+            continue
+        name = errno.errorcode.get(number, f"errno {number}") if number else "unknown errno"
+        parts.append(f"{count} {kind} ({name})")
+    if parts:
+        log_fn("  Link fallbacks: " + ", ".join(parts) + ".")
 
 
 def _notify_symlink_fallback(exc: OSError) -> None:
     """Emit a one-time stderr note when symlink → copy fallback kicks in."""
     global _symlink_fallback_notified
+    _record_link_fallback("symlink→copy", exc)
     if _symlink_fallback_notified:
         return
     _symlink_fallback_notified = True
     import sys
     sys.stderr.write(
-        f"[deploy] symlink unsupported on this path ({exc.strerror or exc}); "
+        f"[deploy] symlink failed on this path "
+        f"({errno.errorcode.get(exc.errno, exc.errno)}: {exc.strerror or exc}); "
         f"falling back to copy. This usually means the game lives on a "
         f"filesystem without symlink support (exFAT/FAT32/SMB).\n"
     )
@@ -962,12 +992,14 @@ def _notify_hardlink_fallback(exc: OSError) -> None:
     are silent.
     """
     global _hardlink_fallback_notified
+    _record_link_fallback("hardlink→symlink/copy", exc)
     if _hardlink_fallback_notified:
         return
     _hardlink_fallback_notified = True
     import sys
     sys.stderr.write(
-        f"[deploy] hardlink unsupported on this path ({exc.strerror or exc}); "
+        f"[deploy] hardlink failed on this path "
+        f"({errno.errorcode.get(exc.errno, exc.errno)}: {exc.strerror or exc}); "
         f"falling back to symlink/copy. This usually means the game and mod "
         f"staging live on different filesystems.\n"
     )
@@ -994,7 +1026,8 @@ def _transfer(src: Path, dst: Path, mode: LinkMode) -> None:
         try:
             os.symlink(src, dst)
             return
-        except OSError:
+        except OSError as exc:
+            _notify_symlink_fallback(exc)
             shutil.copy2(src, dst)
             return
     if mode is LinkMode.SYMLINK:
@@ -1243,7 +1276,8 @@ def _do_link_ex(src: str, dst: str, mode: LinkMode) -> tuple["LinkMode | None", 
             try:
                 os.symlink(src, dst)
                 return LinkMode.SYMLINK, None
-            except OSError:
+            except OSError as exc:
+                _notify_symlink_fallback(exc)
                 shutil.copy2(src, dst)
                 return LinkMode.COPY, None
         if mode is LinkMode.SYMLINK:

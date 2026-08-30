@@ -272,13 +272,21 @@ def is_blocked(name: str) -> bool:
 # ---------------------------------------------------------------------------
 # Apply
 # ---------------------------------------------------------------------------
-def apply_saved_env(environ: "dict[str, str] | None" = None) -> list[str]:
+def apply_saved_env(environ: "dict[str, str] | None" = None,
+                    log_fn=None) -> list[str]:
     """Apply the saved variables to *environ* (default ``os.environ``).
 
     Returns the names actually applied. Never raises - a failure here must not
     stop the app from starting.
     """
     env = os.environ if environ is None else environ
+
+    def log(message: str) -> None:
+        try:
+            if log_fn is not None:
+                log_fn(message)
+        except Exception:
+            pass
     try:
         previous = [n for n in env.get(_MARKER_VAR, "").split(",") if n]
         if env.get(_KILL_SWITCH, "").strip().lower() in ("1", "true", "yes", "on"):
@@ -287,31 +295,52 @@ def apply_saved_env(environ: "dict[str, str] | None" = None) -> list[str]:
             for name in previous:
                 env.pop(name, None)
             env.pop(_MARKER_VAR, None)
+            cleared = ", ".join(sorted(previous)) or "none"
+            log(f"Startup environment: overrides disabled by {_KILL_SWITCH}; "
+                f"cleared previous names: {cleared}.")
             return []
 
         from Utils.ui_config import load_app_env_vars
         entries = load_app_env_vars()
 
         applied: list[str] = []
+        disabled: list[str] = []
         for entry in entries:
             name = entry.get("name", "")
             if not entry.get("enabled", True):
+                if name:
+                    disabled.append(name)
                 continue
-            if validate_name(name) or validate_value(entry.get("value", "")):
+            invalid = validate_name(name) or validate_value(entry.get("value", ""))
+            if invalid:
+                log(f"Startup environment: skipped {name or '<blank name>'}: "
+                    f"{invalid}")
                 continue
             env[name] = str(entry.get("value", ""))
             applied.append(name)
 
         # Drop anything we set last launch that isn't configured any more - the
         # re-exec inherited it, so not re-applying it is not enough.
+        removed: list[str] = []
         for name in previous:
             if name not in applied:
                 env.pop(name, None)
+                removed.append(name)
 
         if applied:
             env[_MARKER_VAR] = ",".join(applied)
         else:
             env.pop(_MARKER_VAR, None)
+        log("Startup environment: applied names: "
+            + (", ".join(sorted(applied)) if applied else "none") + ".")
+        if disabled:
+            log("Startup environment: disabled names: "
+                + ", ".join(sorted(disabled)) + ".")
+        if removed:
+            log("Startup environment: removed inherited names: "
+                + ", ".join(sorted(removed)) + ".")
         return applied
-    except Exception:
+    except Exception as exc:
+        log(f"Startup environment: could not load saved overrides: "
+            f"{type(exc).__name__}: {exc}")
         return []

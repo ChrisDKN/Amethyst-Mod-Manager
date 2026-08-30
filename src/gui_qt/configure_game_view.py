@@ -1465,6 +1465,12 @@ class ConfigureGameView(QWidget):
             app_log(f"[Configure Game] Scan failed: {exc}\n{traceback.format_exc()}")
         if not candidates:
             app_log(f"[Configure Game] Game location not auto-detected for: {game_name}")
+            try:
+                from Utils.steam_finder import steam_discovery_report
+                for line in steam_discovery_report():
+                    app_log(f"[Configure Game] {line}")
+            except Exception as exc:
+                app_log(f"[Configure Game] Steam discovery report failed: {exc}")
         if self._scan_gen != gen:
             app_log("[Configure Game] Dropping scan results - the profile "
                     "changed while the scan was running")

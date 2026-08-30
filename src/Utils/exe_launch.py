@@ -2378,8 +2378,7 @@ def resolve_tool_prefix(exe: Path, game, proton_name: str, prefix_mode: str,
     extra = parse_env_overrides(load_tool_launch_env(exe))
     if extra:
         env.update(extra)
-        log_fn("applying saved env vars: "
-               + " ".join(f"{k}={v}" for k, v in extra.items()))
+        log_fn("applying saved env var names: " + ", ".join(sorted(extra)))
     # Marker consumed by run_tool_logged: launch this tool winetricks-style
     # (plain wine, no proton session - see run_tool_winetricks_style). Set
     # here so every wizard honours the Proton-step checkbox without each
@@ -2397,7 +2396,7 @@ def wrap_tool_command(game, command: list[str], env: dict,
     from Utils.vfs import manifest_path, wrap_command
     if not manifest_path(game).is_file():
         return command
-    wrapped = wrap_command(game, command, env=env)
+    wrapped = wrap_command(game, command, env=env, log_fn=log_fn)
     log_fn(f"{label}: using the deployed profile VFS game view.")
     return wrapped
 
@@ -2605,8 +2604,8 @@ WINEPREFIX + Proton's bin on PATH, ``wine start.exe <exe>``), with only two
     saved = parse_env_overrides(load_tool_launch_env(exe))
     if saved:
         env.update(saved)
-        log_fn(f"{label}: applying saved env vars: "
-               + " ".join(f"{k}={v}" for k, v in saved.items()))
+        log_fn(f"{label}: applying saved env var names: "
+               + ", ".join(sorted(saved)))
     for k, v in (extra_env or {}).items():
         if v is None:
             env.pop(k, None)
@@ -2699,13 +2698,10 @@ def launch_winetricks_in_prefix(wineprefix: Path, log_fn=_noop_log) -> None:
     env["PATH"] = path_prefix + os.pathsep + env.get("PATH", "")
 
     log_fn(f"Prefix tools: launching winetricks GUI against {wineprefix.parent.name} …")
-    try:
-        subprocess.Popen(
-            [str(wt), "--gui"], env=env,
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        )
-    except Exception as e:
-        log_fn(f"Prefix tools error: {e}")
+    from Utils.process_watch import spawn_process_logged
+    spawn_process_logged(
+        [str(wt), "--gui"], env=env,
+        label="Prefix tools winetricks", log_fn=log_fn)
 
 
 def launch_wine_tool_in_prefix(proton_script: Path, prefix_dir: Path, env: dict,
@@ -2726,13 +2722,9 @@ def launch_wine_tool_in_prefix(proton_script: Path, prefix_dir: Path, env: dict,
     cmd = proton_run_command(proton_script, "runinprefix", tool, env=env)
     cmd = _host_forward(cmd, env, lambda m: log_fn(f"Prefix tools: {m}"))
     log_fn(f"Prefix tools: launching {tool} …")
-    try:
-        subprocess.Popen(cmd, env=env,
-                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        return True
-    except Exception as e:
-        log_fn(f"Prefix tools error: {e}")
-        return False
+    from Utils.process_watch import spawn_process_logged
+    return spawn_process_logged(
+        cmd, env=env, label=f"Prefix tools {tool}", log_fn=log_fn)
 
 
 # ---------------------------------------------------------------------------

@@ -34,6 +34,7 @@ the check was added). A child that aborts costs us a wait and a return code.
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -43,6 +44,7 @@ import threading
 # startup warmup asks from a worker thread while the user may be opening a mesh
 # on the GUI thread, and two probes would mean two child processes.
 _status: tuple[bool, str] | None = None
+_details = ""
 _lock = threading.Lock()
 
 # QGuiApplication.platformName() as read on the GUI thread by prime_platform().
@@ -140,7 +142,7 @@ def _foreign_gl_libs() -> list[str]:
 # through the exit code, because anything it prints may be drowned out by Qt's
 # own warnings. A qFatal in here takes the child down and nothing else.
 _PROBE_SRC = r'''
-import os, sys
+import json, os, sys
 _p = os.environ.get("_AMM_GL_PROBE_SYSPATH", "")
 if _p:
     sys.path[:0] = [x for x in _p.split(os.pathsep) if x]
@@ -165,6 +167,21 @@ if not surface.isValid():
     raise SystemExit(3)
 if not ctx.makeCurrent(surface):
     raise SystemExit(4)
+functions = ctx.functions()
+def gl_string(token):
+    value = functions.glGetString(token)
+    if isinstance(value, (bytes, bytearray)):
+        return value.decode("utf-8", "replace")
+    return str(value or "")
+actual = ctx.format()
+print("__AMM_GL_INFO__" + json.dumps({
+    "renderer": gl_string(0x1F01),
+    "vendor": gl_string(0x1F00),
+    "version": gl_string(0x1F02),
+    "glsl": gl_string(0x8B8C),
+    "surface": f"{actual.majorVersion()}.{actual.minorVersion()}",
+    "gles": ctx.isOpenGLES(),
+}), flush=True)
 ctx.doneCurrent()
 raise SystemExit(0)
 '''
@@ -177,6 +194,15 @@ _PROBE_CODES = {
 }
 
 
+def _probe_output(raw, limit: int = 600) -> str:
+    if isinstance(raw, bytes):
+        text = raw.decode("utf-8", "replace")
+    else:
+        text = str(raw or "")
+    detail = " | ".join(line.strip() for line in text.splitlines() if line.strip())
+    return detail if len(detail) <= limit else "..." + detail[-(limit - 3):]
+
+
 def _probe_context() -> tuple[bool, str]:
     """Create a throwaway offscreen GL context - in a child process - to see if
     the driver works.
@@ -187,6 +213,8 @@ def _probe_context() -> tuple[bool, str]:
     abort back in this process, so an unusable probe disables the GL path and
     ``AMM_FORCE_GL=1`` remains the way to overrule it.
     """
+    global _details
+    _details = ""
     if not sys.executable:
         return False, "no interpreter available to run the OpenGL probe"
     env = dict(os.environ)
@@ -201,21 +229,44 @@ def _probe_context() -> tuple[bool, str]:
     try:
         proc = subprocess.run(
             [sys.executable, "-c", _PROBE_SRC], env=env, timeout=30,
-            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
-    except subprocess.TimeoutExpired:
-        return False, "the OpenGL probe timed out"
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    except subprocess.TimeoutExpired as exc:
+        detail = _probe_output(exc.stderr)
+        reason = "the OpenGL probe timed out"
+        return False, f"{reason}: {detail}" if detail else reason
     except Exception as exc:                              # noqa: BLE001
         return False, f"the OpenGL probe could not run ({exc})"
     if proc.returncode == 0:
+        output = (proc.stdout or b"").decode("utf-8", "replace")
+        for line in output.splitlines():
+            if not line.startswith("__AMM_GL_INFO__"):
+                continue
+            try:
+                info = json.loads(line.removeprefix("__AMM_GL_INFO__"))
+                renderer = " ".join(
+                    " ".join(str(part).split())
+                    for part in (info.get("renderer"), info.get("vendor"))
+                    if part)
+                version = " ".join(str(info.get("version") or "unknown").split())
+                glsl = " ".join(str(info.get("glsl") or "unknown").split())
+                api = "OpenGL ES" if info.get("gles") else "OpenGL"
+                _details = (f"{renderer or 'unknown renderer'}; {api} {version}; "
+                            f"GLSL {glsl}; surface {info.get('surface') or '?'}")
+            except Exception:
+                _details = "probe succeeded; renderer details could not be parsed"
+            break
+        if not _details:
+            _details = "probe succeeded; no renderer details were returned"
         return True, ""
     if proc.returncode < 0:
         # Killed by a signal - qFatal("Could not initialize GLX") and friends.
-        detail = (proc.stderr or b"").decode("utf-8", "replace").strip()
-        last = detail.splitlines()[-1] if detail else ""
+        detail = _probe_output(proc.stderr)
         why = f"the OpenGL driver aborted the probe (signal {-proc.returncode})"
-        return False, f"{why}: {last}" if last else why
-    return False, _PROBE_CODES.get(
+        return False, f"{why}: {detail}" if detail else why
+    reason = _PROBE_CODES.get(
         proc.returncode, f"the OpenGL probe failed (exit {proc.returncode})")
+    detail = _probe_output(proc.stderr)
+    return False, f"{reason}: {detail}" if detail else reason
 
 
 def gl_status() -> tuple[bool, str]:
@@ -234,11 +285,20 @@ def gl_status() -> tuple[bool, str]:
             return _status
         status = _compute_status()
         _status = status
-    if not status[0]:
-        # stderr_capture tees this into the log panel and run-qt-stderr.log, so
-        # "the 3D preview is a grey box" comes with its reason attached.
-        print(f"3D preview disabled: {status[1]}", file=sys.stderr)
+    detail = gl_details()
+    try:
+        if status[0]:
+            print("OpenGL status: available" + (f" ({detail})" if detail else ""),
+                  file=sys.stderr)
+        else:
+            print(f"OpenGL status: unavailable ({status[1]})", file=sys.stderr)
+    except (OSError, ValueError):
+        pass
     return status
+
+
+def gl_details() -> str:
+    return _details
 
 
 # Platform plugins with no window system behind them: a GL context can still
@@ -247,9 +307,12 @@ _NO_GL_PLATFORMS = {"offscreen", "minimal", "minimalegl", "vnc"}
 
 
 def _compute_status() -> tuple[bool, str]:
+    global _details
     if _env_disabled():
+        _details = "disabled by AMM_DISABLE_GL"
         return False, "disabled by AMM_DISABLE_GL"
     if _env_forced():
+        _details = "forced by AMM_FORCE_GL; driver was not probed"
         return True, ""
     platform = _platform_name().lower()
     if platform in _NO_GL_PLATFORMS:

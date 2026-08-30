@@ -175,10 +175,10 @@ class ModLoaderInstallerView(WizardViewBase):
 
     # -- run installer ------------------------------------------------------------
     def _do_run(self):
-        import subprocess
         from Utils.exe_launch import (
             get_game_prefix_env, shutdown_prefix_wineserver,
         )
+        from Utils.process_watch import run_process_logged
         from Utils.steam_finder import proton_run_command
         proton_script = compat_data = None
         try:
@@ -201,20 +201,22 @@ class ModLoaderInstallerView(WizardViewBase):
             proton_script, compat_data, env = result
 
             self._log(f"{self.TOOL_LABEL} Wizard: launching {exe} via Proton")
-            proc = subprocess.Popen(
-                # runinprefix: skips the steam.exe shim so Steam doesn't show
-                # the game as "Running" while the installer is open.
+
+            def started():
+                safe_emit(self._run_status_sig,
+                          self.tr("{0} is running.\n"
+                                  "Close it when you are done, then click Done.").format(
+                                      self.INSTALLER_EXE), GREEN)
+                safe_emit(self._run_started_sig)
+
+            rc = run_process_logged(
                 proton_run_command(proton_script, "runinprefix", str(exe),
                                    env=env),
                 env=env, cwd=str(exe.parent),
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            safe_emit(self._run_status_sig,
-                      self.tr("{0} is running.\n"
-                      "Close it when you are done, then click Done.").format(
-                          self.INSTALLER_EXE), GREEN)
-            safe_emit(self._run_started_sig)   # enable Done
-            proc.wait()
-            self._log(f"{self.TOOL_LABEL} Wizard: {self.INSTALLER_EXE} closed.")
+                label=f"{self.TOOL_LABEL} Wizard {self.INSTALLER_EXE}",
+                log_fn=self._log, started_fn=started)
+            self._log(f"{self.TOOL_LABEL} Wizard: {self.INSTALLER_EXE} closed "
+                      f"(exit code {rc}).")
             safe_emit(self._run_status_sig,
                       self.tr("{0} finished.\n\nClick Done to close.").format(
                           self.INSTALLER_EXE),

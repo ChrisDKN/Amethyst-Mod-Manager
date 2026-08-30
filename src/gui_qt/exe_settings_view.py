@@ -15,7 +15,6 @@ app's thread-safe _append_log) - never widgets.
 
 from __future__ import annotations
 
-import subprocess
 import threading
 from pathlib import Path
 
@@ -457,17 +456,12 @@ class ExeSettingsView(QWidget):
                     return
                 log(f"Prefix tools: launching {exe.name} …")
                 from Utils.steam_finder import proton_run_command
-                try:
-                    subprocess.Popen(
-                        # runinprefix: isolated tool prefix - no steam.exe
-                        # shim, so Steam doesn't show the game as "Running".
-                        proton_run_command(proton_script, "runinprefix",
-                                           str(exe), env=env),
-                        env=env, cwd=exe.parent,
-                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                    )
-                except Exception as e:
-                    log(f"Prefix tools error: {e}")
+                from Utils.process_watch import spawn_process_logged
+                spawn_process_logged(
+                    proton_run_command(proton_script, "runinprefix",
+                                       str(exe), env=env),
+                    env=env, cwd=exe.parent,
+                    label=f"Prefix tools {exe.name}", log_fn=log)
 
             from Utils.portal_filechooser import pick_exe_file
             pick_exe_file("Select EXE to run in prefix", on_picked)

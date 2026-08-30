@@ -7,6 +7,7 @@ No UI, no game-specific knowledge.
 from __future__ import annotations
 
 import collections
+import errno
 import fnmatch
 import os
 import re
@@ -42,6 +43,21 @@ _COMMON_SUBDIR = Path("steamapps") / "common"
 
 _STEAM_FLATPAK_ID = "com.valvesoftware.Steam"
 _STEAM_FLATPAK_DATA = _HOME / ".var" / "app" / _STEAM_FLATPAK_ID
+
+_discovery_warnings: set[str] = set()
+_discovery_warning_lock = threading.Lock()
+
+
+def _warn_discovery_once(key: str, message: str) -> None:
+    with _discovery_warning_lock:
+        if key in _discovery_warnings:
+            return
+        _discovery_warnings.add(key)
+    try:
+        from Utils.app_log import app_log
+        app_log(f"Steam discovery: {message}")
+    except Exception:
+        pass
 
 
 def _proton_script_in_steam_flatpak(proton_script: "Path") -> bool:
@@ -155,13 +171,20 @@ def steam_launch_options(app_id: str) -> str:
             continue
         try:
             user_dirs = [d for d in userdata.iterdir() if d.is_dir()]
-        except OSError:
+        except OSError as exc:
+            _warn_discovery_once(
+                f"userdata:{userdata}",
+                f"could not scan Steam userdata directory {userdata}: {exc}")
             continue
         for user_dir in user_dirs:
             cfg = user_dir / "config" / "localconfig.vdf"
             try:
                 mtime = cfg.stat().st_mtime
-            except OSError:
+            except OSError as exc:
+                if getattr(exc, "errno", None) not in (errno.ENOENT, errno.ENOTDIR):
+                    _warn_discovery_once(
+                        f"launch-options:{cfg}",
+                        f"could not inspect Steam launch options {cfg}: {exc}")
                 continue
             if mtime <= best[0]:
                 continue
@@ -200,7 +223,10 @@ def _parse_launch_options(localconfig: Path, app_id: str) -> str:
                 m = re.match(r'"([^"]*)"$', line)
                 if m:
                     pending = m.group(1).lower()
-    except OSError:
+    except OSError as exc:
+        _warn_discovery_once(
+            f"launch-options-read:{localconfig}",
+            f"could not read Steam launch options {localconfig}: {exc}")
         return ""
     return ""
 
@@ -265,13 +291,20 @@ def _newest_localconfig() -> "Path | None":
             continue
         try:
             user_dirs = [d for d in userdata.iterdir() if d.is_dir()]
-        except OSError:
+        except OSError as exc:
+            _warn_discovery_once(
+                f"userdata:{userdata}",
+                f"could not scan Steam userdata directory {userdata}: {exc}")
             continue
         for user_dir in user_dirs:
             cfg = user_dir / "config" / "localconfig.vdf"
             try:
                 mtime = cfg.stat().st_mtime
-            except OSError:
+            except OSError as exc:
+                if getattr(exc, "errno", None) not in (errno.ENOENT, errno.ENOTDIR):
+                    _warn_discovery_once(
+                        f"localconfig:{cfg}",
+                        f"could not inspect Steam user configuration {cfg}: {exc}")
                 continue
             if mtime > best[0]:
                 best = (mtime, cfg)
@@ -723,7 +756,10 @@ def list_installed_proton() -> list[Path]:
                         continue
                     seen.add(resolved)
                     candidates.append(proton_script)
-            except OSError:
+            except OSError as exc:
+                _warn_discovery_once(
+                    f"proton-dir:{search_dir}",
+                    f"could not scan Proton directory {search_dir}: {exc}")
                 continue
     # Heroic-managed Proton builds. A Heroic copy whose directory name matches
     # a Steam-provided tool is skipped - it's the same build, and the Steam
@@ -731,7 +767,9 @@ def list_installed_proton() -> list[Path]:
     try:
         from Utils.heroic_finder import list_heroic_proton_scripts
         heroic_scripts = list_heroic_proton_scripts()
-    except Exception:
+    except Exception as exc:
+        _warn_discovery_once(
+            "heroic-proton", f"Heroic Proton scan failed: {type(exc).__name__}: {exc}")
         heroic_scripts = []
     steam_names = {c.parent.name.lower() for c in candidates}
     for proton_script in heroic_scripts:
@@ -892,7 +930,10 @@ def _stat_sig(path) -> "tuple[int, int] | None":
     """(st_mtime_ns, st_size) for a regular file, None if absent/unreadable."""
     try:
         st = os.stat(path)
-    except OSError:
+    except OSError as exc:
+        if getattr(exc, "errno", None) not in (errno.ENOENT, errno.ENOTDIR):
+            _warn_discovery_once(
+                f"stat:{path}", f"could not inspect {path}: {exc}")
         return None
     return (st.st_mtime_ns, st.st_size) if stat.S_ISREG(st.st_mode) else None
 
@@ -912,7 +953,10 @@ def _custom_vdf_path() -> str:
         custom = load_steam_libraries_vdf_path()
         _custom_vdf_cache = (ini_sig, custom)
         return custom
-    except Exception:
+    except Exception as exc:
+        _warn_discovery_once(
+            "custom-vdf-config",
+            f"could not load the custom VDF setting: {type(exc).__name__}: {exc}")
         return ""
 
 
@@ -971,6 +1015,63 @@ def find_steam_libraries() -> list[Path]:
     return libraries
 
 
+def steam_discovery_report() -> list[str]:
+    """One-shot diagnostic summary for a failed game auto-detection."""
+    if _in_flatpak_sandbox():
+        mode = "Flatpak sandbox"
+    elif os.environ.get("APPIMAGE") or os.environ.get("APPDIR"):
+        mode = "AppImage host"
+    else:
+        mode = "native host"
+    report = [f"Steam discovery report: execution={mode}."]
+    custom = _custom_vdf_path()
+    if custom:
+        custom_path = Path(custom)
+        report.append(
+            f"Steam discovery report: custom VDF={custom_path} "
+            f"({'readable' if os.access(custom_path, os.R_OK) else 'not readable'}).")
+    else:
+        report.append("Steam discovery report: custom VDF=not configured.")
+
+    roots = []
+    vdfs = []
+    errors = []
+    for root in _STEAM_CANDIDATES:
+        try:
+            if root.is_dir():
+                roots.append(root)
+        except OSError as exc:
+            errors.append(f"{root}: {exc}")
+        for name in _VDF_FILENAMES:
+            for candidate in (root / "steamapps" / name,
+                              root / "config" / name, root / name):
+                try:
+                    if candidate.is_file():
+                        vdfs.append(candidate)
+                except OSError as exc:
+                    errors.append(f"{candidate}: {exc}")
+    roots = list(dict.fromkeys(roots))
+    report.append("Steam discovery report: client roots="
+                  + (", ".join(str(path) for path in roots) if roots else "none") + ".")
+    report.append("Steam discovery report: VDF files="
+                  + (", ".join(str(path) for path in dict.fromkeys(vdfs))
+                     if vdfs else "none") + ".")
+    libraries = find_steam_libraries()
+    report.append("Steam discovery report: usable libraries="
+                  + (", ".join(str(path) for path in libraries)
+                     if libraries else "none") + ".")
+    try:
+        protons = [path.parent.name for path in list_installed_proton()]
+    except Exception as exc:
+        protons = []
+        errors.append(f"Proton inventory: {type(exc).__name__}: {exc}")
+    report.append("Steam discovery report: Proton tools="
+                  + (", ".join(protons) if protons else "none") + ".")
+    for error in errors[:8]:
+        report.append(f"Steam discovery report: probe error: {error}")
+    return report
+
+
 # Warn-once tracking so the same library path doesn't spam the log every time
 # find_steam_libraries() runs (it's called frequently by GUI refreshes).
 _vdf_warned_missing: set[str] = set()
@@ -1027,7 +1128,9 @@ def parse_vdf_libraries(vdf_path: Path) -> list[Path]:
 
     try:
         text = vdf_path.read_text(encoding="utf-8", errors="replace")
-    except OSError:
+    except OSError as exc:
+        _warn_discovery_once(
+            f"read-vdf:{vdf_path}", f"could not read {vdf_path}: {exc}")
         return libraries
 
     for match in pattern.finditer(text):

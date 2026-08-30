@@ -42,6 +42,67 @@ def _noop(_msg: str) -> None:
     pass
 
 
+_tool_versions: dict[str, str] = {}
+
+
+def _extract_log(log_fn):
+    target = log_fn
+    if target is None:
+        try:
+            from Utils.app_log import app_log
+            target = app_log
+        except Exception:
+            target = _noop
+
+    def emit(message: str) -> None:
+        try:
+            target(message)
+        except Exception:
+            pass
+    return emit
+
+
+def _output_tail(text: str, limit: int = 1200) -> str:
+    try:
+        from Utils.process_watch import redact_text
+        text = redact_text(text)
+    except Exception:
+        text = str(text)
+    clean = " | ".join(line.strip() for line in text.splitlines() if line.strip())
+    if not clean:
+        return "no output"
+    return clean if len(clean) <= limit else clean[-limit:]
+
+
+def _tool_description(path: str) -> str:
+    cached = _tool_versions.get(path)
+    if cached is not None:
+        return cached
+    args = [path, "--version"] if Path(path).name == "bsdtar" else [path]
+    version = ""
+    try:
+        result = subprocess.run(
+            args, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            timeout=3, check=False)
+        version = next((line.strip() for line in (result.stdout or "").splitlines()
+                        if line.strip()), "")
+        version = version[:300]
+    except (OSError, subprocess.SubprocessError):
+        pass
+    description = path + (f" ({version})" if version else "")
+    _tool_versions[path] = description
+    return description
+
+
+def _run_extractor(args: list[str]):
+    try:
+        return subprocess.run(
+            args, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True,
+            check=False), ""
+    except (OSError, subprocess.SubprocessError) as exc:
+        return None, f"{type(exc).__name__}: {exc}"
+
+
 # ---------------------------------------------------------------------------
 # GitHub release fetch
 # ---------------------------------------------------------------------------
@@ -150,11 +211,13 @@ def find_archive(directory: Path, keywords: list[str]) -> Path | None:
 # Extract
 # ---------------------------------------------------------------------------
 
-def extract_to_dir(archive: Path, dest: Path) -> None:
+def extract_to_dir(archive: Path, dest: Path, log_fn=None) -> None:
     """Extract *archive* into *dest* (low-level, no flattening)."""
+    log = _extract_log(log_fn)
     name_lower = archive.name.lower()
 
     if name_lower.endswith(".zip"):
+        log(f"Wizard extraction: using Python zipfile for {archive.name}.")
         with zipfile.ZipFile(archive, "r") as zf:
             zf.extractall(dest)
 
@@ -167,36 +230,64 @@ def extract_to_dir(archive: Path, dest: Path) -> None:
             shutil.which("7zzs") or shutil.which("7zz")
             or shutil.which("7z") or shutil.which("7za")
         )
+        failures: list[str] = []
         if _7z_bin:
-            result = subprocess.run(
-                [_7z_bin, "x", str(archive), f"-o{dest}", "-y"],
-                stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True,
-            )
-            extracted_via_cli = result.returncode == 0
+            log(f"Wizard extraction: trying {_tool_description(_7z_bin)}.")
+            result, spawn_error = _run_extractor(
+                [_7z_bin, "x", str(archive), f"-o{dest}", "-y"])
+            extracted_via_cli = result is not None and result.returncode == 0
+            if extracted_via_cli:
+                log(f"Wizard extraction: extracted with {_7z_bin}.")
+            else:
+                rc = result.returncode if result is not None else "not started"
+                detail = (_output_tail(spawn_error) if result is None
+                          else _output_tail(result.stderr or ""))
+                failures.append(f"{_7z_bin} rc={rc}: {detail}")
+                log(f"Wizard extraction: {_7z_bin} failed (rc={rc}): {detail}")
 
         # bsdtar (libarchive) also handles BCJ2 and is broadly available.
         if not extracted_via_cli:
             _bsdtar_bin = shutil.which("bsdtar")
             if _bsdtar_bin:
-                result = subprocess.run(
-                    [_bsdtar_bin, "-xf", str(archive), "-C", str(dest)],
-                    stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True,
-                )
-                extracted_via_cli = result.returncode == 0
+                log(f"Wizard extraction: trying {_tool_description(_bsdtar_bin)}.")
+                result, spawn_error = _run_extractor(
+                    [_bsdtar_bin, "-xf", str(archive), "-C", str(dest)])
+                extracted_via_cli = result is not None and result.returncode == 0
+                if extracted_via_cli:
+                    log(f"Wizard extraction: extracted with {_bsdtar_bin}.")
+                else:
+                    rc = result.returncode if result is not None else "not started"
+                    detail = (_output_tail(spawn_error) if result is None
+                              else _output_tail(result.stderr or ""))
+                    failures.append(
+                        f"{_bsdtar_bin} rc={rc}: {detail}")
+                    log(f"Wizard extraction: {_bsdtar_bin} failed "
+                        f"(rc={rc}): {detail}")
 
         if not extracted_via_cli:
             if py7zr is None:
-                raise RuntimeError(
-                    "Cannot extract .7z archive: no native 7z/bsdtar command "
-                    "was found and py7zr is not installed."
-                )
-            with py7zr.SevenZipFile(archive, "r") as zf:
-                zf.extractall(dest)
+                if failures:
+                    raise RuntimeError(
+                        "Cannot extract .7z archive; available command-line "
+                        "extractors failed: " + " || ".join(failures))
+                raise RuntimeError("Cannot extract .7z archive: no native "
+                                   "7z/bsdtar command or py7zr module was found.")
+            log(f"Wizard extraction: trying py7zr {getattr(py7zr, '__version__', '?')}.")
+            try:
+                with py7zr.SevenZipFile(archive, "r") as zf:
+                    zf.extractall(dest)
+                log("Wizard extraction: extracted with py7zr.")
+            except Exception as exc:
+                detail = _output_tail(f"{type(exc).__name__}: {exc}")
+                failures.append(f"py7zr: {detail}")
+                raise RuntimeError("Cannot extract .7z archive; all available "
+                                   "extractors failed: " + " || ".join(failures)) from exc
 
     elif name_lower.endswith((".tar.zst", ".tzst")):
-        _extract_tar_zst(archive, dest)
+        _extract_tar_zst(archive, dest, log_fn=log)
 
     elif name_lower.endswith((".tar", ".tar.gz", ".tar.bz2", ".tar.xz", ".tgz")):
+        log(f"Wizard extraction: using Python tarfile for {archive.name}.")
         with tarfile.open(archive, "r:*") as tf:
             tf.extractall(dest, filter="data")
     else:
@@ -223,7 +314,7 @@ def _zstd_module():
         return None
 
 
-def _extract_tar_zst(archive: Path, dest: Path) -> None:
+def _extract_tar_zst(archive: Path, dest: Path, log_fn=None) -> None:
     """Extract a zstd-compressed tar into *dest*.
 
     Python's ``tarfile`` gained no zstd support of its own, so the stream is
@@ -231,44 +322,65 @@ def _extract_tar_zst(archive: Path, dest: Path) -> None:
     libarchive links libzstd) and then to 7-Zip, which only unwraps the
     ``.zst`` container and needs a second pass over the inner ``.tar``.
     """
+    log = _extract_log(log_fn)
+    failures: list[str] = []
     zstd = _zstd_module()
     if zstd is not None:
-        # Streaming mode ("r|"): a zstd stream isn't seekable, and the whole
-        # tar is walked once anyway.
-        with zstd.open(archive, "rb") as zf, \
-                tarfile.open(fileobj=zf, mode="r|") as tf:
-            tf.extractall(dest, filter="data")
-        return
+        try:
+            # Streaming mode ("r|"): a zstd stream isn't seekable, and the whole
+            # tar is walked once anyway.
+            with zstd.open(archive, "rb") as zf, \
+                    tarfile.open(fileobj=zf, mode="r|") as tf:
+                tf.extractall(dest, filter="data")
+            log(f"Wizard extraction: extracted {archive.name} with "
+                f"{zstd.__name__}.")
+            return
+        except Exception as exc:
+            detail = _output_tail(f"{type(exc).__name__}: {exc}")
+            failures.append(f"{zstd.__name__}: {detail}")
+            log(f"Wizard extraction: {zstd.__name__} failed: {detail}")
 
     bsdtar = shutil.which("bsdtar")
     if bsdtar:
-        result = subprocess.run(
-            [bsdtar, "-xf", str(archive), "-C", str(dest)],
-            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True,
-        )
-        if result.returncode == 0:
+        log(f"Wizard extraction: trying {_tool_description(bsdtar)}.")
+        result, spawn_error = _run_extractor(
+            [bsdtar, "-xf", str(archive), "-C", str(dest)])
+        if result is not None and result.returncode == 0:
+            log(f"Wizard extraction: extracted with {bsdtar}.")
             return
+        rc = result.returncode if result is not None else "not started"
+        detail = (_output_tail(spawn_error) if result is None
+                  else _output_tail(result.stderr or ""))
+        failures.append(f"{bsdtar} rc={rc}: {detail}")
+        log(f"Wizard extraction: {bsdtar} failed (rc={rc}): {detail}")
 
     _7z_bin = (shutil.which("7zzs") or shutil.which("7zz")
                or shutil.which("7z") or shutil.which("7za"))
     if _7z_bin:
         import tempfile
+        log(f"Wizard extraction: trying {_tool_description(_7z_bin)}.")
         with tempfile.TemporaryDirectory() as stage:
             # 7z treats .tar.zst as a zstd container around a .tar, so the
             # first pass yields the tar and the second unpacks it.
-            r1 = subprocess.run(
-                [_7z_bin, "x", str(archive), f"-o{stage}", "-y"],
-                stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True,
-            )
+            r1, spawn_error = _run_extractor(
+                [_7z_bin, "x", str(archive), f"-o{stage}", "-y"])
             inner = [p for p in Path(stage).iterdir() if p.is_file()]
-            if r1.returncode == 0 and inner:
+            if r1 is not None and r1.returncode == 0 and inner:
                 with tarfile.open(inner[0], "r:") as tf:
                     tf.extractall(dest, filter="data")
+                log(f"Wizard extraction: extracted with {_7z_bin} + Python tarfile.")
                 return
+            rc = r1.returncode if r1 is not None else "not started"
+            detail = (_output_tail(spawn_error) if r1 is None
+                      else _output_tail(r1.stderr or ""))
+            failures.append(f"{_7z_bin} rc={rc}: {detail}")
+            log(f"Wizard extraction: {_7z_bin} failed (rc={rc}): {detail}")
 
-    raise RuntimeError(
-        "Cannot extract .tar.zst: no zstd module (compression.zstd / "
-        "backports.zstd) and neither bsdtar nor 7z is available.")
+    if failures:
+        raise RuntimeError("Cannot extract .tar.zst; available extractors failed: "
+                           + " || ".join(failures))
+    raise RuntimeError("Cannot extract .tar.zst: no zstd module "
+                       "(compression.zstd / backports.zstd), bsdtar or 7z was found.")
 
 
 def _strip_single_top_dir(tmp: Path) -> Path:
@@ -280,7 +392,7 @@ def _strip_single_top_dir(tmp: Path) -> Path:
     return tmp
 
 
-def extract_archive(archive: Path, dest: Path) -> list[Path]:
+def extract_archive(archive: Path, dest: Path, log_fn=None) -> list[Path]:
     """Extract *archive* into *dest*, stripping a single top-level wrapper
     directory if present (e.g. ``f4se_0_07_07/`` -> contents go straight
     into *dest*).
@@ -291,7 +403,7 @@ def extract_archive(archive: Path, dest: Path) -> list[Path]:
     import tempfile
     tmp = Path(tempfile.mkdtemp())
     try:
-        extract_to_dir(archive, tmp)
+        extract_to_dir(archive, tmp, log_fn=log_fn)
         src = _strip_single_top_dir(tmp)
 
         created: list[Path] = []
@@ -383,7 +495,7 @@ def install_archive_payload(
     }[mode if mode in ("mod", "root") else "game"]
     log_fn(f"Wizard: extracting {archive.name} → {dest}")
 
-    paths = extract_archive(archive, dest)
+    paths = extract_archive(archive, dest, log_fn=log_fn)
     file_count = len([p for p in paths if p.is_file()])
     log_fn(f"Wizard: extracted {file_count} file(s).")
 

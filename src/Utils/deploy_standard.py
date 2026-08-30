@@ -26,6 +26,8 @@ from Utils.deploy_shared import (
     _OVERWRITE_NAME,
     _default_core,
     _do_link_ex,
+    _fallback_snapshot,
+    _report_fallbacks,
     _append_overwrite_log,
     _iter_map_batched,
     _log_case_collisions,
@@ -1243,6 +1245,7 @@ def deploy_filemap(
 
     linked = 0
     done_count = 0
+    fallback_before = _fallback_snapshot()
 
     _stats_plen = len(_deploy_dir_str) + 1
 
@@ -1314,6 +1317,7 @@ def deploy_filemap(
         f"{_time.perf_counter() - _t_transfer:.3f}s")
 
     _report_mode_breakdown(_log, mode_counts, mode)
+    _report_fallbacks(_log, fallback_before)
 
     # Deploy-stats record (size, mtime_ns) of every regular file placed in the
     # main deploy dir - captured in-worker during the transfer above - so
@@ -1418,6 +1422,7 @@ def deploy_core(
 
     linked = 0
     done_count = 0
+    fallback_before = _fallback_snapshot()
 
     def _do_core(item: tuple[str, str]) -> tuple["LinkMode | None", str, OSError | None]:
         src, dst_str = item
@@ -1466,6 +1471,7 @@ def deploy_core(
             manifest_dir / _VANILLA_DEPLOYED_NAME, _vanilla_symlinked, log_fn=log_fn)
 
     _report_mode_breakdown(_log, mode_counts, mode)
+    _report_fallbacks(_log, fallback_before)
 
     return linked
 

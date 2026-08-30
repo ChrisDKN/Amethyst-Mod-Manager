@@ -74,6 +74,41 @@ def register_all(app, *, log, parent_window, ask_choice=None, warn=None,
     except Exception as e:
         done.append(f"screen_probe FAILED: {e!r}")
 
+    try:
+        from PySide6.QtCore import QLibraryInfo
+        from PySide6.QtGui import QGuiApplication
+        from Utils.system_info import set_qt_runtime_provider
+
+        def _qt_runtime():
+            screens = []
+            for screen in app.screens():
+                geometry = screen.geometry()
+                screens.append(
+                    f"{screen.name() or '?'} {geometry.width()}x{geometry.height()} "
+                    f"at ({geometry.x()},{geometry.y()}) "
+                    f"DPR={screen.devicePixelRatio():.2f} "
+                    f"DPI={screen.logicalDotsPerInch():.1f} "
+                    f"Hz={screen.refreshRate():.1f} depth={screen.depth()}"
+                )
+            font = app.font()
+            if font.pointSizeF() > 0:
+                font_size = f"{font.pointSizeF():g}pt"
+            elif font.pixelSize() > 0:
+                font_size = f"{font.pixelSize()}px"
+            else:
+                font_size = "default size"
+            return {
+                "Qt platform": QGuiApplication.platformName() or "Unknown",
+                "Screens": "; ".join(screens) or "None",
+                "Qt font": f"{font.family()} {font_size}",
+                "Qt plugins": QLibraryInfo.path(QLibraryInfo.PluginsPath),
+            }
+
+        set_qt_runtime_provider(_qt_runtime)
+        done.append("qt_runtime_provider")
+    except Exception as e:
+        done.append(f"qt_runtime_provider FAILED: {e!r}")
+
     # 5. theme override resolver - same gui.themes.<mode> source as Tk.
     try:
         from Utils.ui_config import set_theme_override_resolver
@@ -95,7 +130,12 @@ def register_all(app, *, log, parent_window, ask_choice=None, warn=None,
     try:
         from Utils.system_info import set_gl_status_provider
         from gui_qt import gl_support
-        set_gl_status_provider(lambda: getattr(gl_support, "_status", None))
+
+        def _gl_cached():
+            status = getattr(gl_support, "_status", None)
+            return (*status, gl_support.gl_details()) if status is not None else None
+
+        set_gl_status_provider(_gl_cached)
         done.append("gl_status_provider")
     except Exception as e:
         done.append(f"gl_status_provider FAILED: {e!r}")

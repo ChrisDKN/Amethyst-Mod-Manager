@@ -17,6 +17,7 @@ filesystem. The GUI layer owns the actual prompt, mirroring
 from __future__ import annotations
 
 import os
+import shutil
 from pathlib import Path
 
 # fstype (as reported in /proc/self/mounts) → human label. ``fuseblk`` is any
@@ -91,6 +92,38 @@ def mount_fs_type(path: "Path | str") -> "tuple[str, str] | None":
             if best is None or len(mnt) > len(best[1]):
                 best = (fstype, mnt)
     return best
+
+
+def path_fs_diagnostics(path: "Path | str") -> str:
+    """Compact mount, device, free-space and access report for one path."""
+    requested = Path(path)
+    anchor = None
+    stat_result = None
+    last_error = None
+    for candidate in (requested, *requested.parents):
+        try:
+            stat_result = os.stat(candidate)
+            anchor = candidate
+            break
+        except OSError as exc:
+            last_error = exc
+    if anchor is None or stat_result is None:
+        return f"probe unavailable ({last_error or 'no accessible ancestor'})"
+
+    mount = mount_fs_type(anchor)
+    fstype, mountpoint = mount if mount is not None else ("unknown", "unknown")
+    access = "".join(
+        letter if os.access(anchor, mode) else "-"
+        for letter, mode in (("r", os.R_OK), ("w", os.W_OK), ("x", os.X_OK))
+    )
+    try:
+        free = shutil.disk_usage(anchor).free
+        free_text = f"{free / (1024 ** 3):.1f} GiB"
+    except OSError as exc:
+        free_text = f"unknown ({exc})"
+    anchor_text = "" if anchor == requested else f", nearest={anchor}"
+    return (f"fs={fstype}, mount={mountpoint}, dev={stat_result.st_dev}, "
+            f"access={access}, free={free_text}{anchor_text}")
 
 
 def windows_fs_targets(game) -> list[tuple[str, str, str]]:

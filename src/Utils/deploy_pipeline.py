@@ -214,6 +214,24 @@ def _log_deploy_context(game, profile: str, profile_dir: Path,
     if last_dep and last_dep != profile:
         log_fn(f"  Last deployed: profile '{last_dep}'")
 
+    from Utils.fs_check import path_fs_diagnostics
+    seen_fs_paths: set[str] = set()
+    for label, path in (
+        ("game", game_root), ("data", data_path), ("staging", staging),
+        ("profile", profile_dir), ("prefix", prefix),
+    ):
+        if not path:
+            continue
+        path_text = str(path)
+        if path_text in seen_fs_paths:
+            continue
+        seen_fs_paths.add(path_text)
+        try:
+            detail = path_fs_diagnostics(path)
+        except Exception as exc:
+            detail = f"probe failed ({type(exc).__name__}: {exc})"
+        log_fn(f"  FS {label}: {detail}")
+
     # Hardlink viability: compare the filesystem of the deploy destination
     # against the staging folder. Different devices ⇒ hardlinks will fall
     # back to symlink/copy. Warn proactively rather than after-the-fact.
@@ -223,11 +241,17 @@ def _log_deploy_context(game, profile: str, profile_dir: Path,
         if dest is not None:
             dev_dest = _fs_id(Path(dest))
             dev_stg  = _fs_id(Path(staging))
-            if dev_dest is not None and dev_stg is not None and dev_dest != dev_stg:
+            if dev_dest is None or dev_stg is None:
+                log_fn("  WARNING: hardlink device preflight was inconclusive; "
+                       "effective transfer methods will be reported after placement.")
+            elif dev_dest != dev_stg:
                 log_fn("  WARNING: game and mod staging are on DIFFERENT "
                        "filesystems - hardlinks will fall back to "
                        "symlink/copy (uses extra disk space; symlinks can "
                        "break some games).")
+            else:
+                log_fn(f"  Hardlink preflight: staging and destination share "
+                       f"device {dev_stg}.")
 
     # Flatpak-sandboxed launchers can't read symlink targets outside their
     # own sandbox - symlinks into host-home staging look broken to the game.

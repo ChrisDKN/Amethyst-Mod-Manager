@@ -15,6 +15,8 @@ from Utils.deploy_shared import (
     _append_overwrite_log,
     _default_core,
     _do_link_ex,
+    _fallback_snapshot,
+    _report_fallbacks,
     _iter_map_batched,
     _mkdir_leaves,
     _move_crash_safe,
@@ -437,6 +439,8 @@ def apply_incremental(
         mark_phase("placing")
     linked = 0
     completed = 0
+    fallback_before = _fallback_snapshot()
+    mode_counts: dict[LinkMode, int] = {}
     total_operations = len(link_specs) + len(refill_tasks)
     placed_relinked: set[str] = set()
     new_stats: dict[str, tuple[str, int, int]] = {}
@@ -461,7 +465,7 @@ def apply_incremental(
         return result[2] is not None and getattr(
             result[2], "errno", None) == errno.ENOSPC
 
-    for key, _actual, error, destination, stat_record in _iter_map_batched(
+    for key, actual, error, destination, stat_record in _iter_map_batched(
             place, link_specs, stop_on=fatal_place):
         completed += 1
         if error is not None:
@@ -470,6 +474,8 @@ def apply_incremental(
             log(f"  WARN: could not transfer {destination}: {error}")
         else:
             linked += 1
+            if actual is not None:
+                mode_counts[actual] = mode_counts.get(actual, 0) + 1
             placed_relinked.add(key)
             if stat_record is not None:
                 new_stats[key] = stat_record
@@ -482,7 +488,7 @@ def apply_incremental(
         actual, error = _do_link_ex(source, destination, mode)
         return destination, actual, error
 
-    for destination, _actual, error in _iter_map_batched(
+    for destination, actual, error in _iter_map_batched(
             refill, refill_tasks,
             stop_on=lambda result: getattr(
                 result[2], "errno", None) == errno.ENOSPC):
@@ -491,6 +497,8 @@ def apply_incremental(
             if getattr(error, "errno", None) == errno.ENOSPC:
                 raise OSError(errno.ENOSPC, f"game drive full at {destination}")
             log(f"  WARN: could not restore vanilla {destination}: {error}")
+        elif actual is not None:
+            mode_counts[actual] = mode_counts.get(actual, 0) + 1
         if progress_fn is not None and (
                 completed % 200 == 0 or completed == total_operations):
             progress_fn(completed, total_operations)
@@ -514,6 +522,10 @@ def apply_incremental(
             "to overwrite/."
         )
         _append_overwrite_log(overwrite_dir, rescued_overwrite, log)
+
+    from Utils.deploy_standard import _report_mode_breakdown
+    _report_mode_breakdown(log, mode_counts, mode)
+    _report_fallbacks(log, fallback_before)
 
     final_placed = (new_keys - relink) | placed_relinked
     from Utils.deploy_standard import (

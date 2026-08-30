@@ -26,6 +26,7 @@ import os
 import shlex
 import shutil
 import subprocess
+import threading
 from pathlib import Path, PureWindowsPath
 from typing import Iterable
 
@@ -80,9 +81,75 @@ _CUSTOM_DEPLOY_ARTIFACTS = (
     "custom_deploy_backup",
 )
 
+_helper_inventory_cache: str | None = None
+_helper_inventory_lock = threading.Lock()
+
 
 def _inside_flatpak() -> bool:
     return Path("/.flatpak-info").exists()
+
+
+def _output_tail(text: str, limit: int = 600) -> str:
+    clean = " | ".join(line.strip() for line in text.splitlines() if line.strip())
+    return clean if len(clean) <= limit else clean[-limit:]
+
+
+def _helper_inventory() -> str:
+    global _helper_inventory_cache
+    with _helper_inventory_lock:
+        if _helper_inventory_cache is not None:
+            return _helper_inventory_cache
+        names = ("bwrap", "fuse-overlayfs", "fusermount3", "mountpoint", "flock")
+        details = []
+        if _inside_flatpak():
+            if not shutil.which("flatpak-spawn"):
+                _helper_inventory_cache = (
+                    "execution=Flatpak sandbox; flatpak-spawn=missing")
+                return _helper_inventory_cache
+            script = (
+                'for name in "$@"; do path=$(command -v "$name" 2>/dev/null || true); '
+                'if [ -z "$path" ]; then printf "%s=missing\\n" "$name"; continue; fi; '
+                'version=$("$path" --version 2>&1 | head -n 1); '
+                'printf "%s=%s [%s]\\n" "$name" "$path" "$version"; done; '
+                'if [ -r /dev/fuse ] && [ -w /dev/fuse ]; then echo "/dev/fuse=rw"; '
+                'else echo "/dev/fuse=unavailable"; fi'
+            )
+            try:
+                probe = subprocess.run(
+                    ["flatpak-spawn", "--host", "/bin/sh", "-c", script,
+                     "amethyst-vfs-inventory", *names],
+                    text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                    timeout=8, check=False)
+                details.append("execution=Flatpak host")
+                details.extend(line.strip() for line in (probe.stdout or "").splitlines()
+                               if line.strip())
+                if probe.returncode != 0:
+                    details.append(f"inventory rc={probe.returncode}")
+            except (OSError, subprocess.SubprocessError) as exc:
+                details.append(f"host inventory failed: {exc}")
+        else:
+            details.append("execution=native/AppImage")
+            for name in names:
+                path = shutil.which(name)
+                if path is None:
+                    details.append(f"{name}=missing")
+                    continue
+                version = ""
+                try:
+                    probe = subprocess.run(
+                        [path, "--version"], text=True, stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT, timeout=2, check=False)
+                    version = next(iter((probe.stdout or "").splitlines()), "").strip()
+                    version = version[:300]
+                except (OSError, subprocess.SubprocessError):
+                    pass
+                details.append(f"{name}={path}" + (f" [{version}]" if version else ""))
+            fuse = Path("/dev/fuse")
+            details.append("/dev/fuse=" + (
+                "rw" if fuse.exists() and os.access(fuse, os.R_OK | os.W_OK)
+                else "unavailable"))
+        _helper_inventory_cache = "; ".join(details)
+        return _helper_inventory_cache
 
 
 def _profile_dir(game, profile: str | None = None) -> Path:
@@ -298,7 +365,9 @@ def _bubblewrap_help() -> tuple[bool, str, str]:
         return False, f"bubblewrap could not be queried: {exc}", ""
     help_text = probe.stdout or ""
     if probe.returncode != 0:
-        return False, "bubblewrap returned an error during its capability check", help_text
+        detail = _output_tail(help_text)
+        reason = f"bubblewrap capability check exited {probe.returncode}"
+        return False, f"{reason}: {detail}" if detail else reason, help_text
     return True, "", help_text
 
 
@@ -328,11 +397,16 @@ def fuse_overlay_status() -> tuple[bool, str]:
     if _inside_flatpak():
         if not shutil.which("flatpak-spawn"):
             return False, "Flatpak host spawning is unavailable"
-        checks = " && ".join(f"command -v {name} >/dev/null" for name in required)
-        checks += " && test -r /dev/fuse && test -w /dev/fuse"
+        checks = (
+            'for name in "$@"; do command -v "$name" >/dev/null 2>&1 '
+            '|| echo "missing:$name"; done; '
+            'if ! test -r /dev/fuse || ! test -w /dev/fuse; '
+            'then echo "fuse:unavailable"; fi'
+        )
         try:
             probe = subprocess.run(
-                ["flatpak-spawn", "--host", "/bin/sh", "-c", checks],
+                ["flatpak-spawn", "--host", "/bin/sh", "-c", checks,
+                 "amethyst-vfs-probe", *required],
                 text=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
@@ -341,10 +415,17 @@ def fuse_overlay_status() -> tuple[bool, str]:
             )
         except (OSError, subprocess.SubprocessError) as exc:
             return False, f"host FUSE tools could not be queried: {exc}"
+        output = (probe.stdout or "").strip()
         if probe.returncode != 0:
-            return False, (
-                "the host needs bwrap, fuse-overlayfs, fuse3 and access to /dev/fuse"
-            )
+            detail = _output_tail(output)
+            return False, (f"host capability probe exited {probe.returncode}: {detail}"
+                           if detail else f"host capability probe exited {probe.returncode}")
+        problems = [line.removeprefix("missing:") for line in output.splitlines()
+                    if line.startswith("missing:")]
+        if problems:
+            return False, "required host tool(s) not found: " + ", ".join(problems)
+        if "fuse:unavailable" in output.splitlines():
+            return False, "/dev/fuse is unavailable to the host process"
         return True, ""
 
     missing = [name for name in required if shutil.which(name) is None]
@@ -2106,8 +2187,8 @@ def _direct_shadow_opt_in_command(command: list[str], game_root: Path,
     return [*wrapper, *host_command]
 
 
-def wrap_command(game, command: list[str],
-                 env: dict[str, str] | None = None) -> list[str]:
+def wrap_command(game, command: list[str], env: dict[str, str] | None = None,
+                 log_fn=None) -> list[str]:
     """Wrap *command* in the deployed profile's private game view."""
     if not command:
         raise RuntimeError("No launch command was supplied to the profile VFS.")
@@ -2115,6 +2196,26 @@ def wrap_command(game, command: list[str],
     payload = _load_manifest(game)
     state = manifest_path(game).parent
     backend = payload.get("backend", BACKEND_KERNEL)
+
+    if log_fn is None:
+        try:
+            from Utils.app_log import app_log
+            log_fn = app_log
+        except Exception:
+            log_fn = lambda _message: None
+
+    def routed(route: str, wrapped: list[str], *, helpers: bool = False) -> list[str]:
+        try:
+            from Utils.process_watch import format_command
+            location = "Flatpak host" if _inside_flatpak() else "native/AppImage"
+            log_fn(
+                f"VFS launch: backend={backend}, route={route}, execution={location}.")
+            log_fn(f"VFS launch wrapper: {format_command(wrapped)}")
+            if helpers:
+                log_fn(f"VFS helper inventory: {_helper_inventory()}")
+        except Exception:
+            pass
+        return wrapped
 
     if backend == BACKEND_SHADOW:
         (view, view_data, _data_rel, game_root, data_root,
@@ -2133,33 +2234,34 @@ def wrap_command(game, command: list[str],
             bound_runtime = _bound_shadow_steam_runtime_command(
                 command, game_root, view, env)
             if bound_runtime is not None:
-                return bound_runtime
+                return routed("shadow Steam Runtime bind", bound_runtime)
         if not bind_at_game_root:
             direct_umu = _direct_shadow_umu_command(
                 command, game_root, view, env)
             if direct_umu is not None:
-                return direct_umu
+                return routed("direct shadow UMU", direct_umu)
             direct_runtime = _direct_shadow_steam_runtime_command(
                 command, game_root, view, env)
             if direct_runtime is not None:
-                return direct_runtime
+                return routed("direct shadow Steam Runtime", direct_runtime)
         if (not bind_at_game_root
                 and getattr(game, "vfs_direct_shadow_launch", False)):
-            return _direct_shadow_opt_in_command(
-                command, game_root, view, env)
+            return routed(
+                "direct shadow opt-in",
+                _direct_shadow_opt_in_command(command, game_root, view, env))
         ok, reason = _bubblewrap_status()
         if not ok:
             raise RuntimeError(f"Profile VFS is unavailable: {reason}.")
         wrapper, host_command = _place_wrapper_on_host(
             [_bubblewrap_binary() or "bwrap"], command)
-        return [
+        return routed("bubblewrap shadow bind", [
             *wrapper,
             "--die-with-parent",
             "--dev-bind", "/", "/",
             "--bind", str(view), str(game_root),
             "--",
             *host_command,
-        ]
+        ], helpers=True)
 
     keys = (
         "game_root", "data_root", "root_layer", "data_layer",
@@ -2201,7 +2303,7 @@ def wrap_command(game, command: list[str],
             ],
             command,
         )
-        return [*wrapper, *host_command]
+        return routed("fuse-overlayfs", [*wrapper, *host_command], helpers=True)
 
     if backend != BACKEND_KERNEL:
         raise RuntimeError(
@@ -2215,7 +2317,7 @@ def wrap_command(game, command: list[str],
     wrapper, host_command = _place_wrapper_on_host(
         [_bubblewrap_binary() or "bwrap"], command)
 
-    return [
+    return routed("bubblewrap kernel OverlayFS", [
         *wrapper,
         "--die-with-parent",
         "--dev-bind", "/", "/",
@@ -2229,7 +2331,7 @@ def wrap_command(game, command: list[str],
         str(paths["data_root"]),
         "--",
         *host_command,
-    ]
+    ], helpers=True)
 
 
 def _mapped_virtual_relative(game, relative: str | Path) -> Path:

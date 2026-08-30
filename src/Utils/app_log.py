@@ -18,13 +18,39 @@ import threading
 _log_fn: callable | None = None
 _after_fn: callable | None = None
 _main_thread_id: int | None = None
-_log_queue: queue.Queue[str] = queue.Queue()
+_log_queue: queue.Queue[str] = queue.Queue(maxsize=512)
+_drop_lock = threading.Lock()
+_dropped_messages = 0
+
+
+def _enqueue(message: str) -> None:
+    global _dropped_messages
+    try:
+        _log_queue.put_nowait(message)
+        return
+    except queue.Full:
+        pass
+    try:
+        _log_queue.get_nowait()
+        _log_queue.put_nowait(message)
+    except (queue.Empty, queue.Full):
+        pass
+    with _drop_lock:
+        _dropped_messages += 1
 
 
 def _drain_log_queue() -> None:
     """Run on main thread: drain queued messages and log them. Reschedule to run again."""
+    global _dropped_messages
     if _log_fn is None:
         return
+    with _drop_lock:
+        dropped, _dropped_messages = _dropped_messages, 0
+    if dropped:
+        try:
+            _log_fn(f"WARNING: {dropped} queued log message(s) were dropped.")
+        except Exception:
+            pass
     try:
         while True:
             msg = _log_queue.get_nowait()
@@ -80,13 +106,18 @@ def safe_print(*args, **kwargs) -> None:
 
 
 def app_log(message: str) -> None:
-    """Write a message to the application log panel (thread-safe). No-op if not set."""
+    """Write a message to the application log panel (thread-safe).
+
+    Messages produced before the GUI sink exists are retained in a bounded
+    queue and replayed when :func:`set_app_log` wires the panel.
+    """
     if _log_fn is None:
+        _enqueue(str(message))
         return
     try:
         if threading.current_thread().ident == _main_thread_id:
             _log_fn(message)
         else:
-            _log_queue.put_nowait(message)
+            _enqueue(str(message))
     except Exception:
         pass
