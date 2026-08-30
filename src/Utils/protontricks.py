@@ -16,7 +16,6 @@ import signal
 import stat
 import subprocess
 import tarfile
-import tempfile
 import time
 import urllib.request
 from pathlib import Path
@@ -627,46 +626,45 @@ def run_prefix_installer(
     install from looking dead in the log.
     """
     _log = _safe_log(log_fn)
-    # NamedTemporaryFile, NOT TemporaryFile: the latter is an anonymous
-    # O_TMPFILE fd on Linux, and 32-bit wine startup segfaults (exit 245, NULL
-    # read in host libc) when its stdout is a nameless fd - verified against
-    # GE-Proton10-33. Any *named* file works.
-    out = tempfile.NamedTemporaryFile(
-        mode="w+", encoding="utf-8", errors="replace", prefix="amm-installer-")
-    try:
-        proc = subprocess.Popen(
-            cmd, env=env, cwd=str(cwd), stdin=subprocess.DEVNULL,
-            stdout=out, stderr=subprocess.STDOUT, start_new_session=True,
-        )
-        started = time.monotonic()
-        next_beat = started + _HEARTBEAT_S
-        rc: "int | None" = None
-        while True:
+    proc = subprocess.Popen(
+        cmd, env=env, cwd=str(cwd), stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        text=True, encoding="utf-8", errors="replace", start_new_session=True,
+    )
+    started = time.monotonic()
+    next_beat = started + _HEARTBEAT_S
+    rc: "int | None" = None
+    output = ""
+    while True:
+        try:
+            output, _ = proc.communicate(timeout=2)
+            rc = proc.returncode
+            break
+        except subprocess.TimeoutExpired:
+            pass
+        now = time.monotonic()
+        if now - started >= timeout:
+            break
+        if now >= next_beat:
+            next_beat = now + _HEARTBEAT_S
+            _log(f"{label}: still working ({int(now - started)}s elapsed) …")
+    if rc is None:
+        _log(f"{label}: no response after {timeout}s - aborting and shutting "
+             "down the prefix's wine processes.")
+        _kill_installer(proc)
+        try:
+            output, _ = proc.communicate(timeout=10)
+        except subprocess.TimeoutExpired as exc:
+            output = exc.output or ""
+        if proton_script is not None and compat_data is not None:
             try:
-                rc = proc.wait(timeout=2)
-                break
-            except subprocess.TimeoutExpired:
+                from Utils.exe_launch import shutdown_prefix_wineserver
+                shutdown_prefix_wineserver(Path(proton_script), Path(compat_data))
+            except Exception:
                 pass
-            now = time.monotonic()
-            if now - started >= timeout:
-                break
-            if now >= next_beat:
-                next_beat = now + _HEARTBEAT_S
-                _log(f"{label}: still working ({int(now - started)}s elapsed) …")
-        if rc is None:
-            _log(f"{label}: no response after {timeout}s - aborting and shutting "
-                 "down the prefix's wine processes.")
-            _kill_installer(proc)
-            if proton_script is not None and compat_data is not None:
-                try:
-                    from Utils.exe_launch import shutdown_prefix_wineserver
-                    shutdown_prefix_wineserver(Path(proton_script), Path(compat_data))
-                except Exception:
-                    pass
-        out.seek(0)
-        return rc, out.read()[-4000:].strip()
-    finally:
-        out.close()
+    if isinstance(output, bytes):
+        output = output.decode("utf-8", errors="replace")
+    return rc, output[-4000:].strip()
 
 
 # --- prefix / Proton version mismatch preflight ----------------------------
