@@ -2066,6 +2066,8 @@ def install_collection_archive(
         preferred_name: str = "",
         prebuilt_meta=None,
         fomod_auto_selections: "dict | None" = None,
+        fomod_expected_installed_files: "set[str] | None" = None,
+        fomod_expected_active_files: "set[str] | None" = None,
         bain_auto_selections: "dict | None" = None,
         overwrite_existing: "bool | None" = None,
         skip_index_update: bool = True,
@@ -2166,6 +2168,25 @@ def install_collection_archive(
             stage_src_root = str(fomod_base)
             installed_files, active_files, loose_files = _collection_plugin_context(
                 game, profile_dir)
+            if fomod_auto_selections is not None:
+                plugin_exts = {
+                    ext.lower() for ext in
+                    (getattr(game, "plugin_extensions", None)
+                     or (".esp", ".esm", ".esl"))
+                }
+                provided_plugins = {
+                    name.lower()
+                    for _, _, names in os.walk(fomod_base)
+                    for name in names
+                    if Path(name).suffix.lower() in plugin_exts
+                }
+                expected_installed = (
+                    fomod_expected_installed_files or set()) - provided_plugins
+                expected_active = (
+                    fomod_expected_active_files or set()) - provided_plugins
+                installed_files.update(expected_installed)
+                active_files.difference_update(expected_installed)
+                active_files.update(expected_active)
             try:
                 from Utils.fomod_installer import (
                     resolve_files, check_module_dependencies)
@@ -2184,6 +2205,7 @@ def install_collection_archive(
             # the wizard (it crashes on an empty step list) and no need to defer;
             # install defaults inline.
             has_steps = bool(getattr(config, "steps", None))
+            authoritative_fomod_preset = fomod_auto_selections is not None
 
             if fomod_auto_selections is None and defer_interactive_fomod and has_steps:
                 log_fn("FOMOD installer detected - deferring until dependencies "
@@ -2232,7 +2254,8 @@ def install_collection_archive(
                     else:
                         file_list = resolve_files(
                             config, final_selections, installed_files,
-                            active_files, loose_files)
+                            active_files, loose_files,
+                            authoritative_selections=authoritative_fomod_preset)
                     is_fomod_install = True
                     log_fn(f"FOMOD complete - {len(file_list or [])} file(s) to install.")
                     try:
@@ -2241,9 +2264,19 @@ def install_collection_archive(
                             collect_selected_dep_plugins)
                         _sel = final_selections or {}
                         fomod_pending_deps = ";".join(
-                            collect_unselected_dep_plugins(config, _sel))
+                            collect_unselected_dep_plugins(
+                                config, _sel,
+                                authoritative_selections=authoritative_fomod_preset,
+                                installed_files=installed_files,
+                                active_files=active_files,
+                                loose_files=loose_files))
                         fomod_active_deps = ";".join(
-                            collect_selected_dep_plugins(config, _sel))
+                            collect_selected_dep_plugins(
+                                config, _sel,
+                                authoritative_selections=authoritative_fomod_preset,
+                                installed_files=installed_files,
+                                active_files=active_files,
+                                loose_files=loose_files))
                     except Exception as exc:
                         log_fn(f"FOMOD dep scan skipped ({exc}).")
                 except Exception as exc:

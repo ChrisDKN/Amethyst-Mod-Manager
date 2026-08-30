@@ -110,10 +110,10 @@ def _fomod_choices_from_collection(choices: dict) -> "dict[str, dict[str, list[s
     """Convert a collection.json FOMOD ``choices`` block to the saved_selections
     format ``{step_key: {group: [plugins]}}`` that ``resolve_files`` expects.
 
-    Steps are keyed by their NAME when available: the ``options`` array only
-    holds the steps the author actually visited, so its position does not match
-    the FOMOD's real step index whenever a step was skipped by a visibility
-    condition. ``resolve_files`` falls back to a name lookup per step.
+    Vortex includes hidden steps and empty groups in ``options``. Keep them so
+    duplicate step indexes remain aligned, but only non-empty choice lists are
+    treated as evidence that the curator selected something. Blank plugin names
+    are valid and must be preserved as explicit selections.
     """
     result: dict = {}
     seen_names: set = set()
@@ -121,16 +121,16 @@ def _fomod_choices_from_collection(choices: dict) -> "dict[str, dict[str, list[s
         groups: dict = {}
         for group in step.get("groups", []):
             group_name = group.get("name", "")
-            plugin_names = [c["name"] for c in group.get("choices", []) if c.get("name")]
-            if plugin_names:
-                groups[group_name] = plugin_names
-        if groups:
-            step_name = (step.get("name") or "").strip()
-            if step_name and step_name not in seen_names:
-                seen_names.add(step_name)
-                result[step_name] = groups
-            else:
-                result[str(step_idx)] = groups
+            plugin_names = [c.get("name", "")
+                            for c in group.get("choices", [])
+                            if isinstance(c, dict) and "name" in c]
+            groups.setdefault(group_name, []).extend(plugin_names)
+        step_name = step.get("name") or ""
+        if step_name.strip() and step_name not in seen_names:
+            seen_names.add(step_name)
+            result[step_name] = groups
+        else:
+            result[str(step_idx)] = groups
     return result
 
 
@@ -625,6 +625,16 @@ def run_collection_install(
             log(f"Collection install: could not save manifest: {exc}")
 
     schema_mods: list[dict] = collection_schema.get("mods", [])
+    schema_plugins: list[dict] = collection_schema.get("plugins", [])
+    fomod_expected_installed_files = {
+        str(plugin.get("name") or "").strip().lower()
+        for plugin in schema_plugins if plugin.get("name")
+    }
+    fomod_expected_active_files = {
+        str(plugin.get("name") or "").strip().lower()
+        for plugin in schema_plugins
+        if plugin.get("name") and plugin.get("enabled", True)
+    }
     schema_file_id_to_pos: dict[int, int] = _resolve_collection_priorities(collection_schema)
     schema_pos_to_name: dict[int, str] = {}
     schema_file_id_to_logical: dict[int, str] = {}
@@ -1451,6 +1461,8 @@ def run_collection_install(
                 progress_fn=lambda d, t, p=None, _f=mod.file_id:
                     cb.on_extract_update(_f, int(d), int(t)),
                 fomod_auto_selections=auto_fomod, bain_auto_selections=auto_bain,
+                fomod_expected_installed_files=fomod_expected_installed_files,
+                fomod_expected_active_files=fomod_expected_active_files,
                 prebuilt_meta=_pmeta, preferred_name=_preferred,
                 skip_index_update=True, overwrite_existing=overwrite_existing,
                 defer_interactive_fomod=(auto_fomod is None),
@@ -2223,6 +2235,8 @@ def _process_deferred(
                     progress_fn=lambda d, t, p=None, _f=_mod.file_id:
                         cb.on_extract_update(_f, int(d), int(t)),
                     fomod_auto_selections=fomod_by_file_id.get(_mod.file_id),
+                    fomod_expected_installed_files=fomod_expected_installed_files,
+                    fomod_expected_active_files=fomod_expected_active_files,
                     bain_auto_selections=bain_by_file_id.get(_mod.file_id),
                     prebuilt_meta=_pmeta, preferred_name=_pref,
                     skip_index_update=True, overwrite_existing=overwrite_existing,

@@ -320,6 +320,26 @@ def update_flags(step: InstallStep, selections: dict[str, list[str]],
     return new_state
 
 
+def _step_selections(all_selections: dict, index: int,
+                     step: InstallStep) -> tuple[bool, dict]:
+    index_key = str(index)
+    if index_key in all_selections:
+        indexed = all_selections.get(index_key)
+        return True, indexed if isinstance(indexed, dict) else {}
+    if step.name in all_selections:
+        named = all_selections.get(step.name)
+        return True, named if isinstance(named, dict) else {}
+    trimmed_name = step.name.strip()
+    if trimmed_name != step.name and trimmed_name in all_selections:
+        trimmed = all_selections.get(trimmed_name)
+        return True, trimmed if isinstance(trimmed, dict) else {}
+    return False, {}
+
+
+def _has_explicit_selections(step_selections: dict) -> bool:
+    return any(bool(names) for names in step_selections.values())
+
+
 # ---------------------------------------------------------------------------
 # File resolution
 # ---------------------------------------------------------------------------
@@ -328,12 +348,19 @@ def resolve_files(config: ModuleConfig,
                   all_selections: dict[str, dict[str, list[str]]],
                   installed_files: set[str] | None = None,
                   active_files: set[str] | None = None,
-                  loose_files: set[str] | None = None) -> list[tuple[str, str, bool]]:
+                  loose_files: set[str] | None = None, *,
+                  authoritative_selections: bool = False,
+                  ) -> list[tuple[str, str, bool]]:
     """
     Build the final file install list from required files + user selections
     + conditional file installs.
 
     all_selections: {step_name: {group_name: [plugin_name, ...]}}
+    authoritative_selections: apply explicitly selected collection choices even
+        when the final collection state fails their step visibility condition.
+        Empty conditional steps still evaluate normally because Vortex records
+        hidden steps and visible "select none" steps in the same shape. Manual
+        and restored wizard selections retain live behaviour.
     Returns list of (source_path, destination_path, is_folder) tuples with OS-normalized paths.
 
     Install order matches MO2's three-phase scheme:
@@ -354,22 +381,24 @@ def resolve_files(config: ModuleConfig,
     # Build final flag state by replaying all steps in order
     flag_state: dict[str, str] = {}
     for i, step in enumerate(config.steps):
-        # Skip steps whose visibility condition is not satisfied by the flags
-        # accumulated so far. If a step was invisible the user never saw it,
-        # so its SelectAll/selected plugins must not contribute files or flags.
-        if step.visible_condition is not None:
+        _, step_selections = _step_selections(all_selections, i, step)
+        explicit = _has_explicit_selections(step_selections)
+        # An explicit collection choice is authoritative even when its original
+        # visibility dependency is not currently available. Empty conditional
+        # records are ambiguous (hidden versus visible with no choice), so use
+        # the simulated final collection state to decide whether to replay them.
+        if (step.visible_condition is not None
+                and not (authoritative_selections and explicit)):
             if not evaluate_dependency(step.visible_condition, flag_state,
                                        inst_files, active_files,
                                        version_pass=True, loose_files=loose_files):
                 continue
-        # Accept both new index-keyed format (str(i)) and old name-keyed format
-        # for backward compatibility with previously saved selection JSON.
-        step_selections = all_selections.get(str(i)) or all_selections.get(step.name, {})
         for group in step.groups:
-            selected_names = set(step_selections.get(group.name, []))
+            group_names = step_selections.get(group.name)
+            if group_names is None and group.display_name:
+                group_names = step_selections.get(group.display_name)
+            selected_names = set(group_names or [])
             for plugin in group.plugins:
-                ptype = resolve_plugin_type(plugin, flag_state, inst_files,
-                                            active_files, loose_files)
                 is_selected = (group.group_type == "SelectAll"
                                or plugin.name in selected_names)
                 if is_selected:
@@ -378,6 +407,8 @@ def resolve_files(config: ModuleConfig,
                                         fi.destination_path, fi.is_folder))
                     flag_state.update(plugin.condition_flags)
                 else:
+                    ptype = resolve_plugin_type(plugin, flag_state, inst_files,
+                                                active_files, loose_files)
                     # alwaysInstall / installIfUsable files install even when
                     # the plugin is not selected.
                     for fi in plugin.files:
@@ -536,7 +567,12 @@ def _option_is_file_gated(plugin: "Plugin") -> bool:
 
 
 def _collect_dep_plugin_clauses(config: ModuleConfig, all_selections: dict,
-                                want_selected: bool) -> list[str]:
+                                want_selected: bool,
+                                authoritative_selections: bool = False,
+                                installed_files: set[str] | None = None,
+                                active_files: set[str] | None = None,
+                                loose_files: set[str] | None = None,
+                                ) -> list[str]:
     """Shared walk for the two dep collectors. Returns one string PER OPTION-CONDITION
     from the ``fileDependency`` type patterns of options that were SELECTED
     (``want_selected=True``) or NOT selected (``False``).
@@ -551,24 +587,31 @@ def _collect_dep_plugin_clauses(config: ModuleConfig, all_selections: dict,
          ``Thaumaturgy.esp<>gaunt.esl`` (AND with a Missing gate).
     The caller FLAG_OPT_SEP (";")-joins these per-option strings.
 
-    Mirrors :func:`resolve_files`: invisible steps (unsatisfied visibility
-    conditions) are skipped, SelectAll groups count every plugin as selected.
-    Deduped case-insensitively.
+    Mirrors :func:`resolve_files`: conditional steps use the supplied file
+    context, except that authoritative replays always admit an explicit curator
+    choice. SelectAll groups count every plugin as selected. Deduped
+    case-insensitively.
     """
     all_selections = all_selections or {}
     option_conditions: list[str] = []
     seen: set[str] = set()
+    inst_files = installed_files or set()
     # Replay flag state so step-visibility gates match what the user actually saw.
     flag_state: dict[str, str] = {}
     for i, step in enumerate(config.steps):
-        if step.visible_condition is not None:
+        _, step_selections = _step_selections(all_selections, i, step)
+        explicit = _has_explicit_selections(step_selections)
+        if (step.visible_condition is not None
+                and not (authoritative_selections and explicit)):
             if not evaluate_dependency(step.visible_condition, flag_state,
-                                       set(), None, version_pass=True):
+                                       inst_files, active_files,
+                                       version_pass=True, loose_files=loose_files):
                 continue
-        step_selections = all_selections.get(str(i)) or \
-            all_selections.get(step.name, {})
         for group in step.groups:
-            selected_names = set(step_selections.get(group.name, []))
+            group_names = step_selections.get(group.name)
+            if group_names is None and group.display_name:
+                group_names = step_selections.get(group.display_name)
+            selected_names = set(group_names or [])
             for plugin in group.plugins:
                 is_selected = (group.group_type == "SelectAll"
                                or plugin.name in selected_names)
@@ -631,7 +674,12 @@ def _collect_dep_plugin_clauses(config: ModuleConfig, all_selections: dict,
 
 
 def collect_unselected_dep_plugins(config: ModuleConfig,
-                                   all_selections: dict) -> list[str]:
+                                   all_selections: dict, *,
+                                   authoritative_selections: bool = False,
+                                   installed_files: set[str] | None = None,
+                                   active_files: set[str] | None = None,
+                                   loose_files: set[str] | None = None,
+                                   ) -> list[str]:
     """One OR-of-ANDs condition string per UNSELECTED option (see
     :func:`_collect_dep_plugin_clauses` for the FLAG_* delimiter format). The
     caller ``;``-joins these; the pending flag fires when ANY option's condition
@@ -643,20 +691,31 @@ def collect_unselected_dep_plugins(config: ModuleConfig,
     :func:`_collect_dep_plugin_clauses`): a pattern that demotes an unselected
     option when the dep appears is not a reason to re-run.
     """
-    return _collect_dep_plugin_clauses(config, all_selections,
-                                       want_selected=False)
+    return _collect_dep_plugin_clauses(
+        config, all_selections, want_selected=False,
+        authoritative_selections=authoritative_selections,
+        installed_files=installed_files, active_files=active_files,
+        loose_files=loose_files)
 
 
 def collect_selected_dep_plugins(config: ModuleConfig,
-                                 all_selections: dict) -> list[str]:
+                                 all_selections: dict, *,
+                                 authoritative_selections: bool = False,
+                                 installed_files: set[str] | None = None,
+                                 active_files: set[str] | None = None,
+                                 loose_files: set[str] | None = None,
+                                 ) -> list[str]:
     """One OR-of-ANDs condition string per SELECTED option - the plugins those
     installed patches depend on. Same FLAG_* delimiter format as
     :func:`collect_unselected_dep_plugins`. The active flag fires when ANY option's
     condition is NO LONGER satisfied (none of its OR alternatives hold) - the
     installed patch is now orphaned/invalid, so rerun to drop it.
     """
-    return _collect_dep_plugin_clauses(config, all_selections,
-                                       want_selected=True)
+    return _collect_dep_plugin_clauses(
+        config, all_selections, want_selected=True,
+        authoritative_selections=authoritative_selections,
+        installed_files=installed_files, active_files=active_files,
+        loose_files=loose_files)
 
 
 # --------------------------------------------------------------------------
