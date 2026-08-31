@@ -2,6 +2,141 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="ru" sourcelanguage="en">
 <context>
+    <name>ACMOSView</name>
+    <message>
+        <source>Run ACMOS Road Generator - {0}</source>
+        <translation>Производитель ACMOS Road Generator {0}</translation>
+    </message>
+    <message>
+        <source>Step 1: Download ACMOS Road Generator</source>
+        <translation>Шаг 1: Скачать ACMOS Road Generator</translation>
+    </message>
+    <message>
+        <source>Click the button below to open ACMOS Road Generator on Nexus Mods.
+
+Download the archive manually (do NOT use the Mod Manager download button), then click Next.</source>
+        <translation>Нажмите кнопку ниже, чтобы открыть ACMOS Road Generator на Nexus Mods.
+
+Загрузите архив вручную (не используйте кнопку загрузки Mod Manager), затем нажмите «Далее».</translation>
+    </message>
+    <message>
+        <source>Step 2: Locate the Archive</source>
+        <translation>Шаг 2: Найдите архив</translation>
+    </message>
+    <message>
+        <source>Step 3: Extract ACMOS Road Generator</source>
+        <translation>Шаг 3: Извлеките дорожный генератор ACMOS</translation>
+    </message>
+    <message>
+        <source>Step 6: Run ACMOS Road Generator</source>
+        <translation>Шаг 6: Запустите генератор дорог ACMOS</translation>
+    </message>
+    <message>
+        <source>Step 4: Choose Terrain LOD Mod</source>
+        <translation>Шаг 4: Выберите режим Terrain LOD</translation>
+    </message>
+    <message>
+        <source>Choose the profile mod containing your xLODGen terrain output. Enabled and disabled mods are both listed; deployment is not required.
+
+Generated textures are written to a separate ACMOS_Output mod. Remove an old ACMOS_Output first if you want a completely clean result.</source>
+        <translation>Выберите мод профиля, содержащий вывод xLODGen по местности. Моды с включенным и отключенным режимами перечислены; развертывание не требуется.
+
+Сгенерированные текстуры записываются в отдельный мод ACMOS Output. Сначала удалите старый ACMOS Output, если вы хотите получить чистый результат.</translation>
+    </message>
+    <message>
+        <source>Terrain LOD mod:</source>
+        <translation>Мод Terrain LOD:</translation>
+    </message>
+    <message>
+        <source>Search mods…</source>
+        <translation>Поиск модов..</translation>
+    </message>
+    <message>
+        <source>Continue</source>
+        <translation>Продолжать</translation>
+    </message>
+    <message>
+        <source>Select the ACMOS Road Generator archive</source>
+        <translation>Выберите архив генератора дорог ACMOS</translation>
+    </message>
+    <message>
+        <source>ACMOS Road Generator archive not found in Downloads.
+Make sure you downloaded it, then press Try Again,
+or use Browse to select it manually.</source>
+        <translation>Архив ACMOS Road Generator не найден в загрузках.
+Убедитесь, что вы загрузили его, а затем нажмите Попробуйте еще раз,
+Или используйте браузер, чтобы выбрать его вручную.</translation>
+    </message>
+    <message>
+        <source>Step 5: Choose Proton Version</source>
+        <translation>Шаг 5: Выберите протонную версию</translation>
+    </message>
+    <message>
+        <source>{0} was not found.
+Please restart the wizard and install ACMOS Road Generator first.</source>
+        <translation>{0} не найден.
+Пожалуйста, сначала перезапустите мастера и установите генератор дорог ACMOS.</translation>
+    </message>
+    <message>
+        <source>Output mod: {0}</source>
+        <translation>Выходной мод: {0}</translation>
+    </message>
+    <message>
+        <source>No mods were found in the current profile.</source>
+        <translation>Никаких модов в текущем профиле обнаружено не было.</translation>
+    </message>
+    <message>
+        <source>LOD path: {0}</source>
+        <translation>Путь LOD: {0}</translation>
+    </message>
+    <message>
+        <source>Select a Terrain LOD mod first.</source>
+        <translation>Сначала выберите мод Terrain LOD.</translation>
+    </message>
+    <message>
+        <source>The selected mod folder no longer exists.</source>
+        <translation>Выбранная папка мод больше не существует.</translation>
+    </message>
+    <message>
+        <source>The selected mod does not contain a textures/terrain folder. Choose the mod created from xLODGen output.</source>
+        <translation>Выбранный мод не содержит текстур/папки местности. Выберите мод, созданный на выходе xLODGen.</translation>
+    </message>
+    <message>
+        <source>ACMOS Road Generator is not ready to run.</source>
+        <translation>Дорожный генератор ACMOS не готов к запуску.</translation>
+    </message>
+    <message>
+        <source>Preparing ACMOS Road Generator's Wine prefix…</source>
+        <translation>Винный префикс ACMOS Road Generator</translation>
+    </message>
+    <message>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>Не удалось решить версию Proton для собственного префикса игры — запустить игру один раз или выбрать другой вариант префикса.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>Не удалось найти протон {0} — проверьте, установлен ли он в Steam, Heroic или ProtonPlus.</translation>
+    </message>
+    <message>
+        <source>ACMOS Road Generator exited with error (code {0}).</source>
+        <translation>ACMOS Road Generator вышел с ошибкой (код {0}).</translation>
+    </message>
+    <message>
+        <source>ACMOS Road Generator finished.</source>
+        <translation>Дорожный генератор ACMOS завершен.</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>Ошибка запуска: {0}</translation>
+    </message>
+    <message>
+        <source>ACMOS Road Generator is running.
+Choose Roads or Paths Only, click Generate, then close it when finished.</source>
+        <translation>ACMOS Road Generator работает.
+Выберите только дороги или пути, нажмите Генерировать, а затем закройте его, когда закончите.</translation>
+    </message>
+</context>
+<context>
     <name>AddGameView</name>
     <message>
         <source>Select a game to add</source>
@@ -25,28 +160,73 @@
     </message>
 </context>
 <context>
-    <name>BG3ImportView</name>
+    <name>AudioControls</name>
     <message>
-        <source>Load Order (*.json)</source>
-        <translation>Заказ груза (*.json)</translation>
+        <source>Qt Multimedia is not installed.</source>
+        <translation>Qt Multimedia не устанавливается.</translation>
     </message>
+    <message>
+        <source>Play</source>
+        <translation>Играть</translation>
+    </message>
+    <message>
+        <source>Stop</source>
+        <translation>Стоп</translation>
+    </message>
+    <message>
+        <source>Volume</source>
+        <translation>Объем</translation>
+    </message>
+    <message>
+        <source>Audio file not found.</source>
+        <translation>Аудиофайл не найден.</translation>
+    </message>
+    <message>
+        <source>The FUZ audio stream could not be read.</source>
+        <translation>Аудиопоток FUZ читать не удалось.</translation>
+    </message>
+    <message>
+        <source>The audio stream could not be opened.</source>
+        <translation>Аудиопоток открыть не удалось.</translation>
+    </message>
+    <message>
+        <source>Preparing…</source>
+        <translation>Подготовка..</translation>
+    </message>
+    <message>
+        <source>Preparing XWM audio…</source>
+        <translation>Приготовление аудио XWM..</translation>
+    </message>
+    <message>
+        <source>Unavailable</source>
+        <translation>Недоступный</translation>
+    </message>
+    <message>
+        <source>Pause</source>
+        <translation>Пауза</translation>
+    </message>
+    <message>
+        <source>This audio format could not be played.</source>
+        <translation>Этот аудио формат невозможно воспроизвести.</translation>
+    </message>
+    <message>
+        <source>Could not play this audio file.</source>
+        <translation>Не удалось воспроизвести этот аудиофайл.</translation>
+    </message>
+    <message>
+        <source>Unmute</source>
+        <translation>Безмятежный</translation>
+    </message>
+    <message>
+        <source>Mute</source>
+        <translation>Мут</translation>
+    </message>
+</context>
+<context>
+    <name>BG3ImportView</name>
     <message>
         <source>All files</source>
         <translation>Все файлы</translation>
-    </message>
-    <message>
-        <source>Import BG3MM Load Order - {0}</source>
-        <translation>Заказ на загрузку BG3MM {0}</translation>
-    </message>
-    <message>
-        <source>Step 1: Select a BG3 Mod Manager order file</source>
-        <translation>Шаг 1: Выберите файл порядка для BG3 Mod Manager</translation>
-    </message>
-    <message>
-        <source>Choose a modlist.json (or an exported saved-order .json) from BG3 Mod Manager.
-Mods are matched to your installed mods by UUID.</source>
-        <translation>Выберите файл modlist.json (или экспортированный файл .json с сохраненным порядком) в BG3 Mod Manager.
-Модификации сопоставляются с установленными у вас модификациями по UUID.</translation>
     </message>
     <message>
         <source>No file selected.</source>
@@ -61,8 +241,26 @@ Mods are matched to your installed mods by UUID.</source>
         <translation>Предварительный просмотр →</translation>
     </message>
     <message>
-        <source>Select a BG3MM order .json</source>
-        <translation>Выберите заказ BG3MM .json</translation>
+        <source>Load Order (*.json *.lsx)</source>
+        <translation>Загрузка (*.json *.lsx)</translation>
+    </message>
+    <message>
+        <source>Import BG3 Load Order - {0}</source>
+        <translation>Заказ на импорт BG3 - {0}</translation>
+    </message>
+    <message>
+        <source>Step 1: Select a load order file</source>
+        <translation>Шаг 1: Выберите файл заказа загрузки</translation>
+    </message>
+    <message>
+        <source>Choose a modlist.json (or an exported saved-order .json) from BG3 Mod Manager, or a modsettings.lsx written by the game.
+Mods are matched to your installed mods by UUID.</source>
+        <translation>Выберите modlist.json (или экспортированный сохраненный заказ .json) из BG3 Mod Manager или modsettings.lsx, написанный игрой.
+Моды соответствуют установленным модам UUID.</translation>
+    </message>
+    <message>
+        <source>Select a load order file (.json or .lsx)</source>
+        <translation>Выберите файл заказа загрузки (.json или .lsx)</translation>
     </message>
     <message>
         <source>Selected: {0}</source>
@@ -97,10 +295,10 @@ Mods are matched to your installed mods by UUID.</source>
         <translation>Порядок загрузки применен</translation>
     </message>
     <message>
-        <source>The modlist has been reordered to match the BG3MM order.
+        <source>The modlist has been reordered to match the imported order.
 Deploy to push the new load order to the game.</source>
-        <translation>Список модификаций был переупорядочен в соответствии с порядком BG3MM.
-Нажмите «Deploy», чтобы применить новый порядок загрузки в игре.</translation>
+        <translation>Модлист был переупорядочен в соответствии с импортным заказом.
+Развернуть, чтобы подтолкнуть новый порядок загрузки к игре.</translation>
     </message>
     <message>
         <source>Done</source>
@@ -782,6 +980,109 @@ Close it when you are done, then click Done.</source>
     </message>
 </context>
 <context>
+    <name>BsaPackCandidatesView</name>
+    <message>
+        <source>BSA Pack Candidates - {0}</source>
+        <translation>Кандидаты в BSA Pack - {0}</translation>
+    </message>
+    <message>
+        <source>Find Pack Candidates</source>
+        <translation>Найти кандидатов Пакет</translation>
+    </message>
+    <message>
+        <source>Ranks your enabled mods by how many files they could pack into a BSA/BA2, and flags the ones that would break if packed. A file inside an archive loses to any loose file from any mod, so a mod that currently wins a conflict stops winning once it is packed.</source>
+        <translation>Оцените включенные модули по количеству файлов, которые они могут упаковать в BSA / BA2, и пометьте те, которые будут ломаться, если упакованы. Файл внутри архива проигрывает любому свободному файлу из любого мода, поэтому мод, который в настоящее время выигрывает конфликт, перестает выигрывать, как только он упакован.</translation>
+    </message>
+    <message>
+        <source>Start Scan</source>
+        <translation>Начать сканирование</translation>
+    </message>
+    <message>
+        <source>Scanning…</source>
+        <translation>Сканирование..</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>Ошибка: {0}</translation>
+    </message>
+    <message>
+        <source>Nothing to assess - this game has no BSA/BA2 format we can write, or the profile has no mods indexed yet.</source>
+        <translation>Нечего оценивать — в этой игре нет формата BSA/BA2, который мы можем написать, или в профиле пока нет проиндексированных модов.</translation>
+    </message>
+    <message>
+        <source>Pack Candidates</source>
+        <translation>Пакет кандидатов</translation>
+    </message>
+    <message>
+        <source>← Re-Scan</source>
+        <translation>← Re-Scan</translation>
+    </message>
+    <message>
+        <source>{0} files</source>
+        <translation>{0} файлы</translation>
+    </message>
+    <message>
+        <source>Open ›</source>
+        <translation>Открыто ›</translation>
+    </message>
+    <message>
+        <source>Over the size limit as one archive - tick "Separate textures archive" when packing.</source>
+        <translation>Над ограничением по размеру как один архив — тик «Отдельные текстуры архива» при упаковке.</translation>
+    </message>
+    <message>
+        <source>A stub plugin will be created so the archive loads.</source>
+        <translation>Будет создан плагин Stub для загрузки архива.</translation>
+    </message>
+    <message>
+        <source>Safe to pack ({0})</source>
+        <translation>Безопасная упаковка ({0})</translation>
+    </message>
+    <message>
+        <source>No conflicts to lose.</source>
+        <translation>Никаких конфликтов, чтобы проиграть.</translation>
+    </message>
+    <message>
+        <source>Packable with care ({0})</source>
+        <translation>Упакованы с осторожностью ({0})</translation>
+    </message>
+    <message>
+        <source>Wins {0} contested file(s) - tick "Skip winning files" when packing so they stay loose.</source>
+        <translation>Выигрывает {0} оспариваемый файл(ы) - кликните «Пропустить выигрышные файлы» при упаковке, чтобы они оставались свободными.</translation>
+    </message>
+    <message>
+        <source>Already has an archive - loose files remain ({0})</source>
+        <translation>Уже есть архив - свободные файлы остаются ({0})</translation>
+    </message>
+    <message>
+        <source>{0} file(s) already archived.</source>
+        <translation>{0} файл(ы) уже заархивирован.</translation>
+    </message>
+    <message>
+        <source>Too large for one archive ({0})</source>
+        <translation>Слишком большой для одного архива ({0})</translation>
+    </message>
+    <message>
+        <source>{0} file(s) exceed the per-file size field - packing would fail.</source>
+        <translation>Файл(ы) {0} превышают поле размера файла - упаковка не сработает.</translation>
+    </message>
+    <message>
+        <source>Over the archive size limit even with textures split off.</source>
+        <translation>Ограничение размера архива даже при разделении текстур.</translation>
+    </message>
+    <message>
+        <source>Nothing to pack ({0})</source>
+        <translation>Нечего упаковывать ({0})</translation>
+    </message>
+    <message>
+        <source>These mods ship no files the engine would load from inside an archive - plugins, script-extender DLLs, config files and anything at the mod root always stay loose.</source>
+        <translation>Эти моды не отправляют файлы, которые двигатель загружал бы из архива - плагины, DLL-расширители сценариев, файлы конфигурации и все, что находится в корне мода, всегда остаются свободными.</translation>
+    </message>
+    <message>
+        <source>{0} mod(s) assessed - {1} safe to pack, {2} need care, {3} already archived, {4} too large.</source>
+        <translation>Мод (ы) {0} оценены - {1} безопасен для упаковки, {2} нуждается в уходе, {3} уже заархивирован, {4} слишком велик.</translation>
+    </message>
+</context>
+<context>
     <name>BsaPackOverlay</name>
     <message>
         <source>Pack {0}</source>
@@ -1193,6 +1494,22 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</source>
         <translation>Не удалось загрузить.</translation>
     </message>
     <message>
+        <source>This is a Wabbajack list and cannot be installed by Amethyst. Install it with Wabbajack instead.</source>
+        <translation>Это список Wabbajack и не может быть установлен Amethyst. Вместо этого установите его с Wabbajack.</translation>
+    </message>
+    <message>
+        <source>This collection uses an unsupported format and cannot be installed by Amethyst.</source>
+        <translation>Эта коллекция использует неподдерживаемый формат и не может быть установлена Amethyst.</translation>
+    </message>
+    <message>
+        <source>No installable collection data.</source>
+        <translation>Никаких данных о сборе.</translation>
+    </message>
+    <message>
+        <source>Unsupported collection</source>
+        <translation>Неподдерживаемая коллекция</translation>
+    </message>
+    <message>
         <source>Download collection</source>
         <translation>Скачать сборник</translation>
     </message>
@@ -1548,8 +1865,20 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</source>
         <translation>No Launcher ID - префикс не применим.</translation>
     </message>
     <message>
+        <source>No prefix configured.</source>
+        <translation>Префикс не настроен.</translation>
+    </message>
+    <message>
         <source>Mod Staging Folder</source>
         <translation>Папка для размещения модификаций</translation>
+    </message>
+    <message>
+        <source>Searching common AppImage locations…</source>
+        <translation>Поиск общих локаций изображений..</translation>
+    </message>
+    <message>
+        <source>AppImage Location (Optional)</source>
+        <translation>Местоположение изображения (факультативно)</translation>
     </message>
     <message>
         <source>Default location will be used.</source>
@@ -1596,6 +1925,10 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</source>
         <translation>Жесткая ссылка</translation>
     </message>
     <message>
+        <source>VFS (OpenMW)</source>
+        <translation>VFS (OpenMW)</translation>
+    </message>
+    <message>
         <source>Virtual filesystem (VFS)</source>
         <translation>Виртуальная файловая система (VFS)</translation>
     </message>
@@ -1610,6 +1943,10 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</source>
     <message>
         <source>Auto deploy (deploy automatically on enable/disable/reorder)</source>
         <translation>Автоматическое развертывание (развертывание автоматически при включении/отключении/заказе)</translation>
+    </message>
+    <message>
+        <source>Prefer AppImage</source>
+        <translation>Предпочтение AppImage</translation>
     </message>
     <message>
         <source>Automatic archive invalidation (prefer loose files over BSAs)</source>
@@ -1724,8 +2061,40 @@ The default profile's settings are not affected.</source>
         <translation>Префикс найден автоматически.</translation>
     </message>
     <message>
+        <source>AppImage not found automatically. Browse or scan to locate it.</source>
+        <translation>Изображение не найдено автоматически. Просмотрите или сканируйте, чтобы найти его.</translation>
+    </message>
+    <message>
+        <source>Configured AppImage was not found.</source>
+        <translation>Настроенный образ не найден.</translation>
+    </message>
+    <message>
+        <source>AppImage already configured. You can update the path below.</source>
+        <translation>Изображение уже настроено. Вы можете обновить путь ниже.</translation>
+    </message>
+    <message>
+        <source>AppImage selected manually.</source>
+        <translation>Изображение выбрано вручную.</translation>
+    </message>
+    <message>
+        <source>Found in a common AppImage location.</source>
+        <translation>Найдено в общей локации AppImage.</translation>
+    </message>
+    <message>
         <source>Executable found.</source>
         <translation>Исполняемый найден.</translation>
+    </message>
+    <message>
+        <source>AppImage path set.</source>
+        <translation>Путь изображения установлен.</translation>
+    </message>
+    <message>
+        <source>AppImage file not found.</source>
+        <translation>Файлы изображений не найдены.</translation>
+    </message>
+    <message>
+        <source>Automatic detection will be used.</source>
+        <translation>Будет использоваться автоматическое обнаружение.</translation>
     </message>
     <message>
         <source>Custom saves folder selected.</source>
@@ -1748,6 +2117,18 @@ The default profile's settings are not affected.</source>
         <translation>Источник: {0}</translation>
     </message>
     <message>
+        <source>native Linux</source>
+        <translation>родной Linux</translation>
+    </message>
+    <message>
+        <source>Windows/Proton</source>
+        <translation>Windows/Proton</translation>
+    </message>
+    <message>
+        <source>Native Linux build selected; no Proton prefix will be used.</source>
+        <translation>Нативная сборка Linux выбрана; префикс Proton не будет использоваться.</translation>
+    </message>
+    <message>
         <source>No executable name configured for this game.</source>
         <translation>Для этой игры не указано имя исполняемого файла.</translation>
     </message>
@@ -1764,6 +2145,10 @@ The default profile's settings are not affected.</source>
         <translation>Исполняемый файл игры не найден ни на одном диске.</translation>
     </message>
     <message>
+        <source>OpenMW AppImage not found on any drive.</source>
+        <translation>OpenMW AppImage не найден ни на одном диске.</translation>
+    </message>
+    <message>
         <source>Scanning for Proton prefix…</source>
         <translation>Поиск префикса «Proton»…</translation>
     </message>
@@ -1776,12 +2161,20 @@ The default profile's settings are not affected.</source>
         <translation>Сначала укажите папку установки игры.</translation>
     </message>
     <message>
+        <source>The mod staging folder cannot be the game folder or be inside it. Choose a separate location.</source>
+        <translation>Папка Mod Staging не может быть игровой папкой или находиться внутри нее. Выберите отдельное место.</translation>
+    </message>
+    <message>
         <source>This path is not visible inside the Flatpak sandbox. Grant access in Flatseal or run: {0}</source>
         <translation>Этот путь недоступен внутри песочницы Flatpak. Предоставьте доступ в Flatseal или выполните команду: {0}</translation>
     </message>
     <message>
         <source>Cannot change the game/prefix path while mods are deployed. Restore the game first.</source>
         <translation>Невозможно изменить путь к игре/префиксу, пока моды развернуты. Сначала восстановите игру.</translation>
+    </message>
+    <message>
+        <source>Restore the game before changing the preferred OpenMW package.</source>
+        <translation>Восстановите игру, прежде чем менять предпочтительный пакет OpenMW.</translation>
     </message>
     <message>
         <source>Cannot change the deploy method while mods are deployed. Restore the game first.</source>
@@ -2704,6 +3097,66 @@ When it completes, the app switches to the new profile - then come back here and
         <translation>Если эта опция включена (по умолчанию), названия папок в разных модах, отличающиеся только регистром, приводятся к единому регистру. Отключите эту опцию для игр, разработанных специально для Linux, в которых регистр папок имеет значение.</translation>
     </message>
     <message>
+        <source>VC++ Redistributable (x64)</source>
+        <translation>VC++ Redistributable (x64)</translation>
+    </message>
+    <message>
+        <source>.NET {0} Desktop Runtime</source>
+        <translation>.NET {0} Desktop Runtime</translation>
+    </message>
+    <message>
+        <source>d3dcompiler_47 (shader compiler)</source>
+        <translation>d3dcompiler 47 (компилятор шаблонов)</translation>
+    </message>
+    <message>
+        <source>LAV Filters (DirectShow codecs)</source>
+        <translation>Фильтры LAV (кодеки DirectShow)</translation>
+    </message>
+    <message>
+        <source>d3dx9 (all legacy DirectX 9 runtimes)</source>
+        <translation>d3dx9 (все устаревшие среды выполнения DirectX 9)</translation>
+    </message>
+    <message>
+        <source>d3dx10 (all legacy DirectX 10 runtimes)</source>
+        <translation>d3dx10 (все устаревшие среды выполнения DirectX 10)</translation>
+    </message>
+    <message>
+        <source>d3dx9_43 (legacy DirectX 9 runtime)</source>
+        <translation>d3dx9 43 (наследие среды выполнения DirectX 9)</translation>
+    </message>
+    <message>
+        <source>d3dx10_43 (legacy DirectX 10 runtime)</source>
+        <translation>d3dx10 43 (наследие среды выполнения DirectX 10)</translation>
+    </message>
+    <message>
+        <source>d3dx11_42 (legacy DirectX 11 runtime)</source>
+        <translation>d3dx11 42 (наследие среды выполнения DirectX 11)</translation>
+    </message>
+    <message>
+        <source>d3dx11_43 (legacy DirectX 11 runtime)</source>
+        <translation>d3dx11 43 (наследие среды выполнения DirectX 11)</translation>
+    </message>
+    <message>
+        <source>d3dcompiler_42 (legacy shader compiler)</source>
+        <translation>d3dcompiler 42 (наследный шейдерный компилятор)</translation>
+    </message>
+    <message>
+        <source>d3dcompiler_43 (legacy shader compiler)</source>
+        <translation>d3dcompiler 43 (наследный шейдерный компилятор)</translation>
+    </message>
+    <message>
+        <source>d3dcompiler_46 (legacy shader compiler)</source>
+        <translation>d3dcompiler 46 (наследный шейдерный компилятор)</translation>
+    </message>
+    <message>
+        <source>quartz (DirectShow runtime)</source>
+        <translation>кварц (DirectShow Runtime)</translation>
+    </message>
+    <message>
+        <source>dx8vb (DirectX 8 Visual Basic runtime)</source>
+        <translation>dx8vb (DirectX 8 Visual Basic)</translation>
+    </message>
+    <message>
         <source>Edit Custom Game</source>
         <translation>Редактировать пользовательскую игру</translation>
     </message>
@@ -2896,8 +3349,40 @@ When it completes, the app switches to the new profile - then come back here and
         <translation>myGame.exe или Bin/x64/MyGame.exe</translation>
     </message>
     <message>
+        <source>e.g. MyGame.x86_64, Bin/alternate-launcher.exe</source>
+        <translation>например, MyGame.x86 64, Bin/alternate-launcher.exe</translation>
+    </message>
+    <message>
+        <source>Additional Executables</source>
+        <translation>Дополнительные исполнимые</translation>
+    </message>
+    <message>
+        <source>Comma-separated alternate executable paths relative to the game root. Use these for native Linux builds or store-specific executables.</source>
+        <translation>Разделенные запятой альтернативные исполняемые пути относительно корня игры. Используйте их для нативных сборок Linux или исполняемых файлов для конкретных магазинов.</translation>
+    </message>
+    <message>
         <source>Deployment</source>
         <translation>Развертывание</translation>
+    </message>
+    <message>
+        <source>Windows Prefix</source>
+        <translation>Windows Prefix</translation>
+    </message>
+    <message>
+        <source>None selected</source>
+        <translation>Не выбранный</translation>
+    </message>
+    <message>
+        <source>{0} dependencies selected</source>
+        <translation>Выбранные зависимости {0}</translation>
+    </message>
+    <message>
+        <source>Auto-install Dependencies</source>
+        <translation>Автоустановка зависимостей</translation>
+    </message>
+    <message>
+        <source>Selected components are installed automatically after the game and prefix configuration is saved. They are skipped when no Windows prefix is configured and are also shown in Prefix Health Check.</source>
+        <translation>Выбранные компоненты устанавливаются автоматически после сохранения конфигурации игры и префикса. Они пропускаются, когда префикс Windows не настроен и также показан в Prefix Health Check.</translation>
     </message>
     <message>
         <source>Store &amp; Artwork</source>
@@ -3036,6 +3521,30 @@ When it completes, the app switches to the new profile - then come back here and
     <message>
         <source>{0} - {1} files in {2} mods</source>
         <translation>{0} - {1} файлы в модах {2}</translation>
+    </message>
+    <message>
+        <source>Open in File Browser</source>
+        <translation>Открыть в File Browser</translation>
+    </message>
+    <message>
+        <source>Open in Text Editor</source>
+        <translation>Открыт в текстовом редакторе</translation>
+    </message>
+    <message>
+        <source>Open in NIF Viewer</source>
+        <translation>Открыть в NIF Viewer</translation>
+    </message>
+    <message>
+        <source>Play Audio</source>
+        <translation>Играть Audio</translation>
+    </message>
+    <message>
+        <source>Play Video</source>
+        <translation>Играть видео</translation>
+    </message>
+    <message>
+        <source>Inspect Archive</source>
+        <translation>Проверить архив</translation>
     </message>
 </context>
 <context>
@@ -4375,93 +4884,6 @@ That is fine for your own backup. Do not share or upload the file in this state 
     </message>
 </context>
 <context>
-    <name>Fallout4DowngraderView</name>
-    <message>
-        <source>Downgrade Fallout 4 - {0}</source>
-        <translation>Скачать Fallout 4 - {0}</translation>
-    </message>
-    <message>
-        <source>Step 1: Download Fallout 4 Downgrader</source>
-        <translation>Шаг 1: Скачать Fallout 4 Downgrader</translation>
-    </message>
-    <message>
-        <source>The newest release containing the Fallout 4 Steam Downgrader will be downloaded from MulderLoad on GitHub and placed in the game folder.
-
-No modlist deploy is required.</source>
-        <translation>Новейший релиз, содержащий Fallout 4 Steam Downgrader, будет загружен из MulderLoad на GitHub и помещен в папку игры.
-
-Развертывание модалей не требуется.</translation>
-    </message>
-    <message>
-        <source>Step 3: Run Fallout 4 Downgrader</source>
-        <translation>Шаг 3: Run Fallout 4 Downgrader</translation>
-    </message>
-    <message>
-        <source>Step 2: Choose Proton Version</source>
-        <translation>Шаг 2: Выберите протонную версию</translation>
-    </message>
-    <message>
-        <source>The Fallout 4 Steam Downgrader was not downloaded.
-Close and reopen the wizard to try again.</source>
-        <translation>Fallout 4 Steam Downgrader не был загружен.
-Закройте и откройте волшебника, чтобы попробовать снова.</translation>
-    </message>
-    <message>
-        <source>Game path is not configured.</source>
-        <translation>Путь игры не настроен.</translation>
-    </message>
-    <message>
-        <source>Searching MulderLoad releases…</source>
-        <translation>Поисковая система MulderLoad выпускает..</translation>
-    </message>
-    <message>
-        <source>Downloading {0}…</source>
-        <translation>Скачать {0}..</translation>
-    </message>
-    <message>
-        <source>The downgrader download did not create {0}.</source>
-        <translation>Скачивание понижателя не создало {0}.</translation>
-    </message>
-    <message>
-        <source>Downloaded {0} to the game folder.</source>
-        <translation>Скачать {0} в папку игры.</translation>
-    </message>
-    <message>
-        <source>Download error: {0}</source>
-        <translation>Ошибка загрузки: {0}</translation>
-    </message>
-    <message>
-        <source>{0} was not found in the game folder.</source>
-        <translation>{0} не был найден в игровой папке.</translation>
-    </message>
-    <message>
-        <source>Launching Fallout 4 Downgrader…</source>
-        <translation>Скачать Fallout 4 Downgrader</translation>
-    </message>
-    <message>
-        <source>Could not determine a Proton version for Fallout 4.</source>
-        <translation>Не удалось определить версию Proton для Fallout 4.</translation>
-    </message>
-    <message>
-        <source>Fallout 4 Downgrader is running.
-Follow its prompts, then close it when finished.</source>
-        <translation>Fallout 4 Downgrader работает
-Следуйте его указаниям, а затем закройте его, когда закончите.</translation>
-    </message>
-    <message>
-        <source>Fallout 4 Downgrader finished. Click Done to close.</source>
-        <translation>Fallout 4 Downgrader закончился Нажмите Сделано, чтобы закрыть.</translation>
-    </message>
-    <message>
-        <source>Fallout 4 Downgrader exited with code {0}. See the log for details.</source>
-        <translation>Fallout 4 Downgrader вышел с кодом {0}. Смотрите журнал для деталей.</translation>
-    </message>
-    <message>
-        <source>Launch error: {0}</source>
-        <translation>Ошибка запуска: {0}</translation>
-    </message>
-</context>
-<context>
     <name>FalloutDowngradeView</name>
     <message>
         <source>Downgrade Fallout 3 - {0}</source>
@@ -4797,6 +5219,10 @@ Click Done to clean up the extracted files and close.</source>
         <translation>Мои игры</translation>
     </message>
     <message>
+        <source>Logs</source>
+        <translation>Лог</translation>
+    </message>
+    <message>
         <source>Clear all</source>
         <translation>Очистить всё</translation>
     </message>
@@ -4908,6 +5334,53 @@ SHA-1: {1}
     <message>
         <source>Restore failed: {0}</source>
         <translation>Восстановление не удалось: {0}</translation>
+    </message>
+</context>
+<context>
+    <name>FomodChoicesView</name>
+    <message>
+        <source>Option</source>
+        <translation>Вариант</translation>
+    </message>
+    <message>
+        <source>Description</source>
+        <translation>Описание</translation>
+    </message>
+    <message>
+        <source>Reading saved choices…</source>
+        <translation>Чтение сохраненных вариантов..</translation>
+    </message>
+    <message>
+        <source>FOMOD Choices: {0}</source>
+        <translation>Выбор FOMOD: {0}</translation>
+    </message>
+    <message>
+        <source>No saved FOMOD choices for this mod.</source>
+        <translation>Никаких сохраненных вариантов FOMOD для этого мода.</translation>
+    </message>
+    <message>
+        <source>The installer recorded no selections for this mod.</source>
+        <translation>Установщик не записал никаких вариантов для этого мода.</translation>
+    </message>
+    <message>
+        <source>Installer config not saved for this mod - showing the recorded selections only.</source>
+        <translation>Конфигурация установщика не сохранена для этого мода - показывая только записанные выборы.</translation>
+    </message>
+    <message>
+        <source>(no choices recorded)</source>
+        <translation>(выбор не записывается)</translation>
+    </message>
+    <message>
+        <source>Step {0}: {1}</source>
+        <translation>Шаг {0}: {1}</translation>
+    </message>
+    <message>
+        <source>Step {0}</source>
+        <translation>Шаг {0}</translation>
+    </message>
+    <message>
+        <source>(unnamed group)</source>
+        <translation>(неназванная группа)</translation>
     </message>
 </context>
 <context>
@@ -5220,8 +5693,12 @@ SHA-1: {1}
         <translation>например, SteamDeck=0 gamemoderun %command%</translation>
     </message>
     <message>
-        <source>Steam syntax. Empty: the game's own Steam options are used.</source>
-        <translation>Синтаксис Steam. Пусто: используются собственные параметры игры в Steam.</translation>
+        <source>Steam syntax. When set, the manager launches the game directly so these options apply. Empty: the game's own launcher options are used.</source>
+        <translation>Синтаксис Steam. При установке менеджер запускает игру напрямую, поэтому эти опции применяются. Пусто: используются собственные варианты запуска игры.</translation>
+    </message>
+    <message>
+        <source>Launch with wayland</source>
+        <translation>Запуск с Wayland</translation>
     </message>
     <message>
         <source>Deploy mods before launching</source>
@@ -7460,6 +7937,10 @@ Run Quick Update on all of them now?</source>
         <translation>Установленные модификации для игры «{0}»</translation>
     </message>
     <message>
+        <source>Prefer AppImage</source>
+        <translation>Предпочтение AppImage</translation>
+    </message>
+    <message>
         <source>Download Manifest…</source>
         <translation>Скачать Манифест..</translation>
     </message>
@@ -7564,6 +8045,10 @@ Run Quick Update on all of them now?</source>
         <translation>Быстрая загрузка обновлений отменена.</translation>
     </message>
     <message>
+        <source>FOMOD: {0}</source>
+        <translation>ИСТОЧНИК: {0}</translation>
+    </message>
+    <message>
         <source>Conflict data is still building.</source>
         <translation>Данные о конфликтах продолжают накапливаться.</translation>
     </message>
@@ -7616,8 +8101,38 @@ Run Quick Update on all of them now?</source>
         <translation>Извлечение/установка</translation>
     </message>
     <message>
+        <source>Restore the game before changing the preferred OpenMW package.</source>
+        <translation>Восстановите игру, прежде чем менять предпочтительный пакет OpenMW.</translation>
+    </message>
+    <message>
+        <source>Wizard Settings…</source>
+        <translation>Волшебные настройки..</translation>
+    </message>
+    <message>
+        <source>Reset wizard tools that automatically reuse their saved Proton settings.</source>
+        <translation>Инструменты мастера сброса, которые автоматически повторно используют сохраненные настройки Proton.</translation>
+    </message>
+    <message>
         <source>No QuickAutoClean tool is available for this game.</source>
         <translation>Для этой игры нет инструмента QuickAutoClean.</translation>
+    </message>
+    <message>
+        <source>Tool still running</source>
+        <translation>Инструмент продолжает работать</translation>
+    </message>
+    <message>
+        <source>This tab still has a tool running. Close the tool too?
+The tab closes either way; choosing Leave running keeps the tool alive until you quit Amethyst.</source>
+        <translation>На этой вкладке все еще работает инструмент. Закрыть инструмент тоже?
+Закладка закрывается в любом случае; выбирая Листье работает держит инструмент живым, пока вы не бросите Аметист.</translation>
+    </message>
+    <message>
+        <source>Close tool</source>
+        <translation>Близкий инструмент</translation>
+    </message>
+    <message>
+        <source>Leave running</source>
+        <translation>Убегать</translation>
     </message>
     <message>
         <source>Preparing extraction…</source>
@@ -7946,6 +8461,10 @@ CET не будет загружаться из symlinked asi. Это проис
     <message>
         <source>Overrides</source>
         <translation>Переопределение</translation>
+    </message>
+    <message>
+        <source>File location</source>
+        <translation>Расположение файла</translation>
     </message>
     <message>
         <source>Log</source>
@@ -8331,6 +8850,22 @@ How would you like to handle the existing mod?</source>
     <message>
         <source>Disable</source>
         <translation>Инвалид</translation>
+    </message>
+    <message>
+        <source>The mod's files and folders as they are packaged in the archive.</source>
+        <translation>Файлы и папки модов, как они упакованы в архив.</translation>
+    </message>
+    <message>
+        <source>Promote this folder's contents up to the top of the mod, stripping the wrapper folders above it. Use this when a mod is packaged one or more folders too deep, so its files land in the right place on deploy.</source>
+        <translation>Продвигайте содержимое этой папки до верхней части мода, снимая папки обёртки над ней. Используйте это, когда мод упакован в одну или несколько папок слишком глубоко, поэтому его файлы попадают в нужное место при развертывании.</translation>
+    </message>
+    <message>
+        <source>Deploy this file or folder to the game's root folder (next to the game executable) instead of the game's data folder. Use this for loaders, DLLs and INIs that belong beside the .exe.</source>
+        <translation>Разверните этот файл или папку в корневую папку игры (рядом с исполняемым файлом игры) вместо папки данных игры. Используйте это для погрузчиков, DLL и INI, которые находятся рядом с .exe.</translation>
+    </message>
+    <message>
+        <source>Whether this file or folder is deployed. Unchecked excludes it: it stays in the mod but is never written to the game, so it cannot win conflicts.</source>
+        <translation>Будет ли этот файл или папка развернуты. Unchecked исключает его: он остается в моде, но никогда не записывается в игру, поэтому он не может выиграть конфликты.</translation>
     </message>
 </context>
 <context>
@@ -9070,6 +9605,131 @@ or an encrypted file when no keyring is available).</source>
     <message>
         <source>Cancel</source>
         <translation>Отменить</translation>
+    </message>
+</context>
+<context>
+    <name>MulderLoadDowngraderView</name>
+    <message>
+        <source>Downgrade {0} - {1}</source>
+        <translation>Обновление {0} - {1}</translation>
+    </message>
+    <message>
+        <source>{0} Steam Downgrader</source>
+        <translation>{0} Steam Downgrader</translation>
+    </message>
+    <message>
+        <source>Step 2: Download Downgrader</source>
+        <translation>Шаг 2: Скачать Downgrader</translation>
+    </message>
+    <message>
+        <source>The newest release containing the selected downgrader will be downloaded from MulderLoad on GitHub and placed in the game folder.
+
+No modlist deploy is required.</source>
+        <translation>Новейший релиз, содержащий выбранный понижающий класс, будет загружен из MulderLoad на GitHub и помещен в папку игры.
+
+Развертывание модалей не требуется.</translation>
+    </message>
+    <message>
+        <source>Step 4: Run Downgrader</source>
+        <translation>Шаг 4: Запустите Downgrader</translation>
+    </message>
+    <message>
+        <source>Step 1: Choose Downgrader</source>
+        <translation>Шаг 1: Выберите Downgrader</translation>
+    </message>
+    <message>
+        <source>The game and its Creation Kit are downgraded by separate installers. Pick which one to download and run.</source>
+        <translation>Игра и ее набор для создания понижены отдельными установщиками. Выберите, какой из них скачать и запустить.</translation>
+    </message>
+    <message>
+        <source>{0} (game)</source>
+        <translation>{0} (игра)</translation>
+    </message>
+    <message>
+        <source>Creation Kit</source>
+        <translation>Набор для создания</translation>
+    </message>
+    <message>
+        <source>Next</source>
+        <translation>Следующий</translation>
+    </message>
+    <message>
+        <source>{0} Creation Kit Steam Downgrader</source>
+        <translation>{0} Creation Kit Steam Downgrador</translation>
+    </message>
+    <message>
+        <source>Step 3: Choose Proton Version</source>
+        <translation>Шаг 3: Выберите протонную версию</translation>
+    </message>
+    <message>
+        <source>The {0} was not downloaded.
+Close and reopen the wizard to try again.</source>
+        <translation>{0} не был загружен.
+Закройте и откройте волшебника, чтобы попробовать снова.</translation>
+    </message>
+    <message>
+        <source>Game path is not configured.</source>
+        <translation>Путь игры не настроен.</translation>
+    </message>
+    <message>
+        <source>Searching MulderLoad releases…</source>
+        <translation>Поисковая система MulderLoad выпускает..</translation>
+    </message>
+    <message>
+        <source>Downloading {0}…</source>
+        <translation>Скачать {0}..</translation>
+    </message>
+    <message>
+        <source>The downgrader download did not create {0}.</source>
+        <translation>Скачивание понижателя не создало {0}.</translation>
+    </message>
+    <message>
+        <source>Downloaded {0} to the game folder.</source>
+        <translation>Скачать {0} в папку игры.</translation>
+    </message>
+    <message>
+        <source>Download error: {0}</source>
+        <translation>Ошибка загрузки: {0}</translation>
+    </message>
+    <message>
+        <source>{0} was not found in the game folder.</source>
+        <translation>{0} не был найден в игровой папке.</translation>
+    </message>
+    <message>
+        <source>Launching {0}…</source>
+        <translation>Запуск {0}..</translation>
+    </message>
+    <message>
+        <source>Could not determine a Proton version for {0}.</source>
+        <translation>Не удалось определить версию Proton для {0}.</translation>
+    </message>
+    <message>
+        <source>{0} is running.
+Follow its prompts, then close it when finished.</source>
+        <translation>{0} работает.
+Следуйте его указаниям, а затем закройте его, когда закончите.</translation>
+    </message>
+    <message>
+        <source>
+
+Your modlist was restored before downgrading - use Deploy to put it back.</source>
+        <translation>Ваш модуль был восстановлен до понижения - используйте Deploy, чтобы вернуть его.</translation>
+    </message>
+    <message>
+        <source>{0} finished. Click Done to close.</source>
+        <translation>{0} закончился. Нажмите Сделано, чтобы закрыть.</translation>
+    </message>
+    <message>
+        <source>{0} exited with code {1}. See the log for details.</source>
+        <translation>{0} вышел с кодом {1}. Смотрите журнал для деталей.</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>Ошибка запуска: {0}</translation>
+    </message>
+    <message>
+        <source>{0} is running - close it to continue.</source>
+        <translation>{0} работает - закройте его, чтобы продолжить.</translation>
     </message>
 </context>
 <context>
@@ -10908,6 +11568,10 @@ Re-scan to verify.</source>
         <source>Version mismatched masters:</source>
         <translation>Версия несоответствующих мастеров:</translation>
     </message>
+    <message>
+        <source>This plugin is classified as OpenMW groundcover. When enabled, it loads as groundcover instead of normal content. OpenMW's settings.cfg must also contain [Groundcover] enabled = true.</source>
+        <translation>Этот плагин классифицируется как OpenMW groundcover. При включении он загружается в качестве наземного покрытия вместо обычного контента. Настройки OpenMW.cfg также должны содержать [Groundcover] enabled = true.</translation>
+    </message>
 </context>
 <context>
     <name>PluginGroupsView</name>
@@ -10991,6 +11655,10 @@ Re-scan to verify.</source>
         <translation>Включить выбранное ({0})</translation>
     </message>
     <message>
+        <source>Groundcover setting save failed: {0}</source>
+        <translation>Экономия наземного покрытия не удалась: {0}</translation>
+    </message>
+    <message>
         <source>Mark as Light (ESL)</source>
         <translation>«Марк как свет» (ESL)</translation>
     </message>
@@ -11005,6 +11673,14 @@ Re-scan to verify.</source>
     <message>
         <source>Not ESL-safe (per LOOT - compact in xEdit first)</source>
         <translation>Не ESL-безопасный (per LOOT - компактный в xEdit)</translation>
+    </message>
+    <message>
+        <source>Open LOOT message link</source>
+        <translation>Открытая ссылка LOOT</translation>
+    </message>
+    <message>
+        <source>Open LOOT message link…</source>
+        <translation>Открытая ссылка LOOT..</translation>
     </message>
     <message>
         <source>Remove ESL flag (un-light)</source>
@@ -11033,6 +11709,22 @@ Re-scan to verify.</source>
     <message>
         <source>Show userlist rules…</source>
         <translation>Показать правила списка пользователей…</translation>
+    </message>
+    <message>
+        <source>Use as normal OpenMW content</source>
+        <translation>Использование обычного контента OpenMW</translation>
+    </message>
+    <message>
+        <source>Use as OpenMW groundcover</source>
+        <translation>Использование OpenMW groundcover</translation>
+    </message>
+    <message>
+        <source>Use selected as normal OpenMW content ({0})</source>
+        <translation>Использование выбранного в качестве обычного контента OpenMW ({0})</translation>
+    </message>
+    <message>
+        <source>Use selected as OpenMW groundcover ({0})</source>
+        <translation>Используйте OpenMW groundcover ({0})</translation>
     </message>
 </context>
 <context>
@@ -11121,6 +11813,10 @@ Drag a plugin from the left pane to add a rule.</source>
     <message>
         <source>Fix</source>
         <translation>Исправлять</translation>
+    </message>
+    <message>
+        <source>.NET {0} Desktop Runtime</source>
+        <translation>.NET {0} Desktop Runtime</translation>
     </message>
     <message>
         <source>Proton prefix</source>
@@ -11303,6 +11999,13 @@ Drag a plugin from the left pane to add a rule.</source>
     </message>
 </context>
 <context>
+    <name>Profile</name>
+    <message>
+        <source>Default</source>
+        <translation>По умолчанию</translation>
+    </message>
+</context>
+<context>
     <name>ProfileGroupsView</name>
     <message>
         <source>Profile Groups</source>
@@ -11478,6 +12181,10 @@ Its listed mods are copied into the profile's own mods folder (hardlinked where 
         <translation>Настройки профиля</translation>
     </message>
     <message>
+        <source>  (default)</source>
+        <translation>(по умолчанию)</translation>
+    </message>
+    <message>
         <source>Rename</source>
         <translation>Переименовать</translation>
     </message>
@@ -11540,32 +12247,12 @@ Its listed mods are copied into the profile's own mods folder (hardlinked where 
         <translation>Каждая версия получает свой префикс; на следующем шаге в нее автоматически устанавливаются зависимости.</translation>
     </message>
     <message>
-        <source>No Proton versions were found.
-
-Install a Proton version in Steam (or with Heroic's Wine Manager), then reopen this wizard.</source>
-        <translation>Протонные версии не найдены.
-
-Установите версию Proton в Steam (или в Heroic’s Wine Manager), а затем снова откройте этот мастер.</translation>
-    </message>
-    <message>
-        <source>{0} runs in its own Wine prefix, stored next to its exe and separate from the game's prefix, so you can pick any Proton version without affecting the game.
-
-</source>
-        <translation>{0} работает в собственном префиксе Wine, хранится рядом с его префиксом и отделяется от префикса игры, поэтому вы можете выбрать любую версию Proton, не влияя на игру.
-
-.</translation>
+        <source>{0} runs in its own Wine prefix, stored next to its exe and separate from the game's prefix, so you can pick any Proton version without affecting the game.</source>
+        <translation>{0} работает в собственном префиксе Wine, хранится рядом с его префиксом и отделяется от префикса игры, поэтому вы можете выбрать любую версию Proton, не влияя на игру.</translation>
     </message>
     <message>
         <source>Prefer discrete GPU (hybrid systems)</source>
         <translation>Предпочитает дискретный GPU (гибридные системы)</translation>
-    </message>
-    <message>
-        <source>Expose the discrete GPU as adapter 0. May use more power.</source>
-        <translation>Раскройте дискретный графический процессор как адаптер 0. Может использовать больше энергии.</translation>
-    </message>
-    <message>
-        <source>Uses the discrete GPU for texconv; falls back to CPU if unavailable.</source>
-        <translation>Использует дискретный GPU для texconv; возвращается к CPU, если он недоступен.</translation>
     </message>
     <message>
         <source>Use shared prefix</source>
@@ -11588,8 +12275,36 @@ Install a Proton version in Steam (or with Heroic's Wine Manager), then reopen t
         <translation>Запуск с простым вином (стиль винтриков)</translation>
     </message>
     <message>
-        <source>Use Winetricks style launch</source>
-        <translation>Использование Winetricks style</translation>
+        <source>The saved game prefix is unavailable. Choose another prefix setting.</source>
+        <translation>Приставка сохраненной игры недоступна. Выберите другую настройку префикса.</translation>
+    </message>
+    <message>
+        <source>No Proton versions were found. Install one through Steam or Heroic, or add a custom Proton build below.</source>
+        <translation>Протонные версии не найдены. Установите его через Steam или Heroic или добавьте специальную сборку Proton ниже.</translation>
+    </message>
+    <message>
+        <source>The saved Proton selection is incomplete. Choose a Proton version.</source>
+        <translation>Сэкономленный выбор Протона неполный. Выберите протонную версию.</translation>
+    </message>
+    <message>
+        <source>The saved Proton version '{0}' is no longer installed. Choose another version.</source>
+        <translation>Сохраненная версия Proton {0} больше не установлена. Выберите другую версию.</translation>
+    </message>
+    <message>
+        <source>Run this tool with plain Wine against the selected prefix instead of starting a Proton session.</source>
+        <translation>Запустите этот инструмент с простым вином против выбранного префикса вместо того, чтобы начинать сеанс Proton.</translation>
+    </message>
+    <message>
+        <source>Expose the discrete GPU as adapter 0 for texconv. This may use more power and falls back to the CPU if unavailable.</source>
+        <translation>Раскройте дискретный графический процессор как адаптер 0 для texconv. Это может использовать больше энергии и падает обратно на процессор, если он недоступен.</translation>
+    </message>
+    <message>
+        <source>Add Custom Build</source>
+        <translation>Добавить Custom Build</translation>
+    </message>
+    <message>
+        <source>Select a complete Proton build folder containing the top-level 'proton' launcher. Do not select files/bin/wine.</source>
+        <translation>Выберите полную папку сборки Proton, содержащую пусковую установку «протон» верхнего уровня. Не используйте файлы/bin/wine.</translation>
     </message>
     <message>
         <source>Delete Prefix</source>
@@ -11616,12 +12331,56 @@ Install a Proton version in Steam (or with Heroic's Wine Manager), then reopen t
         <translation>например: PROTON_USE_WINED3D=1 WINEDLLOVERRIDES=dinput8=n,b</translation>
     </message>
     <message>
+        <source>Always use these settings</source>
+        <translation>Всегда используйте эти настройки</translation>
+    </message>
+    <message>
+        <source>Skip this Proton step on future runs and reuse the saved values. Reset it from Wizard &gt; Wizard Settings.</source>
+        <translation>Пропустите этот шаг Протона на будущих запусках и повторно используйте сохраненные значения. Обсуждение Wizard Settings.</translation>
+    </message>
+    <message>
         <source>Continue</source>
         <translation>Продолжить</translation>
     </message>
     <message>
+        <source>Select custom Proton build folder</source>
+        <translation>Выберите пользовательскую папку Proton build</translation>
+    </message>
+    <message>
+        <source>The selected folder does not contain a top-level 'proton' launcher.</source>
+        <translation>Выбранная папка не содержит пусковой установки «протон» верхнего уровня.</translation>
+    </message>
+    <message>
+        <source>Custom Proton build added: {0}</source>
+        <translation>Настраиваемая сборка Proton добавлена: {0}</translation>
+    </message>
+    <message>
         <source>Using the game's existing prefix - Proton version follows the game's Steam setting and no new prefix is created.</source>
         <translation>Используя существующий префикс игры - версия Proton следует за настройками Steam игры, и новый префикс не создается.</translation>
+    </message>
+    <message>
+        <source>Select or add a Proton build before continuing.</source>
+        <translation>Выберите или добавьте сборку Протона, прежде чем продолжить.</translation>
+    </message>
+    <message>
+        <source>Use custom Proton build?</source>
+        <translation>Используйте пользовательский Proton?</translation>
+    </message>
+    <message>
+        <source>This Proton build was added manually and is outside Amethyst's supported configurations. Support cannot be provided for issues that occur while using it.
+
+Continue with {0}?</source>
+        <translation>Эта сборка Proton была добавлена вручную и находится за пределами поддерживаемых конфигураций Amethyst. Поддержка не может быть оказана по вопросам, возникающим при ее использовании.
+
+Продолжайте использовать {0}?</translation>
+    </message>
+    <message>
+        <source>Use Custom Build</source>
+        <translation>Используйте Custom Build</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Отменить</translation>
     </message>
     <message>
         <source>A prefix already exists for this version. Delete it if {0}
@@ -13447,6 +14206,22 @@ flatpak remote-add - пользователь аметист https://chrisdkn.gi
         <translation>Закрыть</translation>
     </message>
     <message>
+        <source>Toolbar position</source>
+        <translation>Положение панели инструментов</translation>
+    </message>
+    <message>
+        <source>Top</source>
+        <translation>Топ</translation>
+    </message>
+    <message>
+        <source>Left side</source>
+        <translation>Левая сторона</translation>
+    </message>
+    <message>
+        <source>Right side</source>
+        <translation>Правая сторона</translation>
+    </message>
+    <message>
         <source>Reset dismissed prompts…</source>
         <translation>Перезагрузка уволенных подсказок..</translation>
     </message>
@@ -13489,6 +14264,14 @@ flatpak remote-add - пользователь аметист https://chrisdkn.gi
     <message>
         <source>Reset</source>
         <translation>Сброс</translation>
+    </message>
+    <message>
+        <source>Custom Proton Build</source>
+        <translation>Культовый Proton Build</translation>
+    </message>
+    <message>
+        <source>Additional Proton build not found automatically. Select the build folder containing the top-level 'proton' launcher, not files/bin/wine. Blank disables it.</source>
+        <translation>Дополнительная сборка Протона не найдена автоматически. Выберите папку сборки, содержащую пусковую установку «протон» верхнего уровня, а не файлы / бин / вино. Бланк отключает его.</translation>
     </message>
     <message>
         <source>{0} set: {1}</source>
@@ -14106,12 +14889,52 @@ Pick a Proton version to create that prefix with.</source>
 Выберите версию Proton, с помощью которой будет создан этот префикс.</translation>
     </message>
     <message>
+        <source>Add Custom Build</source>
+        <translation>Добавить Custom Build</translation>
+    </message>
+    <message>
+        <source>Select a complete Proton build folder containing the top-level 'proton' launcher. Do not select files/bin/wine.</source>
+        <translation>Выберите полную папку сборки Proton, содержащую пусковую установку «протон» верхнего уровня. Не используйте файлы/bin/wine.</translation>
+    </message>
+    <message>
         <source>Continue →</source>
         <translation>Продолжить →</translation>
     </message>
     <message>
-        <source>No Proton installations found. Install Proton (e.g. GE-Proton) via Steam and try again.</source>
-        <translation>Установки Proton не найдены. Установите Proton (например, GE-Proton) через Steam и попробуйте ещё раз.</translation>
+        <source>No Proton installations found. Install one through Steam or add a custom build.</source>
+        <translation>Протонные установки не найдены. Установите его через Steam или добавьте пользовательскую сборку.</translation>
+    </message>
+    <message>
+        <source>Select custom Proton build folder</source>
+        <translation>Выберите пользовательскую папку Proton build</translation>
+    </message>
+    <message>
+        <source>The selected folder does not contain a top-level 'proton' launcher.</source>
+        <translation>Выбранная папка не содержит пусковой установки «протон» верхнего уровня.</translation>
+    </message>
+    <message>
+        <source>Custom Proton build added: {0}</source>
+        <translation>Настраиваемая сборка Proton добавлена: {0}</translation>
+    </message>
+    <message>
+        <source>Use custom Proton build?</source>
+        <translation>Используйте пользовательский Proton?</translation>
+    </message>
+    <message>
+        <source>This Proton build was added manually and is outside Amethyst's supported configurations. Support cannot be provided for issues that occur while using it.
+
+Continue with {0}?</source>
+        <translation>Эта сборка Proton была добавлена вручную и находится за пределами поддерживаемых конфигураций Amethyst. Поддержка не может быть оказана по вопросам, возникающим при ее использовании.
+
+Продолжайте использовать {0}?</translation>
+    </message>
+    <message>
+        <source>Use Custom Build</source>
+        <translation>Используйте Custom Build</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Отменить</translation>
     </message>
     <message>
         <source>Step 3: Prepare Prefix</source>
@@ -15566,8 +16389,8 @@ or use Browse to select it manually.</source>
         <translation>Линии и рамки вокруг панелей, списков и входов.</translation>
     </message>
     <message>
-        <source>Danger / cancel / remove buttons (delete, remove profile, ✕ close).</source>
-        <translation>Опасность / отмена / удаление кнопок (удалить, удалить профиль, закрыть).</translation>
+        <source>Danger buttons (delete, remove profile and other destructive actions).</source>
+        <translation>Кнопки опасности (удалить, удалить профиль и другие деструктивные действия).</translation>
     </message>
     <message>
         <source>Success / confirm buttons (Install, Done, Play).</source>
@@ -16355,6 +17178,57 @@ Latest:  {1}</source>
     </message>
 </context>
 <context>
+    <name>VideoPreview</name>
+    <message>
+        <source>Qt Multimedia is not installed.</source>
+        <translation>Qt Multimedia не устанавливается.</translation>
+    </message>
+    <message>
+        <source>No video selected</source>
+        <translation>Видео не выбрано</translation>
+    </message>
+    <message>
+        <source>Play</source>
+        <translation>Играть</translation>
+    </message>
+    <message>
+        <source>Stop</source>
+        <translation>Стоп</translation>
+    </message>
+    <message>
+        <source>Volume</source>
+        <translation>Объем</translation>
+    </message>
+    <message>
+        <source>Video file not found.</source>
+        <translation>Видеофайл не найден.</translation>
+    </message>
+    <message>
+        <source>Unavailable</source>
+        <translation>Недоступный</translation>
+    </message>
+    <message>
+        <source>Pause</source>
+        <translation>Пауза</translation>
+    </message>
+    <message>
+        <source>This video format could not be played.</source>
+        <translation>Этот видеоформат невозможно воспроизвести.</translation>
+    </message>
+    <message>
+        <source>Could not play this video file.</source>
+        <translation>Не удалось воспроизвести этот видеофайл.</translation>
+    </message>
+    <message>
+        <source>Unmute</source>
+        <translation>Безмятежный</translation>
+    </message>
+    <message>
+        <source>Mute</source>
+        <translation>Мут</translation>
+    </message>
+</context>
+<context>
     <name>WikiView</name>
     <message>
         <source>Refresh</source>
@@ -16408,6 +17282,33 @@ Press Refresh to try again.</source>
     <message>
         <source>Refreshing…</source>
         <translation>Освежающий..</translation>
+    </message>
+</context>
+<context>
+    <name>WizardSettingsOverlay</name>
+    <message>
+        <source>Wizard Settings</source>
+        <translation>Настройки Wizard</translation>
+    </message>
+    <message>
+        <source>These wizard tools skip their Proton settings step. Reset a tool to show the step again; its saved values are kept.</source>
+        <translation>Эти инструменты волшебников пропускают шаг настройки Протона. Сбросьте инструмент, чтобы снова показать шаг; сохраненные значения сохранены.</translation>
+    </message>
+    <message>
+        <source>No wizard tools are using saved settings.</source>
+        <translation>Никакие инструменты мастера не используют сохраненные настройки.</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Закрыть</translation>
+    </message>
+    <message>
+        <source>Reset</source>
+        <translation>Сброс</translation>
+    </message>
+    <message>
+        <source>Show this wizard's Proton settings step the next time it runs.</source>
+        <translation>Покажите настройки Протона этого волшебника в следующий раз, когда он запускается.</translation>
     </message>
 </context>
 <context>
@@ -16469,6 +17370,10 @@ Press Refresh to try again.</source>
         <translation>Скачать Fallout 4</translation>
     </message>
     <message>
+        <source>Downgrade Skyrim Special Edition</source>
+        <translation>Обновление Skyrim Special Edition</translation>
+    </message>
+    <message>
         <source>Install Script Extender (F4SE)</source>
         <translation>Скачать Script Extender (F4SE)</translation>
     </message>
@@ -16525,6 +17430,10 @@ Press Refresh to try again.</source>
         <translation>Плагиновый аудит и очистка</translation>
     </message>
     <message>
+        <source>BSA Pack Candidates</source>
+        <translation>Кандидаты BSA Pack</translation>
+    </message>
+    <message>
         <source>SSE Display Tweaks Config</source>
         <translation>SSE Display Tweaks Конфигурация</translation>
     </message>
@@ -16571,6 +17480,10 @@ Press Refresh to try again.</source>
     <message>
         <source>Run xLODGen</source>
         <translation>Скачать xLODGEN</translation>
+    </message>
+    <message>
+        <source>Run ACMOS Road Generator</source>
+        <translation>Производитель ACMOS Road Generator</translation>
     </message>
     <message>
         <source>Run VRAMr</source>
@@ -16677,8 +17590,12 @@ Press Refresh to try again.</source>
         <translation>Разверните моды и запустите Outfit Studio из папки Data.</translation>
     </message>
     <message>
-        <source>Download the latest Fallout 4 Steam Downgrader and run it from the game folder.</source>
-        <translation>Загрузите последний Fallout 4 Steam Downgrader и запустите его из папки игры.</translation>
+        <source>Download the latest Fallout 4 Steam Downgrader (game or Creation Kit) and run it from the game folder.</source>
+        <translation>Скачайте последнюю версию Fallout 4 Steam Downgrader (игру или Creation Kit) и запустите ее из папки игры.</translation>
+    </message>
+    <message>
+        <source>Download the latest Skyrim Special Edition Steam Downgrader (game or Creation Kit) and run it from the game folder.</source>
+        <translation>Скачайте последнюю версию Skyrim Special Edition Steam Downgrader (игру или Creation Kit) и запустите ее из папки игры.</translation>
     </message>
     <message>
         <source>Download and install F4SE into the game folder.</source>
@@ -16797,6 +17714,10 @@ Press Refresh to try again.</source>
         <translation>Установите xLODGen, разверните моды и запустите xLODGenx64.exe.</translation>
     </message>
     <message>
+        <source>Install ACMOS Road Generator, choose a terrain LOD mod, and write generated road textures to ACMOS_Output.</source>
+        <translation>Установите ACMOS Road Generator, выберите мод местности LOD и напишите сгенерированные дорожные текстуры на ACMOS Output.</translation>
+    </message>
+    <message>
         <source>Install BethINI Pie and configure Skyrim SE INI settings.</source>
         <translation>Установите BethINI Pie и настройте настройки Skyrim SE INI.</translation>
     </message>
@@ -16819,6 +17740,10 @@ Press Refresh to try again.</source>
     <message>
         <source>Scan load order for safe-to-disable plugins, then disable them or clean up orphaned SkyGen BOS/SkyPatcher INIs for plugins that must stay enabled.</source>
         <translation>Заказ загрузки сканирования для безопасных для отключения плагинов, затем отключите их или очистите осиротевшие SkyGen BOS / SkyPatcher INI для плагинов, которые должны оставаться включенными.</translation>
+    </message>
+    <message>
+        <source>Rank mods by how many files they could pack into a BSA/BA2, and flag the ones that would break if packed.</source>
+        <translation>Ранжирование модифицируется по количеству файлов, которые они могут упаковать в BSA/BA2, и помечает те, которые будут ломаться, если упакованы.</translation>
     </message>
     <message>
         <source>Download and install SKSEVR into the game folder.</source>
@@ -16873,6 +17798,10 @@ Press Refresh to try again.</source>
         <translation>Настройка и установщики</translation>
     </message>
     <message>
+        <source>Install Modlist</source>
+        <translation>Установить Modlist</translation>
+    </message>
+    <message>
         <source>Body and Outfits</source>
         <translation>Тело и выходки</translation>
     </message>
@@ -16903,6 +17832,10 @@ Press Refresh to try again.</source>
     <message>
         <source>INI Tweaks</source>
         <translation>INI Tweaks</translation>
+    </message>
+    <message>
+        <source>NIF Viewer</source>
+        <translation>NIF Viewer</translation>
     </message>
     <message>
         <source>Other</source>

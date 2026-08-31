@@ -2,6 +2,141 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="ja" sourcelanguage="en">
 <context>
+    <name>ACMOSView</name>
+    <message>
+        <source>Run ACMOS Road Generator - {0}</source>
+        <translation>ACMOSロードジェネレータを実行 - {0}</translation>
+    </message>
+    <message>
+        <source>Step 1: Download ACMOS Road Generator</source>
+        <translation>ステップ1: ACMOSロードジェネレータをダウンロード</translation>
+    </message>
+    <message>
+        <source>Click the button below to open ACMOS Road Generator on Nexus Mods.
+
+Download the archive manually (do NOT use the Mod Manager download button), then click Next.</source>
+        <translation>Nexus Mods の ACMOS ロードジェネレーターを開くには、下のボタンをクリックします。
+
+手動でアーカイブをダウンロード (Mod Managerのダウンロードボタンを使用しないでください)、次に[次へ]をクリックします.</translation>
+    </message>
+    <message>
+        <source>Step 2: Locate the Archive</source>
+        <translation>ステップ2:アーカイブの検索</translation>
+    </message>
+    <message>
+        <source>Step 3: Extract ACMOS Road Generator</source>
+        <translation>ステップ3:抽出ACMOSの道の発電機</translation>
+    </message>
+    <message>
+        <source>Step 6: Run ACMOS Road Generator</source>
+        <translation>ステップ6: ACMOSロードジェネレータを実行</translation>
+    </message>
+    <message>
+        <source>Step 4: Choose Terrain LOD Mod</source>
+        <translation>ステップ4: Terrain LOD Modを選択してください</translation>
+    </message>
+    <message>
+        <source>Choose the profile mod containing your xLODGen terrain output. Enabled and disabled mods are both listed; deployment is not required.
+
+Generated textures are written to a separate ACMOS_Output mod. Remove an old ACMOS_Output first if you want a completely clean result.</source>
+        <translation>XLODGenの地形出力を含むプロファイルMODを選択します。 有効で無効な mod はリストされている; 展開は必須ではありません。
+
+生成されたテクスチャは、別々の ACMOS Output mod に書かれています。 完全にきれいな結果が必要な場合は、古いACMOS Outputを最初に削除します.</translation>
+    </message>
+    <message>
+        <source>Terrain LOD mod:</source>
+        <translation>Terrain LODの改造:</translation>
+    </message>
+    <message>
+        <source>Search mods…</source>
+        <translation>商品を検索..</translation>
+    </message>
+    <message>
+        <source>Continue</source>
+        <translation>お問い合わせ</translation>
+    </message>
+    <message>
+        <source>Select the ACMOS Road Generator archive</source>
+        <translation>ACMOSロードジェネレータのアーカイブを選択</translation>
+    </message>
+    <message>
+        <source>ACMOS Road Generator archive not found in Downloads.
+Make sure you downloaded it, then press Try Again,
+or use Browse to select it manually.</source>
+        <translation>ダウンロードされていないACMOSロードジェネレータアーカイブ。
+ダウンロードしてから、試してみる
+またはブラウザを使用して手動で選択します.</translation>
+    </message>
+    <message>
+        <source>Step 5: Choose Proton Version</source>
+        <translation>ステップ5: Protonバージョンを選択してください</translation>
+    </message>
+    <message>
+        <source>{0} was not found.
+Please restart the wizard and install ACMOS Road Generator first.</source>
+        <translation>{0}が見つかりませんでした。
+ウィザードを再起動し、ACMOS Road Generatorを最初にインストールしてください.</translation>
+    </message>
+    <message>
+        <source>Output mod: {0}</source>
+        <translation>出力モジュール: {0}</translation>
+    </message>
+    <message>
+        <source>No mods were found in the current profile.</source>
+        <translation>現在のプロファイルにmodsが見つかりませんでした.</translation>
+    </message>
+    <message>
+        <source>LOD path: {0}</source>
+        <translation>ロードパス: {0}</translation>
+    </message>
+    <message>
+        <source>Select a Terrain LOD mod first.</source>
+        <translation>Terrain LOD MODを最初に選択します.</translation>
+    </message>
+    <message>
+        <source>The selected mod folder no longer exists.</source>
+        <translation>選択された mod フォルダーは存在しません.</translation>
+    </message>
+    <message>
+        <source>The selected mod does not contain a textures/terrain folder. Choose the mod created from xLODGen output.</source>
+        <translation>選択した mod には、テクスチャ/地形フォルダーは含まれません。 xLODGen 出力から生成された mod を選択します.</translation>
+    </message>
+    <message>
+        <source>ACMOS Road Generator is not ready to run.</source>
+        <translation>ACMOS ロードジェネレーターは実行できません.</translation>
+    </message>
+    <message>
+        <source>Preparing ACMOS Road Generator's Wine prefix…</source>
+        <translation>ACMOSロードジェネレータのワインプレフィックスの準備..</translation>
+    </message>
+    <message>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>ゲーム独自のプレフィックスのProtonバージョンを解決できません。一度ゲームを起動するか、異なるプレフィックスオプションを選択します.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>Proton '{0}'が見つかりません - Steam、Heric、ProtonPlusにインストールされていることを確認してください.</translation>
+    </message>
+    <message>
+        <source>ACMOS Road Generator exited with error (code {0}).</source>
+        <translation>ACMOS ロードジェネレーターがエラーで終了({0}).</translation>
+    </message>
+    <message>
+        <source>ACMOS Road Generator finished.</source>
+        <translation>ACMOS の道の発電機は終えました.</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>起動エラー: {0}</translation>
+    </message>
+    <message>
+        <source>ACMOS Road Generator is running.
+Choose Roads or Paths Only, click Generate, then close it when finished.</source>
+        <translation>ACMOSロードジェネレータが稼働しています。
+道路またはパスのみを選択し、生成をクリックし、終了時に閉じます.</translation>
+    </message>
+</context>
+<context>
     <name>AddGameView</name>
     <message>
         <source>Select a game to add</source>
@@ -25,28 +160,73 @@
     </message>
 </context>
 <context>
-    <name>BG3ImportView</name>
+    <name>AudioControls</name>
     <message>
-        <source>Load Order (*.json)</source>
-        <translation>ロードオーダー(*.json)</translation>
+        <source>Qt Multimedia is not installed.</source>
+        <translation>Qtのマルチメディアは取付けられません.</translation>
     </message>
+    <message>
+        <source>Play</source>
+        <translation>プレイ</translation>
+    </message>
+    <message>
+        <source>Stop</source>
+        <translation>ストップ</translation>
+    </message>
+    <message>
+        <source>Volume</source>
+        <translation>ボリューム</translation>
+    </message>
+    <message>
+        <source>Audio file not found.</source>
+        <translation>音声ファイルが見つかりません.</translation>
+    </message>
+    <message>
+        <source>The FUZ audio stream could not be read.</source>
+        <translation>FUZのオーディオストリームは読み込めません.</translation>
+    </message>
+    <message>
+        <source>The audio stream could not be opened.</source>
+        <translation>オーディオストリームは開くことができませんでした.</translation>
+    </message>
+    <message>
+        <source>Preparing…</source>
+        <translation>準備..</translation>
+    </message>
+    <message>
+        <source>Preparing XWM audio…</source>
+        <translation>XWMオーディオの準備..</translation>
+    </message>
+    <message>
+        <source>Unavailable</source>
+        <translation>ご利用案内</translation>
+    </message>
+    <message>
+        <source>Pause</source>
+        <translation>パデュース</translation>
+    </message>
+    <message>
+        <source>This audio format could not be played.</source>
+        <translation>このオーディオフォーマットは再生できませんでした.</translation>
+    </message>
+    <message>
+        <source>Could not play this audio file.</source>
+        <translation>このオーディオファイルを再生できません.</translation>
+    </message>
+    <message>
+        <source>Unmute</source>
+        <translation>ミュート</translation>
+    </message>
+    <message>
+        <source>Mute</source>
+        <translation>ミュート</translation>
+    </message>
+</context>
+<context>
+    <name>BG3ImportView</name>
     <message>
         <source>All files</source>
         <translation>すべてのファイル</translation>
-    </message>
-    <message>
-        <source>Import BG3MM Load Order - {0}</source>
-        <translation>インポートBG3MMロードオーダー - {0}</translation>
-    </message>
-    <message>
-        <source>Step 1: Select a BG3 Mod Manager order file</source>
-        <translation>手順 1：BG3 Mod Manager の順序ファイルを選択する</translation>
-    </message>
-    <message>
-        <source>Choose a modlist.json (or an exported saved-order .json) from BG3 Mod Manager.
-Mods are matched to your installed mods by UUID.</source>
-        <translation>BG3 Mod Managerからmodlist.json（またはエクスポートされたsaved-order.json）を選択してください。
-MODはUUIDに基づいて、インストール済みのMODと照合されます。</translation>
     </message>
     <message>
         <source>No file selected.</source>
@@ -61,8 +241,26 @@ MODはUUIDに基づいて、インストール済みのMODと照合されます�
         <translation>プレビュー →</translation>
     </message>
     <message>
-        <source>Select a BG3MM order .json</source>
-        <translation>BG3MM 注文 .json を選択します</translation>
+        <source>Load Order (*.json *.lsx)</source>
+        <translation>負荷順序(*.json *.lsx)</translation>
+    </message>
+    <message>
+        <source>Import BG3 Load Order - {0}</source>
+        <translation>インポートBG3ロードオーダー - {0}</translation>
+    </message>
+    <message>
+        <source>Step 1: Select a load order file</source>
+        <translation>ステップ1:ロードオーダーファイルを選択します</translation>
+    </message>
+    <message>
+        <source>Choose a modlist.json (or an exported saved-order .json) from BG3 Mod Manager, or a modsettings.lsx written by the game.
+Mods are matched to your installed mods by UUID.</source>
+        <translation>BG3 Mod Manager から modlist.json (または、エクスポートされた保存先 .json) を選択するか、Game.lsx で書かれている modsettings.lsx を選択します。
+Mods は UUID によってインストールされた mods にマッチします.</translation>
+    </message>
+    <message>
+        <source>Select a load order file (.json or .lsx)</source>
+        <translation>ロードオーダーファイル(.json または .lsx)を選択します</translation>
     </message>
     <message>
         <source>Selected: {0}</source>
@@ -97,10 +295,10 @@ MODはUUIDに基づいて、インストール済みのMODと照合されます�
         <translation>ロード順序が適用されました</translation>
     </message>
     <message>
-        <source>The modlist has been reordered to match the BG3MM order.
+        <source>The modlist has been reordered to match the imported order.
 Deploy to push the new load order to the game.</source>
-        <translation>modlistは、BG3MMの順序に合わせて並べ替えられました。
-「Deploy」を実行して、新しい読み込み順序をゲームに反映させてください。</translation>
+        <translation>Modlist は、インポートされた順に一致させるために再注文されています。
+新規ロード注文をゲームにプッシュする展開.</translation>
     </message>
     <message>
         <source>Done</source>
@@ -782,6 +980,109 @@ Close it when you are done, then click Done.</source>
     </message>
 </context>
 <context>
+    <name>BsaPackCandidatesView</name>
+    <message>
+        <source>BSA Pack Candidates - {0}</source>
+        <translation>BSAのパックの候補者 - {0}</translation>
+    </message>
+    <message>
+        <source>Find Pack Candidates</source>
+        <translation>パックの候補者を見つける</translation>
+    </message>
+    <message>
+        <source>Ranks your enabled mods by how many files they could pack into a BSA/BA2, and flags the ones that would break if packed. A file inside an archive loses to any loose file from any mod, so a mod that currently wins a conflict stops winning once it is packed.</source>
+        <translation>BSA/BA2 にパックできるファイル数がいくつあるかで、そのファイルが詰まれば壊れるファイルをフラグを立てます。 アーカイブ内のファイルは、任意のMODから任意の緩いファイルを失うので、それがパックされると、現在、競合が勝つMODが勝利を停止します.</translation>
+    </message>
+    <message>
+        <source>Start Scan</source>
+        <translation>スキャンの開始</translation>
+    </message>
+    <message>
+        <source>Scanning…</source>
+        <translation>スキャン..</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>エラー: {0}</translation>
+    </message>
+    <message>
+        <source>Nothing to assess - this game has no BSA/BA2 format we can write, or the profile has no mods indexed yet.</source>
+        <translation>何も評価しない - このゲームは、私たちが書くことができるBSA / BA2フォーマットを持っていない、またはプロファイルはまだインデックスされていない.</translation>
+    </message>
+    <message>
+        <source>Pack Candidates</source>
+        <translation>パックの候補者</translation>
+    </message>
+    <message>
+        <source>← Re-Scan</source>
+        <translation>← 再スキャン</translation>
+    </message>
+    <message>
+        <source>{0} files</source>
+        <translation>{0}ファイル</translation>
+    </message>
+    <message>
+        <source>Open ›</source>
+        <translation>オープン ›</translation>
+    </message>
+    <message>
+        <source>Over the size limit as one archive - tick "Separate textures archive" when packing.</source>
+        <translation>1つのアーカイブとしてサイズ制限を超える - パッキング時に「テクスチャのアーカイブを分離する」チェックマーク.</translation>
+    </message>
+    <message>
+        <source>A stub plugin will be created so the archive loads.</source>
+        <translation>Stubプラグインが作成され、アーカイブの読み込みが行われます.</translation>
+    </message>
+    <message>
+        <source>Safe to pack ({0})</source>
+        <translation>パックに安全({0})</translation>
+    </message>
+    <message>
+        <source>No conflicts to lose.</source>
+        <translation>負ける紛争はありません.</translation>
+    </message>
+    <message>
+        <source>Packable with care ({0})</source>
+        <translation>ケア({0})でパック可能</translation>
+    </message>
+    <message>
+        <source>Wins {0} contested file(s) - tick "Skip winning files" when packing so they stay loose.</source>
+        <translation>{0} のコンテストファイル (s) - チェック "Skip の勝利ファイル" ので、彼らは緩い滞在.</translation>
+    </message>
+    <message>
+        <source>Already has an archive - loose files remain ({0})</source>
+        <translation>既にアーカイブ - 緩いファイルが残っている({0})</translation>
+    </message>
+    <message>
+        <source>{0} file(s) already archived.</source>
+        <translation>{0}ファイル(s)は既にアーカイブされています.</translation>
+    </message>
+    <message>
+        <source>Too large for one archive ({0})</source>
+        <translation>1つのアーカイブ({0})のために大きいtoo</translation>
+    </message>
+    <message>
+        <source>{0} file(s) exceed the per-file size field - packing would fail.</source>
+        <translation>{0}ファイル(s)は、ファイルごとのサイズフィールドを超えて - パッキングは失敗します.</translation>
+    </message>
+    <message>
+        <source>Over the archive size limit even with textures split off.</source>
+        <translation>テクスチャを分割しても、アーカイブサイズを制限します.</translation>
+    </message>
+    <message>
+        <source>Nothing to pack ({0})</source>
+        <translation>パックなし({0})</translation>
+    </message>
+    <message>
+        <source>These mods ship no files the engine would load from inside an archive - plugins, script-extender DLLs, config files and anything at the mod root always stay loose.</source>
+        <translation>これらのmods は、エンジンがアーカイブ - プラグイン、スクリプト・エクステンダー DLLs、 mod ルートでファイルと何かを常に緩め続けるファイルから読み込まれるファイルはありません.</translation>
+    </message>
+    <message>
+        <source>{0} mod(s) assessed - {1} safe to pack, {2} need care, {3} already archived, {4} too large.</source>
+        <translation>{0} mod(s) は評価 - {1} は、{2} は、ケア、{3} は既にアーカイブ、{4} も大きすぎます.</translation>
+    </message>
+</context>
+<context>
     <name>BsaPackOverlay</name>
     <message>
         <source>Pack {0}</source>
@@ -1193,6 +1494,22 @@ MD5キャッシュは保持されます。アーカイブは必要に応じて�
         <translation>読み込めませんでした。</translation>
     </message>
     <message>
+        <source>This is a Wabbajack list and cannot be installed by Amethyst. Install it with Wabbajack instead.</source>
+        <translation>これはWabbajackリストで、Amethystではインストールできません。 代わりにWabbajackをインストールします.</translation>
+    </message>
+    <message>
+        <source>This collection uses an unsupported format and cannot be installed by Amethyst.</source>
+        <translation>このコレクションはサポートされていないフォーマットを使用し、Amethystではインストールできません.</translation>
+    </message>
+    <message>
+        <source>No installable collection data.</source>
+        <translation>インストール可能な収集データはありません.</translation>
+    </message>
+    <message>
+        <source>Unsupported collection</source>
+        <translation>サポートされていないコレクション</translation>
+    </message>
+    <message>
         <source>Download collection</source>
         <translation>コレクションのダウンロード</translation>
     </message>
@@ -1548,8 +1865,20 @@ MD5キャッシュは保持されます。アーカイブは必要に応じて�
         <translation>起動 ID - プレフィックスは適用されません.</translation>
     </message>
     <message>
+        <source>No prefix configured.</source>
+        <translation>プレフィックスの設定はありません.</translation>
+    </message>
+    <message>
         <source>Mod Staging Folder</source>
         <translation>MODのステージングフォルダ</translation>
+    </message>
+    <message>
+        <source>Searching common AppImage locations…</source>
+        <translation>一般的なAppImageの場所を検索..</translation>
+    </message>
+    <message>
+        <source>AppImage Location (Optional)</source>
+        <translation>AppImage の場所(任意)</translation>
     </message>
     <message>
         <source>Default location will be used.</source>
@@ -1596,6 +1925,10 @@ MD5キャッシュは保持されます。アーカイブは必要に応じて�
         <translation>ハードリンク</translation>
     </message>
     <message>
+        <source>VFS (OpenMW)</source>
+        <translation>VFS(OpenMW)</translation>
+    </message>
+    <message>
         <source>Virtual filesystem (VFS)</source>
         <translation>仮想ファイルシステム(VFS)</translation>
     </message>
@@ -1610,6 +1943,10 @@ MD5キャッシュは保持されます。アーカイブは必要に応じて�
     <message>
         <source>Auto deploy (deploy automatically on enable/disable/reorder)</source>
         <translation>自動デプロイ(有効/無効/予約時に自動デプロイ)</translation>
+    </message>
+    <message>
+        <source>Prefer AppImage</source>
+        <translation>アプリイメージ</translation>
     </message>
     <message>
         <source>Automatic archive invalidation (prefer loose files over BSAs)</source>
@@ -1724,8 +2061,40 @@ The default profile's settings are not affected.</source>
         <translation>プレフィックスは自動的に検出されました.</translation>
     </message>
     <message>
+        <source>AppImage not found automatically. Browse or scan to locate it.</source>
+        <translation>AppImage は自動的に検出されません。 ブラウズまたはスキャンして見つけます.</translation>
+    </message>
+    <message>
+        <source>Configured AppImage was not found.</source>
+        <translation>AppImageの設定が見つかりませんでした.</translation>
+    </message>
+    <message>
+        <source>AppImage already configured. You can update the path below.</source>
+        <translation>AppImage は既に設定されています。 以下のパスを更新することができます.</translation>
+    </message>
+    <message>
+        <source>AppImage selected manually.</source>
+        <translation>手動で選択したAppImage.</translation>
+    </message>
+    <message>
+        <source>Found in a common AppImage location.</source>
+        <translation>一般的なAppImageの場所で見つけられます.</translation>
+    </message>
+    <message>
         <source>Executable found.</source>
         <translation>実行可能が見つかりました.</translation>
+    </message>
+    <message>
+        <source>AppImage path set.</source>
+        <translation>AppImage パスセット.</translation>
+    </message>
+    <message>
+        <source>AppImage file not found.</source>
+        <translation>AppImageファイルが見つかりません.</translation>
+    </message>
+    <message>
+        <source>Automatic detection will be used.</source>
+        <translation>自動検出が使用されます.</translation>
     </message>
     <message>
         <source>Custom saves folder selected.</source>
@@ -1748,6 +2117,18 @@ The default profile's settings are not affected.</source>
         <translation>現在の: {0}</translation>
     </message>
     <message>
+        <source>native Linux</source>
+        <translation>ネイティブLinux</translation>
+    </message>
+    <message>
+        <source>Windows/Proton</source>
+        <translation>Windows/プロトン</translation>
+    </message>
+    <message>
+        <source>Native Linux build selected; no Proton prefix will be used.</source>
+        <translation>ネイティブ Linux ビルドが選択され、Proton プレフィックスは使用しません.</translation>
+    </message>
+    <message>
         <source>No executable name configured for this game.</source>
         <translation>このゲームには実行ファイル名が設定されていません。</translation>
     </message>
@@ -1764,6 +2145,10 @@ The default profile's settings are not affected.</source>
         <translation>どのドライブにもゲームの実行ファイルが見つかりません。</translation>
     </message>
     <message>
+        <source>OpenMW AppImage not found on any drive.</source>
+        <translation>OpenMW AppImage は、任意のドライブに見つかりません.</translation>
+    </message>
+    <message>
         <source>Scanning for Proton prefix…</source>
         <translation>「Proton」という接頭辞を検索中…</translation>
     </message>
@@ -1776,12 +2161,20 @@ The default profile's settings are not affected.</source>
         <translation>まず、ゲームのインストールフォルダを設定してください。</translation>
     </message>
     <message>
+        <source>The mod staging folder cannot be the game folder or be inside it. Choose a separate location.</source>
+        <translation>Mod のステージングフォルダはゲームフォルダか内部にすることはできません。 別の場所を選択します.</translation>
+    </message>
+    <message>
         <source>This path is not visible inside the Flatpak sandbox. Grant access in Flatseal or run: {0}</source>
         <translation>このパスは、Flatpakのサンドボックス内では表示されません。Flatsealでアクセス権を付与するか、次のコマンドを実行してください：{0}</translation>
     </message>
     <message>
         <source>Cannot change the game/prefix path while mods are deployed. Restore the game first.</source>
         <translation>MODが展開されている間は、ゲームのパスやプレフィックスを変更できません。まずゲームを復元してください。</translation>
+    </message>
+    <message>
+        <source>Restore the game before changing the preferred OpenMW package.</source>
+        <translation>推奨OpenMWパッケージを変更する前に、ゲームを復元します.</translation>
     </message>
     <message>
         <source>Cannot change the deploy method while mods are deployed. Restore the game first.</source>
@@ -2704,6 +3097,66 @@ When it completes, the app switches to the new profile - then come back here and
         <translation>有効にしている場合（デフォルト）、MOD間で大文字と小文字のみが異なるフォルダ名は、統一された表記に整えられます。フォルダ名の大文字・小文字が重要なLinuxネイティブのゲームでは、この機能を無効にしてください。</translation>
     </message>
     <message>
+        <source>VC++ Redistributable (x64)</source>
+        <translation>VC++再配布可能(x64)</translation>
+    </message>
+    <message>
+        <source>.NET {0} Desktop Runtime</source>
+        <translation>.NET {0}デスクトップランタイム</translation>
+    </message>
+    <message>
+        <source>d3dcompiler_47 (shader compiler)</source>
+        <translation>d3dcompiler 47 (シェーダーコンパイラ)</translation>
+    </message>
+    <message>
+        <source>LAV Filters (DirectShow codecs)</source>
+        <translation>LAVフィルタ(コーデックを直接表示)</translation>
+    </message>
+    <message>
+        <source>d3dx9 (all legacy DirectX 9 runtimes)</source>
+        <translation>d3dx9 (すべてのレガシーDirectX 9ランタイム)</translation>
+    </message>
+    <message>
+        <source>d3dx10 (all legacy DirectX 10 runtimes)</source>
+        <translation>d3dx10 (すべてのレガシーDirectX 10ランタイム)</translation>
+    </message>
+    <message>
+        <source>d3dx9_43 (legacy DirectX 9 runtime)</source>
+        <translation>d3dx9 43 (legacy DirectX 9ランタイム)</translation>
+    </message>
+    <message>
+        <source>d3dx10_43 (legacy DirectX 10 runtime)</source>
+        <translation>d3dx10 43 (legacy DirectX 10ランタイム)</translation>
+    </message>
+    <message>
+        <source>d3dx11_42 (legacy DirectX 11 runtime)</source>
+        <translation>d3dx11 42 (legacy DirectX 11ランタイム)</translation>
+    </message>
+    <message>
+        <source>d3dx11_43 (legacy DirectX 11 runtime)</source>
+        <translation>d3dx11 43 (legacy DirectX 11ランタイム)</translation>
+    </message>
+    <message>
+        <source>d3dcompiler_42 (legacy shader compiler)</source>
+        <translation>d3dcompiler 42 (legacyシェーダーコンパイラ)</translation>
+    </message>
+    <message>
+        <source>d3dcompiler_43 (legacy shader compiler)</source>
+        <translation>d3dcompiler 43 (legacyシェーダーコンパイラ)</translation>
+    </message>
+    <message>
+        <source>d3dcompiler_46 (legacy shader compiler)</source>
+        <translation>d3dcompiler 46 (legacyシェーダーコンパイラ)</translation>
+    </message>
+    <message>
+        <source>quartz (DirectShow runtime)</source>
+        <translation>水晶(DirectShowのランタイム)</translation>
+    </message>
+    <message>
+        <source>dx8vb (DirectX 8 Visual Basic runtime)</source>
+        <translation>dx8vb(DirectX 8 Visual Basicランタイム)</translation>
+    </message>
+    <message>
         <source>Edit Custom Game</source>
         <translation>カスタムゲームの編集</translation>
     </message>
@@ -2896,8 +3349,40 @@ When it completes, the app switches to the new profile - then come back here and
         <translation>例:MyGame.exe または Bin/x64/MyGame.exe</translation>
     </message>
     <message>
+        <source>e.g. MyGame.x86_64, Bin/alternate-launcher.exe</source>
+        <translation>例:MyGame.x86 64、Bin/alternate-launcher.exe</translation>
+    </message>
+    <message>
+        <source>Additional Executables</source>
+        <translation>追加実行テーブル</translation>
+    </message>
+    <message>
+        <source>Comma-separated alternate executable paths relative to the game root. Use these for native Linux builds or store-specific executables.</source>
+        <translation>ゲームルートに相対的なコンマ区切りの代替実行パス。 これらは、ネイティブLinuxビルドまたはストア固有の実行可能に使用されます.</translation>
+    </message>
+    <message>
         <source>Deployment</source>
         <translation>導入事例</translation>
+    </message>
+    <message>
+        <source>Windows Prefix</source>
+        <translation>Windowsプレフィックス</translation>
+    </message>
+    <message>
+        <source>None selected</source>
+        <translation>選択なし</translation>
+    </message>
+    <message>
+        <source>{0} dependencies selected</source>
+        <translation>{0} の依存関係の選択</translation>
+    </message>
+    <message>
+        <source>Auto-install Dependencies</source>
+        <translation>自動インストール依存関係</translation>
+    </message>
+    <message>
+        <source>Selected components are installed automatically after the game and prefix configuration is saved. They are skipped when no Windows prefix is configured and are also shown in Prefix Health Check.</source>
+        <translation>選択されたコンポーネントは、ゲームとプレフィックスの設定が保存された後に自動的にインストールされます。 Windows の接頭辞が構成されず、Prefix Health Check にも表示されていないときにスキップされます.</translation>
     </message>
     <message>
         <source>Store &amp; Artwork</source>
@@ -3036,6 +3521,30 @@ When it completes, the app switches to the new profile - then come back here and
     <message>
         <source>{0} - {1} files in {2} mods</source>
         <translation>{0} - {2} MOD の {1} ファイル</translation>
+    </message>
+    <message>
+        <source>Open in File Browser</source>
+        <translation>ファイルブラウザで開く</translation>
+    </message>
+    <message>
+        <source>Open in Text Editor</source>
+        <translation>テキストエディタで開く</translation>
+    </message>
+    <message>
+        <source>Open in NIF Viewer</source>
+        <translation>NIFビューアでオープン</translation>
+    </message>
+    <message>
+        <source>Play Audio</source>
+        <translation>オーディオを再生</translation>
+    </message>
+    <message>
+        <source>Play Video</source>
+        <translation>再生ビデオ</translation>
+    </message>
+    <message>
+        <source>Inspect Archive</source>
+        <translation>検査アーカイブ</translation>
     </message>
 </context>
 <context>
@@ -4375,93 +4884,6 @@ That is fine for your own backup. Do not share or upload the file in this state 
     </message>
 </context>
 <context>
-    <name>Fallout4DowngraderView</name>
-    <message>
-        <source>Downgrade Fallout 4 - {0}</source>
-        <translation>ダウングレードのフォールアウト4 - {0}</translation>
-    </message>
-    <message>
-        <source>Step 1: Download Fallout 4 Downgrader</source>
-        <translation>ステップ1:フォールアウト4ダウングラダーをダウンロード</translation>
-    </message>
-    <message>
-        <source>The newest release containing the Fallout 4 Steam Downgrader will be downloaded from MulderLoad on GitHub and placed in the game folder.
-
-No modlist deploy is required.</source>
-        <translation>Fallout 4 Steam Downgrader を含む最新リリースは、GitHub の MulderLoad からダウンロードされ、ゲームフォルダに保存されます。
-
-modlist デプロイは不要です.</translation>
-    </message>
-    <message>
-        <source>Step 3: Run Fallout 4 Downgrader</source>
-        <translation>ステップ3:フォールアウト4ダウングラダーを実行</translation>
-    </message>
-    <message>
-        <source>Step 2: Choose Proton Version</source>
-        <translation>ステップ2: Protonバージョンを選択してください</translation>
-    </message>
-    <message>
-        <source>The Fallout 4 Steam Downgrader was not downloaded.
-Close and reopen the wizard to try again.</source>
-        <translation>Fallout 4 Steam Downgraderはダウンロードできませんでした。
-ウィザードを閉じて再び開く.</translation>
-    </message>
-    <message>
-        <source>Game path is not configured.</source>
-        <translation>ゲームパスの設定は行いません.</translation>
-    </message>
-    <message>
-        <source>Searching MulderLoad releases…</source>
-        <translation>MulderLoadリリースを検索..</translation>
-    </message>
-    <message>
-        <source>Downloading {0}…</source>
-        <translation>{0}をダウンロード..</translation>
-    </message>
-    <message>
-        <source>The downgrader download did not create {0}.</source>
-        <translation>ダウングラダのダウンロードは{0}を作成していませんでした.</translation>
-    </message>
-    <message>
-        <source>Downloaded {0} to the game folder.</source>
-        <translation>ゲームフォルダに{0}をダウンロードしました.</translation>
-    </message>
-    <message>
-        <source>Download error: {0}</source>
-        <translation>ダウンロードエラー: {0}</translation>
-    </message>
-    <message>
-        <source>{0} was not found in the game folder.</source>
-        <translation>ゲームフォルダに{0}が見つかりませんでした.</translation>
-    </message>
-    <message>
-        <source>Launching Fallout 4 Downgrader…</source>
-        <translation>フォールアウト4ダウングラダーを発売..</translation>
-    </message>
-    <message>
-        <source>Could not determine a Proton version for Fallout 4.</source>
-        <translation>フォールアウト4のProtonバージョンを判断できませんでした.</translation>
-    </message>
-    <message>
-        <source>Fallout 4 Downgrader is running.
-Follow its prompts, then close it when finished.</source>
-        <translation>フォールアウト4ダウングラダーが稼働しています。
-プロンプトに従って、終了したら閉じます.</translation>
-    </message>
-    <message>
-        <source>Fallout 4 Downgrader finished. Click Done to close.</source>
-        <translation>フォールアウト4ダウングラダー仕上げ。 Done をクリックして閉じます.</translation>
-    </message>
-    <message>
-        <source>Fallout 4 Downgrader exited with code {0}. See the log for details.</source>
-        <translation>フォールアウト4 ダウングラダーは、コード{0}で終了します。 詳細はログを参照してください.</translation>
-    </message>
-    <message>
-        <source>Launch error: {0}</source>
-        <translation>起動エラー: {0}</translation>
-    </message>
-</context>
-<context>
     <name>FalloutDowngradeView</name>
     <message>
         <source>Downgrade Fallout 3 - {0}</source>
@@ -4797,6 +5219,10 @@ Doneをクリックして抽出されたファイルをクリーンアップし�
         <translation>私のゲーム</translation>
     </message>
     <message>
+        <source>Logs</source>
+        <translation>ログイン</translation>
+    </message>
+    <message>
         <source>Clear all</source>
         <translation>すべてクリア</translation>
     </message>
@@ -4908,6 +5334,53 @@ SHA-1:{1}
     <message>
         <source>Restore failed: {0}</source>
         <translation>ストアが失敗しました: {0}</translation>
+    </message>
+</context>
+<context>
+    <name>FomodChoicesView</name>
+    <message>
+        <source>Option</source>
+        <translation>オプション</translation>
+    </message>
+    <message>
+        <source>Description</source>
+        <translation>コンテンツ</translation>
+    </message>
+    <message>
+        <source>Reading saved choices…</source>
+        <translation>保存された選択肢を読む..</translation>
+    </message>
+    <message>
+        <source>FOMOD Choices: {0}</source>
+        <translation>FOMODの選択肢: {0}</translation>
+    </message>
+    <message>
+        <source>No saved FOMOD choices for this mod.</source>
+        <translation>このmod の FOMOD は保存されません.</translation>
+    </message>
+    <message>
+        <source>The installer recorded no selections for this mod.</source>
+        <translation>インストーラは、このmod のセレクションを記録していません.</translation>
+    </message>
+    <message>
+        <source>Installer config not saved for this mod - showing the recorded selections only.</source>
+        <translation>このmod で保存されていないインストーラの設定 - 録画された選択のみを表示します.</translation>
+    </message>
+    <message>
+        <source>(no choices recorded)</source>
+        <translation>(録音なし)</translation>
+    </message>
+    <message>
+        <source>Step {0}: {1}</source>
+        <translation>ステップ {0}: {1}</translation>
+    </message>
+    <message>
+        <source>Step {0}</source>
+        <translation>ステップ{0}</translation>
+    </message>
+    <message>
+        <source>(unnamed group)</source>
+        <translation>(グループ名)</translation>
     </message>
 </context>
 <context>
@@ -5220,8 +5693,12 @@ SHA-1:{1}
         <translation>例:SteamDeck=0 ゲームモードラン%command%</translation>
     </message>
     <message>
-        <source>Steam syntax. Empty: the game's own Steam options are used.</source>
-        <translation>蒸気の構文。 Empty: ゲーム独自の Steam オプションが使用されます.</translation>
+        <source>Steam syntax. When set, the manager launches the game directly so these options apply. Empty: the game's own launcher options are used.</source>
+        <translation>蒸気の構文。 設定すると、管理者はゲームを直接起動し、これらのオプションが適用されます。 Empty: ゲーム独自のランチャーオプションが使用されます.</translation>
+    </message>
+    <message>
+        <source>Launch with wayland</source>
+        <translation>ウェイランドでスタート</translation>
     </message>
     <message>
         <source>Deploy mods before launching</source>
@@ -7460,6 +7937,10 @@ Run Quick Update on all of them now?</source>
         <translation>{0}のMODをインストールしました</translation>
     </message>
     <message>
+        <source>Prefer AppImage</source>
+        <translation>アプリイメージ</translation>
+    </message>
+    <message>
         <source>Download Manifest…</source>
         <translation>マニフェストをダウンロード..</translation>
     </message>
@@ -7564,6 +8045,10 @@ Run Quick Update on all of them now?</source>
         <translation>クイックアップデートのダウンロードはキャンセルされました.</translation>
     </message>
     <message>
+        <source>FOMOD: {0}</source>
+        <translation>FOMOD:{0}</translation>
+    </message>
+    <message>
         <source>Conflict data is still building.</source>
         <translation>機密データはまだ構築されています.</translation>
     </message>
@@ -7616,8 +8101,38 @@ Run Quick Update on all of them now?</source>
         <translation>抽出/インストール</translation>
     </message>
     <message>
+        <source>Restore the game before changing the preferred OpenMW package.</source>
+        <translation>推奨OpenMWパッケージを変更する前に、ゲームを復元します.</translation>
+    </message>
+    <message>
+        <source>Wizard Settings…</source>
+        <translation>ウィザード設定..</translation>
+    </message>
+    <message>
+        <source>Reset wizard tools that automatically reuse their saved Proton settings.</source>
+        <translation>保存されたプロトン設定を自動的に再利用するウィザードツールをリセットします.</translation>
+    </message>
+    <message>
         <source>No QuickAutoClean tool is available for this game.</source>
         <translation>このゲームでは、QuickAutoCleanツールは使用できません.</translation>
+    </message>
+    <message>
+        <source>Tool still running</source>
+        <translation>ツールはまだ実行中</translation>
+    </message>
+    <message>
+        <source>This tab still has a tool running. Close the tool too?
+The tab closes either way; choosing Leave running keeps the tool alive until you quit Amethyst.</source>
+        <translation>このタブは、まだツールを実行しています。 ツールを閉じる
+タブはどちらかの方法で閉じます。 選択する 退会 すると、 Amethyst を終了するまで、ツールを生きたままにします.</translation>
+    </message>
+    <message>
+        <source>Close tool</source>
+        <translation>ツール</translation>
+    </message>
+    <message>
+        <source>Leave running</source>
+        <translation>退去</translation>
     </message>
     <message>
         <source>Preparing extraction…</source>
@@ -7946,6 +8461,10 @@ CETは、symlinked asiから読み込まれません。 これは、展開モー
     <message>
         <source>Overrides</source>
         <translation>オーバーライド</translation>
+    </message>
+    <message>
+        <source>File location</source>
+        <translation>ファイルの場所</translation>
     </message>
     <message>
         <source>Log</source>
@@ -8331,6 +8850,22 @@ How would you like to handle the existing mod?</source>
     <message>
         <source>Disable</source>
         <translation>免責事項</translation>
+    </message>
+    <message>
+        <source>The mod's files and folders as they are packaged in the archive.</source>
+        <translation>Mod のファイルとフォルダは、アーカイブにパッケージ化されています.</translation>
+    </message>
+    <message>
+        <source>Promote this folder's contents up to the top of the mod, stripping the wrapper folders above it. Use this when a mod is packaged one or more folders too deep, so its files land in the right place on deploy.</source>
+        <translation>このフォルダの内容をMODの一番上まで宣伝し、それを上のラッパーフォルダをストリッピングします。 mod が 1 つ以上のフォルダーをパッケージ化すると、そのファイルがデプロイの適切な場所に格納されます.</translation>
+    </message>
+    <message>
+        <source>Deploy this file or folder to the game's root folder (next to the game executable) instead of the game's data folder. Use this for loaders, DLLs and INIs that belong beside the .exe.</source>
+        <translation>ゲームのデータフォルダの代わりに、このファイルまたはフォルダをゲームのルートフォルダ(ゲーム実行可能横)に展開します。 .exe の横にある loader、DLL および INI にこれを使用します.</translation>
+    </message>
+    <message>
+        <source>Whether this file or folder is deployed. Unchecked excludes it: it stays in the mod but is never written to the game, so it cannot win conflicts.</source>
+        <translation>このファイルやフォルダが展開されているかどうか。 チェックを外すと、それはMODにとどまるが、ゲームに書かれていないので、競合を獲得することはできません.</translation>
     </message>
 </context>
 <context>
@@ -9070,6 +9605,131 @@ Baldur's Gate 3 mods は mod.io から手動でインストールします。
     <message>
         <source>Cancel</source>
         <translation>キャンセル</translation>
+    </message>
+</context>
+<context>
+    <name>MulderLoadDowngraderView</name>
+    <message>
+        <source>Downgrade {0} - {1}</source>
+        <translation>ダウングレード{0} - {1}</translation>
+    </message>
+    <message>
+        <source>{0} Steam Downgrader</source>
+        <translation>{0}蒸気ダウングラダー</translation>
+    </message>
+    <message>
+        <source>Step 2: Download Downgrader</source>
+        <translation>ステップ2:ダウングラダーをダウンロード</translation>
+    </message>
+    <message>
+        <source>The newest release containing the selected downgrader will be downloaded from MulderLoad on GitHub and placed in the game folder.
+
+No modlist deploy is required.</source>
+        <translation>選択したダウングラダーを含む最新のリリースは、GitHub の MulderLoad からダウンロードされ、ゲームフォルダに配置されます。
+
+modlist デプロイは不要です.</translation>
+    </message>
+    <message>
+        <source>Step 4: Run Downgrader</source>
+        <translation>ステップ4:ダウングラダーを実行</translation>
+    </message>
+    <message>
+        <source>Step 1: Choose Downgrader</source>
+        <translation>ステップ1:ダウングラダーを選ぶ</translation>
+    </message>
+    <message>
+        <source>The game and its Creation Kit are downgraded by separate installers. Pick which one to download and run.</source>
+        <translation>ゲームとクリエイションキットは、別々のインストーラーによってダウングレードされます。 ダウンロードして実行する1つを選択します.</translation>
+    </message>
+    <message>
+        <source>{0} (game)</source>
+        <translation>{0}(ゲーム)</translation>
+    </message>
+    <message>
+        <source>Creation Kit</source>
+        <translation>制作キット</translation>
+    </message>
+    <message>
+        <source>Next</source>
+        <translation>次へ</translation>
+    </message>
+    <message>
+        <source>{0} Creation Kit Steam Downgrader</source>
+        <translation>{0}作成キットスチームダウングラダー</translation>
+    </message>
+    <message>
+        <source>Step 3: Choose Proton Version</source>
+        <translation>ステップ3: Protonバージョンを選択してください</translation>
+    </message>
+    <message>
+        <source>The {0} was not downloaded.
+Close and reopen the wizard to try again.</source>
+        <translation>{0}はダウンロードできませんでした。
+ウィザードを閉じて再び開く.</translation>
+    </message>
+    <message>
+        <source>Game path is not configured.</source>
+        <translation>ゲームパスの設定は行いません.</translation>
+    </message>
+    <message>
+        <source>Searching MulderLoad releases…</source>
+        <translation>MulderLoadリリースを検索..</translation>
+    </message>
+    <message>
+        <source>Downloading {0}…</source>
+        <translation>{0}をダウンロード..</translation>
+    </message>
+    <message>
+        <source>The downgrader download did not create {0}.</source>
+        <translation>ダウングラダのダウンロードは{0}を作成していませんでした.</translation>
+    </message>
+    <message>
+        <source>Downloaded {0} to the game folder.</source>
+        <translation>ゲームフォルダに{0}をダウンロードしました.</translation>
+    </message>
+    <message>
+        <source>Download error: {0}</source>
+        <translation>ダウンロードエラー: {0}</translation>
+    </message>
+    <message>
+        <source>{0} was not found in the game folder.</source>
+        <translation>ゲームフォルダに{0}が見つかりませんでした.</translation>
+    </message>
+    <message>
+        <source>Launching {0}…</source>
+        <translation>{0}を起動する..</translation>
+    </message>
+    <message>
+        <source>Could not determine a Proton version for {0}.</source>
+        <translation>{0} 用の Proton バージョンを判断できません.</translation>
+    </message>
+    <message>
+        <source>{0} is running.
+Follow its prompts, then close it when finished.</source>
+        <translation>{0} を実行しています。
+プロンプトに従って、終了したら閉じます.</translation>
+    </message>
+    <message>
+        <source>
+
+Your modlist was restored before downgrading - use Deploy to put it back.</source>
+        <translation>あなたのモダリストは、ダウングレードする前に復元されました - デプロイを使用して、それをバックアップします.</translation>
+    </message>
+    <message>
+        <source>{0} finished. Click Done to close.</source>
+        <translation>{0} が完成しました。 Done をクリックして閉じます.</translation>
+    </message>
+    <message>
+        <source>{0} exited with code {1}. See the log for details.</source>
+        <translation>{0} コード{1}で終了。 詳細はログを参照してください.</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>起動エラー: {0}</translation>
+    </message>
+    <message>
+        <source>{0} is running - close it to continue.</source>
+        <translation>{0} は実行中です.</translation>
     </message>
 </context>
 <context>
@@ -10908,6 +11568,10 @@ Re-scan to verify.</source>
         <source>Version mismatched masters:</source>
         <translation>バージョンの不一致のマスター:</translation>
     </message>
+    <message>
+        <source>This plugin is classified as OpenMW groundcover. When enabled, it loads as groundcover instead of normal content. OpenMW's settings.cfg must also contain [Groundcover] enabled = true.</source>
+        <translation>このプラグインはOpenMWのグラウンドカバーとして分類されます。 有効にすると、通常のコンテンツの代わりにグラウンドカバーとして読み込まれます。 OpenMW の設定.cfg には、[Groundcover] が有効になっている = true も含まれている必要があります.</translation>
+    </message>
 </context>
 <context>
     <name>PluginGroupsView</name>
@@ -10991,6 +11655,10 @@ Re-scan to verify.</source>
         <translation>選択した項目を有効にする（{0}）</translation>
     </message>
     <message>
+        <source>Groundcover setting save failed: {0}</source>
+        <translation>グラウンドカバーの設定は失敗しました: {0}</translation>
+    </message>
+    <message>
         <source>Mark as Light (ESL)</source>
         <translation>「光として印をつける」（ESL）</translation>
     </message>
@@ -11005,6 +11673,14 @@ Re-scan to verify.</source>
     <message>
         <source>Not ESL-safe (per LOOT - compact in xEdit first)</source>
         <translation>ESL 安全ではない (LOOT あたり - 最初に xEdit でコンパクト)</translation>
+    </message>
+    <message>
+        <source>Open LOOT message link</source>
+        <translation>LOOTメッセージのリンクを開く</translation>
+    </message>
+    <message>
+        <source>Open LOOT message link…</source>
+        <translation>LOOTメッセージのリンクを開く..</translation>
     </message>
     <message>
         <source>Remove ESL flag (un-light)</source>
@@ -11033,6 +11709,22 @@ Re-scan to verify.</source>
     <message>
         <source>Show userlist rules…</source>
         <translation>ユーザーリストのルールを表示…</translation>
+    </message>
+    <message>
+        <source>Use as normal OpenMW content</source>
+        <translation>通常のOpenMWコンテンツとして使う</translation>
+    </message>
+    <message>
+        <source>Use as OpenMW groundcover</source>
+        <translation>OpenMWのグラウンドカバーとして使用して下さい</translation>
+    </message>
+    <message>
+        <source>Use selected as normal OpenMW content ({0})</source>
+        <translation>通常のOpenMWコンテンツ({0})として選択してください</translation>
+    </message>
+    <message>
+        <source>Use selected as OpenMW groundcover ({0})</source>
+        <translation>OpenMW の接地カバー ({0}) として選ばれる使用</translation>
     </message>
 </context>
 <context>
@@ -11121,6 +11813,10 @@ Drag a plugin from the left pane to add a rule.</source>
     <message>
         <source>Fix</source>
         <translation>インストール</translation>
+    </message>
+    <message>
+        <source>.NET {0} Desktop Runtime</source>
+        <translation>.NET {0}デスクトップランタイム</translation>
     </message>
     <message>
         <source>Proton prefix</source>
@@ -11303,6 +11999,13 @@ Drag a plugin from the left pane to add a rule.</source>
     </message>
 </context>
 <context>
+    <name>Profile</name>
+    <message>
+        <source>Default</source>
+        <translation>デフォルト</translation>
+    </message>
+</context>
+<context>
     <name>ProfileGroupsView</name>
     <message>
         <source>Profile Groups</source>
@@ -11478,6 +12181,10 @@ Its listed mods are copied into the profile's own mods folder (hardlinked where 
         <translation>プロフィール設定</translation>
     </message>
     <message>
+        <source>  (default)</source>
+        <translation>(デフォルト)</translation>
+    </message>
+    <message>
         <source>Rename</source>
         <translation>名前を変更</translation>
     </message>
@@ -11540,32 +12247,12 @@ Its listed mods are copied into the profile's own mods folder (hardlinked where 
         <translation>各バージョンは独自のプレフィックスを取得します。依存関係は、次のステップで自動的にインストールされます.</translation>
     </message>
     <message>
-        <source>No Proton versions were found.
-
-Install a Proton version in Steam (or with Heroic's Wine Manager), then reopen this wizard.</source>
-        <translation>Protonバージョンが見つかりませんでした。
-
-Steam(またはHermic's Wine Manager)にProtonバージョンをインストールし、このウィザードを再オープンします.</translation>
-    </message>
-    <message>
-        <source>{0} runs in its own Wine prefix, stored next to its exe and separate from the game's prefix, so you can pick any Proton version without affecting the game.
-
-</source>
-        <translation>{0} は、独自の Wine 接頭辞で実行し、ゲームの接頭辞から分離するので、ゲームに影響を与えることなく Proton バージョンを選ぶことができます。
-
-.</translation>
+        <source>{0} runs in its own Wine prefix, stored next to its exe and separate from the game's prefix, so you can pick any Proton version without affecting the game.</source>
+        <translation>{0} は、独自の Wine 接頭辞で実行し、ゲームの接頭辞から分離するので、ゲームに影響を与えることなく Proton バージョンを選ぶことができます.</translation>
     </message>
     <message>
         <source>Prefer discrete GPU (hybrid systems)</source>
         <translation>プリファーディスクリートGPU(ハイブリッドシステム)</translation>
-    </message>
-    <message>
-        <source>Expose the discrete GPU as adapter 0. May use more power.</source>
-        <translation>アダプター 0 としてディスクリート GPU を公開します。 より多くの力を使用するかもしれない.</translation>
-    </message>
-    <message>
-        <source>Uses the discrete GPU for texconv; falls back to CPU if unavailable.</source>
-        <translation>Texconv 用のディスクリート GPU を使用します。利用できなくなった場合は CPU に戻ります.</translation>
     </message>
     <message>
         <source>Use shared prefix</source>
@@ -11588,8 +12275,36 @@ Steam(またはHermic's Wine Manager)にProtonバージョンをインストー�
         <translation>プレーンワイン(ウィネトリックススタイル)で発売</translation>
     </message>
     <message>
-        <source>Use Winetricks style launch</source>
-        <translation>Winetricksスタイルの起動を使用する</translation>
+        <source>The saved game prefix is unavailable. Choose another prefix setting.</source>
+        <translation>保存されたゲームプレフィックスは利用できません。 別のプレフィックス設定を選択します.</translation>
+    </message>
+    <message>
+        <source>No Proton versions were found. Install one through Steam or Heroic, or add a custom Proton build below.</source>
+        <translation>Protonバージョンが見つかりませんでした。 Steam または Heroic でインストールするか、以下のカスタム Proton ビルドを追加します.</translation>
+    </message>
+    <message>
+        <source>The saved Proton selection is incomplete. Choose a Proton version.</source>
+        <translation>保存されたプロトンの選択は不完全です。 Protonバージョンを選択します.</translation>
+    </message>
+    <message>
+        <source>The saved Proton version '{0}' is no longer installed. Choose another version.</source>
+        <translation>保存された Proton バージョン '{0}' はインストールされません。 別のバージョンを選択します.</translation>
+    </message>
+    <message>
+        <source>Run this tool with plain Wine against the selected prefix instead of starting a Proton session.</source>
+        <translation>Proton セッションを開始するのではなく、選択したプレフィックスに対してプレーン ワインでこのツールを実行します.</translation>
+    </message>
+    <message>
+        <source>Expose the discrete GPU as adapter 0 for texconv. This may use more power and falls back to the CPU if unavailable.</source>
+        <translation>Texconv のアダプター 0 としてディスクリート GPU を公開します。 利用できなくなったら、CPUに電力が増加し、CPUに落ちる可能性があります.</translation>
+    </message>
+    <message>
+        <source>Add Custom Build</source>
+        <translation>カスタムビルドの追加</translation>
+    </message>
+    <message>
+        <source>Select a complete Proton build folder containing the top-level 'proton' launcher. Do not select files/bin/wine.</source>
+        <translation>上位レベルの「proton」ランチャーを含む完全なProtonビルドフォルダを選択します。 ファイル/bin/wine を選択しないでください.</translation>
     </message>
     <message>
         <source>Delete Prefix</source>
@@ -11616,12 +12331,56 @@ Steam(またはHermic's Wine Manager)にProtonバージョンをインストー�
         <translation>例：PROTON_USE_WINED3D=1 WINEDLLOVERRIDES=dinput8=n,b</translation>
     </message>
     <message>
+        <source>Always use these settings</source>
+        <translation>常にこれらの設定を使用する</translation>
+    </message>
+    <message>
+        <source>Skip this Proton step on future runs and reuse the saved values. Reset it from Wizard &gt; Wizard Settings.</source>
+        <translation>将来の実行時にこのプロトンのステップをスキップし、保存された値を再利用します。 ウィザード &gt; ウィザード設定からリセットします.</translation>
+    </message>
+    <message>
         <source>Continue</source>
         <translation>続きを読む</translation>
     </message>
     <message>
+        <source>Select custom Proton build folder</source>
+        <translation>カスタム Proton ビルド フォルダーを選択</translation>
+    </message>
+    <message>
+        <source>The selected folder does not contain a top-level 'proton' launcher.</source>
+        <translation>選択したフォルダーには、トップレベルの 'proton' のランチャーが含まれていません.</translation>
+    </message>
+    <message>
+        <source>Custom Proton build added: {0}</source>
+        <translation>カスタムプロトンビルド追加: {0}</translation>
+    </message>
+    <message>
         <source>Using the game's existing prefix - Proton version follows the game's Steam setting and no new prefix is created.</source>
         <translation>ゲームの既存のプレフィックス - Protonバージョンを使用して、ゲームのSteam設定に従い、新しいプレフィックスは作成されません.</translation>
+    </message>
+    <message>
+        <source>Select or add a Proton build before continuing.</source>
+        <translation>続行する前に Proton ビルドを選択または追加します.</translation>
+    </message>
+    <message>
+        <source>Use custom Proton build?</source>
+        <translation>カスタムプロトンビルドを使用する?</translation>
+    </message>
+    <message>
+        <source>This Proton build was added manually and is outside Amethyst's supported configurations. Support cannot be provided for issues that occur while using it.
+
+Continue with {0}?</source>
+        <translation>この Proton ビルドは手動で追加され、Amethyst のサポートされている構成の外です。 使用中に発生する問題については、サポートは提供できません。
+
+{0}で続行しますか?</translation>
+    </message>
+    <message>
+        <source>Use Custom Build</source>
+        <translation>カスタムビルドを使用する</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>キャンセル</translation>
     </message>
     <message>
         <source>A prefix already exists for this version. Delete it if {0}
@@ -13447,6 +14206,22 @@ flatpak リモート追加 --user amethyst https://chrisdkn.github.io/Amethyst-M
         <translation>ふりがな</translation>
     </message>
     <message>
+        <source>Toolbar position</source>
+        <translation>ツールバーの位置</translation>
+    </message>
+    <message>
+        <source>Top</source>
+        <translation>トップページ</translation>
+    </message>
+    <message>
+        <source>Left side</source>
+        <translation>左側</translation>
+    </message>
+    <message>
+        <source>Right side</source>
+        <translation>右側</translation>
+    </message>
+    <message>
         <source>Reset dismissed prompts…</source>
         <translation>解読されたプロンプトをリセット..</translation>
     </message>
@@ -13489,6 +14264,14 @@ flatpak リモート追加 --user amethyst https://chrisdkn.github.io/Amethyst-M
     <message>
         <source>Reset</source>
         <translation>リセット</translation>
+    </message>
+    <message>
+        <source>Custom Proton Build</source>
+        <translation>カスタムプロトンビルド</translation>
+    </message>
+    <message>
+        <source>Additional Proton build not found automatically. Select the build folder containing the top-level 'proton' launcher, not files/bin/wine. Blank disables it.</source>
+        <translation>追加のProtonビルドは自動的に検出されません。 上位レベルの 'proton' のランチャーを含むビルドフォルダを選択し、ファイル/bin/wine ではありません。 Blank は無効にします.</translation>
     </message>
     <message>
         <source>{0} set: {1}</source>
@@ -14106,12 +14889,52 @@ Pick a Proton version to create that prefix with.</source>
 そのプレフィックスを作成するために使用するProtonのバージョンを選択してください。</translation>
     </message>
     <message>
+        <source>Add Custom Build</source>
+        <translation>カスタムビルドの追加</translation>
+    </message>
+    <message>
+        <source>Select a complete Proton build folder containing the top-level 'proton' launcher. Do not select files/bin/wine.</source>
+        <translation>上位レベルの「proton」ランチャーを含む完全なProtonビルドフォルダを選択します。 ファイル/bin/wine を選択しないでください.</translation>
+    </message>
+    <message>
         <source>Continue →</source>
         <translation>続きを読む →</translation>
     </message>
     <message>
-        <source>No Proton installations found. Install Proton (e.g. GE-Proton) via Steam and try again.</source>
-        <translation>Protonのインストールが見つかりませんでした。Steam経由でProton（例：GE-Proton）をインストールしてから、もう一度お試しください。</translation>
+        <source>No Proton installations found. Install one through Steam or add a custom build.</source>
+        <translation>Protonのインストールが見つかりません。 Steamでインストールするか、カスタムビルドを追加します.</translation>
+    </message>
+    <message>
+        <source>Select custom Proton build folder</source>
+        <translation>カスタム Proton ビルド フォルダーを選択</translation>
+    </message>
+    <message>
+        <source>The selected folder does not contain a top-level 'proton' launcher.</source>
+        <translation>選択したフォルダーには、トップレベルの 'proton' のランチャーが含まれていません.</translation>
+    </message>
+    <message>
+        <source>Custom Proton build added: {0}</source>
+        <translation>カスタムプロトンビルド追加: {0}</translation>
+    </message>
+    <message>
+        <source>Use custom Proton build?</source>
+        <translation>カスタムプロトンビルドを使用する?</translation>
+    </message>
+    <message>
+        <source>This Proton build was added manually and is outside Amethyst's supported configurations. Support cannot be provided for issues that occur while using it.
+
+Continue with {0}?</source>
+        <translation>この Proton ビルドは手動で追加され、Amethyst のサポートされている構成の外です。 使用中に発生する問題については、サポートは提供できません。
+
+{0}で続行しますか?</translation>
+    </message>
+    <message>
+        <source>Use Custom Build</source>
+        <translation>カスタムビルドを使用する</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>キャンセル</translation>
     </message>
     <message>
         <source>Step 3: Prepare Prefix</source>
@@ -15566,8 +16389,8 @@ or use Browse to select it manually.</source>
         <translation>パネル、リストおよび入力のまわりのラインそしてフレーム.</translation>
     </message>
     <message>
-        <source>Danger / cancel / remove buttons (delete, remove profile, ✕ close).</source>
-        <translation>危険/キャンセル/削除ボタン(削除、プロファイル削除、✕閉じる)を削除します.</translation>
+        <source>Danger buttons (delete, remove profile and other destructive actions).</source>
+        <translation>危険ボタン(削除、プロファイルやその他の破壊的なアクションを削除します).</translation>
     </message>
     <message>
         <source>Success / confirm buttons (Install, Done, Play).</source>
@@ -16355,6 +17178,57 @@ Latest:  {1}</source>
     </message>
 </context>
 <context>
+    <name>VideoPreview</name>
+    <message>
+        <source>Qt Multimedia is not installed.</source>
+        <translation>Qtのマルチメディアは取付けられません.</translation>
+    </message>
+    <message>
+        <source>No video selected</source>
+        <translation>選択したビデオはありません</translation>
+    </message>
+    <message>
+        <source>Play</source>
+        <translation>プレイ</translation>
+    </message>
+    <message>
+        <source>Stop</source>
+        <translation>ストップ</translation>
+    </message>
+    <message>
+        <source>Volume</source>
+        <translation>ボリューム</translation>
+    </message>
+    <message>
+        <source>Video file not found.</source>
+        <translation>ビデオファイルが見つかりません.</translation>
+    </message>
+    <message>
+        <source>Unavailable</source>
+        <translation>ご利用案内</translation>
+    </message>
+    <message>
+        <source>Pause</source>
+        <translation>パデュース</translation>
+    </message>
+    <message>
+        <source>This video format could not be played.</source>
+        <translation>このビデオフォーマットは再生できませんでした.</translation>
+    </message>
+    <message>
+        <source>Could not play this video file.</source>
+        <translation>この動画ファイルを再生できません.</translation>
+    </message>
+    <message>
+        <source>Unmute</source>
+        <translation>ミュート</translation>
+    </message>
+    <message>
+        <source>Mute</source>
+        <translation>ミュート</translation>
+    </message>
+</context>
+<context>
     <name>WikiView</name>
     <message>
         <source>Refresh</source>
@@ -16408,6 +17282,33 @@ Press Refresh to try again.</source>
     <message>
         <source>Refreshing…</source>
         <translation>リフレッシュ..</translation>
+    </message>
+</context>
+<context>
+    <name>WizardSettingsOverlay</name>
+    <message>
+        <source>Wizard Settings</source>
+        <translation>ウィザード設定</translation>
+    </message>
+    <message>
+        <source>These wizard tools skip their Proton settings step. Reset a tool to show the step again; its saved values are kept.</source>
+        <translation>これらのウィザードツールは、プロトンの設定をスキップします。 再びステップを表示するツールをリセットします。保存された値は保存されます.</translation>
+    </message>
+    <message>
+        <source>No wizard tools are using saved settings.</source>
+        <translation>ウィザードツールは保存された設定を使用していません.</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>ふりがな</translation>
+    </message>
+    <message>
+        <source>Reset</source>
+        <translation>リセット</translation>
+    </message>
+    <message>
+        <source>Show this wizard's Proton settings step the next time it runs.</source>
+        <translation>このウィザードのプロトン設定を次のステップで表示します.</translation>
     </message>
 </context>
 <context>
@@ -16469,6 +17370,10 @@ Press Refresh to try again.</source>
         <translation>ダウングレードのフォールアウト 4</translation>
     </message>
     <message>
+        <source>Downgrade Skyrim Special Edition</source>
+        <translation>ダウングレードスカイリムスペシャルエディション</translation>
+    </message>
+    <message>
         <source>Install Script Extender (F4SE)</source>
         <translation>スクリプトエクステンダー(F4SE)をインストールする</translation>
     </message>
@@ -16525,6 +17430,10 @@ Press Refresh to try again.</source>
         <translation>プラグインの監査とクリーンアップ</translation>
     </message>
     <message>
+        <source>BSA Pack Candidates</source>
+        <translation>BSAのパックの候補者</translation>
+    </message>
+    <message>
         <source>SSE Display Tweaks Config</source>
         <translation>SSE ディスプレイ 調整 設定</translation>
     </message>
@@ -16571,6 +17480,10 @@ Press Refresh to try again.</source>
     <message>
         <source>Run xLODGen</source>
         <translation>XLODGenを実行</translation>
+    </message>
+    <message>
+        <source>Run ACMOS Road Generator</source>
+        <translation>ACMOS の道の発電機を動かして下さい</translation>
     </message>
     <message>
         <source>Run VRAMr</source>
@@ -16677,8 +17590,12 @@ Press Refresh to try again.</source>
         <translation>Mod を展開し、 Data フォルダーから Outfit Studio を実行します.</translation>
     </message>
     <message>
-        <source>Download the latest Fallout 4 Steam Downgrader and run it from the game folder.</source>
+        <source>Download the latest Fallout 4 Steam Downgrader (game or Creation Kit) and run it from the game folder.</source>
         <translation>最新のFallout 4 Steam Downgraderをダウンロードし、ゲームフォルダから実行します.</translation>
+    </message>
+    <message>
+        <source>Download the latest Skyrim Special Edition Steam Downgrader (game or Creation Kit) and run it from the game folder.</source>
+        <translation>最新のSkyrim Special Edition Steam Downgraderをダウンロードし、ゲームフォルダから実行します.</translation>
     </message>
     <message>
         <source>Download and install F4SE into the game folder.</source>
@@ -16797,6 +17714,10 @@ Press Refresh to try again.</source>
         <translation>XLODGen をインストールし、mod を展開し、xLODGenx64.exe を実行します.</translation>
     </message>
     <message>
+        <source>Install ACMOS Road Generator, choose a terrain LOD mod, and write generated road textures to ACMOS_Output.</source>
+        <translation>ACMOSロードジェネレータをインストールし、地形LODモジュールを選択し、生成されたロードテクスチャをACMOS Outputに書きます.</translation>
+    </message>
+    <message>
         <source>Install BethINI Pie and configure Skyrim SE INI settings.</source>
         <translation>BethINI Pieをインストールし、Skyrim SE INIの設定を設定します.</translation>
     </message>
@@ -16819,6 +17740,10 @@ Press Refresh to try again.</source>
     <message>
         <source>Scan load order for safe-to-disable plugins, then disable them or clean up orphaned SkyGen BOS/SkyPatcher INIs for plugins that must stay enabled.</source>
         <translation>安全な無効なプラグインのロードオーダーをスキャンし、それらを無効にするか、または有効にする必要があるプラグインのSkyGen BOS / SkyPatcher INIsをクリーンアップします.</translation>
+    </message>
+    <message>
+        <source>Rank mods by how many files they could pack into a BSA/BA2, and flag the ones that would break if packed.</source>
+        <translation>BSA/BA2 にパックできるファイル数をランクアップし、パック詰めたら壊れるファイルをフラグ付けします.</translation>
     </message>
     <message>
         <source>Download and install SKSEVR into the game folder.</source>
@@ -16873,6 +17798,10 @@ Press Refresh to try again.</source>
         <translation>セットアップとインストーラ</translation>
     </message>
     <message>
+        <source>Install Modlist</source>
+        <translation>Modlist をインストールする</translation>
+    </message>
+    <message>
         <source>Body and Outfits</source>
         <translation>ボディとアウトフィット</translation>
     </message>
@@ -16903,6 +17832,10 @@ Press Refresh to try again.</source>
     <message>
         <source>INI Tweaks</source>
         <translation>INI の微調整</translation>
+    </message>
+    <message>
+        <source>NIF Viewer</source>
+        <translation>NIFビューア</translation>
     </message>
     <message>
         <source>Other</source>

@@ -2,6 +2,141 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="fr" sourcelanguage="en">
 <context>
+    <name>ACMOSView</name>
+    <message>
+        <source>Run ACMOS Road Generator - {0}</source>
+        <translation>Lancer le générateur de route ACMOS - {0}</translation>
+    </message>
+    <message>
+        <source>Step 1: Download ACMOS Road Generator</source>
+        <translation>Étape 1: Télécharger ACMOS générateur de route</translation>
+    </message>
+    <message>
+        <source>Click the button below to open ACMOS Road Generator on Nexus Mods.
+
+Download the archive manually (do NOT use the Mod Manager download button), then click Next.</source>
+        <translation>Cliquez sur le bouton ci-dessous pour ouvrir ACMOS Road Generator sur Nexus Mods.
+
+Télécharger l'archive manuellement (ne PAS utiliser le bouton de téléchargement Mod Manager), puis cliquez sur Suivant.</translation>
+    </message>
+    <message>
+        <source>Step 2: Locate the Archive</source>
+        <translation>Étape 2: Localiser les archives</translation>
+    </message>
+    <message>
+        <source>Step 3: Extract ACMOS Road Generator</source>
+        <translation>Étape 3: Extraire le générateur de route ACMOS</translation>
+    </message>
+    <message>
+        <source>Step 6: Run ACMOS Road Generator</source>
+        <translation>Étape 6: Lancer ACMOS générateur de route</translation>
+    </message>
+    <message>
+        <source>Step 4: Choose Terrain LOD Mod</source>
+        <translation>Étape 4 : Choisir la méthode de DL du terrain</translation>
+    </message>
+    <message>
+        <source>Choose the profile mod containing your xLODGen terrain output. Enabled and disabled mods are both listed; deployment is not required.
+
+Generated textures are written to a separate ACMOS_Output mod. Remove an old ACMOS_Output first if you want a completely clean result.</source>
+        <translation>Choisissez le mod de profil contenant votre sortie terrain xLODGen. Les mods activés et désactivés sont tous deux listés; le déploiement n'est pas nécessaire.
+
+Les textures générées sont écrites dans un mod ACMOS Output séparé. Supprimez d'abord un ancien ACMOS Output si vous voulez un résultat complètement propre.</translation>
+    </message>
+    <message>
+        <source>Terrain LOD mod:</source>
+        <translation>Terrain LOD mod:</translation>
+    </message>
+    <message>
+        <source>Search mods…</source>
+        <translation>Rechercher les mods..</translation>
+    </message>
+    <message>
+        <source>Continue</source>
+        <translation>Continuer</translation>
+    </message>
+    <message>
+        <source>Select the ACMOS Road Generator archive</source>
+        <translation>Sélectionnez l'archive ACMOS Road Generator</translation>
+    </message>
+    <message>
+        <source>ACMOS Road Generator archive not found in Downloads.
+Make sure you downloaded it, then press Try Again,
+or use Browse to select it manually.</source>
+        <translation>ACMOS Road Generator archive non trouvée dans Téléchargements.
+Assurez-vous de le télécharger, puis appuyez sur Essayer à nouveau,
+ou utilisez Parcourir pour le sélectionner manuellement.</translation>
+    </message>
+    <message>
+        <source>Step 5: Choose Proton Version</source>
+        <translation>Étape 5: Choisissez la version Proton</translation>
+    </message>
+    <message>
+        <source>{0} was not found.
+Please restart the wizard and install ACMOS Road Generator first.</source>
+        <translation>{0} n'a pas été trouvé.
+Veuillez redémarrer l'assistant et installer ACMOS Road Generator d'abord.</translation>
+    </message>
+    <message>
+        <source>Output mod: {0}</source>
+        <translation>Sortie mod: {0}</translation>
+    </message>
+    <message>
+        <source>No mods were found in the current profile.</source>
+        <translation>Aucun mods n'a été trouvé dans le profil actuel.</translation>
+    </message>
+    <message>
+        <source>LOD path: {0}</source>
+        <translation>Path LOD : {0}</translation>
+    </message>
+    <message>
+        <source>Select a Terrain LOD mod first.</source>
+        <translation>Sélectionnez d'abord un mod LOD Terrain.</translation>
+    </message>
+    <message>
+        <source>The selected mod folder no longer exists.</source>
+        <translation>Le dossier mod sélectionné n'existe plus.</translation>
+    </message>
+    <message>
+        <source>The selected mod does not contain a textures/terrain folder. Choose the mod created from xLODGen output.</source>
+        <translation>Le mod sélectionné ne contient pas de dossier textures/terre. Choisissez le mod créé depuis la sortie xLODGen.</translation>
+    </message>
+    <message>
+        <source>ACMOS Road Generator is not ready to run.</source>
+        <translation>Le générateur de route ACMOS n'est pas prêt à fonctionner.</translation>
+    </message>
+    <message>
+        <source>Preparing ACMOS Road Generator's Wine prefix…</source>
+        <translation>Préparation du préfixe de vin du générateur de route ACMOS..</translation>
+    </message>
+    <message>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>Impossible de résoudre la version Proton pour le préfixe du jeu - lancez le jeu une fois, ou choisissez une autre option de préfixe.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>Impossible de trouver Proton '{0}' - vérifiez qu'il est installé dans Steam, Heroic ou ProtonPlus.</translation>
+    </message>
+    <message>
+        <source>ACMOS Road Generator exited with error (code {0}).</source>
+        <translation>ACMOS Road Generator est sorti avec erreur (code {0}).</translation>
+    </message>
+    <message>
+        <source>ACMOS Road Generator finished.</source>
+        <translation>ACMOS Road Generator terminé.</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>Erreur de lancement : {0}</translation>
+    </message>
+    <message>
+        <source>ACMOS Road Generator is running.
+Choose Roads or Paths Only, click Generate, then close it when finished.</source>
+        <translation>ACMOS Road Generator fonctionne.
+Choisissez Routes ou Chemins Seulement, cliquez sur Générer, puis fermez-le une fois terminé.</translation>
+    </message>
+</context>
+<context>
     <name>AddGameView</name>
     <message>
         <source>Select a game to add</source>
@@ -25,28 +160,73 @@
     </message>
 </context>
 <context>
-    <name>BG3ImportView</name>
+    <name>AudioControls</name>
     <message>
-        <source>Load Order (*.json)</source>
-        <translation>Commande de chargement (*.json)</translation>
+        <source>Qt Multimedia is not installed.</source>
+        <translation>Qt Multimedia n'est pas installé.</translation>
     </message>
+    <message>
+        <source>Play</source>
+        <translation>Jouer</translation>
+    </message>
+    <message>
+        <source>Stop</source>
+        <translation>Arrête</translation>
+    </message>
+    <message>
+        <source>Volume</source>
+        <translation>Volume</translation>
+    </message>
+    <message>
+        <source>Audio file not found.</source>
+        <translation>Fichier audio introuvable.</translation>
+    </message>
+    <message>
+        <source>The FUZ audio stream could not be read.</source>
+        <translation>Le flux audio FUZ n'a pas pu être lu.</translation>
+    </message>
+    <message>
+        <source>The audio stream could not be opened.</source>
+        <translation>Le flux audio ne pouvait pas être ouvert.</translation>
+    </message>
+    <message>
+        <source>Preparing…</source>
+        <translation>Préparation..</translation>
+    </message>
+    <message>
+        <source>Preparing XWM audio…</source>
+        <translation>Préparation de XWM audio..</translation>
+    </message>
+    <message>
+        <source>Unavailable</source>
+        <translation>Indisponible</translation>
+    </message>
+    <message>
+        <source>Pause</source>
+        <translation>Pause</translation>
+    </message>
+    <message>
+        <source>This audio format could not be played.</source>
+        <translation>Ce format audio n'a pas pu être lu.</translation>
+    </message>
+    <message>
+        <source>Could not play this audio file.</source>
+        <translation>Impossible de lire ce fichier audio.</translation>
+    </message>
+    <message>
+        <source>Unmute</source>
+        <translation>Sans changement</translation>
+    </message>
+    <message>
+        <source>Mute</source>
+        <translation>Mignon</translation>
+    </message>
+</context>
+<context>
+    <name>BG3ImportView</name>
     <message>
         <source>All files</source>
         <translation>Tous les fichiers</translation>
-    </message>
-    <message>
-        <source>Import BG3MM Load Order - {0}</source>
-        <translation>Commande de chargement d'importation BG3MM - {0}</translation>
-    </message>
-    <message>
-        <source>Step 1: Select a BG3 Mod Manager order file</source>
-        <translation>Étape 1 : Sélectionnez un fichier de configuration de BG3 Mod Manager</translation>
-    </message>
-    <message>
-        <source>Choose a modlist.json (or an exported saved-order .json) from BG3 Mod Manager.
-Mods are matched to your installed mods by UUID.</source>
-        <translation>Sélectionnez un fichier modlist.json (ou un fichier .json d'ordre de chargement exporté) dans BG3 Mod Manager.
-Les mods sont mis en correspondance avec ceux que vous avez installés grâce à leur UUID.</translation>
     </message>
     <message>
         <source>No file selected.</source>
@@ -61,8 +241,26 @@ Les mods sont mis en correspondance avec ceux que vous avez installés grâce à
         <translation>Aperçu →</translation>
     </message>
     <message>
-        <source>Select a BG3MM order .json</source>
-        <translation>Sélectionnez un ordre BG3MM .json</translation>
+        <source>Load Order (*.json *.lsx)</source>
+        <translation>Commande de chargement (*.json *.lsx)</translation>
+    </message>
+    <message>
+        <source>Import BG3 Load Order - {0}</source>
+        <translation>Commande de chargement d'importation BG3 - {0}</translation>
+    </message>
+    <message>
+        <source>Step 1: Select a load order file</source>
+        <translation>Étape 1: Sélectionnez un fichier de commande de chargement</translation>
+    </message>
+    <message>
+        <source>Choose a modlist.json (or an exported saved-order .json) from BG3 Mod Manager, or a modsettings.lsx written by the game.
+Mods are matched to your installed mods by UUID.</source>
+        <translation>Choisissez un modlist.json (ou un .json enregistré exporté) de BG3 Mod Manager, ou un modsettings.lsx écrit par le jeu.
+Les mods sont adaptés à vos mods installés par UUID.</translation>
+    </message>
+    <message>
+        <source>Select a load order file (.json or .lsx)</source>
+        <translation>Sélectionnez un fichier de commande de chargement (.json ou .lsx)</translation>
     </message>
     <message>
         <source>Selected: {0}</source>
@@ -97,10 +295,10 @@ Les mods sont mis en correspondance avec ceux que vous avez installés grâce à
         <translation>Ordre de chargement appliqué</translation>
     </message>
     <message>
-        <source>The modlist has been reordered to match the BG3MM order.
+        <source>The modlist has been reordered to match the imported order.
 Deploy to push the new load order to the game.</source>
-        <translation>La liste des mods a été réorganisée pour correspondre à l'ordre de BG3MM.
-Cliquez sur « Déployer » pour appliquer le nouvel ordre de chargement au jeu.</translation>
+        <translation>La modlist a été réorganisée pour correspondre à l'ordre importé.
+Déployer pour pousser le nouvel ordre de chargement au jeu.</translation>
     </message>
     <message>
         <source>Done</source>
@@ -782,6 +980,109 @@ Fermez-le lorsque vous avez terminé, puis cliquez sur « Terminé ».</translat
     </message>
 </context>
 <context>
+    <name>BsaPackCandidatesView</name>
+    <message>
+        <source>BSA Pack Candidates - {0}</source>
+        <translation>Candidats au pack BSA - {0}</translation>
+    </message>
+    <message>
+        <source>Find Pack Candidates</source>
+        <translation>Trouver des candidats pack</translation>
+    </message>
+    <message>
+        <source>Ranks your enabled mods by how many files they could pack into a BSA/BA2, and flags the ones that would break if packed. A file inside an archive loses to any loose file from any mod, so a mod that currently wins a conflict stops winning once it is packed.</source>
+        <translation>Classement vos mods activés en fonction du nombre de fichiers qu'ils pourraient empaqueter dans un BSA/BA2, et les drapeaux qui casseraient si emballé. Un fichier à l'intérieur d'une archive perd à tout fichier libre de n'importe quel mod, donc un mod qui gagne actuellement un conflit cesse de gagner une fois qu'il est emballé.</translation>
+    </message>
+    <message>
+        <source>Start Scan</source>
+        <translation>Démarrer l'analyse</translation>
+    </message>
+    <message>
+        <source>Scanning…</source>
+        <translation>Scanner..</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>Erreur : {0}</translation>
+    </message>
+    <message>
+        <source>Nothing to assess - this game has no BSA/BA2 format we can write, or the profile has no mods indexed yet.</source>
+        <translation>Rien à évaluer - ce jeu n'a pas de format BSA/BA2 que nous pouvons écrire, ou le profil n'a pas encore de mods indexé.</translation>
+    </message>
+    <message>
+        <source>Pack Candidates</source>
+        <translation>Candidats</translation>
+    </message>
+    <message>
+        <source>← Re-Scan</source>
+        <translation>← Re-Scan</translation>
+    </message>
+    <message>
+        <source>{0} files</source>
+        <translation>Fichiers {0}</translation>
+    </message>
+    <message>
+        <source>Open ›</source>
+        <translation>Ouvrir ›</translation>
+    </message>
+    <message>
+        <source>Over the size limit as one archive - tick "Separate textures archive" when packing.</source>
+        <translation>Au-delà de la limite de taille comme une archive - cochez « Séparer l'archive de textures » lors de l'emballage.</translation>
+    </message>
+    <message>
+        <source>A stub plugin will be created so the archive loads.</source>
+        <translation>Un plugin stub sera créé afin que l'archive charge.</translation>
+    </message>
+    <message>
+        <source>Safe to pack ({0})</source>
+        <translation>Sans danger pour l'emballage ({0})</translation>
+    </message>
+    <message>
+        <source>No conflicts to lose.</source>
+        <translation>Aucun conflit à perdre.</translation>
+    </message>
+    <message>
+        <source>Packable with care ({0})</source>
+        <translation>Emballage avec soin ({0})</translation>
+    </message>
+    <message>
+        <source>Wins {0} contested file(s) - tick "Skip winning files" when packing so they stay loose.</source>
+        <translation>Gagne {0} fichier(s) contesté(s) - cochez "Fichier gagnant" lors de l'emballage afin qu'ils restent libres.</translation>
+    </message>
+    <message>
+        <source>Already has an archive - loose files remain ({0})</source>
+        <translation>Déjà une archive - les fichiers libres restent ({0})</translation>
+    </message>
+    <message>
+        <source>{0} file(s) already archived.</source>
+        <translation>Fichier(s) {0} déjà archivé.</translation>
+    </message>
+    <message>
+        <source>Too large for one archive ({0})</source>
+        <translation>Trop grand pour une archive ({0})</translation>
+    </message>
+    <message>
+        <source>{0} file(s) exceed the per-file size field - packing would fail.</source>
+        <translation>Les fichiers {0} dépassent le champ de taille par fichier - l'emballage échouerait.</translation>
+    </message>
+    <message>
+        <source>Over the archive size limit even with textures split off.</source>
+        <translation>Au-delà de la limite de taille des archives même avec des textures séparées.</translation>
+    </message>
+    <message>
+        <source>Nothing to pack ({0})</source>
+        <translation>Rien à emballer ({0})</translation>
+    </message>
+    <message>
+        <source>These mods ship no files the engine would load from inside an archive - plugins, script-extender DLLs, config files and anything at the mod root always stay loose.</source>
+        <translation>Ces mods n'expédient aucun fichier que le moteur chargerait de l'intérieur d'une archive - les plugins, les DLL script-extender, les fichiers de configuration et tout ce qui se trouve à la racine du mod restent toujours libres.</translation>
+    </message>
+    <message>
+        <source>{0} mod(s) assessed - {1} safe to pack, {2} need care, {3} already archived, {4} too large.</source>
+        <translation>{0} mod(s) évalué(s) - {1} sécurisé pour emballer, {2} besoin de soins, {3} déjà archivé, {4} trop grand.</translation>
+    </message>
+</context>
+<context>
     <name>BsaPackOverlay</name>
     <message>
         <source>Pack {0}</source>
@@ -1193,6 +1494,22 @@ Le cache MD5 est conservé. Les archives seront téléchargées à nouveau si n�
         <translation>Impossible de charger.</translation>
     </message>
     <message>
+        <source>This is a Wabbajack list and cannot be installed by Amethyst. Install it with Wabbajack instead.</source>
+        <translation>Ceci est une liste de Wabbajack et ne peut pas être installé par Amethyst. Installez-le avec Wabbajack à la place.</translation>
+    </message>
+    <message>
+        <source>This collection uses an unsupported format and cannot be installed by Amethyst.</source>
+        <translation>Cette collection utilise un format non supporté et ne peut pas être installée par Amethyst.</translation>
+    </message>
+    <message>
+        <source>No installable collection data.</source>
+        <translation>Aucune donnée de collecte installable.</translation>
+    </message>
+    <message>
+        <source>Unsupported collection</source>
+        <translation>Collecte non soutenue</translation>
+    </message>
+    <message>
         <source>Download collection</source>
         <translation>Télécharger la collection</translation>
     </message>
@@ -1548,8 +1865,20 @@ Le cache MD5 est conservé. Les archives seront téléchargées à nouveau si n�
         <translation>Aucun ID de lanceur - préfixe sans objet.</translation>
     </message>
     <message>
+        <source>No prefix configured.</source>
+        <translation>Aucun préfixe configuré.</translation>
+    </message>
+    <message>
         <source>Mod Staging Folder</source>
         <translation>Dossier de préparation des mods</translation>
+    </message>
+    <message>
+        <source>Searching common AppImage locations…</source>
+        <translation>Recherche d'emplacements communs AppImage..</translation>
+    </message>
+    <message>
+        <source>AppImage Location (Optional)</source>
+        <translation>Emplacement de l'application (facultatif)</translation>
     </message>
     <message>
         <source>Default location will be used.</source>
@@ -1596,6 +1925,10 @@ Le cache MD5 est conservé. Les archives seront téléchargées à nouveau si n�
         <translation>Lien physique</translation>
     </message>
     <message>
+        <source>VFS (OpenMW)</source>
+        <translation>VFS (OpenMW)</translation>
+    </message>
+    <message>
         <source>Virtual filesystem (VFS)</source>
         <translation>Système de fichiers virtuels (VFS)</translation>
     </message>
@@ -1610,6 +1943,10 @@ Le cache MD5 est conservé. Les archives seront téléchargées à nouveau si n�
     <message>
         <source>Auto deploy (deploy automatically on enable/disable/reorder)</source>
         <translation>Déploiement automatique (déploiement automatique sur activer/désactiver/commander)</translation>
+    </message>
+    <message>
+        <source>Prefer AppImage</source>
+        <translation>Préférez AppImage</translation>
     </message>
     <message>
         <source>Automatic archive invalidation (prefer loose files over BSAs)</source>
@@ -1724,8 +2061,40 @@ Les paramètres du profil par défaut ne sont pas modifiés.</translation>
         <translation>Préfixe trouvé automatiquement.</translation>
     </message>
     <message>
+        <source>AppImage not found automatically. Browse or scan to locate it.</source>
+        <translation>AppImage non trouvée automatiquement. Parcourir ou scanner pour le localiser.</translation>
+    </message>
+    <message>
+        <source>Configured AppImage was not found.</source>
+        <translation>AppImage configurée n'a pas été trouvée.</translation>
+    </message>
+    <message>
+        <source>AppImage already configured. You can update the path below.</source>
+        <translation>AppImage déjà configurée. Vous pouvez mettre à jour le chemin suivant.</translation>
+    </message>
+    <message>
+        <source>AppImage selected manually.</source>
+        <translation>AppImage sélectionnée manuellement.</translation>
+    </message>
+    <message>
+        <source>Found in a common AppImage location.</source>
+        <translation>Trouvé dans un emplacement commun AppImage.</translation>
+    </message>
+    <message>
         <source>Executable found.</source>
         <translation>Exécutable trouvé.</translation>
+    </message>
+    <message>
+        <source>AppImage path set.</source>
+        <translation>Configuration du chemin AppImage.</translation>
+    </message>
+    <message>
+        <source>AppImage file not found.</source>
+        <translation>Fichier AppImage introuvable.</translation>
+    </message>
+    <message>
+        <source>Automatic detection will be used.</source>
+        <translation>La détection automatique sera utilisée.</translation>
     </message>
     <message>
         <source>Custom saves folder selected.</source>
@@ -1748,6 +2117,18 @@ Les paramètres du profil par défaut ne sont pas modifiés.</translation>
         <translation>Actuellement : {0}</translation>
     </message>
     <message>
+        <source>native Linux</source>
+        <translation>linux natif</translation>
+    </message>
+    <message>
+        <source>Windows/Proton</source>
+        <translation>Windows/Proton</translation>
+    </message>
+    <message>
+        <source>Native Linux build selected; no Proton prefix will be used.</source>
+        <translation>Construction Linux native sélectionnée; aucun préfixe Proton ne sera utilisé.</translation>
+    </message>
+    <message>
         <source>No executable name configured for this game.</source>
         <translation>Aucun nom de fichier exécutable n'a été configuré pour ce jeu.</translation>
     </message>
@@ -1764,6 +2145,10 @@ Les paramètres du profil par défaut ne sont pas modifiés.</translation>
         <translation>Le fichier exécutable du jeu est introuvable sur tous les disques.</translation>
     </message>
     <message>
+        <source>OpenMW AppImage not found on any drive.</source>
+        <translation>OpenMW AppImage ne se trouve sur aucun disque.</translation>
+    </message>
+    <message>
         <source>Scanning for Proton prefix…</source>
         <translation>Recherche du préfixe « Proton »…</translation>
     </message>
@@ -1776,12 +2161,20 @@ Les paramètres du profil par défaut ne sont pas modifiés.</translation>
         <translation>Commencez par définir le dossier d'installation du jeu.</translation>
     </message>
     <message>
+        <source>The mod staging folder cannot be the game folder or be inside it. Choose a separate location.</source>
+        <translation>Le dossier de mise en scène mod ne peut pas être le dossier de jeu ou être à l'intérieur. Choisissez un emplacement séparé.</translation>
+    </message>
+    <message>
         <source>This path is not visible inside the Flatpak sandbox. Grant access in Flatseal or run: {0}</source>
         <translation>Ce chemin n'est pas visible dans le bac à sable Flatpak. Accordez l'accès dans Flatseal ou exécutez la commande suivante : {0}</translation>
     </message>
     <message>
         <source>Cannot change the game/prefix path while mods are deployed. Restore the game first.</source>
         <translation>Il est impossible de modifier le chemin d'accès au jeu ou au préfixe tant que des mods sont déployés. Commencez par restaurer le jeu.</translation>
+    </message>
+    <message>
+        <source>Restore the game before changing the preferred OpenMW package.</source>
+        <translation>Restaurer le jeu avant de changer le paquet OpenMW préféré.</translation>
     </message>
     <message>
         <source>Cannot change the deploy method while mods are deployed. Restore the game first.</source>
@@ -2704,6 +3097,66 @@ Une fois terminée, l'application bascule vers le nouveau profil - puis revenir 
         <translation>Lorsque cette option est activée (par défaut), les noms de dossiers qui ne diffèrent que par la casse d'une version à l'autre sont harmonisés selon une seule casse. Désactivez-la pour les jeux natifs sous Linux où la casse des dossiers a son importance.</translation>
     </message>
     <message>
+        <source>VC++ Redistributable (x64)</source>
+        <translation>VC++ Redistribuable (x64)</translation>
+    </message>
+    <message>
+        <source>.NET {0} Desktop Runtime</source>
+        <translation>.NET {0} Durée d'exécution du bureau</translation>
+    </message>
+    <message>
+        <source>d3dcompiler_47 (shader compiler)</source>
+        <translation>d3dcompiler 47 (compilateur d'ombres)</translation>
+    </message>
+    <message>
+        <source>LAV Filters (DirectShow codecs)</source>
+        <translation>Filtres LAV (Afficher les codescs)</translation>
+    </message>
+    <message>
+        <source>d3dx9 (all legacy DirectX 9 runtimes)</source>
+        <translation>d3dx9 (tous les anciens runtimes DirectX 9)</translation>
+    </message>
+    <message>
+        <source>d3dx10 (all legacy DirectX 10 runtimes)</source>
+        <translation>d3dx10 (tous les anciens runtimes DirectX 10)</translation>
+    </message>
+    <message>
+        <source>d3dx9_43 (legacy DirectX 9 runtime)</source>
+        <translation>d3dx9 43 (legacy DirectX 9 runtime)</translation>
+    </message>
+    <message>
+        <source>d3dx10_43 (legacy DirectX 10 runtime)</source>
+        <translation>d3dx10 43 (legacy DirectX 10 runtime)</translation>
+    </message>
+    <message>
+        <source>d3dx11_42 (legacy DirectX 11 runtime)</source>
+        <translation>d3dx11 42 (régime direct X 11)</translation>
+    </message>
+    <message>
+        <source>d3dx11_43 (legacy DirectX 11 runtime)</source>
+        <translation>d3dx11 43 (régime direct X 11)</translation>
+    </message>
+    <message>
+        <source>d3dcompiler_42 (legacy shader compiler)</source>
+        <translation>d3dcompiler 42 (compilateur de shader légataire)</translation>
+    </message>
+    <message>
+        <source>d3dcompiler_43 (legacy shader compiler)</source>
+        <translation>d3dcompiler 43 (compilateur shader legacy)</translation>
+    </message>
+    <message>
+        <source>d3dcompiler_46 (legacy shader compiler)</source>
+        <translation>d3dcompiler 46 (compilateur de shader légataire)</translation>
+    </message>
+    <message>
+        <source>quartz (DirectShow runtime)</source>
+        <translation>quartz (Affichage direct)</translation>
+    </message>
+    <message>
+        <source>dx8vb (DirectX 8 Visual Basic runtime)</source>
+        <translation>dx8vb (DirectX 8 Visual Basic runtime)</translation>
+    </message>
+    <message>
         <source>Edit Custom Game</source>
         <translation>Modifier une partie personnalisée</translation>
     </message>
@@ -2896,8 +3349,40 @@ Une fois terminée, l'application bascule vers le nouveau profil - puis revenir 
         <translation>par exemple, MyGame.exe ou Bin/x64/MyGame.exe</translation>
     </message>
     <message>
+        <source>e.g. MyGame.x86_64, Bin/alternate-launcher.exe</source>
+        <translation>par exemple MyGame.x86 64, Bin/alternate-launcher.exe</translation>
+    </message>
+    <message>
+        <source>Additional Executables</source>
+        <translation>Exécutables supplémentaires</translation>
+    </message>
+    <message>
+        <source>Comma-separated alternate executable paths relative to the game root. Use these for native Linux builds or store-specific executables.</source>
+        <translation>Voies exécutables alternatives séparées par des virgules par rapport à la racine du jeu. Utilisez-les pour les exécutables natifs Linux ou spécifiques au magasin.</translation>
+    </message>
+    <message>
         <source>Deployment</source>
         <translation>Déploiement</translation>
+    </message>
+    <message>
+        <source>Windows Prefix</source>
+        <translation>Préfixe Windows</translation>
+    </message>
+    <message>
+        <source>None selected</source>
+        <translation>Aucune sélection</translation>
+    </message>
+    <message>
+        <source>{0} dependencies selected</source>
+        <translation>Dépendances {0} sélectionnées</translation>
+    </message>
+    <message>
+        <source>Auto-install Dependencies</source>
+        <translation>Dépendances d'installation automatique</translation>
+    </message>
+    <message>
+        <source>Selected components are installed automatically after the game and prefix configuration is saved. They are skipped when no Windows prefix is configured and are also shown in Prefix Health Check.</source>
+        <translation>Les composants sélectionnés sont installés automatiquement après la configuration du jeu et du préfixe. Ils sont ignorés quand aucun préfixe Windows n'est configuré et sont également affichés dans Prefix Health Check.</translation>
     </message>
     <message>
         <source>Store &amp; Artwork</source>
@@ -3036,6 +3521,30 @@ Une fois terminée, l'application bascule vers le nouveau profil - puis revenir 
     <message>
         <source>{0} - {1} files in {2} mods</source>
         <translation>{0} - Fichiers {1} dans les mods {2}</translation>
+    </message>
+    <message>
+        <source>Open in File Browser</source>
+        <translation>Ouvrir dans le navigateur de fichiers</translation>
+    </message>
+    <message>
+        <source>Open in Text Editor</source>
+        <translation>Ouvrir dans l'éditeur de texte</translation>
+    </message>
+    <message>
+        <source>Open in NIF Viewer</source>
+        <translation>Ouvrir dans NIF Viewer</translation>
+    </message>
+    <message>
+        <source>Play Audio</source>
+        <translation>Lecture de l'audio</translation>
+    </message>
+    <message>
+        <source>Play Video</source>
+        <translation>Lire la vidéo</translation>
+    </message>
+    <message>
+        <source>Inspect Archive</source>
+        <translation>Vérifier les archives</translation>
     </message>
 </context>
 <context>
@@ -4375,93 +4884,6 @@ C'est bien pour vos propres renforts. Ne partagez pas ou ne téléchargez pas le
     </message>
 </context>
 <context>
-    <name>Fallout4DowngraderView</name>
-    <message>
-        <source>Downgrade Fallout 4 - {0}</source>
-        <translation>Défaut de qualité inférieure 4 - {0}</translation>
-    </message>
-    <message>
-        <source>Step 1: Download Fallout 4 Downgrader</source>
-        <translation>Étape 1: Télécharger Fallout 4 Downgrader</translation>
-    </message>
-    <message>
-        <source>The newest release containing the Fallout 4 Steam Downgrader will be downloaded from MulderLoad on GitHub and placed in the game folder.
-
-No modlist deploy is required.</source>
-        <translation>La dernière version contenant le Fallout 4 Steam Downgrader sera téléchargée de MulderLoad sur GitHub et placée dans le dossier de jeu.
-
-Aucun déploiement modliste n'est nécessaire.</translation>
-    </message>
-    <message>
-        <source>Step 3: Run Fallout 4 Downgrader</source>
-        <translation>Étape 3 : Exécuter Fallout 4 Downgrader</translation>
-    </message>
-    <message>
-        <source>Step 2: Choose Proton Version</source>
-        <translation>Étape 2: Choisissez la version Proton</translation>
-    </message>
-    <message>
-        <source>The Fallout 4 Steam Downgrader was not downloaded.
-Close and reopen the wizard to try again.</source>
-        <translation>Le Fallout 4 Steam Downgrader n'a pas été téléchargé.
-Fermez et rouvrez l'assistant pour réessayer.</translation>
-    </message>
-    <message>
-        <source>Game path is not configured.</source>
-        <translation>Le chemin de jeu n'est pas configuré.</translation>
-    </message>
-    <message>
-        <source>Searching MulderLoad releases…</source>
-        <translation>Rechercher MulderLoad sort..</translation>
-    </message>
-    <message>
-        <source>Downloading {0}…</source>
-        <translation>Téléchargement de {0}..</translation>
-    </message>
-    <message>
-        <source>The downgrader download did not create {0}.</source>
-        <translation>Le téléchargement downgrader n'a pas créé {0}.</translation>
-    </message>
-    <message>
-        <source>Downloaded {0} to the game folder.</source>
-        <translation>Téléchargé {0} dans le dossier de jeu.</translation>
-    </message>
-    <message>
-        <source>Download error: {0}</source>
-        <translation>Erreur de téléchargement: {0}</translation>
-    </message>
-    <message>
-        <source>{0} was not found in the game folder.</source>
-        <translation>{0} n'a pas été trouvé dans le dossier de jeu.</translation>
-    </message>
-    <message>
-        <source>Launching Fallout 4 Downgrader…</source>
-        <translation>Lancement de Fallout 4 Downgrader..</translation>
-    </message>
-    <message>
-        <source>Could not determine a Proton version for Fallout 4.</source>
-        <translation>Impossible de déterminer une version Proton pour Fallout 4.</translation>
-    </message>
-    <message>
-        <source>Fallout 4 Downgrader is running.
-Follow its prompts, then close it when finished.</source>
-        <translation>Fallout 4 Downgrader est en marche.
-Suivez ses instructions, puis fermez-la une fois terminée.</translation>
-    </message>
-    <message>
-        <source>Fallout 4 Downgrader finished. Click Done to close.</source>
-        <translation>Fallout 4 Downgrader terminé. Cliquez sur Terminé pour fermer.</translation>
-    </message>
-    <message>
-        <source>Fallout 4 Downgrader exited with code {0}. See the log for details.</source>
-        <translation>Fallout 4 Downgrader est sorti avec le code {0}. Consultez le journal pour plus de détails.</translation>
-    </message>
-    <message>
-        <source>Launch error: {0}</source>
-        <translation>Erreur de lancement : {0}</translation>
-    </message>
-</context>
-<context>
     <name>FalloutDowngradeView</name>
     <message>
         <source>Downgrade Fallout 3 - {0}</source>
@@ -4797,6 +5219,10 @@ Cliquez sur Terminé pour nettoyer les fichiers extraits et fermer.</translation
         <translation>Mes jeux</translation>
     </message>
     <message>
+        <source>Logs</source>
+        <translation>Registres</translation>
+    </message>
+    <message>
         <source>Clear all</source>
         <translation>Tout effacer</translation>
     </message>
@@ -4908,6 +5334,53 @@ Il peut déjà être modifié. Vérifiez les fichiers de jeu dans Steam/Heroic p
     <message>
         <source>Restore failed: {0}</source>
         <translation>La restauration a échoué : {0}</translation>
+    </message>
+</context>
+<context>
+    <name>FomodChoicesView</name>
+    <message>
+        <source>Option</source>
+        <translation>Option</translation>
+    </message>
+    <message>
+        <source>Description</source>
+        <translation>Désignation des marchandises</translation>
+    </message>
+    <message>
+        <source>Reading saved choices…</source>
+        <translation>Lire les choix enregistrés..</translation>
+    </message>
+    <message>
+        <source>FOMOD Choices: {0}</source>
+        <translation>Choix FOMOD : {0}</translation>
+    </message>
+    <message>
+        <source>No saved FOMOD choices for this mod.</source>
+        <translation>Aucun choix FOMOD enregistré pour ce mod.</translation>
+    </message>
+    <message>
+        <source>The installer recorded no selections for this mod.</source>
+        <translation>L'installateur n'a enregistré aucune sélection pour ce mod.</translation>
+    </message>
+    <message>
+        <source>Installer config not saved for this mod - showing the recorded selections only.</source>
+        <translation>Configuration de l'installateur non sauvegardée pour ce mod - ne montrant que les sélections enregistrées.</translation>
+    </message>
+    <message>
+        <source>(no choices recorded)</source>
+        <translation>(aucun choix enregistré)</translation>
+    </message>
+    <message>
+        <source>Step {0}: {1}</source>
+        <translation>Étape {0}: {1}</translation>
+    </message>
+    <message>
+        <source>Step {0}</source>
+        <translation>Étape {0}</translation>
+    </message>
+    <message>
+        <source>(unnamed group)</source>
+        <translation>(groupe sans nom)</translation>
     </message>
 </context>
 <context>
@@ -5220,8 +5693,12 @@ Il peut déjà être modifié. Vérifiez les fichiers de jeu dans Steam/Heroic p
         <translation>par exemple SteamDeck=0 gamemoderun %command%</translation>
     </message>
     <message>
-        <source>Steam syntax. Empty: the game's own Steam options are used.</source>
-        <translation>Syntaxe de vapeur. Vide : les options Steam du jeu sont utilisées.</translation>
+        <source>Steam syntax. When set, the manager launches the game directly so these options apply. Empty: the game's own launcher options are used.</source>
+        <translation>Syntaxe vapeur. Lorsque défini, le gestionnaire lance le jeu directement afin que ces options s'appliquent. Vide : les options de lancement du jeu sont utilisées.</translation>
+    </message>
+    <message>
+        <source>Launch with wayland</source>
+        <translation>Lancement avec wayland</translation>
     </message>
     <message>
         <source>Deploy mods before launching</source>
@@ -7460,6 +7937,10 @@ Exécuter une mise à jour rapide sur tous maintenant?</translation>
         <translation>Mods «{0} » installés</translation>
     </message>
     <message>
+        <source>Prefer AppImage</source>
+        <translation>Préférez AppImage</translation>
+    </message>
+    <message>
         <source>Download Manifest…</source>
         <translation>Télécharger le manifeste..</translation>
     </message>
@@ -7564,6 +8045,10 @@ Exécuter une mise à jour rapide sur tous maintenant?</translation>
         <translation>Téléchargement de mise à jour rapide annulé.</translation>
     </message>
     <message>
+        <source>FOMOD: {0}</source>
+        <translation>FOMOD: {0}</translation>
+    </message>
+    <message>
         <source>Conflict data is still building.</source>
         <translation>Les données sur les conflits sont toujours en cours de construction.</translation>
     </message>
@@ -7616,8 +8101,38 @@ Exécuter une mise à jour rapide sur tous maintenant?</translation>
         <translation>Extraction / Installation</translation>
     </message>
     <message>
+        <source>Restore the game before changing the preferred OpenMW package.</source>
+        <translation>Restaurer le jeu avant de changer le paquet OpenMW préféré.</translation>
+    </message>
+    <message>
+        <source>Wizard Settings…</source>
+        <translation>Paramètres de l'assistant..</translation>
+    </message>
+    <message>
+        <source>Reset wizard tools that automatically reuse their saved Proton settings.</source>
+        <translation>Réinitialiser les outils de l'assistant qui réutilisent automatiquement leurs paramètres Proton enregistrés.</translation>
+    </message>
+    <message>
         <source>No QuickAutoClean tool is available for this game.</source>
         <translation>Aucun outil QuickAutoClean n'est disponible pour ce jeu.</translation>
+    </message>
+    <message>
+        <source>Tool still running</source>
+        <translation>Outil en cours d'exécution</translation>
+    </message>
+    <message>
+        <source>This tab still has a tool running. Close the tool too?
+The tab closes either way; choosing Leave running keeps the tool alive until you quit Amethyst.</source>
+        <translation>Cet onglet a encore un outil en cours d'exécution. Ferme l'outil aussi ?
+L'onglet se ferme dans les deux sens; choisir Laisser courir garde l'outil en vie jusqu'à ce que vous quittiez Amethyst.</translation>
+    </message>
+    <message>
+        <source>Close tool</source>
+        <translation>Fermer l'outil</translation>
+    </message>
+    <message>
+        <source>Leave running</source>
+        <translation>Laisser courir</translation>
     </message>
     <message>
         <source>Preparing extraction…</source>
@@ -7946,6 +8461,10 @@ De toute façon ?</translation>
     <message>
         <source>Overrides</source>
         <translation>Dépassements</translation>
+    </message>
+    <message>
+        <source>File location</source>
+        <translation>Emplacement du fichier</translation>
     </message>
     <message>
         <source>Log</source>
@@ -8331,6 +8850,22 @@ Comment voulez-vous gérer le mod existant ?</translation>
     <message>
         <source>Disable</source>
         <translation>Désactiver</translation>
+    </message>
+    <message>
+        <source>The mod's files and folders as they are packaged in the archive.</source>
+        <translation>Les fichiers et dossiers du mod comme ils sont emballés dans l'archive.</translation>
+    </message>
+    <message>
+        <source>Promote this folder's contents up to the top of the mod, stripping the wrapper folders above it. Use this when a mod is packaged one or more folders too deep, so its files land in the right place on deploy.</source>
+        <translation>Promouvoir le contenu de ce dossier jusqu'au haut du mod, enlevant les dossiers d'emballage au-dessus. Utilisez ceci quand un mod est emballé un ou plusieurs dossiers trop profond, donc ses fichiers atterrissent au bon endroit au déploiement.</translation>
+    </message>
+    <message>
+        <source>Deploy this file or folder to the game's root folder (next to the game executable) instead of the game's data folder. Use this for loaders, DLLs and INIs that belong beside the .exe.</source>
+        <translation>Déployez ce fichier ou dossier dans le dossier racine du jeu (à côté de l'exécutable du jeu) au lieu du dossier de données du jeu. Utilisez ceci pour charger, DLL et INI qui appartiennent à côté du .exe.</translation>
+    </message>
+    <message>
+        <source>Whether this file or folder is deployed. Unchecked excludes it: it stays in the mod but is never written to the game, so it cannot win conflicts.</source>
+        <translation>Que ce fichier ou dossier soit déployé. Non coché l'exclut : il reste dans le mod mais n'est jamais écrit au jeu, donc il ne peut pas gagner les conflits.</translation>
     </message>
 </context>
 <context>
@@ -9070,6 +9605,131 @@ ou un fichier chiffré lorsqu'aucun porte-clés n'est disponible).</translation>
     <message>
         <source>Cancel</source>
         <translation>Annuler</translation>
+    </message>
+</context>
+<context>
+    <name>MulderLoadDowngraderView</name>
+    <message>
+        <source>Downgrade {0} - {1}</source>
+        <translation>Classe inférieure {0} - {1}</translation>
+    </message>
+    <message>
+        <source>{0} Steam Downgrader</source>
+        <translation>{0} Dégradateur à vapeur</translation>
+    </message>
+    <message>
+        <source>Step 2: Download Downgrader</source>
+        <translation>Étape 2: Télécharger Downgrader</translation>
+    </message>
+    <message>
+        <source>The newest release containing the selected downgrader will be downloaded from MulderLoad on GitHub and placed in the game folder.
+
+No modlist deploy is required.</source>
+        <translation>La dernière version contenant le dégradé sélectionné sera téléchargée de MulderLoad sur GitHub et placée dans le dossier de jeu.
+
+Aucun déploiement modliste n'est nécessaire.</translation>
+    </message>
+    <message>
+        <source>Step 4: Run Downgrader</source>
+        <translation>Étape 4: Exécuter le dégradé</translation>
+    </message>
+    <message>
+        <source>Step 1: Choose Downgrader</source>
+        <translation>Étape 1: Choisissez Downgrader</translation>
+    </message>
+    <message>
+        <source>The game and its Creation Kit are downgraded by separate installers. Pick which one to download and run.</source>
+        <translation>Le jeu et son kit de création sont dégradés par des installateurs séparés. Choisissez lequel télécharger et exécuter.</translation>
+    </message>
+    <message>
+        <source>{0} (game)</source>
+        <translation>{0} (jeu)</translation>
+    </message>
+    <message>
+        <source>Creation Kit</source>
+        <translation>Kit de création</translation>
+    </message>
+    <message>
+        <source>Next</source>
+        <translation>Suivant</translation>
+    </message>
+    <message>
+        <source>{0} Creation Kit Steam Downgrader</source>
+        <translation>Kit de création {0}</translation>
+    </message>
+    <message>
+        <source>Step 3: Choose Proton Version</source>
+        <translation>Étape 3: Choisissez la version Proton</translation>
+    </message>
+    <message>
+        <source>The {0} was not downloaded.
+Close and reopen the wizard to try again.</source>
+        <translation>Le {0} n'a pas été téléchargé.
+Fermez et rouvrez l'assistant pour réessayer.</translation>
+    </message>
+    <message>
+        <source>Game path is not configured.</source>
+        <translation>Le chemin de jeu n'est pas configuré.</translation>
+    </message>
+    <message>
+        <source>Searching MulderLoad releases…</source>
+        <translation>Rechercher MulderLoad sort..</translation>
+    </message>
+    <message>
+        <source>Downloading {0}…</source>
+        <translation>Téléchargement de {0}..</translation>
+    </message>
+    <message>
+        <source>The downgrader download did not create {0}.</source>
+        <translation>Le téléchargement downgrader n'a pas créé {0}.</translation>
+    </message>
+    <message>
+        <source>Downloaded {0} to the game folder.</source>
+        <translation>Téléchargé {0} dans le dossier de jeu.</translation>
+    </message>
+    <message>
+        <source>Download error: {0}</source>
+        <translation>Erreur de téléchargement: {0}</translation>
+    </message>
+    <message>
+        <source>{0} was not found in the game folder.</source>
+        <translation>{0} n'a pas été trouvé dans le dossier de jeu.</translation>
+    </message>
+    <message>
+        <source>Launching {0}…</source>
+        <translation>Lancement de {0}..</translation>
+    </message>
+    <message>
+        <source>Could not determine a Proton version for {0}.</source>
+        <translation>Impossible de déterminer une version Proton pour {0}.</translation>
+    </message>
+    <message>
+        <source>{0} is running.
+Follow its prompts, then close it when finished.</source>
+        <translation>{0} fonctionne.
+Suivez ses instructions, puis fermez-la une fois terminée.</translation>
+    </message>
+    <message>
+        <source>
+
+Your modlist was restored before downgrading - use Deploy to put it back.</source>
+        <translation>Votre modlist a été restauré avant de déclasser - utilisez Déploy pour le remettre.</translation>
+    </message>
+    <message>
+        <source>{0} finished. Click Done to close.</source>
+        <translation>{0} terminé. Cliquez sur Terminé pour fermer.</translation>
+    </message>
+    <message>
+        <source>{0} exited with code {1}. See the log for details.</source>
+        <translation>{0} est sorti avec le code {1}. Consultez le journal pour plus de détails.</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>Erreur de lancement : {0}</translation>
+    </message>
+    <message>
+        <source>{0} is running - close it to continue.</source>
+        <translation>{0} fonctionne - fermez-le pour continuer.</translation>
     </message>
 </context>
 <context>
@@ -10908,6 +11568,10 @@ Re-scan pour vérifier.</translation>
         <source>Version mismatched masters:</source>
         <translation>Version mal assortie maîtres:</translation>
     </message>
+    <message>
+        <source>This plugin is classified as OpenMW groundcover. When enabled, it loads as groundcover instead of normal content. OpenMW's settings.cfg must also contain [Groundcover] enabled = true.</source>
+        <translation>Ce plugin est classé comme OpenMW groundcover. Lorsqu'il est activé, il se charge comme couverture au lieu de contenu normal. Les paramètres d'OpenMW.cfg doivent également contenir [Groundcover] activé = true.</translation>
+    </message>
 </context>
 <context>
     <name>PluginGroupsView</name>
@@ -10991,6 +11655,10 @@ Re-scan pour vérifier.</translation>
         <translation>Activer les éléments sélectionnés ({0})</translation>
     </message>
     <message>
+        <source>Groundcover setting save failed: {0}</source>
+        <translation>Le réglage de la couverture de terre a échoué : {0}</translation>
+    </message>
+    <message>
         <source>Mark as Light (ESL)</source>
         <translation>Marquer comme « Light » (ESL)</translation>
     </message>
@@ -11005,6 +11673,14 @@ Re-scan pour vérifier.</translation>
     <message>
         <source>Not ESL-safe (per LOOT - compact in xEdit first)</source>
         <translation>Pas ESL-safe (par LOOT - compact dans xEdit en premier)</translation>
+    </message>
+    <message>
+        <source>Open LOOT message link</source>
+        <translation>Ouvrir le lien du message LOOT</translation>
+    </message>
+    <message>
+        <source>Open LOOT message link…</source>
+        <translation>Ouvrir le lien de message LOOT..</translation>
     </message>
     <message>
         <source>Remove ESL flag (un-light)</source>
@@ -11033,6 +11709,22 @@ Re-scan pour vérifier.</translation>
     <message>
         <source>Show userlist rules…</source>
         <translation>Afficher les règles relatives à la liste des utilisateurs…</translation>
+    </message>
+    <message>
+        <source>Use as normal OpenMW content</source>
+        <translation>Utiliser comme contenu normal OpenMW</translation>
+    </message>
+    <message>
+        <source>Use as OpenMW groundcover</source>
+        <translation>Utiliser comme couverture terrestre OpenMW</translation>
+    </message>
+    <message>
+        <source>Use selected as normal OpenMW content ({0})</source>
+        <translation>Utiliser sélectionné comme contenu normal OpenMW ({0})</translation>
+    </message>
+    <message>
+        <source>Use selected as OpenMW groundcover ({0})</source>
+        <translation>Utiliser sélectionné comme couverture terrestre OpenMW ({0})</translation>
     </message>
 </context>
 <context>
@@ -11121,6 +11813,10 @@ Faites glisser un plugin depuis le volet de gauche pour ajouter une règle.</tra
     <message>
         <source>Fix</source>
         <translation>Correction</translation>
+    </message>
+    <message>
+        <source>.NET {0} Desktop Runtime</source>
+        <translation>.NET {0} Durée d'exécution du bureau</translation>
     </message>
     <message>
         <source>Proton prefix</source>
@@ -11303,6 +11999,13 @@ Faites glisser un plugin depuis le volet de gauche pour ajouter une règle.</tra
     </message>
 </context>
 <context>
+    <name>Profile</name>
+    <message>
+        <source>Default</source>
+        <translation>Par défaut</translation>
+    </message>
+</context>
+<context>
     <name>ProfileGroupsView</name>
     <message>
         <source>Profile Groups</source>
@@ -11478,6 +12181,10 @@ Ses mods listés sont copiés dans le dossier de mods du profil (en lien dur si 
         <translation>Paramètres du profil</translation>
     </message>
     <message>
+        <source>  (default)</source>
+        <translation>(par défaut)</translation>
+    </message>
+    <message>
         <source>Rename</source>
         <translation>Renommer</translation>
     </message>
@@ -11540,32 +12247,12 @@ Ses mods listés sont copiés dans le dossier de mods du profil (en lien dur si 
         <translation>Chaque version obtient son propre préfixe ; les dépendances y sont installées automatiquement à l'étape suivante.</translation>
     </message>
     <message>
-        <source>No Proton versions were found.
-
-Install a Proton version in Steam (or with Heroic's Wine Manager), then reopen this wizard.</source>
-        <translation>Aucune version de Proton n'a été trouvée.
-
-Installez une version Proton dans Steam (ou avec le Wine Manager de Heroic), puis rouvrez cet assistant.</translation>
-    </message>
-    <message>
-        <source>{0} runs in its own Wine prefix, stored next to its exe and separate from the game's prefix, so you can pick any Proton version without affecting the game.
-
-</source>
-        <translation>{0} fonctionne dans son propre préfixe Vin, stocké à côté de son exe et séparé du préfixe du jeu, de sorte que vous pouvez choisir n'importe quelle version Proton sans affecter le jeu.
-
-.</translation>
+        <source>{0} runs in its own Wine prefix, stored next to its exe and separate from the game's prefix, so you can pick any Proton version without affecting the game.</source>
+        <translation>{0} fonctionne dans son propre préfixe Vin, stocké à côté de son exe et séparé du préfixe du jeu, de sorte que vous pouvez choisir n'importe quelle version Proton sans affecter le jeu.</translation>
     </message>
     <message>
         <source>Prefer discrete GPU (hybrid systems)</source>
         <translation>Préférez le GPU discret (systèmes hybrides)</translation>
-    </message>
-    <message>
-        <source>Expose the discrete GPU as adapter 0. May use more power.</source>
-        <translation>Exposer le GPU discret comme adaptateur 0. Peut utiliser plus de puissance.</translation>
-    </message>
-    <message>
-        <source>Uses the discrete GPU for texconv; falls back to CPU if unavailable.</source>
-        <translation>Utilise le GPU discret pour texconv; retourne au CPU si ce n'est pas disponible.</translation>
     </message>
     <message>
         <source>Use shared prefix</source>
@@ -11588,8 +12275,36 @@ Installez une version Proton dans Steam (ou avec le Wine Manager de Heroic), pui
         <translation>Lancement avec vin uni (style vin)</translation>
     </message>
     <message>
-        <source>Use Winetricks style launch</source>
-        <translation>Utiliser le lancement style Winetricks</translation>
+        <source>The saved game prefix is unavailable. Choose another prefix setting.</source>
+        <translation>Le préfixe de jeu sauvegardé n'est pas disponible. Choisissez un autre paramètre de préfixe.</translation>
+    </message>
+    <message>
+        <source>No Proton versions were found. Install one through Steam or Heroic, or add a custom Proton build below.</source>
+        <translation>Aucune version de Proton n'a été trouvée. Installez-en un via Steam ou Heroic, ou ajoutez une compilation Proton personnalisée ci-dessous.</translation>
+    </message>
+    <message>
+        <source>The saved Proton selection is incomplete. Choose a Proton version.</source>
+        <translation>La sélection de Proton enregistrée est incomplète. Choisissez une version Proton.</translation>
+    </message>
+    <message>
+        <source>The saved Proton version '{0}' is no longer installed. Choose another version.</source>
+        <translation>La version Proton enregistrée '{0}' n'est plus installée. Choisissez une autre version.</translation>
+    </message>
+    <message>
+        <source>Run this tool with plain Wine against the selected prefix instead of starting a Proton session.</source>
+        <translation>Exécutez cet outil avec du vin clair contre le préfixe sélectionné au lieu de commencer une session Proton.</translation>
+    </message>
+    <message>
+        <source>Expose the discrete GPU as adapter 0 for texconv. This may use more power and falls back to the CPU if unavailable.</source>
+        <translation>Exposer le GPU discret comme adaptateur 0 pour texconv. Cela peut utiliser plus de puissance et retomber dans le processeur si non disponible.</translation>
+    </message>
+    <message>
+        <source>Add Custom Build</source>
+        <translation>Ajouter une compilation personnalisée</translation>
+    </message>
+    <message>
+        <source>Select a complete Proton build folder containing the top-level 'proton' launcher. Do not select files/bin/wine.</source>
+        <translation>Sélectionnez un dossier complet de construction Proton contenant le lanceur 'proton' de haut niveau. Ne sélectionnez pas les fichiers/bin/vin.</translation>
     </message>
     <message>
         <source>Delete Prefix</source>
@@ -11616,12 +12331,56 @@ Installez une version Proton dans Steam (ou avec le Wine Manager de Heroic), pui
         <translation>par exemple : PROTON_USE_WINED3D=1 WINEDLLOVERRIDES=dinput8=n,b</translation>
     </message>
     <message>
+        <source>Always use these settings</source>
+        <translation>Utilisez toujours ces paramètres</translation>
+    </message>
+    <message>
+        <source>Skip this Proton step on future runs and reuse the saved values. Reset it from Wizard &gt; Wizard Settings.</source>
+        <translation>Passez cette étape de Proton sur les futurs tirages et réutiliser les valeurs enregistrées. Reset it from Wizard &gt; Paramètres de l'assistant.</translation>
+    </message>
+    <message>
         <source>Continue</source>
         <translation>Continuer</translation>
     </message>
     <message>
+        <source>Select custom Proton build folder</source>
+        <translation>Sélectionnez le dossier de construction de Proton personnalisé</translation>
+    </message>
+    <message>
+        <source>The selected folder does not contain a top-level 'proton' launcher.</source>
+        <translation>Le dossier sélectionné ne contient pas de lanceur 'proton' de haut niveau.</translation>
+    </message>
+    <message>
+        <source>Custom Proton build added: {0}</source>
+        <translation>Construction personnalisée de proton ajoutée: {0}</translation>
+    </message>
+    <message>
         <source>Using the game's existing prefix - Proton version follows the game's Steam setting and no new prefix is created.</source>
         <translation>En utilisant le préfixe existant du jeu - Proton version suit le réglage Steam du jeu et aucun nouveau préfixe n'est créé.</translation>
+    </message>
+    <message>
+        <source>Select or add a Proton build before continuing.</source>
+        <translation>Sélectionnez ou ajoutez une compilation Proton avant de continuer.</translation>
+    </message>
+    <message>
+        <source>Use custom Proton build?</source>
+        <translation>Utiliser la construction personnalisée de Proton?</translation>
+    </message>
+    <message>
+        <source>This Proton build was added manually and is outside Amethyst's supported configurations. Support cannot be provided for issues that occur while using it.
+
+Continue with {0}?</source>
+        <translation>Cette construction Proton a été ajoutée manuellement et est en dehors des configurations supportées par Amethyst. Il n'est pas possible de fournir un appui pour les questions qui se posent au moment de l'utiliser.
+
+Continuer avec {0}?</translation>
+    </message>
+    <message>
+        <source>Use Custom Build</source>
+        <translation>Utiliser la compilation personnalisée</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Annuler</translation>
     </message>
     <message>
         <source>A prefix already exists for this version. Delete it if {0}
@@ -13447,6 +14206,22 @@ flatpak distant-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Mana
         <translation>Fermer</translation>
     </message>
     <message>
+        <source>Toolbar position</source>
+        <translation>Position de la barre d' outils</translation>
+    </message>
+    <message>
+        <source>Top</source>
+        <translation>Haut</translation>
+    </message>
+    <message>
+        <source>Left side</source>
+        <translation>Côté gauche</translation>
+    </message>
+    <message>
+        <source>Right side</source>
+        <translation>Côté droit</translation>
+    </message>
+    <message>
         <source>Reset dismissed prompts…</source>
         <translation>Réinitialisez les appels rejetés..</translation>
     </message>
@@ -13489,6 +14264,14 @@ flatpak distant-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Mana
     <message>
         <source>Reset</source>
         <translation>Réinitialiser</translation>
+    </message>
+    <message>
+        <source>Custom Proton Build</source>
+        <translation>Construction personnalisée de proton</translation>
+    </message>
+    <message>
+        <source>Additional Proton build not found automatically. Select the build folder containing the top-level 'proton' launcher, not files/bin/wine. Blank disables it.</source>
+        <translation>Construction Proton supplémentaire non trouvée automatiquement. Sélectionnez le dossier de construction contenant le lanceur 'proton' de haut niveau, et non les fichiers/bin/wine. Blank le désactive.</translation>
     </message>
     <message>
         <source>{0} set: {1}</source>
@@ -14106,12 +14889,52 @@ Pick a Proton version to create that prefix with.</source>
 Choisissez une version de Proton pour créer ce préfixe.</translation>
     </message>
     <message>
+        <source>Add Custom Build</source>
+        <translation>Ajouter une compilation personnalisée</translation>
+    </message>
+    <message>
+        <source>Select a complete Proton build folder containing the top-level 'proton' launcher. Do not select files/bin/wine.</source>
+        <translation>Sélectionnez un dossier complet de construction Proton contenant le lanceur 'proton' de haut niveau. Ne sélectionnez pas les fichiers/bin/vin.</translation>
+    </message>
+    <message>
         <source>Continue →</source>
         <translation>Continuer →</translation>
     </message>
     <message>
-        <source>No Proton installations found. Install Proton (e.g. GE-Proton) via Steam and try again.</source>
-        <translation>Aucune installation de Proton n'a été détectée. Installez Proton (par exemple, GE-Proton) via Steam, puis réessayez.</translation>
+        <source>No Proton installations found. Install one through Steam or add a custom build.</source>
+        <translation>Aucune installation de Proton trouvée. Installez-en un via Steam ou ajoutez une compilation personnalisée.</translation>
+    </message>
+    <message>
+        <source>Select custom Proton build folder</source>
+        <translation>Sélectionnez le dossier de construction de Proton personnalisé</translation>
+    </message>
+    <message>
+        <source>The selected folder does not contain a top-level 'proton' launcher.</source>
+        <translation>Le dossier sélectionné ne contient pas de lanceur 'proton' de haut niveau.</translation>
+    </message>
+    <message>
+        <source>Custom Proton build added: {0}</source>
+        <translation>Construction personnalisée de proton ajoutée: {0}</translation>
+    </message>
+    <message>
+        <source>Use custom Proton build?</source>
+        <translation>Utiliser la construction personnalisée de Proton?</translation>
+    </message>
+    <message>
+        <source>This Proton build was added manually and is outside Amethyst's supported configurations. Support cannot be provided for issues that occur while using it.
+
+Continue with {0}?</source>
+        <translation>Cette construction Proton a été ajoutée manuellement et est en dehors des configurations supportées par Amethyst. Il n'est pas possible de fournir un appui pour les questions qui se posent au moment de l'utiliser.
+
+Continuer avec {0}?</translation>
+    </message>
+    <message>
+        <source>Use Custom Build</source>
+        <translation>Utiliser la compilation personnalisée</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Annuler</translation>
     </message>
     <message>
         <source>Step 3: Prepare Prefix</source>
@@ -15566,8 +16389,8 @@ ou utilisez le bouton « Parcourir » pour le sélectionner manuellement.</trans
         <translation>Lignes et cadres autour des panneaux, listes et entrées.</translation>
     </message>
     <message>
-        <source>Danger / cancel / remove buttons (delete, remove profile, ✕ close).</source>
-        <translation>Danger / annuler / supprimer les boutons (supprimer, supprimer le profil, fermer).</translation>
+        <source>Danger buttons (delete, remove profile and other destructive actions).</source>
+        <translation>Boutons de danger (supprimer, supprimer le profil et autres actions destructrices).</translation>
     </message>
     <message>
         <source>Success / confirm buttons (Install, Done, Play).</source>
@@ -16355,6 +17178,57 @@ Dernière version :  {1}</translation>
     </message>
 </context>
 <context>
+    <name>VideoPreview</name>
+    <message>
+        <source>Qt Multimedia is not installed.</source>
+        <translation>Qt Multimedia n'est pas installé.</translation>
+    </message>
+    <message>
+        <source>No video selected</source>
+        <translation>Aucune vidéo sélectionnée</translation>
+    </message>
+    <message>
+        <source>Play</source>
+        <translation>Jouer</translation>
+    </message>
+    <message>
+        <source>Stop</source>
+        <translation>Arrête</translation>
+    </message>
+    <message>
+        <source>Volume</source>
+        <translation>Volume</translation>
+    </message>
+    <message>
+        <source>Video file not found.</source>
+        <translation>Fichier vidéo introuvable.</translation>
+    </message>
+    <message>
+        <source>Unavailable</source>
+        <translation>Indisponible</translation>
+    </message>
+    <message>
+        <source>Pause</source>
+        <translation>Pause</translation>
+    </message>
+    <message>
+        <source>This video format could not be played.</source>
+        <translation>Ce format vidéo ne pouvait pas être lu.</translation>
+    </message>
+    <message>
+        <source>Could not play this video file.</source>
+        <translation>Impossible de lire ce fichier vidéo.</translation>
+    </message>
+    <message>
+        <source>Unmute</source>
+        <translation>Sans changement</translation>
+    </message>
+    <message>
+        <source>Mute</source>
+        <translation>Mignon</translation>
+    </message>
+</context>
+<context>
     <name>WikiView</name>
     <message>
         <source>Refresh</source>
@@ -16408,6 +17282,33 @@ Appuyez sur Actualiser pour réessayer.</translation>
     <message>
         <source>Refreshing…</source>
         <translation>Rafraîchir..</translation>
+    </message>
+</context>
+<context>
+    <name>WizardSettingsOverlay</name>
+    <message>
+        <source>Wizard Settings</source>
+        <translation>Paramètres de l'assistant</translation>
+    </message>
+    <message>
+        <source>These wizard tools skip their Proton settings step. Reset a tool to show the step again; its saved values are kept.</source>
+        <translation>Ces outils d'assistant sautent leur étape de configuration Proton. Réinitialisez un outil pour afficher à nouveau l'étape; ses valeurs enregistrées sont conservées.</translation>
+    </message>
+    <message>
+        <source>No wizard tools are using saved settings.</source>
+        <translation>Aucun outil d'assistant n'utilise les paramètres enregistrés.</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Fermer</translation>
+    </message>
+    <message>
+        <source>Reset</source>
+        <translation>Réinitialiser</translation>
+    </message>
+    <message>
+        <source>Show this wizard's Proton settings step the next time it runs.</source>
+        <translation>Afficher les paramètres Proton de cet assistant la prochaine fois qu'il fonctionne.</translation>
     </message>
 </context>
 <context>
@@ -16469,6 +17370,10 @@ Appuyez sur Actualiser pour réessayer.</translation>
         <translation>Échec à la baisse 4</translation>
     </message>
     <message>
+        <source>Downgrade Skyrim Special Edition</source>
+        <translation>Édition spéciale de Skyrim de qualité inférieure</translation>
+    </message>
+    <message>
         <source>Install Script Extender (F4SE)</source>
         <translation>Installer l'extension de script (F4SE)</translation>
     </message>
@@ -16525,6 +17430,10 @@ Appuyez sur Actualiser pour réessayer.</translation>
         <translation>Audit et nettoyage du plugin</translation>
     </message>
     <message>
+        <source>BSA Pack Candidates</source>
+        <translation>Candidats au pack BSA</translation>
+    </message>
+    <message>
         <source>SSE Display Tweaks Config</source>
         <translation>SSE Display Tweaks Config</translation>
     </message>
@@ -16571,6 +17480,10 @@ Appuyez sur Actualiser pour réessayer.</translation>
     <message>
         <source>Run xLODGen</source>
         <translation>Exécuter xLODGen</translation>
+    </message>
+    <message>
+        <source>Run ACMOS Road Generator</source>
+        <translation>Lancer un générateur de route ACMOS</translation>
     </message>
     <message>
         <source>Run VRAMr</source>
@@ -16677,8 +17590,12 @@ Appuyez sur Actualiser pour réessayer.</translation>
         <translation>Déployez des mods et exécutez Outfit Studio depuis le dossier Data.</translation>
     </message>
     <message>
-        <source>Download the latest Fallout 4 Steam Downgrader and run it from the game folder.</source>
-        <translation>Téléchargez le dernier Fallout 4 Steam Downgrader et exécutez-le depuis le dossier de jeu.</translation>
+        <source>Download the latest Fallout 4 Steam Downgrader (game or Creation Kit) and run it from the game folder.</source>
+        <translation>Téléchargez le dernier Fallout 4 Steam Downgrader (jeu ou kit de création) et exécutez-le à partir du dossier de jeu.</translation>
+    </message>
+    <message>
+        <source>Download the latest Skyrim Special Edition Steam Downgrader (game or Creation Kit) and run it from the game folder.</source>
+        <translation>Téléchargez le dernier Skyrim Special Edition Steam Downgrader (jeu ou kit de création) et exécutez-le à partir du dossier de jeu.</translation>
     </message>
     <message>
         <source>Download and install F4SE into the game folder.</source>
@@ -16797,6 +17714,10 @@ Appuyez sur Actualiser pour réessayer.</translation>
         <translation>Installez xLODGen, déployez des mods et exécutez xLODGenx64.exe.</translation>
     </message>
     <message>
+        <source>Install ACMOS Road Generator, choose a terrain LOD mod, and write generated road textures to ACMOS_Output.</source>
+        <translation>Installez ACMOS Road Generator, choisissez un mod LOD de terrain et écrivez les textures générées sur ACMOS Output.</translation>
+    </message>
+    <message>
         <source>Install BethINI Pie and configure Skyrim SE INI settings.</source>
         <translation>Installez BethINI Pie et configurez les paramètres Skyrim SE INI.</translation>
     </message>
@@ -16819,6 +17740,10 @@ Appuyez sur Actualiser pour réessayer.</translation>
     <message>
         <source>Scan load order for safe-to-disable plugins, then disable them or clean up orphaned SkyGen BOS/SkyPatcher INIs for plugins that must stay enabled.</source>
         <translation>Scanner l'ordre de chargement pour les plugins safe-to-disable, puis les désactiver ou nettoyer orphelin SkyGen BOS/SkyPatcher INI pour les plugins qui doivent rester activés.</translation>
+    </message>
+    <message>
+        <source>Rank mods by how many files they could pack into a BSA/BA2, and flag the ones that would break if packed.</source>
+        <translation>Classement mods par le nombre de fichiers qu'ils pourraient emballer dans un BSA/BA2, et indiquer ceux qui se casseraient si emballé.</translation>
     </message>
     <message>
         <source>Download and install SKSEVR into the game folder.</source>
@@ -16873,6 +17798,10 @@ Appuyez sur Actualiser pour réessayer.</translation>
         <translation>Configuration et installation</translation>
     </message>
     <message>
+        <source>Install Modlist</source>
+        <translation>Installer Modlist</translation>
+    </message>
+    <message>
         <source>Body and Outfits</source>
         <translation>Corps et équipement</translation>
     </message>
@@ -16903,6 +17832,10 @@ Appuyez sur Actualiser pour réessayer.</translation>
     <message>
         <source>INI Tweaks</source>
         <translation>Typologie</translation>
+    </message>
+    <message>
+        <source>NIF Viewer</source>
+        <translation>Affichage NIF</translation>
     </message>
     <message>
         <source>Other</source>

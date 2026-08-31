@@ -2,6 +2,141 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="cs" sourcelanguage="en">
 <context>
+    <name>ACMOSView</name>
+    <message>
+        <source>Run ACMOS Road Generator - {0}</source>
+        <translation>Run ACMOS Road Generator - {0}</translation>
+    </message>
+    <message>
+        <source>Step 1: Download ACMOS Road Generator</source>
+        <translation>Krok 1: Stáhnout ACMOS Road Generator</translation>
+    </message>
+    <message>
+        <source>Click the button below to open ACMOS Road Generator on Nexus Mods.
+
+Download the archive manually (do NOT use the Mod Manager download button), then click Next.</source>
+        <translation>Kliknutím na tlačítko níže otevřete ACMOS Road Generator na Nexus Mods.
+
+Stáhněte si archiv manuálně (NEPOUŽÍVEJTE tlačítko Mod Manager ke stažení) a potom klikněte na Další.</translation>
+    </message>
+    <message>
+        <source>Step 2: Locate the Archive</source>
+        <translation>Krok 2: Najít archiv</translation>
+    </message>
+    <message>
+        <source>Step 3: Extract ACMOS Road Generator</source>
+        <translation>Krok 3: Extract ACMOS Road Generator</translation>
+    </message>
+    <message>
+        <source>Step 6: Run ACMOS Road Generator</source>
+        <translation>Krok 6: Spusťte ACMOS Road Generator</translation>
+    </message>
+    <message>
+        <source>Step 4: Choose Terrain LOD Mod</source>
+        <translation>Krok 4: Vyberte Terén LOD Mod</translation>
+    </message>
+    <message>
+        <source>Choose the profile mod containing your xLODGen terrain output. Enabled and disabled mods are both listed; deployment is not required.
+
+Generated textures are written to a separate ACMOS_Output mod. Remove an old ACMOS_Output first if you want a completely clean result.</source>
+        <translation>Vyberte profil mod obsahující výstup v terénu xLODgen. Povolené i vypnuté módy jsou uvedeny v seznamu; nasazení není vyžadováno.
+
+Generované textury jsou napsány do samostatného modelu ACMOS _ Output. Odstraňte starý ACMOS _ Output, pokud chcete mít čistý výsledek.</translation>
+    </message>
+    <message>
+        <source>Terrain LOD mod:</source>
+        <translation>Terrain LOD mod:</translation>
+    </message>
+    <message>
+        <source>Search mods…</source>
+        <translation>Vyhledávání..</translation>
+    </message>
+    <message>
+        <source>Continue</source>
+        <translation>Pokračovat</translation>
+    </message>
+    <message>
+        <source>Select the ACMOS Road Generator archive</source>
+        <translation>Vyberte archív ACMOS Road Generator</translation>
+    </message>
+    <message>
+        <source>ACMOS Road Generator archive not found in Downloads.
+Make sure you downloaded it, then press Try Again,
+or use Browse to select it manually.</source>
+        <translation>Archív ACMOS Road Generator nebyl nalezen ve stažení.
+Ujistěte se, že jste si to stáhli, pak stiskněte tlačítko Zkuste to znovu,
+nebo použít Procházet pro výběr ručně.</translation>
+    </message>
+    <message>
+        <source>Step 5: Choose Proton Version</source>
+        <translation>Krok 5: Vyberte Proton verzi</translation>
+    </message>
+    <message>
+        <source>{0} was not found.
+Please restart the wizard and install ACMOS Road Generator first.</source>
+        <translation>{0} nebyl nalezen.
+Prosím, restartujte průvodce a nainstalujte ACMOS Road Generator jako první.</translation>
+    </message>
+    <message>
+        <source>Output mod: {0}</source>
+        <translation>Výstupní mód: {0}</translation>
+    </message>
+    <message>
+        <source>No mods were found in the current profile.</source>
+        <translation>V současném profilu nebyly nalezeny žádné mody.</translation>
+    </message>
+    <message>
+        <source>LOD path: {0}</source>
+        <translation>LOD cesta: {0}</translation>
+    </message>
+    <message>
+        <source>Select a Terrain LOD mod first.</source>
+        <translation>Nejprve zvolte model Terrain LOD.</translation>
+    </message>
+    <message>
+        <source>The selected mod folder no longer exists.</source>
+        <translation>Vybraná složka mod již neexistuje.</translation>
+    </message>
+    <message>
+        <source>The selected mod does not contain a textures/terrain folder. Choose the mod created from xLODGen output.</source>
+        <translation>Zvolená mod neobsahuje textury / terénní složku. Vyberte mod vytvořený z xLODgen výstupu.</translation>
+    </message>
+    <message>
+        <source>ACMOS Road Generator is not ready to run.</source>
+        <translation>ACMOS Road Generator není připraven běžet.</translation>
+    </message>
+    <message>
+        <source>Preparing ACMOS Road Generator's Wine prefix…</source>
+        <translation>Příprava předvolby ACMOS Road Generator 's Wine..</translation>
+    </message>
+    <message>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>Nelze vyřešit verzi Proton pro vlastní prefix hry - spustit hru jednou, nebo vybrat jinou volbu prefix.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>Nelze najít Proton '{0}' - zkontrolujte, zda je nainstalován ve službě Steam, Heroic nebo ProtonPlus.</translation>
+    </message>
+    <message>
+        <source>ACMOS Road Generator exited with error (code {0}).</source>
+        <translation>ACMOS Road Generator vyšel s chybou (kód {0}).</translation>
+    </message>
+    <message>
+        <source>ACMOS Road Generator finished.</source>
+        <translation>ACMOS Road Generator skončil.</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>Chyba spuštění: {0}</translation>
+    </message>
+    <message>
+        <source>ACMOS Road Generator is running.
+Choose Roads or Paths Only, click Generate, then close it when finished.</source>
+        <translation>ACMOS Road Generator běží.
+Vyberte si cesty nebo pouze cesty, klepněte na tlačítko Generovat, poté zavřete po dokončení.</translation>
+    </message>
+</context>
+<context>
     <name>AddGameView</name>
     <message>
         <source>Select a game to add</source>
@@ -25,28 +160,73 @@
     </message>
 </context>
 <context>
-    <name>BG3ImportView</name>
+    <name>AudioControls</name>
     <message>
-        <source>Load Order (*.json)</source>
-        <translation>Objednávka nákladu (* .json)</translation>
+        <source>Qt Multimedia is not installed.</source>
+        <translation>Qt Multimedia není nainstalována.</translation>
     </message>
+    <message>
+        <source>Play</source>
+        <translation>Přehrát</translation>
+    </message>
+    <message>
+        <source>Stop</source>
+        <translation>Přestaň</translation>
+    </message>
+    <message>
+        <source>Volume</source>
+        <translation>Objem</translation>
+    </message>
+    <message>
+        <source>Audio file not found.</source>
+        <translation>Audio soubor nenalezen.</translation>
+    </message>
+    <message>
+        <source>The FUZ audio stream could not be read.</source>
+        <translation>Zvukový proud FUZ nelze přečíst.</translation>
+    </message>
+    <message>
+        <source>The audio stream could not be opened.</source>
+        <translation>Audio proud nemohl být otevřen.</translation>
+    </message>
+    <message>
+        <source>Preparing…</source>
+        <translation>Příprava..</translation>
+    </message>
+    <message>
+        <source>Preparing XWM audio…</source>
+        <translation>Příprava XWM audio..</translation>
+    </message>
+    <message>
+        <source>Unavailable</source>
+        <translation>Nedostupný</translation>
+    </message>
+    <message>
+        <source>Pause</source>
+        <translation>Pauza</translation>
+    </message>
+    <message>
+        <source>This audio format could not be played.</source>
+        <translation>Tento audio formát nelze přehrát.</translation>
+    </message>
+    <message>
+        <source>Could not play this audio file.</source>
+        <translation>Nelze přehrát tento audio soubor.</translation>
+    </message>
+    <message>
+        <source>Unmute</source>
+        <translation>Neněmý</translation>
+    </message>
+    <message>
+        <source>Mute</source>
+        <translation>Ztlumit</translation>
+    </message>
+</context>
+<context>
+    <name>BG3ImportView</name>
     <message>
         <source>All files</source>
         <translation>Všechny soubory</translation>
-    </message>
-    <message>
-        <source>Import BG3MM Load Order - {0}</source>
-        <translation>Import BG3MM Load Order - {0}</translation>
-    </message>
-    <message>
-        <source>Step 1: Select a BG3 Mod Manager order file</source>
-        <translation>Krok 1: Vyberte soubor s pořadím pro BG3 Mod Manager</translation>
-    </message>
-    <message>
-        <source>Choose a modlist.json (or an exported saved-order .json) from BG3 Mod Manager.
-Mods are matched to your installed mods by UUID.</source>
-        <translation>Vyberte soubor modlist.json (nebo exportovaný soubor .json s uloženým pořadím) z aplikace BG3 Mod Manager.
-Modifikace se přiřazují k vašim nainstalovaným modifikacím podle UUID.</translation>
     </message>
     <message>
         <source>No file selected.</source>
@@ -61,8 +241,26 @@ Modifikace se přiřazují k vašim nainstalovaným modifikacím podle UUID.</tr
         <translation>Náhled →</translation>
     </message>
     <message>
-        <source>Select a BG3MM order .json</source>
-        <translation>Vyberte BG3MM objednávku .json</translation>
+        <source>Load Order (*.json *.lsx)</source>
+        <translation>Objednávka nákladu (* .json * .lsx)</translation>
+    </message>
+    <message>
+        <source>Import BG3 Load Order - {0}</source>
+        <translation>Importovat BG3 Nosnost - {0}</translation>
+    </message>
+    <message>
+        <source>Step 1: Select a load order file</source>
+        <translation>Krok 1: Vyberte soubor s objednávkou nákladu</translation>
+    </message>
+    <message>
+        <source>Choose a modlist.json (or an exported saved-order .json) from BG3 Mod Manager, or a modsettings.lsx written by the game.
+Mods are matched to your installed mods by UUID.</source>
+        <translation>Vyberte si modlist.json (nebo exportovaný saved- order .json) od BG3 Mod Manager, nebo modsettings.lsx napsaný hrou.
+Modies jsou přiřazeny k nainstalovaným modům pomocí UUID.</translation>
+    </message>
+    <message>
+        <source>Select a load order file (.json or .lsx)</source>
+        <translation>Vyberte soubor s objednávkou nákladu (.json nebo .lsx)</translation>
     </message>
     <message>
         <source>Selected: {0}</source>
@@ -97,10 +295,10 @@ Modifikace se přiřazují k vašim nainstalovaným modifikacím podle UUID.</tr
         <translation>Použito pořadí načítání</translation>
     </message>
     <message>
-        <source>The modlist has been reordered to match the BG3MM order.
+        <source>The modlist has been reordered to match the imported order.
 Deploy to push the new load order to the game.</source>
-        <translation>Seznam modů byl přeskupen tak, aby odpovídal pořadí v BG3MM.
-Spusťte příkaz „Deploy“, aby se nové pořadí načítání modů uplatnilo ve hře.</translation>
+        <translation>Modlist byl přeřazen, aby odpovídal importované objednávce.
+Vydejte nový příkaz ke hře.</translation>
     </message>
     <message>
         <source>Done</source>
@@ -782,6 +980,109 @@ Až skončíte, zavřete jej a poté klikněte na tlačítko Hotovo.</translatio
     </message>
 </context>
 <context>
+    <name>BsaPackCandidatesView</name>
+    <message>
+        <source>BSA Pack Candidates - {0}</source>
+        <translation>BSA Pack Kandidáti - {0}</translation>
+    </message>
+    <message>
+        <source>Find Pack Candidates</source>
+        <translation>Najít Pack Kandidáti</translation>
+    </message>
+    <message>
+        <source>Ranks your enabled mods by how many files they could pack into a BSA/BA2, and flags the ones that would break if packed. A file inside an archive loses to any loose file from any mod, so a mod that currently wins a conflict stops winning once it is packed.</source>
+        <translation>Pořadí vaše povolené módy podle toho, kolik souborů by mohli zabalit do BSA / BA2, a vlajky ty, které by rozbít, pokud zabaleno. Soubor uvnitř archivu prohraje s libovolným uvolněným souborem z libovolného modu, takže modem, který v současné době vyhraje, přestane konflikt vyhrávat, jakmile je zabalený.</translation>
+    </message>
+    <message>
+        <source>Start Scan</source>
+        <translation>Spustit skenování</translation>
+    </message>
+    <message>
+        <source>Scanning…</source>
+        <translation>Skenuji..</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>Chyba: {0}</translation>
+    </message>
+    <message>
+        <source>Nothing to assess - this game has no BSA/BA2 format we can write, or the profile has no mods indexed yet.</source>
+        <translation>Nic k posouzení - tato hra nemá žádný formát BSA / BA2 můžeme napsat, nebo profil nemá žádné módy indexovány ještě.</translation>
+    </message>
+    <message>
+        <source>Pack Candidates</source>
+        <translation>Kandidáti na balení</translation>
+    </message>
+    <message>
+        <source>← Re-Scan</source>
+        <translation>Η Re- scan</translation>
+    </message>
+    <message>
+        <source>{0} files</source>
+        <translation>Soubory {0}</translation>
+    </message>
+    <message>
+        <source>Open ›</source>
+        <translation>Open ›</translation>
+    </message>
+    <message>
+        <source>Over the size limit as one archive - tick "Separate textures archive" when packing.</source>
+        <translation>Přes limit velikosti jako jeden archiv - zaškrtněte "Individuální textury archiv" při balení.</translation>
+    </message>
+    <message>
+        <source>A stub plugin will be created so the archive loads.</source>
+        <translation>Name.</translation>
+    </message>
+    <message>
+        <source>Safe to pack ({0})</source>
+        <translation>Bezpečné balení ({0})</translation>
+    </message>
+    <message>
+        <source>No conflicts to lose.</source>
+        <translation>Žádné konflikty.</translation>
+    </message>
+    <message>
+        <source>Packable with care ({0})</source>
+        <translation>Packable s péčí ({0})</translation>
+    </message>
+    <message>
+        <source>Wins {0} contested file(s) - tick "Skip winning files" when packing so they stay loose.</source>
+        <translation>Vyhraje {0} napadený soubor (soubory) - zaškrtněte "Přeskočit výherní soubory" při balení, takže zůstanou volné.</translation>
+    </message>
+    <message>
+        <source>Already has an archive - loose files remain ({0})</source>
+        <translation>Již má archiv - volné soubory zůstávají ({0})</translation>
+    </message>
+    <message>
+        <source>{0} file(s) already archived.</source>
+        <translation>{0} soubor (soubory) již archivován.</translation>
+    </message>
+    <message>
+        <source>Too large for one archive ({0})</source>
+        <translation>Příliš velký pro jeden archiv ({0})</translation>
+    </message>
+    <message>
+        <source>{0} file(s) exceed the per-file size field - packing would fail.</source>
+        <translation>{0} soubor (y) překračuje pole velikosti per- souboru - balení by selhalo.</translation>
+    </message>
+    <message>
+        <source>Over the archive size limit even with textures split off.</source>
+        <translation>Přes limit velikosti archivu i s texturou oddělenou.</translation>
+    </message>
+    <message>
+        <source>Nothing to pack ({0})</source>
+        <translation>Nic na balení ({0})</translation>
+    </message>
+    <message>
+        <source>These mods ship no files the engine would load from inside an archive - plugins, script-extender DLLs, config files and anything at the mod root always stay loose.</source>
+        <translation>Tyto Mods loď žádné soubory motor by načíst zevnitř archivu - pluginy, script-extender DLL, konfigurační soubory a cokoliv na mod kořene vždy zůstat volné.</translation>
+    </message>
+    <message>
+        <source>{0} mod(s) assessed - {1} safe to pack, {2} need care, {3} already archived, {4} too large.</source>
+        <translation>{0} mod (s) hodnocen - {1} bezpečné balení, {2} potřebují péči, {3} již archivovaný, {4} příliš velký.</translation>
+    </message>
+</context>
+<context>
     <name>BsaPackOverlay</name>
     <message>
         <source>Pack {0}</source>
@@ -1193,6 +1494,22 @@ Mezipaměť MD5 zůstane zachována. Archivy se budou podle potřeby stahovat zn
         <translation>Nelze načíst.</translation>
     </message>
     <message>
+        <source>This is a Wabbajack list and cannot be installed by Amethyst. Install it with Wabbajack instead.</source>
+        <translation>Toto je seznam Wabbajack a nemůže být nainstalován Ametystem. Nainstaluj to místo Wabbajacku.</translation>
+    </message>
+    <message>
+        <source>This collection uses an unsupported format and cannot be installed by Amethyst.</source>
+        <translation>Tato sbírka používá nepodporovaný formát a nemůže být nainstalována Ametystem.</translation>
+    </message>
+    <message>
+        <source>No installable collection data.</source>
+        <translation>Žádné instalovatelné údaje o sběru.</translation>
+    </message>
+    <message>
+        <source>Unsupported collection</source>
+        <translation>Nepodporovaná sbírka</translation>
+    </message>
+    <message>
         <source>Download collection</source>
         <translation>Sbírka ke stažení</translation>
     </message>
@@ -1548,8 +1865,20 @@ Mezipaměť MD5 zůstane zachována. Archivy se budou podle potřeby stahovat zn
         <translation>Žádné ID odpalovače - předvolba se nepoužije.</translation>
     </message>
     <message>
+        <source>No prefix configured.</source>
+        <translation>Není nastavena předvolba.</translation>
+    </message>
+    <message>
         <source>Mod Staging Folder</source>
         <translation>Složka pro přípravu modů</translation>
+    </message>
+    <message>
+        <source>Searching common AppImage locations…</source>
+        <translation>Vyhledávání společných míst Appliture..</translation>
+    </message>
+    <message>
+        <source>AppImage Location (Optional)</source>
+        <translation>Umístění obrázku (nepovinné)</translation>
     </message>
     <message>
         <source>Default location will be used.</source>
@@ -1596,6 +1925,10 @@ Mezipaměť MD5 zůstane zachována. Archivy se budou podle potřeby stahovat zn
         <translation>Pevný odkaz</translation>
     </message>
     <message>
+        <source>VFS (OpenMW)</source>
+        <translation>VFS (OpenMW)</translation>
+    </message>
+    <message>
         <source>Virtual filesystem (VFS)</source>
         <translation>Virtuální souborový systém (VFS)</translation>
     </message>
@@ -1610,6 +1943,10 @@ Mezipaměť MD5 zůstane zachována. Archivy se budou podle potřeby stahovat zn
     <message>
         <source>Auto deploy (deploy automatically on enable/disable/reorder)</source>
         <translation>Automatické nasazení (automaticky aktivovat / vypnout / přeobjednat)</translation>
+    </message>
+    <message>
+        <source>Prefer AppImage</source>
+        <translation>Upřednostnit AppImage</translation>
     </message>
     <message>
         <source>Automatic archive invalidation (prefer loose files over BSAs)</source>
@@ -1724,8 +2061,40 @@ Nastavení výchozího profilu tím nebude ovlivněno.</translation>
         <translation>Prefix nalezen automaticky.</translation>
     </message>
     <message>
+        <source>AppImage not found automatically. Browse or scan to locate it.</source>
+        <translation>AppImage nenalezen automaticky. Projděte nebo skenujte, abyste ho našli.</translation>
+    </message>
+    <message>
+        <source>Configured AppImage was not found.</source>
+        <translation>Konfigurovaný AppImage nebyl nalezen.</translation>
+    </message>
+    <message>
+        <source>AppImage already configured. You can update the path below.</source>
+        <translation>AppImage již nakonfigurován. Můžete aktualizovat cestu níže.</translation>
+    </message>
+    <message>
+        <source>AppImage selected manually.</source>
+        <translation>Application Selected manual.</translation>
+    </message>
+    <message>
+        <source>Found in a common AppImage location.</source>
+        <translation>Nalezeno ve společné lokalitě Appliture.</translation>
+    </message>
+    <message>
         <source>Executable found.</source>
         <translation>Spustitelný nalezen.</translation>
+    </message>
+    <message>
+        <source>AppImage path set.</source>
+        <translation>Nastavit cestu podle obrázku.</translation>
+    </message>
+    <message>
+        <source>AppImage file not found.</source>
+        <translation>Soubor AppImage nenalezen.</translation>
+    </message>
+    <message>
+        <source>Automatic detection will be used.</source>
+        <translation>Bude použita automatická detekce.</translation>
     </message>
     <message>
         <source>Custom saves folder selected.</source>
@@ -1748,6 +2117,18 @@ Nastavení výchozího profilu tím nebude ovlivněno.</translation>
         <translation>Aktuální: {0}</translation>
     </message>
     <message>
+        <source>native Linux</source>
+        <translation>nativní Linux</translation>
+    </message>
+    <message>
+        <source>Windows/Proton</source>
+        <translation>Windows / Proton</translation>
+    </message>
+    <message>
+        <source>Native Linux build selected; no Proton prefix will be used.</source>
+        <translation>Native Linux build selected; nebude použita žádná prefix Proton.</translation>
+    </message>
+    <message>
         <source>No executable name configured for this game.</source>
         <translation>Pro tuto hru není nakonfigurován žádný spustitelný název.</translation>
     </message>
@@ -1764,6 +2145,10 @@ Nastavení výchozího profilu tím nebude ovlivněno.</translation>
         <translation>Hra spustitelná nebyla nalezena na žádném disku.</translation>
     </message>
     <message>
+        <source>OpenMW AppImage not found on any drive.</source>
+        <translation>OpenMW AppImage nenalezen na žádném disku.</translation>
+    </message>
+    <message>
         <source>Scanning for Proton prefix…</source>
         <translation>Vyhledávání předpony „Proton“…</translation>
     </message>
@@ -1776,12 +2161,20 @@ Nastavení výchozího profilu tím nebude ovlivněno.</translation>
         <translation>Nejprve nastavte instalační složku hry.</translation>
     </message>
     <message>
+        <source>The mod staging folder cannot be the game folder or be inside it. Choose a separate location.</source>
+        <translation>Složka mod staging nemůže být herní složkou nebo být uvnitř. Vyberte si jiné místo.</translation>
+    </message>
+    <message>
         <source>This path is not visible inside the Flatpak sandbox. Grant access in Flatseal or run: {0}</source>
         <translation>Tato cesta není viditelná uvnitř sandboxu Flatpak. Udělejte přístup v Flatsealu nebo spusťte: {0}</translation>
     </message>
     <message>
         <source>Cannot change the game/prefix path while mods are deployed. Restore the game first.</source>
         <translation>Cestu ke hře/předponu nelze změnit, dokud jsou nainstalovány mody. Nejprve hru obnovte.</translation>
+    </message>
+    <message>
+        <source>Restore the game before changing the preferred OpenMW package.</source>
+        <translation>Obnovit hru před změnou preferovaného balíčku OpenMW.</translation>
     </message>
     <message>
         <source>Cannot change the deploy method while mods are deployed. Restore the game first.</source>
@@ -2704,6 +3097,66 @@ Po dokončení aplikace přepne na nový profil - pak se sem vraťte a stisknět
         <translation>Je-li tato funkce zapnutá (výchozí nastavení), názvy složek v různých modech, které se liší pouze velkými a malými písmeny, se sjednotí na jednotný způsob psaní. Tuto funkci vypněte u her nativních pro Linux, u nichž je způsob psaní názvů složek důležitý.</translation>
     </message>
     <message>
+        <source>VC++ Redistributable (x64)</source>
+        <translation>VC + + volitelné (x64)</translation>
+    </message>
+    <message>
+        <source>.NET {0} Desktop Runtime</source>
+        <translation>.NET {0} Proud plochy</translation>
+    </message>
+    <message>
+        <source>d3dcompiler_47 (shader compiler)</source>
+        <translation>d3dcompiler _ 47 (shader compiler)</translation>
+    </message>
+    <message>
+        <source>LAV Filters (DirectShow codecs)</source>
+        <translation>LAV filtry (kodeky DirectShow)</translation>
+    </message>
+    <message>
+        <source>d3dx9 (all legacy DirectX 9 runtimes)</source>
+        <translation>d3dx9 (všechny odkazy DirectX 9 runtimes)</translation>
+    </message>
+    <message>
+        <source>d3dx10 (all legacy DirectX 10 runtimes)</source>
+        <translation>d3dx10 (všechny odkazy DirectX 10 runtimes)</translation>
+    </message>
+    <message>
+        <source>d3dx9_43 (legacy DirectX 9 runtime)</source>
+        <translation>d3dx9 _ 43 (odkaz DirectX 9 runtime)</translation>
+    </message>
+    <message>
+        <source>d3dx10_43 (legacy DirectX 10 runtime)</source>
+        <translation>d3dx10 _ 43 (odkaz DirectX 10 runtime)</translation>
+    </message>
+    <message>
+        <source>d3dx11_42 (legacy DirectX 11 runtime)</source>
+        <translation>d3dx11 _ 42 (odkaz DirectX 11 runtime)</translation>
+    </message>
+    <message>
+        <source>d3dx11_43 (legacy DirectX 11 runtime)</source>
+        <translation>d3dx11 _ 43 (odkaz DirectX 11 runtime)</translation>
+    </message>
+    <message>
+        <source>d3dcompiler_42 (legacy shader compiler)</source>
+        <translation>d3dcompiler _ 42 (editory shader compiler)</translation>
+    </message>
+    <message>
+        <source>d3dcompiler_43 (legacy shader compiler)</source>
+        <translation>d3dcompiler _ 43 (editor skladatele)</translation>
+    </message>
+    <message>
+        <source>d3dcompiler_46 (legacy shader compiler)</source>
+        <translation>d3dcompiler _ 46 (editory shader compiler)</translation>
+    </message>
+    <message>
+        <source>quartz (DirectShow runtime)</source>
+        <translation>křemen (runtime DirectShow)</translation>
+    </message>
+    <message>
+        <source>dx8vb (DirectX 8 Visual Basic runtime)</source>
+        <translation>dx8vb (DirectX 8 Vizuální základní runtime)</translation>
+    </message>
+    <message>
         <source>Edit Custom Game</source>
         <translation>Upravit vlastní hru</translation>
     </message>
@@ -2896,8 +3349,40 @@ Po dokončení aplikace přepne na nový profil - pak se sem vraťte a stisknět
         <translation>např. MyGame.exe nebo Bin / x64 / MyGame.exe</translation>
     </message>
     <message>
+        <source>e.g. MyGame.x86_64, Bin/alternate-launcher.exe</source>
+        <translation>např. MyGame.x86 _ 64, Bin / alternate-launcher.exe</translation>
+    </message>
+    <message>
+        <source>Additional Executables</source>
+        <translation>Dodatečné vykonatelné</translation>
+    </message>
+    <message>
+        <source>Comma-separated alternate executable paths relative to the game root. Use these for native Linux builds or store-specific executables.</source>
+        <translation>Komma- oddělené alternativní spustitelné cesty vzhledem ke kořenu hry. Používejte je pro nativní Linux builds nebo skladovací-specific exputable.</translation>
+    </message>
+    <message>
         <source>Deployment</source>
         <translation>Nasazení</translation>
+    </message>
+    <message>
+        <source>Windows Prefix</source>
+        <translation>Předpona Windows</translation>
+    </message>
+    <message>
+        <source>None selected</source>
+        <translation>Žádné vybrané</translation>
+    </message>
+    <message>
+        <source>{0} dependencies selected</source>
+        <translation>Vybrané závislosti {0}</translation>
+    </message>
+    <message>
+        <source>Auto-install Dependencies</source>
+        <translation>Automaticky instalovat závislostí</translation>
+    </message>
+    <message>
+        <source>Selected components are installed automatically after the game and prefix configuration is saved. They are skipped when no Windows prefix is configured and are also shown in Prefix Health Check.</source>
+        <translation>Vybrané komponenty jsou nainstalovány automaticky po uložení konfigurace předvolby. Jsou přeskočeny, když není nastavena předvolba Windows a jsou také zobrazeny v Prefix Kontrola zdraví.</translation>
     </message>
     <message>
         <source>Store &amp; Artwork</source>
@@ -3036,6 +3521,30 @@ Po dokončení aplikace přepne na nový profil - pak se sem vraťte a stisknět
     <message>
         <source>{0} - {1} files in {2} mods</source>
         <translation>{0} - Soubory s příponou {1} v modelech {2}</translation>
+    </message>
+    <message>
+        <source>Open in File Browser</source>
+        <translation>Otevřít v prohlížeči souborů</translation>
+    </message>
+    <message>
+        <source>Open in Text Editor</source>
+        <translation>Otevřít v textovém editoru</translation>
+    </message>
+    <message>
+        <source>Open in NIF Viewer</source>
+        <translation>Otevřít v prohlížeči NIF</translation>
+    </message>
+    <message>
+        <source>Play Audio</source>
+        <translation>Přehrát zvuk</translation>
+    </message>
+    <message>
+        <source>Play Video</source>
+        <translation>Přehrát video</translation>
+    </message>
+    <message>
+        <source>Inspect Archive</source>
+        <translation>Prohlédnout archiv</translation>
     </message>
 </context>
 <context>
@@ -4375,93 +4884,6 @@ To je v pořádku pro vaši vlastní zálohu. Nesdílejte ani nenahrávejte soub
     </message>
 </context>
 <context>
-    <name>Fallout4DowngraderView</name>
-    <message>
-        <source>Downgrade Fallout 4 - {0}</source>
-        <translation>Downgrade Fallout 4 - {0}</translation>
-    </message>
-    <message>
-        <source>Step 1: Download Fallout 4 Downgrader</source>
-        <translation>Krok 1: Stáhnout Fallout 4 Downgrader</translation>
-    </message>
-    <message>
-        <source>The newest release containing the Fallout 4 Steam Downgrader will be downloaded from MulderLoad on GitHub and placed in the game folder.
-
-No modlist deploy is required.</source>
-        <translation>Nejnovější verze obsahující Fallout 4 Steam Downgrader bude stažena z MulderLoad na GitHub a umístěna ve herní složce.
-
-Není vyžadováno žádné rozmístění podle seznamu.</translation>
-    </message>
-    <message>
-        <source>Step 3: Run Fallout 4 Downgrader</source>
-        <translation>Krok 3: Spustit Fallout 4 Downgrader</translation>
-    </message>
-    <message>
-        <source>Step 2: Choose Proton Version</source>
-        <translation>Krok 2: Vyberte Proton verzi</translation>
-    </message>
-    <message>
-        <source>The Fallout 4 Steam Downgrader was not downloaded.
-Close and reopen the wizard to try again.</source>
-        <translation>Downgrader Fallout 4 nebyl stažen.
-Zavřít a znovu otevřít průvodce vyzkoušet znovu.</translation>
-    </message>
-    <message>
-        <source>Game path is not configured.</source>
-        <translation>Cesta ke hře není nastavena.</translation>
-    </message>
-    <message>
-        <source>Searching MulderLoad releases…</source>
-        <translation>Vyhledávání výloh MulderLoad..</translation>
-    </message>
-    <message>
-        <source>Downloading {0}…</source>
-        <translation>Stahuji {0}..</translation>
-    </message>
-    <message>
-        <source>The downgrader download did not create {0}.</source>
-        <translation>Stáhlo se {0}.</translation>
-    </message>
-    <message>
-        <source>Downloaded {0} to the game folder.</source>
-        <translation>Stáhnout {0} do herní složky.</translation>
-    </message>
-    <message>
-        <source>Download error: {0}</source>
-        <translation>Chyba při stahování: {0}</translation>
-    </message>
-    <message>
-        <source>{0} was not found in the game folder.</source>
-        <translation>{0} nebyl nalezen ve složce hry.</translation>
-    </message>
-    <message>
-        <source>Launching Fallout 4 Downgrader…</source>
-        <translation>Spouštím Fallout 4 Downgrader..</translation>
-    </message>
-    <message>
-        <source>Could not determine a Proton version for Fallout 4.</source>
-        <translation>Nelze určit verzi Proton pro Fallout4.</translation>
-    </message>
-    <message>
-        <source>Fallout 4 Downgrader is running.
-Follow its prompts, then close it when finished.</source>
-        <translation>Fallout 4 Downgrader běží.
-Postupujte podle jeho pokynů, pak zavřete ji po dokončení.</translation>
-    </message>
-    <message>
-        <source>Fallout 4 Downgrader finished. Click Done to close.</source>
-        <translation>Fallout 4 Downgrader skončil. Klepněte na tlačítko Hotovo pro uzavření.</translation>
-    </message>
-    <message>
-        <source>Fallout 4 Downgrader exited with code {0}. See the log for details.</source>
-        <translation>Fallout 4 Downgrader vyšel s kódem {0}. Podrobnosti naleznete v deníku.</translation>
-    </message>
-    <message>
-        <source>Launch error: {0}</source>
-        <translation>Chyba spuštění: {0}</translation>
-    </message>
-</context>
-<context>
     <name>FalloutDowngradeView</name>
     <message>
         <source>Downgrade Fallout 3 - {0}</source>
@@ -4797,6 +5219,10 @@ Klikněte na Hotovo pro vyčištění extrahovaných souborů a zavřít.</trans
         <translation>Moje hry</translation>
     </message>
     <message>
+        <source>Logs</source>
+        <translation>Záznamy</translation>
+    </message>
+    <message>
         <source>Clear all</source>
         <translation>Vymazat vše</translation>
     </message>
@@ -4908,6 +5334,53 @@ Může být již upravena. Ověřit herní soubory ve službě Steam / Heroic z�
     <message>
         <source>Restore failed: {0}</source>
         <translation>Obnovení selhalo: {0}</translation>
+    </message>
+</context>
+<context>
+    <name>FomodChoicesView</name>
+    <message>
+        <source>Option</source>
+        <translation>Možnost</translation>
+    </message>
+    <message>
+        <source>Description</source>
+        <translation>Popis</translation>
+    </message>
+    <message>
+        <source>Reading saved choices…</source>
+        <translation>Čtení ušetřených možností..</translation>
+    </message>
+    <message>
+        <source>FOMOD Choices: {0}</source>
+        <translation>Volby FOMOD: {0}</translation>
+    </message>
+    <message>
+        <source>No saved FOMOD choices for this mod.</source>
+        <translation>Žádné ušetřené volby FOMOD pro tento modd.</translation>
+    </message>
+    <message>
+        <source>The installer recorded no selections for this mod.</source>
+        <translation>Instalátor nezaznamenal žádnou volbu tohoto modu.</translation>
+    </message>
+    <message>
+        <source>Installer config not saved for this mod - showing the recorded selections only.</source>
+        <translation>Konfig Installer není uložen pro tento mod- zobrazuje pouze zaznamenané volby.</translation>
+    </message>
+    <message>
+        <source>(no choices recorded)</source>
+        <translation>(nezaznamenané žádné volby)</translation>
+    </message>
+    <message>
+        <source>Step {0}: {1}</source>
+        <translation>Krok {0}: {1}</translation>
+    </message>
+    <message>
+        <source>Step {0}</source>
+        <translation>Krok {0}</translation>
+    </message>
+    <message>
+        <source>(unnamed group)</source>
+        <translation>(nejmenovaná skupina)</translation>
     </message>
 </context>
 <context>
@@ -5220,8 +5693,12 @@ Může být již upravena. Ověřit herní soubory ve službě Steam / Heroic z�
         <translation>např. SteamDeck = 0 gamemoderun% příkaz%</translation>
     </message>
     <message>
-        <source>Steam syntax. Empty: the game's own Steam options are used.</source>
-        <translation>Syntaxe páry. Prázdný: jsou použity vlastní možnosti služby Steam.</translation>
+        <source>Steam syntax. When set, the manager launches the game directly so these options apply. Empty: the game's own launcher options are used.</source>
+        <translation>Syntaxe páry. Když je nastaveno, manažer spustí hru přímo, takže tyto možnosti platí. Prázdný: jsou použity možnosti vlastního spouštěče hry.</translation>
+    </message>
+    <message>
+        <source>Launch with wayland</source>
+        <translation>Start s Wayland</translation>
     </message>
     <message>
         <source>Deploy mods before launching</source>
@@ -7460,6 +7937,10 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
         <translation>Nainstalované mody pro hru „{0}“</translation>
     </message>
     <message>
+        <source>Prefer AppImage</source>
+        <translation>Upřednostnit AppImage</translation>
+    </message>
+    <message>
         <source>Download Manifest…</source>
         <translation>Stáhnout Manifest..</translation>
     </message>
@@ -7564,6 +8045,10 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
         <translation>Rychlé stažení aktualizace zrušeno.</translation>
     </message>
     <message>
+        <source>FOMOD: {0}</source>
+        <translation>FOMOD: {0}</translation>
+    </message>
+    <message>
         <source>Conflict data is still building.</source>
         <translation>Konfliktní data se stále hromadí.</translation>
     </message>
@@ -7616,8 +8101,38 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
         <translation>Extrakce / instalace</translation>
     </message>
     <message>
+        <source>Restore the game before changing the preferred OpenMW package.</source>
+        <translation>Obnovit hru před změnou preferovaného balíčku OpenMW.</translation>
+    </message>
+    <message>
+        <source>Wizard Settings…</source>
+        <translation>Nastavení průvodce..</translation>
+    </message>
+    <message>
+        <source>Reset wizard tools that automatically reuse their saved Proton settings.</source>
+        <translation>Obnovit průvodce nástroje, které automaticky znovu použijí jejich uložená nastavení Proton.</translation>
+    </message>
+    <message>
         <source>No QuickAutoClean tool is available for this game.</source>
         <translation>Pro tuto hru není k dispozici žádný nástroj QuickAutoClean.</translation>
+    </message>
+    <message>
+        <source>Tool still running</source>
+        <translation>Nástroj stále běží</translation>
+    </message>
+    <message>
+        <source>This tab still has a tool running. Close the tool too?
+The tab closes either way; choosing Leave running keeps the tool alive until you quit Amethyst.</source>
+        <translation>Tato karta má stále spuštěný nástroj. Zavřít i nástroj?
+Karta se uzavírá tak či onak; volba Ponechat běh udržuje nástroj naživu, dokud neskončíte s Ametystem.</translation>
+    </message>
+    <message>
+        <source>Close tool</source>
+        <translation>Zavřít nástroj</translation>
+    </message>
+    <message>
+        <source>Leave running</source>
+        <translation>Nech běžet</translation>
     </message>
     <message>
         <source>Preparing extraction…</source>
@@ -7946,6 +8461,10 @@ Rozmístit?</translation>
     <message>
         <source>Overrides</source>
         <translation>Overrids</translation>
+    </message>
+    <message>
+        <source>File location</source>
+        <translation>Umístění souboru</translation>
     </message>
     <message>
         <source>Log</source>
@@ -8331,6 +8850,22 @@ Jak by se ti líbilo zvládnout stávající mód?</translation>
     <message>
         <source>Disable</source>
         <translation>Zakázat</translation>
+    </message>
+    <message>
+        <source>The mod's files and folders as they are packaged in the archive.</source>
+        <translation>Mod soubory a složky, jak jsou baleny v archivu.</translation>
+    </message>
+    <message>
+        <source>Promote this folder's contents up to the top of the mod, stripping the wrapper folders above it. Use this when a mod is packaged one or more folders too deep, so its files land in the right place on deploy.</source>
+        <translation>Podporovat obsah této složky až do horní části modu, stripování složek obalů nad ním. Použijte to, když je mod zabaleno jeden nebo více složek příliš hluboko, takže jeho soubory přistávají na správném místě při nasazení.</translation>
+    </message>
+    <message>
+        <source>Deploy this file or folder to the game's root folder (next to the game executable) instead of the game's data folder. Use this for loaders, DLLs and INIs that belong beside the .exe.</source>
+        <translation>Umístěte tento soubor nebo složku do kořenové složky hry (vedle spustitelné hry) místo složky dat hry. Použijte to pro nakladače, DLL a INI, které patří vedle .ex.</translation>
+    </message>
+    <message>
+        <source>Whether this file or folder is deployed. Unchecked excludes it: it stays in the mod but is never written to the game, so it cannot win conflicts.</source>
+        <translation>Zda je tento soubor nebo složka nasazena. Nekontrolovaný vylučuje: zůstává v módu, ale nikdy není napsán do hry, takže nemůže vyhrát konflikty.</translation>
     </message>
 </context>
 <context>
@@ -9070,6 +9605,131 @@ nebo zašifrovaný soubor, není-li k dispozici klíčenka).</translation>
     <message>
         <source>Cancel</source>
         <translation>Zrušit</translation>
+    </message>
+</context>
+<context>
+    <name>MulderLoadDowngraderView</name>
+    <message>
+        <source>Downgrade {0} - {1}</source>
+        <translation>Snižování {0} - {1}</translation>
+    </message>
+    <message>
+        <source>{0} Steam Downgrader</source>
+        <translation>{0} Downgrader</translation>
+    </message>
+    <message>
+        <source>Step 2: Download Downgrader</source>
+        <translation>Krok 2: Stáhnout Downgrader</translation>
+    </message>
+    <message>
+        <source>The newest release containing the selected downgrader will be downloaded from MulderLoad on GitHub and placed in the game folder.
+
+No modlist deploy is required.</source>
+        <translation>Nejnovější verze obsahující vybraný downgrader bude stažena z MulderLoad na GitHub a umístěna do herní složky.
+
+Není vyžadováno žádné rozmístění podle seznamu.</translation>
+    </message>
+    <message>
+        <source>Step 4: Run Downgrader</source>
+        <translation>Krok 4: Spustit Downgrader</translation>
+    </message>
+    <message>
+        <source>Step 1: Choose Downgrader</source>
+        <translation>Krok 1: Zvolte Downgrader</translation>
+    </message>
+    <message>
+        <source>The game and its Creation Kit are downgraded by separate installers. Pick which one to download and run.</source>
+        <translation>Hra a její Kit pro tvorbu jsou sníženy samostatnými instalatéry. Vyberte si, který stáhnout a spustit.</translation>
+    </message>
+    <message>
+        <source>{0} (game)</source>
+        <translation>{0} (hra)</translation>
+    </message>
+    <message>
+        <source>Creation Kit</source>
+        <translation>Vytvořit kit</translation>
+    </message>
+    <message>
+        <source>Next</source>
+        <translation>Další</translation>
+    </message>
+    <message>
+        <source>{0} Creation Kit Steam Downgrader</source>
+        <translation>Name</translation>
+    </message>
+    <message>
+        <source>Step 3: Choose Proton Version</source>
+        <translation>Krok 3: Vyberte Proton verzi</translation>
+    </message>
+    <message>
+        <source>The {0} was not downloaded.
+Close and reopen the wizard to try again.</source>
+        <translation>{0} nebyl stažen.
+Zavřít a znovu otevřít průvodce vyzkoušet znovu.</translation>
+    </message>
+    <message>
+        <source>Game path is not configured.</source>
+        <translation>Cesta ke hře není nastavena.</translation>
+    </message>
+    <message>
+        <source>Searching MulderLoad releases…</source>
+        <translation>Vyhledávání výloh MulderLoad..</translation>
+    </message>
+    <message>
+        <source>Downloading {0}…</source>
+        <translation>Stahuji {0}..</translation>
+    </message>
+    <message>
+        <source>The downgrader download did not create {0}.</source>
+        <translation>Stáhlo se {0}.</translation>
+    </message>
+    <message>
+        <source>Downloaded {0} to the game folder.</source>
+        <translation>Stáhnout {0} do herní složky.</translation>
+    </message>
+    <message>
+        <source>Download error: {0}</source>
+        <translation>Chyba při stahování: {0}</translation>
+    </message>
+    <message>
+        <source>{0} was not found in the game folder.</source>
+        <translation>{0} nebyl nalezen ve složce hry.</translation>
+    </message>
+    <message>
+        <source>Launching {0}…</source>
+        <translation>Spouštím {0}..</translation>
+    </message>
+    <message>
+        <source>Could not determine a Proton version for {0}.</source>
+        <translation>Nelze určit verzi Proton pro {0}.</translation>
+    </message>
+    <message>
+        <source>{0} is running.
+Follow its prompts, then close it when finished.</source>
+        <translation>{0} běží.
+Postupujte podle jeho pokynů, pak zavřete ji po dokončení.</translation>
+    </message>
+    <message>
+        <source>
+
+Your modlist was restored before downgrading - use Deploy to put it back.</source>
+        <translation>Váš modlist byl obnoven před zhoršením - použít Deploy dát zpět.</translation>
+    </message>
+    <message>
+        <source>{0} finished. Click Done to close.</source>
+        <translation>{0} skončil. Klepněte na tlačítko Hotovo pro uzavření.</translation>
+    </message>
+    <message>
+        <source>{0} exited with code {1}. See the log for details.</source>
+        <translation>{0} odešel s kódem {1}. Podrobnosti naleznete v deníku.</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>Chyba spuštění: {0}</translation>
+    </message>
+    <message>
+        <source>{0} is running - close it to continue.</source>
+        <translation>{0} běží - zavřete ho a pokračujte.</translation>
     </message>
 </context>
 <context>
@@ -10908,6 +11568,10 @@ Přeskenujte to.</translation>
         <source>Version mismatched masters:</source>
         <translation>Verze neshody mistrů:</translation>
     </message>
+    <message>
+        <source>This plugin is classified as OpenMW groundcover. When enabled, it loads as groundcover instead of normal content. OpenMW's settings.cfg must also contain [Groundcover] enabled = true.</source>
+        <translation>Tento plugin je klasifikován jako OpenMW pozemní pokrytí. Když je zapnuto, načte se jako podklad místo normálního obsahu. OpenMW 's settings.cfg musí také obsahovat [Groundcover] povoleno = true.</translation>
+    </message>
 </context>
 <context>
     <name>PluginGroupsView</name>
@@ -10991,6 +11655,10 @@ Přeskenujte to.</translation>
         <translation>Povolit vybrané ({0})</translation>
     </message>
     <message>
+        <source>Groundcover setting save failed: {0}</source>
+        <translation>Nastavení územního krytu selhalo: {0}</translation>
+    </message>
+    <message>
         <source>Mark as Light (ESL)</source>
         <translation>Označit jako „Light“ (ESL)</translation>
     </message>
@@ -11005,6 +11673,14 @@ Přeskenujte to.</translation>
     <message>
         <source>Not ESL-safe (per LOOT - compact in xEdit first)</source>
         <translation>Není ESL- safe (per LOOT - compact in xEdit first)</translation>
+    </message>
+    <message>
+        <source>Open LOOT message link</source>
+        <translation>Otevřít odkaz na zprávu LOOT</translation>
+    </message>
+    <message>
+        <source>Open LOOT message link…</source>
+        <translation>Otevřít odkaz na zprávu LOOT..</translation>
     </message>
     <message>
         <source>Remove ESL flag (un-light)</source>
@@ -11033,6 +11709,22 @@ Přeskenujte to.</translation>
     <message>
         <source>Show userlist rules…</source>
         <translation>Zobrazit pravidla seznamu uživatelů…</translation>
+    </message>
+    <message>
+        <source>Use as normal OpenMW content</source>
+        <translation>Použití jako normální obsah OpenMW</translation>
+    </message>
+    <message>
+        <source>Use as OpenMW groundcover</source>
+        <translation>Použití jako základní kryt OpenMW</translation>
+    </message>
+    <message>
+        <source>Use selected as normal OpenMW content ({0})</source>
+        <translation>Použití jako normální OpenMW obsah ({0})</translation>
+    </message>
+    <message>
+        <source>Use selected as OpenMW groundcover ({0})</source>
+        <translation>Použít jako základní kryt OpenMW ({0})</translation>
     </message>
 </context>
 <context>
@@ -11121,6 +11813,10 @@ Chcete-li přidat pravidlo, přetáhněte plugin z levého panelu.</translation>
     <message>
         <source>Fix</source>
         <translation>Oprava</translation>
+    </message>
+    <message>
+        <source>.NET {0} Desktop Runtime</source>
+        <translation>.NET {0} Proud plochy</translation>
     </message>
     <message>
         <source>Proton prefix</source>
@@ -11303,6 +11999,13 @@ Chcete-li přidat pravidlo, přetáhněte plugin z levého panelu.</translation>
     </message>
 </context>
 <context>
+    <name>Profile</name>
+    <message>
+        <source>Default</source>
+        <translation>Výchozí</translation>
+    </message>
+</context>
+<context>
     <name>ProfileGroupsView</name>
     <message>
         <source>Profile Groups</source>
@@ -11478,6 +12181,10 @@ Jeho uvedené módy jsou zkopírovány do vlastní složky mods profilu (pokud m
         <translation>Nastavení profilu</translation>
     </message>
     <message>
+        <source>  (default)</source>
+        <translation>(přednastaveno)</translation>
+    </message>
+    <message>
         <source>Rename</source>
         <translation>Přejmenovat</translation>
     </message>
@@ -11540,32 +12247,12 @@ Jeho uvedené módy jsou zkopírovány do vlastní složky mods profilu (pokud m
         <translation>Každá verze dostane svou vlastní prefix; závislosti jsou do ní nainstalovány automaticky na dalším kroku.</translation>
     </message>
     <message>
-        <source>No Proton versions were found.
-
-Install a Proton version in Steam (or with Heroic's Wine Manager), then reopen this wizard.</source>
-        <translation>Nebyly nalezeny žádné verze Protonu.
-
-Nainstalujte verzi Proton do služby Steam (nebo pomocí Heroic 's Wine Manager) a poté znovu otevřete tento průvodce.</translation>
-    </message>
-    <message>
-        <source>{0} runs in its own Wine prefix, stored next to its exe and separate from the game's prefix, so you can pick any Proton version without affecting the game.
-
-</source>
-        <translation>{0} běží ve své vlastní prefix vína, uložený vedle svého exe a oddělený od herní prefix, takže si můžete vybrat jakoukoliv verzi Proton, aniž by to ovlivnilo hru.
-
-.</translation>
+        <source>{0} runs in its own Wine prefix, stored next to its exe and separate from the game's prefix, so you can pick any Proton version without affecting the game.</source>
+        <translation>{0} běží ve své vlastní prefix vína, uložený vedle svého exe a oddělený od herní prefix, takže si můžete vybrat jakoukoliv verzi Proton, aniž by to ovlivnilo hru.</translation>
     </message>
     <message>
         <source>Prefer discrete GPU (hybrid systems)</source>
         <translation>Preferovat diskrétní GPU (hybridní systémy)</translation>
-    </message>
-    <message>
-        <source>Expose the discrete GPU as adapter 0. May use more power.</source>
-        <translation>Odhalte diskrétní GPU jako adaptér 0. Může použít více energie.</translation>
-    </message>
-    <message>
-        <source>Uses the discrete GPU for texconv; falls back to CPU if unavailable.</source>
-        <translation>Používá diskrétní GPU pro texconv; spadá zpět na CPU, pokud není k dispozici.</translation>
     </message>
     <message>
         <source>Use shared prefix</source>
@@ -11588,8 +12275,36 @@ Nainstalujte verzi Proton do služby Steam (nebo pomocí Heroic 's Wine Manager)
         <translation>Start s prostým vínem (ve stylu vinaře)</translation>
     </message>
     <message>
-        <source>Use Winetricks style launch</source>
-        <translation>Použít Winetricks styl spuštění</translation>
+        <source>The saved game prefix is unavailable. Choose another prefix setting.</source>
+        <translation>Uložená prefix hry není k dispozici. Vyberte jiné nastavení prefixu.</translation>
+    </message>
+    <message>
+        <source>No Proton versions were found. Install one through Steam or Heroic, or add a custom Proton build below.</source>
+        <translation>Nebyly nalezeny žádné verze Protonu. Nainstalujte jeden přes Steam nebo Heroic, nebo přidejte vlastní Proton stavět níže.</translation>
+    </message>
+    <message>
+        <source>The saved Proton selection is incomplete. Choose a Proton version.</source>
+        <translation>Uložený výběr Protonu je neúplný. Vyberte si verzi Proton.</translation>
+    </message>
+    <message>
+        <source>The saved Proton version '{0}' is no longer installed. Choose another version.</source>
+        <translation>Uložená verze Proton '{0}' již není nainstalována. Vyberte si jinou verzi.</translation>
+    </message>
+    <message>
+        <source>Run this tool with plain Wine against the selected prefix instead of starting a Proton session.</source>
+        <translation>Spusťte tento nástroj s prostým vínem proti zvolené prefix místo spuštění Proton relace.</translation>
+    </message>
+    <message>
+        <source>Expose the discrete GPU as adapter 0 for texconv. This may use more power and falls back to the CPU if unavailable.</source>
+        <translation>Odhalte diskrétní GPU jako adaptér 0 pro texconv. To může použít více energie a spadne zpět na CPU, pokud není k dispozici.</translation>
+    </message>
+    <message>
+        <source>Add Custom Build</source>
+        <translation>Přidat vlastní sestavení</translation>
+    </message>
+    <message>
+        <source>Select a complete Proton build folder containing the top-level 'proton' launcher. Do not select files/bin/wine.</source>
+        <translation>Vyberte kompletní složku Proton build obsahující odpalovač nejvyšší úrovně 'proton'. Nevybírejte soubory / bin / víno.</translation>
     </message>
     <message>
         <source>Delete Prefix</source>
@@ -11616,12 +12331,56 @@ Nainstalujte verzi Proton do služby Steam (nebo pomocí Heroic 's Wine Manager)
         <translation>např. PROTON_USE_WINED3D=1 WINEDLLOVERRIDES=dinput8=n,b</translation>
     </message>
     <message>
+        <source>Always use these settings</source>
+        <translation>Vždy používejte tato nastavení</translation>
+    </message>
+    <message>
+        <source>Skip this Proton step on future runs and reuse the saved values. Reset it from Wizard &gt; Wizard Settings.</source>
+        <translation>Přeskočit tento krok Proton na budoucích bězích a znovu použít uložené hodnoty. Obnovit z Čaroděje &gt; Nastavení průvodce.</translation>
+    </message>
+    <message>
         <source>Continue</source>
         <translation>Pokračovat</translation>
     </message>
     <message>
+        <source>Select custom Proton build folder</source>
+        <translation>Vybrat vlastní složku Proton build</translation>
+    </message>
+    <message>
+        <source>The selected folder does not contain a top-level 'proton' launcher.</source>
+        <translation>Zvolená složka neobsahuje odpalovač 'protonové' nejvyšší úrovně.</translation>
+    </message>
+    <message>
+        <source>Custom Proton build added: {0}</source>
+        <translation>Přidána vlastní konstrukce protonů: {0}</translation>
+    </message>
+    <message>
         <source>Using the game's existing prefix - Proton version follows the game's Steam setting and no new prefix is created.</source>
         <translation>Použitím stávající prefix hry - Proton verze následuje nastavení hry Steam a není vytvořen žádný nový prefix.</translation>
+    </message>
+    <message>
+        <source>Select or add a Proton build before continuing.</source>
+        <translation>Před pokračováním zvolte nebo přidejte Proton build.</translation>
+    </message>
+    <message>
+        <source>Use custom Proton build?</source>
+        <translation>Použít vlastní Proton build?</translation>
+    </message>
+    <message>
+        <source>This Proton build was added manually and is outside Amethyst's supported configurations. Support cannot be provided for issues that occur while using it.
+
+Continue with {0}?</source>
+        <translation>Tato konstrukce Proton byla přidána ručně a je mimo podporované konfigurace Ametystu. Podpora nemůže být poskytnuta na otázky, které se při jejím používání vyskytují.
+
+Pokračovat s {0}?</translation>
+    </message>
+    <message>
+        <source>Use Custom Build</source>
+        <translation>Použít vlastní sestavení</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Zrušit</translation>
     </message>
     <message>
         <source>A prefix already exists for this version. Delete it if {0}
@@ -13447,6 +14206,22 @@ ametyst.flatpakrepo</translation>
         <translation>Zavřít</translation>
     </message>
     <message>
+        <source>Toolbar position</source>
+        <translation>Poloha nástrojové lišty</translation>
+    </message>
+    <message>
+        <source>Top</source>
+        <translation>Nahoře</translation>
+    </message>
+    <message>
+        <source>Left side</source>
+        <translation>Levá strana</translation>
+    </message>
+    <message>
+        <source>Right side</source>
+        <translation>Pravá strana</translation>
+    </message>
+    <message>
         <source>Reset dismissed prompts…</source>
         <translation>Obnovit zamítnuté výzvy..</translation>
     </message>
@@ -13489,6 +14264,14 @@ ametyst.flatpakrepo</translation>
     <message>
         <source>Reset</source>
         <translation>Obnovit</translation>
+    </message>
+    <message>
+        <source>Custom Proton Build</source>
+        <translation>Vlastní protonová sestava</translation>
+    </message>
+    <message>
+        <source>Additional Proton build not found automatically. Select the build folder containing the top-level 'proton' launcher, not files/bin/wine. Blank disables it.</source>
+        <translation>Dodatečná konstrukce Protonu nebyla nalezena automaticky. Zvolte složku pro sestavení obsahující odpalovač nejvyšší úrovně 'proton', nikoli soubory / bin / víno. Prázdné ho vyřadí.</translation>
     </message>
     <message>
         <source>{0} set: {1}</source>
@@ -14106,12 +14889,52 @@ Pick a Proton version to create that prefix with.</source>
 Vyberte verzi Protonu, pomocí které chcete tento prefix vytvořit.</translation>
     </message>
     <message>
+        <source>Add Custom Build</source>
+        <translation>Přidat vlastní sestavení</translation>
+    </message>
+    <message>
+        <source>Select a complete Proton build folder containing the top-level 'proton' launcher. Do not select files/bin/wine.</source>
+        <translation>Vyberte kompletní složku Proton build obsahující odpalovač nejvyšší úrovně 'proton'. Nevybírejte soubory / bin / víno.</translation>
+    </message>
+    <message>
         <source>Continue →</source>
         <translation>Pokračovat →</translation>
     </message>
     <message>
-        <source>No Proton installations found. Install Proton (e.g. GE-Proton) via Steam and try again.</source>
-        <translation>Nebyly nalezeny žádné instalace hry Proton. Nainstalujte hru Proton (např. GE-Proton) přes Steam a zkuste to znovu.</translation>
+        <source>No Proton installations found. Install one through Steam or add a custom build.</source>
+        <translation>Žádná zařízení Proton nenalezena. Nainstalujte přes Steam nebo přidejte vlastní build.</translation>
+    </message>
+    <message>
+        <source>Select custom Proton build folder</source>
+        <translation>Vybrat vlastní složku Proton build</translation>
+    </message>
+    <message>
+        <source>The selected folder does not contain a top-level 'proton' launcher.</source>
+        <translation>Zvolená složka neobsahuje odpalovač 'protonové' nejvyšší úrovně.</translation>
+    </message>
+    <message>
+        <source>Custom Proton build added: {0}</source>
+        <translation>Přidána vlastní konstrukce protonů: {0}</translation>
+    </message>
+    <message>
+        <source>Use custom Proton build?</source>
+        <translation>Použít vlastní Proton build?</translation>
+    </message>
+    <message>
+        <source>This Proton build was added manually and is outside Amethyst's supported configurations. Support cannot be provided for issues that occur while using it.
+
+Continue with {0}?</source>
+        <translation>Tato konstrukce Proton byla přidána ručně a je mimo podporované konfigurace Ametystu. Podpora nemůže být poskytnuta na otázky, které se při jejím používání vyskytují.
+
+Pokračovat s {0}?</translation>
+    </message>
+    <message>
+        <source>Use Custom Build</source>
+        <translation>Použít vlastní sestavení</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Zrušit</translation>
     </message>
     <message>
         <source>Step 3: Prepare Prefix</source>
@@ -15566,8 +16389,8 @@ nebo použijte tlačítko „Procházet“ a vyberte jej ručně.</translation>
         <translation>Čáry a rámy kolem panelů, seznamů a vstupů.</translation>
     </message>
     <message>
-        <source>Danger / cancel / remove buttons (delete, remove profile, ✕ close).</source>
-        <translation>Nebezpečí / zrušit / odstranit tlačítka (smazat, odstranit profil, zavřít).</translation>
+        <source>Danger buttons (delete, remove profile and other destructive actions).</source>
+        <translation>Nebezpečí tlačítka (odstranit, odstranit profil a jiné destruktivní akce).</translation>
     </message>
     <message>
         <source>Success / confirm buttons (Install, Done, Play).</source>
@@ -16355,6 +17178,57 @@ Nejnovější verze:  {1}</translation>
     </message>
 </context>
 <context>
+    <name>VideoPreview</name>
+    <message>
+        <source>Qt Multimedia is not installed.</source>
+        <translation>Qt Multimedia není nainstalována.</translation>
+    </message>
+    <message>
+        <source>No video selected</source>
+        <translation>Není vybráno žádné video</translation>
+    </message>
+    <message>
+        <source>Play</source>
+        <translation>Přehrát</translation>
+    </message>
+    <message>
+        <source>Stop</source>
+        <translation>Přestaň</translation>
+    </message>
+    <message>
+        <source>Volume</source>
+        <translation>Objem</translation>
+    </message>
+    <message>
+        <source>Video file not found.</source>
+        <translation>Video soubor nenalezen.</translation>
+    </message>
+    <message>
+        <source>Unavailable</source>
+        <translation>Nedostupný</translation>
+    </message>
+    <message>
+        <source>Pause</source>
+        <translation>Pauza</translation>
+    </message>
+    <message>
+        <source>This video format could not be played.</source>
+        <translation>Tento formát videa nelze přehrát.</translation>
+    </message>
+    <message>
+        <source>Could not play this video file.</source>
+        <translation>Nelze přehrát tento video soubor.</translation>
+    </message>
+    <message>
+        <source>Unmute</source>
+        <translation>Neněmý</translation>
+    </message>
+    <message>
+        <source>Mute</source>
+        <translation>Ztlumit</translation>
+    </message>
+</context>
+<context>
     <name>WikiView</name>
     <message>
         <source>Refresh</source>
@@ -16408,6 +17282,33 @@ Stiskněte Refresh vyzkoušet znovu.</translation>
     <message>
         <source>Refreshing…</source>
         <translation>Osvěžující..</translation>
+    </message>
+</context>
+<context>
+    <name>WizardSettingsOverlay</name>
+    <message>
+        <source>Wizard Settings</source>
+        <translation>Nastavení průvodce</translation>
+    </message>
+    <message>
+        <source>These wizard tools skip their Proton settings step. Reset a tool to show the step again; its saved values are kept.</source>
+        <translation>Tyto kouzelnické nástroje vynechávají krok nastavení Protonu. Obnovit nástroj, který ukáže krok znovu; jeho uložené hodnoty jsou zachovány.</translation>
+    </message>
+    <message>
+        <source>No wizard tools are using saved settings.</source>
+        <translation>Žádné kouzelnické nástroje nepoužívají uložená nastavení.</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Zavřít</translation>
+    </message>
+    <message>
+        <source>Reset</source>
+        <translation>Obnovit</translation>
+    </message>
+    <message>
+        <source>Show this wizard's Proton settings step the next time it runs.</source>
+        <translation>Při dalším spuštění zobrazte nastavení Protonu tohoto průvodce.</translation>
     </message>
 </context>
 <context>
@@ -16469,6 +17370,10 @@ Stiskněte Refresh vyzkoušet znovu.</translation>
         <translation>Downgrade Fallout 4</translation>
     </message>
     <message>
+        <source>Downgrade Skyrim Special Edition</source>
+        <translation>Downgrade Skyrim Special Edition</translation>
+    </message>
+    <message>
         <source>Install Script Extender (F4SE)</source>
         <translation>Nainstalujte Script Extender (F4SE)</translation>
     </message>
@@ -16525,6 +17430,10 @@ Stiskněte Refresh vyzkoušet znovu.</translation>
         <translation>Audit a čištění modulu</translation>
     </message>
     <message>
+        <source>BSA Pack Candidates</source>
+        <translation>BSA Pack Kandidáti</translation>
+    </message>
+    <message>
         <source>SSE Display Tweaks Config</source>
         <translation>Name</translation>
     </message>
@@ -16571,6 +17480,10 @@ Stiskněte Refresh vyzkoušet znovu.</translation>
     <message>
         <source>Run xLODGen</source>
         <translation>Spustit xLODGen</translation>
+    </message>
+    <message>
+        <source>Run ACMOS Road Generator</source>
+        <translation>Spustit ACMOS Road Generator</translation>
     </message>
     <message>
         <source>Run VRAMr</source>
@@ -16677,8 +17590,12 @@ Stiskněte Refresh vyzkoušet znovu.</translation>
         <translation>Rozmístit mody a spustit Outfit Studio ze složky Data.</translation>
     </message>
     <message>
-        <source>Download the latest Fallout 4 Steam Downgrader and run it from the game folder.</source>
-        <translation>Stáhněte si nejnovější Fallout 4 Downgrader a spusťte jej ze složky hry.</translation>
+        <source>Download the latest Fallout 4 Steam Downgrader (game or Creation Kit) and run it from the game folder.</source>
+        <translation>Stáhnout nejnovější Fallout 4 Downgrader Steam (hra nebo Kit vytvoření) a spustit ji ze složky hry.</translation>
+    </message>
+    <message>
+        <source>Download the latest Skyrim Special Edition Steam Downgrader (game or Creation Kit) and run it from the game folder.</source>
+        <translation>Stáhněte si nejnovější Skyrim Special Edition Steam Downgrader (herní nebo Creation Kit) a spusťte jej ze složky hry.</translation>
     </message>
     <message>
         <source>Download and install F4SE into the game folder.</source>
@@ -16797,6 +17714,10 @@ Stiskněte Refresh vyzkoušet znovu.</translation>
         <translation>Nainstalujte xLODgen, nasaďte mods, a spusťte xLODGenx64.ex.</translation>
     </message>
     <message>
+        <source>Install ACMOS Road Generator, choose a terrain LOD mod, and write generated road textures to ACMOS_Output.</source>
+        <translation>Nainstalujte ACMOS Road Generator, zvolte terénní LOD mod, a zapište generované silniční textury na ACMOS _ Output.</translation>
+    </message>
+    <message>
         <source>Install BethINI Pie and configure Skyrim SE INI settings.</source>
         <translation>Nainstalujte BethINI Pie a nastavte nastavení Skyrim SE INI.</translation>
     </message>
@@ -16819,6 +17740,10 @@ Stiskněte Refresh vyzkoušet znovu.</translation>
     <message>
         <source>Scan load order for safe-to-disable plugins, then disable them or clean up orphaned SkyGen BOS/SkyPatcher INIs for plugins that must stay enabled.</source>
         <translation>Sken načíst pořadí pro safe- to- zakázat pluginy, pak je vypnout nebo vyčistit osiřelé SkyGen BOS / SkyPatcher INI pro pluginy, které musí zůstat zapnuty.</translation>
+    </message>
+    <message>
+        <source>Rank mods by how many files they could pack into a BSA/BA2, and flag the ones that would break if packed.</source>
+        <translation>Pořadové módy podle toho, kolik souborů by mohli zabalit do BSA / BA2, a vlajku ty, které by se rozbily, pokud zabaleno.</translation>
     </message>
     <message>
         <source>Download and install SKSEVR into the game folder.</source>
@@ -16873,6 +17798,10 @@ Stiskněte Refresh vyzkoušet znovu.</translation>
         <translation>Setup a Installers</translation>
     </message>
     <message>
+        <source>Install Modlist</source>
+        <translation>Nainstalovat Modlist</translation>
+    </message>
+    <message>
         <source>Body and Outfits</source>
         <translation>Tělo a výstroj</translation>
     </message>
@@ -16903,6 +17832,10 @@ Stiskněte Refresh vyzkoušet znovu.</translation>
     <message>
         <source>INI Tweaks</source>
         <translation>Křídla INI</translation>
+    </message>
+    <message>
+        <source>NIF Viewer</source>
+        <translation>Prohlížeč NIF</translation>
     </message>
     <message>
         <source>Other</source>

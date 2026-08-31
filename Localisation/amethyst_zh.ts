@@ -2,6 +2,141 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="zh" sourcelanguage="en">
 <context>
+    <name>ACMOSView</name>
+    <message>
+        <source>Run ACMOS Road Generator - {0}</source>
+        <translation>运行 ACMOS 道路生成器 - {0}</translation>
+    </message>
+    <message>
+        <source>Step 1: Download ACMOS Road Generator</source>
+        <translation>第一步:下载 ACMOS 道路生成器</translation>
+    </message>
+    <message>
+        <source>Click the button below to open ACMOS Road Generator on Nexus Mods.
+
+Download the archive manually (do NOT use the Mod Manager download button), then click Next.</source>
+        <translation>点击下面的按钮打开 Nexus Mods 上的 ACMOS 道路生成器 。
+
+手动下载归档( 不使用 Mod 管理器下载按钮), 然后单击 Next .</translation>
+    </message>
+    <message>
+        <source>Step 2: Locate the Archive</source>
+        <translation>步骤2:定位归档</translation>
+    </message>
+    <message>
+        <source>Step 3: Extract ACMOS Road Generator</source>
+        <translation>第3步:提取ACMOS道路生成器</translation>
+    </message>
+    <message>
+        <source>Step 6: Run ACMOS Road Generator</source>
+        <translation>第6步:运行 ACMOS 道路生成器</translation>
+    </message>
+    <message>
+        <source>Step 4: Choose Terrain LOD Mod</source>
+        <translation>第4步:选择地面LOD模式</translation>
+    </message>
+    <message>
+        <source>Choose the profile mod containing your xLODGen terrain output. Enabled and disabled mods are both listed; deployment is not required.
+
+Generated textures are written to a separate ACMOS_Output mod. Remove an old ACMOS_Output first if you want a completely clean result.</source>
+        <translation>选择包含您 xLODGen 地形输出的配置模式 。 启用和已禁用的模式都列出;不需要部署。
+
+生成的纹理被写入单独的ACMOS Output mod. 如果您想要完全干净的结果, 请先删除旧的 ACMOS  Output .</translation>
+    </message>
+    <message>
+        <source>Terrain LOD mod:</source>
+        <translation>地面 LOD 模式 :</translation>
+    </message>
+    <message>
+        <source>Search mods…</source>
+        <translation>搜索模式..</translation>
+    </message>
+    <message>
+        <source>Continue</source>
+        <translation>继续</translation>
+    </message>
+    <message>
+        <source>Select the ACMOS Road Generator archive</source>
+        <translation>选择 ACMOS 道路生成器归档</translation>
+    </message>
+    <message>
+        <source>ACMOS Road Generator archive not found in Downloads.
+Make sure you downloaded it, then press Try Again,
+or use Browse to select it manually.</source>
+        <translation>下载中找不到 ACMOS 路由生成器存档 。
+确保下载,然后按"再试",
+或使用浏览来手工选择.</translation>
+    </message>
+    <message>
+        <source>Step 5: Choose Proton Version</source>
+        <translation>第5步: 选择质子版本</translation>
+    </message>
+    <message>
+        <source>{0} was not found.
+Please restart the wizard and install ACMOS Road Generator first.</source>
+        <translation>找不到 {0} 。
+请重新启动向导并首先安装 ACMOS 路由生成器 .</translation>
+    </message>
+    <message>
+        <source>Output mod: {0}</source>
+        <translation>输出模式: {0}</translation>
+    </message>
+    <message>
+        <source>No mods were found in the current profile.</source>
+        <translation>在当前配置文件中找不到 Mods .</translation>
+    </message>
+    <message>
+        <source>LOD path: {0}</source>
+        <translation>LOD 路径: {0}</translation>
+    </message>
+    <message>
+        <source>Select a Terrain LOD mod first.</source>
+        <translation>先选择一个 LOD 模式 .</translation>
+    </message>
+    <message>
+        <source>The selected mod folder no longer exists.</source>
+        <translation>选中的 Mod 文件夹已不存在 .</translation>
+    </message>
+    <message>
+        <source>The selected mod does not contain a textures/terrain folder. Choose the mod created from xLODGen output.</source>
+        <translation>所选的mod不包含纹理/地铁文件夹. 选择从 xLODGen 输出创建的模型 .</translation>
+    </message>
+    <message>
+        <source>ACMOS Road Generator is not ready to run.</source>
+        <translation>ACMOS公路发电机未准备好运行.</translation>
+    </message>
+    <message>
+        <source>Preparing ACMOS Road Generator's Wine prefix…</source>
+        <translation>准备 ACMOS 路由生成器的前缀..</translation>
+    </message>
+    <message>
+        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
+        <translation>无法解决游戏自身前缀的质子版本——一次推出游戏,或者选择不同的前缀选项.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
+        <translation>找不到质子 '{0}' - 检查它是否安装在Steam, Heroic 或质子Plus上.</translation>
+    </message>
+    <message>
+        <source>ACMOS Road Generator exited with error (code {0}).</source>
+        <translation>ACMOS道路生成器出错(代码为{0}).</translation>
+    </message>
+    <message>
+        <source>ACMOS Road Generator finished.</source>
+        <translation>ACMOS公路发电机完成.</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>发射错误: {0}</translation>
+    </message>
+    <message>
+        <source>ACMOS Road Generator is running.
+Choose Roads or Paths Only, click Generate, then close it when finished.</source>
+        <translation>ACMOS路发电机运行.
+只选择道路或路径,单击生成,然后在完成时关闭.</translation>
+    </message>
+</context>
+<context>
     <name>AddGameView</name>
     <message>
         <source>Select a game to add</source>
@@ -25,28 +160,73 @@
     </message>
 </context>
 <context>
-    <name>BG3ImportView</name>
+    <name>AudioControls</name>
     <message>
-        <source>Load Order (*.json)</source>
-        <translation>装入顺序 (*.json)</translation>
+        <source>Qt Multimedia is not installed.</source>
+        <translation>Qt 多媒体未安装 .</translation>
     </message>
+    <message>
+        <source>Play</source>
+        <translation>播放</translation>
+    </message>
+    <message>
+        <source>Stop</source>
+        <translation>停下来</translation>
+    </message>
+    <message>
+        <source>Volume</source>
+        <translation>数量</translation>
+    </message>
+    <message>
+        <source>Audio file not found.</source>
+        <translation>未找到音频文件 .</translation>
+    </message>
+    <message>
+        <source>The FUZ audio stream could not be read.</source>
+        <translation>无法读取 FUZ 音频流 .</translation>
+    </message>
+    <message>
+        <source>The audio stream could not be opened.</source>
+        <translation>无法打开音频流 .</translation>
+    </message>
+    <message>
+        <source>Preparing…</source>
+        <translation>准备..</translation>
+    </message>
+    <message>
+        <source>Preparing XWM audio…</source>
+        <translation>正在准备 XWM 音频..</translation>
+    </message>
+    <message>
+        <source>Unavailable</source>
+        <translation>无法获取</translation>
+    </message>
+    <message>
+        <source>Pause</source>
+        <translation>暂停</translation>
+    </message>
+    <message>
+        <source>This audio format could not be played.</source>
+        <translation>无法播放此音频格式 .</translation>
+    </message>
+    <message>
+        <source>Could not play this audio file.</source>
+        <translation>无法播放此音频文件 .</translation>
+    </message>
+    <message>
+        <source>Unmute</source>
+        <translation>释出</translation>
+    </message>
+    <message>
+        <source>Mute</source>
+        <translation>静音</translation>
+    </message>
+</context>
+<context>
+    <name>BG3ImportView</name>
     <message>
         <source>All files</source>
         <translation>所有文件</translation>
-    </message>
-    <message>
-        <source>Import BG3MM Load Order - {0}</source>
-        <translation>导入 BG3MM 负载顺序 - {0}</translation>
-    </message>
-    <message>
-        <source>Step 1: Select a BG3 Mod Manager order file</source>
-        <translation>步骤 1：选择一个 BG3 Mod Manager 顺序文件</translation>
-    </message>
-    <message>
-        <source>Choose a modlist.json (or an exported saved-order .json) from BG3 Mod Manager.
-Mods are matched to your installed mods by UUID.</source>
-        <translation>从 BG3 Mod Manager 中选择一个 modlist.json 文件（或一个导出的 saved-order.json 文件）。
-模组会通过 UUID 与您已安装的模组进行匹配。</translation>
     </message>
     <message>
         <source>No file selected.</source>
@@ -61,8 +241,26 @@ Mods are matched to your installed mods by UUID.</source>
         <translation>预览 →</translation>
     </message>
     <message>
-        <source>Select a BG3MM order .json</source>
-        <translation>选择 BG3MM 顺序 .json</translation>
+        <source>Load Order (*.json *.lsx)</source>
+        <translation>装入顺序 (*.json *.lsx)</translation>
+    </message>
+    <message>
+        <source>Import BG3 Load Order - {0}</source>
+        <translation>导入 BG3 负载顺序 - {0}</translation>
+    </message>
+    <message>
+        <source>Step 1: Select a load order file</source>
+        <translation>步骤1: 选择加载顺序文件</translation>
+    </message>
+    <message>
+        <source>Choose a modlist.json (or an exported saved-order .json) from BG3 Mod Manager, or a modsettings.lsx written by the game.
+Mods are matched to your installed mods by UUID.</source>
+        <translation>从 BG3 Mod 管理器中选择一个modlist.json(或导出保存的顺序.json),或游戏所写的modstings.lsx.
+模块由 UUID 匹配到您安装的模块 .</translation>
+    </message>
+    <message>
+        <source>Select a load order file (.json or .lsx)</source>
+        <translation>选择加载顺序文件 (.json 或.lsx)</translation>
     </message>
     <message>
         <source>Selected: {0}</source>
@@ -97,10 +295,10 @@ Mods are matched to your installed mods by UUID.</source>
         <translation>已应用加载顺序</translation>
     </message>
     <message>
-        <source>The modlist has been reordered to match the BG3MM order.
+        <source>The modlist has been reordered to match the imported order.
 Deploy to push the new load order to the game.</source>
-        <translation>已重新排列模组列表，使其与《博德之门3：暗影之界》的加载顺序一致。
-点击“部署”将新的加载顺序应用到游戏中。</translation>
+        <translation>Modlist已经重新排序,以匹配所导入的顺序.
+部署将新负载订单推入游戏.</translation>
     </message>
     <message>
         <source>Done</source>
@@ -782,6 +980,109 @@ Close it when you are done, then click Done.</source>
     </message>
 </context>
 <context>
+    <name>BsaPackCandidatesView</name>
+    <message>
+        <source>BSA Pack Candidates - {0}</source>
+        <translation>BSA 包装候选人 -- -- {0}</translation>
+    </message>
+    <message>
+        <source>Find Pack Candidates</source>
+        <translation>查找包候选人</translation>
+    </message>
+    <message>
+        <source>Ranks your enabled mods by how many files they could pack into a BSA/BA2, and flags the ones that would break if packed. A file inside an archive loses to any loose file from any mod, so a mod that currently wins a conflict stops winning once it is packed.</source>
+        <translation>将您启用的模型排序为可以装入 BSA/BA2 的多少文件, 并标出如果装入会破碎的文件 。 存档内的文件会输给任何 Mod 中的任何松散文件,所以目前赢得冲突的模式一旦被打包就停止取胜.</translation>
+    </message>
+    <message>
+        <source>Start Scan</source>
+        <translation>开始扫描</translation>
+    </message>
+    <message>
+        <source>Scanning…</source>
+        <translation>正在扫描..</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>错误: {0}</translation>
+    </message>
+    <message>
+        <source>Nothing to assess - this game has no BSA/BA2 format we can write, or the profile has no mods indexed yet.</source>
+        <translation>没什么可评估的 - 本游戏没有我们可以写的BSA/BA2格式,或者配置文件还没有Mods索引.</translation>
+    </message>
+    <message>
+        <source>Pack Candidates</source>
+        <translation>包装候选人</translation>
+    </message>
+    <message>
+        <source>← Re-Scan</source>
+        <translation>重新扫描</translation>
+    </message>
+    <message>
+        <source>{0} files</source>
+        <translation>{0} 文件</translation>
+    </message>
+    <message>
+        <source>Open ›</source>
+        <translation>打开QQ</translation>
+    </message>
+    <message>
+        <source>Over the size limit as one archive - tick "Separate textures archive" when packing.</source>
+        <translation>超过一个归档的大小限制 - 在打包时勾选“ 分离纹理归档 ” .</translation>
+    </message>
+    <message>
+        <source>A stub plugin will be created so the archive loads.</source>
+        <translation>将创建一个 stub 插件, 以便归档负载 .</translation>
+    </message>
+    <message>
+        <source>Safe to pack ({0})</source>
+        <translation>安全包装( {0})</translation>
+    </message>
+    <message>
+        <source>No conflicts to lose.</source>
+        <translation>没有冲突可失去.</translation>
+    </message>
+    <message>
+        <source>Packable with care ({0})</source>
+        <translation>可携带护理({0})</translation>
+    </message>
+    <message>
+        <source>Wins {0} contested file(s) - tick "Skip winning files" when packing so they stay loose.</source>
+        <translation>胜出 {0} 有争议文件 - 在打包时勾选"Skip中标文件",使其保持松动.</translation>
+    </message>
+    <message>
+        <source>Already has an archive - loose files remain ({0})</source>
+        <translation>已有归档 - 保存松散的文件( {0})</translation>
+    </message>
+    <message>
+        <source>{0} file(s) already archived.</source>
+        <translation>{0} 文件已存档 .</translation>
+    </message>
+    <message>
+        <source>Too large for one archive ({0})</source>
+        <translation>一个归档太大( {0})</translation>
+    </message>
+    <message>
+        <source>{0} file(s) exceed the per-file size field - packing would fail.</source>
+        <translation>{0} 文件超过每个文件大小字段 - 包装会失败 .</translation>
+    </message>
+    <message>
+        <source>Over the archive size limit even with textures split off.</source>
+        <translation>超过档案大小限制,即使纹理分裂.</translation>
+    </message>
+    <message>
+        <source>Nothing to pack ({0})</source>
+        <translation>无包装( {0})</translation>
+    </message>
+    <message>
+        <source>These mods ship no files the engine would load from inside an archive - plugins, script-extender DLLs, config files and anything at the mod root always stay loose.</source>
+        <translation>这些 Mods 发送文件 引擎不会从归档中装入文件 —— 插件、脚本复制 DLL 、 配置文件 和 Mod root 上的任何内容 总是保持松动 .</translation>
+    </message>
+    <message>
+        <source>{0} mod(s) assessed - {1} safe to pack, {2} need care, {3} already archived, {4} too large.</source>
+        <translation>{0} Mod (s) 评估 - {1}安全包装,{2}需要护理,{3}已经存档,{4}太大.</translation>
+    </message>
+</context>
+<context>
     <name>BsaPackOverlay</name>
     <message>
         <source>Pack {0}</source>
@@ -1193,6 +1494,22 @@ MD5缓存将被保留。压缩包将根据需要重新下载。</translation>
         <translation>无法加载。</translation>
     </message>
     <message>
+        <source>This is a Wabbajack list and cannot be installed by Amethyst. Install it with Wabbajack instead.</source>
+        <translation>这是Wabbajack的列表,不能由Amethyst安装. 代之以Wabbajack安装.</translation>
+    </message>
+    <message>
+        <source>This collection uses an unsupported format and cannot be installed by Amethyst.</source>
+        <translation>此收藏使用不支持的格式, 无法由 Amethyst 安装 .</translation>
+    </message>
+    <message>
+        <source>No installable collection data.</source>
+        <translation>无可安装的收集数据 .</translation>
+    </message>
+    <message>
+        <source>Unsupported collection</source>
+        <translation>不支持的收藏</translation>
+    </message>
+    <message>
         <source>Download collection</source>
         <translation>下载收藏</translation>
     </message>
@@ -1548,8 +1865,20 @@ MD5缓存将被保留。压缩包将根据需要重新下载。</translation>
         <translation>无发射器 ID - 前缀不适用.</translation>
     </message>
     <message>
+        <source>No prefix configured.</source>
+        <translation>未配置前缀 .</translation>
+    </message>
+    <message>
         <source>Mod Staging Folder</source>
         <translation>模组暂存文件夹</translation>
+    </message>
+    <message>
+        <source>Searching common AppImage locations…</source>
+        <translation>正在搜索常见的应用程序位置..</translation>
+    </message>
+    <message>
+        <source>AppImage Location (Optional)</source>
+        <translation>应用位置( 可选)</translation>
     </message>
     <message>
         <source>Default location will be used.</source>
@@ -1596,6 +1925,10 @@ MD5缓存将被保留。压缩包将根据需要重新下载。</translation>
         <translation>硬链接</translation>
     </message>
     <message>
+        <source>VFS (OpenMW)</source>
+        <translation>VFS (开放MW)</translation>
+    </message>
+    <message>
         <source>Virtual filesystem (VFS)</source>
         <translation>虚拟文件系统( VFS)</translation>
     </message>
@@ -1610,6 +1943,10 @@ MD5缓存将被保留。压缩包将根据需要重新下载。</translation>
     <message>
         <source>Auto deploy (deploy automatically on enable/disable/reorder)</source>
         <translation>自动部署(在启用/残疾/重排时自动部署)</translation>
+    </message>
+    <message>
+        <source>Prefer AppImage</source>
+        <translation>首选 :</translation>
     </message>
     <message>
         <source>Automatic archive invalidation (prefer loose files over BSAs)</source>
@@ -1724,8 +2061,40 @@ The default profile's settings are not affected.</source>
         <translation>自动找到前缀 .</translation>
     </message>
     <message>
+        <source>AppImage not found automatically. Browse or scan to locate it.</source>
+        <translation>无法自动找到 AppImage 。 浏览或扫描以定位它.</translation>
+    </message>
+    <message>
+        <source>Configured AppImage was not found.</source>
+        <translation>未找到配置的 AppImage .</translation>
+    </message>
+    <message>
+        <source>AppImage already configured. You can update the path below.</source>
+        <translation>应用已配置 。 您可以在下面更新路径 .</translation>
+    </message>
+    <message>
+        <source>AppImage selected manually.</source>
+        <translation>手动选择 AppImage .</translation>
+    </message>
+    <message>
+        <source>Found in a common AppImage location.</source>
+        <translation>在一个通用的 AppImage 位置找到的.</translation>
+    </message>
+    <message>
         <source>Executable found.</source>
         <translation>找到可执行文件 .</translation>
+    </message>
+    <message>
+        <source>AppImage path set.</source>
+        <translation>应用路径设置 .</translation>
+    </message>
+    <message>
+        <source>AppImage file not found.</source>
+        <translation>找不到 AppImage 文件 .</translation>
+    </message>
+    <message>
+        <source>Automatic detection will be used.</source>
+        <translation>将使用自动检测 .</translation>
     </message>
     <message>
         <source>Custom saves folder selected.</source>
@@ -1748,6 +2117,18 @@ The default profile's settings are not affected.</source>
         <translation>当前: {0}</translation>
     </message>
     <message>
+        <source>native Linux</source>
+        <translation>本地的 Linux</translation>
+    </message>
+    <message>
+        <source>Windows/Proton</source>
+        <translation>视窗/ 质子</translation>
+    </message>
+    <message>
+        <source>Native Linux build selected; no Proton prefix will be used.</source>
+        <translation>选中本地 Linux 构建; 不使用质子前缀 .</translation>
+    </message>
+    <message>
         <source>No executable name configured for this game.</source>
         <translation>未为此游戏配置可执行文件名称。</translation>
     </message>
@@ -1764,6 +2145,10 @@ The default profile's settings are not affected.</source>
         <translation>在任何驱动器上均未找到游戏可执行文件。</translation>
     </message>
     <message>
+        <source>OpenMW AppImage not found on any drive.</source>
+        <translation>在任何驱动器上找不到 OpenMW AppImage .</translation>
+    </message>
+    <message>
         <source>Scanning for Proton prefix…</source>
         <translation>正在扫描 Proton 前缀……</translation>
     </message>
@@ -1776,12 +2161,20 @@ The default profile's settings are not affected.</source>
         <translation>请先设置游戏的安装文件夹。</translation>
     </message>
     <message>
+        <source>The mod staging folder cannot be the game folder or be inside it. Choose a separate location.</source>
+        <translation>Mod 中转文件夹不能是游戏文件夹或包含在内 。 选择单独的位置 .</translation>
+    </message>
+    <message>
         <source>This path is not visible inside the Flatpak sandbox. Grant access in Flatseal or run: {0}</source>
         <translation>该路径在 Flatpak 沙箱内不可见。请在 Flatseal 中授予访问权限，或运行以下命令：{0}</translation>
     </message>
     <message>
         <source>Cannot change the game/prefix path while mods are deployed. Restore the game first.</source>
         <translation>在模组已部署的情况下，无法更改游戏/前缀路径。请先还原游戏。</translation>
+    </message>
+    <message>
+        <source>Restore the game before changing the preferred OpenMW package.</source>
+        <translation>在更改首选的 OpenMW 套件之前恢复游戏.</translation>
     </message>
     <message>
         <source>Cannot change the deploy method while mods are deployed. Restore the game first.</source>
@@ -2704,6 +3097,66 @@ When it completes, the app switches to the new profile - then come back here and
         <translation>启用此选项（默认）后，不同模组中仅大小写不同的文件夹名称将被统一为一种大小写形式。对于文件夹大小写区分重要的 Linux 原生游戏，请禁用此选项。</translation>
     </message>
     <message>
+        <source>VC++ Redistributable (x64)</source>
+        <translation>VC++ 可再分配(x64)</translation>
+    </message>
+    <message>
+        <source>.NET {0} Desktop Runtime</source>
+        <translation>.NET {0} 桌面运行时间</translation>
+    </message>
+    <message>
+        <source>d3dcompiler_47 (shader compiler)</source>
+        <translation>d3d 编译器  47 (阴影编译器)</translation>
+    </message>
+    <message>
+        <source>LAV Filters (DirectShow codecs)</source>
+        <translation>LAV 过滤器( DirectShow 编码器)</translation>
+    </message>
+    <message>
+        <source>d3dx9 (all legacy DirectX 9 runtimes)</source>
+        <translation>d3dx9(所有遗留 DirectX 9 运行时间)</translation>
+    </message>
+    <message>
+        <source>d3dx10 (all legacy DirectX 10 runtimes)</source>
+        <translation>d3dx10(所有遗留 DirectX 10 运行时间)</translation>
+    </message>
+    <message>
+        <source>d3dx9_43 (legacy DirectX 9 runtime)</source>
+        <translation>d3dx9 43(Legacy DirectX 9 运行时间)</translation>
+    </message>
+    <message>
+        <source>d3dx10_43 (legacy DirectX 10 runtime)</source>
+        <translation>d3dx10 43 (legacy DirectX 10 runtime) (英语)</translation>
+    </message>
+    <message>
+        <source>d3dx11_42 (legacy DirectX 11 runtime)</source>
+        <translation>d3dx11 42 (legacy DirectX 11 运行时间)</translation>
+    </message>
+    <message>
+        <source>d3dx11_43 (legacy DirectX 11 runtime)</source>
+        <translation>d3dx11 43(Legacy DirectX 11 运行时间)</translation>
+    </message>
+    <message>
+        <source>d3dcompiler_42 (legacy shader compiler)</source>
+        <translation>d3d编译器 42 (遗留阴影编译器)</translation>
+    </message>
+    <message>
+        <source>d3dcompiler_43 (legacy shader compiler)</source>
+        <translation>d3d 编译器  43 (遗留阴影编译器)</translation>
+    </message>
+    <message>
+        <source>d3dcompiler_46 (legacy shader compiler)</source>
+        <translation>d3d 编译器  46 (遗留阴影器编译器)</translation>
+    </message>
+    <message>
+        <source>quartz (DirectShow runtime)</source>
+        <translation>石英( DirectShow 运行时间)</translation>
+    </message>
+    <message>
+        <source>dx8vb (DirectX 8 Visual Basic runtime)</source>
+        <translation>dx8vb (DirectX 8 视觉基本运行时间)</translation>
+    </message>
+    <message>
         <source>Edit Custom Game</source>
         <translation>编辑自定义游戏</translation>
     </message>
@@ -2896,8 +3349,40 @@ When it completes, the app switches to the new profile - then come back here and
         <translation>例如:MyGame.exe或Bin/x64/MyGame.exe</translation>
     </message>
     <message>
+        <source>e.g. MyGame.x86_64, Bin/alternate-launcher.exe</source>
+        <translation>例如:MyGame.x86 64,宾/候补-发射装置.exe</translation>
+    </message>
+    <message>
+        <source>Additional Executables</source>
+        <translation>其他可执行文件</translation>
+    </message>
+    <message>
+        <source>Comma-separated alternate executable paths relative to the game root. Use these for native Linux builds or store-specific executables.</source>
+        <translation>逗号分隔的相对于游戏根的可执行路径 。 用于本地 Linux 构建或存储特定可执行文件 .</translation>
+    </message>
+    <message>
         <source>Deployment</source>
         <translation>部署</translation>
+    </message>
+    <message>
+        <source>Windows Prefix</source>
+        <translation>窗口前缀</translation>
+    </message>
+    <message>
+        <source>None selected</source>
+        <translation>无选中</translation>
+    </message>
+    <message>
+        <source>{0} dependencies selected</source>
+        <translation>选择的 {0} 依赖关系</translation>
+    </message>
+    <message>
+        <source>Auto-install Dependencies</source>
+        <translation>自动安装依赖</translation>
+    </message>
+    <message>
+        <source>Selected components are installed automatically after the game and prefix configuration is saved. They are skipped when no Windows prefix is configured and are also shown in Prefix Health Check.</source>
+        <translation>选定组件在游戏和前缀配置保存后自动安装. 在未配置 Windows 前缀时跳出, 并在 Prefix 健康检查中显示 .</translation>
     </message>
     <message>
         <source>Store &amp; Artwork</source>
@@ -3036,6 +3521,30 @@ When it completes, the app switches to the new profile - then come back here and
     <message>
         <source>{0} - {1} files in {2} mods</source>
         <translation>{0} - {1} 文件在 {2} mods中</translation>
+    </message>
+    <message>
+        <source>Open in File Browser</source>
+        <translation>在文件浏览器中打开</translation>
+    </message>
+    <message>
+        <source>Open in Text Editor</source>
+        <translation>在文本编辑器中打开</translation>
+    </message>
+    <message>
+        <source>Open in NIF Viewer</source>
+        <translation>在 NIF 查看器中打开</translation>
+    </message>
+    <message>
+        <source>Play Audio</source>
+        <translation>播放音频</translation>
+    </message>
+    <message>
+        <source>Play Video</source>
+        <translation>播放视频</translation>
+    </message>
+    <message>
+        <source>Inspect Archive</source>
+        <translation>检查归档</translation>
     </message>
 </context>
 <context>
@@ -4375,93 +4884,6 @@ That is fine for your own backup. Do not share or upload the file in this state 
     </message>
 </context>
 <context>
-    <name>Fallout4DowngraderView</name>
-    <message>
-        <source>Downgrade Fallout 4 - {0}</source>
-        <translation>降级降级 4 - {0}</translation>
-    </message>
-    <message>
-        <source>Step 1: Download Fallout 4 Downgrader</source>
-        <translation>第一步:下载降级4</translation>
-    </message>
-    <message>
-        <source>The newest release containing the Fallout 4 Steam Downgrader will be downloaded from MulderLoad on GitHub and placed in the game folder.
-
-No modlist deploy is required.</source>
-        <translation>包含"Fallout 4 Steam Downgrader"的最新发行会从GitHub上的MulderLoad下载并放入游戏文件夹.
-
-不需要部署模块.</translation>
-    </message>
-    <message>
-        <source>Step 3: Run Fallout 4 Downgrader</source>
-        <translation>第3步:运行倒下4</translation>
-    </message>
-    <message>
-        <source>Step 2: Choose Proton Version</source>
-        <translation>步骤2:选择质子版本</translation>
-    </message>
-    <message>
-        <source>The Fallout 4 Steam Downgrader was not downloaded.
-Close and reopen the wizard to try again.</source>
-        <translation>Fallout 4 Steam Downgrader没有被下载.
-关闭并重新打开向导再次尝试 .</translation>
-    </message>
-    <message>
-        <source>Game path is not configured.</source>
-        <translation>未配置游戏路径 .</translation>
-    </message>
-    <message>
-        <source>Searching MulderLoad releases…</source>
-        <translation>正在搜索穆德路德发布..</translation>
-    </message>
-    <message>
-        <source>Downloading {0}…</source>
-        <translation>正在下载 {0}..</translation>
-    </message>
-    <message>
-        <source>The downgrader download did not create {0}.</source>
-        <translation>降级下载没有创建{0}.</translation>
-    </message>
-    <message>
-        <source>Downloaded {0} to the game folder.</source>
-        <translation>已下载{0}到游戏文件夹.</translation>
-    </message>
-    <message>
-        <source>Download error: {0}</source>
-        <translation>下载错误: {0}</translation>
-    </message>
-    <message>
-        <source>{0} was not found in the game folder.</source>
-        <translation>{0} 在游戏文件夹中找不到.</translation>
-    </message>
-    <message>
-        <source>Launching Fallout 4 Downgrader…</source>
-        <translation>4号降级机..</translation>
-    </message>
-    <message>
-        <source>Could not determine a Proton version for Fallout 4.</source>
-        <translation>无法确定 Fallout 4 的质子版本 .</translation>
-    </message>
-    <message>
-        <source>Fallout 4 Downgrader is running.
-Follow its prompts, then close it when finished.</source>
-        <translation>Fallout 4 Downgrader正在运行。
-跟随它的提示,完成后关闭它.</translation>
-    </message>
-    <message>
-        <source>Fallout 4 Downgrader finished. Click Done to close.</source>
-        <translation>降级4号完成 点击完成以关闭 .</translation>
-    </message>
-    <message>
-        <source>Fallout 4 Downgrader exited with code {0}. See the log for details.</source>
-        <translation>Fallout 4 Downgrader以代码{0}退出. 详情见日志.</translation>
-    </message>
-    <message>
-        <source>Launch error: {0}</source>
-        <translation>发射错误: {0}</translation>
-    </message>
-</context>
-<context>
     <name>FalloutDowngradeView</name>
     <message>
         <source>Downgrade Fallout 3 - {0}</source>
@@ -4797,6 +5219,10 @@ Click Done to clean up the extracted files and close.</source>
         <translation>我的游戏</translation>
     </message>
     <message>
+        <source>Logs</source>
+        <translation>日志</translation>
+    </message>
+    <message>
         <source>Clear all</source>
         <translation>清除全部</translation>
     </message>
@@ -4908,6 +5334,53 @@ SHA-1: {1} (英语).
     <message>
         <source>Restore failed: {0}</source>
         <translation>还原失败: {0}</translation>
+    </message>
+</context>
+<context>
+    <name>FomodChoicesView</name>
+    <message>
+        <source>Option</source>
+        <translation>选项</translation>
+    </message>
+    <message>
+        <source>Description</source>
+        <translation>说明</translation>
+    </message>
+    <message>
+        <source>Reading saved choices…</source>
+        <translation>正在读取保存的选择..</translation>
+    </message>
+    <message>
+        <source>FOMOD Choices: {0}</source>
+        <translation>FOMOD 选择: {0}</translation>
+    </message>
+    <message>
+        <source>No saved FOMOD choices for this mod.</source>
+        <translation>没有保存 FOMOD 此模式的选择 .</translation>
+    </message>
+    <message>
+        <source>The installer recorded no selections for this mod.</source>
+        <translation>安装器没有为此模式录制选择 .</translation>
+    </message>
+    <message>
+        <source>Installer config not saved for this mod - showing the recorded selections only.</source>
+        <translation>安装器配置不保存于此模式 - 只显示已记录的选择 .</translation>
+    </message>
+    <message>
+        <source>(no choices recorded)</source>
+        <translation>(无选择记录)</translation>
+    </message>
+    <message>
+        <source>Step {0}: {1}</source>
+        <translation>步骤{0}:{1}</translation>
+    </message>
+    <message>
+        <source>Step {0}</source>
+        <translation>步骤 {0}</translation>
+    </message>
+    <message>
+        <source>(unnamed group)</source>
+        <translation>(无名组)</translation>
     </message>
 </context>
 <context>
@@ -5220,8 +5693,12 @@ SHA-1: {1} (英语).
         <translation>例如,SteamDeck=0游戏moderun %命令%</translation>
     </message>
     <message>
-        <source>Steam syntax. Empty: the game's own Steam options are used.</source>
-        <translation>蒸气语法. 空:使用游戏自有的Steam选项.</translation>
+        <source>Steam syntax. When set, the manager launches the game directly so these options apply. Empty: the game's own launcher options are used.</source>
+        <translation>蒸气语法. 设定时,管理者直接启动游戏,以便这些选项适用. 空:使用游戏自有的发售器选项.</translation>
+    </message>
+    <message>
+        <source>Launch with wayland</source>
+        <translation>与陆地一起发射</translation>
     </message>
     <message>
         <source>Deploy mods before launching</source>
@@ -7460,6 +7937,10 @@ Run Quick Update on all of them now?</source>
         <translation>已安装的{0}模组</translation>
     </message>
     <message>
+        <source>Prefer AppImage</source>
+        <translation>首选 :</translation>
+    </message>
+    <message>
         <source>Download Manifest…</source>
         <translation>下载声明..</translation>
     </message>
@@ -7564,6 +8045,10 @@ Run Quick Update on all of them now?</source>
         <translation>快更新下载被取消.</translation>
     </message>
     <message>
+        <source>FOMOD: {0}</source>
+        <translation>炸药: {0}</translation>
+    </message>
+    <message>
         <source>Conflict data is still building.</source>
         <translation>冲突数据仍在积累.</translation>
     </message>
@@ -7616,8 +8101,38 @@ Run Quick Update on all of them now?</source>
         <translation>正在提取/ 安装</translation>
     </message>
     <message>
+        <source>Restore the game before changing the preferred OpenMW package.</source>
+        <translation>在更改首选的 OpenMW 套件之前恢复游戏.</translation>
+    </message>
+    <message>
+        <source>Wizard Settings…</source>
+        <translation>向导设置..</translation>
+    </message>
+    <message>
+        <source>Reset wizard tools that automatically reuse their saved Proton settings.</source>
+        <translation>重置自动重用所保存的质子设置的向导工具 .</translation>
+    </message>
+    <message>
         <source>No QuickAutoClean tool is available for this game.</source>
         <translation>本游戏没有QuickAutoClean工具可用.</translation>
+    </message>
+    <message>
+        <source>Tool still running</source>
+        <translation>工具仍在运行</translation>
+    </message>
+    <message>
+        <source>This tab still has a tool running. Close the tool too?
+The tab closes either way; choosing Leave running keeps the tool alive until you quit Amethyst.</source>
+        <translation>此标签仍有工具运行 。 也关上工具?
+标签会关闭 ; 选择“ 离开” 运行会保留工具, 直到退出 Amethyst .</translation>
+    </message>
+    <message>
+        <source>Close tool</source>
+        <translation>关闭工具</translation>
+    </message>
+    <message>
+        <source>Leave running</source>
+        <translation>离开运行</translation>
     </message>
     <message>
         <source>Preparing extraction…</source>
@@ -7946,6 +8461,10 @@ CET 将不会从一个连在一起的同位素加载 。 当部署模式是Symli
     <message>
         <source>Overrides</source>
         <translation>覆盖</translation>
+    </message>
+    <message>
+        <source>File location</source>
+        <translation>文件位置</translation>
     </message>
     <message>
         <source>Log</source>
@@ -8331,6 +8850,22 @@ How would you like to handle the existing mod?</source>
     <message>
         <source>Disable</source>
         <translation>禁用</translation>
+    </message>
+    <message>
+        <source>The mod's files and folders as they are packaged in the archive.</source>
+        <translation>Mod的文件和文件夹在存档时被包装.</translation>
+    </message>
+    <message>
+        <source>Promote this folder's contents up to the top of the mod, stripping the wrapper folders above it. Use this when a mod is packaged one or more folders too deep, so its files land in the right place on deploy.</source>
+        <translation>将此文件夹的内容提升到 Mod 上方, 把它上面的包装文件夹剥去 。 当一个 Mod 被包装到一个或多个文件夹太深时使用此功能, 因此其文件在部署时会降落在正确的位置 .</translation>
+    </message>
+    <message>
+        <source>Deploy this file or folder to the game's root folder (next to the game executable) instead of the game's data folder. Use this for loaders, DLLs and INIs that belong beside the .exe.</source>
+        <translation>将此文件或文件夹部署到游戏的根文件夹(在游戏可执行文件的旁边),而不是游戏的数据文件夹. 用于装入器, DLLs 和 INIs 在.exe 旁边.</translation>
+    </message>
+    <message>
+        <source>Whether this file or folder is deployed. Unchecked excludes it: it stays in the mod but is never written to the game, so it cannot win conflicts.</source>
+        <translation>是否部署此文件或文件夹 。 未检查排除它:它停留在mod中,但从未被写入游戏,因此无法赢得冲突.</translation>
     </message>
 </context>
 <context>
@@ -9070,6 +9605,131 @@ or an encrypted file when no keyring is available).</source>
     <message>
         <source>Cancel</source>
         <translation>取消</translation>
+    </message>
+</context>
+<context>
+    <name>MulderLoadDowngraderView</name>
+    <message>
+        <source>Downgrade {0} - {1}</source>
+        <translation>降级{0} - {1}</translation>
+    </message>
+    <message>
+        <source>{0} Steam Downgrader</source>
+        <translation>{0} 蒸汽降级器</translation>
+    </message>
+    <message>
+        <source>Step 2: Download Downgrader</source>
+        <translation>第2步:下载降级器</translation>
+    </message>
+    <message>
+        <source>The newest release containing the selected downgrader will be downloaded from MulderLoad on GitHub and placed in the game folder.
+
+No modlist deploy is required.</source>
+        <translation>包含所选降级器的最新版本将在GitHub上从MulderLoad下载并放入游戏文件夹.
+
+不需要部署模块.</translation>
+    </message>
+    <message>
+        <source>Step 4: Run Downgrader</source>
+        <translation>第4步:运行降级器</translation>
+    </message>
+    <message>
+        <source>Step 1: Choose Downgrader</source>
+        <translation>第一步:选择降级</translation>
+    </message>
+    <message>
+        <source>The game and its Creation Kit are downgraded by separate installers. Pick which one to download and run.</source>
+        <translation>游戏及其"创建 Kit"被单独的安装者降级. 选择哪个下载和运行.</translation>
+    </message>
+    <message>
+        <source>{0} (game)</source>
+        <translation>{0} (游戏)</translation>
+    </message>
+    <message>
+        <source>Creation Kit</source>
+        <translation>创建 Kit</translation>
+    </message>
+    <message>
+        <source>Next</source>
+        <translation>下一个</translation>
+    </message>
+    <message>
+        <source>{0} Creation Kit Steam Downgrader</source>
+        <translation>{0} 创建工具包</translation>
+    </message>
+    <message>
+        <source>Step 3: Choose Proton Version</source>
+        <translation>第3步: 选择质子版本</translation>
+    </message>
+    <message>
+        <source>The {0} was not downloaded.
+Close and reopen the wizard to try again.</source>
+        <translation>{0}没有下载.
+关闭并重新打开向导再次尝试 .</translation>
+    </message>
+    <message>
+        <source>Game path is not configured.</source>
+        <translation>未配置游戏路径 .</translation>
+    </message>
+    <message>
+        <source>Searching MulderLoad releases…</source>
+        <translation>正在搜索穆德路德发布..</translation>
+    </message>
+    <message>
+        <source>Downloading {0}…</source>
+        <translation>正在下载 {0}..</translation>
+    </message>
+    <message>
+        <source>The downgrader download did not create {0}.</source>
+        <translation>降级下载没有创建{0}.</translation>
+    </message>
+    <message>
+        <source>Downloaded {0} to the game folder.</source>
+        <translation>已下载{0}到游戏文件夹.</translation>
+    </message>
+    <message>
+        <source>Download error: {0}</source>
+        <translation>下载错误: {0}</translation>
+    </message>
+    <message>
+        <source>{0} was not found in the game folder.</source>
+        <translation>{0} 在游戏文件夹中找不到.</translation>
+    </message>
+    <message>
+        <source>Launching {0}…</source>
+        <translation>正在发射{0}..</translation>
+    </message>
+    <message>
+        <source>Could not determine a Proton version for {0}.</source>
+        <translation>无法确定{0}的质子版本.</translation>
+    </message>
+    <message>
+        <source>{0} is running.
+Follow its prompts, then close it when finished.</source>
+        <translation>{0}正在运行中.
+跟随它的提示,完成后关闭它.</translation>
+    </message>
+    <message>
+        <source>
+
+Your modlist was restored before downgrading - use Deploy to put it back.</source>
+        <translation>在降级前恢复了你的调制程序 - 使用部署把它放回去.</translation>
+    </message>
+    <message>
+        <source>{0} finished. Click Done to close.</source>
+        <translation>{0}完成了. 点击完成以关闭 .</translation>
+    </message>
+    <message>
+        <source>{0} exited with code {1}. See the log for details.</source>
+        <translation>{0}以代码{1}退出. 详情见日志.</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>发射错误: {0}</translation>
+    </message>
+    <message>
+        <source>{0} is running - close it to continue.</source>
+        <translation>{0}正在运行 - 关闭继续.</translation>
     </message>
 </context>
 <context>
@@ -10908,6 +11568,10 @@ Re-scan to verify.</source>
         <source>Version mismatched masters:</source>
         <translation>版本不匹配的主机 :</translation>
     </message>
+    <message>
+        <source>This plugin is classified as OpenMW groundcover. When enabled, it loads as groundcover instead of normal content. OpenMW's settings.cfg must also contain [Groundcover] enabled = true.</source>
+        <translation>此插件被分类为"OpenMW地平面". 启用时, 它会装入地面盖而不是正常内容 。 OpenMW 的设置. cfg 还必须包含 [Groundcover] 启用=真.</translation>
+    </message>
 </context>
 <context>
     <name>PluginGroupsView</name>
@@ -10991,6 +11655,10 @@ Re-scan to verify.</source>
         <translation>启用所选项（{0}）</translation>
     </message>
     <message>
+        <source>Groundcover setting save failed: {0}</source>
+        <translation>地面覆盖设置失败 : {0}</translation>
+    </message>
+    <message>
         <source>Mark as Light (ESL)</source>
         <translation>《标记为光》（ESL）</translation>
     </message>
@@ -11005,6 +11673,14 @@ Re-scan to verify.</source>
     <message>
         <source>Not ESL-safe (per LOOT - compact in xEdit first)</source>
         <translation>非 ESL 安全 (每个 LOOT - 在 xEdit 中紧凑)</translation>
+    </message>
+    <message>
+        <source>Open LOOT message link</source>
+        <translation>打开 LOOT 消息链接</translation>
+    </message>
+    <message>
+        <source>Open LOOT message link…</source>
+        <translation>打开 LOOT 消息链接..</translation>
     </message>
     <message>
         <source>Remove ESL flag (un-light)</source>
@@ -11033,6 +11709,22 @@ Re-scan to verify.</source>
     <message>
         <source>Show userlist rules…</source>
         <translation>显示用户列表规则……</translation>
+    </message>
+    <message>
+        <source>Use as normal OpenMW content</source>
+        <translation>用作普通 OpenMW 内容</translation>
+    </message>
+    <message>
+        <source>Use as OpenMW groundcover</source>
+        <translation>用作 OpenMW 地平板</translation>
+    </message>
+    <message>
+        <source>Use selected as normal OpenMW content ({0})</source>
+        <translation>使用选中的 OpenMW 内容( {0})</translation>
+    </message>
+    <message>
+        <source>Use selected as OpenMW groundcover ({0})</source>
+        <translation>使用所选的 OpenMW 地面覆盖( {0})</translation>
     </message>
 </context>
 <context>
@@ -11121,6 +11813,10 @@ Drag a plugin from the left pane to add a rule.</source>
     <message>
         <source>Fix</source>
         <translation>修补</translation>
+    </message>
+    <message>
+        <source>.NET {0} Desktop Runtime</source>
+        <translation>.NET {0} 桌面运行时间</translation>
     </message>
     <message>
         <source>Proton prefix</source>
@@ -11303,6 +11999,13 @@ Drag a plugin from the left pane to add a rule.</source>
     </message>
 </context>
 <context>
+    <name>Profile</name>
+    <message>
+        <source>Default</source>
+        <translation>默认</translation>
+    </message>
+</context>
+<context>
     <name>ProfileGroupsView</name>
     <message>
         <source>Profile Groups</source>
@@ -11478,6 +12181,10 @@ Its listed mods are copied into the profile's own mods folder (hardlinked where 
         <translation>个人资料设置</translation>
     </message>
     <message>
+        <source>  (default)</source>
+        <translation>(默认)</translation>
+    </message>
+    <message>
         <source>Rename</source>
         <translation>重命名</translation>
     </message>
@@ -11540,32 +12247,12 @@ Its listed mods are copied into the profile's own mods folder (hardlinked where 
         <translation>每个版本都获得自己的前缀;在下个步骤上自动将依赖性安装到其中.</translation>
     </message>
     <message>
-        <source>No Proton versions were found.
-
-Install a Proton version in Steam (or with Heroic's Wine Manager), then reopen this wizard.</source>
-        <translation>没有找到质子版本 。
-
-在Steam安装一个质子版本(或与"英雄之酒"管理器),然后重新打开这个向导.</translation>
-    </message>
-    <message>
-        <source>{0} runs in its own Wine prefix, stored next to its exe and separate from the game's prefix, so you can pick any Proton version without affecting the game.
-
-</source>
-        <translation>{0}以自有的"酒"前缀运行,存储在其前缀旁边并独立于游戏前缀,因此可以选择任何质子版本而不影响游戏.
-
-.</translation>
+        <source>{0} runs in its own Wine prefix, stored next to its exe and separate from the game's prefix, so you can pick any Proton version without affecting the game.</source>
+        <translation>{0}以自有的"酒"前缀运行,存储在其前缀旁边并独立于游戏前缀,因此可以选择任何质子版本而不影响游戏.</translation>
     </message>
     <message>
         <source>Prefer discrete GPU (hybrid systems)</source>
         <translation>偏好离散GPU(hybrid systems)</translation>
-    </message>
-    <message>
-        <source>Expose the discrete GPU as adapter 0. May use more power.</source>
-        <translation>将离散的GPU曝光为适配器 0. 可能使用更多的权力.</translation>
-    </message>
-    <message>
-        <source>Uses the discrete GPU for texconv; falls back to CPU if unavailable.</source>
-        <translation>将离散的 GPU 用于 texconv; 如果无法使用, 返回到 CPU .</translation>
     </message>
     <message>
         <source>Use shared prefix</source>
@@ -11588,8 +12275,36 @@ Install a Proton version in Steam (or with Heroic's Wine Manager), then reopen t
         <translation>以平地葡萄酒( winetricks- style) 发射</translation>
     </message>
     <message>
-        <source>Use Winetricks style launch</source>
-        <translation>使用 Winetricks 样式启动</translation>
+        <source>The saved game prefix is unavailable. Choose another prefix setting.</source>
+        <translation>保存的游戏前缀无法使用 。 选择另一个前缀设置 .</translation>
+    </message>
+    <message>
+        <source>No Proton versions were found. Install one through Steam or Heroic, or add a custom Proton build below.</source>
+        <translation>没有找到质子版本 。 通过Steam或Heroic安装一个,或下面添加自定义的质子构建.</translation>
+    </message>
+    <message>
+        <source>The saved Proton selection is incomplete. Choose a Proton version.</source>
+        <translation>所保存的质子选择不完整. 选择质子版本 .</translation>
+    </message>
+    <message>
+        <source>The saved Proton version '{0}' is no longer installed. Choose another version.</source>
+        <translation>已保存的质子版本"{0}"已经不再被安装. 选择另一个版本 .</translation>
+    </message>
+    <message>
+        <source>Run this tool with plain Wine against the selected prefix instead of starting a Proton session.</source>
+        <translation>用纯葡萄酒对所选前缀运行此工具,而不是启动质子会话.</translation>
+    </message>
+    <message>
+        <source>Expose the discrete GPU as adapter 0 for texconv. This may use more power and falls back to the CPU if unavailable.</source>
+        <translation>将离散的GPU曝光为texconv的适配器 0. 这可能会使用更多的动力,如果无法使用,则会回到CPU.</translation>
+    </message>
+    <message>
+        <source>Add Custom Build</source>
+        <translation>添加自定义构建</translation>
+    </message>
+    <message>
+        <source>Select a complete Proton build folder containing the top-level 'proton' launcher. Do not select files/bin/wine.</source>
+        <translation>选择包含顶级"质子"发射器的完整的质子构建文件夹. 不选择文件/ bin/ wine .</translation>
     </message>
     <message>
         <source>Delete Prefix</source>
@@ -11616,12 +12331,56 @@ Install a Proton version in Steam (or with Heroic's Wine Manager), then reopen t
         <translation>例如：PROTON_USE_WINED3D=1 WINEDLLOVERRIDES=dinput8=n,b</translation>
     </message>
     <message>
+        <source>Always use these settings</source>
+        <translation>总是使用这些设置</translation>
+    </message>
+    <message>
+        <source>Skip this Proton step on future runs and reuse the saved values. Reset it from Wizard &gt; Wizard Settings.</source>
+        <translation>未来运行时跳过此质子步骤并重用所保存的值 。 从向导 &gt; 向导设置中重置 .</translation>
+    </message>
+    <message>
         <source>Continue</source>
         <translation>继续</translation>
     </message>
     <message>
+        <source>Select custom Proton build folder</source>
+        <translation>选择自定义的质子构建文件夹</translation>
+    </message>
+    <message>
+        <source>The selected folder does not contain a top-level 'proton' launcher.</source>
+        <translation>所选文件夹不包含顶级"质子"启动器 .</translation>
+    </message>
+    <message>
+        <source>Custom Proton build added: {0}</source>
+        <translation>自定义质子构建已添加: {0}</translation>
+    </message>
+    <message>
         <source>Using the game's existing prefix - Proton version follows the game's Steam setting and no new prefix is created.</source>
         <translation>使用游戏已存在的前缀——质子版遵循了游戏的Steam设定,没有创建出新的前缀.</translation>
+    </message>
+    <message>
+        <source>Select or add a Proton build before continuing.</source>
+        <translation>在继续前选择或添加质子构建 .</translation>
+    </message>
+    <message>
+        <source>Use custom Proton build?</source>
+        <translation>使用自定义质子构建吗 ?</translation>
+    </message>
+    <message>
+        <source>This Proton build was added manually and is outside Amethyst's supported configurations. Support cannot be provided for issues that occur while using it.
+
+Continue with {0}?</source>
+        <translation>这个质子构建是手动添加的,在阿梅西斯特支持的配置之外. 在使用时不能为出现的问题提供支持。
+
+继续{0}?</translation>
+    </message>
+    <message>
+        <source>Use Custom Build</source>
+        <translation>使用自定义构建</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
     </message>
     <message>
         <source>A prefix already exists for this version. Delete it if {0}
@@ -13447,6 +14206,22 @@ flatpak 远程添加-user amethyst https://chrisdkn.github.io/ Amethyst-Mod-Mana
         <translation>关闭</translation>
     </message>
     <message>
+        <source>Toolbar position</source>
+        <translation>工具栏位置</translation>
+    </message>
+    <message>
+        <source>Top</source>
+        <translation>顶</translation>
+    </message>
+    <message>
+        <source>Left side</source>
+        <translation>左侧</translation>
+    </message>
+    <message>
+        <source>Right side</source>
+        <translation>右边</translation>
+    </message>
+    <message>
         <source>Reset dismissed prompts…</source>
         <translation>重置已删除的提示..</translation>
     </message>
@@ -13489,6 +14264,14 @@ flatpak 远程添加-user amethyst https://chrisdkn.github.io/ Amethyst-Mod-Mana
     <message>
         <source>Reset</source>
         <translation>重设</translation>
+    </message>
+    <message>
+        <source>Custom Proton Build</source>
+        <translation>自定义质子构建</translation>
+    </message>
+    <message>
+        <source>Additional Proton build not found automatically. Select the build folder containing the top-level 'proton' launcher, not files/bin/wine. Blank disables it.</source>
+        <translation>未自动找到额外的质子构建 。 选择包含顶级"质子"启动器的构建文件夹,而不是文件/bin/wine. 空白会禁用它.</translation>
     </message>
     <message>
         <source>{0} set: {1}</source>
@@ -14106,12 +14889,52 @@ Pick a Proton version to create that prefix with.</source>
 请选择一个 Proton 版本来创建该前缀。</translation>
     </message>
     <message>
+        <source>Add Custom Build</source>
+        <translation>添加自定义构建</translation>
+    </message>
+    <message>
+        <source>Select a complete Proton build folder containing the top-level 'proton' launcher. Do not select files/bin/wine.</source>
+        <translation>选择包含顶级"质子"发射器的完整的质子构建文件夹. 不选择文件/ bin/ wine .</translation>
+    </message>
+    <message>
         <source>Continue →</source>
         <translation>继续 →</translation>
     </message>
     <message>
-        <source>No Proton installations found. Install Proton (e.g. GE-Proton) via Steam and try again.</source>
-        <translation>未找到 Proton 安装。请通过 Steam 安装 Proton（例如 GE-Proton），然后重试。</translation>
+        <source>No Proton installations found. Install one through Steam or add a custom build.</source>
+        <translation>未找到质子装置 。 通过Steam安装一个或添加自定义构建 .</translation>
+    </message>
+    <message>
+        <source>Select custom Proton build folder</source>
+        <translation>选择自定义的质子构建文件夹</translation>
+    </message>
+    <message>
+        <source>The selected folder does not contain a top-level 'proton' launcher.</source>
+        <translation>所选文件夹不包含顶级"质子"启动器 .</translation>
+    </message>
+    <message>
+        <source>Custom Proton build added: {0}</source>
+        <translation>自定义质子构建已添加: {0}</translation>
+    </message>
+    <message>
+        <source>Use custom Proton build?</source>
+        <translation>使用自定义质子构建吗 ?</translation>
+    </message>
+    <message>
+        <source>This Proton build was added manually and is outside Amethyst's supported configurations. Support cannot be provided for issues that occur while using it.
+
+Continue with {0}?</source>
+        <translation>这个质子构建是手动添加的,在阿梅西斯特支持的配置之外. 在使用时不能为出现的问题提供支持。
+
+继续{0}?</translation>
+    </message>
+    <message>
+        <source>Use Custom Build</source>
+        <translation>使用自定义构建</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
     </message>
     <message>
         <source>Step 3: Prepare Prefix</source>
@@ -15566,8 +16389,8 @@ or use Browse to select it manually.</source>
         <translation>围绕面板,列表和输入的行和框架.</translation>
     </message>
     <message>
-        <source>Danger / cancel / remove buttons (delete, remove profile, ✕ close).</source>
-        <translation>危险 / 取消/ 删除按钮( 删除, 删除配置文件, QQ 关闭) .</translation>
+        <source>Danger buttons (delete, remove profile and other destructive actions).</source>
+        <translation>危险按钮(删除、去掉剖面和其他破坏性行动).</translation>
     </message>
     <message>
         <source>Success / confirm buttons (Install, Done, Play).</source>
@@ -16355,6 +17178,57 @@ Latest:  {1}</source>
     </message>
 </context>
 <context>
+    <name>VideoPreview</name>
+    <message>
+        <source>Qt Multimedia is not installed.</source>
+        <translation>Qt 多媒体未安装 .</translation>
+    </message>
+    <message>
+        <source>No video selected</source>
+        <translation>未选中视频</translation>
+    </message>
+    <message>
+        <source>Play</source>
+        <translation>播放</translation>
+    </message>
+    <message>
+        <source>Stop</source>
+        <translation>停下来</translation>
+    </message>
+    <message>
+        <source>Volume</source>
+        <translation>数量</translation>
+    </message>
+    <message>
+        <source>Video file not found.</source>
+        <translation>未找到视频文件 .</translation>
+    </message>
+    <message>
+        <source>Unavailable</source>
+        <translation>无法获取</translation>
+    </message>
+    <message>
+        <source>Pause</source>
+        <translation>暂停</translation>
+    </message>
+    <message>
+        <source>This video format could not be played.</source>
+        <translation>无法播放此视频格式 .</translation>
+    </message>
+    <message>
+        <source>Could not play this video file.</source>
+        <translation>无法播放此视频文件 .</translation>
+    </message>
+    <message>
+        <source>Unmute</source>
+        <translation>释出</translation>
+    </message>
+    <message>
+        <source>Mute</source>
+        <translation>静音</translation>
+    </message>
+</context>
+<context>
     <name>WikiView</name>
     <message>
         <source>Refresh</source>
@@ -16408,6 +17282,33 @@ Press Refresh to try again.</source>
     <message>
         <source>Refreshing…</source>
         <translation>刷新中..</translation>
+    </message>
+</context>
+<context>
+    <name>WizardSettingsOverlay</name>
+    <message>
+        <source>Wizard Settings</source>
+        <translation>向导设置</translation>
+    </message>
+    <message>
+        <source>These wizard tools skip their Proton settings step. Reset a tool to show the step again; its saved values are kept.</source>
+        <translation>这些向导工具跳过它们的质子设置步骤. 重置一个工具来再次显示该步骤; 它所保存的值被保存 .</translation>
+    </message>
+    <message>
+        <source>No wizard tools are using saved settings.</source>
+        <translation>没有向导工具使用已保存的设置 .</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>关闭</translation>
+    </message>
+    <message>
+        <source>Reset</source>
+        <translation>重设</translation>
+    </message>
+    <message>
+        <source>Show this wizard's Proton settings step the next time it runs.</source>
+        <translation>在下次运行时显示此向导的质子设置步骤 .</translation>
     </message>
 </context>
 <context>
@@ -16469,6 +17370,10 @@ Press Refresh to try again.</source>
         <translation>降级 4</translation>
     </message>
     <message>
+        <source>Downgrade Skyrim Special Edition</source>
+        <translation>降级 Skyrim 特别版</translation>
+    </message>
+    <message>
         <source>Install Script Extender (F4SE)</source>
         <translation>安装脚本扩展名( F4SE)</translation>
     </message>
@@ -16525,6 +17430,10 @@ Press Refresh to try again.</source>
         <translation>插件审计和清理</translation>
     </message>
     <message>
+        <source>BSA Pack Candidates</source>
+        <translation>BSA 包装候选人</translation>
+    </message>
+    <message>
         <source>SSE Display Tweaks Config</source>
         <translation>SSE 显示曲折配置</translation>
     </message>
@@ -16571,6 +17480,10 @@ Press Refresh to try again.</source>
     <message>
         <source>Run xLODGen</source>
         <translation>运行 xLODGen</translation>
+    </message>
+    <message>
+        <source>Run ACMOS Road Generator</source>
+        <translation>运行 ACMOS 道路生成器</translation>
     </message>
     <message>
         <source>Run VRAMr</source>
@@ -16677,8 +17590,12 @@ Press Refresh to try again.</source>
         <translation>从数据文件夹中部署 Mods 并运行 Outfit Studio .</translation>
     </message>
     <message>
-        <source>Download the latest Fallout 4 Steam Downgrader and run it from the game folder.</source>
-        <translation>下载最新的Fallout 4 Steam Downgrader,并从游戏文件夹运行.</translation>
+        <source>Download the latest Fallout 4 Steam Downgrader (game or Creation Kit) and run it from the game folder.</source>
+        <translation>从游戏文件夹中下载最新的Fallout 4 Steam Downgrader(游戏或创建 Kit)并运行.</translation>
+    </message>
+    <message>
+        <source>Download the latest Skyrim Special Edition Steam Downgrader (game or Creation Kit) and run it from the game folder.</source>
+        <translation>下载最新的Skyrim Special Edition Steam Downgrader(游戏或创建 Kit),并从游戏文件夹中运行.</translation>
     </message>
     <message>
         <source>Download and install F4SE into the game folder.</source>
@@ -16797,6 +17714,10 @@ Press Refresh to try again.</source>
         <translation>安装xLODGen,部署mods,并运行xLODGenx64.exe.</translation>
     </message>
     <message>
+        <source>Install ACMOS Road Generator, choose a terrain LOD mod, and write generated road textures to ACMOS_Output.</source>
+        <translation>安装 ACMOS 路由生成器,选择地形 LOD mod,并将生成的路由纹理写入 ACMOS Output.</translation>
+    </message>
+    <message>
         <source>Install BethINI Pie and configure Skyrim SE INI settings.</source>
         <translation>安装 BethINI Pie并配置 Skyrim SE INI 设置 .</translation>
     </message>
@@ -16819,6 +17740,10 @@ Press Refresh to try again.</source>
     <message>
         <source>Scan load order for safe-to-disable plugins, then disable them or clean up orphaned SkyGen BOS/SkyPatcher INIs for plugins that must stay enabled.</source>
         <translation>扫描安全到失效插件的负载顺序,然后将其禁用或清理为孤儿的SkyGen BOS/SkyPatcher INIs,用于必须保持启用的插件.</translation>
+    </message>
+    <message>
+        <source>Rank mods by how many files they could pack into a BSA/BA2, and flag the ones that would break if packed.</source>
+        <translation>按他们能把多少文件打入BSA/BA2 并标出那些如果打包就会破的.</translation>
     </message>
     <message>
         <source>Download and install SKSEVR into the game folder.</source>
@@ -16873,6 +17798,10 @@ Press Refresh to try again.</source>
         <translation>设置和安装器</translation>
     </message>
     <message>
+        <source>Install Modlist</source>
+        <translation>安装模块</translation>
+    </message>
+    <message>
         <source>Body and Outfits</source>
         <translation>身体和外观</translation>
     </message>
@@ -16903,6 +17832,10 @@ Press Refresh to try again.</source>
     <message>
         <source>INI Tweaks</source>
         <translation>INI 图文</translation>
+    </message>
+    <message>
+        <source>NIF Viewer</source>
+        <translation>NIF 查看器</translation>
     </message>
     <message>
         <source>Other</source>
