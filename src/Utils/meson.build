@@ -149,6 +149,7 @@ py.install_sources(
   'profile_groups.py',
   'profile_state.py',
   'profile_structure.py',
+  'process_watch.py',
   'proton_prefix.py',
   'proton_tools.py',
   'protontricks.py',

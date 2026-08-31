@@ -16,6 +16,7 @@ py.install_sources(
   'Fallout4.png',
   'Fallout4VR.png',
   'Fallout76.png',
+  'FalloutNC.png',
   'FalloutNV.png',
   'hogwarts_legacy.png',
   'Hollow_Knight_Silksong.png',
