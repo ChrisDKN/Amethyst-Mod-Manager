@@ -16,6 +16,7 @@
 - The Amethyst theme is now the default theme for new installs
 - Audio and video files can now be played from the mod files tab and Data tab
 - Wabbajack lists no longer show in the collection browser
+- OpenMW plugins can now be flagged as groundcover plugins
 ### Bug Fixes
 - Fixed repeated and unnecessary Nexus oauth token requests from the keyring during startup and during mod install
 - Fixed Enderal using Fallout's top level folder set causing some mods to install incorrectly
