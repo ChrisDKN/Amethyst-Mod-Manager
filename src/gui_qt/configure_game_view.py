@@ -56,6 +56,15 @@ def _is_strict_path_ancestor(parent, child) -> bool:
     return parent_path != child_path and parent_path in child_path.parents
 
 
+def _path_is_same_or_descendant(parent, child) -> bool:
+    try:
+        parent_path = Path(parent).expanduser().resolve(strict=False)
+        child_path = Path(child).expanduser().resolve(strict=False)
+    except (OSError, RuntimeError, TypeError):
+        return False
+    return parent_path == child_path or parent_path in child_path.parents
+
+
 def _heroic_app_names(game) -> list[str]:
     names = list(getattr(game, "heroic_app_names", []) or [])
     if not names and getattr(game, "name", None):
@@ -1925,6 +1934,20 @@ class ConfigureGameView(QWidget):
         if self._found_path is None:
             self._game_status.setText(self.tr("Set the game installation folder first."))
             self._game_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
+            return
+
+        staging_path = self._custom_staging
+        if staging_path is None:
+            try:
+                staging_path = g.get_mod_staging_path()
+            except Exception:
+                staging_path = None
+        if staging_path is not None and _path_is_same_or_descendant(
+                self._found_path, staging_path):
+            self._staging_status.setText(self.tr(
+                "The mod staging folder cannot be the game folder or be inside "
+                "it. Choose a separate location."))
+            self._staging_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
             return
 
         # Flatpak: a path outside the sandbox's filesystem grants looks like a
