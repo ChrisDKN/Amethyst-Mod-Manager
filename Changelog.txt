@@ -1,4 +1,4 @@
-- v2.3.1
+- v2.4.0
 ### Performance Improvements
 - Fully reworked how conflicts are detected. Adding new mods, moving mods, enabling and disabling mods in a large modlist will feel much more responsive.
 - Improved application load and startup times
@@ -9,18 +9,19 @@
 - Added a Skyrim downgrade wizard for running the Mulderload downgrader
 - Added a right click option to Fomod mods to display the options that you made for that mod
 - Added support for the OpenMW appimage
-- Added a Wizard tool for Acmos Road generator (Skyrim SE)
+- Added a Wizard tool for Acmos Road generator (Skyrim SE in the Dyndolod category)
+- Added a logs dropdown to the text files tab.
 ### Changes
 - The top bar can now be moved to the right or left of the application in the UI settings
 - The Amethyst theme is now the default theme for new installs
-- Audio files can now be played from the mod files tab and Data tab
+- Audio and video files can now be played from the mod files tab and Data tab
+- Wabbajack lists no longer show in the collection browser
 ### Bug Fixes
 - Fixed repeated and unnecessary Nexus oauth token requests from the keyring during startup and during mod install
 - Fixed Enderal using Fallout's top level folder set causing some mods to install incorrectly
 - Fixed game launch options not applying correctly
 - Fixed an issue where applications run via the wizard could be left running in the background forever
-- Fixed wabbjack lists from showing up in the collection browser
-
+- Fixed separator strike lines not being visible with some themes
 ---
 
 - v2.3.0
