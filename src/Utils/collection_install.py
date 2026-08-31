@@ -1825,7 +1825,8 @@ def run_collection_install(
                 fomod_by_file_id, bain_by_file_id, _install_results,
                 _install_counters, _install_lock, _archive_use_count,
                 _external_archive_paths, _col_stop, _slug, overwrite_existing,
-                _write_preliminary_plugins_txt, _maybe_delete_archive, cb, log, _set_status)
+                _write_preliminary_plugins_txt, _maybe_delete_archive, cb, log, _set_status,
+                fomod_expected_installed_files, fomod_expected_active_files)
 
     if download_only:
         # Everything below (mod index, bundled assets, modlist/plugins/filemap,
@@ -2124,7 +2125,8 @@ def _process_deferred(
         fomod_by_file_id, bain_by_file_id, _install_results,
         _install_counters, _install_lock, _archive_use_count,
         _external_archive_paths, _col_stop, _slug, overwrite_existing,
-        _write_preliminary_plugins_txt, _maybe_delete_archive, cb, log, _set_status):
+        _write_preliminary_plugins_txt, _maybe_delete_archive, cb, log, _set_status,
+        fomod_expected_installed_files, fomod_expected_active_files):
     from Nexus.nexus_meta import build_meta_from_download
 
     def _mk_meta_and_name(mod, domain):
