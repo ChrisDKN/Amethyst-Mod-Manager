@@ -618,6 +618,21 @@ class ProfileSession:
                 self._snapshot = ResolvedSnapshot(self._native.snapshot())
             return self._snapshot
 
+    def _try_inventory_snapshot(
+        self, inventory_generation: int,
+    ) -> ResolvedSnapshot | None:
+        if not self._lock.acquire(blocking=False):
+            return None
+        try:
+            snapshot = self._snapshot
+            if (snapshot is None
+                    or snapshot.generation == 0
+                    or snapshot.inventory_generation != inventory_generation):
+                return None
+            return snapshot
+        finally:
+            self._lock.release()
+
     def build_deployment_plan(self, snapshot_generation: int) -> DeploymentPlan:
         generation = int(snapshot_generation)
         with self._lock:
@@ -921,6 +936,25 @@ class LibrarySession:
         except BaseException as exc:
             raise _native_error(exc) from exc
 
+    def try_inventory_snapshot(
+        self, profile_dir: Path,
+    ) -> ResolvedSnapshot | None:
+        """Return a catalog-current snapshot without waiting for graph work."""
+        if not self._refresh_lock.acquire(blocking=False):
+            return None
+        try:
+            status = self.status()
+            if not status.ready:
+                return None
+            key = str(Path(profile_dir).resolve(strict=False))
+            profile = self._profiles.get(key)
+            if profile is None:
+                return None
+            return profile._try_inventory_snapshot(
+                status.inventory_generation)
+        finally:
+            self._refresh_lock.release()
+
     def open_profile(self, profile_dir: Path) -> ProfileSession:
         key = str(Path(profile_dir).resolve(strict=False))
         session = self._profiles.get(key)
@@ -1069,36 +1103,46 @@ class LibrarySession:
     ) -> CatalogStatus:
         """Build, validate, and atomically activate a complete raw catalog."""
         with self._refresh_lock:
-            session = self.open_profile(profile_dir)
-            session.adapter._refresh_profile_rules()
-            token = cancel or CancellationToken()
-            build_root = Path(tempfile.mkdtemp(
-                prefix=".filegraph-build-", dir=self.root))
+            return self._rebuild_locked(
+                profile_dir, progress=progress, cancel=cancel)
+
+    def _rebuild_locked(
+        self,
+        profile_dir: Path,
+        *,
+        progress: Callable | None = None,
+        cancel: CancellationToken | None = None,
+    ) -> CatalogStatus:
+        session = self.open_profile(profile_dir)
+        session.adapter._refresh_profile_rules()
+        token = cancel or CancellationToken()
+        build_root = Path(tempfile.mkdtemp(
+            prefix=".filegraph-build-", dir=self.root))
+        temporary = None
+        try:
+            native = require_native()
+            temporary = native.LibrarySession.open(build_root)
+            batches = session.adapter.refresh_batches(
+                progress=progress, cancel=token)
+            for batch in batches:
+                if token.is_cancelled():
+                    raise FileGraphCancelled("filegraph rebuild cancelled")
+                temporary.replace_mod_manifest(pack(batch), token._native)
+            temporary.set_ready(True)
+            temporary.checkpoint()
+            self._native.activate_catalog(
+                temporary.database_path, True)
+            self._variant_keys_cache = None
+            for profile_id, profile in self._profiles.items():
+                profile._reset_after_catalog_rebuild(profile_id)
+            return self.status()
+        except BaseException as exc:
+            if isinstance(exc, FileGraphCancelled):
+                raise
+            raise _native_error(exc) from exc
+        finally:
             temporary = None
-            try:
-                native = require_native()
-                temporary = native.LibrarySession.open(build_root)
-                batches = session.adapter.refresh_batches(
-                    progress=progress, cancel=token)
-                for batch in batches:
-                    if token.is_cancelled():
-                        raise FileGraphCancelled("filegraph rebuild cancelled")
-                    temporary.replace_mod_manifest(pack(batch), token._native)
-                temporary.set_ready(True)
-                temporary.checkpoint()
-                self._native.activate_catalog(
-                    temporary.database_path, True)
-                self._variant_keys_cache = None
-                for profile_id, profile in self._profiles.items():
-                    profile._reset_after_catalog_rebuild(profile_id)
-                return self.status()
-            except BaseException as exc:
-                if isinstance(exc, FileGraphCancelled):
-                    raise
-                raise _native_error(exc) from exc
-            finally:
-                temporary = None
-                shutil.rmtree(build_root, ignore_errors=True)
+            shutil.rmtree(build_root, ignore_errors=True)
 
     def ensure_ready(
         self, profile_dir: Path, *, progress: Callable | None = None,
@@ -1107,7 +1151,12 @@ class LibrarySession:
         status = self.status()
         if status.ready:
             return status
-        return self.rebuild(profile_dir, progress=progress, cancel=cancel)
+        with self._refresh_lock:
+            status = self.status()
+            if status.ready:
+                return status
+            return self._rebuild_locked(
+                profile_dir, progress=progress, cancel=cancel)
 
 
 _library_sessions: "weakref.WeakValueDictionary[str, LibrarySession]" = (

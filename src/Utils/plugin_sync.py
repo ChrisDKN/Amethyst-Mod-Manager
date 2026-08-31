@@ -4,7 +4,7 @@ Disabling a mod removes its top-level plugins from plugins.txt (star games
 keep the loadorder.txt entry as position memory); enabling adds missing ones
 back at their remembered load-order slot. The whole batch is one
 read-modify-write per file. Per-mod plugin spellings come from a compact
-Filegraph snapshot query without materialising the complete file list."""
+Filegraph snapshot query, with a targeted disk scan when no snapshot is ready."""
 
 from __future__ import annotations
 
@@ -14,6 +14,61 @@ from Utils.plugins import (
     read_plugins, write_plugins, read_loadorder, write_loadorder, PluginEntry,
     insert_by_loadorder,
 )
+
+
+def _plugin_data_subfolders(game) -> set[str]:
+    try:
+        from Utils.game_helpers import game_data_subpath
+        subfolder = game_data_subpath(game)
+        strip_prefixes = {
+            str(value).lower() for value in
+            (getattr(game, "mod_folder_strip_prefixes", None) or ())
+        }
+        if (subfolder and "/" not in subfolder
+                and subfolder.lower() in strip_prefixes):
+            return {subfolder.lower()}
+    except Exception:
+        pass
+    return set()
+
+
+def _scan_mod_plugins(game, staging_root: Path, mod_name: str,
+                      plugin_exts: set[str],
+                      data_subfolders: set[str]) -> list[str]:
+    mod_dir = staging_root / mod_name
+    if not mod_dir.is_dir():
+        return []
+    names: list[str] = []
+    seen: set[str] = set()
+
+    def add(name: str) -> None:
+        lowered = name.lower()
+        if lowered not in seen:
+            names.append(name)
+            seen.add(lowered)
+
+    try:
+        nested: list[Path] = []
+        for entry in mod_dir.iterdir():
+            if entry.is_file() and entry.suffix.lower() in plugin_exts:
+                add(entry.name)
+            elif (data_subfolders and entry.is_dir()
+                  and entry.name.lower() in data_subfolders):
+                nested.append(entry)
+        for folder in nested:
+            for entry in folder.iterdir():
+                if entry.is_file() and entry.suffix.lower() in plugin_exts:
+                    add(entry.name)
+    except OSError:
+        pass
+
+    try:
+        from Utils.game_helpers import routed_mod_plugin_names
+        for name in routed_mod_plugin_names(game, mod_dir):
+            add(name)
+    except Exception:
+        pass
+    return names
 
 
 def sync_plugins_for_mods(game, profile_dir: Path | None,
@@ -35,15 +90,9 @@ def sync_plugins_for_mods(game, profile_dir: Path | None,
         return False
     from Utils.perftrace import span
     from Utils.filegraph_service import FileGraphService
-    with span("plugin_sync.open_snapshot"):
+    with span("plugin_sync.current_snapshot"):
         library = FileGraphService.open_library(game, profile_dir, log_fn=log)
-        status = library.ensure_ready(profile_dir)
-        profile = library.open_profile(profile_dir)
-        snapshot = profile.snapshot()
-        if (snapshot.generation == 0
-                or snapshot.inventory_generation != status.inventory_generation):
-            profile.reconcile(operation_hint={"kind": "inventory_change"})
-            snapshot = profile.snapshot()
+        snapshot = library.try_inventory_snapshot(profile_dir)
     plugins_path = profile_dir / "plugins.txt"
     # NB: do NOT bail when plugins.txt is missing. A game that has no plugins.txt
     # concept was already filtered out above (empty plugin_exts), so a missing
@@ -58,14 +107,22 @@ def sync_plugins_for_mods(game, profile_dir: Path | None,
     add_seen: set[str] = set()
     remove_lower: set[str] = set()
     with span("plugin_sync.mod_plugins"):
-        plugin_changes = [
-            (mod_name, now_enabled, snapshot.mod_plugins(mod_name))
-            for mod_name, now_enabled in changes
-        ]
+        if snapshot is not None:
+            plugin_changes = [
+                (mod_name, now_enabled, snapshot.mod_plugins(mod_name))
+                for mod_name, now_enabled in changes
+            ]
+        else:
+            data_subfolders = _plugin_data_subfolders(game)
+            plugin_changes = [
+                (mod_name, now_enabled, _scan_mod_plugins(
+                    game, staging_root, mod_name, plugin_exts,
+                    data_subfolders))
+                for mod_name, now_enabled in changes
+            ]
     for mod_name, now_enabled, found in plugin_changes:
-        # This native point query returns only the handful of plugin spellings.
-        # Materialising every rich ModFile/conflict record made toggling a
-        # patcher output with 25k files spend hundreds of milliseconds here.
+        # The native path returns only the handful of plugin spellings instead
+        # of materialising every rich file/conflict record for large outputs.
         if now_enabled and not found:
             # Enabling a mod whose staging folder has NO top-level plugin files
             # for this game's extensions. This is completely normal for
