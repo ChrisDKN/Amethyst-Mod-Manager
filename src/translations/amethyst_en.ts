@@ -1488,6 +1488,22 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</translati
         <translation>Could not load.</translation>
     </message>
     <message>
+        <source>This is a Wabbajack list and cannot be installed by Amethyst. Install it with Wabbajack instead.</source>
+        <translation>This is a Wabbajack list and cannot be installed by Amethyst. Install it with Wabbajack instead.</translation>
+    </message>
+    <message>
+        <source>This collection uses an unsupported format and cannot be installed by Amethyst.</source>
+        <translation>This collection uses an unsupported format and cannot be installed by Amethyst.</translation>
+    </message>
+    <message>
+        <source>No installable collection data.</source>
+        <translation>No installable collection data.</translation>
+    </message>
+    <message>
+        <source>Unsupported collection</source>
+        <translation>Unsupported collection</translation>
+    </message>
+    <message>
         <source>Download collection</source>
         <translation>Download collection</translation>
     </message>
@@ -2137,6 +2153,10 @@ The default profile's settings are not affected.</translation>
     <message>
         <source>Set the game installation folder first.</source>
         <translation>Set the game installation folder first.</translation>
+    </message>
+    <message>
+        <source>The mod staging folder cannot be the game folder or be inside it. Choose a separate location.</source>
+        <translation>The mod staging folder cannot be the game folder or be inside it. Choose a separate location.</translation>
     </message>
     <message>
         <source>This path is not visible inside the Flatpak sandbox. Grant access in Flatseal or run: {0}</source>
@@ -5191,6 +5211,10 @@ Click Done to clean up the extracted files and close.</translation>
     <message>
         <source>My Games</source>
         <translation>My Games</translation>
+    </message>
+    <message>
+        <source>Logs</source>
+        <translation>Logs</translation>
     </message>
     <message>
         <source>Clear all</source>
@@ -8821,6 +8845,22 @@ How would you like to handle the existing mod?</translation>
         <source>Disable</source>
         <translation>Disable</translation>
     </message>
+    <message>
+        <source>The mod's files and folders as they are packaged in the archive.</source>
+        <translation>The mod's files and folders as they are packaged in the archive.</translation>
+    </message>
+    <message>
+        <source>Promote this folder's contents up to the top of the mod, stripping the wrapper folders above it. Use this when a mod is packaged one or more folders too deep, so its files land in the right place on deploy.</source>
+        <translation>Promote this folder's contents up to the top of the mod, stripping the wrapper folders above it. Use this when a mod is packaged one or more folders too deep, so its files land in the right place on deploy.</translation>
+    </message>
+    <message>
+        <source>Deploy this file or folder to the game's root folder (next to the game executable) instead of the game's data folder. Use this for loaders, DLLs and INIs that belong beside the .exe.</source>
+        <translation>Deploy this file or folder to the game's root folder (next to the game executable) instead of the game's data folder. Use this for loaders, DLLs and INIs that belong beside the .exe.</translation>
+    </message>
+    <message>
+        <source>Whether this file or folder is deployed. Unchecked excludes it: it stays in the mod but is never written to the game, so it cannot win conflicts.</source>
+        <translation>Whether this file or folder is deployed. Unchecked excludes it: it stays in the mod but is never written to the game, so it cannot win conflicts.</translation>
+    </message>
 </context>
 <context>
     <name>ModFilesView</name>
@@ -12207,14 +12247,6 @@ Its listed mods are copied into the profile's own mods folder (hardlinked where 
         <translation>{0} runs in its own Wine prefix, stored next to its exe and separate from the game's prefix, so you can pick any Proton version without affecting the game.</translation>
     </message>
     <message>
-        <source>No Proton versions were found.
-
-Install a Proton version in Steam (or with Heroic's Wine Manager), then reopen this wizard.</source>
-        <translation>No Proton versions were found.
-
-Install a Proton version in Steam (or with Heroic's Wine Manager), then reopen this wizard.</translation>
-    </message>
-    <message>
         <source>Prefer discrete GPU (hybrid systems)</source>
         <translation>Prefer discrete GPU (hybrid systems)</translation>
     </message>
@@ -12243,6 +12275,10 @@ Install a Proton version in Steam (or with Heroic's Wine Manager), then reopen t
         <translation>The saved game prefix is unavailable. Choose another prefix setting.</translation>
     </message>
     <message>
+        <source>No Proton versions were found. Install one through Steam or Heroic, or add a custom Proton build below.</source>
+        <translation>No Proton versions were found. Install one through Steam or Heroic, or add a custom Proton build below.</translation>
+    </message>
+    <message>
         <source>The saved Proton selection is incomplete. Choose a Proton version.</source>
         <translation>The saved Proton selection is incomplete. Choose a Proton version.</translation>
     </message>
@@ -12257,6 +12293,14 @@ Install a Proton version in Steam (or with Heroic's Wine Manager), then reopen t
     <message>
         <source>Expose the discrete GPU as adapter 0 for texconv. This may use more power and falls back to the CPU if unavailable.</source>
         <translation>Expose the discrete GPU as adapter 0 for texconv. This may use more power and falls back to the CPU if unavailable.</translation>
+    </message>
+    <message>
+        <source>Add Custom Build</source>
+        <translation>Add Custom Build</translation>
+    </message>
+    <message>
+        <source>Select a complete Proton build folder containing the top-level 'proton' launcher. Do not select files/bin/wine.</source>
+        <translation>Select a complete Proton build folder containing the top-level 'proton' launcher. Do not select files/bin/wine.</translation>
     </message>
     <message>
         <source>Delete Prefix</source>
@@ -12295,8 +12339,44 @@ Install a Proton version in Steam (or with Heroic's Wine Manager), then reopen t
         <translation>Continue</translation>
     </message>
     <message>
+        <source>Select custom Proton build folder</source>
+        <translation>Select custom Proton build folder</translation>
+    </message>
+    <message>
+        <source>The selected folder does not contain a top-level 'proton' launcher.</source>
+        <translation>The selected folder does not contain a top-level 'proton' launcher.</translation>
+    </message>
+    <message>
+        <source>Custom Proton build added: {0}</source>
+        <translation>Custom Proton build added: {0}</translation>
+    </message>
+    <message>
         <source>Using the game's existing prefix - Proton version follows the game's Steam setting and no new prefix is created.</source>
         <translation>Using the game's existing prefix - Proton version follows the game's Steam setting and no new prefix is created.</translation>
+    </message>
+    <message>
+        <source>Select or add a Proton build before continuing.</source>
+        <translation>Select or add a Proton build before continuing.</translation>
+    </message>
+    <message>
+        <source>Use custom Proton build?</source>
+        <translation>Use custom Proton build?</translation>
+    </message>
+    <message>
+        <source>This Proton build was added manually and is outside Amethyst's supported configurations. Support cannot be provided for issues that occur while using it.
+
+Continue with {0}?</source>
+        <translation>This Proton build was added manually and is outside Amethyst's supported configurations. Support cannot be provided for issues that occur while using it.
+
+Continue with {0}?</translation>
+    </message>
+    <message>
+        <source>Use Custom Build</source>
+        <translation>Use Custom Build</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
     </message>
     <message>
         <source>A prefix already exists for this version. Delete it if {0}
@@ -14180,6 +14260,14 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
         <translation>Reset</translation>
     </message>
     <message>
+        <source>Custom Proton Build</source>
+        <translation>Custom Proton Build</translation>
+    </message>
+    <message>
+        <source>Additional Proton build not found automatically. Select the build folder containing the top-level 'proton' launcher, not files/bin/wine. Blank disables it.</source>
+        <translation>Additional Proton build not found automatically. Select the build folder containing the top-level 'proton' launcher, not files/bin/wine. Blank disables it.</translation>
+    </message>
+    <message>
         <source>{0} set: {1}</source>
         <translation>{0} set: {1}</translation>
     </message>
@@ -14796,12 +14884,52 @@ Pick a Proton version to create that prefix with.</source>
 Pick a Proton version to create that prefix with.</translation>
     </message>
     <message>
+        <source>Add Custom Build</source>
+        <translation>Add Custom Build</translation>
+    </message>
+    <message>
+        <source>Select a complete Proton build folder containing the top-level 'proton' launcher. Do not select files/bin/wine.</source>
+        <translation>Select a complete Proton build folder containing the top-level 'proton' launcher. Do not select files/bin/wine.</translation>
+    </message>
+    <message>
         <source>Continue →</source>
         <translation>Continue →</translation>
     </message>
     <message>
-        <source>No Proton installations found. Install Proton (e.g. GE-Proton) via Steam and try again.</source>
-        <translation>No Proton installations found. Install Proton (e.g. GE-Proton) via Steam and try again.</translation>
+        <source>No Proton installations found. Install one through Steam or add a custom build.</source>
+        <translation>No Proton installations found. Install one through Steam or add a custom build.</translation>
+    </message>
+    <message>
+        <source>Select custom Proton build folder</source>
+        <translation>Select custom Proton build folder</translation>
+    </message>
+    <message>
+        <source>The selected folder does not contain a top-level 'proton' launcher.</source>
+        <translation>The selected folder does not contain a top-level 'proton' launcher.</translation>
+    </message>
+    <message>
+        <source>Custom Proton build added: {0}</source>
+        <translation>Custom Proton build added: {0}</translation>
+    </message>
+    <message>
+        <source>Use custom Proton build?</source>
+        <translation>Use custom Proton build?</translation>
+    </message>
+    <message>
+        <source>This Proton build was added manually and is outside Amethyst's supported configurations. Support cannot be provided for issues that occur while using it.
+
+Continue with {0}?</source>
+        <translation>This Proton build was added manually and is outside Amethyst's supported configurations. Support cannot be provided for issues that occur while using it.
+
+Continue with {0}?</translation>
+    </message>
+    <message>
+        <source>Use Custom Build</source>
+        <translation>Use Custom Build</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
     </message>
     <message>
         <source>Step 3: Prepare Prefix</source>
