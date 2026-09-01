@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import sqlite3
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -149,3 +150,126 @@ def probe_game(command: BackendCommand, game_dir: Path, *, timeout: float = 120.
     if completed.returncode != 0 or not result.get("ok"):
         raise CrimsonBackendError("; ".join(result.get("errors", [])))
     return result
+
+
+def storage_paths(game_dir: Path) -> tuple[Path, Path, Path]:
+    """Return CDUMM's database, delta and vanilla-snapshot paths."""
+    root = game_dir / "CDMods"
+    return root / "cdumm.db", root / "deltas", root / "vanilla"
+
+
+def ensure_snapshot(
+    command: BackendCommand,
+    game_dir: Path,
+    *,
+    log_fn: Callable[[str], None] | None = None,
+    timeout: float = 600.0,
+) -> dict:
+    """Create CDUMM's hash baseline once, before the first real apply."""
+    db_path, _deltas_dir, _vanilla_dir = storage_paths(game_dir)
+    if db_path.is_file():
+        try:
+            with sqlite3.connect(db_path) as connection:
+                row = connection.execute("SELECT COUNT(*) FROM snapshots").fetchone()
+            if row and int(row[0]) > 0:
+                return {"type": "done", "count": int(row[0]), "existing": True}
+        except sqlite3.Error:
+            pass
+    return run_worker(
+        command, ("snapshot", str(game_dir), str(db_path)),
+        log_fn=log_fn, timeout=timeout,
+    )
+
+
+def import_mod(
+    command: BackendCommand,
+    game_dir: Path,
+    source: Path,
+    *,
+    existing_mod_id: int | None = None,
+    log_fn: Callable[[str], None] | None = None,
+    timeout: float = 300.0,
+) -> dict:
+    """Import one archive-aware source into CDUMM without applying it."""
+    db_path, deltas_dir, _vanilla_dir = storage_paths(game_dir)
+    args = ["import", str(source), str(game_dir), str(db_path), str(deltas_dir)]
+    if existing_mod_id is not None:
+        args.append(str(existing_mod_id))
+    return run_worker(
+        command,
+        tuple(args),
+        log_fn=log_fn,
+        timeout=timeout,
+    )
+
+
+def _run_cli(
+    command: BackendCommand,
+    args: Iterable[str],
+    timeout: float = 120.0,
+) -> str:
+    env = os.environ.copy()
+    if command.cwd is not None:
+        source_dir = str(command.cwd / "src")
+        current = env.get("PYTHONPATH", "")
+        env["PYTHONPATH"] = source_dir if not current else f"{source_dir}{os.pathsep}{current}"
+    completed = subprocess.run(
+        command.argv(*args), cwd=str(command.cwd) if command.cwd else None,
+        env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        timeout=timeout, check=False,
+    )
+    if completed.returncode != 0:
+        raise CrimsonBackendError(completed.stderr.strip() or completed.stdout.strip())
+    return completed.stdout
+
+
+def set_enabled(
+    command: BackendCommand,
+    game_dir: Path,
+    mod_id: int,
+    enabled: bool,
+) -> None:
+    _run_cli(command, (
+        "set-enabled", "--game-dir", str(game_dir), "--mod-id", str(mod_id),
+        "--enabled", "true" if enabled else "false",
+    ))
+
+
+def list_mods(command: BackendCommand, game_dir: Path) -> list[dict]:
+    output = _run_cli(
+        command,
+        ("list-mods", "--game-dir", str(game_dir), "--status", "--json"),
+    )
+    try:
+        value = json.loads(output)
+    except json.JSONDecodeError as e:
+        raise CrimsonBackendError("CDUMM returned an invalid mod list") from e
+    return value if isinstance(value, list) else []
+
+
+def apply(
+    command: BackendCommand,
+    game_dir: Path,
+    *,
+    log_fn=None,
+    timeout: float = 300.0,
+) -> dict:
+    db_path, _deltas_dir, vanilla_dir = storage_paths(game_dir)
+    return run_worker(
+        command, ("apply", str(game_dir), str(vanilla_dir), str(db_path), "0"),
+        log_fn=log_fn, timeout=timeout,
+    )
+
+
+def revert(
+    command: BackendCommand,
+    game_dir: Path,
+    *,
+    log_fn=None,
+    timeout: float = 300.0,
+) -> dict:
+    db_path, _deltas_dir, vanilla_dir = storage_paths(game_dir)
+    return run_worker(
+        command, ("revert", str(game_dir), str(vanilla_dir), str(db_path)),
+        log_fn=log_fn, timeout=timeout,
+    )

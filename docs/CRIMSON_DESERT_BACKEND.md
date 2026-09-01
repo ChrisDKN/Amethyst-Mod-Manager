@@ -28,8 +28,24 @@ process. This avoids loading PyQt6 and PySide6 into the same process.
 7. Only after these gates pass, expose normal Deploy/Restore controls and
    prepare an upstream design discussion or pull request.
 
-## Current prototype boundary
+## Implemented development boundary
 
-The handler and backend adapter are intentionally fail-closed. They discover
-the game and can validate CDUMM, but Deploy and Restore stop before modifying
-game files until profile synchronisation and recovery are implemented.
+The development handler now performs the archive-aware path end to end:
+
+- reads the selected Amethyst profile and accepts exactly one supported CDUMM
+  source per enabled mod folder;
+- creates CDUMM's vanilla hash snapshot before the first Apply;
+- persists Amethyst-folder-to-CDUMM-ID mappings in
+  `CDMods/amethyst-profile.json`, reimports changed sources in place, and only
+  toggles mods owned by that mapping;
+- applies and restores through CDUMM's subprocess worker; and
+- confirms the resulting backend status after Apply.
+
+The first real validation used Nexus mod 3211, file 14352, against Crimson
+Desert 2.00.01. CDUMM applied the single `storeinfo.pabgb` intent, produced a
+two-entry overlay in slot `0041`, reported the mod active, restored the vanilla
+PAPGT hash, and successfully redeployed it through the Amethyst handler.
+
+Remaining before an upstream pull request: add automated profile-sync tests,
+surface worker warnings more cleanly in the GUI, package or declare the CDUMM
+runtime dependency, and complete an in-game behavior check.
