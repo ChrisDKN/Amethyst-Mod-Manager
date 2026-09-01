@@ -9,7 +9,9 @@ process. This avoids loading PyQt6 and PySide6 into the same process.
 ## Delivery stages
 
 1. Discover Crimson Desert through Steam App ID `3321460` and validate the
-   configured `bin64/CrimsonDesert.exe`.
+   configured `bin64/CrimsonDesert.exe`. Ship the official Steam artwork as
+   `src/icons/games/crimson_desert.png` so source, AppImage and Flatpak builds
+   render the same complete game card.
 2. Discover an explicitly configured CDUMM command or source checkout and run
    its read-only `self_check` JSON-lines worker command. Parse the configured
    game's PAPGT and every PAMT index without creating backend state.
