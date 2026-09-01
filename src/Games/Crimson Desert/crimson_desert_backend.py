@@ -115,3 +115,37 @@ def run_worker(
 def self_check(command: BackendCommand, *, timeout: float = 120.0) -> dict:
     """Validate backend imports without reading or modifying game files."""
     return run_worker(command, ("self_check",), timeout=timeout)
+
+
+def probe_game(command: BackendCommand, game_dir: Path, *, timeout: float = 120.0) -> dict:
+    """Parse the live archive indexes without writing game or backend state."""
+    if command.cwd is None:
+        raise CrimsonBackendError(
+            "The standalone backend does not expose the read-only probe yet."
+        )
+    probe = Path(__file__).with_name("crimson_desert_probe.py")
+    env = os.environ.copy()
+    source_dir = str(command.cwd / "src")
+    current = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = source_dir if not current else f"{source_dir}{os.pathsep}{current}"
+    try:
+        completed = subprocess.run(
+            [command.executable, str(probe), str(game_dir)],
+            cwd=str(command.cwd),
+            env=env,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=timeout,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as e:
+        raise CrimsonBackendError(f"Could not probe Crimson Desert: {e}") from e
+    try:
+        result = json.loads(completed.stdout.strip().splitlines()[-1])
+    except (IndexError, json.JSONDecodeError) as e:
+        detail = completed.stderr.strip() or "probe returned no JSON result"
+        raise CrimsonBackendError(detail) from e
+    if completed.returncode != 0 or not result.get("ok"):
+        raise CrimsonBackendError("; ".join(result.get("errors", [])))
+    return result

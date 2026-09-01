@@ -113,8 +113,13 @@ class CrimsonDesert(BaseGame):
         result = backend.self_check(command)
         if not result.get("ok"):
             raise RuntimeError(f"Crimson backend self-check failed: {result.get('errors', {})}")
+        if self._game_path is None:
+            raise RuntimeError("Crimson Desert game path is not configured.")
+        probe = backend.probe_game(command, self._game_path)
         (log_fn or (lambda _message: None))(
-            "Crimson backend is healthy. Profile import/apply is not enabled in this prototype."
+            "Crimson backend is healthy and parsed "
+            f"{probe['pamt_dirs']} PAMT indexes. "
+            "Profile import/apply is not enabled in this prototype."
         )
         raise RuntimeError(
             "Safety stop: the prototype detected a working backend but has not yet "
