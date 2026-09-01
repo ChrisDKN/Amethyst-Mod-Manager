@@ -2,6 +2,7 @@ py.install_sources(
   '7_Days_to_Die.png',
   'baldurs_gate_3.png',
   'cyberpunk_2077.png',
+  'crimson_desert.png',
   'daggerfall_unity.png',
   'darktide.png',
   'devil_may_cry_5.png',
