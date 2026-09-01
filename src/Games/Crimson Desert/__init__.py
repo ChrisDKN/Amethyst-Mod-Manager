@@ -1,0 +1,1 @@
+"""Crimson Desert integration."""
