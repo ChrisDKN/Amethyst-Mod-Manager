@@ -2,6 +2,7 @@
   "name": "Stalker 2",
   "game_id": "Stalker_2",
   "exe_name": "Stalker2/Binaries/Win64/Stalker2-Win64-Shipping.exe",
+  "exe_name_alts": [],
   "deploy_type": "ue5",
   "mod_data_path": "Stalker2",
   "steam_id": "1643320",
@@ -9,15 +10,16 @@
   "additional_nexus_domains": [],
   "thunderstore_community": "",
   "image_url": "https://cdn2.steamgriddb.com/icon/b86585a736d63794976c43b1a504bb3e/32/512x512.png",
+  "auto_install_deps": [
+    "vcredist"
+  ],
   "mod_folder_strip_prefixes": [
     "Stalker2",
     "Content",
     "Paks",
     "~mods"
   ],
-  "conflict_ignore_filenames": [
-    "*.txt"
-  ],
+  "conflict_ignore_filenames": [],
   "conflict_ignore_foldernames": [],
   "mod_folder_strip_prefixes_post": [],
   "mod_install_prefix": "",
@@ -60,8 +62,11 @@
       "dest": "Binaries/Win64",
       "filenames": [
         "winmm.dll",
-        "s2ae.cfg"
-      ]
+        "s2ae.cfg",
+        "winmm.cfg",
+        "dwmapi.dll"
+      ],
+      "flatten": true
     },
     {
       "dest": "Binaries/Win64",
@@ -82,7 +87,6 @@
       "dest": "Binaries/Win64/ue4ss",
       "filenames": [
         "ue4ss.dll",
-        "dwmapi.dll",
         "ue4ss-settings.ini"
       ],
       "flatten": true
@@ -97,6 +101,6 @@
   ],
   "restore_whitelist": [],
   "custom_frameworks": {},
-  "version": 2,
+  "version": 3,
   "editable": false
 }
