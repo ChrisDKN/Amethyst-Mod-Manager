@@ -120,6 +120,7 @@ py.install_sources(
   'mod_name_utils.py',
   'mod_remove.py',
   'mod_rename.py',
+  'modl_handler.py',
   'modlist.py',
   'modsettings.py',
   'mpi_auto_fetch.py',

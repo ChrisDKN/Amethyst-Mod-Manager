@@ -923,8 +923,8 @@ class SettingsView(OverlayBase):
             g, self.tr("Download speed limit"), 0, 250,
             int(uc.load_download_speed_limit()), self._save_speed_limit,
             help=self.tr("Cap the combined download speed of all downloads "
-               "(collections, single mods, nxm links) so they don't use the "
-               "whole connection. Applies immediately, including to a running "
+               "(collections, single mods, nxm and modl links) so they don't use "
+               "the whole connection. Applies immediately, including to a running "
                "collection install."))
         def _fmt_limit(v, _lbl=lim_lbl):
             _lbl.setText(self.tr("Unlimited") if int(v) == 0 else
@@ -936,10 +936,10 @@ class SettingsView(OverlayBase):
             g, self.tr("Download only (don't install)"),
             uc.load_download_only, uc.save_download_only,
             help=self.tr("Downloads are saved to the cache but not installed. Applies "
-                 "to nxm:// links, the Nexus browser, Change Version, collection "
-                 "installs, requirement downloads and update/reinstall redownloads "
-                 "- their Install buttons become Download. Install them yourself "
-                 "from the Downloads tab or the Install Mod button."),
+                 "to nxm:// and modl:// links, the Nexus browser, Change Version, "
+                 "collection installs, requirement downloads and update/reinstall "
+                 "redownloads - their Install buttons become Download. Install them "
+                 "yourself from the Downloads tab or the Install Mod button."),
             on_changed=self._on_download_only_changed)
 
         # Manage Caches action - a footer button like every other action,

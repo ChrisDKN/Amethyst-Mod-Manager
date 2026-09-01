@@ -966,6 +966,7 @@ class NxmIPC:
     _servers: dict[Path, socket.socket] = {}
     _threads: list[threading.Thread] = []
     _callback: Optional[Callable[[str], None]] = None
+    _MAX_PAYLOAD = 256 * 1024
     # Serializes ensure_bound() against itself and shutdown() - ensure_bound
     # runs on a worker thread while shutdown comes from the UI thread.
     _lock = threading.Lock()
@@ -1055,13 +1056,27 @@ class NxmIPC:
             except OSError:
                 break  # socket closed → shutting down
             try:
-                data = conn.recv(4096)
+                conn.settimeout(2)
+                chunks: list[bytes] = []
+                total = 0
+                while True:
+                    chunk = conn.recv(4096)
+                    if not chunk:
+                        break
+                    total += len(chunk)
+                    if total > cls._MAX_PAYLOAD:
+                        raise ValueError("IPC payload exceeds 256 KiB")
+                    chunks.append(chunk)
+                data = b"".join(chunks)
                 if data:
                     msg = json.loads(data.decode("utf-8"))
                     url = msg.get("nxm_url", "")
                     cb = cls._callback
                     if url and cb is not None:
-                        nxm_log(f"Received NXM link from new instance: {url}")
+                        if url.lower().startswith("modl://"):
+                            nxm_log("Received modl link from new instance")
+                        else:
+                            nxm_log(f"Received NXM link from new instance: {url}")
                         cb(url)
             except Exception as exc:
                 nxm_log(f"Error handling IPC message: {exc}")

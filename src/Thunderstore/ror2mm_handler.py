@@ -248,9 +248,10 @@ class Ror2mmHandler:
                 path.write_text(cls._desktop_contents(), encoding="utf-8")
                 os.chmod(path, 0o755)
                 written = True
-                _handler_log(f"Wrote ror2mm .desktop: {path}")
+                _handler_log(f"Wrote {cls._SCHEME} .desktop: {path}")
             except OSError as exc:
-                _handler_log(f"Could not write ror2mm .desktop {path}: {exc}")
+                _handler_log(
+                    f"Could not write {cls._SCHEME} .desktop {path}: {exc}")
 
         if not written:
             return False
@@ -271,10 +272,11 @@ class Ror2mmHandler:
                  f"x-scheme-handler/{cls._SCHEME}"],
                 check=False, capture_output=True, timeout=15)
         except (OSError, subprocess.SubprocessError) as exc:
-            _handler_log(f"xdg-mime registration for ror2mm:// failed: {exc}")
+            _handler_log(
+                f"xdg-mime registration for {cls._SCHEME}:// failed: {exc}")
 
         cls._write_mimeapps_association()
-        _handler_log("Registered ror2mm:// handler")
+        _handler_log(f"Registered {cls._SCHEME}:// handler")
         return True
 
     @classmethod
@@ -298,7 +300,8 @@ class Ror2mmHandler:
                 updated = cls._patch_mimeapps_content(existing)
                 if updated != existing:
                     path.write_text(updated, encoding="utf-8")
-                    _handler_log(f"Updated ror2mm:// association in {path}")
+                    _handler_log(
+                        f"Updated {cls._SCHEME}:// association in {path}")
             except OSError as exc:
                 _handler_log(f"Could not update {path}: {exc}")
 

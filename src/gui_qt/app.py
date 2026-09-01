@@ -441,6 +441,10 @@ class MainWindow(QMainWindow):
     # Thunderstore download worker → UI thread:
     # (ThunderstoreDownloadResult, Ror2mmLink, version_info, dl_key).
     _ror2mm_download_done = Signal(object)
+    # Generic modl:// link and direct-download result, both marshalled onto the
+    # UI thread.
+    _modl_received = Signal(str)
+    _modl_download_done = Signal(object)
     # Thunderstore-only update check worker → UI thread: (results, toast, subset).
     _ts_updates_ready = Signal(object)
     # Manifest-identify worker → UI thread: (results|None, toast).
@@ -891,11 +895,14 @@ class MainWindow(QMainWindow):
         self._ror2mm_received.connect(self._receive_ror2mm)
         self._ror2mm_resolved.connect(self._on_ror2mm_resolved)
         self._ror2mm_download_done.connect(self._on_ror2mm_download_done)
+        self._modl_received.connect(self._receive_modl)
+        self._modl_download_done.connect(self._on_modl_download_done)
         self._ts_updates_ready.connect(self._on_thunderstore_updates_ready)
         self._ts_identify_ready.connect(self._on_thunderstore_identify_ready)
         self._ts_auto_identified.connect(self._on_thunderstore_auto_identified)
         self._handle_nxm_argv()
         self._handle_ror2mm_argv()
+        self._handle_modl_argv()
         # Silently sync custom handlers + Qt wizard plugins from the Resources
         # branch on GitHub (background threads). A fresh/updated build re-fetches
         # immediately because the gh_cache is wiped when the app version changes.
@@ -4198,7 +4205,7 @@ class MainWindow(QMainWindow):
             pass
         self._onboarding_view = None
 
-    # ---- NXM protocol handling ("Download with Manager") -----------------
+    # ---- Browser protocol handling ----------------------------------------
 
     def _handle_nxm_argv(self):
         """Check sys.argv for an nxm:// link and kick off a download once the
@@ -4222,6 +4229,193 @@ class MainWindow(QMainWindow):
             return
         nxm_log("Fresh instance: processing ror2mm link after window build")
         QTimer.singleShot(500, lambda: self._process_ror2mm_link(url))
+
+    def _handle_modl_argv(self):
+        """Process a modl:// command-line link after the window is ready."""
+        from PySide6.QtCore import QTimer
+        from Nexus.nxm_handler import nxm_log
+        from Utils.modl_handler import modl_url_from_argv
+
+        url = modl_url_from_argv()
+        if not url:
+            return
+        nxm_log("Fresh instance: processing modl link after window build")
+        QTimer.singleShot(500, lambda: self._process_modl_link(url))
+
+    def _receive_modl(self, url: str):
+        """UI thread: receive a modl:// link handed over IPC."""
+        from Nexus.nxm_handler import nxm_log
+
+        nxm_log("modl link reached UI thread of running instance")
+        self._append_log("[modl] received install link from browser")
+        if not getattr(self, "_modl_reregistered", False):
+            self._modl_reregistered = True
+            import threading
+
+            def _rereg():
+                from Utils.modl_handler import ModlHandler
+                try:
+                    ModlHandler.register()
+                except Exception as exc:
+                    nxm_log(f"modl re-register after IPC receive failed: {exc}")
+
+            threading.Thread(
+                target=_rereg, daemon=True, name="modl-rereg").start()
+        try:
+            self.setWindowState(
+                self.windowState() & ~Qt.WindowMinimized | Qt.WindowActive)
+            self.raise_()
+            self.activateWindow()
+        except Exception:
+            pass
+        self._process_modl_link(url)
+
+    @staticmethod
+    def _normalise_modl_game_id(value: str) -> str:
+        import re
+        return re.sub(r"[^a-z0-9]", "", str(value or "").casefold())
+
+    def _match_game_for_modl_id(self, game_id: str):
+        """Return the configured game addressed by a MODL GameShortName."""
+        from Utils.game_helpers import _GAMES
+
+        normalise = self._normalise_modl_game_id
+        wanted = normalise(game_id)
+
+        def _identity_keys(game):
+            extras = getattr(game, "modl_game_ids", ()) or ()
+            if isinstance(extras, str):
+                extras = (extras,)
+            return {normalise(value) for value in
+                    (getattr(game, "game_id", ""), *extras) if value}
+
+        def _compatible_keys(game):
+            values = [getattr(game, "name", ""),
+                      getattr(game, "nexus_game_domain", ""),
+                      getattr(game, "thunderstore_community", "")]
+            values.extend(getattr(game, "nexus_game_domains", ()) or ())
+            return _identity_keys(game) | {
+                normalise(value) for value in values if value}
+
+        current = self._gs.game
+        if game_id.casefold() == "other":
+            if current is not None and current.is_configured():
+                return self._gs.game_name, current
+            return None
+        if (current is not None and current.is_configured()
+                and wanted in _compatible_keys(current)):
+            return self._gs.game_name, current
+        for name, game in _GAMES.items():
+            if game.is_configured() and wanted in _identity_keys(game):
+                return name, game
+        for name, game in _GAMES.items():
+            if game.is_configured() and wanted in _compatible_keys(game):
+                return name, game
+        return None
+
+    def _process_modl_link(self, url: str):
+        """Download and install the direct URL carried by a modl:// link."""
+        from Nexus.nxm_handler import nxm_log
+        from Utils.modl_handler import parse_modl_url
+
+        try:
+            link = parse_modl_url(url)
+        except ValueError as exc:
+            nxm_log(f"Bad modl:// URL - {exc}")
+            self._append_log(f"[modl] bad modl:// URL - {exc}")
+            self._notify(self.tr("Received a malformed MODL link."), "warning")
+            return
+
+        nxm_log(
+            f"Processing modl link for {link.game_id} from {link.download_host}")
+        matched = self._match_game_for_modl_id(link.game_id)
+        if not matched:
+            self._append_log(
+                f"[modl] no configured game matches '{link.game_id}'")
+            self._notify(
+                self.tr("No configured game matches MODL game ID '{0}'.")
+                .format(link.game_id), "warning")
+            return
+
+        target_name = matched[0]
+        if target_name != self._gs.game_name:
+            self._on_game_changed(target_name)
+            if target_name != self._gs.game_name:
+                self._append_log(
+                    f"[modl] could not switch to game '{target_name}'")
+                return
+            self._append_log(f"[modl] switched to game '{target_name}'")
+
+        self._append_log(
+            f"[modl] downloading from {link.download_host} for "
+            f"'{target_name}'…")
+        self._notify(self.tr("Downloading mod from MODL link…"), "info")
+        dl_key = self._new_dl_key()
+        import threading
+        cancel = threading.Event()
+        self._nexus_download_progress(
+            dl_key, "", 0, 0, cancel=cancel.set)
+
+        def _worker():
+            from Utils.config_paths import get_download_cache_dir_for_game
+            from Utils.modl_handler import ModlDownloadResult, download_modl_file
+            from gui_qt.safe_emit import safe_emit
+
+            try:
+                dest = get_download_cache_dir_for_game(target_name)
+                result = download_modl_file(
+                    link, dest,
+                    progress_cb=lambda done, total, name: safe_emit(
+                        self._req_install_prog, dl_key, name,
+                        int(done), int(total)),
+                    cancel=cancel)
+            except Exception as exc:
+                result = ModlDownloadResult(error=str(exc))
+            safe_emit(
+                self._modl_download_done,
+                (result, link, target_name, dl_key))
+
+        threading.Thread(
+            target=_worker, daemon=True, name="modl-download").start()
+
+    def _on_modl_download_done(self, payload):
+        result, link, target_name, dl_key = payload
+        self._nexus_download_progress(dl_key, "", 0, -1)
+        if not (result.success and result.file_path):
+            if result.cancelled:
+                self._append_log("[modl] download cancelled")
+                self._notify(self.tr("Download cancelled."), "info")
+                return
+            self._append_log(f"[modl] download failed - {result.error}")
+            self._notify(
+                self.tr("MODL download failed - {0}").format(result.error),
+                "error")
+            return
+
+        from Utils.game_helpers import _GAMES
+        target = _GAMES.get(target_name)
+        if target is None or not target.is_configured():
+            self._append_log(
+                f"[modl] downloaded {result.file_name} - target game "
+                f"'{target_name}' is no longer configured")
+            self._notify(
+                self.tr("Downloaded - target game is unavailable; see "
+                        "Downloads tab."), "warning")
+            return
+        if target_name != self._gs.game_name:
+            self._on_game_changed(target_name)
+            if target_name != self._gs.game_name:
+                self._append_log(
+                    f"[modl] downloaded {result.file_name} - could not switch "
+                    f"back to '{target_name}' for installation")
+                self._notify(
+                    self.tr("Downloaded - switch to '{0}' and install it from "
+                            "the Downloads tab.").format(target_name), "warning")
+                return
+
+        self._append_log(
+            f"[modl] downloaded {result.file_name} from {link.download_host}")
+        self._deliver_download([str(result.file_path)])
 
     def _receive_ror2mm(self, url: str):
         """UI thread: a ror2mm:// link arrived over IPC. Raise the window so
@@ -4890,11 +5084,12 @@ class MainWindow(QMainWindow):
                 category="services")
 
         def _on_nxm(url: str):
-            # One socket carries both schemes (the IPC payload is just a URL
-            # string), so route by scheme here rather than standing up a
-            # second server that would duplicate all the bind/heal logic.
-            if (url or "").lower().startswith("ror2mm://"):
+            # One socket carries every protocol link; route by scheme here.
+            scheme = (url or "").lower()
+            if scheme.startswith("ror2mm://"):
                 safe_emit(self._ror2mm_received, url)
+            elif scheme.startswith("modl://"):
+                safe_emit(self._modl_received, url)
             else:
                 safe_emit(self._nxm_received, url)
 
@@ -19489,6 +19684,8 @@ def run(startup_timing=None) -> int:
     # (logs/nxm.log) is the only record of this launch - log it first thing.
     from Thunderstore.ror2mm_handler import (
         Ror2mmHandler, ror2mm_url_from_argv, strip_ror2mm_argv)
+    from Utils.modl_handler import (
+        ModlHandler, modl_url_from_argv, strip_modl_argv)
     if startup_timing is not None:
         startup_timing.record(
             "Import protocol handlers", phase_started=phase_started,
@@ -19502,6 +19699,10 @@ def run(startup_timing=None) -> int:
     ror2mm_url = ror2mm_url_from_argv()
     if ror2mm_url or "--ror2mm" in sys.argv:
         nxm_log(f"ror2mm launch: argv={sys.argv[1:]}")
+
+    modl_url = modl_url_from_argv()
+    if modl_url or "--modl" in sys.argv:
+        nxm_log("modl launch received")
 
     # Single-instance: if launched with an nxm:// link and an instance is
     # already running, hand the link off over the IPC socket and exit - don't
@@ -19529,6 +19730,14 @@ def run(startup_timing=None) -> int:
     elif "--ror2mm" in sys.argv:
         nxm_log("--ror2mm flag present but no ror2mm:// URL in argv")
 
+    if modl_url:
+        if NxmIPC.send_to_running(modl_url):
+            nxm_log("modl link handed off to running instance - exiting")
+            return 0
+        nxm_log("No running instance - continuing into full app launch")
+    elif "--modl" in sys.argv:
+        nxm_log("--modl flag present but no modl:// URL in argv")
+
     if startup_timing is not None:
         startup_timing.record(
             "Parse links and check for an existing instance",
@@ -19536,8 +19745,8 @@ def run(startup_timing=None) -> int:
 
     # Registration writes desktop files and invokes several XDG/GIO helper
     # processes.  It is idempotent but can take seconds, and neither parsing a
-    # URL nor handing it to this instance depends on it.  Keep the two schemes
-    # serialized in one worker (both patch mimeapps.list) and start it only
+    # URL nor handing it to this instance depends on it. Keep the schemes
+    # serialized in one worker (they patch the same mimeapps.list) and start it
     # after the splash is visible, off the splash-critical path.
     def _register_protocol_handlers():
         registration_started = _startup_time.perf_counter()
@@ -19576,6 +19785,27 @@ def run(startup_timing=None) -> int:
                 ("Verify Thunderstore protocol handler (unchanged)"
                  if ror2mm_current
                  else "Register Thunderstore protocol handler"),
+                phase_started=registration_started,
+                lane="protocol worker", category="services")
+
+        registration_started = _startup_time.perf_counter()
+        modl_current = False
+        try:
+            modl_current = ModlHandler.registration_is_current()
+            if modl_current:
+                nxm_log(
+                    "modl:// registration unchanged - skipping desktop refresh")
+            else:
+                ModlHandler.register()
+        except Exception:
+            import traceback
+            nxm_log(
+                f"modl registration check/update crashed:\n"
+                f"{traceback.format_exc()}")
+        if startup_timing is not None:
+            startup_timing.record(
+                ("Verify MODL protocol handler (unchanged)"
+                 if modl_current else "Register MODL protocol handler"),
                 phase_started=registration_started,
                 lane="protocol worker", category="services")
 
@@ -19809,9 +20039,9 @@ def run(startup_timing=None) -> int:
     # has already run (IPC socket released, restore-on-close done); re-exec the
     # same interpreter + argv in place.
     if _RESTART_REQUESTED:
-        # Drop one-shot Nexus and Thunderstore links from the relaunch argv so
-        # neither install is reprocessed on the fresh start.
-        argv = strip_ror2mm_argv(strip_nxm_argv(list(sys.argv)))
+        # Drop one-shot protocol links so no install is repeated after restart.
+        argv = strip_modl_argv(
+            strip_ror2mm_argv(strip_nxm_argv(list(sys.argv))))
         try:
             os.execv(sys.executable, [sys.executable] + argv)
         except Exception:
