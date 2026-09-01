@@ -1,8 +1,8 @@
 """Game handler for Crimson Desert.
 
-The game uses version-sensitive PAZ/PAMT archives.  Generic Amethyst file
-deployment is therefore intentionally disabled until the archive-aware backend
-has imported the active profile and proved that recovery is available.
+The game uses version-sensitive PAZ/PAMT archives. Generic Amethyst file
+deployment is disabled. The archive-aware backend owns all game-file changes,
+snapshots, and recovery.
 """
 
 from __future__ import annotations
@@ -37,6 +37,10 @@ class CrimsonDesert(BaseGame):
     deploy_mode_supports_copy = True
     deploy_mode_fallback = LinkMode.COPY
     profile_groups_supported = False
+
+    @property
+    def root_folder_deploy_enabled(self) -> bool:
+        return False
 
     def __init__(self):
         self._game_path: Path | None = None
@@ -150,9 +154,20 @@ class CrimsonDesert(BaseGame):
 
         backend.ensure_snapshot(command, self._game_path, log_fn=log)
         mapping_path = self._game_path / "CDMods" / "amethyst-profile.json"
-        try:
-            mapping = json.loads(mapping_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
+        if mapping_path.exists():
+            try:
+                mapping = json.loads(mapping_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError) as e:
+                raise RuntimeError(
+                    f"Crimson profile mapping is unreadable: {mapping_path}"
+                ) from e
+            if not isinstance(mapping, dict) or not isinstance(
+                mapping.get("mods", {}), dict
+            ):
+                raise RuntimeError(
+                    f"Crimson profile mapping has an invalid structure: {mapping_path}"
+                )
+        else:
             mapping = {"mods": {}}
         managed = mapping.setdefault("mods", {})
 
@@ -178,15 +193,22 @@ class CrimsonDesert(BaseGame):
                 record = {"mod_id": int(result["mod_id"]), "sha256": digest}
                 managed[name] = record
 
-        enabled_names = {name for name, _source in sources}
-        for name, record in managed.items():
-            backend.set_enabled(
-                command, self._game_path, int(record["mod_id"]), name in enabled_names
-            )
+        ordered_ids = [int(managed[name]["mod_id"]) for name, _source in sources]
+        managed_ids = [int(record["mod_id"]) for record in managed.values()]
+        backend.configure_mods(command, self._game_path, managed_ids, ordered_ids)
         write_atomic_text(mapping_path, json.dumps(mapping, indent=2) + "\n")
         backend.apply(command, self._game_path, log_fn=log)
-        active = [mod["name"] for mod in backend.list_mods(command, self._game_path)
-                  if mod.get("status") == "active"]
+        backend_mods = backend.list_mods(command, self._game_path)
+        active_ids = {
+            int(mod["id"]) for mod in backend_mods if mod.get("status") == "active"
+        }
+        missing = [mod_id for mod_id in ordered_ids if mod_id not in active_ids]
+        if missing:
+            raise RuntimeError(
+                "Crimson backend did not activate every enabled profile mod: "
+                + ", ".join(str(mod_id) for mod_id in missing)
+            )
+        active = [mod["name"] for mod in backend_mods if mod.get("status") == "active"]
         log(f"Crimson deploy complete; active backend mods: {', '.join(active) or 'none'}.")
 
     def restore(self, log_fn=None, progress_fn=None):

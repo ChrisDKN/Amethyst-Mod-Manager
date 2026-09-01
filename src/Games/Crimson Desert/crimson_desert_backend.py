@@ -13,9 +13,9 @@ import os
 import sqlite3
 import subprocess
 import sys
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Iterable
 
 
 class CrimsonBackendError(RuntimeError):
@@ -81,8 +81,7 @@ def run_worker(
             cwd=str(command.cwd) if command.cwd else None,
             env=env,
             text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             timeout=timeout,
             check=False,
         )
@@ -135,8 +134,7 @@ def probe_game(command: BackendCommand, game_dir: Path, *, timeout: float = 120.
             cwd=str(command.cwd),
             env=env,
             text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             timeout=timeout,
             check=False,
         )
@@ -215,7 +213,7 @@ def _run_cli(
         env["PYTHONPATH"] = source_dir if not current else f"{source_dir}{os.pathsep}{current}"
     completed = subprocess.run(
         command.argv(*args), cwd=str(command.cwd) if command.cwd else None,
-        env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        env=env, text=True, capture_output=True,
         timeout=timeout, check=False,
     )
     if completed.returncode != 0:
@@ -223,16 +221,51 @@ def _run_cli(
     return completed.stdout
 
 
-def set_enabled(
+def configure_mods(
     command: BackendCommand,
     game_dir: Path,
-    mod_id: int,
-    enabled: bool,
+    managed_ids: Iterable[int],
+    ordered_enabled_ids: Iterable[int],
 ) -> None:
-    _run_cli(command, (
-        "set-enabled", "--game-dir", str(game_dir), "--mod-id", str(mod_id),
-        "--enabled", "true" if enabled else "false",
-    ))
+    """Atomically mirror Amethyst enable state and order into CDUMM.
+
+    Amethyst supplies enabled mods from low to high priority. Unmanaged CDUMM
+    rows are deliberately left untouched.
+    """
+    del command  # The database path is CDUMM's stable on-disk integration API.
+    db_path, _deltas_dir, _vanilla_dir = storage_paths(game_dir)
+    managed = [int(mod_id) for mod_id in managed_ids]
+    ordered = [int(mod_id) for mod_id in ordered_enabled_ids]
+    if len(ordered) != len(set(ordered)):
+        raise CrimsonBackendError("Duplicate CDUMM IDs in the Amethyst profile")
+    if not set(ordered).issubset(managed):
+        raise CrimsonBackendError("Enabled CDUMM IDs are missing from the managed set")
+    try:
+        with sqlite3.connect(db_path, timeout=10.0) as connection:
+            if managed:
+                placeholders = ",".join("?" for _ in managed)
+                rows = connection.execute(
+                    f"SELECT id FROM mods WHERE id IN ({placeholders})", managed
+                ).fetchall()
+                found = {int(row[0]) for row in rows}
+                missing = sorted(set(managed) - found)
+                if missing:
+                    raise CrimsonBackendError(
+                        "Mapped CDUMM mods no longer exist: "
+                        + ", ".join(str(mod_id) for mod_id in missing)
+                    )
+                connection.execute(
+                    f"UPDATE mods SET enabled = 0 WHERE id IN ({placeholders})",
+                    managed,
+                )
+            for priority, mod_id in enumerate(ordered, start=1):
+                connection.execute(
+                    "UPDATE mods SET enabled = 1, priority = ? WHERE id = ?",
+                    (priority, mod_id),
+                )
+            connection.commit()
+    except sqlite3.Error as e:
+        raise CrimsonBackendError(f"Could not update CDUMM profile state: {e}") from e
 
 
 def list_mods(command: BackendCommand, game_dir: Path) -> list[dict]:

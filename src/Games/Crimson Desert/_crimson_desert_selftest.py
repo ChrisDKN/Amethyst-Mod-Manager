@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import os
+import sqlite3
 import sys
 import tempfile
 from pathlib import Path
@@ -56,6 +57,34 @@ def run() -> None:
             assert "blocked" in str(e)
         else:
             raise AssertionError("backend errors must fail closed")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        game_dir = Path(tmp) / "game"
+        db_path = game_dir / "CDMods" / "cdumm.db"
+        db_path.parent.mkdir(parents=True)
+        with sqlite3.connect(db_path) as connection:
+            connection.execute(
+                "CREATE TABLE mods ("
+                "id INTEGER PRIMARY KEY, enabled INTEGER, priority INTEGER)"
+            )
+            connection.executemany(
+                "INSERT INTO mods (id, enabled, priority) VALUES (?, ?, ?)",
+                [(1, 1, 7), (2, 0, 8), (3, 1, 99)],
+            )
+        command = backend.BackendCommand("unused", ())
+        backend.configure_mods(command, game_dir, [1, 2], [2, 1])
+        with sqlite3.connect(db_path) as connection:
+            rows = connection.execute(
+                "SELECT id, enabled, priority FROM mods ORDER BY id"
+            ).fetchall()
+        assert rows == [(1, 1, 2), (2, 1, 1), (3, 1, 99)]
+
+        try:
+            backend.configure_mods(command, game_dir, [1, 404], [1])
+        except backend.CrimsonBackendError as e:
+            assert "no longer exist" in str(e)
+        else:
+            raise AssertionError("stale CDUMM mappings must fail closed")
 
 
 if __name__ == "__main__":

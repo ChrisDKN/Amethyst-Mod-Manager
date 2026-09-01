@@ -34,7 +34,7 @@ def main() -> int:
         for pamt_path in sorted(game_dir.glob("[0-9][0-9][0-9][0-9]/0.pamt")):
             crimson_rs.parse_pamt_file(str(pamt_path))
             result["pamt_dirs"] += 1
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 -- report backend/parser failures as JSON
         result["errors"].append(str(e))
 
     result["ok"] = bool(
