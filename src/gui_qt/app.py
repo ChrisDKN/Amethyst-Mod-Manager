@@ -436,7 +436,7 @@ class MainWindow(QMainWindow):
     # thread → UI thread). Shares the NXM IPC socket; routed by scheme.
     _ror2mm_received = Signal(str)
     # Thunderstore resolve worker → UI thread: (Ror2mmLink, ResolveResult,
-    # packages) - the dependency confirmation modal is shown from here.
+    # packages, auto-open progress) - dependency confirmation starts here.
     _ror2mm_resolved = Signal(object)
     # Thunderstore download worker → UI thread:
     # (ThunderstoreDownloadResult, Ror2mmLink, version_info, dl_key).
@@ -4207,6 +4207,16 @@ class MainWindow(QMainWindow):
 
     # ---- Browser protocol handling ----------------------------------------
 
+    def _activate_for_protocol_link(self):
+        """Focus a visible window without restoring a minimized one."""
+        if self.isMinimized():
+            return
+        try:
+            self.raise_()
+            self.activateWindow()
+        except Exception:
+            pass
+
     def _handle_nxm_argv(self):
         """Check sys.argv for an nxm:// link and kick off a download once the
         window has finished building."""
@@ -4228,7 +4238,8 @@ class MainWindow(QMainWindow):
         if not url:
             return
         nxm_log("Fresh instance: processing ror2mm link after window build")
-        QTimer.singleShot(500, lambda: self._process_ror2mm_link(url))
+        QTimer.singleShot(
+            500, lambda: self._process_ror2mm_link(url, auto_open=False))
 
     def _handle_modl_argv(self):
         """Process a modl:// command-line link after the window is ready."""
@@ -4261,13 +4272,7 @@ class MainWindow(QMainWindow):
 
             threading.Thread(
                 target=_rereg, daemon=True, name="modl-rereg").start()
-        try:
-            self.setWindowState(
-                self.windowState() & ~Qt.WindowMinimized | Qt.WindowActive)
-            self.raise_()
-            self.activateWindow()
-        except Exception:
-            pass
+        self._activate_for_protocol_link()
         self._process_modl_link(url)
 
     @staticmethod
@@ -4354,7 +4359,7 @@ class MainWindow(QMainWindow):
         import threading
         cancel = threading.Event()
         self._nexus_download_progress(
-            dl_key, "", 0, 0, cancel=cancel.set)
+            dl_key, "", 0, 0, cancel=cancel.set, auto_open=False)
 
         def _worker():
             from Utils.config_paths import get_download_cache_dir_for_game
@@ -4418,8 +4423,7 @@ class MainWindow(QMainWindow):
         self._deliver_download([str(result.file_path)])
 
     def _receive_ror2mm(self, url: str):
-        """UI thread: a ror2mm:// link arrived over IPC. Raise the window so
-        the user sees the download start."""
+        """UI thread: receive a ror2mm:// link handed over IPC."""
         from Nexus.nxm_handler import nxm_log
         nxm_log("ror2mm link reached UI thread of running instance")
         self._append_log("[thunderstore] received install link from browser")
@@ -4439,16 +4443,10 @@ class MainWindow(QMainWindow):
 
             threading.Thread(target=_rereg, daemon=True,
                              name="ror2mm-rereg").start()
-        try:
-            self.setWindowState(
-                self.windowState() & ~Qt.WindowMinimized | Qt.WindowActive)
-            self.raise_()
-            self.activateWindow()
-        except Exception:
-            pass
-        self._process_ror2mm_link(url)
+        self._activate_for_protocol_link()
+        self._process_ror2mm_link(url, auto_open=False)
 
-    def _process_ror2mm_link(self, url: str):
+    def _process_ror2mm_link(self, url: str, auto_open: bool = True):
         """Handle a ror2mm:// link - download a Thunderstore package.
 
         Unlike nxm://, the link carries no game identifier, so the package
@@ -4526,7 +4524,8 @@ class MainWindow(QMainWindow):
                 self._op_log.emit(
                     f"[thunderstore] {pkg.package_id} already installed - skipped")
 
-            safe_emit(self._ror2mm_resolved, (link, res, wanted))
+            safe_emit(
+                self._ror2mm_resolved, (link, res, wanted, auto_open))
 
         threading.Thread(target=_resolve_worker, daemon=True,
                          name="ror2mm-resolve").start()
@@ -4538,7 +4537,7 @@ class MainWindow(QMainWindow):
         anything beyond the requested mod the user gets a modal listing every
         package with a per-item checkbox, so installing extras is opt-out.
         """
-        link, res, wanted = payload
+        link, res, wanted, auto_open = payload
 
         root = None
         deps = []
@@ -4551,7 +4550,8 @@ class MainWindow(QMainWindow):
         if root is None or not deps:
             # Nothing extra to install (or resolution failed) - go straight to
             # the download with whatever we have.
-            self._start_ror2mm_downloads(link, wanted)
+            self._start_ror2mm_downloads(
+                link, wanted, auto_open=auto_open)
             return
 
         conflicts = list(getattr(res, "conflicts", []) or [])
@@ -4568,14 +4568,16 @@ class MainWindow(QMainWindow):
                     f"[thunderstore] {dropped} dependenc"
                     f"{'y' if dropped == 1 else 'ies'} skipped by the user - "
                     "the mod may not work without them")
-            self._start_ror2mm_downloads(link, chosen)
+            self._start_ror2mm_downloads(
+                link, chosen, auto_open=auto_open)
 
         from gui_qt.thunderstore_deps_overlay import ThunderstoreDepsOverlay
         ThunderstoreDepsOverlay.show_over(
             self, root=root, dependencies=deps, conflicts=conflicts,
             on_done=_decided)
 
-    def _start_ror2mm_downloads(self, link, packages):
+    def _start_ror2mm_downloads(self, link, packages,
+                                auto_open: bool = True):
         """Download every package the user accepted, dependencies first."""
         self._append_log(
             f"[thunderstore] downloading {len(packages) or 1} package(s) "
@@ -4585,7 +4587,7 @@ class MainWindow(QMainWindow):
         import threading
         cancel = threading.Event()
         self._nexus_download_progress(
-            dl_key, "", 0, 0, cancel=cancel.set)   # show popup immediately
+            dl_key, "", 0, 0, cancel=cancel.set, auto_open=auto_open)
 
         def _worker():
             from Thunderstore.ror2mm_handler import Ror2mmLink
@@ -5120,7 +5122,7 @@ class MainWindow(QMainWindow):
 
     def _receive_nxm(self, nxm_url: str):
         """UI thread: handle an NXM link (from --nxm at startup or delivered via
-        IPC from a second instance). Raise the window so the user sees it."""
+        IPC from a second instance)."""
         from Nexus.nxm_handler import nxm_log
         nxm_log("NXM link reached UI thread of running instance")
         self._append_log("[nexus] received NXM link from browser")
@@ -5142,13 +5144,7 @@ class MainWindow(QMainWindow):
                     nxm_log(f"Re-register after IPC receive failed: {exc}")
 
             threading.Thread(target=_rereg, daemon=True, name="nxm-rereg").start()
-        try:
-            self.setWindowState(
-                self.windowState() & ~Qt.WindowMinimized | Qt.WindowActive)
-            self.raise_()
-            self.activateWindow()
-        except Exception:
-            pass
+        self._activate_for_protocol_link()
         self._process_nxm_link(nxm_url)
 
     def _match_game_for_domain(self, game_domain: str):
@@ -5239,7 +5235,7 @@ class MainWindow(QMainWindow):
         import threading
         cancel = threading.Event()
         self._nexus_download_progress(
-            dl_key, "", 0, 0, cancel=cancel.set)   # show popup immediately
+            dl_key, "", 0, 0, cancel=cancel.set, auto_open=False)
 
         def _worker():
             from Nexus.nexus_download import NexusDownloader
@@ -9676,7 +9672,8 @@ class MainWindow(QMainWindow):
         return f"dl-{self._dl_seq}"
 
     def _nexus_download_progress(self, key: str, name: str,
-                                 downloaded: int, total: int, cancel=None):
+                                 downloaded: int, total: int, cancel=None,
+                                 auto_open: bool = True):
         """Drive the combined download progress item. UI thread only.
         All concurrent downloads (each identified by *key*) aggregate into ONE
         card: the bar shows summed bytes across them. Finished downloads stay
@@ -9728,11 +9725,11 @@ class MainWindow(QMainWindow):
                              if cancellable else None),
             cancel_label=(self.tr("Cancel") if len(active) == 1
                           else self.tr("Cancel all")),
-            auto_open=started)
+            auto_open=started and auto_open)
         # The pinned item is aggregate-keyed, so a second overlapping transfer
         # is not a new item internally. It is still a new download and should
         # reveal the menu once, just like the first one did.
-        if started and len(dls) > 1:
+        if auto_open and started and len(dls) > 1:
             self._notif_button.open_menu()
 
     def _cancel_active_downloads(self):

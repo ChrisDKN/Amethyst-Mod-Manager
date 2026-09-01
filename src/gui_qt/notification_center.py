@@ -395,6 +395,10 @@ class NotificationButton(QToolButton):
         """Open the live notification menu without blocking the caller."""
         if self._active_menu is not None:
             return
+        window = (anchor or self).window()
+        if (window is None or not window.isVisible() or window.isMinimized()
+                or not window.isActiveWindow()):
+            return
         if anchor is None or not anchor.isVisible():
             if self.isVisible():
                 anchor = self
