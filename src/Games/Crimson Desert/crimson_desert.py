@@ -124,9 +124,6 @@ class CrimsonDesert(BaseGame):
             raise RuntimeError(f"Crimson backend self-check failed: {result.get('errors', {})}")
         if self._game_path is None:
             raise RuntimeError("Crimson Desert game path is not configured.")
-        probe = backend.probe_game(command, self._game_path)
-        log(f"Crimson backend parsed {probe['pamt_dirs']} PAMT indexes.")
-
         profile_dir = self.get_profile_root() / "profiles" / profile
         staging = self.get_mod_staging_path()
         enabled = [

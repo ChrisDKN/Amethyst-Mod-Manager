@@ -43,7 +43,6 @@ _NON_HANDLER_FILES = {
     "Bethesda/bethesda_ini.py",
     "Bethesda/skyrim_common.py",
     "Crimson Desert/crimson_desert_backend.py",
-    "Crimson Desert/crimson_desert_probe.py",
     "Daggerfall Unity/dfu_mods_json.py",
     "Dragon Age Origins/dao_chargen.py",
     "Dragon Age Origins/dao_install.py",
