@@ -42,7 +42,6 @@ _NON_HANDLER_FILES = {
     "BepInEx/_bepinex_namespacing_selftest.py",
     "Bethesda/bethesda_ini.py",
     "Bethesda/skyrim_common.py",
-    "Crimson Desert/_crimson_desert_selftest.py",
     "Crimson Desert/crimson_desert_backend.py",
     "Crimson Desert/crimson_desert_probe.py",
     "Daggerfall Unity/dfu_mods_json.py",
