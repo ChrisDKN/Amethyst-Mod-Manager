@@ -39,6 +39,7 @@ WIZARD_LABELS = (
     QT_TRANSLATE_NOOP("WizardTools", "Apply 4GB Patch"),
     QT_TRANSLATE_NOOP("WizardTools", "Install Tale of Two Wastelands"),
     QT_TRANSLATE_NOOP("WizardTools", "BSA Decompressor"),
+    QT_TRANSLATE_NOOP("WizardTools", "Install Unofficial Fallout 3 ESM Patcher"),
     QT_TRANSLATE_NOOP("WizardTools", "Install Ultimate Edition ESM Fixes"),
     QT_TRANSLATE_NOOP("WizardTools", "Install Viva New Vegas"),
     QT_TRANSLATE_NOOP("WizardTools", "Install Viva New Vegas Extended"),
@@ -144,6 +145,16 @@ WIZARD_DESCRIPTIONS = (
         "Decompress the vanilla BSA archives for faster loading (native "
         "Linux MPI installer) and add the result as a mod. Needs the FNV "
         "BSA Decompressor download from Nexus."),
+    QT_TRANSLATE_NOOP(
+        "WizardTools",
+        "Decompress the vanilla BSA archives for faster loading (native "
+        "Linux MPI installer) and add the result as a mod. Needs the FO3 "
+        "BSA Decompressor download from Nexus."),
+    QT_TRANSLATE_NOOP(
+        "WizardTools",
+        "Patch the vanilla .esm masters with community bugfixes (native "
+        "Linux MPI installer) and add the result as a mod. Needs the "
+        "Unofficial Fallout 3 ESM Patcher download from Nexus."),
     QT_TRANSLATE_NOOP(
         "WizardTools",
         "Patch the vanilla .esm masters with community bugfixes (native "

@@ -49,6 +49,7 @@ class Fallout3_GOTY(Fallout_3):
                     "archive_keywords": ["fose"],
                 },
             ),
+            *self._fo3_mpi_wizard_tools("fo3goty"),
             WizardTool(
                 id="run_wrye_bash_fo3goty",
                 label="Run Wrye Bash",

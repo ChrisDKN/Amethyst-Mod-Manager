@@ -309,6 +309,34 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
             mirror_dests=mirrors,
         )
 
+    @staticmethod
+    def _fo3_mpi_wizard_tools(id_suffix: str) -> list[WizardTool]:
+        return [
+            WizardTool(
+                id=f"{id_suffix}_bsa_decompressor",
+                label="BSA Decompressor",
+                description=(
+                    "Decompress the vanilla BSA archives for faster loading "
+                    "(native Linux MPI installer) and add the result as a mod. "
+                    "Needs the FO3 BSA Decompressor download from Nexus."
+                ),
+                dialog_class_path="wizards.bsa_decompressor.BSADecompressorWizard",
+                category="Setup and Installers",
+            ),
+            WizardTool(
+                id=f"{id_suffix}_esm_fixes",
+                label="Install Unofficial Fallout 3 ESM Patcher",
+                description=(
+                    "Patch the vanilla .esm masters with community bugfixes "
+                    "(native Linux MPI installer) and add the result as a mod. "
+                    "Needs the Unofficial Fallout 3 ESM Patcher download from "
+                    "Nexus."
+                ),
+                dialog_class_path="wizards.esm_fixes.ESMFixesWizard",
+                category="Setup and Installers",
+            ),
+        ]
+
     @property
     def wizard_tools(self) -> list[WizardTool]:
         return self._base_wizard_tools() + [
@@ -331,6 +359,7 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
                     "archive_keywords": ["fose"],
                 },
             ),
+            *self._fo3_mpi_wizard_tools("fo3"),
             WizardTool(
                 id="run_wrye_bash_fo3",
                 label="Run Wrye Bash",

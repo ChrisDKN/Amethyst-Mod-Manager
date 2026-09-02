@@ -1,13 +1,4 @@
-"""Ultimate Edition ESM Fixes wizard - patches the vanilla .esm masters with
-community bugfixes via the same native Linux MPI installer the TTW wizard
-uses (no Proton).
-
-Flow: download the binary (if missing) → confirm the FNV path + the
-'Ultimate Edition ESM Fixes Remastered' .mpi package (auto-detected from the
-Downloads folder(s) and extracted from the Nexus archive automatically) →
-restore the game to vanilla → run the installer with a live log → register
-the output (the six patched masters) as a mod.
-"""
+"""Fallout 3 / New Vegas ESM fixes wizard."""
 
 from __future__ import annotations
 
@@ -25,8 +16,8 @@ from gui_qt.safe_emit import safe_emit
 from gui_qt.theme_qt import active_palette, _c
 from wizards_qt._view_base import GREEN, RED, WizardViewBase
 from Utils.bethesda.esm_fixes import (
-    NEXUS_URL, OUTPUT_NAME, esm_fixes_mod_dir, find_esm_fixes_archive,
-    find_extracted_mpi, packages_dir,
+    esm_fixes_mod_dir, find_esm_fixes_archive, find_extracted_mpi, get_config,
+    packages_dir,
 )
 from Utils.bethesda.ttw import find_ttw_installer
 
@@ -40,7 +31,7 @@ _ARCHIVE_SUFFIXES = (".7z", ".zip", ".rar", ".tar", ".tar.gz", ".tar.bz2",
 
 
 class ESMFixesView(WizardViewBase):
-    """Patch the vanilla FNV masters via the native Linux MPI installer."""
+    """Patch vanilla masters via the native Linux MPI installer."""
 
     _dl_status_sig = Signal(str, str)
     _dl_done_sig = Signal(bool)
@@ -55,15 +46,23 @@ class ESMFixesView(WizardViewBase):
     def __init__(self, game: "BaseGame", log_fn=None, on_close=None, ctx=None,
                  show_header: bool = True, auto_continue: bool = False,
                  **_extra):
+        self._config = get_config(game)
+        self._is_fallout3 = self._config.game_arg == "--fo3"
+        if self._is_fallout3:
+            title = self.tr("Unofficial Fallout 3 ESM Patcher - {0}").format(
+                game.name)
+        else:
+            title = self.tr("Ultimate Edition ESM Fixes - {0}").format(
+                game.name)
         super().__init__(game, log_fn, on_close, ctx,
-                         title=self.tr("Ultimate Edition ESM Fixes - {0}").format(game.name),
+                         title=title,
                          show_header=show_header)
         # auto_continue: hands-free mode (curated-profile wizard, premium) -
         # every successful step advances itself; failures still stop.
         self._auto_continue = bool(auto_continue)
         self._exe = find_ttw_installer(game)
         self._mpi_path: "Path | None" = None
-        self._fnv_path: "Path | None" = game.get_game_path()
+        self._game_path: "Path | None" = game.get_game_path()
         self._force_rebuild = False
         self._detect_started = False
         self._napi = None
@@ -98,7 +97,8 @@ class ESMFixesView(WizardViewBase):
     def _route_initial(self):
         # Already built → offer the skip; else installer present → source;
         # else download.
-        if not self._force_rebuild and esm_fixes_mod_dir(self._game) is not None:
+        if (not self._force_rebuild
+                and esm_fixes_mod_dir(self._game, self._config) is not None):
             self._stack.setCurrentIndex(_PG_ALREADY)
             if self._auto_continue:
                 QTimer.singleShot(600, self._guard(self._finish))
@@ -174,7 +174,7 @@ class ESMFixesView(WizardViewBase):
                     "nothing to re-apply, so you can simply close this wizard."
                     "\n\nRebuild from scratch restores the game to vanilla and "
                     "runs the patcher again (needs the .mpi package).")
-            .format(OUTPUT_NAME))
+            .format(self._config.output_name))
         note.setWordWrap(True)
         note.setStyleSheet(self._dim)
         lay.addWidget(note)
@@ -199,24 +199,36 @@ class ESMFixesView(WizardViewBase):
         else:
             self._stack.setCurrentIndex(_PG_DOWNLOAD)
 
-    # ---- page 2: FNV path + .mpi package --------------------------------------------
+    # ---- page 2: game path + .mpi package -----------------------------------------
     def _build_source_page(self) -> QWidget:
         page, lay = self._step_page(self.tr("Step 2: Game folder & package"))
-        self._make_note(lay, (
-            self.tr("Ultimate Edition ESM Fixes patches the vanilla .esm "
-            "masters (FalloutNV + all DLC) with community bugfixes, and the "
-            "result is added as a mod.\n\nDownload the 'Ultimate Edition ESM "
-            "Fixes Remastered' main file from Nexus - the .mpi package inside "
-            "the archive is detected automatically.")))
+        if self._is_fallout3:
+            note = self.tr(
+                "The Unofficial Fallout 3 ESM Patcher patches the vanilla .esm "
+                "masters (Fallout3 + all DLC) with community bugfixes, and the "
+                "result is added as a mod.\n\nDownload the 'Unofficial Fallout "
+                "3 ESM Patcher' main file from Nexus - the .mpi package inside "
+                "the archive is detected automatically.")
+            game_label = self.tr("Fallout 3:")
+            folder_title = self.tr("Select the Fallout 3 folder")
+        else:
+            note = self.tr(
+                "Ultimate Edition ESM Fixes patches the vanilla .esm masters "
+                "(FalloutNV + all DLC) with community bugfixes, and the result "
+                "is added as a mod.\n\nDownload the 'Ultimate Edition ESM Fixes "
+                "Remastered' main file from Nexus - the .mpi package inside "
+                "the archive is detected automatically.")
+            game_label = self.tr("Fallout New Vegas:")
+            folder_title = self.tr("Select the Fallout New Vegas folder")
+        self._make_note(lay, note)
         nexus = QPushButton(self.tr("Open Nexus page"))
         nexus.setCursor(Qt.PointingHandCursor)
-        nexus.clicked.connect(lambda: self._open_url(NEXUS_URL))
+        nexus.clicked.connect(lambda: self._open_url(self._config.nexus_url))
         lay.addWidget(nexus, 0, Qt.AlignHCenter)
 
-        self._fnv_label = self._path_row(
-            lay, self.tr("Fallout New Vegas:"), self._fnv_path,
-            lambda: self._browse_folder(
-                "fnv", self.tr("Select the Fallout New Vegas folder")))
+        self._game_label = self._path_row(
+            lay, game_label, self._game_path,
+            lambda: self._browse_folder("game", folder_title))
         self._mpi_label = self._path_row(
             lay, self.tr("ESM Fixes package:"), self._mpi_path,
             self._browse_mpi, browse_text=self.tr("Choose file…"))
@@ -292,7 +304,7 @@ class ESMFixesView(WizardViewBase):
             from Utils.bethesda.esm_fixes import extract_mpi_from_archive
             _wlog = lambda m: self._log(f"ESM Fixes Wizard: {m}")
             try:
-                mpi = find_extracted_mpi(game)
+                mpi = find_extracted_mpi(game, self._config)
                 if mpi is not None:
                     _wlog(f"reusing previously extracted {mpi.name}")
                     safe_emit(self._detect_status_sig,
@@ -300,7 +312,7 @@ class ESMFixesView(WizardViewBase):
                               GREEN)
                     safe_emit(self._mpi_ready_sig, mpi)
                     return
-                archive = find_esm_fixes_archive()
+                archive = find_esm_fixes_archive(self._config)
                 if archive is None:
                     safe_emit(self._detect_status_sig,
                               self.tr("Archive not found in your download "
@@ -343,7 +355,7 @@ class ESMFixesView(WizardViewBase):
         still on the source page, so a repeat detect can't double-start)."""
         if (self._stack.currentIndex() == _PG_SOURCE
                 and self._mpi_path is not None and self._mpi_path.is_file()
-                and self._fnv_path is not None and self._fnv_path.is_dir()):
+                and self._game_path is not None and self._game_path.is_dir()):
             self._validate_and_run()
 
     # ---- hands-free archive fetch (premium download / folder watch) ---------------
@@ -352,12 +364,10 @@ class ESMFixesView(WizardViewBase):
                 or self._closing):
             return
         self._auto_fetch_started = True
-        from Utils.bethesda.esm_fixes import (
-            NEXUS_FILE_ID, NEXUS_GAME_DOMAIN, NEXUS_MOD_ID,
-        )
         from Utils.downloads.mpi import start_auto_fetch
         _wlog = lambda m: self._log(f"ESM Fixes Wizard: {m}")
         last_pct = [-1]
+        config = self._config
 
         def _progress(done, total):
             if total <= 0:
@@ -372,13 +382,13 @@ class ESMFixesView(WizardViewBase):
 
         start_auto_fetch(
             api=self._napi,
-            game_domain=NEXUS_GAME_DOMAIN,
-            mod_id=NEXUS_MOD_ID,
-            file_id=NEXUS_FILE_ID,
-            find_archive_fn=find_esm_fixes_archive,
+            game_domain=config.nexus_game_domain,
+            mod_id=config.nexus_mod_id,
+            file_id=config.nexus_file_id,
+            find_archive_fn=lambda: find_esm_fixes_archive(config),
             on_archive=lambda p: safe_emit(self._paths_picked_sig, "mpi", p),
             cancel=self._auto_fetch_cancel,
-            label="Ultimate Edition ESM Fixes",  # i18n: skip — mod name, used in log lines
+            label=config.output_name,
             on_download_started=lambda: safe_emit(
                 self._detect_status_sig,
                 self.tr("Premium account - downloading the ESM Fixes "
@@ -408,10 +418,10 @@ class ESMFixesView(WizardViewBase):
         if path is None:
             return
         p = Path(path)
-        if attr == "fnv":
-            self._fnv_path = p
-            self._fnv_label.setText(str(p))
-            self._fnv_label.setStyleSheet(self._dim)
+        if attr == "game":
+            self._game_path = p
+            self._game_label.setText(str(p))
+            self._game_label.setStyleSheet(self._dim)
             return
         # Package row: a picked archive routes through the same extractor.
         if p.name.lower().endswith(_ARCHIVE_SUFFIXES):
@@ -452,9 +462,13 @@ class ESMFixesView(WizardViewBase):
                              self.tr("Please select the ESM Fixes .mpi "
                              "package (or its downloaded archive)."), RED)
             return
-        if self._fnv_path is None or not self._fnv_path.is_dir():
+        if self._game_path is None or not self._game_path.is_dir():
+            if self._is_fallout3:
+                message = self.tr("Fallout 3 folder is not set.")
+            else:
+                message = self.tr("Fallout New Vegas folder is not set.")
             self._set_status(self._source_status,
-                             self.tr("Fallout New Vegas folder is not set."), RED)
+                             message, RED)
             return
         self._goto_step(_PG_RUN)
         self._set_status(self._run_status, self.tr("Starting…"))
@@ -468,7 +482,7 @@ class ESMFixesView(WizardViewBase):
             self.tr("The game is first restored to a vanilla state, then the "
             "installer patches the vanilla .esm masters with the community "
             "bugfixes.\nOutput is written directly into your mod list as the "
-            "'{0}' mod.").format(OUTPUT_NAME)))
+            "'{0}' mod.").format(self._config.output_name)))
         self._run_status = self._make_status(lay)
         p = active_palette()
         self._run_output = QPlainTextEdit()
@@ -509,7 +523,7 @@ class ESMFixesView(WizardViewBase):
                   self.tr("Restoring game to vanilla…"), "")
         safe_emit(self._run_log_sig,
                   self.tr("Restoring game to a vanilla state before install…"))
-        ok, fnv_root = restore_to_vanilla(game, self._profile, log_fn=_rlog)
+        ok, game_root = restore_to_vanilla(game, self._profile, log_fn=_rlog)
         if not ok:
             safe_emit(self._run_status_sig2,
                       self.tr("Restore failed - see the log. Fix the issue (or "
@@ -517,8 +531,8 @@ class ESMFixesView(WizardViewBase):
                       RED)
             safe_emit(self._run_done_sig)
             return
-        if fnv_root is not None:
-            self._fnv_path = fnv_root
+        if game_root is not None:
+            self._game_path = game_root
 
         staging = game.get_effective_mod_staging_path()
         if staging is None:
@@ -526,12 +540,12 @@ class ESMFixesView(WizardViewBase):
                       self.tr("Mod staging path is not configured."), RED)
             safe_emit(self._run_done_sig)
             return
-        dest = staging / OUTPUT_NAME
+        dest = staging / self._config.output_name
 
-        fnv_missing = missing_vanilla_esms(self._fnv_path,
-                                           fnv_required_esms(game))
-        if fnv_missing:
-            detail = ", ".join(fnv_missing)
+        missing = missing_vanilla_esms(self._game_path,
+                                       fnv_required_esms(game))
+        if missing:
+            detail = ", ".join(missing)
             _rlog(f"missing vanilla esms after restore - {detail}")
             safe_emit(self._run_log_sig,
                       self.tr("ERROR: missing vanilla plugin files:\n{0}").format(
@@ -545,22 +559,22 @@ class ESMFixesView(WizardViewBase):
             safe_emit(self._run_done_sig)
             return
 
-        # The package checksum-checks FalloutNV.exe; restore does not revert
-        # the 4GB patch (it keeps its own FalloutNV_backup.exe), so warn.
-        try:
-            from Utils.bethesda.fnv4gb import inspect_exe
-            if inspect_exe(self._fnv_path).get("state") == "patched":
-                safe_emit(self._run_log_sig,
-                          self.tr("WARNING: FalloutNV.exe is 4GB-patched. The "
-                          "installer verifies the game exe and may refuse to "
-                          "run - if it fails below, restore the original exe "
-                          "via the 4GB Patch wizard, run this again, then "
-                          "re-apply the 4GB patch."))
-        except Exception:
-            pass
+        if self._config.warn_4gb_patch:
+            try:
+                from Utils.bethesda.fnv4gb import inspect_exe
+                if inspect_exe(self._game_path).get("state") == "patched":
+                    safe_emit(self._run_log_sig,
+                              self.tr("WARNING: FalloutNV.exe is 4GB-patched. "
+                              "The installer verifies the game exe and may "
+                              "refuse to run - if it fails below, restore the "
+                              "original exe via the 4GB Patch wizard, run this "
+                              "again, then re-apply the 4GB patch."))
+            except Exception:
+                pass
 
         cmd = [str(exe), "install", "--mpi", str(self._mpi_path),
-               "--fnv", str(self._fnv_path), "--dest", str(dest)]
+               self._config.game_arg, str(self._game_path),
+               "--dest", str(dest)]
         self._log("ESM Fixes Wizard: running " + " ".join(cmd))
         safe_emit(self._run_status_sig2,
                   self.tr("Patching… (see log below)"), "")
@@ -606,7 +620,7 @@ class ESMFixesView(WizardViewBase):
                   self.tr("Patching complete - registering mod…"), GREEN)
         self._log("ESM Fixes Wizard: patching complete.")
         try:
-            register_output(game, log_fn=_rlog)
+            register_output(game, log_fn=_rlog, config=self._config)
         except Exception as exc:
             safe_emit(self._run_status_sig2,
                       self.tr("Patching finished but registering the mod "
@@ -614,10 +628,12 @@ class ESMFixesView(WizardViewBase):
             self._log(f"ESM Fixes Wizard: register error: {exc}")
             safe_emit(self._run_done_sig)
             return
+        from Utils.bethesda.ttw import remove_cached_mpi
+        remove_cached_mpi(game, self._mpi_path, log_fn=_rlog)
         self._ran = True
         safe_emit(self._run_status_sig2,
                   self.tr("Done! '{0}' was added to your mod list. Enable it "
-                  "and deploy.").format(OUTPUT_NAME), GREEN)
+                  "and deploy.").format(self._config.output_name), GREEN)
         safe_emit(self._run_done_sig)
 
     # ---- routing helper -----------------------------------------------------------

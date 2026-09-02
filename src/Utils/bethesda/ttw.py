@@ -198,6 +198,28 @@ def find_extracted_mpi(game: "BaseGame",
     return None
 
 
+def remove_cached_mpi(
+        game: "BaseGame", mpi_path: "Path | None",
+        log_fn: Callable[[str], None] = _noop) -> bool:
+    """Remove an MPI only when it is inside this game's package cache."""
+    if mpi_path is None:
+        return False
+    package = Path(mpi_path)
+    if package.suffix.lower() != ".mpi":
+        return False
+    try:
+        if package.parent.resolve() != packages_dir(game).resolve():
+            return False
+        package.unlink()
+    except FileNotFoundError:
+        return False
+    except Exception as exc:
+        log_fn(f"could not remove cached MPI package {package.name}: {exc}")
+        return False
+    log_fn(f"removed cached MPI package {package.name}")
+    return True
+
+
 def missing_vanilla_esms(game_root: Path, esms: "list[str]") -> list[str]:
     """Return the *esms* not present in ``<game_root>/Data`` (case-insensitive)."""
     data = game_root / "Data"
