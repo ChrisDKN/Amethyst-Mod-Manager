@@ -10611,6 +10611,14 @@ Daily: {1}</translation>
         <translation>Reverse the drag direction for rotating and panning</translation>
     </message>
     <message>
+        <source>Free camera</source>
+        <translation>Free camera</translation>
+    </message>
+    <message>
+        <source>Allow unrestricted rotation around every axis</source>
+        <translation>Allow unrestricted rotation around every axis</translation>
+    </message>
+    <message>
         <source>Brightness - lifts dark textures without blowing out highlights; double-click to reset</source>
         <translation>Brightness - lifts dark textures without blowing out highlights; double-click to reset</translation>
     </message>

@@ -1388,6 +1388,31 @@ def save_nif_invert_mouse(value: bool) -> None:
     _write_ini(parser, path)
 
 
+def load_nif_free_camera() -> bool:
+    """Return whether the .nif viewer uses unrestricted rotation."""
+    path = get_ui_config_path()
+    if not path.is_file():
+        return False
+    try:
+        parser = _read_ini(path)
+        return parser.getboolean(_NIF_SECTION, "free_camera", fallback=False)
+    except Exception:
+        return False
+
+
+def save_nif_free_camera(value: bool) -> None:
+    """Persist the .nif viewer camera mode to amethyst.ini."""
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _NIF_SECTION not in parser:
+        parser[_NIF_SECTION] = {}
+    parser[_NIF_SECTION]["free_camera"] = "true" if value else "false"
+    _write_ini(parser, path)
+
+
 def save_nif_background(key: str) -> None:
     """Persist the .nif viewer background preset to amethyst.ini."""
     path = get_ui_config_path()

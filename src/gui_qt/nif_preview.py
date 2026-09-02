@@ -5,9 +5,8 @@ Panel-scoped 3D preview for .nif meshes (QOpenGLWidget, no new deps).
 Parses off-thread via Utils.assets.nif, bakes world transforms into vertices,
 and resolves textures through Utils.assets.resolver (what the game would load)
 with archive/loose fallbacks. Starfield geometry is fetched from external
-.mesh files. Meshes are Z-up; dragging turns the asset about +Z like a
-turntable - the camera and lights stay put, so highlights sweep across the
-surface as it spins.
+.mesh files. Meshes are Z-up; the default turntable camera can be switched to
+an unrestricted trackball while the lights remain fixed around the asset.
 """
 
 from __future__ import annotations
@@ -202,6 +201,7 @@ _SHEET_EXPORT_HEIGHT = 2048
 
 _HOME_YAW = math.radians(-60.0)
 _HOME_PITCH = math.radians(22.0)
+_TURNTABLE_PITCH_LIMIT = 1.5533
 
 # Wireframe: off, lines over the solid render, or lines only.
 WIRE_OFF, WIRE_OVERLAY, WIRE_ONLY = "off", "overlay", "only"
@@ -2081,7 +2081,7 @@ def _compose_turntable_sheet(frames: list[QImage], portrait: QImage,
 
 
 class _Viewport(QOpenGLWidget):
-    """The GL canvas: turntable rotate/pan/zoom over the parsed shapes."""
+    """The GL canvas: turntable/free-camera orbit over the parsed shapes."""
 
     # meshes, bounds, gen, tex paths, head bounds
     loaded = Signal(object, object, int, object, object)
@@ -2133,8 +2133,8 @@ class _Viewport(QOpenGLWidget):
         # Built on the first resize; see resizeEvent for why paints pause.
         self._resize_hold = None
 
-        self._yaw = _HOME_YAW
-        self._pitch = _HOME_PITCH
+        self._right, self._up, self._forward = self._basis_for(
+            _HOME_YAW, _HOME_PITCH)
         self._distance = 100.0
         # (yaw, pitch, look-at height as a fraction of the model) or None for
         # the mesh-browser 3/4 default. Set by a host that shows ACTORS.
@@ -2152,9 +2152,11 @@ class _Viewport(QOpenGLWidget):
         # always spins the asset about its own centre instead of arcing a
         # panned view across the screen.
         self._pan = [0.0, 0.0]
-        self._home = (self._yaw, self._pitch, self._distance, QVector3D(0, 0, 0))
+        self._home = (self._copy_camera_basis(), self._distance,
+                      QVector3D(0, 0, 0))
         self._last_pos = None
         self._last_buttons = Qt.NoButton
+        self.free_camera = False
         self.wireframe = WIRE_OFF
         self.cull_backfaces = False
         self.textured = True
@@ -2472,9 +2474,10 @@ class _Viewport(QOpenGLWidget):
                                    or bounds != self._framed_bounds):
             self._frame(bounds)
             self._framed_bounds = bounds
+            yaw, pitch = self._camera_angles()
             _log(self.log_fn,
-                 f"  framed: yaw {math.degrees(self._yaw):.0f}° "
-                 f"pitch {math.degrees(self._pitch):.0f}° "
+                 f"  framed: yaw {math.degrees(yaw):.0f}° "
+                 f"pitch {math.degrees(pitch):.0f}° "
                  f"dist {self._distance:.0f} "
                  f"look-at z {self._center.z():.1f}"
                  f"{' (actor home)' if self.home_view else ''}")
@@ -2502,7 +2505,7 @@ class _Viewport(QOpenGLWidget):
             return None
         if self.context() is None:
             return None
-        saved = (self._yaw, self._pitch, self._distance,
+        saved = (self._copy_camera_basis(), self._distance,
                  QVector3D(self._center), list(self._pan))
         try:
             # One framing for the inset, the single export and the batch, so
@@ -2513,8 +2516,8 @@ class _Viewport(QOpenGLWidget):
             _log(self.log_fn, f"  ! portrait capture failed: {exc!r}")
             image = None
         finally:
-            (self._yaw, self._pitch, self._distance,
-             self._center, self._pan) = saved
+            basis, self._distance, self._center, self._pan = saved
+            self._set_camera_basis(basis)
             self.update()
         if image is None or image.isNull():
             return None
@@ -2555,7 +2558,7 @@ class _Viewport(QOpenGLWidget):
             return None
         if self.context() is None:
             return None
-        saved = (self._yaw, self._pitch, self._distance,
+        saved = (self._copy_camera_basis(), self._distance,
                  QVector3D(self._center), list(self._pan), self._home)
         # The backdrop drives the clay and wireframe colours too, so swapping
         # it for the grab means saving the whole trio, not just _bg.
@@ -2570,10 +2573,9 @@ class _Viewport(QOpenGLWidget):
             # A level, consistently framed turntable. Skyrim actors face +Y,
             # hence +90 is front and -90 is back.
             self._frame(bounds)
-            self._pitch = 0.0
             body_size = (max(1, round(height * _SHEET_BODY_ASPECT)), height)
             for degrees in (0.0, 90.0, -90.0, 180.0):
-                self._yaw = math.radians(degrees)
+                self._set_camera_angles(math.radians(degrees), 0.0)
                 frame = self._grab(body_size)
                 if frame is None or frame.isNull():
                     return None
@@ -2588,8 +2590,8 @@ class _Viewport(QOpenGLWidget):
         finally:
             self._clear_transparent = False
             self._bg, self._base = saved_bg
-            (self._yaw, self._pitch, self._distance,
-             self._center, self._pan, self._home) = saved
+            basis, self._distance, self._center, self._pan, self._home = saved
+            self._set_camera_basis(basis)
             self.update()
         if portrait is None or portrait.isNull():
             return None
@@ -2631,8 +2633,8 @@ class _Viewport(QOpenGLWidget):
         want = max(top - bottom, hx - lx, 1e-3) * _PORTRAIT_FILL
         half_fov = math.radians(_VIEWPORT_FOV / 2.0)
         self._distance = want / (2.0 * math.tan(half_fov))
-        self._yaw = math.radians(_PORTRAIT_YAW)
-        self._pitch = math.radians(_PORTRAIT_PITCH)
+        self._set_camera_angles(math.radians(_PORTRAIT_YAW),
+                                math.radians(_PORTRAIT_PITCH))
 
     def capture_face_image(self, background: str | None = None,
                            size: int = _SHEET_EXPORT_HEIGHT):
@@ -2647,7 +2649,7 @@ class _Viewport(QOpenGLWidget):
             return None
         if self.context() is None:
             return None
-        saved = (self._yaw, self._pitch, self._distance,
+        saved = (self._copy_camera_basis(), self._distance,
                  QVector3D(self._center), list(self._pan), self._home)
         saved_bg = (QColor(self._bg), self._base)
         transparent = background == BACKGROUND_TRANSPARENT
@@ -2663,8 +2665,8 @@ class _Viewport(QOpenGLWidget):
         finally:
             self._clear_transparent = False
             self._bg, self._base = saved_bg
-            (self._yaw, self._pitch, self._distance,
-             self._center, self._pan, self._home) = saved
+            basis, self._distance, self._center, self._pan, self._home = saved
+            self._set_camera_basis(basis)
             self.update()
 
     def _render_offscreen(self, width: int, height: int):
@@ -2740,9 +2742,8 @@ class _Viewport(QOpenGLWidget):
         self._center = QVector3D(cx, cy, cz)
         self._pan = [0.0, 0.0]
         self._distance = radius * 3.0
-        self._yaw = yaw
-        self._pitch = pitch
-        self._home = (self._yaw, self._pitch, self._distance,
+        self._set_camera_angles(yaw, pitch)
+        self._home = (self._copy_camera_basis(), self._distance,
                       QVector3D(cx, cy, cz))
 
     # -- GL -----------------------------------------------------------------
@@ -3214,9 +3215,25 @@ class _Viewport(QOpenGLWidget):
         right = right.normalized()
         return right, QVector3D.crossProduct(right, fwd), fwd
 
+    def _set_camera_angles(self, yaw: float, pitch: float):
+        self._right, self._up, self._forward = self._basis_for(yaw, pitch)
+
+    def _set_camera_basis(self, basis):
+        self._right, self._up, self._forward = (
+            QVector3D(axis) for axis in basis)
+
+    def _copy_camera_basis(self):
+        return tuple(QVector3D(axis) for axis in self._camera_basis())
+
     def _camera_basis(self):
         """(right, up, forward) unit vectors of the current camera."""
-        return self._basis_for(self._yaw, self._pitch)
+        return self._right, self._up, self._forward
+
+    def _camera_angles(self):
+        """Orbital yaw/pitch for diagnostics; roll is held by the basis."""
+        yaw = math.atan2(-self._forward.y(), -self._forward.x())
+        pitch = math.asin(max(-1.0, min(1.0, -self._forward.z())))
+        return yaw, pitch
 
     def _light_dirs(self):
         """The rig on the home basis - fixed in the world, not the viewer."""
@@ -3229,13 +3246,7 @@ class _Viewport(QOpenGLWidget):
 
     def _pan_axes(self):
         """(right, up) drag axes of the view plane at the current angles."""
-        right = QVector3D(math.sin(self._yaw), -math.cos(self._yaw), 0.0)
-        up = QVector3D(
-            -math.sin(self._pitch) * math.cos(self._yaw),
-            -math.sin(self._pitch) * math.sin(self._yaw),
-            math.cos(self._pitch),
-        )
-        return right, up
+        return -self._right, self._up
 
     def _look_target(self) -> QVector3D:
         """The look-at point: the mesh centre pushed by the pan offset."""
@@ -3245,11 +3256,7 @@ class _Viewport(QOpenGLWidget):
     def _eye(self) -> QVector3D:
         d = max(self._distance, 1e-3)
         t = self._look_target()
-        return QVector3D(
-            t.x() + d * math.cos(self._pitch) * math.cos(self._yaw),
-            t.y() + d * math.cos(self._pitch) * math.sin(self._yaw),
-            t.z() + d * math.sin(self._pitch),
-        )
+        return t - self._forward * d
 
     def _mvp(self) -> QMatrix4x4:
         # An offscreen grab renders at its own size, not the widget's, and the
@@ -3264,8 +3271,43 @@ class _Viewport(QOpenGLWidget):
         proj = QMatrix4x4()
         proj.perspective(_VIEWPORT_FOV, w / h, max(d * 0.001, 1e-3), d * 50.0)
         view = QMatrix4x4()
-        view.lookAt(eye, self._look_target(), QVector3D(0, 0, 1))
+        view.lookAt(eye, self._look_target(), self._up)
         return proj * view
+
+    @staticmethod
+    def _rotated(vector: QVector3D, axis: QVector3D,
+                 angle: float) -> QVector3D:
+        c = math.cos(angle)
+        s = math.sin(angle)
+        return (vector * c + QVector3D.crossProduct(axis, vector) * s
+                + axis * QVector3D.dotProduct(axis, vector) * (1.0 - c))
+
+    def _orbit(self, horizontal: float, vertical: float):
+        """Rotate the whole camera frame about axes in the current view plane."""
+        angle = math.hypot(horizontal, vertical)
+        if angle < 1e-12:
+            return
+        axis = (self._up * horizontal + self._right * vertical) / angle
+        self._right = self._rotated(self._right, axis, angle)
+        self._up = self._rotated(self._up, axis, angle)
+        self._forward = self._rotated(
+            self._forward, axis, angle).normalized()
+        self._right = QVector3D.crossProduct(
+            self._forward, self._up).normalized()
+        self._up = QVector3D.crossProduct(
+            self._right, self._forward).normalized()
+
+    def set_free_camera(self, enabled: bool):
+        enabled = bool(enabled)
+        if self.free_camera == enabled:
+            return
+        self.free_camera = enabled
+        if not enabled:
+            yaw, pitch = self._camera_angles()
+            pitch = max(-_TURNTABLE_PITCH_LIMIT,
+                        min(_TURNTABLE_PITCH_LIMIT, pitch))
+            self._set_camera_angles(yaw, pitch)
+        self.update()
 
     # -- interaction --------------------------------------------------------
     def mousePressEvent(self, e):
@@ -3281,9 +3323,16 @@ class _Viewport(QOpenGLWidget):
         rot_sign = -1.0 if self.invert_mouse else 1.0
         pan_sign = -rot_sign
         if e.buttons() & Qt.LeftButton:
-            self._yaw += rot_sign * delta.x() * 0.01
-            self._pitch = max(-1.5533, min(
-                1.5533, self._pitch - rot_sign * delta.y() * 0.01))
+            horizontal = rot_sign * delta.x() * 0.01
+            vertical = rot_sign * delta.y() * 0.01
+            if self.free_camera:
+                self._orbit(horizontal, vertical)
+            else:
+                yaw, pitch = self._camera_angles()
+                yaw += horizontal
+                pitch = max(-_TURNTABLE_PITCH_LIMIT,
+                            min(_TURNTABLE_PITCH_LIMIT, pitch - vertical))
+                self._set_camera_angles(yaw, pitch)
         elif e.buttons() & (Qt.RightButton | Qt.MiddleButton):
             # Pan across the view plane, scaled so the drag tracks the cursor.
             scale = self._distance * 0.0022 * pan_sign
@@ -3318,7 +3367,8 @@ class _Viewport(QOpenGLWidget):
         self.update()
 
     def mouseDoubleClickEvent(self, e):
-        self._yaw, self._pitch, self._distance, center = self._home
+        basis, self._distance, center = self._home
+        self._set_camera_basis(basis)
         self._center = QVector3D(center)
         self._pan = [0.0, 0.0]
         self.update()
@@ -3354,6 +3404,7 @@ class _NoGLViewport(QWidget):
 
         # The attributes NifPreview's toggles write straight through.
         self.invert_mouse = True
+        self.free_camera = False
         self.cull_backfaces = False
         self.textured = True
         self.detail = True
@@ -3390,6 +3441,9 @@ class _NoGLViewport(QWidget):
 
     def set_background(self, *_a):
         pass
+
+    def set_free_camera(self, enabled):
+        self.free_camera = bool(enabled)
 
     def release_gl(self, *_a):
         pass
@@ -3523,6 +3577,12 @@ class NifPreview(QWidget):
             "Reverse the drag direction for rotating and panning"))
         self._act_invert.triggered.connect(self._on_invert_mouse)
 
+        self._act_free_camera = self._menu.addAction(self.tr("Free camera"))
+        self._act_free_camera.setCheckable(True)
+        self._act_free_camera.setToolTip(self.tr(
+            "Allow unrestricted rotation around every axis"))
+        self._act_free_camera.triggered.connect(self._on_free_camera)
+
         self._bright = QSlider(Qt.Horizontal)
         self._bright.setRange(BRIGHTNESS_MIN, BRIGHTNESS_MAX)
         self._bright.setFixedWidth(90)
@@ -3566,6 +3626,14 @@ class NifPreview(QWidget):
             inverted = True
         self._view.invert_mouse = bool(inverted)
         self._act_invert.setChecked(bool(inverted))
+
+        try:
+            from Utils.ui.config import load_nif_free_camera
+            free_camera = load_nif_free_camera()
+        except Exception:
+            free_camera = False
+        self._view.set_free_camera(bool(free_camera))
+        self._act_free_camera.setChecked(bool(free_camera))
 
         try:
             from Utils.ui.config import load_nif_cull_backfaces
@@ -3814,6 +3882,15 @@ class NifPreview(QWidget):
             save_nif_invert_mouse(bool(on))
         except Exception as exc:
             _log(self.log_fn, f"! could not save invert setting: {exc!r}")
+
+    def _on_free_camera(self, on):
+        _log(self.log_fn, f"option: free camera {'on' if on else 'off'}")
+        self._view.set_free_camera(bool(on))
+        try:
+            from Utils.ui.config import save_nif_free_camera
+            save_nif_free_camera(bool(on))
+        except Exception as exc:
+            _log(self.log_fn, f"! could not save camera setting: {exc!r}")
 
     def eventFilter(self, obj, e):
         # Double-click the brightness slider to snap back to neutral.
