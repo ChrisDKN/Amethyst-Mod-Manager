@@ -157,6 +157,9 @@ def build_context_menu(view, index):
         act(_mt("Open folder"), lambda: _open_folder(view, model, row))
         act(_mt("Log"), lambda: _show_overwrite_log(view, entry.name),
             enabled=has_game)
+        if entry.name == OVERWRITE_NAME:
+            act(_mt("Manage Overwrite…"), lambda: _manage_overwrite(view),
+                enabled=has_game and _staging_ok)
         if entry.name == OVERWRITE_NAME and _has_conflict(model, row):
             act(_mt("Show Conflicts"), lambda: _show_conflicts(view, entry.name))
             act(_mt("Clear Conflict Filter")
@@ -1391,6 +1394,7 @@ def _create_empty_mod_prompt(view, model, insert):
         try:
             from datetime import datetime
             mod_dir = staging / name
+            created = not mod_dir.exists()
             mod_dir.mkdir(parents=True, exist_ok=True)
             installed = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
             (mod_dir / "meta.ini").write_text(
@@ -1400,10 +1404,24 @@ def _create_empty_mod_prompt(view, model, insert):
                 view, _mt("Create empty mod"),
                 _mtf("Could not create the mod folder:\n{0}", exc))
             return
-        insert(name)
+        if insert(name) is False and created:
+            import shutil
+            try:
+                shutil.rmtree(mod_dir)
+            except OSError:
+                pass
 
     TextInputOverlay.show_over(view, _mt("Create empty mod"), _mt("Mod name:"),
                                _named, ok_label=_mt("Create"))
+
+
+def _manage_overwrite(view):
+    """Open the Overwrite manager tab (tree of the Overwrite folder, with
+    move-to-mod / move-to-new-mod / delete). The window installs the callback in
+    _reload_modlist; no-op if it isn't wired (e.g. headless)."""
+    cb = getattr(view, "on_manage_overwrite", None)
+    if callable(cb):
+        cb()
 
 
 def _show_overwrite_log(view, boundary_name=None):
@@ -1801,6 +1819,7 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("ModListMenu", "Lock Separator"),
     QT_TRANSLATE_NOOP("ModListMenu", "Lock Separators"),
     QT_TRANSLATE_NOOP("ModListMenu", "Log"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Manage Overwrite…"),
     QT_TRANSLATE_NOOP("ModListMenu", "Missing Requirements"),
     QT_TRANSLATE_NOOP("ModListMenu", "Missing Requirements ({0})"),
     QT_TRANSLATE_NOOP("ModListMenu", "View Requirements"),

@@ -9251,6 +9251,89 @@ class MainWindow(QMainWindow):
             log_fn=self._append_log)
         self._tabs.open_tab(view, self.tr("Conflicts: {0}").format(mod_name), key="show_conflicts")
 
+    # ---- Manage Overwrite (modlist-panel-scoped tab) ------------------------
+    def _overwrite_context_id(self):
+        profile_dir = self._gs.profile_dir()
+        try:
+            profile = (str(profile_dir.resolve(strict=False))
+                       if profile_dir is not None else "")
+        except (OSError, RuntimeError):
+            profile = str(profile_dir or "")
+        return self._gs.game_name, profile
+
+    def _open_overwrite_tab(self):
+        """Open the Overwrite manager scoped over the PLUGINS panel, so the
+        modlist stays live while files are sorted out of Overwrite - you can
+        see the mod you're moving into, and the picker's target list, without
+        the tab covering them. Same default as the other right-click views
+        (Change Version, Separator Settings, View Requirements); a user who
+        re-pins it to the modlist keeps that pin via _saved_pin.
+
+        Re-opening refreshes the existing tab from disk (the game may have
+        written more files since it was last shown)."""
+        game = self._gs.game
+        if game is None or not game.is_configured():
+            self._notify(self.tr("No configured game selected."), "warning")
+            return
+        staging = self._gs.staging_dir()
+        context_id = self._overwrite_context_id()
+        existing = self._tabs.content_for_key("overwrite_manager")
+        if existing is not None:
+            existing.configure(game, staging, context_id)
+            self._tabs.focus_key("overwrite_manager")
+            return
+        from gui_qt.overwrite_view import OverwriteView
+        view = OverwriteView(self)
+        # Existing mods, highest-priority first.
+        view.mod_names_fn = lambda: self._modlist_model.mod_names()
+        view.all_names_fn = lambda: [
+            value
+            for entry in self._modlist_model.natural_entries()
+            for value in (entry.name, entry.display_name)
+        ]
+        view.add_new_mod_fn = self._on_overwrite_new_mod
+        view.context_valid_fn = (
+            lambda expected: expected == self._overwrite_context_id())
+        view.on_close = lambda: self._tabs.close_tab("overwrite_manager")
+        view.changed.connect(self._on_overwrite_changed)
+        view.configure(game, staging, context_id)
+        self._tabs.open_scoped_tab(
+            view, self.tr("Overwrite"), self._plugins_panel_stack,
+            key="overwrite_manager")
+
+    def _on_overwrite_changed(self, _mod_names):
+        """Files left or were deleted from Overwrite - their deploy identity
+        changed (Overwrite wins everything; a real mod does not), so the whole
+        modlist has to reload. The rescan runs once on the conflict worker and
+        covers both Overwrite and any destination mods."""
+        self._reload_modlist(rescan_index=True, preserve_overlays=True)
+
+    def _on_overwrite_new_mod(self, name: str) -> bool:
+        """The Overwrite tab created an empty staging mod - give it a modlist
+        row just below Overwrite (top of the body) and persist the order.
+
+        insert_mod_at_body_edge save()s itself, and that save fires on_saved →
+        _rebuild_conflicts_async. At this instant the folder holds only
+        meta.ini (the files move in right after) and the catalog has no raw
+        manifest for it yet, so that rebuild would publish conflict FLAGS for a
+        mod absent from the override maps - a row with a conflict icon and no
+        marker-strip ticks. Suppress it; the `changed` that follows the move
+        runs the real reload a moment later. Returns whether persistence
+        succeeded so no files move into an unlisted folder."""
+        try:
+            saved_cb = self._modlist_model.on_saved
+            self._modlist_model.on_saved = None
+            try:
+                return bool(
+                    self._modlist_model.insert_mod_at_body_edge(True, name))
+            finally:
+                self._modlist_model.on_saved = saved_cb
+        except Exception as exc:
+            self._notify(
+                self.tr("Could not add '{0}' to the modlist: {1}").format(
+                    name, exc), "warning")
+            return False
+
     # ---- View FOMOD Choices (full detachable tab) ---------------------------
     def _open_fomod_choices_tab(self, mod_name: str):
         """Open the saved-FOMOD-selections view for *mod_name* as a full tab.
@@ -16325,6 +16408,11 @@ class MainWindow(QMainWindow):
         self._modlist_view.staging_dir = staging
         self._modlist_view.profile_dir = self._gs.profile_dir()
         self._modlist_view.game = self._gs.game
+        overwrite_view = self._tabs.content_for_key("overwrite_manager")
+        if overwrite_view is not None:
+            overwrite_view.configure(
+                self._gs.game, staging, self._overwrite_context_id(),
+                refresh=False)
         # Right-click "Check Updates" reaches the window through this callback.
         self._modlist_view.on_check_updates = self._on_check_updates
         # Change Version: right-click item + clicking the update flag icon.
@@ -16346,6 +16434,8 @@ class MainWindow(QMainWindow):
         self._modlist_view.on_reinstall = self._reinstall_mods
         # Show Conflicts: right-click item.
         self._modlist_view.on_show_conflicts = self._open_show_conflicts_tab
+        # Manage Overwrite: right-click the Overwrite boundary row.
+        self._modlist_view.on_manage_overwrite = self._open_overwrite_tab
         # View FOMOD Choices: right-click item on a mod with saved selections.
         self._modlist_view.on_show_fomod_choices = self._open_fomod_choices_tab
         # Filter Conflicts: narrow the list to one mod's conflict set (and the

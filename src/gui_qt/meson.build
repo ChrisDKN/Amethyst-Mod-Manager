@@ -98,6 +98,7 @@ py.install_sources(
   'onboarding_view.py',
   'overlay_base.py',
   'overwrite_log_overlay.py',
+  'overwrite_view.py',
   'path_tree.py',
   'plugin_cycle_view.py',
   'plugin_groups_view.py',

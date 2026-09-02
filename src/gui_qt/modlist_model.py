@@ -1060,8 +1060,8 @@ class ModListModel(QAbstractTableModel):
         return bits, codes, bsa, uuid
 
     # ---- persistence ------------------------------------------------------
-    def save(self, edit_ctx=None) -> None:
-        """Write the current entries back to modlist.txt (no-op if no path).
+    def save(self, edit_ctx=None) -> bool:
+        """Write the current entries back to modlist.txt; return success.
         The Overwrite / Root Folder boundary separators are UI-only and are
         stripped before writing. Fires on_saved(edit_ctx) so the view can
         rebuild. edit_ctx tells the app what kind of edit this save carries
@@ -1074,7 +1074,7 @@ class ModListModel(QAbstractTableModel):
         if self.modlist_path is None:
             if timing is not None:
                 timing.finish("modlist save skipped: no active profile")
-            return
+            return False
         # Every structural edit (drag, remove, add-separator, set_priority…)
         # funnels through here - row→block mapping may have changed.
         self._sep_hl_cache.clear()
@@ -1106,7 +1106,7 @@ class ModListModel(QAbstractTableModel):
             self.save_failed.emit(f"Modlist save failed: {exc}")
             if timing is not None:
                 timing.finish(f"modlist write failed: {exc}")
-            return
+            return False
         if timing is not None:
             timing.mark(
                 f"modlist.txt committed ({len(body)} entries)",
@@ -1120,6 +1120,7 @@ class ModListModel(QAbstractTableModel):
                             phase_started=phase_started)
         elif timing is not None:
             timing.finish("modlist saved; no conflict callback is connected")
+        return True
 
     # ---- structural edits (context-menu actions) --------------------------
     def rename(self, row: int, new_name: str) -> None:
@@ -1208,7 +1209,7 @@ class ModListModel(QAbstractTableModel):
         self._rebuild_display()
         self.save()
 
-    def insert_mod(self, row: int, name: str, above: bool = False) -> None:
+    def insert_mod(self, row: int, name: str, above: bool = False) -> bool:
         """Insert an (enabled) mod entry named *name* relative to *row*. Used by
         'Create empty mod below' - the folder/meta.ini are created by the caller."""
         entry = ModEntry(name, True, False, False)
@@ -1217,12 +1218,16 @@ class ModListModel(QAbstractTableModel):
             self.beginInsertRows(QModelIndex(), at, at)
             self._entries.insert(at, entry)
             self.endInsertRows()
-            self.save()
-            return
+            if self.save():
+                return True
+            self.beginRemoveRows(QModelIndex(), at, at)
+            del self._entries[at]
+            self.endRemoveRows()
+            return False
         ref = self._entries[row]
         ni = self._natural_row_of(ref)
         if ni < 0:
-            return
+            return False
         if self.reverse_mode_active:
             # Inverted display: visually below *ref* = BEFORE it in natural
             # order (and vice versa) - mirror add_separator's reverse branch.
@@ -1231,13 +1236,18 @@ class ModListModel(QAbstractTableModel):
             at = ni if above else ni + 1
         self._natural.insert(at, entry)
         self._rebuild_display()
-        self.save()
+        if self.save():
+            return True
+        del self._natural[at]
+        self._rebuild_display()
+        return False
 
-    def insert_mod_at_body_edge(self, top: bool, name: str) -> None:
+    def insert_mod_at_body_edge(self, top: bool, name: str) -> bool:
         """Insert an (enabled) mod at the top or bottom of the natural body,
         just inside the boundary separators. Used by the boundary rows' 'Create
         an empty mod below' - normal mode drops it below Overwrite (top of the
-        body), reverse-priority mode below Root Folder (bottom of the body)."""
+        body), reverse-priority mode below Root Folder (bottom of the body).
+        Roll the model insertion back and return False when saving fails."""
         entry = ModEntry(name, True, False, False)
         # Natural layout is normally [Overwrite] + body + [Root Folder]; drop the
         # mod just inside whichever boundary the caller asked for. Anchor on the
@@ -1253,11 +1263,19 @@ class ModListModel(QAbstractTableModel):
             self.beginInsertRows(QModelIndex(), at, at)
             self._natural.insert(at, entry)
             self.endInsertRows()
-            self.save()
-            return
+            if self.save():
+                return True
+            self.beginRemoveRows(QModelIndex(), at, at)
+            del self._natural[at]
+            self.endRemoveRows()
+            return False
         self._natural.insert(at, entry)
         self._rebuild_display()
-        self.save()
+        if self.save():
+            return True
+        del self._natural[at]
+        self._rebuild_display()
+        return False
 
     def remove_row(self, row: int, save: bool = True) -> None:
         """Drop *row*. Pass save=False when removing several rows in a loop and
