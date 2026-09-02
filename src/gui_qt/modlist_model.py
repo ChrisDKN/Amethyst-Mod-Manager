@@ -331,6 +331,21 @@ class ModListModel(QAbstractTableModel):
                 [Qt.DisplayRole])
         self._resort_if_key("version", "installed", "category", "author")
 
+    def set_version(self, name: str, version: str) -> None:
+        version = (version or "").strip()
+        if self._versions.get(name, "") == version:
+            return
+        if version:
+            self._versions[name] = version
+        else:
+            self._versions.pop(name, None)
+        self._resort_if_key("version")
+        row = next((r for r, e in enumerate(self._entries)
+                    if not e.is_separator and e.name == name), -1)
+        if row >= 0:
+            idx = self.index(row, COL_VERSION)
+            self.dataChanged.emit(idx, idx, [Qt.DisplayRole])
+
     def set_sizes(self, sizes: dict[str, str],
                   size_bytes: dict[str, int] | None = None) -> None:
         """Set formatted mod sizes (Size column) + raw bytes (Size sort).

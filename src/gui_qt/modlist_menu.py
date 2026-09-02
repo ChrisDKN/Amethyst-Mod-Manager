@@ -19,7 +19,7 @@ from PySide6.QtCore import QCoreApplication, QT_TRANSLATE_NOOP
 
 from gui_qt.confirm_overlay import ConfirmOverlay
 from gui_qt.i18n import profile_display
-from gui_qt.modlist_model import COL_NAME
+from gui_qt.modlist_model import COL_NAME, COL_VERSION
 from gui_qt.text_input_overlay import TextInputOverlay
 
 
@@ -1502,6 +1502,36 @@ def _name_suggestions(view, name):
         return []
 
 
+def _set_version(view, model, row):
+    entry = model.entry(row)
+    name = entry.name
+    initial = str(model.data(model.index(row, COL_VERSION), 0) or "")
+    staging = getattr(view, "staging_dir", None)
+    if staging is None:
+        return
+
+    def _picked(text):
+        if text is None:
+            return
+        version = text.strip()
+        if not version or version == initial:
+            return
+        try:
+            from Nexus.nexus_meta import read_meta, write_meta
+            meta_path = staging / name / "meta.ini"
+            meta = read_meta(meta_path)
+            meta.version = version
+            write_meta(meta_path, meta)
+        except Exception as exc:
+            _notify(view, _mtf("Could not set version:\n{0}", exc))
+            return
+        model.set_version(name, version)
+
+    TextInputOverlay.show_over(view, _mt("Set version"),
+                               _mtf("Version for {0}:", entry.display_name),
+                               _picked, initial=initial)
+
+
 def _set_priority(view, model, row):
     cur = model.data(model.index(row, COL_NAME), 0)
 
@@ -1801,6 +1831,7 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("ModListMenu", "Create an empty mod below"),
     QT_TRANSLATE_NOOP("ModListMenu", "Create empty mod"),
     QT_TRANSLATE_NOOP("ModListMenu", "Create empty mod below"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Could not set version:\n{0}"),
     QT_TRANSLATE_NOOP("ModListMenu", "Disable Root Folder install"),
     QT_TRANSLATE_NOOP("ModListMenu", "Disable Root Folder install ({0})"),
     QT_TRANSLATE_NOOP("ModListMenu", "Disable selected ({0})"),
@@ -1855,7 +1886,9 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("ModListMenu", "Separator settings…"),
     QT_TRANSLATE_NOOP("ModListMenu", "Set priority"),
     QT_TRANSLATE_NOOP("ModListMenu", "Set priority…"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Set version"),
     QT_TRANSLATE_NOOP("ModListMenu", "Priority for {0}:"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Version for {0}:"),
     QT_TRANSLATE_NOOP("ModListMenu", "Show Conflicts"),
     QT_TRANSLATE_NOOP("ModListMenu", "Sort Alphabetically ({0})"),
     QT_TRANSLATE_NOOP("ModListMenu", "Track Mod"),

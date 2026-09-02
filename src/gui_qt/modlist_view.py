@@ -1055,6 +1055,13 @@ class ModListView(QTreeView):
                       and idx.column() == COL_CONFLICTS
                       and callable(getattr(self, "on_show_conflicts", None))):
                     over = delegate._hit_conflict_icon(pos, rect, idx)
+                elif (not entry.is_separator
+                      and idx.column() == COL_VERSION):
+                    over = delegate._hit_centered_text(pos, rect, idx)
+                elif (not entry.is_separator
+                      and idx.column() == COL_PRIORITY
+                      and not entry.locked):
+                    over = delegate._hit_centered_text(pos, rect, idx)
         except Exception:
             over = False
         if over:

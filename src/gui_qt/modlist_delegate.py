@@ -23,7 +23,7 @@ from gui_qt.icons import icon
 from gui_qt.modlist_model import (
     EntryRole, ConflictRole, BsaConflictRole, UuidConflictRole, FlagsRole,
     HighlightRole,
-    COL_NAME, COL_FLAGS, COL_CONFLICTS, COL_PRIORITY,
+    COL_NAME, COL_FLAGS, COL_CONFLICTS, COL_VERSION, COL_PRIORITY,
 )
 from gui_qt.modlist_data import (
     FLAG_UPDATE, FLAG_ENDORSED, FLAG_ROOT, FLAG_MODIFIED_MF, FLAG_MISSING_REQS,
@@ -872,13 +872,42 @@ class ModRowDelegate(QStyledItemDelegate):
             if x > r.right() - sz:
                 break
 
+    def _hit_centered_text(self, pos, rect, index):
+        text = str(index.data(Qt.DisplayRole) or "")
+        if not text:
+            return False
+        width = min(self.fm_row.horizontalAdvance(text),
+                    max(0, rect.width() - 12))
+        hit = QRect(0, 0, width,
+                    self.fm_row.height())
+        hit.moveCenter(rect.center())
+        return hit.contains(pos)
+
     def editorEvent(self, event, model, opt, index):
         if event.type() != QEvent.MouseButtonRelease:
             return False
-        if index.column() not in (COL_NAME, COL_FLAGS, COL_CONFLICTS):
+        if index.column() not in (COL_NAME, COL_FLAGS, COL_CONFLICTS,
+                                  COL_VERSION, COL_PRIORITY):
             return False
         pos = event.position().toPoint()
         e = model.entry(index.row())
+
+        if index.column() == COL_VERSION:
+            if (event.button() != Qt.LeftButton or e.is_separator
+                    or not self._hit_centered_text(pos, opt.rect, index)):
+                return False
+            from gui_qt.modlist_menu import _set_version
+            _set_version(self.parent(), model, index.row())
+            return True
+
+        if index.column() == COL_PRIORITY:
+            if (event.button() != Qt.LeftButton or e.is_separator
+                    or e.locked
+                    or not self._hit_centered_text(pos, opt.rect, index)):
+                return False
+            from gui_qt.modlist_menu import _set_priority
+            _set_priority(self.parent(), model, index.row())
+            return True
 
         # Only flags backed by an action consume the click.
         if index.column() == COL_FLAGS:

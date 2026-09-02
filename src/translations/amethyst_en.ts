@@ -8938,6 +8938,12 @@ How would you like to handle the existing mod?</translation>
 {0}</translation>
     </message>
     <message>
+        <source>Could not set version:
+{0}</source>
+        <translation>Could not set version:
+{0}</translation>
+    </message>
+    <message>
         <source>Create</source>
         <translation>Create</translation>
     </message>
@@ -9154,8 +9160,16 @@ How would you like to handle the existing mod?</translation>
         <translation>Set priority…</translation>
     </message>
     <message>
+        <source>Set version</source>
+        <translation>Set version</translation>
+    </message>
+    <message>
         <source>Priority for {0}:</source>
         <translation>Priority for {0}:</translation>
+    </message>
+    <message>
+        <source>Version for {0}:</source>
+        <translation>Version for {0}:</translation>
     </message>
     <message>
         <source>Show Conflicts</source>
