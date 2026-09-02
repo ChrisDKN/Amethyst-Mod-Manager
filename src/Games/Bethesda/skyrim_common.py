@@ -37,4 +37,5 @@ SKYRIM_MOD_REQUIRED_TOP_LEVEL_FOLDERS: frozenset[str] = frozenset({
     "asi",
     "tools",
     "enbseries",
+    "reshade-shaders",
 })

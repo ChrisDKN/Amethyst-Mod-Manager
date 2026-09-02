@@ -56,7 +56,7 @@ def _noop(_msg: str) -> None:
 # ---------------------------------------------------------------------------
 
 def fetch_latest_reshade_url() -> tuple[str, str]:
-    """Return (download_url, version_string) for the latest ReShade release.
+    """Return the download URL and version for the latest full add-on build.
 
     Raises RuntimeError if the version cannot be determined.
     """
@@ -68,16 +68,14 @@ def fetch_latest_reshade_url() -> tuple[str, str]:
     with urllib.request.urlopen(req, timeout=15, context=get_ssl_context()) as resp:
         html = resp.read().decode("utf-8", errors="replace")
 
-    # Match e.g. "ReShade_Setup_6.7.3.exe" (not the _Addon variant)
-    match = re.search(r'ReShade_Setup_(\d+\.\d+\.\d+)\.exe(?!"[^"]*Addon)', html)
+    match = re.search(r'ReShade_Setup_(\d+\.\d+\.\d+)_Addon\.exe', html)
     if not match:
-        # Fallback: accept any non-Addon exe
-        match = re.search(r'ReShade_Setup_(\d+\.\d+\.\d+)\.exe', html)
-    if not match:
-        raise RuntimeError("Could not find ReShade download link on reshade.me.")
+        raise RuntimeError(
+            "Could not find the full add-on ReShade download link on reshade.me."
+        )
 
     version = match.group(1)
-    url = f"{RESHADE_BASE_URL}ReShade_Setup_{version}.exe"
+    url = f"{RESHADE_BASE_URL}ReShade_Setup_{version}_Addon.exe"
     return url, version
 
 

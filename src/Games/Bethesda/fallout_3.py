@@ -207,6 +207,7 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
                 "seq",
                 "shadercache",
                 "shaders",
+                "reshade-shaders",
                 "shadersfx",
                 "grass",
                 "video",
