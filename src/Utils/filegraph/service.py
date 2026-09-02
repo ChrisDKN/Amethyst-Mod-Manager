@@ -573,6 +573,7 @@ class ProfileSession:
                 (entry["name"], entry["key"], entry["variant_key"])
                 for entry in intent["mods"]
             ]
+            missing_manifests: list[str] = []
             for special in (OVERWRITE_NAME, ROOT_FOLDER_NAME):
                 wanted.append((
                     special, special.lower(), self.adapter.variant_key(special)))
@@ -583,10 +584,7 @@ class ProfileSession:
                     raise FileGraphCancelled("filegraph variant derivation cancelled")
                 catalog_manifest = self.library.manifest_for_rederive(mod_name)
                 if catalog_manifest is None:
-                    self.library.log(
-                        f"Catalog has no raw manifest for {mod_name}; run Refresh "
-                        "after externally adding or changing mod folders."
-                    )
+                    missing_manifests.append(mod_name)
                     continue
                 batch = self.adapter.build_manifest(
                     mod_name, cancel=cancel,
@@ -594,6 +592,15 @@ class ProfileSession:
                 self.library.replace_mod_manifest(batch, cancel=cancel)
                 variants.setdefault(mod_key, frozenset())
                 variants[mod_key] = variants[mod_key] | {variant_key}
+            if missing_manifests:
+                preview = ", ".join(missing_manifests[:5])
+                if len(missing_manifests) > 5:
+                    preview += " …"
+                self.library.log(
+                    f"Catalog has no raw manifest for "
+                    f"{len(missing_manifests)} mod(s): {preview}; run Refresh "
+                    "after externally adding or changing mod folders."
+                )
             status = self.library.status()
             archive_selection = tuple(
                 (mod_key, variant_key)
@@ -962,6 +969,17 @@ class LibrarySession:
             session = ProfileSession(self, Path(profile_dir))
             self._profiles[key] = session
         return session
+
+    def update_mod_from_disk(
+        self, profile_dir: Path, mod_name: str, *,
+        cancel: CancellationToken | None = None,
+    ) -> int:
+        """Replace one manager-owned mod manifest without a catalog rebuild."""
+        token = cancel or CancellationToken()
+        with self._refresh_lock:
+            session = self.open_profile(profile_dir)
+            batch = session.adapter.build_manifest(mod_name, cancel=token)
+            return self.replace_mod_manifest(batch, cancel=token)
 
     def replace_mod_manifest(
         self, batch: dict, *, cancel: CancellationToken | None = None,

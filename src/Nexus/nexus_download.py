@@ -276,6 +276,114 @@ def _zip_is_intact(path: Path) -> bool:
         return False
 
 
+@dataclass(frozen=True)
+class _ArchiveCandidate:
+    path: Path
+    size: int
+    file_id: int
+
+
+class ArchiveLookupIndex:
+    """Reusable archive metadata for cache-heavy collection downloads."""
+
+    def __init__(self, directories=()):
+        self._lock = threading.RLock()
+        self._entries: dict[str, list[_ArchiveCandidate]] = {}
+        self._by_file_id: dict[str, dict[int, list[_ArchiveCandidate]]] = {}
+        for directory in directories:
+            self.refresh(Path(directory))
+
+    @staticmethod
+    def _dir_key(directory: Path) -> str:
+        return os.path.abspath(os.fspath(directory))
+
+    @staticmethod
+    def _path_key(path: Path) -> str:
+        return os.path.abspath(os.fspath(path))
+
+    @staticmethod
+    def _read_directory(directory: Path) -> list[_ArchiveCandidate]:
+        entries: list[_ArchiveCandidate] = []
+        try:
+            paths = directory.iterdir()
+        except OSError:
+            return entries
+        try:
+            for path in paths:
+                try:
+                    if (not path.is_file()
+                            or not any(path.name.lower().endswith(ext)
+                                       for ext in _ARCHIVE_EXTS)):
+                        continue
+                    entries.append(_ArchiveCandidate(
+                        path, path.stat().st_size, _read_sidecar_file_id(path)))
+                except OSError:
+                    continue
+        except OSError:
+            pass
+        return entries
+
+    def _replace(self, key: str, entries: list[_ArchiveCandidate]) -> None:
+        by_file_id: dict[int, list[_ArchiveCandidate]] = {}
+        for entry in entries:
+            if entry.file_id > 0:
+                by_file_id.setdefault(entry.file_id, []).append(entry)
+        self._entries[key] = entries
+        self._by_file_id[key] = by_file_id
+
+    def refresh(self, directory: Path) -> None:
+        key = self._dir_key(directory)
+        entries = self._read_directory(directory)
+        with self._lock:
+            self._replace(key, entries)
+
+    def candidates(self, directory: Path) -> tuple[_ArchiveCandidate, ...]:
+        key = self._dir_key(directory)
+        with self._lock:
+            entries = self._entries.get(key)
+        if entries is None:
+            self.refresh(directory)
+            with self._lock:
+                entries = self._entries.get(key, [])
+        return tuple(entries)
+
+    def exact(self, directory: Path, file_id: int) -> tuple[_ArchiveCandidate, ...]:
+        key = self._dir_key(directory)
+        with self._lock:
+            missing = key not in self._entries
+        if missing:
+            self.refresh(directory)
+        with self._lock:
+            return tuple(self._by_file_id.get(key, {}).get(file_id, ()))
+
+    def add(self, path: Path, file_id: int = 0) -> None:
+        path = Path(path)
+        try:
+            entry = _ArchiveCandidate(
+                path, path.stat().st_size,
+                int(file_id or _read_sidecar_file_id(path)))
+        except OSError:
+            return
+        dir_key = self._dir_key(path.parent)
+        path_key = self._path_key(path)
+        with self._lock:
+            entries = [candidate for candidate in self._entries.get(dir_key, [])
+                       if self._path_key(candidate.path) != path_key]
+            entries.append(entry)
+            self._replace(dir_key, entries)
+
+    def discard(self, path: Path) -> None:
+        path = Path(path)
+        dir_key = self._dir_key(path.parent)
+        path_key = self._path_key(path)
+        with self._lock:
+            if dir_key not in self._entries:
+                return
+            entries = [candidate for candidate in self._entries[dir_key]
+                       if self._path_key(candidate.path) != path_key]
+            self._replace(dir_key, entries)
+
+
 def _find_cached_archive(
     dl_dir: Path,
     display_name: str,
@@ -283,6 +391,7 @@ def _find_cached_archive(
     mod_id: int = 0,
     file_id: int = 0,
     expected_md5: str = "",
+    cache_index: "ArchiveLookupIndex | None" = None,
 ) -> "tuple[Path | None, bool]":
     """Scan *dl_dir* for an existing archive that matches this mod.
 
@@ -321,48 +430,47 @@ def _find_cached_archive(
     norm_name = re.sub(r'[^\w]', '', (display_name or '').lower())
     mod_id_str = str(mod_id) if mod_id > 0 else ""
 
-    try:
-        candidates = [
-            f for f in dl_dir.iterdir()
-            if f.is_file() and any(f.name.lower().endswith(e) for e in _ARCHIVE_EXTS)
-        ]
-    except Exception:
-        return None, False
+    if cache_index is not None:
+        candidates = cache_index.candidates(dl_dir)
+    else:
+        candidates = ArchiveLookupIndex._read_directory(dl_dir)
 
     # Pass 0: exact file_id match via sidecar (written on every download)
     if file_id > 0:
-        for f in candidates:
-            if _read_sidecar_file_id(f) == file_id:
-                try:
-                    actual = f.stat().st_size
-                except Exception:
-                    continue
-                if expected_size_bytes > 0:
-                    ratio = actual / expected_size_bytes
-                    if ratio >= _PARTIAL_CUTOFF:
-                        is_complete = ratio >= (1.0 - _SIZE_TOLERANCE) and _zip_is_intact(f)
-                        return f, is_complete
-                    # Sidecar matched but file is clearly truncated - treat as partial
-                    return f, False
-                return f, _zip_is_intact(f)
+        exact = (cache_index.exact(dl_dir, file_id)
+                 if cache_index is not None
+                 else (candidate for candidate in candidates
+                       if candidate.file_id == file_id))
+        for candidate in exact:
+            f = candidate.path
+            try:
+                actual = f.stat().st_size
+            except Exception:
+                continue
+            if expected_size_bytes > 0:
+                ratio = actual / expected_size_bytes
+                if ratio >= _PARTIAL_CUTOFF:
+                    is_complete = ratio >= (1.0 - _SIZE_TOLERANCE) and _zip_is_intact(f)
+                    return f, is_complete
+                # Sidecar matched but file is clearly truncated - treat as partial
+                return f, False
+            return f, _zip_is_intact(f)
 
     best_partial: "Path | None" = None
 
-    for f in candidates:
+    for candidate in candidates:
+        f = candidate.path
         # Skip files whose sidecar belongs to a different file_id - they are
         # unambiguously a different download and must never be treated as
         # partials of this one.  This prevents cross-contamination when two
         # files from the same mod (e.g. 76460) are being fetched in parallel
         # and one's filename is a prefix of the other.
         if file_id > 0:
-            _sid = _read_sidecar_file_id(f)
+            _sid = candidate.file_id
             if _sid > 0 and _sid != file_id:
                 continue
 
-        try:
-            actual = f.stat().st_size
-        except Exception:
-            continue
+        actual = candidate.size
 
         if expected_size_bytes > 0:
             ratio = actual / expected_size_bytes
@@ -383,6 +491,12 @@ def _find_cached_archive(
                         _clean_nexus_stem(f.stem, mod_id_str).lower()
                     )
                     if clean and norm_name not in clean and clean not in norm_name:
+                        continue
+                if cache_index is not None:
+                    try:
+                        if f.stat().st_size != actual:
+                            continue
+                    except OSError:
                         continue
                 # Size (and optional name hint) match - verify md5 when
                 # provided (e.g. from a collection manifest) to rule out
@@ -422,6 +536,8 @@ def _find_cached_archive(
                 if mod_id_str else raw_stem
             norm_stem = re.sub(r'[^\w]', '', display_stem.lower())
             if norm_name and norm_stem == norm_name:
+                if cache_index is not None and not f.is_file():
+                    continue
                 if expected_md5 and not _md5_matches(f, expected_md5):
                     continue
                 return f, _zip_is_intact(f)
@@ -586,6 +702,7 @@ class NexusDownloader:
         known_file_name: str = "",
         expected_size_bytes: int = 0,
         prefetched_links: "list[NexusDownloadLink] | None" = None,
+        cache_index: "ArchiveLookupIndex | None" = None,
     ) -> DownloadResult:
         """
         Download a file directly (premium users only - no key needed).
@@ -613,6 +730,7 @@ class NexusDownloader:
                                download so a worker starts transferring bytes
                                with zero link latency. Ignored when a complete
                                cached archive is found (no download needed).
+        cache_index          : Reusable cache metadata for bulk downloads.
 
         Returns
         -------
@@ -632,7 +750,8 @@ class NexusDownloader:
         # so the download starts cleanly.
         _dest = dest_dir or self._download_dir
         cached, is_complete = _find_cached_archive(
-            _dest, known_file_name, expected_size_bytes, mod_id, file_id
+            _dest, known_file_name, expected_size_bytes, mod_id, file_id,
+            cache_index=cache_index,
         )
         if cached is not None:
             if is_complete:
@@ -655,6 +774,8 @@ class NexusDownloader:
                 try:
                     cached.unlink(missing_ok=True)
                     _fileid_sidecar(cached).unlink(missing_ok=True)
+                    if cache_index is not None:
+                        cache_index.discard(cached)
                 except Exception:
                     pass
 

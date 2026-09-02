@@ -51,7 +51,7 @@ from Utils.ui.config import (
     load_collection_settings, load_clear_archive_after_install,
     load_keep_fomod_archives)
 from Nexus.nexus_download import (
-    DownloadResult, _find_cached_archive, _clean_nexus_stem,
+    ArchiveLookupIndex, DownloadResult, _find_cached_archive, _clean_nexus_stem,
     delete_archive_and_sidecar, _get_downloads_dir)
 from Nexus.nexus_meta import build_meta_from_download, normalise_game_domain
 
@@ -894,6 +894,30 @@ def run_collection_install(
             except Exception:
                 pass
 
+    if not download_only:
+        try:
+            from Utils.filegraph.service import FileGraphService
+            _library = FileGraphService.open_library(
+                game, profile_dir, log_fn=log)
+            _library.ensure_ready(profile_dir)
+            _catalog_names = {
+                name.lower() for name in _library.manifest_fingerprints()
+            }
+            _missing_catalog = list(dict.fromkeys(
+                staging_lower_map[entry.name.lower()]
+                for entry in read_modlist(modlist_path)
+                if not entry.is_separator
+                and entry.name.lower() in staging_lower_map
+                and entry.name.lower() not in _catalog_names
+            )) if modlist_path is not None and modlist_path.is_file() else []
+            if _missing_catalog:
+                _library.refresh(profile_dir, mod_names=_missing_catalog)
+                log(f"Collection install: repaired {len(_missing_catalog)} "
+                    "missing catalog manifest(s) before installing.")
+        except Exception as exc:
+            log(f"Collection install: Filegraph catalog preparation skipped "
+                f"({exc}).")
+
     # Keys are ints for Nexus mods and floats for pre-installed ones (see
     # resolve_preinstalled_order); they are only ever sorted and compared.
     install_order: list[tuple[float, str]] = []
@@ -995,6 +1019,9 @@ def run_collection_install(
                     dirs.append(Path(_xl).expanduser())
                     seen.add(_xp)
         return dirs
+    # Re-reading every sidecar for every mod makes large collections quadratic.
+    _automatic_scan_dirs = _scan_dirs() if not manual_mode else []
+    _archive_index = ArchiveLookupIndex(_automatic_scan_dirs)
     # Decouple downloads from installs: size the hand-off queue so all download
     # workers can deposit a finished archive without blocking even when every
     # install worker is busy extracting. Downloaded archives live on disk; queue
@@ -1062,6 +1089,10 @@ def run_collection_install(
 
     _install_lock = threading.Lock()
     _install_counters = {"installed": 0, "skipped": 0, "done": 0, "downloaded": 0}
+    _catalogued_during_run: set[str] = set()
+
+    def _record_catalogued(name: str) -> None:
+        _catalogued_during_run.add(name.lower())
     # Seed with the already-installed mods, keyed by file_id ALONE - that is
     # what every reader here uses (_install_results[mod.file_id]). The two
     # source dicts are keyed by identity tuples, (domain, file_id) and
@@ -1208,12 +1239,12 @@ def run_collection_install(
         cached mods cost NO get_download_links call and no download slot."""
         _exp_size = _expected_size(mod)
         resolved_fid = _resolved_file_id(mod)
-        for _ext_dir in _scan_dirs():
+        for _ext_dir in _automatic_scan_dirs:
             effective_mod_id = _effective_mod_id(mod)
             _ext_found, _ext_complete = _find_cached_archive(
                 _ext_dir, mod.file_name or mod.mod_name or "",
                 _exp_size, effective_mod_id, resolved_fid,
-                expected_md5=_expected_md5(mod))
+                expected_md5=_expected_md5(mod), cache_index=_archive_index)
             if _ext_found and _ext_complete:
                 log(f"Collection install: '{mod.mod_name}' found in {_ext_dir} - "
                     "using local copy, skipping download")
@@ -1340,6 +1371,7 @@ def run_collection_install(
                     known_file_name=mod.file_name or "",
                     expected_size_bytes=_exp_size,
                     prefetched_links=_pref_links,
+                    cache_index=_archive_index,
                     dest_dir=get_download_cache_dir_for_game(getattr(game, "name", "") or ""))
         except Exception as exc:
             import traceback as _tb
@@ -1364,6 +1396,8 @@ def run_collection_install(
             _dl_done += 1
             _dl_results[mod.file_id] = (result, effective_domain)
             done = _dl_done
+        if result and result.success and result.file_path:
+            _archive_index.add(result.file_path, _resolved_file_id(mod))
         with _install_lock:
             if result and result.success and result.file_path:
                 _akey = str(result.file_path)
@@ -1464,11 +1498,13 @@ def run_collection_install(
                 fomod_expected_installed_files=fomod_expected_installed_files,
                 fomod_expected_active_files=fomod_expected_active_files,
                 prebuilt_meta=_pmeta, preferred_name=_preferred,
-                skip_index_update=True, overwrite_existing=overwrite_existing,
+                skip_index_update=False, overwrite_existing=overwrite_existing,
                 defer_interactive_fomod=(auto_fomod is None),
                 defer_interactive_bain=(auto_bain is None),
                 resolve_fomod=cb.resolve_fomod, resolve_bain=cb.resolve_bain,
-                on_installed=_capture_fomod, cancel=_col_stop,
+                on_installed=_capture_fomod,
+                on_catalogued=_record_catalogued,
+                cancel=_col_stop,
                 archive_probe=_archive_probe)
         finally:
             _mem_budget.release(_extract_est)
@@ -1553,7 +1589,10 @@ def run_collection_install(
                 f"'{Path(archive_path).name}' (not downloaded by this run)")
             return
         try:
-            delete_archive_and_sidecar(Path(archive_path))
+            archive = Path(archive_path)
+            delete_archive_and_sidecar(archive)
+            if not archive.exists():
+                _archive_index.discard(archive)
         except Exception as _del_exc:
             log(f"Collection install: could not remove archive '{archive_path}': {_del_exc}")
 
@@ -1823,7 +1862,8 @@ def run_collection_install(
                 schema_file_id_to_category,
                 schema_file_id_to_logical, schema_pos_to_name, schema_file_id_to_suffix,
                 fomod_by_file_id, bain_by_file_id, _install_results,
-                _install_counters, _install_lock, _archive_use_count,
+                _install_counters, _record_catalogued, _install_lock,
+                _archive_use_count,
                 _external_archive_paths, _col_stop, _slug, overwrite_existing,
                 _write_preliminary_plugins_txt, _maybe_delete_archive, cb, log, _set_status)
 
@@ -1949,7 +1989,10 @@ def run_collection_install(
         log(f"Collection install: catalogued {len(_uniq)} {what}: "
             f"{', '.join(_uniq[:5])}" + (" …" if len(_uniq) > 5 else ""))
 
-    _catalog_folders = [folder for _order, folder in install_order]
+    _catalog_folders = [
+        folder for _order, folder in install_order
+        if folder.lower() not in _catalogued_during_run
+    ]
     _catalog_folders.extend(_bundled_folders)
     if _catalog_folders and not _col_pause.is_set():
         try:
@@ -2122,7 +2165,8 @@ def _process_deferred(
         schema_file_id_to_category,
         schema_file_id_to_logical, schema_pos_to_name, schema_file_id_to_suffix,
         fomod_by_file_id, bain_by_file_id, _install_results,
-        _install_counters, _install_lock, _archive_use_count,
+        _install_counters, _record_catalogued, _install_lock,
+        _archive_use_count,
         _external_archive_paths, _col_stop, _slug, overwrite_existing,
         _write_preliminary_plugins_txt, _maybe_delete_archive, cb, log, _set_status):
     from Nexus.nexus_meta import build_meta_from_download
@@ -2192,8 +2236,10 @@ def _process_deferred(
                         cb.on_extract_update(_f, int(d), int(t)),
                     bain_auto_selections=bain_by_file_id.get(_mod.file_id),
                     prebuilt_meta=_pmeta, preferred_name=_pref,
-                    skip_index_update=True, overwrite_existing=overwrite_existing,
-                    resolve_bain=cb.resolve_bain, cancel=_col_stop)
+                    skip_index_update=False, overwrite_existing=overwrite_existing,
+                    resolve_bain=cb.resolve_bain,
+                    on_catalogued=_record_catalogued,
+                    cancel=_col_stop)
             except Exception as _exc:
                 log(f"Collection install: failed to install deferred BAIN "
                     f"'{_mod.mod_name}': {_exc}")
@@ -2239,8 +2285,9 @@ def _process_deferred(
                     fomod_expected_active_files=fomod_expected_active_files,
                     bain_auto_selections=bain_by_file_id.get(_mod.file_id),
                     prebuilt_meta=_pmeta, preferred_name=_pref,
-                    skip_index_update=True, overwrite_existing=overwrite_existing,
+                    skip_index_update=False, overwrite_existing=overwrite_existing,
                     resolve_fomod=cb.resolve_fomod, resolve_bain=cb.resolve_bain,
+                    on_catalogued=_record_catalogued,
                     cancel=_col_stop)
             except Exception as _exc:
                 log(f"Collection install: failed to install deferred FOMOD "

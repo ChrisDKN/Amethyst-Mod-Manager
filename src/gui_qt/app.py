@@ -4809,7 +4809,7 @@ class MainWindow(QMainWindow):
                     preferred_name=(entry.get("logical")
                                     or entry.get("name") or ""),
                     prebuilt_meta=None,
-                    skip_index_update=True,
+                    skip_index_update=False,
                     cancel=(control.stop if control is not None else None))
             except Exception as exc:
                 log(f"[thunderstore] install failed for {full_name} - {exc}")

@@ -2076,6 +2076,7 @@ def install_collection_archive(
         resolve_fomod=None,
         resolve_bain=None,
         on_installed=None,
+        on_catalogued=None,
         cancel=None,
         archive_probe: "ArchiveProbe | None" = None) -> "str | None":
     """Install ONE collection mod from a downloaded archive - the tkinter-free
@@ -2442,12 +2443,19 @@ def install_collection_archive(
             cleanup_on_cancel=True):
         return None
     _wrap_flat_if_needed(game, dest_root, log_fn)
+    catalogued = False
     with _commit_lock:
         if not skip_index_update:
             _pp(0, 0, "Indexing")
-            _update_indexes(game, profile_dir, prepared.mod_name, dest_root, log_fn)
+            catalogued = _update_indexes(
+                game, profile_dir, prepared.mod_name, dest_root, log_fn)
         _add_to_modlist(profile_dir, prepared.mod_name, log_fn, preserve_position=False)
         _add_plugins(game, profile_dir, dest_root, log_fn)
+    if catalogued and on_catalogued is not None:
+        try:
+            on_catalogued(prepared.mod_name)
+        except Exception:
+            pass
     log_fn(f"Installed '{prepared.mod_name}'.")
     _fire_on_installed(on_installed, is_fomod_install)
     return prepared.mod_name
@@ -3145,14 +3153,15 @@ def _check_nexus_flags_after_install(game, mod_names, log_fn: LogFn,
 
 
 def _update_indexes(game, profile_dir: Path, mod_name: str, dest_root: Path,
-                    log_fn: LogFn) -> None:
+                    log_fn: LogFn) -> bool:
     try:
         from Utils.filegraph.service import FileGraphService
         library = FileGraphService.open_library(game, profile_dir, log_fn=log_fn)
-        session = library.open_profile(profile_dir)
-        library.replace_mod_manifest(session.adapter.build_manifest(mod_name))
+        library.update_mod_from_disk(profile_dir, mod_name)
+        return True
     except Exception as exc:
         log_fn(f"catalog update skipped ({exc}) - explicit Refresh will repair it.")
+        return False
 
 
 def _add_to_modlist(profile_dir: Path, mod_name: str, log_fn: LogFn,
