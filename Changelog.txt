@@ -1,3 +1,15 @@
+- v2.4.1
+- Added keybinds for opening the settings menu and installing a mod
+- Added the ability to change keybinds in the settings menu
+- Fixed an issue where the notification window would appear when the manager is minimised
+- Added support for sites that use the modl schema for direct downloads
+- Added an interface for managing the overwrite folder (Overwrite separator > Manage overwrite)
+- Added Wizards for Fo3 BSA Decompresser and ESM Patcher
+- The reshade wizard now downloads and installs the add-ons version of reshade
+- Mod priority and version numbers in their columns can now be clicked to change them
+
+---
+
 - v2.4.0
 ### Performance Improvements
 - Fully reworked how conflicts are detected. Adding new mods, moving mods, enabling and disabling mods in a large modlist will feel much more responsive.
