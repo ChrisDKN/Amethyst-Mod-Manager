@@ -468,7 +468,7 @@ def _suggest_mod_names(filename_stem: str) -> list[str]:
 #
 # Every place the user can name or rename a mod offers the same short menu of
 # candidates, mirroring MO2's install dialog:
-#   1. the name on Nexus (per-file label first, then the mod page title),
+#   1. the name on Nexus (combined mod/file name, then each name separately),
 #   2. the folder name an older/other version of the SAME Nexus mod already
 #      uses (so a second part or an update lands on the existing name),
 #   3. the prettified archive filename (Amethyst's install default),
@@ -477,6 +477,7 @@ def _suggest_mod_names(filename_stem: str) -> list[str]:
 
 SRC_NEXUS_FILE = "Nexus file name"
 SRC_NEXUS_MOD = "Nexus mod name"
+SRC_NEXUS_MOD_FILE = "Nexus mod and file name"
 SRC_INSTALLED = "Previously installed"
 SRC_CLEANED = "Cleaned filename"
 SRC_ALTERNATIVE = "Alternative"
@@ -521,8 +522,14 @@ def name_suggestions(meta=None, *, installation_file: str = "",
         # An existing folder for this same mod outranks everything else: it is
         # what a multi-part download or an update has to land on to merge.
         ordered.append((previous_name, SRC_INSTALLED))
-    ordered.append((getattr(meta, "nexus_file_name", "") or "", SRC_NEXUS_FILE))
-    ordered.append((getattr(meta, "nexus_name", "") or "", SRC_NEXUS_MOD))
+    nexus_file_name = (getattr(meta, "nexus_file_name", "") or "").strip()
+    nexus_mod_name = (getattr(meta, "nexus_name", "") or "").strip()
+    mod_file_name = nexus_file_name or (cleaned[0].strip() if cleaned else "")
+    if nexus_mod_name and mod_file_name:
+        ordered.append((f"{nexus_mod_name} - {mod_file_name}",
+                        SRC_NEXUS_MOD_FILE))
+    ordered.append((nexus_file_name, SRC_NEXUS_FILE))
+    ordered.append((nexus_mod_name, SRC_NEXUS_MOD))
     # _suggest_mod_names always ends with the untouched stem; it is offered
     # below under its own label, so it must not also show up as a "cleaned" one.
     for i, cand in enumerate([c for c in cleaned if c != stem]):

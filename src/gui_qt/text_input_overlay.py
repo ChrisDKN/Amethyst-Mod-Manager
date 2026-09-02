@@ -25,6 +25,8 @@ def tr_name_source(label: str) -> str:
     return {
         "Nexus file name": _t("NameSuggestions", "Nexus file name"),
         "Nexus mod name": _t("NameSuggestions", "Nexus mod name"),
+        "Nexus mod and file name": _t("NameSuggestions",
+                                       "Nexus mod and file name"),
         "Previously installed": _t("NameSuggestions", "Previously installed"),
         "Cleaned filename": _t("NameSuggestions", "Cleaned filename"),
         "Alternative": _t("NameSuggestions", "Alternative"),
