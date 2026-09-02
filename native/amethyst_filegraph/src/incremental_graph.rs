@@ -3420,9 +3420,23 @@ pub fn reconcile_graph(
                 .and_then(|index| previous.candidates.get(*index as usize))
                 .is_some_and(|previous| previous != candidate)
         });
+    let renamed_mod_identity = previous.inventory_generation != inventory_generation
+        && candidates.iter().any(|candidate| {
+            previous
+                .inventory
+                .mod_names
+                .get(&candidate.mod_id)
+                .is_some_and(|name| name.as_ref() != candidate.mod_name.as_ref())
+                || previous
+                    .inventory
+                    .mod_keys
+                    .get(&candidate.mod_id)
+                    .is_some_and(|key| key.as_ref() != candidate.mod_key.as_ref())
+        });
     let must_rebuild = previous_intent.is_none()
         || previous.rules_hash != intent.rules_hash
         || rebound_candidate_id
+        || renamed_mod_identity
         || previous_intent.is_some_and(|old| {
             old.normalize_folder_case != intent.normalize_folder_case
                 || old.casing_strategy != intent.casing_strategy
@@ -4453,6 +4467,56 @@ mod tests {
         assert!(update.snapshot.edges.is_empty());
         assert_eq!(update.snapshot.summaries["A"].loose_code, 0);
         assert_eq!(update.snapshot.summaries["B"].loose_code, 0);
+    }
+
+    #[test]
+    fn inventory_mod_rename_with_new_candidate_ids_forces_full_rebuild() {
+        let mut profile = intent();
+        profile
+            .mods
+            .retain(|entry| matches!(entry.key.as_str(), "a" | "b"));
+        let first = build_full(
+            Arc::new(vec![
+                candidate(1, "A", "shared"),
+                candidate(2, "B", "shared"),
+            ]),
+            Arc::new(Vec::new()),
+            &profile,
+            1,
+            1,
+        );
+        let mut renamed_candidate = candidate(3, "Renamed A", "shared");
+        renamed_candidate.mod_id = 1;
+        let current = Arc::new(vec![renamed_candidate, candidate(2, "B", "shared")]);
+        let mut renamed_profile = profile.clone();
+        let renamed_entry = renamed_profile
+            .mods
+            .iter_mut()
+            .find(|entry| entry.key == "a")
+            .unwrap();
+        renamed_entry.name = "Renamed A".into();
+        renamed_entry.key = "renamed a".into();
+
+        let update = reconcile_graph(
+            &first,
+            Some(&profile),
+            current,
+            Arc::new(Vec::new()),
+            &renamed_profile,
+            2,
+            2,
+        );
+        let conflict_state = update.snapshot.conflict_state();
+
+        assert!(update.delta.full_rebuild);
+        assert!(conflict_state.summaries.contains_key("Renamed A"));
+        assert!(!conflict_state.summaries.contains_key("A"));
+        assert!(
+            conflict_state
+                .edges
+                .iter()
+                .any(|edge| { edge.loser == "Renamed A" || edge.winner == "Renamed A" })
+        );
     }
 
     #[test]
