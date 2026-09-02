@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui_qt.theme_qt import active_palette, _c, contrast_text
+from gui_qt.tooltips import escaped_tooltip
 
 CARD_W = 300
 CARD_H = 392
@@ -78,11 +79,9 @@ def cap_summary(text: str, limit: int = 180) -> str:
 
 
 def wrap_tooltip(text: str, width: int = 60) -> str:
-    """Return a rich-text tooltip that word-wraps instead of running off one long
-    line. A ``<qt width=...>`` tooltip makes Qt wrap at that pixel width."""
-    from html import escape
+    """Return card text hard-wrapped to a readable tooltip width."""
     text = " ".join((text or "").split())
-    return f"<qt width='{width * 6}'>{escape(text)}</qt>" if text else ""
+    return escaped_tooltip(text, width)
 
 
 def _ago(s: str) -> str:

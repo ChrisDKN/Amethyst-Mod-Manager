@@ -1217,11 +1217,8 @@ class ModListView(QTreeView):
             return False
         if len(desc) > self._TOOLTIP_MAX_CHARS:
             desc = desc[:self._TOOLTIP_MAX_CHARS].rstrip() + "…"
-        import textwrap
-        wrapped = "\n".join(
-            textwrap.fill(line, width=self._TOOLTIP_WRAP_CHARS,
-                          break_long_words=False, break_on_hyphens=False)
-            for line in desc.splitlines()) or desc
+        from gui_qt.tooltips import wrap_tooltip
+        wrapped = wrap_tooltip(desc, self._TOOLTIP_WRAP_CHARS)
         # Pass the name-cell rect so Qt hides the tip once the cursor leaves it.
         QToolTip.showText(help_event.globalPos(), wrapped, self,
                           self.visualRect(idx))

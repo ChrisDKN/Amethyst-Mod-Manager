@@ -10,12 +10,11 @@ stylesheet so the "?" picks up the theme's accent colour.
 
 from __future__ import annotations
 
-import html
-
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QLabel
 
 from gui_qt.theme_qt import _c
+from gui_qt.tooltips import escaped_tooltip
 
 
 def tip_text(text: str) -> str:
@@ -24,7 +23,7 @@ def tip_text(text: str) -> str:
     Rich-text so the tooltip word-wraps (plain-text tooltips render as one
     long unbroken line); newlines become <br> so multi-line hints keep their
     breaks."""
-    return "<qt>" + html.escape(text).replace("\n", "<br>") + "</qt>"
+    return escaped_tooltip(text)
 
 
 def make_help_marker(text: str) -> QLabel:

@@ -8,7 +8,6 @@ toggle (persists to plugins.txt).
 
 from __future__ import annotations
 
-import textwrap
 from time import perf_counter
 
 from PySide6.QtCore import (
@@ -26,6 +25,7 @@ from gui_qt import column_state
 
 from gui_qt.theme_qt import active_palette, bind_theme, _c, qc, qc_contrast
 from gui_qt.icons import icon
+from gui_qt.tooltips import wrap_tooltip
 from gui_qt.modlist_header import TkStyleHeader
 from gui_qt.plugin_model import (
     PluginModel, RowRole, PFlagsRole, PHighlightRole,
@@ -391,23 +391,6 @@ class PluginDelegate(QStyledItemDelegate):
             return format_loot_tooltip(row.loot_info, enabled_lower) or None
         return None
 
-    @staticmethod
-    def _wrap_tip(text, width=100):
-        """Cap tooltip line length: Qt doesn't word-wrap plain-text tooltips, so
-        a long LOOT message stretches the tip across the screen. Wrap each line
-        to *width* chars, indenting continuations past the bullet/leading
-        whitespace so the section structure stays readable."""
-        out = []
-        for line in text.split("\n"):
-            if len(line) <= width:
-                out.append(line)
-                continue
-            lead = line[:len(line) - len(line.lstrip())]
-            cont = lead + ("  " if line.lstrip().startswith(("-", "[")) else "")
-            out.append(textwrap.fill(line, width=width, subsequent_indent=cont,
-                                     break_long_words=False, break_on_hyphens=False))
-        return "\n".join(out)
-
     def helpEvent(self, event, view, opt, index):
         """Show the per-flag tooltip when hovering a flag glyph (Tk parity)."""
         try:
@@ -420,7 +403,7 @@ class PluginDelegate(QStyledItemDelegate):
                     if tip:
                         # Pass the flags-cell rect so Qt hides the tooltip as soon
                         # as the cursor leaves the cell.
-                        QToolTip.showText(event.globalPos(), self._wrap_tip(tip),
+                        QToolTip.showText(event.globalPos(), wrap_tooltip(tip),
                                           view, opt.rect)
                         return True
                 QToolTip.hideText()

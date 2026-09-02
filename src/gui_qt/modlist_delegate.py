@@ -20,6 +20,7 @@ from PySide6.QtWidgets import QStyledItemDelegate, QStyle, QToolTip
 
 from gui_qt.theme_qt import bind_theme, _c, qc, qc_contrast
 from gui_qt.icons import icon
+from gui_qt.tooltips import wrap_tooltip
 from gui_qt.modlist_model import (
     EntryRole, ConflictRole, BsaConflictRole, UuidConflictRole, FlagsRole,
     HighlightRole,
@@ -837,13 +838,17 @@ class ModRowDelegate(QStyledItemDelegate):
                             # Pass the flags-cell rect so Qt hides the tooltip as
                             # soon as the cursor leaves the cell (instead of
                             # keeping it up for its full length-based timeout).
-                            QToolTip.showText(event.globalPos(), tip, view, opt.rect)
+                            QToolTip.showText(
+                                event.globalPos(), wrap_tooltip(tip), view,
+                                opt.rect)
                             return True
                     QToolTip.hideText()
                 elif index.column() == COL_CONFLICTS:
                     tip = self._conflict_tip(event.pos(), opt.rect, index)
                     if tip:
-                        QToolTip.showText(event.globalPos(), tip, view, opt.rect)
+                        QToolTip.showText(
+                            event.globalPos(), wrap_tooltip(tip), view,
+                            opt.rect)
                         return True
                     QToolTip.hideText()
         except Exception:

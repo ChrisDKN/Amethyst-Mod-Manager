@@ -14,12 +14,11 @@ algorithms live in Utils.mods.files. The view drives saves on checkbox clicks.
 
 from __future__ import annotations
 
-import textwrap
-
 from PySide6.QtCore import (
     Qt, QAbstractItemModel, QCoreApplication, QModelIndex, QT_TRANSLATE_NOOP)
 
 from gui_qt.theme_qt import bind_theme, qc
+from gui_qt.tooltips import wrap_tooltip
 
 COL_NAME = 0
 COL_TOPLEVEL = 1
@@ -179,8 +178,7 @@ class ModFilesModel(QAbstractItemModel):
         widths in its rich-text subset), so we insert the breaks ourselves.
         """
         text = QCoreApplication.translate("ModFilesModel", COLUMN_TIPS[section])
-        return textwrap.fill(text, width=64, break_long_words=False,
-                             break_on_hyphens=False)
+        return wrap_tooltip(text)
 
     def headerData(self, section, orientation, role=Qt.DisplayRole):
         if orientation == Qt.Horizontal:

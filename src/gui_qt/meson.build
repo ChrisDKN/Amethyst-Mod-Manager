@@ -142,6 +142,7 @@ py.install_sources(
   'thunderstore_browser_view.py',
   'thunderstore_deps_overlay.py',
   'thunderstore_version_view.py',
+  'tooltips.py',
   'tri_state_checkbox.py',
   'update_overlay.py',
   'userlist_bars.py',

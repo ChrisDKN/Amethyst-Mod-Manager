@@ -20011,6 +20011,8 @@ def run(startup_timing=None) -> int:
     phase_started = _startup_time.perf_counter()
     from gui_qt.qt_callback_guard import install as _install_callback_guard
     _install_callback_guard()
+    from gui_qt.tooltips import install_tooltip_wrapping
+    install_tooltip_wrapping(app)
     _apply_app_identity(app)
     if startup_timing is not None:
         startup_timing.record(
