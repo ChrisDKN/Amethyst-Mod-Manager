@@ -63,6 +63,15 @@ _MONO_FLAG_ICONS = {"bundle_settings.png", "root.png", "eye2_white.png"}
 _INFO_FLAGS = (FLAG_PRERTX, FLAG_COLLECTION_BUNDLED, FLAG_COLLECTION_PATCHED)
 # The root-icon flags - only one root.png ever paints.
 _ROOT_FLAGS = (FLAG_ROOT, FLAG_ROOT_RULE)
+_CLICKABLE_FLAG_BITS = frozenset({
+    FLAG_NOTE,
+    FLAG_BUNDLE,
+    FLAG_MISSING_REQS,
+    FLAG_RERUN_FOMOD,
+    FLAG_UPDATE,
+    FLAG_MODIO_UPDATE,
+    FLAG_THUNDERSTORE_UPDATE,
+})
 _ALIGN_CENTER = Qt.AlignVCenter | Qt.AlignHCenter
 _ALIGN_LEFT = Qt.AlignVCenter | Qt.AlignLeft
 
@@ -722,6 +731,10 @@ class ModRowDelegate(QStyledItemDelegate):
             x += sz + gap
         return 0
 
+    def _hit_clickable_flag_bit(self, pos, r, bits):
+        hit = self._hit_flag_bit(pos, r, bits)
+        return hit if hit in _CLICKABLE_FLAG_BITS else 0
+
     def _hit_conflict_icon(self, pos, r, index):
         """True if *pos* lands on a conflict icon in the Conflicts cell rect *r*.
         Recomputes the same centred geometry as _paint_conflicts/_paint_icons so
@@ -867,17 +880,16 @@ class ModRowDelegate(QStyledItemDelegate):
         pos = event.position().toPoint()
         e = model.entry(index.row())
 
-        # Flags cell: a click on a flag icon may trigger an action (the update
-        # flag opens Change Version). Other flags are inert for now.
+        # Only flags backed by an action consume the click.
         if index.column() == COL_FLAGS:
             if e.is_separator:
                 return False
             bits = model.data(index, FlagsRole) or 0
-            hit = self._hit_flag_bit(pos, opt.rect, bits)
+            hit = self._hit_clickable_flag_bit(pos, opt.rect, bits)
             if hit:
                 view = self.parent()
                 cb = getattr(view, "on_flag_clicked", None)
-                if cb is not None:
+                if callable(cb):
                     cb(index.row(), hit)
                     return True
             return False
@@ -890,7 +902,7 @@ class ModRowDelegate(QStyledItemDelegate):
             if self._hit_conflict_icon(pos, opt.rect, index):
                 view = self.parent()
                 cb = getattr(view, "on_show_conflicts", None)
-                if cb is not None:
+                if callable(cb):
                     cb(e.name)
                     return True
             return False

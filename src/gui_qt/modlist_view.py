@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
 from gui_qt.modlist_model import (
     ModListModel, COLUMNS, COL_NAME, COL_CATEGORY, COL_PRIORITY, COL_FLAGS,
     COL_CONFLICTS, COL_INSTALLED, COL_VERSION, COL_AUTHOR, COL_SIZE,
-    HighlightRole,
+    FlagsRole, HighlightRole,
 )
 from gui_qt.modlist_delegate import ModRowDelegate, ROW_H, SEP_H
 from gui_qt import column_state
@@ -1032,8 +1032,33 @@ class ModListView(QTreeView):
                 return
         super().mouseDoubleClickEvent(event)
 
+    def _update_action_cursor(self, pos):
+        over = False
+        try:
+            idx = self.indexAt(pos)
+            if idx.isValid():
+                entry = self.model().entry(idx.row())
+                delegate = self.itemDelegate()
+                rect = self.visualRect(idx)
+                if (not entry.is_separator and idx.column() == COL_FLAGS
+                        and callable(getattr(self, "on_flag_clicked", None))):
+                    bits = idx.data(FlagsRole) or 0
+                    over = bool(delegate._hit_clickable_flag_bit(
+                        pos, rect, bits))
+                elif (not entry.is_separator
+                      and idx.column() == COL_CONFLICTS
+                      and callable(getattr(self, "on_show_conflicts", None))):
+                    over = delegate._hit_conflict_icon(pos, rect, idx)
+        except Exception:
+            over = False
+        if over:
+            self.viewport().setCursor(Qt.PointingHandCursor)
+        else:
+            self.viewport().unsetCursor()
+
     def mouseMoveEvent(self, event):
         if not (event.buttons() & Qt.LeftButton) or self._press_row < 0:
+            self._update_action_cursor(event.position().toPoint())
             super().mouseMoveEvent(event)
             return
         if not self._drag_active:
@@ -1063,6 +1088,7 @@ class ModListView(QTreeView):
                 return
             self._drag_active = True
             self._drag_rows = block
+            self.viewport().unsetCursor()
             self.setCursor(Qt.ClosedHandCursor)
         # Live drag: track cursor, compute drop slot, run autoscroll.
         self._last_mouse_y = event.position().toPoint().y()

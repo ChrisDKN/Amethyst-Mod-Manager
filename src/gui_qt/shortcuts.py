@@ -7,14 +7,16 @@ Bindings:
     F2              Rename the selected mod or separator (modlist panel)
     F5              Refresh the modlist (fires even in a text field)
     Delete          Remove selected mod(s) (modlist panel)
-    Return/Enter    Toggle enable/disable for selected mods (modlist panel)
+    Return/Enter    Toggle enable/disable for selected mods/plugins
     Home            Scroll active list panel to the top
     End             Scroll active list panel to the bottom
     Ctrl+F          Focus the active panel's search bar (fires even in a field)
     Ctrl+A          Select all mods in the active separator (modlist), or all
                     plugins (plugin panel)
     Ctrl+D          Deploy
+    Ctrl+M          Install mod
     Ctrl+R          Restore
+    Ctrl+S          Open Settings
     Alt+Up          Move selected mods/plugins/separators up
     Alt+Down        Move selected mods/plugins/separators down
     Shift+E         Expand/collapse all separators (modlist)
@@ -57,13 +59,14 @@ def _focus_is_text_input(_win) -> bool:
 
 def _overlay_open(win) -> bool:
     """True when a modal or a borderless overlay is up (the Qt analogue of the
-    Tk "focus is inside a dialog" check). Overlays are non-modal QWidget
-    children whose class name ends in 'Overlay'."""
+    Tk "focus is inside a dialog" check)."""
     if QApplication.activeModalWidget() is not None:
         return True
     try:
         for w in win.findChildren(QWidget):
-            if w.isVisible() and type(w).__name__.endswith("Overlay"):
+            if (w.isVisible()
+                    and (type(w).__name__.endswith("Overlay")
+                         or w.objectName() == "OverlayBackdrop")):
                 return True
     except Exception:
         pass
@@ -91,7 +94,7 @@ def _unguarded(win, fn):
 class _ReturnOverride(QObject):
     """Hands Return/Enter back to text inputs and overlays.
 
-    The modlist Return/Enter shortcuts are scoped to the view below, but keep
+    The list-panel Return/Enter shortcuts are scoped to their views, but keep
     this as a second line of defence for any text editor parented inside a list
     view and against a future shortcut-context change. Accepting the override
     whenever the guard would refuse the shortcut delivers the key press to the
@@ -108,6 +111,31 @@ class _ReturnOverride(QObject):
                      or _overlay_open(self._win))):
             event.accept()
             return True
+        return False
+
+
+class _ShortcutStateTracker(QObject):
+    """Keep the window Ctrl+S inactive while the text editor owns Ctrl+S."""
+
+    def __init__(self, win, settings_shortcut):
+        super().__init__(win)
+        self._settings_shortcut = settings_shortcut
+
+    @staticmethod
+    def _inside_text_editor(widget) -> bool:
+        while isinstance(widget, QWidget):
+            if widget.objectName() == "TextEditor":
+                return True
+            widget = widget.parentWidget()
+        return False
+
+    def sync(self, widget) -> None:
+        self._settings_shortcut.setEnabled(
+            not self._inside_text_editor(widget))
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.FocusIn and isinstance(obj, QWidget):
+            self.sync(obj)
         return False
 
 
@@ -179,6 +207,16 @@ def _restore(win):
         win._on_restore()
 
 
+def _install_mod(win):
+    if hasattr(win, "_on_install_mod"):
+        win._on_install_mod()
+
+
+def _open_settings(win):
+    if hasattr(win, "_open_settings_modal"):
+        win._open_settings_modal()
+
+
 def _toggleable_rows(view) -> list[int]:
     """Selected rows that can be enable/disable-toggled or removed: non-
     separator, non-pinned, non-locked mods."""
@@ -205,6 +243,20 @@ def _toggle_selected(win):
     m = view.model()
     target = not m.entry(rows[0]).enabled
     m.set_rows_enabled(rows, target)
+
+
+def _toggle_selected_plugins(win):
+    view = getattr(win, "_plugin_view", None)
+    if view is None:
+        return
+    m = view.model()
+    rows = [r for r in _selected_rows(view)
+            if 0 <= r < m.rowCount() and not m.row(r).vanilla]
+    if not rows:
+        return
+    target = not m.row(rows[0]).enabled
+    from gui_qt.plugin_menu import _set_enabled
+    _set_enabled(view, rows, target)
 
 
 def _delete_selected(win):
@@ -473,7 +525,9 @@ def register_shortcuts(win) -> None:
     sc("F2", _rename_selected)
     sc("F5", _refresh_modlist, guarded=False)
     sc("Ctrl+D", _deploy)
+    sc("Ctrl+M", _install_mod, auto_repeat=False)
     sc("Ctrl+R", _restore)
+    settings_shortcut = sc("Ctrl+S", _open_settings, auto_repeat=False)
     sc("Ctrl+F", _focus_search, guarded=False)
     sc("Ctrl+A", _select_all)
     sc("Alt+Up", _move_up)
@@ -484,10 +538,20 @@ def register_shortcuts(win) -> None:
         for seq in ("Return", "Enter"):
             sc(seq, _toggle_selected, parent=mod_view,
                context=Qt.WidgetWithChildrenShortcut, auto_repeat=False)
+    plugin_view = getattr(win, "_plugin_view", None)
+    if plugin_view is not None:
+        for seq in ("Return", "Enter"):
+            sc(seq, _toggle_selected_plugins, parent=plugin_view,
+               context=Qt.WidgetWithChildrenShortcut, auto_repeat=False)
     sc("Home", _scroll_top)
     sc("End", _scroll_bottom)
     sc("Shift+E", _toggle_all_seps)
     sc("Shift+F", _toggle_filters)
+
+    state_tracker = _ShortcutStateTracker(win, settings_shortcut)
+    win._shortcut_state_tracker = state_tracker
+    QApplication.instance().installEventFilter(state_tracker)
+    state_tracker.sync(QApplication.focusWidget())
 
     # Perf instrumentation (MM_PERFTRACE=1): F11 = timing summary table,
     # Shift+F11 = reset counters (perftrace.install only binds Tk keys, so
