@@ -805,8 +805,8 @@ class MainWindow(QMainWindow):
         self._update_deployed_profile_highlight()
         phase_started = _startup_time.perf_counter()
 
-        # Global keyboard shortcuts (F2/F5/Ctrl+D/… - Tk parity) + last-panel
-        # tracking so shortcuts route to the modlist or plugins panel.
+        # Configurable keyboard/mouse shortcuts + last-panel tracking so
+        # actions route to the modlist or plugins panel.
         from gui_qt.shortcuts import register_shortcuts
         register_shortcuts(self)
 

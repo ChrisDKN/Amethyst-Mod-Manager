@@ -1,9 +1,9 @@
 """Settings modal opened from the top-bar gear button.
 
 The settings UI is a dimmed, in-window modal rather than a detachable or
-panel-scoped tab. Six tabs group the existing settings into Appearance,
-Downloads, General, Paths, Advanced and About while keeping every setting's
-existing save-on-change behaviour.
+panel-scoped tab. Seven tabs group the existing settings into Appearance,
+Downloads, General, Shortcuts, Paths, Advanced and About while keeping every
+setting's existing save-on-change behaviour.
 
 Save-on-change: every control writes straight to amethyst.ini through the
 toolkit-free `Utils.ui.config` load_*/save_* helpers the moment it changes - there
@@ -197,6 +197,7 @@ class SettingsView(OverlayBase):
             self.tr("Downloads"), self._build_archives,
             self._build_downloads, self._build_extraction)
         self._add_tab(self.tr("General"), self._build_general)
+        self._add_tab(self.tr("Shortcuts"), self._build_shortcuts)
         self._add_tab(self.tr("Paths"), self._build_paths)
         self._add_tab(self.tr("Advanced"), self._build_advanced)
         self._add_tab(self.tr("About"), self._build_system_info)
@@ -1029,6 +1030,10 @@ class SettingsView(OverlayBase):
 
         self._maybe_add_flatpak_enroll(g)
         self._finish_section(g)
+
+    def _build_shortcuts(self):
+        from gui_qt.shortcut_editor import ShortcutEditor
+        self._v.addWidget(ShortcutEditor(self._window, self))
 
     def _on_reset_dismissed_notices(self):
         """Confirm, then re-arm every "Don't show this again" notice."""

@@ -22,12 +22,15 @@ from gui_qt.i18n import profile_display
 from gui_qt.modlist_model import COL_NAME
 from gui_qt.text_input_overlay import TextInputOverlay
 
-# Display-only shortcut hints shown right-aligned in the context menu. These MUST
-# match the real window-level QShortcut bindings in gui_qt/shortcuts.py - they are
-# not registered as accelerators here, only rendered as menu text.
-_SC_RENAME = "F2"
-_SC_REMOVE = "Del"
-_SC_TOGGLE = "Enter"
+
+def _shortcut_hint(action_id: str) -> str:
+    """Display-only hint for the matching configurable global shortcut."""
+    try:
+        from gui_qt.shortcuts import shortcut_text
+        return shortcut_text(action_id)
+    except Exception:
+        return {"rename": "F2", "remove": "Del",
+                "toggle_selected": "Enter"}.get(action_id, "")
 
 
 def _mt(label: str) -> str:
@@ -198,7 +201,7 @@ def _build_separator_menu(view, model, row, entry, sel_seps, multi, act, stub, d
         lambda: _toggle_sep_lock(view, model, row))
     divider()
     act(_mt("Rename separator"), lambda: _rename(view, model, row),
-        shortcut=_SC_RENAME)
+        shortcut=_shortcut_hint("rename"))
     act(_mt("Separator settings…"), lambda: _open_sep_settings(view, model, row))
     act(_mt("Add separator above"), lambda: _add_separator(view, model, row, True))
     act(_mt("Add separator below"), lambda: _add_separator(view, model, row, False))
@@ -282,10 +285,10 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
                     _profile_submenu_items(view, _names, sel_mods, _others, True))
         act(_mtf("Disable selected ({0})", n),
             lambda: _set_enabled(view, model, sel_mods, False),
-            shortcut=_SC_TOGGLE)
+            shortcut=_shortcut_hint("toggle_selected"))
         act(_mtf("Enable selected ({0})", n),
             lambda: _set_enabled(view, model, sel_mods, True),
-            shortcut=_SC_TOGGLE)
+            shortcut=_shortcut_hint("toggle_selected"))
         if _separator_choices(model):
             submenu(_mtf("Move to separator ({0})", n),
                     _separator_submenu_items(view, model, sel_mods),
@@ -304,7 +307,7 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
         # Group: remove
         act(_mtf("Remove mod ({0})", n),
             lambda: _remove_mods_multi(view, model, sel_mods),
-            shortcut=_SC_REMOVE)
+            shortcut=_shortcut_hint("remove"))
         return
 
     locked = entry.locked
@@ -328,7 +331,7 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
     elif _can_redownload(view, name):
         act(_mt("Reinstall (Redownload)"), lambda: _reinstall(view, [name]))
     act(_mt("Rename mod"), lambda: _rename(view, model, row), enabled=not locked,
-        shortcut=_SC_RENAME)
+        shortcut=_shortcut_hint("rename"))
     divider()
     # Group 2: files & install options
     if _staging_ok:
@@ -417,7 +420,7 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
     divider()
     # Group 6: remove
     act(_mt("Remove mod"), lambda: _remove(view, model, row), enabled=not locked,
-        shortcut=_SC_REMOVE)
+        shortcut=_shortcut_hint("remove"))
 
 
 def _fill_scroll_submenu(root_menu, sub, items, scroll_cap):

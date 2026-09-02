@@ -123,6 +123,7 @@ py.install_sources(
   'set_prefix_overlay.py',
   'settings_view.py',
   'share_code_overlay.py',
+  'shortcut_editor.py',
   'shortcuts.py',
   'show_conflicts_view.py',
   'splash.py',

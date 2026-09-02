@@ -28,6 +28,7 @@ from gui_qt.modlist_model import (
 from gui_qt.modlist_delegate import ModRowDelegate, ROW_H, SEP_H
 from gui_qt import column_state
 from gui_qt.modlist_header import TkStyleHeader
+from gui_qt.shortcuts import binding_matches_mouse
 from gui_qt.theme_qt import bind_theme, _c
 
 
@@ -978,6 +979,23 @@ class ModListView(QTreeView):
             return carry or [row]
         return [row]
 
+    def _open_source_page(self, row: int) -> None:
+        if not 0 <= row < self.model().rowCount():
+            return
+        entry = self.model().entry(row)
+        if entry.is_separator:
+            return
+        from gui_qt.modlist_menu import (
+            _is_thunderstore_mod, _modio_url, _open_on_modio,
+            _open_on_nexus, _open_on_thunderstore,
+        )
+        if _is_thunderstore_mod(self, entry.name):
+            _open_on_thunderstore(self, entry.name)
+        elif _modio_url(self, entry.name):
+            _open_on_modio(self, entry.name)
+        else:
+            _open_on_nexus(self, entry.name)
+
     def mousePressEvent(self, event):
         # A press on the sticky separator band must not reach the row painted
         # underneath it - consume it and remember the band's row for release.
@@ -988,23 +1006,11 @@ class ModListView(QTreeView):
                     self._sticky_press = info[0]
                 event.accept()
                 return
-        if event.button() == Qt.MiddleButton:
+        if binding_matches_mouse("open_mod_page", event):
             idx = self.indexAt(event.position().toPoint())
             if idx.isValid():
-                e = self.model().entry(idx.row())
-                if not e.is_separator:
-                    # Store-specific pages win over the Nexus fallback: a mod
-                    # installed from Thunderstore/mod.io has no Nexus page, and
-                    # a mod carrying both should open where it came from.
-                    from gui_qt.modlist_menu import (
-                        _is_thunderstore_mod, _modio_url, _open_on_modio,
-                        _open_on_nexus, _open_on_thunderstore)
-                    if _is_thunderstore_mod(self, e.name):
-                        _open_on_thunderstore(self, e.name)
-                    elif _modio_url(self, e.name):
-                        _open_on_modio(self, e.name)
-                    else:
-                        _open_on_nexus(self, e.name)
+                self._open_source_page(idx.row())
+            event.accept()
             return
         if event.button() == Qt.LeftButton:
             idx = self.indexAt(event.position().toPoint())

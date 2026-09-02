@@ -638,6 +638,63 @@ def get_language() -> str:
 
 
 # ---------------------------------------------------------------------------
+# Shortcut overrides. Defaults and validation live in the Qt module; this
+# layer only persists its portable keyboard and mouse binding strings.
+# ---------------------------------------------------------------------------
+_SHORTCUTS_SECTION = "shortcuts"
+_MOUSE_SHORTCUTS_SECTION = "mouse_shortcuts"
+
+
+def _load_shortcut_section(section: str) -> dict[str, str]:
+    path = get_ui_config_path()
+    if not path.is_file():
+        return {}
+    try:
+        parser = _read_ini(path)
+        if section not in parser:
+            return {}
+        return {key.strip().lower(): value.strip().replace("%%", "%")
+                for key, value in parser.items(
+                    section, raw=True)
+                if key.strip() and value.strip()}
+    except Exception:
+        return {}
+
+
+def load_shortcut_overrides() -> dict[str, str]:
+    """Return saved shortcut overrides keyed by action ID.
+
+    The old mouse-only section is merged for a seamless migration. New values
+    in the unified section take precedence.
+    """
+    overrides = _load_shortcut_section(_MOUSE_SHORTCUTS_SECTION)
+    overrides.update(_load_shortcut_section(_SHORTCUTS_SECTION))
+    return overrides
+
+
+def save_shortcut_overrides(overrides: dict[str, str]) -> None:
+    """Replace all saved keyboard and mouse shortcut overrides."""
+    cleaned = {}
+    for key, value in overrides.items():
+        key = str(key).strip().lower()
+        value = str(value).strip()
+        if _re.fullmatch(r"[a-z0-9_]+", key) and value:
+            # BasicInterpolation requires literal percent keys to be escaped.
+            cleaned[key] = value.replace("%", "%%")
+
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    parser.remove_section(_SHORTCUTS_SECTION)
+    parser.remove_section(_MOUSE_SHORTCUTS_SECTION)
+    if cleaned:
+        parser[_SHORTCUTS_SECTION] = cleaned
+    _write_ini(parser, path)
+
+
+# ---------------------------------------------------------------------------
 # Tab pins - per-view preferred presentation mode (full / modlist / plugins).
 # A view is identified by its tab `key` (e.g. "change_version", "nexus_browser").
 # When a user re-pins a tab we remember the choice here so the same view reopens
