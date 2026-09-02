@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Callable
 
 from Utils.config_paths import get_wine_prefixes_dir
-from Utils.texture_tools import (
+from Utils.wizards.textures import (
     TextureToolCancelled, apply_discrete_gpu_environment, kill_process_group,
 )
 
@@ -59,8 +59,8 @@ def prepare_proton_texture_runner(
     prefer_discrete_gpu: bool = False,
 ) -> ProtonTextureRunner:
     """Create/update an isolated Proton prefix with DXVK enabled."""
-    from Utils.exe_launch import get_tool_prefix_env
-    from Utils.steam_finder import find_any_installed_proton
+    from Utils.executables.launch import get_tool_prefix_env
+    from Utils.launchers.steam import find_any_installed_proton
 
     proton_script = find_any_installed_proton()
     if proton_script is None:
@@ -112,7 +112,7 @@ def run_proton_texture_tool(
     ``TextureToolCancelled`` is raised - the select() timeout below doubles as
     the cancel poll, so a stop lands within ~0.1s even while the tool is silent.
     """
-    from Utils.steam_finder import proton_run_command
+    from Utils.launchers.steam import proton_run_command
 
     exe_path = Path(exe)
     display = label or exe_path.name

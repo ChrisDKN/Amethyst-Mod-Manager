@@ -1,7 +1,7 @@
 """Qt Downloads tab - scans archive folders (Downloads + per-game cache + extras),
 lists them grouped by source with Install/Reinstall buttons + checkboxes. Reuses
-Utils.downloads_core for all scanning/filtering/installed-detection, and
-Utils.download_locations for the (backward-compatible) settings. Built lazily:
+Utils.downloads.core for all scanning/filtering/installed-detection, and
+Utils.downloads.locations for the (backward-compatible) settings. Built lazily:
 only (re)scans when the sub-tab is visible.
 """
 
@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QTreeView, QAbstractItemView,
 )
 
-import Utils.downloads_core as dc
+import Utils.downloads.core as dc
 from gui_qt.downloads_model import (
     DownloadsModel, COL_CHECK, COL_NAME, COL_SIZE, COL_INSTALL,
 )

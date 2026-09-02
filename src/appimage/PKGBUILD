@@ -115,7 +115,7 @@ package() {
     [ -f "$SRC_TREE/Changelog.txt" ] && install -Dm644 "$SRC_TREE/Changelog.txt" "$app_share/Changelog.txt"
 
     local _dir
-    for _dir in gui_qt wizards_qt Utils Games LOOT Nexus Thunderstore icons translations wrappers; do
+    for _dir in gui_qt wizards_qt Utils themes Games LOOT Nexus Thunderstore icons translations wrappers; do
         [ -d "$_src/$_dir" ] && cp -r "$_src/$_dir" "$app_share/$_dir"
     done
 
@@ -156,7 +156,7 @@ mkdir -p "\$MOD_MANAGER_PROFILES_DIR"
 # (window pos reports (0,0), mapToGlobal is wrong) so QToolTip mis-anchors,
 # badly once QT_SCALE_FACTOR != 1. XWayland exposes real global coords so
 # tooltips place correctly and scaling stays exact. Matches the flatpak build.
-# A user override wins. The marker tells Utils.xdg.host_env() the value is
+# A user override wins. The marker tells Utils.environment.xdg.host_env() the value is
 # OURS, so it is scrubbed from anything we launch - a child that can't reach
 # an X server (the OpenMW flatpak has fallback-x11 only) aborts on startup if
 # it inherits xcb.

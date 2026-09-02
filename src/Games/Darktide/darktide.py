@@ -31,7 +31,7 @@ Mod structure:
 from pathlib import Path
 
 from Games.base_game import BaseGame, WizardTool
-from Utils.deploy import (
+from Utils.deployment import (
     LinkMode,
     cleanup_custom_deploy_dirs,
     deploy_core,
@@ -45,7 +45,7 @@ from Utils.deploy import (
     restore_custom_rules,
     restore_data_core,
 )
-from Utils.modlist import read_modlist
+from Utils.mods.modlist import read_modlist
 from Utils.config_paths import get_profiles_dir
 
 _PROFILES_DIR = get_profiles_dir()
@@ -118,7 +118,7 @@ class Darktide(BaseGame):
 
     @property
     def custom_routing_rules(self) -> list:
-        from Utils.deploy import CustomRule
+        from Utils.deployment import CustomRule
         return [
             CustomRule(dest="", folders=["binaries"], flatten=True),
             CustomRule(dest="", folders=["bundle"], flatten=True),
@@ -214,7 +214,7 @@ class Darktide(BaseGame):
         staging  = self.get_effective_mod_staging_path()
         core     = self.mods_dir + "_Core"
 
-        from Utils.filegraph_deploy import input_ready
+        from Utils.filegraph.deploy import input_ready
         if not input_ready():
             raise RuntimeError(
                 f"filemap.txt not found: {filemap}\n"

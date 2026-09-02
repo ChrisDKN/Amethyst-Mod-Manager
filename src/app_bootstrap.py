@@ -80,7 +80,7 @@ def setup_environment() -> list[tuple[str, float, float, str]]:
     # imports Utils) and after MOD_MANAGER_GAMES, which it isn't allowed to set.
     phase_started = time.perf_counter()
     try:
-        from Utils.app_env import apply_saved_env
+        from Utils.environment.variables import apply_saved_env
         apply_saved_env(log_fn=diagnostics.append)
     except Exception as exc:
         diagnostics.append(
@@ -96,7 +96,7 @@ def setup_environment() -> list[tuple[str, float, float, str]]:
     # them. Best-effort; must never block startup.
     phase_started = time.perf_counter()
     try:
-        from Utils.stderr_capture import install_stderr_file, install_faulthandler
+        from Utils.diagnostics.stderr import install_stderr_file, install_faulthandler
         stderr_ok = install_stderr_file()
         fault_ok = install_faulthandler()
         diagnostics.append(
@@ -124,7 +124,7 @@ def setup_environment() -> list[tuple[str, float, float, str]]:
     # Validate it before profile state can be opened or mutated so a damaged
     # package fails with the loader's actionable reinstall/version message.
     phase_started = time.perf_counter()
-    from Utils.filegraph_native import require_native
+    from Utils.filegraph.native import require_native
     require_native()
     timings.append(("Validate native filegraph extension", phase_started,
                     time.perf_counter(), "filegraph"))

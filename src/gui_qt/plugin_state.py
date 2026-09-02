@@ -2,7 +2,7 @@
 
 Produces the ordered, flagged plugin list for the active game/profile by reusing
 the backend: Utils.plugins (read_plugins / read_loadorder / write_plugins) and
-Utils.plugin_parser (ESL / master header flags). Vanilla plugins are pinned to
+Utils.plugins.parser (ESL / master header flags). Vanilla plugins are pinned to
 the top, then mods follow saved loadorder.txt order.
 
 v1 scope: list + order + enable-toggle + ESL/master flags. The deeper Tk logic
@@ -22,7 +22,7 @@ from Utils.app_log import app_log
 # Crash-proof diagnostic prints (Flatpak stdout can raise BrokenPipeError and
 # kill worker threads). See Utils.app_log.safe_print.
 from Utils.app_log import safe_print as print  # noqa: A004
-from Utils.perftrace import span
+from Utils.diagnostics.performance import span
 from Utils.plugins import (
     read_plugins, read_loadorder, write_plugins, write_loadorder, PluginEntry,
     enforce_primary_plugin_order,
@@ -418,7 +418,7 @@ def load_plugins(game, profile: str,
     # Full vanilla set: base + DLC + Creation Club (.ccc), filtered to files
     # present in Data - same resolver the Tk app uses.
     try:
-        from Utils.game_helpers import _vanilla_plugins_for_game
+        from Utils.games.registry import _vanilla_plugins_for_game
         with span("plugins.vanilla_resolve"):
             vanilla = _vanilla_plugins_for_game(game)
     except Exception:
@@ -427,7 +427,7 @@ def load_plugins(game, profile: str,
     # Recover plugins still deployed by an enabled mod (per the fresh filemap)
     # but missing from plugins.txt - see _filemap_deployed_plugins. The guard
     # is the listed-entry set below: a disabled patcher mod's toggle sync
-    # (Utils/plugin_sync.py) strips its plugins from BOTH plugins.txt and
+    # (Utils/plugins/sync.py) strips its plugins from BOTH plugins.txt and
     # loadorder.txt, so a name absent from both that the filemap still deploys
     # is exactly the case to recover as enabled.
     exts = tuple(e.lower() for e in (getattr(game, "plugin_extensions", []) or [])) \
@@ -435,7 +435,7 @@ def load_plugins(game, profile: str,
     listed_lower = {e.name.lower() for e in entries}
     # Legacy (non-star) games have no disabled syntax in plugins.txt - a
     # user-disabled plugin is OMITTED from the file and survives only in
-    # loadorder.txt (see Utils/plugins.py). Reconstruct those names as
+    # loadorder.txt (see Utils/plugins/__init__.py). Reconstruct those names as
     # disabled entries BEFORE the filemap recovery below: the plugin's file is
     # still deployed by its (enabled) mod, so without this the recovery
     # re-added it as enabled - and persisted it back into plugins.txt - on
@@ -455,7 +455,7 @@ def load_plugins(game, profile: str,
     modlist_path = p.parent / "modlist.txt"
     if modlist_path.is_file():
         try:
-            from Utils.modlist import read_modlist
+            from Utils.mods.modlist import read_modlist
             enabled_mods = {e.name.lower()
                             for e in read_modlist(modlist_path) if e.enabled}
         except Exception:
@@ -720,7 +720,7 @@ def _scan_orphan_plugins(game, data_dir: Path | None,
     if data_dir is None or not data_dir.is_dir():
         return []
     try:
-        from Utils.game_helpers import foreign_deployed_plugin_basenames
+        from Utils.games.registry import foreign_deployed_plugin_basenames
         foreign = foreign_deployed_plugin_basenames(game)
     except Exception:
         foreign = set()
@@ -829,7 +829,7 @@ def _to_row(e: PluginEntry, vanilla: dict, resolved: dict[str, Path],
     path = resolved.get(low) or ((data_dir / e.name) if data_dir else None)
     if path and path.is_file():
         try:
-            from Utils.plugin_parser import (
+            from Utils.plugins.parser import (
                 is_esl_flagged, is_master_flagged, is_blueprint_flagged,
                 read_masters)
             if is_esl_flagged(path) or low.endswith(".esl"):
@@ -868,7 +868,7 @@ def _apply_master_checks(rows: list[PluginRow], resolved: dict[str, Path],
     if not paths:
         return
     try:
-        from Utils.plugin_parser import (
+        from Utils.plugins.parser import (
             check_missing_masters, check_late_masters,
             check_version_mismatched_masters)
         missing = check_missing_masters(names, paths)
@@ -945,7 +945,7 @@ class RequirementResolver:
         if (self._staging_root is not None and self._staging_root.is_dir()
                 and modlist_path.is_file()):
             try:
-                from Utils.modlist import read_modlist
+                from Utils.mods.modlist import read_modlist
                 from Nexus.nexus_meta import read_meta
                 for e in read_modlist(modlist_path):
                     if not e.enabled:
@@ -1007,7 +1007,7 @@ class RequirementResolver:
             frameworks = game.frameworks or {}
         except Exception:
             frameworks = {}
-        from Utils.framework_detect import framework_exe_candidates
+        from Utils.games.frameworks import framework_exe_candidates
         se_exes = [
             exe for label, value in frameworks.items()
             for exe in framework_exe_candidates(value)
@@ -1134,7 +1134,7 @@ def _apply_userlist_flags(rows: list[PluginRow], profile_dir: Path) -> None:
     """Flag plugins managed by <profile>/userlist.yaml (white dot; red when
     their rules form a cycle). Mirrors Tk _refresh_userlist_set + _predraw."""
     try:
-        from Utils.userlist import read_userlist_state
+        from Utils.plugins.userlist import read_userlist_state
         state = read_userlist_state(profile_dir / "userlist.yaml")
     except Exception:
         return
@@ -1156,7 +1156,7 @@ def groundcover_plugins_for_profile(game, profile_dir: Path) -> list[str]:
     if not extensions:
         return []
     try:
-        from Utils.profile_state import (
+        from Utils.profiles.state import (
             groundcover_plugins_configured,
             read_groundcover_plugins,
         )
@@ -1208,7 +1208,7 @@ def compute_esl_eligibility(names: list[str], resolved: dict[str, Path],
         return out
     game_type_attr = getattr(game, "loot_game_type", "") or ""
     try:
-        from Utils.plugin_parser import check_esl_eligible
+        from Utils.plugins.parser import check_esl_eligible
     except Exception:
         return out
     for name in names:

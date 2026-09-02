@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui_qt.theme_qt import active_palette, _c
-from Utils.version_check import _APP_UPDATE_RELEASES_URL, _AUR_PACKAGE_URL
+from Utils.github.app_updates import _APP_UPDATE_RELEASES_URL, _AUR_PACKAGE_URL
 
 
 class UpdateOverlay(QFrame):
@@ -78,7 +78,7 @@ class UpdateOverlay(QFrame):
         mute.setStyleSheet(f"color:{_c(p,'TEXT_DIM')};")
 
         def _mute_toggled(checked: bool):
-            from Utils.ui_config import save_update_notifications
+            from Utils.ui.config import save_update_notifications
             try:
                 save_update_notifications(not checked)
             except Exception:
@@ -135,7 +135,7 @@ class UpdateOverlay(QFrame):
 
     # -- internals ----------------------------------------------------------
     def _open_and_close(self, url: str):
-        from Utils.xdg import open_url
+        from Utils.environment.xdg import open_url
         open_url(url)
         self.close_overlay()
 

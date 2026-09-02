@@ -2,7 +2,7 @@
 
 Pick a BG3MM ``modlist.json`` or the game's ``modsettings.lsx`` → preview the
 computed reorder → apply.  All the matching/planning lives in
-``Utils.bg3_import``; the view just handles the file pick, the preview text, and
+``Utils.bg3.importer``; the view just handles the file pick, the preview text, and
 calling ``ctx.refresh_modlist`` after apply.
 
 Port of the Tk ``bg3_import_modlist_json`` plugin.
@@ -84,7 +84,7 @@ class BG3ImportView(WizardViewBase):
         return page
 
     def _browse_json(self):
-        from Utils.portal_filechooser import pick_file
+        from Utils.ui.portal import pick_file
         pick_file(self.tr("Select a load order file (.json or .lsx)"),
                   lambda p: safe_emit(self._picked_sig, p), _JSON_FILTERS)
 
@@ -137,7 +137,7 @@ class BG3ImportView(WizardViewBase):
                          name="bg3-preview").start()
 
     def _compute_preview(self):
-        from Utils.bg3_import import compute_import_plan, format_preview
+        from Utils.bg3.importer import compute_import_plan, format_preview
         try:
             profile = getattr(self._ctx, "profile_name", "") if self._ctx else ""
             plan = compute_import_plan(self._game, self._json_path, profile)
@@ -157,7 +157,7 @@ class BG3ImportView(WizardViewBase):
     def _apply(self):
         if not self._plan:
             return
-        from Utils.bg3_import import apply_plan
+        from Utils.bg3.importer import apply_plan
         try:
             path = apply_plan(self._plan)
             self._log(f"BG3 Import: wrote new load order to {path}")

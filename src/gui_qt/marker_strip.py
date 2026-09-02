@@ -22,7 +22,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QPainter, QRegion
 from PySide6.QtWidgets import QScrollBar, QStyle, QStyleOptionSlider
 
-from Utils import perftrace
+from Utils.diagnostics import performance as perftrace
 from gui_qt.theme_qt import bind_theme, qc
 
 

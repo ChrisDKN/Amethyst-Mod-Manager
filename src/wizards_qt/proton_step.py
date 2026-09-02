@@ -5,7 +5,7 @@ Lets the user pick a Proton version and a prefix placement for a wizard tool:
 isolated (prefix_<Proton>/ next to the exe, default), shared
 (wine_prefixes/shared_<Proton>/), or the game's own prefix. The pick persists
 per-exe (shared with the Mod Files exe launcher and the Tk wizards) via
-Utils.exe_launch. Includes the optional env-vars entry and the
+Utils.executables.launch. Includes the optional env-vars entry and the
 double-click-to-confirm Delete Prefix button. Texture-tool callers can also
 request a hybrid-system discrete-GPU selector.
 
@@ -29,7 +29,7 @@ from gui_qt.help_marker import help_mark_qss, make_help_marker, tip_text
 from gui_qt.theme_qt import (active_palette, _c, button_qss, ok_text,
                              err_text, warn_text)
 from gui_qt.safe_emit import safe_emit
-from Utils.exe_launch import (
+from Utils.executables.launch import (
     PREFIX_MODE_GAME, PREFIX_MODE_ISOLATED, PREFIX_MODE_SHARED,
     load_prefix_mode, load_proton_override, load_tool_launch_args,
     load_tool_launch_env, load_winetricks_style, save_prefix_mode,
@@ -140,7 +140,7 @@ class ProtonStepWidget(QWidget):
         )
         add_heading(title, intro_help)
 
-        from Utils.steam_finder import list_installed_proton
+        from Utils.launchers.steam import list_installed_proton
         self._versions = [s.parent.name for s in list_installed_proton()]
         self._no_versions_label = QLabel(self.tr(
             "No Proton versions were found. Install one through Steam or "
@@ -290,7 +290,7 @@ class ProtonStepWidget(QWidget):
         v.addWidget(self._continue_btn, 0, Qt.AlignHCenter)
 
         self._update_proton_row_state()
-        from Utils.ui_config import load_custom_proton_warning_ack
+        from Utils.ui.config import load_custom_proton_warning_ack
         self._auto_skip_pending = bool(
             self._remembered and not self._remember_warning
             and (self._current_prefix_mode() == PREFIX_MODE_GAME
@@ -329,7 +329,7 @@ class ProtonStepWidget(QWidget):
 
     def _initial_version(self) -> str:
         """Saved per-exe override, else the game's own Proton, else first."""
-        from Utils.steam_finder import find_proton_for_game, game_steam_id
+        from Utils.launchers.steam import find_proton_for_game, game_steam_id
         saved = load_proton_override(self._game, self._tool_exe_name) or ""
         if not saved:
             steam_id = game_steam_id(self._game)
@@ -342,7 +342,7 @@ class ProtonStepWidget(QWidget):
         return self._versions[0] if self._versions else ""
 
     def _reload_versions(self, selected: str = ""):
-        from Utils.steam_finder import list_installed_proton
+        from Utils.launchers.steam import list_installed_proton
         current = selected or self._proton_combo.currentText()
         self._versions = [s.parent.name for s in list_installed_proton()]
         self._proton_combo.blockSignals(True)
@@ -356,7 +356,7 @@ class ProtonStepWidget(QWidget):
         self._update_proton_row_state()
 
     def _browse_custom_proton(self):
-        from Utils.portal_filechooser import pick_folder
+        from Utils.ui.portal import pick_folder
         pick_folder(
             self.tr("Select custom Proton build folder"),
             lambda path: safe_emit(self._custom_picked, path))
@@ -364,14 +364,14 @@ class ProtonStepWidget(QWidget):
     def _on_custom_picked(self, path):
         if not path:
             return
-        from Utils.steam_finder import resolve_custom_proton_script
+        from Utils.launchers.steam import resolve_custom_proton_script
         script = resolve_custom_proton_script(path)
         if script is None:
             self._set_prefix_status(
                 self.tr("The selected folder does not contain a top-level "
                         "'proton' launcher."), err_text())
             return
-        from Utils.ui_config import save_custom_proton_path
+        from Utils.ui.config import save_custom_proton_path
         save_custom_proton_path(str(script.parent))
         self._reload_versions(script.parent.name)
         self._log(f"{self._tool_display_name} Wizard: registered custom "
@@ -384,7 +384,7 @@ class ProtonStepWidget(QWidget):
         name = self._proton_combo.currentText().strip()
         if not name:
             return False
-        from Utils.steam_finder import (
+        from Utils.launchers.steam import (
             find_any_installed_proton, is_custom_proton_script)
         script = find_any_installed_proton(name)
         return script is not None and is_custom_proton_script(script)
@@ -446,7 +446,7 @@ class ProtonStepWidget(QWidget):
                 err_text())
             return
         if mode != PREFIX_MODE_GAME and self._selected_is_custom():
-            from Utils.ui_config import load_custom_proton_warning_ack
+            from Utils.ui.config import load_custom_proton_warning_ack
             if not load_custom_proton_warning_ack():
                 from gui_qt.confirm_overlay import ConfirmOverlay
                 ConfirmOverlay.show_over(
@@ -469,7 +469,7 @@ class ProtonStepWidget(QWidget):
         if not accepted:
             self.setVisible(True)
             return
-        from Utils.ui_config import save_custom_proton_warning_ack
+        from Utils.ui.config import save_custom_proton_warning_ack
         save_custom_proton_warning_ack(True)
         self._save_and_continue()
 

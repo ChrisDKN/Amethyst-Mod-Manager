@@ -292,7 +292,7 @@ REGISTRY: dict[str, QtWizardSpec] = {
                      panel="full"),
 
     # -- ported former external plugins (attached per game_id via
-    #    Utils.plugin_loader.BUILTIN_WIZARD_TOOLS) --
+    #    Utils.wizards.plugins.BUILTIN_WIZARD_TOOLS) --
     "wizards.bethesda_register_game_path.RegisterGamePathWizard":
         QtWizardSpec(_simple("wizards_qt.bethesda_register_view", "RegisterGamePathView")),
     "wizards.bethesda_synthesis.SynthesisWizard":

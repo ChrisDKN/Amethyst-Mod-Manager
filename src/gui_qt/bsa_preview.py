@@ -1,7 +1,7 @@
 """Panel-scoped BSA / BA2 / UE pak content preview for the Mod Files tab.
 
-Reads the archive's table-of-contents (Utils.bsa_reader for BSA/BA2,
-Utils.ue_pak_reader for Unreal .pak/.utoc, Utils.pak_reader for Baldur's
+Reads the archive's table-of-contents (Utils.bsa.reader for BSA/BA2,
+Utils.unreal.archives for Unreal .pak/.utoc, Utils.bg3.pak for Baldur's
 Gate 3 LSPK .pak - the two .pak formats are told apart by magic, not by
 extension; TOC only, no file-data decompression) and shows
 the internal file structure as a read-only tree. Uses the same visual recipe as the Mod Files / Text Files
@@ -143,10 +143,10 @@ class BsaPreview(QWidget):
         self._only_conflicts.setEnabled(False)
         self._only_conflicts.blockSignals(False)
         try:
-            from Utils.ue_pak_reader import (
+            from Utils.unreal.archives import (
                 UE_ARCHIVE_EXTENSIONS, read_ue_archive_file_list,
             )
-            from Utils.pak_reader import is_lspk_file, read_lspk_file_list
+            from Utils.bg3.pak import is_lspk_file, read_lspk_file_list
             suffix = Path(path).suffix.lower()
             if suffix == ".pak" and is_lspk_file(path):
                 # Baldur's Gate 3 paks are Larian LSPK, not Unreal - same
@@ -155,7 +155,7 @@ class BsaPreview(QWidget):
             elif suffix in UE_ARCHIVE_EXTENSIONS:
                 paths = read_ue_archive_file_list(path)
             else:
-                from Utils.bsa_reader import read_bsa_file_list
+                from Utils.bsa.reader import read_bsa_file_list
                 paths = read_bsa_file_list(path)
         except Exception:
             paths = []

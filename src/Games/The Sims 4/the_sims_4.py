@@ -17,8 +17,8 @@ Mod structure:
 from pathlib import Path
 
 from Games.base_game import BaseGame
-from Utils.deploy import CustomRule, LinkMode, deploy_custom_rules, deploy_filemap, deploy_core, load_per_mod_strip_prefixes, load_separator_deploy_paths, expand_separator_deploy_paths, cleanup_custom_deploy_dirs, move_to_core, restore_custom_rules, restore_data_core
-from Utils.modlist import read_modlist
+from Utils.deployment import CustomRule, LinkMode, deploy_custom_rules, deploy_filemap, deploy_core, load_per_mod_strip_prefixes, load_separator_deploy_paths, expand_separator_deploy_paths, cleanup_custom_deploy_dirs, move_to_core, restore_custom_rules, restore_data_core
+from Utils.mods.modlist import read_modlist
 from Utils.config_paths import get_profiles_dir
 
 _PROFILES_DIR = get_profiles_dir()
@@ -166,7 +166,7 @@ class TheSims4(BaseGame):
 
         mods_dir.mkdir(parents=True, exist_ok=True)
 
-        from Utils.filegraph_deploy import input_ready
+        from Utils.filegraph.deploy import input_ready
         if not input_ready():
             raise RuntimeError(
                 f"filemap.txt not found: {filemap}\n"

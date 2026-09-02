@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 
 from gui_qt.safe_emit import safe_emit
 from wizards_qt._view_base import GREEN, RED, WizardViewBase
-from Utils.xedit_tools import tool_exe_path
+from Utils.bethesda.xedit import tool_exe_path
 
 if TYPE_CHECKING:
     from Games.base_game import BaseGame
@@ -98,7 +98,7 @@ class BethiniView(WizardViewBase):
         proton_name, prefix_mode = self._proton_name, self._prefix_mode
 
         def worker():
-            from Utils.exe_launch import (
+            from Utils.executables.launch import (
                 PREFIX_MODE_GAME, link_mygames, link_plugins_txt,
                 resolve_tool_prefix, run_tool_logged, shutdown_prefix_wineserver,
             )
@@ -127,7 +127,7 @@ class BethiniView(WizardViewBase):
                 # running in the game's own prefix.
                 if prefix_mode != PREFIX_MODE_GAME:
                     try:
-                        from Utils.bethesda_registry import maybe_register_for_game
+                        from Utils.bethesda.registry import maybe_register_for_game
                         maybe_register_for_game(
                             prefix_dir=compat_data,
                             proton_script=proton_script,

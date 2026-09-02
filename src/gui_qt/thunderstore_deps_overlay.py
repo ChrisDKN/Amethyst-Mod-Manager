@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
     QScrollArea, QFrame,
 )
 
-from Utils.downloads_core import fmt_size
+from Utils.downloads.core import fmt_size
 from gui_qt.overlay_base import OverlayBase
 from gui_qt.theme_qt import active_palette, _c
 

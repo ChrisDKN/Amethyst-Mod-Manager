@@ -120,7 +120,7 @@ def _iter_manifests(search_root: Path, subdir: str):
         return
     # A Profile Group's staging is a farm of per-mod symlinks; os.walk never
     # descends into those, so expand them to their real targets first.
-    from Utils.profile_groups import staging_walk_roots
+    from Utils.profiles.groups import staging_walk_roots
     seen: set[str] = set()
     for base in staging_walk_roots(search_root):
         for dirpath, _dn, fns in os.walk(base):

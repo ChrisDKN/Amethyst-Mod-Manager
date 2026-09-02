@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 from gui_qt.theme_qt import active_palette, _c
 from gui_qt.safe_emit import safe_emit
 from gui_qt.worker import run_in_worker
-from Utils.collection_manifest import fmt_size
+from Utils.collections.manifest import fmt_size
 
 
 class _SizeItem(QTableWidgetItem):
@@ -506,8 +506,8 @@ class CollectionDetailView(QWidget):
         if not slug or self._game is None:
             return None
         try:
-            from Utils.game_helpers import find_profile_with_collection_slug
-            from Utils.profile_state import read_collection_revision
+            from Utils.games.registry import find_profile_with_collection_slug
+            from Utils.profiles.state import read_collection_revision
             pname = find_profile_with_collection_slug(self._game.name, slug)
             if not pname:
                 return None
@@ -523,7 +523,7 @@ class CollectionDetailView(QWidget):
         if not slug or self._game is None:
             return None, None
         try:
-            from Utils.game_helpers import find_profile_with_collection_slug
+            from Utils.games.registry import find_profile_with_collection_slug
             pname = find_profile_with_collection_slug(self._game.name, slug)
             if not pname:
                 return None, None
@@ -550,7 +550,7 @@ class CollectionDetailView(QWidget):
         if slug and slug in _PAUSED_COLLECTIONS:
             return True
         try:
-            from Utils.profile_state import read_collection_install_paused
+            from Utils.profiles.state import read_collection_install_paused
             return bool(read_collection_install_paused(pdir))
         except Exception:
             return False
@@ -586,7 +586,7 @@ class CollectionDetailView(QWidget):
             btn.setText(self.tr("Unsupported collection"))
             btn.setEnabled(False)
             return
-        from Utils.ui_config import load_download_only
+        from Utils.ui.config import load_download_only
         try:
             dl_only = bool(load_download_only())
         except Exception:
@@ -749,7 +749,7 @@ class CollectionDetailView(QWidget):
         if pdir is None or not pdir.is_dir():
             return set()
         try:
-            from Utils.profile_state import read_collection_optional_skipped
+            from Utils.profiles.state import read_collection_optional_skipped
             return read_collection_optional_skipped(pdir)
         except Exception:
             return set()
@@ -785,7 +785,7 @@ class CollectionDetailView(QWidget):
             offsite = []
             manifest = {}
             try:
-                from Utils.collection_manifest import (
+                from Utils.collections.manifest import (
                     load_collection_manifest, extract_offsite_mods)
                 manifest = load_collection_manifest(
                     self._api, game_name, slug, rev, dl_path, log_fn=self._log)
@@ -919,7 +919,7 @@ class CollectionDetailView(QWidget):
         self._open_url(self._collection_url())
 
     def _open_url(self, url):
-        from Utils.xdg import open_url
+        from Utils.environment.xdg import open_url
         open_url(url, log_fn=self._log)
 
     def set_install_handler(self, handler):

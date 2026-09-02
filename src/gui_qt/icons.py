@@ -57,7 +57,7 @@ _exe_icon_cache: dict[tuple[str, float], "QIcon | None"] = {}
 def exe_icon(path, size: int = 18) -> "QIcon | None":
     """Return the QIcon embedded in a Windows .exe, or None.
 
-    Parses the PE icon resource (Utils.exe_icon) into .ico bytes and loads them
+    Parses the PE icon resource (Utils.executables.icon) into .ico bytes and loads them
     via QImage so the exe entries in the play-bar dropdown carry their own icon.
     Cached by (path, mtime); None is cached too so a bad exe isn't reparsed.
     """
@@ -71,7 +71,7 @@ def exe_icon(path, size: int = 18) -> "QIcon | None":
         return _exe_icon_cache[key]
     ic: "QIcon | None" = None
     try:
-        from Utils.exe_icon import extract_exe_icon
+        from Utils.executables.icon import extract_exe_icon
         from PySide6.QtGui import QImage
         blob = extract_exe_icon(p)
         if blob:

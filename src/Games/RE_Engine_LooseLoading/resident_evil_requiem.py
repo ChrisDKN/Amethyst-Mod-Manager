@@ -28,7 +28,7 @@ from pathlib import Path
 
 from Games.base_game import BaseGame
 from Utils.vfs import ProfileVFSGameMixin
-from Utils.deploy import (
+from Utils.deployment import (
     CustomRule,
     LinkMode,
     deploy_custom_rules,
@@ -41,7 +41,7 @@ from Utils.deploy import (
     restore_custom_rules,
     restore_filemap_from_root,
 )
-from Utils.modlist import read_modlist
+from Utils.mods.modlist import read_modlist
 from Utils.config_paths import get_profiles_dir
 
 _PROFILES_DIR = get_profiles_dir()
@@ -199,7 +199,7 @@ class ResidentEvilRequiem(ProfileVFSGameMixin, BaseGame):
         filemap = self.get_effective_filemap_path()
         staging = self.get_effective_mod_staging_path()
 
-        from Utils.filegraph_deploy import input_ready
+        from Utils.filegraph.deploy import input_ready
         if not input_ready():
             raise RuntimeError(
                 f"filemap.txt not found: {filemap}\n"

@@ -159,7 +159,7 @@ class SkyrimSE(Fallout_3):
 
     @property
     def custom_routing_rules(self) -> list:
-        from Utils.deploy import CustomRule
+        from Utils.deployment import CustomRule
         return [
             CustomRule(dest="", filenames=["d3dx9_42.dll"], flatten=True),
             CustomRule(dest="", filenames=["skse64_1*.dll"], flatten=True, loose_only=True),
@@ -213,8 +213,8 @@ class SkyrimSE(Fallout_3):
 
     @property
     def wizard_tools(self) -> list[WizardTool]:
-        from Utils.pandora_tools import find_pandora_exe
-        from Utils.wizard_gates import (
+        from Utils.bethesda.pandora import find_pandora_exe
+        from Utils.wizards.gates import (
             engine_fixes_installed as ef_installed,
             find_mod_exe,
             sse_display_tweaks_installed as sdt_installed,

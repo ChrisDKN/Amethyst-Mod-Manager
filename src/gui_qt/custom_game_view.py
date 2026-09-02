@@ -42,7 +42,7 @@ from Games.Custom.custom_game import (
     save_custom_game_definition,
 )
 from Utils.config_paths import get_custom_game_images_dir
-from Utils.proton_tools import DOTNET_VERSIONS
+from Utils.wine.proton import DOTNET_VERSIONS
 
 
 # Runtime passthrough used in the local _adv_fields list. The strings are

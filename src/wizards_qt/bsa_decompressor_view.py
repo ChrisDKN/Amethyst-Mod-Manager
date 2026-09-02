@@ -23,11 +23,11 @@ from PySide6.QtWidgets import (
 from gui_qt.safe_emit import safe_emit
 from gui_qt.theme_qt import active_palette, _c
 from wizards_qt._view_base import GREEN, RED, WizardViewBase
-from Utils.bsa_decompressor_tools import (
+from Utils.bsa.decompressor import (
     NEXUS_URL, OUTPUT_NAME, decompressor_mod_dir, find_decompressor_archive,
     find_extracted_mpi, packages_dir,
 )
-from Utils.ttw_tools import find_ttw_installer
+from Utils.bethesda.ttw import find_ttw_installer
 
 if TYPE_CHECKING:
     from Games.base_game import BaseGame
@@ -71,7 +71,7 @@ class BSADecompressorView(WizardViewBase):
 
         profile = getattr(self._ctx, "profile_name", None) or "default"
         self._profile = profile
-        from Utils.ttw_tools import sync_active_profile
+        from Utils.bethesda.ttw import sync_active_profile
         sync_active_profile(game, profile)
 
         self._dl_status_sig.connect(self._guard(
@@ -139,7 +139,7 @@ class BSADecompressorView(WizardViewBase):
         game = self._game
 
         def worker():
-            from Utils.ttw_tools import download_installer
+            from Utils.bethesda.ttw import download_installer
             _wlog = lambda m: self._log(f"BSA Decompressor Wizard: {m}")
             try:
                 self._exe = download_installer(
@@ -288,7 +288,7 @@ class BSADecompressorView(WizardViewBase):
         game = self._game
 
         def worker():
-            from Utils.bsa_decompressor_tools import extract_mpi_from_archive
+            from Utils.bsa.decompressor import extract_mpi_from_archive
             _wlog = lambda m: self._log(f"BSA Decompressor Wizard: {m}")
             try:
                 mpi = find_extracted_mpi(game)
@@ -351,10 +351,10 @@ class BSADecompressorView(WizardViewBase):
                 or self._closing):
             return
         self._auto_fetch_started = True
-        from Utils.bsa_decompressor_tools import (
+        from Utils.bsa.decompressor import (
             NEXUS_FILE_ID, NEXUS_GAME_DOMAIN, NEXUS_MOD_ID,
         )
-        from Utils.mpi_auto_fetch import start_auto_fetch
+        from Utils.downloads.mpi import start_auto_fetch
         _wlog = lambda m: self._log(f"BSA Decompressor Wizard: {m}")
         last_pct = [-1]
 
@@ -391,12 +391,12 @@ class BSADecompressorView(WizardViewBase):
             log_fn=_wlog)
 
     def _browse_folder(self, attr: str, title: str):
-        from Utils.portal_filechooser import pick_folder
+        from Utils.ui.portal import pick_folder
         pick_folder(title,
                     lambda p: safe_emit(self._paths_picked_sig, attr, p))
 
     def _browse_mpi(self):
-        from Utils.portal_filechooser import pick_file
+        from Utils.ui.portal import pick_file
         pick_file(self.tr("Select the BSA Decompressor .mpi or its archive"),
                   lambda p: safe_emit(self._paths_picked_sig, "mpi", p),
                   filters=[(self.tr("MPI package or archive"),
@@ -427,7 +427,7 @@ class BSADecompressorView(WizardViewBase):
         game = self._game
 
         def worker():
-            from Utils.bsa_decompressor_tools import extract_mpi_from_archive
+            from Utils.bsa.decompressor import extract_mpi_from_archive
             _wlog = lambda m: self._log(f"BSA Decompressor Wizard: {m}")
             try:
                 mpi = extract_mpi_from_archive(archive, packages_dir(game),
@@ -488,8 +488,8 @@ class BSADecompressorView(WizardViewBase):
 
     def _do_run(self):
         import subprocess
-        from Utils.bsa_decompressor_tools import register_output
-        from Utils.ttw_tools import (
+        from Utils.bsa.decompressor import register_output
+        from Utils.bethesda.ttw import (
             fnv_required_esms, missing_vanilla_esms, restore_to_vanilla,
         )
         game = self._game

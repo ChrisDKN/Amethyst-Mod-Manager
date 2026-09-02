@@ -105,7 +105,7 @@ class Starfield(Fallout_3):
 
     @property
     def custom_routing_rules(self) -> list:
-        from Utils.deploy import CustomRule
+        from Utils.deployment import CustomRule
         return [
             CustomRule(dest="", filenames=["sfse_loader.exe"], flatten=True, loose_only=True),
             CustomRule(dest="", filenames=["sfse*.dll"], flatten=True, loose_only=True),
@@ -191,7 +191,7 @@ class Starfield(Fallout_3):
         profile's plugins.txt is left untouched so blueprints stay visible
         in the load-order UI.
         """
-        from Utils.plugin_parser import is_blueprint_flagged
+        from Utils.plugins.parser import is_blueprint_flagged
         from Utils.plugins import read_plugins
 
         _log = log_fn

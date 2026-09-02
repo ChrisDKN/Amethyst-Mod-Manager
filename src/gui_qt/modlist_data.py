@@ -9,7 +9,7 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-from Utils.modlist import ModEntry
+from Utils.mods.modlist import ModEntry
 
 
 # Flag bits for the Flags column - mirrors the full Tk set (FOMOD/BAIN are
@@ -132,7 +132,7 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
     notes: dict[str, str] = {}
     if profile_dir is not None:
         try:
-            from Utils.profile_state import read_mod_notes
+            from Utils.profiles.state import read_mod_notes
             notes = read_mod_notes(profile_dir)
         except Exception:
             notes = {}
@@ -217,7 +217,7 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
             bits |= FLAG_XEDIT
         # RE/Fluffy bundle mod ([Bundle] section in meta.ini).
         try:
-            from Utils.re_bundle import read_bundle_spec
+            from Utils.re_engine.bundle import read_bundle_spec
             if read_bundle_spec(meta_path) is not None:
                 bits |= FLAG_BUNDLE
         except Exception:
@@ -386,7 +386,7 @@ def display_codes_from_conflict_map(conflict_map: dict):
     NONE=0 WINS=1 LOSES=2 PARTIAL=3 FULL=4) to the Qt delegate's display codes.
     This preserves FULL (fully-overridden / redundant) which the old
     override-set re-derivation lost."""
-    from Utils.filegraph_constants import (
+    from Utils.filegraph.constants import (
         CONFLICT_WINS, CONFLICT_LOSES, CONFLICT_PARTIAL, CONFLICT_FULL,
     )
     out: dict[str, int] = {}

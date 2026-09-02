@@ -77,7 +77,7 @@ finish-args:
   - --env=MOD_MANAGER_GAMES=/app/share/amethyst-mod-manager/Games
   - --env=XDG_DATA_DIRS=/app/share:/usr/share
   - --env=QT_QPA_PLATFORM=xcb
-  # Unconditional, so the xcb above is always OURS: Utils.xdg.host_env() reads
+  # Unconditional, so the xcb above is always OURS: Utils.environment.xdg.host_env() reads
   # this marker and scrubs QT_QPA_PLATFORM from every program we launch. A
   # child that cannot reach an X server (the OpenMW flatpak ships
   # fallback-x11, so on Wayland its sandbox has no X socket) aborts during Qt
@@ -130,7 +130,7 @@ modules:
         dest-filename: vgmstream-COPYING
 
   # cabextract is needed by winetricks (vcredist/d3dcompiler installs).
-  # Bundling it means Utils/protontricks.py finds it on PATH and never falls
+  # Bundling it means Utils/wine/protontricks.py finds it on PATH and never falls
   # back to downloading a rolling Arch binary that may not match our glibc.
   - name: cabextract
     buildsystem: autotools

@@ -19,7 +19,7 @@ import time
 from pathlib import Path
 from typing import Callable
 
-from Utils.texture_tools import TextureToolCancelled
+from Utils.wizards.textures import TextureToolCancelled
 from wrappers._proton_texture import (
     linux_to_wine,
     prepare_proton_texture_runner,

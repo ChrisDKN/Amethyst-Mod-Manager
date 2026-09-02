@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import configparser
 
-from Utils.ui_config import get_ui_config_path
+from Utils.ui.config import get_ui_config_path
 from Utils.atomic_write import write_atomic_text
 
 _SECTION = "qt_columns"

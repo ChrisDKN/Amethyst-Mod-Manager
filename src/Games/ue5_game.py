@@ -56,18 +56,18 @@ from pathlib import Path
 
 from Games.base_game import BaseGame
 from Utils.vfs import ProfileVFSGameMixin
-from Utils.deploy import (
+from Utils.deployment import (
     LinkMode, RestoreIncompleteError, load_per_mod_strip_prefixes,
     load_separator_deploy_paths,
     expand_separator_deploy_paths, expand_separator_raw_deploy,
     expand_separator_link_modes, _resolve_nocase, _resolve_root_path,
     _write_deploy_snapshot, _move_runtime_files, _FILEMAP_SNAPSHOT_NAME,
 )
-from Utils.deploy_custom_rules import (
+from Utils.deployment.custom_rules import (
     deploy_custom_rules, restore_custom_rules, compute_prefix_handled,
     canonicalize_declared_folders,
 )
-from Utils.modlist import read_modlist
+from Utils.mods.modlist import read_modlist
 from Utils.config_paths import get_profiles_dir
 from Utils.atomic_write import write_atomic_text
 
@@ -428,7 +428,7 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
     def archive_extensions(self) -> frozenset[str]:
         """Scan UE .pak and IoStore .utoc TOCs so mods that ship the same
         asset paths inside different archives get archive-conflict flags
-        (Utils.ue_pak_reader).  Companion .ucas files hold only bulk data
+        (Utils.unreal.archives). Companion .ucas files hold only bulk data
         (no names) and are skipped."""
         return frozenset({".pak", ".utoc"})
 
@@ -635,7 +635,7 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
         elif artifacts[1].is_dir() and prefix_root is not None:
             # Interrupted placement can move an original into the backup
             # before the deployed-path log is published.
-            from Utils.deploy_shared import _restore_backup_dir
+            from Utils.deployment.shared import _restore_backup_dir
             _restore_backup_dir(artifacts[1], Path(prefix_root), log_fn)
         if any(path.exists() for path in artifacts):
             raise RestoreIncompleteError(
@@ -1110,10 +1110,10 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
         if not resolved or not getattr(self, "normalize_folder_case", True):
             return resolved
         try:
-            from Utils.ui_config import load_normalize_folder_case
+            from Utils.ui.config import load_normalize_folder_case
             if not load_normalize_folder_case():
                 return resolved
-            from Utils.filegraph_paths import canonicalize_dir_casing
+            from Utils.filegraph.paths import canonicalize_dir_casing
         except Exception:
             return resolved
 
@@ -1194,7 +1194,7 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
            if it contains ``Mods/<Name>/ModActor`` it is a UE4SS blueprint mod
            and only runs from ``Content/Paks/LogicMods``, because
            BPModLoaderMod discovers mods solely by listing that one directory.
-           See ``Utils.ue_logicmods_detect``.
+           See ``Utils.unreal.logicmods``.
 
         Cohesion is preferred over promotion so a group the rules already
         placed correctly keeps the layout they chose - flattening
@@ -1202,7 +1202,7 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
         ``config.lua`` sitting beside it, which BPModLoaderMod reads from the
         mod's own subfolder.
         """
-        from Utils.ue_logicmods_detect import logic_mod_entries, stem_groups
+        from Utils.unreal.logicmods import logic_mod_entries, stem_groups
 
         by_mod: dict[str, list[tuple[int, str]]] = {}
         for i, (staged_rel, mod_name) in enumerate(core_entries):
@@ -1290,7 +1290,7 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
                       and not getattr(r, "to_prefix", False)]
         if not user_rules:
             return resolved
-        from Utils.deploy_custom_rules import _match_single_rule, _normalise_rule
+        from Utils.deployment.custom_rules import _match_single_rule, _normalise_rule
         import os
         # Index resolved entries by (staged_rel, mod_name) so we can overwrite.
         idx_by_key: dict[tuple[str, str], int] = {
@@ -1438,7 +1438,7 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
                     slot[1] += 1
 
         enabled = {name.lower() for name in mod_names}
-        from Utils.filegraph_service import source_path
+        from Utils.filegraph.service import source_path
         for mod_name, relative in snapshot.raw_files_by_basename(["mods.txt"]):
             if mod_name.lower() not in enabled:
                 continue
@@ -1676,7 +1676,7 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
             raise RuntimeError("Game path is not configured.")
 
         filemap = self.get_effective_filemap_path()
-        from Utils.filegraph_deploy import input_ready
+        from Utils.filegraph.deploy import input_ready
         if not input_ready():
             raise RuntimeError(
                 f"filemap.txt not found: {filemap}\n"
@@ -1785,7 +1785,7 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
         skipped = 0
         backed_up = 0
 
-        from Utils.filegraph_deploy import entries as filegraph_entries, legacy_lines
+        from Utils.filegraph.deploy import entries as filegraph_entries, legacy_lines
         lines = list(legacy_lines())
         filegraph_sources = {
             (entry.legacy_rel.lower(), entry.mod_name): entry.source_path
@@ -2001,7 +2001,7 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
                 # mods.txt across staging - a folder defaults to ``: 0`` only
                 # if every mod that mentions it sets it to 0. Reuses the
                 # catalog to avoid walking disk per mod.
-                from Utils.filegraph_service import active_snapshot
+                from Utils.filegraph.service import active_snapshot
                 snapshot = active_snapshot(self)
                 enabled_mods = [
                     e.name for e in read_modlist(modlist_path)

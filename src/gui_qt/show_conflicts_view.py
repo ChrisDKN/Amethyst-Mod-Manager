@@ -4,7 +4,7 @@ Qt port of the Tk `gui/dialogs.py:OverwritesPanel`, styled for Qt.
 Three panes: files this mod OVERRIDES (green, path | mods beaten), files this mod
 is OVERRIDDEN BY (red, path | winning mod), and files with NO CONFLICT (blue).
 BSA/BA2 archive rows (``archive.bsa : inner/path``) are tinted cyan. The file-level
-data is computed on a worker thread via the neutral Utils.conflicts_view.
+data is computed on a worker thread via the neutral Utils.ui.conflicts.
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
 
 from gui_qt.theme_qt import active_palette, bind_theme, _c, close_button
 from gui_qt.worker import run_in_worker
-from Utils.conflicts_view import BSA_ROW_RE
+from Utils.ui.conflicts import BSA_ROW_RE
 
 _BSA_ROLE = Qt.UserRole + 20
 _INFO_ROLE = Qt.UserRole + 21
@@ -143,7 +143,7 @@ class ShowConflictsView(QWidget):
         mod = self._mod_name
 
         def compute():
-            from Utils.conflicts_view import compute_mod_conflicts
+            from Utils.ui.conflicts import compute_mod_conflicts
             return compute_mod_conflicts(mod, **ctx)
 
         run_in_worker(compute, self._ready, name="show-conflicts",

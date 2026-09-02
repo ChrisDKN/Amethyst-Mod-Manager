@@ -28,7 +28,7 @@ from pathlib import Path
 from stat import S_ISLNK
 
 from Games.base_game import BaseGame, LaunchToggle, WizardTool
-from Utils.deploy import (
+from Utils.deployment import (
     LinkMode,
     cleanup_custom_deploy_dirs,
     deploy_filemap,
@@ -38,7 +38,7 @@ from Utils.deploy import (
     restore_data_core,
     sweep_deploy_trash,
 )
-from Utils.modlist import read_modlist
+from Utils.mods.modlist import read_modlist
 from Utils.config_paths import get_profiles_dir
 
 _PROFILES_DIR = get_profiles_dir()
@@ -317,7 +317,7 @@ class OpenMW(BaseGame):
 
     def _skip_launcher(self) -> bool:
         """True when Play should start the engine, not the OpenMW launcher."""
-        from Utils.exe_launch import load_launch_toggle
+        from Utils.executables.launch import load_launch_toggle
         return load_launch_toggle(self, _SKIP_LAUNCHER_KEY, default=False)
 
     @property
@@ -376,7 +376,7 @@ class OpenMW(BaseGame):
         found = _detect_openmw_appimage()
         if found:
             return found
-        from Utils.steam_finder import scan_drives_for_file
+        from Utils.launchers.steam import scan_drives_for_file
         return scan_drives_for_file(
             [_OPENMW_APPIMAGE_PATTERN], case_sensitive=False)
 
@@ -581,7 +581,7 @@ class OpenMW(BaseGame):
     @staticmethod
     def _profile_groundcover_plugins(profile_dir: Path,
                                      cfg_path: Path) -> list[str]:
-        from Utils.profile_state import (
+        from Utils.profiles.state import (
             groundcover_plugins_configured,
             read_groundcover_plugins,
             write_groundcover_plugins,
@@ -606,7 +606,7 @@ class OpenMW(BaseGame):
 
         if not vanilla_dir.is_dir():
             raise RuntimeError(f"'Data Files' directory not found: {vanilla_dir}")
-        from Utils.filegraph_deploy import input_ready
+        from Utils.filegraph.deploy import input_ready
         if not input_ready():
             raise RuntimeError(
                 f"filemap.txt not found: {filemap}\n"
@@ -664,7 +664,7 @@ class OpenMW(BaseGame):
         _mod_priority = {
             entry.name: index for index, entry in enumerate(_ordered_mods)
         }
-        from Utils.filegraph_constants import OVERWRITE_NAME
+        from Utils.filegraph.constants import OVERWRITE_NAME
         _mod_priority[OVERWRITE_NAME] = len(_mod_priority)
         bsa_archives = self._deployed_bsa_archives(_mod_priority)
 
@@ -721,8 +721,8 @@ class OpenMW(BaseGame):
                 seen.add(key)
                 data_dirs.append(mod_dir)
 
-        from Utils.filegraph_constants import OVERWRITE_NAME
-        from Utils.filegraph_deploy import entries as filegraph_entries
+        from Utils.filegraph.constants import OVERWRITE_NAME
+        from Utils.filegraph.deploy import entries as filegraph_entries
         if any(
                 entry.mod_name == OVERWRITE_NAME
                 for entry in filegraph_entries()):
@@ -754,7 +754,7 @@ class OpenMW(BaseGame):
             mod_priority: dict[str, int] | None = None) -> list[str]:
         archives: list[tuple[str, str]] = []
         seen: set[str] = set()
-        from Utils.filegraph_deploy import legacy_rows
+        from Utils.filegraph.deploy import legacy_rows
         for rel_path, owner in legacy_rows():
             if not rel_path.lower().endswith(".bsa"):
                 continue
@@ -864,7 +864,7 @@ class OpenMW(BaseGame):
         written by the user or a tool and must survive the wipe.
         """
         _log = log_fn or (lambda _: None)
-        from Utils.deploy_standard import (
+        from Utils.deployment.standard import (
             _DEPLOY_STATS_NAME, _MTIME_TOLERANCE_NS, _load_deploy_stats)
 
         stats = _load_deploy_stats(

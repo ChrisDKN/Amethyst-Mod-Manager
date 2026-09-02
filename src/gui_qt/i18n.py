@@ -10,7 +10,7 @@ Translation files are loaded from TWO locations, config-folder-wins:
 
 1. ``~/.config/AmethystModManager/languages/`` - the user config folder. This
    is where translations synced from the Resources branch (see
-   ``Utils.gh_sync.sync_languages``) land, and where a user can drop their own
+   ``Utils.github.sync.sync_languages``) land, and where a user can drop their own
    ``amethyst_<code>.qm`` to add or override a language WITHOUT an app update.
 2. The built-in ``translations/`` source folder - ships English (the source
    language needs no file) and any languages bundled with the app.

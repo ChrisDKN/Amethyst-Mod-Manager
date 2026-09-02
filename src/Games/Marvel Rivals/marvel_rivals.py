@@ -26,7 +26,7 @@ from pathlib import Path
 
 from Games.ue5_game import UE5Game, UE5Rule
 from Utils.config_paths import get_profiles_dir
-from Utils.deploy import CustomRule
+from Utils.deployment import CustomRule
 
 _PROFILES_DIR = get_profiles_dir()
 

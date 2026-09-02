@@ -117,7 +117,7 @@ class _ReqCard(QFrame):
 
     def _install_label(self) -> str:
         """Install, or Download while 'Download only' is on."""
-        from Utils.ui_config import load_download_only
+        from Utils.ui.config import load_download_only
         try:
             dl_only = bool(load_download_only())
         except Exception:
@@ -377,7 +377,7 @@ class MissingReqsView(QWidget):
         if not url:
             return
         try:
-            from Utils.xdg import open_url
+            from Utils.environment.xdg import open_url
             open_url(url)
         except Exception:
             pass

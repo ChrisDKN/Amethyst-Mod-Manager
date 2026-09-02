@@ -8,7 +8,7 @@ installer choices a Fomod-export toggle, and an Edits toggle that ships local fi
 changes as binary patches over the pristine download (same mechanism as the
 collection creator). Save / Load persist the flags as timestamped JSON in
 ``<profile>/workshop/`` (kept for cross-compat with the Tk app); Export writes
-the zip. All packaging logic lives in the neutral ``Utils.profile_export``.
+the zip. All packaging logic lives in the neutral ``Utils.profiles.export``.
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ from PySide6.QtWidgets import (
 from gui_qt import column_state
 from gui_qt.safe_emit import safe_emit
 from gui_qt.theme_qt import active_palette, close_button, _c, contrast_text
-from Utils import profile_export
+from Utils.profiles import export as profile_export
 
 
 _SOURCE_LABELS = {
@@ -1151,7 +1151,7 @@ class ExportProfileView(QWidget):
         highest priority, and the manifest wants the winner last, so the list
         is reversed here. Separators are dropped (mirrors the Tk _on_workshop
         prep)."""
-        from Utils.modlist import read_modlist
+        from Utils.mods.modlist import read_modlist
         # Ticks index into _all_rows, so they can't outlive it being rebuilt.
         self._clear_checks()
         pd = self._profile_dir()
@@ -1728,7 +1728,7 @@ class ExportProfileView(QWidget):
 
         def _worker():
             try:
-                from Utils.collection_export import missing_archive_report
+                from Utils.collections.export import missing_archive_report
                 report = missing_archive_report(
                     rows, game,
                     check_fomod=self._ARCHIVE_PREFLIGHT_FOMOD,
@@ -1758,7 +1758,7 @@ class ExportProfileView(QWidget):
         pd = self._profile_dir()
         profile_name = pd.name if pd else "manifest"
         default_name = f"{profile_name}_export.amethyst"
-        from Utils.portal_filechooser import pick_save_file
+        from Utils.ui.portal import pick_save_file
         pick_save_file(
             self.tr("Export Amethyst Manifest"),
             lambda path: safe_emit(self._save_path_picked, path),

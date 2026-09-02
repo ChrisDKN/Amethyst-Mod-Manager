@@ -10,7 +10,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QComboBox, QCompleter, QLabel
 
 from gui_qt.safe_emit import safe_emit
-from Utils.acmos_tools import (
+from Utils.bethesda.acmos import (
     APP_DIR, EXE_NAME, OUTPUT_DIR, contains_terrain_lod, find_acmos_exe,
     profile_mod_names,
 )
@@ -276,8 +276,8 @@ class ACMOSView(WizardViewBase):
         prefer_discrete_gpu = self._prefer_discrete_gpu
 
         def worker():
-            from Utils.acmos_tools import cli_path_args
-            from Utils.exe_launch import (
+            from Utils.bethesda.acmos import cli_path_args
+            from Utils.executables.launch import (
                 PREFIX_MODE_GAME, resolve_tool_prefix, run_tool_logged,
                 shutdown_prefix_wineserver,
             )
@@ -303,7 +303,7 @@ class ACMOSView(WizardViewBase):
                     return
 
                 proton_script, compat_data, env = result
-                from Utils.texture_tools import apply_discrete_gpu_environment
+                from Utils.wizards.textures import apply_discrete_gpu_environment
                 gpu_selection = apply_discrete_gpu_environment(
                     env, prefer_discrete_gpu)
                 _wlog(f"GPU: {gpu_selection}")

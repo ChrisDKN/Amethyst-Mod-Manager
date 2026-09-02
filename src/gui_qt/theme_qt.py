@@ -1,6 +1,6 @@
 """Qt theming - builds a QSS stylesheet from the existing theme palettes.
 
-The palette data in ``gui/themes/*.py`` is plain ``{KEY: "#hex"}`` dicts
+The palette data in ``themes/*.py`` is plain ``{KEY: "#hex"}`` dicts
 (toolkit-neutral), so the Qt app reuses it directly rather than duplicating
 colours. Per-theme overrides flow through the same ``THEME_DEFAULTS_OVERRIDE``
 mechanism the Tk app uses.
@@ -14,8 +14,8 @@ import weakref
 from collections.abc import Iterable
 from typing import TYPE_CHECKING, Callable
 
-from Utils.themes import load_palettes
-from Utils.ui_config import get_appearance_mode
+from themes import load_palettes
+from Utils.ui.config import get_appearance_mode
 
 if TYPE_CHECKING:
     from PySide6.QtGui import QColor, QPalette
@@ -72,7 +72,7 @@ def _tinted_icon_url(name: str, color: str) -> str:
 # The Qt app defaults to the signature "amethyst" palette (violet accent over
 # cool near-black zinc). The original near-black "dark" palette with the blue
 # #0078d4 accent stays available as appearance_mode = "dark", as does Breeze
-# Dark as "breeze". Existing installs keep "dark" - Utils.ui_config pins it.
+# Dark as "breeze". Existing installs keep "dark" - Utils.ui.config pins it.
 _QT_DEFAULT_THEME = "amethyst"
 
 

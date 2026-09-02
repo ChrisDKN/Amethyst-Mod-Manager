@@ -18,7 +18,7 @@ from PySide6.QtCore import Signal
 
 from gui_qt.safe_emit import safe_emit
 from wizards_qt._view_base import GREEN, RED, WizardViewBase
-from Utils.xedit_tools import tool_exe_path
+from Utils.bethesda.xedit import tool_exe_path
 
 if TYPE_CHECKING:
     from Games.base_game import BaseGame
@@ -107,11 +107,11 @@ class WryeBashView(WizardViewBase):
         proton_name, prefix_mode = self._proton_name, self._prefix_mode
 
         def worker():
-            from Utils.exe_launch import (
+            from Utils.executables.launch import (
                 PREFIX_MODE_GAME, resolve_tool_prefix, run_tool_logged,
                 shutdown_prefix_wineserver,
             )
-            from Utils.xedit_tools import (
+            from Utils.bethesda.xedit import (
                 begin_xedit_vfs_session, persist_xedit_vfs_changes,
                 prepare_xedit_prefix,
             )

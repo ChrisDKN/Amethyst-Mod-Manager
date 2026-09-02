@@ -99,7 +99,7 @@ class ShareCodeExportOverlay(_CodeOverlayBase):
 
         # Upload row: what it does, where it goes, and how long it lasts. The
         # host is named up front so the click is an informed one.
-        from Utils.profile_export import PASTE_HOST, RETENTION_NOTE
+        from Utils.profiles.export import PASTE_HOST, RETENTION_NOTE
         self._status = self._sub(self.tr(
             "Too long to paste? Get a short link instead - this "
             "uploads the code to {0}, where anyone with the link can read it. "
@@ -153,7 +153,7 @@ class ShareCodeExportOverlay(_CodeOverlayBase):
 
         def _work():
             try:
-                from Utils.profile_export import upload_code
+                from Utils.profiles.export import upload_code
                 url = upload_code(code)
             except Exception as exc:
                 self._safe_emit(self._upload_done, "", str(exc))
@@ -238,7 +238,7 @@ class ShareCodeImportOverlay(_CodeOverlayBase):
         bar = QHBoxLayout()
         # Offer the clipboard for a code OR a link - both are things a recipient
         # is handed to paste in here.
-        from Utils.profile_export import is_code_url
+        from Utils.profiles.export import is_code_url
         clip_ok = bool(clip) and (clip.strip().startswith("AMMCODE")
                                   or is_code_url(clip))
         if clip_ok and not initial_code:
@@ -274,7 +274,7 @@ class ShareCodeImportOverlay(_CodeOverlayBase):
             return
         # A link can't be decoded - it has to be downloaded first. Flip the
         # primary button to Fetch and wait for the click.
-        from Utils.profile_export import is_code_url
+        from Utils.profiles.export import is_code_url
         if is_code_url(text):
             self._set_fetch_mode(True)
             self._preview.setText(self.tr(
@@ -282,7 +282,7 @@ class ShareCodeImportOverlay(_CodeOverlayBase):
             return
         self._set_fetch_mode(False)
         try:
-            from Utils.profile_export import decode_manifest
+            from Utils.profiles.export import decode_manifest
             manifest = decode_manifest(text)
         except Exception:
             self._preview.setText(self.tr("Not a valid share code."))
@@ -300,7 +300,7 @@ class ShareCodeImportOverlay(_CodeOverlayBase):
         counts = f"{len(mods)} {noun}"
         total = int(info.get("totalSize") or 0)
         if total:
-            from Utils.collection_manifest import fmt_size
+            from Utils.collections.manifest import fmt_size
             counts += self.tr(", ~{0} to download").format(fmt_size(total))
         parts.append(counts)
         exported = (info.get("exported") or "")[:10]
@@ -330,7 +330,7 @@ class ShareCodeImportOverlay(_CodeOverlayBase):
 
         def _work():
             try:
-                from Utils.profile_export import fetch_code_url
+                from Utils.profiles.export import fetch_code_url
                 code = fetch_code_url(url)
             except Exception as exc:
                 self._safe_emit(self._fetch_done, "", str(exc))

@@ -29,7 +29,7 @@ from PySide6.QtWidgets import QWidget, QHBoxLayout, QPlainTextEdit
 from gui_qt.safe_emit import safe_emit
 from gui_qt.theme_qt import active_palette, _c, ok_text, err_text
 from wizards_qt._view_base import WizardViewBase
-from Utils.dtkit_patch_helper import (
+from Utils.wizards.dtkit import (
     find_deployed_dtkit_exe,
     run_dtkit_patch_proton,
 )

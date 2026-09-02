@@ -38,10 +38,10 @@ import requests
 
 from .nexus_api import NexusAPI, NexusDownloadLink, NexusAPIError
 from .nxm_handler import NxmLink
-from Utils import bandwidth_limit
+from Utils.downloads import bandwidth
 from Utils.app_log import app_log
 from Utils.ca_bundle import resolve_ca_bundle
-from Utils.xdg import xdg_download_dir
+from Utils.environment.xdg import xdg_download_dir
 
 # Default chunk size for streaming downloads (256 KB)
 _CHUNK_SIZE = 256 * 1024
@@ -872,7 +872,7 @@ class NexusDownloader:
 
                     fh.write(chunk)
                     downloaded += len(chunk)
-                    bandwidth_limit.throttle(len(chunk), cancel)
+                    bandwidth.throttle(len(chunk), cancel)
 
                     if progress_cb:
                         progress_cb(downloaded, total)

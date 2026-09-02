@@ -4,7 +4,7 @@ Opened from Settings ▸ User Interface ("Edit / Create Theme…") via
 ``app._open_theme_editor_tab`` → ``DetachableTabWidget.open_tab(..., key=
 "theme_editor")``. The user picks a "Start from" theme (any built-in or existing
 custom theme), edits colours grouped by role, and saves the result as a JSON
-theme in ``<config>/themes/`` (see ``Utils.custom_themes``). Saving selects the
+theme in ``<config>/themes/`` (see ``themes.custom``). Saving selects the
 new theme as the active ``appearance_mode``.
 
 Grouping + derivation come from ``theme_editor_groups``. The default view is a
@@ -37,9 +37,9 @@ from gui_qt.color_picker_overlay import ColorPickerOverlay
 from gui_qt.confirm_overlay import ConfirmOverlay
 from gui_qt.wheel_guard import no_wheel
 from gui_qt import theme_editor_groups as teg
-from Utils.themes import load_palettes, load_display_names, get_ctk_appearance
-from Utils import custom_themes as ct
-from Utils import ui_config as uc
+from themes import get_ctk_appearance, load_display_names, load_palettes
+from themes import custom as ct
+from Utils.ui import config as uc
 
 
 # lupdate extraction anchors: the theme-editor section titles, swatch labels

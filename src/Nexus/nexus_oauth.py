@@ -42,7 +42,7 @@ import secrets
 import threading
 import time
 import urllib.parse
-from Utils.xdg import open_url
+from Utils.environment.xdg import open_url
 from dataclasses import dataclass
 from typing import Callable, Optional
 

@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
     QToolTip, QToolButton,
 )
 
-from Utils import perftrace
+from Utils.diagnostics import performance as perftrace
 from gui_qt import column_state
 
 from gui_qt.theme_qt import active_palette, bind_theme, _c, qc, qc_contrast

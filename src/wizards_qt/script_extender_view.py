@@ -13,7 +13,7 @@ SKSE VR …), parameterized via WizardTool.extra:
 Flow: [version select] → download (auto with progress, OR manual page +
 locate-in-Downloads) → extract to game root (restore-to-vanilla first) /
 Root_Folder / managed root-flagged mod. All heavy work runs on daemon threads
-with Signals; download/locate/extract logic lives in Utils.wizard_archives.
+with Signals; download/locate/extract logic lives in Utils.wizards.archives.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ from gui_qt.theme_qt import (
     active_palette, _c, button_qss, close_button, ok_text, err_text,
 )
 from gui_qt.safe_emit import safe_emit
-from Utils.wizard_archives import (
+from Utils.wizards.archives import (
     fetch_latest_github_asset, find_archive, get_downloads_dir,
     install_archive_payload,
 )
@@ -343,7 +343,7 @@ class ScriptExtenderView(QWidget):
         url = self._fallback_download_url
         if not url:
             return
-        from Utils.xdg import open_url
+        from Utils.environment.xdg import open_url
         open_url(url)
         self._log(f"Wizard: opened {url}")
 
@@ -392,7 +392,7 @@ class ScriptExtenderView(QWidget):
 
     # ---- browse (shared) -----------------------------------------------------------
     def _browse_archive(self):
-        from Utils.portal_filechooser import pick_file
+        from Utils.ui.portal import pick_file
         # Portal callback fires on a WORKER thread - marshal via Signal.
         pick_file(self.tr("Select the script extender archive"),
                   lambda path: safe_emit(self._picked_sig, path))

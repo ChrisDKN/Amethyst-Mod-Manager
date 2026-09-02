@@ -2,7 +2,7 @@
 
 Pandora ships as a regular mod, so this wizard is only offered when
 "Pandora Behaviour Engine+.exe" is found under the mod staging folder
-(gated in the game files via Utils.pandora_tools.find_pandora_exe).
+(gated in the game files via Utils.bethesda.pandora.find_pandora_exe).
 
 Steps (plugins-panel-scoped tab):
   1. Deploy the modlist (through the app's deploy machinery via
@@ -32,7 +32,7 @@ from gui_qt.theme_qt import (
     active_palette, _c, button_qss, close_button, ok_text, err_text,
 )
 from gui_qt.safe_emit import safe_emit
-from Utils.pandora_tools import EXE_NAME, find_pandora_exe
+from Utils.bethesda.pandora import EXE_NAME, find_pandora_exe
 
 if TYPE_CHECKING:
     from Games.base_game import BaseGame
@@ -244,8 +244,8 @@ class PandoraView(QWidget):
         proton_name, prefix_mode = self._proton_name, self._prefix_mode
 
         def worker():
-            from Utils.exe_launch import PREFIX_MODE_GAME, resolve_tool_prefix
-            from Utils.pandora_tools import install_net10, net10_installed
+            from Utils.executables.launch import PREFIX_MODE_GAME, resolve_tool_prefix
+            from Utils.bethesda.pandora import install_net10, net10_installed
             try:
                 safe_emit(self._deps_status_sig,
                     self.tr("Preparing Pandora's Wine prefix…"), "")
@@ -311,7 +311,7 @@ class PandoraView(QWidget):
         prefix_env = self._prefix_env
 
         def worker():
-            from Utils.pandora_tools import run_pandora
+            from Utils.bethesda.pandora import run_pandora
             try:
                 if prefix_env is None:
                     safe_emit(self._run_status_sig,

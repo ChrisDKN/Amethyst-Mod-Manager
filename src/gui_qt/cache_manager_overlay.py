@@ -189,7 +189,7 @@ class CacheManagerOverlay(OverlayBase):
         The leftover-temp row needs a sweep of every staging root, so it's
         appended later by :meth:`_on_orphans` off the scan thread.
         """
-        from Utils.cache_tools import enumerate_game_caches
+        from Utils.downloads.cache import enumerate_game_caches
         # Clear existing rows (keep the trailing stretch).
         while self._rows_v.count() > 1:
             item = self._rows_v.takeAt(0)
@@ -247,7 +247,7 @@ class CacheManagerOverlay(OverlayBase):
 
         def worker():
             try:
-                from Utils.cache_tools import game_cache_sizes
+                from Utils.downloads.cache import game_cache_sizes
                 sizes = dict(game_cache_sizes(names))
             except Exception:
                 sizes = {}
@@ -256,7 +256,7 @@ class CacheManagerOverlay(OverlayBase):
             except (RuntimeError, TypeError):
                 return   # widget destroyed mid-scan (signal C++ object gone)
             try:
-                from Utils.cache_tools import orphaned_tmp_scan
+                from Utils.downloads.cache import orphaned_tmp_scan
                 dirs, nbytes = orphaned_tmp_scan()
             except Exception:
                 dirs, nbytes = [], 0
@@ -268,7 +268,7 @@ class CacheManagerOverlay(OverlayBase):
         threading.Thread(target=worker, daemon=True).start()
 
     def _on_sizes(self, sizes: dict):
-        from Utils.cache_tools import format_size
+        from Utils.downloads.cache import format_size
         for name, sz in sizes.items():
             self._sizes[name] = sz
             lbl = self._size_lbls.get(name)
@@ -278,7 +278,7 @@ class CacheManagerOverlay(OverlayBase):
 
     def _on_orphans(self, count: int, nbytes: int):
         """Append the leftover-temp row once the staging sweep finishes."""
-        from Utils.cache_tools import format_size
+        from Utils.downloads.cache import format_size
         self._orphan_scan_done = True
         if not count or _ORPHANS in self._checks:
             return
@@ -295,7 +295,7 @@ class CacheManagerOverlay(OverlayBase):
         self._refresh_total()
 
     def _refresh_total(self):
-        from Utils.cache_tools import format_size
+        from Utils.downloads.cache import format_size
         self._total = sum(self._sizes.values())
         self._total_lbl.setText(
             self.tr("Total: {0}").format(format_size(self._total)))
@@ -319,10 +319,10 @@ class CacheManagerOverlay(OverlayBase):
         missing = [k for k in keys
                    if k not in self._sizes and k != _ORPHANS]
         if missing:
-            from Utils.cache_tools import game_cache_sizes
+            from Utils.downloads.cache import game_cache_sizes
             self._sizes.update(game_cache_sizes(missing))
         if _ORPHANS in keys and _ORPHANS not in self._sizes:
-            from Utils.cache_tools import orphaned_tmp_size
+            from Utils.downloads.cache import orphaned_tmp_size
             self._sizes[_ORPHANS] = orphaned_tmp_size()
         return sum(self._sizes.get(k, 0) for k in keys)
 
@@ -334,7 +334,7 @@ class CacheManagerOverlay(OverlayBase):
         if not keys:
             self._set_status(self.tr("Nothing selected."), "dim")
             return
-        from Utils.cache_tools import format_size
+        from Utils.downloads.cache import format_size
         total = self._selection_size(keys)
         shown = [self._label_for(k) for k in keys]
         listing = "\n".join(f"  • {n}" for n in shown[:10])
@@ -355,14 +355,14 @@ class CacheManagerOverlay(OverlayBase):
         # The orphan row lands asynchronously; if the sweep hasn't reported yet
         # finish it here so "Clear All" can't silently skip leftover temp dirs.
         if not self._orphan_scan_done:
-            from Utils.cache_tools import orphaned_tmp_scan
+            from Utils.downloads.cache import orphaned_tmp_scan
             dirs, nbytes = orphaned_tmp_scan()
             self._on_orphans(len(dirs), nbytes)
         keys = list(self._checks.keys())
         if not keys:
             self._set_status(self.tr("Cache is empty."), "dim")
             return
-        from Utils.cache_tools import format_size
+        from Utils.downloads.cache import format_size
         total = self._selection_size(keys)
         body = self.tr("Clear {0} of cached downloads across every "
                 "game?\n\nLocation: {1}\n\n"
@@ -385,7 +385,7 @@ class CacheManagerOverlay(OverlayBase):
             cleared = 0
             errors: list = []
             try:
-                from Utils.cache_tools import (
+                from Utils.downloads.cache import (
                     clear_game_caches, clear_orphaned_tmp_dirs)
                 c, e = clear_game_caches(games)
                 cleared += c

@@ -11,8 +11,8 @@ description and its usual values); "Add custom variable" covers anything else,
 including plain shell vars a user wants every tool launch to inherit.
 
 Variables that can only work before the process starts (LD_PRELOAD, PYTHONPATH,
-APPDIR …) are rejected - see `Utils.app_env`, which owns the catalogue, the
-validation and the startup apply. Everything persists to amethyst.ini on every
+APPDIR …) are rejected - see `Utils.environment.variables`, which owns the
+catalogue, validation and startup apply. Everything persists to amethyst.ini on every
 change, like the rest of Settings; nothing takes effect until the next launch,
 hence the explicit Restart button.
 """
@@ -28,8 +28,8 @@ from PySide6.QtWidgets import (
 from gui_qt.theme_qt import active_palette, _c
 from gui_qt.help_marker import tip_text, make_help_marker, help_mark_qss
 from gui_qt.wheel_guard import no_wheel
-from Utils import app_env
-from Utils import ui_config as uc
+from Utils.environment import variables as app_env
+from Utils.ui import config as uc
 
 
 class _EnvRow(QWidget):

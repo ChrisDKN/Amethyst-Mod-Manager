@@ -6,12 +6,12 @@ the same modlist-scoped mechanism as the Settings tab itself.
 
 Lets a user author ordered search/replace regex rules that are applied to a
 downloaded archive's filename stem *before* the built-in Nexus/mod.io name
-parsers (see `Utils.mod_name_utils._apply_custom_patterns`). This is the escape
+parsers (see `Utils.mods.names._apply_custom_patterns`). This is the escape
 hatch for when Nexus changes its download-name format again: rather than shipping
 a code change, a user adds a rule here.
 
 Each rule is `re.sub(search, replace, stem)`. Rules persist to amethyst.ini
-through `Utils.ui_config.load/save_install_name_patterns` on every change - no
+through `Utils.ui.config.load/save_install_name_patterns` on every change - no
 Save button, matching the rest of the Qt Settings tab. A live "Test" box shows
 the result of running the current rules against a sample filename so a user can
 verify a regex before relying on it.
@@ -28,7 +28,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui_qt.theme_qt import active_palette, _c
-from Utils import ui_config as uc
+from Utils.ui import config as uc
 
 
 # Generic placeholder for the Test box - a made-up mod name in the current Nexus
@@ -132,7 +132,7 @@ class InstallNamePatternsView(QWidget):
         # {id: default rule dict} for the built-in rules, used for per-row and
         # global reset.
         try:
-            from Utils.mod_name_utils import default_install_name_rules
+            from Utils.mods.names import default_install_name_rules
             self._defaults = default_install_name_rules()
         except Exception:
             self._defaults = []
@@ -383,7 +383,7 @@ class InstallNamePatternsView(QWidget):
             self._test_out.setText("")
             return
         try:
-            from Utils.mod_name_utils import (
+            from Utils.mods.names import (
                 _suggest_mod_names, sanitize_mod_folder_name)
             suggestions = _suggest_mod_names(stem)
             result = (suggestions[0] if suggestions else stem) or stem

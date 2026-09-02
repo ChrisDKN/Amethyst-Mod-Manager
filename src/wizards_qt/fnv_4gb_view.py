@@ -3,7 +3,7 @@
 Single page: hashes FalloutNV.exe (worker), reports its patch state, and
 offers Apply (large-address-aware + NVSE-loader byte patches, original kept
 as FalloutNV_backup.exe) / Restore Backup.  Patch core lives in
-Utils/fnv4gb_tools.py (shared with the Tk wizard).
+Utils/bethesda/fnv4gb.py (shared with the Tk wizard).
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from PySide6.QtWidgets import QHBoxLayout, QPushButton, QWidget
 from gui_qt.safe_emit import safe_emit
 from gui_qt.theme_qt import button_qss
 from wizards_qt._view_base import GREEN, RED, WizardViewBase
-from Utils.fnv4gb_tools import BACKUP_NAME, EXE_NAME
+from Utils.bethesda.fnv4gb import BACKUP_NAME, EXE_NAME
 
 if TYPE_CHECKING:
     from Games.base_game import BaseGame
@@ -94,7 +94,7 @@ class Fnv4GbView(WizardViewBase):
         self._set_buttons(False, False)
 
         def worker():
-            from Utils.fnv4gb_tools import inspect_exe
+            from Utils.bethesda.fnv4gb import inspect_exe
             try:
                 info = inspect_exe(game_root)
             except Exception as exc:
@@ -161,7 +161,7 @@ class Fnv4GbView(WizardViewBase):
         game_root = self._game_root
 
         def worker():
-            from Utils.fnv4gb_tools import apply_4gb_patch
+            from Utils.bethesda.fnv4gb import apply_4gb_patch
             ok = False
             try:
                 variant = apply_4gb_patch(game_root)
@@ -196,7 +196,7 @@ class Fnv4GbView(WizardViewBase):
         game_root = self._game_root
 
         def worker():
-            from Utils.fnv4gb_tools import restore_backup
+            from Utils.bethesda.fnv4gb import restore_backup
             try:
                 restore_backup(game_root)
                 self._log(f"4GB patch wizard: restored {EXE_NAME} from {BACKUP_NAME}.")

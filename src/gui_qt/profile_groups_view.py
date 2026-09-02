@@ -1,12 +1,12 @@
 """Profile Groups - a modlist-scoped tab for creating and managing groups
 (named, ordered combinations of profiles that deploy together as one merged
-profile - see Utils/profile_groups.py).
+profile - see Utils/profiles/groups.py).
 
 Layout: a list of existing groups (expandable member panel with priority
 reorder / add / remove), then a create panel: group name + an ordered member
 checklist where CHECK ORDER = priority order (a live preview shows it).
 Shared-pool profiles are listed disabled with an inline "Convert…" action
-(Utils/profile_convert.py) since group members must be profile-specific.
+(Utils/profiles/convert.py) since group members must be profile-specific.
 """
 
 from __future__ import annotations
@@ -25,9 +25,9 @@ from gui_qt.i18n import profile_display
 from gui_qt.theme_qt import (
     _c, active_palette, bind_theme_icon, contrast_text, close_button,
 )
-from Utils import profile_groups as pg
-from Utils.profile_groups import GroupValidationError
-from Utils.profile_state import profile_uses_specific_mods
+from Utils.profiles import groups as pg
+from Utils.profiles.groups import GroupValidationError
+from Utils.profiles.state import profile_uses_specific_mods
 
 
 class ProfileGroupsView(QWidget):
@@ -110,7 +110,7 @@ class ProfileGroupsView(QWidget):
         return self._game.get_profile_root() / "profiles"
 
     def _profile_names(self) -> list[str]:
-        from Utils.game_helpers import _profiles_for_game
+        from Utils.games.registry import _profiles_for_game
         return _profiles_for_game(self._game.name)
 
     def _groups(self) -> list[str]:
@@ -567,7 +567,7 @@ class ProfileGroupsView(QWidget):
             def worker():
                 ok2 = True
                 try:
-                    from Utils.profile_convert import convert_profile_to_specific
+                    from Utils.profiles.convert import convert_profile_to_specific
                     convert_profile_to_specific(game, pdir, log_fn=self._log)
                 except Exception as exc:
                     ok2 = False

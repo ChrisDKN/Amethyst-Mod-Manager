@@ -42,7 +42,7 @@ export PATH XDG_DATA_DIRS
 # physical size mismatch. XWayland exposes real global coords so tooltips place
 # correctly and scaling stays exact; it also fixes the Wayland splitter/colour-
 # picker lag. The flatpak build already does this. A user override wins.
-# The marker tells Utils.xdg.host_env() the value is OURS, so it is scrubbed
+# The marker tells Utils.environment.xdg.host_env() the value is OURS, so it is scrubbed
 # from anything we launch - a child that can't reach an X server (the OpenMW
 # flatpak has fallback-x11 only) aborts on startup if it inherits xcb.
 if [ -z "${QT_QPA_PLATFORM:-}" ]; then

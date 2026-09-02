@@ -46,7 +46,7 @@ from pathlib import Path
 
 from Games.base_game import BaseGame
 from Utils.vfs import ProfileVFSGameMixin
-from Utils.deploy import (
+from Utils.deployment import (
     LinkMode,
     cleanup_custom_deploy_dirs,
     deploy_core,
@@ -59,7 +59,7 @@ from Utils.deploy import (
     restore_custom_rules,
     restore_data_core,
 )
-from Utils.modlist import read_modlist
+from Utils.mods.modlist import read_modlist
 from Utils.config_paths import get_profiles_dir
 
 _PROFILES_DIR = get_profiles_dir()
@@ -327,7 +327,7 @@ class DaggerfallUnity(ProfileVFSGameMixin, BaseGame):
 
     @property
     def custom_routing_rules(self) -> list:
-        from Utils.deploy import CustomRule
+        from Utils.deployment import CustomRule
         return [CustomRule(dest=f"{_DATA_DIR}/{_MANAGED}",
                            extensions=[".dll"], flatten=True)]
 
@@ -634,7 +634,7 @@ class DaggerfallUnity(ProfileVFSGameMixin, BaseGame):
                              if (parent / name).is_symlink()]
                 for name in (*link_dirs, *filenames):
                     excluded.add((parent / name).relative_to(overwrite).as_posix())
-        from Utils.filegraph_deploy import legacy_rows
+        from Utils.filegraph.deploy import legacy_rows
         for relative, owner in legacy_rows():
             normalized = relative.replace("\\", "/")
             if owner == "[Overwrite]" and normalized.casefold().startswith(prefix):
@@ -918,7 +918,7 @@ class DaggerfallUnity(ProfileVFSGameMixin, BaseGame):
                 f"'{_DATA_DIR}' not found in {self._game_path} - the game path "
                 "must be the folder containing DaggerfallUnity.x86_64."
             )
-        from Utils.filegraph_deploy import input_ready
+        from Utils.filegraph.deploy import input_ready
         if not input_ready():
             raise RuntimeError(
                 f"filemap.txt not found: {filemap}\n"

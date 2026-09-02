@@ -2,7 +2,7 @@
 into a Vortex/Nexus-compatible collection ``.7z``. Subclasses ExportProfileView
 for the per-mod source/version/optional/fomod table; adds the collection info
 form (name, author, description, install instructions) and swaps the export
-path for ``Utils.collection_export`` (collection.json + bundled files).
+path for ``Utils.collections.export`` (collection.json + bundled files).
 
 The output installs in Vortex and in Amethyst's own collection installer, and
 can be uploaded straight to Nexus as a new collection or as a new revision of
@@ -31,7 +31,7 @@ from gui_qt.export_profile_view import (
     ExportProfileView, _CardOverlay, _card_title, _card_button_bar,
     _CHECK_COL_NAME,
 )
-from Utils import profile_export
+from Utils.profiles import export as profile_export
 
 # Base columns are check/name/source/version/fomod/optional (0-5); these three
 # are appended, so they shift with any change to the base set.
@@ -189,7 +189,7 @@ class CreateCollectionView(ExportProfileView):
                          daemon=True, name="collection-autofill").start()
 
     def _autofill_worker(self):
-        from Utils.collection_export import detect_game_version
+        from Utils.collections.export import detect_game_version
         version = detect_game_version(self._game)
         if version:
             safe_emit(self._game_version_ready, version)
@@ -263,8 +263,8 @@ class CreateCollectionView(ExportProfileView):
         if pd is None:
             return ""
         try:
-            from Utils.game_helpers import get_collection_url_from_profile
-            from Utils.collection_manifest import parse_collection_url
+            from Utils.games.registry import get_collection_url_from_profile
+            from Utils.collections.manifest import parse_collection_url
             url = get_collection_url_from_profile(pd)
             if not url:
                 return ""
@@ -565,7 +565,7 @@ class CreateCollectionView(ExportProfileView):
         """Recover per-mod authoring settings from the manifest an install left
         in the profile, so a re-installed (or Vortex-authored) collection keeps
         its phases, update policies, sources and file-edit flags."""
-        from Utils.collection_export import (
+        from Utils.collections.export import (
             read_profile_manifest, seed_info_from_manifest,
             seed_rows_from_manifest)
         # Undo load_rows' Thunderstore detection: this format cannot express a
@@ -640,7 +640,7 @@ class CreateCollectionView(ExportProfileView):
 
     def _profile_ini_candidates(self) -> list:
         """Profile 'ini files' entries that are valid INI-tweak targets."""
-        from Utils.collection_ini_tweaks import GAME_INI_TARGETS
+        from Utils.collections.ini_tweaks import GAME_INI_TARGETS
         pd = self._profile_dir()
         targets = GAME_INI_TARGETS.get(getattr(self._game, "name", "") or "")
         if not pd or not targets:
@@ -654,7 +654,7 @@ class CreateCollectionView(ExportProfileView):
 
     def _info_error(self, info: dict) -> "str | None":
         """Collection-info validation shared by export and upload."""
-        from Utils.collection_export import validate_collection_name
+        from Utils.collections.export import validate_collection_name
         if not info.get("author"):
             return self.tr("An author name is required.")
         problem = validate_collection_name(info.get("name", ""))
@@ -720,7 +720,7 @@ class CreateCollectionView(ExportProfileView):
         safe_name = "".join(
             c if c.isalnum() or c in " -_" else "_" for c in info["name"]).strip()
         default_name = f"{safe_name or 'collection'}.7z"
-        from Utils.portal_filechooser import pick_save_file
+        from Utils.ui.portal import pick_save_file
         pick_save_file(
             self.tr("Export Collection"),
             lambda path: safe_emit(self._save_path_picked, path),
@@ -755,7 +755,7 @@ class CreateCollectionView(ExportProfileView):
         from rebinding it while this runs."""
         info = self._pending_info
         try:
-            from Utils import collection_export
+            from Utils.collections import export as collection_export
             final, warnings = collection_export.export_collection(
                 out_path, rows if rows is not None else self._all_rows,
                 self._game, info,
@@ -774,7 +774,7 @@ class CreateCollectionView(ExportProfileView):
     def _make_collection_progress_cb(self):
         """Throttled worker→UI progress bridge for the collection phases."""
         import time
-        from Utils import collection_export as ce
+        from Utils.collections import export as ce
         last_emit = [0.0]
         phases = {
             ce.PHASE_META: self.tr("Reading mod metadata…"),
@@ -941,7 +941,7 @@ class CreateCollectionView(ExportProfileView):
         tmp_dir = None
         scratch: list = []
         try:
-            from Utils import collection_export
+            from Utils.collections import export as collection_export
             from Utils.config_paths import get_download_cache_dir
 
             # The target collection may have been discarded/deleted on the

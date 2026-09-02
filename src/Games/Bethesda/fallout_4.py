@@ -35,7 +35,7 @@ class Fallout_4(Fallout_3):
 
     @property
     def wizard_tools(self) -> list[WizardTool]:
-        from Utils.wizard_gates import find_mod_exe
+        from Utils.wizards.gates import find_mod_exe
         bodyslide_tools = []
         if find_mod_exe(self, ("BodySlide.exe", "BodySlide x64.exe")) is not None:
             bodyslide_tools.append(WizardTool(
@@ -135,7 +135,7 @@ class Fallout_4(Fallout_3):
 
     @property
     def custom_routing_rules(self) -> list:
-        from Utils.deploy import CustomRule
+        from Utils.deployment import CustomRule
         return [
             CustomRule(dest="", filenames=["f4se_loader.exe"], flatten=True, loose_only=True),
             CustomRule(dest="", filenames=["f4se*.dll"], flatten=True, loose_only=True),

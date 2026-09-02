@@ -148,7 +148,7 @@ class ModLoaderInstallerView(WizardViewBase):
 
     # -- extract ------------------------------------------------------------------
     def _do_extract(self):
-        from Utils.wizard_archives import extract_archive
+        from Utils.wizards.archives import extract_archive
         try:
             if self._game_root is None:
                 raise RuntimeError(self.tr("Game path is not configured."))
@@ -175,11 +175,11 @@ class ModLoaderInstallerView(WizardViewBase):
 
     # -- run installer ------------------------------------------------------------
     def _do_run(self):
-        from Utils.exe_launch import (
+        from Utils.executables.launch import (
             get_game_prefix_env, shutdown_prefix_wineserver,
         )
-        from Utils.process_watch import run_process_logged
-        from Utils.steam_finder import proton_run_command
+        from Utils.processes.watch import run_process_logged
+        from Utils.launchers.steam import proton_run_command
         proton_script = compat_data = None
         try:
             if self._game_root is None:

@@ -29,7 +29,7 @@ from PySide6.QtWidgets import (
 
 from gui_qt.theme_qt import active_palette, _c, close_button, button_qss
 from gui_qt.wheel_guard import no_wheel
-from Utils.userlist import (
+from Utils.plugins.userlist import (
     DEFAULT_GROUP, parse_userlist, write_userlist, remove_group,
 )
 

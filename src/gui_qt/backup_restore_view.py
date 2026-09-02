@@ -8,7 +8,7 @@ and automated backups (created before every deploy, pruned to the newest 20).
 
 Opens as a plugins-panel-scoped tab (covers the whole plugins panel while the
 modlist stays live). Qt port of the Tk gui/backup_restore_dialog.py; reuses the
-neutral backup logic in Utils.profile_backup verbatim.
+neutral backup logic in Utils.profiles.backup verbatim.
 
 Backup operations are fast local file copies, so everything runs synchronously
 on the UI thread - no worker/Signal marshalling needed.
@@ -27,7 +27,7 @@ from PySide6.QtWidgets import (
 from gui_qt.theme_qt import active_palette, _c, close_button, button_qss
 from gui_qt.text_input_overlay import TextInputOverlay
 from gui_qt.confirm_overlay import ConfirmOverlay
-from Utils.profile_backup import (
+from Utils.profiles.backup import (
     create_backup, list_backups, restore_backup, backup_stats, delete_backup,
     is_backup_kept, set_backup_kept, get_backup_label, set_backup_label,
     is_backup_manual, is_backup_user_made,

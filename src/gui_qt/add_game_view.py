@@ -276,7 +276,7 @@ class AddGameView(QWidget):
             import time
             t0 = time.monotonic()
             try:
-                from Utils.installed_scan import InstalledIndex
+                from Utils.launchers.installed import InstalledIndex
                 index = InstalledIndex(log=_log)
             except Exception as exc:
                 import traceback

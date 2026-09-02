@@ -2,8 +2,8 @@
 nif_preview.py
 Panel-scoped 3D preview for .nif meshes (QOpenGLWidget, no new deps).
 
-Parses off-thread via Utils.nif_reader, bakes world transforms into vertices,
-and resolves textures through Utils.asset_resolver (what the game would load)
+Parses off-thread via Utils.assets.nif, bakes world transforms into vertices,
+and resolves textures through Utils.assets.resolver (what the game would load)
 with archive/loose fallbacks. Starfield geometry is fetched from external
 .mesh files. Meshes are Z-up; dragging turns the asset about +Z like a
 turntable - the camera and lights stay put, so highlights sweep across the
@@ -47,7 +47,7 @@ except Exception:                                        # noqa: BLE001
     QOpenGLVersionProfile = QOpenGLVertexArrayObject = None
     QOpenGLWidget = QWidget
 
-from Utils.asset_resolver import DirCache as _DirCache
+from Utils.assets.resolver import DirCache as _DirCache
 from gui_qt.eliding_label import ElidingLabel
 from gui_qt.flow_layout import FlowLayout, enable_height_for_width
 from gui_qt.gl_support import gl_status
@@ -746,7 +746,7 @@ def _model_space_normal(nrm_blob, spec_blob, log=None):
         import io
         from PIL import Image as PilImage
         from PySide6.QtGui import QImage
-        from Utils.dds_compat import sanitise_dds, skip_dds_mips
+        from Utils.assets.dds import sanitise_dds, skip_dds_mips
         nrm_blob = skip_dds_mips(nrm_blob, TEXTURE_MAX_DIM)
         with PilImage.open(io.BytesIO(sanitise_dds(nrm_blob))) as im:
             big = max(im.width, im.height)
@@ -808,7 +808,7 @@ def _make_gl_texture(img, clamp_mode=3):
 def _qimage_from_bytes(data: bytes, log=None):
     """Decode texture bytes pulled from an archive (DDS goes via Pillow)."""
     from PySide6.QtGui import QImage
-    from Utils.dds_compat import sanitise_dds, skip_dds_mips
+    from Utils.assets.dds import sanitise_dds, skip_dds_mips
     # A DDS ships its own mip chain: decode the first level that fits the
     # cap rather than a 4K top mip (~400ms of BC7) we would only shrink.
     data = skip_dds_mips(data, TEXTURE_MAX_DIM)
@@ -1075,7 +1075,7 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
     def material_slot(rel: str) -> str:
         key = rel.lower()
         if key not in materials:
-            from Utils.bgsm_reader import read_material
+            from Utils.assets.materials import read_material
             blob = fetch(rel)
             materials[key] = read_material(blob) if blob else None
         mat = materials[key]
@@ -1272,7 +1272,7 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
                           f"decoded ({_fmt_bytes(len(blob))}) - unsupported DDS format?")
             pre = (image.width(), image.height()) if image is not None else None
             image = _fit_texture(image)
-            from Utils.dds_compat import is_srgb_dds
+            from Utils.assets.dds import is_srgb_dds
             is_srgb = is_srgb_dds(blob) if blob else False
             if image is not None:
                 shared_put("diffuse", (rel,), (image, is_srgb))
@@ -1318,7 +1318,7 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
 
 def _load_external_geometry(model, fetch):
     """Fill in Starfield shapes: geometry lives in geometries/<path>.mesh."""
-    from Utils.sf_mesh_reader import read_sf_mesh
+    from Utils.assets.starfield import read_sf_mesh
     cache: dict[str, object] = {}
     for shape in model.shapes:
         if shape.vertices or not shape.mesh_path:
@@ -1613,15 +1613,15 @@ def _add_parts(model, parts, plugin_dirs, log, cancel, bones=None,
     keyed on the mesh path, and an unskinned piece (a shield) needs the
     skeleton node its own slot names, which only makes sense per part.
     """
-    from Utils.nif_reader import read_nif
-    from Utils.nif_skin import morph_weight_model, pose_model
-    from Utils.txst_lookup import apply_alt_textures
+    from Utils.assets.nif import read_nif
+    from Utils.assets.skinning import morph_weight_model, pose_model
+    from Utils.assets.texture_sets import apply_alt_textures
     hair_ctx = None
     if hair_mesh_rel:
         # A FO4 hat can replace the hidden scalp hair with a wig built into
         # the armour NIF. It still uses the NPC's CLFM palette row, so retain
         # the FACE's plugin context while loading the outfit's own textures.
-        from Utils.facegen_tint import FormsContext
+        from Utils.npc.facegen import FormsContext
         hair_ctx = FormsContext(plugin_dirs)
     for entry in parts:
         data, rel = entry[0], entry[1]
@@ -1666,7 +1666,7 @@ def _add_parts(model, parts, plugin_dirs, log, cancel, bones=None,
                 and getattr(getattr(part, "header", None), "bs_version", 0)
                 == 130):
             try:
-                from Utils.facegen_tint import apply_hair_tint
+                from Utils.npc.facegen import apply_hair_tint
                 hair_tinted = apply_hair_tint(
                     part, hair_mesh_rel, plugin_dirs, hair_ctx)
             except Exception:                            # noqa: BLE001
@@ -1703,9 +1703,9 @@ def _replace_head_parts(model, parts, plugin_dirs, log, cancel) -> None:
     space. Detach its skin metadata here so the later whole-actor pose does
     not undo the normalisation and put the hair a head-height above the NPC.
     """
-    from Utils.facegen_tint import remove_hair
-    from Utils.nif_reader import read_nif
-    from Utils.txst_lookup import apply_alt_textures
+    from Utils.npc.facegen import remove_hair
+    from Utils.assets.nif import read_nif
+    from Utils.assets.texture_sets import apply_alt_textures
 
     removed = remove_hair(model)
     added = 0
@@ -1843,14 +1843,14 @@ def _hide_facegen_runtime_shapes(model, mesh_rel: str) -> list[str]:
 
 def _pose_actor(model, bones, log) -> None:
     """Place the head's own shapes in the skeleton's space."""
-    from Utils.nif_skin import pose_model
+    from Utils.assets.skinning import pose_model
     posed = pose_model(model, bones)
     _log(log, f"  posed {posed}/{len(model.shapes)} head shape(s) "
               f"against {len(bones)} bones")
 
 
 def _read_bones(skeleton_data, log):
-    from Utils.nif_skin import read_skeleton
+    from Utils.assets.skinning import read_skeleton
     try:
         bones = read_skeleton(skeleton_data)
     except Exception as exc:                             # noqa: BLE001
@@ -2222,7 +2222,7 @@ class _Viewport(QOpenGLWidget):
 
         def work():
             import time
-            from Utils.nif_reader import read_nif
+            from Utils.assets.nif import read_nif
             t_start = time.monotonic()
             try:
                 model_key = _model_cache_key(
@@ -2232,7 +2232,7 @@ class _Viewport(QOpenGLWidget):
                     face_skin_tint)
                 extra = archives
                 if extra is None and archive_roots:
-                    from Utils.archive_lookup import ArchiveLookup, find_archives
+                    from Utils.archives.lookup import ArchiveLookup, find_archives
                     found = find_archives(archive_roots)
                     _log(log, f"  scanned {len(archive_roots)} archive root(s):"
                               f" {len(found)} archive(s) indexed")
@@ -2262,7 +2262,7 @@ class _Viewport(QOpenGLWidget):
                     if mesh_rel:
                         # The game may swap the baked texture set via plugin
                         # records; without this such meshes preview as white clay.
-                        from Utils.txst_lookup import apply_alt_textures
+                        from Utils.assets.texture_sets import apply_alt_textures
                         dirs = plugin_dirs or texture_roots
                         _log(log, "  plugin scan dirs: "
                                   + (", ".join(str(d) for d in dirs) or "none"))
@@ -2288,7 +2288,7 @@ class _Viewport(QOpenGLWidget):
                                       f"{changed} shape(s)")
                         if face_morph:
                             try:
-                                from Utils.fo4_facegen import apply_face_morphs
+                                from Utils.npc.fo4 import apply_face_morphs
                                 tri, weights, tri_rel = face_morph
                                 applied, vertices = apply_face_morphs(
                                     model, tri, weights)
@@ -2301,7 +2301,7 @@ class _Viewport(QOpenGLWidget):
                         # Skyrim ships hair textures greyscale and tints them from
                         # the NPC record, so FaceGen hair is white without this.
                         try:
-                            from Utils.facegen_tint import apply_hair_tint
+                            from Utils.npc.facegen import apply_hair_tint
                             t0 = time.monotonic()
                             n = apply_hair_tint(model, mesh_rel, dirs)
                             if n:
@@ -2322,7 +2322,7 @@ class _Viewport(QOpenGLWidget):
                         # brows and skin tone live in the per-NPC FaceTint map
                         # the engine multiplies over it.
                         try:
-                            from Utils.facegen_tint import apply_face_tint
+                            from Utils.npc.facegen import apply_face_tint
                             apply_face_tint(model, mesh_rel)
                         except Exception as exc:         # noqa: BLE001
                             _log(log, f"  ! face tint lookup failed: {exc!r}")
@@ -2331,7 +2331,7 @@ class _Viewport(QOpenGLWidget):
                         # hides the hair. The baked head still carries it and
                         # it would grow straight through the hat.
                         try:
-                            from Utils.facegen_tint import remove_hair
+                            from Utils.npc.facegen import remove_hair
                             gone = remove_hair(model)
                             _log(log, f"  outfit covers the hair slot: "
                                       f"{gone} hair shape(s) hidden")
@@ -2355,7 +2355,7 @@ class _Viewport(QOpenGLWidget):
                     # keeps every NPC the same size and simply crops the hair.
                     if "facegeom" in mesh_rel.replace("\\", "/").lower():
                         try:
-                            from Utils.facegen_tint import head_shape
+                            from Utils.npc.facegen import head_shape
                             _face = head_shape(model)
                         except Exception:                # noqa: BLE001
                             _face = None
@@ -3560,7 +3560,7 @@ class NifPreview(QWidget):
         # Restore prefs. QAction.triggered and QSlider.sliderReleased are
         # user-only, so setting state here can never rewrite the config.
         try:
-            from Utils.ui_config import load_nif_invert_mouse
+            from Utils.ui.config import load_nif_invert_mouse
             inverted = load_nif_invert_mouse()
         except Exception:
             inverted = True
@@ -3568,7 +3568,7 @@ class NifPreview(QWidget):
         self._act_invert.setChecked(bool(inverted))
 
         try:
-            from Utils.ui_config import load_nif_cull_backfaces
+            from Utils.ui.config import load_nif_cull_backfaces
             cull = load_nif_cull_backfaces()
         except Exception:
             cull = False
@@ -3576,7 +3576,7 @@ class NifPreview(QWidget):
         self._act_cull.setChecked(bool(cull))
 
         try:
-            from Utils.ui_config import load_nif_brightness
+            from Utils.ui.config import load_nif_brightness
             bright = load_nif_brightness()
         except Exception:
             bright = BRIGHTNESS_DEFAULT
@@ -3587,7 +3587,7 @@ class NifPreview(QWidget):
         self._bright.sliderReleased.connect(self._save_brightness)
 
         try:
-            from Utils.ui_config import load_nif_background
+            from Utils.ui.config import load_nif_background
             saved = load_nif_background()
         except Exception:
             saved = "light"
@@ -3794,7 +3794,7 @@ class NifPreview(QWidget):
         self._view.cull_backfaces = bool(on)
         self._view.update()
         try:
-            from Utils.ui_config import save_nif_cull_backfaces
+            from Utils.ui.config import save_nif_cull_backfaces
             save_nif_cull_backfaces(bool(on))
         except Exception as exc:
             _log(self.log_fn, f"! could not save cull setting: {exc!r}")
@@ -3810,7 +3810,7 @@ class NifPreview(QWidget):
         _log(self.log_fn, f"option: invert mouse {'on' if on else 'off'}")
         self._view.invert_mouse = bool(on)
         try:
-            from Utils.ui_config import save_nif_invert_mouse
+            from Utils.ui.config import save_nif_invert_mouse
             save_nif_invert_mouse(bool(on))
         except Exception as exc:
             _log(self.log_fn, f"! could not save invert setting: {exc!r}")
@@ -3830,7 +3830,7 @@ class NifPreview(QWidget):
     def _save_brightness(self):
         _log(self.log_fn, f"option: brightness {self._bright.value()}%")
         try:
-            from Utils.ui_config import save_nif_brightness
+            from Utils.ui.config import save_nif_brightness
             save_nif_brightness(int(self._bright.value()))
         except Exception as exc:
             _log(self.log_fn, f"! could not save brightness: {exc!r}")
@@ -3841,7 +3841,7 @@ class NifPreview(QWidget):
         self._bg_key = key
         self._view.set_background(key)
         try:
-            from Utils.ui_config import save_nif_background
+            from Utils.ui.config import save_nif_background
             save_nif_background(key)
         except Exception as exc:
             _log(self.log_fn, f"! could not save background: {exc!r}")

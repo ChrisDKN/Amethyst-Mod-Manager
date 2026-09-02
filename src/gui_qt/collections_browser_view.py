@@ -233,7 +233,7 @@ class CollectionsBrowserView(QWidget):
     @staticmethod
     def _load_show_adult() -> bool:
         try:
-            from Utils.ui_config import load_nexus_show_adult
+            from Utils.ui.config import load_nexus_show_adult
             return bool(load_nexus_show_adult())
         except Exception:
             return False
@@ -241,7 +241,7 @@ class CollectionsBrowserView(QWidget):
     def _on_adult_toggled(self, on: bool):
         self._show_adult = bool(on)
         try:
-            from Utils.ui_config import save_nexus_show_adult
+            from Utils.ui.config import save_nexus_show_adult
             save_nexus_show_adult(self._show_adult)
         except Exception:
             pass
@@ -410,7 +410,7 @@ class CollectionsBrowserView(QWidget):
             except Exception:
                 pdir = None
         if pdir:
-            from Utils.installed_collections import list_appended_collections
+            from Utils.collections.installed import list_appended_collections
             records = list_appended_collections(pdir, log_fn=self._log)
         if not records:
             self._appended_host.hide()
@@ -513,11 +513,11 @@ class CollectionsBrowserView(QWidget):
         return f"https://www.nexusmods.com/games/{dom}/collections/{entry.slug}"
 
     def _on_view(self, entry):
-        from Utils.xdg import open_url
+        from Utils.environment.xdg import open_url
         open_url(self._collection_url(entry), log_fn=self._log)
 
     def _open_game_collections_on_nexus(self):
-        from Utils.xdg import open_url
+        from Utils.environment.xdg import open_url
         open_url(f"https://www.nexusmods.com/games/{self._domain}/collections",
                  log_fn=self._log)
 

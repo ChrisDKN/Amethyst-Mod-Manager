@@ -1,6 +1,6 @@
 """Qt Mod Files tab - per-mod file tree with Top Level + Root + Disable checkbox columns.
 
-Reuses Utils.mod_files for every bit of logic (file listing, conflict cache, the
+Reuses Utils.mods.files for every bit of logic (file listing, conflict cache, the
 strip-prefix promotion/demotion algorithm, the exclusion save-merge) so it stays
 in lockstep with the Tk tab. This module is the Qt presentation: a QTreeView +
 ModFilesModel, a toolbar (Expand all / Filters), a search box, and a footer
@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTreeView, QLabel, QAbstractItemView,
 )
 
-import Utils.mod_files as mflogic
+import Utils.mods.files as mflogic
 from gui_qt.mod_files_model import (
     ModFilesModel, _Node, COL_NAME, COL_TOPLEVEL, COL_ROOT, COL_DISABLE,
 )
@@ -60,7 +60,7 @@ class ModFilesView(QWidget):
         hide_root = True
         if game is not None:
             try:
-                from Utils.game_helpers import game_data_subpath
+                from Utils.games.registry import game_data_subpath
                 hide_root = not game_data_subpath(game)
             except Exception:
                 hide_root = True
@@ -441,7 +441,7 @@ class ModFilesView(QWidget):
 
     # -- search (driven by the app's column-footer search box) --------------
     def _on_search(self, text: str):
-        from Utils.file_search import parse_file_query
+        from Utils.text.search import parse_file_query
         needle, self._search_exts = parse_file_query(text)
         self._search = needle
         t = getattr(self, "_search_timer", None)
@@ -557,7 +557,7 @@ class ModFilesView(QWidget):
             if cb is not None:
                 cb(target, node.rel_str)
             return
-        from Utils.text_files import TEXT_EXTENSIONS
+        from Utils.text.files import TEXT_EXTENSIONS
         if ext in TEXT_EXTENSIONS:
             target = self._disk_path_for(node)
             if target is None or not target.is_file():
@@ -571,7 +571,7 @@ class ModFilesView(QWidget):
         if self.game is None or self._mod_name is None or node.rel_str is None:
             return None
         try:
-            from Utils.filegraph_constants import OVERWRITE_NAME, ROOT_FOLDER_NAME
+            from Utils.filegraph.constants import OVERWRITE_NAME, ROOT_FOLDER_NAME
             if self._mod_name == OVERWRITE_NAME and hasattr(
                     self.game, "get_effective_overwrite_path"):
                 base = Path(self.game.get_effective_overwrite_path())
@@ -598,7 +598,7 @@ class ModFilesView(QWidget):
     def _toggle_root(self, node: _Node):
         if node.synthetic or node.meta:
             return
-        from Utils.filegraph_constants import ROOT_FOLDER_NAME
+        from Utils.filegraph.constants import ROOT_FOLDER_NAME
         if self._mod_name == ROOT_FOLDER_NAME:
             return   # [Root_Folder] already deploys to the game root
         if node.is_dir:

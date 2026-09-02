@@ -15,7 +15,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
-from Utils.deploy import LinkMode
+from Utils.deployment import LinkMode
 from Utils.vfs import (
     ProfileVFSGameMixin,
     has_deployment_state,
@@ -67,7 +67,7 @@ from Games.RE_Engine_Invalidation.resident_evil_2 import (  # noqa: E402
 from Games.RE_Engine_Invalidation.resident_evil_village import (  # noqa: E402
     ResidentEvilVillage,
 )
-from Utils.re_pak_patcher import (  # noqa: E402
+from Utils.re_engine.pak import (  # noqa: E402
     hash_filepath,
     patch_pak_file as _real_patch_pak_file,
 )

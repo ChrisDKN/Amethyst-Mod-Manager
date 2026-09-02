@@ -18,7 +18,7 @@ from pathlib import Path
 from PySide6.QtCore import (
     Qt, QAbstractTableModel, QModelIndex, QT_TRANSLATE_NOOP)
 
-from Utils.downloads_core import DownloadEntry, InstalledIndex
+from Utils.downloads.core import DownloadEntry, InstalledIndex
 
 COL_CHECK = 0
 COL_NAME = 1

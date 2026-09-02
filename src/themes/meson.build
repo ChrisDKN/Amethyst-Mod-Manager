@@ -1,0 +1,18 @@
+py.install_sources(
+  '__init__.py',
+  'adwaita.py',
+  'amethyst.py',
+  'breeze.py',
+  'breezelight.py',
+  'catppuccin.py',
+  'custom.py',
+  'cyberpunk.py',
+  'dark.py',
+  'light.py',
+  'noir.py',
+  'oled.py',
+  'pipboy.py',
+  'stardew.py',
+  'tokyonight.py',
+  subdir: 'themes',
+)

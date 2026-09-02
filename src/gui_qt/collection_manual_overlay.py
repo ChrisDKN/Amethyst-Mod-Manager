@@ -227,11 +227,11 @@ class CollectionManualOverlay(QWidget):
     # ---- button handlers ----------------------------------------------
     def _open_clicked(self):
         if self._cur_url:
-            from Utils.xdg import open_url
+            from Utils.environment.xdg import open_url
             open_url(self._cur_url)
 
     def _open_next_clicked(self):
-        from Utils.xdg import open_url
+        from Utils.environment.xdg import open_url
         if self._cur_url:
             open_url(self._cur_url)
         for _name, url in self._upcoming:
@@ -239,7 +239,7 @@ class CollectionManualOverlay(QWidget):
                 open_url(url)
 
     def _select_clicked(self):
-        from Utils.portal_filechooser import pick_file
+        from Utils.ui.portal import pick_file
         q = self._queue
 
         def _on_picked(path):
@@ -306,7 +306,7 @@ class CollectionManualOverlay(QWidget):
             self._open_next_btn.hide()
         self._refresh_progress()
         if self._seen_first and self._auto_open_chk.isChecked() and self._cur_url:
-            from Utils.xdg import open_url
+            from Utils.environment.xdg import open_url
             open_url(self._cur_url)
         self._seen_first = True
         self._reposition()

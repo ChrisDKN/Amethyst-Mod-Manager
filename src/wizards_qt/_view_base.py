@@ -65,7 +65,7 @@ def arm_nexus_auto_fetch(*, api, url: str, file_id: int, keywords: list[str],
     straight through the Nexus API; everyone else keeps the manual page while
     the download folders are watched, so the wizard advances the moment the
     browser download completes (mirrors the ESM Fixes / BSA Decompressor
-    hands-free flow in Utils.mpi_auto_fetch).
+    hands-free flow in Utils.downloads.mpi).
 
     All callbacks fire on the WORKER thread - pass safe_emit lambdas:
     ``status_cb(text, color)`` updates the download-page status,
@@ -78,8 +78,8 @@ def arm_nexus_auto_fetch(*, api, url: str, file_id: int, keywords: list[str],
     if parsed is None or not file_id:
         return False
     game_domain, mod_id = parsed
-    from Utils.mpi_auto_fetch import start_auto_fetch
-    from Utils.wizard_archives import find_archive, get_downloads_dir
+    from Utils.downloads.mpi import start_auto_fetch
+    from Utils.wizards.archives import find_archive, get_downloads_dir
     # NOTE: call QCoreApplication.translate() spelled out - pyside6-lupdate
     # matches that literal name. Behind a local alias it falls back to the
     # QObject.tr(source, disambiguation) signature and mis-extracts the
@@ -339,7 +339,7 @@ class WizardViewBase(QWidget):
         return page
 
     def _open_url(self, url: str):
-        from Utils.xdg import open_url
+        from Utils.environment.xdg import open_url
         open_url(url)
 
     # ---- hands-free archive fetch for the manual-download page -------------------
@@ -441,7 +441,7 @@ class WizardViewBase(QWidget):
         self._locate_rescan()
 
     def _locate_rescan(self):
-        from Utils.wizard_archives import find_archive, get_downloads_dir
+        from Utils.wizards.archives import find_archive, get_downloads_dir
         found = find_archive(get_downloads_dir(), self._locate_keywords)
         if found:
             self._archive_found(found, self.tr("Found: {0}").format(found.name))
@@ -452,7 +452,7 @@ class WizardViewBase(QWidget):
             self._set_status(self._locate_status, self._locate_not_found, err_text())
 
     def _browse_archive(self):
-        from Utils.portal_filechooser import pick_file
+        from Utils.ui.portal import pick_file
         # Portal callback fires on a WORKER thread - marshal via Signal.
         pick_file(self._locate_pick_title,
                   lambda p: safe_emit(self._picked_sig, p))
@@ -497,8 +497,8 @@ class WizardViewBase(QWidget):
 
         def worker():
             import shutil
-            from Utils.wizard_archives import extract_archive
-            from Utils.xedit_tools import applications_dir, flatten_subdirs
+            from Utils.wizards.archives import extract_archive
+            from Utils.bethesda.xedit import applications_dir, flatten_subdirs
             try:
                 if archive is None or not archive.is_file():
                     raise RuntimeError(self.tr("Archive not found."))
@@ -578,10 +578,10 @@ class WizardViewBase(QWidget):
         def worker():
             import tempfile
             from Utils.ca_bundle import download_file
-            from Utils.wizard_archives import (
+            from Utils.wizards.archives import (
                 extract_archive, fetch_latest_github_asset,
             )
-            from Utils.xedit_tools import applications_dir, flatten_subdirs
+            from Utils.bethesda.xedit import applications_dir, flatten_subdirs
             try:
                 safe_emit(status_sig,
                           self.tr("Fetching latest release from GitHub…"), "")

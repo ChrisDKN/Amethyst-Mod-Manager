@@ -2,7 +2,7 @@
 
 Downloads the latest SMAPI installer zip from GitHub, then installs it with no
 user input - the payload is unpacked natively and the launcher swap applied by
-``Utils.smapi_installer`` (see that module for why we don't run SMAPI's own
+``Utils.wizards.smapi`` (see that module for why we don't run SMAPI's own
 interactive .NET installer in a terminal).
 
 Like the script-extender wizard, the destination is selectable:
@@ -133,10 +133,10 @@ class SmapiView(WizardViewBase):
         self._dl_bar.setValue(pct)
 
     def _do_fetch_and_download(self):
-        from Utils.smapi_installer import (
+        from Utils.wizards.smapi import (
             download_smapi, fetch_latest_smapi_asset,
         )
-        from Utils.wizard_archives import get_downloads_dir
+        from Utils.wizards.archives import get_downloads_dir
         try:
             safe_emit(self._dl_status_sig,
                       self.tr("Fetching latest SMAPI release from GitHub…"), "")
@@ -171,7 +171,7 @@ class SmapiView(WizardViewBase):
             safe_emit(self._dl_next_sig)
 
     def _browse_smapi(self):
-        from Utils.portal_filechooser import pick_file
+        from Utils.ui.portal import pick_file
         pick_file(self.tr("Select the SMAPI archive"),
                   lambda p: safe_emit(self._picked_sig, p))
 
@@ -232,7 +232,7 @@ class SmapiView(WizardViewBase):
         self._done_btn.setEnabled(True)
 
     def _do_install(self):
-        from Utils.smapi_installer import install_smapi
+        from Utils.wizards.smapi import install_smapi
         mode = self._installed_mode
         try:
             safe_emit(self._install_status_sig,

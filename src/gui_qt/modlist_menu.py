@@ -146,7 +146,7 @@ def build_context_menu(view, index):
         #   Log         - both (files swept in on restore; Root Folder gets its
         #                 own .mm_overwrite_log.txt written by _move_runtime_files)
         #   Show Conflicts - Overwrite only (Root Folder has no conflict data)
-        from Utils.filegraph_constants import OVERWRITE_NAME, ROOT_FOLDER_NAME
+        from Utils.filegraph.constants import OVERWRITE_NAME, ROOT_FOLDER_NAME
         if multi_mods or multi_seps:
             return None
         has_game = getattr(view, "game", None) is not None
@@ -538,7 +538,7 @@ def _set_enabled(view, model, rows, state):
 
 
 def _open_folder(view, model, row):
-    """Open the row's on-disk folder via the platform opener (Utils.xdg).
+    """Open the row's on-disk folder via the platform opener (Utils.environment.xdg).
 
     Uses the view's _resolve_entry_folder so the synthetic Overwrite /
     Root Folder rows open their effective deploy paths, not staging/<name>."""
@@ -552,7 +552,7 @@ def _open_folder(view, model, row):
             return
         path = staging / model.entry(row).name
     try:
-        from Utils.xdg import xdg_open
+        from Utils.environment.xdg import xdg_open
         # Surface opener failures - the whole chain can fail on the host side
         # (no file-manager association) and would otherwise be silent.
         xdg_open(str(path), log_fn=lambda m: _notify(view, m, "warning"))
@@ -703,7 +703,7 @@ def _has_fomod_choices(view, name: str) -> bool:
     if not name:
         return False
     try:
-        from Utils.fomod_choices import has_choices
+        from Utils.fomod.choices import has_choices
         game = getattr(view, "game", None)
         return has_choices(name, getattr(view, "profile_dir", None),
                            getattr(game, "name", "") or "")
@@ -726,7 +726,7 @@ def _nif_viewer_available(view) -> bool:
     if not game_id:
         return False
     try:
-        from Utils.plugin_loader import get_builtin_wizard_tools_for_game
+        from Utils.wizards.plugins import get_builtin_wizard_tools_for_game
         return any(t.id == "nif_viewer"
                    for t in get_builtin_wizard_tools_for_game(game_id))
     except Exception:
@@ -739,7 +739,7 @@ def _has_meshes(view, name: str) -> bool:
     if staging is None:
         return False
     try:
-        from Utils.mesh_catalog import mod_has_assets
+        from Utils.assets.catalog import mod_has_assets
         return mod_has_assets(staging, name, game=getattr(view, "game", None))
     except Exception:
         return False
@@ -785,7 +785,7 @@ def _open_on_nexus(view, name: str):
     if not url:
         return
     try:
-        from Utils.xdg import open_url
+        from Utils.environment.xdg import open_url
         open_url(url)
     except Exception:
         pass
@@ -817,7 +817,7 @@ def _open_on_modio(view, name: str):
     if not url:
         return
     try:
-        from Utils.xdg import open_url
+        from Utils.environment.xdg import open_url
         open_url(url)
     except Exception:
         pass
@@ -890,7 +890,7 @@ def _open_on_thunderstore(view, name: str):
         except Exception:
             return
     try:
-        from Utils.xdg import open_url
+        from Utils.environment.xdg import open_url
         open_url(url)
     except Exception:
         pass
@@ -950,7 +950,7 @@ def _move_to_separator(view, model, mod_rows, sep_name):
     # splicing a display-ordered block into the natural list flips the mods'
     # relative priorities (GH#380).
     moved = [e for e in model.natural_entries() if e.name in moved_names]
-    from Utils.conflict_timing import ConflictTimeline
+    from Utils.diagnostics.conflicts import ConflictTimeline
     timing = ConflictTimeline("move", [e.name for e in moved])
     phase_started = timing.now()
     old_order = [e.name for e in model.natural_entries() if not e.is_separator]
@@ -989,8 +989,8 @@ def _other_profiles(view):
     if game is None or pdir is None:
         return []
     try:
-        from Utils.game_helpers import _profiles_for_game
-        from Utils.profile_groups import is_group
+        from Utils.games.registry import _profiles_for_game
+        from Utils.profiles.groups import is_group
         cur = pdir.name
         profiles_dir = pdir.parent
         return [p for p in _profiles_for_game(game.name)
@@ -1093,7 +1093,7 @@ def _installation_archive(view, name: str):
     search_dirs = []
     try:
         from Utils.config_paths import list_all_cache_dirs
-        from Utils.download_locations import (
+        from Utils.downloads.locations import (
             get_default_downloads_dir, is_default_downloads_disabled,
             load_extra_download_locations)
         if not is_default_downloads_disabled():
@@ -1201,7 +1201,7 @@ def _profile_notes(view):
     if pdir is None:
         return None, {}
     try:
-        from Utils.profile_state import read_mod_notes
+        from Utils.profiles.state import read_mod_notes
         return pdir, read_mod_notes(pdir)
     except Exception:
         return pdir, {}
@@ -1218,7 +1218,7 @@ def _open_note_editor(view, names):
     pdir, notes = _profile_notes(view)
     if pdir is None or not names:
         return
-    from Utils.profile_state import write_mod_notes
+    from Utils.profiles.state import write_mod_notes
     single = len(names) == 1
     title = names[0] if single else f"{len(names)} mods"
     initial = notes.get(names[0], "") if single else ""
@@ -1267,7 +1267,7 @@ def _remove_notes(view, names):
     pdir, notes = _profile_notes(view)
     if pdir is None or not names:
         return
-    from Utils.profile_state import write_mod_notes
+    from Utils.profiles.state import write_mod_notes
     cur = dict(notes)
     removed = False
     for nm in names:
@@ -1286,7 +1286,7 @@ def _remove_notes(view, names):
 def _open_on_nexus_multi(view, names):
     """Open each selected mod's Nexus page (skips mods without one)."""
     try:
-        from Utils.xdg import open_url
+        from Utils.environment.xdg import open_url
     except Exception:
         return
     for nm in names:
@@ -1323,7 +1323,7 @@ def _sort_selected_alphabetically(view, model, mod_rows):
     # permutation); at each selected slot drop in the next sorted entry.
     # set_entries re-appends boundaries.
     sel_ids = {id(e) for e in sel}
-    from Utils.conflict_timing import ConflictTimeline
+    from Utils.diagnostics.conflicts import ConflictTimeline
     timing = ConflictTimeline("move", [e.name for e in sel])
     phase_started = timing.now()
     old_order = [e.name for e in model.natural_entries() if not e.is_separator]
@@ -1412,11 +1412,11 @@ def _show_overwrite_log(view, boundary_name=None):
     game = getattr(view, "game", None)
     if game is None:
         return
-    from Utils.filegraph_constants import ROOT_FOLDER_NAME
+    from Utils.filegraph.constants import ROOT_FOLDER_NAME
     is_root = boundary_name == ROOT_FOLDER_NAME
     text = ""
     try:
-        from Utils.deploy_shared import OVERWRITE_LOG_NAME
+        from Utils.deployment.shared import OVERWRITE_LOG_NAME
         base = (game.get_effective_root_folder_path() if is_root
                 else game.get_effective_overwrite_path())
         log_path = base / OVERWRITE_LOG_NAME
@@ -1474,7 +1474,7 @@ def _name_suggestions(view, name):
     if staging is None:
         return []
     try:
-        from Utils.mod_name_utils import suggest_names_for_staged_mod
+        from Utils.mods.names import suggest_names_for_staged_mod
         return suggest_names_for_staged_mod(staging, name)
     except Exception as exc:
         print(f"[gui_qt] name suggestions failed for {name!r}: {exc}", flush=True)
@@ -1525,7 +1525,7 @@ def _group_owners(view, names):
     if profile_dir is None:
         return None
     try:
-        from Utils.profile_groups import is_group, owner_of
+        from Utils.profiles.groups import is_group, owner_of
         if not is_group(profile_dir):
             return None
         owners = {}
@@ -1544,7 +1544,7 @@ def _locked_group_mods(view, names):
     if profile_dir is None:
         return {}
     try:
-        from Utils.profile_groups import is_group, locked_owners
+        from Utils.profiles.groups import is_group, locked_owners
         if not is_group(profile_dir):
             return {}
         return locked_owners(profile_dir, list(names))
@@ -1567,9 +1567,9 @@ def _run_remove(view, game, profile_dir, names, owners) -> list:
     log = lambda m: print(f"[remove] {m}", flush=True)  # noqa: E731
     try:
         if owners is not None:
-            from Utils.profile_groups import remove_mods_from_group
+            from Utils.profiles.groups import remove_mods_from_group
             return remove_mods_from_group(game, profile_dir, names, log_fn=log)
-        from Utils.mod_remove import remove_mods
+        from Utils.mods.remove import remove_mods
         remove_mods(game, profile_dir, names, log_fn=log)
         return list(names)
     except Exception as exc:
@@ -1639,7 +1639,7 @@ def _open_sep_settings(view, model, row):
     profile_dir = getattr(view, "profile_dir", None)
     if profile_dir is not None:
         try:
-            from Utils.profile_state import read_separator_deploy_paths
+            from Utils.profiles.state import read_separator_deploy_paths
             current_deploy = read_separator_deploy_paths(profile_dir).get(
                 e.name, {})
         except Exception:

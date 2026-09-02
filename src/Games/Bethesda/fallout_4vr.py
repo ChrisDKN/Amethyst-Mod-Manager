@@ -75,7 +75,7 @@ class Fallout_4VR(Fallout_3):
     
     @property
     def custom_routing_rules(self) -> list:
-        from Utils.deploy import CustomRule
+        from Utils.deployment import CustomRule
         return [
             CustomRule(dest="", filenames=["f4sevr_steam_loader.dll"], flatten=True, loose_only=True),
             CustomRule(dest="", filenames=["f4sevr_loader.exe"], flatten=True, loose_only=True),

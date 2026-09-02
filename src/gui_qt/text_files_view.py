@@ -1,5 +1,5 @@
 """Qt Text Files tab - lists config/text files from mods, profile, game folder and
-My Games, grouped by source. Reuses Utils.text_files for discovery + content
+My Games, grouped by source. Reuses Utils.text.files for discovery + content
 search. Built lazily (only scans when the sub-tab is shown - the recursive game /
 My-Games scans are expensive). Clicking a file opens the scoped text editor.
 """
@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QTreeView, QAbstractItemView,
 )
 
-import Utils.text_files as tf
+import Utils.text.files as tf
 from gui_qt.safe_emit import safe_emit
 from gui_qt.text_files_model import (
     TextFilesModel, _TextNode, COL_NAME, COL_SOURCE,
@@ -324,7 +324,7 @@ class TextFilesView(QWidget):
 
     # -- search -------------------------------------------------------------
     def _on_search(self, text: str):
-        from Utils.file_search import parse_file_query
+        from Utils.text.search import parse_file_query
         needle, self._search_exts = parse_file_query(text)
         self._search = needle
         t = getattr(self, "_search_timer", None)

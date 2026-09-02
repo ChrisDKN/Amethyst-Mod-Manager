@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
 from gui_qt.safe_emit import safe_emit
 from gui_qt.theme_qt import active_palette, _c
 from wizards_qt._view_base import GREEN, RED, WizardViewBase
-from Utils.texture_tools import (
+from Utils.wizards.textures import (
     VRAMR_PRESETS, TextureToolCancelled, texture_tool_installed,
     vramr_installed,
 )
@@ -319,7 +319,7 @@ class TextureToolView(WizardViewBase):
         self._stop_btn.setVisible(True)
         preset = self._selected_preset()
         prefer_discrete_gpu = self._prefer_discrete_gpu()
-        from Utils.texture_tools import applications_dir
+        from Utils.wizards.textures import applications_dir
         bat_dir = applications_dir(game, self._app_dir)
         staging = game.get_effective_mod_staging_path()
         output_dir = staging / self._output_dir

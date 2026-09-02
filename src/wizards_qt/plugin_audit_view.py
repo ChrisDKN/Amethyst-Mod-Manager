@@ -6,7 +6,7 @@ A modlist-panel-scoped tab, three pages:
      records / blocked by dependents) with a checkbox + columns; actions:
      Re-Scan, Select All Safe, Disable Selected, Clean Orphaned INIs.
   3. Cleanup result - summary + Re-Scan.
-The scan/disable/cleanup logic lives in Utils/plugin_audit_core.py.
+The scan/disable/cleanup logic lives in Utils/plugins/audit.py.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
 from gui_qt.safe_emit import safe_emit
 from gui_qt.theme_qt import active_palette, close_button, _c
 from wizards_qt._view_base import GREEN, RED, WizardViewBase
-import Utils.plugin_audit_core as core
+import Utils.plugins.audit as core
 
 if TYPE_CHECKING:
     from Games.base_game import BaseGame

@@ -20,8 +20,8 @@ from pathlib import Path
 from typing import Callable
 
 from Utils.config_paths import get_wine_prefixes_dir
-from Utils.steam_finder import find_wine
-from Utils.texture_tools import TextureToolCancelled, kill_process_group
+from Utils.launchers.steam import find_wine
+from Utils.wizards.textures import TextureToolCancelled, kill_process_group
 from wrappers.bendr import _linux_to_wine, _ensure_utf8_prefix
 
 import re

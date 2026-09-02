@@ -19,7 +19,7 @@ from PySide6.QtWidgets import QCheckBox, QHBoxLayout, QPushButton, QWidget
 
 from gui_qt.safe_emit import safe_emit
 from wizards_qt._view_base import GREEN, RED, WizardViewBase
-from Utils.xedit_tools import tool_exe_path
+from Utils.bethesda.xedit import tool_exe_path
 
 if TYPE_CHECKING:
     from Games.base_game import BaseGame
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 _GITHUB_API = "https://api.github.com/repos/hakasapl/PGPatcher/releases/latest"
 _PATCHER_EXE = "PGPatcher.exe"
 _PATCHER_DIR = "PGPatcher"
-# .NET 8 install runs through Utils.proton_tools.install_dotnet_runtime.
+# .NET 8 install runs through Utils.wine.proton.install_dotnet_runtime.
 _AMBER = "#e0a83c"
 
 _PG_DOWNLOAD, _PG_PROTON, _PG_DEPS, _PG_CONFIG, _PG_DEPLOY, _PG_RUN = range(6)
@@ -166,8 +166,8 @@ class PGPatcherView(WizardViewBase):
         proton_name, prefix_mode = self._proton_name, self._prefix_mode
 
         def worker():
-            from Utils.exe_launch import PREFIX_MODE_GAME, resolve_tool_prefix
-            from Utils.protontricks import (
+            from Utils.executables.launch import PREFIX_MODE_GAME, resolve_tool_prefix
+            from Utils.wine.protontricks import (
                 D3D_DEP_KEY, dotnet_dep_key, install_d3dcompiler_47,
                 is_dep_installed,
             )
@@ -222,7 +222,7 @@ class PGPatcherView(WizardViewBase):
                     safe_emit(self._deps_done_sig, True)
                     return
 
-                from Utils.proton_tools import install_dotnet_runtime
+                from Utils.wine.proton import install_dotnet_runtime
                 ok = install_dotnet_runtime(
                     "8", proton_script, env, prefix_path,
                     log_fn=_wlog,
@@ -254,7 +254,7 @@ class PGPatcherView(WizardViewBase):
                     raise RuntimeError(self.tr(
                         "{0} not found - please restart the wizard.").format(
                             _PATCHER_EXE))
-                from Utils.exe_args_builder import _bootstrap_pgpatcher_settings
+                from Utils.executables.arguments import _bootstrap_pgpatcher_settings
                 _bootstrap_pgpatcher_settings(
                     exe,
                     game.get_game_path(),
@@ -325,8 +325,8 @@ class PGPatcherView(WizardViewBase):
         if not self._use_mo2_parity:
             self._mo2_dummy_dir = None
             return
-        from Utils.xedit_tools import applications_dir
-        from Utils.mo2_dummy import build_mo2_dummy_instance
+        from Utils.bethesda.xedit import applications_dir
+        from Utils.mo2.dummy import build_mo2_dummy_instance
 
         profile = getattr(self._ctx, "profile_name", None) or "default"
         apps_dir = applications_dir(self._game, _PATCHER_DIR)
@@ -355,8 +355,8 @@ class PGPatcherView(WizardViewBase):
         mo2_dummy_dir, mo2_game_type = self._mo2_dummy_dir, self._mo2_game_type
 
         def worker():
-            from Utils.bethesda_registry import maybe_register_for_game
-            from Utils.exe_launch import (
+            from Utils.bethesda.registry import maybe_register_for_game
+            from Utils.executables.launch import (
                 PREFIX_MODE_GAME, link_plugins_txt, resolve_tool_prefix,
                 run_tool_logged, shutdown_prefix_wineserver,
             )
@@ -392,7 +392,7 @@ class PGPatcherView(WizardViewBase):
                 # ran before the dummy was built, so this is the
                 # authoritative write of modmanager.type.
                 try:
-                    from Utils.exe_args_builder import _bootstrap_pgpatcher_settings
+                    from Utils.executables.arguments import _bootstrap_pgpatcher_settings
                     _bootstrap_pgpatcher_settings(
                         exe,
                         game.get_game_path(),

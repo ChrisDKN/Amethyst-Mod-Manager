@@ -93,7 +93,7 @@ def cmd_deploy(games: dict, key: str, profile: str):
         print(f"Error: game '{game.name}' is not configured (game path not set).", file=sys.stderr)
         sys.exit(1)
 
-    from Utils.deploy_pipeline import run_deploy_pipeline
+    from Utils.deployment.pipeline import run_deploy_pipeline
 
     profile_dir = game.get_profile_root() / "profiles" / profile
     if not profile_dir.is_dir():
@@ -156,7 +156,7 @@ def cmd_launch(games: dict, key: str, profile: "str | None" = None,
         """Return launcher argv on the side of the sandbox that owns it."""
         if os.environ.get("FLATPAK_ID") != "io.github.Amethyst.ModManager":
             return list(command)
-        from Utils.flatpak_env import flatpak_forward_env_args
+        from Utils.flatpak.env import flatpak_forward_env_args
         portal = ["flatpak-spawn", "--host"]
         try:
             game_root = game.get_game_path()
@@ -247,7 +247,7 @@ def cmd_launch(games: dict, key: str, profile: "str | None" = None,
         sys.exit(1)
 
     if deploy:
-        from Utils.deploy_pipeline import run_deploy_pipeline
+        from Utils.deployment.pipeline import run_deploy_pipeline
         _launch_log(f"Deploying {game.name} / {profile} ...")
         if not run_deploy_pipeline(game, profile, log_fn=_launch_log):
             print("Error: deploy failed - refusing to launch.", file=sys.stderr)
@@ -330,7 +330,7 @@ def cmd_restore(games: dict, key: str):
         print(f"Error: game '{game.name}' is not configured (game path not set).", file=sys.stderr)
         sys.exit(1)
 
-    from Utils.deploy import restore_root_folder_for_game
+    from Utils.deployment import restore_root_folder_for_game
 
     game_root = game.get_game_path()
     profile_root = game.get_profile_root()
@@ -357,7 +357,7 @@ def cmd_restore(games: dict, key: str):
             game_root=game_root, log_fn=_log,
         )
 
-    from Utils.deploy_pipeline import finalize_filegraph_recovery
+    from Utils.deployment.pipeline import finalize_filegraph_recovery
     finalize_filegraph_recovery(
         game, recovery_profile_dir, log_fn=_log)
 
@@ -382,7 +382,7 @@ def cmd_export_filemap(games: dict, key: str, profile: str, *,
 
     game.set_active_profile_dir(profile_dir)
     game.load_paths()
-    from Utils.filegraph_service import FileGraphService
+    from Utils.filegraph.service import FileGraphService
     library = FileGraphService.open_library(game, profile_dir, log_fn=_log)
     try:
         status = library.status()
@@ -461,7 +461,7 @@ def main():
         cmd_clear_credentials()
         return
 
-    from Utils.game_loader import discover_games
+    from Utils.games.discovery import discover_games
     games = discover_games()
 
     if args.command == "list-games":

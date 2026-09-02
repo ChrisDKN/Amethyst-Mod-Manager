@@ -14,8 +14,8 @@ import stat
 
 from Games.base_game import BaseGame, WizardTool
 from Utils.vfs import ProfileVFSGameMixin
-from Utils.deploy import LinkMode, deploy_core, deploy_custom_rules, deploy_filemap, load_per_mod_strip_prefixes, load_separator_deploy_paths, expand_separator_deploy_paths, expand_separator_link_modes, expand_separator_raw_deploy, cleanup_custom_deploy_dirs, move_to_core, restore_custom_rules, restore_data_core
-from Utils.modlist import read_modlist
+from Utils.deployment import LinkMode, deploy_core, deploy_custom_rules, deploy_filemap, load_per_mod_strip_prefixes, load_separator_deploy_paths, expand_separator_deploy_paths, expand_separator_link_modes, expand_separator_raw_deploy, cleanup_custom_deploy_dirs, move_to_core, restore_custom_rules, restore_data_core
+from Utils.mods.modlist import read_modlist
 from Utils.config_paths import get_profiles_dir
 
 _PROFILES_DIR = get_profiles_dir()
@@ -145,7 +145,7 @@ class Subnautica(ProfileVFSGameMixin, BaseGame):
 
     def _vfs_native_game_exe(self) -> Path | None:
         """The selected native game executable, or ``None`` for Wine builds."""
-        from Utils.exe_launch import resolve_game_exe
+        from Utils.executables.launch import resolve_game_exe
 
         resolved = resolve_game_exe(self)
         if (resolved is not None
@@ -163,7 +163,7 @@ class Subnautica(ProfileVFSGameMixin, BaseGame):
         game_root = self.get_game_path()
         if game_root is None:
             return None
-        from Utils.deploy import _resolve_nocase
+        from Utils.deployment import _resolve_nocase
         for name in getattr(self, "exe_name_alts", None) or ():
             if Path(name).suffix.lower() in (".exe", ".bat"):
                 continue
@@ -323,7 +323,7 @@ class Subnautica(ProfileVFSGameMixin, BaseGame):
 
     @property
     def custom_routing_rules(self) -> list:
-        from Utils.deploy import CustomRule
+        from Utils.deployment import CustomRule
         return [
             CustomRule(dest="", filenames=[
                 "winhttp.dll",
@@ -434,7 +434,7 @@ class Subnautica(ProfileVFSGameMixin, BaseGame):
         staging     = self.get_effective_mod_staging_path()
         core        = self.mods_dir + "_Core"
 
-        from Utils.filegraph_deploy import input_ready
+        from Utils.filegraph.deploy import input_ready
         if not input_ready():
             raise RuntimeError(
                 f"filemap.txt not found: {filemap}\n"

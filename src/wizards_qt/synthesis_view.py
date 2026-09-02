@@ -2,7 +2,7 @@
 
 Download the latest Synthesis release → pick a Proton version → bootstrap its
 own Wine/.NET prefix → launch Synthesis.exe.  All non-GUI logic lives in
-``Utils.synthesis_setup``.  Port of the Tk ``bethesda_synthesis`` plugin.
+``Utils.bethesda.synthesis``.  Port of the Tk ``bethesda_synthesis`` plugin.
 """
 
 from __future__ import annotations
@@ -90,7 +90,7 @@ class SynthesisView(WizardViewBase):
         self._dl_bar.setValue(pct)
 
     def _do_download(self):
-        from Utils.synthesis_setup import download_and_extract_synthesis
+        from Utils.bethesda.synthesis import download_and_extract_synthesis
         try:
             def hook(block_num, block_size, total_size):
                 if total_size > 0:
@@ -149,7 +149,7 @@ class SynthesisView(WizardViewBase):
         self._reload_proton_candidates()
 
     def _reload_proton_candidates(self, selected: str = ""):
-        from Utils.synthesis_setup import list_proton, load_saved_proton
+        from Utils.bethesda.synthesis import list_proton, load_saved_proton
         for button in self._proton_group.buttons():
             self._proton_group.removeButton(button)
         while self._proton_layout.count():
@@ -181,7 +181,7 @@ class SynthesisView(WizardViewBase):
         self._proton_continue.setEnabled(True)
 
     def _browse_custom_proton(self):
-        from Utils.portal_filechooser import pick_folder
+        from Utils.ui.portal import pick_folder
         pick_folder(
             self.tr("Select custom Proton build folder"),
             lambda path: safe_emit(self._custom_proton_picked_sig, path))
@@ -189,7 +189,7 @@ class SynthesisView(WizardViewBase):
     def _on_custom_proton_picked(self, path):
         if not path:
             return
-        from Utils.steam_finder import resolve_custom_proton_script
+        from Utils.launchers.steam import resolve_custom_proton_script
         script = resolve_custom_proton_script(path)
         if script is None:
             self._set_status(
@@ -197,7 +197,7 @@ class SynthesisView(WizardViewBase):
                 self.tr("The selected folder does not contain a top-level "
                         "'proton' launcher."), RED)
             return
-        from Utils.ui_config import save_custom_proton_path
+        from Utils.ui.config import save_custom_proton_path
         save_custom_proton_path(str(script.parent))
         self._reload_proton_candidates(script.parent.name)
         self._log(f"Synthesis: registered custom Proton build {script.parent}")
@@ -211,9 +211,9 @@ class SynthesisView(WizardViewBase):
         if idx < 0 or idx >= len(self._proton_candidates):
             return
         selected = self._proton_candidates[idx]
-        from Utils.steam_finder import is_custom_proton_script
+        from Utils.launchers.steam import is_custom_proton_script
         if is_custom_proton_script(selected):
-            from Utils.ui_config import load_custom_proton_warning_ack
+            from Utils.ui.config import load_custom_proton_warning_ack
             if not load_custom_proton_warning_ack():
                 from gui_qt.confirm_overlay import ConfirmOverlay
                 ConfirmOverlay.show_over(
@@ -236,12 +236,12 @@ class SynthesisView(WizardViewBase):
     def _on_custom_warning_done(self, accepted: bool, selected: Path):
         if not accepted:
             return
-        from Utils.ui_config import save_custom_proton_warning_ack
+        from Utils.ui.config import save_custom_proton_warning_ack
         save_custom_proton_warning_ack(True)
         self._save_proton_and_setup(selected)
 
     def _save_proton_and_setup(self, selected: Path):
-        from Utils.synthesis_setup import save_proton
+        from Utils.bethesda.synthesis import save_proton
         self._selected_proton = selected
         save_proton(self._game, self._selected_proton.parent.name)
         self._goto_setup()
@@ -277,7 +277,7 @@ class SynthesisView(WizardViewBase):
                          name="synthesis-setup").start()
 
     def _do_setup(self):
-        from Utils.synthesis_setup import (
+        from Utils.bethesda.synthesis import (
             setup_synthesis_prefix, synthesis_dir, synthesis_prefix_parent,
         )
         game_path = self._game.get_game_path()
@@ -336,7 +336,7 @@ class SynthesisView(WizardViewBase):
                          name="synthesis-launch").start()
 
     def _do_launch(self):
-        from Utils.synthesis_setup import (
+        from Utils.bethesda.synthesis import (
             launch_synthesis, remove_symlinks, symlink_mygames, symlink_plugins,
         )
         profile = self._current_profile()

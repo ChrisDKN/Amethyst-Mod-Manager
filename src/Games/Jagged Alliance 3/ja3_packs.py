@@ -20,7 +20,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from Utils.deploy_shared import LinkMode, _do_link, _restore_backup_dir
+from Utils.deployment.shared import LinkMode, _do_link, _restore_backup_dir
 
 _PACKS_DIR = "Packs"
 _BACKUP_DIR_NAME = "packs_backup"
@@ -46,7 +46,7 @@ def _iter_loose_hpks(filemap_path: Path, staging: Path):
     the mod folder is irrelevant - what matters is that it matches a vanilla
     pack by basename (checked by the caller).
     """
-    from Utils.filegraph_deploy import entries as filegraph_entries, legacy_rows
+    from Utils.filegraph.deploy import entries as filegraph_entries, legacy_rows
     sources = {
         (entry.legacy_rel.lower(), entry.mod_name): entry.source_path
         for entry in filegraph_entries()

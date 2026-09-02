@@ -295,7 +295,7 @@ def build_chargenmorph(data_root: Path, mod_staging: "Path | None" = None,
     search_root = mod_staging if mod_staging and mod_staging.is_dir() else data_root
     # A Profile Group's staging is a farm of per-mod symlinks; os.walk never
     # descends into those, so expand them to their real targets first.
-    from Utils.profile_groups import staging_walk_roots
+    from Utils.profiles.groups import staging_walk_roots
     _seen_frag: set[str] = set()
     for base in staging_walk_roots(search_root):
         for dirpath, _dn, fns in os.walk(base):

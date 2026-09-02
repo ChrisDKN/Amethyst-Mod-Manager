@@ -13,7 +13,7 @@ from pathlib import Path
 
 from Games.base_game import BaseGame
 from Utils.vfs import ProfileVFSGameMixin
-from Utils.deploy import (
+from Utils.deployment import (
     LinkMode,
     deploy_core,
     deploy_filemap,
@@ -24,7 +24,7 @@ from Utils.deploy import (
     move_to_core,
     restore_data_core,
 )
-from Utils.modlist import read_modlist
+from Utils.mods.modlist import read_modlist
 from Utils.config_paths import get_profiles_dir
 
 _PROFILES_DIR = get_profiles_dir()
@@ -147,7 +147,7 @@ class SlayTheSpire2(ProfileVFSGameMixin, BaseGame):
         staging     = self.get_effective_mod_staging_path()
         core        = self.mods_dir + "_Core"
 
-        from Utils.filegraph_deploy import input_ready
+        from Utils.filegraph.deploy import input_ready
         if not input_ready():
             raise RuntimeError(
                 f"filemap.txt not found: {filemap}\n"

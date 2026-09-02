@@ -34,7 +34,7 @@ def _load_qimage(path: Path) -> QImage | None:
     try:
         import io
         from PIL import Image as PilImage
-        from Utils.dds_compat import sanitise_dds
+        from Utils.assets.dds import sanitise_dds
         # Through bytes so sRGB DXGI formats Pillow lacks can be remapped.
         with PilImage.open(io.BytesIO(sanitise_dds(path.read_bytes()))) as im:
             im = im.convert("RGBA")

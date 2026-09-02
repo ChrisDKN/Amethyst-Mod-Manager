@@ -119,7 +119,7 @@ class ModExistsOverlay(OverlayBase):
         self._entry.selectAll()
 
     def _confirm_rename(self):
-        from Utils.mod_name_utils import sanitize_mod_folder_name
+        from Utils.mods.names import sanitize_mod_folder_name
         name = sanitize_mod_folder_name(self._entry.text().strip())
         if not name:
             return

@@ -3,7 +3,7 @@
 Shows what MO2 shows for a Bethesda save: screenshot, character, play time and
 the plugin list it was written with. Plugins missing from the active load
 order are flagged red, so an unsafe save is obvious before loading it. Parsing
-lives in Utils.save_header and runs on a worker; this only renders.
+lives in Utils.saves.header and runs on a worker; this only renders.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui_qt.theme_qt import active_palette, bind_theme, _c
-from Utils.save_header import format_play_time
+from Utils.saves.header import format_play_time
 
 # Save screenshots are small (320x192 Skyrim, 512x288 New Vegas) - little to
 # gain from blowing them up much past native size.

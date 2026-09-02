@@ -13,7 +13,7 @@ from PySide6.QtCore import QObject, Signal
 
 from gui_qt.safe_emit import safe_emit
 from gui_qt.worker import LatestWorker
-from Utils.mesh_catalog import MeshEntry, find_copies, read_entry, source_label
+from Utils.assets.catalog import MeshEntry, find_copies, read_entry, source_label
 
 __all__ = ["TextureSourceController", "group_by_source", "make_override"]
 
@@ -35,7 +35,7 @@ def make_override(chosen: dict | None, staging, data_dir):
     and fall through to normal resolution."""
     if not chosen:
         return None
-    from Utils.asset_resolver import DirCache, normalise
+    from Utils.assets.resolver import DirCache, normalise
     dirs = DirCache()
     representative = next(iter(chosen.values()), None)
 

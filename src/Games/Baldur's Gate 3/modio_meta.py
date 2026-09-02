@@ -40,8 +40,8 @@ from typing import Callable, Optional
 
 from Utils.app_log import app_log
 from Utils.atomic_write import atomic_writer
-from Utils.meta_lock import locked_meta_write
-from Utils.pak_reader import extract_meta_lsx
+from Utils.mods.metadata import locked_meta_write
+from Utils.bg3.pak import extract_meta_lsx
 
 _SECTION = "modio"
 _LEGACY_SECTION = "General"

@@ -275,7 +275,7 @@ class FomodChoicesView(QWidget):
         token = self._load_token
 
         def load():
-            from Utils.fomod_choices import load_choices
+            from Utils.fomod.choices import load_choices
             return token, load_choices(mod, pdir, game)
 
         run_in_worker(load, self._ready, name="fomod-choices",

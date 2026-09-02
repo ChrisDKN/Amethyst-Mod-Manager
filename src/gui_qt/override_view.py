@@ -21,11 +21,11 @@ from PySide6.QtWidgets import (
 )
 
 from gui_qt.safe_emit import safe_emit
-from Utils.modlist import read_modlist
-from Utils.override_scan import (
+from Utils.mods.modlist import read_modlist
+from Utils.bg3.overrides import (
     OverridePakRow, STATUS_NO_META, scan_override_paks,
 )
-from Utils.profile_state import (
+from Utils.profiles.state import (
     read_excluded_mod_files, write_excluded_mod_files,
 )
 from gui_qt.theme_qt import bind_theme, qc, qc_contrast

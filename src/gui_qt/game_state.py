@@ -15,10 +15,10 @@ from pathlib import Path
 # Crash-proof diagnostic prints (Flatpak stdout can raise BrokenPipeError and
 # kill worker threads). See Utils.app_log.safe_print.
 from Utils.app_log import safe_print as print  # noqa: A004
-from Utils.game_helpers import (
+from Utils.games.registry import (
     _load_games, _profiles_for_game, _load_last_game, _save_last_game, _GAMES,
 )
-from Utils.ui_config import load_last_session, save_last_session
+from Utils.ui.config import load_last_session, save_last_session
 
 
 def _loose_code_without_archive_wins(summary, archive_wins: int) -> int:
@@ -212,7 +212,7 @@ class GameState:
         if g is None or pdir is None:
             return
         try:
-            from Utils.profile_groups import materialize_if_group
+            from Utils.profiles.groups import materialize_if_group
             materialize_if_group(g, pdir, timing=timing)
         except Exception as exc:
             print(f"[gui_qt] profile-group reconcile failed: {exc}", flush=True)
@@ -253,7 +253,7 @@ class GameState:
                               lane="worker")
             return ConflictData()
         import time
-        from Utils.perftrace import span
+        from Utils.diagnostics.performance import span
         log = log_fn or (lambda _m: None)
         phase_started = time.perf_counter()
         # Flat-staging heal (Tk parity): wrap manually-copied flat mods before
@@ -261,7 +261,7 @@ class GameState:
         # fix forces a full rescan - the index still has the pre-wrap layout.
         if getattr(g, "mod_staging_requires_subdir", False):
             try:
-                from Utils.mod_install import fix_flat_staging_folders
+                from Utils.mods.install import fix_flat_staging_folders
                 names, exts = getattr(g, "mod_staging_wrap_signals",
                                       ({"manifest.json"}, set()))
                 guard = getattr(g, "mod_staging_already_structured_markers",
@@ -284,7 +284,7 @@ class GameState:
                 timing.finish("conflict build skipped: profile path unavailable",
                               lane="worker")
             return ConflictData()
-        from Utils.filegraph_service import FileGraphService
+        from Utils.filegraph.service import FileGraphService
         phase_started = time.perf_counter()
         with span("filegraph.open_library"):
             library = FileGraphService.open_library(
@@ -325,13 +325,13 @@ class GameState:
         show_archives = bool(archive_exts)
         if show_archives:
             try:
-                from Utils.ue_pak_reader import UE_ARCHIVE_EXTENSIONS
+                from Utils.unreal.archives import UE_ARCHIVE_EXTENSIONS
                 is_ue = bool(archive_exts & UE_ARCHIVE_EXTENSIONS)
             except Exception:
                 is_ue = False
             if not is_ue:
                 try:
-                    from Utils.ui_config import load_hide_bsa_conflicts
+                    from Utils.ui.config import load_hide_bsa_conflicts
                     show_archives = not load_hide_bsa_conflicts()
                 except Exception:
                     pass
@@ -343,7 +343,7 @@ class GameState:
             and data.snapshot is not None
             and data.snapshot.generation == delta.base_generation
         )
-        from Utils.filegraph_adapter import (
+        from Utils.filegraph.adapter import (
             FLAG_ARCHIVE, FLAG_FRAMEWORK, FLAG_PLUGIN, FLAG_PRE_RTX,
             FLAG_ROOT_RULE,
         )
@@ -518,7 +518,7 @@ class GameState:
         )
         if not reuse_frameworks:
             with span("filegraph.detect_frameworks"):
-                from Utils.framework_detect import detect_frameworks_snapshot
+                from Utils.games.frameworks import detect_frameworks_snapshot
                 data.framework_statuses = detect_frameworks_snapshot(
                     g, snapshot, self.modlist_path(), rf_toggle_enabled=True)
         if timing is not None:
@@ -581,7 +581,7 @@ class GameState:
             # every profile switch). Without this the previous profile's paths
             # stay live on the game object.
             try:
-                from Utils.perftrace import span
+                from Utils.diagnostics.performance import span
                 with span("game.load_paths"):
                     g.load_paths()
             except Exception:

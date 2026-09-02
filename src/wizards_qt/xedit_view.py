@@ -42,7 +42,7 @@ from gui_qt.theme_qt import (
     active_palette, _c, button_qss, close_button, ok_text, err_text,
 )
 from gui_qt.safe_emit import safe_emit
-from Utils.xedit_tools import tool_exe_path
+from Utils.bethesda.xedit import tool_exe_path
 
 if TYPE_CHECKING:
     from Games.base_game import BaseGame
@@ -273,7 +273,7 @@ class XEditView(QWidget):
         return page
 
     def _open_download_page(self):
-        from Utils.xdg import open_url
+        from Utils.environment.xdg import open_url
         open_url(self._nexus_url)
 
     # ---- hands-free archive fetch (premium download / folder watch) --------------
@@ -344,7 +344,7 @@ class XEditView(QWidget):
         return page
 
     def _scan_downloads(self):
-        from Utils.wizard_archives import find_archive, get_downloads_dir
+        from Utils.wizards.archives import find_archive, get_downloads_dir
         found = find_archive(get_downloads_dir(), [self._archive_keyword])
         if found:
             self._archive_path = found
@@ -363,7 +363,7 @@ class XEditView(QWidget):
                 err_text())
 
     def _browse_archive(self):
-        from Utils.portal_filechooser import pick_file
+        from Utils.ui.portal import pick_file
         # Portal callback fires on a WORKER thread - marshal via Signal.
         pick_file(self.tr("Select the {0} archive").format(self._xedit_name),
                   lambda *a: safe_emit(self._picked_sig, *a))
@@ -390,8 +390,8 @@ class XEditView(QWidget):
         exe_name, app_dir = self._exe_name, self._app_dir
 
         def worker():
-            from Utils.wizard_archives import extract_archive
-            from Utils.xedit_tools import applications_dir, flatten_subdirs
+            from Utils.wizards.archives import extract_archive
+            from Utils.bethesda.xedit import applications_dir, flatten_subdirs
             try:
                 if archive is None or not archive.is_file():
                     raise RuntimeError(self.tr("Archive not found."))
@@ -534,7 +534,7 @@ class XEditView(QWidget):
     def _build_dirty_plugins_panel(self):
         """QAC only: list the LOOT-flagged dirty plugins above the run status
         so the user can see what needs cleaning without closing the wizard."""
-        from Utils.xedit_tools import collect_dirty_plugins
+        from Utils.bethesda.xedit import collect_dirty_plugins
         dirty = collect_dirty_plugins(self._game)
         if not dirty or self._dirty_box_added:
             return
@@ -588,12 +588,12 @@ class XEditView(QWidget):
         proton_name, prefix_mode = self._proton_name, self._prefix_mode
 
         def worker():
-            from Utils.exe_launch import (
+            from Utils.executables.launch import (
                 PREFIX_MODE_GAME, load_tool_launch_args, parse_launch_args,
                 resolve_tool_prefix, run_tool_logged, shutdown_prefix_wineserver,
             )
-            from Utils.wine_paths import to_wine_path
-            from Utils.xedit_tools import (
+            from Utils.wine.paths import to_wine_path
+            from Utils.bethesda.xedit import (
                 begin_xedit_vfs_session, finalize_xedit_saves,
                 persist_xedit_vfs_changes, prepare_xedit_prefix,
                 restore_after_xedit,
@@ -640,7 +640,7 @@ class XEditView(QWidget):
                     extra_args.extend(user_args)
 
                 # Registry seed + plugins.txt / My Games links + viewsettings
-                # seed + WinXP compat flag (see Utils.xedit_tools).
+                # seed + WinXP compat flag (see Utils.bethesda.xedit).
                 #
                 # The viewsettings filename xEdit reads is keyed to the GAME
                 # mode, not the launcher exe.  The Nexus builds are per-game so
@@ -742,7 +742,7 @@ class XEditView(QWidget):
         """QAC run page: let the user launch the tool interactively (pick a
         plugin each time) or clean every dirty plugin in one pass. Nothing
         launches until they choose."""
-        from Utils.xedit_tools import collect_dirty_plugins
+        from Utils.bethesda.xedit import collect_dirty_plugins
         dirty = collect_dirty_plugins(self._game)
         n = len(dirty)
         if n:
@@ -778,7 +778,7 @@ class XEditView(QWidget):
             self._set_status(self._run_status,
                              self.tr("{0} was not found.").format(self._exe_name), err_text())
             return
-        from Utils.xedit_tools import collect_dirty_plugins
+        from Utils.bethesda.xedit import collect_dirty_plugins
         plugins = [name for name, _ in collect_dirty_plugins(game)]
         if not plugins:
             self._set_status(self._run_status,
@@ -797,12 +797,12 @@ class XEditView(QWidget):
         proton_name, prefix_mode = self._proton_name, self._prefix_mode
 
         def worker():
-            from Utils.exe_launch import (
+            from Utils.executables.launch import (
                 PREFIX_MODE_GAME, resolve_tool_prefix, run_tool_logged,
                 shutdown_prefix_wineserver,
             )
-            from Utils.wine_paths import to_wine_path
-            from Utils.xedit_tools import (
+            from Utils.wine.paths import to_wine_path
+            from Utils.bethesda.xedit import (
                 begin_xedit_vfs_session, finalize_xedit_saves,
                 persist_xedit_vfs_changes, prepare_xedit_prefix,
                 restore_after_xedit,

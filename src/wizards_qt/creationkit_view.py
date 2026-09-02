@@ -20,7 +20,7 @@ from PySide6.QtWidgets import QHBoxLayout, QPushButton, QWidget
 
 from gui_qt.safe_emit import safe_emit
 from wizards_qt._view_base import GREEN, RED, WizardViewBase
-from Utils.creationkit_tools import (
+from Utils.bethesda.creation_kit import (
     EXE_NAME, ckpe_mod_installed, creationkit_exe_path,
 )
 
@@ -165,7 +165,7 @@ class CreationKitView(WizardViewBase):
         game = self._game
 
         def worker():
-            from Utils.creationkit_tools import install_ckpe_mod
+            from Utils.bethesda.creation_kit import install_ckpe_mod
             _wlog = lambda m: self._log(f"Creation Kit Wizard: {m}")
             try:
                 tag = install_ckpe_mod(
@@ -202,18 +202,18 @@ class CreationKitView(WizardViewBase):
         proton_name, prefix_mode = self._proton_name, self._prefix_mode
 
         def worker():
-            from Utils.bethesda_registry import maybe_register_for_game
-            from Utils.deploy import apply_wine_dll_overrides
-            from Utils.exe_launch import (
+            from Utils.bethesda.registry import maybe_register_for_game
+            from Utils.deployment import apply_wine_dll_overrides
+            from Utils.executables.launch import (
                 PREFIX_MODE_GAME, link_mygames, link_plugins_txt,
                 resolve_tool_prefix, run_tool_logged, shutdown_prefix_wineserver,
             )
-            from Utils.protontricks import (
+            from Utils.wine.protontricks import (
                 D3D_DEP_KEY, VCREDIST_DEP_KEY, install_d3dcompiler_47,
                 install_vcredist, is_dep_installed,
             )
             from Utils.vfs import effective_tool_game_root
-            from Utils.xedit_tools import (
+            from Utils.bethesda.xedit import (
                 begin_xedit_vfs_session, persist_xedit_vfs_changes,
             )
             _wlog = lambda m: self._log(f"Creation Kit Wizard: {m}")

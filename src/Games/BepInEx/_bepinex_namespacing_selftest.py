@@ -21,8 +21,8 @@ if str(_SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(_SRC_ROOT))
 
 from Games.BepInEx.BepInEx import _thunderstore_plugin_subdirs  # noqa: E402
-from Utils.deploy import LinkMode, deploy_filemap  # noqa: E402
-from Utils.modlist import parse_modlist_text  # noqa: E402
+from Utils.deployment import LinkMode, deploy_filemap  # noqa: E402
+from Utils.mods.modlist import parse_modlist_text  # noqa: E402
 
 
 def _write_source(staging: Path) -> tuple[str, Path]:

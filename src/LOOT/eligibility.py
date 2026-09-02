@@ -17,7 +17,7 @@ import atexit
 import shutil
 from pathlib import Path
 
-from Utils.tmp_dirs import make_tracked_tmpdir, sweep_stale_tmpdirs
+from Utils.environment.temp import make_tracked_tmpdir, sweep_stale_tmpdirs
 
 try:
     import loot

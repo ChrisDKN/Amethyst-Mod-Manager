@@ -590,7 +590,7 @@ class MyCollectionsView(QWidget):
         if col is None:
             return
         name = self._name.text().strip()
-        from Utils.collection_export import validate_collection_name
+        from Utils.collections.export import validate_collection_name
         problem = validate_collection_name(name)
         if problem:
             self._notify(problem, "warning")

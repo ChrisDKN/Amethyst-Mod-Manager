@@ -2,7 +2,7 @@
 *configured* download locations (default Downloads, Mod Manager cache, and any
 extra locations) - NOT a native folder browser.
 
-The list of targets comes from ``Utils.downloads_core.get_scan_dirs`` /
+The list of targets comes from ``Utils.downloads.core.get_scan_dirs`` /
 ``section_label_for_dir`` so it matches the folders the Downloads tab already
 scans. Picking a target invokes ``on_pick(Path)`` with the chosen destination.
 
@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
 
 from gui_qt.overlay_base import OverlayBase
 from gui_qt.theme_qt import active_palette, _c
-import Utils.downloads_core as dc
+import Utils.downloads.core as dc
 
 
 class MoveDownloadsOverlay(OverlayBase):

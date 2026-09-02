@@ -8,7 +8,7 @@ also writes a failsafe manifest of the original hash bytes into the game root
 (``.mm_pak_restore.json``); this view restores from that manifest.
 
 Opens as a plugins-panel-scoped tab.  All PAK logic is in the neutral
-Utils.re_pak_patcher; the repair runs on a daemon thread and marshals log
+Utils.re_engine.pak; the repair runs on a daemon thread and marshals log
 lines / completion back to the UI thread via Signals.
 """
 
@@ -25,7 +25,7 @@ from PySide6.QtWidgets import (
 
 from gui_qt.theme_qt import active_palette, _c, button_qss, close_button, err_text
 from gui_qt.safe_emit import safe_emit
-from Utils.re_pak_patcher import (
+from Utils.re_engine.pak import (
     ROOT_MANIFEST_NAME,
     restore_from_root_manifest,
     root_manifest_summary,

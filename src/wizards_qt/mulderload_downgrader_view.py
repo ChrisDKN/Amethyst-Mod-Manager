@@ -205,7 +205,7 @@ class MulderLoadDowngraderView(WizardViewBase):
                 # out from under a live downgrader would corrupt the patch run.
                 # Leave everything in place in that case; the next open cleans
                 # up, and a restore would only route leftovers to overwrite/.
-                from Utils.exe_launch import live_tool_labels
+                from Utils.executables.launch import live_tool_labels
                 live = live_tool_labels(owner=self)
             except Exception:
                 live = []
@@ -257,7 +257,7 @@ class MulderLoadDowngraderView(WizardViewBase):
                 return
             self._start_download()
         elif idx == _PG_PROTON:
-            from Utils.exe_launch import PREFIX_MODE_GAME
+            from Utils.executables.launch import PREFIX_MODE_GAME
             self._enter_proton(
                 self._exe, self._exe_name, self._display_name,
                 self._on_proton_chosen,
@@ -283,7 +283,7 @@ class MulderLoadDowngraderView(WizardViewBase):
 
         def worker():
             from Utils.ca_bundle import download_file
-            from Utils.wizard_archives import fetch_newest_github_asset
+            from Utils.wizards.archives import fetch_newest_github_asset
 
             try:
                 if game_root is None or not Path(game_root).is_dir():
@@ -350,7 +350,7 @@ class MulderLoadDowngraderView(WizardViewBase):
         proton_name, prefix_mode = self._proton_name, self._prefix_mode
 
         def worker():
-            from Utils.exe_launch import (
+            from Utils.executables.launch import (
                 resolve_tool_prefix, run_tool_logged,
                 shutdown_prefix_wineserver,
             )

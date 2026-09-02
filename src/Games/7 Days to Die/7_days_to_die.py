@@ -43,8 +43,8 @@ import shutil
 from pathlib import Path
 
 from Games.base_game import BaseGame
-from Utils.deploy import LinkMode
-from Utils.modlist import read_modlist
+from Utils.deployment import LinkMode
+from Utils.mods.modlist import read_modlist
 from Utils.config_paths import get_profiles_dir
 _PROFILES_DIR = get_profiles_dir()
 
@@ -265,9 +265,9 @@ class SevenDaysToDie(BaseGame):
         # tab). Exclusions are stored as RAW keys but the keep-filter offset
         # below has these prefixes peeled off, so translate into that same
         # space - otherwise "Disable" silently misses and the files deploy.
-        from Utils.filegraph_paths import build_path_filters
-        from Utils.mod_files import translate_exclusions_for_engine
-        from Utils.profile_state import read_mod_strip_prefixes
+        from Utils.filegraph.paths import build_path_filters
+        from Utils.mods.files import translate_exclusions_for_engine
+        from Utils.profiles.state import read_mod_strip_prefixes
         per_mod_prefs = read_mod_strip_prefixes(profile_dir)
         excluded_by_mod = translate_exclusions_for_engine(
             profile_dir, staging, None, per_mod_prefs)
@@ -537,7 +537,7 @@ class SevenDaysToDie(BaseGame):
                 _log(f"  Rescued {len(rescued)} runtime file(s) into overwrite/.")
                 # Feed the same restore log the standard deploy writes so the
                 # rescued files show under Overwrite ▸ Log in the modlist.
-                from Utils.deploy_shared import _append_overwrite_log
+                from Utils.deployment.shared import _append_overwrite_log
                 _append_overwrite_log(overwrite_dir, rescued, log_fn=_log)
             if preserved:
                 _log(f"  Left {preserved} non-deployed entry/entries in place.")
@@ -735,7 +735,7 @@ def _make_keep(path_filters, mod_name: str, offset: str, strip=None):
     ``offset + rel_key`` before testing - otherwise "Disable" exclusions on
     wrapped content never match and the files deploy anyway."""
     if strip:
-        from Utils.mod_files import rel_key_after_strip
+        from Utils.mods.files import rel_key_after_strip
         return lambda rel_key: path_filters.accepts(
             mod_name, rel_key_after_strip(offset + rel_key, strip))
     return lambda rel_key: path_filters.accepts(mod_name, offset + rel_key)

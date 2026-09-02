@@ -37,7 +37,7 @@ def register_all(app, *, log, parent_window, ask_choice=None, warn=None,
     #    the callback would never fire and the worker would block forever
     #    waiting on it.
     try:
-        from Utils.portal_filechooser import set_main_thread_dispatcher
+        from Utils.ui.portal import set_main_thread_dispatcher
         set_main_thread_dispatcher(lambda fn: QTimer.singleShot(0, app, fn))
         done.append("main_thread_dispatcher")
     except Exception as e:
@@ -45,7 +45,7 @@ def register_all(app, *, log, parent_window, ask_choice=None, warn=None,
 
     # 3. ui_hooks - ask_choice / warn.
     try:
-        from Utils import ui_hooks
+        from Utils.ui import hooks as ui_hooks
         if ask_choice is None:
             def ask_choice(**kw):
                 log(f"[ui_hooks] ask_choice (stub): {kw.get('title')}")
@@ -62,7 +62,7 @@ def register_all(app, *, log, parent_window, ask_choice=None, warn=None,
 
     # 4. screen probe - Qt owns DPI/scale via QScreen.
     try:
-        from Utils.ui_config import set_screen_probe
+        from Utils.ui.config import set_screen_probe
 
         def _probe():
             scr = app.primaryScreen()
@@ -77,7 +77,7 @@ def register_all(app, *, log, parent_window, ask_choice=None, warn=None,
     try:
         from PySide6.QtCore import QLibraryInfo
         from PySide6.QtGui import QGuiApplication
-        from Utils.system_info import set_qt_runtime_provider
+        from Utils.diagnostics.system import set_qt_runtime_provider
 
         def _qt_runtime():
             screens = []
@@ -109,13 +109,13 @@ def register_all(app, *, log, parent_window, ask_choice=None, warn=None,
     except Exception as e:
         done.append(f"qt_runtime_provider FAILED: {e!r}")
 
-    # 5. theme override resolver - same gui.themes.<mode> source as Tk.
+    # 5. theme override resolver - same themes.<mode> source as Tk.
     try:
-        from Utils.ui_config import set_theme_override_resolver
+        from Utils.ui.config import set_theme_override_resolver
 
         def _theme_overrides(mode):
             import importlib
-            mod = importlib.import_module(f"Utils.themes.{mode}")
+            mod = importlib.import_module(f"themes.{mode}")
             raw = getattr(mod, "THEME_DEFAULTS_OVERRIDE", None)
             return raw if isinstance(raw, dict) else {}
 
@@ -128,7 +128,7 @@ def register_all(app, *, log, parent_window, ask_choice=None, warn=None,
     #     memoised verdict ONLY - gl_status() spawns a blocking child probe, so
     #     the report must never be what triggers it.
     try:
-        from Utils.system_info import set_gl_status_provider
+        from Utils.diagnostics.system import set_gl_status_provider
         from gui_qt import gl_support
 
         def _gl_cached():
@@ -142,7 +142,7 @@ def register_all(app, *, log, parent_window, ask_choice=None, warn=None,
 
     # 6. toolkit file pickers (QFileDialog) - last-resort behind portal/zenity.
     try:
-        from Utils.portal_filechooser import set_toolkit_pickers
+        from Utils.ui.portal import set_toolkit_pickers
         fp = file_pickers or {}
         set_toolkit_pickers(
             folder=fp.get("folder"), file=fp.get("file"),

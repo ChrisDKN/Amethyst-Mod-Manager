@@ -162,7 +162,7 @@ class SpecialKView(WizardViewBase):
 
     def _do_fetch_and_download(self):
         from Utils.ca_bundle import download_file
-        from Utils.wizard_archives import (
+        from Utils.wizards.archives import (
             fetch_latest_github_asset, get_downloads_dir,
         )
         try:
@@ -199,7 +199,7 @@ class SpecialKView(WizardViewBase):
             safe_emit(self._dl_next_sig)
 
     def _browse_archive_dialog(self):
-        from Utils.portal_filechooser import pick_file
+        from Utils.ui.portal import pick_file
         pick_file(self.tr("Select the Special K archive"),
                   lambda p: safe_emit(self._picked_sig, p))
 
@@ -264,7 +264,7 @@ class SpecialKView(WizardViewBase):
         the DLL's own parent, which is only the same directory while the
         release stays a flat pair of DLLs.
         """
-        from Utils.wizard_archives import extract_to_dir
+        from Utils.wizards.archives import extract_to_dir
 
         tmp = Path(tempfile.mkdtemp(prefix="specialk-"))
         try:
@@ -338,7 +338,7 @@ class SpecialKView(WizardViewBase):
 
     def _register_mod(self, mod_name: str) -> None:
         """Write meta.ini + modlist entry and index the mod so it deploys."""
-        from Utils.install_as_mod import (
+        from Utils.mods.install_as_mod import (
             index_installed_mod, register_as_mod_neutral,
         )
         register_as_mod_neutral(

@@ -21,8 +21,8 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QPushButton, QWidg
 
 from gui_qt.safe_emit import safe_emit
 from wizards_qt._view_base import GREEN, RED, WizardViewBase
-from Utils.bodyslide_tools import sanitize_output_name
-from Utils.wizard_gates import find_staged_exe
+from Utils.bethesda.bodyslide import sanitize_output_name
+from Utils.wizards.gates import find_staged_exe
 
 if TYPE_CHECKING:
     from Games.base_game import BaseGame
@@ -131,7 +131,7 @@ class BodySlideView(WizardViewBase):
         # Materialize the output-capture mod (modlist entry + Config.xml
         # OutputDataPath) BEFORE the deploy so the filemap picks it up -
         # replaces the Tk run_deploy_pipeline(on_pre_filemap=) hook.
-        from Utils.bodyslide_tools import apply_output_redirect
+        from Utils.bethesda.bodyslide import apply_output_redirect
         try:
             apply_output_redirect(
                 self._game, self._output_mod_name, self._profile(),
@@ -156,7 +156,7 @@ class BodySlideView(WizardViewBase):
 
     # ---- run ----------------------------------------------------------------------
     def _start_run(self):
-        from Utils.bodyslide_tools import find_deployed_exe
+        from Utils.bethesda.bodyslide import find_deployed_exe
         game = self._game
         deployed = find_deployed_exe(game, self._exe_names)
         if deployed is None:
@@ -171,12 +171,12 @@ class BodySlideView(WizardViewBase):
 
         def worker():
             import subprocess
-            from Utils.bodyslide_tools import apply_output_redirect
-            from Utils.exe_launch import (
+            from Utils.bethesda.bodyslide import apply_output_redirect
+            from Utils.executables.launch import (
                 PREFIX_MODE_GAME, resolve_tool_prefix, run_tool_logged,
                 shutdown_prefix_wineserver, wrap_tool_command,
             )
-            from Utils.steam_finder import proton_run_command
+            from Utils.launchers.steam import proton_run_command
             _wlog = lambda m: self._log(f"{name} Wizard: {m}")
             gl_log = None
             proton_script = compat_data = None
@@ -217,7 +217,7 @@ class BodySlideView(WizardViewBase):
                 # The x64 builds autofill the Data folder from the Bethesda
                 # Softworks registry key - seed it (idempotent).
                 try:
-                    from Utils.bethesda_registry import maybe_register_for_game
+                    from Utils.bethesda.registry import maybe_register_for_game
                     maybe_register_for_game(
                         prefix_dir=compat_data, proton_script=proton_script,
                         env=env, game=game, log_fn=_wlog)

@@ -4,7 +4,7 @@ A modlist-panel-scoped tab: a scrollable grid form of every SSEDisplayTweaks.ini
 setting with a per-key enable checkbox, a typed value control (bool → two
 radios, enum → combo, else line edit) and a dim description.  Save renders the
 values into the managed 'SSE Display Tweaks ini' mod (schema/parse/render in
-Utils/sdt_config.py); Reset restores the built-in defaults.
+Utils/bethesda/display_tweaks.py); Reset restores the built-in defaults.
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
 
 from gui_qt.theme_qt import active_palette, close_button, _c
 from wizards_qt._view_base import GREEN, RED, WizardViewBase
-import Utils.sdt_config as cfg
+import Utils.bethesda.display_tweaks as cfg
 
 if TYPE_CHECKING:
     from Games.base_game import BaseGame

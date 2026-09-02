@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTreeView, QLabel, QAbstractItemView,
 )
 
-import Utils.data_tab as dtlogic
+import Utils.ui.data as dtlogic
 from gui_qt.audio_preview import AUDIO_EXTS, AudioControls
 from gui_qt.data_model import DataModel, _DataNode, COL_NAME, COL_MOD
 from gui_qt.safe_emit import safe_emit
@@ -99,7 +99,7 @@ class DataView(QWidget):
             getattr(self.game, "data_tab_data_root_label", "Data")
             or "Data").replace("\\", "/").strip("/")
         try:
-            from Utils.game_helpers import game_data_subpath
+            from Utils.games.registry import game_data_subpath
             self._data_prefix = game_data_subpath(self.game).replace(
                 "\\", "/").strip("/")
         except Exception:
@@ -415,7 +415,7 @@ class DataView(QWidget):
             except Exception:
                 safe_emit(self._data_ready, gen, [], set())
                 return
-            from Utils import perftrace
+            from Utils.diagnostics import performance as perftrace
             if perftrace.is_enabled():
                 from Utils.app_log import safe_print
                 safe_print(
@@ -496,7 +496,7 @@ class DataView(QWidget):
             self._restore_expanded(expanded)
         finished = time.perf_counter()
         started = self._scan_started.pop(gen, ui_started)
-        from Utils import perftrace
+        from Utils.diagnostics import performance as perftrace
         if perftrace.is_enabled():
             from Utils.app_log import safe_print
             safe_print(
@@ -551,7 +551,7 @@ class DataView(QWidget):
 
     # -- search -------------------------------------------------------------
     def _on_search(self, text: str):
-        from Utils.file_search import parse_file_query
+        from Utils.text.search import parse_file_query
         needle, self._search_exts = parse_file_query(text)
         self._search = needle
         t = getattr(self, "_search_timer", None)
@@ -612,7 +612,7 @@ class DataView(QWidget):
                  if item.candidate_id == node.candidate_id), None)
             if entry is None:
                 return None
-            from Utils.filegraph_service import source_path
+            from Utils.filegraph.service import source_path
             return source_path(self.game, entry.mod_name, entry.source_rel)
         except Exception:
             return None
@@ -650,7 +650,7 @@ class DataView(QWidget):
 
         ext = Path(node.path).suffix.lower()
         available = target.is_file()
-        from Utils.text_files import TEXT_EXTENSIONS
+        from Utils.text.files import TEXT_EXTENSIONS
         if ext in TEXT_EXTENSIONS:
             cb = getattr(self, "on_open_text", None)
             if cb is not None:

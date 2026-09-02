@@ -55,7 +55,7 @@ class LogUploadOverlay(OverlayBase):
             f"color:{_c(p,'TEXT_MAIN')}; font-weight:600; font-size:16px;")
         self._v.addWidget(title)
 
-        from Utils.paste_upload import (
+        from Utils.sharing.paste import (
             PASTE_HOST, RETENTION_NOTE, MAX_UPLOAD_BYTES)
         size = len(self._log_text.encode("utf-8", "replace"))
         lines = self._log_text.count("\n") + 1 if self._log_text else 0
@@ -122,7 +122,7 @@ class LogUploadOverlay(OverlayBase):
 
         def _work():
             try:
-                from Utils.paste_upload import upload_text
+                from Utils.sharing.paste import upload_text
                 url = upload_text(text)
             except Exception as exc:
                 self._safe_emit(self._upload_done, "", str(exc))

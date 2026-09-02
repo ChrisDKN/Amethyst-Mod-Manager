@@ -1,7 +1,7 @@
 """Change Version overlay - lists a mod's Nexus files so the user can install a
 different version. Opens as a plugins-panel-scoped tab (covers the whole plugins
 panel). Qt port of the Tk gui/mod_files_overlay.py; shares the pure highlight /
-sort helpers in Utils.mod_files_versions.
+sort helpers in Utils.mods.versions.
 
 The file list is fetched on a daemon thread (a Signal marshals the result back to
 the UI thread - never a QThread). Installing a chosen file reuses the same
@@ -22,7 +22,7 @@ from gui_qt.theme_qt import (
     active_palette, bind_theme, _c, close_button, button_qss, qc,
 )
 from gui_qt.safe_emit import safe_emit
-from Utils.mod_files_versions import resolve_latest_name_match, fmt_size, sort_key
+from Utils.mods.versions import resolve_latest_name_match, fmt_size, sort_key
 
 # Translated at display time (setHorizontalHeaderLabels); register for lupdate.
 _COLS = [
@@ -290,7 +290,7 @@ class ChangeVersionView(QWidget):
     # ---- table population + highlight ------------------------------------
     @staticmethod
     def _download_only() -> bool:
-        from Utils.ui_config import load_download_only
+        from Utils.ui.config import load_download_only
         try:
             return bool(load_download_only())
         except Exception:
@@ -428,7 +428,7 @@ class ChangeVersionView(QWidget):
     # ---- actions ----------------------------------------------------------
     def _open_url(self, url):
         try:
-            from Utils.xdg import open_url
+            from Utils.environment.xdg import open_url
             open_url(url)
         except Exception:
             pass
@@ -503,7 +503,7 @@ class ChangeVersionView(QWidget):
             try:
                 premium = bool(self._api.validate().is_premium)
                 if premium:
-                    from Utils.ui_config import load_force_manual_install
+                    from Utils.ui.config import load_force_manual_install
                     if load_force_manual_install():
                         self._log("Nexus: [dev] force_manual_install - using "
                                   "the manual browser-download flow.")
@@ -633,7 +633,7 @@ class ChangeVersionView(QWidget):
         self._watch_holder["w"] = watcher
 
     def _on_watch_progress(self, done, total):
-        from Utils.cache_tools import format_size
+        from Utils.downloads.cache import format_size
         self._status.setText(self.tr(
             "Waiting for the browser download - {0} / {1}").format(
             format_size(done), format_size(total)))

@@ -27,12 +27,12 @@ from gui_qt.theme_qt import active_palette, _c, button_qss
 from gui_qt.safe_emit import safe_emit
 from gui_qt.wheel_guard import no_wheel
 from Utils.config_paths import get_default_staging_root, get_config_dir
-from Utils import ui_config as uc
-from Utils.ui_config import (
+from Utils.ui import config as uc
+from Utils.ui.config import (
     load_default_staging_path, save_default_staging_path,
     load_download_cache_path, save_download_cache_path,
 )
-from Utils.xdg import open_url
+from Utils.environment.xdg import open_url
 
 _ICONS_DIR = Path(__file__).resolve().parent.parent / "icons"
 _WIKI_URL = "https://github.com/ChrisDKN/Amethyst-Mod-Manager/wiki"
@@ -431,7 +431,7 @@ class OnboardingView(QWidget):
         return row
 
     def _browse(self, which: str):
-        from Utils.portal_filechooser import pick_folder
+        from Utils.ui.portal import pick_folder
         title = ("Select Default Mod Staging Folder" if which == "staging"
                  else "Select Download Cache Folder")
 

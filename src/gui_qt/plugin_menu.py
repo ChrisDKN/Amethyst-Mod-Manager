@@ -257,7 +257,7 @@ def _build_esl_items(view, model, esl_rows, multi, act, stub):
     game_type_attr = getattr(game, "loot_game_type", "") or ""
     paths = _plugin_paths(view)
 
-    from Utils.plugin_parser import is_esl_flagged, check_esl_eligible
+    from Utils.plugins.parser import is_esl_flagged, check_esl_eligible
 
     def esl_state(i):
         p = paths.get(model.row(i).name.lower())
@@ -327,7 +327,7 @@ def _set_groundcover(view, indices, enabled: bool):
             PF_GROUNDCOVER,
             groundcover_plugins_for_profile,
         )
-        from Utils.profile_state import write_groundcover_plugins
+        from Utils.profiles.state import write_groundcover_plugins
         current = {
             name.lower(): name
             for name in groundcover_plugins_for_profile(game, profile_dir)
@@ -363,7 +363,7 @@ def _set_groundcover(view, indices, enabled: bool):
 def _toggle_esl(view, indices, enable: bool):
     """Port of Tk _toggle_esl_flag: skip .esl / unknown-path / ineligible rows,
     write the header flag, then refresh so the flag column repaints."""
-    from Utils.plugin_parser import set_esl_flag, check_esl_eligible
+    from Utils.plugins.parser import set_esl_flag, check_esl_eligible
     model = view.model()
     game = getattr(view, "game", None)
     game_type_attr = getattr(game, "loot_game_type", "") or ""
@@ -494,7 +494,7 @@ def _open_url(url: str) -> None:
     """Open a validated LOOT link using the host/Flatpak-aware launcher."""
     if not _valid_web_url(url):
         return
-    from Utils.xdg import open_url
+    from Utils.environment.xdg import open_url
     open_url(url)
 
 

@@ -20,7 +20,7 @@ from pathlib import Path
 
 from Games.base_game import BaseGame, MODERN_DIRECTX_DEPS
 from Utils.vfs import ProfileVFSGameMixin
-from Utils.deploy import (
+from Utils.deployment import (
     CustomRule,
     LinkMode,
     deploy_custom_rules,
@@ -35,7 +35,7 @@ from Utils.deploy import (
     restore_custom_rules,
     restore_filemap_from_root,
 )
-from Utils.modlist import read_modlist
+from Utils.mods.modlist import read_modlist
 from Utils.config_paths import get_profiles_dir
 
 _PROFILES_DIR = get_profiles_dir()
@@ -265,7 +265,7 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
         filemap   = self.get_effective_filemap_path()
         staging   = self.get_effective_mod_staging_path()
 
-        from Utils.filegraph_deploy import input_ready
+        from Utils.filegraph.deploy import input_ready
         if not input_ready():
             raise RuntimeError(
                 f"filemap.txt not found: {filemap}\n"
@@ -357,7 +357,7 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
         (raw-deploy / custom-location separator mods) never land in
         archive/pc/mod, so their archives are dropped entirely.
         """
-        from Utils.filegraph_deploy import legacy_rows
+        from Utils.filegraph.deploy import legacy_rows
 
         mods = [e.name for e in read_modlist(profile_dir / "modlist.txt")
                 if e.enabled and not e.is_separator]
@@ -487,7 +487,7 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
             profile_dir = self.get_profile_root() / "profiles" / profile
             root_owns = False
             if bool(getattr(self, "_pipeline_root_folder_enabled", True)):
-                from Utils.deploy import _resolve_nocase
+                from Utils.deployment import _resolve_nocase
                 root_source = _resolve_nocase(
                     self.get_effective_root_folder_path(), rel)
                 root_owns = bool(
@@ -495,8 +495,8 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
             if not root_owns:
                 # The pinned plan already incorporates exclusions, routing,
                 # and exact staged source identity.
-                from Utils.deploy import _resolve_nocase
-                from Utils.filegraph_deploy import entries as filegraph_entries
+                from Utils.deployment import _resolve_nocase
+                from Utils.filegraph.deploy import entries as filegraph_entries
                 view_dest = _resolve_nocase(view_root, rel)
                 for entry in filegraph_entries(include_root=True):
                     if (entry.destination.replace("\\", "/").casefold()
@@ -635,12 +635,12 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
         time, re-read per launch).  Returns a user-facing warning only when
         the option couldn't be added automatically."""
         try:
-            from Utils.exe_launch import (
+            from Utils.executables.launch import (
                 effective_steam_id, game_is_steam_install,
                 game_is_heroic_install, heroic_app_names_for_launch,
             )
             if game_is_steam_install(self):
-                from Utils.steam_finder import (
+                from Utils.launchers.steam import (
                     add_steam_launch_option, steam_launch_options,
                 )
                 sid = effective_steam_id(self) or self.steam_id
@@ -670,7 +670,7 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
                     "(Properties → Launch Options) - it couldn't be added "
                     "automatically.")
             elif game_is_heroic_install(self):
-                from Utils.heroic_finder import (
+                from Utils.launchers.heroic import (
                     add_heroic_launcher_arg, heroic_launcher_args,
                 )
                 names = heroic_app_names_for_launch(self)

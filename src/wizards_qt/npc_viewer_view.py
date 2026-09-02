@@ -1,8 +1,8 @@
 """View NPCs - browse every NPC with a baked FaceGen head and see the face in 3D.
 
-The mesh side is the NIF Viewer's: Utils.mesh_catalog finds every copy of every
+The mesh side is the NIF Viewer's: Utils.assets.catalog finds every copy of every
 FaceGeom head and flags the one the game loads, and gui_qt.nif_preview renders
-it. What this adds is IDENTITY - Utils.npc_catalog joins those meshes to their
+it. What this adds is IDENTITY - Utils.npc.catalog joins those meshes to their
 NPC_ records, so the list reads "Nazeem" rather than "00013BBF.nif", and a
 contested head shows which overhaul actually wins.
 
@@ -32,11 +32,11 @@ from gui_qt.path_tree import Node, PathTreeDelegate, PathTreeModel
 from gui_qt.safe_emit import safe_emit
 from gui_qt.theme_qt import active_palette, button_qss, close_button, _c
 from gui_qt.worker import LatestWorker
-from Utils.asset_resolver import DirCache
-from Utils.mesh_catalog import (
+from Utils.assets.resolver import DirCache
+from Utils.assets.catalog import (
     DATA_ARCHIVE, DATA_LOOSE, MOD_ARCHIVE, MOD_LOOSE, read_entry,
 )
-from Utils.npc_catalog import build_npc_catalog, npc_label
+from Utils.npc.catalog import build_npc_catalog, npc_label
 
 if TYPE_CHECKING:
     from Games.base_game import BaseGame
@@ -597,7 +597,7 @@ class NpcViewerView(QWidget):
         self._log(f"View NPCs: captured {image.width()}x{image.height()}")
         self._pending_export = image
         self._save_btn.setText(self.tr("Choose location…"))
-        from Utils.portal_filechooser import pick_save_file
+        from Utils.ui.portal import pick_save_file
         pick_save_file(
             self.tr("Save NPC image"),
             lambda path: safe_emit(self._save_path_picked, path),
@@ -664,11 +664,11 @@ class NpcViewerView(QWidget):
         """
         with self._records_lock:
             if self._records is None or self._records_gen != self._gen:
-                from Utils.npc_body import load_order_records
+                from Utils.npc.body import load_order_records
                 gen = self._gen
                 plugin_paths = None
                 try:
-                    from Utils.filegraph_service import plugin_source_paths
+                    from Utils.filegraph.service import plugin_source_paths
                     indexed = plugin_source_paths(
                         getattr(self._resolver, "snapshot", None), self._game)
                     if indexed:
@@ -703,7 +703,7 @@ class NpcViewerView(QWidget):
         """
         if self._staging is None:
             return None
-        from Utils.archive_lookup import ArchiveLookup, find_archives
+        from Utils.archives.lookup import ArchiveLookup, find_archives
         for mod in self._archive_mods():
             look = self._mod_archives.get(mod)
             if look is None:
@@ -731,7 +731,7 @@ class NpcViewerView(QWidget):
         if self._archive_mod_list is None:
             mods = []
             try:
-                from Utils.modlist import read_modlist
+                from Utils.mods.modlist import read_modlist
                 for e in read_modlist(Path(self._modlist)):
                     if e.is_separator or not e.enabled:
                         continue
@@ -773,7 +773,7 @@ class NpcViewerView(QWidget):
     def _read_body(self, npc, outfit: bool = True, whole: bool = True):
         """Resolve runtime face changes and optional body off the UI thread."""
         try:
-            from Utils.npc_body import resolve_body, resolve_face, scope_records
+            from Utils.npc.body import resolve_body, resolve_face, scope_records
             all_records = self._body_records()
             if not all_records:
                 return None
@@ -946,7 +946,7 @@ def _entry_archives(entry, staging):
     way - a '- Textures.ba2' next to it is invisible to the resolver when the
     mod is not installed.
     """
-    from Utils.archive_lookup import ArchiveLookup, find_archives
+    from Utils.archives.lookup import ArchiveLookup, find_archives
     root = None
     if getattr(entry, "mod", "") and staging is not None:
         root = Path(staging) / entry.mod
@@ -989,7 +989,7 @@ def _resolver_for(staging, modlist, profile_dir, data, game, snapshot=None):
     """
     if staging is None:
         return None
-    from Utils.asset_resolver import AssetResolver
+    from Utils.assets.resolver import AssetResolver
     return AssetResolver(staging_dir=staging, modlist_path=modlist,
                          profile_dir=profile_dir, data_dir=data, game=game,
                          keep_prefix=BROWSE_PREFIXES, snapshot=snapshot)

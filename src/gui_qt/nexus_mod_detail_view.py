@@ -24,7 +24,7 @@ from gui_qt.nexus_mod_card import ThumbnailLoader, _fmt_count
 from gui_qt.nexus_bbcode import nexus_bbcode_to_html
 from gui_qt.theme_qt import _c, active_palette, contrast_text
 from gui_qt.worker import run_in_worker
-from Utils.collection_manifest import fmt_size
+from Utils.collections.manifest import fmt_size
 
 
 class _DescriptionBrowser(QTextBrowser):
@@ -558,7 +558,7 @@ class NexusModDetailView(QWidget):
         return f"https://www.nexusmods.com/{self._domain}/mods/{self._entry.mod_id}"
 
     def _open_on_nexus(self) -> None:
-        from Utils.xdg import open_url
+        from Utils.environment.xdg import open_url
         open_url(self._mod_url(), log_fn=self._log)
 
     def _open_link(self, url: QUrl) -> None:
@@ -593,7 +593,7 @@ class NexusModDetailView(QWidget):
         if url.scheme().lower() not in ("http", "https"):
             self._log(f"Nexus: ignored unsupported description link: {url.toString()}")
             return
-        from Utils.xdg import open_url
+        from Utils.environment.xdg import open_url
         open_url(url.toString(), log_fn=self._log)
 
     def _render_description(self) -> None:

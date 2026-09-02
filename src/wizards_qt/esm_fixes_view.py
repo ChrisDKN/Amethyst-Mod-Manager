@@ -24,11 +24,11 @@ from PySide6.QtWidgets import (
 from gui_qt.safe_emit import safe_emit
 from gui_qt.theme_qt import active_palette, _c
 from wizards_qt._view_base import GREEN, RED, WizardViewBase
-from Utils.esm_fixes_tools import (
+from Utils.bethesda.esm_fixes import (
     NEXUS_URL, OUTPUT_NAME, esm_fixes_mod_dir, find_esm_fixes_archive,
     find_extracted_mpi, packages_dir,
 )
-from Utils.ttw_tools import find_ttw_installer
+from Utils.bethesda.ttw import find_ttw_installer
 
 if TYPE_CHECKING:
     from Games.base_game import BaseGame
@@ -72,7 +72,7 @@ class ESMFixesView(WizardViewBase):
 
         profile = getattr(self._ctx, "profile_name", None) or "default"
         self._profile = profile
-        from Utils.ttw_tools import sync_active_profile
+        from Utils.bethesda.ttw import sync_active_profile
         sync_active_profile(game, profile)
 
         self._dl_status_sig.connect(self._guard(
@@ -140,7 +140,7 @@ class ESMFixesView(WizardViewBase):
         game = self._game
 
         def worker():
-            from Utils.ttw_tools import download_installer
+            from Utils.bethesda.ttw import download_installer
             _wlog = lambda m: self._log(f"ESM Fixes Wizard: {m}")
             try:
                 self._exe = download_installer(
@@ -289,7 +289,7 @@ class ESMFixesView(WizardViewBase):
         game = self._game
 
         def worker():
-            from Utils.esm_fixes_tools import extract_mpi_from_archive
+            from Utils.bethesda.esm_fixes import extract_mpi_from_archive
             _wlog = lambda m: self._log(f"ESM Fixes Wizard: {m}")
             try:
                 mpi = find_extracted_mpi(game)
@@ -352,10 +352,10 @@ class ESMFixesView(WizardViewBase):
                 or self._closing):
             return
         self._auto_fetch_started = True
-        from Utils.esm_fixes_tools import (
+        from Utils.bethesda.esm_fixes import (
             NEXUS_FILE_ID, NEXUS_GAME_DOMAIN, NEXUS_MOD_ID,
         )
-        from Utils.mpi_auto_fetch import start_auto_fetch
+        from Utils.downloads.mpi import start_auto_fetch
         _wlog = lambda m: self._log(f"ESM Fixes Wizard: {m}")
         last_pct = [-1]
 
@@ -392,12 +392,12 @@ class ESMFixesView(WizardViewBase):
             log_fn=_wlog)
 
     def _browse_folder(self, attr: str, title: str):
-        from Utils.portal_filechooser import pick_folder
+        from Utils.ui.portal import pick_folder
         pick_folder(title,
                     lambda p: safe_emit(self._paths_picked_sig, attr, p))
 
     def _browse_mpi(self):
-        from Utils.portal_filechooser import pick_file
+        from Utils.ui.portal import pick_file
         pick_file(self.tr("Select the ESM Fixes .mpi or its archive"),
                   lambda p: safe_emit(self._paths_picked_sig, "mpi", p),
                   filters=[(self.tr("MPI package or archive"),
@@ -428,7 +428,7 @@ class ESMFixesView(WizardViewBase):
         game = self._game
 
         def worker():
-            from Utils.esm_fixes_tools import extract_mpi_from_archive
+            from Utils.bethesda.esm_fixes import extract_mpi_from_archive
             _wlog = lambda m: self._log(f"ESM Fixes Wizard: {m}")
             try:
                 mpi = extract_mpi_from_archive(archive, packages_dir(game),
@@ -488,8 +488,8 @@ class ESMFixesView(WizardViewBase):
 
     def _do_run(self):
         import subprocess
-        from Utils.esm_fixes_tools import register_output
-        from Utils.ttw_tools import (
+        from Utils.bethesda.esm_fixes import register_output
+        from Utils.bethesda.ttw import (
             fnv_required_esms, missing_vanilla_esms, restore_to_vanilla,
         )
         game = self._game
@@ -548,7 +548,7 @@ class ESMFixesView(WizardViewBase):
         # The package checksum-checks FalloutNV.exe; restore does not revert
         # the 4GB patch (it keeps its own FalloutNV_backup.exe), so warn.
         try:
-            from Utils.fnv4gb_tools import inspect_exe
+            from Utils.bethesda.fnv4gb import inspect_exe
             if inspect_exe(self._fnv_path).get("state") == "patched":
                 safe_emit(self._run_log_sig,
                           self.tr("WARNING: FalloutNV.exe is 4GB-patched. The "

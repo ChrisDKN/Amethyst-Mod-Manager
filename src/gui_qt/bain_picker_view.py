@@ -34,7 +34,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui_qt.theme_qt import active_palette, _c
-from Utils.bain_installer import BainSubPackage
+from Utils.mods.bain import BainSubPackage
 
 
 class BainPickerView(QWidget):

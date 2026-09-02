@@ -174,7 +174,7 @@ class MGEXEView(WizardViewBase):
             self._do_manual()
 
     def _do_installer(self):
-        from Utils.wizard_archives import extract_archive
+        from Utils.wizards.archives import extract_archive
         try:
             if self._game_root is None:
                 raise RuntimeError(self.tr("Game path is not configured."))
@@ -224,7 +224,7 @@ class MGEXEView(WizardViewBase):
             safe_emit(self._install_done_sig)
 
     def _do_manual(self):
-        from Utils.wizard_archives import install_archive_payload
+        from Utils.wizards.archives import install_archive_payload
         try:
             archive = self._archive_path
             if archive is None or not archive.is_file():
@@ -274,10 +274,10 @@ class MGEXEView(WizardViewBase):
 
     def _run_exe(self, exe: Path):
         import subprocess
-        from Utils.exe_launch import (
+        from Utils.executables.launch import (
             get_game_prefix_env, shutdown_prefix_wineserver,
         )
-        from Utils.steam_finder import proton_run_command
+        from Utils.launchers.steam import proton_run_command
         result = get_game_prefix_env(
             self._game, log_fn=lambda m: self._log(f"MGE XE Wizard: {m}"),
             allow_runner_fallback=True)

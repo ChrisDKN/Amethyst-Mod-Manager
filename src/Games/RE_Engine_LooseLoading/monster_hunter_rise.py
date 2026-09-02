@@ -34,7 +34,7 @@ class MonsterHunterRise(ResidentEvilRequiem):
 
     @property
     def custom_routing_rules(self) -> list:
-        from Utils.deploy import CustomRule
+        from Utils.deployment import CustomRule
         return super().custom_routing_rules + [
             CustomRule(
                 dest="reframework/quests",

@@ -31,7 +31,7 @@ from typing import Callable
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]|\x1b\[[?][0-9;]*[A-Za-z]|\x1b[A-Za-z]|\r")
 
 from Utils.config_paths import get_wine_prefixes_dir
-from Utils.texture_tools import TextureToolCancelled
+from Utils.wizards.textures import TextureToolCancelled
 from wrappers._proton_texture import (
     prepare_proton_texture_runner,
     run_proton_texture_tool,

@@ -265,7 +265,7 @@ class NexusBrowserView(QWidget):
     @staticmethod
     def _load_show_adult() -> bool:
         try:
-            from Utils.ui_config import load_nexus_show_adult
+            from Utils.ui.config import load_nexus_show_adult
             return bool(load_nexus_show_adult())
         except Exception:
             return False
@@ -273,7 +273,7 @@ class NexusBrowserView(QWidget):
     @staticmethod
     def _load_page_size() -> int:
         try:
-            from Utils.ui_config import load_nexus_page_size
+            from Utils.ui.config import load_nexus_page_size
             return int(load_nexus_page_size(PAGE_SIZE_BROWSE))
         except Exception:
             return PAGE_SIZE_BROWSE
@@ -1022,7 +1022,7 @@ class NexusBrowserView(QWidget):
         # stored flag is the legacy "show adult" boolean: only an explicit
         # "Hide adult content" counts as hidden.
         try:
-            from Utils.ui_config import save_nexus_show_adult
+            from Utils.ui.config import save_nexus_show_adult
             save_nexus_show_adult(self._adult is not False)
         except Exception:
             pass
@@ -1138,7 +1138,7 @@ class NexusBrowserView(QWidget):
         self._page_size_choice = size
         self._page = 0
         try:
-            from Utils.ui_config import save_nexus_page_size
+            from Utils.ui.config import save_nexus_page_size
             save_nexus_page_size(size)
         except Exception:
             pass
@@ -1472,7 +1472,7 @@ class NexusBrowserView(QWidget):
 
     @staticmethod
     def _download_only() -> bool:
-        from Utils.ui_config import load_download_only
+        from Utils.ui.config import load_download_only
         try:
             return bool(load_download_only())
         except Exception:
@@ -1559,7 +1559,7 @@ class NexusBrowserView(QWidget):
             detail.deleteLater()
 
     def _open_on_nexus(self, entry):
-        from Utils.xdg import open_url
+        from Utils.environment.xdg import open_url
         open_url(self._mod_url(entry), log_fn=self._log)
 
     def _show_card_menu(self, entry, global_pos):
@@ -1651,7 +1651,7 @@ class NexusBrowserView(QWidget):
         if premium:
             # Developer switch used to exercise the browser/manual path even
             # while signed in with a Premium account.
-            from Utils.ui_config import load_force_manual_install
+            from Utils.ui.config import load_force_manual_install
             if load_force_manual_install():
                 self._log("Nexus: [dev] force_manual_install - using the "
                           "manual browser-download flow.")
@@ -1736,7 +1736,7 @@ class NexusBrowserView(QWidget):
         if not picks:
             # No file list (API error) or nothing installable: fall back to
             # the plain files page - no watch possible without expected files.
-            from Utils.xdg import open_url
+            from Utils.environment.xdg import open_url
             self._installing = False
             open_url(f"{self._mod_url(entry)}?tab=files", log_fn=self._log)
             self._log("Nexus: premium required for direct download - opened "
@@ -1762,7 +1762,7 @@ class NexusBrowserView(QWidget):
         skip the browser when the archive is already downloaded, else open the
         file's download page (file_id deep-link) + watch the download folders."""
         from Nexus.manual_download_watch import start_manual_install
-        from Utils.xdg import open_url
+        from Utils.environment.xdg import open_url
         self._installing = False
         domain = getattr(entry, "domain_name", "") or self._domain
         mod_id = entry.mod_id

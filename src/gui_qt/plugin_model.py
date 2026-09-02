@@ -91,7 +91,7 @@ class PluginModel(QAbstractTableModel):
         self._rows = self._derive_display()
         if profile_dir is not None:
             try:
-                from Utils.profile_state import read_plugin_locks
+                from Utils.profiles.state import read_plugin_locks
                 self._locks = read_plugin_locks(profile_dir) or {}
             except Exception:
                 self._locks = {}
@@ -227,7 +227,7 @@ class PluginModel(QAbstractTableModel):
         self.dataChanged.emit(idx, idx, [])
         if self._profile_dir is not None:
             try:
-                from Utils.profile_state import write_plugin_locks
+                from Utils.profiles.state import write_plugin_locks
                 write_plugin_locks(self._profile_dir, self._locks)
             except Exception as exc:
                 print(f"[gui_qt] plugin locks save failed: {exc}", flush=True)

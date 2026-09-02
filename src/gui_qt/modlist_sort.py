@@ -17,8 +17,8 @@ reachable and the divider never pops in/out.
 
 from __future__ import annotations
 
-from Utils.modlist import ModEntry
-from Utils.filegraph_constants import OVERWRITE_NAME, ROOT_FOLDER_NAME
+from Utils.mods.modlist import ModEntry
+from Utils.filegraph.constants import OVERWRITE_NAME, ROOT_FOLDER_NAME
 
 # The reverse-mode divider between the last user group and the ungrouped
 # float. UI-only: lives in the display list, never in the natural list, and is

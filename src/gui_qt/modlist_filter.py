@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from os.path import splitext
 from pathlib import Path
 
-from Utils.filegraph_constants import (
+from Utils.filegraph.constants import (
     OVERWRITE_NAME, ROOT_FOLDER_NAME,
     CONFLICT_NONE, CONFLICT_WINS, CONFLICT_LOSES, CONFLICT_PARTIAL, CONFLICT_FULL,
 )

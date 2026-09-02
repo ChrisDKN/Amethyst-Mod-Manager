@@ -1,7 +1,7 @@
 """In-app viewer for the project's GitHub wiki, fetched live.
 
 A detachable tab: page list on the left, rendered markdown on the right. Pages
-and images come from :mod:`Utils.wiki_sync`, so editing the wiki on GitHub is
+and images come from :mod:`Utils.github.wiki`, so editing the wiki on GitHub is
 reflected here on the next fetch - nothing is bundled with the app. The list
 mirrors the wiki's own ``_Sidebar.md``, group headings included, so the app's
 navigation is edited on GitHub alongside the pages.
@@ -30,7 +30,7 @@ from PySide6.QtWidgets import (
 from gui_qt.safe_emit import safe_emit
 from gui_qt.theme_qt import active_palette, bind_theme, _c
 from gui_qt.worker import run_in_worker
-from Utils import wiki_sync
+from Utils.github import wiki as wiki_sync
 
 #: Slug carried on each page-list row (absent on the sidebar's group headers).
 _SLUG_ROLE = Qt.UserRole

@@ -1,6 +1,6 @@
 """Post-deploy launcher-wrapper instructions.
 
-The launch handoff is produced by ``Utils.launch_handoff`` and may contain one
+The launch handoff is produced by ``Utils.launchers.handoff`` and may contain one
 field (Steam/Lutris/Faugus) or Heroic's separate executable and arguments.
 """
 

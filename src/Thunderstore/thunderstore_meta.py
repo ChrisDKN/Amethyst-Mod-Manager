@@ -46,7 +46,7 @@ from pathlib import Path
 
 from Utils.app_log import app_log
 from Utils.atomic_write import atomic_writer
-from Utils.meta_lock import locked_meta_write
+from Utils.mods.metadata import locked_meta_write
 
 SECTION = "thunderstore"
 

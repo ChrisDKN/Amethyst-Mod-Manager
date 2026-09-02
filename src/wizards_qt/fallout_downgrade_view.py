@@ -111,7 +111,7 @@ class FalloutDowngradeView(WizardViewBase):
             self._log(f"Downgrade Wizard: {exc}")
 
     def _do_extract(self):
-        from Utils.wizard_archives import extract_archive
+        from Utils.wizards.archives import extract_archive
         game_root = self._game_root
         if game_root is None:
             raise RuntimeError(self.tr("Game path is not configured."))
@@ -129,11 +129,11 @@ class FalloutDowngradeView(WizardViewBase):
 
     def _do_run_patcher(self):
         import hashlib
-        from Utils.exe_launch import (
+        from Utils.executables.launch import (
             get_game_prefix_env, shutdown_prefix_wineserver,
         )
-        from Utils.protontricks import run_prefix_installer
-        from Utils.steam_finder import proton_run_command
+        from Utils.wine.protontricks import run_prefix_installer
+        from Utils.launchers.steam import proton_run_command
 
         game_root = self._game_root
         patcher_exe = next(

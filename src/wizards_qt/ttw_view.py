@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
 from gui_qt.safe_emit import safe_emit
 from gui_qt.theme_qt import active_palette, _c
 from wizards_qt._view_base import GREEN, RED, WizardViewBase
-from Utils.ttw_tools import (
+from Utils.bethesda.ttw import (
     GITHUB_REPO_URL, MODPUB_URL, OUTPUT_NAME,
     find_fo3_install, find_ttw_installer, ttw_mod_dir,
 )
@@ -56,7 +56,7 @@ class TTWView(WizardViewBase):
 
         profile = getattr(self._ctx, "profile_name", None) or "default"
         self._profile = profile
-        from Utils.ttw_tools import sync_active_profile
+        from Utils.bethesda.ttw import sync_active_profile
         sync_active_profile(game, profile)
 
         self._dl_status_sig.connect(self._guard(
@@ -111,7 +111,7 @@ class TTWView(WizardViewBase):
         game = self._game
 
         def worker():
-            from Utils.ttw_tools import download_installer
+            from Utils.bethesda.ttw import download_installer
             _wlog = lambda m: self._log(f"TTW Wizard: {m}")
             try:
                 self._exe = download_installer(
@@ -225,12 +225,12 @@ class TTWView(WizardViewBase):
         return val
 
     def _browse_folder(self, attr: str, title: str):
-        from Utils.portal_filechooser import pick_folder
+        from Utils.ui.portal import pick_folder
         pick_folder(title,
                     lambda p: safe_emit(self._paths_picked_sig, attr, p))
 
     def _browse_mpi(self):
-        from Utils.portal_filechooser import pick_file
+        from Utils.ui.portal import pick_file
         pick_file(self.tr("Select the TTW .mpi package"),
                   lambda p: safe_emit(self._paths_picked_sig, "mpi", p),
                   filters=[(self.tr("TTW Package (*.mpi)"), ["*.mpi"]),
@@ -289,7 +289,7 @@ class TTWView(WizardViewBase):
 
     def _do_run(self):
         import subprocess
-        from Utils.ttw_tools import (
+        from Utils.bethesda.ttw import (
             FO3_REQUIRED_ESMS, OUTPUT_NAME as _ON, fnv_required_esms,
             missing_vanilla_esms, register_output, restore_to_vanilla,
         )
@@ -414,7 +414,7 @@ class TTWView(WizardViewBase):
         self._post_install_setup(rebuilt=True)
 
     def _post_install_setup(self, *, rebuilt: bool):
-        from Utils.ttw_tools import (
+        from Utils.bethesda.ttw import (
             OUTPUT_NAME as _ON, seed_required_mods, sync_active_profile,
         )
         game = self._game

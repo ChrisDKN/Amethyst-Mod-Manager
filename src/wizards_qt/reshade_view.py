@@ -9,7 +9,7 @@ plugins-panel-scoped tab:
   4. Install d3dcompiler_47 into the Proton prefix (skippable).
   5. Install: destination (game / Root_Folder / managed mod) + Wine override.
 
-All download/shader/preset/install logic is in the neutral Utils.reshade_tools;
+All download/shader/preset/install logic is in the neutral Utils.wizards.reshade;
 this file is just the Qt UI + threading. Blocking work runs on daemon threads
 and marshals back via Signals (never touch widgets off-thread).
 """
@@ -31,7 +31,7 @@ from gui_qt.theme_qt import (
     active_palette, _c, button_qss, close_button, ok_text, err_text,
 )
 from gui_qt.safe_emit import safe_emit
-from Utils.reshade_tools import (
+from Utils.wizards.reshade import (
     API_CHOICES, OPTIONAL_SHADER_PACKS, OBSOLETE_PRESET_EFFECTS,
     download_and_extract_reshade_dll, download_and_extract_shaders,
     parse_preset_effect_files, prune_shaders_to_preset, install_reshade_files,
@@ -275,7 +275,7 @@ class ReShadeView(QWidget):
         return page
 
     def _browse_preset(self):
-        from Utils.portal_filechooser import pick_preset_file
+        from Utils.ui.portal import pick_preset_file
         # Callback fires on the portal WORKER thread - marshal via Signal.
         pick_preset_file(self.tr("Select a ReShade preset (.ini)"),
                          lambda path: safe_emit(self._preset_picked_sig, path))
@@ -458,8 +458,8 @@ class ReShadeView(QWidget):
         return page
 
     def _refresh_d3d_step(self):
-        from Utils.protontricks import D3D_DEP_KEY, is_dep_installed
-        from Utils.steam_finder import game_steam_id
+        from Utils.wine.protontricks import D3D_DEP_KEY, is_dep_installed
+        from Utils.launchers.steam import game_steam_id
         steam_id = game_steam_id(self._game)
         prefix = getattr(self._game, "_prefix_path", None)
         has_prefix = bool(prefix) and Path(prefix).is_dir()
@@ -495,7 +495,7 @@ class ReShadeView(QWidget):
         game = self._game
 
         def worker():
-            from Utils.proton_tools import install_d3dcompiler_47
+            from Utils.wine.proton import install_d3dcompiler_47
             ok = False
             try:
                 ok = install_d3dcompiler_47(

@@ -3096,7 +3096,7 @@ class NexusAPI:
                         app_log(f"get_collection_archive_json: mirror {cdn_url!r} failed: {_mirror_exc}")
                 if dl_resp is None:
                     raise RuntimeError("all CDN mirrors failed")
-                from Utils import bandwidth_limit as _bw
+                from Utils.downloads import bandwidth as _bw
                 with open(tmp_path, "wb") as fh:
                     for chunk in dl_resp.iter_content(chunk_size=65536):
                         if chunk:
@@ -3203,7 +3203,7 @@ class NexusAPI:
                         app_log(f"get_collection_archive_full: mirror {cdn_url!r} failed: {_mirror_exc}")
                 if dl_resp is None:
                     raise RuntimeError("all CDN mirrors failed")
-                from Utils import bandwidth_limit as _bw
+                from Utils.downloads import bandwidth as _bw
                 with open(tmp_path, "wb") as fh:
                     for chunk in dl_resp.iter_content(chunk_size=65536):
                         if chunk:
@@ -3288,7 +3288,7 @@ class NexusAPI:
             # Stream to a .part sidecar so an interrupted download never leaves a
             # truncated .7z that later looks like a complete archive.
             part_path = f"{dest_path}.part"
-            from Utils import bandwidth_limit as _bw
+            from Utils.downloads import bandwidth as _bw
             with open(part_path, "wb") as fh:
                 for chunk in dl_resp.iter_content(chunk_size=65536):
                     if chunk:

@@ -172,7 +172,7 @@ class ThunderstoreBrowserView(QWidget):
     @staticmethod
     def _load_flag(key: str) -> bool:
         try:
-            from Utils.ui_config import load_thunderstore_flag
+            from Utils.ui.config import load_thunderstore_flag
             return bool(load_thunderstore_flag(key))
         except Exception:
             return False
@@ -180,7 +180,7 @@ class ThunderstoreBrowserView(QWidget):
     @staticmethod
     def _save_flag(key: str, value: bool) -> None:
         try:
-            from Utils.ui_config import save_thunderstore_flag
+            from Utils.ui.config import save_thunderstore_flag
             save_thunderstore_flag(key, bool(value))
         except Exception:
             pass
@@ -563,7 +563,7 @@ class ThunderstoreBrowserView(QWidget):
 
     @staticmethod
     def _download_only() -> bool:
-        from Utils.ui_config import load_download_only
+        from Utils.ui.config import load_download_only
         try:
             return bool(load_download_only())
         except Exception:
@@ -618,7 +618,7 @@ class ThunderstoreBrowserView(QWidget):
 
     # -- card actions -------------------------------------------------------
     def _on_view(self, entry):
-        from Utils.xdg import open_url
+        from Utils.environment.xdg import open_url
         # Only the community-scoped form resolves; the bare /package/{ns}/{name}/
         # URL the API reports as package_url 404s in a browser.
         open_url(package_url(entry.community or self._community,

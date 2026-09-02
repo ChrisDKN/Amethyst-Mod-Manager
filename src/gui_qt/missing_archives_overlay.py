@@ -2,7 +2,7 @@
 
 File-edit binary patches and (for collection exports) FOMOD choice recovery
 both need the mod's pristine download archive. When the export preflight
-(``collection_export.missing_archive_report``) finds mods whose archive is
+(``Utils.collections.export.missing_archive_report``) finds mods whose archive is
 gone from the download cache, this overlay lists them and offers to fetch
 the exact installed file again: a direct API download for premium accounts,
 or the browser "Slow download" page plus the download-folder watcher
@@ -211,7 +211,7 @@ class MissingArchivesOverlay(OverlayBase):
         except Exception:
             premium = False
         try:
-            from Utils.ui_config import load_force_manual_install
+            from Utils.ui.config import load_force_manual_install
             if premium and load_force_manual_install():
                 premium = False
         except Exception:
@@ -303,7 +303,7 @@ class MissingArchivesOverlay(OverlayBase):
         safe_emit(self._status, self._tpl_waiting.format(
             idx + 1, total, entry["name"]))
         try:
-            from Utils.xdg import open_url
+            from Utils.environment.xdg import open_url
             open_url(url)
         except Exception:
             pass
@@ -357,7 +357,7 @@ class MissingArchivesOverlay(OverlayBase):
 
     def _open_manual_page(self):
         if self._manual_url:
-            from Utils.xdg import open_url
+            from Utils.environment.xdg import open_url
             open_url(self._manual_url)
 
     def _on_fetch_done(self, fetched: int, failed: int):

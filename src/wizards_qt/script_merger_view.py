@@ -17,7 +17,7 @@ from PySide6.QtCore import Signal
 
 from gui_qt.safe_emit import safe_emit
 from wizards_qt._view_base import GREEN, RED, WizardViewBase
-from Utils.xedit_tools import tool_exe_path
+from Utils.bethesda.xedit import tool_exe_path
 
 if TYPE_CHECKING:
     from Games.base_game import BaseGame
@@ -26,7 +26,7 @@ _NEXUS_URL = "https://www.nexusmods.com/witcher3/mods/8405?tab=files&file_id=595
 _NEXUS_FILE_ID = 59566
 _MERGER_EXE = "WitcherScriptMerger.exe"
 _MERGER_DIR = "ScriptMerger"
-# .NET 8 install runs through Utils.proton_tools.install_dotnet_runtime.
+# .NET 8 install runs through Utils.wine.proton.install_dotnet_runtime.
 
 (_PG_DEPLOY, _PG_DOWNLOAD, _PG_LOCATE, _PG_EXTRACT, _PG_PROTON, _PG_NET8,
  _PG_RUN) = range(7)
@@ -146,8 +146,8 @@ class ScriptMergerView(WizardViewBase):
         proton_name, prefix_mode = self._proton_name, self._prefix_mode
 
         def worker():
-            from Utils.exe_launch import PREFIX_MODE_GAME, resolve_tool_prefix
-            from Utils.protontricks import dotnet_dep_key, is_dep_installed
+            from Utils.executables.launch import PREFIX_MODE_GAME, resolve_tool_prefix
+            from Utils.wine.protontricks import dotnet_dep_key, is_dep_installed
             _wlog = lambda m: self._log(f"Script Merger Wizard: {m}")
             try:
                 safe_emit(self._net8_status_sig,
@@ -179,7 +179,7 @@ class ScriptMergerView(WizardViewBase):
                     safe_emit(self._net8_done_sig, True)
                     return
 
-                from Utils.proton_tools import install_dotnet_runtime
+                from Utils.wine.proton import install_dotnet_runtime
                 ok = install_dotnet_runtime(
                     "8", proton_script, env, prefix_path,
                     log_fn=_wlog,
@@ -216,7 +216,7 @@ class ScriptMergerView(WizardViewBase):
         _wlog = lambda m: self._log(f"Script Merger Wizard: {m}")
         missing: list[tuple[str, list[str]]] = []
         try:
-            from Utils.script_merger_inventory import (
+            from Utils.witcher3.script_merger import (
                 missing_merge_sources, restore_inventory,
             )
             restore_inventory(self._game, log_fn=_wlog)
@@ -224,7 +224,7 @@ class ScriptMergerView(WizardViewBase):
             # Capture, from the restored inventory, which merges have
             # undeployed sources - the Done-snapshot keeps these if the
             # merger drops them, instead of pruning them as user deletions.
-            from Utils.script_merger_inventory import collateral_keys
+            from Utils.witcher3.script_merger import collateral_keys
             self._collateral_keys = collateral_keys(self._game)
         except Exception as exc:
             _wlog(f"merge inventory check warning: {exc}")
@@ -258,7 +258,7 @@ class ScriptMergerView(WizardViewBase):
     def _purge_and_launch(self):
         _wlog = lambda m: self._log(f"Script Merger Wizard: {m}")
         try:
-            from Utils.script_merger_inventory import purge_merges
+            from Utils.witcher3.script_merger import purge_merges
             purge_merges(self._game, log_fn=_wlog)
         except Exception as exc:
             _wlog(f"merge purge warning: {exc}")
@@ -292,7 +292,7 @@ class ScriptMergerView(WizardViewBase):
         prefix_env = self._prefix_env
 
         def worker():
-            from Utils.exe_launch import (
+            from Utils.executables.launch import (
                 PREFIX_MODE_GAME, link_game_documents, resolve_tool_prefix,
                 run_tool_logged, shutdown_prefix_wineserver,
             )
@@ -328,7 +328,7 @@ class ScriptMergerView(WizardViewBase):
                 # Update Script Merger config to point at the game folder.
                 if game_path:
                     try:
-                        from Utils.exe_args_builder import (
+                        from Utils.executables.arguments import (
                             update_witcher3_script_merger_config,
                         )
                         update_witcher3_script_merger_config(game_path, exe)
@@ -394,7 +394,7 @@ class ScriptMergerView(WizardViewBase):
                 # Pair the rescued merged files with the merger's inventory -
                 # without it the merger forgets these merges exist.
                 try:
-                    from Utils.script_merger_inventory import snapshot_inventory
+                    from Utils.witcher3.script_merger import snapshot_inventory
                     snapshot_inventory(
                         game, keep_keys=keep_keys,
                         log_fn=lambda m: log(f"Script Merger Wizard: {m}"))

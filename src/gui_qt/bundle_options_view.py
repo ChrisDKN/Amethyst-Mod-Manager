@@ -13,7 +13,7 @@ option whose files are entirely shadowed by another selected option is marked
 "(overridden)" in red. Checking an option auto-turns-off any other selected option
 with an identical file set ("your click wins"). Hovering an option shows its
 screenshot in the inline preview pane. All the underlying logic is GUI-free in
-Utils.re_bundle.
+Utils.re_engine.bundle.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ from gui_qt.theme_qt import (
 from gui_qt.image_preview import _load_qimage
 from PySide6.QtGui import QPixmap
 
-from Utils.re_bundle import (
+from Utils.re_engine.bundle import (
     option_deployable_rels, option_image, option_description,
 )
 
@@ -340,7 +340,7 @@ class BundleOptionsView(QWidget):
 
     def _ordered_selected_folders(self) -> list[str]:
         """Selected option folders in deploy apply order, mirroring
-        re_bundle._ordered_selected_folders: select-one groups first (declared
+        Utils.re_engine.bundle._ordered_selected_folders: select-one groups first (declared
         order), independent groups last, display order within a group (lower =
         applied later = wins)."""
         select_one: list[str] = []

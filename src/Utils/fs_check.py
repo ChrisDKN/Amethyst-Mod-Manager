@@ -11,7 +11,7 @@ staging (that half is guarded in deploy_standard now).
 This module holds the pure detection - find deploy-relevant folders (mod
 staging + the game's hardlink deploy targets) that sit on a Windows
 filesystem. The GUI layer owns the actual prompt, mirroring
-:mod:`Utils.cet_check`.
+:mod:`Utils.wizards.cet`.
 """
 
 from __future__ import annotations

@@ -17,9 +17,9 @@ from PySide6.QtCore import (
 # Crash-proof diagnostic prints (Flatpak stdout can raise BrokenPipeError and
 # kill worker threads). See Utils.app_log.safe_print.
 from Utils.app_log import safe_print as print  # noqa: A004
-from Utils.conflict_timing import ConflictTimeline, ensure_timeline
-from Utils.modlist import ModEntry, read_modlist
-from Utils.filegraph_constants import OVERWRITE_NAME, ROOT_FOLDER_NAME
+from Utils.diagnostics.conflicts import ConflictTimeline, ensure_timeline
+from Utils.mods.modlist import ModEntry, read_modlist
+from Utils.filegraph.constants import OVERWRITE_NAME, ROOT_FOLDER_NAME
 from gui_qt.modlist_sort import (
     DIVIDER_NAME, build_display, uninvert_display, make_divider, is_reverse,
 )
@@ -757,7 +757,7 @@ class ModListModel(QAbstractTableModel):
 
     # ---- toggling ---------------------------------------------------------
     def toggle(self, row: int) -> None:
-        from Utils.perftrace import span
+        from Utils.diagnostics.performance import span
         with span("model.toggle"):
             e = self._entries[row]
             if e.is_separator or e.locked:
@@ -1078,8 +1078,8 @@ class ModListModel(QAbstractTableModel):
         # Every structural edit (drag, remove, add-separator, set_priority…)
         # funnels through here - row→block mapping may have changed.
         self._sep_hl_cache.clear()
-        from Utils.modlist import read_modlist, write_modlist, modlist_lock
-        from Utils.perftrace import span
+        from Utils.mods.modlist import read_modlist, write_modlist, modlist_lock
+        from Utils.diagnostics.performance import span
         # ALWAYS write the natural order - the display list may be a sorted /
         # inverted permutation (and contains the divider in reverse mode).
         body = [e for e in self._natural if e.name not in _PINNED_NAMES]
@@ -1129,7 +1129,7 @@ class ModListModel(QAbstractTableModel):
         if e.name in _PINNED_NAMES or (not e.is_separator and e.locked):
             return
         # Separators keep their suffix so they stay separators on write-out.
-        from Utils.modlist import _SEPARATOR_SUFFIX
+        from Utils.mods.modlist import _SEPARATOR_SUFFIX
         e.name = (new_name + _SEPARATOR_SUFFIX) if e.is_separator else new_name
         idx = self.index(row, COL_NAME)
         self.dataChanged.emit(idx, idx, [Qt.DisplayRole, EntryRole])
@@ -1179,7 +1179,7 @@ class ModListModel(QAbstractTableModel):
         self.save(edit_ctx=save_ctx)
 
     def add_separator(self, row: int, name: str, above: bool) -> None:
-        from Utils.modlist import _SEPARATOR_SUFFIX
+        from Utils.mods.modlist import _SEPARATOR_SUFFIX
         from gui_qt.modlist_sort import insert_separator_display
         sep = ModEntry(name + _SEPARATOR_SUFFIX, True, False, True)
         ref = self._entries[row]
@@ -1406,7 +1406,7 @@ class ModListModel(QAbstractTableModel):
                                   QModelIndex(), dest):
             timing.finish("Qt rejected the requested row move")
             return False
-        from Utils.perftrace import span
+        from Utils.diagnostics.performance import span
         with span("model.move_block"):
             old_order = self._mod_name_order()
             block = self._entries[first:last + 1]

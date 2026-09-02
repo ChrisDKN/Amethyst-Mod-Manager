@@ -14,8 +14,8 @@ from pathlib import Path
 
 from Games.base_game import BaseGame, WizardTool, MODERN_DIRECTX_DEPS
 from Games.Bethesda.bethesda_ini import _read_ini_key, _set_ini_key
-from Utils.deploy import LinkMode, deploy_core, deploy_custom_rules, deploy_filemap, load_per_mod_strip_prefixes, load_separator_deploy_paths, expand_separator_deploy_paths, expand_separator_link_modes, expand_separator_raw_deploy, cleanup_custom_deploy_dirs, restore_custom_rules, move_to_core, restore_data_core, remove_case_alias_links, remove_probe_stub_dirs
-from Utils.modlist import read_modlist
+from Utils.deployment import LinkMode, deploy_core, deploy_custom_rules, deploy_filemap, load_per_mod_strip_prefixes, load_separator_deploy_paths, expand_separator_deploy_paths, expand_separator_link_modes, expand_separator_raw_deploy, cleanup_custom_deploy_dirs, restore_custom_rules, move_to_core, restore_data_core, remove_case_alias_links, remove_probe_stub_dirs
+from Utils.mods.modlist import read_modlist
 from Utils.config_paths import get_profiles_dir
 from Utils.vfs import ProfileVFSGameMixin
 
@@ -288,7 +288,7 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
     
     @property
     def custom_routing_rules(self) -> list:
-        from Utils.deploy import CustomRule
+        from Utils.deployment import CustomRule
         return [
             CustomRule(dest="", filenames=["fose_loader.exe"], flatten=True, loose_only=True),
             CustomRule(dest="", folders=["Data"], flatten=True, loose_only=True),
@@ -298,7 +298,7 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
 
     def _saves_routing_rule(self, extensions: list[str]):
         """Route loose save files into the prefix's My Games Saves folder, mirrored to the GOG variant if that folder exists."""
-        from Utils.deploy import CustomRule
+        from Utils.deployment import CustomRule
         gog_sub = self._MYGAMES_SUBPATH_GOG or Path(f"{self._MYGAMES_SUBPATH} GOG")
         mirrors: list[str] = []
         if self._prefix_path is not None and (self._prefix_path / self._MYGAMES_DOCS / gog_sub).is_dir():
@@ -816,7 +816,7 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
             ]
         if not ordered:
             return
-        from Utils.plugin_mtimes import stamp_plugin_load_order
+        from Utils.plugins.mtimes import stamp_plugin_load_order
         data_dir = self._game_path / "Data"
         if self.vfs_launch_enabled:
             from Utils.vfs import virtual_data_write_path
@@ -1241,7 +1241,7 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
         if self._game_path is None:
             _log("  WARN: Game path not set - skipping dummy BSA write.")
             return
-        from Utils.bsa_invalidation import write_dummy_bsa
+        from Utils.bsa.invalidation import write_dummy_bsa
         try:
             if self.vfs_launch_enabled:
                 from Utils.vfs import virtual_data_write_path
@@ -1284,7 +1284,7 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
         bsa_name = self._invalidation_bsa_name
         if bsa_name is None:
             return ""
-        from Utils.bsa_invalidation import (
+        from Utils.bsa.invalidation import (
             ensure_in_archive_list, append_to_archive_list,
             remove_many_from_archive_list,
         )
@@ -1321,7 +1321,7 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
         bsa_name = self._invalidation_bsa_name
         if bsa_name is None:
             return
-        from Utils.bsa_invalidation import (
+        from Utils.bsa.invalidation import (
             remove_from_archive_list, remove_many_from_archive_list,
         )
         key = self._invalidation_archive_list_key
@@ -1398,7 +1398,7 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
         Vanilla archives are already in the engine's default SArchiveList; we
         only append archives that a mod actually deploys into Data/.
         """
-        from Utils.filegraph_deploy import current, legacy_rows
+        from Utils.filegraph.deploy import current, legacy_rows
         if current() is None:
             return []
         names: list[str] = []
@@ -1567,7 +1567,7 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
 
         if not data_dir.is_dir():
             raise RuntimeError(f"Data directory not found: {data_dir}")
-        from Utils.filegraph_deploy import input_ready
+        from Utils.filegraph.deploy import input_ready
         if not input_ready():
             raise RuntimeError(
                 f"filemap.txt not found: {filemap}\n"

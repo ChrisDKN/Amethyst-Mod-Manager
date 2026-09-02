@@ -11,7 +11,7 @@ from time import perf_counter
 # Crash-proof diagnostic prints (Flatpak stdout can raise BrokenPipeError and
 # kill worker threads). See Utils.app_log.safe_print.
 from Utils.app_log import safe_print as print  # noqa: A004
-from Utils import perftrace
+from Utils.diagnostics import performance as perftrace
 
 from PySide6.QtCore import Qt, QTimer, QRect, QPoint, QCoreApplication, QEvent
 from PySide6.QtGui import QPainter, QColor, QPen, QAction
@@ -452,7 +452,7 @@ class ModListView(QTreeView):
         collapsed, locks, colors, deploy_paths = set(), {}, {}, {}
         if self.profile_dir is not None:
             try:
-                from Utils.profile_state import (
+                from Utils.profiles.state import (
                     read_collapsed_seps, read_separator_locks,
                     read_separator_colors, read_separator_deploy_paths)
                 collapsed = read_collapsed_seps(self.profile_dir)
@@ -547,7 +547,7 @@ class ModListView(QTreeView):
         folder = self._resolve_entry_folder(index.row())
         if folder is not None:
             try:
-                from Utils.xdg import xdg_open
+                from Utils.environment.xdg import xdg_open
                 from gui_qt.modlist_menu import _notify
                 # Surface opener failures - the whole chain can fail on the
                 # host side (no file-manager association) and would otherwise
@@ -626,7 +626,7 @@ class ModListView(QTreeView):
         if self.profile_dir is None:
             return
         try:
-            from Utils.profile_state import (
+            from Utils.profiles.state import (
                 write_collapsed_seps, write_separator_locks)
             m = self.model()
             write_collapsed_seps(self.profile_dir, m._collapsed)
@@ -881,7 +881,7 @@ class ModListView(QTreeView):
         # selected disabled mod cannot keep stale highlights during that gap.
         # Overwrite is always active even though it is represented by a pinned
         # separator rather than an enabled ModEntry.
-        from Utils.filegraph_constants import OVERWRITE_NAME
+        from Utils.filegraph.constants import OVERWRITE_NAME
         active = self.model().enabled_mod_names() | {OVERWRITE_NAME}
         names = set(names) & active
         ov = getattr(self, "_overrides", {})
@@ -1158,7 +1158,7 @@ class ModListView(QTreeView):
     def _name_tooltip(self, help_event) -> bool:
         """Show the hovered mod's description tooltip. Returns True if shown."""
         try:
-            from Utils.ui_config import load_show_summary_tooltips
+            from Utils.ui.config import load_show_summary_tooltips
             if not load_show_summary_tooltips():
                 return False
         except Exception:

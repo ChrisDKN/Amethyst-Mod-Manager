@@ -1,7 +1,7 @@
 """Merge enabled Elden Ring ``regulation.bin`` files with native WitchyBND.
 
 WitchyBND handles binder encryption/compression and PARAM serialization. The
-GUI-neutral backend in :mod:`Utils.witchybnd` performs the field-level merge,
+GUI-neutral backend in :mod:`Utils.wizards.witchybnd` performs the field-level merge,
 so this view only owns installation, source presentation, and progress.
 """
 
@@ -41,7 +41,7 @@ class RegulationMergeView(WizardViewBase):
         super().__init__(game, log_fn, on_close, ctx,
                          title=self.tr("Merge regulation.bin - {0}").format(
                              game.name))
-        from Utils import witchybnd
+        from Utils.wizards import witchybnd
         self._sources: list = []
         self._exe = witchybnd.find_witchy(game)
 
@@ -128,7 +128,7 @@ class RegulationMergeView(WizardViewBase):
             self._refresh_sources()
 
     def _start_install(self):
-        from Utils import witchybnd
+        from Utils.wizards import witchybnd
         self._install_btn.setEnabled(False)
 
         def worker():
@@ -150,7 +150,7 @@ class RegulationMergeView(WizardViewBase):
             target=worker, daemon=True, name="witchybnd-install").start()
 
     def _on_dl_done(self, ok: bool):
-        from Utils import witchybnd
+        from Utils.wizards import witchybnd
         if ok:
             self._exe = witchybnd.find_witchy(self._game)
             self._goto_step(_PG_RUN)
@@ -161,7 +161,7 @@ class RegulationMergeView(WizardViewBase):
 
     def _enabled_mod_dirs(self) -> list[tuple[str, Path]]:
         """Enabled mods in highest-first order, excluding the prior output."""
-        from Utils.modlist import read_modlist
+        from Utils.mods.modlist import read_modlist
         game = self._game
         staging = game.get_effective_mod_staging_path()
         profile = (getattr(self._ctx, "profile_name", None)
@@ -175,7 +175,7 @@ class RegulationMergeView(WizardViewBase):
         ]
 
     def _refresh_sources(self):
-        from Utils import witchybnd
+        from Utils.wizards import witchybnd
         try:
             self._sources = witchybnd.find_regulation_sources(
                 self._enabled_mod_dirs())
@@ -232,7 +232,7 @@ class RegulationMergeView(WizardViewBase):
                 len(self._sources) > 1 and self._exe is not None)
 
     def _worker(self):
-        from Utils import witchybnd
+        from Utils.wizards import witchybnd
 
         game, executable = self._game, self._exe
         log = lambda message: safe_emit(self._log_sig, message)  # noqa: E731

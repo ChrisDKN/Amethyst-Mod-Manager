@@ -6,7 +6,7 @@ Downloads, General, Paths, Advanced and About while keeping every setting's
 existing save-on-change behaviour.
 
 Save-on-change: every control writes straight to amethyst.ini through the
-toolkit-free `Utils.ui_config` load_*/save_* helpers the moment it changes - there
+toolkit-free `Utils.ui.config` load_*/save_* helpers the moment it changes - there
 is no Save/Cancel button. Language and UI Scale take effect on restart; themes
 are applied to the running Qt application immediately.
 
@@ -46,7 +46,7 @@ from gui_qt.help_marker import tip_text, make_help_marker, help_mark_qss
 from gui_qt.wheel_guard import no_wheel
 from gui_qt.flow_layout import FlowLayout, enable_height_for_width
 from gui_qt.overlay_base import OverlayBase
-from Utils import ui_config as uc
+from Utils.ui import config as uc
 
 
 # ---------------------------------------------------------------------------
@@ -624,7 +624,7 @@ class SettingsView(OverlayBase):
     def refresh_theme_options(self, select_id: str | None = None):
         """Reload built-in/custom palettes and rebuild their preview tiles."""
         try:
-            from Utils.themes import load_display_names, load_palettes
+            from themes import load_display_names, load_palettes
             names = load_display_names()
             palettes = load_palettes()
         except Exception:
@@ -1072,7 +1072,7 @@ class SettingsView(OverlayBase):
         GNOME Software / Discover, delta downloads). Once enrolled, the button
         is hidden. No-op outside the flatpak or when already remote-tracked.
         """
-        from Utils.version_check import (
+        from Utils.github.app_updates import (
             is_flatpak, flatpak_installed_from_remote,
         )
         if not is_flatpak() or flatpak_installed_from_remote():
@@ -1089,8 +1089,8 @@ class SettingsView(OverlayBase):
     def _on_enroll_flatpak_remote(self):
         """Confirm, then add the remote + reinstall-from-remote (relaunches)."""
         from gui_qt.confirm_overlay import ConfirmOverlay
-        from Utils.version_check import enroll_flatpak_remote
-        from Utils.ui_config import load_allow_prerelease
+        from Utils.github.app_updates import enroll_flatpak_remote
+        from Utils.ui.config import load_allow_prerelease
 
         def _go(ok: bool):
             if not ok:
@@ -1213,7 +1213,7 @@ class SettingsView(OverlayBase):
     def _build_system_info(self):
         """Read-only environment facts + a Copy button, for bug reports."""
         g = self._section(self.tr("System Information"))
-        from Utils import system_info
+        from Utils.diagnostics import system as system_info
 
         try:
             pairs = system_info.collect()
@@ -1256,7 +1256,7 @@ class SettingsView(OverlayBase):
 
     def _copy_system_info(self):
         from PySide6.QtWidgets import QApplication
-        from Utils import system_info
+        from Utils.diagnostics import system as system_info
         try:
             QApplication.clipboard().setText("\n".join(system_info.log_lines()))
         except Exception:
@@ -1282,8 +1282,8 @@ class SettingsView(OverlayBase):
 
     def _save_speed_limit(self, value: int):
         # Apply to in-flight downloads immediately, then persist.
-        from Utils import bandwidth_limit
-        bandwidth_limit.set_limit_mbps(float(value))
+        from Utils.downloads import bandwidth
+        bandwidth.set_limit_mbps(float(value))
         self._safe_save(uc.save_download_speed_limit, float(value))
 
     def _on_download_only_changed(self, _value):
@@ -1307,7 +1307,7 @@ class SettingsView(OverlayBase):
 
     # ---- path browse / clear ----------------------------------------------
     def _browse_into(self, edit: QLineEdit, save_fn, title: str):
-        from Utils.portal_filechooser import pick_folder
+        from Utils.ui.portal import pick_folder
         pick_folder(f"Select {title}",
                     lambda path: self._folder_picked.emit((edit, save_fn, path)))
 
@@ -1315,7 +1315,7 @@ class SettingsView(OverlayBase):
                           filters=None):
         # Reuse the folder-picked signal/slot - the payload shape is identical
         # (edit, save_fn, path); pick_file just returns a file Path.
-        from Utils.portal_filechooser import pick_file
+        from Utils.ui.portal import pick_file
         pick_file(f"Select {title}",
                   lambda path: self._folder_picked.emit((edit, save_fn, path)),
                   filters=filters)

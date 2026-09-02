@@ -169,7 +169,7 @@ class ProfileVFSGameMixin:
         # executable is relative to the outer install. Reuse the normal
         # recursive resolver, then ensure the result belongs to this view.
         try:
-            from Utils.exe_launch import resolve_game_exe
+            from Utils.executables.launch import resolve_game_exe
             resolved = resolve_game_exe(self)
             if resolved is not None:
                 relative = resolved.resolve(strict=False).relative_to(game_root)
@@ -256,7 +256,7 @@ class ProfileVFSGameMixin:
     def _deploy_vfs(self, *, profile: str, filemap: Path, staging: Path,
                     log_fn, progress_fn=None) -> None:
         """Build a private game view and run compatible handler hooks."""
-        from Utils.deploy import (
+        from Utils.deployment import (
             expand_separator_deploy_paths,
             expand_separator_link_modes,
             expand_separator_raw_deploy,
@@ -264,8 +264,8 @@ class ProfileVFSGameMixin:
             load_per_mod_strip_prefixes,
             load_separator_deploy_paths,
         )
-        from Utils.mod_files import excluded_raw_by_mod
-        from Utils.modlist import read_modlist
+        from Utils.mods.files import excluded_raw_by_mod
+        from Utils.mods.modlist import read_modlist
         from Utils.vfs import build_layers
 
         profile_dir = self.get_profile_root() / "profiles" / profile
@@ -336,7 +336,7 @@ class ProfileVFSGameMixin:
             # build. UE5 supplies its own richer transactional callback.
             if not callable(getattr(self, "_vfs_populate_data_layer", None)):
                 try:
-                    from Utils.deploy import cleanup_custom_deploy_dirs
+                    from Utils.deployment import cleanup_custom_deploy_dirs
                     cleanup_custom_deploy_dirs(
                         profile_dir,
                         sep_entries,
@@ -350,7 +350,7 @@ class ProfileVFSGameMixin:
                         f"targets: {cleanup_exc}"
                     )
                 try:
-                    from Utils.deploy import restore_custom_rules
+                    from Utils.deployment import restore_custom_rules
                     game_root_getter = getattr(self, "get_vfs_game_root", None)
                     game_root = (
                         game_root_getter()

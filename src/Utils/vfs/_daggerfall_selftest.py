@@ -15,7 +15,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
-from Utils.deploy import LinkMode
+from Utils.deployment import LinkMode
 from Utils.vfs import has_deployment_state, manifest_path, pending_path
 
 

@@ -1,6 +1,6 @@
 """QFileDialog pickers - the last-resort step of the portal chooser waterfall.
 
-``Utils.portal_filechooser`` tries the XDG portal, then zenity, then kdialog,
+``Utils.ui.portal`` tries the XDG portal, then zenity, then kdialog,
 then whatever pickers the GUI registered here.  Until now nothing was ever
 registered, so on a desktop with no ``org.freedesktop.portal.FileChooser``
 backend (wlroots compositors like Sway ship only ScreenCast/Screenshot) the

@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
 from gui_qt.safe_emit import safe_emit
 from gui_qt.theme_qt import err_text, ok_text
 from wizards_qt._view_base import WizardViewBase
-from Utils.bodyslide_linux import TOOLS
+from Utils.bethesda.bodyslide_linux import TOOLS
 
 if TYPE_CHECKING:
     from Games.base_game import BaseGame
@@ -101,7 +101,7 @@ class BodySlideLinuxView(WizardViewBase):
         return page
 
     def _enter_install(self):
-        from Utils.bodyslide_linux import installed_version
+        from Utils.bethesda.bodyslide_linux import installed_version
 
         have = installed_version()
         if have:
@@ -115,7 +115,7 @@ class BodySlideLinuxView(WizardViewBase):
                                      "latest release…"))
 
         def worker():
-            from Utils.bodyslide_linux import fetch_latest_release
+            from Utils.bethesda.bodyslide_linux import fetch_latest_release
             try:
                 tag, url = fetch_latest_release()
                 safe_emit(self._inst_latest_sig, (tag, url))
@@ -127,7 +127,7 @@ class BodySlideLinuxView(WizardViewBase):
                          name="bodyslide-linux-check").start()
 
     def _on_latest(self, latest):
-        from Utils.bodyslide_linux import installed_version
+        from Utils.bethesda.bodyslide_linux import installed_version
 
         have = installed_version()
         if latest is None:
@@ -176,7 +176,7 @@ class BodySlideLinuxView(WizardViewBase):
                          self.tr("Downloading {0}…").format(tag))
 
         def worker():
-            from Utils.bodyslide_linux import install_release
+            from Utils.bethesda.bodyslide_linux import install_release
             last = [-1]
 
             def hook(block_num, block_size, total_size):
@@ -213,7 +213,7 @@ class BodySlideLinuxView(WizardViewBase):
         self._inst_bar.setValue(pct)
 
     def _on_install_done(self, ok: bool):
-        from Utils.bodyslide_linux import is_installed
+        from Utils.bethesda.bodyslide_linux import is_installed
 
         self._installing = False
         self._inst_bar.setVisible(False)
@@ -264,7 +264,7 @@ class BodySlideLinuxView(WizardViewBase):
         return page
 
     def _capture_output_mod_name(self):
-        from Utils.bodyslide_tools import ensure_output_mod, sanitize_output_name
+        from Utils.bethesda.bodyslide import ensure_output_mod, sanitize_output_name
 
         self._output_mod_name = sanitize_output_name(
             self._output_name_entry.text(), self._output_default)
@@ -306,7 +306,7 @@ class BodySlideLinuxView(WizardViewBase):
             self._start_run()
 
     def _start_run(self):
-        from Utils.bodyslide_linux import is_installed
+        from Utils.bethesda.bodyslide_linux import is_installed
 
         if not is_installed():
             self._set_status(
@@ -320,7 +320,7 @@ class BodySlideLinuxView(WizardViewBase):
         output_dir = game.get_effective_mod_staging_path() / output_mod_name
 
         def worker():
-            from Utils.bodyslide_linux import build_env, run_logged
+            from Utils.bethesda.bodyslide_linux import build_env, run_logged
             try:
                 output_dir.mkdir(parents=True, exist_ok=True)
                 env = build_env(game, profile, output_dir,
@@ -355,7 +355,7 @@ class BodySlideLinuxView(WizardViewBase):
         override for it, so slider data deployed anywhere else shows up as an
         empty outfit list with no other clue.
         """
-        from Utils.bodyslide_tools import slider_data_root
+        from Utils.bethesda.bodyslide import slider_data_root
 
         from Utils.vfs import effective_tool_data_root
         try:

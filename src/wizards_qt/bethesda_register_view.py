@@ -3,8 +3,8 @@
 Writes ``HKLM\\Software\\Bethesda Softworks\\<Game>\\Installed Path`` (and the
 Wow6432Node mirror) into the game's Steam compatdata prefix so tools run inside
 that prefix (xEdit, LOOT, Wrye Bash, Synthesis…) can locate the game.  A thin
-GUI over ``Utils.bethesda_registry.register_bethesda_game_path``; the Proton env
-is resolved by ``Utils.proton_tools.resolve_proton_env``.
+GUI over ``Utils.bethesda.registry.register_bethesda_game_path``; the Proton env
+is resolved by ``Utils.wine.proton.resolve_proton_env``.
 
 Port of the Tk ``bethesda_register_game_path`` plugin.
 """
@@ -114,7 +114,7 @@ class RegisterGamePathView(WizardViewBase):
             safe_emit(self._finish_sig, False)
             return
 
-        from Utils.proton_tools import resolve_proton_env
+        from Utils.wine.proton import resolve_proton_env
         proton_script, env = resolve_proton_env(game, self._log_line)
         if proton_script is None or env is None:
             safe_emit(self._finish_sig, False)
@@ -127,7 +127,7 @@ class RegisterGamePathView(WizardViewBase):
         self._log_line(self.tr("Proton: {0}").format(proton_script.parent.name))
 
         # Drop the idempotency marker so a manual run always re-writes the keys.
-        from Utils.bethesda_registry import _marker_path, register_bethesda_game_path
+        from Utils.bethesda.registry import _marker_path, register_bethesda_game_path
         try:
             _marker_path(compat_data, registry_name).unlink(missing_ok=True)
         except OSError:

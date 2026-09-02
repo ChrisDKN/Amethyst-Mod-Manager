@@ -5,9 +5,9 @@ Version). Qt port of the Tk gui/dialogs.py SepSettingsPanel, merged with the
 SepColorPanel colour picker: the separator colour is edited here instead of via a
 separate "Change separator color" menu item.
 
-Persistence is neutral (Utils.profile_state read/write helpers), keyed by the
+Persistence is neutral (Utils.profiles.state read/write helpers), keyed by the
 separator's internal `..._separator` name - the same shape the Tk app writes, so
-existing data round-trips and the deploy pipeline (Utils.deploy_shared) picks the
+existing data round-trips and the deploy pipeline (Utils.deployment.shared) picks the
 paths up unchanged.
 
 on_save(color: str | None, deploy: dict | None) is called on Save:
@@ -284,7 +284,7 @@ class SeparatorSettingsView(QWidget):
 
     # ---- deploy handling -------------------------------------------------
     def _on_browse(self):
-        from Utils.portal_filechooser import pick_folder
+        from Utils.ui.portal import pick_folder
         pick_folder("Select deployment directory",
                     lambda chosen: self._folder_picked.emit(chosen))
 

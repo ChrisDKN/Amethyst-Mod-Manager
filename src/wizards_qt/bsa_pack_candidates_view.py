@@ -7,7 +7,7 @@ A modlist-panel-scoped tab, two pages:
      mod in the Mod Files tab, where the existing Pack BSA button does the work.
 
 Report-only by design: nothing here writes an archive. The assessment lives in
-Utils/bsa_pack_candidates.py.
+Utils/bsa/candidates.py.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 from gui_qt.safe_emit import safe_emit
 from gui_qt.theme_qt import active_palette, _c
 from wizards_qt._view_base import AMBER, GREEN, RED, WizardViewBase
-import Utils.bsa_pack_candidates as core
+import Utils.bsa.candidates as core
 
 if TYPE_CHECKING:
     from Games.base_game import BaseGame
@@ -146,7 +146,7 @@ class BsaPackCandidatesView(WizardViewBase):
         return page
 
     def _populate_results(self):
-        from Utils.cache_tools import format_size
+        from Utils.downloads.cache import format_size
 
         p = active_palette()
         groups = core.group_by_bucket(self._candidates)

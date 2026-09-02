@@ -47,7 +47,7 @@ from pathlib import Path
 from Games.base_game import BaseGame
 from Games.ue5_game import UE5Game, UE5Rule
 from Utils.vfs import ProfileVFSGameMixin
-from Utils.deploy import (
+from Utils.deployment import (
     CustomRule,
     LinkMode,
     RestoreWhitelistRule,
@@ -66,7 +66,7 @@ from Utils.deploy import (
     restore_data_core,
     restore_filemap_from_root,
 )
-from Utils.modlist import read_modlist
+from Utils.mods.modlist import read_modlist
 from Utils.config_paths import get_profiles_dir, get_custom_games_dir, get_custom_game_images_dir
 
 _PROFILES_DIR = get_profiles_dir()
@@ -608,7 +608,7 @@ class StandardCustomGame(ProfileVFSGameMixin, BaseGame):
     def vfs_direct_shadow_launch(self) -> bool:
         # Native custom games need their executable and cwd inside the complete
         # materialized view. Resolve first so a native alternative is honoured.
-        from Utils.exe_launch import resolve_game_exe
+        from Utils.executables.launch import resolve_game_exe
         executable = resolve_game_exe(self) or Path(self.exe_name)
         return executable.suffix.lower() not in (".exe", ".bat")
 
@@ -657,7 +657,7 @@ class StandardCustomGame(ProfileVFSGameMixin, BaseGame):
 
         if data_dir is None:
             raise RuntimeError("Mod data path could not be resolved.")
-        from Utils.filegraph_deploy import input_ready
+        from Utils.filegraph.deploy import input_ready
         if not input_ready():
             raise RuntimeError(f"filemap.txt not found: {filemap}\nRun 'Build Filemap' before deploying.")
 
@@ -806,7 +806,7 @@ class RootCustomGame(StandardCustomGame):
         filemap   = self.get_effective_filemap_path()
         staging   = self.get_effective_mod_staging_path()
 
-        from Utils.filegraph_deploy import input_ready
+        from Utils.filegraph.deploy import input_ready
         if not input_ready():
             raise RuntimeError(f"filemap.txt not found: {filemap}\nRun 'Build Filemap' before deploying.")
 

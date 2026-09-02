@@ -85,7 +85,7 @@ if [ "$BUNDLE_MODE" = true ]; then
   echo "Install with: flatpak install --user ${BUNDLE_FILE}"
   # Bundle installs do NOT pull the app's related refs - the 32-bit compat
   # extensions the manifest declares must be installed separately (the app
-  # also self-heals this at startup via Utils/flatpak_i386.py).
+  # also self-heals this at startup via Utils/flatpak/i386.py).
   echo "Then install 32-bit support (bundle installs skip related refs):"
   echo "  flatpak install --user flathub org.freedesktop.Platform.Compat.i386//24.08 org.freedesktop.Platform.GL32.default//24.08"
 elif [ "${1:-}" != "--export" ]; then

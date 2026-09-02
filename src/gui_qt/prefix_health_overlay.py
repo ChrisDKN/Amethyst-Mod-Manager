@@ -1,6 +1,6 @@
 """Prefix Health Check - a modal report of what a game's Proton prefix contains.
 
-Opened from the Proton Tools menu. Every row comes from ``Utils.prefix_health``,
+Opened from the Proton Tools menu. Every row comes from ``Utils.wine.health``,
 which reads the prefix itself rather than trusting Amethyst's
 ``amethyst_deps.json`` marker, so prefixes provisioned by hand report honestly.
 Which rows appear is driven entirely by the game handler's ``auto_install_deps``
@@ -33,7 +33,7 @@ from gui_qt.theme_qt import (
     _c, active_palette, button_qss, contrast_text, close_button,
     err_text, ok_text,
 )
-from Utils.prefix_health import HealthStatus
+from Utils.wine.health import HealthStatus
 
 _GLYPH = {
     HealthStatus.OK: "✔",
@@ -49,9 +49,9 @@ def _fix_game_registry(game, log_fn) -> bool:
     Headless equivalent of the Register Game Path wizard: the marker is cleared
     first so a manual fix always rewrites, even when the recorded path matches.
     """
-    from Utils.bethesda_registry import _marker_path, register_bethesda_game_path
-    from Utils.proton_prefix import resolve_compat_data
-    from Utils.proton_tools import resolve_proton_env
+    from Utils.bethesda.registry import _marker_path, register_bethesda_game_path
+    from Utils.wine.prefix import resolve_compat_data
+    from Utils.wine.proton import resolve_proton_env
 
     registry_name = getattr(game, "synthesis_registry_name", None)
     if not registry_name:
@@ -88,34 +88,34 @@ def _fix_game_registry(game, log_fn) -> bool:
 
 
 def _install_vcredist(game, log_fn) -> bool:
-    from Utils.proton_tools import install_vcredist
+    from Utils.wine.proton import install_vcredist
     return install_vcredist(game, log_fn=log_fn)
 
 
 def _install_d3dcompiler(game, log_fn) -> bool:
-    from Utils.proton_tools import install_d3dcompiler_47
+    from Utils.wine.proton import install_d3dcompiler_47
     return install_d3dcompiler_47(game, log_fn=log_fn)
 
 
 def _install_lavfilters(game, log_fn) -> bool:
-    from Utils.proton_tools import repair_lavfilters
+    from Utils.wine.proton import repair_lavfilters
     return repair_lavfilters(game, log_fn=log_fn)
 
 
 def _install_dotnet(version: str):
     def _install(game, log_fn) -> bool:
-        from Utils.proton_tools import install_dotnet
+        from Utils.wine.proton import install_dotnet
         return install_dotnet(game, version, log_fn=log_fn)
     return _install
 
 
-from Utils.protontricks import WINETRICKS_VERB_DEPS as _WINETRICKS_VERB_DEPS
-from Utils.proton_tools import DOTNET_VERSIONS as _DOTNET_VERSIONS
+from Utils.wine.protontricks import WINETRICKS_VERB_DEPS as _WINETRICKS_VERB_DEPS
+from Utils.wine.proton import DOTNET_VERSIONS as _DOTNET_VERSIONS
 
 def _install_winetricks_verb(verb: str):
     """Fix handler for a component that is just a winetricks verb."""
     def _install(game, log_fn) -> bool:
-        from Utils.protontricks import install_winetricks_verb
+        from Utils.wine.protontricks import install_winetricks_verb
         return install_winetricks_verb(game, verb, log_fn=log_fn)
     return _install
 
@@ -402,16 +402,16 @@ class PrefixHealthOverlay(OverlayBase):
         def _worker():
             proton_script = None
             try:
-                from Utils.proton_tools import resolve_proton_env
+                from Utils.wine.proton import resolve_proton_env
                 proton_script, _env = resolve_proton_env(self._game, self._log)
             except Exception as exc:
                 self._log(f"could not resolve Proton: {exc}")
             try:
-                from Utils.prefix_health import run_prefix_health
+                from Utils.wine.health import run_prefix_health
                 checks = run_prefix_health(self._game, proton_script=proton_script,
                                            check_proton=True)
             except Exception as exc:
-                from Utils.prefix_health import HealthCheck
+                from Utils.wine.health import HealthCheck
                 self._log(f"check failed: {exc}")
                 checks = [HealthCheck("error", HealthStatus.UNKNOWN,
                                       "Health check", str(exc))]

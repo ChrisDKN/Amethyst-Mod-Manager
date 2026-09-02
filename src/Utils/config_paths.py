@@ -326,7 +326,7 @@ def get_wine_prefixes_dir() -> Path:
     if not d.exists():
         legacy = get_config_dir() / "download_cache" / "wine_prefixes"
         try:
-            from Utils.ui_config import load_download_cache_path  # lazy: avoid cycles
+            from Utils.ui.config import load_download_cache_path  # lazy: avoid cycles
             custom = load_download_cache_path().strip()
         except Exception:
             custom = ""
@@ -357,7 +357,7 @@ def get_download_cache_dir() -> Path:
     takes effect without restarting.
     """
     try:
-        from Utils.ui_config import load_download_cache_path  # lazy: avoid cycles
+        from Utils.ui.config import load_download_cache_path  # lazy: avoid cycles
         custom = load_download_cache_path().strip()
     except Exception:
         custom = ""
@@ -432,7 +432,7 @@ def get_languages_dir() -> Path:
     """Return the directory where downloaded / user-added UI translations live.
 
     Compiled Qt translation files (``amethyst_<code>.qm``) are stored here. They
-    are synced from the Resources branch on startup (see Utils.gh_sync) and users
+    are synced from the Resources branch on startup (see Utils.github.sync) and users
     can drop their own ``.qm`` in to add a language without an app update. The
     built-in source-tree English is always available regardless of this folder.
 
@@ -446,10 +446,10 @@ def get_languages_dir() -> Path:
 def get_ludusavi_manifest_path() -> Path:
     """Return the path of the downloaded Ludusavi save-path data file.
 
-    Synced from the Resources branch (see Utils.gh_sync) so save locations for
+    Synced from the Resources branch (see Utils.github.sync) so save locations for
     new games can ship without an app update. The built-in copy under
     ``src/Games/`` is the offline fallback; whichever of the two carries the
-    later ``generated`` date wins (see Utils.ludusavi_manifest).
+    later ``generated`` date wins (see Utils.saves.ludusavi).
 
     Result: ~/.config/AmethystModManager/ludusavi/ludusavi_saves.json
     """

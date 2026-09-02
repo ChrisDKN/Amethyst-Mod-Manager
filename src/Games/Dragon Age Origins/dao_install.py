@@ -316,8 +316,8 @@ def _prompt_override_config(config_path: Path, log_fn,
     if not options:
         return []
 
-    from Utils import ui_hooks
-    from Utils.ui_hooks import BACK, USE_DEFAULTS
+    from Utils.ui import hooks as ui_hooks
+    from Utils.ui.hooks import BACK, USE_DEFAULTS
     if not ui_hooks.has_choice_handler():
         log_fn(f"  [DAO] OverrideConfig.xml present but no UI hook - "
                f"keeping {len(options)} default(s).")
@@ -431,7 +431,7 @@ def _warn_duplicate_overrides(mod_name: str,
 
     # The GUI's registered handler owns main-thread dispatch + modal display.
     # No-op when headless. height hint kept for the Tk/CTkAlert backend.
-    from Utils import ui_hooks
+    from Utils.ui import hooks as ui_hooks
     ui_hooks.warn("Dragon Age - Duplicate override files", message, height=280)
 
 

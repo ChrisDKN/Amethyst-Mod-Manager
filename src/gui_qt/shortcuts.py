@@ -493,7 +493,7 @@ def register_shortcuts(win) -> None:
     # Shift+F11 = reset counters (perftrace.install only binds Tk keys, so
     # the Qt window wires its own). Unguarded - the table should dump even
     # with an overlay open or a text box focused.
-    from Utils import perftrace
+    from Utils.diagnostics import performance as perftrace
     if perftrace.is_enabled():
         sc("F11", lambda _win: perftrace.dump(), guarded=False)
         sc("Shift+F11", lambda _win: perftrace.reset(), guarded=False)

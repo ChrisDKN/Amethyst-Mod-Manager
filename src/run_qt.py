@@ -33,7 +33,7 @@ _BOOTSTRAP_SETUP_STARTED = time.perf_counter()
 _BOOTSTRAP_TIMINGS = app_bootstrap.setup_environment()
 _BOOTSTRAP_FINISHED = time.perf_counter()
 
-from Utils import perftrace
+from Utils.diagnostics import performance as perftrace
 
 _startup_timing = (perftrace.StartupTimeline(_STARTUP_STARTED)
                    if perftrace.is_enabled() else None)

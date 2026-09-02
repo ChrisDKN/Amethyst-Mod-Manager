@@ -5,7 +5,7 @@ installed. Walks the visible install steps; each step's groups render as radio
 buttons (SelectExactlyOne/SelectAtMostOne) or checkboxes (SelectAtLeastOne/
 SelectAny/SelectAll). A left panel shows the hovered/selected option's image +
 description. Back/Next/Finish drive the step flow; flag state + step visibility
-re-evaluate on each transition via the neutral Utils.fomod_installer backend.
+re-evaluate on each transition via the neutral Utils.fomod.installer backend.
 
 On Finish it calls on_finish(selections) with {step_idx_str: {group: [plugins]}}
 which finish_install() feeds to resolve_files(). on_cancel() aborts the install.
@@ -23,11 +23,11 @@ from PySide6.QtWidgets import (
 )
 
 from gui_qt.theme_qt import active_palette, _c
-from Utils.fomod_installer import (
+from Utils.fomod.installer import (
     get_visible_steps, get_default_selections, update_flags,
     validate_selections, resolve_plugin_type, plugin_dep_unmet, plugin_dep_met,
 )
-from Utils.fomod_parser import resolve_path_ci
+from Utils.fomod.parser import resolve_path_ci
 
 
 class FomodWizardView(QWidget):

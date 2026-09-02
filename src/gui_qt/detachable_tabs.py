@@ -389,7 +389,7 @@ class DetachableTabWidget(QTabWidget):
         if not key:
             return None
         try:
-            from Utils.ui_config import get_tab_pin
+            from Utils.ui.config import get_tab_pin
             return get_tab_pin(key)
         except Exception:
             return None
@@ -598,7 +598,7 @@ class DetachableTabWidget(QTabWidget):
         #    pin) agrees with where we're putting it, not the old value.
         if key:
             try:
-                from Utils.ui_config import save_tab_pin
+                from Utils.ui.config import save_tab_pin
                 save_tab_pin(key, target_mode)
             except Exception:
                 pass

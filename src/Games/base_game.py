@@ -18,8 +18,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from Utils.config_paths import get_game_config_dir, get_game_config_path
-from Utils.deploy import LinkMode
-from Utils.steam_finder import find_prefix as _find_steam_prefix
+from Utils.deployment import LinkMode
+from Utils.launchers.steam import find_prefix as _find_steam_prefix
 
 if TYPE_CHECKING:
     from typing import Callable
@@ -73,7 +73,7 @@ def _ensure_lutris_prefix_compat(prefix_path: "Path | None") -> None:
     if prefix_path is None:
         return
     try:
-        from Utils.lutris_finder import is_lutris_prefix, ensure_steamuser_compat
+        from Utils.launchers.lutris import is_lutris_prefix, ensure_steamuser_compat
         if is_lutris_prefix(prefix_path):
             ensure_steamuser_compat(prefix_path)
     except Exception:
@@ -186,7 +186,7 @@ class BaseGame(ABC):
     # Override (e.g. to LinkMode.COPY) for games that never hardlink.
     deploy_mode_fallback: LinkMode = _DEFAULT_DEPLOY_MODE
 
-    # Opt-in for the incremental redeploy fast path (Utils/deploy_incremental).
+    # Opt-in for the incremental redeploy fast path (Utils/deployment/incremental.py).
     # Only safe for handlers whose deploy() is the plain standard sequence
     # (move_to_core → deploy_filemap → deploy_core) with a single Data-style
     # target and idempotent post-deploy steps.  See Fallout_3 for the first
@@ -259,7 +259,7 @@ class BaseGame(ABC):
     # for handlers whose __init__ does not chain to BaseGame.
     _save_path_override: "Path | None" = None
 
-    # Profile Groups (Utils/profile_groups.py): merged deploy of several
+    # Profile Groups (Utils/profiles/groups.py): merged deploy of several
     # profiles. A group is an ordinary profile-specific profile whose mods/
     # is a per-mod symlink farm, so any handler that deploys from filemap.txt
     # + the mod index supports it unchanged. Set False only for a handler
@@ -994,7 +994,7 @@ class BaseGame(ABC):
         Heroic, Lutris, or Faugus.  Each launcher has a different wrapper UI,
         so the toolkit-neutral builder returns labelled fields for the GUI.
         """
-        from Utils.launch_handoff import build_launch_handoff
+        from Utils.launchers.handoff import build_launch_handoff
         return build_launch_handoff(self, profile)
 
     def get_steam_launch_string(self, profile: "str | None" = None) -> str:
@@ -1022,7 +1022,7 @@ class BaseGame(ABC):
         if not getattr(self, "native_launch_required", False):
             return ""
         from Utils.config_paths import cli_invocation
-        from Utils.launch_handoff import compose_steam_handoff_command
+        from Utils.launchers.handoff import compose_steam_handoff_command
 
         argv = [*cli_invocation(), "launch", self.game_id]
         if profile:
@@ -1523,13 +1523,13 @@ class BaseGame(ABC):
     @property
     def prefix_health_extras(self) -> list[str]:
         """
-        Extra ``Utils.prefix_health`` component tokens to REPORT (and offer a
+        Extra ``Utils.wine.health`` component tokens to REPORT (and offer a
         Fix / Fix All for) without installing them when the game is added.
 
         Use this for components a community guide recommends but that are too
         many, too slow, or too situational to inflict on every user up front -
         the user opts in from the prefix health overlay. Tokens must exist in
-        ``prefix_health.COMPONENT_SPECS``; unknown ones are ignored.
+        ``Utils.wine.health.COMPONENT_SPECS``; unknown ones are ignored.
 
         Rows appear after ``auto_install_deps``, in declared order.
         """
@@ -1538,7 +1538,7 @@ class BaseGame(ABC):
     @property
     def custom_routing_rules(self) -> list:
         """
-        A list of CustomRule objects (from Utils.deploy) that route specific
+        A list of CustomRule objects (from Utils.deployment) that route specific
         file types to a game-root-relative destination directory during deploy.
 
         Files matching a rule are placed under game_root / rule.dest and are
@@ -1548,7 +1548,7 @@ class BaseGame(ABC):
 
         Example (RE Engine .pak files, flattened to one folder)::
 
-            from Utils.deploy import CustomRule
+            from Utils.deployment import CustomRule
             return [CustomRule(dest="pak_mods", extensions=[".pak"], flatten=True)]
 
         Return an empty list (the default) to use normal routing for all files.
@@ -1557,7 +1557,7 @@ class BaseGame(ABC):
 
     @property
     def restore_whitelist(self) -> list:
-        """A list of RestoreWhitelistRule objects (from Utils.deploy) that keep
+        """A list of RestoreWhitelistRule objects (from Utils.deployment) that keep
         matching runtime files in the game folder on restore instead of moving
         them to overwrite/ or Root_Folder/.  See RestoreWhitelistRule for the
         anchored, glob-capable matching rules.  Default: protect nothing.
@@ -1573,7 +1573,7 @@ class BaseGame(ABC):
         rules = self.restore_whitelist
         if not rules:
             return None
-        from Utils.deploy import build_restore_whitelist_matcher
+        from Utils.deployment import build_restore_whitelist_matcher
         return build_restore_whitelist_matcher(rules, rel_prefix=rel_prefix)
 
     @property
@@ -1803,7 +1803,7 @@ class BaseGame(ABC):
         if self._is_default_profile():
             return
         try:
-            from Utils.profile_state import read_profile_settings
+            from Utils.profiles.state import read_profile_settings
             pset = read_profile_settings(self._active_profile_dir)
         except Exception:
             return
@@ -1849,7 +1849,7 @@ class BaseGame(ABC):
         """
         if self._active_profile_dir is not None:
             try:
-                from Utils.profile_state import profile_uses_specific_mods
+                from Utils.profiles.state import profile_uses_specific_mods
                 if profile_uses_specific_mods(self._active_profile_dir):
                     return self._active_profile_dir / "mods"
             except Exception:
@@ -1914,7 +1914,7 @@ class BaseGame(ABC):
         """
         if self._active_profile_dir is not None:
             try:
-                from Utils.profile_state import profile_uses_specific_mods
+                from Utils.profiles.state import profile_uses_specific_mods
                 if profile_uses_specific_mods(self._active_profile_dir):
                     return self._active_profile_dir / "Root_Folder"
             except Exception:
@@ -1958,12 +1958,12 @@ class BaseGame(ABC):
         # Some game handlers and deploy_filemap_to_root call the low-level
         # snapshot writer directly. Defer those too so the shared pipeline can
         # coalesce every request into the same final game-root walk.
-        from Utils.deploy_shared import _begin_deferred_deploy_snapshots
+        from Utils.deployment.shared import _begin_deferred_deploy_snapshots
         _begin_deferred_deploy_snapshots()
 
     def end_deferred_runtime_snapshot(self) -> "tuple[bool, list[tuple]]":
         """End deferral and return (generic_requested, direct_requests)."""
-        from Utils.deploy_shared import _end_deferred_deploy_snapshots
+        from Utils.deployment.shared import _end_deferred_deploy_snapshots
         direct_requests = _end_deferred_deploy_snapshots()
         requested = getattr(self, "_deferred_snapshot_requested", False)
         self._defer_runtime_snapshot = False
@@ -1980,7 +1980,7 @@ class BaseGame(ABC):
         if getattr(self, "_defer_runtime_snapshot", False):
             self._deferred_snapshot_requested = True
             return
-        from Utils.deploy import _write_deploy_snapshot, _FILEMAP_SNAPSHOT_NAME
+        from Utils.deployment import _write_deploy_snapshot, _FILEMAP_SNAPSHOT_NAME
         gp = self.get_game_path()
         if not gp:
             return
@@ -1995,7 +1995,7 @@ class BaseGame(ABC):
 
         No-op if no snapshot exists.  Deletes the snapshot after sweeping.
         """
-        from Utils.deploy import _move_runtime_files, _FILEMAP_SNAPSHOT_NAME
+        from Utils.deployment import _move_runtime_files, _FILEMAP_SNAPSHOT_NAME
         gp = self.get_game_path()
         snap = self.get_effective_filemap_path().parent / _FILEMAP_SNAPSHOT_NAME
         if not (gp and snap.is_file()):
@@ -2158,7 +2158,7 @@ class BaseGame(ABC):
         data = self._read_global_settings()
         if not self._is_default_profile() and self.profile_overridable_settings:
             try:
-                from Utils.profile_state import read_profile_settings
+                from Utils.profiles.state import read_profile_settings
                 pset = read_profile_settings(self._active_profile_dir)
             except Exception:
                 pset = {}
@@ -2188,7 +2188,7 @@ class BaseGame(ABC):
                 override_updates[key] = data[key]
         if override_updates:
             try:
-                from Utils.profile_state import merge_profile_settings
+                from Utils.profiles.state import merge_profile_settings
                 merge_profile_settings(self._active_profile_dir, override_updates)
             except Exception:
                 pass
@@ -2292,7 +2292,7 @@ class BaseGame(ABC):
             if found:
                 return found
         try:
-            from Utils.lutris_finder import find_lutris_game_info_by_exe
+            from Utils.launchers.lutris import find_lutris_game_info_by_exe
             for exe in [getattr(self, "exe_name", None),
                         *(getattr(self, "exe_name_alts", []) or [])]:
                 if not exe:
@@ -2303,7 +2303,7 @@ class BaseGame(ABC):
         except Exception:
             pass
         try:
-            from Utils.faugus_finder import find_faugus_game_info_by_exe
+            from Utils.launchers.faugus import find_faugus_game_info_by_exe
             for exe in [getattr(self, "exe_name", None),
                         *(getattr(self, "exe_name_alts", []) or [])]:
                 if not exe:
@@ -2314,7 +2314,7 @@ class BaseGame(ABC):
         except Exception:
             pass
         try:
-            from Utils.steam_shortcuts import find_shortcut_game_info_by_exe
+            from Utils.launchers.steam_shortcuts import find_shortcut_game_info_by_exe
             for exe in [getattr(self, "exe_name", None),
                         *(getattr(self, "exe_name_alts", []) or [])]:
                 if not exe:
@@ -2393,7 +2393,7 @@ class BaseGame(ABC):
         if self._is_default_profile():
             return False
         try:
-            from Utils.profile_state import read_profile_settings
+            from Utils.profiles.state import read_profile_settings
             pset = read_profile_settings(self._active_profile_dir)
         except Exception:
             return False
@@ -2418,7 +2418,7 @@ class BaseGame(ABC):
             # A per-profile prefix is a deliberate choice - never second-guess it.
             return
         try:
-            from Utils.steam_finder import (prefix_is_in_wrong_library,
+            from Utils.launchers.steam import (prefix_is_in_wrong_library,
                                             find_prefix as _fp)
             for sid in [self.steam_id, *self.alt_steam_ids]:
                 if not sid:
@@ -2474,7 +2474,7 @@ class BaseGame(ABC):
         """
         if not self._is_default_profile():
             try:
-                from Utils.profile_state import read_profile_settings
+                from Utils.profiles.state import read_profile_settings
                 pset = read_profile_settings(self._active_profile_dir)
             except Exception:
                 pset = {}
@@ -2507,7 +2507,7 @@ class BaseGame(ABC):
             if self._effective_paths_value(key) == value:
                 return
             try:
-                from Utils.profile_state import merge_profile_settings
+                from Utils.profiles.state import merge_profile_settings
                 merge_profile_settings(self._active_profile_dir, {key: value})
             except Exception:
                 pass
@@ -2551,7 +2551,7 @@ class BaseGame(ABC):
         if not frozen:
             return
         try:
-            from Utils.profile_state import (merge_profile_settings,
+            from Utils.profiles.state import (merge_profile_settings,
                                              read_profile_settings)
         except Exception:
             return
@@ -2610,7 +2610,7 @@ class BaseGame(ABC):
         # Non-default profile. Build the current effective value for each field
         # (global overlaid with the existing override) and pin only the fields
         # that the incoming value actually changes.
-        from Utils.profile_state import merge_profile_settings, read_profile_settings
+        from Utils.profiles.state import merge_profile_settings, read_profile_settings
         glb = self._read_global_paths()
         existing = read_profile_settings(self._active_profile_dir)
         extras = self._save_paths_extra()

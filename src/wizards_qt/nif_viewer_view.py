@@ -1,7 +1,7 @@
 """NIF Viewer - browse every mesh in the profile and the vanilla game, and
 preview it in 3D.
 
-Left: a unified meshes/… tree from Utils.mesh_catalog - every copy from mods,
+Left: a unified meshes/… tree from Utils.assets.catalog - every copy from mods,
 the data folder and BSA/BA2 archives, contested paths expanding into one row
 per copy with the game's winner tinted green. Right: the gui_qt.nif_preview
 viewport, fed raw bytes. Scans and tree builds run off-thread behind a
@@ -30,8 +30,8 @@ from gui_qt.safe_emit import safe_emit
 from gui_qt.theme_qt import active_palette, button_qss, close_button, _c
 from gui_qt.nif_texture_sources import TextureSourceController
 from gui_qt.worker import LatestWorker
-from Utils.asset_resolver import DirCache
-from Utils.mesh_catalog import (
+from Utils.assets.resolver import DirCache
+from Utils.assets.catalog import (
     DATA_ARCHIVE, DATA_LOOSE, DEFAULT_PREFIX, MOD_ARCHIVE, MOD_LOOSE,
     build_catalog, read_entry, source_label,
 )
@@ -460,7 +460,7 @@ class NifViewerView(QWidget):
             # The archive's own folder often holds a sibling '- Textures.ba2'
             # that the resolver cannot see when the mod is not installed.
             try:
-                from Utils.archive_lookup import ArchiveLookup, find_archives
+                from Utils.archives.lookup import ArchiveLookup, find_archives
                 parent = Path(archive).parent
                 archives = self._archive_lookups.get(parent)
                 if archives is None:
@@ -511,7 +511,7 @@ def _resolver_for(staging, modlist, profile_dir, data, game, snapshot=None):
     """One resolver for both the winner flags and the viewport's textures."""
     if staging is None:
         return None
-    from Utils.asset_resolver import AssetResolver
+    from Utils.assets.resolver import AssetResolver
     return AssetResolver(staging_dir=staging, modlist_path=modlist,
                          profile_dir=profile_dir, data_dir=data, game=game,
                          keep_prefix=BROWSE_PREFIXES, snapshot=snapshot)

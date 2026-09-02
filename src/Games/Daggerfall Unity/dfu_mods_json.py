@@ -772,7 +772,7 @@ def _settings_folders(parent: Path) -> list[Path]:
 
 def _link_tree(src: Path, dest: Path, mode) -> None:
     """Mirror *src* into *dest*, linking each file with the deploy's mode."""
-    from Utils.deploy import _transfer
+    from Utils.deployment import _transfer
 
     dest.mkdir(parents=True, exist_ok=True)
     for child in src.iterdir():
@@ -909,7 +909,7 @@ def restore_mod_settings(game_path: Path, overwrite_dir: Path,
     as long as DFU rewrites the file in place; if it replaces the file instead,
     the next stash_mod_settings() picks the new copy up.
     """
-    from Utils.deploy import LinkMode
+    from Utils.deployment import LinkMode
 
     _log = log_fn or _noop
     if mode is None:

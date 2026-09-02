@@ -33,7 +33,7 @@ from gui_qt.worker import run_in_worker, NO_EMIT
 # Crash-proof diagnostic prints (Flatpak stdout can raise BrokenPipeError and
 # kill worker threads). See Utils.app_log.safe_print.
 from Utils.app_log import safe_print as print  # noqa: A004
-from Utils.deploy import LinkMode
+from Utils.deployment import LinkMode
 
 # Left column width - the image panel and the options panel share it.
 _LEFT_COL_W = 240
@@ -89,7 +89,7 @@ def _lutris_available(game) -> bool:
     if not getattr(game, "exe_name", None):
         return False
     try:
-        from Utils.lutris_finder import find_lutris_roots
+        from Utils.launchers.lutris import find_lutris_roots
         return bool(find_lutris_roots())
     except Exception:
         return False
@@ -101,7 +101,7 @@ def _faugus_available(game) -> bool:
     if not getattr(game, "exe_name", None):
         return False
     try:
-        from Utils.faugus_finder import find_faugus_roots
+        from Utils.launchers.faugus import find_faugus_roots
         return bool(find_faugus_roots())
     except Exception:
         return False
@@ -124,7 +124,7 @@ def _shortcut_available(game) -> bool:
     if not exe_names:
         return False
     try:
-        from Utils.steam_shortcuts import find_shortcut_appids_by_exes
+        from Utils.launchers.steam_shortcuts import find_shortcut_appids_by_exes
         return bool(find_shortcut_appids_by_exes(exe_names))
     except Exception:
         return False
@@ -832,7 +832,7 @@ class ConfigureGameView(QWidget):
 
     def _profile_has_overrides(self) -> bool:
         try:
-            from Utils.profile_state import read_profile_settings
+            from Utils.profiles.state import read_profile_settings
             pset = read_profile_settings(self._profile_dir)
         except Exception:
             return False
@@ -862,7 +862,7 @@ class ConfigureGameView(QWidget):
             danger=True)
 
     def _clear_overrides(self):
-        from Utils.profile_state import merge_profile_settings
+        from Utils.profiles.state import merge_profile_settings
         try:
             merge_profile_settings(
                 self._profile_dir, {k: None for k in self._overridable_keys()})
@@ -1075,7 +1075,7 @@ class ConfigureGameView(QWidget):
         self._version_path = path
 
         def work():
-            from Utils.collection_export import detect_game_version
+            from Utils.collections.export import detect_game_version
             try:
                 version = detect_game_version(self._game, root=path)
             except Exception:
@@ -1181,7 +1181,7 @@ class ConfigureGameView(QWidget):
             self._probe_version(path)
 
     def _on_prefix_typed(self):
-        from Utils.proton_prefix import normalize_prefix_path
+        from Utils.wine.prefix import normalize_prefix_path
         self._prefix_scan_gen += 1
         text = self._prefix_edit.text().strip()
         self._found_prefix = normalize_prefix_path(Path(text)) if text else None
@@ -1213,7 +1213,7 @@ class ConfigureGameView(QWidget):
         # pick_folder's callback fires on the portal WORKER thread - marshal to
         # the GUI thread via a Signal before touching any widget (see the note
         # on _ScanSignals). Calling _set_game here directly would segfault Qt.
-        from Utils.portal_filechooser import pick_folder
+        from Utils.ui.portal import pick_folder
         pick_folder("Select game install folder",
                     lambda path: self._sig.game_picked.emit(path))
 
@@ -1222,7 +1222,7 @@ class ConfigureGameView(QWidget):
             self._set_game(Path(path), source="manual")
 
     def _browse_prefix(self):
-        from Utils.portal_filechooser import pick_folder
+        from Utils.ui.portal import pick_folder
         pick_folder("Select Proton/Wine prefix (pfx)",
                     lambda path: self._sig.prefix_picked.emit(path))
 
@@ -1232,7 +1232,7 @@ class ConfigureGameView(QWidget):
             self._set_prefix(Path(path), source="manual")
 
     def _browse_appimage(self):
-        from Utils.portal_filechooser import pick_file
+        from Utils.ui.portal import pick_file
         pick_file(
             "Select OpenMW AppImage",
             lambda path: self._sig.appimage_picked.emit(path),
@@ -1249,13 +1249,13 @@ class ConfigureGameView(QWidget):
             self._open_path(self._found_appimage.parent)
 
     def _browse_staging(self):
-        from Utils.portal_filechooser import pick_folder
+        from Utils.ui.portal import pick_folder
         pick_folder("Select mod staging folder",
                     lambda path: self._sig.staging_picked.emit(path))
 
     def _browse_saves(self):
         # Same worker-thread caveat as _browse_game - marshal via the signal.
-        from Utils.portal_filechooser import pick_folder
+        from Utils.ui.portal import pick_folder
         pick_folder("Select saves folder",
                     lambda path: self._sig.saves_picked.emit(path))
 
@@ -1300,7 +1300,7 @@ class ConfigureGameView(QWidget):
         text - so the seeded default actually takes effect on save.
         """
         try:
-            from Utils.ui_config import load_default_staging_path
+            from Utils.ui.config import load_default_staging_path
             from Utils.config_paths import get_default_game_staging_root
             user_root = (load_default_staging_path() or "").strip()
             root = Path(user_root) / g.name if user_root \
@@ -1380,9 +1380,9 @@ class ConfigureGameView(QWidget):
         game_name = getattr(g, "name", repr(g))
         app_log(f"[Configure Game] Auto-detecting: {game_name}")
         try:
-            from Utils.steam_finder import (
+            from Utils.launchers.steam import (
                 find_steam_libraries, find_game_by_steam_id, find_game_in_libraries)
-            from Utils.heroic_finder import (
+            from Utils.launchers.heroic import (
                 find_heroic_game_info_by_app_names, find_heroic_game_info_by_exe)
             exe_names = [getattr(g, "exe_name", None)] + list(
                 getattr(g, "exe_name_alts", []) or [])
@@ -1407,7 +1407,7 @@ class ConfigureGameView(QWidget):
                         _add("heroic", info[0], info[1], info[2], exe)
                         app_log(f"[Configure Game] Found via Heroic exe scan ({exe}): {info[0]}")
                         break
-            from Utils.lutris_finder import find_lutris_game_info_by_exe
+            from Utils.launchers.lutris import find_lutris_game_info_by_exe
             app_log(f"[Configure Game] Checking Lutris (exe names: {exe_names})")
             for exe in exe_names:
                 info = find_lutris_game_info_by_exe(exe)
@@ -1415,7 +1415,7 @@ class ConfigureGameView(QWidget):
                     _add("lutris", info[0], info[1], info[2], exe)
                     app_log(f"[Configure Game] Found via Lutris ({exe}): {info[0]}")
                     break
-            from Utils.faugus_finder import find_faugus_game_info_by_exe
+            from Utils.launchers.faugus import find_faugus_game_info_by_exe
             app_log(f"[Configure Game] Checking Faugus (exe names: {exe_names})")
             for exe in exe_names:
                 info = find_faugus_game_info_by_exe(exe)
@@ -1423,7 +1423,7 @@ class ConfigureGameView(QWidget):
                     _add("faugus", info[0], info[1], info[2], exe)
                     app_log(f"[Configure Game] Found via Faugus ({exe}): {info[0]}")
                     break
-            from Utils.steam_shortcuts import find_shortcut_game_info_by_exe
+            from Utils.launchers.steam_shortcuts import find_shortcut_game_info_by_exe
             app_log(f"[Configure Game] Checking non-Steam shortcuts "
                     f"(exe names: {exe_names})")
             for exe in exe_names:
@@ -1475,7 +1475,7 @@ class ConfigureGameView(QWidget):
         if not candidates:
             app_log(f"[Configure Game] Game location not auto-detected for: {game_name}")
             try:
-                from Utils.steam_finder import steam_discovery_report
+                from Utils.launchers.steam import steam_discovery_report
                 for line in steam_discovery_report():
                     app_log(f"[Configure Game] {line}")
             except Exception as exc:
@@ -1724,7 +1724,7 @@ class ConfigureGameView(QWidget):
         from Utils.app_log import app_log
         found = None
         try:
-            from Utils.steam_finder import scan_drives_for_exe
+            from Utils.launchers.steam import scan_drives_for_exe
             app_log(f"[Configure Game] Scanning all drives for: {exe_names}")
             found = scan_drives_for_exe(exe_names)
             app_log(f"[Configure Game] Drive scan result: {found or 'not found'}")
@@ -1810,8 +1810,8 @@ class ConfigureGameView(QWidget):
         lutris_slug = None
         faugus_gameid = None
         try:
-            from Utils.steam_finder import find_prefix
-            from Utils.heroic_finder import find_heroic_prefix
+            from Utils.launchers.steam import find_prefix
+            from Utils.launchers.heroic import find_heroic_prefix
             sid = getattr(g, "steam_id", None)
             ids = [sid] + [str(s) for s in getattr(
                 g, "alt_steam_ids", []) or [] if s]
@@ -1846,7 +1846,7 @@ class ConfigureGameView(QWidget):
                 getattr(g, "exe_name_alts", []) or [])
             exe_names = [e for e in exe_names if e]
             if not found and preferred_source in (None, "lutris"):
-                from Utils.lutris_finder import find_lutris_game_info_by_exe
+                from Utils.launchers.lutris import find_lutris_game_info_by_exe
                 for exe in exe_names:
                     info = find_lutris_game_info_by_exe(exe)
                     if (info and info[1] is not None
@@ -1857,7 +1857,7 @@ class ConfigureGameView(QWidget):
                         lutris_slug = info[2]
                         break
             if not found and preferred_source in (None, "faugus"):
-                from Utils.faugus_finder import find_faugus_game_info_by_exe
+                from Utils.launchers.faugus import find_faugus_game_info_by_exe
                 for exe in exe_names:
                     info = find_faugus_game_info_by_exe(exe)
                     if (info and info[1] is not None
@@ -1868,7 +1868,7 @@ class ConfigureGameView(QWidget):
                         faugus_gameid = info[2]
                         break
             if not found and preferred_source in (None, "shortcut"):
-                from Utils.steam_shortcuts import find_shortcut_game_info_by_exe
+                from Utils.launchers.steam_shortcuts import find_shortcut_game_info_by_exe
                 for exe in exe_names:
                     info = find_shortcut_game_info_by_exe(exe)
                     if (info and info[1] is not None
@@ -1925,7 +1925,7 @@ class ConfigureGameView(QWidget):
                     f"color:{self._c('TEXT_ERR')};")
                 return
         else:
-            from Utils.proton_prefix import normalize_prefix_path
+            from Utils.wine.prefix import normalize_prefix_path
             prefix_text = self._prefix_edit.text().strip()
             self._found_prefix = (
                 normalize_prefix_path(Path(prefix_text)) if prefix_text else None)
@@ -1954,7 +1954,7 @@ class ConfigureGameView(QWidget):
         # typo (it simply doesn't exist in here) - tell the user what it
         # actually is and how to grant access before letting them save a
         # config that can never work.
-        from Utils.sandbox_paths import flatpak_blocked_path_hint
+        from Utils.environment.sandbox import flatpak_blocked_path_hint
         for candidate, status in (
             (self._found_path, self._game_status),
             (self._staging_edit.text().strip() or None, self._staging_status),
@@ -2137,7 +2137,7 @@ class ConfigureGameView(QWidget):
             new_profile_root = g.get_profile_root()
         except Exception:
             new_profile_root = None
-        from Utils.staging_migrate import staging_move_needed
+        from Utils.mods.staging import staging_move_needed
         if staging_move_needed(old_profile_root, new_profile_root):
             self._start_staging_scan(old_profile_root, new_profile_root)
             return
@@ -2147,7 +2147,7 @@ class ConfigureGameView(QWidget):
     def _finalize_save(self):
         # Ensure the profile structure exists (mods/profiles/overwrite + default).
         try:
-            from Utils.profile_structure import create_profile_structure
+            from Utils.profiles.structure import create_profile_structure
             create_profile_structure(self._game)
         except Exception as exc:
             print(f"[gui_qt] profile structure create failed: {exc}", flush=True)
@@ -2168,7 +2168,7 @@ class ConfigureGameView(QWidget):
         sig = self._sig
 
         def scan():
-            from Utils.staging_migrate import collect_staging_files
+            from Utils.mods.staging import collect_staging_files
             files, size = collect_staging_files(old_root)
             return old_root, new_root, files, size
 
@@ -2179,7 +2179,7 @@ class ConfigureGameView(QWidget):
         if not files:
             self._finalize_save()
             return
-        from Utils.prefix_manager import fmt_size
+        from Utils.wine.manager import fmt_size
         from gui_qt.confirm_overlay import ConfirmOverlay
         body = (f"The staging location for {self._game.name} has changed.\n\n"
                 f"Move {fmt_size(size)} of mods, profiles and overwrite "
@@ -2208,7 +2208,7 @@ class ConfigureGameView(QWidget):
 
         def worker():
             from Utils.app_log import app_log
-            from Utils.staging_migrate import migrate_staging_files
+            from Utils.mods.staging import migrate_staging_files
             moved, skipped, failed = migrate_staging_files(
                 old_root, new_root, files, progress_cb=_prog, log_fn=app_log)
             app_log(f"{game_name}: moved {moved} staging file(s) to {new_root}"
@@ -2256,7 +2256,7 @@ class ConfigureGameView(QWidget):
 
         def _worker():
             from Utils.app_log import app_log
-            from Utils.protontricks import (
+            from Utils.wine.protontricks import (
                 D3D_DEP_KEY,
                 VCREDIST_DEP_KEY,
                 WINETRICKS_VERB_DEPS,
@@ -2269,10 +2269,10 @@ class ConfigureGameView(QWidget):
                 dotnet_dep_key,
                 winetricks_verb_dep_key,
             )
-            from Utils.proton_tools import (
+            from Utils.wine.proton import (
                 DOTNET_VERSIONS, install_dotnet_runtime, install_lavfilters,
             )
-            from Utils.steam_finder import game_steam_id
+            from Utils.launchers.steam import game_steam_id
 
             _proton: tuple = ()
 
@@ -2419,7 +2419,7 @@ class ConfigureGameView(QWidget):
             except Exception:
                 pass
             try:
-                from Utils.deploy import restore_root_folder_for_game
+                from Utils.deployment import restore_root_folder_for_game
                 rf = profile_root / "Root_Folder"
                 game_root = g.get_game_path()
                 if rf.is_dir() and game_root:
@@ -2488,7 +2488,7 @@ class ConfigureGameView(QWidget):
 
         def worker():
             try:
-                from Utils.deploy import (
+                from Utils.deployment import (
                     remove_deployed_files, restore_filemap_from_root)
                 tgt = Path(target)
                 removed = 0

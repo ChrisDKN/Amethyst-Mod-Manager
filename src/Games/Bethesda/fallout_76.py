@@ -77,7 +77,7 @@ class Fallout_76(Fallout_3):
 
     @property
     def custom_routing_rules(self) -> list:
-        from Utils.deploy import CustomRule
+        from Utils.deployment import CustomRule
         return [
             CustomRule(dest="", filenames=["dxgi.dll"], flatten=True),
             CustomRule(dest="", folders=["Data"], flatten=True, loose_only=True),
@@ -236,7 +236,7 @@ class Fallout_76(Fallout_3):
             _log("  WARN: Prefix path not set - skipping FO76 archive sync.")
             return
 
-        from Utils.bsa_invalidation import (
+        from Utils.bsa.invalidation import (
             append_to_archive_list, remove_many_from_archive_list,
         )
         key = self._invalidation_archive_list_key
@@ -267,7 +267,7 @@ class Fallout_76(Fallout_3):
         custom_inis = [i for i in self._fo76_custom_ini_paths() if i.is_file()]
         if not custom_inis:
             return
-        from Utils.bsa_invalidation import remove_many_from_archive_list
+        from Utils.bsa.invalidation import remove_many_from_archive_list
         key = self._invalidation_archive_list_key
         tracked = self._tracked_mod_bsas()
         for ini in custom_inis:

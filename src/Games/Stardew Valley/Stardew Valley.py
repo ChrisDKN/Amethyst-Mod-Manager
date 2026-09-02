@@ -15,8 +15,8 @@ from pathlib import Path
 
 from Games.base_game import BaseGame, WizardTool
 from Utils.vfs import ProfileVFSGameMixin
-from Utils.deploy import LinkMode, deploy_core, deploy_filemap, load_per_mod_strip_prefixes, load_separator_deploy_paths, expand_separator_deploy_paths, cleanup_custom_deploy_dirs, move_to_core, restore_data_core
-from Utils.modlist import read_modlist
+from Utils.deployment import LinkMode, deploy_core, deploy_filemap, load_per_mod_strip_prefixes, load_separator_deploy_paths, expand_separator_deploy_paths, cleanup_custom_deploy_dirs, move_to_core, restore_data_core
+from Utils.mods.modlist import read_modlist
 from Utils.config_paths import get_profiles_dir
 
 _PROFILES_DIR = get_profiles_dir()
@@ -216,7 +216,7 @@ class StardewValley(ProfileVFSGameMixin, BaseGame):
         staging     = self.get_effective_mod_staging_path()
         core        = self.mods_dir + "_Core"
 
-        from Utils.filegraph_deploy import input_ready
+        from Utils.filegraph.deploy import input_ready
         if not input_ready():
             raise RuntimeError(
                 f"filemap.txt not found: {filemap}\n"
@@ -321,7 +321,7 @@ class StardewValley(ProfileVFSGameMixin, BaseGame):
         filemap (i.e. no enabled mod provides it). Overwrite files at the root
         (no <Name>/ subfolder) and the manifest.json itself are never skipped.
         """
-        from Utils.filegraph_constants import OVERWRITE_NAME
+        from Utils.filegraph.constants import OVERWRITE_NAME
 
         if snapshot is not None:
             rows = (
@@ -330,7 +330,7 @@ class StardewValley(ProfileVFSGameMixin, BaseGame):
                 if entry.provider_kind != "archive_member" and entry.legacy_rel
             )
         else:
-            from Utils.filegraph_deploy import input_ready, legacy_rows
+            from Utils.filegraph.deploy import input_ready, legacy_rows
             if not input_ready():
                 return set()
             rows = legacy_rows()

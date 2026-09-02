@@ -75,7 +75,7 @@ def _data_dir_candidates() -> "list[Path]":
     Inside our sandbox ``XDG_DATA_HOME`` points at the app's private data dir,
     not the host's ``~/.local/share`` where me3 actually installs - so probe the
     host paths (and Flatpak's HOST_XDG_* hint) separately, the same way
-    :func:`Utils.lutris_finder.find_umu_run` does.
+    :func:`Utils.launchers.lutris.find_umu_run` does.
     """
     seen: list[Path] = []
     for raw in (os.environ.get("HOST_XDG_DATA_HOME", ""),

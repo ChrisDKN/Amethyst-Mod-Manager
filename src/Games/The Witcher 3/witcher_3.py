@@ -36,10 +36,10 @@ from pathlib import Path
 
 from Games.base_game import BaseGame
 from Utils.vfs import ProfileVFSGameMixin
-from Utils.deploy import LinkMode, cleanup_custom_deploy_dirs, load_per_mod_strip_prefixes, load_separator_deploy_paths, expand_separator_deploy_paths, expand_separator_raw_deploy, _resolve_nocase, _resolve_root_path, _write_deploy_snapshot, _move_runtime_files, _FILEMAP_SNAPSHOT_NAME
-from Utils.modlist import read_modlist
+from Utils.deployment import LinkMode, cleanup_custom_deploy_dirs, load_per_mod_strip_prefixes, load_separator_deploy_paths, expand_separator_deploy_paths, expand_separator_raw_deploy, _resolve_nocase, _resolve_root_path, _write_deploy_snapshot, _move_runtime_files, _FILEMAP_SNAPSHOT_NAME
+from Utils.mods.modlist import read_modlist
 from Utils.config_paths import get_profiles_dir
-from Utils.tw3_filelist import update_menu_filelists
+from Utils.witcher3.menu_filelists import update_menu_filelists
 
 _PROFILES_DIR = get_profiles_dir()
 
@@ -280,7 +280,7 @@ class Witcher3(ProfileVFSGameMixin, BaseGame):
         filemap   = self.get_effective_filemap_path()
         staging   = self.get_effective_mod_staging_path()
 
-        from Utils.filegraph_deploy import input_ready
+        from Utils.filegraph.deploy import input_ready
         if not input_ready():
             raise RuntimeError(
                 f"filemap.txt not found: {filemap}\n"
@@ -334,7 +334,7 @@ class Witcher3(ProfileVFSGameMixin, BaseGame):
         # treat the first hardlink as a vanilla file.)
         _placed_this_run: set[str] = set()
 
-        from Utils.filegraph_deploy import entries as filegraph_entries, legacy_lines
+        from Utils.filegraph.deploy import entries as filegraph_entries, legacy_lines
         lines = list(legacy_lines())
         filegraph_sources = {
             (entry.legacy_rel.lower(), entry.mod_name): entry.source_path
@@ -601,7 +601,7 @@ class Witcher3(ProfileVFSGameMixin, BaseGame):
         profile_specific = False
         if self._active_profile_dir is not None:
             try:
-                from Utils.profile_state import profile_uses_specific_mods
+                from Utils.profiles.state import profile_uses_specific_mods
                 profile_specific = profile_uses_specific_mods(self._active_profile_dir)
             except Exception:
                 pass
@@ -619,7 +619,7 @@ class Witcher3(ProfileVFSGameMixin, BaseGame):
         """
         _log = log_fn or (lambda _: None)
         try:
-            from Utils.install_as_mod import index_installed_mod
+            from Utils.mods.install_as_mod import index_installed_mod
             index_installed_mod(self, "Merged_Mods", log_fn=_log)
         except Exception as exc:
             _log(f"WARN: could not re-index Merged_Mods: {exc}")

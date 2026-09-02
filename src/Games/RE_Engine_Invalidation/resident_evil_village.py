@@ -47,16 +47,16 @@ from pathlib import Path
 
 from Games.base_game import BaseGame
 from Utils.vfs import ProfileVFSGameMixin
-from Utils.deploy import (
+from Utils.deployment import (
     LinkMode,
     cleanup_custom_deploy_dirs,
     deploy_filemap_to_root,
     load_per_mod_strip_prefixes,
     restore_filemap_from_root,
 )
-from Utils.modlist import read_modlist
+from Utils.mods.modlist import read_modlist
 from Utils.config_paths import get_profiles_dir
-from Utils.re_pak_patcher import (
+from Utils.re_engine.pak import (
     find_pak_files,
     hash_filepath,
     patch_pak_file,
@@ -64,8 +64,8 @@ from Utils.re_pak_patcher import (
     restore_pak_file,
     update_root_manifest,
 )
-from Utils.steam_finder import parse_acf_beta_key
-from Utils.tex_convert import convert_tex_v10_to_v34, tex_needs_conversion
+from Utils.launchers.steam import parse_acf_beta_key
+from Utils.re_engine.tex import convert_tex_v10_to_v34, tex_needs_conversion
 
 _PROFILES_DIR = get_profiles_dir()
 
@@ -415,7 +415,7 @@ class ResidentEvilVillage(ProfileVFSGameMixin, BaseGame):
         those same upper files again under their original pre-remap names.
         Runtime-created upper files absent from the filemap remain unaffected.
         """
-        from Utils.filegraph_deploy import legacy_rows
+        from Utils.filegraph.deploy import legacy_rows
         entries: set[str] = set()
         for relative, owner in legacy_rows():
             if owner == "[Overwrite]":
@@ -558,7 +558,7 @@ class ResidentEvilVillage(ProfileVFSGameMixin, BaseGame):
         filemap = self.get_effective_filemap_path()
         staging = self.get_effective_mod_staging_path()
 
-        from Utils.filegraph_deploy import input_ready
+        from Utils.filegraph.deploy import input_ready
         if not input_ready():
             raise RuntimeError(
                 f"filemap.txt not found: {filemap}\n"

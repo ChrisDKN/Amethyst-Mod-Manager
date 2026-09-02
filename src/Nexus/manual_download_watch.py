@@ -23,7 +23,7 @@ import time
 from pathlib import Path
 from typing import Callable
 
-from Utils.download_locations import (
+from Utils.downloads.locations import (
     is_default_downloads_disabled, load_extra_download_locations)
 from Nexus.nexus_download import _find_cached_archive, _get_downloads_dir
 

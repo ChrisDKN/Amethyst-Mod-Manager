@@ -17,8 +17,8 @@
 # via ignored-modules below (no introspection at all) avoids both problems.
 extension-pkg-allow-list=lz4,gi
 
-# Utils/deploy.py is a façade that re-exports ~3000 lines' worth of names
-# from six sibling modules via `from X import *` (see that file's own
+# Utils/deployment is a façade that re-exports ~3000 lines' worth of names
+# from six package modules via `from X import *` (see its own
 # docstring). astroid can't trace multi-hop wildcard re-exports, so it
 # reports every name imported from it as missing even though all of them
 # resolve fine at runtime (verified directly - see PR discussion).
@@ -26,7 +26,7 @@ extension-pkg-allow-list=lz4,gi
 # PySide6 is here (not extension-pkg-allow-list - see above) purely so
 # `from PySide6.QtCore import Qt, Signal` etc. stop being reported as
 # missing; pylint just trusts the import without inspecting members.
-ignored-modules=Utils.deploy,PySide6
+ignored-modules=Utils.deployment,PySide6
 
 # Skip any .venv tree (there is one at the repo root and a second inside
 # src/), otherwise `pylint src/` descends into bundled site-packages and

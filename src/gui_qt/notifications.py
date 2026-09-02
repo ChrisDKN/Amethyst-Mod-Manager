@@ -150,7 +150,7 @@ class ProgressPopup(_HoverFadeMixin, QFrame):
             self._bar.setRange(0, bar_total)
             self._bar.setValue(bar_done)
             if bytes_mode:
-                from Utils.cache_tools import format_size
+                from Utils.downloads.cache import format_size
                 self._count.setText(self.tr("{0} / {1}").format(
                     format_size(min(done, total)), format_size(total)))
             else:

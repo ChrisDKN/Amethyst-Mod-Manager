@@ -19,7 +19,7 @@ from pathlib import Path
 
 from Games.base_game import BaseGame, WizardTool
 from Utils.config_paths import get_profiles_dir
-from Utils.deploy import (
+from Utils.deployment import (
     LinkMode,
     deploy_filemap,
     load_per_mod_strip_prefixes,
@@ -27,7 +27,7 @@ from Utils.deploy import (
     expand_separator_deploy_paths,
     cleanup_custom_deploy_dirs,
 )
-from Utils.modlist import read_modlist
+from Utils.mods.modlist import read_modlist
 
 _PROFILES_DIR = get_profiles_dir()
 
@@ -49,7 +49,7 @@ def _remove_filemap_paths_from_dir(
     Returns count removed.
     """
     removed = 0
-    from Utils.filegraph_deploy import legacy_rows
+    from Utils.filegraph.deploy import legacy_rows
     lines = [relative for relative, _owner in legacy_rows()]
     seen: set[str] = set()
     total = len(lines)

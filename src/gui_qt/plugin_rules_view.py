@@ -28,7 +28,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui_qt.theme_qt import active_palette, _c, close_button
-from Utils.userlist import (
+from Utils.plugins.userlist import (
     parse_userlist, write_userlist, save_plugin_rules_merged,
 )
 

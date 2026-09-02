@@ -25,7 +25,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui_qt.theme_qt import active_palette, _c
-from Utils.userlist import (
+from Utils.plugins.userlist import (
     DEFAULT_GROUP, parse_userlist, write_userlist,
     set_plugin_rules, set_plugin_group,
 )
