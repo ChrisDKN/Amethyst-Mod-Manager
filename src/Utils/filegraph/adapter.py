@@ -99,7 +99,9 @@ def _check_cancel(cancel) -> None:
 
 
 def _json_default(value):
-    if isinstance(value, (Path, set, frozenset, tuple)):
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, (set, frozenset, tuple)):
         return sorted(map(str, value))
     if hasattr(value, "__dict__"):
         return {
