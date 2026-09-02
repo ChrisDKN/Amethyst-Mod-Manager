@@ -111,6 +111,7 @@ class ModListView(QTreeView):
         self._drag_active = False
         self._press_row = -1
         self._press_pos = None
+        self._separator_control_press: tuple[int, str] | None = None
         # Shift-click range locking: remember the last separator row whose lock
         # box was clicked and whether that click locked (True) or unlocked it,
         # so a following shift-click applies the same action across the range.
@@ -190,7 +191,7 @@ class ModListView(QTreeView):
         # rows stays pinned to the viewport top while its group scrolls under
         # it. Pixel-scrolling blits the viewport, which would smear the pinned
         # band - repaint the top strip on every scroll step.
-        self._sticky_press: int | None = None
+        self._sticky_press: tuple[int, str | None] | None = None
         sb = self.verticalScrollBar()
         self._last_vscroll = sb.value()
         sb.valueChanged.connect(self._on_vscroll)
@@ -532,10 +533,9 @@ class ModListView(QTreeView):
             return
         e = self.model().entry(index.row())
         from gui_qt.modlist_model import _PINNED_NAMES
-        # A real (user) separator toggles collapse; the synthetic pinned
+        # Real separators only expand through their arrow. The synthetic pinned
         # Overwrite / Root_Folder separators open their folder like a mod.
         if e.is_separator and e.name not in _PINNED_NAMES:
-            self._toggle_collapse_row(index.row())
             return
         # Ignore double-clicks that land on the checkbox (the delegate toggles
         # enable there on single click; a double there is not an open request).
@@ -707,18 +707,59 @@ class ModListView(QTreeView):
         self.viewport().update(0, 0, self.viewport().width(),
                                SEP_H + delta + 1)
 
-    def _sticky_click(self, row: int, band: QRect, pos: QPoint, shift: bool = False):
-        """A click on the pinned band acts like a click on the real separator
-        row: the lock box toggles the lock, anywhere else toggles collapse
-        (then scrolls the separator into view so the result is visible)."""
+    def _separator_control_at(self, row: int, pos: QPoint,
+                              row_rect: QRect | None = None) -> str | None:
+        m = self.model()
+        if not (0 <= row < m.rowCount()):
+            return None
+        e = m.entry(row)
+        from gui_qt.modlist_model import _PINNED_NAMES
+        if not e.is_separator or e.name in _PINNED_NAMES:
+            return None
+        if row_rect is None:
+            item_rect = self.visualRect(m.index(row, COL_NAME))
+            row_rect = QRect(0, item_rect.top(), self.viewport().width(),
+                             item_rect.height())
         delegate = self.itemDelegate()
-        lock = getattr(delegate, "_lock_rect", None)
-        if lock is not None and lock(band).contains(pos):
-            self._lock_box_click(row, shift)
-            return
-        self._toggle_collapse_row(row)
-        self.scrollTo(self.model().index(row, 0),
-                      QAbstractItemView.PositionAtTop)
+        if delegate._lock_rect(row_rect).contains(pos):
+            return "lock"
+        if delegate._arrow_hit_rect(row_rect).contains(pos):
+            return "collapse"
+        return None
+
+    def _select_separator_row(self, row: int, modifiers) -> None:
+        from PySide6.QtCore import QItemSelection, QItemSelectionModel
+
+        m = self.model()
+        sm = self.selectionModel()
+        idx = m.index(row, COL_NAME)
+        current = sm.currentIndex()
+        rows = QItemSelectionModel.Rows
+        if modifiers & Qt.ShiftModifier and current.isValid():
+            start, end = sorted((current.row(), row))
+            selection = QItemSelection(m.index(start, COL_NAME),
+                                       m.index(end, COL_NAME))
+            command = (QItemSelectionModel.Select
+                       if modifiers & Qt.ControlModifier
+                       else QItemSelectionModel.ClearAndSelect)
+            sm.select(selection, command | rows)
+        else:
+            command = (QItemSelectionModel.Toggle
+                       if modifiers & Qt.ControlModifier
+                       else QItemSelectionModel.ClearAndSelect)
+            sm.select(idx, command | rows)
+        sm.setCurrentIndex(idx, QItemSelectionModel.NoUpdate)
+
+    def _sticky_click(self, row: int, control: str | None, modifiers):
+        """Apply a click to the separator represented by the pinned band."""
+        if control == "lock":
+            self._lock_box_click(row, bool(modifiers & Qt.ShiftModifier))
+        elif control == "collapse":
+            self._toggle_collapse_row(row)
+            self.scrollTo(self.model().index(row, 0),
+                          QAbstractItemView.PositionAtTop)
+        else:
+            self._select_separator_row(row, modifiers)
 
     # ---- fill width: Name absorbs leftover on window resize ---------------
     def showEvent(self, event):
@@ -1003,7 +1044,13 @@ class ModListView(QTreeView):
             info = self._sticky_sep_info()
             if info is not None and info[1].contains(event.position().toPoint()):
                 if event.button() == Qt.LeftButton:
-                    self._sticky_press = info[0]
+                    control = self._separator_control_at(
+                        info[0], event.position().toPoint(), info[1])
+                    self._sticky_press = (info[0], control)
+                elif event.button() == Qt.RightButton:
+                    idx = self.model().index(info[0], COL_NAME)
+                    if not self.selectionModel().isSelected(idx):
+                        self._select_separator_row(info[0], Qt.NoModifier)
                 event.accept()
                 return
         if binding_matches_mouse("open_mod_page", event):
@@ -1013,17 +1060,15 @@ class ModListView(QTreeView):
             event.accept()
             return
         if event.button() == Qt.LeftButton:
+            self._separator_control_press = None
             idx = self.indexAt(event.position().toPoint())
             self._press_row = idx.row() if idx.isValid() else -1
             self._press_pos = event.position().toPoint()
-            # A real (collapsible) separator is never selectable: clicking one
-            # only expands/collapses it (handled by the delegate on release).
-            # Skip the base press so Qt doesn't change the selection - but keep
-            # _press_row/_press_pos above so a press-and-drag still reorders it.
             if idx.isValid():
-                e = self.model().entry(idx.row())
-                from gui_qt.modlist_model import _PINNED_NAMES
-                if e.is_separator and e.name not in _PINNED_NAMES:
+                control = self._separator_control_at(
+                    idx.row(), event.position().toPoint())
+                if control is not None:
+                    self._separator_control_press = (idx.row(), control)
                     event.accept()
                     return
         super().mousePressEvent(event)
@@ -1120,30 +1165,33 @@ class ModListView(QTreeView):
             self.unsetCursor()
             self.viewport().update()
             self._press_row = -1
+            self._separator_control_press = None
             return
         # Release of a press that started on the sticky separator band.
         if self._sticky_press is not None:
-            row, self._sticky_press = self._sticky_press, None
+            (row, control), self._sticky_press = self._sticky_press, None
             info = self._sticky_sep_info()
             pos = event.position().toPoint()
             if (info is not None and info[0] == row
-                    and info[1].contains(pos)):
-                shift = bool(event.modifiers() & Qt.ShiftModifier)
-                self._sticky_click(row, info[1], pos, shift)
+                    and info[1].contains(pos)
+                    and self._separator_control_at(row, pos, info[1]) == control):
+                self._sticky_click(row, control, event.modifiers())
             self._press_row = -1
             event.accept()
             return
-        # A click (no drag) on a real separator toggles its collapse (arrow or
-        # anywhere on the band) or its lock (lock box). Its press was consumed
-        # in mousePressEvent so the base view never routes it to the delegate.
-        if event.button() == Qt.LeftButton and self._press_row >= 0:
-            row = self._press_row
+        if (event.button() == Qt.LeftButton
+                and self._separator_control_press is not None):
+            row, control = self._separator_control_press
+            self._separator_control_press = None
             self._press_row = -1
-            shift = bool(event.modifiers() & Qt.ShiftModifier)
-            if self._handle_separator_click(row, event.position().toPoint(),
-                                            shift):
-                event.accept()
-                return
+            if self._separator_control_at(row, event.position().toPoint()) == control:
+                if control == "lock":
+                    self._lock_box_click(
+                        row, bool(event.modifiers() & Qt.ShiftModifier))
+                else:
+                    self._toggle_collapse_row(row)
+            event.accept()
+            return
         self._press_row = -1
         super().mouseReleaseEvent(event)
 
@@ -1222,26 +1270,6 @@ class ModListView(QTreeView):
         # Pass the name-cell rect so Qt hides the tip once the cursor leaves it.
         QToolTip.showText(help_event.globalPos(), wrapped, self,
                           self.visualRect(idx))
-        return True
-
-    def _handle_separator_click(self, row: int, pos, shift: bool = False) -> bool:
-        """If *row* is a real (collapsible) separator, toggle its lock (when the
-        release is on the lock box) or its collapse (anywhere else on the band).
-        Returns True when handled."""
-        m = self.model()
-        if not (0 <= row < m.rowCount()):
-            return False
-        e = m.entry(row)
-        from gui_qt.modlist_model import _PINNED_NAMES
-        if not e.is_separator or e.name in _PINNED_NAMES:
-            return False
-        delegate = self.itemDelegate()
-        lock = getattr(delegate, "_lock_rect", None)
-        row_rect = self.visualRect(m.index(row, COL_NAME))
-        if lock is not None and lock(row_rect).contains(pos):
-            self._lock_box_click(row, shift)
-        else:
-            self._toggle_collapse_row(row)
         return True
 
     def _update_drop_slot(self, y: int):

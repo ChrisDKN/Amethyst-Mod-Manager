@@ -180,14 +180,15 @@ def build_context_menu(view, index):
 
     if entry.is_separator:
         _build_separator_menu(view, model, row, entry, sel_seps, multi_seps,
-                              act, stub, divider)
+                              act, stub, divider, submenu)
     else:
         _build_mod_menu(view, model, row, entry, sel_mods, multi_mods,
                         act, stub, divider, submenu)
     return menu
 
 
-def _build_separator_menu(view, model, row, entry, sel_seps, multi, act, stub, divider):
+def _build_separator_menu(view, model, row, entry, sel_seps, multi, act, stub,
+                          divider, submenu):
     if multi:
         # ≥2 separators selected.
         all_locked = all(model.is_sep_locked(model.entry(r).display_name)
@@ -206,6 +207,15 @@ def _build_separator_menu(view, model, row, entry, sel_seps, multi, act, stub, d
     act(_mt("Rename separator"), lambda: _rename(view, model, row),
         shortcut=_shortcut_hint("rename"))
     act(_mt("Separator settings…"), lambda: _open_sep_settings(view, model, row))
+    others = _other_profiles(view)
+    if others:
+        mod_rows = list(model.sep_block_rows(row))
+        names = [model.entry(r).name for r in mod_rows]
+        submenu(
+            _mt("Copy separator to profile"),
+            _profile_submenu_items(
+                view, names, mod_rows, others, False,
+                separator_name=entry.name))
     act(_mt("Add separator above"), lambda: _add_separator(view, model, row, True))
     act(_mt("Add separator below"), lambda: _add_separator(view, model, row, False))
     divider()
@@ -1005,7 +1015,8 @@ def _other_profiles(view):
         return []
 
 
-def _profile_submenu_items(view, names, mod_rows, others, move: bool):
+def _profile_submenu_items(view, names, mod_rows, others, move: bool, *,
+                           separator_name: str | None = None):
     """Build the (profile_name, slot) list for the Copy/Move-to-profile submenu.
     Each entry copies/moves *names* to that profile (Tk lists the profiles as a
     submenu rather than opening a picker window)."""
@@ -1024,17 +1035,22 @@ def _profile_submenu_items(view, names, mod_rows, others, move: bool):
     # The label is display-only; the callback closes over the FOLDER name.
     return [
         (profile_display(prof), (lambda p=prof: _copy_to_profile(
-            view, names, dict(enabled_map), p, move)))
+            view, names, dict(enabled_map), p, move, separator_name)))
         for prof in others
     ]
 
 
-def _copy_to_profile(view, names, enabled_map, target_profile, move):
+def _copy_to_profile(view, names, enabled_map, target_profile, move,
+                     separator_name=None):
     """Delegate the copy/move to the window (needs game, worker thread, collision
     overlay, and - for move - remove_mods + reload)."""
     cb = getattr(view, "on_copy_to_profile", None)
-    if cb is not None and names and target_profile:
-        cb(list(names), dict(enabled_map), target_profile, move)
+    if cb is not None and (names or separator_name) and target_profile:
+        args = (list(names), dict(enabled_map), target_profile, move)
+        if separator_name:
+            cb(*args, separator_name)
+        else:
+            cb(*args)
 
 
 def _read_mod_meta(view, name):
@@ -1826,6 +1842,7 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("ModListMenu", "Clear Conflict Filter"),
     QT_TRANSLATE_NOOP("ModListMenu", "Copy to profile"),
     QT_TRANSLATE_NOOP("ModListMenu", "Copy to profile ({0})"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Copy separator to profile"),
     QT_TRANSLATE_NOOP("ModListMenu", "Could not create the mod folder:\n{0}"),
     QT_TRANSLATE_NOOP("ModListMenu", "Create"),
     QT_TRANSLATE_NOOP("ModListMenu", "Create an empty mod below"),

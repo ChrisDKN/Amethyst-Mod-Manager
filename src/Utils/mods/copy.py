@@ -1,4 +1,4 @@
-"""Copy / move a mod's staging folder to another profile - tkinter-free.
+"""Copy / move mods and separator blocks to another profile - tkinter-free.
 
 Ported from the Tk ``modlist_panel._copy_mod_to_profile`` / ``_copy_mods_to_profile``
 file-work so the Qt (or any) GUI can reuse it. Collision decisions (replace / rename
@@ -127,3 +127,98 @@ def register_mods_in_modlist(target_modlist: Path,
         ]
         if new_entries:
             write_modlist(target_modlist, new_entries + entries)
+
+
+def register_separator_block_in_modlist(
+        target_modlist: Path, separator_name: str,
+        mods: "list[tuple[str, bool]]") -> bool:
+    """Insert or merge a separator and place *mods* directly beneath it.
+
+    Existing target mod entries keep their target enabled/locked state. Returns
+    True when the separator was newly created.
+    """
+    from Utils.mods.modlist import read_modlist, write_modlist, ModEntry, modlist_lock
+
+    if not separator_name.endswith("_separator"):
+        separator_name += "_separator"
+    with modlist_lock(target_modlist):
+        try:
+            entries = read_modlist(target_modlist) if target_modlist.exists() else []
+        except Exception:
+            entries = []
+
+        separator_index = next(
+            (i for i, e in enumerate(entries)
+             if e.is_separator and e.name == separator_name), None)
+        existing_separator = (entries[separator_index]
+                              if separator_index is not None else None)
+        existing_mods = {e.name: e for e in entries if not e.is_separator}
+
+        members = []
+        member_names = set()
+        for name, enabled in mods:
+            if not name or name in member_names:
+                continue
+            member_names.add(name)
+            members.append(existing_mods.get(name) or ModEntry(
+                name=name, enabled=enabled, locked=False))
+
+        def _removed(e):
+            return ((e.is_separator and e.name == separator_name)
+                    or (not e.is_separator and e.name in member_names))
+
+        if separator_index is None:
+            insert_at = 0
+        else:
+            insert_at = sum(not _removed(e)
+                            for e in entries[:separator_index])
+        remaining = [e for e in entries if not _removed(e)]
+        separator = existing_separator or ModEntry(
+            name=separator_name, enabled=True, locked=True, is_separator=True)
+        remaining[insert_at:insert_at] = [separator, *members]
+        if remaining != entries:
+            write_modlist(target_modlist, remaining)
+        return existing_separator is None
+
+
+def copy_separator_state(src_profile_dir: Path, target_profile_dir: Path,
+                         separator_name: str) -> None:
+    """Copy a newly-created separator's visual and deployment state."""
+    from Utils.profiles.state import (
+        read_collapsed_seps, read_separator_colors, read_separator_deploy_paths,
+        read_separator_locks, write_collapsed_seps, write_separator_colors,
+        write_separator_deploy_paths, write_separator_locks,
+    )
+
+    suffix = "_separator"
+    display_name = (separator_name[:-len(suffix)]
+                    if separator_name.endswith(suffix) else separator_name)
+
+    for reader, writer, target_key in (
+        (read_separator_colors, write_separator_colors, separator_name),
+        (read_separator_deploy_paths, write_separator_deploy_paths,
+         separator_name),
+        (read_separator_locks, write_separator_locks, display_name),
+    ):
+        source = reader(src_profile_dir)
+        target = reader(target_profile_dir)
+        source_value = None
+        found = False
+        for key in (separator_name, display_name):
+            if key in source:
+                source_value = source[key]
+                found = True
+                break
+        target.pop(separator_name, None)
+        target.pop(display_name, None)
+        if found:
+            target[target_key] = source_value
+        writer(target_profile_dir, target)
+
+    collapsed = read_collapsed_seps(target_profile_dir)
+    source_collapsed = read_collapsed_seps(src_profile_dir)
+    collapsed.discard(separator_name)
+    collapsed.discard(display_name)
+    if separator_name in source_collapsed or display_name in source_collapsed:
+        collapsed.add(display_name)
+    write_collapsed_seps(target_profile_dir, collapsed)

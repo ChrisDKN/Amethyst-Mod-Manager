@@ -456,6 +456,9 @@ class ModRowDelegate(QStyledItemDelegate):
         y = r.top() + (r.height() - self.ARROW_SZ) // 2
         return QRect(r.left() + self.PAD, y, self.ARROW_SZ, self.ARROW_SZ)
 
+    def _arrow_hit_rect(self, r):
+        return self._arrow_rect(r).adjusted(-6, -6, 6, 6).intersected(r)
+
     def _lock_rect(self, r):
         y = r.top() + (r.height() - self.LOCK_SZ) // 2
         return QRect(r.right() - self.PAD - self.LOCK_SZ, y,
@@ -942,11 +945,8 @@ class ModRowDelegate(QStyledItemDelegate):
             return False
 
         if e.is_separator:
-            # Real separators are never selectable: the view consumes their
-            # press (mousePressEvent) and does the collapse/lock toggle on
-            # release (_handle_separator_click), so it never reaches here. The
-            # _arrow_rect/_lock_rect geometry still lives on this delegate and
-            # is reused by that handler.
+            # The view handles the arrow and lock controls. Releases elsewhere
+            # stay unhandled so normal separator-row selection can complete.
             return False
 
         # Mod row: checkbox area toggles enabled.

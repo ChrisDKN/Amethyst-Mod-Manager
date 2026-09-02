@@ -9517,11 +9517,13 @@ class MainWindow(QMainWindow):
         else:
             self._notify(self.tr("No mods were tracked (no Nexus id)."), "info")
 
-    def _copy_mods_to_profile(self, names, enabled_map, target_profile, move):
+    def _copy_mods_to_profile(self, names, enabled_map, target_profile, move,
+                              separator_name=None):
         """Copy (or move) the given mods' staging folders into *target_profile*.
         Resolves collisions (single → Replace/Rename/Cancel overlay; multi → one
         Replace-or-skip prompt), copies on a worker thread, and - for a move -
-        removes the sources here afterwards. Port of Tk _copy_mod(s)_to_profile."""
+        removes the sources here afterwards. *separator_name* groups copied mods
+        under that separator in the target."""
         from Utils.mods import copy as mod_copy
         game = self._gs.game
         src_staging = self._gs.staging_dir()
@@ -9535,17 +9537,28 @@ class MainWindow(QMainWindow):
             self._notify(self.tr("Could not resolve target profile: {0}").format(exc), "error")
             return
         names = [n for n in names if n]
-        if not names:
+        if not names and not separator_name:
             return
-        existing = [n for n in names
-                    if mod_copy.mod_exists_in_profile(target_staging, n)]
+        existing = []
+        for name in names:
+            if not mod_copy.mod_exists_in_profile(target_staging, name):
+                continue
+            same_folder = False
+            if separator_name:
+                try:
+                    same_folder = ((src_staging / name).resolve()
+                                   == (target_staging / name).resolve())
+                except OSError:
+                    pass
+            if not same_folder:
+                existing.append(name)
 
         # plan[name] = dest_name (rename) or None (copy as-is / replace after wipe)
         def _launch(plan, replace_set):
             self._run_copy_to_profile(
                 names, enabled_map, plan, replace_set, move,
                 src_staging, src_profile_dir, target_staging, target_profile_dir,
-                target_profile, game)
+                target_profile, game, separator_name)
 
         if not existing:
             _launch({n: None for n in names}, set())
@@ -9581,12 +9594,16 @@ class MainWindow(QMainWindow):
                     # Skip existing: copy only the non-colliding ones.
                     keep = [n for n in names if n not in existing]
                     if not keep:
+                        if separator_name:
+                            _launch({}, set())
+                            return
                         self._notify(self.tr("All selected mods already exist there."), "info")
                         return
                     _launch({n: None for n in keep}, set())
 
             ConfirmOverlay.show_over(
-                self, self.tr("Copy to profile"),
+                self, (self.tr("Copy separator to profile") if separator_name
+                       else self.tr("Copy to profile")),
                 self.tr("{0} of {1} mod(s) already exist in "
                         "'{2}'. Replace them? (Cancel skips those.)").format(
                             len(existing), len(names), target_profile),
@@ -9595,7 +9612,8 @@ class MainWindow(QMainWindow):
 
     def _run_copy_to_profile(self, names, enabled_map, plan, replace_set, move,
                              src_staging, src_profile_dir, target_staging,
-                             target_profile_dir, target_profile, game):
+                             target_profile_dir, target_profile, game,
+                             separator_name=None):
         """Worker: copy each planned mod, then (move) remove the sources."""
         import threading
         from pathlib import Path
@@ -9606,13 +9624,21 @@ class MainWindow(QMainWindow):
             self._notify(self.tr("A copy/move is already in progress."), "info")
             return
         self._copy_running = True
-        self._op_title = self.tr("Moving") if move else self.tr("Copying")
+        self._op_title = (self.tr("Copying separator") if separator_name
+                          else self.tr("Moving") if move else self.tr("Copying"))
         self._ensure_feedback()
-        self._notify(
-            (self.tr("Moving {0} mod(s) to '{1}'…") if move
-             else self.tr("Copying {0} mod(s) to '{1}'…"))
-            .format(len(plan), target_profile), "info")
-        total = len(plan)
+        if separator_name:
+            display_separator = separator_name.removesuffix("_separator")
+            self._notify(
+                self.tr("Copying separator '{0}' to '{1}'…").format(
+                    display_separator, target_profile), "info")
+        else:
+            self._notify(
+                (self.tr("Moving {0} mod(s) to '{1}'…") if move
+                 else self.tr("Copying {0} mod(s) to '{1}'…"))
+                .format(len(plan), target_profile), "info")
+        mod_total = len(plan)
+        total = max(1, mod_total)
         self._op_progress.emit(0, total, f"to '{target_profile}'")
 
         def _worker():
@@ -9628,17 +9654,19 @@ class MainWindow(QMainWindow):
                 try:
                     src_folder = Path(src_staging) / nm
                     dest_folder = Path(target_staging) / (dest_name or nm)
-                    # Copying OUT of a group into the member that owns the mod:
-                    # source (through the link) and destination are the SAME
-                    # real folder. A Replace rmtree here would destroy the only
-                    # copy; there is nothing to transfer - treat as done.
+                    # Shared staging, or a group copied into its owning member:
+                    # source and destination are the same real folder. There is
+                    # nothing to transfer, and Replace must not delete it.
                     if dest_folder.exists() and _os.path.realpath(
                             src_folder) == _os.path.realpath(dest_folder):
                         copied.append(nm)
                         detached.append(nm)
+                        if separator_name:
+                            registered.append(
+                                (dest_name or nm, enabled_map.get(nm, True)))
                         self._op_log.emit(
-                            f"'{nm}' already lives in the target profile "
-                            f"(it owns the group's copy) - nothing to copy.")
+                            f"'{nm}' already uses the target staging folder - "
+                            f"nothing to copy.")
                         continue
                     if nm in replace_set:
                         import shutil
@@ -9653,7 +9681,26 @@ class MainWindow(QMainWindow):
                         registered.append((out, enabled_map.get(nm, True)))
                 except Exception as exc:
                     self._op_log.emit(f"Copy to profile failed for '{nm}': {exc}")
-            if registered:
+            separator_copied = False
+            if separator_name:
+                created = False
+                try:
+                    created = mod_copy.register_separator_block_in_modlist(
+                        Path(target_profile_dir) / "modlist.txt",
+                        separator_name, registered)
+                    separator_copied = True
+                except Exception as exc:
+                    self._op_log.emit(
+                        f"Copy separator to profile: modlist update failed: {exc}")
+                if separator_copied and created:
+                    try:
+                        mod_copy.copy_separator_state(
+                            Path(src_profile_dir), Path(target_profile_dir),
+                            separator_name)
+                    except Exception as exc:
+                        self._op_log.emit(
+                            f"Copy separator state failed: {exc}")
+            elif registered:
                 try:
                     mod_copy.register_mods_in_modlist(
                         Path(target_profile_dir) / "modlist.txt", registered)
@@ -9696,9 +9743,12 @@ class MainWindow(QMainWindow):
                     removed = True
                 except Exception as exc:
                     self._op_log.emit(f"Move: could not remove sources: {exc}")
-            self._copy_done.emit({"copied": len(copied), "total": len(plan),
+            self._copy_done.emit({"copied": len(copied), "total": mod_total,
                                   "move": move, "removed": removed,
                                   "target": target_profile,
+                                  "separator_requested": bool(separator_name),
+                                  "separator": (separator_name
+                                                if separator_copied else ""),
                                   # names to drop from THIS profile's modlist
                                   # (remove_mods deliberately leaves modlist.txt
                                   # to the caller - mirror Tk _finish_copy_popup).
@@ -9715,11 +9765,24 @@ class MainWindow(QMainWindow):
         if self._progress_popup is not None:
             self._schedule_op_clear(1200)
         c = payload.get("copied", 0)
-        self._notify(
-            (self.tr("Moved {0}/{1} mod(s) to '{2}'.") if payload.get("move")
-             else self.tr("Copied {0}/{1} mod(s) to '{2}'."))
-            .format(c, payload.get('total', 0), payload.get('target', '')),
-            "success" if c else "info")
+        separator = payload.get("separator", "")
+        if payload.get("separator_requested"):
+            if separator:
+                self._notify(
+                    self.tr("Copied separator '{0}' with {1}/{2} mod(s) to "
+                            "'{3}'.").format(
+                                separator.removesuffix("_separator"), c,
+                                payload.get("total", 0),
+                                payload.get("target", "")), "success")
+            else:
+                self._notify(self.tr("Could not copy the separator."), "error")
+        else:
+            self._notify(
+                (self.tr("Moved {0}/{1} mod(s) to '{2}'.")
+                 if payload.get("move")
+                 else self.tr("Copied {0}/{1} mod(s) to '{2}'."))
+                .format(c, payload.get('total', 0), payload.get('target', '')),
+                "success" if c else "info")
         removed_names = set(payload.get("removed_names") or [])
         if removed_names:
             model = self._modlist_model
