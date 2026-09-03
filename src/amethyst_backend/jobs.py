@@ -187,6 +187,7 @@ class JobManager:
                     self._event_locked(job, "progress", **value)
 
         try:
+            result: dict[str, Any]
             if job.kind == "deploy":
                 from Utils.deployment.pipeline import run_deploy_pipeline
                 ok = run_deploy_pipeline(
@@ -200,6 +201,7 @@ class JobManager:
                     operation_owner=f"headless:{job.id}",
                     raise_busy=True,
                 )
+                result = {"ok": True}
             elif job.kind == "restore":
                 from Utils.deployment.pipeline import run_restore_pipeline
                 ok = run_restore_pipeline(
@@ -210,6 +212,22 @@ class JobManager:
                     operation_owner=f"headless:{job.id}",
                     raise_busy=True,
                 )
+                result = {"ok": True}
+            elif job.kind == "mods.set_enabled":
+                from Utils.mods.state import set_mods_enabled
+                changes = [
+                    (str(change["name"]), bool(change["enabled"]))
+                    for change in job.options.get("changes", [])
+                ]
+                result = set_mods_enabled(
+                    job.game,
+                    job.game.get_profile_root() / "profiles" / job.profile,
+                    changes,
+                    log_fn=log,
+                    progress_fn=progress,
+                    operation_owner=f"headless:{job.id}",
+                )
+                ok = True
             else:
                 raise RuntimeError(f"Unsupported job kind: {job.kind}")
         except Exception as exc:
@@ -221,25 +239,33 @@ class JobManager:
                     "details": exc.details,
                 }
             else:
-                error = {
-                    "name": "internal_error",
-                    "message": str(exc) or type(exc).__name__,
-                    "details": {"exception": type(exc).__name__},
-                }
-                try:
-                    print(
-                        f"[headless] {job.kind} job {job.id} failed: "
-                        f"{type(exc).__name__}: {exc}\n{traceback.format_exc()}",
-                        file=sys.stderr,
-                        flush=True,
-                    )
-                except Exception:
-                    pass
+                from Utils.mods.state import ModStateError
+                if isinstance(exc, ModStateError):
+                    error = {
+                        "name": exc.name,
+                        "message": str(exc),
+                        "details": exc.details,
+                    }
+                else:
+                    error = {
+                        "name": "internal_error",
+                        "message": str(exc) or type(exc).__name__,
+                        "details": {"exception": type(exc).__name__},
+                    }
+                    try:
+                        print(
+                            f"[headless] {job.kind} job {job.id} failed: "
+                            f"{type(exc).__name__}: {exc}\n{traceback.format_exc()}",
+                            file=sys.stderr,
+                            flush=True,
+                        )
+                    except Exception:
+                        pass
             self._finish(job, "failed", error=error)
             return
 
         if ok:
-            self._finish(job, "succeeded", result={"ok": True})
+            self._finish(job, "succeeded", result=result)
         else:
             self._finish(job, "failed", error={
                 "name": f"{job.kind}_failed",

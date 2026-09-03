@@ -30,6 +30,7 @@ class AmethystService:
         "games.get",
         "profiles.list",
         "mods.list",
+        "mods.set_enabled.start",
         "deploy.start",
         "restore.start",
         "jobs.get",
@@ -50,6 +51,7 @@ class AmethystService:
             "games.get": self._get_game,
             "profiles.list": self._list_profiles,
             "mods.list": self._list_mods,
+            "mods.set_enabled.start": self._start_set_enabled,
             "deploy.start": self._start_deploy,
             "restore.start": self._start_restore,
             "jobs.get": self._get_job,
@@ -154,7 +156,7 @@ class AmethystService:
                 "events": True,
                 "event_delivery": "poll",
                 "cancellation": False,
-                "mutations": ["deploy", "restore"],
+                "mutations": ["mods.set_enabled", "deploy", "restore"],
                 "maximum_event_wait_ms": 30000,
                 "methods": list(self.METHODS),
             },
@@ -317,6 +319,73 @@ class AmethystService:
             self._canonical_game(game),
             profile_dir.name,
             normalized,
+        )
+        return {"job": job}
+
+    def _start_set_enabled(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params, {"game", "profile", "changes"},
+            {"game", "profile", "changes"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_configured(game)
+        profile_dir = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+
+        raw_changes = params.get("changes")
+        if not isinstance(raw_changes, list) or not raw_changes:
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'changes' must be a non-empty array.",
+                {"parameter": "changes"},
+            )
+        changes: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for index, change in enumerate(raw_changes):
+            parameter = f"changes[{index}]"
+            if not isinstance(change, dict) or set(change) != {"name", "enabled"}:
+                raise ServiceError(
+                    -32602,
+                    "invalid_params",
+                    f"'{parameter}' must contain only 'name' and 'enabled'.",
+                    {"parameter": parameter},
+                )
+            name = change.get("name")
+            if (not isinstance(name, str) or not name
+                    or name in (".", "..")
+                    or Path(name).name != name
+                    or any(char in name for char in "\x00\r\n")):
+                raise ServiceError(
+                    -32602,
+                    "invalid_params",
+                    f"'{parameter}.name' must be a valid mod name.",
+                    {"parameter": f"{parameter}.name"},
+                )
+            if name in seen:
+                raise ServiceError(
+                    -32602,
+                    "invalid_params",
+                    f"'{parameter}.name' duplicates an earlier change.",
+                    {"parameter": f"{parameter}.name", "mod": name},
+                )
+            enabled = change.get("enabled")
+            if not isinstance(enabled, bool):
+                raise ServiceError(
+                    -32602,
+                    "invalid_params",
+                    f"'{parameter}.enabled' must be a boolean.",
+                    {"parameter": f"{parameter}.enabled"},
+                )
+            seen.add(name)
+            changes.append({"name": name, "enabled": enabled})
+
+        job = self._jobs.submit(
+            "mods.set_enabled",
+            game,
+            self._canonical_game(game),
+            profile_dir.name,
+            {"changes": changes},
         )
         return {"job": job}
 

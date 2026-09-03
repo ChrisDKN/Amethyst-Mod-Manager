@@ -12,6 +12,7 @@ py.install_sources(
   'remove.py',
   'rename.py',
   'staging.py',
+  'state.py',
   'versions.py',
   subdir: 'Utils/mods',
 )

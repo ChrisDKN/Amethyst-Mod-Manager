@@ -2,8 +2,8 @@
 
 Amethyst headless mode gives scripts and external applications a stable way to
 use the manager without importing its Python modules or starting Qt. Protocol
-version 1 exposes game, profile and mod state plus asynchronous deploy and
-restore jobs.
+version 1 exposes game, profile and mod state plus asynchronous mod activation,
+deploy, and restore jobs.
 
 The public boundary is JSON-RPC 2.0 over newline-delimited JSON (NDJSON).
 Amethyst reads one JSON value per line from standard input and writes one JSON
@@ -44,10 +44,10 @@ PYTHONPATH=src .venv/bin/python src/cli.py headless --stdio
 ```
 
 The process remains alive until standard input closes. JSON-RPC requests are
-handled sequentially, while deploy and restore jobs run in a background worker.
+handled sequentially, while mutation jobs run in a background worker.
 On end-of-input, Amethyst stops accepting requests and waits for every accepted
 job to finish before exiting. This prevents a client disconnect from terminating
-a deployment halfway through.
+a mutation halfway through.
 
 For a single request, pipe one line into the service:
 
@@ -94,7 +94,7 @@ The response describes the protocol and available features:
       "events": true,
       "event_delivery": "poll",
       "cancellation": false,
-      "mutations": ["deploy", "restore"],
+      "mutations": ["mods.set_enabled", "deploy", "restore"],
       "maximum_event_wait_ms": 30000,
       "methods": [
         "system.handshake",
@@ -103,6 +103,7 @@ The response describes the protocol and available features:
         "games.get",
         "profiles.list",
         "mods.list",
+        "mods.set_enabled.start",
         "deploy.start",
         "restore.start",
         "jobs.get",
@@ -131,6 +132,7 @@ parameters are rejected.
 | `games.get` | `game` string | Return one game and its current state. |
 | `profiles.list` | `game` string | List existing profiles and summary counts. |
 | `mods.list` | `game` string, `profile` string | List a profile's mods, separators and installed metadata. |
+| `mods.set_enabled.start` | `game` string, `profile` string, `changes` array | Start a batch mod enable/disable job. |
 | `deploy.start` | `game` string, `profile` string, `options` object (optional) | Start a deployment job. |
 | `restore.start` | `game` string, `profile` string | Start a restore job. |
 | `jobs.get` | `job_id` string | Get the latest job snapshot. |
@@ -180,17 +182,58 @@ update state, and Nexus or Thunderstore identity when available. A stale
 Read methods return `operation_in_progress` while this service is changing game
 state. Continue polling the active job and retry the read after it completes.
 
-## Deploy and restore jobs
+## Mutation jobs
 
 Mutating calls return immediately with a job snapshot. They do not hold the
 JSON-RPC request open for the filesystem operation.
 Only one mutable job may be outstanding in a headless process; another start
 request returns `operation_in_progress` until that job reaches a final state.
 
+### Enable and disable mods
+
+Submit all related activation changes in one job. Each mod name must exactly
+match the `name` returned by `mods.list`; names are case-sensitive. The batch is
+validated before `modlist.txt` is changed, so a missing, locked, duplicate, or
+separator entry rejects the complete batch.
+
+```json
+{"jsonrpc":"2.0","id":5,"method":"mods.set_enabled.start","params":{"game":"skyrim_se","profile":"default","changes":[{"name":"SkyUI","enabled":true},{"name":"Old textures","enabled":false}]}}
+```
+
+The job synchronizes `plugins.txt` and `loadorder.txt`, then reconciles the
+profile's Filegraph state. It does not deploy. Start `deploy.start` explicitly
+when the new state should be applied to the game folder.
+
+A successful result reports which entries changed and which already had the
+requested state:
+
+```json
+{
+  "ok": true,
+  "changed": [{"name": "SkyUI", "enabled": true}],
+  "unchanged": [{"name": "Old textures", "enabled": false}],
+  "plugins_changed": true,
+  "filegraph_reconciled": true,
+  "filegraph_generation": 42
+}
+```
+
+`plugins_changed` reports whether the plugin files needed rewriting;
+`filegraph_reconciled` is false when the existing generation was already
+current.
+
+Expected job errors are `mod_not_found`, `ambiguous_mod`, `mod_locked`, and
+`mod_not_toggleable`. If plugin or Filegraph synchronization fails after the
+atomic mod-list write, the job returns `mod_state_sync_failed`; its details say
+whether the mod list changed and identify the failed stage. Retrying the same
+desired states also retries synchronization.
+
+### Deploy and restore
+
 Start a deployment:
 
 ```json
-{"jsonrpc":"2.0","id":5,"method":"deploy.start","params":{"game":"skyrim_se","profile":"default","options":{"root_folder_enabled":true,"backup":true}}}
+{"jsonrpc":"2.0","id":6,"method":"deploy.start","params":{"game":"skyrim_se","profile":"default","options":{"root_folder_enabled":true,"backup":true}}}
 ```
 
 Both deploy options default to `true`:
@@ -201,7 +244,7 @@ Both deploy options default to `true`:
 Start a restore and return the handler to the named profile afterward:
 
 ```json
-{"jsonrpc":"2.0","id":6,"method":"restore.start","params":{"game":"skyrim_se","profile":"default"}}
+{"jsonrpc":"2.0","id":7,"method":"restore.start","params":{"game":"skyrim_se","profile":"default"}}
 ```
 
 Restore acts on the last deployed profile so runtime files go back to the
@@ -234,7 +277,7 @@ Use `jobs.get` for the current snapshot or `jobs.list` to recover job IDs while
 the same headless process remains alive:
 
 ```json
-{"jsonrpc":"2.0","id":7,"method":"jobs.get","params":{"job_id":"09b37ca9237540918fe86ff5e359331c"}}
+{"jsonrpc":"2.0","id":8,"method":"jobs.get","params":{"job_id":"09b37ca9237540918fe86ff5e359331c"}}
 ```
 
 Job states are `queued`, `running`, `succeeded`, and `failed`.
@@ -245,7 +288,7 @@ Events carry logs, progress and state transitions. Pass the last processed
 sequence as `after`. `wait_ms` enables a long poll and may be from 0 to 30000:
 
 ```json
-{"jsonrpc":"2.0","id":8,"method":"jobs.events","params":{"job_id":"09b37ca9237540918fe86ff5e359331c","after":0,"wait_ms":1000}}
+{"jsonrpc":"2.0","id":9,"method":"jobs.events","params":{"job_id":"09b37ca9237540918fe86ff5e359331c","after":0,"wait_ms":1000}}
 ```
 
 ```json
@@ -276,8 +319,9 @@ client that also sends interactive requests should use short waits.
 
 ### Locking and failures
 
-The standard Amethyst Deploy and Restore entry points—desktop, one-shot CLI,
-and headless—use the same operation coordinator. Operations are serialized
+Headless mod-state jobs and the standard Amethyst Deploy and Restore entry
+points—desktop, one-shot CLI, and headless—use the same operation coordinator.
+Operations are serialized
 within one process. Across native, AppImage and Flatpak processes, advisory
 locks cover the game identity and resolved game, profile, staging and deployment
 paths.
@@ -288,13 +332,13 @@ the holder when metadata was available. Lock files persist between runs; their
 existence does not mean an operation is active because the kernel lock is the
 authority.
 
-Other final job error names are `deploy_failed`, `restore_failed`, and
-`internal_error`. Human-readable pipeline details remain available in the
-job's `log` events.
+Other final job error names are `deploy_failed`, `restore_failed`,
+`resource_unavailable`, and `internal_error`. Human-readable pipeline details
+remain available in the job's `log` events.
 
-Deploy and restore are not cancellable in protocol version 1. Once accepted,
-allow the job to reach a final state. This avoids abandoning a partially
-restored or partially deployed filesystem.
+Mutation jobs are not cancellable in protocol version 1. Once accepted, allow
+the job to reach a final state. This avoids abandoning a partially updated,
+restored, or deployed filesystem.
 
 Headless deployment uses the same non-interactive policy as the one-shot CLI:
 there is no UI confirmation dialog. Configure and test unusual game-specific
@@ -308,7 +352,7 @@ Request validation and lookup failures use the JSON-RPC error object.
 ```json
 {
   "jsonrpc": "2.0",
-  "id": 9,
+  "id": 10,
   "error": {
     "code": -32001,
     "message": "Game 'missing' was not found.",
@@ -419,17 +463,19 @@ process from blocking on a full pipe.
 JSON-RPC batch arrays are accepted as one NDJSON line and their responses are
 returned as one array on one line. Requests without an `id` are notifications
 and do not receive a response. A batch containing only notifications produces
-no output line. Use request IDs for `deploy.start` and `restore.start`; otherwise
-the caller does not directly receive the created job ID.
+no output line. Use request IDs for `mods.set_enabled.start`, `deploy.start`, and
+`restore.start`; otherwise the caller does not directly receive the created job
+ID.
 
 ## Current limitations
 
-- Nexus browsing, downloads, installation, mod-state changes and launch are not
-  exposed yet.
+- Nexus browsing, downloads, installation, mod ordering, removal, and launch
+  are not exposed yet.
 - Progress delivery is polling-only and running jobs cannot be cancelled.
-- The shared operation lock currently coordinates the standard deploy and
-  restore flows, not every desktop installer, wizard or configuration action.
-  Do not run those tools while a headless mutation is active.
+- The shared operation lock currently coordinates headless mod-state jobs and
+  the standard deploy/restore flows, not every desktop mod-list edit, installer,
+  wizard, or configuration action. Do not run those tools while a headless
+  mutation is active.
 - The transport is a child process over standard I/O; there is no socket daemon
   or remote authentication layer yet.
 - Python modules under `amethyst_backend`, `Utils`, `Games` and `Nexus` remain
