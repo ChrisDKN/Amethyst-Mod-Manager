@@ -31,6 +31,7 @@ class AmethystService:
         "profiles.list",
         "mods.list",
         "mods.set_enabled.start",
+        "mods.move.start",
         "deploy.start",
         "restore.start",
         "jobs.get",
@@ -52,6 +53,7 @@ class AmethystService:
             "profiles.list": self._list_profiles,
             "mods.list": self._list_mods,
             "mods.set_enabled.start": self._start_set_enabled,
+            "mods.move.start": self._start_move,
             "deploy.start": self._start_deploy,
             "restore.start": self._start_restore,
             "jobs.get": self._get_job,
@@ -111,6 +113,20 @@ class AmethystService:
             )
         return value.strip()
 
+    @staticmethod
+    def _mod_name(value: Any, parameter: str) -> str:
+        if (not isinstance(value, str) or not value
+                or value in (".", "..")
+                or Path(value).name != value
+                or any(char in value for char in "\x00\r\n")):
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                f"'{parameter}' must be a valid mod name.",
+                {"parameter": parameter},
+            )
+        return value
+
     def _handshake(self, params: dict[str, Any]) -> dict[str, Any]:
         self._check_params(params, {"protocol_version", "client"})
         requested = params.get("protocol_version")
@@ -156,7 +172,8 @@ class AmethystService:
                 "events": True,
                 "event_delivery": "poll",
                 "cancellation": False,
-                "mutations": ["mods.set_enabled", "deploy", "restore"],
+                "mutations": [
+                    "mods.set_enabled", "mods.move", "deploy", "restore"],
                 "maximum_event_wait_ms": 30000,
                 "methods": list(self.METHODS),
             },
@@ -351,17 +368,8 @@ class AmethystService:
                     f"'{parameter}' must contain only 'name' and 'enabled'.",
                     {"parameter": parameter},
                 )
-            name = change.get("name")
-            if (not isinstance(name, str) or not name
-                    or name in (".", "..")
-                    or Path(name).name != name
-                    or any(char in name for char in "\x00\r\n")):
-                raise ServiceError(
-                    -32602,
-                    "invalid_params",
-                    f"'{parameter}.name' must be a valid mod name.",
-                    {"parameter": f"{parameter}.name"},
-                )
+            name = self._mod_name(
+                change.get("name"), f"{parameter}.name")
             if name in seen:
                 raise ServiceError(
                     -32602,
@@ -386,6 +394,67 @@ class AmethystService:
             self._canonical_game(game),
             profile_dir.name,
             {"changes": changes},
+        )
+        return {"job": job}
+
+    def _start_move(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params, {"game", "profile", "mods", "position"},
+            {"game", "profile", "mods", "position"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_configured(game)
+        profile_dir = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+
+        raw_mods = params.get("mods")
+        if not isinstance(raw_mods, list) or not raw_mods:
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'mods' must be a non-empty array of mod names.",
+                {"parameter": "mods"},
+            )
+        mods: list[str] = []
+        seen: set[str] = set()
+        for index, value in enumerate(raw_mods):
+            parameter = f"mods[{index}]"
+            name = self._mod_name(value, parameter)
+            if name in seen:
+                raise ServiceError(
+                    -32602,
+                    "invalid_params",
+                    f"'{parameter}' duplicates an earlier mod name.",
+                    {"parameter": parameter, "mod": name},
+                )
+            seen.add(name)
+            mods.append(name)
+
+        position = params.get("position")
+        if (not isinstance(position, dict) or len(position) != 1
+                or next(iter(position), None) not in {"before", "after"}):
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'position' must contain exactly one 'before' or 'after' anchor.",
+                {"parameter": "position"},
+            )
+        placement, raw_anchor = next(iter(position.items()))
+        anchor = self._mod_name(raw_anchor, f"position.{placement}")
+        if anchor in seen:
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "The move anchor cannot also be a moved mod.",
+                {"parameter": f"position.{placement}", "anchor": anchor},
+            )
+
+        job = self._jobs.submit(
+            "mods.move",
+            game,
+            self._canonical_game(game),
+            profile_dir.name,
+            {"mods": mods, "position": {placement: anchor}},
         )
         return {"job": job}
 

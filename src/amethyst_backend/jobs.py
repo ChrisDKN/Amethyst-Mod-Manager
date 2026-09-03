@@ -228,6 +228,21 @@ class JobManager:
                     operation_owner=f"headless:{job.id}",
                 )
                 ok = True
+            elif job.kind == "mods.move":
+                from Utils.mods.state import move_mods
+                position = dict(job.options.get("position", {}))
+                placement, anchor = next(iter(position.items()))
+                result = move_mods(
+                    job.game,
+                    job.game.get_profile_root() / "profiles" / job.profile,
+                    [str(name) for name in job.options.get("mods", [])],
+                    anchor=str(anchor),
+                    after=placement == "after",
+                    log_fn=log,
+                    progress_fn=progress,
+                    operation_owner=f"headless:{job.id}",
+                )
+                ok = True
             else:
                 raise RuntimeError(f"Unsupported job kind: {job.kind}")
         except Exception as exc:
