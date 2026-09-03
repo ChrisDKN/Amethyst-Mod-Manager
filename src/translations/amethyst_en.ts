@@ -11721,6 +11721,18 @@ Re-scan to verify.</translation>
         <translation>Remove selected from userlist</translation>
     </message>
     <message>
+        <source>Priority for {0}:</source>
+        <translation>Priority for {0}:</translation>
+    </message>
+    <message>
+        <source>Set priority</source>
+        <translation>Set priority</translation>
+    </message>
+    <message>
+        <source>Set priority…</source>
+        <translation>Set priority…</translation>
+    </message>
+    <message>
         <source>Show cycle…</source>
         <translation>Show cycle…</translation>
     </message>

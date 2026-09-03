@@ -2,8 +2,8 @@
 
 A QTreeView over PluginModel with a delegate that paints: enable checkbox, name
 (dimmed when disabled), the ESL 'L' cyan badge + master indicator in the Flags
-column, the lock column, and the load-order index. Single-click the checkbox to
-toggle (persists to plugins.txt).
+column, the lock column, priority, and load-order index. Single-click the
+checkbox to toggle, or the priority number to reposition the plugin.
 """
 
 from __future__ import annotations
@@ -342,6 +342,16 @@ class PluginDelegate(QStyledItemDelegate):
             x += sz + _FLAG_GAP
         return 0
 
+    def _hit_centered_text(self, pos, rect, index):
+        text = str(index.data(Qt.DisplayRole) or "")
+        if not text:
+            return False
+        width = min(self.fm_row.horizontalAdvance(text),
+                    max(0, rect.width() - 12))
+        hit = QRect(0, 0, width, self.fm_row.height())
+        hit.moveCenter(rect.center())
+        return hit.contains(pos)
+
     def _flag_tip(self, hit, index):
         """Tooltip text for the hovered flag bit *hit* (Tk parity). Master-check
         and LOOT flags render the captured per-plugin detail; ESL/userlist use
@@ -434,6 +444,14 @@ class PluginDelegate(QStyledItemDelegate):
                     row = index.data(RowRole)
                     cb(row.name if row is not None else "")
                     return True
+        elif index.column() == COL_PRIORITY:
+            if (event.button() != Qt.LeftButton
+                    or not model.is_movable(index.row())
+                    or not self._hit_centered_text(pos, opt.rect, index)):
+                return False
+            from gui_qt.plugin_menu import _set_priority
+            _set_priority(self.parent(), model, index.row())
+            return True
         return False
 
 
@@ -930,9 +948,7 @@ class PluginView(QTreeView):
                 return carry
         return [row]
 
-    def _update_flag_cursor(self, pos):
-        """Pointing-hand over the clickable dirty-edit brush glyph, so it reads
-        as a button rather than a static badge."""
+    def _update_action_cursor(self, pos):
         over = False
         try:
             idx = self.indexAt(pos)
@@ -943,6 +959,11 @@ class PluginView(QTreeView):
                     deleg = self.itemDelegate()
                     over = deleg._hit_flag_bit(
                         pos, self.visualRect(idx), bits) == PF_DIRTY
+            elif (idx.isValid() and idx.column() == COL_PRIORITY
+                  and self.model().is_movable(idx.row())):
+                deleg = self.itemDelegate()
+                over = deleg._hit_centered_text(
+                    pos, self.visualRect(idx), idx)
         except Exception:
             over = False
         if over:
@@ -959,7 +980,7 @@ class PluginView(QTreeView):
 
     def mouseMoveEvent(self, event):
         if not (event.buttons() & Qt.LeftButton) or self._press_row < 0:
-            self._update_flag_cursor(event.position().toPoint())
+            self._update_action_cursor(event.position().toPoint())
             super().mouseMoveEvent(event)
             return
         if not self._drag_active:
