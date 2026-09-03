@@ -41,6 +41,11 @@ install_data(
   install_dir: get_option('datadir') / 'doc' / meson.project_name(),
 )
 
+install_data(
+  'docs' / 'headless.md',
+  install_dir: get_option('datadir') / 'doc' / meson.project_name(),
+)
+
 metainfo_conf = configuration_data()
 metainfo_conf.set('VERSION', meson.project_version())
 date = ''

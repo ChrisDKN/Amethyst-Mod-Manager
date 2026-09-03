@@ -11,6 +11,7 @@ Usage:
     python cli.py restore <game>
     python cli.py clear-credentials
     python cli.py export-filemap <game> <profile_name> [--output-dir DIR] [--refresh]
+    python cli.py headless --stdio
 
 <game> can be the game's game_id (e.g. 'skyrim_se'), its full display name
 (e.g. 'Skyrim Special Edition'), or a Steam app ID.  Matching is
@@ -405,8 +406,6 @@ def cmd_export_filemap(games: dict, key: str, profile: str, *,
 
 
 def main():
-    _setup_path()
-
     parser = argparse.ArgumentParser(
         prog="amethyst",
         description="Amethyst Mod Manager - CLI",
@@ -446,6 +445,13 @@ def main():
 
     subparsers.add_parser("clear-credentials", help="Remove stored Nexus Mods API key and OAuth tokens")
 
+    hp = subparsers.add_parser(
+        "headless", aliases=["rpc"],
+        help="Run the versioned headless JSON-RPC service")
+    hp.add_argument(
+        "--stdio", action="store_true", required=True,
+        help="Exchange newline-delimited JSON-RPC messages over stdin/stdout")
+
     # Launcher wrappers append the vanilla launch command after ``--`` (Steam
     # gets it from %command%; Heroic/Lutris/Faugus append it implicitly).
     # Retain that command for VFS handlers; external loaders simply ignore it.
@@ -457,6 +463,16 @@ def main():
         argv = argv[:separator]
     args = parser.parse_args(argv)
 
+    protocol_stdout = None
+    if args.command in ("headless", "rpc"):
+        # Keep incidental backend prints away from the protocol stream.
+        protocol_stdout = sys.stdout
+        sys.stdout = sys.stderr
+
+    _setup_path()
+    if protocol_stdout is not None:
+        sys.stdout = sys.stderr
+
     if args.command == "clear-credentials":
         cmd_clear_credentials()
         return
@@ -464,7 +480,12 @@ def main():
     from Utils.games.discovery import discover_games
     games = discover_games()
 
-    if args.command == "list-games":
+    if args.command in ("headless", "rpc"):
+        from amethyst_backend import AmethystService
+        from amethyst_backend.rpc import run_stdio
+        raise SystemExit(run_stdio(
+            service=AmethystService(games), output_stream=protocol_stdout))
+    elif args.command == "list-games":
         cmd_list_games(games)
     elif args.command == "list-profiles":
         cmd_list_profiles(games, args.game)

@@ -115,7 +115,7 @@ package() {
     [ -f "$SRC_TREE/Changelog.txt" ] && install -Dm644 "$SRC_TREE/Changelog.txt" "$app_share/Changelog.txt"
 
     local _dir
-    for _dir in gui_qt wizards_qt Utils themes Games LOOT Nexus Thunderstore icons translations wrappers; do
+    for _dir in gui_qt wizards_qt Utils amethyst_backend themes Games LOOT Nexus Thunderstore icons translations wrappers; do
         [ -d "$_src/$_dir" ] && cp -r "$_src/$_dir" "$app_share/$_dir"
     done
 
@@ -169,7 +169,7 @@ export QT_QPA_PLATFORM
 : "\${FONTCONFIG_FILE:=\$APP_SHARE/fonts.conf}"
 export FONTCONFIG_FILE
 case "\$1" in
-    deploy|launch|restore|list-games|list-profiles|clear-credentials|export-filemap)
+    deploy|launch|restore|list-games|list-profiles|clear-credentials|export-filemap|headless|rpc)
         exec python3 "\$APP_SHARE/cli.py" "\$@" ;;
     *)
         exec python3 "\$APP_SHARE/run_qt.py" "\$@" ;;

@@ -1,0 +1,563 @@
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any, Callable
+
+from version import __version__
+
+PROTOCOL_NAME = "amethyst.headless"
+PROTOCOL_VERSION = 1
+
+
+class ServiceError(Exception):
+    def __init__(self, rpc_code: int, name: str, message: str,
+                 details: dict[str, Any] | None = None):
+        super().__init__(message)
+        self.rpc_code = rpc_code
+        self.name = name
+        self.details = details or {}
+
+
+class AmethystService:
+    """Read-only application facade for non-Qt clients."""
+
+    METHODS = (
+        "system.handshake",
+        "system.ping",
+        "games.list",
+        "games.get",
+        "profiles.list",
+        "mods.list",
+    )
+
+    def __init__(self, games: dict[str, Any] | None = None):
+        if games is None:
+            from Utils.games.discovery import discover_games
+            games = discover_games()
+        self._games = dict(games)
+        self._handlers: dict[str, Callable[[dict[str, Any]], Any]] = {
+            "system.handshake": self._handshake,
+            "system.ping": self._ping,
+            "games.list": self._list_games,
+            "games.get": self._get_game,
+            "profiles.list": self._list_profiles,
+            "mods.list": self._list_mods,
+        }
+
+    def call(self, method: str, params: Any = None) -> Any:
+        handler = self._handlers.get(method)
+        if handler is None:
+            raise ServiceError(
+                -32601,
+                "method_not_found",
+                f"Unknown method: {method}",
+                {"method": method},
+            )
+        if params is None:
+            params = {}
+        if not isinstance(params, dict):
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "Parameters must be a JSON object.",
+            )
+        return handler(params)
+
+    @staticmethod
+    def _check_params(params: dict[str, Any], allowed: set[str],
+                      required: set[str] | frozenset[str] = frozenset()) -> None:
+        unknown = sorted(set(params) - allowed)
+        missing = sorted(required - set(params))
+        if unknown or missing:
+            details: dict[str, Any] = {}
+            if unknown:
+                details["unknown"] = unknown
+            if missing:
+                details["missing"] = missing
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "Invalid method parameters.",
+                details,
+            )
+
+    @staticmethod
+    def _required_text(params: dict[str, Any], name: str) -> str:
+        value = params.get(name)
+        if not isinstance(value, str) or not value.strip():
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                f"'{name}' must be a non-empty string.",
+                {"parameter": name},
+            )
+        return value.strip()
+
+    def _handshake(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._check_params(params, {"protocol_version", "client"})
+        requested = params.get("protocol_version")
+        if (requested is not None
+                and (isinstance(requested, bool)
+                     or not isinstance(requested, int))):
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'protocol_version' must be an integer.",
+                {"parameter": "protocol_version"},
+            )
+        if requested is not None and requested != PROTOCOL_VERSION:
+            raise ServiceError(
+                -32010,
+                "unsupported_protocol_version",
+                f"Protocol version {requested} is not supported.",
+                {"minimum": PROTOCOL_VERSION, "maximum": PROTOCOL_VERSION},
+            )
+        client = params.get("client")
+        if client is not None and not isinstance(client, dict):
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'client' must be a JSON object.",
+                {"parameter": "client"},
+            )
+        return {
+            "protocol": {
+                "name": PROTOCOL_NAME,
+                "version": PROTOCOL_VERSION,
+                "minimum_version": PROTOCOL_VERSION,
+                "maximum_version": PROTOCOL_VERSION,
+                "rpc": "2.0",
+                "framing": "ndjson",
+            },
+            "application": {
+                "name": "Amethyst Mod Manager",
+                "version": __version__,
+            },
+            "capabilities": {
+                "read_only": True,
+                "events": False,
+                "cancellation": False,
+                "methods": list(self.METHODS),
+            },
+        }
+
+    def _ping(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._check_params(params, set())
+        return {
+            "ok": True,
+            "protocol_version": PROTOCOL_VERSION,
+            "application_version": __version__,
+        }
+
+    def _list_games(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._check_params(params, {"configured_only"})
+        configured_only = params.get("configured_only", False)
+        if not isinstance(configured_only, bool):
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'configured_only' must be a boolean.",
+                {"parameter": "configured_only"},
+            )
+        games = [self._game_summary(game) for game in self._games.values()]
+        if configured_only:
+            games = [game for game in games if game["configured"]]
+        games.sort(key=lambda game: (game["name"].casefold(), game["id"]))
+        try:
+            from Utils.games.discovery import get_load_failures
+            failures = [
+                {"handler": handler, "error": error}
+                for handler, error in get_load_failures()
+            ]
+        except Exception:
+            failures = []
+        return {"games": games, "load_failures": failures}
+
+    def _get_game(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._check_params(params, {"game"}, {"game"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        return {"game": self._game_summary(game)}
+
+    def _list_profiles(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._check_params(params, {"game"}, {"game"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        profiles = [
+            self._profile_summary(game, profile_dir)
+            for profile_dir in self._profile_dirs(game)
+        ]
+        profiles.sort(key=lambda profile: (
+            profile["name"] != "default",
+            profile["name"].casefold(),
+            profile["name"],
+        ))
+        return {
+            "game": self._canonical_game(game),
+            "profile_root": self._path_text(game.get_profile_root()),
+            "profiles": profiles,
+        }
+
+    def _list_mods(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._check_params(params, {"game", "profile"}, {"game", "profile"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        profile_dir = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+
+        from Utils.mods.modlist import read_modlist
+        from Utils.profiles.state import read_profile_settings
+
+        try:
+            entries = read_modlist(profile_dir / "modlist.txt")
+        except OSError as exc:
+            raise ServiceError(
+                -32003,
+                "resource_unavailable",
+                f"Could not read profile '{profile_dir.name}'.",
+                {"profile": profile_dir.name, "reason": str(exc)},
+            ) from exc
+
+        settings = read_profile_settings(profile_dir, None)
+        if bool(settings.get("profile_specific_mods", False)):
+            staging_dir = profile_dir / "mods"
+        else:
+            staging_dir = game.get_mod_staging_path()
+
+        real_count = sum(not entry.is_separator for entry in entries)
+        real_index = 0
+        mods: list[dict[str, Any]] = []
+        for index, entry in enumerate(entries):
+            priority = None
+            if not entry.is_separator:
+                priority = real_count - real_index - 1
+                real_index += 1
+            mods.append(self._mod_summary(
+                entry, index=index, priority=priority,
+                staging_dir=staging_dir,
+            ))
+
+        enabled_count = sum(
+            not entry.is_separator and entry.enabled for entry in entries)
+        return {
+            "game": self._canonical_game(game),
+            "profile": {
+                "name": profile_dir.name,
+                "path": self._path_text(profile_dir),
+                "profile_specific_mods": bool(
+                    settings.get("profile_specific_mods", False)),
+            },
+            "staging_path": self._path_text(staging_dir),
+            "order": "highest_priority_first",
+            "counts": {
+                "mods": real_count,
+                "enabled": enabled_count,
+                "disabled": real_count - enabled_count,
+                "separators": len(entries) - real_count,
+            },
+            "mods": mods,
+        }
+
+    def _resolve_game(self, key: str) -> Any:
+        folded = key.casefold()
+        by_id = None
+        by_steam: list[Any] = []
+        for name, game in self._games.items():
+            if name.casefold() == folded:
+                return game
+            game_id = str(self._safe_attr(game, "game_id", "") or "")
+            if by_id is None and game_id.casefold() == folded:
+                by_id = game
+            if folded in {
+                    app_id.casefold() for app_id in self._steam_app_ids(game)}:
+                by_steam.append(game)
+        if by_id is not None:
+            return by_id
+        if len(by_steam) == 1:
+            return by_steam[0]
+        if len(by_steam) > 1:
+            configured = [
+                game for game in by_steam
+                if bool(self._safe_call(game, "is_configured", False))
+            ]
+            if len(configured) == 1:
+                return configured[0]
+            raise ServiceError(
+                -32004,
+                "ambiguous_game",
+                f"Game identifier '{key}' matches more than one game.",
+                {
+                    "game": key,
+                    "matches": [self._canonical_game(game)
+                                for game in by_steam],
+                },
+            )
+        raise ServiceError(
+            -32001,
+            "game_not_found",
+            f"Game '{key}' was not found.",
+            {"game": key},
+        )
+
+    def _resolve_profile(self, game: Any, name: str) -> Path:
+        profiles = self._profile_dirs(game)
+        exact = next((path for path in profiles if path.name == name), None)
+        if exact is not None:
+            return exact
+        matches = [path for path in profiles
+                   if path.name.casefold() == name.casefold()]
+        if len(matches) == 1:
+            return matches[0]
+        if len(matches) > 1:
+            raise ServiceError(
+                -32005,
+                "ambiguous_profile",
+                f"Profile name '{name}' is ambiguous.",
+                {"profile": name, "matches": [path.name for path in matches]},
+            )
+        raise ServiceError(
+            -32002,
+            "profile_not_found",
+            f"Profile '{name}' was not found.",
+            {"game_id": self._canonical_game(game)["id"], "profile": name},
+        )
+
+    @staticmethod
+    def _profile_dirs(game: Any) -> list[Path]:
+        profiles_dir = game.get_profile_root() / "profiles"
+        if not profiles_dir.is_dir():
+            return []
+        try:
+            return [path for path in profiles_dir.iterdir() if path.is_dir()]
+        except OSError as exc:
+            raise ServiceError(
+                -32003,
+                "resource_unavailable",
+                "Could not read the game's profiles directory.",
+                {"reason": str(exc)},
+            ) from exc
+
+    def _game_summary(self, game: Any) -> dict[str, Any]:
+        configured = bool(self._safe_call(game, "is_configured", False))
+        nexus_domains = self._safe_attr(game, "nexus_game_domains", ()) or ()
+        if isinstance(nexus_domains, str):
+            nexus_domains = (nexus_domains,)
+        nexus_domains = [str(domain) for domain in nexus_domains if domain]
+        thunderstore = str(
+            self._safe_attr(game, "thunderstore_community", "") or "")
+        plugin_extensions = self._safe_attr(game, "plugin_extensions", ()) or ()
+        return {
+            **self._canonical_game(game),
+            "configured": configured,
+            "game_path": self._path_text(
+                self._safe_call(game, "get_game_path", None)),
+            "profile_root": self._path_text(
+                self._safe_call(game, "get_profile_root", None)),
+            "steam_app_ids": self._steam_app_ids(game),
+            "effective_steam_app_id": str(
+                self._safe_call(game, "effective_steam_id", "") or "") or None,
+            "nexus_domains": nexus_domains,
+            "thunderstore_community": thunderstore or None,
+            "last_active_profile": str(
+                self._safe_call(game, "get_last_active_profile", "default")
+                or "default"),
+            "last_deployed_profile": str(
+                self._safe_call(game, "get_last_deployed_profile", "default")
+                or "default"),
+            "deploy_active": bool(
+                self._safe_call(game, "get_deploy_active", False)),
+            "features": {
+                "nexus": bool(nexus_domains),
+                "thunderstore": bool(thunderstore),
+                "plugins": bool(plugin_extensions),
+                "profile_groups": bool(
+                    self._safe_attr(game, "profile_groups_supported", True)),
+            },
+        }
+
+    def _profile_summary(self, game: Any, profile_dir: Path) -> dict[str, Any]:
+        from Utils.mods.modlist import read_modlist
+        from Utils.profiles.state import read_profile_settings
+
+        settings = read_profile_settings(profile_dir, None)
+        modlist_path = profile_dir / "modlist.txt"
+        readable = True
+        try:
+            entries = read_modlist(modlist_path)
+        except OSError:
+            entries = []
+            readable = False
+        real_entries = [entry for entry in entries if not entry.is_separator]
+        last_active = str(
+            self._safe_call(game, "get_last_active_profile", "default")
+            or "default")
+        last_deployed = str(
+            self._safe_call(game, "get_last_deployed_profile", "default")
+            or "default")
+        members = settings.get("group_members")
+        if not isinstance(members, list):
+            members = []
+        return {
+            "name": profile_dir.name,
+            "path": self._path_text(profile_dir),
+            "is_default": profile_dir.name == "default",
+            "is_group": bool(settings.get("is_group", False)),
+            "group_members": [item for item in members if isinstance(item, str)],
+            "profile_specific_mods": bool(
+                settings.get("profile_specific_mods", False)),
+            "collection_url": settings.get("collection_url")
+            if isinstance(settings.get("collection_url"), str) else None,
+            "modlist_exists": modlist_path.is_file(),
+            "modlist_readable": readable,
+            "mod_count": len(real_entries),
+            "enabled_mod_count": sum(entry.enabled for entry in real_entries),
+            "separator_count": len(entries) - len(real_entries),
+            "is_last_active": profile_dir.name == last_active,
+            "is_last_deployed": profile_dir.name == last_deployed,
+            "is_deployed": (
+                profile_dir.name == last_deployed
+                and bool(self._safe_call(game, "get_deploy_active", False))
+            ),
+        }
+
+    def _mod_summary(self, entry: Any, *, index: int, priority: int | None,
+                     staging_dir: Path) -> dict[str, Any]:
+        if entry.is_separator:
+            return {
+                "kind": "separator",
+                "name": entry.name,
+                "display_name": entry.display_name,
+                "index": index,
+                "priority": None,
+                "enabled": True,
+                "locked": entry.locked,
+                "path": None,
+                "folder_exists": False,
+                "version": None,
+                "installed_at": None,
+                "update_available": False,
+                "sources": {"nexus": None, "thunderstore": None},
+            }
+
+        safe_name = (Path(entry.name).name == entry.name
+                     and entry.name not in (".", ".."))
+        mod_dir = Path(staging_dir) / entry.name if safe_name else None
+        meta_path = mod_dir / "meta.ini" if mod_dir is not None else None
+        nexus = None
+        thunderstore = None
+        version = None
+        installed_at = None
+        update_available = False
+
+        if meta_path is not None and meta_path.is_file():
+            try:
+                from Nexus.nexus_meta import read_meta as read_nexus_meta
+                meta = read_nexus_meta(meta_path)
+                version = meta.version or None
+                installed_at = meta.installed or None
+                nexus_ignored = bool(
+                    meta.ignore_update
+                    or (meta.latest_version
+                        and meta.latest_version == meta.ignored_version))
+                nexus_update = bool(meta.has_update and not nexus_ignored)
+                update_available = update_available or nexus_update
+                if meta.mod_id or meta.game_domain or meta.nexus_url:
+                    nexus = {
+                        "game_domain": meta.game_domain or None,
+                        "mod_id": meta.mod_id or None,
+                        "file_id": meta.file_id or None,
+                        "name": meta.nexus_name or None,
+                        "file_name": meta.nexus_file_name or None,
+                        "version": meta.version or None,
+                        "latest_version": meta.latest_version or None,
+                        "has_update": nexus_update,
+                        "update_ignored": nexus_ignored,
+                        "author": meta.author or None,
+                        "uploaded_by": meta.uploaded_by or None,
+                        "category": meta.category_name or None,
+                        "url": meta.nexus_page_url or None,
+                        "installation_file": meta.installation_file or None,
+                        "from_collection": meta.from_collection or None,
+                        "is_fomod": bool(meta.is_fomod),
+                        "is_bain": bool(meta.is_bain),
+                        "root_folder": bool(meta.root_folder),
+                    }
+            except Exception:
+                pass
+            try:
+                from Thunderstore.thunderstore_meta import read_meta as read_ts_meta
+                meta = read_ts_meta(meta_path)
+                if not version:
+                    version = meta.version or None
+                if not installed_at:
+                    installed_at = meta.installed or None
+                ts_update = bool(meta.has_update and not meta.ignore_update)
+                update_available = update_available or ts_update
+                if meta.package_id or meta.community or meta.full_name:
+                    thunderstore = {
+                        "community": meta.community or None,
+                        "package_id": meta.package_id or None,
+                        "full_name": meta.full_name or None,
+                        "version": meta.version or None,
+                        "latest_version": meta.latest_version or None,
+                        "has_update": ts_update,
+                        "update_ignored": bool(meta.ignore_update),
+                        "website_url": meta.website_url or None,
+                    }
+            except Exception:
+                pass
+
+        return {
+            "kind": "mod",
+            "name": entry.name,
+            "display_name": entry.display_name,
+            "index": index,
+            "priority": priority,
+            "enabled": bool(entry.enabled),
+            "locked": bool(entry.locked),
+            "path": self._path_text(mod_dir),
+            "folder_exists": bool(mod_dir is not None and mod_dir.is_dir()),
+            "version": version,
+            "installed_at": installed_at,
+            "update_available": update_available,
+            "sources": {"nexus": nexus, "thunderstore": thunderstore},
+        }
+
+    def _canonical_game(self, game: Any) -> dict[str, str]:
+        return {
+            "id": str(self._safe_attr(game, "game_id", "") or ""),
+            "name": str(self._safe_attr(game, "name", "") or ""),
+        }
+
+    def _steam_app_ids(self, game: Any) -> list[str]:
+        primary = self._safe_attr(game, "steam_id", "")
+        alternates = self._safe_attr(game, "alt_steam_ids", ()) or ()
+        if isinstance(alternates, (str, int)):
+            alternates = (alternates,)
+        result: list[str] = []
+        for value in (primary, *alternates):
+            text = str(value or "").strip()
+            if text and text not in result:
+                result.append(text)
+        return result
+
+    @staticmethod
+    def _safe_attr(obj: Any, name: str, default: Any) -> Any:
+        try:
+            return getattr(obj, name, default)
+        except Exception:
+            return default
+
+    @staticmethod
+    def _safe_call(obj: Any, name: str, default: Any) -> Any:
+        try:
+            method = getattr(obj, name, None)
+            return method() if callable(method) else default
+        except Exception:
+            return default
+
+    @staticmethod
+    def _path_text(path: Any) -> str | None:
+        if path is None:
+            return None
+        try:
+            return str(Path(path))
+        except (OSError, TypeError, ValueError):
+            return None
