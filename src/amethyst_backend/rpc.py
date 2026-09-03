@@ -93,21 +93,26 @@ def run_stdio(service: AmethystService | None = None,
     input_stream = input_stream or sys.stdin
     output_stream = output_stream or sys.stdout
 
-    for line in input_stream:
-        if not line.strip():
-            continue
-        try:
-            message = json.loads(line)
-        except (json.JSONDecodeError, UnicodeError):
-            response = _error(None, -32700, "Parse error", "parse_error")
-        else:
-            response = handle_message(message, service)
-        if response is None:
-            continue
-        try:
-            output_stream.write(json.dumps(
-                response, ensure_ascii=True, separators=(",", ":")) + "\n")
-            output_stream.flush()
-        except (BrokenPipeError, OSError, ValueError):
-            return 0
-    return 0
+    try:
+        for line in input_stream:
+            if not line.strip():
+                continue
+            try:
+                message = json.loads(line)
+            except (json.JSONDecodeError, UnicodeError):
+                response = _error(None, -32700, "Parse error", "parse_error")
+            else:
+                response = handle_message(message, service)
+            if response is None:
+                continue
+            try:
+                output_stream.write(json.dumps(
+                    response, ensure_ascii=True, separators=(",", ":")) + "\n")
+                output_stream.flush()
+            except (BrokenPipeError, OSError, ValueError):
+                return 0
+        return 0
+    finally:
+        close = getattr(service, "close", None)
+        if callable(close):
+            close()

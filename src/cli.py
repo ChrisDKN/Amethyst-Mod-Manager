@@ -101,7 +101,8 @@ def cmd_deploy(games: dict, key: str, profile: str):
         print(f"Error: profile '{profile}' does not exist at {profile_dir}", file=sys.stderr)
         sys.exit(1)
 
-    success = run_deploy_pipeline(game, profile, log_fn=_log)
+    success = run_deploy_pipeline(
+        game, profile, log_fn=_log, operation_owner="cli:deploy")
     if not success:
         sys.exit(1)
 
@@ -250,7 +251,9 @@ def cmd_launch(games: dict, key: str, profile: "str | None" = None,
     if deploy:
         from Utils.deployment.pipeline import run_deploy_pipeline
         _launch_log(f"Deploying {game.name} / {profile} ...")
-        if not run_deploy_pipeline(game, profile, log_fn=_launch_log):
+        if not run_deploy_pipeline(
+                game, profile, log_fn=_launch_log,
+                operation_owner="cli:launch"):
             print("Error: deploy failed - refusing to launch.", file=sys.stderr)
             sys.exit(1)
 
@@ -331,36 +334,18 @@ def cmd_restore(games: dict, key: str):
         print(f"Error: game '{game.name}' is not configured (game path not set).", file=sys.stderr)
         sys.exit(1)
 
-    from Utils.deployment import restore_root_folder_for_game
+    profile = (game.get_last_active_profile()
+               or game.get_last_deployed_profile() or "default")
+    profile_dir = game.get_profile_root() / "profiles" / profile
+    if not profile_dir.is_dir():
+        print(f"Error: profile '{profile}' does not exist at {profile_dir}",
+              file=sys.stderr)
+        sys.exit(1)
 
-    game_root = game.get_game_path()
-    profile_root = game.get_profile_root()
-
-    last_deployed = game.get_last_deployed_profile()
-    recovery_profile_dir = (
-        profile_root / "profiles" / (last_deployed or "default")
-    )
-    if last_deployed:
-        game.set_active_profile_dir(recovery_profile_dir)
-        # Reload so the last-deployed profile's path overrides drive the restore.
-        game.load_paths()
-        game_root = game.get_game_path()
-
-    if hasattr(game, "restore"):
-        game.restore(log_fn=_log)
-    else:
-        print(f"Game '{game.name}' does not support restore.")
-
-    root_folder_dir = game.get_effective_root_folder_path()
-    if root_folder_dir.is_dir() and game_root:
-        restore_root_folder_for_game(
-            game, root_folder_dir=root_folder_dir,
-            game_root=game_root, log_fn=_log,
-        )
-
-    from Utils.deployment.pipeline import finalize_filegraph_recovery
-    finalize_filegraph_recovery(
-        game, recovery_profile_dir, log_fn=_log)
+    from Utils.deployment.pipeline import run_restore_pipeline
+    if not run_restore_pipeline(
+            game, profile, log_fn=_log, operation_owner="cli:restore"):
+        sys.exit(1)
 
     _log(f"Restore complete: {game.name}")
 

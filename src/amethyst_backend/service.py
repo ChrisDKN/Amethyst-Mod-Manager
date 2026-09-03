@@ -5,6 +5,8 @@ from typing import Any, Callable
 
 from version import __version__
 
+from .jobs import JobManager
+
 PROTOCOL_NAME = "amethyst.headless"
 PROTOCOL_VERSION = 1
 
@@ -19,7 +21,7 @@ class ServiceError(Exception):
 
 
 class AmethystService:
-    """Read-only application facade for non-Qt clients."""
+    """Application facade for non-Qt clients."""
 
     METHODS = (
         "system.handshake",
@@ -28,6 +30,11 @@ class AmethystService:
         "games.get",
         "profiles.list",
         "mods.list",
+        "deploy.start",
+        "restore.start",
+        "jobs.get",
+        "jobs.list",
+        "jobs.events",
     )
 
     def __init__(self, games: dict[str, Any] | None = None):
@@ -35,6 +42,7 @@ class AmethystService:
             from Utils.games.discovery import discover_games
             games = discover_games()
         self._games = dict(games)
+        self._jobs = JobManager()
         self._handlers: dict[str, Callable[[dict[str, Any]], Any]] = {
             "system.handshake": self._handshake,
             "system.ping": self._ping,
@@ -42,7 +50,15 @@ class AmethystService:
             "games.get": self._get_game,
             "profiles.list": self._list_profiles,
             "mods.list": self._list_mods,
+            "deploy.start": self._start_deploy,
+            "restore.start": self._start_restore,
+            "jobs.get": self._get_job,
+            "jobs.list": self._list_jobs,
+            "jobs.events": self._job_events,
         }
+
+    def close(self) -> None:
+        self._jobs.close(wait=True)
 
     def call(self, method: str, params: Any = None) -> Any:
         handler = self._handlers.get(method)
@@ -134,9 +150,12 @@ class AmethystService:
                 "version": __version__,
             },
             "capabilities": {
-                "read_only": True,
-                "events": False,
+                "read_only": False,
+                "events": True,
+                "event_delivery": "poll",
                 "cancellation": False,
+                "mutations": ["deploy", "restore"],
+                "maximum_event_wait_ms": 30000,
                 "methods": list(self.METHODS),
             },
         }
@@ -150,6 +169,7 @@ class AmethystService:
         }
 
     def _list_games(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
         self._check_params(params, {"configured_only"})
         configured_only = params.get("configured_only", False)
         if not isinstance(configured_only, bool):
@@ -174,11 +194,13 @@ class AmethystService:
         return {"games": games, "load_failures": failures}
 
     def _get_game(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
         self._check_params(params, {"game"}, {"game"})
         game = self._resolve_game(self._required_text(params, "game"))
         return {"game": self._game_summary(game)}
 
     def _list_profiles(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
         self._check_params(params, {"game"}, {"game"})
         game = self._resolve_game(self._required_text(params, "game"))
         profiles = [
@@ -197,6 +219,7 @@ class AmethystService:
         }
 
     def _list_mods(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
         self._check_params(params, {"game", "profile"}, {"game", "profile"})
         game = self._resolve_game(self._required_text(params, "game"))
         profile_dir = self._resolve_profile(
@@ -254,6 +277,151 @@ class AmethystService:
             },
             "mods": mods,
         }
+
+    def _start_deploy(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params, {"game", "profile", "options"}, {"game", "profile"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_configured(game)
+        profile_dir = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+        if not callable(self._safe_attr(game, "deploy", None)):
+            self._unsupported_operation(game, "deploy")
+
+        options = params.get("options", {})
+        if not isinstance(options, dict):
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'options' must be a JSON object.",
+                {"parameter": "options"},
+            )
+        self._check_params(
+            options, {"root_folder_enabled", "backup"})
+        normalized = {
+            "root_folder_enabled": options.get("root_folder_enabled", True),
+            "backup": options.get("backup", True),
+        }
+        for name, value in normalized.items():
+            if not isinstance(value, bool):
+                raise ServiceError(
+                    -32602,
+                    "invalid_params",
+                    f"'options.{name}' must be a boolean.",
+                    {"parameter": f"options.{name}"},
+                )
+        job = self._jobs.submit(
+            "deploy",
+            game,
+            self._canonical_game(game),
+            profile_dir.name,
+            normalized,
+        )
+        return {"job": job}
+
+    def _start_restore(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(params, {"game", "profile"}, {"game", "profile"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_configured(game)
+        profile_dir = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+        if not callable(self._safe_attr(game, "restore", None)):
+            self._unsupported_operation(game, "restore")
+        job = self._jobs.submit(
+            "restore",
+            game,
+            self._canonical_game(game),
+            profile_dir.name,
+        )
+        return {"job": job}
+
+    def _get_job(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._check_params(params, {"job_id"}, {"job_id"})
+        job_id = self._required_text(params, "job_id")
+        try:
+            return {"job": self._jobs.get(job_id)}
+        except KeyError:
+            self._job_not_found(job_id)
+
+    def _list_jobs(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._check_params(params, {"active_only"})
+        active_only = params.get("active_only", False)
+        if not isinstance(active_only, bool):
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'active_only' must be a boolean.",
+                {"parameter": "active_only"},
+            )
+        return {"jobs": self._jobs.list(active_only=active_only)}
+
+    def _job_events(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._check_params(
+            params, {"job_id", "after", "wait_ms"}, {"job_id"})
+        job_id = self._required_text(params, "job_id")
+        after = params.get("after", 0)
+        wait_ms = params.get("wait_ms", 0)
+        if (isinstance(after, bool) or not isinstance(after, int)
+                or after < 0):
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'after' must be a non-negative integer.",
+                {"parameter": "after"},
+            )
+        if (isinstance(wait_ms, bool) or not isinstance(wait_ms, int)
+                or not 0 <= wait_ms <= 30000):
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'wait_ms' must be an integer from 0 to 30000.",
+                {"parameter": "wait_ms"},
+            )
+        try:
+            return self._jobs.events(
+                job_id, after=after, wait_ms=wait_ms)
+        except KeyError:
+            self._job_not_found(job_id)
+
+    def _require_idle_state(self) -> None:
+        job = self._jobs.active()
+        if job is not None:
+            raise ServiceError(
+                -32007,
+                "operation_in_progress",
+                "Application state is changing while a job is in progress.",
+                {"job": job},
+            )
+
+    def _require_configured(self, game: Any) -> None:
+        if not bool(self._safe_call(game, "is_configured", False)):
+            identity = self._canonical_game(game)
+            raise ServiceError(
+                -32008,
+                "game_not_configured",
+                f"Game '{identity['name']}' is not configured.",
+                {"game": identity},
+            )
+
+    def _unsupported_operation(self, game: Any, operation: str) -> None:
+        identity = self._canonical_game(game)
+        raise ServiceError(
+            -32009,
+            "operation_not_supported",
+            f"Game '{identity['name']}' does not support {operation}.",
+            {"game": identity, "operation": operation},
+        )
+
+    @staticmethod
+    def _job_not_found(job_id: str) -> None:
+        raise ServiceError(
+            -32006,
+            "job_not_found",
+            f"Job '{job_id}' was not found.",
+            {"job_id": job_id},
+        )
 
     def _resolve_game(self, key: str) -> Any:
         folded = key.casefold()
@@ -364,6 +532,8 @@ class AmethystService:
             "deploy_active": bool(
                 self._safe_call(game, "get_deploy_active", False)),
             "features": {
+                "deploy": callable(self._safe_attr(game, "deploy", None)),
+                "restore": callable(self._safe_attr(game, "restore", None)),
                 "nexus": bool(nexus_domains),
                 "thunderstore": bool(thunderstore),
                 "plugins": bool(plugin_extensions),

@@ -11705,6 +11705,7 @@ class MainWindow(QMainWindow):
                         game, silent=silent),
                     do_backup=True,
                     timing_origin=self._deploy_timing_origin,
+                    operation_owner="desktop:deploy",
                 )
             except Exception as exc:
                 self._op_log.emit(f"Deploy error: {exc}")
@@ -11810,7 +11811,7 @@ class MainWindow(QMainWindow):
         """Restore every configured game that has an active deployment back to
         vanilla. Ported from gui.py `_restore_all_on_close`."""
         from gui_qt.game_state import _GAMES
-        from Utils.deployment import restore_root_folder_for_game
+        from Utils.deployment.pipeline import run_restore_pipeline
 
         games = [g for g in _GAMES.values()
                  if g.is_configured() and g.get_deploy_active()
@@ -11821,38 +11822,18 @@ class MainWindow(QMainWindow):
         log_fn(f"restoring {len(games)} game(s)...")
         for game in games:
             try:
-                game_root = game.get_game_path()
-                last_deployed = game.get_last_deployed_profile()
                 original_profile_dir = getattr(game, "_active_profile_dir", None)
-                recovery_profile_dir = original_profile_dir
-                if last_deployed:
-                    recovery_profile_dir = (
-                        game.get_profile_root() / "profiles" / last_deployed)
-                    game.set_active_profile_dir(recovery_profile_dir)
-                    # Reload so the last-deployed profile's path overrides drive
-                    # the restore (it may target a different game folder).
-                    game.load_paths()
-                    game_root = game.get_game_path()
-                try:
-                    if hasattr(game, "restore"):
-                        game.restore(log_fn=log_fn)
-                    root_folder_dir = game.get_effective_root_folder_path()
-                    if root_folder_dir.is_dir() and game_root:
-                        restore_root_folder_for_game(
-                            game, root_folder_dir=root_folder_dir,
-                            game_root=game_root, log_fn=log_fn,
-                        )
-                    if recovery_profile_dir is not None:
-                        from Utils.deployment.pipeline import (
-                            finalize_filegraph_recovery,
-                        )
-                        finalize_filegraph_recovery(
-                            game, recovery_profile_dir, log_fn=log_fn)
-                    game.clear_deploy_active()
-                finally:
-                    if original_profile_dir is not None:
-                        game.set_active_profile_dir(original_profile_dir)
-                        game.load_paths()
+                profile = (
+                    original_profile_dir.name
+                    if original_profile_dir is not None
+                    else game.get_last_active_profile()
+                    or game.get_last_deployed_profile()
+                    or "default"
+                )
+                if not run_restore_pipeline(
+                        game, profile, log_fn=log_fn,
+                        operation_owner="desktop:restore-on-close"):
+                    log_fn(f"restore did not complete for {game.name}")
             except Exception as e:
                 log_fn(f"error for {game.name}: {e}")
 
@@ -11901,68 +11882,26 @@ class MainWindow(QMainWindow):
         profile = self._gs.profile
 
         import threading
-        from Utils.deployment import restore_root_folder_for_game
 
         def worker():
-            ok = True
+            ok = False
             try:
                 self._restore_timing_mark(
                     "pipeline worker entered", log_fn=self._op_log.emit)
-                from Utils.deployment.pipeline import check_paths_mounted
-                err = check_paths_mounted(game)
-                if err:
-                    self._op_log.emit(f"Restore aborted: {err}")
-                    ok = False
-                else:
-                    last = game.get_last_deployed_profile()
-                    recovery_profile_dir = (
-                        game.get_profile_root() / "profiles" / (last or profile)
-                    )
-                    if last:
-                        game.set_active_profile_dir(recovery_profile_dir)
-                        game.load_paths()
-                    self._restore_timing_mark(
-                        "preflight and deployed-profile load complete",
-                        work="FS I/O",
-                        log_fn=self._op_log.emit)
-                    game_root = game.get_game_path()
-                    if hasattr(game, "restore"):
-                        game.restore(
-                            log_fn=lambda m: self._op_log.emit(str(m)),
-                            progress_fn=lambda d, t, p=None: self._op_progress.emit(d, t, p))
-                    self._restore_timing_mark(
-                        "game handler restore complete",
-                        work="FS I/O + CPU",
-                        log_fn=self._op_log.emit)
-                    rf = game.get_effective_root_folder_path()
-                    if rf.is_dir() and game_root:
-                        restore_root_folder_for_game(
-                            game, root_folder_dir=rf, game_root=game_root,
-                            log_fn=lambda m: self._op_log.emit(str(m)),
-                        )
-                    from Utils.deployment.pipeline import finalize_filegraph_recovery
-                    finalize_filegraph_recovery(
-                        game, recovery_profile_dir,
-                        log_fn=lambda m: self._op_log.emit(str(m)),
-                    )
-                    self._restore_timing_mark(
-                        "root-file restore complete", work="FS I/O",
-                        log_fn=self._op_log.emit)
+                from Utils.deployment.pipeline import run_restore_pipeline
+                ok = run_restore_pipeline(
+                    game,
+                    profile,
+                    log_fn=lambda m: self._op_log.emit(str(m)),
+                    progress_fn=lambda d, t, p=None: self._op_progress.emit(
+                        d, t, p),
+                    operation_owner="desktop:restore",
+                )
             except Exception as exc:
-                ok = False
                 self._op_log.emit(f"Restore error: {exc}")
             finally:
-                # Always restore the active profile dir to the selected profile.
-                try:
-                    game.set_active_profile_dir(
-                        game.get_profile_root() / "profiles" / profile)
-                    game.load_paths()
-                    if ok and hasattr(game, "clear_deploy_active"):
-                        game.clear_deploy_active()
-                except Exception:
-                    pass
                 self._restore_timing_mark(
-                    "active profile restored; worker complete", work="FS I/O",
+                    "pipeline worker complete", work="FS I/O",
                     log_fn=self._op_log.emit)
                 self._op_done.emit("restore", ok, [])
 

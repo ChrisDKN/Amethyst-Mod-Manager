@@ -1,15 +1,14 @@
 # Headless mode
 
 Amethyst headless mode gives scripts and external applications a stable way to
-read Amethyst state without importing its Python modules or starting Qt. It is
-currently read-only. Installing, changing mod state, deploying and restoring
-will be added after those operations share an interprocess lock with the
-desktop application.
+use the manager without importing its Python modules or starting Qt. Protocol
+version 1 exposes game, profile and mod state plus asynchronous deploy and
+restore jobs.
 
-The public boundary is a versioned JSON-RPC 2.0 protocol. Amethyst reads one
-JSON value per line from standard input and writes one JSON response per line
-to standard output. Startup diagnostics and errors are written to standard
-error, so clients must only parse standard output.
+The public boundary is JSON-RPC 2.0 over newline-delimited JSON (NDJSON).
+Amethyst reads one JSON value per line from standard input and writes one JSON
+response per line to standard output. Diagnostics and operation tracebacks go
+to standard error, so clients must only parse standard output.
 
 ## Starting the service
 
@@ -19,7 +18,7 @@ For a native or package-manager installation:
 amethyst-mod-manager-cli headless --stdio
 ```
 
-The `rpc` command is an alias for `headless`:
+`rpc` is an alias for `headless`:
 
 ```bash
 amethyst-mod-manager-cli rpc --stdio
@@ -44,20 +43,23 @@ Run it from a source checkout:
 PYTHONPATH=src .venv/bin/python src/cli.py headless --stdio
 ```
 
-The process remains alive until its standard input is closed. Requests are
-handled sequentially in this first protocol version.
+The process remains alive until standard input closes. JSON-RPC requests are
+handled sequentially, while deploy and restore jobs run in a background worker.
+On end-of-input, Amethyst stops accepting requests and waits for every accepted
+job to finish before exiting. This prevents a client disconnect from terminating
+a deployment halfway through.
 
-The older one-shot `deploy`, `restore`, `launch` and listing CLI commands still
-exist for people and launcher wrappers. Their human-readable output is not a
-versioned integration API; applications should use headless mode.
-
-For a single shell request, pipe one line into the service:
+For a single request, pipe one line into the service:
 
 ```bash
 printf '%s\n' \
   '{"jsonrpc":"2.0","id":1,"method":"system.ping","params":{}}' \
   | amethyst-mod-manager-cli headless --stdio
 ```
+
+The older one-shot `deploy`, `restore`, `launch` and listing CLI commands remain
+available for people and launcher wrappers. Their human-readable output is not
+a versioned integration API.
 
 ## Handshake
 
@@ -68,8 +70,7 @@ protocol version it supports:
 {"jsonrpc":"2.0","id":1,"method":"system.handshake","params":{"protocol_version":1,"client":{"name":"example","version":"1.0"}}}
 ```
 
-The response describes the protocol, application and currently available
-features:
+The response describes the protocol and available features:
 
 ```json
 {
@@ -89,16 +90,24 @@ features:
       "version": "<installed version>"
     },
     "capabilities": {
-      "read_only": true,
-      "events": false,
+      "read_only": false,
+      "events": true,
+      "event_delivery": "poll",
       "cancellation": false,
+      "mutations": ["deploy", "restore"],
+      "maximum_event_wait_ms": 30000,
       "methods": [
         "system.handshake",
         "system.ping",
         "games.list",
         "games.get",
         "profiles.list",
-        "mods.list"
+        "mods.list",
+        "deploy.start",
+        "restore.start",
+        "jobs.get",
+        "jobs.list",
+        "jobs.events"
       ]
     }
   }
@@ -106,13 +115,13 @@ features:
 ```
 
 The server rejects an unsupported `protocol_version`. Clients must ignore
-unknown fields in successful results so compatible fields can be added without
-breaking them.
+unknown fields in successful results so compatible capabilities and methods can
+be added without breaking them.
 
 ## Methods
 
 All method parameters are named and must be supplied as a JSON object. Unknown
-parameters are rejected to catch integration mistakes early.
+parameters are rejected.
 
 | Method | Parameters | Purpose |
 | --- | --- | --- |
@@ -122,76 +131,184 @@ parameters are rejected to catch integration mistakes early.
 | `games.get` | `game` string | Return one game and its current state. |
 | `profiles.list` | `game` string | List existing profiles and summary counts. |
 | `mods.list` | `game` string, `profile` string | List a profile's mods, separators and installed metadata. |
+| `deploy.start` | `game` string, `profile` string, `options` object (optional) | Start a deployment job. |
+| `restore.start` | `game` string, `profile` string | Start a restore job. |
+| `jobs.get` | `job_id` string | Get the latest job snapshot. |
+| `jobs.list` | `active_only` boolean (optional) | List jobs, newest first. |
+| `jobs.events` | `job_id` string, `after` integer (optional), `wait_ms` integer (optional) | Read or long-poll ordered job events. |
 
 The `game` parameter accepts the canonical `game_id`, display name, primary
-Steam app ID, or an alternate Steam app ID. Clients should retain the
-canonical `id` returned in the result and use that for later requests.
-If a Steam app ID belongs to multiple handlers, Amethyst selects it only when
-exactly one of those handlers is configured; otherwise it returns
-`ambiguous_game` with the candidates.
+Steam app ID, or an alternate Steam app ID. Clients should retain the canonical
+`id` returned by Amethyst and use it for later requests. If a Steam app ID
+belongs to multiple handlers, Amethyst selects it only when exactly one handler
+is configured; otherwise it returns `ambiguous_game` with the candidates.
 
-### List games
+### Reading manager state
+
+List configured games:
 
 ```json
 {"jsonrpc":"2.0","id":2,"method":"games.list","params":{"configured_only":true}}
 ```
 
-Each game includes:
+Each game includes its canonical identity, configuration and deployment state,
+paths, store and mod-source identifiers, and available features.
+`load_failures` identifies handler modules which could not be discovered.
 
-- Canonical `id` and display `name`
-- Configuration and deployment state
-- Game and profile paths
-- Primary and alternate Steam app IDs
-- Nexus and Thunderstore identifiers
-- Available game features
-
-`load_failures` reports any game handlers which failed during discovery.
-
-### Get a game by Steam app ID
+List profiles:
 
 ```json
-{"jsonrpc":"2.0","id":3,"method":"games.get","params":{"game":"489830"}}
+{"jsonrpc":"2.0","id":3,"method":"profiles.list","params":{"game":"skyrim_se"}}
 ```
 
-This is useful for launchers which know the currently selected Steam title but
-do not know Amethyst's game ID.
+Profiles include mod counts, profile-group membership, profile-specific staging
+state, collection association, and selected/deployed state.
 
-### List profiles
+List mods:
 
 ```json
-{"jsonrpc":"2.0","id":4,"method":"profiles.list","params":{"game":"skyrim_se"}}
+{"jsonrpc":"2.0","id":4,"method":"mods.list","params":{"game":"skyrim_se","profile":"default"}}
 ```
 
-Only profile directories which currently exist are returned. The response
-includes mod counts, profile-group membership, profile-specific staging state,
-collection association, and whether the profile is selected or deployed.
+Entries use `highest_priority_first` order. `index` is the zero-based row in
+`modlist.txt`, including separators. Priority zero is the lowest real mod and
+the largest number is the highest; separators have a null priority. Real mods
+include enabled and locked state, staging-folder presence, installed metadata,
+update state, and Nexus or Thunderstore identity when available. A stale
+`modlist.txt` entry remains visible with `folder_exists` set to false.
 
-### List mods
+Read methods return `operation_in_progress` while this service is changing game
+state. Continue polling the active job and retry the read after it completes.
+
+## Deploy and restore jobs
+
+Mutating calls return immediately with a job snapshot. They do not hold the
+JSON-RPC request open for the filesystem operation.
+Only one mutable job may be outstanding in a headless process; another start
+request returns `operation_in_progress` until that job reaches a final state.
+
+Start a deployment:
 
 ```json
-{"jsonrpc":"2.0","id":5,"method":"mods.list","params":{"game":"skyrim_se","profile":"default"}}
+{"jsonrpc":"2.0","id":5,"method":"deploy.start","params":{"game":"skyrim_se","profile":"default","options":{"root_folder_enabled":true,"backup":true}}}
 ```
 
-Entries are returned in `highest_priority_first` order. `index` is the
-zero-based row in `modlist.txt`, including separators. `priority` matches the
-desktop application: priority zero is the lowest real mod and the largest
-number is the highest. Separators have a null priority.
+Both deploy options default to `true`:
 
-Each real mod includes its enabled and locked state, staging-folder presence,
-version, install time, update state, and available Nexus or Thunderstore
-identity. A stale `modlist.txt` entry remains in the response with
-`folder_exists` set to false.
+- `root_folder_enabled` deploys the profile's shared `Root_Folder` payload.
+- `backup` creates the normal profile backup before deployment.
+
+Start a restore and return the handler to the named profile afterward:
+
+```json
+{"jsonrpc":"2.0","id":6,"method":"restore.start","params":{"game":"skyrim_se","profile":"default"}}
+```
+
+Restore acts on the last deployed profile so runtime files go back to the
+correct overwrite folder. The supplied profile controls which profile Amethyst
+loads again when restore finishes.
+
+A successful start result has this shape:
+
+```json
+{
+  "job": {
+    "id": "09b37ca9237540918fe86ff5e359331c",
+    "kind": "deploy",
+    "state": "queued",
+    "game": {"id": "skyrim_se", "name": "Skyrim Special Edition"},
+    "profile": "default",
+    "options": {"root_folder_enabled": true, "backup": true},
+    "created_at": "2026-09-03T12:00:00Z",
+    "started_at": null,
+    "finished_at": null,
+    "progress": null,
+    "result": null,
+    "error": null,
+    "event_sequence": 1
+  }
+}
+```
+
+Use `jobs.get` for the current snapshot or `jobs.list` to recover job IDs while
+the same headless process remains alive:
+
+```json
+{"jsonrpc":"2.0","id":7,"method":"jobs.get","params":{"job_id":"09b37ca9237540918fe86ff5e359331c"}}
+```
+
+Job states are `queued`, `running`, `succeeded`, and `failed`.
+
+### Polling events
+
+Events carry logs, progress and state transitions. Pass the last processed
+sequence as `after`. `wait_ms` enables a long poll and may be from 0 to 30000:
+
+```json
+{"jsonrpc":"2.0","id":8,"method":"jobs.events","params":{"job_id":"09b37ca9237540918fe86ff5e359331c","after":0,"wait_ms":1000}}
+```
+
+```json
+{
+  "job_id": "09b37ca9237540918fe86ff5e359331c",
+  "events": [
+    {"sequence": 1, "timestamp": "2026-09-03T12:00:00Z", "type": "state", "state": "queued"},
+    {"sequence": 2, "timestamp": "2026-09-03T12:00:00Z", "type": "state", "state": "running"},
+    {"sequence": 3, "timestamp": "2026-09-03T12:00:01Z", "type": "log", "message": "Incremental deploy: existing deployment reused - skipping restore."},
+    {"sequence": 4, "timestamp": "2026-09-03T12:00:01Z", "type": "progress", "done": 10, "total": 100, "phase": "Deploying files"}
+  ],
+  "next_sequence": 4,
+  "oldest_sequence": 1,
+  "truncated": false,
+  "complete": false
+}
+```
+
+Use `next_sequence` in the next request. Event history is bounded; if a slow
+consumer falls behind, `truncated` becomes true and the first returned event's
+sequence equals `oldest_sequence`. Always use `jobs.get` after `complete` becomes
+true to read the authoritative final `result` or structured `error`.
+Progress events are rate-limited during file-heavy operations; the job snapshot
+always retains the latest progress value.
+
+Event polling occupies the sequential request loop for up to `wait_ms`, so a
+client that also sends interactive requests should use short waits.
+
+### Locking and failures
+
+The standard Amethyst Deploy and Restore entry points—desktop, one-shot CLI,
+and headless—use the same operation coordinator. Operations are serialized
+within one process. Across native, AppImage and Flatpak processes, advisory
+locks cover the game identity and resolved game, profile, staging and deployment
+paths.
+
+If another process already holds a relevant lock, the accepted job finishes as
+`failed` with `error.name` set to `operation_busy`. Its error details identify
+the holder when metadata was available. Lock files persist between runs; their
+existence does not mean an operation is active because the kernel lock is the
+authority.
+
+Other final job error names are `deploy_failed`, `restore_failed`, and
+`internal_error`. Human-readable pipeline details remain available in the
+job's `log` events.
+
+Deploy and restore are not cancellable in protocol version 1. Once accepted,
+allow the job to reach a final state. This avoids abandoning a partially
+restored or partially deployed filesystem.
+
+Headless deployment uses the same non-interactive policy as the one-shot CLI:
+there is no UI confirmation dialog. Configure and test unusual game-specific
+deployment requirements in the desktop application first.
 
 ## Errors
 
-Errors use the JSON-RPC error object. `error.code` is numeric for JSON-RPC
-compatibility; `error.data.name` is the stable, machine-readable Amethyst error
-name.
+Request validation and lookup failures use the JSON-RPC error object.
+`error.data.name` is the stable machine-readable Amethyst error name:
 
 ```json
 {
   "jsonrpc": "2.0",
-  "id": 6,
+  "id": 9,
   "error": {
     "code": -32001,
     "message": "Game 'missing' was not found.",
@@ -209,13 +326,20 @@ name.
 | `-32600` | `invalid_request` | The JSON-RPC request envelope is invalid. |
 | `-32601` | `method_not_found` | The requested method is unavailable. |
 | `-32602` | `invalid_params` | Required, unknown or incorrectly typed parameters were supplied. |
-| `-32603` | `internal_error` | An unexpected operation failure occurred; inspect standard error. |
+| `-32603` | `internal_error` | An unexpected request failure occurred; inspect standard error. |
 | `-32001` | `game_not_found` | No game matched the supplied identifier. |
 | `-32002` | `profile_not_found` | The requested profile does not exist. |
 | `-32003` | `resource_unavailable` | Amethyst could not read a required local resource. |
 | `-32004` | `ambiguous_game` | An identifier matched multiple game handlers. |
 | `-32005` | `ambiguous_profile` | A case-insensitive name matched multiple profiles. |
+| `-32006` | `job_not_found` | The requested job is unknown or has expired from bounded history. |
+| `-32007` | `operation_in_progress` | A local mutation is in progress; retry the state request later. |
+| `-32008` | `game_not_configured` | The selected game has no usable configured path. |
+| `-32009` | `operation_not_supported` | The selected handler cannot perform the requested operation. |
 | `-32010` | `unsupported_protocol_version` | The requested protocol version is incompatible. |
+
+An operation which starts successfully can still fail later. That failure is
+stored on the job rather than returned as a JSON-RPC error.
 
 ## Python client example
 
@@ -250,6 +374,21 @@ class AmethystClient:
             raise RuntimeError(response["error"])
         return response["result"]
 
+    def wait_job(self, job_id):
+        sequence = 0
+        while True:
+            page = self.call("jobs.events", {
+                "job_id": job_id,
+                "after": sequence,
+                "wait_ms": 1000,
+            })
+            sequence = page["next_sequence"]
+            for event in page["events"]:
+                if event["type"] == "log":
+                    print(event["message"])
+            if page["complete"]:
+                return self.call("jobs.get", {"job_id": job_id})["job"]
+
     def close(self):
         self.process.stdin.close()
         self.process.wait()
@@ -260,30 +399,41 @@ client = AmethystClient([
 ])
 try:
     client.call("system.handshake", {"protocol_version": 1})
-    games = client.call("games.list", {"configured_only": True})
-    print(games)
+    started = client.call("deploy.start", {
+        "game": "skyrim_se",
+        "profile": "default",
+    })
+    job = client.wait_job(started["job"]["id"])
+    if job["state"] != "succeeded":
+        raise RuntimeError(job["error"])
 finally:
     client.close()
 ```
 
-The example inherits the parent's standard error stream. A long-running
-application which captures standard error instead must drain it continuously
-to prevent the child process from blocking on a full pipe.
+The example inherits the parent's standard error stream. A long-running client
+which captures standard error must drain it continuously to prevent the child
+process from blocking on a full pipe.
 
 ## Batches and notifications
 
-JSON-RPC batch arrays are accepted as one NDJSON line. Their responses are
+JSON-RPC batch arrays are accepted as one NDJSON line and their responses are
 returned as one array on one line. Requests without an `id` are notifications
-and do not receive a response. A batch containing only notifications likewise
-produces no output line.
+and do not receive a response. A batch containing only notifications produces
+no output line. Use request IDs for `deploy.start` and `restore.start`; otherwise
+the caller does not directly receive the created job ID.
 
 ## Current limitations
 
-- All methods are read-only.
-- Requests run sequentially and there are no progress events yet.
-- Nexus browsing, downloads, installation, deployment and restoration are not
+- Nexus browsing, downloads, installation, mod-state changes and launch are not
   exposed yet.
-- Closing standard input is the graceful way to stop the service.
-- Python modules under `amethyst_backend`, `Utils`, `Games` and `Nexus` are
-  implementation details. External applications should use the JSON protocol
-  instead of importing them.
+- Progress delivery is polling-only and running jobs cannot be cancelled.
+- The shared operation lock currently coordinates the standard deploy and
+  restore flows, not every desktop installer, wizard or configuration action.
+  Do not run those tools while a headless mutation is active.
+- The transport is a child process over standard I/O; there is no socket daemon
+  or remote authentication layer yet.
+- Python modules under `amethyst_backend`, `Utils`, `Games` and `Nexus` remain
+  implementation details. External applications should use the JSON protocol.
+
+The service has the same filesystem permissions as the user who starts it.
+Only pass requests from trusted local applications.
