@@ -13,7 +13,8 @@ import shutil
 from pathlib import Path
 
 
-def remove_mods(game, profile_dir: Path, mod_names: list[str], log_fn=None) -> None:
+def remove_mods(game, profile_dir: Path, mod_names: list[str], log_fn=None, *,
+                strict: bool = False) -> None:
     """Fully remove *mod_names* for *game* / *profile_dir*:
 
       1. undeploy their files from the game dir (before deleting staging, so
@@ -31,6 +32,8 @@ def remove_mods(game, profile_dir: Path, mod_names: list[str], log_fn=None) -> N
     try:
         staging_root = game.get_effective_mod_staging_path()
     except Exception:
+        if strict:
+            raise
         return
     from Utils.filegraph.service import FileGraphService
     library = FileGraphService.open_library(game, profile_dir, log_fn=log)
@@ -48,9 +51,12 @@ def remove_mods(game, profile_dir: Path, mod_names: list[str], log_fn=None) -> N
     if deploy_active:
         try:
             undeploy_catalog_mods(
-                game, profile, Path(staging_root), mod_names, log_fn=log)
+                game, profile, Path(staging_root), mod_names, log_fn=log,
+                strict=strict)
         except Exception as exc:
             log(f"undeploy during remove failed: {exc}")
+            if strict:
+                raise
     else:
         log("no deployment is active - skipping undeploy of removed mod(s).")
 
@@ -59,6 +65,8 @@ def remove_mods(game, profile_dir: Path, mod_names: list[str], log_fn=None) -> N
         _remove_plugins_for_mods(game, profile_dir, staging_root, mod_names, log)
     except Exception as exc:
         log(f"plugin cleanup during remove failed: {exc}")
+        if strict:
+            raise
 
     # 3. Delete staging folders. A symlinked mod dir (Profile Group link
     #    farm) is unlinked, never rmtree'd - rmtree on a dir symlink raises,
@@ -70,11 +78,15 @@ def remove_mods(game, profile_dir: Path, mod_names: list[str], log_fn=None) -> N
                 folder.unlink()
             except OSError as exc:
                 log(f"could not remove staging link for '{name}': {exc}")
+                if strict:
+                    raise
         elif folder.is_dir():
             try:
                 shutil.rmtree(folder)
             except OSError as exc:
                 log(f"could not delete staging folder for '{name}': {exc}")
+                if strict:
+                    raise
 
     # 4. Drop targeted catalog/deployed-state rows.
     try:
@@ -83,10 +95,13 @@ def remove_mods(game, profile_dir: Path, mod_names: list[str], log_fn=None) -> N
             library.remove_mod(name)
     except Exception as exc:
         log(f"catalog cleanup during remove failed: {exc}")
+        if strict:
+            raise
 
 
 def undeploy_catalog_mods(game, profile, staging_root: Path,
-                          mod_names: list[str], log_fn=None) -> int:
+                          mod_names: list[str], log_fn=None, *,
+                          strict: bool = False) -> int:
     """Safely unlink committed deployment entries owned by *mod_names*.
 
     The source tree must still exist. Copies are accepted only when size and
@@ -118,6 +133,8 @@ def undeploy_catalog_mods(game, profile, staging_root: Path,
                 removed += 1
         except OSError as exc:
             log(f"could not undeploy {destination}: {exc}")
+            if strict:
+                raise
     if removed:
         log(f"undeployed {removed} file(s) owned by removed mod(s).")
     return removed

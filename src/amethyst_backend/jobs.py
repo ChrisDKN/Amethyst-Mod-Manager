@@ -243,6 +243,17 @@ class JobManager:
                     operation_owner=f"headless:{job.id}",
                 )
                 ok = True
+            elif job.kind == "mods.remove":
+                from Utils.mods.state import remove_profile_mods
+                result = remove_profile_mods(
+                    job.game,
+                    job.game.get_profile_root() / "profiles" / job.profile,
+                    [str(name) for name in job.options.get("mods", [])],
+                    log_fn=log,
+                    progress_fn=progress,
+                    operation_owner=f"headless:{job.id}",
+                )
+                ok = True
             else:
                 raise RuntimeError(f"Unsupported job kind: {job.kind}")
         except Exception as exc:

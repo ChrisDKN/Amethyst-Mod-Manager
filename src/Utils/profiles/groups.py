@@ -1527,7 +1527,7 @@ def _adopt_first_plugins(game, group_dir: Path, profiles_dir: Path,
 # ---------------------------------------------------------------------------
 
 def _member_side_remove(game, profiles_dir: Path, member: str, folder: str,
-                        log) -> None:
+                        log, *, strict: bool = False) -> None:
     """Delete one member's copy of a mod: plugins, folder, modlist row,
     and catalog rows."""
     member_dir = profiles_dir / member
@@ -1537,6 +1537,8 @@ def _member_side_remove(game, profiles_dir: Path, member: str, folder: str,
         _remove_plugins_for_mods(game, member_dir, member_staging, [folder], log)
     except Exception as exc:
         log(f"member plugin cleanup failed for '{folder}': {exc}")
+        if strict:
+            raise
     target = member_staging / folder
     try:
         if target.is_symlink():
@@ -1545,6 +1547,8 @@ def _member_side_remove(game, profiles_dir: Path, member: str, folder: str,
             shutil.rmtree(target)
     except OSError as exc:
         log(f"could not delete '{member}/{folder}': {exc}")
+        if strict:
+            raise
     member_modlist = member_dir / "modlist.txt"
     try:
         with modlist_lock(member_modlist):
@@ -1554,6 +1558,8 @@ def _member_side_remove(game, profiles_dir: Path, member: str, folder: str,
                 write_modlist(member_modlist, kept)
     except Exception as exc:
         log(f"could not update '{member}' modlist: {exc}")
+        if strict:
+            raise
     try:
         from Utils.filegraph.service import FileGraphService
         library = FileGraphService.open_library(game, member_dir, log_fn=log)
@@ -1562,6 +1568,8 @@ def _member_side_remove(game, profiles_dir: Path, member: str, folder: str,
         library.remove_mod(folder)
     except Exception as exc:
         log(f"member catalog cleanup failed for '{folder}': {exc}")
+        if strict:
+            raise
 
 
 def remove_member_mod(game, member_dir: Path, folder: str, *,
@@ -1582,7 +1590,8 @@ def remove_member_mod(game, member_dir: Path, folder: str, *,
 
 def remove_mods_from_group(game, group_dir: Path, mod_names: list[str],
                            log_fn=None, *,
-                           delete_member_copies: bool = True) -> list[str]:
+                           delete_member_copies: bool = True,
+                           strict: bool = False) -> list[str]:
     """Fully remove *mod_names* from a group: undeploy via Filegraph state,
     strip plugins group-side, delete EVERY member copy of each identity (a
     second lister would otherwise resurrect it next materialize), then the
@@ -1623,9 +1632,12 @@ def remove_mods_from_group(game, group_dir: Path, mod_names: list[str],
             try:
                 from Utils.mods.remove import undeploy_catalog_mods
                 undeploy_catalog_mods(
-                    game, group_profile, staging, mod_names, log_fn=log)
+                    game, group_profile, staging, mod_names, log_fn=log,
+                    strict=strict)
             except Exception as exc:
                 log(f"undeploy during group remove failed: {exc}")
+                if strict:
+                    raise
         else:
             log("no deployment is active - skipping undeploy of removed mod(s).")
 
@@ -1635,6 +1647,8 @@ def remove_mods_from_group(game, group_dir: Path, mod_names: list[str],
             _remove_plugins_for_mods(game, group_dir, staging, mod_names, log)
         except Exception as exc:
             log(f"group plugin cleanup during remove failed: {exc}")
+            if strict:
+                raise
 
         # 3. Member-side removal: the owner's copy AND any other member's copy
         # of the same identity (a second lister would otherwise resurrect the
@@ -1654,7 +1668,8 @@ def remove_mods_from_group(game, group_dir: Path, mod_names: list[str],
                     continue
                 key = identity_map.get(name, f"name:{name}")
                 removed_pairs = {owner}
-                _member_side_remove(game, profiles_dir, owner[0], owner[1], log)
+                _member_side_remove(
+                    game, profiles_dir, owner[0], owner[1], log, strict=strict)
                 for member in members:
                     member_dir = profiles_dir / member
                     if not member_dir.is_dir():
@@ -1669,7 +1684,7 @@ def remove_mods_from_group(game, group_dir: Path, mod_names: list[str],
                             log(f"Profile Group: '{member}/{e.name}' is the "
                                 f"same mod - removed as well.")
                             _member_side_remove(game, profiles_dir, member,
-                                                e.name, log)
+                                                e.name, log, strict=strict)
 
         # 4. Group-side cleanup: links (or the real folder, for a group-LOCAL
         # mod like wizard-installed SMAPI), catalog rows, adopted per-mod state.
@@ -1682,12 +1697,16 @@ def remove_mods_from_group(game, group_dir: Path, mod_names: list[str],
                     shutil.rmtree(link)
             except OSError as exc:
                 log(f"could not remove group entry '{name}': {exc}")
+                if strict:
+                    raise
         try:
             group_profile.forget_deployed_mods(mod_names)
             for name in mod_names:
                 group_library.remove_mod(name)
         except Exception as exc:
             log(f"group catalog cleanup during remove failed: {exc}")
+            if strict:
+                raise
         _reconcile_mod_state(group_dir, profiles_dir, [], list(mod_names), [])
         identity_map = _read_identity_map(group_dir)
         for name in mod_names:

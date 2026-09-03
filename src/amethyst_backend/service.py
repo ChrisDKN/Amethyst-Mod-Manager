@@ -32,6 +32,7 @@ class AmethystService:
         "mods.list",
         "mods.set_enabled.start",
         "mods.move.start",
+        "mods.remove.start",
         "deploy.start",
         "restore.start",
         "jobs.get",
@@ -54,6 +55,7 @@ class AmethystService:
             "mods.list": self._list_mods,
             "mods.set_enabled.start": self._start_set_enabled,
             "mods.move.start": self._start_move,
+            "mods.remove.start": self._start_remove,
             "deploy.start": self._start_deploy,
             "restore.start": self._start_restore,
             "jobs.get": self._get_job,
@@ -173,7 +175,8 @@ class AmethystService:
                 "event_delivery": "poll",
                 "cancellation": False,
                 "mutations": [
-                    "mods.set_enabled", "mods.move", "deploy", "restore"],
+                    "mods.set_enabled", "mods.move", "mods.remove", "deploy",
+                    "restore"],
                 "maximum_event_wait_ms": 30000,
                 "methods": list(self.METHODS),
             },
@@ -455,6 +458,56 @@ class AmethystService:
             self._canonical_game(game),
             profile_dir.name,
             {"mods": mods, "position": {placement: anchor}},
+        )
+        return {"job": job}
+
+    def _start_remove(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params, {"game", "profile", "mods", "confirm"},
+            {"game", "profile", "mods", "confirm"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_configured(game)
+        profile_dir = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+
+        raw_mods = params.get("mods")
+        if not isinstance(raw_mods, list) or not raw_mods:
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'mods' must be a non-empty array of mod names.",
+                {"parameter": "mods"},
+            )
+        mods: list[str] = []
+        seen: set[str] = set()
+        for index, value in enumerate(raw_mods):
+            parameter = f"mods[{index}]"
+            name = self._mod_name(value, parameter)
+            if name in seen:
+                raise ServiceError(
+                    -32602,
+                    "invalid_params",
+                    f"'{parameter}' duplicates an earlier mod name.",
+                    {"parameter": parameter, "mod": name},
+                )
+            seen.add(name)
+            mods.append(name)
+
+        if params.get("confirm") is not True:
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'confirm' must be true because mod removal is irreversible.",
+                {"parameter": "confirm"},
+            )
+
+        job = self._jobs.submit(
+            "mods.remove",
+            game,
+            self._canonical_game(game),
+            profile_dir.name,
+            {"mods": mods},
         )
         return {"job": job}
 

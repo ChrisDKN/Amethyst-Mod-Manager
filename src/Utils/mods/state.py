@@ -408,3 +408,216 @@ def move_mods(
         }
     finally:
         lease.release()
+
+
+def _validate_removal(entries: list[Any], mod_names: list[str]) -> None:
+    if not mod_names or len(set(mod_names)) != len(mod_names):
+        raise ModStateError(
+            "invalid_mod_removal",
+            "Removed mod names must be non-empty and unique.",
+        )
+    for name in mod_names:
+        matches = [entry for entry in entries if entry.name == name]
+        if not matches:
+            raise ModStateError(
+                "mod_not_found",
+                f"Mod '{name}' was not found in the profile.",
+                {"mod": name},
+            )
+        if len(matches) > 1:
+            raise ModStateError(
+                "ambiguous_mod",
+                f"Mod name '{name}' appears more than once in the profile.",
+                {"mod": name, "matches": len(matches)},
+            )
+        entry = matches[0]
+        if entry.is_separator:
+            raise ModStateError(
+                "mod_not_removable",
+                f"'{name}' is a separator, not a removable mod.",
+                {"mod": name, "reason": "separator"},
+            )
+        if entry.locked:
+            raise ModStateError(
+                "mod_locked",
+                f"Mod '{name}' is locked and cannot be removed.",
+                {"mod": name},
+            )
+
+
+def _drop_removed_mod_state(profile_dir: Path, mod_names: list[str]) -> None:
+    from Utils.profiles.state import (
+        read_disabled_plugins,
+        read_excluded_mod_files,
+        read_mod_notes,
+        read_mod_strip_prefixes,
+        read_root_mod_files,
+        write_disabled_plugins,
+        write_excluded_mod_files,
+        write_mod_notes,
+        write_mod_strip_prefixes,
+        write_root_mod_files,
+    )
+
+    removed = set(mod_names)
+    for reader, writer in (
+        (read_disabled_plugins, write_disabled_plugins),
+        (read_excluded_mod_files, write_excluded_mod_files),
+        (read_root_mod_files, write_root_mod_files),
+        (read_mod_notes, write_mod_notes),
+        (read_mod_strip_prefixes, write_mod_strip_prefixes),
+    ):
+        data = reader(profile_dir, None)
+        kept = {name: value for name, value in data.items()
+                if name not in removed}
+        if kept != data:
+            writer(profile_dir, kept)
+
+
+def remove_profile_mods(
+    game: Any,
+    profile_dir: Path,
+    mod_names: list[str],
+    *,
+    log_fn: LogFn | None = None,
+    progress_fn: ProgressFn | None = None,
+    operation_owner: str | None = None,
+) -> dict[str, Any]:
+    from Utils.operations import acquire_game_operation
+
+    log = log_fn or (lambda _message: None)
+    progress = progress_fn or (lambda _done, _total, _phase=None: None)
+    profile_dir = Path(profile_dir)
+    lease = acquire_game_operation(
+        game, "mods.remove", owner=operation_owner or "mods.remove")
+    lease.acquire()
+    try:
+        try:
+            game.set_active_profile_dir(profile_dir)
+            game.load_paths()
+            staging_dir = Path(game.get_effective_mod_staging_path())
+        except Exception as exc:
+            raise ModStateError(
+                "resource_unavailable",
+                f"Could not load profile '{profile_dir.name}'.",
+                {"profile": profile_dir.name, "reason": str(exc)},
+            ) from exc
+
+        from Utils.mods.modlist import modlist_lock, read_modlist, write_modlist
+        from Utils.profiles.groups import is_group, locked_owners
+        from Utils.profiles.state import profile_uses_specific_mods
+
+        grouped = is_group(profile_dir)
+        shared_staging = not profile_uses_specific_mods(profile_dir)
+        scope = ("profile_group_and_members" if grouped else
+                 "shared_staging" if shared_staging else "profile")
+        modlist_path = profile_dir / "modlist.txt"
+        progress(0, 3, "Validating mod removal")
+        with modlist_lock(modlist_path):
+            try:
+                entries = read_modlist(modlist_path)
+            except Exception as exc:
+                raise ModStateError(
+                    "resource_unavailable",
+                    f"Could not read profile '{profile_dir.name}'.",
+                    {
+                        "profile": profile_dir.name,
+                        "path": str(modlist_path),
+                        "reason": str(exc),
+                    },
+                ) from exc
+            _validate_removal(entries, mod_names)
+
+            if grouped:
+                blocked = locked_owners(profile_dir, mod_names)
+                if blocked:
+                    first = next(name for name in mod_names if name in blocked)
+                    raise ModStateError(
+                        "mod_locked",
+                        f"Mod '{first}' belongs to locked profile "
+                        f"'{blocked[first]}' and cannot be removed through "
+                        "the group.",
+                        {
+                            "mod": first,
+                            "owner_profile": blocked[first],
+                            "blocked": [
+                                {"mod": name, "owner_profile": blocked[name]}
+                                for name in mod_names if name in blocked
+                            ],
+                        },
+                    )
+
+            missing_folders = [
+                name for name in mod_names
+                if not (staging_dir / name).is_dir()
+                and not (staging_dir / name).is_symlink()
+            ]
+            progress(1, 3, "Removing mod files")
+            try:
+                if grouped:
+                    from Utils.profiles.groups import remove_mods_from_group
+                    removed = remove_mods_from_group(
+                        game, profile_dir, mod_names, log_fn=log, strict=True)
+                else:
+                    from Utils.mods.remove import remove_mods
+                    remove_mods(
+                        game, profile_dir, mod_names, log_fn=log, strict=True)
+                    removed = list(mod_names)
+            except Exception as exc:
+                raise ModStateError(
+                    "mod_removal_failed",
+                    "Mod cleanup did not complete; the profile's mod list "
+                    "was left intact so the operation can be retried.",
+                    {
+                        "stage": "cleanup",
+                        "mods": list(mod_names),
+                        "modlist_changed": False,
+                        "reason": str(exc),
+                    },
+                ) from exc
+
+            if removed != mod_names:
+                raise ModStateError(
+                    "mod_removal_failed",
+                    "Not every requested mod was removed; the profile's mod "
+                    "list was left intact.",
+                    {
+                        "stage": "cleanup",
+                        "mods": list(mod_names),
+                        "removed": list(removed),
+                        "modlist_changed": False,
+                    },
+                )
+
+            progress(2, 3, "Updating profile state")
+            try:
+                _drop_removed_mod_state(profile_dir, mod_names)
+                removed_names = set(mod_names)
+                write_modlist(
+                    modlist_path,
+                    [entry for entry in entries
+                     if entry.name not in removed_names],
+                )
+            except Exception as exc:
+                raise ModStateError(
+                    "mod_removal_sync_failed",
+                    "The mod folders were removed, but the profile state "
+                    "could not be fully updated.",
+                    {
+                        "stage": "profile",
+                        "mods_removed": list(mod_names),
+                        "modlist_changed": False,
+                        "reason": str(exc),
+                    },
+                ) from exc
+
+        progress(3, 3, "Mods removed")
+        log(f"Removed {len(mod_names)} mod(s) from '{profile_dir.name}'.")
+        return {
+            "ok": True,
+            "removed": list(mod_names),
+            "missing_folders": missing_folders,
+            "scope": scope,
+        }
+    finally:
+        lease.release()

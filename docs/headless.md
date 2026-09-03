@@ -3,7 +3,7 @@
 Amethyst headless mode gives scripts and external applications a stable way to
 use the manager without importing its Python modules or starting Qt. Protocol
 version 1 exposes game, profile and mod state plus asynchronous mod activation,
-ordering, deploy, and restore jobs.
+ordering, removal, deploy, and restore jobs.
 
 The public boundary is JSON-RPC 2.0 over newline-delimited JSON (NDJSON).
 Amethyst reads one JSON value per line from standard input and writes one JSON
@@ -94,7 +94,7 @@ The response describes the protocol and available features:
       "events": true,
       "event_delivery": "poll",
       "cancellation": false,
-      "mutations": ["mods.set_enabled", "mods.move", "deploy", "restore"],
+      "mutations": ["mods.set_enabled", "mods.move", "mods.remove", "deploy", "restore"],
       "maximum_event_wait_ms": 30000,
       "methods": [
         "system.handshake",
@@ -105,6 +105,7 @@ The response describes the protocol and available features:
         "mods.list",
         "mods.set_enabled.start",
         "mods.move.start",
+        "mods.remove.start",
         "deploy.start",
         "restore.start",
         "jobs.get",
@@ -135,6 +136,7 @@ parameters are rejected.
 | `mods.list` | `game` string, `profile` string | List a profile's mods, separators and installed metadata. |
 | `mods.set_enabled.start` | `game` string, `profile` string, `changes` array | Start a batch mod enable/disable job. |
 | `mods.move.start` | `game` string, `profile` string, `mods` array, `position` object | Move mods as a priority-ordered block. |
+| `mods.remove.start` | `game` string, `profile` string, `mods` array, `confirm` boolean | Permanently remove one or more mods. |
 | `deploy.start` | `game` string, `profile` string, `options` object (optional) | Start a deployment job. |
 | `restore.start` | `game` string, `profile` string | Start a restore job. |
 | `jobs.get` | `job_id` string | Get the latest job snapshot. |
@@ -272,12 +274,63 @@ and `ambiguous_move_anchor`. A post-write reconciliation failure uses
 Moving mods does not deploy. Call `deploy.start` explicitly when the new order
 should be applied to the game folder.
 
+### Remove mods
+
+Removal is permanent, so the request must include `"confirm": true`. A client
+should show its own confirmation UI before sending the request.
+
+```json
+{"jsonrpc":"2.0","id":7,"method":"mods.remove.start","params":{"game":"skyrim_se","profile":"default","mods":["Old textures","Superseded patch"],"confirm":true}}
+```
+
+Names must exactly match real mod entries returned by `mods.list`. The complete
+batch is validated before cleanup begins. A missing, duplicate, separator, or
+locked entry rejects the complete batch without deleting anything.
+
+Removal deletes the staging folders, safely undeploys committed files which
+still match their staged sources, removes owned plugin entries and Filegraph
+records, clears per-mod profile state, and atomically removes the mod-list rows.
+A stale mod-list entry whose folder is already absent may also be removed; it is
+reported in `missing_folders`.
+
+```json
+{
+  "ok": true,
+  "removed": ["Old textures", "Superseded patch"],
+  "missing_folders": [],
+  "scope": "profile"
+}
+```
+
+`scope` describes the storage affected:
+
+- `profile` means the selected profile has its own mod staging folder.
+- `shared_staging` means the folder is deleted from the game's shared mod pool;
+  other profiles which list it will then have a stale entry.
+- `profile_group_and_members` means Amethyst also deletes the owning member
+  copy and any other member copy with the same persisted mod identity. A
+  group-local mod is removed only from the group. If any affected member is
+  profile-locked, the whole request fails with `mod_locked`.
+
+Clients can inspect `is_group`, `group_members`, and `profile_specific_mods`
+from `profiles.list` before presenting the confirmation.
+
+Expected errors are `mod_not_found`, `ambiguous_mod`, `mod_not_removable`, and
+`mod_locked`. A filesystem or catalog failure uses `mod_removal_failed` and
+keeps the selected profile's mod-list rows so the cleanup can be retried. If
+the folders were deleted but the final profile-state write failed, the error is
+`mod_removal_sync_failed` and includes the affected names.
+
+When the game is deployed, only destinations still proven to be owned by the
+removed mods are unlinked. Run `deploy.start` afterward to apply surviving
+conflict winners to the game folder.
+
 ### Deploy and restore
 
 Start a deployment:
 
 ```json
-{"jsonrpc":"2.0","id":7,"method":"deploy.start","params":{"game":"skyrim_se","profile":"default","options":{"root_folder_enabled":true,"backup":true}}}
+{"jsonrpc":"2.0","id":8,"method":"deploy.start","params":{"game":"skyrim_se","profile":"default","options":{"root_folder_enabled":true,"backup":true}}}
 ```
 
 Both deploy options default to `true`:
@@ -288,7 +341,7 @@ Both deploy options default to `true`:
 Start a restore and return the handler to the named profile afterward:
 
 ```json
-{"jsonrpc":"2.0","id":8,"method":"restore.start","params":{"game":"skyrim_se","profile":"default"}}
+{"jsonrpc":"2.0","id":9,"method":"restore.start","params":{"game":"skyrim_se","profile":"default"}}
 ```
 
 Restore acts on the last deployed profile so runtime files go back to the
@@ -321,7 +374,7 @@ Use `jobs.get` for the current snapshot or `jobs.list` to recover job IDs while
 the same headless process remains alive:
 
 ```json
-{"jsonrpc":"2.0","id":9,"method":"jobs.get","params":{"job_id":"09b37ca9237540918fe86ff5e359331c"}}
+{"jsonrpc":"2.0","id":10,"method":"jobs.get","params":{"job_id":"09b37ca9237540918fe86ff5e359331c"}}
 ```
 
 Job states are `queued`, `running`, `succeeded`, and `failed`.
@@ -332,7 +385,7 @@ Events carry logs, progress and state transitions. Pass the last processed
 sequence as `after`. `wait_ms` enables a long poll and may be from 0 to 30000:
 
 ```json
-{"jsonrpc":"2.0","id":10,"method":"jobs.events","params":{"job_id":"09b37ca9237540918fe86ff5e359331c","after":0,"wait_ms":1000}}
+{"jsonrpc":"2.0","id":11,"method":"jobs.events","params":{"job_id":"09b37ca9237540918fe86ff5e359331c","after":0,"wait_ms":1000}}
 ```
 
 ```json
@@ -363,8 +416,9 @@ client that also sends interactive requests should use short waits.
 
 ### Locking and failures
 
-Headless mod activation/order jobs and the standard Amethyst Deploy and Restore
-entry points—desktop, one-shot CLI, and headless—use the same operation coordinator.
+Headless mod activation, ordering and removal jobs and the standard Amethyst
+Deploy and Restore entry points—desktop, one-shot CLI, and headless—use the
+same operation coordinator.
 Operations are serialized
 within one process. Across native, AppImage and Flatpak processes, advisory
 locks cover the game identity and resolved game, profile, staging and deployment
@@ -396,7 +450,7 @@ Request validation and lookup failures use the JSON-RPC error object.
 ```json
 {
   "jsonrpc": "2.0",
-  "id": 11,
+  "id": 12,
   "error": {
     "code": -32001,
     "message": "Game 'missing' was not found.",
@@ -508,18 +562,17 @@ JSON-RPC batch arrays are accepted as one NDJSON line and their responses are
 returned as one array on one line. Requests without an `id` are notifications
 and do not receive a response. A batch containing only notifications produces
 no output line. Use request IDs for `mods.set_enabled.start`, `mods.move.start`,
-`deploy.start`, and `restore.start`; otherwise the caller does not directly
-receive the created job ID.
+`mods.remove.start`, `deploy.start`, and `restore.start`; otherwise the caller
+does not directly receive the created job ID.
 
 ## Current limitations
 
-- Nexus browsing, downloads, installation, mod removal, and launch are not
-  exposed yet.
+- Nexus browsing, downloads, installation, and launch are not exposed yet.
 - Progress delivery is polling-only and running jobs cannot be cancelled.
-- The shared operation lock currently coordinates headless mod activation/order
-  jobs and the standard deploy/restore flows, not every desktop mod-list edit,
-  installer, wizard, or configuration action. Do not run those tools while a
-  headless mutation is active.
+- The shared operation lock currently coordinates headless mod activation,
+  ordering and removal jobs and the standard deploy/restore flows, not every
+  desktop mod-list edit, installer, wizard, or configuration action. Do not run
+  those tools while a headless mutation is active.
 - The transport is a child process over standard I/O; there is no socket daemon
   or remote authentication layer yet.
 - Python modules under `amethyst_backend`, `Utils`, `Games` and `Nexus` remain
