@@ -30,6 +30,7 @@ from Utils.deployment.shared import (
     _report_fallbacks,
     _append_overwrite_log,
     _iter_map_batched,
+    is_global_restore_ignored,
     _log_case_collisions,
     _map_batched,
     _mkdir_leaves,
@@ -1818,7 +1819,9 @@ def restore_data_core(
                 except OSError:
                     pass
                 continue
-            if restore_whitelist is not None and restore_whitelist(rel_lower):
+            if (is_global_restore_ignored(rel_lower)
+                    or (restore_whitelist is not None
+                        and restore_whitelist(rel_lower))):
                 # Keep whitelisted files in the game folder by moving them into
                 # core_dir so the swap below restores them in place (skipping
                 # would delete them with deploy_dir).  Sync core_path so the

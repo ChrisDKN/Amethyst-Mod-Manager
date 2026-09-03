@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import concurrent.futures
 import errno
+import fnmatch as _fnmatch
 import os
 import shutil
 import threading
@@ -787,6 +788,15 @@ class RestoreWhitelistRule:
     filenames: list[str] = field(default_factory=list)
 
 
+# Case-insensitive filename/folder globs that are never treated as runtime
+# output by a physical restore.  Folder patterns match names at any depth and
+# protect the whole subtree.
+GLOBAL_RESTORE_IGNORE_FILES: tuple[str, ...] = (
+    "vkd3d-proton.cache.write",
+)
+GLOBAL_RESTORE_IGNORE_FOLDERS: tuple[str, ...] = ()
+
+
 def build_restore_whitelist_matcher(rules, rel_prefix: str = ""):
     """Compile restore-whitelist rules into a ``match(rel_lower) -> bool``.
 
@@ -799,8 +809,6 @@ def build_restore_whitelist_matcher(rules, rel_prefix: str = ""):
     matcher covers them).  A glob folder rule matching the deploy subfolder
     name itself is not re-based into the subtree (rare; use a literal instead).
     """
-    import fnmatch as _fnmatch
-
     def _norm(p: str) -> str:
         return p.replace("\\", "/").strip("/ ").lower()
 
@@ -900,6 +908,29 @@ def build_restore_whitelist_matcher(rules, rel_prefix: str = ""):
         return False
 
     return _match
+
+
+def is_global_restore_ignored(rel_path: str, *, is_dir: bool = False) -> bool:
+    """Return whether a relative path matches the app-wide restore filter."""
+    parts = tuple(
+        part.casefold()
+        for part in rel_path.replace("\\", "/").strip("/ ").split("/")
+        if part
+    )
+    if not parts:
+        return False
+
+    if (not is_dir and any(
+            _fnmatch.fnmatchcase(parts[-1], pattern.casefold())
+            for pattern in GLOBAL_RESTORE_IGNORE_FILES)):
+        return True
+
+    folder_parts = parts if is_dir else parts[:-1]
+    return any(
+        _fnmatch.fnmatchcase(folder, pattern.casefold())
+        for folder in folder_parts
+        for pattern in GLOBAL_RESTORE_IGNORE_FOLDERS
+    )
 
 
 def _default_core(deploy_dir: Path) -> Path:
@@ -1820,6 +1851,7 @@ def _move_runtime_files(
     log_fn=None,
     exclude_dirs=None,
     restore_whitelist=None,
+    apply_global_ignore: bool = True,
 ) -> int:
     """Move files that appeared after deploy (runtime-generated) to dest_dir.
 
@@ -1840,6 +1872,9 @@ def _move_runtime_files(
     restore_whitelist - optional matcher from build_restore_whitelist_matcher
     (over lowercased game_root-relative paths); matching files are left in
     the game folder instead of being moved.
+
+    apply_global_ignore - disable only for disposable virtual game views, where
+    leaving a matched file in place would discard it with the view.
 
     Safety net: if the on-disk game root barely overlaps the snapshot (the
     deploy path or sub-folder setting was changed while deployed, so restore
@@ -1870,6 +1905,7 @@ def _move_runtime_files(
     candidate_rels: list[str] = []
     dir_rels: list[str] = []
     matched_known = 0
+    whitelisted = 0
     stack = [game_root_str]
     while stack:
         cur = stack.pop()
@@ -1879,15 +1915,24 @@ def _move_runtime_files(
                     if entry.is_dir(follow_symlinks=False):
                         if _TRASH_INFIX in entry.name:
                             continue  # deferred-delete dir mid-removal
-                        if (excluded is not None
-                                and entry.path[prefix_len:].replace(
-                                    "\\", "/").lower() in excluded):
+                        rel = entry.path[prefix_len:]
+                        rel_lower = rel.replace("\\", "/").lower()
+                        if excluded is not None and rel_lower in excluded:
+                            continue
+                        if (apply_global_ignore
+                                and is_global_restore_ignored(
+                                    rel_lower, is_dir=True)):
                             continue
                         stack.append(entry.path)
-                        dir_rels.append(entry.path[prefix_len:])
+                        dir_rels.append(rel)
                     elif entry.is_file(follow_symlinks=False):
                         rel = entry.path[prefix_len:]
-                        if rel.lower() in known:
+                        rel_lower = rel.replace("\\", "/").lower()
+                        if (apply_global_ignore
+                                and is_global_restore_ignored(rel_lower)):
+                            if rel_lower not in known:
+                                whitelisted += 1
+                        elif rel_lower in known:
                             matched_known += 1
                         else:
                             candidate_rels.append(rel)
@@ -1918,10 +1963,9 @@ def _move_runtime_files(
     emptied_dirs: set[Path] = set()
     moved_rels: list[str] = []
     moved = 0
-    whitelisted = 0
     for rel in candidate_rels:
-        if restore_whitelist is not None and restore_whitelist(
-                rel.replace("\\", "/").lower()):
+        rel_lower = rel.replace("\\", "/").lower()
+        if restore_whitelist is not None and restore_whitelist(rel_lower):
             whitelisted += 1
             continue
         src_path = game_root_str + "/" + rel
@@ -1954,8 +1998,11 @@ def _move_runtime_files(
         for rel in sorted(dir_rels, key=lambda r: r.count("/"), reverse=True):
             if rel.lower() in known_dirs:
                 continue
-            if restore_whitelist is not None and restore_whitelist(
-                    rel.replace("\\", "/").lower()):
+            rel_lower = rel.replace("\\", "/").lower()
+            if ((apply_global_ignore
+                 and is_global_restore_ignored(rel_lower, is_dir=True))
+                    or (restore_whitelist is not None
+                        and restore_whitelist(rel_lower))):
                 continue  # dir sits in a whitelisted runtime area - leave it
             try:
                 os.rmdir(game_root_str + "/" + rel)  # only succeeds if empty
@@ -2368,7 +2415,10 @@ __all__ = [
     "CustomRule",
     "RestoreWhitelistRule",
     "RestoreIncompleteError",
+    "GLOBAL_RESTORE_IGNORE_FILES",
+    "GLOBAL_RESTORE_IGNORE_FOLDERS",
     "build_restore_whitelist_matcher",
+    "is_global_restore_ignored",
     # Public helpers
     "load_per_mod_strip_prefixes",
     "load_separator_deploy_paths",
