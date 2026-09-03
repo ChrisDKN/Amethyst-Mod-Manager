@@ -93,6 +93,9 @@ class ModListView(QTreeView):
         self.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
         self._perf_resize_paint_pending = False
+        # (row, column) of the clickable Version/Priority number under the
+        # cursor, so the delegate can tint that one cell's text like a link.
+        self._hover_action_cell: tuple[int, int] | None = None
 
         # Custom drag-reorder (NOT Qt InternalMove): we drive the reorder by
         # hand so separators (spanned rows) drag correctly and autoscroll near
@@ -1096,6 +1099,7 @@ class ModListView(QTreeView):
 
     def _update_action_cursor(self, pos):
         over = False
+        cell = None
         try:
             idx = self.indexAt(pos)
             if idx.isValid():
@@ -1114,16 +1118,38 @@ class ModListView(QTreeView):
                 elif (not entry.is_separator
                       and idx.column() == COL_VERSION):
                     over = delegate._hit_centered_text(pos, rect, idx)
+                    if over:
+                        cell = (idx.row(), idx.column())
                 elif (not entry.is_separator
                       and idx.column() == COL_PRIORITY
                       and not entry.locked):
                     over = delegate._hit_centered_text(pos, rect, idx)
+                    if over:
+                        cell = (idx.row(), idx.column())
         except Exception:
             over = False
+            cell = None
+        self._set_hover_action_cell(cell)
         if over:
             self.viewport().setCursor(Qt.PointingHandCursor)
         else:
             self.viewport().unsetCursor()
+
+    def _set_hover_action_cell(self, cell):
+        """Track the hovered Version/Priority number, repainting what changed."""
+        if cell == self._hover_action_cell:
+            return
+        old, self._hover_action_cell = self._hover_action_cell, cell
+        m = self.model()
+        for c in (old, cell):
+            if c is not None:
+                idx = m.index(c[0], c[1])
+                if idx.isValid():
+                    self.viewport().update(self.visualRect(idx))
+
+    def leaveEvent(self, event):
+        self._set_hover_action_cell(None)
+        super().leaveEvent(event)
 
     def mouseMoveEvent(self, event):
         if not (event.buttons() & Qt.LeftButton) or self._press_row < 0:
