@@ -2,8 +2,9 @@
 
 Amethyst headless mode gives scripts and external applications a stable way to
 use the manager without importing its Python modules or starting Qt. Protocol
-version 1 exposes game, profile and mod state plus asynchronous mod activation,
-ordering, removal, profile lifecycle, deploy, and restore jobs.
+version 1 exposes game, profile, mod and downloaded-archive state plus
+asynchronous mod activation, ordering, removal, profile lifecycle, deploy, and
+restore jobs.
 
 The public boundary is JSON-RPC 2.0 over newline-delimited JSON (NDJSON).
 Amethyst reads one JSON value per line from standard input and writes one JSON
@@ -106,6 +107,7 @@ The response describes the protocol and available features:
         "profiles.rename.start",
         "profiles.remove.start",
         "profiles.select.start",
+        "downloads.list",
         "mods.list",
         "mods.set_enabled.start",
         "mods.move.start",
@@ -141,6 +143,7 @@ parameters are rejected.
 | `profiles.rename.start` | `game` string, `profile` string, `new_name` string | Rename a profile. |
 | `profiles.remove.start` | `game` string, `profile` string, `confirm` boolean | Permanently remove a profile. |
 | `profiles.select.start` | `game` string, `profile` string | Persist and load the active profile. |
+| `downloads.list` | `game` string, `profile` string | List downloaded mod archives and configured locations. |
 | `mods.list` | `game` string, `profile` string | List a profile's mods, separators and installed metadata. |
 | `mods.set_enabled.start` | `game` string, `profile` string, `changes` array | Start a batch mod enable/disable job. |
 | `mods.move.start` | `game` string, `profile` string, `mods` array, `position` object | Move mods as a priority-ordered block. |
@@ -178,6 +181,32 @@ List profiles:
 Profiles include mod counts, profile-group membership, profile-specific staging
 state, collection association, selected/deployed state, and `locked` and
 `original_default` removal-protection flags.
+
+List downloaded archives for a profile:
+
+```json
+{"jsonrpc":"2.0","id":"downloads-list","method":"downloads.list","params":{"game":"skyrim_se","profile":"default"}}
+```
+
+The response scans the same enabled locations as the desktop Downloads tab:
+the system Downloads folder, the selected game's cache, and configured extra
+folders. Each location includes an opaque `id`, `kind`, path, archive count,
+and byte total. Empty existing enabled locations remain in the result;
+unavailable extra paths are omitted by the shared scanner.
+
+Each archive includes an opaque path-derived `id`, name, absolute path,
+location, extension, byte size, UTC `downloaded_at` timestamp, raw modified
+time, symlink state, and whether that archive is already installed in the
+requested profile. When the filename or Amethyst's sidecar identifies a Nexus
+download, `nexus` contains the available `mod_id` and `file_id`; either may be
+null when it cannot be recovered reliably. Zero-byte browser placeholders and
+non-archive files are omitted.
+
+Archive ordering matches the desktop manager: the system Downloads folder is
+newest first, while the game cache and extra locations are alphabetical. The
+top-level `counts` object reports location, archive, installed, not-installed,
+and total-byte counts. Archive and location IDs are opaque and should be
+refreshed after files move or download-location settings change.
 
 List mods:
 
@@ -226,8 +255,8 @@ A copy inherits the source's shared or profile-specific storage mode. Copying a
 profile-specific profile also copies its installed mod folders and may take
 significant time and disk space. The `backups/` directory and standard
 generated Filegraph projection and index files are not copied. The
-original-default and profile
-lock flags are cleared on the copy. Profile groups cannot be copied through
+original-default and profile lock flags are cleared on the copy. Profile groups
+cannot be copied through
 this method; manage their member definition in the desktop application for now.
 Do not combine `copy_from` and `profile_specific_mods`.
 
@@ -648,7 +677,8 @@ otherwise the caller does not directly receive the created job ID.
 
 ## Current limitations
 
-- Nexus browsing, downloads, installation, and launch are not exposed yet.
+- Nexus browsing, starting downloads, installation, and launch are not exposed
+  yet. Completed archives can be inspected with `downloads.list`.
 - Progress delivery is polling-only and running jobs cannot be cancelled.
 - The shared operation lock currently coordinates headless profile, mod
   activation, ordering and removal jobs and the standard deploy/restore flows,

@@ -3,6 +3,7 @@ py.install_sources(
   'bandwidth.py',
   'cache.py',
   'core.py',
+  'inventory.py',
   'locations.py',
   'modl.py',
   'mpi.py',

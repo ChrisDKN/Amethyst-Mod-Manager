@@ -82,15 +82,11 @@ class InstalledIndex:
         return ids is not None and ids in self.mod_file_ids
 
 
-def build_installed_index(game) -> InstalledIndex:
-    """Walk the game's staging, read each meta.ini, collect installation_file +
-    (mod_id, file_id). Port of Tk _get_installed_filenames (game, not panel)."""
+def build_installed_index_for_staging(staging: Path | None) -> InstalledIndex:
+    """Build installed archive identity from an explicit staging directory."""
     idx = InstalledIndex()
     try:
         from Nexus.nexus_meta import read_meta
-        if game is None or not game.is_configured():
-            return idx
-        staging = game.get_effective_mod_staging_path()
         if not staging or not Path(staging).is_dir():
             return idx
         for folder in Path(staging).iterdir():
@@ -108,6 +104,17 @@ def build_installed_index(game) -> InstalledIndex:
     except Exception:
         return idx
     return idx
+
+
+def build_installed_index(game) -> InstalledIndex:
+    """Build installed archive identity for the game's active profile."""
+    try:
+        if game is None or not game.is_configured():
+            return InstalledIndex()
+        staging = game.get_effective_mod_staging_path()
+    except Exception:
+        return InstalledIndex()
+    return build_installed_index_for_staging(staging)
 
 
 # ---------------------------------------------------------------------------

@@ -33,6 +33,7 @@ class AmethystService:
         "profiles.rename.start",
         "profiles.remove.start",
         "profiles.select.start",
+        "downloads.list",
         "mods.list",
         "mods.set_enabled.start",
         "mods.move.start",
@@ -60,6 +61,7 @@ class AmethystService:
             "profiles.rename.start": self._start_rename_profile,
             "profiles.remove.start": self._start_remove_profile,
             "profiles.select.start": self._start_select_profile,
+            "downloads.list": self._list_downloads,
             "mods.list": self._list_mods,
             "mods.set_enabled.start": self._start_set_enabled,
             "mods.move.start": self._start_move,
@@ -365,6 +367,37 @@ class AmethystService:
             profile_dir.name,
         )
         return {"job": job}
+
+    def _list_downloads(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(params, {"game", "profile"}, {"game", "profile"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_configured(game)
+        profile_dir = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+
+        from Utils.downloads.inventory import build_inventory
+        from Utils.profiles.state import profile_uses_specific_mods
+
+        try:
+            inventory = build_inventory(game, profile_dir)
+        except OSError as exc:
+            raise ServiceError(
+                -32003,
+                "resource_unavailable",
+                "Could not scan the configured download locations.",
+                {"reason": str(exc)},
+            ) from exc
+        return {
+            "game": self._canonical_game(game),
+            "profile": {
+                "name": profile_dir.name,
+                "path": self._path_text(profile_dir),
+                "profile_specific_mods": profile_uses_specific_mods(
+                    profile_dir),
+            },
+            **inventory,
+        }
 
     def _list_mods(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()
