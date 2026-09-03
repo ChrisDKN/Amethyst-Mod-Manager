@@ -4023,46 +4023,8 @@ class MainWindow(QMainWindow):
     @staticmethod
     def _load_saved_nexus_api() -> dict:
         """Worker-safe saved-login load; never touches Qt widgets."""
-        result = {"api": None, "error": "", "revoked": False}
-        # OAuth's module import probes DBus/keyring and imports its HTTP/crypto
-        # stack. A v2 "cleared" authority record is definitive (it deliberately
-        # overrides any stale legacy keyring value), so logged-out users can
-        # avoid that work entirely until they actually start a login flow.
-        try:
-            import json
-            from Utils.config_paths import get_config_dir
-            storage = get_config_dir() / "nexus_oauth_storage_v2.bin"
-            if storage.is_file():
-                state = json.loads(storage.read_text(encoding="utf-8"))
-                if (isinstance(state, dict)
-                        and state.get("version") == 2
-                        and state.get("mode") == "cleared"):
-                    return result
-        except (OSError, TypeError, ValueError):
-            pass
-
-        from Nexus.nexus_oauth import (
-            OAuthRefreshError, clear_oauth_tokens, load_oauth_tokens)
-        from Nexus.nexus_api import NexusAPI
-        tokens = load_oauth_tokens()
-        if tokens is None:
-            return result
-        try:
-            result["api"] = NexusAPI.from_oauth(tokens)
-        except OAuthRefreshError as exc:
-            result["error"] = str(exc)
-            result["revoked"] = bool(exc.token_revoked)
-            # A dead (rotated-out / revoked) refresh token wedges every future
-            # launch. Clearing storage is blocking keyring/file work too, so it
-            # belongs on this worker with the load/refresh operation.
-            if exc.token_revoked:
-                try:
-                    clear_oauth_tokens()
-                except Exception as clear_exc:
-                    result["error"] += f"; could not clear login: {clear_exc}"
-        except Exception as exc:
-            result["error"] = str(exc)
-        return result
+        from Nexus.session import load_saved_nexus_api
+        return load_saved_nexus_api()
 
     def _start_nexus_api_init(self):
         """Restore the optional saved Nexus session without blocking paint."""

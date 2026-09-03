@@ -9,10 +9,18 @@ import uuid
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Callable
 
 
 _FINAL_STATES = {"succeeded", "failed"}
+
+
+class JobError(RuntimeError):
+    def __init__(self, name: str, message: str,
+                 details: dict[str, Any] | None = None):
+        super().__init__(message)
+        self.name = name
+        self.details = details or {}
 
 
 def _utc_now() -> str:
@@ -24,9 +32,11 @@ class _Job:
     id: str
     kind: str
     game: Any = field(repr=False)
-    game_info: dict[str, str]
-    profile: str
+    game_info: dict[str, str] | None
+    profile: str | None
     options: dict[str, Any]
+    runner: Callable[[Callable[..., None], Callable[..., None]],
+                     dict[str, Any]] | None = field(default=None, repr=False)
     state: str = "queued"
     created_at: str = field(default_factory=_utc_now)
     started_at: str | None = None
@@ -56,17 +66,21 @@ class JobManager:
         self,
         kind: str,
         game: Any,
-        game_info: dict[str, str],
-        profile: str,
+        game_info: dict[str, str] | None,
+        profile: str | None,
         options: dict[str, Any] | None = None,
+        *,
+        runner: Callable[[Callable[..., None], Callable[..., None]],
+                         dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         job = _Job(
             id=uuid.uuid4().hex,
             kind=kind,
             game=game,
-            game_info=dict(game_info),
+            game_info=dict(game_info) if game_info is not None else None,
             profile=profile,
             options=dict(options or {}),
+            runner=runner,
             events=deque(maxlen=self._max_events),
         )
         with self._condition:
@@ -188,7 +202,12 @@ class JobManager:
 
         try:
             result: dict[str, Any]
-            if job.kind == "deploy":
+            if job.runner is not None:
+                result = job.runner(log, progress)
+                if not isinstance(result, dict):
+                    raise TypeError("A job runner must return a dictionary.")
+                ok = True
+            elif job.kind == "deploy":
                 from Utils.deployment.pipeline import run_deploy_pipeline
                 ok = run_deploy_pipeline(
                     job.game,
@@ -301,45 +320,52 @@ class JobManager:
             else:
                 raise RuntimeError(f"Unsupported job kind: {job.kind}")
         except Exception as exc:
-            from Utils.operations import OperationBusy
-            if isinstance(exc, OperationBusy):
+            if isinstance(exc, JobError):
                 error = {
-                    "name": "operation_busy",
+                    "name": exc.name,
                     "message": str(exc),
                     "details": exc.details,
                 }
             else:
-                from Utils.mods.state import ModStateError
-                if isinstance(exc, ModStateError):
+                from Utils.operations import OperationBusy
+                if isinstance(exc, OperationBusy):
                     error = {
-                        "name": exc.name,
+                        "name": "operation_busy",
                         "message": str(exc),
                         "details": exc.details,
                     }
                 else:
-                    from Utils.profiles.manage import ProfileError
-                    if isinstance(exc, ProfileError):
+                    from Utils.mods.state import ModStateError
+                    if isinstance(exc, ModStateError):
                         error = {
                             "name": exc.name,
                             "message": str(exc),
                             "details": exc.details,
                         }
                     else:
-                        error = {
-                            "name": "internal_error",
-                            "message": str(exc) or type(exc).__name__,
-                            "details": {"exception": type(exc).__name__},
-                        }
-                        try:
-                            print(
-                                f"[headless] {job.kind} job {job.id} failed: "
-                                f"{type(exc).__name__}: {exc}\n"
-                                f"{traceback.format_exc()}",
-                                file=sys.stderr,
-                                flush=True,
-                            )
-                        except Exception:
-                            pass
+                        from Utils.profiles.manage import ProfileError
+                        if isinstance(exc, ProfileError):
+                            error = {
+                                "name": exc.name,
+                                "message": str(exc),
+                                "details": exc.details,
+                            }
+                        else:
+                            error = {
+                                "name": "internal_error",
+                                "message": str(exc) or type(exc).__name__,
+                                "details": {"exception": type(exc).__name__},
+                            }
+                            try:
+                                print(
+                                    f"[headless] {job.kind} job {job.id} failed: "
+                                    f"{type(exc).__name__}: {exc}\n"
+                                    f"{traceback.format_exc()}",
+                                    file=sys.stderr,
+                                    flush=True,
+                                )
+                            except Exception:
+                                pass
             self._finish(job, "failed", error=error)
             return
 
@@ -393,7 +419,7 @@ class JobManager:
             "id": job.id,
             "kind": job.kind,
             "state": job.state,
-            "game": dict(job.game_info),
+            "game": dict(job.game_info) if job.game_info is not None else None,
             "profile": job.profile,
             "options": dict(job.options),
             "created_at": job.created_at,

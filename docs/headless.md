@@ -2,9 +2,9 @@
 
 Amethyst headless mode gives scripts and external applications a stable way to
 use the manager without importing its Python modules or starting Qt. Protocol
-version 1 exposes game, profile, mod and downloaded-archive state plus
-asynchronous mod activation, ordering, removal, profile lifecycle, deploy, and
-restore jobs.
+version 1 exposes game, profile, mod and downloaded-archive state, Nexus OAuth
+and exact-ID metadata, plus asynchronous mod activation, ordering, removal,
+profile lifecycle, deploy, and restore jobs.
 
 The public boundary is JSON-RPC 2.0 over newline-delimited JSON (NDJSON).
 Amethyst reads one JSON value per line from standard input and writes one JSON
@@ -45,7 +45,8 @@ PYTHONPATH=src .venv/bin/python src/cli.py headless --stdio
 ```
 
 The process remains alive until standard input closes. JSON-RPC requests are
-handled sequentially, while mutation jobs run in a background worker.
+handled sequentially, while filesystem and network jobs run in a background
+worker.
 On end-of-input, Amethyst stops accepting requests and waits for every accepted
 job to finish before exiting. This prevents a client disconnect from terminating
 a mutation halfway through.
@@ -95,7 +96,13 @@ The response describes the protocol and available features:
       "events": true,
       "event_delivery": "poll",
       "cancellation": false,
-      "mutations": ["profiles.create", "profiles.rename", "profiles.remove", "profiles.select", "mods.set_enabled", "mods.move", "mods.remove", "deploy", "restore"],
+      "mutations": ["profiles.create", "profiles.rename", "profiles.remove", "profiles.select", "mods.set_enabled", "mods.move", "mods.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout"],
+      "nexus": {
+        "authentication": "oauth_pkce",
+        "browser_open_optional": true,
+        "manual_code_fallback": true,
+        "credentials_exposed": false
+      },
       "maximum_event_wait_ms": 30000,
       "methods": [
         "system.handshake",
@@ -108,6 +115,15 @@ The response describes the protocol and available features:
         "profiles.remove.start",
         "profiles.select.start",
         "downloads.list",
+        "nexus.auth.get",
+        "nexus.auth.login.start",
+        "nexus.auth.login.submit_code",
+        "nexus.auth.login.cancel",
+        "nexus.auth.logout.start",
+        "nexus.user.get.start",
+        "nexus.mods.get.start",
+        "nexus.mods.files.start",
+        "nexus.files.get.start",
         "mods.list",
         "mods.set_enabled.start",
         "mods.move.start",
@@ -144,6 +160,15 @@ parameters are rejected.
 | `profiles.remove.start` | `game` string, `profile` string, `confirm` boolean | Permanently remove a profile. |
 | `profiles.select.start` | `game` string, `profile` string | Persist and load the active profile. |
 | `downloads.list` | `game` string, `profile` string | List downloaded mod archives and configured locations. |
+| `nexus.auth.get` | None | Inspect saved-credential and active-login state without exposing credentials. |
+| `nexus.auth.login.start` | `open_browser` boolean (optional) | Start a Nexus OAuth login flow and return its authorisation URL. |
+| `nexus.auth.login.submit_code` | `code` string | Submit the manual fallback code for the active login. |
+| `nexus.auth.login.cancel` | None | Cancel the active login flow. |
+| `nexus.auth.logout.start` | `confirm` boolean | Clear saved Nexus OAuth and legacy API-key credentials. |
+| `nexus.user.get.start` | `refresh` boolean (optional) | Validate the login and return sanitized account information. |
+| `nexus.mods.get.start` | `game` string, `mod_id` integer, `domain` string (optional) | Fetch one Nexus mod by exact ID. |
+| `nexus.mods.files.start` | `game` string, `mod_id` integer, `domain` string (optional) | Fetch the files and update chain for one Nexus mod. |
+| `nexus.files.get.start` | `game` string, `mod_id` integer, `file_id` integer, `domain` string (optional) | Fetch one exact Nexus file. |
 | `mods.list` | `game` string, `profile` string | List a profile's mods, separators and installed metadata. |
 | `mods.set_enabled.start` | `game` string, `profile` string, `changes` array | Start a batch mod enable/disable job. |
 | `mods.move.start` | `game` string, `profile` string, `mods` array, `position` object | Move mods as a priority-ordered block. |
@@ -224,12 +249,91 @@ update state, and Nexus or Thunderstore identity when available. A stale
 Read methods return `operation_in_progress` while this service is changing game
 state. Continue polling the active job and retry the read after it completes.
 
-## Mutation jobs
+### Nexus authentication and metadata
 
-Mutating calls return immediately with a job snapshot. They do not hold the
-JSON-RPC request open for the filesystem operation.
-Only one mutable job may be outstanding in a headless process; another start
-request returns `operation_in_progress` until that job reaches a final state.
+The headless service shares the desktop application's saved Nexus login. It
+never returns access tokens, refresh tokens, API keys, or the account email.
+Inspect the local credential and login-flow state with:
+
+```json
+{"jsonrpc":"2.0","id":"nexus-auth","method":"nexus.auth.get","params":{}}
+```
+
+`credentials.authenticated` means that an OAuth credential is stored; use
+`nexus.user.get.start` when the client needs Nexus to validate it. The status
+also reports the access-token expiry and whether a refresh will be required,
+but never the token itself. `login` is the separate browser flow state and is
+one of `idle`, `starting`, `waiting_for_user`, `exchanging`, `succeeded`,
+`failed`, or `cancelled`.
+
+Start a login without asking the machine running Amethyst to open a browser:
+
+```json
+{"jsonrpc":"2.0","id":"nexus-login","method":"nexus.auth.login.start","params":{"open_browser":false}}
+```
+
+Open the returned `login.authorize_url` in a browser. The browser redirect must
+be able to reach `http://localhost:7890/callback` on the machine running the
+headless process. Set `open_browser` to true when Amethyst should open that URL
+locally. Poll `nexus.auth.get` until the login reaches a final state; an
+unfinished flow times out after five minutes.
+
+If the localhost redirect cannot complete, use the code from Nexus Mods'
+"Having issues?" fallback on the same active flow:
+
+```json
+{"jsonrpc":"2.0","id":"nexus-code","method":"nexus.auth.login.submit_code","params":{"code":"<base64 code from Nexus>"}}
+```
+
+The code is passed directly to the OAuth client and is never returned in a
+response, job snapshot, event, or log. Cancel a waiting flow with
+`nexus.auth.login.cancel`.
+
+Validate the saved session and retrieve the non-sensitive account fields:
+
+```json
+{"jsonrpc":"2.0","id":"nexus-user","method":"nexus.user.get.start","params":{}}
+```
+
+The successful job result contains `user_id`, display `name`, premium and
+supporter flags, `profile_url`, and the most recently observed hourly and daily
+rate limits. Set `refresh` to true to bypass the five-minute account cache.
+
+Fetch exact mod and file metadata using positive numeric Nexus IDs:
+
+```json
+{"jsonrpc":"2.0","id":"nexus-mod","method":"nexus.mods.get.start","params":{"game":"skyrim_se","mod_id":3863}}
+{"jsonrpc":"2.0","id":"nexus-files","method":"nexus.mods.files.start","params":{"game":"skyrim_se","mod_id":3863}}
+{"jsonrpc":"2.0","id":"nexus-file","method":"nexus.files.get.start","params":{"game":"skyrim_se","mod_id":3863,"file_id":1000172397}}
+```
+
+The game's primary Nexus domain is used by default. Games that accept content
+from more than one Nexus site expose all valid values in
+`games.list`/`games.get`; pass `domain` to select a non-primary value. Amethyst
+rejects domains outside that handler's list instead of making an arbitrary
+cross-game request.
+
+These network calls are jobs. Poll them like deployment jobs and inspect their
+structured final errors. Expected Nexus errors include
+`nexus_not_authenticated`, `nexus_auth_expired`, `nexus_auth_unavailable`,
+`nexus_rate_limited`, and `nexus_request_failed`.
+
+Clear both the shared OAuth login and any legacy Nexus API key with:
+
+```json
+{"jsonrpc":"2.0","id":"nexus-logout","method":"nexus.auth.logout.start","params":{"confirm":true}}
+```
+
+Logout is a job because keyring access can block. It also cancels an unfinished
+browser login so a late callback cannot restore credentials after logout.
+
+## Jobs
+
+Job-producing calls return immediately with a snapshot. They do not hold the
+JSON-RPC request open for filesystem or network work. Only one queued or
+running job may be outstanding in a headless process; another job-producing
+request returns `operation_in_progress` until it reaches a final state. The
+OAuth browser flow is separate from this queue.
 
 ### Manage profiles
 
@@ -489,6 +593,8 @@ the same headless process remains alive:
 ```
 
 Job states are `queued`, `running`, `succeeded`, and `failed`.
+Account and logout jobs are not tied to a game or profile, so those snapshot
+fields are null.
 
 ### Polling events
 
@@ -545,9 +651,10 @@ Other final job error names are `deploy_failed`, `restore_failed`,
 `resource_unavailable`, and `internal_error`. Human-readable pipeline details
 remain available in the job's `log` events.
 
-Mutation jobs are not cancellable in protocol version 1. Once accepted, allow
-the job to reach a final state. This avoids abandoning a partially updated,
-restored, or deployed filesystem.
+Jobs are not cancellable in protocol version 1. Once accepted, allow the job to
+reach a final state. This avoids abandoning a partially updated, restored, or
+deployed filesystem. The separate OAuth browser flow can be cancelled with
+`nexus.auth.login.cancel`.
 
 Headless deployment uses the same non-interactive policy as the one-shot CLI:
 there is no UI confirmation dialog. Configure and test unusual game-specific
@@ -672,13 +779,14 @@ process from blocking on a full pipe.
 JSON-RPC batch arrays are accepted as one NDJSON line and their responses are
 returned as one array on one line. Requests without an `id` are notifications
 and do not receive a response. A batch containing only notifications produces
-no output line. Use request IDs for every mutation method ending in `.start`;
-otherwise the caller does not directly receive the created job ID.
+no output line. Use request IDs for methods ending in `.start`; otherwise the
+caller does not directly receive the created job ID or login-flow state.
 
 ## Current limitations
 
-- Nexus browsing, starting downloads, installation, and launch are not exposed
-  yet. Completed archives can be inspected with `downloads.list`.
+- Broad Nexus search/browsing, starting downloads, installation, and launch are
+  not exposed yet. OAuth login and exact mod/file metadata are available;
+  completed archives can be inspected with `downloads.list`.
 - Progress delivery is polling-only and running jobs cannot be cancelled.
 - The shared operation lock currently coordinates headless profile, mod
   activation, ordering and removal jobs and the standard deploy/restore flows,

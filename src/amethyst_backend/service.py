@@ -34,6 +34,15 @@ class AmethystService:
         "profiles.remove.start",
         "profiles.select.start",
         "downloads.list",
+        "nexus.auth.get",
+        "nexus.auth.login.start",
+        "nexus.auth.login.submit_code",
+        "nexus.auth.login.cancel",
+        "nexus.auth.logout.start",
+        "nexus.user.get.start",
+        "nexus.mods.get.start",
+        "nexus.mods.files.start",
+        "nexus.files.get.start",
         "mods.list",
         "mods.set_enabled.start",
         "mods.move.start",
@@ -51,6 +60,9 @@ class AmethystService:
             games = discover_games()
         self._games = dict(games)
         self._jobs = JobManager()
+        from Nexus.session import NexusLoginManager, NexusSession
+        self._nexus_session = NexusSession()
+        self._nexus_login = NexusLoginManager(self._nexus_session)
         self._handlers: dict[str, Callable[[dict[str, Any]], Any]] = {
             "system.handshake": self._handshake,
             "system.ping": self._ping,
@@ -62,6 +74,15 @@ class AmethystService:
             "profiles.remove.start": self._start_remove_profile,
             "profiles.select.start": self._start_select_profile,
             "downloads.list": self._list_downloads,
+            "nexus.auth.get": self._get_nexus_auth,
+            "nexus.auth.login.start": self._start_nexus_login,
+            "nexus.auth.login.submit_code": self._submit_nexus_login_code,
+            "nexus.auth.login.cancel": self._cancel_nexus_login,
+            "nexus.auth.logout.start": self._start_nexus_logout,
+            "nexus.user.get.start": self._start_nexus_user,
+            "nexus.mods.get.start": self._start_nexus_mod,
+            "nexus.mods.files.start": self._start_nexus_files,
+            "nexus.files.get.start": self._start_nexus_file,
             "mods.list": self._list_mods,
             "mods.set_enabled.start": self._start_set_enabled,
             "mods.move.start": self._start_move,
@@ -75,6 +96,8 @@ class AmethystService:
 
     def close(self) -> None:
         self._jobs.close(wait=True)
+        self._nexus_login.close()
+        self._nexus_session.close()
 
     def call(self, method: str, params: Any = None) -> Any:
         handler = self._handlers.get(method)
@@ -124,6 +147,18 @@ class AmethystService:
                 {"parameter": name},
             )
         return value.strip()
+
+    @staticmethod
+    def _positive_integer(params: dict[str, Any], name: str) -> int:
+        value = params.get(name)
+        if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                f"'{name}' must be a positive integer.",
+                {"parameter": name},
+            )
+        return value
 
     @staticmethod
     def _mod_name(value: Any, parameter: str) -> str:
@@ -203,7 +238,14 @@ class AmethystService:
                 "mutations": [
                     "profiles.create", "profiles.rename", "profiles.remove",
                     "profiles.select", "mods.set_enabled", "mods.move",
-                    "mods.remove", "deploy", "restore"],
+                    "mods.remove", "deploy", "restore",
+                    "nexus.auth.login", "nexus.auth.logout"],
+                "nexus": {
+                    "authentication": "oauth_pkce",
+                    "browser_open_optional": True,
+                    "manual_code_fallback": True,
+                    "credentials_exposed": False,
+                },
                 "maximum_event_wait_ms": 30000,
                 "methods": list(self.METHODS),
             },
@@ -398,6 +440,150 @@ class AmethystService:
             },
             **inventory,
         }
+
+    def _get_nexus_auth(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._check_params(params, set())
+        return {
+            "credentials": self._nexus_session.status(),
+            "login": self._nexus_login.status(),
+        }
+
+    def _start_nexus_login(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._check_params(params, {"open_browser"})
+        open_browser = params.get("open_browser", False)
+        if not isinstance(open_browser, bool):
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'open_browser' must be a boolean.",
+                {"parameter": "open_browser"},
+            )
+        try:
+            login = self._nexus_login.start(open_browser=open_browser)
+        except Exception as exc:
+            self._raise_nexus_session_error(exc)
+        return {"login": login}
+
+    def _submit_nexus_login_code(
+        self, params: dict[str, Any],
+    ) -> dict[str, Any]:
+        self._check_params(params, {"code"}, {"code"})
+        code = self._required_text(params, "code")
+        if len(code) > 16384:
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'code' is too long.",
+                {"parameter": "code"},
+            )
+        accepted, message = self._nexus_login.submit_manual_code(code)
+        return {
+            "accepted": accepted,
+            "message": message,
+            "login": self._nexus_login.status(),
+        }
+
+    def _cancel_nexus_login(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._check_params(params, set())
+        return {"login": self._nexus_login.cancel()}
+
+    def _start_nexus_logout(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(params, {"confirm"}, {"confirm"})
+        if params.get("confirm") is not True:
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'confirm' must be true to clear saved Nexus credentials.",
+                {"parameter": "confirm"},
+            )
+        from .nexus import logout_runner
+        job = self._jobs.submit(
+            "nexus.auth.logout",
+            None,
+            None,
+            None,
+            runner=logout_runner(self._nexus_session, self._nexus_login),
+        )
+        return {"job": job}
+
+    def _start_nexus_user(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(params, {"refresh"})
+        refresh = params.get("refresh", False)
+        if not isinstance(refresh, bool):
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'refresh' must be a boolean.",
+                {"parameter": "refresh"},
+            )
+        from .nexus import account_runner
+        job = self._jobs.submit(
+            "nexus.user.get",
+            None,
+            None,
+            None,
+            {"refresh": refresh},
+            runner=account_runner(self._nexus_session, refresh=refresh),
+        )
+        return {"job": job}
+
+    def _start_nexus_mod(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params, {"game", "domain", "mod_id"}, {"game", "mod_id"})
+        game, domain = self._resolve_nexus_domain(params)
+        mod_id = self._positive_integer(params, "mod_id")
+        from .nexus import mod_runner
+        job = self._jobs.submit(
+            "nexus.mods.get",
+            game,
+            self._canonical_game(game),
+            None,
+            {"domain": domain, "mod_id": mod_id},
+            runner=mod_runner(self._nexus_session, domain, mod_id),
+        )
+        return {"job": job}
+
+    def _start_nexus_files(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params, {"game", "domain", "mod_id"}, {"game", "mod_id"})
+        game, domain = self._resolve_nexus_domain(params)
+        mod_id = self._positive_integer(params, "mod_id")
+        from .nexus import files_runner
+        job = self._jobs.submit(
+            "nexus.mods.files",
+            game,
+            self._canonical_game(game),
+            None,
+            {"domain": domain, "mod_id": mod_id},
+            runner=files_runner(self._nexus_session, domain, mod_id),
+        )
+        return {"job": job}
+
+    def _start_nexus_file(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params,
+            {"game", "domain", "mod_id", "file_id"},
+            {"game", "mod_id", "file_id"},
+        )
+        game, domain = self._resolve_nexus_domain(params)
+        mod_id = self._positive_integer(params, "mod_id")
+        file_id = self._positive_integer(params, "file_id")
+        from .nexus import file_runner
+        job = self._jobs.submit(
+            "nexus.files.get",
+            game,
+            self._canonical_game(game),
+            None,
+            {"domain": domain, "mod_id": mod_id, "file_id": file_id},
+            runner=file_runner(
+                self._nexus_session, domain, mod_id, file_id),
+        )
+        return {"job": job}
 
     def _list_mods(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()
@@ -755,6 +941,13 @@ class AmethystService:
                 {"game": identity},
             )
 
+    @staticmethod
+    def _raise_nexus_session_error(exc: Exception) -> None:
+        from Nexus.session import NexusSessionError
+        if not isinstance(exc, NexusSessionError):
+            raise exc
+        raise ServiceError(-32011, exc.name, str(exc), exc.details) from exc
+
     def _unsupported_operation(self, game: Any, operation: str) -> None:
         identity = self._canonical_game(game)
         raise ServiceError(
@@ -813,6 +1006,39 @@ class AmethystService:
             f"Game '{key}' was not found.",
             {"game": key},
         )
+
+    def _resolve_nexus_domain(
+        self, params: dict[str, Any],
+    ) -> tuple[Any, str]:
+        game = self._resolve_game(self._required_text(params, "game"))
+        raw_domains = self._safe_attr(game, "nexus_game_domains", ()) or ()
+        if isinstance(raw_domains, str):
+            raw_domains = (raw_domains,)
+        domains: list[str] = []
+        for raw in raw_domains:
+            domain = str(raw or "").strip().lower()
+            if domain and domain not in domains:
+                domains.append(domain)
+        if not domains:
+            primary = str(
+                self._safe_attr(game, "nexus_game_domain", "") or ""
+            ).strip().lower()
+            if primary:
+                domains.append(primary)
+        if not domains:
+            self._unsupported_operation(game, "Nexus Mods metadata")
+
+        if "domain" not in params:
+            return game, domains[0]
+        domain = self._required_text(params, "domain").lower()
+        if domain not in domains:
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                f"Nexus domain '{domain}' is not valid for this game.",
+                {"parameter": "domain", "supported": domains},
+            )
+        return game, domain
 
     def _resolve_profile(self, game: Any, name: str) -> Path:
         profiles = self._profile_dirs(game)
