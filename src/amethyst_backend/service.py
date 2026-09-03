@@ -29,6 +29,10 @@ class AmethystService:
         "games.list",
         "games.get",
         "profiles.list",
+        "profiles.create.start",
+        "profiles.rename.start",
+        "profiles.remove.start",
+        "profiles.select.start",
         "mods.list",
         "mods.set_enabled.start",
         "mods.move.start",
@@ -52,6 +56,10 @@ class AmethystService:
             "games.list": self._list_games,
             "games.get": self._get_game,
             "profiles.list": self._list_profiles,
+            "profiles.create.start": self._start_create_profile,
+            "profiles.rename.start": self._start_rename_profile,
+            "profiles.remove.start": self._start_remove_profile,
+            "profiles.select.start": self._start_select_profile,
             "mods.list": self._list_mods,
             "mods.set_enabled.start": self._start_set_enabled,
             "mods.move.start": self._start_move,
@@ -129,6 +137,22 @@ class AmethystService:
             )
         return value
 
+    @staticmethod
+    def _profile_name(value: Any, parameter: str) -> str:
+        if (not isinstance(value, str) or not value.strip()
+                or value != value.strip()
+                or value in (".", "..")
+                or Path(value).name != value
+                or "\\" in value
+                or any(char in value for char in "\x00\r\n")):
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                f"'{parameter}' must be a valid profile name.",
+                {"parameter": parameter},
+            )
+        return value
+
     def _handshake(self, params: dict[str, Any]) -> dict[str, Any]:
         self._check_params(params, {"protocol_version", "client"})
         requested = params.get("protocol_version")
@@ -175,8 +199,9 @@ class AmethystService:
                 "event_delivery": "poll",
                 "cancellation": False,
                 "mutations": [
-                    "mods.set_enabled", "mods.move", "mods.remove", "deploy",
-                    "restore"],
+                    "profiles.create", "profiles.rename", "profiles.remove",
+                    "profiles.select", "mods.set_enabled", "mods.move",
+                    "mods.remove", "deploy", "restore"],
                 "maximum_event_wait_ms": 30000,
                 "methods": list(self.METHODS),
             },
@@ -239,6 +264,107 @@ class AmethystService:
             "profile_root": self._path_text(game.get_profile_root()),
             "profiles": profiles,
         }
+
+    def _start_create_profile(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params, {"game", "name", "profile_specific_mods", "copy_from"},
+            {"game", "name"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_configured(game)
+        name = self._profile_name(params.get("name"), "name")
+
+        specific = params.get("profile_specific_mods", False)
+        if not isinstance(specific, bool):
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'profile_specific_mods' must be a boolean.",
+                {"parameter": "profile_specific_mods"},
+            )
+        copy_from = params.get("copy_from")
+        if copy_from is not None:
+            copy_from = self._profile_name(copy_from, "copy_from")
+            source_dir = self._resolve_profile(game, copy_from)
+            copy_from = source_dir.name
+            if "profile_specific_mods" in params:
+                raise ServiceError(
+                    -32602,
+                    "invalid_params",
+                    "'profile_specific_mods' cannot be supplied with "
+                    "'copy_from'.",
+                    {"parameter": "profile_specific_mods"},
+                )
+
+        job = self._jobs.submit(
+            "profiles.create",
+            game,
+            self._canonical_game(game),
+            name,
+            {
+                "profile_specific_mods": specific,
+                "copy_from": copy_from,
+            },
+        )
+        return {"job": job}
+
+    def _start_rename_profile(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params, {"game", "profile", "new_name"},
+            {"game", "profile", "new_name"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_configured(game)
+        profile_dir = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+        new_name = self._profile_name(params.get("new_name"), "new_name")
+        job = self._jobs.submit(
+            "profiles.rename",
+            game,
+            self._canonical_game(game),
+            profile_dir.name,
+            {"new_name": new_name},
+        )
+        return {"job": job}
+
+    def _start_remove_profile(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params, {"game", "profile", "confirm"},
+            {"game", "profile", "confirm"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_configured(game)
+        profile_dir = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+        if params.get("confirm") is not True:
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'confirm' must be true because profile removal is irreversible.",
+                {"parameter": "confirm"},
+            )
+        job = self._jobs.submit(
+            "profiles.remove",
+            game,
+            self._canonical_game(game),
+            profile_dir.name,
+        )
+        return {"job": job}
+
+    def _start_select_profile(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(params, {"game", "profile"}, {"game", "profile"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_configured(game)
+        profile_dir = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+        job = self._jobs.submit(
+            "profiles.select",
+            game,
+            self._canonical_game(game),
+            profile_dir.name,
+        )
+        return {"job": job}
 
     def _list_mods(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()
@@ -759,6 +885,13 @@ class AmethystService:
             "name": profile_dir.name,
             "path": self._path_text(profile_dir),
             "is_default": profile_dir.name == "default",
+            "original_default": bool(
+                profile_dir.name == "default"
+                or settings.get("original_default", False)),
+            "locked": bool(
+                profile_dir.name == "default"
+                or settings.get("original_default", False)
+                or settings.get("profile_locked", False)),
             "is_group": bool(settings.get("is_group", False)),
             "group_members": [item for item in members if isinstance(item, str)],
             "profile_specific_mods": bool(

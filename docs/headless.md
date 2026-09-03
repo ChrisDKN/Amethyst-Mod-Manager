@@ -3,7 +3,7 @@
 Amethyst headless mode gives scripts and external applications a stable way to
 use the manager without importing its Python modules or starting Qt. Protocol
 version 1 exposes game, profile and mod state plus asynchronous mod activation,
-ordering, removal, deploy, and restore jobs.
+ordering, removal, profile lifecycle, deploy, and restore jobs.
 
 The public boundary is JSON-RPC 2.0 over newline-delimited JSON (NDJSON).
 Amethyst reads one JSON value per line from standard input and writes one JSON
@@ -94,7 +94,7 @@ The response describes the protocol and available features:
       "events": true,
       "event_delivery": "poll",
       "cancellation": false,
-      "mutations": ["mods.set_enabled", "mods.move", "mods.remove", "deploy", "restore"],
+      "mutations": ["profiles.create", "profiles.rename", "profiles.remove", "profiles.select", "mods.set_enabled", "mods.move", "mods.remove", "deploy", "restore"],
       "maximum_event_wait_ms": 30000,
       "methods": [
         "system.handshake",
@@ -102,6 +102,10 @@ The response describes the protocol and available features:
         "games.list",
         "games.get",
         "profiles.list",
+        "profiles.create.start",
+        "profiles.rename.start",
+        "profiles.remove.start",
+        "profiles.select.start",
         "mods.list",
         "mods.set_enabled.start",
         "mods.move.start",
@@ -133,6 +137,10 @@ parameters are rejected.
 | `games.list` | `configured_only` boolean (optional) | List discovered game handlers. |
 | `games.get` | `game` string | Return one game and its current state. |
 | `profiles.list` | `game` string | List existing profiles and summary counts. |
+| `profiles.create.start` | `game` string, `name` string, `profile_specific_mods` boolean (optional), `copy_from` string (optional) | Create or copy a profile. |
+| `profiles.rename.start` | `game` string, `profile` string, `new_name` string | Rename a profile. |
+| `profiles.remove.start` | `game` string, `profile` string, `confirm` boolean | Permanently remove a profile. |
+| `profiles.select.start` | `game` string, `profile` string | Persist and load the active profile. |
 | `mods.list` | `game` string, `profile` string | List a profile's mods, separators and installed metadata. |
 | `mods.set_enabled.start` | `game` string, `profile` string, `changes` array | Start a batch mod enable/disable job. |
 | `mods.move.start` | `game` string, `profile` string, `mods` array, `position` object | Move mods as a priority-ordered block. |
@@ -168,7 +176,8 @@ List profiles:
 ```
 
 Profiles include mod counts, profile-group membership, profile-specific staging
-state, collection association, and selected/deployed state.
+state, collection association, selected/deployed state, and `locked` and
+`original_default` removal-protection flags.
 
 List mods:
 
@@ -193,6 +202,79 @@ JSON-RPC request open for the filesystem operation.
 Only one mutable job may be outstanding in a headless process; another start
 request returns `operation_in_progress` until that job reaches a final state.
 
+### Manage profiles
+
+Create an empty profile with its own private mod staging folder:
+
+```json
+{"jsonrpc":"2.0","id":5,"method":"profiles.create.start","params":{"game":"skyrim_se","name":"Handheld","profile_specific_mods":true}}
+```
+
+An empty profile-specific profile starts with no installed mods plus private
+`mods`, `overwrite`, and `Root_Folder` directories. Its plugin files may still
+be seeded with game-required vanilla entries. With
+`profile_specific_mods` omitted or false, a new shared-staging profile clones
+the default profile's state and continues to use the game's common mod pool.
+
+Copy an existing profile by supplying `copy_from`:
+
+```json
+{"jsonrpc":"2.0","id":6,"method":"profiles.create.start","params":{"game":"skyrim_se","name":"Handheld Copy","copy_from":"Handheld"}}
+```
+
+A copy inherits the source's shared or profile-specific storage mode. Copying a
+profile-specific profile also copies its installed mod folders and may take
+significant time and disk space. The `backups/` directory and standard
+generated Filegraph projection and index files are not copied. The
+original-default and profile
+lock flags are cleared on the copy. Profile groups cannot be copied through
+this method; manage their member definition in the desktop application for now.
+Do not combine `copy_from` and `profile_specific_mods`.
+
+Select a profile and persist it as the game's last-active profile:
+
+```json
+{"jsonrpc":"2.0","id":7,"method":"profiles.select.start","params":{"game":"skyrim_se","profile":"Handheld Copy"}}
+```
+
+Selection loads that profile's path overrides and materializes it when it is a
+profile group. It does not deploy or restore the game, and other RPC methods
+still require an explicit `profile` parameter.
+
+Rename a profile:
+
+```json
+{"jsonrpc":"2.0","id":8,"method":"profiles.rename.start","params":{"game":"skyrim_se","profile":"Handheld Copy","new_name":"Travel"}}
+```
+
+Names are single safe folder components, cannot be `default`, and cannot
+case-insensitively collide with another profile. Renaming a profile-group member
+also updates each group's member list and link farm. If the original default is
+renamed, it retains `original_default` protection.
+
+Remove a profile permanently:
+
+```json
+{"jsonrpc":"2.0","id":9,"method":"profiles.remove.start","params":{"game":"skyrim_se","profile":"Travel","confirm":true}}
+```
+
+Removal requires `confirm: true`. The default/original-default profile and
+profiles with `locked: true` cannot be removed. Removing a profile-specific
+profile deletes its private mods; removing a shared-staging profile leaves the
+common mod pool untouched. Removing a group deletes the group and any
+group-local files but leaves its member profiles untouched. Removing a member
+also prunes it from every group and rematerializes those groups. The result
+reports `groups_updated` and the selected `fallback_profile`, if applicable.
+
+Rename and removal fail with `profile_deployed` when the profile itself is
+deployed or it is a member of the currently deployed group. Run `restore.start`
+and retry so deployed links and runtime files can be recovered before their
+profile data moves or disappears. Other expected job errors include
+`profile_not_found`, `profile_exists`, `reserved_profile_name`,
+`profile_protected`, `profile_locked`, `profile_copy_unsupported`, and the
+operation-specific `profile_create_failed`, `profile_rename_failed`,
+`profile_remove_failed`, or `profile_select_failed`.
+
 ### Enable and disable mods
 
 Submit all related activation changes in one job. Each mod name must exactly
@@ -201,7 +283,7 @@ validated before `modlist.txt` is changed, so a missing, locked, duplicate, or
 separator entry rejects the complete batch.
 
 ```json
-{"jsonrpc":"2.0","id":5,"method":"mods.set_enabled.start","params":{"game":"skyrim_se","profile":"default","changes":[{"name":"SkyUI","enabled":true},{"name":"Old textures","enabled":false}]}}
+{"jsonrpc":"2.0","id":10,"method":"mods.set_enabled.start","params":{"game":"skyrim_se","profile":"default","changes":[{"name":"SkyUI","enabled":true},{"name":"Old textures","enabled":false}]}}
 ```
 
 The job synchronizes `plugins.txt` and `loadorder.txt`, then reconciles the
@@ -241,7 +323,7 @@ closer to the bottom. Moving after a separator therefore places the block at the
 start of that separator's group.
 
 ```json
-{"jsonrpc":"2.0","id":6,"method":"mods.move.start","params":{"game":"skyrim_se","profile":"default","mods":["Patch A","Patch B"],"position":{"after":"Patches_separator"}}}
+{"jsonrpc":"2.0","id":11,"method":"mods.move.start","params":{"game":"skyrim_se","profile":"default","mods":["Patch A","Patch B"],"position":{"after":"Patches_separator"}}}
 ```
 
 `position` must contain exactly one `before` or `after` key. All names are
@@ -280,7 +362,7 @@ Removal is permanent, so the request must include `"confirm": true`. A client
 should show its own confirmation UI before sending the request.
 
 ```json
-{"jsonrpc":"2.0","id":7,"method":"mods.remove.start","params":{"game":"skyrim_se","profile":"default","mods":["Old textures","Superseded patch"],"confirm":true}}
+{"jsonrpc":"2.0","id":12,"method":"mods.remove.start","params":{"game":"skyrim_se","profile":"default","mods":["Old textures","Superseded patch"],"confirm":true}}
 ```
 
 Names must exactly match real mod entries returned by `mods.list`. The complete
@@ -330,7 +412,7 @@ conflict winners to the game folder.
 Start a deployment:
 
 ```json
-{"jsonrpc":"2.0","id":8,"method":"deploy.start","params":{"game":"skyrim_se","profile":"default","options":{"root_folder_enabled":true,"backup":true}}}
+{"jsonrpc":"2.0","id":13,"method":"deploy.start","params":{"game":"skyrim_se","profile":"default","options":{"root_folder_enabled":true,"backup":true}}}
 ```
 
 Both deploy options default to `true`:
@@ -341,7 +423,7 @@ Both deploy options default to `true`:
 Start a restore and return the handler to the named profile afterward:
 
 ```json
-{"jsonrpc":"2.0","id":9,"method":"restore.start","params":{"game":"skyrim_se","profile":"default"}}
+{"jsonrpc":"2.0","id":14,"method":"restore.start","params":{"game":"skyrim_se","profile":"default"}}
 ```
 
 Restore acts on the last deployed profile so runtime files go back to the
@@ -374,7 +456,7 @@ Use `jobs.get` for the current snapshot or `jobs.list` to recover job IDs while
 the same headless process remains alive:
 
 ```json
-{"jsonrpc":"2.0","id":10,"method":"jobs.get","params":{"job_id":"09b37ca9237540918fe86ff5e359331c"}}
+{"jsonrpc":"2.0","id":15,"method":"jobs.get","params":{"job_id":"09b37ca9237540918fe86ff5e359331c"}}
 ```
 
 Job states are `queued`, `running`, `succeeded`, and `failed`.
@@ -385,7 +467,7 @@ Events carry logs, progress and state transitions. Pass the last processed
 sequence as `after`. `wait_ms` enables a long poll and may be from 0 to 30000:
 
 ```json
-{"jsonrpc":"2.0","id":11,"method":"jobs.events","params":{"job_id":"09b37ca9237540918fe86ff5e359331c","after":0,"wait_ms":1000}}
+{"jsonrpc":"2.0","id":16,"method":"jobs.events","params":{"job_id":"09b37ca9237540918fe86ff5e359331c","after":0,"wait_ms":1000}}
 ```
 
 ```json
@@ -416,9 +498,9 @@ client that also sends interactive requests should use short waits.
 
 ### Locking and failures
 
-Headless mod activation, ordering and removal jobs and the standard Amethyst
-Deploy and Restore entry points—desktop, one-shot CLI, and headless—use the
-same operation coordinator.
+Headless profile, mod activation, ordering and removal jobs and the standard
+Amethyst Deploy and Restore entry points—desktop, one-shot CLI, and
+headless—use the same operation coordinator.
 Operations are serialized
 within one process. Across native, AppImage and Flatpak processes, advisory
 locks cover the game identity and resolved game, profile, staging and deployment
@@ -450,7 +532,7 @@ Request validation and lookup failures use the JSON-RPC error object.
 ```json
 {
   "jsonrpc": "2.0",
-  "id": 12,
+  "id": 17,
   "error": {
     "code": -32001,
     "message": "Game 'missing' was not found.",
@@ -561,18 +643,17 @@ process from blocking on a full pipe.
 JSON-RPC batch arrays are accepted as one NDJSON line and their responses are
 returned as one array on one line. Requests without an `id` are notifications
 and do not receive a response. A batch containing only notifications produces
-no output line. Use request IDs for `mods.set_enabled.start`, `mods.move.start`,
-`mods.remove.start`, `deploy.start`, and `restore.start`; otherwise the caller
-does not directly receive the created job ID.
+no output line. Use request IDs for every mutation method ending in `.start`;
+otherwise the caller does not directly receive the created job ID.
 
 ## Current limitations
 
 - Nexus browsing, downloads, installation, and launch are not exposed yet.
 - Progress delivery is polling-only and running jobs cannot be cancelled.
-- The shared operation lock currently coordinates headless mod activation,
-  ordering and removal jobs and the standard deploy/restore flows, not every
-  desktop mod-list edit, installer, wizard, or configuration action. Do not run
-  those tools while a headless mutation is active.
+- The shared operation lock currently coordinates headless profile, mod
+  activation, ordering and removal jobs and the standard deploy/restore flows,
+  not every desktop mod-list edit, installer, wizard, or configuration action.
+  Do not run those tools while a headless mutation is active.
 - The transport is a child process over standard I/O; there is no socket daemon
   or remote authentication layer yet.
 - Python modules under `amethyst_backend`, `Utils`, `Games` and `Nexus` remain

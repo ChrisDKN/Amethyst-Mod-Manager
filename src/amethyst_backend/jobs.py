@@ -254,6 +254,50 @@ class JobManager:
                     operation_owner=f"headless:{job.id}",
                 )
                 ok = True
+            elif job.kind == "profiles.create":
+                from Utils.profiles.manage import create_profile
+                result = create_profile(
+                    job.game,
+                    job.profile,
+                    profile_specific_mods=bool(
+                        job.options.get("profile_specific_mods", False)),
+                    copy_from=job.options.get("copy_from"),
+                    log_fn=log,
+                    progress_fn=progress,
+                    operation_owner=f"headless:{job.id}",
+                )
+                ok = True
+            elif job.kind == "profiles.rename":
+                from Utils.profiles.manage import rename_profile
+                result = rename_profile(
+                    job.game,
+                    job.profile,
+                    str(job.options.get("new_name", "")),
+                    log_fn=log,
+                    progress_fn=progress,
+                    operation_owner=f"headless:{job.id}",
+                )
+                ok = True
+            elif job.kind == "profiles.remove":
+                from Utils.profiles.manage import remove_profile
+                result = remove_profile(
+                    job.game,
+                    job.profile,
+                    log_fn=log,
+                    progress_fn=progress,
+                    operation_owner=f"headless:{job.id}",
+                )
+                ok = True
+            elif job.kind == "profiles.select":
+                from Utils.profiles.manage import select_profile
+                result = select_profile(
+                    job.game,
+                    job.profile,
+                    log_fn=log,
+                    progress_fn=progress,
+                    operation_owner=f"headless:{job.id}",
+                )
+                ok = True
             else:
                 raise RuntimeError(f"Unsupported job kind: {job.kind}")
         except Exception as exc:
@@ -273,20 +317,29 @@ class JobManager:
                         "details": exc.details,
                     }
                 else:
-                    error = {
-                        "name": "internal_error",
-                        "message": str(exc) or type(exc).__name__,
-                        "details": {"exception": type(exc).__name__},
-                    }
-                    try:
-                        print(
-                            f"[headless] {job.kind} job {job.id} failed: "
-                            f"{type(exc).__name__}: {exc}\n{traceback.format_exc()}",
-                            file=sys.stderr,
-                            flush=True,
-                        )
-                    except Exception:
-                        pass
+                    from Utils.profiles.manage import ProfileError
+                    if isinstance(exc, ProfileError):
+                        error = {
+                            "name": exc.name,
+                            "message": str(exc),
+                            "details": exc.details,
+                        }
+                    else:
+                        error = {
+                            "name": "internal_error",
+                            "message": str(exc) or type(exc).__name__,
+                            "details": {"exception": type(exc).__name__},
+                        }
+                        try:
+                            print(
+                                f"[headless] {job.kind} job {job.id} failed: "
+                                f"{type(exc).__name__}: {exc}\n"
+                                f"{traceback.format_exc()}",
+                                file=sys.stderr,
+                                flush=True,
+                            )
+                        except Exception:
+                            pass
             self._finish(job, "failed", error=error)
             return
 
