@@ -1,16 +1,15 @@
-"""Qt Overwrite manager tab - browse the Overwrite folder and clear it out.
+"""Qt manager tab for files captured in Overwrite or Root Folder.
 
-Opened from the Overwrite row's context menu (modlist_menu `_manage_overwrite`)
-as a modlist-panel-scoped tab. The Overwrite folder is where the game and its
-tools drop files at runtime; this tab is the place to sort that pile into real
-mods instead of opening a file manager.
+Opened from either boundary row's context menu as a modlist-panel-scoped tab.
+These folders are where the game and its tools leave files captured during
+restore; this tab sorts that pile into real mods without a file manager.
 
 The tree is the shared read-only `path_tree` (same look as Mod Files / Text
 Files), extended with multi-selection. Selected files/folders can be:
 
-  * moved into an existing mod (staging/<mod>/<same relative path>)
+  * moved into an existing mod from Overwrite
   * moved into a brand-new empty mod (created here, then inserted in the
-    modlist just below Overwrite through a host callback)
+    modlist through a host callback)
   * deleted
 
 Every action is destructive on disk, so each one goes through ConfirmOverlay
@@ -161,13 +160,14 @@ def _foot_button(text: str) -> QToolButton:
 
 
 class OverwriteView(QWidget):
-    """Self-contained Overwrite manager tab. Call configure() then reload()."""
+    """Self-contained captured-files manager. Call configure() then reload()."""
 
     # Mods whose staging folder changed on disk ([] for a pure delete).
     changed = Signal(list)
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, *, root_folder=False):
         super().__init__(parent)
+        self._root_folder = bool(root_folder)
         self.game = None
         self.staging_dir: Path | None = None
         self._root_path: Path | None = None
@@ -191,7 +191,7 @@ class OverwriteView(QWidget):
 
     # -- context ------------------------------------------------------------
     def configure(self, game, staging_dir, context_id=None, *, refresh=True):
-        """Point the tab at a game's Overwrite folder."""
+        """Point the tab at the active captured-files folder."""
         old_context = (self.game, self.staging_dir, self._root_path,
                        self.context_id)
         self.game = game
@@ -200,7 +200,10 @@ class OverwriteView(QWidget):
         self.context_id = context_id
         if game is not None:
             try:
-                self._root_path = Path(game.get_effective_overwrite_path())
+                getter = (game.get_effective_root_folder_path
+                          if self._root_folder
+                          else game.get_effective_overwrite_path)
+                self._root_path = Path(getter())
             except Exception:
                 self._root_path = None
         new_context = (self.game, self.staging_dir, self._root_path,
@@ -222,7 +225,9 @@ class OverwriteView(QWidget):
         bar.setObjectName("HeaderBar")
         bl = QHBoxLayout(bar)
         bl.setContentsMargins(8, 4, 8, 4)
-        self._label = QLabel(self.tr("Overwrite"))
+        self._label = QLabel(
+            self.tr("Root Folder") if self._root_folder
+            else self.tr("Overwrite"))
         self._label.setObjectName("HeaderCaption")
         bl.addWidget(self._label)
         bl.addStretch(1)
@@ -261,9 +266,11 @@ class OverwriteView(QWidget):
         self._btn_refresh = _foot_button(self.tr("⟳ Refresh"))
         self._btn_refresh.clicked.connect(self._on_refresh_clicked)
         btns.addWidget(self._btn_refresh)
-        self._btn_mod = _foot_button(self.tr("Move to mod…"))
-        self._btn_mod.clicked.connect(self._move_to_existing)
-        btns.addWidget(self._btn_mod)
+        self._btn_mod = None
+        if not self._root_folder:
+            self._btn_mod = _foot_button(self.tr("Move to mod…"))
+            self._btn_mod.clicked.connect(self._move_to_existing)
+            btns.addWidget(self._btn_mod)
         self._btn_new = _foot_button(self.tr("Move to new mod…"))
         self._btn_new.clicked.connect(self._move_to_new)
         btns.addWidget(self._btn_new)
@@ -367,16 +374,27 @@ class OverwriteView(QWidget):
 
     def _update_label(self, shown: int):
         total = len(self._files)
-        if self._root_path is None:
-            self._label.setText(self.tr("Overwrite (no game selected)"))
-        elif not self._files and not self._empty_dirs:
-            self._label.setText(self.tr("Overwrite - empty"))
-        elif shown != total:
-            self._label.setText(
-                self.tr("Overwrite - {0} of {1} file(s)").format(shown, total))
+        if self._root_folder:
+            if self._root_path is None:
+                text = self.tr("Root Folder (no game selected)")
+            elif not self._files and not self._empty_dirs:
+                text = self.tr("Root Folder - empty")
+            elif shown != total:
+                text = self.tr(
+                    "Root Folder - {0} of {1} file(s)").format(shown, total)
+            else:
+                text = self.tr("Root Folder - {0} file(s)").format(total)
         else:
-            self._label.setText(
-                self.tr("Overwrite - {0} file(s)").format(total))
+            if self._root_path is None:
+                text = self.tr("Overwrite (no game selected)")
+            elif not self._files and not self._empty_dirs:
+                text = self.tr("Overwrite - empty")
+            elif shown != total:
+                text = self.tr(
+                    "Overwrite - {0} of {1} file(s)").format(shown, total)
+            else:
+                text = self.tr("Overwrite - {0} file(s)").format(total)
+        self._label.setText(text)
 
     def _on_search(self, text: str):
         """Debounced so fast typing rebuilds the tree once, not per keystroke."""
@@ -428,7 +446,8 @@ class OverwriteView(QWidget):
     def _sync_buttons(self):
         has_sel = bool(self._selected_nodes())
         staging_ok = self.staging_dir is not None
-        self._btn_mod.setEnabled(has_sel and staging_ok)
+        if self._btn_mod is not None:
+            self._btn_mod.setEnabled(has_sel and staging_ok)
         self._btn_new.setEnabled(
             has_sel and staging_ok and callable(self.add_new_mod_fn))
         self._btn_del.setEnabled(has_sel)
@@ -488,8 +507,9 @@ class OverwriteView(QWidget):
         menu = QMenu(self._tree)
         staging_ok = self.staging_dir is not None
         if staging_ok:
-            a = menu.addAction(self.tr("Move to mod…"))
-            a.triggered.connect(self._move_to_existing)
+            if not self._root_folder:
+                a = menu.addAction(self.tr("Move to mod…"))
+                a.triggered.connect(self._move_to_existing)
             a = menu.addAction(self.tr("Move to new mod…"))
             a.triggered.connect(self._move_to_new)
             menu.addSeparator()
@@ -510,13 +530,18 @@ class OverwriteView(QWidget):
         if ((expected is None or expected == self.context_id)
                 and self._context_is_current()):
             return True
+        message = (self.tr("The active game or profile changed. Reopen Root "
+                           "Folder before modifying files.")
+                   if self._root_folder else
+                   self.tr("The active game or profile changed. Reopen "
+                           "Overwrite before modifying files."))
         ConfirmOverlay.show_message(
-            self, self.tr("Profile changed"),
-            self.tr("The active game or profile changed. Reopen Overwrite "
-                    "before modifying files."))
+            self, self.tr("Profile changed"), message)
         return False
 
     def _move_to_existing(self):
+        if self._root_folder:
+            return
         if not self._require_current_context():
             return
         expected_context = self.context_id
@@ -581,9 +606,12 @@ class OverwriteView(QWidget):
                 from datetime import datetime
                 mod_dir.mkdir(parents=True, exist_ok=False)
                 installed = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+                metadata = (f"[General]\ninstalled={installed}\n"
+                            f"version={NEW_MOD_VERSION}\n")
+                if self._root_folder:
+                    metadata += "rootFolder=true\n"
                 (mod_dir / "meta.ini").write_text(
-                    f"[General]\ninstalled={installed}\n"
-                    f"version={NEW_MOD_VERSION}\n", encoding="utf-8")
+                    metadata, encoding="utf-8")
             except (OSError, ValueError) as exc:
                 try:
                     if mod_dir.is_dir():
@@ -767,7 +795,7 @@ class OverwriteView(QWidget):
                 target = _safe_child(self._root_path, rel)
                 if target is None:
                     failed.append(
-                        f"{rel}: path is outside the Overwrite folder")
+                        f"{rel}: path is outside the managed folder")
                     continue
                 try:
                     if target.is_dir() and not target.is_symlink():
@@ -787,15 +815,22 @@ class OverwriteView(QWidget):
                     self.tr("Deleted {0}, failed {1}:\n{2}").format(
                         deleted, len(failed), "\n".join(failed[:10])))
 
+        if self._root_folder:
+            title = self.tr("Delete from Root Folder")
+            message = self.tr(
+                "Permanently delete {0} item(s) from the Root Folder?\n\n"
+                "This cannot be undone.").format(len(rels))
+        else:
+            title = self.tr("Delete from Overwrite")
+            message = self.tr(
+                "Permanently delete {0} item(s) from the Overwrite folder?\n\n"
+                "This cannot be undone.").format(len(rels))
         ConfirmOverlay.show_over(
-            self, self.tr("Delete from Overwrite"),
-            self.tr("Permanently delete {0} item(s) from the Overwrite "
-                    "folder?\n\nThis cannot be undone.").format(len(rels)),
-            _go, confirm_label=self.tr("Delete"), danger=True)
+            self, title, message, _go,
+            confirm_label=self.tr("Delete"), danger=True)
 
     def _prune_empty_dirs(self):
-        """Drop folders a move/delete emptied out. The Overwrite root itself
-        always stays - the deploy engine expects it to exist."""
+        """Drop emptied descendants while preserving the managed root."""
         root = self._root_path
         if root is None or not root.is_dir():
             return

@@ -160,6 +160,10 @@ def build_context_menu(view, index):
         if entry.name == OVERWRITE_NAME:
             act(_mt("Manage Overwrite…"), lambda: _manage_overwrite(view),
                 enabled=has_game and _staging_ok)
+        elif entry.name == ROOT_FOLDER_NAME:
+            act(_mt("Manage root folder"),
+                lambda: _manage_root_folder(view),
+                enabled=has_game and _staging_ok)
         if entry.name == OVERWRITE_NAME and _has_conflict(model, row):
             act(_mt("Show Conflicts"), lambda: _show_conflicts(view, entry.name))
             act(_mt("Clear Conflict Filter")
@@ -1447,6 +1451,12 @@ def _manage_overwrite(view):
         cb()
 
 
+def _manage_root_folder(view):
+    cb = getattr(view, "on_manage_root_folder", None)
+    if callable(cb):
+        cb()
+
+
 def _show_overwrite_log(view, boundary_name=None):
     """Show the read-only restore-log overlay - files swept into the deploy
     target on restore, parsed from OVERWRITE_LOG_NAME. Overwrite reads
@@ -1875,6 +1885,7 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("ModListMenu", "Lock Separators"),
     QT_TRANSLATE_NOOP("ModListMenu", "Log"),
     QT_TRANSLATE_NOOP("ModListMenu", "Manage Overwrite…"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Manage root folder"),
     QT_TRANSLATE_NOOP("ModListMenu", "Missing Requirements"),
     QT_TRANSLATE_NOOP("ModListMenu", "Missing Requirements ({0})"),
     QT_TRANSLATE_NOOP("ModListMenu", "View Requirements"),
