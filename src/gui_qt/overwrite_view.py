@@ -258,6 +258,9 @@ class OverwriteView(QWidget):
         self._btn_expand = _foot_button(self.tr("⊞ Expand all"))
         self._btn_expand.clicked.connect(self._on_expand_clicked)
         btns.addWidget(self._btn_expand)
+        self._btn_refresh = _foot_button(self.tr("⟳ Refresh"))
+        self._btn_refresh.clicked.connect(self._on_refresh_clicked)
+        btns.addWidget(self._btn_refresh)
         self._btn_mod = _foot_button(self.tr("Move to mod…"))
         self._btn_mod.clicked.connect(self._move_to_existing)
         btns.addWidget(self._btn_mod)
@@ -299,8 +302,9 @@ class OverwriteView(QWidget):
         configure), but a scoped tab stays alive when the user switches to
         another tab: coming back only calls setCurrentWidget, so without this
         the tree would still show the folder as it was, while the game or a
-        tool has been writing into Overwrite the whole time. This is why the
-        view has no Refresh button - reshowing it IS the refresh.
+        tool has been writing into Overwrite the whole time. The footer's
+        Refresh button covers the other case: files landing while the tab is
+        already on screen.
         """
         super().showEvent(event)
         if self._skip_next_show_reload:
@@ -402,6 +406,20 @@ class OverwriteView(QWidget):
 
     def _on_expand_clicked(self):
         self._set_expand_label(self._toggle_expand_all())
+
+    def _on_refresh_clicked(self):
+        """Re-scan the folder on demand, keeping the tree expanded if it was.
+
+        reload() rebuilds the model, which collapses everything, so an expanded
+        tree has to be re-expanded afterwards or refreshing would silently fold
+        the view up. A search re-expands on its own inside _repopulate.
+        """
+        first = self._model.index(0, 0) if self._model.rowCount() else None
+        was_expanded = bool(first is not None and self._tree.isExpanded(first))
+        self.reload()
+        if was_expanded and not (self._search or self._search_exts):
+            self._tree.expandAll()
+            self._set_expand_label(True)
 
     def _set_expand_label(self, expanded: bool):
         self._btn_expand.setText(self.tr("⊟ Collapse all") if expanded
