@@ -3297,20 +3297,21 @@ class MainWindow(QMainWindow):
             # another profile was active is on disk but absent from this
             # profile's modlist.txt. Sync the file against the folder so the
             # new mod shows up on switch without a manual Refresh. This is
-            # cheap (one iterdir + modlist.txt diff) and does NOT rescan the
-            # shared index/filemap, which is unchanged across the switch.
+            # cheap (one iterdir + modlist.txt diff). The shared catalog only
+            # needs a rescan when the sync repairs an unsafe folder name.
             with perftrace.span("switch.sync_modlist_folder"):
+                renamed_mods = {}
                 try:
                     from Utils.mods.modlist import sync_modlist_with_mods_folder
                     ml = self._gs.modlist_path()
                     staging = self._gs.staging_dir()
                     if ml is not None and staging is not None:
-                        sync_modlist_with_mods_folder(ml, staging)
+                        renamed_mods = sync_modlist_with_mods_folder(ml, staging)
                 except Exception as exc:
                     print(f"[gui_qt] profile-switch modlist sync failed: {exc}",
                           flush=True)
             with perftrace.span("switch.reload_modlist(sync)"):
-                self._reload_modlist()
+                self._reload_modlist(rescan_index=bool(renamed_mods))
             with perftrace.span("switch.reload_plugins(kickoff)"):
                 if getattr(self, "_reload_had_entries", False):
                     # The conflict rebuild just queued by _reload_modlist ends

@@ -296,7 +296,25 @@ _RESERVED_STAGING_NAMES = frozenset({
 })
 
 
-def sync_modlist_with_mods_folder(modlist_path: Path, mods_dir: Path) -> None:
+def _migrate_profile_renames(profile_dir: Path,
+                             renamed: dict[str, str]) -> None:
+    if not renamed:
+        return
+    try:
+        from Utils.mods.rename import migrate_mod_state
+    except Exception as exc:
+        app_log(f"Modlist sync: could not load mod-state migration: {exc}")
+        return
+    for old_name, new_name in renamed.items():
+        try:
+            migrate_mod_state(profile_dir, old_name, new_name, log_fn=app_log)
+        except Exception as exc:
+            app_log(f"Modlist sync: could not migrate state for {old_name!r} "
+                    f"in profile {profile_dir.name!r}: {exc}")
+
+
+def sync_modlist_with_mods_folder(modlist_path: Path,
+                                  mods_dir: Path) -> dict[str, str]:
     """Sync modlist_path against mods_dir:
 
       - Prepend any mod folders not yet in modlist as disabled entries.
@@ -304,14 +322,13 @@ def sync_modlist_with_mods_folder(modlist_path: Path, mods_dir: Path) -> None:
 
     Skips MO2 separator dummy folders (_separator suffix) and profile-root
     infrastructure folder names (see _RESERVED_STAGING_NAMES). Creates
-    modlist_path if it does not exist. Pure pathlib - no GUI toolkit - so both
-    the Tk and Qt Refresh paths can call it (the Tk add-game dialog re-imports
-    it from here).
+    modlist_path if it does not exist. Returns folder-name repairs as
+    ``{old_name: new_name}``.
     """
     if not mods_dir.is_dir():
         if not modlist_path.exists():
             modlist_path.touch()
-        return
+        return {}
 
     # Normalise mod folder names that Windows/Wine path resolution would mangle
     # (leading/trailing whitespace, trailing dots, reserved characters). Such a
@@ -329,6 +346,7 @@ def sync_modlist_with_mods_folder(modlist_path: Path, mods_dir: Path) -> None:
         from Utils.mods.names import sanitize_mod_folder_name
     except Exception:
         sanitize_mod_folder_name = None
+    renamed: dict[str, str] = {}
     if sanitize_mod_folder_name is not None:
         try:
             for d in list(mods_dir.iterdir()):
@@ -340,7 +358,7 @@ def sync_modlist_with_mods_folder(modlist_path: Path, mods_dir: Path) -> None:
                 if clean == d.name or clean == "Mod":
                     continue
                 target = mods_dir / clean
-                if target.exists():
+                if target.exists() or target.is_symlink():
                     app_log(f"Modlist sync: mod folder {d.name!r} needs "
                             f"normalising but {clean!r} already exists - NOT "
                             f"renamed (rename one manually; the malformed copy "
@@ -348,6 +366,7 @@ def sync_modlist_with_mods_folder(modlist_path: Path, mods_dir: Path) -> None:
                     continue
                 try:
                     d.rename(target)
+                    renamed[d.name] = clean
                     app_log(f"Modlist sync: renamed mod folder {d.name!r} → "
                             f"{clean!r} (the original name would desync the "
                             f"modlist/index and is unreachable to Wine tools).")
@@ -369,14 +388,45 @@ def sync_modlist_with_mods_folder(modlist_path: Path, mods_dir: Path) -> None:
         existing_lines: list[str] = []
         existing_names: set[str] = set()
         dropped: list[str] = []
+        repaired_entries: dict[str, str] = {}
         if modlist_path.exists():
-            for line in modlist_path.read_text(
-                    encoding="utf-8", errors="surrogateescape").splitlines():
+            raw_lines = modlist_path.read_text(
+                encoding="utf-8", errors="surrogateescape").splitlines()
+            listed_names = {
+                line[1:] for line in raw_lines
+                if line[:1] in ("+", "-", "*")
+            }
+            line_renames: dict[str, str] = {}
+            for line in raw_lines:
+                stripped = line.rstrip("\r\n")
+                if not stripped or stripped[0] not in ("+", "-", "*"):
+                    continue
+                name = stripped[1:]
+                replacement = renamed.get(name)
+                if (replacement is None and sanitize_mod_folder_name is not None
+                        and not name.endswith("_separator")
+                        and name not in on_disk):
+                    clean = sanitize_mod_folder_name(name)
+                    if (clean != "Mod" and clean != name
+                            and clean not in listed_names and clean in on_disk):
+                        replacement = clean
+                if replacement is not None:
+                    line_renames[name] = replacement
+            rename_targets = set(line_renames.values())
+
+            for line in raw_lines:
                 stripped = line.rstrip("\r\n")
                 if not stripped.strip():
                     continue
                 if stripped[0] in ("+", "-", "*"):
                     name = stripped[1:]
+                    if name in line_renames:
+                        old_name = name
+                        name = line_renames[name]
+                        stripped = stripped[0] + name
+                        repaired_entries[old_name] = name
+                    elif name in rename_targets:
+                        continue
                     # Keep separators always; only keep mods that exist on disk.
                     if name.endswith("_separator") or name in on_disk:
                         existing_lines.append(stripped)
@@ -400,7 +450,7 @@ def sync_modlist_with_mods_folder(modlist_path: Path, mods_dir: Path) -> None:
             app_log(f"Modlist sync ABORTED: {len(dropped)} of {existing_mod_count} "
                     f"mod entr(y/ies) have no folder under '{mods_dir}' - staging "
                     f"path desync suspected; modlist.txt left untouched.")
-            return
+            return dict(renamed)
 
         new_mods = sorted(on_disk - existing_names)
         new_lines = [f"-{name}" for name in new_mods]
@@ -418,6 +468,8 @@ def sync_modlist_with_mods_folder(modlist_path: Path, mods_dir: Path) -> None:
                           "\n".join(all_lines) + ("\n" if all_lines else ""),
                           errors="surrogateescape")
 
+    _migrate_profile_renames(modlist_path.parent, repaired_entries)
+
     # Sweep temp strays a crash mid-write left behind (temp names are unique
     # per write, so nothing else reclaims them). Runs on Refresh/profile load,
     # never on the hot save path. Age gate: a live in-flight temp is
@@ -433,3 +485,7 @@ def sync_modlist_with_mods_folder(modlist_path: Path, mods_dir: Path) -> None:
                 pass
     except OSError:
         pass
+
+    result = dict(renamed)
+    result.update(repaired_entries)
+    return result
