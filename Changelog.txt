@@ -7,6 +7,9 @@
 - Added Wizards for Fo3 BSA Decompresser and ESM Patcher
 - The reshade wizard now downloads and installs the add-ons version of reshade
 - Mod priority and version numbers in their columns can now be clicked to change them
+- Fixed modlist state loss after folder name sanitization
+- Fixed custom deploy paths in separator settings not working
+- Fixed excessive cache lookups on collection installs causing smaller mods to take longer to start downloading
 
 ---
 
