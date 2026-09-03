@@ -79,6 +79,9 @@ class LoadingOverlay(QWidget):
     def hide_overlay(self) -> None:
         self.hide()
 
+    def set_text(self, text: str) -> None:
+        self._text.setText(text)
+
     def _resize_to_parent(self) -> None:
         p = self.parentWidget()
         if p is not None:

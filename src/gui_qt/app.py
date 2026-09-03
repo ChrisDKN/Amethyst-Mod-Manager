@@ -285,6 +285,7 @@ class MainWindow(QMainWindow):
     # Carries (generation, ConflictData) from a worker thread to the UI thread
     # (queued connection - thread-safe). See _rebuild_conflicts_async.
     _conflicts_ready = Signal(int, object)
+    _conflicts_failed = Signal(int, str)
     # (generation, list[FrameworkStatus]) from the framework-detect worker -
     # detect_frameworks reads filemap.txt + the mod index, too slow for the UI
     # thread on a big modlist. See _refresh_framework_banner.
@@ -503,6 +504,10 @@ class MainWindow(QMainWindow):
         self._gs.load(timing=startup_timing)
         phase_started = _startup_time.perf_counter()
         self._conflicts_ready.connect(self._on_conflicts_ready)
+        self._conflicts_failed.connect(self._on_conflicts_failed)
+        self._filegraph_loading = False
+        self._filegraph_loading_ui = []
+        self._filegraph_loading_focus = None
         self._framework_statuses_ready.connect(self._on_framework_statuses)
         self._nif_archive_ready.connect(self._on_nif_archive_ready)
         from gui_qt.worker import LatestWorker
@@ -16421,8 +16426,9 @@ class MainWindow(QMainWindow):
         # clears the modlist selection, which would otherwise blank the tab. On a
         # game/profile SWITCH the shown mod may not exist, so we drop it.
         prev_context = (self._gs.game_name, self._gs.profile_dir())
+        context_changed = prev_context != getattr(self, "_modlist_context", None)
         keep_mod_files = None
-        if prev_context == getattr(self, "_modlist_context", None):
+        if not context_changed:
             mfv = getattr(self, "_mod_files_view", None)
             if mfv is not None and mfv.has_mod():
                 keep_mod_files = mfv._mod_name
@@ -16635,6 +16641,8 @@ class MainWindow(QMainWindow):
         meta_started = False
         if entries and staging is not None:
             import threading
+            if context_changed:
+                self._set_filegraph_loading(True)
             ignored = self._ignored_missing_reqs
             pdir_meta = self._gs.profile_dir()
             is_bg3 = (getattr(self._gs.game, "game_id", "") == "baldurs_gate_3")
@@ -16682,6 +16690,8 @@ class MainWindow(QMainWindow):
             # No meta worker (staging unresolved) → kick the rebuild directly.
             if startup_timing is not None:
                 self._startup_wait_for_conflicts = True
+            if context_changed:
+                self._set_filegraph_loading(True)
             self._rebuild_conflicts_async(
                 rescan_index=rescan_index,
                 startup_timing=startup_timing)
@@ -16693,6 +16703,8 @@ class MainWindow(QMainWindow):
             if rescan_index or has_frameworks:
                 if startup_timing is not None:
                     self._startup_wait_for_conflicts = True
+                if context_changed:
+                    self._set_filegraph_loading(True)
                 self._rebuild_conflicts_async(
                     rescan_index=rescan_index,
                     startup_timing=startup_timing)
@@ -18445,7 +18457,8 @@ class MainWindow(QMainWindow):
                     if timing is not None:
                         timing.finish(f"conflict build failed: {exc}",
                                       lane="worker")
-                    raise
+                    self._conflicts_failed.emit(gen, str(exc))
+                    return
                 if startup_timing is not None:
                     startup_timing.record(
                         "Build filegraph and calculate conflicts",
@@ -18462,6 +18475,72 @@ class MainWindow(QMainWindow):
         if timing is not None:
             timing.mark(f"conflict worker thread started (generation {gen})",
                         phase_started=setup_started)
+
+    def _set_filegraph_loading(self, loading: bool) -> None:
+        loading = bool(loading)
+        if loading == self._filegraph_loading:
+            return
+        self._filegraph_loading = loading
+        if loading:
+            from gui_qt.loading_overlay import LoadingOverlay
+            self._filegraph_loading_focus = QApplication.focusWidget()
+            hosts = [self]
+            tabs = getattr(self, "_tabs", None)
+            if tabs is not None:
+                hosts.extend(
+                    window for window in getattr(tabs, "_floats", ())
+                    if window.isVisible())
+            message = self.tr("Loading profile…")
+            state = []
+            for host in hosts:
+                content = host.centralWidget()
+                was_enabled = content.isEnabled() if content is not None else False
+                if content is not None:
+                    content.setEnabled(False)
+                overlay = LoadingOverlay(host)
+                overlay.set_text(message)
+                overlay.setFocusPolicy(Qt.StrongFocus)
+                overlay.show_over()
+                state.append((overlay, content, was_enabled))
+            self._filegraph_loading_ui = state
+            active = next((overlay for overlay, _, _ in state
+                           if overlay.window().isActiveWindow()),
+                          state[0][0] if state else None)
+            if active is not None:
+                active.setFocus(Qt.OtherFocusReason)
+            return
+
+        state, self._filegraph_loading_ui = self._filegraph_loading_ui, []
+        for overlay, content, was_enabled in state:
+            try:
+                overlay.hide_overlay()
+                overlay.deleteLater()
+            except RuntimeError:
+                pass
+            if content is not None:
+                try:
+                    content.setEnabled(was_enabled)
+                except RuntimeError:
+                    pass
+        focus, self._filegraph_loading_focus = self._filegraph_loading_focus, None
+        if focus is not None:
+            try:
+                if focus.isVisible() and focus.isEnabled():
+                    focus.setFocus(Qt.OtherFocusReason)
+            except RuntimeError:
+                pass
+
+    def _on_conflicts_failed(self, gen: int, error: str) -> None:
+        self._append_log(
+            f"[filemap] ERROR: profile file graph build {gen} failed: {error}")
+        if gen != self._conflict_gen:
+            return
+        self._set_filegraph_loading(False)
+        self._conflict_maps_current = False
+        self._startup_wait_for_conflicts = False
+        self._notify(self.tr(
+            "Could not load the profile file graph. See the log for details."),
+            "error")
 
     def _on_conflicts_ready(self, gen: int, data):
         startup_timing = getattr(
@@ -18483,6 +18562,7 @@ class MainWindow(QMainWindow):
             if timing is not None:
                 timing.finish("conflict result superseded on Qt thread")
             return
+        self._set_filegraph_loading(False)
         if timing is not None:
             timing.mark("conflict result reached the Qt thread")
         # This build's result is accepted. If it performed the latched full

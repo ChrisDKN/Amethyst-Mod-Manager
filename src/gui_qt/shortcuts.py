@@ -381,6 +381,8 @@ def _focus_is_text_input(_win) -> bool:
 def _overlay_open(win) -> bool:
     """True when a modal or a borderless overlay is up (the Qt analogue of the
     Tk "focus is inside a dialog" check)."""
+    if getattr(win, "_filegraph_loading", False):
+        return True
     if QApplication.activeModalWidget() is not None:
         return True
     try:

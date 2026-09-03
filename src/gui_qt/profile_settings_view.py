@@ -344,6 +344,10 @@ class ProfileSettingsView(QWidget):
     def _do_rename(self):
         if self._rename_edit is None or self._rename_target is None:
             return
+        if getattr(self._window, "_filegraph_loading", False):
+            self._notify(self.tr("Wait for the profile to finish loading."),
+                         "info")
+            return
         old_name = self._rename_target
         new_name = self._rename_edit.text().strip()
 
@@ -396,6 +400,10 @@ class ProfileSettingsView(QWidget):
     # -- remove -------------------------------------------------------------
     def _on_remove(self, profile: str):
         if self._is_original_default(profile) or self._is_profile_locked(profile):
+            return
+        if getattr(self._window, "_filegraph_loading", False):
+            self._notify(self.tr("Wait for the profile to finish loading."),
+                         "info")
             return
         from gui_qt.confirm_overlay import ConfirmOverlay
         from Utils.games.registry import _GAMES
@@ -460,6 +468,10 @@ class ProfileSettingsView(QWidget):
 
     def _start_remove_worker(self, profile: str, is_deployed: bool):
         win = self._window
+        if getattr(win, "_filegraph_loading", False):
+            self._notify(self.tr("Wait for the profile to finish loading."),
+                         "info")
+            return
         # Coordinate with the app's deploy/restore mutex.
         if getattr(win, "_deploy_running", False):
             self._notify(self.tr("A deploy is in progress - try again shortly."), "warning")
