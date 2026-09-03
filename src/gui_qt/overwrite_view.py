@@ -36,6 +36,7 @@ from gui_qt.flow_layout import FlowLayout, enable_height_for_width
 from gui_qt.icons import icon
 from gui_qt.theme_qt import close_button
 from gui_qt.list_picker_overlay import ListPickerOverlay
+from gui_qt.modlist_model import NEW_MOD_VERSION
 from gui_qt.path_tree import (
     Node, sort_tree, PathTreeModel, PathTreeDelegate,
 )
@@ -563,7 +564,8 @@ class OverwriteView(QWidget):
                 mod_dir.mkdir(parents=True, exist_ok=False)
                 installed = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
                 (mod_dir / "meta.ini").write_text(
-                    f"[General]\ninstalled={installed}\n", encoding="utf-8")
+                    f"[General]\ninstalled={installed}\n"
+                    f"version={NEW_MOD_VERSION}\n", encoding="utf-8")
             except (OSError, ValueError) as exc:
                 try:
                     if mod_dir.is_dir():

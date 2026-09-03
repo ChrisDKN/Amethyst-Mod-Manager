@@ -19,7 +19,7 @@ from PySide6.QtCore import QCoreApplication, QT_TRANSLATE_NOOP
 
 from gui_qt.confirm_overlay import ConfirmOverlay
 from gui_qt.i18n import profile_display
-from gui_qt.modlist_model import COL_NAME, COL_VERSION
+from gui_qt.modlist_model import COL_NAME, COL_VERSION, NEW_MOD_VERSION
 from gui_qt.text_input_overlay import TextInputOverlay
 
 
@@ -1414,18 +1414,25 @@ def _create_empty_mod_prompt(view, model, insert):
             mod_dir.mkdir(parents=True, exist_ok=True)
             installed = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
             (mod_dir / "meta.ini").write_text(
-                f"[General]\ninstalled={installed}\n", encoding="utf-8")
+                f"[General]\ninstalled={installed}\n"
+                f"version={NEW_MOD_VERSION}\n", encoding="utf-8")
         except OSError as exc:
             ConfirmOverlay.show_message(
                 view, _mt("Create empty mod"),
                 _mtf("Could not create the mod folder:\n{0}", exc))
             return
-        if insert(name) is False and created:
-            import shutil
-            try:
-                shutil.rmtree(mod_dir)
-            except OSError:
-                pass
+        if insert(name) is False:
+            if created:
+                import shutil
+                try:
+                    shutil.rmtree(mod_dir)
+                except OSError:
+                    pass
+            return
+        # The insert only saves the modlist; the meta pass that fills the
+        # Version column runs on a full reload. Push the version we just wrote
+        # straight into the model so the column is right immediately.
+        model.set_version(name, NEW_MOD_VERSION)
 
     TextInputOverlay.show_over(view, _mt("Create empty mod"), _mt("Mod name:"),
                                _named, ok_label=_mt("Create"))
