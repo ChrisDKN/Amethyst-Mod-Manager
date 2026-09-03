@@ -18,6 +18,8 @@ Default bindings:
     Ctrl+N          Create an empty mod at the top of the modlist
     Ctrl+R          Restore
     Ctrl+S          Open Settings
+    Ctrl+Up/Down    Extend the selection to the previous/next row in the
+                    active list panel (handled by the views themselves)
     Alt+Up          Move selected mods/plugins/separators up
     Alt+Down        Move selected mods/plugins/separators down
     Shift+E         Expand/collapse all separators (modlist)
@@ -764,6 +766,40 @@ def _select_all(win):
             and not m.entry(r).is_separator
             and m.entry(r).name not in _PINNED_NAMES]
     _apply_row_selection(view, rows)
+
+
+
+# ---- Ctrl+Up / Ctrl+Down: extend the selection ------------------------------
+
+def ctrl_arrow_extend(view, key) -> bool:
+    """Handle Ctrl+Up/Down in a list panel by adding the next visible row to
+    the selection. Qt's own Ctrl+Arrow only walks the current index and leaves
+    the selection alone, which reads as "nothing happened" in a view whose
+    delegate paints selection but no focus ring. Returns True if handled."""
+    if key not in (Qt.Key_Up, Qt.Key_Down):
+        return False
+    visible = view._visible_rows()
+    if not visible:
+        return False
+
+    sm = view.selectionModel()
+    current = sm.currentIndex()
+    step = -1 if key == Qt.Key_Up else 1
+    if current.isValid() and current.row() in visible:
+        i = visible.index(current.row()) + step
+        if not 0 <= i < len(visible):
+            return True          # already at an end - swallow, don't wrap
+        row = visible[i]
+    else:
+        row = visible[0] if step > 0 else visible[-1]
+
+    m = view.model()
+    idx = m.index(row, 0)
+    sm.select(QItemSelection(idx, m.index(row, m.columnCount() - 1)),
+              QItemSelectionModel.Select | QItemSelectionModel.Rows)
+    sm.setCurrentIndex(idx, QItemSelectionModel.NoUpdate)
+    view.scrollTo(idx)
+    return True
 
 
 # ---- Alt+Up / Alt+Down: move selection --------------------------------------

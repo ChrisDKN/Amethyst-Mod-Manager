@@ -1037,6 +1037,17 @@ class ModListView(QTreeView):
         else:
             _open_on_nexus(self, entry.name)
 
+    def keyPressEvent(self, event):
+        # Ctrl+Up/Down extends the selection like Shift+Up/Down does. Qt's
+        # default only walks the current index, which is invisible here.
+        if event.modifiers() & Qt.ControlModifier and not (
+                event.modifiers() & Qt.ShiftModifier):
+            from gui_qt.shortcuts import ctrl_arrow_extend
+            if ctrl_arrow_extend(self, event.key()):
+                event.accept()
+                return
+        super().keyPressEvent(event)
+
     def mousePressEvent(self, event):
         # A press on the sticky separator band must not reach the row painted
         # underneath it - consume it and remember the band's row for release.

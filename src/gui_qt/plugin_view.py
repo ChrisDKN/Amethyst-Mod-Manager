@@ -971,6 +971,17 @@ class PluginView(QTreeView):
         else:
             self.viewport().unsetCursor()
 
+    def keyPressEvent(self, event):
+        # Ctrl+Up/Down extends the selection like Shift+Up/Down does. Qt's
+        # default only walks the current index, which is invisible here.
+        if event.modifiers() & Qt.ControlModifier and not (
+                event.modifiers() & Qt.ShiftModifier):
+            from gui_qt.shortcuts import ctrl_arrow_extend
+            if ctrl_arrow_extend(self, event.key()):
+                event.accept()
+                return
+        super().keyPressEvent(event)
+
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
             idx = self.indexAt(event.position().toPoint())
