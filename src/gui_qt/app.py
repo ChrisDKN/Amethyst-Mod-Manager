@@ -17190,6 +17190,62 @@ class MainWindow(QMainWindow):
         self._plugin_view.refresh_cycle_marker()
         self._refresh_plugin_stats()
 
+    def _capture_plugin_selection(self):
+        """Selected plugin names (lowercased) + the current row's name, taken
+        before a reload replaces the model."""
+        try:
+            pv = self._plugin_view
+            m = self._plugin_model
+            sel = set()
+            for idx in pv.selectionModel().selectedRows():
+                r = idx.row()
+                if 0 <= r < m.rowCount():
+                    sel.add(m.row(r).name.lower())
+            cur = pv.currentIndex()
+            current = None
+            if cur.isValid() and 0 <= cur.row() < m.rowCount():
+                current = m.row(cur.row()).name.lower()
+            return sel, current
+        except Exception:
+            return set(), None
+
+    def _restore_plugin_selection(self, names, current):
+        """Re-select the plugins captured by _capture_plugin_selection.
+
+        Rows move (sort, load-order edits) and may be filtered out, so this
+        matches on the plugin name and skips anything now hidden."""
+        if not names:
+            return
+        try:
+            from PySide6.QtCore import QItemSelection, QItemSelectionModel
+            from gui_qt.plugin_model import COLUMNS
+            pv = self._plugin_view
+            m = self._plugin_model
+            last_col = len(COLUMNS) - 1
+            sm = pv.selectionModel()
+            selection = QItemSelection()
+            current_row = None
+            for r in range(m.rowCount()):
+                name = m.row(r).name.lower()
+                if name not in names:
+                    continue
+                if pv.isRowHidden(r, pv.rootIndex()):
+                    continue
+                selection.select(m.index(r, 0), m.index(r, last_col))
+                if current_row is None or name == current:
+                    current_row = r
+            if selection.isEmpty():
+                return
+            # Set the current index first (it is the shift-extend anchor), with
+            # NoUpdate so it does not clear the selection we are about to apply.
+            if current_row is not None:
+                sm.setCurrentIndex(m.index(current_row, 0),
+                                   QItemSelectionModel.NoUpdate)
+            sm.select(selection, QItemSelectionModel.ClearAndSelect
+                      | QItemSelectionModel.Rows)
+        except Exception as exc:
+            self._append_log(f"[plugins] selection restore failed: {exc}")
+
     def _on_plugins_loaded(self, gen, rows, paths, state, report=None):
         """UI thread: apply a finished plugin reload (see _reload_plugins)."""
         startup_info = getattr(
@@ -17232,6 +17288,10 @@ class MainWindow(QMainWindow):
         import time as _time
         _apply_t0 = _time.perf_counter()
         phase_started = timing.now() if timing is not None else None
+        # set_rows resets the model, which drops the selection. Enable/disable
+        # (Enter, or the context menu) routes through here, so remember what was
+        # selected and re-select the same plugins once the fresh rows are in.
+        keep_sel, keep_current = self._capture_plugin_selection()
         self._plugin_model.set_rows(rows, game=self._gs.game,
                                     profile=self._gs.profile,
                                     profile_dir=self._gs.profile_dir())
@@ -17267,6 +17327,9 @@ class MainWindow(QMainWindow):
         phase_started = timing.now() if timing is not None else None
         if getattr(self, "_plugin_filter_panel", None) is not None:
             self._apply_plugin_filters()
+        # After the search/filter passes, so a restored row that is now hidden
+        # is skipped rather than left selected-but-invisible.
+        self._restore_plugin_selection(keep_sel, keep_current)
         self._refresh_plugin_stats()
         self._refresh_framework_banner()
         self._apply_plugins_supported()
