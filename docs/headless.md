@@ -3,8 +3,9 @@
 Amethyst headless mode gives scripts and external applications a stable way to
 use the manager without importing its Python modules or starting Qt. Protocol
 version 1 exposes game, profile, mod and downloaded-archive state, Nexus OAuth,
-exact-ID metadata and managed downloads, plus asynchronous mod activation,
-ordering, removal, profile lifecycle, deploy, and restore jobs.
+exact-ID metadata, managed downloads, and non-interactive archive installation,
+plus asynchronous mod activation, ordering, removal, profile lifecycle, deploy,
+and restore jobs.
 
 The public boundary is JSON-RPC 2.0 over newline-delimited JSON (NDJSON).
 Amethyst reads one JSON value per line from standard input and writes one JSON
@@ -97,7 +98,13 @@ The response describes the protocol and available features:
       "event_delivery": "poll",
       "cancellation": true,
       "cancellable_jobs": ["nexus.download"],
-      "mutations": ["profiles.create", "profiles.rename", "profiles.remove", "profiles.select", "mods.set_enabled", "mods.move", "mods.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download"],
+      "mutations": ["profiles.create", "profiles.rename", "profiles.remove", "profiles.select", "mods.set_enabled", "mods.move", "mods.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install"],
+      "installation": {
+        "source": "download_inventory",
+        "installer_policies": ["reject", "defaults"],
+        "existing_mod_policies": ["fail", "replace"],
+        "interactive": false
+      },
       "nexus": {
         "authentication": "oauth_pkce",
         "browser_open_optional": true,
@@ -117,6 +124,7 @@ The response describes the protocol and available features:
         "profiles.remove.start",
         "profiles.select.start",
         "downloads.list",
+        "downloads.install.start",
         "nexus.auth.get",
         "nexus.auth.login.start",
         "nexus.auth.login.submit_code",
@@ -164,6 +172,7 @@ parameters are rejected.
 | `profiles.remove.start` | `game` string, `profile` string, `confirm` boolean | Permanently remove a profile. |
 | `profiles.select.start` | `game` string, `profile` string | Persist and load the active profile. |
 | `downloads.list` | `game` string, `profile` string | List downloaded mod archives and configured locations. |
+| `downloads.install.start` | `game` string, `profile` string, `archive_id` string, `name` string (optional), `installer_policy` string (optional), `if_exists` string (optional) | Install one archive returned by `downloads.list`. |
 | `nexus.auth.get` | None | Inspect saved-credential and active-login state without exposing credentials. |
 | `nexus.auth.login.start` | `open_browser` boolean (optional) | Start a Nexus OAuth login flow and return its authorisation URL. |
 | `nexus.auth.login.submit_code` | `code` string | Submit the manual fallback code for the active login. |
@@ -239,6 +248,55 @@ newest first, while the game cache and extra locations are alphabetical. The
 top-level `counts` object reports location, archive, installed, not-installed,
 and total-byte counts. Archive and location IDs are opaque and should be
 refreshed after files move or download-location settings change.
+
+### Installing a downloaded archive
+
+Use the opaque archive ID from `downloads.list`; callers do not submit an
+arbitrary filesystem path:
+
+```json
+{"jsonrpc":"2.0","id":"install","method":"downloads.install.start","params":{"game":"skyrim_se","profile":"default","archive_id":"archive_<sha256>"}}
+```
+
+The default policies are deliberately conservative:
+
+- `if_exists` defaults to `fail`. Set it to `replace` only when replacing the
+  same-named staged mod is intended. Replacement keeps its modlist position and
+  enabled state where the existing installer supports that carry-over. In a
+  shared-staging setup, replacing the folder changes it for every profile that
+  uses that shared mod.
+- `installer_policy` defaults to `reject`. A FOMOD with choices, BAIN package,
+  or RE Engine bundle finishes with `installer_choices_required` without
+  staging files. Set the policy to `defaults` to explicitly use the installer's
+  recommended/default selections.
+- An optional `name` selects the destination mod-folder name. It must be one
+  safe path component. Without it, Amethyst applies its normal Nexus metadata,
+  archive-name, and game-specific naming rules.
+
+For example, explicitly replace a mod while accepting installer defaults:
+
+```json
+{"jsonrpc":"2.0","id":"install-defaults","method":"downloads.install.start","params":{"game":"skyrim_se","profile":"default","archive_id":"archive_<sha256>","name":"SkyUI","installer_policy":"defaults","if_exists":"replace"}}
+```
+
+The job uses the normal toolkit-neutral extraction, structure detection,
+staging, metadata, filegraph, modlist, and plugin registration pipeline. The
+source archive is retained. Managed Nexus identity sidecars preserve the exact
+domain, mod ID, and file ID in the installed `meta.ini`, including offline
+installs. Symlink archives and unsafe destinations are rejected.
+
+A successful result contains the retained archive, installed mod name/path and
+enabled state, installer type/policy, and whether an existing mod was replaced.
+Progress covers archive lookup, extraction, file copying, and indexing. Install
+jobs are not cancellable once accepted because cancellation during staging could
+leave profile state partially updated.
+
+Install directly into a real profile. Profile groups require an ownership
+choice, so the method rejects a group and returns its member names; call it
+again with the intended member profile. Scripted or unparseable FOMODs and
+multi-mod archives currently finish with `installer_unsupported`. When a plain
+archive has an unrecognised structure, the non-interactive installer follows
+its existing fallback and installs the layout as-is.
 
 List mods:
 
@@ -689,9 +747,9 @@ client that also sends interactive requests should use short waits.
 
 ### Locking and failures
 
-Headless profile, mod activation, ordering and removal jobs and the standard
-Amethyst Deploy and Restore entry points—desktop, one-shot CLI, and
-headless—use the same operation coordinator.
+Headless profile, archive-install, mod activation, ordering and removal jobs and
+the standard Amethyst Deploy and Restore entry points—desktop, one-shot CLI,
+and headless—use the same operation coordinator.
 Operations are serialized
 within one process. Across native, AppImage and Flatpak processes, advisory
 locks cover the game identity and resolved game, profile, staging and deployment
@@ -703,7 +761,10 @@ the holder when metadata was available. Lock files persist between runs; their
 existence does not mean an operation is active because the kernel lock is the
 authority.
 
-Other final job error names are `deploy_failed`, `restore_failed`,
+Install jobs can report `archive_not_found`, `unsafe_archive`,
+`unsafe_install_destination`, `installer_choices_required`,
+`installer_unsupported`, `mod_already_exists`, and `install_failed`. Other final
+job error names include `deploy_failed`, `restore_failed`,
 `resource_unavailable`, and `internal_error`. Human-readable pipeline details
 remain available in the job's `log` events.
 
@@ -844,9 +905,12 @@ caller does not directly receive the created job ID or login-flow state.
 
 ## Current limitations
 
-- Broad Nexus search/browsing, installation, and launch are not exposed yet.
-  OAuth login, exact mod/file metadata, single-file downloads, and completed
-  archive inventory are available.
+- Broad Nexus search/browsing and launch are not exposed yet. OAuth login,
+  exact mod/file metadata, single-file downloads, completed archive inventory,
+  and non-interactive single-mod archive installation are available.
+- Interactive FOMOD/BAIN/bundle choices are not represented in protocol version
+  1. Clients can explicitly accept defaults; scripted FOMOD and multi-mod
+  archives remain unsupported by the headless installer.
 - Progress delivery is polling-only. Nexus downloads can be cancelled; other
   running jobs cannot.
 - The shared operation lock currently coordinates headless profile, mod

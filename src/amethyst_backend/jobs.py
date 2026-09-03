@@ -35,6 +35,257 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
+def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
+    from pathlib import Path
+
+    from Utils.downloads.inventory import build_inventory
+    from Utils.operations import acquire_game_operation
+
+    profile_dir = (
+        Path(job.game.get_profile_root()) / "profiles" / str(job.profile or ""))
+    with acquire_game_operation(
+        job.game, "install", owner=f"headless:{job.id}",
+    ):
+        if not profile_dir.is_dir():
+            raise JobError(
+                "profile_not_found",
+                f"Profile '{job.profile}' is no longer available.",
+                {"profile": job.profile},
+            )
+        from Utils.profiles.groups import get_members, is_group
+        if is_group(profile_dir):
+            raise JobError(
+                "profile_group_requires_member",
+                "Install into a member profile rather than a profile group.",
+                {
+                    "profile": profile_dir.name,
+                    "members": get_members(profile_dir),
+                },
+            )
+
+        progress(0, 1, "locate_archive")
+        inventory = build_inventory(job.game, profile_dir)
+        archive_id = str(job.options.get("archive_id") or "")
+        archive = next(
+            (item for item in inventory["archives"]
+             if item.get("id") == archive_id),
+            None,
+        )
+        if archive is None:
+            raise JobError(
+                "archive_not_found",
+                "The selected downloaded archive is no longer available.",
+                {"archive_id": archive_id},
+            )
+        locations = {
+            item["id"]: item for item in inventory["locations"]}
+        location = locations.get(archive.get("location_id"))
+        candidate = Path(str(archive.get("path") or ""))
+        try:
+            root = Path(str(location["path"])).resolve(strict=True)
+            resolved = candidate.resolve(strict=True)
+            safe = (
+                location is not None
+                and not candidate.is_symlink()
+                and candidate.is_file()
+                and resolved.parent == root
+            )
+        except (KeyError, OSError, RuntimeError, TypeError, ValueError):
+            safe = False
+            resolved = candidate
+        if not safe:
+            raise JobError(
+                "unsafe_archive",
+                "The selected archive is not a regular file in its download location.",
+                {"archive_id": archive_id},
+            )
+        progress(1, 1, "locate_archive")
+
+        from Utils.mods.install import (
+            UnsafeInstallPath,
+            finish_install,
+            prepare_archive,
+        )
+
+        prepared = None
+        try:
+            prepared = prepare_archive(
+                str(resolved),
+                job.game,
+                profile_dir,
+                log_fn=log,
+                progress_fn=progress,
+                preferred_name=str(job.options.get("name") or ""),
+            )
+            if prepared is None:
+                raise JobError(
+                    "install_failed",
+                    "The archive could not be prepared for installation.",
+                    {"archive_id": archive_id},
+                )
+            if prepared.is_scripted_fomod():
+                raise JobError(
+                    "installer_unsupported",
+                    "Scripted FOMOD installers cannot run headlessly.",
+                    {
+                        "installer": "scripted_fomod",
+                        "mod": prepared.mod_name,
+                    },
+                )
+            if prepared.fomod_parse_failed:
+                raise JobError(
+                    "installer_unsupported",
+                    "The FOMOD installer configuration could not be parsed.",
+                    {"installer": "fomod", "mod": prepared.mod_name},
+                )
+            if prepared.is_multi_mod():
+                raise JobError(
+                    "installer_unsupported",
+                    "Multi-mod archives are not supported by this headless method.",
+                    {"installer": "multi_mod", "mod": prepared.mod_name},
+                )
+
+            if prepared.is_fomod():
+                installer = "fomod"
+                choices = prepared.fomod_has_steps()
+            elif prepared.is_bain():
+                installer = "bain"
+                choices = True
+            elif prepared.is_bundle():
+                installer = "bundle"
+                choices = True
+            else:
+                installer = "plain"
+                choices = False
+            installer_policy = str(
+                job.options.get("installer_policy") or "reject")
+            if choices and installer_policy != "defaults":
+                raise JobError(
+                    "installer_choices_required",
+                    "The archive needs installer choices; explicitly allow defaults.",
+                    {
+                        "installer": installer,
+                        "mod": prepared.mod_name,
+                        "supported_policies": ["reject", "defaults"],
+                    },
+                )
+
+            from Utils.mods.copy import resolve_target_staging
+            staging_root = Path(resolve_target_staging(job.game, profile_dir))
+            destination = staging_root / prepared.mod_name
+            try:
+                source_inside_destination = resolved.is_relative_to(
+                    destination.resolve(strict=False))
+            except (OSError, RuntimeError, ValueError):
+                source_inside_destination = True
+            if source_inside_destination:
+                raise JobError(
+                    "unsafe_install_destination",
+                    "The destination mod folder contains the source archive.",
+                    {"mod": prepared.mod_name},
+                )
+            if destination.is_symlink():
+                raise JobError(
+                    "unsafe_install_destination",
+                    "The destination mod folder is a symbolic link.",
+                    {"mod": prepared.mod_name},
+                )
+            existing = destination.exists()
+            if existing and not destination.is_dir():
+                raise JobError(
+                    "unsafe_install_destination",
+                    "The destination exists but is not a mod folder.",
+                    {"mod": prepared.mod_name},
+                )
+            if_existing = str(job.options.get("if_exists") or "fail")
+            if existing and if_existing != "replace":
+                raise JobError(
+                    "mod_already_exists",
+                    f"Mod '{prepared.mod_name}' already exists.",
+                    {"mod": prepared.mod_name},
+                )
+
+            late_conflict = {"seen": False}
+
+            def reject_existing(_name, _conflict, _prepared):
+                late_conflict["seen"] = True
+                return "cancel"
+
+            installed = finish_install(
+                prepared,
+                None,
+                log_fn=log,
+                progress_fn=progress,
+                on_exists=None if if_existing == "replace" else reject_existing,
+                interactive=False,
+            )
+            if installed is None:
+                if late_conflict["seen"]:
+                    raise JobError(
+                        "mod_already_exists",
+                        "The destination mod folder appeared during installation.",
+                        {"mod": prepared.mod_name},
+                    )
+                raise JobError(
+                    "install_failed",
+                    "The archive did not produce an installed mod.",
+                    {"archive_id": archive_id},
+                )
+
+            installed_path = staging_root / installed
+            enabled = None
+            try:
+                from Utils.mods.modlist import read_modlist
+                entry = next(
+                    (item for item in read_modlist(profile_dir / "modlist.txt")
+                     if not item.is_separator and item.name == installed),
+                    None,
+                )
+                if entry is not None:
+                    enabled = bool(entry.enabled)
+            except Exception:
+                pass
+            return {
+                "ok": True,
+                "profile": profile_dir.name,
+                "archive": {
+                    "id": archive_id,
+                    "name": archive.get("name"),
+                    "path": str(resolved),
+                    "location_kind": archive.get("location_kind"),
+                    "nexus": archive.get("nexus"),
+                    "retained": resolved.is_file(),
+                },
+                "mod": {
+                    "name": installed,
+                    "path": str(installed_path),
+                    "enabled": enabled,
+                },
+                "installer": {
+                    "type": installer,
+                    "policy": installer_policy,
+                    "used_defaults": bool(choices),
+                },
+                "replaced": existing,
+            }
+        except JobError:
+            raise
+        except UnsafeInstallPath as exc:
+            raise JobError(
+                "unsafe_install_destination",
+                "The archive resolved to an unsafe mod folder name.",
+            ) from exc
+        except Exception as exc:
+            raise JobError(
+                "install_failed",
+                "The archive could not be installed.",
+                {"exception": type(exc).__name__},
+            ) from exc
+        finally:
+            if prepared is not None:
+                prepared.cleanup()
+
+
 @dataclass
 class _Job:
     id: str
@@ -238,6 +489,9 @@ class JobManager:
                 result = job.runner(log, progress)
                 if not isinstance(result, dict):
                     raise TypeError("A job runner must return a dictionary.")
+                ok = True
+            elif job.kind == "downloads.install":
+                result = _install_download(job, log, progress)
                 ok = True
             elif job.kind == "deploy":
                 from Utils.deployment.pipeline import run_deploy_pipeline

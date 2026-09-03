@@ -81,6 +81,18 @@ def _normalise_relative_install_path(value, *, label: str,
     return result + "/" if trailing else result
 
 
+def validate_mod_folder_name(value: str) -> str:
+    raw = os.fspath(value)
+    if not isinstance(raw, str):
+        raw = os.fsdecode(raw)
+    normalised = _normalise_relative_install_path(
+        raw, label="mod folder name", allow_empty=False)
+    if (normalised != raw or "/" in normalised
+            or any(ord(char) < 32 for char in raw)):
+        raise UnsafeInstallPath("mod folder name must be one safe path component")
+    return raw
+
+
 def _require_path_within(root: Path, candidate: Path, *, label: str) -> Path:
     try:
         candidate.resolve(strict=False).relative_to(root.resolve(strict=False))
@@ -1314,6 +1326,8 @@ class PreparedInstall:
         # (installed, active, loose) file sets its conditions evaluate against.
         self.saved_fomod_selections = None
         self.fomod_context = (set(), set(), set())
+        self.fomod_parse_failed = False
+        self.scripted_fomod = False
         # RE / Fluffy bundle detection (games with mod_supports_bundles, probed
         # at prepare time when the archive is neither FOMOD nor BAIN): the
         # grouped BundleLayout + the single-folder-unwrapped dir its variant
@@ -1335,6 +1349,9 @@ class PreparedInstall:
 
     def is_fomod(self) -> bool:
         return self.fomod_base is not None and self.fomod_config is not None
+
+    def is_scripted_fomod(self) -> bool:
+        return self.scripted_fomod
 
     def fomod_has_steps(self) -> bool:
         """True when the FOMOD config has at least one install step (i.e. the
@@ -1416,6 +1433,7 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
             log_fn(f"Naming mod folder from Thunderstore: '{mod_name}'.")
         elif nexus_name:
             log_fn(f"Naming mod folder from Nexus: '{mod_name}'.")
+    mod_name = validate_mod_folder_name(mod_name)
 
     def _p(done, total, phase=None):
         if progress_fn is not None:
@@ -1491,23 +1509,26 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
     fomod_base: Path | None = None
     config = None
     fomod_result = detect_fomod(str(extract_dir))
+    scripted_fomod = False
     if fomod_result is not None:
         mod_root, config_path = fomod_result
         try:
             config = parse_module_config(config_path)
             fomod_base = Path(mod_root)
         except Exception as exc:
-            log_fn(f"FOMOD parse failed ({exc}); will install verbatim.")
+            log_fn(f"FOMOD parse failed ({exc}); installer options unavailable.")
     elif detect_scripted_fomod(str(extract_dir)):
+        scripted_fomod = True
         log_fn("WARNING: This is a scripted (C#) FOMOD installer, which this "
-               "manager cannot run. All files will be installed without "
-               "showing any install options. If you need to choose optional "
-               "components, look for an XML-based or manually-packaged "
-               "version of this mod on Nexus.")
+               "manager cannot run. Its install options are unavailable. If "
+               "you need to choose optional components, look for an XML-based "
+               "or manually-packaged version of this mod on Nexus.")
     prepared = PreparedInstall(archive, game, profile_dir, mod_name,
                                extract_dir, src_root, fomod_base, config,
                                prebuilt_meta=prebuilt_meta,
                                on_need_prefix=on_need_prefix)
+    prepared.fomod_parse_failed = fomod_result is not None and config is None
+    prepared.scripted_fomod = scripted_fomod
     prepared._tmp_reserved = tmp_reserved
     if fomod_result is not None and config is not None:
         prepared.fomod_config_path = fomod_result[1]
@@ -1731,6 +1752,7 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
     *on_exists* is None the existing folder is silently replaced (collection /
     quick-update path)."""
     p = prepared
+    p.mod_name = validate_mod_folder_name(p.mod_name)
     from Utils.mods.copy import resolve_target_staging
     staging_root = Path(resolve_target_staging(p.game, p.profile_dir))
     staging_root.mkdir(parents=True, exist_ok=True)
@@ -1804,6 +1826,7 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
                     if not new_name or new_name == p.mod_name:
                         conflict = True
                         continue
+                    new_name = validate_mod_folder_name(new_name)
                     p.mod_name = new_name
                     dest_root = staging_root / p.mod_name
                     # Loop: if the new name is ALSO taken, re-prompt (conflict).
@@ -2906,6 +2929,7 @@ def _install_multi_mod(p: "PreparedInstall", log_fn: LogFn, _pp) -> str | None:
     installed: list[str] = []
     try:
         for m_name, m_path in p.multi_mods:
+            m_name = validate_mod_folder_name(m_name)
             file_list = stage_file_list(p.game, m_path, mod_name=m_name,
                                         log_fn=log_fn)
             if not file_list:

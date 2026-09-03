@@ -34,6 +34,7 @@ class AmethystService:
         "profiles.remove.start",
         "profiles.select.start",
         "downloads.list",
+        "downloads.install.start",
         "nexus.auth.get",
         "nexus.auth.login.start",
         "nexus.auth.login.submit_code",
@@ -76,6 +77,7 @@ class AmethystService:
             "profiles.remove.start": self._start_remove_profile,
             "profiles.select.start": self._start_select_profile,
             "downloads.list": self._list_downloads,
+            "downloads.install.start": self._start_install_download,
             "nexus.auth.get": self._get_nexus_auth,
             "nexus.auth.login.start": self._start_nexus_login,
             "nexus.auth.login.submit_code": self._submit_nexus_login_code,
@@ -245,7 +247,13 @@ class AmethystService:
                     "profiles.select", "mods.set_enabled", "mods.move",
                     "mods.remove", "deploy", "restore",
                     "nexus.auth.login", "nexus.auth.logout",
-                    "nexus.download"],
+                    "nexus.download", "downloads.install"],
+                "installation": {
+                    "source": "download_inventory",
+                    "installer_policies": ["reject", "defaults"],
+                    "existing_mod_policies": ["fail", "replace"],
+                    "interactive": False,
+                },
                 "nexus": {
                     "authentication": "oauth_pkce",
                     "browser_open_optional": True,
@@ -447,6 +455,87 @@ class AmethystService:
             },
             **inventory,
         }
+
+    def _start_install_download(
+        self, params: dict[str, Any],
+    ) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params,
+            {
+                "game", "profile", "archive_id", "name",
+                "installer_policy", "if_exists",
+            },
+            {"game", "profile", "archive_id"},
+        )
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_configured(game)
+        profile_dir = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+        from Utils.profiles.groups import get_members, is_group
+        if is_group(profile_dir):
+            raise ServiceError(
+                -32009,
+                "operation_not_supported",
+                "Install into a member profile rather than a profile group.",
+                {
+                    "profile": profile_dir.name,
+                    "members": get_members(profile_dir),
+                },
+            )
+
+        archive_id = self._required_text(params, "archive_id")
+        digest = archive_id.removeprefix("archive_")
+        if (not archive_id.startswith("archive_") or len(digest) != 64
+                or any(char not in "0123456789abcdef" for char in digest)):
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'archive_id' must be an ID returned by downloads.list.",
+                {"parameter": "archive_id"},
+            )
+
+        name = ""
+        if "name" in params:
+            name = self._mod_name(params.get("name"), "name")
+            if "\\" in name or name != name.strip():
+                raise ServiceError(
+                    -32602,
+                    "invalid_params",
+                    "'name' must be one safe mod-folder name.",
+                    {"parameter": "name"},
+                )
+
+        installer_policy = params.get("installer_policy", "reject")
+        if installer_policy not in {"reject", "defaults"}:
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'installer_policy' must be 'reject' or 'defaults'.",
+                {"parameter": "installer_policy"},
+            )
+        if_exists = params.get("if_exists", "fail")
+        if if_exists not in {"fail", "replace"}:
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'if_exists' must be 'fail' or 'replace'.",
+                {"parameter": "if_exists"},
+            )
+
+        job = self._jobs.submit(
+            "downloads.install",
+            game,
+            self._canonical_game(game),
+            profile_dir.name,
+            {
+                "archive_id": archive_id,
+                "name": name or None,
+                "installer_policy": installer_policy,
+                "if_exists": if_exists,
+            },
+        )
+        return {"job": job}
 
     def _get_nexus_auth(self, params: dict[str, Any]) -> dict[str, Any]:
         self._check_params(params, set())
@@ -1235,6 +1324,10 @@ class AmethystService:
             "features": {
                 "deploy": callable(self._safe_attr(game, "deploy", None)),
                 "restore": callable(self._safe_attr(game, "restore", None)),
+                "install": bool(
+                    configured
+                    and callable(self._safe_attr(
+                        game, "get_mod_staging_path", None))),
                 "nexus": bool(nexus_domains),
                 "thunderstore": bool(thunderstore),
                 "plugins": bool(plugin_extensions),
