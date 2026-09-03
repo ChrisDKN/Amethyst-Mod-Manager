@@ -15114,8 +15114,10 @@ class MainWindow(QMainWindow):
              {"filetypes": dl.filetype_items, "locations": dl.location_items},
              self._sync_downloads_filter_list),
         ):
-            self._install_filter_menu_button(
+            btn = self._install_filter_menu_button(
                 view._tree, panel_attr, spec, dyn, sync)
+            btn.columns_fn = getattr(view, "column_menu_items", None)
+            btn.on_column_toggle = getattr(view, "set_column_visible", None)
 
     def _install_filter_menu_button(self, tree, panel_attr, spec, dyn_fns, sync):
         from gui_qt.filter_menu_button import FilterMenuButton, BTN_W

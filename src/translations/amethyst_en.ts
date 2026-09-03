@@ -3717,6 +3717,10 @@ When it completes, the app switches to the new profile - then come back here and
         <source>Size</source>
         <translation>Size</translation>
     </message>
+    <message>
+        <source>Downloaded</source>
+        <translation>Downloaded</translation>
+    </message>
 </context>
 <context>
     <name>DownloadsView</name>

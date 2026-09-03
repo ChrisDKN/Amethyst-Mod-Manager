@@ -11,7 +11,8 @@ from PySide6.QtWidgets import QStyledItemDelegate
 
 from gui_qt.theme_qt import bind_theme, qc, qc_contrast
 from gui_qt.downloads_model import (
-    COL_CHECK, COL_NAME, COL_SIZE, COL_INSTALL, EntryRole, InstalledRole,
+    COL_CHECK, COL_NAME, COL_SIZE, COL_DOWNLOADED, COL_INSTALL,
+    EntryRole, InstalledRole,
 )
 
 CHECK_BOX = 18
@@ -99,6 +100,11 @@ class DownloadsDelegate(QStyledItemDelegate):
             f = QFont(); f.setPixelSize(FONT_PX); p.setFont(f)
             p.drawText(r.adjusted(0, 0, -8, 0),
                        Qt.AlignVCenter | Qt.AlignRight, e.size_str)
+        elif col == COL_DOWNLOADED:
+            p.setPen(self.c_dim)
+            f = QFont(); f.setPixelSize(FONT_PX); p.setFont(f)
+            p.drawText(r.adjusted(4, 0, -4, 0), Qt.AlignCenter,
+                       index.model().data(index, Qt.DisplayRole) or "")
         elif col == COL_INSTALL:
             self._paint_button(p, r, index.model().data(index, InstalledRole))
 

@@ -1,15 +1,19 @@
 """Eye button pinned to the left of a tree's column header that pops the tab's
 filters as a menu - one submenu per filter category.
 
-The modlist and plugins views grow their own button (theirs also carries column
-show/hide); the simpler tabs - Mod Files, Text Files, Saves, Data, Downloads -
-share this one. It is purely a shortcut onto the tab's FilterSidePanel: the host
-supplies
+The modlist and plugins views grow their own button; the simpler tabs - Mod
+Files, Text Files, Saves, Data, Downloads - share this one. It is primarily a
+shortcut onto the tab's FilterSidePanel: the host supplies
 
     sections_fn() -> [{"title": str, "entries": [(key, label, tri_state)]}]
     on_toggle(key, on: bool)
     on_clear()            (optional)
     any_active() -> bool  (optional; greys out "Clear all filters")
+
+Downloads also supplies optional column visibility actions:
+
+    columns_fn() -> [(key, label, visible)]
+    on_column_toggle(key, visible: bool)
 
 with `key` opaque to this widget, so panel and menu always show the same state.
 """
@@ -44,6 +48,8 @@ class FilterMenuButton(QToolButton):
         self.on_toggle = None
         self.on_clear = None
         self.any_active = None
+        self.columns_fn = None
+        self.on_column_toggle = None
         p = active_palette()
         # Tint the eye glyph to the theme foreground so it reads in both light
         # and dark modes (the white PNG is invisible on the light header).
@@ -87,6 +93,16 @@ class FilterMenuButton(QToolButton):
     def _show_menu(self):
         from gui_qt.modlist_view import _StayOpenMenu
         menu = _StayOpenMenu(self)
+        columns = self.columns_fn() if callable(self.columns_fn) else []
+        for key, label, visible in columns:
+            action = QAction(label, menu)
+            action.setCheckable(True)
+            action.setChecked(visible)
+            action.toggled.connect(
+                lambda checked, k=key: self._toggle_column(k, checked))
+            menu.addAction(action)
+        if columns:
+            menu.addSeparator()
         sections = self.sections_fn() if callable(self.sections_fn) else []
         for sec in sections:
             sub = _StayOpenMenu(sec.get("title", ""), menu)
@@ -133,6 +149,10 @@ class FilterMenuButton(QToolButton):
     def _toggle(self, key, on: bool):
         if callable(self.on_toggle):
             self.on_toggle(key, on)
+
+    def _toggle_column(self, key, visible: bool):
+        if callable(self.on_column_toggle):
+            self.on_column_toggle(key, visible)
 
     def _clear(self):
         if callable(self.on_clear):

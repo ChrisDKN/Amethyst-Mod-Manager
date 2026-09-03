@@ -16,8 +16,16 @@ from PySide6.QtWidgets import (
 
 import Utils.downloads.core as dc
 from gui_qt.downloads_model import (
-    DownloadsModel, COL_CHECK, COL_NAME, COL_SIZE, COL_INSTALL,
+    DownloadsModel, COLUMNS, COL_CHECK, COL_NAME, COL_SIZE, COL_DOWNLOADED,
+    COL_INSTALL,
 )
+
+
+_COL_TO_SORTKEY = {
+    COL_NAME: "name", COL_SIZE: "size", COL_DOWNLOADED: "downloaded",
+}
+_TOGGLEABLE_COLUMNS = (COL_SIZE, COL_DOWNLOADED)
+_COLUMN_STATE_SECTION = "qt_columns_downloads"
 
 
 class DownloadsView(QWidget):
@@ -99,14 +107,26 @@ class DownloadsView(QWidget):
         self._model.dataChanged.connect(self._on_model_changed)
 
         from gui_qt.modlist_header import TkStyleHeader
-        col_mins = {COL_CHECK: 34, COL_NAME: 160, COL_SIZE: 70, COL_INSTALL: 100}
-        col_defaults = {COL_CHECK: 34, COL_SIZE: 90, COL_INSTALL: 100}
-        hdr = TkStyleHeader(self._tree, col_mins, col_defaults)
+        col_mins = {
+            COL_CHECK: 34, COL_NAME: 160, COL_SIZE: 70,
+            COL_DOWNLOADED: 100, COL_INSTALL: 100,
+        }
+        col_defaults = {
+            COL_CHECK: 34, COL_SIZE: 90, COL_DOWNLOADED: 110,
+            COL_INSTALL: 100,
+        }
+        hdr = TkStyleHeader(self, col_mins, col_defaults, parent=self._tree)
         self._tree.setHeader(hdr)
+        hdr.setSectionsClickable(True)
         hdr.setMinimumSectionSize(min(col_mins.values()))
+        hdr.setSortIndicatorShown(False)
+        hdr.setSortIndicator(-1, Qt.AscendingOrder)
+        hdr.sectionClicked.connect(self._on_header_sort_clicked)
         for col, wdt in col_defaults.items():
             self._tree.setColumnWidth(col, wdt)
+        self._column_defaults = col_defaults
         self._name_min = col_mins[COL_NAME]
+        self._restore_column_visibility()
         self._tree.viewport().installEventFilter(self)
         v.addWidget(self._tree, 1)
 
@@ -136,10 +156,11 @@ class DownloadsView(QWidget):
 
     def _draggable_path_at(self, pos):
         """The archive path under *pos* if a drag may start there: the Name or
-        Size cell of a real archive row (never the checkbox / Install button,
-        so press-and-slide on those still works as a click)."""
+        Size or Downloaded cell of a real archive row (never the checkbox /
+        Install button, so press-and-slide on those still works as a click)."""
         index = self._tree.indexAt(pos)
-        if not index.isValid() or index.column() not in (COL_NAME, COL_SIZE):
+        if (not index.isValid()
+                or index.column() not in (COL_NAME, COL_SIZE, COL_DOWNLOADED)):
             return None
         e = self._model.entry(index.row())
         if e is None or e.is_section_header or e.path is None:
@@ -205,10 +226,77 @@ class DownloadsView(QWidget):
             return
         others = (self._tree.columnWidth(COL_CHECK)
                   + self._tree.columnWidth(COL_SIZE)
+                  + self._tree.columnWidth(COL_DOWNLOADED)
                   + self._tree.columnWidth(COL_INSTALL))
         target = vp - others
         if target >= self._name_min and target != self._tree.columnWidth(COL_NAME):
             self._tree.header().resizeSection(COL_NAME, target)
+
+    # -- column sorting ----------------------------------------------------
+    def _on_header_sort_clicked(self, logical: int):
+        key = _COL_TO_SORTKEY.get(logical)
+        if key is None:
+            return
+        current, ascending = self._model.sort_state()
+        if current == key:
+            new_key, new_ascending = ((key, False) if ascending
+                                      else (None, True))
+        else:
+            new_key, new_ascending = key, True
+        self._model.set_sort(new_key, new_ascending)
+        hdr = self._tree.header()
+        if new_key is None:
+            hdr.setSortIndicator(-1, Qt.AscendingOrder)
+        else:
+            order = (Qt.AscendingOrder if new_ascending
+                     else Qt.DescendingOrder)
+            hdr.setSortIndicator(logical, order)
+        hdr.viewport().update()
+
+    def sort_triangle_spec(self, logical: int):
+        key = _COL_TO_SORTKEY.get(logical)
+        if key is None:
+            return None
+        current, ascending = self._model.sort_state()
+        return (current == key, ascending if current == key else True)
+
+    # -- column visibility -------------------------------------------------
+    def column_menu_items(self):
+        return [
+            (col, self._model.tr(COLUMNS[col]),
+             not self._tree.isColumnHidden(col))
+            for col in _TOGGLEABLE_COLUMNS
+        ]
+
+    def set_column_visible(self, col: int, visible: bool):
+        if col not in _TOGGLEABLE_COLUMNS:
+            return
+        self._tree.setColumnHidden(col, not visible)
+        if visible and self._tree.columnWidth(col) <= 0:
+            self._tree.header().resizeSection(
+                col, self._column_defaults.get(col, 90))
+        self._fit_name_to_width()
+        self._tree.viewport().update()
+        self._save_column_visibility()
+
+    def _save_column_visibility(self):
+        from gui_qt import column_state
+        hidden = {
+            COLUMNS[col] for col in _TOGGLEABLE_COLUMNS
+            if self._tree.isColumnHidden(col)
+        }
+        column_state.save_state(
+            {}, [], hidden, None, True, section=_COLUMN_STATE_SECTION)
+
+    def _restore_column_visibility(self):
+        from gui_qt import column_state
+        state = column_state.load_state(
+            section=_COLUMN_STATE_SECTION, columns=COLUMNS)
+        name_to_col = {COLUMNS[col]: col for col in _TOGGLEABLE_COLUMNS}
+        for name in state["hidden"]:
+            col = name_to_col.get(name)
+            if col is not None:
+                self._tree.setColumnHidden(col, True)
 
     # -- scan / filter ------------------------------------------------------
     def _game_name(self):

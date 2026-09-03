@@ -121,6 +121,7 @@ class DownloadEntry:
     path: Optional[Path] = None
     size_str: str = ""
     size: int = 0
+    mtime: float = 0.0
     src_dir: Optional[Path] = None
 
 
@@ -231,9 +232,10 @@ def scan_download_dirs(game_name: Optional[str]) -> list[DownloadEntry]:
             is_section_header=True,
             section_name=section_label_for_dir(dl_dir, game_name),
             src_dir=dl_dir))
-        for p, _mt, sz in bucket:
+        for p, mt, sz in bucket:
             entries.append(DownloadEntry(
-                path=p, size_str=fmt_size(sz), size=sz, src_dir=dl_dir))
+                path=p, size_str=fmt_size(sz), size=sz, mtime=mt,
+                src_dir=dl_dir))
     return entries
 
 
