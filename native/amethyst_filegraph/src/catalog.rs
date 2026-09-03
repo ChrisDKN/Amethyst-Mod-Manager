@@ -10,8 +10,11 @@ use fs2::FileExt;
 use parking_lot::{Mutex, RwLock};
 use rusqlite::types::Value;
 use rusqlite::{Connection, OptionalExtension, params, params_from_iter};
+use serde::ser::SerializeSeq;
+use serde::{Deserialize, Serialize, Serializer};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fs::{File, OpenOptions};
+use std::io::{BufReader, BufWriter, Write};
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -272,7 +275,7 @@ fn profile_order_labels(
     labels.into_iter().map(Option::unwrap).collect()
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
 struct FileIdentity {
     device: u64,
     inode: u64,
@@ -283,6 +286,213 @@ struct CatalogPathIdentity {
     parent: FileIdentity,
     lock: FileIdentity,
     database: FileIdentity,
+}
+
+const PROJECTION_CACHE_FORMAT: u32 = 1;
+const PROJECTION_CACHE_NAME: &str = "filegraph.cache";
+
+type ProjectionSelection = Arc<Vec<(String, String)>>;
+type CandidateCache = (u64, ProjectionSelection, Arc<Vec<Candidate>>);
+type RawFileCache = (u64, ProjectionSelection, Arc<Vec<RawCatalogFile>>);
+type SharedStringTable = (Vec<Arc<str>>, HashMap<Arc<str>, u32>);
+
+struct LoadedProjectionCache {
+    generation: u64,
+    selection: ProjectionSelection,
+    candidates: Arc<Vec<Candidate>>,
+    raw_files: Arc<Vec<RawCatalogFile>>,
+}
+
+#[derive(Deserialize)]
+struct ProjectionCacheRead {
+    format: u32,
+    schema_version: u32,
+    database: FileIdentity,
+    generation: u64,
+    selection: Vec<(String, String)>,
+    strings: Vec<String>,
+    raw_files: Vec<CachedRawFile>,
+    candidates: Vec<CachedCandidate>,
+}
+
+#[derive(Deserialize)]
+struct CachedRawFile {
+    id: i64,
+    mod_name: u32,
+    mod_key: u32,
+    source_rel: Vec<u8>,
+    source_display: String,
+    index_display: String,
+    size: u64,
+    mtime_ns: i64,
+    ordinal: u32,
+    flags: u32,
+}
+
+#[derive(Deserialize)]
+struct CachedCandidate {
+    id: i64,
+    file_id: i64,
+    destination_id: i64,
+    mod_id: i64,
+    variant_key: u32,
+    target: u32,
+    destination_key: Vec<u8>,
+    destination_display: String,
+    kind: ProviderKind,
+    identities: Vec<Vec<u8>>,
+    archive_key: Option<u32>,
+    plugin_key: Option<u32>,
+    deployable: bool,
+    legacy_root: bool,
+    legacy_rel: String,
+    flags: u32,
+}
+
+struct SharedStrings<'a>(&'a [Arc<str>]);
+
+impl Serialize for SharedStrings<'_> {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut values = serializer.serialize_seq(Some(self.0.len()))?;
+        for value in self.0 {
+            values.serialize_element(value.as_ref())?;
+        }
+        values.end()
+    }
+}
+
+struct IdentityRows<'a>(&'a [Arc<[u8]>]);
+
+impl Serialize for IdentityRows<'_> {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut values = serializer.serialize_seq(Some(self.0.len()))?;
+        for value in self.0 {
+            values.serialize_element(value.as_ref())?;
+        }
+        values.end()
+    }
+}
+
+#[derive(Serialize)]
+struct RawFileCacheRow<'a> {
+    id: i64,
+    mod_name: u32,
+    mod_key: u32,
+    source_rel: &'a [u8],
+    source_display: &'a str,
+    index_display: &'a str,
+    size: u64,
+    mtime_ns: i64,
+    ordinal: u32,
+    flags: u32,
+}
+
+struct RawFileRows<'a> {
+    values: &'a [RawCatalogFile],
+    strings: &'a HashMap<Arc<str>, u32>,
+}
+
+impl Serialize for RawFileRows<'_> {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut rows = serializer.serialize_seq(Some(self.values.len()))?;
+        for file in self.values {
+            rows.serialize_element(&RawFileCacheRow {
+                id: file.id,
+                mod_name: *self.strings.get(file.mod_name.as_ref()).unwrap(),
+                mod_key: *self.strings.get(file.mod_key.as_ref()).unwrap(),
+                source_rel: file.source_rel.as_ref(),
+                source_display: file.source_display.as_ref(),
+                index_display: file.index_display.as_ref(),
+                size: file.size,
+                mtime_ns: file.mtime_ns,
+                ordinal: file.ordinal,
+                flags: file.flags,
+            })?;
+        }
+        rows.end()
+    }
+}
+
+#[derive(Serialize)]
+struct CandidateCacheRow<'a> {
+    id: i64,
+    file_id: i64,
+    destination_id: i64,
+    mod_id: i64,
+    variant_key: u32,
+    target: u32,
+    destination_key: &'a [u8],
+    destination_display: &'a str,
+    kind: ProviderKind,
+    identities: IdentityRows<'a>,
+    archive_key: Option<u32>,
+    plugin_key: Option<u32>,
+    deployable: bool,
+    legacy_root: bool,
+    legacy_rel: &'a str,
+    flags: u32,
+}
+
+struct CandidateRows<'a> {
+    values: &'a [Candidate],
+    strings: &'a HashMap<Arc<str>, u32>,
+}
+
+impl Serialize for CandidateRows<'_> {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut rows = serializer.serialize_seq(Some(self.values.len()))?;
+        for candidate in self.values {
+            rows.serialize_element(&CandidateCacheRow {
+                id: candidate.id,
+                file_id: candidate.file_id,
+                destination_id: candidate.destination_id,
+                mod_id: candidate.mod_id,
+                variant_key: *self.strings.get(candidate.variant_key.as_ref()).unwrap(),
+                target: *self.strings.get(candidate.target.as_ref()).unwrap(),
+                destination_key: candidate.destination_key.as_ref(),
+                destination_display: candidate.destination_display.as_ref(),
+                kind: candidate.kind,
+                identities: IdentityRows(&candidate.identities),
+                archive_key: candidate
+                    .archive_key
+                    .as_ref()
+                    .map(|value| *self.strings.get(value.as_ref()).unwrap()),
+                plugin_key: candidate
+                    .plugin_key
+                    .as_ref()
+                    .map(|value| *self.strings.get(value.as_ref()).unwrap()),
+                deployable: candidate.deployable,
+                legacy_root: candidate.legacy_root,
+                legacy_rel: candidate.legacy_rel.as_ref(),
+                flags: candidate.flags,
+            })?;
+        }
+        rows.end()
+    }
+}
+
+#[derive(Serialize)]
+struct ProjectionCacheWrite<'a> {
+    format: u32,
+    schema_version: u32,
+    database: FileIdentity,
+    generation: u64,
+    selection: &'a [(String, String)],
+    strings: SharedStrings<'a>,
+    raw_files: RawFileRows<'a>,
+    candidates: CandidateRows<'a>,
 }
 
 fn file_identity(path: &Path) -> Result<FileIdentity> {
@@ -307,6 +517,240 @@ fn catalog_path_identity(database_path: &Path) -> Result<CatalogPathIdentity> {
     })
 }
 
+fn projection_cache_path(database_path: &Path) -> Result<PathBuf> {
+    let parent = database_path.parent().ok_or_else(|| {
+        FileGraphError::Invalid(format!(
+            "database has no parent: {}",
+            database_path.display()
+        ))
+    })?;
+    Ok(parent.join(PROJECTION_CACHE_NAME))
+}
+
+fn cached_string(values: &[Arc<str>], index: u32) -> Result<Arc<str>> {
+    values.get(index as usize).cloned().ok_or_else(|| {
+        FileGraphError::Corrupt(format!("invalid filegraph cache string index {index}"))
+    })
+}
+
+fn decode_projection_cache(cache: ProjectionCacheRead) -> Result<LoadedProjectionCache> {
+    let shared_strings: Vec<Arc<str>> = cache.strings.into_iter().map(Arc::from).collect();
+    let mut strings: HashSet<Arc<str>> = shared_strings.iter().cloned().collect();
+    let mut bytes: HashSet<Arc<[u8]>> = HashSet::new();
+    let mut raw_files = Vec::with_capacity(cache.raw_files.len());
+    let mut raw_by_id = HashMap::with_capacity(cache.raw_files.len());
+    for record in cache.raw_files {
+        if raw_by_id.insert(record.id, raw_files.len()).is_some() {
+            return Err(FileGraphError::Corrupt(format!(
+                "duplicate raw file {} in filegraph cache",
+                record.id
+            )));
+        }
+        raw_files.push(RawCatalogFile {
+            id: record.id,
+            mod_name: cached_string(&shared_strings, record.mod_name)?,
+            mod_key: cached_string(&shared_strings, record.mod_key)?,
+            source_rel: intern_bytes(&mut bytes, record.source_rel),
+            source_display: intern_str(&mut strings, record.source_display),
+            index_display: intern_str(&mut strings, record.index_display),
+            size: record.size,
+            mtime_ns: record.mtime_ns,
+            ordinal: record.ordinal,
+            flags: record.flags,
+        });
+    }
+    let raw_files = Arc::new(raw_files);
+    let mut candidates = Vec::with_capacity(cache.candidates.len());
+    for record in cache.candidates {
+        let raw_index = raw_by_id.get(&record.file_id).copied().ok_or_else(|| {
+            FileGraphError::Corrupt(format!(
+                "raw file {} is missing from filegraph cache",
+                record.file_id
+            ))
+        })?;
+        let raw = &raw_files[raw_index];
+        candidates.push(Candidate {
+            id: record.id,
+            file_id: record.file_id,
+            destination_id: record.destination_id,
+            mod_id: record.mod_id,
+            mod_name: raw.mod_name.clone(),
+            mod_key: raw.mod_key.clone(),
+            variant_key: cached_string(&shared_strings, record.variant_key)?,
+            source_rel: raw.source_rel.clone(),
+            source_display: raw.source_display.clone(),
+            target: cached_string(&shared_strings, record.target)?,
+            destination_key: intern_bytes(&mut bytes, record.destination_key),
+            destination_display: intern_str(&mut strings, record.destination_display),
+            kind: record.kind,
+            size: raw.size,
+            mtime_ns: raw.mtime_ns,
+            ordinal: raw.ordinal,
+            identities: record
+                .identities
+                .into_iter()
+                .map(|value| intern_bytes(&mut bytes, value))
+                .collect(),
+            archive_key: record
+                .archive_key
+                .map(|index| cached_string(&shared_strings, index))
+                .transpose()?,
+            plugin_key: record
+                .plugin_key
+                .map(|index| cached_string(&shared_strings, index))
+                .transpose()?,
+            deployable: record.deployable,
+            legacy_root: record.legacy_root,
+            legacy_rel: intern_str(&mut strings, record.legacy_rel),
+            flags: record.flags,
+        });
+    }
+    Ok(LoadedProjectionCache {
+        generation: cache.generation,
+        selection: Arc::new(cache.selection),
+        candidates: Arc::new(candidates),
+        raw_files,
+    })
+}
+
+fn read_projection_cache(
+    database_path: &Path,
+    database: FileIdentity,
+) -> Result<Option<LoadedProjectionCache>> {
+    let path = projection_cache_path(database_path)?;
+    let file = match File::open(&path) {
+        Ok(file) => file,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error.into()),
+    };
+    let started = Instant::now();
+    let cache: ProjectionCacheRead = rmp_serde::from_read(BufReader::new(file))?;
+    if cache.format != PROJECTION_CACHE_FORMAT
+        || cache.schema_version != SCHEMA_VERSION
+        || cache.database != database
+    {
+        return Ok(None);
+    }
+    let cache = decode_projection_cache(cache)?;
+    if std::env::var_os("AMETHYST_FILEGRAPH_TRACE").is_some() {
+        eprintln!(
+            "[filegraph] projection cache loaded candidates={} raw_files={} elapsed_ms={:.3}",
+            cache.candidates.len(),
+            cache.raw_files.len(),
+            started.elapsed().as_secs_f64() * 1_000.0,
+        );
+    }
+    Ok(Some(cache))
+}
+
+fn projection_shared_strings(
+    candidates: &[Candidate],
+    raw_files: &[RawCatalogFile],
+) -> Result<SharedStringTable> {
+    fn insert(
+        values: &mut Vec<Arc<str>>,
+        indexes: &mut HashMap<Arc<str>, u32>,
+        value: &Arc<str>,
+    ) -> Result<()> {
+        if indexes.contains_key(value.as_ref()) {
+            return Ok(());
+        }
+        let index = u32::try_from(values.len()).map_err(|_| {
+            FileGraphError::Invalid("filegraph cache string table is too large".to_owned())
+        })?;
+        values.push(value.clone());
+        indexes.insert(value.clone(), index);
+        Ok(())
+    }
+
+    let mut values = Vec::new();
+    let mut indexes = HashMap::new();
+    for file in raw_files {
+        insert(&mut values, &mut indexes, &file.mod_name)?;
+        insert(&mut values, &mut indexes, &file.mod_key)?;
+    }
+    for candidate in candidates {
+        insert(&mut values, &mut indexes, &candidate.variant_key)?;
+        insert(&mut values, &mut indexes, &candidate.target)?;
+        if let Some(value) = &candidate.archive_key {
+            insert(&mut values, &mut indexes, value)?;
+        }
+        if let Some(value) = &candidate.plugin_key {
+            insert(&mut values, &mut indexes, value)?;
+        }
+    }
+    Ok((values, indexes))
+}
+
+fn write_projection_cache(
+    database_path: &Path,
+    database: FileIdentity,
+    generation: u64,
+    selection: &[(String, String)],
+    candidates: &[Candidate],
+    raw_files: &[RawCatalogFile],
+) -> Result<()> {
+    let path = projection_cache_path(database_path)?;
+    let parent = path.parent().ok_or_else(|| {
+        FileGraphError::Invalid(format!("cache has no parent: {}", path.display()))
+    })?;
+    let temporary = parent.join(format!(".{PROJECTION_CACHE_NAME}.tmp"));
+    let started = Instant::now();
+    let result = (|| -> Result<()> {
+        let (strings, string_indexes) = projection_shared_strings(candidates, raw_files)?;
+        let payload = ProjectionCacheWrite {
+            format: PROJECTION_CACHE_FORMAT,
+            schema_version: SCHEMA_VERSION,
+            database,
+            generation,
+            selection,
+            strings: SharedStrings(&strings),
+            raw_files: RawFileRows {
+                values: raw_files,
+                strings: &string_indexes,
+            },
+            candidates: CandidateRows {
+                values: candidates,
+                strings: &string_indexes,
+            },
+        };
+        let file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&temporary)?;
+        {
+            let mut writer = BufWriter::with_capacity(1024 * 1024, file);
+            rmp_serde::encode::write(&mut writer, &payload)?;
+            writer.flush()?;
+        }
+        if file_identity(database_path)? != database {
+            return Err(FileGraphError::Busy(
+                "catalog changed while writing its projection cache".to_owned(),
+            ));
+        }
+        std::fs::rename(&temporary, &path)?;
+        if std::env::var_os("AMETHYST_FILEGRAPH_TRACE").is_some() {
+            let size = std::fs::metadata(&path)
+                .map(|value| value.len())
+                .unwrap_or(0);
+            eprintln!(
+                "[filegraph] projection cache saved candidates={} raw_files={} bytes={} \
+                 elapsed_ms={:.3}",
+                candidates.len(),
+                raw_files.len(),
+                size,
+                started.elapsed().as_secs_f64() * 1_000.0,
+            );
+        }
+        Ok(())
+    })();
+    if result.is_err() {
+        let _ = std::fs::remove_file(&temporary);
+    }
+    result
+}
+
 pub struct LibraryCore {
     pub database_path: PathBuf,
     lock_file: Mutex<File>,
@@ -319,8 +763,10 @@ pub struct LibraryCore {
     // only arrive through this core. Keep the generation in memory to avoid
     // opening three read connections and querying meta on every warm edit.
     inventory_generation: AtomicU64,
-    candidate_cache: RwLock<Option<(u64, Arc<Vec<(String, String)>>, Arc<Vec<Candidate>>)>>,
-    raw_file_cache: RwLock<Option<(u64, Arc<Vec<(String, String)>>, Arc<Vec<RawCatalogFile>>)>>,
+    candidate_cache: RwLock<Option<CandidateCache>>,
+    raw_file_cache: RwLock<Option<RawFileCache>>,
+    projection_cache_saved: Mutex<Option<(u64, ProjectionSelection)>>,
+    projection_cache_write_pending: AtomicBool,
 }
 
 impl LibraryCore {
@@ -368,6 +814,16 @@ impl LibraryCore {
         initialise(&connection)?;
         let inventory_generation = read_u64_meta(&connection, "inventory_generation")?;
         let identity = catalog_path_identity(&self.database_path)?;
+        let projection = match read_projection_cache(&self.database_path, identity.database) {
+            Ok(Some(cache)) if cache.generation <= inventory_generation => Some(cache),
+            Ok(_) => None,
+            Err(error) => {
+                if std::env::var_os("AMETHYST_FILEGRAPH_TRACE").is_some() {
+                    eprintln!("[filegraph] projection cache ignored: {error}");
+                }
+                None
+            }
+        };
 
         drop(keeper.take());
         *keeper = Some(connection);
@@ -377,8 +833,17 @@ impl LibraryCore {
         *self.catalog_path_identity.lock() = identity;
         self.inventory_generation
             .store(inventory_generation, Ordering::Release);
-        *self.candidate_cache.write() = None;
-        *self.raw_file_cache.write() = None;
+        if let Some(cache) = projection {
+            *self.candidate_cache.write() =
+                Some((cache.generation, cache.selection.clone(), cache.candidates));
+            *self.raw_file_cache.write() =
+                Some((cache.generation, cache.selection.clone(), cache.raw_files));
+            *self.projection_cache_saved.lock() = Some((cache.generation, cache.selection));
+        } else {
+            *self.candidate_cache.write() = None;
+            *self.raw_file_cache.write() = None;
+            *self.projection_cache_saved.lock() = None;
+        }
         Ok(())
     }
 
@@ -440,16 +905,119 @@ impl LibraryCore {
         initialise(&connection)?;
         let inventory_generation = read_u64_meta(&connection, "inventory_generation")?;
         let catalog_path_identity = catalog_path_identity(&database_path)?;
+        let projection = match read_projection_cache(&database_path, catalog_path_identity.database)
+        {
+            Ok(Some(cache)) if cache.generation <= inventory_generation => Some(cache),
+            Ok(_) => None,
+            Err(error) => {
+                if std::env::var_os("AMETHYST_FILEGRAPH_TRACE").is_some() {
+                    eprintln!("[filegraph] projection cache ignored: {error}");
+                }
+                None
+            }
+        };
+        let (candidate_cache, raw_file_cache, projection_cache_saved) = match projection {
+            Some(cache) => {
+                let saved = Some((cache.generation, cache.selection.clone()));
+                (
+                    Some((cache.generation, cache.selection.clone(), cache.candidates)),
+                    Some((cache.generation, cache.selection, cache.raw_files)),
+                    saved,
+                )
+            }
+            None => (None, None, None),
+        };
         let core = Arc::new(Self {
             database_path,
             lock_file: Mutex::new(lock_file),
             catalog_path_identity: Mutex::new(catalog_path_identity),
             keeper: Mutex::new(Some(connection)),
             inventory_generation: AtomicU64::new(inventory_generation),
-            candidate_cache: RwLock::new(None),
-            raw_file_cache: RwLock::new(None),
+            candidate_cache: RwLock::new(candidate_cache),
+            raw_file_cache: RwLock::new(raw_file_cache),
+            projection_cache_saved: Mutex::new(projection_cache_saved),
+            projection_cache_write_pending: AtomicBool::new(false),
         });
         Ok(core)
+    }
+
+    fn persist_projection_cache_async(self: &Arc<Self>) {
+        let candidates =
+            self.candidate_cache
+                .read()
+                .as_ref()
+                .map(|(generation, selection, values)| {
+                    (*generation, selection.clone(), values.clone())
+                });
+        let raw_files =
+            self.raw_file_cache
+                .read()
+                .as_ref()
+                .map(|(generation, selection, values)| {
+                    (*generation, selection.clone(), values.clone())
+                });
+        let (generation, selection, candidates, raw_files) = match (candidates, raw_files) {
+            (
+                Some((generation, selection, candidates)),
+                Some((raw_generation, raw_selection, raw)),
+            ) if generation == raw_generation && selection.as_ref() == raw_selection.as_ref() => {
+                (generation, selection, candidates, raw)
+            }
+            _ => return,
+        };
+        if self.projection_cache_saved.lock().as_ref().is_some_and(
+            |(saved_generation, saved_selection)| {
+                *saved_generation == generation && saved_selection.as_ref() == selection.as_ref()
+            },
+        ) {
+            return;
+        }
+        if self
+            .projection_cache_write_pending
+            .swap(true, Ordering::AcqRel)
+        {
+            return;
+        }
+
+        let core = self.clone();
+        let database = self.catalog_path_identity.lock().database;
+        let database_path = self.database_path.clone();
+        let spawned = std::thread::Builder::new()
+            .name("filegraph-cache".to_owned())
+            .spawn(move || {
+                let result = write_projection_cache(
+                    &database_path,
+                    database,
+                    generation,
+                    &selection,
+                    &candidates,
+                    &raw_files,
+                );
+                if result.is_ok()
+                    && core.catalog_path_identity.lock().database == database
+                    && core.candidate_cache.read().as_ref().is_some_and(
+                        |(current_generation, current_selection, _)| {
+                            *current_generation == generation
+                                && current_selection.as_ref() == selection.as_ref()
+                        },
+                    )
+                {
+                    *core.projection_cache_saved.lock() = Some((generation, selection.clone()));
+                } else if let Err(error) = result
+                    && std::env::var_os("AMETHYST_FILEGRAPH_TRACE").is_some()
+                {
+                    eprintln!("[filegraph] projection cache save failed: {error}");
+                }
+                core.projection_cache_write_pending
+                    .store(false, Ordering::Release);
+            });
+        if let Err(error) = spawned {
+            self.projection_cache_write_pending
+                .store(false, Ordering::Release);
+            if std::env::var_os("AMETHYST_FILEGRAPH_TRACE").is_some() {
+                eprintln!("[filegraph] projection cache worker failed: {error}");
+            }
+        }
     }
 
     pub fn connection(&self) -> Result<Connection> {
@@ -561,6 +1129,7 @@ impl LibraryCore {
             .store(activated_generation, Ordering::Release);
         *self.candidate_cache.write() = None;
         *self.raw_file_cache.write() = None;
+        *self.projection_cache_saved.lock() = None;
         Ok(())
     }
 
@@ -838,6 +1407,7 @@ impl LibraryCore {
             .store(next_generation, Ordering::Release);
         *self.candidate_cache.write() = None;
         *self.raw_file_cache.write() = None;
+        *self.projection_cache_saved.lock() = None;
         Ok(())
     }
 
@@ -1277,6 +1847,7 @@ impl LibraryCore {
                 .ok_or(rusqlite::Error::QueryReturnedNoRows)?;
             Ok(Candidate {
                 id: candidate_id,
+                file_id,
                 destination_id: row.get(15)?,
                 mod_id: row.get(1)?,
                 mod_name: intern_str(&mut strings, row.get(2)?),
@@ -1772,6 +2343,7 @@ impl ProfileCore {
             }
             _ => (None, Arc::new(GraphSnapshot::empty(inventory_generation))),
         };
+        library.persist_projection_cache_async();
         Ok(Arc::new(Self {
             library,
             profile_id,
@@ -1832,6 +2404,7 @@ impl ProfileCore {
         state.intent = Some(intent);
         state.snapshot = snapshot;
         drop(state);
+        self.library.persist_projection_cache_async();
         // Keep the old generation's disposable plan until another plan
         // replaces it.  deployment_plan() validates the generation before it
         // can be returned, so retaining one stale Arc is safe and bounded.

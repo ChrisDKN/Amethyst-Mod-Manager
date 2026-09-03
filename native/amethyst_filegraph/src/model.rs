@@ -180,6 +180,7 @@ fn default_casing_strategy() -> String {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Candidate {
     pub id: i64,
+    pub file_id: i64,
     pub destination_id: i64,
     pub mod_id: i64,
     pub mod_name: Arc<str>,

@@ -946,6 +946,11 @@ class LibrarySession:
             companion = Path(str(database) + suffix)
             if companion.exists():
                 os.replace(companion, Path(str(target) + suffix))
+        for name in ("filegraph.cache", ".filegraph.cache.tmp"):
+            try:
+                (self.root / name).unlink()
+            except OSError:
+                pass
         return target
 
     @property

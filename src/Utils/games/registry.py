@@ -410,17 +410,19 @@ def _create_profile(
         # be a 1:1 clone of default - modlist, plugins, loadorder, loot.json,
         # userlist.yaml, fomod selections, ini files, profile_state.json all
         # carry over so it deploys identically out of the gate. Exclude backups/
-        # (default's deploy/restore snapshots - profile-specific and large;
-        # a fresh profile has nothing to restore). If profile_dir already exists
-        # (re-create), fall through to the touch()-based init below.
+        # and the generated Filegraph projection; neither belongs to the clone.
+        # If profile_dir already exists (re-create), fall through to the
+        # touch()-based init below.
         if not profile_dir.exists():
-            def _skip_backups(src, names):
-                # Only skip the top-level backups/ dir, not any nested match.
+            def _skip_generated(src, names):
+                # Only skip generated top-level state, not nested matches.
                 if Path(src) == default_dir:
-                    return {"backups"} & set(names)
+                    return {
+                        "backups", "filegraph.cache", ".filegraph.cache.tmp",
+                    } & set(names)
                 return set()
             shutil.copytree(default_dir, profile_dir, copy_function=shutil.copy2,
-                            ignore=_skip_backups, dirs_exist_ok=False)
+                            ignore=_skip_generated, dirs_exist_ok=False)
             # A clone is never the (locked, un-removable) original default, and
             # must not inherit its lock - scrub those flags from the copied
             # profile_settings while keeping the rest (e.g. collection_url).
