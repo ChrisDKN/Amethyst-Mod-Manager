@@ -2,6 +2,7 @@
   "name": "Palworld",
   "game_id": "Palworld",
   "exe_name": "Pal/Binaries/Win64/Palworld-Win64-Shipping.exe",
+  "exe_name_alts": [],
   "deploy_type": "ue5",
   "mod_data_path": "Pal",
   "steam_id": "1623730",
@@ -9,14 +10,16 @@
   "additional_nexus_domains": [],
   "thunderstore_community": "palworld",
   "image_url": "https://cdn2.steamgriddb.com/icon/74428c0a6c8f499e67f96908f425fdd3/32/256x256.png",
+  "auto_install_deps": [
+    "vcredist"
+  ],
   "mod_folder_strip_prefixes": [
     "Pal",
     "Binaries",
     "Win64",
     "Mods",
     "Content",
-    "Paks",
-    "LogicMods"
+    "Paks"
   ],
   "conflict_ignore_filenames": [
     "*readme*.txt",
@@ -152,6 +155,6 @@
     "UE4SS": "Binaries/Win64/dwmapi.dll",
     "PalSchema": "Binaries/Win64/ue4ss/Mods/PalSchema/dlls/main.dll"
   },
-  "version": 10,
+  "version": 11,
   "editable": false
 }
