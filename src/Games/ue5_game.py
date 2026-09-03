@@ -36,7 +36,7 @@ Unlike traditional games, UE5 mod destinations are not folders full of vanilla
 files - they are either empty or contain unrelated game content that must not
 be touched.  Deploy therefore works without a Core backup:
 
-  1. Place each mod file directly into its resolved game destination.
+  1. Place each mod file, or eligible raw folder link, at its destination.
   2. Track every placed file path in a deployed.txt manifest.
 
 Restore:
@@ -60,9 +60,11 @@ from Utils.deployment import (
     LinkMode, RestoreIncompleteError, load_per_mod_strip_prefixes,
     load_separator_deploy_paths,
     expand_separator_deploy_paths, expand_separator_raw_deploy,
-    expand_separator_link_modes, _resolve_nocase, _resolve_root_path,
+    expand_separator_link_modes, expand_separator_merge_dirs,
+    _resolve_nocase, _resolve_root_path,
     _write_deploy_snapshot, _move_runtime_files, _FILEMAP_SNAPSHOT_NAME,
 )
+from Utils.deployment.shared import _move_crash_safe
 from Utils.deployment.custom_rules import (
     deploy_custom_rules, restore_custom_rules, compute_prefix_handled,
     canonicalize_declared_folders,
@@ -1664,7 +1666,8 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
         UE5 destination folders (Content/Paks, Binaries/Win64, etc.) contain
         game content that must not be moved.  We therefore skip the Core backup
         pattern and simply place files, tracking them in ue5_deployed.txt so
-        restore() knows what to remove.
+        restore() knows what to remove. Raw custom separator folders are the
+        exception: symlink mode can replace and back up their top-level folder.
         """
         _log = log_fn or (lambda _: None)
 
@@ -1702,6 +1705,7 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
         per_mod_deploy = expand_separator_deploy_paths(_sep_deploy, _sep_entries)
         per_mod_raw = expand_separator_raw_deploy(_sep_deploy, _sep_entries)
         per_mod_modes = expand_separator_link_modes(_sep_deploy, _sep_entries) or None
+        per_mod_merge = expand_separator_merge_dirs(_sep_deploy, _sep_entries)
         prefix_per_mod_modes = per_mod_modes
         vfs_external_mods: set[str] = set()
 
@@ -1784,6 +1788,7 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
         linked = 0
         skipped = 0
         backed_up = 0
+        backed_up_folders = 0
 
         from Utils.filegraph.deploy import entries as filegraph_entries, legacy_lines
         lines = list(legacy_lines())
@@ -1814,7 +1819,9 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
                 [(sr, mn) for sr, mn in parsed]
             )
         }
-        resolved_by_dest: dict[str, tuple[int, str, str, str, Path, Path, bool, str]] = {}
+        resolved_by_dest: dict[
+            str, tuple[int, str, str, str, Path, Path, bool, str, Path]
+        ] = {}
         dest_case_cache: dict = {}
         prefix_skip_dest = getattr(self, "_PREFIX_SKIP_DEST", None)
         for staged_rel, mod_name in parsed:
@@ -1859,7 +1866,7 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
             if existing is None or rank < existing[0]:
                 resolved_by_dest[key] = (
                     rank, staged_rel, mod_name, final_rel,
-                    dest_dir, dest_file, in_custom_dir, dest_rel,
+                    dest_dir, dest_file, in_custom_dir, dest_rel, effective_rel,
                 )
         deploy_order = list(resolved_by_dest.values())
         total = len(deploy_order)
@@ -1877,8 +1884,130 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
             else None
         )
 
+        is_vfs_build = getattr(self, "_vfs_ue5_populating", False)
+
+        def _journal_external_target(target: Path, mod_name: str) -> None:
+            if not (is_vfs_build and mod_name in vfs_external_mods):
+                return
+            journal_path = Path(getattr(
+                self, "_vfs_ue5_external_journal_path"))
+            destination_line = str(target)
+            journaled = getattr(self, "_vfs_ue5_external_journal_entries")
+            if destination_line in journaled:
+                return
+            with journal_path.open("a", encoding="utf-8") as stream:
+                stream.write(json.dumps(destination_line) + "\n")
+                stream.flush()
+                os.fsync(stream.fileno())
+            journaled.add(destination_line)
+
+        # A raw, non-merge separator can expose a single mod-owned top folder
+        # directly, preserving game-written files in staging through the link.
+        folder_groups: dict[str, list[tuple[tuple, Path | None, Path]]] = {}
+        for task in deploy_order:
+            (_rank, staged_rel, mod_name, _final_rel, _dest_dir,
+             dest_file, in_custom_dir, _dest_rel, effective_rel) = task
+            if not in_custom_dir or len(effective_rel.parts) < 2:
+                continue
+            src = filegraph_sources.get((staged_rel.lower(), mod_name))
+            src_top = src
+            dest_top = dest_file
+            for _ in range(len(effective_rel.parts) - 1):
+                if src_top is not None:
+                    src_top = src_top.parent
+                dest_top = dest_top.parent
+            folder_groups.setdefault(str(dest_top).casefold(), []).append(
+                (task, src_top, dest_top))
+
+        folder_link_plans: list[
+            tuple[str, Path, Path, set[str]]
+        ] = []
+        for group in folder_groups.values():
+            first_task, first_src_top, first_dest_top = group[0]
+            owner = first_task[2]
+            if first_src_top is None or not first_src_top.is_dir():
+                continue
+            source_key = os.path.realpath(first_src_top)
+            task_destinations: set[str] = set()
+            eligible = True
+            for task, src_top, _dest_top in group:
+                mod_name = task[2]
+                effective_mode = (per_mod_modes or {}).get(mod_name, mode)
+                if (mod_name != owner
+                        or mod_name not in per_mod_raw
+                        or mod_name in per_mod_merge
+                        or effective_mode != LinkMode.SYMLINK
+                        or src_top is None
+                        or not src_top.is_dir()
+                        or os.path.realpath(src_top) != source_key):
+                    eligible = False
+                    break
+                task_destinations.add(str(task[5]).casefold())
+            if eligible:
+                destination_key = str(first_dest_top).casefold()
+                destination_prefix = destination_key.rstrip(os.sep) + os.sep
+                for task in deploy_order:
+                    task_key = str(task[5]).casefold()
+                    if (task_key not in task_destinations
+                            and (task_key == destination_key
+                                 or task_key.startswith(destination_prefix))):
+                        eligible = False
+                        break
+            if not eligible:
+                continue
+            if (first_dest_top.exists() and not first_dest_top.is_dir()
+                    and not first_dest_top.is_symlink()):
+                _log(f"  WARN: cannot replace non-folder destination "
+                     f"{first_dest_top}")
+                continue
+            backup_top = custom_vanilla_backup_dir / first_dest_top.relative_to(
+                first_dest_top.anchor)
+            if ((backup_top.exists() or backup_top.is_symlink())
+                    and not first_dest_top.is_symlink()):
+                raise RestoreIncompleteError(
+                    "A previous UE5 separator folder backup still exists at "
+                    f"{backup_top}. Run Restore before deploying again."
+                )
+            folder_link_plans.append(
+                (owner, first_src_top, first_dest_top, task_destinations))
+
+        manifest_path = self._ue5_deployed_manifest_path()
+        if folder_link_plans:
+            manifest.extend(str(plan[2]) for plan in folder_link_plans)
+            manifest_path.parent.mkdir(parents=True, exist_ok=True)
+            write_atomic_text(manifest_path, "\n".join(manifest))
+
+        directory_linked_files: set[str] = set()
+        for owner, src_top, dest_top, task_destinations in folder_link_plans:
+            try:
+                _journal_external_target(dest_top, owner)
+                if dest_top.is_symlink():
+                    dest_top.unlink()
+                elif dest_top.is_dir():
+                    backup_top = (
+                        custom_vanilla_backup_dir
+                        / dest_top.relative_to(dest_top.anchor)
+                    )
+                    _move_crash_safe(dest_top, backup_top)
+                    backed_up_folders += 1
+                    _log(f"  Backed up existing folder {dest_top.name}/")
+                dest_top.parent.mkdir(parents=True, exist_ok=True)
+                dest_top.symlink_to(src_top, target_is_directory=True)
+                directory_linked_files.update(task_destinations)
+                linked += len(task_destinations)
+                _log(f"  Symlinked folder {dest_top.name}/ -> {src_top}")
+            except OSError as exc:
+                _log(f"  ERROR replacing folder {dest_top}: {exc}")
+                raise
+
         for i, (_rank, staged_rel, mod_name, final_rel,
-                dest_dir, dest_file, in_custom_dir, dest_rel) in enumerate(deploy_order):
+                _dest_dir, dest_file, in_custom_dir, _dest_rel,
+                _effective_rel) in enumerate(deploy_order):
+
+            if str(dest_file).casefold() in directory_linked_files:
+                if progress_fn:
+                    progress_fn(i + 1, total)
+                continue
 
             # Skip mod-shipped mods.txt at the managed location - we generate
             # the canonical file ourselves after the deploy loop, so placing
@@ -1941,22 +2070,7 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
                 # placing the mod file. This makes an interrupted deploy
                 # rollback-safe even when the final UE5 manifest was never
                 # written (for example if a progress callback raises).
-                if (getattr(self, "_vfs_ue5_populating", False)
-                        and mod_name in vfs_external_mods):
-                    journal_path = Path(getattr(
-                        self, "_vfs_ue5_external_journal_path"))
-                    destination_line = str(dest_file)
-                    journaled = getattr(
-                        self, "_vfs_ue5_external_journal_entries")
-                    if destination_line not in journaled:
-                        # JSON-lines lets restore ignore an incomplete final
-                        # record after a process crash. Flush the record to
-                        # disk before changing the physical destination.
-                        with journal_path.open("a", encoding="utf-8") as stream:
-                            stream.write(json.dumps(destination_line) + "\n")
-                            stream.flush()
-                            os.fsync(stream.fileno())
-                        journaled.add(destination_line)
+                _journal_external_target(dest_file, mod_name)
 
                 dest_file.parent.mkdir(parents=True, exist_ok=True)
                 if dest_file.exists() or dest_file.is_symlink():
@@ -1987,9 +2101,8 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
                 progress_fn(i + 1, total)
 
         # Write manifest so restore() knows exactly what to remove
-        manifest_path = self._ue5_deployed_manifest_path()
         manifest_path.parent.mkdir(parents=True, exist_ok=True)
-        manifest_path.write_text("\n".join(manifest), encoding="utf-8")
+        write_atomic_text(manifest_path, "\n".join(manifest))
 
         # Sync UE4SS mods.txt for games that need it (Palworld-style loaders
         # which require an explicit enable list rather than per-folder enabled.txt).
@@ -2023,8 +2136,16 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
             except Exception as exc:
                 _log(f"  WARN: could not write deploy snapshot: {exc}")
 
-        backed_msg = f", {backed_up} vanilla file(s) backed up" if backed_up else ""
-        _log(f"Deploy complete. {linked} file(s) placed{backed_msg}, {skipped} skipped.")
+        backup_parts: list[str] = []
+        if backed_up:
+            backup_parts.append(f"{backed_up} vanilla file(s)")
+        if backed_up_folders:
+            backup_parts.append(f"{backed_up_folders} folder(s)")
+        backed_msg = (
+            f", {', '.join(backup_parts)} backed up" if backup_parts else ""
+        )
+        _log(f"Deploy complete. {linked} file(s) placed{backed_msg}, "
+             f"{skipped} skipped.")
 
     def _vfs_populate_data_layer(
         self,
@@ -2320,7 +2441,9 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
 
         for line in lines:
             target = Path(line)
-            dirs_to_check.add(target.parent)
+            was_directory_link = target.is_symlink() and target.is_dir()
+            if not was_directory_link:
+                dirs_to_check.add(target.parent)
             rel_abs = target.relative_to(target.anchor)
             backup_file = backup_dir / rel_abs
             if backup_file.is_file():
@@ -2347,7 +2470,6 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
                         f"  WARN: could not restore external vanilla "
                         f"{target}: {exc}"
                     )
-
         # A process can stop after moving an original aside but before the
         # deploy manifest is written. The empty VFS marker plus the mirrored
         # backup still gives us enough information to restore that original.
@@ -2483,12 +2605,14 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
             # Absolute paths are custom-dir files; relative paths are game-root-relative
             is_abs = Path(rel).is_absolute()
             target = Path(rel) if is_abs else game_path / rel
+            was_directory_link = target.is_symlink() and target.is_dir()
             if target.is_file() or target.is_symlink():
                 try:
                     target.unlink()
                     removed += 1
                     if is_abs:
-                        dirs_to_check.add(target.parent)
+                        if not was_directory_link:
+                            dirs_to_check.add(target.parent)
                     else:
                         p = target.parent
                         while p != game_path:
