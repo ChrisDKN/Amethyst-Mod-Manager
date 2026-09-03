@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from typing import Any, Callable
 
 
-_FINAL_STATES = {"succeeded", "failed"}
+_FINAL_STATES = {"succeeded", "failed", "cancelled"}
 
 
 class JobError(RuntimeError):
@@ -21,6 +21,14 @@ class JobError(RuntimeError):
         super().__init__(message)
         self.name = name
         self.details = details or {}
+
+
+class JobCancelled(RuntimeError):
+    pass
+
+
+class JobNotCancellable(RuntimeError):
+    pass
 
 
 def _utc_now() -> str:
@@ -37,6 +45,10 @@ class _Job:
     options: dict[str, Any]
     runner: Callable[[Callable[..., None], Callable[..., None]],
                      dict[str, Any]] | None = field(default=None, repr=False)
+    cancel_callback: Callable[[], None] | None = field(
+        default=None, repr=False)
+    cancellable: bool = False
+    cancel_requested: bool = False
     state: str = "queued"
     created_at: str = field(default_factory=_utc_now)
     started_at: str | None = None
@@ -72,6 +84,7 @@ class JobManager:
         *,
         runner: Callable[[Callable[..., None], Callable[..., None]],
                          dict[str, Any]] | None = None,
+        cancel: Callable[[], None] | None = None,
     ) -> dict[str, Any]:
         job = _Job(
             id=uuid.uuid4().hex,
@@ -81,6 +94,8 @@ class JobManager:
             profile=profile,
             options=dict(options or {}),
             runner=runner,
+            cancel_callback=cancel,
+            cancellable=cancel is not None,
             events=deque(maxlen=self._max_events),
         )
         with self._condition:
@@ -96,6 +111,21 @@ class JobManager:
     def get(self, job_id: str) -> dict[str, Any]:
         with self._condition:
             return self._snapshot_locked(self._require_locked(job_id))
+
+    def cancel(self, job_id: str) -> dict[str, Any]:
+        with self._condition:
+            job = self._require_locked(job_id)
+            if job.state in _FINAL_STATES:
+                return self._snapshot_locked(job)
+            if not job.cancellable or job.cancel_callback is None:
+                raise JobNotCancellable(job_id)
+            callback = job.cancel_callback
+            if not job.cancel_requested:
+                job.cancel_requested = True
+                self._event_locked(job, "cancel", requested=True)
+            snapshot = self._snapshot_locked(job)
+        callback()
+        return snapshot
 
     def list(self, *, active_only: bool = False) -> list[dict[str, Any]]:
         with self._condition:
@@ -202,6 +232,8 @@ class JobManager:
 
         try:
             result: dict[str, Any]
+            if job.cancel_requested:
+                raise JobCancelled("Job cancelled.")
             if job.runner is not None:
                 result = job.runner(log, progress)
                 if not isinstance(result, dict):
@@ -320,6 +352,13 @@ class JobManager:
             else:
                 raise RuntimeError(f"Unsupported job kind: {job.kind}")
         except Exception as exc:
+            if isinstance(exc, JobCancelled):
+                self._finish(job, "cancelled", error={
+                    "name": "job_cancelled",
+                    "message": str(exc) or "Job cancelled.",
+                    "details": {},
+                })
+                return
             if isinstance(exc, JobError):
                 error = {
                     "name": exc.name,
@@ -390,6 +429,8 @@ class JobManager:
             job.finished_at = _utc_now()
             job.result = result
             job.error = error
+            job.runner = None
+            job.cancel_callback = None
             data: dict[str, Any] = {"state": state}
             if result is not None:
                 data["result"] = result
@@ -428,6 +469,8 @@ class JobManager:
             "progress": dict(job.progress) if job.progress else None,
             "result": dict(job.result) if job.result else None,
             "error": dict(job.error) if job.error else None,
+            "cancellable": job.cancellable,
+            "cancel_requested": job.cancel_requested,
             "event_sequence": job.sequence,
         }
 

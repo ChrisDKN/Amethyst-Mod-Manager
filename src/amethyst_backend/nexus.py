@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Callable
 
-from .jobs import JobError
+from .jobs import JobCancelled, JobError
 
 
 def _timestamp(value: Any) -> str | None:
@@ -255,6 +255,131 @@ def file_runner(
                 "domain": domain,
                 "mod_id": mod_id,
                 "file": _file(file),
+                "rate_limits": _rate_limits(api),
+            }
+
+        return _call(operation)
+    return run
+
+
+def download_runner(
+    session: Any,
+    game_name: str,
+    domain: str,
+    mod_id: int,
+    file_id: int,
+    *,
+    nxm_link: Any = None,
+    cancel: Any = None,
+) -> Callable:
+    def run(_log: Callable, progress: Callable) -> dict[str, Any]:
+        def operation() -> dict[str, Any]:
+            if cancel is not None and cancel.is_set():
+                raise JobCancelled("Download cancelled.")
+
+            api = session.require_api()
+            needs_premium = nxm_link is None or not nxm_link.key
+
+            file_info = None
+            try:
+                file_info = api.get_file_info(domain, mod_id, file_id)
+            except Exception:
+                pass
+            known_name = str(getattr(file_info, "file_name", "") or "")
+            expected_size = (
+                int(getattr(file_info, "size_in_bytes", 0) or 0)
+                or int(getattr(file_info, "size_kb", 0) or 0) * 1024)
+
+            from Nexus.nexus_download import NexusDownloader
+            from Utils.config_paths import get_download_cache_dir_for_game
+
+            if (not game_name or game_name in (".", "..")
+                    or "/" in game_name or "\\" in game_name
+                    or any(char in game_name for char in "\x00\r\n")):
+                raise JobError(
+                    "nexus_download_unsafe_path",
+                    "The game's cache folder name is unsafe.",
+                )
+            destination = get_download_cache_dir_for_game(game_name)
+            downloader = NexusDownloader(api, download_dir=destination)
+            progress(0, expected_size, "download")
+            try:
+                if nxm_link is None:
+                    result = downloader.download_file(
+                        domain,
+                        mod_id,
+                        file_id,
+                        dest_dir=destination,
+                        known_file_name=known_name,
+                        expected_size_bytes=expected_size,
+                        progress_cb=lambda done, total: progress(
+                            done, total, "download"),
+                        cancel=cancel,
+                    )
+                    mode = "premium"
+                else:
+                    result = downloader.download_from_nxm(
+                        nxm_link,
+                        dest_dir=destination,
+                        known_file_name=known_name,
+                        expected_size_bytes=expected_size,
+                        progress_cb=lambda done, total: progress(
+                            done, total, "download"),
+                        cancel=cancel,
+                    )
+                    mode = "nxm"
+            finally:
+                downloader.close_worker_session()
+
+            if (not result.success
+                    and ((cancel is not None and cancel.is_set())
+                         or "cancel" in str(result.error or "").lower())):
+                raise JobCancelled("Download cancelled.")
+            if not result.success or result.file_path is None:
+                if (needs_premium
+                        and not bool(api.validate().is_premium)):
+                    raise JobError(
+                        "nexus_premium_required",
+                        "Direct Nexus downloads require Premium; supply an "
+                        "NXM link from 'Download with Manager' instead.",
+                    )
+                raise JobError(
+                    "nexus_download_failed",
+                    "Nexus Mods could not download the requested file.",
+                )
+
+            path = result.file_path.absolute()
+            try:
+                inside_cache = (
+                    path.resolve().parent == destination.resolve()
+                    and not path.is_symlink())
+            except (OSError, RuntimeError):
+                inside_cache = False
+            if not inside_cache or not path.is_file():
+                raise JobError(
+                    "nexus_download_unsafe_path",
+                    "The downloaded archive was not inside the managed cache.",
+                )
+
+            size = path.stat().st_size
+            progress(size, size, "download")
+            return {
+                "ok": True,
+                "source": {
+                    "provider": "nexus",
+                    "mode": mode,
+                    "domain": domain,
+                    "mod_id": mod_id,
+                    "file_id": file_id,
+                },
+                "archive": {
+                    "name": path.name,
+                    "path": str(path),
+                    "size_bytes": size,
+                    "location_kind": "cache",
+                    "from_cache": bool(result.from_cache),
+                },
+                "file": _file(file_info) if file_info is not None else None,
                 "rate_limits": _rate_limits(api),
             }
 

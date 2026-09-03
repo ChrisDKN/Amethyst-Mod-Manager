@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -58,10 +59,26 @@ def _location_kind(path: Path, game_name: str) -> str:
     return "extra"
 
 
-def _nexus_identity(path: Path) -> dict[str, int | None] | None:
+def _nexus_identity(path: Path) -> dict[str, int | str | None] | None:
     parsed = parse_archive_mod_file_ids(path.name)
     mod_id = parsed[0] if parsed is not None else None
     file_id = parsed[1] if parsed is not None else None
+    domain: str | None = None
+    try:
+        sidecar = path.with_suffix(path.suffix + ".nexus.json")
+        identity = json.loads(sidecar.read_text(encoding="utf-8"))
+        if isinstance(identity, dict) and identity.get("version") == 1:
+            saved_mod_id = int(identity.get("mod_id") or 0)
+            saved_file_id = int(identity.get("file_id") or 0)
+            saved_domain = str(identity.get("game_domain") or "").strip()
+            if saved_mod_id > 0:
+                mod_id = saved_mod_id
+            if saved_file_id > 0:
+                file_id = saved_file_id
+            if saved_domain:
+                domain = saved_domain
+    except (OSError, TypeError, ValueError, json.JSONDecodeError):
+        pass
     try:
         sidecar = path.with_suffix(path.suffix + ".fileid")
         sidecar_id = int(sidecar.read_text(encoding="utf-8").strip())
@@ -71,7 +88,7 @@ def _nexus_identity(path: Path) -> dict[str, int | None] | None:
         pass
     if mod_id is None and file_id is None:
         return None
-    return {"mod_id": mod_id, "file_id": file_id}
+    return {"domain": domain, "mod_id": mod_id, "file_id": file_id}
 
 
 def _staging_dir(game: Any, profile_dir: Path) -> Path:

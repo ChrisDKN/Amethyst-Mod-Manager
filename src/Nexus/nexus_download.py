@@ -26,6 +26,7 @@ Usage
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import threading
@@ -48,6 +49,30 @@ _CHUNK_SIZE = 256 * 1024
 
 # Archive extensions recognised for cache lookups
 _ARCHIVE_EXTS = ('.zip', '.7z', '.rar', '.tar.gz', '.tar.bz2', '.tar.xz', '.tar')
+
+
+def _safe_archive_name(value: str) -> str:
+    name = os.path.basename(str(value or "").replace("\\", "/"))
+    name = name.strip().replace("\x00", "").replace("\r", "").replace("\n", "")
+    if not name or name in (".", ".."):
+        return ""
+    return name
+
+
+def _archive_name_parts(name: str) -> tuple[str, str]:
+    lowered = name.lower()
+    for suffix in sorted(_ARCHIVE_EXTS, key=len, reverse=True):
+        if lowered.endswith(suffix):
+            return name[:-len(suffix)], name[-len(suffix):]
+    return name, ""
+
+
+def _transfer_error(exc: Exception) -> str:
+    if isinstance(exc, requests.RequestException):
+        response = getattr(exc, "response", None)
+        status = int(getattr(response, "status_code", 0) or 0)
+        return f"HTTP {status}" if status else type(exc).__name__
+    return type(exc).__name__
 
 
 def _clean_nexus_stem(stem: str, mod_id_str: str) -> str:
@@ -86,8 +111,12 @@ def _fileid_sidecar(archive: Path) -> Path:
     return archive.with_suffix(archive.suffix + ".fileid")
 
 
+def _identity_sidecar(archive: Path) -> Path:
+    return archive.with_suffix(archive.suffix + ".nexus.json")
+
+
 def delete_archive_and_sidecar(archive_path: Path) -> None:
-    """Remove an archive and its .fileid sidecar if present.
+    """Remove an archive and its managed identity sidecars if present.
 
     Safe to call even if either file is missing.  Also drops any cached md5
     entry for this path.
@@ -95,6 +124,7 @@ def delete_archive_and_sidecar(archive_path: Path) -> None:
     try:
         archive_path.unlink(missing_ok=True)
         _fileid_sidecar(archive_path).unlink(missing_ok=True)
+        _identity_sidecar(archive_path).unlink(missing_ok=True)
         _md5_cache_forget(archive_path)
     except Exception:
         pass
@@ -111,7 +141,29 @@ def _read_sidecar_file_id(archive: Path) -> int:
 def _write_sidecar_file_id(archive: Path, file_id: int) -> None:
     """Write *file_id* to the sidecar next to *archive*."""
     try:
-        _fileid_sidecar(archive).write_text(str(file_id))
+        from Utils.atomic_write import write_atomic_text
+        write_atomic_text(_fileid_sidecar(archive), str(file_id))
+    except Exception:
+        pass
+
+
+def _write_download_identity(
+    archive: Path,
+    game_domain: str,
+    mod_id: int,
+    file_id: int,
+) -> None:
+    try:
+        from Utils.atomic_write import write_atomic_text
+        write_atomic_text(
+            _identity_sidecar(archive),
+            json.dumps({
+                "version": 1,
+                "game_domain": str(game_domain or "").strip().lower(),
+                "mod_id": int(mod_id),
+                "file_id": int(file_id),
+            }, separators=(",", ":")),
+        )
     except Exception:
         pass
 
@@ -561,6 +613,7 @@ class DownloadResult:
     game_domain: str = ""
     mod_id: int = 0
     file_id: int = 0
+    from_cache: bool = False
 
 
 class DownloadCancelled(Exception):
@@ -623,6 +676,7 @@ class NexusDownloader:
         progress_cb: ProgressCallback | None = None,
         cancel: threading.Event | None = None,
         known_file_name: str = "",
+        expected_size_bytes: int = 0,
     ) -> DownloadResult:
         """
         Download a file using a parsed NXM link.
@@ -677,18 +731,24 @@ class NexusDownloader:
                 file_info = self._api.get_file_info(
                     link.game_domain, link.mod_id, link.file_id)
                 file_name = file_info.file_name
+                if not expected_size_bytes:
+                    expected_size_bytes = (
+                        int(file_info.size_in_bytes or 0)
+                        or int(file_info.size_kb or 0) * 1024)
             except Exception:
                 pass
 
-        return self._download_from_links(
-            links=links,
-            file_name=file_name,
-            dest_dir=dest_dir or self._download_dir,
-            progress_cb=progress_cb,
-            cancel=cancel,
+        return self.download_file(
             game_domain=link.game_domain,
             mod_id=link.mod_id,
             file_id=link.file_id,
+            dest_dir=dest_dir or self._download_dir,
+            known_file_name=file_name,
+            expected_size_bytes=expected_size_bytes,
+            prefetched_links=links,
+            progress_cb=progress_cb,
+            cancel=cancel,
+            refresh_prefetched_links=False,
         )
 
     def download_file(
@@ -703,6 +763,64 @@ class NexusDownloader:
         expected_size_bytes: int = 0,
         prefetched_links: "list[NexusDownloadLink] | None" = None,
         cache_index: "ArchiveLookupIndex | None" = None,
+        refresh_prefetched_links: bool = True,
+    ) -> DownloadResult:
+        """Download one Nexus file, serializing the same cache identity."""
+        from Utils.operations import (
+            OperationCancelled,
+            acquire_resource_operation,
+        )
+
+        destination = Path(dest_dir or self._download_dir)
+        try:
+            destination_key = destination.expanduser().resolve(strict=False)
+        except (OSError, RuntimeError):
+            destination_key = destination.absolute()
+        resource = (
+            f"nexus-download:{destination_key}:"
+            f"{str(game_domain).casefold()}:{int(mod_id)}:{int(file_id)}")
+        try:
+            with acquire_resource_operation(
+                resource,
+                "Nexus download",
+                owner=f"nexus:{game_domain}:{mod_id}:{file_id}",
+                cancel=cancel,
+            ):
+                return self._download_file_unlocked(
+                    game_domain,
+                    mod_id,
+                    file_id,
+                    dest_dir=destination,
+                    progress_cb=progress_cb,
+                    cancel=cancel,
+                    known_file_name=known_file_name,
+                    expected_size_bytes=expected_size_bytes,
+                    prefetched_links=prefetched_links,
+                    cache_index=cache_index,
+                    refresh_prefetched_links=refresh_prefetched_links,
+                )
+        except OperationCancelled:
+            return DownloadResult(
+                success=False,
+                error="Download cancelled",
+                game_domain=game_domain,
+                mod_id=mod_id,
+                file_id=file_id,
+            )
+
+    def _download_file_unlocked(
+        self,
+        game_domain: str,
+        mod_id: int,
+        file_id: int,
+        dest_dir: Path | None = None,
+        progress_cb: ProgressCallback | None = None,
+        cancel: threading.Event | None = None,
+        known_file_name: str = "",
+        expected_size_bytes: int = 0,
+        prefetched_links: "list[NexusDownloadLink] | None" = None,
+        cache_index: "ArchiveLookupIndex | None" = None,
+        refresh_prefetched_links: bool = True,
     ) -> DownloadResult:
         """
         Download a file directly (premium users only - no key needed).
@@ -758,6 +876,10 @@ class NexusDownloader:
                 app_log(
                     f"Skipping download - cached archive found: {cached.name}"
                 )
+                if file_id > 0:
+                    _write_sidecar_file_id(cached, file_id)
+                _write_download_identity(
+                    cached, game_domain, mod_id, file_id)
                 return DownloadResult(
                     success=True,
                     file_path=cached,
@@ -766,14 +888,14 @@ class NexusDownloader:
                     game_domain=game_domain,
                     mod_id=mod_id,
                     file_id=file_id,
+                    from_cache=True,
                 )
             else:
                 app_log(
                     f"Removing partial download before retry: {cached.name}"
                 )
                 try:
-                    cached.unlink(missing_ok=True)
-                    _fileid_sidecar(cached).unlink(missing_ok=True)
+                    delete_archive_and_sidecar(cached)
                     if cache_index is not None:
                         cache_index.discard(cached)
                 except Exception:
@@ -832,6 +954,7 @@ class NexusDownloader:
         # mirror fails. Retry once with freshly fetched links before giving
         # the mod up for good.
         if (not result.success and prefetched_links
+                and refresh_prefetched_links
                 and not (cancel is not None and cancel.is_set())):
             app_log(
                 f"Prefetched links failed for file {file_id} "
@@ -903,8 +1026,8 @@ class NexusDownloader:
                     mod_id=mod_id, file_id=file_id,
                 )
             except Exception as exc:
-                last_error = str(exc)
-                app_log(f"Mirror {link.name} failed: {exc}")
+                last_error = _transfer_error(exc)
+                app_log(f"Mirror {link.name} failed: {last_error}")
                 continue
 
         return DownloadResult(
@@ -937,14 +1060,18 @@ class NexusDownloader:
             # extension (e.g. "UI Info Suite 2 v2.3.7").  In that case, derive
             # the real filename from the CDN URL path, then Content-Disposition,
             # with the provided name as a last resort.
-            _has_archive_ext = any(file_name.lower().endswith(e) for e in _ARCHIVE_EXTS)
+            file_name = _safe_archive_name(file_name)
+            _has_archive_ext = any(
+                file_name.lower().endswith(e) for e in _ARCHIVE_EXTS)
             if not _has_archive_ext:
                 # Try the URL path first - CDN URLs always embed the real filename
                 try:
                     from urllib.parse import urlparse, unquote
                     _url_path = unquote(urlparse(url).path)
-                    _url_basename = os.path.basename(_url_path)
-                    if _url_basename and any(_url_basename.lower().endswith(e) for e in _ARCHIVE_EXTS):
+                    _url_basename = _safe_archive_name(_url_path)
+                    if (_url_basename
+                            and any(_url_basename.lower().endswith(e)
+                                    for e in _ARCHIVE_EXTS)):
                         file_name = _url_basename
                         _has_archive_ext = True
                 except Exception:
@@ -952,51 +1079,54 @@ class NexusDownloader:
             if not _has_archive_ext:
                 cd = resp.headers.get("Content-Disposition", "")
                 if "filename=" in cd:
-                    # Sanitise: server-controlled value must never carry path
-                    # components ("../evil", "C:\evil") or be empty/dot-only.
                     cand = cd.split("filename=")[-1].strip(' "\'')
-                    cand = os.path.basename(cand.replace("\\", "/")).strip(' "\'')
-                    if cand and cand.strip("."):
+                    cand = _safe_archive_name(cand)
+                    if (cand and any(cand.lower().endswith(e)
+                                     for e in _ARCHIVE_EXTS)):
                         file_name = cand
-            if not file_name:
+                        _has_archive_ext = True
+            if not file_name or not _has_archive_ext:
                 file_name = f"{game_domain}_{mod_id}_{file_id}.zip"
 
             try:
                 total = int(resp.headers.get("Content-Length", 0))
             except (TypeError, ValueError):
                 total = 0
-            dest = dest_dir / file_name
-
-            # Don't clobber existing files - add a suffix
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            stem, suffix = _archive_name_parts(file_name)
             counter = 1
-            stem = dest.stem
-            suffix = dest.suffix
-            while dest.exists():
-                dest = dest_dir / f"{stem} ({counter}){suffix}"
-                counter += 1
-
-            # Stamp the sidecar now, before the download starts, so that
-            # concurrent _find_cached_archive calls from other threads (e.g.
-            # a sibling file from the same mod) can identify this in-flight
-            # partial by file_id and skip it, rather than misclassifying it
-            # as a partial of their own file and unlinking it.
-            if file_id > 0:
-                _write_sidecar_file_id(dest, file_id)
+            dest = dest_dir / file_name
+            while True:
+                if (_fileid_sidecar(dest).exists()
+                        or _identity_sidecar(dest).exists()):
+                    dest = dest_dir / f"{stem} ({counter}){suffix}"
+                    counter += 1
+                    continue
+                try:
+                    fh = open(dest, "xb")
+                    break
+                except FileExistsError:
+                    dest = dest_dir / f"{stem} ({counter}){suffix}"
+                    counter += 1
 
             downloaded = 0
-            with open(dest, "wb") as fh:
-                for chunk in resp.iter_content(_CHUNK_SIZE):
-                    if cancel and cancel.is_set():
-                        fh.close()
-                        delete_archive_and_sidecar(dest)
-                        raise DownloadCancelled()
+            try:
+                if file_id > 0:
+                    _write_sidecar_file_id(dest, file_id)
+                with fh:
+                    for chunk in resp.iter_content(_CHUNK_SIZE):
+                        if cancel and cancel.is_set():
+                            raise DownloadCancelled()
 
-                    fh.write(chunk)
-                    downloaded += len(chunk)
-                    bandwidth.throttle(len(chunk), cancel)
+                        fh.write(chunk)
+                        downloaded += len(chunk)
+                        bandwidth.throttle(len(chunk), cancel)
 
-                    if progress_cb:
-                        progress_cb(downloaded, total)
+                        if progress_cb:
+                            progress_cb(downloaded, total)
+            except BaseException:
+                delete_archive_and_sidecar(dest)
+                raise
 
         # Verify against Content-Length - a dropped connection can end the
         # stream early without raising; a short file must not look successful.
@@ -1011,14 +1141,25 @@ class NexusDownloader:
                 mod_id=mod_id, file_id=file_id,
             )
 
-        app_log(f"Downloaded {file_name} ({downloaded} bytes) → {dest}")
+        if downloaded <= 0 or not _zip_is_intact(dest):
+            app_log(f"Invalid or empty download of {dest.name} - discarding")
+            delete_archive_and_sidecar(dest)
+            return DownloadResult(
+                success=False,
+                error="Downloaded archive is empty or invalid",
+                game_domain=game_domain,
+                mod_id=mod_id, file_id=file_id,
+            )
+
+        app_log(f"Downloaded {dest.name} ({downloaded} bytes) → {dest}")
         if file_id > 0:
             _write_sidecar_file_id(dest, file_id)
+        _write_download_identity(dest, game_domain, mod_id, file_id)
 
         return DownloadResult(
             success=True,
             file_path=dest,
-            file_name=file_name,
+            file_name=dest.name,
             bytes_downloaded=downloaded,
             game_domain=game_domain,
             mod_id=mod_id,

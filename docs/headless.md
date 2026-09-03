@@ -2,9 +2,9 @@
 
 Amethyst headless mode gives scripts and external applications a stable way to
 use the manager without importing its Python modules or starting Qt. Protocol
-version 1 exposes game, profile, mod and downloaded-archive state, Nexus OAuth
-and exact-ID metadata, plus asynchronous mod activation, ordering, removal,
-profile lifecycle, deploy, and restore jobs.
+version 1 exposes game, profile, mod and downloaded-archive state, Nexus OAuth,
+exact-ID metadata and managed downloads, plus asynchronous mod activation,
+ordering, removal, profile lifecycle, deploy, and restore jobs.
 
 The public boundary is JSON-RPC 2.0 over newline-delimited JSON (NDJSON).
 Amethyst reads one JSON value per line from standard input and writes one JSON
@@ -95,13 +95,15 @@ The response describes the protocol and available features:
       "read_only": false,
       "events": true,
       "event_delivery": "poll",
-      "cancellation": false,
-      "mutations": ["profiles.create", "profiles.rename", "profiles.remove", "profiles.select", "mods.set_enabled", "mods.move", "mods.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout"],
+      "cancellation": true,
+      "cancellable_jobs": ["nexus.download"],
+      "mutations": ["profiles.create", "profiles.rename", "profiles.remove", "profiles.select", "mods.set_enabled", "mods.move", "mods.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download"],
       "nexus": {
         "authentication": "oauth_pkce",
         "browser_open_optional": true,
         "manual_code_fallback": true,
-        "credentials_exposed": false
+        "credentials_exposed": false,
+        "download_modes": ["premium", "nxm"]
       },
       "maximum_event_wait_ms": 30000,
       "methods": [
@@ -124,6 +126,7 @@ The response describes the protocol and available features:
         "nexus.mods.get.start",
         "nexus.mods.files.start",
         "nexus.files.get.start",
+        "nexus.download.start",
         "mods.list",
         "mods.set_enabled.start",
         "mods.move.start",
@@ -132,7 +135,8 @@ The response describes the protocol and available features:
         "restore.start",
         "jobs.get",
         "jobs.list",
-        "jobs.events"
+        "jobs.events",
+        "jobs.cancel"
       ]
     }
   }
@@ -169,6 +173,7 @@ parameters are rejected.
 | `nexus.mods.get.start` | `game` string, `mod_id` integer, `domain` string (optional) | Fetch one Nexus mod by exact ID. |
 | `nexus.mods.files.start` | `game` string, `mod_id` integer, `domain` string (optional) | Fetch the files and update chain for one Nexus mod. |
 | `nexus.files.get.start` | `game` string, `mod_id` integer, `file_id` integer, `domain` string (optional) | Fetch one exact Nexus file. |
+| `nexus.download.start` | `game` string plus either exact IDs or `nxm_url` string | Download one Nexus archive into Amethyst's managed game cache. |
 | `mods.list` | `game` string, `profile` string | List a profile's mods, separators and installed metadata. |
 | `mods.set_enabled.start` | `game` string, `profile` string, `changes` array | Start a batch mod enable/disable job. |
 | `mods.move.start` | `game` string, `profile` string, `mods` array, `position` object | Move mods as a priority-ordered block. |
@@ -178,6 +183,7 @@ parameters are rejected.
 | `jobs.get` | `job_id` string | Get the latest job snapshot. |
 | `jobs.list` | `active_only` boolean (optional) | List jobs, newest first. |
 | `jobs.events` | `job_id` string, `after` integer (optional), `wait_ms` integer (optional) | Read or long-poll ordered job events. |
+| `jobs.cancel` | `job_id` string | Request cancellation of a job whose snapshot says `cancellable: true`. |
 
 The `game` parameter accepts the canonical `game_id`, display name, primary
 Steam app ID, or an alternate Steam app ID. Clients should retain the canonical
@@ -222,10 +228,11 @@ unavailable extra paths are omitted by the shared scanner.
 Each archive includes an opaque path-derived `id`, name, absolute path,
 location, extension, byte size, UTC `downloaded_at` timestamp, raw modified
 time, symlink state, and whether that archive is already installed in the
-requested profile. When the filename or Amethyst's sidecar identifies a Nexus
-download, `nexus` contains the available `mod_id` and `file_id`; either may be
-null when it cannot be recovered reliably. Zero-byte browser placeholders and
-non-archive files are omitted.
+requested profile. When the filename or Amethyst's sidecars identify a Nexus
+download, `nexus` contains the available `domain`, `mod_id`, and `file_id`;
+fields may be null when they cannot be recovered reliably. Downloads made
+through the headless or desktop Nexus downloader persist all three values.
+Zero-byte browser placeholders and non-archive files are omitted.
 
 Archive ordering matches the desktop manager: the system Downloads folder is
 newest first, while the game cache and extra locations are alphabetical. The
@@ -317,6 +324,52 @@ These network calls are jobs. Poll them like deployment jobs and inspect their
 structured final errors. Expected Nexus errors include
 `nexus_not_authenticated`, `nexus_auth_expired`, `nexus_auth_unavailable`,
 `nexus_rate_limited`, and `nexus_request_failed`.
+
+Download an exact file by ID:
+
+```json
+{"jsonrpc":"2.0","id":"nexus-download","method":"nexus.download.start","params":{"game":"skyrim_se","mod_id":3863,"file_id":1000172397}}
+```
+
+Without `nxm_url`, Amethyst first reuses a complete exact match already in the
+managed game cache. A new direct transfer requires a Nexus Premium account;
+free accounts receive `nexus_premium_required` and should use the NXM form.
+
+For a free account, have the user select "Download with Manager" on the Nexus
+website and pass the resulting URL as a single opaque value:
+
+```json
+{"jsonrpc":"2.0","id":"nexus-download-free","method":"nexus.download.start","params":{"game":"skyrim_se","nxm_url":"nxm://skyrimspecialedition/mods/3863/files/1000172397?key=<one-time-key>&expires=<unix-time>"}}
+```
+
+Do not combine `nxm_url` with `domain`, `mod_id`, or `file_id`; those values are
+read from the link and checked against the selected game. Amethyst rejects an
+expired link before queuing work. The raw URL is discarded after validation;
+the one-time key and expiry are held only by the transfer runner. None appear
+in job options, results, events, or diagnostics. Clients should apply the same
+care to their own RPC request logging.
+
+Downloads go to Amethyst's configured per-game cache, obey the shared download
+speed limit, and never install automatically. A successful result contains the
+resolved source identity, file metadata, absolute archive path, byte size, and
+`from_cache`. Amethyst writes non-secret identity sidecars so
+`downloads.list` can recover the Nexus domain and exact IDs after a restart.
+Existing files are not overwritten; collision names retain compound extensions
+such as `.tar.gz`. Attempts to download the same Nexus file into the same cache
+are serialized across Amethyst processes.
+
+The job reports byte progress with phase `download`. Cancel it with:
+
+```json
+{"jsonrpc":"2.0","id":"cancel-download","method":"jobs.cancel","params":{"job_id":"<download job id>"}}
+```
+
+Cancellation is cooperative while an API request or network read is in
+progress. Partial archives and their managed sidecars are removed. If the
+transfer completed before the request took effect, the job succeeds and keeps
+the complete archive. Other expected final errors are
+`nexus_premium_required`, `nexus_download_failed`, and
+`nexus_download_unsafe_path`.
 
 Clear both the shared OAuth login and any legacy Nexus API key with:
 
@@ -580,6 +633,8 @@ A successful start result has this shape:
     "progress": null,
     "result": null,
     "error": null,
+    "cancellable": false,
+    "cancel_requested": false,
     "event_sequence": 1
   }
 }
@@ -592,14 +647,15 @@ the same headless process remains alive:
 {"jsonrpc":"2.0","id":15,"method":"jobs.get","params":{"job_id":"09b37ca9237540918fe86ff5e359331c"}}
 ```
 
-Job states are `queued`, `running`, `succeeded`, and `failed`.
+Job states are `queued`, `running`, `succeeded`, `failed`, and `cancelled`.
 Account and logout jobs are not tied to a game or profile, so those snapshot
 fields are null.
 
 ### Polling events
 
-Events carry logs, progress and state transitions. Pass the last processed
-sequence as `after`. `wait_ms` enables a long poll and may be from 0 to 30000:
+Events carry logs, progress, cancellation requests, and state transitions.
+Pass the last processed sequence as `after`. `wait_ms` enables a long poll and
+may be from 0 to 30000:
 
 ```json
 {"jsonrpc":"2.0","id":16,"method":"jobs.events","params":{"job_id":"09b37ca9237540918fe86ff5e359331c","after":0,"wait_ms":1000}}
@@ -651,8 +707,9 @@ Other final job error names are `deploy_failed`, `restore_failed`,
 `resource_unavailable`, and `internal_error`. Human-readable pipeline details
 remain available in the job's `log` events.
 
-Jobs are not cancellable in protocol version 1. Once accepted, allow the job to
-reach a final state. This avoids abandoning a partially updated, restored, or
+Only snapshots with `cancellable: true` accept `jobs.cancel`; protocol version
+1 currently limits this to Nexus downloads. Filesystem mutation jobs cannot be
+cancelled because doing so could abandon a partially updated, restored, or
 deployed filesystem. The separate OAuth browser flow can be cancelled with
 `nexus.auth.login.cancel`.
 
@@ -693,10 +750,13 @@ Request validation and lookup failures use the JSON-RPC error object.
 | `-32004` | `ambiguous_game` | An identifier matched multiple game handlers. |
 | `-32005` | `ambiguous_profile` | A case-insensitive name matched multiple profiles. |
 | `-32006` | `job_not_found` | The requested job is unknown or has expired from bounded history. |
-| `-32007` | `operation_in_progress` | A local mutation is in progress; retry the state request later. |
+| `-32007` | `operation_in_progress` | Another job is queued or running; retry after it completes. |
 | `-32008` | `game_not_configured` | The selected game has no usable configured path. |
 | `-32009` | `operation_not_supported` | The selected handler cannot perform the requested operation. |
 | `-32010` | `unsupported_protocol_version` | The requested protocol version is incompatible. |
+| `-32011` | `nexus_login_in_progress` or `nexus_login_unavailable` | The OAuth browser flow could not be started. |
+| `-32012` | `nexus_download_link_expired` | The supplied one-time NXM link has expired. |
+| `-32013` | `job_not_cancellable` | The active job does not support cooperative cancellation. |
 
 An operation which starts successfully can still fail later. That failure is
 stored on the job rather than returned as a JSON-RPC error.
@@ -784,10 +844,11 @@ caller does not directly receive the created job ID or login-flow state.
 
 ## Current limitations
 
-- Broad Nexus search/browsing, starting downloads, installation, and launch are
-  not exposed yet. OAuth login and exact mod/file metadata are available;
-  completed archives can be inspected with `downloads.list`.
-- Progress delivery is polling-only and running jobs cannot be cancelled.
+- Broad Nexus search/browsing, installation, and launch are not exposed yet.
+  OAuth login, exact mod/file metadata, single-file downloads, and completed
+  archive inventory are available.
+- Progress delivery is polling-only. Nexus downloads can be cancelled; other
+  running jobs cannot.
 - The shared operation lock currently coordinates headless profile, mod
   activation, ordering and removal jobs and the standard deploy/restore flows,
   not every desktop mod-list edit, installer, wizard, or configuration action.

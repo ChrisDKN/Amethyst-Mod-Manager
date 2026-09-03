@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import threading
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -27,6 +28,10 @@ class OperationBusy(RuntimeError):
         target = f" for {game_name}" if game_name else ""
         super().__init__(
             f"An Amethyst {operation} is already running{target}{suffix}")
+
+
+class OperationCancelled(RuntimeError):
+    pass
 
 
 def _utc_now() -> str:
@@ -215,6 +220,91 @@ class OperationLease:
         self.release()
 
 
+class ResourceLease:
+    def __init__(
+        self,
+        resource: str,
+        operation: str,
+        *,
+        owner: str | None = None,
+        cancel: Any = None,
+    ):
+        self.resource = resource
+        self.operation = operation
+        self.owner = owner or operation
+        self.cancel = cancel
+        self._fd: int | None = None
+
+    def _cancelled(self) -> bool:
+        return bool(self.cancel is not None and self.cancel.is_set())
+
+    def acquire(self) -> "ResourceLease":
+        metadata = {
+            "pid": os.getpid(),
+            "operation": self.operation,
+            "owner": self.owner,
+            "started_at": _utc_now(),
+            "resources": [self.resource],
+        }
+        directory = _lock_dir()
+        flags = os.O_RDWR | os.O_CREAT
+        flags |= getattr(os, "O_CLOEXEC", 0)
+        flags |= getattr(os, "O_NOFOLLOW", 0)
+        fd = os.open(_lock_path(directory, self.resource), flags, 0o600)
+        try:
+            while True:
+                if self._cancelled():
+                    raise OperationCancelled(self.operation)
+                try:
+                    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    break
+                except OSError as exc:
+                    if exc.errno not in (errno.EACCES, errno.EAGAIN):
+                        raise
+                    if self.cancel is not None:
+                        self.cancel.wait(0.1)
+                    else:
+                        time.sleep(0.1)
+            if self._cancelled():
+                raise OperationCancelled(self.operation)
+            try:
+                os.fchmod(fd, 0o600)
+                _write_metadata(fd, metadata)
+            except OSError:
+                pass
+            self._fd = fd
+        except Exception:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_UN)
+            except OSError:
+                pass
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+            raise
+        return self
+
+    def release(self) -> None:
+        fd, self._fd = self._fd, None
+        if fd is None:
+            return
+        try:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+        except OSError:
+            pass
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+
+    def __enter__(self) -> "ResourceLease":
+        return self.acquire()
+
+    def __exit__(self, _exc_type, _exc, _tb) -> None:
+        self.release()
+
+
 def acquire_game_operation(
     game: Any,
     operation: str,
@@ -222,3 +312,14 @@ def acquire_game_operation(
     owner: str | None = None,
 ) -> OperationLease:
     return OperationLease(game, operation, owner)
+
+
+def acquire_resource_operation(
+    resource: str,
+    operation: str,
+    *,
+    owner: str | None = None,
+    cancel: Any = None,
+) -> ResourceLease:
+    return ResourceLease(
+        resource, operation, owner=owner, cancel=cancel)

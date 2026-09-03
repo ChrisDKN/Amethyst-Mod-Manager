@@ -43,6 +43,7 @@ class AmethystService:
         "nexus.mods.get.start",
         "nexus.mods.files.start",
         "nexus.files.get.start",
+        "nexus.download.start",
         "mods.list",
         "mods.set_enabled.start",
         "mods.move.start",
@@ -52,6 +53,7 @@ class AmethystService:
         "jobs.get",
         "jobs.list",
         "jobs.events",
+        "jobs.cancel",
     )
 
     def __init__(self, games: dict[str, Any] | None = None):
@@ -83,6 +85,7 @@ class AmethystService:
             "nexus.mods.get.start": self._start_nexus_mod,
             "nexus.mods.files.start": self._start_nexus_files,
             "nexus.files.get.start": self._start_nexus_file,
+            "nexus.download.start": self._start_nexus_download,
             "mods.list": self._list_mods,
             "mods.set_enabled.start": self._start_set_enabled,
             "mods.move.start": self._start_move,
@@ -92,6 +95,7 @@ class AmethystService:
             "jobs.get": self._get_job,
             "jobs.list": self._list_jobs,
             "jobs.events": self._job_events,
+            "jobs.cancel": self._cancel_job,
         }
 
     def close(self) -> None:
@@ -234,17 +238,20 @@ class AmethystService:
                 "read_only": False,
                 "events": True,
                 "event_delivery": "poll",
-                "cancellation": False,
+                "cancellation": True,
+                "cancellable_jobs": ["nexus.download"],
                 "mutations": [
                     "profiles.create", "profiles.rename", "profiles.remove",
                     "profiles.select", "mods.set_enabled", "mods.move",
                     "mods.remove", "deploy", "restore",
-                    "nexus.auth.login", "nexus.auth.logout"],
+                    "nexus.auth.login", "nexus.auth.logout",
+                    "nexus.download"],
                 "nexus": {
                     "authentication": "oauth_pkce",
                     "browser_open_optional": True,
                     "manual_code_fallback": True,
                     "credentials_exposed": False,
+                    "download_modes": ["premium", "nxm"],
                 },
                 "maximum_event_wait_ms": 30000,
                 "methods": list(self.METHODS),
@@ -585,6 +592,108 @@ class AmethystService:
         )
         return {"job": job}
 
+    def _start_nexus_download(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        allowed = {"game", "domain", "mod_id", "file_id", "nxm_url"}
+        self._check_params(params, allowed, {"game"})
+
+        nxm_link = None
+        if "nxm_url" in params:
+            conflicts = sorted(
+                set(params).intersection({"domain", "mod_id", "file_id"}))
+            if conflicts:
+                raise ServiceError(
+                    -32602,
+                    "invalid_params",
+                    "'nxm_url' cannot be combined with domain or numeric IDs.",
+                    {"conflicting": conflicts},
+                )
+            url = self._required_text(params, "nxm_url")
+            if len(url) > 8192:
+                raise ServiceError(
+                    -32602,
+                    "invalid_params",
+                    "'nxm_url' is too long.",
+                    {"parameter": "nxm_url"},
+                )
+            from Nexus.nxm_handler import NxmLink
+            try:
+                parsed = NxmLink.parse(url)
+            except (TypeError, ValueError) as exc:
+                raise ServiceError(
+                    -32602,
+                    "invalid_params",
+                    "'nxm_url' must identify one Nexus mod file.",
+                    {"parameter": "nxm_url"},
+                ) from exc
+            if parsed.mod_id <= 0 or parsed.file_id <= 0:
+                raise ServiceError(
+                    -32602,
+                    "invalid_params",
+                    "'nxm_url' must contain positive mod and file IDs.",
+                    {"parameter": "nxm_url"},
+                )
+            if bool(parsed.key) != bool(parsed.expires):
+                raise ServiceError(
+                    -32602,
+                    "invalid_params",
+                    "The NXM download key and expiry must be supplied together.",
+                    {"parameter": "nxm_url"},
+                )
+            if parsed.key:
+                import time
+                if parsed.expires <= int(time.time()):
+                    raise ServiceError(
+                        -32012,
+                        "nexus_download_link_expired",
+                        "The NXM download link expired; request a new one.",
+                    )
+            game, domain = self._resolve_nexus_domain({
+                "game": params["game"], "domain": parsed.game_domain})
+            mod_id, file_id = parsed.mod_id, parsed.file_id
+            nxm_link = NxmLink(
+                game_domain=domain,
+                mod_id=mod_id,
+                file_id=file_id,
+                key=parsed.key,
+                expires=parsed.expires,
+            )
+            mode = "nxm"
+        else:
+            self._check_params(
+                params, allowed, {"game", "mod_id", "file_id"})
+            game, domain = self._resolve_nexus_domain(params)
+            mod_id = self._positive_integer(params, "mod_id")
+            file_id = self._positive_integer(params, "file_id")
+            mode = "premium"
+
+        import threading
+        from .nexus import download_runner
+        cancel = threading.Event()
+        job = self._jobs.submit(
+            "nexus.download",
+            game,
+            self._canonical_game(game),
+            None,
+            {
+                "mode": mode,
+                "domain": domain,
+                "mod_id": mod_id,
+                "file_id": file_id,
+            },
+            runner=download_runner(
+                self._nexus_session,
+                str(self._safe_attr(game, "name", "") or ""),
+                domain,
+                mod_id,
+                file_id,
+                nxm_link=nxm_link,
+                cancel=cancel,
+            ),
+            cancel=cancel.set,
+        )
+        return {"job": job}
+
     def _list_mods(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()
         self._check_params(params, {"game", "profile"}, {"game", "profile"})
@@ -920,6 +1029,22 @@ class AmethystService:
                 job_id, after=after, wait_ms=wait_ms)
         except KeyError:
             self._job_not_found(job_id)
+
+    def _cancel_job(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._check_params(params, {"job_id"}, {"job_id"})
+        job_id = self._required_text(params, "job_id")
+        from .jobs import JobNotCancellable
+        try:
+            return {"job": self._jobs.cancel(job_id)}
+        except KeyError:
+            self._job_not_found(job_id)
+        except JobNotCancellable as exc:
+            raise ServiceError(
+                -32013,
+                "job_not_cancellable",
+                f"Job '{job_id}' cannot be cancelled.",
+                {"job_id": job_id},
+            ) from exc
 
     def _require_idle_state(self) -> None:
         job = self._jobs.active()
