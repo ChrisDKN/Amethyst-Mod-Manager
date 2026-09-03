@@ -3888,6 +3888,7 @@ mod tests {
     fn candidate(id: i64, owner: &str, path: &str) -> Candidate {
         Candidate {
             id,
+            file_id: id,
             destination_id: id,
             mod_id: match owner {
                 "A" => 1,

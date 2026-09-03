@@ -971,6 +971,7 @@ def _capture_shadow_runtime(game, payload: dict, state: Path,
         state / DATA_SNAPSHOT_NAME,
         data_upper,
         log_fn=_log,
+        apply_global_ignore=False,
     )
     if not data_rel.parts:
         if moved_data:
@@ -985,6 +986,7 @@ def _capture_shadow_runtime(game, payload: dict, state: Path,
         root_destination,
         log_fn=_log,
         exclude_dirs=(data_rel.as_posix(),),
+        apply_global_ignore=False,
     )
     moved = moved_data + moved_root
     if moved:

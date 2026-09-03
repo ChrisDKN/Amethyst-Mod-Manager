@@ -2,8 +2,8 @@
 
 A QTreeView over PluginModel with a delegate that paints: enable checkbox, name
 (dimmed when disabled), the ESL 'L' cyan badge + master indicator in the Flags
-column, the lock column, and the load-order index. Single-click the checkbox to
-toggle (persists to plugins.txt).
+column, the lock column, priority, and load-order index. Single-click the
+checkbox to toggle, or the priority number to reposition the plugin.
 """
 
 from __future__ import annotations
@@ -23,7 +23,8 @@ from PySide6.QtWidgets import (
 from Utils.diagnostics import performance as perftrace
 from gui_qt import column_state
 
-from gui_qt.theme_qt import active_palette, bind_theme, _c, qc, qc_contrast
+from gui_qt.theme_qt import (active_palette, bind_theme, _c, qc,
+                             qc_contrast, link_on)
 from gui_qt.icons import icon
 from gui_qt.tooltips import wrap_tooltip
 from gui_qt.modlist_header import TkStyleHeader
@@ -145,6 +146,20 @@ class PluginDelegate(QStyledItemDelegate):
         # Masters of the selected plugin get their own green row tint (Tk
         # BG_GREEN_ROW), distinct from the conflict-higher green.
         self.c_hl_master = qc(p, "BG_GREEN_ROW")
+        # Hovered clickable Priority number - reads as a link. The tint has to
+        # clear the fill behind it AND differ from the text it replaces, so each
+        # entry names both. The plain-row base uses BG_ROW_HOVER (the tint only
+        # paints on a hovered row); highlighted rows paint TEXT_ON_ACCENT.
+        # Vanilla/disabled plugins draw dim, so they get their own tint.
+        self.c_action_hover = link_on(p, "BG_ROW_HOVER", "TEXT_MAIN")
+        self.c_action_hover_dim = link_on(p, "BG_ROW_HOVER", "TEXT_DIM")
+        self._action_hover_by_fill = {
+            "sel": link_on(p, "BG_SELECT", "TEXT_ON_ACCENT"),
+            3: link_on(p, "BG_GREEN_ROW", "TEXT_ON_ACCENT"),
+            2: link_on(p, "FILE_ANCHOR", "TEXT_ON_ACCENT"),
+            1: link_on(p, "FILE_WIN", "TEXT_ON_ACCENT"),
+            -1: link_on(p, "FILE_LOSE", "TEXT_ON_ACCENT"),
+        }
         parent = self.parent()
         if parent is not None:
             try:
@@ -201,6 +216,9 @@ class PluginDelegate(QStyledItemDelegate):
         elif col == COL_LOCK:
             self._paint_lock(p, r, model.is_locked(row_number))
         elif col in (COL_PRIORITY, COL_GAME_INDEX):
+            if self._is_hover_action_cell(index):
+                text_color = self._action_hover_color(
+                    selected, highlighted, hl, enabled and not vanilla)
             p.setPen(text_color)
             p.setFont(self.f_row)
             p.drawText(r, _ALIGN_CENTER,
@@ -342,6 +360,30 @@ class PluginDelegate(QStyledItemDelegate):
             x += sz + _FLAG_GAP
         return 0
 
+    def _action_hover_color(self, selected, highlighted, hl, enabled=True):
+        """Link tint for the hovered number, matched to the fill behind it."""
+        if selected:
+            return self._action_hover_by_fill["sel"]
+        if highlighted:
+            return self._action_hover_by_fill.get(
+                hl, self._action_hover_by_fill["sel"])
+        return self.c_action_hover if enabled else self.c_action_hover_dim
+
+    def _is_hover_action_cell(self, index):
+        """True when the view says this Priority number is hovered."""
+        cell = getattr(self.parent(), "_hover_action_cell", None)
+        return cell is not None and cell == (index.row(), index.column())
+
+    def _hit_centered_text(self, pos, rect, index):
+        text = str(index.data(Qt.DisplayRole) or "")
+        if not text:
+            return False
+        width = min(self.fm_row.horizontalAdvance(text),
+                    max(0, rect.width() - 12))
+        hit = QRect(0, 0, width, self.fm_row.height())
+        hit.moveCenter(rect.center())
+        return hit.contains(pos)
+
     def _flag_tip(self, hit, index):
         """Tooltip text for the hovered flag bit *hit* (Tk parity). Master-check
         and LOOT flags render the captured per-plugin detail; ESL/userlist use
@@ -434,6 +476,14 @@ class PluginDelegate(QStyledItemDelegate):
                     row = index.data(RowRole)
                     cb(row.name if row is not None else "")
                     return True
+        elif index.column() == COL_PRIORITY:
+            if (event.button() != Qt.LeftButton
+                    or not model.is_movable(index.row())
+                    or not self._hit_centered_text(pos, opt.rect, index)):
+                return False
+            from gui_qt.plugin_menu import _set_priority
+            _set_priority(self.parent(), model, index.row())
+            return True
         return False
 
 
@@ -450,6 +500,9 @@ class PluginView(QTreeView):
         self.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
         self._perf_resize_paint_pending = False
+        # (row, column) of the clickable Priority number under the cursor, so
+        # the delegate can tint that one cell's text like a link.
+        self._hover_action_cell: tuple[int, int] | None = None
 
         # Set by the app: called with the plugin name when the dirty-edit brush
         # glyph is clicked (opens the xEdit QAC wizard).
@@ -930,10 +983,9 @@ class PluginView(QTreeView):
                 return carry
         return [row]
 
-    def _update_flag_cursor(self, pos):
-        """Pointing-hand over the clickable dirty-edit brush glyph, so it reads
-        as a button rather than a static badge."""
+    def _update_action_cursor(self, pos):
         over = False
+        cell = None
         try:
             idx = self.indexAt(pos)
             if (idx.isValid() and idx.column() == COL_FLAGS
@@ -943,12 +995,48 @@ class PluginView(QTreeView):
                     deleg = self.itemDelegate()
                     over = deleg._hit_flag_bit(
                         pos, self.visualRect(idx), bits) == PF_DIRTY
+            elif (idx.isValid() and idx.column() == COL_PRIORITY
+                  and self.model().is_movable(idx.row())):
+                deleg = self.itemDelegate()
+                over = deleg._hit_centered_text(
+                    pos, self.visualRect(idx), idx)
+                if over:
+                    cell = (idx.row(), idx.column())
         except Exception:
             over = False
+            cell = None
+        self._set_hover_action_cell(cell)
         if over:
             self.viewport().setCursor(Qt.PointingHandCursor)
         else:
             self.viewport().unsetCursor()
+
+    def _set_hover_action_cell(self, cell):
+        """Track the hovered Priority number, repainting what changed."""
+        if cell == self._hover_action_cell:
+            return
+        old, self._hover_action_cell = self._hover_action_cell, cell
+        m = self.model()
+        for c in (old, cell):
+            if c is not None:
+                idx = m.index(c[0], c[1])
+                if idx.isValid():
+                    self.viewport().update(self.visualRect(idx))
+
+    def leaveEvent(self, event):
+        self._set_hover_action_cell(None)
+        super().leaveEvent(event)
+
+    def keyPressEvent(self, event):
+        # Ctrl+Up/Down extends the selection like Shift+Up/Down does. Qt's
+        # default only walks the current index, which is invisible here.
+        if event.modifiers() & Qt.ControlModifier and not (
+                event.modifiers() & Qt.ShiftModifier):
+            from gui_qt.shortcuts import ctrl_arrow_extend
+            if ctrl_arrow_extend(self, event.key()):
+                event.accept()
+                return
+        super().keyPressEvent(event)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
@@ -959,7 +1047,7 @@ class PluginView(QTreeView):
 
     def mouseMoveEvent(self, event):
         if not (event.buttons() & Qt.LeftButton) or self._press_row < 0:
-            self._update_flag_cursor(event.position().toPoint())
+            self._update_action_cursor(event.position().toPoint())
             super().mouseMoveEvent(event)
             return
         if not self._drag_active:

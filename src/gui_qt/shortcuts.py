@@ -15,8 +15,11 @@ Default bindings:
                     plugins (plugin panel)
     Ctrl+D          Deploy
     Ctrl+M          Install mod
+    Ctrl+N          Create an empty mod at the top of the modlist
     Ctrl+R          Restore
     Ctrl+S          Open Settings
+    Ctrl+Up/Down    Extend the selection to the previous/next row in the
+                    active list panel (handled by the views themselves)
     Alt+Up          Move selected mods/plugins/separators up
     Alt+Down        Move selected mods/plugins/separators down
     Shift+E         Expand/collapse all separators (modlist)
@@ -70,6 +73,8 @@ SHORTCUT_DEFINITIONS = (
         "ShortcutEditor", "Deploy mods"), "Ctrl+D"),
     ShortcutDefinition("install_mod", QT_TRANSLATE_NOOP(
         "ShortcutEditor", "Install a mod"), "Ctrl+M"),
+    ShortcutDefinition("create_empty_mod", QT_TRANSLATE_NOOP(
+        "ShortcutEditor", "Create an empty mod"), "Ctrl+N"),
     ShortcutDefinition("restore", QT_TRANSLATE_NOOP(
         "ShortcutEditor", "Restore game files"), "Ctrl+R"),
     ShortcutDefinition("open_settings", QT_TRANSLATE_NOOP(
@@ -544,6 +549,17 @@ def _install_mod(win):
         win._on_install_mod()
 
 
+def _create_empty_mod(win):
+    """Create an empty mod at the top of the modlist body (just inside the
+    Overwrite boundary) - the keyboard route to the context menu's 'Create an
+    empty mod below'. No-ops without a staging dir, like the menu entry."""
+    view = getattr(win, "_modlist_view", None)
+    if view is None or getattr(view, "staging_dir", None) is None:
+        return
+    from gui_qt.modlist_menu import _create_empty_mod_at_boundary
+    _create_empty_mod_at_boundary(view, view.model(), top=True)
+
+
 def _open_settings(win):
     if hasattr(win, "_open_settings_modal"):
         win._open_settings_modal()
@@ -752,6 +768,40 @@ def _select_all(win):
     _apply_row_selection(view, rows)
 
 
+
+# ---- Ctrl+Up / Ctrl+Down: extend the selection ------------------------------
+
+def ctrl_arrow_extend(view, key) -> bool:
+    """Handle Ctrl+Up/Down in a list panel by adding the next visible row to
+    the selection. Qt's own Ctrl+Arrow only walks the current index and leaves
+    the selection alone, which reads as "nothing happened" in a view whose
+    delegate paints selection but no focus ring. Returns True if handled."""
+    if key not in (Qt.Key_Up, Qt.Key_Down):
+        return False
+    visible = view._visible_rows()
+    if not visible:
+        return False
+
+    sm = view.selectionModel()
+    current = sm.currentIndex()
+    step = -1 if key == Qt.Key_Up else 1
+    if current.isValid() and current.row() in visible:
+        i = visible.index(current.row()) + step
+        if not 0 <= i < len(visible):
+            return True          # already at an end - swallow, don't wrap
+        row = visible[i]
+    else:
+        row = visible[0] if step > 0 else visible[-1]
+
+    m = view.model()
+    idx = m.index(row, 0)
+    sm.select(QItemSelection(idx, m.index(row, m.columnCount() - 1)),
+              QItemSelectionModel.Select | QItemSelectionModel.Rows)
+    sm.setCurrentIndex(idx, QItemSelectionModel.NoUpdate)
+    view.scrollTo(idx)
+    return True
+
+
 # ---- Alt+Up / Alt+Down: move selection --------------------------------------
 
 def _move_up(win):
@@ -849,6 +899,7 @@ _MOUSE_ACTION_HANDLERS = {
     "refresh": _refresh_modlist,
     "deploy": _deploy,
     "install_mod": _install_mod,
+    "create_empty_mod": _create_empty_mod,
     "restore": _restore,
     "open_settings": _open_settings,
     "focus_search": _focus_search,
@@ -963,6 +1014,7 @@ def register_shortcuts(win) -> None:
     sc("refresh", _refresh_modlist, guarded=False)
     sc("deploy", _deploy)
     sc("install_mod", _install_mod, auto_repeat=False)
+    sc("create_empty_mod", _create_empty_mod, auto_repeat=False)
     sc("restore", _restore)
     sc("open_settings", _open_settings, auto_repeat=False)
     sc("focus_search", _focus_search, guarded=False)

@@ -30,6 +30,10 @@ _BOUNDARY_NAMES = (OVERWRITE_NAME, ROOT_FOLDER_NAME)
 # All UI-only pinned rows: boundaries + the reverse-mode float divider.
 _PINNED_NAMES = _BOUNDARY_NAMES + (DIVIDER_NAME,)
 
+# Version stamped into a newly created empty mod's meta.ini, and shown in the
+# Version column for it right away.
+NEW_MOD_VERSION = "1.0"
+
 
 # Column indices. Order mirrors the Tk app: Category right after Name, Size last.
 COL_NAME = 0

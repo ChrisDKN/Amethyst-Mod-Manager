@@ -18,7 +18,7 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import QStyledItemDelegate, QStyle, QToolTip
 
-from gui_qt.theme_qt import bind_theme, _c, qc, qc_contrast
+from gui_qt.theme_qt import bind_theme, _c, qc, qc_contrast, link_on
 from gui_qt.icons import icon
 from gui_qt.tooltips import wrap_tooltip
 from gui_qt.modlist_model import (
@@ -319,6 +319,24 @@ class ModRowDelegate(QStyledItemDelegate):
         self.c_root_text = qc(p, "ROOT_SEP_FG")
         self.c_overwrite_text = qc(p, "OVERWRITE_SEP_FG")
         self.c_badge = qc(p, "LINK_BLUE")   # separator deploy-path badge
+        # Hovered clickable number (Version / Priority) - reads as a link. The
+        # tint is resolved per row fill, not once: several themes derive
+        # BG_SELECT (and the conflict bands) from the same accent as LINK_BLUE,
+        # so a single colour would vanish on exactly those rows.
+        # The tint has to clear the fill behind it AND differ from the text it
+        # replaces, so each entry names both. The plain-row base uses
+        # BG_ROW_HOVER (the tint only paints on a row the cursor is over);
+        # highlighted rows swap in TEXT_ON_ACCENT, which is what they paint.
+        self.c_action_hover = link_on(p, "BG_ROW_HOVER", "TEXT_MAIN")
+        self.c_action_hover_dim = link_on(p, "BG_ROW_HOVER", "TEXT_DIM")
+        self._action_hover_by_fill = {
+            "sel": link_on(p, "BG_SELECT", "TEXT_ON_ACCENT"),
+            2: link_on(p, "CONFLICT_HL_ANCHOR", "TEXT_ON_ACCENT"),
+            3: link_on(p, "REQ_HL_REQUIRES", "TEXT_ON_ACCENT"),
+            -3: link_on(p, "REQ_HL_REQUIRED_BY", "TEXT_ON_ACCENT"),
+            1: link_on(p, "CONFLICT_HL_WIN", "TEXT_ON_ACCENT"),
+            -1: link_on(p, "CONFLICT_HL_LOSE", "TEXT_ON_ACCENT"),
+        }
         parent = self.parent()
         if parent is not None:
             try:
@@ -440,6 +458,9 @@ class ModRowDelegate(QStyledItemDelegate):
             # Plain columns (Installed/Version/Priority): centred to match the
             # centred headers + the icon columns.
             val = index.data(Qt.DisplayRole) or ""
+            if self._is_hover_action_cell(index):
+                text_color = self._action_hover_color(
+                    selected, highlighted, hl, e.enabled)
             p.setPen(text_color)
             p.setFont(self.f_row)
             pad = QRect(r.left() + 6, r.top(), r.width() - 12, r.height())
@@ -879,6 +900,20 @@ class ModRowDelegate(QStyledItemDelegate):
             x += sz + gap
             if x > r.right() - sz:
                 break
+
+    def _action_hover_color(self, selected, highlighted, hl, enabled=True):
+        """Link tint for the hovered number, matched to the fill behind it."""
+        if selected:
+            return self._action_hover_by_fill["sel"]
+        if highlighted:
+            return self._action_hover_by_fill.get(
+                hl, self._action_hover_by_fill["sel"])
+        return self.c_action_hover if enabled else self.c_action_hover_dim
+
+    def _is_hover_action_cell(self, index):
+        """True when the view says this Version/Priority number is hovered."""
+        cell = getattr(self.parent(), "_hover_action_cell", None)
+        return cell is not None and cell == (index.row(), index.column())
 
     def _hit_centered_text(self, pos, rect, index):
         text = str(index.data(Qt.DisplayRole) or "")

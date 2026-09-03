@@ -19,7 +19,7 @@ from PySide6.QtCore import QCoreApplication, QT_TRANSLATE_NOOP
 
 from gui_qt.confirm_overlay import ConfirmOverlay
 from gui_qt.i18n import profile_display
-from gui_qt.modlist_model import COL_NAME, COL_VERSION
+from gui_qt.modlist_model import COL_NAME, COL_VERSION, NEW_MOD_VERSION
 from gui_qt.text_input_overlay import TextInputOverlay
 
 
@@ -159,6 +159,10 @@ def build_context_menu(view, index):
             enabled=has_game)
         if entry.name == OVERWRITE_NAME:
             act(_mt("Manage Overwrite…"), lambda: _manage_overwrite(view),
+                enabled=has_game and _staging_ok)
+        elif entry.name == ROOT_FOLDER_NAME:
+            act(_mt("Manage root folder"),
+                lambda: _manage_root_folder(view),
                 enabled=has_game and _staging_ok)
         if entry.name == OVERWRITE_NAME and _has_conflict(model, row):
             act(_mt("Show Conflicts"), lambda: _show_conflicts(view, entry.name))
@@ -1414,18 +1418,25 @@ def _create_empty_mod_prompt(view, model, insert):
             mod_dir.mkdir(parents=True, exist_ok=True)
             installed = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
             (mod_dir / "meta.ini").write_text(
-                f"[General]\ninstalled={installed}\n", encoding="utf-8")
+                f"[General]\ninstalled={installed}\n"
+                f"version={NEW_MOD_VERSION}\n", encoding="utf-8")
         except OSError as exc:
             ConfirmOverlay.show_message(
                 view, _mt("Create empty mod"),
                 _mtf("Could not create the mod folder:\n{0}", exc))
             return
-        if insert(name) is False and created:
-            import shutil
-            try:
-                shutil.rmtree(mod_dir)
-            except OSError:
-                pass
+        if insert(name) is False:
+            if created:
+                import shutil
+                try:
+                    shutil.rmtree(mod_dir)
+                except OSError:
+                    pass
+            return
+        # The insert only saves the modlist; the meta pass that fills the
+        # Version column runs on a full reload. Push the version we just wrote
+        # straight into the model so the column is right immediately.
+        model.set_version(name, NEW_MOD_VERSION)
 
     TextInputOverlay.show_over(view, _mt("Create empty mod"), _mt("Mod name:"),
                                _named, ok_label=_mt("Create"))
@@ -1436,6 +1447,12 @@ def _manage_overwrite(view):
     move-to-mod / move-to-new-mod / delete). The window installs the callback in
     _reload_modlist; no-op if it isn't wired (e.g. headless)."""
     cb = getattr(view, "on_manage_overwrite", None)
+    if callable(cb):
+        cb()
+
+
+def _manage_root_folder(view):
+    cb = getattr(view, "on_manage_root_folder", None)
     if callable(cb):
         cb()
 
@@ -1868,6 +1885,7 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("ModListMenu", "Lock Separators"),
     QT_TRANSLATE_NOOP("ModListMenu", "Log"),
     QT_TRANSLATE_NOOP("ModListMenu", "Manage Overwrite…"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Manage root folder"),
     QT_TRANSLATE_NOOP("ModListMenu", "Missing Requirements"),
     QT_TRANSLATE_NOOP("ModListMenu", "Missing Requirements ({0})"),
     QT_TRANSLATE_NOOP("ModListMenu", "View Requirements"),

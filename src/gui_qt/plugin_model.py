@@ -1,7 +1,7 @@
 """Plugin-tab model - QAbstractTableModel over PluginRow list.
 
-Columns: Plugin Name, Flags, Lock, Index (checkbox painted into col 0 by the
-delegate). Toggling enable writes back to plugins.txt via plugin_state.save.
+Columns: Plugin Name, Flags, Lock, Priority, Index (checkbox painted into col 0
+by the delegate). Toggling enable writes back via plugin_state.save.
 """
 
 from __future__ import annotations
@@ -336,13 +336,15 @@ class PluginModel(QAbstractTableModel):
             i += 1
         return i
 
-    def _clamp_dest(self, src: list[int], dest: int) -> int:
+    def _clamp_dest(self, src: list[int], dest: int,
+                    rows: list[PluginRow] | None = None) -> int:
         """Clamp an insert-before *dest* for the contiguous block *src*."""
         # Works on the "rest" list (rows minus the block) so every bound is a
         # plain insertion point. MO2's order: rank region, then dependencies.
+        rows = self._rows if rows is None else rows
         first, last = src[0], src[-1]
-        block = self._rows[first:last + 1]
-        rest = self._rows[:first] + self._rows[last + 1:]
+        block = rows[first:last + 1]
+        rest = rows[:first] + rows[last + 1:]
         d = dest if dest <= first else dest - len(block)
         d = max(0, min(d, len(rest)))
         ranks = {plugin_rank(r) for r in block}
@@ -413,6 +415,37 @@ class PluginModel(QAbstractTableModel):
             self._rows[insert_at:insert_at] = block
             self.endMoveRows()
         self._refresh_game_indexes()
+        self._save()
+        return True
+
+    def set_priority(self, row: int, priority: int) -> bool:
+        """Move one plugin to a constrained natural-order priority."""
+        if not self.is_movable(row):
+            return False
+        plugin = self._rows[row]
+        src = self.natural_index(plugin.name)
+        if src < 0:
+            return False
+        target = max(0, min(len(self._natural) - 1, priority))
+        if target == src:
+            return False
+        dest = target if target < src else target + 1
+        if self.display_is_natural:
+            return self.move_rows([src], dest)
+
+        insert_at = self._clamp_dest([src], dest, self._natural)
+        if insert_at == src:
+            return False
+        self._natural.pop(src)
+        self._natural.insert(insert_at, plugin)
+        self._refresh_natural_caches()
+        self._rebuild_display()
+        if self._rows:
+            self.dataChanged.emit(
+                self.index(0, COL_PRIORITY),
+                self.index(len(self._rows) - 1, COL_GAME_INDEX),
+                [Qt.DisplayRole],
+            )
         self._save()
         return True
 

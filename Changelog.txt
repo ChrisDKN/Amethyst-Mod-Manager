@@ -1,5 +1,5 @@
 - v2.4.1
-- Added keybinds for opening the settings menu and installing a mod
+- Added keybinds for opening the settings menu,installing a mod and creating an empty mod
 - Added the ability to change keybinds in the settings menu
 - Fixed an issue where the notification window would appear when the manager is minimised
 - Added support for sites that use the modl schema for direct downloads
@@ -9,7 +9,9 @@
 - Mod priority and version numbers in their columns can now be clicked to change them
 - Fixed modlist state loss after folder name sanitization
 - Fixed custom deploy paths in separator settings not working
-- Fixed excessive cache lookups on collection installs causing smaller mods to take longer to start downloading
+- Fixed excessive cache lookups on collection installs causing smaller mods to take longer to start downloading than usual
+- Added a downloaded date column to the downloads tab as well as column sorting
+- Fixed larger modlists taking a while to load
 
 ---
 

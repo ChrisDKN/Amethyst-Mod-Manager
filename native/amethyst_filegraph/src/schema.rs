@@ -212,9 +212,11 @@ pub fn configure_connection(connection: &Connection) -> Result<()> {
 
 pub fn initialise(connection: &Connection) -> Result<()> {
     configure_connection(connection)?;
-    let check: String = connection.query_row("PRAGMA quick_check(1)", [], |row| row.get(0))?;
-    if check != "ok" {
-        return Err(FileGraphError::Corrupt(check));
+    if std::env::var_os("AMETHYST_FILEGRAPH_QUICK_CHECK").is_some() {
+        let check: String = connection.query_row("PRAGMA quick_check(1)", [], |row| row.get(0))?;
+        if check != "ok" {
+            return Err(FileGraphError::Corrupt(check));
+        }
     }
     connection.execute_batch(SCHEMA_SQL)?;
 

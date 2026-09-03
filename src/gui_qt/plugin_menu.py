@@ -12,10 +12,10 @@ vanilla-only selection shows NO menu (Tk parity: it filters to non-vanilla rows 
 returns early if none remain).
 
 Core items wired: Enable / Disable (single + multi), the ESL flag toggle
-(single + multi), and the userlist items (Add to userlist / Add to group /
-Remove from userlist / Show cycle / Show userlist rules - via view callbacks
-set by app._reload_plugins), plus links embedded in LOOT messages. The rest are
-gated greyed stubs.
+(single + multi), constrained priority changes, and the userlist items (Add to
+userlist / Add to group / Remove from userlist / Show cycle / Show userlist
+rules - via view callbacks set by app._reload_plugins), plus links embedded in
+LOOT messages. The rest are gated greyed stubs.
 """
 
 from __future__ import annotations
@@ -26,6 +26,8 @@ from urllib.parse import urlsplit
 from PySide6.QtWidgets import QMenu
 from PySide6.QtGui import QAction
 from PySide6.QtCore import Qt, QCoreApplication, QT_TRANSLATE_NOOP
+
+from gui_qt.text_input_overlay import TextInputOverlay
 
 
 _MARKDOWN_LINK_RE = re.compile(
@@ -129,6 +131,10 @@ def _build_plugin_menu(view, model, row, toggleable, multi,
     else:
         act(_mt("Enable plugin"), lambda: _set_enabled(view, toggleable, True))
         act(_mt("Disable plugin"), lambda: _set_enabled(view, toggleable, False))
+
+    if not multi and model.is_movable(row):
+        divider()
+        act(_mt("Set priority…"), lambda: _set_priority(view, model, row))
 
     # ---- OpenMW groundcover classification -------------------------------
     groundcover_exts = tuple(
@@ -308,6 +314,25 @@ def _set_enabled(view, indices, enabled: bool):
     cb = getattr(view, "on_plugins_changed", None)
     if callable(cb):
         cb()
+
+
+def _set_priority(view, model, row):
+    plugin = model.row(row)
+    priority = model.natural_index(plugin.name)
+
+    def _picked(text):
+        try:
+            value = int((text or "").strip())
+        except ValueError:
+            return
+        model.set_priority(row, value)
+
+    from PySide6.QtGui import QIntValidator
+    TextInputOverlay.show_over(
+        view, _mt("Set priority"), _mtf("Priority for {0}:", plugin.name),
+        _picked, initial=str(max(0, priority)),
+        validator=QIntValidator(0, 99999),
+    )
 
 
 def _set_groundcover(view, indices, enabled: bool):
@@ -523,10 +548,13 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("PluginMenu", "Not ESL-safe (per LOOT - compact in xEdit first)"),
     QT_TRANSLATE_NOOP("PluginMenu", "Open LOOT message link"),
     QT_TRANSLATE_NOOP("PluginMenu", "Open LOOT message link…"),
+    QT_TRANSLATE_NOOP("PluginMenu", "Priority for {0}:"),
     QT_TRANSLATE_NOOP("PluginMenu", "Remove ESL flag (un-light)"),
     QT_TRANSLATE_NOOP("PluginMenu", "Remove ESL flag from selected ({0})"),
     QT_TRANSLATE_NOOP("PluginMenu", "Remove from userlist"),
     QT_TRANSLATE_NOOP("PluginMenu", "Remove selected from userlist"),
+    QT_TRANSLATE_NOOP("PluginMenu", "Set priority"),
+    QT_TRANSLATE_NOOP("PluginMenu", "Set priority…"),
     QT_TRANSLATE_NOOP("PluginMenu", "Show cycle…"),
     QT_TRANSLATE_NOOP("PluginMenu", "Show overlapping plugins…"),
     QT_TRANSLATE_NOOP("PluginMenu", "Show userlist rules…"),
