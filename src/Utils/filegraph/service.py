@@ -29,6 +29,9 @@ from Utils.filegraph.native import pack, require_native, unpack
 def _native_error(exc: BaseException) -> BaseException:
     text = str(exc)
     lowered = text.lower()
+    if ("generation" in lowered
+            and ("stale" in lowered or "superseded" in lowered)):
+        return FileGraphStale(text)
     if ("deployment" in lowered
             and ("still active" in lowered or "is active" in lowered)):
         return FileGraphRecoveryRequired(
@@ -710,11 +713,7 @@ class ProfileSession:
     ) -> tuple[str, DeploymentPlan]:
         transaction_id = transaction_id or str(uuid.uuid4())
         generation = int(snapshot_generation)
-        # Expand the immutable plan here, after Deploy was requested. A cached
-        # same-generation plan is still reused when another deployment-stage
-        # consumer already requested it.
         with self._deployment_prepare_lock:
-            plan = self.build_deployment_plan(generation)
             with self._lock:
                 try:
                     if self.snapshot().generation != generation:
@@ -726,6 +725,22 @@ class ProfileSession:
                     raise
                 except BaseException as exc:
                     raise _native_error(exc) from exc
+
+            # Reserve the generation before the expensive plan expansion.
+            # The native journal prevents a reconcile from superseding it.
+            try:
+                plan = self.build_deployment_plan(generation)
+            except BaseException as plan_error:
+                try:
+                    self.fail_deployment(transaction_id)
+                except BaseException as cleanup_error:
+                    raise FileGraphRecoveryRequired(
+                        "Could not release a failed deployment reservation: "
+                        f"{cleanup_error}"
+                    ) from plan_error
+                raise
+
+            with self._lock:
                 self._pending_deployment_plans[transaction_id] = (
                     plan, str(link_mode).lower())
         return transaction_id, plan

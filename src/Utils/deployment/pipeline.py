@@ -550,10 +550,26 @@ def run_deploy_pipeline(
             else LinkMode.HARDLINK
         )
         from Utils.filegraph.deploy import begin as begin_filegraph_deployment
+        from Utils.filegraph.models import FileGraphStale
         if progress_fn is not None:
             progress_fn(0, 0, "Building the deployment plan…")
-        active_deployment = begin_filegraph_deployment(
-            filegraph_profile, filegraph_generation, deploy_mode.name.lower())
+        try:
+            active_deployment = begin_filegraph_deployment(
+                filegraph_profile, filegraph_generation,
+                deploy_mode.name.lower())
+        except FileGraphStale:
+            log_fn(
+                "Profile changed before deployment reserved its generation; "
+                "reconciling once more."
+            )
+            if progress_fn is not None:
+                progress_fn(0, 0, "Profile changed; rebuilding the plan…")
+            filegraph_profile.ensure_reconciled(
+                operation_hint={"kind": "deployment"})
+            filegraph_generation = filegraph_profile.snapshot().generation
+            active_deployment = begin_filegraph_deployment(
+                filegraph_profile, filegraph_generation,
+                deploy_mode.name.lower())
         _filegraph_deployment_started = True
 
         if incr_plan is not None:

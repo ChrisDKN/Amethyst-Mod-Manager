@@ -11688,24 +11688,38 @@ class MainWindow(QMainWindow):
             pass
 
         import threading
+        if not hasattr(self, "_conflict_build_lock"):
+            self._conflict_build_lock = threading.Lock()
+        conflict_build_lock = self._conflict_build_lock
+        wait_phase = self.tr("Waiting for profile updates…")
 
         def worker():
             from Utils.deployment.pipeline import run_deploy_pipeline
             ok = False
             warns = []
             try:
-                ok = run_deploy_pipeline(
-                    game, profile,
-                    log_fn=lambda m: self._op_log.emit(str(m)),
-                    progress_fn=lambda d, t, p=None: self._op_progress.emit(d, t, p),
-                    root_folder_enabled=rf_enabled,
-                    confirm_cet=self._make_confirm_cet_cb(game),
-                    confirm_windows_fs=self._make_confirm_windows_fs_cb(game),
-                    confirm_downgrade=self._make_confirm_downgrade_cb(
-                        game, silent=silent),
-                    do_backup=True,
-                    timing_origin=self._deploy_timing_origin,
-                )
+                if not conflict_build_lock.acquire(blocking=False):
+                    self._op_progress.emit(0, 0, wait_phase)
+                    self._op_log.emit(
+                        "Deploy: waiting for the current profile update to "
+                        "finish."
+                    )
+                    conflict_build_lock.acquire()
+                try:
+                    ok = run_deploy_pipeline(
+                        game, profile,
+                        log_fn=lambda m: self._op_log.emit(str(m)),
+                        progress_fn=lambda d, t, p=None: self._op_progress.emit(d, t, p),
+                        root_folder_enabled=rf_enabled,
+                        confirm_cet=self._make_confirm_cet_cb(game),
+                        confirm_windows_fs=self._make_confirm_windows_fs_cb(game),
+                        confirm_downgrade=self._make_confirm_downgrade_cb(
+                            game, silent=silent),
+                        do_backup=True,
+                        timing_origin=self._deploy_timing_origin,
+                    )
+                finally:
+                    conflict_build_lock.release()
             except Exception as exc:
                 self._op_log.emit(f"Deploy error: {exc}")
             finally:
@@ -18379,6 +18393,24 @@ class MainWindow(QMainWindow):
                 if timing is not None:
                     timing.mark("conflict build lock acquired",
                                 phase_started=lock_started, lane="worker")
+                if getattr(self, "_deploy_running", False):
+                    msg = (f"conflict build gen={gen} deferred while Deploy "
+                           "owns the profile; the post-deploy refresh will "
+                           "rebuild it")
+                    print(f"[plugin-diag] {msg}", flush=True)
+                    self._append_log(f"[rescan-diag] {msg}")
+                    getattr(self, "_conflict_timings", {}).pop(gen, None)
+                    getattr(self, "_startup_conflict_timings", {}).pop(
+                        gen, None)
+                    if startup_timing is not None:
+                        startup_timing.record(
+                            "Conflict build deferred for deployment",
+                            phase_started=startup_worker_started,
+                            lane="conflict worker", category="filegraph")
+                    if timing is not None:
+                        timing.finish("conflict build deferred for deployment",
+                                      lane="worker")
+                    return
                 if gen != self._conflict_gen:
                     msg = (f"conflict build gen={gen} SUPERSEDED "
                            f"(current={self._conflict_gen}) - skipped before "
