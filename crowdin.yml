@@ -5,3 +5,17 @@ files:
       - /Localisation/tools
       - /Localisation/README.md
       - /Localisation/*.qm
+    languages_mapping:
+      locale_with_underscore:
+        cs: cs
+        de: de
+        fr: fr
+        it: it
+        ja: ja
+        nl: nl
+        pl: pl
+        ru: ru
+        es-ES: es
+        pt-PT: pt
+        pt-BR: pt_BR
+        zh-CN: zh
