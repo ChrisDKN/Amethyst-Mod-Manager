@@ -1,5 +1,6 @@
 py.install_sources(
   '__init__.py',
+  'boundaries.py',
   'jobs.py',
   'launch.py',
   'nexus.py',

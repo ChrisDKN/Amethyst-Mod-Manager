@@ -6,7 +6,8 @@ version 1 exposes game, profile, mod and downloaded-archive state, Nexus OAuth,
 catalogue discovery, exact-ID metadata, managed downloads, and non-interactive
 archive installation, plus asynchronous mod activation, ordering, removal,
 plugin inventory, activation, ordering and LOOT sorting, profile lifecycle,
-deploy, restore, and managed game launch.
+managed Overwrite and Root Folder inventory, deploy, restore, and managed game
+launch.
 
 The public boundary is JSON-RPC 2.0 over newline-delimited JSON (NDJSON).
 Amethyst reads one JSON value per line from standard input and writes one JSON
@@ -135,6 +136,13 @@ The response describes the protocol and available features:
         "sorter": "loot",
         "metadata_refresh": true
       },
+      "boundaries": {
+        "inventory": "job",
+        "types": ["overwrite", "root_folder"],
+        "default_page_size": 500,
+        "maximum_page_size": 5000,
+        "revisioned": true
+      },
       "maximum_event_wait_ms": 30000,
       "methods": [
         "system.handshake",
@@ -168,6 +176,7 @@ The response describes the protocol and available features:
         "plugins.set_enabled.start",
         "plugins.move.start",
         "plugins.sort.start",
+        "boundaries.list.start",
         "deploy.start",
         "restore.start",
         "launch.get",
@@ -225,6 +234,7 @@ parameters are rejected.
 | `plugins.set_enabled.start` | `game` string, `profile` string, `changes` array | Start a batch plugin enable/disable job. |
 | `plugins.move.start` | `game` string, `profile` string, `plugins` array, `position` object | Move a contiguous plugin block within engine constraints. |
 | `plugins.sort.start` | `game` string, `profile` string, `apply_order` boolean (optional) | Run LOOT, refresh metadata, and optionally apply its constrained order. |
+| `boundaries.list.start` | `game` string, `profile` string, `boundary` string, `offset` integer (optional), `limit` integer (optional) | Scan the profile's managed Overwrite or Root Folder inventory. |
 | `deploy.start` | `game` string, `profile` string, `options` object (optional) | Start a deployment job. |
 | `restore.start` | `game` string, `profile` string | Start a restore job. |
 | `launch.get` | `launch_id` string (optional) | Inspect the latest managed game-launch lifecycle. |
@@ -356,6 +366,41 @@ update state, and Nexus or Thunderstore identity when available. A stale
 
 Read methods return `operation_in_progress` while this service is changing game
 state. Continue polling the active job and retry the read after it completes.
+
+### Inspect captured files
+
+Overwrite and Root Folder can contain thousands of files produced by games and
+modding tools, so their recursive inventory runs as a job. Scan Overwrite with:
+
+```json
+{"jsonrpc":"2.0","id":"overwrite-list","method":"boundaries.list.start","params":{"game":"skyrim_se","profile":"default","boundary":"overwrite"}}
+```
+
+Use `"boundary":"root_folder"` for files captured relative to the game root.
+The manager resolves both folders from the requested profile; clients cannot
+submit a filesystem root. `scope` is `profile` for profile-specific staging and
+`shared` when the folder is shared by the game's normal profiles. The result
+also reports the resolved boundary and mod-staging paths.
+
+`entries` is a case-insensitively sorted flat list. Each entry has a relative
+`path`, `kind` (`file`, `directory`, or `symlink`), nullable regular-file
+`size`, UTC `modified_at`, and an `empty` flag for directories. Manager
+bookkeeping such as `meta.ini`, `.mm_overwrite_log.txt`, and
+`.mm_merge_inventory.xml`, plus macOS archive junk, is omitted. Symlink targets
+are not exposed or followed. Top-level counts describe the complete visible
+inventory, and `bytes` counts regular-file content only.
+
+Responses default to 500 entries and accept `offset` and `limit`; the maximum
+page size is 5,000. `page.next_offset` is null after the last page. Every page
+also carries an opaque `revision` calculated from the complete visible folder
+state. If that revision changes between pages, discard the partial result and
+restart at offset zero. Do not parse or persist a revision as file identity.
+
+The inventory method is read-only, uses the shared game-operation lock, and is
+rejected while this service is managing a running game. A missing boundary
+folder is a successful empty result with `exists: false`; individual entries
+that disappear or become unreadable during a scan are omitted and reported in
+`warnings`.
 
 ### Manage plugins
 

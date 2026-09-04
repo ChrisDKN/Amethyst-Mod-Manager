@@ -70,6 +70,7 @@ class AmethystService:
         "plugins.set_enabled.start",
         "plugins.move.start",
         "plugins.sort.start",
+        "boundaries.list.start",
         "deploy.start",
         "restore.start",
         "launch.get",
@@ -124,6 +125,7 @@ class AmethystService:
             "plugins.set_enabled.start": self._start_set_plugins_enabled,
             "plugins.move.start": self._start_move_plugins,
             "plugins.sort.start": self._start_sort_plugins,
+            "boundaries.list.start": self._start_list_boundary,
             "deploy.start": self._start_deploy,
             "restore.start": self._start_restore,
             "launch.get": self._get_launch,
@@ -508,6 +510,13 @@ class AmethystService:
                     "automatic_sort": self._loot_available(),
                     "sorter": "loot",
                     "metadata_refresh": self._loot_available(),
+                },
+                "boundaries": {
+                    "inventory": "job",
+                    "types": ["overwrite", "root_folder"],
+                    "default_page_size": 500,
+                    "maximum_page_size": 5000,
+                    "revisioned": True,
                 },
                 "maximum_event_wait_ms": 30000,
                 "methods": list(self.METHODS),
@@ -1474,6 +1483,49 @@ class AmethystService:
                 profile_dir,
                 apply_order,
                 "headless:plugins.sort",
+            ),
+        )
+        return {"job": job}
+
+    def _start_list_boundary(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params,
+            {"game", "profile", "boundary", "offset", "limit"},
+            {"game", "profile", "boundary"},
+        )
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        profile_dir = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+        boundary = params.get("boundary")
+        if boundary not in {"overwrite", "root_folder"}:
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'boundary' must be 'overwrite' or 'root_folder'.",
+                {"parameter": "boundary"},
+            )
+        offset = self._integer_range(
+            params.get("offset", 0), "offset", 0, 2_147_483_647)
+        limit = self._integer_range(
+            params.get("limit", 500), "limit", 1, 5000)
+
+        from .boundaries import inventory_runner
+        job = self._jobs.submit(
+            "boundaries.list",
+            game,
+            self._canonical_game(game),
+            profile_dir.name,
+            {"boundary": boundary, "offset": offset, "limit": limit},
+            runner=inventory_runner(
+                game,
+                profile_dir,
+                boundary,
+                offset,
+                limit,
+                "headless:boundaries.list",
             ),
         )
         return {"job": job}
