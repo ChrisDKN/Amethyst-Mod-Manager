@@ -386,6 +386,22 @@ Download the 'FNV BSA Decompressor' main file from Nexus - the .mpi package insi
       <translation>倒下的新拉斯维加斯:</translation>
     </message>
     <message>
+      <source>The BSA Decompressor rebuilds the vanilla BSA archives without compression for faster loading, and the result is added as a mod.
+
+Download the 'FO3 BSA Decompressor' main file from Nexus - the .mpi package inside the archive is detected automatically.</source>
+      <translation>BSA解压器重建原版BSA档案而不进行压缩以便更快地加载，结果被添加为模组。
+
+从 Nexus 下载“FO3 BSA解压器”主文件 - 自动检测到归档中的.mpi 包。</translation>
+    </message>
+    <message>
+      <source>Fallout 3:</source>
+      <translation>Fallout 3:</translation>
+    </message>
+    <message>
+      <source>Select the Fallout 3 folder</source>
+      <translation>选择 Fallout 3 文件夹</translation>
+    </message>
+    <message>
       <source>Select the Fallout New Vegas folder</source>
       <translation>选择 Fallout 新拉斯维加斯 文件夹</translation>
     </message>
@@ -478,6 +494,10 @@ Download the 'FNV BSA Decompressor' main file from Nexus - the .mpi package insi
       <translation>请选择 BSA Decompressor .mpi 软件包(或其已下载的归档) .</translation>
     </message>
     <message>
+      <source>Fallout 3 folder is not set.</source>
+      <translation>《秋季3》文件夹未设置。</translation>
+    </message>
+    <message>
       <source>Fallout New Vegas folder is not set.</source>
       <translation>未设置《辐射：新维加斯》文件夹。</translation>
     </message>
@@ -514,6 +534,22 @@ Output is written directly into your mod list as the '{0}' mod.</source>
     <message>
       <source>Mod staging path is not configured.</source>
       <translation>未配置 Mod 中程路径 .</translation>
+    </message>
+    <message>
+      <source>ERROR: missing vanilla game files:
+{0}</source>
+      <translation>错误：缺少原版游戏文件：
+{0}</translation>
+    </message>
+    <message>
+      <source>Missing vanilla game files even after restoring to vanilla - these were never backed up.
+In Steam, right-click the game → Properties → Installed Files → Verify integrity of game files, then retry.
+
+{0}</source>
+      <translation type="unfinished">Missing vanilla game files even after restoring to vanilla - these were never backed up.
+In Steam, right-click the game → Properties → Installed Files → Verify integrity of game files, then retry.
+
+{0}</translation>
     </message>
     <message>
       <source>ERROR: missing vanilla plugin files:
@@ -620,7 +656,7 @@ In Steam, right-click the game → Properties → Installed Files → Verify int
     </message>
     <message>
       <source>Unkeep</source>
-      <translation type="unfinished">Unkeep</translation>
+      <translation>取消保留</translation>
     </message>
     <message>
       <source>Rename backup</source>
@@ -1122,7 +1158,7 @@ Close it when you are done, then click Done.</source>
     </message>
     <message>
       <source>Pack</source>
-      <translation type="unfinished">Pack</translation>
+      <translation>包</translation>
     </message>
   </context>
   <context>
@@ -1164,7 +1200,7 @@ Close it when you are done, then click Done.</source>
     </message>
     <message>
       <source>  • {0}</source>
-      <translation type="unfinished">  • {0}</translation>
+      <translation>  • {0}</translation>
     </message>
     <message>
       <source>Unpack</source>
@@ -2978,7 +3014,7 @@ When it completes, the app switches to the new profile - then come back here and
     </message>
     <message>
       <source>UE5</source>
-      <translation type="unfinished">UE5</translation>
+      <translation>UE5</translation>
     </message>
     <message>
       <source>Unreal Engine 5 - pak files → Content/Paks/~mods/, UE4SS/lua → Binaries/Win64/, DLLs → Binaries/Win64/. Same routing as Hogwarts Legacy / Oblivion Remastered.</source>
@@ -3238,7 +3274,7 @@ When it completes, the app switches to the new profile - then come back here and
     </message>
     <message>
       <source>https://example.com/banner.jpg</source>
-      <translation type="unfinished">https://example.com/banner.jpg</translation>
+      <translation>https://example.com/banner.jpg</translation>
     </message>
     <message>
       <source>Used to change the folder structure of an installed mod to match what is required by the manager.</source>
@@ -3723,6 +3759,10 @@ When it completes, the app switches to the new profile - then come back here and
       <source>Size</source>
       <translation>尺寸</translation>
     </message>
+    <message>
+      <source>Downloaded</source>
+      <translation>已下载</translation>
+    </message>
   </context>
   <context>
     <name>DownloadsView</name>
@@ -4185,6 +4225,26 @@ Download the 'Ultimate Edition ESM Fixes Remastered' main file from Nexus - the 
       <translation>倒下的新拉斯维加斯:</translation>
     </message>
     <message>
+      <source>Unofficial Fallout 3 ESM Patcher - {0}</source>
+      <translation>非官方的 Fallout 3 ESM 补丁器 - {0}</translation>
+    </message>
+    <message>
+      <source>The Unofficial Fallout 3 ESM Patcher patches the vanilla .esm masters (Fallout3 + all DLC) with community bugfixes, and the result is added as a mod.
+
+Download the 'Unofficial Fallout 3 ESM Patcher' main file from Nexus - the .mpi package inside the archive is detected automatically.</source>
+      <translation>非官方的 Fallout 3 ESM Patcher 补丁原版 . sm master (Fallout3 + all DLC) 带有社区错误修复，结果被添加为模组。
+
+从 Nexus 下载'非官方的 Fallout 3 ESM Patcher' 主文件 - 自动检测到归档内的 .mpi 包。</translation>
+    </message>
+    <message>
+      <source>Fallout 3:</source>
+      <translation>Fallout 3:</translation>
+    </message>
+    <message>
+      <source>Select the Fallout 3 folder</source>
+      <translation>选择 Fallout 3 文件夹</translation>
+    </message>
+    <message>
       <source>Select the Fallout New Vegas folder</source>
       <translation>选择 Fallout 新拉斯维加斯 文件夹</translation>
     </message>
@@ -4277,6 +4337,10 @@ Download the 'Ultimate Edition ESM Fixes Remastered' main file from Nexus - the 
       <translation>请选择 HEM Fixes .mpi 包(或其已下载的归档) .</translation>
     </message>
     <message>
+      <source>Fallout 3 folder is not set.</source>
+      <translation>《秋季3》文件夹未设置。</translation>
+    </message>
+    <message>
       <source>Fallout New Vegas folder is not set.</source>
       <translation>未设置《辐射：新维加斯》文件夹。</translation>
     </message>
@@ -4367,7 +4431,7 @@ In Steam, right-click the game → Properties → Installed Files → Verify int
     </message>
     <message>
       <source>[{0}]</source>
-      <translation type="unfinished">[{0}]</translation>
+      <translation>[{0}]</translation>
     </message>
     <message>
       <source>Close</source>
@@ -4387,11 +4451,11 @@ In Steam, right-click the game → Properties → Installed Files → Verify int
     </message>
     <message>
       <source>true</source>
-      <translation type="unfinished">true</translation>
+      <translation>true</translation>
     </message>
     <message>
       <source>false</source>
-      <translation type="unfinished">false</translation>
+      <translation>false</translation>
     </message>
     <message>
       <source>Form reset to built-in defaults (not yet saved).</source>
@@ -4600,7 +4664,7 @@ Proton prefix: click 'Install Java into prefix' once, then it runs automatically
     <name>ExportProfileView</name>
     <message>
       <source>Nexus</source>
-      <translation type="unfinished">Nexus</translation>
+      <translation>Nexus</translation>
     </message>
     <message>
       <source>Thunderstore</source>
@@ -6072,7 +6136,7 @@ Click Done to close.</source>
     <message>
       <source>Amethyst Mod Manager - v{0}</source>
       <extracomment>Filters footer button attr -&gt; (filter-panel attr, search-box attr). _sync_filters_btn reads both to decide whether the button lights up.</extracomment>
-      <translation type="unfinished">Amethyst Mod Manager - v{0}</translation>
+      <translation>Amethyst Mod Manager - v{0}</translation>
     </message>
     <message>
       <source>Amethyst Mod Manager</source>
@@ -6080,7 +6144,7 @@ Click Done to close.</source>
     </message>
     <message>
       <source>Mods</source>
-      <translation type="unfinished">Mods</translation>
+      <translation>模组</translation>
     </message>
     <message>
       <source>Add game</source>
@@ -6282,7 +6346,7 @@ NTFS 和 exFAT 驱动器在 Linux 上有很弱的写保证: 不干净的卸载, 
     </message>
     <message>
       <source>{0} ({1})</source>
-      <translation type="unfinished">{0} ({1})</translation>
+      <translation>{0} ({1})</translation>
     </message>
     <message>
       <source>Removed {0} archive(s)</source>
@@ -6434,7 +6498,7 @@ NTFS 和 exFAT 驱动器在 Linux 上有很弱的写保证: 不干净的卸载, 
     </message>
     <message>
       <source>.NET {0}</source>
-      <translation type="unfinished">.NET {0}</translation>
+      <translation>.NET {0}</translation>
     </message>
     <message>
       <source>Wizard</source>
@@ -6442,7 +6506,7 @@ NTFS 和 exFAT 驱动器在 Linux 上有很弱的写保证: 不干净的卸载, 
     </message>
     <message>
       <source>Nexus</source>
-      <translation type="unfinished">Nexus</translation>
+      <translation>Nexus</translation>
     </message>
     <message>
       <source>Open Nexus Mods</source>
@@ -7957,8 +8021,32 @@ Run Quick Update on all of them now?</source>
       <translation>({0}) (韩语)</translation>
     </message>
     <message>
+      <source>Received a malformed MODL link.</source>
+      <translation>收到一个格式错误的 MODL 链接。</translation>
+    </message>
+    <message>
+      <source>No configured game matches MODL game ID '{0}'.</source>
+      <translation>没有配置的游戏匹配 MODL 游戏 ID '{0}。</translation>
+    </message>
+    <message>
+      <source>Downloading mod from MODL link…</source>
+      <translation type="unfinished">Downloading mod from MODL link…</translation>
+    </message>
+    <message>
       <source>Download cancelled.</source>
       <translation>下载已取消 .</translation>
+    </message>
+    <message>
+      <source>MODL download failed - {0}</source>
+      <translation>MODL 下载失败 - {0}</translation>
+    </message>
+    <message>
+      <source>Downloaded - target game is unavailable; see Downloads tab.</source>
+      <translation>已下载 - 目标游戏不可用；请查看下载选项卡。</translation>
+    </message>
+    <message>
+      <source>Downloaded - switch to '{0}' and install it from the Downloads tab.</source>
+      <translation>已下载 - 切换到 '{0}' 并从下载选项卡中安装它。</translation>
     </message>
     <message>
       <source>this mod</source>
@@ -8053,12 +8141,40 @@ Run Quick Update on all of them now?</source>
       <translation>冲突数据仍在积累.</translation>
     </message>
     <message>
+      <source>Root Folder</source>
+      <translation>根文件夹</translation>
+    </message>
+    <message>
+      <source>Could not add '{0}' to the modlist: {1}</source>
+      <translation>无法将 '{0}' 添加到modlist: {1}</translation>
+    </message>
+    <message>
       <source>{0} has no conflicting mods.</source>
       <translation>{0}没有相冲突的模式.</translation>
     </message>
     <message>
       <source>Filtered to {0} mods conflicting with {1}.</source>
       <translation>被过滤到与{1}相冲突的{0} Mods.</translation>
+    </message>
+    <message>
+      <source>Copy separator to profile</source>
+      <translation>复制分隔符到配置文件</translation>
+    </message>
+    <message>
+      <source>Copying separator</source>
+      <translation>复制分隔符</translation>
+    </message>
+    <message>
+      <source>Copying separator '{0}' to '{1}'…</source>
+      <translation>正在复制分隔符 '{0}' 到 '{1}'…</translation>
+    </message>
+    <message>
+      <source>Copied separator '{0}' with {1}/{2} mod(s) to '{3}'.</source>
+      <translation>将分隔符{0}复制为 {1}/{2} mod(s) 到 '{3}'。</translation>
+    </message>
+    <message>
+      <source>Could not copy the separator.</source>
+      <translation>无法复制分隔符。</translation>
     </message>
     <message>
       <source>Cancel all</source>
@@ -8095,6 +8211,10 @@ Run Quick Update on all of them now?</source>
       <translation>Amethyst无法发射{0}.
 
 第{1}号</translation>
+    </message>
+    <message>
+      <source>Waiting for profile updates…</source>
+      <translation>正在等待个人资料更新…</translation>
     </message>
     <message>
       <source>Extracting / Installing</source>
@@ -8347,6 +8467,14 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
       <translation>{0}:与其他插件没有记录重叠.</translation>
     </message>
     <message>
+      <source>Loading profile…</source>
+      <translation type="unfinished">Loading profile…</translation>
+    </message>
+    <message>
+      <source>Could not load the profile file graph. See the log for details.</source>
+      <translation>无法加载配置文件图表。详情请查看日志。</translation>
+    </message>
+    <message>
       <source>+ Add exe from staging…</source>
       <translation>+ 从中添加 exe..</translation>
     </message>
@@ -8508,7 +8636,7 @@ CET 将不会从一个连在一起的同位素加载 。 当部署模式是Symli
     </message>
     <message>
       <source>Ko-Fi</source>
-      <translation type="unfinished">Ko-Fi</translation>
+      <translation>Ko-Fi</translation>
     </message>
     <message>
       <source>♥ Endorse AMM</source>
@@ -8944,8 +9072,18 @@ How would you like to handle the existing mod?</source>
 第{0}号</translation>
     </message>
     <message>
+      <source>Could not set version:
+{0}</source>
+      <translation>无法设置版本：
+{0}</translation>
+    </message>
+    <message>
       <source>Create</source>
       <translation>创建</translation>
+    </message>
+    <message>
+      <source>Copy separator to profile</source>
+      <translation>复制分隔符到配置文件</translation>
     </message>
     <message>
       <source>Create an empty mod below</source>
@@ -9018,6 +9156,14 @@ How would you like to handle the existing mod?</source>
     <message>
       <source>Log</source>
       <translation>日志</translation>
+    </message>
+    <message>
+      <source>Manage Overwrite…</source>
+      <translation>管理覆盖…</translation>
+    </message>
+    <message>
+      <source>Manage root folder</source>
+      <translation>管理根文件夹</translation>
     </message>
     <message>
       <source>Missing Requirements</source>
@@ -9160,8 +9306,16 @@ How would you like to handle the existing mod?</source>
       <translation>设置优先级……</translation>
     </message>
     <message>
+      <source>Set version</source>
+      <translation>设置版本</translation>
+    </message>
+    <message>
       <source>Priority for {0}:</source>
       <translation>{0}优先级:</translation>
+    </message>
+    <message>
+      <source>Version for {0}:</source>
+      <translation>{0} 版本：</translation>
     </message>
     <message>
       <source>Show Conflicts</source>
@@ -9189,7 +9343,7 @@ How would you like to handle the existing mod?</source>
     </message>
     <message>
       <source>{0} ({1})</source>
-      <translation type="unfinished">{0} ({1})</translation>
+      <translation>{0} ({1})</translation>
     </message>
   </context>
   <context>
@@ -10307,11 +10461,11 @@ Your modlist was restored before downgrading - use Deploy to put it back.</sourc
     <name>NexusFooterLabel</name>
     <message>
       <source>{0} @ NexusMods</source>
-      <translation type="unfinished">{0} @ NexusMods</translation>
+      <translation>{0} @ NexusMods</translation>
     </message>
     <message>
       <source>NexusMods</source>
-      <translation type="unfinished">NexusMods</translation>
+      <translation>NexusMods</translation>
     </message>
     <message>
       <source>Not logged in</source>
@@ -10599,6 +10753,14 @@ Daily: {1}</source>
     <message>
       <source>Reverse the drag direction for rotating and panning</source>
       <translation>倒转旋转和平板的拖动方向</translation>
+    </message>
+    <message>
+      <source>Free camera</source>
+      <translation>免费相机</translation>
+    </message>
+    <message>
+      <source>Allow unrestricted rotation around every axis</source>
+      <translation>允许每个轴不受限制的旋转</translation>
     </message>
     <message>
       <source>Brightness - lifts dark textures without blowing out highlights; double-click to reset</source>
@@ -11086,6 +11248,191 @@ Override paks (no meta.lsx, or only overwriting the game's own modules) deploy t
     <message>
       <source>Close</source>
       <translation>关闭</translation>
+    </message>
+  </context>
+  <context>
+    <name>OverwriteView</name>
+    <message>
+      <source>Root Folder</source>
+      <translation>根文件夹</translation>
+    </message>
+    <message>
+      <source>Overwrite</source>
+      <translation>覆盖</translation>
+    </message>
+    <message>
+      <source>⊞ Expand all</source>
+      <translation>缩放所有</translation>
+    </message>
+    <message>
+      <source>⟳ Refresh</source>
+      <translation>正在刷新</translation>
+    </message>
+    <message>
+      <source>Move to mod…</source>
+      <translation>移动到模组…</translation>
+    </message>
+    <message>
+      <source>Move to new mod…</source>
+      <translation>移动到新的模组…</translation>
+    </message>
+    <message>
+      <source>Delete</source>
+      <translation>删除</translation>
+    </message>
+    <message>
+      <source>Search files… (try !.dds)</source>
+      <translation>搜索文件… (尝试 !.dds)</translation>
+    </message>
+    <message>
+      <source>Root Folder (no game selected)</source>
+      <translation>根文件夹 (未选择游戏)</translation>
+    </message>
+    <message>
+      <source>Root Folder - empty</source>
+      <translation>根文件夹 - 为空</translation>
+    </message>
+    <message>
+      <source>Root Folder - {0} of {1} file(s)</source>
+      <translation>根文件夹 - {0} 中的 {1} 文件</translation>
+    </message>
+    <message>
+      <source>Root Folder - {0} file(s)</source>
+      <translation>根文件夹 - {0} 文件 (s)</translation>
+    </message>
+    <message>
+      <source>Overwrite (no game selected)</source>
+      <translation>覆盖 (未选择游戏)</translation>
+    </message>
+    <message>
+      <source>Overwrite - empty</source>
+      <translation>覆盖 - 为空</translation>
+    </message>
+    <message>
+      <source>Overwrite - {0} of {1} file(s)</source>
+      <translation>覆盖 - {0} 中的 {1} 文件 (s)</translation>
+    </message>
+    <message>
+      <source>Overwrite - {0} file(s)</source>
+      <translation>覆盖 - {0} 文件 (s)</translation>
+    </message>
+    <message>
+      <source>⊟ Collapse all</source>
+      <translation>收起所有</translation>
+    </message>
+    <message>
+      <source>The active game or profile changed. Reopen Root Folder before modifying files.</source>
+      <translation>当前游戏或配置文件已更改。在修改文件之前重新打开根文件夹。</translation>
+    </message>
+    <message>
+      <source>The active game or profile changed. Reopen Overwrite before modifying files.</source>
+      <translation>当前游戏或配置文件已更改。在修改文件前重新打开覆盖。</translation>
+    </message>
+    <message>
+      <source>Profile changed</source>
+      <translation>个人资料已更改</translation>
+    </message>
+    <message>
+      <source>Move to mod</source>
+      <translation>移动到模组</translation>
+    </message>
+    <message>
+      <source>There are no mods to move these files into.</source>
+      <translation>没有可以移动这些文件的模组。</translation>
+    </message>
+    <message>
+      <source>Move {0} item(s) to which mod?</source>
+      <translation>将 {0} 项移到哪个模式？</translation>
+    </message>
+    <message>
+      <source>Move</source>
+      <translation>移动</translation>
+    </message>
+    <message>
+      <source>Invalid mod name</source>
+      <translation>无效的模组名称</translation>
+    </message>
+    <message>
+      <source>Mod names cannot end with '_separator'.</source>
+      <translation>模组名称不能以“_分隔符”结尾。</translation>
+    </message>
+    <message>
+      <source>That name cannot be used for a mod folder.</source>
+      <translation>该名称不能用于模组文件夹。</translation>
+    </message>
+    <message>
+      <source>Name conflict</source>
+      <translation>名称冲突</translation>
+    </message>
+    <message>
+      <source>A mod named '{0}' already exists.</source>
+      <translation>名为“{0}”的模组已经存在。</translation>
+    </message>
+    <message>
+      <source>Move to new mod</source>
+      <translation>移动到新模组</translation>
+    </message>
+    <message>
+      <source>Could not create the mod folder:
+{0}</source>
+      <translation>无法创建模组文件夹：
+{0}</translation>
+    </message>
+    <message>
+      <source>The mod could not be added to the modlist. No files were moved.</source>
+      <translation>无法将模组添加到模组列表。没有文件被移动。</translation>
+    </message>
+    <message>
+      <source>Mod name:</source>
+      <translation>模组名称：</translation>
+    </message>
+    <message>
+      <source>Create</source>
+      <translation>创建</translation>
+    </message>
+    <message>
+      <source>The selected mod has an unsafe folder name.</source>
+      <translation>选中的模组具有不安全的文件夹名称。</translation>
+    </message>
+    <message>
+      <source>Moved {0}, failed {1}:
+{2}</source>
+      <translation>移动 {0}, 失败 {1}:
+{2}</translation>
+    </message>
+    <message>
+      <source>Move {0} item(s) from Overwrite into '{1}'?</source>
+      <translation>将 {0} 项从覆盖移至'{1}'？</translation>
+    </message>
+    <message>
+      <source>Deleted {0}, failed {1}:
+{2}</source>
+      <translation>删除 {0}，失败 {1}:
+{2}</translation>
+    </message>
+    <message>
+      <source>Delete from Root Folder</source>
+      <translation>从根目录删除</translation>
+    </message>
+    <message>
+      <source>Permanently delete {0} item(s) from the Root Folder?
+
+This cannot be undone.</source>
+      <translation type="unfinished">Permanently delete {0} item(s) from the Root Folder?
+
+This cannot be undone.</translation>
+    </message>
+    <message>
+      <source>Delete from Overwrite</source>
+      <translation>从覆盖中删除</translation>
+    </message>
+    <message>
+      <source>Permanently delete {0} item(s) from the Overwrite folder?
+
+This cannot be undone.</source>
+      <translation type="unfinished">Permanently delete {0} item(s) from the Overwrite folder?
+
+This cannot be undone.</translation>
     </message>
   </context>
   <context>
@@ -11699,6 +12046,18 @@ Re-scan to verify.</source>
       <translation>从用户列表中移除所选用户</translation>
     </message>
     <message>
+      <source>Priority for {0}:</source>
+      <translation>{0} 的优先级：</translation>
+    </message>
+    <message>
+      <source>Set priority</source>
+      <translation>设置优先级</translation>
+    </message>
+    <message>
+      <source>Set priority…</source>
+      <translation>设置优先级…</translation>
+    </message>
+    <message>
       <source>Show cycle…</source>
       <translation>显示周期……</translation>
     </message>
@@ -12207,6 +12566,10 @@ Its listed mods are copied into the profile's own mods folder (hardlinked where 
     <message>
       <source>Cancel</source>
       <translation>取消</translation>
+    </message>
+    <message>
+      <source>Wait for the profile to finish loading.</source>
+      <translation>等待配置文件完成加载。</translation>
     </message>
     <message>
       <source>'{0}' is a member of the deployed group '{1}' - restore the game first, then remove it.</source>
@@ -12718,7 +13081,7 @@ will be written to the Proton prefix.</source>
     </message>
     <message>
       <source>{0} - ReShade</source>
-      <translation type="unfinished">{0} - ReShade</translation>
+      <translation>{0} -ReShade</translation>
     </message>
     <message>
       <source>Error: {0}</source>
@@ -12977,7 +13340,7 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     </message>
     <message>
       <source>[{0}]</source>
-      <translation type="unfinished">[{0}]</translation>
+      <translation>[{0}]</translation>
     </message>
     <message>
       <source>Close</source>
@@ -12997,11 +13360,11 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     </message>
     <message>
       <source>true</source>
-      <translation type="unfinished">true</translation>
+      <translation>true</translation>
     </message>
     <message>
       <source>false</source>
-      <translation type="unfinished">false</translation>
+      <translation>false</translation>
     </message>
     <message>
       <source>Form reset to built-in defaults (not yet saved).</source>
@@ -13729,7 +14092,7 @@ Merge your conflicts, then close it and click Done.</source>
     </message>
     <message>
       <source>#rrggbb</source>
-      <translation type="unfinished">#rrggbb</translation>
+      <translation>#rrggbb</translation>
     </message>
     <message>
       <source>Choose colour…</source>
@@ -13934,10 +14297,6 @@ Merge your conflicts, then close it and click Done.</source>
       <translation>{0} 甲基溴/s</translation>
     </message>
     <message>
-      <source>Cap the combined download speed of all downloads (collections, single mods, nxm links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>
-      <translation>将所有下载(收集,单相模,nxm链接)的合并下载速度上钩,这样它们就不会使用整个连接. 立即应用,包括运行中的收藏安装.</translation>
-    </message>
-    <message>
       <source>Extraction CPU threads</source>
       <translation>提取 CPU 线程</translation>
     </message>
@@ -14048,10 +14407,6 @@ Merge your conflicts, then close it and click Done.</source>
     <message>
       <source>Download only (don't install)</source>
       <translation>只下载( 不安装)</translation>
-    </message>
-    <message>
-      <source>Downloads are saved to the cache but not installed. Applies to nxm:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</source>
-      <translation>下载保存到缓存中,但没有安装 。 应用 nxm://链接, Nexus 浏览器, 更改版本, 收藏安装, 要求下载并更新/ reinstall 重新下载 - 他们的安装按钮变为下载. 从下载标签或安装模式按钮中自行安装 .</translation>
     </message>
     <message>
       <source>Extraction</source>
@@ -14198,6 +14553,10 @@ flatpak 远程添加-user amethyst https://chrisdkn.github.io/ Amethyst-Mod-Mana
       <translation>外观</translation>
     </message>
     <message>
+      <source>Shortcuts</source>
+      <translation>快捷键</translation>
+    </message>
+    <message>
       <source>About</source>
       <translation>关于</translation>
     </message>
@@ -14220,6 +14579,14 @@ flatpak 远程添加-user amethyst https://chrisdkn.github.io/ Amethyst-Mod-Mana
     <message>
       <source>Right side</source>
       <translation>右边</translation>
+    </message>
+    <message>
+      <source>Cap the combined download speed of all downloads (collections, single mods, nxm and modl links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>
+      <translation>拍照所有下载的合并下载速度(集合，单个模组，nxm 和 modl 链接)，这样他们就不会使用整个连接。 立即应用，包括正在运行的集合安装。</translation>
+    </message>
+    <message>
+      <source>Downloads are saved to the cache but not installed. Applies to nxm:// and modl:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</source>
+      <translation>下载已保存到缓存，但未安装。 应用于nxm:// 和 modl:// 链接、 Nexus 浏览器、 更改版本、 收藏安装、 需要下载和更新/重新安装redownload - 他们的安装按钮已下载。 从下载选项卡或安装模组按钮自行安装它们。</translation>
     </message>
     <message>
       <source>Reset dismissed prompts…</source>
@@ -14441,6 +14808,153 @@ flatpak 远程添加-user amethyst https://chrisdkn.github.io/ Amethyst-Mod-Mana
     </message>
   </context>
   <context>
+    <name>ShortcutEditor</name>
+    <message>
+      <source>Keyboard and mouse shortcuts</source>
+      <translation>键盘和鼠标快捷键</translation>
+    </message>
+    <message>
+      <source>Click a binding, then press a key, Mouse 3, or a side button. Escape cancels. Left and right mouse buttons are reserved; modifiers are changed separately.</source>
+      <translation>点击绑定键，然后按键、鼠标3或侧键。逃跑取消了。 鼠标左键和右键被保留；修饰键被单独更改。</translation>
+    </message>
+    <message>
+      <source>Reset to defaults</source>
+      <translation>重置为默认值</translation>
+    </message>
+    <message>
+      <source>Action</source>
+      <translation>行 动</translation>
+    </message>
+    <message>
+      <source>Modifier</source>
+      <translation>Modifier</translation>
+    </message>
+    <message>
+      <source>Key / button</source>
+      <translation>密钥/按钮</translation>
+    </message>
+    <message>
+      <source>Default</source>
+      <translation>默认设置</translation>
+    </message>
+    <message>
+      <source>Mouse actions (mouse buttons by default)</source>
+      <translation>鼠标动作(默认鼠标按钮)</translation>
+    </message>
+    <message>
+      <source>None</source>
+      <translation>无</translation>
+    </message>
+    <message>
+      <source>Reset {0} to {1}</source>
+      <translation>重置 {0} 为 {1}</translation>
+    </message>
+    <message>
+      <source>That key or mouse button cannot be used as a shortcut.</source>
+      <translation>该键或鼠标按钮不能用作快捷键。</translation>
+    </message>
+    <message>
+      <source>{0} is already assigned to {1}.</source>
+      <translation>{0} 已分配给 {1}。</translation>
+    </message>
+    <message>
+      <source>Failed to save shortcut: {0}</source>
+      <translation>保存快捷键失败: {0}</translation>
+    </message>
+    <message>
+      <source>{0} reset to {1}.</source>
+      <translation>{0} 重置为 {1}。</translation>
+    </message>
+    <message>
+      <source>Failed to reset shortcuts: {0}</source>
+      <translation>重置快捷键失败: {0}</translation>
+    </message>
+    <message>
+      <source>Shortcuts reset to defaults.</source>
+      <translation>快捷键重置为默认值。</translation>
+    </message>
+    <message>
+      <source>Rename selected mod or separator</source>
+      <translation>重命名选中的模组或分隔符</translation>
+    </message>
+    <message>
+      <source>Refresh mod list</source>
+      <translation>刷新模组列表</translation>
+    </message>
+    <message>
+      <source>Deploy mods</source>
+      <translation>部署模组</translation>
+    </message>
+    <message>
+      <source>Install a mod</source>
+      <translation>Install a mod</translation>
+    </message>
+    <message>
+      <source>Create an empty mod</source>
+      <translation>创建一个空模组</translation>
+    </message>
+    <message>
+      <source>Restore game files</source>
+      <translation>恢复游戏文件</translation>
+    </message>
+    <message>
+      <source>Open Settings</source>
+      <translation>打开设置</translation>
+    </message>
+    <message>
+      <source>Focus search</source>
+      <translation>聚焦搜索</translation>
+    </message>
+    <message>
+      <source>Select all in the active group</source>
+      <translation>在活动组中选择所有</translation>
+    </message>
+    <message>
+      <source>Move selection up</source>
+      <translation>向上移动选择</translation>
+    </message>
+    <message>
+      <source>Move selection down</source>
+      <translation>向下移动选择</translation>
+    </message>
+    <message>
+      <source>Remove selected mods</source>
+      <translation>移除所选模组</translation>
+    </message>
+    <message>
+      <source>Enable or disable selection</source>
+      <translation>启用或禁用选择</translation>
+    </message>
+    <message>
+      <source>Scroll active list to the top</source>
+      <translation>滚动活动列表到顶部</translation>
+    </message>
+    <message>
+      <source>Scroll active list to the bottom</source>
+      <translation>滚动活动列表到底部</translation>
+    </message>
+    <message>
+      <source>Expand or collapse all separators</source>
+      <translation>展开或折叠所有分隔符</translation>
+    </message>
+    <message>
+      <source>Show or hide active filters</source>
+      <translation>是否显示活动过滤器</translation>
+    </message>
+    <message>
+      <source>Open a mod's source page</source>
+      <translation>打开模组的源页面</translation>
+    </message>
+    <message>
+      <source>Browser back</source>
+      <translation>浏览器返回</translation>
+    </message>
+    <message>
+      <source>Browser forward</source>
+      <translation>向前浏览器</translation>
+    </message>
+  </context>
+  <context>
     <name>ShowConflictsView</name>
     <message>
       <source>Conflicts: {0}</source>
@@ -14480,7 +14994,7 @@ flatpak 远程添加-user amethyst https://chrisdkn.github.io/ Amethyst-Mod-Mana
     </message>
     <message>
       <source>{0}  ({1})</source>
-      <translation type="unfinished">{0}  ({1})</translation>
+      <translation>{0}  ({1})</translation>
     </message>
   </context>
   <context>
@@ -14533,7 +15047,7 @@ Make sure a profile is loaded and has an active load order.</source>
     </message>
     <message>
       <source>SkyPatcher</source>
-      <translation type="unfinished">SkyPatcher</translation>
+      <translation>SkyPatcher</translation>
     </message>
     <message>
       <source>Select All</source>
@@ -16559,7 +17073,7 @@ or use Browse to select it manually.</source>
     </message>
     <message>
       <source>Mods</source>
-      <translation type="unfinished">Mods</translation>
+      <translation>模组</translation>
     </message>
     <message>
       <source>Plugins</source>
@@ -17039,7 +17553,7 @@ or use Browse to select it manually.</source>
     </message>
     <message>
       <source>?</source>
-      <translation type="unfinished">?</translation>
+      <translation>?</translation>
     </message>
     <message>
       <source>Profile '{0}' - {1} → {2}</source>
@@ -17079,7 +17593,7 @@ or use Browse to select it manually.</source>
     </message>
     <message>
       <source>{0} ({1})</source>
-      <translation type="unfinished">{0} ({1})</translation>
+      <translation>{0} ({1})</translation>
     </message>
     <message>
       <source>  (none)</source>
@@ -17402,6 +17916,10 @@ Press Refresh to try again.</source>
       <translation>BSA 减压器</translation>
     </message>
     <message>
+      <source>Install Unofficial Fallout 3 ESM Patcher</source>
+      <translation>安装非官方的 Fallout 3 ESM 补丁器</translation>
+    </message>
+    <message>
       <source>Install Ultimate Edition ESM Fixes</source>
       <translation>安装最终版无害环境管理</translation>
     </message>
@@ -17624,6 +18142,14 @@ Press Refresh to try again.</source>
     <message>
       <source>Decompress the vanilla BSA archives for faster loading (native Linux MPI installer) and add the result as a mod. Needs the FNV BSA Decompressor download from Nexus.</source>
       <translation>解压缩香草 BSA 档案以更快地加载(native Linux MPI 安装器)并添加结果为mod. 需要从Nexus下载FNV BSA解压缩器.</translation>
+    </message>
+    <message>
+      <source>Decompress the vanilla BSA archives for faster loading (native Linux MPI installer) and add the result as a mod. Needs the FO3 BSA Decompressor download from Nexus.</source>
+      <translation>解压原版 BSA 归档以加快加载(Native Linux MPI installer)，并将结果添加为 mod 。 需要 FO3 BSA解压器从 Nexus 下载。</translation>
+    </message>
+    <message>
+      <source>Patch the vanilla .esm masters with community bugfixes (native Linux MPI installer) and add the result as a mod. Needs the Unofficial Fallout 3 ESM Patcher download from Nexus.</source>
+      <translation>用社区Bug 修复补丁原版.esm 主(Native Linux MPI installer)，并将结果添加为 mod 。 需要从 Nexus 下载非官方的 Fallout 3 ESM Patcher。</translation>
     </message>
     <message>
       <source>Patch the vanilla .esm masters with community bugfixes (native Linux MPI installer) and add the result as a mod. Needs the Ultimate Edition ESM Fixes Remastered download from Nexus.</source>
@@ -18338,6 +18864,21 @@ When you close it, your changes are restored automatically.</source>
     <message>
       <source>Cancel</source>
       <translation>取消</translation>
+    </message>
+  </context>
+  <context>
+    <name>_BindingInput</name>
+    <message>
+      <source>Shortcut key or mouse button</source>
+      <translation>快捷键或鼠标按钮</translation>
+    </message>
+    <message>
+      <source>Click here, then press a keyboard key, Mouse 3, or a side button. Escape cancels; left and right click are reserved.</source>
+      <translation>单击此处，然后按键盘键、鼠标3键或侧键。逃逸取消；左键和右键保留。</translation>
+    </message>
+    <message>
+      <source>Press key</source>
+      <translation>按键</translation>
     </message>
   </context>
   <context>

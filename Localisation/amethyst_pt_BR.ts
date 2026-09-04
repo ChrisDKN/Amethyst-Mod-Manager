@@ -53,7 +53,7 @@ Texturas geradas são escritas para um mod de saída ACMOS separado. Remova um v
     </message>
     <message>
       <source>Continue</source>
-      <translation type="unfinished">Continue</translation>
+      <translation>Continuar</translation>
     </message>
     <message>
       <source>Select the ACMOS Road Generator archive</source>
@@ -175,7 +175,7 @@ Escolha Estradas ou Caminhos Somente, clique em Gerar e então feche quando term
     </message>
     <message>
       <source>Volume</source>
-      <translation type="unfinished">Volume</translation>
+      <translation>Volume</translation>
     </message>
     <message>
       <source>Audio file not found.</source>
@@ -383,7 +383,23 @@ Baixe o arquivo principal 'FNV BSA Descompressor' do Nexus - o pacote .mpi dentr
     </message>
     <message>
       <source>Fallout New Vegas:</source>
-      <translation type="unfinished">Fallout New Vegas:</translation>
+      <translation>Fallout New Vegas:</translation>
+    </message>
+    <message>
+      <source>The BSA Decompressor rebuilds the vanilla BSA archives without compression for faster loading, and the result is added as a mod.
+
+Download the 'FO3 BSA Decompressor' main file from Nexus - the .mpi package inside the archive is detected automatically.</source>
+      <translation>O decompressor BSA reconstrui os arquivos vanilla BSA sem compressão para um carregamento mais rápido, e o resultado é adicionado como um mod.
+
+Baixe o arquivo principal 'FO3 BSA Decompactador' do Nexus - o pacote .mpi dentro do arquivo é detectado automaticamente.</translation>
+    </message>
+    <message>
+      <source>Fallout 3:</source>
+      <translation>Fallout 3:</translation>
+    </message>
+    <message>
+      <source>Select the Fallout 3 folder</source>
+      <translation>Selecione a pasta Fallout 3</translation>
     </message>
     <message>
       <source>Select the Fallout New Vegas folder</source>
@@ -478,6 +494,10 @@ Baixe o arquivo principal 'FNV BSA Descompressor' do Nexus - o pacote .mpi dentr
       <translation>Por favor, selecione o pacote .mpi do Descompressor BSA (ou o respectivo arquivo baixado).</translation>
     </message>
     <message>
+      <source>Fallout 3 folder is not set.</source>
+      <translation>Pasta Fallout 3 não está definida.</translation>
+    </message>
+    <message>
       <source>Fallout New Vegas folder is not set.</source>
       <translation>A pasta do Fallout New Vegas não está definida.</translation>
     </message>
@@ -514,6 +534,22 @@ Saída é escrita diretamente em sua lista de mods como o mod '{0}'.</translatio
     <message>
       <source>Mod staging path is not configured.</source>
       <translation>O caminho de staging dos mods não está configurado.</translation>
+    </message>
+    <message>
+      <source>ERROR: missing vanilla game files:
+{0}</source>
+      <translation>ERRO: Arquivos vanilla faltando:
+{0}</translation>
+    </message>
+    <message>
+      <source>Missing vanilla game files even after restoring to vanilla - these were never backed up.
+In Steam, right-click the game → Properties → Installed Files → Verify integrity of game files, then retry.
+
+{0}</source>
+      <translation>Faltando arquivos de jogo vanilla mesmo depois de restaurar a vanilla - estes nunca foram salvos.
+No Steam, clique com o botão direito no jogo → Propriedades → Arquivos Instalados → Verifique a integridade dos arquivos de jogo e tente novamente.
+
+{0}</translation>
     </message>
     <message>
       <source>ERROR: missing vanilla plugin files:
@@ -612,7 +648,7 @@ No Steam, clique com o botão direito do mouse no jogo → Propriedades → Arqu
     </message>
     <message>
       <source>{0} plugins</source>
-      <translation type="unfinished">{0} plugins</translation>
+      <translation>Plugins {0}</translation>
     </message>
     <message>
       <source>{0} separators</source>
@@ -765,7 +801,7 @@ Ajuste as configurações do INI, feche-o e clique em Concluído.</translation>
     <name>BodySlideLinuxView</name>
     <message>
       <source>{0} (Linux) - {1}</source>
-      <translation type="unfinished">{0} (Linux) - {1}</translation>
+      <translation>{0} (Linux) - {1}</translation>
     </message>
     <message>
       <source>Step 3: Run {0}</source>
@@ -869,7 +905,7 @@ As malhas geradas são gravadas no mod de saída abaixo, que é adicionado à su
     </message>
     <message>
       <source>Deploy</source>
-      <translation type="unfinished">Deploy</translation>
+      <translation>Implantar</translation>
     </message>
     <message>
       <source>Launching {0}…</source>
@@ -902,7 +938,7 @@ Feche-o quando terminar e clique em Concluído.</translation>
     <name>BodySlideView</name>
     <message>
       <source>{0} - {1}</source>
-      <translation type="unfinished">{0} - {1}</translation>
+      <translation>{0} - {1}</translation>
     </message>
     <message>
       <source>Step 3: Run {0}</source>
@@ -930,7 +966,7 @@ Faça o deploy da lista de mods primeiro e, em seguida, clique em Executar.</tra
     </message>
     <message>
       <source>Deploy</source>
-      <translation type="unfinished">Deploy</translation>
+      <translation>Implantar</translation>
     </message>
     <message>
       <source>Step 2: Choose Proton Version</source>
@@ -1015,7 +1051,7 @@ Feche-o quando terminar e clique em Concluído.</translation>
     </message>
     <message>
       <source>← Re-Scan</source>
-      <translation type="unfinished">← Re-Scan</translation>
+      <translation>(Reescanear)</translation>
     </message>
     <message>
       <source>{0} files</source>
@@ -1164,7 +1200,7 @@ Feche-o quando terminar e clique em Concluído.</translation>
     </message>
     <message>
       <source>  • {0}</source>
-      <translation type="unfinished">  • {0}</translation>
+      <translation>  • {0}</translation>
     </message>
     <message>
       <source>Unpack</source>
@@ -1254,7 +1290,7 @@ Feche-o quando terminar e clique em Concluído.</translation>
     </message>
     <message>
       <source>Total: {0}</source>
-      <translation type="unfinished">Total: {0}</translation>
+      <translation>Total: {0}</translation>
     </message>
     <message>
       <source>Nothing selected.</source>
@@ -1517,7 +1553,7 @@ O cache MD5 é preservado. Os arquivos serão baixados novamente conforme necess
     </message>
     <message>
       <source>Rev {0}</source>
-      <translation type="unfinished">Rev {0}</translation>
+      <translation>Renascimento {0}</translation>
     </message>
     <message>
       <source>(installed)</source>
@@ -1556,7 +1592,7 @@ O cache MD5 é preservado. Os arquivos serão baixados novamente conforme necess
     </message>
     <message>
       <source> MB/s</source>
-      <translation type="unfinished"> MB/s</translation>
+      <translation> MB/s</translation>
     </message>
     <message>
       <source>Unlimited</source>
@@ -1761,7 +1797,7 @@ O cache MD5 é preservado. Os arquivos serão baixados novamente conforme necess
     </message>
     <message>
       <source>OK</source>
-      <translation type="unfinished">OK</translation>
+      <translation>Certo</translation>
     </message>
   </context>
   <context>
@@ -1908,7 +1944,7 @@ O cache MD5 é preservado. Os arquivos serão baixados novamente conforme necess
     </message>
     <message>
       <source>Symlink</source>
-      <translation type="unfinished">Symlink</translation>
+      <translation>Symlink</translation>
     </message>
     <message>
       <source>Hardlink (Recommended)</source>
@@ -1916,11 +1952,11 @@ O cache MD5 é preservado. Os arquivos serão baixados novamente conforme necess
     </message>
     <message>
       <source>Hardlink</source>
-      <translation type="unfinished">Hardlink</translation>
+      <translation>Hardlink</translation>
     </message>
     <message>
       <source>VFS (OpenMW)</source>
-      <translation type="unfinished">VFS (OpenMW)</translation>
+      <translation>VFS (OpenMW)</translation>
     </message>
     <message>
       <source>Virtual filesystem (VFS)</source>
@@ -1972,7 +2008,7 @@ O cache MD5 é preservado. Os arquivos serão baixados novamente conforme necess
     </message>
     <message>
       <source>Patch {0}</source>
-      <translation type="unfinished">Patch {0}</translation>
+      <translation>Atualização {0}</translation>
     </message>
     <message>
       <source>Plugins file name</source>
@@ -2261,7 +2297,7 @@ Arquivos vanilla do jogo são mantidos. Isso não pode ser desfeito.</translatio
     </message>
     <message>
       <source>OK</source>
-      <translation type="unfinished">OK</translation>
+      <translation>Certo</translation>
     </message>
   </context>
   <context>
@@ -2431,7 +2467,7 @@ Arquivos vanilla do jogo são mantidos. Isso não pode ser desfeito.</translatio
     </message>
     <message>
       <source>Fomod</source>
-      <translation type="unfinished">Fomod</translation>
+      <translation>Fomod</translation>
     </message>
     <message>
       <source>Optional</source>
@@ -2594,7 +2630,7 @@ Nada é publicado: o rascunho só é visível para você até que você publique
     <name>CreationKitView</name>
     <message>
       <source>Run Creation Kit - {0}</source>
-      <translation type="unfinished">Run Creation Kit - {0}</translation>
+      <translation>Executar Kit de Criação - {0}</translation>
     </message>
     <message>
       <source>Step 3: Deploy Modlist</source>
@@ -2972,7 +3008,7 @@ Quando terminar, o aplicativo muda para o novo perfil. Então volte aqui e press
     </message>
     <message>
       <source>UE5</source>
-      <translation type="unfinished">UE5</translation>
+      <translation>UE5</translation>
     </message>
     <message>
       <source>Unreal Engine 5 - pak files → Content/Paks/~mods/, UE4SS/lua → Binaries/Win64/, DLLs → Binaries/Win64/. Same routing as Hogwarts Legacy / Oblivion Remastered.</source>
@@ -3096,7 +3132,7 @@ Quando terminar, o aplicativo muda para o novo perfil. Então volte aqui e press
     </message>
     <message>
       <source>.NET {0} Desktop Runtime</source>
-      <translation type="unfinished">.NET {0} Desktop Runtime</translation>
+      <translation>Runtime .NET {0} Desktop</translation>
     </message>
     <message>
       <source>d3dcompiler_47 (shader compiler)</source>
@@ -3232,7 +3268,7 @@ Quando terminar, o aplicativo muda para o novo perfil. Então volte aqui e press
     </message>
     <message>
       <source>https://example.com/banner.jpg</source>
-      <translation type="unfinished">https://example.com/banner.jpg</translation>
+      <translation>https://exemplo.com/br/banner.jpg</translation>
     </message>
     <message>
       <source>Used to change the folder structure of an installed mod to match what is required by the manager.</source>
@@ -3356,7 +3392,7 @@ Quando terminar, o aplicativo muda para o novo perfil. Então volte aqui e press
     </message>
     <message>
       <source>Deployment</source>
-      <translation type="unfinished">Deployment</translation>
+      <translation>Conta</translation>
     </message>
     <message>
       <source>Windows Prefix</source>
@@ -3522,7 +3558,7 @@ Quando terminar, o aplicativo muda para o novo perfil. Então volte aqui e press
     </message>
     <message>
       <source>Open in Text Editor</source>
-      <translation type="unfinished">Open in Text Editor</translation>
+      <translation>Abrir no Editor de Texto</translation>
     </message>
     <message>
       <source>Open in NIF Viewer</source>
@@ -3549,7 +3585,7 @@ Quando terminar, o aplicativo muda para o novo perfil. Então volte aqui e press
     </message>
     <message>
       <source>OK</source>
-      <translation type="unfinished">OK</translation>
+      <translation>Certo</translation>
     </message>
   </context>
   <context>
@@ -3717,6 +3753,10 @@ Quando terminar, o aplicativo muda para o novo perfil. Então volte aqui e press
       <source>Size</source>
       <translation>Tamanho</translation>
     </message>
+    <message>
+      <source>Downloaded</source>
+      <translation>Baixado</translation>
+    </message>
   </context>
   <context>
     <name>DownloadsView</name>
@@ -3802,7 +3842,7 @@ Verifique a saída acima e o log.</translation>
     <name>DynDOLODView</name>
     <message>
       <source>{0} - {1}</source>
-      <translation type="unfinished">{0} - {1}</translation>
+      <translation>{0} - {1}</translation>
     </message>
     <message>
       <source>✕ Close</source>
@@ -3922,7 +3962,7 @@ Depois disso, clique em Deploy.</translation>
     </message>
     <message>
       <source>Deploy</source>
-      <translation type="unfinished">Deploy</translation>
+      <translation>Implantar</translation>
     </message>
     <message>
       <source>Deploy is unavailable here.</source>
@@ -4173,7 +4213,27 @@ Baixe o arquivo principal 'Ultimate Edition ESM Fixes Remastered' do Nexus - o p
     </message>
     <message>
       <source>Fallout New Vegas:</source>
-      <translation type="unfinished">Fallout New Vegas:</translation>
+      <translation>Fallout New Vegas:</translation>
+    </message>
+    <message>
+      <source>Unofficial Fallout 3 ESM Patcher - {0}</source>
+      <translation>Patcher ESM não oficial - {0}</translation>
+    </message>
+    <message>
+      <source>The Unofficial Fallout 3 ESM Patcher patches the vanilla .esm masters (Fallout3 + all DLC) with community bugfixes, and the result is added as a mod.
+
+Download the 'Unofficial Fallout 3 ESM Patcher' main file from Nexus - the .mpi package inside the archive is detected automatically.</source>
+      <translation type="unfinished">The Unofficial Fallout 3 ESM Patcher patches the vanilla .esm masters (Fallout3 + all DLC) with community bugfixes, and the result is added as a mod.
+
+Download the 'Unofficial Fallout 3 ESM Patcher' main file from Nexus - the .mpi package inside the archive is detected automatically.</translation>
+    </message>
+    <message>
+      <source>Fallout 3:</source>
+      <translation>Fallout 3:</translation>
+    </message>
+    <message>
+      <source>Select the Fallout 3 folder</source>
+      <translation>Selecione a pasta Fallout 3</translation>
     </message>
     <message>
       <source>Select the Fallout New Vegas folder</source>
@@ -4268,6 +4328,10 @@ Baixe o arquivo principal 'Ultimate Edition ESM Fixes Remastered' do Nexus - o p
       <translation>Por favor, selecione o pacote .mpi do ESM Fixes (ou o respectivo arquivo baixado).</translation>
     </message>
     <message>
+      <source>Fallout 3 folder is not set.</source>
+      <translation>Pasta Fallout 3 não está definida.</translation>
+    </message>
+    <message>
       <source>Fallout New Vegas folder is not set.</source>
       <translation>A pasta do Fallout New Vegas não está definida.</translation>
     </message>
@@ -4358,7 +4422,7 @@ No Steam, clique com o botão direito do mouse no jogo → Propriedades → Arqu
     </message>
     <message>
       <source>[{0}]</source>
-      <translation type="unfinished">[{0}]</translation>
+      <translation>[{0}]</translation>
     </message>
     <message>
       <source>Close</source>
@@ -4378,11 +4442,11 @@ No Steam, clique com o botão direito do mouse no jogo → Propriedades → Arqu
     </message>
     <message>
       <source>true</source>
-      <translation type="unfinished">true</translation>
+      <translation>verdadeiro</translation>
     </message>
     <message>
       <source>false</source>
-      <translation type="unfinished">false</translation>
+      <translation>Falso</translation>
     </message>
     <message>
       <source>Form reset to built-in defaults (not yet saved).</source>
@@ -4460,7 +4524,7 @@ As alterações entram em vigor na próxima inicialização. Se uma variável im
     </message>
     <message>
       <source>Java runtime</source>
-      <translation type="unfinished">Java runtime</translation>
+      <translation>Executar Java</translation>
     </message>
     <message>
       <source>How to run this .jar:
@@ -4591,11 +4655,11 @@ Prefixo protão: clique em 'Instalar Java no prefixo' uma vez, então ele é exe
     <name>ExportProfileView</name>
     <message>
       <source>Nexus</source>
-      <translation type="unfinished">Nexus</translation>
+      <translation>Nexus</translation>
     </message>
     <message>
       <source>Thunderstore</source>
-      <translation type="unfinished">Thunderstore</translation>
+      <translation>Thunderstore</translation>
     </message>
     <message>
       <source>Direct</source>
@@ -4607,7 +4671,7 @@ Prefixo protão: clique em 'Instalar Java no prefixo' uma vez, então ele é exe
     </message>
     <message>
       <source>Manual</source>
-      <translation type="unfinished">Manual</translation>
+      <translation>Manualmente</translation>
     </message>
     <message>
       <source>Bundle</source>
@@ -4671,7 +4735,7 @@ Prefixo protão: clique em 'Instalar Java no prefixo' uma vez, então ele é exe
     </message>
     <message>
       <source>Fomod</source>
-      <translation type="unfinished">Fomod</translation>
+      <translation>Fomod</translation>
     </message>
     <message>
       <source>Optional</source>
@@ -4787,11 +4851,11 @@ Prefixo protão: clique em 'Instalar Java no prefixo' uma vez, então ele é exe
     </message>
     <message>
       <source>mod</source>
-      <translation type="unfinished">mod</translation>
+      <translation>mod</translation>
     </message>
     <message>
       <source>mods</source>
-      <translation type="unfinished">mods</translation>
+      <translation>mods</translation>
     </message>
     <message>
       <source>is</source>
@@ -5159,7 +5223,7 @@ Clique em Concluído para limpar os arquivos extraídos e fechar.</translation>
     </message>
     <message>
       <source>Bash-tagged</source>
-      <translation type="unfinished">Bash-tagged</translation>
+      <translation>Marcado</translation>
     </message>
     <message>
       <source>ESL-safe (eligible for ESL flag)</source>
@@ -5171,15 +5235,15 @@ Clique em Concluído para limpar os arquivos extraídos e fechar.</translation>
     </message>
     <message>
       <source>BOS/SP-patched</source>
-      <translation type="unfinished">BOS/SP-patched</translation>
+      <translation>BOS/correção de SP-patch</translation>
     </message>
     <message>
       <source>BOS-patched</source>
-      <translation type="unfinished">BOS-patched</translation>
+      <translation>CHEFE corrigido</translation>
     </message>
     <message>
       <source>SkyPatcher-patched</source>
-      <translation type="unfinished">SkyPatcher-patched</translation>
+      <translation>Correção no SkyPatcher</translation>
     </message>
     <message>
       <source>Show only installed</source>
@@ -5207,7 +5271,7 @@ Clique em Concluído para limpar os arquivos extraídos e fechar.</translation>
     </message>
     <message>
       <source>My Games</source>
-      <translation type="unfinished">My Games</translation>
+      <translation>Meus Jogos</translation>
     </message>
     <message>
       <source>Logs</source>
@@ -5230,11 +5294,11 @@ Clique em Concluído para limpar os arquivos extraídos e fechar.</translation>
     <name>Fnv4GbView</name>
     <message>
       <source>4GB Patch - {0}</source>
-      <translation type="unfinished">4GB Patch - {0}</translation>
+      <translation>Correção de 4GB - {0}</translation>
     </message>
     <message>
       <source>Fallout New Vegas 4GB Patch</source>
-      <translation type="unfinished">Fallout New Vegas 4GB Patch</translation>
+      <translation>Patch de Fallout New Vegas 4GB</translation>
     </message>
     <message>
       <source>Patches FalloutNV.exe so the game can use 4 GB of memory
@@ -5472,7 +5536,7 @@ Pode já ter sido modificado. Verifique os arquivos do jogo no Steam/Heroic para
     </message>
     <message>
       <source>Log:</source>
-      <translation type="unfinished">Log:</translation>
+      <translation>Registro:</translation>
     </message>
     <message>
       <source>'{0}' not found in game root.</source>
@@ -6063,15 +6127,15 @@ Clique em "Feito para fechar".</translation>
     <message>
       <source>Amethyst Mod Manager - v{0}</source>
       <extracomment>Filters footer button attr -&gt; (filter-panel attr, search-box attr). _sync_filters_btn reads both to decide whether the button lights up.</extracomment>
-      <translation type="unfinished">Amethyst Mod Manager - v{0}</translation>
+      <translation>Gerenciador de Mod Ametista - v{0}</translation>
     </message>
     <message>
       <source>Amethyst Mod Manager</source>
-      <translation type="unfinished">Amethyst Mod Manager</translation>
+      <translation>Gerenciador de Mods Ametista</translation>
     </message>
     <message>
       <source>Mods</source>
-      <translation type="unfinished">Mods</translation>
+      <translation>Moderadores</translation>
     </message>
     <message>
       <source>Add game</source>
@@ -6273,7 +6337,7 @@ Se você continuar, este aviso não será mostrado novamente para {1} a menos qu
     </message>
     <message>
       <source>{0} ({1})</source>
-      <translation type="unfinished">{0} ({1})</translation>
+      <translation>{0} ({1})</translation>
     </message>
     <message>
       <source>Removed {0} archive(s)</source>
@@ -6381,7 +6445,7 @@ Se você continuar, este aviso não será mostrado novamente para {1} a menos qu
     </message>
     <message>
       <source>Deploy</source>
-      <translation type="unfinished">Deploy</translation>
+      <translation>Implantar</translation>
     </message>
     <message>
       <source>Restore</source>
@@ -6389,7 +6453,7 @@ Se você continuar, este aviso não será mostrado novamente para {1} a menos qu
     </message>
     <message>
       <source>Proton</source>
-      <translation type="unfinished">Proton</translation>
+      <translation>Proton</translation>
     </message>
     <message>
       <source>Run winecfg</source>
@@ -6425,15 +6489,15 @@ Se você continuar, este aviso não será mostrado novamente para {1} a menos qu
     </message>
     <message>
       <source>.NET {0}</source>
-      <translation type="unfinished">.NET {0}</translation>
+      <translation>.NET {0}</translation>
     </message>
     <message>
       <source>Wizard</source>
-      <translation type="unfinished">Wizard</translation>
+      <translation>Assistente</translation>
     </message>
     <message>
       <source>Nexus</source>
-      <translation type="unfinished">Nexus</translation>
+      <translation>Nexus</translation>
     </message>
     <message>
       <source>Open Nexus Mods</source>
@@ -6497,7 +6561,7 @@ Se você continuar, este aviso não será mostrado novamente para {1} a menos qu
     </message>
     <message>
       <source>Symlink</source>
-      <translation type="unfinished">Symlink</translation>
+      <translation>Symlink</translation>
     </message>
     <message>
       <source>Symlink (Recommended)</source>
@@ -6505,7 +6569,7 @@ Se você continuar, este aviso não será mostrado novamente para {1} a menos qu
     </message>
     <message>
       <source>Hardlink</source>
-      <translation type="unfinished">Hardlink</translation>
+      <translation>Hardlink</translation>
     </message>
     <message>
       <source>Hardlink (Recommended)</source>
@@ -6545,15 +6609,15 @@ Se você continuar, este aviso não será mostrado novamente para {1} a menos qu
     </message>
     <message>
       <source>Patch 8</source>
-      <translation type="unfinished">Patch 8</translation>
+      <translation>Atualização 8</translation>
     </message>
     <message>
       <source>Patch 7</source>
-      <translation type="unfinished">Patch 7</translation>
+      <translation>Atualização 7</translation>
     </message>
     <message>
       <source>Patch 6</source>
-      <translation type="unfinished">Patch 6</translation>
+      <translation>Atualização 6</translation>
     </message>
     <message>
       <source>Plugins file name</source>
@@ -6817,7 +6881,7 @@ Deseja remover a entrada da coleção anexada?</translation>
     </message>
     <message>
       <source>OK</source>
-      <translation type="unfinished">OK</translation>
+      <translation>Certo</translation>
     </message>
     <message>
       <source>32-bit support could not be installed</source>
@@ -6869,7 +6933,7 @@ Deseja remover a entrada da coleção anexada?</translation>
     </message>
     <message>
       <source>beta</source>
-      <translation type="unfinished">beta</translation>
+      <translation>beta</translation>
     </message>
     <message>
       <source>stable</source>
@@ -7609,7 +7673,7 @@ Executar Atualização rápida em todos eles agora?</translation>
     </message>
     <message>
       <source>{0}…</source>
-      <translation type="unfinished">{0}…</translation>
+      <translation>{0}…</translation>
     </message>
     <message>
       <source>No game selected</source>
@@ -7761,7 +7825,7 @@ Executar Atualização rápida em todos eles agora?</translation>
     </message>
     <message>
       <source>Saves</source>
-      <translation type="unfinished">Saves</translation>
+      <translation>Defesas</translation>
     </message>
     <message>
       <source>the game</source>
@@ -7793,7 +7857,7 @@ Executar Atualização rápida em todos eles agora?</translation>
     </message>
     <message>
       <source>Thunderstore</source>
-      <translation type="unfinished">Thunderstore</translation>
+      <translation>Thunderstore</translation>
     </message>
     <message>
       <source>Browse Thunderstore</source>
@@ -7941,15 +8005,39 @@ Executar Atualização rápida em todos eles agora?</translation>
     </message>
     <message>
       <source>VFS</source>
-      <translation type="unfinished">VFS</translation>
+      <translation>VFs</translation>
     </message>
     <message>
       <source> ({0})</source>
       <translation>({0})</translation>
     </message>
     <message>
+      <source>Received a malformed MODL link.</source>
+      <translation>Recebeu um link de MODL malformado.</translation>
+    </message>
+    <message>
+      <source>No configured game matches MODL game ID '{0}'.</source>
+      <translation>Nenhum jogo configurado corresponde a ID do MODL '{0}'.</translation>
+    </message>
+    <message>
+      <source>Downloading mod from MODL link…</source>
+      <translation>Baixando mod do link MODL…</translation>
+    </message>
+    <message>
       <source>Download cancelled.</source>
       <translation>Transferência cancelada.</translation>
+    </message>
+    <message>
+      <source>MODL download failed - {0}</source>
+      <translation>Download de MODL falhou - {0}</translation>
+    </message>
+    <message>
+      <source>Downloaded - target game is unavailable; see Downloads tab.</source>
+      <translation>Baixado - o jogo alvo está indisponível; veja a aba Downloads.</translation>
+    </message>
+    <message>
+      <source>Downloaded - switch to '{0}' and install it from the Downloads tab.</source>
+      <translation>Baixado - mude para '{0}' e instale-o a partir da aba Downloads.</translation>
     </message>
     <message>
       <source>this mod</source>
@@ -8037,11 +8125,19 @@ Executar Atualização rápida em todos eles agora?</translation>
     </message>
     <message>
       <source>FOMOD: {0}</source>
-      <translation type="unfinished">FOMOD: {0}</translation>
+      <translation>FOMOD: {0}</translation>
     </message>
     <message>
       <source>Conflict data is still building.</source>
       <translation>Dados de conflito ainda estão aumentando.</translation>
+    </message>
+    <message>
+      <source>Root Folder</source>
+      <translation>Pasta Raiz</translation>
+    </message>
+    <message>
+      <source>Could not add '{0}' to the modlist: {1}</source>
+      <translation>Não foi possível adicionar '{0}' à modlist: {1}</translation>
     </message>
     <message>
       <source>{0} has no conflicting mods.</source>
@@ -8050,6 +8146,26 @@ Executar Atualização rápida em todos eles agora?</translation>
     <message>
       <source>Filtered to {0} mods conflicting with {1}.</source>
       <translation>Filtrados para mods {0} conflitantes com {1}.</translation>
+    </message>
+    <message>
+      <source>Copy separator to profile</source>
+      <translation>Copiar separador para perfil</translation>
+    </message>
+    <message>
+      <source>Copying separator</source>
+      <translation>Copiando separador</translation>
+    </message>
+    <message>
+      <source>Copying separator '{0}' to '{1}'…</source>
+      <translation type="unfinished">Copying separator '{0}' to '{1}'…</translation>
+    </message>
+    <message>
+      <source>Copied separator '{0}' with {1}/{2} mod(s) to '{3}'.</source>
+      <translation>Copiado o separador '{0}' com {1}/{2} mod(s) para '{3}'.</translation>
+    </message>
+    <message>
+      <source>Could not copy the separator.</source>
+      <translation>Não foi possível copiar o separador.</translation>
     </message>
     <message>
       <source>Cancel all</source>
@@ -8086,6 +8202,10 @@ Executar Atualização rápida em todos eles agora?</translation>
       <translation>Ametista não pôde lançar {0}.
 
 {1}</translation>
+    </message>
+    <message>
+      <source>Waiting for profile updates…</source>
+      <translation>Aguardando atualizações de perfil…</translation>
     </message>
     <message>
       <source>Extracting / Installing</source>
@@ -8338,6 +8458,14 @@ Executar o assistente Downgrade para remendar o jogo de volta para uma versão F
       <translation>{0}: nenhuma sobreposição de registros com outros plugins.</translation>
     </message>
     <message>
+      <source>Loading profile…</source>
+      <translation>Carregando perfil…</translation>
+    </message>
+    <message>
+      <source>Could not load the profile file graph. See the log for details.</source>
+      <translation>Não foi possível carregar o gráfico de arquivo de perfil. Consulte o log para obter detalhes.</translation>
+    </message>
+    <message>
       <source>+ Add exe from staging…</source>
       <translation>+ Adicionar exe do staging…</translation>
     </message>
@@ -8347,7 +8475,7 @@ Executar o assistente Downgrade para remendar o jogo de volta para uma versão F
     </message>
     <message>
       <source>Plugins</source>
-      <translation type="unfinished">Plugins</translation>
+      <translation>Complementos</translation>
     </message>
     <message>
       <source>install</source>
@@ -8435,7 +8563,7 @@ Fazer deploy mesmo assim?</translation>
     </message>
     <message>
       <source>Mod Files</source>
-      <translation type="unfinished">Mod Files</translation>
+      <translation>Arquivos do Mod</translation>
     </message>
     <message>
       <source>Text Files</source>
@@ -8443,11 +8571,11 @@ Fazer deploy mesmo assim?</translation>
     </message>
     <message>
       <source>Data</source>
-      <translation type="unfinished">Data</translation>
+      <translation>Dado</translation>
     </message>
     <message>
       <source>Downloads</source>
-      <translation type="unfinished">Downloads</translation>
+      <translation>Downloads</translation>
     </message>
     <message>
       <source>Overrides</source>
@@ -8459,7 +8587,7 @@ Fazer deploy mesmo assim?</translation>
     </message>
     <message>
       <source>Log</source>
-      <translation type="unfinished">Log</translation>
+      <translation>Registro</translation>
     </message>
     <message>
       <source>● Errors</source>
@@ -8487,11 +8615,11 @@ Fazer deploy mesmo assim?</translation>
     </message>
     <message>
       <source>Wiki</source>
-      <translation type="unfinished">Wiki</translation>
+      <translation>Documentação</translation>
     </message>
     <message>
       <source>Changelog</source>
-      <translation type="unfinished">Changelog</translation>
+      <translation>Mudanças</translation>
     </message>
     <message>
       <source>Github</source>
@@ -8499,7 +8627,7 @@ Fazer deploy mesmo assim?</translation>
     </message>
     <message>
       <source>Ko-Fi</source>
-      <translation type="unfinished">Ko-Fi</translation>
+      <translation>Ko-Fi</translation>
     </message>
     <message>
       <source>♥ Endorse AMM</source>
@@ -8809,7 +8937,7 @@ Como você gostaria de lidar com o mod existente?</translation>
     </message>
     <message>
       <source>OK</source>
-      <translation type="unfinished">OK</translation>
+      <translation>Certo</translation>
     </message>
     <message>
       <source>Cancel</source>
@@ -8935,8 +9063,18 @@ Como você gostaria de lidar com o mod existente?</translation>
 {0}</translation>
     </message>
     <message>
+      <source>Could not set version:
+{0}</source>
+      <translation>Impossível definir versão:
+{0}</translation>
+    </message>
+    <message>
       <source>Create</source>
       <translation>Criar</translation>
+    </message>
+    <message>
+      <source>Copy separator to profile</source>
+      <translation>Copiar separador para perfil</translation>
     </message>
     <message>
       <source>Create an empty mod below</source>
@@ -9008,7 +9146,15 @@ Como você gostaria de lidar com o mod existente?</translation>
     </message>
     <message>
       <source>Log</source>
-      <translation type="unfinished">Log</translation>
+      <translation>Registro</translation>
+    </message>
+    <message>
+      <source>Manage Overwrite…</source>
+      <translation>Gerenciar a substituição…</translation>
+    </message>
+    <message>
+      <source>Manage root folder</source>
+      <translation>Gerenciar pasta raiz</translation>
     </message>
     <message>
       <source>Missing Requirements</source>
@@ -9151,8 +9297,16 @@ Como você gostaria de lidar com o mod existente?</translation>
       <translation>Definir prioridade…</translation>
     </message>
     <message>
+      <source>Set version</source>
+      <translation>Configurar versão</translation>
+    </message>
+    <message>
       <source>Priority for {0}:</source>
       <translation>Prioridade para {0}:</translation>
+    </message>
+    <message>
+      <source>Version for {0}:</source>
+      <translation>Versão do {0}:</translation>
     </message>
     <message>
       <source>Show Conflicts</source>
@@ -9180,7 +9334,7 @@ Como você gostaria de lidar com o mod existente?</translation>
     </message>
     <message>
       <source>{0} ({1})</source>
-      <translation type="unfinished">{0} ({1})</translation>
+      <translation>{0} ({1})</translation>
     </message>
   </context>
   <context>
@@ -9195,7 +9349,7 @@ Como você gostaria de lidar com o mod existente?</translation>
     </message>
     <message>
       <source>Flags</source>
-      <translation type="unfinished">Flags</translation>
+      <translation>Bandeiras</translation>
     </message>
     <message>
       <source>Conflicts</source>
@@ -9604,7 +9758,7 @@ ou um arquivo criptografado quando nenhum chaveiro está disponível).</translat
     </message>
     <message>
       <source>{0} Steam Downgrader</source>
-      <translation type="unfinished">{0} Steam Downgrader</translation>
+      <translation>Downgrader Steam {0}</translation>
     </message>
     <message>
       <source>Step 2: Download Downgrader</source>
@@ -9821,7 +9975,7 @@ Your modlist was restored before downgrading - use Deploy to put it back.</sourc
     </message>
     <message>
       <source>Unlist</source>
-      <translation type="unfinished">Unlist</translation>
+      <translation>Deslistar</translation>
     </message>
     <message>
       <source>Open on Nexus</source>
@@ -10178,11 +10332,11 @@ Your modlist was restored before downgrading - use Deploy to put it back.</sourc
     </message>
     <message>
       <source>No min</source>
-      <translation type="unfinished">No min</translation>
+      <translation>Não min.</translation>
     </message>
     <message>
       <source>No max</source>
-      <translation type="unfinished">No max</translation>
+      <translation>Sem máximo</translation>
     </message>
     <message>
       <source>to</source>
@@ -10296,11 +10450,11 @@ Your modlist was restored before downgrading - use Deploy to put it back.</sourc
     <name>NexusFooterLabel</name>
     <message>
       <source>{0} @ NexusMods</source>
-      <translation type="unfinished">{0} @ NexusMods</translation>
+      <translation>{0} @ NexusMods</translation>
     </message>
     <message>
       <source>NexusMods</source>
-      <translation type="unfinished">NexusMods</translation>
+      <translation>NexusMods</translation>
     </message>
     <message>
       <source>Not logged in</source>
@@ -10424,7 +10578,7 @@ Por dia: {1}</translation>
     </message>
     <message>
       <source>Mod {0}</source>
-      <translation type="unfinished">Mod {0}</translation>
+      <translation>Mod {0}</translation>
     </message>
     <message>
       <source>No summary provided.</source>
@@ -10452,7 +10606,7 @@ Por dia: {1}</translation>
     </message>
     <message>
       <source>Downloads: {0}</source>
-      <translation type="unfinished">Downloads: {0}</translation>
+      <translation>Downloads: {0}</translation>
     </message>
     <message>
       <source>Uploaded: {0}</source>
@@ -10476,7 +10630,7 @@ Por dia: {1}</translation>
     </message>
     <message>
       <source>{0} ({1})</source>
-      <translation type="unfinished">{0} ({1})</translation>
+      <translation>{0} ({1})</translation>
     </message>
     <message>
       <source>{0} file(s)</source>
@@ -10488,7 +10642,7 @@ Por dia: {1}</translation>
     </message>
     <message>
       <source>Redownload</source>
-      <translation type="unfinished">Redownload</translation>
+      <translation>Recarregar</translation>
     </message>
     <message>
       <source>Reinstall</source>
@@ -10523,7 +10677,7 @@ Por dia: {1}</translation>
     </message>
     <message>
       <source>Cull backfaces</source>
-      <translation type="unfinished">Cull backfaces</translation>
+      <translation>Cull backfaces</translation>
     </message>
     <message>
       <source>Hide inward-facing triangles - reveals inside-out normals</source>
@@ -10531,7 +10685,7 @@ Por dia: {1}</translation>
     </message>
     <message>
       <source>Wireframe</source>
-      <translation type="unfinished">Wireframe</translation>
+      <translation>Wireframe</translation>
     </message>
     <message>
       <source>Off</source>
@@ -10555,7 +10709,7 @@ Por dia: {1}</translation>
     </message>
     <message>
       <source>Normal</source>
-      <translation type="unfinished">Normal</translation>
+      <translation>normal</translation>
     </message>
     <message>
       <source>Background</source>
@@ -10590,6 +10744,14 @@ Por dia: {1}</translation>
       <translation>Reverter a direção do arrasto para rotação e pan</translation>
     </message>
     <message>
+      <source>Free camera</source>
+      <translation>Câmera gratuita</translation>
+    </message>
+    <message>
+      <source>Allow unrestricted rotation around every axis</source>
+      <translation>Permitir rotação irrestrita em torno de cada eixo</translation>
+    </message>
+    <message>
       <source>Brightness - lifts dark textures without blowing out highlights; double-click to reset</source>
       <translation>Brilho - eleva texturas escuras sem estourar os realces; clique duplo para redefinir</translation>
     </message>
@@ -10615,7 +10777,7 @@ Por dia: {1}</translation>
     </message>
     <message>
       <source>{0} tris</source>
-      <translation type="unfinished">{0} tris</translation>
+      <translation>{0} tris</translation>
     </message>
     <message>
       <source>{0}/{1} textured</source>
@@ -10634,7 +10796,7 @@ Por dia: {1}</translation>
     </message>
     <message>
       <source>NIF Viewer - {0}</source>
-      <translation type="unfinished">NIF Viewer - {0}</translation>
+      <translation>Visualizador de NIF - {0}</translation>
     </message>
     <message>
       <source>Scanning…</source>
@@ -11078,6 +11240,191 @@ Sobrepor paks (sem meta.lsx, ou apenas sobrescrevendo os próprios módulos do j
     </message>
   </context>
   <context>
+    <name>OverwriteView</name>
+    <message>
+      <source>Root Folder</source>
+      <translation>Pasta Raiz</translation>
+    </message>
+    <message>
+      <source>Overwrite</source>
+      <translation>Substituir</translation>
+    </message>
+    <message>
+      <source>⊞ Expand all</source>
+      <translation>Expandir tudo</translation>
+    </message>
+    <message>
+      <source>⟳ Refresh</source>
+      <translation>Atualizar</translation>
+    </message>
+    <message>
+      <source>Move to mod…</source>
+      <translation>Mover para o mod…</translation>
+    </message>
+    <message>
+      <source>Move to new mod…</source>
+      <translation>Mover para o novo mod…</translation>
+    </message>
+    <message>
+      <source>Delete</source>
+      <translation>excluir</translation>
+    </message>
+    <message>
+      <source>Search files… (try !.dds)</source>
+      <translation>Pesquisar arquivos… (tente !.dds)</translation>
+    </message>
+    <message>
+      <source>Root Folder (no game selected)</source>
+      <translation>Pasta raiz (nenhum jogo selecionado)</translation>
+    </message>
+    <message>
+      <source>Root Folder - empty</source>
+      <translation>Pasta Raiz - vazia</translation>
+    </message>
+    <message>
+      <source>Root Folder - {0} of {1} file(s)</source>
+      <translation>Pasta Raiz - {0} do arquivo(s) {1}</translation>
+    </message>
+    <message>
+      <source>Root Folder - {0} file(s)</source>
+      <translation>Pasta raiz - {0} arquivo(s)</translation>
+    </message>
+    <message>
+      <source>Overwrite (no game selected)</source>
+      <translation>Sobrescrever (nenhum jogo selecionado)</translation>
+    </message>
+    <message>
+      <source>Overwrite - empty</source>
+      <translation>Sobrescrever - vazio</translation>
+    </message>
+    <message>
+      <source>Overwrite - {0} of {1} file(s)</source>
+      <translation>Sobrescrever - {0} do arquivo(s) {1}</translation>
+    </message>
+    <message>
+      <source>Overwrite - {0} file(s)</source>
+      <translation>Sobrescrever - {0} arquivo(s)</translation>
+    </message>
+    <message>
+      <source>⊟ Collapse all</source>
+      <translation>&amp;Colapsar tudo</translation>
+    </message>
+    <message>
+      <source>The active game or profile changed. Reopen Root Folder before modifying files.</source>
+      <translation>O jogo ou perfil ativo foram alterados. Reabra a pasta raiz antes de modificar os arquivos.</translation>
+    </message>
+    <message>
+      <source>The active game or profile changed. Reopen Overwrite before modifying files.</source>
+      <translation>O jogo ativo ou o perfil foram alterados. Reabra a substituição antes de modificar arquivos.</translation>
+    </message>
+    <message>
+      <source>Profile changed</source>
+      <translation>Perfil alterado</translation>
+    </message>
+    <message>
+      <source>Move to mod</source>
+      <translation>Mover para o mod</translation>
+    </message>
+    <message>
+      <source>There are no mods to move these files into.</source>
+      <translation>Não há mods para mover esses arquivos.</translation>
+    </message>
+    <message>
+      <source>Move {0} item(s) to which mod?</source>
+      <translation>Mover {0} item(ns) para qual mod?</translation>
+    </message>
+    <message>
+      <source>Move</source>
+      <translation>Mover-se</translation>
+    </message>
+    <message>
+      <source>Invalid mod name</source>
+      <translation>Nome do mod inválido</translation>
+    </message>
+    <message>
+      <source>Mod names cannot end with '_separator'.</source>
+      <translation>Nomes dos mods não podem terminar com '_separator'.</translation>
+    </message>
+    <message>
+      <source>That name cannot be used for a mod folder.</source>
+      <translation>Esse nome não pode ser usado para uma pasta de mods.</translation>
+    </message>
+    <message>
+      <source>Name conflict</source>
+      <translation>Conflito no nome</translation>
+    </message>
+    <message>
+      <source>A mod named '{0}' already exists.</source>
+      <translation>Um mod chamado '{0}' já existe.</translation>
+    </message>
+    <message>
+      <source>Move to new mod</source>
+      <translation>Mover para novo mod</translation>
+    </message>
+    <message>
+      <source>Could not create the mod folder:
+{0}</source>
+      <translation>Não foi possível criar a pasta de mods:
+{0}</translation>
+    </message>
+    <message>
+      <source>The mod could not be added to the modlist. No files were moved.</source>
+      <translation>O mod não pôde ser adicionado à lista de módulos. Nenhum arquivo foi movido.</translation>
+    </message>
+    <message>
+      <source>Mod name:</source>
+      <translation>Nome do Mod:</translation>
+    </message>
+    <message>
+      <source>Create</source>
+      <translation>Crio</translation>
+    </message>
+    <message>
+      <source>The selected mod has an unsafe folder name.</source>
+      <translation>O mod selecionado tem um nome inseguro da pasta.</translation>
+    </message>
+    <message>
+      <source>Moved {0}, failed {1}:
+{2}</source>
+      <translation>Movido {0}, falhou {1}:
+{2}</translation>
+    </message>
+    <message>
+      <source>Move {0} item(s) from Overwrite into '{1}'?</source>
+      <translation>Mover {0} item(s) de Sobrescrever para '{1}'?</translation>
+    </message>
+    <message>
+      <source>Deleted {0}, failed {1}:
+{2}</source>
+      <translation>{0}excluído, falhou {1}:
+{2}</translation>
+    </message>
+    <message>
+      <source>Delete from Root Folder</source>
+      <translation>Excluir da pasta raiz</translation>
+    </message>
+    <message>
+      <source>Permanently delete {0} item(s) from the Root Folder?
+
+This cannot be undone.</source>
+      <translation>Excluir permanentemente item(s) {0} da pasta raiz?
+
+Esta ação não pode ser desfeita.</translation>
+    </message>
+    <message>
+      <source>Delete from Overwrite</source>
+      <translation>Excluir da sobrescrita</translation>
+    </message>
+    <message>
+      <source>Permanently delete {0} item(s) from the Overwrite folder?
+
+This cannot be undone.</source>
+      <translation>Excluir permanentemente item(s) {0} da pasta sobrescrita?
+
+Esta ação não pode ser desfeita.</translation>
+    </message>
+  </context>
+  <context>
     <name>PGPatcherView</name>
     <message>
       <source>Run PGPatcher - {0}</source>
@@ -11129,7 +11476,7 @@ conflitos por mod, correspondendo a uma configuração real do MO2. Experimental
     </message>
     <message>
       <source>Deploy</source>
-      <translation type="unfinished">Deploy</translation>
+      <translation>Implantar</translation>
     </message>
     <message>
       <source>Step 2: Choose Proton Version</source>
@@ -11274,7 +11621,7 @@ Depois de fazer isso, clique em Deploy.</translation>
     </message>
     <message>
       <source>Deploy</source>
-      <translation type="unfinished">Deploy</translation>
+      <translation>Implantar</translation>
     </message>
     <message>
       <source>Deploy is unavailable here.</source>
@@ -11688,6 +12035,18 @@ Varrer para verificar.</translation>
       <translation>Remover os selecionados da userlist</translation>
     </message>
     <message>
+      <source>Priority for {0}:</source>
+      <translation>Prioridade {0}:</translation>
+    </message>
+    <message>
+      <source>Set priority</source>
+      <translation>Definir prioridade</translation>
+    </message>
+    <message>
+      <source>Set priority…</source>
+      <translation>Definir prioridade…</translation>
+    </message>
+    <message>
       <source>Show cycle…</source>
       <translation>Mostrar ciclo…</translation>
     </message>
@@ -11724,11 +12083,11 @@ Varrer para verificar.</translation>
     </message>
     <message>
       <source>Flags</source>
-      <translation type="unfinished">Flags</translation>
+      <translation>Bandeiras</translation>
     </message>
     <message>
       <source>P</source>
-      <translation type="unfinished">P</translation>
+      <translation>PT</translation>
     </message>
     <message>
       <source>Index</source>
@@ -11805,7 +12164,7 @@ Arraste um plugin do painel esquerdo para adicionar uma regra.</translation>
     </message>
     <message>
       <source>.NET {0} Desktop Runtime</source>
-      <translation type="unfinished">.NET {0} Desktop Runtime</translation>
+      <translation>Runtime .NET {0} Desktop</translation>
     </message>
     <message>
       <source>Proton prefix</source>
@@ -11829,7 +12188,7 @@ Arraste um plugin do painel esquerdo para adicionar uma regra.</translation>
     </message>
     <message>
       <source>Proton build</source>
-      <translation type="unfinished">Proton build</translation>
+      <translation>Construção do Proton</translation>
     </message>
     <message>
       <source>Proton / prefix version</source>
@@ -11869,7 +12228,7 @@ Arraste um plugin do painel esquerdo para adicionar uma regra.</translation>
     </message>
     <message>
       <source>DXVK (Direct3D → Vulkan)</source>
-      <translation type="unfinished">DXVK (Direct3D → Vulkan)</translation>
+      <translation>DXVK (Direct3D → Vulkan)</translation>
     </message>
     <message>
       <source>No prefix configured</source>
@@ -11956,7 +12315,7 @@ Arraste um plugin do painel esquerdo para adicionar uma regra.</translation>
     </message>
     <message>
       <source>{0} - {1}</source>
-      <translation type="unfinished">{0} - {1}</translation>
+      <translation>{0} - {1}</translation>
     </message>
     <message>
       <source>  (active)</source>
@@ -11964,7 +12323,7 @@ Arraste um plugin do painel esquerdo para adicionar uma regra.</translation>
     </message>
     <message>
       <source>Total: {0}</source>
-      <translation type="unfinished">Total: {0}</translation>
+      <translation>Total: {0}</translation>
     </message>
     <message>
       <source>1 prefix found.</source>
@@ -12191,11 +12550,15 @@ Seus mods listados são copiados para a própria pasta de mods do perfil (via ha
     </message>
     <message>
       <source>OK</source>
-      <translation type="unfinished">OK</translation>
+      <translation>Certo</translation>
     </message>
     <message>
       <source>Cancel</source>
       <translation>Cancelar</translation>
+    </message>
+    <message>
+      <source>Wait for the profile to finish loading.</source>
+      <translation>Espere o perfil terminar de carregar.</translation>
     </message>
     <message>
       <source>'{0}' is a member of the deployed group '{1}' - restore the game first, then remove it.</source>
@@ -12222,7 +12585,7 @@ Seus mods listados são copiados para a própria pasta de mods do perfil (via ha
     </message>
     <message>
       <source>{0} / {1}</source>
-      <translation type="unfinished">{0} / {1}</translation>
+      <translation>{0} / {1}</translation>
     </message>
   </context>
   <context>
@@ -12458,7 +12821,7 @@ Se o jogo ainda estiver quebrado, verifique os arquivos do jogo via Steam.</tran
     </message>
     <message>
       <source>Log:</source>
-      <translation type="unfinished">Log:</translation>
+      <translation>Registro:</translation>
     </message>
     <message>
       <source>Repairing PAK files from game-root manifest …</source>
@@ -12509,11 +12872,11 @@ Se o jogo ainda estiver quebrado, verifique os arquivos do jogo via Steam.</tran
     </message>
     <message>
       <source>64-bit</source>
-      <translation type="unfinished">64-bit</translation>
+      <translation>64</translation>
     </message>
     <message>
       <source>32-bit</source>
-      <translation type="unfinished">32-bit</translation>
+      <translation>32 bits</translation>
     </message>
     <message>
       <source>Next →</source>
@@ -12707,7 +13070,7 @@ será gravada no prefixo do Proton.</translation>
     </message>
     <message>
       <source>{0} - ReShade</source>
-      <translation type="unfinished">{0} - ReShade</translation>
+      <translation>{0} - Iluminação</translation>
     </message>
     <message>
       <source>Error: {0}</source>
@@ -12770,7 +13133,7 @@ Prefixo do Proton: {2}</translation>
     </message>
     <message>
       <source>Proton: {0}</source>
-      <translation type="unfinished">Proton: {0}</translation>
+      <translation>Proton: {0}</translation>
     </message>
     <message>
       <source>Registry write raised: {0}</source>
@@ -12966,7 +13329,7 @@ Escolha Manter se esta for uma variante opcional/alternativa, e não uma substit
     </message>
     <message>
       <source>[{0}]</source>
-      <translation type="unfinished">[{0}]</translation>
+      <translation>[{0}]</translation>
     </message>
     <message>
       <source>Close</source>
@@ -12974,7 +13337,7 @@ Escolha Manter se esta for uma variante opcional/alternativa, e não uma substit
     </message>
     <message>
       <source>SSE Display Tweaks - {0}</source>
-      <translation type="unfinished">SSE Display Tweaks - {0}</translation>
+      <translation>SSE Display Tweaks - {0}</translation>
     </message>
     <message>
       <source>Reset to defaults</source>
@@ -12986,11 +13349,11 @@ Escolha Manter se esta for uma variante opcional/alternativa, e não uma substit
     </message>
     <message>
       <source>true</source>
-      <translation type="unfinished">true</translation>
+      <translation>verdadeiro</translation>
     </message>
     <message>
       <source>false</source>
-      <translation type="unfinished">false</translation>
+      <translation>Falso</translation>
     </message>
     <message>
       <source>Form reset to built-in defaults (not yet saved).</source>
@@ -13076,7 +13439,7 @@ Escolha Manter se esta for uma variante opcional/alternativa, e não uma substit
     </message>
     <message>
       <source>Plugins</source>
-      <translation type="unfinished">Plugins</translation>
+      <translation>Complementos</translation>
     </message>
     <message>
       <source>Not recorded in this save.</source>
@@ -13088,11 +13451,11 @@ Escolha Manter se esta for uma variante opcional/alternativa, e não uma substit
     </message>
     <message>
       <source>Plugins ({0} · {1} ESL)</source>
-      <translation type="unfinished">Plugins ({0} · {1} ESL)</translation>
+      <translation>Plugins ({0} · {1} ESL)</translation>
     </message>
     <message>
       <source>Plugins ({0})</source>
-      <translation type="unfinished">Plugins ({0})</translation>
+      <translation>Plugins ({0})</translation>
     </message>
     <message>
       <source>Not in this profile's load order.</source>
@@ -13140,7 +13503,7 @@ Escolha Manter se esta for uma variante opcional/alternativa, e não uma substit
     </message>
     <message>
       <source>{0}   ({1})</source>
-      <translation type="unfinished">{0}   ({1})</translation>
+      <translation>{0}   ({1})</translation>
     </message>
     <message>
       <source>File</source>
@@ -13196,7 +13559,7 @@ Escolha Manter se esta for uma variante opcional/alternativa, e não uma substit
     </message>
     <message>
       <source>{0} ({1})</source>
-      <translation type="unfinished">{0} ({1})</translation>
+      <translation>{0} ({1})</translation>
     </message>
     <message>
       <source>{0} (current)</source>
@@ -13697,7 +14060,7 @@ Resolva seus conflitos, feche-o e clique em Concluído.</translation>
     <name>SelectorButton</name>
     <message>
       <source>{0}{1}{2}</source>
-      <translation type="unfinished">{0}{1}{2}</translation>
+      <translation>{0}{1}{2}</translation>
     </message>
     <message>
       <source>{0}   ✓ deployed</source>
@@ -13716,7 +14079,7 @@ Resolva seus conflitos, feche-o e clique em Concluído.</translation>
     </message>
     <message>
       <source>#rrggbb</source>
-      <translation type="unfinished">#rrggbb</translation>
+      <translation>#rrggbb</translation>
     </message>
     <message>
       <source>Choose colour…</source>
@@ -13783,7 +14146,7 @@ Resolva seus conflitos, feche-o e clique em Concluído.</translation>
     <name>SetPrefixOverlay</name>
     <message>
       <source>Mod: {0}</source>
-      <translation type="unfinished">Mod: {0}</translation>
+      <translation>Mod: {0}</translation>
     </message>
     <message>
       <source>This mod has no recognised top-level folders.</source>
@@ -13918,11 +14281,7 @@ Resolva seus conflitos, feche-o e clique em Concluído.</translation>
     </message>
     <message>
       <source>{0} MB/s</source>
-      <translation type="unfinished">{0} MB/s</translation>
-    </message>
-    <message>
-      <source>Cap the combined download speed of all downloads (collections, single mods, nxm links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>
-      <translation>Limite a velocidade de download combinada de todos os downloads (coleções, mods individuais, links nxm) para que eles não usem toda a conexão. Aplica-se imediatamente, inclusive a uma instalação de coleção em execução.</translation>
+      <translation>{0} MB/s</translation>
     </message>
     <message>
       <source>Extraction CPU threads</source>
@@ -14030,15 +14389,11 @@ Resolva seus conflitos, feche-o e clique em Concluído.</translation>
     </message>
     <message>
       <source>Downloads</source>
-      <translation type="unfinished">Downloads</translation>
+      <translation>Downloads</translation>
     </message>
     <message>
       <source>Download only (don't install)</source>
       <translation>Somente download (não instalar)</translation>
-    </message>
-    <message>
-      <source>Downloads are saved to the cache but not installed. Applies to nxm:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</source>
-      <translation>Os downloads são salvos no cache, mas não são instalados. Aplica-se a links nxm://, ao navegador Nexus, a Alterar versão, a instalações de coleção, a downloads de requisitos e a baixar novamente em atualização/reinstalação — os botões Instalar tornam-se Baixar. Instale-os você mesmo na aba Downloads ou pelo botão Instalar o mod.</translation>
     </message>
     <message>
       <source>Extraction</source>
@@ -14054,7 +14409,7 @@ Resolva seus conflitos, feche-o e clique em Concluído.</translation>
     </message>
     <message>
       <source>beta</source>
-      <translation type="unfinished">beta</translation>
+      <translation>beta</translation>
     </message>
     <message>
       <source>stable</source>
@@ -14138,7 +14493,7 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     </message>
     <message>
       <source>Lutris AppImage</source>
-      <translation type="unfinished">Lutris AppImage</translation>
+      <translation>Lutris AppImage</translation>
     </message>
     <message>
       <source>Path to the Lutris AppImage, so Play can launch it directly. Only needed for AppImage installs - leave blank for Flatpak or native Lutris.</source>
@@ -14158,11 +14513,11 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     </message>
     <message>
       <source>Faugus AppImage</source>
-      <translation type="unfinished">Faugus AppImage</translation>
+      <translation>Faugus AppImage</translation>
     </message>
     <message>
       <source>Steam libraryfolders.vdf</source>
-      <translation type="unfinished">Steam libraryfolders.vdf</translation>
+      <translation>Bibliotecas do Steam.vdf</translation>
     </message>
     <message>
       <source>Path to libraryfolders.vdf (or its folder). Blank = auto-detect (standard, Flatpak and Snap locations).</source>
@@ -14183,6 +14538,10 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     <message>
       <source>Appearance</source>
       <translation>Aparência</translation>
+    </message>
+    <message>
+      <source>Shortcuts</source>
+      <translation>Atalhos</translation>
     </message>
     <message>
       <source>About</source>
@@ -14207,6 +14566,14 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     <message>
       <source>Right side</source>
       <translation>Lado direito</translation>
+    </message>
+    <message>
+      <source>Cap the combined download speed of all downloads (collections, single mods, nxm and modl links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>
+      <translation>Limite a velocidade combinada de todos os downloads (coleções, mods únicos, nxm e links de modl), para que eles não usem toda a conexão. Aplica-se imediatamente, inclusive para uma instalação de coleta em execução.</translation>
+    </message>
+    <message>
+      <source>Downloads are saved to the cache but not installed. Applies to nxm:// and modl:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</source>
+      <translation>Os downloads são salvos em cache, mas não instalados. Aplica-se para nxm:// e links modl:// e o navegador Nexus, Alterar Versão, instalações de coleção, downloads obrigatórios e atualizar/reinstalar downloads - seus botões de Instalar se tornam Baixados. Instale você mesmo a partir da guia Downloads ou do botão Instalar Mod.</translation>
     </message>
     <message>
       <source>Reset dismissed prompts…</source>
@@ -14278,7 +14645,7 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     </message>
     <message>
       <source>OS</source>
-      <translation type="unfinished">OS</translation>
+      <translation>S.O.</translation>
     </message>
     <message>
       <source>Distribution</source>
@@ -14286,15 +14653,15 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     </message>
     <message>
       <source>Kernel</source>
-      <translation type="unfinished">Kernel</translation>
+      <translation>Kernel</translation>
     </message>
     <message>
       <source>Python</source>
-      <translation type="unfinished">Python</translation>
+      <translation>Python</translation>
     </message>
     <message>
       <source>Qt</source>
-      <translation type="unfinished">Qt</translation>
+      <translation>Qt</translation>
     </message>
     <message>
       <source>Run mode</source>
@@ -14314,7 +14681,7 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     </message>
     <message>
       <source>OpenGL</source>
-      <translation type="unfinished">OpenGL</translation>
+      <translation>OpenGL</translation>
     </message>
     <message>
       <source>Env overrides</source>
@@ -14428,6 +14795,153 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     </message>
   </context>
   <context>
+    <name>ShortcutEditor</name>
+    <message>
+      <source>Keyboard and mouse shortcuts</source>
+      <translation>Atalhos de teclado e mouse</translation>
+    </message>
+    <message>
+      <source>Click a binding, then press a key, Mouse 3, or a side button. Escape cancels. Left and right mouse buttons are reserved; modifiers are changed separately.</source>
+      <translation>Clique em um vínculo e, em seguida, pressione uma tecla, o Senhor Rato 3, ou um botão lateral. Cancelar fuga. Botões do mouse esquerdo e direito são reservados; modificadores são alterados separadamente.</translation>
+    </message>
+    <message>
+      <source>Reset to defaults</source>
+      <translation>Restaurar padrões</translation>
+    </message>
+    <message>
+      <source>Action</source>
+      <translation>Acão</translation>
+    </message>
+    <message>
+      <source>Modifier</source>
+      <translation>Modifier</translation>
+    </message>
+    <message>
+      <source>Key / button</source>
+      <translation>Chave / botão</translation>
+    </message>
+    <message>
+      <source>Default</source>
+      <translation>Padrão</translation>
+    </message>
+    <message>
+      <source>Mouse actions (mouse buttons by default)</source>
+      <translation>Ações do mouse (botões do mouse padrão )</translation>
+    </message>
+    <message>
+      <source>None</source>
+      <translation>Nenhuma</translation>
+    </message>
+    <message>
+      <source>Reset {0} to {1}</source>
+      <translation>Redefinir {0} para {1}</translation>
+    </message>
+    <message>
+      <source>That key or mouse button cannot be used as a shortcut.</source>
+      <translation>Essa tecla ou botão do mouse não podem ser usados como um atalho.</translation>
+    </message>
+    <message>
+      <source>{0} is already assigned to {1}.</source>
+      <translation>{0} já está atribuído a {1}.</translation>
+    </message>
+    <message>
+      <source>Failed to save shortcut: {0}</source>
+      <translation>Falha ao salvar atalho: {0}</translation>
+    </message>
+    <message>
+      <source>{0} reset to {1}.</source>
+      <translation>{0} redefinido para {1}.</translation>
+    </message>
+    <message>
+      <source>Failed to reset shortcuts: {0}</source>
+      <translation>Falha ao redefinir atalhos: {0}</translation>
+    </message>
+    <message>
+      <source>Shortcuts reset to defaults.</source>
+      <translation>Redefinir atalhos para os padrões.</translation>
+    </message>
+    <message>
+      <source>Rename selected mod or separator</source>
+      <translation>Renomear mod ou separador selecionado</translation>
+    </message>
+    <message>
+      <source>Refresh mod list</source>
+      <translation>Atualizar lista de mods</translation>
+    </message>
+    <message>
+      <source>Deploy mods</source>
+      <translation>Implantar mods</translation>
+    </message>
+    <message>
+      <source>Install a mod</source>
+      <translation>Install a mod</translation>
+    </message>
+    <message>
+      <source>Create an empty mod</source>
+      <translation>Criar um mod vazio</translation>
+    </message>
+    <message>
+      <source>Restore game files</source>
+      <translation>Restaurar arquivos do jogo</translation>
+    </message>
+    <message>
+      <source>Open Settings</source>
+      <translation>Abrir configurações</translation>
+    </message>
+    <message>
+      <source>Focus search</source>
+      <translation>Focar pesquisa</translation>
+    </message>
+    <message>
+      <source>Select all in the active group</source>
+      <translation>Selecionar todos no grupo ativo</translation>
+    </message>
+    <message>
+      <source>Move selection up</source>
+      <translation>Mover seleção para cima</translation>
+    </message>
+    <message>
+      <source>Move selection down</source>
+      <translation>Mover seleção para baixo</translation>
+    </message>
+    <message>
+      <source>Remove selected mods</source>
+      <translation>Remover mods selecionados</translation>
+    </message>
+    <message>
+      <source>Enable or disable selection</source>
+      <translation>Ativar ou desativar seleção</translation>
+    </message>
+    <message>
+      <source>Scroll active list to the top</source>
+      <translation>Rolar a lista ativa para o topo</translation>
+    </message>
+    <message>
+      <source>Scroll active list to the bottom</source>
+      <translation>Rolar lista ativa para o final</translation>
+    </message>
+    <message>
+      <source>Expand or collapse all separators</source>
+      <translation>Expandir ou recolher todos os separadores</translation>
+    </message>
+    <message>
+      <source>Show or hide active filters</source>
+      <translation>Exibir ou ocultar filtros ativos</translation>
+    </message>
+    <message>
+      <source>Open a mod's source page</source>
+      <translation>Abrir a página de origem de um mod</translation>
+    </message>
+    <message>
+      <source>Browser back</source>
+      <translation>Navegador de volta</translation>
+    </message>
+    <message>
+      <source>Browser forward</source>
+      <translation>Avançar navegador</translation>
+    </message>
+  </context>
+  <context>
     <name>ShowConflictsView</name>
     <message>
       <source>Conflicts: {0}</source>
@@ -14467,7 +14981,7 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     </message>
     <message>
       <source>{0}  ({1})</source>
-      <translation type="unfinished">{0}  ({1})</translation>
+      <translation>{0}  ({1})</translation>
     </message>
   </context>
   <context>
@@ -14516,11 +15030,11 @@ Certifique-se de que um perfil esteja carregado e tenha uma ordem de carregament
     </message>
     <message>
       <source>Base Object Swapper</source>
-      <translation type="unfinished">Base Object Swapper</translation>
+      <translation>Swapper de objeto base</translation>
     </message>
     <message>
       <source>SkyPatcher</source>
-      <translation type="unfinished">SkyPatcher</translation>
+      <translation>Patcher</translation>
     </message>
     <message>
       <source>Select All</source>
@@ -14952,7 +15466,7 @@ Continuar com {0}?</translation>
     </message>
     <message>
       <source>Proton: {0}</source>
-      <translation type="unfinished">Proton: {0}</translation>
+      <translation>Proton: {0}</translation>
     </message>
     <message>
       <source>Game path: {0}</source>
@@ -15065,7 +15579,7 @@ Obter o mais recente TTW.mpi de mod.pub (conta gratuita necessária) - extrair o
     </message>
     <message>
       <source>Fallout New Vegas:</source>
-      <translation type="unfinished">Fallout New Vegas:</translation>
+      <translation>Fallout New Vegas:</translation>
     </message>
     <message>
       <source>Select the Fallout New Vegas folder</source>
@@ -15073,7 +15587,7 @@ Obter o mais recente TTW.mpi de mod.pub (conta gratuita necessária) - extrair o
     </message>
     <message>
       <source>Fallout 3:</source>
-      <translation type="unfinished">Fallout 3:</translation>
+      <translation>Fallout 3:</translation>
     </message>
     <message>
       <source>Select the Fallout 3 folder</source>
@@ -15165,11 +15679,11 @@ Saída é escrita diretamente em sua lista de mods como o mod '{0}'.</translatio
     </message>
     <message>
       <source>Fallout New Vegas: {0}</source>
-      <translation type="unfinished">Fallout New Vegas: {0}</translation>
+      <translation>Fallout New Vegas: {0}</translation>
     </message>
     <message>
       <source>Fallout 3: {0}</source>
-      <translation type="unfinished">Fallout 3: {0}</translation>
+      <translation>Fallout 3: {0}</translation>
     </message>
     <message>
       <source>ERROR: missing vanilla plugin files:
@@ -15916,7 +16430,7 @@ ou use "Procurar" para selecioná-lo manualmente.</translation>
     </message>
     <message>
       <source>Status</source>
-      <translation type="unfinished">Status</translation>
+      <translation>SItuação</translation>
     </message>
     <message>
       <source>Error (bright)</source>
@@ -16100,7 +16614,7 @@ ou use "Procurar" para selecioná-lo manualmente.</translation>
     </message>
     <message>
       <source>List row background</source>
-      <translation type="unfinished">List row background</translation>
+      <translation>Fundo da lista de linhas</translation>
     </message>
     <message>
       <source>Secondary text</source>
@@ -16545,19 +17059,19 @@ ou use "Procurar" para selecioná-lo manualmente.</translation>
     </message>
     <message>
       <source>Mods</source>
-      <translation type="unfinished">Mods</translation>
+      <translation>Moderadores</translation>
     </message>
     <message>
       <source>Plugins</source>
-      <translation type="unfinished">Plugins</translation>
+      <translation>Complementos</translation>
     </message>
     <message>
       <source>Data</source>
-      <translation type="unfinished">Data</translation>
+      <translation>Dado</translation>
     </message>
     <message>
       <source>Tabs</source>
-      <translation type="unfinished">Tabs</translation>
+      <translation>Tabs</translation>
     </message>
     <message>
       <source>Mod list</source>
@@ -16573,11 +17087,11 @@ ou use "Procurar" para selecioná-lo manualmente.</translation>
     </message>
     <message>
       <source>Overwrite</source>
-      <translation type="unfinished">Overwrite</translation>
+      <translation>Substituir</translation>
     </message>
     <message>
       <source>Root Folder</source>
-      <translation type="unfinished">Root Folder</translation>
+      <translation>Pasta Raiz</translation>
     </message>
     <message>
       <source>- Gameplay -</source>
@@ -16841,7 +17355,7 @@ ou use "Procurar" para selecioná-lo manualmente.</translation>
     </message>
     <message>
       <source>{0} ({1})</source>
-      <translation type="unfinished">{0} ({1})</translation>
+      <translation>{0} ({1})</translation>
     </message>
   </context>
   <context>
@@ -16864,7 +17378,7 @@ ou use "Procurar" para selecioná-lo manualmente.</translation>
     </message>
     <message>
       <source>NSFW</source>
-      <translation type="unfinished">NSFW</translation>
+      <translation>NSFW</translation>
     </message>
     <message>
       <source>Refresh</source>
@@ -16912,11 +17426,11 @@ ou use "Procurar" para selecioná-lo manualmente.</translation>
     </message>
     <message>
       <source>{0} mod(s)</source>
-      <translation type="unfinished">{0} mod(s)</translation>
+      <translation>{0} mod(s)</translation>
     </message>
     <message>
       <source>/ {0}</source>
-      <translation type="unfinished">/ {0}</translation>
+      <translation>/ {0}</translation>
     </message>
     <message>
       <source>Loading…</source>
@@ -16928,7 +17442,7 @@ ou use "Procurar" para selecioná-lo manualmente.</translation>
     </message>
     <message>
       <source>Mods by {0}</source>
-      <translation type="unfinished">Mods by {0}</translation>
+      <translation>Mods por {0}</translation>
     </message>
   </context>
   <context>
@@ -17002,7 +17516,7 @@ ou use "Procurar" para selecioná-lo manualmente.</translation>
     </message>
     <message>
       <source>{0} downloads</source>
-      <translation type="unfinished">{0} downloads</translation>
+      <translation>Downloads {0}</translation>
     </message>
     <message>
       <source>Reinstall</source>
@@ -17021,11 +17535,11 @@ ou use "Procurar" para selecioná-lo manualmente.</translation>
     </message>
     <message>
       <source>Rev {0}</source>
-      <translation type="unfinished">Rev {0}</translation>
+      <translation>Renascimento {0}</translation>
     </message>
     <message>
       <source>?</source>
-      <translation type="unfinished">?</translation>
+      <translation>?</translation>
     </message>
     <message>
       <source>Profile '{0}' - {1} → {2}</source>
@@ -17065,7 +17579,7 @@ ou use "Procurar" para selecioná-lo manualmente.</translation>
     </message>
     <message>
       <source>{0} ({1})</source>
-      <translation type="unfinished">{0} ({1})</translation>
+      <translation>{0} ({1})</translation>
     </message>
     <message>
       <source>  (none)</source>
@@ -17179,7 +17693,7 @@ Mais recente:  {1}</translation>
     </message>
     <message>
       <source>Volume</source>
-      <translation type="unfinished">Volume</translation>
+      <translation>Volume</translation>
     </message>
     <message>
       <source>Video file not found.</source>
@@ -17297,7 +17811,7 @@ Pressione Atualizar para tentar novamente.</translation>
     <name>WizardTools</name>
     <message>
       <source>mod.io API Key</source>
-      <translation type="unfinished">mod.io API Key</translation>
+      <translation>mod.io API Key</translation>
     </message>
     <message>
       <source>Run Wrye Bash</source>
@@ -17337,7 +17851,7 @@ Pressione Atualizar para tentar novamente.</translation>
     </message>
     <message>
       <source>Run Outfit Studio (Linux)</source>
-      <translation type="unfinished">Run Outfit Studio (Linux)</translation>
+      <translation>Executar Traje Studio (Linux)</translation>
     </message>
     <message>
       <source>Run BodySlide</source>
@@ -17384,6 +17898,10 @@ Pressione Atualizar para tentar novamente.</translation>
       <translation>Descompressor BSA</translation>
     </message>
     <message>
+      <source>Install Unofficial Fallout 3 ESM Patcher</source>
+      <translation>Instalar Fallout 3 ESM Patcher não oficial</translation>
+    </message>
+    <message>
       <source>Install Ultimate Edition ESM Fixes</source>
       <translation>Instale as correções ESM da edição final</translation>
     </message>
@@ -17417,7 +17935,7 @@ Pressione Atualizar para tentar novamente.</translation>
     </message>
     <message>
       <source>SSE Display Tweaks Config</source>
-      <translation type="unfinished">SSE Display Tweaks Config</translation>
+      <translation>Configuração de ajustes de exibição SSE</translation>
     </message>
     <message>
       <source>Engine Fixes Config</source>
@@ -17606,6 +18124,14 @@ Pressione Atualizar para tentar novamente.</translation>
     <message>
       <source>Decompress the vanilla BSA archives for faster loading (native Linux MPI installer) and add the result as a mod. Needs the FNV BSA Decompressor download from Nexus.</source>
       <translation>Descomprimir os arquivos BSA de baunilha para carregamento mais rápido (instalador de MPI nativo Linux) e adicionar o resultado como um mod. Precisa do descompressor FNV BSA do Nexus.</translation>
+    </message>
+    <message>
+      <source>Decompress the vanilla BSA archives for faster loading (native Linux MPI installer) and add the result as a mod. Needs the FO3 BSA Decompressor download from Nexus.</source>
+      <translation>Descompacte os arquivos BSA vanilla para carregamento mais rápido (instalador MPI nativo do Linux) e adicione o resultado como um mod. Precisa do download do Descompactador BSA FO3 em Nexus.</translation>
+    </message>
+    <message>
+      <source>Patch the vanilla .esm masters with community bugfixes (native Linux MPI installer) and add the result as a mod. Needs the Unofficial Fallout 3 ESM Patcher download from Nexus.</source>
+      <translation>Patch os mestres do vanilla .esm com a comunidade de bugfixes (instalador nativo do Linux MPI) e adicione o resultado como um mod. Precisa do download nofficial do Fallout 3 do ESM Patcher do Nexus.</translation>
     </message>
     <message>
       <source>Patch the vanilla .esm masters with community bugfixes (native Linux MPI installer) and add the result as a mod. Needs the Ultimate Edition ESM Fixes Remastered download from Nexus.</source>
@@ -17797,7 +18323,7 @@ Pressione Atualizar para tentar novamente.</translation>
     </message>
     <message>
       <source>RSuite (experimental)</source>
-      <translation type="unfinished">RSuite (experimental)</translation>
+      <translation>Rite (experimental)</translation>
     </message>
     <message>
       <source>Patchers and Cleanup</source>
@@ -17805,7 +18331,7 @@ Pressione Atualizar para tentar novamente.</translation>
     </message>
     <message>
       <source>xEdit</source>
-      <translation type="unfinished">xEdit</translation>
+      <translation>xEdit</translation>
     </message>
     <message>
       <source>Load Order and Config</source>
@@ -17813,11 +18339,11 @@ Pressione Atualizar para tentar novamente.</translation>
     </message>
     <message>
       <source>INI Tweaks</source>
-      <translation type="unfinished">INI Tweaks</translation>
+      <translation>Ajustes INI</translation>
     </message>
     <message>
       <source>NIF Viewer</source>
-      <translation type="unfinished">NIF Viewer</translation>
+      <translation>Visualizador de NIF</translation>
     </message>
     <message>
       <source>Other</source>
@@ -17990,7 +18516,7 @@ Reabra este wizard.</translation>
     </message>
     <message>
       <source>Deploy</source>
-      <translation type="unfinished">Deploy</translation>
+      <translation>Implantar</translation>
     </message>
   </context>
   <context>
@@ -18323,6 +18849,21 @@ Quando você o fechar, suas alterações serão restauradas automaticamente.</tr
     </message>
   </context>
   <context>
+    <name>_BindingInput</name>
+    <message>
+      <source>Shortcut key or mouse button</source>
+      <translation>Tecla de atalho ou botão do mouse</translation>
+    </message>
+    <message>
+      <source>Click here, then press a keyboard key, Mouse 3, or a side button. Escape cancels; left and right click are reserved.</source>
+      <translation>Clique aqui, em seguida, pressione uma tecla de teclado, o Mouse 3 ou um botão lateral. Cancelar fuga; botão esquerdo e direito são reservados.</translation>
+    </message>
+    <message>
+      <source>Press key</source>
+      <translation>Pressione a tecla</translation>
+    </message>
+  </context>
+  <context>
     <name>_GameCard</name>
     <message>
       <source>Select</source>
@@ -18377,15 +18918,15 @@ Quando você o fechar, suas alterações serão restauradas automaticamente.</tr
     <name>_OverridesModel</name>
     <message>
       <source>Pak</source>
-      <translation type="unfinished">Pak</translation>
+      <translation>Pak</translation>
     </message>
     <message>
       <source>Mod</source>
-      <translation type="unfinished">Mod</translation>
+      <translation>Mod</translation>
     </message>
     <message>
       <source>Status</source>
-      <translation type="unfinished">Status</translation>
+      <translation>SItuação</translation>
     </message>
     <message>
       <source>No meta.lsx</source>
@@ -18466,7 +19007,7 @@ Quando você o fechar, suas alterações serão restauradas automaticamente.</tr
     </message>
     <message>
       <source>{0} / {1}</source>
-      <translation type="unfinished">{0} / {1}</translation>
+      <translation>{0} / {1}</translation>
     </message>
     <message>
       <source>Cancelling…</source>
@@ -18520,7 +19061,7 @@ Publicar faz com que essa revisão seja instalada pelos usuários. Não pode ser
     <name>_ReqCard</name>
     <message>
       <source>Mod {0}</source>
-      <translation type="unfinished">Mod {0}</translation>
+      <translation>Mod {0}</translation>
     </message>
     <message>
       <source>(External)</source>
@@ -18559,7 +19100,7 @@ Publicar faz com que essa revisão seja instalada pelos usuários. Não pode ser
     </message>
     <message>
       <source>Nexus Mods</source>
-      <translation type="unfinished">Nexus Mods</translation>
+      <translation>Nexus Mods</translation>
     </message>
     <message>
       <source>Download mod from Nexus</source>
@@ -18583,7 +19124,7 @@ Publicar faz com que essa revisão seja instalada pelos usuários. Não pode ser
     </message>
     <message>
       <source>Thunderstore</source>
-      <translation type="unfinished">Thunderstore</translation>
+      <translation>Thunderstore</translation>
     </message>
     <message>
       <source>Download package from Thunderstore</source>
@@ -18599,7 +19140,7 @@ Publicar faz com que essa revisão seja instalada pelos usuários. Não pode ser
     </message>
     <message>
       <source>Manual</source>
-      <translation type="unfinished">Manual</translation>
+      <translation>Manualmente</translation>
     </message>
     <message>
       <source>User obtains the file; instructions are shown</source>
@@ -18627,7 +19168,7 @@ Publicar faz com que essa revisão seja instalada pelos usuários. Não pode ser
     </message>
     <message>
       <source>https://…</source>
-      <translation type="unfinished">https://…</translation>
+      <translation>https://…</translation>
     </message>
     <message>
       <source>Instructions shown to the user:</source>
