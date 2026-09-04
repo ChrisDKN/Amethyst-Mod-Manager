@@ -292,8 +292,8 @@ class SettingsView(OverlayBase):
             font-weight: bold;
         }}
         {help_mark_qss(self._pal)}
-        QLabel#RestartNote {{ color: {c('TEXT_WARN')}; }}
         QLabel#Help {{ color: {c('TEXT_DIM')}; }}
+        QLabel#ScaleValue:disabled {{ color: {c('TEXT_DIM')}; }}
         QSlider::groove:horizontal {{
             height: 4px; background: {c('BG_DEEP')}; border-radius: 2px;
         }}
@@ -302,6 +302,10 @@ class SettingsView(OverlayBase):
             border-radius: 7px;
         }}
         QSlider::sub-page:horizontal {{ background: {c('ACCENT')}; border-radius: 2px; }}
+        QSlider#ScaleSlider::handle:horizontal:disabled,
+        QSlider#ScaleSlider::sub-page:horizontal:disabled {{
+            background: {c('TEXT_DIM')};
+        }}
         """
 
     # ---- section + control builders --------------------------------------
@@ -541,32 +545,13 @@ class SettingsView(OverlayBase):
         self._finish_section(theme_group)
 
         g = self._section(self.tr("User Interface"))
-        # Language row: the combo sits in the shared control column; its
-        # "Sync language files" button moves to the section footer with the
-        # other actions, so the option rows stay a clean label|control grid.
         row = self._next_row(g)
         g.addWidget(QLabel(self.tr("Language")), row, self.COL_LABEL)
         self._lang_combo = QComboBox()
         no_wheel(self._lang_combo)
-        # Keep the selector compact instead of stretching across the modal.
         self._lang_combo.setFixedWidth(self.COMBO_W)
-        # Crowdin sits beside the combo so the invitation to translate is next
-        # to the list of languages it fills, not buried in the section footer.
-        lang_wrap = QHBoxLayout()
-        lang_wrap.setContentsMargins(0, 0, 0, 0)
-        lang_wrap.setSpacing(6)
-        lang_wrap.addWidget(self._lang_combo)
-        crowdin_btn = QPushButton(self.tr("Translate on Crowdin"))
-        crowdin_btn.setCursor(Qt.PointingHandCursor)
-        crowdin_btn.setToolTip(self._tip_text(self.tr(
-            "Open the Amethyst Crowdin project to help translate the app.")))
-        crowdin_btn.clicked.connect(self._open_crowdin)
-        lang_wrap.addWidget(crowdin_btn)
-        lang_wrap.addStretch(1)
-        g.addLayout(lang_wrap, row, self.COL_CTRL)
+        g.addWidget(self._lang_combo, row, self.COL_CTRL, Qt.AlignLeft)
         self._populate_language_combo()
-
-        self._build_ui_scale(g)
 
         # Applies live. As a side bar the buttons are icon-only, with their
         # labels as tooltips.
@@ -577,14 +562,25 @@ class SettingsView(OverlayBase):
              (self.tr("Right side"), "right")],
             uc.load_header_position(), self._save_header_position)
 
-        # Theme and toolbar position are live; only Language / UI Scale still
-        # need a restart. Indented to the control column so it reads as a note
-        # about the controls above rather than a row label of its own.
+        self._build_ui_scale(g)
+
         note = QLabel(self.tr(
             "Language and UI scale changes take effect after restart."))
-        note.setObjectName("RestartNote")
-        g.addWidget(note, self._next_row(g), self.COL_CTRL)
+        note.setObjectName("Help")
+        note.setWordWrap(True)
+        g.addWidget(note, self._next_row(g), self.COL_LABEL, 1, 2)
 
+        self._lang_sync_btn = self._action_row(
+            g, self.tr("Sync language files"), self._on_sync_languages)
+        crowdin_btn = self._action_row(
+            g, self.tr("Translate on Crowdin"), self._open_crowdin)
+        crowdin_btn.setToolTip(self._tip_text(self.tr(
+            "Open the Amethyst Crowdin project to help translate the app.")))
+        for button in (self._lang_sync_btn, crowdin_btn):
+            button.setObjectName("FooterButton")
+        self._finish_section(g)
+
+        g = self._section(self.tr("Mod list"))
         self._checkbox(
             g, self.tr("Hide BSA conflicts"),
             uc.load_hide_bsa_conflicts, uc.save_hide_bsa_conflicts,
@@ -599,7 +595,9 @@ class SettingsView(OverlayBase):
             uc.load_show_summary_tooltips, uc.save_show_summary_tooltips,
             help=self.tr("Show a mod's Nexus description as a tooltip when you "
                  "hover over its name in the mod list."))
+        self._finish_section(g)
 
+        g = self._section(self.tr("Status bar"))
         self._checkbox(
             g, self.tr("Hide Ko-Fi button"),
             uc.load_hide_kofi_button, uc.save_hide_kofi_button,
@@ -612,8 +610,6 @@ class SettingsView(OverlayBase):
             help=self.tr("Hide the Endorse AMM button in the status bar."),
             on_changed=lambda _v: self._apply_support_buttons())
 
-        self._lang_sync_btn = self._action_row(
-            g, self.tr("Sync language files"), self._on_sync_languages)
         self._finish_section(g)
 
     def _open_crowdin(self) -> None:
@@ -796,6 +792,11 @@ class SettingsView(OverlayBase):
             g, self.tr("UI Scale"), 50, 200, pct, lambda _v: None,
             help=self.tr("Make the whole interface bigger or smaller. "
                "Changes take effect after a restart."))
+        self._scale_slider.setObjectName("ScaleSlider")
+        self._scale_slider.setFixedWidth(self.COMBO_W)
+        self._scale_val_lbl.setObjectName("ScaleValue")
+        self._scale_val_lbl.setFixedWidth(
+            self._scale_val_lbl.fontMetrics().horizontalAdvance("200%") + 4)
         self._scale_slider.setSingleStep(5)
         self._scale_slider.setPageStep(10)
         self._scale_val_lbl.setText(f"{pct}%")
@@ -806,6 +807,7 @@ class SettingsView(OverlayBase):
         self._scale_slider.valueChanged.connect(self._on_scale_value_changed)
         self._scale_slider.sliderReleased.connect(self._commit_ui_scale)
         self._scale_slider.setEnabled(not is_auto)
+        self._scale_val_lbl.setEnabled(not is_auto)
 
         # Auto checkbox - sits below the slider; ticking it disables the slider.
         # Placed in the control column (not spanning from the label column) so
@@ -813,10 +815,11 @@ class SettingsView(OverlayBase):
         self._scale_auto_cb = QCheckBox(self.tr("Auto (match display)"))
         self._scale_auto_cb.setChecked(is_auto)
         self._scale_auto_cb.toggled.connect(self._on_ui_scale_auto_toggled)
-        g.addWidget(self._scale_auto_cb, self._next_row(g), self.COL_CTRL, 1, 2)
+        g.addWidget(self._scale_auto_cb, self._next_row(g), self.COL_CTRL)
 
     def _on_ui_scale_auto_toggled(self, on: bool):
         self._scale_slider.setEnabled(not on)
+        self._scale_val_lbl.setEnabled(not on)
         if on:
             # Enabling auto switches to the detected scale, which differs from
             # whatever manual value is applied - needs a restart to take effect.
