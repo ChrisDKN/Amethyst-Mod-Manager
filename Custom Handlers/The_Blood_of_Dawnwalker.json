@@ -1,0 +1,92 @@
+{
+  "name": "The Blood of Dawnwalker",
+  "game_id": "The_Blood_of_Dawnwalker",
+  "exe_name": "Dawnwalker/Binaries/Win64/Dawnwalker.exe",
+  "deploy_type": "ue5",
+  "mod_data_path": "Dawnwalker",
+  "steam_id": "3751260",
+  "nexus_game_domain": "thebloodofdawnwalker",
+  "image_url": "https://cdn2.steamgriddb.com/icon/82ef72f2d9548e45ab6f52b33bf35459/32/512x512.png",
+  "mod_folder_strip_prefixes": [
+    "Dawnwalker",
+    "Content",
+    "Paks",
+    "~mods",
+    "Binaries",
+    "Win64",
+    "Mods"
+  ],
+  "conflict_ignore_filenames": [
+    "LICENSE",
+    "*.md",
+    "*read*.txt",
+    "*.png",
+    "*.html"
+  ],
+  "conflict_ignore_foldernames": [],
+  "mod_folder_strip_prefixes_post": [],
+  "mod_install_prefix": "",
+  "mod_required_top_level_folders": [],
+  "mod_auto_strip_until_required": false,
+  "mod_required_file_types": [],
+  "mod_install_as_is_if_no_match": false,
+  "restore_before_deploy": true,
+  "normalize_folder_case": true,
+  "filemap_casing": "upper",
+  "wine_dll_overrides": {},
+  "custom_routing_rules": [
+    {
+      "dest": "Content/Paks/~mods",
+      "extensions": [
+        ".pak"
+      ],
+      "companion_extensions": [
+        ".ucas",
+        ".utoc"
+      ],
+      "include_siblings": true
+    },
+    {
+      "dest": "Content/Paks",
+      "folders": [
+        "LogicMods"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Binaries/Win64/ue4ss",
+      "filenames": [
+        "ue4ss.dll",
+        "ue4ss-settings.ini"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Binaries/Win64",
+      "folders": [
+        "ue4ss"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Binaries/Win64/ue4ss/Mods",
+      "folders": [
+        "scripts",
+        "dlls"
+      ],
+      "include_siblings": true
+    },
+    {
+      "dest": "Binaries/Win64/ue4ss/Mods",
+      "filenames": [
+        "enabled.txt",
+        "mods.txt"
+      ],
+      "include_siblings": true
+    }
+  ],
+  "restore_whitelist": [],
+  "custom_frameworks": {},
+  "version": 1,
+  "editable": false
+}
