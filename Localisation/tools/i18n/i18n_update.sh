@@ -1,10 +1,11 @@
 #!/bin/bash
 # Extract translatable strings from the Qt UI and (re)compile translations.
 #
-#   ./tools/i18n_update.sh          # update .ts files + compile all .qm
-#   ./tools/i18n_update.sh de fr    # only (re)generate these language .ts files
+#   ./tools/i18n/i18n_update.sh          # update .ts files + compile all .qm
+#   ./tools/i18n/i18n_update.sh de fr    # only (re)generate these language .ts files
 #
-# 1. pyside6-lupdate scans gui_qt/ + wizards_qt/ for tr()/translate() calls and
+# 1. pyside6-lupdate scans gui_qt/ + wizards_qt/ + Games/ for tr()/translate()
+#    calls and
 #    merges any new/changed strings into translations/amethyst_<code>.ts,
 #    preserving existing human translations (new strings arrive marked
 #    "unfinished"). Edit the .ts in Qt Linguist or any text editor.
@@ -44,8 +45,12 @@ else
     LANGS=()
 fi
 
-# All Python sources with translatable strings.
-mapfile -t PY_FILES < <(find "$SRC/gui_qt" "$SRC/wizards_qt" -name '*.py' | sort)
+# All Python sources with translatable strings. Games/ is included because the
+# per-game Qt wizards live there (Games/Morrowind/*_qt.py) — without it a tr()
+# added to one would extract to nothing and silently never translate. Keep this
+# list in sync with refresh_translations.sh and i18n_gui.py's audit.
+mapfile -t PY_FILES < <(find "$SRC/gui_qt" "$SRC/wizards_qt" "$SRC/Games" \
+    -name '*.py' -not -path '*/__pycache__/*' | sort)
 
 # -no-obsolete drops strings that are no longer in the source (and any orphaned
 # empty-context entries left over from a context change) so re-runs don't
@@ -102,6 +107,12 @@ with open(path, "w", encoding="utf-8") as f:
 print(f"   filled {n} English translations")
 PY
 "$VENV/bin/python3" "$NORMALIZE" "$EN_TS" >/dev/null
+
+# Guard the English base: strings with no context are dead (lupdate could not
+# tell which class the self.tr() call was in), and a placeholder that .format()
+# can't handle is a runtime crash. check_ts.py explains both causes; failing
+# here is deliberate - a broken base propagates into every language.
+"$VENV/bin/python3" "$(dirname "$0")/check_ts.py" "$EN_TS"
 
 echo ">> lrelease all .ts"
 for ts in "$TR_DIR"/amethyst_*.ts; do

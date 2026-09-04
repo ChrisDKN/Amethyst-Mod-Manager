@@ -92,6 +92,12 @@ KWARG_CALLEE_DENYLIST = {
     "run_tool_logged", "run_tool", "app_log", "log", "_log", "_wlog",
     "logging", "getLogger", "debug", "info", "warning", "error", "exception",
     "run_in_worker", "Signal", "emit",
+    # Game handlers are toolkit-neutral (no self.tr), so WizardTool label= /
+    # description= and LaunchToggle label= / hint= stay canonical English at the
+    # definition site and are translated where Qt renders them (_tr_wizard in
+    # gui_qt/app.py; launcher_settings_overlay.py). The literals are extracted
+    # from gui_qt/wizard_tr_markers.py instead.
+    "WizardTool", "LaunchToggle",
 }
 
 # Receiver expression to use for tr(). Everything here is inside a QObject

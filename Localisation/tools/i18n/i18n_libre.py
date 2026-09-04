@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Machine-translate a Qt .ts with a LOCAL LibreTranslate server (free, offline).
 
-A fallback for tools/i18n_deepl.py when the DeepL quota is exhausted. Same
+A fallback for tools/i18n/i18n_deepl.py when the DeepL quota is exhausted. Same
 behaviour: reads the English base for the string list, translates the unfinished
 entries, writes finished <translation>s. Quality is rougher than DeepL — treat
 as a reviewable placeholder.
@@ -11,8 +11,8 @@ Start a local server first (models auto-download on first run), e.g.:
 
 Then:
     AMM_I18N_OUT_DIR=src/translations \\
-        python3 tools/i18n_libre.py nl --only-unfinished
-    AMM_LT_URL=http://127.0.0.1:5000 python3 tools/i18n_libre.py cs
+        python3 tools/i18n/i18n_libre.py nl --only-unfinished
+    AMM_LT_URL=http://127.0.0.1:5000 python3 tools/i18n/i18n_libre.py cs
 
 Options mirror i18n_deepl.py: --only-unfinished, --limit=N, --dry-run.
 Env: AMM_LT_URL (default http://127.0.0.1:5000), AMM_I18N_OUT_DIR (output dir).
@@ -31,6 +31,9 @@ import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
 from pathlib import Path
+
+from ts_merge import (read_existing, pending_texts, apply_translations,
+                      write_ts)
 
 EN_TS = (Path(__file__).resolve().parents[2]
          / "src" / "translations" / "amethyst_en.ts")
@@ -117,32 +120,30 @@ def main() -> int:
                          f"Known: {', '.join(sorted(_LT_TARGET))}")
 
     if not EN_TS.is_file():
-        raise SystemExit(f"{EN_TS} not found — run ./tools/i18n_update.sh first.")
+        raise SystemExit(f"{EN_TS} not found — run ./tools/i18n/i18n_update.sh first.")
     limit = None
     for f in flags:
         if f.startswith("--limit"):
-            limit = int(f.split("=", 1)[1])
+            try:
+                limit = int(f.split("=", 1)[1])
+            except (IndexError, ValueError):
+                raise SystemExit("Use --limit=N")
     only_unfinished = "--only-unfinished" in flags
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     out_ts = OUT_DIR / f"amethyst_{short}.ts"
 
     # Unique source strings from the English base.
-    seen, sources = set(), []
-    for m in ET.parse(EN_TS).getroot().iter("message"):
-        s = (m.find("source").text or "")
-        if s and s not in seen:
-            seen.add(s)
-            sources.append(s)
+    en_root = ET.parse(EN_TS).getroot()
+    sources = sorted({(m.find("source").text or "")
+                      for m in en_root.iter("message")} - {""})
 
-    existing: dict[str, str] = {}
-    if only_unfinished and out_ts.is_file():
-        for m in ET.parse(out_ts).getroot().iter("message"):
-            s = m.find("source"); t = m.find("translation")
-            if s is not None and t is not None and t.text \
-                    and t.get("type") != "unfinished":
-                existing[s.text or ""] = t.text
+    # Keyed by (context, source), not source alone — see ts_merge for why
+    # (the same word is translated differently per context, and a source-only
+    # key silently overwrites a translator's per-context work).
+    existing = read_existing(out_ts) if only_unfinished else {}
 
-    todo = [s for s in sources if s not in existing]
+    # Pending if ANY context still needs the text, not just if it's unknown.
+    todo = pending_texts(en_root, existing)
     if limit is not None:
         todo = todo[:limit]
     print(f"{short}: {len(sources)} strings, {len(existing)} done, "
@@ -153,34 +154,20 @@ def main() -> int:
             print("  →", repr(s))
         return 0
 
-    translations = dict(existing)
+    fresh: dict[str, str] = {}
     for i, s in enumerate(todo, 1):
-        translations[s] = _translate_one(s, lt_code)
+        fresh[s] = _translate_one(s, lt_code)
         if i % 20 == 0 or i == len(todo):
             print(f"  …{i}/{len(todo)}")
 
-    # Clone the English base, swap in the translations.
+    # Clone the English base, swap in the translations per (context, source).
     tree = ET.parse(EN_TS)
     root = tree.getroot()
     root.set("language", short)
-    for m in root.iter("message"):
-        s = m.find("source"); t = m.find("translation")
-        if s is None or t is None:
-            continue
-        src = s.text or ""
-        if src in translations:
-            t.text = translations[src]
-            t.attrib.pop("type", None)
-        else:
-            t.text = ""
-            t.set("type", "unfinished")
+    kept, new = apply_translations(root, existing, fresh)
 
-    body = ET.tostring(root, encoding="unicode")
-    with out_ts.open("w", encoding="utf-8") as f:
-        f.write('<?xml version="1.0" encoding="utf-8"?>\n<!DOCTYPE TS>\n')
-        f.write(body)
-        f.write("\n")
-    print(f"wrote {out_ts}")
+    write_ts(root, out_ts)
+    print(f"wrote {out_ts} ({kept} kept, {new} translated)")
     print(f"now compile:  pyside6-lrelease {out_ts}")
     return 0
 

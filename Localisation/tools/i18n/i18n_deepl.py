@@ -14,12 +14,12 @@ will be imperfect). The generated .ts stays fully editable.
 
 Setup:
     export DEEPL_API_KEY=xxxxxxxx-....-....:fx     # from deepl.com account
-    python3 tools/i18n_deepl.py fr                 # translate EN -> French
+    python3 tools/i18n/i18n_deepl.py fr                 # translate EN -> French
 
 Options:
     --only-unfinished   translate only strings not already translated in the
                         target .ts (preserves existing human translations)
-    --limit N           translate at most N strings (quick smoke test)
+    --limit=N           translate at most N strings (quick smoke test)
     --dry-run           show what would be sent; call no API
 
 Placeholders: {0}, {1}, ... are wrapped in <x> tags and sent with
@@ -41,6 +41,9 @@ import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 from pathlib import Path
+
+from ts_merge import (read_existing, pending_texts, apply_translations,
+                      write_ts)
 
 # The English base (the full string list DeepL reads from) is the built-in
 # source in src/translations/ — that folder ships ENGLISH ONLY.
@@ -150,7 +153,7 @@ def main() -> int:
         raise SystemExit("Set DEEPL_API_KEY (see the script header).")
 
     if not EN_TS.is_file():
-        raise SystemExit(f"{EN_TS} not found — run ./tools/i18n_update.sh first.")
+        raise SystemExit(f"{EN_TS} not found — run ./tools/i18n/i18n_update.sh first.")
 
     limit = None
     for f in flags:
@@ -166,24 +169,20 @@ def main() -> int:
 
     # Source strings come from the English base. If translating only the
     # unfinished ones, read the existing target .ts to see what's already done.
-    en_tree = ET.parse(EN_TS)
-    sources: list[str] = []
-    seen = set()
-    for m in en_tree.getroot().iter("message"):
-        s = (m.find("source").text or "")
-        if s and s not in seen:
-            seen.add(s)
-            sources.append(s)
+    en_root = ET.parse(EN_TS).getroot()
+    sources = sorted({(m.find("source").text or "")
+                      for m in en_root.iter("message")} - {""})
 
-    existing: dict[str, str] = {}
-    if only_unfinished and out_ts.is_file():
-        for m in ET.parse(out_ts).getroot().iter("message"):
-            s = m.find("source"); t = m.find("translation")
-            if s is not None and t is not None and t.text \
-                    and t.get("type") != "unfinished":
-                existing[s.text or ""] = t.text
+    # Existing work is keyed by (context, source) — NOT by source alone. The
+    # same English word lives in many contexts ("Save" is in 15) and a human may
+    # translate it differently in each; keying on source alone lets the last one
+    # read overwrite all the others, silently destroying their work on every
+    # refresh.
+    existing = read_existing(out_ts) if only_unfinished else {}
 
-    todo = [s for s in sources if s not in existing]
+    # The API still works on unique TEXTS (translating "Save" 15 times is pure
+    # waste), but a text counts as pending if ANY context still needs it.
+    todo = pending_texts(en_root, existing)
     if limit is not None:
         todo = todo[:limit]
 
@@ -197,37 +196,24 @@ def main() -> int:
         return 0
 
     # Translate in batches (DeepL accepts up to 50 texts / request).
-    translations = dict(existing)
+    fresh: dict[str, str] = {}
     BATCH = 40
     for i in range(0, len(todo), BATCH):
         chunk = todo[i:i + BATCH]
         got = _translate_batch(key, chunk, target)
         for src, tr in zip(chunk, got):
-            translations[src] = tr
+            fresh[src] = tr
         print(f"  …{min(i + BATCH, len(todo))}/{len(todo)}")
 
-    # Build the target .ts by cloning the English base and swapping translations.
+    # Build the target .ts by cloning the English base and swapping translations
+    # in per (context, source) — existing human work wins over a fresh guess.
     tree = ET.parse(EN_TS)
     root = tree.getroot()
     root.set("language", short)
-    for m in root.iter("message"):
-        s = m.find("source"); t = m.find("translation")
-        if s is None or t is None:
-            continue
-        src = s.text or ""
-        if src in translations:
-            t.text = translations[src]
-            t.attrib.pop("type", None)
-        else:
-            t.text = ""
-            t.set("type", "unfinished")
+    kept, new = apply_translations(root, existing, fresh)
 
-    body = ET.tostring(root, encoding="unicode")
-    with out_ts.open("w", encoding="utf-8") as f:
-        f.write('<?xml version="1.0" encoding="utf-8"?>\n<!DOCTYPE TS>\n')
-        f.write(body)
-        f.write("\n")
-    print(f"wrote {out_ts}")
+    write_ts(root, out_ts)
+    print(f"wrote {out_ts} ({kept} kept, {new} translated)")
     print(f"now compile it:  pyside6-lrelease {out_ts}")
     print("  (or, from Localisation/:  ./tools/compile.sh "
           f"amethyst_{short}.ts)")

@@ -11,7 +11,8 @@ so all the real logic stays in the tested scripts:
 Panels:
   1. Folder + language selection — pick the .ts dir, tick which languages.
   2. Per-language status table — strings vs the English base, unfinished count.
-  3. Backend picker + DeepL quota — DeepL / LibreTranslate / Auto + live usage.
+  3. Backend picker + DeepL key/quota — DeepL / LibreTranslate / Auto, the API
+     key (saved to ~/.config/amethyst/i18n_gui.json) + live usage.
   4. LibreTranslate server controls — Start / Stop / Status.
   5. Run + live log.
 
@@ -41,6 +42,12 @@ I18N_DIR = Path(__file__).resolve().parent   # tools/i18n/ — the sibling scrip
 EN_TS = REPO / "src" / "translations" / "amethyst_en.ts"
 LT_URL = os.environ.get("AMM_LT_URL", "http://127.0.0.1:5000").rstrip("/")
 
+# Where the DeepL key entered in the GUI is remembered between runs. Kept out of
+# the repo (it's a secret) and written 0600.
+CONFIG_PATH = (Path(os.environ.get("XDG_CONFIG_HOME",
+                                   str(Path.home() / ".config")))
+               / "amethyst" / "i18n_gui.json")
+
 # The app's shipped languages (must match src/translations / the tooling maps).
 LANGS = ["fr", "de", "es", "it", "pt", "pt_BR", "ru", "pl", "zh", "ja",
          "nl", "cs"]
@@ -67,8 +74,37 @@ def _count_ts(path: Path) -> tuple[int, int]:
         return 0, 0
 
 
-def _deepl_usage() -> "tuple[int, int] | None":
-    key = os.environ.get("DEEPL_API_KEY", "").strip()
+def _load_config() -> dict:
+    """The GUI's saved settings ({} if none / unreadable)."""
+    try:
+        return json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _save_deepl_key(key: str) -> None:
+    """Persist (or clear) the DeepL key in the user's config, mode 0600."""
+    cfg = _load_config()
+    if key:
+        cfg["deepl_api_key"] = key
+    else:
+        cfg.pop("deepl_api_key", None)
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    CONFIG_PATH.write_text(json.dumps(cfg, indent=2) + "\n", encoding="utf-8")
+    try:
+        CONFIG_PATH.chmod(0o600)
+    except OSError:
+        pass
+
+
+def _stored_deepl_key() -> str:
+    """The key to use: the one saved in the GUI, else DEEPL_API_KEY from env."""
+    return (_load_config().get("deepl_api_key")
+            or os.environ.get("DEEPL_API_KEY", "")).strip()
+
+
+def _deepl_usage(key: str | None = None) -> "tuple[int, int] | None":
+    key = (key if key is not None else _stored_deepl_key()).strip()
     if not key:
         return None
     host = ("https://api-free.deepl.com/v2/usage" if key.endswith(":fx")
@@ -181,6 +217,33 @@ class TranslationManager(QWidget):
         self._rb_auto.setChecked(True)
         for rb in (self._rb_auto, self._rb_deepl, self._rb_libre):
             self._bg.addButton(rb); bl.addWidget(rb)
+
+        # DeepL API key — saved to the user config and exported to every task.
+        keyrow = QHBoxLayout()
+        keyrow.addWidget(QLabel("DeepL key:"))
+        self._key_edit = QLineEdit(_stored_deepl_key())
+        self._key_edit.setEchoMode(QLineEdit.Password)
+        self._key_edit.setPlaceholderText("xxxxxxxx-….-….:fx")
+        self._key_edit.setToolTip(
+            "Your DeepL API key (deepl.com → Account → API keys). Saved to "
+            f"{CONFIG_PATH} and passed to the translation scripts. Leave empty "
+            "to fall back to the DEEPL_API_KEY environment variable.")
+        self._key_edit.returnPressed.connect(self._save_key)
+        self._key_show = QPushButton("👁")
+        self._key_show.setCheckable(True)
+        self._key_show.setFixedWidth(32)
+        self._key_show.setToolTip("Show/hide the key")
+        self._key_show.toggled.connect(
+            lambda on: self._key_edit.setEchoMode(
+                QLineEdit.Normal if on else QLineEdit.Password))
+        self._key_save = QPushButton("Save")
+        self._key_save.setToolTip("Save the key and re-check the DeepL quota")
+        self._key_save.clicked.connect(self._save_key)
+        keyrow.addWidget(self._key_edit, 1)
+        keyrow.addWidget(self._key_show)
+        keyrow.addWidget(self._key_save)
+        bl.addLayout(keyrow)
+
         self._deepl_lbl = QLabel("DeepL: —")
         self._deepl_lbl.setStyleSheet("color:#888;")
         bl.addWidget(self._deepl_lbl)
@@ -275,9 +338,27 @@ class TranslationManager(QWidget):
             from PySide6.QtGui import QColor
             it.setForeground(QColor(color))
 
+    def _deepl_key(self) -> str:
+        """The key in force right now — what's in the field (so a typed-but-not-
+        yet-saved key still works), which starts out as the saved/env one."""
+        return self._key_edit.text().strip()
+
+    def _save_key(self):
+        key = self._deepl_key()
+        self._key_edit.setText(key)
+        try:
+            _save_deepl_key(key)
+        except OSError as e:
+            QMessageBox.warning(self, "Could not save key",
+                                f"{CONFIG_PATH}:\n{e}")
+            return
+        self._log_line(f"DeepL key {'saved to' if key else 'cleared from'} "
+                       f"{CONFIG_PATH}")
+        self._refresh_backends()
+
     def _refresh_backends(self):
         # DeepL quota.
-        usage = _deepl_usage()
+        usage = _deepl_usage(self._deepl_key())
         if usage is None:
             self._deepl_lbl.setText("DeepL: no key / unreachable")
             self._deepl_lbl.setStyleSheet("color:#888;")
@@ -320,6 +401,13 @@ class TranslationManager(QWidget):
         self._proc.setProcessChannelMode(QProcess.MergedChannels)
         self._proc.setWorkingDirectory(str(REPO))
         env = QProcessEnvironment.systemEnvironment()
+        # The key from the GUI wins over whatever the shell exported (and an
+        # emptied field clears it, so "no key" really means none).
+        key = self._deepl_key()
+        if key:
+            env.insert("DEEPL_API_KEY", key)
+        else:
+            env.remove("DEEPL_API_KEY")
         for k, val in (env_extra or {}).items():
             env.insert(k, val)
         self._proc.setProcessEnvironment(env)
@@ -360,11 +448,11 @@ class TranslationManager(QWidget):
         self._run(["bash", str(I18N_DIR / "libretranslate_server.sh"), "stop"])
 
     def _run_audit(self):
-        """Scan gui_qt/ + wizards_qt/ for user-facing strings NOT wrapped in
+        """Scan the UI source roots for user-facing strings NOT wrapped in
         tr(). Uses i18n_wrap.find_sites() in-process; 'wrappable' sites are the
         real misses (they can be auto-wrapped). Streams a report to the log."""
         self._log.clear()
-        self._log_line("Scanning gui_qt/ + wizards_qt/ for unwrapped strings…\n")
+        self._log_line("Scanning UI sources for unwrapped strings…\n")
         try:
             import importlib
             sys.path.insert(0, str(I18N_DIR))
@@ -374,9 +462,14 @@ class TranslationManager(QWidget):
             return
         import ast
         import re as _re
+        # Must match the roots i18n_update.sh feeds to lupdate, or the audit
+        # reports "clean" for files whose strings are never extracted anyway.
+        # rglob, not glob: lupdate uses a recursive find, so a future
+        # subpackage would otherwise be extracted but never audited.
         files = sorted(
-            list((REPO / "src" / "gui_qt").glob("*.py"))
-            + list((REPO / "src" / "wizards_qt").glob("*.py")))
+            p for root in ("gui_qt", "wizards_qt", "Games")
+            for p in (REPO / "src" / root).rglob("*.py")
+            if "__pycache__" not in p.parts)
         total_wrap = 0       # auto-wrappable misses (self.tr can be applied)
         total_manual = 0     # need a hand fix (ternary/f-string/no-self/literal)
         flagged = 0
@@ -486,6 +579,13 @@ class TranslationManager(QWidget):
             return
         env = {}
         if self._rb_deepl.isChecked():
+            if not self._deepl_key():
+                QMessageBox.warning(
+                    self, "No DeepL key",
+                    "The DeepL backend needs an API key — enter one in the "
+                    "Translation backend box (and Save it to keep it), or pick "
+                    "Auto / LibreTranslate.")
+                return
             env["AMM_MT_BACKEND"] = "deepl"
         elif self._rb_libre.isChecked():
             env["AMM_MT_BACKEND"] = "libre"

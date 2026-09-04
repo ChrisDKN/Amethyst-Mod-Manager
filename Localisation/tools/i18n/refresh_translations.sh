@@ -3,12 +3,12 @@
 # strings and machine-translate only what's new. This is the command to run
 # after adding/changing UI strings.
 #
-#   ./tools/refresh_translations.sh <lang-dir> [lang...]
+#   ./tools/i18n/refresh_translations.sh <lang-dir> [lang...]
 #
 # e.g.
-#   ./tools/refresh_translations.sh src/translations              # all langs found
-#   ./tools/refresh_translations.sh src/translations fr de        # just these
-#   ./tools/refresh_translations.sh ~/…/Resources/Localisation    # Resources copy
+#   ./tools/i18n/refresh_translations.sh src/translations              # all langs found
+#   ./tools/i18n/refresh_translations.sh src/translations fr de        # just these
+#   ./tools/i18n/refresh_translations.sh ~/…/Resources/Localisation    # Resources copy
 #
 # For each language, in <lang-dir>, it:
 #   1. MERGES new UI strings into amethyst_<code>.ts (existing translations
@@ -58,13 +58,20 @@ if [ "${#LANGS[@]}" -eq 0 ]; then
     exit 1
 fi
 echo "languages: ${LANGS[*]}"
+FAILED=()
 
 # First refresh the built-in English base (the source of truth for the string
 # list) WITHOUT touching any language .ts in src/translations/ (en-only there).
-./tools/i18n/i18n_update.sh >/dev/null 2>&1
+# Only the chatter is dropped - stderr is kept, because i18n_update.sh FAILS on
+# a broken English base (dead strings / unsafe placeholders) and swallowing that
+# would abort the refresh with no explanation.
+./tools/i18n/i18n_update.sh >/dev/null
 LRELEASE=".venv/bin/pyside6-lrelease"
 LUPDATE=".venv/bin/pyside6-lupdate"
-mapfile -t PY_FILES < <(find "$SRC/gui_qt" "$SRC/wizards_qt" -name '*.py' | sort)
+# Same roots as i18n_update.sh — see the comment there (Games/ holds per-game
+# Qt wizards). A mismatch here would merge a different string set per language.
+mapfile -t PY_FILES < <(find "$SRC/gui_qt" "$SRC/wizards_qt" "$SRC/Games" \
+    -name '*.py' -not -path '*/__pycache__/*' | sort)
 
 # --- Pick a machine-translation backend --------------------------------------
 # Priority: DeepL (if a working key) > LibreTranslate (if its local server is
@@ -142,8 +149,20 @@ for code in "${LANGS[@]}"; do
     fi
 
     # 4. Normalise quotes/apostrophes to literal (matches Linguist/contributor
-    #    files, so edits don't churn in git — see normalize_ts.py), then compile.
+    #    files, so edits don't churn in git — see normalize_ts.py).
     .venv/bin/python3 "$(dirname "$0")/normalize_ts.py" "$ts" >/dev/null
+
+    # 5. Validate before compiling. A translation whose {0}/{1} placeholders
+    #    .format() can't handle raises inside a Qt callback at runtime — the
+    #    translator never sees it, the user gets a broken screen. --quarantine
+    #    marks those entries unfinished so lrelease leaves them out and Qt falls
+    #    back to English; the text stays in the .ts to be fixed. Reported, not
+    #    silent. `|| true`: one bad string must not abandon the other languages.
+    .venv/bin/python3 "$(dirname "$0")/check_ts.py" --quarantine "$ts" || {
+        echo "  ! $code has problems (see above) — compiled without them"
+        FAILED+=("$code")
+    }
+
     "$LRELEASE" "$ts" 2>&1 | grep -E "Generated" | head -1
     echo "  updated -> $ts + .qm"
 done
@@ -155,4 +174,8 @@ if [ -f "$SRC/translations/amethyst_en.ts" ]; then
     echo "refreshed English reference: $LOC_DIR/amethyst_en.ts"
 fi
 echo ""
+if [ "${#FAILED[@]}" -gt 0 ]; then
+    echo "WARNING: unusable entries were quarantined in: ${FAILED[*]}"
+    echo "  Those strings fall back to English until fixed in the .ts."
+fi
 echo "done. Review the diffs in $LOC_DIR, then commit to the Resources branch."
