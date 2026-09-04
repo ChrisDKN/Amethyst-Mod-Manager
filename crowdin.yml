@@ -1,6 +1,7 @@
 files:
-  - source: /Localisation
+  - source: /Localisation/amethyst_en.ts
     ignore:
       - tools
       - README.md
-    translation: /Localisation/crowdin/%language%/%two_letters_code%.%file_extension%
+      - '*.qm'
+    translation: '%locale_with_underscore%'
