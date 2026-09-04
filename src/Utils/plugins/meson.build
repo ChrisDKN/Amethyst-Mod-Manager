@@ -5,6 +5,7 @@ py.install_sources(
   'mtimes.py',
   'parser.py',
   'sync.py',
+  'state.py',
   'userlist.py',
   subdir: 'Utils/plugins',
 )

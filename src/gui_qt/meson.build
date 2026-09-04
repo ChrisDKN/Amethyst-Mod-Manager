@@ -106,7 +106,6 @@ py.install_sources(
   'plugin_model.py',
   'plugin_rules_view.py',
   'plugin_sort.py',
-  'plugin_state.py',
   'plugin_view.py',
   'prefix_health_overlay.py',
   'prefix_manager_view.py',

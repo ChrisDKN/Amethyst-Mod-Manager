@@ -14,7 +14,7 @@ from PySide6.QtCore import (
     Qt, QAbstractTableModel, QModelIndex, Signal, QT_TRANSLATE_NOOP,
 )
 
-from gui_qt.plugin_state import (
+from Utils.plugins.state import (
     PluginRow, save_plugins, compute_game_indexes,
     enforce_master_block, master_block_enabled, plugin_rank,
     movable_bounds, dependency_bounds,

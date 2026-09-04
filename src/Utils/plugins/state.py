@@ -1,4 +1,4 @@
-"""Plugin list loading for the Qt Plugins tab.
+"""Toolkit-neutral plugin list loading and persistence.
 
 Produces the ordered, flagged plugin list for the active game/profile by reusing
 the backend: Utils.plugins (read_plugins / read_loadorder / write_plugins) and
@@ -1628,4 +1628,4 @@ def save_plugins(game, profile: str, rows: list[PluginRow]) -> None:
         try:
             game.stamp_plugin_load_order(profile)
         except Exception as exc:
-            print(f"[gui_qt] stamp_plugin_load_order failed: {exc}", flush=True)
+            print(f"[plugins] stamp_plugin_load_order failed: {exc}", flush=True)

@@ -32,7 +32,7 @@ from gui_qt.plugin_model import (
     PluginModel, RowRole, PFlagsRole, PHighlightRole,
     COL_NAME, COL_FLAGS, COL_LOCK, COL_PRIORITY, COL_GAME_INDEX, COLUMNS,
 )
-from gui_qt.plugin_state import (
+from Utils.plugins.state import (
     PF_MISSING, PF_LATE, PF_VMM, PF_ESL, PF_LOOT, PF_DIRTY, PF_TAGS,
     PF_USERLIST, PF_UL_CYCLE, PF_GROUNDCOVER, format_loot_tooltip,
     is_master_group,

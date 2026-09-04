@@ -16988,7 +16988,7 @@ class MainWindow(QMainWindow):
                     phase_started=startup_queued,
                     phase_finished=startup_worker_started,
                     lane=startup_lane, category="plugins")
-            from gui_qt.plugin_state import (
+            from Utils.plugins.state import (
                 load_plugins, resolve_plugin_paths_for_game)
             from Utils.plugins.userlist import read_userlist_state
             from Utils.diagnostics.performance import span
@@ -17358,7 +17358,7 @@ class MainWindow(QMainWindow):
                 return
             if self._gs.game is not game or self._gs.profile != profile:
                 return   # switched away while the confirm was up
-            from gui_qt.plugin_state import prune_listed_plugins
+            from Utils.plugins.state import prune_listed_plugins
             prune_listed_plugins(game, profile, names)
             self._notify(
                 self.tr("Removed {0} stale plugin(s)").format(len(names)),
@@ -17404,7 +17404,7 @@ class MainWindow(QMainWindow):
 
         def worker():
             startup_worker_started = _startup_time.perf_counter()
-            from gui_qt.plugin_state import compute_esl_eligibility
+            from Utils.plugins.state import compute_esl_eligibility
             from Utils.diagnostics.performance import span
             data_dir = (game.get_vanilla_plugins_path()
                         if hasattr(game, "get_vanilla_plugins_path") else None)
@@ -17477,7 +17477,7 @@ class MainWindow(QMainWindow):
         if timing is not None:
             timing.mark("deferred ESL result reached the Qt thread")
         phase_started = timing.now() if timing is not None else None
-        from gui_qt.plugin_state import PF_ESL_SAFE, PF_ESL_UNSAFE
+        from Utils.plugins.state import PF_ESL_SAFE, PF_ESL_UNSAFE
         from gui_qt.plugin_model import COL_FLAGS, PFlagsRole
         m = self._plugin_model
         changed = False
@@ -17537,7 +17537,7 @@ class MainWindow(QMainWindow):
         update each plugin row's PF_USERLIST/PF_UL_CYCLE bits + the menu sets +
         the tooltip group map, without a full plugin reload (Tk parity:
         _refresh_userlist_set + _predraw)."""
-        from gui_qt.plugin_state import PF_USERLIST, PF_UL_CYCLE
+        from Utils.plugins.state import PF_USERLIST, PF_UL_CYCLE
         from gui_qt.plugin_model import COL_FLAGS, PFlagsRole
         from Utils.plugins.userlist import read_userlist_state
         state = read_userlist_state(self._userlist_path())
@@ -17909,7 +17909,7 @@ class MainWindow(QMainWindow):
             self._notify(self.tr("Plugin metadata refreshed."), "success")
             return
 
-        from gui_qt.plugin_state import (
+        from Utils.plugins.state import (
             apply_loot_sort, save_plugins, enforce_master_block,
             master_block_enabled)
         from Utils.plugins import enforce_primary_plugin_order

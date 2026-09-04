@@ -143,7 +143,7 @@ def _build_plugin_menu(view, model, row, toggleable, multi,
     )
     groundcover_rows = []
     if groundcover_exts:
-        from gui_qt.plugin_state import PF_GROUNDCOVER
+        from Utils.plugins.state import PF_GROUNDCOVER
         groundcover_rows = [
             i for i in toggleable
             if (model.row(i).name.lower().endswith(groundcover_exts)
@@ -348,7 +348,7 @@ def _set_groundcover(view, indices, enabled: bool):
     if not names:
         return
     try:
-        from gui_qt.plugin_state import (
+        from Utils.plugins.state import (
             PF_GROUNDCOVER,
             groundcover_plugins_for_profile,
         )
@@ -424,7 +424,7 @@ def _plugin_paths(view) -> dict:
     if resolved is not None:
         return resolved
     try:
-        from gui_qt.plugin_state import resolve_plugin_paths_for_game
+        from Utils.plugins.state import resolve_plugin_paths_for_game
         return resolve_plugin_paths_for_game(game)
     except Exception:
         return {}
