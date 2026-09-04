@@ -1,0 +1,74 @@
+name: Compile translations
+
+# Crowdin pushes translated .ts into Localisation/ (via the l10n_Resources
+# branch). Users only ever download the compiled .qm, so a merged translation
+# reaches nobody until something runs lrelease - that is this workflow.
+#
+# Order matters: normalise formatting, validate placeholders, THEN compile.
+# check_ts.py --quarantine degrades an unsafe string to type="unfinished" (Qt
+# falls back to English) instead of letting it raise inside a Qt callback at
+# runtime, so one bad contributor edit can never break the app.
+
+on:
+  push:
+    branches: [Resources]
+    paths:
+      - 'Localisation/*.ts'
+  # Auto-merge pushes with GITHUB_TOKEN, and GitHub does not cascade workflows
+  # from that token - so a merged Crowdin PR never fires the push trigger above.
+  # This catches that case; without it the .ts lands but no .qm is ever built.
+  workflow_run:
+    workflows: ["Auto-merge Crowdin PRs"]
+    types: [completed]
+  workflow_dispatch:
+
+concurrency:
+  group: compile-translations
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      # workflow_run runs against the DEFAULT branch by default, so the ref is
+      # pinned explicitly - otherwise this would check out main and find no
+      # Localisation/ at all.
+      - uses: actions/checkout@v4
+        with:
+          ref: Resources
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install PySide6 tools
+        run: pip install --quiet PySide6-Essentials
+
+      # Crowdin writes 2-space indent and may re-encode quotes as &quot;/&apos;.
+      # Without this every Crowdin PR churns ~100k lines against our 4-space,
+      # literal-quote convention.
+      - name: Normalise .ts
+        run: python3 Localisation/tools/i18n/normalize_ts.py Localisation/amethyst_*.ts
+
+      # Fatal problems fail the run; unsafe placeholders are quarantined rather
+      # than failing, so one bad string never blocks eleven good languages.
+      - name: Validate placeholders and contexts
+        run: python3 Localisation/tools/i18n/check_ts.py --quarantine Localisation/amethyst_*.ts
+
+      - name: Compile .qm
+        run: ./Localisation/tools/compile.sh
+
+      - name: Commit
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Localisation/amethyst_*.ts Localisation/amethyst_*.qm
+          if git diff --staged --quiet; then
+            echo "nothing to commit"
+          else
+            git commit -m "Recompile translations [skip ci]"
+            git push
+          fi

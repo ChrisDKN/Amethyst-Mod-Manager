@@ -1,0 +1,35 @@
+name: Auto-merge Crowdin PRs
+
+# Crowdin's "source and translation files" mode always works through a service
+# branch (l10n_Resources) plus a pull request - it cannot commit straight to
+# Resources. This merges those PRs unattended so translation fixes reach users
+# without a manual click.
+#
+# The guard pins this to exactly the Crowdin service branch targeting Resources,
+# so a human PR can never be swallowed by it. Branch names are checked rather
+# than the bot's login, which is more reliable than guessing the actor.
+#
+# NB: merging with GITHUB_TOKEN produces a push that does NOT trigger other
+# workflows (GitHub suppresses cascades from that token). That is why
+# compile-translations.yml also listens for this workflow via workflow_run -
+# without that, the .ts would land on Resources and never get compiled to .qm.
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  merge:
+    if: github.head_ref == 'l10n_Resources' && github.base_ref == 'Resources'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Merge the Crowdin PR
+        run: gh pr merge --squash --admin "$PR"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
