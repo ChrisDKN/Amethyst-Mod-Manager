@@ -10,6 +10,21 @@ from .jobs import JobManager
 PROTOCOL_NAME = "amethyst.headless"
 PROTOCOL_VERSION = 1
 
+_NEXUS_QUERY_MODES = ("browse", "name", "author", "uploader_id", "trending")
+_NEXUS_QUERY_SORTS = {
+    "downloads": "downloads",
+    "endorsements": "endorsements",
+    "created": "createdAt",
+    "updated": "updatedAt",
+}
+_NEXUS_FILTER_FIELDS = (
+    "tag_includes", "tag_excludes", "languages", "hide_translations",
+    "min_file_size_kb", "max_file_size_kb", "min_downloads",
+    "max_downloads", "min_endorsements", "max_endorsements", "adult",
+    "supports_vortex", "has_updated", "title_contains",
+    "description_contains", "author_contains", "uploader_contains",
+)
+
 
 class ServiceError(Exception):
     def __init__(self, rpc_code: int, name: str, message: str,
@@ -41,6 +56,8 @@ class AmethystService:
         "nexus.auth.login.cancel",
         "nexus.auth.logout.start",
         "nexus.user.get.start",
+        "nexus.mods.filters.start",
+        "nexus.mods.search.start",
         "nexus.mods.get.start",
         "nexus.mods.files.start",
         "nexus.files.get.start",
@@ -84,6 +101,8 @@ class AmethystService:
             "nexus.auth.login.cancel": self._cancel_nexus_login,
             "nexus.auth.logout.start": self._start_nexus_logout,
             "nexus.user.get.start": self._start_nexus_user,
+            "nexus.mods.filters.start": self._start_nexus_filters,
+            "nexus.mods.search.start": self._start_nexus_search,
             "nexus.mods.get.start": self._start_nexus_mod,
             "nexus.mods.files.start": self._start_nexus_files,
             "nexus.files.get.start": self._start_nexus_file,
@@ -165,6 +184,171 @@ class AmethystService:
                 {"parameter": name},
             )
         return value
+
+    @staticmethod
+    def _integer_range(
+        value: Any, parameter: str, minimum: int, maximum: int,
+    ) -> int:
+        if (isinstance(value, bool) or not isinstance(value, int)
+                or not minimum <= value <= maximum):
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                f"'{parameter}' must be an integer from {minimum} to {maximum}.",
+                {"parameter": parameter},
+            )
+        return value
+
+    @staticmethod
+    def _text_array(value: Any, parameter: str) -> list[str]:
+        if not isinstance(value, list) or len(value) > 64:
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                f"'{parameter}' must be an array of at most 64 strings.",
+                {"parameter": parameter},
+            )
+        result: list[str] = []
+        seen: set[str] = set()
+        for index, item in enumerate(value):
+            name = f"{parameter}[{index}]"
+            if (not isinstance(item, str) or not item.strip()
+                    or len(item.strip()) > 128):
+                raise ServiceError(
+                    -32602,
+                    "invalid_params",
+                    f"'{name}' must be a string from 1 to 128 characters.",
+                    {"parameter": name},
+                )
+            text = item.strip()
+            folded = text.casefold()
+            if folded in seen:
+                raise ServiceError(
+                    -32602,
+                    "invalid_params",
+                    f"'{name}' duplicates an earlier value.",
+                    {"parameter": name, "value": text},
+                )
+            seen.add(folded)
+            result.append(text)
+        return result
+
+    def _nexus_filters(self, value: Any) -> tuple[Any, dict[str, Any]]:
+        if not isinstance(value, dict):
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'filters' must be a JSON object.",
+                {"parameter": "filters"},
+            )
+        self._check_params(value, set(_NEXUS_FILTER_FIELDS))
+        normalized: dict[str, Any] = {}
+
+        for name in ("tag_includes", "tag_excludes", "languages"):
+            if name in value:
+                normalized[name] = self._text_array(
+                    value[name], f"filters.{name}")
+
+        included = {
+            item.casefold() for item in normalized.get("tag_includes", [])}
+        excluded = {
+            item.casefold() for item in normalized.get("tag_excludes", [])}
+        overlap = sorted(included.intersection(excluded))
+        if overlap:
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "A Nexus tag cannot be both included and excluded.",
+                {"parameter": "filters", "conflicting_tags": overlap},
+            )
+
+        for name in ("hide_translations", "has_updated"):
+            if name not in value:
+                continue
+            if not isinstance(value[name], bool):
+                raise ServiceError(
+                    -32602,
+                    "invalid_params",
+                    f"'filters.{name}' must be a boolean.",
+                    {"parameter": f"filters.{name}"},
+                )
+            normalized[name] = value[name]
+
+        for name in ("adult", "supports_vortex"):
+            if name not in value:
+                continue
+            if value[name] is not None and not isinstance(value[name], bool):
+                raise ServiceError(
+                    -32602,
+                    "invalid_params",
+                    f"'filters.{name}' must be a boolean or null.",
+                    {"parameter": f"filters.{name}"},
+                )
+            normalized[name] = value[name]
+
+        number_fields = (
+            "min_file_size_kb", "max_file_size_kb", "min_downloads",
+            "max_downloads", "min_endorsements", "max_endorsements",
+        )
+        for name in number_fields:
+            if name in value:
+                normalized[name] = self._integer_range(
+                    value[name], f"filters.{name}",
+                    0, 2_147_483_647)
+        for minimum, maximum in (
+            ("min_file_size_kb", "max_file_size_kb"),
+            ("min_downloads", "max_downloads"),
+            ("min_endorsements", "max_endorsements"),
+        ):
+            if (minimum in normalized and maximum in normalized
+                    and normalized[minimum] > normalized[maximum]):
+                raise ServiceError(
+                    -32602,
+                    "invalid_params",
+                    f"'filters.{minimum}' cannot exceed 'filters.{maximum}'.",
+                    {"parameter": f"filters.{minimum}"},
+                )
+
+        text_fields = (
+            "title_contains", "description_contains", "author_contains",
+            "uploader_contains",
+        )
+        for name in text_fields:
+            if name not in value:
+                continue
+            text = value[name]
+            if (not isinstance(text, str)
+                    or not 2 <= len(text.strip()) <= 512):
+                raise ServiceError(
+                    -32602,
+                    "invalid_params",
+                    f"'filters.{name}' must contain 2 to 512 characters.",
+                    {"parameter": f"filters.{name}"},
+                )
+            normalized[name] = text.strip()
+
+        from Nexus.nexus_api import NexusSearchFilters
+        search_filters = NexusSearchFilters(
+            tag_includes=tuple(normalized.get("tag_includes", ())),
+            tag_excludes=tuple(normalized.get("tag_excludes", ())),
+            languages=tuple(normalized.get("languages", ())),
+            hide_translations=bool(
+                normalized.get("hide_translations", False)),
+            min_file_size_kb=normalized.get("min_file_size_kb"),
+            max_file_size_kb=normalized.get("max_file_size_kb"),
+            min_downloads=normalized.get("min_downloads"),
+            max_downloads=normalized.get("max_downloads"),
+            min_endorsements=normalized.get("min_endorsements"),
+            max_endorsements=normalized.get("max_endorsements"),
+            adult=normalized.get("adult"),
+            supports_vortex=normalized.get("supports_vortex"),
+            has_updated=bool(normalized.get("has_updated", False)),
+            title_contains=normalized.get("title_contains"),
+            description_contains=normalized.get("description_contains"),
+            author_contains=normalized.get("author_contains"),
+            uploader_contains=normalized.get("uploader_contains"),
+        )
+        return search_filters, normalized
 
     @staticmethod
     def _mod_name(value: Any, parameter: str) -> str:
@@ -260,6 +444,12 @@ class AmethystService:
                     "manual_code_fallback": True,
                     "credentials_exposed": False,
                     "download_modes": ["premium", "nxm"],
+                    "catalogue": {
+                        "query_modes": list(_NEXUS_QUERY_MODES),
+                        "sorts": list(_NEXUS_QUERY_SORTS),
+                        "maximum_page_size": 50,
+                        "filters": list(_NEXUS_FILTER_FIELDS),
+                    },
                 },
                 "maximum_event_wait_ms": 30000,
                 "methods": list(self.METHODS),
@@ -622,6 +812,164 @@ class AmethystService:
             None,
             {"refresh": refresh},
             runner=account_runner(self._nexus_session, refresh=refresh),
+        )
+        return {"job": job}
+
+    def _start_nexus_filters(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(params, {"game", "domain"}, {"game"})
+        game, domain = self._resolve_nexus_domain(params)
+        from .nexus import filters_runner
+        job = self._jobs.submit(
+            "nexus.mods.filters",
+            game,
+            self._canonical_game(game),
+            None,
+            {"domain": domain},
+            runner=filters_runner(self._nexus_session, domain),
+        )
+        return {"job": job}
+
+    def _start_nexus_search(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params,
+            {
+                "game", "domain", "mode", "query", "uploader_id",
+                "limit", "offset", "categories", "sort",
+                "created_since_days", "filters",
+            },
+            {"game"},
+        )
+        game, domain = self._resolve_nexus_domain(params)
+
+        mode = params.get("mode", "browse")
+        if not isinstance(mode, str) or mode not in _NEXUS_QUERY_MODES:
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'mode' is not a supported Nexus query mode.",
+                {"parameter": "mode", "supported": list(_NEXUS_QUERY_MODES)},
+            )
+
+        query = None
+        if mode in ("name", "author"):
+            if "query" not in params:
+                raise ServiceError(
+                    -32602,
+                    "invalid_params",
+                    f"'query' is required for mode '{mode}'.",
+                    {"parameter": "query"},
+                )
+            query = self._required_text(params, "query")
+            if not 2 <= len(query) <= 256:
+                raise ServiceError(
+                    -32602,
+                    "invalid_params",
+                    "'query' must contain 2 to 256 characters.",
+                    {"parameter": "query"},
+                )
+        elif "query" in params:
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                f"'query' is not used by mode '{mode}'.",
+                {"parameter": "query", "mode": mode},
+            )
+
+        uploader_id = None
+        if mode == "uploader_id":
+            if "uploader_id" not in params:
+                raise ServiceError(
+                    -32602,
+                    "invalid_params",
+                    "'uploader_id' is required for mode 'uploader_id'.",
+                    {"parameter": "uploader_id"},
+                )
+            uploader_id = self._positive_integer(params, "uploader_id")
+        elif "uploader_id" in params:
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                f"'uploader_id' is not used by mode '{mode}'.",
+                {"parameter": "uploader_id", "mode": mode},
+            )
+
+        limit = self._integer_range(
+            params.get("limit", 20), "limit", 1, 50)
+        offset = self._integer_range(
+            params.get("offset", 0), "offset", 0, 2_147_483_647)
+        categories = self._text_array(
+            params.get("categories", []), "categories")
+
+        sort = params.get("sort", "downloads")
+        if not isinstance(sort, str) or sort not in _NEXUS_QUERY_SORTS:
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'sort' is not a supported Nexus catalogue order.",
+                {"parameter": "sort", "supported": list(_NEXUS_QUERY_SORTS)},
+            )
+        if mode == "trending" and "sort" in params:
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'sort' is fixed to endorsements for trending results.",
+                {"parameter": "sort", "mode": mode},
+            )
+
+        created_since_days = None
+        if "created_since_days" in params:
+            if mode != "browse":
+                raise ServiceError(
+                    -32602,
+                    "invalid_params",
+                    "'created_since_days' is only used by browse mode.",
+                    {"parameter": "created_since_days", "mode": mode},
+                )
+            created_since_days = self._integer_range(
+                params["created_since_days"],
+                "created_since_days", 1, 36_500)
+
+        search_filters, normalized_filters = self._nexus_filters(
+            params.get("filters", {}))
+        options: dict[str, Any] = {
+            "domain": domain,
+            "mode": mode,
+            "limit": limit,
+            "offset": offset,
+            "categories": categories,
+            "sort": "endorsements" if mode == "trending" else sort,
+            "filters": normalized_filters,
+        }
+        if query is not None:
+            options["query"] = query
+        if uploader_id is not None:
+            options["uploader_id"] = uploader_id
+        if created_since_days is not None:
+            options["created_since_days"] = created_since_days
+
+        from .nexus import search_runner
+        job = self._jobs.submit(
+            "nexus.mods.search",
+            game,
+            self._canonical_game(game),
+            None,
+            options,
+            runner=search_runner(
+                self._nexus_session,
+                domain,
+                mode=mode,
+                query=query,
+                uploader_id=uploader_id,
+                limit=limit,
+                offset=offset,
+                categories=categories,
+                sort_key=_NEXUS_QUERY_SORTS[sort],
+                created_since_days=created_since_days,
+                filters=search_filters,
+                options=options,
+            ),
         )
         return {"job": job}
 

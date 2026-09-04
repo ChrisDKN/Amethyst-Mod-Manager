@@ -1179,17 +1179,17 @@ class NexusAPI:
                 "filter": [{"languageName": [{"value": lang, "op": "EQUALS"}]}
                           for lang in extra.languages],
             })
-        if extra.min_file_size_kb:
+        if extra.min_file_size_kb is not None:
             clauses.append({"fileSize": [{"value": extra.min_file_size_kb, "op": "GTE"}]})
-        if extra.max_file_size_kb:
+        if extra.max_file_size_kb is not None:
             clauses.append({"fileSize": [{"value": extra.max_file_size_kb, "op": "LTE"}]})
-        if extra.min_downloads:
+        if extra.min_downloads is not None:
             clauses.append({"downloads": [{"value": extra.min_downloads, "op": "GTE"}]})
-        if extra.max_downloads:
+        if extra.max_downloads is not None:
             clauses.append({"downloads": [{"value": extra.max_downloads, "op": "LTE"}]})
-        if extra.min_endorsements:
+        if extra.min_endorsements is not None:
             clauses.append({"endorsements": [{"value": extra.min_endorsements, "op": "GTE"}]})
-        if extra.max_endorsements:
+        if extra.max_endorsements is not None:
             clauses.append({"endorsements": [{"value": extra.max_endorsements, "op": "LTE"}]})
         if extra.adult is not None:
             clauses.append({"adultContent": [{"value": extra.adult}]})

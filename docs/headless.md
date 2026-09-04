@@ -3,9 +3,9 @@
 Amethyst headless mode gives scripts and external applications a stable way to
 use the manager without importing its Python modules or starting Qt. Protocol
 version 1 exposes game, profile, mod and downloaded-archive state, Nexus OAuth,
-exact-ID metadata, managed downloads, and non-interactive archive installation,
-plus asynchronous mod activation, ordering, removal, profile lifecycle, deploy,
-and restore jobs.
+catalogue discovery, exact-ID metadata, managed downloads, and non-interactive
+archive installation, plus asynchronous mod activation, ordering, removal,
+profile lifecycle, deploy, and restore jobs.
 
 The public boundary is JSON-RPC 2.0 over newline-delimited JSON (NDJSON).
 Amethyst reads one JSON value per line from standard input and writes one JSON
@@ -110,7 +110,13 @@ The response describes the protocol and available features:
         "browser_open_optional": true,
         "manual_code_fallback": true,
         "credentials_exposed": false,
-        "download_modes": ["premium", "nxm"]
+        "download_modes": ["premium", "nxm"],
+        "catalogue": {
+          "query_modes": ["browse", "name", "author", "uploader_id", "trending"],
+          "sorts": ["downloads", "endorsements", "created", "updated"],
+          "maximum_page_size": 50,
+          "filters": ["tag_includes", "tag_excludes", "languages", "hide_translations", "min_file_size_kb", "max_file_size_kb", "min_downloads", "max_downloads", "min_endorsements", "max_endorsements", "adult", "supports_vortex", "has_updated", "title_contains", "description_contains", "author_contains", "uploader_contains"]
+        }
       },
       "maximum_event_wait_ms": 30000,
       "methods": [
@@ -131,6 +137,8 @@ The response describes the protocol and available features:
         "nexus.auth.login.cancel",
         "nexus.auth.logout.start",
         "nexus.user.get.start",
+        "nexus.mods.filters.start",
+        "nexus.mods.search.start",
         "nexus.mods.get.start",
         "nexus.mods.files.start",
         "nexus.files.get.start",
@@ -179,6 +187,8 @@ parameters are rejected.
 | `nexus.auth.login.cancel` | None | Cancel the active login flow. |
 | `nexus.auth.logout.start` | `confirm` boolean | Clear saved Nexus OAuth and legacy API-key credentials. |
 | `nexus.user.get.start` | `refresh` boolean (optional) | Validate the login and return sanitized account information. |
+| `nexus.mods.filters.start` | `game` string, `domain` string (optional) | Fetch category and tag facets for Nexus catalogue queries. |
+| `nexus.mods.search.start` | `game` string plus query options | Browse or search the paged Nexus mod catalogue. |
 | `nexus.mods.get.start` | `game` string, `mod_id` integer, `domain` string (optional) | Fetch one Nexus mod by exact ID. |
 | `nexus.mods.files.start` | `game` string, `mod_id` integer, `domain` string (optional) | Fetch the files and update chain for one Nexus mod. |
 | `nexus.files.get.start` | `game` string, `mod_id` integer, `file_id` integer, `domain` string (optional) | Fetch one exact Nexus file. |
@@ -314,7 +324,7 @@ update state, and Nexus or Thunderstore identity when available. A stale
 Read methods return `operation_in_progress` while this service is changing game
 state. Continue polling the active job and retry the read after it completes.
 
-### Nexus authentication and metadata
+### Nexus authentication
 
 The headless service shares the desktop application's saved Nexus login. It
 never returns access tokens, refresh tokens, API keys, or the account email.
@@ -363,6 +373,75 @@ Validate the saved session and retrieve the non-sensitive account fields:
 The successful job result contains `user_id`, display `name`, premium and
 supporter flags, `profile_url`, and the most recently observed hourly and daily
 rate limits. Set `refresh` to true to bypass the five-minute account cache.
+
+### Discovering Nexus mods
+
+Catalogue calls use the saved Nexus login and run as jobs. First fetch the
+filter vocabulary for the selected game and domain:
+
+```json
+{"jsonrpc":"2.0","id":"nexus-filters","method":"nexus.mods.filters.start","params":{"game":"skyrim_se"}}
+```
+
+The result contains `categories`, with `category_id`, `name`, and nullable
+`parent_category_id`, plus the game's Nexus `tags`. Search requests select
+categories and tags by their returned names; IDs are supplied so a client can
+build the category tree and retain stable UI keys. Fetch the facets again after
+changing `domain` on a game with multiple Nexus domains.
+
+Browse the most downloaded mods by omitting `mode`, or set it explicitly:
+
+```json
+{"jsonrpc":"2.0","id":"nexus-browse","method":"nexus.mods.search.start","params":{"game":"skyrim_se","mode":"browse","sort":"downloads","limit":20,"offset":0}}
+```
+
+Search by mod name and apply server-side filters:
+
+```json
+{"jsonrpc":"2.0","id":"nexus-search","method":"nexus.mods.search.start","params":{"game":"skyrim_se","mode":"name","query":"display tweaks","categories":["Utilities"],"sort":"endorsements","filters":{"tag_includes":["Performance Optimization"],"languages":["English"],"adult":false,"min_endorsements":10}}}
+```
+
+The query modes are:
+
+- `browse`: list top mods. `created_since_days`, from 1 through 36,500, can
+  restrict this mode to newly published mods.
+- `name`: substring-search mod names. `query` is required and must contain at
+  least two characters.
+- `author`: match an uploader's current display name. `query` is required.
+- `uploader_id`: list mods from one stable positive Nexus member ID. Supply
+  `uploader_id` instead of `query`.
+- `trending`: list mods published in the last seven days, ordered by
+  endorsements. Its sort is fixed, so do not supply `sort`.
+
+For modes other than `trending`, `sort` accepts `downloads`, `endorsements`,
+`created`, or `updated` and defaults to `downloads`. `limit` defaults to 20 and
+must be from 1 to 50. `offset` defaults to zero. A result contains the
+normalized `query`, serialized `mods`, current rate limits, and a `page` object.
+When a full page is returned, `page.next_offset` is the candidate offset for
+the next request; a short or empty page sets it to null. Nexus does not provide
+a total count through this query, so clients should stop after a short page.
+
+`filters` accepts these optional fields:
+
+- `tag_includes`, `tag_excludes`, and `languages` are arrays of names from
+  `nexus.mods.filters.start`. Every included tag is required, every excluded
+  tag is rejected, and a mod may match any selected language.
+- `hide_translations` and `has_updated` are booleans.
+- `min_file_size_kb`, `max_file_size_kb`, `min_downloads`, `max_downloads`,
+  `min_endorsements`, and `max_endorsements` are integers from zero through
+  2,147,483,647.
+- `adult` and `supports_vortex` accept true, false, or null. Null means no
+  filter.
+- `title_contains`, `description_contains`, `author_contains`, and
+  `uploader_contains` accept text from 2 to 512 characters.
+
+Minimum values cannot exceed their corresponding maximum, duplicate list
+entries are rejected, and a tag cannot be both included and excluded. All
+filters combine with the selected domain, categories, query mode, and each
+other. Use `nexus.mods.get.start` for authoritative detail after the user
+selects a catalogue result.
+
+### Exact Nexus metadata and downloads
 
 Fetch exact mod and file metadata using positive numeric Nexus IDs:
 
@@ -905,9 +984,10 @@ caller does not directly receive the created job ID or login-flow state.
 
 ## Current limitations
 
-- Broad Nexus search/browsing and launch are not exposed yet. OAuth login,
-  exact mod/file metadata, single-file downloads, completed archive inventory,
-  and non-interactive single-mod archive installation are available.
+- Game launch is not exposed through the long-lived protocol yet. Nexus OAuth,
+  catalogue discovery, exact mod/file metadata, single-file downloads,
+  completed archive inventory, and non-interactive single-mod archive
+  installation are available.
 - Interactive FOMOD/BAIN/bundle choices are not represented in protocol version
   1. Clients can explicitly accept defaults; scripted FOMOD and multi-mod
   archives remain unsupported by the headless installer.

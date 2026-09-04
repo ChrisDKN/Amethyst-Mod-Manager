@@ -65,6 +65,22 @@ def _mod(mod: Any) -> dict[str, Any]:
     }
 
 
+def _category(category: Any) -> dict[str, Any]:
+    parent = category.parent_category
+    return {
+        "category_id": int(category.category_id),
+        "name": str(category.name or ""),
+        "parent_category_id": int(parent) if parent is not None else None,
+    }
+
+
+def _tag(tag: Any) -> dict[str, Any]:
+    return {
+        "tag_id": int(tag.tag_id),
+        "name": str(tag.name or ""),
+    }
+
+
 def _file(file: Any) -> dict[str, Any]:
     return {
         "file_id": int(file.file_id),
@@ -192,6 +208,98 @@ def logout_runner(session: Any, login: Any) -> Callable:
             session.clear_credentials()
             progress(1, 1, "clear_credentials")
             return {"ok": True, "authenticated": False}
+
+        return _call(operation)
+    return run
+
+
+def filters_runner(session: Any, domain: str) -> Callable:
+    def run(_log: Callable, progress: Callable) -> dict[str, Any]:
+        def operation() -> dict[str, Any]:
+            progress(0, 2, "fetch_categories")
+            api = session.require_api()
+            categories = [_category(item)
+                          for item in api.get_game_categories(domain)]
+            progress(1, 2, "fetch_tags")
+            tags = [_tag(item) for item in api.get_game_tags(domain)]
+            progress(2, 2, "fetch_tags")
+            return {
+                "domain": domain,
+                "categories": categories,
+                "tags": tags,
+                "counts": {
+                    "categories": len(categories),
+                    "tags": len(tags),
+                },
+                "rate_limits": _rate_limits(api),
+            }
+
+        return _call(operation)
+    return run
+
+
+def search_runner(
+    session: Any,
+    domain: str,
+    *,
+    mode: str,
+    query: str | None,
+    uploader_id: int | None,
+    limit: int,
+    offset: int,
+    categories: list[str],
+    sort_key: str,
+    created_since_days: int | None,
+    filters: Any,
+    options: dict[str, Any],
+) -> Callable:
+    def run(_log: Callable, progress: Callable) -> dict[str, Any]:
+        def operation() -> dict[str, Any]:
+            progress(0, 1, "search_catalogue")
+            api = session.require_api()
+            common = {
+                "count": limit,
+                "offset": offset,
+                "category_names": categories or None,
+                "filters": filters,
+            }
+            if mode == "browse":
+                mods = api.get_top_mods(
+                    domain,
+                    created_since_days=created_since_days,
+                    sort_key=sort_key,
+                    **common,
+                )
+            elif mode == "name":
+                mods = api.search_mods(
+                    domain, query or "", sort_key=sort_key, **common)
+            elif mode == "author":
+                mods = api.search_mods_by_author(
+                    domain, query or "", sort_key=sort_key, **common)
+            elif mode == "uploader_id":
+                mods = api.search_mods_by_uploader_id(
+                    domain, int(uploader_id or 0),
+                    sort_key=sort_key, **common)
+            elif mode == "trending":
+                mods = api.get_trending_mods_graphql(domain, **common)
+            else:
+                raise ValueError(f"Unsupported Nexus query mode: {mode}")
+
+            result = [_mod(item) for item in mods]
+            progress(1, 1, "search_catalogue")
+            return {
+                "domain": domain,
+                "query": dict(options),
+                "mods": result,
+                "page": {
+                    "offset": offset,
+                    "limit": limit,
+                    "returned": len(result),
+                    "next_offset": (
+                        offset + limit if len(result) == limit else None),
+                },
+                "rate_limits": _rate_limits(api),
+            }
 
         return _call(operation)
     return run
