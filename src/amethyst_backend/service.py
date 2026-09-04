@@ -69,6 +69,7 @@ class AmethystService:
         "plugins.list.start",
         "plugins.set_enabled.start",
         "plugins.move.start",
+        "plugins.sort.start",
         "deploy.start",
         "restore.start",
         "launch.get",
@@ -122,6 +123,7 @@ class AmethystService:
             "plugins.list.start": self._start_list_plugins,
             "plugins.set_enabled.start": self._start_set_plugins_enabled,
             "plugins.move.start": self._start_move_plugins,
+            "plugins.sort.start": self._start_sort_plugins,
             "deploy.start": self._start_deploy,
             "restore.start": self._start_restore,
             "launch.get": self._get_launch,
@@ -467,6 +469,7 @@ class AmethystService:
                     "profiles.create", "profiles.rename", "profiles.remove",
                     "profiles.select", "mods.set_enabled", "mods.move",
                     "mods.remove", "plugins.set_enabled", "plugins.move",
+                    "plugins.sort",
                     "deploy", "restore",
                     "nexus.auth.login", "nexus.auth.logout",
                     "nexus.download", "downloads.install", "launch",
@@ -502,7 +505,9 @@ class AmethystService:
                     "order": "first_loaded_first",
                     "activation": True,
                     "constrained_block_move": True,
-                    "automatic_sort": False,
+                    "automatic_sort": self._loot_available(),
+                    "sorter": "loot",
+                    "metadata_refresh": self._loot_available(),
                 },
                 "maximum_event_wait_ms": 30000,
                 "methods": list(self.METHODS),
@@ -1423,6 +1428,56 @@ class AmethystService:
         )
         return {"job": job}
 
+    def _start_sort_plugins(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params, {"game", "profile", "apply_order"}, {"game", "profile"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        if not (self._safe_attr(game, "plugin_extensions", ()) or ()):
+            self._unsupported_operation(game, "plugin management")
+        if not bool(self._safe_attr(game, "loot_sort_enabled", False)):
+            self._unsupported_operation(game, "LOOT plugin sorting")
+        if not self._loot_available():
+            try:
+                from LOOT.loot_sorter import unavailable_reason
+                reason = unavailable_reason()
+            except Exception:
+                reason = None
+            raise ServiceError(
+                -32009,
+                "loot_unavailable",
+                "The LOOT library is not available in this installation.",
+                {"reason": reason} if reason else {},
+            )
+        profile_dir = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+        apply_order = params.get("apply_order", True)
+        if not isinstance(apply_order, bool):
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'apply_order' must be a boolean.",
+                {"parameter": "apply_order"},
+            )
+
+        from .plugins import sort_runner
+        job = self._jobs.submit(
+            "plugins.sort",
+            game,
+            self._canonical_game(game),
+            profile_dir.name,
+            {"apply_order": apply_order},
+            runner=sort_runner(
+                game,
+                profile_dir,
+                apply_order,
+                "headless:plugins.sort",
+            ),
+        )
+        return {"job": job}
+
     def _start_deploy(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()
         self._check_params(
@@ -1842,6 +1897,14 @@ class AmethystService:
             )
 
     @staticmethod
+    def _loot_available() -> bool:
+        try:
+            from LOOT.loot_sorter import is_available
+            return bool(is_available())
+        except Exception:
+            return False
+
+    @staticmethod
     def _raise_nexus_session_error(exc: Exception) -> None:
         from Nexus.session import NexusSessionError
         if not isinstance(exc, NexusSessionError):
@@ -2018,6 +2081,10 @@ class AmethystService:
                 "nexus": bool(nexus_domains),
                 "thunderstore": bool(thunderstore),
                 "plugins": bool(plugin_extensions),
+                "plugin_sort": bool(
+                    plugin_extensions
+                    and self._safe_attr(game, "loot_sort_enabled", False)
+                    and self._loot_available()),
                 "profile_groups": bool(
                     self._safe_attr(game, "profile_groups_supported", True)),
             },

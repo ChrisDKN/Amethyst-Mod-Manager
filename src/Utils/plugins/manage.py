@@ -34,8 +34,6 @@ def _preserve_active_profile(game: Any, log: LogFn):
 def _load_profile(
     game: Any,
     profile_dir: Path,
-    *,
-    log: LogFn,
 ) -> tuple[list[Any], set[str], Any]:
     profile_dir = Path(profile_dir)
     if not profile_dir.is_dir():
@@ -195,7 +193,18 @@ def _inventory(
                 "late_masters": list(row.late_masters or ()),
                 "version_mismatched_masters": list(row.vmm_masters or ()),
             },
+            "loot": dict(row.loot_info) if row.loot_info else None,
         })
+    try:
+        from LOOT.loot_sorter import read_loot_info
+        loot_info = read_loot_info(profile_dir)
+    except Exception:
+        loot_info = {}
+    if not isinstance(loot_info, dict):
+        loot_info = {}
+    general_messages = loot_info.get("general_messages")
+    if not isinstance(general_messages, list):
+        general_messages = []
     return {
         "ok": True,
         "profile": {"name": profile_dir.name, "path": str(profile_dir)},
@@ -204,6 +213,11 @@ def _inventory(
         "filegraph_generation": int(snapshot.generation),
         "counts": _counts(rows, locks),
         "plugins": plugins,
+        "loot": {
+            "generated_at": loot_info.get("generated_at"),
+            "game_id": loot_info.get("game_id") or None,
+            "general_messages": list(general_messages),
+        },
     }
 
 
@@ -224,8 +238,7 @@ def list_profile_plugins(
         game, "plugins.list", owner=operation_owner or "plugins.list",
     ), _preserve_active_profile(game, log):
         progress(0, 2, "Resolving plugin inventory")
-        rows, locks, snapshot = _load_profile(
-            game, profile_dir, log=log)
+        rows, locks, snapshot = _load_profile(game, profile_dir)
         progress(1, 2, "Reading plugin metadata")
         result = _inventory(game, profile_dir, rows, locks, snapshot)
         progress(2, 2, "Plugin inventory ready")
@@ -302,8 +315,7 @@ def set_plugins_enabled(
         owner=operation_owner or "plugins.set_enabled",
     ), _preserve_active_profile(game, log):
         progress(0, 3, "Resolving plugin inventory")
-        rows, locks, _snapshot = _load_profile(
-            game, profile_dir, log=log)
+        rows, locks, _snapshot = _load_profile(game, profile_dir)
         progress(1, 3, "Validating plugin changes")
         resolved = [(_resolve_row(rows, name), enabled)
                     for name, enabled in changes]
@@ -400,8 +412,7 @@ def move_plugins(
         game, "plugins.move", owner=operation_owner or "plugins.move",
     ), _preserve_active_profile(game, log):
         progress(0, 3, "Resolving plugin inventory")
-        rows, locks, _snapshot = _load_profile(
-            game, profile_dir, log=log)
+        rows, locks, _snapshot = _load_profile(game, profile_dir)
         progress(1, 3, "Validating plugin move")
         selected = [_resolve_row(rows, name) for name in plugin_names]
         anchor_row = _resolve_row(rows, anchor)
@@ -482,4 +493,223 @@ def move_plugins(
                 {"name": name, "position": positions[name]}
                 for name in moved
             ],
+        }
+
+
+def _raise_loot_error(exc: Exception) -> None:
+    from LOOT.loot_sorter import (
+        LootConfigurationError,
+        LootCycleError,
+        LootMasterlistError,
+        LootUnavailableError,
+    )
+    if isinstance(exc, LootUnavailableError):
+        name = "loot_unavailable"
+        message = "The LOOT library is not available."
+    elif isinstance(exc, LootConfigurationError):
+        name = "loot_configuration_invalid"
+        message = "LOOT is not configured for this game."
+    elif isinstance(exc, LootMasterlistError):
+        name = "loot_masterlist_unavailable"
+        message = "No compatible LOOT masterlist is available."
+    elif isinstance(exc, LootCycleError):
+        name = "loot_cycle"
+        message = "LOOT found a cyclic plugin dependency."
+    else:
+        name = "loot_sort_failed"
+        message = "LOOT could not sort the profile's plugins."
+    raise PluginStateError(
+        name,
+        message,
+        {"reason": str(exc), "exception": type(exc).__name__},
+    ) from exc
+
+
+def sort_profile_plugins(
+    game: Any,
+    profile_dir: Path,
+    *,
+    apply_order: bool = True,
+    log_fn: LogFn | None = None,
+    progress_fn: ProgressFn | None = None,
+    operation_owner: str | None = None,
+) -> dict[str, Any]:
+    from Utils.operations import acquire_game_operation
+
+    log = log_fn or (lambda _message: None)
+    progress = progress_fn or (lambda _done, _total, _phase=None: None)
+    profile_dir = Path(profile_dir)
+    with acquire_game_operation(
+        game, "plugins.sort", owner=operation_owner or "plugins.sort",
+    ), _preserve_active_profile(game, log):
+        progress(0, 4, "Resolving plugin inventory")
+        rows, locks, snapshot = _load_profile(game, profile_dir)
+        old_order = [row.name for row in rows]
+        locked_indices = {
+            index: row for index, row in enumerate(rows)
+            if row.name.casefold() in locks
+        }
+        unlocked = [row for index, row in enumerate(rows)
+                    if index not in locked_indices]
+        if not unlocked:
+            progress(4, 4, "No unlocked plugins to sort")
+            return {
+                "ok": True,
+                "order_applied": apply_order,
+                "changed": False,
+                "would_change": False,
+                "sorted_count": 0,
+                "filegraph_generation": int(snapshot.generation),
+                "locked": [row.name for row in rows],
+                "moved": [],
+                "order": old_order,
+                "warnings": ["No unlocked plugins were available to sort."],
+                "metadata": {
+                    "saved": False,
+                    "plugin_count": 0,
+                    "general_messages": [],
+                },
+                "userlist_source": None,
+            }
+
+        userlist_path = profile_dir / "userlist.yaml"
+        userlist_source = "profile" if userlist_path.is_file() else None
+        if userlist_source is None:
+            try:
+                from Utils.config_paths import get_loot_game_dir
+                global_userlist = (
+                    get_loot_game_dir(str(getattr(game, "game_id", "")))
+                    / "userlist.yaml"
+                )
+                if global_userlist.is_file():
+                    userlist_path = global_userlist
+                    userlist_source = "game"
+                else:
+                    userlist_path = None
+            except Exception:
+                userlist_path = None
+
+        try:
+            from Utils.filegraph.service import plugin_source_paths
+            winner_paths = plugin_source_paths(snapshot, game)
+            raw_game_path = game.get_game_path()
+            raw_staging_root = game.get_effective_mod_staging_path()
+            if not raw_game_path or not raw_staging_root:
+                raise ValueError("game or staging path is not configured")
+            game_path = Path(raw_game_path)
+            staging_root = Path(raw_staging_root)
+            raw_data_dir = (game.get_vanilla_plugins_path()
+                            if hasattr(game, "get_vanilla_plugins_path")
+                            else None)
+            data_dir = Path(raw_data_dir) if raw_data_dir else None
+        except Exception as exc:
+            raise PluginStateError(
+                "plugin_state_unavailable",
+                "The plugin paths required by LOOT could not be resolved.",
+                {"profile": profile_dir.name, "reason": str(exc)},
+            ) from exc
+
+        progress(1, 4, "Running LOOT")
+        try:
+            from LOOT.loot_sorter import sort_plugins
+            result = sort_plugins(
+                plugin_names=[row.name for row in unlocked],
+                enabled_set={row.name for row in unlocked if row.enabled},
+                game_name=str(getattr(game, "name", "") or ""),
+                game_path=game_path,
+                staging_root=staging_root,
+                log_fn=lambda message: log(f"[loot] {message}"),
+                game_type_attr=str(
+                    getattr(game, "loot_game_type", "") or ""),
+                game_id=str(getattr(game, "game_id", "") or ""),
+                masterlist_url=str(
+                    getattr(game, "loot_masterlist_url", "") or ""),
+                masterlist_repo=str(
+                    getattr(game, "loot_masterlist_repo", "") or ""),
+                game_data_dir=data_dir,
+                userlist_path=userlist_path,
+                plugin_winner_paths=winner_paths,
+            )
+        except Exception as exc:
+            _raise_loot_error(exc)
+
+        expected = {row.name.casefold() for row in unlocked}
+        returned = [str(name) for name in result.sorted_names]
+        if (len(returned) != len(unlocked)
+                or {name.casefold() for name in returned} != expected):
+            raise PluginStateError(
+                "loot_sort_invalid_result",
+                "LOOT returned a different plugin set than it received.",
+                {
+                    "expected_count": len(unlocked),
+                    "returned_count": len(returned),
+                },
+            )
+
+        progress(2, 4, "Saving LOOT metadata")
+        warnings = list(result.warnings or ())
+        metadata_saved = True
+        try:
+            from LOOT.loot_sorter import write_loot_info
+            write_loot_info(
+                profile_dir,
+                result.plugin_info,
+                result.general_messages,
+                game_id=str(getattr(game, "game_id", "") or ""),
+            )
+        except Exception as exc:
+            metadata_saved = False
+            warnings.append(f"LOOT metadata could not be saved: {exc}")
+
+        from Utils.plugins import enforce_primary_plugin_order
+        from Utils.plugins.state import (
+            apply_loot_sort,
+            enforce_master_block,
+            master_block_enabled,
+        )
+        new_rows, _moved = apply_loot_sort(
+            rows,
+            locked_indices,
+            returned,
+            bool(getattr(game, "plugins_include_vanilla", False)),
+        )
+        if master_block_enabled(game):
+            flags = {row.name.casefold(): row.flags for row in rows}
+            for row in new_rows:
+                row.flags = flags.get(row.name.casefold(), row.flags)
+            new_rows, _changed = enforce_master_block(new_rows)
+        new_rows, _primary_changed = enforce_primary_plugin_order(game, new_rows)
+        new_order = [row.name for row in new_rows]
+        old_positions = {name: index for index, name in enumerate(old_order)}
+        moved = [
+            name for index, name in enumerate(new_order)
+            if old_positions.get(name) != index
+        ]
+        would_change = bool(moved)
+
+        progress(
+            3,
+            4,
+            "Saving plugin order" if apply_order else "Preparing sort preview",
+        )
+        if apply_order and would_change:
+            _save(game, profile_dir, new_rows, changed=moved)
+        progress(4, 4, "LOOT sort complete")
+        return {
+            "ok": True,
+            "order_applied": apply_order,
+            "changed": apply_order and would_change,
+            "would_change": would_change,
+            "sorted_count": len(unlocked),
+            "filegraph_generation": int(snapshot.generation),
+            "locked": [row.name for row in locked_indices.values()],
+            "moved": moved,
+            "order": new_order,
+            "warnings": warnings,
+            "metadata": {
+                "saved": metadata_saved,
+                "plugin_count": len(result.plugin_info or {}),
+                "general_messages": list(result.general_messages or ()),
+            },
+            "userlist_source": userlist_source,
         }

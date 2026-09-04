@@ -414,6 +414,30 @@ _MESSAGE_TYPE_NAMES = {
 }
 
 
+class LootError(RuntimeError):
+    pass
+
+
+class LootUnavailableError(LootError):
+    pass
+
+
+class LootConfigurationError(LootError):
+    pass
+
+
+class LootMasterlistError(LootError):
+    pass
+
+
+class LootCycleError(LootError):
+    pass
+
+
+class LootPluginError(LootError):
+    pass
+
+
 def _msg_type_name(mt) -> str:
     """Map a libloot MessageType enum to a lowercase string."""
     try:
@@ -892,7 +916,7 @@ def sort_plugins(
     _log = log_fn or (lambda _: None)
 
     if not _AVAILABLE:
-        raise RuntimeError(
+        raise LootUnavailableError(
             "libloot is not available. "
             "Rebuild it with: ./LOOT/rebuild_libloot.sh"
         )
@@ -910,14 +934,14 @@ def sort_plugins(
     plugin_names = deduped
 
     if not game_type_attr:
-        raise RuntimeError(
+        raise LootConfigurationError(
             f"No LOOT game type configured for '{game_name}'. "
             "Set loot_game_type in the game's Python handler."
         )
 
     game_type = getattr(loot.GameType, game_type_attr, None)
     if game_type is None:
-        raise RuntimeError(
+        raise LootConfigurationError(
             f"Unknown libloot GameType '{game_type_attr}' for '{game_name}'."
         )
 
@@ -942,7 +966,7 @@ def sort_plugins(
         url_hint = (f"\nDownload from: {effective_masterlist_url}"
                     if effective_masterlist_url
                     else "\nDownload it from the LOOT GitHub repository.")
-        raise RuntimeError(
+        raise LootMasterlistError(
             f"Masterlist not found: {masterlist_path}{url_hint}"
         )
 
@@ -1056,7 +1080,7 @@ def sort_plugins(
         try:
             sorted_names = game.sort_plugins(sortable)
         except loot.CyclicInteractionError as e:
-            raise RuntimeError(f"LOOT found a cyclic dependency: {e}") from e
+            raise LootCycleError(f"LOOT found a cyclic dependency: {e}") from e
 
         # Count how many sortable plugins actually moved position
         moved = sum(
@@ -1137,18 +1161,18 @@ def find_overlapping_plugins(
     _log = log_fn or (lambda _: None)
 
     if not _AVAILABLE:
-        raise RuntimeError(
+        raise LootUnavailableError(
             "libloot is not available. "
             "Rebuild it with: ./LOOT/rebuild_libloot.sh"
         )
     if not game_type_attr:
-        raise RuntimeError(
+        raise LootConfigurationError(
             f"No LOOT game type configured for '{game_name}'. "
             "Set loot_game_type in the game's Python handler."
         )
     game_type = getattr(loot.GameType, game_type_attr, None)
     if game_type is None:
-        raise RuntimeError(
+        raise LootConfigurationError(
             f"Unknown libloot GameType '{game_type_attr}' for '{game_name}'."
         )
 
@@ -1182,7 +1206,7 @@ def find_overlapping_plugins(
 
     target = game.plugin(target_plugin)
     if target is None:
-        raise RuntimeError(
+        raise LootPluginError(
             f"'{target_plugin}' could not be loaded (missing from disk?)."
         )
 

@@ -5,8 +5,8 @@ use the manager without importing its Python modules or starting Qt. Protocol
 version 1 exposes game, profile, mod and downloaded-archive state, Nexus OAuth,
 catalogue discovery, exact-ID metadata, managed downloads, and non-interactive
 archive installation, plus asynchronous mod activation, ordering, removal,
-plugin inventory, activation and ordering, profile lifecycle, deploy, restore,
-and managed game launch.
+plugin inventory, activation, ordering and LOOT sorting, profile lifecycle,
+deploy, restore, and managed game launch.
 
 The public boundary is JSON-RPC 2.0 over newline-delimited JSON (NDJSON).
 Amethyst reads one JSON value per line from standard input and writes one JSON
@@ -99,7 +99,7 @@ The response describes the protocol and available features:
       "event_delivery": "poll",
       "cancellation": true,
       "cancellable_jobs": ["nexus.download"],
-      "mutations": ["profiles.create", "profiles.rename", "profiles.remove", "profiles.select", "mods.set_enabled", "mods.move", "mods.remove", "plugins.set_enabled", "plugins.move", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
+      "mutations": ["profiles.create", "profiles.rename", "profiles.remove", "profiles.select", "mods.set_enabled", "mods.move", "mods.remove", "plugins.set_enabled", "plugins.move", "plugins.sort", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
       "installation": {
         "source": "download_inventory",
         "installer_policies": ["reject", "defaults"],
@@ -131,7 +131,9 @@ The response describes the protocol and available features:
         "order": "first_loaded_first",
         "activation": true,
         "constrained_block_move": true,
-        "automatic_sort": false
+        "automatic_sort": true,
+        "sorter": "loot",
+        "metadata_refresh": true
       },
       "maximum_event_wait_ms": 30000,
       "methods": [
@@ -165,6 +167,7 @@ The response describes the protocol and available features:
         "plugins.list.start",
         "plugins.set_enabled.start",
         "plugins.move.start",
+        "plugins.sort.start",
         "deploy.start",
         "restore.start",
         "launch.get",
@@ -221,6 +224,7 @@ parameters are rejected.
 | `plugins.list.start` | `game` string, `profile` string | Resolve a profile's ordered plugin inventory and metadata. |
 | `plugins.set_enabled.start` | `game` string, `profile` string, `changes` array | Start a batch plugin enable/disable job. |
 | `plugins.move.start` | `game` string, `profile` string, `plugins` array, `position` object | Move a contiguous plugin block within engine constraints. |
+| `plugins.sort.start` | `game` string, `profile` string, `apply_order` boolean (optional) | Run LOOT, refresh metadata, and optionally apply its constrained order. |
 | `deploy.start` | `game` string, `profile` string, `options` object (optional) | Start a deployment job. |
 | `restore.start` | `game` string, `profile` string | Start a restore job. |
 | `launch.get` | `launch_id` string (optional) | Inspect the latest managed game-launch lifecycle. |
@@ -248,6 +252,8 @@ List configured games:
 Each game includes its canonical identity, configuration and deployment state,
 paths, store and mod-source identifiers, and available features.
 `load_failures` identifies handler modules which could not be discovered.
+`features.plugin_sort` is true only when the handler supports LOOT and the
+installed native LOOT binding is available.
 
 List profiles:
 
@@ -382,6 +388,13 @@ includes the pinned `filegraph_generation` used for the scan. Inventory scans
 apply the manager's effective primary/master ordering in memory but do not
 persist its automatic stale-entry repairs.
 
+When cached LOOT metadata exists, each entry's `loot` object contains its
+effective messages, unresolved requirements, incompatibilities, locations,
+CRC-matched cleaning data, and Bash Tag suggestions; otherwise it is null.
+Top-level `loot` reports the cache timestamp, game ID, and general masterlist
+messages. Treat its text and URLs as untrusted remote metadata when rendering
+them in an external client.
+
 Enable or disable several plugins atomically after validation:
 
 ```json
@@ -411,6 +424,48 @@ the requested anchor could not be reached exactly; this may produce a safe
 no-op with `changed: false`. `positions` gives the final position of each moved
 plugin and `crossed` identifies entries whose relative order changed.
 
+Run the built-in LOOT integration and apply the resulting order:
+
+```json
+{"jsonrpc":"2.0","id":"plugin-sort","method":"plugins.sort.start","params":{"game":"skyrim_se","profile":"default"}}
+```
+
+The method passes only the manager-resolved game, Data, staging, FileGraph
+winner, userlist, and plugin state to LOOT. It accepts no executable, path,
+masterlist URL, or command arguments from the client. A profile-local
+`userlist.yaml` wins; otherwise Amethyst uses the configured game-wide LOOT
+userlist. Locked plugins are excluded from LOOT and reinserted at their saved
+indices before engine master/Blueprint and fixed-primary ordering is enforced.
+Enable/disable state is preserved case-insensitively.
+
+Masterlists and the LOOT prelude use Amethyst's normal cache. A stale cache is
+refreshed from the handler's built-in `loot/*` repository configuration and a
+failed refresh falls back to an existing cache. This operation may therefore
+use the network, but the RPC client cannot redirect it to another host.
+For an undeployed profile, the existing LOOT adapter may briefly link resolved
+plugin headers into the game's Data directory so libloot can evaluate engine
+conditions; those temporary links are removed before the job finishes.
+
+Set `apply_order` to false to refresh metadata and preview the constrained LOOT
+result without changing `plugins.txt` or `loadorder.txt`:
+
+```json
+{"jsonrpc":"2.0","id":"plugin-preview","method":"plugins.sort.start","params":{"game":"skyrim_se","profile":"default","apply_order":false}}
+```
+
+The result includes `order_applied`, `changed`, `would_change`, `sorted_count`,
+the pinned `filegraph_generation`, excluded `locked` entries, final proposed
+`order`, and the names whose positions would move. `metadata` reports whether
+`loot.json` was saved, how many plugins received metadata, and any general
+messages. A metadata write failure is returned in `warnings` and does not
+prevent a valid order from being applied. `userlist_source` is `profile`,
+`game`, or null.
+
+`capabilities.plugins.automatic_sort` and `metadata_refresh` are false when the
+native LOOT binding is unavailable. Individual games also advertise
+`features.plugin_sort`; clients should check both instead of assuming every
+plugin-based game supports LOOT.
+
 Activation and order changes rewrite each manager plugin file atomically. They
 do not copy `plugins.txt`, restamp deployed files, or otherwise deploy. Call
 `deploy.start` explicitly to apply the new state to the game, including mtime
@@ -421,8 +476,10 @@ game.
 Expected job errors include `plugin_not_found`, `ambiguous_plugin`,
 `plugin_required`, `plugin_not_movable`, `plugin_locked`,
 `plugin_move_not_contiguous`, `plugin_move_mixed_regions`,
-`plugin_state_unavailable`, and `plugin_state_write_failed`. A case-only name
-mismatch is `plugin_not_found` with `expected_name` in its details.
+`plugin_state_unavailable`, `plugin_state_write_failed`, `loot_unavailable`,
+`loot_configuration_invalid`, `loot_masterlist_unavailable`, `loot_cycle`,
+`loot_sort_invalid_result`, and `loot_sort_failed`. A case-only name mismatch
+is `plugin_not_found` with `expected_name` in its details.
 
 ### Nexus authentication
 
@@ -988,7 +1045,7 @@ manager instance while it is running.
 
 ### Locking and failures
 
-Headless profile, archive-install, mod activation, ordering, removal and launch
+Headless profile, archive-install, mod and plugin management, and launch
 dispatch jobs and the standard Amethyst Deploy and Restore entry
 points—desktop, one-shot CLI, and headless—use the same operation coordinator.
 Operations are serialized
@@ -1054,7 +1111,7 @@ Request validation and lookup failures use the JSON-RPC error object.
 | `-32006` | `job_not_found` | The requested job is unknown or has expired from bounded history. |
 | `-32007` | `operation_in_progress` | Another job is active, or the selected game has a managed launch running. |
 | `-32008` | `game_not_configured` | The selected game has no usable configured path. |
-| `-32009` | `operation_not_supported` | The selected handler cannot perform the requested operation. |
+| `-32009` | `operation_not_supported` or `loot_unavailable` | The selected handler or installation cannot perform the requested operation. |
 | `-32010` | `unsupported_protocol_version` | The requested protocol version is incompatible. |
 | `-32011` | `nexus_login_in_progress` or `nexus_login_unavailable` | The OAuth browser flow could not be started. |
 | `-32012` | `nexus_download_link_expired` | The supplied one-time NXM link has expired. |
@@ -1154,10 +1211,11 @@ caller does not directly receive the created job ID or login-flow state.
 - Progress delivery is polling-only. Nexus downloads can be cancelled; other
   running jobs cannot.
 - The shared operation lock currently coordinates headless profile,
-  archive-install, mod activation, ordering, removal and launch-dispatch jobs
-  and the standard deploy/restore flows, not every desktop mod-list edit,
-  installer, wizard, configuration action, or a game's full running lifetime.
-  Do not run those tools while a headless mutation is active.
+  archive-install, mod activation, ordering and removal, plugin management, and
+  launch-dispatch jobs and the standard deploy/restore flows, not every desktop
+  mod/plugin-list edit, installer, wizard, configuration action, or a game's
+  full running lifetime. Do not run those tools while a headless mutation is
+  active.
 - The transport is a child process over standard I/O; there is no socket daemon
   or remote authentication layer yet.
 - Python modules under `amethyst_backend`, `Utils`, `Games` and `Nexus` remain
