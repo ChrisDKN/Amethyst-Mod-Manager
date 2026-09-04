@@ -108,6 +108,16 @@ The wiki is also built into the manager and can be viewed there.
 
 For building from source see the section on the wiki [here](https://github.com/ChrisDKN/Amethyst-Mod-Manager/wiki#building-from-source) 
 
+---
+
+## Contributing
+
+Feature requests and pull requests are welcome and I will go through these when I have the time.
+
+If you would like to help improve translations, feel free to contribute on the [crowdin](https://crowdin.com/project/amethyst-mod-manager) page
+
+---
+
 ## Supporting the project
 
 Your feedback is enough and is greatly appreciated as this benefits everyone but if you'd like donate you can on Ko-fi 
