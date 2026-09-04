@@ -120,6 +120,7 @@ class FilterSidePanel(QWidget):
         self._checks: dict[str, TriStateCheckBox] = {}
         # Dynamic sections: id -> (container layout, {key: TriStateCheckBox})
         self._dynamic: dict[str, tuple] = {}
+        self._dynamic_state: dict[str, dict[str, int]] = {}
         self._dynamic_meta: dict[str, dict] = {}   # id -> section dict
         self.setObjectName("FilterPanel")
         self.setFixedWidth(PANEL_WIDTH)
@@ -207,6 +208,7 @@ class FilterSidePanel(QWidget):
             clay.setSpacing(2)
             self._body_layout.addWidget(container)
             self._dynamic[section["id"]] = (clay, {})
+            self._dynamic_state[section["id"]] = {}
             self._dynamic_meta[section["id"]] = section
             # Placeholder until populated.
             self._set_dynamic_placeholder(section["id"], self.tr("(none)"))
@@ -221,11 +223,12 @@ class FilterSidePanel(QWidget):
     def set_dynamic_items(self, sec_id: str,
                           items: list[tuple]) -> None:
         """Repopulate a dynamic section. items = [(key, label, count|None), ...].
-        Preserves any existing tri-state for keys that survive."""
+        Preserves selected keys even while they are absent from this scan."""
         if sec_id not in self._dynamic:
             return
         clay, checks = self._dynamic[sec_id]
-        prev = {k: cb.state() for k, cb in checks.items()}
+        self._remember_dynamic_widgets(sec_id)
+        saved = self._dynamic_state[sec_id]
         # Clear
         while clay.count():
             it = clay.takeAt(0)
@@ -239,20 +242,55 @@ class FilterSidePanel(QWidget):
         for key, label, count in items:
             text = f"{label}  ({count:,})" if count is not None else label
             cb = TriStateCheckBox(text)
-            cb.set_state(prev.get(key, STATE_OFF))
+            cb.set_state(saved.get(key, STATE_OFF))
             cb.stateChanged.connect(self._emit)
             checks[key] = cb
             clay.addWidget(cb)
 
     # -- state ----------------------------------------------------------------
+    def _remember_dynamic_widgets(self, sec_id: str) -> None:
+        entry = self._dynamic.get(sec_id)
+        if entry is None:
+            return
+        saved = self._dynamic_state[sec_id]
+        for key, cb in entry[1].items():
+            state = cb.state()
+            if state:
+                saved[key] = state
+            else:
+                saved.pop(key, None)
+
     def state(self) -> dict:
         st: dict = {key: cb.state() for key, cb in self._checks.items()}
-        for sec_id, (_clay, checks) in self._dynamic.items():
+        for sec_id in self._dynamic:
+            self._remember_dynamic_widgets(sec_id)
+            saved = self._dynamic_state[sec_id]
             st[sec_id] = frozenset(
-                k for k, cb in checks.items() if cb.state() == 1)
+                key for key, state in saved.items() if state == 1)
             st[sec_id + "_exclude"] = frozenset(
-                k for k, cb in checks.items() if cb.state() == 2)
+                key for key, state in saved.items() if state == 2)
         return st
+
+    def set_state(self, state: dict, *, emit: bool = False) -> None:
+        """Restore a full state, including dynamic choices not populated yet."""
+        state = state if isinstance(state, dict) else {}
+        for key, cb in self._checks.items():
+            value = state.get(key, STATE_OFF)
+            cb.set_state(value if value in (1, 2) else STATE_OFF, emit=False)
+        for sec_id, (_clay, checks) in self._dynamic.items():
+            includes = state.get(sec_id, ())
+            excludes = state.get(sec_id + "_exclude", ())
+            includes = set(includes) if isinstance(
+                includes, (list, tuple, set, frozenset)) else set()
+            excludes = set(excludes) if isinstance(
+                excludes, (list, tuple, set, frozenset)) else set()
+            saved = {key: 1 for key in includes}
+            saved.update({key: 2 for key in excludes - includes})
+            self._dynamic_state[sec_id] = saved
+            for key, cb in checks.items():
+                cb.set_state(saved.get(key, STATE_OFF), emit=False)
+        if emit:
+            self._emit()
 
     def set_check(self, key: str, state: int, *, emit: bool = True) -> None:
         """Programmatically set a status checkbox's tri-state (used by the
@@ -272,19 +310,25 @@ class FilterSidePanel(QWidget):
         entry = self._dynamic.get(sec_id)
         if entry is None:
             return STATE_OFF
-        cb = entry[1].get(key)
-        return cb.state() if cb is not None else STATE_OFF
+        self._remember_dynamic_widgets(sec_id)
+        return self._dynamic_state[sec_id].get(key, STATE_OFF)
 
     def set_dynamic_check(self, sec_id: str, key: str, state: int, *,
                           emit: bool = True) -> None:
-        """Set one dynamic item's tri-state. The item must already exist (the
-        host repopulates the section before driving it)."""
+        """Set one dynamic item's tri-state, retaining it until populated."""
         entry = self._dynamic.get(sec_id)
         if entry is None:
             return
         cb = entry[1].get(key)
         if cb is not None:
             cb.set_state(state, emit=emit)
+        else:
+            if state in (1, 2):
+                self._dynamic_state[sec_id][key] = state
+            else:
+                self._dynamic_state[sec_id].pop(key, None)
+            if emit:
+                self._emit()
 
     def set_check_enabled(self, key: str, enabled: bool) -> None:
         cb = self._checks.get(key)
@@ -305,6 +349,8 @@ class FilterSidePanel(QWidget):
         for _clay, checks in self._dynamic.values():
             for cb in checks.values():
                 cb.set_state(STATE_OFF, emit=False)
+        for saved in self._dynamic_state.values():
+            saved.clear()
         # `cleared` first: a listener dropping its own out-of-panel filters must
         # do so before `changed` runs the re-filter, or the list stays narrowed.
         self.cleared.emit()
@@ -313,8 +359,9 @@ class FilterSidePanel(QWidget):
     def any_active(self) -> bool:
         if any(cb.state() for cb in self._checks.values()):
             return True
-        for _clay, checks in self._dynamic.values():
-            if any(cb.state() for cb in checks.values()):
+        for sec_id in self._dynamic:
+            self._remember_dynamic_widgets(sec_id)
+            if self._dynamic_state[sec_id]:
                 return True
         return False
 

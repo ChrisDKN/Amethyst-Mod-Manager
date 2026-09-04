@@ -695,6 +695,93 @@ def save_shortcut_overrides(overrides: dict[str, str]) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Filter selections. Each tab is one compact JSON object in [filters]; fixed
+# checks are tri-state integers and dynamic selections are string lists.
+# ---------------------------------------------------------------------------
+_FILTERS_SECTION = "filters"
+_FILTER_STATE_NAMES = (
+    "modlist",
+    "plugins",
+    "mod_files",
+    "data",
+    "downloads",
+    "text_files",
+    "saves",
+)
+
+
+def _normalise_filter_state(state) -> dict:
+    if not isinstance(state, dict):
+        return {}
+    cleaned = {}
+    for raw_key, value in state.items():
+        key = str(raw_key).strip().lower()
+        if not _re.fullmatch(r"[a-z0-9_]+", key):
+            continue
+        if isinstance(value, int) and not isinstance(value, bool):
+            if value in (1, 2):
+                cleaned[key] = value
+        elif isinstance(value, (list, tuple, set, frozenset)):
+            items = frozenset(item for item in value if isinstance(item, str))
+            if items:
+                cleaned[key] = items
+    return cleaned
+
+
+def load_filter_states() -> dict[str, dict]:
+    """Return active filter selections keyed by tab name."""
+    import json
+    path = get_ui_config_path()
+    if not path.is_file():
+        return {}
+    try:
+        parser = _read_ini(path)
+        if _FILTERS_SECTION not in parser:
+            return {}
+        states = {}
+        for name in _FILTER_STATE_NAMES:
+            raw = parser.get(
+                _FILTERS_SECTION, name, raw=True, fallback="").strip()
+            if not raw:
+                continue
+            state = _normalise_filter_state(
+                json.loads(raw.replace("%%", "%")))
+            if state:
+                states[name] = state
+        return states
+    except Exception:
+        return {}
+
+
+def save_filter_states(states: dict[str, dict]) -> None:
+    """Replace the saved filter selections in amethyst.ini."""
+    import json
+    encoded = {}
+    for name in _FILTER_STATE_NAMES:
+        state = _normalise_filter_state((states or {}).get(name))
+        if not state:
+            continue
+        serializable = {
+            key: sorted(value) if isinstance(value, frozenset) else value
+            for key, value in state.items()
+        }
+        encoded[name] = json.dumps(
+            serializable, ensure_ascii=False, sort_keys=True,
+            separators=(",", ":"),
+        ).replace("%", "%%")
+
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    parser.remove_section(_FILTERS_SECTION)
+    if encoded:
+        parser[_FILTERS_SECTION] = encoded
+    _write_ini(parser, path)
+
+
+# ---------------------------------------------------------------------------
 # Tab pins - per-view preferred presentation mode (full / modlist / plugins).
 # A view is identified by its tab `key` (e.g. "change_version", "nexus_browser").
 # When a user re-pins a tab we remember the choice here so the same view reopens

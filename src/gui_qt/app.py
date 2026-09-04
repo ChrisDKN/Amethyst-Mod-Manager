@@ -470,6 +470,15 @@ class MainWindow(QMainWindow):
         "_dl_filters_btn":      ("_downloads_filter_panel",  "_dl_search"),
         "_tf_filters_btn":      ("_text_files_filter_panel", "_tf_search"),
     }
+    _FILTER_STATE_KEYS = {
+        "_modlist_filter_panel": "modlist",
+        "_plugin_filter_panel": "plugins",
+        "_mod_files_filter_panel": "mod_files",
+        "_data_filter_panel": "data",
+        "_downloads_filter_panel": "downloads",
+        "_text_files_filter_panel": "text_files",
+        "_saves_filter_panel": "saves",
+    }
 
     def __init__(self, app, splash=None, startup_timing=None):
         phase_started = _startup_time.perf_counter()
@@ -11787,9 +11796,12 @@ class MainWindow(QMainWindow):
         self._schedule_window_state_save()
 
     def closeEvent(self, event):
-        """On close, optionally restore every deployed game to vanilla (the
-        'Restore on close' setting). Synchronous (the app is exiting) - mirrors
-        the Tk gui.py shutdown path."""
+        """Save UI state, then optionally restore every deployed game to vanilla.
+
+        Restore is synchronous because the app is exiting and mirrors the Tk
+        gui.py shutdown path.
+        """
+        self._save_filter_states()
         self._save_window_state()
         try:
             from Nexus.nxm_handler import NxmIPC
@@ -15026,8 +15038,8 @@ class MainWindow(QMainWindow):
         # hidden. Building all seven here creates dozens of checkboxes and
         # scroll-area children that Qt then polishes/layouts even when the user
         # never opens Filters. Keep their state independently and construct the
-        # requested panel on first use (footer button, header menu, or quick
-        # filter). _ensure_filter_panel inserts it immediately before *col*.
+        # requested panel on first use (or when it has saved active filters).
+        # _ensure_filter_panel inserts it immediately before *col*.
         self._filter_panel_layout = h
         self._filter_panel_builders = {
             "_modlist_filter_panel": "_build_modlist_filter_panel",
@@ -15040,9 +15052,16 @@ class MainWindow(QMainWindow):
         }
         for _attr in self._filter_panel_builders:
             setattr(self, _attr, None)
-        self._modlist_filter_state: dict = {}
+        try:
+            from Utils.ui.config import load_filter_states
+            self._filter_states = load_filter_states()
+        except Exception:
+            self._filter_states = {}
+        self._modlist_filter_state = dict(
+            self._filter_states.get("modlist", {}))
         self._modlist_filter_data = None
-        self._plugin_filter_state: dict = {}
+        self._plugin_filter_state = dict(
+            self._filter_states.get("plugins", {}))
         if startup_timing is not None:
             startup_timing.record(
                 "Prepare lazy filter panels",
@@ -15050,9 +15069,16 @@ class MainWindow(QMainWindow):
         h.addWidget(col, 1)
         phase_started = _startup_time.perf_counter()
         self._install_tab_filter_menus()
+        self._restoring_filter_states = True
+        try:
+            for attr, name in self._FILTER_STATE_KEYS.items():
+                if self._filter_state_active(self._filter_states.get(name, {})):
+                    self._ensure_filter_panel(attr)
+        finally:
+            self._restoring_filter_states = False
         if startup_timing is not None:
             startup_timing.record(
-                "Install tab-header filter menus",
+                "Install filter menus and restore selections",
                 phase_started=phase_started, category="UI")
         return area
 
@@ -15071,18 +15097,40 @@ class MainWindow(QMainWindow):
         # The main modlist column is always the final item in this layout.
         layout.insertWidget(max(0, layout.count() - 1), panel)
 
-        # Quick-filter menus can establish state before the full side panel is
-        # opened. Mirror those fixed checkbox values into the new widget
-        # without emitting a cascade for every checkbox.
-        state = (self._modlist_filter_state if attr == "_modlist_filter_panel"
-                 else self._plugin_filter_state
-                 if attr == "_plugin_filter_panel" else {})
-        for key, value in (state or {}).items():
-            if isinstance(value, int):
-                panel.set_check(key, value, emit=False)
+        # Restore fixed and dynamic choices before the first scan populates the
+        # latter. Emit once so the owning view receives the complete state.
+        state_name = self._FILTER_STATE_KEYS.get(attr)
+        state = getattr(self, "_filter_states", {}).get(state_name, {})
+        panel.set_state(state, emit=False)
         if attr == "_modlist_filter_panel":
             self._refresh_filter_game_specific()
+        if self._filter_state_active(state):
+            panel.set_state(panel.state(), emit=True)
         return panel
+
+    @staticmethod
+    def _filter_state_active(state: dict) -> bool:
+        return any(value in (1, 2) if isinstance(value, int)
+                   else bool(value) for value in (state or {}).values())
+
+    def _remember_filter_state(self, name: str, state: dict) -> None:
+        self._filter_states[name] = state
+        if getattr(self, "_restoring_filter_states", False):
+            return
+        self._save_filter_states()
+
+    def _save_filter_states(self) -> None:
+        states = dict(getattr(self, "_filter_states", {}))
+        for attr, name in self._FILTER_STATE_KEYS.items():
+            panel = getattr(self, attr, None)
+            if panel is not None:
+                states[name] = panel.state()
+        self._filter_states = states
+        try:
+            from Utils.ui.config import save_filter_states
+            save_filter_states(states)
+        except Exception as exc:
+            print(f"[gui_qt] filter-state save error: {exc}", flush=True)
 
     def _hide_other_filter_panels(self, keep=None) -> None:
         """Hide any already-created panel other than *keep*."""
@@ -15226,6 +15274,7 @@ class MainWindow(QMainWindow):
             panel.setVisible(False)
 
     def _on_text_files_filter_changed(self, state: dict):
+        self._remember_filter_state("text_files", state)
         self._text_files_view.apply_filter_state(state)
         self._sync_filters_btn("_tf_filters_btn")
 
@@ -15253,6 +15302,7 @@ class MainWindow(QMainWindow):
 
     def _on_plugin_filter_changed(self, state: dict):
         self._plugin_filter_state = state
+        self._remember_filter_state("plugins", state)
         self._apply_plugin_filters()
         self._sync_filters_btn("_plugin_filters_btn")
 
@@ -15336,6 +15386,7 @@ class MainWindow(QMainWindow):
             panel.setVisible(False)
 
     def _on_saves_filter_changed(self, state: dict):
+        self._remember_filter_state("saves", state)
         self._saves_view.apply_filter_state(state)
         self._sync_filters_btn("_saves_filters_btn")
 
@@ -15368,6 +15419,7 @@ class MainWindow(QMainWindow):
             panel.setVisible(False)
 
     def _on_downloads_filter_changed(self, state: dict):
+        self._remember_filter_state("downloads", state)
         self._downloads_view.apply_filter_state(state)
         self._sync_filters_btn("_dl_filters_btn")
 
@@ -15404,6 +15456,7 @@ class MainWindow(QMainWindow):
             panel.setVisible(False)
 
     def _on_data_filter_changed(self, state: dict):
+        self._remember_filter_state("data", state)
         self._data_view.apply_filter_state(state)
         self._sync_filters_btn("_data_filters_btn")
 
@@ -15441,6 +15494,7 @@ class MainWindow(QMainWindow):
             panel.setVisible(False)
 
     def _on_mod_files_filter_changed(self, state: dict):
+        self._remember_filter_state("mod_files", state)
         self._mod_files_view.apply_filter_state(state)
         self._sync_filters_btn("_mf_filters_btn")
 
@@ -15954,6 +16008,7 @@ class MainWindow(QMainWindow):
 
     def _on_modlist_filter_changed(self, state: dict):
         self._modlist_filter_state = state
+        self._remember_filter_state("modlist", state)
         self._apply_modlist_filters()
         self._update_filters_btn_active()
 
