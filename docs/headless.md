@@ -5,7 +5,7 @@ use the manager without importing its Python modules or starting Qt. Protocol
 version 1 exposes game, profile, mod and downloaded-archive state, Nexus OAuth,
 catalogue discovery, exact-ID metadata, managed downloads, and non-interactive
 archive installation, plus asynchronous mod activation, ordering, removal,
-profile lifecycle, deploy, and restore jobs.
+profile lifecycle, deploy, restore, and managed game launch.
 
 The public boundary is JSON-RPC 2.0 over newline-delimited JSON (NDJSON).
 Amethyst reads one JSON value per line from standard input and writes one JSON
@@ -98,7 +98,7 @@ The response describes the protocol and available features:
       "event_delivery": "poll",
       "cancellation": true,
       "cancellable_jobs": ["nexus.download"],
-      "mutations": ["profiles.create", "profiles.rename", "profiles.remove", "profiles.select", "mods.set_enabled", "mods.move", "mods.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install"],
+      "mutations": ["profiles.create", "profiles.rename", "profiles.remove", "profiles.select", "mods.set_enabled", "mods.move", "mods.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
       "installation": {
         "source": "download_inventory",
         "installer_policies": ["reject", "defaults"],
@@ -117,6 +117,13 @@ The response describes the protocol and available features:
           "maximum_page_size": 50,
           "filters": ["tag_includes", "tag_excludes", "languages", "hide_translations", "min_file_size_kb", "max_file_size_kb", "min_downloads", "max_downloads", "min_endorsements", "max_endorsements", "adult", "supports_vortex", "has_updated", "title_contains", "description_contains", "author_contains", "uploader_contains"]
         }
+      },
+      "launch": {
+        "requires_deployed_profile": true,
+        "deploy_automatically": false,
+        "lifecycle_polling": true,
+        "stop": true,
+        "arbitrary_commands": false
       },
       "maximum_event_wait_ms": 30000,
       "methods": [
@@ -149,6 +156,9 @@ The response describes the protocol and available features:
         "mods.remove.start",
         "deploy.start",
         "restore.start",
+        "launch.get",
+        "launch.start",
+        "launch.stop",
         "jobs.get",
         "jobs.list",
         "jobs.events",
@@ -199,6 +209,9 @@ parameters are rejected.
 | `mods.remove.start` | `game` string, `profile` string, `mods` array, `confirm` boolean | Permanently remove one or more mods. |
 | `deploy.start` | `game` string, `profile` string, `options` object (optional) | Start a deployment job. |
 | `restore.start` | `game` string, `profile` string | Start a restore job. |
+| `launch.get` | `launch_id` string (optional) | Inspect the latest managed game-launch lifecycle. |
+| `launch.start` | `game` string, `profile` string | Launch the currently deployed profile through Amethyst's configured router. |
+| `launch.stop` | `launch_id` string, `confirm` boolean | Stop a process tree started by the managed launch. |
 | `jobs.get` | `job_id` string | Get the latest job snapshot. |
 | `jobs.list` | `active_only` boolean (optional) | List jobs, newest first. |
 | `jobs.events` | `job_id` string, `after` integer (optional), `wait_ms` integer (optional) | Read or long-poll ordered job events. |
@@ -824,11 +837,73 @@ always retains the latest progress value.
 Event polling occupies the sequential request loop for up to `wait_ms`, so a
 client that also sends interactive requests should use short waits.
 
+### Launching a deployed profile
+
+Launch the game only after `deploy.start` has succeeded for the same profile:
+
+```json
+{"jsonrpc":"2.0","id":"launch","method":"launch.start","params":{"game":"skyrim_se","profile":"default"}}
+```
+
+This is a managed game launch, not an arbitrary command runner. Amethyst loads
+the profile's settings and uses the same native, Steam, Heroic, Lutris, Faugus,
+Proton, Flatpak-forwarding, and profile-VFS router as the desktop Play button.
+It does not accept a command, executable path, environment, or arguments from
+the RPC client. Saved launcher settings remain authoritative.
+
+The named profile must be the currently deployed profile. The start job fails
+with `launch_requires_deployment` when the game is restored, or
+`launch_profile_mismatch` when another profile is deployed. The method never
+deploys implicitly; this keeps a launch request from unexpectedly performing a
+large filesystem mutation.
+
+`launch.start` returns both its normal job snapshot and a separate `launch`
+snapshot with an opaque `id`. A successful job means the existing router
+dispatched a process or launcher hand-off. The game lifecycle continues after
+that job completes, so poll it separately:
+
+```json
+{"jsonrpc":"2.0","id":"launch-state","method":"launch.get","params":{"launch_id":"<launch id>"}}
+```
+
+Launch states are `starting`, `running`, `stopping`, `stopped`, `finished`, and
+`failed`. `active` covers the first three. `stop_supported` becomes true once
+Amethyst has a scoped process identity it can stop. The snapshot also includes
+timestamps, a monotonic `sequence`, a structured `error`, and the newest 200
+launch log records. A launcher fallback or an immediately exiting game can
+change the launch to `failed` after the dispatch job has succeeded, so continue
+polling the launch state rather than treating job success as proof that a game
+window appeared.
+
+With no `launch_id`, `launch.get` returns the newest snapshot or null before any
+attempt. Only the newest attempt is retained, and only one managed launch may
+be active in a headless process. Profile, mod, install, deploy, and restore
+mutations for the same game are rejected with `operation_in_progress` while
+its managed launch remains active; reads and Nexus requests remain available.
+
+Stop the tracked process tree with an explicit confirmation:
+
+```json
+{"jsonrpc":"2.0","id":"launch-stop","method":"launch.stop","params":{"launch_id":"<launch id>","confirm":true}}
+```
+
+Stopping is scoped by the launch token or launcher identity used by the desktop
+Play button; it does not kill processes by executable name. The request returns
+without waiting for the termination worker, normally at `stopping`; poll until
+it reaches `stopped`. A launch which has already finished returns
+`launch_not_stoppable`.
+
+Closing the headless service detaches its lifecycle monitor and leaves the game
+running. Call `launch.stop` first when the client intends to stop the game.
+Other Amethyst processes cannot see this in-process lifecycle snapshot, so do
+not deploy, restore, install, or remove files for that game from another
+manager instance while it is running.
+
 ### Locking and failures
 
-Headless profile, archive-install, mod activation, ordering and removal jobs and
-the standard Amethyst Deploy and Restore entry points—desktop, one-shot CLI,
-and headless—use the same operation coordinator.
+Headless profile, archive-install, mod activation, ordering, removal and launch
+dispatch jobs and the standard Amethyst Deploy and Restore entry
+points—desktop, one-shot CLI, and headless—use the same operation coordinator.
 Operations are serialized
 within one process. Across native, AppImage and Flatpak processes, advisory
 locks cover the game identity and resolved game, profile, staging and deployment
@@ -890,13 +965,15 @@ Request validation and lookup failures use the JSON-RPC error object.
 | `-32004` | `ambiguous_game` | An identifier matched multiple game handlers. |
 | `-32005` | `ambiguous_profile` | A case-insensitive name matched multiple profiles. |
 | `-32006` | `job_not_found` | The requested job is unknown or has expired from bounded history. |
-| `-32007` | `operation_in_progress` | Another job is queued or running; retry after it completes. |
+| `-32007` | `operation_in_progress` | Another job is active, or the selected game has a managed launch running. |
 | `-32008` | `game_not_configured` | The selected game has no usable configured path. |
 | `-32009` | `operation_not_supported` | The selected handler cannot perform the requested operation. |
 | `-32010` | `unsupported_protocol_version` | The requested protocol version is incompatible. |
 | `-32011` | `nexus_login_in_progress` or `nexus_login_unavailable` | The OAuth browser flow could not be started. |
 | `-32012` | `nexus_download_link_expired` | The supplied one-time NXM link has expired. |
 | `-32013` | `job_not_cancellable` | The active job does not support cooperative cancellation. |
+| `-32014` | `launch_not_found` | The requested launch is not the newest attempt retained by this process. |
+| `-32015` | `launch_not_stoppable` | The launch has no running process tree left to stop. |
 
 An operation which starts successfully can still fail later. That failure is
 stored on the job rather than returned as a JSON-RPC error.
@@ -984,18 +1061,15 @@ caller does not directly receive the created job ID or login-flow state.
 
 ## Current limitations
 
-- Game launch is not exposed through the long-lived protocol yet. Nexus OAuth,
-  catalogue discovery, exact mod/file metadata, single-file downloads,
-  completed archive inventory, and non-interactive single-mod archive
-  installation are available.
 - Interactive FOMOD/BAIN/bundle choices are not represented in protocol version
   1. Clients can explicitly accept defaults; scripted FOMOD and multi-mod
   archives remain unsupported by the headless installer.
 - Progress delivery is polling-only. Nexus downloads can be cancelled; other
   running jobs cannot.
-- The shared operation lock currently coordinates headless profile, mod
-  activation, ordering and removal jobs and the standard deploy/restore flows,
-  not every desktop mod-list edit, installer, wizard, or configuration action.
+- The shared operation lock currently coordinates headless profile,
+  archive-install, mod activation, ordering, removal and launch-dispatch jobs
+  and the standard deploy/restore flows, not every desktop mod-list edit,
+  installer, wizard, configuration action, or a game's full running lifetime.
   Do not run those tools while a headless mutation is active.
 - The transport is a child process over standard I/O; there is no socket daemon
   or remote authentication layer yet.

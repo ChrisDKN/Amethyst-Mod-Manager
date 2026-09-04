@@ -68,6 +68,9 @@ class AmethystService:
         "mods.remove.start",
         "deploy.start",
         "restore.start",
+        "launch.get",
+        "launch.start",
+        "launch.stop",
         "jobs.get",
         "jobs.list",
         "jobs.events",
@@ -80,6 +83,8 @@ class AmethystService:
             games = discover_games()
         self._games = dict(games)
         self._jobs = JobManager()
+        from .launch import LaunchManager
+        self._launches = LaunchManager()
         from Nexus.session import NexusLoginManager, NexusSession
         self._nexus_session = NexusSession()
         self._nexus_login = NexusLoginManager(self._nexus_session)
@@ -113,6 +118,9 @@ class AmethystService:
             "mods.remove.start": self._start_remove,
             "deploy.start": self._start_deploy,
             "restore.start": self._start_restore,
+            "launch.get": self._get_launch,
+            "launch.start": self._start_launch,
+            "launch.stop": self._stop_launch,
             "jobs.get": self._get_job,
             "jobs.list": self._list_jobs,
             "jobs.events": self._job_events,
@@ -121,6 +129,7 @@ class AmethystService:
 
     def close(self) -> None:
         self._jobs.close(wait=True)
+        self._launches.close()
         self._nexus_login.close()
         self._nexus_session.close()
 
@@ -380,6 +389,13 @@ class AmethystService:
             )
         return value
 
+    @staticmethod
+    def _launch_summary(launch: dict[str, Any]) -> dict[str, Any]:
+        summary = dict(launch)
+        logs = summary.pop("logs", [])
+        summary["log_count"] = len(logs)
+        return summary
+
     def _handshake(self, params: dict[str, Any]) -> dict[str, Any]:
         self._check_params(params, {"protocol_version", "client"})
         requested = params.get("protocol_version")
@@ -431,7 +447,8 @@ class AmethystService:
                     "profiles.select", "mods.set_enabled", "mods.move",
                     "mods.remove", "deploy", "restore",
                     "nexus.auth.login", "nexus.auth.logout",
-                    "nexus.download", "downloads.install"],
+                    "nexus.download", "downloads.install", "launch",
+                    "launch.stop"],
                 "installation": {
                     "source": "download_inventory",
                     "installer_policies": ["reject", "defaults"],
@@ -450,6 +467,13 @@ class AmethystService:
                         "maximum_page_size": 50,
                         "filters": list(_NEXUS_FILTER_FIELDS),
                     },
+                },
+                "launch": {
+                    "requires_deployed_profile": True,
+                    "deploy_automatically": False,
+                    "lifecycle_polling": True,
+                    "stop": True,
+                    "arbitrary_commands": False,
                 },
                 "maximum_event_wait_ms": 30000,
                 "methods": list(self.METHODS),
@@ -520,6 +544,7 @@ class AmethystService:
             params, {"game", "name", "profile_specific_mods", "copy_from"},
             {"game", "name"})
         game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
         self._require_configured(game)
         name = self._profile_name(params.get("name"), "name")
 
@@ -563,6 +588,7 @@ class AmethystService:
             params, {"game", "profile", "new_name"},
             {"game", "profile", "new_name"})
         game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
         self._require_configured(game)
         profile_dir = self._resolve_profile(
             game, self._required_text(params, "profile"))
@@ -582,6 +608,7 @@ class AmethystService:
             params, {"game", "profile", "confirm"},
             {"game", "profile", "confirm"})
         game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
         self._require_configured(game)
         profile_dir = self._resolve_profile(
             game, self._required_text(params, "profile"))
@@ -604,6 +631,7 @@ class AmethystService:
         self._require_idle_state()
         self._check_params(params, {"game", "profile"}, {"game", "profile"})
         game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
         self._require_configured(game)
         profile_dir = self._resolve_profile(
             game, self._required_text(params, "profile"))
@@ -659,6 +687,7 @@ class AmethystService:
             {"game", "profile", "archive_id"},
         )
         game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
         self._require_configured(game)
         profile_dir = self._resolve_profile(
             game, self._required_text(params, "profile"))
@@ -1196,6 +1225,7 @@ class AmethystService:
         self._check_params(
             params, {"game", "profile", "options"}, {"game", "profile"})
         game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
         self._require_configured(game)
         profile_dir = self._resolve_profile(
             game, self._required_text(params, "profile"))
@@ -1239,6 +1269,7 @@ class AmethystService:
             params, {"game", "profile", "changes"},
             {"game", "profile", "changes"})
         game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
         self._require_configured(game)
         profile_dir = self._resolve_profile(
             game, self._required_text(params, "profile"))
@@ -1297,6 +1328,7 @@ class AmethystService:
             params, {"game", "profile", "mods", "position"},
             {"game", "profile", "mods", "position"})
         game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
         self._require_configured(game)
         profile_dir = self._resolve_profile(
             game, self._required_text(params, "profile"))
@@ -1358,6 +1390,7 @@ class AmethystService:
             params, {"game", "profile", "mods", "confirm"},
             {"game", "profile", "mods", "confirm"})
         game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
         self._require_configured(game)
         profile_dir = self._resolve_profile(
             game, self._required_text(params, "profile"))
@@ -1406,6 +1439,7 @@ class AmethystService:
         self._require_idle_state()
         self._check_params(params, {"game", "profile"}, {"game", "profile"})
         game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
         self._require_configured(game)
         profile_dir = self._resolve_profile(
             game, self._required_text(params, "profile"))
@@ -1418,6 +1452,96 @@ class AmethystService:
             profile_dir.name,
         )
         return {"job": job}
+
+    def _get_launch(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._check_params(params, {"launch_id"})
+        launch_id = None
+        if "launch_id" in params:
+            launch_id = self._required_text(params, "launch_id")
+        from .launch import LaunchNotFound
+        try:
+            return {"launch": self._launches.get(launch_id)}
+        except LaunchNotFound as exc:
+            raise ServiceError(
+                -32014,
+                "launch_not_found",
+                f"Launch '{launch_id}' was not found.",
+                {"launch_id": launch_id},
+            ) from exc
+
+    def _start_launch(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(params, {"game", "profile"}, {"game", "profile"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_configured(game)
+        profile_dir = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+
+        from .launch import LaunchInProgress, launch_runner
+        try:
+            launch = self._launches.reserve(
+                self._canonical_game(game), profile_dir.name)
+        except LaunchInProgress as exc:
+            raise ServiceError(
+                -32007,
+                "operation_in_progress",
+                "A managed game launch is already active.",
+                {"launch": self._launch_summary(exc.launch)},
+            ) from exc
+
+        launch_id = launch["id"]
+        try:
+            job = self._jobs.submit(
+                "launch",
+                game,
+                self._canonical_game(game),
+                profile_dir.name,
+                {
+                    "launch_id": launch_id,
+                    "requires_deployed_profile": True,
+                },
+                runner=launch_runner(
+                    game, profile_dir, launch_id, self._launches),
+            )
+        except Exception as exc:
+            self._launches.fail(
+                launch_id,
+                "launch_failed",
+                "The launch job could not be queued.",
+                {"launch_id": launch_id, "exception": type(exc).__name__},
+            )
+            raise
+        return {"job": job, "launch": launch}
+
+    def _stop_launch(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._check_params(
+            params, {"launch_id", "confirm"}, {"launch_id", "confirm"})
+        launch_id = self._required_text(params, "launch_id")
+        if params.get("confirm") is not True:
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'confirm' must be true to stop a managed game process.",
+                {"parameter": "confirm"},
+            )
+        from .launch import LaunchNotFound, LaunchNotStoppable
+        try:
+            return {"launch": self._launches.stop(launch_id)}
+        except LaunchNotFound as exc:
+            raise ServiceError(
+                -32014,
+                "launch_not_found",
+                f"Launch '{launch_id}' was not found.",
+                {"launch_id": launch_id},
+            ) from exc
+        except LaunchNotStoppable as exc:
+            current = self._launches.get(launch_id)
+            raise ServiceError(
+                -32015,
+                "launch_not_stoppable",
+                f"Launch '{launch_id}' is not running.",
+                {"launch": self._launch_summary(current)},
+            ) from exc
 
     def _get_job(self, params: dict[str, Any]) -> dict[str, Any]:
         self._check_params(params, {"job_id"}, {"job_id"})
@@ -1491,6 +1615,17 @@ class AmethystService:
                 "operation_in_progress",
                 "Application state is changing while a job is in progress.",
                 {"job": job},
+            )
+
+    def _require_no_managed_launch(self, game: Any) -> None:
+        launch = self._launches.get()
+        if (launch is not None and launch["active"]
+                and launch["game"]["id"] == self._canonical_game(game)["id"]):
+            raise ServiceError(
+                -32007,
+                "operation_in_progress",
+                "Stop the managed game launch before changing its state.",
+                {"launch": self._launch_summary(launch)},
             )
 
     def _require_configured(self, game: Any) -> None:
@@ -1672,6 +1807,7 @@ class AmethystService:
             "features": {
                 "deploy": callable(self._safe_attr(game, "deploy", None)),
                 "restore": callable(self._safe_attr(game, "restore", None)),
+                "launch": configured,
                 "install": bool(
                     configured
                     and callable(self._safe_attr(
