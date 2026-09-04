@@ -29,7 +29,14 @@ from PySide6.QtWidgets import (
     QToolButton, QAbstractItemView, QMenu,
 )
 
-from Utils.filegraph.paths import EXCLUDE_NAMES, is_macos_junk
+from Utils.boundaries.manage import (
+    delete_relative,
+    entry_exists as _entry_exists,
+    list_boundary_tree as _list_overwrite_tree,
+    move_relative,
+    prune_empty_dirs,
+    safe_mod_root as _safe_mod_root,
+)
 from gui_qt.confirm_overlay import ConfirmOverlay
 from gui_qt.flow_layout import FlowLayout, enable_height_for_width
 from gui_qt.icons import icon
@@ -40,53 +47,6 @@ from gui_qt.path_tree import (
     Node, sort_tree, PathTreeModel, PathTreeDelegate,
 )
 from gui_qt.text_input_overlay import TextInputOverlay
-
-
-def _is_hidden_name(name: str) -> bool:
-    """True for manager-internal bookkeeping and OS junk.
-
-    EXCLUDE_NAMES is the catalog's own ignore list (.mm_overwrite_log.txt,
-    meta.ini, .mm_merge_inventory.xml), so hiding it here makes the tree show
-    exactly what actually deploys. Moving or deleting the log would also break
-    the boundary row's "Log" entry, which reads it from this folder.
-    """
-    return name in EXCLUDE_NAMES or is_macos_junk(name)
-
-
-def _list_overwrite_tree(
-        root: Path) -> tuple[list[str], list[str], list[str]]:
-    """Files, empty folders, and watchable folders under *root*.
-
-    Empty folders are collected separately because the normal path-tree builder
-    only creates a folder node on the way to a file. A leftover empty tree would
-    otherwise be invisible, and it is exactly the kind of junk a user opens
-    this tab to select and delete.
-
-    A folder holding nothing but hidden entries counts as empty here, so it
-    still shows up as a deletable leftover rather than vanishing.
-    """
-    files: list[str] = []
-    empty_dirs: list[str] = []
-    watch_dirs = [str(root)]
-    try:
-        for p in root.rglob("*"):
-            try:
-                if p.is_symlink() or p.is_file():
-                    if _is_hidden_name(p.name):
-                        continue
-                    files.append(p.relative_to(root).as_posix())
-                elif p.is_dir():
-                    if is_macos_junk(p.name):
-                        continue
-                    watch_dirs.append(str(p))
-                    if not any(c for c in p.iterdir()
-                               if not _is_hidden_name(c.name)):
-                        empty_dirs.append(p.relative_to(root).as_posix())
-            except OSError:
-                continue
-    except OSError:
-        pass
-    return files, empty_dirs, watch_dirs
 
 
 def _build_overwrite_tree(files: list[str], empty_dirs: list[str]) -> Node:
@@ -116,33 +76,6 @@ def _build_overwrite_tree(files: list[str], empty_dirs: list[str]) -> Node:
         _folder(rel.split("/"))
     sort_tree(root)
     return root
-
-
-def _entry_exists(path: Path) -> bool:
-    return path.exists() or path.is_symlink()
-
-
-def _safe_child(root: Path, rel: str) -> Path | None:
-    """Return root/rel only when it is lexically and physically contained."""
-    relative = Path(rel)
-    if (not relative.parts or relative.is_absolute()
-            or any(part in ("", ".", "..") for part in relative.parts)):
-        return None
-    candidate = root.joinpath(*relative.parts)
-    try:
-        resolved_root = root.resolve(strict=False)
-        resolved_parent = candidate.parent.resolve(strict=False)
-        resolved_parent.relative_to(resolved_root)
-    except (OSError, RuntimeError, ValueError):
-        return None
-    return candidate
-
-
-def _safe_mod_root(staging: Path, name: str) -> Path | None:
-    path = Path(name)
-    if path.is_absolute() or len(path.parts) != 1 or path.name != name:
-        return None
-    return _safe_child(staging, name)
 
 
 # Footer buttons match the app's compact footer chrome (_text_button /
@@ -700,97 +633,6 @@ class OverwriteView(QWidget):
             self, self.tr("Move to new mod"), self.tr("Mod name:"), _named,
             ok_label=self.tr("Create"))
 
-    def _move_relative(self, rel: str, dest_root: Path
-                       ) -> tuple[bool, list[str]]:
-        src = (_safe_child(self._root_path, rel)
-               if self._root_path is not None else None)
-        dst = _safe_child(dest_root, rel)
-        if src is None or dst is None:
-            return False, [f"{rel}: path is outside its managed folder"]
-        if not _entry_exists(src):
-            return False, [f"{rel}: source no longer exists"]
-
-        src_is_dir = src.is_dir() and not src.is_symlink()
-        dst_exists = _entry_exists(dst)
-        dst_is_dir = dst_exists and dst.is_dir() and not dst.is_symlink()
-
-        if src_is_dir and dst_is_dir:
-            try:
-                children = list(src.iterdir())
-            except OSError as exc:
-                return False, [f"{rel}: {exc}"]
-            moved = False
-            failed: list[str] = []
-            for child in children:
-                child_rel = f"{rel}/{child.name}"
-                child_moved, child_failed = self._move_relative(
-                    child_rel, dest_root)
-                moved = moved or child_moved
-                failed.extend(child_failed)
-            try:
-                src.rmdir()
-                moved = True
-            except OSError:
-                pass
-            return moved, failed
-
-        if src_is_dir and dst_exists:
-            return False, [
-                f"{rel}: target is not a directory; not replaced"]
-
-        if not src_is_dir and dst_is_dir:
-            try:
-                if any(dst.iterdir()):
-                    return False, [
-                        f"{rel}: target is a non-empty directory; not replaced"]
-                dst.rmdir()
-            except OSError as exc:
-                return False, [f"{rel}: {exc}"]
-        elif dst_exists:
-            try:
-                # Overwrite an exact file/symlink collision atomically. In
-                # particular, leave the existing target intact if the move is
-                # rejected (permissions, cross-device, etc.). Overwrite and
-                # staging normally share a filesystem; the fallback below is
-                # for custom layouts where they do not.
-                src.replace(dst)
-                return True, []
-            except OSError as exc:
-                import errno
-                if exc.errno != errno.EXDEV:
-                    return False, [f"{rel}: {exc}"]
-                tmp = None
-                try:
-                    from uuid import uuid4
-                    tmp = dst.parent / f".amethyst-move-{uuid4().hex}"
-                    if src.is_symlink():
-                        tmp.symlink_to(src.readlink(),
-                                       target_is_directory=src.is_dir())
-                    else:
-                        shutil.copy2(src, tmp)
-                    tmp.replace(dst)
-                except (OSError, ValueError, shutil.Error) as copy_exc:
-                    try:
-                        if tmp is not None and _entry_exists(tmp):
-                            tmp.unlink()
-                    except OSError:
-                        pass
-                    return False, [f"{rel}: {copy_exc}"]
-                try:
-                    src.unlink()
-                except OSError as unlink_exc:
-                    return True, [
-                        f"{rel}: copied, but source could not be removed: "
-                        f"{unlink_exc}"]
-                return True, []
-
-        try:
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.move(str(src), str(dst))
-            return True, []
-        except (OSError, ValueError, shutil.Error) as exc:
-            return False, [f"{rel}: {exc}"]
-
     def _do_move(self, rels: list[str], mod_name: str, confirm: bool = True,
                  *, expected_context=None,
                  refresh_even_if_unchanged: bool = False):
@@ -811,7 +653,8 @@ class OverwriteView(QWidget):
                 return
             moved, failed = 0, []
             for rel in rels:
-                changed, errors = self._move_relative(rel, dest_root)
+                changed, errors = move_relative(
+                    self._root_path, rel, dest_root)
                 if changed:
                     moved += 1
                 failed.extend(errors)
@@ -847,19 +690,11 @@ class OverwriteView(QWidget):
                 return
             deleted, failed = 0, []
             for rel in rels:
-                target = _safe_child(self._root_path, rel)
-                if target is None:
-                    failed.append(
-                        f"{rel}: path is outside the managed folder")
-                    continue
-                try:
-                    if target.is_dir() and not target.is_symlink():
-                        shutil.rmtree(target)
-                    else:
-                        target.unlink()
+                removed, error = delete_relative(self._root_path, rel)
+                if removed:
                     deleted += 1
-                except OSError as exc:
-                    failed.append(f"{rel}: {exc}")
+                elif error:
+                    failed.append(error)
             self._prune_empty_dirs()
             self.reload()
             if deleted:
@@ -885,19 +720,5 @@ class OverwriteView(QWidget):
             confirm_label=self.tr("Delete"), danger=True)
 
     def _prune_empty_dirs(self):
-        """Drop emptied descendants while preserving the managed root."""
-        root = self._root_path
-        if root is None or not root.is_dir():
-            return
-        try:
-            dirs = sorted((p for p in root.rglob("*")
-                           if p.is_dir() and not p.is_symlink()),
-                          key=lambda p: len(p.parts), reverse=True)
-        except OSError:
-            return
-        for d in dirs:
-            try:
-                if not any(d.iterdir()):
-                    d.rmdir()
-            except OSError:
-                continue
+        if self._root_path is not None:
+            prune_empty_dirs(self._root_path)
