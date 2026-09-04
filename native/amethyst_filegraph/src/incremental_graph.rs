@@ -5,9 +5,13 @@ use crate::model::{
     ResolutionDelta, SnapshotExport, WinnerRecord,
 };
 use im::{HashMap as PersistentHashMap, HashSet as PersistentHashSet};
+use parking_lot::Mutex;
 use smallvec::SmallVec;
+use std::borrow::Borrow;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
-use std::sync::Arc;
+use std::hash::Hash;
+use std::ops::Index;
+use std::sync::{Arc, OnceLock};
 use std::time::Instant;
 
 // Stored after the source size/mtime in deployed_entries.source_fingerprint.
@@ -522,25 +526,139 @@ impl IdentityState {
     }
 }
 
+// Keep cold-build arrays and maps intact; later snapshots share small updates.
+#[derive(Clone, Debug)]
+pub struct SharedAppend<T: Clone> {
+    base: Arc<Vec<T>>,
+    appended: im::Vector<T>,
+}
+
+impl<T: Clone> SharedAppend<T> {
+    fn new(base: Arc<Vec<T>>) -> Self {
+        Self {
+            base,
+            appended: im::Vector::new(),
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.base.len() + self.appended.len()
+    }
+
+    fn get(&self, index: usize) -> Option<&T> {
+        if index < self.base.len() {
+            self.base.get(index)
+        } else {
+            self.appended.get(index - self.base.len())
+        }
+    }
+
+    fn iter(&self) -> impl Iterator<Item = &T> {
+        self.base.iter().chain(self.appended.iter())
+    }
+
+    fn push(&mut self, value: T) {
+        self.appended.push_back(value);
+    }
+}
+
+impl<T: Clone> Index<usize> for SharedAppend<T> {
+    type Output = T;
+
+    fn index(&self, index: usize) -> &T {
+        self.get(index).expect("inventory slot out of bounds")
+    }
+}
+
+#[derive(Clone, Debug)]
+struct InventoryMap<K: Eq + Hash, V> {
+    base: Arc<HashMap<K, V>>,
+    changed: PersistentHashMap<K, Arc<V>>,
+}
+
+impl<K: Clone + Eq + Hash, V: Clone> InventoryMap<K, V> {
+    fn new(base: HashMap<K, V>) -> Self {
+        Self {
+            base: Arc::new(base),
+            changed: PersistentHashMap::new(),
+        }
+    }
+
+    fn get<Q: Eq + Hash + ?Sized>(&self, key: &Q) -> Option<&V>
+    where
+        K: Borrow<Q>,
+    {
+        self.changed
+            .get(key)
+            .map(AsRef::as_ref)
+            .or_else(|| self.base.get(key))
+    }
+
+    fn insert(&mut self, key: K, value: V) {
+        self.changed.insert(key, Arc::new(value));
+    }
+
+    fn value_mut(&mut self, key: K) -> &mut V
+    where
+        V: Default,
+    {
+        let value = self
+            .changed
+            .entry(key.clone())
+            .or_insert_with(|| Arc::new(self.base.get(&key).cloned().unwrap_or_default()));
+        Arc::make_mut(value)
+    }
+
+    fn keys(&self) -> impl Iterator<Item = &K> {
+        self.base
+            .keys()
+            .filter(|key| !self.changed.contains_key(*key))
+            .chain(self.changed.keys())
+    }
+}
+
+#[derive(Clone, Debug)]
+struct EffectivePostings {
+    base: Arc<Vec<Vec<ProviderIndex>>>,
+    changed: PersistentHashMap<EffectiveKey, Arc<Vec<ProviderIndex>>>,
+}
+
+impl EffectivePostings {
+    fn get(&self, index: usize) -> Option<&Vec<ProviderIndex>> {
+        self.changed
+            .get(&(index as EffectiveKey))
+            .map(AsRef::as_ref)
+            .or_else(|| self.base.get(index))
+    }
+
+    fn push(&mut self, key: EffectiveKey, provider: ProviderIndex) {
+        let values = self
+            .changed
+            .entry(key)
+            .or_insert_with(|| Arc::new(self.base.get(key as usize).cloned().unwrap_or_default()));
+        Arc::make_mut(values).push(provider);
+    }
+}
+
 #[derive(Clone, Debug)]
 struct GraphInventory {
-    candidate_indexes: HashMap<i64, ProviderIndex>,
+    candidate_indexes: InventoryMap<i64, ProviderIndex>,
     /// Candidate IDs present in the catalog projection selected by the
     /// current intent. Older candidates may remain in stable provider slots
     /// across a targeted inventory replacement so existing destination
     /// stacks do not need to be rebuilt or renumbered.
-    active_candidate_ids: HashSet<i64>,
-    effective_paths: Vec<EffectivePath>,
-    effective_lookup: HashMap<EffectivePath, EffectiveKey>,
-    effective_postings: Vec<Vec<ProviderIndex>>,
-    candidate_effective: Vec<EffectiveKey>,
-    identity_postings: HashMap<Arc<[u8]>, Vec<ProviderIndex>>,
-    mod_candidates: HashMap<Arc<str>, Vec<ProviderIndex>>,
-    archive_candidates: HashMap<String, Vec<ProviderIndex>>,
-    plugin_paths: HashMap<String, Vec<PathKey>>,
-    mod_names: HashMap<i64, Arc<str>>,
-    mod_keys: HashMap<i64, Arc<str>>,
-    mod_ids_by_key: HashMap<Arc<str>, i64>,
+    active_candidate_ids: Arc<HashSet<i64>>,
+    effective_paths: SharedAppend<EffectivePath>,
+    effective_lookup: InventoryMap<EffectivePath, EffectiveKey>,
+    effective_postings: EffectivePostings,
+    candidate_effective: SharedAppend<EffectiveKey>,
+    identity_postings: InventoryMap<Arc<[u8]>, Vec<ProviderIndex>>,
+    mod_candidates: InventoryMap<Arc<str>, Vec<ProviderIndex>>,
+    archive_candidates: InventoryMap<String, Vec<ProviderIndex>>,
+    plugin_paths: Arc<HashMap<String, Vec<PathKey>>>,
+    mod_names: Arc<HashMap<i64, Arc<str>>>,
+    mod_keys: Arc<HashMap<i64, Arc<str>>>,
+    mod_ids_by_key: Arc<HashMap<Arc<str>, i64>>,
 }
 
 impl GraphInventory {
@@ -618,22 +736,85 @@ impl GraphInventory {
             }
         }
         Self {
-            candidate_indexes,
-            active_candidate_ids,
-            effective_paths,
-            effective_lookup,
-            effective_postings,
-            candidate_effective,
-            identity_postings,
-            mod_candidates,
-            archive_candidates,
-            plugin_paths: plugin_path_sets
-                .into_iter()
-                .map(|(key, values)| (key, values.into_iter().collect()))
-                .collect(),
-            mod_names,
-            mod_keys,
-            mod_ids_by_key,
+            candidate_indexes: InventoryMap::new(candidate_indexes),
+            active_candidate_ids: Arc::new(active_candidate_ids),
+            effective_paths: SharedAppend::new(Arc::new(effective_paths)),
+            effective_lookup: InventoryMap::new(effective_lookup),
+            effective_postings: EffectivePostings {
+                base: Arc::new(effective_postings),
+                changed: PersistentHashMap::new(),
+            },
+            candidate_effective: SharedAppend::new(Arc::new(candidate_effective)),
+            identity_postings: InventoryMap::new(identity_postings),
+            mod_candidates: InventoryMap::new(mod_candidates),
+            archive_candidates: InventoryMap::new(archive_candidates),
+            plugin_paths: Arc::new(
+                plugin_path_sets
+                    .into_iter()
+                    .map(|(key, values)| (key, values.into_iter().collect()))
+                    .collect(),
+            ),
+            mod_names: Arc::new(mod_names),
+            mod_keys: Arc::new(mod_keys),
+            mod_ids_by_key: Arc::new(mod_ids_by_key),
+        }
+    }
+
+    fn append(&mut self, candidate: &Candidate, index: ProviderIndex) {
+        self.candidate_indexes.insert(candidate.id, index);
+        self.mod_candidates
+            .value_mut(candidate.mod_key.clone())
+            .push(index);
+        if !self.mod_names.contains_key(&candidate.mod_id) {
+            Arc::make_mut(&mut self.mod_names).insert(candidate.mod_id, candidate.mod_name.clone());
+            Arc::make_mut(&mut self.mod_keys).insert(candidate.mod_id, candidate.mod_key.clone());
+        }
+        if !self.mod_ids_by_key.contains_key(candidate.mod_key.as_ref()) {
+            Arc::make_mut(&mut self.mod_ids_by_key)
+                .insert(candidate.mod_key.clone(), candidate.mod_id);
+        }
+        let path = EffectivePath {
+            target: candidate.target.clone(),
+            path: candidate.destination_key.clone(),
+        };
+        let effective = if let Some(effective) = self.effective_lookup.get(&path) {
+            *effective
+        } else {
+            let effective = self.effective_paths.len() as EffectiveKey;
+            self.effective_paths.push(path.clone());
+            self.effective_lookup.insert(path, effective);
+            effective
+        };
+        self.candidate_effective.push(effective);
+        self.effective_postings.push(effective, index);
+        if let Some(archive) = &candidate.archive_key {
+            self.archive_candidates
+                .value_mut(archive.to_lowercase())
+                .push(index);
+        }
+        if candidate.kind != ProviderKind::ArchiveMember
+            && let Some(plugin) = &candidate.plugin_key
+        {
+            let plugin = plugin.to_lowercase();
+            let path = PathKey {
+                namespace: candidate.kind.namespace(),
+                effective,
+            };
+            if !self
+                .plugin_paths
+                .get(&plugin)
+                .is_some_and(|paths| paths.contains(&path))
+            {
+                Arc::make_mut(&mut self.plugin_paths)
+                    .entry(plugin)
+                    .or_default()
+                    .push(path);
+            }
+        }
+        for identity in &candidate.identities {
+            self.identity_postings
+                .value_mut(identity.clone())
+                .push(index);
         }
     }
 
@@ -746,12 +927,36 @@ impl RankContext {
     }
 }
 
+#[derive(Debug)]
+struct ModFileRow {
+    raw_index: usize,
+    candidate_index: Option<ProviderIndex>,
+    winning: bool,
+}
+
+#[derive(Debug)]
+struct ModFilePageIndex {
+    mod_key: String,
+    winners_only: bool,
+    kinds: BTreeSet<ProviderKind>,
+    rows: Arc<Vec<ModFileRow>>,
+}
+
+#[derive(Debug, Default)]
+struct PageIndexes {
+    winners: OnceLock<Vec<(i64, Namespace)>>,
+    // Retain one mod/filter query per snapshot, without caching rich records.
+    mod_files: Mutex<Option<ModFilePageIndex>>,
+}
+
 #[derive(Clone, Debug)]
 pub struct GraphSnapshot {
     pub generation: u64,
     pub inventory_generation: u64,
-    pub candidates: Arc<Vec<Candidate>>,
+    pub candidates: Arc<SharedAppend<Candidate>>,
     raw_files: Arc<Vec<RawCatalogFile>>,
+    raw_files_by_mod: Arc<HashMap<Arc<str>, Vec<usize>>>,
+    page_indexes: Arc<PageIndexes>,
     inventory: Arc<GraphInventory>,
     destination_states: PersistentHashMap<EffectiveKey, Arc<DestinationState>>,
     identity_states: PersistentHashMap<Arc<[u8]>, Arc<IdentityState>>,
@@ -792,8 +997,10 @@ impl GraphSnapshot {
         Self {
             generation: 0,
             inventory_generation,
-            candidates: Arc::new(Vec::new()),
+            candidates: Arc::new(SharedAppend::new(Arc::new(Vec::new()))),
             raw_files: Arc::new(Vec::new()),
+            raw_files_by_mod: Arc::new(HashMap::new()),
+            page_indexes: Arc::default(),
             inventory: Arc::new(GraphInventory::new(&[])),
             destination_states: PersistentHashMap::new(),
             identity_states: PersistentHashMap::new(),
@@ -823,6 +1030,14 @@ impl GraphSnapshot {
 
     fn candidate_at(&self, index: ProviderIndex) -> Option<&Candidate> {
         self.candidates.get(index as usize)
+    }
+
+    fn raw_files_for_mod(&self, mod_key: &str) -> impl Iterator<Item = &RawCatalogFile> {
+        self.raw_files_by_mod
+            .get(mod_key)
+            .into_iter()
+            .flatten()
+            .map(|index| &self.raw_files[*index])
     }
 
     pub fn export(&self) -> SnapshotExport {
@@ -867,23 +1082,29 @@ impl GraphSnapshot {
         after_id: i64,
         limit: usize,
     ) -> Vec<WinnerRecord> {
-        let mut rows: Vec<_> = self
-            .winners
+        let rows = self.page_indexes.winners.get_or_init(|| {
+            let mut rows: Vec<_> = self
+                .winners
+                .iter()
+                .map(|(key, id)| (*id, key.namespace))
+                .collect();
+            rows.sort_by_key(|(id, _)| *id);
+            rows
+        });
+        let start = rows.partition_point(|(id, _)| *id <= after_id);
+        rows[start..]
             .iter()
-            .filter_map(|(key, candidate_id)| {
+            .filter(|(_, namespace)| namespaces.is_empty() || namespaces.contains(namespace))
+            .filter_map(|(candidate_id, namespace)| {
                 let candidate = self.candidate(*candidate_id)?;
-                if *candidate_id <= after_id
-                    || target.is_some_and(|value| candidate.target.as_ref() != value)
-                    || (!namespaces.is_empty() && !namespaces.contains(&key.namespace))
-                {
+                if target.is_some_and(|value| candidate.target.as_ref() != value) {
                     return None;
                 }
-                Some(self.winner_record(candidate, key.namespace))
+                Some((candidate, *namespace))
             })
-            .collect();
-        rows.sort_by_key(|winner| winner.candidate_id);
-        rows.truncate(limit);
-        rows
+            .take(limit)
+            .map(|(candidate, namespace)| self.winner_record(candidate, namespace))
+            .collect()
     }
 
     pub fn conflict_state(&self) -> ConflictStateExport {
@@ -1044,9 +1265,8 @@ impl GraphSnapshot {
         }
 
         let mut plugins: Vec<(&[u8], String)> = self
-            .raw_files
-            .iter()
-            .filter(|raw| raw.mod_key.as_ref() == mod_key && raw.flags & (1 << 7) != 0)
+            .raw_files_for_mod(&mod_key)
+            .filter(|raw| raw.flags & (1 << 7) != 0)
             .map(|raw| {
                 let spelling = selected_plugins
                     .get(raw.source_rel.as_ref())
@@ -1067,12 +1287,23 @@ impl GraphSnapshot {
     }
 
     pub fn mod_files(&self, mod_name: &str) -> Vec<ModFileRecord> {
-        let mod_key = mod_name.to_lowercase();
+        self.mod_file_rows(&mod_name.to_lowercase(), false, &BTreeSet::new())
+            .iter()
+            .map(|row| self.mod_file_record(row))
+            .collect()
+    }
+
+    fn mod_file_rows(
+        &self,
+        mod_key: &str,
+        winners_only: bool,
+        kinds: &BTreeSet<ProviderKind>,
+    ) -> Vec<ModFileRow> {
         let mut selected_candidates: HashMap<&[u8], ProviderIndex> = HashMap::new();
         for index in self
             .inventory
             .mod_candidates
-            .get(mod_key.as_str())
+            .get(mod_key)
             .into_iter()
             .flatten()
         {
@@ -1090,134 +1321,177 @@ impl GraphSnapshot {
                 })
                 .or_insert(*index);
         }
-        let mut result = Vec::new();
-        for raw in self
-            .raw_files
-            .iter()
-            .filter(|raw| raw.mod_key.as_ref() == mod_key)
-        {
-            let candidate = selected_candidates
-                .get(raw.source_rel.as_ref())
-                .and_then(|index| self.candidates.get(*index as usize));
-            let Some(candidate) = candidate else {
-                let plugin_key = (raw.flags & (1 << 7) != 0).then(|| {
-                    raw.source_display
-                        .replace('\\', "/")
-                        .rsplit('/')
-                        .next()
-                        .unwrap_or(&raw.source_display)
-                        .to_lowercase()
-                });
-                result.push(ModFileRecord {
-                    candidate_id: 0,
-                    mod_name: raw.mod_name.to_string(),
-                    source_rel: raw.source_rel.to_vec(),
-                    source_display: raw.source_display.to_string(),
-                    target: String::new(),
-                    destination_key: raw.index_display.as_bytes().to_vec(),
-                    destination_display: raw.index_display.to_string(),
-                    namespace: if raw.flags & (1 << 8) != 0 {
-                        Namespace::Root
-                    } else {
-                        Namespace::Normal
-                    },
-                    provider_kind: if raw.flags & (1 << 8) != 0 {
+        let mut rows = Vec::new();
+        for raw_index in self.raw_files_by_mod.get(mod_key).into_iter().flatten() {
+            let raw = &self.raw_files[*raw_index];
+            let candidate_index = selected_candidates.get(raw.source_rel.as_ref()).copied();
+            let candidate = candidate_index.map(|index| &self.candidates[index as usize]);
+            let kind = candidate.map_or_else(
+                || {
+                    if raw.flags & FLAG_INDEX_ROOT != 0 {
                         ProviderKind::Root
                     } else {
                         ProviderKind::Loose
-                    },
-                    enabled: self.enabled_mods.contains(raw.mod_key.as_ref()),
-                    winning: false,
-                    conflict_status: 0,
-                    deployable: false,
-                    flags: raw.flags,
-                    plugin_key,
-                    legacy_rel: raw.index_display.to_string(),
-                });
+                    }
+                },
+                |candidate| candidate.kind,
+            );
+            if !kinds.is_empty() && !kinds.contains(&kind) {
                 continue;
-            };
-            let namespace = candidate.kind.namespace();
-            let effective = self
-                .inventory
-                .effective(&candidate.target, &candidate.destination_key)
-                .expect("candidate destination is interned");
-            let key = PathKey {
-                namespace,
-                effective,
-            };
-            let winning = self
-                .winners
-                .get(&key)
-                .and_then(|id| self.candidate(*id))
-                .is_some_and(|winner| winner.mod_key == candidate.mod_key);
-            let identity_loser = self
-                .suppressed_counts
-                .get(&candidate.id)
-                .copied()
-                .unwrap_or(0)
-                > 0;
-            let contested = self
-                .destination_states
-                .get(&effective)
-                .is_some_and(|state| {
-                    destination_edges(state, self).iter().any(|edge| {
-                        edge.loser == candidate.mod_id || edge.winner == candidate.mod_id
-                    })
-                })
-                || candidate.identities.iter().any(|identity| {
-                    self.identity_states
-                        .get(identity.as_ref())
-                        .is_some_and(|state| {
-                            identity_edges(state, self).iter().any(|edge| {
-                                edge.loser == candidate.mod_id || edge.winner == candidate.mod_id
-                            }) || state.suppressed().iter().any(|index| {
-                                self.candidate_at(*index)
-                                    .is_some_and(|provider| provider.id == candidate.id)
-                            })
-                        })
-                });
-            let conflict_status = if !self.enabled(candidate) || !contested {
-                0
-            } else if identity_loser {
-                -1
-            } else if winning {
-                1
-            } else {
-                -1
-            };
-            result.push(ModFileRecord {
-                candidate_id: candidate.id,
-                mod_name: candidate.mod_name.to_string(),
-                source_rel: raw.source_rel.to_vec(),
-                source_display: raw.source_display.to_string(),
-                target: candidate.target.to_string(),
-                destination_key: candidate.destination_key.to_vec(),
-                destination_display: self.casing.apply(candidate),
-                namespace,
-                provider_kind: candidate.kind,
-                enabled: self.enabled(candidate),
+            }
+            let winning = candidate.is_some_and(|candidate| {
+                let effective = self
+                    .inventory
+                    .effective(&candidate.target, &candidate.destination_key)
+                    .expect("candidate destination is interned");
+                let key = PathKey {
+                    namespace: candidate.kind.namespace(),
+                    effective,
+                };
+                self.winners
+                    .get(&key)
+                    .and_then(|id| self.candidate(*id))
+                    .is_some_and(|winner| winner.mod_key == candidate.mod_key)
+            });
+            if winners_only && !winning {
+                continue;
+            }
+            rows.push(ModFileRow {
+                raw_index: *raw_index,
+                candidate_index,
                 winning,
-                conflict_status,
-                deployable: candidate.deployable,
-                flags: candidate.flags,
-                plugin_key: candidate.plugin_key.as_deref().map(str::to_owned),
-                legacy_rel: candidate.legacy_rel.to_string(),
             });
         }
-        result.sort_by(|left, right| {
-            (&left.source_rel, left.candidate_id).cmp(&(&right.source_rel, right.candidate_id))
+        rows.sort_by(|left, right| {
+            let key = |row: &ModFileRow| {
+                (
+                    &self.raw_files[row.raw_index].source_rel,
+                    row.candidate_index
+                        .map(|index| self.candidates[index as usize].id)
+                        .unwrap_or(0),
+                )
+            };
+            key(left).cmp(&key(right))
         });
-        result
+        rows
+    }
+
+    fn mod_file_record(&self, row: &ModFileRow) -> ModFileRecord {
+        let raw = &self.raw_files[row.raw_index];
+        let candidate = row
+            .candidate_index
+            .map(|index| &self.candidates[index as usize]);
+        let Some(candidate) = candidate else {
+            let plugin_key = (raw.flags & (1 << 7) != 0).then(|| {
+                raw.source_display
+                    .replace('\\', "/")
+                    .rsplit('/')
+                    .next()
+                    .unwrap_or(&raw.source_display)
+                    .to_lowercase()
+            });
+            return ModFileRecord {
+                candidate_id: 0,
+                mod_name: raw.mod_name.to_string(),
+                source_rel: raw.source_rel.to_vec(),
+                source_display: raw.source_display.to_string(),
+                target: String::new(),
+                destination_key: raw.index_display.as_bytes().to_vec(),
+                destination_display: raw.index_display.to_string(),
+                namespace: if raw.flags & (1 << 8) != 0 {
+                    Namespace::Root
+                } else {
+                    Namespace::Normal
+                },
+                provider_kind: if raw.flags & (1 << 8) != 0 {
+                    ProviderKind::Root
+                } else {
+                    ProviderKind::Loose
+                },
+                enabled: self.enabled_mods.contains(raw.mod_key.as_ref()),
+                winning: false,
+                conflict_status: 0,
+                deployable: false,
+                flags: raw.flags,
+                plugin_key,
+                legacy_rel: raw.index_display.to_string(),
+            };
+        };
+        let namespace = candidate.kind.namespace();
+        let effective = self
+            .inventory
+            .effective(&candidate.target, &candidate.destination_key)
+            .expect("candidate destination is interned");
+        let winning = row.winning;
+        let identity_loser = self
+            .suppressed_counts
+            .get(&candidate.id)
+            .copied()
+            .unwrap_or(0)
+            > 0;
+        let contested = self
+            .destination_states
+            .get(&effective)
+            .is_some_and(|state| {
+                destination_edges(state, self)
+                    .iter()
+                    .any(|edge| edge.loser == candidate.mod_id || edge.winner == candidate.mod_id)
+            })
+            || candidate.identities.iter().any(|identity| {
+                self.identity_states
+                    .get(identity.as_ref())
+                    .is_some_and(|state| {
+                        identity_edges(state, self).iter().any(|edge| {
+                            edge.loser == candidate.mod_id || edge.winner == candidate.mod_id
+                        }) || state.suppressed().iter().any(|index| {
+                            self.candidate_at(*index)
+                                .is_some_and(|provider| provider.id == candidate.id)
+                        })
+                    })
+            });
+        let conflict_status = if !self.enabled(candidate) || !contested {
+            0
+        } else if identity_loser {
+            -1
+        } else if winning {
+            1
+        } else {
+            -1
+        };
+        ModFileRecord {
+            candidate_id: candidate.id,
+            mod_name: candidate.mod_name.to_string(),
+            source_rel: raw.source_rel.to_vec(),
+            source_display: raw.source_display.to_string(),
+            target: candidate.target.to_string(),
+            destination_key: candidate.destination_key.to_vec(),
+            destination_display: self.casing.apply(candidate),
+            namespace,
+            provider_kind: candidate.kind,
+            enabled: self.enabled(candidate),
+            winning,
+            conflict_status,
+            deployable: candidate.deployable,
+            flags: candidate.flags,
+            plugin_key: candidate.plugin_key.as_deref().map(str::to_owned),
+            legacy_rel: candidate.legacy_rel.to_string(),
+        }
     }
 
     pub fn archive_files(&self, mod_name: &str) -> Vec<ModFileRecord> {
         let mod_key = mod_name.to_lowercase();
         let mut result = Vec::new();
-        for candidate in self.candidates.iter().filter(|candidate| {
-            candidate.kind == ProviderKind::ArchiveMember
-                && candidate.mod_key.as_ref() == mod_key
-                && self.selected(candidate)
-        }) {
+        for candidate in self
+            .inventory
+            .mod_candidates
+            .get(mod_key.as_str())
+            .into_iter()
+            .flatten()
+            .map(|index| &self.candidates[*index as usize])
+            .filter(|candidate| {
+                candidate.kind == ProviderKind::ArchiveMember && self.selected(candidate)
+            })
+        {
             let effective = self
                 .inventory
                 .effective(&candidate.target, &candidate.destination_key)
@@ -1402,12 +1676,31 @@ impl GraphSnapshot {
         cursor: usize,
         limit: usize,
     ) -> Vec<ModFileRecord> {
-        let mut rows = self.mod_files(mod_name);
-        rows.retain(|record| {
-            (!winners_only || record.winning)
-                && (kinds.is_empty() || kinds.contains(&record.provider_kind))
-        });
-        rows.into_iter().skip(cursor).take(limit).collect()
+        let mod_key = mod_name.to_lowercase();
+        let rows = {
+            let mut cached = self.page_indexes.mod_files.lock();
+            if let Some(index) = cached.as_ref()
+                && index.mod_key == mod_key
+                && index.winners_only == winners_only
+                && &index.kinds == kinds
+            {
+                index.rows.clone()
+            } else {
+                let rows = Arc::new(self.mod_file_rows(&mod_key, winners_only, kinds));
+                *cached = Some(ModFilePageIndex {
+                    mod_key,
+                    winners_only,
+                    kinds: kinds.clone(),
+                    rows: rows.clone(),
+                });
+                rows
+            }
+        };
+        rows.iter()
+            .skip(cursor)
+            .take(limit)
+            .map(|row| self.mod_file_record(row))
+            .collect()
     }
 
     pub fn inventory_facets(&self) -> InventoryFacets {
@@ -2574,7 +2867,7 @@ fn refresh_plugin_owners(
     // Plugin paths are sparse (hundreds) while a patcher toggle may change
     // tens of thousands of ordinary assets.  Intersect from the sparse side
     // instead of probing both snapshots/candidates for every changed texture.
-    for (plugin, paths) in &snapshot.inventory.plugin_paths {
+    for (plugin, paths) in snapshot.inventory.plugin_paths.iter() {
         if paths.iter().any(|path| changed_winners.contains(path)) {
             dirty.insert(plugin.clone());
         }
@@ -2952,7 +3245,7 @@ fn install_state(
 fn apply_suppressed(
     counts: &mut PersistentHashMap<i64, u32>,
     providers: &[ProviderIndex],
-    candidates: &[Candidate],
+    candidates: &SharedAppend<Candidate>,
     add: bool,
 ) -> HashSet<i64> {
     let mut toggled = HashSet::new();
@@ -3087,7 +3380,12 @@ pub fn build_full(
     let inventory = Arc::new(GraphInventory::new(&candidates));
     let inventory_elapsed = build_started.elapsed();
     let mut capability_flags = BTreeMap::new();
-    for raw in raw_files.iter() {
+    let mut raw_files_by_mod: HashMap<Arc<str>, Vec<usize>> = HashMap::new();
+    for (index, raw) in raw_files.iter().enumerate() {
+        raw_files_by_mod
+            .entry(raw.mod_key.clone())
+            .or_default()
+            .push(index);
         *capability_flags
             .entry(raw.mod_name.to_string())
             .or_insert(0) |= raw.flags;
@@ -3095,8 +3393,10 @@ pub fn build_full(
     let mut snapshot = GraphSnapshot {
         generation,
         inventory_generation,
-        candidates,
+        candidates: Arc::new(SharedAppend::new(candidates)),
         raw_files,
+        raw_files_by_mod: Arc::new(raw_files_by_mod),
+        page_indexes: Arc::default(),
         inventory,
         destination_states: PersistentHashMap::new(),
         identity_states: PersistentHashMap::new(),
@@ -3151,7 +3451,7 @@ pub fn build_full(
         );
     }
     let identities_elapsed = build_started.elapsed();
-    let destinations: Vec<_> = (0..snapshot.inventory.effective_postings.len() as u32).collect();
+    let destinations: Vec<_> = (0..snapshot.inventory.effective_paths.len() as u32).collect();
     let mut changed_winners = HashSet::new();
     let mut ignored_deployed_indexes = HashSet::new();
     let mut ignored_touched_winners = Vec::new();
@@ -3197,7 +3497,7 @@ pub fn build_full(
              destinations_ms={:.3} summaries_ms={:.3} casing_ms={:.3} \
              deployed_index_ms={:.3} plugin_owners_ms={:.3}",
             snapshot.candidates.len(),
-            snapshot.inventory.effective_postings.len(),
+            snapshot.inventory.effective_paths.len(),
             inventory_elapsed.as_secs_f64() * 1_000.0,
             millis(base_elapsed, inventory_elapsed),
             millis(identities_elapsed, base_elapsed),
@@ -3353,50 +3653,81 @@ fn archive_rank_changes(
     changed
 }
 
-/// Merge a newly selected catalog projection into stable provider slots.
-///
-/// Destination and identity states store compact provider indexes. Replacing
-/// the complete candidate Vec would renumber most of those indexes after a mod
-/// add/remove and force a full rebuild. Retaining the old prefix keeps every
-/// existing stack valid; candidates absent from `current` become inactive and
-/// new candidates append. Only destinations owned by `changed_mods` are then
-/// reconciled. Stale slots are disposable and can be compacted by a later cold
-/// rebuild without affecting semantics.
+// Stable slots keep existing destination and identity states valid.
 fn merge_inventory_candidates(
     previous: &GraphSnapshot,
     current: &[Candidate],
-) -> (Arc<Vec<Candidate>>, Arc<GraphInventory>, HashSet<String>) {
+) -> Option<(
+    Arc<SharedAppend<Candidate>>,
+    Arc<GraphInventory>,
+    HashSet<String>,
+)> {
     let active_candidate_ids: HashSet<i64> = current.iter().map(|candidate| candidate.id).collect();
     let previous_active = &previous.inventory.active_candidate_ids;
     let mut changed_mods = HashSet::new();
-    let mut merged = previous.candidates.as_ref().clone();
+    let mut added = Vec::new();
 
     for candidate in current {
+        if !previous_active.contains(&candidate.id) {
+            changed_mods.insert(candidate.mod_key.to_string());
+        }
         if let Some(index) = previous.inventory.candidate_indexes.get(&candidate.id) {
-            let slot = &mut merged[*index as usize];
-            if slot != candidate {
-                changed_mods.insert(slot.mod_key.to_string());
-                changed_mods.insert(candidate.mod_key.to_string());
-                *slot = candidate.clone();
+            if previous.candidates[*index as usize] != *candidate {
+                return None;
             }
         } else {
-            changed_mods.insert(candidate.mod_key.to_string());
-            merged.push(candidate.clone());
+            if previous
+                .inventory
+                .mod_names
+                .get(&candidate.mod_id)
+                .is_some_and(|name| name.as_ref() != candidate.mod_name.as_ref())
+                || previous
+                    .inventory
+                    .mod_keys
+                    .get(&candidate.mod_id)
+                    .is_some_and(|key| key.as_ref() != candidate.mod_key.as_ref())
+                || previous
+                    .inventory
+                    .mod_ids_by_key
+                    .get(candidate.mod_key.as_ref())
+                    .is_some_and(|id| *id != candidate.mod_id)
+            {
+                return None;
+            }
+            added.push(candidate);
         }
     }
     for candidate_id in previous_active.difference(&active_candidate_ids) {
-        if let Some(index) = previous.inventory.candidate_indexes.get(candidate_id)
-            && let Some(candidate) = previous.candidates.get(*index as usize)
-        {
+        if let Some(candidate) = previous.candidate(*candidate_id) {
             changed_mods.insert(candidate.mod_key.to_string());
         }
     }
-
-    let inventory = Arc::new(GraphInventory::new_with_active(
-        &merged,
-        active_candidate_ids,
-    ));
-    (Arc::new(merged), inventory, changed_mods)
+    // Bulk additions are cheaper to index together than through per-key updates.
+    if added.len() > 4096 && added.len() > previous.candidates.len() / 4 {
+        let candidates = Arc::new(
+            previous
+                .candidates
+                .iter()
+                .chain(added)
+                .cloned()
+                .collect::<Vec<_>>(),
+        );
+        let inventory = GraphInventory::new_with_active(&candidates, active_candidate_ids);
+        return Some((
+            Arc::new(SharedAppend::new(candidates)),
+            Arc::new(inventory),
+            changed_mods,
+        ));
+    }
+    let mut merged = previous.candidates.as_ref().clone();
+    let mut inventory = previous.inventory.as_ref().clone();
+    for candidate in added {
+        let index = merged.len() as ProviderIndex;
+        inventory.append(candidate, index);
+        merged.push(candidate.clone());
+    }
+    inventory.active_candidate_ids = Arc::new(active_candidate_ids);
+    Some((Arc::new(merged), Arc::new(inventory), changed_mods))
 }
 
 pub fn reconcile_graph(
@@ -3411,32 +3742,8 @@ pub fn reconcile_graph(
     let trace =
         crate::model::perftrace_enabled() || std::env::var_os("AMETHYST_FILEGRAPH_TRACE").is_some();
     let reconcile_started = Instant::now();
-    let rebound_candidate_id = previous.inventory_generation != inventory_generation
-        && candidates.iter().any(|candidate| {
-            previous
-                .inventory
-                .candidate_indexes
-                .get(&candidate.id)
-                .and_then(|index| previous.candidates.get(*index as usize))
-                .is_some_and(|previous| previous != candidate)
-        });
-    let renamed_mod_identity = previous.inventory_generation != inventory_generation
-        && candidates.iter().any(|candidate| {
-            previous
-                .inventory
-                .mod_names
-                .get(&candidate.mod_id)
-                .is_some_and(|name| name.as_ref() != candidate.mod_name.as_ref())
-                || previous
-                    .inventory
-                    .mod_keys
-                    .get(&candidate.mod_id)
-                    .is_some_and(|key| key.as_ref() != candidate.mod_key.as_ref())
-        });
     let must_rebuild = previous_intent.is_none()
         || previous.rules_hash != intent.rules_hash
-        || rebound_candidate_id
-        || renamed_mod_identity
         || previous_intent.is_some_and(|old| {
             old.normalize_folder_case != intent.normalize_folder_case
                 || old.casing_strategy != intent.casing_strategy
@@ -3454,6 +3761,7 @@ pub fn reconcile_graph(
     }
     let previous_intent = previous_intent.unwrap();
     let mut snapshot = previous.clone();
+    snapshot.page_indexes = Arc::default();
     let selected_variants = Arc::new(
         intent
             .mods
@@ -3462,18 +3770,22 @@ pub fn reconcile_graph(
             .collect::<HashMap<_, _>>(),
     );
     let mut inventory_changed_mods = HashSet::new();
-    // Inventory generation and route-variant selection are the authoritative
-    // identity of the catalog projection.  Do not use Arc pointer equality
-    // here: after an incremental add/remove, merge_inventory_candidates keeps
-    // stable provider slots in a new Vec while load_candidates continues to
-    // return the compact catalog-cache Vec.  Those allocations intentionally
-    // differ, and treating that as another inventory change rebuilt (and later
-    // freed) the complete GraphInventory on every subsequent toggle or move.
     if previous.inventory_generation != inventory_generation
         || previous.selected_variants.as_ref() != selected_variants.as_ref()
+        || previous_intent.special_variants != intent.special_variants
     {
-        let (merged_candidates, merged_inventory, changed_mods) =
-            merge_inventory_candidates(previous, &candidates);
+        let Some((merged_candidates, merged_inventory, changed_mods)) =
+            merge_inventory_candidates(previous, &candidates)
+        else {
+            let snapshot = build_full(
+                candidates,
+                raw_files,
+                intent,
+                inventory_generation,
+                generation,
+            );
+            return update_from_full(previous, snapshot);
+        };
         snapshot.candidates = merged_candidates;
         snapshot.inventory = merged_inventory;
         inventory_changed_mods = changed_mods;
@@ -3484,11 +3796,17 @@ pub fn reconcile_graph(
     snapshot.raw_files = raw_files;
     if raw_projection_changed {
         let mut capability_flags = BTreeMap::new();
-        for raw in snapshot.raw_files.iter() {
+        let mut raw_files_by_mod: HashMap<Arc<str>, Vec<usize>> = HashMap::new();
+        for (index, raw) in snapshot.raw_files.iter().enumerate() {
+            raw_files_by_mod
+                .entry(raw.mod_key.clone())
+                .or_default()
+                .push(index);
             *capability_flags
                 .entry(raw.mod_name.to_string())
                 .or_insert(0) |= raw.flags;
         }
+        snapshot.raw_files_by_mod = Arc::new(raw_files_by_mod);
         snapshot.capability_flags = capability_flags;
     }
     snapshot.loose_beats_archive = intent.loose_beats_archive;
@@ -3524,7 +3842,7 @@ pub fn reconcile_graph(
         }
     }
     if previous_intent.loose_beats_archive != intent.loose_beats_archive {
-        dirty_effective.extend(0..snapshot.inventory.effective_postings.len() as u32);
+        dirty_effective.extend(0..snapshot.inventory.effective_paths.len() as u32);
     }
     let candidates_touched = dirty_effective
         .iter()
@@ -4283,7 +4601,7 @@ mod tests {
             2,
         );
         assert!(!Arc::ptr_eq(
-            &added.snapshot.candidates,
+            &added.snapshot.candidates.base,
             &catalog_candidates
         ));
 

@@ -249,13 +249,6 @@ class GameCandidateAdapter:
             "archive_extensions": getattr(game, "archive_extensions", ()),
             "plugin_extensions": getattr(game, "plugin_extensions", ()),
             "frameworks": getattr(game, "frameworks", {}),
-            "root_mods": sorted(self._root_mods),
-            "root_files": self._raw_root_files,
-            "excluded": self._raw_excluded,
-            "per_mod_strips": self._per_mod_strips,
-            "per_mod_deploy": self._per_mod_deploy,
-            "handler_mod_deploy": self._handler_mod_deploy,
-            "raw_route_mods": sorted(self._raw_route_mods),
         }
         self._rules_hash_cache = _hash_payload(relevant)
         return self._rules_hash_cache
@@ -267,7 +260,10 @@ class GameCandidateAdapter:
             "root": mod_name in self._root_mods,
             "root_files": sorted(self._raw_root_files.get(mod_name, ())),
             "excluded": sorted(self._raw_excluded.get(mod_name, ())),
+            "deploy": self._per_mod_deploy.get(mod_name),
             "handler_mod_deploy": self._handler_mod_deploy.get(mod_name),
+            "raw_deploy": mod_name in self._raw_route_mods,
+            "top_level_exempt": mod_name in self._top_level_exempt,
         }
         return _hash_payload(per_mod).hex()
 

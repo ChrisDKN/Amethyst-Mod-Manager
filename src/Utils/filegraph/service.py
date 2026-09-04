@@ -1126,22 +1126,9 @@ class LibrarySession:
                 mod_names, progress=progress, cancel=token)
             if token.is_cancelled():
                 raise FileGraphCancelled("filegraph refresh cancelled")
-            build_root = Path(tempfile.mkdtemp(
-                prefix=".filegraph-refresh-", dir=self.root))
-            temporary = None
             try:
-                self._native.checkpoint()
-                shutil.copy2(
-                    self.database_path, build_root / "filegraph.sqlite3")
-                temporary = require_native().LibrarySession.open(build_root)
-                temporary.set_ready(False)
-                for batch in batches:
-                    if token.is_cancelled():
-                        raise FileGraphCancelled("filegraph refresh cancelled")
-                    temporary.replace_mod_manifest(pack(batch), token._native)
-                temporary.set_ready(True)
-                temporary.checkpoint()
-                self._native.activate_catalog(temporary.database_path)
+                self._native.replace_mod_manifests(
+                    (pack(batch) for batch in batches), token._native)
                 self._variant_keys_cache = None
                 for profile in self._profiles.values():
                     profile._invalidate_resolution_cache()
@@ -1150,9 +1137,6 @@ class LibrarySession:
                 if isinstance(exc, FileGraphCancelled):
                     raise
                 raise _native_error(exc) from exc
-            finally:
-                temporary = None
-                shutil.rmtree(build_root, ignore_errors=True)
 
     def rebuild(
         self,
