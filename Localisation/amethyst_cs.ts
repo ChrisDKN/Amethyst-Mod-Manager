@@ -5,7 +5,7 @@
     <name>ACMOSView</name>
     <message>
       <source>Run ACMOS Road Generator - {0}</source>
-      <translation type="unfinished">Run ACMOS Road Generator - {0}</translation>
+      <translation>Spustit ACMOS generátor silnic - {0}</translation>
     </message>
     <message>
       <source>Step 1: Download ACMOS Road Generator</source>
@@ -45,7 +45,7 @@ Generované textury jsou napsány do samostatného modelu ACMOS _ Output. Odstra
     </message>
     <message>
       <source>Terrain LOD mod:</source>
-      <translation type="unfinished">Terrain LOD mod:</translation>
+      <translation>Terrain LOD mod:</translation>
     </message>
     <message>
       <source>Search mods…</source>
@@ -383,7 +383,23 @@ Stáhnout hlavní soubor 'FNV BSA Decompressor' z Nexus - .mpi balíček uvnitř
     </message>
     <message>
       <source>Fallout New Vegas:</source>
-      <translation type="unfinished">Fallout New Vegas:</translation>
+      <translation>Fallout New Vegas:</translation>
+    </message>
+    <message>
+      <source>The BSA Decompressor rebuilds the vanilla BSA archives without compression for faster loading, and the result is added as a mod.
+
+Download the 'FO3 BSA Decompressor' main file from Nexus - the .mpi package inside the archive is detected automatically.</source>
+      <translation>Dekompresor BSA rekonstruuje vanilla BSA archivy bez komprese pro rychlejší načtení a výsledek je přidán jako mod.
+
+Stáhněte si hlavní soubor 'FO3 BSA Decompressor' z Nexus - balíček .mpi uvnitř archivu je rozpoznán automaticky.</translation>
+    </message>
+    <message>
+      <source>Fallout 3:</source>
+      <translation>Fallout 3:</translation>
+    </message>
+    <message>
+      <source>Select the Fallout 3 folder</source>
+      <translation>Vyberte složku Fallout 3</translation>
     </message>
     <message>
       <source>Select the Fallout New Vegas folder</source>
@@ -478,6 +494,10 @@ Stáhnout hlavní soubor 'FNV BSA Decompressor' z Nexus - .mpi balíček uvnitř
       <translation>Vyberte prosím balíček BSA Decompressor .mpi (nebo jeho stažený archiv).</translation>
     </message>
     <message>
+      <source>Fallout 3 folder is not set.</source>
+      <translation>Složka Fallout 3 není nastavena.</translation>
+    </message>
+    <message>
       <source>Fallout New Vegas folder is not set.</source>
       <translation>Složka pro hru Fallout New Vegas není nastavena.</translation>
     </message>
@@ -514,6 +534,22 @@ Výstup je zapsán přímo do vašeho seznamu mod jako '{0}' mod.</translation>
     <message>
       <source>Mod staging path is not configured.</source>
       <translation>Mod stagingová cesta není nastavena.</translation>
+    </message>
+    <message>
+      <source>ERROR: missing vanilla game files:
+{0}</source>
+      <translation>CHYBA: chybí vanilla herní soubory:
+{0}</translation>
+    </message>
+    <message>
+      <source>Missing vanilla game files even after restoring to vanilla - these were never backed up.
+In Steam, right-click the game → Properties → Installed Files → Verify integrity of game files, then retry.
+
+{0}</source>
+      <translation>Chybějící vanilla herní soubory i po obnovení vanilky - ty nebyly nikdy zálohovány.
+Ve Steamu klepněte pravým tlačítkem myši na hru → Vlastnosti → Nainstalované soubory → Ověřit integritu herních souborů, poté opakujte.
+
+{0}</translation>
     </message>
     <message>
       <source>ERROR: missing vanilla plugin files:
@@ -620,7 +656,7 @@ Ve službě Steam klepněte pravým tlačítkem myši na hru → Vlastnosti → 
     </message>
     <message>
       <source>Unkeep</source>
-      <translation type="unfinished">Unkeep</translation>
+      <translation>Zrušit zachování</translation>
     </message>
     <message>
       <source>Rename backup</source>
@@ -765,7 +801,7 @@ Nastavte si nastavení INI, pak je zavřete a klikněte na Hotovo.</translation>
     <name>BodySlideLinuxView</name>
     <message>
       <source>{0} (Linux) - {1}</source>
-      <translation type="unfinished">{0} (Linux) - {1}</translation>
+      <translation>{0} (Linux) - {1}</translation>
     </message>
     <message>
       <source>Step 3: Run {0}</source>
@@ -902,7 +938,7 @@ Až skončíte, zavřete jej a poté klikněte na tlačítko Hotovo.</translatio
     <name>BodySlideView</name>
     <message>
       <source>{0} - {1}</source>
-      <translation type="unfinished">{0} - {1}</translation>
+      <translation>{0} - {1}</translation>
     </message>
     <message>
       <source>Step 3: Run {0}</source>
@@ -1023,7 +1059,7 @@ Až skončíte, zavřete jej a poté klikněte na tlačítko Hotovo.</translatio
     </message>
     <message>
       <source>Open ›</source>
-      <translation type="unfinished">Open ›</translation>
+      <translation>Otevřít ›</translation>
     </message>
     <message>
       <source>Over the size limit as one archive - tick "Separate textures archive" when packing.</source>
@@ -1164,7 +1200,7 @@ Až skončíte, zavřete jej a poté klikněte na tlačítko Hotovo.</translatio
     </message>
     <message>
       <source>  • {0}</source>
-      <translation type="unfinished">  • {0}</translation>
+      <translation>  • {0}</translation>
     </message>
     <message>
       <source>Unpack</source>
@@ -1416,7 +1452,7 @@ Mezipaměť MD5 zůstane zachována. Archivy se budou podle potřeby stahovat zn
     </message>
     <message>
       <source>♥ {0}    ↓ {1}    {2} mods</source>
-      <translation type="unfinished">♥ {0}    ↓ {1}    {2} mods</translation>
+      <translation>♥️ {0}    ⁣ {1}    {2} mods</translation>
     </message>
     <message>
       <source>View</source>
@@ -1447,7 +1483,7 @@ Mezipaměť MD5 zůstane zachována. Archivy se budou podle potřeby stahovat zn
     </message>
     <message>
       <source>Opt</source>
-      <translation type="unfinished">Opt</translation>
+      <translation>Přihlásit se</translation>
     </message>
     <message>
       <source>Total size: {0}  |  {1} mods</source>
@@ -1774,7 +1810,7 @@ Mezipaměť MD5 zůstane zachována. Archivy se budou podle potřeby stahovat zn
     <name>ConfigureGameView</name>
     <message>
       <source>{0} Game - {1}</source>
-      <translation type="unfinished">{0} Game - {1}</translation>
+      <translation>{0} Hra - {1}</translation>
     </message>
     <message>
       <source>Use a separate save file for each profile (me3)</source>
@@ -1926,7 +1962,7 @@ Mezipaměť MD5 zůstane zachována. Archivy se budou podle potřeby stahovat zn
     </message>
     <message>
       <source>VFS (OpenMW)</source>
-      <translation type="unfinished">VFS (OpenMW)</translation>
+      <translation>VFS (OpenMW)</translation>
     </message>
     <message>
       <source>Virtual filesystem (VFS)</source>
@@ -2437,7 +2473,7 @@ Složky Vanilkové hry jsou uchovávány. To se nedá odčinit.</translation>
     </message>
     <message>
       <source>Fomod</source>
-      <translation type="unfinished">Fomod</translation>
+      <translation>Fomod</translation>
     </message>
     <message>
       <source>Optional</source>
@@ -2789,7 +2825,7 @@ Mods jsou staženy z Nexus Mods - přihlaste se jako první (Nexus ÇLogin Nexus
     </message>
     <message>
       <source>Start</source>
-      <translation type="unfinished">Start</translation>
+      <translation>Začít</translation>
     </message>
     <message>
       <source>Step 1: Download the modlist profile</source>
@@ -2978,7 +3014,7 @@ Po dokončení aplikace přepne na nový profil - pak se sem vraťte a stisknět
     </message>
     <message>
       <source>UE5</source>
-      <translation type="unfinished">UE5</translation>
+      <translation>UE5</translation>
     </message>
     <message>
       <source>Unreal Engine 5 - pak files → Content/Paks/~mods/, UE4SS/lua → Binaries/Win64/, DLLs → Binaries/Win64/. Same routing as Hogwarts Legacy / Oblivion Remastered.</source>
@@ -3010,7 +3046,7 @@ Po dokončení aplikace přepne na nový profil - pak se sem vraťte a stisknět
     </message>
     <message>
       <source>Thunderstore Community</source>
-      <translation type="unfinished">Thunderstore Community</translation>
+      <translation>Komunita Thunderstore</translation>
     </message>
     <message>
       <source>The game's community slug on thunderstore.io. e.g. 'lethal-company'. Leave empty if the game has no Thunderstore page.</source>
@@ -3238,7 +3274,7 @@ Po dokončení aplikace přepne na nový profil - pak se sem vraťte a stisknět
     </message>
     <message>
       <source>https://example.com/banner.jpg</source>
-      <translation type="unfinished">https://example.com/banner.jpg</translation>
+      <translation>https://example.com/banner.jpg</translation>
     </message>
     <message>
       <source>Used to change the folder structure of an installed mod to match what is required by the manager.</source>
@@ -3334,7 +3370,7 @@ Po dokončení aplikace přepne na nový profil - pak se sem vraťte a stisknět
     </message>
     <message>
       <source>Preset</source>
-      <translation type="unfinished">Preset</translation>
+      <translation>Preset</translation>
     </message>
     <message>
       <source>Share code</source>
@@ -3490,7 +3526,7 @@ Po dokončení aplikace přepne na nový profil - pak se sem vraťte a stisknět
     </message>
     <message>
       <source>Image cached.</source>
-      <translation type="unfinished">Image cached.</translation>
+      <translation>Obrázek uložen do mezipaměti.</translation>
     </message>
     <message>
       <source>Image download failed: {0}</source>
@@ -3723,6 +3759,10 @@ Po dokončení aplikace přepne na nový profil - pak se sem vraťte a stisknět
       <source>Size</source>
       <translation>Velikost</translation>
     </message>
+    <message>
+      <source>Downloaded</source>
+      <translation>Staženo</translation>
+    </message>
   </context>
   <context>
     <name>DownloadsView</name>
@@ -3735,7 +3775,7 @@ Po dokončení aplikace přepne na nový profil - pak se sem vraťte a stisknět
     <name>DtkitPatchView</name>
     <message>
       <source>Patch Game (dtkit-patch) - {0}</source>
-      <translation type="unfinished">Patch Game (dtkit-patch) - {0}</translation>
+      <translation>Patch hra (dtkit-patch) - {0}</translation>
     </message>
     <message>
       <source>Step 1: Deploy mods</source>
@@ -3808,7 +3848,7 @@ Zkontrolujte výstup nahoře a záznam.</translation>
     <name>DynDOLODView</name>
     <message>
       <source>{0} - {1}</source>
-      <translation type="unfinished">{0} - {1}</translation>
+      <translation>{0} - {1}</translation>
     </message>
     <message>
       <source>✕ Close</source>
@@ -4182,7 +4222,27 @@ Stáhnout 'Ultimate Edition ESM Fixes Remastered' hlavní soubor z Nexus - .mpi 
     </message>
     <message>
       <source>Fallout New Vegas:</source>
-      <translation type="unfinished">Fallout New Vegas:</translation>
+      <translation>Fallout New Vegas:</translation>
+    </message>
+    <message>
+      <source>Unofficial Fallout 3 ESM Patcher - {0}</source>
+      <translation>Neoficiální Fallout 3 ESM Patcher - {0}</translation>
+    </message>
+    <message>
+      <source>The Unofficial Fallout 3 ESM Patcher patches the vanilla .esm masters (Fallout3 + all DLC) with community bugfixes, and the result is added as a mod.
+
+Download the 'Unofficial Fallout 3 ESM Patcher' main file from Nexus - the .mpi package inside the archive is detected automatically.</source>
+      <translation>Unofficial Fallout 3 ESM Patcher upraví vanilku . sm mistři (Fallout3 + všechny DLC) s komunitními opravami chyb a výsledek je přidán jako mod.
+
+Stáhněte si hlavní soubor 'Neoficiální Fallout 3 ESM Patcher' z Nexus - balíček .mpi uvnitř archivu je rozpoznán automaticky.</translation>
+    </message>
+    <message>
+      <source>Fallout 3:</source>
+      <translation>Fallout 3:</translation>
+    </message>
+    <message>
+      <source>Select the Fallout 3 folder</source>
+      <translation>Vyberte složku Fallout 3</translation>
     </message>
     <message>
       <source>Select the Fallout New Vegas folder</source>
@@ -4277,6 +4337,10 @@ Stáhnout 'Ultimate Edition ESM Fixes Remastered' hlavní soubor z Nexus - .mpi 
       <translation>Vyberte prosím balíček ESM Fixes .mpi (nebo jeho stažený archiv).</translation>
     </message>
     <message>
+      <source>Fallout 3 folder is not set.</source>
+      <translation>Složka Fallout 3 není nastavena.</translation>
+    </message>
+    <message>
       <source>Fallout New Vegas folder is not set.</source>
       <translation>Složka pro hru Fallout New Vegas není nastavena.</translation>
     </message>
@@ -4367,7 +4431,7 @@ Ve službě Steam klepněte pravým tlačítkem myši na hru → Vlastnosti → 
     </message>
     <message>
       <source>[{0}]</source>
-      <translation type="unfinished">[{0}]</translation>
+      <translation>[{0}]</translation>
     </message>
     <message>
       <source>Close</source>
@@ -4387,11 +4451,11 @@ Ve službě Steam klepněte pravým tlačítkem myši na hru → Vlastnosti → 
     </message>
     <message>
       <source>true</source>
-      <translation type="unfinished">true</translation>
+      <translation>pravda</translation>
     </message>
     <message>
       <source>false</source>
-      <translation type="unfinished">false</translation>
+      <translation>nepravda</translation>
     </message>
     <message>
       <source>Form reset to built-in defaults (not yet saved).</source>
@@ -4469,7 +4533,7 @@ Změny nabývají účinku při dalším startu. Pokud proměnná někdy zastav�
     </message>
     <message>
       <source>Java runtime</source>
-      <translation type="unfinished">Java runtime</translation>
+      <translation>Běh Javy</translation>
     </message>
     <message>
       <source>How to run this .jar:
@@ -4485,7 +4549,7 @@ Proton prefix: kliknutím na tlačítko 'Nainstalujte Java do prefixu' jednou, p
     </message>
     <message>
       <source>Proton prefix (Windows Java)</source>
-      <translation type="unfinished">Proton prefix (Windows Java)</translation>
+      <translation>Proton prefix (Windows Java)</translation>
     </message>
     <message>
       <source>Launch arguments</source>
@@ -4600,11 +4664,11 @@ Proton prefix: kliknutím na tlačítko 'Nainstalujte Java do prefixu' jednou, p
     <name>ExportProfileView</name>
     <message>
       <source>Nexus</source>
-      <translation type="unfinished">Nexus</translation>
+      <translation>Nexus</translation>
     </message>
     <message>
       <source>Thunderstore</source>
-      <translation type="unfinished">Thunderstore</translation>
+      <translation>Thunderstore</translation>
     </message>
     <message>
       <source>Direct</source>
@@ -4680,7 +4744,7 @@ Proton prefix: kliknutím na tlačítko 'Nainstalujte Java do prefixu' jednou, p
     </message>
     <message>
       <source>Fomod</source>
-      <translation type="unfinished">Fomod</translation>
+      <translation>Fomod</translation>
     </message>
     <message>
       <source>Optional</source>
@@ -4724,7 +4788,7 @@ Proton prefix: kliknutím na tlačítko 'Nainstalujte Java do prefixu' jednou, p
     </message>
     <message>
       <source>{0} mods</source>
-      <translation type="unfinished">{0} mods</translation>
+      <translation>{0} mody</translation>
     </message>
     <message>
       <source>Source set on {0} mod(s); {1} left unchanged (not from Thunderstore).</source>
@@ -4796,11 +4860,11 @@ Proton prefix: kliknutím na tlačítko 'Nainstalujte Java do prefixu' jednou, p
     </message>
     <message>
       <source>mod</source>
-      <translation type="unfinished">mod</translation>
+      <translation>mod</translation>
     </message>
     <message>
       <source>mods</source>
-      <translation type="unfinished">mods</translation>
+      <translation>mody</translation>
     </message>
     <message>
       <source>is</source>
@@ -4887,7 +4951,7 @@ To je v pořádku pro vaši vlastní zálohu. Nesdílejte ani nenahrávejte soub
     <name>FalloutDowngradeView</name>
     <message>
       <source>Downgrade Fallout 3 - {0}</source>
-      <translation type="unfinished">Downgrade Fallout 3 - {0}</translation>
+      <translation>Snížit Fallout 3 - {0}</translation>
     </message>
     <message>
       <source>Step 1: Download the Patcher</source>
@@ -5184,7 +5248,7 @@ Klikněte na Hotovo pro vyčištění extrahovaných souborů a zavřít.</trans
     </message>
     <message>
       <source>BOS-patched</source>
-      <translation type="unfinished">BOS-patched</translation>
+      <translation>BOS-patched</translation>
     </message>
     <message>
       <source>SkyPatcher-patched</source>
@@ -6076,7 +6140,7 @@ Klepněte na tlačítko Hotovo pro uzavření.</translation>
     </message>
     <message>
       <source>Amethyst Mod Manager</source>
-      <translation type="unfinished">Amethyst Mod Manager</translation>
+      <translation>Správce modifikací Amethyst</translation>
     </message>
     <message>
       <source>Mods</source>
@@ -6282,7 +6346,7 @@ Pokud budete pokračovat, toto varování nebude znovu zobrazeno pro {1}, pokud 
     </message>
     <message>
       <source>{0} ({1})</source>
-      <translation type="unfinished">{0} ({1})</translation>
+      <translation>{0} ({1})</translation>
     </message>
     <message>
       <source>Removed {0} archive(s)</source>
@@ -6398,7 +6462,7 @@ Pokud budete pokračovat, toto varování nebude znovu zobrazeno pro {1}, pokud 
     </message>
     <message>
       <source>Proton</source>
-      <translation type="unfinished">Proton</translation>
+      <translation>Proton</translation>
     </message>
     <message>
       <source>Run winecfg</source>
@@ -6434,7 +6498,7 @@ Pokud budete pokračovat, toto varování nebude znovu zobrazeno pro {1}, pokud 
     </message>
     <message>
       <source>.NET {0}</source>
-      <translation type="unfinished">.NET {0}</translation>
+      <translation>.NET {0}</translation>
     </message>
     <message>
       <source>Wizard</source>
@@ -6442,7 +6506,7 @@ Pokud budete pokračovat, toto varování nebude znovu zobrazeno pro {1}, pokud 
     </message>
     <message>
       <source>Nexus</source>
-      <translation type="unfinished">Nexus</translation>
+      <translation>Nexus</translation>
     </message>
     <message>
       <source>Open Nexus Mods</source>
@@ -6878,7 +6942,7 @@ Chcete odstranit záznam z přidané sbírky?</translation>
     </message>
     <message>
       <source>beta</source>
-      <translation type="unfinished">beta</translation>
+      <translation>beta</translation>
     </message>
     <message>
       <source>stable</source>
@@ -7450,7 +7514,7 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
     </message>
     <message>
       <source>Import: {0}</source>
-      <translation type="unfinished">Import: {0}</translation>
+      <translation>Import: {0}</translation>
     </message>
     <message>
       <source>Could not build share code.</source>
@@ -7618,7 +7682,7 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
     </message>
     <message>
       <source>{0}…</source>
-      <translation type="unfinished">{0}…</translation>
+      <translation>{0}…</translation>
     </message>
     <message>
       <source>No game selected</source>
@@ -7802,7 +7866,7 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
     </message>
     <message>
       <source>Thunderstore</source>
-      <translation type="unfinished">Thunderstore</translation>
+      <translation>Thunderstore</translation>
     </message>
     <message>
       <source>Browse Thunderstore</source>
@@ -7950,15 +8014,39 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
     </message>
     <message>
       <source>VFS</source>
-      <translation type="unfinished">VFS</translation>
+      <translation>VFS</translation>
     </message>
     <message>
       <source> ({0})</source>
       <translation>({0})</translation>
     </message>
     <message>
+      <source>Received a malformed MODL link.</source>
+      <translation>Obdržen poškozený MODL odkaz.</translation>
+    </message>
+    <message>
+      <source>No configured game matches MODL game ID '{0}'.</source>
+      <translation>Žádná konfigurovaná hra odpovídá MODL ID hry '{0}'.</translation>
+    </message>
+    <message>
+      <source>Downloading mod from MODL link…</source>
+      <translation>Stahování modu z MODL odkazu…</translation>
+    </message>
+    <message>
       <source>Download cancelled.</source>
       <translation>Stáhnout zrušeno.</translation>
+    </message>
+    <message>
+      <source>MODL download failed - {0}</source>
+      <translation>MODL stahování se nezdařilo - {0}</translation>
+    </message>
+    <message>
+      <source>Downloaded - target game is unavailable; see Downloads tab.</source>
+      <translation>Staženo - cílová hra není k dispozici; viz záložka Stahování.</translation>
+    </message>
+    <message>
+      <source>Downloaded - switch to '{0}' and install it from the Downloads tab.</source>
+      <translation>Staženo - přepněte na '{0}' a nainstalujte jej ze záložky Downloads.</translation>
     </message>
     <message>
       <source>this mod</source>
@@ -8046,11 +8134,19 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
     </message>
     <message>
       <source>FOMOD: {0}</source>
-      <translation type="unfinished">FOMOD: {0}</translation>
+      <translation>FOMOD: {0}</translation>
     </message>
     <message>
       <source>Conflict data is still building.</source>
       <translation>Konfliktní data se stále hromadí.</translation>
+    </message>
+    <message>
+      <source>Root Folder</source>
+      <translation>Kořenová složka</translation>
+    </message>
+    <message>
+      <source>Could not add '{0}' to the modlist: {1}</source>
+      <translation>Nelze přidat '{0}' do modlistu: {1}</translation>
     </message>
     <message>
       <source>{0} has no conflicting mods.</source>
@@ -8059,6 +8155,26 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
     <message>
       <source>Filtered to {0} mods conflicting with {1}.</source>
       <translation>Filtrovaný na {0} mods je v rozporu s {1}.</translation>
+    </message>
+    <message>
+      <source>Copy separator to profile</source>
+      <translation>Kopírovat oddělovač do profilu</translation>
+    </message>
+    <message>
+      <source>Copying separator</source>
+      <translation>Kopírování oddělovače</translation>
+    </message>
+    <message>
+      <source>Copying separator '{0}' to '{1}'…</source>
+      <translation>Kopírování oddělovače '{0}' do '{1}'…</translation>
+    </message>
+    <message>
+      <source>Copied separator '{0}' with {1}/{2} mod(s) to '{3}'.</source>
+      <translation>Oddělovač '{0}' s režimem {1}/{2} do '{3}'.</translation>
+    </message>
+    <message>
+      <source>Could not copy the separator.</source>
+      <translation>Nelze kopírovat oddělovač.</translation>
     </message>
     <message>
       <source>Cancel all</source>
@@ -8095,6 +8211,10 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
       <translation>Ametyst nemohl spustit {0}.
 
 {1}</translation>
+    </message>
+    <message>
+      <source>Waiting for profile updates…</source>
+      <translation>Čekání na aktualizace profilu…</translation>
     </message>
     <message>
       <source>Extracting / Installing</source>
@@ -8347,6 +8467,14 @@ Spustit průvodce Downgrade pro opravu hry zpět na verzi FOSE podporu. Váš se
       <translation>{0}: žádný záznam překrývání s jinými pluginy.</translation>
     </message>
     <message>
+      <source>Loading profile…</source>
+      <translation>Načítání profilu…</translation>
+    </message>
+    <message>
+      <source>Could not load the profile file graph. See the log for details.</source>
+      <translation>Nelze načíst graf profilového souboru. Podrobnosti naleznete v protokolu.</translation>
+    </message>
+    <message>
       <source>+ Add exe from staging…</source>
       <translation>+ Přidat exe z nastavení..</translation>
     </message>
@@ -8496,7 +8624,7 @@ Rozmístit?</translation>
     </message>
     <message>
       <source>Wiki</source>
-      <translation type="unfinished">Wiki</translation>
+      <translation>Wiki</translation>
     </message>
     <message>
       <source>Changelog</source>
@@ -8508,7 +8636,7 @@ Rozmístit?</translation>
     </message>
     <message>
       <source>Ko-Fi</source>
-      <translation type="unfinished">Ko-Fi</translation>
+      <translation>Ko-Fi</translation>
     </message>
     <message>
       <source>♥ Endorse AMM</source>
@@ -8620,7 +8748,7 @@ Rozmístit?</translation>
     <name>MewgenicsDeployChoiceOverlay</name>
     <message>
       <source>Mewgenics - Deploy method</source>
-      <translation type="unfinished">Mewgenics - Deploy method</translation>
+      <translation>Mewgenics - Metoda nasazení</translation>
     </message>
     <message>
       <source>Steam launch command  (Safer / Recommended)</source>
@@ -8944,8 +9072,18 @@ Jak by se ti líbilo zvládnout stávající mód?</translation>
 {0}</translation>
     </message>
     <message>
+      <source>Could not set version:
+{0}</source>
+      <translation>Nelze nastavit verzi:
+{0}</translation>
+    </message>
+    <message>
       <source>Create</source>
       <translation>Vytvořit</translation>
+    </message>
+    <message>
+      <source>Copy separator to profile</source>
+      <translation>Kopírovat oddělovač do profilu</translation>
     </message>
     <message>
       <source>Create an empty mod below</source>
@@ -9018,6 +9156,14 @@ Jak by se ti líbilo zvládnout stávající mód?</translation>
     <message>
       <source>Log</source>
       <translation>Protokol</translation>
+    </message>
+    <message>
+      <source>Manage Overwrite…</source>
+      <translation>Spravovat přepisování…</translation>
+    </message>
+    <message>
+      <source>Manage root folder</source>
+      <translation>Spravovat kořenovou složku</translation>
     </message>
     <message>
       <source>Missing Requirements</source>
@@ -9160,8 +9306,16 @@ Jak by se ti líbilo zvládnout stávající mód?</translation>
       <translation>Nastavit prioritu…</translation>
     </message>
     <message>
+      <source>Set version</source>
+      <translation>Nastavit verzi</translation>
+    </message>
+    <message>
       <source>Priority for {0}:</source>
       <translation>Priorita pro {0}:</translation>
+    </message>
+    <message>
+      <source>Version for {0}:</source>
+      <translation>Verze pro {0}:</translation>
     </message>
     <message>
       <source>Show Conflicts</source>
@@ -9173,11 +9327,11 @@ Jak by se ti líbilo zvládnout stávající mód?</translation>
     </message>
     <message>
       <source>Track Mod</source>
-      <translation type="unfinished">Track Mod</translation>
+      <translation>Skladba módu</translation>
     </message>
     <message>
       <source>Track Mod ({0})</source>
-      <translation type="unfinished">Track Mod ({0})</translation>
+      <translation>Skladba módu ({0})</translation>
     </message>
     <message>
       <source>Unlock Separator</source>
@@ -9189,7 +9343,7 @@ Jak by se ti líbilo zvládnout stávající mód?</translation>
     </message>
     <message>
       <source>{0} ({1})</source>
-      <translation type="unfinished">{0} ({1})</translation>
+      <translation>{0} ({1})</translation>
     </message>
   </context>
   <context>
@@ -10241,7 +10395,7 @@ Your modlist was restored before downgrading - use Deploy to put it back.</sourc
     </message>
     <message>
       <source>Track Mod</source>
-      <translation type="unfinished">Track Mod</translation>
+      <translation>Skladba módu</translation>
     </message>
     <message>
       <source>Abstain</source>
@@ -10307,11 +10461,11 @@ Your modlist was restored before downgrading - use Deploy to put it back.</sourc
     <name>NexusFooterLabel</name>
     <message>
       <source>{0} @ NexusMods</source>
-      <translation type="unfinished">{0} @ NexusMods</translation>
+      <translation>{0} @ NexusMods</translation>
     </message>
     <message>
       <source>NexusMods</source>
-      <translation type="unfinished">NexusMods</translation>
+      <translation>NexusMods</translation>
     </message>
     <message>
       <source>Not logged in</source>
@@ -10435,7 +10589,7 @@ Denně: {1}</translation>
     </message>
     <message>
       <source>Mod {0}</source>
-      <translation type="unfinished">Mod {0}</translation>
+      <translation>Mod {0}</translation>
     </message>
     <message>
       <source>No summary provided.</source>
@@ -10487,7 +10641,7 @@ Denně: {1}</translation>
     </message>
     <message>
       <source>{0} ({1})</source>
-      <translation type="unfinished">{0} ({1})</translation>
+      <translation>{0} ({1})</translation>
     </message>
     <message>
       <source>{0} file(s)</source>
@@ -10542,7 +10696,7 @@ Denně: {1}</translation>
     </message>
     <message>
       <source>Wireframe</source>
-      <translation type="unfinished">Wireframe</translation>
+      <translation>Wireframe</translation>
     </message>
     <message>
       <source>Off</source>
@@ -10601,6 +10755,14 @@ Denně: {1}</translation>
       <translation>Obrátit směr tahu pro otáčení a obložení</translation>
     </message>
     <message>
+      <source>Free camera</source>
+      <translation>Kamera zdarma</translation>
+    </message>
+    <message>
+      <source>Allow unrestricted rotation around every axis</source>
+      <translation>Povolit neomezené otáčení kolem každé osy</translation>
+    </message>
+    <message>
       <source>Brightness - lifts dark textures without blowing out highlights; double-click to reset</source>
       <translation>Jas - zvedne tmavé textury bez foukání zvýraznění; dvakrát klepněte na tlačítko reset</translation>
     </message>
@@ -10626,7 +10788,7 @@ Denně: {1}</translation>
     </message>
     <message>
       <source>{0} tris</source>
-      <translation type="unfinished">{0} tris</translation>
+      <translation>{0} tris</translation>
     </message>
     <message>
       <source>{0}/{1} textured</source>
@@ -11062,7 +11224,7 @@ Každá hra má svou vlastní podsložku.</translation>
     <name>OverridesView</name>
     <message>
       <source>Override paks</source>
-      <translation type="unfinished">Override paks</translation>
+      <translation>Override paks</translation>
     </message>
     <message>
       <source>No override paks in the enabled mods.
@@ -11086,6 +11248,191 @@ Override paks (no meta.lsx, or only overwriting the game 's own modules) nasadit
     <message>
       <source>Close</source>
       <translation>Zavřít</translation>
+    </message>
+  </context>
+  <context>
+    <name>OverwriteView</name>
+    <message>
+      <source>Root Folder</source>
+      <translation>Kořenová složka</translation>
+    </message>
+    <message>
+      <source>Overwrite</source>
+      <translation>Přepsat</translation>
+    </message>
+    <message>
+      <source>⊞ Expand all</source>
+      <translation>&lt;unk> Rozbalit vše</translation>
+    </message>
+    <message>
+      <source>⟳ Refresh</source>
+      <translation>&lt;unk> Obnovit</translation>
+    </message>
+    <message>
+      <source>Move to mod…</source>
+      <translation>Přesunout do modu…</translation>
+    </message>
+    <message>
+      <source>Move to new mod…</source>
+      <translation>Přesunout do nového modu…</translation>
+    </message>
+    <message>
+      <source>Delete</source>
+      <translation>Vymazat</translation>
+    </message>
+    <message>
+      <source>Search files… (try !.dds)</source>
+      <translation>Hledat soubory… (vyzkoušejte !.dds)</translation>
+    </message>
+    <message>
+      <source>Root Folder (no game selected)</source>
+      <translation>Kořenová složka (není vybrána žádná hra)</translation>
+    </message>
+    <message>
+      <source>Root Folder - empty</source>
+      <translation>Kořenová složka - prázdná</translation>
+    </message>
+    <message>
+      <source>Root Folder - {0} of {1} file(s)</source>
+      <translation>Kořenová složka - {0} souborů {1}</translation>
+    </message>
+    <message>
+      <source>Root Folder - {0} file(s)</source>
+      <translation>Kořenová složka - soubory {0}</translation>
+    </message>
+    <message>
+      <source>Overwrite (no game selected)</source>
+      <translation>Přepsat (není vybrána žádná hra)</translation>
+    </message>
+    <message>
+      <source>Overwrite - empty</source>
+      <translation>Přepsat - prázdné</translation>
+    </message>
+    <message>
+      <source>Overwrite - {0} of {1} file(s)</source>
+      <translation>Přepsat - {0} souborů {1}</translation>
+    </message>
+    <message>
+      <source>Overwrite - {0} file(s)</source>
+      <translation>Přepsat - {0} soubor(y)</translation>
+    </message>
+    <message>
+      <source>⊟ Collapse all</source>
+      <translation>&lt;unk> Sbalit vše</translation>
+    </message>
+    <message>
+      <source>The active game or profile changed. Reopen Root Folder before modifying files.</source>
+      <translation>Aktivní hra nebo profil se změnila. Před modifikací souborů znovu otevřete kořenovou složku.</translation>
+    </message>
+    <message>
+      <source>The active game or profile changed. Reopen Overwrite before modifying files.</source>
+      <translation>Aktivní hra nebo profil se změnila. Před modifikací souborů znovu otevřete přepsání.</translation>
+    </message>
+    <message>
+      <source>Profile changed</source>
+      <translation>Profil změněn</translation>
+    </message>
+    <message>
+      <source>Move to mod</source>
+      <translation>Přesunout do módu</translation>
+    </message>
+    <message>
+      <source>There are no mods to move these files into.</source>
+      <translation>Neexistují žádné mody pro přesunutí těchto souborů.</translation>
+    </message>
+    <message>
+      <source>Move {0} item(s) to which mod?</source>
+      <translation>Přesunout položku (položky) {0} do kterého režimu?</translation>
+    </message>
+    <message>
+      <source>Move</source>
+      <translation>Přesunout</translation>
+    </message>
+    <message>
+      <source>Invalid mod name</source>
+      <translation>Neplatný název modu</translation>
+    </message>
+    <message>
+      <source>Mod names cannot end with '_separator'.</source>
+      <translation>Názvy módů nemohou zakončit '_separator'.</translation>
+    </message>
+    <message>
+      <source>That name cannot be used for a mod folder.</source>
+      <translation>Tento název nemůže být použit pro složku módů.</translation>
+    </message>
+    <message>
+      <source>Name conflict</source>
+      <translation>Konflikt jména</translation>
+    </message>
+    <message>
+      <source>A mod named '{0}' already exists.</source>
+      <translation>Mód s názvem '{0}již existuje.</translation>
+    </message>
+    <message>
+      <source>Move to new mod</source>
+      <translation>Přesunout do nového modu</translation>
+    </message>
+    <message>
+      <source>Could not create the mod folder:
+{0}</source>
+      <translation>Nelze vytvořit složku modů:
+{0}</translation>
+    </message>
+    <message>
+      <source>The mod could not be added to the modlist. No files were moved.</source>
+      <translation>Modd nemohl být přidán do modlistu. Žádné soubory nebyly přesunuty.</translation>
+    </message>
+    <message>
+      <source>Mod name:</source>
+      <translation>Název módu:</translation>
+    </message>
+    <message>
+      <source>Create</source>
+      <translation>Vytvořit</translation>
+    </message>
+    <message>
+      <source>The selected mod has an unsafe folder name.</source>
+      <translation>Vybraný mod má nebezpečný název složky.</translation>
+    </message>
+    <message>
+      <source>Moved {0}, failed {1}:
+{2}</source>
+      <translation>Přesunuto {0}, selhalo {1}:
+{2}</translation>
+    </message>
+    <message>
+      <source>Move {0} item(s) from Overwrite into '{1}'?</source>
+      <translation>Přesunout položky {0} z přepsání do '{1}'?</translation>
+    </message>
+    <message>
+      <source>Deleted {0}, failed {1}:
+{2}</source>
+      <translation>Smazáno {0}, selhalo {1}:
+{2}</translation>
+    </message>
+    <message>
+      <source>Delete from Root Folder</source>
+      <translation>Odstranit z kořenové složky</translation>
+    </message>
+    <message>
+      <source>Permanently delete {0} item(s) from the Root Folder?
+
+This cannot be undone.</source>
+      <translation>Trvale odstranit položky {0} z kořenové složky?
+
+Tuto akci nelze vrátit zpět.</translation>
+    </message>
+    <message>
+      <source>Delete from Overwrite</source>
+      <translation>Odstranit z přepisu</translation>
+    </message>
+    <message>
+      <source>Permanently delete {0} item(s) from the Overwrite folder?
+
+This cannot be undone.</source>
+      <translation>Trvale odstranit položky {0} ze složky Přepsání?
+
+Tuto akci nelze vrátit zpět.</translation>
     </message>
   </context>
   <context>
@@ -11259,7 +11606,7 @@ Počkejte, až to skončí, pak klepněte na tlačítko Hotovo.</translation>
     <name>PandoraView</name>
     <message>
       <source>Run Pandora - {0}</source>
-      <translation type="unfinished">Run Pandora - {0}</translation>
+      <translation>Spustit Pandoru - {0}</translation>
     </message>
     <message>
       <source>✕ Close</source>
@@ -11699,6 +12046,18 @@ Přeskenujte to.</translation>
       <translation>Odstranit vybrané položky ze seznamu uživatelů</translation>
     </message>
     <message>
+      <source>Priority for {0}:</source>
+      <translation>Priorita pro {0}:</translation>
+    </message>
+    <message>
+      <source>Set priority</source>
+      <translation>Nastavit prioritu</translation>
+    </message>
+    <message>
+      <source>Set priority…</source>
+      <translation>Nastavit prioritu…</translation>
+    </message>
+    <message>
       <source>Show cycle…</source>
       <translation>Zobrazit cyklus…</translation>
     </message>
@@ -11739,7 +12098,7 @@ Přeskenujte to.</translation>
     </message>
     <message>
       <source>P</source>
-      <translation type="unfinished">P</translation>
+      <translation>PR</translation>
     </message>
     <message>
       <source>Index</source>
@@ -11820,7 +12179,7 @@ Chcete-li přidat pravidlo, přetáhněte plugin z levého panelu.</translation>
     </message>
     <message>
       <source>Proton prefix</source>
-      <translation type="unfinished">Proton prefix</translation>
+      <translation>Předpona Protonu</translation>
     </message>
     <message>
       <source>Prefix structure</source>
@@ -11840,7 +12199,7 @@ Chcete-li přidat pravidlo, přetáhněte plugin z levého panelu.</translation>
     </message>
     <message>
       <source>Proton build</source>
-      <translation type="unfinished">Proton build</translation>
+      <translation>Vytváření Protonu</translation>
     </message>
     <message>
       <source>Proton / prefix version</source>
@@ -11880,7 +12239,7 @@ Chcete-li přidat pravidlo, přetáhněte plugin z levého panelu.</translation>
     </message>
     <message>
       <source>DXVK (Direct3D → Vulkan)</source>
-      <translation type="unfinished">DXVK (Direct3D → Vulkan)</translation>
+      <translation>DXVK (Direct3D → Vulkan)</translation>
     </message>
     <message>
       <source>No prefix configured</source>
@@ -11967,7 +12326,7 @@ Chcete-li přidat pravidlo, přetáhněte plugin z levého panelu.</translation>
     </message>
     <message>
       <source>{0} - {1}</source>
-      <translation type="unfinished">{0} - {1}</translation>
+      <translation>{0} - {1}</translation>
     </message>
     <message>
       <source>  (active)</source>
@@ -12209,6 +12568,10 @@ Jeho uvedené módy jsou zkopírovány do vlastní složky mods profilu (pokud m
       <translation>Zrušit</translation>
     </message>
     <message>
+      <source>Wait for the profile to finish loading.</source>
+      <translation>Počkejte na dokončení načítání profilu.</translation>
+    </message>
+    <message>
       <source>'{0}' is a member of the deployed group '{1}' - restore the game first, then remove it.</source>
       <translation>'{0}' je členem nasazené skupiny '{1}' - nejprve obnovit hru a pak ji odstranit.</translation>
     </message>
@@ -12233,7 +12596,7 @@ Jeho uvedené módy jsou zkopírovány do vlastní složky mods profilu (pokud m
     </message>
     <message>
       <source>{0} / {1}</source>
-      <translation type="unfinished">{0} / {1}</translation>
+      <translation>{0} / {1}</translation>
     </message>
   </context>
   <context>
@@ -12524,7 +12887,7 @@ Pokud je hra stále přerušena, ověřte si herní soubory pomocí služby Stea
     </message>
     <message>
       <source>32-bit</source>
-      <translation type="unfinished">32-bit</translation>
+      <translation>32bitový</translation>
     </message>
     <message>
       <source>Next →</source>
@@ -12718,7 +13081,7 @@ bude zapsán do předpony Proton.</translation>
     </message>
     <message>
       <source>{0} - ReShade</source>
-      <translation type="unfinished">{0} - ReShade</translation>
+      <translation>{0} - Shade</translation>
     </message>
     <message>
       <source>Error: {0}</source>
@@ -12777,11 +13140,11 @@ Předpona Protonu: {2}</translation>
     </message>
     <message>
       <source>Prefix: {0}</source>
-      <translation type="unfinished">Prefix: {0}</translation>
+      <translation>Předpona: {0}</translation>
     </message>
     <message>
       <source>Proton: {0}</source>
-      <translation type="unfinished">Proton: {0}</translation>
+      <translation>Proton: {0}</translation>
     </message>
     <message>
       <source>Registry write raised: {0}</source>
@@ -12977,7 +13340,7 @@ Zvolte možnost „Ponechat“, pokud se jedná o volitelnou/alternativní varia
     </message>
     <message>
       <source>[{0}]</source>
-      <translation type="unfinished">[{0}]</translation>
+      <translation>[{0}]</translation>
     </message>
     <message>
       <source>Close</source>
@@ -12997,11 +13360,11 @@ Zvolte možnost „Ponechat“, pokud se jedná o volitelnou/alternativní varia
     </message>
     <message>
       <source>true</source>
-      <translation type="unfinished">true</translation>
+      <translation>pravda</translation>
     </message>
     <message>
       <source>false</source>
-      <translation type="unfinished">false</translation>
+      <translation>nepravda</translation>
     </message>
     <message>
       <source>Form reset to built-in defaults (not yet saved).</source>
@@ -13207,7 +13570,7 @@ Zvolte možnost „Ponechat“, pokud se jedná o volitelnou/alternativní varia
     </message>
     <message>
       <source>{0} ({1})</source>
-      <translation type="unfinished">{0} ({1})</translation>
+      <translation>{0} ({1})</translation>
     </message>
     <message>
       <source>{0} (current)</source>
@@ -13679,7 +14042,7 @@ Zrušte operaci a znovu povolte uvedené mody, chcete-li sloučení zachovat, ne
     </message>
     <message>
       <source>Run Script Merger - {0}</source>
-      <translation type="unfinished">Run Script Merger - {0}</translation>
+      <translation>Spustit Script fúze - {0}</translation>
     </message>
     <message>
       <source>{0} was not found.
@@ -13710,7 +14073,7 @@ Spojte své konflikty, pak je zavřete a klepněte na tlačítko Hotovo.</transl
     <name>SelectorButton</name>
     <message>
       <source>{0}{1}{2}</source>
-      <translation type="unfinished">{0}{1}{2}</translation>
+      <translation>{0}{1}{2}</translation>
     </message>
     <message>
       <source>{0}   ✓ deployed</source>
@@ -13729,7 +14092,7 @@ Spojte své konflikty, pak je zavřete a klepněte na tlačítko Hotovo.</transl
     </message>
     <message>
       <source>#rrggbb</source>
-      <translation type="unfinished">#rrggbb</translation>
+      <translation>#rrggbb</translation>
     </message>
     <message>
       <source>Choose colour…</source>
@@ -13796,7 +14159,7 @@ Spojte své konflikty, pak je zavřete a klepněte na tlačítko Hotovo.</transl
     <name>SetPrefixOverlay</name>
     <message>
       <source>Mod: {0}</source>
-      <translation type="unfinished">Mod: {0}</translation>
+      <translation>Mod: {0}</translation>
     </message>
     <message>
       <source>This mod has no recognised top-level folders.</source>
@@ -13934,10 +14297,6 @@ Spojte své konflikty, pak je zavřete a klepněte na tlačítko Hotovo.</transl
       <translation>{0} MB / s</translation>
     </message>
     <message>
-      <source>Cap the combined download speed of all downloads (collections, single mods, nxm links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>
-      <translation>Kryjte kombinovanou rychlost stahování všech stahů (sbírky, jednotlivé módy, nxm odkazy), aby nepoužili celé spojení. Platí okamžitě, včetně běžící montážní sbírky.</translation>
-    </message>
-    <message>
       <source>Extraction CPU threads</source>
       <translation>Extrakce CPU závitů</translation>
     </message>
@@ -14050,10 +14409,6 @@ Spojte své konflikty, pak je zavřete a klepněte na tlačítko Hotovo.</transl
       <translation>Pouze ke stažení (neinstalujte)</translation>
     </message>
     <message>
-      <source>Downloads are saved to the cache but not installed. Applies to nxm:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</source>
-      <translation>Soubory jsou uloženy do cache, ale nejsou nainstalovány. Platí pro nxm: / / odkazy, Prohlížeč Nexus, Změna verze, Sběr instalací, Stahování požadavků a aktualizace / reinstalovat restails - jejich tlačítka Install se stanou Stáhnout. Nainstalujte si je z karty Soubory ke stažení nebo z tlačítka Install Mod.</translation>
-    </message>
-    <message>
       <source>Extraction</source>
       <translation>Extrakce</translation>
     </message>
@@ -14067,7 +14422,7 @@ Spojte své konflikty, pak je zavřete a klepněte na tlačítko Hotovo.</transl
     </message>
     <message>
       <source>beta</source>
-      <translation type="unfinished">beta</translation>
+      <translation>beta</translation>
     </message>
     <message>
       <source>stable</source>
@@ -14175,7 +14530,7 @@ ametyst.flatpakrepo</translation>
     </message>
     <message>
       <source>Steam libraryfolders.vdf</source>
-      <translation type="unfinished">Steam libraryfolders.vdf</translation>
+      <translation>Steam libraryfolders.vdf</translation>
     </message>
     <message>
       <source>Path to libraryfolders.vdf (or its folder). Blank = auto-detect (standard, Flatpak and Snap locations).</source>
@@ -14196,6 +14551,10 @@ ametyst.flatpakrepo</translation>
     <message>
       <source>Appearance</source>
       <translation>Vzhled</translation>
+    </message>
+    <message>
+      <source>Shortcuts</source>
+      <translation>Zkratky</translation>
     </message>
     <message>
       <source>About</source>
@@ -14220,6 +14579,14 @@ ametyst.flatpakrepo</translation>
     <message>
       <source>Right side</source>
       <translation>Pravá strana</translation>
+    </message>
+    <message>
+      <source>Cap the combined download speed of all downloads (collections, single mods, nxm and modl links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>
+      <translation>Omezte kombinovanou rychlost stahování všech stahování (kolekce, jednotlivé mody, nxm a modl odkazy), takže nepoužívají celé připojení. Platí okamžitě, a to i pro běžící kolekci.</translation>
+    </message>
+    <message>
+      <source>Downloads are saved to the cache but not installed. Applies to nxm:// and modl:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</source>
+      <translation>Stahování je uloženo do mezipaměti, ale není nainstalováno. Platí pro nxm:// a modl:// odkazy, prohlížeč Nexus, Změna verze, instalace kolekce, stahování a aktualizace/přeinstalování stahování - jejich instalační tlačítka se stanou staženým. Nainstalujte si je z karty Stahování nebo z tlačítka Instalační mód.</translation>
     </message>
     <message>
       <source>Reset dismissed prompts…</source>
@@ -14247,7 +14614,7 @@ ametyst.flatpakrepo</translation>
     </message>
     <message>
       <source>Prompts reset</source>
-      <translation type="unfinished">Prompts reset</translation>
+      <translation>Prompts reset</translation>
     </message>
     <message>
       <source>{0} prompt is hidden. It will start showing again.</source>
@@ -14275,7 +14642,7 @@ ametyst.flatpakrepo</translation>
     </message>
     <message>
       <source>{0} set: {1}</source>
-      <translation type="unfinished">{0} set: {1}</translation>
+      <translation>{0} nastaveno: {1}</translation>
     </message>
     <message>
       <source>None set</source>
@@ -14291,7 +14658,7 @@ ametyst.flatpakrepo</translation>
     </message>
     <message>
       <source>OS</source>
-      <translation type="unfinished">OS</translation>
+      <translation>OS</translation>
     </message>
     <message>
       <source>Distribution</source>
@@ -14299,15 +14666,15 @@ ametyst.flatpakrepo</translation>
     </message>
     <message>
       <source>Kernel</source>
-      <translation type="unfinished">Kernel</translation>
+      <translation>Jádro</translation>
     </message>
     <message>
       <source>Python</source>
-      <translation type="unfinished">Python</translation>
+      <translation>Python</translation>
     </message>
     <message>
       <source>Qt</source>
-      <translation type="unfinished">Qt</translation>
+      <translation>Qt</translation>
     </message>
     <message>
       <source>Run mode</source>
@@ -14327,11 +14694,11 @@ ametyst.flatpakrepo</translation>
     </message>
     <message>
       <source>OpenGL</source>
-      <translation type="unfinished">OpenGL</translation>
+      <translation>OpenGL</translation>
     </message>
     <message>
       <source>Env overrides</source>
-      <translation type="unfinished">Env overrides</translation>
+      <translation>Env overrides</translation>
     </message>
     <message>
       <source>Copy to clipboard</source>
@@ -14441,6 +14808,153 @@ ametyst.flatpakrepo</translation>
     </message>
   </context>
   <context>
+    <name>ShortcutEditor</name>
+    <message>
+      <source>Keyboard and mouse shortcuts</source>
+      <translation>Klávesové zkratky a zkratky myši</translation>
+    </message>
+    <message>
+      <source>Click a binding, then press a key, Mouse 3, or a side button. Escape cancels. Left and right mouse buttons are reserved; modifiers are changed separately.</source>
+      <translation>Klikni na vazbu a pak stiskni klávesu, myš 3 nebo boční tlačítko. Únikové ruší. Levá a pravá tlačítka myši jsou vyhrazena; modifikátory se mění zvlášť.</translation>
+    </message>
+    <message>
+      <source>Reset to defaults</source>
+      <translation>Obnovit výchozí hodnoty</translation>
+    </message>
+    <message>
+      <source>Action</source>
+      <translation>Akce</translation>
+    </message>
+    <message>
+      <source>Modifier</source>
+      <translation>Modifier</translation>
+    </message>
+    <message>
+      <source>Key / button</source>
+      <translation>Klíč / tlačítko</translation>
+    </message>
+    <message>
+      <source>Default</source>
+      <translation>Výchozí</translation>
+    </message>
+    <message>
+      <source>Mouse actions (mouse buttons by default)</source>
+      <translation>Akce myši (výchozí tlačítka myši)</translation>
+    </message>
+    <message>
+      <source>None</source>
+      <translation>Nic</translation>
+    </message>
+    <message>
+      <source>Reset {0} to {1}</source>
+      <translation>Obnovit {0} na {1}</translation>
+    </message>
+    <message>
+      <source>That key or mouse button cannot be used as a shortcut.</source>
+      <translation>Tento klíč nebo tlačítko myši nelze použít jako zástupce.</translation>
+    </message>
+    <message>
+      <source>{0} is already assigned to {1}.</source>
+      <translation>{0} je již přiřazen k {1}.</translation>
+    </message>
+    <message>
+      <source>Failed to save shortcut: {0}</source>
+      <translation>Nepodařilo se uložit zástupce: {0}</translation>
+    </message>
+    <message>
+      <source>{0} reset to {1}.</source>
+      <translation>{0} resetován na {1}.</translation>
+    </message>
+    <message>
+      <source>Failed to reset shortcuts: {0}</source>
+      <translation>Obnovení zástupců selhalo: {0}</translation>
+    </message>
+    <message>
+      <source>Shortcuts reset to defaults.</source>
+      <translation>Zkratky byly obnoveny na výchozí hodnoty.</translation>
+    </message>
+    <message>
+      <source>Rename selected mod or separator</source>
+      <translation>Přejmenovat vybraný mód nebo oddělovač</translation>
+    </message>
+    <message>
+      <source>Refresh mod list</source>
+      <translation>Aktualizovat seznam modifikací</translation>
+    </message>
+    <message>
+      <source>Deploy mods</source>
+      <translation>Publikovat módy</translation>
+    </message>
+    <message>
+      <source>Install a mod</source>
+      <translation>Install a mod</translation>
+    </message>
+    <message>
+      <source>Create an empty mod</source>
+      <translation>Vytvořit prázdný mod</translation>
+    </message>
+    <message>
+      <source>Restore game files</source>
+      <translation>Obnovit herní soubory</translation>
+    </message>
+    <message>
+      <source>Open Settings</source>
+      <translation>Otevřít nastavení</translation>
+    </message>
+    <message>
+      <source>Focus search</source>
+      <translation>Zaměřit hledání</translation>
+    </message>
+    <message>
+      <source>Select all in the active group</source>
+      <translation>Vybrat vše v aktivní skupině</translation>
+    </message>
+    <message>
+      <source>Move selection up</source>
+      <translation>Přesunout výběr nahoru</translation>
+    </message>
+    <message>
+      <source>Move selection down</source>
+      <translation>Přesunout výběr dolů</translation>
+    </message>
+    <message>
+      <source>Remove selected mods</source>
+      <translation>Odstranit vybrané mody</translation>
+    </message>
+    <message>
+      <source>Enable or disable selection</source>
+      <translation>Povolit nebo zakázat výběr</translation>
+    </message>
+    <message>
+      <source>Scroll active list to the top</source>
+      <translation>Posunout aktivní seznam nahoře</translation>
+    </message>
+    <message>
+      <source>Scroll active list to the bottom</source>
+      <translation>Posunout aktivní seznam na konec</translation>
+    </message>
+    <message>
+      <source>Expand or collapse all separators</source>
+      <translation>Rozbalit nebo sbalit všechny oddělovače</translation>
+    </message>
+    <message>
+      <source>Show or hide active filters</source>
+      <translation>Zobrazit nebo skrýt aktivní filtry</translation>
+    </message>
+    <message>
+      <source>Open a mod's source page</source>
+      <translation>Otevřít zdrojovou stránku modu</translation>
+    </message>
+    <message>
+      <source>Browser back</source>
+      <translation>Prohlížeč zpět</translation>
+    </message>
+    <message>
+      <source>Browser forward</source>
+      <translation>Prohlížeč vpřed</translation>
+    </message>
+  </context>
+  <context>
     <name>ShowConflictsView</name>
     <message>
       <source>Conflicts: {0}</source>
@@ -14480,14 +14994,14 @@ ametyst.flatpakrepo</translation>
     </message>
     <message>
       <source>{0}  ({1})</source>
-      <translation type="unfinished">{0}  ({1})</translation>
+      <translation>{0}  ({1})</translation>
     </message>
   </context>
   <context>
     <name>SkyGenView</name>
     <message>
       <source>SkyGen - Patch Generator - {0}</source>
-      <translation type="unfinished">SkyGen - Patch Generator - {0}</translation>
+      <translation>SkyGen - generátor patch - {0}</translation>
     </message>
     <message>
       <source>Step 1: Scan Active Plugins</source>
@@ -14533,7 +15047,7 @@ Ujistěte se, že je načten profil a že má aktivní pořadí načítání.</t
     </message>
     <message>
       <source>SkyPatcher</source>
-      <translation type="unfinished">SkyPatcher</translation>
+      <translation>SkyPatcher</translation>
     </message>
     <message>
       <source>Select All</source>
@@ -14966,7 +15480,7 @@ Pokračovat s {0}?</translation>
     </message>
     <message>
       <source>Proton: {0}</source>
-      <translation type="unfinished">Proton: {0}</translation>
+      <translation>Proton: {0}</translation>
     </message>
     <message>
       <source>Game path: {0}</source>
@@ -15079,7 +15593,7 @@ Získejte nejnovější TTW .mpi z mod.pub (vyžaduje volný účet) - extrahova
     </message>
     <message>
       <source>Fallout New Vegas:</source>
-      <translation type="unfinished">Fallout New Vegas:</translation>
+      <translation>Fallout New Vegas:</translation>
     </message>
     <message>
       <source>Select the Fallout New Vegas folder</source>
@@ -15087,7 +15601,7 @@ Získejte nejnovější TTW .mpi z mod.pub (vyžaduje volný účet) - extrahova
     </message>
     <message>
       <source>Fallout 3:</source>
-      <translation type="unfinished">Fallout 3:</translation>
+      <translation>Fallout 3:</translation>
     </message>
     <message>
       <source>Select the Fallout 3 folder</source>
@@ -15179,11 +15693,11 @@ Výstup je zapsán přímo do vašeho seznamu mod jako '{0}' mod.</translation>
     </message>
     <message>
       <source>Fallout New Vegas: {0}</source>
-      <translation type="unfinished">Fallout New Vegas: {0}</translation>
+      <translation>Fallout New Vegas: {0}</translation>
     </message>
     <message>
       <source>Fallout 3: {0}</source>
-      <translation type="unfinished">Fallout 3: {0}</translation>
+      <translation>Fallout 3: {0}</translation>
     </message>
     <message>
       <source>ERROR: missing vanilla plugin files:
@@ -15494,7 +16008,7 @@ nebo použijte tlačítko „Procházet“ a vyberte jej ručně.</translation>
     </message>
     <message>
       <source>Text</source>
-      <translation type="unfinished">Text</translation>
+      <translation>Text</translation>
     </message>
     <message>
       <source>Primary text</source>
@@ -15578,7 +16092,7 @@ nebo použijte tlačítko „Procházet“ a vyberte jej ručně.</translation>
     </message>
     <message>
       <source>Hyperlink</source>
-      <translation type="unfinished">Hyperlink</translation>
+      <translation>Hyperlink</translation>
     </message>
     <message>
       <source>Dropdown arrow</source>
@@ -15718,7 +16232,7 @@ nebo použijte tlačítko „Procházet“ a vyberte jej ručně.</translation>
     </message>
     <message>
       <source>Info hover</source>
-      <translation type="unfinished">Info hover</translation>
+      <translation>Info hover</translation>
     </message>
     <message>
       <source>Info (deep)</source>
@@ -15806,7 +16320,7 @@ nebo použijte tlačítko „Procházet“ a vyberte jej ručně.</translation>
     </message>
     <message>
       <source>Tones</source>
-      <translation type="unfinished">Tones</translation>
+      <translation>Tones</translation>
     </message>
     <message>
       <source>Green tone</source>
@@ -16082,7 +16596,7 @@ nebo použijte tlačítko „Procházet“ a vyberte jej ručně.</translation>
     </message>
     <message>
       <source>Root Folder band (text)</source>
-      <translation type="unfinished">Root Folder band (text)</translation>
+      <translation>Kořenové pásmo složky (text)</translation>
     </message>
     <message>
       <source>Checkboxes</source>
@@ -16182,7 +16696,7 @@ nebo použijte tlačítko „Procházet“ a vyberte jej ručně.</translation>
     </message>
     <message>
       <source>Status text</source>
-      <translation type="unfinished">Status text</translation>
+      <translation>Stav</translation>
     </message>
     <message>
       <source>Accent and links</source>
@@ -16595,7 +17109,7 @@ nebo použijte tlačítko „Procházet“ a vyberte jej ručně.</translation>
     </message>
     <message>
       <source>- Gameplay -</source>
-      <translation type="unfinished">- Gameplay -</translation>
+      <translation>- Hra -</translation>
     </message>
     <message>
       <source>Unofficial Patch</source>
@@ -16731,7 +17245,7 @@ nebo použijte tlačítko „Procházet“ a vyberte jej ručně.</translation>
     </message>
     <message>
       <source>Dropdown</source>
-      <translation type="unfinished">Dropdown</translation>
+      <translation>Rozbalovací nabídka</translation>
     </message>
     <message>
       <source>Enabled</source>
@@ -16811,11 +17325,11 @@ nebo použijte tlačítko „Procházet“ a vyberte jej ručně.</translation>
     </message>
     <message>
       <source>{0} toast</source>
-      <translation type="unfinished">{0} toast</translation>
+      <translation>{0} toast</translation>
     </message>
     <message>
       <source>Progress bar</source>
-      <translation type="unfinished">Progress bar</translation>
+      <translation>Ukazatel průběhu</translation>
     </message>
     <message>
       <source>Required mod</source>
@@ -16855,7 +17369,7 @@ nebo použijte tlačítko „Procházet“ a vyberte jej ručně.</translation>
     </message>
     <message>
       <source>{0} ({1})</source>
-      <translation type="unfinished">{0} ({1})</translation>
+      <translation>{0} ({1})</translation>
     </message>
   </context>
   <context>
@@ -16878,7 +17392,7 @@ nebo použijte tlačítko „Procházet“ a vyberte jej ručně.</translation>
     </message>
     <message>
       <source>NSFW</source>
-      <translation type="unfinished">NSFW</translation>
+      <translation>NSFW</translation>
     </message>
     <message>
       <source>Refresh</source>
@@ -16930,7 +17444,7 @@ nebo použijte tlačítko „Procházet“ a vyberte jej ručně.</translation>
     </message>
     <message>
       <source>/ {0}</source>
-      <translation type="unfinished">/ {0}</translation>
+      <translation>/ {0}</translation>
     </message>
     <message>
       <source>Loading…</source>
@@ -17039,7 +17553,7 @@ nebo použijte tlačítko „Procházet“ a vyberte jej ručně.</translation>
     </message>
     <message>
       <source>?</source>
-      <translation type="unfinished">?</translation>
+      <translation>?</translation>
     </message>
     <message>
       <source>Profile '{0}' - {1} → {2}</source>
@@ -17079,7 +17593,7 @@ nebo použijte tlačítko „Procházet“ a vyberte jej ručně.</translation>
     </message>
     <message>
       <source>{0} ({1})</source>
-      <translation type="unfinished">{0} ({1})</translation>
+      <translation>{0} ({1})</translation>
     </message>
     <message>
       <source>  (none)</source>
@@ -17331,7 +17845,7 @@ Stiskněte Refresh vyzkoušet znovu.</translation>
     </message>
     <message>
       <source>Downgrade Fallout 3</source>
-      <translation type="unfinished">Downgrade Fallout 3</translation>
+      <translation>Snížit Fallout 3</translation>
     </message>
     <message>
       <source>Install Script Extender (FOSE)</source>
@@ -17347,7 +17861,7 @@ Stiskněte Refresh vyzkoušet znovu.</translation>
     </message>
     <message>
       <source>Downgrade Fallout 3 GOTY</source>
-      <translation type="unfinished">Downgrade Fallout 3 GOTY</translation>
+      <translation>Snížit Fallout 3 GOTY</translation>
     </message>
     <message>
       <source>Run BodySlide (Linux)</source>
@@ -17367,11 +17881,11 @@ Stiskněte Refresh vyzkoušet znovu.</translation>
     </message>
     <message>
       <source>Downgrade Fallout 4</source>
-      <translation type="unfinished">Downgrade Fallout 4</translation>
+      <translation>Snížit Fallout 4</translation>
     </message>
     <message>
       <source>Downgrade Skyrim Special Edition</source>
-      <translation type="unfinished">Downgrade Skyrim Special Edition</translation>
+      <translation>Zmenšit speciální edici Skyrimu</translation>
     </message>
     <message>
       <source>Install Script Extender (F4SE)</source>
@@ -17400,6 +17914,10 @@ Stiskněte Refresh vyzkoušet znovu.</translation>
     <message>
       <source>BSA Decompressor</source>
       <translation>BSA dekompressor</translation>
+    </message>
+    <message>
+      <source>Install Unofficial Fallout 3 ESM Patcher</source>
+      <translation>Nainstalujte Unofficial Fallout 3 ESM Patcher</translation>
     </message>
     <message>
       <source>Install Ultimate Edition ESM Fixes</source>
@@ -17626,6 +18144,14 @@ Stiskněte Refresh vyzkoušet znovu.</translation>
       <translation>Decompress vanilkové BSA archivy pro rychlejší načítání (native Linux MPI installer) a přidat výsledek jako mod. Potřebuje stahování FNV BSA dekompressorů z Nexu.</translation>
     </message>
     <message>
+      <source>Decompress the vanilla BSA archives for faster loading (native Linux MPI installer) and add the result as a mod. Needs the FO3 BSA Decompressor download from Nexus.</source>
+      <translation>Dekomprimujte vanilla BSA archivy pro rychlejší načítání (native Linux MPI installer) a přidejte výsledek jako mod. Potřebuje stáhnout FO3 BSA Decompressor z Nexus.</translation>
+    </message>
+    <message>
+      <source>Patch the vanilla .esm masters with community bugfixes (native Linux MPI installer) and add the result as a mod. Needs the Unofficial Fallout 3 ESM Patcher download from Nexus.</source>
+      <translation>Spravujte vanilla .esm mistry komunitní opravy chyb (native Linux MPI installer) a přidejte výsledek jako mod. Potřebuje stáhnout neoficiální Fallout 3 ESM Patcher z Nexusu.</translation>
+    </message>
+    <message>
       <source>Patch the vanilla .esm masters with community bugfixes (native Linux MPI installer) and add the result as a mod. Needs the Ultimate Edition ESM Fixes Remastered download from Nexus.</source>
       <translation>Zalepte mistry vanilkového .esm pomocí komunálních chyb (nativní Linux MPI installer) a přidejte výsledek jako mod. Potřebuje konečné vydání ESM Fixes Remastered ke stažení z Nexus.</translation>
     </message>
@@ -17811,7 +18337,7 @@ Stiskněte Refresh vyzkoušet znovu.</translation>
     </message>
     <message>
       <source>DynDOLOD</source>
-      <translation type="unfinished">DynDOLOD</translation>
+      <translation>DynDOLOD</translation>
     </message>
     <message>
       <source>RSuite (experimental)</source>
@@ -17823,7 +18349,7 @@ Stiskněte Refresh vyzkoušet znovu.</translation>
     </message>
     <message>
       <source>xEdit</source>
-      <translation type="unfinished">xEdit</translation>
+      <translation>xEditovat</translation>
     </message>
     <message>
       <source>Load Order and Config</source>
@@ -18015,7 +18541,7 @@ Znovu otevřete toho čaroděje.</translation>
     <name>WryeBashView</name>
     <message>
       <source>Run Wrye Bash - {0}</source>
-      <translation type="unfinished">Run Wrye Bash - {0}</translation>
+      <translation>Spustit Wrye Bash - {0}</translation>
     </message>
     <message>
       <source>Step 1: Download Wrye Bash</source>
@@ -18262,7 +18788,7 @@ Když ji zavřete, vaše změny se automaticky obnoví.</translation>
     </message>
     <message>
       <source>QAC All ({0})</source>
-      <translation type="unfinished">QAC All ({0})</translation>
+      <translation>QAC All ({0})</translation>
     </message>
     <message>
       <source>Launch {0} to clean plugins one at a time, or QAC All to clean all {1} flagged plugin(s) automatically.</source>
@@ -18341,6 +18867,21 @@ Když ji zavřete, vaše změny se automaticky obnoví.</translation>
     </message>
   </context>
   <context>
+    <name>_BindingInput</name>
+    <message>
+      <source>Shortcut key or mouse button</source>
+      <translation>Klávesová zkratka nebo tlačítko myši</translation>
+    </message>
+    <message>
+      <source>Click here, then press a keyboard key, Mouse 3, or a side button. Escape cancels; left and right click are reserved.</source>
+      <translation>Klikni zde a stiskni klávesu klávesnice, myš 3 nebo boční tlačítko. Únikové ruší; levé a pravé kliknutí jsou rezervované.</translation>
+    </message>
+    <message>
+      <source>Press key</source>
+      <translation>Stiskněte klávesu</translation>
+    </message>
+  </context>
+  <context>
     <name>_GameCard</name>
     <message>
       <source>Select</source>
@@ -18395,11 +18936,11 @@ Když ji zavřete, vaše změny se automaticky obnoví.</translation>
     <name>_OverridesModel</name>
     <message>
       <source>Pak</source>
-      <translation type="unfinished">Pak</translation>
+      <translation>Pak</translation>
     </message>
     <message>
       <source>Mod</source>
-      <translation type="unfinished">Mod</translation>
+      <translation>Mod</translation>
     </message>
     <message>
       <source>Status</source>
@@ -18407,7 +18948,7 @@ Když ji zavřete, vaše změny se automaticky obnoví.</translation>
     </message>
     <message>
       <source>No meta.lsx</source>
-      <translation type="unfinished">No meta.lsx</translation>
+      <translation>No meta.lsx</translation>
     </message>
     <message>
       <source>Override only</source>
@@ -18484,7 +19025,7 @@ Když ji zavřete, vaše změny se automaticky obnoví.</translation>
     </message>
     <message>
       <source>{0} / {1}</source>
-      <translation type="unfinished">{0} / {1}</translation>
+      <translation>{0} / {1}</translation>
     </message>
     <message>
       <source>Cancelling…</source>
@@ -18538,7 +19079,7 @@ Publikace dělá tuto revizi jeden uživatel nainstalovat. Nelze ho nepublikovat
     <name>_ReqCard</name>
     <message>
       <source>Mod {0}</source>
-      <translation type="unfinished">Mod {0}</translation>
+      <translation>Mod {0}</translation>
     </message>
     <message>
       <source>(External)</source>
@@ -18577,7 +19118,7 @@ Publikace dělá tuto revizi jeden uživatel nainstalovat. Nelze ho nepublikovat
     </message>
     <message>
       <source>Nexus Mods</source>
-      <translation type="unfinished">Nexus Mods</translation>
+      <translation>Nexus Mods</translation>
     </message>
     <message>
       <source>Download mod from Nexus</source>
@@ -18601,7 +19142,7 @@ Publikace dělá tuto revizi jeden uživatel nainstalovat. Nelze ho nepublikovat
     </message>
     <message>
       <source>Thunderstore</source>
-      <translation type="unfinished">Thunderstore</translation>
+      <translation>Thunderstore</translation>
     </message>
     <message>
       <source>Download package from Thunderstore</source>
@@ -18645,7 +19186,7 @@ Publikace dělá tuto revizi jeden uživatel nainstalovat. Nelze ho nepublikovat
     </message>
     <message>
       <source>https://…</source>
-      <translation type="unfinished">https://…</translation>
+      <translation>https:////…</translation>
     </message>
     <message>
       <source>Instructions shown to the user:</source>
