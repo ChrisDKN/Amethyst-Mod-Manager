@@ -1,0 +1,6 @@
+files:
+  - source: /Localisation
+    ignore:
+      - tools
+      - README.md
+    translation: /Localisation/crowdin/%language%/%two_letters_code%.%file_extension%
