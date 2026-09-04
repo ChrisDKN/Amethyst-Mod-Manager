@@ -419,6 +419,11 @@ class ModListModel(QAbstractTableModel):
             self.dataChanged.emit(self.index(0, COL_FLAGS),
                                   self.index(len(self._entries) - 1, COL_FLAGS),
                                   [FlagsRole, Qt.DisplayRole])
+            for row, entry in enumerate(self._entries):
+                if entry.name in _BOUNDARY_NAMES:
+                    index = self.index(row, COL_NAME)
+                    self.dataChanged.emit(
+                        index, index, [FlagsRole, Qt.DisplayRole])
         self._resort_if_key("flags")
 
     def set_filemap_results(self, conflicts: dict[str, int],
@@ -708,7 +713,12 @@ class ModListModel(QAbstractTableModel):
                 return -1
             return 0
         if role == FlagsRole:
-            return 0 if e.is_separator else self._effective_flags(e.name)
+            if not e.is_separator:
+                return self._effective_flags(e.name)
+            if e.name in _BOUNDARY_NAMES and e.name in self._modified_mf:
+                from gui_qt.modlist_data import FLAG_MODIFIED_MF
+                return FLAG_MODIFIED_MF
+            return 0
         if role == PriorityRole:
             return self._priority_for_row(index.row())
 

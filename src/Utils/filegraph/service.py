@@ -1001,6 +1001,28 @@ class LibrarySession:
             batch = session.adapter.build_manifest(mod_name, cancel=token)
             return self.replace_mod_manifest(batch, cancel=token)
 
+    def update_mod_from_disk_if_changed(
+        self, profile_dir: Path, mod_name: str, *,
+        cancel: CancellationToken | None = None,
+    ) -> bool:
+        """Replace one manifest only when its files or route variant changed."""
+        token = cancel or CancellationToken()
+        with self._refresh_lock:
+            session = self.open_profile(profile_dir)
+            batch = session.adapter.build_manifest(mod_name, cancel=token)
+            mod_key = str(batch["mod_key"])
+            fingerprints = {
+                name.lower(): fingerprint
+                for name, fingerprint in self.manifest_fingerprints().items()
+            }
+            variants = self.variant_keys().get(mod_key, frozenset())
+            if (fingerprints.get(mod_key)
+                    == bytes(batch["manifest_fingerprint"])
+                    and str(batch["variant_key"]) in variants):
+                return False
+            self.replace_mod_manifest(batch, cancel=token)
+            return True
+
     def replace_mod_manifest(
         self, batch: dict, *, cancel: CancellationToken | None = None,
     ) -> int:

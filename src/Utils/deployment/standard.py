@@ -1902,9 +1902,8 @@ def restore_data_core(
                         from Utils.filegraph.service import FileGraphService
                         _library = FileGraphService.open_library(
                             game, profile_dir, log_fn=_log)
-                        _profile = _library.open_profile(profile_dir)
-                        _library.replace_mod_manifest(
-                            _profile.adapter.build_manifest(_OVERWRITE_NAME))
+                        _library.update_mod_from_disk_if_changed(
+                            profile_dir, _OVERWRITE_NAME)
                 except Exception as _catalog_error:
                     _log(f"  WARN: could not refresh rescued overwrite files "
                          f"in the catalog: {_catalog_error}")

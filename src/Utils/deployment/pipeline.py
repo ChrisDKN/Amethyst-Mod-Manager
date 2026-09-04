@@ -108,7 +108,7 @@ def finalize_filegraph_recovery(
     *,
     log_fn: LogFn,
 ) -> int:
-    """Close interrupted journals after their filesystem restore succeeded."""
+    """Close interrupted journals and catalogue restored runtime folders."""
     from Utils.filegraph.service import FileGraphService
 
     profile_dir = Path(profile_dir)
@@ -124,7 +124,40 @@ def finalize_filegraph_recovery(
             "operation(s); the prior committed deployed state remains "
             "authoritative."
         )
+    refresh_filegraph_after_restore(
+        game, profile_dir, log_fn=log_fn, library=library)
     return len(operations)
+
+
+def refresh_filegraph_after_restore(
+    game,
+    profile_dir: Path,
+    *,
+    log_fn: LogFn,
+    library=None,
+) -> tuple[str, ...]:
+    """Catalogue profile folders that Restore can populate from runtime."""
+    from Utils.filegraph.constants import OVERWRITE_NAME, ROOT_FOLDER_NAME
+    from Utils.filegraph.service import FileGraphService
+
+    profile_dir = Path(profile_dir)
+    try:
+        if library is None:
+            library = FileGraphService.open_library(
+                game, profile_dir, log_fn=log_fn)
+    except Exception as exc:
+        log_fn(f"WARN: could not refresh restored runtime files in Filegraph: {exc}")
+        return ()
+    refreshed = []
+    for name in (OVERWRITE_NAME, ROOT_FOLDER_NAME):
+        try:
+            if library.update_mod_from_disk_if_changed(profile_dir, name):
+                refreshed.append(name)
+        except Exception as exc:
+            log_fn(f"WARN: could not refresh {name} in Filegraph: {exc}")
+    if refreshed:
+        log_fn("Filegraph refreshed after Restore: " + ", ".join(refreshed))
+    return tuple(refreshed)
 
 
 def _fs_id(path: Path) -> "int | None":
@@ -355,18 +388,18 @@ def run_deploy_pipeline(
         # Restore against the last-deployed profile so runtime files (saves,
         # ShaderCache, etc.) land in *that* profile's overwrite/ folder.
         last_deployed = game.get_last_deployed_profile()
+        restored_profile_dir = (
+            game.get_profile_root() / "profiles" / (last_deployed or profile)
+        )
         if last_deployed:
-            game.set_active_profile_dir(
-                game.get_profile_root() / "profiles" / last_deployed
-            )
+            game.set_active_profile_dir(restored_profile_dir)
             # Reload so per-profile path overrides apply to the restore (the
             # last-deployed profile may target a different game folder/prefix).
             game.load_paths()
             game_root = game.get_game_path()
             try:
                 from Utils.filegraph.service import FileGraphService
-                recovery_dir = (
-                    game.get_profile_root() / "profiles" / last_deployed)
+                recovery_dir = restored_profile_dir
                 recovery_library = FileGraphService.open_library(
                     game, recovery_dir, log_fn=log_fn)
                 recovery_profile = recovery_library.open_profile(recovery_dir)
@@ -490,6 +523,8 @@ def run_deploy_pipeline(
                 "deployment operation(s); the prior committed deployed state "
                 "remains authoritative."
             )
+        refresh_filegraph_after_restore(
+            game, restored_profile_dir, log_fn=log_fn)
         timeline.mark(
             "root cleanup and recovery finalization complete", work="FS I/O")
 
