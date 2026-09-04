@@ -386,6 +386,22 @@ Download the 'FNV BSA Decompressor' main file from Nexus - the .mpi package insi
       <translation>フォールアウトニューベガス:</translation>
     </message>
     <message>
+      <source>The BSA Decompressor rebuilds the vanilla BSA archives without compression for faster loading, and the result is added as a mod.
+
+Download the 'FO3 BSA Decompressor' main file from Nexus - the .mpi package inside the archive is detected automatically.</source>
+      <translation>BSA Decompressor は圧縮なしで vanilla BSA アーカイブを再構築し、その結果は Mod として追加される。
+
+Nexusから'FO3 BSA Decompressor'メインファイルをダウンロードする - アーカイブ内の.mpiパッケージが自動的に検出されます。</translation>
+    </message>
+    <message>
+      <source>Fallout 3:</source>
+      <translation>Fallout 3:</translation>
+    </message>
+    <message>
+      <source>Select the Fallout 3 folder</source>
+      <translation>Fallout 3 フォルダーを選択</translation>
+    </message>
+    <message>
       <source>Select the Fallout New Vegas folder</source>
       <translation>Fallout New Vegasフォルダを選択します</translation>
     </message>
@@ -478,6 +494,10 @@ Download the 'FNV BSA Decompressor' main file from Nexus - the .mpi package insi
       <translation>BSA Decompressor .mpi パッケージ(またはダウンロードしたアーカイブ)を選択してください.</translation>
     </message>
     <message>
+      <source>Fallout 3 folder is not set.</source>
+      <translation>Fallout 3 フォルダーが設定されていません。</translation>
+    </message>
+    <message>
       <source>Fallout New Vegas folder is not set.</source>
       <translation>「Fallout New Vegas」フォルダが設定されていません。</translation>
     </message>
@@ -514,6 +534,22 @@ Output is written directly into your mod list as the '{0}' mod.</source>
     <message>
       <source>Mod staging path is not configured.</source>
       <translation>Mod ステージングパスの設定は行いません.</translation>
+    </message>
+    <message>
+      <source>ERROR: missing vanilla game files:
+{0}</source>
+      <translation>エラー: バニラゲームファイルがありません:
+{0}</translation>
+    </message>
+    <message>
+      <source>Missing vanilla game files even after restoring to vanilla - these were never backed up.
+In Steam, right-click the game → Properties → Installed Files → Verify integrity of game files, then retry.
+
+{0}</source>
+      <translation type="unfinished">Missing vanilla game files even after restoring to vanilla - these were never backed up.
+In Steam, right-click the game → Properties → Installed Files → Verify integrity of game files, then retry.
+
+{0}</translation>
     </message>
     <message>
       <source>ERROR: missing vanilla plugin files:
@@ -765,7 +801,7 @@ INI設定を構成し、それを閉じて、[完了]をクリックします.</
     <name>BodySlideLinuxView</name>
     <message>
       <source>{0} (Linux) - {1}</source>
-      <translation type="unfinished">{0} (Linux) - {1}</translation>
+      <translation>{0} (Linux) - {1}</translation>
     </message>
     <message>
       <source>Step 3: Run {0}</source>
@@ -1164,7 +1200,7 @@ Close it when you are done, then click Done.</source>
     </message>
     <message>
       <source>  • {0}</source>
-      <translation type="unfinished">  • {0}</translation>
+      <translation>  • {0}</translation>
     </message>
     <message>
       <source>Unpack</source>
@@ -1767,7 +1803,7 @@ MD5キャッシュは保持されます。アーカイブは必要に応じて�
     </message>
     <message>
       <source>OK</source>
-      <translation type="unfinished">OK</translation>
+      <translation>OK</translation>
     </message>
   </context>
   <context>
@@ -2267,7 +2303,7 @@ Vanilla game files are kept. This cannot be undone.</source>
     </message>
     <message>
       <source>OK</source>
-      <translation type="unfinished">OK</translation>
+      <translation>OK</translation>
     </message>
   </context>
   <context>
@@ -2978,7 +3014,7 @@ When it completes, the app switches to the new profile - then come back here and
     </message>
     <message>
       <source>UE5</source>
-      <translation type="unfinished">UE5</translation>
+      <translation>UE5</translation>
     </message>
     <message>
       <source>Unreal Engine 5 - pak files → Content/Paks/~mods/, UE4SS/lua → Binaries/Win64/, DLLs → Binaries/Win64/. Same routing as Hogwarts Legacy / Oblivion Remastered.</source>
@@ -3238,7 +3274,7 @@ When it completes, the app switches to the new profile - then come back here and
     </message>
     <message>
       <source>https://example.com/banner.jpg</source>
-      <translation type="unfinished">https://example.com/banner.jpg</translation>
+      <translation>https://example.com/banner.jpg</translation>
     </message>
     <message>
       <source>Used to change the folder structure of an installed mod to match what is required by the manager.</source>
@@ -3555,7 +3591,7 @@ When it completes, the app switches to the new profile - then come back here and
     </message>
     <message>
       <source>OK</source>
-      <translation type="unfinished">OK</translation>
+      <translation>OK</translation>
     </message>
   </context>
   <context>
@@ -3722,6 +3758,10 @@ When it completes, the app switches to the new profile - then come back here and
     <message>
       <source>Size</source>
       <translation>サイズ</translation>
+    </message>
+    <message>
+      <source>Downloaded</source>
+      <translation>ダウンロード済み</translation>
     </message>
   </context>
   <context>
@@ -4185,6 +4225,26 @@ Download the 'Ultimate Edition ESM Fixes Remastered' main file from Nexus - the 
       <translation>フォールアウトニューベガス:</translation>
     </message>
     <message>
+      <source>Unofficial Fallout 3 ESM Patcher - {0}</source>
+      <translation>非公式Fallout 3 ESM Patcher - {0}</translation>
+    </message>
+    <message>
+      <source>The Unofficial Fallout 3 ESM Patcher patches the vanilla .esm masters (Fallout3 + all DLC) with community bugfixes, and the result is added as a mod.
+
+Download the 'Unofficial Fallout 3 ESM Patcher' main file from Nexus - the .mpi package inside the archive is detected automatically.</source>
+      <translation>非公式フォールアウト 3 ESM パッチャーはバニラをパッチします。 コミュニティのバグ修正を含むSMマスター(Fallout3 + すべてのDLC)があり、結果はMODとして追加されます。
+
+Nexusから「非公式フォールアウト3 ESM Patcher」メインファイルをダウンロードする - アーカイブ内の.mpiパッケージが自動的に検出されます。</translation>
+    </message>
+    <message>
+      <source>Fallout 3:</source>
+      <translation>Fallout 3:</translation>
+    </message>
+    <message>
+      <source>Select the Fallout 3 folder</source>
+      <translation>Fallout 3 フォルダーを選択</translation>
+    </message>
+    <message>
       <source>Select the Fallout New Vegas folder</source>
       <translation>Fallout New Vegasフォルダを選択します</translation>
     </message>
@@ -4277,6 +4337,10 @@ Download the 'Ultimate Edition ESM Fixes Remastered' main file from Nexus - the 
       <translation>ESM Fixes .mpiパッケージ(またはダウンロードしたアーカイブ)を選択してください.</translation>
     </message>
     <message>
+      <source>Fallout 3 folder is not set.</source>
+      <translation>Fallout 3 フォルダーが設定されていません。</translation>
+    </message>
+    <message>
       <source>Fallout New Vegas folder is not set.</source>
       <translation>「Fallout New Vegas」フォルダが設定されていません。</translation>
     </message>
@@ -4367,7 +4431,7 @@ Steam では、ゲーム → プロパティ → インストールされたフ�
     </message>
     <message>
       <source>[{0}]</source>
-      <translation type="unfinished">[{0}]</translation>
+      <translation>[{0}]</translation>
     </message>
     <message>
       <source>Close</source>
@@ -4387,11 +4451,11 @@ Steam では、ゲーム → プロパティ → インストールされたフ�
     </message>
     <message>
       <source>true</source>
-      <translation type="unfinished">true</translation>
+      <translation>true</translation>
     </message>
     <message>
       <source>false</source>
-      <translation type="unfinished">false</translation>
+      <translation>false</translation>
     </message>
     <message>
       <source>Form reset to built-in defaults (not yet saved).</source>
@@ -6072,15 +6136,15 @@ Done をクリックして閉じます.</translation>
     <message>
       <source>Amethyst Mod Manager - v{0}</source>
       <extracomment>Filters footer button attr -&gt; (filter-panel attr, search-box attr). _sync_filters_btn reads both to decide whether the button lights up.</extracomment>
-      <translation type="unfinished">Amethyst Mod Manager - v{0}</translation>
+      <translation>アメジストModマネージャー - v{0}</translation>
     </message>
     <message>
       <source>Amethyst Mod Manager</source>
-      <translation type="unfinished">Amethyst Mod Manager</translation>
+      <translation>アメジストModマネージャー</translation>
     </message>
     <message>
       <source>Mods</source>
-      <translation type="unfinished">Mods</translation>
+      <translation>Mods</translation>
     </message>
     <message>
       <source>Add game</source>
@@ -6282,7 +6346,7 @@ Linuxファイルシステム(ext4/btrfs)は、ゲームとMODのステージン
     </message>
     <message>
       <source>{0} ({1})</source>
-      <translation type="unfinished">{0} ({1})</translation>
+      <translation>{0} ({1})</translation>
     </message>
     <message>
       <source>Removed {0} archive(s)</source>
@@ -6434,7 +6498,7 @@ Linuxファイルシステム(ext4/btrfs)は、ゲームとMODのステージン
     </message>
     <message>
       <source>.NET {0}</source>
-      <translation type="unfinished">.NET {0}</translation>
+      <translation>.NET {0}</translation>
     </message>
     <message>
       <source>Wizard</source>
@@ -6826,7 +6890,7 @@ Remove the appended-collection entry?</source>
     </message>
     <message>
       <source>OK</source>
-      <translation type="unfinished">OK</translation>
+      <translation>OK</translation>
     </message>
     <message>
       <source>32-bit support could not be installed</source>
@@ -7618,7 +7682,7 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source>{0}…</source>
-      <translation type="unfinished">{0}…</translation>
+      <translation>{0}…</translation>
     </message>
     <message>
       <source>No game selected</source>
@@ -7957,8 +8021,32 @@ Run Quick Update on all of them now?</source>
       <translation>({0})</translation>
     </message>
     <message>
+      <source>Received a malformed MODL link.</source>
+      <translation>不正な形式のMODLリンクを受け取りました。</translation>
+    </message>
+    <message>
+      <source>No configured game matches MODL game ID '{0}'.</source>
+      <translation>MODLのゲームID「{0}」に一致するゲームがありません。</translation>
+    </message>
+    <message>
+      <source>Downloading mod from MODL link…</source>
+      <translation type="unfinished">Downloading mod from MODL link…</translation>
+    </message>
+    <message>
       <source>Download cancelled.</source>
       <translation>ダウンロードはキャンセルされます.</translation>
+    </message>
+    <message>
+      <source>MODL download failed - {0}</source>
+      <translation>MODのダウンロードに失敗しました - {0}</translation>
+    </message>
+    <message>
+      <source>Downloaded - target game is unavailable; see Downloads tab.</source>
+      <translation>ダウンロード済み - ターゲットゲームは利用できません。ダウンロードタブを参照してください。</translation>
+    </message>
+    <message>
+      <source>Downloaded - switch to '{0}' and install it from the Downloads tab.</source>
+      <translation>ダウンロード - 「{0}」に切り替えて、「ダウンロード」タブからインストールします。</translation>
     </message>
     <message>
       <source>this mod</source>
@@ -8053,12 +8141,40 @@ Run Quick Update on all of them now?</source>
       <translation>機密データはまだ構築されています.</translation>
     </message>
     <message>
+      <source>Root Folder</source>
+      <translation>ルートフォルダ</translation>
+    </message>
+    <message>
+      <source>Could not add '{0}' to the modlist: {1}</source>
+      <translation>モデストに「{0}」を追加できませんでした: {1}</translation>
+    </message>
+    <message>
       <source>{0} has no conflicting mods.</source>
       <translation>{0} は、競合するモジュールがありません.</translation>
     </message>
     <message>
       <source>Filtered to {0} mods conflicting with {1}.</source>
       <translation>{1} と競合する {0} MOD にフィルタリング.</translation>
+    </message>
+    <message>
+      <source>Copy separator to profile</source>
+      <translation>区切り文字をプロファイルにコピー</translation>
+    </message>
+    <message>
+      <source>Copying separator</source>
+      <translation>区切り文字のコピー</translation>
+    </message>
+    <message>
+      <source>Copying separator '{0}' to '{1}'…</source>
+      <translation type="unfinished">Copying separator '{0}' to '{1}'…</translation>
+    </message>
+    <message>
+      <source>Copied separator '{0}' with {1}/{2} mod(s) to '{3}'.</source>
+      <translation>セパレータ「{0}」と {1}/{2} モッズを「{3}」にコピーしました。</translation>
+    </message>
+    <message>
+      <source>Could not copy the separator.</source>
+      <translation>区切り文字をコピーできませんでした。</translation>
     </message>
     <message>
       <source>Cancel all</source>
@@ -8095,6 +8211,10 @@ Run Quick Update on all of them now?</source>
       <translation>Amethystは{0}を起動できませんでした。
 
 {1}シリーズ</translation>
+    </message>
+    <message>
+      <source>Waiting for profile updates…</source>
+      <translation type="unfinished">Waiting for profile updates…</translation>
     </message>
     <message>
       <source>Extracting / Installing</source>
@@ -8347,6 +8467,14 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
       <translation>{0}: 他のプラグインとレコードの重複無し.</translation>
     </message>
     <message>
+      <source>Loading profile…</source>
+      <translation type="unfinished">Loading profile…</translation>
+    </message>
+    <message>
+      <source>Could not load the profile file graph. See the log for details.</source>
+      <translation>プロファイル グラフを読み込めませんでした。詳細については、ログを参照してください。</translation>
+    </message>
+    <message>
       <source>+ Add exe from staging…</source>
       <translation>+ ステージングからexeを追加..</translation>
     </message>
@@ -8508,7 +8636,7 @@ CETは、symlinked asiから読み込まれません。 これは、展開モー
     </message>
     <message>
       <source>Ko-Fi</source>
-      <translation type="unfinished">Ko-Fi</translation>
+      <translation>Ko-Fi</translation>
     </message>
     <message>
       <source>♥ Endorse AMM</source>
@@ -8818,7 +8946,7 @@ How would you like to handle the existing mod?</source>
     </message>
     <message>
       <source>OK</source>
-      <translation type="unfinished">OK</translation>
+      <translation>OK</translation>
     </message>
     <message>
       <source>Cancel</source>
@@ -8944,8 +9072,18 @@ How would you like to handle the existing mod?</source>
 {0}の</translation>
     </message>
     <message>
+      <source>Could not set version:
+{0}</source>
+      <translation>バージョンを設定できませんでした:
+{0}</translation>
+    </message>
+    <message>
       <source>Create</source>
       <translation>作成</translation>
+    </message>
+    <message>
+      <source>Copy separator to profile</source>
+      <translation>区切り文字をプロファイルにコピー</translation>
     </message>
     <message>
       <source>Create an empty mod below</source>
@@ -9018,6 +9156,14 @@ How would you like to handle the existing mod?</source>
     <message>
       <source>Log</source>
       <translation>ログ</translation>
+    </message>
+    <message>
+      <source>Manage Overwrite…</source>
+      <translation type="unfinished">Manage Overwrite…</translation>
+    </message>
+    <message>
+      <source>Manage root folder</source>
+      <translation>ルートフォルダの管理</translation>
     </message>
     <message>
       <source>Missing Requirements</source>
@@ -9160,8 +9306,16 @@ How would you like to handle the existing mod?</source>
       <translation>優先順位を設定…</translation>
     </message>
     <message>
+      <source>Set version</source>
+      <translation>バージョンを設定</translation>
+    </message>
+    <message>
       <source>Priority for {0}:</source>
       <translation>{0}の優先度:</translation>
+    </message>
+    <message>
+      <source>Version for {0}:</source>
+      <translation>{0} のバージョン:</translation>
     </message>
     <message>
       <source>Show Conflicts</source>
@@ -9189,7 +9343,7 @@ How would you like to handle the existing mod?</source>
     </message>
     <message>
       <source>{0} ({1})</source>
-      <translation type="unfinished">{0} ({1})</translation>
+      <translation>{0} ({1})</translation>
     </message>
   </context>
   <context>
@@ -10307,11 +10461,11 @@ Your modlist was restored before downgrading - use Deploy to put it back.</sourc
     <name>NexusFooterLabel</name>
     <message>
       <source>{0} @ NexusMods</source>
-      <translation type="unfinished">{0} @ NexusMods</translation>
+      <translation>{0} @ NexusMods</translation>
     </message>
     <message>
       <source>NexusMods</source>
-      <translation type="unfinished">NexusMods</translation>
+      <translation>NexusMods</translation>
     </message>
     <message>
       <source>Not logged in</source>
@@ -10599,6 +10753,14 @@ Daily: {1}</source>
     <message>
       <source>Reverse the drag direction for rotating and panning</source>
       <translation>回転とパンニングのドラッグ方向を反転</translation>
+    </message>
+    <message>
+      <source>Free camera</source>
+      <translation>無料カメラ</translation>
+    </message>
+    <message>
+      <source>Allow unrestricted rotation around every axis</source>
+      <translation>各軸の周りの無制限回転を許可する</translation>
     </message>
     <message>
       <source>Brightness - lifts dark textures without blowing out highlights; double-click to reset</source>
@@ -11086,6 +11248,191 @@ Override paks (no meta.lsx, or only overwriting the game's own modules) deploy t
     <message>
       <source>Close</source>
       <translation>閉じる</translation>
+    </message>
+  </context>
+  <context>
+    <name>OverwriteView</name>
+    <message>
+      <source>Root Folder</source>
+      <translation>ルートフォルダ</translation>
+    </message>
+    <message>
+      <source>Overwrite</source>
+      <translation>上書き</translation>
+    </message>
+    <message>
+      <source>⊞ Expand all</source>
+      <translation>&lt;unk> すべて展開する</translation>
+    </message>
+    <message>
+      <source>⟳ Refresh</source>
+      <translation>&lt;unk> 更新</translation>
+    </message>
+    <message>
+      <source>Move to mod…</source>
+      <translation type="unfinished">Move to mod…</translation>
+    </message>
+    <message>
+      <source>Move to new mod…</source>
+      <translation type="unfinished">Move to new mod…</translation>
+    </message>
+    <message>
+      <source>Delete</source>
+      <translation>削除</translation>
+    </message>
+    <message>
+      <source>Search files… (try !.dds)</source>
+      <translation type="unfinished">Search files… (try !.dds)</translation>
+    </message>
+    <message>
+      <source>Root Folder (no game selected)</source>
+      <translation>ルートフォルダ (ゲームが選択されていません)</translation>
+    </message>
+    <message>
+      <source>Root Folder - empty</source>
+      <translation>ルートフォルダ - 空です</translation>
+    </message>
+    <message>
+      <source>Root Folder - {0} of {1} file(s)</source>
+      <translation>ルートフォルダ - {0} / {1} ファイル</translation>
+    </message>
+    <message>
+      <source>Root Folder - {0} file(s)</source>
+      <translation>ルートフォルダ - {0} ファイル</translation>
+    </message>
+    <message>
+      <source>Overwrite (no game selected)</source>
+      <translation>上書き (ゲームが選択されていません)</translation>
+    </message>
+    <message>
+      <source>Overwrite - empty</source>
+      <translation>上書き - 空です</translation>
+    </message>
+    <message>
+      <source>Overwrite - {0} of {1} file(s)</source>
+      <translation>上書き - {0} / {1} ファイル</translation>
+    </message>
+    <message>
+      <source>Overwrite - {0} file(s)</source>
+      <translation>上書き - {0} ファイル</translation>
+    </message>
+    <message>
+      <source>⊟ Collapse all</source>
+      <translation>&lt;unk> すべてを折りたたむ</translation>
+    </message>
+    <message>
+      <source>The active game or profile changed. Reopen Root Folder before modifying files.</source>
+      <translation>アクティブなゲームまたはプロファイルが変更されました。ファイルを変更する前にルートフォルダを再開してください。</translation>
+    </message>
+    <message>
+      <source>The active game or profile changed. Reopen Overwrite before modifying files.</source>
+      <translation>アクティブなゲームまたはプロファイルが変更されました。ファイルを変更する前に上書きを再開してください。</translation>
+    </message>
+    <message>
+      <source>Profile changed</source>
+      <translation>プロフィールが変更されました</translation>
+    </message>
+    <message>
+      <source>Move to mod</source>
+      <translation>MODに移動</translation>
+    </message>
+    <message>
+      <source>There are no mods to move these files into.</source>
+      <translation>これらのファイルを移動するMODはありません。</translation>
+    </message>
+    <message>
+      <source>Move {0} item(s) to which mod?</source>
+      <translation type="unfinished">Move {0} item(s) to which mod?</translation>
+    </message>
+    <message>
+      <source>Move</source>
+      <translation>移動</translation>
+    </message>
+    <message>
+      <source>Invalid mod name</source>
+      <translation>無効なMod名</translation>
+    </message>
+    <message>
+      <source>Mod names cannot end with '_separator'.</source>
+      <translation>MOD名は'_separator'で終わることはできません。</translation>
+    </message>
+    <message>
+      <source>That name cannot be used for a mod folder.</source>
+      <translation>この名前は mod フォルダに使用できません。</translation>
+    </message>
+    <message>
+      <source>Name conflict</source>
+      <translation>名前の競合</translation>
+    </message>
+    <message>
+      <source>A mod named '{0}' already exists.</source>
+      <translation>「{0}」という名前のModは既に存在します。</translation>
+    </message>
+    <message>
+      <source>Move to new mod</source>
+      <translation>新しいMODに移動</translation>
+    </message>
+    <message>
+      <source>Could not create the mod folder:
+{0}</source>
+      <translation>Modフォルダを作成できませんでした:
+{0}</translation>
+    </message>
+    <message>
+      <source>The mod could not be added to the modlist. No files were moved.</source>
+      <translation>ModをModリストに追加できませんでした。ファイルが移動されませんでした。</translation>
+    </message>
+    <message>
+      <source>Mod name:</source>
+      <translation>Mod名:</translation>
+    </message>
+    <message>
+      <source>Create</source>
+      <translation>作成</translation>
+    </message>
+    <message>
+      <source>The selected mod has an unsafe folder name.</source>
+      <translation>選択したModには安全でないフォルダ名があります。</translation>
+    </message>
+    <message>
+      <source>Moved {0}, failed {1}:
+{2}</source>
+      <translation>{0}が移動しました。 {1}に失敗しました:
+{2}</translation>
+    </message>
+    <message>
+      <source>Move {0} item(s) from Overwrite into '{1}'?</source>
+      <translation>{0} アイテムを「{1}」に移動しますか？</translation>
+    </message>
+    <message>
+      <source>Deleted {0}, failed {1}:
+{2}</source>
+      <translation>{0}を削除しました。失敗しました {1}:
+{2}</translation>
+    </message>
+    <message>
+      <source>Delete from Root Folder</source>
+      <translation>ルートフォルダから削除</translation>
+    </message>
+    <message>
+      <source>Permanently delete {0} item(s) from the Root Folder?
+
+This cannot be undone.</source>
+      <translation>ルートフォルダから {0} アイテムを完全に削除しますか？
+
+これは元に戻すことはできません。</translation>
+    </message>
+    <message>
+      <source>Delete from Overwrite</source>
+      <translation>上書きから削除</translation>
+    </message>
+    <message>
+      <source>Permanently delete {0} item(s) from the Overwrite folder?
+
+This cannot be undone.</source>
+      <translation>上書きフォルダから {0} アイテムを完全に削除しますか？
+
+これは元に戻すことはできません。</translation>
     </message>
   </context>
   <context>
@@ -11699,6 +12046,18 @@ Re-scan to verify.</source>
       <translation>ユーザーリストから選択したユーザーを削除する</translation>
     </message>
     <message>
+      <source>Priority for {0}:</source>
+      <translation>{0} の優先度 :</translation>
+    </message>
+    <message>
+      <source>Set priority</source>
+      <translation>優先度を設定</translation>
+    </message>
+    <message>
+      <source>Set priority…</source>
+      <translation type="unfinished">Set priority…</translation>
+    </message>
+    <message>
       <source>Show cycle…</source>
       <translation>サイクルを表示…</translation>
     </message>
@@ -12202,11 +12561,15 @@ Its listed mods are copied into the profile's own mods folder (hardlinked where 
     </message>
     <message>
       <source>OK</source>
-      <translation type="unfinished">OK</translation>
+      <translation>OK</translation>
     </message>
     <message>
       <source>Cancel</source>
       <translation>キャンセル</translation>
+    </message>
+    <message>
+      <source>Wait for the profile to finish loading.</source>
+      <translation>プロファイルの読み込みが完了するのを待ちます。</translation>
     </message>
     <message>
       <source>'{0}' is a member of the deployed group '{1}' - restore the game first, then remove it.</source>
@@ -12233,7 +12596,7 @@ Its listed mods are copied into the profile's own mods folder (hardlinked where 
     </message>
     <message>
       <source>{0} / {1}</source>
-      <translation type="unfinished">{0} / {1}</translation>
+      <translation>{0} / {1}</translation>
     </message>
   </context>
   <context>
@@ -12718,7 +13081,7 @@ Wine DLLのオーバーライド設定である {1} =native,builtin
     </message>
     <message>
       <source>{0} - ReShade</source>
-      <translation type="unfinished">{0} - ReShade</translation>
+      <translation>{0} - ReShade</translation>
     </message>
     <message>
       <source>Error: {0}</source>
@@ -12977,7 +13340,7 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     </message>
     <message>
       <source>[{0}]</source>
-      <translation type="unfinished">[{0}]</translation>
+      <translation>[{0}]</translation>
     </message>
     <message>
       <source>Close</source>
@@ -12997,11 +13360,11 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     </message>
     <message>
       <source>true</source>
-      <translation type="unfinished">true</translation>
+      <translation>true</translation>
     </message>
     <message>
       <source>false</source>
-      <translation type="unfinished">false</translation>
+      <translation>false</translation>
     </message>
     <message>
       <source>Form reset to built-in defaults (not yet saved).</source>
@@ -13729,7 +14092,7 @@ Merge your conflicts, then close it and click Done.</source>
     </message>
     <message>
       <source>#rrggbb</source>
-      <translation type="unfinished">#rrggbb</translation>
+      <translation>#rrggbb</translation>
     </message>
     <message>
       <source>Choose colour…</source>
@@ -13796,7 +14159,7 @@ Merge your conflicts, then close it and click Done.</source>
     <name>SetPrefixOverlay</name>
     <message>
       <source>Mod: {0}</source>
-      <translation type="unfinished">Mod: {0}</translation>
+      <translation>Mod: {0}</translation>
     </message>
     <message>
       <source>This mod has no recognised top-level folders.</source>
@@ -13934,10 +14297,6 @@ Merge your conflicts, then close it and click Done.</source>
       <translation>{0} MB/秒</translation>
     </message>
     <message>
-      <source>Cap the combined download speed of all downloads (collections, single mods, nxm links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>
-      <translation>すべてのダウンロードの結合されたダウンロード速度(コレクション、シングルモッド、nxmリンク)をキャップし、接続全体を使用しないでください。 実行中のコレクションのインストールを含む、すぐに適用します.</translation>
-    </message>
-    <message>
       <source>Extraction CPU threads</source>
       <translation>抽出CPUスレッド</translation>
     </message>
@@ -14048,10 +14407,6 @@ Merge your conflicts, then close it and click Done.</source>
     <message>
       <source>Download only (don't install)</source>
       <translation>ダウンロードのみ(インストールしないでください)</translation>
-    </message>
-    <message>
-      <source>Downloads are saved to the cache but not installed. Applies to nxm:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</source>
-      <translation>ダウンロードはキャッシュに保存されますが、インストールされていません。 nxm://リンク、Nexusブラウザ、変更バージョン、コレクションのインストール、要件のダウンロードと更新/再インストールのリダウンロード - インストールボタンがダウンロードされます。 ダウンロードタブまたはインストールModボタンからインストールしてください.</translation>
     </message>
     <message>
       <source>Extraction</source>
@@ -14198,6 +14553,10 @@ flatpak リモート追加 --user amethyst https://chrisdkn.github.io/Amethyst-M
       <translation>インフォメーション</translation>
     </message>
     <message>
+      <source>Shortcuts</source>
+      <translation>ショートカット</translation>
+    </message>
+    <message>
       <source>About</source>
       <translation>お問い合わせ</translation>
     </message>
@@ -14220,6 +14579,14 @@ flatpak リモート追加 --user amethyst https://chrisdkn.github.io/Amethyst-M
     <message>
       <source>Right side</source>
       <translation>右側</translation>
+    </message>
+    <message>
+      <source>Cap the combined download speed of all downloads (collections, single mods, nxm and modl links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>
+      <translation>彼らは全体の接続を使用しないように、すべてのダウンロード(コレクション、シングルMod、nxmとmodlリンク)の組み合わせのダウンロード速度を上げます。 実行中のコレクションのインストールを含め、直ちに適用されます。</translation>
+    </message>
+    <message>
+      <source>Downloads are saved to the cache but not installed. Applies to nxm:// and modl:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</source>
+      <translation>ダウンロードはキャッシュに保存されますがインストールされていません。 nxm:// と modl:// のリンクに適用され、Nexus ブラウザー、変更バージョン、コレクションのインストール、要件のダウンロードと更新/再インストールの再インストールボタンがダウンロードになります。 format@@0タブまたはformat@@1ボタンからインストールします。</translation>
     </message>
     <message>
       <source>Reset dismissed prompts…</source>
@@ -14441,6 +14808,153 @@ flatpak リモート追加 --user amethyst https://chrisdkn.github.io/Amethyst-M
     </message>
   </context>
   <context>
+    <name>ShortcutEditor</name>
+    <message>
+      <source>Keyboard and mouse shortcuts</source>
+      <translation>キーボードとマウスのショートカット</translation>
+    </message>
+    <message>
+      <source>Click a binding, then press a key, Mouse 3, or a side button. Escape cancels. Left and right mouse buttons are reserved; modifiers are changed separately.</source>
+      <translation>バインディングをクリックし、キー、マウス3、またはサイドボタンを押します。キャンセルをエスケープします。 左マウスボタンと右マウスボタンは予約されており、修飾キーは個別に変更されます。</translation>
+    </message>
+    <message>
+      <source>Reset to defaults</source>
+      <translation>既定にリセット</translation>
+    </message>
+    <message>
+      <source>Action</source>
+      <translation>アクション</translation>
+    </message>
+    <message>
+      <source>Modifier</source>
+      <translation>Modifier</translation>
+    </message>
+    <message>
+      <source>Key / button</source>
+      <translation>キー / ボタン</translation>
+    </message>
+    <message>
+      <source>Default</source>
+      <translation>デフォルト</translation>
+    </message>
+    <message>
+      <source>Mouse actions (mouse buttons by default)</source>
+      <translation>マウスの動作（デフォルトではマウスボタン）</translation>
+    </message>
+    <message>
+      <source>None</source>
+      <translation>なし</translation>
+    </message>
+    <message>
+      <source>Reset {0} to {1}</source>
+      <translation>{0} を {1}にリセット</translation>
+    </message>
+    <message>
+      <source>That key or mouse button cannot be used as a shortcut.</source>
+      <translation>そのキーまたはマウスボタンはショートカットとして使用できません。</translation>
+    </message>
+    <message>
+      <source>{0} is already assigned to {1}.</source>
+      <translation>{0} は既に {1} に割り当てられています。</translation>
+    </message>
+    <message>
+      <source>Failed to save shortcut: {0}</source>
+      <translation>ショートカットの保存に失敗しました: {0}</translation>
+    </message>
+    <message>
+      <source>{0} reset to {1}.</source>
+      <translation>{0} は {1}にリセットされました。</translation>
+    </message>
+    <message>
+      <source>Failed to reset shortcuts: {0}</source>
+      <translation>ショートカットのリセットに失敗しました: {0}</translation>
+    </message>
+    <message>
+      <source>Shortcuts reset to defaults.</source>
+      <translation>ショートカットは既定にリセットされました。</translation>
+    </message>
+    <message>
+      <source>Rename selected mod or separator</source>
+      <translation>選択したModまたは区切り文字の名前を変更</translation>
+    </message>
+    <message>
+      <source>Refresh mod list</source>
+      <translation>Modリストを更新</translation>
+    </message>
+    <message>
+      <source>Deploy mods</source>
+      <translation>MODをデプロイ</translation>
+    </message>
+    <message>
+      <source>Install a mod</source>
+      <translation>Install a mod</translation>
+    </message>
+    <message>
+      <source>Create an empty mod</source>
+      <translation>空のModを作成</translation>
+    </message>
+    <message>
+      <source>Restore game files</source>
+      <translation>ゲームファイルの復元</translation>
+    </message>
+    <message>
+      <source>Open Settings</source>
+      <translation>設定を開く</translation>
+    </message>
+    <message>
+      <source>Focus search</source>
+      <translation>検索にフォーカス</translation>
+    </message>
+    <message>
+      <source>Select all in the active group</source>
+      <translation>アクティブなグループ内のすべてを選択</translation>
+    </message>
+    <message>
+      <source>Move selection up</source>
+      <translation>選択範囲を上に移動</translation>
+    </message>
+    <message>
+      <source>Move selection down</source>
+      <translation>選択範囲を下に移動</translation>
+    </message>
+    <message>
+      <source>Remove selected mods</source>
+      <translation>選択したMODを削除</translation>
+    </message>
+    <message>
+      <source>Enable or disable selection</source>
+      <translation>選択を有効または無効にする</translation>
+    </message>
+    <message>
+      <source>Scroll active list to the top</source>
+      <translation>アクティブなリストを一番上までスクロール</translation>
+    </message>
+    <message>
+      <source>Scroll active list to the bottom</source>
+      <translation>アクティブなリストを一番下までスクロール</translation>
+    </message>
+    <message>
+      <source>Expand or collapse all separators</source>
+      <translation>すべての区切り文字を展開または折り畳みます</translation>
+    </message>
+    <message>
+      <source>Show or hide active filters</source>
+      <translation>有効なフィルタを表示または非表示</translation>
+    </message>
+    <message>
+      <source>Open a mod's source page</source>
+      <translation>Modのソースページを開く</translation>
+    </message>
+    <message>
+      <source>Browser back</source>
+      <translation>ブラウザーバック</translation>
+    </message>
+    <message>
+      <source>Browser forward</source>
+      <translation>ブラウザ転送</translation>
+    </message>
+  </context>
+  <context>
     <name>ShowConflictsView</name>
     <message>
       <source>Conflicts: {0}</source>
@@ -14480,7 +14994,7 @@ flatpak リモート追加 --user amethyst https://chrisdkn.github.io/Amethyst-M
     </message>
     <message>
       <source>{0}  ({1})</source>
-      <translation type="unfinished">{0}  ({1})</translation>
+      <translation>{0}  ({1})</translation>
     </message>
   </context>
   <context>
@@ -14533,7 +15047,7 @@ Make sure a profile is loaded and has an active load order.</source>
     </message>
     <message>
       <source>SkyPatcher</source>
-      <translation type="unfinished">SkyPatcher</translation>
+      <translation>SkyPatcher</translation>
     </message>
     <message>
       <source>Select All</source>
@@ -16559,7 +17073,7 @@ or use Browse to select it manually.</source>
     </message>
     <message>
       <source>Mods</source>
-      <translation type="unfinished">Mods</translation>
+      <translation>Mods</translation>
     </message>
     <message>
       <source>Plugins</source>
@@ -17039,7 +17553,7 @@ or use Browse to select it manually.</source>
     </message>
     <message>
       <source>?</source>
-      <translation type="unfinished">?</translation>
+      <translation>?</translation>
     </message>
     <message>
       <source>Profile '{0}' - {1} → {2}</source>
@@ -17079,7 +17593,7 @@ or use Browse to select it manually.</source>
     </message>
     <message>
       <source>{0} ({1})</source>
-      <translation type="unfinished">{0} ({1})</translation>
+      <translation>{0} ({1})</translation>
     </message>
     <message>
       <source>  (none)</source>
@@ -17402,6 +17916,10 @@ Press Refresh to try again.</source>
       <translation>BSAデコンプレッサー</translation>
     </message>
     <message>
+      <source>Install Unofficial Fallout 3 ESM Patcher</source>
+      <translation>非公式フォールアウト3 ESM パッチャーをインストール</translation>
+    </message>
+    <message>
       <source>Install Ultimate Edition ESM Fixes</source>
       <translation>Ultimate Edition ESMの修正をインストールする</translation>
     </message>
@@ -17624,6 +18142,14 @@ Press Refresh to try again.</source>
     <message>
       <source>Decompress the vanilla BSA archives for faster loading (native Linux MPI installer) and add the result as a mod. Needs the FNV BSA Decompressor download from Nexus.</source>
       <translation>バニラ BSA アーカイブの読み込みを高速化(ネイティブ Linux MPI インストーラー)し、結果を mod として追加します。 NexusからFNV BSA Decompressorのダウンロードが必要です.</translation>
+    </message>
+    <message>
+      <source>Decompress the vanilla BSA archives for faster loading (native Linux MPI installer) and add the result as a mod. Needs the FO3 BSA Decompressor download from Nexus.</source>
+      <translation>vanilla BSA アーカイブを解凍して、高速な読み込み(ネイティブ Linux MPI インストーラー)を行い、結果を Mod として追加します。 ネクサスからFO3 BSA Decompressorのダウンロードが必要です。</translation>
+    </message>
+    <message>
+      <source>Patch the vanilla .esm masters with community bugfixes (native Linux MPI installer) and add the result as a mod. Needs the Unofficial Fallout 3 ESM Patcher download from Nexus.</source>
+      <translation>コミュニティのバグ修正(ネイティブ Linux MPI インストーラ)で vanilla の .esm マスターにパッチを適用し、結果を Mod として追加します。 ネクサスから非公式フォールアウト3ESMパッチャーダウンロードが必要です。</translation>
     </message>
     <message>
       <source>Patch the vanilla .esm masters with community bugfixes (native Linux MPI installer) and add the result as a mod. Needs the Ultimate Edition ESM Fixes Remastered download from Nexus.</source>
@@ -18341,6 +18867,21 @@ When you close it, your changes are restored automatically.</source>
     </message>
   </context>
   <context>
+    <name>_BindingInput</name>
+    <message>
+      <source>Shortcut key or mouse button</source>
+      <translation>ショートカットキー</translation>
+    </message>
+    <message>
+      <source>Click here, then press a keyboard key, Mouse 3, or a side button. Escape cancels; left and right click are reserved.</source>
+      <translation>ここをクリックし、キーボードキー、マウス3、またはサイドボタンを押します。エスケープキャンセル; 左右クリックは予約されています。</translation>
+    </message>
+    <message>
+      <source>Press key</source>
+      <translation>キーを押す</translation>
+    </message>
+  </context>
+  <context>
     <name>_GameCard</name>
     <message>
       <source>Select</source>
@@ -18645,7 +19186,7 @@ Publishing makes this revision the one users install. It cannot be un-published,
     </message>
     <message>
       <source>https://…</source>
-      <translation type="unfinished">https://…</translation>
+      <translation>https://…</translation>
     </message>
     <message>
       <source>Instructions shown to the user:</source>
