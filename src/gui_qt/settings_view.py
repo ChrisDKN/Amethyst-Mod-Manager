@@ -191,8 +191,10 @@ class SettingsView(OverlayBase):
         self._tabs.setDocumentMode(True)
         self._tabs.tabBar().setExpanding(False)
         outer.addWidget(self._tabs, 1)
+        self._pending_tabs: dict[int, tuple[QVBoxLayout, tuple]] = {}
 
-        self._add_tab(self.tr("Appearance"), self._build_user_interface)
+        self._add_tab(
+            self.tr("Appearance"), self._build_user_interface, eager=True)
         self._add_tab(
             self.tr("Downloads"), self._build_archives,
             self._build_downloads, self._build_extraction)
@@ -201,6 +203,7 @@ class SettingsView(OverlayBase):
         self._add_tab(self.tr("Paths"), self._build_paths)
         self._add_tab(self.tr("Advanced"), self._build_advanced)
         self._add_tab(self.tr("About"), self._build_system_info)
+        self._tabs.currentChanged.connect(self._ensure_tab_built)
         self._tabs.setCurrentIndex(0)
 
         self.setStyleSheet(self._qss())
@@ -227,8 +230,8 @@ class SettingsView(OverlayBase):
         row.addWidget(close)
         outer.addWidget(bar)
 
-    def _add_tab(self, label: str, *builders) -> None:
-        """Build one independently scrollable settings tab."""
+    def _add_tab(self, label: str, *builders, eager: bool = False) -> None:
+        """Add one independently scrollable settings tab."""
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.NoFrame)
@@ -236,14 +239,23 @@ class SettingsView(OverlayBase):
 
         body = QWidget()
         body.setObjectName("SettingsPage")
-        self._v = QVBoxLayout(body)
-        self._v.setContentsMargins(16, 14, 16, 18)
-        self._v.setSpacing(14)
+        layout = QVBoxLayout(body)
+        layout.setContentsMargins(16, 14, 16, 18)
+        layout.setSpacing(14)
+        scroll.setWidget(body)
+        index = self._tabs.addTab(scroll, label)
+        self._pending_tabs[index] = (layout, builders)
+        if eager:
+            self._ensure_tab_built(index)
+
+    def _ensure_tab_built(self, index: int) -> None:
+        pending = self._pending_tabs.pop(index, None)
+        if pending is None:
+            return
+        self._v, builders = pending
         for build in builders:
             build()
         self._v.addStretch(1)
-        scroll.setWidget(body)
-        self._tabs.addTab(scroll, label)
 
     # ---- styling ----------------------------------------------------------
     def _qss(self) -> str:

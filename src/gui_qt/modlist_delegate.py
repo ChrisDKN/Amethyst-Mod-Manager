@@ -523,6 +523,9 @@ class ModRowDelegate(QStyledItemDelegate):
             p.drawLine(cx + gap, cy, r.right() - 6, cy)
             p.setPen(txt)
             p.drawText(nr, Qt.AlignVCenter | Qt.AlignHCenter, label)
+            self._paint_icons(
+                p, self._col_rect(COL_FLAGS, r),
+                self._flag_icons(index.data(FlagsRole) or 0))
             return
 
         name = e.display_name
@@ -853,6 +856,18 @@ class ModRowDelegate(QStyledItemDelegate):
         distinguishes e.g. collection bundled vs patched)."""
         try:
             if event.type() == QEvent.ToolTip and index.isValid():
+                entry = index.data(EntryRole)
+                if entry is not None and entry.is_separator:
+                    flags_rect = self._col_rect(COL_FLAGS, opt.rect)
+                    bits = index.data(FlagsRole) or 0
+                    hit = self._hit_flag_bit(event.pos(), flags_rect, bits)
+                    tip = self._flag_tip(hit, index)
+                    if tip:
+                        QToolTip.showText(
+                            event.globalPos(), wrap_tooltip(tip), view,
+                            flags_rect)
+                        return True
+                    QToolTip.hideText()
                 if index.column() == COL_FLAGS:
                     bits = index.data(FlagsRole) or 0
                     if bits:

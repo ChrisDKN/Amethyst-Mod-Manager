@@ -275,6 +275,7 @@ class DataView(QWidget):
         self._model = DataModel(self)
         self._tree = QTreeView()
         self._tree.setModel(self._model)
+        self._model.themeChanged.connect(self._tree.viewport().update)
         self._tree.setRootIsDecorated(False)
         self._tree.setIndentation(0)
         self._tree.setUniformRowHeights(True)

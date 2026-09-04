@@ -23,7 +23,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtCore import QFileSystemWatcher, Qt, QTimer, Signal
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTreeView, QLabel, QLineEdit,
     QToolButton, QAbstractItemView, QMenu,
@@ -53,8 +53,9 @@ def _is_hidden_name(name: str) -> bool:
     return name in EXCLUDE_NAMES or is_macos_junk(name)
 
 
-def _list_overwrite_tree(root: Path) -> tuple[list[str], list[str]]:
-    """(file paths, empty-folder paths) under *root*, relative and posix.
+def _list_overwrite_tree(
+        root: Path) -> tuple[list[str], list[str], list[str]]:
+    """Files, empty folders, and watchable folders under *root*.
 
     Empty folders are collected separately because the normal path-tree builder
     only creates a folder node on the way to a file. A leftover empty tree would
@@ -66,6 +67,7 @@ def _list_overwrite_tree(root: Path) -> tuple[list[str], list[str]]:
     """
     files: list[str] = []
     empty_dirs: list[str] = []
+    watch_dirs = [str(root)]
     try:
         for p in root.rglob("*"):
             try:
@@ -76,6 +78,7 @@ def _list_overwrite_tree(root: Path) -> tuple[list[str], list[str]]:
                 elif p.is_dir():
                     if is_macos_junk(p.name):
                         continue
+                    watch_dirs.append(str(p))
                     if not any(c for c in p.iterdir()
                                if not _is_hidden_name(c.name)):
                         empty_dirs.append(p.relative_to(root).as_posix())
@@ -83,7 +86,7 @@ def _list_overwrite_tree(root: Path) -> tuple[list[str], list[str]]:
                 continue
     except OSError:
         pass
-    return files, empty_dirs
+    return files, empty_dirs, watch_dirs
 
 
 def _build_overwrite_tree(files: list[str], empty_dirs: list[str]) -> Node:
@@ -176,6 +179,14 @@ class OverwriteView(QWidget):
         self._search_exts: frozenset[str] = frozenset()
         self._files: list[str] = []
         self._empty_dirs: list[str] = []
+        self._watch_dirs: list[str] = []
+        self._watching = False
+        self._watcher = QFileSystemWatcher(self)
+        self._watcher.directoryChanged.connect(self._on_directory_changed)
+        self._watch_timer = QTimer(self)
+        self._watch_timer.setSingleShot(True)
+        self._watch_timer.setInterval(400)
+        self._watch_timer.timeout.connect(self._refresh_from_watch)
         # Host-installed: () -> list[str] of existing mod names, priority order.
         self.mod_names_fn = None
         # Host-installed: every reserved mod/separator display and storage name.
@@ -303,25 +314,28 @@ class OverwriteView(QWidget):
         self._sync_buttons()
 
     def showEvent(self, event):
-        """Re-read the folder every time the tab is shown.
+        """Re-read the folder and start watching when the tab is shown.
 
         Opening the tab already reloads (app._open_overwrite_tab calls
         configure), but a scoped tab stays alive when the user switches to
         another tab: coming back only calls setCurrentWidget, so without this
         the tree would still show the folder as it was, while the game or a
-        tool has been writing into Overwrite the whole time. The footer's
-        Refresh button covers the other case: files landing while the tab is
-        already on screen.
+        tool has been writing into it. The watcher stays active until the tab
+        is closed, including while the tab is switched away or detached.
         """
         super().showEvent(event)
+        self._start_watching()
         if self._skip_next_show_reload:
             self._skip_next_show_reload = False
         else:
             self.reload()
 
+    def tab_closing(self):
+        self._stop_watching()
+
     # -- population ---------------------------------------------------------
     def reload(self):
-        """Re-read the Overwrite folder from disk, then rebuild the tree.
+        """Re-read the managed folder from disk, then rebuild the tree.
 
         The scan is cached in _files/_empty_dirs so typing in the search box
         re-filters without re-walking the folder (Overwrite can hold thousands
@@ -329,9 +343,50 @@ class OverwriteView(QWidget):
         """
         self._files = []
         self._empty_dirs = []
+        self._watch_dirs = []
         if self._root_path is not None and self._root_path.is_dir():
-            self._files, self._empty_dirs = _list_overwrite_tree(self._root_path)
+            (self._files, self._empty_dirs,
+             self._watch_dirs) = _list_overwrite_tree(self._root_path)
+        elif (self._root_path is not None
+              and self._root_path.parent.is_dir()):
+            self._watch_dirs = [str(self._root_path.parent)]
+        self._sync_watch_dirs()
         self._repopulate()
+
+    def _start_watching(self):
+        if self._watching:
+            return
+        self._watching = True
+        self._sync_watch_dirs()
+
+    def _stop_watching(self):
+        self._watching = False
+        self._watch_timer.stop()
+        watched = self._watcher.directories()
+        if watched:
+            self._watcher.removePaths(watched)
+
+    def _sync_watch_dirs(self):
+        if not self._watching:
+            return
+        watched = set(self._watcher.directories())
+        wanted = set(self._watch_dirs)
+        stale = watched - wanted
+        if stale:
+            self._watcher.removePaths(list(stale))
+        added = sorted(
+            wanted - watched,
+            key=lambda value: (len(Path(value).parts), value))
+        if added:
+            self._watcher.addPaths(added)
+
+    def _on_directory_changed(self, _path):
+        if self._watching:
+            self._watch_timer.start()
+
+    def _refresh_from_watch(self):
+        if self._watching:
+            self._on_refresh_clicked()
 
     def _repopulate(self):
         """Rebuild the tree from the cached scan, honouring the search filter."""
@@ -426,7 +481,7 @@ class OverwriteView(QWidget):
         self._set_expand_label(self._toggle_expand_all())
 
     def _on_refresh_clicked(self):
-        """Re-scan the folder on demand, keeping the tree expanded if it was.
+        """Re-scan the folder, keeping the tree expanded if it was.
 
         reload() rebuilds the model, which collapses everything, so an expanded
         tree has to be re-expanded afterwards or refreshing would silently fold

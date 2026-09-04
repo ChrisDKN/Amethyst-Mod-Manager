@@ -14,7 +14,7 @@ columns. Display-only - all data-building lives in Utils.ui.data.
 from __future__ import annotations
 
 from PySide6.QtCore import (
-    Qt, QAbstractItemModel, QModelIndex, QT_TRANSLATE_NOOP,
+    Qt, QAbstractItemModel, QModelIndex, QT_TRANSLATE_NOOP, Signal,
 )
 
 from gui_qt.theme_qt import bind_theme, qc
@@ -55,6 +55,8 @@ class _DataNode:
 
 
 class DataModel(QAbstractItemModel):
+    themeChanged = Signal()
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self._root = _DataNode("", "", is_dir=True)
@@ -66,20 +68,7 @@ class DataModel(QAbstractItemModel):
 
     def refresh_theme(self, p: dict) -> None:
         self._c_highlight = qc(p, "CONFLICT_HL_ANCHOR")
-        self._emit_theme_changed()
-
-    def _emit_theme_changed(self, parent=QModelIndex()) -> None:
-        rows = self.rowCount(parent)
-        if not rows:
-            return
-        self.dataChanged.emit(
-            self.index(0, 0, parent),
-            self.index(rows - 1, COL_MOD, parent),
-            [Qt.BackgroundRole])
-        for row in range(rows):
-            child = self.index(row, 0, parent)
-            if self.rowCount(child):
-                self._emit_theme_changed(child)
+        self.themeChanged.emit()
 
     # ---- population -------------------------------------------------------
     def set_root(self, root: _DataNode):
