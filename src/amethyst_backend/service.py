@@ -66,6 +66,9 @@ class AmethystService:
         "mods.set_enabled.start",
         "mods.move.start",
         "mods.remove.start",
+        "plugins.list.start",
+        "plugins.set_enabled.start",
+        "plugins.move.start",
         "deploy.start",
         "restore.start",
         "launch.get",
@@ -116,6 +119,9 @@ class AmethystService:
             "mods.set_enabled.start": self._start_set_enabled,
             "mods.move.start": self._start_move,
             "mods.remove.start": self._start_remove,
+            "plugins.list.start": self._start_list_plugins,
+            "plugins.set_enabled.start": self._start_set_plugins_enabled,
+            "plugins.move.start": self._start_move_plugins,
             "deploy.start": self._start_deploy,
             "restore.start": self._start_restore,
             "launch.get": self._get_launch,
@@ -390,6 +396,21 @@ class AmethystService:
         return value
 
     @staticmethod
+    def _plugin_name(value: Any, parameter: str) -> str:
+        if (not isinstance(value, str) or not value
+                or value != value.strip() or len(value) > 255
+                or value in (".", "..") or Path(value).name != value
+                or "\\" in value
+                or any(char in value for char in "\x00\r\n")):
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                f"'{parameter}' must be a valid plugin filename.",
+                {"parameter": parameter},
+            )
+        return value
+
+    @staticmethod
     def _launch_summary(launch: dict[str, Any]) -> dict[str, Any]:
         summary = dict(launch)
         logs = summary.pop("logs", [])
@@ -445,7 +466,8 @@ class AmethystService:
                 "mutations": [
                     "profiles.create", "profiles.rename", "profiles.remove",
                     "profiles.select", "mods.set_enabled", "mods.move",
-                    "mods.remove", "deploy", "restore",
+                    "mods.remove", "plugins.set_enabled", "plugins.move",
+                    "deploy", "restore",
                     "nexus.auth.login", "nexus.auth.logout",
                     "nexus.download", "downloads.install", "launch",
                     "launch.stop"],
@@ -474,6 +496,13 @@ class AmethystService:
                     "lifecycle_polling": True,
                     "stop": True,
                     "arbitrary_commands": False,
+                },
+                "plugins": {
+                    "inventory": "job",
+                    "order": "first_loaded_first",
+                    "activation": True,
+                    "constrained_block_move": True,
+                    "automatic_sort": False,
                 },
                 "maximum_event_wait_ms": 30000,
                 "methods": list(self.METHODS),
@@ -1219,6 +1248,180 @@ class AmethystService:
             },
             "mods": mods,
         }
+
+    def _start_list_plugins(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(params, {"game", "profile"}, {"game", "profile"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        if not (self._safe_attr(game, "plugin_extensions", ()) or ()):
+            self._unsupported_operation(game, "plugin management")
+        profile_dir = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+
+        from .plugins import inventory_runner
+        job = self._jobs.submit(
+            "plugins.list",
+            game,
+            self._canonical_game(game),
+            profile_dir.name,
+            runner=inventory_runner(
+                game, profile_dir, "headless:plugins.list"),
+        )
+        return {"job": job}
+
+    def _start_set_plugins_enabled(
+        self, params: dict[str, Any],
+    ) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params, {"game", "profile", "changes"},
+            {"game", "profile", "changes"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        if not (self._safe_attr(game, "plugin_extensions", ()) or ()):
+            self._unsupported_operation(game, "plugin management")
+        profile_dir = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+
+        raw_changes = params.get("changes")
+        if (not isinstance(raw_changes, list) or not raw_changes
+                or len(raw_changes) > 4096):
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'changes' must be an array of 1 to 4096 plugin changes.",
+                {"parameter": "changes"},
+            )
+        changes: list[tuple[str, bool]] = []
+        seen: set[str] = set()
+        for index, change in enumerate(raw_changes):
+            parameter = f"changes[{index}]"
+            if not isinstance(change, dict) or set(change) != {"name", "enabled"}:
+                raise ServiceError(
+                    -32602,
+                    "invalid_params",
+                    f"'{parameter}' must contain only 'name' and 'enabled'.",
+                    {"parameter": parameter},
+                )
+            name = self._plugin_name(change.get("name"), f"{parameter}.name")
+            folded = name.casefold()
+            if folded in seen:
+                raise ServiceError(
+                    -32602,
+                    "invalid_params",
+                    f"'{parameter}.name' duplicates an earlier plugin.",
+                    {"parameter": f"{parameter}.name", "plugin": name},
+                )
+            enabled = change.get("enabled")
+            if not isinstance(enabled, bool):
+                raise ServiceError(
+                    -32602,
+                    "invalid_params",
+                    f"'{parameter}.enabled' must be a boolean.",
+                    {"parameter": f"{parameter}.enabled"},
+                )
+            seen.add(folded)
+            changes.append((name, enabled))
+
+        from .plugins import set_enabled_runner
+        job = self._jobs.submit(
+            "plugins.set_enabled",
+            game,
+            self._canonical_game(game),
+            profile_dir.name,
+            {"changes": [
+                {"name": name, "enabled": enabled}
+                for name, enabled in changes
+            ]},
+            runner=set_enabled_runner(
+                game,
+                profile_dir,
+                changes,
+                "headless:plugins.set_enabled",
+            ),
+        )
+        return {"job": job}
+
+    def _start_move_plugins(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params, {"game", "profile", "plugins", "position"},
+            {"game", "profile", "plugins", "position"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        if not (self._safe_attr(game, "plugin_extensions", ()) or ()):
+            self._unsupported_operation(game, "plugin management")
+        profile_dir = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+
+        raw_plugins = params.get("plugins")
+        if (not isinstance(raw_plugins, list) or not raw_plugins
+                or len(raw_plugins) > 4096):
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'plugins' must be an array of 1 to 4096 plugin filenames.",
+                {"parameter": "plugins"},
+            )
+        plugins: list[str] = []
+        seen: set[str] = set()
+        for index, value in enumerate(raw_plugins):
+            parameter = f"plugins[{index}]"
+            name = self._plugin_name(value, parameter)
+            folded = name.casefold()
+            if folded in seen:
+                raise ServiceError(
+                    -32602,
+                    "invalid_params",
+                    f"'{parameter}' duplicates an earlier plugin.",
+                    {"parameter": parameter, "plugin": name},
+                )
+            seen.add(folded)
+            plugins.append(name)
+
+        position = params.get("position")
+        if (not isinstance(position, dict) or len(position) != 1
+                or next(iter(position), None) not in {"before", "after"}):
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'position' must contain exactly one 'before' or 'after' anchor.",
+                {"parameter": "position"},
+            )
+        placement, raw_anchor = next(iter(position.items()))
+        anchor = self._plugin_name(raw_anchor, f"position.{placement}")
+        if anchor.casefold() in seen:
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "The move anchor cannot also be a moved plugin.",
+                {"parameter": f"position.{placement}", "anchor": anchor},
+            )
+
+        from .plugins import move_runner
+        job = self._jobs.submit(
+            "plugins.move",
+            game,
+            self._canonical_game(game),
+            profile_dir.name,
+            {
+                "plugins": plugins,
+                "position": {placement: anchor},
+            },
+            runner=move_runner(
+                game,
+                profile_dir,
+                plugins,
+                anchor,
+                placement == "after",
+                "headless:plugins.move",
+            ),
+        )
+        return {"job": job}
 
     def _start_deploy(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()

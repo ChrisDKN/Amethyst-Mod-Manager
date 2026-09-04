@@ -383,6 +383,7 @@ def _staged_top_level_plugins(game, staging: "Path | None",
 def load_plugins(game, profile: str,
                  cancelled=None, report: dict | None = None, snapshot=None,
                  include_bos_sp: bool = True,
+                 persist_repairs: bool = True,
                  ) -> "list[PluginRow] | None":
     """Return the ordered plugin rows for *game*/*profile*, or [] if none.
 
@@ -401,7 +402,10 @@ def load_plugins(game, profile: str,
 
     *include_bos_sp* may be False for an initial render that is guaranteed to
     be followed by a snapshot-backed reload. All correctness/load-order flags
-    are still populated; only BOS/SkyPatcher decoration is deferred."""
+    are still populated; only BOS/SkyPatcher decoration is deferred.
+
+    Set *persist_repairs* false for validation-only callers that must not
+    change plugin files before their requested mutation is accepted."""
     if cancelled is None:
         cancelled = lambda: False
     p = plugins_path(game, profile)
@@ -575,8 +579,8 @@ def load_plugins(game, profile: str,
     if cancelled():
         return None
     if report is not None:
-        report["prune_checked"] = filemap_ok
-    if filemap_ok:
+        report["prune_checked"] = filemap_ok and persist_repairs
+    if filemap_ok and persist_repairs:
         pruned: list[str] = []
         for e in ordered:
             low = e.name.lower()
@@ -638,7 +642,7 @@ def load_plugins(game, profile: str,
     # as the prune: only write when the game object points at the profile
     # being loaded. Skip any the prune dropped above (shouldn't happen -
     # orphans resolve via the Data/Data_Core scan - but stay consistent).
-    if orphans and _active_matches:
+    if orphans and _active_matches and persist_repairs:
         still = {e.name.lower() for e in ordered}
         _append_orphans_to_plugins(
             p, star, [o for o in orphans if o.name.lower() in still])
@@ -650,7 +654,7 @@ def load_plugins(game, profile: str,
     # plugins.txt, so deploy's prefix plugins.txt omits it and the game never
     # loads it. filemap_fresh: only trust the recovery when the filemap is at
     # least as new as plugins.txt (see SAFETY 4).
-    if recovered and _active_matches and filemap_fresh:
+    if recovered and _active_matches and filemap_fresh and persist_repairs:
         still = {e.name.lower() for e in ordered}
         _append_orphans_to_plugins(
             p, star, [PluginEntry(name=n, enabled=True) for n in recovered
@@ -663,7 +667,7 @@ def load_plugins(game, profile: str,
         rows = [_to_row(e, vanilla, resolved, data_dir, _bp) for e in ordered]
     if cancelled():
         return None
-    if primary_order_changed and _active_matches:
+    if primary_order_changed and _active_matches and persist_repairs:
         save_plugins(game, profile, rows)
         app_log("Plugins: restored the game's fixed primary-plugin order.")
     # MO2 parity (fixPluginRelationships). Must run before the checks below -
@@ -676,7 +680,7 @@ def load_plugins(game, profile: str,
                 rows = hoisted_rows
                 # Persist so the mtime-ordered games (Oblivion/FO3/FNV) stamp the
                 # corrected order. Same SAFETY guard as the writes above.
-                if _active_matches:
+                if _active_matches and persist_repairs:
                     save_plugins(game, profile, rows)
                     app_log(f"Plugins: hoisted the master block above the "
                             f"non-masters ({moved} row(s) moved) - the engine "
@@ -1600,12 +1604,14 @@ def apply_loot_sort(rows: list[PluginRow], locked_indices: dict[int, PluginRow],
     return new_rows, moved
 
 
-def save_plugins(game, profile: str, rows: list[PluginRow]) -> None:
+def save_plugins(game, profile: str, rows: list[PluginRow], *,
+                 stamp_load_order: bool = True) -> None:
     """Write the plugin order + enable state back to disk.
 
     plugins.txt - mod plugins only (vanilla excluded unless the game includes
     them); loadorder.txt - the FULL order incl. vanilla so LOOT-sorted positions
-    survive a refresh. Mirrors plugin_panel._save_plugins (Tk parity)."""
+    survive a refresh. Set *stamp_load_order* false when deployment must remain
+    explicit. Mirrors plugin_panel._save_plugins (Tk parity)."""
     p = plugins_path(game, profile)
     if p is None:
         return
@@ -1624,7 +1630,8 @@ def save_plugins(game, profile: str, rows: list[PluginRow]) -> None:
     full = [PluginEntry(r.name, True) for r in rows]
     write_loadorder(p.parent / "loadorder.txt", full)
     # Timestamp-ordered games (Oblivion/FO3/FNV) need deployed mtimes re-stamped.
-    if game is not None and hasattr(game, "stamp_plugin_load_order"):
+    if (stamp_load_order and game is not None
+            and hasattr(game, "stamp_plugin_load_order")):
         try:
             game.stamp_plugin_load_order(profile)
         except Exception as exc:

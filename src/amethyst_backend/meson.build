@@ -3,6 +3,7 @@ py.install_sources(
   'jobs.py',
   'launch.py',
   'nexus.py',
+  'plugins.py',
   'rpc.py',
   'service.py',
   subdir: 'amethyst_backend',

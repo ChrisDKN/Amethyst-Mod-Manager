@@ -5,7 +5,8 @@ use the manager without importing its Python modules or starting Qt. Protocol
 version 1 exposes game, profile, mod and downloaded-archive state, Nexus OAuth,
 catalogue discovery, exact-ID metadata, managed downloads, and non-interactive
 archive installation, plus asynchronous mod activation, ordering, removal,
-profile lifecycle, deploy, restore, and managed game launch.
+plugin inventory, activation and ordering, profile lifecycle, deploy, restore,
+and managed game launch.
 
 The public boundary is JSON-RPC 2.0 over newline-delimited JSON (NDJSON).
 Amethyst reads one JSON value per line from standard input and writes one JSON
@@ -98,7 +99,7 @@ The response describes the protocol and available features:
       "event_delivery": "poll",
       "cancellation": true,
       "cancellable_jobs": ["nexus.download"],
-      "mutations": ["profiles.create", "profiles.rename", "profiles.remove", "profiles.select", "mods.set_enabled", "mods.move", "mods.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
+      "mutations": ["profiles.create", "profiles.rename", "profiles.remove", "profiles.select", "mods.set_enabled", "mods.move", "mods.remove", "plugins.set_enabled", "plugins.move", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
       "installation": {
         "source": "download_inventory",
         "installer_policies": ["reject", "defaults"],
@@ -124,6 +125,13 @@ The response describes the protocol and available features:
         "lifecycle_polling": true,
         "stop": true,
         "arbitrary_commands": false
+      },
+      "plugins": {
+        "inventory": "job",
+        "order": "first_loaded_first",
+        "activation": true,
+        "constrained_block_move": true,
+        "automatic_sort": false
       },
       "maximum_event_wait_ms": 30000,
       "methods": [
@@ -154,6 +162,9 @@ The response describes the protocol and available features:
         "mods.set_enabled.start",
         "mods.move.start",
         "mods.remove.start",
+        "plugins.list.start",
+        "plugins.set_enabled.start",
+        "plugins.move.start",
         "deploy.start",
         "restore.start",
         "launch.get",
@@ -207,6 +218,9 @@ parameters are rejected.
 | `mods.set_enabled.start` | `game` string, `profile` string, `changes` array | Start a batch mod enable/disable job. |
 | `mods.move.start` | `game` string, `profile` string, `mods` array, `position` object | Move mods as a priority-ordered block. |
 | `mods.remove.start` | `game` string, `profile` string, `mods` array, `confirm` boolean | Permanently remove one or more mods. |
+| `plugins.list.start` | `game` string, `profile` string | Resolve a profile's ordered plugin inventory and metadata. |
+| `plugins.set_enabled.start` | `game` string, `profile` string, `changes` array | Start a batch plugin enable/disable job. |
+| `plugins.move.start` | `game` string, `profile` string, `plugins` array, `position` object | Move a contiguous plugin block within engine constraints. |
 | `deploy.start` | `game` string, `profile` string, `options` object (optional) | Start a deployment job. |
 | `restore.start` | `game` string, `profile` string | Start a restore job. |
 | `launch.get` | `launch_id` string (optional) | Inspect the latest managed game-launch lifecycle. |
@@ -336,6 +350,79 @@ update state, and Nexus or Thunderstore identity when available. A stale
 
 Read methods return `operation_in_progress` while this service is changing game
 state. Continue polling the active job and retry the read after it completes.
+
+### Manage plugins
+
+Plugin discovery reads FileGraph winners and plugin headers, so it runs as a
+job even though it does not change `plugins.txt` or `loadorder.txt`:
+
+```json
+{"jsonrpc":"2.0","id":"plugins","method":"plugins.list.start","params":{"game":"skyrim_se","profile":"default"}}
+```
+
+The successful job result orders entries `first_loaded_first`. `position` is
+the zero-based load-order position including game-managed plugins.
+`game_index` is the normal hexadecimal index or an `FE:xxx` light-plugin index;
+it is null for a disabled plugin. `masters` contains lower-case header
+dependencies, or null when the plugin header could not be resolved.
+
+Each plugin also reports `enabled`, `vanilla`, and `locked`. A plugin lock
+prevents directly moving that entry but does not prevent activation changes.
+`flags` is an array containing any applicable values from:
+
+- `missing_masters`, `late_masters`, `version_mismatched_masters`
+- `light`, `master`, `blueprint`, `groundcover`
+- `loot_messages`, `dirty`, `bash_tags`
+- `userlist`, `userlist_cycle`, `esl_eligible`, `esl_unsafe`
+
+The three dependency-warning name lists are also returned under `warnings` so
+clients do not need to interpret tooltip text. Top-level counts cover total,
+enabled, disabled, vanilla, locked, and dependency-warning entries. The result
+includes the pinned `filegraph_generation` used for the scan. Inventory scans
+apply the manager's effective primary/master ordering in memory but do not
+persist its automatic stale-entry repairs.
+
+Enable or disable several plugins atomically after validation:
+
+```json
+{"jsonrpc":"2.0","id":"plugin-state","method":"plugins.set_enabled.start","params":{"game":"skyrim_se","profile":"default","changes":[{"name":"SkyUI_SE.esp","enabled":true},{"name":"OldPatch.esp","enabled":false}]}}
+```
+
+Names must exactly match the case-preserving `name` from the inventory. The
+complete batch is resolved before either plugin file is written. Vanilla
+game-managed entries cannot be disabled; asking to keep one enabled is an
+unchanged success. Plugin load-order locks do not block enable/disable. The
+result separates `changed` and `unchanged` values and returns updated counts.
+
+Move one plugin, or a contiguous block in its current order, before or after an
+exact inventory entry:
+
+```json
+{"jsonrpc":"2.0","id":"plugin-move","method":"plugins.move.start","params":{"game":"skyrim_se","profile":"default","plugins":["Patch A.esp","Patch B.esp"],"position":{"after":"Overhaul.esp"}}}
+```
+
+The request array selects the block; its saved relative order comes from the
+current load order. A block cannot contain a vanilla or locked plugin, cannot
+be non-contiguous, and on engines with distinct load-order regions cannot mix
+master, normal, or Blueprint regions. The manager clamps the destination to
+keep vanilla entries pinned, masters before their dependants, and engine load
+regions intact, matching desktop drag behaviour. `constrained` reports that
+the requested anchor could not be reached exactly; this may produce a safe
+no-op with `changed: false`. `positions` gives the final position of each moved
+plugin and `crossed` identifies entries whose relative order changed.
+
+Activation and order changes rewrite each manager plugin file atomically. They
+do not copy `plugins.txt`, restamp deployed files, or otherwise deploy. Call
+`deploy.start` explicitly to apply the new state to the game, including mtime
+load order on games that require it. These jobs use the shared game-operation
+lock and are rejected while the same headless service is managing a running
+game.
+
+Expected job errors include `plugin_not_found`, `ambiguous_plugin`,
+`plugin_required`, `plugin_not_movable`, `plugin_locked`,
+`plugin_move_not_contiguous`, `plugin_move_mixed_regions`,
+`plugin_state_unavailable`, and `plugin_state_write_failed`. A case-only name
+mismatch is `plugin_not_found` with `expected_name` in its details.
 
 ### Nexus authentication
 
