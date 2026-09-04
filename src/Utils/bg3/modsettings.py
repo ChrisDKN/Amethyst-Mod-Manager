@@ -24,6 +24,7 @@ from pathlib import Path
 from Utils.mods.modlist import ModEntry, read_modlist
 from Utils.bg3.pak import extract_meta_lsx, read_pak_info
 from Utils.app_log import app_log, safe_log as _safe_log
+from Utils.atomic_write import write_atomic_text
 from Utils.filegraph.constants import OVERWRITE_NAME as _OVERWRITE_NAME
 
 # ---------------------------------------------------------------------------
@@ -235,6 +236,7 @@ class BG3ModInfo:
     is_override_only: bool = False
     # True when the pak ships a ScriptExtender/Config.json with RequiredVersion.
     requires_script_extender: bool = False
+    pak_path: str = ""
 
 
 # ---------------------------------------------------------------------------
@@ -287,7 +289,7 @@ def parse_meta_lsx(xml_text: str) -> BG3ModInfo | None:
     if module_info is None:
         return None
 
-    uuid = _attr_value(module_info, "UUID")
+    uuid = _attr_value(module_info, "UUID").strip().lower()
     name = _attr_value(module_info, "Name")
     folder = _attr_value(module_info, "Folder")
     version64 = _attr_value(module_info, "Version64")
@@ -305,7 +307,7 @@ def parse_meta_lsx(xml_text: str) -> BG3ModInfo | None:
         if node.get("id") == "Dependencies":
             for child in node.iter("node"):
                 if child.get("id") == "ModuleShortDesc":
-                    dep_uuid = _attr_value(child, "UUID")
+                    dep_uuid = _attr_value(child, "UUID").strip().lower()
                     if dep_uuid and dep_uuid not in _SYSTEM_UUIDS:
                         deps.append(dep_uuid)
             break
@@ -364,6 +366,7 @@ def scan_mod_paks(
     no_metadata: list[str] | None = None,
     excluded: dict[str, set[str]] | None = None,
     extra_dirs: dict[str, Path] | None = None,
+    deployed_paks: set[tuple[str, str]] | None = None,
 ) -> dict[str, BG3ModInfo]:
     """Scan .pak files for all enabled mods and return {uuid: BG3ModInfo}.
 
@@ -391,7 +394,18 @@ def scan_mod_paks(
         mod_dir = _extra.get(entry.name) or (staging_root / entry.name)
         if not mod_dir.is_dir():
             continue
-        paks = list(mod_dir.rglob("*.pak"))
+        paks = sorted(
+            (path for path in mod_dir.rglob("*")
+             if path.is_file() and path.suffix.lower() == ".pak"),
+            key=lambda path: path.relative_to(mod_dir).as_posix().casefold(),
+        )
+        if deployed_paks is not None:
+            paks = [
+                path for path in paks
+                if (entry.name,
+                    path.relative_to(mod_dir).as_posix().casefold())
+                in deployed_paks
+            ]
         _mod_excl = _excluded.get(entry.name)
         if _mod_excl:
             paks = [p for p in paks
@@ -418,6 +432,7 @@ def scan_mod_paks(
             info.is_override_only = overrides_builtin and not has_own_data
             info.requires_script_extender = _se_config_requires_extender(pak_info.se_config)
             info.source_mod = entry.name
+            info.pak_path = pak.relative_to(mod_dir).as_posix()
             by_uuid[info.uuid] = info
             got_meta = True
 
@@ -446,7 +461,10 @@ def scan_game_data_uuids(game_data_path: Path) -> set[str]:
     uuids: set[str] = set()
     if not game_data_path.is_dir():
         return uuids
-    for pak in game_data_path.glob("*.pak"):
+    for pak in sorted(
+            (path for path in game_data_path.iterdir()
+             if path.is_file() and path.suffix.lower() == ".pak"),
+            key=lambda path: path.name.casefold()):
         try:
             xml_text = extract_meta_lsx(pak)
         except Exception:
@@ -459,6 +477,62 @@ def scan_game_data_uuids(game_data_path: Path) -> set[str]:
     return uuids
 
 
+def scan_preserved_modsettings(
+    modsettings_path: Path,
+    pak_root: Path,
+    blocked_pak_names: set[str] | None = None,
+) -> list[BG3ModInfo]:
+    """Return existing ordered entries whose original root-level pak remains."""
+    if not modsettings_path.is_file() or not pak_root.is_dir():
+        return []
+
+    try:
+        text = modsettings_path.read_text(
+            encoding="utf-8-sig", errors="replace")
+        try:
+            root = ET.fromstring(text)
+        except ET.ParseError:
+            root = ET.fromstring(_repair_meta_xml(text))
+    except (OSError, ET.ParseError):
+        return []
+
+    ordered_uuids: list[str] = []
+    seen: set[str] = set()
+    mods_node = next(
+        (node for node in root.iter("node") if node.get("id") == "Mods"), root)
+    for node in mods_node.iter("node"):
+        if node.get("id") != "ModuleShortDesc":
+            continue
+        uuid = _attr_value(node, "UUID").strip().lower()
+        if not uuid or uuid in _SYSTEM_UUIDS or uuid in seen:
+            continue
+        seen.add(uuid)
+        ordered_uuids.append(uuid)
+
+    blocked = {name.casefold() for name in (blocked_pak_names or ())}
+    by_uuid: dict[str, BG3ModInfo] = {}
+    for pak in sorted(
+            (path for path in pak_root.iterdir()
+             if path.is_file() and path.suffix.lower() == ".pak"
+             and path.name.casefold() not in blocked),
+            key=lambda path: path.name.casefold()):
+        try:
+            pak_info = read_pak_info(pak)
+            info = parse_meta_lsx(pak_info.meta_xml) if pak_info.meta_xml else None
+        except Exception:
+            continue
+        if info is None or info.uuid in _SYSTEM_UUIDS:
+            continue
+        overrides_builtin, has_own_data = _classify_pak_files(pak_info.file_names)
+        info.is_override_only = overrides_builtin and not has_own_data
+        info.requires_script_extender = _se_config_requires_extender(pak_info.se_config)
+        info.source_mod = "[Existing installation]"
+        info.pak_path = pak.name
+        by_uuid[info.uuid] = info
+
+    return [by_uuid[uuid] for uuid in ordered_uuids if uuid in by_uuid]
+
+
 # ---------------------------------------------------------------------------
 # Dependency-aware ordering
 # ---------------------------------------------------------------------------
@@ -466,6 +540,7 @@ def scan_game_data_uuids(game_data_path: Path) -> set[str]:
 def resolve_load_order(
     enabled_mods: list[ModEntry],
     mod_infos: dict[str, BG3ModInfo],
+    log_fn=None,
 ) -> list[BG3ModInfo]:
     """Return BG3ModInfo entries in dependency-correct load order.
 
@@ -486,18 +561,31 @@ def resolve_load_order(
             by_source.setdefault(info.source_mod, []).append(info)
 
     added: set[str] = set()
+    visiting: set[str] = set()
+    reported_cycles: set[tuple[str, ...]] = set()
     result: list[BG3ModInfo] = []
+    _log = _safe_log(log_fn)
 
     def _insert(info: BG3ModInfo) -> None:
         if info.uuid in added:
             return
+        if info.uuid in visiting:
+            cycle = tuple(sorted(visiting | {info.uuid}))
+            if cycle not in reported_cycles:
+                reported_cycles.add(cycle)
+                _log("  WARNING: dependency cycle detected between BG3 mods: "
+                     + ", ".join(cycle))
+            return
+        visiting.add(info.uuid)
         # Recursively insert dependencies first
         for dep_uuid in info.dependencies:
             dep = mod_infos.get(dep_uuid)
             if dep is not None:
                 _insert(dep)
-        added.add(info.uuid)
-        result.append(info)
+        visiting.discard(info.uuid)
+        if info.uuid not in added:
+            added.add(info.uuid)
+            result.append(info)
 
     # Walk mods in the user's listed order (modlist.txt order)
     for entry in enabled_mods:
@@ -716,16 +804,28 @@ def _apply_manifest_pak_order(
     # before the pak itself, preserving the manifest's pak-level interleave.
     final: list[BG3ModInfo] = []
     placed: set[str] = set()
+    visiting: set[str] = set()
+    reported_cycles: set[tuple[str, ...]] = set()
 
     def _emit_with_deps(info: BG3ModInfo) -> None:
         if info.uuid in placed:
             return
+        if info.uuid in visiting:
+            cycle = tuple(sorted(visiting | {info.uuid}))
+            if cycle not in reported_cycles:
+                reported_cycles.add(cycle)
+                log_fn("  WARNING: dependency cycle detected between BG3 mods: "
+                       + ", ".join(cycle))
+            return
+        visiting.add(info.uuid)
         for dep_uuid in info.dependencies:
             dep = mod_infos.get(dep_uuid) or uuid_to_info_cf.get(dep_uuid.lower())
             if dep is not None and dep.uuid not in placed:
                 _emit_with_deps(dep)
-        placed.add(info.uuid)
-        final.append(info)
+        visiting.discard(info.uuid)
+        if info.uuid not in placed:
+            placed.add(info.uuid)
+            final.append(info)
 
     for info in ordered:
         _emit_with_deps(info)
@@ -741,7 +841,13 @@ def write_modsettings(
     patch_version: int = 8,
     manifest_load_order: list[dict] | None = None,
     script_extender_dll: Path | None = None,
+    script_extender_supported: bool = True,
     overwrite_root: Path | None = None,
+    excluded_mods: set[str] | None = None,
+    deployed_paks: set[tuple[str, str]] | None = None,
+    preserved_modsettings: Path | None = None,
+    preserved_pak_root: Path | None = None,
+    managed_pak_names: set[str] | None = None,
 ) -> int:
     """End-to-end: scan paks, resolve order, write modsettings.lsx.
 
@@ -774,6 +880,9 @@ def write_modsettings(
 
     entries = read_modlist(modlist_path)
     enabled = [e for e in entries if e.enabled and not e.is_separator]
+    if excluded_mods:
+        excluded_names = {name.casefold() for name in excluded_mods}
+        enabled = [e for e in enabled if e.name.casefold() not in excluded_names]
     # modlist.txt is highest-priority-first; modsettings.lsx needs
     # lowest-priority-first (later entries override earlier ones in BG3).
     enabled = list(reversed(enabled))
@@ -792,7 +901,8 @@ def write_modsettings(
     except Exception:
         excluded = {}
     mod_infos = scan_mod_paks(staging_root, enabled, no_metadata=no_metadata,
-                              excluded=excluded, extra_dirs=extra_dirs or None)
+                              excluded=excluded, extra_dirs=extra_dirs or None,
+                              deployed_paks=deployed_paks)
     _log(f"  Found metadata for {len(mod_infos)} mod(s).")
     if no_metadata:
         _log(f"  {len(no_metadata)} enabled mod(s) had .pak files but no "
@@ -800,18 +910,33 @@ def write_modsettings(
         for desc in no_metadata:
             _log(f"    - {desc}")
 
-    if not mod_infos:
+    preserved: list[BG3ModInfo] = []
+    if preserved_modsettings is not None and preserved_pak_root is not None:
+        preserved = scan_preserved_modsettings(
+            preserved_modsettings, preserved_pak_root, managed_pak_names)
+        preserved = [info for info in preserved if info.uuid not in mod_infos]
+        if preserved:
+            _log(f"  Preserving {len(preserved)} pre-existing load-order "
+                 "entry/entries.")
+
+    if not mod_infos and not preserved:
         _log("No mod metadata found - writing vanilla modsettings.lsx.")
         xml = build_modsettings_xml([], patch_version=patch_version)
-        modsettings_path.parent.mkdir(parents=True, exist_ok=True)
-        modsettings_path.write_text(xml, encoding="utf-8")
+        write_atomic_text(modsettings_path, xml)
         return 0
+
+    combined_infos = {info.uuid: info for info in preserved}
+    combined_infos.update(mod_infos)
 
     # Script Extender requirement check: warn when mods declare a required
     # SE version but the loader DLL isn't installed in the game's bin/.
-    se_mods = sorted(i.name for i in mod_infos.values()
+    se_mods = sorted(i.name for i in combined_infos.values()
                      if i.requires_script_extender)
-    if se_mods and script_extender_dll is not None \
+    if se_mods and not script_extender_supported:
+        _log(f"  WARNING: {len(se_mods)} mod(s) require the Windows BG3 "
+             "Script Extender, which is unavailable for the native Linux "
+             f"runtime: {', '.join(se_mods)}")
+    elif se_mods and script_extender_dll is not None \
             and not script_extender_dll.is_file():
         _log(f"  WARNING: {len(se_mods)} mod(s) require the BG3 Script "
              f"Extender, but it is not installed ({script_extender_dll} "
@@ -820,9 +945,9 @@ def write_modsettings(
     # Pure override paks (only touch base-game module folders) are loaded by
     # the game automatically and must stay out of the load order - same as
     # BG3 Mod Manager's "Overrides" section.
-    override_only = sorted((i for i in mod_infos.values() if i.is_override_only),
+    override_only = sorted((i for i in combined_infos.values() if i.is_override_only),
                            key=lambda i: i.name)
-    eligible = {u: i for u, i in mod_infos.items() if not i.is_override_only}
+    eligible = {u: i for u, i in combined_infos.items() if not i.is_override_only}
     if override_only:
         _log(f"  {len(override_only)} pak(s) only override base-game files - "
              "loaded automatically, left out of the load order:")
@@ -834,7 +959,10 @@ def write_modsettings(
         ordered = _apply_manifest_pak_order(enabled, eligible, manifest_load_order, _log)
     else:
         _log("Resolving load order with dependency sorting ...")
-        ordered = resolve_load_order(enabled, eligible)
+        ordered = resolve_load_order(enabled, eligible, _log)
+    ordered_uuids = {info.uuid for info in ordered}
+    ordered = [info for info in preserved
+               if info.uuid in eligible and info.uuid not in ordered_uuids] + ordered
 
     # Adventure (custom campaign) mods replace the stock campaign entry at
     # the top of modsettings rather than appearing as regular mod entries.
@@ -854,7 +982,7 @@ def write_modsettings(
     # Build the set of UUIDs that are known to exist (installed mods +
     # base-game engine modules).  Scanning the game's Data/ directory
     # catches patch, DLC, and hotfix modules that ship with the game.
-    all_uuids = set(mod_infos.keys()) | _SYSTEM_UUIDS
+    all_uuids = set(combined_infos.keys()) | _SYSTEM_UUIDS
     if game_data_path is not None:
         _log("Scanning game Data/ for base-game module UUIDs ...")
         game_uuids = scan_game_data_uuids(game_data_path)
@@ -869,8 +997,7 @@ def write_modsettings(
 
     xml = build_modsettings_xml(ordered, patch_version=patch_version,
                                 campaign=campaign_mod)
-    modsettings_path.parent.mkdir(parents=True, exist_ok=True)
-    modsettings_path.write_text(xml, encoding="utf-8")
+    write_atomic_text(modsettings_path, xml)
 
     _log(f"Wrote modsettings.lsx with {len(ordered)} mod(s).")
     return len(ordered)
@@ -884,7 +1011,6 @@ def write_vanilla_modsettings(
     """Write a clean modsettings.lsx with only the campaign entry."""
     _log = _safe_log(log_fn)
     xml = build_modsettings_xml([], patch_version=patch_version)
-    modsettings_path.parent.mkdir(parents=True, exist_ok=True)
-    modsettings_path.write_text(xml, encoding="utf-8")
+    write_atomic_text(modsettings_path, xml)
     campaign_name = _campaign_entry(patch_version)["Name"]
     _log(f"Reset modsettings.lsx to vanilla ({campaign_name} only, patch {patch_version}).")

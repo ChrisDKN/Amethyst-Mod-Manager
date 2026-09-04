@@ -1188,6 +1188,8 @@ def run_collection_install(
                 pmeta.category_name = mod.category_name
             pmeta.file_category = getattr(mod, "resolved_file_category", "") or ""
             pmeta.collection_source_file_id = int(mod.file_id or 0)
+            pmeta.collection_install_type = schema_file_id_to_install_type.get(
+                mod.file_id, "")
             # Manifest category name (details.category) - the only source, as
             # the GraphQL mod list omits categories. Applied when the mod
             # object itself carries none.
@@ -2187,6 +2189,8 @@ def _process_deferred(
                 pmeta.category_name = mod.category_name
             pmeta.file_category = getattr(mod, "resolved_file_category", "") or ""
             pmeta.collection_source_file_id = int(mod.file_id or 0)
+            pmeta.collection_install_type = schema_file_id_to_install_type.get(
+                mod.file_id, "")
             _schema_cat = schema_file_id_to_category.get(mod.file_id, "")
             if _schema_cat and not pmeta.category_name:
                 pmeta.category_name = _schema_cat
@@ -3181,6 +3185,11 @@ def _install_bundled_assets(game, api, profile_dir, staging_path, collection_sch
                     general = {
                         "modname": bm_name, "installationfile": file_expr,
                         "fromCollection": _slug, "fromCollectionBundled": "true"}
+                    _bm_type = ((bm.get("details") or {}).get("type") or "").strip()
+                    if _bm_type:
+                        general["collectionInstallType"] = _bm_type
+                        if _bm_type.lower() == "dinput":
+                            general["rootFolder"] = "true"
                     if revision_number is not None:
                         general["fromCollectionRevision"] = str(int(revision_number))
                     if bm.get("optional"):
@@ -3363,7 +3372,7 @@ def _install_bundled_from_extracted(archive_root, modlist_path, staging_path,
     # fileExpression/name → (optional, phase) from the archive's own manifest,
     # so bundled meta.ini gets the same collectionOptional/collectionPhase
     # stamps as Nexus-sourced mods.
-    bundle_flags: "dict[str, tuple[bool, int]]" = {}
+    bundle_flags: "dict[str, tuple[bool, int, str]]" = {}
     try:
         cj = json.loads((archive_root / "collection.json").read_text(encoding="utf-8"))
         for m in cj.get("mods") or []:
@@ -3374,7 +3383,8 @@ def _install_bundled_from_extracted(archive_root, modlist_path, staging_path,
                 _ph = int(m.get("phase") or 0)
             except (TypeError, ValueError):
                 _ph = 0
-            flags = (bool(m.get("optional")), _ph)
+            _install_type = ((m.get("details") or {}).get("type") or "").strip()
+            flags = (bool(m.get("optional")), _ph, _install_type)
             for key in (src.get("fileExpression"), m.get("name")):
                 if key:
                     bundle_flags.setdefault(str(key).lower(), flags)
@@ -3403,11 +3413,16 @@ def _install_bundled_from_extracted(archive_root, modlist_path, staging_path,
                    "fromCollection": slug, "fromCollectionBundled": "true"}
         if rev_str:
             general["fromCollectionRevision"] = rev_str
-        _opt, _ph = bundle_flags.get(raw_name.lower(), (False, 0))
+        _opt, _ph, _install_type = bundle_flags.get(
+            raw_name.lower(), (False, 0, ""))
         if _opt:
             general["collectionOptional"] = "true"
         if _ph:
             general["collectionPhase"] = str(_ph)
+        if _install_type:
+            general["collectionInstallType"] = _install_type
+            if _install_type.lower() == "dinput":
+                general["rootFolder"] = "true"
         cp["General"] = general
         try:
             with open(dest / "meta.ini", "w", encoding="utf-8") as mf:

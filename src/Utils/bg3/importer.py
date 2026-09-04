@@ -58,7 +58,7 @@ def parse_order_json(path: Path) -> list[tuple[str, str]]:
             elif kl == "name" and isinstance(v, str):
                 name = v.strip()
         if uuid:
-            result.append((uuid, name))
+            result.append((uuid.lower(), name))
     return result
 
 
@@ -107,7 +107,7 @@ def parse_modsettings_lsx(path: Path) -> list[tuple[str, str]]:
     for node in scope.iter("node"):
         if node.get("id") != "ModuleShortDesc":
             continue
-        uuid = _lsx_attr(node, "UUID")
+        uuid = _lsx_attr(node, "UUID").lower()
         if not uuid or uuid in _SYSTEM_UUIDS:
             continue
         key = uuid.casefold()
@@ -224,6 +224,7 @@ def plan_reorder(
     uuid_pos: dict[str, int] = {}
     name_pos: dict[str, int] = {}
     for i, (uuid, name) in enumerate(order_uuids):
+        uuid = uuid.lower()
         if uuid and uuid not in uuid_pos:
             uuid_pos[uuid] = i
         if name and name.casefold() not in name_pos:
@@ -247,6 +248,7 @@ def plan_reorder(
     placed_names = {n.casefold() for n in ordered_names}
     missing: list[tuple[str, str]] = []
     for uuid, name in order_uuids:
+        uuid = uuid.lower()
         if uuid in placed_uuids:
             continue
         if name and name.casefold() in placed_names:

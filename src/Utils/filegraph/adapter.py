@@ -143,6 +143,7 @@ class GameCandidateAdapter:
         self._top_level_exempt: set[str] = set()
         self._normalize_folder_case = True
         self._per_mod_deploy: dict[str, Path] = {}
+        self._handler_mod_deploy: dict[str, tuple] = {}
         self._raw_route_mods: set[str] = set()
         self._rules_hash_cache: bytes | None = None
         self._refresh_profile_rules()
@@ -192,6 +193,22 @@ class GameCandidateAdapter:
         except Exception:
             self._per_mod_deploy = {}
             self._raw_route_mods = set()
+            entries = []
+        try:
+            if not entries:
+                from Utils.mods.modlist import read_modlist
+                entries = read_modlist(self.profile_dir / "modlist.txt")
+            hook = getattr(self.game, "mod_deploy_specs", None)
+            self._handler_mod_deploy = (
+                dict(hook(self.profile_dir, self.staging,
+                          [e.name for e in entries if not e.is_separator]) or {})
+                if callable(hook) else {}
+            )
+            for name in self._per_mod_deploy:
+                self._handler_mod_deploy.pop(name, None)
+        except Exception as exc:
+            self.log(f"Handler destination scan warning: {exc}")
+            self._handler_mod_deploy = {}
         self._top_level_exempt = self._top_level_exempt_mods()
         try:
             from Utils.ui.config import load_normalize_folder_case
@@ -237,6 +254,7 @@ class GameCandidateAdapter:
             "excluded": self._raw_excluded,
             "per_mod_strips": self._per_mod_strips,
             "per_mod_deploy": self._per_mod_deploy,
+            "handler_mod_deploy": self._handler_mod_deploy,
             "raw_route_mods": sorted(self._raw_route_mods),
         }
         self._rules_hash_cache = _hash_payload(relevant)
@@ -249,6 +267,7 @@ class GameCandidateAdapter:
             "root": mod_name in self._root_mods,
             "root_files": sorted(self._raw_root_files.get(mod_name, ())),
             "excluded": sorted(self._raw_excluded.get(mod_name, ())),
+            "handler_mod_deploy": self._handler_mod_deploy.get(mod_name),
         }
         return _hash_payload(per_mod).hex()
 
@@ -381,6 +400,22 @@ class GameCandidateAdapter:
             }
             if allowed and routed_lower.split("/", 1)[0] not in allowed:
                 return False
+        handler_spec = self._handler_mod_deploy.get(mod_name)
+        if handler_spec is not None:
+            allowed_extensions = tuple(
+                str(item).casefold() for item in
+                (handler_spec[2] if len(handler_spec) > 2 else ()))
+            if (allowed_extensions
+                    and not filename.endswith(allowed_extensions)):
+                return False
+        allow_default = getattr(self.game, "filegraph_allow_default_path", None)
+        if (handler_spec is None
+                and mod_name not in self._root_mods
+                and raw_lower not in self._raw_root_files.get(mod_name, ())
+                and mod_name not in self._per_mod_deploy
+                and callable(allow_default)
+                and not allow_default(mod_name, routed_rel)):
+            return False
         return True
 
     def _default_domain(self) -> tuple[str, str]:
@@ -488,6 +523,44 @@ class GameCandidateAdapter:
                         )
                         for to_prefix, destination in destinations
                     ]
+
+        handler_spec = self._handler_mod_deploy.get(mod_name)
+        if handler_spec is not None:
+            handler_root, leading_folders = handler_spec[:2]
+            flatten = bool(handler_spec[3]) if len(handler_spec) > 3 else False
+            handler_path = Path(handler_root).expanduser().resolve(strict=False)
+            handler_target = "custom:" + str(handler_path)
+            handler_prefix = ""
+            try:
+                game_root = self.game.get_game_path()
+                if game_root is not None:
+                    relative_root = handler_path.relative_to(
+                        Path(game_root).expanduser().resolve(strict=False))
+                    handler_target = "game"
+                    handler_prefix = (
+                        "" if relative_root == Path(".")
+                        else relative_root.as_posix())
+            except (AttributeError, OSError, ValueError):
+                pass
+            prefixes = {
+                str(item).replace("\\", "/").strip("/").casefold()
+                for item in leading_folders
+                if str(item).replace("\\", "/").strip("/")
+            }
+            for path in normal:
+                key = path.lower()
+                if key in out:
+                    continue
+                relative = path.replace("\\", "/").strip("/")
+                head, separator, tail = relative.partition("/")
+                if separator and head.casefold() in prefixes:
+                    relative = tail
+                if flatten:
+                    relative = relative.rsplit("/", 1)[-1]
+                destination = self._join(handler_prefix, relative)
+                out[key] = [_Route(
+                    handler_target, _wire_path(destination), destination,
+                    relative, deploy_remap=False)]
 
         # BG3's primary .pak deployment is the Larian Mods folder and flattened.
         # That folder can physically sit below the configured game root when a

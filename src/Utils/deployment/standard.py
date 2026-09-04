@@ -595,8 +595,8 @@ def deploy_filemap(
                      reporting one combined preparation + transfer counter.
                      Legacy two-argument callbacks remain supported.
     flatten_extensions - lowercase extensions whose files are placed flat at
-                     the top of the deploy dir (basename only), regardless of
-                     their staging subfolder.  BG3 passes {".pak"} because the
+                     the top of the normal deploy dir (basename only), regardless
+                     of their staging subfolder.  BG3 passes {".pak"} because the
                      game only loads paks at the top level of the Mods folder.
     per_mod_subdirs - optional mapping of mod name to one destination folder
                      below deploy_dir.  Applied only to the normal deploy_dir,
@@ -675,13 +675,12 @@ def deploy_filemap(
     _per_mode = _per_mode or {}
     overwrite_dir = staging_root.parent / "overwrite"
 
-    already_seen: set[str] = set()
     # Prefix remaps, flattening, and package subdirectories can make distinct
     # filemap paths converge on one destination. Keep the first effective
     # winner for each actual target, without conflating explicit separator
     # targets that happen to use the same relative path.
     already_seen_dst: set[tuple[str, str]] = set()
-    tasks: list[tuple[Path, Path, str]] = []
+    tasks: list[tuple[str, str, str, bool, bool, LinkMode | None]] = []
     placed_lower: set[str] = set()
     _exclude: set[str] = exclude or set()
     _excluded_plan_keys: set[str] = set()
@@ -773,9 +772,6 @@ def deploy_filemap(
             _log(f"  WARN: skipping suspicious filemap entry - rel={rel_str!r} mod={mod_name!r}")
             continue
         rel_lower = rel_str.lower()
-        if rel_lower in already_seen:
-            continue
-        already_seen.add(rel_lower)
         if rel_lower in _exclude:
             # Keep the incremental Data projection aligned with the standard
             # handler. Custom routing may place a file back *under* Data at a
@@ -815,20 +811,14 @@ def deploy_filemap(
                 break
         dst_rel_lower = dst_rel.lower()
 
-        # Flatten matching files to the top of the deploy dir. Source
-        # resolution above used the original rel path; only the destination
-        # changes. Collisions on the flattened name keep the first entry.
-        if _flatten_exts is not None and "/" in rel_str \
-                and os.path.splitext(rel_str)[1].lower() in _flatten_exts:
+        effective_dir = _per_deploy.get(mod_name, deploy_dir)
+        # Per-mod locations are explicit destinations and retain their layout.
+        if (effective_dir is deploy_dir and _flatten_exts is not None
+                and "/" in rel_str
+                and os.path.splitext(rel_str)[1].lower() in _flatten_exts):
             dst_rel = rel_str.rsplit("/", 1)[1]
             dst_rel_lower = dst_rel.lower()
-            if dst_rel_lower in already_seen:
-                _log(f"  WARN: flattened name collision - skipping "
-                     f"{rel_str} ({mod_name})")
-                continue
-            already_seen.add(dst_rel_lower)
 
-        effective_dir = _per_deploy.get(mod_name, deploy_dir)
         # r2modman installs each Thunderstore plugin package below its full,
         # versionless package ID (e.g. RiskofThunder-RoR2BepInExPack). Apart
         # from preventing package collisions, that keeps current payloads away
@@ -978,11 +968,9 @@ def deploy_filemap(
     _custom_backup_dir = filemap_path.parent / "custom_deploy_backup"
     _custom_log_path   = filemap_path.parent / "custom_deploy_log.txt"
 
-    # Self-heal: a leftover custom_deploy_log.txt means the previous deploy
-    # was never restored (crashed or failed restore).  Restore it now -
-    # otherwise the rmtree below would destroy the backed-up originals.
-    if _custom_log_path.is_file():
-        _log("  Previous custom-deploy log still present - restoring it before redeploying.")
+    # Self-heal incomplete custom placement before clearing its backups.
+    if _custom_log_path.is_file() or _custom_backup_dir.is_dir():
+        _log("  Previous custom-deploy state found - restoring it before redeploying.")
         from Utils.deployment.shared import cleanup_custom_deploy_dirs
         cleanup_custom_deploy_dirs(
             filemap_path.parent, [], log_fn=log_fn, filemap_path=filemap_path,
@@ -1149,7 +1137,8 @@ def deploy_filemap(
         kept_tasks: list[tuple[str, str, str, bool, bool, "LinkMode | None"]] = []
         for t in tasks:
             if _under_symlinked(t[1]):
-                placed_lower.add(t[2])
+                if not t[3]:
+                    placed_lower.add(t[2])
             else:
                 kept_tasks.append(t)
         tasks = kept_tasks
@@ -1246,11 +1235,19 @@ def deploy_filemap(
 
     linked = 0
     done_count = 0
+    custom_deployed: list[str] = []
     fallback_before = _fallback_snapshot()
 
     _stats_plen = len(_deploy_dir_str) + 1
 
-    def _do_transfer(item: tuple[str, str, str, bool, bool, "LinkMode | None"]) -> tuple[str | None, "LinkMode | None", tuple[str, OSError] | None, str | None]:
+    def _do_transfer(
+        item: tuple[str, str, str, bool, bool, LinkMode | None],
+    ) -> tuple[
+        tuple[str, bool, str] | None,
+        LinkMode | None,
+        tuple[str, OSError] | None,
+        str | None,
+    ]:
         src, dst, rel_lower, _is_custom, use_symlink, override_mode = item
         if use_symlink:
             effective_mode = LinkMode.SYMLINK
@@ -1274,7 +1271,7 @@ def deploy_filemap(
                                       f"\t{_dst_st.st_mtime_ns}\n")
                 except OSError:
                     pass
-            return rel_lower, actual, None, stats_line
+            return (rel_lower, _is_custom, dst), actual, None, stats_line
         return None, None, (dst, err), None
 
     # Per-mode tally so we can report when files were copied/symlinked instead
@@ -1292,7 +1289,11 @@ def deploy_filemap(
             _do_transfer, tasks, stop_on=_transfer_fatal):
         done_count += 1
         if result is not None:
-            placed_lower.add(result)
+            rel_lower, is_custom, destination = result
+            if is_custom:
+                custom_deployed.append(destination)
+            else:
+                placed_lower.add(rel_lower)
             linked += 1
             if actual is not None:
                 mode_counts[actual] = mode_counts.get(actual, 0) + 1
@@ -1330,11 +1331,6 @@ def deploy_filemap(
     # Write a log of files placed in custom locations so cleanup knows what to
     # remove.  Each line is the absolute path of a deployed file (or a
     # directory symlink we created via the dir-symlink pass).
-    custom_deployed = [
-        dst
-        for _src, dst, rel_lower, is_custom, _use_sym, _ov in tasks
-        if is_custom and rel_lower in placed_lower
-    ]
     custom_deployed.extend(_dir_symlink_log)
     _write_custom_log(custom_deployed)
 

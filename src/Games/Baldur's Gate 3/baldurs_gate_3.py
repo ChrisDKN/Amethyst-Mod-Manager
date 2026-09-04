@@ -8,16 +8,14 @@ Mod structure:
     - Proton prefix:  <prefix>/drive_c/users/steamuser/AppData/Local/
                       Larian Studios/Baldur's Gate 3/Mods/
     - Native Linux:   ~/.local/share/Larian Studios/Baldur's Gate 3/Mods/
-  The prefix is preferred when configured; otherwise the native Linux
-  root is used if it exists.
+  The configured runtime explicitly selects the Proton or native Linux root.
   Staged mods live in Profiles/Baldur's Gate 3/mods/
 
   Custom routing rules send loose-mod folders (Generated/, Public/, Mods/,
   etc.) to the game's Data directory and bin/ files to the install root;
   .pak files are excluded from the Mods-folder routing rule and instead
   deploy flat at the top of the Larian AppData Mods folder, the only place
-  the game loads them from.  Remaining files (readmes, images, ...) deploy
-  alongside them and are harmless.
+  the game loads them from. Unclaimed non-pak files remain in staging.
 
   After deploying .pak files, modsettings.lsx is generated automatically so
   BG3 recognises the installed mods.  Mod load order follows the modlist
@@ -26,7 +24,10 @@ Mod structure:
   GustavX campaign entry; pure override paks stay out of the load order.
 """
 
+import hashlib
 import json
+import os
+import uuid
 from pathlib import Path
 
 from Games.base_game import BaseGame, WizardTool
@@ -39,7 +40,8 @@ from Utils.deployment import (
 )
 from Utils.mods.modlist import read_modlist
 from Utils.config_paths import get_profiles_dir
-from Utils.bg3.modsettings import write_modsettings, write_vanilla_modsettings
+from Utils.bg3.modsettings import write_modsettings
+from Utils.atomic_write import write_atomic, write_atomic_text
 
 _PROFILES_DIR = get_profiles_dir()
 
@@ -56,6 +58,154 @@ _NATIVE_LARIAN_ROOT = (
 # Subpaths within the Larian root
 _MODS_REL = Path("Mods")
 _MODSETTINGS_REL = Path("PlayerProfiles/Public/modsettings.lsx")
+_MODSETTINGS_BACKUP = "bg3_modsettings_original.lsx"
+_MODSETTINGS_STATE = "bg3_modsettings_state.json"
+
+_COLLECTION_DATA_TYPES = {"bg3-loose", "bg3-replacer"}
+_COLLECTION_NO_LOAD_ORDER_TYPES = {
+    "bg3-lslib-divine-tool", "bg3-bg3se", "bg3-replacer", "bg3-loose",
+    "dinput",
+}
+
+
+def _digest(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def _replace_with_symlink(path: Path, link_target: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.amethyst-{uuid.uuid4().hex}")
+    try:
+        temporary.symlink_to(link_target)
+        temporary.replace(path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _read_modsettings_state(profile_dir: Path) -> dict | None:
+    try:
+        data = json.loads(
+            (profile_dir / _MODSETTINGS_STATE).read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) and data.get("version") == 1 else None
+    except (OSError, ValueError):
+        return None
+
+
+def _backup_modsettings(
+    profile_dir: Path, modsettings: Path, log_fn,
+) -> Path | None:
+    state_path = profile_dir / _MODSETTINGS_STATE
+    backup_path = profile_dir / _MODSETTINGS_BACKUP
+    state = _read_modsettings_state(profile_dir)
+    if state is not None:
+        if state.get("had_original") and not backup_path.is_file():
+            raise RuntimeError(
+                "BG3 modsettings restore state exists but its original backup is missing.")
+        if (state.get("had_original")
+                and state.get("original_sha256")
+                and _digest(backup_path.read_bytes())
+                != state["original_sha256"]):
+            raise RuntimeError(
+                "BG3 modsettings original backup failed its integrity check.")
+        return backup_path if state.get("had_original") else None
+    if state_path.exists():
+        raise RuntimeError(
+            "BG3 modsettings restore state is unreadable; refusing to replace it.")
+
+    if modsettings.is_symlink() and not modsettings.is_file():
+        raise RuntimeError(
+            "BG3 modsettings.lsx is a dangling symlink; refusing to replace it.")
+    original_symlink = os.readlink(modsettings) if modsettings.is_symlink() else ""
+    original = modsettings.read_bytes() if modsettings.is_file() else None
+    if original is not None:
+        write_atomic(backup_path, original)
+    state = {
+        "version": 1,
+        "target": str(modsettings),
+        "had_original": original is not None,
+        "original_symlink": original_symlink,
+        "original_sha256": _digest(original) if original is not None else "",
+        "generated_sha256": "",
+    }
+    write_atomic_text(state_path, json.dumps(state, indent=2))
+    log_fn("  Preserved the existing modsettings.lsx for exact restore.")
+    return backup_path if original is not None else None
+
+
+def _record_generated_modsettings(profile_dir: Path, modsettings: Path) -> None:
+    state = _read_modsettings_state(profile_dir)
+    if state is None or not modsettings.is_file():
+        return
+    state["generated_sha256"] = _digest(modsettings.read_bytes())
+    write_atomic_text(
+        profile_dir / _MODSETTINGS_STATE, json.dumps(state, indent=2))
+
+
+def _restore_modsettings(profile_dir: Path, fallback: Path | None, log_fn) -> bool:
+    state = _read_modsettings_state(profile_dir)
+    if state is None:
+        if (profile_dir / _MODSETTINGS_STATE).exists():
+            log_fn("  WARN: BG3 modsettings restore state is unreadable; "
+                   "managed files were retained.")
+        return False
+    target = Path(state.get("target") or fallback or "")
+    suffix = _MODSETTINGS_REL.parts
+    if not target.parts or tuple(target.parts[-len(suffix):]) != suffix:
+        log_fn("  WARN: invalid BG3 modsettings restore target; backup retained.")
+        return False
+    if (fallback is None
+            or os.path.abspath(os.fspath(target))
+            != os.path.abspath(os.fspath(fallback))):
+        log_fn("  WARN: BG3 modsettings restore target does not match the "
+               "selected runtime; backup retained.")
+        return False
+
+    backup_path = profile_dir / _MODSETTINGS_BACKUP
+    generated_hash = state.get("generated_sha256") or ""
+    original_hash = state.get("original_sha256") or ""
+    original: bytes | None = None
+    if state.get("had_original"):
+        try:
+            original = backup_path.read_bytes()
+        except OSError:
+            log_fn("  WARN: BG3 modsettings backup is missing or unreadable; "
+                   "restore remains retryable.")
+            return False
+        if original_hash and _digest(original) != original_hash:
+            log_fn("  WARN: BG3 modsettings backup failed its integrity check; "
+                   "restore remains retryable.")
+            return False
+
+    current = target.read_bytes() if target.is_file() else None
+    if (current is not None
+            and (not generated_hash or _digest(current) != generated_hash)
+            and _digest(current) != original_hash):
+        recovery = profile_dir / "bg3_modsettings_runtime.lsx"
+        index = 1
+        while recovery.exists():
+            recovery = profile_dir / f"bg3_modsettings_runtime.{index}.lsx"
+            index += 1
+        write_atomic(recovery, current)
+        log_fn(f"  Preserved runtime-modified modsettings at {recovery}.")
+
+    try:
+        if state.get("had_original"):
+            original_symlink = state.get("original_symlink") or ""
+            if original_symlink:
+                _replace_with_symlink(target, original_symlink)
+            else:
+                write_atomic(target, original if original is not None else b"")
+            log_fn("  Restored the original modsettings.lsx.")
+        elif target.exists() or target.is_symlink():
+            target.unlink()
+            log_fn("  Removed the manager-generated modsettings.lsx.")
+        state_path = profile_dir / _MODSETTINGS_STATE
+        state_path.unlink(missing_ok=True)
+        backup_path.unlink(missing_ok=True)
+        return True
+    except OSError as exc:
+        log_fn(f"  WARN: could not restore BG3 modsettings: {exc}")
+        return False
 
 
 def _suppress_launcher_mod_warnings(larian_root: Path, log_fn=None) -> None:
@@ -82,7 +232,7 @@ def _suppress_launcher_mod_warnings(larian_root: Path, log_fn=None) -> None:
         if all(data.get(k) == v for k, v in desired.items()):
             return
         data.update(desired)
-        prefs.write_text(json.dumps(data, indent=4), encoding="utf-8")
+        write_atomic_text(prefs, json.dumps(data, indent=4))
         _log(f"  Suppressed Larian launcher mod warnings ({prefs}).")
     except (OSError, ValueError) as exc:
         _log(f"  Note: could not update launcher preferences: {exc}")
@@ -92,7 +242,7 @@ class BaldursGate3(BaseGame):
 
     # patch_version is a configured option, so make it per-profile (stored as a
     # paths.json extra via _load/_save_paths_extra).
-    profile_overridable_paths_extras = ("patch_version",)
+    profile_overridable_paths_extras = ("patch_version", "runtime_mode")
 
     # Unlike an ordinary subfolder-deploy game, BG3 has two meaningful output
     # roots: loose/root-routed files go into the install while normal packages
@@ -107,6 +257,7 @@ class BaldursGate3(BaseGame):
         self._deploy_mode: LinkMode = LinkMode.HARDLINK
         self._staging_path: Path | None = None
         self._patch_version: int = 8
+        self._runtime_mode: str = "auto"
         self.load_paths()
 
     # -----------------------------------------------------------------------
@@ -132,7 +283,15 @@ class BaldursGate3(BaseGame):
     @property
     def exe_name_alts(self) -> list[str]:
         # Native Linux build ships a bare ELF binary at bin/bg3
-        return ["bin/bg3"]
+        return ["bin/bg3_dx11.exe", "bin/bg3"]
+
+    @property
+    def configure_exe_names(self) -> list[str]:
+        return ["bin/bg3", "bin/bg3.exe", "bin/bg3_dx11.exe"]
+
+    @property
+    def preferred_launch_exe(self) -> str:
+        return "bin/bg3" if self._runtime_mode == "native" else ""
 
     @property
     def steam_id(self) -> str:
@@ -157,7 +316,8 @@ class BaldursGate3(BaseGame):
 
     @property
     def mod_required_top_level_folders(self) -> set[str]:
-        return {"data","bin","generated","public","video","mods"}
+        return {"data", "bin", "generated", "public", "video", "mods",
+                "nativemods"}
     
     @property
     def mod_required_file_types(self) -> set[str]:
@@ -174,19 +334,127 @@ class BaldursGate3(BaseGame):
     @property
     def custom_routing_rules(self) -> list:
         return [
-            CustomRule(dest="Data", folders=["generated"], flatten=True),
-            CustomRule(dest="Data", folders=["public"], flatten=True),
-            CustomRule(dest="Data", folders=["video"], flatten=True),
+            CustomRule(dest="Data", folders=["Generated"], flatten=True),
+            CustomRule(dest="Data", folders=["Public"], flatten=True),
+            CustomRule(dest="Data", folders=["Video"], flatten=True),
             # Loose files under Mods/ (unpacked mods) go to game Data/Mods,
             # but .pak files under Mods/ must reach the Larian AppData Mods
             # folder via the normal deploy (a common Nexus packaging layout).
-            CustomRule(dest="Data", folders=["mods"], flatten=True,
+            CustomRule(dest="Data", folders=["Mods"], flatten=True,
                        exclude_extensions=[".pak"]),
             CustomRule(dest="Data", folders=["Cursors"], flatten=True),
-            CustomRule(dest="bin", filenames=["DWrite.dll"], flatten=True),
+            CustomRule(dest="bin", folders=["NativeMods"], flatten=True),
+            CustomRule(dest="bin",
+                       filenames=["DWrite.dll", "ScriptExtenderSettings.json"],
+                       flatten=True),
             CustomRule(dest="", folders=["bin"], flatten=True),
-            CustomRule(dest="", folders=["data"], flatten=True),
+            CustomRule(dest="", folders=["Data"], flatten=True),
         ]
+
+    def _collection_install_types(
+        self, profile_dir: Path, staging: Path, mod_names: list[str],
+    ) -> dict[str, str]:
+        from Nexus.nexus_meta import read_meta
+
+        manifest_types: dict[int, str] = {}
+        manifest_named_types: dict[str, str] = {}
+        collection_json = profile_dir / "collection.json"
+        if collection_json.is_file():
+            try:
+                payload = json.loads(collection_json.read_text(encoding="utf-8"))
+                for item in payload.get("mods") or ():
+                    if not isinstance(item, dict):
+                        continue
+                    source = item.get("source") or {}
+                    if not isinstance(source, dict):
+                        source = {}
+                    details = item.get("details") or {}
+                    if not isinstance(details, dict):
+                        details = {}
+                    file_id = source.get("fileId")
+                    install_type = str(details.get("type") or "").strip().lower()
+                    if file_id is not None and install_type:
+                        try:
+                            manifest_types[int(file_id)] = install_type
+                        except (TypeError, ValueError):
+                            pass
+                    if install_type:
+                        for value in (
+                                item.get("name"), source.get("fileExpression"),
+                                source.get("logicalFilename")):
+                            if value:
+                                manifest_named_types[
+                                    str(value).strip().casefold()] = install_type
+            except (AttributeError, OSError, TypeError, json.JSONDecodeError):
+                pass
+
+        result: dict[str, str] = {}
+        for name in mod_names:
+            try:
+                meta = read_meta(staging / name / "meta.ini")
+            except Exception:
+                continue
+            install_type = (meta.collection_install_type or "").strip().lower()
+            if not install_type and meta.collection_source_file_id:
+                install_type = manifest_types.get(meta.collection_source_file_id, "")
+            if not install_type:
+                for value in (meta.installation_file, meta.nexus_name, name):
+                    install_type = manifest_named_types.get(
+                        str(value or "").strip().casefold(), "")
+                    if install_type:
+                        break
+            if install_type:
+                result[name] = install_type
+        return result
+
+    def mod_deploy_specs(
+        self, profile_dir: Path, staging: Path, mod_names: list[str],
+    ) -> dict[str, tuple[Path, tuple[str, ...], tuple[str, ...], bool]]:
+        if self._game_path is None:
+            return {}
+        types = self._collection_install_types(profile_dir, staging, mod_names)
+        specs: dict[str, tuple[Path, tuple[str, ...], tuple[str, ...], bool]] = {}
+        for name, install_type in types.items():
+            if install_type in _COLLECTION_DATA_TYPES:
+                specs[name] = (self._game_path / "Data", ("Data",), (), False)
+            elif install_type == "bg3-bg3se":
+                specs[name] = (
+                    self._game_path / "bin", ("bin",), (".dll",), True)
+        return specs
+
+    def filegraph_allow_default_path(self, _mod_name: str, path: str) -> bool:
+        normalized = path.replace("\\", "/").lower()
+        filename = normalized.rsplit("/", 1)[-1]
+        if filename.endswith(".pak") or filename in {
+                "dwrite.dll", "scriptextendersettings.json"}:
+            return True
+        routed_folders = {
+            "generated", "public", "video", "mods", "cursors", "nativemods",
+            "bin", "data",
+        }
+        return any(part in routed_folders for part in normalized.split("/")[:-1])
+
+    def _deployed_larian_paks(
+        self, mods_dir: Path, placed: set[str],
+    ) -> tuple[set[tuple[str, str]], set[str]]:
+        from Utils.filegraph.deploy import absolute_destination, entries
+
+        deployed: set[tuple[str, str]] = set()
+        names: set[str] = set()
+        mods_key = str(mods_dir.resolve(strict=False)).casefold()
+        for entry in entries():
+            destination = absolute_destination(self, entry)
+            if destination is None or destination.suffix.lower() != ".pak":
+                continue
+            if str(destination.parent.resolve(strict=False)).casefold() != mods_key:
+                continue
+            if destination.name.casefold() not in placed:
+                continue
+            source = (entry.source_display or os.fsdecode(entry.source_rel))
+            deployed.add((entry.mod_name,
+                          source.replace("\\", "/").casefold()))
+            names.add(destination.name.casefold())
+        return deployed, names
     
     @property
     def plugin_extensions(self) -> list[str]:
@@ -202,6 +470,8 @@ class BaldursGate3(BaseGame):
     
     @property
     def frameworks(self) -> dict[str, str]:
+        if self._runtime_mode == "native":
+            return {}
         return {
                 "Script Extender": "bin/DWrite.dll",
                 "Native Mod Loader":"bin/bink2w64_original.dll"
@@ -209,7 +479,8 @@ class BaldursGate3(BaseGame):
 
     @property
     def wine_dll_overrides(self) -> dict[str, str]:
-        return {"DWrite": "native,builtin"}
+        return ({"DWrite": "native,builtin"}
+                if self._runtime_mode != "native" else {})
 
     @property
     def pak_uuid_conflicts(self) -> bool:
@@ -229,7 +500,12 @@ class BaldursGate3(BaseGame):
         return self._game_path
 
     def _larian_root(self) -> Path | None:
-        """Return the Larian data root, preferring Proton prefix, then native Linux."""
+        """Return the Larian data root for the selected runtime."""
+        if self._runtime_mode == "proton":
+            return (self._prefix_path / _PREFIX_LARIAN_SUBPATH
+                    if self._prefix_path is not None else None)
+        if self._runtime_mode == "native":
+            return _NATIVE_LARIAN_ROOT if _NATIVE_LARIAN_ROOT.is_dir() else None
         if self._prefix_path is not None:
             return self._prefix_path / _PREFIX_LARIAN_SUBPATH
         if _NATIVE_LARIAN_ROOT.is_dir():
@@ -247,7 +523,7 @@ class BaldursGate3(BaseGame):
         return _PROFILES_DIR / self.name / "mods"
 
     def get_hardlink_deploy_targets(self) -> list[tuple[str, "Path | None"]]:
-        if self._prefix_path is None and _NATIVE_LARIAN_ROOT.is_dir():
+        if self._runtime_mode == "native":
             data_target: Path | None = _NATIVE_LARIAN_ROOT
             label = "Larian data (native Linux)"
         else:
@@ -262,24 +538,77 @@ class BaldursGate3(BaseGame):
     # Configuration persistence
     # -----------------------------------------------------------------------
 
-    # load_paths / save_paths are inherited from BaseGame (profile-aware).
-    # patch_version is persisted via the _load/_save_paths_extra hooks.
+    def load_paths(self) -> bool:
+        self._runtime_mode = "auto"
+        loaded = super().load_paths()
+        if self._runtime_mode == "auto":
+            self._runtime_mode = self._infer_runtime_mode()
+        if self._runtime_mode == "native":
+            self._prefix_path = None
+            self._prefix_path_cleared = True
+        return loaded
+
     def _load_paths_extra(self, data: dict) -> None:
         try:
             pv = int(data.get("patch_version", 8))
         except (TypeError, ValueError):
             pv = 8
         self._patch_version = pv if pv in (6, 7, 8) else 8
+        runtime = str(data.get("runtime_mode") or "").strip().lower()
+        self._runtime_mode = runtime if runtime in ("native", "proton") else "auto"
 
     def _save_paths_extra(self) -> dict:
-        return {"patch_version": self._patch_version}
+        return {
+            "patch_version": self._patch_version,
+            "runtime_mode": self._runtime_mode,
+        }
 
-    # When the native Linux Larian build is present there is no Proton prefix to
-    # look up; otherwise fall back to the standard steam_id lookup.
+    def _infer_runtime_mode(self, game_path: Path | None = None) -> str:
+        path = Path(game_path) if game_path is not None else self._game_path
+        native = bool(path and (path / "bin/bg3").is_file())
+        windows = bool(path and (
+            (path / "bin/bg3.exe").is_file()
+            or (path / "bin/bg3_dx11.exe").is_file()))
+        if native and not windows:
+            return "native"
+        if windows and not native:
+            return "proton"
+        if native and windows and self._runtime_mode in ("native", "proton"):
+            return self._runtime_mode
+        if self._prefix_path is not None:
+            return "proton"
+        return "native" if native and _NATIVE_LARIAN_ROOT.is_dir() else "proton"
+
+    def get_runtime_mode(self) -> str:
+        return self._runtime_mode
+
+    def set_runtime_mode(self, mode: str) -> None:
+        normalized = str(mode).strip().lower()
+        if normalized not in ("native", "proton"):
+            raise ValueError(f"Unsupported BG3 runtime: {mode}")
+        self._runtime_mode = normalized
+        if normalized == "native":
+            self._prefix_path = None
+            self._prefix_path_cleared = True
+        elif self._prefix_path is None:
+            self._prefix_path_cleared = False
+        self.save_paths()
+
     def _find_prefix_for_load(self) -> "Path | None":
-        if _NATIVE_LARIAN_ROOT.is_dir():
+        if self._runtime_mode == "native":
             return None
         return super()._find_prefix_for_load()
+
+    def set_game_path(self, path: "Path | str | None") -> None:
+        self._game_path = Path(path) if path else None
+        if self._game_path is not None:
+            self._runtime_mode = self._infer_runtime_mode(self._game_path)
+            if self._runtime_mode == "native":
+                self._prefix_path = None
+                self._prefix_path_cleared = True
+            elif self._prefix_path is None:
+                self._prefix_path_cleared = False
+        self.save_paths()
 
     def set_staging_path(self, path: "Path | str | None") -> None:
         self._staging_path = Path(path) if path else None
@@ -296,15 +625,35 @@ class BaldursGate3(BaseGame):
         self.save_paths()
 
     def set_prefix_path(self, path: Path | str | None) -> None:
+        if path:
+            self._runtime_mode = "proton"
         super().set_prefix_path(path)
 
-    def deployment_preflight_error(self) -> str | None:
-        if self._larian_root() is not None:
-            return None
-        return (
-            "No Larian data folder found. Configure the Proton prefix, or "
-            f"run the native Linux build once so {_NATIVE_LARIAN_ROOT} exists."
+    def clear_prefix_path(self) -> None:
+        self._runtime_mode = (
+            "native" if self._game_path is not None
+            and (self._game_path / "bin/bg3").is_file()
+            else "proton"
         )
+        self._prefix_path = None
+        self._prefix_path_cleared = True
+        self.save_paths()
+
+    def deployment_preflight_error(self) -> str | None:
+        if self._runtime_mode == "native":
+            if self._game_path is None or not (self._game_path / "bin/bg3").is_file():
+                return "Native Linux runtime selected, but bin/bg3 was not found."
+            if not _NATIVE_LARIAN_ROOT.is_dir():
+                return ("Run the native Linux build once so its Larian data folder "
+                        f"exists at {_NATIVE_LARIAN_ROOT}.")
+            return None
+        if self._prefix_path is None:
+            return "Windows/Proton runtime selected, but no Proton prefix is configured."
+        if self._game_path is None or not any(
+                (self._game_path / rel).is_file()
+                for rel in ("bin/bg3.exe", "bin/bg3_dx11.exe")):
+            return "Windows/Proton runtime selected, but no BG3 Windows executable was found."
+        return None
 
     def get_patch_version(self) -> int:
         return self._patch_version
@@ -321,7 +670,7 @@ class BaldursGate3(BaseGame):
 
     def deploy(self, log_fn=None, mode: LinkMode = LinkMode.HARDLINK,
                profile: str = "default", progress_fn=None) -> None:
-        """Deploy staged .pak mods into the Proton prefix Mods folder.
+        """Deploy staged BG3 mods into the selected runtime's destinations.
 
         Workflow:
           1. Move everything currently in the Mods folder → Mods_Core/
@@ -369,15 +718,33 @@ class BaldursGate3(BaseGame):
             )
 
         profile_dir = self.get_profile_root() / "profiles" / profile
+        modsettings = larian_root / _MODSETTINGS_REL
+        preserved_modsettings = _backup_modsettings(
+            profile_dir, modsettings, _log)
         per_mod_strip = load_per_mod_strip_prefixes(profile_dir)
 
         # Separator overrides - loaded from the real profile_dir and passed
         # explicitly so shared-staging layouts get the right link modes.
         _sep_deploy = load_separator_deploy_paths(profile_dir)
-        _sep_entries = read_modlist(profile_dir / "modlist.txt") if _sep_deploy else []
-        per_mod_deploy = expand_separator_deploy_paths(_sep_deploy, _sep_entries) or None
-        per_mod_modes = expand_separator_link_modes(_sep_deploy, _sep_entries) or None
-        per_mod_raw = expand_separator_raw_deploy(_sep_deploy, _sep_entries) or None
+        _entries = read_modlist(profile_dir / "modlist.txt")
+        _install_types = self._collection_install_types(
+            profile_dir, staging,
+            [entry.name for entry in _entries if not entry.is_separator])
+        _handler_deploy = self.mod_deploy_specs(
+            profile_dir, staging,
+            [entry.name for entry in _entries if not entry.is_separator])
+        _separator_deploy = expand_separator_deploy_paths(
+            _sep_deploy, _entries) if _sep_deploy else {}
+        for name in _separator_deploy:
+            _handler_deploy.pop(name, None)
+        per_mod_deploy = {
+            name: spec[0] for name, spec in _handler_deploy.items()
+        }
+        per_mod_deploy.update(_separator_deploy)
+        per_mod_deploy = per_mod_deploy or None
+        per_mod_modes = expand_separator_link_modes(_sep_deploy, _entries) or None
+        per_mod_raw = expand_separator_raw_deploy(_sep_deploy, _entries)
+        per_mod_raw = per_mod_raw or None
 
         custom_rules = self.custom_routing_rules
         custom_exclude: set[str] = set()
@@ -419,7 +786,6 @@ class BaldursGate3(BaseGame):
         linked_core = deploy_core(mods_dir, placed, mode=mode, log_fn=_log)
         _log(f"  Transferred {linked_core} vanilla file(s).")
 
-        modsettings = larian_root / _MODSETTINGS_REL
         _log(f"Step 4: Generating modsettings.lsx → {modsettings}")
         if not modsettings.parent.is_dir():
             _log(f"  Note: profile folder {modsettings.parent} does not exist "
@@ -446,13 +812,27 @@ class BaldursGate3(BaseGame):
             alt = se_dll.with_name("dwrite.dll")
             if alt.is_file():
                 se_dll = alt
+        deployed_paks, managed_pak_names = self._deployed_larian_paks(
+            mods_dir, placed)
+        excluded_mods = {
+            name for name, install_type in _install_types.items()
+            if install_type in _COLLECTION_NO_LOAD_ORDER_TYPES
+        }
         mod_count = write_modsettings(modsettings, modlist, staging,
                                       log_fn=_log,
                                       game_data_path=game_data,
                                       patch_version=self._patch_version,
                                       manifest_load_order=manifest_lo,
                                       script_extender_dll=se_dll,
-                                      overwrite_root=self.get_effective_overwrite_path())
+                                      script_extender_supported=(
+                                          self._runtime_mode != "native"),
+                                      overwrite_root=self.get_effective_overwrite_path(),
+                                      excluded_mods=excluded_mods,
+                                      deployed_paks=deployed_paks,
+                                      preserved_modsettings=preserved_modsettings,
+                                      preserved_pak_root=mods_dir.parent / "Mods_Core",
+                                      managed_pak_names=managed_pak_names)
+        _record_generated_modsettings(profile_dir, modsettings)
 
         _suppress_launcher_mod_warnings(larian_root, log_fn=_log)
 
@@ -503,10 +883,16 @@ class BaldursGate3(BaseGame):
             log_fn=_log, game=self, profile_dir=self._active_profile_dir)
         _log(f"  Restored {restored} file(s). Mods_Core/ removed.")
 
-        _log("Restore: resetting modsettings.lsx to vanilla ...")
+        _log("Restore: restoring the original modsettings.lsx ...")
         modsettings = larian_root / _MODSETTINGS_REL
-        write_vanilla_modsettings(modsettings, log_fn=_log,
-                                  patch_version=self._patch_version)
+        profile_dir = self._active_profile_dir
+        if profile_dir is not None:
+            profile_dir = Path(profile_dir)
+            restored_settings = _restore_modsettings(
+                profile_dir, modsettings, _log)
+            if (not restored_settings
+                    and not (profile_dir / _MODSETTINGS_STATE).exists()):
+                _log("  No manager-owned modsettings backup needed restoration.")
 
         # Sweep runtime-generated files (outside Data/) into Root_Folder/ so they
         # re-deploy next time instead of being clobbered by the vanilla restore.
@@ -517,10 +903,12 @@ class BaldursGate3(BaseGame):
         _log("Restore complete.")
 
     def post_clean_game_folder(self, log_fn=None) -> None:
-        """Reset modsettings.lsx to vanilla after Clean Game Folder."""
+        """Restore manager-owned modsettings state after cleaning."""
         larian_root = self._larian_root()
         if larian_root is None:
             return
-        modsettings = larian_root / _MODSETTINGS_REL
-        write_vanilla_modsettings(modsettings, log_fn=log_fn,
-                                  patch_version=self._patch_version)
+        profile_dir = self._active_profile_dir
+        if profile_dir is not None:
+            _restore_modsettings(
+                Path(profile_dir), larian_root / _MODSETTINGS_REL,
+                log_fn or (lambda _: None))
