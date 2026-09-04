@@ -33,8 +33,8 @@ per-section footer that `_finish_section` flushes at the bottom of the group.
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal, QRect, QRectF, QSize
-from PySide6.QtGui import QColor, QPainter, QPen
+from PySide6.QtCore import Qt, Signal, QRect, QRectF, QSize, QUrl
+from PySide6.QtGui import QColor, QDesktopServices, QPainter, QPen
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QScrollArea, QFrame,
     QLabel, QCheckBox, QComboBox, QSlider, QLineEdit, QPushButton, QGroupBox,
@@ -47,6 +47,8 @@ from gui_qt.wheel_guard import no_wheel
 from gui_qt.flow_layout import FlowLayout, enable_height_for_width
 from gui_qt.overlay_base import OverlayBase
 from Utils.ui import config as uc
+
+CROWDIN_URL = "https://crowdin.com/project/amethyst-mod-manager"
 
 
 # ---------------------------------------------------------------------------
@@ -548,7 +550,20 @@ class SettingsView(OverlayBase):
         no_wheel(self._lang_combo)
         # Keep the selector compact instead of stretching across the modal.
         self._lang_combo.setFixedWidth(self.COMBO_W)
-        g.addWidget(self._lang_combo, row, self.COL_CTRL, Qt.AlignLeft)
+        # Crowdin sits beside the combo so the invitation to translate is next
+        # to the list of languages it fills, not buried in the section footer.
+        lang_wrap = QHBoxLayout()
+        lang_wrap.setContentsMargins(0, 0, 0, 0)
+        lang_wrap.setSpacing(6)
+        lang_wrap.addWidget(self._lang_combo)
+        crowdin_btn = QPushButton(self.tr("Translate on Crowdin"))
+        crowdin_btn.setCursor(Qt.PointingHandCursor)
+        crowdin_btn.setToolTip(self._tip_text(self.tr(
+            "Open the Amethyst Crowdin project to help translate the app.")))
+        crowdin_btn.clicked.connect(self._open_crowdin)
+        lang_wrap.addWidget(crowdin_btn)
+        lang_wrap.addStretch(1)
+        g.addLayout(lang_wrap, row, self.COL_CTRL)
         self._populate_language_combo()
 
         self._build_ui_scale(g)
@@ -600,6 +615,10 @@ class SettingsView(OverlayBase):
         self._lang_sync_btn = self._action_row(
             g, self.tr("Sync language files"), self._on_sync_languages)
         self._finish_section(g)
+
+    def _open_crowdin(self) -> None:
+        """Open the Amethyst Crowdin project in the user's browser."""
+        QDesktopServices.openUrl(QUrl(CROWDIN_URL))
 
     def _save_header_position(self, value: str):
         """Persist the toolbar position, then move the bar there immediately."""
