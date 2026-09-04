@@ -394,7 +394,7 @@ class Fallout_NC(Fallout_NV):
         *Fallout_NV.vanilla_plugins,
         *_new_california_plugins,
     ]
-    _ARCHIVE_INI_FILENAME = "FALLOUT.INI"
+    _ARCHIVE_INI_FILENAME = "Fallout.ini"
 
     @property
     def name(self) -> str:
