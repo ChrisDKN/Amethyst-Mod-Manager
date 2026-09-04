@@ -1,7 +1,7 @@
 files:
   - source: /Localisation/amethyst_en.ts
+    translation: /Localisation/amethyst_%locale_with_underscore%.ts
     ignore:
-      - tools
-      - README.md
-      - '*.qm'
-    translation: '%locale_with_underscore%'
+      - /Localisation/tools
+      - /Localisation/README.md
+      - /Localisation/*.qm
