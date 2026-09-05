@@ -546,8 +546,8 @@ La salida está escrita directamente en su lista mod como el mod '{0}'.</transla
 In Steam, right-click the game → Properties → Installed Files → Verify integrity of game files, then retry.
 
 {0}</source>
-      <translation type="unfinished">Missing vanilla game files even after restoring to vanilla - these were never backed up.
-In Steam, right-click the game → Properties → Installed Files → Verify integrity of game files, then retry.
+      <translation>Faltan archivos del juego en su versión original incluso después de restaurarlo a esa versión; nunca se hizo una copia de seguridad de ellos.
+En Steam, haz clic con el botón derecho del ratón sobre el juego → Propiedades → Archivos instalados → Verificar la integridad de los archivos del juego y, a continuación, vuelve a intentarlo.
 
 {0}</translation>
     </message>
@@ -1969,6 +1969,18 @@ La caché MD5 se conserva. Los archivos se volverán a descargar según sea nece
       <translation>Sistema de archivos virtual (VFS)</translation>
     </message>
     <message>
+      <source>Game Runtime</source>
+      <translation>Tiempo de ejecución del juego</translation>
+    </message>
+    <message>
+      <source>Native Linux</source>
+      <translation>Linux nativo</translation>
+    </message>
+    <message>
+      <source>Windows / Proton</source>
+      <translation>Windows / Proton</translation>
+    </message>
+    <message>
       <source>Swap launcher with script extender on deploy</source>
       <translation>El lanzador de Swap con extensor de scripts</translation>
     </message>
@@ -2197,6 +2209,18 @@ La configuración del perfil predeterminado no se ve afectada.</translation>
       <translation>Primero, configura la carpeta de instalación del juego.</translation>
     </message>
     <message>
+      <source>Native Linux runtime selected, but bin/bg3 was not found.</source>
+      <translation>Se ha seleccionado el tiempo de ejecución nativo de Linux, pero no se ha encontrado bin/bg3.</translation>
+    </message>
+    <message>
+      <source>Windows / Proton runtime selected, but no BG3 Windows executable was found.</source>
+      <translation>Windows / Proton runtime seleccionado, pero no se encontró ningún ejecutable de Windows BG3.</translation>
+    </message>
+    <message>
+      <source>Select the Proton prefix used by this BG3 installation.</source>
+      <translation>Seleccione el prefijo de Proton utilizado por esta instalación de BG3.</translation>
+    </message>
+    <message>
       <source>The mod staging folder cannot be the game folder or be inside it. Choose a separate location.</source>
       <translation>La carpeta de montaje mod no puede ser la carpeta de juego o estar dentro de ella. Elige una ubicación separada.</translation>
     </message>
@@ -2207,6 +2231,10 @@ La configuración del perfil predeterminado no se ve afectada.</translation>
     <message>
       <source>Cannot change the game/prefix path while mods are deployed. Restore the game first.</source>
       <translation>No se puede cambiar la ruta del juego o del prefijo mientras haya mods instalados. Restablece primero el juego.</translation>
+    </message>
+    <message>
+      <source>Cannot change the game runtime while mods are deployed. Restore the game first.</source>
+      <translation>No se puede cambiar el tiempo de ejecución del juego mientras los mods están desplegados. Restaurar el juego primero.</translation>
     </message>
     <message>
       <source>Restore the game before changing the preferred OpenMW package.</source>
@@ -9002,6 +9030,14 @@ How would you like to handle the existing mod?</source>
       <source>(no mod selected)</source>
       <translation>(no se ha seleccionado ningún módulo)</translation>
     </message>
+    <message>
+      <source>{0} — Loading files…</source>
+      <translation>{0} — Cargando archivos…</translation>
+    </message>
+    <message>
+      <source>{0} — Unable to load files</source>
+      <translation>{0} — No se pueden cargar archivos</translation>
+    </message>
   </context>
   <context>
     <name>ModListMenu</name>
@@ -10645,7 +10681,7 @@ Diarias: {1}</translation>
     </message>
     <message>
       <source>{0} file(s)</source>
-      <translation type="unfinished">{0} file(s)</translation>
+      <translation>{0} archivo(s)</translation>
     </message>
     <message>
       <source>Cancel</source>
@@ -11430,9 +11466,9 @@ Esto no se puede deshacer.</translation>
       <source>Permanently delete {0} item(s) from the Overwrite folder?
 
 This cannot be undone.</source>
-      <translation type="unfinished">Permanently delete {0} item(s) from the Overwrite folder?
+      <translation>¿Eliminar Permanentemente un elemento {0} de la carpeta Sobrescribir?
 
-This cannot be undone.</translation>
+Esto no se puede deshacer.</translation>
     </message>
   </context>
   <context>
@@ -12388,7 +12424,7 @@ Arrastra un complemento desde el panel de la izquierda para añadir una regla.</
     </message>
     <message>
       <source>{0} member(s)</source>
-      <translation type="unfinished">{0} member(s)</translation>
+      <translation>{0} miembro(s)</translation>
     </message>
     <message>
       <source>Hide members</source>
@@ -14579,6 +14615,22 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     <message>
       <source>Right side</source>
       <translation>El lado derecho</translation>
+    </message>
+    <message>
+      <source>Translate on Crowdin</source>
+      <translation>Traducir en Crowdin</translation>
+    </message>
+    <message>
+      <source>Open the Amethyst Crowdin project to help translate the app.</source>
+      <translation>Abre el proyecto Amethyst Crowdin para ayudar a traducir la aplicación.</translation>
+    </message>
+    <message>
+      <source>Mod list</source>
+      <translation>Mod list</translation>
+    </message>
+    <message>
+      <source>Status bar</source>
+      <translation>Barra de estado</translation>
     </message>
     <message>
       <source>Cap the combined download speed of all downloads (collections, single mods, nxm and modl links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>

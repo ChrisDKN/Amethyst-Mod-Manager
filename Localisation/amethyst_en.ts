@@ -1963,18 +1963,6 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</translati
         <translation>Virtual filesystem (VFS)</translation>
     </message>
     <message>
-        <source>Game Runtime</source>
-        <translation>Game Runtime</translation>
-    </message>
-    <message>
-        <source>Native Linux</source>
-        <translation>Native Linux</translation>
-    </message>
-    <message>
-        <source>Windows / Proton</source>
-        <translation>Windows / Proton</translation>
-    </message>
-    <message>
         <source>Swap launcher with script extender on deploy</source>
         <translation>Swap launcher with script extender on deploy</translation>
     </message>
@@ -2203,18 +2191,6 @@ The default profile's settings are not affected.</translation>
         <translation>Set the game installation folder first.</translation>
     </message>
     <message>
-        <source>Native Linux runtime selected, but bin/bg3 was not found.</source>
-        <translation>Native Linux runtime selected, but bin/bg3 was not found.</translation>
-    </message>
-    <message>
-        <source>Windows / Proton runtime selected, but no BG3 Windows executable was found.</source>
-        <translation>Windows / Proton runtime selected, but no BG3 Windows executable was found.</translation>
-    </message>
-    <message>
-        <source>Select the Proton prefix used by this BG3 installation.</source>
-        <translation>Select the Proton prefix used by this BG3 installation.</translation>
-    </message>
-    <message>
         <source>The mod staging folder cannot be the game folder or be inside it. Choose a separate location.</source>
         <translation>The mod staging folder cannot be the game folder or be inside it. Choose a separate location.</translation>
     </message>
@@ -2225,10 +2201,6 @@ The default profile's settings are not affected.</translation>
     <message>
         <source>Cannot change the game/prefix path while mods are deployed. Restore the game first.</source>
         <translation>Cannot change the game/prefix path while mods are deployed. Restore the game first.</translation>
-    </message>
-    <message>
-        <source>Cannot change the game runtime while mods are deployed. Restore the game first.</source>
-        <translation>Cannot change the game runtime while mods are deployed. Restore the game first.</translation>
     </message>
     <message>
         <source>Restore the game before changing the preferred OpenMW package.</source>
@@ -9024,14 +8996,6 @@ How would you like to handle the existing mod?</translation>
         <source>(no mod selected)</source>
         <translation>(no mod selected)</translation>
     </message>
-    <message>
-        <source>{0} — Loading files…</source>
-        <translation>{0} — Loading files…</translation>
-    </message>
-    <message>
-        <source>{0} — Unable to load files</source>
-        <translation>{0} — Unable to load files</translation>
-    </message>
 </context>
 <context>
     <name>ModListMenu</name>
@@ -14609,22 +14573,6 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     <message>
         <source>Right side</source>
         <translation>Right side</translation>
-    </message>
-    <message>
-        <source>Translate on Crowdin</source>
-        <translation>Translate on Crowdin</translation>
-    </message>
-    <message>
-        <source>Open the Amethyst Crowdin project to help translate the app.</source>
-        <translation>Open the Amethyst Crowdin project to help translate the app.</translation>
-    </message>
-    <message>
-        <source>Mod list</source>
-        <translation>Mod list</translation>
-    </message>
-    <message>
-        <source>Status bar</source>
-        <translation>Status bar</translation>
     </message>
     <message>
         <source>Cap the combined download speed of all downloads (collections, single mods, nxm and modl links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>

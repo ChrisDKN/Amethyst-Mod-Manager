@@ -1969,6 +1969,18 @@ Der MD5-Cache bleibt erhalten. Archive werden bei Bedarf erneut heruntergeladen.
       <translation>Virtuelles Dateisystem (VFS)</translation>
     </message>
     <message>
+      <source>Game Runtime</source>
+      <translation>Spielzeit</translation>
+    </message>
+    <message>
+      <source>Native Linux</source>
+      <translation>Natives Linux</translation>
+    </message>
+    <message>
+      <source>Windows / Proton</source>
+      <translation>Windows / Proton</translation>
+    </message>
+    <message>
       <source>Swap launcher with script extender on deploy</source>
       <translation>Swap Launcher mit Skript-Extender auf Deployment</translation>
     </message>
@@ -2197,6 +2209,18 @@ Die Einstellungen des Standardprofils bleiben davon unberührt.</translation>
       <translation>Legen Sie zunächst den Installationsordner für das Spiel fest.</translation>
     </message>
     <message>
+      <source>Native Linux runtime selected, but bin/bg3 was not found.</source>
+      <translation>Native Linux Laufzeit ausgewählt, aber bin/bg3 wurde nicht gefunden.</translation>
+    </message>
+    <message>
+      <source>Windows / Proton runtime selected, but no BG3 Windows executable was found.</source>
+      <translation>Windows / Proton Laufzeit ausgewählt, aber es wurde keine BG3 Windows ausführbare Datei gefunden.</translation>
+    </message>
+    <message>
+      <source>Select the Proton prefix used by this BG3 installation.</source>
+      <translation>Wählen Sie den Proton-Präfix aus, der von dieser BG3-Installation verwendet wird.</translation>
+    </message>
+    <message>
       <source>The mod staging folder cannot be the game folder or be inside it. Choose a separate location.</source>
       <translation>Der Mod Staging-Ordner kann nicht der Spielordner sein oder darin sein. Wählen Sie einen separaten Standort.</translation>
     </message>
@@ -2207,6 +2231,10 @@ Die Einstellungen des Standardprofils bleiben davon unberührt.</translation>
     <message>
       <source>Cannot change the game/prefix path while mods are deployed. Restore the game first.</source>
       <translation>Der Pfad zum Spiel bzw. das Präfix kann nicht geändert werden, solange Mods installiert sind. Setze das Spiel zunächst auf die Standardkonfiguration zurück.</translation>
+    </message>
+    <message>
+      <source>Cannot change the game runtime while mods are deployed. Restore the game first.</source>
+      <translation>Die Laufzeit des Spiels kann nicht geändert werden, wenn Mods eingesetzt werden. Stelle zuerst das Spiel wieder her.</translation>
     </message>
     <message>
       <source>Restore the game before changing the preferred OpenMW package.</source>
@@ -9002,6 +9030,14 @@ Wie möchten Sie mit dem bestehenden Mod umgehen?</translation>
       <source>(no mod selected)</source>
       <translation>(kein Mod ausgewählt)</translation>
     </message>
+    <message>
+      <source>{0} — Loading files…</source>
+      <translation>{0} — Lade Dateien…</translation>
+    </message>
+    <message>
+      <source>{0} — Unable to load files</source>
+      <translation>{0} — Dateien können nicht geladen werden</translation>
+    </message>
   </context>
   <context>
     <name>ModListMenu</name>
@@ -14579,6 +14615,22 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     <message>
       <source>Right side</source>
       <translation>Rechte Seite</translation>
+    </message>
+    <message>
+      <source>Translate on Crowdin</source>
+      <translation>Auf Crowdin übersetzen</translation>
+    </message>
+    <message>
+      <source>Open the Amethyst Crowdin project to help translate the app.</source>
+      <translation>Öffnen Sie das Amethyst Crowdin Projekt, um bei der Übersetzung der App zu helfen.</translation>
+    </message>
+    <message>
+      <source>Mod list</source>
+      <translation>Mod list</translation>
+    </message>
+    <message>
+      <source>Status bar</source>
+      <translation>Statusleiste</translation>
     </message>
     <message>
       <source>Cap the combined download speed of all downloads (collections, single mods, nxm and modl links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>

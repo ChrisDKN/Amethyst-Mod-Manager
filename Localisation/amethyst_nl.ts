@@ -1969,6 +1969,18 @@ De MD5-cache blijft behouden. Archieven worden indien nodig opnieuw gedownload.<
       <translation>Virtueel bestandssysteem (VFS)</translation>
     </message>
     <message>
+      <source>Game Runtime</source>
+      <translation>Spel Runtime</translation>
+    </message>
+    <message>
+      <source>Native Linux</source>
+      <translation>Oorspronkelijke Linux</translation>
+    </message>
+    <message>
+      <source>Windows / Proton</source>
+      <translation>Windows / Proton</translation>
+    </message>
+    <message>
       <source>Swap launcher with script extender on deploy</source>
       <translation>Swap launcher met script extender op implementatie</translation>
     </message>
@@ -2197,6 +2209,18 @@ De instellingen van het standaardprofiel blijven ongewijzigd.</translation>
       <translation>Stel eerst de installatiemap van het spel in.</translation>
     </message>
     <message>
+      <source>Native Linux runtime selected, but bin/bg3 was not found.</source>
+      <translation>Oorspronkelijke Linux runtime geselecteerd, maar bin/bg3 is niet gevonden.</translation>
+    </message>
+    <message>
+      <source>Windows / Proton runtime selected, but no BG3 Windows executable was found.</source>
+      <translation>Windows / Proton runtime geselecteerd, maar er is geen BG3 Windows uitvoerbaar gevonden.</translation>
+    </message>
+    <message>
+      <source>Select the Proton prefix used by this BG3 installation.</source>
+      <translation>Selecteer het Proton voorvoegsel dat door deze BG3 installatie wordt gebruikt.</translation>
+    </message>
+    <message>
       <source>The mod staging folder cannot be the game folder or be inside it. Choose a separate location.</source>
       <translation>De mod staging map kan niet de game map zijn of erin zitten. Kies een aparte locatie.</translation>
     </message>
@@ -2207,6 +2231,10 @@ De instellingen van het standaardprofiel blijven ongewijzigd.</translation>
     <message>
       <source>Cannot change the game/prefix path while mods are deployed. Restore the game first.</source>
       <translation>Het pad naar het spel of het voorvoegsel kan niet worden gewijzigd terwijl er mods zijn geïnstalleerd. Herstel het spel eerst.</translation>
+    </message>
+    <message>
+      <source>Cannot change the game runtime while mods are deployed. Restore the game first.</source>
+      <translation>Kan het spel niet veranderen als mods zijn deployed. Herstel het spel eerst.</translation>
     </message>
     <message>
       <source>Restore the game before changing the preferred OpenMW package.</source>
@@ -9002,6 +9030,14 @@ Hoe wil je omgaan met de bestaande mod?</translation>
       <source>(no mod selected)</source>
       <translation>(geen mod geselecteerd)</translation>
     </message>
+    <message>
+      <source>{0} — Loading files…</source>
+      <translation>{0} – Bestanden laden…</translation>
+    </message>
+    <message>
+      <source>{0} — Unable to load files</source>
+      <translation>{0} — Kan bestanden niet laden</translation>
+    </message>
   </context>
   <context>
     <name>ModListMenu</name>
@@ -14579,6 +14615,22 @@ flatpak remote-add --user amethist https://chrisdkn.github.io/Amethyst-Mod-Manag
     <message>
       <source>Right side</source>
       <translation>Rechterkant</translation>
+    </message>
+    <message>
+      <source>Translate on Crowdin</source>
+      <translation>Vertalen op Crowdin</translation>
+    </message>
+    <message>
+      <source>Open the Amethyst Crowdin project to help translate the app.</source>
+      <translation>Open het Amethyste Crowdin-project om de app te helpen vertalen.</translation>
+    </message>
+    <message>
+      <source>Mod list</source>
+      <translation>Mod list</translation>
+    </message>
+    <message>
+      <source>Status bar</source>
+      <translation>Status balk</translation>
     </message>
     <message>
       <source>Cap the combined download speed of all downloads (collections, single mods, nxm and modl links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>

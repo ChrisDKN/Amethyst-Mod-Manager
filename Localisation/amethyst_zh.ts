@@ -1969,6 +1969,18 @@ MD5缓存将被保留。压缩包将根据需要重新下载。</translation>
       <translation>虚拟文件系统( VFS)</translation>
     </message>
     <message>
+      <source>Game Runtime</source>
+      <translation>游戏运行时间</translation>
+    </message>
+    <message>
+      <source>Native Linux</source>
+      <translation>原生Linux</translation>
+    </message>
+    <message>
+      <source>Windows / Proton</source>
+      <translation>Windows / 质点</translation>
+    </message>
+    <message>
       <source>Swap launcher with script extender on deploy</source>
       <translation>部署时使用脚本扩展器的交换发射器</translation>
     </message>
@@ -2197,6 +2209,18 @@ The default profile's settings are not affected.</source>
       <translation>请先设置游戏的安装文件夹。</translation>
     </message>
     <message>
+      <source>Native Linux runtime selected, but bin/bg3 was not found.</source>
+      <translation>选择了原生的Linux运行时间，但是找不到二进制/bg3。</translation>
+    </message>
+    <message>
+      <source>Windows / Proton runtime selected, but no BG3 Windows executable was found.</source>
+      <translation>选择了 Windows / Proton 运行时间，但未找到 BG3 Windows可执行程序。</translation>
+    </message>
+    <message>
+      <source>Select the Proton prefix used by this BG3 installation.</source>
+      <translation>选择此 BG3 安装使用的质子前缀。</translation>
+    </message>
+    <message>
       <source>The mod staging folder cannot be the game folder or be inside it. Choose a separate location.</source>
       <translation>Mod 中转文件夹不能是游戏文件夹或包含在内 。 选择单独的位置 .</translation>
     </message>
@@ -2207,6 +2231,10 @@ The default profile's settings are not affected.</source>
     <message>
       <source>Cannot change the game/prefix path while mods are deployed. Restore the game first.</source>
       <translation>在模组已部署的情况下，无法更改游戏/前缀路径。请先还原游戏。</translation>
+    </message>
+    <message>
+      <source>Cannot change the game runtime while mods are deployed. Restore the game first.</source>
+      <translation>部署模组时无法更改游戏运行时间，请先恢复游戏。</translation>
     </message>
     <message>
       <source>Restore the game before changing the preferred OpenMW package.</source>
@@ -9002,6 +9030,14 @@ How would you like to handle the existing mod?</source>
       <source>(no mod selected)</source>
       <translation>（未选择版）</translation>
     </message>
+    <message>
+      <source>{0} — Loading files…</source>
+      <translation type="unfinished">{0} — Loading files…</translation>
+    </message>
+    <message>
+      <source>{0} — Unable to load files</source>
+      <translation>{0} -无法加载文件</translation>
+    </message>
   </context>
   <context>
     <name>ModListMenu</name>
@@ -14579,6 +14615,22 @@ flatpak 远程添加-user amethyst https://chrisdkn.github.io/ Amethyst-Mod-Mana
     <message>
       <source>Right side</source>
       <translation>右边</translation>
+    </message>
+    <message>
+      <source>Translate on Crowdin</source>
+      <translation>在 Crowdin 上翻译</translation>
+    </message>
+    <message>
+      <source>Open the Amethyst Crowdin project to help translate the app.</source>
+      <translation>打开Amethyst Crowdin项目，帮助翻译应用程序。</translation>
+    </message>
+    <message>
+      <source>Mod list</source>
+      <translation>Mod list</translation>
+    </message>
+    <message>
+      <source>Status bar</source>
+      <translation>状态栏</translation>
     </message>
     <message>
       <source>Cap the combined download speed of all downloads (collections, single mods, nxm and modl links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>

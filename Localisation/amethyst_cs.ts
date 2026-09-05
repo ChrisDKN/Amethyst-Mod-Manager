@@ -1969,6 +1969,18 @@ Mezipaměť MD5 zůstane zachována. Archivy se budou podle potřeby stahovat zn
       <translation>Virtuální souborový systém (VFS)</translation>
     </message>
     <message>
+      <source>Game Runtime</source>
+      <translation>Herní běh</translation>
+    </message>
+    <message>
+      <source>Native Linux</source>
+      <translation>Nativní Linux</translation>
+    </message>
+    <message>
+      <source>Windows / Proton</source>
+      <translation>Windows / Proton</translation>
+    </message>
+    <message>
       <source>Swap launcher with script extender on deploy</source>
       <translation>Swap launcher s prodloužením skriptu při nasazení</translation>
     </message>
@@ -2197,6 +2209,18 @@ Nastavení výchozího profilu tím nebude ovlivněno.</translation>
       <translation>Nejprve nastavte instalační složku hry.</translation>
     </message>
     <message>
+      <source>Native Linux runtime selected, but bin/bg3 was not found.</source>
+      <translation>Native Linux run time selected, ale bin/bg3 nebyl nalezen.</translation>
+    </message>
+    <message>
+      <source>Windows / Proton runtime selected, but no BG3 Windows executable was found.</source>
+      <translation>Windows / Proton běh vybrán, ale nebyl nalezen žádný spustitelný soubor BG3 Windows.</translation>
+    </message>
+    <message>
+      <source>Select the Proton prefix used by this BG3 installation.</source>
+      <translation>Vyberte prefix Protonu, který používá tato instalace BG3.</translation>
+    </message>
+    <message>
       <source>The mod staging folder cannot be the game folder or be inside it. Choose a separate location.</source>
       <translation>Složka mod staging nemůže být herní složkou nebo být uvnitř. Vyberte si jiné místo.</translation>
     </message>
@@ -2207,6 +2231,10 @@ Nastavení výchozího profilu tím nebude ovlivněno.</translation>
     <message>
       <source>Cannot change the game/prefix path while mods are deployed. Restore the game first.</source>
       <translation>Cestu ke hře/předponu nelze změnit, dokud jsou nainstalovány mody. Nejprve hru obnovte.</translation>
+    </message>
+    <message>
+      <source>Cannot change the game runtime while mods are deployed. Restore the game first.</source>
+      <translation>Nelze změnit běh hry, dokud jsou nasazeny mody. Nejdříve obnovte hru.</translation>
     </message>
     <message>
       <source>Restore the game before changing the preferred OpenMW package.</source>
@@ -9002,6 +9030,14 @@ Jak by se ti líbilo zvládnout stávající mód?</translation>
       <source>(no mod selected)</source>
       <translation>(není vybrán žádný moderátor)</translation>
     </message>
+    <message>
+      <source>{0} — Loading files…</source>
+      <translation>{0} — Načítání souborů…</translation>
+    </message>
+    <message>
+      <source>{0} — Unable to load files</source>
+      <translation>{0} — Nelze načíst soubory</translation>
+    </message>
   </context>
   <context>
     <name>ModListMenu</name>
@@ -14579,6 +14615,22 @@ ametyst.flatpakrepo</translation>
     <message>
       <source>Right side</source>
       <translation>Pravá strana</translation>
+    </message>
+    <message>
+      <source>Translate on Crowdin</source>
+      <translation>Přeložit na Crowdin</translation>
+    </message>
+    <message>
+      <source>Open the Amethyst Crowdin project to help translate the app.</source>
+      <translation>Otevřete Amethyst Crowdin projekt, který pomůže přeložit aplikaci.</translation>
+    </message>
+    <message>
+      <source>Mod list</source>
+      <translation>Mod list</translation>
+    </message>
+    <message>
+      <source>Status bar</source>
+      <translation>Stavový řádek</translation>
     </message>
     <message>
       <source>Cap the combined download speed of all downloads (collections, single mods, nxm and modl links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>
