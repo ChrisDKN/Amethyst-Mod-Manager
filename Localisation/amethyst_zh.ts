@@ -3776,6 +3776,10 @@ When it completes, the app switches to the new profile - then come back here and
       <source>Install</source>
       <translation>安装</translation>
     </message>
+    <message>
+      <source>{0} (hidden)</source>
+      <translation>{0} (hidden)</translation>
+    </message>
   </context>
   <context>
     <name>DownloadsModel</name>
@@ -4043,6 +4047,10 @@ Please restart the wizard and install {1} first.</source>
     <message>
       <source>Launching {0}…</source>
       <translation>正在启动 {0}…</translation>
+    </message>
+    <message>
+      <source>xLODGen does not support {0}.</source>
+      <translation>xLODGen 不支持 {0}。</translation>
     </message>
     <message>
       <source>Game path not configured.</source>
@@ -5291,6 +5299,10 @@ Click Done to clean up the extracted files and close.</source>
       <translation>仅显示未安装的</translation>
     </message>
     <message>
+      <source>Show hidden archives</source>
+      <translation>显示隐藏的档案</translation>
+    </message>
+    <message>
       <source>Only conflicts</source>
       <translation>只有冲突</translation>
     </message>
@@ -6361,6 +6373,14 @@ NTFS 和 exFAT 驱动器在 Linux 上有很弱的写保证: 不干净的卸载, 
       <translation>移动所选内容</translation>
     </message>
     <message>
+      <source>Hide Selected</source>
+      <translation>隐藏选中的</translation>
+    </message>
+    <message>
+      <source>Unhide Selected</source>
+      <translation>取消隐藏选中项</translation>
+    </message>
+    <message>
       <source>Remove Selected</source>
       <translation>取消选中</translation>
     </message>
@@ -6379,6 +6399,18 @@ NTFS 和 exFAT 驱动器在 Linux 上有很弱的写保证: 不干净的卸载, 
     <message>
       <source>Removed {0} archive(s)</source>
       <translation>已删除 {0} 存档</translation>
+    </message>
+    <message>
+      <source>Hidden {0} archive(s)</source>
+      <translation>隐藏的 {0} 归档(s)</translation>
+    </message>
+    <message>
+      <source>Made {0} archive(s) visible</source>
+      <translation>生成 {0} 存档(s) 可见</translation>
+    </message>
+    <message>
+      <source>Could not update hidden archives: {0}</source>
+      <translation>无法更新隐藏的档案: {0}</translation>
     </message>
     <message>
       <source>Cannot use that folder: {0}</source>
@@ -7841,6 +7873,22 @@ Run Quick Update on all of them now?</source>
       <translation>LOOT 排序失败 - 见日志 .</translation>
     </message>
     <message>
+      <source>Plugin sources are being refreshed. Run LOOT when loading finishes.</source>
+      <translation type="unfinished">Plugin sources are being refreshed. Run LOOT when loading finishes.</translation>
+    </message>
+    <message>
+      <source>Could not prepare plugin sources: {0}</source>
+      <translation type="unfinished">Could not prepare plugin sources: {0}</translation>
+    </message>
+    <message>
+      <source>Plugin state changed while LOOT was running. Run LOOT again.</source>
+      <translation type="unfinished">Plugin state changed while LOOT was running. Run LOOT again.</translation>
+    </message>
+    <message>
+      <source>Locked plugin positions conflict with the game's required load order.</source>
+      <translation type="unfinished">Locked plugin positions conflict with the game's required load order.</translation>
+    </message>
+    <message>
       <source>Sorted - 1 plugin moved.</source>
       <translation>排序 - 1个插件已移动 .</translation>
     </message>
@@ -8205,6 +8253,18 @@ Run Quick Update on all of them now?</source>
       <translation>无法复制分隔符。</translation>
     </message>
     <message>
+      <source>Could not preserve groups: {0}.</source>
+      <translation type="unfinished">Could not preserve groups: {0}.</translation>
+    </message>
+    <message>
+      <source>Their source mods were kept.</source>
+      <translation type="unfinished">Their source mods were kept.</translation>
+    </message>
+    <message>
+      <source>Could not update the source profile's modlist.</source>
+      <translation type="unfinished">Could not update the source profile's modlist.</translation>
+    </message>
+    <message>
       <source>Cancel all</source>
       <translation>全部取消</translation>
     </message>
@@ -8453,6 +8513,10 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
     <message>
       <source>Mods with BSA archives</source>
       <translation>包含BSA存档的模组</translation>
+    </message>
+    <message>
+      <source>Could not save mod groups: {0}</source>
+      <translation type="unfinished">Could not save mod groups: {0}</translation>
     </message>
     <message>
       <source>{0} enabled of {1} mods</source>
@@ -9036,7 +9100,7 @@ How would you like to handle the existing mod?</source>
     </message>
     <message>
       <source>{0} — Unable to load files</source>
-      <translation>{0} -无法加载文件</translation>
+      <translation type="unfinished">{0} — Unable to load files</translation>
     </message>
   </context>
   <context>
@@ -9116,6 +9180,34 @@ How would you like to handle the existing mod?</source>
     <message>
       <source>Create</source>
       <translation>创建</translation>
+    </message>
+    <message>
+      <source>Group options</source>
+      <translation type="unfinished">Group options</translation>
+    </message>
+    <message>
+      <source>Group with</source>
+      <translation type="unfinished">Group with</translation>
+    </message>
+    <message>
+      <source>Change group leader</source>
+      <translation type="unfinished">Change group leader</translation>
+    </message>
+    <message>
+      <source>Ungroup</source>
+      <translation type="unfinished">Ungroup</translation>
+    </message>
+    <message>
+      <source>Ungroup all</source>
+      <translation type="unfinished">Ungroup all</translation>
+    </message>
+    <message>
+      <source>Enable group</source>
+      <translation type="unfinished">Enable group</translation>
+    </message>
+    <message>
+      <source>Disable group</source>
+      <translation type="unfinished">Disable group</translation>
     </message>
     <message>
       <source>Copy separator to profile</source>
@@ -9660,6 +9752,12 @@ Click Done to close.</source>
     <message>
       <source>A FOMOD option you didn't select is now relevant ({0} is in the load order) - click to re-run the FOMOD installer</source>
       <translation>您没有选择的 FOMOD 选项现在相关( {0} 按负载顺序) - 单击以重新运行 FOMOD 安装器</translation>
+    </message>
+    <message>
+      <source>Group summary: {0}
+Expand the group to act on individual mods.</source>
+      <translation type="unfinished">Group summary: {0}
+Expand the group to act on individual mods.</translation>
     </message>
   </context>
   <context>
@@ -14618,19 +14716,19 @@ flatpak 远程添加-user amethyst https://chrisdkn.github.io/ Amethyst-Mod-Mana
     </message>
     <message>
       <source>Translate on Crowdin</source>
-      <translation>在 Crowdin 上翻译</translation>
+      <translation type="unfinished">Translate on Crowdin</translation>
     </message>
     <message>
       <source>Open the Amethyst Crowdin project to help translate the app.</source>
-      <translation>打开Amethyst Crowdin项目，帮助翻译应用程序。</translation>
+      <translation type="unfinished">Open the Amethyst Crowdin project to help translate the app.</translation>
     </message>
     <message>
       <source>Mod list</source>
-      <translation>Mod list</translation>
+      <translation type="unfinished">Mod list</translation>
     </message>
     <message>
       <source>Status bar</source>
-      <translation>状态栏</translation>
+      <translation type="unfinished">Status bar</translation>
     </message>
     <message>
       <source>Cap the combined download speed of all downloads (collections, single mods, nxm and modl links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>
@@ -14691,6 +14789,42 @@ flatpak 远程添加-user amethyst https://chrisdkn.github.io/ Amethyst-Mod-Mana
     <message>
       <source>Additional Proton build not found automatically. Select the build folder containing the top-level 'proton' launcher, not files/bin/wine. Blank disables it.</source>
       <translation>未自动找到额外的质子构建 。 选择包含顶级"质子"启动器的构建文件夹,而不是文件/bin/wine. 空白会禁用它.</translation>
+    </message>
+    <message>
+      <source>Global restore whitelist</source>
+      <translation type="unfinished">Global restore whitelist</translation>
+    </message>
+    <message>
+      <source>Matching runtime-created files stay in the game folder during restore instead of being moved to Overwrite. File and folder names match case-insensitively at any depth; * and ? wildcards are supported. This applies to every game.</source>
+      <translation type="unfinished">Matching runtime-created files stay in the game folder during restore instead of being moved to Overwrite. File and folder names match case-insensitively at any depth; * and ? wildcards are supported. This applies to every game.</translation>
+    </message>
+    <message>
+      <source>File names</source>
+      <translation type="unfinished">File names</translation>
+    </message>
+    <message>
+      <source>File name or wildcard</source>
+      <translation type="unfinished">File name or wildcard</translation>
+    </message>
+    <message>
+      <source>Add file</source>
+      <translation type="unfinished">Add file</translation>
+    </message>
+    <message>
+      <source>Folder names</source>
+      <translation type="unfinished">Folder names</translation>
+    </message>
+    <message>
+      <source>Folder name or wildcard</source>
+      <translation type="unfinished">Folder name or wildcard</translation>
+    </message>
+    <message>
+      <source>Add folder</source>
+      <translation type="unfinished">Add folder</translation>
+    </message>
+    <message>
+      <source>Remove selected</source>
+      <translation type="unfinished">Remove selected</translation>
     </message>
     <message>
       <source>{0} set: {1}</source>
