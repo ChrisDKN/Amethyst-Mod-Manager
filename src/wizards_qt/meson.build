@@ -45,6 +45,7 @@ py.install_sources(
   'texture_tool_view.py',
   'ttw_view.py',
   'wrye_bash_view.py',
+  'workshop_view.py',
   'xedit_view.py',
   subdir: 'wizards_qt',
 )

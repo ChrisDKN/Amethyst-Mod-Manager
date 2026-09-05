@@ -89,6 +89,7 @@ class QtWizardContext:
     open_log_tab: Callable | None = None
     set_tool_lock: Callable | None = None
     show_mod_files: Callable | None = None
+    install_archive: Callable | None = None
     filegraph_snapshot: Callable | None = None
     wizard_tool_id: str = ""
     wizard_tool_label: str = ""
@@ -184,6 +185,8 @@ def _param(module: str, cls: str, **fixed):
 # which is per-game suffixed like "run_skygen_skyrimse") so one entry serves
 # every game that registers the tool.
 REGISTRY: dict[str, QtWizardSpec] = {
+    "wizards.workshop.WorkshopWizard": QtWizardSpec(
+        _simple("wizards_qt.workshop_view", "WorkshopView"), panel="full"),
     "wizards.re_pak_restore.RePakRestoreWizard": QtWizardSpec(_re_pak_restore),
     "wizards.pandora.PandoraWizard": QtWizardSpec(_pandora),
     "wizards.reshade.ReShadeWizard": QtWizardSpec(_reshade),

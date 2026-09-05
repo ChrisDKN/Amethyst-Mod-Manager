@@ -4,5 +4,6 @@ py.install_sources(
   'frameworks.py',
   'quick_configure.py',
   'registry.py',
+  'workshop.py',
   subdir: 'Utils/games',
 )

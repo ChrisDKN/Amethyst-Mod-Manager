@@ -397,6 +397,10 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
         ])
     if _modio_url(view, name):
         act(_mt("Open on mod.io"), lambda: _open_on_modio(view, name))
+    workshop_url = _workshop_url(view, name)
+    if workshop_url:
+        from Utils.environment.xdg import open_url
+        act(_mt("Open on Steam Workshop"), lambda: open_url(workshop_url))
     if _has_update_flag(view, name):
         act(_mt("Quick Update"), lambda: _quick_update(view, [name]))
     divider()
@@ -1144,12 +1148,26 @@ def _has_bundle_spec(view, name: str) -> bool:
     return bool(bits & FLAG_BUNDLE)
 
 
+def _workshop_url(view, name: str) -> str:
+    meta = _read_mod_meta(view, name)
+    item_id = getattr(meta, "workshop_item_id", "")
+    if item_id and item_id.isascii() and item_id.isdigit() and 0 < int(item_id) < 2**64:
+        return f"https://steamcommunity.com/sharedfiles/filedetails/?id={item_id}"
+    return ""
+
+
 def _installation_archive(view, name: str):
     """Path to the mod's original install archive if it still exists, else None
     (Tk `_find_installation_archive`). Gates the (still-unwired) Reinstall Mod
     item. Searches the user's Downloads dir + the game's configured caches +
     any extra download locations, matching the Tk lookup."""
     meta = _read_mod_meta(view, name)
+    workshop_archive = getattr(meta, "workshop_archive", "")
+    if workshop_archive:
+        from pathlib import Path
+        path = Path(workshop_archive)
+        if path.is_file():
+            return path
     filenames = []
     nexus_filename = (
         getattr(meta, "installation_file", "") if meta is not None else "")
@@ -1964,6 +1982,7 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("ModListMenu", "Open on Nexus ({0})"),
     QT_TRANSLATE_NOOP("ModListMenu", "Open on mod.io"),
     QT_TRANSLATE_NOOP("ModListMenu", "Open on Thunderstore"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Open on Steam Workshop"),
     QT_TRANSLATE_NOOP("ModListMenu", "Thunderstore Actions"),
     QT_TRANSLATE_NOOP("ModListMenu", "Quick Update"),
     QT_TRANSLATE_NOOP("ModListMenu", "Quick Update ({0})"),
