@@ -38,7 +38,7 @@ from PySide6.QtGui import QColor, QDesktopServices, QPainter, QPen
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QScrollArea, QFrame,
     QLabel, QCheckBox, QComboBox, QSlider, QLineEdit, QPushButton, QGroupBox,
-    QApplication, QTabWidget, QAbstractButton, QSizePolicy,
+    QApplication, QTabWidget, QAbstractButton, QSizePolicy, QListWidget,
 )
 
 from gui_qt.theme_qt import active_palette, close_button, _c, _QT_DEFAULT_THEME
@@ -1228,6 +1228,30 @@ class SettingsView(OverlayBase):
         self._finish_section(g)
 
     def _build_advanced(self):
+        restore = self._section(self.tr("Global restore whitelist"))
+        intro = QLabel(self.tr(
+            "Matching runtime-created files stay in the game folder during "
+            "restore instead of being moved to Overwrite. File and folder "
+            "names match case-insensitively at any depth; * and ? wildcards "
+            "are supported. This applies to every game."))
+        intro.setObjectName("Help")
+        intro.setWordWrap(True)
+        restore.addWidget(
+            intro, self._next_row(restore), self.COL_LABEL, 1, 2)
+        try:
+            files, folders = uc.load_global_restore_whitelist()
+        except Exception:
+            files = list(uc.DEFAULT_GLOBAL_RESTORE_WHITELIST_FILES)
+            folders = list(uc.DEFAULT_GLOBAL_RESTORE_WHITELIST_FOLDERS)
+        self._restore_whitelist_lists: dict[str, QListWidget] = {}
+        self._restore_whitelist_row(
+            restore, "files", self.tr("File names"), files,
+            self.tr("File name or wildcard"), self.tr("Add file"))
+        self._restore_whitelist_row(
+            restore, "folders", self.tr("Folder names"), folders,
+            self.tr("Folder name or wildcard"), self.tr("Add folder"))
+        self._finish_section(restore)
+
         g = self._section(self.tr("Advanced"))
         # Summarise what's already set so the section isn't a blind door.
         try:
@@ -1248,6 +1272,79 @@ class SettingsView(OverlayBase):
                 "from the supported list or add your own."),
             extra=summary)
         self._finish_section(g)
+
+    def _restore_whitelist_row(self, grid, kind: str, label: str,
+                               patterns, placeholder: str,
+                               add_label: str) -> None:
+        row = self._next_row(grid)
+        grid.addWidget(QLabel(label), row, self.COL_LABEL, Qt.AlignTop)
+        wrap = QVBoxLayout()
+        wrap.setContentsMargins(0, 0, 0, 0)
+        wrap.setSpacing(6)
+
+        values = QListWidget()
+        values.setMinimumHeight(78)
+        values.setMaximumHeight(110)
+        for pattern in patterns:
+            values.addItem(str(pattern))
+        self._restore_whitelist_lists[kind] = values
+        wrap.addWidget(values)
+
+        controls = QHBoxLayout()
+        controls.setContentsMargins(0, 0, 0, 0)
+        controls.setSpacing(6)
+        edit = QLineEdit()
+        edit.setPlaceholderText(placeholder)
+        add = QPushButton(add_label)
+        add.setCursor(Qt.PointingHandCursor)
+        remove = QPushButton(self.tr("Remove selected"))
+        remove.setCursor(Qt.PointingHandCursor)
+        remove.setEnabled(False)
+        values.itemSelectionChanged.connect(
+            lambda: remove.setEnabled(bool(values.selectedItems())))
+        add.clicked.connect(
+            lambda: self._add_restore_whitelist_pattern(kind, edit))
+        edit.returnPressed.connect(
+            lambda: self._add_restore_whitelist_pattern(kind, edit))
+        remove.clicked.connect(
+            lambda: self._remove_restore_whitelist_patterns(kind))
+        controls.addWidget(edit, 1)
+        controls.addWidget(add)
+        controls.addWidget(remove)
+        wrap.addLayout(controls)
+
+        holder = QWidget()
+        holder.setLayout(wrap)
+        grid.addWidget(holder, row, self.COL_CTRL)
+
+    def _add_restore_whitelist_pattern(self, kind: str, edit: QLineEdit) -> None:
+        pattern = edit.text().strip()
+        if not pattern:
+            return
+        values = self._restore_whitelist_lists[kind]
+        key = pattern.casefold()
+        for index in range(values.count()):
+            if values.item(index).text().casefold() == key:
+                values.setCurrentRow(index)
+                return
+        values.addItem(pattern)
+        edit.clear()
+        self._save_restore_whitelist()
+
+    def _remove_restore_whitelist_patterns(self, kind: str) -> None:
+        values = self._restore_whitelist_lists[kind]
+        for item in values.selectedItems():
+            values.takeItem(values.row(item))
+        self._save_restore_whitelist()
+
+    def _save_restore_whitelist(self) -> None:
+        def _items(kind: str) -> list[str]:
+            values = self._restore_whitelist_lists[kind]
+            return [values.item(i).text() for i in range(values.count())]
+
+        self._safe_save(
+            uc.save_global_restore_whitelist,
+            _items("files"), _items("folders"))
 
     def _build_system_info(self):
         """Read-only environment facts + a Copy button, for bug reports."""

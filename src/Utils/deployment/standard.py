@@ -30,7 +30,7 @@ from Utils.deployment.shared import (
     _report_fallbacks,
     _append_overwrite_log,
     _iter_map_batched,
-    is_global_restore_ignored,
+    build_global_restore_ignore_matcher,
     _log_case_collisions,
     _map_batched,
     _mkdir_leaves,
@@ -1647,6 +1647,7 @@ def restore_data_core(
         rescued_edited_vanilla = 0
         kept_whitelisted = 0
         discarded_empty = 0
+        global_restore_ignore = build_global_restore_ignore_matcher()
         # Track rescued overwrite paths so the catalog can be refreshed once.
         rescued_overwrite_rels: list[str] = []
         _deploy_str = str(deploy_dir)
@@ -1815,7 +1816,8 @@ def restore_data_core(
                 except OSError:
                     pass
                 continue
-            if (is_global_restore_ignored(rel_lower)
+            if ((global_restore_ignore is not None
+                    and global_restore_ignore(rel_lower))
                     or (restore_whitelist is not None
                         and restore_whitelist(rel_lower))):
                 # Keep whitelisted files in the game folder by moving them into

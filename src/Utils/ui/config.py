@@ -47,6 +47,14 @@ _INI_FONT_OPTION = "font_family"
 _DEFAULT_LANGUAGE = ""
 _INI_LANGUAGE_OPTION = "language"
 
+_RESTORE_SECTION = "restore"
+_RESTORE_WHITELIST_FILES_OPTION = "whitelist_files"
+_RESTORE_WHITELIST_FOLDERS_OPTION = "whitelist_folders"
+DEFAULT_GLOBAL_RESTORE_WHITELIST_FILES: tuple[str, ...] = (
+    "vkd3d-proton.cache.write",
+)
+DEFAULT_GLOBAL_RESTORE_WHITELIST_FOLDERS: tuple[str, ...] = ()
+
 _ui_scale: float = _DEFAULT_SCALE
 _font_family: str = _DEFAULT_FONT_FAMILY
 _language: str = _DEFAULT_LANGUAGE
@@ -55,6 +63,71 @@ _language: str = _DEFAULT_LANGUAGE
 def get_ui_config_path() -> Path:
     """Return the path to the amethyst.ini config file."""
     return get_config_dir() / "amethyst.ini"
+
+
+def _clean_restore_whitelist_patterns(patterns) -> list[str]:
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for value in patterns or []:
+        pattern = str(value).strip()
+        key = pattern.casefold()
+        if not pattern or key in seen:
+            continue
+        seen.add(key)
+        cleaned.append(pattern)
+    return cleaned
+
+
+def load_global_restore_whitelist() -> tuple[list[str], list[str]]:
+    """Return app-wide runtime file and folder patterns kept on restore."""
+    import json
+
+    path = get_ui_config_path()
+    if not path.is_file():
+        return (list(DEFAULT_GLOBAL_RESTORE_WHITELIST_FILES),
+                list(DEFAULT_GLOBAL_RESTORE_WHITELIST_FOLDERS))
+    try:
+        parser = _read_ini(path)
+    except Exception:
+        return (list(DEFAULT_GLOBAL_RESTORE_WHITELIST_FILES),
+                list(DEFAULT_GLOBAL_RESTORE_WHITELIST_FOLDERS))
+
+    def _load(option: str, defaults: tuple[str, ...]) -> list[str]:
+        if not parser.has_option(_RESTORE_SECTION, option):
+            return list(defaults)
+        try:
+            value = json.loads(parser.get(_RESTORE_SECTION, option))
+            if not isinstance(value, list):
+                return list(defaults)
+            return _clean_restore_whitelist_patterns(value)
+        except Exception:
+            return list(defaults)
+
+    return (
+        _load(_RESTORE_WHITELIST_FILES_OPTION,
+              DEFAULT_GLOBAL_RESTORE_WHITELIST_FILES),
+        _load(_RESTORE_WHITELIST_FOLDERS_OPTION,
+              DEFAULT_GLOBAL_RESTORE_WHITELIST_FOLDERS),
+    )
+
+
+def save_global_restore_whitelist(files, folders) -> None:
+    """Persist app-wide runtime file and folder patterns."""
+    import json
+
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _RESTORE_SECTION not in parser:
+        parser[_RESTORE_SECTION] = {}
+    section = parser[_RESTORE_SECTION]
+    section[_RESTORE_WHITELIST_FILES_OPTION] = json.dumps(
+        _clean_restore_whitelist_patterns(files)).replace("%", "%%")
+    section[_RESTORE_WHITELIST_FOLDERS_OPTION] = json.dumps(
+        _clean_restore_whitelist_patterns(folders)).replace("%", "%%")
+    _write_ini(parser, path)
 
 
 def _new_parser() -> "configparser.ConfigParser":

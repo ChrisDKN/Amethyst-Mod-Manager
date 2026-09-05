@@ -14687,6 +14687,42 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
         <translation>Additional Proton build not found automatically. Select the build folder containing the top-level 'proton' launcher, not files/bin/wine. Blank disables it.</translation>
     </message>
     <message>
+        <source>Global restore whitelist</source>
+        <translation>Global restore whitelist</translation>
+    </message>
+    <message>
+        <source>Matching runtime-created files stay in the game folder during restore instead of being moved to Overwrite. File and folder names match case-insensitively at any depth; * and ? wildcards are supported. This applies to every game.</source>
+        <translation>Matching runtime-created files stay in the game folder during restore instead of being moved to Overwrite. File and folder names match case-insensitively at any depth; * and ? wildcards are supported. This applies to every game.</translation>
+    </message>
+    <message>
+        <source>File names</source>
+        <translation>File names</translation>
+    </message>
+    <message>
+        <source>File name or wildcard</source>
+        <translation>File name or wildcard</translation>
+    </message>
+    <message>
+        <source>Add file</source>
+        <translation>Add file</translation>
+    </message>
+    <message>
+        <source>Folder names</source>
+        <translation>Folder names</translation>
+    </message>
+    <message>
+        <source>Folder name or wildcard</source>
+        <translation>Folder name or wildcard</translation>
+    </message>
+    <message>
+        <source>Add folder</source>
+        <translation>Add folder</translation>
+    </message>
+    <message>
+        <source>Remove selected</source>
+        <translation>Remove selected</translation>
+    </message>
+    <message>
         <source>{0} set: {1}</source>
         <translation>{0} set: {1}</translation>
     </message>
