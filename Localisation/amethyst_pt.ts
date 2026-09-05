@@ -1969,6 +1969,18 @@ O cache MD5 é mantido. Os arquivos serão descarregados novamente, conforme nec
       <translation>Sistema de ficheiros virtuais (VFS)</translation>
     </message>
     <message>
+      <source>Game Runtime</source>
+      <translation>Jogo de execução</translation>
+    </message>
+    <message>
+      <source>Native Linux</source>
+      <translation>Linux nativo</translation>
+    </message>
+    <message>
+      <source>Windows / Proton</source>
+      <translation>Janelas / Proton</translation>
+    </message>
+    <message>
       <source>Swap launcher with script extender on deploy</source>
       <translation>Trocar o lançador com o extensor de script ao implantar</translation>
     </message>
@@ -2197,6 +2209,18 @@ As definições do perfil predefinido não são afetadas.</translation>
       <translation>Defina primeiro a pasta de instalação do jogo.</translation>
     </message>
     <message>
+      <source>Native Linux runtime selected, but bin/bg3 was not found.</source>
+      <translation>Executando Linux nativo selecionado, mas bin/bg3 não foi encontrado.</translation>
+    </message>
+    <message>
+      <source>Windows / Proton runtime selected, but no BG3 Windows executable was found.</source>
+      <translation>Windows / Proton runtime selecionado, mas nenhum executável BG3 foi encontrado.</translation>
+    </message>
+    <message>
+      <source>Select the Proton prefix used by this BG3 installation.</source>
+      <translation>Selecione o prefixo do Proton usado por esta instalação do BG3.</translation>
+    </message>
+    <message>
       <source>The mod staging folder cannot be the game folder or be inside it. Choose a separate location.</source>
       <translation>A pasta de encenação do mod não pode ser a pasta do jogo ou estar dentro dela. Escolha um local separado.</translation>
     </message>
@@ -2207,6 +2231,10 @@ As definições do perfil predefinido não são afetadas.</translation>
     <message>
       <source>Cannot change the game/prefix path while mods are deployed. Restore the game first.</source>
       <translation>Não é possível alterar o caminho do jogo/prefixo enquanto os mods estiverem instalados. Reponha primeiro o jogo.</translation>
+    </message>
+    <message>
+      <source>Cannot change the game runtime while mods are deployed. Restore the game first.</source>
+      <translation>Não é possível alterar o tempo de execução do jogo enquanto mods estão implantados. Restaure o jogo primeiro.</translation>
     </message>
     <message>
       <source>Restore the game before changing the preferred OpenMW package.</source>
@@ -9002,6 +9030,14 @@ Como você gostaria de lidar com o mod existente?</translation>
       <source>(no mod selected)</source>
       <translation>(nenhum módulo selecionado)</translation>
     </message>
+    <message>
+      <source>{0} — Loading files…</source>
+      <translation>{0} - Carregando arquivos…</translation>
+    </message>
+    <message>
+      <source>{0} — Unable to load files</source>
+      <translation>{0} - Não foi possível carregar os arquivos</translation>
+    </message>
   </context>
   <context>
     <name>ModListMenu</name>
@@ -14579,6 +14615,22 @@ flatpak remote-add -- user amethyst https://chrisdkn.github.io/Amethyst-Mod-Mana
     <message>
       <source>Right side</source>
       <translation>Lado direito</translation>
+    </message>
+    <message>
+      <source>Translate on Crowdin</source>
+      <translation>Traduzir no Crowdin</translation>
+    </message>
+    <message>
+      <source>Open the Amethyst Crowdin project to help translate the app.</source>
+      <translation>Abra o projeto Crowdin Ametista para ajudar a traduzir o aplicativo.</translation>
+    </message>
+    <message>
+      <source>Mod list</source>
+      <translation>Mod list</translation>
+    </message>
+    <message>
+      <source>Status bar</source>
+      <translation>Barra de estatus</translation>
     </message>
     <message>
       <source>Cap the combined download speed of all downloads (collections, single mods, nxm and modl links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>
