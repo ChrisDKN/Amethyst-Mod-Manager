@@ -114,6 +114,7 @@ class EnderalSE(Fallout_3):
                 description="Download and run Wrye Bash.",
                 dialog_class_path="wizards.wrye_bash.WryeBashWizard",
             ),
+            self._xlodgen_wizard_tool("enderalse"),
             *self._xedit_wizard_tools(
                 build="EnderalSEEdit", id_suffix="enderalse",
                 nexus_url="https://www.nexusmods.com/enderalspecialedition/mods/78?tab=files",

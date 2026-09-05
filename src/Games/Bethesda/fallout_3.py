@@ -338,6 +338,15 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
             ),
         ]
 
+    @staticmethod
+    def _xlodgen_wizard_tool(id_suffix: str) -> WizardTool:
+        return WizardTool(
+            id=f"run_xlodgen_{id_suffix}",
+            label="Run xLODGen",
+            description="Install xLODGen, deploy mods, and run xLODGenx64.exe.",
+            dialog_class_path="wizards.dyndolod.xLODGenWizard",
+        )
+
     @property
     def wizard_tools(self) -> list[WizardTool]:
         return self._base_wizard_tools() + [
@@ -367,6 +376,7 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
                 description="Download and run Wrye Bash.",
                 dialog_class_path="wizards.wrye_bash.WryeBashWizard",
             ),
+            self._xlodgen_wizard_tool("fo3"),
             *self._xedit_wizard_tools(
                 build="FO3Edit", id_suffix="fo3",
                 nexus_url="https://www.nexusmods.com/fallout3/mods/637?tab=files",

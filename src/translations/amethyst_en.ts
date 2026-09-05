@@ -4039,6 +4039,10 @@ Please restart the wizard and install {1} first.</translation>
         <translation>Launching {0}…</translation>
     </message>
     <message>
+        <source>xLODGen does not support {0}.</source>
+        <translation>xLODGen does not support {0}.</translation>
+    </message>
+    <message>
         <source>Game path not configured.</source>
         <translation>Game path not configured.</translation>
     </message>

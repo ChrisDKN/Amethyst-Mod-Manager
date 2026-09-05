@@ -384,12 +384,7 @@ class SkyrimSE(Fallout_3):
                 description="Install DynDOLOD tools, deploy mods, and run DynDOLODx64.exe.",
                 dialog_class_path="wizards.dyndolod.DynDOLODWizard",
             ),
-            WizardTool(
-                id="run_xlodgen_skyrimse",
-                label="Run xLODGen",
-                description="Install xLODGen, deploy mods, and run xLODGenx64.exe.",
-                dialog_class_path="wizards.dyndolod.xLODGenWizard",
-            ),
+            self._xlodgen_wizard_tool("skyrimse"),
             WizardTool(
                 id="run_acmos_skyrimse",
                 label="Run ACMOS Road Generator",
