@@ -19,8 +19,8 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import QEvent, Qt, QTimer, Signal
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
-    QAbstractItemView, QCheckBox, QComboBox, QLabel, QLineEdit, QPushButton,
-    QSizePolicy, QSplitter, QTreeView, QVBoxLayout, QWidget,
+    QAbstractItemView, QApplication, QCheckBox, QComboBox, QLabel, QLineEdit,
+    QPushButton, QSizePolicy, QSplitter, QTreeView, QVBoxLayout, QWidget,
 )
 
 from gui_qt.eliding_label import ElidingLabel
@@ -84,6 +84,7 @@ class NpcViewerView(QWidget):
         self._gen = 0
         self._list_gen = 0
         self._open_gen = 0
+        self._scanning = False
         self._npcs: list = []
         self._resolver = None
         self._dirs = DirCache()
@@ -97,6 +98,7 @@ class NpcViewerView(QWidget):
         self._mod_archives: dict = {}
         self._archive_mod_list = None
         self._archive_owner: dict = {}
+        self._entry_archive_lookups: dict = {}
         self._current = None
         self._current_data = None
         self._pending_export = None
@@ -266,6 +268,13 @@ class NpcViewerView(QWidget):
         self._debounce.setInterval(250)
         self._debounce.timeout.connect(self._rebuild_list)
 
+        self._selection_timer = QTimer(self)
+        self._selection_timer.setSingleShot(True)
+        self._selection_timer.setInterval(150)
+        self._selection_timer.timeout.connect(self._preview_current)
+        self._tree.selectionModel().currentChanged.connect(self._on_current_changed)
+        self._tree.activated.connect(self._preview_current)
+
         # Keep feedback's delayed reset inside this widget's lifetime.  A
         # static QTimer.singleShot retains its Python callback after a tab has
         # deleteLater()d the view, at which point touching _save_btn raises
@@ -303,20 +312,21 @@ class NpcViewerView(QWidget):
         self._mod_archives = {}
         self._archive_mod_list = None
         self._archive_owner = {}
+        self._entry_archive_lookups.clear()
         self._current_data = None
         self._dirs = DirCache()
         # Who was on screen, so the refresh lands back on them rather than
         # dumping the user at the top of a 4000-row list. Kept by IDENTITY,
         # not by entry: the mod providing the winning face may have changed,
         # which is the whole reason for refreshing.
-        self._restore = ((self._current.plugin, self._current.formid)
-                         if self._current is not None else None)
+        if self._current is not None:
+            self._restore = (self._current.plugin, self._current.formid)
         self._current = None
         # In-flight reads belong to the old profile state.
         self._open_gen += 1
         self._mesh_reads.discard_pending()
         self._tex_sources.cancel()
-        self._preview.cancel_load()
+        self._preview.clear(self.tr("Scanning…"))
         self._portrait.hide()
         self._save_btn.setEnabled(False)
         self._log("View NPCs: refreshing from the profile…")
@@ -347,6 +357,7 @@ class NpcViewerView(QWidget):
         if self._closing:
             return False
         self._closing = True
+        self._selection_timer.stop()
         timer = getattr(self, "_save_feedback_timer", None)
         if timer is not None:
             timer.stop()
@@ -384,8 +395,14 @@ class NpcViewerView(QWidget):
 
     # ---- scan -------------------------------------------------------------
     def _start_scan(self):
+        self._selection_timer.stop()
         self._gen += 1
         gen = self._gen
+        self._scanning = True
+        self._list_gen += 1
+        self._list_jobs.discard_pending()
+        self._debounce.stop()
+        self._tree.setEnabled(False)
         self._count.setText(self.tr("Scanning…"))
         try:
             snapshot_hook = getattr(
@@ -431,12 +448,15 @@ class NpcViewerView(QWidget):
         if gen != self._gen:
             return
         self._npcs = npcs
+        self._scanning = False
         self._rebuild_list()
 
     # ---- list -------------------------------------------------------------
     def _rebuild_list(self):
         """Filter the cached catalogue and rebuild the list off the UI thread."""
         self._debounce.stop()
+        if self._closing or self._scanning:
+            return
         self._list_gen += 1
         gen = self._list_gen
         query = self._search.text().strip().lower()
@@ -457,14 +477,34 @@ class NpcViewerView(QWidget):
         self._list_jobs.submit(worker)
 
     def _on_list_ready(self, gen: int, root, count: int):
-        if gen != self._list_gen:
+        if gen != self._list_gen or self._scanning:
             return
         self._model.set_root(root)
+        self._tree.setEnabled(True)
         self._count.setText(self.tr("{0} NPCs").format(f"{count:,}"))
         if self._restore is not None:
             self._restore_selection()
 
+    def _on_current_changed(self, current, _previous):
+        self._selection_timer.stop()
+        if (self._closing or self._scanning or not current.isValid()
+                or QApplication.mouseButtons() != Qt.NoButton):
+            return
+        node = self._model.node(current)
+        if node is not None and node.payload is not None:
+            self._selection_timer.start()
+
+    def _preview_current(self, *_args):
+        self._selection_timer.stop()
+        if self._closing or self._scanning:
+            return
+        node = self._model.node(self._tree.currentIndex())
+        if (node is not None and node.payload is not None
+                and node.payload != self._current):
+            self._open_npc(node.payload)
+
     def _on_clicked(self, index):
+        self._selection_timer.stop()
         node = self._model.node(index)
         if node is None:
             return
@@ -479,6 +519,7 @@ class NpcViewerView(QWidget):
     def _open_npc(self, npc, tex_override=None, keep_view=False,
                   texture_reload=False):
         """Read THIS copy of the head off-thread and hand it to the viewport."""
+        self._selection_timer.stop()
         self._open_gen += 1
         gen = self._open_gen
         previous = self._current
@@ -846,6 +887,8 @@ class NpcViewerView(QWidget):
                         low_rel = part.rel[:-6] + "_0.nif"
                         low_blob = (self._resolver.read(low_rel)
                                     if self._resolver else None)
+                        if not low_blob:
+                            low_blob = self._from_mod_archives(low_rel)
                     parts.append((blob, part.rel, part.attach,
                                   low_blob, weight, part.textures,
                                   self._part_plugin_dirs(part.rel)))
@@ -855,6 +898,8 @@ class NpcViewerView(QWidget):
             skeleton = None
             for rel in got["skeleton"]:
                 skeleton = self._resolver.read(rel) if self._resolver else None
+                if not skeleton:
+                    skeleton = self._from_mod_archives(rel)
                 if skeleton:
                     break
             if not skeleton:
@@ -885,7 +930,8 @@ class NpcViewerView(QWidget):
         # reload path can pass the complete three-part payload back here.
         self._current_data = (npc, data, body)
         entry = npc.entry
-        archives = _entry_archives(entry, self._staging)
+        archives = _entry_archives(
+            entry, self._staging, self._entry_archive_lookups)
         # Hair colour and TXST overrides both need the plugins: the face's own
         # mod first, then the data folder holding the masters.
         dirs = []
@@ -936,7 +982,7 @@ class NpcViewerView(QWidget):
 
 # ---- helpers ---------------------------------------------------------------
 
-def _entry_archives(entry, staging):
+def _entry_archives(entry, staging, cache=None):
     """Archives to search beside a head's own copy, or None.
 
     A replacer commonly ships a LOOSE FaceGeom head plus a private BSA of its
@@ -954,10 +1000,15 @@ def _entry_archives(entry, staging):
         root = Path(entry.archive).parent
     if root is None:
         return None
+    if cache is not None and root in cache:
+        return cache[root]
     try:
-        return ArchiveLookup(find_archives([root]), keep_prefix=ASSET_PREFIXES)
+        lookup = ArchiveLookup(find_archives([root]), keep_prefix=ASSET_PREFIXES)
     except Exception:                                    # noqa: BLE001
-        return None
+        lookup = None
+    if cache is not None:
+        cache[root] = lookup
+    return lookup
 
 
 def _load_options(load_opts):

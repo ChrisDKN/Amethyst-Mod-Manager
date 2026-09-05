@@ -505,6 +505,17 @@ void main() {
 """
 
 
+class _Geometry:
+    __slots__ = ("verts", "indices", "lo", "hi", "has_colors")
+
+    def __init__(self, verts, indices, lo, hi, has_colors):
+        self.verts = verts
+        self.indices = indices
+        self.lo = lo
+        self.hi = hi
+        self.has_colors = has_colors
+
+
 class _Mesh:
     """One shape's CPU-side buffers, built off-thread and uploaded on demand."""
 
@@ -516,7 +527,7 @@ class _Mesh:
                  "srgb_albedo", "texture_clamp_mode",
                  "double_sided", "depth_test", "depth_write",
                  "vao", "vbo", "ibo", "texture", "normal_tex",
-                 "env_tex", "mask_tex")
+                 "env_tex", "mask_tex", "geometry")
 
     def __init__(self, name, verts, indices, image, tri_count,
                  normal_image=None, model_space_normals=False, spec=None,
@@ -525,10 +536,11 @@ class _Mesh:
                  has_colors=False, tint=(1.0, 1.0, 1.0), rmaos_image=None,
                  pbr=False, pbr_params=(0.04, 1.0), srgb_albedo=False,
                  texture_clamp_mode=3, double_sided=False,
-                 depth_test=True, depth_write=True):
+                 depth_test=True, depth_write=True, geometry=None):
         self.name = name
         self.verts = verts
         self.indices = indices
+        self.geometry = geometry
         self.image = image
         # Kept because `image` is dropped once the texture is on the GPU.
         self.has_image = image is not None
@@ -1247,7 +1259,7 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
         # The overlay belongs in the key: the head shares its base texture with
         # every other NPC using that skin, but the tint map is per-NPC.
         key = diffuse_key(shape)
-        overlay = getattr(shape, "tint_overlay", "")
+        overlay = getattr(shape, "tint_overlay", "") if slot == 0 else ""
         palette_index = getattr(shape, "palette_index", None)
         palette_rel = (palette_slot(shape)
                        if slot == 0 and palette_index is not None
@@ -1336,8 +1348,97 @@ def _load_external_geometry(model, fetch):
         shape.triangles = mesh.triangles
 
 
-def _build_meshes(model, load_texture, cancel=None):
-    """Bake world transforms and interleave into GL-ready buffers."""
+def _build_geometry(shape, uv_scale, uv_offset):
+    verts, tris = shape.vertices, shape.triangles
+    normals = shape.normals
+    if len(normals) != len(verts):
+        normals = _face_normals(verts, tris)
+        # The parsed/assembled model is retained for texture-source and
+        # texture-slot reloads. Keep this geometry-only result with it so
+        # a 100k-triangle body does not regenerate identical normals on
+        # every reload.
+        shape.normals = normals
+    uvs = shape.uvs
+    if len(uvs) != len(verts):
+        uvs = [(0.0, 0.0)] * len(verts)
+    if uv_scale != (1.0, 1.0) or uv_offset != (0.0, 0.0):
+        su, sv = uv_scale
+        ou, ov = uv_offset
+        uvs = [(u * su + ou, v * sv + ov) for u, v in uvs]
+    # No tangents (Skyrim LE data blocks, Starfield, unskinned bodies) just
+    # means no normal mapping for that shape; the shader falls back.
+    tangents = shape.tangents
+    if len(tangents) != len(verts):
+        tangents = [(0.0, 0.0, 0.0)] * len(verts)
+    signs = getattr(shape, "bitangent_signs", ())
+    if len(signs) != len(verts):
+        signs = [1.0] * len(verts)
+    # The engine ignores the colour array unless SLSF2_Vertex_Colors is
+    # set, and 405 shapes in one real load order carry a stale one.
+    use_colors = shape.vertex_colors and len(shape.colors) == len(verts)
+    colors = shape.colors if use_colors else None
+
+    tx, ty, tz = shape.translation
+    r = shape.rotation
+    s = shape.scale
+    r0, r1, r2, r3, r4, r5, r6, r7, r8 = r
+    # Transform in whole-list passes; the identity case (most statics)
+    # reuses the parsed lists untouched.
+    if r == _IDENTITY_ROT and s == 1.0:
+        if (tx, ty, tz) == (0.0, 0.0, 0.0):
+            wverts = verts
+        else:
+            wverts = [(x + tx, y + ty, z + tz) for x, y, z in verts]
+        wnorms = normals
+        wtans = tangents
+    else:
+        wverts = [(tx + s * (r0 * x + r1 * y + r2 * z),
+                   ty + s * (r3 * x + r4 * y + r5 * z),
+                   tz + s * (r6 * x + r7 * y + r8 * z))
+                  for x, y, z in verts]
+        wnorms = [(r0 * x + r1 * y + r2 * z,
+                   r3 * x + r4 * y + r5 * z,
+                   r6 * x + r7 * y + r8 * z)
+                  for x, y, z in normals]
+        wtans = [(r0 * x + r1 * y + r2 * z,
+                  r3 * x + r4 * y + r5 * z,
+                  r6 * x + r7 * y + r8 * z)
+                 for x, y, z in tangents]
+
+    # Compact tangent frame: xyz plus the one bit needed to reconstruct
+    # the stored bitangent direction in the shader.
+    wtans = [(x, y, z, sign)
+             for (x, y, z), sign in zip(wtans, signs)]
+
+    # Interleave pos/normal/uv/tangent(/colour) without a per-vertex
+    # Python loop: chain flattens the zipped tuples at C speed.
+    groups = (zip(wverts, wnorms, uvs, wtans, colors) if colors is not None
+              else zip(wverts, wnorms, uvs, wtans))
+    flat = array.array("f", chain.from_iterable(
+        chain.from_iterable(groups)))
+
+    # Bounds from strided slices of the final buffer (C speed); the
+    # per-shape centroid orders the blended pass.
+    fpv = 16 if colors is not None else 12
+    xs, ys, zs = flat[0::fpv], flat[1::fpv], flat[2::fpv]
+    mlo = (min(xs), min(ys), min(zs))
+    mhi = (max(xs), max(ys), max(zs))
+    nv = len(verts)
+    idx = array.array("I", chain.from_iterable(tris))
+    if idx and max(idx) >= nv:
+        # Rare corrupt file: drop only the out-of-range triangles.
+        idx = array.array("I")
+        for a, b, c in tris:
+            if a < nv and b < nv and c < nv:
+                idx.extend((a, b, c))
+    if not idx:
+        return None
+
+    return _Geometry(flat, idx, mlo, mhi, colors is not None)
+
+
+def _build_meshes(model, load_texture, cancel=None, geometry_cache=None):
+    """Build materials and reuse geometry cached for this prepared model."""
     meshes: list[_Mesh] = []
     lo = [float("inf")] * 3
     hi = [float("-inf")] * 3
@@ -1346,7 +1447,7 @@ def _build_meshes(model, load_texture, cancel=None):
     head_lo = [float("inf")] * 3
     head_hi = [float("-inf")] * 3
 
-    for shape in model.shapes:
+    for shape_index, shape in enumerate(model.shapes):
         if cancel is not None and cancel():
             return [], None, None
         if getattr(shape, "hidden", False):
@@ -1358,105 +1459,31 @@ def _build_meshes(model, load_texture, cancel=None):
         tris = shape.triangles
         if not verts or not tris:
             continue
-        normals = shape.normals
-        if len(normals) != len(verts):
-            normals = _face_normals(verts, tris)
-            # The parsed/assembled model is retained for texture-source and
-            # texture-slot reloads. Keep this geometry-only result with it so
-            # a 100k-triangle body does not regenerate identical normals on
-            # every reload.
-            shape.normals = normals
-        uvs = shape.uvs
-        if len(uvs) != len(verts):
-            uvs = [(0.0, 0.0)] * len(verts)
-        uv_scale = (external_material.uv_scale if external_material is not None
-                    else getattr(shape, "uv_scale", (1.0, 1.0)))
-        uv_offset = (external_material.uv_offset if external_material is not None
-                     else getattr(shape, "uv_offset", (0.0, 0.0)))
-        if uv_scale != (1.0, 1.0) or uv_offset != (0.0, 0.0):
-            su, sv = uv_scale
-            ou, ov = uv_offset
-            uvs = [(u * su + ou, v * sv + ov) for u, v in uvs]
-        # No tangents (Skyrim LE data blocks, Starfield, unskinned bodies) just
-        # means no normal mapping for that shape; the shader falls back.
-        tangents = shape.tangents
-        if len(tangents) != len(verts):
-            tangents = [(0.0, 0.0, 0.0)] * len(verts)
-        signs = getattr(shape, "bitangent_signs", ())
-        if len(signs) != len(verts):
-            signs = [1.0] * len(verts)
-        # The engine ignores the colour array unless SLSF2_Vertex_Colors is
-        # set, and 405 shapes in one real load order carry a stale one.
-        use_colors = shape.vertex_colors and len(shape.colors) == len(verts)
-        colors = shape.colors if use_colors else None
-
-        tx, ty, tz = shape.translation
-        r = shape.rotation
-        s = shape.scale
-        r0, r1, r2, r3, r4, r5, r6, r7, r8 = r
-        # Transform in whole-list passes; the identity case (most statics)
-        # reuses the parsed lists untouched.
-        if r == _IDENTITY_ROT and s == 1.0:
-            if (tx, ty, tz) == (0.0, 0.0, 0.0):
-                wverts = verts
-            else:
-                wverts = [(x + tx, y + ty, z + tz) for x, y, z in verts]
-            wnorms = normals
-            wtans = tangents
+        uv_scale = tuple(external_material.uv_scale
+                         if external_material is not None
+                         else getattr(shape, "uv_scale", (1.0, 1.0)))
+        uv_offset = tuple(external_material.uv_offset
+                          if external_material is not None
+                          else getattr(shape, "uv_offset", (0.0, 0.0)))
+        key = (uv_scale, uv_offset)
+        cached = (geometry_cache.get(shape_index)
+                  if geometry_cache is not None else None)
+        if cached is not None and cached[0] == key:
+            geometry = cached[1]
         else:
-            wverts = [(tx + s * (r0 * x + r1 * y + r2 * z),
-                       ty + s * (r3 * x + r4 * y + r5 * z),
-                       tz + s * (r6 * x + r7 * y + r8 * z))
-                      for x, y, z in verts]
-            wnorms = [(r0 * x + r1 * y + r2 * z,
-                       r3 * x + r4 * y + r5 * z,
-                       r6 * x + r7 * y + r8 * z)
-                      for x, y, z in normals]
-            wtans = [(r0 * x + r1 * y + r2 * z,
-                      r3 * x + r4 * y + r5 * z,
-                      r6 * x + r7 * y + r8 * z)
-                     for x, y, z in tangents]
-
-        # Compact tangent frame: xyz plus the one bit needed to reconstruct
-        # the stored bitangent direction in the shader.
-        wtans = [(x, y, z, sign)
-                 for (x, y, z), sign in zip(wtans, signs)]
-
-        # Interleave pos/normal/uv/tangent(/colour) without a per-vertex
-        # Python loop: chain flattens the zipped tuples at C speed.
-        groups = (zip(wverts, wnorms, uvs, wtans, colors) if colors is not None
-                  else zip(wverts, wnorms, uvs, wtans))
-        flat = array.array("f", chain.from_iterable(
-            chain.from_iterable(groups)))
-
-        # Bounds from strided slices of the final buffer (C speed); the
-        # per-shape centroid orders the blended pass.
-        fpv = 16 if colors is not None else 12
-        xs, ys, zs = flat[0::fpv], flat[1::fpv], flat[2::fpv]
-        mlo = (min(xs), min(ys), min(zs))
-        mhi = (max(xs), max(ys), max(zs))
-        for k in range(3):
-            if mlo[k] < lo[k]:
-                lo[k] = mlo[k]
-            if mhi[k] > hi[k]:
-                hi[k] = mhi[k]
-        if getattr(shape, "is_head", False):
-            for k in range(3):
-                if mlo[k] < head_lo[k]:
-                    head_lo[k] = mlo[k]
-                if mhi[k] > head_hi[k]:
-                    head_hi[k] = mhi[k]
-
-        nv = len(verts)
-        idx = array.array("I", chain.from_iterable(tris))
-        if idx and max(idx) >= nv:
-            # Rare corrupt file: drop only the out-of-range triangles.
-            idx = array.array("I")
-            for a, b, c in tris:
-                if a < nv and b < nv and c < nv:
-                    idx.extend((a, b, c))
-        if not idx:
+            geometry = _build_geometry(shape, uv_scale, uv_offset)
+            if geometry_cache is not None:
+                geometry_cache[shape_index] = (key, geometry)
+        if geometry is None:
             continue
+        flat, idx = geometry.verts, geometry.indices
+        mlo, mhi = geometry.lo, geometry.hi
+        for k in range(3):
+            lo[k] = min(lo[k], mlo[k])
+            hi[k] = max(hi[k], mhi[k])
+            if getattr(shape, "is_head", False):
+                head_lo[k] = min(head_lo[k], mlo[k])
+                head_hi[k] = max(head_hi[k], mhi[k])
 
         image = load_texture(shape)
         nrm_img, model_space = (load_texture.normal_map(shape)
@@ -1503,14 +1530,15 @@ def _build_meshes(model, load_texture, cancel=None):
                             env_img, mask_img,
                             shape.env_map_scale if env_img else 0.0,
                             thr, alpha_blend and image is not None,
-                            centre, colors is not None, shape.tint,
+                            centre, geometry.has_colors, shape.tint,
                             load_texture.rmaos_map(shape)
                             if hasattr(load_texture, 'rmaos_map') else None,
                             shape.pbr,
                             (shape.glossiness, shape.spec_strength),
                             bool(load_texture.is_srgb(shape))
                             if hasattr(load_texture, 'is_srgb') else False,
-                            clamp_mode, double_sided, depth_test, depth_write))
+                            clamp_mode, double_sided, depth_test, depth_write,
+                            geometry=geometry))
 
     if not meshes:
         return [], None, None
@@ -1565,16 +1593,37 @@ def _depth_write_for_draw(mesh, solid: bool, use_texture: bool) -> bool:
         and mesh.alpha_threshold >= 0.0))
 
 
-def _neutralise_meshes(meshes) -> None:
+def _release_mesh_buffers(meshes) -> None:
+    for m in meshes:
+        for obj in (m.vao, m.vbo, m.ibo):
+            if obj is not None:
+                try:
+                    obj.destroy()
+                except RuntimeError:
+                    pass
+        m.vao = m.vbo = m.ibo = None
+        m.texture = m.normal_tex = m.env_tex = m.mask_tex = m.rmaos_tex = None
+
+
+def _neutralise_meshes(meshes, textures=()) -> None:
     """Sever GL wrappers whose context is gone: QOpenGLTexture's destructor
     dereferences its creation context (areSharing), so letting GC run it after
     the context died segfaults. invalidate() leaks the tiny C++ shell instead;
     the GPU memory goes with the context's share group."""
     import shiboken6
+    seen = set()
+    for obj in textures:
+        if obj is not None and id(obj) not in seen:
+            seen.add(id(obj))
+            try:
+                shiboken6.invalidate(obj)
+            except Exception:                            # noqa: BLE001
+                pass
     for m in meshes:
         for obj in (m.vao, m.vbo, m.ibo, m.texture, m.normal_tex,
                     m.env_tex, m.mask_tex, m.rmaos_tex):
-            if obj is not None:
+            if obj is not None and id(obj) not in seen:
+                seen.add(id(obj))
                 try:
                     shiboken6.invalidate(obj)
                 except Exception:                        # noqa: BLE001
@@ -2010,7 +2059,9 @@ def _log_build(log, meshes, bounds, loader) -> None:
 def _neutralise_view(view) -> None:
     """Last-resort orphan cleanup when a context dies (Python attrs only -
     the widget's C++ half may already be mid-destruction)."""
-    _neutralise_meshes(list(view._meshes) + list(view._pending or ()))
+    _neutralise_meshes(list(view._meshes) + list(view._pending or ()),
+                       view._gpu_textures.values())
+    view._gpu_textures.clear()
     view._meshes = []
     view._pending = None
 
@@ -2117,6 +2168,7 @@ class _Viewport(QOpenGLWidget):
         self._u_tint = self._u_rmaostex = self._u_pbr = self._u_hasrmaos = -1
         self._u_pbrparams = self._u_srgb = -1
         self._meshes: list[_Mesh] = []
+        self._gpu_textures = {}
         self._pending: list[_Mesh] | None = None
         self._uploaded = False
         self._gl_error = ""
@@ -2127,6 +2179,7 @@ class _Viewport(QOpenGLWidget):
         # are invariant when only the texture source/slot changes.
         self._cached_model_key = None
         self._cached_model = None
+        self._cached_geometry = {}
         self._reload_args = None
         self._needs_reload = False
         self._keep_view = False
@@ -2139,9 +2192,8 @@ class _Viewport(QOpenGLWidget):
         # (yaw, pitch, look-at height as a fraction of the model) or None for
         # the mesh-browser 3/4 default. Set by a host that shows ACTORS.
         self.home_view = None
-        # Bounds the camera was last framed against; keep_view only holds the
-        # view for geometry that has ALREADY been framed.
-        self._framed_bounds = None
+        self._source_key = None
+        self._framed_source = None
         # Set only while rendering into an export FBO, so _mvp uses that
         # size's aspect instead of the widget's.
         self._render_size = None
@@ -2198,6 +2250,12 @@ class _Viewport(QOpenGLWidget):
         gen = self._generation
         # keep_view: same mesh, new textures - don't snap the camera back.
         self._keep_view = bool(keep_view)
+        if mesh_rel:
+            self._source_key = ("asset", mesh_rel.replace("\\", "/").lower())
+        elif isinstance(source, (bytes, bytearray)):
+            self._source_key = ("memory", id(source))
+        else:
+            self._source_key = ("path", str(Path(source)))
         # Kept so the mesh can be rebuilt after a context loss (tab detach).
         self._reload_args = (source, texture_roots, archive_roots,
                              resolver, archives, tex_override,
@@ -2216,7 +2274,7 @@ class _Viewport(QOpenGLWidget):
         _log(log, f"  archive roots: "
                   f"{len(archive_roots or ()) if archive_roots else 0}"
                   f" · resolver: {'yes' if resolver else 'no'}"
-                  f" · archive index: {'yes' if archives else 'no'}"
+                  f" · archive index: {'yes' if archives is not None else 'no'}"
                   f" · texture slot: {self.texture_slot}"
                   f" · override: {'yes' if tex_override else 'no'}")
         if mesh_rel:
@@ -2247,6 +2305,7 @@ class _Viewport(QOpenGLWidget):
                 if (model_key == self._cached_model_key
                         and self._cached_model is not None):
                     model = self._cached_model
+                    geometry_cache = self._cached_geometry
                     _log(log, "  reused parsed model and plugin/geometry lookups")
                 else:
                     t0 = time.monotonic()
@@ -2389,9 +2448,12 @@ class _Viewport(QOpenGLWidget):
                         return
                     self._cached_model_key = model_key
                     self._cached_model = model
+                    geometry_cache = {}
+                    self._cached_geometry = geometry_cache
                 t0 = time.monotonic()
                 meshes, bounds, head_bounds = _build_meshes(
-                    model, loader, cancel=lambda: gen != self._generation)
+                    model, loader, cancel=lambda: gen != self._generation,
+                    geometry_cache=geometry_cache)
                 if gen != self._generation:
                     return
                 _log(log, f"  built {len(meshes)} drawable mesh(es) in "
@@ -2431,17 +2493,17 @@ class _Viewport(QOpenGLWidget):
         self.cancel_load()
         self._cached_model_key = None
         self._cached_model = None
+        self._cached_geometry = {}
+        self._framed_source = None
         if self.context() is not None:
             try:
                 self.makeCurrent()
                 self._release_gpu()
                 self.doneCurrent()
             except RuntimeError:
-                _neutralise_meshes(self._meshes)
-                self._meshes = []
+                _neutralise_view(self)
         else:
-            _neutralise_meshes(self._meshes)
-            self._meshes = []
+            _neutralise_view(self)
         self._uploaded = False
         self._bounds = None
         self._head_bounds = None
@@ -2451,29 +2513,16 @@ class _Viewport(QOpenGLWidget):
                    head_bounds=None):
         if gen != self._generation:
             return                                   # a newer file won the race
-        # GL deletes need the context current or the driver keeps the objects.
-        if self.context() is not None:
-            self.makeCurrent()
-            self._release_gpu()
-            self.doneCurrent()
-        else:
-            _neutralise_meshes(self._meshes)
-            self._meshes = []
         self._pending = meshes
         self._uploaded = False
         self._bounds = bounds
         self._head_bounds = head_bounds
-        # keep_view means "same geometry, different textures" - it must not
-        # hold the camera on geometry that has never been framed. A texture
-        # reload is armed the moment a mesh opens and can SUPERSEDE the first
-        # load, so the only load that completes carries keep_view=True and the
-        # actor was left at the startup camera: distance 100 looking at the
-        # origin, i.e. staring at its boots from behind. Framing is therefore
-        # keyed on the BOUNDS, which a texture change cannot alter.
+        # Variants share a camera even when their bounds differ. A reload
+        # superseding the first load must still frame its new asset.
         if bounds is not None and (not self._keep_view
-                                   or bounds != self._framed_bounds):
+                                   or self._source_key != self._framed_source):
             self._frame(bounds)
-            self._framed_bounds = bounds
+            self._framed_source = self._source_key
             yaw, pitch = self._camera_angles()
             _log(self.log_fn,
                  f"  framed: yaw {math.degrees(yaw):.0f}° "
@@ -2878,8 +2927,7 @@ class _Viewport(QOpenGLWidget):
             # is gone even a later destroy() crashes (it derefs the stored
             # context in areSharing; seen as a GC-time SIGSEGV). Sever the
             # wrappers instead; the share group reclaims the GPU side.
-            _neutralise_meshes(self._meshes)
-            self._meshes = []
+            _neutralise_view(self)
         self._pending = None
         self._uploaded = False
         self._needs_reload = True
@@ -2888,6 +2936,7 @@ class _Viewport(QOpenGLWidget):
         """Free GL objects while the context lives (called on DeferredDelete;
         aboutToBeDestroyed fires too late - Qt has dropped our connections)."""
         if self.context() is None:
+            _neutralise_view(self)
             return
         try:
             self.makeCurrent()
@@ -2904,83 +2953,121 @@ class _Viewport(QOpenGLWidget):
         return super().event(e)
 
     def _release_gpu(self):
-        for m in self._meshes:
-            for obj in (m.vao, m.vbo, m.ibo, m.texture, m.normal_tex,
-                        m.env_tex, m.mask_tex, m.rmaos_tex):
-                if obj is not None:
-                    try:
-                        obj.destroy()
-                    except RuntimeError:
-                        pass
-            m.vao = m.vbo = m.ibo = m.texture = m.normal_tex = None
-            m.env_tex = m.mask_tex = m.rmaos_tex = None
+        _release_mesh_buffers(self._meshes + list(self._pending or ()))
+        for tex in self._gpu_textures.values():
+            try:
+                tex.destroy()
+            except RuntimeError:
+                pass
+        self._gpu_textures.clear()
         self._meshes = []
+        self._pending = None
+
+    def _upload_geometry(self, m):
+        prog = self._program
+        m.vao = QOpenGLVertexArrayObject()
+        m.vao.create()
+        m.vao.bind()
+
+        m.vbo = QOpenGLBuffer(QOpenGLBuffer.VertexBuffer)
+        m.vbo.create()
+        m.vbo.bind()
+        data = m.verts.tobytes()
+        m.vbo.allocate(data, len(data))
+
+        # Colours widen the vertex; the enable state is captured by this
+        # mesh's VAO, so meshes without them never read attribute 4.
+        stride = (16 if m.has_colors else 12) * 4
+        prog.enableAttributeArray(0)
+        prog.setAttributeBuffer(0, _GL_FLOAT, 0, 3, stride)
+        prog.enableAttributeArray(1)
+        prog.setAttributeBuffer(1, _GL_FLOAT, 3 * 4, 3, stride)
+        prog.enableAttributeArray(2)
+        prog.setAttributeBuffer(2, _GL_FLOAT, 6 * 4, 2, stride)
+        prog.enableAttributeArray(3)
+        prog.setAttributeBuffer(3, _GL_FLOAT, 8 * 4, 4, stride)
+        if m.has_colors:
+            prog.enableAttributeArray(4)
+            prog.setAttributeBuffer(4, _GL_FLOAT, 12 * 4, 4, stride)
+
+        m.ibo = QOpenGLBuffer(QOpenGLBuffer.IndexBuffer)
+        m.ibo.create()
+        m.ibo.bind()
+        idata = m.indices.tobytes()
+        m.ibo.allocate(idata, len(idata))
+
+        m.vao.release()
+        m.vbo.release()
+        m.ibo.release()
+
+        return len(data) + len(idata)
 
     def _upload(self):
-        prog = self._program
-        vram = tex_count = 0
-        for m in self._pending or []:
-            m.vao = QOpenGLVertexArrayObject()
-            m.vao.create()
-            m.vao.bind()
+        previous = {m.geometry: m for m in self._meshes
+                    if m.geometry is not None}
+        used_textures = set()
+        vram = tex_count = reused_meshes = reused_textures = 0
+        pending = self._pending or []
+        try:
+            for m in pending:
+                old = previous.pop(m.geometry, None)
+                if old is not None and all(
+                        obj is not None for obj in (old.vao, old.vbo, old.ibo)):
+                    m.vao, m.vbo, m.ibo = old.vao, old.vbo, old.ibo
+                    old.vao = old.vbo = old.ibo = None
+                    reused_meshes += 1
+                else:
+                    vram += self._upload_geometry(m)
 
-            m.vbo = QOpenGLBuffer(QOpenGLBuffer.VertexBuffer)
-            m.vbo.create()
-            m.vbo.bind()
-            data = m.verts.tobytes()
-            m.vbo.allocate(data, len(data))
+                for attr, img in (("texture", m.image),
+                                  ("normal_tex", m.normal_image),
+                                  ("env_tex", m.env_image),
+                                  ("mask_tex", m.mask_image),
+                                  ("rmaos_tex", m.rmaos_image)):
+                    if img is None or img.isNull():
+                        continue
+                    key = (img.cacheKey(), m.texture_clamp_mode)
+                    tex = self._gpu_textures.get(key)
+                    if tex is None:
+                        tex = _make_gl_texture(img, m.texture_clamp_mode)
+                        if tex is not None:
+                            self._gpu_textures[key] = tex
+                            tex_count += 1
+                            vram += img.width() * img.height() * 16 // 3
+                    else:
+                        reused_textures += 1
+                    if tex is not None:
+                        setattr(m, attr, tex)
+                        used_textures.add(key)
+                    else:
+                        _log(self.log_fn, f"  ! {m.name!r}: {attr} failed to "
+                                          f"upload to the GPU")
+                m.normal_image = m.env_image = m.mask_image = None
+                m.rmaos_image = m.image = None
+                m.verts = array.array("f")
+        except Exception as exc:                         # noqa: BLE001
+            self._release_gpu()
+            self._uploaded = False
+            message, gen, failed = str(exc), self._generation, self.failed
+            _log(self.log_fn, f"  ! GPU upload failed: {message}")
+            QTimer.singleShot(0, lambda: safe_emit(failed, message, gen))
+            return
 
-            # Colours widen the vertex; the enable state is captured by this
-            # mesh's VAO, so meshes without them never read attribute 4.
-            stride = (16 if m.has_colors else 12) * 4
-            prog.enableAttributeArray(0)
-            prog.setAttributeBuffer(0, _GL_FLOAT, 0, 3, stride)
-            prog.enableAttributeArray(1)
-            prog.setAttributeBuffer(1, _GL_FLOAT, 3 * 4, 3, stride)
-            prog.enableAttributeArray(2)
-            prog.setAttributeBuffer(2, _GL_FLOAT, 6 * 4, 2, stride)
-            prog.enableAttributeArray(3)
-            prog.setAttributeBuffer(3, _GL_FLOAT, 8 * 4, 4, stride)
-            if m.has_colors:
-                prog.enableAttributeArray(4)
-                prog.setAttributeBuffer(4, _GL_FLOAT, 12 * 4, 4, stride)
-
-            m.ibo = QOpenGLBuffer(QOpenGLBuffer.IndexBuffer)
-            m.ibo.create()
-            m.ibo.bind()
-            idata = m.indices.tobytes()
-            m.ibo.allocate(idata, len(idata))
-
-            m.vao.release()
-            m.vbo.release()
-            m.ibo.release()
-
-            vram += len(data) + len(idata)
-            for attr, img in (("texture", m.image),
-                              ("normal_tex", m.normal_image),
-                              ("env_tex", m.env_image),
-                              ("mask_tex", m.mask_image),
-                              ("rmaos_tex", m.rmaos_image)):
-                tex = _make_gl_texture(img, m.texture_clamp_mode)
-                if tex is not None:
-                    setattr(m, attr, tex)
-                    tex_count += 1
-                    vram += img.width() * img.height() * 4
-                elif img is not None:
-                    _log(self.log_fn, f"  ! {m.name!r}: {attr} failed to "
-                                      f"upload to the GPU")
-            m.normal_image = m.env_image = m.mask_image = None
-            m.rmaos_image = None
-            # Free both CPU copies now the GPU owns the data.
-            m.verts = array.array("f")
-            m.image = None
-        n = len(self._pending or [])
-        self._meshes = self._pending or []
+        _release_mesh_buffers(self._meshes)
+        for key in self._gpu_textures.keys() - used_textures:
+            tex = self._gpu_textures.pop(key)
+            try:
+                tex.destroy()
+            except RuntimeError:
+                pass
+        self._meshes = pending
         self._pending = None
         self._uploaded = True
-        if n:
-            _log(self.log_fn, f"  uploaded {n} mesh(es) and {tex_count} "
-                              f"texture(s) to the GPU (~{_fmt_bytes(vram)})")
+        if pending:
+            _log(self.log_fn,
+                 f"  uploaded {len(pending) - reused_meshes} mesh(es) and "
+                 f"{tex_count} texture(s) (~{_fmt_bytes(vram)}); reused "
+                 f"{reused_meshes} mesh(es), {reused_textures} texture binding(s)")
 
     def paintGL(self):
         f = self.context().functions()
