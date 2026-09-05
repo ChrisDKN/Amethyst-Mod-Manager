@@ -6,8 +6,8 @@ version 1 exposes game, profile, mod and downloaded-archive state, Nexus OAuth,
 catalogue discovery, exact-ID metadata, managed downloads, and non-interactive
 archive installation, plus asynchronous mod activation, ordering, removal,
 plugin inventory, activation, ordering and LOOT sorting, profile lifecycle,
-managed Overwrite and Root Folder inventory, deploy, restore, and managed game
-launch.
+managed Overwrite and Root Folder inventory and file management, deploy,
+restore, and managed game launch.
 
 The public boundary is JSON-RPC 2.0 over newline-delimited JSON (NDJSON).
 Amethyst reads one JSON value per line from standard input and writes one JSON
@@ -100,7 +100,7 @@ The response describes the protocol and available features:
       "event_delivery": "poll",
       "cancellation": true,
       "cancellable_jobs": ["nexus.download"],
-      "mutations": ["profiles.create", "profiles.rename", "profiles.remove", "profiles.select", "mods.set_enabled", "mods.move", "mods.remove", "plugins.set_enabled", "plugins.move", "plugins.sort", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
+      "mutations": ["profiles.create", "profiles.rename", "profiles.remove", "profiles.select", "mods.set_enabled", "mods.move", "mods.remove", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
       "installation": {
         "source": "download_inventory",
         "installer_policies": ["reject", "defaults"],
@@ -141,7 +141,11 @@ The response describes the protocol and available features:
         "types": ["overwrite", "root_folder"],
         "default_page_size": 500,
         "maximum_page_size": 5000,
-        "revisioned": true
+        "revisioned": true,
+        "move_to_mod": true,
+        "create_mod": true,
+        "remove": true,
+        "mutation_requires_revision": true
       },
       "maximum_event_wait_ms": 30000,
       "methods": [
@@ -177,6 +181,8 @@ The response describes the protocol and available features:
         "plugins.move.start",
         "plugins.sort.start",
         "boundaries.list.start",
+        "boundaries.move.start",
+        "boundaries.remove.start",
         "deploy.start",
         "restore.start",
         "launch.get",
@@ -235,6 +241,8 @@ parameters are rejected.
 | `plugins.move.start` | `game` string, `profile` string, `plugins` array, `position` object | Move a contiguous plugin block within engine constraints. |
 | `plugins.sort.start` | `game` string, `profile` string, `apply_order` boolean (optional) | Run LOOT, refresh metadata, and optionally apply its constrained order. |
 | `boundaries.list.start` | `game` string, `profile` string, `boundary` string, `offset` integer (optional), `limit` integer (optional) | Scan the profile's managed Overwrite or Root Folder inventory. |
+| `boundaries.move.start` | `game` string, `profile` string, `boundary` string, `paths` array, `revision` string, `target_mod` string, `create_mod` boolean (optional), `confirm` boolean | Move captured entries into a compatible existing or new mod. |
+| `boundaries.remove.start` | `game` string, `profile` string, `boundary` string, `paths` array, `revision` string, `confirm` boolean | Permanently remove captured entries. |
 | `deploy.start` | `game` string, `profile` string, `options` object (optional) | Start a deployment job. |
 | `restore.start` | `game` string, `profile` string | Start a restore job. |
 | `launch.get` | `launch_id` string (optional) | Inspect the latest managed game-launch lifecycle. |
@@ -401,6 +409,52 @@ rejected while this service is managing a running game. A missing boundary
 folder is a successful empty result with `exists: false`; individual entries
 that disappear or become unreadable during a scan are omitted and reported in
 `warnings`.
+
+Move listed entries into an existing mod with the inventory revision and an
+explicit confirmation:
+
+```json
+{"jsonrpc":"2.0","id":"overwrite-move","method":"boundaries.move.start","params":{"game":"skyrim_se","profile":"default","boundary":"overwrite","paths":["SKSE/Plugins/tool.log"],"revision":"<revision from inventory>","target_mod":"Generated files","confirm":true}}
+```
+
+Set `create_mod` to true to create an enabled, highest-priority mod before the
+move. A mod created from Root Folder is marked for game-root deployment; one
+created from Overwrite uses normal Data deployment. Existing targets must have
+the same deployment-root mode, which prevents a move from silently changing
+where the files will deploy. An unmanaged symbolic-link target is rejected;
+validated Profile Group links remain supported.
+
+```json
+{"jsonrpc":"2.0","id":"root-move","method":"boundaries.move.start","params":{"game":"skyrim_se","profile":"default","boundary":"root_folder","paths":["skse64.log"],"revision":"<revision from inventory>","target_mod":"Root output","create_mod":true,"confirm":true}}
+```
+
+Permanently remove listed entries with:
+
+```json
+{"jsonrpc":"2.0","id":"overwrite-remove","method":"boundaries.remove.start","params":{"game":"skyrim_se","profile":"default","boundary":"overwrite","paths":["obsolete.log"],"revision":"<revision from inventory>","confirm":true}}
+```
+
+Mutation paths must exactly match entries from one complete, consistent
+inventory. Files, symlinks, and directories whose `empty` value is true are
+accepted. Expand a non-empty directory into its visible files and empty
+subdirectories before submitting it; omitted bookkeeping is never deleted by
+selecting a parent directory. Up to 4,096 paths can be changed in one job.
+
+The service checks the complete boundary revision before preparing the
+operation and again immediately before changing files. A stale request fails
+with `boundary_revision_changed`, includes the current revision, and changes
+nothing. Moving merges directories and replaces a same-path file or symlink in
+the target mod; incompatible file/directory collisions are reported. Both
+methods prune newly empty source directories, refresh the affected Filegraph
+manifests, and reconcile the requested profile before succeeding. Their result
+contains the new boundary `revision` and `filegraph_generation`. A rare partial
+filesystem failure is returned as `boundary_move_incomplete` or
+`boundary_remove_incomplete`, with completed and failed paths in the error
+details.
+
+When inventory reports `scope: "shared"`, both the boundary and any target mod
+folder can be shared with other profiles. The explicit confirmation applies to
+that shared storage, not only to the requested profile.
 
 ### Manage plugins
 

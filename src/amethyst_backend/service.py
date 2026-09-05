@@ -71,6 +71,8 @@ class AmethystService:
         "plugins.move.start",
         "plugins.sort.start",
         "boundaries.list.start",
+        "boundaries.move.start",
+        "boundaries.remove.start",
         "deploy.start",
         "restore.start",
         "launch.get",
@@ -126,6 +128,8 @@ class AmethystService:
             "plugins.move.start": self._start_move_plugins,
             "plugins.sort.start": self._start_sort_plugins,
             "boundaries.list.start": self._start_list_boundary,
+            "boundaries.move.start": self._start_move_boundary,
+            "boundaries.remove.start": self._start_remove_boundary,
             "deploy.start": self._start_deploy,
             "restore.start": self._start_restore,
             "launch.get": self._get_launch,
@@ -251,6 +255,54 @@ class AmethystService:
             seen.add(folded)
             result.append(text)
         return result
+
+    @staticmethod
+    def _boundary_paths(value: Any) -> list[str]:
+        if not isinstance(value, list) or not 1 <= len(value) <= 4096:
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'paths' must be an array of 1 to 4096 relative paths.",
+                {"parameter": "paths"},
+            )
+        paths: list[str] = []
+        seen: set[str] = set()
+        for index, item in enumerate(value):
+            parameter = f"paths[{index}]"
+            parts = item.split("/") if isinstance(item, str) else []
+            if (not isinstance(item, str) or not item
+                    or len(item) > 4096 or item.startswith("/")
+                    or any(part in ("", ".", "..") for part in parts)
+                    or "\x00" in item):
+                raise ServiceError(
+                    -32602,
+                    "invalid_params",
+                    f"'{parameter}' must be a safe relative inventory path.",
+                    {"parameter": parameter},
+                )
+            if item in seen:
+                raise ServiceError(
+                    -32602,
+                    "invalid_params",
+                    f"'{parameter}' duplicates an earlier path.",
+                    {"parameter": parameter, "path": item},
+                )
+            seen.add(item)
+            paths.append(item)
+        return paths
+
+    @staticmethod
+    def _boundary_revision(value: Any) -> str:
+        if (not isinstance(value, str) or not value
+                or len(value) > 256 or any(char.isspace() for char in value)):
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'revision' must be the opaque revision returned by "
+                "boundaries.list.start.",
+                {"parameter": "revision"},
+            )
+        return value
 
     def _nexus_filters(self, value: Any) -> tuple[Any, dict[str, Any]]:
         if not isinstance(value, dict):
@@ -471,7 +523,7 @@ class AmethystService:
                     "profiles.create", "profiles.rename", "profiles.remove",
                     "profiles.select", "mods.set_enabled", "mods.move",
                     "mods.remove", "plugins.set_enabled", "plugins.move",
-                    "plugins.sort",
+                    "plugins.sort", "boundaries.move", "boundaries.remove",
                     "deploy", "restore",
                     "nexus.auth.login", "nexus.auth.logout",
                     "nexus.download", "downloads.install", "launch",
@@ -517,6 +569,10 @@ class AmethystService:
                     "default_page_size": 500,
                     "maximum_page_size": 5000,
                     "revisioned": True,
+                    "move_to_mod": True,
+                    "create_mod": True,
+                    "remove": True,
+                    "mutation_requires_revision": True,
                 },
                 "maximum_event_wait_ms": 30000,
                 "methods": list(self.METHODS),
@@ -1526,6 +1582,133 @@ class AmethystService:
                 offset,
                 limit,
                 "headless:boundaries.list",
+            ),
+        )
+        return {"job": job}
+
+    def _start_move_boundary(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params,
+            {
+                "game", "profile", "boundary", "paths", "revision",
+                "target_mod", "create_mod", "confirm",
+            },
+            {
+                "game", "profile", "boundary", "paths", "revision",
+                "target_mod", "confirm",
+            },
+        )
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        profile_dir = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+        boundary = params.get("boundary")
+        if boundary not in {"overwrite", "root_folder"}:
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'boundary' must be 'overwrite' or 'root_folder'.",
+                {"parameter": "boundary"},
+            )
+        paths = self._boundary_paths(params.get("paths"))
+        revision = self._boundary_revision(params.get("revision"))
+        target_mod = self._mod_name(
+            params.get("target_mod"), "target_mod")
+        create_mod = params.get("create_mod", False)
+        if not isinstance(create_mod, bool):
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'create_mod' must be a boolean.",
+                {"parameter": "create_mod"},
+            )
+        if params.get("confirm") is not True:
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'confirm' must be true because moving boundary files may "
+                "replace files in the target mod.",
+                {"parameter": "confirm"},
+            )
+
+        from .boundaries import move_runner
+        options = {
+            "boundary": boundary,
+            "paths": paths,
+            "revision": revision,
+            "target_mod": target_mod,
+            "create_mod": create_mod,
+        }
+        job = self._jobs.submit(
+            "boundaries.move",
+            game,
+            self._canonical_game(game),
+            profile_dir.name,
+            options,
+            runner=move_runner(
+                game,
+                profile_dir,
+                boundary,
+                paths,
+                revision,
+                target_mod,
+                create_mod,
+                "headless:boundaries.move",
+            ),
+        )
+        return {"job": job}
+
+    def _start_remove_boundary(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params,
+            {"game", "profile", "boundary", "paths", "revision", "confirm"},
+            {"game", "profile", "boundary", "paths", "revision", "confirm"},
+        )
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        profile_dir = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+        boundary = params.get("boundary")
+        if boundary not in {"overwrite", "root_folder"}:
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'boundary' must be 'overwrite' or 'root_folder'.",
+                {"parameter": "boundary"},
+            )
+        paths = self._boundary_paths(params.get("paths"))
+        revision = self._boundary_revision(params.get("revision"))
+        if params.get("confirm") is not True:
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'confirm' must be true because boundary removal is irreversible.",
+                {"parameter": "confirm"},
+            )
+
+        from .boundaries import remove_runner
+        options = {
+            "boundary": boundary,
+            "paths": paths,
+            "revision": revision,
+        }
+        job = self._jobs.submit(
+            "boundaries.remove",
+            game,
+            self._canonical_game(game),
+            profile_dir.name,
+            options,
+            runner=remove_runner(
+                game,
+                profile_dir,
+                boundary,
+                paths,
+                revision,
+                "headless:boundaries.remove",
             ),
         )
         return {"job": job}
