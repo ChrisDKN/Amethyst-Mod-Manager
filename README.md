@@ -4,11 +4,13 @@
 </p>
 
 <h3 align="center">A mod manager for Linux.</h3>
+
 <h5 align="center">
   <a href="https://www.nexusmods.com/site/mods/1714">Nexus</a> |
   <a href="https://github.com/ChrisDKN/Amethyst-Mod-Manager/wiki">Wiki</a> |
+  <a href="https://crowdin.com/project/amethyst-mod-manager">Help Translate</a> |
   <a href="https://ko-fi.com/chrisdkn">Ko-Fi</a>
-</h4>
+</h5>
 
 <p align="center">
     <img width="800" src="src/icons/ui.png" alt="ui">
@@ -107,6 +109,16 @@ See the [wiki](https://github.com/ChrisDKN/Amethyst-Mod-Manager/wiki) page for a
 The wiki is also built into the manager and can be viewed there.
 
 For building from source see the section on the wiki [here](https://github.com/ChrisDKN/Amethyst-Mod-Manager/wiki#building-from-source) 
+
+---
+
+## Contributing
+
+Feature requests and pull requests are welcome and I will go through these when I have the time.
+
+If you would like to help improve translations, feel free to contribute on the [crowdin](https://crowdin.com/project/amethyst-mod-manager) page
+
+---
 
 ## Supporting the project
 
