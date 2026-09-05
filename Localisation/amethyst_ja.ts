@@ -1969,6 +1969,18 @@ MD5キャッシュは保持されます。アーカイブは必要に応じて�
       <translation>仮想ファイルシステム(VFS)</translation>
     </message>
     <message>
+      <source>Game Runtime</source>
+      <translation>ゲームの実行</translation>
+    </message>
+    <message>
+      <source>Native Linux</source>
+      <translation>ネイティブ Linux</translation>
+    </message>
+    <message>
+      <source>Windows / Proton</source>
+      <translation>Windows / Proton</translation>
+    </message>
+    <message>
       <source>Swap launcher with script extender on deploy</source>
       <translation>スワップランチャーとスクリプトエクステンダーをデプロイ</translation>
     </message>
@@ -2197,6 +2209,18 @@ The default profile's settings are not affected.</source>
       <translation>まず、ゲームのインストールフォルダを設定してください。</translation>
     </message>
     <message>
+      <source>Native Linux runtime selected, but bin/bg3 was not found.</source>
+      <translation>ネイティブ Linux ランタイムを選択しましたが、bin/bg3 は見つかりませんでした。</translation>
+    </message>
+    <message>
+      <source>Windows / Proton runtime selected, but no BG3 Windows executable was found.</source>
+      <translation>Windows / Protonランタイムが選択されましたが、BG3のWindows実行可能ファイルは見つかりませんでした。</translation>
+    </message>
+    <message>
+      <source>Select the Proton prefix used by this BG3 installation.</source>
+      <translation>このBG3インストールで使用されるProtonプレフィックスを選択します。</translation>
+    </message>
+    <message>
       <source>The mod staging folder cannot be the game folder or be inside it. Choose a separate location.</source>
       <translation>Mod のステージングフォルダはゲームフォルダか内部にすることはできません。 別の場所を選択します.</translation>
     </message>
@@ -2207,6 +2231,10 @@ The default profile's settings are not affected.</source>
     <message>
       <source>Cannot change the game/prefix path while mods are deployed. Restore the game first.</source>
       <translation>MODが展開されている間は、ゲームのパスやプレフィックスを変更できません。まずゲームを復元してください。</translation>
+    </message>
+    <message>
+      <source>Cannot change the game runtime while mods are deployed. Restore the game first.</source>
+      <translation>MODがデプロイされている間はゲームランタイムを変更できません。最初にゲームを復元してください。</translation>
     </message>
     <message>
       <source>Restore the game before changing the preferred OpenMW package.</source>
@@ -9002,6 +9030,14 @@ How would you like to handle the existing mod?</source>
       <source>(no mod selected)</source>
       <translation>(選択されたモッドはありません)</translation>
     </message>
+    <message>
+      <source>{0} — Loading files…</source>
+      <translation type="unfinished">{0} — Loading files…</translation>
+    </message>
+    <message>
+      <source>{0} — Unable to load files</source>
+      <translation>{0} — ファイルを読み込めません</translation>
+    </message>
   </context>
   <context>
     <name>ModListMenu</name>
@@ -14579,6 +14615,22 @@ flatpak リモート追加 --user amethyst https://chrisdkn.github.io/Amethyst-M
     <message>
       <source>Right side</source>
       <translation>右側</translation>
+    </message>
+    <message>
+      <source>Translate on Crowdin</source>
+      <translation>Crowdin で翻訳</translation>
+    </message>
+    <message>
+      <source>Open the Amethyst Crowdin project to help translate the app.</source>
+      <translation>アプリの翻訳を手伝うためにアメジストCrowdinのプロジェクトを開きます。</translation>
+    </message>
+    <message>
+      <source>Mod list</source>
+      <translation>Mod list</translation>
+    </message>
+    <message>
+      <source>Status bar</source>
+      <translation>ステータスバー</translation>
     </message>
     <message>
       <source>Cap the combined download speed of all downloads (collections, single mods, nxm and modl links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>
