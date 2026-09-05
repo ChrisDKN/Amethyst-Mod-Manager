@@ -14,12 +14,9 @@ on:
     branches: [Resources]
     paths:
       - 'Localisation/*.ts'
-  # Auto-merge pushes with GITHUB_TOKEN, and GitHub does not cascade workflows
-  # from that token - so a merged Crowdin PR never fires the push trigger above.
-  # This catches that case; without it the .ts lands but no .qm is ever built.
-  workflow_run:
-    workflows: ["Auto-merge Crowdin PRs"]
-    types: [completed]
+  # Auto-merge pushes with GITHUB_TOKEN do not fire the push trigger above, so
+  # automerge-crowdin.yml calls this workflow after merging the Crowdin PR.
+  workflow_call:
   workflow_dispatch:
 
 concurrency:
@@ -33,9 +30,8 @@ jobs:
   compile:
     runs-on: ubuntu-latest
     steps:
-      # workflow_run runs against the DEFAULT branch by default, so the ref is
-      # pinned explicitly - otherwise this would check out main and find no
-      # Localisation/ at all.
+      # Called and manually dispatched workflows run against the default branch,
+      # so pin the checkout to the branch containing the translations.
       - uses: actions/checkout@v4
         with:
           ref: Resources
