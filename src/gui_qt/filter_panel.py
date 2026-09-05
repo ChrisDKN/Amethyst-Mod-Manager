@@ -15,6 +15,8 @@ Spec shape (list of sections, in display order):
         {"title": "By file type", "type": "dynamic", "id": "filetypes"},
     ]
 
+Keys listed in a check section's ``two_state_keys`` use a plain on/off cycle.
+
 Dynamic sections are repopulated by the host via set_dynamic_items(id, items)
 where items is a list of (key, label, count|None). Their selected/excluded keys
 come back in the state dict as "<id>" (include frozenset) and "<id>_exclude".
@@ -90,6 +92,7 @@ _TR_MARKERS = (
     # --- downloads / mod-files panels ---
     QT_TRANSLATE_NOOP("FilterSidePanel", "Show only installed"),
     QT_TRANSLATE_NOOP("FilterSidePanel", "Show only not installed"),
+    QT_TRANSLATE_NOOP("FilterSidePanel", "Show hidden archives"),
     # --- data panel ---
     QT_TRANSLATE_NOOP("FilterSidePanel", "Only conflicts"),
     # --- text files panel (source checks) ---
@@ -193,8 +196,10 @@ class FilterSidePanel(QWidget):
 
         stype = section.get("type", "checks")
         if stype == "checks":
+            two_state_keys = set(section.get("two_state_keys") or ())
             for key, label, enabled in section.get("items", []):
-                cb = TriStateCheckBox(self.tr(label))
+                cb = TriStateCheckBox(
+                    self.tr(label), two_state=key in two_state_keys)
                 cb.setEnabled(bool(enabled))
                 if not enabled:
                     cb.setToolTip(self.tr("Not available for this game / not yet wired"))

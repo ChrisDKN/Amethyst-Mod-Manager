@@ -15,6 +15,9 @@ from PySide6.QtWidgets import (
 )
 
 import Utils.downloads.core as dc
+from Utils.downloads.locations import (
+    archive_path_key, load_hidden_archive_paths, save_hidden_archive_paths,
+)
 from gui_qt.downloads_model import (
     DownloadsModel, COLUMNS, COL_CHECK, COL_NAME, COL_SIZE, COL_DOWNLOADED,
     COL_INSTALL,
@@ -45,6 +48,8 @@ class DownloadsView(QWidget):
         self._search = ""
         self._only_installed = 0
         self._only_not_installed = 0
+        self._show_hidden = False
+        self._hidden_paths = load_hidden_archive_paths()
         self._inc_exts: set = set()
         self._exc_exts: set = set()
         self._inc_locs: set = set()
@@ -308,6 +313,7 @@ class DownloadsView(QWidget):
     def _rescan(self):
         name = self._game_name()
         self._update_watch_dirs(name)
+        self._hidden_paths = load_hidden_archive_paths()
         self._all_entries = dc.scan_download_dirs(name)
         self.filetypes_changed.emit()
         self._apply()
@@ -322,8 +328,11 @@ class DownloadsView(QWidget):
             locations_exclude=frozenset(self._exc_locs) or None,
             filetypes=frozenset(self._inc_exts) or None,
             filetypes_exclude=frozenset(self._exc_exts) or None,
-            search=self._search)
-        self._model.set_rows(rows, installed)
+            search=self._search,
+            hidden_paths=frozenset(self._hidden_paths),
+            show_hidden=self._show_hidden)
+        self._model.set_rows(
+            rows, installed, hidden_paths=frozenset(self._hidden_paths))
         self.selection_changed.emit()
 
     # -- auto-refresh (filesystem watch) ------------------------------------
@@ -366,9 +375,11 @@ class DownloadsView(QWidget):
     # -- filter spec / state ------------------------------------------------
     def filter_spec(self) -> list[dict]:
         return [
-            {"title": "By status", "type": "checks", "items": [
+            {"title": "By status", "type": "checks",
+             "two_state_keys": {"show_hidden"}, "items": [
                 ("only_installed", "Show only installed", True),
                 ("only_not_installed", "Show only not installed", True),
+                ("show_hidden", "Show hidden archives", True),
             ]},
             {"title": "By location", "type": "dynamic", "id": "locations"},
             {"title": "By file type", "type": "dynamic", "id": "filetypes"},
@@ -377,6 +388,7 @@ class DownloadsView(QWidget):
     def apply_filter_state(self, state: dict):
         self._only_installed = state.get("only_installed", 0)
         self._only_not_installed = state.get("only_not_installed", 0)
+        self._show_hidden = state.get("show_hidden", 0) == 1
         self._inc_exts = set(state.get("filetypes") or ())
         self._exc_exts = set(state.get("filetypes_exclude") or ())
         self._inc_locs = set(state.get("locations") or ())
@@ -434,6 +446,30 @@ class DownloadsView(QWidget):
     def clear_checks(self):
         self._model.clear_checks()
         self.selection_changed.emit()
+
+    def selected_all_hidden(self) -> bool:
+        paths = self._model.checked_paths()
+        return bool(paths) and all(
+            archive_path_key(path) in self._hidden_paths for path in paths)
+
+    def set_selected_hidden(self, hidden: bool) -> int:
+        paths = self._model.checked_paths()
+        if not paths:
+            return 0
+        keys = {archive_path_key(path) for path in paths}
+        updated = set(self._hidden_paths)
+        before = len(updated)
+        if hidden:
+            updated.update(keys)
+            changed = len(updated) - before
+        else:
+            updated.difference_update(keys)
+            changed = before - len(updated)
+        save_hidden_archive_paths(updated)
+        self._hidden_paths = updated
+        self._model.clear_checks()
+        self._apply()
+        return changed
 
     def install_selected(self):
         paths = self.checked_paths()

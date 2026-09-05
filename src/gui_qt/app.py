@@ -2387,8 +2387,7 @@ class MainWindow(QMainWindow):
             self._notify(message, kind)
 
     def _downloads_footer(self) -> QWidget:
-        """Install Selected / Remove Selected / Locations / Filters + search,
-        shown under the plugins column when the Downloads sub-tab is active."""
+        """Downloads actions, locations, filters, and search."""
         bar = QWidget()
         bar.setObjectName("HeaderBar")
         v = QVBoxLayout(bar)
@@ -2407,6 +2406,11 @@ class MainWindow(QMainWindow):
         self._dl_move_btn.setFixedHeight(self._FOOT_BTN_H)
         self._dl_move_btn.setEnabled(False)
         self._dl_move_btn.clicked.connect(self._on_downloads_move)
+        self._dl_hide_btn = self._text_button(
+            self.tr("Hide Selected"), compact=True)
+        self._dl_hide_btn.setFixedHeight(self._FOOT_BTN_H)
+        self._dl_hide_btn.setEnabled(False)
+        self._dl_hide_btn.clicked.connect(self._on_downloads_toggle_hidden)
         self._dl_remove_btn = self._color_button(
             self.tr("Remove Selected"), _c(self._pal, "BTN_DANGER"), compact=True)
         self._dl_remove_btn.setFixedHeight(self._FOOT_BTN_H)
@@ -2419,9 +2423,11 @@ class MainWindow(QMainWindow):
         self._dl_filters_btn = self._filters_button()
         self._dl_filters_btn.clicked.connect(self._toggle_downloads_filters)
         self._equalize_button_widths(
-            self._dl_install_btn, self._dl_move_btn, self._dl_remove_btn)
+            self._dl_install_btn, self._dl_move_btn, self._dl_hide_btn,
+            self._dl_remove_btn)
         btns.addWidget(self._dl_install_btn)
         btns.addWidget(self._dl_move_btn)
+        btns.addWidget(self._dl_hide_btn)
         btns.addWidget(self._dl_remove_btn)
         btns.addWidget(self._dl_locations_btn)
         v.addLayout(btns)
@@ -2444,13 +2450,31 @@ class MainWindow(QMainWindow):
 
     def _update_downloads_footer(self):
         n = self._downloads_view.checked_count()
+        hide_label = (self.tr("Unhide Selected")
+                      if n and self._downloads_view.selected_all_hidden()
+                      else self.tr("Hide Selected"))
         for attr, label in (("_dl_install_btn", self.tr("Install Selected")),
                             ("_dl_move_btn", self.tr("Move Selected")),
+                            ("_dl_hide_btn", hide_label),
                             ("_dl_remove_btn", self.tr("Remove Selected"))):
             b = getattr(self, attr, None)
             if b is not None:
                 b.setEnabled(n > 0)
                 b.setText(self.tr("{0} ({1})").format(label, n) if n else label)
+
+    def _on_downloads_toggle_hidden(self):
+        make_hidden = not self._downloads_view.selected_all_hidden()
+        try:
+            changed = self._downloads_view.set_selected_hidden(make_hidden)
+        except OSError as exc:
+            self._notify(
+                self.tr("Could not update hidden archives: {0}").format(exc),
+                "error")
+            return
+        if changed:
+            message = (self.tr("Hidden {0} archive(s)") if make_hidden
+                       else self.tr("Made {0} archive(s) visible"))
+            self._notify(message.format(changed), "info")
 
     def _on_downloads_locations(self):
         from gui_qt.download_locations_overlay import DownloadLocationsOverlay

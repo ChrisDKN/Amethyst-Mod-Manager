@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Optional
 
 from Utils.downloads.locations import (
+    archive_path_key,
     is_default_downloads_disabled, is_cache_default_disabled,
     get_default_downloads_dir, load_extra_download_locations,
 )
@@ -288,23 +289,28 @@ def filter_entries(entries: list[DownloadEntry], installed: InstalledIndex, *,
                    locations_exclude: frozenset | None = None,
                    filetypes: frozenset | None = None,
                    filetypes_exclude: frozenset | None = None,
-                   search: str = "") -> list[DownloadEntry]:
-    """Apply (AND) ext / location / status / search filters; drop section headers
-    whose group ends up empty. only_installed/only_not_installed are tri-state
-    (0 off, 1 include, 2 exclude)."""
+                   search: str = "", hidden_paths: frozenset | None = None,
+                   show_hidden: bool = False) -> list[DownloadEntry]:
+    """Apply archive visibility plus the ext/location/status/search filters.
+    only_installed/only_not_installed are tri-state (0 off, 1 include,
+    2 exclude)."""
     locations = locations or frozenset()
     locations_exclude = locations_exclude or frozenset()
     filetypes = filetypes or frozenset()
     filetypes_exclude = filetypes_exclude or frozenset()
+    hidden_paths = hidden_paths or frozenset()
     query = (search or "").casefold()
-    any_active = bool(filetypes or filetypes_exclude or locations
-                      or locations_exclude or only_installed
-                      or only_not_installed or query)
-    if not any_active:
+    user_filter_active = bool(filetypes or filetypes_exclude or locations
+                              or locations_exclude or only_installed
+                              or only_not_installed or query)
+    hide_archives = bool(hidden_paths) and not show_hidden
+    if not user_filter_active and not hide_archives:
         return list(entries)
 
     def _matches(arc: DownloadEntry) -> bool:
         if arc.path is None:
+            return False
+        if hide_archives and archive_path_key(arc.path) in hidden_paths:
             return False
         ext = file_extension(arc.path.name)
         if filetypes and ext not in filetypes:
@@ -340,7 +346,7 @@ def filter_entries(entries: list[DownloadEntry], installed: InstalledIndex, *,
                 if _matches(entries[j]):
                     matched.append(entries[j])
                 j += 1
-            if matched:
+            if matched or not user_filter_active:
                 result.append(entry)
                 result.extend(matched)
             i = j

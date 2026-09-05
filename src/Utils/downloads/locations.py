@@ -6,7 +6,8 @@ in either toolkit stays backward-compatible. Pure stdlib + Utils.* - no GUI
 toolkit.
 
 Format (object form; a legacy bare list of paths is auto-read + upgraded):
-    {"extras": [paths], "default_disabled": bool, "cache_disabled": bool}
+    {"extras": [paths], "default_disabled": bool, "cache_disabled": bool,
+     "hidden_archives": [paths]}
 """
 
 from __future__ import annotations
@@ -14,50 +15,82 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from Utils.atomic_write import write_atomic_text
 from Utils.config_paths import get_download_locations_path
 from Utils.environment.xdg import xdg_download_dir
+
+
+def _read_data() -> dict:
+    path = get_download_locations_path()
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError, UnicodeError):
+        return {}
+    if isinstance(data, list):
+        return {"extras": data}
+    if isinstance(data, dict):
+        return data
+    return {}
+
+
+def _write_data(data: dict) -> None:
+    write_atomic_text(
+        get_download_locations_path(),
+        json.dumps(data, indent=2) + "\n",
+    )
 
 
 def read_config() -> tuple[list[str], bool, bool]:
     """Load (extras, default_disabled, cache_disabled). Supports the legacy
     bare-list form as well as the object form."""
-    path = get_download_locations_path()
-    if not path.is_file():
-        return [], False, False
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return [], False, False
-    if isinstance(data, list):
-        return [str(p).strip() for p in data if p and str(p).strip()], False, False
-    if isinstance(data, dict):
-        raw = data.get("extras", [])
-        extras = (
-            [str(p).strip() for p in raw if p and str(p).strip()]
-            if isinstance(raw, list) else []
-        )
-        return (
-            extras,
-            bool(data.get("default_disabled", False)),
-            bool(data.get("cache_disabled", False)),
-        )
-    return [], False, False
+    data = _read_data()
+    raw = data.get("extras", [])
+    extras = (
+        [str(p).strip() for p in raw if p and str(p).strip()]
+        if isinstance(raw, list) else []
+    )
+    return (
+        extras,
+        bool(data.get("default_disabled", False)),
+        bool(data.get("cache_disabled", False)),
+    )
 
 
 def write_config(extras: list[str], default_disabled: bool,
                  cache_disabled: bool) -> None:
-    path = get_download_locations_path()
-    path.write_text(
-        json.dumps(
-            {
-                "extras": extras,
-                "default_disabled": default_disabled,
-                "cache_disabled": cache_disabled,
-            },
-            indent=2,
-        ),
-        encoding="utf-8",
-    )
+    data = _read_data()
+    data.update({
+        "extras": extras,
+        "default_disabled": default_disabled,
+        "cache_disabled": cache_disabled,
+    })
+    _write_data(data)
+
+
+def archive_path_key(path) -> str:
+    try:
+        return str(Path(path).expanduser().resolve())
+    except (OSError, RuntimeError):
+        return str(Path(path).expanduser())
+
+
+def load_hidden_archive_paths() -> set[str]:
+    raw = _read_data().get("hidden_archives", [])
+    if not isinstance(raw, list):
+        return set()
+    return {archive_path_key(p) for p in raw if isinstance(p, str) and p}
+
+
+def save_hidden_archive_paths(paths) -> None:
+    data = _read_data()
+    hidden = sorted({archive_path_key(p) for p in paths if p})
+    if hidden:
+        data["hidden_archives"] = hidden
+    else:
+        data.pop("hidden_archives", None)
+    _write_data(data)
 
 
 def load_extra_download_locations() -> list[str]:

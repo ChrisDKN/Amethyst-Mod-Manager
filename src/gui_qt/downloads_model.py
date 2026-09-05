@@ -21,6 +21,7 @@ from PySide6.QtCore import (
     Qt, QAbstractTableModel, QModelIndex, QT_TRANSLATE_NOOP)
 
 from Utils.downloads.core import DownloadEntry, InstalledIndex
+from Utils.downloads.locations import archive_path_key
 
 COL_CHECK = 0
 COL_NAME = 1
@@ -38,6 +39,7 @@ _SORT_KEYS = {"name", "size", "downloaded"}
 
 EntryRole = Qt.UserRole + 1
 InstalledRole = Qt.UserRole + 2   # bool: archive already installed
+HiddenRole = Qt.UserRole + 3
 
 
 def _downloaded_text(mtime: float) -> str:
@@ -56,6 +58,7 @@ class DownloadsModel(QAbstractTableModel):
         self._natural: list[DownloadEntry] = []
         self._rows: list[DownloadEntry] = []
         self._installed = InstalledIndex()
+        self._hidden_entries: frozenset[Path] = frozenset()
         self._sort_key: str | None = None
         self._sort_ascending = True
         self.checked: set[Path] = set()       # selected archive paths
@@ -65,11 +68,19 @@ class DownloadsModel(QAbstractTableModel):
         self._range_select = True
 
     # ---- population -------------------------------------------------------
-    def set_rows(self, rows: list[DownloadEntry], installed: InstalledIndex):
+    def set_rows(self, rows: list[DownloadEntry], installed: InstalledIndex,
+                 hidden_paths: frozenset[str] = frozenset()):
         self.beginResetModel()
         self._natural = rows
         self._rows = self._derive_rows()
         self._installed = installed
+        self._hidden_entries = (
+            frozenset(
+                e.path for e in rows
+                if e.path is not None
+                and archive_path_key(e.path) in hidden_paths)
+            if hidden_paths else frozenset()
+        )
         # Drop checks for archives no longer present.
         present = {e.path for e in rows if not e.is_section_header and e.path}
         self.checked &= present
@@ -231,6 +242,9 @@ class DownloadsModel(QAbstractTableModel):
             return e
         if role == InstalledRole:
             return self.is_installed(e)
+        if role == HiddenRole:
+            return (not e.is_section_header and e.path is not None
+                    and e.path in self._hidden_entries)
         if role == Qt.DisplayRole:
             if e.is_section_header:
                 return e.section_name if col == COL_NAME else ""

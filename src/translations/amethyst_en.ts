@@ -3770,6 +3770,10 @@ When it completes, the app switches to the new profile - then come back here and
         <source>Install</source>
         <translation>Install</translation>
     </message>
+    <message>
+        <source>{0} (hidden)</source>
+        <translation>{0} (hidden)</translation>
+    </message>
 </context>
 <context>
     <name>DownloadsModel</name>
@@ -5289,6 +5293,10 @@ Click Done to clean up the extracted files and close.</translation>
         <translation>Show only not installed</translation>
     </message>
     <message>
+        <source>Show hidden archives</source>
+        <translation>Show hidden archives</translation>
+    </message>
+    <message>
         <source>Only conflicts</source>
         <translation>Only conflicts</translation>
     </message>
@@ -6359,6 +6367,14 @@ If you continue, this warning won't be shown again for {1} unless the drives cha
         <translation>Move Selected</translation>
     </message>
     <message>
+        <source>Hide Selected</source>
+        <translation>Hide Selected</translation>
+    </message>
+    <message>
+        <source>Unhide Selected</source>
+        <translation>Unhide Selected</translation>
+    </message>
+    <message>
         <source>Remove Selected</source>
         <translation>Remove Selected</translation>
     </message>
@@ -6377,6 +6393,18 @@ If you continue, this warning won't be shown again for {1} unless the drives cha
     <message>
         <source>Removed {0} archive(s)</source>
         <translation>Removed {0} archive(s)</translation>
+    </message>
+    <message>
+        <source>Hidden {0} archive(s)</source>
+        <translation>Hidden {0} archive(s)</translation>
+    </message>
+    <message>
+        <source>Made {0} archive(s) visible</source>
+        <translation>Made {0} archive(s) visible</translation>
+    </message>
+    <message>
+        <source>Could not update hidden archives: {0}</source>
+        <translation>Could not update hidden archives: {0}</translation>
     </message>
     <message>
         <source>Cannot use that folder: {0}</source>
