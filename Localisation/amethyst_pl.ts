@@ -1969,6 +1969,18 @@ Bufor MD5 zostanie zachowany. Archiwa zostaną ponownie pobrane w razie potrzeby
       <translation>Wirtualny system plików (VFS)</translation>
     </message>
     <message>
+      <source>Game Runtime</source>
+      <translation>Czas trwania gry</translation>
+    </message>
+    <message>
+      <source>Native Linux</source>
+      <translation>Natywny Linux</translation>
+    </message>
+    <message>
+      <source>Windows / Proton</source>
+      <translation>Windows / Proton</translation>
+    </message>
+    <message>
       <source>Swap launcher with script extender on deploy</source>
       <translation>Wyrzutnia Swap z rozszerzalnikiem skryptu na wdrożeniu</translation>
     </message>
@@ -2197,6 +2209,18 @@ Nie ma to wpływu na ustawienia profilu domyślnego.</translation>
       <translation>Najpierw ustaw folder instalacyjny gry.</translation>
     </message>
     <message>
+      <source>Native Linux runtime selected, but bin/bg3 was not found.</source>
+      <translation>Native Linux runtime wybrany, ale bin/bg3 nie został znaleziony.</translation>
+    </message>
+    <message>
+      <source>Windows / Proton runtime selected, but no BG3 Windows executable was found.</source>
+      <translation>Windows / Proton runtime wybrany, ale nie znaleziono pliku wykonywalnego BG3 Windows.</translation>
+    </message>
+    <message>
+      <source>Select the Proton prefix used by this BG3 installation.</source>
+      <translation>Wybierz prefiks Proton używany przez tę instalację BG3.</translation>
+    </message>
+    <message>
       <source>The mod staging folder cannot be the game folder or be inside it. Choose a separate location.</source>
       <translation>Folder mod nie może być folderem gier lub być wewnątrz niego. Wybierz oddzielną lokalizację.</translation>
     </message>
@@ -2207,6 +2231,10 @@ Nie ma to wpływu na ustawienia profilu domyślnego.</translation>
     <message>
       <source>Cannot change the game/prefix path while mods are deployed. Restore the game first.</source>
       <translation>Nie można zmienić ścieżki do gry/prefiksów, gdy modyfikacje są wdrożone. Najpierw przywróć grę.</translation>
+    </message>
+    <message>
+      <source>Cannot change the game runtime while mods are deployed. Restore the game first.</source>
+      <translation>Nie można zmienić czasu trwania gry podczas wdrażania modyfikacji. Najpierw przywracaj grę.</translation>
     </message>
     <message>
       <source>Restore the game before changing the preferred OpenMW package.</source>
@@ -9002,6 +9030,14 @@ Co powiesz na istniejący mod?</translation>
       <source>(no mod selected)</source>
       <translation>(nie wybrano modułu)</translation>
     </message>
+    <message>
+      <source>{0} — Loading files…</source>
+      <translation>{0} — Ładowanie plików…</translation>
+    </message>
+    <message>
+      <source>{0} — Unable to load files</source>
+      <translation>{0} — Nie można załadować plików</translation>
+    </message>
   </context>
   <context>
     <name>ModListMenu</name>
@@ -14579,6 +14615,22 @@ flatpak remote- add -- user amethyst https: / / christdkn.github.io / Amethyst- 
     <message>
       <source>Right side</source>
       <translation>Prawa strona</translation>
+    </message>
+    <message>
+      <source>Translate on Crowdin</source>
+      <translation>Tłumacz na Crowdin</translation>
+    </message>
+    <message>
+      <source>Open the Amethyst Crowdin project to help translate the app.</source>
+      <translation>Otwórz projekt Amethyst Crowdin, aby pomóc w tłumaczeniu aplikacji.</translation>
+    </message>
+    <message>
+      <source>Mod list</source>
+      <translation>Mod list</translation>
+    </message>
+    <message>
+      <source>Status bar</source>
+      <translation>Pasek stanu</translation>
     </message>
     <message>
       <source>Cap the combined download speed of all downloads (collections, single mods, nxm and modl links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>
