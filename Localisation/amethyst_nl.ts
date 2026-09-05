@@ -3776,6 +3776,10 @@ Als het klaar is schakelt de app over naar het nieuwe profiel - kom dan terug en
       <source>Install</source>
       <translation>Installeren</translation>
     </message>
+    <message>
+      <source>{0} (hidden)</source>
+      <translation>{0} (hidden)</translation>
+    </message>
   </context>
   <context>
     <name>DownloadsModel</name>
@@ -4043,6 +4047,10 @@ Start de wizard opnieuw en installeer eerst {1}.</translation>
     <message>
       <source>Launching {0}…</source>
       <translation>{0} wordt gelanceerd…</translation>
+    </message>
+    <message>
+      <source>xLODGen does not support {0}.</source>
+      <translation>xLODGen ondersteunt geen {0}.</translation>
     </message>
     <message>
       <source>Game path not configured.</source>
@@ -5291,6 +5299,10 @@ Klik Klaar om de uitgepakte bestanden op te ruimen en te sluiten.</translation>
       <translation>Alleen niet-geïnstalleerde weergeven</translation>
     </message>
     <message>
+      <source>Show hidden archives</source>
+      <translation>Verborgen archieven tonen</translation>
+    </message>
+    <message>
       <source>Only conflicts</source>
       <translation>Alleen conflicten</translation>
     </message>
@@ -6361,6 +6373,14 @@ Als u doorgaat, wordt deze waarschuwing niet meer getoond voor {1} tenzij de sch
       <translation>Geselecteerde verplaatsen</translation>
     </message>
     <message>
+      <source>Hide Selected</source>
+      <translation>Verberg geselecteerde</translation>
+    </message>
+    <message>
+      <source>Unhide Selected</source>
+      <translation>Selectie tonen</translation>
+    </message>
+    <message>
       <source>Remove Selected</source>
       <translation>Geselecteerde items verwijderen</translation>
     </message>
@@ -6379,6 +6399,18 @@ Als u doorgaat, wordt deze waarschuwing niet meer getoond voor {1} tenzij de sch
     <message>
       <source>Removed {0} archive(s)</source>
       <translation>{0}-archief(en) verwijderd</translation>
+    </message>
+    <message>
+      <source>Hidden {0} archive(s)</source>
+      <translation>Verborgen {0} archief(s)</translation>
+    </message>
+    <message>
+      <source>Made {0} archive(s) visible</source>
+      <translation>Gemaakt {0} archief(s) zichtbaar</translation>
+    </message>
+    <message>
+      <source>Could not update hidden archives: {0}</source>
+      <translation>Kan verborgen archieven niet bijwerken: {0}</translation>
     </message>
     <message>
       <source>Cannot use that folder: {0}</source>
@@ -7841,6 +7873,22 @@ Snelle update uitvoeren op alle van hen nu?</translation>
       <translation>LOOT-sortering mislukt - zie log.</translation>
     </message>
     <message>
+      <source>Plugin sources are being refreshed. Run LOOT when loading finishes.</source>
+      <translation type="unfinished">Plugin sources are being refreshed. Run LOOT when loading finishes.</translation>
+    </message>
+    <message>
+      <source>Could not prepare plugin sources: {0}</source>
+      <translation type="unfinished">Could not prepare plugin sources: {0}</translation>
+    </message>
+    <message>
+      <source>Plugin state changed while LOOT was running. Run LOOT again.</source>
+      <translation type="unfinished">Plugin state changed while LOOT was running. Run LOOT again.</translation>
+    </message>
+    <message>
+      <source>Locked plugin positions conflict with the game's required load order.</source>
+      <translation type="unfinished">Locked plugin positions conflict with the game's required load order.</translation>
+    </message>
+    <message>
       <source>Sorted - 1 plugin moved.</source>
       <translation>Gesorteerd - 1 plugin verplaatst.</translation>
     </message>
@@ -8205,6 +8253,18 @@ Snelle update uitvoeren op alle van hen nu?</translation>
       <translation>Kan het scheidingsteken niet kopiëren.</translation>
     </message>
     <message>
+      <source>Could not preserve groups: {0}.</source>
+      <translation type="unfinished">Could not preserve groups: {0}.</translation>
+    </message>
+    <message>
+      <source>Their source mods were kept.</source>
+      <translation type="unfinished">Their source mods were kept.</translation>
+    </message>
+    <message>
+      <source>Could not update the source profile's modlist.</source>
+      <translation type="unfinished">Could not update the source profile's modlist.</translation>
+    </message>
+    <message>
       <source>Cancel all</source>
       <translation>Alles annuleren</translation>
     </message>
@@ -8453,6 +8513,10 @@ Voer de Downgrade wizard om het spel terug te patchen naar een versie die FOSE o
     <message>
       <source>Mods with BSA archives</source>
       <translation>Mods met BSA-archieven</translation>
+    </message>
+    <message>
+      <source>Could not save mod groups: {0}</source>
+      <translation type="unfinished">Could not save mod groups: {0}</translation>
     </message>
     <message>
       <source>{0} enabled of {1} mods</source>
@@ -9032,11 +9096,11 @@ Hoe wil je omgaan met de bestaande mod?</translation>
     </message>
     <message>
       <source>{0} — Loading files…</source>
-      <translation>{0} – Bestanden laden…</translation>
+      <translation type="unfinished">{0} — Loading files…</translation>
     </message>
     <message>
       <source>{0} — Unable to load files</source>
-      <translation>{0} — Kan bestanden niet laden</translation>
+      <translation type="unfinished">{0} — Unable to load files</translation>
     </message>
   </context>
   <context>
@@ -9116,6 +9180,34 @@ Hoe wil je omgaan met de bestaande mod?</translation>
     <message>
       <source>Create</source>
       <translation>Aanmaken</translation>
+    </message>
+    <message>
+      <source>Group options</source>
+      <translation type="unfinished">Group options</translation>
+    </message>
+    <message>
+      <source>Group with</source>
+      <translation type="unfinished">Group with</translation>
+    </message>
+    <message>
+      <source>Change group leader</source>
+      <translation type="unfinished">Change group leader</translation>
+    </message>
+    <message>
+      <source>Ungroup</source>
+      <translation type="unfinished">Ungroup</translation>
+    </message>
+    <message>
+      <source>Ungroup all</source>
+      <translation type="unfinished">Ungroup all</translation>
+    </message>
+    <message>
+      <source>Enable group</source>
+      <translation type="unfinished">Enable group</translation>
+    </message>
+    <message>
+      <source>Disable group</source>
+      <translation type="unfinished">Disable group</translation>
     </message>
     <message>
       <source>Copy separator to profile</source>
@@ -9660,6 +9752,12 @@ Klik op Gereed om te sluiten.</translation>
     <message>
       <source>A FOMOD option you didn't select is now relevant ({0} is in the load order) - click to re-run the FOMOD installer</source>
       <translation>Een FOMOD optie die u niet selecteerde is nu relevant ({0} is in de lastvolgorde) - klik om de FOMOD installatie opnieuw uit te voeren</translation>
+    </message>
+    <message>
+      <source>Group summary: {0}
+Expand the group to act on individual mods.</source>
+      <translation type="unfinished">Group summary: {0}
+Expand the group to act on individual mods.</translation>
     </message>
   </context>
   <context>
@@ -14618,19 +14716,19 @@ flatpak remote-add --user amethist https://chrisdkn.github.io/Amethyst-Mod-Manag
     </message>
     <message>
       <source>Translate on Crowdin</source>
-      <translation>Vertalen op Crowdin</translation>
+      <translation type="unfinished">Translate on Crowdin</translation>
     </message>
     <message>
       <source>Open the Amethyst Crowdin project to help translate the app.</source>
-      <translation>Open het Amethyste Crowdin-project om de app te helpen vertalen.</translation>
+      <translation type="unfinished">Open the Amethyst Crowdin project to help translate the app.</translation>
     </message>
     <message>
       <source>Mod list</source>
-      <translation>Mod list</translation>
+      <translation type="unfinished">Mod list</translation>
     </message>
     <message>
       <source>Status bar</source>
-      <translation>Status balk</translation>
+      <translation type="unfinished">Status bar</translation>
     </message>
     <message>
       <source>Cap the combined download speed of all downloads (collections, single mods, nxm and modl links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>
@@ -14691,6 +14789,42 @@ flatpak remote-add --user amethist https://chrisdkn.github.io/Amethyst-Mod-Manag
     <message>
       <source>Additional Proton build not found automatically. Select the build folder containing the top-level 'proton' launcher, not files/bin/wine. Blank disables it.</source>
       <translation>Extra Proton build niet automatisch gevonden. Selecteer de map met de 'proton'-starter op topniveau, niet bestanden/bin/wijn. Blanco schakelt het uit.</translation>
+    </message>
+    <message>
+      <source>Global restore whitelist</source>
+      <translation type="unfinished">Global restore whitelist</translation>
+    </message>
+    <message>
+      <source>Matching runtime-created files stay in the game folder during restore instead of being moved to Overwrite. File and folder names match case-insensitively at any depth; * and ? wildcards are supported. This applies to every game.</source>
+      <translation type="unfinished">Matching runtime-created files stay in the game folder during restore instead of being moved to Overwrite. File and folder names match case-insensitively at any depth; * and ? wildcards are supported. This applies to every game.</translation>
+    </message>
+    <message>
+      <source>File names</source>
+      <translation type="unfinished">File names</translation>
+    </message>
+    <message>
+      <source>File name or wildcard</source>
+      <translation type="unfinished">File name or wildcard</translation>
+    </message>
+    <message>
+      <source>Add file</source>
+      <translation type="unfinished">Add file</translation>
+    </message>
+    <message>
+      <source>Folder names</source>
+      <translation type="unfinished">Folder names</translation>
+    </message>
+    <message>
+      <source>Folder name or wildcard</source>
+      <translation type="unfinished">Folder name or wildcard</translation>
+    </message>
+    <message>
+      <source>Add folder</source>
+      <translation type="unfinished">Add folder</translation>
+    </message>
+    <message>
+      <source>Remove selected</source>
+      <translation type="unfinished">Remove selected</translation>
     </message>
     <message>
       <source>{0} set: {1}</source>
