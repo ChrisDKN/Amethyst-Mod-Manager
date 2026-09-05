@@ -208,6 +208,7 @@ def check_for_updates(
     progress_cb: Optional[ProgressCallback] = None,
     save_results: bool = True,
     enabled_only: Optional[set] = None,
+    installed_names: Optional[set] = None,
     max_workers: int = 10,
 ) -> tuple[list["UpdateInfo"], list["MissingRequirementInfo"]]:
     """Check installed mods in domain-qualified batches.
@@ -215,9 +216,13 @@ def check_for_updates(
     Nexus mod ids are scoped to a game. Grouping before invoking the existing
     single-domain pipeline prevents equal numeric ids in compatible domains
     from sharing update, file, endorsement, or requirement data.
+    ``installed_names`` can restrict requirement satisfaction to one profile
+    when its staging directory is shared by several profiles.
     """
     _log = progress_cb or (lambda m: None)
     installed = scan_installed_mods(staging_root)
+    if installed_names is not None:
+        installed = [m for m in installed if m.mod_name in installed_names]
     selected = [m for m in installed
                 if enabled_only is None or m.mod_name in enabled_only]
     fallback = normalise_game_domain(game_domain)
@@ -238,6 +243,7 @@ def check_for_updates(
         domain_updates, domain_missing = _check_for_updates_one_domain(
             api, staging_root, game_domain=domain, progress_cb=progress_cb,
             save_results=save_results, enabled_only=names,
+            installed_names=installed_names,
             max_workers=max_workers)
         updates.extend(domain_updates)
         missing.extend(domain_missing)
@@ -251,6 +257,7 @@ def _check_for_updates_one_domain(
     progress_cb: Optional[ProgressCallback] = None,
     save_results: bool = True,
     enabled_only: Optional[set] = None,
+    installed_names: Optional[set] = None,
     max_workers: int = 10,
 ) -> tuple[list["UpdateInfo"], list["MissingRequirementInfo"]]:
     """
@@ -288,7 +295,10 @@ def _check_for_updates_one_domain(
     progress_cb : callable, optional
         Called with status strings for UI feedback.
     save_results : bool
-        If True, write results back to each mod’s ``meta.ini``.
+        If True, write results back to each mod's ``meta.ini``.
+    installed_names : set, optional
+        Staging-folder names belonging to the requested profile. Other folders
+        are excluded from both update targets and requirement satisfaction.
     max_workers : int
         Parallel threads for the REST fallback.  Default is 10.
 
@@ -301,6 +311,8 @@ def _check_for_updates_one_domain(
 
     # 1. Scan installed mods with Nexus metadata
     installed = scan_installed_mods(staging_root)
+    if installed_names is not None:
+        installed = [m for m in installed if m.mod_name in installed_names]
     if not installed:
         _log("No Nexus-sourced mods found.")
         return [], []

@@ -5,9 +5,9 @@ use the manager without importing its Python modules or starting Qt. Protocol
 version 1 exposes game, profile, mod and downloaded-archive state, Nexus OAuth,
 catalogue discovery, exact-ID metadata, managed downloads, and non-interactive
 archive installation, plus asynchronous mod activation, ordering, removal,
-plugin inventory, activation, ordering and LOOT sorting, profile lifecycle,
-managed Overwrite and Root Folder inventory and file management, deploy,
-restore, and managed game launch.
+Nexus update and requirement checks, plugin inventory, activation, ordering and
+LOOT sorting, profile lifecycle, managed Overwrite and Root Folder inventory
+and file management, deploy, restore, and managed game launch.
 
 The public boundary is JSON-RPC 2.0 over newline-delimited JSON (NDJSON).
 Amethyst reads one JSON value per line from standard input and writes one JSON
@@ -100,12 +100,19 @@ The response describes the protocol and available features:
       "event_delivery": "poll",
       "cancellation": true,
       "cancellable_jobs": ["nexus.download"],
-      "mutations": ["profiles.create", "profiles.rename", "profiles.remove", "profiles.select", "mods.set_enabled", "mods.move", "mods.remove", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
+      "mutations": ["profiles.create", "profiles.rename", "profiles.remove", "profiles.select", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
       "installation": {
         "source": "download_inventory",
         "installer_policies": ["reject", "defaults"],
         "existing_mod_policies": ["fail", "replace"],
         "interactive": false
+      },
+      "mods": {
+        "update_check": {
+          "sources": ["nexus"],
+          "selection": true,
+          "persists_metadata": true
+        }
       },
       "nexus": {
         "authentication": "oauth_pkce",
@@ -173,6 +180,7 @@ The response describes the protocol and available features:
         "nexus.files.get.start",
         "nexus.download.start",
         "mods.list",
+        "mods.check_updates.start",
         "mods.set_enabled.start",
         "mods.move.start",
         "mods.remove.start",
@@ -233,6 +241,7 @@ parameters are rejected.
 | `nexus.files.get.start` | `game` string, `mod_id` integer, `file_id` integer, `domain` string (optional) | Fetch one exact Nexus file. |
 | `nexus.download.start` | `game` string plus either exact IDs or `nxm_url` string | Download one Nexus archive into Amethyst's managed game cache. |
 | `mods.list` | `game` string, `profile` string | List a profile's mods, separators and installed metadata. |
+| `mods.check_updates.start` | `game` string, `profile` string, `mods` array (optional) | Check profile-scoped Nexus updates and requirements. |
 | `mods.set_enabled.start` | `game` string, `profile` string, `changes` array | Start a batch mod enable/disable job. |
 | `mods.move.start` | `game` string, `profile` string, `mods` array, `position` object | Move mods as a priority-ordered block. |
 | `mods.remove.start` | `game` string, `profile` string, `mods` array, `confirm` boolean | Permanently remove one or more mods. |
@@ -372,8 +381,44 @@ include enabled and locked state, staging-folder presence, installed metadata,
 update state, and Nexus or Thunderstore identity when available. A stale
 `modlist.txt` entry remains visible with `folder_exists` set to false.
 
+Nexus metadata includes the installed and latest file IDs and versions.
+`requirements.nexus` exposes the saved complete and missing requirement lists
+as `all` and `missing` arrays.
+
 Read methods return `operation_in_progress` while this service is changing game
 state. Continue polling the active job and retry the read after it completes.
+
+### Check Nexus updates and requirements
+
+Check every real mod listed in one profile:
+
+```json
+{"jsonrpc":"2.0","id":"updates","method":"mods.check_updates.start","params":{"game":"skyrim_se","profile":"default"}}
+```
+
+Pass `mods` to check an exact subset instead. An explicit array must contain
+between 1 and 4,096 unique, case-sensitive mod-folder names from that profile:
+
+```json
+{"jsonrpc":"2.0","id":"updates-selected","method":"mods.check_updates.start","params":{"game":"skyrim_se","profile":"default","mods":["SkyUI","SSE Engine Fixes"]}}
+```
+
+The job uses the saved Nexus login and the existing batched update and
+requirement checker. In shared staging, only mods listed in the requested
+profile count as installed when requirements are evaluated; an unrelated mod
+folder used by another profile cannot incorrectly satisfy a dependency. Mods
+without Nexus metadata are returned in `skipped` with reason `not_nexus`. A
+selection containing no Nexus-tracked mods succeeds without making a network
+request.
+
+The result contains ordered `updates`, per-mod `missing_requirements`, counts,
+the resolved selection, and current Nexus rate-limit information. It also
+persists update, requirement, category, endorsement, and metadata backfills in
+the existing `meta.ini` files, so a later `mods.list` reflects the refreshed
+state. The job does not download, install, reorder, enable, or deploy anything;
+when an update includes a nonzero `latest_file_id`, use its exact IDs with the
+normal Nexus download and archive-install methods. Otherwise query
+`nexus.mods.files.start` and select the intended file before downloading it.
 
 ### Inspect captured files
 
@@ -1144,8 +1189,8 @@ manager instance while it is running.
 
 ### Locking and failures
 
-Headless profile, archive-install, mod and plugin management, and launch
-dispatch jobs and the standard Amethyst Deploy and Restore entry
+Headless profile, archive-install, mod, update-check, plugin-management, and
+launch-dispatch jobs and the standard Amethyst Deploy and Restore entry
 points—desktop, one-shot CLI, and headless—use the same operation coordinator.
 Operations are serialized
 within one process. Across native, AppImage and Flatpak processes, advisory
@@ -1304,6 +1349,10 @@ caller does not directly receive the created job ID or login-flow state.
 
 ## Current limitations
 
+- `mods.check_updates.start` currently checks Nexus Mods metadata only. Saved
+  Thunderstore update state remains visible through `mods.list`, while mod.io
+  update status remains desktop-only; neither service is refreshed by this
+  method.
 - Interactive FOMOD/BAIN/bundle choices are not represented in protocol version
   1. Clients can explicitly accept defaults; scripted FOMOD and multi-mod
   archives remain unsupported by the headless installer.

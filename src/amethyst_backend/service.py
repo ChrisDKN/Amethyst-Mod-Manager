@@ -63,6 +63,7 @@ class AmethystService:
         "nexus.files.get.start",
         "nexus.download.start",
         "mods.list",
+        "mods.check_updates.start",
         "mods.set_enabled.start",
         "mods.move.start",
         "mods.remove.start",
@@ -120,6 +121,7 @@ class AmethystService:
             "nexus.files.get.start": self._start_nexus_file,
             "nexus.download.start": self._start_nexus_download,
             "mods.list": self._list_mods,
+            "mods.check_updates.start": self._start_check_mod_updates,
             "mods.set_enabled.start": self._start_set_enabled,
             "mods.move.start": self._start_move,
             "mods.remove.start": self._start_remove,
@@ -522,8 +524,9 @@ class AmethystService:
                 "mutations": [
                     "profiles.create", "profiles.rename", "profiles.remove",
                     "profiles.select", "mods.set_enabled", "mods.move",
-                    "mods.remove", "plugins.set_enabled", "plugins.move",
-                    "plugins.sort", "boundaries.move", "boundaries.remove",
+                    "mods.remove", "mods.check_updates",
+                    "plugins.set_enabled", "plugins.move", "plugins.sort",
+                    "boundaries.move", "boundaries.remove",
                     "deploy", "restore",
                     "nexus.auth.login", "nexus.auth.logout",
                     "nexus.download", "downloads.install", "launch",
@@ -533,6 +536,13 @@ class AmethystService:
                     "installer_policies": ["reject", "defaults"],
                     "existing_mod_policies": ["fail", "replace"],
                     "interactive": False,
+                },
+                "mods": {
+                    "update_check": {
+                        "sources": ["nexus"],
+                        "selection": True,
+                        "persists_metadata": True,
+                    },
                 },
                 "nexus": {
                     "authentication": "oauth_pkce",
@@ -1318,6 +1328,62 @@ class AmethystService:
             },
             "mods": mods,
         }
+
+    def _start_check_mod_updates(
+        self, params: dict[str, Any],
+    ) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params, {"game", "profile", "mods"}, {"game", "profile"})
+        game, domain = self._resolve_nexus_domain(params)
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        profile_dir = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+
+        raw_mods = params.get("mods")
+        mods = None
+        if raw_mods is not None:
+            if (not isinstance(raw_mods, list) or not raw_mods
+                    or len(raw_mods) > 4096):
+                raise ServiceError(
+                    -32602,
+                    "invalid_params",
+                    "'mods' must be an array of 1 to 4096 mod names.",
+                    {"parameter": "mods"},
+                )
+            mods = []
+            seen: set[str] = set()
+            for index, value in enumerate(raw_mods):
+                parameter = f"mods[{index}]"
+                name = self._mod_name(value, parameter)
+                if name in seen:
+                    raise ServiceError(
+                        -32602,
+                        "invalid_params",
+                        f"'{parameter}' duplicates an earlier mod name.",
+                        {"parameter": parameter, "mod": name},
+                    )
+                seen.add(name)
+                mods.append(name)
+
+        from .nexus import check_updates_runner
+        job = self._jobs.submit(
+            "mods.check_updates",
+            game,
+            self._canonical_game(game),
+            profile_dir.name,
+            {"mods": mods, "source": "nexus"},
+            runner=check_updates_runner(
+                self._nexus_session,
+                game,
+                profile_dir,
+                domain,
+                mods,
+                "headless:mods.check_updates",
+            ),
+        )
+        return {"job": job}
 
     def _start_list_plugins(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()
@@ -2393,6 +2459,9 @@ class AmethystService:
                 "version": None,
                 "installed_at": None,
                 "update_available": False,
+                "requirements": {
+                    "nexus": {"all": [], "missing": []},
+                },
                 "sources": {"nexus": None, "thunderstore": None},
             }
 
@@ -2405,10 +2474,14 @@ class AmethystService:
         version = None
         installed_at = None
         update_available = False
+        requirements = {"nexus": {"all": [], "missing": []}}
 
         if meta_path is not None and meta_path.is_file():
             try:
-                from Nexus.nexus_meta import read_meta as read_nexus_meta
+                from Nexus.nexus_meta import (
+                    parse_req_pairs,
+                    read_meta as read_nexus_meta,
+                )
                 meta = read_nexus_meta(meta_path)
                 version = meta.version or None
                 installed_at = meta.installed or None
@@ -2426,6 +2499,7 @@ class AmethystService:
                         "name": meta.nexus_name or None,
                         "file_name": meta.nexus_file_name or None,
                         "version": meta.version or None,
+                        "latest_file_id": meta.latest_file_id or None,
                         "latest_version": meta.latest_version or None,
                         "has_update": nexus_update,
                         "update_ignored": nexus_ignored,
@@ -2439,6 +2513,20 @@ class AmethystService:
                         "is_bain": bool(meta.is_bain),
                         "root_folder": bool(meta.root_folder),
                     }
+                requirements = {
+                    "nexus": {
+                        "all": [
+                            {"mod_id": mod_id, "name": name}
+                            for mod_id, name in parse_req_pairs(
+                                meta.nexus_requirements)
+                        ],
+                        "missing": [
+                            {"mod_id": mod_id, "name": name}
+                            for mod_id, name in parse_req_pairs(
+                                meta.missing_requirements)
+                        ],
+                    },
+                }
             except Exception:
                 pass
             try:
@@ -2477,6 +2565,7 @@ class AmethystService:
             "version": version,
             "installed_at": installed_at,
             "update_available": update_available,
+            "requirements": requirements,
             "sources": {"nexus": nexus, "thunderstore": thunderstore},
         }
 

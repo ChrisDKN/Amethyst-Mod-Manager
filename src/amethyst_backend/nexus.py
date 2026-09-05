@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Callable
 
 from .jobs import JobCancelled, JobError
@@ -100,6 +101,37 @@ def _file(file: Any) -> dict[str, Any]:
         "changelog_html": str(file.changelog_html or ""),
         "external_virus_scan_url": str(
             file.external_virus_scan_url or ""),
+    }
+
+
+def _available_update(update: Any) -> dict[str, Any]:
+    return {
+        "mod": str(update.mod_name),
+        "domain": str(update.game_domain),
+        "mod_id": int(update.mod_id),
+        "installed_file_id": int(update.installed_file_id or 0),
+        "installed_version": str(update.installed_version or ""),
+        "latest_file_id": int(update.latest_file_id or 0),
+        "latest_version": str(update.latest_version or ""),
+        "latest_file_name": str(update.latest_file_name or ""),
+        "nexus_url": str(update.nexus_url or ""),
+    }
+
+
+def _missing_requirements(value: Any) -> dict[str, Any]:
+    return {
+        "mod": str(value.mod_name),
+        "mod_id": int(value.mod_id),
+        "missing": [
+            {
+                "domain": str(requirement.game_domain or ""),
+                "mod_id": int(requirement.mod_id),
+                "name": str(requirement.mod_name or ""),
+                "url": str(requirement.url or ""),
+                "notes": str(requirement.notes or ""),
+            }
+            for requirement in value.missing
+        ],
     }
 
 
@@ -365,6 +397,165 @@ def file_runner(
                 "file": _file(file),
                 "rate_limits": _rate_limits(api),
             }
+
+        return _call(operation)
+    return run
+
+
+def check_updates_runner(
+    session: Any,
+    game: Any,
+    profile_dir: Path,
+    game_domain: str,
+    mods: list[str] | None,
+    owner: str,
+) -> Callable:
+    def run(log: Callable, progress: Callable) -> dict[str, Any]:
+        def operation() -> dict[str, Any]:
+            from Utils.operations import acquire_game_operation
+
+            with acquire_game_operation(
+                game, "mods.check_updates", owner=owner,
+            ):
+                if not profile_dir.is_dir():
+                    raise JobError(
+                        "profile_not_found",
+                        f"Profile '{profile_dir.name}' is no longer available.",
+                        {"profile": profile_dir.name},
+                    )
+                if profile_dir.is_symlink():
+                    raise JobError(
+                        "unsafe_profile_path",
+                        f"Profile '{profile_dir.name}' is a symbolic link and "
+                        "cannot be modified.",
+                        {"profile": profile_dir.name, "path": str(profile_dir)},
+                    )
+
+                from Utils.mods.modlist import read_modlist
+
+                try:
+                    entries = read_modlist(profile_dir / "modlist.txt")
+                except OSError as exc:
+                    raise JobError(
+                        "resource_unavailable",
+                        f"Could not read profile '{profile_dir.name}'.",
+                        {"profile": profile_dir.name, "reason": str(exc)},
+                    ) from exc
+                available = [
+                    entry.name for entry in entries if not entry.is_separator]
+                if mods is None:
+                    targets = list(dict.fromkeys(available))
+                else:
+                    missing = [name for name in mods if name not in available]
+                    if missing:
+                        casing = {
+                            name: next(
+                                (candidate for candidate in available
+                                 if candidate.casefold() == name.casefold()),
+                                None,
+                            )
+                            for name in missing
+                        }
+                        raise JobError(
+                            "mod_not_found",
+                            "One or more requested mods were not found in the "
+                            "profile.",
+                            {"mods": missing, "casing_matches": casing},
+                        )
+                    targets = list(mods)
+
+                from Utils.profiles.state import profile_uses_specific_mods
+
+                staging = (
+                    profile_dir / "mods"
+                    if profile_uses_specific_mods(profile_dir)
+                    else Path(game.get_mod_staging_path())
+                )
+                from Nexus.nexus_meta import scan_installed_mods
+
+                try:
+                    installed = scan_installed_mods(staging)
+                except OSError as exc:
+                    raise JobError(
+                        "resource_unavailable",
+                        "Could not scan installed Nexus mod metadata.",
+                        {"path": str(staging), "reason": str(exc)},
+                    ) from exc
+                target_set = set(targets)
+                tracked = {
+                    meta.mod_name for meta in installed
+                    if meta.mod_name in target_set
+                }
+                skipped = [
+                    {"mod": name, "reason": "not_nexus"}
+                    for name in targets if name not in tracked
+                ]
+                if not tracked:
+                    return {
+                        "ok": True,
+                        "profile": profile_dir.name,
+                        "source": "nexus",
+                        "selection": {
+                            "requested": list(mods) if mods is not None else None,
+                            "targets": targets,
+                        },
+                        "counts": {
+                            "targeted": len(targets),
+                            "nexus_tracked": 0,
+                            "updates": 0,
+                            "missing_requirements": 0,
+                            "missing_dependencies": 0,
+                            "skipped": len(skipped),
+                        },
+                        "updates": [],
+                        "missing_requirements": [],
+                        "skipped": skipped,
+                        "rate_limits": None,
+                    }
+
+                api = session.require_api()
+                progress(0, 1, "check_updates")
+                from Nexus.nexus_update_checker import check_for_updates
+
+                updates, missing = check_for_updates(
+                    api,
+                    staging,
+                    game_domain=game_domain,
+                    progress_cb=lambda message: log(f"[nexus] {message}"),
+                    save_results=True,
+                    enabled_only=tracked,
+                    installed_names=set(available),
+                )
+                order = {name: index for index, name in enumerate(targets)}
+                updates.sort(key=lambda item: (
+                    order.get(item.mod_name, len(order)), item.mod_name))
+                missing.sort(key=lambda item: (
+                    order.get(item.mod_name, len(order)), item.mod_name))
+                update_rows = [_available_update(item) for item in updates]
+                missing_rows = [_missing_requirements(item) for item in missing]
+                progress(1, 1, "check_updates")
+                return {
+                    "ok": True,
+                    "profile": profile_dir.name,
+                    "source": "nexus",
+                    "selection": {
+                        "requested": list(mods) if mods is not None else None,
+                        "targets": targets,
+                    },
+                    "counts": {
+                        "targeted": len(targets),
+                        "nexus_tracked": len(tracked),
+                        "updates": len(update_rows),
+                        "missing_requirements": len(missing_rows),
+                        "missing_dependencies": sum(
+                            len(item["missing"]) for item in missing_rows),
+                        "skipped": len(skipped),
+                    },
+                    "updates": update_rows,
+                    "missing_requirements": missing_rows,
+                    "skipped": skipped,
+                    "rate_limits": _rate_limits(api),
+                }
 
         return _call(operation)
     return run
