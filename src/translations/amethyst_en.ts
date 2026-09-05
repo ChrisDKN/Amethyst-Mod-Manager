@@ -386,6 +386,22 @@ Download the 'FNV BSA Decompressor' main file from Nexus - the .mpi package insi
         <translation>Fallout New Vegas:</translation>
     </message>
     <message>
+        <source>The BSA Decompressor rebuilds the vanilla BSA archives without compression for faster loading, and the result is added as a mod.
+
+Download the 'FO3 BSA Decompressor' main file from Nexus - the .mpi package inside the archive is detected automatically.</source>
+        <translation>The BSA Decompressor rebuilds the vanilla BSA archives without compression for faster loading, and the result is added as a mod.
+
+Download the 'FO3 BSA Decompressor' main file from Nexus - the .mpi package inside the archive is detected automatically.</translation>
+    </message>
+    <message>
+        <source>Fallout 3:</source>
+        <translation>Fallout 3:</translation>
+    </message>
+    <message>
+        <source>Select the Fallout 3 folder</source>
+        <translation>Select the Fallout 3 folder</translation>
+    </message>
+    <message>
         <source>Select the Fallout New Vegas folder</source>
         <translation>Select the Fallout New Vegas folder</translation>
     </message>
@@ -478,6 +494,10 @@ Download the 'FNV BSA Decompressor' main file from Nexus - the .mpi package insi
         <translation>Please select the BSA Decompressor .mpi package (or its downloaded archive).</translation>
     </message>
     <message>
+        <source>Fallout 3 folder is not set.</source>
+        <translation>Fallout 3 folder is not set.</translation>
+    </message>
+    <message>
         <source>Fallout New Vegas folder is not set.</source>
         <translation>Fallout New Vegas folder is not set.</translation>
     </message>
@@ -514,6 +534,22 @@ Output is written directly into your mod list as the '{0}' mod.</translation>
     <message>
         <source>Mod staging path is not configured.</source>
         <translation>Mod staging path is not configured.</translation>
+    </message>
+    <message>
+        <source>ERROR: missing vanilla game files:
+{0}</source>
+        <translation>ERROR: missing vanilla game files:
+{0}</translation>
+    </message>
+    <message>
+        <source>Missing vanilla game files even after restoring to vanilla - these were never backed up.
+In Steam, right-click the game → Properties → Installed Files → Verify integrity of game files, then retry.
+
+{0}</source>
+        <translation>Missing vanilla game files even after restoring to vanilla - these were never backed up.
+In Steam, right-click the game → Properties → Installed Files → Verify integrity of game files, then retry.
+
+{0}</translation>
     </message>
     <message>
         <source>ERROR: missing vanilla plugin files:
@@ -1927,6 +1963,18 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</translati
         <translation>Virtual filesystem (VFS)</translation>
     </message>
     <message>
+        <source>Game Runtime</source>
+        <translation>Game Runtime</translation>
+    </message>
+    <message>
+        <source>Native Linux</source>
+        <translation>Native Linux</translation>
+    </message>
+    <message>
+        <source>Windows / Proton</source>
+        <translation>Windows / Proton</translation>
+    </message>
+    <message>
         <source>Swap launcher with script extender on deploy</source>
         <translation>Swap launcher with script extender on deploy</translation>
     </message>
@@ -2155,6 +2203,18 @@ The default profile's settings are not affected.</translation>
         <translation>Set the game installation folder first.</translation>
     </message>
     <message>
+        <source>Native Linux runtime selected, but bin/bg3 was not found.</source>
+        <translation>Native Linux runtime selected, but bin/bg3 was not found.</translation>
+    </message>
+    <message>
+        <source>Windows / Proton runtime selected, but no BG3 Windows executable was found.</source>
+        <translation>Windows / Proton runtime selected, but no BG3 Windows executable was found.</translation>
+    </message>
+    <message>
+        <source>Select the Proton prefix used by this BG3 installation.</source>
+        <translation>Select the Proton prefix used by this BG3 installation.</translation>
+    </message>
+    <message>
         <source>The mod staging folder cannot be the game folder or be inside it. Choose a separate location.</source>
         <translation>The mod staging folder cannot be the game folder or be inside it. Choose a separate location.</translation>
     </message>
@@ -2165,6 +2225,10 @@ The default profile's settings are not affected.</translation>
     <message>
         <source>Cannot change the game/prefix path while mods are deployed. Restore the game first.</source>
         <translation>Cannot change the game/prefix path while mods are deployed. Restore the game first.</translation>
+    </message>
+    <message>
+        <source>Cannot change the game runtime while mods are deployed. Restore the game first.</source>
+        <translation>Cannot change the game runtime while mods are deployed. Restore the game first.</translation>
     </message>
     <message>
         <source>Restore the game before changing the preferred OpenMW package.</source>
@@ -4183,6 +4247,26 @@ Download the 'Ultimate Edition ESM Fixes Remastered' main file from Nexus - the 
         <translation>Fallout New Vegas:</translation>
     </message>
     <message>
+        <source>Unofficial Fallout 3 ESM Patcher - {0}</source>
+        <translation>Unofficial Fallout 3 ESM Patcher - {0}</translation>
+    </message>
+    <message>
+        <source>The Unofficial Fallout 3 ESM Patcher patches the vanilla .esm masters (Fallout3 + all DLC) with community bugfixes, and the result is added as a mod.
+
+Download the 'Unofficial Fallout 3 ESM Patcher' main file from Nexus - the .mpi package inside the archive is detected automatically.</source>
+        <translation>The Unofficial Fallout 3 ESM Patcher patches the vanilla .esm masters (Fallout3 + all DLC) with community bugfixes, and the result is added as a mod.
+
+Download the 'Unofficial Fallout 3 ESM Patcher' main file from Nexus - the .mpi package inside the archive is detected automatically.</translation>
+    </message>
+    <message>
+        <source>Fallout 3:</source>
+        <translation>Fallout 3:</translation>
+    </message>
+    <message>
+        <source>Select the Fallout 3 folder</source>
+        <translation>Select the Fallout 3 folder</translation>
+    </message>
+    <message>
         <source>Select the Fallout New Vegas folder</source>
         <translation>Select the Fallout New Vegas folder</translation>
     </message>
@@ -4273,6 +4357,10 @@ Download the 'Ultimate Edition ESM Fixes Remastered' main file from Nexus - the 
     <message>
         <source>Please select the ESM Fixes .mpi package (or its downloaded archive).</source>
         <translation>Please select the ESM Fixes .mpi package (or its downloaded archive).</translation>
+    </message>
+    <message>
+        <source>Fallout 3 folder is not set.</source>
+        <translation>Fallout 3 folder is not set.</translation>
     </message>
     <message>
         <source>Fallout New Vegas folder is not set.</source>
@@ -7955,8 +8043,32 @@ Run Quick Update on all of them now?</translation>
         <translation> ({0})</translation>
     </message>
     <message>
+        <source>Received a malformed MODL link.</source>
+        <translation>Received a malformed MODL link.</translation>
+    </message>
+    <message>
+        <source>No configured game matches MODL game ID '{0}'.</source>
+        <translation>No configured game matches MODL game ID '{0}'.</translation>
+    </message>
+    <message>
+        <source>Downloading mod from MODL link…</source>
+        <translation>Downloading mod from MODL link…</translation>
+    </message>
+    <message>
         <source>Download cancelled.</source>
         <translation>Download cancelled.</translation>
+    </message>
+    <message>
+        <source>MODL download failed - {0}</source>
+        <translation>MODL download failed - {0}</translation>
+    </message>
+    <message>
+        <source>Downloaded - target game is unavailable; see Downloads tab.</source>
+        <translation>Downloaded - target game is unavailable; see Downloads tab.</translation>
+    </message>
+    <message>
+        <source>Downloaded - switch to '{0}' and install it from the Downloads tab.</source>
+        <translation>Downloaded - switch to '{0}' and install it from the Downloads tab.</translation>
     </message>
     <message>
         <source>this mod</source>
@@ -8051,12 +8163,40 @@ Run Quick Update on all of them now?</translation>
         <translation>Conflict data is still building.</translation>
     </message>
     <message>
+        <source>Root Folder</source>
+        <translation>Root Folder</translation>
+    </message>
+    <message>
+        <source>Could not add '{0}' to the modlist: {1}</source>
+        <translation>Could not add '{0}' to the modlist: {1}</translation>
+    </message>
+    <message>
         <source>{0} has no conflicting mods.</source>
         <translation>{0} has no conflicting mods.</translation>
     </message>
     <message>
         <source>Filtered to {0} mods conflicting with {1}.</source>
         <translation>Filtered to {0} mods conflicting with {1}.</translation>
+    </message>
+    <message>
+        <source>Copy separator to profile</source>
+        <translation>Copy separator to profile</translation>
+    </message>
+    <message>
+        <source>Copying separator</source>
+        <translation>Copying separator</translation>
+    </message>
+    <message>
+        <source>Copying separator '{0}' to '{1}'…</source>
+        <translation>Copying separator '{0}' to '{1}'…</translation>
+    </message>
+    <message>
+        <source>Copied separator '{0}' with {1}/{2} mod(s) to '{3}'.</source>
+        <translation>Copied separator '{0}' with {1}/{2} mod(s) to '{3}'.</translation>
+    </message>
+    <message>
+        <source>Could not copy the separator.</source>
+        <translation>Could not copy the separator.</translation>
     </message>
     <message>
         <source>Cancel all</source>
@@ -8093,6 +8233,10 @@ Run Quick Update on all of them now?</translation>
         <translation>Amethyst could not launch {0}.
 
 {1}</translation>
+    </message>
+    <message>
+        <source>Waiting for profile updates…</source>
+        <translation>Waiting for profile updates…</translation>
     </message>
     <message>
         <source>Extracting / Installing</source>
@@ -8343,6 +8487,14 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
     <message>
         <source>{0}: no record overlap with other plugins.</source>
         <translation>{0}: no record overlap with other plugins.</translation>
+    </message>
+    <message>
+        <source>Loading profile…</source>
+        <translation>Loading profile…</translation>
+    </message>
+    <message>
+        <source>Could not load the profile file graph. See the log for details.</source>
+        <translation>Could not load the profile file graph. See the log for details.</translation>
     </message>
     <message>
         <source>+ Add exe from staging…</source>
@@ -8872,6 +9024,14 @@ How would you like to handle the existing mod?</translation>
         <source>(no mod selected)</source>
         <translation>(no mod selected)</translation>
     </message>
+    <message>
+        <source>{0} — Loading files…</source>
+        <translation>{0} — Loading files…</translation>
+    </message>
+    <message>
+        <source>{0} — Unable to load files</source>
+        <translation>{0} — Unable to load files</translation>
+    </message>
 </context>
 <context>
     <name>ModListMenu</name>
@@ -8952,6 +9112,10 @@ How would you like to handle the existing mod?</translation>
         <translation>Create</translation>
     </message>
     <message>
+        <source>Copy separator to profile</source>
+        <translation>Copy separator to profile</translation>
+    </message>
+    <message>
         <source>Create an empty mod below</source>
         <translation>Create an empty mod below</translation>
     </message>
@@ -9022,6 +9186,14 @@ How would you like to handle the existing mod?</translation>
     <message>
         <source>Log</source>
         <translation>Log</translation>
+    </message>
+    <message>
+        <source>Manage Overwrite…</source>
+        <translation>Manage Overwrite…</translation>
+    </message>
+    <message>
+        <source>Manage root folder</source>
+        <translation>Manage root folder</translation>
     </message>
     <message>
         <source>Missing Requirements</source>
@@ -11111,6 +11283,191 @@ Override paks (no meta.lsx, or only overwriting the game's own modules) deploy t
     </message>
 </context>
 <context>
+    <name>OverwriteView</name>
+    <message>
+        <source>Root Folder</source>
+        <translation>Root Folder</translation>
+    </message>
+    <message>
+        <source>Overwrite</source>
+        <translation>Overwrite</translation>
+    </message>
+    <message>
+        <source>⊞ Expand all</source>
+        <translation>⊞ Expand all</translation>
+    </message>
+    <message>
+        <source>⟳ Refresh</source>
+        <translation>⟳ Refresh</translation>
+    </message>
+    <message>
+        <source>Move to mod…</source>
+        <translation>Move to mod…</translation>
+    </message>
+    <message>
+        <source>Move to new mod…</source>
+        <translation>Move to new mod…</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>Delete</translation>
+    </message>
+    <message>
+        <source>Search files… (try !.dds)</source>
+        <translation>Search files… (try !.dds)</translation>
+    </message>
+    <message>
+        <source>Root Folder (no game selected)</source>
+        <translation>Root Folder (no game selected)</translation>
+    </message>
+    <message>
+        <source>Root Folder - empty</source>
+        <translation>Root Folder - empty</translation>
+    </message>
+    <message>
+        <source>Root Folder - {0} of {1} file(s)</source>
+        <translation>Root Folder - {0} of {1} file(s)</translation>
+    </message>
+    <message>
+        <source>Root Folder - {0} file(s)</source>
+        <translation>Root Folder - {0} file(s)</translation>
+    </message>
+    <message>
+        <source>Overwrite (no game selected)</source>
+        <translation>Overwrite (no game selected)</translation>
+    </message>
+    <message>
+        <source>Overwrite - empty</source>
+        <translation>Overwrite - empty</translation>
+    </message>
+    <message>
+        <source>Overwrite - {0} of {1} file(s)</source>
+        <translation>Overwrite - {0} of {1} file(s)</translation>
+    </message>
+    <message>
+        <source>Overwrite - {0} file(s)</source>
+        <translation>Overwrite - {0} file(s)</translation>
+    </message>
+    <message>
+        <source>⊟ Collapse all</source>
+        <translation>⊟ Collapse all</translation>
+    </message>
+    <message>
+        <source>The active game or profile changed. Reopen Root Folder before modifying files.</source>
+        <translation>The active game or profile changed. Reopen Root Folder before modifying files.</translation>
+    </message>
+    <message>
+        <source>The active game or profile changed. Reopen Overwrite before modifying files.</source>
+        <translation>The active game or profile changed. Reopen Overwrite before modifying files.</translation>
+    </message>
+    <message>
+        <source>Profile changed</source>
+        <translation>Profile changed</translation>
+    </message>
+    <message>
+        <source>Move to mod</source>
+        <translation>Move to mod</translation>
+    </message>
+    <message>
+        <source>There are no mods to move these files into.</source>
+        <translation>There are no mods to move these files into.</translation>
+    </message>
+    <message>
+        <source>Move {0} item(s) to which mod?</source>
+        <translation>Move {0} item(s) to which mod?</translation>
+    </message>
+    <message>
+        <source>Move</source>
+        <translation>Move</translation>
+    </message>
+    <message>
+        <source>Invalid mod name</source>
+        <translation>Invalid mod name</translation>
+    </message>
+    <message>
+        <source>Mod names cannot end with '_separator'.</source>
+        <translation>Mod names cannot end with '_separator'.</translation>
+    </message>
+    <message>
+        <source>That name cannot be used for a mod folder.</source>
+        <translation>That name cannot be used for a mod folder.</translation>
+    </message>
+    <message>
+        <source>Name conflict</source>
+        <translation>Name conflict</translation>
+    </message>
+    <message>
+        <source>A mod named '{0}' already exists.</source>
+        <translation>A mod named '{0}' already exists.</translation>
+    </message>
+    <message>
+        <source>Move to new mod</source>
+        <translation>Move to new mod</translation>
+    </message>
+    <message>
+        <source>Could not create the mod folder:
+{0}</source>
+        <translation>Could not create the mod folder:
+{0}</translation>
+    </message>
+    <message>
+        <source>The mod could not be added to the modlist. No files were moved.</source>
+        <translation>The mod could not be added to the modlist. No files were moved.</translation>
+    </message>
+    <message>
+        <source>Mod name:</source>
+        <translation>Mod name:</translation>
+    </message>
+    <message>
+        <source>Create</source>
+        <translation>Create</translation>
+    </message>
+    <message>
+        <source>The selected mod has an unsafe folder name.</source>
+        <translation>The selected mod has an unsafe folder name.</translation>
+    </message>
+    <message>
+        <source>Moved {0}, failed {1}:
+{2}</source>
+        <translation>Moved {0}, failed {1}:
+{2}</translation>
+    </message>
+    <message>
+        <source>Move {0} item(s) from Overwrite into '{1}'?</source>
+        <translation>Move {0} item(s) from Overwrite into '{1}'?</translation>
+    </message>
+    <message>
+        <source>Deleted {0}, failed {1}:
+{2}</source>
+        <translation>Deleted {0}, failed {1}:
+{2}</translation>
+    </message>
+    <message>
+        <source>Delete from Root Folder</source>
+        <translation>Delete from Root Folder</translation>
+    </message>
+    <message>
+        <source>Permanently delete {0} item(s) from the Root Folder?
+
+This cannot be undone.</source>
+        <translation>Permanently delete {0} item(s) from the Root Folder?
+
+This cannot be undone.</translation>
+    </message>
+    <message>
+        <source>Delete from Overwrite</source>
+        <translation>Delete from Overwrite</translation>
+    </message>
+    <message>
+        <source>Permanently delete {0} item(s) from the Overwrite folder?
+
+This cannot be undone.</source>
+        <translation>Permanently delete {0} item(s) from the Overwrite folder?
+
+This cannot be undone.</translation>
+    </message>
+</context>
+<context>
     <name>PGPatcherView</name>
     <message>
         <source>Run PGPatcher - {0}</source>
@@ -12241,6 +12598,10 @@ Its listed mods are copied into the profile's own mods folder (hardlinked where 
     <message>
         <source>Cancel</source>
         <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>Wait for the profile to finish loading.</source>
+        <translation>Wait for the profile to finish loading.</translation>
     </message>
     <message>
         <source>'{0}' is a member of the deployed group '{1}' - restore the game first, then remove it.</source>
@@ -13966,10 +14327,6 @@ Merge your conflicts, then close it and click Done.</translation>
         <translation>{0} MB/s</translation>
     </message>
     <message>
-        <source>Cap the combined download speed of all downloads (collections, single mods, nxm links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>
-        <translation>Cap the combined download speed of all downloads (collections, single mods, nxm links) so they don't use the whole connection. Applies immediately, including to a running collection install.</translation>
-    </message>
-    <message>
         <source>Extraction CPU threads</source>
         <translation>Extraction CPU threads</translation>
     </message>
@@ -14080,10 +14437,6 @@ Merge your conflicts, then close it and click Done.</translation>
     <message>
         <source>Download only (don't install)</source>
         <translation>Download only (don't install)</translation>
-    </message>
-    <message>
-        <source>Downloads are saved to the cache but not installed. Applies to nxm:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</source>
-        <translation>Downloads are saved to the cache but not installed. Applies to nxm:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</translation>
     </message>
     <message>
         <source>Extraction</source>
@@ -14230,6 +14583,10 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
         <translation>Appearance</translation>
     </message>
     <message>
+        <source>Shortcuts</source>
+        <translation>Shortcuts</translation>
+    </message>
+    <message>
         <source>About</source>
         <translation>About</translation>
     </message>
@@ -14252,6 +14609,30 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     <message>
         <source>Right side</source>
         <translation>Right side</translation>
+    </message>
+    <message>
+        <source>Translate on Crowdin</source>
+        <translation>Translate on Crowdin</translation>
+    </message>
+    <message>
+        <source>Open the Amethyst Crowdin project to help translate the app.</source>
+        <translation>Open the Amethyst Crowdin project to help translate the app.</translation>
+    </message>
+    <message>
+        <source>Mod list</source>
+        <translation>Mod list</translation>
+    </message>
+    <message>
+        <source>Status bar</source>
+        <translation>Status bar</translation>
+    </message>
+    <message>
+        <source>Cap the combined download speed of all downloads (collections, single mods, nxm and modl links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>
+        <translation>Cap the combined download speed of all downloads (collections, single mods, nxm and modl links) so they don't use the whole connection. Applies immediately, including to a running collection install.</translation>
+    </message>
+    <message>
+        <source>Downloads are saved to the cache but not installed. Applies to nxm:// and modl:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</source>
+        <translation>Downloads are saved to the cache but not installed. Applies to nxm:// and modl:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</translation>
     </message>
     <message>
         <source>Reset dismissed prompts…</source>
@@ -14470,6 +14851,153 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     <message>
         <source>Downloading…</source>
         <translation>Downloading…</translation>
+    </message>
+</context>
+<context>
+    <name>ShortcutEditor</name>
+    <message>
+        <source>Keyboard and mouse shortcuts</source>
+        <translation>Keyboard and mouse shortcuts</translation>
+    </message>
+    <message>
+        <source>Click a binding, then press a key, Mouse 3, or a side button. Escape cancels. Left and right mouse buttons are reserved; modifiers are changed separately.</source>
+        <translation>Click a binding, then press a key, Mouse 3, or a side button. Escape cancels. Left and right mouse buttons are reserved; modifiers are changed separately.</translation>
+    </message>
+    <message>
+        <source>Reset to defaults</source>
+        <translation>Reset to defaults</translation>
+    </message>
+    <message>
+        <source>Action</source>
+        <translation>Action</translation>
+    </message>
+    <message>
+        <source>Modifier</source>
+        <translation>Modifier</translation>
+    </message>
+    <message>
+        <source>Key / button</source>
+        <translation>Key / button</translation>
+    </message>
+    <message>
+        <source>Default</source>
+        <translation>Default</translation>
+    </message>
+    <message>
+        <source>Mouse actions (mouse buttons by default)</source>
+        <translation>Mouse actions (mouse buttons by default)</translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation>None</translation>
+    </message>
+    <message>
+        <source>Reset {0} to {1}</source>
+        <translation>Reset {0} to {1}</translation>
+    </message>
+    <message>
+        <source>That key or mouse button cannot be used as a shortcut.</source>
+        <translation>That key or mouse button cannot be used as a shortcut.</translation>
+    </message>
+    <message>
+        <source>{0} is already assigned to {1}.</source>
+        <translation>{0} is already assigned to {1}.</translation>
+    </message>
+    <message>
+        <source>Failed to save shortcut: {0}</source>
+        <translation>Failed to save shortcut: {0}</translation>
+    </message>
+    <message>
+        <source>{0} reset to {1}.</source>
+        <translation>{0} reset to {1}.</translation>
+    </message>
+    <message>
+        <source>Failed to reset shortcuts: {0}</source>
+        <translation>Failed to reset shortcuts: {0}</translation>
+    </message>
+    <message>
+        <source>Shortcuts reset to defaults.</source>
+        <translation>Shortcuts reset to defaults.</translation>
+    </message>
+    <message>
+        <source>Rename selected mod or separator</source>
+        <translation>Rename selected mod or separator</translation>
+    </message>
+    <message>
+        <source>Refresh mod list</source>
+        <translation>Refresh mod list</translation>
+    </message>
+    <message>
+        <source>Deploy mods</source>
+        <translation>Deploy mods</translation>
+    </message>
+    <message>
+        <source>Install a mod</source>
+        <translation>Install a mod</translation>
+    </message>
+    <message>
+        <source>Create an empty mod</source>
+        <translation>Create an empty mod</translation>
+    </message>
+    <message>
+        <source>Restore game files</source>
+        <translation>Restore game files</translation>
+    </message>
+    <message>
+        <source>Open Settings</source>
+        <translation>Open Settings</translation>
+    </message>
+    <message>
+        <source>Focus search</source>
+        <translation>Focus search</translation>
+    </message>
+    <message>
+        <source>Select all in the active group</source>
+        <translation>Select all in the active group</translation>
+    </message>
+    <message>
+        <source>Move selection up</source>
+        <translation>Move selection up</translation>
+    </message>
+    <message>
+        <source>Move selection down</source>
+        <translation>Move selection down</translation>
+    </message>
+    <message>
+        <source>Remove selected mods</source>
+        <translation>Remove selected mods</translation>
+    </message>
+    <message>
+        <source>Enable or disable selection</source>
+        <translation>Enable or disable selection</translation>
+    </message>
+    <message>
+        <source>Scroll active list to the top</source>
+        <translation>Scroll active list to the top</translation>
+    </message>
+    <message>
+        <source>Scroll active list to the bottom</source>
+        <translation>Scroll active list to the bottom</translation>
+    </message>
+    <message>
+        <source>Expand or collapse all separators</source>
+        <translation>Expand or collapse all separators</translation>
+    </message>
+    <message>
+        <source>Show or hide active filters</source>
+        <translation>Show or hide active filters</translation>
+    </message>
+    <message>
+        <source>Open a mod's source page</source>
+        <translation>Open a mod's source page</translation>
+    </message>
+    <message>
+        <source>Browser back</source>
+        <translation>Browser back</translation>
+    </message>
+    <message>
+        <source>Browser forward</source>
+        <translation>Browser forward</translation>
     </message>
 </context>
 <context>
@@ -17433,6 +17961,10 @@ Press Refresh to try again.</translation>
         <translation>BSA Decompressor</translation>
     </message>
     <message>
+        <source>Install Unofficial Fallout 3 ESM Patcher</source>
+        <translation>Install Unofficial Fallout 3 ESM Patcher</translation>
+    </message>
+    <message>
         <source>Install Ultimate Edition ESM Fixes</source>
         <translation>Install Ultimate Edition ESM Fixes</translation>
     </message>
@@ -17655,6 +18187,14 @@ Press Refresh to try again.</translation>
     <message>
         <source>Decompress the vanilla BSA archives for faster loading (native Linux MPI installer) and add the result as a mod. Needs the FNV BSA Decompressor download from Nexus.</source>
         <translation>Decompress the vanilla BSA archives for faster loading (native Linux MPI installer) and add the result as a mod. Needs the FNV BSA Decompressor download from Nexus.</translation>
+    </message>
+    <message>
+        <source>Decompress the vanilla BSA archives for faster loading (native Linux MPI installer) and add the result as a mod. Needs the FO3 BSA Decompressor download from Nexus.</source>
+        <translation>Decompress the vanilla BSA archives for faster loading (native Linux MPI installer) and add the result as a mod. Needs the FO3 BSA Decompressor download from Nexus.</translation>
+    </message>
+    <message>
+        <source>Patch the vanilla .esm masters with community bugfixes (native Linux MPI installer) and add the result as a mod. Needs the Unofficial Fallout 3 ESM Patcher download from Nexus.</source>
+        <translation>Patch the vanilla .esm masters with community bugfixes (native Linux MPI installer) and add the result as a mod. Needs the Unofficial Fallout 3 ESM Patcher download from Nexus.</translation>
     </message>
     <message>
         <source>Patch the vanilla .esm masters with community bugfixes (native Linux MPI installer) and add the result as a mod. Needs the Ultimate Edition ESM Fixes Remastered download from Nexus.</source>
@@ -18369,6 +18909,21 @@ When you close it, your changes are restored automatically.</translation>
     <message>
         <source>Cancel</source>
         <translation>Cancel</translation>
+    </message>
+</context>
+<context>
+    <name>_BindingInput</name>
+    <message>
+        <source>Shortcut key or mouse button</source>
+        <translation>Shortcut key or mouse button</translation>
+    </message>
+    <message>
+        <source>Click here, then press a keyboard key, Mouse 3, or a side button. Escape cancels; left and right click are reserved.</source>
+        <translation>Click here, then press a keyboard key, Mouse 3, or a side button. Escape cancels; left and right click are reserved.</translation>
+    </message>
+    <message>
+        <source>Press key</source>
+        <translation>Press key</translation>
     </message>
 </context>
 <context>
