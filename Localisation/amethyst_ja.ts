@@ -3776,6 +3776,10 @@ When it completes, the app switches to the new profile - then come back here and
       <source>Install</source>
       <translation>インストール</translation>
     </message>
+    <message>
+      <source>{0} (hidden)</source>
+      <translation>{0} (hidden)</translation>
+    </message>
   </context>
   <context>
     <name>DownloadsModel</name>
@@ -4043,6 +4047,10 @@ Please restart the wizard and install {1} first.</source>
     <message>
       <source>Launching {0}…</source>
       <translation>{0}の起動中…</translation>
+    </message>
+    <message>
+      <source>xLODGen does not support {0}.</source>
+      <translation>xLODGENは {0}をサポートしていません。</translation>
     </message>
     <message>
       <source>Game path not configured.</source>
@@ -5291,6 +5299,10 @@ Doneをクリックして抽出されたファイルをクリーンアップし�
       <translation>「インストールされていないもののみ表示」</translation>
     </message>
     <message>
+      <source>Show hidden archives</source>
+      <translation>非表示のアーカイブを表示</translation>
+    </message>
+    <message>
       <source>Only conflicts</source>
       <translation>紛争のみ</translation>
     </message>
@@ -6361,6 +6373,14 @@ Linuxファイルシステム(ext4/btrfs)は、ゲームとMODのステージン
       <translation>選択したものを移動</translation>
     </message>
     <message>
+      <source>Hide Selected</source>
+      <translation>選択したものを隠す</translation>
+    </message>
+    <message>
+      <source>Unhide Selected</source>
+      <translation>選択したものを再表示する</translation>
+    </message>
+    <message>
       <source>Remove Selected</source>
       <translation>選択した項目を削除</translation>
     </message>
@@ -6379,6 +6399,18 @@ Linuxファイルシステム(ext4/btrfs)は、ゲームとMODのステージン
     <message>
       <source>Removed {0} archive(s)</source>
       <translation>{0} のアーカイブを削除しました</translation>
+    </message>
+    <message>
+      <source>Hidden {0} archive(s)</source>
+      <translation>隠しアーカイブ {0}</translation>
+    </message>
+    <message>
+      <source>Made {0} archive(s) visible</source>
+      <translation>{0} アーカイブを表示させました</translation>
+    </message>
+    <message>
+      <source>Could not update hidden archives: {0}</source>
+      <translation>隠しアーカイブを更新できませんでした: {0}</translation>
     </message>
     <message>
       <source>Cannot use that folder: {0}</source>
@@ -7841,6 +7873,22 @@ Run Quick Update on all of them now?</source>
       <translation>LOOT ソート失敗 - ログを参照してください.</translation>
     </message>
     <message>
+      <source>Plugin sources are being refreshed. Run LOOT when loading finishes.</source>
+      <translation type="unfinished">Plugin sources are being refreshed. Run LOOT when loading finishes.</translation>
+    </message>
+    <message>
+      <source>Could not prepare plugin sources: {0}</source>
+      <translation type="unfinished">Could not prepare plugin sources: {0}</translation>
+    </message>
+    <message>
+      <source>Plugin state changed while LOOT was running. Run LOOT again.</source>
+      <translation type="unfinished">Plugin state changed while LOOT was running. Run LOOT again.</translation>
+    </message>
+    <message>
+      <source>Locked plugin positions conflict with the game's required load order.</source>
+      <translation type="unfinished">Locked plugin positions conflict with the game's required load order.</translation>
+    </message>
+    <message>
       <source>Sorted - 1 plugin moved.</source>
       <translation>ソート - 1 プラグインが移動しました.</translation>
     </message>
@@ -8205,6 +8253,18 @@ Run Quick Update on all of them now?</source>
       <translation>区切り文字をコピーできませんでした。</translation>
     </message>
     <message>
+      <source>Could not preserve groups: {0}.</source>
+      <translation type="unfinished">Could not preserve groups: {0}.</translation>
+    </message>
+    <message>
+      <source>Their source mods were kept.</source>
+      <translation type="unfinished">Their source mods were kept.</translation>
+    </message>
+    <message>
+      <source>Could not update the source profile's modlist.</source>
+      <translation type="unfinished">Could not update the source profile's modlist.</translation>
+    </message>
+    <message>
       <source>Cancel all</source>
       <translation>キャンセル</translation>
     </message>
@@ -8453,6 +8513,10 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
     <message>
       <source>Mods with BSA archives</source>
       <translation>BSAアーカイブを含むMOD</translation>
+    </message>
+    <message>
+      <source>Could not save mod groups: {0}</source>
+      <translation type="unfinished">Could not save mod groups: {0}</translation>
     </message>
     <message>
       <source>{0} enabled of {1} mods</source>
@@ -9036,7 +9100,7 @@ How would you like to handle the existing mod?</source>
     </message>
     <message>
       <source>{0} — Unable to load files</source>
-      <translation>{0} — ファイルを読み込めません</translation>
+      <translation type="unfinished">{0} — Unable to load files</translation>
     </message>
   </context>
   <context>
@@ -9116,6 +9180,34 @@ How would you like to handle the existing mod?</source>
     <message>
       <source>Create</source>
       <translation>作成</translation>
+    </message>
+    <message>
+      <source>Group options</source>
+      <translation type="unfinished">Group options</translation>
+    </message>
+    <message>
+      <source>Group with</source>
+      <translation type="unfinished">Group with</translation>
+    </message>
+    <message>
+      <source>Change group leader</source>
+      <translation type="unfinished">Change group leader</translation>
+    </message>
+    <message>
+      <source>Ungroup</source>
+      <translation type="unfinished">Ungroup</translation>
+    </message>
+    <message>
+      <source>Ungroup all</source>
+      <translation type="unfinished">Ungroup all</translation>
+    </message>
+    <message>
+      <source>Enable group</source>
+      <translation type="unfinished">Enable group</translation>
+    </message>
+    <message>
+      <source>Disable group</source>
+      <translation type="unfinished">Disable group</translation>
     </message>
     <message>
       <source>Copy separator to profile</source>
@@ -9660,6 +9752,12 @@ Done をクリックして閉じます.</translation>
     <message>
       <source>A FOMOD option you didn't select is now relevant ({0} is in the load order) - click to re-run the FOMOD installer</source>
       <translation>選択しなかった FOMOD オプションが関連しています ({0} はロード順にあります) - FOMOD インストーラを再実行するためにクリックします</translation>
+    </message>
+    <message>
+      <source>Group summary: {0}
+Expand the group to act on individual mods.</source>
+      <translation type="unfinished">Group summary: {0}
+Expand the group to act on individual mods.</translation>
     </message>
   </context>
   <context>
@@ -14618,19 +14716,19 @@ flatpak リモート追加 --user amethyst https://chrisdkn.github.io/Amethyst-M
     </message>
     <message>
       <source>Translate on Crowdin</source>
-      <translation>Crowdin で翻訳</translation>
+      <translation type="unfinished">Translate on Crowdin</translation>
     </message>
     <message>
       <source>Open the Amethyst Crowdin project to help translate the app.</source>
-      <translation>アプリの翻訳を手伝うためにアメジストCrowdinのプロジェクトを開きます。</translation>
+      <translation type="unfinished">Open the Amethyst Crowdin project to help translate the app.</translation>
     </message>
     <message>
       <source>Mod list</source>
-      <translation>Mod list</translation>
+      <translation type="unfinished">Mod list</translation>
     </message>
     <message>
       <source>Status bar</source>
-      <translation>ステータスバー</translation>
+      <translation type="unfinished">Status bar</translation>
     </message>
     <message>
       <source>Cap the combined download speed of all downloads (collections, single mods, nxm and modl links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>
@@ -14691,6 +14789,42 @@ flatpak リモート追加 --user amethyst https://chrisdkn.github.io/Amethyst-M
     <message>
       <source>Additional Proton build not found automatically. Select the build folder containing the top-level 'proton' launcher, not files/bin/wine. Blank disables it.</source>
       <translation>追加のProtonビルドは自動的に検出されません。 上位レベルの 'proton' のランチャーを含むビルドフォルダを選択し、ファイル/bin/wine ではありません。 Blank は無効にします.</translation>
+    </message>
+    <message>
+      <source>Global restore whitelist</source>
+      <translation type="unfinished">Global restore whitelist</translation>
+    </message>
+    <message>
+      <source>Matching runtime-created files stay in the game folder during restore instead of being moved to Overwrite. File and folder names match case-insensitively at any depth; * and ? wildcards are supported. This applies to every game.</source>
+      <translation type="unfinished">Matching runtime-created files stay in the game folder during restore instead of being moved to Overwrite. File and folder names match case-insensitively at any depth; * and ? wildcards are supported. This applies to every game.</translation>
+    </message>
+    <message>
+      <source>File names</source>
+      <translation type="unfinished">File names</translation>
+    </message>
+    <message>
+      <source>File name or wildcard</source>
+      <translation type="unfinished">File name or wildcard</translation>
+    </message>
+    <message>
+      <source>Add file</source>
+      <translation type="unfinished">Add file</translation>
+    </message>
+    <message>
+      <source>Folder names</source>
+      <translation type="unfinished">Folder names</translation>
+    </message>
+    <message>
+      <source>Folder name or wildcard</source>
+      <translation type="unfinished">Folder name or wildcard</translation>
+    </message>
+    <message>
+      <source>Add folder</source>
+      <translation type="unfinished">Add folder</translation>
+    </message>
+    <message>
+      <source>Remove selected</source>
+      <translation type="unfinished">Remove selected</translation>
     </message>
     <message>
       <source>{0} set: {1}</source>
