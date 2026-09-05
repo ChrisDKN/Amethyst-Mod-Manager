@@ -15,7 +15,7 @@ from __future__ import annotations
 import os
 import re
 import threading
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from Utils.app_log import app_log
@@ -1558,36 +1558,15 @@ def format_loot_tooltip(info: dict, enabled_lower: set[str]) -> str:
 def apply_loot_sort(rows: list[PluginRow], locked_indices: dict[int, PluginRow],
                     sorted_names: list[str],
                     include_vanilla: bool) -> "tuple[list[PluginRow], int]":
-    """Re-interleave a LOOT sort result back into the row list.
-
-    *rows* is the pre-sort order; *locked_indices* maps an index in *rows* → the
-    locked PluginRow that must stay at that index; *sorted_names* is LOOT's order
-    for the UNLOCKED plugins only. Returns (new_rows, visible_moved_count).
-
-    Pure (no Qt) so it's unit-testable. Mirrors gui/plugin_panel_loot.py
-    _apply_result (264-295).
-    """
+    """Apply a validated full load order, retaining row state and locks."""
     vanilla_lower = {r.name.lower() for r in rows if r.vanilla}
-    # Case-insensitive: LOOT returns names with on-disk casing, which can
-    # differ from the plugins.txt casing in *rows* - a case-sensitive miss
-    # here silently re-enabled disabled plugins on every sort.
-    name_to_enabled = {r.name.lower(): r.enabled for r in rows}
-    total = len(rows)
-    pre_unlocked = [r.name for i, r in enumerate(rows) if i not in locked_indices]
-    if len(sorted_names) != len(pre_unlocked):
-        # Set mismatch (shouldn't happen - LOOT preserves the input set). Bail
-        # to the original order rather than risk a bad interleave.
-        return list(rows), 0
-    it = iter(sorted_names)
-    new_rows: list[PluginRow] = []
-    for i in range(total):
-        if i in locked_indices:
-            new_rows.append(locked_indices[i])
-        else:
-            name = next(it)
-            new_rows.append(PluginRow(
-                name, name_to_enabled.get(name.lower(), True), 0,
-                name.lower() in vanilla_lower))
+    by_name = {r.name.lower(): r for r in rows}
+    names = [name.lower() for name in sorted_names]
+    if len(names) != len(rows) or len(set(names)) != len(names) or set(names) != set(by_name):
+        raise ValueError("LOOT returned a different plugin set; load order was not saved.")
+    if any(names[index] != row.name.lower() for index, row in locked_indices.items()):
+        raise ValueError("LOOT changed a locked plugin position; load order was not saved.")
+    new_rows = [replace(by_name[name.lower()], name=name) for name in sorted_names]
 
     # Moved count over plugins the user actually sees (exclude hidden vanilla).
     def _visible(names):
@@ -1596,7 +1575,7 @@ def apply_loot_sort(rows: list[PluginRow], locked_indices: dict[int, PluginRow],
     before = _visible([r.name for r in rows])
     after = _visible([r.name for r in new_rows])
     moved = sum(1 for i, n in enumerate(after)
-                if i >= len(before) or before[i] != n)
+                if i >= len(before) or before[i].lower() != n.lower())
     return new_rows, moved
 
 

@@ -71,6 +71,7 @@ class ResolvedSnapshot:
 
     __slots__ = (
         "_native", "_export", "_asset_winners_cache", "_asset_sources_cache",
+        "__weakref__",
     )
 
     def __init__(self, native_snapshot):

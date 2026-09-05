@@ -7839,6 +7839,22 @@ Run Quick Update on all of them now?</translation>
         <translation>LOOT sort failed - see log.</translation>
     </message>
     <message>
+        <source>Plugin sources are being refreshed. Run LOOT when loading finishes.</source>
+        <translation>Plugin sources are being refreshed. Run LOOT when loading finishes.</translation>
+    </message>
+    <message>
+        <source>Could not prepare plugin sources: {0}</source>
+        <translation>Could not prepare plugin sources: {0}</translation>
+    </message>
+    <message>
+        <source>Plugin state changed while LOOT was running. Run LOOT again.</source>
+        <translation>Plugin state changed while LOOT was running. Run LOOT again.</translation>
+    </message>
+    <message>
+        <source>Locked plugin positions conflict with the game's required load order.</source>
+        <translation>Locked plugin positions conflict with the game's required load order.</translation>
+    </message>
+    <message>
         <source>Sorted - 1 plugin moved.</source>
         <translation>Sorted - 1 plugin moved.</translation>
     </message>

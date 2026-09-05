@@ -599,6 +599,7 @@ class MainWindow(QMainWindow):
         self._sort_plugins_ready.connect(self._on_sort_plugins_ready)
         self._overlap_ready.connect(self._on_overlap_ready)
         self._plugins_gen = 0
+        self._plugins_applied_gen = -1
         self._plugins_loaded.connect(self._on_plugins_loaded)
         self._esl_elig_ready.connect(self._on_esl_elig_ready)
         self._sizes_gen = 0
@@ -17345,6 +17346,7 @@ class MainWindow(QMainWindow):
         self._plugin_model.set_rows(rows, game=self._gs.game,
                                     profile=self._gs.profile,
                                     profile_dir=self._gs.profile_dir())
+        self._plugins_applied_gen = gen
         if timing is not None:
             timing.mark(f"Plugins table model populated ({len(rows)} rows)",
                         phase_started=phase_started)
@@ -17918,6 +17920,35 @@ class MainWindow(QMainWindow):
         self._refresh_userlist_flags()
 
     # ---- Sort Plugins (LOOT) ----------------------------------------------
+    def _loot_input_state(self, userlist_path=None):
+        game = self._gs.game
+        pdir = self._gs.profile_dir()
+        paths = [self._userlist_path(), userlist_path]
+        if game is not None:
+            paths.extend((game._paths_file, game._deploy_state_file))
+        if pdir is not None:
+            paths.extend(pdir / name for name in
+                         ("plugins.txt", "loadorder.txt", "modlist.txt", "profile_state.json"))
+        files = []
+        for path in paths:
+            try:
+                stat = path.stat()
+                files.append((str(path), stat.st_ino, stat.st_size, stat.st_mtime_ns))
+            except (AttributeError, OSError):
+                files.append((str(path), None))
+        return (
+            id(game), self._gs.profile, str(pdir),
+            self._plugins_gen, self._conflict_gen,
+            self._conflict_maps_current,
+            str(game.get_game_path()) if game else None,
+            str(game.get_effective_mod_staging_path()) if game else None,
+            str(game.get_vanilla_plugins_path()) if game else None,
+            str(game.get_mod_data_path()) if game else None,
+            tuple((r.name.lower(), r.enabled, self._plugin_model.is_locked_name(r.name))
+                  for r in self._plugin_model.natural_rows()),
+            tuple(files),
+        )
+
     def _on_refresh_plugins(self):
         """Run LOOT to refresh plugin metadata (messages/dirty/tags/requirements)
         WITHOUT reordering the load order - the ready handler skips the reorder
@@ -17928,9 +17959,7 @@ class MainWindow(QMainWindow):
         """LOOT-sort the load order on a worker thread (reuses the Tk backend
         LOOT/loot_sorter.sort_plugins). Result applied on the UI thread.
 
-        When *refresh* is True, LOOT still evaluates the plugins (yielding the
-        same metadata) but the resulting order is discarded - only the metadata
-        is written and the panel reloaded."""
+        When *refresh* is True, only metadata is evaluated."""
         from LOOT.loot_sorter import is_available, unavailable_reason
         if not is_available():
             self._notify(self.tr("LOOT library not available - cannot sort."), "warning")
@@ -17946,7 +17975,8 @@ class MainWindow(QMainWindow):
         if not getattr(game, "loot_sort_enabled", False):
             self._notify(self.tr("LOOT sorting isn't supported for this game."), "warning")
             return
-        rows = list(self._plugin_model.natural_rows())
+        from copy import deepcopy
+        rows = deepcopy(self._plugin_model.natural_rows())
         if not rows:
             self._notify(self.tr("No plugins to sort."), "warning")
             return
@@ -17954,14 +17984,10 @@ class MainWindow(QMainWindow):
             self._notify(self.tr("A sort is already running."), "info")
             return
 
-        # Locked plugins stay put; LOOT sorts the rest. (Qt model already carries
-        # vanilla rows pinned at the top, so - unlike Tk - we don't inject them.)
-        # Indices are LOAD-order positions, so look locks up by name.
         locked_indices = {i: r for i, r in enumerate(rows)
                           if self._plugin_model.is_locked_name(r.name)}
-        unlocked = [r for i, r in enumerate(rows) if i not in locked_indices]
-        plugin_names = [r.name for r in unlocked]
-        enabled_set = {r.name for r in unlocked if r.enabled}
+        plugin_names = [r.name for r in rows]
+        enabled_set = {r.name for r in rows if r.enabled}
 
         pdir = self._gs.profile_dir()
         userlist_path = None
@@ -17978,8 +18004,22 @@ class MainWindow(QMainWindow):
 
         include_vanilla = bool(getattr(game, "plugins_include_vanilla", False))
         from Utils.filegraph.service import plugin_source_paths
-        plugin_winner_paths = plugin_source_paths(
-            getattr(self._conflict_data, "snapshot", None), game)
+        from LOOT.game_view import ProfileSources
+        conflict_data = getattr(self, "_conflict_data", None)
+        snapshot = getattr(conflict_data, "snapshot", None)
+        if (not getattr(self, "_conflict_maps_current", False)
+                or self._plugins_applied_gen != self._plugins_gen
+                or snapshot is None or pdir is None
+                or getattr(conflict_data, "profile_id", None) != str(pdir.resolve(strict=False))
+                or getattr(self, "_deploy_running", False)):
+            self._notify(self.tr("Plugin sources are being refreshed. Run LOOT when loading finishes."), "info")
+            return
+        try:
+            plugin_winner_paths = plugin_source_paths(snapshot, game)
+            profile_sources = ProfileSources.from_game(snapshot, game)
+        except Exception as exc:
+            self._notify(self.tr("Could not prepare plugin sources: {0}").format(exc), "error")
+            return
         # Snapshot what the apply step needs (no model access mid-flight).
         self._sort_ctx = {
             "rows": rows, "locked_indices": locked_indices,
@@ -17987,6 +18027,8 @@ class MainWindow(QMainWindow):
             "profile_dir": pdir, "game_id": game.game_id,
             "game": game, "profile": self._gs.profile,
             "refresh": refresh,
+            "input_state": self._loot_input_state(userlist_path),
+            "userlist_path": userlist_path,
         }
 
         kw = dict(
@@ -18002,6 +18044,9 @@ class MainWindow(QMainWindow):
                            if hasattr(game, "get_vanilla_plugins_path") else None),
             userlist_path=userlist_path,
             plugin_winner_paths=plugin_winner_paths,
+            profile_sources=profile_sources,
+            locked_positions={r.name: i for i, r in locked_indices.items()},
+            refresh_only=refresh,
         )
 
         self._sort_running = True
@@ -18040,6 +18085,10 @@ class MainWindow(QMainWindow):
         ctx = getattr(self, "_sort_ctx", None) or {}
         self._sort_ctx = None
         is_refresh = bool(ctx.get("refresh"))
+        if (ctx.get("input_state") != self._loot_input_state(ctx.get("userlist_path"))
+                or getattr(self, "_deploy_running", False)):
+            self._notify(self.tr("Plugin state changed while LOOT was running. Run LOOT again."), "info")
+            return
         if result is None:
             self._notify(
                 (self.tr("LOOT refresh failed - see log.") if is_refresh
@@ -18068,35 +18117,38 @@ class MainWindow(QMainWindow):
             master_block_enabled)
         from Utils.plugins import enforce_primary_plugin_order
         pre_rows = ctx.get("rows", [])
-        new_rows, moved = apply_loot_sort(
-            pre_rows, ctx.get("locked_indices", {}),
-            list(result.sorted_names), ctx.get("include_vanilla", False))
+        try:
+            new_rows, moved = apply_loot_sort(
+                pre_rows, ctx.get("locked_indices", {}),
+                list(result.sorted_names), ctx.get("include_vanilla", False))
+        except ValueError as exc:
+            self._notify(str(exc), "error")
+            return
 
         game, profile = ctx.get("game"), ctx.get("profile")
-        # Re-interleaving LOCKED rows can drop a locked .esp back inside the
-        # master block, so re-partition - the engine rule wins over the lock.
-        # apply_loot_sort rebuilds rows with flags=0, so restore them first or
-        # every master-flagged .esp looks like a normal plugin here.
         if master_block_enabled(game):
-            flags_by_name = {r.name.lower(): r.flags for r in pre_rows}
-            for r in new_rows:
-                r.flags = flags_by_name.get(r.name.lower(), r.flags)
             new_rows, _ = enforce_master_block(new_rows)
         # LOOT normally supplies the order for games with plugins.  A small
         # engine-defined primary block (Skyrim SE/AE) is the exception, just as
         # it is in MO2's fixPrimaryPlugins pass.
         new_rows, _ = enforce_primary_plugin_order(game, new_rows)
-        if game is not None and profile:
-            self._plugin_model.set_natural_rows(new_rows)
+        if any(new_rows[i].name.lower() != row.name.lower()
+               for i, row in ctx.get("locked_indices", {}).items()):
+            self._notify(self.tr("Locked plugin positions conflict with the game's required load order."), "error")
+            return
+        order_changed = any(a.name.lower() != b.name.lower()
+                            for a, b in zip(pre_rows, new_rows))
+        if order_changed and game is not None and profile:
             try:
                 save_plugins(game, profile, new_rows)
             except Exception as exc:
                 self._notify(self.tr("Failed to write load order: {0}").format(exc), "error")
                 return
-        # Reload (rebuilds rows + flags) and recompute BSA conflicts (a sort
-        # changes plugin order → BSA winners follow plugin load order).
-        self._reload_plugins()
-        self._rebuild_conflicts_async()
+            self._plugin_model.set_natural_rows(new_rows)
+        if order_changed:
+            self._rebuild_conflicts_async()
+        else:
+            self._reload_plugins()
         if moved == 0 and not ctx.get("locked_indices"):
             self._notify(self.tr("Load order is already sorted."), "info")
         else:

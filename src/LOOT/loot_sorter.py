@@ -18,16 +18,15 @@ Game support is driven by the game handler's properties:
                                     libloot version.
   - loot_masterlist_url: str      - (legacy) full URL; used as a fallback if
                                     loot_masterlist_repo is not set.
-  - game_id: str                  - used to derive the masterlist filename
-                                    (masterlist_<game_id>.yaml in
-                                    ~/.config/AmethystModManager/LOOT/data/)
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shutil
+import tempfile
 import time
 import urllib.request
 import urllib.error
@@ -368,10 +367,13 @@ def _ensure_masterlist(
         _log(f"Copied bundled {filename} to config dir.")
 
 
-def _masterlist_filename(game_type_attr: str) -> str:
-    """Derive the masterlist filename from the libloot game type attribute name.
-    e.g. 'SkyrimSE' → 'masterlist_skyrimse.yaml'
-    """
+def _masterlist_filename(game_type_attr: str, repo: str = "", url: str = "") -> str:
+    if repo:
+        identity = hashlib.sha256(repo.encode("utf-8")).hexdigest()[:16]
+        return f"masterlist_repo_{identity}.yaml"
+    if url:
+        identity = hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
+        return f"masterlist_url_{identity}.yaml"
     return f"masterlist_{game_type_attr.lower()}.yaml"
 
 
@@ -573,7 +575,7 @@ def _collect_plugin_info(
     Returns a mapping of plugin name -> info dict (see SortResult.plugin_info).
     Only plugins that have at least one non-empty field are included.
 
-    When `game` is provided (the libloot Game with plugin headers loaded),
+    When `game` is provided (the libloot Game with plugins loaded),
     each plugin's current header Bash Tags are merged with the masterlist's
     suggested add/remove tags.
     """
@@ -631,10 +633,7 @@ def _collect_plugin_info(
 
 
 def _collect_general_messages(db, language: str = "en") -> list[dict]:
-    try:
-        gen = db.general_messages(True)
-    except Exception:
-        return []
+    gen = db.general_messages(True, True)
     out: list[dict] = []
     for m in gen or []:
         text = _extract_message_text(m, language)
@@ -695,19 +694,6 @@ def _is_valid_plugin_file(path: Path) -> bool:
         return False
 
 
-def _read_filemap_winners(
-    staging_root: Path | None,
-    needed_lower: set[str],
-    winner_paths: dict[str, Path] | None = None,
-) -> dict[str, Path]:
-    """Filter generation-pinned Filegraph plugin sources to requested names."""
-    del staging_root  # Retained while callers transition to the snapshot API.
-    return {
-        name: path for name, path in (winner_paths or {}).items()
-        if name in needed_lower and path.is_file()
-    }
-
-
 def _scan_tree_for_plugins(
     root: Path,
     needed_lower: set[str],
@@ -760,10 +746,10 @@ def _find_plugin_paths(
     game_data_dir: Path,
     staging_root: Path | None,
     winner_paths: dict[str, Path] | None = None,
+    game_type_attr: str = "",
 ) -> tuple[list[str], list[str]]:
     """
-    Locate plugin files on disk, searching the game's Data directory first,
-    then falling back to the mod staging folders, then the overwrite folder.
+    Locate the winning plugin copies, with disk fallback for unmanaged files.
 
     Empty or malformed plugin files are skipped - libloot can hang or crash
     when handed a 0-byte or non-TES file.
@@ -777,17 +763,27 @@ def _find_plugin_paths(
     found_basenames: set[str] = set()
     names_lower = {n.lower(): n for n in plugin_names}
 
-    # 1. Check the game's Data directory. Resolution must be case-insensitive:
-    #    plugins.txt names come from manifests (.ccc) / mod metadata, while some
-    #    installs ship the files lowercased (e.g. Skyrim AE Creation Club
-    #    content). A case-sensitive miss here marks the plugin "missing", which
-    #    knocks it out of the sort and used to dump CC content below the mods.
-    if game_data_dir.is_dir():
+    def valid(path):
+        if game_type_attr == "OpenMW" and path.suffix.lower() == ".omwscripts":
+            return path.is_file()
+        return _is_valid_plugin_file(path)
+
+    for name_lower, path in (winner_paths or {}).items():
+        orig = names_lower.get(name_lower.lower())
+        if orig:
+            found_basenames.add(name_lower.lower())
+            if valid(path):
+                found[orig] = str(path)
+
+    for directory in (game_data_dir.with_name(game_data_dir.name + "_Core"), game_data_dir):
+        if not directory.is_dir():
+            continue
         data_index: dict[str, str] = {}
         try:
-            for entry in os.scandir(game_data_dir):
-                if entry.is_file():
-                    data_index.setdefault(entry.name.lower(), entry.name)
+            with os.scandir(directory) as entries:
+                for entry in entries:
+                    if entry.is_file():
+                        data_index.setdefault(entry.name.lower(), entry.name)
         except OSError:
             pass
         for name in plugin_names:
@@ -795,45 +791,27 @@ def _find_plugin_paths(
             real = data_index.get(low)
             if real is None or low in found_basenames:
                 continue
-            full = game_data_dir / real
-            if _is_valid_plugin_file(full):
+            full = directory / real
+            if valid(full):
                 found[name] = str(full)
                 found_basenames.add(low)
 
-    # 2. For anything still missing, search the mod staging folders.
-    if staging_root and staging_root.is_dir():
+    # Legacy callers without a snapshot can still resolve undeployed plugins.
+    if winner_paths is None and staging_root and staging_root.is_dir():
         missing_lower = {n.lower() for n in plugin_names if n not in found}
         if missing_lower:
-            # 2a. Prefer the filemap winner so we read the *enabled* mod's copy
-            #     and not a disabled mod's leftover (e.g. an ESLifier "cleaned"
-            #     plugin still in staging after the mod is turned off). This
-            #     resolution drives the CRC libloot uses for dirty/clean flags.
-            for name_lower, path in _read_filemap_winners(
-                    staging_root, missing_lower, winner_paths).items():
-                orig = names_lower.get(name_lower)
-                if (orig and orig not in found
-                        and name_lower not in found_basenames
-                        and _is_valid_plugin_file(path)):
-                    found[orig] = str(path)
-                    found_basenames.add(name_lower)
-
-            # 2b. For anything the filemap couldn't resolve (stale/missing
-            #     filemap), fall back to a recursive scan. The scan walks via
-            #     os.scandir and stops as soon as every missing plugin is
-            #     located, skipping the bulk of mod data.
-            missing_lower = {n.lower() for n in plugin_names if n not in found}
             for name_lower, path in _scan_tree_for_plugins(
                     staging_root, missing_lower).items():
                 orig = names_lower.get(name_lower)
                 if (orig and orig not in found
                         and name_lower not in found_basenames
-                        and _is_valid_plugin_file(path)):
+                        and valid(path)):
                     found[orig] = str(path)
                     found_basenames.add(name_lower)
 
     # 3. For anything still missing, check the overwrite folder
     #    (staging_root's sibling: Profiles/<game>/overwrite/)
-    if staging_root:
+    if winner_paths is None and staging_root:
         overwrite_dir = staging_root.parent / "overwrite"
         if overwrite_dir.is_dir():
             missing_lower = {n.lower() for n in plugin_names if n not in found}
@@ -843,7 +821,7 @@ def _find_plugin_paths(
                     orig = names_lower.get(name_lower)
                     if (orig and orig not in found
                             and name_lower not in found_basenames
-                            and _is_valid_plugin_file(path)):
+                            and valid(path)):
                         found[orig] = str(path)
                         found_basenames.add(name_lower)
 
@@ -866,22 +844,25 @@ def sort_plugins(
     game_data_dir: Path | None = None,
     userlist_path: Path | None = None,
     plugin_winner_paths: dict[str, Path] | None = None,
+    profile_sources=None,
+    locked_positions: dict[str, int] | None = None,
+    refresh_only: bool = False,
 ) -> SortResult:
     """
     Sort plugins using libloot's masterlist rules.
 
     Args:
         plugin_names: Current plugin names in load order.
-        enabled_set: Set of plugin names (case-sensitive) that are enabled.
+        enabled_set: Set of enabled plugin names, matched case-insensitively.
         game_name: Display name of the game (for log messages).
         game_path: Root install directory of the game.
         staging_root: Path to the mod staging directory (Profiles/<game>/mods/).
         log_fn: Optional callback for status messages.
         game_type_attr: libloot GameType attribute name (e.g. 'SkyrimSE').
                         Obtained from game.loot_game_type.
-        game_id: Game ID used to locate the masterlist file
-                 (~/.config/AmethystModManager/LOOT/data/masterlist_<game_id>.yaml).
-                 Obtained from game.game_id.
+        profile_sources: Winning files from the selected Filegraph snapshot.
+        locked_positions: Plugin names and their required zero-based positions.
+        refresh_only: Perform the same metadata checks without sorting plugins.
 
     Returns:
         SortResult with the new order, count of moved plugins, and any warnings.
@@ -921,7 +902,7 @@ def sort_plugins(
             f"Unknown libloot GameType '{game_type_attr}' for '{game_name}'."
         )
 
-    ml_filename = _masterlist_filename(game_type_attr)
+    ml_filename = _masterlist_filename(game_type_attr, masterlist_repo, masterlist_url)
 
     # Prefer the per-libloot-version branch resolver when a repo slug is set;
     # fall back to a legacy hardcoded URL if the game handler still passes one.
@@ -948,70 +929,31 @@ def sort_plugins(
 
     warnings: list[str] = []
 
-    # libloot's load_current_load_order_state() reads plugin headers directly
-    # from the game's Data directory to determine flags such as the ESM/master
-    # flag.  Masterlist conditions like is_master() rely on this - if a plugin
-    # is only in the staging folder (i.e. the profile is not deployed), libloot
-    # cannot see its header and treats it as a non-master, which can trigger
-    # spurious cyclic-dependency errors when conditional load-after rules fire
-    # incorrectly.  To fix this, temporarily symlink any staging plugins that
-    # are absent from Data/ into Data/ before creating the Game instance, then
-    # remove the symlinks in the finally block.
     effective_data_dir = game_data_dir if game_data_dir is not None else game_path / "Data"
-    _plugin_exts = {".esp", ".esm", ".esl"}
-    _temp_data_symlinks: list[Path] = []
+    plugin_paths, missing = _find_plugin_paths(
+        plugin_names, effective_data_dir, staging_root, plugin_winner_paths, game_type_attr)
+    if missing:
+        warnings.append(
+            f"{len(missing)} plugin(s) not found on disk: {', '.join(missing[:5])}"
+            + (f" ... and {len(missing)-5} more" if len(missing) > 5 else ""))
+    missing_lower = {name.lower() for name in missing}
+    sortable = [name for name in plugin_names if name.lower() not in missing_lower]
 
-    if staging_root and staging_root.is_dir() and effective_data_dir.is_dir():
-        # We only need to symlink plugins that aren't already present in Data/.
-        # For a deployed profile every plugin is already there, so this set is
-        # empty and we skip the (potentially huge) staging tree walk entirely.
-        # Presence is checked case-insensitively - some installs ship
-        # differently-cased plugin files (e.g. lowercased CC content), and a
-        # case-sensitive miss would symlink a second, differently-cased copy.
-        data_present_lower: set[str] = set()
-        try:
-            data_present_lower = {e.name.lower()
-                                  for e in os.scandir(effective_data_dir)}
-        except OSError:
-            pass
-        needed: set[str] = set()
-        for name in plugin_names:
-            if name.lower() in data_present_lower:
-                continue
-            needed.add(name.lower())
-
-        if needed:
-            # Build a map of lowercase plugin name → staging file path. Prefer
-            # the filemap winner (the enabled mod's copy) so the header - and
-            # the CRC used for dirty/clean flags - comes from the file that
-            # would actually deploy, not a disabled mod's leftover copy. Fall
-            # back to a recursive scan for anything the filemap can't resolve.
-            staging_plugin_map = _read_filemap_winners(
-                staging_root, needed, plugin_winner_paths)
-            still_needed = needed - set(staging_plugin_map)
-            if still_needed:
-                staging_plugin_map.update(_scan_tree_for_plugins(
-                    staging_root, still_needed, _plugin_exts,
-                ))
-            for src in staging_plugin_map.values():
-                dest = effective_data_dir / src.name
-                if not dest.exists() and not dest.is_symlink():
-                    try:
-                        dest.symlink_to(src)
-                        _temp_data_symlinks.append(dest)
-                    except OSError:
-                        pass
-
-    try:
-        # Create libloot Game instance
-        local_data = str(loot_data_dir)
+    from LOOT.game_view import GameView
+    with tempfile.TemporaryDirectory(prefix="amethyst-loot-") as temp_dir:
+        view = GameView(Path(temp_dir), game_type_attr, game_path,
+                        effective_data_dir, profile_sources)
+        view.populate(None, plugin_names, plugin_paths)
+        if game_type_attr == "OpenMW":
+            view.write_config(view.root / "openmw.cfg", f"config={view.local}\n")
         _log("Initializing LOOT...")
-        game = loot.Game(game_type, str(game_path), local_data)
-        game.load_current_load_order_state()
+        game = loot.Game(game_type, str(view.root), str(view.local))
 
         # Load masterlist
         db = game.database()
+        view.track_source(masterlist_path)
         if prelude_path.is_file():
+            view.track_source(prelude_path)
             db.load_masterlist_with_prelude(str(masterlist_path), str(prelude_path))
             _log("Loaded masterlist with prelude.")
         else:
@@ -1022,71 +964,56 @@ def sort_plugins(
         # Load userlist if provided and non-empty
         if userlist_path is not None and userlist_path.is_file():
             try:
+                view.track_source(userlist_path)
                 content = userlist_path.read_text(encoding="utf-8")
                 if content.strip():
                     db.load_userlist(str(userlist_path))
                     _log(f"Loaded userlist: {userlist_path.name}")
             except (ValueError, OSError) as e:
-                warnings.append(f"Userlist skipped: {e}")
+                raise RuntimeError(f"Could not load userlist: {e}") from e
 
-        # Find plugin files on disk - check game Data dir AND staging mods
-        plugin_paths, missing = _find_plugin_paths(
-            plugin_names, effective_data_dir, staging_root,
-            plugin_winner_paths,
-        )
+        view.populate(db, plugin_names, plugin_paths)
+        game.set_additional_data_paths([])
+        view.write_active_plugins(game, plugin_names, enabled_set)
+        game.load_current_load_order_state()
+        paths = [str(view.data / Path(path).name) for path in plugin_paths]
+        if paths:
+            _log(f"Loading {len(paths)} plugins and their archives...")
+            game.load_plugins(paths)
+        unloaded = [name for name in sortable if game.plugin(name) is None]
+        if unloaded:
+            raise RuntimeError(f"LOOT could not load: {', '.join(unloaded[:5])}")
 
-        if missing:
-            warnings.append(
-                f"{len(missing)} plugin(s) not found on disk: "
-                f"{', '.join(missing[:5])}"
-                + (f" ... and {len(missing)-5} more" if len(missing) > 5 else "")
-            )
+        sorted_names = list(plugin_names)
+        if not refresh_only:
+            _log(f"Sorting {len(sortable)} plugins...")
+            try:
+                ordered = game.sort_plugins(sortable)
+                if (len(ordered) != len(sortable)
+                        or {name.lower() for name in ordered}
+                        != {name.lower() for name in sortable}):
+                    raise RuntimeError("LOOT returned a different plugin set; load order was not saved.")
+                locked = {name.lower(): index for name, index in (locked_positions or {}).items()}
+                for name, index in locked.items():
+                    if not 0 <= index < len(plugin_names) or plugin_names[index].lower() != name:
+                        raise RuntimeError("Plugin locks changed before sorting. Run LOOT again.")
+                pinned = set(locked) | missing_lower
+                remaining = iter(name for name in ordered if name.lower() not in pinned)
+                sorted_names = [name if name.lower() in pinned else next(remaining)
+                                for name in plugin_names]
+                if locked:
+                    loaded_order = [name for name in sorted_names if name.lower() not in missing_lower]
+                    validated = (ordered if [n.lower() for n in loaded_order] == [n.lower() for n in ordered]
+                                 else game.sort_plugins(loaded_order))
+                    if [n.lower() for n in validated] != [n.lower() for n in loaded_order]:
+                        raise RuntimeError(
+                            "Locked plugin positions conflict with LOOT's sorting rules. "
+                            "Review or unlock these plugins and sort again: "
+                            + ", ".join(locked_positions))
+            except loot.CyclicInteractionError as e:
+                raise RuntimeError(f"LOOT found a cyclic dependency: {e}") from e
 
-        if plugin_paths:
-            _log(f"Loading {len(plugin_paths)} plugin headers...")
-            game.load_plugin_headers(plugin_paths)
-
-        # Only sort plugins that exist on disk - libloot can't sort unknown plugins
-        missing_set = set(missing)
-        sortable = [n for n in plugin_names if n not in missing_set]
-        unsortable = [n for n in plugin_names if n in missing_set]
-
-        _log(f"Sorting {len(sortable)} plugins...")
-
-        try:
-            sorted_names = game.sort_plugins(sortable)
-        except loot.CyclicInteractionError as e:
-            raise RuntimeError(f"LOOT found a cyclic dependency: {e}") from e
-
-        # Count how many sortable plugins actually moved position
-        moved = sum(
-            1 for i, name in enumerate(sorted_names[:len(sortable)])
-            if i >= len(sortable) or sortable[i] != name
-        )
-
-        # Re-insert unsortable plugins (missing from disk) at their original
-        # positions rather than appending them at the end: appending would move
-        # them below every mod plugin, breaking the load order for entries that
-        # belong near the top (e.g. Creation Club content the resolver couldn't
-        # find). The sorted plugins fill the remaining slots in LOOT's order.
-        if unsortable:
-            if len(sorted_names) == len(sortable):
-                it = iter(sorted_names)
-                sorted_names = [n if n in missing_set else next(it)
-                                for n in plugin_names]
-            else:
-                # libloot returned a different plugin set than it was given
-                # (shouldn't happen) - positional merge is impossible, fall
-                # back to appending so no plugin is dropped.
-                sorted_names = sorted_names + unsortable
-
-        _log(f"Sort complete. {moved} plugin(s) changed position.")
-
-        # Collect evaluated metadata for every plugin. Conditions are evaluated
-        # against the plugin headers we just loaded, so this reflects the live
-        # state of the current profile. This includes dirty/clean info: libloot
-        # CRC-matches those entries during condition evaluation, so they're
-        # filtered to each plugin's installed version with no full-body load.
+        moved = sum(a.lower() != b.lower() for a, b in zip(plugin_names, sorted_names))
         try:
             plugin_info = _collect_plugin_info(db, sortable, game=game)
             general_msgs = _collect_general_messages(db)
@@ -1097,6 +1024,11 @@ def sort_plugins(
             general_msgs = []
             warnings.append(f"Could not collect LOOT metadata: {e}")
 
+        for message in general_msgs:
+            _log(f"{message['type']}: {message['text']}")
+        view.check_sources()
+        _log(f"LOOT complete. {moved} plugin(s) changed position.")
+
         return SortResult(
             sorted_names=sorted_names,
             moved_count=moved,
@@ -1104,12 +1036,6 @@ def sort_plugins(
             plugin_info=plugin_info,
             general_messages=general_msgs,
         )
-    finally:
-        for _sym in _temp_data_symlinks:
-            try:
-                _sym.unlink(missing_ok=True)
-            except OSError:
-                pass
 
 
 def find_overlapping_plugins(
@@ -1125,8 +1051,8 @@ def find_overlapping_plugins(
 ) -> list[str]:
     """Return plugins whose records overlap with `target_plugin`.
 
-    Unlike sort, this requires a *full* plugin load (record bodies, not just
-    headers) so libloot can compare FormIDs via Plugin.do_records_overlap.
+    This requires a full plugin load so libloot can compare FormIDs via
+    Plugin.do_records_overlap.
     That load is comparatively expensive (hundreds of ms to seconds for large
     profiles), so callers should run this off the UI thread.
 
@@ -1172,7 +1098,7 @@ def find_overlapping_plugins(
 
     plugin_paths, missing = _find_plugin_paths(
         plugin_names, effective_data_dir, staging_root,
-        plugin_winner_paths,
+        plugin_winner_paths, game_type_attr,
     )
     if not plugin_paths:
         return []

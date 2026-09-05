@@ -2926,7 +2926,7 @@ def _write_collection_plugins(game, profile_dir, plugins_path, collection_schema
             # of plugins.txt: the engine force-loads it before reading the file and
             # strips any such entries on launch. MO2/Vortex/LOOT exclude it too.
             vanilla_lower = set() if plugins_include_vanilla else set(vanilla_map.keys())
-            deployed, plugin_winner_paths = _filegraph_deployed_plugins(
+            deployed, plugin_winner_paths, loot_sources = _filegraph_deployed_plugins(
                 game, profile_dir)
             # Drop manifest plugins whose file was never installed. A collection's
             # ``plugins`` array covers ALL its mods including optional ones the
@@ -2997,7 +2997,7 @@ def _write_collection_plugins(game, profile_dir, plugins_path, collection_schema
                             key=lambda kv: (_ext_order.get(Path(kv[0]).suffix, 9), kv[0]))
                         if low not in author_lower]
                     all_entries = vanilla_prepend + author_entries
-                    name_to_enabled = {e.name: e.enabled for e in all_entries}
+                    name_to_enabled = {e.name.lower(): e.enabled for e in all_entries}
                     loot_result = _loot_sort(
                         plugin_names=[e.name for e in all_entries],
                         enabled_set={e.name for e in all_entries if e.enabled},
@@ -3010,9 +3010,10 @@ def _write_collection_plugins(game, profile_dir, plugins_path, collection_schema
                         game_data_dir=(game.get_vanilla_plugins_path()
                                        if hasattr(game, "get_vanilla_plugins_path") else None),
                         userlist_path=profile_dir / "userlist.yaml",
-                        plugin_winner_paths=plugin_winner_paths)
+                        plugin_winner_paths=plugin_winner_paths,
+                        profile_sources=loot_sources)
                     final_entries = [
-                        PluginEntry(name=n, enabled=name_to_enabled.get(n, True))
+                        PluginEntry(name=n, enabled=name_to_enabled.get(n.lower(), True))
                         for n in loot_result.sorted_names]
                     log(f"Collection install: LOOT sort produced {len(final_entries)} plugin(s).")
                 except Exception as loot_exc:
@@ -3069,7 +3070,8 @@ def _filegraph_deployed_plugins(game, profile_dir):
         name.lower(): winner.destination_display.rsplit("/", 1)[-1]
         for name, winner in snapshot.plugin_winners().items()
     }
-    return found, plugin_source_paths(snapshot, game)
+    from LOOT.game_view import ProfileSources
+    return found, plugin_source_paths(snapshot, game), ProfileSources.from_game(snapshot, game)
 
 
 def _on_disk_plugin_names(game) -> "set[str]":
