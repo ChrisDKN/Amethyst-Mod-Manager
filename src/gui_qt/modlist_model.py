@@ -19,6 +19,8 @@ from PySide6.QtCore import (
 from Utils.app_log import safe_print as print  # noqa: A004
 from Utils.diagnostics.conflicts import ConflictTimeline, ensure_timeline
 from Utils.mods.modlist import ModEntry, read_modlist
+from Utils.mods.groups import normalize_groups
+from gui_qt.modlist_groups import ModGrouping
 from Utils.filegraph.constants import OVERWRITE_NAME, ROOT_FOLDER_NAME
 from gui_qt.modlist_sort import (
     DIVIDER_NAME, build_display, uninvert_display, make_divider, is_reverse,
@@ -83,7 +85,7 @@ _ITEM_DROP = _ITEM_BASE | Qt.ItemIsDropEnabled
 _ITEM_DRAG_DROP = _ITEM_DRAG | Qt.ItemIsDropEnabled
 
 
-class ModListModel(QAbstractTableModel):
+class ModListModel(ModGrouping, QAbstractTableModel):
     # Mods were enabled/disabled and modlist.txt saved. Payload is
     # list[(mod_name, now_enabled)] - the window syncs plugins.txt to it
     # (Tk parity: _sync_plugins_for_toggle).
@@ -91,6 +93,7 @@ class ModListModel(QAbstractTableModel):
     # modlist.txt write failed - the window surfaces a toast (console print
     # alone loses the user's reorder/toggle silently).
     save_failed = Signal(str)
+    groups_changed = Signal()
 
     def __init__(self, entries: list[ModEntry] | None = None,
                  versions: dict[str, str] | None = None,
@@ -191,12 +194,15 @@ class ModListModel(QAbstractTableModel):
         # counts files on disk. Filled by an async walk (see the app's
         # _refresh_boundary_counts); empty until it lands.
         self._boundary_counts: dict[str, int] = {}
+        self._init_groups()
         for signal in (self.modelReset, self.rowsInserted, self.rowsRemoved,
                        self.rowsMoved, self.layoutChanged):
             signal.connect(self._invalidate_priority_cache)
 
     def _invalidate_priority_cache(self, *_args) -> None:
         self._priority_by_entry = None
+        self._group_row_map = None
+        self._group_summary_cache.clear()
 
     # ---- loading ----------------------------------------------------------
     @classmethod
@@ -212,9 +218,15 @@ class ModListModel(QAbstractTableModel):
         bot = ModEntry(ROOT_FOLDER_NAME, True, True, True)
         return [top] + body + [bot]
 
-    def set_entries(self, entries: list[ModEntry]) -> None:
+    def set_entries(self, entries: list[ModEntry], mod_groups=None) -> None:
         self.beginResetModel()
         self._natural = self._with_boundaries(entries)
+        if mod_groups is not None:
+            from copy import deepcopy
+            self._saved_mod_groups = deepcopy(mod_groups)
+        self._mod_groups = normalize_groups(
+            self._mod_groups if mod_groups is None else mod_groups, self._natural)
+        self._index_groups()
         self._entries = self._derive_display()
         self._sep_hl_cache.clear()
         self._baseline_names = {
@@ -276,12 +288,13 @@ class ModListModel(QAbstractTableModel):
         }
 
     def _derive_display(self) -> list[ModEntry]:
-        if not self._sort_key:
+        if not self._sort_key and not self._mod_groups:
             return self._natural
         return build_display(self._natural, self._sort_key,
-                             self._sort_ascending, self._sort_ctx(),
+                             self._sort_ascending, self._sort_ctx() if self._sort_key else {},
                              divider=self._divider,
-                             flatten_groups=self._separators_hidden)
+                             flatten_groups=self._separators_hidden,
+                             mod_groups=self._mod_groups)
 
     def _rebuild_display(self) -> None:
         """Re-derive the display list from the natural order + active sort.
@@ -552,10 +565,11 @@ class ModListModel(QAbstractTableModel):
             return 0
         if e.name in _BOUNDARY_NAMES:
             return 0
-        if e.display_name not in self._collapsed:
+        grouped = self.is_group_collapsed(e.name)
+        if not grouped and e.display_name not in self._collapsed:
             return 0
         anchor = requires = required_by = higher = lower = False
-        for r in self.sep_block_rows(row):
+        for r in (self.group_rows(e.name) if grouped else self.sep_block_rows(row)):
             name = self._entries[r].name
             if name in self._hl_anchor:
                 anchor = True
@@ -616,7 +630,8 @@ class ModListModel(QAbstractTableModel):
         # except Overwrite, which is covered by the name check).
         rows = [i for i, e in enumerate(self._entries)
                 if e.name in changed
-                or (e.is_separator and e.display_name in self._collapsed)]
+                or (e.is_separator and e.display_name in self._collapsed)
+                or self.is_group_collapsed(e.name)]
         if not rows:
             return
         self.dataChanged.emit(self.index(min(rows), 0),
@@ -684,6 +699,12 @@ class ModListModel(QAbstractTableModel):
 
         if role == EntryRole:
             return e
+        if self.is_group_collapsed(e.name):
+            summary_roles = (FlagsRole, ConflictRole, BsaConflictRole, UuidConflictRole)
+            if role in summary_roles:
+                return self.group_summary(e.name)[summary_roles.index(role)]
+            if role == HighlightRole:
+                return self._separator_highlight(index.row(), e)
         if role == ConflictRole:
             # Filegraph publishes the authoritative zero shortly after a
             # toggle, but the row's enabled state changes synchronously.  A
@@ -964,7 +985,8 @@ class ModListModel(QAbstractTableModel):
 
     def any_collapsed(self) -> bool:
         names = self.collapsible_separator_names()
-        return any(n in self._collapsed for n in names)
+        return (any(n in self._collapsed for n in names)
+                or any(g["collapsed"] for g in self._mod_groups.values()))
 
     def set_all_collapsed(self, collapsed: bool) -> set[str]:
         """Collapse or expand every (non-boundary) separator. Returns the new
@@ -974,6 +996,7 @@ class ModListModel(QAbstractTableModel):
             self._collapsed |= names
         else:
             self._collapsed -= names
+        self.set_groups_collapsed(collapsed)
         return self._collapsed
 
     def all_mods_enabled(self) -> bool:
@@ -1029,15 +1052,17 @@ class ModListModel(QAbstractTableModel):
         at all, so their collapse state is meaningless - every mod stays visible
         (a collapsed separator must not swallow its mods behind a hidden header).
         """
-        if self._separators_hidden:
-            return set()
         hidden: set[int] = set()
         collapsing = False
         for i, e in enumerate(self._entries):
             if e.is_separator:
-                collapsing = (e.name not in _BOUNDARY_NAMES
+                collapsing = (not self._separators_hidden
+                              and e.name not in _BOUNDARY_NAMES
                               and e.display_name in self._collapsed)
             elif collapsing:
+                hidden.add(i)
+            elif (self.group_leader(e.name) != e.name
+                  and self.is_group_collapsed(self.group_leader(e.name))):
                 hidden.add(i)
         return hidden
 
@@ -1077,6 +1102,8 @@ class ModListModel(QAbstractTableModel):
             if e.is_separator:
                 continue
             bits |= self._effective_flags(e.name)
+            if not e.enabled:
+                continue
             cc = self._conflicts.get(e.name, 0)
             if cc:
                 codes.add(cc)
@@ -1112,6 +1139,11 @@ class ModListModel(QAbstractTableModel):
         # ALWAYS write the natural order - the display list may be a sorted /
         # inverted permutation (and contains the divider in reverse mode).
         body = [e for e in self._natural if e.name not in _PINNED_NAMES]
+        had_groups = bool(self._mod_groups or self._saved_mod_groups)
+        self._group_recovery_needed = False
+        if had_groups:
+            self._mod_groups = normalize_groups(self._mod_groups, self._natural)
+            self._index_groups()
         phase_started = timing.now() if timing is not None else None
         try:
             # This model can be a stale snapshot - a background install writes
@@ -1122,7 +1154,8 @@ class ModListModel(QAbstractTableModel):
             with span("modlist.write_modlist"), modlist_lock(self.modlist_path):
                 body_names = {e.name for e in body}
                 known = body_names | self._baseline_names
-                external = [e for e in read_modlist(self.modlist_path)
+                previous = read_modlist(self.modlist_path)
+                external = [e for e in previous
                             if not e.is_separator and e.name not in known]
                 if external:
                     print(f"[gui_qt] modlist save: preserving "
@@ -1130,12 +1163,35 @@ class ModListModel(QAbstractTableModel):
                           f"{', '.join(e.name for e in external[:5])}",
                           flush=True)
                 write_modlist(self.modlist_path, external + body)
+                try:
+                    self._save_groups()
+                except Exception as state_error:
+                    try:
+                        write_modlist(self.modlist_path, previous)
+                    except Exception as rollback_error:
+                        self._group_recovery_needed = True
+                        raise OSError(f"Group state save failed: {state_error}; "
+                                      f"restoring modlist failed: {rollback_error}") from rollback_error
+                    raise
         except Exception as exc:
             print(f"[gui_qt] modlist save failed: {exc}", flush=True)
             self.save_failed.emit(f"Modlist save failed: {exc}")
+            if self._group_recovery_needed:
+                from Utils.profiles.state import read_mod_groups
+                self.set_entries(read_modlist(self.modlist_path),
+                                 mod_groups=read_mod_groups(self.modlist_path.parent))
+                self.groups_changed.emit()
+                if self.on_saved:
+                    try:
+                        self.on_saved(None)
+                    except Exception as refresh_error:
+                        self.save_failed.emit(f"Modlist reloaded, but refresh failed: {refresh_error}")
             if timing is not None:
                 timing.finish(f"modlist write failed: {exc}")
             return False
+        if had_groups:
+            self._rebuild_display()
+            self.groups_changed.emit()
         if timing is not None:
             timing.mark(
                 f"modlist.txt committed ({len(body)} entries)",
@@ -1143,7 +1199,10 @@ class ModListModel(QAbstractTableModel):
         if self.on_saved:
             phase_started = timing.now() if timing is not None else None
             with span("modlist.on_saved(kickoff)"):
-                self.on_saved(edit_ctx)
+                try:
+                    self.on_saved(edit_ctx)
+                except Exception as exc:
+                    self.save_failed.emit(f"Modlist saved, but refresh failed: {exc}")
             if timing is not None:
                 timing.mark("modlist on-saved callback returned",
                             phase_started=phase_started)
@@ -1177,6 +1236,9 @@ class ModListModel(QAbstractTableModel):
         Re-positions within the NATURAL non-separator ordering (clamped)."""
         e = self._entries[row]
         if e.is_separator:
+            return
+        if self._mod_groups:
+            self.set_group_priority(row, priority)
             return
         nat = self._natural
         nonsep = [i for i, x in enumerate(nat) if not x.is_separator]
@@ -1213,10 +1275,23 @@ class ModListModel(QAbstractTableModel):
         from gui_qt.modlist_sort import insert_separator_display
         sep = ModEntry(name + _SEPARATOR_SUFFIX, True, False, True)
         ref = self._entries[row]
+        if self.group_leader(ref.name):
+            at = self.group_insert_slot(row, above)
+            entries = list(self._natural)
+            entries.insert(at, sep)
+            self._commit_group_edit(entries, self._mod_groups)
+            return
         if self.reverse_mode_active:
             # Inverted display reverses group/mod order, so a natural-order
             # insert mis-anchors - resolve in display space and uninvert
             # (Tk _add_separator_inverted).
+            if self._mod_groups:
+                display = build_display(self._natural, "priority", True, {},
+                                        divider=self._divider)
+                ref_row = next(i for i, entry in enumerate(display) if entry is ref)
+                entries = insert_separator_display(display, ref_row, above, sep)
+                self._commit_group_edit(entries, self._mod_groups)
+                return
             self._natural = insert_separator_display(self._entries, row,
                                                      above, sep)
             self._rebuild_display()
@@ -1242,6 +1317,11 @@ class ModListModel(QAbstractTableModel):
         """Insert an (enabled) mod entry named *name* relative to *row*. Used by
         'Create empty mod below' - the folder/meta.ini are created by the caller."""
         entry = ModEntry(name, True, False, False)
+        if self.group_leader(self.entry(row).name):
+            at = self.group_insert_slot(row, above)
+            entries = list(self._natural)
+            entries.insert(at, entry)
+            return self._commit_group_edit(entries, self._mod_groups)
         if self._entries is self._natural:
             at = row if above else row + 1
             self.beginInsertRows(QModelIndex(), at, at)
@@ -1421,6 +1501,8 @@ class ModListModel(QAbstractTableModel):
         permutation and row moves are meaningless here - the drag path clears
         a non-priority sort first, and reverse-priority drags go through
         move_block_display()."""
+        if self._mod_groups:
+            return self._move_group_rows(src_rows, dest)
         if not src_rows or self._entries is not self._natural:
             return False
         src_rows = sorted(src_rows)
@@ -1479,6 +1561,8 @@ class ModListModel(QAbstractTableModel):
         then re-derive the natural order via uninvert (Tk
         _uninvert_entries_order) and save."""
         from gui_qt.modlist_sort import resolve_reverse_drop
+        if self._mod_groups:
+            return self._move_group_rows(src_rows, slot, hidden)
         if not src_rows or not self.reverse_mode_active:
             return False
         src_rows = sorted(src_rows)

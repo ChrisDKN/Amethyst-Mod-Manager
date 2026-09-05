@@ -28,6 +28,15 @@ def migrate_mod_state(profile_dir: Path | None, old_name: str,
     log = log_fn or (lambda m: None)
     if profile_dir is None or not old_name or not new_name:
         return
+    try:
+        from Utils.mods.groups import rename_group_mod
+        from Utils.profiles.state import read_mod_groups, write_mod_groups
+        groups = read_mod_groups(profile_dir)
+        renamed = rename_group_mod(groups, old_name, new_name)
+        if renamed != groups:
+            write_mod_groups(profile_dir, renamed)
+    except Exception as exc:
+        log(f"Rename: failed to migrate mod groups: {exc}")
     for reader, writer, label in (
             (read_mod_strip_prefixes, write_mod_strip_prefixes, "strip prefixes"),
             (read_disabled_plugins, write_disabled_plugins, "disabled plugins"),

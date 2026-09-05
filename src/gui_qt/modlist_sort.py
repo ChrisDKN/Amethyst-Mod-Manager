@@ -159,7 +159,7 @@ def sort_key_fn(key: str, ctx: dict):
 # ---------------------------------------------------------------------------
 def build_display(natural: list[ModEntry], key: str | None, ascending: bool,
                   ctx: dict, divider: ModEntry | None = None,
-                  flatten_groups: bool = False
+                  flatten_groups: bool = False, mod_groups: dict | None = None
                   ) -> list[ModEntry]:
     """Derive the display order from the natural order. Returns a NEW list
     holding the SAME entry objects (plus the divider in reverse mode).
@@ -171,6 +171,27 @@ def build_display(natural: list[ModEntry], key: str | None, ascending: bool,
     separators are appended at the end (hidden by the filter anyway) so the
     natural round-trip and boundary handling stay intact. The special
     reverse-priority mode is unaffected - its grouping is intrinsic."""
+    if mod_groups:
+        from Utils.mods.groups import blocks, owners
+        membership = owners(mod_groups)
+        representatives = []
+        children = {}
+        for block in blocks(natural, mod_groups):
+            leader = membership.get(block[0].name)
+            if leader:
+                representatives.append(next(e for e in block if e.name == leader))
+                members = [e for e in block if e.name != leader]
+                if is_reverse(key, ascending):
+                    members.reverse()
+                elif key and key != "priority":
+                    members.sort(key=sort_key_fn(key, ctx), reverse=not ascending)
+                children[leader] = members
+            else:
+                representatives.extend(block)
+        display = build_display(representatives, key, ascending, ctx, divider,
+                                flatten_groups)
+        return [e for head in display for e in (head, *children.get(head.name, []))]
+
     if not key:
         return list(natural)
 

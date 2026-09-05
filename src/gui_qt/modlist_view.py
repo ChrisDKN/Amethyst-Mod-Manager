@@ -172,6 +172,7 @@ class ModListView(QTreeView):
         # layoutChanged - re-apply spanning so a new separator's lock box jumps
         # to the far right immediately instead of only after the next move.
         model.rowsInserted.connect(self._on_model_layout_changed)
+        model.groups_changed.connect(self._on_model_layout_changed)
         self.doubleClicked.connect(self._on_double_click)
 
         self._restoring = True
@@ -224,6 +225,7 @@ class ModListView(QTreeView):
         spanning + hidden-row state is row-indexed and must be re-applied."""
         self._apply_separator_spanning()
         self.apply_collapse()
+        self.viewport().update()
 
     # ---- column-sort header clicks -----------------------------------------
     def _on_header_sort_clicked(self, logical: int):
@@ -485,11 +487,15 @@ class ModListView(QTreeView):
         """
         flt = self._filter_hidden
         srch = self._search_hidden
+        query_hidden = set(flt | srch if self._searching else flt)
+        for leader, rows in self.model()._group_rows().items():
+            if any(r not in query_hidden for r in rows):
+                query_hidden.discard(rows[0])
         if self._searching:
             # Search drives visibility; collapse is ignored so matches surface.
-            hidden = srch | flt
+            hidden = query_hidden
         else:
-            hidden = self.model().hidden_rows() | flt
+            hidden = self.model().hidden_rows() | query_hidden
         # Only touch rows whose visibility actually changes - setRowHidden is
         # per-row layout work, and this runs per search keystroke.
         prev = getattr(self, "_applied_hidden", None)
@@ -543,7 +549,7 @@ class ModListView(QTreeView):
         # enable there on single click; a double there is not an open request).
         if index.column() == COL_NAME:
             rect = self.visualRect(index)
-            box = QRect(rect.left() + 6, rect.top(), 26, rect.height())
+            box = self.itemDelegate()._checkbox_hit_rect(rect, index)
             pos = self.mapFromGlobal(self.cursor().pos())
             if box.contains(pos):
                 return
@@ -587,6 +593,10 @@ class ModListView(QTreeView):
         return None
 
     def _toggle_collapse_row(self, row):
+        if self.model().is_group_leader(self.model().entry(row).name):
+            self.model().toggle_group(self.model().entry(row).name)
+            self.viewport().update()
+            return
         self.model().toggle_collapse(row)
         self.apply_collapse()
         self._save_separator_state()
@@ -721,6 +731,12 @@ class ModListView(QTreeView):
     def _separator_control_at(self, row: int, pos: QPoint,
                               row_rect: QRect | None = None) -> str | None:
         m = self.model()
+        if 0 <= row < m.rowCount() and m.is_group_leader(m.entry(row).name):
+            index = m.index(row, COL_NAME)
+            rect = self.visualRect(index)
+            if self.itemDelegate()._group_arrow_rect(rect).adjusted(-3, 0, 3, 0).contains(pos):
+                return "collapse"
+            return None
         if not self._is_real_separator(row):
             return None
         if row_rect is None:
@@ -1024,8 +1040,8 @@ class ModListView(QTreeView):
             carry = [r for r in sel
                      if m.entry(r).name not in _PINNED_NAMES
                      and not (not m.entry(r).is_separator and m.entry(r).locked)]
-            return carry or [row]
-        return [row]
+            return m.expand_group_selection(carry or [row])
+        return m.expand_group_selection([row])
 
     def _open_source_page(self, row: int) -> None:
         if not 0 <= row < self.model().rowCount():
@@ -1105,6 +1121,11 @@ class ModListView(QTreeView):
         if event.button() == Qt.LeftButton:
             pos = event.position().toPoint()
             idx = self.indexAt(pos)
+            if (idx.isValid() and self.model().is_group_leader(self.model().entry(idx.row()).name)
+                    and self._separator_control_at(idx.row(), pos) == "collapse"):
+                self._separator_control_press = None
+                event.accept()
+                return
             if idx.isValid() and self._is_real_separator(idx.row()):
                 self._separator_control_press = None
                 if self._separator_control_at(idx.row(), pos) is None:
@@ -1122,12 +1143,15 @@ class ModListView(QTreeView):
                 entry = self.model().entry(idx.row())
                 delegate = self.itemDelegate()
                 rect = self.visualRect(idx)
-                if (not entry.is_separator and idx.column() == COL_FLAGS
+                summary = self.model().is_group_collapsed(entry.name)
+                if (idx.column() == COL_NAME and self.model().is_group_leader(entry.name)):
+                    over = delegate._group_arrow_rect(rect).contains(pos)
+                elif (not entry.is_separator and not summary and idx.column() == COL_FLAGS
                         and callable(getattr(self, "on_flag_clicked", None))):
                     bits = idx.data(FlagsRole) or 0
                     over = bool(delegate._hit_clickable_flag_bit(
                         pos, rect, bits))
-                elif (not entry.is_separator
+                elif (not entry.is_separator and not summary
                       and idx.column() == COL_CONFLICTS
                       and callable(getattr(self, "on_show_conflicts", None))):
                     over = delegate._hit_conflict_icon(pos, rect, idx)
@@ -1383,6 +1407,7 @@ class ModListView(QTreeView):
         if 0 < slot < n and self.isRowHidden(slot, self.rootIndex()):
             nxt = next((r for r in vis if r >= slot), None)
             slot = nxt if nxt is not None else n
+        slot = m.group_drop_slot(slot, self._drag_rows)
         self._drop_slot = slot
 
     def _commit_drop(self):

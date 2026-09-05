@@ -3,6 +3,7 @@ py.install_sources(
   'bain.py',
   'copy.py',
   'files.py',
+  'groups.py',
   'install.py',
   'install_as_mod.py',
   'metadata.py',

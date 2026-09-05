@@ -13,7 +13,8 @@ import shutil
 from pathlib import Path
 
 
-def remove_mods(game, profile_dir: Path, mod_names: list[str], log_fn=None) -> None:
+def remove_mods(game, profile_dir: Path, mod_names: list[str], log_fn=None, *,
+                staging_root: Path | None = None) -> None:
     """Fully remove *mod_names* for *game* / *profile_dir*:
 
       1. undeploy their files from the game dir (before deleting staging, so
@@ -29,7 +30,8 @@ def remove_mods(game, profile_dir: Path, mod_names: list[str], log_fn=None) -> N
     if game is None or not mod_names:
         return
     try:
-        staging_root = game.get_effective_mod_staging_path()
+        staging_root = (Path(staging_root) if staging_root is not None
+                        else game.get_effective_mod_staging_path())
     except Exception:
         return
     from Utils.filegraph.service import FileGraphService

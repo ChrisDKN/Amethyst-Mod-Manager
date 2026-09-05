@@ -659,7 +659,8 @@ class ModRowDelegate(QStyledItemDelegate):
         self._paint_icons(p, self._col_rect(COL_CONFLICTS, r), conflict_icons)
 
     def _paint_name(self, p, r, e, index, text_color):
-        x = r.left()
+        leader = index.model().group_leader(e.name)
+        x = r.left() + (24 if leader and leader != e.name else 0)
 
         # Checkbox (accent fill + white tick when enabled; hollow when not).
         box = QRect(x + 10, r.top() + (r.height() - CHECK_BOX) // 2,
@@ -677,6 +678,12 @@ class ModRowDelegate(QStyledItemDelegate):
         p.setRenderHint(p.RenderHint.Antialiasing, False)
 
         tx = box.right() + 10
+        if leader:
+            if leader == e.name:
+                arrow = icon("right.png" if index.model().is_group_collapsed(e.name)
+                             else "arrow.png", self.ARROW_SZ, color=self.c_arrow)
+                arrow.paint(p, self._group_arrow_rect(r))
+            tx += 24
 
         # Lock glyph.
         if e.locked:
@@ -690,6 +697,8 @@ class ModRowDelegate(QStyledItemDelegate):
         p.setFont(self.f_row)
         name_rect = QRect(tx, r.top(), r.right() - tx - 6, r.height())
         name = e.display_name
+        if leader == e.name:
+            name += f" ({len(index.model()._mod_groups[leader]['members'])})"
         text_width = self._name_widths.get(name)
         if text_width is None:
             text_width = self.fm_row.horizontalAdvance(name)
@@ -698,6 +707,17 @@ class ModRowDelegate(QStyledItemDelegate):
                  else self.fm_row.elidedText(name, Qt.ElideRight,
                                              name_rect.width()))
         p.drawText(name_rect, _ALIGN_LEFT, shown)
+
+    def _group_arrow_rect(self, rect):
+        return QRect(rect.left() + 10 + CHECK_BOX + 9,
+                     rect.top() + (rect.height() - self.ARROW_SZ) // 2,
+                     self.ARROW_SZ, self.ARROW_SZ)
+
+    def _checkbox_hit_rect(self, rect, index):
+        name = index.data(EntryRole).name
+        leader = index.model().group_leader(name)
+        offset = 24 if leader and leader != name else 0
+        return QRect(rect.left() + offset + 6, rect.top(), 26, rect.height())
 
     def _paint_conflicts(self, p, r, loose, bsa, uuid=0):
         """Conflicts cell: loose-file conflict icon on the left, BSA/BA2 archive
@@ -857,6 +877,19 @@ class ModRowDelegate(QStyledItemDelegate):
         try:
             if event.type() == QEvent.ToolTip and index.isValid():
                 entry = index.data(EntryRole)
+                if (entry is not None and index.model().is_group_collapsed(entry.name)
+                        and index.column() in (COL_FLAGS, COL_CONFLICTS)):
+                    if index.column() == COL_FLAGS:
+                        hit = self._hit_flag_bit(event.pos(), opt.rect, index.data(FlagsRole) or 0)
+                        tip = self.tr(_FLAG_TIPS[hit]) if hit in _FLAG_TIPS else None
+                    else:
+                        tip = self._conflict_tip(event.pos(), opt.rect, index)
+                    if tip:
+                        tip = self.tr("Group summary: {0}\nExpand the group to act on individual mods.").format(tip)
+                        QToolTip.showText(event.globalPos(), wrap_tooltip(tip), view, opt.rect)
+                    else:
+                        QToolTip.hideText()
+                    return True
                 if entry is not None and entry.is_separator:
                     flags_rect = self._col_rect(COL_FLAGS, opt.rect)
                     bits = index.data(FlagsRole) or 0
@@ -949,6 +982,9 @@ class ModRowDelegate(QStyledItemDelegate):
             return False
         pos = event.position().toPoint()
         e = model.entry(index.row())
+        if (model.is_group_collapsed(e.name)
+                and index.column() in (COL_FLAGS, COL_CONFLICTS)):
+            return False
 
         if index.column() == COL_VERSION:
             if (event.button() != Qt.LeftButton or e.is_separator
@@ -1000,7 +1036,7 @@ class ModRowDelegate(QStyledItemDelegate):
             return False
 
         # Mod row: checkbox area toggles enabled.
-        box = QRect(opt.rect.left() + 6, opt.rect.top(), 26, opt.rect.height())
+        box = self._checkbox_hit_rect(opt.rect, index)
         if box.contains(pos):
             model.toggle(index.row())
             return True

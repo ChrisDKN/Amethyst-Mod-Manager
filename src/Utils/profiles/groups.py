@@ -1170,6 +1170,15 @@ def _reconcile_mod_state(group_dir: Path, profiles_dir: Path,
     """Keep the group's per-mod profile_state submaps in step with the
     reconcile: renamed entries migrate in place, dropped entries are removed,
     new arrivals adopt their owning member's state ONCE (group-owned after)."""
+    from Utils.mods.groups import rename_group_mod, detach
+    from Utils.profiles.state import read_mod_groups, write_mod_groups
+    mod_groups = read_mod_groups(group_dir)
+    updated = mod_groups
+    for old, new in renames:
+        updated = rename_group_mod(updated, old, new)
+    updated = detach(updated, drops)
+    if updated != mod_groups:
+        write_mod_groups(group_dir, updated)
     for reader, writer in (
         (read_disabled_plugins, write_disabled_plugins),
         (read_excluded_mod_files, write_excluded_mod_files),

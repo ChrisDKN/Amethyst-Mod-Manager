@@ -9539,6 +9539,8 @@ class MainWindow(QMainWindow):
         src_profile_dir = self._gs.profile_dir()
         if game is None or src_staging is None or src_profile_dir is None:
             return
+        from Utils.profiles.state import read_mod_groups
+        source_groups = read_mod_groups(src_profile_dir)
         try:
             target_profile_dir = game.get_profile_root() / "profiles" / target_profile
             target_staging = mod_copy.resolve_target_staging(game, target_profile_dir)
@@ -9553,12 +9555,11 @@ class MainWindow(QMainWindow):
             if not mod_copy.mod_exists_in_profile(target_staging, name):
                 continue
             same_folder = False
-            if separator_name:
-                try:
-                    same_folder = ((src_staging / name).resolve()
-                                   == (target_staging / name).resolve())
-                except OSError:
-                    pass
+            try:
+                same_folder = ((src_staging / name).resolve()
+                               == (target_staging / name).resolve())
+            except OSError:
+                pass
             if not same_folder:
                 existing.append(name)
 
@@ -9567,7 +9568,7 @@ class MainWindow(QMainWindow):
             self._run_copy_to_profile(
                 names, enabled_map, plan, replace_set, move,
                 src_staging, src_profile_dir, target_staging, target_profile_dir,
-                target_profile, game, separator_name)
+                target_profile, game, separator_name, source_groups)
 
         if not existing:
             _launch({n: None for n in names}, set())
@@ -9622,11 +9623,23 @@ class MainWindow(QMainWindow):
     def _run_copy_to_profile(self, names, enabled_map, plan, replace_set, move,
                              src_staging, src_profile_dir, target_staging,
                              target_profile_dir, target_profile, game,
-                             separator_name=None):
+                             separator_name=None, source_groups=None):
         """Worker: copy each planned mod, then (move) remove the sources."""
         import threading
         from pathlib import Path
         from Utils.mods import copy as mod_copy
+        from Utils.mods.modlist import read_modlist
+        from Utils.profiles.state import read_mod_groups
+        if source_groups is None:
+            source_groups = read_mod_groups(Path(src_profile_dir))
+        requested = set(names)
+        requested_groups = {
+            leader: {leader, *data["members"]}
+            for leader, data in source_groups.items()
+            if {leader, *data["members"]} <= requested
+        }
+        locked_sources = {e.name for e in read_modlist(Path(src_profile_dir) / "modlist.txt")
+                          if not e.is_separator and e.locked}
         # Serialize: a second copy/move while one runs would write the same
         # target folders concurrently (install has the same guard).
         if getattr(self, "_copy_running", False):
@@ -9653,6 +9666,7 @@ class MainWindow(QMainWindow):
         def _worker():
             import os as _os
             copied = []
+            name_map = {}
             detached = []   # group→owning-member: files identical, no copy
             # `plan` is ordered highest-priority-first (row 0 = top of the source
             # modlist). Register the whole copied block in ONE prepend after the
@@ -9670,9 +9684,9 @@ class MainWindow(QMainWindow):
                             src_folder) == _os.path.realpath(dest_folder):
                         copied.append(nm)
                         detached.append(nm)
-                        if separator_name:
-                            registered.append(
-                                (dest_name or nm, enabled_map.get(nm, True)))
+                        name_map[nm] = dest_name or nm
+                        registered.append(
+                            (dest_name or nm, enabled_map.get(nm, True)))
                         self._op_log.emit(
                             f"'{nm}' already uses the target staging folder - "
                             f"nothing to copy.")
@@ -9687,10 +9701,12 @@ class MainWindow(QMainWindow):
                         game=game, register=False)
                     if out:
                         copied.append(nm)
+                        name_map[nm] = out
                         registered.append((out, enabled_map.get(nm, True)))
                 except Exception as exc:
                     self._op_log.emit(f"Copy to profile failed for '{nm}': {exc}")
             separator_copied = False
+            target_registered = False
             if separator_name:
                 created = False
                 try:
@@ -9698,6 +9714,7 @@ class MainWindow(QMainWindow):
                         Path(target_profile_dir) / "modlist.txt",
                         separator_name, registered)
                     separator_copied = True
+                    target_registered = True
                 except Exception as exc:
                     self._op_log.emit(
                         f"Copy separator to profile: modlist update failed: {exc}")
@@ -9713,11 +9730,32 @@ class MainWindow(QMainWindow):
                 try:
                     mod_copy.register_mods_in_modlist(
                         Path(target_profile_dir) / "modlist.txt", registered)
+                    target_registered = True
                 except Exception as exc:
                     self._op_log.emit(f"Copy to profile: modlist update failed: {exc}")
+            preserved_groups = set()
+            if target_registered and requested_groups:
+                try:
+                    from Utils.mods.groups import copy_complete_groups
+                    preserved_groups = copy_complete_groups(
+                        Path(src_profile_dir), Path(target_profile_dir), name_map,
+                        source_groups=source_groups)
+                except Exception as exc:
+                    self._op_log.emit(f"Copy mod groups failed: {exc}")
+            group_failures = set(requested_groups) - preserved_groups
+            protected = set(locked_sources)
+            for leader, members in requested_groups.items():
+                if leader in group_failures or members & locked_sources:
+                    protected.update(members)
+            if group_failures:
+                self._op_log.emit(
+                    f"Groups not transferred completely: {', '.join(sorted(group_failures))}")
+            removable = ([n for n in copied if n not in protected]
+                         if target_registered else [])
             self._op_progress.emit(total, total, "finishing")
             removed = False
-            if move and copied:
+            removed_names = []
+            if move and removable:
                 try:
                     from Utils.profiles.groups import (is_group,
                                                       remove_mods_from_group)
@@ -9729,80 +9767,110 @@ class MainWindow(QMainWindow):
                         # only the group entry/link goes. A locked member's
                         # mods are refused by remove_mods_from_group, which
                         # returns only what it actually removed.
-                        full = [n for n in copied if n not in detached]
+                        full = [n for n in removable if n not in detached]
+                        shared = [n for n in removable if n in detached]
                         done = []
                         if full:
                             done += remove_mods_from_group(
                                 game, Path(src_profile_dir), full,
                                 log_fn=_log_cb)
-                        if detached:
+                        if shared:
                             done += remove_mods_from_group(
-                                game, Path(src_profile_dir), detached,
+                                game, Path(src_profile_dir), shared,
                                 log_fn=_log_cb, delete_member_copies=False)
-                        blocked = [n for n in copied if n not in done]
+                        blocked = [n for n in removable if n not in done]
                         if blocked:
                             self._op_log.emit(
                                 f"Kept in the group (locked profile): "
                                 f"{', '.join(blocked)}")
-                        copied = done
+                        removed_names = done
                     else:
                         from Utils.mods.remove import remove_mods
-                        remove_mods(game, Path(src_profile_dir), copied,
-                                    log_fn=_log_cb)
-                    removed = True
+                        full = [n for n in removable if n not in detached]
+                        if full:
+                            remove_mods(game, Path(src_profile_dir), full,
+                                        log_fn=_log_cb, staging_root=Path(src_staging))
+                        removed_names = removable
+                    removed = bool(removed_names)
                 except Exception as exc:
                     self._op_log.emit(f"Move: could not remove sources: {exc}")
-            self._copy_done.emit({"copied": len(copied), "total": mod_total,
+            transferred = removed_names if move else copied if target_registered else []
+            self._copy_done.emit({"copied": len(transferred), "total": mod_total,
                                   "move": move, "removed": removed,
                                   "target": target_profile,
+                                  "source_profile_dir": str(src_profile_dir),
+                                  "target_profile_dir": str(target_profile_dir),
+                                  "group_failures": sorted(group_failures),
                                   "separator_requested": bool(separator_name),
                                   "separator": (separator_name
                                                 if separator_copied else ""),
-                                  # names to drop from THIS profile's modlist
-                                  # (remove_mods deliberately leaves modlist.txt
-                                  # to the caller - mirror Tk _finish_copy_popup).
-                                  "removed_names": list(copied) if removed else []})
+                                  "removed_names": removed_names})
 
         threading.Thread(target=_worker, daemon=True, name="copy-to-profile").start()
 
     def _on_copy_done(self, payload):
-        """UI thread: report the copy/move result. For a move, drop the moved
-        mods' rows from this profile's modlist (remove_mods left modlist.txt to
-        us - mirrors Tk _finish_copy_popup calling _remove_selected_mods), which
-        persists modlist.txt via the model, then reload."""
+        """Report the transfer and remove moved rows from the source profile."""
         self._copy_running = False
         if self._progress_popup is not None:
             self._schedule_op_clear(1200)
         c = payload.get("copied", 0)
         separator = payload.get("separator", "")
+        severity = "success" if c else "info"
         if payload.get("separator_requested"):
             if separator:
-                self._notify(
-                    self.tr("Copied separator '{0}' with {1}/{2} mod(s) to "
-                            "'{3}'.").format(
-                                separator.removesuffix("_separator"), c,
-                                payload.get("total", 0),
-                                payload.get("target", "")), "success")
+                message = self.tr("Copied separator '{0}' with {1}/{2} mod(s) to "
+                                  "'{3}'.").format(
+                                      separator.removesuffix("_separator"), c,
+                                      payload.get("total", 0),
+                                      payload.get("target", ""))
+                severity = "success"
             else:
-                self._notify(self.tr("Could not copy the separator."), "error")
+                message = self.tr("Could not copy the separator.")
+                severity = "error"
         else:
-            self._notify(
-                (self.tr("Moved {0}/{1} mod(s) to '{2}'.")
-                 if payload.get("move")
-                 else self.tr("Copied {0}/{1} mod(s) to '{2}'."))
-                .format(c, payload.get('total', 0), payload.get('target', '')),
-                "success" if c else "info")
+            message = (self.tr("Moved {0}/{1} mod(s) to '{2}'.")
+                       if payload.get("move")
+                       else self.tr("Copied {0}/{1} mod(s) to '{2}'.")) \
+                .format(c, payload.get('total', 0), payload.get('target', ''))
+        group_failures = payload.get("group_failures")
+        if group_failures:
+            message += " " + self.tr("Could not preserve groups: {0}.").format(
+                ", ".join(group_failures))
+            if payload.get("move"):
+                message += " " + self.tr("Their source mods were kept.")
+            severity = "warning"
+        self._notify(message, severity)
+        active_profile = self._gs.profile_dir()
+        source_profile = (Path(payload["source_profile_dir"])
+                          if payload.get("source_profile_dir") else active_profile)
+        target_profile = (Path(payload["target_profile_dir"])
+                          if payload.get("target_profile_dir") else None)
+        source_is_active = (active_profile is not None and source_profile is not None
+                            and active_profile.resolve() == source_profile.resolve())
         removed_names = set(payload.get("removed_names") or [])
-        if removed_names:
+        if removed_names and source_is_active:
             model = self._modlist_model
-            # Remove by name, highest row first (indices shift as we delete).
             rows = [r for r in range(model.rowCount())
                     if (e := model.entry(r)) is not None
                     and not e.is_separator and e.name in removed_names]
             for r in sorted(rows, reverse=True):
                 model.remove_row(r, save=False)
             if rows:
-                model.save()  # single save → one filemap rebuild for the batch
+                model.save()
+        elif removed_names and source_profile is not None:
+            try:
+                from Utils.mods.modlist import modlist_lock, read_modlist, write_modlist
+                from Utils.mods.groups import reconcile_profile_groups
+                source_modlist = source_profile / "modlist.txt"
+                with modlist_lock(source_modlist):
+                    entries = [e for e in read_modlist(source_modlist)
+                               if e.is_separator or e.name not in removed_names]
+                    write_modlist(source_modlist, entries)
+                    reconcile_profile_groups(source_profile, entries)
+            except Exception as exc:
+                self._append_log(f"Move: source modlist update failed: {exc}")
+                self._notify(self.tr("Could not update the source profile's modlist."),
+                             "error")
         # Copy target may be a MEMBER of the active group - reconcile so the
         # new arrival shows up without a manual Refresh.
         reconciled = False
@@ -9812,7 +9880,9 @@ class MainWindow(QMainWindow):
                 self._gs.game, self._gs.profile_dir(), log_fn=self._append_log)
         except Exception:
             pass
-        if payload.get("removed") or reconciled:
+        target_is_active = (active_profile is not None and target_profile is not None
+                            and active_profile.resolve() == target_profile.resolve())
+        if payload.get("removed") or reconciled or target_is_active:
             self._reload_modlist()
 
     # ---- install a Nexus mod by id (used by Missing Requirements cards) ----
@@ -14938,6 +15008,7 @@ class MainWindow(QMainWindow):
         # Connected AFTER the view so its cache-drop + re-span run first.
         # modelReset is handled by _reload_modlist's explicit reapply.
         for sig in (self._modlist_model.layoutChanged,
+                    self._modlist_model.groups_changed,
                     self._modlist_model.rowsMoved,
                     self._modlist_model.rowsInserted,
                     self._modlist_model.rowsRemoved):
@@ -14947,6 +15018,7 @@ class MainWindow(QMainWindow):
     def _on_modlist_layout_changed(self, *_a):
         self._apply_modlist_search()
         self._apply_modlist_filters()
+        self._refresh_footer_toggle_labels()
 
     def _on_archives_dropped(self, paths: list[str], slot: int):
         """Archives dragged from the Downloads tab were dropped on the modlist
@@ -14976,6 +15048,13 @@ class MainWindow(QMainWindow):
             if name not in _PINNED_NAMES:
                 anchor = name
                 break
+        leader = m.group_leader(anchor)
+        if leader:
+            block = [e.name for e in m.natural_entries()
+                     if m.group_leader(e.name) == leader]
+            before = (anchor == leader) != m.reverse_mode_active
+            return {"anchor": block[0] if before else block[-1],
+                    "after": not before}
         if m.reverse_mode_active:
             # Reverse-priority display is the inverted file order: visually
             # above the anchor = AFTER it in modlist.txt. No anchor (dropped at
@@ -15864,7 +15943,7 @@ class MainWindow(QMainWindow):
     def _on_toggle_collapse_all(self):
         """Expand all / Collapse all separators (toggles based on current state)."""
         m = self._modlist_model
-        if not m.collapsible_separator_names():
+        if not m.collapsible_separator_names() and not m._mod_groups:
             return
         collapse = not m.any_collapsed()   # if any expanded → collapse all
         self._modlist_view.set_all_collapsed(collapse)
@@ -15885,7 +15964,7 @@ class MainWindow(QMainWindow):
         m = self._modlist_model
         eb = getattr(self, "_expand_all_btn", None)
         if eb is not None:
-            has_seps = bool(m.collapsible_separator_names())
+            has_seps = bool(m.collapsible_separator_names() or m._mod_groups)
             eb.setText(self.tr("Expand all") if (not has_seps or m.any_collapsed())
                        else self.tr("Collapse all"))
         nb = getattr(self, "_enable_all_btn", None)
@@ -16478,9 +16557,18 @@ class MainWindow(QMainWindow):
 
         ml_path = self._gs.modlist_path()
         staging = self._gs.staging_dir()
+        mod_groups = {}
         with span("reload_modlist.read_modlist"):
-            entries = (read_modlist(ml_path)
-                       if (ml_path and ml_path.is_file()) else [])
+            entries = []
+            if ml_path and ml_path.is_file():
+                from Utils.mods.groups import load_grouped_modlist
+                from Utils.profiles.state import read_mod_groups
+                try:
+                    entries, mod_groups = load_grouped_modlist(ml_path)
+                except Exception as exc:
+                    entries = read_modlist(ml_path)
+                    mod_groups = read_mod_groups(ml_path.parent)
+                    self._notify(self.tr("Could not save mod groups: {0}").format(exc), "warning")
         # Non-empty ⇒ this reload ends in a conflict rebuild (see bottom),
         # whose completion reloads the plugin panel. The profile-switch path
         # reads this to skip its own (redundant) immediate plugin reload.
@@ -16527,7 +16615,7 @@ class MainWindow(QMainWindow):
             self._modlist_model._installed = {}
             self._modlist_model._categories = {}
         with span("reload_modlist.set_entries"):
-            self._modlist_model.set_entries(entries)
+            self._modlist_model.set_entries(entries, mod_groups=mod_groups)
         if not preserve_overlays:
             self._modlist_model.set_flags({})
         with span("reload_modlist.read_notes"):
