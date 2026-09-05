@@ -389,9 +389,9 @@ Télécharger le fichier principal « FNV BSA Decompressor » de Nexus - le paqu
       <source>The BSA Decompressor rebuilds the vanilla BSA archives without compression for faster loading, and the result is added as a mod.
 
 Download the 'FO3 BSA Decompressor' main file from Nexus - the .mpi package inside the archive is detected automatically.</source>
-      <translation type="unfinished">The BSA Decompressor rebuilds the vanilla BSA archives without compression for faster loading, and the result is added as a mod.
+      <translation>Le BSA Decompressor reconstruit les archives BSA vanille sans compression pour un chargement plus rapide, et le résultat est ajouté comme un mod.
 
-Download the 'FO3 BSA Decompressor' main file from Nexus - the .mpi package inside the archive is detected automatically.</translation>
+Télécharger le fichier principal « FO3 BSA Decompressor » de Nexus - le paquet .mpi dans l'archive est détecté automatiquement.</translation>
     </message>
     <message>
       <source>Fallout 3:</source>
@@ -938,7 +938,7 @@ Fermez-le lorsque vous avez terminé, puis cliquez sur « Terminé ».</translat
     <name>BodySlideView</name>
     <message>
       <source>{0} - {1}</source>
-      <translation type="unfinished">{0} - {1}</translation>
+      <translation>{0} - {1}</translation>
     </message>
     <message>
       <source>Step 3: Run {0}</source>
@@ -1969,6 +1969,18 @@ Le cache MD5 est conservé. Les archives seront téléchargées à nouveau si n�
       <translation>Système de fichiers virtuels (VFS)</translation>
     </message>
     <message>
+      <source>Game Runtime</source>
+      <translation>Jeu Runtime</translation>
+    </message>
+    <message>
+      <source>Native Linux</source>
+      <translation>Linux natif</translation>
+    </message>
+    <message>
+      <source>Windows / Proton</source>
+      <translation>Fenêtres / Proton</translation>
+    </message>
+    <message>
       <source>Swap launcher with script extender on deploy</source>
       <translation>Déploiement du lanceur avec l'extension de script</translation>
     </message>
@@ -2197,6 +2209,18 @@ Les paramètres du profil par défaut ne sont pas modifiés.</translation>
       <translation>Commencez par définir le dossier d'installation du jeu.</translation>
     </message>
     <message>
+      <source>Native Linux runtime selected, but bin/bg3 was not found.</source>
+      <translation>Exécution native de Linux sélectionnée, mais bin/bg3 n'a pas été trouvé.</translation>
+    </message>
+    <message>
+      <source>Windows / Proton runtime selected, but no BG3 Windows executable was found.</source>
+      <translation>Windows / Proton runtime sélectionné, mais aucun exécutable BG3 Windows n'a été trouvé.</translation>
+    </message>
+    <message>
+      <source>Select the Proton prefix used by this BG3 installation.</source>
+      <translation>Sélectionnez le préfixe Proton utilisé par cette installation BG3.</translation>
+    </message>
+    <message>
       <source>The mod staging folder cannot be the game folder or be inside it. Choose a separate location.</source>
       <translation>Le dossier de mise en scène mod ne peut pas être le dossier de jeu ou être à l'intérieur. Choisissez un emplacement séparé.</translation>
     </message>
@@ -2207,6 +2231,10 @@ Les paramètres du profil par défaut ne sont pas modifiés.</translation>
     <message>
       <source>Cannot change the game/prefix path while mods are deployed. Restore the game first.</source>
       <translation>Il est impossible de modifier le chemin d'accès au jeu ou au préfixe tant que des mods sont déployés. Commencez par restaurer le jeu.</translation>
+    </message>
+    <message>
+      <source>Cannot change the game runtime while mods are deployed. Restore the game first.</source>
+      <translation>Impossible de changer le temps d'exécution du jeu pendant que les mods sont déployés. Restaurez le jeu d'abord.</translation>
     </message>
     <message>
       <source>Restore the game before changing the preferred OpenMW package.</source>
@@ -3748,6 +3776,10 @@ Une fois terminée, l'application bascule vers le nouveau profil - puis revenir 
       <source>Install</source>
       <translation>Installer</translation>
     </message>
+    <message>
+      <source>{0} (hidden)</source>
+      <translation>{0} (hidden)</translation>
+    </message>
   </context>
   <context>
     <name>DownloadsModel</name>
@@ -3848,7 +3880,7 @@ Vérifiez la sortie ci-dessus et le journal.</translation>
     <name>DynDOLODView</name>
     <message>
       <source>{0} - {1}</source>
-      <translation type="unfinished">{0} - {1}</translation>
+      <translation>{0} - {1}</translation>
     </message>
     <message>
       <source>✕ Close</source>
@@ -4015,6 +4047,10 @@ Veuillez relancer l'assistant et installer d'abord {1}.</translation>
     <message>
       <source>Launching {0}…</source>
       <translation>Lancement de {0}…</translation>
+    </message>
+    <message>
+      <source>xLODGen does not support {0}.</source>
+      <translation>xLODGen ne supporte pas {0}.</translation>
     </message>
     <message>
       <source>Game path not configured.</source>
@@ -4232,9 +4268,9 @@ Télécharger le fichier principal 'Ultimate Edition ESM Corrections Remasteris�
       <source>The Unofficial Fallout 3 ESM Patcher patches the vanilla .esm masters (Fallout3 + all DLC) with community bugfixes, and the result is added as a mod.
 
 Download the 'Unofficial Fallout 3 ESM Patcher' main file from Nexus - the .mpi package inside the archive is detected automatically.</source>
-      <translation type="unfinished">The Unofficial Fallout 3 ESM Patcher patches the vanilla .esm masters (Fallout3 + all DLC) with community bugfixes, and the result is added as a mod.
+      <translation>Le « Unofficial Fallout 3 ESM Patcher » modifie les fichiers .esm d'origine (Fallout 3 + tous les DLC) en y intégrant des corrections de bugs proposées par la communauté, et le résultat est ajouté sous forme de mod.
 
-Download the 'Unofficial Fallout 3 ESM Patcher' main file from Nexus - the .mpi package inside the archive is detected automatically.</translation>
+Téléchargez le fichier principal « Unofficial Fallout 3 ESM Patcher » depuis Nexus : le fichier .mpi contenu dans l'archive est détecté automatiquement.</translation>
     </message>
     <message>
       <source>Fallout 3:</source>
@@ -5261,6 +5297,10 @@ Cliquez sur Terminé pour nettoyer les fichiers extraits et fermer.</translation
     <message>
       <source>Show only not installed</source>
       <translation>Afficher uniquement les éléments non installés</translation>
+    </message>
+    <message>
+      <source>Show hidden archives</source>
+      <translation>Afficher les archives cachées</translation>
     </message>
     <message>
       <source>Only conflicts</source>
@@ -6333,6 +6373,14 @@ Si vous continuez, cet avertissement ne sera plus affiché pour {1} sauf si les 
       <translation>Déplacer la sélection</translation>
     </message>
     <message>
+      <source>Hide Selected</source>
+      <translation>Cacher la sélection</translation>
+    </message>
+    <message>
+      <source>Unhide Selected</source>
+      <translation>Démasquer la sélection</translation>
+    </message>
+    <message>
       <source>Remove Selected</source>
       <translation>Supprimer la sélection</translation>
     </message>
@@ -6351,6 +6399,18 @@ Si vous continuez, cet avertissement ne sera plus affiché pour {1} sauf si les 
     <message>
       <source>Removed {0} archive(s)</source>
       <translation>Suppression des archives « {0} »</translation>
+    </message>
+    <message>
+      <source>Hidden {0} archive(s)</source>
+      <translation>Archive(s) cachée(s) {0}</translation>
+    </message>
+    <message>
+      <source>Made {0} archive(s) visible</source>
+      <translation>Rendre l'archive {0} visible</translation>
+    </message>
+    <message>
+      <source>Could not update hidden archives: {0}</source>
+      <translation>Impossible de mettre à jour les archives cachées : {0}</translation>
     </message>
     <message>
       <source>Cannot use that folder: {0}</source>
@@ -7813,6 +7873,22 @@ Exécuter une mise à jour rapide sur tous maintenant?</translation>
       <translation>Le tri LOOT a échoué - voir journal.</translation>
     </message>
     <message>
+      <source>Plugin sources are being refreshed. Run LOOT when loading finishes.</source>
+      <translation>Les sources du plugin sont en cours d'actualisation. Lancez LOOT à la fin du chargement.</translation>
+    </message>
+    <message>
+      <source>Could not prepare plugin sources: {0}</source>
+      <translation>Impossible de préparer les sources du plugin : {0}</translation>
+    </message>
+    <message>
+      <source>Plugin state changed while LOOT was running. Run LOOT again.</source>
+      <translation>L'état du plugin a changé pendant que LOOT était en cours d'exécution. Exécutez LOOT à nouveau.</translation>
+    </message>
+    <message>
+      <source>Locked plugin positions conflict with the game's required load order.</source>
+      <translation>Les positions du plugin verrouillées entrent en conflit avec l'ordre de chargement requis du jeu.</translation>
+    </message>
+    <message>
       <source>Sorted - 1 plugin moved.</source>
       <translation>Trié - 1 plugin déplacé.</translation>
     </message>
@@ -8030,7 +8106,7 @@ Exécuter une mise à jour rapide sur tous maintenant?</translation>
     </message>
     <message>
       <source>Downloading mod from MODL link…</source>
-      <translation type="unfinished">Downloading mod from MODL link…</translation>
+      <translation>Téléchargement d'un mod à partir d'un lien MODL</translation>
     </message>
     <message>
       <source>Download cancelled.</source>
@@ -8175,6 +8251,18 @@ Exécuter une mise à jour rapide sur tous maintenant?</translation>
     <message>
       <source>Could not copy the separator.</source>
       <translation>Impossible de copier le séparateur.</translation>
+    </message>
+    <message>
+      <source>Could not preserve groups: {0}.</source>
+      <translation>Impossible de préserver les groupes : {0}.</translation>
+    </message>
+    <message>
+      <source>Their source mods were kept.</source>
+      <translation>Leurs mods sources ont été conservés.</translation>
+    </message>
+    <message>
+      <source>Could not update the source profile's modlist.</source>
+      <translation>Impossible de mettre à jour la modlist du profil source.</translation>
     </message>
     <message>
       <source>Cancel all</source>
@@ -8425,6 +8513,10 @@ Exécutez l'assistant Downgrade pour corriger le jeu de retour à une version pr
     <message>
       <source>Mods with BSA archives</source>
       <translation>Mods avec archives BSA</translation>
+    </message>
+    <message>
+      <source>Could not save mod groups: {0}</source>
+      <translation>Impossible d'enregistrer les groupes de mods : {0}</translation>
     </message>
     <message>
       <source>{0} enabled of {1} mods</source>
@@ -9002,6 +9094,14 @@ Comment voulez-vous gérer le mod existant ?</translation>
       <source>(no mod selected)</source>
       <translation>(aucun mod sélectionné)</translation>
     </message>
+    <message>
+      <source>{0} — Loading files…</source>
+      <translation type="unfinished">{0} — Loading files…</translation>
+    </message>
+    <message>
+      <source>{0} — Unable to load files</source>
+      <translation type="unfinished">{0} — Unable to load files</translation>
+    </message>
   </context>
   <context>
     <name>ModListMenu</name>
@@ -9080,6 +9180,34 @@ Comment voulez-vous gérer le mod existant ?</translation>
     <message>
       <source>Create</source>
       <translation>Créer</translation>
+    </message>
+    <message>
+      <source>Group options</source>
+      <translation>Options de groupe</translation>
+    </message>
+    <message>
+      <source>Group with</source>
+      <translation>Grouper avec</translation>
+    </message>
+    <message>
+      <source>Change group leader</source>
+      <translation>Changer le chef de groupe</translation>
+    </message>
+    <message>
+      <source>Ungroup</source>
+      <translation>Dégrouper</translation>
+    </message>
+    <message>
+      <source>Ungroup all</source>
+      <translation>Tout dégrouper</translation>
+    </message>
+    <message>
+      <source>Enable group</source>
+      <translation>Activer le groupe</translation>
+    </message>
+    <message>
+      <source>Disable group</source>
+      <translation>Désactiver le groupe</translation>
     </message>
     <message>
       <source>Copy separator to profile</source>
@@ -9624,6 +9752,12 @@ Cliquez sur Terminé pour fermer.</translation>
     <message>
       <source>A FOMOD option you didn't select is now relevant ({0} is in the load order) - click to re-run the FOMOD installer</source>
       <translation>Une option FOMOD que vous n'avez pas sélectionnée est désormais pertinente ({0} est dans l'ordre de chargement) - cliquez pour ré-exécuter l'installateur FOMOD</translation>
+    </message>
+    <message>
+      <source>Group summary: {0}
+Expand the group to act on individual mods.</source>
+      <translation>Résumé du groupe : {0}
+Développez le groupe pour agir sur chaque mod.</translation>
     </message>
   </context>
   <context>
@@ -11402,7 +11536,7 @@ Override paks (pas de meta.lsx, ou seulement écraser les propres modules du jeu
     </message>
     <message>
       <source>Move {0} item(s) from Overwrite into '{1}'?</source>
-      <translation type="unfinished">Move {0} item(s) from Overwrite into '{1}'?</translation>
+      <translation>Déplacer {0} élément(s) de « Overwrite » vers « {1} » ?</translation>
     </message>
     <message>
       <source>Deleted {0}, failed {1}:
@@ -11418,9 +11552,9 @@ Override paks (pas de meta.lsx, ou seulement écraser les propres modules du jeu
       <source>Permanently delete {0} item(s) from the Root Folder?
 
 This cannot be undone.</source>
-      <translation type="unfinished">Permanently delete {0} item(s) from the Root Folder?
+      <translation>Souhaitez-vous supprimer définitivement {0} élément(s) du dossier racine ?
 
-This cannot be undone.</translation>
+Cette action ne peut pas être annulée.</translation>
     </message>
     <message>
       <source>Delete from Overwrite</source>
@@ -11430,9 +11564,9 @@ This cannot be undone.</translation>
       <source>Permanently delete {0} item(s) from the Overwrite folder?
 
 This cannot be undone.</source>
-      <translation type="unfinished">Permanently delete {0} item(s) from the Overwrite folder?
+      <translation>Souhaitez-vous supprimer définitivement {0} élément(s) du dossier « Overwrite » ?
 
-This cannot be undone.</translation>
+Cette action ne peut pas être annulée.</translation>
     </message>
   </context>
   <context>
@@ -12326,7 +12460,7 @@ Faites glisser un plugin depuis le volet de gauche pour ajouter une règle.</tra
     </message>
     <message>
       <source>{0} - {1}</source>
-      <translation type="unfinished">{0} - {1}</translation>
+      <translation>{0} - {1}</translation>
     </message>
     <message>
       <source>  (active)</source>
@@ -14581,6 +14715,22 @@ flatpak distant-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Mana
       <translation>Côté droit</translation>
     </message>
     <message>
+      <source>Translate on Crowdin</source>
+      <translation>Traduire sur Crowdin</translation>
+    </message>
+    <message>
+      <source>Open the Amethyst Crowdin project to help translate the app.</source>
+      <translation>Ouvrez le projet Crowdin d'Amethyst pour aider à traduire l'application.</translation>
+    </message>
+    <message>
+      <source>Mod list</source>
+      <translation>Mod list</translation>
+    </message>
+    <message>
+      <source>Status bar</source>
+      <translation>Barre d'état</translation>
+    </message>
+    <message>
       <source>Cap the combined download speed of all downloads (collections, single mods, nxm and modl links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>
       <translation>Cap la vitesse de téléchargement combinée de tous les téléchargements (collections, mods simples, liens nxm et modls) pour qu'ils n'utilisent pas la connexion entière. S'applique immédiatement, y compris à une installation de collection en cours d'exécution.</translation>
     </message>
@@ -14639,6 +14789,42 @@ flatpak distant-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Mana
     <message>
       <source>Additional Proton build not found automatically. Select the build folder containing the top-level 'proton' launcher, not files/bin/wine. Blank disables it.</source>
       <translation>Construction Proton supplémentaire non trouvée automatiquement. Sélectionnez le dossier de construction contenant le lanceur 'proton' de haut niveau, et non les fichiers/bin/wine. Blank le désactive.</translation>
+    </message>
+    <message>
+      <source>Global restore whitelist</source>
+      <translation>Restaurer la liste blanche globale</translation>
+    </message>
+    <message>
+      <source>Matching runtime-created files stay in the game folder during restore instead of being moved to Overwrite. File and folder names match case-insensitively at any depth; * and ? wildcards are supported. This applies to every game.</source>
+      <translation>Les fichiers exécutés restent dans le dossier du jeu pendant la restauration au lieu d'être déplacés vers Écraser. Les noms de fichiers et de dossiers correspondent de façon insensible à la casse à n'importe quelle profondeur; * et ? les caractères génériques sont pris en charge. Cela s'applique à chaque partie.</translation>
+    </message>
+    <message>
+      <source>File names</source>
+      <translation>Noms de fichiers</translation>
+    </message>
+    <message>
+      <source>File name or wildcard</source>
+      <translation>Nom du fichier ou joker</translation>
+    </message>
+    <message>
+      <source>Add file</source>
+      <translation>Ajouter un fichier</translation>
+    </message>
+    <message>
+      <source>Folder names</source>
+      <translation>Noms de dossiers</translation>
+    </message>
+    <message>
+      <source>Folder name or wildcard</source>
+      <translation>Nom du dossier ou caractère générique</translation>
+    </message>
+    <message>
+      <source>Add folder</source>
+      <translation>Ajouter un dossier</translation>
+    </message>
+    <message>
+      <source>Remove selected</source>
+      <translation>Supprimer la sélection</translation>
     </message>
     <message>
       <source>{0} set: {1}</source>
@@ -14863,7 +15049,7 @@ flatpak distant-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Mana
     </message>
     <message>
       <source>{0} reset to {1}.</source>
-      <translation type="unfinished">{0} reset to {1}.</translation>
+      <translation>{0} réinitialisé à {1}.</translation>
     </message>
     <message>
       <source>Failed to reset shortcuts: {0}</source>

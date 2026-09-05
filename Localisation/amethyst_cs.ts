@@ -1969,6 +1969,18 @@ Mezipaměť MD5 zůstane zachována. Archivy se budou podle potřeby stahovat zn
       <translation>Virtuální souborový systém (VFS)</translation>
     </message>
     <message>
+      <source>Game Runtime</source>
+      <translation>Herní běh</translation>
+    </message>
+    <message>
+      <source>Native Linux</source>
+      <translation>Nativní Linux</translation>
+    </message>
+    <message>
+      <source>Windows / Proton</source>
+      <translation>Windows / Proton</translation>
+    </message>
+    <message>
       <source>Swap launcher with script extender on deploy</source>
       <translation>Swap launcher s prodloužením skriptu při nasazení</translation>
     </message>
@@ -2197,6 +2209,18 @@ Nastavení výchozího profilu tím nebude ovlivněno.</translation>
       <translation>Nejprve nastavte instalační složku hry.</translation>
     </message>
     <message>
+      <source>Native Linux runtime selected, but bin/bg3 was not found.</source>
+      <translation>Native Linux run time selected, ale bin/bg3 nebyl nalezen.</translation>
+    </message>
+    <message>
+      <source>Windows / Proton runtime selected, but no BG3 Windows executable was found.</source>
+      <translation>Windows / Proton běh vybrán, ale nebyl nalezen žádný spustitelný soubor BG3 Windows.</translation>
+    </message>
+    <message>
+      <source>Select the Proton prefix used by this BG3 installation.</source>
+      <translation>Vyberte prefix Protonu, který používá tato instalace BG3.</translation>
+    </message>
+    <message>
       <source>The mod staging folder cannot be the game folder or be inside it. Choose a separate location.</source>
       <translation>Složka mod staging nemůže být herní složkou nebo být uvnitř. Vyberte si jiné místo.</translation>
     </message>
@@ -2207,6 +2231,10 @@ Nastavení výchozího profilu tím nebude ovlivněno.</translation>
     <message>
       <source>Cannot change the game/prefix path while mods are deployed. Restore the game first.</source>
       <translation>Cestu ke hře/předponu nelze změnit, dokud jsou nainstalovány mody. Nejprve hru obnovte.</translation>
+    </message>
+    <message>
+      <source>Cannot change the game runtime while mods are deployed. Restore the game first.</source>
+      <translation>Nelze změnit běh hry, dokud jsou nasazeny mody. Nejdříve obnovte hru.</translation>
     </message>
     <message>
       <source>Restore the game before changing the preferred OpenMW package.</source>
@@ -3748,6 +3776,10 @@ Po dokončení aplikace přepne na nový profil - pak se sem vraťte a stisknět
       <source>Install</source>
       <translation>Nainstalovat</translation>
     </message>
+    <message>
+      <source>{0} (hidden)</source>
+      <translation>{0} (hidden)</translation>
+    </message>
   </context>
   <context>
     <name>DownloadsModel</name>
@@ -4015,6 +4047,10 @@ Spusťte prosím průvodce znovu a nejprve nainstalujte soubor {1}.</translation
     <message>
       <source>Launching {0}…</source>
       <translation>Spouštím stránku {0}…</translation>
+    </message>
+    <message>
+      <source>xLODGen does not support {0}.</source>
+      <translation>xLODGen nepodporuje {0}.</translation>
     </message>
     <message>
       <source>Game path not configured.</source>
@@ -5263,6 +5299,10 @@ Klikněte na Hotovo pro vyčištění extrahovaných souborů a zavřít.</trans
       <translation>Zobrazit pouze ty, které nejsou nainstalovány</translation>
     </message>
     <message>
+      <source>Show hidden archives</source>
+      <translation>Zobrazit skryté archivy</translation>
+    </message>
+    <message>
       <source>Only conflicts</source>
       <translation>Pouze konflikty</translation>
     </message>
@@ -6333,6 +6373,14 @@ Pokud budete pokračovat, toto varování nebude znovu zobrazeno pro {1}, pokud 
       <translation>Přesunout výběr</translation>
     </message>
     <message>
+      <source>Hide Selected</source>
+      <translation>Skrýt vybrané</translation>
+    </message>
+    <message>
+      <source>Unhide Selected</source>
+      <translation>Odkrýt vybrané</translation>
+    </message>
+    <message>
       <source>Remove Selected</source>
       <translation>Odebrat vybrané</translation>
     </message>
@@ -6351,6 +6399,18 @@ Pokud budete pokračovat, toto varování nebude znovu zobrazeno pro {1}, pokud 
     <message>
       <source>Removed {0} archive(s)</source>
       <translation>Odstraněny archivy {0}</translation>
+    </message>
+    <message>
+      <source>Hidden {0} archive(s)</source>
+      <translation>Skryté {0} archivy</translation>
+    </message>
+    <message>
+      <source>Made {0} archive(s) visible</source>
+      <translation>Viditelné archivy {0}</translation>
+    </message>
+    <message>
+      <source>Could not update hidden archives: {0}</source>
+      <translation>Nelze aktualizovat skryté archivy: {0}</translation>
     </message>
     <message>
       <source>Cannot use that folder: {0}</source>
@@ -7813,6 +7873,22 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
       <translation>LOOT selhalo - viz log.</translation>
     </message>
     <message>
+      <source>Plugin sources are being refreshed. Run LOOT when loading finishes.</source>
+      <translation>Zdroje zásuvných modulů jsou aktualizovány. Po načítání je nutné spustit LOOT.</translation>
+    </message>
+    <message>
+      <source>Could not prepare plugin sources: {0}</source>
+      <translation>Nelze připravit zdroje pluginů: {0}</translation>
+    </message>
+    <message>
+      <source>Plugin state changed while LOOT was running. Run LOOT again.</source>
+      <translation>Stav pluginu byl změněn, zatímco LOOT běží. Spusťte LOOT znovu.</translation>
+    </message>
+    <message>
+      <source>Locked plugin positions conflict with the game's required load order.</source>
+      <translation>Pozice zámku pluginu jsou v rozporu s požadovaným pořadí nahrávání hry.</translation>
+    </message>
+    <message>
       <source>Sorted - 1 plugin moved.</source>
       <translation>Sorted - 1 plugin přesunut.</translation>
     </message>
@@ -8177,6 +8253,18 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
       <translation>Nelze kopírovat oddělovač.</translation>
     </message>
     <message>
+      <source>Could not preserve groups: {0}.</source>
+      <translation>Nelze zachovat skupiny: {0}.</translation>
+    </message>
+    <message>
+      <source>Their source mods were kept.</source>
+      <translation>Jejich zdrojové mody byly zachovány.</translation>
+    </message>
+    <message>
+      <source>Could not update the source profile's modlist.</source>
+      <translation>Nelze aktualizovat seznam modifikací zdrojového profilu.</translation>
+    </message>
+    <message>
       <source>Cancel all</source>
       <translation>Zrušit všechny</translation>
     </message>
@@ -8425,6 +8513,10 @@ Spustit průvodce Downgrade pro opravu hry zpět na verzi FOSE podporu. Váš se
     <message>
       <source>Mods with BSA archives</source>
       <translation>Moduly s archivy BSA</translation>
+    </message>
+    <message>
+      <source>Could not save mod groups: {0}</source>
+      <translation>Nelze uložit skupiny modů: {0}</translation>
     </message>
     <message>
       <source>{0} enabled of {1} mods</source>
@@ -9002,6 +9094,14 @@ Jak by se ti líbilo zvládnout stávající mód?</translation>
       <source>(no mod selected)</source>
       <translation>(není vybrán žádný moderátor)</translation>
     </message>
+    <message>
+      <source>{0} — Loading files…</source>
+      <translation>{0} — Načítání souborů…</translation>
+    </message>
+    <message>
+      <source>{0} — Unable to load files</source>
+      <translation>{0} — Nelze načíst soubory</translation>
+    </message>
   </context>
   <context>
     <name>ModListMenu</name>
@@ -9080,6 +9180,34 @@ Jak by se ti líbilo zvládnout stávající mód?</translation>
     <message>
       <source>Create</source>
       <translation>Vytvořit</translation>
+    </message>
+    <message>
+      <source>Group options</source>
+      <translation>Možnosti skupiny</translation>
+    </message>
+    <message>
+      <source>Group with</source>
+      <translation>Seskupit s</translation>
+    </message>
+    <message>
+      <source>Change group leader</source>
+      <translation>Změnit vůdce skupiny</translation>
+    </message>
+    <message>
+      <source>Ungroup</source>
+      <translation>Zrušit skupinu</translation>
+    </message>
+    <message>
+      <source>Ungroup all</source>
+      <translation>Odskupit vše</translation>
+    </message>
+    <message>
+      <source>Enable group</source>
+      <translation>Povolit skupinu</translation>
+    </message>
+    <message>
+      <source>Disable group</source>
+      <translation>Zakázat skupinu</translation>
     </message>
     <message>
       <source>Copy separator to profile</source>
@@ -9624,6 +9752,12 @@ Klepněte na tlačítko Hotovo pro uzavření.</translation>
     <message>
       <source>A FOMOD option you didn't select is now relevant ({0} is in the load order) - click to re-run the FOMOD installer</source>
       <translation>Volba FOMOD, kterou jste nevybrali, je nyní relevantní ({0} je v pořadí zatížení) - kliknutím na tlačítko znovu spustit instalátor FOMOD</translation>
+    </message>
+    <message>
+      <source>Group summary: {0}
+Expand the group to act on individual mods.</source>
+      <translation>Shrnutí skupiny: {0}
+Rozšiřte skupinu pro jednotlivé mody.</translation>
     </message>
   </context>
   <context>
@@ -14581,6 +14715,22 @@ ametyst.flatpakrepo</translation>
       <translation>Pravá strana</translation>
     </message>
     <message>
+      <source>Translate on Crowdin</source>
+      <translation>Přeložit na Crowdin</translation>
+    </message>
+    <message>
+      <source>Open the Amethyst Crowdin project to help translate the app.</source>
+      <translation>Otevřete Amethyst Crowdin projekt, který pomůže přeložit aplikaci.</translation>
+    </message>
+    <message>
+      <source>Mod list</source>
+      <translation>Mod list</translation>
+    </message>
+    <message>
+      <source>Status bar</source>
+      <translation>Stavový řádek</translation>
+    </message>
+    <message>
       <source>Cap the combined download speed of all downloads (collections, single mods, nxm and modl links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>
       <translation>Omezte kombinovanou rychlost stahování všech stahování (kolekce, jednotlivé mody, nxm a modl odkazy), takže nepoužívají celé připojení. Platí okamžitě, a to i pro běžící kolekci.</translation>
     </message>
@@ -14639,6 +14789,42 @@ ametyst.flatpakrepo</translation>
     <message>
       <source>Additional Proton build not found automatically. Select the build folder containing the top-level 'proton' launcher, not files/bin/wine. Blank disables it.</source>
       <translation>Dodatečná konstrukce Protonu nebyla nalezena automaticky. Zvolte složku pro sestavení obsahující odpalovač nejvyšší úrovně 'proton', nikoli soubory / bin / víno. Prázdné ho vyřadí.</translation>
+    </message>
+    <message>
+      <source>Global restore whitelist</source>
+      <translation>Seznam povolených povolených povolených globální obnovy</translation>
+    </message>
+    <message>
+      <source>Matching runtime-created files stay in the game folder during restore instead of being moved to Overwrite. File and folder names match case-insensitively at any depth; * and ? wildcards are supported. This applies to every game.</source>
+      <translation>Odpovídající spuštěné soubory zůstávají ve složce hry během obnovy, místo aby byly přesunuty do přepisu. Názvy souborů a složek nerozlišují malá a velká písmena v libovolné hloubce; * a ? zástupné znaky jsou podporovány. To platí pro každou hru.</translation>
+    </message>
+    <message>
+      <source>File names</source>
+      <translation>Názvy souborů</translation>
+    </message>
+    <message>
+      <source>File name or wildcard</source>
+      <translation>Název souboru nebo zástupná karta</translation>
+    </message>
+    <message>
+      <source>Add file</source>
+      <translation>Přidat soubor</translation>
+    </message>
+    <message>
+      <source>Folder names</source>
+      <translation>Názvy složek</translation>
+    </message>
+    <message>
+      <source>Folder name or wildcard</source>
+      <translation>Název složky nebo zástupný znak</translation>
+    </message>
+    <message>
+      <source>Add folder</source>
+      <translation>Přidat složku</translation>
+    </message>
+    <message>
+      <source>Remove selected</source>
+      <translation>Odstranit vybrané</translation>
     </message>
     <message>
       <source>{0} set: {1}</source>

@@ -1969,6 +1969,18 @@ De MD5-cache blijft behouden. Archieven worden indien nodig opnieuw gedownload.<
       <translation>Virtueel bestandssysteem (VFS)</translation>
     </message>
     <message>
+      <source>Game Runtime</source>
+      <translation>Spel Runtime</translation>
+    </message>
+    <message>
+      <source>Native Linux</source>
+      <translation>Oorspronkelijke Linux</translation>
+    </message>
+    <message>
+      <source>Windows / Proton</source>
+      <translation>Windows / Proton</translation>
+    </message>
+    <message>
       <source>Swap launcher with script extender on deploy</source>
       <translation>Swap launcher met script extender op implementatie</translation>
     </message>
@@ -2197,6 +2209,18 @@ De instellingen van het standaardprofiel blijven ongewijzigd.</translation>
       <translation>Stel eerst de installatiemap van het spel in.</translation>
     </message>
     <message>
+      <source>Native Linux runtime selected, but bin/bg3 was not found.</source>
+      <translation>Oorspronkelijke Linux runtime geselecteerd, maar bin/bg3 is niet gevonden.</translation>
+    </message>
+    <message>
+      <source>Windows / Proton runtime selected, but no BG3 Windows executable was found.</source>
+      <translation>Windows / Proton runtime geselecteerd, maar er is geen BG3 Windows uitvoerbaar gevonden.</translation>
+    </message>
+    <message>
+      <source>Select the Proton prefix used by this BG3 installation.</source>
+      <translation>Selecteer het Proton voorvoegsel dat door deze BG3 installatie wordt gebruikt.</translation>
+    </message>
+    <message>
       <source>The mod staging folder cannot be the game folder or be inside it. Choose a separate location.</source>
       <translation>De mod staging map kan niet de game map zijn of erin zitten. Kies een aparte locatie.</translation>
     </message>
@@ -2207,6 +2231,10 @@ De instellingen van het standaardprofiel blijven ongewijzigd.</translation>
     <message>
       <source>Cannot change the game/prefix path while mods are deployed. Restore the game first.</source>
       <translation>Het pad naar het spel of het voorvoegsel kan niet worden gewijzigd terwijl er mods zijn geïnstalleerd. Herstel het spel eerst.</translation>
+    </message>
+    <message>
+      <source>Cannot change the game runtime while mods are deployed. Restore the game first.</source>
+      <translation>Kan het spel niet veranderen als mods zijn deployed. Herstel het spel eerst.</translation>
     </message>
     <message>
       <source>Restore the game before changing the preferred OpenMW package.</source>
@@ -3748,6 +3776,10 @@ Als het klaar is schakelt de app over naar het nieuwe profiel - kom dan terug en
       <source>Install</source>
       <translation>Installeren</translation>
     </message>
+    <message>
+      <source>{0} (hidden)</source>
+      <translation>{0} (hidden)</translation>
+    </message>
   </context>
   <context>
     <name>DownloadsModel</name>
@@ -4015,6 +4047,10 @@ Start de wizard opnieuw en installeer eerst {1}.</translation>
     <message>
       <source>Launching {0}…</source>
       <translation>{0} wordt gelanceerd…</translation>
+    </message>
+    <message>
+      <source>xLODGen does not support {0}.</source>
+      <translation>xLODGen ondersteunt geen {0}.</translation>
     </message>
     <message>
       <source>Game path not configured.</source>
@@ -5263,6 +5299,10 @@ Klik Klaar om de uitgepakte bestanden op te ruimen en te sluiten.</translation>
       <translation>Alleen niet-geïnstalleerde weergeven</translation>
     </message>
     <message>
+      <source>Show hidden archives</source>
+      <translation>Verborgen archieven tonen</translation>
+    </message>
+    <message>
       <source>Only conflicts</source>
       <translation>Alleen conflicten</translation>
     </message>
@@ -6333,6 +6373,14 @@ Als u doorgaat, wordt deze waarschuwing niet meer getoond voor {1} tenzij de sch
       <translation>Geselecteerde verplaatsen</translation>
     </message>
     <message>
+      <source>Hide Selected</source>
+      <translation>Verberg geselecteerde</translation>
+    </message>
+    <message>
+      <source>Unhide Selected</source>
+      <translation>Selectie tonen</translation>
+    </message>
+    <message>
       <source>Remove Selected</source>
       <translation>Geselecteerde items verwijderen</translation>
     </message>
@@ -6351,6 +6399,18 @@ Als u doorgaat, wordt deze waarschuwing niet meer getoond voor {1} tenzij de sch
     <message>
       <source>Removed {0} archive(s)</source>
       <translation>{0}-archief(en) verwijderd</translation>
+    </message>
+    <message>
+      <source>Hidden {0} archive(s)</source>
+      <translation>Verborgen {0} archief(s)</translation>
+    </message>
+    <message>
+      <source>Made {0} archive(s) visible</source>
+      <translation>Gemaakt {0} archief(s) zichtbaar</translation>
+    </message>
+    <message>
+      <source>Could not update hidden archives: {0}</source>
+      <translation>Kan verborgen archieven niet bijwerken: {0}</translation>
     </message>
     <message>
       <source>Cannot use that folder: {0}</source>
@@ -7813,6 +7873,22 @@ Snelle update uitvoeren op alle van hen nu?</translation>
       <translation>LOOT-sortering mislukt - zie log.</translation>
     </message>
     <message>
+      <source>Plugin sources are being refreshed. Run LOOT when loading finishes.</source>
+      <translation>Plugin bronnen worden vernieuwd. Voer LOOT uit wanneer het laden klaar is.</translation>
+    </message>
+    <message>
+      <source>Could not prepare plugin sources: {0}</source>
+      <translation>Plug-in bronnen konden niet worden voorbereid: {0}</translation>
+    </message>
+    <message>
+      <source>Plugin state changed while LOOT was running. Run LOOT again.</source>
+      <translation>Plugin status gewijzigd terwijl LOOT actief was. Start opnieuw LOOT.</translation>
+    </message>
+    <message>
+      <source>Locked plugin positions conflict with the game's required load order.</source>
+      <translation>Vergrendelde plugin-posities conflicteren met de vereiste lastvolgorde van het spel.</translation>
+    </message>
+    <message>
       <source>Sorted - 1 plugin moved.</source>
       <translation>Gesorteerd - 1 plugin verplaatst.</translation>
     </message>
@@ -8177,6 +8253,18 @@ Snelle update uitvoeren op alle van hen nu?</translation>
       <translation>Kan het scheidingsteken niet kopiëren.</translation>
     </message>
     <message>
+      <source>Could not preserve groups: {0}.</source>
+      <translation>Kon groepen niet bewaren: {0}.</translation>
+    </message>
+    <message>
+      <source>Their source mods were kept.</source>
+      <translation>Hun bronmods werden bewaard.</translation>
+    </message>
+    <message>
+      <source>Could not update the source profile's modlist.</source>
+      <translation>De modlist van het bronprofiel kon niet worden bijgewerkt.</translation>
+    </message>
+    <message>
       <source>Cancel all</source>
       <translation>Alles annuleren</translation>
     </message>
@@ -8425,6 +8513,10 @@ Voer de Downgrade wizard om het spel terug te patchen naar een versie die FOSE o
     <message>
       <source>Mods with BSA archives</source>
       <translation>Mods met BSA-archieven</translation>
+    </message>
+    <message>
+      <source>Could not save mod groups: {0}</source>
+      <translation>Kon mod groepen niet opslaan: {0}</translation>
     </message>
     <message>
       <source>{0} enabled of {1} mods</source>
@@ -9002,6 +9094,14 @@ Hoe wil je omgaan met de bestaande mod?</translation>
       <source>(no mod selected)</source>
       <translation>(geen mod geselecteerd)</translation>
     </message>
+    <message>
+      <source>{0} — Loading files…</source>
+      <translation>{0} – Bestanden laden…</translation>
+    </message>
+    <message>
+      <source>{0} — Unable to load files</source>
+      <translation>{0} — Kan bestanden niet laden</translation>
+    </message>
   </context>
   <context>
     <name>ModListMenu</name>
@@ -9080,6 +9180,34 @@ Hoe wil je omgaan met de bestaande mod?</translation>
     <message>
       <source>Create</source>
       <translation>Aanmaken</translation>
+    </message>
+    <message>
+      <source>Group options</source>
+      <translation>Groep opties</translation>
+    </message>
+    <message>
+      <source>Group with</source>
+      <translation>Groeperen met</translation>
+    </message>
+    <message>
+      <source>Change group leader</source>
+      <translation>Verander groepsleider</translation>
+    </message>
+    <message>
+      <source>Ungroup</source>
+      <translation>Degroeperen</translation>
+    </message>
+    <message>
+      <source>Ungroup all</source>
+      <translation>Alles degroeperen</translation>
+    </message>
+    <message>
+      <source>Enable group</source>
+      <translation>Groep inschakelen</translation>
+    </message>
+    <message>
+      <source>Disable group</source>
+      <translation>Groep uitschakelen</translation>
     </message>
     <message>
       <source>Copy separator to profile</source>
@@ -9624,6 +9752,12 @@ Klik op Gereed om te sluiten.</translation>
     <message>
       <source>A FOMOD option you didn't select is now relevant ({0} is in the load order) - click to re-run the FOMOD installer</source>
       <translation>Een FOMOD optie die u niet selecteerde is nu relevant ({0} is in de lastvolgorde) - klik om de FOMOD installatie opnieuw uit te voeren</translation>
+    </message>
+    <message>
+      <source>Group summary: {0}
+Expand the group to act on individual mods.</source>
+      <translation>Groepssamenvatting: {0}
+Breid de groep uit om te handelen op individuele mods.</translation>
     </message>
   </context>
   <context>
@@ -14581,6 +14715,22 @@ flatpak remote-add --user amethist https://chrisdkn.github.io/Amethyst-Mod-Manag
       <translation>Rechterkant</translation>
     </message>
     <message>
+      <source>Translate on Crowdin</source>
+      <translation>Vertalen op Crowdin</translation>
+    </message>
+    <message>
+      <source>Open the Amethyst Crowdin project to help translate the app.</source>
+      <translation>Open het Amethyste Crowdin-project om de app te helpen vertalen.</translation>
+    </message>
+    <message>
+      <source>Mod list</source>
+      <translation>Mod list</translation>
+    </message>
+    <message>
+      <source>Status bar</source>
+      <translation>Status balk</translation>
+    </message>
+    <message>
       <source>Cap the combined download speed of all downloads (collections, single mods, nxm and modl links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>
       <translation>Cap de gecombineerde downloadsnelheid van alle downloads (collecties, enkele mods, nxm en modl links) zodat ze niet de hele verbinding gebruiken. Wordt onmiddellijk toegepast, inclusief een actieve collectie-installatie.</translation>
     </message>
@@ -14639,6 +14789,42 @@ flatpak remote-add --user amethist https://chrisdkn.github.io/Amethyst-Mod-Manag
     <message>
       <source>Additional Proton build not found automatically. Select the build folder containing the top-level 'proton' launcher, not files/bin/wine. Blank disables it.</source>
       <translation>Extra Proton build niet automatisch gevonden. Selecteer de map met de 'proton'-starter op topniveau, niet bestanden/bin/wijn. Blanco schakelt het uit.</translation>
+    </message>
+    <message>
+      <source>Global restore whitelist</source>
+      <translation>Globaal herstel whitelist</translation>
+    </message>
+    <message>
+      <source>Matching runtime-created files stay in the game folder during restore instead of being moved to Overwrite. File and folder names match case-insensitively at any depth; * and ? wildcards are supported. This applies to every game.</source>
+      <translation>Overeenkomende runtime-gemaakte bestanden blijven in de gamemap tijdens het herstellen in plaats van verplaatst te worden naar Overschrijven. Bestands- en mapnamen komen op elk diepte overeen met hoofdletterongevoelig; * en ? wildcards worden ondersteund. Dit geldt voor elk spel.</translation>
+    </message>
+    <message>
+      <source>File names</source>
+      <translation>Bestand namen</translation>
+    </message>
+    <message>
+      <source>File name or wildcard</source>
+      <translation>Bestandsnaam of jokerteken</translation>
+    </message>
+    <message>
+      <source>Add file</source>
+      <translation>Bestand toevoegen</translation>
+    </message>
+    <message>
+      <source>Folder names</source>
+      <translation>Map namen</translation>
+    </message>
+    <message>
+      <source>Folder name or wildcard</source>
+      <translation>Mapnaam of jokerteken</translation>
+    </message>
+    <message>
+      <source>Add folder</source>
+      <translation>Map toevoegen</translation>
+    </message>
+    <message>
+      <source>Remove selected</source>
+      <translation>Geselecteerde verwijderen</translation>
     </message>
     <message>
       <source>{0} set: {1}</source>

@@ -546,8 +546,8 @@ La salida está escrita directamente en su lista mod como el mod '{0}'.</transla
 In Steam, right-click the game → Properties → Installed Files → Verify integrity of game files, then retry.
 
 {0}</source>
-      <translation type="unfinished">Missing vanilla game files even after restoring to vanilla - these were never backed up.
-In Steam, right-click the game → Properties → Installed Files → Verify integrity of game files, then retry.
+      <translation>Faltan archivos del juego en su versión original incluso después de restaurarlo a esa versión; nunca se hizo una copia de seguridad de ellos.
+En Steam, haz clic con el botón derecho del ratón sobre el juego → Propiedades → Archivos instalados → Verificar la integridad de los archivos del juego y, a continuación, vuelve a intentarlo.
 
 {0}</translation>
     </message>
@@ -1969,6 +1969,18 @@ La caché MD5 se conserva. Los archivos se volverán a descargar según sea nece
       <translation>Sistema de archivos virtual (VFS)</translation>
     </message>
     <message>
+      <source>Game Runtime</source>
+      <translation>Tiempo de ejecución del juego</translation>
+    </message>
+    <message>
+      <source>Native Linux</source>
+      <translation>Linux nativo</translation>
+    </message>
+    <message>
+      <source>Windows / Proton</source>
+      <translation>Windows / Proton</translation>
+    </message>
+    <message>
       <source>Swap launcher with script extender on deploy</source>
       <translation>El lanzador de Swap con extensor de scripts</translation>
     </message>
@@ -2197,6 +2209,18 @@ La configuración del perfil predeterminado no se ve afectada.</translation>
       <translation>Primero, configura la carpeta de instalación del juego.</translation>
     </message>
     <message>
+      <source>Native Linux runtime selected, but bin/bg3 was not found.</source>
+      <translation>Se ha seleccionado el tiempo de ejecución nativo de Linux, pero no se ha encontrado bin/bg3.</translation>
+    </message>
+    <message>
+      <source>Windows / Proton runtime selected, but no BG3 Windows executable was found.</source>
+      <translation>Windows / Proton runtime seleccionado, pero no se encontró ningún ejecutable de Windows BG3.</translation>
+    </message>
+    <message>
+      <source>Select the Proton prefix used by this BG3 installation.</source>
+      <translation>Seleccione el prefijo de Proton utilizado por esta instalación de BG3.</translation>
+    </message>
+    <message>
       <source>The mod staging folder cannot be the game folder or be inside it. Choose a separate location.</source>
       <translation>La carpeta de montaje mod no puede ser la carpeta de juego o estar dentro de ella. Elige una ubicación separada.</translation>
     </message>
@@ -2207,6 +2231,10 @@ La configuración del perfil predeterminado no se ve afectada.</translation>
     <message>
       <source>Cannot change the game/prefix path while mods are deployed. Restore the game first.</source>
       <translation>No se puede cambiar la ruta del juego o del prefijo mientras haya mods instalados. Restablece primero el juego.</translation>
+    </message>
+    <message>
+      <source>Cannot change the game runtime while mods are deployed. Restore the game first.</source>
+      <translation>No se puede cambiar el tiempo de ejecución del juego mientras los mods están desplegados. Restaurar el juego primero.</translation>
     </message>
     <message>
       <source>Restore the game before changing the preferred OpenMW package.</source>
@@ -3748,6 +3776,10 @@ Cuando se complete, la aplicación cambia al nuevo perfil - luego vuelve aquí y
       <source>Install</source>
       <translation>Instalar</translation>
     </message>
+    <message>
+      <source>{0} (hidden)</source>
+      <translation>{0} (hidden)</translation>
+    </message>
   </context>
   <context>
     <name>DownloadsModel</name>
@@ -4015,6 +4047,10 @@ Reinicia el asistente e instala primero {1}.</translation>
     <message>
       <source>Launching {0}…</source>
       <translation>Iniciando {0}…</translation>
+    </message>
+    <message>
+      <source>xLODGen does not support {0}.</source>
+      <translation>xLODGen no soporta {0}.</translation>
     </message>
     <message>
       <source>Game path not configured.</source>
@@ -5263,6 +5299,10 @@ Haga clic en Hecho para limpiar los archivos extraídos y cerrar.</translation>
       <translation>Mostrar solo los que no están instalados</translation>
     </message>
     <message>
+      <source>Show hidden archives</source>
+      <translation>Mostrar archivos ocultos</translation>
+    </message>
+    <message>
       <source>Only conflicts</source>
       <translation>Sólo conflictos</translation>
     </message>
@@ -6333,6 +6373,14 @@ Si continúas, esta advertencia no se mostrará de nuevo para {1} a menos que ca
       <translation>Mover selección</translation>
     </message>
     <message>
+      <source>Hide Selected</source>
+      <translation>Ocultar seleccionados</translation>
+    </message>
+    <message>
+      <source>Unhide Selected</source>
+      <translation>Mostrar seleccionados</translation>
+    </message>
+    <message>
       <source>Remove Selected</source>
       <translation>Deseleccionar</translation>
     </message>
@@ -6351,6 +6399,18 @@ Si continúas, esta advertencia no se mostrará de nuevo para {1} a menos que ca
     <message>
       <source>Removed {0} archive(s)</source>
       <translation>Se han eliminado los archivos de «{0}»</translation>
+    </message>
+    <message>
+      <source>Hidden {0} archive(s)</source>
+      <translation type="unfinished">Hidden {0} archive(s)</translation>
+    </message>
+    <message>
+      <source>Made {0} archive(s) visible</source>
+      <translation type="unfinished">Made {0} archive(s) visible</translation>
+    </message>
+    <message>
+      <source>Could not update hidden archives: {0}</source>
+      <translation>No se pudo actualizar los archivos ocultos: {0}</translation>
     </message>
     <message>
       <source>Cannot use that folder: {0}</source>
@@ -7813,6 +7873,22 @@ Ejecutar la actualización rápida en todos ellos ahora?</translation>
       <translation>LOOT falló - ver el registro.</translation>
     </message>
     <message>
+      <source>Plugin sources are being refreshed. Run LOOT when loading finishes.</source>
+      <translation>Se están actualizando las fuentes de plugins. Ejecuta LOOT al cargar los acabados.</translation>
+    </message>
+    <message>
+      <source>Could not prepare plugin sources: {0}</source>
+      <translation>No se pudo preparar las fuentes del plugin: {0}</translation>
+    </message>
+    <message>
+      <source>Plugin state changed while LOOT was running. Run LOOT again.</source>
+      <translation>Estado del plugin cambiado mientras LOOT se estaba ejecutando. Ejecute LOOT de nuevo.</translation>
+    </message>
+    <message>
+      <source>Locked plugin positions conflict with the game's required load order.</source>
+      <translation>El plugin bloqueado coloca en conflicto con el orden de carga requerido por el juego.</translation>
+    </message>
+    <message>
       <source>Sorted - 1 plugin moved.</source>
       <translation>Clasificado - 1 plugin movido.</translation>
     </message>
@@ -8177,6 +8253,18 @@ Ejecutar la actualización rápida en todos ellos ahora?</translation>
       <translation>No se pudo copiar el separador.</translation>
     </message>
     <message>
+      <source>Could not preserve groups: {0}.</source>
+      <translation>No se pudieron preservar los grupos: {0}.</translation>
+    </message>
+    <message>
+      <source>Their source mods were kept.</source>
+      <translation>Sus mods de origen eran tal.</translation>
+    </message>
+    <message>
+      <source>Could not update the source profile's modlist.</source>
+      <translation>No se pudo actualizar la lista de mods del perfil fuente.</translation>
+    </message>
+    <message>
       <source>Cancel all</source>
       <translation>Cancelar todo</translation>
     </message>
@@ -8425,6 +8513,10 @@ Ejecute el mago de Downgrade para recortar el juego de nuevo a una versión comp
     <message>
       <source>Mods with BSA archives</source>
       <translation>Mods con archivos BSA</translation>
+    </message>
+    <message>
+      <source>Could not save mod groups: {0}</source>
+      <translation>No se pudo guardar los grupos de mod: {0}</translation>
     </message>
     <message>
       <source>{0} enabled of {1} mods</source>
@@ -9002,6 +9094,14 @@ How would you like to handle the existing mod?</source>
       <source>(no mod selected)</source>
       <translation>(no se ha seleccionado ningún módulo)</translation>
     </message>
+    <message>
+      <source>{0} — Loading files…</source>
+      <translation>{0} — Cargando archivos…</translation>
+    </message>
+    <message>
+      <source>{0} — Unable to load files</source>
+      <translation>{0} — No se pueden cargar archivos</translation>
+    </message>
   </context>
   <context>
     <name>ModListMenu</name>
@@ -9080,6 +9180,34 @@ How would you like to handle the existing mod?</source>
     <message>
       <source>Create</source>
       <translation>Crear</translation>
+    </message>
+    <message>
+      <source>Group options</source>
+      <translation>Opciones de grupo</translation>
+    </message>
+    <message>
+      <source>Group with</source>
+      <translation>Agrupar con</translation>
+    </message>
+    <message>
+      <source>Change group leader</source>
+      <translation>Cambiar líder de grupo</translation>
+    </message>
+    <message>
+      <source>Ungroup</source>
+      <translation>Desagrupar</translation>
+    </message>
+    <message>
+      <source>Ungroup all</source>
+      <translation>Desagrupar todo</translation>
+    </message>
+    <message>
+      <source>Enable group</source>
+      <translation>Activar grupo</translation>
+    </message>
+    <message>
+      <source>Disable group</source>
+      <translation>Desactivar grupo</translation>
     </message>
     <message>
       <source>Copy separator to profile</source>
@@ -9624,6 +9752,12 @@ Haga clic en Hecho para cerrar.</translation>
     <message>
       <source>A FOMOD option you didn't select is now relevant ({0} is in the load order) - click to re-run the FOMOD installer</source>
       <translation>Una opción FOMOD que no ha seleccionado es ahora relevante ({0} está en el orden de carga) - haga clic para re-correr el instalador FOMOD</translation>
+    </message>
+    <message>
+      <source>Group summary: {0}
+Expand the group to act on individual mods.</source>
+      <translation>Resumen del grupo: {0}
+Expande el grupo para actuar en mods individuales.</translation>
     </message>
   </context>
   <context>
@@ -10645,7 +10779,7 @@ Diarias: {1}</translation>
     </message>
     <message>
       <source>{0} file(s)</source>
-      <translation type="unfinished">{0} file(s)</translation>
+      <translation>{0} archivo(s)</translation>
     </message>
     <message>
       <source>Cancel</source>
@@ -11430,9 +11564,9 @@ Esto no se puede deshacer.</translation>
       <source>Permanently delete {0} item(s) from the Overwrite folder?
 
 This cannot be undone.</source>
-      <translation type="unfinished">Permanently delete {0} item(s) from the Overwrite folder?
+      <translation>¿Eliminar Permanentemente un elemento {0} de la carpeta Sobrescribir?
 
-This cannot be undone.</translation>
+Esto no se puede deshacer.</translation>
     </message>
   </context>
   <context>
@@ -12388,7 +12522,7 @@ Arrastra un complemento desde el panel de la izquierda para añadir una regla.</
     </message>
     <message>
       <source>{0} member(s)</source>
-      <translation type="unfinished">{0} member(s)</translation>
+      <translation>{0} miembro(s)</translation>
     </message>
     <message>
       <source>Hide members</source>
@@ -14581,6 +14715,22 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
       <translation>El lado derecho</translation>
     </message>
     <message>
+      <source>Translate on Crowdin</source>
+      <translation>Traducir en Crowdin</translation>
+    </message>
+    <message>
+      <source>Open the Amethyst Crowdin project to help translate the app.</source>
+      <translation>Abre el proyecto Amethyst Crowdin para ayudar a traducir la aplicación.</translation>
+    </message>
+    <message>
+      <source>Mod list</source>
+      <translation>Mod list</translation>
+    </message>
+    <message>
+      <source>Status bar</source>
+      <translation>Barra de estado</translation>
+    </message>
+    <message>
       <source>Cap the combined download speed of all downloads (collections, single mods, nxm and modl links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>
       <translation>Aplique la velocidad de descarga combinada de todas las descargas (colecciones, mods simples, nxm y enlaces modl) para que no utilicen toda la conexión. Se aplica inmediatamente, incluyendo a una instalación de colección en ejecución.</translation>
     </message>
@@ -14639,6 +14789,42 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     <message>
       <source>Additional Proton build not found automatically. Select the build folder containing the top-level 'proton' launcher, not files/bin/wine. Blank disables it.</source>
       <translation>Proton adicional no se encuentra automáticamente. Seleccione la carpeta de construcción que contiene el lanzador "protón" de alto nivel, no archivos/bin/wine. Blank lo desactiva.</translation>
+    </message>
+    <message>
+      <source>Global restore whitelist</source>
+      <translation>Restauración global de lista blanca</translation>
+    </message>
+    <message>
+      <source>Matching runtime-created files stay in the game folder during restore instead of being moved to Overwrite. File and folder names match case-insensitively at any depth; * and ? wildcards are supported. This applies to every game.</source>
+      <translation>Los archivos creados en tiempo de ejecución coincidentes permanecen en la carpeta del juego durante la restauración en lugar de ser movidos a sobrescribir. Los nombres de archivos y carpetas coinciden con mayúsculas y minúsculas en cualquier profundidad; * y ? comodines son compatibles. Esto se aplica a cada juego.</translation>
+    </message>
+    <message>
+      <source>File names</source>
+      <translation>Nombre de archivo</translation>
+    </message>
+    <message>
+      <source>File name or wildcard</source>
+      <translation>Nombre del archivo o comodín</translation>
+    </message>
+    <message>
+      <source>Add file</source>
+      <translation>Añadir archivo</translation>
+    </message>
+    <message>
+      <source>Folder names</source>
+      <translation>Nombres de carpetas</translation>
+    </message>
+    <message>
+      <source>Folder name or wildcard</source>
+      <translation>Nombre de carpeta o comodín</translation>
+    </message>
+    <message>
+      <source>Add folder</source>
+      <translation>Añadir carpeta</translation>
+    </message>
+    <message>
+      <source>Remove selected</source>
+      <translation>Eliminar seleccionados</translation>
     </message>
     <message>
       <source>{0} set: {1}</source>

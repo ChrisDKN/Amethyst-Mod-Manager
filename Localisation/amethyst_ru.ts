@@ -546,8 +546,8 @@ Output is written directly into your mod list as the '{0}' mod.</source>
 In Steam, right-click the game → Properties → Installed Files → Verify integrity of game files, then retry.
 
 {0}</source>
-      <translation type="unfinished">Missing vanilla game files even after restoring to vanilla - these were never backed up.
-In Steam, right-click the game → Properties → Installed Files → Verify integrity of game files, then retry.
+      <translation>Пропавшие файлы ванильных плагинов даже после восстановления ванильных - они никогда не были сохранены.
+В Steam щелкните правой кнопкой мыши игру → Свойства → Установленные файлы → Проверьте целостность игровых файлов, затем повторите попытку.
 
 {0}</translation>
     </message>
@@ -1969,6 +1969,18 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</source>
       <translation>Виртуальная файловая система (VFS)</translation>
     </message>
     <message>
+      <source>Game Runtime</source>
+      <translation>Запуск игры</translation>
+    </message>
+    <message>
+      <source>Native Linux</source>
+      <translation>Родной Linux</translation>
+    </message>
+    <message>
+      <source>Windows / Proton</source>
+      <translation>Windows / Протон</translation>
+    </message>
+    <message>
       <source>Swap launcher with script extender on deploy</source>
       <translation>Swap Launcher с расширением скрипта для развертывания</translation>
     </message>
@@ -2197,6 +2209,18 @@ The default profile's settings are not affected.</source>
       <translation>Сначала укажите папку установки игры.</translation>
     </message>
     <message>
+      <source>Native Linux runtime selected, but bin/bg3 was not found.</source>
+      <translation>Native Linux runtime selected, но bin/bg3 не найден.</translation>
+    </message>
+    <message>
+      <source>Windows / Proton runtime selected, but no BG3 Windows executable was found.</source>
+      <translation>Windows / Proton runtime selected, но исполняемый файл BG3 Windows не найден.</translation>
+    </message>
+    <message>
+      <source>Select the Proton prefix used by this BG3 installation.</source>
+      <translation>Выберите префикс Proton, используемый для данной установки BG3.</translation>
+    </message>
+    <message>
       <source>The mod staging folder cannot be the game folder or be inside it. Choose a separate location.</source>
       <translation>Папка Mod Staging не может быть игровой папкой или находиться внутри нее. Выберите отдельное место.</translation>
     </message>
@@ -2207,6 +2231,10 @@ The default profile's settings are not affected.</source>
     <message>
       <source>Cannot change the game/prefix path while mods are deployed. Restore the game first.</source>
       <translation>Невозможно изменить путь к игре/префиксу, пока моды развернуты. Сначала восстановите игру.</translation>
+    </message>
+    <message>
+      <source>Cannot change the game runtime while mods are deployed. Restore the game first.</source>
+      <translation>Нельзя изменить время выполнения игры, пока установлены моды. Сначала восстановите игру.</translation>
     </message>
     <message>
       <source>Restore the game before changing the preferred OpenMW package.</source>
@@ -3748,6 +3776,10 @@ When it completes, the app switches to the new profile - then come back here and
       <source>Install</source>
       <translation>Установить</translation>
     </message>
+    <message>
+      <source>{0} (hidden)</source>
+      <translation>{0} (hidden)</translation>
+    </message>
   </context>
   <context>
     <name>DownloadsModel</name>
@@ -4015,6 +4047,10 @@ Please restart the wizard and install {1} first.</source>
     <message>
       <source>Launching {0}…</source>
       <translation>Запуск {0}…</translation>
+    </message>
+    <message>
+      <source>xLODGen does not support {0}.</source>
+      <translation>xLODGen не поддерживает {0}.</translation>
     </message>
     <message>
       <source>Game path not configured.</source>
@@ -5263,6 +5299,10 @@ Click Done to clean up the extracted files and close.</source>
       <translation>Показать только неустановленные</translation>
     </message>
     <message>
+      <source>Show hidden archives</source>
+      <translation>Показать скрытые архивы</translation>
+    </message>
+    <message>
       <source>Only conflicts</source>
       <translation>Только конфликты</translation>
     </message>
@@ -6333,6 +6373,14 @@ If you continue, this warning won't be shown again for {1} unless the drives cha
       <translation>Переместить выделенное</translation>
     </message>
     <message>
+      <source>Hide Selected</source>
+      <translation>Скрыть выбранные</translation>
+    </message>
+    <message>
+      <source>Unhide Selected</source>
+      <translation>Показать выбранные</translation>
+    </message>
+    <message>
       <source>Remove Selected</source>
       <translation>Удалить выделенное</translation>
     </message>
@@ -6351,6 +6399,18 @@ If you continue, this warning won't be shown again for {1} unless the drives cha
     <message>
       <source>Removed {0} archive(s)</source>
       <translation>Удалены архивы {0}</translation>
+    </message>
+    <message>
+      <source>Hidden {0} archive(s)</source>
+      <translation>Скрытый {0} архив</translation>
+    </message>
+    <message>
+      <source>Made {0} archive(s) visible</source>
+      <translation>Видимый архив {0}</translation>
+    </message>
+    <message>
+      <source>Could not update hidden archives: {0}</source>
+      <translation>Не удалось обновить скрытые архивы: {0}</translation>
     </message>
     <message>
       <source>Cannot use that folder: {0}</source>
@@ -7813,6 +7873,22 @@ Run Quick Update on all of them now?</source>
       <translation>LOOT sort failed - см. log.</translation>
     </message>
     <message>
+      <source>Plugin sources are being refreshed. Run LOOT when loading finishes.</source>
+      <translation>Источники плагинов обновляются. Запустите LOOT после завершения загрузки.</translation>
+    </message>
+    <message>
+      <source>Could not prepare plugin sources: {0}</source>
+      <translation>Не удалось подготовить источники плагинов: {0}</translation>
+    </message>
+    <message>
+      <source>Plugin state changed while LOOT was running. Run LOOT again.</source>
+      <translation>Состояние плагина изменено во время работы LOOT. Выполнить LOOT снова.</translation>
+    </message>
+    <message>
+      <source>Locked plugin positions conflict with the game's required load order.</source>
+      <translation>Заблокированные позиции плагина конфликтуют с требуемым порядком загрузки.</translation>
+    </message>
+    <message>
       <source>Sorted - 1 plugin moved.</source>
       <translation>Сортирован - 1 плагин перемещен.</translation>
     </message>
@@ -8177,6 +8253,18 @@ Run Quick Update on all of them now?</source>
       <translation>Не удалось скопировать разделитель.</translation>
     </message>
     <message>
+      <source>Could not preserve groups: {0}.</source>
+      <translation>Не удалось сохранить группы: {0}.</translation>
+    </message>
+    <message>
+      <source>Their source mods were kept.</source>
+      <translation>Их исходные модификации сохранены.</translation>
+    </message>
+    <message>
+      <source>Could not update the source profile's modlist.</source>
+      <translation>Не удалось обновить мод-лист профиля источника.</translation>
+    </message>
+    <message>
       <source>Cancel all</source>
       <translation>Отменить все</translation>
     </message>
@@ -8425,6 +8513,10 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
     <message>
       <source>Mods with BSA archives</source>
       <translation>Модификации с архивами BSA</translation>
+    </message>
+    <message>
+      <source>Could not save mod groups: {0}</source>
+      <translation>Не удалось сохранить группы модов: {0}</translation>
     </message>
     <message>
       <source>{0} enabled of {1} mods</source>
@@ -9002,6 +9094,14 @@ How would you like to handle the existing mod?</source>
       <source>(no mod selected)</source>
       <translation>(модуль не выбран)</translation>
     </message>
+    <message>
+      <source>{0} — Loading files…</source>
+      <translation>{0} — Загрузка файлов…</translation>
+    </message>
+    <message>
+      <source>{0} — Unable to load files</source>
+      <translation>{0} — Не удается загрузить файлы</translation>
+    </message>
   </context>
   <context>
     <name>ModListMenu</name>
@@ -9080,6 +9180,34 @@ How would you like to handle the existing mod?</source>
     <message>
       <source>Create</source>
       <translation>Создать</translation>
+    </message>
+    <message>
+      <source>Group options</source>
+      <translation>Настройки группы</translation>
+    </message>
+    <message>
+      <source>Group with</source>
+      <translation>Группировать</translation>
+    </message>
+    <message>
+      <source>Change group leader</source>
+      <translation>Изменить лидера группы</translation>
+    </message>
+    <message>
+      <source>Ungroup</source>
+      <translation>Разгруппировать</translation>
+    </message>
+    <message>
+      <source>Ungroup all</source>
+      <translation>Разгруппировать все</translation>
+    </message>
+    <message>
+      <source>Enable group</source>
+      <translation>Включить группу</translation>
+    </message>
+    <message>
+      <source>Disable group</source>
+      <translation>Отключить группу</translation>
     </message>
     <message>
       <source>Copy separator to profile</source>
@@ -9624,6 +9752,12 @@ Click Done to close.</source>
     <message>
       <source>A FOMOD option you didn't select is now relevant ({0} is in the load order) - click to re-run the FOMOD installer</source>
       <translation>Опция FOMOD, которую вы не выбрали, теперь актуальна ({0} находится в порядке загрузки) - нажмите, чтобы повторно запустить установщик FOMOD</translation>
+    </message>
+    <message>
+      <source>Group summary: {0}
+Expand the group to act on individual mods.</source>
+      <translation>Сводка по группе: {0}
+Расширьте группу для работы с индивидуальными модами.</translation>
     </message>
   </context>
   <context>
@@ -14581,6 +14715,22 @@ flatpak remote-add - пользователь аметист https://chrisdkn.gi
       <translation>Правая сторона</translation>
     </message>
     <message>
+      <source>Translate on Crowdin</source>
+      <translation>Перевести на Crowdin</translation>
+    </message>
+    <message>
+      <source>Open the Amethyst Crowdin project to help translate the app.</source>
+      <translation>Откройте проект Amethyst Crowdin, чтобы помочь перевести приложение.</translation>
+    </message>
+    <message>
+      <source>Mod list</source>
+      <translation>Mod list</translation>
+    </message>
+    <message>
+      <source>Status bar</source>
+      <translation>Строка состояния</translation>
+    </message>
+    <message>
       <source>Cap the combined download speed of all downloads (collections, single mods, nxm and modl links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>
       <translation>Соединительная скорость загрузки всех загрузок (коллекций, единичных модов, nxm и ссылок на мод), так что они не используют все соединения. Применяется немедленно, в том числе и к работающей установке коллекции.</translation>
     </message>
@@ -14639,6 +14789,42 @@ flatpak remote-add - пользователь аметист https://chrisdkn.gi
     <message>
       <source>Additional Proton build not found automatically. Select the build folder containing the top-level 'proton' launcher, not files/bin/wine. Blank disables it.</source>
       <translation>Дополнительная сборка Протона не найдена автоматически. Выберите папку сборки, содержащую пусковую установку «протон» верхнего уровня, а не файлы / бин / вино. Бланк отключает его.</translation>
+    </message>
+    <message>
+      <source>Global restore whitelist</source>
+      <translation>Глобальный список восстановления</translation>
+    </message>
+    <message>
+      <source>Matching runtime-created files stay in the game folder during restore instead of being moved to Overwrite. File and folder names match case-insensitively at any depth; * and ? wildcards are supported. This applies to every game.</source>
+      <translation>Сопоставление файлов с runtime-created остается в папке игры во время восстановления вместо того, чтобы перемещаться в Перезапись. Имена файлов и папок соответствуют регистру на любой глубине; * и ? маски поддерживаются. Это относится к каждой игре.</translation>
+    </message>
+    <message>
+      <source>File names</source>
+      <translation>Имена файлов</translation>
+    </message>
+    <message>
+      <source>File name or wildcard</source>
+      <translation>Имя файла или шаблон</translation>
+    </message>
+    <message>
+      <source>Add file</source>
+      <translation>Добавить файл</translation>
+    </message>
+    <message>
+      <source>Folder names</source>
+      <translation>Названия папок</translation>
+    </message>
+    <message>
+      <source>Folder name or wildcard</source>
+      <translation>Имя папки или шаблон</translation>
+    </message>
+    <message>
+      <source>Add folder</source>
+      <translation>Добавить папку</translation>
+    </message>
+    <message>
+      <source>Remove selected</source>
+      <translation>Удалить выбранные</translation>
     </message>
     <message>
       <source>{0} set: {1}</source>

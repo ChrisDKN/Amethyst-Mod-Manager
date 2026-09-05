@@ -1969,6 +1969,18 @@ MD5缓存将被保留。压缩包将根据需要重新下载。</translation>
       <translation>虚拟文件系统( VFS)</translation>
     </message>
     <message>
+      <source>Game Runtime</source>
+      <translation>游戏运行时间</translation>
+    </message>
+    <message>
+      <source>Native Linux</source>
+      <translation>原生Linux</translation>
+    </message>
+    <message>
+      <source>Windows / Proton</source>
+      <translation>Windows / 质点</translation>
+    </message>
+    <message>
       <source>Swap launcher with script extender on deploy</source>
       <translation>部署时使用脚本扩展器的交换发射器</translation>
     </message>
@@ -2197,6 +2209,18 @@ The default profile's settings are not affected.</source>
       <translation>请先设置游戏的安装文件夹。</translation>
     </message>
     <message>
+      <source>Native Linux runtime selected, but bin/bg3 was not found.</source>
+      <translation>选择了原生的Linux运行时间，但是找不到二进制/bg3。</translation>
+    </message>
+    <message>
+      <source>Windows / Proton runtime selected, but no BG3 Windows executable was found.</source>
+      <translation>选择了 Windows / Proton 运行时间，但未找到 BG3 Windows可执行程序。</translation>
+    </message>
+    <message>
+      <source>Select the Proton prefix used by this BG3 installation.</source>
+      <translation>选择此 BG3 安装使用的质子前缀。</translation>
+    </message>
+    <message>
       <source>The mod staging folder cannot be the game folder or be inside it. Choose a separate location.</source>
       <translation>Mod 中转文件夹不能是游戏文件夹或包含在内 。 选择单独的位置 .</translation>
     </message>
@@ -2207,6 +2231,10 @@ The default profile's settings are not affected.</source>
     <message>
       <source>Cannot change the game/prefix path while mods are deployed. Restore the game first.</source>
       <translation>在模组已部署的情况下，无法更改游戏/前缀路径。请先还原游戏。</translation>
+    </message>
+    <message>
+      <source>Cannot change the game runtime while mods are deployed. Restore the game first.</source>
+      <translation>部署模组时无法更改游戏运行时间，请先恢复游戏。</translation>
     </message>
     <message>
       <source>Restore the game before changing the preferred OpenMW package.</source>
@@ -3748,6 +3776,10 @@ When it completes, the app switches to the new profile - then come back here and
       <source>Install</source>
       <translation>安装</translation>
     </message>
+    <message>
+      <source>{0} (hidden)</source>
+      <translation>{0} (hidden)</translation>
+    </message>
   </context>
   <context>
     <name>DownloadsModel</name>
@@ -4015,6 +4047,10 @@ Please restart the wizard and install {1} first.</source>
     <message>
       <source>Launching {0}…</source>
       <translation>正在启动 {0}…</translation>
+    </message>
+    <message>
+      <source>xLODGen does not support {0}.</source>
+      <translation>xLODGen 不支持 {0}。</translation>
     </message>
     <message>
       <source>Game path not configured.</source>
@@ -5263,6 +5299,10 @@ Click Done to clean up the extracted files and close.</source>
       <translation>仅显示未安装的</translation>
     </message>
     <message>
+      <source>Show hidden archives</source>
+      <translation>显示隐藏的档案</translation>
+    </message>
+    <message>
       <source>Only conflicts</source>
       <translation>只有冲突</translation>
     </message>
@@ -6333,6 +6373,14 @@ NTFS 和 exFAT 驱动器在 Linux 上有很弱的写保证: 不干净的卸载, 
       <translation>移动所选内容</translation>
     </message>
     <message>
+      <source>Hide Selected</source>
+      <translation>隐藏选中的</translation>
+    </message>
+    <message>
+      <source>Unhide Selected</source>
+      <translation>取消隐藏选中项</translation>
+    </message>
+    <message>
       <source>Remove Selected</source>
       <translation>取消选中</translation>
     </message>
@@ -6351,6 +6399,18 @@ NTFS 和 exFAT 驱动器在 Linux 上有很弱的写保证: 不干净的卸载, 
     <message>
       <source>Removed {0} archive(s)</source>
       <translation>已删除 {0} 存档</translation>
+    </message>
+    <message>
+      <source>Hidden {0} archive(s)</source>
+      <translation>隐藏的 {0} 归档(s)</translation>
+    </message>
+    <message>
+      <source>Made {0} archive(s) visible</source>
+      <translation>生成 {0} 存档(s) 可见</translation>
+    </message>
+    <message>
+      <source>Could not update hidden archives: {0}</source>
+      <translation>无法更新隐藏的档案: {0}</translation>
     </message>
     <message>
       <source>Cannot use that folder: {0}</source>
@@ -7813,6 +7873,22 @@ Run Quick Update on all of them now?</source>
       <translation>LOOT 排序失败 - 见日志 .</translation>
     </message>
     <message>
+      <source>Plugin sources are being refreshed. Run LOOT when loading finishes.</source>
+      <translation>插件源正在刷新。加载完成后运行LOOT。</translation>
+    </message>
+    <message>
+      <source>Could not prepare plugin sources: {0}</source>
+      <translation>无法准备插件源: {0}</translation>
+    </message>
+    <message>
+      <source>Plugin state changed while LOOT was running. Run LOOT again.</source>
+      <translation>LOOT 运行时插件状态已更改。重新运行LOOT</translation>
+    </message>
+    <message>
+      <source>Locked plugin positions conflict with the game's required load order.</source>
+      <translation>锁定插件位置与游戏所需加载订单冲突。</translation>
+    </message>
+    <message>
       <source>Sorted - 1 plugin moved.</source>
       <translation>排序 - 1个插件已移动 .</translation>
     </message>
@@ -8177,6 +8253,18 @@ Run Quick Update on all of them now?</source>
       <translation>无法复制分隔符。</translation>
     </message>
     <message>
+      <source>Could not preserve groups: {0}.</source>
+      <translation>无法保存群组： {0}</translation>
+    </message>
+    <message>
+      <source>Their source mods were kept.</source>
+      <translation>他们的源模组被保留。</translation>
+    </message>
+    <message>
+      <source>Could not update the source profile's modlist.</source>
+      <translation>无法更新源配置文件的模组列表。</translation>
+    </message>
+    <message>
       <source>Cancel all</source>
       <translation>全部取消</translation>
     </message>
@@ -8425,6 +8513,10 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
     <message>
       <source>Mods with BSA archives</source>
       <translation>包含BSA存档的模组</translation>
+    </message>
+    <message>
+      <source>Could not save mod groups: {0}</source>
+      <translation>无法保存模组组： {0}</translation>
     </message>
     <message>
       <source>{0} enabled of {1} mods</source>
@@ -9002,6 +9094,14 @@ How would you like to handle the existing mod?</source>
       <source>(no mod selected)</source>
       <translation>（未选择版）</translation>
     </message>
+    <message>
+      <source>{0} — Loading files…</source>
+      <translation type="unfinished">{0} — Loading files…</translation>
+    </message>
+    <message>
+      <source>{0} — Unable to load files</source>
+      <translation>{0} -无法加载文件</translation>
+    </message>
   </context>
   <context>
     <name>ModListMenu</name>
@@ -9080,6 +9180,34 @@ How would you like to handle the existing mod?</source>
     <message>
       <source>Create</source>
       <translation>创建</translation>
+    </message>
+    <message>
+      <source>Group options</source>
+      <translation>群组选项</translation>
+    </message>
+    <message>
+      <source>Group with</source>
+      <translation>群组与</translation>
+    </message>
+    <message>
+      <source>Change group leader</source>
+      <translation>更改群组领导者</translation>
+    </message>
+    <message>
+      <source>Ungroup</source>
+      <translation>取消分组</translation>
+    </message>
+    <message>
+      <source>Ungroup all</source>
+      <translation>全部取消分组</translation>
+    </message>
+    <message>
+      <source>Enable group</source>
+      <translation>启用组</translation>
+    </message>
+    <message>
+      <source>Disable group</source>
+      <translation>禁用组</translation>
     </message>
     <message>
       <source>Copy separator to profile</source>
@@ -9624,6 +9752,12 @@ Click Done to close.</source>
     <message>
       <source>A FOMOD option you didn't select is now relevant ({0} is in the load order) - click to re-run the FOMOD installer</source>
       <translation>您没有选择的 FOMOD 选项现在相关( {0} 按负载顺序) - 单击以重新运行 FOMOD 安装器</translation>
+    </message>
+    <message>
+      <source>Group summary: {0}
+Expand the group to act on individual mods.</source>
+      <translation>群组摘要： {0}
+扩展群组以对个别模式采取行动。</translation>
     </message>
   </context>
   <context>
@@ -14581,6 +14715,22 @@ flatpak 远程添加-user amethyst https://chrisdkn.github.io/ Amethyst-Mod-Mana
       <translation>右边</translation>
     </message>
     <message>
+      <source>Translate on Crowdin</source>
+      <translation>在 Crowdin 上翻译</translation>
+    </message>
+    <message>
+      <source>Open the Amethyst Crowdin project to help translate the app.</source>
+      <translation>打开Amethyst Crowdin项目，帮助翻译应用程序。</translation>
+    </message>
+    <message>
+      <source>Mod list</source>
+      <translation>Mod list</translation>
+    </message>
+    <message>
+      <source>Status bar</source>
+      <translation>状态栏</translation>
+    </message>
+    <message>
       <source>Cap the combined download speed of all downloads (collections, single mods, nxm and modl links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>
       <translation>拍照所有下载的合并下载速度(集合，单个模组，nxm 和 modl 链接)，这样他们就不会使用整个连接。 立即应用，包括正在运行的集合安装。</translation>
     </message>
@@ -14639,6 +14789,42 @@ flatpak 远程添加-user amethyst https://chrisdkn.github.io/ Amethyst-Mod-Mana
     <message>
       <source>Additional Proton build not found automatically. Select the build folder containing the top-level 'proton' launcher, not files/bin/wine. Blank disables it.</source>
       <translation>未自动找到额外的质子构建 。 选择包含顶级"质子"启动器的构建文件夹,而不是文件/bin/wine. 空白会禁用它.</translation>
+    </message>
+    <message>
+      <source>Global restore whitelist</source>
+      <translation>全局还原白名单</translation>
+    </message>
+    <message>
+      <source>Matching runtime-created files stay in the game folder during restore instead of being moved to Overwrite. File and folder names match case-insensitively at any depth; * and ? wildcards are supported. This applies to every game.</source>
+      <translation>恢复过程中匹配运行时创建的文件，而不是被移至覆盖。 文件和文件夹名称在任何深度都不区分大小写地匹配; * 和 ? 支持通配符。这适用于每个游戏。</translation>
+    </message>
+    <message>
+      <source>File names</source>
+      <translation>文件名称</translation>
+    </message>
+    <message>
+      <source>File name or wildcard</source>
+      <translation>文件名或通配符</translation>
+    </message>
+    <message>
+      <source>Add file</source>
+      <translation>添加文件</translation>
+    </message>
+    <message>
+      <source>Folder names</source>
+      <translation>文件夹名称</translation>
+    </message>
+    <message>
+      <source>Folder name or wildcard</source>
+      <translation>文件夹名称或通配符</translation>
+    </message>
+    <message>
+      <source>Add folder</source>
+      <translation>添加文件夹</translation>
+    </message>
+    <message>
+      <source>Remove selected</source>
+      <translation>删除选中的</translation>
     </message>
     <message>
       <source>{0} set: {1}</source>

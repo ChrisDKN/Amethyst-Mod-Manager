@@ -1969,6 +1969,18 @@ MD5キャッシュは保持されます。アーカイブは必要に応じて�
       <translation>仮想ファイルシステム(VFS)</translation>
     </message>
     <message>
+      <source>Game Runtime</source>
+      <translation>ゲームの実行</translation>
+    </message>
+    <message>
+      <source>Native Linux</source>
+      <translation>ネイティブ Linux</translation>
+    </message>
+    <message>
+      <source>Windows / Proton</source>
+      <translation>Windows / Proton</translation>
+    </message>
+    <message>
       <source>Swap launcher with script extender on deploy</source>
       <translation>スワップランチャーとスクリプトエクステンダーをデプロイ</translation>
     </message>
@@ -2197,6 +2209,18 @@ The default profile's settings are not affected.</source>
       <translation>まず、ゲームのインストールフォルダを設定してください。</translation>
     </message>
     <message>
+      <source>Native Linux runtime selected, but bin/bg3 was not found.</source>
+      <translation>ネイティブ Linux ランタイムを選択しましたが、bin/bg3 は見つかりませんでした。</translation>
+    </message>
+    <message>
+      <source>Windows / Proton runtime selected, but no BG3 Windows executable was found.</source>
+      <translation>Windows / Protonランタイムが選択されましたが、BG3のWindows実行可能ファイルは見つかりませんでした。</translation>
+    </message>
+    <message>
+      <source>Select the Proton prefix used by this BG3 installation.</source>
+      <translation>このBG3インストールで使用されるProtonプレフィックスを選択します。</translation>
+    </message>
+    <message>
       <source>The mod staging folder cannot be the game folder or be inside it. Choose a separate location.</source>
       <translation>Mod のステージングフォルダはゲームフォルダか内部にすることはできません。 別の場所を選択します.</translation>
     </message>
@@ -2207,6 +2231,10 @@ The default profile's settings are not affected.</source>
     <message>
       <source>Cannot change the game/prefix path while mods are deployed. Restore the game first.</source>
       <translation>MODが展開されている間は、ゲームのパスやプレフィックスを変更できません。まずゲームを復元してください。</translation>
+    </message>
+    <message>
+      <source>Cannot change the game runtime while mods are deployed. Restore the game first.</source>
+      <translation>MODがデプロイされている間はゲームランタイムを変更できません。最初にゲームを復元してください。</translation>
     </message>
     <message>
       <source>Restore the game before changing the preferred OpenMW package.</source>
@@ -3748,6 +3776,10 @@ When it completes, the app switches to the new profile - then come back here and
       <source>Install</source>
       <translation>インストール</translation>
     </message>
+    <message>
+      <source>{0} (hidden)</source>
+      <translation>{0} (hidden)</translation>
+    </message>
   </context>
   <context>
     <name>DownloadsModel</name>
@@ -4015,6 +4047,10 @@ Please restart the wizard and install {1} first.</source>
     <message>
       <source>Launching {0}…</source>
       <translation>{0}の起動中…</translation>
+    </message>
+    <message>
+      <source>xLODGen does not support {0}.</source>
+      <translation>xLODGENは {0}をサポートしていません。</translation>
     </message>
     <message>
       <source>Game path not configured.</source>
@@ -5263,6 +5299,10 @@ Doneをクリックして抽出されたファイルをクリーンアップし�
       <translation>「インストールされていないもののみ表示」</translation>
     </message>
     <message>
+      <source>Show hidden archives</source>
+      <translation>非表示のアーカイブを表示</translation>
+    </message>
+    <message>
       <source>Only conflicts</source>
       <translation>紛争のみ</translation>
     </message>
@@ -6333,6 +6373,14 @@ Linuxファイルシステム(ext4/btrfs)は、ゲームとMODのステージン
       <translation>選択したものを移動</translation>
     </message>
     <message>
+      <source>Hide Selected</source>
+      <translation>選択したものを隠す</translation>
+    </message>
+    <message>
+      <source>Unhide Selected</source>
+      <translation>選択したものを再表示する</translation>
+    </message>
+    <message>
       <source>Remove Selected</source>
       <translation>選択した項目を削除</translation>
     </message>
@@ -6351,6 +6399,18 @@ Linuxファイルシステム(ext4/btrfs)は、ゲームとMODのステージン
     <message>
       <source>Removed {0} archive(s)</source>
       <translation>{0} のアーカイブを削除しました</translation>
+    </message>
+    <message>
+      <source>Hidden {0} archive(s)</source>
+      <translation>隠しアーカイブ {0}</translation>
+    </message>
+    <message>
+      <source>Made {0} archive(s) visible</source>
+      <translation>{0} アーカイブを表示させました</translation>
+    </message>
+    <message>
+      <source>Could not update hidden archives: {0}</source>
+      <translation>隠しアーカイブを更新できませんでした: {0}</translation>
     </message>
     <message>
       <source>Cannot use that folder: {0}</source>
@@ -7813,6 +7873,22 @@ Run Quick Update on all of them now?</source>
       <translation>LOOT ソート失敗 - ログを参照してください.</translation>
     </message>
     <message>
+      <source>Plugin sources are being refreshed. Run LOOT when loading finishes.</source>
+      <translation>プラグインソースが更新されています。読み込み完了時にLOOTを実行してください。</translation>
+    </message>
+    <message>
+      <source>Could not prepare plugin sources: {0}</source>
+      <translation>プラグインソースを準備できませんでした: {0}</translation>
+    </message>
+    <message>
+      <source>Plugin state changed while LOOT was running. Run LOOT again.</source>
+      <translation>LOOT実行中にプラグインの状態が変更されました。再度LOOTを実行してください。</translation>
+    </message>
+    <message>
+      <source>Locked plugin positions conflict with the game's required load order.</source>
+      <translation>ロックされたプラグインはゲームの必要なロードオーダーと競合します。</translation>
+    </message>
+    <message>
       <source>Sorted - 1 plugin moved.</source>
       <translation>ソート - 1 プラグインが移動しました.</translation>
     </message>
@@ -8177,6 +8253,18 @@ Run Quick Update on all of them now?</source>
       <translation>区切り文字をコピーできませんでした。</translation>
     </message>
     <message>
+      <source>Could not preserve groups: {0}.</source>
+      <translation>グループを保存できませんでした: {0}.</translation>
+    </message>
+    <message>
+      <source>Their source mods were kept.</source>
+      <translation>彼らのソースModは保持されました.</translation>
+    </message>
+    <message>
+      <source>Could not update the source profile's modlist.</source>
+      <translation>ソースプロファイルのモデリストを更新できませんでした。</translation>
+    </message>
+    <message>
       <source>Cancel all</source>
       <translation>キャンセル</translation>
     </message>
@@ -8425,6 +8513,10 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
     <message>
       <source>Mods with BSA archives</source>
       <translation>BSAアーカイブを含むMOD</translation>
+    </message>
+    <message>
+      <source>Could not save mod groups: {0}</source>
+      <translation>Modグループを保存できませんでした: {0}</translation>
     </message>
     <message>
       <source>{0} enabled of {1} mods</source>
@@ -9002,6 +9094,14 @@ How would you like to handle the existing mod?</source>
       <source>(no mod selected)</source>
       <translation>(選択されたモッドはありません)</translation>
     </message>
+    <message>
+      <source>{0} — Loading files…</source>
+      <translation type="unfinished">{0} — Loading files…</translation>
+    </message>
+    <message>
+      <source>{0} — Unable to load files</source>
+      <translation>{0} — ファイルを読み込めません</translation>
+    </message>
   </context>
   <context>
     <name>ModListMenu</name>
@@ -9080,6 +9180,34 @@ How would you like to handle the existing mod?</source>
     <message>
       <source>Create</source>
       <translation>作成</translation>
+    </message>
+    <message>
+      <source>Group options</source>
+      <translation>グループオプション</translation>
+    </message>
+    <message>
+      <source>Group with</source>
+      <translation>グループ化</translation>
+    </message>
+    <message>
+      <source>Change group leader</source>
+      <translation>グループリーダーを変更</translation>
+    </message>
+    <message>
+      <source>Ungroup</source>
+      <translation>グループ解除</translation>
+    </message>
+    <message>
+      <source>Ungroup all</source>
+      <translation>すべてのグループを解除</translation>
+    </message>
+    <message>
+      <source>Enable group</source>
+      <translation>グループを有効にする</translation>
+    </message>
+    <message>
+      <source>Disable group</source>
+      <translation>グループを無効にする</translation>
     </message>
     <message>
       <source>Copy separator to profile</source>
@@ -9624,6 +9752,12 @@ Done をクリックして閉じます.</translation>
     <message>
       <source>A FOMOD option you didn't select is now relevant ({0} is in the load order) - click to re-run the FOMOD installer</source>
       <translation>選択しなかった FOMOD オプションが関連しています ({0} はロード順にあります) - FOMOD インストーラを再実行するためにクリックします</translation>
+    </message>
+    <message>
+      <source>Group summary: {0}
+Expand the group to act on individual mods.</source>
+      <translation>グループ要約: {0}
+個々のMODに対応するためにグループを展開します。</translation>
     </message>
   </context>
   <context>
@@ -14581,6 +14715,22 @@ flatpak リモート追加 --user amethyst https://chrisdkn.github.io/Amethyst-M
       <translation>右側</translation>
     </message>
     <message>
+      <source>Translate on Crowdin</source>
+      <translation>Crowdin で翻訳</translation>
+    </message>
+    <message>
+      <source>Open the Amethyst Crowdin project to help translate the app.</source>
+      <translation>アプリの翻訳を手伝うためにアメジストCrowdinのプロジェクトを開きます。</translation>
+    </message>
+    <message>
+      <source>Mod list</source>
+      <translation>Mod list</translation>
+    </message>
+    <message>
+      <source>Status bar</source>
+      <translation>ステータスバー</translation>
+    </message>
+    <message>
       <source>Cap the combined download speed of all downloads (collections, single mods, nxm and modl links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>
       <translation>彼らは全体の接続を使用しないように、すべてのダウンロード(コレクション、シングルMod、nxmとmodlリンク)の組み合わせのダウンロード速度を上げます。 実行中のコレクションのインストールを含め、直ちに適用されます。</translation>
     </message>
@@ -14639,6 +14789,42 @@ flatpak リモート追加 --user amethyst https://chrisdkn.github.io/Amethyst-M
     <message>
       <source>Additional Proton build not found automatically. Select the build folder containing the top-level 'proton' launcher, not files/bin/wine. Blank disables it.</source>
       <translation>追加のProtonビルドは自動的に検出されません。 上位レベルの 'proton' のランチャーを含むビルドフォルダを選択し、ファイル/bin/wine ではありません。 Blank は無効にします.</translation>
+    </message>
+    <message>
+      <source>Global restore whitelist</source>
+      <translation>ホワイトリスト全体を復元</translation>
+    </message>
+    <message>
+      <source>Matching runtime-created files stay in the game folder during restore instead of being moved to Overwrite. File and folder names match case-insensitively at any depth; * and ? wildcards are supported. This applies to every game.</source>
+      <translation>一致するランタイム作成されたファイルは、Overwrite に移動する代わりに、復元中にゲームフォルダに残ります。 ファイル名とフォルダ名は、大文字と小文字を区別せずに任意の深さで一致します。*および?ワイルドカードはサポートされています。これはすべてのゲームに適用されます。</translation>
+    </message>
+    <message>
+      <source>File names</source>
+      <translation>ファイル名</translation>
+    </message>
+    <message>
+      <source>File name or wildcard</source>
+      <translation>ファイル名またはワイルドカード</translation>
+    </message>
+    <message>
+      <source>Add file</source>
+      <translation>ファイルを追加</translation>
+    </message>
+    <message>
+      <source>Folder names</source>
+      <translation>フォルダ名</translation>
+    </message>
+    <message>
+      <source>Folder name or wildcard</source>
+      <translation>フォルダ名またはワイルドカード</translation>
+    </message>
+    <message>
+      <source>Add folder</source>
+      <translation>フォルダを追加</translation>
+    </message>
+    <message>
+      <source>Remove selected</source>
+      <translation>選択した項目を削除</translation>
     </message>
     <message>
       <source>{0} set: {1}</source>
