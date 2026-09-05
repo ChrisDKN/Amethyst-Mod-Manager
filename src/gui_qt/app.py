@@ -470,6 +470,15 @@ class MainWindow(QMainWindow):
         "_dl_filters_btn":      ("_downloads_filter_panel",  "_dl_search"),
         "_tf_filters_btn":      ("_text_files_filter_panel", "_tf_search"),
     }
+    _FILTER_STATE_KEYS = {
+        "_modlist_filter_panel": "modlist",
+        "_plugin_filter_panel": "plugins",
+        "_mod_files_filter_panel": "mod_files",
+        "_data_filter_panel": "data",
+        "_downloads_filter_panel": "downloads",
+        "_text_files_filter_panel": "text_files",
+        "_saves_filter_panel": "saves",
+    }
 
     def __init__(self, app, splash=None, startup_timing=None):
         phase_started = _startup_time.perf_counter()
@@ -590,6 +599,7 @@ class MainWindow(QMainWindow):
         self._sort_plugins_ready.connect(self._on_sort_plugins_ready)
         self._overlap_ready.connect(self._on_overlap_ready)
         self._plugins_gen = 0
+        self._plugins_applied_gen = -1
         self._plugins_loaded.connect(self._on_plugins_loaded)
         self._esl_elig_ready.connect(self._on_esl_elig_ready)
         self._sizes_gen = 0
@@ -2377,8 +2387,7 @@ class MainWindow(QMainWindow):
             self._notify(message, kind)
 
     def _downloads_footer(self) -> QWidget:
-        """Install Selected / Remove Selected / Locations / Filters + search,
-        shown under the plugins column when the Downloads sub-tab is active."""
+        """Downloads actions, locations, filters, and search."""
         bar = QWidget()
         bar.setObjectName("HeaderBar")
         v = QVBoxLayout(bar)
@@ -2397,6 +2406,11 @@ class MainWindow(QMainWindow):
         self._dl_move_btn.setFixedHeight(self._FOOT_BTN_H)
         self._dl_move_btn.setEnabled(False)
         self._dl_move_btn.clicked.connect(self._on_downloads_move)
+        self._dl_hide_btn = self._text_button(
+            self.tr("Hide Selected"), compact=True)
+        self._dl_hide_btn.setFixedHeight(self._FOOT_BTN_H)
+        self._dl_hide_btn.setEnabled(False)
+        self._dl_hide_btn.clicked.connect(self._on_downloads_toggle_hidden)
         self._dl_remove_btn = self._color_button(
             self.tr("Remove Selected"), _c(self._pal, "BTN_DANGER"), compact=True)
         self._dl_remove_btn.setFixedHeight(self._FOOT_BTN_H)
@@ -2409,9 +2423,11 @@ class MainWindow(QMainWindow):
         self._dl_filters_btn = self._filters_button()
         self._dl_filters_btn.clicked.connect(self._toggle_downloads_filters)
         self._equalize_button_widths(
-            self._dl_install_btn, self._dl_move_btn, self._dl_remove_btn)
+            self._dl_install_btn, self._dl_move_btn, self._dl_hide_btn,
+            self._dl_remove_btn)
         btns.addWidget(self._dl_install_btn)
         btns.addWidget(self._dl_move_btn)
+        btns.addWidget(self._dl_hide_btn)
         btns.addWidget(self._dl_remove_btn)
         btns.addWidget(self._dl_locations_btn)
         v.addLayout(btns)
@@ -2434,13 +2450,31 @@ class MainWindow(QMainWindow):
 
     def _update_downloads_footer(self):
         n = self._downloads_view.checked_count()
+        hide_label = (self.tr("Unhide Selected")
+                      if n and self._downloads_view.selected_all_hidden()
+                      else self.tr("Hide Selected"))
         for attr, label in (("_dl_install_btn", self.tr("Install Selected")),
                             ("_dl_move_btn", self.tr("Move Selected")),
+                            ("_dl_hide_btn", hide_label),
                             ("_dl_remove_btn", self.tr("Remove Selected"))):
             b = getattr(self, attr, None)
             if b is not None:
                 b.setEnabled(n > 0)
                 b.setText(self.tr("{0} ({1})").format(label, n) if n else label)
+
+    def _on_downloads_toggle_hidden(self):
+        make_hidden = not self._downloads_view.selected_all_hidden()
+        try:
+            changed = self._downloads_view.set_selected_hidden(make_hidden)
+        except OSError as exc:
+            self._notify(
+                self.tr("Could not update hidden archives: {0}").format(exc),
+                "error")
+            return
+        if changed:
+            message = (self.tr("Hidden {0} archive(s)") if make_hidden
+                       else self.tr("Made {0} archive(s) visible"))
+            self._notify(message.format(changed), "info")
 
     def _on_downloads_locations(self):
         from gui_qt.download_locations_overlay import DownloadLocationsOverlay
@@ -9491,6 +9525,8 @@ class MainWindow(QMainWindow):
         src_profile_dir = self._gs.profile_dir()
         if game is None or src_staging is None or src_profile_dir is None:
             return
+        from Utils.profiles.state import read_mod_groups
+        source_groups = read_mod_groups(src_profile_dir)
         try:
             target_profile_dir = game.get_profile_root() / "profiles" / target_profile
             target_staging = mod_copy.resolve_target_staging(game, target_profile_dir)
@@ -9505,12 +9541,11 @@ class MainWindow(QMainWindow):
             if not mod_copy.mod_exists_in_profile(target_staging, name):
                 continue
             same_folder = False
-            if separator_name:
-                try:
-                    same_folder = ((src_staging / name).resolve()
-                                   == (target_staging / name).resolve())
-                except OSError:
-                    pass
+            try:
+                same_folder = ((src_staging / name).resolve()
+                               == (target_staging / name).resolve())
+            except OSError:
+                pass
             if not same_folder:
                 existing.append(name)
 
@@ -9519,7 +9554,7 @@ class MainWindow(QMainWindow):
             self._run_copy_to_profile(
                 names, enabled_map, plan, replace_set, move,
                 src_staging, src_profile_dir, target_staging, target_profile_dir,
-                target_profile, game, separator_name)
+                target_profile, game, separator_name, source_groups)
 
         if not existing:
             _launch({n: None for n in names}, set())
@@ -9574,11 +9609,23 @@ class MainWindow(QMainWindow):
     def _run_copy_to_profile(self, names, enabled_map, plan, replace_set, move,
                              src_staging, src_profile_dir, target_staging,
                              target_profile_dir, target_profile, game,
-                             separator_name=None):
+                             separator_name=None, source_groups=None):
         """Worker: copy each planned mod, then (move) remove the sources."""
         import threading
         from pathlib import Path
         from Utils.mods import copy as mod_copy
+        from Utils.mods.modlist import read_modlist
+        from Utils.profiles.state import read_mod_groups
+        if source_groups is None:
+            source_groups = read_mod_groups(Path(src_profile_dir))
+        requested = set(names)
+        requested_groups = {
+            leader: {leader, *data["members"]}
+            for leader, data in source_groups.items()
+            if {leader, *data["members"]} <= requested
+        }
+        locked_sources = {e.name for e in read_modlist(Path(src_profile_dir) / "modlist.txt")
+                          if not e.is_separator and e.locked}
         # Serialize: a second copy/move while one runs would write the same
         # target folders concurrently (install has the same guard).
         if getattr(self, "_copy_running", False):
@@ -9605,6 +9652,7 @@ class MainWindow(QMainWindow):
         def _worker():
             import os as _os
             copied = []
+            name_map = {}
             detached = []   # group→owning-member: files identical, no copy
             # `plan` is ordered highest-priority-first (row 0 = top of the source
             # modlist). Register the whole copied block in ONE prepend after the
@@ -9622,9 +9670,9 @@ class MainWindow(QMainWindow):
                             src_folder) == _os.path.realpath(dest_folder):
                         copied.append(nm)
                         detached.append(nm)
-                        if separator_name:
-                            registered.append(
-                                (dest_name or nm, enabled_map.get(nm, True)))
+                        name_map[nm] = dest_name or nm
+                        registered.append(
+                            (dest_name or nm, enabled_map.get(nm, True)))
                         self._op_log.emit(
                             f"'{nm}' already uses the target staging folder - "
                             f"nothing to copy.")
@@ -9639,10 +9687,12 @@ class MainWindow(QMainWindow):
                         game=game, register=False)
                     if out:
                         copied.append(nm)
+                        name_map[nm] = out
                         registered.append((out, enabled_map.get(nm, True)))
                 except Exception as exc:
                     self._op_log.emit(f"Copy to profile failed for '{nm}': {exc}")
             separator_copied = False
+            target_registered = False
             if separator_name:
                 created = False
                 try:
@@ -9650,6 +9700,7 @@ class MainWindow(QMainWindow):
                         Path(target_profile_dir) / "modlist.txt",
                         separator_name, registered)
                     separator_copied = True
+                    target_registered = True
                 except Exception as exc:
                     self._op_log.emit(
                         f"Copy separator to profile: modlist update failed: {exc}")
@@ -9665,11 +9716,32 @@ class MainWindow(QMainWindow):
                 try:
                     mod_copy.register_mods_in_modlist(
                         Path(target_profile_dir) / "modlist.txt", registered)
+                    target_registered = True
                 except Exception as exc:
                     self._op_log.emit(f"Copy to profile: modlist update failed: {exc}")
+            preserved_groups = set()
+            if target_registered and requested_groups:
+                try:
+                    from Utils.mods.groups import copy_complete_groups
+                    preserved_groups = copy_complete_groups(
+                        Path(src_profile_dir), Path(target_profile_dir), name_map,
+                        source_groups=source_groups)
+                except Exception as exc:
+                    self._op_log.emit(f"Copy mod groups failed: {exc}")
+            group_failures = set(requested_groups) - preserved_groups
+            protected = set(locked_sources)
+            for leader, members in requested_groups.items():
+                if leader in group_failures or members & locked_sources:
+                    protected.update(members)
+            if group_failures:
+                self._op_log.emit(
+                    f"Groups not transferred completely: {', '.join(sorted(group_failures))}")
+            removable = ([n for n in copied if n not in protected]
+                         if target_registered else [])
             self._op_progress.emit(total, total, "finishing")
             removed = False
-            if move and copied:
+            removed_names = []
+            if move and removable:
                 try:
                     from Utils.profiles.groups import (is_group,
                                                       remove_mods_from_group)
@@ -9681,80 +9753,110 @@ class MainWindow(QMainWindow):
                         # only the group entry/link goes. A locked member's
                         # mods are refused by remove_mods_from_group, which
                         # returns only what it actually removed.
-                        full = [n for n in copied if n not in detached]
+                        full = [n for n in removable if n not in detached]
+                        shared = [n for n in removable if n in detached]
                         done = []
                         if full:
                             done += remove_mods_from_group(
                                 game, Path(src_profile_dir), full,
                                 log_fn=_log_cb)
-                        if detached:
+                        if shared:
                             done += remove_mods_from_group(
-                                game, Path(src_profile_dir), detached,
+                                game, Path(src_profile_dir), shared,
                                 log_fn=_log_cb, delete_member_copies=False)
-                        blocked = [n for n in copied if n not in done]
+                        blocked = [n for n in removable if n not in done]
                         if blocked:
                             self._op_log.emit(
                                 f"Kept in the group (locked profile): "
                                 f"{', '.join(blocked)}")
-                        copied = done
+                        removed_names = done
                     else:
                         from Utils.mods.remove import remove_mods
-                        remove_mods(game, Path(src_profile_dir), copied,
-                                    log_fn=_log_cb)
-                    removed = True
+                        full = [n for n in removable if n not in detached]
+                        if full:
+                            remove_mods(game, Path(src_profile_dir), full,
+                                        log_fn=_log_cb, staging_root=Path(src_staging))
+                        removed_names = removable
+                    removed = bool(removed_names)
                 except Exception as exc:
                     self._op_log.emit(f"Move: could not remove sources: {exc}")
-            self._copy_done.emit({"copied": len(copied), "total": mod_total,
+            transferred = removed_names if move else copied if target_registered else []
+            self._copy_done.emit({"copied": len(transferred), "total": mod_total,
                                   "move": move, "removed": removed,
                                   "target": target_profile,
+                                  "source_profile_dir": str(src_profile_dir),
+                                  "target_profile_dir": str(target_profile_dir),
+                                  "group_failures": sorted(group_failures),
                                   "separator_requested": bool(separator_name),
                                   "separator": (separator_name
                                                 if separator_copied else ""),
-                                  # names to drop from THIS profile's modlist
-                                  # (remove_mods deliberately leaves modlist.txt
-                                  # to the caller - mirror Tk _finish_copy_popup).
-                                  "removed_names": list(copied) if removed else []})
+                                  "removed_names": removed_names})
 
         threading.Thread(target=_worker, daemon=True, name="copy-to-profile").start()
 
     def _on_copy_done(self, payload):
-        """UI thread: report the copy/move result. For a move, drop the moved
-        mods' rows from this profile's modlist (remove_mods left modlist.txt to
-        us - mirrors Tk _finish_copy_popup calling _remove_selected_mods), which
-        persists modlist.txt via the model, then reload."""
+        """Report the transfer and remove moved rows from the source profile."""
         self._copy_running = False
         if self._progress_popup is not None:
             self._schedule_op_clear(1200)
         c = payload.get("copied", 0)
         separator = payload.get("separator", "")
+        severity = "success" if c else "info"
         if payload.get("separator_requested"):
             if separator:
-                self._notify(
-                    self.tr("Copied separator '{0}' with {1}/{2} mod(s) to "
-                            "'{3}'.").format(
-                                separator.removesuffix("_separator"), c,
-                                payload.get("total", 0),
-                                payload.get("target", "")), "success")
+                message = self.tr("Copied separator '{0}' with {1}/{2} mod(s) to "
+                                  "'{3}'.").format(
+                                      separator.removesuffix("_separator"), c,
+                                      payload.get("total", 0),
+                                      payload.get("target", ""))
+                severity = "success"
             else:
-                self._notify(self.tr("Could not copy the separator."), "error")
+                message = self.tr("Could not copy the separator.")
+                severity = "error"
         else:
-            self._notify(
-                (self.tr("Moved {0}/{1} mod(s) to '{2}'.")
-                 if payload.get("move")
-                 else self.tr("Copied {0}/{1} mod(s) to '{2}'."))
-                .format(c, payload.get('total', 0), payload.get('target', '')),
-                "success" if c else "info")
+            message = (self.tr("Moved {0}/{1} mod(s) to '{2}'.")
+                       if payload.get("move")
+                       else self.tr("Copied {0}/{1} mod(s) to '{2}'.")) \
+                .format(c, payload.get('total', 0), payload.get('target', ''))
+        group_failures = payload.get("group_failures")
+        if group_failures:
+            message += " " + self.tr("Could not preserve groups: {0}.").format(
+                ", ".join(group_failures))
+            if payload.get("move"):
+                message += " " + self.tr("Their source mods were kept.")
+            severity = "warning"
+        self._notify(message, severity)
+        active_profile = self._gs.profile_dir()
+        source_profile = (Path(payload["source_profile_dir"])
+                          if payload.get("source_profile_dir") else active_profile)
+        target_profile = (Path(payload["target_profile_dir"])
+                          if payload.get("target_profile_dir") else None)
+        source_is_active = (active_profile is not None and source_profile is not None
+                            and active_profile.resolve() == source_profile.resolve())
         removed_names = set(payload.get("removed_names") or [])
-        if removed_names:
+        if removed_names and source_is_active:
             model = self._modlist_model
-            # Remove by name, highest row first (indices shift as we delete).
             rows = [r for r in range(model.rowCount())
                     if (e := model.entry(r)) is not None
                     and not e.is_separator and e.name in removed_names]
             for r in sorted(rows, reverse=True):
                 model.remove_row(r, save=False)
             if rows:
-                model.save()  # single save → one filemap rebuild for the batch
+                model.save()
+        elif removed_names and source_profile is not None:
+            try:
+                from Utils.mods.modlist import modlist_lock, read_modlist, write_modlist
+                from Utils.mods.groups import reconcile_profile_groups
+                source_modlist = source_profile / "modlist.txt"
+                with modlist_lock(source_modlist):
+                    entries = [e for e in read_modlist(source_modlist)
+                               if e.is_separator or e.name not in removed_names]
+                    write_modlist(source_modlist, entries)
+                    reconcile_profile_groups(source_profile, entries)
+            except Exception as exc:
+                self._append_log(f"Move: source modlist update failed: {exc}")
+                self._notify(self.tr("Could not update the source profile's modlist."),
+                             "error")
         # Copy target may be a MEMBER of the active group - reconcile so the
         # new arrival shows up without a manual Refresh.
         reconciled = False
@@ -9764,7 +9866,9 @@ class MainWindow(QMainWindow):
                 self._gs.game, self._gs.profile_dir(), log_fn=self._append_log)
         except Exception:
             pass
-        if payload.get("removed") or reconciled:
+        target_is_active = (active_profile is not None and target_profile is not None
+                            and active_profile.resolve() == target_profile.resolve())
+        if payload.get("removed") or reconciled or target_is_active:
             self._reload_modlist()
 
     # ---- install a Nexus mod by id (used by Missing Requirements cards) ----
@@ -11750,9 +11854,12 @@ class MainWindow(QMainWindow):
         self._schedule_window_state_save()
 
     def closeEvent(self, event):
-        """On close, optionally restore every deployed game to vanilla (the
-        'Restore on close' setting). Synchronous (the app is exiting) - mirrors
-        the Tk gui.py shutdown path."""
+        """Save UI state, then optionally restore every deployed game to vanilla.
+
+        Restore is synchronous because the app is exiting and mirrors the Tk
+        gui.py shutdown path.
+        """
+        self._save_filter_states()
         self._save_window_state()
         try:
             from Nexus.nxm_handler import NxmIPC
@@ -14826,6 +14933,7 @@ class MainWindow(QMainWindow):
         # Connected AFTER the view so its cache-drop + re-span run first.
         # modelReset is handled by _reload_modlist's explicit reapply.
         for sig in (self._modlist_model.layoutChanged,
+                    self._modlist_model.groups_changed,
                     self._modlist_model.rowsMoved,
                     self._modlist_model.rowsInserted,
                     self._modlist_model.rowsRemoved):
@@ -14835,6 +14943,7 @@ class MainWindow(QMainWindow):
     def _on_modlist_layout_changed(self, *_a):
         self._apply_modlist_search()
         self._apply_modlist_filters()
+        self._refresh_footer_toggle_labels()
 
     def _on_archives_dropped(self, paths: list[str], slot: int):
         """Archives dragged from the Downloads tab were dropped on the modlist
@@ -14864,6 +14973,13 @@ class MainWindow(QMainWindow):
             if name not in _PINNED_NAMES:
                 anchor = name
                 break
+        leader = m.group_leader(anchor)
+        if leader:
+            block = [e.name for e in m.natural_entries()
+                     if m.group_leader(e.name) == leader]
+            before = (anchor == leader) != m.reverse_mode_active
+            return {"anchor": block[0] if before else block[-1],
+                    "after": not before}
         if m.reverse_mode_active:
             # Reverse-priority display is the inverted file order: visually
             # above the anchor = AFTER it in modlist.txt. No anchor (dropped at
@@ -14927,8 +15043,8 @@ class MainWindow(QMainWindow):
         # hidden. Building all seven here creates dozens of checkboxes and
         # scroll-area children that Qt then polishes/layouts even when the user
         # never opens Filters. Keep their state independently and construct the
-        # requested panel on first use (footer button, header menu, or quick
-        # filter). _ensure_filter_panel inserts it immediately before *col*.
+        # requested panel on first use (or when it has saved active filters).
+        # _ensure_filter_panel inserts it immediately before *col*.
         self._filter_panel_layout = h
         self._filter_panel_builders = {
             "_modlist_filter_panel": "_build_modlist_filter_panel",
@@ -14941,9 +15057,16 @@ class MainWindow(QMainWindow):
         }
         for _attr in self._filter_panel_builders:
             setattr(self, _attr, None)
-        self._modlist_filter_state: dict = {}
+        try:
+            from Utils.ui.config import load_filter_states
+            self._filter_states = load_filter_states()
+        except Exception:
+            self._filter_states = {}
+        self._modlist_filter_state = dict(
+            self._filter_states.get("modlist", {}))
         self._modlist_filter_data = None
-        self._plugin_filter_state: dict = {}
+        self._plugin_filter_state = dict(
+            self._filter_states.get("plugins", {}))
         if startup_timing is not None:
             startup_timing.record(
                 "Prepare lazy filter panels",
@@ -14951,9 +15074,16 @@ class MainWindow(QMainWindow):
         h.addWidget(col, 1)
         phase_started = _startup_time.perf_counter()
         self._install_tab_filter_menus()
+        self._restoring_filter_states = True
+        try:
+            for attr, name in self._FILTER_STATE_KEYS.items():
+                if self._filter_state_active(self._filter_states.get(name, {})):
+                    self._ensure_filter_panel(attr)
+        finally:
+            self._restoring_filter_states = False
         if startup_timing is not None:
             startup_timing.record(
-                "Install tab-header filter menus",
+                "Install filter menus and restore selections",
                 phase_started=phase_started, category="UI")
         return area
 
@@ -14972,18 +15102,40 @@ class MainWindow(QMainWindow):
         # The main modlist column is always the final item in this layout.
         layout.insertWidget(max(0, layout.count() - 1), panel)
 
-        # Quick-filter menus can establish state before the full side panel is
-        # opened. Mirror those fixed checkbox values into the new widget
-        # without emitting a cascade for every checkbox.
-        state = (self._modlist_filter_state if attr == "_modlist_filter_panel"
-                 else self._plugin_filter_state
-                 if attr == "_plugin_filter_panel" else {})
-        for key, value in (state or {}).items():
-            if isinstance(value, int):
-                panel.set_check(key, value, emit=False)
+        # Restore fixed and dynamic choices before the first scan populates the
+        # latter. Emit once so the owning view receives the complete state.
+        state_name = self._FILTER_STATE_KEYS.get(attr)
+        state = getattr(self, "_filter_states", {}).get(state_name, {})
+        panel.set_state(state, emit=False)
         if attr == "_modlist_filter_panel":
             self._refresh_filter_game_specific()
+        if self._filter_state_active(state):
+            panel.set_state(panel.state(), emit=True)
         return panel
+
+    @staticmethod
+    def _filter_state_active(state: dict) -> bool:
+        return any(value in (1, 2) if isinstance(value, int)
+                   else bool(value) for value in (state or {}).values())
+
+    def _remember_filter_state(self, name: str, state: dict) -> None:
+        self._filter_states[name] = state
+        if getattr(self, "_restoring_filter_states", False):
+            return
+        self._save_filter_states()
+
+    def _save_filter_states(self) -> None:
+        states = dict(getattr(self, "_filter_states", {}))
+        for attr, name in self._FILTER_STATE_KEYS.items():
+            panel = getattr(self, attr, None)
+            if panel is not None:
+                states[name] = panel.state()
+        self._filter_states = states
+        try:
+            from Utils.ui.config import save_filter_states
+            save_filter_states(states)
+        except Exception as exc:
+            print(f"[gui_qt] filter-state save error: {exc}", flush=True)
 
     def _hide_other_filter_panels(self, keep=None) -> None:
         """Hide any already-created panel other than *keep*."""
@@ -15127,6 +15279,7 @@ class MainWindow(QMainWindow):
             panel.setVisible(False)
 
     def _on_text_files_filter_changed(self, state: dict):
+        self._remember_filter_state("text_files", state)
         self._text_files_view.apply_filter_state(state)
         self._sync_filters_btn("_tf_filters_btn")
 
@@ -15154,6 +15307,7 @@ class MainWindow(QMainWindow):
 
     def _on_plugin_filter_changed(self, state: dict):
         self._plugin_filter_state = state
+        self._remember_filter_state("plugins", state)
         self._apply_plugin_filters()
         self._sync_filters_btn("_plugin_filters_btn")
 
@@ -15237,6 +15391,7 @@ class MainWindow(QMainWindow):
             panel.setVisible(False)
 
     def _on_saves_filter_changed(self, state: dict):
+        self._remember_filter_state("saves", state)
         self._saves_view.apply_filter_state(state)
         self._sync_filters_btn("_saves_filters_btn")
 
@@ -15269,6 +15424,7 @@ class MainWindow(QMainWindow):
             panel.setVisible(False)
 
     def _on_downloads_filter_changed(self, state: dict):
+        self._remember_filter_state("downloads", state)
         self._downloads_view.apply_filter_state(state)
         self._sync_filters_btn("_dl_filters_btn")
 
@@ -15305,6 +15461,7 @@ class MainWindow(QMainWindow):
             panel.setVisible(False)
 
     def _on_data_filter_changed(self, state: dict):
+        self._remember_filter_state("data", state)
         self._data_view.apply_filter_state(state)
         self._sync_filters_btn("_data_filters_btn")
 
@@ -15342,6 +15499,7 @@ class MainWindow(QMainWindow):
             panel.setVisible(False)
 
     def _on_mod_files_filter_changed(self, state: dict):
+        self._remember_filter_state("mod_files", state)
         self._mod_files_view.apply_filter_state(state)
         self._sync_filters_btn("_mf_filters_btn")
 
@@ -15710,7 +15868,7 @@ class MainWindow(QMainWindow):
     def _on_toggle_collapse_all(self):
         """Expand all / Collapse all separators (toggles based on current state)."""
         m = self._modlist_model
-        if not m.collapsible_separator_names():
+        if not m.collapsible_separator_names() and not m._mod_groups:
             return
         collapse = not m.any_collapsed()   # if any expanded → collapse all
         self._modlist_view.set_all_collapsed(collapse)
@@ -15731,7 +15889,7 @@ class MainWindow(QMainWindow):
         m = self._modlist_model
         eb = getattr(self, "_expand_all_btn", None)
         if eb is not None:
-            has_seps = bool(m.collapsible_separator_names())
+            has_seps = bool(m.collapsible_separator_names() or m._mod_groups)
             eb.setText(self.tr("Expand all") if (not has_seps or m.any_collapsed())
                        else self.tr("Collapse all"))
         nb = getattr(self, "_enable_all_btn", None)
@@ -15855,6 +16013,7 @@ class MainWindow(QMainWindow):
 
     def _on_modlist_filter_changed(self, state: dict):
         self._modlist_filter_state = state
+        self._remember_filter_state("modlist", state)
         self._apply_modlist_filters()
         self._update_filters_btn_active()
 
@@ -16323,9 +16482,18 @@ class MainWindow(QMainWindow):
 
         ml_path = self._gs.modlist_path()
         staging = self._gs.staging_dir()
+        mod_groups = {}
         with span("reload_modlist.read_modlist"):
-            entries = (read_modlist(ml_path)
-                       if (ml_path and ml_path.is_file()) else [])
+            entries = []
+            if ml_path and ml_path.is_file():
+                from Utils.mods.groups import load_grouped_modlist
+                from Utils.profiles.state import read_mod_groups
+                try:
+                    entries, mod_groups = load_grouped_modlist(ml_path)
+                except Exception as exc:
+                    entries = read_modlist(ml_path)
+                    mod_groups = read_mod_groups(ml_path.parent)
+                    self._notify(self.tr("Could not save mod groups: {0}").format(exc), "warning")
         # Non-empty ⇒ this reload ends in a conflict rebuild (see bottom),
         # whose completion reloads the plugin panel. The profile-switch path
         # reads this to skip its own (redundant) immediate plugin reload.
@@ -16372,7 +16540,7 @@ class MainWindow(QMainWindow):
             self._modlist_model._installed = {}
             self._modlist_model._categories = {}
         with span("reload_modlist.set_entries"):
-            self._modlist_model.set_entries(entries)
+            self._modlist_model.set_entries(entries, mod_groups=mod_groups)
         if not preserve_overlays:
             self._modlist_model.set_flags({})
         with span("reload_modlist.read_notes"):
@@ -17191,6 +17359,7 @@ class MainWindow(QMainWindow):
         self._plugin_model.set_rows(rows, game=self._gs.game,
                                     profile=self._gs.profile,
                                     profile_dir=self._gs.profile_dir())
+        self._plugins_applied_gen = gen
         if timing is not None:
             timing.mark(f"Plugins table model populated ({len(rows)} rows)",
                         phase_started=phase_started)
@@ -17764,6 +17933,35 @@ class MainWindow(QMainWindow):
         self._refresh_userlist_flags()
 
     # ---- Sort Plugins (LOOT) ----------------------------------------------
+    def _loot_input_state(self, userlist_path=None):
+        game = self._gs.game
+        pdir = self._gs.profile_dir()
+        paths = [self._userlist_path(), userlist_path]
+        if game is not None:
+            paths.extend((game._paths_file, game._deploy_state_file))
+        if pdir is not None:
+            paths.extend(pdir / name for name in
+                         ("plugins.txt", "loadorder.txt", "modlist.txt", "profile_state.json"))
+        files = []
+        for path in paths:
+            try:
+                stat = path.stat()
+                files.append((str(path), stat.st_ino, stat.st_size, stat.st_mtime_ns))
+            except (AttributeError, OSError):
+                files.append((str(path), None))
+        return (
+            id(game), self._gs.profile, str(pdir),
+            self._plugins_gen, self._conflict_gen,
+            self._conflict_maps_current,
+            str(game.get_game_path()) if game else None,
+            str(game.get_effective_mod_staging_path()) if game else None,
+            str(game.get_vanilla_plugins_path()) if game else None,
+            str(game.get_mod_data_path()) if game else None,
+            tuple((r.name.lower(), r.enabled, self._plugin_model.is_locked_name(r.name))
+                  for r in self._plugin_model.natural_rows()),
+            tuple(files),
+        )
+
     def _on_refresh_plugins(self):
         """Run LOOT to refresh plugin metadata (messages/dirty/tags/requirements)
         WITHOUT reordering the load order - the ready handler skips the reorder
@@ -17774,9 +17972,7 @@ class MainWindow(QMainWindow):
         """LOOT-sort the load order on a worker thread (reuses the Tk backend
         LOOT/loot_sorter.sort_plugins). Result applied on the UI thread.
 
-        When *refresh* is True, LOOT still evaluates the plugins (yielding the
-        same metadata) but the resulting order is discarded - only the metadata
-        is written and the panel reloaded."""
+        When *refresh* is True, only metadata is evaluated."""
         from LOOT.loot_sorter import is_available, unavailable_reason
         if not is_available():
             self._notify(self.tr("LOOT library not available - cannot sort."), "warning")
@@ -17792,7 +17988,8 @@ class MainWindow(QMainWindow):
         if not getattr(game, "loot_sort_enabled", False):
             self._notify(self.tr("LOOT sorting isn't supported for this game."), "warning")
             return
-        rows = list(self._plugin_model.natural_rows())
+        from copy import deepcopy
+        rows = deepcopy(self._plugin_model.natural_rows())
         if not rows:
             self._notify(self.tr("No plugins to sort."), "warning")
             return
@@ -17800,14 +17997,10 @@ class MainWindow(QMainWindow):
             self._notify(self.tr("A sort is already running."), "info")
             return
 
-        # Locked plugins stay put; LOOT sorts the rest. (Qt model already carries
-        # vanilla rows pinned at the top, so - unlike Tk - we don't inject them.)
-        # Indices are LOAD-order positions, so look locks up by name.
         locked_indices = {i: r for i, r in enumerate(rows)
                           if self._plugin_model.is_locked_name(r.name)}
-        unlocked = [r for i, r in enumerate(rows) if i not in locked_indices]
-        plugin_names = [r.name for r in unlocked]
-        enabled_set = {r.name for r in unlocked if r.enabled}
+        plugin_names = [r.name for r in rows]
+        enabled_set = {r.name for r in rows if r.enabled}
 
         pdir = self._gs.profile_dir()
         userlist_path = None
@@ -17824,8 +18017,22 @@ class MainWindow(QMainWindow):
 
         include_vanilla = bool(getattr(game, "plugins_include_vanilla", False))
         from Utils.filegraph.service import plugin_source_paths
-        plugin_winner_paths = plugin_source_paths(
-            getattr(self._conflict_data, "snapshot", None), game)
+        from LOOT.game_view import ProfileSources
+        conflict_data = getattr(self, "_conflict_data", None)
+        snapshot = getattr(conflict_data, "snapshot", None)
+        if (not getattr(self, "_conflict_maps_current", False)
+                or self._plugins_applied_gen != self._plugins_gen
+                or snapshot is None or pdir is None
+                or getattr(conflict_data, "profile_id", None) != str(pdir.resolve(strict=False))
+                or getattr(self, "_deploy_running", False)):
+            self._notify(self.tr("Plugin sources are being refreshed. Run LOOT when loading finishes."), "info")
+            return
+        try:
+            plugin_winner_paths = plugin_source_paths(snapshot, game)
+            profile_sources = ProfileSources.from_game(snapshot, game)
+        except Exception as exc:
+            self._notify(self.tr("Could not prepare plugin sources: {0}").format(exc), "error")
+            return
         # Snapshot what the apply step needs (no model access mid-flight).
         self._sort_ctx = {
             "rows": rows, "locked_indices": locked_indices,
@@ -17833,6 +18040,8 @@ class MainWindow(QMainWindow):
             "profile_dir": pdir, "game_id": game.game_id,
             "game": game, "profile": self._gs.profile,
             "refresh": refresh,
+            "input_state": self._loot_input_state(userlist_path),
+            "userlist_path": userlist_path,
         }
 
         kw = dict(
@@ -17848,6 +18057,9 @@ class MainWindow(QMainWindow):
                            if hasattr(game, "get_vanilla_plugins_path") else None),
             userlist_path=userlist_path,
             plugin_winner_paths=plugin_winner_paths,
+            profile_sources=profile_sources,
+            locked_positions={r.name: i for i, r in locked_indices.items()},
+            refresh_only=refresh,
         )
 
         self._sort_running = True
@@ -17886,6 +18098,10 @@ class MainWindow(QMainWindow):
         ctx = getattr(self, "_sort_ctx", None) or {}
         self._sort_ctx = None
         is_refresh = bool(ctx.get("refresh"))
+        if (ctx.get("input_state") != self._loot_input_state(ctx.get("userlist_path"))
+                or getattr(self, "_deploy_running", False)):
+            self._notify(self.tr("Plugin state changed while LOOT was running. Run LOOT again."), "info")
+            return
         if result is None:
             self._notify(
                 (self.tr("LOOT refresh failed - see log.") if is_refresh
@@ -17914,35 +18130,38 @@ class MainWindow(QMainWindow):
             master_block_enabled)
         from Utils.plugins import enforce_primary_plugin_order
         pre_rows = ctx.get("rows", [])
-        new_rows, moved = apply_loot_sort(
-            pre_rows, ctx.get("locked_indices", {}),
-            list(result.sorted_names), ctx.get("include_vanilla", False))
+        try:
+            new_rows, moved = apply_loot_sort(
+                pre_rows, ctx.get("locked_indices", {}),
+                list(result.sorted_names), ctx.get("include_vanilla", False))
+        except ValueError as exc:
+            self._notify(str(exc), "error")
+            return
 
         game, profile = ctx.get("game"), ctx.get("profile")
-        # Re-interleaving LOCKED rows can drop a locked .esp back inside the
-        # master block, so re-partition - the engine rule wins over the lock.
-        # apply_loot_sort rebuilds rows with flags=0, so restore them first or
-        # every master-flagged .esp looks like a normal plugin here.
         if master_block_enabled(game):
-            flags_by_name = {r.name.lower(): r.flags for r in pre_rows}
-            for r in new_rows:
-                r.flags = flags_by_name.get(r.name.lower(), r.flags)
             new_rows, _ = enforce_master_block(new_rows)
         # LOOT normally supplies the order for games with plugins.  A small
         # engine-defined primary block (Skyrim SE/AE) is the exception, just as
         # it is in MO2's fixPrimaryPlugins pass.
         new_rows, _ = enforce_primary_plugin_order(game, new_rows)
-        if game is not None and profile:
-            self._plugin_model.set_natural_rows(new_rows)
+        if any(new_rows[i].name.lower() != row.name.lower()
+               for i, row in ctx.get("locked_indices", {}).items()):
+            self._notify(self.tr("Locked plugin positions conflict with the game's required load order."), "error")
+            return
+        order_changed = any(a.name.lower() != b.name.lower()
+                            for a, b in zip(pre_rows, new_rows))
+        if order_changed and game is not None and profile:
             try:
                 save_plugins(game, profile, new_rows)
             except Exception as exc:
                 self._notify(self.tr("Failed to write load order: {0}").format(exc), "error")
                 return
-        # Reload (rebuilds rows + flags) and recompute BSA conflicts (a sort
-        # changes plugin order → BSA winners follow plugin load order).
-        self._reload_plugins()
-        self._rebuild_conflicts_async()
+            self._plugin_model.set_natural_rows(new_rows)
+        if order_changed:
+            self._rebuild_conflicts_async()
+        else:
+            self._reload_plugins()
         if moved == 0 and not ctx.get("locked_indices"):
             self._notify(self.tr("Load order is already sorted."), "info")
         else:

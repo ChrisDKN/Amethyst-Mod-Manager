@@ -49,9 +49,18 @@ def make_override(chosen: dict | None, staging, data_dir):
             # the original winning material.  Keep resolving those later paths
             # from the same physical source instead of falling back and mixing
             # providers again.
+            source_path = None
+            if representative.source_path is not None:
+                source = representative.source_path
+                parts = representative.rel_key.split("/")
+                suffix = tuple(p.lower() for p in source.parts[-len(parts):])
+                if suffix == tuple(parts):
+                    root = source.parents[len(parts) - 1]
+                    source_path = dirs.resolve(root, key) or root / key
             entry = MeshEntry(key, representative.kind,
                               mod=representative.mod,
-                              archive=representative.archive)
+                              archive=representative.archive,
+                              source_path=source_path)
         # Runs on the parse worker; read_entry is plain file/archive I/O.
         return (read_entry(entry, staging, data_dir, dirs=dirs)
                 if entry is not None else None)
@@ -91,17 +100,15 @@ class TextureSourceController(QObject):
         """Invalidate pending provider scans when the hosting preview closes."""
         self._gen += 1
         self._source_jobs.discard_pending()
+        self._token = self._scanned = self._reload = None
+        self._by_source = {}
+        self._preview.set_texture_sources([])
 
     def arm(self, token, reload_fn):
-        """Call just before loading a mesh: a NEW *token* clears the picker;
-        *reload_fn(override)* re-issues the load and is how a pick applies."""
-        self._gen += 1
+        """Reset sources for a new load; picks call reload_fn(override)."""
+        self.cancel()
+        self._token = token
         self._reload = reload_fn
-        if token != self._token:
-            self._token = token
-            self._scanned = None
-            self._by_source = {}
-            self._preview.set_texture_sources([])
 
     def _on_textures_seen(self, paths):
         """The mesh asked for these textures - list who else provides them."""

@@ -42,6 +42,7 @@ class Skyrim(Fallout_3):
                 description="Download and run Wrye Bash.",
                 dialog_class_path="wizards.wrye_bash.WryeBashWizard",
             ),
+            self._xlodgen_wizard_tool("skyrim"),
             *self._xedit_wizard_tools(
                 build="TES5Edit", id_suffix="skyrim",
                 nexus_url="https://www.nexusmods.com/skyrim/mods/25859?tab=files",

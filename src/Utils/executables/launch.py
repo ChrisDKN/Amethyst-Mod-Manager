@@ -994,15 +994,19 @@ def _prepare_native_game_launch(game, exe_path: Path, env: dict,
 
 
 def _require_direct_steam_client(game, log_fn=_noop_log) -> bool:
-    """Refuse a direct Steam-install launch when its client is absent."""
+    """Ensure a Steam client is running before a direct Steam launch."""
     if not game_is_steam_install(game):
         return True
     from Utils.launchers.steam import steam_client_running
     if steam_client_running(strict=True):
         return True
+    from Utils.launchers.steam_client import ensure_steam_client_running
+    if ensure_steam_client_running(log_fn=log_fn):
+        return True
     reason = (
-        "Steam needs to be running for this game. Start Steam and sign in, "
-        "then press Play again."
+        "Steam is required by this game, but Amethyst could not start or "
+        "confirm a running client. Finish starting/signing in to Steam, then "
+        "press Play again."
     )
     log_fn(f"Play: refusing to launch - {reason}")
     launch_report.mark_failed(launch_report.actionable(reason))

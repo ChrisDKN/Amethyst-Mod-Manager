@@ -599,6 +599,25 @@ class ConfigureGameView(QWidget):
             ov.addWidget(self._rb_vfs)
         ov.addWidget(self._divider())
 
+        self._runtime_group = None
+        self._runtime_buttons = {}
+        if (hasattr(self._game, "get_runtime_mode")
+                and hasattr(self._game, "set_runtime_mode")):
+            ov.addWidget(self._section_header(self.tr("Game Runtime")))
+            self._runtime_group = QButtonGroup(self)
+            for mode, text in (
+                ("native", self.tr("Native Linux")),
+                ("proton", self.tr("Windows / Proton")),
+            ):
+                button = QRadioButton(text)
+                self._runtime_group.addButton(button)
+                self._runtime_buttons[mode] = button
+                ov.addWidget(button)
+            current_runtime = self._game.get_runtime_mode()
+            if current_runtime in self._runtime_buttons:
+                self._runtime_buttons[current_runtime].setChecked(True)
+            ov.addWidget(self._divider())
+
         # hasattr-gated option checkboxes (mirrors the Tk panel).
         self._opt_checks: dict[str, QCheckBox] = {}
 
@@ -770,6 +789,10 @@ class ConfigureGameView(QWidget):
             if self._patch_group is not None and hasattr(g, "get_patch_version"):
                 rb = self._patch_buttons.get(int(g.get_patch_version()))
                 if rb:
+                    rb.setChecked(True)
+            if self._runtime_group is not None:
+                rb = self._runtime_buttons.get(g.get_runtime_mode())
+                if rb is not None:
                     rb.setChecked(True)
             self._select_plugins_txt_default()
             self._save_btn.setEnabled(True)
@@ -988,9 +1011,32 @@ class ConfigureGameView(QWidget):
     def _exe_names(self):
         """The game's main exe plus any configured alternatives (non-empty)."""
         g = self._game
+        configured = list(getattr(g, "configure_exe_names", []) or [])
+        if configured:
+            return configured
         names = [getattr(g, "exe_name", None)] + list(
             getattr(g, "exe_name_alts", []) or [])
         return [e for e in names if e]
+
+    def _matching_exes_in(self, folder: Path) -> list[str]:
+        matches: list[str] = []
+        for exe in self._exe_names():
+            parts = exe.lower().replace("\\", "/").split("/")
+            cur = folder
+            for part in parts:
+                try:
+                    match = next(
+                        (entry for entry in cur.iterdir()
+                         if entry.name.lower() == part), None)
+                except (PermissionError, FileNotFoundError, NotADirectoryError):
+                    match = None
+                if match is None:
+                    break
+                cur = match
+            else:
+                if cur.is_file():
+                    matches.append(exe)
+        return matches
 
     def _exe_present_in(self, folder: Path) -> bool | None:
         """Is any of the game's exes locatable under *folder*?
@@ -1003,27 +1049,7 @@ class ConfigureGameView(QWidget):
         exe_names = self._exe_names()
         if not exe_names:
             return None
-        for exe in exe_names:
-            parts = exe.lower().replace("\\", "/").split("/")
-            cur = folder
-            ok = True
-            for part in parts:
-                match = None
-                try:
-                    for entry in cur.iterdir():
-                        if entry.name.lower() == part:
-                            match = entry
-                            break
-                except (PermissionError, FileNotFoundError, NotADirectoryError):
-                    ok = False
-                    break
-                if match is None:
-                    ok = False
-                    break
-                cur = match
-            if ok and cur.is_file():
-                return True
-        return False
+        return bool(self._matching_exes_in(folder))
 
     def _set_game(self, path: Path, configured=False, source="steam"):
         self._found_path = path
@@ -1060,6 +1086,13 @@ class ConfigureGameView(QWidget):
                 msg, tone = "Folder selected.", "TEXT_OK"
             else:
                 msg, tone = "Executable found.", "TEXT_OK"
+                if self._runtime_group is not None:
+                    matches = self._matching_exes_in(path)
+                    native = any(_is_native_exe_name(exe) for exe in matches)
+                    windows = any(not _is_native_exe_name(exe) for exe in matches)
+                    if native != windows:
+                        self._runtime_buttons[
+                            "native" if native else "proton"].setChecked(True)
         self._game_status.setText(msg)
         self._game_status.setStyleSheet(f"color:{self._c(tone)};")
         self._save_btn.setEnabled(True)
@@ -1384,9 +1417,11 @@ class ConfigureGameView(QWidget):
                 find_steam_libraries, find_game_by_steam_id, find_game_in_libraries)
             from Utils.launchers.heroic import (
                 find_heroic_game_info_by_app_names, find_heroic_game_info_by_exe)
-            exe_names = [getattr(g, "exe_name", None)] + list(
-                getattr(g, "exe_name_alts", []) or [])
-            exe_names = [e for e in exe_names if e]
+            exe_names = list(getattr(g, "configure_exe_names", []) or [])
+            if not exe_names:
+                exe_names = [getattr(g, "exe_name", None)] + list(
+                    getattr(g, "exe_name_alts", []) or [])
+                exe_names = [e for e in exe_names if e]
             heroic_names = _heroic_app_names(g)
             if heroic_names:
                 # Declared app names are authoritative: generic launcher names
@@ -1543,10 +1578,12 @@ class ConfigureGameView(QWidget):
                 hasattr(self._game, "is_prefix_path_cleared")
                 and self._game.is_prefix_path_cleared()
             )
+            runtime = (self._game.get_runtime_mode()
+                       if hasattr(self._game, "get_runtime_mode") else "")
             choices.append({"source": "current", "path": cur,
                             "prefix": self._found_prefix, "id": None,
                             "prefix_mode": (
-                                "native" if cleared
+                                "native" if runtime == "native" or cleared
                                 else "resolved" if self._found_prefix is not None
                                 else "detect"),
                             "executable": None})
@@ -1679,6 +1716,9 @@ class ConfigureGameView(QWidget):
         else:
             self._set_game(Path(c["path"]), source=source)
         prefix_mode = c.get("prefix_mode", "detect")
+        if self._runtime_group is not None:
+            runtime = "native" if prefix_mode == "native" else "proton"
+            self._runtime_buttons[runtime].setChecked(True)
         if self._has_prefix_src and prefix_mode == "native":
             self._prefix_scan_gen += 1
             self._found_prefix = None
@@ -1706,8 +1746,10 @@ class ConfigureGameView(QWidget):
         library scan can't see (Tk parity: the Tk Scan button did the same
         all-drives walk, not a Steam re-scan)."""
         g = self._game
-        exe_names = [getattr(g, "exe_name", None)] + list(
-            getattr(g, "exe_name_alts", []) or [])
+        exe_names = list(getattr(g, "configure_exe_names", []) or [])
+        if not exe_names:
+            exe_names = [getattr(g, "exe_name", None)] + list(
+                getattr(g, "exe_name_alts", []) or [])
         exe_names = [e for e in exe_names if e]
         if not exe_names:
             self._game_status.setText(
@@ -1907,6 +1949,12 @@ class ConfigureGameView(QWidget):
             self._prefix_status.setStyleSheet(f"color:{self._c('TEXT_WARN')};")
 
     # ---- save (live write) ------------------------------------------------
+    def _selected_runtime_mode(self) -> str | None:
+        for mode, button in self._runtime_buttons.items():
+            if button.isChecked():
+                return mode
+        return None
+
     def _on_save(self):
         # Pin this write to the profile displayed by the form. The game handler
         # is shared and can be re-scoped by a profile switch or registry reload
@@ -1935,6 +1983,30 @@ class ConfigureGameView(QWidget):
             self._game_status.setText(self.tr("Set the game installation folder first."))
             self._game_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
             return
+
+        runtime_mode = self._selected_runtime_mode()
+        if runtime_mode == "native":
+            if not (self._found_path / "bin/bg3").is_file():
+                self._game_status.setText(self.tr(
+                    "Native Linux runtime selected, but bin/bg3 was not found."))
+                self._game_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
+                return
+            self._found_prefix = None
+            if self._prefix_edit is not None:
+                self._prefix_edit.clear()
+        elif runtime_mode == "proton":
+            if not any((self._found_path / rel).is_file()
+                       for rel in ("bin/bg3.exe", "bin/bg3_dx11.exe")):
+                self._game_status.setText(self.tr(
+                    "Windows / Proton runtime selected, but no BG3 Windows "
+                    "executable was found."))
+                self._game_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
+                return
+            if self._found_prefix is None:
+                self._prefix_status.setText(self.tr(
+                    "Select the Proton prefix used by this BG3 installation."))
+                self._prefix_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
+                return
 
         staging_path = self._custom_staging
         if staging_path is None:
@@ -1982,6 +2054,14 @@ class ConfigureGameView(QWidget):
                     or _changed(g.get_prefix_path(), self._found_prefix)):
                 self._game_status.setText(
                     self.tr("Cannot change the game/prefix path while mods are deployed. "
+                    "Restore the game first."))
+                self._game_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
+                return
+            if (runtime_mode is not None
+                    and hasattr(g, "get_runtime_mode")
+                    and runtime_mode != g.get_runtime_mode()):
+                self._game_status.setText(self.tr(
+                    "Cannot change the game runtime while mods are deployed. "
                     "Restore the game first."))
                 self._game_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
                 return
@@ -2044,9 +2124,13 @@ class ConfigureGameView(QWidget):
         # save we're about to do - an invalid mode is never written.
         if mode == LinkMode.HARDLINK and not vfs_selected:
             g.set_game_path(self._found_path)
-            if self._found_prefix is not None and hasattr(g, "set_prefix_path"):
+            if runtime_mode is not None:
+                g.set_runtime_mode(runtime_mode)
+            if (runtime_mode != "native" and self._found_prefix is not None
+                    and hasattr(g, "set_prefix_path")):
                 g.set_prefix_path(self._found_prefix)
-            elif self._has_prefix_src and hasattr(g, "clear_prefix_path"):
+            elif (runtime_mode is None and self._has_prefix_src
+                  and hasattr(g, "clear_prefix_path")):
                 g.clear_prefix_path()
             if hasattr(g, "set_staging_path"):
                 g.set_staging_path(self._custom_staging)
@@ -2064,12 +2148,15 @@ class ConfigureGameView(QWidget):
 
         # Persist via the backend setters (live write to paths.json / overrides).
         g.set_game_path(self._found_path)
+        if runtime_mode is not None:
+            g.set_runtime_mode(runtime_mode)
         if self._uses_appimage_path:
             g.set_appimage_path(
                 self._found_appimage if self._appimage_explicit else None)
-        elif self._found_prefix is not None:
+        elif runtime_mode != "native" and self._found_prefix is not None:
             g.set_prefix_path(self._found_prefix)
-        elif self._has_prefix_src and hasattr(g, "clear_prefix_path"):
+        elif (runtime_mode is None and self._has_prefix_src
+              and hasattr(g, "clear_prefix_path")):
             g.clear_prefix_path()
         # One call for the whole launcher-identity set: "" is as meaningful as an
         # id ("the user ruled this launcher out") and must reach the backend,

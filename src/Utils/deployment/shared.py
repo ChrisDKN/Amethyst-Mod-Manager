@@ -788,9 +788,8 @@ class RestoreWhitelistRule:
     filenames: list[str] = field(default_factory=list)
 
 
-# Case-insensitive filename/folder globs that are never treated as runtime
-# output by a physical restore.  Folder patterns match names at any depth and
-# protect the whole subtree.
+# Default case-insensitive filename/folder globs that are never treated as
+# runtime output by a physical restore. User settings can replace either list.
 GLOBAL_RESTORE_IGNORE_FILES: tuple[str, ...] = (
     "vkd3d-proton.cache.write",
 )
@@ -910,27 +909,46 @@ def build_restore_whitelist_matcher(rules, rel_prefix: str = ""):
     return _match
 
 
+def build_global_restore_ignore_matcher():
+    """Build a matcher from the current app-wide restore settings."""
+    try:
+        from Utils.ui.config import load_global_restore_whitelist
+        files, folders = load_global_restore_whitelist()
+    except Exception:
+        files = GLOBAL_RESTORE_IGNORE_FILES
+        folders = GLOBAL_RESTORE_IGNORE_FOLDERS
+
+    file_patterns = tuple(pattern.casefold() for pattern in files if pattern)
+    folder_patterns = tuple(pattern.casefold() for pattern in folders if pattern)
+    if not file_patterns and not folder_patterns:
+        return None
+
+    def _match(rel_path: str, *, is_dir: bool = False) -> bool:
+        parts = tuple(
+            part.casefold()
+            for part in rel_path.replace("\\", "/").strip("/ ").split("/")
+            if part
+        )
+        if not parts:
+            return False
+        if (not is_dir and any(
+                _fnmatch.fnmatchcase(parts[-1], pattern)
+                for pattern in file_patterns)):
+            return True
+        folder_parts = parts if is_dir else parts[:-1]
+        return any(
+            _fnmatch.fnmatchcase(folder, pattern)
+            for folder in folder_parts
+            for pattern in folder_patterns
+        )
+
+    return _match
+
+
 def is_global_restore_ignored(rel_path: str, *, is_dir: bool = False) -> bool:
     """Return whether a relative path matches the app-wide restore filter."""
-    parts = tuple(
-        part.casefold()
-        for part in rel_path.replace("\\", "/").strip("/ ").split("/")
-        if part
-    )
-    if not parts:
-        return False
-
-    if (not is_dir and any(
-            _fnmatch.fnmatchcase(parts[-1], pattern.casefold())
-            for pattern in GLOBAL_RESTORE_IGNORE_FILES)):
-        return True
-
-    folder_parts = parts if is_dir else parts[:-1]
-    return any(
-        _fnmatch.fnmatchcase(folder, pattern.casefold())
-        for folder in folder_parts
-        for pattern in GLOBAL_RESTORE_IGNORE_FOLDERS
-    )
+    matcher = build_global_restore_ignore_matcher()
+    return bool(matcher is not None and matcher(rel_path, is_dir=is_dir))
 
 
 def _default_core(deploy_dir: Path) -> Path:
@@ -1890,6 +1908,8 @@ def _move_runtime_files(
         return 0
 
     excluded = _normalize_exclude_dirs(exclude_dirs)
+    global_restore_ignore = (
+        build_global_restore_ignore_matcher() if apply_global_ignore else None)
     game_root_str = str(game_root)
     prefix_len = len(game_root_str) + 1
     overwrite_str = str(dest_dir)
@@ -1919,8 +1939,8 @@ def _move_runtime_files(
                         rel_lower = rel.replace("\\", "/").lower()
                         if excluded is not None and rel_lower in excluded:
                             continue
-                        if (apply_global_ignore
-                                and is_global_restore_ignored(
+                        if (global_restore_ignore is not None
+                                and global_restore_ignore(
                                     rel_lower, is_dir=True)):
                             continue
                         stack.append(entry.path)
@@ -1928,8 +1948,8 @@ def _move_runtime_files(
                     elif entry.is_file(follow_symlinks=False):
                         rel = entry.path[prefix_len:]
                         rel_lower = rel.replace("\\", "/").lower()
-                        if (apply_global_ignore
-                                and is_global_restore_ignored(rel_lower)):
+                        if (global_restore_ignore is not None
+                                and global_restore_ignore(rel_lower)):
                             if rel_lower not in known:
                                 whitelisted += 1
                         elif rel_lower in known:
@@ -1999,8 +2019,8 @@ def _move_runtime_files(
             if rel.lower() in known_dirs:
                 continue
             rel_lower = rel.replace("\\", "/").lower()
-            if ((apply_global_ignore
-                 and is_global_restore_ignored(rel_lower, is_dir=True))
+            if ((global_restore_ignore is not None
+                 and global_restore_ignore(rel_lower, is_dir=True))
                     or (restore_whitelist is not None
                         and restore_whitelist(rel_lower))):
                 continue  # dir sits in a whitelisted runtime area - leave it
@@ -2417,6 +2437,7 @@ __all__ = [
     "RestoreIncompleteError",
     "GLOBAL_RESTORE_IGNORE_FILES",
     "GLOBAL_RESTORE_IGNORE_FOLDERS",
+    "build_global_restore_ignore_matcher",
     "build_restore_whitelist_matcher",
     "is_global_restore_ignored",
     # Public helpers

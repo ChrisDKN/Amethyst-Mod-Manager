@@ -194,6 +194,11 @@ def read_collapsed_seps(profile_dir: Path, state: dict | None = None) -> set[str
     return set()
 
 
+def read_mod_groups(profile_dir: Path, state: dict | None = None) -> dict[str, dict]:
+    from Utils.mods.groups import normalize_groups
+    return normalize_groups(_read_key(profile_dir, state, "mod_groups"))
+
+
 def read_separator_locks(profile_dir: Path, state: dict | None = None) -> dict:
     raw = _read_key(profile_dir, state, "separator_locks")
     if isinstance(raw, dict):
@@ -417,6 +422,11 @@ def _remove_key(profile_dir: Path, key: str) -> None:
 
 def write_collapsed_seps(profile_dir: Path, value: set[str]) -> None:
     _update_key(profile_dir, "collapsed_seps", sorted(value))
+
+
+def write_mod_groups(profile_dir: Path, value: dict[str, dict]) -> None:
+    from Utils.mods.groups import normalize_groups
+    _update_key(profile_dir, "mod_groups", normalize_groups(value))
 
 
 def write_separator_locks(profile_dir: Path, value: dict) -> None:

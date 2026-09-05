@@ -56,6 +56,7 @@ class Fallout3_GOTY(Fallout_3):
                 description="Download and run Wrye Bash.",
                 dialog_class_path="wizards.wrye_bash.WryeBashWizard",
             ),
+            self._xlodgen_wizard_tool("fo3goty"),
             *self._xedit_wizard_tools(
                 build="FO3Edit", id_suffix="fo3goty",
                 nexus_url="https://www.nexusmods.com/fallout3/mods/637?tab=files",

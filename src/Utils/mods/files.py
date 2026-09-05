@@ -33,14 +33,16 @@ def load_mod_files(game, mod_name: str) -> dict[str, str]:
     This is used only while first migration is still publishing its snapshot;
     it scans the one selected mod and never consults a legacy index.
     """
-    mod_dir = _mod_dir_for(game, mod_name)
+    return scan_mod_files(
+        _mod_dir_for(game, mod_name),
+        getattr(game, "filemap_exclude_dirs", None) or ())
+
+
+def scan_mod_files(mod_dir: Path | None, excluded_dirs=()) -> dict[str, str]:
     if mod_dir is None or not mod_dir.is_dir():
         return {}
     files: dict[str, str] = {}
-    excluded_dirs = {
-        str(name).lower()
-        for name in (getattr(game, "filemap_exclude_dirs", None) or ())
-    }
+    excluded_dirs = {str(name).lower() for name in excluded_dirs}
     try:
         for directory, dirnames, filenames in os.walk(
                 mod_dir, followlinks=False):

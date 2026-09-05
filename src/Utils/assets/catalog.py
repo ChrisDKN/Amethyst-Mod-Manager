@@ -43,6 +43,7 @@ class MeshEntry:
     mod: str = ""                   # staged mod name (mod_* kinds)
     archive: Path | None = None     # holding .bsa/.ba2 (*_archive kinds)
     wins: bool = False              # the copy the game loads
+    source_path: Path | None = None
 
     @property
     def name(self) -> str:
@@ -268,7 +269,10 @@ def _mod_copies(resolver, mods: list[str], *, prefix: str = "",
             out.append(MeshEntry(
                 key, MOD_ARCHIVE, mod=record.mod_name, archive=archive))
         else:
-            out.append(MeshEntry(key, MOD_LOOSE, mod=record.mod_name))
+            out.append(MeshEntry(
+                key, MOD_LOOSE, mod=record.mod_name,
+                source_path=source_path(
+                    resolver.game, record.mod_name, record.source_rel)))
     return out, loose_w, arch_w
 
 
@@ -368,6 +372,8 @@ def read_entry(entry: MeshEntry, staging: Path | None, data_dir: Path | None,
         dirs = DirCache()
     try:
         if entry.kind == MOD_LOOSE:
+            if entry.source_path is not None:
+                return entry.source_path.read_bytes()
             if staging is None:
                 return None
             path = dirs.resolve(Path(staging) / entry.mod, entry.rel_key)

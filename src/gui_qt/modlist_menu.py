@@ -89,10 +89,11 @@ def build_context_menu(view, index):
         # and clobbers that default. Wrap so the bool is always swallowed.
         action.triggered.connect(lambda _checked=False, _s=slot: _s())
 
-    def act(label, slot, enabled=True, shortcut=None):
+    def act(label, slot, enabled=True, shortcut=None, parent_menu=None):
         # `label` is already translated by the caller (via _mt / _mtf); helpers
         # never translate, so count-templates like _mtf("… ({0})", n) work.
-        a = QAction(label, menu)
+        target = menu if parent_menu is None else parent_menu
+        a = QAction(label, target)
         _connect(a, slot)
         a.setEnabled(enabled)
         if shortcut:
@@ -102,7 +103,7 @@ def build_context_menu(view, index):
             # is registered (which would trigger Qt's ambiguous-shortcut warning
             # and could steal the key from the real window-level QShortcut).
             a.setText(f"{label}\t{shortcut}")  # i18n: skip — label already tr'd by caller
-        menu.addAction(a)
+        target.addAction(a)
         state["group_started"] = True
         state["any"] = True
         return a
@@ -111,7 +112,7 @@ def build_context_menu(view, index):
         # Greyed-out placeholder for an action not yet wired.
         return act(label, lambda: None, enabled=False)
 
-    def submenu(label, items, enabled=True, scroll_cap=0):
+    def submenu(label, items, enabled=True, scroll_cap=0, parent_menu=None):
         """Add a nested QMenu. *items* is a list of (text, slot) pairs - one
         action each. Used for Copy/Move to profile (the profile list nests as a
         submenu instead of opening a picker window).
@@ -123,7 +124,8 @@ def build_context_menu(view, index):
         SCREEN height, and a max-height-constrained QMenu just clips and
         mis-positions."""
         # `label` is already translated by the caller.
-        sub = QMenu(label, menu)
+        target = menu if parent_menu is None else parent_menu
+        sub = QMenu(label, target)
         sub.setEnabled(enabled)
         if scroll_cap and len(items) > scroll_cap:
             _fill_scroll_submenu(menu, sub, items, scroll_cap)
@@ -133,7 +135,7 @@ def build_context_menu(view, index):
                 a = QAction(text, sub)
                 _connect(a, slot)
                 sub.addAction(a)
-        menu.addMenu(sub)
+        target.addMenu(sub)
         state["group_started"] = True
         state["any"] = True
         return sub
@@ -294,11 +296,13 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
                 lambda ns=_reinstall_multi: _reinstall(view, ns))
         divider()
         # Group: organise
+        _build_group_actions(model, sel_mods, act, submenu)
         _others = _other_profiles(view)
         if _others:
-            submenu(_mtf("Copy to profile ({0})", n),
+            transfer_count = len(model.expand_group_selection(sel_mods))
+            submenu(_mtf("Copy to profile ({0})", transfer_count),
                     _profile_submenu_items(view, _names, sel_mods, _others, False))
-            submenu(_mtf("Move to profile ({0})", n),
+            submenu(_mtf("Move to profile ({0})", transfer_count),
                     _profile_submenu_items(view, _names, sel_mods, _others, True))
         act(_mtf("Disable selected ({0})", n),
             lambda: _set_enabled(view, model, sel_mods, False),
@@ -397,6 +401,7 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
         act(_mt("Quick Update"), lambda: _quick_update(view, [name]))
     divider()
     # Group 4: organise / layout
+    _build_group_actions(model, [row], act, submenu)
     act(_mt("Add separator above"), lambda: _add_separator(view, model, row, True))
     act(_mt("Add separator below"), lambda: _add_separator(view, model, row, False))
     _others = _other_profiles(view)
@@ -438,6 +443,50 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
     # Group 6: remove
     act(_mt("Remove mod"), lambda: _remove(view, model, row), enabled=not locked,
         shortcut=_shortcut_hint("remove"))
+
+
+def _build_group_actions(model, rows, act, submenu):
+    from Utils.mods.groups import expand_leaders
+    group_menu = None
+
+    def container():
+        nonlocal group_menu
+        if group_menu is None:
+            group_menu = submenu(_mt("Group options"), [])
+        return group_menu
+
+    names = [model.entry(r).name for r in rows]
+    moving = expand_leaders(names, model._mod_groups)
+    entries = model.natural_entries()
+    if not any(e.locked for e in entries if e.name in moving):
+        choices = sorted((e for e in entries if not e.is_separator
+                          and e.name not in moving
+                          and model.group_leader(e.name) in (None, e.name)),
+                         key=lambda e: e.display_name.casefold())
+        if choices:
+            submenu(_mt("Group with"), [
+                (e.display_name, lambda target=e.name: model.group_with(names, target))
+                for e in choices], scroll_cap=10, parent_menu=container())
+    members = [n for n in names if model.group_leader(n) not in (None, n)]
+    if members:
+        act(_mt("Ungroup"), lambda: model.ungroup_mods(members),
+            parent_menu=container())
+    leaders = [n for n in names if model.is_group_leader(n)]
+    if leaders:
+        act(_mt("Ungroup all"), lambda: model.ungroup_mods(leaders),
+            parent_menu=container())
+        def toggle(enabled):
+            targets = expand_leaders(leaders, model._mod_groups)
+            model.set_rows_enabled([r for r in range(model.rowCount())
+                                    if model.entry(r).name in targets], enabled)
+        act(_mt("Enable group"), lambda: toggle(True), parent_menu=container())
+        act(_mt("Disable group"), lambda: toggle(False), parent_menu=container())
+    if len(names) == 1 and leaders:
+        leader = leaders[0]
+        submenu(_mt("Change group leader"), [
+            (n, lambda new=n: model.change_group_leader(leader, new))
+            for n in sorted(model._mod_groups[leader]["members"], key=str.casefold)],
+            scroll_cap=10, parent_menu=container())
 
 
 def _fill_scroll_submenu(root_menu, sub, items, scroll_cap):
@@ -676,6 +725,10 @@ def _view_requirements(view, name):
 
 def _has_conflict(model, row) -> bool:
     """True if the row has a loose OR BSA conflict (so Show Conflicts is useful)."""
+    entry = model.entry(row)
+    if model.is_group_leader(entry.name):
+        return bool(entry.enabled and (model._conflicts.get(entry.name)
+                                       or model._bsa_conflicts.get(entry.name)))
     from gui_qt.modlist_model import COL_CONFLICTS, ConflictRole, BsaConflictRole
     idx = model.index(row, COL_CONFLICTS)
     loose = model.data(idx, ConflictRole) or 0
@@ -959,6 +1012,9 @@ def _move_to_separator(view, model, mod_rows, sep_name):
     of its group in the reverse-priority display, matching Tk). Rebuilds the body
     without the moved mods, then inserts them right after the separator."""
     from gui_qt.modlist_model import _PINNED_NAMES
+    if model._mod_groups:
+        model.move_group_to_separator(mod_rows, sep_name)
+        return
     rows = sorted(r for r in mod_rows
                   if not model.entry(r).is_separator
                   and model.entry(r).name not in _PINNED_NAMES)
@@ -1025,17 +1081,13 @@ def _profile_submenu_items(view, names, mod_rows, others, move: bool, *,
     Each entry copies/moves *names* to that profile (Tk lists the profiles as a
     submenu rather than opening a picker window)."""
     model = view.model()
-    # The copy worker registers the block in the target modlist assuming
-    # highest-priority-first (app._run_copy_to_profile prepends it as one
-    # unit) - reorder the display-ordered selection into NATURAL order so a
-    # reverse-priority (or column-sorted) view doesn't flip the block.
-    nat = {e.name: i for i, e in enumerate(model.natural_entries())}
-    names = sorted(names, key=lambda n: nat.get(n, len(nat)))
-    enabled_map = {}
-    for r in mod_rows:
-        e = model.entry(r)
-        if not e.is_separator:
-            enabled_map[e.name] = e.enabled
+    from Utils.mods.groups import expand_leaders
+    names = expand_leaders(names, model._mod_groups)
+    # Transfer in saved priority order, including hidden group members.
+    entries = [e for e in model.natural_entries()
+               if e.name in names and not e.is_separator]
+    names = [e.name for e in entries]
+    enabled_map = {e.name: e.enabled for e in entries}
     # The label is display-only; the callback closes over the FOLDER name.
     return [
         (profile_display(prof), (lambda p=prof: _copy_to_profile(
@@ -1329,6 +1381,9 @@ def _sort_selected_alphabetically(view, model, mod_rows):
     selection occupied (other rows + separators stay put). Port of Tk
     _sort_selected_alphabetically."""
     from gui_qt.modlist_model import _PINNED_NAMES
+    if model._mod_groups:
+        model.sort_group_selection(mod_rows)
+        return
     sel = [model.entry(r) for r in mod_rows]
     sel = [e for e in sel
            if not e.is_separator and e.name not in _PINNED_NAMES]
@@ -1844,6 +1899,13 @@ def _remove_mods_multi(view, model, mod_rows):
 # runtime via QCoreApplication.translate("ModListMenu", …), which lupdate
 # cannot see through - so each literal is registered here explicitly.
 _TR_MARKERS = (
+    QT_TRANSLATE_NOOP("ModListMenu", "Group options"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Group with"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Change group leader"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Ungroup"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Ungroup all"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Enable group"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Disable group"),
     QT_TRANSLATE_NOOP("ModListMenu", "Abstain from Endorsement"),
     QT_TRANSLATE_NOOP("ModListMenu", "Abstain selected ({0})"),
     QT_TRANSLATE_NOOP("ModListMenu", "Add note"),

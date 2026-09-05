@@ -9,7 +9,7 @@ use crate::schema::{initialise, read_u64_meta, write_u64_meta};
 use fs2::FileExt;
 use parking_lot::{Mutex, RwLock};
 use rusqlite::types::Value;
-use rusqlite::{Connection, OptionalExtension, params, params_from_iter};
+use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params, params_from_iter};
 use serde::ser::SerializeSeq;
 use serde::{Deserialize, Serialize, Serializer};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
@@ -1412,15 +1412,53 @@ impl LibraryCore {
     }
 
     pub fn replace_manifest(&self, batch: ManifestBatch, cancelled: &AtomicBool) -> Result<u64> {
+        self.replace_manifests(std::iter::once(Ok(batch)), cancelled)
+    }
+
+    pub fn replace_manifests<I, E>(
+        &self,
+        batches: I,
+        cancelled: &AtomicBool,
+    ) -> std::result::Result<u64, E>
+    where
+        I: IntoIterator<Item = std::result::Result<ManifestBatch, E>>,
+        E: From<FileGraphError>,
+    {
+        let mut connection = self.connection()?;
+        let transaction = connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(FileGraphError::from)?;
+        self.ensure_no_active_operations(&transaction)?;
+        let mut generation = read_u64_meta(&transaction, "inventory_generation")?;
+        let mut batches = batches.into_iter();
+        loop {
+            if cancelled.load(Ordering::Relaxed) {
+                return Err(FileGraphError::Invalid("operation cancelled".to_owned()).into());
+            }
+            let Some(batch) = batches.next() else {
+                break;
+            };
+            generation = Self::write_manifest(&transaction, batch?, cancelled)?;
+        }
+        if cancelled.load(Ordering::Relaxed) {
+            return Err(FileGraphError::Invalid("operation cancelled".to_owned()).into());
+        }
+        transaction.commit().map_err(FileGraphError::from)?;
+        self.inventory_generation
+            .store(generation, Ordering::Release);
+        Ok(generation)
+    }
+
+    fn write_manifest(
+        transaction: &Connection,
+        batch: ManifestBatch,
+        cancelled: &AtomicBool,
+    ) -> Result<u64> {
         if batch.mod_key.is_empty() || batch.variant_key.is_empty() {
             return Err(FileGraphError::Invalid(
                 "manifest mod_key and variant_key must not be empty".to_owned(),
             ));
         }
-        let mut connection = self.connection()?;
-        self.ensure_no_active_operations(&connection)?;
-        let transaction = connection.transaction()?;
-
         let check_cancelled = || -> Result<()> {
             if cancelled.load(Ordering::Relaxed) {
                 Err(FileGraphError::Invalid("operation cancelled".to_owned()))
@@ -1440,7 +1478,7 @@ impl LibraryCore {
             [&batch.mod_key],
             |row| row.get(0),
         )?;
-        invalidate_persisted_mod_state(&transaction, mod_id)?;
+        invalidate_persisted_mod_state(transaction, mod_id)?;
         let old_fingerprint: Vec<u8> = transaction.query_row(
             "SELECT manifest_fingerprint FROM mods WHERE mod_id=?1",
             [mod_id],
@@ -1636,15 +1674,12 @@ impl LibraryCore {
         }
 
         check_cancelled()?;
-        let generation = read_u64_meta(&transaction, "inventory_generation")?.saturating_add(1);
-        write_u64_meta(&transaction, "inventory_generation", generation)?;
+        let generation = read_u64_meta(transaction, "inventory_generation")?.saturating_add(1);
+        write_u64_meta(transaction, "inventory_generation", generation)?;
         transaction.execute(
             "UPDATE mods SET manifest_generation=?1 WHERE mod_id=?2",
             params![generation as i64, mod_id],
         )?;
-        transaction.commit()?;
-        self.inventory_generation
-            .store(generation, Ordering::Release);
         // Keep the previous selection projection available. The next profile
         // reconcile patches only this manifest's candidates/raw files into it
         // using manifest_generation instead of reloading the whole library.

@@ -12,7 +12,7 @@ from PySide6.QtWidgets import QStyledItemDelegate
 from gui_qt.theme_qt import bind_theme, qc, qc_contrast
 from gui_qt.downloads_model import (
     COL_CHECK, COL_NAME, COL_SIZE, COL_DOWNLOADED, COL_INSTALL,
-    EntryRole, InstalledRole,
+    EntryRole, InstalledRole, HiddenRole,
 )
 
 CHECK_BOX = 18
@@ -89,11 +89,15 @@ class DownloadsDelegate(QStyledItemDelegate):
         if col == COL_CHECK:
             self._paint_check(p, r, index.model().data(index, Qt.CheckStateRole))
         elif col == COL_NAME:
-            p.setPen(self.c_text)
+            hidden = index.model().data(index, HiddenRole)
+            p.setPen(self.c_dim if hidden else self.c_text)
             f = QFont(); f.setPixelSize(FONT_PX); p.setFont(f)
             rect = r.adjusted(6, 0, -4, 0)
+            name = e.path.name if e.path else ""
+            if hidden:
+                name = self.tr("{0} (hidden)").format(name)
             txt = p.fontMetrics().elidedText(
-                e.path.name if e.path else "", Qt.ElideRight, rect.width())
+                name, Qt.ElideRight, rect.width())
             p.drawText(rect, Qt.AlignVCenter | Qt.AlignLeft, txt)
         elif col == COL_SIZE:
             p.setPen(self.c_dim)

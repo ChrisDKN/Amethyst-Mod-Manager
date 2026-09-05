@@ -1,0 +1,56 @@
+name: Push translation source to Resources
+
+# Crowdin reads its source file from Resources/Localisation/amethyst_en.ts, but
+# that file is GENERATED from the Qt code on main (via i18n_update.sh). This
+# copies it across on release so the English base never has to be moved by hand
+# - and so Crowdin stays a single-branch project (connecting main as a second
+# branch would duplicate every string in the Crowdin UI).
+#
+# Runs on the same v* tags as the release build. Translations are deliberately
+# NOT copied: they only ever flow Crowdin -> Resources, never the other way.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+concurrency:
+  group: push-source-to-resources
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  push-source:
+    name: Copy amethyst_en.ts to Resources
+    runs-on: ubuntu-latest
+    steps:
+      # Full history: this commits onto a branch other than the tagged ref.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Copy the English base onto Resources
+        run: |
+          set -euo pipefail
+
+          # The tag points at the release commit on main - take the source from
+          # there, then switch to Resources to commit it.
+          git show "$GITHUB_SHA:src/translations/amethyst_en.ts" > /tmp/amethyst_en.ts
+
+          git checkout Resources
+          cp /tmp/amethyst_en.ts Localisation/amethyst_en.ts
+
+          if git diff --quiet -- Localisation/amethyst_en.ts; then
+            echo "amethyst_en.ts unchanged - nothing to push"
+            exit 0
+          fi
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Localisation/amethyst_en.ts
+          git commit -m "Update translation source from ${GITHUB_REF_NAME} [skip ci]"
+          git push origin Resources
+
+          echo "pushed $(grep -c '<message' Localisation/amethyst_en.ts) messages"

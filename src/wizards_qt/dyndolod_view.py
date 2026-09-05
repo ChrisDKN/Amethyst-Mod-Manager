@@ -11,8 +11,9 @@ already extracted under Profiles/<game>/Applications/<app_dir>/):
   2. Deploy the modlist (explicit Deploy button after the delete-previous-
      output reminder, through QtWizardContext.run_deploy).
   3. Choose Proton version + prefix placement (shared ProtonStepWidget).
-  4. Run the tool via Proton with ``-d:<game>/Data -o:<staging>/<Tool>_Output
-     -sse`` after prefix prep (registry seed, plugins.txt + My Games links).
+  4. Run the tool via Proton with ``-d:<game>/Data -o:<staging>/<Tool>_Output``
+     and its game-mode flag after prefix prep (registry seed, plugins.txt +
+     My Games links).
      Done enables once it has launched; the wizard closes and refreshes the
      modlist when the tool exits (the output dir is a new mod folder).
 
@@ -38,6 +39,7 @@ from gui_qt.theme_qt import (
 )
 from gui_qt.safe_emit import safe_emit
 from Utils.bethesda.xedit import tool_exe_path
+from Utils.executables.arguments import XLODGEN_GAME_FLAGS
 
 if TYPE_CHECKING:
     from Games.base_game import BaseGame
@@ -519,6 +521,15 @@ class DynDOLODView(QWidget):
         proton_name, prefix_mode = self._proton_name, self._prefix_mode
         prefer_discrete_gpu = self._prefer_discrete_gpu
         tool_id = self._tool_id
+        game_flag = (XLODGEN_GAME_FLAGS.get(game.game_id)
+                     if tool_id == "xlodgen" else "-sse")
+
+        if game_flag is None:
+            self._set_status(
+                self._run_status,
+                self.tr("xLODGen does not support {0}.").format(game.name),
+                err_text())
+            return
 
         def worker():
             from Utils.executables.launch import (
@@ -577,11 +588,11 @@ class DynDOLODView(QWidget):
                     game, compat_data, proton_script, env, log_fn=_wlog)
 
                 self._log(f"{name} Wizard: launching {exe} via Proton")
-                self._log(f"  args: {data_arg}  {output_arg}  -sse")
+                self._log(f"  args: {data_arg}  {output_arg}  {game_flag}")
                 safe_emit(self._run_started_sig)
                 run_tool_logged(
                     proton_script, exe, env, log_fn=_wlog,
-                    extra_args=[data_arg, output_arg, "-sse"], label=name,
+                    extra_args=[data_arg, output_arg, game_flag], label=name,
                     game=game, owner=self)
 
                 self._log(f"{name} Wizard: {exe.name} closed.")

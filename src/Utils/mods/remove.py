@@ -14,6 +14,7 @@ from pathlib import Path
 
 
 def remove_mods(game, profile_dir: Path, mod_names: list[str], log_fn=None, *,
+                staging_root: Path | None = None,
                 strict: bool = False) -> None:
     """Fully remove *mod_names* for *game* / *profile_dir*:
 
@@ -30,7 +31,8 @@ def remove_mods(game, profile_dir: Path, mod_names: list[str], log_fn=None, *,
     if game is None or not mod_names:
         return
     try:
-        staging_root = game.get_effective_mod_staging_path()
+        staging_root = (Path(staging_root) if staging_root is not None
+                        else game.get_effective_mod_staging_path())
     except Exception:
         if strict:
             raise

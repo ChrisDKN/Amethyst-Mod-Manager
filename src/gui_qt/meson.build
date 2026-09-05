@@ -78,6 +78,7 @@ py.install_sources(
   'modlist_header.py',
   'modlist_menu.py',
   'modlist_model.py',
+  'modlist_groups.py',
   'modlist_sort.py',
   'modlist_view.py',
   'move_downloads_overlay.py',

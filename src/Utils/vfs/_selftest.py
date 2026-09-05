@@ -3097,9 +3097,75 @@ def test_native_steam_client_lifecycle() -> None:
             assert steam_client_running()
             assert not steam_client_running(strict=True)
 
-    # A closed client is started without a game URI. Process liveness is
-    # checked again after the PID appears, covering Steam's bootstrap/PID
-    # replacement window without claiming that login or IPC is ready.
+        host_result = types.SimpleNamespace(returncode=0)
+        with patch("Utils.launchers.steam._HOME", fake_home), \
+                patch.object(Path, "exists", autospec=True,
+                             side_effect=_flatpak_exists), \
+                patch("shutil.which", return_value="/usr/bin/flatpak-spawn"), \
+                patch("subprocess.run", return_value=host_result) as host_run:
+            assert steam_client_running(strict=True)
+        host_command = host_run.call_args.args[0]
+        assert host_command[:4] == [
+            "flatpak-spawn", "--host", "sh", "-c",
+        ]
+        assert ' -ef "$2"' in host_command[4]
+        assert host_command[-1] == str(fake_home / ".steam/steam.pipe")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        fake_home = Path(tmp)
+        snap_pid = fake_home / "snap/steam/common/.steam/steam.pid"
+        snap_pid.parent.mkdir(parents=True)
+        snap_pid.write_text("424242\n", encoding="ascii")
+        real_read_text = Path.read_text
+        real_exists = Path.exists
+
+        def _snap_process(path: Path, *args, **kwargs) -> str:
+            if path == Path("/proc/424242/comm"):
+                return "steam\n"
+            return real_read_text(path, *args, **kwargs)
+
+        def _outside_flatpak(path: Path) -> bool:
+            if str(path) == "/.flatpak-info":
+                return False
+            return real_exists(path)
+
+        with patch("Utils.launchers.steam._HOME", fake_home), \
+                patch.object(Path, "read_text", autospec=True,
+                             side_effect=_snap_process), \
+                patch.object(Path, "exists", autospec=True,
+                             side_effect=_outside_flatpak), \
+                patch("Utils.launchers.steam._process_has_open_path",
+                      return_value=True):
+            assert steam_client_running(strict=True)
+
+    from Utils.launchers.steam_client import (
+        _steam_login_log_cursors,
+        _steam_login_log_paths,
+        _steam_login_ready_since,
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        fake_home = Path(tmp)
+        login_paths = tuple(map(str, _steam_login_log_paths(fake_home)))
+        assert any("com.valvesoftware.Steam" in path for path in login_paths)
+        assert any("snap/steam/common" in path for path in login_paths)
+        login_log = (
+            fake_home / ".local/share/Steam/logs/steamui_login.txt"
+        )
+        login_log.parent.mkdir(parents=True)
+        login_log.write_bytes(
+            b"[old] SetLoginState: Success - OK\n"
+        )
+        cursors = _steam_login_log_cursors(fake_home)
+        assert not _steam_login_ready_since(cursors)[0]
+        with login_log.open("ab") as stream:
+            stream.write(b"[new] SetLoginState: WaitingForLibraryReady - OK\n")
+        assert _steam_login_ready_since(cursors) == (False, True)
+        with login_log.open("ab") as stream:
+            stream.write(b"[new] SetLoginState: Success - OK\n")
+        assert _steam_login_ready_since(cursors) == (True, True)
+
+    # A closed client is started without a game URI and held until both
+    # Steam's command pipe and a fresh successful login state are visible.
     with tempfile.TemporaryDirectory() as tmp:
         fake_home = Path(tmp)
         inherited = {
@@ -3123,6 +3189,10 @@ def test_native_steam_client_lifecycle() -> None:
         with patch("Utils.launchers.steam_client.Path") as path_type, \
                 patch("Utils.launchers.steam_client.steam_client_running",
                       side_effect=[False, True, True]) as running, \
+                patch("Utils.launchers.steam_client._steam_login_log_cursors",
+                      return_value={}), \
+                patch("Utils.launchers.steam_client._steam_login_ready_since",
+                      return_value=(True, True)), \
                 patch("Utils.launchers.steam_client.shutil.which",
                       side_effect=lambda name: f"/usr/bin/{name}"), \
                 patch("Utils.launchers.steam_client.subprocess.Popen", side_effect=[
@@ -3141,7 +3211,7 @@ def test_native_steam_client_lifecycle() -> None:
         assert running.call_count == 3
         assert all(call.kwargs == {"strict": True}
                    for call in running.call_args_list)
-        sleep.assert_called_once_with(2.0)
+        sleep.assert_not_called()
         assert [call.args[0] for call in client_spawn.call_args_list] == [
             ["xdg-open", "steam://open/main"],
             ["steam", "-silent"],
@@ -3158,17 +3228,44 @@ def test_native_steam_client_lifecycle() -> None:
             "PRESSURE_VESSEL_FILESYSTEMS_RW",
         ))
         assert client_spawn.call_args_list[-1].kwargs["cwd"] == str(fake_home)
-        assert any("client process is running" in message
+        assert any("signed in and ready" in message
                    for message in ready_messages)
 
-    # The legacy helper still safely handles client-start failures for callers
-    # which explicitly ask it to start Steam.
+    with tempfile.TemporaryDirectory() as tmp:
+        fake_home = Path(tmp)
+        client_proc = types.SimpleNamespace(poll=lambda: None)
+        with patch("Utils.launchers.steam_client.Path") as path_type, \
+                patch("Utils.launchers.steam_client.steam_client_running",
+                      side_effect=[False, True, True]), \
+                patch("Utils.launchers.steam_client._steam_login_log_cursors",
+                      return_value={}), \
+                patch("Utils.launchers.steam_client._steam_login_ready_since",
+                      return_value=(True, True)), \
+                patch("Utils.launchers.steam_client.shutil.which",
+                      side_effect=lambda name: (
+                          "/usr/bin/snap" if name == "snap" else None
+                      )), \
+                patch("Utils.launchers.steam_client.subprocess.Popen",
+                      return_value=client_proc) as client_spawn, \
+                patch("Utils.launchers.steam_client.time.sleep"), \
+                patch("Utils.environment.xdg.host_env", return_value={}):
+            path_type.home.return_value = fake_home
+            path_type.return_value.exists.return_value = False
+            assert ensure_steam_client_running(timeout=5.0)
+        client_spawn.assert_called_once()
+        assert client_spawn.call_args.args[0] == [
+            "snap", "run", "steam", "-silent",
+        ]
+
+    # Startup failures remain actionable and never fall through to the game.
     failed_messages: list[str] = []
     with tempfile.TemporaryDirectory() as tmp:
         fake_home = Path(tmp)
         with patch("Utils.launchers.steam_client.Path") as path_type, \
                 patch("Utils.launchers.steam_client.steam_client_running",
                       return_value=False), \
+                patch("Utils.launchers.steam_client._steam_login_log_cursors",
+                      return_value={}), \
                 patch("Utils.launchers.steam_client.shutil.which",
                       side_effect=lambda name: (
                           "/usr/bin/xdg-open" if name == "xdg-open" else None
@@ -3210,11 +3307,12 @@ def test_native_steam_client_lifecycle() -> None:
                 patch("Utils.executables.launch.launch_report.mark_failed") \
                       as mark_failed, \
                 patch("Utils.environment.xdg.host_env", return_value={}):
+            ensure_steam.return_value = False
             launch_game(game, log_fn=launch_messages.append)
-        ensure_steam.assert_not_called()
+        ensure_steam.assert_called_once()
         game_spawn.assert_not_called()
         mark_failed.assert_called_once()
-        assert "Steam needs to be running" in mark_failed.call_args.args[0]
+        assert "could not start or confirm" in mark_failed.call_args.args[0]
         assert any("refusing to launch" in message
                    for message in launch_messages)
         assert not (native_exe.parent / "steam_appid.txt").exists()
@@ -3246,8 +3344,8 @@ def test_native_steam_client_lifecycle() -> None:
     print("✓ native Steam client startup, readiness, and failure lifecycle")
 
 
-def test_direct_steam_launch_requires_running_client() -> None:
-    """VFS and Run Via: None must fail visibly before starting Proton."""
+def test_direct_steam_launch_starts_or_reports_client() -> None:
+    """VFS and Run Via: None start Steam, retaining an actionable fallback."""
     with tempfile.TemporaryDirectory() as tmp:
         game = _FakeBethesdaGame(Path(tmp))
         exe = game.game / "fose_loader.exe"
@@ -3262,16 +3360,19 @@ def test_direct_steam_launch_requires_running_client() -> None:
                   return_value=True),
             patch("Utils.launchers.steam.steam_client_running",
                   return_value=False) as running,
+            patch("Utils.launchers.steam_client.ensure_steam_client_running",
+                  return_value=False) as ensure_steam,
             patch("Utils.executables.launch.spawn_process_watched") as spawn,
             launch_report.report(failures.append) as report,
         ):
             launch_game(game, log_fn=messages.append)
             report.finish()
         running.assert_called_once_with(strict=True)
+        ensure_steam.assert_called_once()
         spawn.assert_not_called()
         assert len(failures) == 1
         assert launch_report.is_actionable(failures[0])
-        assert "Steam needs to be running" in failures[0]
+        assert "could not start or confirm" in failures[0]
         assert any("refusing to launch" in message for message in messages)
 
         # The physical/None route uses the same preflight, without requiring
@@ -3285,16 +3386,29 @@ def test_direct_steam_launch_requires_running_client() -> None:
                   return_value=True),
             patch("Utils.launchers.steam.steam_client_running",
                   return_value=False) as running,
+            patch("Utils.launchers.steam_client.ensure_steam_client_running",
+                  return_value=False) as ensure_steam,
             patch("Utils.executables.launch.launch_exe_via_proton") as proton,
             launch_report.report(failures.append) as report,
         ):
             launch_game(game, log_fn=messages.append)
             report.finish()
         running.assert_called_once_with(strict=True)
+        ensure_steam.assert_called_once()
         proton.assert_not_called()
         assert len(failures) == 1
-        assert "Steam needs to be running" in failures[0]
-    print("✓ direct Steam Play reports when the client is not running")
+        assert "could not start or confirm" in failures[0]
+
+        from Utils.executables.launch import _require_direct_steam_client
+        with patch("Utils.executables.launch.game_is_steam_install",
+                   return_value=True), \
+                patch("Utils.launchers.steam.steam_client_running",
+                      return_value=False), \
+                patch("Utils.launchers.steam_client.ensure_steam_client_running",
+                      return_value=True) as ensure_steam:
+            assert _require_direct_steam_client(game, messages.append)
+        ensure_steam.assert_called_once()
+    print("✓ direct Steam Play starts the client and reports startup failures")
 
 
 def test_native_vfs_flatpak_forwards_launch_environment() -> None:
@@ -5093,7 +5207,7 @@ def main() -> None:
     test_native_bepinex_shadow_launch()
     test_native_none_launch_steam_context()
     test_native_steam_client_lifecycle()
-    test_direct_steam_launch_requires_running_client()
+    test_direct_steam_launch_starts_or_reports_client()
     test_native_vfs_flatpak_forwards_launch_environment()
     test_native_steam_handoff_fallback_is_not_recursive()
     test_proton_steam_handoff_fallback_is_not_recursive()

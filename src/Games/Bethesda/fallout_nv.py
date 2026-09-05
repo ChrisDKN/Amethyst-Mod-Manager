@@ -112,6 +112,7 @@ class Fallout_NV(Fallout_3):
                 description="Download and run Wrye Bash.",
                 dialog_class_path="wizards.wrye_bash.WryeBashWizard",
             ),
+            self._xlodgen_wizard_tool("fonv"),
             *self._xedit_wizard_tools(
                 build="FNVEdit", id_suffix="fonv",
                 nexus_url="https://www.nexusmods.com/newvegas/mods/34703?tab=files",
@@ -394,7 +395,7 @@ class Fallout_NC(Fallout_NV):
         *Fallout_NV.vanilla_plugins,
         *_new_california_plugins,
     ]
-    _ARCHIVE_INI_FILENAME = "FALLOUT.INI"
+    _ARCHIVE_INI_FILENAME = "Fallout.ini"
 
     @property
     def name(self) -> str:
@@ -471,6 +472,7 @@ class Fallout_NC(Fallout_NV):
                 description="Download and run Wrye Bash.",
                 dialog_class_path="wizards.wrye_bash.WryeBashWizard",
             ),
+            self._xlodgen_wizard_tool("falloutnc"),
             *self._xedit_wizard_tools(
                 build="FNVEdit", id_suffix="fonv",
                 nexus_url="https://www.nexusmods.com/newvegas/mods/34703?tab=files",

@@ -176,6 +176,33 @@ impl LibrarySession {
             .map_err(PyErr::from)
     }
 
+    #[pyo3(signature = (payloads, cancel=None))]
+    fn replace_mod_manifests(
+        &self,
+        py: Python<'_>,
+        payloads: &Bound<'_, PyAny>,
+        cancel: Option<PyRef<'_, CancelToken>>,
+    ) -> PyResult<u64> {
+        let payloads = payloads.try_iter()?.unbind();
+        let core = self.core.clone();
+        let cancelled = cancel
+            .map(|token| token.value.clone())
+            .unwrap_or_else(|| Arc::new(AtomicBool::new(false)));
+        py.detach(move || {
+            let batches = std::iter::from_fn(|| {
+                Python::attach(|py| {
+                    payloads.bind(py).clone().next().map(|item| {
+                        let payload = item?.cast_into::<PyBytes>()?;
+                        let bytes = payload.as_bytes();
+                        py.detach(|| decode::<ManifestBatch>(bytes))
+                            .map_err(PyErr::from)
+                    })
+                })
+            });
+            core.replace_manifests(batches, &cancelled)
+        })
+    }
+
     fn remove_mod(&self, py: Python<'_>, mod_key: String) -> PyResult<bool> {
         let core = self.core.clone();
         py.detach(move || core.remove_mod(&mod_key))
@@ -420,15 +447,18 @@ impl ResolvedSnapshot {
             .iter()
             .map(|value| parse_namespace(value))
             .collect::<PyResult<BTreeSet<_>>>()?;
-        encoded_py(
-            py,
-            &self.snapshot.iter_winners(
-                target.as_deref(),
-                &namespaces,
-                after_id,
-                limit.clamp(1, 10_000),
-            ),
-        )
+        let snapshot = self.snapshot.clone();
+        let bytes = py
+            .detach(move || {
+                encode(&snapshot.iter_winners(
+                    target.as_deref(),
+                    &namespaces,
+                    after_id,
+                    limit.clamp(1, 10_000),
+                ))
+            })
+            .map_err(PyErr::from)?;
+        Ok(PyBytes::new(py, &bytes).unbind())
     }
 
     fn conflict_state(&self, py: Python<'_>) -> PyResult<Py<PyBytes>> {
@@ -460,8 +490,12 @@ impl ResolvedSnapshot {
         encoded_py(py, &self.snapshot.patch_files())
     }
 
-    fn mod_files(&self, py: Python<'_>, mod_name: &str) -> PyResult<Py<PyBytes>> {
-        encoded_py(py, &self.snapshot.mod_files(mod_name))
+    fn mod_files(&self, py: Python<'_>, mod_name: String) -> PyResult<Py<PyBytes>> {
+        let snapshot = self.snapshot.clone();
+        let bytes = py
+            .detach(move || encode(&snapshot.mod_files(&mod_name)))
+            .map_err(PyErr::from)?;
+        Ok(PyBytes::new(py, &bytes).unbind())
     }
 
     fn mod_plugins(&self, py: Python<'_>, mod_name: String) -> PyResult<Py<PyBytes>> {
@@ -474,7 +508,7 @@ impl ResolvedSnapshot {
     fn iter_mod_files(
         &self,
         py: Python<'_>,
-        mod_name: &str,
+        mod_name: String,
         winners_only: bool,
         kinds: Vec<String>,
         cursor: usize,
@@ -484,20 +518,27 @@ impl ResolvedSnapshot {
             .iter()
             .map(|value| parse_provider_kind(value))
             .collect::<PyResult<BTreeSet<_>>>()?;
-        encoded_py(
-            py,
-            &self.snapshot.iter_mod_files(
-                mod_name,
-                winners_only,
-                &kinds,
-                cursor,
-                limit.clamp(1, 10_000),
-            ),
-        )
+        let snapshot = self.snapshot.clone();
+        let bytes = py
+            .detach(move || {
+                encode(&snapshot.iter_mod_files(
+                    &mod_name,
+                    winners_only,
+                    &kinds,
+                    cursor,
+                    limit.clamp(1, 10_000),
+                ))
+            })
+            .map_err(PyErr::from)?;
+        Ok(PyBytes::new(py, &bytes).unbind())
     }
 
-    fn archive_files(&self, py: Python<'_>, mod_name: &str) -> PyResult<Py<PyBytes>> {
-        encoded_py(py, &self.snapshot.archive_files(mod_name))
+    fn archive_files(&self, py: Python<'_>, mod_name: String) -> PyResult<Py<PyBytes>> {
+        let snapshot = self.snapshot.clone();
+        let bytes = py
+            .detach(move || encode(&snapshot.archive_files(&mod_name)))
+            .map_err(PyErr::from)?;
+        Ok(PyBytes::new(py, &bytes).unbind())
     }
 
     fn inventory_facets(&self, py: Python<'_>) -> PyResult<Py<PyBytes>> {

@@ -238,6 +238,9 @@ def replace_mod_in_place(modlist_path: Path, old_name: str,
         rest = [e for e in rest if e.name != old_name]
         rest.insert(min(idx, len(rest)), new_e)
         write_modlist(modlist_path, rest)
+        from Utils.mods.groups import reconcile_profile_groups
+        reconcile_profile_groups(modlist_path.parent, rest,
+                                 renames=[(old_name, new_name)])
         return True
 
 
@@ -282,6 +285,10 @@ def move_mods_to_anchor(
                 return False
             if after:
                 idx += 1
+        from Utils.mods.groups import boundary_slot, normalize_groups
+        from Utils.profiles.state import read_mod_groups
+        groups = normalize_groups(read_mod_groups(modlist_path.parent), rest)
+        idx = boundary_slot(rest, groups, idx, after=after)
         write_modlist(modlist_path, rest[:idx] + block + rest[idx:])
         return True
 
@@ -469,6 +476,8 @@ def sync_modlist_with_mods_folder(modlist_path: Path,
                           errors="surrogateescape")
 
     _migrate_profile_renames(modlist_path.parent, repaired_entries)
+    from Utils.mods.groups import reconcile_profile_groups
+    reconcile_profile_groups(modlist_path.parent, read_modlist(modlist_path))
 
     # Sweep temp strays a crash mid-write left behind (temp names are unique
     # per write, so nothing else reclaims them). Runs on Refresh/profile load,

@@ -1494,7 +1494,8 @@ def build_collection_manifest(rows, game, info: dict, *,
             "source": source,
             "details": {
                 "category": row.get("category_name") or "",
-                "type": "dinput" if row.get("root_folder") else "",
+                "type": ("dinput" if row.get("root_folder")
+                         else row.get("collection_install_type") or ""),
             },
             "phase": int(row.get("phase") or 0),
         }

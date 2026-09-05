@@ -591,7 +591,9 @@ def sort_profile_plugins(
 
         try:
             from Utils.filegraph.service import plugin_source_paths
+            from LOOT.game_view import ProfileSources
             winner_paths = plugin_source_paths(snapshot, game)
+            profile_sources = ProfileSources.from_game(snapshot, game)
             raw_game_path = game.get_game_path()
             raw_staging_root = game.get_effective_mod_staging_path()
             if not raw_game_path or not raw_staging_root:
@@ -613,8 +615,8 @@ def sort_profile_plugins(
         try:
             from LOOT.loot_sorter import sort_plugins
             result = sort_plugins(
-                plugin_names=[row.name for row in unlocked],
-                enabled_set={row.name for row in unlocked if row.enabled},
+                plugin_names=[row.name for row in rows],
+                enabled_set={row.name for row in rows if row.enabled},
                 game_name=str(getattr(game, "name", "") or ""),
                 game_path=game_path,
                 staging_root=staging_root,
@@ -629,19 +631,23 @@ def sort_profile_plugins(
                 game_data_dir=data_dir,
                 userlist_path=userlist_path,
                 plugin_winner_paths=winner_paths,
+                profile_sources=profile_sources,
+                locked_positions={
+                    row.name: index for index, row in locked_indices.items()
+                },
             )
         except Exception as exc:
             _raise_loot_error(exc)
 
-        expected = {row.name.casefold() for row in unlocked}
+        expected = {row.name.casefold() for row in rows}
         returned = [str(name) for name in result.sorted_names]
-        if (len(returned) != len(unlocked)
+        if (len(returned) != len(rows)
                 or {name.casefold() for name in returned} != expected):
             raise PluginStateError(
                 "loot_sort_invalid_result",
                 "LOOT returned a different plugin set than it received.",
                 {
-                    "expected_count": len(unlocked),
+                    "expected_count": len(rows),
                     "returned_count": len(returned),
                 },
             )

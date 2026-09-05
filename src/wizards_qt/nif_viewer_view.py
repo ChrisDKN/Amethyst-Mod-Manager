@@ -16,8 +16,8 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QEvent, Qt, QTimer, Signal
 from PySide6.QtWidgets import (
-    QAbstractItemView, QCheckBox, QComboBox, QLabel, QLineEdit, QPushButton,
-    QSizePolicy, QSplitter, QTreeView, QVBoxLayout, QWidget,
+    QAbstractItemView, QApplication, QCheckBox, QComboBox, QLabel, QLineEdit,
+    QPushButton, QSizePolicy, QSplitter, QTreeView, QVBoxLayout, QWidget,
 )
 
 from gui_qt.eliding_label import ElidingLabel
@@ -73,6 +73,7 @@ class NifViewerView(QWidget):
         self._gen = 0
         self._tree_gen = 0
         self._open_gen = 0
+        self._scanning = False
         self._entries: list = []
         self._resolver = None
         self._dirs = DirCache()
@@ -224,6 +225,13 @@ class NifViewerView(QWidget):
         self._debounce.setInterval(250)
         self._debounce.timeout.connect(self._rebuild_tree)
 
+        self._selection_timer = QTimer(self)
+        self._selection_timer.setSingleShot(True)
+        self._selection_timer.setInterval(150)
+        self._selection_timer.timeout.connect(self._preview_current)
+        self._tree.selectionModel().currentChanged.connect(self._on_current_changed)
+        self._tree.activated.connect(self._preview_current)
+
         self._scan_done.connect(self._guard(self._on_scan_done))
         self._tree_ready.connect(self._guard(self._on_tree_ready))
         self._mesh_ready.connect(self._guard(self._on_mesh_ready))
@@ -243,8 +251,8 @@ class NifViewerView(QWidget):
         """
         if self._closing:
             return
-        self._restore = (self._current_entry.rel_key
-                         if self._current_entry is not None else None)
+        if self._current_entry is not None:
+            self._restore = self._current_entry.rel_key
         self._current_entry = None
         self._current_data = None
         self._dirs = DirCache()
@@ -252,7 +260,7 @@ class NifViewerView(QWidget):
         self._open_gen += 1
         self._mesh_reads.discard_pending()
         self._tex_sources.cancel()
-        self._preview.cancel_load()
+        self._preview.clear(self.tr("Scanning…"))
         self._log("NIF Viewer: refreshing from the profile…")
         self._start_scan()
 
@@ -279,6 +287,7 @@ class NifViewerView(QWidget):
         if self._closing:
             return
         self._closing = True
+        self._selection_timer.stop()
         self._gen += 1            # abandon any in-flight scan
         self._tree_gen += 1
         self._open_gen += 1
@@ -303,8 +312,14 @@ class NifViewerView(QWidget):
 
     # ---- scan -------------------------------------------------------------
     def _start_scan(self):
+        self._selection_timer.stop()
         self._gen += 1
         gen = self._gen
+        self._scanning = True
+        self._tree_gen += 1
+        self._tree_jobs.discard_pending()
+        self._debounce.stop()
+        self._tree.setEnabled(False)
         self._count.setText(self.tr("Scanning…"))
         try:
             snapshot_hook = getattr(
@@ -336,12 +351,15 @@ class NifViewerView(QWidget):
         if gen != self._gen:
             return
         self._entries = entries
+        self._scanning = False
         self._rebuild_tree()
 
     # ---- tree -------------------------------------------------------------
     def _rebuild_tree(self):
         """Filter the cached catalogue and rebuild the tree off the UI thread."""
         self._debounce.stop()
+        if self._closing or self._scanning:
+            return
         self._tree_gen += 1
         gen = self._tree_gen
         query = self._search.text().strip().lower()
@@ -362,9 +380,10 @@ class NifViewerView(QWidget):
         self._tree_jobs.submit(worker)
 
     def _on_tree_ready(self, gen: int, root, count: int):
-        if gen != self._tree_gen:
+        if gen != self._tree_gen or self._scanning:
             return
         self._model.set_root(root)
+        self._tree.setEnabled(True)
         self._count.setText(self.tr("{0} meshes").format(f"{count:,}"))
         # A scoped open lands on one mod's handful of meshes: expand so they
         # are on screen instead of hidden under a collapsed 'meshes' root.
@@ -391,7 +410,26 @@ class NifViewerView(QWidget):
         finally:
             QApplication.restoreOverrideCursor()
 
+    def _on_current_changed(self, current, _previous):
+        self._selection_timer.stop()
+        if (self._closing or self._scanning or not current.isValid()
+                or QApplication.mouseButtons() != Qt.NoButton):
+            return
+        node = self._model.node(current)
+        if node is not None and node.payload is not None:
+            self._selection_timer.start()
+
+    def _preview_current(self, *_args):
+        self._selection_timer.stop()
+        if self._closing or self._scanning:
+            return
+        node = self._model.node(self._tree.currentIndex())
+        if (node is not None and node.payload is not None
+                and node.payload != self._current_entry):
+            self._open_entry(node.payload)
+
     def _on_clicked(self, index):
+        self._selection_timer.stop()
         node = self._model.node(index)
         if node is None:
             return
@@ -406,6 +444,7 @@ class NifViewerView(QWidget):
     def _open_entry(self, entry, tex_override=None, keep_view=False,
                     texture_reload=False):
         """Read THIS copy (not the winner) off-thread and hand it to the view."""
+        self._selection_timer.stop()
         self._open_gen += 1
         gen = self._open_gen
         # Same mesh path = a comparison: hold the camera so both versions land

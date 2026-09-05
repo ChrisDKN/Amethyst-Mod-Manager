@@ -118,6 +118,7 @@ def load_rows(entries, game) -> list[dict]:
         root_folder = False
         col_optional = False
         col_phase = 0
+        col_install_type = ""
         ts_ns = ts_pkg = ts_version = ts_full = ts_community = ""
         ts_size = 0
         if staging_root:
@@ -135,6 +136,7 @@ def load_rows(entries, game) -> list[dict]:
                     root_folder = bool(meta.root_folder)
                     col_optional = bool(meta.collection_optional)
                     col_phase = meta.collection_phase or 0
+                    col_install_type = meta.collection_install_type or ""
                 except Exception:
                     pass
                 # The same meta.ini can carry BOTH sections (a mod mirrored on
@@ -182,6 +184,7 @@ def load_rows(entries, game) -> list[dict]:
             "ver_options":      [{"label": ver_label, "name": "", "size_bytes": 0}],
             "optional":         col_optional,
             "phase":            col_phase,
+            "collection_install_type": col_install_type,
             "has_fomod":        has_installer,
             "has_bain":         has_bain,
             "fomod_export":     has_installer,
@@ -620,8 +623,10 @@ def build_manifest(rows, game_domain: str, app_version: str, *,
             mod_entry["enabled"] = False
         # Root-deploy mods use the Nexus-collections "dinput" install type -
         # the importer already maps details.type == "dinput" to meta rootFolder.
-        if row.get("root_folder"):
-            mod_entry["details"] = {"type": "dinput"}
+        install_type = ("dinput" if row.get("root_folder")
+                        else row.get("collection_install_type") or "")
+        if install_type:
+            mod_entry["details"] = {"type": install_type}
 
         # Include version and category from meta.ini if available.
         row_version = row.get("version") or ""

@@ -338,6 +338,15 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
             ),
         ]
 
+    @staticmethod
+    def _xlodgen_wizard_tool(id_suffix: str) -> WizardTool:
+        return WizardTool(
+            id=f"run_xlodgen_{id_suffix}",
+            label="Run xLODGen",
+            description="Install xLODGen, deploy mods, and run xLODGenx64.exe.",
+            dialog_class_path="wizards.dyndolod.xLODGenWizard",
+        )
+
     @property
     def wizard_tools(self) -> list[WizardTool]:
         return self._base_wizard_tools() + [
@@ -367,6 +376,7 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
                 description="Download and run Wrye Bash.",
                 dialog_class_path="wizards.wrye_bash.WryeBashWizard",
             ),
+            self._xlodgen_wizard_tool("fo3"),
             *self._xedit_wizard_tools(
                 build="FO3Edit", id_suffix="fo3",
                 nexus_url="https://www.nexusmods.com/fallout3/mods/637?tab=files",
@@ -867,12 +877,27 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
 
     _MYGAMES_DOCS = Path("drive_c/users/steamuser/Documents/My Games")
 
+    @staticmethod
+    def _resolve_ini_path(directory: Path, filename: str) -> Path:
+        """Keep an existing INI's on-disk casing, or use the configured name."""
+        target = directory / filename
+        if target.is_file() or target.is_symlink():
+            return target
+        try:
+            for entry in directory.iterdir():
+                if (entry.name.casefold() == filename.casefold()
+                        and (entry.is_file() or entry.is_symlink())):
+                    return entry
+        except OSError:
+            pass
+        return target
+
     def _get_archive_ini_path(self) -> "Path | None":
         """Return the primary INI used for archive invalidation (back-compat)."""
         mygames = self._mygames_path()
         if mygames is None:
             return None
-        return mygames / self._ARCHIVE_INI_FILENAME
+        return self._resolve_ini_path(mygames, self._ARCHIVE_INI_FILENAME)
 
     def _get_archive_ini_paths(self) -> list[Path]:
         """Return every INI that needs the invalidation keys written.
@@ -883,9 +908,10 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
         mygames = self._mygames_path()
         if mygames is None:
             return []
-        paths = [mygames / self._ARCHIVE_INI_FILENAME]
+        paths = [self._resolve_ini_path(mygames, self._ARCHIVE_INI_FILENAME)]
         if self._ARCHIVE_PREFS_INI_FILENAME:
-            paths.append(mygames / self._ARCHIVE_PREFS_INI_FILENAME)
+            paths.append(self._resolve_ini_path(
+                mygames, self._ARCHIVE_PREFS_INI_FILENAME))
         return paths
 
     def _mygames_paths(self) -> list[Path]:

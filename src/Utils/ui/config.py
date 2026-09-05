@@ -47,6 +47,14 @@ _INI_FONT_OPTION = "font_family"
 _DEFAULT_LANGUAGE = ""
 _INI_LANGUAGE_OPTION = "language"
 
+_RESTORE_SECTION = "restore"
+_RESTORE_WHITELIST_FILES_OPTION = "whitelist_files"
+_RESTORE_WHITELIST_FOLDERS_OPTION = "whitelist_folders"
+DEFAULT_GLOBAL_RESTORE_WHITELIST_FILES: tuple[str, ...] = (
+    "vkd3d-proton.cache.write",
+)
+DEFAULT_GLOBAL_RESTORE_WHITELIST_FOLDERS: tuple[str, ...] = ()
+
 _ui_scale: float = _DEFAULT_SCALE
 _font_family: str = _DEFAULT_FONT_FAMILY
 _language: str = _DEFAULT_LANGUAGE
@@ -55,6 +63,71 @@ _language: str = _DEFAULT_LANGUAGE
 def get_ui_config_path() -> Path:
     """Return the path to the amethyst.ini config file."""
     return get_config_dir() / "amethyst.ini"
+
+
+def _clean_restore_whitelist_patterns(patterns) -> list[str]:
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for value in patterns or []:
+        pattern = str(value).strip()
+        key = pattern.casefold()
+        if not pattern or key in seen:
+            continue
+        seen.add(key)
+        cleaned.append(pattern)
+    return cleaned
+
+
+def load_global_restore_whitelist() -> tuple[list[str], list[str]]:
+    """Return app-wide runtime file and folder patterns kept on restore."""
+    import json
+
+    path = get_ui_config_path()
+    if not path.is_file():
+        return (list(DEFAULT_GLOBAL_RESTORE_WHITELIST_FILES),
+                list(DEFAULT_GLOBAL_RESTORE_WHITELIST_FOLDERS))
+    try:
+        parser = _read_ini(path)
+    except Exception:
+        return (list(DEFAULT_GLOBAL_RESTORE_WHITELIST_FILES),
+                list(DEFAULT_GLOBAL_RESTORE_WHITELIST_FOLDERS))
+
+    def _load(option: str, defaults: tuple[str, ...]) -> list[str]:
+        if not parser.has_option(_RESTORE_SECTION, option):
+            return list(defaults)
+        try:
+            value = json.loads(parser.get(_RESTORE_SECTION, option))
+            if not isinstance(value, list):
+                return list(defaults)
+            return _clean_restore_whitelist_patterns(value)
+        except Exception:
+            return list(defaults)
+
+    return (
+        _load(_RESTORE_WHITELIST_FILES_OPTION,
+              DEFAULT_GLOBAL_RESTORE_WHITELIST_FILES),
+        _load(_RESTORE_WHITELIST_FOLDERS_OPTION,
+              DEFAULT_GLOBAL_RESTORE_WHITELIST_FOLDERS),
+    )
+
+
+def save_global_restore_whitelist(files, folders) -> None:
+    """Persist app-wide runtime file and folder patterns."""
+    import json
+
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _RESTORE_SECTION not in parser:
+        parser[_RESTORE_SECTION] = {}
+    section = parser[_RESTORE_SECTION]
+    section[_RESTORE_WHITELIST_FILES_OPTION] = json.dumps(
+        _clean_restore_whitelist_patterns(files)).replace("%", "%%")
+    section[_RESTORE_WHITELIST_FOLDERS_OPTION] = json.dumps(
+        _clean_restore_whitelist_patterns(folders)).replace("%", "%%")
+    _write_ini(parser, path)
 
 
 def _new_parser() -> "configparser.ConfigParser":
@@ -691,6 +764,93 @@ def save_shortcut_overrides(overrides: dict[str, str]) -> None:
     parser.remove_section(_MOUSE_SHORTCUTS_SECTION)
     if cleaned:
         parser[_SHORTCUTS_SECTION] = cleaned
+    _write_ini(parser, path)
+
+
+# ---------------------------------------------------------------------------
+# Filter selections. Each tab is one compact JSON object in [filters]; fixed
+# checks are tri-state integers and dynamic selections are string lists.
+# ---------------------------------------------------------------------------
+_FILTERS_SECTION = "filters"
+_FILTER_STATE_NAMES = (
+    "modlist",
+    "plugins",
+    "mod_files",
+    "data",
+    "downloads",
+    "text_files",
+    "saves",
+)
+
+
+def _normalise_filter_state(state) -> dict:
+    if not isinstance(state, dict):
+        return {}
+    cleaned = {}
+    for raw_key, value in state.items():
+        key = str(raw_key).strip().lower()
+        if not _re.fullmatch(r"[a-z0-9_]+", key):
+            continue
+        if isinstance(value, int) and not isinstance(value, bool):
+            if value in (1, 2):
+                cleaned[key] = value
+        elif isinstance(value, (list, tuple, set, frozenset)):
+            items = frozenset(item for item in value if isinstance(item, str))
+            if items:
+                cleaned[key] = items
+    return cleaned
+
+
+def load_filter_states() -> dict[str, dict]:
+    """Return active filter selections keyed by tab name."""
+    import json
+    path = get_ui_config_path()
+    if not path.is_file():
+        return {}
+    try:
+        parser = _read_ini(path)
+        if _FILTERS_SECTION not in parser:
+            return {}
+        states = {}
+        for name in _FILTER_STATE_NAMES:
+            raw = parser.get(
+                _FILTERS_SECTION, name, raw=True, fallback="").strip()
+            if not raw:
+                continue
+            state = _normalise_filter_state(
+                json.loads(raw.replace("%%", "%")))
+            if state:
+                states[name] = state
+        return states
+    except Exception:
+        return {}
+
+
+def save_filter_states(states: dict[str, dict]) -> None:
+    """Replace the saved filter selections in amethyst.ini."""
+    import json
+    encoded = {}
+    for name in _FILTER_STATE_NAMES:
+        state = _normalise_filter_state((states or {}).get(name))
+        if not state:
+            continue
+        serializable = {
+            key: sorted(value) if isinstance(value, frozenset) else value
+            for key, value in state.items()
+        }
+        encoded[name] = json.dumps(
+            serializable, ensure_ascii=False, sort_keys=True,
+            separators=(",", ":"),
+        ).replace("%", "%%")
+
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    parser.remove_section(_FILTERS_SECTION)
+    if encoded:
+        parser[_FILTERS_SECTION] = encoded
     _write_ini(parser, path)
 
 

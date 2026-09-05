@@ -69,16 +69,18 @@ EXE_PROFILES: dict[str, _ExeProfile] = {
 }
 
 # game_id → xLODGen game selection flag
-_XLODGEN_GAME_FLAGS: dict[str, str] = {
+XLODGEN_GAME_FLAGS: dict[str, str] = {
     "Fallout3":     "-fo3",
     "Fallout3GOTY": "-fo3",
     "FalloutNV":    "-fnv",
+    "FalloutNC":    "-fnv",
     "Fallout4":     "-fo4",
     "Fallout4VR":   "-fo4vr",
     "skyrim":       "-tes5",
     "skyrimvr":     "-tes5vr",
     "skyrim_se":    "-sse",
-    "Starfield":    "-sf1",
+    "enderal":      "-enderal",
+    "enderalse":    "-enderalse",
 }
 
 # Executables whose entries are intentionally left blank (handled separately).

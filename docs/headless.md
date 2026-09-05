@@ -479,7 +479,7 @@ The method passes only the manager-resolved game, Data, staging, FileGraph
 winner, userlist, and plugin state to LOOT. It accepts no executable, path,
 masterlist URL, or command arguments from the client. A profile-local
 `userlist.yaml` wins; otherwise Amethyst uses the configured game-wide LOOT
-userlist. Locked plugins are excluded from LOOT and reinserted at their saved
+userlist. Locked plugins are held at their saved
 indices before engine master/Blueprint and fixed-primary ordering is enforced.
 Enable/disable state is preserved case-insensitively.
 
@@ -487,9 +487,9 @@ Masterlists and the LOOT prelude use Amethyst's normal cache. A stale cache is
 refreshed from the handler's built-in `loot/*` repository configuration and a
 failed refresh falls back to an existing cache. This operation may therefore
 use the network, but the RPC client cannot redirect it to another host.
-For an undeployed profile, the existing LOOT adapter may briefly link resolved
-plugin headers into the game's Data directory so libloot can evaluate engine
-conditions; those temporary links are removed before the job finishes.
+LOOT runs against an isolated temporary game view assembled from the selected
+FileGraph snapshot. Undeployed plugin headers and files needed by metadata
+conditions are linked into that view; the game's Data directory is not changed.
 
 Set `apply_order` to false to refresh metadata and preview the constrained LOOT
 result without changing `plugins.txt` or `loadorder.txt`:

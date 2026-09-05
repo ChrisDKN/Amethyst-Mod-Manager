@@ -231,10 +231,26 @@ def _parse_launch_options(localconfig: Path, app_id: str) -> str:
     return ""
 
 
+def _process_has_open_path(pid: int, target: Path) -> bool:
+    try:
+        target_stat = target.stat()
+        identity = (target_stat.st_dev, target_stat.st_ino)
+        for descriptor in Path(f"/proc/{pid}/fd").iterdir():
+            try:
+                descriptor_stat = descriptor.stat()
+            except OSError:
+                continue
+            if (descriptor_stat.st_dev, descriptor_stat.st_ino) == identity:
+                return True
+    except OSError:
+        return False
+    return False
+
+
 def steam_client_running(*, strict: bool = False) -> bool:
     """True when a Steam client appears to be running.
 
-    Reads Steam's own pid files (native + Flatpak Steam) and checks the pid
+    Reads Steam's own pid files (native, Flatpak, and Snap) and checks the pid
     is alive and still looks like Steam - a stale steam.pid whose pid was
     recycled by an unrelated process must not count.  Inside our own Flatpak
     sandbox /proc shows only the sandbox, so the check runs on the host via
@@ -243,12 +259,16 @@ def steam_client_running(*, strict: bool = False) -> bool:
     mid-session).  ``strict=True`` instead treats that uncertainty as not
     running, for callers that must prove a client exists before launching.
     """
-    pid_files = [
-        _HOME / ".steam" / "steam.pid",
-        _HOME / ".var" / "app" / _STEAM_FLATPAK_ID / ".steam" / "steam.pid",
+    clients = [
+        (_HOME / ".steam" / "steam.pid",
+         _HOME / ".steam" / "steam.pipe"),
+        (_HOME / ".var" / "app" / _STEAM_FLATPAK_ID / ".steam" / "steam.pid",
+         _HOME / ".var" / "app" / _STEAM_FLATPAK_ID / ".steam" / "steam.pipe"),
+        (_HOME / "snap" / "steam" / "common" / ".steam" / "steam.pid",
+         _HOME / "snap" / "steam" / "common" / ".steam" / "steam.pipe"),
     ]
     in_flatpak = Path("/.flatpak-info").exists()
-    for pid_file in pid_files:
+    for pid_file, pipe_file in clients:
         try:
             pid = int(pid_file.read_text(encoding="ascii", errors="replace").strip())
         except (OSError, ValueError):
@@ -261,10 +281,17 @@ def steam_client_running(*, strict: bool = False) -> bool:
             import subprocess as _subprocess
             if not _shutil.which("flatpak-spawn"):
                 return not strict
+            check = 'grep -qi steam "/proc/$1/comm"'
+            if strict:
+                check += (
+                    ' || exit 1; for fd in "/proc/$1/fd/"*; do '
+                    '[ "$fd" -ef "$2" ] && exit 0; done; exit 1'
+                )
             try:
                 rc = _subprocess.run(
                     ["flatpak-spawn", "--host", "sh", "-c",
-                     f'grep -qi steam /proc/{pid}/comm'],
+                     check,
+                     "amethyst-steam-check", str(pid), str(pipe_file)],
                     stdout=_subprocess.DEVNULL, stderr=_subprocess.DEVNULL,
                     timeout=5).returncode
             except Exception:
@@ -278,7 +305,10 @@ def steam_client_running(*, strict: bool = False) -> bool:
         except OSError:
             continue  # pid dead (or unreadable) - stale pid file
         if "steam" in comm.lower():
-            return True
+            if not strict:
+                return True
+            if _process_has_open_path(pid, pipe_file):
+                return True
     return False
 
 

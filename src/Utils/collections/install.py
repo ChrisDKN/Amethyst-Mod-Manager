@@ -1188,6 +1188,8 @@ def run_collection_install(
                 pmeta.category_name = mod.category_name
             pmeta.file_category = getattr(mod, "resolved_file_category", "") or ""
             pmeta.collection_source_file_id = int(mod.file_id or 0)
+            pmeta.collection_install_type = schema_file_id_to_install_type.get(
+                mod.file_id, "")
             # Manifest category name (details.category) - the only source, as
             # the GraphQL mod list omits categories. Applied when the mod
             # object itself carries none.
@@ -1862,6 +1864,7 @@ def run_collection_install(
                 schema_file_id_to_category,
                 schema_file_id_to_logical, schema_pos_to_name, schema_file_id_to_suffix,
                 fomod_by_file_id, bain_by_file_id, _install_results,
+                fomod_expected_installed_files, fomod_expected_active_files,
                 _install_counters, _record_catalogued, _install_lock,
                 _archive_use_count,
                 _external_archive_paths, _col_stop, _slug, overwrite_existing,
@@ -2165,6 +2168,7 @@ def _process_deferred(
         schema_file_id_to_category,
         schema_file_id_to_logical, schema_pos_to_name, schema_file_id_to_suffix,
         fomod_by_file_id, bain_by_file_id, _install_results,
+        fomod_expected_installed_files, fomod_expected_active_files,
         _install_counters, _record_catalogued, _install_lock,
         _archive_use_count,
         _external_archive_paths, _col_stop, _slug, overwrite_existing,
@@ -2187,6 +2191,8 @@ def _process_deferred(
                 pmeta.category_name = mod.category_name
             pmeta.file_category = getattr(mod, "resolved_file_category", "") or ""
             pmeta.collection_source_file_id = int(mod.file_id or 0)
+            pmeta.collection_install_type = schema_file_id_to_install_type.get(
+                mod.file_id, "")
             _schema_cat = schema_file_id_to_category.get(mod.file_id, "")
             if _schema_cat and not pmeta.category_name:
                 pmeta.category_name = _schema_cat
@@ -2922,7 +2928,7 @@ def _write_collection_plugins(game, profile_dir, plugins_path, collection_schema
             # of plugins.txt: the engine force-loads it before reading the file and
             # strips any such entries on launch. MO2/Vortex/LOOT exclude it too.
             vanilla_lower = set() if plugins_include_vanilla else set(vanilla_map.keys())
-            deployed, plugin_winner_paths = _filegraph_deployed_plugins(
+            deployed, plugin_winner_paths, loot_sources = _filegraph_deployed_plugins(
                 game, profile_dir)
             # Drop manifest plugins whose file was never installed. A collection's
             # ``plugins`` array covers ALL its mods including optional ones the
@@ -2993,7 +2999,7 @@ def _write_collection_plugins(game, profile_dir, plugins_path, collection_schema
                             key=lambda kv: (_ext_order.get(Path(kv[0]).suffix, 9), kv[0]))
                         if low not in author_lower]
                     all_entries = vanilla_prepend + author_entries
-                    name_to_enabled = {e.name: e.enabled for e in all_entries}
+                    name_to_enabled = {e.name.lower(): e.enabled for e in all_entries}
                     loot_result = _loot_sort(
                         plugin_names=[e.name for e in all_entries],
                         enabled_set={e.name for e in all_entries if e.enabled},
@@ -3006,9 +3012,10 @@ def _write_collection_plugins(game, profile_dir, plugins_path, collection_schema
                         game_data_dir=(game.get_vanilla_plugins_path()
                                        if hasattr(game, "get_vanilla_plugins_path") else None),
                         userlist_path=profile_dir / "userlist.yaml",
-                        plugin_winner_paths=plugin_winner_paths)
+                        plugin_winner_paths=plugin_winner_paths,
+                        profile_sources=loot_sources)
                     final_entries = [
-                        PluginEntry(name=n, enabled=name_to_enabled.get(n, True))
+                        PluginEntry(name=n, enabled=name_to_enabled.get(n.lower(), True))
                         for n in loot_result.sorted_names]
                     log(f"Collection install: LOOT sort produced {len(final_entries)} plugin(s).")
                 except Exception as loot_exc:
@@ -3065,7 +3072,8 @@ def _filegraph_deployed_plugins(game, profile_dir):
         name.lower(): winner.destination_display.rsplit("/", 1)[-1]
         for name, winner in snapshot.plugin_winners().items()
     }
-    return found, plugin_source_paths(snapshot, game)
+    from LOOT.game_view import ProfileSources
+    return found, plugin_source_paths(snapshot, game), ProfileSources.from_game(snapshot, game)
 
 
 def _on_disk_plugin_names(game) -> "set[str]":
@@ -3181,6 +3189,11 @@ def _install_bundled_assets(game, api, profile_dir, staging_path, collection_sch
                     general = {
                         "modname": bm_name, "installationfile": file_expr,
                         "fromCollection": _slug, "fromCollectionBundled": "true"}
+                    _bm_type = ((bm.get("details") or {}).get("type") or "").strip()
+                    if _bm_type:
+                        general["collectionInstallType"] = _bm_type
+                        if _bm_type.lower() == "dinput":
+                            general["rootFolder"] = "true"
                     if revision_number is not None:
                         general["fromCollectionRevision"] = str(int(revision_number))
                     if bm.get("optional"):
@@ -3363,7 +3376,7 @@ def _install_bundled_from_extracted(archive_root, modlist_path, staging_path,
     # fileExpression/name → (optional, phase) from the archive's own manifest,
     # so bundled meta.ini gets the same collectionOptional/collectionPhase
     # stamps as Nexus-sourced mods.
-    bundle_flags: "dict[str, tuple[bool, int]]" = {}
+    bundle_flags: "dict[str, tuple[bool, int, str]]" = {}
     try:
         cj = json.loads((archive_root / "collection.json").read_text(encoding="utf-8"))
         for m in cj.get("mods") or []:
@@ -3374,7 +3387,8 @@ def _install_bundled_from_extracted(archive_root, modlist_path, staging_path,
                 _ph = int(m.get("phase") or 0)
             except (TypeError, ValueError):
                 _ph = 0
-            flags = (bool(m.get("optional")), _ph)
+            _install_type = ((m.get("details") or {}).get("type") or "").strip()
+            flags = (bool(m.get("optional")), _ph, _install_type)
             for key in (src.get("fileExpression"), m.get("name")):
                 if key:
                     bundle_flags.setdefault(str(key).lower(), flags)
@@ -3403,11 +3417,16 @@ def _install_bundled_from_extracted(archive_root, modlist_path, staging_path,
                    "fromCollection": slug, "fromCollectionBundled": "true"}
         if rev_str:
             general["fromCollectionRevision"] = rev_str
-        _opt, _ph = bundle_flags.get(raw_name.lower(), (False, 0))
+        _opt, _ph, _install_type = bundle_flags.get(
+            raw_name.lower(), (False, 0, ""))
         if _opt:
             general["collectionOptional"] = "true"
         if _ph:
             general["collectionPhase"] = str(_ph)
+        if _install_type:
+            general["collectionInstallType"] = _install_type
+            if _install_type.lower() == "dinput":
+                general["rootFolder"] = "true"
         cp["General"] = general
         try:
             with open(dest / "meta.ini", "w", encoding="utf-8") as mf:
