@@ -8247,6 +8247,18 @@ Run Quick Update on all of them now?</translation>
         <translation>Could not copy the separator.</translation>
     </message>
     <message>
+        <source>Could not preserve groups: {0}.</source>
+        <translation>Could not preserve groups: {0}.</translation>
+    </message>
+    <message>
+        <source>Their source mods were kept.</source>
+        <translation>Their source mods were kept.</translation>
+    </message>
+    <message>
+        <source>Could not update the source profile's modlist.</source>
+        <translation>Could not update the source profile's modlist.</translation>
+    </message>
+    <message>
         <source>Cancel all</source>
         <translation>Cancel all</translation>
     </message>
@@ -8495,6 +8507,10 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
     <message>
         <source>Mods with BSA archives</source>
         <translation>Mods with BSA archives</translation>
+    </message>
+    <message>
+        <source>Could not save mod groups: {0}</source>
+        <translation>Could not save mod groups: {0}</translation>
     </message>
     <message>
         <source>{0} enabled of {1} mods</source>
@@ -9160,6 +9176,34 @@ How would you like to handle the existing mod?</translation>
         <translation>Create</translation>
     </message>
     <message>
+        <source>Group options</source>
+        <translation>Group options</translation>
+    </message>
+    <message>
+        <source>Group with</source>
+        <translation>Group with</translation>
+    </message>
+    <message>
+        <source>Change group leader</source>
+        <translation>Change group leader</translation>
+    </message>
+    <message>
+        <source>Ungroup</source>
+        <translation>Ungroup</translation>
+    </message>
+    <message>
+        <source>Ungroup all</source>
+        <translation>Ungroup all</translation>
+    </message>
+    <message>
+        <source>Enable group</source>
+        <translation>Enable group</translation>
+    </message>
+    <message>
+        <source>Disable group</source>
+        <translation>Disable group</translation>
+    </message>
+    <message>
         <source>Copy separator to profile</source>
         <translation>Copy separator to profile</translation>
     </message>
@@ -9702,6 +9746,12 @@ Click Done to close.</translation>
     <message>
         <source>A FOMOD option you didn't select is now relevant ({0} is in the load order) - click to re-run the FOMOD installer</source>
         <translation>A FOMOD option you didn't select is now relevant ({0} is in the load order) - click to re-run the FOMOD installer</translation>
+    </message>
+    <message>
+        <source>Group summary: {0}
+Expand the group to act on individual mods.</source>
+        <translation>Group summary: {0}
+Expand the group to act on individual mods.</translation>
     </message>
 </context>
 <context>
