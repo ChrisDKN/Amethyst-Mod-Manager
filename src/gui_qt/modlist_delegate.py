@@ -347,14 +347,26 @@ class ModRowDelegate(QStyledItemDelegate):
     def sizeHint(self, opt, index):
         e = index.data(EntryRole)
         h = SEP_H if (e and e.is_separator) else ROW_H
+        if index.row() in getattr(self.parent(), "_group_end_markers", {}):
+            h += SEP_H
         return QSize(opt.rect.width(), h)
+
+    def paint_drop_divider(self, p, rect):
+        p.fillRect(rect, self.c_row)
+        pen = _sep_rule_pen(self.c_text_dim, self.c_row)
+        pen.setStyle(Qt.PenStyle.DashLine)
+        p.setPen(pen)
+        p.drawLine(rect.left() + 8, rect.center().y(),
+                   rect.right() - 8, rect.center().y())
 
     def paint(self, p, opt, index):
         e = index.model().entry(index.row())
         if e is None:
             super().paint(p, opt, index)
             return
-        r = opt.rect
+        r = QRect(opt.rect)
+        if index.row() in getattr(self.parent(), "_group_end_markers", {}):
+            r.setHeight(r.height() - SEP_H)
         p.save()
         p.setRenderHint(p.RenderHint.Antialiasing, False)
 
@@ -365,16 +377,7 @@ class ModRowDelegate(QStyledItemDelegate):
             from gui_qt.modlist_model import OVERWRITE_NAME, ROOT_FOLDER_NAME
             from gui_qt.modlist_sort import DIVIDER_NAME
             if e.name == DIVIDER_NAME:
-                # Reverse-priority float divider: a thin dashed centred line on
-                # a plain row background, no controls (Tk BOUNDARY_NAME row).
-                p.fillRect(r, self.c_row)
-                # Sits on the plain row background, so it keys off TEXT_DIM
-                # rather than the separator band's TEXT_SEP.
-                pen = _sep_rule_pen(self.c_text_dim, self.c_row)
-                pen.setStyle(Qt.PenStyle.DashLine)
-                p.setPen(pen)
-                cy = r.center().y()
-                p.drawLine(r.left() + 8, cy, r.right() - 8, cy)
+                self.paint_drop_divider(p, r)
                 p.restore()
                 return
             sep_hl = index.data(HighlightRole) or 0

@@ -172,6 +172,27 @@ def relocate(entries, groups, names, slot, *, retain=None):
     return rest, normalize_groups(result, rest)
 
 
+def move_into_group(entries, groups, names, leader, slot):
+    moving = expand_leaders(names, groups)
+    available = {e.name: e for e in entries if not e.is_separator}
+    if (leader not in groups or leader in moving or not moving
+            or not moving <= available.keys() or any(available[n].locked for n in moving)):
+        return entries, groups
+    target = {leader, *groups[leader]["members"]}
+    positions = [i for i, e in enumerate(entries) if e.name in target]
+    slot = max(min(positions) + 1, min(slot, max(positions) + 1))
+    at = slot - sum(e.name in moving for e in entries[:slot])
+    rest = [e for e in entries if e.name not in moving]
+    rest[at:at] = [e for e in entries if e.name in moving]
+    result = detach(groups, moving)
+    member_names = (target | moving) - {leader}
+    result[leader] = {
+        "members": [e.name for e in rest if e.name in member_names],
+        "collapsed": groups[leader]["collapsed"],
+    }
+    return rest, normalize_groups(result, rest)
+
+
 def promote(groups, leader, new):
     if leader not in groups or new not in groups[leader]["members"]:
         return groups

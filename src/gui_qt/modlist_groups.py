@@ -165,7 +165,25 @@ class ModGrouping:
                     return self.group_rows(leader)[-1] + 1
         return slot
 
-    def _move_group_rows(self, rows, slot, hidden=frozenset()):
+    def move_group_drop(self, rows, slot, leader=None, hidden=frozenset()):
+        if leader is None:
+            return self._move_group_rows(rows, slot, hidden, detach_members=True)
+        members = self.group_rows(leader)
+        if not members:
+            return False
+        slot = max(members[0] + 1, min(slot, members[-1] + 1))
+        positions = {e.name: i for i, e in enumerate(self._natural)}
+        if self.reverse_mode_active:
+            at = (positions[leader] + 1 if slot > members[-1]
+                  else positions[self.entry(slot).name] + 1)
+        else:
+            at = (positions[self.entry(members[-1]).name] + 1
+                  if slot > members[-1] else positions[self.entry(slot).name])
+        return self._commit_group_edit(*grouping.move_into_group(
+            self._natural, self._mod_groups,
+            [self.entry(r).name for r in rows], leader, at))
+
+    def _move_group_rows(self, rows, slot, hidden=frozenset(), *, detach_members=False):
         from gui_qt.modlist_model import _PINNED_NAMES
         rows = self.expand_group_selection(rows)
         names = {self.entry(r).name for r in rows}
@@ -178,7 +196,7 @@ class ModGrouping:
         slot = max(0, min(slot, len(self._entries)))
         source_owners = {self.group_leader(n) for n in names}
         retain = next(iter(source_owners)) if len(source_owners) == 1 else None
-        if retain in names:
+        if retain in names or detach_members:
             retain = None
         if retain:
             members = self.group_rows(retain)
