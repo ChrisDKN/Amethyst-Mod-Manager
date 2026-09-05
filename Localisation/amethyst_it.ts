@@ -7874,19 +7874,19 @@ Eseguire Quick Update su tutti loro ora?</translation>
     </message>
     <message>
       <source>Plugin sources are being refreshed. Run LOOT when loading finishes.</source>
-      <translation type="unfinished">Plugin sources are being refreshed. Run LOOT when loading finishes.</translation>
+      <translation>Le sorgenti del plugin sono in fase di aggiornamento. Esegui LOOT al termine del caricamento.</translation>
     </message>
     <message>
       <source>Could not prepare plugin sources: {0}</source>
-      <translation type="unfinished">Could not prepare plugin sources: {0}</translation>
+      <translation>Impossibile preparare le fonti del plugin: {0}</translation>
     </message>
     <message>
       <source>Plugin state changed while LOOT was running. Run LOOT again.</source>
-      <translation type="unfinished">Plugin state changed while LOOT was running. Run LOOT again.</translation>
+      <translation>Lo stato del plugin è cambiato mentre LOOT era in esecuzione. Esegui di nuovo LOOT.</translation>
     </message>
     <message>
       <source>Locked plugin positions conflict with the game's required load order.</source>
-      <translation type="unfinished">Locked plugin positions conflict with the game's required load order.</translation>
+      <translation>Le posizioni dei plugin bloccate sono in conflitto con l'ordine di caricamento richiesto del gioco.</translation>
     </message>
     <message>
       <source>Sorted - 1 plugin moved.</source>
@@ -8254,15 +8254,15 @@ Eseguire Quick Update su tutti loro ora?</translation>
     </message>
     <message>
       <source>Could not preserve groups: {0}.</source>
-      <translation type="unfinished">Could not preserve groups: {0}.</translation>
+      <translation>Impossibile preservare i gruppi: {0}.</translation>
     </message>
     <message>
       <source>Their source mods were kept.</source>
-      <translation type="unfinished">Their source mods were kept.</translation>
+      <translation>Le loro mod di origine sono state mantenute.</translation>
     </message>
     <message>
       <source>Could not update the source profile's modlist.</source>
-      <translation type="unfinished">Could not update the source profile's modlist.</translation>
+      <translation>Impossibile aggiornare la modlist del profilo sorgente.</translation>
     </message>
     <message>
       <source>Cancel all</source>
@@ -8516,7 +8516,7 @@ Eseguire la procedura guidata di Downgrade per patchare il gioco di nuovo a una 
     </message>
     <message>
       <source>Could not save mod groups: {0}</source>
-      <translation type="unfinished">Could not save mod groups: {0}</translation>
+      <translation>Impossibile salvare i gruppi di mod: {0}</translation>
     </message>
     <message>
       <source>{0} enabled of {1} mods</source>
@@ -9096,11 +9096,11 @@ Come si desidera gestire il mod esistente?</translation>
     </message>
     <message>
       <source>{0} — Loading files…</source>
-      <translation type="unfinished">{0} — Loading files…</translation>
+      <translation>{0} — Caricamento file…</translation>
     </message>
     <message>
       <source>{0} — Unable to load files</source>
-      <translation type="unfinished">{0} — Unable to load files</translation>
+      <translation>{0} — Impossibile caricare i file</translation>
     </message>
   </context>
   <context>
@@ -9183,31 +9183,31 @@ Come si desidera gestire il mod esistente?</translation>
     </message>
     <message>
       <source>Group options</source>
-      <translation type="unfinished">Group options</translation>
+      <translation>Opzioni gruppo</translation>
     </message>
     <message>
       <source>Group with</source>
-      <translation type="unfinished">Group with</translation>
+      <translation>Raggruppa con</translation>
     </message>
     <message>
       <source>Change group leader</source>
-      <translation type="unfinished">Change group leader</translation>
+      <translation>Cambia capo gruppo</translation>
     </message>
     <message>
       <source>Ungroup</source>
-      <translation type="unfinished">Ungroup</translation>
+      <translation>Separa</translation>
     </message>
     <message>
       <source>Ungroup all</source>
-      <translation type="unfinished">Ungroup all</translation>
+      <translation>Sraggruppa tutti</translation>
     </message>
     <message>
       <source>Enable group</source>
-      <translation type="unfinished">Enable group</translation>
+      <translation>Abilita gruppo</translation>
     </message>
     <message>
       <source>Disable group</source>
-      <translation type="unfinished">Disable group</translation>
+      <translation>Disabilita gruppo</translation>
     </message>
     <message>
       <source>Copy separator to profile</source>
@@ -9756,8 +9756,8 @@ Fare clic su Fatto per chiudere.</translation>
     <message>
       <source>Group summary: {0}
 Expand the group to act on individual mods.</source>
-      <translation type="unfinished">Group summary: {0}
-Expand the group to act on individual mods.</translation>
+      <translation>Riepilogo gruppo: {0}
+Espandi il gruppo ad agire sulle singole mods.</translation>
     </message>
   </context>
   <context>
@@ -14716,19 +14716,19 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     </message>
     <message>
       <source>Translate on Crowdin</source>
-      <translation type="unfinished">Translate on Crowdin</translation>
+      <translation>Traduci su Crowdin</translation>
     </message>
     <message>
       <source>Open the Amethyst Crowdin project to help translate the app.</source>
-      <translation type="unfinished">Open the Amethyst Crowdin project to help translate the app.</translation>
+      <translation>Apri il progetto Amethyst Crowdin per aiutare a tradurre l'app.</translation>
     </message>
     <message>
       <source>Mod list</source>
-      <translation type="unfinished">Mod list</translation>
+      <translation>Mod list</translation>
     </message>
     <message>
       <source>Status bar</source>
-      <translation type="unfinished">Status bar</translation>
+      <translation>Barra di stato</translation>
     </message>
     <message>
       <source>Cap the combined download speed of all downloads (collections, single mods, nxm and modl links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>
@@ -14792,39 +14792,39 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     </message>
     <message>
       <source>Global restore whitelist</source>
-      <translation type="unfinished">Global restore whitelist</translation>
+      <translation>whitelist di ripristino globale</translation>
     </message>
     <message>
       <source>Matching runtime-created files stay in the game folder during restore instead of being moved to Overwrite. File and folder names match case-insensitively at any depth; * and ? wildcards are supported. This applies to every game.</source>
-      <translation type="unfinished">Matching runtime-created files stay in the game folder during restore instead of being moved to Overwrite. File and folder names match case-insensitively at any depth; * and ? wildcards are supported. This applies to every game.</translation>
+      <translation>Corrispondenza dei file runtime creati rimangono nella cartella di gioco durante il ripristino invece di essere spostati in Overwrite. I nomi di file e cartelle corrispondono in modo insensibile a qualsiasi profondità; * e ? caratteri jolly sono supportati. Questo vale per ogni partita.</translation>
     </message>
     <message>
       <source>File names</source>
-      <translation type="unfinished">File names</translation>
+      <translation>Nomi dei file</translation>
     </message>
     <message>
       <source>File name or wildcard</source>
-      <translation type="unfinished">File name or wildcard</translation>
+      <translation>Nome del file o carattere jolly</translation>
     </message>
     <message>
       <source>Add file</source>
-      <translation type="unfinished">Add file</translation>
+      <translation>Aggiungi file</translation>
     </message>
     <message>
       <source>Folder names</source>
-      <translation type="unfinished">Folder names</translation>
+      <translation>Nomi delle cartelle</translation>
     </message>
     <message>
       <source>Folder name or wildcard</source>
-      <translation type="unfinished">Folder name or wildcard</translation>
+      <translation>Nome cartella o carattere jolly</translation>
     </message>
     <message>
       <source>Add folder</source>
-      <translation type="unfinished">Add folder</translation>
+      <translation>Aggiungi cartella</translation>
     </message>
     <message>
       <source>Remove selected</source>
-      <translation type="unfinished">Remove selected</translation>
+      <translation>Rimuovi selezionati</translation>
     </message>
     <message>
       <source>{0} set: {1}</source>
