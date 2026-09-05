@@ -534,11 +534,10 @@ class ModListView(QTreeView):
     def _on_double_click(self, index):
         if not index.isValid():
             return
-        e = self.model().entry(index.row())
-        from gui_qt.modlist_model import _PINNED_NAMES
-        # Real separators only expand through their arrow. The synthetic pinned
-        # Overwrite / Root_Folder separators open their folder like a mod.
-        if e.is_separator and e.name not in _PINNED_NAMES:
+        # Real separators collapse/expand instead (mouseDoubleClickEvent runs
+        # that and never emits this signal). The synthetic pinned Overwrite /
+        # Root_Folder separators open their folder like a mod.
+        if self._is_real_separator(index.row()):
             return
         # Ignore double-clicks that land on the checkbox (the delegate toggles
         # enable there on single click; a double there is not an open request).
@@ -710,14 +709,19 @@ class ModListView(QTreeView):
         self.viewport().update(0, 0, self.viewport().width(),
                                SEP_H + delta + 1)
 
+    def _is_real_separator(self, row: int) -> bool:
+        """True for a user separator - the synthetic pinned ones don't count."""
+        m = self.model()
+        if not (0 <= row < m.rowCount()):
+            return False
+        from gui_qt.modlist_model import _PINNED_NAMES
+        e = m.entry(row)
+        return e.is_separator and e.name not in _PINNED_NAMES
+
     def _separator_control_at(self, row: int, pos: QPoint,
                               row_rect: QRect | None = None) -> str | None:
         m = self.model()
-        if not (0 <= row < m.rowCount()):
-            return None
-        e = m.entry(row)
-        from gui_qt.modlist_model import _PINNED_NAMES
-        if not e.is_separator or e.name in _PINNED_NAMES:
+        if not self._is_real_separator(row):
             return None
         if row_rect is None:
             item_rect = self.visualRect(m.index(row, COL_NAME))
@@ -1093,6 +1097,18 @@ class ModListView(QTreeView):
         if not self._drag_active:
             info = self._sticky_sep_info()
             if info is not None and info[1].contains(event.position().toPoint()):
+                event.accept()
+                return
+        # A double-click anywhere else on a real separator collapses/expands it.
+        # The arrow and lock box keep their single-click behaviour, so a double
+        # there must not toggle a second time.
+        if event.button() == Qt.LeftButton:
+            pos = event.position().toPoint()
+            idx = self.indexAt(pos)
+            if idx.isValid() and self._is_real_separator(idx.row()):
+                self._separator_control_press = None
+                if self._separator_control_at(idx.row(), pos) is None:
+                    self._toggle_collapse_row(idx.row())
                 event.accept()
                 return
         super().mouseDoubleClickEvent(event)
