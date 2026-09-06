@@ -1193,8 +1193,7 @@ def compute_esl_eligibility(names: list[str], resolved: dict[str, Path],
     mirroring Tk _refresh_esl_flagged_set. Feeds the ESL-safe/unsafe filters.
 
     NOT called from load_plugins: a cold scan is seconds of libloot record
-    parsing that does not release the GIL, which starves every other reload
-    worker AND the UI thread. The window defers it to its own worker after
+    parsing in a separate process. The window defers it to its own worker after
     the plugin rows are applied (app._start_esl_scan) and patches the bits in.
 
     Gated on the game's ``supports_esl_flag`` capability - no point scanning

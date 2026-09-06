@@ -326,9 +326,18 @@ def get_plugin_tools_for_game(game_id: str) -> list[WizardTool]:
 def get_all_wizard_tools(game: BaseGame) -> list[WizardTool]:
     """Return a game's own wizard tools merged with the built-in ported-plugin
     tools and any external plugin tools for *game*."""
-    return (list(game.wizard_tools)
-            + get_builtin_wizard_tools_for_game(game.game_id)
-            + get_plugin_tools_for_game(game.game_id))
+    tools = (list(game.wizard_tools)
+             + get_builtin_wizard_tools_for_game(game.game_id)
+             + get_plugin_tools_for_game(game.game_id))
+    from Utils.games.workshop import supports_workshop_install
+    if supports_workshop_install(game):
+        tools.append(WizardTool(
+            id="install_workshop",
+            label="Install Steam Workshop Mod",
+            description="Download a Steam Workshop item and install it into this profile.",
+            dialog_class_path="wizards.workshop.WorkshopWizard",
+            category="Setup and Installers"))
+    return tools
 
 
 # ---------------------------------------------------------------------------

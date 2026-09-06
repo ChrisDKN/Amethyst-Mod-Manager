@@ -1376,6 +1376,16 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
     if not archive.is_file():
         log_fn(f"Install: archive not found: {archive_path}")
         return None
+    if prebuilt_meta is None:
+        from Utils.wizards.workshop import archive_item
+        workshop = archive_item(archive)
+        if workshop is not None:
+            prebuilt_meta = workshop.mod_meta(archive)
+    if getattr(prebuilt_meta, "workshop_app_id", ""):
+        from Utils.games.workshop import workshop_app_id
+        if prebuilt_meta.workshop_app_id != workshop_app_id(game):
+            log_fn("Install: this Workshop mod belongs to a different game.")
+            return None
     # Resolve staging from the TARGET profile dir, not the game's mutable
     # active-profile state: installs into a non-active profile (Profile Group
     # member picker) land in that profile's own mods folder.
@@ -1402,7 +1412,11 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
         # This is only a DEFAULT - the Mod-Already-Exists dialog still applies,
         # unlike preferred_name which forces a silent replace.
         ts_name = _thunderstore_display_name(archive)
-        nexus_name = ts_name or _nexus_file_display_name(prebuilt_meta, game)
+        workshop_title = getattr(prebuilt_meta, "workshop_title", "")
+        if workshop_title:
+            from Utils.mods.names import sanitize_mod_folder_name
+            workshop_title = sanitize_mod_folder_name(workshop_title)[:120]
+        nexus_name = ts_name or workshop_title or _nexus_file_display_name(prebuilt_meta, game)
         if not nexus_name:
             # Not supplied by the caller - try a live lookup ourselves. Reuse the
             # resolved meta downstream so the MD5 hash isn't recomputed later.
@@ -1414,6 +1428,8 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
         mod_name = nexus_name or _clean_mod_name(archive.stem, game)
         if ts_name:
             log_fn(f"Naming mod folder from Thunderstore: '{mod_name}'.")
+        elif workshop_title:
+            log_fn(f"Naming mod folder from Steam Workshop: '{mod_name}'.")
         elif nexus_name:
             log_fn(f"Naming mod folder from Nexus: '{mod_name}'.")
 

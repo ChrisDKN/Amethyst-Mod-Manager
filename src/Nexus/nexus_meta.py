@@ -56,6 +56,11 @@ class NexusModMeta:
     file_size: int = 0                 # original archive size in bytes
     installed: str = ""                # ISO-8601 timestamp
     nexus_url: str = ""                # full Nexus mod page URL
+    workshop_app_id: str = ""
+    workshop_item_id: str = ""
+    workshop_title: str = ""
+    workshop_updated: str = ""
+    workshop_archive: str = ""
     description: str = ""              # short summary
     category_id: int = 0               # Nexus category
     category_name: str = ""            # Category display name (e.g. Armor, Weapons)
@@ -148,6 +153,11 @@ _KEY_MAP: dict[str, str] = {
     "fileSize":          "file_size",
     "installed":         "installed",
     "nexusUrl":          "nexus_url",
+    "workshopAppId":     "workshop_app_id",
+    "workshopItemId":    "workshop_item_id",
+    "workshopTitle":     "workshop_title",
+    "workshopUpdated":   "workshop_updated",
+    "workshopArchive":   "workshop_archive",
     "description":       "description",
     "categoryId":        "category_id",
     "categoryName":      "category_name",
@@ -313,6 +323,8 @@ def write_meta(meta_ini_path: Path, meta: NexusModMeta) -> None:
             # check; a fresh NexusModMeta without it must not blank the value.
             if attr == "uploaded_by" and not value:
                 continue
+            if attr.startswith("workshop_") and not value:
+                continue
             cp.set(_SECTION, ini_key, str(value).replace("%", "%%"))
 
     meta_ini_path.parent.mkdir(parents=True, exist_ok=True)
@@ -431,6 +443,7 @@ def has_reinstall_carryover(installed: "NexusModMeta | None") -> bool:
     time would stay unidentified forever."""
     return installed is not None and bool(
         getattr(installed, "mod_id", 0)
+        or getattr(installed, "workshop_item_id", "")
         or getattr(installed, "root_folder", False)
         or getattr(installed, "from_collection", "")
         or getattr(installed, "collection_install_type", ""))
@@ -454,6 +467,11 @@ def merge_reinstall_metadata(
         return meta
 
     stable_identity = (
+        "workshop_app_id",
+        "workshop_item_id",
+        "workshop_title",
+        "workshop_updated",
+        "workshop_archive",
         "game_domain",
         "mod_id",
         "file_id",

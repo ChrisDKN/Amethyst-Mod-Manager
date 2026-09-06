@@ -3310,6 +3310,12 @@ class MainWindow(QMainWindow):
     def _on_profile_changed(self, name):
         if name == self._gs.profile:
             return
+        if self._tool_busy:
+            self._notify(self.tr("{0} is running - switch profiles when it "
+                                 "finishes.").format(self._tool_busy_label()),
+                         "warning")
+            self._profile_selector.set_current(self._gs.profile)
+            return
         from Utils.diagnostics import performance as perftrace
         # End-to-end switch latency: the switch "feels done" only when the async
         # milestones land (meta → plugins → conflicts → final plugin pass), so
@@ -13057,6 +13063,7 @@ class MainWindow(QMainWindow):
         stack = (self._modlist_panel_stack if spec.panel == "modlist"
                  else self._plugins_panel_stack)
         from wizards_qt import QtWizardContext
+        wizard_profile_dir = self._gs.profile_dir()
         ctx = QtWizardContext(
             profile_name=self._gs.profile or "default",
             run_deploy=self._wizard_run_deploy,
@@ -13070,6 +13077,8 @@ class MainWindow(QMainWindow):
             open_log_tab=self._open_log_tab,
             set_tool_lock=self._set_tool_lock,
             show_mod_files=self._wizard_show_mod_files,
+            install_archive=lambda path, meta, done: self._wizard_install_archive(
+                game, wizard_profile_dir, path, meta, done),
             filegraph_snapshot=lambda: getattr(
                 getattr(self, "_conflict_data", None), "snapshot", None),
             wizard_tool_id=tool.id,
@@ -13089,6 +13098,35 @@ class MainWindow(QMainWindow):
             self._tabs.open_tab(view, title, key=key)
         else:
             self._tabs.open_scoped_tab(view, title, stack, key=key)
+
+    def _wizard_install_archive(self, game, profile_dir, path, meta, on_done):
+        if (self._gs.game is not game or profile_dir != self._gs.profile_dir()
+                or not game.is_configured()):
+            raise RuntimeError(self.tr(
+                "Return to the game and profile shown in this wizard, "
+                "then install the downloaded files."))
+        from Utils.profiles.groups import is_group
+        if is_group(profile_dir):
+            raise RuntimeError(self.tr(
+                "Select a member profile before installing Workshop mods."))
+        if self._tool_busy:
+            raise RuntimeError(self.tr("Wait for the running wizard tool to finish."))
+        key = f"workshop_install:{path}"
+        self._set_tool_lock(key, self.tr("Workshop installation"), True)
+
+        def finished(ok, total, names, installed):
+            self._set_tool_lock(key, "", False)
+            handoff = path in getattr(self, "_install_handoff_paths", set())
+            if not handoff:
+                self._notify_install_summary(ok, total, names)
+            on_done(list(names), handoff)
+
+        try:
+            self._install_paths([path], metas={path: meta}, clear_archives=False,
+                                target_profile_dir=profile_dir, on_all_done=finished)
+        except Exception:
+            self._set_tool_lock(key, "", False)
+            raise
 
     def _open_nif_viewer_for_mod(self, mod_name: str):
         """Right-click ▸ Open in NIF Viewer: the mesh browser scoped to one
@@ -17236,6 +17274,14 @@ class MainWindow(QMainWindow):
                 and getattr(conflict_data, "profile_id", None)
                 == str(profile_dir.resolve(strict=False))):
             graph_snapshot = getattr(conflict_data, "snapshot", None)
+        if (game is not None and graph_snapshot is not None
+                and not getattr(self, "_deploy_running", False)
+                and not getattr(self, "_sort_running", False)):
+            try:
+                from LOOT.recovery import recover_plugin_links
+                recover_plugin_links(game, profile_dir, graph_snapshot, self._append_log)
+            except Exception as exc:
+                self._append_log(f"[loot] Plugin link recovery skipped: {exc}")
         # This initial startup pass is followed by an authoritative
         # post-conflict reload whenever a conflict build is queued. Without a
         # snapshot, BOS/SkyPatcher discovery falls back to a full staging-tree
@@ -17542,7 +17588,7 @@ class MainWindow(QMainWindow):
                  or (startup_stage == "initial"
                      and not self._startup_wait_for_conflicts)))
         # ESL-eligibility (filters) computes AFTER the rows are visible - a
-        # cold libloot scan is seconds of GIL-hogging record parsing.
+        # cold libloot scan can take seconds of record parsing.
         esl_started = self._start_esl_scan(
             gen, rows, paths, timing=timing,
             startup_timing=startup_timing,
@@ -17648,8 +17694,7 @@ class MainWindow(QMainWindow):
                         startup_final: bool = False) -> bool:
         """Compute the ESL-safe/unsafe filter bits on a worker AFTER the plugin
         rows are applied. A cold libloot eligibility scan is seconds of
-        full-record parsing that does not release the GIL - inside
-        load_plugins it starved every other reload worker and the UI thread.
+        full-record parsing, isolated in a LOOT helper process.
         Results are mtime-cached (plugin_state._ESL_ELIG_CACHE), so repeat
         loads resolve instantly."""
         game = self._gs.game
@@ -18068,10 +18113,15 @@ class MainWindow(QMainWindow):
         self._on_sort_plugins(refresh=True)
 
     def _on_sort_plugins(self, _checked=False, *, refresh=False):
-        """LOOT-sort the load order on a worker thread (reuses the Tk backend
-        LOOT/loot_sorter.sort_plugins). Result applied on the UI thread.
-
-        When *refresh* is True, only metadata is evaluated."""
+        """Run isolated LOOT work and apply the result on the UI thread."""
+        if self._sort_running:
+            if refresh:
+                self._notify(self.tr("A sort is already running."), "info")
+            else:
+                self._sort_ctx["cancel_event"].set()
+                self._plugin_sort_btn.setText(self.tr("Cancelling…"))
+                self._plugin_sort_btn.setEnabled(False)
+            return
         from LOOT.loot_sorter import is_available, unavailable_reason
         if not is_available():
             self._notify(self.tr("LOOT library not available - cannot sort."), "warning")
@@ -18092,10 +18142,6 @@ class MainWindow(QMainWindow):
         if not rows:
             self._notify(self.tr("No plugins to sort."), "warning")
             return
-        if self._sort_running:
-            self._notify(self.tr("A sort is already running."), "info")
-            return
-
         locked_indices = {i: r for i, r in enumerate(rows)
                           if self._plugin_model.is_locked_name(r.name)}
         plugin_names = [r.name for r in rows]
@@ -18133,6 +18179,8 @@ class MainWindow(QMainWindow):
             self._notify(self.tr("Could not prepare plugin sources: {0}").format(exc), "error")
             return
         # Snapshot what the apply step needs (no model access mid-flight).
+        from threading import Event
+        cancel_event = Event()
         self._sort_ctx = {
             "rows": rows, "locked_indices": locked_indices,
             "plugin_names": plugin_names, "include_vanilla": include_vanilla,
@@ -18141,6 +18189,7 @@ class MainWindow(QMainWindow):
             "refresh": refresh,
             "input_state": self._loot_input_state(userlist_path),
             "userlist_path": userlist_path,
+            "cancel_event": cancel_event,
         }
 
         kw = dict(
@@ -18159,10 +18208,11 @@ class MainWindow(QMainWindow):
             profile_sources=profile_sources,
             locked_positions={r.name: i for i, r in locked_indices.items()},
             refresh_only=refresh,
+            cancelled=cancel_event.is_set,
         )
 
         self._sort_running = True
-        self._plugin_sort_btn.setEnabled(False)
+        self._plugin_sort_btn.setText(self.tr("Cancel LOOT"))
         if hasattr(self, "_plugin_refresh_btn"):
             self._plugin_refresh_btn.setEnabled(False)
         if refresh:
@@ -18191,12 +18241,16 @@ class MainWindow(QMainWindow):
     def _on_sort_plugins_ready(self, result):
         self._sort_running = False
         if hasattr(self, "_plugin_sort_btn"):
+            self._plugin_sort_btn.setText(self.tr("Sort Plugins"))
             self._plugin_sort_btn.setEnabled(True)
         if hasattr(self, "_plugin_refresh_btn"):
             self._plugin_refresh_btn.setEnabled(True)
         ctx = getattr(self, "_sort_ctx", None) or {}
         self._sort_ctx = None
         is_refresh = bool(ctx.get("refresh"))
+        if ctx.get("cancel_event") is not None and ctx["cancel_event"].is_set():
+            self._notify(self.tr("LOOT cancelled."), "info")
+            return
         if (ctx.get("input_state") != self._loot_input_state(ctx.get("userlist_path"))
                 or getattr(self, "_deploy_running", False)):
             self._notify(self.tr("Plugin state changed while LOOT was running. Run LOOT again."), "info")

@@ -10,5 +10,6 @@ py.install_sources(
   'smapi.py',
   'textures.py',
   'witchybnd.py',
+  'workshop.py',
   subdir: 'Utils/wizards',
 )
