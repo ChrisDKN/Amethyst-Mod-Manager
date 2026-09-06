@@ -32,6 +32,7 @@ subdir('vfs')
 subdir('wine')
 subdir('witcher3')
 subdir('wizards')
+subdir('wabbajack')
 
 py.install_sources(
   '__init__.py',

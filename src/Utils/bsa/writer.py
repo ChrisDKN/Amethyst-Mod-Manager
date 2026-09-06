@@ -798,3 +798,12 @@ def write_bsa(
         raise BsaWriteError(str(exc)) from exc
 
     return file_count, bsa_path.stat().st_size, packed_rel_keys
+
+
+def write_bsa_reconstruction(output_path: Path, source_root: Path, *, state: dict,
+                              file_states: list[dict], cancel=None, progress=None) -> None:
+    from Utils.wabbajack.archive_build import rebuild_archive
+    from Utils.wabbajack.manifest import type_name
+    if type_name(state.get("$type")) not in {"BSAState", "TES3State"}:
+        raise ValueError("Incorrect archive reconstruction state")
+    rebuild_archive(output_path, source_root, state, file_states, cancel, progress)

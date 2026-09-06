@@ -1033,6 +1033,7 @@ class LibrarySession:
             self._variant_keys_cache = None
             for profile in self._profiles.values():
                 profile._invalidate_resolution_cache()
+            self._invalidate_shared_catalogs()
             return generation
         except BaseException as exc:
             raise _native_error(exc) from exc
@@ -1086,6 +1087,8 @@ class LibrarySession:
                 self._variant_keys_cache = None
                 for profile in self._profiles.values():
                     profile._invalidate_resolution_cache()
+            if removed:
+                self._invalidate_shared_catalogs()
             return removed
         except BaseException as exc:
             raise _native_error(exc) from exc
@@ -1098,6 +1101,8 @@ class LibrarySession:
                 self._variant_keys_cache = None
                 for profile in self._profiles.values():
                     profile._invalidate_resolution_cache()
+            if renamed:
+                self._invalidate_shared_catalogs()
             return renamed
         except BaseException as exc:
             raise _native_error(exc) from exc
@@ -1133,6 +1138,7 @@ class LibrarySession:
                 self._variant_keys_cache = None
                 for profile in self._profiles.values():
                     profile._invalidate_resolution_cache()
+                self._invalidate_shared_catalogs()
                 return self.status()
             except BaseException as exc:
                 if isinstance(exc, FileGraphCancelled):
@@ -1151,6 +1157,11 @@ class LibrarySession:
             return self._rebuild_locked(
                 profile_dir, progress=progress, cancel=cancel)
 
+    def _invalidate_shared_catalogs(self):
+        if (self.root / "mods").is_symlink() or (self.root / "profile_state.json").is_file():
+            from Utils.wabbajack.profiles import invalidate_shared_catalogs
+            invalidate_shared_catalogs(self)
+
     def _rebuild_locked(
         self,
         profile_dir: Path,
@@ -1158,6 +1169,7 @@ class LibrarySession:
         progress: Callable | None = None,
         cancel: CancellationToken | None = None,
     ) -> CatalogStatus:
+        previous_fingerprints = self.manifest_fingerprints() if (self.root / "mods").is_symlink() else None
         session = self.open_profile(profile_dir)
         session.adapter._refresh_profile_rules()
         token = cancel or CancellationToken()
@@ -1180,6 +1192,8 @@ class LibrarySession:
             self._variant_keys_cache = None
             for profile_id, profile in self._profiles.items():
                 profile._reset_after_catalog_rebuild(profile_id)
+            if previous_fingerprints is not None and previous_fingerprints != self.manifest_fingerprints():
+                self._invalidate_shared_catalogs()
             return self.status()
         except BaseException as exc:
             if isinstance(exc, FileGraphCancelled):

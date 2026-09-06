@@ -29,9 +29,7 @@ import json
 import queue as _queue
 import re
 import threading
-from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable
 
 from Utils.collections.reset import (
     _resolve_collection_priorities, _apply_collection_groups)
@@ -309,47 +307,11 @@ def _prepare_collection_update_policies(api, mods: list, schema_mods: list[dict]
 # ---------------------------------------------------------------------------
 # Callback / control interface (the Qt caller wires each to a Signal.emit).
 # ---------------------------------------------------------------------------
-def _noop(*_a, **_k):
-    return None
-
-
-@dataclass
-class CollectionInstallCallbacks:
-    on_status: Callable[[str], None] = _noop            # status line text
-    on_progress: Callable[["float | None"], None] = _noop  # 0..1 or None=hide
-    on_agg_download: Callable[[int, int, float], None] = _noop  # bytes cur,total,MB/s
-    on_display_total: Callable[[int], None] = _noop     # true collection size (bytes)
-    # RED - active downloads
-    on_dl_mod_start: Callable[[int, str, int], None] = _noop   # file_id,name,size
-    on_dl_mod_update: Callable[[int, int, int], None] = _noop  # file_id,cur,tot
-    on_dl_mod_finish: Callable[[int], None] = _noop            # file_id
-    # GREEN - extracting/queued
-    on_extract_queue: Callable[[int, str], None] = _noop       # file_id,name
-    on_extract_add: Callable[[int, str], None] = _noop
-    on_extract_update: Callable[[int, int, int], None] = _noop  # file_id,cur,tot (tot 0 = busy)
-    on_extract_remove: Callable[[int], None] = _noop
-    on_row_installed: Callable[[int], None] = _noop            # file_id landed
-    # manual (non-premium) mode - current-mod card payload dict
-    on_manual_mod: Callable[[dict], None] = _noop
-    # logging / lifecycle
-    on_log: Callable[[str], None] = _noop
-    on_done: Callable[[int, int, int, str], None] = _noop      # installed,skipped,total,profile
-    on_paused: Callable[[int, str], None] = _noop              # installed,profile
-    on_cancelled: Callable[[object], None] = _noop             # profile_dir (Path)
-    # interactive resolvers (BLOCK the worker; caller marshals a wizard)
-    resolve_fomod: "Callable | None" = None   # (config, base, name, inst, act, loose, saved) -> dict|None
-    resolve_bain: "Callable | None" = None     # (subpkgs, root, name) -> {"selected":[...]}|None
-
-
-@dataclass
-class CollectionInstallControl:
-    cancel: threading.Event = field(default_factory=threading.Event)
-    pause: threading.Event = field(default_factory=threading.Event)
-    stop: threading.Event = field(default_factory=threading.Event)  # set by BOTH pause & cancel
-    # manual mode - user actions from the overlay: a str path (Select File…)
-    # or None (Skip, honored for optional mods only). Mirrors Tk's
-    # _manual_file_queue.
-    manual_queue: _queue.Queue = field(default_factory=_queue.Queue)
+from Utils.downloads.install import (
+    _noop,
+    InstallCallbacks as CollectionInstallCallbacks,
+    InstallControl as CollectionInstallControl,
+)
 
 
 # ---------------------------------------------------------------------------

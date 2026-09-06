@@ -2836,6 +2836,7 @@ class MainWindow(QMainWindow):
             ("Nexus", self.tr("Nexus"), "nexus.png", [
                 (self.tr("Open Nexus Mods"), self._open_nexus_browser_tab),
                 (self.tr("Open game on nexus"), self._open_game_on_nexus),
+                (self.tr("Browse Wabbajack modlists…"), self._open_wabbajack_tab),
                 None,
                 (self.tr("Login to Nexus"), [
                     (self.tr("Login via SSO"), self._nexus_login_sso),
@@ -3246,6 +3247,12 @@ class MainWindow(QMainWindow):
         game (or close them if the new game has no Nexus domain). Per-collection
         detail tabs are game-specific, so they're closed unconditionally."""
         game = self._gs.game
+        wabbajack = getattr(self, "_wabbajack_view", None)
+        if wabbajack is not None:
+            try:
+                wabbajack.set_game(game)
+            except RuntimeError:
+                self._wabbajack_view = None
         domain = (getattr(game, "nexus_game_domain", "") or "") if game else ""
 
         # Close per-collection detail tabs (they belong to the previous game).
@@ -3356,7 +3363,7 @@ class MainWindow(QMainWindow):
                     print(f"[gui_qt] profile-switch modlist sync failed: {exc}",
                           flush=True)
             with perftrace.span("switch.reload_modlist(sync)"):
-                self._reload_modlist(rescan_index=bool(renamed_mods))
+                self._reload_modlist(rescan_index=bool(renamed_mods) or (self._gs.profile_dir() / "mods").is_symlink())
             with perftrace.span("switch.reload_plugins(kickoff)"):
                 if getattr(self, "_reload_had_entries", False):
                     # The conflict rebuild just queued by _reload_modlist ends
@@ -5251,6 +5258,10 @@ class MainWindow(QMainWindow):
             return
 
         link = mod_link
+        from Utils.wabbajack.acquire import route_nxm
+        if route_nxm(link, api):
+            nxm_log("Routed Nexus download to the pending Wabbajack installation")
+            return
         # If the Nexus browser / Change Version tab is watching the download
         # folders for this mod (non-premium install), the user picked
         # 'Download with Mod Manager' instead - this flow installs it, so
@@ -5680,6 +5691,32 @@ class MainWindow(QMainWindow):
         view.destroyed.connect(lambda *_: setattr(self, "_nexus_view", None))
         self._tabs.open_tab(view, self.tr("Nexus"), key="nexus_browser")
 
+    def _open_wabbajack_tab(self):
+        if self._tabs.has_key("wabbajack"):
+            self._tabs.focus_key("wabbajack")
+            return
+        from gui_qt.wabbajack_view import WabbajackView
+        view = WabbajackView(self._gs.game, self._ensure_nexus_api,
+            log_fn=self._append_log,
+            can_install=lambda: not (self._col_install_running or self._tool_busy
+                or getattr(self, "_install_running", False)
+                or getattr(self, "_deploy_running", False)
+                or getattr(self, "_staged_finish_running", False)))
+        self._wabbajack_view = view
+        view.running_changed.connect(lambda held: self._set_tool_lock("wabbajack", "Wabbajack installation", held))
+        view.installed.connect(self._wabbajack_installed)
+        self._tabs.open_tab(view, self.tr("Wabbajack"), key="wabbajack")
+
+    def _wabbajack_installed(self, game, result):
+        if self._gs.game_name != game.name:
+            self._on_game_changed(game.name)
+        self._gs.set_profile(result.selected_profile)
+        self._set_profile_selector_items(self._gs.profiles(), current=result.selected_profile)
+        self._reload_modlist()
+        self._reload_plugins()
+        self._refresh_profile_actions()
+        self._notify(self.tr("Wabbajack installation complete."), "success")
+
     def _open_collections_tab(self):
         """Open the Nexus Collections browser as a detachable tab (view-only -
         the install/detail flow is a separate feature). Same guards as the mods
@@ -5873,6 +5910,9 @@ class MainWindow(QMainWindow):
         overlay). Deferred FOMOD/BAIN mods block the worker on a wizard via
         _col_fomod / _col_bain (same handshake as _make_exists_cb)."""
         import threading
+        if "wabbajack" in getattr(self, "_tool_locks", {}):
+            self._notify(self.tr("A Wabbajack installation is running."), "warning")
+            return
         if self._col_install_running:
             self._notify(self.tr("A collection install is already running."), "warning")
             return
@@ -10841,6 +10881,17 @@ class MainWindow(QMainWindow):
                     f"Removed '{name}' from Profile Group(s): {', '.join(affected)}")
         except Exception as exc:
             print(f"[gui_qt] group remove propagation failed: {exc}", flush=True)
+        if self._gs.game is not None:
+            import threading
+            profile_root = Path(self._gs.game.get_profile_root())
+            def cleanup():
+                from Utils.wabbajack.profiles import cleanup_unreferenced
+                from Utils.app_log import app_log
+                try:
+                    cleanup_unreferenced(profile_root)
+                except Exception as exc:
+                    app_log(f"Wabbajack storage cleanup: {exc}")
+            threading.Thread(target=cleanup, daemon=True, name="wabbajack-cleanup").start()
         profs = self._gs.profiles()
         if self._gs.profile == name:
             # The active profile was removed → fall back like the view did.

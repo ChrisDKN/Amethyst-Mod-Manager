@@ -1,0 +1,308 @@
+from __future__ import annotations
+
+import fcntl
+import json
+import os
+import shutil
+import sqlite3
+import threading
+import time
+import uuid
+from contextlib import contextmanager
+from pathlib import Path
+
+from Utils.atomic_write import atomic_writer
+from .hashes import file_hash
+from .models import Conflict
+from .paths import WabbajackError, within
+
+
+class Store:
+    def __init__(self, directory: Path, profile_root: Path):
+        self.directory = directory
+        self.profile_root = profile_root
+        if directory.resolve().parent != profile_root.resolve() / ".wabbajack":
+            raise WabbajackError("Installation is outside managed storage")
+        directory.mkdir(parents=True, exist_ok=True)
+        if directory.is_symlink():
+            raise WabbajackError("Installation directory cannot be a symbolic link")
+        for name in ("root", "work", "backups", "state.sqlite", "state.sqlite-wal", "state.sqlite-shm", "install.lock"):
+            if (directory / name).is_symlink():
+                raise WabbajackError(f"Managed installation entry cannot be a symbolic link: {name}")
+        self.root = directory / "root"
+        self.work = directory / "work"
+        self.root.mkdir(exist_ok=True)
+        self.work.mkdir(exist_ok=True)
+        self.lock = threading.RLock()
+        self._pending_completed = {}
+        self.db = sqlite3.connect(directory / "state.sqlite", check_same_thread=False)
+        self.db.row_factory = sqlite3.Row
+        self.db.execute("PRAGMA journal_mode=WAL")
+        self.db.execute("PRAGMA synchronous=FULL")
+        version = self.db.execute("PRAGMA user_version").fetchone()[0]
+        if version not in (0, 1):
+            raise WabbajackError(f"Unsupported installation database version: {version}")
+        self.db.executescript("""
+            CREATE TABLE IF NOT EXISTS metadata(key TEXT PRIMARY KEY, value TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS outputs(path TEXT PRIMARY KEY, authored_hash TEXT, signature TEXT, actual_hash TEXT);
+            CREATE TABLE IF NOT EXISTS completed(path TEXT PRIMARY KEY, signature TEXT, actual_hash TEXT);
+            CREATE TABLE IF NOT EXISTS baselines(path TEXT PRIMARY KEY, content BLOB NOT NULL);
+            CREATE TABLE IF NOT EXISTS journal(sequence INTEGER PRIMARY KEY, path TEXT, backup TEXT, existed INTEGER, applied INTEGER);
+            PRAGMA user_version=1;
+        """)
+        if not self.get("id"):
+            self.set("id", uuid.uuid4().hex)
+            self.set("profile_root", str(profile_root.resolve()))
+        elif Path(self.get("profile_root")).resolve() != profile_root.resolve():
+            raise WabbajackError("Installation belongs to a different game profile directory")
+
+    def close(self):
+        self.flush_completed()
+        self.db.close()
+
+    @contextmanager
+    def exclusive(self):
+        with (self.directory / "install.lock").open("a+b") as lock:
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError as exc:
+                raise WabbajackError("This modlist already has an active operation") from exc
+            try:
+                self.recover()
+                yield
+            finally:
+                fcntl.flock(lock, fcntl.LOCK_UN)
+
+    def get(self, key, default=None):
+        with self.lock:
+            row = self.db.execute("SELECT value FROM metadata WHERE key=?", (key,)).fetchone()
+        return json.loads(row[0]) if row else default
+
+    def set(self, key, value):
+        with self.lock, self.db:
+            self.db.execute("INSERT OR REPLACE INTO metadata VALUES (?,?)", (key, json.dumps(value)))
+
+    def target(self, key):
+        kind, sep, relative = key.partition("/")
+        if not sep:
+            raise WabbajackError("Invalid installation output key")
+        if kind == "root":
+            target = within(self.root, relative)
+            root = self.root
+        elif kind == "profiles":
+            if relative.split("/")[0] not in self.get("profile_names", {}).values():
+                raise WabbajackError("Output is not owned by an installed profile")
+            root = self.profile_root / "profiles"
+            target = within(root, relative)
+        else:
+            raise WabbajackError(f"Invalid installation output key: {key}")
+        path = target
+        while path != root:
+            if path.is_symlink():
+                raise WabbajackError(f"Owned output traverses a symbolic link: {key}")
+            path = path.parent
+        return target
+
+    def outputs(self):
+        with self.lock:
+            return {r["path"]: dict(r) for r in self.db.execute("SELECT * FROM outputs")}
+
+    def completed(self, path, signature):
+        with self.lock:
+            pending = self._pending_completed.get(path)
+            if pending and pending[0] == signature:
+                return pending[1]
+            row = self.db.execute("SELECT actual_hash FROM completed WHERE path=? AND signature=?",
+                                  (path, signature)).fetchone()
+        return row[0] if row else None
+
+    def record_completed(self, path, signature, actual_hash):
+        with self.lock:
+            self._pending_completed[path] = (signature, actual_hash)
+            if len(self._pending_completed) >= 64:
+                self.flush_completed()
+
+    def flush_completed(self):
+        with self.lock, self.db:
+            self.db.executemany("INSERT OR REPLACE INTO completed VALUES (?,?,?)",
+                [(path, sig, digest) for path, (sig, digest) in self._pending_completed.items()])
+            self._pending_completed.clear()
+
+    def recover(self):
+        if self.get("status") != "committing":
+            return
+        for row in self.db.execute("SELECT * FROM journal ORDER BY sequence DESC").fetchall():
+            if not row["applied"]:
+                continue
+            target = self.target(row["path"])
+            backup = within(self.directory, row["backup"])
+            if row["existed"]:
+                if not backup.is_file():
+                    raise WabbajackError(f"Recovery backup is missing: {row['path']}")
+                self._copy(backup, target)
+            else:
+                target.unlink(missing_ok=True)
+        with self.db:
+            self.db.execute("DELETE FROM journal")
+        self.set("status", "interrupted")
+
+    @staticmethod
+    def _copy(source, target, stop=None):
+        with source.open("rb") as incoming, atomic_writer(target, "wb", encoding=None) as outgoing:
+            while data := incoming.read(1024 * 1024):
+                if stop is not None and stop.is_set():
+                    raise InterruptedError("File publication stopped")
+                outgoing.write(data)
+            outgoing.flush()
+            os.fsync(outgoing.fileno())
+        shutil.copymode(source, target)
+        Store._sync_directory(target.parent)
+
+    @staticmethod
+    def _sync_directory(path):
+        fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+
+    def preview(self, desired, *, repair=False):
+        from .merge import baseline_candidate, merge_content, protected
+        old = self.outputs()
+        current, conflicts = {}, []
+        preserved = set(self.get("preserved_profiles", []))
+        for key in old.keys() | desired.keys():
+            target = self.target(key)
+            if target.is_symlink():
+                raise WabbajackError(f"Owned output was replaced by a symbolic link: {key}")
+            if target.exists() and not target.is_file():
+                raise WabbajackError(f"Output is occupied by a directory: {key}")
+            actual = file_hash(target) if target.is_file() else None
+            current[key] = actual
+            before = old.get(key, {}).get("authored_hash")
+            after = desired.get(key, {}).get("authored_hash")
+            if key.startswith("profiles/") and key.split("/")[1] in preserved:
+                continue
+            row = desired.get(key)
+            if row and baseline_candidate(key) and Path(row["source"]).stat().st_size <= 2 * 1024 * 1024:
+                row["baseline_source"] = row["source"]
+            if protected(key) and key in old:
+                if row:
+                    row["preserve"] = True
+                continue
+            if actual != before and actual != after and (before != after or repair):
+                baseline = self.db.execute("SELECT content FROM baselines WHERE path=?", (key,)).fetchone()
+                if row and baseline and actual is not None and "baseline_source" in row and target.stat().st_size <= 2 * 1024 * 1024:
+                    try:
+                        merged = merge_content(key, baseline[0], target.read_bytes(), Path(row["baseline_source"]).read_bytes())
+                        merged_path = self.work / "merged" / str(len(current))
+                        with atomic_writer(merged_path, "wb", encoding=None) as out:
+                            out.write(merged)
+                        row["source"] = str(merged_path)
+                        row["merged"] = True
+                        row["merged_hash"] = file_hash(merged_path)
+                        continue
+                    except (ValueError, UnicodeError):
+                        pass
+                conflicts.append(Conflict(key, "Removed by author" if after is None else "Changed locally",
+                                          before, actual, after, str(target), row["source"] if row else ""))
+        return current, conflicts
+
+    def publish(self, desired, choices, current, metadata, stop=None):
+        from .merge import protected
+        old = self.outputs()
+        operations = []
+        preserved = set(self.get("preserved_profiles", []))
+        for key in sorted(old.keys() | desired.keys()):
+            if key.startswith("profiles/") and key.split("/")[1] in preserved:
+                continue
+            before = old.get(key, {}).get("authored_hash")
+            after = desired.get(key, {}).get("authored_hash")
+            actual = current[key]
+            choice = choices.get(key)
+            keep = (choice == "keep" or (protected(key) and key in old)
+                    or (choice is None and actual != before and before == after and not desired.get(key, {}).get("merged")))
+            if keep or actual == after:
+                continue
+            if key in desired and not desired[key].get("source"):
+                raise WabbajackError(f"Missing reconstructed output: {key}")
+            operations.append((key, desired.get(key, {}).get("source")))
+        backup_root = self.directory / "backups" / str(time.time_ns())
+        self.set("status", "committing")
+        try:
+            for sequence, (key, source) in enumerate(operations):
+                if stop is not None and stop.is_set():
+                    raise InterruptedError("File publication stopped")
+                target = self.target(key)
+                actual = file_hash(target) if target.is_file() else None
+                if actual != current[key]:
+                    raise WabbajackError(f"File changed during update review: {key}")
+                backup = backup_root / str(sequence)
+                if target.is_file():
+                    self._copy(target, backup, stop=stop)
+                with self.db:
+                    self.db.execute("INSERT INTO journal VALUES (?,?,?,?,1)",
+                        (sequence, key, backup.relative_to(self.directory).as_posix(), int(target.is_file())))
+                if source is None:
+                    target.unlink(missing_ok=True)
+                    self._sync_directory(target.parent)
+                else:
+                    self._copy(Path(source), target, stop=stop)
+                    wanted = desired[key].get("merged_hash", desired[key]["authored_hash"])
+                    if file_hash(target) != wanted:
+                        raise WabbajackError(f"Staged output changed before publication: {key}")
+            with self.db:
+                self.db.execute("DELETE FROM outputs")
+                self.db.execute("DELETE FROM baselines")
+                for key, row in desired.items():
+                    if stop is not None and stop.is_set():
+                        raise InterruptedError("File publication stopped")
+                    target = self.target(key)
+                    actual = file_hash(target) if target.is_file() else None
+                    self.db.execute("INSERT INTO outputs VALUES (?,?,?,?)",
+                        (key, row["authored_hash"], row["signature"], actual))
+                    if "baseline_source" in row:
+                        source = Path(row["baseline_source"])
+                        if file_hash(source) != row["authored_hash"]:
+                            raise WabbajackError(f"Authored baseline changed before publication: {key}")
+                        self.db.execute("INSERT INTO baselines VALUES (?,?)", (key, source.read_bytes()))
+                for key, value in metadata.items():
+                    self.db.execute("INSERT OR REPLACE INTO metadata VALUES (?,?)", (key, json.dumps(value)))
+                self.db.execute("INSERT OR REPLACE INTO metadata VALUES ('status', '\"published\"')")
+                self.db.execute("DELETE FROM journal")
+            directories = set()
+            for key in old.keys() - desired.keys():
+                if key.startswith("root/"):
+                    path = self.target(key).parent
+                    while path != self.root:
+                        directories.add(path)
+                        path = path.parent
+            for path in sorted(directories, key=lambda p: len(p.parts), reverse=True):
+                try:
+                    path.rmdir()
+                except OSError:
+                    pass
+        except BaseException:
+            self.recover()
+            raise
+
+
+def installation_info(directory: Path):
+    path = directory / "state.sqlite"
+    if not path.is_file() or path.is_symlink():
+        return None
+    try:
+        with sqlite3.connect(path.as_uri() + "?mode=ro", uri=True) as db:
+            result = {key: json.loads(value) for key, value in db.execute("SELECT key,value FROM metadata")}
+        result["directory"] = str(directory)
+        return result
+    except (sqlite3.Error, ValueError):
+        return None
+
+
+def installations(profile_root: Path):
+    root = profile_root / ".wabbajack"
+    if not root.is_dir() or root.is_symlink():
+        return []
+    return [info for p in root.iterdir() if p.is_dir() and not p.is_symlink()
+            if (info := installation_info(p))]

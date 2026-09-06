@@ -171,16 +171,14 @@ _DXGI_BLOCK_16: frozenset[int] = frozenset({
 
 # Common uncompressed formats and their bytes-per-pixel.
 _DXGI_BPP: dict[int, int] = {
-    27: 4,    # R8G8B8A8_TYPELESS
-    28: 4,    # R8G8B8A8_UNORM
-    29: 4,    # R8G8B8A8_UNORM_SRGB
-    61: 1,    # R8_UNORM
-    62: 1,    # R8_UINT
-    87: 4,    # B8G8R8A8_UNORM
-    88: 4,    # B8G8R8X8_UNORM
-    91: 4,    # B8G8R8A8_UNORM_SRGB
-    24: 4,    # R10G10B10A2_UNORM (close enough; 32-bit packed)
-    10: 8,    # R16G16B16A16_FLOAT
+    **dict.fromkeys(range(1, 5), 16),
+    **dict.fromkeys(range(5, 9), 12),
+    **dict.fromkeys(range(9, 23), 8),
+    **dict.fromkeys(range(23, 48), 4),
+    **dict.fromkeys(range(48, 60), 2),
+    **dict.fromkeys(range(60, 66), 1),
+    67: 4, 85: 2, 86: 2, 87: 4, 88: 4,
+    **dict.fromkeys(range(89, 94), 4), 115: 2,
 }
 
 
@@ -194,6 +192,10 @@ def _mip_byte_size(width: int, height: int, dxgi_format: int) -> int | None:
         return max(1, (width + 3) // 4) * max(1, (height + 3) // 4) * 8
     if dxgi_format in _DXGI_BLOCK_16:
         return max(1, (width + 3) // 4) * max(1, (height + 3) // 4) * 16
+    if dxgi_format in {68, 69, 107}:
+        return ((width + 1) // 2) * 4 * height
+    if dxgi_format == 66:
+        return ((width + 7) // 8) * height
     bpp = _DXGI_BPP.get(dxgi_format)
     if bpp is not None:
         return width * height * bpp
@@ -222,6 +224,25 @@ _LEGACY_FOURCC_TO_DXGI: dict[bytes, int] = {
     b"BC5U": 83,    # BC5_UNORM
     b"ATI2": 83,
     b"BC5S": 84,    # BC5_SNORM
+    b"RGBG": 68, b"GRGB": 69, b"YUY2": 107,
+}
+
+
+_LEGACY_MASKS = {
+    (0x41, 32, 0xff, 0xff00, 0xff0000, 0xff000000): 28,
+    (0x41, 32, 0xff0000, 0xff00, 0xff, 0xff000000): 87,
+    (0x40, 32, 0xff0000, 0xff00, 0xff, 0): 88,
+    (0x40, 32, 0xffff, 0xffff0000, 0, 0): 35,
+    (0x40, 16, 0xf800, 0x7e0, 0x1f, 0): 85,
+    (0x41, 16, 0x7c00, 0x3e0, 0x1f, 0x8000): 86,
+    (0x41, 16, 0xf00, 0xf0, 0xf, 0xf000): 115,
+    (0x20000, 8, 0xff, 0, 0, 0): 61,
+    (0x20000, 16, 0xffff, 0, 0, 0): 56,
+    (0x20001, 16, 0xff, 0, 0, 0xff00): 49,
+    (2, 8, 0, 0, 0, 0xff): 65,
+    (0x80000, 16, 0xff, 0xff00, 0, 0): 51,
+    (0x80000, 32, 0xff, 0xff00, 0xff0000, 0xff000000): 31,
+    (0x80000, 32, 0xffff, 0xffff0000, 0, 0): 37,
 }
 
 
@@ -249,6 +270,8 @@ def _parse_dds(data: bytes) -> dict:
     height = struct.unpack_from("<I", data, 12)[0]
     width = struct.unpack_from("<I", data, 16)[0]
     mip_count = struct.unpack_from("<I", data, 28)[0] or 1
+    if not 0 < width <= 16384 or not 0 < height <= 16384 or not 1 <= mip_count <= 32:
+        raise _DdsParseError("invalid DDS dimensions or mip count")
     fourcc = data[84:88]
     if fourcc == b"DX10":
         if len(data) < 4 + 124 + 20:
@@ -260,6 +283,9 @@ def _parse_dds(data: bytes) -> dict:
         # does this mapping internally; we do it on the way in so we
         # can write a DX10 BA2 record that the engine can resolve.
         dxgi_format_opt = _LEGACY_FOURCC_TO_DXGI.get(fourcc)
+        if dxgi_format_opt is None:
+            fields = struct.unpack_from("<I4xIIIII", data, 80)
+            dxgi_format_opt = _LEGACY_MASKS.get(fields)
         if dxgi_format_opt is None:
             raise _DdsParseError(f"unsupported legacy fourCC {fourcc!r}")
         dxgi_format = dxgi_format_opt
@@ -846,4 +872,14 @@ __all__ = [
     "write_ba2",
     "write_ba2_textures",
     "write_stub_plugin",
+    "write_ba2_reconstruction",
 ]
+
+
+def write_ba2_reconstruction(output_path: Path, source_root: Path, *, state: dict,
+                              file_states: list[dict], cancel=None, progress=None) -> None:
+    from Utils.wabbajack.archive_build import rebuild_archive
+    from Utils.wabbajack.manifest import type_name
+    if type_name(state.get("$type")) not in {"BA2State"}:
+        raise ValueError("Incorrect archive reconstruction state")
+    rebuild_archive(output_path, source_root, state, file_states, cancel, progress)

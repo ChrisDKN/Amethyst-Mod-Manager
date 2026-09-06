@@ -25,6 +25,7 @@ from Utils.deployment import (
 from Utils.deployment.shared import RestoreIncompleteError, _FILEMAP_SNAPSHOT_NAME
 from Utils.profiles.backup import create_backup
 from Utils.wine.dll_config import deploy_game_wine_dll_overrides
+from Utils.deployment.locking import guard_deployment
 
 
 LogFn = Callable[[str], None]
@@ -309,6 +310,7 @@ def flatpak_runtime_app(path: Path) -> "str | None":
     return rel.parts[0] if rel.parts else None
 
 
+@guard_deployment
 def run_deploy_pipeline(
     game,
     profile: str,

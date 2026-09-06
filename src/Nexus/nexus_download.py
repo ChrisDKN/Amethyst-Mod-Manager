@@ -585,8 +585,9 @@ class NexusDownloader:
     """
 
     def __init__(self, api: NexusAPI,
-                 download_dir: Path | None = None):
+                 download_dir: Path | None = None, *, stream_handler=None):
         self._api = api
+        self._stream_handler = stream_handler
         self._download_dir = download_dir or _get_downloads_dir()
         self._download_dir.mkdir(parents=True, exist_ok=True)
         self._worker_state = threading.local()
@@ -926,6 +927,11 @@ class NexusDownloader:
         file_id: int,
     ) -> DownloadResult:
         """Stream-download a single URL to disk."""
+
+        if self._stream_handler is not None:
+            return self._stream_handler(url=url, file_name=file_name, dest_dir=dest_dir,
+                progress_cb=progress_cb, cancel=cancel, game_domain=game_domain,
+                mod_id=mod_id, file_id=file_id)
 
         session = self._worker_session()
         with session.get(url, stream=True, timeout=60,

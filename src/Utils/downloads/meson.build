@@ -4,6 +4,7 @@ py.install_sources(
   'cache.py',
   'core.py',
   'locations.py',
+  'install.py',
   'modl.py',
   'mpi.py',
   'scheduler.py',

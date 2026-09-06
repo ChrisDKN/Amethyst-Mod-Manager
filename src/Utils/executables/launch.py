@@ -2857,7 +2857,11 @@ def launch_game(game, log_fn=_noop_log) -> None:
         launch_report.mark_failed(launch_report.actionable(reason))
         return
 
-    mode = load_launch_mode(game, settings_key)
+    from Utils.wabbajack.runtime import uses_stock_game
+    stock_game = uses_stock_game(game)
+    mode = "none" if stock_game else load_launch_mode(game, settings_key)
+    if stock_game:
+        log_fn("Play: launching the reconstructed game copy through the selected prefix.")
     # The direct route consumes its settings below; only inspect them here
     # when a launcher hand-off would otherwise bypass the manager entirely.
     manager_launch_options = (
@@ -3301,6 +3305,8 @@ def launch_exe_via_proton(
     # script extender, so its caller supplies the canonical Play-entry key.
     manager_play_launch = launch_settings_key is not None
     settings_key = launch_settings_key or exe_path.name
+    from Utils.wabbajack.runtime import working_directory, launch_environment, uses_stock_game
+    launch_cwd = working_directory(game, exe_path)
     framework_launch = is_framework_launch_exe(game, exe_path.name)
     vfs_game_launch = False
     if getattr(game, "vfs_launch_enabled", False):
@@ -3317,6 +3323,7 @@ def launch_exe_via_proton(
         return
     if (framework_launch
             and not getattr(game, "vfs_launch_enabled", False)
+            and not uses_stock_game(game)
             and launch_swapped_framework_via_steam(
                 exe_path, game, log_fn)):
         return
@@ -3644,11 +3651,12 @@ def launch_exe_via_proton(
             game, env, [], native=False, log_fn=log_fn,
             log_prefix="Run EXE")
 
+    launch_environment(game, env)
     if umu_bin is not None:
         from Utils.launchers.lutris import umu_run_command
         base_cmd = umu_run_command(
             umu_bin, str(exe_path), env=env,
-            host_cwd=exe_path.parent) + extra_args
+            host_cwd=launch_cwd) + extra_args
     else:
         # Anything that starts the game needs "waitforexitandrun" (the verb
         # Steam itself uses): it boots the steam.exe shim, without which
@@ -3667,7 +3675,7 @@ def launch_exe_via_proton(
                     if (compat_data / "pfx" / "user.reg").is_file() else "run")
         base_cmd = proton_run_command(
             proton_script, verb, str(exe_path), env=env,
-            host_cwd=exe_path.parent) + extra_args
+            host_cwd=launch_cwd) + extra_args
         # proton_run_command routes game launches through Steam's runtime
         # container (as Steam does). Name it in the log: a container failure
         # looks nothing like a Proton failure, and the escape hatch has to be
@@ -3712,7 +3720,7 @@ def launch_exe_via_proton(
     if _env_summary:
         log_fn(f"Run EXE:   env: {_env_summary}")
 
-    spawn_process_watched(final_cmd, env=env, cwd=exe_path.parent,
+    spawn_process_watched(final_cmd, env=env, cwd=launch_cwd,
                           label=f"Run EXE {exe_path.name}", log_fn=log_fn)
 
 

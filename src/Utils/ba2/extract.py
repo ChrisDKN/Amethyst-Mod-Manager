@@ -37,112 +37,34 @@ class Ba2ExtractError(Exception):
     the caller may clean up *dest_dir* on failure if desired."""
 
 
-# ---------------------------------------------------------------------------
-# DDS header reconstruction (DX10 records)
-#
-# A BA2 DX10 record carries the DDS metadata (height/width/mips/format) in
-# its 24-byte header and the raw pixel data split across N mip chunks.  To
-# turn that back into a standalone .dds file we synthesise:
-#
-#     "DDS " magic                           4 bytes
-#     DDS_HEADER                            124 bytes
-#     DDS_HEADER_DXT10  (if DX10 needed)     20 bytes
-#     pixel data (concatenated chunk bytes)
-#
-# We always emit the DXT10 extension header - it's 20 bytes of overhead but
-# it lets every DXGI format round-trip, including the post-DXT5 ones (BC7,
-# R8G8B8A8_UNORM, etc.) that the legacy DDS_HEADER alone can't express.
-# Tools that read DDS (DirectXTex, NVTT, GIMP+plugin, every Bethesda tool)
-# accept the DX10 extension header transparently.
-#
-# Field layout taken from the Microsoft DDS spec.  We stamp:
-#   - flags = required(0x1007) | linear_size(0x80000) | mip_count(0x20000)
-#   - caps  = texture(0x1000) | complex(0x8) | mipmap(0x400000) when mips>1
-#   - pixel_format.flags = DDPF_FOURCC (0x4)
-#   - pixel_format.fourCC = "DX10"
-#   - dxt10.dxgi_format = format from the BA2 record
-#   - dxt10.dimension = 3 (TEXTURE2D)
-#   - dxt10.misc = 0 (or 4 for cubemap; we set 4 if num_mips==0xff and
-#     unk16 hints at cubemap, but BA2 doesn't cleanly disambiguate, so
-#     we default to non-cube - vanilla BA2s don't ship cubemaps in DX10
-#     records anyway in the samples we surveyed).
-# ---------------------------------------------------------------------------
-
-_DDS_MAGIC = b"DDS "
-
-# DDS_HEADER flags
-_DDSD_CAPS        = 0x1
-_DDSD_HEIGHT      = 0x2
-_DDSD_WIDTH       = 0x4
-_DDSD_PIXELFORMAT = 0x1000
-_DDSD_MIPMAPCOUNT = 0x20000
-_DDSD_LINEARSIZE  = 0x80000
-
-_DDSCAPS_COMPLEX  = 0x8
-_DDSCAPS_TEXTURE  = 0x1000
-_DDSCAPS_MIPMAP   = 0x400000
-
-_DDPF_FOURCC      = 0x4
-
-_DXGI_DIMENSION_TEXTURE2D = 3
-
-
-def _make_dds_header(
-    *,
-    height: int,
-    width: int,
-    mip_count: int,
-    dxgi_format: int,
-    pitch_or_linear_size: int,
-) -> bytes:
-    """Build a DDS magic + DDS_HEADER + DDS_HEADER_DXT10 prefix (148 bytes)."""
-    flags = _DDSD_CAPS | _DDSD_HEIGHT | _DDSD_WIDTH | _DDSD_PIXELFORMAT \
-            | _DDSD_LINEARSIZE | (_DDSD_MIPMAPCOUNT if mip_count > 1 else 0)
-    caps = _DDSCAPS_TEXTURE | (_DDSCAPS_MIPMAP | _DDSCAPS_COMPLEX if mip_count > 1 else 0)
-
-    # pixel_format struct (32 bytes): size, flags, fourCC, rgb_bit_count,
-    # r_mask, g_mask, b_mask, a_mask
-    pixel_format = struct.pack(
-        "<II4sIIIII",
-        32,                # struct size
-        _DDPF_FOURCC,
-        b"DX10",
-        0, 0, 0, 0, 0,
-    )
-
-    # DDS_HEADER (124 bytes):
-    #   size (4) flags (4) height (4) width (4) pitch_or_linear (4) depth (4)
-    #   mip_count (4) reserved1 (4 * 11) pixel_format (32) caps (4) caps2 (4)
-    #   caps3 (4) caps4 (4) reserved2 (4)
-    header = struct.pack(
-        "<II I I I I I 11I 32s I I I I I",
-        124,                            # size
-        flags,
-        height,
-        width,
-        pitch_or_linear_size,
-        0,                              # depth (volume textures only)
-        max(mip_count, 1),
-        *([0] * 11),                    # reserved1[11]
-        pixel_format,
-        caps,
-        0, 0, 0,                        # caps2, caps3, caps4
-        0,                              # reserved2
-    )
-
-    # DDS_HEADER_DXT10 (20 bytes):
-    #   dxgi_format (4) resource_dimension (4) misc_flag (4) array_size (4)
-    #   misc_flags2 (4)
-    dxt10 = struct.pack(
-        "<IIIII",
-        dxgi_format,
-        _DXGI_DIMENSION_TEXTURE2D,
-        0,                              # misc_flag (cubemap = 4)
-        1,                              # array_size
-        0,                              # misc_flags2 (alpha mode)
-    )
-
-    return _DDS_MAGIC + header + dxt10
+def _make_dds_header(*, height: int, width: int, mip_count: int,
+                     dxgi_format: int, pitch_or_linear_size: int = 0,
+                     cube_map: bool = False, legacy: bool = False) -> bytes:
+    from .writer import _mip_byte_size, _DXGI_BLOCK_8, _DXGI_BLOCK_16, _LEGACY_MASKS
+    if not 1 <= width <= 16384 or not 1 <= height <= 16384 or not 0 <= mip_count <= 32:
+        raise Ba2ExtractError("Invalid DDS dimensions or mip count")
+    compressed = dxgi_format in _DXGI_BLOCK_8 or dxgi_format in _DXGI_BLOCK_16
+    pitch = _mip_byte_size(width, height if compressed else 1, dxgi_format)
+    if pitch is None:
+        raise Ba2ExtractError(f"Unsupported DDS format: {dxgi_format}")
+    flags = 0x1007 | (0x80000 if compressed else 8) | (0x20000 if mip_count > (0 if legacy else 1) else 0)
+    caps = 0x1000 | (0x400008 if mip_count > 1 else 0) | (8 if cube_map else 0)
+    pixel = struct.pack("<II4s5I", 32, 4, b"DX10", 0, 0, 0, 0, 0)
+    extension = struct.pack("<5I", dxgi_format, 3, 4 if cube_map else 0, 1, 0)
+    if legacy:
+        fourcc = {71: b"DXT1", 74: b"DXT3", 77: b"DXT5", 80: b"BC4U",
+                  81: b"BC4S", 83: b"BC5U", 84: b"BC5S", 68: b"RGBG",
+                  69: b"GRGB", 107: b"YUY2"}.get(dxgi_format)
+        masks = next((fields for fields, fmt in _LEGACY_MASKS.items() if fmt == dxgi_format), None)
+        if fourcc:
+            pixel = struct.pack("<II4s5I", 32, 4, fourcc, 0, 0, 0, 0, 0)
+            extension = b""
+        elif masks:
+            pixel = struct.pack("<8I", 32, masks[0], 0, *masks[1:])
+            extension = b""
+    header = struct.pack("<7I11I32s5I", 124, flags, height, width, pitch, int(legacy), max(1, mip_count),
+                         *([0] * 11), pixel, caps, 0xfe00 if cube_map else 0, 0, 0, 0)
+    return b"DDS " + header + extension
 
 
 # ---------------------------------------------------------------------------
@@ -262,7 +184,7 @@ def _extract(
     return len(written), written
 
 
-def _parse_records(f) -> tuple[list[dict], list[str]]:
+def _parse_records(f, names_override=None) -> tuple[list[dict], list[str]]:
     """Walk the header, file records and name table; read no file data."""
     magic = f.read(4)
     if magic != b"BTDX":
@@ -275,6 +197,24 @@ def _parse_records(f) -> tuple[list[dict], list[str]]:
     )
     if type_tag not in (b"GNRL", b"DX10"):
         raise Ba2ExtractError(f"unsupported BA2 type {type_tag!r}")
+    if version not in (1, 2, 3, 7, 8):
+        raise Ba2ExtractError(f"unsupported BA2 version {version}")
+    compression = 0
+    if version in (2, 3):
+        if len(f.read(8)) != 8:
+            raise Ba2ExtractError("truncated extended BA2 header")
+    if version == 3:
+        raw_compression = f.read(4)
+        if len(raw_compression) != 4:
+            raise Ba2ExtractError("truncated BA2 compression field")
+        compression = struct.unpack("<I", raw_compression)[0]
+        if compression not in (0, 1, 3):
+            raise Ba2ExtractError(f"unsupported BA2 compression {compression}")
+    end = f.seek(0, 2)
+    header_end = 36 if version == 3 else 32 if version == 2 else 24
+    if file_count > 1_000_000 or file_count * 24 > end or name_table_offset > end:
+        raise Ba2ExtractError("invalid BA2 file count or name table offset")
+    f.seek(header_end)
 
     # --- Read the file records ---
     records: list[dict] = []
@@ -322,10 +262,16 @@ def _parse_records(f) -> tuple[list[dict], list[str]]:
                 "width": width,
                 "num_mips": num_mips,
                 "dxgi_format": dxgi_format,
+                "cube_map": bool(_unk16 & 0xff),
+                "compression": compression,
                 "chunks": chunks,
             })
 
     # --- Read the name table ---
+    if not name_table_offset:
+        if names_override is None or len(names_override) != len(records):
+            raise Ba2ExtractError("BA2 archive has no filename table")
+        return records, names_override
     f.seek(name_table_offset)
     names: list[str] = []
     for _ in range(file_count):
@@ -338,7 +284,11 @@ def _parse_records(f) -> tuple[list[dict], list[str]]:
             raise Ba2ExtractError("truncated name entry")
         # Names are case-insensitive on the engine side; we always emit
         # lowercase to match what the loader actually consumes.
-        names.append(nb.decode("latin-1").replace("\\", "/").lower())
+        try:
+            name = nb.decode("utf-8")
+        except UnicodeError:
+            name = nb.decode("cp1252")
+        names.append(name.replace("\\", "/").lower())
 
     return records, names
 
@@ -357,20 +307,22 @@ def _read_dx10(f, rec: dict) -> bytes:
     """Reassemble a DDS file from its per-mip chunks plus a synthesised
     DDS_HEADER + DDS_HEADER_DXT10 prefix."""
     payload_parts: list[bytes] = []
-    first_chunk_unpacked = 0
-    for i, chunk in enumerate(rec["chunks"]):
+    for chunk in rec["chunks"]:
         f.seek(chunk["data_offset"])
         if chunk["packed_size"] == 0:
             data = f.read(chunk["unpacked_size"])
         else:
-            data = zlib.decompress(f.read(chunk["packed_size"]))
+            body = f.read(chunk["packed_size"])
+            if rec.get("compression") == 3:
+                import lz4.block
+                data = lz4.block.decompress(body, uncompressed_size=chunk["unpacked_size"])
+            else:
+                data = zlib.decompress(body)
         if len(data) != chunk["unpacked_size"]:
             raise Ba2ExtractError(
                 f"DX10 chunk size mismatch: got {len(data)}, "
                 f"expected {chunk['unpacked_size']}"
             )
-        if i == 0:
-            first_chunk_unpacked = len(data)
         payload_parts.append(data)
 
     header = _make_dds_header(
@@ -378,9 +330,6 @@ def _read_dx10(f, rec: dict) -> bytes:
         width=rec["width"],
         mip_count=max(rec["num_mips"], 1),
         dxgi_format=rec["dxgi_format"],
-        # The DDS spec expects `pitch_or_linear_size` to be the
-        # top-mip linear size for compressed formats.  Using the first
-        # chunk's unpacked size is correct since chunk 0 is mip 0.
-        pitch_or_linear_size=first_chunk_unpacked,
+        cube_map=bool(rec.get("cube_map")),
     )
-    return header + b"".join(payload_parts)
+    return bytes(header) + b"".join(payload_parts)
