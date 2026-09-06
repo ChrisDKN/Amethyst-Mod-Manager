@@ -546,8 +546,8 @@ Output is written directly into your mod list as the '{0}' mod.</source>
 In Steam, right-click the game → Properties → Installed Files → Verify integrity of game files, then retry.
 
 {0}</source>
-      <translation type="unfinished">Missing vanilla game files even after restoring to vanilla - these were never backed up.
-In Steam, right-click the game → Properties → Installed Files → Verify integrity of game files, then retry.
+      <translation>バニラ状態に戻してもバニラ版のゲームファイルが欠落している - これらはバックアップされていなかった。
+Steamで、ゲームを右クリック → [プロパティ] → [インストール済みファイル] → [ゲームファイルの整合性を確認] を選択し、その後再試行してください。
 
 {0}</translation>
     </message>

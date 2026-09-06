@@ -29,7 +29,7 @@ Télécharger l'archive manuellement (ne PAS utiliser le bouton de téléchargem
     </message>
     <message>
       <source>Step 6: Run ACMOS Road Generator</source>
-      <translation>Étape 6: Lancer ACMOS générateur de route</translation>
+      <translation>Étape 6: Lancer le générateur de route ACMOS</translation>
     </message>
     <message>
       <source>Step 4: Choose Terrain LOD Mod</source>
@@ -69,7 +69,7 @@ ou utilisez Parcourir pour le sélectionner manuellement.</translation>
     </message>
     <message>
       <source>Step 5: Choose Proton Version</source>
-      <translation>Étape 5: Choisissez la version Proton</translation>
+      <translation>Étape 5: Choisissez la version de Proton</translation>
     </message>
     <message>
       <source>{0} was not found.
@@ -215,11 +215,11 @@ Choisissez Routes ou Chemins Seulement, cliquez sur Générer, puis fermez-le un
     </message>
     <message>
       <source>Unmute</source>
-      <translation>Sans changement</translation>
+      <translation>Activer le son</translation>
     </message>
     <message>
       <source>Mute</source>
-      <translation>Mignon</translation>
+      <translation>Couper le son</translation>
     </message>
   </context>
   <context>
@@ -242,25 +242,25 @@ Choisissez Routes ou Chemins Seulement, cliquez sur Générer, puis fermez-le un
     </message>
     <message>
       <source>Load Order (*.json *.lsx)</source>
-      <translation>Commande de chargement (*.json *.lsx)</translation>
+      <translation>Ordre de chargement (*.json *.lsx)</translation>
     </message>
     <message>
       <source>Import BG3 Load Order - {0}</source>
-      <translation>Commande de chargement d'importation BG3 - {0}</translation>
+      <translation>Importer l'ordre de chargement BG3 - {0}</translation>
     </message>
     <message>
       <source>Step 1: Select a load order file</source>
-      <translation>Étape 1: Sélectionnez un fichier de commande de chargement</translation>
+      <translation>Étape 1: Sélectionnez un fichier d'ordre de chargement</translation>
     </message>
     <message>
       <source>Choose a modlist.json (or an exported saved-order .json) from BG3 Mod Manager, or a modsettings.lsx written by the game.
 Mods are matched to your installed mods by UUID.</source>
-      <translation>Choisissez un modlist.json (ou un .json enregistré exporté) de BG3 Mod Manager, ou un modsettings.lsx écrit par le jeu.
+      <translation>Choisissez un modlist.json (ou un .json d'ordre exporté) de BG3 Mod Manager, ou un modsettings.lsx écrit par le jeu.
 Les mods sont adaptés à vos mods installés par UUID.</translation>
     </message>
     <message>
       <source>Select a load order file (.json or .lsx)</source>
-      <translation>Sélectionnez un fichier de commande de chargement (.json ou .lsx)</translation>
+      <translation>Sélectionnez un fichier d'ordre de chargement (.json ou .lsx)</translation>
     </message>
     <message>
       <source>Selected: {0}</source>
@@ -276,7 +276,7 @@ Les mods sont adaptés à vos mods installés par UUID.</translation>
     </message>
     <message>
       <source>Apply Order</source>
-      <translation>Valider la commande</translation>
+      <translation>Valider l'ordre</translation>
     </message>
     <message>
       <source>Reading order and scanning installed mods…</source>
@@ -297,7 +297,7 @@ Les mods sont adaptés à vos mods installés par UUID.</translation>
     <message>
       <source>The modlist has been reordered to match the imported order.
 Deploy to push the new load order to the game.</source>
-      <translation>La modlist a été réorganisée pour correspondre à l'ordre importé.
+      <translation>La liste de mods a été réorganisée pour correspondre à l'ordre importé.
 Déployer pour pousser le nouvel ordre de chargement au jeu.</translation>
     </message>
     <message>
@@ -321,13 +321,13 @@ and placed in this game's Applications folder.
 
 Click Install to begin.</source>
       <translation>L'installateur Linux MPI natif (également utilisé pour Tale of Two Wastelands) sera téléchargé de GitHub
-et placé dans le dossier Applications de ce jeu.
+et placé dans le dossier de ce jeu.
 
 Cliquez sur Installer pour commencer.</translation>
     </message>
     <message>
       <source>Installer by SulfurNitride (TTW_Linux_Installer)</source>
-      <translation>Programme d'installation de SulfurNitride (TTW_Linux_Installer)</translation>
+      <translation>Programme d'installation par SulfurNitride (TTW_Linux_Installer)</translation>
     </message>
     <message>
       <source>Install</source>
@@ -355,7 +355,7 @@ Cliquez sur Installer pour commencer.</translation>
 Rebuild from scratch restores the game to vanilla and runs the decompressor again (needs the .mpi package).</source>
       <translation>Le mod '{0}' est déjà dans votre liste de mod - il n'y a rien à re-appliquer, donc vous pouvez simplement fermer cet assistant.
 
-Reconstruction à partir de zéro restaure le jeu à la vanille et exécute le décompresseur à nouveau (nécessite le paquet .mpi).</translation>
+Reconstruire à partir de zéro restaure le jeu comme d'origine et exécute le décompresseur à nouveau (nécessite le paquet .mpi).</translation>
     </message>
     <message>
       <source>Rebuild from scratch</source>
@@ -373,7 +373,7 @@ Reconstruction à partir de zéro restaure le jeu à la vanille et exécute le d
       <source>The BSA Decompressor rebuilds the vanilla BSA archives without compression for faster loading, and the result is added as a mod.
 
 Download the 'FNV BSA Decompressor' main file from Nexus - the .mpi package inside the archive is detected automatically.</source>
-      <translation>Le BSA Decompressor reconstruit les archives BSA vanille sans compression pour un chargement plus rapide, et le résultat est ajouté comme un mod.
+      <translation>Le BSA Decompressor reconstruit les archives BSA d'origine sans compression pour un chargement plus rapide, et le résultat est ajouté comme un mod.
 
 Télécharger le fichier principal « FNV BSA Decompressor » de Nexus - le paquet .mpi dans l'archive est détecté automatiquement.</translation>
     </message>
@@ -415,7 +415,7 @@ Télécharger le fichier principal « FO3 BSA Decompressor » de Nexus - le paqu
     </message>
     <message>
       <source>Detect again</source>
-      <translation>Détecter encore</translation>
+      <translation>Re-détecter</translation>
     </message>
     <message>
       <source>Continue</source>
@@ -427,11 +427,11 @@ Télécharger le fichier principal « FO3 BSA Decompressor » de Nexus - le paqu
     </message>
     <message>
       <source>- not set -</source>
-      <translation>- pas réglé -</translation>
+      <translation>- non réglé -</translation>
     </message>
     <message>
       <source>Looking for the BSA Decompressor download…</source>
-      <translation>Vous cherchez le téléchargement de BSA Decompressor..</translation>
+      <translation>A la recherche du téléchargement de BSA Decompressor..</translation>
     </message>
     <message>
       <source>Using previously extracted package.</source>
@@ -439,11 +439,11 @@ Télécharger le fichier principal « FO3 BSA Decompressor » de Nexus - le paqu
     </message>
     <message>
       <source>Archive not found in your download folders - download it from Nexus, then click Detect again (or Choose file…).</source>
-      <translation>Archive non trouvée dans vos dossiers de téléchargement - téléchargez-le depuis Nexus, puis cliquez sur Détecter à nouveau (ou choisissez un fichier...).</translation>
+      <translation>Archive non trouvée dans vos dossiers de téléchargement - téléchargez-le depuis Nexus, puis cliquez sur Re-détecter (ou Choisissez un fichier...).</translation>
     </message>
     <message>
       <source>Extracting the .mpi package from {0}…</source>
-      <translation>Extraire le paquet .mpi de {0}..</translation>
+      <translation>Extraction du paquet .mpi de {0}..</translation>
     </message>
     <message>
       <source>Auto-detected from {0}.</source>
@@ -455,7 +455,7 @@ Télécharger le fichier principal « FO3 BSA Decompressor » de Nexus - le paqu
     </message>
     <message>
       <source>Downloading the BSA Decompressor package from Nexus… {0}%</source>
-      <translation>Télécharger le paquet BSA Decompressor depuis Nexus... {0}%</translation>
+      <translation>Téléchargement du paquet BSA Decompressor depuis Nexus... {0}%</translation>
     </message>
     <message>
       <source>Premium account - downloading the BSA Decompressor package from Nexus…</source>
@@ -483,7 +483,7 @@ Télécharger le fichier principal « FO3 BSA Decompressor » de Nexus - le paqu
     </message>
     <message>
       <source>Using the .mpi from {0}.</source>
-      <translation>Utiliser le .mpi de {0}.</translation>
+      <translation>Utilisation du .mpi de {0}.</translation>
     </message>
     <message>
       <source>Error: {0}</source>
@@ -503,7 +503,7 @@ Télécharger le fichier principal « FO3 BSA Decompressor » de Nexus - le paqu
     </message>
     <message>
       <source>Starting…</source>
-      <translation>C'est parti…</translation>
+      <translation>Lancement…</translation>
     </message>
     <message>
       <source>Step 3: Decompressing BSA archives</source>
@@ -512,33 +512,33 @@ Télécharger le fichier principal « FO3 BSA Decompressor » de Nexus - le paqu
     <message>
       <source>The game is first restored to a vanilla state, then the installer rebuilds the vanilla BSA archives without compression. This can take a while - please leave it running.
 Output is written directly into your mod list as the '{0}' mod.</source>
-      <translation>Le jeu est d'abord restauré à l'état de vanille, puis l'installateur reconstruise les archives BSA vanille sans compression. Ça peut prendre du temps, s'il vous plaît.
+      <translation>Le jeu est d'abord restauré à l'état d'origine, puis l'installateur reconstruit les archives BSA d'origine sans compression. Cela peut prendre du temps...
 La sortie est écrite directement dans votre liste de mod comme le mod '{0}'.</translation>
     </message>
     <message>
       <source>Installer binary is missing. Restart the wizard and let it install first.</source>
-      <translation>L'installateur binaire manque. Redémarrez l'assistant et laissez-le installer en premier.</translation>
+      <translation>Le binaire d'installation manque. Redémarrez l'assistant et laissez-le l'installer en premier.</translation>
     </message>
     <message>
       <source>Restoring game to vanilla…</source>
-      <translation>Restaurer le jeu à la vanille..</translation>
+      <translation>Restauration du jeu à l'état d'origine...</translation>
     </message>
     <message>
       <source>Restoring game to a vanilla state before install…</source>
-      <translation>Restaurer le jeu à l'état vanille avant d'installer..</translation>
+      <translation>Restauration du jeu à l'état d'origine avant installation...</translation>
     </message>
     <message>
       <source>Restore failed - see the log. Fix the issue (or restore manually via the Restore button) and retry.</source>
-      <translation>Restaurer a échoué - voir le journal. Réparer le problème (ou restaurer manuellement via le bouton Restaurer) et réessayer.</translation>
+      <translation>La restauration a échoué - voir le journal. Réparez le problème (ou restaurez manuellement via le bouton Restaurer) et réessayez.</translation>
     </message>
     <message>
       <source>Mod staging path is not configured.</source>
-      <translation>Le chemin de mise en scène Mod n'est pas configuré.</translation>
+      <translation>Le chemin vers le dossier de stockage de mods n'est pas configuré.</translation>
     </message>
     <message>
       <source>ERROR: missing vanilla game files:
 {0}</source>
-      <translation>ERREUR : fichiers de jeu vanilla manquants :
+      <translation>ERREUR : fichiers d'origine manquants :
 {0}</translation>
     </message>
     <message>
@@ -546,7 +546,7 @@ La sortie est écrite directement dans votre liste de mod comme le mod '{0}'.</t
 In Steam, right-click the game → Properties → Installed Files → Verify integrity of game files, then retry.
 
 {0}</source>
-      <translation>Il manque des fichiers de jeu vanilla même après la restauration de la vanille - ceux-ci n'ont jamais été sauvegardés.
+      <translation>Il manque des fichiers d'origine même après la restauration de la vanille - ceux-ci n'ont jamais été sauvegardés.
 Dans Steam, faites un clic droit sur le jeu → Propriétés → Fichiers installés → Vérifier l'intégrité des fichiers du jeu, puis réessayez.
 
 {0}</translation>
@@ -554,7 +554,7 @@ Dans Steam, faites un clic droit sur le jeu → Propriétés → Fichiers instal
     <message>
       <source>ERROR: missing vanilla plugin files:
 {0}</source>
-      <translation>ERROR: manque de fichiers plugin vanille:
+      <translation>ERROR: il manque de fichiers de plugin d'origine :
 {0}</translation>
     </message>
     <message>
@@ -562,8 +562,8 @@ Dans Steam, faites un clic droit sur le jeu → Propriétés → Fichiers instal
 In Steam, right-click the game → Properties → Installed Files → Verify integrity of game files, then retry.
 
 {0}</source>
-      <translation>Fichiers plugin vanille manquants même après la restauration à la vanille - ceux-ci n'ont jamais été sauvegardés.
-Dans Steam, faites un clic droit sur le jeu → Propriétés → Fichiers installés → Vérifier l'intégrité des fichiers de jeu, puis réessayer.
+      <translation>Fichiers plugin d'origine manquants même après la restauration à l'origine - ceux-ci n'ont jamais été sauvegardés.
+Dans Steam, faites un clic droit sur le jeu → Propriétés → Fichiers installés → Vérifier l'intégrité des fichiers de jeu, puis réessayez.
 
 {0}</translation>
     </message>
@@ -577,15 +577,15 @@ Dans Steam, faites un clic droit sur le jeu → Propriétés → Fichiers instal
     </message>
     <message>
       <source>Installer exited with error (code {0}). See the log for details.</source>
-      <translation>L'installateur est sorti par erreur (code {0}). Consultez le journal pour plus de détails.</translation>
+      <translation>Erreur lors de l'installation (code {0}). Consultez le journal pour plus de détails.</translation>
     </message>
     <message>
       <source>Build complete - registering mod…</source>
-      <translation>Construire complet - enregistrement mod..</translation>
+      <translation>Conmpilation complète - enregistrement du mod..</translation>
     </message>
     <message>
       <source>Build finished but registering the mod failed: {0}</source>
-      <translation>La construction terminée mais l'enregistrement du mod a échoué : {0}</translation>
+      <translation>La compilation est terminée mais l'enregistrement du mod a échoué : {0}</translation>
     </message>
     <message>
       <source>Done! '{0}' was added to your mod list. Enable it and deploy.</source>
@@ -636,7 +636,7 @@ Dans Steam, faites un clic droit sur le jeu → Propriétés → Fichiers instal
     </message>
     <message>
       <source>No automated backups yet. One is created every time you deploy.</source>
-      <translation>Pas encore de sauvegardes automatisées. Un est créé chaque fois que vous déployez.</translation>
+      <translation>Pas encore de sauvegardes automatisées. Une sauvegarde est créée à chaque déploiement.</translation>
     </message>
     <message>
       <source>Kept</source>
@@ -644,11 +644,11 @@ Dans Steam, faites un clic droit sur le jeu → Propriétés → Fichiers instal
     </message>
     <message>
       <source>{0} mods ({1} enabled)</source>
-      <translation>{0} mods (fonctionnalité « {1} » activée)</translation>
+      <translation>{0} mods ( « {1} » activés)</translation>
     </message>
     <message>
       <source>{0} plugins</source>
-      <translation>Plugins {0}</translation>
+      <translation>{0} Plugins</translation>
     </message>
     <message>
       <source>{0} separators</source>
@@ -679,15 +679,15 @@ Dans Steam, faites un clic droit sur le jeu → Propriétés → Fichiers instal
     <name>BainPickerView</name>
     <message>
       <source>{0} - BAIN package - choose sub-packages to install</source>
-      <translation>{0} - paquet BAIN - choisissez les sous-ensembles à installer</translation>
+      <translation>{0} - paquet BAIN - choisissez les sous-paquets à installer</translation>
     </message>
     <message>
       <source>BAIN package - choose sub-packages to install</source>
-      <translation>Package BAIN - choisissez les sous-ensembles à installer</translation>
+      <translation>Paquet BAIN - choisissez les sous-paquets à installer</translation>
     </message>
     <message>
       <source>Sub-packages ({0}) - tick to install · green = files used · red = fully overridden by a later package</source>
-      <translation>Sous-emballages ({0}) - cochez pour installer · vert = fichiers utilisés · rouge = complètement dépassés par un paquet ultérieur</translation>
+      <translation>Sous-paquets ({0}) - cochez pour installer · vert = fichiers utilisés · rouge = complètement dépassés par un paquet ultérieur</translation>
     </message>
     <message>
       <source>Package readme</source>
@@ -699,7 +699,7 @@ Dans Steam, faites un clic droit sur le jeu → Propriétés → Fichiers instal
     </message>
     <message>
       <source>Select None</source>
-      <translation>Sélectionner « Aucun »</translation>
+      <translation>Tout déselectionner</translation>
     </message>
     <message>
       <source>Cancel</source>
@@ -711,7 +711,7 @@ Dans Steam, faites un clic droit sur le jeu → Propriétés → Fichiers instal
     </message>
     <message>
       <source>Use this package - turn off the later packages overriding its files</source>
-      <translation>Utilisez ce paquet - éteignez les paquets ultérieurs qui dépassent ses fichiers</translation>
+      <translation>Utiliser ce paquet - décocher les paquets ultérieurs plus récents écrasant ces fichiers</translation>
     </message>
   </context>
   <context>
@@ -738,11 +738,11 @@ Télécharger l'archive manuellement (ne PAS utiliser le bouton de téléchargem
     </message>
     <message>
       <source>Step 3: Extract BethINI Pie</source>
-      <translation>Étape 3: Extrait de la tarte BethINI</translation>
+      <translation>Étape 3: Extraction de la tarte BethINI</translation>
     </message>
     <message>
       <source>Step 5: Run BethINI Pie</source>
-      <translation>Étape 5: Courez BethINI Pie</translation>
+      <translation>Étape 5: Lancement de BethINI Pie</translation>
     </message>
     <message>
       <source>Select the BethINI Pie archive</source>
@@ -752,13 +752,13 @@ Télécharger l'archive manuellement (ne PAS utiliser le bouton de téléchargem
       <source>BethINI archive not found in Downloads.
 Make sure you downloaded it, then press Try Again,
 or use Browse to select it manually.</source>
-      <translation>Archives BethINI non trouvées dans Téléchargements.
-Assurez-vous de le télécharger, puis appuyez sur Essayer à nouveau,
+      <translation>Archives BethINI non trouvées dans le dossier Téléchargements.
+Assurez-vous de l'avoir téléchargé, puis appuyez sur Réessayer,
 ou utilisez Parcourir pour le sélectionner manuellement.</translation>
     </message>
     <message>
       <source>Step 4: Choose Proton Version</source>
-      <translation>Étape 4: Choisissez la version Proton</translation>
+      <translation>Étape 4: Choisissez la version de Proton</translation>
     </message>
     <message>
       <source>'{0}' was not found.
@@ -772,11 +772,11 @@ Veuillez redémarrer l'assistant et installer BethINI Pie d'abord.</translation>
     </message>
     <message>
       <source>Preparing BethINI Pie's Wine prefix…</source>
-      <translation>Préparation du menu « Wine » de BethINI Pie…</translation>
+      <translation>Préparation du préfixe « Wine » de BethINI Pie…</translation>
     </message>
     <message>
       <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
-      <translation>Impossible de résoudre la version Proton pour le préfixe du jeu - lancez le jeu une fois, ou choisissez une autre option de préfixe.</translation>
+      <translation>Impossible d'identifier la version Proton pour le préfixe du jeu - lancez le jeu une fois, ou choisissez un autre préfixe.</translation>
     </message>
     <message>
       <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
@@ -785,12 +785,12 @@ Veuillez redémarrer l'assistant et installer BethINI Pie d'abord.</translation>
     <message>
       <source>BethINI Pie is running.
 Configure your INI settings, then close it and click Done.</source>
-      <translation>BéthINI Pie court.
+      <translation>BethINI Pie est en cours d'exécution.
 Configurez vos paramètres INI, puis fermez-le et cliquez sur Terminé.</translation>
     </message>
     <message>
       <source>BethINI Pie finished.</source>
-      <translation>BéthINI C'est fini.</translation>
+      <translation>BethINI Pie a fini.</translation>
     </message>
     <message>
       <source>Launch error: {0}</source>
@@ -815,7 +815,7 @@ Configurez vos paramètres INI, puis fermez-le et cliquez sur Terminé.</transla
       <source>A native Linux build of BodySlide and Outfit Studio, shared by every game.
 
 No Proton prefix is used - the game, its Data folder and the output folder are passed to the tool directly.</source>
-      <translation>Une compilation Linux native de BodySlide et Outfit Studio, partagée par chaque jeu.
+      <translation>Une compilation Linux native de BodySlide et de Outfit Studio, partagée par chaque jeu.
 
 Aucun préfixe Proton n'est utilisé - le jeu, son dossier Data et le dossier de sortie sont passés directement à l'outil.</translation>
     </message>
@@ -833,7 +833,7 @@ Aucun préfixe Proton n'est utilisé - le jeu, son dossier Data et le dossier de
     </message>
     <message>
       <source>Not installed. Checking GitHub for the latest release…</source>
-      <translation>Non installé. Vérifier GitHub pour la dernière sortie..</translation>
+      <translation>Non installé. Vérification de GitHub pour la dernière version...</translation>
     </message>
     <message>
       <source>Installed: {0}. Could not reach GitHub to check for updates - see log.</source>
@@ -849,11 +849,11 @@ Aucun préfixe Proton n'est utilisé - le jeu, son dossier Data et le dossier de
     </message>
     <message>
       <source>Latest release: {0}.</source>
-      <translation>Dernière sortie: {0}.</translation>
+      <translation>Dernière version : {0}.</translation>
     </message>
     <message>
       <source>Update to {0}</source>
-      <translation>Mettre à jour {0}</translation>
+      <translation>Mettre à jour vers {0}</translation>
     </message>
     <message>
       <source>Installed: {0} - {1} is available.</source>
@@ -869,7 +869,7 @@ Aucun préfixe Proton n'est utilisé - le jeu, son dossier Data et le dossier de
     </message>
     <message>
       <source>Downloading {0}…</source>
-      <translation>Téléchargement de « {0} »…</translation>
+      <translation>Téléchargement de {0}…</translation>
     </message>
     <message>
       <source>Extracting…</source>
@@ -885,19 +885,19 @@ Aucun préfixe Proton n'est utilisé - le jeu, son dossier Data et le dossier de
     </message>
     <message>
       <source>Step 2: Deploy Modlist</source>
-      <translation>Étape 2: Déploiement Modlist</translation>
+      <translation>Étape 2: Déploiement liste de mods</translation>
     </message>
     <message>
       <source>{0} reads its sliders and shapes from the deployed Data folder, so deploy your modlist first.
 
 Built meshes are written to the output mod below, which is added to your mod list.</source>
-      <translation>{0} lit ses curseurs et ses formes à partir du dossier Data déployé, déployez donc votre modlist d'abord.
+      <translation>{0} lit ses curseurs et ses formes à partir du dossier Data déployé, déployez donc votre liste de mods d'abord.
 
 Les maillages construits sont écrits dans le mod de sortie ci-dessous, qui est ajouté à votre liste de mod.</translation>
     </message>
     <message>
       <source>Output mod name:</source>
-      <translation>Nom du module de sortie :</translation>
+      <translation>Nom du mod sorti :</translation>
     </message>
     <message>
       <source>Skip</source>
@@ -946,7 +946,7 @@ Fermez-le lorsque vous avez terminé, puis cliquez sur « Terminé ».</translat
     </message>
     <message>
       <source>Step 1: Deploy Modlist</source>
-      <translation>Étape 1 : Déployer Modlist</translation>
+      <translation>Étape 1 : Déployer la liste de mods</translation>
     </message>
     <message>
       <source>{0} must be run from the deployed Data folder.
@@ -958,7 +958,7 @@ Déployez d'abord votre liste de mods, puis cliquez sur « Exécuter ».</transl
     </message>
     <message>
       <source>Output mod name:</source>
-      <translation>Nom du module de sortie :</translation>
+      <translation>Nom du mod sorti :</translation>
     </message>
     <message>
       <source>Skip</source>
@@ -976,7 +976,7 @@ Déployez d'abord votre liste de mods, puis cliquez sur « Exécuter ».</transl
       <source>{0} was not found in your mod staging folder.
 
 Install {0} as a mod, then reopen this wizard.</source>
-      <translation>{0} n'a pas été trouvé dans votre dossier de mise en scène mod.
+      <translation>{0} n'a pas été trouvé dans votre dossier de stockage de mods.
 
 Installez {0} comme mod, puis rouvrez cet assistant.</translation>
     </message>
@@ -994,7 +994,7 @@ Déployez d'abord votre liste de mods, puis rouvrez cet assistant.</translation>
     </message>
     <message>
       <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
-      <translation>Impossible de résoudre la version Proton pour le préfixe du jeu - lancez le jeu une fois, ou choisissez une autre option de préfixe.</translation>
+      <translation>Impossible de résoudre la version de Proton pour le préfixe du jeu - lancez le jeu une fois, ou choisissez une autre option de préfixe.</translation>
     </message>
     <message>
       <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
@@ -1004,7 +1004,7 @@ Déployez d'abord votre liste de mods, puis rouvrez cet assistant.</translation>
       <source>{0} is running.
 Close it when you are done, then click Done.</source>
       <translation>{0} est en cours d'exécution.
-Fermez-le lorsque vous avez terminé, puis cliquez sur « Terminé ».</translation>
+Fermez-le lorsque vous avez terminé, puis cliquez sur Terminé.</translation>
     </message>
     <message>
       <source>{0} finished.</source>
@@ -1019,15 +1019,15 @@ Fermez-le lorsque vous avez terminé, puis cliquez sur « Terminé ».</translat
     <name>BsaPackCandidatesView</name>
     <message>
       <source>BSA Pack Candidates - {0}</source>
-      <translation>Candidats au pack BSA - {0}</translation>
+      <translation>Pack Candidats BSA - {0}</translation>
     </message>
     <message>
       <source>Find Pack Candidates</source>
-      <translation>Trouver des candidats pack</translation>
+      <translation>Trouver des pack candidats </translation>
     </message>
     <message>
       <source>Ranks your enabled mods by how many files they could pack into a BSA/BA2, and flags the ones that would break if packed. A file inside an archive loses to any loose file from any mod, so a mod that currently wins a conflict stops winning once it is packed.</source>
-      <translation>Classement vos mods activés en fonction du nombre de fichiers qu'ils pourraient empaqueter dans un BSA/BA2, et les drapeaux qui casseraient si emballé. Un fichier à l'intérieur d'une archive perd à tout fichier libre de n'importe quel mod, donc un mod qui gagne actuellement un conflit cesse de gagner une fois qu'il est emballé.</translation>
+      <translation>Classe vos mods activés en fonction du nombre de fichiers qu'ils pourraient empaqueter dans un BSA/BA2, et marque ceux qui casseraient si empaquetés. Un fichier à l'intérieur d'une archive perd face à tout fichier libre de n'importe quel mod, donc un mod qui gagne actuellement un conflit cesse de gagner une fois empaqueté.</translation>
     </message>
     <message>
       <source>Start Scan</source>
@@ -1035,7 +1035,7 @@ Fermez-le lorsque vous avez terminé, puis cliquez sur « Terminé ».</translat
     </message>
     <message>
       <source>Scanning…</source>
-      <translation>Scanner..</translation>
+      <translation>Analyse en cours...</translation>
     </message>
     <message>
       <source>Error: {0}</source>
@@ -1047,15 +1047,15 @@ Fermez-le lorsque vous avez terminé, puis cliquez sur « Terminé ».</translat
     </message>
     <message>
       <source>Pack Candidates</source>
-      <translation>Candidats</translation>
+      <translation>Paquets Candidats</translation>
     </message>
     <message>
       <source>← Re-Scan</source>
-      <translation>★ Re-Scan</translation>
+      <translation>←  Réanalyser</translation>
     </message>
     <message>
       <source>{0} files</source>
-      <translation>Fichiers {0}</translation>
+      <translation>{0} Fichiers</translation>
     </message>
     <message>
       <source>Open ›</source>
@@ -1063,7 +1063,7 @@ Fermez-le lorsque vous avez terminé, puis cliquez sur « Terminé ».</translat
     </message>
     <message>
       <source>Over the size limit as one archive - tick "Separate textures archive" when packing.</source>
-      <translation>Au-delà de la limite de taille comme une archive - cochez « Séparer l'archive de textures » lors de l'emballage.</translation>
+      <translation>Au-delà de la taille limite d'une archive - cochez « Séparer l'archive de textures » lors de l'empaquetage.</translation>
     </message>
     <message>
       <source>A stub plugin will be created so the archive loads.</source>
@@ -1071,58 +1071,58 @@ Fermez-le lorsque vous avez terminé, puis cliquez sur « Terminé ».</translat
     </message>
     <message>
       <source>Safe to pack ({0})</source>
-      <translation>Sans danger pour l'emballage ({0})</translation>
+      <translation>Prêt pour l'empaquetage ({0})</translation>
     </message>
     <message>
       <source>No conflicts to lose.</source>
-      <translation>Aucun conflit à perdre.</translation>
+      <translation>Aucun conflit à régler.</translation>
     </message>
     <message>
       <source>Packable with care ({0})</source>
-      <translation>Emballage avec soin ({0})</translation>
+      <translation>Empaquetable avec attention ({0})</translation>
     </message>
     <message>
       <source>Wins {0} contested file(s) - tick "Skip winning files" when packing so they stay loose.</source>
-      <translation>Gagne {0} fichier(s) contesté(s) - cochez "Fichier gagnant" lors de l'emballage afin qu'ils restent libres.</translation>
+      <translation>Gagne {0} fichier(s) contesté(s) - cochez " Sauter les fichiers gagnants" lors de l'empaquetage afin qu'ils restent libres.</translation>
     </message>
     <message>
       <source>Already has an archive - loose files remain ({0})</source>
-      <translation>Déjà une archive - les fichiers libres restent ({0})</translation>
+      <translation>Déjà dans une archive - les fichiers libres restent ({0})</translation>
     </message>
     <message>
       <source>{0} file(s) already archived.</source>
-      <translation>Fichier(s) {0} déjà archivé.</translation>
+      <translation>{0} fichier(s) déjà archivé.</translation>
     </message>
     <message>
       <source>Too large for one archive ({0})</source>
-      <translation>Trop grand pour une archive ({0})</translation>
+      <translation>Trop lourd pour une archive ({0})</translation>
     </message>
     <message>
       <source>{0} file(s) exceed the per-file size field - packing would fail.</source>
-      <translation>Les fichiers {0} dépassent le champ de taille par fichier - l'emballage échouerait.</translation>
+      <translation>Les fichiers {0} dépassent le champ de taille par fichier - l'empaquetage échouerait.</translation>
     </message>
     <message>
       <source>Over the archive size limit even with textures split off.</source>
-      <translation>Au-delà de la limite de taille des archives même avec des textures séparées.</translation>
+      <translation>Au-delà de la taille limite des archives même avec des textures séparées.</translation>
     </message>
     <message>
       <source>Nothing to pack ({0})</source>
-      <translation>Rien à emballer ({0})</translation>
+      <translation>Rien à empaqueter ({0})</translation>
     </message>
     <message>
       <source>These mods ship no files the engine would load from inside an archive - plugins, script-extender DLLs, config files and anything at the mod root always stay loose.</source>
-      <translation>Ces mods n'expédient aucun fichier que le moteur chargerait de l'intérieur d'une archive - les plugins, les DLL script-extender, les fichiers de configuration et tout ce qui se trouve à la racine du mod restent toujours libres.</translation>
+      <translation>Ces mods n'envoient aucun fichier que le moteur chargerait de l'intérieur d'une archive - les plugins, les DLLs de script-extender, les fichiers de configuration et tout ce qui se trouve à la racine du mod restent toujours libres.</translation>
     </message>
     <message>
       <source>{0} mod(s) assessed - {1} safe to pack, {2} need care, {3} already archived, {4} too large.</source>
-      <translation>{0} mod(s) évalué(s) - {1} sécurisé pour emballer, {2} besoin de soins, {3} déjà archivé, {4} trop grand.</translation>
+      <translation>{0} mod(s) évalué(s) - {1} prêt(s) pour l'empaquetage, {2} besoin d'attention, {3} déjà archivé(s), {4} trop lourd.</translation>
     </message>
   </context>
   <context>
     <name>BsaPackOverlay</name>
     <message>
       <source>Pack {0}</source>
-      <translation>{0} de la meute</translation>
+      <translation>Paquet {0}</translation>
     </message>
     <message>
       <source>⚠  {0} already exists in this mod and will be overwritten.</source>
@@ -9096,11 +9096,11 @@ Comment voulez-vous gérer le mod existant ?</translation>
     </message>
     <message>
       <source>{0} — Loading files…</source>
-      <translation type="unfinished">{0} — Loading files…</translation>
+      <translation>{0} — Chargement des fichiers</translation>
     </message>
     <message>
       <source>{0} — Unable to load files</source>
-      <translation type="unfinished">{0} — Unable to load files</translation>
+      <translation>{0} — Impossible de charger les fichiers</translation>
     </message>
   </context>
   <context>

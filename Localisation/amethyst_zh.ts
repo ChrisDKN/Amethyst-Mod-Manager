@@ -546,10 +546,8 @@ Output is written directly into your mod list as the '{0}' mod.</source>
 In Steam, right-click the game → Properties → Installed Files → Verify integrity of game files, then retry.
 
 {0}</source>
-      <translation type="unfinished">Missing vanilla game files even after restoring to vanilla - these were never backed up.
-In Steam, right-click the game → Properties → Installed Files → Verify integrity of game files, then retry.
-
-{0}</translation>
+      <translation>即使恢复到原版后，游戏文件仍缺失—这些文件从未备份过。
+在 Steam 中，右键点击游戏 → 属性 → 已安装文件 → 验证游戏文件完整性，然后重试。</translation>
     </message>
     <message>
       <source>ERROR: missing vanilla plugin files:
@@ -7742,7 +7740,7 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source>{0}…</source>
-      <translation type="unfinished">{0}…</translation>
+      <translation>{0}…</translation>
     </message>
     <message>
       <source>No game selected</source>
@@ -8106,7 +8104,7 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source>Downloading mod from MODL link…</source>
-      <translation type="unfinished">Downloading mod from MODL link…</translation>
+      <translation>正在从 MODL 链接下载模组……</translation>
     </message>
     <message>
       <source>Download cancelled.</source>
@@ -8560,7 +8558,7 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
     </message>
     <message>
       <source>Loading profile…</source>
-      <translation type="unfinished">Loading profile…</translation>
+      <translation>正在加载个人资料...</translation>
     </message>
     <message>
       <source>Could not load the profile file graph. See the log for details.</source>
@@ -9096,7 +9094,7 @@ How would you like to handle the existing mod?</source>
     </message>
     <message>
       <source>{0} — Loading files…</source>
-      <translation type="unfinished">{0} — Loading files…</translation>
+      <translation>{0} — 正在加载文件……</translation>
     </message>
     <message>
       <source>{0} — Unable to load files</source>
@@ -11552,9 +11550,9 @@ Override paks (no meta.lsx, or only overwriting the game's own modules) deploy t
       <source>Permanently delete {0} item(s) from the Root Folder?
 
 This cannot be undone.</source>
-      <translation type="unfinished">Permanently delete {0} item(s) from the Root Folder?
+      <translation>是否要从根文件夹中永久删除 {0} 个项目？
 
-This cannot be undone.</translation>
+此操作无法撤销。</translation>
     </message>
     <message>
       <source>Delete from Overwrite</source>
@@ -11564,9 +11562,9 @@ This cannot be undone.</translation>
       <source>Permanently delete {0} item(s) from the Overwrite folder?
 
 This cannot be undone.</source>
-      <translation type="unfinished">Permanently delete {0} item(s) from the Overwrite folder?
+      <translation>是否要从“覆盖”文件夹中永久删除 {0} 个项目？
 
-This cannot be undone.</translation>
+此操作无法撤销。</translation>
     </message>
   </context>
   <context>
@@ -12730,7 +12728,7 @@ Its listed mods are copied into the profile's own mods folder (hardlinked where 
     </message>
     <message>
       <source>{0} / {1}</source>
-      <translation type="unfinished">{0} / {1}</translation>
+      <translation>{0} / {1}</translation>
     </message>
   </context>
   <context>
@@ -19372,7 +19370,7 @@ Publishing makes this revision the one users install. It cannot be un-published,
     </message>
     <message>
       <source>https://…</source>
-      <translation type="unfinished">https://…</translation>
+      <translation>https://…</translation>
     </message>
     <message>
       <source>Instructions shown to the user:</source>

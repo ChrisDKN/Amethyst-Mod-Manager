@@ -1446,7 +1446,7 @@ O cache MD5 é preservado. Os arquivos serão baixados novamente conforme necess
     </message>
     <message>
       <source>♥ {0}    ↓ {1}    {2} mods</source>
-      <translation type="unfinished">♥ {0}    ↓ {1}    {2} mods</translation>
+      <translation>♥ {0}    ↓ {1}    {2} mods</translation>
     </message>
     <message>
       <source>View</source>
