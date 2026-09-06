@@ -11552,9 +11552,9 @@ Override paks (bez meta.lsx, lub tylko nadpisanie własnych modułów gry) wdro�
       <source>Permanently delete {0} item(s) from the Root Folder?
 
 This cannot be undone.</source>
-      <translation type="unfinished">Permanently delete {0} item(s) from the Root Folder?
+      <translation>Czy chcesz trwale usunąć {0} elementów z folderu głównego?
 
-This cannot be undone.</translation>
+Tej czynności nie można cofnąć.</translation>
     </message>
     <message>
       <source>Delete from Overwrite</source>
