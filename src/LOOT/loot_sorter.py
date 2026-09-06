@@ -26,7 +26,6 @@ import hashlib
 import json
 import os
 import shutil
-import tempfile
 import time
 import urllib.request
 import urllib.error
@@ -847,6 +846,7 @@ def sort_plugins(
     profile_sources=None,
     locked_positions: dict[str, int] | None = None,
     refresh_only: bool = False,
+    cancelled=None,
 ) -> SortResult:
     """
     Sort plugins using libloot's masterlist rules.
@@ -870,8 +870,14 @@ def sort_plugins(
     Raises:
         RuntimeError: If libloot is not available or no masterlist is found.
     """
-    _log = log_fn or (lambda _: None)
+    def _log(message):
+        if cancelled is not None and cancelled():
+            raise RuntimeError("LOOT cancelled.")
+        if log_fn is not None:
+            log_fn(message)
 
+    if cancelled is not None and cancelled():
+        raise RuntimeError("LOOT cancelled.")
     if not _AVAILABLE:
         raise RuntimeError(
             "libloot is not available. "
@@ -940,102 +946,136 @@ def sort_plugins(
     sortable = [name for name in plugin_names if name.lower() not in missing_lower]
 
     from LOOT.game_view import GameView
-    with tempfile.TemporaryDirectory(prefix="amethyst-loot-") as temp_dir:
-        view = GameView(Path(temp_dir), game_type_attr, game_path,
+    from LOOT.worker import LootWorker
+    with LootWorker(_log, cancelled) as worker:
+        view = GameView(worker.root, game_type_attr, game_path,
                         effective_data_dir, profile_sources)
         view.populate(None, plugin_names, plugin_paths)
         if game_type_attr == "OpenMW":
             view.write_config(view.root / "openmw.cfg", f"config={view.local}\n")
-        _log("Initializing LOOT...")
-        game = loot.Game(game_type, str(view.root), str(view.local))
-
-        # Load masterlist
-        db = game.database()
         view.track_source(masterlist_path)
         if prelude_path.is_file():
             view.track_source(prelude_path)
-            db.load_masterlist_with_prelude(str(masterlist_path), str(prelude_path))
-            _log("Loaded masterlist with prelude.")
         else:
-            db.load_masterlist(str(masterlist_path))
-            _log("Loaded masterlist (no prelude found).")
             warnings.append("Prelude file not found - sorting may be less accurate.")
-
-        # Load userlist if provided and non-empty
+        effective_userlist = None
         if userlist_path is not None and userlist_path.is_file():
-            try:
-                view.track_source(userlist_path)
-                content = userlist_path.read_text(encoding="utf-8")
-                if content.strip():
-                    db.load_userlist(str(userlist_path))
-                    _log(f"Loaded userlist: {userlist_path.name}")
-            except (ValueError, OSError) as e:
-                raise RuntimeError(f"Could not load userlist: {e}") from e
-
-        view.populate(db, plugin_names, plugin_paths)
-        game.set_additional_data_paths([])
-        view.write_active_plugins(game, plugin_names, enabled_set)
-        game.load_current_load_order_state()
-        paths = [str(view.data / Path(path).name) for path in plugin_paths]
-        if paths:
-            _log(f"Loading {len(paths)} plugins and their archives...")
-            game.load_plugins(paths)
-        unloaded = [name for name in sortable if game.plugin(name) is None]
-        if unloaded:
-            raise RuntimeError(f"LOOT could not load: {', '.join(unloaded[:5])}")
-
-        sorted_names = list(plugin_names)
-        if not refresh_only:
-            _log(f"Sorting {len(sortable)} plugins...")
-            try:
-                ordered = game.sort_plugins(sortable)
-                if (len(ordered) != len(sortable)
-                        or {name.lower() for name in ordered}
-                        != {name.lower() for name in sortable}):
-                    raise RuntimeError("LOOT returned a different plugin set; load order was not saved.")
-                locked = {name.lower(): index for name, index in (locked_positions or {}).items()}
-                for name, index in locked.items():
-                    if not 0 <= index < len(plugin_names) or plugin_names[index].lower() != name:
-                        raise RuntimeError("Plugin locks changed before sorting. Run LOOT again.")
-                pinned = set(locked) | missing_lower
-                remaining = iter(name for name in ordered if name.lower() not in pinned)
-                sorted_names = [name if name.lower() in pinned else next(remaining)
-                                for name in plugin_names]
-                if locked:
-                    loaded_order = [name for name in sorted_names if name.lower() not in missing_lower]
-                    validated = (ordered if [n.lower() for n in loaded_order] == [n.lower() for n in ordered]
-                                 else game.sort_plugins(loaded_order))
-                    if [n.lower() for n in validated] != [n.lower() for n in loaded_order]:
-                        raise RuntimeError(
-                            "Locked plugin positions conflict with LOOT's sorting rules. "
-                            "Review or unlock these plugins and sort again: "
-                            + ", ".join(locked_positions))
-            except loot.CyclicInteractionError as e:
-                raise RuntimeError(f"LOOT found a cyclic dependency: {e}") from e
-
-        moved = sum(a.lower() != b.lower() for a, b in zip(plugin_names, sorted_names))
-        try:
-            plugin_info = _collect_plugin_info(db, sortable, game=game)
-            general_msgs = _collect_general_messages(db)
-            if plugin_info:
-                _log(f"Collected LOOT metadata for {len(plugin_info)} plugin(s).")
-        except Exception as e:
-            plugin_info = {}
-            general_msgs = []
-            warnings.append(f"Could not collect LOOT metadata: {e}")
-
-        for message in general_msgs:
-            _log(f"{message['type']}: {message['text']}")
+            view.track_source(userlist_path)
+            if userlist_path.read_text(encoding="utf-8").strip():
+                effective_userlist = str(userlist_path)
+        _log("Initializing LOOT and loading metadata...")
+        prepared = worker.call(
+            "prepare", game_type=game_type_attr, game_root=str(view.root),
+            local=str(view.local), masterlist=str(masterlist_path),
+            prelude=str(prelude_path) if prelude_path.is_file() else None,
+            userlist=effective_userlist, plugin_names=plugin_names,
+            data_relative=view.data_relative)
+        view.populate(None, plugin_names, plugin_paths, prepared["directories"])
+        view.write_active_plugins(Path(prepared["active_path"]), plugin_names, enabled_set)
+        result = SortResult(**worker.call(
+            "sort", plugin_names=plugin_names, sortable=sortable,
+            paths=[str(view.data / Path(path).name) for path in plugin_paths],
+            locked_positions=locked_positions, refresh_only=refresh_only))
         view.check_sources()
-        _log(f"LOOT complete. {moved} plugin(s) changed position.")
+        result.warnings[:0] = warnings
+        _log(f"LOOT complete. {result.moved_count} plugin(s) changed position.")
+        return result
 
-        return SortResult(
-            sorted_names=sorted_names,
-            moved_count=moved,
-            warnings=warnings,
-            plugin_info=plugin_info,
-            general_messages=general_msgs,
-        )
+
+def _load_plugins(game, paths, log_fn=None):
+    if game.game_type() in (loot.GameType.Morrowind, loot.GameType.OpenMW,
+                            loot.GameType.Starfield):
+        from graphlib import CycleError, TopologicalSorter
+
+        by_name = {Path(path).name.lower(): path for path in paths}
+        dependencies = {}
+        try:
+            for name, path in by_name.items():
+                game.load_plugin_headers([path])
+                plugin = game.plugin(name)
+                if plugin is None:
+                    raise RuntimeError(f"LOOT could not load: {Path(path).name}")
+                dependencies[name] = [m.lower() for m in plugin.masters()
+                                      if m.lower() in by_name]
+            paths = [by_name[name] for name in TopologicalSorter(dependencies).static_order()]
+        except CycleError as exc:
+            raise RuntimeError("LOOT found a cyclic master dependency.") from exc
+        finally:
+            game.clear_loaded_plugins()
+
+    # Batch error logging can deadlock libloot's native threads on the Python GIL.
+    for index, path in enumerate(paths, 1):
+        game.load_plugins([path])
+        if game.plugin(Path(path).name) is None:
+            raise RuntimeError(f"LOOT could not load: {Path(path).name}")
+        if log_fn and index % 50 == 0:
+            log_fn(f"Loaded {index} of {len(paths)} plugins...")
+
+
+def _sort_game(game, plugin_names, sortable, paths, locked_positions=None,
+               refresh_only=False, log_fn=None) -> SortResult:
+    _log = log_fn or (lambda _: None)
+    warnings = []
+    db = game.database()
+    game.load_current_load_order_state()
+    if paths:
+        _log(f"Loading {len(paths)} plugins and their archives...")
+        _load_plugins(game, paths, _log)
+    unloaded = [name for name in sortable if game.plugin(name) is None]
+    if unloaded:
+        raise RuntimeError(f"LOOT could not load: {', '.join(unloaded[:5])}")
+
+    missing_lower = {name.lower() for name in plugin_names} - {name.lower() for name in sortable}
+    sorted_names = list(plugin_names)
+    if not refresh_only:
+        _log(f"Sorting {len(sortable)} plugins...")
+        try:
+            ordered = game.sort_plugins(sortable)
+            if (len(ordered) != len(sortable)
+                    or {name.lower() for name in ordered}
+                    != {name.lower() for name in sortable}):
+                raise RuntimeError("LOOT returned a different plugin set; load order was not saved.")
+            locked = {name.lower(): index for name, index in (locked_positions or {}).items()}
+            for name, index in locked.items():
+                if not 0 <= index < len(plugin_names) or plugin_names[index].lower() != name:
+                    raise RuntimeError("Plugin locks changed before sorting. Run LOOT again.")
+            pinned = set(locked) | missing_lower
+            remaining = iter(name for name in ordered if name.lower() not in pinned)
+            sorted_names = [name if name.lower() in pinned else next(remaining)
+                            for name in plugin_names]
+            if locked:
+                loaded_order = [name for name in sorted_names if name.lower() not in missing_lower]
+                validated = (ordered if [n.lower() for n in loaded_order] == [n.lower() for n in ordered]
+                             else game.sort_plugins(loaded_order))
+                if [n.lower() for n in validated] != [n.lower() for n in loaded_order]:
+                    raise RuntimeError(
+                        "Locked plugin positions conflict with LOOT's sorting rules. "
+                        "Review or unlock these plugins and sort again: "
+                        + ", ".join(locked_positions))
+        except loot.CyclicInteractionError as e:
+            raise RuntimeError(f"LOOT found a cyclic dependency: {e}") from e
+
+    moved = sum(a.lower() != b.lower() for a, b in zip(plugin_names, sorted_names))
+    try:
+        plugin_info = _collect_plugin_info(db, sortable, game=game)
+        general_msgs = _collect_general_messages(db)
+        if plugin_info:
+            _log(f"Collected LOOT metadata for {len(plugin_info)} plugin(s).")
+    except Exception as e:
+        plugin_info = {}
+        general_msgs = []
+        warnings.append(f"Could not collect LOOT metadata: {e}")
+
+    for message in general_msgs:
+        _log(f"{message['type']}: {message['text']}")
+
+    return SortResult(
+        sorted_names=sorted_names,
+        moved_count=moved,
+        warnings=warnings,
+        plugin_info=plugin_info,
+        general_messages=general_msgs,
+    )
 
 
 def find_overlapping_plugins(
@@ -1090,12 +1130,7 @@ def find_overlapping_plugins(
         deduped.append(target_plugin)
     plugin_names = deduped
 
-    loot_data_dir = _get_data_dir()
     effective_data_dir = game_data_dir if game_data_dir is not None else game_path / "Data"
-
-    _log("Initializing LOOT...")
-    game = loot.Game(game_type, str(game_path), str(loot_data_dir))
-
     plugin_paths, missing = _find_plugin_paths(
         plugin_names, effective_data_dir, staging_root,
         plugin_winner_paths, game_type_attr,
@@ -1103,28 +1138,20 @@ def find_overlapping_plugins(
     if not plugin_paths:
         return []
 
-    _log(f"Loading {len(plugin_paths)} plugins (full records)...")
-    game.load_plugins(plugin_paths)
-
-    target = game.plugin(target_plugin)
-    if target is None:
-        raise RuntimeError(
-            f"'{target_plugin}' could not be loaded (missing from disk?)."
-        )
-
-    overlapping: list[str] = []
-    target_lower = target_plugin.lower()
-    for name in plugin_names:
-        if name.lower() == target_lower:
-            continue
-        other = game.plugin(name)
-        if other is None:
-            continue
-        try:
-            if target.do_records_overlap(other):
-                overlapping.append(name)
-        except Exception:
-            continue
-
+    from LOOT.game_view import GameView
+    from LOOT.worker import LootWorker
+    with LootWorker(_log) as worker:
+        view = GameView(worker.root, game_type_attr, game_path, effective_data_dir)
+        view.populate(None, plugin_names, plugin_paths)
+        if game_type_attr == "OpenMW":
+            view.write_config(view.root / "openmw.cfg", f"config={view.local}\n")
+        worker.call("prepare", game_type=game_type_attr, game_root=str(view.root),
+                    local=str(view.local), plugin_names=plugin_names,
+                    data_relative=view.data_relative)
+        _log(f"Loading {len(plugin_paths)} plugins for overlap checking...")
+        overlapping = worker.call(
+            "overlap", target=target_plugin, plugin_names=plugin_names,
+            paths=[str(view.data / Path(path).name) for path in plugin_paths])
+        view.check_sources()
     _log(f"Found {len(overlapping)} overlapping plugin(s).")
     return overlapping

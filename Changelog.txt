@@ -1,3 +1,8 @@
+- v2.4.2
+- Fixed a regression in 2.4.1 causing broken archives to stall Loot sorting and freeze the application
+- Fixed "Install destination is absolute:" error with some Fomod mods
+- Added a steam workshop downloader wizard for games that support it
+
 - v2.4.1
 ### Additions
 - Added a right click option to group mods together 
