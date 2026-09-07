@@ -35,9 +35,13 @@ from gui_qt.worker import run_in_worker, NO_EMIT
 from Utils.app_log import safe_print as print  # noqa: A004
 from Utils.deployment import LinkMode
 
-# Left column width - the image panel and the options panel share it.
-_LEFT_COL_W = 240
-_LOGO_SQ = 200
+# Floor for the path fields so they never collapse to a few characters when the
+# window is narrow (the action buttons keep their width regardless).
+_PATH_EDIT_MIN_W = 150
+# Minimum width for the options column so two checkbox columns stay readable.
+_OPTIONS_MIN_W = 330
+# Logo size in the horizontal identity strip that heads the locations column.
+_LOGO_STRIP = 64
 _INSTALL_BUTTON_SQ = 58
 _INSTALL_ICON_SQ = 42
 
@@ -128,6 +132,12 @@ def _shortcut_available(game) -> bool:
         return bool(find_shortcut_appids_by_exes(exe_names))
     except Exception:
         return False
+
+
+# Launcher brand names. Brands stay untranslated; only the shortcut entry is a
+# description, so callers pass that one through tr().
+_LAUNCHER_NAMES = {"steam": "Steam", "heroic": "Heroic", "lutris": "Lutris",
+                   "faugus": "Faugus"}
 
 
 def _is_native_exe_name(exe_name: str | None) -> bool:
@@ -233,12 +243,31 @@ class ConfigureGameView(QWidget):
         self._sig.staging_progress.connect(g(self._on_staging_progress))
         self._sig.staging_move_done.connect(g(self._on_staging_move_done))
         self._sig.version_found.connect(g(self._on_version_found))
+        # Action-button tails of the location rows, equalised once built.
+        self._action_tails: list[QWidget] = []
+        # Built by _build_options_panel, which runs after _build_image_panel.
+        self._rb_symlink = None
+        self._rb_hardlink = None
+        self._rb_vfs = None
         self._staging_popup = None
         self._destructive_busy = False
         self.staging_migrated = False
 
         self._build()
         self._prepopulate()
+
+    @property
+    def _install_source(self):
+        return self.__install_source
+
+    @_install_source.setter
+    def _install_source(self, value):
+        """Setter rather than a plain attribute: the identity subtitle names the
+        launcher, and it is assigned from half a dozen scan/pick paths."""
+        self.__install_source = value
+        # _build runs after __init__ seeds this, so the label may not exist yet.
+        if getattr(self, "_version_lbl", None) is not None:
+            self._refresh_subtitle()
 
     def _guard(self, fn):
         return lambda *a: None if self._closing else fn(*a)
@@ -250,6 +279,14 @@ class ConfigureGameView(QWidget):
     def _section_header(self, text: str) -> QLabel:
         lbl = QLabel(text)
         lbl.setStyleSheet(f"font-size:14px; font-weight:600; color:{self._c('TEXT_SEP')};")
+        return lbl
+
+    def _sub_header(self, text: str) -> QLabel:
+        """Group label inside the Options panel - quieter than a section header."""
+        lbl = QLabel(text.upper())
+        lbl.setStyleSheet(
+            f"font-size:11px; font-weight:600; letter-spacing:1px;"
+            f" color:{self._c('TEXT_DIM')};")
         return lbl
 
     def _section_header_row(self, text: str, status: QLabel) -> QHBoxLayout:
@@ -282,10 +319,143 @@ class ConfigureGameView(QWidget):
         lbl.setStyleSheet(f"color:{self._c(tone)};")
         return lbl
 
+    def _status_chip(self, status: QLabel) -> QLabel:
+        """A short state pill that mirrors *status*'s tone.
+
+        The long sentence in *status* stays the source of truth - the 40-odd
+        places that set it keep working untouched - but the pill gives the row
+        a state that reads at a glance, and colours it by severity so an
+        expected empty value ("Not applicable") stops looking like a warning.
+        """
+        chip = QLabel()
+        chip.setObjectName("StatusChip")
+        chip.setAlignment(Qt.AlignCenter)
+
+        def sync():
+            text = status.text().strip()
+            sheet = status.styleSheet()
+            tone = ("TEXT_ERR" if self._c("TEXT_ERR") in sheet else
+                    "TEXT_OK" if self._c("TEXT_OK") in sheet else
+                    "TEXT_WARN" if self._c("TEXT_WARN") in sheet else "TEXT_DIM")
+            chip.setText(self._chip_caption(text, tone))
+            chip.setVisible(bool(text))
+            colour = self._c(tone)
+            chip.setStyleSheet(
+                f"#StatusChip {{ color:{colour};"
+                f" border:1px solid {colour}; border-radius:9px;"
+                f" padding:1px 9px; font-size:11px; }}")
+            chip.setToolTip(text)
+
+        # QLabel has no textChanged signal, so mirror the label by wrapping the
+        # two mutators the rest of the view actually calls.
+        set_text = status.setText
+        set_sheet = status.setStyleSheet
+
+        def wrapped_set_text(*a, **kw):
+            set_text(*a, **kw)
+            sync()
+
+        def wrapped_set_sheet(sheet, *a, **kw):
+            # Handlers pass a bare "color:<tone>;". Keep their tone - it is what
+            # sync() reads to pick the pill's severity - but hold the sentence
+            # at the small supporting size so it never outshouts the pill.
+            set_sheet(f"{sheet} font-size:11px;", *a, **kw)
+            sync()
+
+        status.setText = wrapped_set_text
+        status.setStyleSheet = wrapped_set_sheet
+        sync()
+        return chip
+
+    def _chip_caption(self, text: str, tone: str) -> str:
+        """Condense a status sentence into a one- or two-word pill caption."""
+        low = text.casefold()
+        if tone == "TEXT_ERR":
+            return self.tr("Problem")
+        if "not applicable" in low or "no launcher id" in low:
+            return self.tr("N/A")
+        if "scanning" in low or "searching" in low or "checking" in low:
+            return self.tr("Scanning…")
+        if "not found" in low or "not visible" in low:
+            return self.tr("Not found")
+        if "custom" in low:
+            return self.tr("Custom")
+        if "default location" in low:
+            return self.tr("Default")
+        if "detected automatically" in low or "automatic detection" in low:
+            return self.tr("Auto")
+        if "no prefix configured" in low:
+            return self.tr("None")
+        if tone == "TEXT_OK":
+            return self.tr("Detected")
+        if tone == "TEXT_WARN":
+            return self.tr("Check")
+        return self.tr("Set")
+
+    def _location_row(self, title: str, status: QLabel, edit: QLineEdit,
+                      buttons: list[QPushButton], hint: str = "") -> QWidget:
+        """One location entry: title + state pill on a header row, the path
+        field with its actions below, then the full status sentence.
+
+        Every entry is built from this so the four of them scan as one repeated
+        object - the pill always sits on the header row, and the action buttons
+        always start on the same edge."""
+        row = QWidget()
+        v = QVBoxLayout(row)
+        v.setContentsMargins(0, 0, 0, 0)
+        v.setSpacing(5)
+        head = QHBoxLayout()
+        head.setContentsMargins(0, 0, 0, 0)
+        head.setSpacing(9)
+        head.addWidget(self._section_header(title))
+        head.addStretch(1)
+        head.addWidget(self._status_chip(status))
+        v.addLayout(head)
+        line = QHBoxLayout()
+        line.setContentsMargins(0, 0, 0, 0)
+        line.setSpacing(7)
+        line.addWidget(edit, 1)
+        # The buttons sit in a tail whose width the widest row sets for all of
+        # them (see _align_action_tails), so the path fields end on a common
+        # edge. Inside the tail they are LEFT-aligned - the trailing stretch
+        # keeps every row's first button on the same x as the row above, which
+        # a right-aligned group would break whenever a row has fewer buttons.
+        tail = QWidget()
+        tl = QHBoxLayout(tail)
+        tl.setContentsMargins(0, 0, 0, 0)
+        tl.setSpacing(7)
+        for b in buttons:
+            tl.addWidget(b)
+        tl.addStretch(1)
+        line.addWidget(tail, 0)
+        self._action_tails.append(tail)
+        v.addLayout(line)
+        # The full sentence sits under the field as supporting detail. It is
+        # still the widget every scan/save handler writes to; the pill above
+        # summarises it. Routine confirmations ("Game already configured…")
+        # only repeat the pill, so they render dim and only a problem or a
+        # genuinely informative message speaks up - which is what stops an
+        # expected state from reading as loudly as a real warning.
+        status.setWordWrap(True)
+        status.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        status.setStyleSheet(f"color:{self._c('TEXT_DIM')}; font-size:11px;")
+        v.addWidget(status)
+        if hint:
+            lbl = QLabel(hint)
+            lbl.setWordWrap(True)
+            lbl.setStyleSheet(f"color:{self._c('TEXT_DIM')}; font-size:11px;")
+            v.addWidget(lbl)
+        return row
+
     def _path_edit(self) -> QLineEdit:
         e = QLineEdit()
         e.setObjectName("PathEdit")
         f = QFont("monospace"); f.setStyleHint(QFont.Monospace); e.setFont(f)
+        # A path field that can shrink to nothing is useless - without a floor
+        # the button tail keeps its width and the field collapses to a few
+        # characters on a narrow window. The body scrolls horizontally-free, so
+        # this floor is what makes the row degrade gracefully instead.
+        e.setMinimumWidth(_PATH_EDIT_MIN_W)
         return e
 
     def _small_btn(self, text, slot) -> QPushButton:
@@ -324,29 +494,44 @@ class ConfigureGameView(QWidget):
         self._refresh_scope_header()
         outer.addWidget(header)
 
-        # Body - four distinct panels in a 2×2 grid: (top-left) image,
-        # (bottom-left) options, (right, spanning both rows) path entries.
+        # Body - a 2×2 grid: (top-left) image, (bottom-left) the location
+        # entries, (right, spanning both rows) options.
+        #
+        # Options spans the full height because it is the panel that actually
+        # overflows: a Bethesda handler contributes a dozen checkboxes plus
+        # several radio groups, while the locations are always four short rows.
+        # The previous layout gave the tall slot to the locations and squeezed
+        # options into a fixed 240px rail, so every option label word-wrapped
+        # next to a large empty area.
+        # The body scrolls as a whole. On a Deck-height window the identity
+        # strip, four location rows and a full option list do not all fit, and
+        # without this the panels compress until fields clip their own text.
+        body_scroll = QScrollArea()
+        body_scroll.setObjectName("FormScroll")
+        body_scroll.setWidgetResizable(True)
+        body_scroll.setFrameShape(QFrame.NoFrame)
+        body_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         body = QWidget(); body.setObjectName("FormBody")
         grid = QGridLayout(body)
         grid.setContentsMargins(16, 14, 16, 14)
         grid.setHorizontalSpacing(14)
         grid.setVerticalSpacing(14)
-        outer.addWidget(body, 1)
+        body_scroll.setWidget(body)
+        outer.addWidget(body_scroll, 1)
 
         image_panel = self._build_image_panel()
         options_panel = self._build_options_panel()
         paths_panel = self._build_paths_panel()
 
-        # Left column (image + options) is a fixed narrow width; the paths panel
-        # takes all remaining width. The options panel gets the taller share so
-        # its scroll area has room.
         grid.addWidget(image_panel, 0, 0)
-        grid.addWidget(options_panel, 1, 0)
-        grid.addWidget(paths_panel, 0, 1, 2, 1)
-        grid.setColumnStretch(0, 0)
-        grid.setColumnStretch(1, 1)
+        grid.addWidget(paths_panel, 1, 0)
+        grid.addWidget(options_panel, 0, 1, 2, 1)
+        grid.setColumnStretch(0, 3)
+        grid.setColumnStretch(1, 2)
         grid.setRowStretch(0, 0)
         grid.setRowStretch(1, 1)
+        grid.setAlignment(paths_panel, Qt.AlignTop)
+        self._refresh_identity_chips()
 
         # --- Button bar ---
         bar = QWidget(); bar.setObjectName("BottomBar")
@@ -366,14 +551,16 @@ class ConfigureGameView(QWidget):
         if configured:
             reset = self._small_btn(self.tr("Reset Locations"), self._reset_locations)
             bb.addWidget(reset)
+        # Cancel then Save: the primary action sits rightmost, furthest from
+        # the two destructive buttons on the opposite edge.
+        cancel = self._small_btn(self.tr("Cancel"), lambda: self._on_done(False, False))
+        bb.addWidget(cancel)
         self._save_btn = QPushButton(self.tr("Save"))
         self._save_btn.setObjectName("PrimaryButton")
         self._save_btn.setCursor(Qt.PointingHandCursor)
         self._save_btn.setEnabled(False)
         self._save_btn.clicked.connect(self._on_save)
         bb.addWidget(self._save_btn)
-        cancel = self._small_btn(self.tr("Cancel"), lambda: self._on_done(False, False))
-        bb.addWidget(cancel)
         outer.addWidget(bar)
 
     def _divider(self) -> QFrame:
@@ -383,57 +570,122 @@ class ConfigureGameView(QWidget):
 
     # ---- panel builders ---------------------------------------------------
     def _build_image_panel(self) -> QFrame:
-        """Top-left panel - the game's square logo (same source as Add-Game)."""
+        """Top-left panel - a horizontal identity strip: logo, name, version.
+
+        Laid out sideways rather than as a tall square because it now heads a
+        full-width column; a 200px square there would push the locations down
+        for no gain."""
         frame, v = self._panel()
-        frame.setFixedWidth(_LEFT_COL_W)
-        v.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
+        v.setContentsMargins(12, 10, 14, 10)
+        strip = QHBoxLayout()
+        strip.setContentsMargins(0, 0, 0, 0)
+        strip.setSpacing(13)
+        v.addLayout(strip)
 
         logo = QLabel()
         logo.setAlignment(Qt.AlignCenter)
-        logo.setFixedSize(_LOGO_SQ, _LOGO_SQ)
+        logo.setFixedSize(_LOGO_STRIP, _LOGO_STRIP)
         game_id = (getattr(self._game, "game_id", None)
                    or self._game.name.lower().replace(" ", "_"))
-        pm = _game_logo(game_id, _LOGO_SQ)
+        pm = _game_logo(game_id, _LOGO_STRIP)
         if pm is not None:
             logo.setPixmap(pm)
         else:
             logo.setText("?")
             logo.setStyleSheet(
-                f"color:{self._c('TEXT_DIM')}; font-size:48px; font-weight:bold;")
-        v.addWidget(logo, 0, Qt.AlignHCenter)
+                f"color:{self._c('TEXT_DIM')}; font-size:26px; font-weight:bold;")
+        strip.addWidget(logo, 0, Qt.AlignVCenter)
 
+        meta = QVBoxLayout()
+        meta.setContentsMargins(0, 0, 0, 0)
+        meta.setSpacing(1)
         name = QLabel(self._game.name)
-        name.setAlignment(Qt.AlignCenter)
         name.setWordWrap(True)
-        name.setStyleSheet("font-size:14px; font-weight:600;")
-        v.addWidget(name)
+        name.setStyleSheet("font-size:15px; font-weight:600;")
+        meta.addWidget(name)
 
         # Installed version, parsed from the game exe's PE version resource.
         # Hidden until a probe actually finds one - an exe-less or non-PE
         # install would otherwise leave a permanently blank row here.
         self._version_lbl = QLabel()
-        self._version_lbl.setAlignment(Qt.AlignCenter)
         self._version_lbl.setWordWrap(True)
         self._version_lbl.setStyleSheet(
             f"font-size:12px; color:{self._c('TEXT_DIM')};")
         self._version_lbl.hide()
-        v.addWidget(self._version_lbl)
+        meta.addWidget(self._version_lbl)
+        strip.addLayout(meta, 1)
+        strip.addStretch(0)
+
+        # State pills - whether the game is set up, and how it deploys. Both
+        # are things the user otherwise has to infer from the fields below.
+        self._state_chip = QLabel()
+        self._state_chip.setObjectName("StatusChip")
+        self._deploy_chip = QLabel()
+        self._deploy_chip.setObjectName("StatusChip")
+        for c in (self._state_chip, self._deploy_chip):
+            c.setAlignment(Qt.AlignCenter)
+            strip.addWidget(c, 0, Qt.AlignVCenter)
+        self._refresh_identity_chips()
         return frame
 
+    def _refresh_identity_chips(self):
+        """Sync the identity-strip pills to the game's configured/deploy state."""
+        configured = self._game.is_configured()
+        tone = "TEXT_OK" if configured else "TEXT_DIM"
+        colour = self._c(tone)
+        self._state_chip.setText(
+            self.tr("Configured") if configured else self.tr("Not set up"))
+        self._state_chip.setStyleSheet(
+            f"#StatusChip {{ color:{colour}; border:1px solid {colour};"
+            f" border-radius:9px; padding:1px 9px; font-size:11px; }}")
+
+        # Called once before the options panel exists (the image panel is built
+        # first); the deploy pill fills in on the refresh after that.
+        if getattr(self, "_rb_symlink", None) is None:
+            self._deploy_chip.hide()
+            return
+        self._deploy_chip.show()
+        if self._rb_vfs is not None and self._rb_vfs.isChecked():
+            mode = self.tr("VFS deploy")
+        elif self._rb_hardlink.isChecked():
+            mode = self.tr("Hardlink deploy")
+        else:
+            mode = self.tr("Symlink deploy")
+        dim = self._c("TEXT_DIM")
+        self._deploy_chip.setText(mode)
+        self._deploy_chip.setStyleSheet(
+            f"#StatusChip {{ color:{dim}; border:1px solid {self._c('BORDER_DIM')};"
+            f" border-radius:9px; padding:1px 9px; font-size:11px; }}")
+
     def _build_paths_panel(self) -> QFrame:
-        """Right panel - the three location entries (install / prefix / staging)."""
+        """Right panel - the location entries (install / prefix / staging /
+        saves), each built by _location_row so they read as one repeated form."""
         frame, v = self._panel()
+        v.setSpacing(10)
         g = self._game
+        self._action_tails.clear()
+
+        v.addWidget(self._section_header(self.tr("Locations")))
 
         # --- Game install folder ---
         self._game_status = self._status(self.tr("Scanning Steam libraries…"), "TEXT_WARN")
-        v.addLayout(self._section_header_row(
-            self.tr("Game Installation Folder"), self._game_status))
+        self._game_edit = self._path_edit()
+        self._game_edit.editingFinished.connect(self._on_game_typed)
+        self._game_open = self._small_btn(self.tr("Open"), lambda: self._open_path(self._found_path))
+        self._scan_btn = self._small_btn(self.tr("Scan"), self._start_drive_scan)
+        v.addWidget(self._location_row(
+            self.tr("Game install"), self._game_status, self._game_edit,
+            [self._small_btn(self.tr("Browse manually…"), self._browse_game),
+             self._game_open, self._scan_btn]))
+
         # Launcher picker - hidden unless the scan detects the game in more
-        # than one place (e.g. both a Heroic and a Lutris install).
+        # than one place (e.g. both a Heroic and a Lutris install). It belongs
+        # to the install row above, so it sits directly under it as an inset
+        # strip rather than pushing the path field down when it appears.
         self._install_row = QWidget()
+        self._install_row.setObjectName("LauncherStrip")
         pick = QHBoxLayout(self._install_row)
-        pick.setContentsMargins(0, 0, 0, 0)
+        pick.setContentsMargins(9, 6, 9, 6)
         pick.setSpacing(6)
         pick.addWidget(QLabel(self.tr("Detected installs:")))
         self._install_buttons_host = QWidget()
@@ -447,17 +699,6 @@ class ConfigureGameView(QWidget):
         pick.addStretch(1)
         self._install_row.hide()
         v.addWidget(self._install_row)
-        self._game_edit = self._path_edit()
-        self._game_edit.editingFinished.connect(self._on_game_typed)
-        v.addWidget(self._game_edit)
-        row = QHBoxLayout()
-        row.addWidget(self._small_btn(self.tr("Browse manually…"), self._browse_game))
-        self._game_open = self._small_btn(self.tr("Open"), lambda: self._open_path(self._found_path))
-        row.addWidget(self._game_open)
-        self._scan_btn = self._small_btn(self.tr("Scan"), self._start_drive_scan)
-        row.addWidget(self._scan_btn)
-        row.addStretch(1)
-        v.addLayout(row)
         v.addWidget(self._divider())
 
         if self._uses_appimage_path:
@@ -468,21 +709,16 @@ class ConfigureGameView(QWidget):
             self._prefix_open = None
             self._appimage_status = self._status(
                 self.tr("Searching common AppImage locations…"), "TEXT_WARN")
-            v.addLayout(self._section_header_row(
-                self.tr("AppImage Location (Optional)"), self._appimage_status))
             self._appimage_edit = self._path_edit()
             self._appimage_edit.editingFinished.connect(self._on_appimage_typed)
-            v.addWidget(self._appimage_edit)
-            row = QHBoxLayout()
-            row.addWidget(self._small_btn(
-                self.tr("Browse manually…"), self._browse_appimage))
-            row.addWidget(self._small_btn(
-                self.tr("Open"), self._open_appimage_location))
             self._appimage_scan_btn = self._small_btn(
                 self.tr("Scan"), self._start_appimage_scan)
-            row.addWidget(self._appimage_scan_btn)
-            row.addStretch(1)
-            v.addLayout(row)
+            v.addWidget(self._location_row(
+                self.tr("AppImage"), self._appimage_status,
+                self._appimage_edit,
+                [self._small_btn(self.tr("Browse manually…"), self._browse_appimage),
+                 self._small_btn(self.tr("Open"), self._open_appimage_location),
+                 self._appimage_scan_btn]))
         else:
             self._appimage_status = None
             self._appimage_edit = None
@@ -496,82 +732,95 @@ class ConfigureGameView(QWidget):
                 self.tr("Scanning for prefix…") if has_prefix_src
                 else self.tr("No launcher ID - prefix not applicable."),
                 "TEXT_WARN" if has_prefix_src else "TEXT_DIM")
-            v.addLayout(self._section_header_row(
-                self.tr("Proton Prefix (compatdata/pfx)"), self._prefix_status))
             self._prefix_edit = self._path_edit()
+            self._prefix_edit.setPlaceholderText(
+                self.tr("Not needed for a native Linux game")
+                if not has_prefix_src else self.tr("Detected automatically"))
             self._prefix_edit.setEnabled(has_prefix_src)
             self._prefix_edit.editingFinished.connect(self._on_prefix_typed)
-            v.addWidget(self._prefix_edit)
-            row = QHBoxLayout()
             self._prefix_browse = self._small_btn(
                 self.tr("Browse manually…"), self._browse_prefix)
             self._prefix_browse.setEnabled(has_prefix_src)
-            row.addWidget(self._prefix_browse)
             self._prefix_open = self._small_btn(
                 self.tr("Open"), lambda: self._open_path(self._found_prefix))
-            row.addWidget(self._prefix_open)
-            row.addStretch(1)
-            v.addLayout(row)
+            v.addWidget(self._location_row(
+                self.tr("Proton prefix"), self._prefix_status,
+                self._prefix_edit, [self._prefix_browse, self._prefix_open]))
             self._has_prefix_src = has_prefix_src
         v.addWidget(self._divider())
 
         # --- Mod staging folder ---
-        v.addWidget(self._section_header(self.tr("Mod Staging Folder")))
         self._staging_status = self._status(self.tr("Default location will be used."), "TEXT_DIM")
-        v.addWidget(self._staging_status)
         self._staging_edit = self._path_edit()
+        self._staging_edit.setPlaceholderText(self.tr("Default location"))
         self._staging_edit.editingFinished.connect(self._on_staging_typed)
-        v.addWidget(self._staging_edit)
-        row = QHBoxLayout()
-        row.addWidget(self._small_btn(self.tr("Browse manually…"), self._browse_staging))
-        row.addWidget(self._small_btn(self.tr("Open"), lambda: self._open_path(
-            Path(self._staging_edit.text()) if self._staging_edit.text() else None)))
-        row.addWidget(self._small_btn(self.tr("Reset to default"), self._reset_staging))
-        row.addStretch(1)
-        v.addLayout(row)
+        v.addWidget(self._location_row(
+            self.tr("Mod staging"), self._staging_status, self._staging_edit,
+            [self._small_btn(self.tr("Browse manually…"), self._browse_staging),
+             self._small_btn(self.tr("Open"), lambda: self._open_path(
+                 Path(self._staging_edit.text()) if self._staging_edit.text() else None)),
+             self._small_btn(self.tr("Reset to default"), self._reset_staging)]))
         v.addWidget(self._divider())
 
         # --- Saves folder override -------------------------------------------
         # The Saves tab normally locates saves from the Ludusavi manifest. Games
         # it does not cover, or covers with a Windows-only path while running a
         # native Linux build, need to be told where to look.
-        v.addWidget(self._section_header(self.tr("Saves Folder (optional)")))
         self._saves_status = self._status(
             self.tr("Detected automatically."), "TEXT_DIM")
-        v.addWidget(self._saves_status)
         self._saves_edit = self._path_edit()
+        self._saves_edit.setPlaceholderText(
+            self.tr("Detected from the Ludusavi manifest"))
         self._saves_edit.editingFinished.connect(self._on_saves_typed)
-        v.addWidget(self._saves_edit)
-        row = QHBoxLayout()
-        row.addWidget(self._small_btn(self.tr("Browse manually…"), self._browse_saves))
-        row.addWidget(self._small_btn(self.tr("Open"), lambda: self._open_path(
-            Path(self._saves_edit.text()) if self._saves_edit.text() else None)))
-        row.addWidget(self._small_btn(self.tr("Clear"), self._clear_saves))
-        row.addStretch(1)
-        v.addLayout(row)
-        v.addStretch(1)
+        v.addWidget(self._location_row(
+            self.tr("Saves"), self._saves_status, self._saves_edit,
+            [self._small_btn(self.tr("Browse manually…"), self._browse_saves),
+             self._small_btn(self.tr("Open"), lambda: self._open_path(
+                 Path(self._saves_edit.text()) if self._saves_edit.text() else None)),
+             self._small_btn(self.tr("Clear"), self._clear_saves)],
+            hint=self.tr("Set this only if the Saves tab looks in the wrong place.")))
+        self._align_action_tails()
         return frame
 
-    def _build_options_panel(self) -> QFrame:
-        """Bottom-left panel - deploy method + game-dependent options, in an
-        independently-scrolling list so many options never blow out the frame."""
-        frame, v = self._panel(self.tr("Options"))
-        frame.setFixedWidth(_LEFT_COL_W)
-        v.setContentsMargins(14, 12, 8, 12)   # tighter right for the scrollbar
+    def _align_action_tails(self):
+        """Give every location row's button tail the width of the widest one."""
+        if not self._action_tails:
+            return
+        widest = max(t.sizeHint().width() for t in self._action_tails)
+        for t in self._action_tails:
+            t.setMinimumWidth(widest)
 
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.NoFrame)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        v.addWidget(scroll, 1)
+    def _build_options_panel(self) -> QFrame:
+        """Right panel - deploy method + game-dependent options.
+
+        The panel is no longer a fixed narrow rail, so option labels have room
+        to sit on one line and short toggles pair up two per row. It has no
+        scroll area of its own - the whole form body scrolls instead, so a long
+        option list extends the page rather than trapping the wheel in a nested
+        scroller."""
+        frame, v = self._panel(self.tr("Options"))
+        frame.setMinimumWidth(_OPTIONS_MIN_W)
+        v.setContentsMargins(14, 12, 14, 12)
+
         inner = QWidget(); inner.setObjectName("OptionsList")
         ov = QVBoxLayout(inner)
-        ov.setContentsMargins(0, 0, 6, 0)
+        ov.setContentsMargins(0, 0, 0, 0)
         ov.setSpacing(6)
-        scroll.setWidget(inner)
+        v.addWidget(inner)
+
+        # Checkboxes go into a 2-column grid below the deploy/runtime radios.
+        # Rows are filled left-to-right by add_check(); a long label can claim
+        # a whole row with full=True.
+        self._opt_grid = QGridLayout()
+        self._opt_grid.setContentsMargins(0, 0, 0, 0)
+        self._opt_grid.setHorizontalSpacing(18)
+        self._opt_grid.setVerticalSpacing(2)
+        self._opt_grid.setColumnStretch(0, 1)
+        self._opt_grid.setColumnStretch(1, 1)
+        self._opt_cell = 0   # next free cell, counted in columns
 
         # --- Deploy method ---
-        ov.addWidget(self._section_header(self.tr("Deploy Method")))
+        ov.addWidget(self._sub_header(self.tr("Deploy Method")))
         rec = getattr(self._game, "default_deploy_mode", None)
         self._deploy_group = QButtonGroup(self)
         self._rb_symlink = QRadioButton(
@@ -593,18 +842,32 @@ class ConfigureGameView(QWidget):
         self._deploy_group.addButton(self._rb_hardlink)
         if self._rb_vfs is not None:
             self._deploy_group.addButton(self._rb_vfs)
-        ov.addWidget(self._rb_symlink)
-        ov.addWidget(self._rb_hardlink)
+        # Laid out in a row - the modes are mutually exclusive and short, so a
+        # single line reads faster than three stacked ones and leaves the
+        # vertical space for the option list.
+        drow = QHBoxLayout()
+        drow.setContentsMargins(0, 0, 0, 0)
+        drow.setSpacing(14)
+        drow.addWidget(self._rb_symlink)
+        drow.addWidget(self._rb_hardlink)
         if self._rb_vfs is not None:
-            ov.addWidget(self._rb_vfs)
+            drow.addWidget(self._rb_vfs)
+        drow.addStretch(1)
+        ov.addLayout(drow)
+        for rb in (self._rb_symlink, self._rb_hardlink, self._rb_vfs):
+            if rb is not None:
+                rb.toggled.connect(lambda *_: self._refresh_identity_chips())
         ov.addWidget(self._divider())
 
         self._runtime_group = None
         self._runtime_buttons = {}
         if (hasattr(self._game, "get_runtime_mode")
                 and hasattr(self._game, "set_runtime_mode")):
-            ov.addWidget(self._section_header(self.tr("Game Runtime")))
+            ov.addWidget(self._sub_header(self.tr("Game Runtime")))
             self._runtime_group = QButtonGroup(self)
+            rrow = QHBoxLayout()
+            rrow.setContentsMargins(0, 0, 0, 0)
+            rrow.setSpacing(14)
             for mode, text in (
                 ("native", self.tr("Native Linux")),
                 ("proton", self.tr("Windows / Proton")),
@@ -612,20 +875,24 @@ class ConfigureGameView(QWidget):
                 button = QRadioButton(text)
                 self._runtime_group.addButton(button)
                 self._runtime_buttons[mode] = button
-                ov.addWidget(button)
+                rrow.addWidget(button)
+            rrow.addStretch(1)
+            ov.addLayout(rrow)
             current_runtime = self._game.get_runtime_mode()
             if current_runtime in self._runtime_buttons:
                 self._runtime_buttons[current_runtime].setChecked(True)
             ov.addWidget(self._divider())
 
         # hasattr-gated option checkboxes (mirrors the Tk panel).
+        ov.addWidget(self._sub_header(self.tr("Behaviour")))
+        ov.addLayout(self._opt_grid)
         self._opt_checks: dict[str, QCheckBox] = {}
 
-        def add_check(key: str, text: str, gate: bool):
+        def add_check(key: str, text: str, gate: bool, full: bool = False):
             if not gate:
                 return
             # Pair a bare checkbox indicator with a wrapping label so long option
-            # text reflows inside the narrow column (a plain QCheckBox can't wrap).
+            # text still reflows (a plain QCheckBox can't wrap).
             roww = QWidget()
             rl = QHBoxLayout(roww)
             rl.setContentsMargins(0, 2, 0, 2)
@@ -639,28 +906,38 @@ class ConfigureGameView(QWidget):
             # Click the label to toggle the box.
             lbl.mousePressEvent = lambda _e, box=cb: box.toggle()
             rl.addWidget(lbl, 1)
-            ov.addWidget(roww)
+            # A full-width option always starts a fresh row.
+            if full and self._opt_cell % 2:
+                self._opt_cell += 1
+            r, c = divmod(self._opt_cell, 2)
+            if full:
+                self._opt_grid.addWidget(roww, r, 0, 1, 2)
+                self._opt_cell += 2
+            else:
+                self._opt_grid.addWidget(roww, r, c)
+                self._opt_cell += 1
             self._opt_checks[key] = cb
 
         add_check("script_extender_swap",
                   self.tr("Swap launcher with script extender on deploy"),
                   hasattr(self._game, "script_extender_swap")
-                  and getattr(self._game, "supports_script_extender_swap", True))
+                  and getattr(self._game, "supports_script_extender_swap", True),
+                  full=True)
         add_check("auto_4gb_patch",
                   self.tr("Apply the 4GB patch automatically (deploy patches "
                           "the exe, restore reverts it)"),
-                  hasattr(self._game, "set_auto_4gb_patch"))
+                  hasattr(self._game, "set_auto_4gb_patch"), full=True)
         add_check("auto_deploy",
                   self.tr("Auto deploy (deploy automatically on enable/disable/reorder)"),
-                  True)
+                  True, full=True)
         add_check("prefer_appimage", self.tr("Prefer AppImage"),
                   hasattr(self._game, "set_prefer_appimage"))
         add_check("archive_invalidation",
                   self.tr("Automatic archive invalidation (prefer loose files over BSAs)"),
-                  hasattr(self._game, "archive_invalidation_enabled"))
+                  hasattr(self._game, "archive_invalidation_enabled"), full=True)
         add_check("case_alias_links",
                   self.tr("Create case-alias symlinks on deploy (Faster load times)"),
-                  bool(getattr(self._game, "case_alias_dirs", None)))
+                  bool(getattr(self._game, "case_alias_dirs", None)), full=True)
         add_check("profile_ini_files",
                   self.tr("Use profile-specific INI files"),
                   hasattr(self._game, "profile_ini_files"))
@@ -676,13 +953,13 @@ class ConfigureGameView(QWidget):
                   hasattr(self._game, "set_manage_load_order_in_dfu"))
         add_check("me3_save_isolation",
                   self.tr("Use a separate save file for each profile (me3)"),
-                  hasattr(self._game, "set_me3_save_isolation"))
+                  hasattr(self._game, "set_me3_save_isolation"), full=True)
         add_check("me3_start_online",
                   self.tr("Enable online play (me3, risks a ban with mods)"),
-                  hasattr(self._game, "set_me3_start_online"))
+                  hasattr(self._game, "set_me3_start_online"), full=True)
         add_check("me3_disable_arxan",
                   self.tr("Neutralize Arxan anti-tamper (me3, improves stability)"),
-                  hasattr(self._game, "set_me3_disable_arxan"))
+                  hasattr(self._game, "set_me3_disable_arxan"), full=True)
         add_check("me3_mem_patch",
                   self.tr("Raise the game's memory limits (me3)"),
                   hasattr(self._game, "set_me3_mem_patch"))
@@ -691,30 +968,40 @@ class ConfigureGameView(QWidget):
         self._patch_group = None
         if hasattr(self._game, "get_patch_version"):
             ov.addWidget(self._divider())
-            ov.addWidget(self._section_header(self.tr("Game Patch Version")))
+            ov.addWidget(self._sub_header(self.tr("Game Patch Version")))
             self._patch_group = QButtonGroup(self)
             self._patch_buttons = {}
+            prow = QHBoxLayout()
+            prow.setContentsMargins(0, 0, 0, 0)
+            prow.setSpacing(14)
             for val in (8, 7, 6):
                 rb = QRadioButton(self.tr("Patch {0}").format(val))
                 self._patch_group.addButton(rb)
                 self._patch_buttons[val] = rb
-                ov.addWidget(rb)
+                prow.addWidget(rb)
+            prow.addStretch(1)
+            ov.addLayout(prow)
 
         # plugins.txt filename casing - only for games that read a plugins.txt.
         self._plugins_txt_group = None
         if (getattr(self._game, "uses_plugins_txt", False)
                 and hasattr(self._game, "set_plugins_txt_filename")):
             ov.addWidget(self._divider())
-            ov.addWidget(self._section_header(self.tr("Plugins file name")))
+            ov.addWidget(self._sub_header(self.tr("Plugins file name")))
             self._plugins_txt_group = QButtonGroup(self)
             self._plugins_txt_buttons = {}
+            frow = QHBoxLayout()
+            frow.setContentsMargins(0, 0, 0, 0)
+            frow.setSpacing(14)
             for fname in ("plugins.txt", "Plugins.txt"):
                 rb = QRadioButton(fname)
                 self._plugins_txt_group.addButton(rb)
                 self._plugins_txt_buttons[fname] = rb
-                ov.addWidget(rb)
+                frow.addWidget(rb)
+            frow.addStretch(1)
+            ov.addLayout(frow)
 
-        ov.addStretch(1)
+        v.addStretch(1)
         return frame
 
     # ---- prepopulate ------------------------------------------------------
@@ -916,11 +1203,19 @@ class ConfigureGameView(QWidget):
         self._profile_dir = (active if active is not None
                              and active.name != "default" else None)
         if self._profile_dir is not None:
+            # Kept short: the full sentence was the widest thing in the title
+            # bar and truncated first on a Deck-sized window. The long form
+            # survives as the tooltip.
+            from gui_qt.i18n import profile_display
             self._scope_lbl.setText(self.tr(
+                "{0} · this profile only").format(profile_display(active.name)))
+            self._scope_lbl.setToolTip(self.tr(
                 "Settings saved to profile: {0} (this profile only)"
-            ).format(active.name))
+            ).format(profile_display(active.name)))
         else:
-            self._scope_lbl.setText(self.tr("Editing shared settings (default profile)"))
+            self._scope_lbl.setText(self.tr("Shared settings"))
+            self._scope_lbl.setToolTip(
+                self.tr("Editing shared settings (default profile)"))
         self._unpin_btn.setVisible(
             self._profile_dir is not None and self._profile_has_overrides())
 
@@ -1121,12 +1416,25 @@ class ConfigureGameView(QWidget):
         # A later path change supersedes an in-flight probe; drop stale answers.
         if path != getattr(self, "_version_path", None):
             return
-        if version:
-            self._version_lbl.setText(self.tr("Version {0}").format(version))
-            self._version_lbl.show()
-        else:
-            self._version_lbl.clear()
-            self._version_lbl.hide()
+        self._version_text = self.tr("Version {0}").format(version) if version else ""
+        self._refresh_subtitle()
+
+    def _refresh_subtitle(self):
+        """Version and launcher source on one line under the game name."""
+        parts = [p for p in (getattr(self, "_version_text", ""),
+                             self._launcher_subtitle()) if p]
+        self._version_lbl.setText(" · ".join(parts))
+        self._version_lbl.setVisible(bool(parts))
+
+    def _launcher_subtitle(self) -> str:
+        """e.g. "Faugus prefix" - which launcher's prefix this game resolves to."""
+        src = self._install_source
+        if not src or self._uses_appimage_path:
+            return ""
+        if src == "shortcut":
+            return self.tr("Non-Steam Shortcut prefix")
+        name = _LAUNCHER_NAMES.get(src)
+        return self.tr("{0} prefix").format(name) if name else ""
 
     def _set_prefix(self, path: Path, configured=False, source=None):
         self._found_prefix = path
@@ -1591,9 +1899,8 @@ class ConfigureGameView(QWidget):
         self._install_choices = choices
         # Launcher names are brands and stay untranslated; the shortcut entry
         # is a description, so it goes through tr().
-        names = {"steam": "Steam", "heroic": "Heroic", "lutris": "Lutris",
-                 "faugus": "Faugus",
-                 "shortcut": self.tr("Non-Steam Shortcut")}
+        names = dict(_LAUNCHER_NAMES,
+                     shortcut=self.tr("Non-Steam Shortcut"))
         icon_names = {"steam": "steam.png", "shortcut": "steam.png",
                       "heroic": "heroic.png", "lutris": "lutris.png",
                       "faugus": "faugus.png"}

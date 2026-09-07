@@ -973,53 +973,68 @@ class NexusDownloader:
                 total = 0
             dest = dest_dir / file_name
 
-            # Don't clobber existing files - add a suffix
+            # Reserve a .part name so concurrent downloads cannot share it.
             counter = 1
             stem = dest.stem
             suffix = dest.suffix
-            while dest.exists():
+            while True:
+                partial = dest.with_name(dest.name + ".part")
+                if not dest.exists():
+                    try:
+                        fh = partial.open("xb")
+                    except FileExistsError:
+                        pass
+                    else:
+                        if not dest.exists():
+                            break
+                        fh.close()
+                        partial.unlink(missing_ok=True)
                 dest = dest_dir / f"{stem} ({counter}){suffix}"
                 counter += 1
 
-            # Stamp the sidecar now, before the download starts, so that
-            # concurrent _find_cached_archive calls from other threads (e.g.
-            # a sibling file from the same mod) can identify this in-flight
-            # partial by file_id and skip it, rather than misclassifying it
-            # as a partial of their own file and unlinking it.
-            if file_id > 0:
-                _write_sidecar_file_id(dest, file_id)
-
             downloaded = 0
-            with open(dest, "wb") as fh:
-                for chunk in resp.iter_content(_CHUNK_SIZE):
-                    if cancel and cancel.is_set():
-                        fh.close()
-                        delete_archive_and_sidecar(dest)
-                        raise DownloadCancelled()
+            completed = False
+            try:
+                with fh:
+                    for chunk in resp.iter_content(_CHUNK_SIZE):
+                        if cancel and cancel.is_set():
+                            raise DownloadCancelled()
 
-                    fh.write(chunk)
-                    downloaded += len(chunk)
-                    bandwidth.throttle(len(chunk), cancel)
+                        fh.write(chunk)
+                        downloaded += len(chunk)
+                        bandwidth.throttle(len(chunk), cancel)
 
-                    if progress_cb:
-                        progress_cb(downloaded, total)
+                        if progress_cb:
+                            progress_cb(downloaded, total)
 
-        # Verify against Content-Length - a dropped connection can end the
-        # stream early without raising; a short file must not look successful.
-        if total and downloaded != total:
-            app_log(f"Incomplete download of {file_name}: got {downloaded} "
-                    f"of {total} bytes - discarding")
-            delete_archive_and_sidecar(dest)
-            return DownloadResult(
-                success=False,
-                error=f"Incomplete download: got {downloaded} of {total} bytes",
-                game_domain=game_domain,
-                mod_id=mod_id, file_id=file_id,
-            )
+                if cancel and cancel.is_set():
+                    raise DownloadCancelled()
+
+                if total and downloaded != total:
+                    app_log(f"Incomplete download of {file_name}: got {downloaded} "
+                            f"of {total} bytes - discarding")
+                    return DownloadResult(
+                        success=False,
+                        error=f"Incomplete download: got {downloaded} of {total} bytes",
+                        game_domain=game_domain,
+                        mod_id=mod_id, file_id=file_id,
+                    )
+
+                # Publish the identity before the complete archive becomes visible.
+                if file_id > 0:
+                    _write_sidecar_file_id(dest, file_id)
+                try:
+                    partial.replace(dest)
+                except OSError:
+                    if file_id > 0:
+                        _fileid_sidecar(dest).unlink(missing_ok=True)
+                    raise
+                completed = True
+            finally:
+                if not completed:
+                    partial.unlink(missing_ok=True)
 
         app_log(f"Downloaded {file_name} ({downloaded} bytes) → {dest}")
-        if file_id > 0:
-            _write_sidecar_file_id(dest, file_id)
 
         return DownloadResult(
             success=True,

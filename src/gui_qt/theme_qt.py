@@ -829,6 +829,8 @@ def build_qss(pal: dict | None = None) -> str:
     #IconButton:pressed {{ background: {c('ACCENT')}; }}
     /* Configure-Game form body + monospace path fields + buttons. */
     #FormBody {{ background: {c('BG_DEEP')}; }}
+    #FormScroll {{ background: {c('BG_DEEP')}; }}
+    #FormScroll > QWidget > QWidget {{ background: {c('BG_DEEP')}; }}
     /* The four bordered card panels in the Configure-Game view. */
     #ConfigPanel {{
         background: {c('BG_PANEL')};
@@ -836,6 +838,17 @@ def build_qss(pal: dict | None = None) -> str:
         border-radius: 8px;
     }}
     #ConfigPanel QLabel {{ background: transparent; }}
+    /* State pills on the location rows and the identity strip. The border and
+       text colour are set per-widget from the status tone; only the shared
+       ground lives here. */
+    #StatusChip {{ background: {c('BG_ROW')}; }}
+    /* Launcher picker under the game-install row - an inset strip so it reads
+       as part of that row rather than as a section of its own. */
+    #LauncherStrip {{
+        background: {c('BG_ROW')};
+        border: 1px solid {c('BORDER')};
+        border-radius: 5px;
+    }}
     #PathEdit {{
         background: {c('BG_ROW')};
         color: {c('TEXT_MAIN')};
