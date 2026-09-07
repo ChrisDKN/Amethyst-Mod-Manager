@@ -1765,6 +1765,8 @@ def run_collection_install(
         if manual_mode:
             _set_status(f"Waiting for manual downloads - {_dl_total} mod(s)…")
         else:
+            cb.on_mod_plan([
+                (int(mod.file_id), _expected_size(mod)) for mod in to_download])
             _set_status(f"Downloading {_dl_total} mod(s)…" if download_only
                         else f"Downloading & installing {_dl_total} mod(s)…")
         _set_progress(_pre_done / total if total else 0.0)
