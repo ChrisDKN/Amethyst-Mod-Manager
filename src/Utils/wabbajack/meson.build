@@ -6,6 +6,7 @@ py.install_sources(
   'archive_io.py',
   'bsa_setup.py',
   'checks.py',
+  'diagnostics.py',
   'merge.py',
   'planning.py',
   'maintenance.py',

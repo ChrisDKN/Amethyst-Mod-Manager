@@ -9,6 +9,7 @@ import tarfile
 import threading
 import time
 import zipfile
+from collections import Counter
 from pathlib import Path
 
 from Utils.atomic_write import atomic_writer
@@ -17,28 +18,43 @@ from .hashes import canonical_hash, file_hash
 from .manifest import archive_path, optional_game_file_directives, required_directives
 from .patches import apply_octodiff
 from .paths import WabbajackError, relative_path, within, source_path, source_candidates, check_tree
+from .diagnostics import emit, emit_exception
 
 
-def _patch_source(request, directive, source, root, member, target, stop, progress):
+def _patch_source(request, directive, source, root, member, target, stop,
+                  progress, log=None):
     def candidates():
         if source:
             yield source
         if root is not None:
             yield from (p for p in source_candidates(root, member) if p != source)
     error = None
+    attempted = 0
     for candidate in candidates():
         if stop.is_set():
             raise InterruptedError("Installation stopped")
         if not candidate.is_file():
             continue
-        if directive.data.get("FromHash") is not None and file_hash(candidate, stop) != canonical_hash(directive.data["FromHash"]):
-            continue
+        attempted += 1
+        if directive.data.get("FromHash") is not None:
+            actual = file_hash(candidate, stop)
+            expected = canonical_hash(directive.data["FromHash"])
+            if actual != expected:
+                emit(log, "reconstruct.patch.source_rejected", output=directive.path,
+                     source=candidate, actual_hash=actual, expected_hash=expected)
+                continue
+        emit(log, "reconstruct.patch.attempt", output=directive.path,
+             source=candidate, attempt=attempted)
         try:
             with zipfile.ZipFile(request.package.path) as archive, archive.open(directive.data["PatchID"]) as patch:
-                apply_octodiff(candidate, patch, target, directive.size, directive.hash, stop, progress=progress)
+                apply_octodiff(candidate, patch, target, directive.size,
+                               directive.hash, stop, progress=progress, log=log)
             return
         except WabbajackError as exc:
             error = exc
+            emit(log, "reconstruct.patch.attempt_failed", output=directive.path,
+                 source=candidate, attempt=attempted,
+                 exception_type=type(exc).__name__, exception=str(exc))
     raise WabbajackError(f"No archive source produced the verified patch output for {directive.path}: {error or 'required source hash not found'}")
 
 
@@ -68,21 +84,31 @@ def remap(text, request):
 
 
 def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=None):
+    started = time.monotonic()
+    emit(log, "extract.started", archive=archive, target=target,
+         compressed_bytes=archive.stat().st_size)
     target.mkdir(parents=True, exist_ok=True)
     if zipfile.is_zipfile(archive):
         with zipfile.ZipFile(archive) as source:
-            for item in source.infolist():
+            items = source.infolist()
+            emit(log, "extract.format", archive=archive, format="zip",
+                 members=len(items), expanded_bytes=sum(item.file_size for item in items),
+                 compression_methods=sorted({item.compress_type for item in items}),
+                 encrypted=sum(bool(item.flag_bits & 1) for item in items))
+            for item in items:
                 within(target, item.filename.rstrip("/"))
                 if (item.external_attr >> 16) & 0o170000 == 0o120000:
                     raise WabbajackError("Symbolic links are not supported in source archives")
                 if item.flag_bits & 1:
                     raise WabbajackError(f"Password-protected source archive is unsupported: {archive.name}")
-            if all(i.compress_type in {zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED, zipfile.ZIP_BZIP2, zipfile.ZIP_LZMA} for i in source.infolist()):
-                total = sum(i.file_size for i in source.infolist())
+            native_methods = {zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED,
+                              zipfile.ZIP_BZIP2, zipfile.ZIP_LZMA}
+            if all(item.compress_type in native_methods for item in items):
+                total = sum(i.file_size for i in items)
                 completed = 0
                 if budget:
                     budget(total)
-                for item in source.infolist():
+                for item in items:
                     path = within(target, item.filename.rstrip("/"))
                     if item.is_dir():
                         path.mkdir(parents=True, exist_ok=True)
@@ -98,10 +124,16 @@ def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=N
                             if progress:
                                 progress(completed, total)
                     path.chmod(((item.external_attr >> 16) & 0o777) | 0o600)
+                emit(log, "extract.completed", archive=archive, target=target,
+                     format="zip-native", members=len(items), expanded_bytes=total,
+                     elapsed_seconds=round(time.monotonic() - started, 3))
                 return
     if tarfile.is_tarfile(archive):
         with tarfile.open(archive) as source:
-            total = sum(i.size for i in source.getmembers())
+            items = source.getmembers()
+            total = sum(i.size for i in items)
+            emit(log, "extract.format", archive=archive, format="tar",
+                 members=len(items), expanded_bytes=total)
             completed = 0
             if budget:
                 budget(total)
@@ -109,7 +141,7 @@ def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=N
                 within(target, item.name.rstrip("/"))
                 if not item.isfile() and not item.isdir():
                     raise WabbajackError("Special files are not supported in source archives")
-            for item in source.getmembers():
+            for item in items:
                 if stop.is_set():
                     raise InterruptedError("Installation stopped")
                 path = within(target, item.name.rstrip("/"))
@@ -125,12 +157,18 @@ def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=N
                             if progress:
                                 progress(completed, total)
                     path.chmod((item.mode & 0o777) | 0o600)
+        emit(log, "extract.completed", archive=archive, target=target,
+             format="tar-native", members=len(items), expanded_bytes=total,
+             elapsed_seconds=round(time.monotonic() - started, 3))
         return
     tool = next((shutil.which(n) for n in ("7zzs", "7zz", "7z", "7za") if shutil.which(n)), None)
     if not tool:
         raise WabbajackError("7-Zip is required to inspect and extract this archive")
     result = subprocess.run([tool, "l", "-slt", "-ba", "--", str(archive)],
                             capture_output=True, text=True, timeout=120)
+    emit(log, "extract.7zip.inspect", archive=archive, tool=tool,
+         exit_code=result.returncode, stdout_tail=result.stdout[-2000:],
+         stderr_tail=result.stderr[-2000:])
     if result.returncode:
         raise WabbajackError(f"Cannot inspect archive: {archive.name}: {result.stderr[:300]}")
     expanded = 0
@@ -150,6 +188,9 @@ def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=N
                             progress_cb=(lambda pct: progress(pct, 100)) if progress else None):
         raise WabbajackError(f"Extraction failed: {archive.name}: {'; '.join(errors)}")
     check_tree(target)
+    emit(log, "extract.completed", archive=archive, target=target,
+         format="7zip", expanded_bytes=expanded,
+         elapsed_seconds=round(time.monotonic() - started, 3))
 
 
 class _ArchiveProgress:
@@ -198,7 +239,10 @@ class Reconstruction:
     def __init__(self, request, store, callbacks, control):
         from .adapters import adapter_for
         self.request, self.store, self.cb, self.control = request, store, callbacks, control
-        self.adapter = adapter_for(request.package, getattr(request, "game", None), store=getattr(request, "setup_options", {}).get("store", ""))
+        self.adapter = adapter_for(
+            request.package, getattr(request, "game", None),
+            store=getattr(request, "setup_options", {}).get("store", ""),
+            log=callbacks.on_log)
         self.output = store.work / "output"
         self.output.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
@@ -211,6 +255,11 @@ class Reconstruction:
                 self.by_archive.setdefault(archive_path(d.data)[0], []).append(d)
         self.old = store.outputs()
         self._skipped_dependencies = set()
+        self._reuse_counts = {"staged": 0, "installed": 0, "rejected": 0}
+        emit(self.cb.on_log, "reconstruct.initialized",
+             adapter=type(self.adapter).__name__, output=self.output,
+             source_archives=len(self.by_archive), prior_outputs=len(self.old),
+             directives=len(request.package.directives))
 
     def _reuse(self, d):
         if d.path in self.results:
@@ -220,7 +269,13 @@ class Reconstruction:
         cached_hash = self.store.completed(d.path, sig)
         if cached_hash and target.is_file() and file_hash(target, self.control.stop) == cached_hash:
             self._record(d, target, sig, cached_hash)
+            self._reuse_counts["staged"] += 1
             return True
+        if cached_hash:
+            self._reuse_counts["rejected"] += 1
+            emit(self.cb.on_log, "reconstruct.reuse.rejected", path=d.path,
+                 source="staged", expected_hash=cached_hash,
+                 exists=target.is_file())
         for rel in dict.fromkeys((self.adapter.installed_path(d.path), d.path)):
             if rel is None:
                 continue
@@ -234,7 +289,13 @@ class Reconstruction:
                 except OSError:
                     self.store._copy(existing, target)
                 self._record(d, target, sig, old["authored_hash"])
+                self._reuse_counts["installed"] += 1
                 return True
+            if old and old["signature"] == sig:
+                self._reuse_counts["rejected"] += 1
+                emit(self.cb.on_log, "reconstruct.reuse.rejected", path=d.path,
+                     source="installed", expected_hash=old["authored_hash"],
+                     exists=existing.is_file())
         return False
 
     def _record(self, directive, path, sig=None, actual=None):
@@ -257,15 +318,26 @@ class Reconstruction:
         required = required_directives(self.request.package, reused,
                                        optional_game_file_directives(self.request.package))
         self._skipped_dependencies = {d.path for d in self.request.package.directives if d.path not in required}
-        return [a for key, a in self.request.package.archives.items()
-                if any(d.path not in self._skipped_dependencies and not self._reuse(d) for d in self.by_archive.get(key, []))]
+        archives = [a for key, a in self.request.package.archives.items()
+                    if any(d.path not in self._skipped_dependencies and not self._reuse(d)
+                           for d in self.by_archive.get(key, []))]
+        emit(self.cb.on_log, "reconstruct.plan", required_archives=len(archives),
+             required_bytes=sum(item.size for item in archives),
+             skipped_dependencies=len(self._skipped_dependencies),
+             reused=self._reuse_counts)
+        return archives
 
     def install_archive(self, archive, path):
+        started = time.monotonic()
         row = self._row(archive)
         self.cb.on_extract_add(row, archive.name)
         scratch = self.store.work / "extract" / hashlib.sha256(archive.key.encode()).hexdigest()
         extracted = {}
         reserved = 0
+        current_directive = None
+        emit(self.cb.on_log, "reconstruct.archive.started", archive=archive.name,
+             kind=archive.kind, source=path, source_bytes=archive.size,
+             directives=len(self.by_archive.get(archive.key, [])), scratch=scratch)
         def reserve(count):
             nonlocal reserved
             with self._lock:
@@ -274,6 +346,11 @@ class Reconstruction:
                     raise WabbajackError(f"Not enough temporary space to extract {archive.name}; free space and resume")
                 self._temporary_bytes += count
                 reserved += count
+                emit(self.cb.on_log, "reconstruct.temporary_reserved",
+                     archive=archive.name, bytes=count,
+                     archive_reserved_bytes=reserved,
+                     total_reserved_bytes=self._temporary_bytes,
+                     free_bytes=free)
         try:
             if scratch.exists():
                 shutil.rmtree(scratch)
@@ -286,7 +363,11 @@ class Reconstruction:
                     directives.append(d)
             progress = _ArchiveProgress(directives,
                 lambda current, total: self.cb.on_extract_update(row, current, total))
+            emit(self.cb.on_log, "reconstruct.archive.outputs", archive=archive.name,
+                 required_directives=len(directives),
+                 kinds=dict(Counter(d.kind for d in directives)))
             for d in directives:
+                current_directive = d
                 if self.control.stop.is_set():
                     raise InterruptedError("Installation stopped")
                 _, members = archive_path(d.data)
@@ -298,6 +379,11 @@ class Reconstruction:
                         key = tuple(m.casefold() for m in members[:depth])
                         extracting = lambda current, total, key=key: progress.update(key, current, total)
                         root = scratch / str(len(extracted))
+                        emit(self.cb.on_log, "reconstruct.source_extract.started",
+                             archive=archive.name, source=source, member=member,
+                             depth=depth, target=root,
+                             format="bethesda" if source.suffix.lower() in {".bsa", ".ba2"}
+                             else "general")
                         if source.suffix.lower() in {".bsa", ".ba2"}:
                             from .archive_io import records
                             reserve(sum(len(header) + sum(c[2] for c in segments) for _, header, segments in records(source, allow_case_variants=True)))
@@ -306,6 +392,9 @@ class Reconstruction:
                             extract_safe(source, root, self.control.stop, self.cb.on_log, reserve, extracting)
                         progress.update(key, 1, 1)
                         extracted[cache_key] = root
+                        emit(self.cb.on_log, "reconstruct.source_extract.completed",
+                             archive=archive.name, source=source, depth=depth,
+                             target=root)
                     expected, size = "", None
                     if depth == len(members) - 1:
                         if d.kind == "FromArchive":
@@ -327,10 +416,13 @@ class Reconstruction:
                     progress.update(key, current * 9, total * 10)
                 if d.kind == "PatchedFromArchive":
                     _patch_source(self.request, d, source, root if members else None,
-                                  members[-1] if members else "", target, self.control.stop, copying)
+                                  members[-1] if members else "", target,
+                                  self.control.stop, copying, self.cb.on_log)
                 elif d.kind == "TransformedTexture":
                     from .textures import transform_texture
-                    transform_texture(self.request, source, target, d.data["ImageState"], self.control.stop)
+                    transform_texture(self.request, source, target,
+                                      d.data["ImageState"], self.control.stop,
+                                      log=self.cb.on_log)
                 else:
                     self.store._copy(source, target, stop=self.control.stop, progress=copying)
                 try:
@@ -345,6 +437,18 @@ class Reconstruction:
                     self._record(d, target)
                 progress.update(d.index, 1, 1)
             progress.finish()
+            emit(self.cb.on_log, "reconstruct.archive.completed", archive=archive.name,
+                 outputs=len(directives), extracted_sources=len(extracted),
+                 reserved_bytes=reserved,
+                 elapsed_seconds=round(time.monotonic() - started, 3))
+        except BaseException as exc:
+            emit_exception(self.cb.on_log, "reconstruct.archive.failed", exc,
+                           archive=archive.name, source=path,
+                           directive=current_directive.path if current_directive else None,
+                           directive_kind=current_directive.kind
+                           if current_directive else None,
+                           elapsed_seconds=round(time.monotonic() - started, 3))
+            raise
         finally:
             shutil.rmtree(scratch, ignore_errors=True)
             with self._lock:
@@ -356,11 +460,20 @@ class Reconstruction:
 
     def _extract_bethesda(self, source, root, progress=None):
         from .archive_io import extract_bethesda
+        started = time.monotonic()
+        emit(self.cb.on_log, "extract.bethesda.started", archive=source,
+             target=root)
         extract_bethesda(source, root, self.control.stop, progress=progress)
+        emit(self.cb.on_log, "extract.bethesda.completed", archive=source,
+             target=root, elapsed_seconds=round(time.monotonic() - started, 3))
 
     def finish(self, progress=None):
         directives = self.request.package.directives
         inline = [d for d in directives if d.kind in {"InlineFile", "RemappedInlineFile", "PropertyFile", "ArchiveMeta"}]
+        started = time.monotonic()
+        emit(self.cb.on_log, "reconstruct.finish.started", inline=len(inline),
+             special=sum(d.kind in {"CreateBSA", "MergedPatch"} for d in directives),
+             existing_results=len(self.results))
         with zipfile.ZipFile(self.request.package.path) as archive:
             for index, d in enumerate(inline):
                 if progress:
@@ -369,6 +482,8 @@ class Reconstruction:
                     raise InterruptedError("Installation stopped")
                 if d.path in self._skipped_dependencies or self._reuse(d):
                     continue
+                emit(self.cb.on_log, "reconstruct.inline.started", path=d.path,
+                     kind=d.kind, source_data_id=d.data.get("SourceDataID"))
                 target = within(self.output, d.path)
                 target.parent.mkdir(parents=True, exist_ok=True)
                 if d.kind == "RemappedInlineFile":
@@ -379,6 +494,10 @@ class Reconstruction:
                     with archive.open(d.data["SourceDataID"]) as source, atomic_writer(target, "wb", encoding=None) as out:
                         shutil.copyfileobj(source, out, 1024 * 1024)
                 self._record(d, target)
+                emit(self.cb.on_log, "reconstruct.inline.completed", path=d.path,
+                     kind=d.kind, remapped=d.kind == "RemappedInlineFile",
+                     bytes=target.stat().st_size,
+                     hash=self.results[d.path]["authored_hash"])
         if progress:
             progress("Preparing provided files", len(inline), len(inline), "Provided files verified")
         pending = [d for d in directives if d.kind in {"CreateBSA", "MergedPatch"}]
@@ -400,10 +519,17 @@ class Reconstruction:
                 if not all(p.casefold() in self._result_keys for p in required):
                     continue
                 self.cb.on_status(f"Reconstructing {d.path}")
+                special_started = time.monotonic()
+                emit(self.cb.on_log, "reconstruct.special.started", path=d.path,
+                     kind=d.kind, dependencies=len(required),
+                     dependency_sample=required[:50],
+                     dependency_sample_truncated=len(required) > 50)
                 if progress:
                     progress("Reconstructing archives and patches", total - len(pending), total, d.path)
                 if d.kind == "CreateBSA":
-                    rebuild_archive(target, source_path(self.output, base), d.data["State"], d.data["FileStates"], self.control.stop)
+                    rebuild_archive(target, source_path(self.output, base),
+                                    d.data["State"], d.data["FileStates"],
+                                    self.control.stop, log=self.cb.on_log)
                 else:
                     basis = self.store.work / f"merge-{d.index}.tmp"
                     try:
@@ -415,10 +541,15 @@ class Reconstruction:
                                 with source.open("rb") as incoming:
                                     shutil.copyfileobj(incoming, output, 1024 * 1024)
                         with zipfile.ZipFile(self.request.package.path) as z, z.open(d.data["PatchID"]) as patch:
-                            apply_octodiff(basis, patch, target, d.size, d.hash, self.control.stop)
+                            apply_octodiff(basis, patch, target, d.size, d.hash,
+                                           self.control.stop, log=self.cb.on_log)
                     finally:
                         basis.unlink(missing_ok=True)
                 self._record(d, target)
+                emit(self.cb.on_log, "reconstruct.special.completed", path=d.path,
+                     kind=d.kind, bytes=target.stat().st_size,
+                     hash=self.results[d.path]["authored_hash"],
+                     elapsed_seconds=round(time.monotonic() - special_started, 3))
                 pending.remove(d)
                 progressed = True
                 if progress:
@@ -428,8 +559,15 @@ class Reconstruction:
         missing = [d.path for d in directives if d.path not in self.results and d.path not in self._skipped_dependencies]
         if missing:
             raise WabbajackError(f"Missing required outputs: {', '.join(missing[:8])}")
+        removed = 0
         for path in self.output.rglob("*"):
             if path.is_file() and path.relative_to(self.output).as_posix() not in self.results:
                 path.unlink()
-        return {"root/" + path: row for path, row in self.results.items()
-                if path.split("/")[0].casefold() != "temp_bsa_files"}
+                removed += 1
+        result = {"root/" + path: row for path, row in self.results.items()
+                  if path.split("/")[0].casefold() != "temp_bsa_files"}
+        emit(self.cb.on_log, "reconstruct.finish.completed", outputs=len(result),
+             temporary_outputs=len(self.results) - len(result),
+             stale_files_removed=removed, reused=self._reuse_counts,
+             elapsed_seconds=round(time.monotonic() - started, 3))
+        return result

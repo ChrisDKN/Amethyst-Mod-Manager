@@ -3,7 +3,9 @@ from __future__ import annotations
 import configparser
 import json
 import re
+import time
 import zipfile
+from collections import Counter
 from dataclasses import replace
 from pathlib import Path
 
@@ -100,8 +102,16 @@ def required_directives(package, reusable, excluded=()):
     return required
 
 
-def inspect_package(path: Path) -> Package:
+def _inspect_package(path: Path, log=None) -> Package:
     path = Path(path)
+    started = time.monotonic()
+    from .diagnostics import emit
+    try:
+        package_bytes = path.stat().st_size if path.is_file() else None
+    except OSError:
+        package_bytes = None
+    emit(log, "package.inspect.started", path=path,
+         bytes=package_bytes)
     with zipfile.ZipFile(path) as archive:
         names = {}
         for info in archive.infolist():
@@ -201,8 +211,9 @@ def inspect_package(path: Path) -> Package:
                     cp.read_string(archive.read(item["SourceDataID"]).decode("utf-8-sig"))
                     selected = qvalue(cp.get("General", "selected_profile", fallback=""))
                     game_path = qvalue(cp.get("General", "gamePath", fallback=""))
-                except (ValueError, configparser.Error, UnicodeError):
-                    pass
+                except (ValueError, configparser.Error, UnicodeError) as exc:
+                    emit(log, "package.modorganizer_ini.unreadable",
+                         exception_type=type(exc).__name__, exception=str(exc))
             directives.append(directive)
         if not directives:
             raise WabbajackError("Modlist has no installation directives")
@@ -238,9 +249,28 @@ def inspect_package(path: Path) -> Package:
             done.update(ready)
             for i in ready:
                 del dependencies[i]
-    return Package(path, package_hash(path), raw.get("Name") or path.stem,
-                   str(raw.get("Version", "")), str(raw.get("GameType", "")),
-                   sources, directives, raw, profiles, selected, game_path)
+    package = Package(path, package_hash(path), raw.get("Name") or path.stem,
+                      str(raw.get("Version", "")), str(raw.get("GameType", "")),
+                      sources, directives, raw, profiles, selected, game_path)
+    emit(log, "package.inspect.completed", path=path, identity=package.identity,
+         name=package.name, version=package.version, game=package.game,
+         zip_members=len(names), archives=len(sources), directives=len(directives),
+         archive_kinds=dict(Counter(item.kind for item in sources.values())),
+         directive_kinds=dict(Counter(item.kind for item in directives)),
+         profiles=profiles, selected_profile=selected,
+         authored_game_path=bool(game_path),
+         wabbajack_version=raw.get("WabbajackVersion"),
+         elapsed_seconds=round(time.monotonic() - started, 3))
+    return package
+
+
+def inspect_package(path: Path, *, log=None) -> Package:
+    from .diagnostics import emit_exception
+    try:
+        return _inspect_package(path, log)
+    except BaseException as exc:
+        emit_exception(log, "package.inspect.failed", exc, path=path)
+        raise
 
 
 def inline_stream(package: Package, member: str):

@@ -9,11 +9,12 @@ from pathlib import Path
 
 from .archive_build import check_archive_state
 from .games import matches_game, token
-from .hashes import XXHash, verify_file
+from .hashes import XXHash
 from .hosts import automatic_source
 from .checks import make_check
 from .models import PreflightReport
 from .paths import WabbajackError, existing_parent, source_path
+from .diagnostics import bind, emit, emit_exception, log_request, url_host
 
 
 def _check_lengths(request, adapter, check, archive_paths, stop):
@@ -153,7 +154,7 @@ def _emit_game_file_problems(package, problems, check, readme="", ignored=False)
             check("warning" if ignored else "error", name, detail, items)
 
 
-def _reusable(request, stop, check, adapter):
+def _reusable(request, stop, check, adapter, log=None):
     import sqlite3
     from .hashes import file_hash
     from .paths import within
@@ -180,14 +181,19 @@ def _reusable(request, stop, check, adapter):
                     if path.is_file() and file_hash(path, stop) == row[1]:
                         found.add(directive.path)
     except (OSError, sqlite3.Error, WabbajackError) as exc:
+        emit_exception(log, "preflight.reuse.failed", exc,
+                       directory=request.directory)
         check("warning", "Reusable outputs", f"Existing content must be revalidated during installation: {exc}")
     return root_reuse, stage_reuse, old
 
 
-def preflight(request, stop=None, *, cache=None, progress=None) -> PreflightReport:
+def preflight(request, stop=None, *, cache=None, progress=None, log=None) -> PreflightReport:
     from .verification import VerificationCache, verification_scope
+    log = bind(log, request.diagnostic_id)
     timings = {}
     stage, started, emitted = "", time.monotonic(), 0.0
+    overall_started = started
+    log_request(log, request, "preflight.request")
     def notify(name, detail=""):
         nonlocal stage, started, emitted
         if stop is not None and stop.is_set():
@@ -197,16 +203,39 @@ def preflight(request, stop=None, *, cache=None, progress=None) -> PreflightRepo
         if changed:
             if stage:
                 timings[stage] = timings.get(stage, 0) + now - started
+                emit(log, "preflight.stage.completed", name=stage,
+                     elapsed_seconds=round(now - started, 3))
             stage, started = name, now
+            emit(log, "preflight.stage.started", name=name, detail=detail)
         if progress and (changed or now - emitted >= 0.1):
             progress(name, 0, 0, detail)
             emitted = now
-    with verification_scope(cache if cache is not None else VerificationCache(), stop,
-                            lambda path: notify(stage, path.name)):
-        report = _preflight(request, stop, notify)
+    try:
+        with verification_scope(cache if cache is not None else VerificationCache(), stop,
+                                lambda path: notify(stage, path.name), log):
+            report = _preflight(request, stop, notify, log)
+    except BaseException as exc:
+        emit_exception(log, "preflight.failed", exc,
+                       diagnostic_id=request.diagnostic_id, stage=stage,
+                       elapsed_seconds=round(time.monotonic() - overall_started, 3))
+        raise
     if stage:
         timings[stage] = timings.get(stage, 0) + time.monotonic() - started
+        emit(log, "preflight.stage.completed", name=stage,
+             elapsed_seconds=round(time.monotonic() - started, 3))
     report.timings = timings
+    emit(log, "preflight.completed", diagnostic_id=request.diagnostic_id,
+         ok=report.ok, checks=len(report.checks),
+         passed=sum(item.status == "pass" for item in report.checks),
+         warnings=sum(item.status == "warning" for item in report.checks),
+         manual=sum(item.status == "manual" for item in report.checks),
+         errors=sum(item.status == "error" for item in report.checks),
+         cached_archives=len(report.cached), game_files=len(report.game_files),
+         prepared_game_files=len(report.prepared_game_files),
+         required_archives=len(report.required_archives or []),
+         download_bytes=report.download_bytes, install_bytes=report.install_bytes,
+         timings=timings,
+         elapsed_seconds=round(time.monotonic() - overall_started, 3))
     return report
 
 
@@ -222,11 +251,18 @@ def _verify_package(package, stop):
                         raise InterruptedError("Preflight stopped")
 
 
-def _preflight(request, stop, notify):
+def _preflight(request, stop, notify, log=None):
     package = request.package
     report = PreflightReport()
     def check(status, name, detail, items=()):
-        report.checks.append(make_check(status, name, detail, items))
+        result = make_check(status, name, detail, items)
+        report.checks.append(result)
+        emit(log, "preflight.check", status=result.status, name=result.name,
+             detail=result.detail, explanation=result.explanation,
+             resolution=result.resolution, items=len(result.items))
+        for index, item in enumerate(result.items):
+            emit(log, "preflight.check.item", check=result.name,
+                 index=index + 1, total=len(result.items), detail=item)
     notify("Verifying package integrity")
     if request.game.get_deploy_active():
         check("error", "Deployment", "Restore the deployed game before installing or updating a modlist")
@@ -234,6 +270,7 @@ def _preflight(request, stop, notify):
         from Utils.filegraph.service import require_native
         require_native()
     except Exception as exc:
+        emit_exception(log, "preflight.filegraph.failed", exc)
         check("error", "File catalog", f"The native Filegraph component is required: {exc}")
     try:
         XXHash()
@@ -243,6 +280,7 @@ def _preflight(request, stop, notify):
     except InterruptedError:
         raise
     except (WabbajackError, zipfile.BadZipFile, OSError) as exc:
+        emit_exception(log, "preflight.package.failed", exc, path=package.path)
         check("error", "Package integrity", exc)
         return report
     notify("Checking game layout and paths")
@@ -261,11 +299,16 @@ def _preflight(request, stop, notify):
     stock = ""
     adapter = None
     try:
-        adapter = adapter_for(package, request.game, store=request.setup_options.get("store", ""))
+        adapter = adapter_for(package, request.game,
+                              store=request.setup_options.get("store", ""), log=log)
         stock = stock_folder(package)
+        emit(log, "preflight.adapter", adapter=type(adapter).__name__,
+             mo2=adapter.mo2, bethesda=adapter.bethesda,
+             store=adapter.store, stock_folder=stock)
         if stock:
             check("pass", "Stock game launch", f"Launch the reconstructed game at {request.directory / 'root' / stock}; retain the original game for source verification")
     except WabbajackError as exc:
+        emit_exception(log, "preflight.adapter.failed", exc)
         check("error", "Game layout", exc)
     _check_lengths(request, adapter, check, archive_paths, stop)
     if adapter:
@@ -316,7 +359,7 @@ def _preflight(request, stop, notify):
             check("manual", "Author instructions", "Enable automatic 4GB patching in the game's settings or apply the provided FNV patcher before launching")
     from .bsa_setup import preflight_setup, requirement as bsa_requirement
     notify("Checking BSA setup")
-    bsa_bytes, bsa_reuse = preflight_setup(request, check, stop)
+    bsa_bytes, bsa_reuse = preflight_setup(request, check, stop, log=log)
     bsa = bsa_requirement(package)
     for folder in sorted({d.path.split("/")[0] for d in package.directives
                           if "patcher" in d.path.split("/")[0].casefold()}):
@@ -332,7 +375,7 @@ def _preflight(request, stop, notify):
         if (directory / name).is_symlink():
             check("error", "Installation directory", f"Managed entry cannot be a symbolic link: {name}")
     from .store import installation_info
-    info = installation_info(directory)
+    info = installation_info(directory, log)
     if request.mode == "install" and directory.exists() and any(directory.iterdir()):
         check("error", "Installation directory", "Choose an empty managed directory, or use Resume, Repair or Update")
     elif request.mode != "install":
@@ -342,10 +385,10 @@ def _preflight(request, stop, notify):
             check("error", "Package identity", "Resume and Repair require the saved package. Use Update for a different authored version.")
         else:
             from .profiles import referenced_profiles
-            affected = referenced_profiles(directory, root)
+            affected = referenced_profiles(directory, root, log)
             check("warning", "Affected profiles", ", ".join(p.name for p in affected) or "No published profiles")
             from .planning import plan_update
-            plan = plan_update(request)
+            plan = plan_update(request, log=log)
             check("pass", "Update preview", f"{len(plan.added):,} added, {len(plan.changed):,} changed, {len(plan.removed):,} obsolete authored files. Local changes are compared before publication.")
             old_profiles = set(info.get("selected_profiles", []))
             new_profiles = set(request.profiles)
@@ -366,10 +409,14 @@ def _preflight(request, stop, notify):
             for path in [directory / "root", request.downloads, *request.game_roots.values()]:
                 windows_path(request.game, path)
         except WabbajackError as exc:
+            emit_exception(log, "preflight.path_mapping.failed", exc)
             check("error", "Windows path mapping", exc)
     from .requirements import profile_configuration
     from .setup_tasks import preflight_tasks
     configuration = profile_configuration(package, request.profiles)
+    emit(log, "preflight.profile_configuration", profiles={name: {
+        "mods": len(config.mods), "plugins": len(config.plugins),
+        "outputs": config.outputs} for name, config in configuration.items()})
     enabled = {mod.casefold() for config in configuration.values() for mod in config.mods}
     active_paths = [d.path.casefold() for d in package.directives
                     if not d.path.startswith("mods/") or d.path.split("/")[1].casefold() in enabled]
@@ -379,9 +426,11 @@ def _preflight(request, stop, notify):
         check("manual", "Author instructions", "Synthesis is included. Its patchers may require a .NET SDK and NuGet setup in the tool runtime. These are not configured automatically; follow the author's tool instructions before generating patches.")
     setup_reuse = set()
     notify("Checking additional setup")
-    tasks, setup_bytes = preflight_tasks(request, check, stop, configuration=configuration, reusable=setup_reuse)
+    tasks, setup_bytes = preflight_tasks(request, check, stop,
+        configuration=configuration, reusable=setup_reuse, log=log)
     from .post_install import preflight_post_install
-    setup_bytes += preflight_post_install(request, check, stop, reusable=setup_reuse)
+    setup_bytes += preflight_post_install(request, check, stop,
+                                          reusable=setup_reuse, log=log)
     report.setup_tasks = tasks
     notify("Checking authored profiles")
     provided_mods = {d.path.split("/")[1].casefold() for d in package.directives if d.path.startswith("mods/")}
@@ -423,7 +472,10 @@ def _preflight(request, stop, notify):
                     try:
                         existing = source_path(directory / "root" / "mods", name)
                         available = existing.is_dir() and any(existing.iterdir())
-                    except (OSError, WabbajackError):
+                    except (OSError, WabbajackError) as exc:
+                        emit(log, "preflight.external_mod.probe_failed",
+                             profile=profile, mod=name, path=directory / "root" / "mods",
+                             exception_type=type(exc).__name__, exception=str(exc))
                         available = False
                     if not available:
                         check("error", "Required external mod", f"Profile {profile} enables '{name}', which this package does not provide. Follow the author's external setup requirements or deselect this profile.")
@@ -442,13 +494,16 @@ def _preflight(request, stop, notify):
             for game_root in request.game_roots.values():
                 try:
                     available |= source_path(game_root, "Data/" + name).is_file()
-                except (OSError, WabbajackError):
-                    pass
+                except (OSError, WabbajackError) as exc:
+                    emit(log, "preflight.game_plugin.probe_failed",
+                         profile=profile, plugin=name, game_root=game_root,
+                         exception_type=type(exc).__name__, exception=str(exc))
             if not available:
                 check("error", "Required DLC or game plugin", f"Profile {profile} enables {name}, which is missing from the original game and reconstructed files")
     from .manifest import required_directives, dependency_paths, optional_game_file_directives
     notify("Verifying reusable installation files")
-    root_reuse, stage_reuse, old_outputs = _reusable(request, stop, check, adapter)
+    root_reuse, stage_reuse, old_outputs = _reusable(
+        request, stop, check, adapter, log)
     reusable = root_reuse | stage_reuse
     ignored_directives = optional_game_file_directives(package)
     required = required_directives(package, reusable, ignored_directives)
@@ -457,12 +512,19 @@ def _preflight(request, stop, notify):
     ignored_archives = {archive_paths[d.index][0] for d in package.directives
                         if d.path in ignored_directives and d.index in archive_paths} - required_archives
     report.required_archives = sorted(required_archives)
+    emit(log, "preflight.reuse", root_outputs=len(root_reuse),
+         staged_outputs=len(stage_reuse), prior_outputs=len(old_outputs),
+         pending_directives=len(pending), ignored_directives=len(ignored_directives),
+         required_archives=len(required_archives), ignored_archives=len(ignored_archives))
     from Utils.downloads.core import get_scan_dirs
     scan_dirs = [request.downloads, *get_scan_dirs(request.game.name)]
     notify("Finding cached downloads")
     by_size = {}
     sizes_needed = {a.size for a in package.archives.values() if a.key in required_archives and a.kind != "GameFileSource"}
+    emit(log, "preflight.cache_scan.started", directories=scan_dirs,
+         required_sizes=len(sizes_needed))
     for folder in dict.fromkeys(p.resolve() for p in scan_dirs):
+        candidates = 0
         if folder.is_dir():
             with os.scandir(folder) as entries:
                 for entry in entries:
@@ -472,6 +534,9 @@ def _preflight(request, stop, notify):
                         size = entry.stat().st_size
                         if size in sizes_needed:
                             by_size.setdefault(size, []).append(Path(entry.path))
+                            candidates += 1
+        emit(log, "preflight.cache_scan.directory", path=folder,
+             exists=folder.is_dir(), candidates=candidates)
     from .hashes import file_hash
     game_file_problems = []
     ignored_game_file_problems = []
@@ -494,22 +559,37 @@ def _preflight(request, stop, notify):
                         path = source_path(game_root, candidate, expected=archive.key, size=archive.size, stop=stop)
                         found = path
                         break
-                    except (OSError, WabbajackError):
+                    except (OSError, WabbajackError) as exc:
+                        emit(log, "preflight.game_file.candidate_rejected",
+                             archive=archive.name, game_root=game_root,
+                             candidate=candidate, exception_type=type(exc).__name__,
+                             exception=str(exc))
                         try:
                             candidate_path = source_path(game_root, candidate)
                             if candidate_path.is_file():
                                 present = candidate_path
                                 candidates.append(candidate_path)
-                        except (OSError, WabbajackError):
-                            pass
+                        except (OSError, WabbajackError) as fallback_exc:
+                            emit(log, "preflight.game_file.candidate_unavailable",
+                                 archive=archive.name, game_root=game_root,
+                                 candidate=candidate,
+                                 exception_type=type(fallback_exc).__name__,
+                                 exception=str(fallback_exc))
             if found:
                 if archive.key in required_archives:
                     report.game_files[archive.key] = found
+                emit(log, "preflight.archive", archive=archive.name,
+                     kind=archive.kind, bytes=archive.size, hash=archive.key,
+                     route="game-file", path=found)
             else:
                 from .game_files import plan_game_file
-                preparation = plan_game_file(archive, candidates, stop)
+                preparation = plan_game_file(archive, candidates, stop, log)
                 if preparation and archive.key in required_archives:
                     report.prepared_game_files[archive.key] = preparation
+                    emit(log, "preflight.archive", archive=archive.name,
+                         kind=archive.kind, bytes=archive.size, hash=archive.key,
+                         route="prepared-game-file", path=preparation.source,
+                         preparation=preparation.kind)
                     check("pass", "Game file preparation",
                           f"{rel}: create the author's required 4 GB/LAA executable in the managed "
                           "installation; the original game file remains unchanged")
@@ -517,6 +597,9 @@ def _preflight(request, stop, notify):
                     target = (game_file_problems if archive.key in required_archives
                               else ignored_game_file_problems)
                     target.append((name, rel, present, archive))
+                    emit(log, "preflight.archive", archive=archive.name,
+                         kind=archive.kind, bytes=archive.size, hash=archive.key,
+                         route="missing-game-file", relative=rel, present=present)
             continue
         notify("Verifying cached downloads", archive.name)
         for path in by_size.get(archive.size, []):
@@ -525,8 +608,17 @@ def _preflight(request, stop, notify):
                 break
         if archive.key not in report.cached:
             report.download_bytes += archive.size
-            if not automatic_source(archive, request.premium):
+            automatic = automatic_source(archive, request.premium)
+            emit(log, "preflight.archive", archive=archive.name,
+                 kind=archive.kind, host=url_host(archive.state.get("Url", "")),
+                 bytes=archive.size, hash=archive.key,
+                 route="automatic" if automatic else "manual")
+            if not automatic:
                 check("manual", "Manual download", archive.name)
+        else:
+            emit(log, "preflight.archive", archive=archive.name,
+                 kind=archive.kind, bytes=archive.size, hash=archive.key,
+                 route="cache", path=report.cached[archive.key])
     _emit_game_file_problems(package, game_file_problems, check,
                              request.gallery_metadata.get("readme", ""))
     _emit_game_file_problems(package, ignored_game_file_problems, check,
@@ -542,6 +634,8 @@ def _preflight(request, stop, notify):
             try:
                 check_archive_state(directive.data["State"], directive.data["FileStates"])
             except (KeyError, ValueError) as exc:
+                emit_exception(log, "preflight.archive_state.failed", exc,
+                               path=directive.path)
                 check("error", "Archive reconstruction", f"{directive.path}: {exc}")
     textures = [d for d in pending if d.kind == "TransformedTexture"]
     if textures:
@@ -549,11 +643,13 @@ def _preflight(request, stop, notify):
         from .textures import probe_texture_tool, texture_parameters
         try:
             formats = {texture_parameters(directive.data["ImageState"])[3] for directive in textures}
-            probe_texture_tool(request, stop, sorted(formats))
+            probe_texture_tool(request, stop, sorted(formats), log=log)
             check("pass", "Texture conversion", f"Converted and verified sample DDS files for {len(formats)} formats using {request.proton.parent.name}; ready for {len(textures):,} textures")
         except InterruptedError:
             raise
         except Exception as exc:
+            emit_exception(log, "preflight.texture.failed", exc,
+                           textures=len(textures))
             check("error", "Texture conversion", exc)
     from .runtime import adjustments, uses_native_runtime
     notify("Checking runtime requirements")
@@ -638,13 +734,21 @@ def _preflight(request, stop, notify):
             device = devices.setdefault(stat.st_dev, [parent, 0, []])
             device[1] += count
             device[2].append(label)
+            emit(log, "preflight.space.component", path=path,
+                 existing_parent=parent, bytes=count, label=label,
+                 device=stat.st_dev)
             if not os.access(parent, os.W_OK | os.X_OK):
                 check("error", "Permissions", f"Cannot write to {path}")
         except OSError as exc:
+            emit_exception(log, "preflight.space.failed", exc, path=path,
+                           bytes=count, label=label)
             check("error", "Filesystem", exc)
     for parent, count, labels in devices.values():
         available = shutil.disk_usage(parent).free
         reserve = max(512 * 1024 ** 2, int(count * 0.1))
+        emit(log, "preflight.space.device", path=parent, required_bytes=count,
+             reserve_bytes=reserve, available_bytes=available,
+             components=labels)
         check("pass" if available >= count + reserve else "error", "Disk space",
               f"{', '.join(labels)}: need {(count + reserve) / 1024 ** 3:.1f} GiB including reserve; {available / 1024 ** 3:.1f} GiB available at {parent}")
     try:
@@ -658,9 +762,15 @@ def _preflight(request, stop, notify):
             if (p / "link").read_bytes() != b"ok":
                 raise OSError("Symbolic links are unavailable")
             (p / "Case").write_bytes(b"a")
-            if (p / "case").exists():
+            case_sensitive = not (p / "case").exists()
+            if not case_sensitive:
                 check("warning", "Filesystem", "Case-insensitive installation filesystem")
+            emit(log, "preflight.filesystem_probe", path=parent,
+                 hardlinks=True, symlinks=True,
+                 case_sensitive=case_sensitive)
     except OSError as exc:
+        emit_exception(log, "preflight.filesystem_probe.failed", exc,
+                       path=parent)
         check("error", "Filesystem capabilities", exc)
     check("warning", "Linux compatibility", "Read the author's requirements. Successful file reconstruction does not verify that every mod or bundled tool supports native Linux."
           if native_runtime else "Read the author's requirements. Successful file reconstruction does not verify every Windows mod under Proton.")

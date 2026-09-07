@@ -5746,15 +5746,18 @@ class MainWindow(QMainWindow):
         import threading
         from gui_qt.safe_emit import safe_emit
         def work():
+            from Utils.wabbajack.diagnostics import emit_exception
             from Utils.wabbajack.gallery import load_gallery
+            log = lambda message: safe_emit(self._op_log, "[wabbajack] " + message)
             try:
-                cached = load_gallery(cached_only=True)
+                cached = load_gallery(cached_only=True, log=log)
                 safe_emit(self._wabbajack_gallery_ready, cached, False)
-            except Exception:
-                pass
+            except Exception as exc:
+                emit_exception(log, "gallery.availability.cache_failed", exc)
             try:
-                result = load_gallery()
-            except Exception:
+                result = load_gallery(log=log)
+            except Exception as exc:
+                emit_exception(log, "gallery.availability.refresh_failed", exc)
                 result = None
             safe_emit(self._wabbajack_gallery_ready, result, True)
         threading.Thread(target=work, daemon=True, name="wabbajack-availability").start()

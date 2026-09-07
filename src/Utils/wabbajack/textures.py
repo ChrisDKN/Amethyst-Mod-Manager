@@ -12,6 +12,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from .paths import WabbajackError
+from .diagnostics import emit, emit_exception
 
 TEXCONV_VERSION = "may2026"
 TEXCONV_URL = "https://github.com/microsoft/DirectXTex/releases/download/may2026/texconv.exe"
@@ -84,11 +85,15 @@ def tool_path() -> Path:
 def install_texture_tool(stop=None, *, request=None, log=None):
     from .acquire import download_http
     target = tool_path()
+    emit(log, "texture.tool.install.started", target=target,
+         version=TEXCONV_VERSION, present=target.is_file())
     if not target.is_file() or hashlib.sha256(target.read_bytes()).hexdigest() != TEXCONV_SHA256:
-        download_http(TEXCONV_URL, target, stop=stop)
+        download_http(TEXCONV_URL, target, stop=stop, log=log)
     if hashlib.sha256(target.read_bytes()).hexdigest() != TEXCONV_SHA256:
         raise WabbajackError("Texconv failed Microsoft release checksum verification")
     prepare_texture_runtime(target, stop, log, request=request)
+    emit(log, "texture.tool.install.completed", target=target,
+         sha256=TEXCONV_SHA256)
     return target
 
 
@@ -98,42 +103,56 @@ def prepare_texture_runtime(target, stop=None, log=None, *, request=None):
     request = request or SimpleNamespace(texconv=target, proton=None, setup_options={})
     request.texconv = target
     configure_texture_request(request)
+    emit(log, "texture.runtime.prepare.started", texconv=target,
+         proton=request.proton, prefix=_prefix(request),
+         mode=request.setup_options.get("texture", {}).get("mode", "auto"))
     with _PREPARATION, _prefix_lease(request, stop, exclusive=True):
         try:
-            probe_texture_tool(request, stop)
+            probe_texture_tool(request, stop, log=log)
+            emit(log, "texture.runtime.reused", prefix=_prefix(request))
             return
-        except (WabbajackError, OSError):
-            pass
+        except (WabbajackError, OSError) as exc:
+            emit_exception(log, "texture.runtime.probe_failed", exc)
         from Utils.executables.launch import shutdown_prefix_wineserver
         prefix = _prefix(request)
         backup = None
         try:
             for attempt in range(2):
                 try:
+                    emit(log, "texture.runtime.install_attempt", attempt=attempt + 1,
+                         prefix=prefix)
                     _, env = _command(request, [])
                     if stop is not None and stop.is_set():
                         raise InterruptedError("Texture setup stopped")
                     if not install_vcredist(request.proton, env, log_fn=log, prefix_path=prefix / "pfx"):
                         raise WabbajackError("Could not install the texture tool's Visual C++ runtime")
-                    probe_texture_tool(request, stop)
+                    probe_texture_tool(request, stop, log=log)
                     if backup:
                         shutil.rmtree(backup)
+                    emit(log, "texture.runtime.prepare.completed", prefix=prefix,
+                         attempt=attempt + 1)
                     return
                 except InterruptedError:
                     raise
-                except (WabbajackError, OSError):
+                except (WabbajackError, OSError) as exc:
+                    emit_exception(log, "texture.runtime.install_failed", exc,
+                                   attempt=attempt + 1)
                     if attempt:
                         raise
                     shutdown_prefix_wineserver(request.proton, prefix, log_fn=log)
                     backup = prefix.with_name(prefix.name + f".failed-{time.time_ns()}")
                     if prefix.exists():
                         prefix.rename(backup)
+                        emit(log, "texture.runtime.prefix_quarantined",
+                             prefix=prefix, backup=backup)
         finally:
             if backup and backup.exists():
                 shutdown_prefix_wineserver(request.proton, prefix, log_fn=log)
                 if prefix.exists():
                     shutil.rmtree(prefix)
                 backup.replace(prefix)
+                emit(log, "texture.runtime.prefix_restored",
+                     prefix=prefix, backup=backup)
 
 
 def _command(request, arguments):
@@ -167,10 +186,18 @@ class _TextureFailure(WabbajackError):
         self.transient = transient
 
 
-def _run_once(request, arguments, stop=None, timeout=600):
+def _run_once(request, arguments, stop=None, timeout=600, log=None):
     if stop is not None and stop.is_set():
         raise InterruptedError("Texture conversion stopped")
     command, env = _command(request, arguments)
+    started = time.monotonic()
+    emit(log, "texture.process.started", command=command,
+         proton=request.proton, prefix=_prefix(request), timeout=timeout,
+         mode=request.setup_options.get("texture", {}).get("mode", "auto"),
+         environment={name: env.get(name) for name in (
+             "STEAM_COMPAT_DATA_PATH", "STEAM_COMPAT_CLIENT_INSTALL_PATH",
+             "WINEPREFIX", "WINEARCH", "WINEDLLOVERRIDES", "OMP_NUM_THREADS")
+             if env.get(name)})
     import selectors
     from collections import deque
     tail = deque(maxlen=8)
@@ -197,9 +224,16 @@ def _run_once(request, arguments, stop=None, timeout=600):
                     raise WabbajackError(f"Texconv timed out after {timeout} seconds")
         if process.returncode:
             detail = b"".join(tail).decode("utf-8", "replace")[-4000:]
+            emit(log, "texture.process.failed", exit_code=process.returncode,
+                 output=detail,
+                 elapsed_seconds=round(time.monotonic() - started, 3))
             transient = any(word in detail.casefold() for word in ("connection reset by peer", "wine client error", "recvmsg"))
             raise _TextureFailure(f"Texconv exited with code {process.returncode}. {detail}", transient)
-        return b"".join(tail).decode("utf-8", "replace")[-4000:]
+        detail = b"".join(tail).decode("utf-8", "replace")[-4000:]
+        emit(log, "texture.process.completed", exit_code=process.returncode,
+             output=detail,
+             elapsed_seconds=round(time.monotonic() - started, 3))
+        return detail
     finally:
         if process.poll() is None:
             import signal
@@ -214,12 +248,12 @@ def _run_once(request, arguments, stop=None, timeout=600):
         process.stdout.close()
 
 
-def _run(request, arguments, stop=None, timeout=600):
+def _run(request, arguments, stop=None, timeout=600, log=None):
     with _prefix_lease(request, stop):
-        return _run_leased(request, arguments, stop, timeout)
+        return _run_leased(request, arguments, stop, timeout, log)
 
 
-def _run_leased(request, arguments, stop=None, timeout=600):
+def _run_leased(request, arguments, stop=None, timeout=600, log=None):
     while not _CONVERSIONS.acquire(timeout=0.1):
         if stop is not None and stop.is_set():
             raise InterruptedError("Texture conversion stopped")
@@ -227,8 +261,10 @@ def _run_leased(request, arguments, stop=None, timeout=600):
         with _prefix_lease(request, stop):
             for attempt in range(3):
                 try:
-                    return _run_once(request, arguments, stop, timeout)
+                    return _run_once(request, arguments, stop, timeout, log)
                 except _TextureFailure as exc:
+                    emit_exception(log, "texture.process.retry", exc,
+                                   attempt=attempt + 1, transient=exc.transient)
                     if not exc.transient or attempt == 2:
                         raise
                     if stop is not None and stop.wait(0.2 * (attempt + 1)):
@@ -253,15 +289,18 @@ def shutdown_texture_tools():
                 fcntl.flock(lock, fcntl.LOCK_UN)
 
 
-def probe_texture_tool(request, stop=None, formats=None):
+def probe_texture_tool(request, stop=None, formats=None, *, log=None):
+    emit(log, "texture.probe.started", formats=formats)
     with _prefix_lease(request, stop, exclusive=True):
-        _probe_texture_tool(request, stop, formats)
+        _probe_texture_tool(request, stop, formats, log)
+    emit(log, "texture.probe.completed", formats=formats,
+         proton=request.proton, prefix=_prefix(request))
 
 
-def _probe_texture_tool(request, stop=None, formats=None):
+def _probe_texture_tool(request, stop=None, formats=None, log=None):
     import struct
     configure_texture_request(request)
-    _run(request, ["--version"], stop, timeout=60)
+    _run(request, ["--version"], stop, timeout=60, log=log)
     from .paths import existing_parent
     root = existing_parent(getattr(request, "directory", _prefix(request)))
     with tempfile.TemporaryDirectory(prefix=".texture-probe-", dir=root) as tmp:
@@ -272,7 +311,8 @@ def _probe_texture_tool(request, stop=None, formats=None):
         source.write_bytes(b"DDS " + struct.pack("<31I", *fields) + bytes((64, 128, 192, 255)) * 256)
         for index, name in enumerate(formats or ("BC7_UNORM", "BC3_UNORM")):
             transform_texture(request, source, work / f"probe-{index}.dds",
-                              {"Width": 8, "Height": 8, "MipLevels": 4, "Format": name}, stop, timeout=60)
+                              {"Width": 8, "Height": 8, "MipLevels": 4,
+                               "Format": name}, stop, timeout=60, log=log)
 
 
 _FORMATS = {
@@ -300,9 +340,15 @@ def texture_parameters(state):
     return width, height, mips, format_name, filtering
 
 
-def transform_texture(request, source, target, state, stop=None, *, timeout=600):
+def transform_texture(request, source, target, state, stop=None, *, timeout=600,
+                      log=None):
     from Utils.ba2.writer import _parse_dds
     width, height, mips, format_name, filtering = texture_parameters(state)
+    started = time.monotonic()
+    emit(log, "texture.transform.started", source=source, target=target,
+         width=width, height=height, mip_levels=mips, format=format_name,
+         filtering=filtering,
+         mode=request.setup_options.get("texture", {}).get("mode", "auto"))
     with tempfile.TemporaryDirectory(prefix="texture-", dir=target.parent) as tmp:
         work = Path(tmp)
         input_path = work / "source.dds"
@@ -314,7 +360,8 @@ def transform_texture(request, source, target, state, stop=None, *, timeout=600)
         try:
             _run(request, [windows(input_path), "-o", windows(output), "-ft", "dds", "-f", format_name,
                            "-w", str(width), "-h", str(height), "-m", str(mips),
-                           "-if", filtering, *flags, "-dx10", "-y"], stop, timeout)
+                           "-if", filtering, *flags, "-dx10", "-y"], stop,
+                 timeout, log)
         except WabbajackError as exc:
             raise WabbajackError(f"{target}: {width}x{height}, {format_name}, {mips} mip levels; Proton {request.proton.parent.name}. {exc}. Prepare the texture tool again or select CPU conversion, then resume.") from exc
         result = output / "source.dds"
@@ -326,3 +373,7 @@ def transform_texture(request, source, target, state, stop=None, *, timeout=600)
         if info["width"] != width or info["height"] != height or info["mip_count"] != expected_mips or _FORMATS.get(info["dxgi_format"]) != format_name:
             raise WabbajackError("Converted texture does not match requested dimensions or mipmaps")
         result.replace(target)
+    emit(log, "texture.transform.completed", target=target,
+         bytes=target.stat().st_size, width=width, height=height,
+         mip_levels=expected_mips, format=format_name,
+         elapsed_seconds=round(time.monotonic() - started, 3))

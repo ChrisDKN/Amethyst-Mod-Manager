@@ -3,6 +3,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
+from .diagnostics import emit, emit_exception
 from .games import configured_games
 from .profiles import referenced_profiles
 from .store import Store, installations
@@ -29,13 +30,18 @@ def cache_items():
 
 
 def clear_caches():
+    from Utils.app_log import app_log
+    log = lambda message: app_log("[wabbajack] " + message)
     count, errors = 0, []
-    for item in cache_items():
+    items = cache_items()
+    emit(log, "cache.cleanup.started", items=len(items),
+         bytes=sum(item["bytes"] for item in items))
+    for item in items:
         store = None
         try:
-            store = Store(item["directory"], item["profile_root"])
+            store = Store(item["directory"], item["profile_root"], log=log)
             with store.exclusive():
-                if not referenced_profiles(store.directory, store.profile_root):
+                if not referenced_profiles(store.directory, store.profile_root, log):
                     store.close()
                     store = None
                     shutil.rmtree(item["directory"])
@@ -50,8 +56,11 @@ def clear_caches():
                         store.db.execute("DELETE FROM completed")
                 count += 1
         except Exception as exc:
+            emit_exception(log, "cache.cleanup.item_failed", exc,
+                           name=item["name"], directory=item["directory"])
             errors.append(f"{item['name']}: {exc}")
         finally:
             if store is not None:
                 store.close()
+    emit(log, "cache.cleanup.completed", removed=count, errors=len(errors))
     return count, errors

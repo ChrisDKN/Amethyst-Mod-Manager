@@ -4,6 +4,7 @@ import copy
 import configparser
 import queue
 import threading
+import time
 import uuid
 import weakref
 import zipfile
@@ -29,6 +30,7 @@ from gui_qt.wabbajack_setup import RequirementsSummary, AcquisitionSummary, Capp
 from gui_qt.icons import icon
 from Utils.collections.manifest import fmt_size
 from Utils.downloads.install import InstallCallbacks, InstallControl
+from Utils.wabbajack.diagnostics import emit, emit_exception
 
 
 PAGE_SIZE = 20
@@ -141,7 +143,15 @@ class WabbajackView(QWidget):
         self._thumbs = ThumbnailLoader(self, crop_w=IMG_W, crop_h=IMG_H)
         self._thumbs.loaded.connect(self._thumbnail)
         self._refresh_installed()
+        self._diag("ui.opened", game=getattr(game, "name", None),
+                   game_id=getattr(game, "game_id", None))
         self._load_gallery()
+
+    def _diagnostic_log(self, message):
+        safe_emit(self._progress, "log", (message,))
+
+    def _diag(self, event, **fields):
+        emit(self._diagnostic_log, event, **fields)
 
     def _button(self, text, callback, layout):
         button = QPushButton(self.tr(text), self)
@@ -543,11 +553,19 @@ class WabbajackView(QWidget):
         token = self._tokens.get(kind, 0) + 1
         self._tokens[kind] = token
         def run():
+            started = time.monotonic()
+            self._diag("ui.worker.started", kind=kind, token=token)
             try:
                 result = work()
+                self._diag("ui.worker.completed", kind=kind, token=token,
+                           result_type=type(result).__name__,
+                           elapsed_seconds=round(time.monotonic() - started, 3))
                 if not self._shutting_down:
                     safe_emit(self._result, kind, (token, result), "")
             except Exception as exc:
+                emit_exception(self._diagnostic_log, "ui.worker.failed", exc,
+                               kind=kind, token=token,
+                               elapsed_seconds=round(time.monotonic() - started, 3))
                 if not self._shutting_down:
                     safe_emit(self._result, kind, (token, None), str(exc))
             finally:
@@ -562,6 +580,8 @@ class WabbajackView(QWidget):
         if self._shutting_down:
             return
         self._shutting_down = True
+        self._diag("ui.shutdown.started", workers=len(self._workers),
+                   installing=self._busy, checking=self._checking)
         self._worker_stop.set()
         self._preflight_stop.set()
         self._pause()
@@ -581,12 +601,15 @@ class WabbajackView(QWidget):
         self._status.setText(self.tr("Loading modlists…"))
         self._loading_overlay.show_over()
         self._refresh_button.setEnabled(False)
+        self._diag("ui.gallery.requested", refresh=refresh)
         from Utils.wabbajack.gallery import load_gallery
-        self._worker("gallery", lambda: load_gallery(refresh=refresh, stop=self._worker_stop))
+        self._worker("gallery", lambda: load_gallery(
+            refresh=refresh, stop=self._worker_stop, log=self._diagnostic_log))
 
     def _refresh_installed(self):
         from Utils.wabbajack.store import installations
-        self._installed = installations(Path(self._game.get_profile_root())) if self._game else []
+        self._installed = installations(Path(self._game.get_profile_root()),
+                                        self._diagnostic_log) if self._game else []
 
     def _panel(self, title):
         panel = QFrame(self)
@@ -914,7 +937,11 @@ class WabbajackView(QWidget):
 
     def _on_path_picked(self, kind, token, path):
         if not path or self._busy or token != self._tokens.get("package", 0):
+            self._diag("ui.path.result_ignored", kind=kind, path=path,
+                       busy=self._busy, token=token,
+                       current_token=self._tokens.get("package", 0))
             return
+        self._diag("ui.path.selected", kind=kind, path=path)
         if kind == "package":
             check_after = self._check_after_package
             if self._stack.currentIndex() != 1 or not self._info:
@@ -941,6 +968,8 @@ class WabbajackView(QWidget):
 
     def _prepare_entry(self, check_after=False):
         if self._busy or self._checking or self._loading_package:
+            self._diag("ui.package.prepare_ignored", busy=self._busy,
+                       checking=self._checking, loading=self._loading_package)
             return
         if self._manual_package:
             from PySide6.QtGui import QDesktopServices
@@ -953,10 +982,12 @@ class WabbajackView(QWidget):
         if self._info and self._mode.currentData() != "update":
             self._inspect(Path(self._info["package_path"]), check_after=check_after)
         elif self._entry.unavailable:
+            self._diag("ui.package.unavailable", entry=self._entry.id)
             self._status.setText(self.tr("This list is currently unavailable for download. Open a local .wabbajack file to continue."))
         elif self._entry.download:
             self._download_package(self._entry.download, check_after=check_after)
         else:
+            self._diag("ui.package.url_missing", entry=self._entry.id)
             self._status.setText(self.tr("This entry has no package download URL. Open a local .wabbajack file."))
             self._open_file(check_after=check_after)
 
@@ -980,6 +1011,9 @@ class WabbajackView(QWidget):
         token = self._tokens.get("package", 0) + 1
         self._show_package_progress(0, total)
         self._status.setText(self.tr("Downloading modlist package…"))
+        self._diag("ui.package.download_requested", url=url, expected_bytes=total,
+                   expected_hash=entry.package_hash if entry else "",
+                   check_after=check_after)
         def work():
             path = cache_root() / (hashlib.sha256(url.encode()).hexdigest() + ".wabbajack")
             last = [0.0]
@@ -989,8 +1023,9 @@ class WabbajackView(QWidget):
                     last[0] = now
                     safe_emit(self._progress, "package", (token, current, maximum))
             download_package(url, path, stop=self._worker_stop, size=total,
-                          expected=entry.package_hash if entry else "", progress=progress)
-            return inspect_package(path)
+                          expected=entry.package_hash if entry else "", progress=progress,
+                          log=self._diagnostic_log)
+            return inspect_package(path, log=self._diagnostic_log)
         self._worker("package", work)
 
     def _inspect(self, path, *, check_after=False):
@@ -1005,8 +1040,10 @@ class WabbajackView(QWidget):
         self._check_after_package = check_after
         self._update_start_button()
         self._status.setText(self.tr("Inspecting modlist package…"))
+        self._diag("ui.package.inspect_requested", path=path,
+                   check_after=check_after)
         from Utils.wabbajack.manifest import inspect_package
-        self._worker("package", lambda: inspect_package(path))
+        self._worker("package", lambda: inspect_package(path, log=self._diagnostic_log))
 
     def _game_selected(self, *_):
         game = self._game
@@ -1145,6 +1182,8 @@ class WabbajackView(QWidget):
 
     def _primary_action(self):
         if self._busy or self._checking or self._loading_package:
+            self._diag("ui.primary_action.ignored", busy=self._busy,
+                       checking=self._checking, loading=self._loading_package)
             return
         if self._request is not None and self._report is not None and self._report.ok:
             self._start()
@@ -1153,6 +1192,9 @@ class WabbajackView(QWidget):
 
     def _install_texconv(self):
         if self._busy or self._installing_texture or self._installing_mpi:
+            self._diag("ui.texture_setup.ignored", busy=self._busy,
+                       texture_running=self._installing_texture,
+                       mpi_running=self._installing_mpi)
             return
         from types import SimpleNamespace
         request = SimpleNamespace(texconv=None, proton=None, setup_options=self._task_options.values(),
@@ -1170,6 +1212,10 @@ class WabbajackView(QWidget):
 
     def _install_mpi(self):
         if self._busy or self._installing_mpi or self._installing_texture or not self._game:
+            self._diag("ui.mpi_setup.ignored", busy=self._busy,
+                       mpi_running=self._installing_mpi,
+                       texture_running=self._installing_texture,
+                       game=bool(self._game))
             return
         from Utils.bethesda.ttw import download_installer
         self._invalidate()
@@ -1184,14 +1230,22 @@ class WabbajackView(QWidget):
 
     def _check(self):
         if self._busy or self._checking or self._loading_package or self._installing_mpi or self._installing_texture:
+            self._diag("ui.preflight.ignored", busy=self._busy,
+                       checking=self._checking, loading=self._loading_package,
+                       mpi_running=self._installing_mpi,
+                       texture_running=self._installing_texture)
             return
         if not self._package:
+            self._diag("ui.preflight.package_required",
+                       manual_package=self._manual_package,
+                       gallery_entry=getattr(self._entry, "id", None))
             if self._manual_package:
                 self._open_file(check_after=True)
             else:
                 self._prepare_entry(check_after=True)
             return
         if not self._can_install():
+            self._diag("ui.preflight.operation_blocked")
             self._status.setText(self.tr("Wait for the current install or deployment operation to finish."))
             return
         from Utils.wabbajack.models import InstallRequest
@@ -1199,6 +1253,7 @@ class WabbajackView(QWidget):
         from Utils.wabbajack.preflight import preflight
         game = self._game
         if not game:
+            self._diag("ui.preflight.game_missing")
             self._status.setText(self.tr("Configure the required game before installing this modlist."))
             return
         profiles = self._selected_choices(self._profiles)
@@ -1209,13 +1264,17 @@ class WabbajackView(QWidget):
             setup_options=self._task_options.values(),
             mode=self._mode.currentData(), gallery_id=self._entry.id if self._entry and not self._entry.id.startswith("local:") else "")
         from Utils.wabbajack.store import installation_info
-        info = installation_info(request.directory)
+        info = installation_info(request.directory, self._diagnostic_log)
         if info:
             request.game_roots.update({k: Path(v) for k, v in info.get("source_roots", {}).items()})
             request.gallery_id = request.gallery_id or info.get("gallery_id", "")
         if self._entry:
             request.gallery_metadata = {k: getattr(self._entry, k) for k in ("author", "image", "readme", "community", "download", "nsfw", "tags")}
         self._request = request
+        self._diag("ui.preflight.requested", diagnostic_id=request.diagnostic_id,
+                   operation=request.mode, package=request.package.name,
+                   profiles=profiles, fixes=request.fixes,
+                   setup_options=request.setup_options)
         self._report = None
         self._preflight_stop = stop = threading.Event()
         self._checking = True
@@ -1231,22 +1290,36 @@ class WabbajackView(QWidget):
             if api:
                 try:
                     request.premium = bool(api.validate().is_premium)
-                except Exception:
+                    self._diag("ui.nexus.account_validated", premium=request.premium)
+                except Exception as exc:
+                    emit_exception(self._diagnostic_log, "ui.nexus.account_validation_failed",
+                                   exc, diagnostic_id=request.diagnostic_id)
                     from Utils.ui.config import load_nexus_last_premium
                     request.premium = bool(load_nexus_last_premium())
+                    self._diag("ui.nexus.account_cached", premium=request.premium)
             from Utils.ui.config import load_force_manual_install
             if load_force_manual_install():
                 request.premium = False
-            return request, preflight(request, stop, cache=self._verification_cache, progress=progress)
+                self._diag("ui.nexus.manual_forced")
+            return request, preflight(request, stop, cache=self._verification_cache,
+                                      progress=progress, log=self._diagnostic_log)
         self._worker("preflight", work)
 
     def _start(self):
         if self._busy or self._checking or self._loading_package or not self._request or not self._report or not self._report.ok:
+            self._diag("ui.install.ignored", busy=self._busy,
+                       checking=self._checking, loading=self._loading_package,
+                       request=bool(self._request), report=bool(self._report),
+                       preflight_ok=bool(self._report and self._report.ok))
             return
         if not self._can_install():
+            self._diag("ui.install.operation_blocked",
+                       diagnostic_id=self._request.diagnostic_id)
             self._status.setText(self.tr("Wait for the current install or deployment operation to finish."))
             return
         self._busy = True
+        self._diag("ui.install.requested", diagnostic_id=self._request.diagnostic_id,
+                   operation=self._request.mode, package=self._request.package.name)
         self._update_start_button()
         self.running_changed.emit(True)
         self._control = InstallControl()
@@ -1312,11 +1385,15 @@ class WabbajackView(QWidget):
         self._manual_overlay.update_mod(payload)
 
     def _pause(self):
+        self._diag("ui.operation.pause_requested",
+                   diagnostic_id=getattr(self._request, "diagnostic_id", ""))
         self._control.pause.set()
         self._control.stop.set()
         self._answers.put(None)
 
     def _cancel(self):
+        self._diag("ui.operation.cancel_requested",
+                   diagnostic_id=getattr(self._request, "diagnostic_id", ""))
         self._control.cancel.set()
         self._control.stop.set()
         self._answers.put(None)
@@ -1384,6 +1461,9 @@ class WabbajackView(QWidget):
     def _accept_conflicts(self):
         choices = {self._conflict_table.item(row, 0).text(): self._conflict_table.cellWidget(row, 2).currentData()
                    for row in range(self._conflict_table.rowCount())}
+        sample = dict(list(choices.items())[:50])
+        self._diag("ui.conflicts.accepted", choices=len(choices), sample=sample,
+                   sample_truncated=len(choices) > 50)
         self._answers.put(choices)
         self._stack.setCurrentIndex(1)
         if self._overlay:
@@ -1394,7 +1474,11 @@ class WabbajackView(QWidget):
             return
         token, result = result
         if token != self._tokens.get(kind):
+            self._diag("ui.worker.result_ignored", kind=kind, token=token,
+                       current_token=self._tokens.get(kind))
             return
+        self._diag("ui.worker.result_received", kind=kind, token=token,
+                   error=error, result_type=type(result).__name__ if result else None)
         if kind in {"mpi-tool", "texture"}:
             self.setEnabled(True)
             if kind == "mpi-tool":
@@ -1529,7 +1613,7 @@ class WabbajackView(QWidget):
             self._refresh_installed()
             self._render()
             from Utils.wabbajack.store import installation_info
-            self._info = installation_info(request.directory)
+            self._info = installation_info(request.directory, self._diagnostic_log)
             if self._info:
                 self._mode.setCurrentIndex(self._mode.findData("repair" if self._info.get("status") == "complete" else "resume"))
             if result:
@@ -1577,8 +1661,15 @@ class WabbajackView(QWidget):
 
     def set_game(self, game):
         if self._busy:
+            self._diag("ui.game.change_ignored", current=getattr(self._game, "name", None),
+                       requested=getattr(game, "name", None), busy=True)
             return
+        previous = self._game
         self._game = game
+        self._diag("ui.game.changed", previous=getattr(previous, "name", None),
+                   previous_id=getattr(previous, "game_id", None),
+                   current=getattr(game, "name", None),
+                   current_id=getattr(game, "game_id", None))
         self._tokens["package"] = self._tokens.get("package", 0) + 1
         self._loading_package = False
         self._clear_package_progress()

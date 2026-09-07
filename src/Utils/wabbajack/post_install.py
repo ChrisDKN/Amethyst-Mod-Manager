@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import sqlite3
+import time
 from pathlib import Path
 
 from Utils.atomic_write import write_atomic_text
@@ -9,6 +10,7 @@ from .games import nexus_domain
 from .hashes import file_hash
 from .manifest import stock_folder
 from .paths import WabbajackError, source_path, within
+from .diagnostics import emit, emit_exception
 
 
 def nuclear_sunset(package):
@@ -44,8 +46,12 @@ def stock_sources(request, stop=None):
                 yield rel, path
 
 
-def preflight_post_install(request, check, stop=None, *, reusable=None):
+def preflight_post_install(request, check, stop=None, *, reusable=None, log=None):
+    started = time.monotonic()
     size = 0
+    emit(log, "post_install.preflight.started",
+         stock_copy=stock_copy(request), nuclear_sunset=nuclear_sunset(request.package),
+         display=request.setup_options.get("display"))
     if stock_copy(request):
         try:
             files = list(stock_sources(request, stop))
@@ -55,6 +61,7 @@ def preflight_post_install(request, check, stop=None, *, reusable=None):
                 with sqlite3.connect(database.as_uri() + "?mode=ro", uri=True) as db:
                     old = dict(db.execute("SELECT path,signature FROM outputs"))
             stock = stock_copy(request)
+            reused = 0
             for rel, path in files:
                 key = f"root/{stock}/{rel}"
                 target = within(request.directory, key)
@@ -63,10 +70,14 @@ def preflight_post_install(request, check, stop=None, *, reusable=None):
                     if old[key] == "stock-copy:1:" + digest and file_hash(target, stop) == digest:
                         if reusable is not None:
                             reusable.add(key)
+                        reused += 1
                         continue
                 size += path.stat().st_size * 2
             check("pass", "Stock game setup", f"Copy {len(files):,} original game files into the managed stock game; original files remain unchanged")
+            emit(log, "post_install.stock.plan", folder=stock, files=len(files),
+                 reusable_files=reused, required_bytes=size)
         except (ValueError, OSError, sqlite3.Error) as exc:
+            emit_exception(log, "post_install.stock.preflight_failed", exc)
             check("error", "Stock game setup", exc)
     if nuclear_sunset(request.package):
         check("warning", "Author instructions", "Nuclear Sunset's Linux guide specifies Proton 11 and a separate YUPTTW update. Confirm the selected runtime and external content match the guide before launch.")
@@ -83,23 +94,31 @@ def preflight_post_install(request, check, stop=None, *, reusable=None):
             check("error", "Display settings", "Choose a resolution between 320 and 16384 pixels per dimension")
         else:
             check("pass", "Display settings", f"Apply the selected {display[0]} × {display[1]} resolution to supported authored profile and display-tweak files")
+    emit(log, "post_install.preflight.completed", required_bytes=size,
+         elapsed_seconds=round(time.monotonic() - started, 3))
     return size
 
 
-def prepare_stock(request, store, desired, stop, progress):
+def prepare_stock(request, store, desired, stop, progress, log=None):
     stock = stock_copy(request)
     if not stock:
+        emit(log, "post_install.stock.skipped")
         return
+    started = time.monotonic()
     sources = list(stock_sources(request, stop))
+    emit(log, "post_install.stock.started", folder=stock, files=len(sources),
+         bytes=sum(path.stat().st_size for _, path in sources))
     within(store.work / "output", stock).mkdir(parents=True, exist_ok=True)
     existing = {key.casefold() for key in desired}
     old = store.outputs()
+    reused = copied = authored = 0
     for index, (rel, source) in enumerate(sources):
         if stop.is_set():
             raise InterruptedError("Stock game setup stopped")
         progress("Preparing stock game", index, len(sources), rel)
         key = f"root/{stock}/{rel}"
         if key.casefold() in existing:
+            authored += 1
             continue
         digest = file_hash(source, stop)
         sig = "stock-copy:1:" + digest
@@ -107,11 +126,16 @@ def prepare_stock(request, store, desired, stop, progress):
         prior = old.get(key)
         if prior and prior["signature"] == sig and store.target(key).is_file() and file_hash(store.target(key), stop) == digest:
             target = store.target(key)
+            reused += 1
         elif not target.is_file() or file_hash(target, stop) != digest:
             store._copy(source, target, stop=stop, progress=lambda done, total:
                         progress("Preparing stock game", index, len(sources), f"{rel} ({100 * done // max(1, total)}%)"))
+            copied += 1
         desired[key] = {"source": str(target), "authored_hash": digest, "signature": sig}
     progress("Preparing stock game", len(sources), len(sources), "Stock game verified")
+    emit(log, "post_install.stock.completed", folder=stock, files=len(sources),
+         reused_files=reused, copied_files=copied, authored_files=authored,
+         elapsed_seconds=round(time.monotonic() - started, 3))
 
 
 def _ini_values(text, section, values):
@@ -136,14 +160,19 @@ def _ini_values(text, section, values):
     return "".join(lines)
 
 
-def apply_adjustments(request, store, desired, stop, progress):
+def apply_adjustments(request, store, desired, stop, progress, log=None):
+    started = time.monotonic()
     stock = stock_folder(request.package)
     if nuclear_sunset(request.package) and "nuclear:proton-dxvk" in request.fixes and stock:
+        removed = []
         for key in list(desired):
             if key.casefold() in {f"root/{stock}/{name}".casefold() for name in ("d3d9.dll", "dxvk.conf")}:
                 desired.pop(key)
+                removed.append(key)
+        emit(log, "post_install.adjustment.nuclear_dxvk", removed=removed)
     display = request.setup_options.get("display")
     if not display:
+        emit(log, "post_install.display.skipped")
         return
     width, height = display
     count = 0
@@ -172,4 +201,9 @@ def apply_adjustments(request, store, desired, stop, progress):
         desired[key] = {"source": str(target), "authored_hash": digest,
                         "signature": f"display:1:{width}x{height}:" + row["signature"]}
         count += 1
+        emit(log, "post_install.display.file", path=key, width=width,
+             height=height, hash=digest)
         progress("Applying selected display settings", count, 0, key)
+    emit(log, "post_install.display.completed", files=count,
+         width=width, height=height,
+         elapsed_seconds=round(time.monotonic() - started, 3))

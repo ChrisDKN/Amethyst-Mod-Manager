@@ -3,6 +3,7 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass, field, replace
 
+from .diagnostics import emit
 from .reconstruct import signature
 from .store import installation_info
 
@@ -17,15 +18,16 @@ class UpdatePlan:
     affected_profiles: list[str] = field(default_factory=list)
 
 
-def plan_update(request):
+def plan_update(request, log=None):
     from .profiles import referenced_profiles
     from .adapters import ROOT_MOD_NAME, adapter_for
-    info = installation_info(request.directory)
+    info = installation_info(request.directory, log)
     if not info:
         raise ValueError("Installation does not exist")
     with sqlite3.connect((request.directory / "state.sqlite").as_uri() + "?mode=ro", uri=True) as db:
         old = {path: sig for path, sig in db.execute("SELECT path,signature FROM outputs WHERE path LIKE 'root/%'")}
-    adapter = adapter_for(request.package, request.game, store=request.setup_options.get("store", ""))
+    adapter = adapter_for(request.package, request.game,
+                          store=request.setup_options.get("store", ""), log=log)
     from .manifest import optional_game_file_directives
     ignored = optional_game_file_directives(request.package)
     new = {"root/" + rel: signature(d, request) for d in request.package.directives
@@ -63,19 +65,27 @@ def plan_update(request):
     from .bsa_setup import PREFIX, RECIPE, requirement, sources, expected_outputs, library_paths
     if requirement(request.package):
         try:
-            new.update(expected_outputs(sources(request)))
+            new.update(expected_outputs(sources(request, log=log)))
             new[PREFIX + "meta.ini"] = RECIPE
             by_path = {d.path: d for d in request.package.directives}
             for name, path in library_paths(request.package).items():
                 new[PREFIX + "root/" + name] = "bsa-library:" + signature(by_path[path], request)
-        except (OSError, ValueError):
+        except (OSError, ValueError) as exc:
+            emit(log, "update.plan.bsa_fallback", exception_type=type(exc).__name__,
+                 exception=str(exc))
             new.update({p: sig for p, sig in old.items() if p.startswith(PREFIX)})
     profiles = set(info.get("selected_profiles", []))
     selected = set(request.profiles)
-    return UpdatePlan(sorted(new.keys() - old.keys()), sorted(old.keys() - new.keys()),
+    plan = UpdatePlan(sorted(new.keys() - old.keys()), sorted(old.keys() - new.keys()),
         sorted(path for path in old.keys() & new.keys() if old[path] != new[path]),
         sorted(selected - profiles), sorted(profiles - selected),
-        [p.name for p in referenced_profiles(request.directory, request.game.get_profile_root())])
+        [p.name for p in referenced_profiles(request.directory,
+                                             request.game.get_profile_root(), log)])
+    emit(log, "update.plan.completed", old_outputs=len(old), new_outputs=len(new),
+         added=len(plan.added), removed=len(plan.removed), changed=len(plan.changed),
+         added_profiles=plan.added_profiles, removed_profiles=plan.removed_profiles,
+         affected_profiles=plan.affected_profiles)
+    return plan
 
 
 def repair(request, **kwargs):

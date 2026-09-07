@@ -5,10 +5,12 @@ import copy
 import json
 import os
 import shutil
+import time
 from functools import lru_cache
 from pathlib import Path
 
 from Utils.atomic_write import write_atomic_text
+from .diagnostics import emit
 from .hashes import file_hash
 from .manifest import qvalue, stock_folder
 from .paths import WabbajackError, safe_name, source_path, within
@@ -58,10 +60,13 @@ def profile_names(request, store):
     profiles = request.profiles or [request.package.name]
     parent = store.profile_root / "profiles"
     name_limit = min(160, filename_limit(parent) - 16)
-    for profile in referenced_profiles(store.directory, store.profile_root):
+    for profile in referenced_profiles(store.directory, store.profile_root,
+                                       store.log):
         try:
             raw = json.loads((profile / "profile_state.json").read_text())
-        except (OSError, ValueError):
+        except (OSError, ValueError) as exc:
+            emit(store.log, "profile.name_state.unreadable", profile=profile,
+                 exception_type=type(exc).__name__, exception=str(exc))
             continue
         authored = raw.get("profile_settings", {}).get("wabbajack_profile")
         if authored in names and not (parent / names[authored]).exists():
@@ -86,7 +91,9 @@ def profile_names(request, store):
     return names
 
 
-def prepare_profiles(request, store, reconstruction, desired, *, generated_mods=(), progress=None):
+def prepare_profiles(request, store, reconstruction, desired, *, generated_mods=(),
+                     progress=None, log=None):
+    started = time.monotonic()
     def copy_file(source, target):
         if progress:
             progress("Preparing profiles", index, len(selected), f"{authored}: {target.relative_to(stage)}")
@@ -94,7 +101,8 @@ def prepare_profiles(request, store, reconstruction, desired, *, generated_mods=
     names = profile_names(request, store)
     store.set("preserved_profiles", [name for authored, name in names.items() if authored not in request.profiles and request.package.profiles])
     output = reconstruction.output
-    adapter = adapter_for(request.package, request.game, store=request.setup_options.get("store", ""))
+    adapter = adapter_for(request.package, request.game,
+                          store=request.setup_options.get("store", ""), log=log)
     selected = request.profiles or [request.package.name]
     from .profile_config import extra_profile_files
     from .requirements import profile_configuration
@@ -102,6 +110,9 @@ def prepare_profiles(request, store, reconstruction, desired, *, generated_mods=
     configuration = profile_configuration(request.package, request.profiles)
     stock_rel = stock_folder(request.package)
     stock = source_path(output, stock_rel) if stock_rel else None
+    emit(log, "profiles.prepare.started", selected=selected, profile_names=names,
+         adapter=type(adapter).__name__, stock_folder=stock_rel,
+         generated_mods=generated_mods, reconstructed_outputs=len(desired))
     translated = {}
     payloads = {key: adapter.root_mod_destination(key.removeprefix("root/")) for key in desired}
     payloads = {key: dest for key, dest in payloads.items() if dest}
@@ -129,7 +140,13 @@ def prepare_profiles(request, store, reconstruction, desired, *, generated_mods=
         if rel.casefold().startswith("overwrite/"):
             overwrite_files.append((Path(row["source"]), rel.split("/", 1)[1]))
     executable_titles = {}
-    extras, arguments, working_dirs = _executables(request, store, output, stock, adapter=adapter, titles=executable_titles)
+    extras, arguments, working_dirs = _executables(
+        request, store, output, stock, adapter=adapter,
+        titles=executable_titles, log=log)
+    emit(log, "profiles.payloads", root_mod_outputs=len(payloads),
+         root_files=len(root_files), overwrite_files=len(overwrite_files),
+         root_mods=len(roots), hidden_files=sum(map(len, hidden.values())),
+         executables=extras, arguments=arguments, working_directories=working_dirs)
     for index, authored in enumerate(selected):
         if reconstruction.control.stop.is_set():
             raise InterruptedError("Profile preparation stopped")
@@ -147,10 +164,10 @@ def prepare_profiles(request, store, reconstruction, desired, *, generated_mods=
         if stock:
             settings["game_path"] = str(store.root / stock.relative_to(output))
         state = {"profile_settings": settings}
-        config = configuration.get(authored)
-        if config and config.outputs:
+        profile_config = configuration.get(authored)
+        if profile_config and profile_config.outputs:
             state["wabbajack_output_mods"] = {executable_titles.get(title.casefold(), title): name
-                                             for title, name in config.outputs.items()}
+                                             for title, name in profile_config.outputs.items()}
         if roots:
             state["root_mod_files"] = roots
             state["mod_strip_prefixes"] = strips
@@ -158,18 +175,22 @@ def prepare_profiles(request, store, reconstruction, desired, *, generated_mods=
             state["excluded_mod_files"] = hidden
         try:
             source_profile = source_path(output, f"profiles/{authored}") if request.package.profiles else None
-        except (OSError, WabbajackError):
+        except (OSError, WabbajackError) as exc:
+            emit(log, "profile.source.unavailable", authored_profile=authored,
+                 exception_type=type(exc).__name__, exception=str(exc))
             source_profile = None
         inis = False
         if source_profile:
             cp = configparser.ConfigParser(interpolation=None, strict=False)
             try:
-                config = source_path(source_profile, "settings.ini")
-                cp.read(config, encoding="utf-8-sig")
+                settings_path = source_path(source_profile, "settings.ini")
+                cp.read(settings_path, encoding="utf-8-sig")
                 if cp.getboolean("General", "LocalSaves", fallback=False):
                     settings["profile_saves"] = True
-            except (OSError, ValueError, configparser.Error):
-                pass
+            except (OSError, ValueError, configparser.Error) as exc:
+                emit(log, "profile.settings.unreadable", authored_profile=authored,
+                     source=source_profile / "settings.ini",
+                     exception_type=type(exc).__name__, exception=str(exc))
             for path in source_profile.rglob("*"):
                 if not path.is_file():
                     continue
@@ -218,6 +239,13 @@ def prepare_profiles(request, store, reconstruction, desired, *, generated_mods=
         (stage / "profile_state.json").write_text(json.dumps(state, indent=2), encoding="utf-8")
         if arguments:
             (stage / "exe_args.json").write_text(json.dumps(arguments, indent=2), encoding="utf-8")
+        emit(log, "profile.prepared", authored_profile=authored, profile=name,
+             stage=stage, profile_ini_files=inis,
+             profile_saves=bool(settings.get("profile_saves")),
+             stock_game_path=settings.get("game_path"),
+             custom_executables=len(extras),
+             authored_output_mods=len(profile_config.outputs) if profile_config else 0,
+             root_files=len(root_files), overwrite_files=len(overwrite_files))
         for path in stage.rglob("*"):
             if path.is_file():
                 key = f"profiles/{name}/{path.relative_to(stage).as_posix()}"
@@ -246,14 +274,19 @@ def prepare_profiles(request, store, reconstruction, desired, *, generated_mods=
     desired.update(translated)
     if progress:
         progress("Preparing profiles", len(selected), len(selected), "Profiles and launch settings prepared")
+    emit(log, "profiles.prepare.completed", profiles=[names[p] for p in selected],
+         root_outputs=len(published), profile_outputs=len(translated),
+         total_outputs=len(desired), elapsed_seconds=round(time.monotonic() - started, 3))
     return [store.profile_root / "profiles" / names[p] for p in selected]
 
 
-def _executables(request, store, output, stock, *, adapter=None, titles=None):
+def _executables(request, store, output, stock, *, adapter=None, titles=None, log=None):
     extras, arguments, working_dirs = [], {}, {}
     game_root = store.root / stock.relative_to(output) if stock else Path(request.game_roots.get(request.package.game, request.game.get_game_path()))
     allowed = [store.root, *request.game_roots.values()]
-    adapter = adapter or adapter_for(request.package, request.game, store=request.setup_options.get("store", ""))
+    adapter = adapter or adapter_for(request.package, request.game,
+                                     store=request.setup_options.get("store", ""),
+                                     log=log)
     def resolve(value):
         from .runtime import host_path
         path = host_path(request.game, qvalue(value))
@@ -285,6 +318,8 @@ def _executables(request, store, output, stock, *, adapter=None, titles=None):
                     continue
                 p = resolve(value)
                 if p is None or p.name.lower() in {"modorganizer.exe", "nxmhandler.exe"}:
+                    emit(log, "profile.executable.skipped", binary=qvalue(value),
+                         reason="unresolved or Mod Organizer application")
                     continue
                 extras.append(str(p))
                 title = qvalue(section.get(key.removesuffix("binary") + "title", ""))
@@ -298,8 +333,9 @@ def _executables(request, store, output, stock, *, adapter=None, titles=None):
                 args = qvalue(section.get(key.removesuffix("binary") + "arguments", ""))
                 if args:
                     arguments[p.name] = args
-        except (OSError, configparser.Error):
-            pass
+        except (OSError, configparser.Error) as exc:
+            emit(log, "profile.executables.unreadable", source=ini,
+                 exception_type=type(exc).__name__, exception=str(exc))
     for path in output.rglob("*.exe"):
         if path.name.lower() in _EXTENDERS:
             p = resolve(str(store.root / path.relative_to(output)))
@@ -309,8 +345,9 @@ def _executables(request, store, output, stock, *, adapter=None, titles=None):
     return list(dict.fromkeys(extras)), arguments, working_dirs
 
 
-def validate_links(store, profiles):
+def validate_links(store, profiles, log=None):
     mods = store.root / "mods"
+    emit(log, "profiles.links.validating", mods=mods, profiles=profiles)
     for profile in profiles:
         if profile.is_symlink():
             raise WabbajackError(f"Managed profile cannot be a symbolic link: {profile.name}")
@@ -319,10 +356,11 @@ def validate_links(store, profiles):
             raise WabbajackError(f"Profile mod storage changed: {profile.name}")
         if link.exists() and not link.is_symlink():
             raise WabbajackError(f"Profile mod storage is occupied: {profile.name}")
+    emit(log, "profiles.links.validated", mods=mods, profiles=len(profiles))
 
 
-def publish_links(store, profiles):
-    validate_links(store, profiles)
+def publish_links(store, profiles, log=None):
+    validate_links(store, profiles, log=log)
     mods = store.root / "mods"
     mods.mkdir(exist_ok=True)
     for profile in profiles:
@@ -335,10 +373,15 @@ def publish_links(store, profiles):
             raise WabbajackError(f"Profile mod storage is occupied: {profile.name}")
         else:
             link.symlink_to(os.path.relpath(mods, profile), target_is_directory=True)
+            emit(log, "profile.link.created", profile=profile, link=link,
+                 target=os.path.relpath(mods, profile))
+    emit(log, "profiles.links.published", mods=mods, profiles=len(profiles))
 
 
 def refresh_profiles(request, profiles, log, progress=None):
     from Utils.filegraph.service import FileGraphService
+    started = time.monotonic()
+    emit(log, "profiles.refresh.started", profiles=profiles)
     for index, profile in enumerate(profiles):
         if progress:
             progress("Refreshing file catalogs", index, len(profiles) * 2, profile.name)
@@ -349,7 +392,9 @@ def refresh_profiles(request, profiles, log, progress=None):
         if read_profile_settings(profile).get("is_group"):
             from Utils.profiles.groups import materialize_group
             materialize_group(game, profile, log_fn=log)
+            emit(log, "profile.group.materialized", profile=profile)
         FileGraphService.open_library(game, profile, log_fn=log).refresh(profile)
+        emit(log, "profile.catalog.refreshed", profile=profile)
     for index, profile in enumerate(profiles):
         if progress:
             progress("Refreshing file catalogs", len(profiles) + index, len(profiles) * 2, profile.name)
@@ -357,11 +402,14 @@ def refresh_profiles(request, profiles, log, progress=None):
         game.set_active_profile_dir(profile)
         game.load_paths()
         FileGraphService.open_library(game, profile, log_fn=log).ensure_ready(profile)
+        emit(log, "profile.catalog.ready", profile=profile)
     if progress:
         progress("Refreshing file catalogs", len(profiles) * 2, len(profiles) * 2, "Profiles are ready")
+    emit(log, "profiles.refresh.completed", profiles=len(profiles),
+         elapsed_seconds=round(time.monotonic() - started, 3))
 
 
-def referenced_profiles(directory, profile_root):
+def referenced_profiles(directory, profile_root, log=None):
     profiles = profile_root / "profiles"
     result = []
     if profiles.is_dir():
@@ -375,7 +423,9 @@ def referenced_profiles(directory, profile_root):
                     result.append(profile)
                 elif (profile / "mods").is_symlink() and (profile / "mods").resolve().is_relative_to(directory.resolve()):
                     result.append(profile)
-            except (OSError, ValueError):
+            except (OSError, ValueError) as exc:
+                emit(log, "profile.reference_state.unreadable", profile=profile,
+                     exception_type=type(exc).__name__, exception=str(exc))
                 if (profile / "mods").is_symlink() and (profile / "mods").resolve().is_relative_to(directory.resolve()):
                     result.append(profile)
         members = {p.name for p in result}
@@ -386,8 +436,9 @@ def referenced_profiles(directory, profile_root):
                 settings = json.loads((profile / "profile_state.json").read_text()).get("profile_settings", {})
                 if settings.get("is_group") and members.intersection(settings.get("group_members", [])):
                     result.append(profile)
-            except (OSError, ValueError):
-                pass
+            except (OSError, ValueError) as exc:
+                emit(log, "profile.group_state.unreadable", profile=profile,
+                     exception_type=type(exc).__name__, exception=str(exc))
     return result
 
 
@@ -431,20 +482,31 @@ def invalidate_shared_catalogs(library):
 
 
 def cleanup_unreferenced(profile_root):
+    from Utils.app_log import app_log
+    from .diagnostics import emit_exception
     from .store import installations, Store
-    for info in installations(profile_root):
+    log = lambda message: app_log("[wabbajack] " + message)
+    found = installations(profile_root, log)
+    emit(log, "lifecycle.cleanup.started", profile_root=profile_root,
+         installations=len(found))
+    for info in found:
         directory = Path(info["directory"])
-        if info.get("status") != "complete" or referenced_profiles(directory, profile_root):
+        if info.get("status") != "complete" or referenced_profiles(directory, profile_root, log):
             continue
-        store = Store(directory, profile_root)
+        store = Store(directory, profile_root, log=log)
         try:
             with store.exclusive():
-                if not referenced_profiles(directory, profile_root):
+                if not referenced_profiles(directory, profile_root, log):
+                    emit(log, "lifecycle.installation.removing", directory=directory,
+                         installation_id=store.get("id"), name=store.get("name", ""))
                     store.close()
                     shutil.rmtree(directory)
                     store = None
-        except WabbajackError:
-            pass
+                    emit(log, "lifecycle.installation.removed", directory=directory)
+        except WabbajackError as exc:
+            emit_exception(log, "lifecycle.cleanup.failed", exc,
+                           directory=directory)
         finally:
             if store is not None:
                 store.close()
+    emit(log, "lifecycle.cleanup.completed", profile_root=profile_root)

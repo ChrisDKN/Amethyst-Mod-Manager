@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from .games import nexus_domain
 from .manifest import qvalue, stock_folder
 from .paths import WabbajackError
+from .diagnostics import emit, emit_exception
 
 ROOT_FOLDERS = {"root", "game root", "game folder files", "root files"}
 APPLICATION_FILES = {"modorganizer.exe", "modorganizer.ini", "nxmhandler.exe",
@@ -79,7 +80,7 @@ class GameAdapter:
         return path
 
 
-def _declared_tool_roots(package):
+def _declared_tool_roots(package, log=None):
     keep = set()
     def referenced(value):
         text = "/" + qvalue(value).replace("\\", "/").casefold() + "/"
@@ -99,8 +100,9 @@ def _declared_tool_roots(package):
                         name = text.rstrip("/").rsplit("/", 1)[-1]
                         if name not in {"modorganizer.exe", "nxmhandler.exe", "qtwebengineprocess.exe"}:
                             keep.add(name)
-        except (OSError, ValueError, KeyError, configparser.Error, zipfile.BadZipFile):
-            pass
+        except (OSError, ValueError, KeyError, configparser.Error,
+                zipfile.BadZipFile) as exc:
+            emit_exception(log, "adapter.executables_scan.failed", exc)
     configs = [d for d in package.directives if d.kind == "RemappedInlineFile"
                and d.path.split("/")[0].casefold() not in APPLICATION_FILES | APPLICATION_FOLDERS | {"profiles", "mods"}]
     if configs:
@@ -110,12 +112,14 @@ def _declared_tool_roots(package):
                     member = archive.getinfo(directive.data["SourceDataID"])
                     if member.file_size <= 8 * 1024 * 1024:
                         referenced(archive.read(member).decode("utf-8-sig", errors="replace"))
-        except (OSError, ValueError, KeyError, zipfile.BadZipFile):
-            pass
+        except (OSError, ValueError, KeyError, zipfile.BadZipFile) as exc:
+            emit_exception(log, "adapter.remapped_scan.failed", exc)
+    emit(log, "adapter.tool_roots", roots=sorted(keep),
+         remapped_configs=len(configs))
     return frozenset(keep)
 
 
-def adapter_for(package, game, *, store=""):
+def adapter_for(package, game, *, store="", log=None):
     mo2 = bool(package.profiles)
     if not mo2 and any(d.path.casefold() in {"modorganizer.exe", "modorganizer.ini"} for d in package.directives):
         raise WabbajackError("This package includes a mod-organizer layout but has no authored profile modlists")
@@ -130,5 +134,10 @@ def adapter_for(package, game, *, store=""):
             store = "epic"
         elif (root.parent.name.casefold() == "common" and root.parent.parent.name.casefold() == "steamapps") or any(root.glob("goggame-*.info")):
             store = "steam-gog"
-    return GameAdapter(mo2, stock_folder(package), frozenset(launch_files),
-                       nexus_domain(package.game) in _BETHESDA, _declared_tool_roots(package), store)
+    adapter = GameAdapter(mo2, stock_folder(package), frozenset(launch_files),
+                          nexus_domain(package.game) in _BETHESDA,
+                          _declared_tool_roots(package, log), store)
+    emit(log, "adapter.selected", mo2=adapter.mo2, bethesda=adapter.bethesda,
+         stock=adapter.stock, store=adapter.store,
+         launch_files=sorted(adapter.launch_files), keep=sorted(adapter.keep))
+    return adapter

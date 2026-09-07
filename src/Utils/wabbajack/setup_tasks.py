@@ -10,6 +10,7 @@ import shutil
 import signal
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 
 from .archive_io import read_member, records
@@ -17,6 +18,7 @@ from .games import nexus_domain
 from .hashes import file_hash
 from .paths import WabbajackError, relative_path, source_path, within
 from .requirements import profile_configuration, setup_tasks
+from .diagnostics import emit, emit_exception
 
 VERSION = 1
 
@@ -264,8 +266,12 @@ def _sandbox(command, work):
             "--setenv", "TMPDIR", str(work), "--", *map(str, command)]
 
 
-def _run(command, work, stop, progress, label):
-    process = subprocess.Popen(_sandbox(command, work), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+def _run(command, work, stop, progress, label, log=None):
+    started = time.monotonic()
+    sandboxed = _sandbox(command, work)
+    emit(log, "setup.process.started", label=label, command=sandboxed,
+         work=work)
+    process = subprocess.Popen(sandboxed, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                start_new_session=True)
     pending = b""
     tail = []
@@ -287,16 +293,22 @@ def _run(command, work, stop, progress, label):
                         text = line.decode("utf-8", "replace").strip()
                         if text:
                             tail = (tail + [text])[-12:]
+                            emit(log, "setup.process.output", label=label,
+                                 output=text[:2000])
                             match = re.search(r"\bAssets:\s*(\d+)\s*/\s*(\d+)", text)
                             if match and 0 <= int(match[1]) <= int(match[2]):
                                 completed, total = max(completed, int(match[1])), max(total, int(match[2]))
                             if progress:
                                 progress(label, completed, total, text[:500])
         code = process.wait()
+        emit(log, "setup.process.completed", label=label, exit_code=code,
+             elapsed_seconds=round(time.monotonic() - started, 3), tail=tail)
         if code:
             raise WabbajackError(f"{label} failed ({code}): " + "\n".join(tail))
     finally:
         if process.poll() is None:
+            emit(log, "setup.process.terminating", label=label,
+                 elapsed_seconds=round(time.monotonic() - started, 3))
             os.killpg(process.pid, signal.SIGTERM)
             try:
                 process.wait(timeout=3)
@@ -339,16 +351,22 @@ def _reusable(request, task, record, stop=None):
     return result
 
 
-def preflight_tasks(request, check, stop=None, *, configuration=None, reusable=None):
+def preflight_tasks(request, check, stop=None, *, configuration=None,
+                    reusable=None, log=None):
     from .store import installation_info
     from Utils.bethesda.ttw import find_ttw_installer
     tasks = setup_tasks(request.package, request.profiles, configuration)
-    info = installation_info(request.directory) or {}
+    info = installation_info(request.directory, log) or {}
     estimates = 0
+    emit(log, "setup.preflight.started", tasks=len(tasks),
+         task_ids=[task.id for task in tasks])
     for task in tasks:
         _stop(stop)
         option = request.setup_options.get(task.id, {})
         previous = _previous(info, task)
+        emit(log, "setup.preflight.task", task_id=task.id, label=task.label,
+             mod=task.mod, profiles=task.profiles, option=option,
+             previous=bool(previous))
         try:
             reused = _reusable(request, task, previous, stop) if option == (previous or {}).get("option", {}) else None
             if reused:
@@ -357,6 +375,8 @@ def preflight_tasks(request, check, stop=None, *, configuration=None, reusable=N
                 check("pass", task.label, f"Verified reusable setup in {task.mod}")
                 if previous.get("package_identity") != request.package.identity:
                     check("warning", task.label, "Review the new author's required external content version; the saved setup will be reused.")
+                emit(log, "setup.preflight.reused", task_id=task.id,
+                     outputs=len(reused))
                 continue
             source = option.get("source", "")
             mpi = option.get("mpi", "")
@@ -366,6 +386,9 @@ def preflight_tasks(request, check, stop=None, *, configuration=None, reusable=N
                 _verify_mod(task, root, stop)
                 files = list(_files(root, stop))
                 estimates += sum(path.stat().st_size for _, path in files) * 2
+                emit(log, "setup.preflight.import", task_id=task.id,
+                     source=root, files=len(files),
+                     bytes=sum(path.stat().st_size for _, path in files))
                 check("pass", task.label, f"Import {len(files):,} files into {task.mod}; required masters and archive indexes checked, authored priority preserved")
                 check("warning", task.label, "Existing output has no package-supplied hash or version guarantee. Confirm it is the version required by the author.")
             elif mpi and task.mpi_titles:
@@ -373,6 +396,9 @@ def preflight_tasks(request, check, stop=None, *, configuration=None, reusable=N
                 _input_boundary(request, path)
                 manifest = mpi_manifest(path, stop)
                 title = str(manifest["Package"].get("Title", ""))
+                emit(log, "setup.preflight.mpi", task_id=task.id, path=path,
+                     title=title, version=manifest["Package"].get("Version", ""),
+                     assets=len(manifest.get("Assets", [])))
                 if title.casefold() not in {name.casefold() for name in task.mpi_titles}:
                     raise WabbajackError(f"Wrong MPI package: {title}; select {task.label}")
                 expected = _mpi_outputs(manifest)
@@ -384,34 +410,48 @@ def preflight_tasks(request, check, stop=None, *, configuration=None, reusable=N
                 if not tool or not os.access(tool, os.X_OK):
                     raise WabbajackError("Install the native MPI tool using the setup button")
                 with tempfile.TemporaryDirectory(prefix="amethyst-mpi-probe-") as folder:
-                    _run([tool, "install", "--help"], Path(folder), stop, None, "MPI capability probe")
+                    _run([tool, "install", "--help"], Path(folder), stop, None,
+                         "MPI capability probe", log)
                 estimates += max(sum(Path(p).stat().st_size for p in sources) * 6,
                                  50 * 1024 ** 3 if task.id.startswith("ttw:") else path.stat().st_size * 6)
                 check("pass", task.label, f"Build {title} {manifest['Package'].get('Version', '')} into {task.mod}; {len(sources):,} source files verified")
+                emit(log, "setup.preflight.mpi_ready", task_id=task.id,
+                     tool=tool, sources=len(sources))
             else:
                 raise WabbajackError("Select the author-required MPI package or an existing complete output mod"
                                      if task.mpi_titles else "Select the author-required, extracted output mod")
         except (OSError, ValueError, KeyError, TypeError) as exc:
+            emit_exception(log, "setup.preflight.failed", exc, task_id=task.id)
             check("error", task.label, str(exc))
+    emit(log, "setup.preflight.completed", tasks=len(tasks),
+         estimated_bytes=estimates)
     return tasks, estimates
 
 
-def run_tasks(request, store, desired, stop, progress):
+def run_tasks(request, store, desired, stop, progress, log=None):
+    started = time.monotonic()
     from Utils.bethesda.ttw import find_ttw_installer
     tasks = setup_tasks(request.package, request.profiles)
     pending = {}
     previous_tasks = store.get("pending_setup_tasks", {})
     store.set("setup_options", request.setup_options)
+    emit(log, "setup.run.started", tasks=len(tasks),
+         task_ids=[task.id for task in tasks])
     for task in tasks:
+        task_started = time.monotonic()
         _stop(stop)
         progress("Additional setup", 0, len(tasks), task.label)
         option = request.setup_options.get(task.id, {})
         previous = _previous({"pending_setup_tasks": previous_tasks,
                               "setup_tasks": store.get("setup_tasks", {})}, task)
+        emit(log, "setup.task.started", task_id=task.id, label=task.label,
+             mod=task.mod, option=option, previous=bool(previous))
         reuse = _reusable(request, task, previous, stop) if option == (previous or {}).get("option", {}) else None
         if reuse:
             generated = reuse
             record = previous
+            emit(log, "setup.task.reused", task_id=task.id,
+                 outputs=len(generated))
         else:
             destination = within(store.work / "setup-output", f"root/mods/{task.mod}")
             _input_boundary(request, Path(option.get("source") or option.get("mpi") or "/"))
@@ -424,6 +464,9 @@ def run_tasks(request, store, desired, stop, progress):
                 root = Path(source).expanduser().absolute()
                 _verify_mod(task, root, stop)
                 files = list(_files(root, stop))
+                emit(log, "setup.task.import.started", task_id=task.id,
+                     source=root, files=len(files),
+                     bytes=sum(path.stat().st_size for _, path in files))
                 identity["source_hashes"] = {}
                 copied, total_bytes = 0, sum(path.stat().st_size for _, path in files)
                 for rel, path in files:
@@ -435,10 +478,16 @@ def run_tasks(request, store, desired, stop, progress):
             else:
                 mpi = Path(option.get("mpi", "")).expanduser().absolute()
                 manifest = mpi_manifest(mpi, stop)
+                emit(log, "setup.task.mpi.started", task_id=task.id, mpi=mpi,
+                     title=manifest["Package"].get("Title", ""),
+                     version=manifest["Package"].get("Version", ""),
+                     assets=len(manifest.get("Assets", [])))
                 if str(manifest["Package"].get("Title", "")).casefold() not in {name.casefold() for name in task.mpi_titles}:
                     raise WabbajackError(f"Incorrect MPI for {task.label}")
                 roots = _source_roots(request)
                 identity["sources"] = _mpi_sources(task, manifest, roots, stop)
+                emit(log, "setup.task.sources.verified", task_id=task.id,
+                     sources=len(identity["sources"]), roots=roots)
                 source_stamps = {path: _stamp(path) for path in identity["sources"]}
                 identity["mpi_hash"] = file_hash(mpi, stop)
                 identity["package"] = manifest["Package"]
@@ -447,6 +496,8 @@ def run_tasks(request, store, desired, stop, progress):
                 if not tool:
                     raise WabbajackError("The native MPI tool is missing")
                 identity["tool_hash"] = file_hash(tool, stop)
+                emit(log, "setup.task.tool.verified", task_id=task.id,
+                     tool=tool, hash=identity["tool_hash"])
                 with tempfile.TemporaryDirectory(prefix="mpi-", dir=store.work) as folder:
                     work = Path(folder)
                     package = work / "input.mpi"
@@ -464,7 +515,8 @@ def run_tasks(request, store, desired, stop, progress):
                     for game, flag in (("newvegas", "--fnv"), ("fallout3", "--fo3")):
                         if game in roots:
                             command.extend([flag, roots[game]])
-                    _run(command, work, stop, progress, "Building " + task.label)
+                    _run(command, work, stop, progress, "Building " + task.label,
+                         log)
                     for path, stamp in source_stamps.items():
                         if _stamp(path) != stamp and file_hash(Path(path), stop) != identity["sources"][path]:
                             raise WabbajackError(f"Original game file changed during setup: {path}")
@@ -497,6 +549,8 @@ def run_tasks(request, store, desired, stop, progress):
                 generated[key] = {"source": str(within(store.work / "setup-output", key)),
                                   "authored_hash": digest, "signature": sig}
             record = {**identity, "signature": sig, "outputs": output_hashes}
+            emit(log, "setup.task.outputs.verified", task_id=task.id,
+                 outputs=len(output_hashes), signature=sig)
         authored = {key.casefold(): key for key in desired}
         record = {**record, "outputs": dict(record["outputs"])}
         for key, row in generated.items():
@@ -512,6 +566,9 @@ def run_tasks(request, store, desired, stop, progress):
         pending[task.id] = record
         store.set("pending_setup_tasks", {**previous_tasks, **pending})
         progress("Additional setup", len(pending), len(tasks), task.label + " verified")
+        emit(log, "setup.task.completed", task_id=task.id,
+             outputs=len(record.get("outputs", {})),
+             elapsed_seconds=round(time.monotonic() - task_started, 3))
     from Utils.atomic_write import write_atomic_text
     for name in output_mods(request):
         key = f"root/mods/{name}/meta.ini"
@@ -521,6 +578,9 @@ def run_tasks(request, store, desired, stop, progress):
             digest = file_hash(meta, stop)
             desired[key] = {"source": str(meta), "authored_hash": digest, "signature": "output-mod:" + digest}
     store.set("pending_setup_tasks", pending)
+    emit(log, "setup.run.completed", tasks=len(pending),
+         output_mods=sorted(output_mods(request)),
+         elapsed_seconds=round(time.monotonic() - started, 3))
     return pending
 
 

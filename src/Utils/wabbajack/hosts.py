@@ -10,6 +10,7 @@ from Utils.ca_bundle import resolve_ca_bundle
 from Utils.downloads import bandwidth
 from .http import DownloadUnavailable, download_http
 from .paths import WabbajackError
+from .diagnostics import emit, url_host
 
 _AUTOMATIC = {"Http", "HTTP", "WabbajackCDN", "GoogleDrive", "Mega", "MediaFire", "ModDB"}
 _DRIVE_HOSTS = {"drive.google.com", "drive.usercontent.google.com", "docs.google.com"}
@@ -45,12 +46,18 @@ def _check_stop(stop):
         raise InterruptedError("Installation stopped")
 
 
-def _get(session, url, headers, stop):
+def _get(session, url, headers, stop, log=None, label="host"):
     _check_stop(stop)
     if urlparse(url).scheme not in {"http", "https"}:
         raise DownloadUnavailable("The host did not provide an HTTP download link. Use the download page or Select File.")
-    return session.get(url, headers=headers, stream=True, timeout=(20, 60),
-                       verify=resolve_ca_bundle() or True)
+    emit(log, "host.request", resolver=label, host=url_host(url),
+         header_names=sorted(headers))
+    response = session.get(url, headers=headers, stream=True, timeout=(20, 60),
+                           verify=resolve_ca_bundle() or True)
+    emit(log, "host.response", resolver=label, status=response.status_code,
+         final_host=url_host(getattr(response, "url", url)),
+         content_type=response.headers.get("Content-Type", ""))
+    return response
 
 
 def _html(response):
@@ -105,7 +112,7 @@ def _drive_id(archive):
     return value
 
 
-def _drive_response(session, archive, headers, stop):
+def _drive_response(session, archive, headers, stop, log=None):
     file_id = _drive_id(archive)
     query = {"id": file_id, "export": "download", "confirm": "t"}
     resource = parse_qs(urlparse(source_url(archive)).query).get("resourcekey")
@@ -113,12 +120,14 @@ def _drive_response(session, archive, headers, stop):
         query["resourcekey"] = resource[0]
     url = "https://drive.usercontent.google.com/download?" + urlencode(query)
     visited = set()
-    for _ in range(4):
+    for attempt in range(4):
         if url in visited:
             break
         visited.add(url)
-        response = _get(session, url, headers, stop)
+        response = _get(session, url, headers, stop, log, "google-drive")
         if not _html(response):
+            emit(log, "host.google_drive.direct", archive=archive.name,
+                 attempt=attempt + 1)
             return response
         with response:
             response.raise_for_status()
@@ -141,11 +150,13 @@ def _drive_response(session, archive, headers, stop):
                 confirmation = "https://drive.google.com/uc?" + urlencode({**query, "confirm": warning})
         if not confirmation:
             break
+        emit(log, "host.google_drive.confirmation", archive=archive.name,
+             attempt=attempt + 1, next_host=url_host(confirmation))
         url = confirmation
     raise DownloadUnavailable("Google Drive requires browser access or has reached a download limit. Open the page, sign in if requested, and download the exact file. If a quota message appears, wait for it to reset and resume.")
 
 
-def _web_response(session, archive, headers, stop):
+def _web_response(session, archive, headers, stop, log=None):
     url = source_url(archive)
     kind = archive.kind
     expected_host = "mediafire.com" if kind == "MediaFire" else "moddb.com"
@@ -153,12 +164,14 @@ def _web_response(session, archive, headers, stop):
     if host != expected_host and not host.endswith("." + expected_host):
         raise DownloadUnavailable(f"The {kind} source link is invalid. Use the author's download page or Select File.")
     visited = set()
-    for _ in range(4):
+    for attempt in range(4):
         if url in visited:
             break
         visited.add(url)
-        response = _get(session, url, headers, stop)
+        response = _get(session, url, headers, stop, log, kind.casefold())
         if not _html(response):
+            emit(log, "host.web.direct", archive=archive.name, kind=kind,
+                 attempt=attempt + 1)
             return response
         with response:
             response.raise_for_status()
@@ -179,17 +192,23 @@ def _web_response(session, archive, headers, stop):
                 candidates.append(link)
         if not candidates:
             break
+        emit(log, "host.web.link_found", archive=archive.name, kind=kind,
+             attempt=attempt + 1, candidates=len(candidates),
+             next_host=url_host(candidates[0]))
         url = candidates[0]
     raise DownloadUnavailable(f"{kind} did not provide a direct download. Open the page to complete any sign-in or browser checks, then download the exact file.")
 
 
-def download_host(archive, target, *, stop=None, progress=None):
+def download_host(archive, target, *, stop=None, progress=None, log=None):
+    emit(log, "host.download.started", archive=archive.name, kind=archive.kind,
+         source_host=url_host(source_url(archive)), target=target)
     if archive.kind == "Mega":
         from .mega import download_mega
         return download_mega(source_url(archive), target, size=archive.size, expected=archive.key,
-                             stop=stop, progress=progress)
+                             stop=stop, progress=progress, log=log)
     with requests.Session() as session:
         resolver = _drive_response if archive.kind == "GoogleDrive" else _web_response
         return download_http(source_url(archive), target, size=archive.size, expected=archive.key,
                              stop=stop, progress=progress,
-                             open_response=lambda headers: resolver(session, archive, headers, stop))
+                             open_response=lambda headers: resolver(session, archive, headers, stop, log),
+                             log=log)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import struct
+import time
 import zlib
 from pathlib import Path
 
@@ -9,6 +10,7 @@ import lz4.frame
 from Utils.atomic_write import atomic_writer
 from .manifest import type_name
 from .paths import WabbajackError, relative_path, source_path
+from .diagnostics import emit
 
 
 def check_archive_state(state, files):
@@ -102,13 +104,20 @@ def lz4_frame_encoder():
 
 
 def rebuild_archive(target: Path, root: Path, state: dict, files: list,
-                    stop=None, progress=None):
+                    stop=None, progress=None, log=None):
+    started = time.monotonic()
     check_archive_state(state, files)
     files = sorted(files, key=lambda f: int(f["Index"]))
     for item in files:
         if not source_path(root, item["Path"]).is_file():
             raise WabbajackError(f"Missing archive source: {item['Path']}")
     kind = type_name(state["$type"])
+    emit(log, "archive.rebuild.started", target=target, source_root=root,
+         kind=kind, version=state.get("Version", state.get("VersionNumber")),
+         archive_type=state.get("Type"), compression=state.get("Compression"),
+         archive_flags=state.get("ArchiveFlags"), file_flags=state.get("FileFlags"),
+         members=len(files), source_bytes=sum(source_path(root, item["Path"]).stat().st_size
+                                              for item in files))
     with atomic_writer(target, "w+b", encoding=None) as out:
         if kind == "TES3State":
             _tes3(out, root, state, files, stop)
@@ -123,6 +132,9 @@ def rebuild_archive(target: Path, root: Path, state: dict, files: list,
             (lambda cur, total: progress(total + cur, total * 2)) if progress else None)
         if progress:
             progress(len(files), len(files))
+    emit(log, "archive.rebuild.completed", target=target,
+         kind=kind, members=len(files), bytes=target.stat().st_size,
+         elapsed_seconds=round(time.monotonic() - started, 3))
 
 
 def _tes3(out, root, state, files, stop):

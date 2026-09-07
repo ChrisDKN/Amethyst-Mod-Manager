@@ -12,6 +12,7 @@ import requests
 from Utils.ca_bundle import resolve_ca_bundle
 from .http import DownloadUnavailable, download_http
 from .paths import WabbajackError
+from .diagnostics import emit, url_host
 
 
 def _decode(value):
@@ -80,13 +81,15 @@ def _verify_mac(path, key, stop):
         raise WabbajackError("MEGA file authentication failed. The downloaded file is damaged or the link has the wrong key.")
 
 
-def _ticket(session, handle, key, size, stop):
+def _ticket(session, handle, key, size, stop, log=None):
     from cryptography.hazmat.primitives.ciphers import modes
     if stop is not None and stop.is_set():
         raise InterruptedError("Installation stopped")
     with session.post("https://g.api.mega.co.nz/cs", params={"id": secrets.randbits(32)},
                       json=[{"a": "g", "g": 1, "p": handle, "ssl": 2}], timeout=(20, 60),
                       verify=resolve_ca_bundle() or True) as response:
+        emit(log, "mega.ticket.response", status=response.status_code,
+             final_host=url_host(getattr(response, "url", "https://g.api.mega.co.nz")))
         response.raise_for_status()
         try:
             data = response.json()
@@ -117,14 +120,18 @@ def _ticket(session, handle, key, size, stop):
             raise ValueError("Invalid file attributes")
     except (ValueError, AttributeError) as exc:
         raise DownloadUnavailable("The MEGA key does not unlock this file. Obtain the complete link from the author or use Select File.") from exc
+    emit(log, "mega.ticket.verified", download_host=url_host(url), bytes=size)
     return url
 
 
-def download_mega(url, target, *, size, expected, stop=None, progress=None):
+def download_mega(url, target, *, size, expected, stop=None, progress=None,
+                  log=None):
     handle, key = _file_link(url)
+    emit(log, "mega.download.started", source_host=url_host(url), target=target,
+         bytes=size, hash=expected)
     with requests.Session() as session:
         def open_response(headers):
-            ticket = _ticket(session, handle, key, size, stop)
+            ticket = _ticket(session, handle, key, size, stop, log)
             response = session.get(ticket, headers=headers, stream=True, timeout=(20, 60),
                                    verify=resolve_ca_bundle() or True)
             if response.status_code == 509:
@@ -133,4 +140,4 @@ def download_mega(url, target, *, size, expected, stop=None, progress=None):
             return response
         return download_http(url, target, size=size, expected=expected, stop=stop, progress=progress,
                              open_response=open_response, transform=lambda offset: _decryptor(key, offset),
-                             validate=lambda path: _verify_mac(path, key, stop))
+                             validate=lambda path: _verify_mac(path, key, stop), log=log)

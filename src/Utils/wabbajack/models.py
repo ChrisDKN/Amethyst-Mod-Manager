@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, TYPE_CHECKING
@@ -108,6 +109,7 @@ class InstallRequest:
     proton: Path | None = None
     resolve_conflicts: Callable | None = None
     setup_options: dict = field(default_factory=dict)
+    diagnostic_id: str = field(default_factory=lambda: uuid.uuid4().hex[:12])
 
     def __post_init__(self):
         import copy

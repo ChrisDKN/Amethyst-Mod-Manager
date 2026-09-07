@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from .diagnostics import emit, emit_exception
 from .paths import WabbajackError
 
 
@@ -107,29 +109,59 @@ def ensure_runtime(request, stop, log):
     from Utils.wine import proton
     from Utils.wine.health import detect_component
     from Utils.wine.protontricks import WINETRICKS_VERB_DEPS, install_winetricks_verb
-    for item in adjustments(request.package, request.game, request.profiles):
-        if not item.required:
-            continue
+    required = [item for item in adjustments(request.package, request.game, request.profiles)
+                if item.required]
+    emit(log, "runtime.setup.started", required=[item.id for item in required],
+         accepted=request.fixes, prefix=request.game.get_prefix_path()
+         if hasattr(request.game, "get_prefix_path") else None)
+    for item in required:
         if item.id not in request.fixes:
+            emit(log, "runtime.setup.not_accepted", adjustment=item.id, label=item.label)
             raise WabbajackError(f"Required runtime setup has not been accepted: {item.label}")
         if stop.is_set():
             raise InterruptedError("Runtime setup stopped")
         token = item.id.removeprefix("runtime:")
         log(item.label)
-        installer = getattr(proton, "install_" + token, None)
-        if token == "dotnet48":
-            ok = proton.install_dotnet48(request.game, log_fn=log)
-        elif token.startswith("dotnet"):
-            ok = proton.install_dotnet(request.game, token.removeprefix("dotnet"), log_fn=log)
-        elif token in WINETRICKS_VERB_DEPS:
-            ok = install_winetricks_verb(request.game, token, log_fn=log, strict_prefix=True)
-        elif installer:
-            ok = installer(request.game, log_fn=log)
-        else:
-            raise WabbajackError(f"No runtime installer is available for {token}")
         prefix = request.game.get_prefix_path()
-        if not ok or not prefix or detect_component(token, Path(prefix)) is not True:
+        try:
+            before = detect_component(token, Path(prefix)) if prefix else None
+        except Exception as exc:
+            before = f"<{type(exc).__name__}: {exc}>"
+            emit_exception(log, "runtime.component.precheck_failed", exc,
+                           component=token, prefix=prefix)
+        started = time.monotonic()
+        emit(log, "runtime.component.started", component=token, label=item.label,
+             prefix=prefix, detected_before=before)
+        installer = getattr(proton, "install_" + token, None)
+        try:
+            if token == "dotnet48":
+                method = "proton.install_dotnet48"
+                ok = proton.install_dotnet48(request.game, log_fn=log)
+            elif token.startswith("dotnet"):
+                method = "proton.install_dotnet"
+                ok = proton.install_dotnet(request.game, token.removeprefix("dotnet"), log_fn=log)
+            elif token in WINETRICKS_VERB_DEPS:
+                method = "protontricks"
+                ok = install_winetricks_verb(request.game, token, log_fn=log,
+                                             strict_prefix=True)
+            elif installer:
+                method = installer.__name__
+                ok = installer(request.game, log_fn=log)
+            else:
+                raise WabbajackError(f"No runtime installer is available for {token}")
+            prefix = request.game.get_prefix_path()
+            after = detect_component(token, Path(prefix)) if prefix else None
+            emit(log, "runtime.component.completed", component=token, method=method,
+                 installer_result=ok, prefix=prefix, detected_after=after,
+                 elapsed_seconds=round(time.monotonic() - started, 3))
+        except BaseException as exc:
+            emit_exception(log, "runtime.component.failed", exc, component=token,
+                           prefix=prefix,
+                           elapsed_seconds=round(time.monotonic() - started, 3))
+            raise
+        if not ok or not prefix or after is not True:
             raise WabbajackError(f"Runtime setup failed verification: {item.label}. Use Proton Tools to repair it, then resume.")
+    emit(log, "runtime.setup.completed", components=len(required))
 
 
 def launch_environment(game, env):

@@ -6,6 +6,7 @@ import uuid
 from pathlib import Path
 
 from Utils.atomic_write import write_atomic_text
+from .diagnostics import emit
 from .games import nexus_domain
 from .paths import WabbajackError, within
 
@@ -37,8 +38,11 @@ def restore_settings(game, log):
     from .store import Store
     destination, journal = _locations(game)
     if not journal.is_file():
+        emit(log, "profile_settings.restore.not_required", destination=destination)
         return
     rows = json.loads(journal.read_text())
+    emit(log, "profile_settings.restore.started", destination=destination,
+         journal=journal, files=len(rows))
     profiles = Path(game.get_profile_root()) / "profiles"
     while rows:
         row = rows[0]
@@ -78,10 +82,13 @@ def restore_settings(game, log):
             backup.replace(target)
         Store._sync_directory(destination)
         log(f"Restored game settings: {row['name']}")
+        emit(log, "profile_settings.file_restored", name=row["name"],
+             target=target, backup=backup, source=source)
         rows.pop(0)
         _save(journal, rows)
     journal.unlink()
     Store._sync_directory(journal.parent)
+    emit(log, "profile_settings.restore.completed", destination=destination)
 
 
 def link_settings(game, profile, log):
@@ -93,6 +100,9 @@ def link_settings(game, profile, log):
         restore_settings(game, log)
     settings = read_profile_settings(profile_dir)
     if not (settings.get("wabbajack_install_id") or settings.get("is_group")) or not settings.get("profile_ini_files"):
+        emit(log, "profile_settings.link.skipped", profile=profile,
+             managed=bool(settings.get("wabbajack_install_id") or settings.get("is_group")),
+             profile_ini_files=bool(settings.get("profile_ini_files")))
         return
     destination, journal = _locations(game)
     restore_settings(game, log)
@@ -107,7 +117,11 @@ def link_settings(game, profile, log):
         if path.is_file():
             files[name] = path
     if not files:
+        emit(log, "profile_settings.link.no_files", profile=profile,
+             destination=destination)
         return
+    emit(log, "profile_settings.link.started", profile=profile,
+         destination=destination, files=sorted(files))
     destination.mkdir(parents=True, exist_ok=True)
     rows = []
     for name, source in files.items():
@@ -130,3 +144,7 @@ def link_settings(game, profile, log):
         row["linked"] = True
         _save(journal, rows)
         log(f"Linked profile settings: {name}")
+        emit(log, "profile_settings.file_linked", name=name, source=source,
+             target=target, backup=backup)
+    emit(log, "profile_settings.link.completed", profile=profile,
+         destination=destination, files=len(rows))
