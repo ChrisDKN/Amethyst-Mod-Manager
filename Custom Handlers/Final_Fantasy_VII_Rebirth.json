@@ -1,0 +1,117 @@
+{
+  "name": "FF VII Rebirth",
+  "game_id": "Final_Fantasy_VII_Rebirth",
+  "exe_name": "End/Binaries/Win64/ff7rebirth_.exe",
+  "deploy_type": "ue5",
+  "mod_data_path": "End",
+  "steam_id": "2909400",
+  "nexus_game_domain": "finalfantasy7rebirth",
+  "image_url": "https://cdn2.steamgriddb.com/icon/f1ddf31d687ba7d8539da45a92dbc68d/32/256x256.png",
+  "mod_folder_strip_prefixes": [],
+  "conflict_ignore_filenames": [
+    "*.txt",
+    "*.png",
+    "*.jpg"
+  ],
+  "mod_folder_strip_prefixes_post": [],
+  "mod_install_prefix": "",
+  "mod_required_top_level_folders": [],
+  "mod_auto_strip_until_required": false,
+  "mod_required_file_types": [],
+  "mod_install_as_is_if_no_match": false,
+  "restore_before_deploy": true,
+  "normalize_folder_case": true,
+  "filemap_casing": "upper",
+  "wine_dll_overrides": {
+    "xinput1_3": "native,builtin",
+    "dsound": "native,builtin",
+    "dxgi": "native,builtin",
+    "d3d11": "native,builtin"
+  },
+  "custom_routing_rules": [
+    {
+      "dest": "drive_c/users/steamuser/Documents/My Games/FINAL FANTASY VII REBIRTH/Saved/Config/WindowsNoEditor",
+      "filenames": [
+        "Engine.ini"
+      ],
+      "flatten": true,
+      "to_prefix": true
+    },
+    {
+      "dest": "Content/GameContents/Movie",
+      "extensions": [
+        ".emov"
+      ],
+      "include_siblings": true
+    },
+    {
+      "dest": "Binaries/Win64",
+      "filenames": [
+        "xinput1_3.dll"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Binaries/Win64",
+      "folders": [
+        "reshade-shaders"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Binaries/Win64",
+      "extensions": [
+        ".dll"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Binaries/Win64",
+      "filenames": [
+        "*reshade*.ini"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Mods",
+      "extensions": [
+        ".uplugin"
+      ],
+      "include_siblings": true
+    },
+    {
+      "dest": "Content/Paks/~mods",
+      "extensions": [
+        ".pak"
+      ],
+      "companion_extensions": [
+        ".ucas",
+        ".utoc"
+      ],
+      "include_siblings": true
+    },
+    {
+      "dest": "Mods",
+      "folders": [
+        "Mods"
+      ]
+    },
+    {
+      "dest": "Binaries/Win64",
+      "folders": [
+        "ShaderFixes"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Binaries/Win64",
+      "filenames": [
+        "d3dx.ini"
+      ],
+      "flatten": true
+    }
+  ],
+  "custom_frameworks": {},
+  "version": 2,
+  "editable": false
+}
