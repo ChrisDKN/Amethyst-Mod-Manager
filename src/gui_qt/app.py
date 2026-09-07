@@ -330,6 +330,7 @@ class MainWindow(QMainWindow):
     # Saved-login initialization worker → UI thread (result dict). Importing
     # OAuth/keyring support probes DBus and must not hold up the first paint.
     _nexus_api_initialized = Signal(object)
+    _wabbajack_gallery_ready = Signal(object, bool)
     # LOOT Sort Plugins worker → UI thread (SortResult | None on error).
     _sort_plugins_ready = Signal(object)
     # LOOT record-overlap worker → UI thread: (target plugin name,
@@ -915,6 +916,9 @@ class MainWindow(QMainWindow):
         self._ts_updates_ready.connect(self._on_thunderstore_updates_ready)
         self._ts_identify_ready.connect(self._on_thunderstore_identify_ready)
         self._ts_auto_identified.connect(self._on_thunderstore_auto_identified)
+        self._wabbajack_gallery_ready.connect(self._on_wabbajack_gallery_ready)
+        self._queue_startup_deferred(
+            "Load Wabbajack game availability", self._refresh_wabbajack_availability)
         self._handle_nxm_argv()
         self._handle_ror2mm_argv()
         self._handle_modl_argv()
@@ -2732,7 +2736,7 @@ class MainWindow(QMainWindow):
         h.addWidget(self._game_selector)
 
         # Profile selector - "Profile:" prefix baked into the button text.
-        # icon_px=16 pins the group badge to the menu's radio-indicator
+        # icon_px=16 pins profile badges to the menu's radio-indicator
         # geometry so icon rows align with radio rows.
         self._profile_selector = SelectorButton(
             items=["default"],
@@ -2740,10 +2744,10 @@ class MainWindow(QMainWindow):
             prefix=self.tr("Profile: "),
             min_width=150,
             icon_px=16,
+            scroll_after=15,
             actions=self._profile_actions(),
             on_select=self._on_profile_changed,
-            # Side bar: the per-item icons are Profile Group badges, so an
-            # ungrouped profile has none. Untinted - profile.png is full-colour
+            # Side bar: ordinary profiles have no badge. Untinted - profile.png is full-colour
             # artwork, not a mono glyph; recolouring flattens it to a disc.
             face_icon=(icon("profile.png", self._ICON_PX) if vertical
                        else None),
@@ -2827,8 +2831,9 @@ class MainWindow(QMainWindow):
                 (self.tr("Install LAV Filters (radio/music codecs)"),
                  self._proton_install_lavfilters, "lavfilters"),
                 (self.tr(".NET runtime"), [
-                    (self.tr(".NET {0}").format(v), (lambda v=v: self._proton_install_dotnet(v)))
-                    for v in DOTNET_VERSIONS
+                    (self.tr(".NET Framework 4.8"), lambda: self._proton_install_dotnet("4.8")),
+                    *[(self.tr(".NET {0}").format(v), (lambda v=v: self._proton_install_dotnet(v)))
+                      for v in DOTNET_VERSIONS]
                 ]),
             ]),
             # Wizard's menu is dynamic - rebuilt per game on aboutToShow.
@@ -2836,7 +2841,6 @@ class MainWindow(QMainWindow):
             ("Nexus", self.tr("Nexus"), "nexus.png", [
                 (self.tr("Open Nexus Mods"), self._open_nexus_browser_tab),
                 (self.tr("Open game on nexus"), self._open_game_on_nexus),
-                (self.tr("Browse Wabbajack modlists…"), self._open_wabbajack_tab),
                 None,
                 (self.tr("Login to Nexus"), [
                     (self.tr("Login via SSO"), self._nexus_login_sso),
@@ -2867,6 +2871,9 @@ class MainWindow(QMainWindow):
                 (self.tr("Identify installed mods"),
                  self._identify_thunderstore_mods),
             ]),
+            ("Wabbajack", self.tr("Wabbajack"), "Wabbajack.png", [
+                (self.tr("Browse Wabbajack modlists…"), self._open_wabbajack_tab),
+            ]),
         ]:
             # Proton's logo is a mono glyph - tint it white like the Settings
             # icon so it stays visible. The others are full-colour logos.
@@ -2886,6 +2893,8 @@ class MainWindow(QMainWindow):
                 b._menu.aboutToShow.connect(self._sync_proton_menu)
             elif label == "Thunderstore":
                 self._thunderstore_btn = b
+            elif label == "Wabbajack":
+                self._wabbajack_btn = b
             elif label == "Nexus":
                 self._nexus_btn = b
                 b._menu.aboutToShow.connect(self._sync_nexus_menu)
@@ -2904,10 +2913,7 @@ class MainWindow(QMainWindow):
                 b.setMinimumWidth(0)
                 b.setFixedHeight(self._BTN_H)
 
-        # Gate the Nexus / Thunderstore buttons on the current game's stores,
-        # and the Proton button on it having a wine prefix. Done after the loop
-        # so all three buttons exist; safe before the header is shown (the sync
-        # tracks intent, not isVisible()).
+        # Apply game-specific visibility before showing the header.
         self._sync_thunderstore_button()
 
         h.addStretch(1)
@@ -3227,6 +3233,7 @@ class MainWindow(QMainWindow):
         # missing/empty Nexus domain closes them (nothing to show).
         self._retarget_browsers_for_game()
         self._sync_thunderstore_button()
+        self._refresh_wabbajack_availability()
         # Reflect the new game's profiles + keep both game selectors in sync.
         profs = self._gs.profiles()
         if profs:
@@ -5692,6 +5699,8 @@ class MainWindow(QMainWindow):
         self._tabs.open_tab(view, self.tr("Nexus"), key="nexus_browser")
 
     def _open_wabbajack_tab(self):
+        if not self._wabbajack_available():
+            return
         if self._tabs.has_key("wabbajack"):
             self._tabs.focus_key("wabbajack")
             return
@@ -5705,7 +5714,57 @@ class MainWindow(QMainWindow):
         self._wabbajack_view = view
         view.running_changed.connect(lambda held: self._set_tool_lock("wabbajack", "Wabbajack installation", held))
         view.installed.connect(self._wabbajack_installed)
+        view.gallery_changed.connect(self._on_wabbajack_gallery_ready)
         self._tabs.open_tab(view, self.tr("Wabbajack"), key="wabbajack")
+
+    def _wabbajack_available(self):
+        game = self._gs.game
+        if game is None:
+            return False
+        names = getattr(self, "_wabbajack_games", ())
+        if names:
+            from Utils.wabbajack.games import matches_game
+            if any(matches_game(game, name) for name in names):
+                return True
+        try:
+            root = Path(game.get_profile_root())
+            if not (root / ".wabbajack").is_dir():
+                return False
+            from Utils.wabbajack.store import installations
+            return bool(installations(root))
+        except (OSError, TypeError, AttributeError):
+            return False
+
+    def _refresh_wabbajack_availability(self):
+        if getattr(self, "_wabbajack_gallery_loading", False):
+            return
+        now = _startup_time.monotonic()
+        if now - getattr(self, "_wabbajack_gallery_checked", float("-inf")) < 300:
+            return
+        self._wabbajack_gallery_loading = True
+        self._wabbajack_gallery_checked = now
+        import threading
+        from gui_qt.safe_emit import safe_emit
+        def work():
+            from Utils.wabbajack.gallery import load_gallery
+            try:
+                cached = load_gallery(cached_only=True)
+                safe_emit(self._wabbajack_gallery_ready, cached, False)
+            except Exception:
+                pass
+            try:
+                result = load_gallery()
+            except Exception:
+                result = None
+            safe_emit(self._wabbajack_gallery_ready, result, True)
+        threading.Thread(target=work, daemon=True, name="wabbajack-availability").start()
+
+    def _on_wabbajack_gallery_ready(self, result, finished=False):
+        if finished:
+            self._wabbajack_gallery_loading = False
+        if result is not None:
+            self._wabbajack_games = {entry.game for entry in result.entries if entry.game}
+            self._sync_thunderstore_button()
 
     def _wabbajack_installed(self, game, result):
         if self._gs.game_name != game.name:
@@ -10719,9 +10778,7 @@ class MainWindow(QMainWindow):
             key="profile_settings")
 
     def _set_profile_selector_items(self, profs, current=None):
-        """set_items on the profile selector: Profile Groups are badged with
-        the collection icon and listed LAST, split from plain profiles by a
-        separator, so merged profiles read as their own section."""
+        """Separate ordinary, Wabbajack and grouped profiles with their badges."""
         profs = list(profs)
         # Always a REAL dict/set - set_items keeps the previous icon map when
         # passed None, so a deleted group's badge would stick to any later
@@ -10729,19 +10786,31 @@ class MainWindow(QMainWindow):
         icons: dict = {}
         seps: set = set()
         try:
-            from Utils.profiles.groups import list_groups
+            from Utils.profiles.state import read_profile_settings
             g = self._gs.game
             if g is not None:
-                groups = set(list_groups(g))
-                if groups:
-                    plain = [n for n in profs if n not in groups]
-                    grouped = [n for n in profs if n in groups]
-                    profs = plain + grouped
-                    if plain and grouped:
-                        seps = {grouped[0]}
-                    from gui_qt.icons import icon
+                root = Path(g.get_profile_root()) / "profiles"
+                plain, wabbajack, grouped = [], [], []
+                for name in profs:
+                    settings = read_profile_settings(root / name)
+                    if settings.get("is_group"):
+                        grouped.append(name)
+                    elif settings.get("wabbajack_install_id"):
+                        wabbajack.append(name)
+                    else:
+                        plain.append(name)
+                ordered = []
+                for section in (plain, wabbajack, grouped):
+                    if ordered and section:
+                        seps.add(section[0])
+                    ordered.extend(section)
+                profs = ordered
+                if wabbajack:
+                    ico = icon("Wabbajack.png", 16)
+                    icons.update({name: ico for name in wabbajack})
+                if grouped:
                     ico = icon("collection.png", 16)
-                    icons = {n: ico for n in grouped}
+                    icons.update({name: ico for name in grouped})
         except Exception:
             icons = {}
             seps = set()
@@ -11345,6 +11414,9 @@ class MainWindow(QMainWindow):
             # through and launch the exe normally.
             from Utils.wizards.plugins import wizard_tool_for_exe
             tool = wizard_tool_for_exe(game, exe_path.name)
+            from Utils.wabbajack.runtime import authored_executable
+            if authored_executable(game, exe_path):
+                tool = None
             if tool is not None:
                 from wizards_qt import get_spec
                 if get_spec(tool.dialog_class_path) is not None:
@@ -11953,6 +12025,23 @@ class MainWindow(QMainWindow):
         Restore is synchronous because the app is exiting and mirrors the Tk
         gui.py shutdown path.
         """
+        if getattr(self, "_proton_busy", False):
+            event.ignore()
+            self._notify(self.tr("Wait for the Proton installer to finish before closing Amethyst."), "warning")
+            return
+        import sys
+        wabbajack = sys.modules.get("gui_qt.wabbajack_view")
+        if wabbajack is not None and wabbajack.pause_for_shutdown():
+            event.ignore()
+            self.setEnabled(False)
+            if not hasattr(self, "_wabbajack_shutdown_timer"):
+                self._append_log(self.tr("Pausing Wabbajack and waiting for installation and tool setup to stop safely…"))
+                self._wabbajack_shutdown_timer = QTimer(self)
+                self._wabbajack_shutdown_timer.setSingleShot(True)
+                self._wabbajack_shutdown_timer.timeout.connect(self.close)
+            if not self._wabbajack_shutdown_timer.isActive():
+                self._wabbajack_shutdown_timer.start(100)
+            return
         self._save_filter_states()
         self._save_window_state()
         try:
@@ -12817,6 +12906,7 @@ class MainWindow(QMainWindow):
                 (getattr(game, "nexus_game_domain", "") or "").strip()
                 if game is not None else ""),
             "_proton_btn": self._game_has_prefix(game),
+            "_wabbajack_btn": self._wabbajack_available(),
         }
         changed = False
         for attr, want in wanted.items():
@@ -12848,9 +12938,18 @@ class MainWindow(QMainWindow):
 
     def _proton_install_dotnet(self, version: str):
         from Utils.wine.proton import install_dotnet
+        game = self._gs.game
+
+        def worker(plog):
+            def log(message):
+                plog(message)
+                if version == "4.8" and len(message) < 240:
+                    self._op_progress.emit(0, 0, message)
+            return install_dotnet(game, version, log_fn=log)
+
         self._run_proton_installer(
-            self.tr("Installing .NET {0}").format(version),
-            lambda plog: install_dotnet(self._gs.game, version, log_fn=plog))
+            self.tr("Installing .NET Framework 4.8") if version == "4.8" else self.tr("Installing .NET {0}").format(version),
+            worker)
 
     def _run_proton_installer(self, title: str, worker_fn, on_done=None) -> bool:
         """Run a blocking Proton installer (*worker_fn(log_fn) -> bool*) on a

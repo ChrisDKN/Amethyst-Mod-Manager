@@ -3307,6 +3307,8 @@ def launch_exe_via_proton(
     settings_key = launch_settings_key or exe_path.name
     from Utils.wabbajack.runtime import working_directory, launch_environment, uses_stock_game
     launch_cwd = working_directory(game, exe_path)
+    from Utils.wabbajack.runtime import configure_tool_output
+    configure_tool_output(game, exe_path, log_fn)
     framework_launch = is_framework_launch_exe(game, exe_path.name)
     vfs_game_launch = False
     if getattr(game, "vfs_launch_enabled", False):

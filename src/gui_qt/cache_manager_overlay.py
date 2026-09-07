@@ -45,6 +45,7 @@ class CacheManagerOverlay(OverlayBase):
     _sizes_ready = Signal(object)        # {name: bytes} (per-game only)
     _orphans_ready = Signal(int, "qlonglong")   # dir count, total bytes
     _wabbajack_ready = Signal(object)
+    _migration_failed = Signal(str)
     _clear_done = Signal(int, object)    # cleared_count, errors
 
     def __init__(self, host: QWidget, active_game_name: str = "",
@@ -62,6 +63,7 @@ class CacheManagerOverlay(OverlayBase):
 
         self._sizes_ready.connect(self._on_sizes)
         self._wabbajack_ready.connect(self._on_wabbajack)
+        self._migration_failed.connect(lambda message: self._set_status(message, "err"))
         self._orphans_ready.connect(self._on_orphans)
         self._clear_done.connect(self._on_clear_done)
 
@@ -218,7 +220,7 @@ class CacheManagerOverlay(OverlayBase):
         for idx, game_dir in enumerate(games):
             name = game_dir.name
             active = (name == self._active)
-            label = self.tr("{0}  (active)").format(name) if active else name
+            label = self.tr("{0}  (active)").format(name) if active else self._label_for(name)
             color = _c(p, "TEXT_OK_BRIGHT") if active else _c(p, "TEXT_MAIN")
             self._add_row(idx, name, label, color)
 
@@ -247,8 +249,18 @@ class CacheManagerOverlay(OverlayBase):
         """Size the per-game caches, then sweep for orphans - two emits, so the
         (fast) cache sizes land without waiting on the (slower) staging walk."""
         names = [k for k in self._size_lbls if k not in {_ORPHANS, _WABBAJACK}]
+        self._clear_sel_btn.setEnabled(False)
+        self._clear_all_btn.setEnabled(False)
 
         def worker():
+            try:
+                from Utils.config_paths import get_wabbajack_cache_dir
+                cache = get_wabbajack_cache_dir()
+                if cache.is_dir() and cache.name not in names:
+                    names.append(cache.name)
+            except Exception as exc:
+                from gui_qt.safe_emit import safe_emit
+                safe_emit(self._migration_failed, str(exc))
             try:
                 from Utils.downloads.cache import game_cache_sizes
                 sizes = dict(game_cache_sizes(names))
@@ -274,7 +286,16 @@ class CacheManagerOverlay(OverlayBase):
 
     def _on_sizes(self, sizes: dict):
         from Utils.downloads.cache import format_size
+        self._clear_sel_btn.setEnabled(True)
+        self._clear_all_btn.setEnabled(True)
         for name, sz in sizes.items():
+            if name == "wabbajack" and name not in self._checks:
+                if self._empty_lbl is not None:
+                    self._rows_v.removeWidget(self._empty_lbl)
+                    self._empty_lbl.deleteLater()
+                    self._empty_lbl = None
+                self._add_row(max(self._rows_v.count() - 1, 0), name,
+                              self._label_for(name), _c(self._pal, "TEXT_MAIN"))
             self._sizes[name] = sz
             lbl = self._size_lbls.get(name)
             if lbl is not None:
@@ -348,6 +369,8 @@ class CacheManagerOverlay(OverlayBase):
         return sum(self._sizes.get(k, 0) for k in keys)
 
     def _label_for(self, key: str) -> str:
+        if key == "wabbajack":
+            return self.tr("Wabbajack gallery and packages")
         return "Wabbajack jobs and update backups" if key == _WABBAJACK else "Leftover temp folders" if key == _ORPHANS else key
 
     def _on_clear_selected(self):
@@ -362,7 +385,7 @@ class CacheManagerOverlay(OverlayBase):
         if len(shown) > 10:
             listing += self.tr("\n  • …and {0} more").format(len(shown) - 10)
         body = self.tr("Clear {0} across {1} item(s)?\n\n"
-                "{2}\n\nArchives will be re-downloaded as needed. Wabbajack cleanup removes abandoned jobs and update backups; referenced installations and their download locations are preserved.").format(
+                "{2}\n\nArchives, gallery data and modlist packages will be re-downloaded as needed. The Wabbajack jobs/backups entry removes abandoned jobs and update backups; referenced installations are preserved.").format(
                     format_size(total), len(keys), listing)
         n = len(keys)
         ConfirmOverlay.show_over(
@@ -388,7 +411,7 @@ class CacheManagerOverlay(OverlayBase):
         body = self.tr("Clear {0} of cached downloads across every "
                 "game?\n\nLocation: {1}\n\n"
                 "The md5 cache is preserved. Archives will be re-downloaded as "
-                "needed. Wabbajack cleanup also removes abandoned jobs and update backups.").format(format_size(total), get_download_cache_dir())
+                "needed. Wabbajack gallery data and modlist packages are also cleared. The jobs/backups entry removes abandoned jobs and update backups.").format(format_size(total), get_download_cache_dir())
         ConfirmOverlay.show_over(
             self._host, self.tr("Clear All Download Caches"), body,
             lambda ok: self._run_clear(keys) if ok else None,

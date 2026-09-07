@@ -1,5 +1,8 @@
 py.install_sources(
   'wabbajack_view.py',
+  'wabbajack_card.py',
+  'wabbajack_setup.py',
+  'wabbajack_tasks.py',
   '__init__.py',
   'add_game_view.py',
   'audio_preview.py',

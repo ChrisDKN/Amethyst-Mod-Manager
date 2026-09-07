@@ -354,8 +354,8 @@ class Fallout_NV(Fallout_3):
         # 2. Migrate INIs from the prefix → profile, without overwriting.
         for mygames in self._mygames_paths():
             for name in self._TTW_MIGRATE_INI_NAMES:
-                src = mygames / name
-                dst = ini_dir / name
+                src = self._resolve_ini_path(mygames, name)
+                dst = self._resolve_ini_path(ini_dir, name)
                 # Resolve through any symlink: a managed symlink already points
                 # back into a profile, so there's nothing to migrate.
                 if not src.exists() or src.is_symlink():
@@ -370,7 +370,7 @@ class Fallout_NV(Fallout_3):
                     _log(f"  WARN: could not migrate '{name}': {exc}")
 
         # 3. Create / update FalloutCustom.ini with the TTW values.
-        custom_ini = ini_dir / self._TTW_CUSTOM_INI_FILENAME
+        custom_ini = self._resolve_ini_path(ini_dir, self._TTW_CUSTOM_INI_FILENAME)
         for section, key, value in self._TTW_CUSTOM_INI_VALUES:
             _set_ini_key(custom_ini, section, key, value)
         _log(f"  Wrote TTW values to '{custom_ini.name}'.")

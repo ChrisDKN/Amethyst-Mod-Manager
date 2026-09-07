@@ -139,6 +139,7 @@ def _route_path(staged_rel: str) -> tuple[str, str]:
 # ---------------------------------------------------------------------------
 
 class Witcher3(ProfileVFSGameMixin, BaseGame):
+    profile_overridable_paths_extras = (*BaseGame.profile_overridable_paths_extras, "profile_ini_files")
 
     profile_overridable_settings = (
         *BaseGame.profile_overridable_settings,
@@ -469,6 +470,16 @@ class Witcher3(ProfileVFSGameMixin, BaseGame):
             _log(f"  WARN: could not write deploy snapshot: {exc}")
 
         update_menu_filelists(game_path, log_fn=_log)
+        self._symlink_profile_ini_files(profile, _log)
+
+    def _symlink_profile_ini_files(self, profile, log_fn):
+        from Utils.wabbajack.profile_config import link_settings
+        link_settings(self, profile, log_fn)
+
+    def _remove_profile_ini_symlinks(self, profile, log_fn):
+        from Utils.wabbajack.profile_config import restore_settings
+        if (self.get_profile_root() / "wabbajack-settings-links.json").is_file():
+            restore_settings(self, log_fn)
 
     def _find_staged_file(
         self,
@@ -666,6 +677,7 @@ class Witcher3(ProfileVFSGameMixin, BaseGame):
 
         game_path     = self._game_path
         manifest_path = self.get_profile_root() / _DEPLOYED_MANIFEST
+        self._remove_profile_ini_symlinks("", _log)
 
         # Separator targets outside the install remain physical under the
         # generic VFS builder and have their own transactional journal.

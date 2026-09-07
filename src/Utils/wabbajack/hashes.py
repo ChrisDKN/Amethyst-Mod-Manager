@@ -74,6 +74,11 @@ class XXHash:
 
 
 def file_hash(path: Path, stop=None) -> str:
+    from .verification import verified_read
+    return verified_read(path, "xxhash64", lambda: _file_hash(path, stop))
+
+
+def _file_hash(path, stop):
     h = XXHash()
     with path.open("rb") as stream:
         while data := stream.read(1024 * 1024):

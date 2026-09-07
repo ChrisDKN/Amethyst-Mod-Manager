@@ -939,13 +939,36 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
         paths = self._mygames_paths()
         return paths[0] if paths else None
 
-    def _symlink_profile_ini_files(self, profile: str, log_fn) -> None:
-        """Symlink *.ini files from the profile folder into the My Games directory.
+    def _profile_ini_filename(self, filename: str) -> str:
+        prefs = self._ARCHIVE_PREFS_INI_FILENAME
+        stem = Path(prefs or self._ARCHIVE_INI_FILENAME).stem.removesuffix("Prefs")
+        names = [self._ARCHIVE_INI_FILENAME, prefs, self._CUSTOM_INI_FILENAME,
+                 f"{stem}Custom.ini"]
+        return next((name for name in names if name and name.casefold() == filename.casefold()), filename)
 
-        Any existing file at the target is backed up as <name>.bak before being
-        replaced.  Existing symlinks pointing to our profile dir are silently
-        replaced without a backup (they are already managed by us).
-        """
+    @staticmethod
+    def _profile_ini_link_dir(target: Path) -> "Path | None":
+        if not target.is_symlink():
+            return None
+        try:
+            source = target.readlink()
+            if not source.is_absolute():
+                source = target.parent / source
+            return source.parent.resolve()
+        except (OSError, RuntimeError):
+            return None
+
+    @staticmethod
+    def _restore_profile_ini_link(target: Path, log_fn) -> None:
+        target.unlink()
+        log_fn(f"  Removed profile INI symlink: {target.name}")
+        backup = target.with_suffix(".bak")
+        if backup.exists() or backup.is_symlink():
+            backup.rename(target)
+            log_fn(f"  Restored {target.name} from .bak")
+
+    def _symlink_profile_ini_files(self, profile: str, log_fn) -> None:
+        """Link profile INIs using the game's filenames, preserving prefix backups."""
         _log = log_fn
         if not self._profile_ini_files:
             return
@@ -955,18 +978,43 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
             return
         ini_dir = self._profile_ini_dir(profile)
         ini_dir.mkdir(parents=True, exist_ok=True)
-        ini_files = list(ini_dir.glob("*.ini"))
+        ini_files = {}
+        for src in sorted(ini_dir.iterdir()):
+            if src.suffix.casefold() != ".ini" or not src.is_file():
+                continue
+            key = src.name.casefold()
+            if key in ini_files:
+                import filecmp
+                if not filecmp.cmp(src, ini_files[key], shallow=False):
+                    raise RuntimeError(f"Conflicting profile INIs: {ini_files[key].name} and {src.name}. Keep one version in {ini_dir}.")
+                _log(f"  Ignoring identical INI casing duplicate: {src.name}")
+                continue
+            ini_files[key] = src
         if not ini_files:
             _log(f"  No *.ini files found in '{ini_dir.name}' folder - skipping.")
             return
+        profiles_root = self.get_profile_root() / "profiles"
+        managed_dirs = {ini_dir.resolve()}
+        if profiles_root.is_dir():
+            managed_dirs.update((p / self._PROFILE_INI_SUBDIR).resolve()
+                                for p in profiles_root.iterdir() if p.is_dir())
         for mygames in mygames_dirs:
             mygames.mkdir(parents=True, exist_ok=True)
-            for src in ini_files:
-                target = mygames / src.name
-                if target.is_symlink():
-                    target.unlink()
-                elif target.exists():
+            for target in mygames.iterdir():
+                if target.name.casefold() in ini_files and self._profile_ini_link_dir(target) in managed_dirs:
+                    self._restore_profile_ini_link(target, _log)
+            for src in ini_files.values():
+                target = self._resolve_ini_path(mygames, self._profile_ini_filename(src.name))
+                if target.exists() or target.is_symlink():
                     backup = target.with_suffix(".bak")
+                    if backup.exists() or backup.is_symlink():
+                        number = 1
+                        saved = backup.with_name(f"{backup.name}.{number}")
+                        while saved.exists() or saved.is_symlink():
+                            number += 1
+                            saved = backup.with_name(f"{backup.name}.{number}")
+                        backup.rename(saved)
+                        _log(f"  Preserved earlier backup: {saved.name}")
                     target.rename(backup)
                     _log(f"  Backed up {target.name} → {backup.name}")
                 target.symlink_to(src)
@@ -990,27 +1038,12 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
         for mygames in mygames_dirs:
             # Scan the actual My Games folder so orphaned symlinks (whose source
             # .ini was deleted from the profile) are still removed.
-            for target in mygames.glob("*.ini"):
-                if not target.is_symlink():
+            for target in mygames.iterdir():
+                if target.suffix.casefold() != ".ini":
                     continue
-                # Compare the symlink's *target* directory against our ini dir,
-                # resolving both sides so a symlinked prefix/staging path on the
-                # way to ini_dir doesn't break the match.
-                try:
-                    link_target = target.readlink()
-                    if not link_target.is_absolute():
-                        link_target = target.parent / link_target
-                    link_parent = link_target.resolve().parent
-                except OSError:
+                if self._profile_ini_link_dir(target) != ini_dir_resolved:
                     continue
-                if link_parent != ini_dir_resolved:
-                    continue
-                target.unlink()
-                _log(f"  Removed profile INI symlink: {target.name}")
-                backup = target.with_suffix(".bak")
-                if backup.exists():
-                    backup.rename(target)
-                    _log(f"  Restored {target.name} from .bak")
+                self._restore_profile_ini_link(target, _log)
 
     # -----------------------------------------------------------------------
     # Profile-specific saves
@@ -1181,14 +1214,14 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
         over = len(list_str) > 255
         if over and self._archive_list_fix_installed():
             for d in ini_dirs:
-                _set_ini_key(d / self._CUSTOM_INI_FILENAME, "Archive",
+                _set_ini_key(self._resolve_ini_path(d, self._CUSTOM_INI_FILENAME), "Archive",
                              key, list_str)
             _log(f"  {key} is {len(list_str)} chars (engine limit 255) - "
                  f"wrote full list to {self._CUSTOM_INI_FILENAME} "
                  f"({self._archive_list_fix_name} installed).")
             return
         for d in ini_dirs:
-            custom_ini = d / self._CUSTOM_INI_FILENAME
+            custom_ini = self._resolve_ini_path(d, self._CUSTOM_INI_FILENAME)
             if custom_ini.is_file():
                 _set_ini_key(custom_ini, "Archive", key, None)
         if over:
@@ -1232,7 +1265,7 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
         if self._archive_list_needs_mod_bsas:
             self._save_tracked_mod_bsas([])
             for d in {p.parent for p in ini_paths}:
-                custom_ini = d / self._CUSTOM_INI_FILENAME
+                custom_ini = self._resolve_ini_path(d, self._CUSTOM_INI_FILENAME)
                 if custom_ini.is_file():
                     _set_ini_key(custom_ini, "Archive",
                                  self._invalidation_archive_list_key, None)

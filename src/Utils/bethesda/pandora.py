@@ -105,6 +105,7 @@ def run_pandora(exe: Path, game: "BaseGame", proton_script: Path,
     # Pandora's Settings.json - newer Pandora builds ignore the --output: CLI
     # flag. Written to the prefix and beside the exe: 4.4 seeds from the
     # prefix copy but thereafter reads the one in its own folder.
+    from Utils.wabbajack.runtime import output_directory
     _bootstrap_pandora_settings(
         getattr(game, "game_id", None),
         game_path,
@@ -112,6 +113,7 @@ def run_pandora(exe: Path, game: "BaseGame", proton_script: Path,
         compat_data,
         log_fn,
         exe_path=exe,
+        output_mod=output_directory(game, exe),
     )
 
     pfx = Path(compat_data) / "pfx"

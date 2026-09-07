@@ -18,7 +18,7 @@ def _read(stream, size):
     return data
 
 
-def records(path, file_states=None):
+def records(path, file_states=None, *, mpi_paths=False, allow_case_variants=False):
     with Path(path).open("rb") as stream:
         size = stream.seek(0, 2)
         stream.seek(0)
@@ -113,8 +113,13 @@ def records(path, file_states=None):
         else:
             raise WabbajackError("Unrecognized Bethesda archive")
         seen = set()
+        if mpi_paths:
+            result = [(name[2:] if name.startswith("./") else name, header, segments)
+                      for name, header, segments in result]
         for name, _, segments in result:
-            name = relative_path(name).casefold()
+            name = relative_path(name)
+            if not allow_case_variants:
+                name = name.casefold()
             if name in seen:
                 raise WabbajackError("Duplicate archive member")
             seen.add(name)
@@ -130,6 +135,8 @@ def read_member(stream, record, write, stop=None):
     _, header, segments = record
     write(header)
     for offset, packed, full, compression in segments:
+        if packed == full == 0:
+            continue
         stream.seek(offset)
         if compression == "lz4block":
             import lz4.block
@@ -164,22 +171,34 @@ def read_member(stream, record, write, stop=None):
             raise WabbajackError("Archive member failed decompression validation")
 
 
-def extract_bethesda(source, root, stop=None):
+def extract_bethesda(source, root, stop=None, progress=None, *, excluded_paths=frozenset()):
+    rows = [row for row in records(source, allow_case_variants=True) if relative_path(row[0]).casefold() not in excluded_paths]
+    total = sum(len(header) + sum(c[2] for c in segments) for _, header, segments in rows)
+    completed = 0
     with Path(source).open("rb") as stream:
-        for row in records(source):
+        for row in rows:
             target = within(root, row[0])
             with atomic_writer(target, "wb", encoding=None) as out:
-                read_member(stream, row, out.write, stop)
+                def write(data):
+                    nonlocal completed
+                    out.write(data)
+                    completed += len(data)
+                    if progress:
+                        progress(completed, total)
+                try:
+                    read_member(stream, row, write, stop)
+                except WabbajackError as exc:
+                    raise WabbajackError(f"{Path(source).name}: {row[0]}: {exc}") from exc
 
 
-def verify_archive(path, root, files, stop=None):
+def verify_archive(path, root, files, stop=None, progress=None):
     from .paths import source_path
     rows = records(path, files)
     if len(rows) != len(files):
         raise WabbajackError("Reconstructed archive member count differs")
     expected = {relative_path(f["Path"]).casefold() for f in files}
     with Path(path).open("rb") as stream:
-        for row in rows:
+        for index, row in enumerate(rows):
             if relative_path(row[0]).casefold() not in expected:
                 raise WabbajackError("Reconstructed archive contains an unexpected file")
             source = source_path(root, row[0])
@@ -201,3 +220,5 @@ def verify_archive(path, root, files, stop=None):
                     wanted.update(data)
             if actual.digest() != wanted.digest():
                 raise WabbajackError(f"Reconstructed archive content differs: {row[0]}")
+            if progress:
+                progress(index + 1, len(rows))

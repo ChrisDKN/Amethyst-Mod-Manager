@@ -136,7 +136,7 @@ class Starfield(Fallout_3):
 
     def _starfield_custom_ini_paths(self) -> list[Path]:
         """Return the StarfieldCustom.ini path in each managed My Games dir."""
-        return [d / self._CUSTOM_INI_FILENAME
+        return [self._resolve_ini_path(d, self._CUSTOM_INI_FILENAME)
                 for d in {p.parent for p in self._get_archive_ini_paths()}]
 
     def apply_archive_invalidation(self, log_fn) -> None:

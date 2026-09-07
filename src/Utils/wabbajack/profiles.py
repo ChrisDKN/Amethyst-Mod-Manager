@@ -8,20 +8,56 @@ import shutil
 from functools import lru_cache
 from pathlib import Path
 
+from Utils.atomic_write import write_atomic_text
 from .hashes import file_hash
 from .manifest import qvalue, stock_folder
 from .paths import WabbajackError, safe_name, source_path, within
-from .adapters import adapter_for
+from .adapters import ROOT_MOD_NAME, adapter_for
 
 _METADATA_INIS = {"settings.ini", "initweaks.ini", "savepath.ini", "custom.ini", "modorganizer.ini"}
 _EXTENDERS = ("skse64_loader.exe", "sksevr_loader.exe", "f4se_loader.exe", "f4sevr_loader.exe",
               "nvse_loader.exe", "fose_loader.exe", "obse_loader.exe", "obse64_loader.exe")
 
 
+def _profile_modlist(content: bytes) -> bytes:
+    content = content.removeprefix(b"\xef\xbb\xbf")
+    lines = content.splitlines()
+    names = {line[1:].lower() for line in lines if line[:1] in (b"+", b"-", b"*")}
+    output = []
+    boundary = 0
+    seen_entry = False
+    seen_separator = False
+    for line in lines:
+        entry = len(line) > 1 and line[:1] in (b"+", b"-", b"*")
+        if entry and line[:1] != b"*" and line.endswith(b"_separator"):
+            output.insert(boundary, line)
+            boundary = len(output)
+            seen_separator = True
+        else:
+            output.append(line)
+            if not seen_entry and not entry:
+                boundary = len(output)
+        seen_entry |= entry
+    if not seen_separator:
+        return content
+    if any(len(line) > 1 and line[:1] in (b"+", b"-", b"*") for line in output[boundary:]):
+        name = b"Ungrouped_separator"
+        number = 2
+        while name.lower() in names:
+            name = f"Ungrouped ({number})_separator".encode("ascii")
+            number += 1
+        output.insert(boundary, b"-" + name)
+    newline = b"\r\n" if b"\r\n" in content else b"\n"
+    ending = newline if content.endswith((b"\r", b"\n")) else b""
+    return newline.join(output) + ending
+
+
 def profile_names(request, store):
+    from Utils.atomic_write import filename_limit
     names = dict(store.get("profile_names", {}))
     profiles = request.profiles or [request.package.name]
     parent = store.profile_root / "profiles"
+    name_limit = min(160, filename_limit(parent) - 16)
     for profile in referenced_profiles(store.directory, store.profile_root):
         try:
             raw = json.loads((profile / "profile_state.json").read_text())
@@ -40,7 +76,7 @@ def profile_names(request, store):
     for authored in profiles:
         if authored in names:
             continue
-        base = safe_name(request.package.name + (" - " + authored if len(profiles) > 1 else ""))
+        base = safe_name(request.package.name + (" - " + authored if len(profiles) > 1 else ""), name_limit)
         name, number = base, 2
         while name.casefold() in used or name.casefold() == "default":
             name, number = f"{base} ({number})", number + 1
@@ -50,18 +86,55 @@ def profile_names(request, store):
     return names
 
 
-def prepare_profiles(request, store, reconstruction, desired):
+def prepare_profiles(request, store, reconstruction, desired, *, generated_mods=(), progress=None):
     def copy_file(source, target):
+        if progress:
+            progress("Preparing profiles", index, len(selected), f"{authored}: {target.relative_to(stage)}")
         store._copy(source, target, stop=reconstruction.control.stop)
     names = profile_names(request, store)
     store.set("preserved_profiles", [name for authored, name in names.items() if authored not in request.profiles and request.package.profiles])
     output = reconstruction.output
-    adapter = adapter_for(request.package, request.game)
+    adapter = adapter_for(request.package, request.game, store=request.setup_options.get("store", ""))
     selected = request.profiles or [request.package.name]
+    from .profile_config import extra_profile_files
+    from .requirements import profile_configuration
+    extra_settings = extra_profile_files(request.package)
+    configuration = profile_configuration(request.package, request.profiles)
     stock_rel = stock_folder(request.package)
     stock = source_path(output, stock_rel) if stock_rel else None
     translated = {}
-    for authored in selected:
+    payloads = {key: adapter.root_mod_destination(key.removeprefix("root/")) for key in desired}
+    payloads = {key: dest for key, dest in payloads.items() if dest}
+    if payloads:
+        prefix = f"root/mods/{ROOT_MOD_NAME}/".casefold()
+        if any(key.casefold().startswith(prefix) for key in desired):
+            raise WabbajackError(f"The authored list already contains the reserved mod {ROOT_MOD_NAME}")
+        if any(dest.casefold() == "meta.ini" for dest in payloads.values()):
+            raise WabbajackError("A game-root meta.ini conflicts with root-mod metadata")
+    roots, strips, hidden = {}, {}, {}
+    root_files, overwrite_files = [], []
+    for key, row in desired.items():
+        parts = key.split("/")
+        if len(parts) >= 4 and parts[1].casefold() == "mods":
+            mod, rel = parts[2], "/".join(parts[3:])
+            if parts[3].casefold() == "root" and len(parts) > 4:
+                roots.setdefault(mod, []).append(rel.lower())
+                strips[mod] = [parts[3]]
+            if rel.lower().endswith(".mohidden"):
+                hidden.setdefault(mod, []).append(rel.lower())
+        rel = key.removeprefix("root/")
+        dest = adapter.root_destination(rel)
+        if dest and key not in payloads:
+            root_files.append((Path(row["source"]), dest))
+        if rel.casefold().startswith("overwrite/"):
+            overwrite_files.append((Path(row["source"]), rel.split("/", 1)[1]))
+    executable_titles = {}
+    extras, arguments, working_dirs = _executables(request, store, output, stock, adapter=adapter, titles=executable_titles)
+    for index, authored in enumerate(selected):
+        if reconstruction.control.stop.is_set():
+            raise InterruptedError("Profile preparation stopped")
+        if progress:
+            progress("Preparing profiles", index, len(selected), authored)
         name = names[authored]
         stage = store.work / "profiles" / name
         if stage.exists():
@@ -70,19 +143,14 @@ def prepare_profiles(request, store, reconstruction, desired):
         settings = {"profile_specific_mods": True, "wabbajack_install_id": store.get("id"),
                     "wabbajack_directory": str(store.directory), "wabbajack_profile": authored,
                     "wabbajack_adjustments": request.fixes}
+        settings["wabbajack_setup_options"] = request.setup_options
         if stock:
             settings["game_path"] = str(store.root / stock.relative_to(output))
         state = {"profile_settings": settings}
-        roots, strips, hidden = {}, {}, {}
-        for key in desired:
-            parts = key.split("/")
-            if len(parts) >= 4 and parts[1].casefold() == "mods":
-                mod, rel = parts[2], "/".join(parts[3:])
-                if parts[3].casefold() == "root" and len(parts) > 4:
-                    roots.setdefault(mod, []).append(rel.lower())
-                    strips[mod] = [parts[3]]
-                if rel.lower().endswith(".mohidden"):
-                    hidden.setdefault(mod, []).append(rel.lower())
+        config = configuration.get(authored)
+        if config and config.outputs:
+            state["wabbajack_output_mods"] = {executable_titles.get(title.casefold(), title): name
+                                             for title, name in config.outputs.items()}
         if roots:
             state["root_mod_files"] = roots
             state["mod_strip_prefixes"] = strips
@@ -106,7 +174,7 @@ def prepare_profiles(request, store, reconstruction, desired):
                 if not path.is_file():
                     continue
                 rel = path.relative_to(source_profile)
-                if len(rel.parts) == 1 and path.suffix.lower() == ".ini":
+                if len(rel.parts) == 1 and (path.suffix.lower() == ".ini" or path.name.casefold() in extra_settings):
                     if path.name.casefold() in _METADATA_INIS:
                         continue
                     rel = Path("ini files") / path.name
@@ -121,16 +189,26 @@ def prepare_profiles(request, store, reconstruction, desired):
             (stage / "modlist.txt").write_text("+Wabbajack Game Files\n", encoding="utf-8")
         if inis:
             settings["profile_ini_files"] = True
-        for key, row in desired.items():
-            rel = key.removeprefix("root/")
-            dest = adapter.root_destination(rel)
-            if dest:
-                copy_file(Path(row["source"]), within(stage / "Root_Folder", dest))
-            if rel.casefold().startswith("overwrite/"):
-                copy_file(Path(row["source"]), within(stage / "overwrite", rel.split("/", 1)[1]))
+        for source, dest in root_files:
+            copy_file(source, within(stage / "Root_Folder", dest))
+        for source, dest in overwrite_files:
+            copy_file(source, within(stage / "overwrite", dest))
         if not request.package.profiles:
             (stage / "modlist.txt").write_text("# Managed Wabbajack game layout\n", encoding="utf-8")
-        extras, arguments, working_dirs = _executables(request, store, output, stock)
+        else:
+            modlist = stage / "modlist.txt"
+            if modlist.is_file():
+                modlist.write_bytes(_profile_modlist(modlist.read_bytes()))
+        for generated in [*generated_mods, *([ROOT_MOD_NAME] if payloads else [])]:
+            modlist = stage / "modlist.txt"
+            content = modlist.read_bytes() if modlist.is_file() else b""
+            entries = {line[1:].lower() for line in content.splitlines() if line[:1] in (b"+", b"-", b"*")}
+            if generated.encode().lower() in entries or f"{generated}_separator".encode().lower() in entries:
+                raise WabbajackError(f"The authored profile already uses the reserved name {generated}")
+            newline = b"\r\n" if b"\r\n" in content else b"\n"
+            content = content.rstrip(b"\r\n") + newline if content else b""
+            modlist.write_bytes(content + f"-{generated}_separator".encode() + newline
+                               + f"+{generated}".encode() + newline)
         state["custom_exes"] = extras
         state["wabbajack_working_directories"] = working_dirs
         if extras:
@@ -146,15 +224,36 @@ def prepare_profiles(request, store, reconstruction, desired):
                 digest = file_hash(path)
                 translated[key] = {"source": str(path), "authored_hash": digest,
                                    "signature": "profile:" + digest}
+    published = {}
+    destinations = set()
+    for key, row in desired.items():
+        rel = adapter.installed_path(key.removeprefix("root/"))
+        if rel:
+            key = "root/" + rel
+            if key.casefold() in destinations:
+                raise WabbajackError(f"Conflicting managed output: {rel}")
+            destinations.add(key.casefold())
+            published[key] = row
+    if payloads:
+        meta = store.work / "root-mod-meta" / "meta.ini"
+        meta.parent.mkdir(parents=True, exist_ok=True)
+        write_atomic_text(meta, "[General]\nrootFolder=true\n")
+        digest = file_hash(meta)
+        published[f"root/mods/{ROOT_MOD_NAME}/meta.ini"] = {
+            "source": str(meta), "authored_hash": digest, "signature": "root-mod:" + digest}
+    desired.clear()
+    desired.update(published)
     desired.update(translated)
+    if progress:
+        progress("Preparing profiles", len(selected), len(selected), "Profiles and launch settings prepared")
     return [store.profile_root / "profiles" / names[p] for p in selected]
 
 
-def _executables(request, store, output, stock):
+def _executables(request, store, output, stock, *, adapter=None, titles=None):
     extras, arguments, working_dirs = [], {}, {}
     game_root = store.root / stock.relative_to(output) if stock else Path(request.game_roots.get(request.package.game, request.game.get_game_path()))
     allowed = [store.root, *request.game_roots.values()]
-    adapter = adapter_for(request.package, request.game)
+    adapter = adapter or adapter_for(request.package, request.game, store=request.setup_options.get("store", ""))
     def resolve(value):
         from .runtime import host_path
         path = host_path(request.game, qvalue(value))
@@ -166,6 +265,8 @@ def _executables(request, store, output, stock):
             return None
         if path.is_relative_to(store.root):
             parts = path.relative_to(store.root).parts
+            if adapter.application_file(path.relative_to(store.root).as_posix()):
+                return None
             deployed = adapter.root_destination(path.relative_to(store.root).as_posix())
             if deployed:
                 path = game_root / deployed
@@ -186,6 +287,9 @@ def _executables(request, store, output, stock):
                 if p is None or p.name.lower() in {"modorganizer.exe", "nxmhandler.exe"}:
                     continue
                 extras.append(str(p))
+                title = qvalue(section.get(key.removesuffix("binary") + "title", ""))
+                if title and titles is not None:
+                    titles[title.casefold()] = p.name
                 cwd = section.get(key.removesuffix("binary") + "workingDirectory", "")
                 if cwd:
                     wd = resolve(cwd)
@@ -233,9 +337,11 @@ def publish_links(store, profiles):
             link.symlink_to(os.path.relpath(mods, profile), target_is_directory=True)
 
 
-def refresh_profiles(request, profiles, log):
+def refresh_profiles(request, profiles, log, progress=None):
     from Utils.filegraph.service import FileGraphService
-    for profile in profiles:
+    for index, profile in enumerate(profiles):
+        if progress:
+            progress("Refreshing file catalogs", index, len(profiles) * 2, profile.name)
         game = copy.copy(request.game)
         game.set_active_profile_dir(profile)
         game.load_paths()
@@ -244,11 +350,15 @@ def refresh_profiles(request, profiles, log):
             from Utils.profiles.groups import materialize_group
             materialize_group(game, profile, log_fn=log)
         FileGraphService.open_library(game, profile, log_fn=log).refresh(profile)
-    for profile in profiles:
+    for index, profile in enumerate(profiles):
+        if progress:
+            progress("Refreshing file catalogs", len(profiles) + index, len(profiles) * 2, profile.name)
         game = copy.copy(request.game)
         game.set_active_profile_dir(profile)
         game.load_paths()
         FileGraphService.open_library(game, profile, log_fn=log).ensure_ready(profile)
+    if progress:
+        progress("Refreshing file catalogs", len(profiles) * 2, len(profiles) * 2, "Profiles are ready")
 
 
 def referenced_profiles(directory, profile_root):

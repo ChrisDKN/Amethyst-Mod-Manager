@@ -209,7 +209,7 @@ class ExtractionMemoryBudget:
     def budget(self) -> int:
         return self._budget
 
-    def acquire(self, estimated_bytes: int) -> None:
+    def acquire(self, estimated_bytes: int, cancel=None) -> None:
         """Reserve *estimated_bytes* (with spike factor) of extraction budget.
 
         Blocks until budget and a worker slot are available.  If the request
@@ -219,9 +219,14 @@ class ExtractionMemoryBudget:
         says there is room, we wait if the OS reports less than 1 GB free.
         """
         cost = int(estimated_bytes * self.SPIKE_FACTOR)
-        self._semaphore.acquire()
+        while not self._semaphore.acquire(timeout=0.2):
+            if cancel is not None and cancel.is_set():
+                raise InterruptedError("Extraction stopped while waiting for memory")
         with self._cv:
             while True:
+                if cancel is not None and cancel.is_set():
+                    self._semaphore.release()
+                    raise InterruptedError("Extraction stopped while waiting for memory")
                 fits_budget = (
                     self._reserved + cost <= self._budget
                     or self._reserved == 0  # allow oversized archive when alone
@@ -231,7 +236,7 @@ class ExtractionMemoryBudget:
                 live_ok = _get_available_memory_bytes() >= 1024 * 1024 * 1024
                 if fits_budget and live_ok:
                     break
-                self._cv.wait(timeout=2.0)  # re-check periodically
+                self._cv.wait(timeout=0.2 if cancel is not None else 2.0)
             self._reserved += cost
 
     def release(self, estimated_bytes: int) -> None:

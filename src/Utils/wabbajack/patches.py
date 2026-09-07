@@ -19,7 +19,7 @@ def _read(stream, count: int) -> bytes:
 
 
 def apply_octodiff(source: Path, patch, target: Path, size: int, expected: str,
-                   stop=None) -> str:
+                   stop=None, *, progress=None) -> str:
     if _read(patch, 9) != b"OCTODELTA" or _read(patch, 1) != b"\x01":
         raise WabbajackError("Unsupported Octodiff header")
     length, shift = 0, 0
@@ -68,6 +68,8 @@ def apply_octodiff(source: Path, patch, target: Path, size: int, expected: str,
                 xx.update(data)
                 written += len(data)
                 count -= len(data)
+                if progress:
+                    progress(written, size)
         if written != size or sha.digest() != checksum or (expected and xx.digest() != expected):
             raise WabbajackError(f"Patched output failed verification: {target.name}")
     return xx.digest()

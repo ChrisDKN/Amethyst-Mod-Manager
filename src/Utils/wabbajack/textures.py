@@ -5,7 +5,10 @@ import os
 import shutil
 import subprocess
 import tempfile
+import threading
 import time
+from functools import lru_cache
+from contextlib import contextmanager
 from pathlib import Path
 
 from .paths import WabbajackError
@@ -13,6 +16,64 @@ from .paths import WabbajackError
 TEXCONV_VERSION = "may2026"
 TEXCONV_URL = "https://github.com/microsoft/DirectXTex/releases/download/may2026/texconv.exe"
 TEXCONV_SHA256 = "dcfdec10244e02cf5037fba089c55fb7e1326b1c8181742d77d15fa5cb5eef06"
+_CONVERSIONS = threading.BoundedSemaphore(2)
+_PREPARATION = threading.Lock()
+_LEASES = threading.local()
+_USED_PREFIXES = set()
+
+
+def configure_texture_request(request):
+    from Utils.launchers.steam import find_any_installed_proton
+    options = request.setup_options.setdefault("texture", {})
+    selected = request.proton or options.get("proton")
+    proton = Path(selected) if selected else find_any_installed_proton()
+    if proton and proton.is_dir():
+        proton = proton / "proton"
+    if not proton or not proton.is_file() or proton.name != "proton":
+        raise WabbajackError("Select an installed Proton build for the isolated texture tool")
+    request.proton = proton.resolve()
+    options["proton"] = str(request.proton)
+    if options.get("mode", "auto") not in {"auto", "cpu"}:
+        raise WabbajackError("Unknown texture conversion mode")
+
+
+def _prefix(request):
+    tool = request.texconv or tool_path()
+    key = hashlib.sha256(str(request.proton).encode()).hexdigest()[:16]
+    return tool.parent / "prefixes" / key
+
+
+@contextmanager
+def _prefix_lease(request, stop=None, *, exclusive=False):
+    import fcntl
+    configure_texture_request(request)
+    prefix = _prefix(request)
+    held = getattr(_LEASES, "held", set())
+    if prefix in held:
+        yield
+        return
+    prefix.parent.mkdir(parents=True, exist_ok=True)
+    with prefix.with_suffix(".lock").open("a+b") as lock:
+        while True:
+            try:
+                fcntl.flock(lock, (fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH) | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                if stop is not None and stop.wait(0.1):
+                    raise InterruptedError("Texture setup stopped")
+                if stop is None:
+                    time.sleep(0.1)
+        _LEASES.held = held | {prefix}
+        try:
+            yield
+        finally:
+            _LEASES.held = held
+            fcntl.flock(lock, fcntl.LOCK_UN)
+
+
+@lru_cache(maxsize=8)
+def _verified_tool(path, stamp):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest() == TEXCONV_SHA256
 
 
 def tool_path() -> Path:
@@ -20,60 +81,95 @@ def tool_path() -> Path:
     return get_config_dir() / "tools" / "texconv" / TEXCONV_VERSION / "texconv.exe"
 
 
-def install_texture_tool(stop=None):
+def install_texture_tool(stop=None, *, request=None, log=None):
     from .acquire import download_http
     target = tool_path()
     if not target.is_file() or hashlib.sha256(target.read_bytes()).hexdigest() != TEXCONV_SHA256:
         download_http(TEXCONV_URL, target, stop=stop)
     if hashlib.sha256(target.read_bytes()).hexdigest() != TEXCONV_SHA256:
         raise WabbajackError("Texconv failed Microsoft release checksum verification")
-    prepare_texture_runtime(target, stop)
+    prepare_texture_runtime(target, stop, log, request=request)
     return target
 
 
-def prepare_texture_runtime(target, stop=None, log=None):
+def prepare_texture_runtime(target, stop=None, log=None, *, request=None):
     from types import SimpleNamespace
     from Utils.wine.protontricks import install_vcredist
-    from Utils.launchers.steam import find_any_installed_proton
-    request = SimpleNamespace(texconv=target, proton=None)
-    try:
-        probe_texture_tool(request, stop)
-        return
-    except WabbajackError:
-        pass
-    _, env = _command(request, [])
-    proton = find_any_installed_proton()
-    if not install_vcredist(proton, env, log_fn=log, prefix_path=target.parent / "prefix" / "pfx"):
-        raise WabbajackError("Could not prepare the isolated Texconv runtime. Install VC++ Redistributable in its tool prefix and retry.")
-    probe_texture_tool(request, stop)
+    request = request or SimpleNamespace(texconv=target, proton=None, setup_options={})
+    request.texconv = target
+    configure_texture_request(request)
+    with _PREPARATION, _prefix_lease(request, stop, exclusive=True):
+        try:
+            probe_texture_tool(request, stop)
+            return
+        except (WabbajackError, OSError):
+            pass
+        from Utils.executables.launch import shutdown_prefix_wineserver
+        prefix = _prefix(request)
+        backup = None
+        try:
+            for attempt in range(2):
+                try:
+                    _, env = _command(request, [])
+                    if stop is not None and stop.is_set():
+                        raise InterruptedError("Texture setup stopped")
+                    if not install_vcredist(request.proton, env, log_fn=log, prefix_path=prefix / "pfx"):
+                        raise WabbajackError("Could not install the texture tool's Visual C++ runtime")
+                    probe_texture_tool(request, stop)
+                    if backup:
+                        shutil.rmtree(backup)
+                    return
+                except InterruptedError:
+                    raise
+                except (WabbajackError, OSError):
+                    if attempt:
+                        raise
+                    shutdown_prefix_wineserver(request.proton, prefix, log_fn=log)
+                    backup = prefix.with_name(prefix.name + f".failed-{time.time_ns()}")
+                    if prefix.exists():
+                        prefix.rename(backup)
+        finally:
+            if backup and backup.exists():
+                shutdown_prefix_wineserver(request.proton, prefix, log_fn=log)
+                if prefix.exists():
+                    shutil.rmtree(prefix)
+                backup.replace(prefix)
 
 
 def _command(request, arguments):
-    from Utils.launchers.steam import find_any_installed_proton, find_steam_root_for_proton_script
+    from Utils.launchers.steam import find_steam_root_for_proton_script
+    configure_texture_request(request)
     tool = request.texconv or tool_path()
     if not tool.is_file():
         raise WabbajackError("Texture conversion requires Texconv. Use Install Texture Tool in setup.")
-    if hashlib.sha256(tool.read_bytes()).hexdigest() != TEXCONV_SHA256:
+    stat = tool.stat()
+    if not _verified_tool(str(tool), (stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns, stat.st_ino)):
         raise WabbajackError(f"Select the verified Texconv {TEXCONV_VERSION} release")
-    proton = request.proton or find_any_installed_proton()
-    if proton and proton.is_dir():
-        proton = proton / "proton"
-    if not proton or not proton.is_file():
-        raise WabbajackError("Texture conversion requires an installed Proton runtime")
-    prefix = tool.parent / "prefix"
-    prefix.mkdir(exist_ok=True)
+    proton = request.proton
+    prefix = _prefix(request)
+    prefix.mkdir(parents=True, exist_ok=True)
+    _USED_PREFIXES.add((proton, prefix))
     env = os.environ.copy()
     for key in ("WINEPREFIX", "WINEDLLOVERRIDES", "LD_LIBRARY_PATH", "LD_PRELOAD"):
         env.pop(key, None)
     env.update(STEAM_COMPAT_DATA_PATH=str(prefix), WINEPREFIX=str(prefix / "pfx"),
                STEAM_COMPAT_CLIENT_INSTALL_PATH=str(find_steam_root_for_proton_script(proton) or ""),
                SteamAppId="0", SteamGameId="0", STEAM_COMPAT_APP_ID="0")
+    env["OMP_NUM_THREADS"] = str(max(1, min(4, (os.cpu_count() or 2) // 2)))
     from Utils.launchers.steam import proton_run_command
     verb = "runinprefix" if (prefix / "pfx" / "user.reg").is_file() else "run"
     return proton_run_command(proton, verb, str(tool), *arguments, env=env, host_cwd=tool.parent), env
 
 
-def _run(request, arguments, stop=None, timeout=600):
+class _TextureFailure(WabbajackError):
+    def __init__(self, message, transient=False):
+        super().__init__(message)
+        self.transient = transient
+
+
+def _run_once(request, arguments, stop=None, timeout=600):
+    if stop is not None and stop.is_set():
+        raise InterruptedError("Texture conversion stopped")
     command, env = _command(request, arguments)
     import selectors
     from collections import deque
@@ -95,11 +191,15 @@ def _run(request, arguments, stop=None, timeout=600):
                         selector.unregister(key.fileobj)
                 if process.poll() is not None and not events:
                     break
-                if (stop is not None and stop.is_set()) or time.monotonic() > deadline:
-                    raise InterruptedError("Texture conversion stopped or timed out")
+                if stop is not None and stop.is_set():
+                    raise InterruptedError("Texture conversion stopped")
+                if time.monotonic() > deadline:
+                    raise WabbajackError(f"Texconv timed out after {timeout} seconds")
         if process.returncode:
             detail = b"".join(tail).decode("utf-8", "replace")[-4000:]
-            raise WabbajackError(f"Texconv exited with code {process.returncode}. Use Install Texture Tool to prepare its runtime. {detail}")
+            transient = any(word in detail.casefold() for word in ("connection reset by peer", "wine client error", "recvmsg"))
+            raise _TextureFailure(f"Texconv exited with code {process.returncode}. {detail}", transient)
+        return b"".join(tail).decode("utf-8", "replace")[-4000:]
     finally:
         if process.poll() is None:
             import signal
@@ -114,8 +214,65 @@ def _run(request, arguments, stop=None, timeout=600):
         process.stdout.close()
 
 
-def probe_texture_tool(request, stop=None):
+def _run(request, arguments, stop=None, timeout=600):
+    with _prefix_lease(request, stop):
+        return _run_leased(request, arguments, stop, timeout)
+
+
+def _run_leased(request, arguments, stop=None, timeout=600):
+    while not _CONVERSIONS.acquire(timeout=0.1):
+        if stop is not None and stop.is_set():
+            raise InterruptedError("Texture conversion stopped")
+    try:
+        with _prefix_lease(request, stop):
+            for attempt in range(3):
+                try:
+                    return _run_once(request, arguments, stop, timeout)
+                except _TextureFailure as exc:
+                    if not exc.transient or attempt == 2:
+                        raise
+                    if stop is not None and stop.wait(0.2 * (attempt + 1)):
+                        raise InterruptedError("Texture conversion stopped")
+    finally:
+        _CONVERSIONS.release()
+
+
+def shutdown_texture_tools():
+    import fcntl
+    from Utils.executables.launch import shutdown_prefix_wineserver
+    for proton, prefix in list(_USED_PREFIXES):
+        with prefix.with_suffix(".lock").open("a+b") as lock:
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                continue
+            try:
+                shutdown_prefix_wineserver(proton, prefix)
+                _USED_PREFIXES.discard((proton, prefix))
+            finally:
+                fcntl.flock(lock, fcntl.LOCK_UN)
+
+
+def probe_texture_tool(request, stop=None, formats=None):
+    with _prefix_lease(request, stop, exclusive=True):
+        _probe_texture_tool(request, stop, formats)
+
+
+def _probe_texture_tool(request, stop=None, formats=None):
+    import struct
+    configure_texture_request(request)
     _run(request, ["--version"], stop, timeout=60)
+    from .paths import existing_parent
+    root = existing_parent(getattr(request, "directory", _prefix(request)))
+    with tempfile.TemporaryDirectory(prefix=".texture-probe-", dir=root) as tmp:
+        work = Path(tmp)
+        source = work / "input.dds"
+        fields = [124, 0x100F, 16, 16, 64, 0, 1] + [0] * 11
+        fields += [32, 0x41, 0, 32, 0xFF, 0xFF00, 0xFF0000, 0xFF000000, 0x1000, 0, 0, 0, 0]
+        source.write_bytes(b"DDS " + struct.pack("<31I", *fields) + bytes((64, 128, 192, 255)) * 256)
+        for index, name in enumerate(formats or ("BC7_UNORM", "BC3_UNORM")):
+            transform_texture(request, source, work / f"probe-{index}.dds",
+                              {"Width": 8, "Height": 8, "MipLevels": 4, "Format": name}, stop, timeout=60)
 
 
 _FORMATS = {
@@ -143,7 +300,7 @@ def texture_parameters(state):
     return width, height, mips, format_name, filtering
 
 
-def transform_texture(request, source, target, state, stop=None):
+def transform_texture(request, source, target, state, stop=None, *, timeout=600):
     from Utils.ba2.writer import _parse_dds
     width, height, mips, format_name, filtering = texture_parameters(state)
     with tempfile.TemporaryDirectory(prefix="texture-", dir=target.parent) as tmp:
@@ -153,9 +310,13 @@ def transform_texture(request, source, target, state, stop=None):
         output = work / "out"
         output.mkdir()
         windows = lambda p: "Z:" + str(p.resolve()).replace("/", "\\")
-        _run(request, [windows(input_path), "-o", windows(output), "-ft", "dds", "-f", format_name,
-                       "-w", str(width), "-h", str(height), "-m", str(mips),
-                       "-if", filtering, "-singleproc", "-nogpu", "-dx10", "-y"], stop)
+        flags = ["-nogpu"] if request.setup_options.get("texture", {}).get("mode") == "cpu" else []
+        try:
+            _run(request, [windows(input_path), "-o", windows(output), "-ft", "dds", "-f", format_name,
+                           "-w", str(width), "-h", str(height), "-m", str(mips),
+                           "-if", filtering, *flags, "-dx10", "-y"], stop, timeout)
+        except WabbajackError as exc:
+            raise WabbajackError(f"{target}: {width}x{height}, {format_name}, {mips} mip levels; Proton {request.proton.parent.name}. {exc}. Prepare the texture tool again or select CPU conversion, then resume.") from exc
         result = output / "source.dds"
         with result.open("rb") as stream:
             import mmap

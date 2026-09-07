@@ -10,6 +10,7 @@ so all user config must be written outside the app bundle.
 """
 
 import os
+import threading
 from pathlib import Path
 
 APP_NAME = "AmethystModManager"
@@ -309,6 +310,7 @@ def get_tools_dir() -> Path:
 
 
 _CACHE_ROOT_RESERVED: set[str] = set()
+_WABBAJACK_CACHE_LOCK = threading.Lock()
 
 
 def get_wine_prefixes_dir() -> Path:
@@ -386,6 +388,71 @@ def get_download_cache_dir_for_game(game_name: str | None) -> Path:
     d = root / game_name
     d.mkdir(parents=True, exist_ok=True)
     return d
+
+
+def get_wabbajack_cache_dir() -> Path:
+    import errno
+    import shutil
+    import tempfile
+    import uuid
+
+    target = get_download_cache_dir() / "wabbajack"
+    legacy = get_config_dir() / "wabbajack"
+    with _WABBAJACK_CACHE_LOCK:
+        if legacy.resolve() == target.resolve():
+            return target
+        if target.is_symlink() or legacy.is_symlink():
+            raise OSError("Wabbajack cache migration requires directories, not symbolic links")
+        if not legacy.exists():
+            return target
+        if not legacy.is_dir() or target.exists() and not target.is_dir():
+            raise OSError("Wabbajack cache path is occupied by a file")
+        if target.resolve().is_relative_to(legacy.resolve()):
+            raise OSError("The download cache cannot be inside the old Wabbajack cache")
+        if not target.exists():
+            try:
+                legacy.rename(target)
+                return target
+            except OSError as exc:
+                if exc.errno != errno.EXDEV:
+                    raise
+
+        def move(source, destination):
+            if source.is_symlink() or destination.is_symlink():
+                raise OSError(f"Cache migration encountered a symbolic link: {source}")
+            if destination.exists() and not (source.is_dir() and destination.is_dir()):
+                destination = destination.with_name(destination.name + ".migrated-" + uuid.uuid4().hex)
+            if source.is_dir():
+                destination.mkdir(parents=True, exist_ok=True)
+                for child in source.iterdir():
+                    move(child, destination / child.name)
+                source.rmdir()
+                return
+            if not source.is_file():
+                raise OSError(f"Cache migration encountered a special file: {source}")
+            try:
+                source.rename(destination)
+            except OSError as exc:
+                if exc.errno != errno.EXDEV:
+                    raise
+                fd, name = tempfile.mkstemp(prefix=".migrate-", dir=destination.parent)
+                os.close(fd)
+                temporary = Path(name)
+                try:
+                    shutil.copy2(source, temporary)
+                    with temporary.open("rb") as stream:
+                        os.fsync(stream.fileno())
+                    temporary.replace(destination)
+                    directory_fd = os.open(destination.parent, os.O_RDONLY | os.O_DIRECTORY)
+                    try:
+                        os.fsync(directory_fd)
+                    finally:
+                        os.close(directory_fd)
+                    source.unlink()
+                finally:
+                    temporary.unlink(missing_ok=True)
+        move(legacy, target)
+    return target
 
 
 def list_all_cache_dirs(active_game_name: str | None = None) -> list[Path]:

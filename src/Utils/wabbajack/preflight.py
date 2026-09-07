@@ -3,17 +3,157 @@ from __future__ import annotations
 import os
 import shutil
 import tempfile
+import time
 import zipfile
 from pathlib import Path
 
 from .archive_build import check_archive_state
 from .games import matches_game, token
 from .hashes import XXHash, verify_file
-from .models import Check, PreflightReport
+from .hosts import automatic_source
+from .checks import make_check
+from .models import PreflightReport
 from .paths import WabbajackError, existing_parent, source_path
 
 
-def _reusable(request, stop, check):
+def _check_lengths(request, adapter, check, archive_paths, stop):
+    from .paths import check_path_length, path_limits
+    roots = [request.directory / "work/output", request.directory / "root",
+             request.directory / "work/extract" / ("0" * 64) / "999999"]
+    limits = {root: path_limits(root) for root in roots}
+    failures = set()
+    for directive in request.package.directives:
+        if stop is not None and stop.is_set():
+            raise InterruptedError("Preflight stopped")
+        paths = [(roots[0], directive.path)]
+        published = adapter.installed_path(directive.path) if adapter else directive.path
+        if published:
+            paths.append((roots[1], published))
+        if directive.kind in {"FromArchive", "PatchedFromArchive", "TransformedTexture"}:
+            paths.extend((roots[2], member) for member in archive_paths[directive.index][1])
+        for root, relative in paths:
+            try:
+                check_path_length(root, relative, limits[root])
+            except WabbajackError as exc:
+                failures.add(str(exc))
+                if len(failures) >= 5:
+                    break
+        if len(failures) >= 5:
+            break
+    for detail in sorted(failures):
+        check("error", "Filesystem path limits", detail)
+
+
+def _game_file_category(game, relative):
+    name = str(relative).replace("\\", "/").casefold()
+    leaf = name.rsplit("/", 1)[-1]
+    game_name = token(game)
+    bethesda_kit = game_name in {
+        "skyrimspecialedition", "skyrimvr", "fallout4", "fallout4vr", "starfield",
+    }
+    if bethesda_kit and (
+        name.startswith(("tools/", "papyrus compiler/", "lex/"))
+        or any(part in name for part in (
+            "creationkit", "scriptcompile", "lipgen", "assetwatcher",
+            "havokbehaviorpostprocess", "skyrimreservedaddonindexes",
+            "p4com64", "flowchartx64",
+        ))
+    ):
+        return "creation_kit"
+    if leaf in {"debug.log", "installscript.vdf"}:
+        return "support"
+    if game_name in {"skyrimspecialedition", "skyrimvr", "fallout4", "fallout4vr"} and (
+        (name.startswith("data/cc") and leaf.endswith((".bsa", ".ba2", ".esm", ".esl", ".esp")))
+        or leaf.startswith("_resourcepack.")
+        or leaf in {"skyrim.ccc", "fallout4.ccc", "marketplacetextures.bsa"}
+    ):
+        return "creation_content"
+    return "game"
+
+
+def _game_version_source(game, relative):
+    leaf = str(relative).replace("\\", "/").casefold().rsplit("/", 1)[-1]
+    anchors = {
+        "skyrim": {"tesv.exe"},
+        "skyrimspecialedition": {"skyrimse.exe"},
+        "skyrimvr": {"skyrimvr.exe"},
+        "fallout3": {"fallout3.exe"},
+        "fallout3goty": {"fallout3.exe"},
+        "falloutnewvegas": {"falloutnv.exe"},
+        "fallout4": {"fallout4.exe"},
+        "fallout4vr": {"fallout4vr.exe"},
+        "oblivion": {"oblivion.exe"},
+        "morrowind": {"morrowind.exe"},
+        "starfield": {"starfield.exe"},
+    }
+    return leaf in anchors.get(token(game), set())
+
+
+def _emit_game_file_problems(package, problems, check, readme="", ignored=False):
+    classified = [(game, relative, present, archive,
+                   _game_file_category(game, relative))
+                  for game, relative, present, archive in problems]
+    kit_games = {token(game) for game, _, _, _, category in classified
+                 if category == "creation_kit"}
+    grouped = {}
+    for game, relative, present, archive, category in classified:
+        if category == "support" and str(relative).replace("\\", "/").casefold().rsplit("/", 1)[-1] == "debug.log" and token(game) in kit_games:
+            category = "creation_kit"
+        grouped.setdefault((game, category), []).append((relative, present, archive))
+    readme = str(package.metadata.get("Readme", "")).strip() or str(readme).strip()
+    for category in ("creation_kit", "game", "support", "creation_content"):
+        for (game, group), entries in grouped.items():
+            if group != category:
+                continue
+            missing = sum(present is None for _, present, _ in entries)
+            different = len(entries) - missing
+            states = []
+            if missing:
+                states.append(f"{missing:,} missing")
+            if different:
+                states.append(f"{different:,} with a different size or hash")
+            items = []
+            for relative, present, archive in sorted(entries, key=lambda row: str(row[0]).casefold()):
+                if present is None:
+                    state = f"missing; expected {archive.size:,} bytes"
+                else:
+                    try:
+                        actual = present.stat().st_size
+                        state = f"does not match; expected {archive.size:,} bytes, found {actual:,} bytes"
+                    except OSError:
+                        state = f"could not be read; expected {archive.size:,} bytes"
+                items.append(f"{relative} — {state}; expected xxHash64 {archive.key}")
+            versions = sorted({str(a.state.get("GameVersion", "")).strip()
+                               for _, _, a in entries if a.state.get("GameVersion")})
+            detail = f"{game}: {len(entries):,} required files do not match ({', '.join(states)})."
+            if versions and category != "creation_kit":
+                detail += " Package game-source snapshot: " + ", ".join(versions) + "."
+            if category == "creation_kit":
+                name = "Creation Kit files"
+                detail += " Install the matching Creation Kit through Steam, select Proton for it if needed, launch it once, close it, and recheck."
+            elif category == "creation_content":
+                name = "Creation content"
+                detail += " The package uses these as reconstruction sources even if its README does not mention them. Install the exact Creations or Creation Club variants required by the author. Rare Curios can have different Steam and in-game versions. Every affected file is listed below."
+            elif category == "support":
+                if ignored:
+                    name = "Ignored supporting files"
+                    detail += " These generated or Steam-maintained files are not needed to run the game. Amethyst will omit their direct copies and continue. Every affected file is listed below."
+                else:
+                    name = "Required supporting files"
+                    detail += " These generated or Steam-maintained files do not mean that the game executable has the wrong version. If they are undocumented, the package may have captured volatile files unintentionally. Every affected file is listed below."
+            elif different and any(_game_version_source(game, relative)
+                                   for relative, _, _ in entries):
+                name = "Game version"
+                detail += " Use the exact game build, store and language required by the author; a newer store build cannot substitute for it."
+            else:
+                name = "Required game files"
+                detail += " Verify the original game location and required content. This alone does not prove that the game executable version is wrong."
+            if readme:
+                detail += " Author requirements: " + readme
+            check("warning" if ignored else "error", name, detail, items)
+
+
+def _reusable(request, stop, check, adapter):
     import sqlite3
     from .hashes import file_hash
     from .paths import within
@@ -28,12 +168,15 @@ def _reusable(request, stop, check):
             completed = {p: (sig, digest) for p, sig, digest in db.execute("SELECT path,signature,actual_hash FROM completed")}
         for directive in request.package.directives:
             sig = signature(directive, request)
-            previous = old.get("root/" + directive.path)
             staged = completed.get(directive.path)
-            for row, base, found in ((previous, directory / "root", root_reuse),
-                                     (staged, directory / "work" / "output", stage_reuse)):
+            published = adapter.installed_path(directive.path) if adapter else directive.path
+            candidates = [(old.get("root/" + rel), directory / "root", rel,
+                           root_reuse if rel == published else stage_reuse)
+                          for rel in dict.fromkeys((published, directive.path)) if rel]
+            candidates.append((staged, directory / "work" / "output", directive.path, stage_reuse))
+            for row, base, rel, found in candidates:
                 if row and row[0] == sig:
-                    path = within(base, directive.path)
+                    path = within(base, rel)
                     if path.is_file() and file_hash(path, stop) == row[1]:
                         found.add(directive.path)
     except (OSError, sqlite3.Error, WabbajackError) as exc:
@@ -41,11 +184,50 @@ def _reusable(request, stop, check):
     return root_reuse, stage_reuse, old
 
 
-def preflight(request, stop=None) -> PreflightReport:
+def preflight(request, stop=None, *, cache=None, progress=None) -> PreflightReport:
+    from .verification import VerificationCache, verification_scope
+    timings = {}
+    stage, started, emitted = "", time.monotonic(), 0.0
+    def notify(name, detail=""):
+        nonlocal stage, started, emitted
+        if stop is not None and stop.is_set():
+            raise InterruptedError("Preflight stopped")
+        now = time.monotonic()
+        changed = name != stage
+        if changed:
+            if stage:
+                timings[stage] = timings.get(stage, 0) + now - started
+            stage, started = name, now
+        if progress and (changed or now - emitted >= 0.1):
+            progress(name, 0, 0, detail)
+            emitted = now
+    with verification_scope(cache if cache is not None else VerificationCache(), stop,
+                            lambda path: notify(stage, path.name)):
+        report = _preflight(request, stop, notify)
+    if stage:
+        timings[stage] = timings.get(stage, 0) + time.monotonic() - started
+    report.timings = timings
+    return report
+
+
+def _verify_package(package, stop):
+    from .hashes import package_hash
+    if package_hash(package.path) != package.identity:
+        raise WabbajackError("Modlist package changed after inspection; reopen it before checking requirements")
+    with zipfile.ZipFile(package.path) as archive:
+        for member in archive.infolist():
+            with archive.open(member) as stream:
+                while stream.read(1024 * 1024):
+                    if stop is not None and stop.is_set():
+                        raise InterruptedError("Preflight stopped")
+
+
+def _preflight(request, stop, notify):
     package = request.package
     report = PreflightReport()
-    def check(status, name, detail):
-        report.checks.append(Check(status, name, str(detail)))
+    def check(status, name, detail, items=()):
+        report.checks.append(make_check(status, name, detail, items))
+    notify("Verifying package integrity")
     if request.game.get_deploy_active():
         check("error", "Deployment", "Restore the deployed game before installing or updating a modlist")
     try:
@@ -55,17 +237,18 @@ def preflight(request, stop=None) -> PreflightReport:
         check("error", "File catalog", f"The native Filegraph component is required: {exc}")
     try:
         XXHash()
-        with zipfile.ZipFile(package.path) as archive:
-            for member in archive.infolist():
-                with archive.open(member) as stream:
-                    while stream.read(1024 * 1024):
-                        if stop is not None and stop.is_set():
-                            raise InterruptedError("Preflight stopped")
+        from .verification import verified_read
+        verified_read(package.path, ("package", package.identity), lambda: _verify_package(package, stop))
         check("pass", "Package", f"{package.name} {package.version}; {len(package.directives):,} output files")
     except InterruptedError:
         raise
     except (WabbajackError, zipfile.BadZipFile, OSError) as exc:
         check("error", "Package integrity", exc)
+        return report
+    notify("Checking game layout and paths")
+    from .manifest import archive_path
+    archive_paths = {d.index: archive_path(d.data) for d in package.directives
+                     if d.kind in {"FromArchive", "PatchedFromArchive", "TransformedTexture"}}
     if not matches_game(request.game, package.game):
         check("error", "Game", f"This list requires {package.game}; selected {request.game.name}")
     if request.mode not in {"install", "resume", "repair", "update"}:
@@ -74,31 +257,74 @@ def preflight(request, stop=None) -> PreflightReport:
         if not any(token(n) == token(required_game) for n in request.game_roots):
             check("error", "Additional game", f"Configure the required {required_game} game and its original source directory")
     from .manifest import stock_folder
-    from .adapters import adapter_for
+    from .adapters import ROOT_MOD_NAME, adapter_for
     stock = ""
     adapter = None
     try:
-        adapter = adapter_for(package, request.game)
+        adapter = adapter_for(package, request.game, store=request.setup_options.get("store", ""))
         stock = stock_folder(package)
         if stock:
             check("pass", "Stock game launch", f"Launch the reconstructed game at {request.directory / 'root' / stock}; retain the original game for source verification")
     except WabbajackError as exc:
         check("error", "Game layout", exc)
+    _check_lengths(request, adapter, check, archive_paths, stop)
     if adapter:
+        from .adapters import STORE_ROOT_FOLDERS
+        if adapter.bethesda and any(d.path.split("/")[0].casefold().strip("_ ") in STORE_ROOT_FOLDERS for d in package.directives):
+            check("pass" if adapter.store in {"steam-gog", "epic"} else "error", "Store-specific root files",
+                  f"Use the {adapter.store} payload" if adapter.store else "Select Steam/GOG or Epic in setup so the correct root payload is installed")
         deployed = {}
+        root_mod_files = []
         for directive in package.directives:
             dest = adapter.root_destination(directive.path)
             if dest:
                 previous = deployed.setdefault(dest.casefold(), directive.path)
                 if previous != directive.path:
                     check("error", "Game-root conflict", f"{previous} and {directive.path} both deploy to {dest}")
+            if adapter.root_mod_destination(directive.path):
+                root_mod_files.append(directive.path)
+        if root_mod_files:
+            check("pass", "Game-root mod", f"Install {len(root_mod_files):,} files as the enabled {ROOT_MOD_NAME} mod, preserving game-root paths including Data/")
+            if any(d.path.casefold().startswith(f"mods/{ROOT_MOD_NAME}/".casefold()) for d in package.directives):
+                check("error", "Game-root mod", f"The authored list already contains the reserved mod {ROOT_MOD_NAME}")
+            meta = request.directory / "root" / "mods" / ROOT_MOD_NAME / "meta.ini"
+            if meta.parent.exists():
+                import sqlite3
+                owned = False
+                database = request.directory / "state.sqlite"
+                if database.is_file():
+                    with sqlite3.connect(database.as_uri() + "?mode=ro", uri=True) as db:
+                        owned = db.execute("SELECT 1 FROM outputs WHERE path=?", (f"root/mods/{ROOT_MOD_NAME}/meta.ini",)).fetchone() is not None
+                if not owned:
+                    check("error", "Game-root mod", f"Move or rename the existing unowned {ROOT_MOD_NAME} mod before installing")
+            if any(adapter.root_mod_destination(p).casefold() == "meta.ini" for p in root_mod_files):
+                check("error", "Game-root mod", "The root payload includes meta.ini, which is reserved for mod metadata")
         if deployed and not getattr(request.game, "root_folder_deploy_enabled", True):
             check("error", "Game-root deployment", "The selected game handler does not support this package's root payload layout")
     unknown_folders = {d.path.split("/")[0] for d in package.directives
-                       if any(word in d.path.split("/")[0].casefold() for word in ("manual install", "root mods"))}
+                       if any(word in d.path.split("/")[0].casefold() for word in ("manual install", "root mods"))
+                       and not (adapter and adapter.application_file(d.path))
+                       and not (adapter and adapter.root_destination(d.path))}
     for folder in sorted(unknown_folders):
         check("manual", "Author instructions", f"Review the files in {folder}. Their purpose is not declared as a game-root layout; follow the list's README before launching.")
+    if adapter and adapter.store == "epic" and any(d.path.split("/")[0].casefold().strip("_ ") == "epic only files requiring manual install" for d in package.directives):
+        check("manual", "Author instructions", "The Epic root payload is selected. Apply the author's Epic executable patch before launch; the Steam/GOG 4GB patch does not convert the Epic executable.")
+    if any(d.path.rsplit("/", 1)[-1].casefold() == "fnvpatch.exe" and not (adapter and adapter.application_file(d.path)) for d in package.directives):
+        if getattr(request.game, "auto_4gb_patch", False):
+            check("pass", "Game patch", "The game handler applies the New Vegas 4GB patch during deployment")
+        else:
+            check("manual", "Author instructions", "Enable automatic 4GB patching in the game's settings or apply the provided FNV patcher before launching")
+    from .bsa_setup import preflight_setup, requirement as bsa_requirement
+    notify("Checking BSA setup")
+    bsa_bytes, bsa_reuse = preflight_setup(request, check, stop)
+    bsa = bsa_requirement(package)
+    for folder in sorted({d.path.split("/")[0] for d in package.directives
+                          if "patcher" in d.path.split("/")[0].casefold()}):
+        if bsa and folder in bsa.folders:
+            continue
+        check("manual", "Author instructions", f"The tool in {folder} is retained. Follow the author's instructions to run it; copying its files does not apply its patches.")
     root = Path(request.game.get_profile_root()).resolve()
+    notify("Checking installation and profiles")
     directory = request.directory.resolve()
     if directory.parent != root / ".wabbajack" or request.directory.is_symlink():
         check("error", "Installation directory", "Choose a directory directly inside the game's .wabbajack directory")
@@ -141,7 +367,29 @@ def preflight(request, stop=None) -> PreflightReport:
                 windows_path(request.game, path)
         except WabbajackError as exc:
             check("error", "Windows path mapping", exc)
+    from .requirements import profile_configuration
+    from .setup_tasks import preflight_tasks
+    configuration = profile_configuration(package, request.profiles)
+    enabled = {mod.casefold() for config in configuration.values() for mod in config.mods}
+    active_paths = [d.path.casefold() for d in package.directives
+                    if not d.path.startswith("mods/") or d.path.split("/")[1].casefold() in enabled]
+    if any(path.endswith("/jcontainers64.dll") for path in active_paths):
+        check("manual", "Author instructions", "JContainers is included. Review its build against the selected Skyrim runtime and Proton compatibility; Amethyst preserves the authored DLL and does not substitute an unverified version.")
+    if any(path.rsplit("/", 1)[-1] == "synthesis.exe" for path in active_paths):
+        check("manual", "Author instructions", "Synthesis is included. Its patchers may require a .NET SDK and NuGet setup in the tool runtime. These are not configured automatically; follow the author's tool instructions before generating patches.")
+    setup_reuse = set()
+    notify("Checking additional setup")
+    tasks, setup_bytes = preflight_tasks(request, check, stop, configuration=configuration, reusable=setup_reuse)
+    from .post_install import preflight_post_install
+    setup_bytes += preflight_post_install(request, check, stop, reusable=setup_reuse)
+    report.setup_tasks = tasks
+    notify("Checking authored profiles")
     provided_mods = {d.path.split("/")[1].casefold() for d in package.directives if d.path.startswith("mods/")}
+    provided_mods.update(task.mod.casefold() for task in tasks)
+    for profile, config in configuration.items():
+        if config.outputs:
+            check("pass", "Output mods", f"{profile}: create and retain {', '.join(sorted(set(config.outputs.values())))} for authored tool output")
+            check("manual", "Tool output configuration", f"{profile}: authored output folders are retained. Pandora and PGPatcher are configured at launch; select the listed output folder in other tools before generating files.")
     profile_lists = {}
     with zipfile.ZipFile(package.path) as archive:
         for directive in package.directives:
@@ -166,11 +414,12 @@ def preflight(request, stop=None) -> PreflightReport:
         for (profile, kind), lines in profile_lists.items():
             if kind != "modlist.txt":
                 continue
+            available_mods = provided_mods | {n.casefold() for n in configuration[profile].outputs.values()}
             for line in lines:
                 if not line.startswith("+") or line.casefold().endswith("_separator"):
                     continue
                 name = line[1:]
-                if name.casefold() not in provided_mods:
+                if name.casefold() not in available_mods:
                     try:
                         existing = source_path(directory / "root" / "mods", name)
                         available = existing.is_dir() and any(existing.iterdir())
@@ -180,7 +429,7 @@ def preflight(request, stop=None) -> PreflightReport:
                         check("error", "Required external mod", f"Profile {profile} enables '{name}', which this package does not provide. Follow the author's external setup requirements or deselect this profile.")
     vanilla = {p.casefold() for p in [*getattr(request.game, "vanilla_plugins", []),
                                      *getattr(request.game, "vanilla_dlc_plugins", [])]}
-    provided_plugins = {Path(d.path).name.casefold() for d in package.directives if Path(d.path).suffix.casefold() in {".esm", ".esp", ".esl"}}
+    provided_plugins = {d.path.rsplit("/", 1)[-1].casefold() for d in package.directives if d.path.casefold().endswith((".esm", ".esp", ".esl"))}
     for (profile, kind), lines in profile_lists.items():
         if kind != "plugins.txt":
             continue
@@ -197,61 +446,88 @@ def preflight(request, stop=None) -> PreflightReport:
                     pass
             if not available:
                 check("error", "Required DLC or game plugin", f"Profile {profile} enables {name}, which is missing from the original game and reconstructed files")
-    from .manifest import archive_path, required_directives, dependency_paths
-    root_reuse, stage_reuse, old_outputs = _reusable(request, stop, check)
+    from .manifest import required_directives, dependency_paths, optional_game_file_directives
+    notify("Verifying reusable installation files")
+    root_reuse, stage_reuse, old_outputs = _reusable(request, stop, check, adapter)
     reusable = root_reuse | stage_reuse
-    required = required_directives(package, reusable)
+    ignored_directives = optional_game_file_directives(package)
+    required = required_directives(package, reusable, ignored_directives)
     pending = [d for d in package.directives if d.path in required and d.path not in reusable]
-    required_archives = {archive_path(d.data)[0] for d in pending
-                         if d.kind in {"FromArchive", "PatchedFromArchive", "TransformedTexture"}}
+    required_archives = {archive_paths[d.index][0] for d in pending if d.index in archive_paths}
+    ignored_archives = {archive_paths[d.index][0] for d in package.directives
+                        if d.path in ignored_directives and d.index in archive_paths} - required_archives
+    report.required_archives = sorted(required_archives)
     from Utils.downloads.core import get_scan_dirs
     scan_dirs = [request.downloads, *get_scan_dirs(request.game.name)]
+    notify("Finding cached downloads")
     by_size = {}
-    for folder in scan_dirs:
+    sizes_needed = {a.size for a in package.archives.values() if a.key in required_archives and a.kind != "GameFileSource"}
+    for folder in dict.fromkeys(p.resolve() for p in scan_dirs):
         if folder.is_dir():
-            for path in folder.iterdir():
-                if path.is_file() and not path.name.endswith((".part", ".tmp")):
-                    by_size.setdefault(path.stat().st_size, []).append(path)
-    hashes = {}
+            with os.scandir(folder) as entries:
+                for entry in entries:
+                    if stop is not None and stop.is_set():
+                        raise InterruptedError("Preflight stopped")
+                    if entry.is_file() and not entry.name.endswith((".part", ".tmp")):
+                        size = entry.stat().st_size
+                        if size in sizes_needed:
+                            by_size.setdefault(size, []).append(Path(entry.path))
     from .hashes import file_hash
+    game_file_problems = []
+    ignored_game_file_problems = []
     for archive in package.archives.values():
-        if archive.key not in required_archives:
+        if archive.key not in required_archives | ignored_archives:
             continue
         if stop is not None and stop.is_set():
             raise InterruptedError("Preflight stopped")
         if archive.kind == "GameFileSource":
+            notify("Verifying required game files", archive.name)
             name = str(archive.state.get("Game", archive.state.get("GameName", package.game)))
             game_root = next((p for n, p in request.game_roots.items() if token(n) == token(name)), None)
             rel = archive.state.get("GameFile", archive.name)
             found = None
+            present = None
             if game_root:
                 for candidate in (rel, "Data/" + rel):
                     try:
-                        path = source_path(game_root, candidate)
-                        if verify_file(path, archive.key, archive.size, stop):
-                            found = path
-                            break
+                        path = source_path(game_root, candidate, expected=archive.key, size=archive.size, stop=stop)
+                        found = path
+                        break
                     except (OSError, WabbajackError):
-                        pass
+                        try:
+                            candidate_path = source_path(game_root, candidate)
+                            if candidate_path.is_file():
+                                present = candidate_path
+                        except (OSError, WabbajackError):
+                            pass
             if found:
-                report.game_files[archive.key] = found
+                if archive.key in required_archives:
+                    report.game_files[archive.key] = found
             else:
-                check("error", "Required game file", f"{name}: {rel} is missing or differs from the required version. Check store, game version, language and DLC.")
+                target = (game_file_problems if archive.key in required_archives
+                          else ignored_game_file_problems)
+                target.append((name, rel, present, archive))
             continue
+        notify("Verifying cached downloads", archive.name)
         for path in by_size.get(archive.size, []):
-            if path not in hashes:
-                hashes[path] = file_hash(path, stop)
-            if hashes[path] == archive.key:
+            if file_hash(path, stop) == archive.key:
                 report.cached[archive.key] = path
                 break
         if archive.key not in report.cached:
             report.download_bytes += archive.size
-            if archive.kind not in {"Http", "HTTP", "WabbajackCDN"} and not (archive.kind == "Nexus" and request.premium):
+            if not automatic_source(archive, request.premium):
                 check("manual", "Manual download", archive.name)
+    _emit_game_file_problems(package, game_file_problems, check,
+                             request.gallery_metadata.get("readme", ""))
+    _emit_game_file_problems(package, ignored_game_file_problems, check,
+                             request.gallery_metadata.get("readme", ""), ignored=True)
+    notify("Checking reconstruction requirements")
     for directive in package.directives:
+        if directive.path in ignored_directives:
+            continue
         report.install_bytes += directive.size
         if directive.embedded_hash:
-            check("warning", "Compiled profile selections", f"{directive.path}: the embedded profile differs from the original-file metadata. Import and verify the packaged selections exactly ({directive.output_size:,} bytes).")
+            check("pass", "Profile selections", f"{directive.path}: Amethyst will import and verify the author's packaged selections automatically. No action needed.")
         if directive.kind == "CreateBSA":
             try:
                 check_archive_state(directive.data["State"], directive.data["FileStates"])
@@ -259,44 +535,58 @@ def preflight(request, stop=None) -> PreflightReport:
                 check("error", "Archive reconstruction", f"{directive.path}: {exc}")
     textures = [d for d in pending if d.kind == "TransformedTexture"]
     if textures:
+        notify("Checking texture conversion")
         from .textures import probe_texture_tool, texture_parameters
         try:
-            for directive in textures:
-                texture_parameters(directive.data["ImageState"])
-            probe_texture_tool(request, stop)
-            check("pass", "Texture conversion", f"Texconv is ready for {len(textures):,} textures")
+            formats = {texture_parameters(directive.data["ImageState"])[3] for directive in textures}
+            probe_texture_tool(request, stop, sorted(formats))
+            check("pass", "Texture conversion", f"Converted and verified sample DDS files for {len(formats)} formats using {request.proton.parent.name}; ready for {len(textures):,} textures")
+        except InterruptedError:
+            raise
         except Exception as exc:
             check("error", "Texture conversion", exc)
-    from .runtime import adjustments
-    for item in adjustments(package, request.game):
+    from .runtime import adjustments, uses_native_runtime
+    notify("Checking runtime requirements")
+    native_runtime = uses_native_runtime(request.game)
+    for item in adjustments(package, request.game, request.profiles, configuration=configuration):
         check("pass" if item.id in request.fixes else "error" if item.required else "warning",
               "Runtime adjustment", item.label + (" (accepted)" if item.id in request.fixes else " — review this option in setup"))
-    if any(d.path.lower().endswith(".exe") for d in package.directives):
+    if native_runtime:
+        check("pass", "Game runtime", "Native Linux runtime; no Wine/Proton prefix required")
+    elif any(d.path.lower().endswith(".exe") for d in package.directives):
         prefix = request.game.get_prefix_path() if hasattr(request.game, "get_prefix_path") else None
         if not prefix or not Path(prefix).is_dir():
             check("error", "Game runtime", "Configure the selected game's Wine/Proton prefix before installation")
     archive_names = []
     for d in pending:
         if d.kind in {"FromArchive", "PatchedFromArchive", "TransformedTexture"}:
-            key, members = archive_path(d.data)
+            key, members = archive_paths[d.index]
             if members:
                 archive_names.extend([package.archives[key].name, *members[:-1]])
     if any(not name.lower().endswith((".zip", ".bsa", ".ba2", ".tar", ".tar.gz", ".tgz", ".tar.xz", ".tar.bz2")) for name in archive_names):
         if not any(shutil.which(n) for n in ("7zzs", "7zz", "7z", "7za")):
             check("error", "Archive extraction", "Install 7-Zip to extract the required source archives")
     devices = {}
+    notify("Calculating disk space")
     reused_bytes = sum(d.size for d in package.directives if d.path in reusable)
     if reusable:
         check("pass", "Reusable outputs", f"{reused_bytes / 1024 ** 3:.1f} GiB verified for reuse; {len(package.archives) - len(required_archives):,} source archives are no longer needed")
     staged_bytes = sum(d.size for d in pending)
-    final_bytes = sum(d.size for d in package.directives if d.path not in root_reuse and d.path.split("/")[0].casefold() != "temp_bsa_files")
+    final_bytes = sum(d.size for d in package.directives if d.path not in ignored_directives
+                      and d.path not in root_reuse
+                      and d.path.split("/")[0].casefold() != "temp_bsa_files"
+                      and (not adapter or adapter.installed_path(d.path)))
     profile_bytes = sum(d.size for d in package.directives if d.path.startswith("profiles/")
                         and d.path.split("/")[1] in request.profiles)
     profile_bytes += max(1, len(request.profiles)) * sum(d.size for d in package.directives if
-        (adapter and adapter.root_destination(d.path)) or d.path.casefold().startswith("overwrite/"))
+        (adapter and adapter.root_destination(d.path) and not adapter.root_mod_destination(d.path))
+        or d.path.casefold().startswith("overwrite/"))
     backups = 0
+    reused_targets = {rel for path in root_reuse if (rel := adapter.installed_path(path))} if adapter else root_reuse
     for key in old_outputs:
-        if key.startswith("root/") and key[5:] in root_reuse:
+        if key in bsa_reuse or key in setup_reuse:
+            continue
+        if key.startswith("root/") and key[5:] in reused_targets:
             continue
         path = directory / key if key.startswith("root/") else root / key
         if path.is_file() and not path.is_symlink():
@@ -304,7 +594,7 @@ def preflight(request, stop=None) -> PreflightReport:
     extracted = {}
     for d in pending:
         if d.kind in {"FromArchive", "PatchedFromArchive", "TransformedTexture"}:
-            key, members = archive_path(d.data)
+            key, members = archive_paths[d.index]
             if members:
                 extracted[key] = extracted.get(key, 0) + d.size
     estimates = []
@@ -327,6 +617,8 @@ def preflight(request, stop=None) -> PreflightReport:
     temporary = max(sum(sorted(estimates, reverse=True)[:3]), merge_bytes)
     multipart = sum(a.size for a in package.archives.values() if a.key in required_archives and a.kind == "WabbajackCDN" and a.key not in report.cached)
     sizes = [(request.downloads, report.download_bytes + multipart, "downloads and multipart assembly"),
+             (directory, setup_bytes, "additional setup, staging and generated mods"),
+             (directory, bsa_bytes, "vanilla BSA setup and audio conversion"),
              (directory, staged_bytes + final_bytes + 2 * profile_bytes + backups, "installation, staging and update backups"),
              (directory, temporary, "estimated temporary extraction")]
     for path, count, label in sizes:
@@ -346,6 +638,7 @@ def preflight(request, stop=None) -> PreflightReport:
         check("pass" if available >= count + reserve else "error", "Disk space",
               f"{', '.join(labels)}: need {(count + reserve) / 1024 ** 3:.1f} GiB including reserve; {available / 1024 ** 3:.1f} GiB available at {parent}")
     try:
+        notify("Checking filesystem capabilities")
         parent = existing_parent(request.directory)
         with tempfile.TemporaryDirectory(prefix=".amethyst-preflight-", dir=parent) as tmp:
             p = Path(tmp)
@@ -359,5 +652,6 @@ def preflight(request, stop=None) -> PreflightReport:
                 check("warning", "Filesystem", "Case-insensitive installation filesystem")
     except OSError as exc:
         check("error", "Filesystem capabilities", exc)
-    check("warning", "Linux compatibility", "Read the author's requirements. Successful file reconstruction does not verify every Windows mod under Proton.")
+    check("warning", "Linux compatibility", "Read the author's requirements. Successful file reconstruction does not verify that every mod or bundled tool supports native Linux."
+          if native_runtime else "Read the author's requirements. Successful file reconstruction does not verify every Windows mod under Proton.")
     return report

@@ -118,6 +118,7 @@ class CollectionInstallOverlay(QWidget):
         self._ex_slot_of: dict[int, int] = {}
         self._extract_active: dict[int, str] = {}
         self._extract_queued: dict[int, str] = {}
+        self._extract_progress: dict[int, tuple[int, int]] = {}
         self._finished = False
         # True collection size (installed/uncompressed) for the aggregate label;
         # the progress bar itself still tracks compressed download bytes.
@@ -275,6 +276,16 @@ class CollectionInstallOverlay(QWidget):
     # ---- progress slots (UI thread only) - NO widget creation -------------
     def set_status(self, text: str):
         self._status_lbl.setText(text or "")
+        self._status_lbl.setToolTip(text or "")
+
+    def set_phase(self, name: str, current: int, total: int, detail: str):
+        self._agg_lbl.setText(self.tr("{0}: {1:,} / {2:,}").format(name, current, total) if total else name)
+        self._agg_bar.setRange(0, 1000 if total else 0)
+        if total:
+            self._agg_bar.setValue(min(1000, int(current * 1000 / total)))
+        self._status_lbl.setText(self._status_lbl.fontMetrics().elidedText(
+            detail, Qt.ElideMiddle, self.CARD_W - 32))
+        self._status_lbl.setToolTip(detail)
 
     def refresh_theme(self, palette):
         self._p = palette
@@ -360,6 +371,9 @@ class CollectionInstallOverlay(QWidget):
         self._render_extract()
 
     def extract_update(self, file_id: int, cur: int, tot: int):
+        if file_id not in self._extract_active:
+            return
+        self._extract_progress[file_id] = (cur, tot)
         slot = self._ex_slot_of.get(file_id)
         if slot is not None and slot >= 0:
             self._ex_rows[slot].set_progress(cur, tot)
@@ -367,6 +381,7 @@ class CollectionInstallOverlay(QWidget):
     def extract_remove(self, file_id: int):
         self._extract_active.pop(file_id, None)
         self._extract_queued.pop(file_id, None)
+        self._extract_progress.pop(file_id, None)
         slot = self._ex_slot_of.pop(file_id, None)
         if slot is not None and slot >= 0:
             self._ex_rows[slot].clear()
@@ -376,7 +391,7 @@ class CollectionInstallOverlay(QWidget):
             if promo is not None:
                 self._ex_slot_of[promo] = slot
                 self._ex_rows[slot].assign(self._extract_active.get(promo, ""))
-                self._ex_rows[slot].set_progress(0, 0)
+                self._ex_rows[slot].set_progress(*self._extract_progress.get(promo, (0, 0)))
         self._render_extract()
 
     def row_installed(self, file_id: int):

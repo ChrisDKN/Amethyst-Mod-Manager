@@ -37,6 +37,7 @@ class InstallCallbacks:
     # interactive resolvers (BLOCK the worker; caller marshals a wizard)
     resolve_fomod: "Callable | None" = None   # (config, base, name, inst, act, loose, saved) -> dict|None
     resolve_bain: "Callable | None" = None     # (subpkgs, root, name) -> {"selected":[...]}|None
+    on_phase: Callable[[str, int, int, str], None] = _noop
 
 
 @dataclass
@@ -50,32 +51,67 @@ class InstallControl:
     manual_queue: _queue.Queue = field(default_factory=_queue.Queue)
 
 
+class ManualDownloadRequired(Exception):
+    pass
+
+
 def consume_pipeline(items, acquire, install, control, *, download_workers=4,
-                     install_workers=2, on_error=None):
+                     install_workers=2, manual_items=(), on_ready=None,
+                     on_discard=None, on_error=None, prefetch=None, manual_acquire=None):
     from Utils.downloads.scheduler import order_by_size, run_pipelined
-    ready = _queue.Queue(maxsize=max(1, install_workers))
+    items, manual_items = tuple(items), tuple(manual_items)
+    download_workers, install_workers = max(1, download_workers), max(1, install_workers)
+    ready = _queue.Queue(maxsize=max(download_workers + install_workers + 8, 32))
     errors = []
     lock = threading.Lock()
+    pending_manual = _queue.Queue(maxsize=max(1, len(items) + len(manual_items)))
+    for item in manual_items:
+        pending_manual.put((item, ""))
+    automatic_done = threading.Event()
 
     def failed(item, exc):
         with lock:
             errors.append((item, exc))
-        if on_error:
-            on_error(item, exc)
+        notify(on_error, item, exc)
 
-    def producer(item, prefetched):
+    def notify(callback, *args):
+        if callback:
+            try:
+                callback(*args)
+            except Exception:
+                pass
+
+    def producer(item, prefetched, *, manual=False, reason=""):
         if control.stop.is_set():
             return
+        handed_off = False
+        queued = False
         try:
-            result = acquire(item)
+            if manual and manual_acquire:
+                result = manual_acquire(item, reason)
+            else:
+                result = acquire(item, prefetched) if prefetch else acquire(item)
+            if control.stop.is_set():
+                return
+            notify(on_ready, item)
+            queued = True
             while not control.stop.is_set():
                 try:
                     ready.put((item, result), timeout=0.2)
+                    handed_off = True
                     return
                 except _queue.Full:
                     pass
+        except ManualDownloadRequired as exc:
+            if manual_acquire and not manual and not control.stop.is_set():
+                pending_manual.put((item, str(exc)))
+            elif not control.stop.is_set():
+                failed(item, exc)
         except Exception as exc:
             failed(item, exc)
+        finally:
+            if queued and not handed_off:
+                notify(on_discard, item)
 
     def consumer():
         while True:
@@ -89,14 +125,37 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                         install(item, result)
                     except Exception as exc:
                         failed(item, exc)
+                else:
+                    notify(on_discard, item)
             finally:
                 ready.task_done()
 
     with ThreadPoolExecutor(max_workers=install_workers, thread_name_prefix="install") as pool:
         workers = [pool.submit(consumer) for _ in range(install_workers)]
         try:
-            run_pipelined(order_by_size(items, lambda a: a.size), lambda _: None,
-                          producer, download_workers, stop=control.stop)
+            def automatic():
+                try:
+                    run_pipelined(order_by_size(items, lambda a: a.size), prefetch or (lambda _: None),
+                                  producer, download_workers, stop=control.stop,
+                                  link_workers=max(4, download_workers),
+                                  large_workers=min(2, download_workers - 1))
+                finally:
+                    automatic_done.set()
+            def manual():
+                while not control.stop.is_set():
+                    try:
+                        item, reason = pending_manual.get(timeout=0.2)
+                    except _queue.Empty:
+                        if automatic_done.is_set() and pending_manual.empty():
+                            return
+                        continue
+                    producer(item, None, manual=True, reason=reason)
+            with ThreadPoolExecutor(max_workers=2, thread_name_prefix="acquire") as producers:
+                futures = [producers.submit(automatic)]
+                if not pending_manual.empty() or manual_acquire:
+                    futures.append(producers.submit(manual))
+                for future in futures:
+                    future.result()
         finally:
             for _ in workers:
                 ready.put(None)

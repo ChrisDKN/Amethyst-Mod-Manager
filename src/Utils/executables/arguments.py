@@ -441,6 +441,7 @@ def _bootstrap_pandora_settings(
     prefix_path: "Path | None",
     log_fn: "Callable[[str], None]",
     exe_path: "Path | None" = None,
+    output_mod: "Path | None" = None,
 ) -> None:
     """
     Update Pandora Behaviour Engine's Settings.json inside the Wine prefix so
@@ -470,7 +471,7 @@ def _bootstrap_pandora_settings(
         / "Pandora Behaviour Engine" / "Settings.json"
     )
 
-    output_mod_dir = staging_path / "Pandora_output"
+    output_mod_dir = output_mod if output_mod is not None else staging_path / "Pandora_output"
     output_mod_dir.mkdir(parents=True, exist_ok=True)
 
     exe_settings_file = (

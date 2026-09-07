@@ -27,6 +27,96 @@ def delta(output, commands):
 
 
 class IntegrityChecks(unittest.TestCase):
+    def test_long_names_and_atomic_publication(self):
+        import threading
+        import zipfile
+        from Utils.atomic_write import atomic_writer, write_atomic
+        from .paths import check_path_length, cache_path, auxiliary_path
+        from .reconstruct import extract_safe
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            name_max = os.pathconf(root, "PC_NAME_MAX")
+            name = "x" * (name_max - 4) + ".txt"
+            target = root / name
+            write_atomic(target, b"original")
+            with self.assertRaises(RuntimeError):
+                with atomic_writer(target, "wb", encoding=None) as stream:
+                    stream.write(b"incomplete")
+                    raise RuntimeError("interrupted")
+            self.assertEqual(target.read_bytes(), b"original")
+            archive = root / "source.zip"
+            with zipfile.ZipFile(archive, "w") as source:
+                source.writestr(name, b"complete")
+            extract_safe(archive, root / "out", threading.Event(), lambda *_: None)
+            self.assertEqual((root / "out" / name).read_bytes(), b"complete")
+            check_path_length(root, ("folder/" * 50) + name)
+            with self.assertRaises(WabbajackError):
+                check_path_length(root, "é" * (name_max // 2 + 1))
+            cached = cache_path(root, "0" * 16, "é" * 125 + ".7z")
+            for path in (cached, auxiliary_path(cached, ".chunks"), auxiliary_path(cached, ".invalid-1234567890123456789")):
+                self.assertLessEqual(len(os.fsencode(path.name)), name_max)
+            store = Store(root / ".wabbajack" / "installation", root)
+            try:
+                staged = store.work / "source"
+                staged.write_bytes(b"published")
+                store._place(staged, root / "published" / name, digest(b"published"))
+                self.assertEqual((root / "published" / name).read_bytes(), b"published")
+            finally:
+                store.close()
+
+    def test_case_colliding_sources(self):
+        import json
+        import zipfile
+        from types import SimpleNamespace
+        from Utils.downloads.install import InstallCallbacks, InstallControl
+        from .manifest import inspect_package
+        from .reconstruct import Reconstruction
+        from .archive_io import records
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "source.zip"
+            with zipfile.ZipFile(source, "w") as archive:
+                archive.writestr("Folder/File.txt", b"wrong!")
+                archive.writestr("Folder/file.txt", b"right!")
+            key = file_hash(source)
+            output = b"right!!"
+            patch = delta(output, b"\x60" + struct.pack("<qq", 0, 6) + b"\x80" + struct.pack("<q", 1) + b"!")
+            manifest = {"Name": "Case variants", "Archives": [{"Name": source.name, "Hash": key, "Size": source.stat().st_size, "State": {"$type": "Http"}}],
+                        "Directives": [{"$type": kind, "To": f"mods/Example/{index}.txt", "Hash": digest(data), "Size": len(data),
+                                        "ArchiveHashPath": [key, member], **extra}
+                                       for index, (kind, member, data, extra) in enumerate([
+                                           ("FromArchive", "Folder/FILE.txt", b"right!", {}),
+                                           ("FromArchive", "Folder/File.txt", b"right!", {}),
+                                           ("PatchedFromArchive", "Folder/File.txt", output, {"PatchID": "patch"}),
+                                           ("PatchedFromArchive", "Folder/FILE.txt", output, {"PatchID": "patch"})])]}
+            package_path = root / "case.wabbajack"
+            with zipfile.ZipFile(package_path, "w") as archive:
+                archive.writestr("modlist", json.dumps(manifest))
+                archive.writestr("patch", patch)
+            package = inspect_package(package_path)
+            directory = root / ".wabbajack" / "installation"
+            request = SimpleNamespace(package=package, directory=directory, downloads=root / "downloads", game_roots={})
+            store = Store(directory, root)
+            try:
+                reconstruction = Reconstruction(request, store, InstallCallbacks(), InstallControl())
+                reconstruction.needed_archives()
+                reconstruction.install_archive(package.archives[key], source)
+                for directive in package.directives:
+                    self.assertEqual(file_hash(reconstruction.output / directive.path), directive.hash)
+            finally:
+                store.close()
+            archive = root / "case.bsa"
+            names = b"File.txt\0file.txt\0"
+            toc = struct.pack("<4I", 1, 0, 1, 1) + struct.pack("<2I", 0, 9) + names
+            archive.write_bytes(struct.pack("<3I", 256, len(toc), 2) + toc + bytes(16) + b"AB")
+            with self.assertRaises(WabbajackError):
+                records(archive)
+            extract_bethesda(archive, root / "bsa")
+            self.assertEqual((root / "bsa/File.txt").read_bytes(), b"A")
+            self.assertEqual(source_path(root / "bsa", "FILE.txt", expected=digest(b"B")).read_bytes(), b"B")
+            with self.assertRaises(WabbajackError):
+                source_path(root / "bsa", "FILE.txt", expected=digest(b"missing"))
+
     def test_compiled_profile_integrity(self):
         import json
         import zipfile

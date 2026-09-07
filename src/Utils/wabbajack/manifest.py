@@ -65,9 +65,30 @@ def dependency_paths(directive):
     return []
 
 
-def required_directives(package, reusable):
+def optional_game_file_directives(package):
+    candidates = set()
+    for directive in package.directives:
+        if directive.kind != "FromArchive":
+            continue
+        key, members = archive_path(directive.data)
+        archive = package.archives.get(key)
+        if not archive or archive.kind != "GameFileSource" or members:
+            continue
+        source = str(archive.state.get("GameFile", archive.name)).replace("\\", "/")
+        source_name = source.rsplit("/", 1)[-1].casefold()
+        target_name = directive.path.rsplit("/", 1)[-1].casefold()
+        if source_name == target_name and source_name in {"debug.log", "installscript.vdf"}:
+            candidates.add(directive.path)
+    used = {path.casefold() for directive in package.directives
+            if directive.path not in candidates for path in dependency_paths(directive)}
+    return {path for path in candidates if path.casefold() not in used}
+
+
+def required_directives(package, reusable, excluded=()):
     by_path = {d.path.casefold(): d for d in package.directives}
-    pending = [d for d in package.directives if d.path.split("/")[0].casefold() != "temp_bsa_files"]
+    excluded = set(excluded)
+    pending = [d for d in package.directives if d.path not in excluded
+               and d.path.split("/")[0].casefold() != "temp_bsa_files"]
     required = set()
     while pending:
         directive = pending.pop()

@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable
+from typing import Callable, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .requirements import SetupTask
 
 
 @dataclass(frozen=True)
@@ -58,6 +61,9 @@ class Check:
     status: str
     name: str
     detail: str
+    explanation: str = ""
+    resolution: str = ""
+    items: tuple[str, ...] = ()
 
 
 @dataclass
@@ -67,6 +73,9 @@ class PreflightReport:
     game_files: dict[str, Path] = field(default_factory=dict)
     download_bytes: int = 0
     install_bytes: int = 0
+    required_archives: list[str] | None = None
+    setup_tasks: list[SetupTask] = field(default_factory=list)
+    timings: dict[str, float] = field(default_factory=dict)
 
     @property
     def ok(self):
@@ -90,11 +99,28 @@ class InstallRequest:
     texconv: Path | None = None
     proton: Path | None = None
     resolve_conflicts: Callable | None = None
+    setup_options: dict = field(default_factory=dict)
 
     def __post_init__(self):
+        import copy
         self.directory = Path(self.directory).expanduser().absolute()
         self.downloads = Path(self.downloads).expanduser().absolute()
         self.game_roots = {k: Path(v).expanduser().absolute() for k, v in self.game_roots.items()}
+        self.setup_options = copy.deepcopy(self.setup_options)
+        for value in self.setup_options.values():
+            if isinstance(value, dict):
+                for key in ("mpi", "source"):
+                    if value.get(key):
+                        value[key] = str(Path(value[key]).expanduser().absolute())
+        if self.setup_options.get("fallout3"):
+            self.setup_options["fallout3"] = str(Path(self.setup_options["fallout3"]).expanduser().absolute())
+        if not self.setup_options.get("store"):
+            from .games import nexus_domain
+            root = next((path for name, path in self.game_roots.items() if nexus_domain(name) == nexus_domain(self.package.game)), None)
+            if root and (root / ".egstore").is_dir():
+                self.setup_options["store"] = "epic"
+            elif root and ((root.parent.name.casefold() == "common" and root.parent.parent.name.casefold() == "steamapps") or any(root.glob("goggame-*.info"))):
+                self.setup_options["store"] = "steam-gog"
 
 
 @dataclass(frozen=True)

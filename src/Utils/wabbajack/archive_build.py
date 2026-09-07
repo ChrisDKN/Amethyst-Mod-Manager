@@ -28,14 +28,21 @@ def check_archive_state(state, files):
             raise WabbajackError(f"Unsupported BA2 compression: {state.get('Compression')}")
     else:
         raise WabbajackError(f"Unsupported archive state: {kind}")
-    paths, indexes = set(), set()
+    paths, indexes = {}, {}
     for item in files:
         path = relative_path(item["Path"]).casefold()
         index = int(item["Index"])
-        if path in paths or index in indexes or index < 0:
-            raise WabbajackError("Conflicting archive member or index")
-        paths.add(path)
-        indexes.add(index)
+        if path in paths:
+            raise WabbajackError(f"Duplicate archive member: {item['Path']} conflicts with {paths[path]}")
+        if index < 0:
+            raise WabbajackError(f"Invalid archive member index {index}: {item['Path']}")
+        folder = path.rpartition("/")[0] if kind == "BSAState" else ""
+        key = folder, index
+        if key in indexes:
+            location = f" in folder {folder or '(archive root)'}" if kind == "BSAState" else ""
+            raise WabbajackError(f"Duplicate archive member index {index}{location}: {indexes[key]} and {item['Path']}")
+        paths[path] = item["Path"]
+        indexes[key] = item["Path"]
         if kind == "BA2State" and str(state.get("Type")) in {"DX10", "1"}:
             if not 1 <= int(item["Width"]) <= 16384 or not 1 <= int(item["Height"]) <= 16384:
                 raise WabbajackError("Invalid texture dimensions")
@@ -106,12 +113,14 @@ def rebuild_archive(target: Path, root: Path, state: dict, files: list,
         if kind == "TES3State":
             _tes3(out, root, state, files, stop)
         elif kind == "BSAState":
-            _bsa(out, root, state, files, stop)
+            _bsa(out, root, state, files, stop,
+                 (lambda cur, total: progress(cur, total * 2)) if progress else None)
         else:
             _ba2(out, root, state, files, stop)
         out.flush()
         from .archive_io import verify_archive
-        verify_archive(Path(out.name), root, files, stop)
+        verify_archive(Path(out.name), root, files, stop,
+            (lambda cur, total: progress(total + cur, total * 2)) if progress else None)
         if progress:
             progress(len(files), len(files))
 
@@ -139,7 +148,7 @@ def _tes3(out, root, state, files, stop):
             _payload(source, out, False, stop)
 
 
-def _bsa(out, root, state, files, stop):
+def _bsa(out, root, state, files, stop, progress=None):
     from Utils.bsa.writer import tes4_hash_file, tes4_hash_folder
     version, flags = int(state["Version"]), int(state["ArchiveFlags"])
     folders = {}
@@ -169,7 +178,7 @@ def _bsa(out, root, state, files, stop):
     if flags & 2:
         for _, leaf, _ in records:
             out.write(leaf.encode("cp1252") + b"\0")
-    for position, leaf, item in records:
+    for index, (position, leaf, item) in enumerate(records):
         _check(stop)
         source = source_path(root, item["Path"])
         offset = out.tell()
@@ -191,6 +200,8 @@ def _bsa(out, root, state, files, stop):
         out.seek(position)
         out.write(struct.pack("<QII", tes4_hash_file(leaf), size | (int(flip) << 30), offset))
         out.seek(end)
+        if progress:
+            progress(index + 1, len(records))
     end = out.tell()
     out.seek(36)
     for hash_value, count, offset in folder_records:

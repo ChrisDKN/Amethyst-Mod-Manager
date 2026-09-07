@@ -13,6 +13,7 @@ _DOMAINS = {
     "fallout3goty": "fallout3", "enderalspecialedition": "enderalspecialedition",
     "enderalse": "enderalspecialedition", "baldursgate3": "baldursgate3",
     "oblivionremastered": "oblivionremastered",
+    "sevendaystodie": "7daystodie",
 }
 
 
@@ -28,6 +29,8 @@ def nexus_domain(value: str) -> str:
 def matches_game(game, name: str) -> bool:
     key = token(name)
     own = {token(getattr(game, a, "")) for a in ("name", "game_id", "nexus_game_domain")}
+    if ("vr" in key) != any("vr" in s for s in own):
+        return False
     if key in own:
         return True
     if "vr" in key or any("vr" in s for s in own):

@@ -819,7 +819,52 @@ class ComponentSpec:
     fix_token: str
 
 
+def detect_vcrun2012(prefix_path: Path) -> "bool | None":
+    pfx = wine_reg.normalize_pfx(Path(prefix_path))
+    if not _prefix_usable(pfx):
+        return None
+    folders = ["system32"]
+    if (pfx / "drive_c/windows/syswow64").is_dir():
+        folders.append("syswow64")
+    return all(dll_origin(pfx, name, subdir=folder) is DllOrigin.NATIVE
+               for folder in folders for name in ("msvcr110.dll", "msvcp110.dll"))
+
+
+def check_vcrun2012(prefix_path: Path) -> HealthCheck:
+    ready = detect_vcrun2012(prefix_path)
+    return HealthCheck("vcrun2012", HealthStatus.OK if ready else HealthStatus.MISSING,
+                       "Visual C++ 2012", "Native msvcr110 and msvcp110 DLLs verified" if ready else "Install the separate Visual C++ 2012 runtime",
+                       None if ready else "vcrun2012", {})
+
+
+def detect_dotnet48(prefix_path: Path) -> "bool | None":
+    pfx = wine_reg.normalize_pfx(Path(prefix_path))
+    if not _prefix_usable(pfx):
+        return None
+    value = wine_reg.read_value(pfx, r"Software\Microsoft\NET Framework Setup\NDP\v4\Full", "Release") or ""
+    try:
+        release = int(value.removeprefix("dword:"), 16) if value.startswith("dword:") else int(value)
+    except ValueError:
+        return False
+    frameworks = [("Framework", "system32")]
+    if (pfx / "drive_c/windows/syswow64").is_dir():
+        frameworks = [("Framework", "syswow64"), ("Framework64", "system32")]
+    return release >= 528040 and all(
+        dll_origin(pfx, "clr.dll", subdir=f"Microsoft.NET/{folder}/v4.0.30319") is DllOrigin.NATIVE
+        and dll_origin(pfx, "mscoree.dll", subdir=system) is DllOrigin.NATIVE
+        for folder, system in frameworks)
+
+
+def check_dotnet48(prefix_path: Path) -> HealthCheck:
+    ready = detect_dotnet48(prefix_path)
+    return HealthCheck("dotnet48", HealthStatus.OK if ready else HealthStatus.MISSING,
+                       ".NET Framework 4.8", "Framework registry and native CLR files verified" if ready else "Install or repair .NET Framework 4.8",
+                       None if ready else "dotnet48", {})
+
+
 COMPONENT_SPECS: dict[str, ComponentSpec] = {
+    "vcrun2012": ComponentSpec("vcrun2012", "Visual C++ 2012", detect_vcrun2012, check_vcrun2012, "vcrun2012"),
+    "dotnet48": ComponentSpec("dotnet48", ".NET Framework 4.8", detect_dotnet48, check_dotnet48, "dotnet48"),
     "vcredist": ComponentSpec(
         "vcredist", "VC++ Redistributable (x64)",
         detect_vcredist, check_vcredist, "vcredist"),

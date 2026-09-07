@@ -20,6 +20,10 @@ class Fallout_4VR(Fallout_3):
     synthesis_registry_name = "Fallout 4 VR"
 
     @property
+    def prefix_health_extras(self) -> list[str]:
+        return [*super().prefix_health_extras, "vcrun2012"]
+
+    @property
     def reshade_dll(self) -> str:
         return "dxgi.dll"
 

@@ -77,6 +77,8 @@ def winetricks_verb_dep_key(verb: str) -> str:
 # the import stays one-way (protontricks → health, never the reverse)
 # and is_dep_installed can never recurse into itself.
 _DETECTABLE_DEPS: dict[str, str] = {
+    winetricks_verb_dep_key("vcrun2012"): "vcrun2012",
+    winetricks_verb_dep_key("dotnet48"): "dotnet48",
     VCREDIST_DEP_KEY: "vcredist",
     D3D_DEP_KEY: "d3dcompiler_47",
     winetricks_verb_dep_key("lavfilters"): "lavfilters",
@@ -95,6 +97,8 @@ _DETECTABLE_DEPS: dict[str, str] = {
 # verb overwrites it with an older bundled build. vcrun2022 is excluded too -
 # it is the same runtime our vcredist installer already provides (vc_redist.x64).
 WINETRICKS_VERB_DEPS: frozenset[str] = frozenset((
+    "vcrun2012",
+    "dotnet48",
     "d3dx9_43", "d3dx11_43", "d3dcompiler_43",
     "d3dcompiler_42", "d3dcompiler_46", "d3dx10_43", "d3dx11_42",
     "d3dx9", "d3dx10", "quartz", "dx8vb",
@@ -437,6 +441,7 @@ def install_winetricks_verb(
     log_fn: Callable[[str], None] | None = None,
     *,
     timeout: int = 300,
+    strict_prefix: bool = False,
 ) -> bool:
     """Install a generic winetricks *verb* into *game*'s Proton prefix.
 
@@ -447,11 +452,17 @@ def install_winetricks_verb(
     repeat calls skip instantly. *timeout* is per attempt - pass a large
     value for slow verbs like dotnet48.
     """
+    if verb == "dotnet48":
+        from Utils.wine.proton import install_dotnet48
+        return install_dotnet48(game, log_fn=_safe_log(log_fn))
     _log = _safe_log(log_fn)
     get_prefix = getattr(game, "get_prefix_path", None)
     prefix = get_prefix() if callable(get_prefix) else None
     if prefix is not None and not Path(prefix).is_dir():
         prefix = None
+    if strict_prefix and prefix is None:
+        _log(f"{verb}: the selected prefix is unavailable.")
+        return False
 
     key = winetricks_verb_dep_key(verb)
     if prefix is not None and is_dep_installed(Path(prefix), key):
@@ -466,6 +477,8 @@ def install_winetricks_verb(
         if _install_via_winetricks(Path(prefix), verb, _log, timeout):
             _mark()
             return True
+        if strict_prefix:
+            return False
         _log("Falling back to protontricks …")
 
     from Utils.launchers.steam import game_steam_id

@@ -5,6 +5,7 @@ import json
 import os
 import shutil
 import sqlite3
+import stat
 import threading
 import time
 import uuid
@@ -35,6 +36,7 @@ class Store:
         self.work.mkdir(exist_ok=True)
         self.lock = threading.RLock()
         self._pending_completed = {}
+        self._verified = {}
         self.db = sqlite3.connect(directory / "state.sqlite", check_same_thread=False)
         self.db.row_factory = sqlite3.Row
         self.db.execute("PRAGMA journal_mode=WAL")
@@ -61,14 +63,14 @@ class Store:
         self.db.close()
 
     @contextmanager
-    def exclusive(self):
+    def exclusive(self, progress=None):
         with (self.directory / "install.lock").open("a+b") as lock:
             try:
                 fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError as exc:
                 raise WabbajackError("This modlist already has an active operation") from exc
             try:
-                self.recover()
+                self.recover(progress=progress)
                 yield
             finally:
                 fcntl.flock(lock, fcntl.LOCK_UN)
@@ -128,10 +130,13 @@ class Store:
                 [(path, sig, digest) for path, (sig, digest) in self._pending_completed.items()])
             self._pending_completed.clear()
 
-    def recover(self):
+    def recover(self, progress=None):
         if self.get("status") != "committing":
             return
-        for row in self.db.execute("SELECT * FROM journal ORDER BY sequence DESC").fetchall():
+        rows = self.db.execute("SELECT * FROM journal ORDER BY sequence DESC").fetchall()
+        for index, row in enumerate(rows):
+            if progress:
+                progress("Restoring previous files", index, len(rows), row["path"])
             if not row["applied"]:
                 continue
             target = self.target(row["path"])
@@ -142,21 +147,86 @@ class Store:
                 self._copy(backup, target)
             else:
                 target.unlink(missing_ok=True)
+                if target.parent.is_dir():
+                    self._sync_directory(target.parent)
         with self.db:
             self.db.execute("DELETE FROM journal")
         self.set("status", "interrupted")
+        if progress:
+            progress("Restoring previous files", len(rows), len(rows), "Previous installation restored")
 
     @staticmethod
-    def _copy(source, target, stop=None):
+    def _copy(source, target, stop=None, progress=None, *, sync_directory=True):
+        total = source.stat().st_size if progress else 0
+        completed = 0
         with source.open("rb") as incoming, atomic_writer(target, "wb", encoding=None) as outgoing:
             while data := incoming.read(1024 * 1024):
                 if stop is not None and stop.is_set():
                     raise InterruptedError("File publication stopped")
                 outgoing.write(data)
+                completed += len(data)
+                if progress:
+                    progress(completed, total)
             outgoing.flush()
             os.fsync(outgoing.fileno())
         shutil.copymode(source, target)
-        Store._sync_directory(target.parent)
+        if sync_directory:
+            Store._sync_directory(target.parent)
+
+    def _place(self, source, target, wanted, stop=None, progress=None):
+        if stop is not None and stop.is_set():
+            raise InterruptedError("File publication stopped")
+        info = source.lstat()
+        private = (stat.S_ISREG(info.st_mode) and info.st_nlink == 1
+                   and source.resolve().is_relative_to(self.work.resolve()))
+        linked = False
+        if private:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            from Utils.atomic_write import _tmp_for
+            temporary = _tmp_for(target)
+            try:
+                with source.open("rb") as incoming:
+                    os.fsync(incoming.fileno())
+                try:
+                    os.link(source, temporary, follow_symlinks=False)
+                    linked = True
+                except OSError:
+                    pass
+                if linked:
+                    temporary.replace(target)
+            finally:
+                temporary.unlink(missing_ok=True)
+        if not linked:
+            self._copy(source, target, stop=stop, progress=progress, sync_directory=False)
+        actual = self._current_hash(target, stop)
+        if actual != wanted:
+            raise WabbajackError(f"Staged output changed before publication: {source}")
+        return actual
+
+    @staticmethod
+    def _stamp(info):
+        return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns,
+                info.st_ctime_ns, info.st_mode)
+
+    def _current_hash(self, path, stop=None):
+        if stop is not None and stop.is_set():
+            raise InterruptedError("File verification stopped")
+        try:
+            info = path.lstat()
+        except FileNotFoundError:
+            self._verified.pop(path, None)
+            return None
+        if not stat.S_ISREG(info.st_mode):
+            raise WabbajackError(f"Expected a regular installed file: {path}")
+        stamp = self._stamp(info)
+        cached = self._verified.get(path)
+        if cached and cached[0] == stamp:
+            return cached[1]
+        actual = file_hash(path, stop)
+        if self._stamp(path.lstat()) != stamp:
+            raise WabbajackError(f"File changed during verification: {path}")
+        self._verified[path] = (stamp, actual)
+        return actual
 
     @staticmethod
     def _sync_directory(path):
@@ -166,18 +236,23 @@ class Store:
         finally:
             os.close(fd)
 
-    def preview(self, desired, *, repair=False):
+    def preview(self, desired, *, repair=False, stop=None, progress=None):
         from .merge import baseline_candidate, merge_content, protected
         old = self.outputs()
         current, conflicts = {}, []
         preserved = set(self.get("preserved_profiles", []))
-        for key in old.keys() | desired.keys():
+        keys = old.keys() | desired.keys()
+        for index, key in enumerate(keys):
+            if stop is not None and stop.is_set():
+                raise InterruptedError("Installation comparison stopped")
+            if progress:
+                progress("Checking installed files", index, len(keys), key)
             target = self.target(key)
             if target.is_symlink():
                 raise WabbajackError(f"Owned output was replaced by a symbolic link: {key}")
             if target.exists() and not target.is_file():
                 raise WabbajackError(f"Output is occupied by a directory: {key}")
-            actual = file_hash(target) if target.is_file() else None
+            actual = self._current_hash(target, stop)
             current[key] = actual
             before = old.get(key, {}).get("authored_hash")
             after = desired.get(key, {}).get("authored_hash")
@@ -206,9 +281,11 @@ class Store:
                         pass
                 conflicts.append(Conflict(key, "Removed by author" if after is None else "Changed locally",
                                           before, actual, after, str(target), row["source"] if row else ""))
+        if progress:
+            progress("Checking installed files", len(keys), len(keys), "Local changes compared with the authored files")
         return current, conflicts
 
-    def publish(self, desired, choices, current, metadata, stop=None):
+    def publish(self, desired, choices, current, metadata, stop=None, progress=None):
         from .merge import protected
         old = self.outputs()
         operations = []
@@ -229,47 +306,81 @@ class Store:
             operations.append((key, desired.get(key, {}).get("source")))
         backup_root = self.directory / "backups" / str(time.time_ns())
         self.set("status", "committing")
+        touched = 0
         try:
-            for sequence, (key, source) in enumerate(operations):
-                if stop is not None and stop.is_set():
-                    raise InterruptedError("File publication stopped")
-                target = self.target(key)
-                actual = file_hash(target) if target.is_file() else None
-                if actual != current[key]:
-                    raise WabbajackError(f"File changed during update review: {key}")
-                backup = backup_root / str(sequence)
-                if target.is_file():
-                    self._copy(target, backup, stop=stop)
+            for offset in range(0, len(operations), 64):
+                batch = operations[offset:offset + 64]
+                journal = []
+                directories = set()
+                for sequence, (key, source) in enumerate(batch, offset):
+                    if progress:
+                        progress("Applying verified files", offset, len(operations), f"Preparing {key}")
+                    target = self.target(key)
+                    actual = self._current_hash(target, stop)
+                    if actual != current[key]:
+                        raise WabbajackError(f"File changed during update review: {key}")
+                    backup = backup_root / str(sequence)
+                    if actual is not None:
+                        self._copy(target, backup, stop=stop, sync_directory=False,
+                            progress=(lambda cur, total, key=key: progress("Applying verified files", offset,
+                                len(operations), f"Backing up {key} ({cur / 1024 ** 2:.1f} / {total / 1024 ** 2:.1f} MB)")) if progress else None)
+                        if self._current_hash(backup, stop) != actual:
+                            raise WabbajackError(f"File changed while creating update backup: {key}")
+                    journal.append((sequence, key, backup.relative_to(self.directory).as_posix(), int(actual is not None)))
+                if backup_root.exists():
+                    self._sync_directory(backup_root)
+                    self._sync_directory(backup_root.parent)
+                    self._sync_directory(self.directory)
                 with self.db:
-                    self.db.execute("INSERT INTO journal VALUES (?,?,?,?,1)",
-                        (sequence, key, backup.relative_to(self.directory).as_posix(), int(target.is_file())))
-                if source is None:
-                    target.unlink(missing_ok=True)
-                    self._sync_directory(target.parent)
-                else:
-                    self._copy(Path(source), target, stop=stop)
-                    wanted = desired[key].get("merged_hash", desired[key]["authored_hash"])
-                    if file_hash(target) != wanted:
-                        raise WabbajackError(f"Staged output changed before publication: {key}")
+                    self.db.executemany("INSERT INTO journal VALUES (?,?,?,?,1)", journal)
+                for sequence, (key, source) in enumerate(batch, offset):
+                    def copying(current_bytes, total_bytes):
+                        if progress:
+                            progress("Applying verified files", sequence, len(operations),
+                                     f"{key} ({current_bytes / 1024 ** 2:.1f} / {total_bytes / 1024 ** 2:.1f} MB)")
+                    if progress:
+                        progress("Applying verified files", sequence, len(operations), key)
+                    target = self.target(key)
+                    if self._current_hash(target, stop) != current[key]:
+                        raise WabbajackError(f"File changed during update review: {key}")
+                    touched = sequence + 1
+                    parent = target.parent
+                    directories.add(parent)
+                    while not parent.exists():
+                        parent = parent.parent
+                        directories.add(parent)
+                    if source is None:
+                        target.unlink(missing_ok=True)
+                    else:
+                        wanted = desired[key].get("merged_hash", desired[key]["authored_hash"])
+                        self._place(Path(source), target, wanted, stop=stop, progress=copying)
+                    if progress:
+                        progress("Applying verified files", sequence + 1, len(operations), key)
+                for directory in sorted(directories, key=lambda p: len(p.parts), reverse=True):
+                    self._sync_directory(directory)
             with self.db:
                 self.db.execute("DELETE FROM outputs")
                 self.db.execute("DELETE FROM baselines")
-                for key, row in desired.items():
+                for index, (key, row) in enumerate(desired.items()):
+                    if progress:
+                        progress("Recording installed files", index, len(desired), key)
                     if stop is not None and stop.is_set():
                         raise InterruptedError("File publication stopped")
                     target = self.target(key)
-                    actual = file_hash(target) if target.is_file() else None
+                    actual = self._current_hash(target, stop)
                     self.db.execute("INSERT INTO outputs VALUES (?,?,?,?)",
                         (key, row["authored_hash"], row["signature"], actual))
                     if "baseline_source" in row:
                         source = Path(row["baseline_source"])
-                        if file_hash(source) != row["authored_hash"]:
+                        if file_hash(source, stop) != row["authored_hash"]:
                             raise WabbajackError(f"Authored baseline changed before publication: {key}")
                         self.db.execute("INSERT INTO baselines VALUES (?,?)", (key, source.read_bytes()))
                 for key, value in metadata.items():
                     self.db.execute("INSERT OR REPLACE INTO metadata VALUES (?,?)", (key, json.dumps(value)))
                 self.db.execute("INSERT OR REPLACE INTO metadata VALUES ('status', '\"published\"')")
                 self.db.execute("DELETE FROM journal")
+            if progress:
+                progress("Recording installed files", len(desired), len(desired), "Installation changes saved")
             directories = set()
             for key in old.keys() - desired.keys():
                 if key.startswith("root/"):
@@ -283,7 +394,9 @@ class Store:
                 except OSError:
                     pass
         except BaseException:
-            self.recover()
+            with self.db:
+                self.db.execute("DELETE FROM journal WHERE sequence>=?", (touched,))
+            self.recover(progress=progress)
             raise
 
 

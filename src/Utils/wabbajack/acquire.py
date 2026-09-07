@@ -3,7 +3,6 @@ from __future__ import annotations
 import gzip
 import json
 import queue
-import re
 import threading
 import time
 from pathlib import Path
@@ -12,17 +11,15 @@ from urllib.parse import urlparse, urlunparse
 import requests
 
 from Utils.ca_bundle import resolve_ca_bundle
-from Utils.downloads import bandwidth
+from Utils.downloads.install import ManualDownloadRequired
 from .games import nexus_domain
 from .hashes import canonical_hash, hash_bytes, file_hash, verify_file
 from .paths import WabbajackError
+from .http import download_http, safe_error as _safe_error
+from .hosts import automatic_source, download_host, source_url
 
 _active_lock = threading.Lock()
 _active = {}
-
-
-def _safe_error(error):
-    return re.sub(r'https?://[^\s]+', lambda m: urlunparse(urlparse(m[0])._replace(query="", fragment="")), str(error))
 
 
 def route_nxm(link, api=None) -> bool:
@@ -33,63 +30,6 @@ def route_nxm(link, api=None) -> bool:
         return False
     receiver.put((link, api))
     return True
-
-
-def download_http(url: str, target: Path, *, size=0, expected="", headers=None,
-                  stop=None, progress=None) -> Path:
-    if urlparse(url).scheme not in {"https", "http"}:
-        raise WabbajackError("Download URL must use HTTP or HTTPS")
-    if expected:
-        expected = canonical_hash(expected)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    part = target.with_name(target.name + ".part")
-    error = None
-    for attempt in range(3):
-        if stop is not None and stop.is_set():
-            raise InterruptedError("Installation stopped")
-        offset = part.stat().st_size if part.exists() else 0
-        request_headers = {"Accept-Encoding": "identity", **dict(headers or {})}
-        if offset:
-            request_headers["Range"] = f"bytes={offset}-"
-        try:
-            with requests.get(url, headers=request_headers, stream=True, timeout=(20, 60),
-                              verify=resolve_ca_bundle() or True) as response:
-                if response.status_code == 416:
-                    if expected and verify_file(part, expected, size, stop):
-                        part.replace(target)
-                        return target
-                    part.unlink(missing_ok=True)
-                    continue
-                response.raise_for_status()
-                append = offset > 0 and response.status_code == 206
-                if append and not response.headers.get("Content-Range", "").startswith(f"bytes {offset}-"):
-                    raise WabbajackError("Server returned an invalid download range")
-                if not append:
-                    offset = 0
-                total = size or offset + int(response.headers.get("Content-Length", 0))
-                with part.open("ab" if append else "wb") as output:
-                    for chunk in response.iter_content(256 * 1024):
-                        if stop is not None and stop.is_set():
-                            raise InterruptedError("Installation stopped")
-                        bandwidth.throttle(len(chunk), stop)
-                        output.write(chunk)
-                        offset += len(chunk)
-                        if (size or expected) and offset > size:
-                            raise WabbajackError("Download exceeds declared size")
-                        if progress:
-                            progress(offset, total)
-            if (size or expected) and part.stat().st_size != size:
-                raise WabbajackError("Download has an incorrect size")
-            if expected and file_hash(part, stop) != expected:
-                part.replace(part.with_name(part.name + f".invalid-{time.time_ns()}"))
-                raise WabbajackError("Download checksum does not match the modlist")
-            part.replace(target)
-            return target
-        except (requests.RequestException, WabbajackError) as exc:
-            error = exc
-            if stop is not None:
-                stop.wait(min(attempt + 1, 3))
-    raise WabbajackError(f"Download failed: {target.name}: {_safe_error(error)}")
 
 
 def download_cdn(url, target, size, expected, stop, progress):
@@ -116,7 +56,8 @@ def download_cdn(url, target, size, expected, stop, progress):
         cursor += count
     if cursor != size:
         raise WabbajackError("CDN parts do not cover the archive")
-    chunks = target.with_name(target.name + ".chunks")
+    from .paths import auxiliary_path
+    chunks = auxiliary_path(target, ".chunks")
     chunks.mkdir(parents=True, exist_ok=True)
     completed = 0
     for part in parts:
@@ -127,7 +68,7 @@ def download_cdn(url, target, size, expected, stop, progress):
                           stop=stop, progress=lambda cur, total: progress(completed + cur, size))
         completed += count
         progress(completed, size)
-    output = target.with_name(target.name + ".part")
+    output = auxiliary_path(target, ".part")
     with output.open("wb") as stream:
         for part in parts:
             with (chunks / str(int(part["Index"]))).open("rb") as source:
@@ -146,6 +87,8 @@ def download_package(url, target, *, size=0, expected="", stop=None, progress=No
     if expected:
         expected = canonical_hash(expected)
     if expected and size and verify_file(target, expected, size, stop):
+        if progress:
+            progress(size, size)
         return target
     host = urlparse(url).hostname
     if host in {"authored-files.wabbajack.org", "mirror.wabbajack.org", "patches.wabbajack.org",
@@ -163,6 +106,8 @@ class Acquisition:
         self._manual_lock = threading.Lock()
         self._nxm = {}
         self._progress = {}
+        self._last_emit = {}
+        self._last_aggregate = 0.0
         self._lock = threading.Lock()
         self._started = time.monotonic()
         self.ids = {a.key: i + 1 for i, a in enumerate(request.package.archives.values())}
@@ -222,10 +167,18 @@ class Acquisition:
         return None
 
     def automatic(self, archive):
-        return (archive.key in self.report.cached or archive.kind in {"Http", "HTTP", "WabbajackCDN", "GameFileSource"}
-                or (archive.kind == "Nexus" and self.request.premium))
+        return archive.key in self.report.cached or archive.kind == "GameFileSource" or automatic_source(archive, self.request.premium)
 
-    def __call__(self, archive):
+    def prefetch(self, archive):
+        if (not self.control.stop.is_set() and archive.kind == "Nexus" and self.request.premium
+                and archive.key not in self.report.cached and self.request.api):
+            return self.request.api.get_download_links(*self.nexus_key(archive))
+        return None
+
+    def manual(self, archive, reason=""):
+        return self(archive, manual=True, reason=reason)
+
+    def __call__(self, archive, prefetched=None, *, manual=False, reason=""):
         if self.control.stop.is_set():
             raise InterruptedError("Installation stopped")
         if archive.key in self.report.game_files:
@@ -234,7 +187,7 @@ class Acquisition:
                 return path
             raise WabbajackError(f"Game file changed after preflight: {path.name}")
         if archive.kind == "GameFileSource":
-            raise WabbajackError(f"A reusable output changed after preflight. Check requirements again to verify the source for {archive.name}.")
+            raise WabbajackError(f"A reusable output changed after preflight. Start the operation again to verify the source for {archive.name}.")
         cached = self.cached(archive)
         if cached:
             self._release_nxm(archive)
@@ -243,16 +196,25 @@ class Acquisition:
         self.cb.on_dl_mod_start(row, archive.name, archive.size)
 
         def progress(cur, total):
-            self.cb.on_dl_mod_update(row, cur, total)
+            now = time.monotonic()
             with self._lock:
                 self._progress[row] = cur
                 current = sum(self._progress.values())
-            self.cb.on_agg_download(current, self.report.download_bytes,
-                                   current / max(time.monotonic() - self._started, 0.1) / 1024 ** 2)
+                if now - self._last_emit.get(row, 0) >= 0.1 or cur == total:
+                    self.cb.on_dl_mod_update(row, cur, total)
+                    self._last_emit[row] = now
+                if now - self._last_aggregate >= 0.1 or cur == total:
+                    self.cb.on_agg_download(current, self.report.download_bytes,
+                                           current / max(now - self._started, 0.1) / 1024 ** 2)
+                    self._last_aggregate = now
 
-        target = self.request.downloads / (hash_bytes(archive.key).hex() + "-" + archive.name)
+        from .paths import cache_path
+        target = cache_path(self.request.downloads, hash_bytes(archive.key).hex(), archive.name)
+        deferred = False
         try:
-            if archive.kind in {"Http", "HTTP"}:
+            if manual:
+                path = self._manual(archive, target, progress, reason)
+            elif archive.kind in {"Http", "HTTP"}:
                 headers = {}
                 for header in archive.state.get("Headers", []):
                     key, sep, value = header.partition(":")
@@ -262,26 +224,50 @@ class Acquisition:
                                      expected=archive.key, headers=headers,
                                      stop=self.control.stop, progress=progress)
             elif archive.kind == "WabbajackCDN":
-                path = download_cdn(archive.state["Url"], target, archive.size, archive.key,
-                                    self.control.stop, progress)
+                try:
+                    path = download_cdn(archive.state["Url"], target, archive.size, archive.key,
+                                        self.control.stop, progress)
+                except (ValueError, TypeError, KeyError, gzip.BadGzipFile, EOFError) as exc:
+                    raise WabbajackError("The CDN returned invalid archive information. Obtain the exact archive from the author.") from exc
             elif archive.kind == "Nexus" and self.request.premium:
-                path = self._nexus(archive, target, progress)
+                path = self._nexus(archive, target, progress, prefetched=prefetched)
+            elif automatic_source(archive):
+                path = download_host(archive, target, stop=self.control.stop, progress=progress)
             else:
                 path = self._manual(archive, target, progress)
             if not verify_file(path, archive.key, archive.size, self.control.stop):
                 raise WabbajackError(f"Archive failed verification: {archive.name}")
+            progress(archive.size, archive.size)
             return path
+        except (requests.RequestException, WabbajackError) as exc:
+            if self.control.stop.is_set():
+                raise InterruptedError("Installation stopped") from exc
+            if not manual and automatic_source(archive, self.request.premium):
+                reason = _safe_error(exc)
+                self.cb.on_log(f"{archive.name}: automatic download needs manual assistance: {reason}")
+                self.cb.on_status(f"Waiting for a manual download: {archive.name}. Other downloads continue.")
+                deferred = True
+                raise ManualDownloadRequired(reason) from exc
+            raise
         finally:
-            self._release_nxm(archive)
+            if not deferred:
+                self._release_nxm(archive)
             self.cb.on_dl_mod_finish(row)
 
-    def _nexus(self, archive, target, progress, link=None):
+    def finish_progress(self):
+        with self._lock:
+            self.cb.on_agg_download(sum(self._progress.values()), self.report.download_bytes, 0.0)
+
+    def _nexus(self, archive, target, progress, link=None, prefetched=None):
+        from os import fsencode
+        from Utils.atomic_write import filename_limit
         from Nexus.nexus_download import NexusDownloader, DownloadResult
         if self.request.api is None:
             raise WabbajackError("Log in to Nexus to use Mod Manager Download")
         folder = self.request.downloads / ".wabbajack" / hash_bytes(archive.key).hex()
+        incoming = folder / (target.name if len(fsencode(archive.name)) > filename_limit(folder) else archive.name)
         def stream_handler(**kwargs):
-            path = download_http(kwargs["url"], folder / archive.name, size=archive.size,
+            path = download_http(kwargs["url"], incoming, size=archive.size,
                                  expected=archive.key, stop=self.control.stop, progress=progress)
             return DownloadResult(success=True, file_path=path, file_name=archive.name,
                                   bytes_downloaded=archive.size, game_domain=kwargs["game_domain"],
@@ -294,36 +280,48 @@ class Acquisition:
                         cancel=self.control.stop, known_file_name=archive.name)
                 else:
                     result = downloader.download_file(*self.nexus_key(archive), progress_cb=progress,
-                        cancel=self.control.stop, known_file_name=archive.name, expected_size_bytes=archive.size)
+                        cancel=self.control.stop, known_file_name=archive.name, expected_size_bytes=archive.size,
+                        prefetched_links=prefetched if attempt == 0 else None)
                 if result.file_path or self.control.stop.is_set():
                     break
                 self.cb.on_status(f"Refreshing download links for {archive.name}")
             path = Path(result.file_path) if result.file_path else None
             if not path or not verify_file(path, archive.key, archive.size, self.control.stop):
                 if path and path.is_file():
-                    path.rename(path.with_name(path.name + f".invalid-{time.time_ns()}"))
+                    from .paths import auxiliary_path
+                    path.rename(auxiliary_path(path, f".invalid-{time.time_ns()}"))
                 raise WabbajackError(f"Nexus download failed: {archive.name}: {_safe_error(getattr(result, 'error', ''))}")
             path.replace(target)
             return target
         finally:
             downloader.close_worker_session()
 
-    def _manual(self, archive, target, progress):
-        with self._manual_lock:
+    def _manual(self, archive, target, progress, reason=""):
+        while not self._manual_lock.acquire(timeout=0.2):
+            if self.control.stop.is_set():
+                raise InterruptedError("Installation stopped")
+        try:
+            if self.control.stop.is_set():
+                raise InterruptedError("Installation stopped")
             if archive.kind == "Nexus":
                 domain, mod, file = self.nexus_key(archive)
                 url = f"https://www.nexusmods.com/{domain}/mods/{mod}?tab=files&file_id={file}"
-                inbox = self._nxm[(domain, mod, file)]
+                inbox = self._nxm.get((domain, mod, file), queue.Queue())
             else:
-                url = next((archive.state.get(key) for key in ("Url", "URL", "FullURL", "IPS4Url") if archive.state.get(key)), "")
-                if not url and archive.kind == "GoogleDrive" and archive.state.get("Id"):
-                    url = "https://drive.google.com/file/d/" + str(archive.state["Id"]) + "/view"
+                url = source_url(archive)
                 inbox = queue.Queue()
             if archive.state.get("Prompt"):
                 self.cb.on_log(str(archive.state["Prompt"]))
-            self.cb.on_manual_mod({"idx": self.ids[archive.key], "total": len(self.ids),
+            payload = {"idx": self.ids[archive.key], "total": len(self.ids),
                 "name": archive.name, "file_name": archive.name, "size": archive.size,
-                "url": url, "optional": False, "upcoming": [], "required_strict": True})
+                "url": url, "optional": False, "upcoming": [], "required_strict": True,
+                "source": archive.kind, "reason": reason, "instructions": str(archive.state.get("Prompt") or ""),
+                "status": ""}
+            self.cb.on_manual_mod(payload.copy())
+            def status(message):
+                payload["status"] = message
+                self.cb.on_manual_mod(payload.copy())
+                self.cb.on_status(message)
             while not self.control.stop.is_set():
                 try:
                     link, api = inbox.get_nowait()
@@ -333,21 +331,30 @@ class Acquisition:
                         return self._nexus(archive, target, progress, link)
                     except WabbajackError as exc:
                         self.cb.on_log(str(exc))
-                        self.cb.on_status("Download link failed; use a fresh browser link or Select File.")
+                        status("Download link failed; use a fresh browser link or Select File.")
                 except queue.Empty:
                     pass
                 try:
                     selected = self.control.manual_queue.get_nowait()
-                    if selected is not None and verify_file(Path(selected), archive.key, archive.size, self.control.stop):
+                    valid = False
+                    if selected is not None:
+                        status("Checking the selected file's size and hash…")
+                        try:
+                            valid = verify_file(Path(selected), archive.key, archive.size, self.control.stop)
+                        except OSError:
+                            pass
+                    if valid:
                         from .store import Store
                         if Path(selected).resolve() != target.resolve():
                             Store._copy(Path(selected), target, stop=self.control.stop)
                         return target
-                    self.cb.on_status(f"Select the exact required archive: {archive.name}")
+                    status(f"That file does not match the required size and hash. Select the exact archive: {archive.name}")
                 except queue.Empty:
                     pass
                 found = self.cached(archive)
                 if found:
                     return found
                 self.control.stop.wait(2)
+        finally:
+            self._manual_lock.release()
         raise InterruptedError("Installation stopped")

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
@@ -15,6 +16,7 @@ from .paths import WabbajackError
 
 REGISTRY = "https://raw.githubusercontent.com/wabbajack-tools/mod-lists/master/repositories.json"
 FEATURED = "https://raw.githubusercontent.com/wabbajack-tools/mod-lists/master/featured_lists.json"
+_FEED_TOKENS = re.compile(r'"(?:[^"\\]|\\.)*"|//[^\r\n]*|/\*.*?\*/|[^\s]', re.DOTALL)
 
 
 @dataclass
@@ -47,13 +49,38 @@ class GalleryResult:
 
 
 def cache_root():
-    from Utils.config_paths import get_config_dir
-    root = get_config_dir() / "wabbajack" / "gallery"
+    from Utils.config_paths import get_wabbajack_cache_dir
+    root = get_wabbajack_cache_dir() / "gallery"
     root.mkdir(parents=True, exist_ok=True)
     return root
 
 
-def _fetch(url, root, refresh):
+def _feed_json(data):
+    try:
+        return json.loads(data)
+    except json.JSONDecodeError:
+        pass
+    text = data.decode(json.detect_encoding(data)) if isinstance(data, bytes) else data
+    output = list(text)
+    previous, comma = "", None
+    for match in _FEED_TOKENS.finditer(text):
+        value = match[0]
+        if value.startswith(("//", "/*")):
+            output[match.start():match.end()] = [c if c in "\r\n" else " " for c in value]
+            continue
+        if value == ",":
+            comma = match.start() if previous and previous not in {"[", "{", ",", ":"} else None
+        else:
+            if comma is not None and value in {"}", "]"}:
+                output[comma] = " "
+            comma = None
+        previous = value
+    return json.loads("".join(output))
+
+
+def _fetch(url, root, refresh, cached_only=False, stop=None):
+    if stop is not None and stop.is_set():
+        raise InterruptedError("Gallery loading stopped")
     if urlparse(url).scheme != "https":
         raise WabbajackError("Gallery feeds must use HTTPS")
     path = root / (hashlib.sha256(url.encode()).hexdigest() + ".json")
@@ -61,14 +88,16 @@ def _fetch(url, root, refresh):
     if path.is_file():
         try:
             cached = json.loads(path.read_text())
-            if not refresh and time.time() - cached["time"] < 3600:
+            if cached_only or not refresh and time.time() - cached["time"] < 3600:
                 return cached["data"], True
         except (ValueError, KeyError):
             cached = None
+    if cached_only:
+        raise WabbajackError("Gallery feed is not cached")
     try:
         response = requests.get(url, timeout=(10, 30), verify=resolve_ca_bundle() or True)
         response.raise_for_status()
-        data = response.json()
+        data = _feed_json(response.content)
         write_atomic_text(path, json.dumps({"time": time.time(), "data": data}))
         return data, False
     except (requests.RequestException, ValueError):
@@ -77,20 +106,26 @@ def _fetch(url, root, refresh):
         raise
 
 
-def load_gallery(*, refresh=False, root=None):
+def load_gallery(*, refresh=False, root=None, cached_only=False, stop=None):
     root = root or cache_root()
-    registry, stale = _fetch(REGISTRY, root, refresh)
+    registry, stale = _fetch(REGISTRY, root, refresh, cached_only, stop)
     warnings, entries = [], {}
     featured = set()
     try:
-        data, old = _fetch(FEATURED, root, refresh)
+        data, old = _fetch(FEATURED, root, refresh, cached_only, stop)
         stale |= old
         featured = {str(value).casefold() for value in (data if isinstance(data, list) else data.keys())}
+    except InterruptedError:
+        raise
     except Exception as exc:
         warnings.append(f"Featured list feed unavailable: {exc}")
     with ThreadPoolExecutor(max_workers=8, thread_name_prefix="wabbajack-gallery") as pool:
-        futures = {pool.submit(_fetch, url, root, refresh): name for name, url in registry.items()}
+        futures = {pool.submit(_fetch, url, root, refresh, cached_only, stop): name for name, url in registry.items()}
         for future in as_completed(futures):
+            if stop is not None and stop.is_set():
+                for pending in futures:
+                    pending.cancel()
+                raise InterruptedError("Gallery loading stopped")
             repository = futures[future]
             try:
                 rows, old = future.result()
