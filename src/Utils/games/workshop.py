@@ -10,6 +10,7 @@ WORKSHOP_GAMES = {
     "261550": "Mount & Blade II: Bannerlord",
     "1623730": "Palworld",
     "703080": "Planet Zoo",
+    "108600": "Project Zomboid",
     "294100": "RimWorld",
     "1643320": "S.T.A.L.K.E.R. 2: Heart of Chornobyl",
     "72850": "The Elder Scrolls V: Skyrim",
