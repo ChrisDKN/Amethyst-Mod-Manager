@@ -6521,6 +6521,7 @@ class MainWindow(QMainWindow):
             on_progress=lambda v: self._col_progress.emit(v),
             on_agg_download=lambda c, t, s: self._col_agg.emit(int(c), int(t), float(s)),
             on_display_total=lambda n: self._col_display_total.emit(int(n)),
+            on_mod_plan=lambda mods: self._col_dl.emit("plan", list(mods)),
             on_dl_mod_start=lambda f, n, s: self._col_dl.emit("start", (f, n, s)),
             on_dl_mod_update=lambda f, c, t: self._col_dl.emit("update", (f, c, t)),
             on_dl_mod_finish=lambda f: self._col_dl.emit("finish", f),
@@ -6561,7 +6562,9 @@ class MainWindow(QMainWindow):
         ov = self._col_install_overlay
         if ov is None:
             return
-        if verb == "start":
+        if verb == "plan":
+            ov.set_mod_plan(payload)
+        elif verb == "start":
             ov.dl_start(*payload)
         elif verb == "update":
             ov.dl_update(*payload)

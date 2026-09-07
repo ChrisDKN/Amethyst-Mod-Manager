@@ -319,6 +319,7 @@ class CollectionInstallCallbacks:
     on_progress: Callable[["float | None"], None] = _noop  # 0..1 or None=hide
     on_agg_download: Callable[[int, int, float], None] = _noop  # bytes cur,total,MB/s
     on_display_total: Callable[[int], None] = _noop     # true collection size (bytes)
+    on_mod_plan: Callable[[list], None] = _noop         # [(file_id, size), ...]
     # RED - active downloads
     on_dl_mod_start: Callable[[int, str, int], None] = _noop   # file_id,name,size
     on_dl_mod_update: Callable[[int, int, int], None] = _noop  # file_id,cur,tot
@@ -1803,6 +1804,8 @@ def run_collection_install(
         if manual_mode:
             _set_status(f"Waiting for manual downloads - {_dl_total} mod(s)…")
         else:
+            cb.on_mod_plan([
+                (int(mod.file_id), _expected_size(mod)) for mod in to_download])
             _set_status(f"Downloading {_dl_total} mod(s)…" if download_only
                         else f"Downloading & installing {_dl_total} mod(s)…")
         _set_progress(_pre_done / total if total else 0.0)
