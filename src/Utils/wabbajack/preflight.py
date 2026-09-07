@@ -487,6 +487,7 @@ def _preflight(request, stop, notify):
             rel = archive.state.get("GameFile", archive.name)
             found = None
             present = None
+            candidates = []
             if game_root:
                 for candidate in (rel, "Data/" + rel):
                     try:
@@ -498,15 +499,24 @@ def _preflight(request, stop, notify):
                             candidate_path = source_path(game_root, candidate)
                             if candidate_path.is_file():
                                 present = candidate_path
+                                candidates.append(candidate_path)
                         except (OSError, WabbajackError):
                             pass
             if found:
                 if archive.key in required_archives:
                     report.game_files[archive.key] = found
             else:
-                target = (game_file_problems if archive.key in required_archives
-                          else ignored_game_file_problems)
-                target.append((name, rel, present, archive))
+                from .game_files import plan_game_file
+                preparation = plan_game_file(archive, candidates, stop)
+                if preparation and archive.key in required_archives:
+                    report.prepared_game_files[archive.key] = preparation
+                    check("pass", "Game file preparation",
+                          f"{rel}: create the author's required 4 GB/LAA executable in the managed "
+                          "installation; the original game file remains unchanged")
+                elif not preparation:
+                    target = (game_file_problems if archive.key in required_archives
+                              else ignored_game_file_problems)
+                    target.append((name, rel, present, archive))
             continue
         notify("Verifying cached downloads", archive.name)
         for path in by_size.get(archive.size, []):

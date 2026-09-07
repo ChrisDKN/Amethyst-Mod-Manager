@@ -9,6 +9,8 @@ py.install_sources(
   'eslifier.py',
   'esm_fixes.py',
   'fnv4gb.py',
+  'laa.py',
+  'oblivion4gb.py',
   'fo3_version.py',
   'pandora.py',
   'registry.py',

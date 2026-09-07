@@ -208,6 +208,9 @@ REGISTRY: dict[str, QtWizardSpec] = {
         QtWizardSpec(_simple("wizards_qt.modio_settings_view", "ModioSettingsView")),
     "wizards.fnv_4gb_patch.Fnv4GbPatchWizard":
         QtWizardSpec(_simple("wizards_qt.fnv_4gb_view", "Fnv4GbView")),
+    "wizards.oblivion_4gb_patch.Oblivion4GbPatchWizard":
+        QtWizardSpec(_simple("wizards_qt.oblivion_4gb_view",
+                             "Oblivion4GbView")),
     "wizards.fallout_downgrade.FalloutDowngradeWizard":
         QtWizardSpec(_simple("wizards_qt.fallout_downgrade_view", "FalloutDowngradeView")),
     "wizards.fallout_4_downgrader.Fallout4DowngraderWizard":

@@ -51,6 +51,7 @@ class SetupOptions(QWidget):
             label = QLabel(problem, self)
             label.setWordWrap(True)
             self._layout.addWidget(label)
+        has_ttw = any(task.id.startswith("ttw:") for task in tasks)
         for task in tasks:
             panel = QWidget(self)
             layout = QVBoxLayout(panel)
@@ -61,6 +62,11 @@ class SetupOptions(QWidget):
             hint = QLabel(self.tr("Use the version required by the author. Output keeps its authored position in {0}.").format(task.mod), panel)
             hint.setWordWrap(True)
             layout.addWidget(hint)
+            if task.id.startswith("ttw:"):
+                package_page = QPushButton(self.tr("Open mod.pub TTW page"), panel)
+                package_page.setObjectName("FormButton")
+                package_page.clicked.connect(self._open_ttw_page)
+                layout.addWidget(package_page)
             form = QFormLayout()
             form.setRowWrapPolicy(QFormLayout.WrapLongRows)
             mode = QComboBox(panel)
@@ -97,7 +103,13 @@ class SetupOptions(QWidget):
         self._fo3_panel = QWidget(self)
         form = QFormLayout(self._fo3_panel)
         row = QHBoxLayout()
-        self._fo3 = QLineEdit(str(self._values.get("fallout3", "")), self)
+        fo3_path = str(self._values.get("fallout3", ""))
+        if not fo3_path and has_ttw:
+            from Utils.bethesda.ttw import find_fo3_install
+            detected = find_fo3_install()
+            fo3_path = str(detected) if detected else ""
+        self._fo3 = QLineEdit(fo3_path, self)
+        self._fo3.setPlaceholderText(self.tr("Detected automatically when installed through Steam"))
         self._fo3.textChanged.connect(self.changed)
         row.addWidget(self._fo3)
         browse = QPushButton(self.tr("Browse…"), self)
@@ -223,6 +235,12 @@ class SetupOptions(QWidget):
             pick_file(self.tr("Select extracted MPI package"), chosen, filters=[("MPI packages", ["*.mpi"])])
         else:
             pick_folder(self.tr("Select original game" if task == "fallout3" else "Select complete output mod"), chosen)
+
+    def _open_ttw_page(self):
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+        from Utils.bethesda.ttw import MODPUB_URL
+        QDesktopServices.openUrl(QUrl(MODPUB_URL))
 
     def _picked(self, generation, task, key, path):
         if generation != self._generation or not path:

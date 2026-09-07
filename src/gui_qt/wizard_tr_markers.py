@@ -139,6 +139,10 @@ WIZARD_DESCRIPTIONS = (
         "be restored)."),
     QT_TRANSLATE_NOOP(
         "WizardTools",
+        "Patch Oblivion.exe to use up to 4 GB of memory (keeps a backup that "
+        "can be restored)."),
+    QT_TRANSLATE_NOOP(
+        "WizardTools",
         "Run the native Linux TTW installer (merges Fallout 3 + New Vegas) "
         "and add the result as a mod. Requires Fallout 3 installed and a "
         "TTW .mpi package from mod.pub."),

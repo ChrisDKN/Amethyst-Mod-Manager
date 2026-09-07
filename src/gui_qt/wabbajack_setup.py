@@ -329,7 +329,7 @@ class AcquisitionSummary(QWidget):
         missing_game = 0
         for key in report.required_archives:
             archive = request.package.archives[key]
-            if key in report.cached or key in report.game_files:
+            if key in report.cached or key in report.game_files or key in report.prepared_game_files:
                 category = "ready"
             elif archive.kind == "GameFileSource":
                 missing_game += 1

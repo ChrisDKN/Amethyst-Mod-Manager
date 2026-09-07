@@ -46,6 +46,15 @@ class Oblivion(Fallout_3):
                 },
             ),
             WizardTool(
+                id="oblivion_4gb_patch",
+                label="Apply 4GB Patch",
+                description=(
+                    "Patch Oblivion.exe to use up to 4 GB of memory "
+                    "(keeps a backup that can be restored)."
+                ),
+                dialog_class_path="wizards.oblivion_4gb_patch.Oblivion4GbPatchWizard",
+            ),
+            WizardTool(
                 id="run_wrye_bash_oblivion",
                 label="Run Wrye Bash",
                 description="Download and run Wrye Bash.",
@@ -98,6 +107,14 @@ class Oblivion(Fallout_3):
             CustomRule(dest="", folders=["Data"], flatten=True, loose_only=True),
             CustomRule(dest="", filenames=["obse*.dll"], flatten=True, loose_only=True),
             self._saves_routing_rule([".ess"]),
+        ]
+
+    @property
+    def restore_whitelist(self) -> list:
+        from Utils.bethesda.oblivion4gb import BACKUP_NAME
+        from Utils.deployment import RestoreWhitelistRule
+        return super().restore_whitelist + [
+            RestoreWhitelistRule(path="", filenames=[BACKUP_NAME]),
         ]
 
     _APPDATA_SUBPATH = Path("drive_c/users/steamuser/AppData/Local/Oblivion")

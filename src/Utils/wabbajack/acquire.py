@@ -186,6 +186,12 @@ class Acquisition:
             if verify_file(path, archive.key, archive.size, self.control.stop):
                 return path
             raise WabbajackError(f"Game file changed after preflight: {path.name}")
+        if archive.key in self.report.prepared_game_files:
+            from .game_files import materialize_game_file
+            self.cb.on_log(f"Preparing managed 4 GB/LAA copy of {archive.name}")
+            return materialize_game_file(self.request, archive,
+                                         self.report.prepared_game_files[archive.key],
+                                         self.control.stop)
         if archive.kind == "GameFileSource":
             raise WabbajackError(f"A reusable output changed after preflight. Start the operation again to verify the source for {archive.name}.")
         cached = self.cached(archive)

@@ -27,6 +27,7 @@ py.install_sources(
   'mscloader_view.py',
   'nif_viewer_view.py',
   'npc_viewer_view.py',
+  'oblivion_4gb_view.py',
   'pandora_view.py',
   'pgpatcher_view.py',
   'plugin_audit_view.py',

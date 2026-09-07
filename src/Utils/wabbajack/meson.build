@@ -16,6 +16,7 @@ py.install_sources(
   'profile_config.py',
   'gallery.py',
   'games.py',
+  'game_files.py',
   'hashes.py',
   'hosts.py',
   'http.py',

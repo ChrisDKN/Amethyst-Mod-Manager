@@ -66,11 +66,19 @@ class Check:
     items: tuple[str, ...] = ()
 
 
+@dataclass(frozen=True)
+class GameFilePreparation:
+    source: Path
+    source_hash: str
+    kind: str
+
+
 @dataclass
 class PreflightReport:
     checks: list[Check] = field(default_factory=list)
     cached: dict[str, Path] = field(default_factory=dict)
     game_files: dict[str, Path] = field(default_factory=dict)
+    prepared_game_files: dict[str, GameFilePreparation] = field(default_factory=dict)
     download_bytes: int = 0
     install_bytes: int = 0
     required_archives: list[str] | None = None
