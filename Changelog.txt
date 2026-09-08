@@ -1,3 +1,11 @@
+- v2.5.0
+- Added the ability to browse and install Wabbajack modlists
+- Smaller mods during collection install are added as a batch to remove flashing text as they download/install
+- Rearranged the game configure menu to better fit game options instead of them being in one small box
+- Disabled plugins are no longer shown in the xedit qac wizards
+- Updated flatpak to kde runtime 6.11
+- Added UI options to hide top bar buttons
+
 - v2.4.2
 - Fixed a regression in 2.4.1 causing broken archives to stall Loot sorting and freeze the application
 - Fixed "Install destination is absolute:" error with some Fomod mods
