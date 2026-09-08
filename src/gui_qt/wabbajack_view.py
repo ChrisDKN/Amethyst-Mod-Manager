@@ -1224,7 +1224,9 @@ class WabbajackView(QWidget):
         self._update_start_button()
         self._status.setText(self.tr("Installing the native MPI tool…"))
         game = copy.copy(self._game)
-        self._worker("mpi-tool", lambda: download_installer(game))
+        self._worker("mpi-tool", lambda: download_installer(game,
+            status_fn=lambda message: safe_emit(self._progress, "mpi-status", (message,)),
+            log_fn=lambda message: safe_emit(self._progress, "log", (message,))))
 
     def _check(self):
         if self._busy or self._checking or self._loading_package or self._installing_mpi or self._installing_texture:
@@ -1344,6 +1346,10 @@ class WabbajackView(QWidget):
                       control=self._control, report=self._report))
 
     def _on_progress(self, method, args):
+        if method == "mpi-status":
+            if not self._shutting_down and self._installing_mpi:
+                self._status.setText(args[0])
+            return
         if method == "package":
             token, current, total = args
             if token == self._tokens.get("package") and self._loading_package:
@@ -1559,7 +1565,7 @@ class WabbajackView(QWidget):
                 self._add_choice(self._profiles, profile, profile, profile in selected)
             self._fit_list(self._profiles, 110)
             self._adjustments.clear()
-            self._task_options.configure(result, self._info.get("setup_options", {}) if self._info else {})
+            self._task_options.configure(result, self._info.get("setup_options", {}) if self._info else {}, game=self._game)
             from Utils.wabbajack.runtime import adjustments
             game = self._game
             if game:

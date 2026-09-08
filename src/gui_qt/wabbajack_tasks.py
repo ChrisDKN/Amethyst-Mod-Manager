@@ -27,11 +27,11 @@ class SetupOptions(QWidget):
         self.picked.connect(self._picked)
         self.hide()
 
-    def configure(self, package, options=None):
+    def configure(self, package, options=None, *, game=None):
         with QSignalBlocker(self):
-            self._configure(package, options)
+            self._configure(package, options, game)
 
-    def _configure(self, package, options):
+    def _configure(self, package, options, game):
         from Utils.wabbajack.requirements import setup_tasks
         self._generation += 1
         self._rows.clear()
@@ -62,6 +62,10 @@ class SetupOptions(QWidget):
             hint = QLabel(self.tr("Use the version required by the author. Output keeps its authored position in {0}.").format(task.mod), panel)
             hint.setWordWrap(True)
             layout.addWidget(hint)
+            if task.id.startswith("fo3-bsa:"):
+                hint = QLabel(self.tr("Run the Fallout 3 BSA Decompressor wizard, then import its complete output mod here, or select the author's .mpi package."), panel)
+                hint.setWordWrap(True)
+                layout.addWidget(hint)
             if task.id.startswith("ttw:"):
                 package_page = QPushButton(self.tr("Open mod.pub TTW page"), panel)
                 package_page.setObjectName("FormButton")
@@ -75,6 +79,11 @@ class SetupOptions(QWidget):
                 mode.addItem(self.tr("Build from .mpi package"), "mpi")
             mode.addItem(self.tr("Import existing output mod"), "source")
             option = self._values.get(task.id, {})
+            if game is not None and task.id.startswith("fo3-bsa:") and task.id not in self._values:
+                from Utils.bsa.decompressor import FO3_CONFIG, decompressor_mod_dir
+                output = decompressor_mod_dir(game, FO3_CONFIG)
+                if output is not None:
+                    option = {"source": str(output)}
             if option.get("source"):
                 mode.setCurrentIndex(mode.findData("source"))
             form.addRow(self.tr("Method"), mode)
@@ -92,6 +101,12 @@ class SetupOptions(QWidget):
                 browse.setObjectName("FormButton")
                 browse.clicked.connect(lambda checked=False, task=task.id, key=key: self._browse(task, key))
                 buttons.addWidget(browse)
+                if key == "mpi" and task.id.startswith("fo3-bsa:"):
+                    download = QPushButton(self.tr("Download package…"), row)
+                    download.setObjectName("FormButton")
+                    download.setToolTip(self.tr("Download the FO3 BSA Decompressor archive from Nexus Mods, extract it, then browse to the .mpi file."))
+                    download.clicked.connect(self._open_fo3_bsa_page)
+                    buttons.addWidget(download)
                 form.addRow(self.tr(label), row)
                 fields[key] = (row, edit)
                 edit.textChanged.connect(self.changed)
@@ -118,11 +133,18 @@ class SetupOptions(QWidget):
         row.addWidget(browse)
         form.addRow(self.tr("Original Fallout 3 game"), row)
         self._layout.addWidget(self._fo3_panel)
-        button = QPushButton(self.tr("Install / update native MPI tool"), self)
+        self._tool = QWidget(self)
+        tools = QHBoxLayout(self._tool)
+        tools.setContentsMargins(0, 0, 0, 0)
+        button = QPushButton(self.tr("Install / update native MPI tool"), self._tool)
         button.setObjectName("FormButton")
         button.clicked.connect(self.install_tool)
-        self._layout.addWidget(button)
-        self._tool = button
+        tools.addWidget(button, 1)
+        page = QPushButton(self.tr("MPI installer on GitHub"), self._tool)
+        page.setObjectName("FormButton")
+        page.clicked.connect(self._open_mpi_tool_page)
+        tools.addWidget(page)
+        self._layout.addWidget(self._tool)
         settings = QWidget(self)
         form = QFormLayout(settings)
         self._store = QComboBox(settings)
@@ -241,6 +263,18 @@ class SetupOptions(QWidget):
         from PySide6.QtGui import QDesktopServices
         from Utils.bethesda.ttw import MODPUB_URL
         QDesktopServices.openUrl(QUrl(MODPUB_URL))
+
+    def _open_fo3_bsa_page(self):
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+        from Utils.bsa.decompressor import FO3_CONFIG
+        QDesktopServices.openUrl(QUrl(FO3_CONFIG.nexus_url))
+
+    def _open_mpi_tool_page(self):
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+        from Utils.bethesda.ttw import GITHUB_BUILDS_URL
+        QDesktopServices.openUrl(QUrl(GITHUB_BUILDS_URL))
 
     def _picked(self, generation, task, key, path):
         if generation != self._generation or not path:

@@ -18,6 +18,7 @@ GITHUB_API_URL = (
     "https://api.github.com/repos/SulfurNitride/TTW_Linux_Installer/releases/latest"
 )
 GITHUB_REPO_URL = "https://github.com/SulfurNitride/TTW_Linux_Installer"
+GITHUB_BUILDS_URL = GITHUB_REPO_URL + "/actions/workflows/build.yml"
 MODPUB_URL = "https://mod.pub/ttw/133/files"
 EXE_NAME = "mpi_installer"
 APP_DIR = "TTW"
@@ -57,37 +58,91 @@ def find_ttw_installer(game: "BaseGame") -> Path | None:
     return p if p.is_file() else None
 
 
+def _github_json(url: str):
+    import json
+    import urllib.request
+    from Utils.ca_bundle import get_ssl_context
+
+    req = urllib.request.Request(url, headers={
+        "Accept": "application/vnd.github+json", "User-Agent": "ModManager/1.0",
+        "Cache-Control": "no-cache"})
+    with urllib.request.urlopen(req, timeout=15, context=get_ssl_context()) as resp:
+        return json.load(resp)
+
+
+def _actions_installer(log_fn: Callable[[str], None] = _noop) -> tuple[str, str, str]:
+    from collections import Counter
+    import re
+
+    api = GITHUB_API_URL.removesuffix("/releases/latest")
+    skipped = Counter()
+    for page in range(1, 6):
+        data = _github_json(api + "/actions/artifacts"
+            f"?name=mpi-installer-linux-x86_64&per_page=100&page={page}")
+        artifacts = data.get("artifacts", [])
+        log_fn(f"GitHub MPI artifacts page {page}: {len(artifacts)} returned")
+        for artifact in artifacts:
+            digest = str(artifact.get("digest", ""))
+            origin = artifact.get("workflow_run") or {}
+            if artifact.get("name") != "mpi-installer-linux-x86_64":
+                skipped["other platforms"] += 1
+                continue
+            if artifact.get("expired"):
+                skipped["expired"] += 1
+                continue
+            if (origin.get("head_branch") != "main" or not origin.get("repository_id")
+                    or origin.get("head_repository_id") != origin["repository_id"]):
+                skipped["other branches or forks"] += 1
+                continue
+            if not re.fullmatch(r"sha256:[0-9a-fA-F]{64}", digest):
+                skipped["missing checksum"] += 1
+                continue
+            run = _github_json(f"{api}/actions/runs/{int(origin['id'])}")
+            if (run.get("head_branch") != "main"
+                    or run.get("path") != ".github/workflows/build.yml"
+                    or run.get("event") not in {"push", "workflow_dispatch"}
+                    or run.get("status") != "completed" or run.get("conclusion") != "success"):
+                skipped["unsuccessful or unrelated workflows"] += 1
+                continue
+            url = ("https://nightly.link/SulfurNitride/TTW_Linux_Installer"
+                   f"/actions/artifacts/{int(artifact['id'])}.zip")
+            log_fn(f"Selected GitHub MPI artifact {artifact['id']} from main build {run['id']}")
+            return f"main build {run['id']}", url, digest
+        if len(artifacts) < 100:
+            break
+    detail = ", ".join(f"{count} {reason}" for reason, count in skipped.items()) or "no artifacts returned"
+    log_fn(f"No usable GitHub MPI build: {detail}")
+    raise RuntimeError(
+        f"GitHub returned no usable Linux MPI installer ({detail}). "
+        f"Check the shared TTW/MPI installer builds at {GITHUB_BUILDS_URL}")
+
+
 def download_installer(game: "BaseGame",
                        status_fn: Callable[[str], None] = _noop,
                        log_fn: Callable[[str], None] = _noop) -> Path:
-    """Download the latest MPI-installer release from GitHub into
+    """Download an MPI-installer release or verified main-branch build into
     Applications/TTW and return the executable path. Raises on failure.
     Shared by the TTW and BSA-Decompressor wizards (same binary)."""
-    import json
+    import hashlib
     import os
     import shutil
     import tempfile
-    import urllib.request
-    from Utils.ca_bundle import download_file, get_ssl_context
+    from Utils.ca_bundle import download_file
     from Utils.wizards.archives import extract_archive
 
-    req = urllib.request.Request(
-        GITHUB_API_URL,
-        headers={"Accept": "application/vnd.github+json",
-                 "User-Agent": "ModManager/1.0"})
-    with urllib.request.urlopen(req, timeout=15,
-                                context=get_ssl_context()) as resp:
-        data = json.loads(resp.read().decode())
+    data = _github_json(GITHUB_API_URL)
     tag = data.get("tag_name", "unknown")
     url = None
+    digest = ""
     for asset in data.get("assets", []):
         name = asset.get("name", "").lower()
         if "linux" in name and name.endswith((".zip", ".tar.gz")):
             url = asset["browser_download_url"]
             break
     if not url:
-        raise RuntimeError(
-            f"No Linux installer asset found in the latest TTW release ({tag}).")
+        status_fn("Looking for a Linux MPI installer build…")
+        log_fn(f"TTW release {tag} has no Linux installer; checking successful main builds")
+        tag, url, digest = _actions_installer(log_fn)
 
     log_fn(f"downloading TTW installer {tag} from {url}")
     status_fn(f"Downloading TTW installer {tag}…")
@@ -95,6 +150,12 @@ def download_installer(game: "BaseGame",
     archive = tmp_dir / Path(url).name
     try:
         download_file(url, archive)
+        if digest:
+            with archive.open("rb") as stream:
+                actual = "sha256:" + hashlib.file_digest(stream, "sha256").hexdigest()
+            if actual != digest.lower():
+                raise RuntimeError("MPI installer download does not match GitHub's SHA-256 checksum.")
+            log_fn("verified MPI installer archive against GitHub's SHA-256 checksum")
         dest = applications_dir(game)
         dest.mkdir(parents=True, exist_ok=True)
         status_fn("Extracting installer…")

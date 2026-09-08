@@ -82,6 +82,7 @@ def setup_tasks(package, selected=None, configuration=None):
     config = configuration if configuration is not None else profile_configuration(package, selected)
     domain = nexus_domain(package.game)
     provided = {d.path.casefold() for d in package.directives}
+    provided_mods = {path.split("/")[1] for path in provided if path.startswith("mods/")}
     grouped = {}
     definitions = []
     if domain == "newvegas":
@@ -96,7 +97,8 @@ def setup_tasks(package, selected=None, configuration=None):
         definitions = [
             ("fo3-esm", "Unofficial Fallout 3 ESM Patcher", ("unofficial fallout 3 esm patcher",),
              ("Fallout3.esm",), ("Unofficial Fallout 3 ESM Patcher",)),
-            ("fo3-bsa", "Fallout 3 BSA Decompressor", ("fallout 3 bsa decompressor", "fo3 bsa decompressor"),
+            ("fo3-bsa", "Fallout 3 BSA Decompressor",
+             ("fallout 3 bsa decompressor", "fo3 bsa decompressor", "decompressed bsas"),
              ("Fallout - Meshes.bsa", "Fallout - Misc.bsa", "Fallout - Textures.bsa"),
              ("Fallout 3 BSA Decompressor", "Fallout: 3 BSA Decompressor")),
         ]
@@ -115,6 +117,12 @@ def setup_tasks(package, selected=None, configuration=None):
                      re.sub(r"\[[^]]*\]", "", mod).strip(" -_"), re.I) for alias in aliases)]
             if exact:
                 candidates = exact
+            if task_id == "fo3-bsa":
+                names = {mod.casefold() for mod in candidates}
+                candidates = [mod for mod in candidates if not (
+                    mod.casefold().startswith("[nodelete] ")
+                    and mod.casefold() in provided_mods
+                    and mod[len("[NoDelete] "):].casefold() in names)]
             if task_id == "ttw" and len(candidates) != 1:
                 raise WabbajackError(f"Profile {profile_name} requires TTW but has no unambiguous authored TTW mod slot")
             for mod in candidates:
