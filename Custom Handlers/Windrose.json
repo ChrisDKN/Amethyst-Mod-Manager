@@ -39,6 +39,30 @@
   },
   "custom_routing_rules": [
     {
+      "dest": "drive_c/users/steamuser/AppData/Local/R5/Saved/Config/Windows",
+      "filenames": [
+        "Engine.ini",
+        "Game.ini",
+        "Input.ini",
+        "DeviceProfiles.ini",
+        "GameUserSettings.ini",
+        "Scalability.ini",
+        "RuntimeOptions.ini",
+        "InstallBundle.ini",
+        "Hardware.ini",
+        "GameplayTags.ini",
+        "Editor.ini",
+        "EditorPerProjectUserSettings.ini",
+        "EditorSettings.ini",
+        "EditorKeyBindings.ini",
+        "EditorLayout.ini",
+        "Compat.ini",
+        "Lightmass.ini"
+      ],
+      "flatten": true,
+      "to_prefix": true
+    },
+    {
       "dest": "",
       "folders": [
         "Builds"
@@ -89,6 +113,6 @@
   "custom_frameworks": {
     "UE4SS": "Binaries/Win64/dwmapi.dll"
   },
-  "version": 2,
+  "version": 3,
   "editable": false
 }

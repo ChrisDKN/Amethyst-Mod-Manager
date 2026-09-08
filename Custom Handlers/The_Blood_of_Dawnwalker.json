@@ -42,11 +42,28 @@
   "wine_dll_overrides": {},
   "custom_routing_rules": [
     {
-      "dest": "Mods",
-      "folders": [
-        "Windows"
+      "dest": "drive_c/users/steamuser/AppData/Local/Dawnwalker/Saved/Config/Windows",
+      "filenames": [
+        "Engine.ini",
+        "Game.ini",
+        "Input.ini",
+        "DeviceProfiles.ini",
+        "GameUserSettings.ini",
+        "Scalability.ini",
+        "RuntimeOptions.ini",
+        "InstallBundle.ini",
+        "Hardware.ini",
+        "GameplayTags.ini",
+        "Editor.ini",
+        "EditorPerProjectUserSettings.ini",
+        "EditorSettings.ini",
+        "EditorKeyBindings.ini",
+        "EditorLayout.ini",
+        "Compat.ini",
+        "Lightmass.ini"
       ],
-      "include_siblings": true
+      "flatten": true,
+      "to_prefix": true
     },
     {
       "dest": "Content/Paks/~mods",
@@ -99,17 +116,15 @@
       "include_siblings": true
     },
     {
-      "dest": "drive_c/users/steamuser/AppData/Local/Dawnwalker/Saved/Config/Windows",
-      "filenames": [
-        "Engine.ini",
-        "Game.ini"
+      "dest": "Mods",
+      "folders": [
+        "Windows"
       ],
-      "flatten": true,
-      "to_prefix": true
+      "include_siblings": true
     }
   ],
   "restore_whitelist": [],
   "custom_frameworks": {},
-  "version": 2,
+  "version": 3,
   "editable": false
 }

@@ -35,6 +35,30 @@
   },
   "custom_routing_rules": [
     {
+      "dest": "drive_c/users/steamuser/AppData/Local/Icarus/Saved/Config/WindowsNoEditor",
+      "filenames": [
+        "Engine.ini",
+        "Game.ini",
+        "Input.ini",
+        "DeviceProfiles.ini",
+        "GameUserSettings.ini",
+        "Scalability.ini",
+        "RuntimeOptions.ini",
+        "InstallBundle.ini",
+        "Hardware.ini",
+        "GameplayTags.ini",
+        "Editor.ini",
+        "EditorPerProjectUserSettings.ini",
+        "EditorSettings.ini",
+        "EditorKeyBindings.ini",
+        "EditorLayout.ini",
+        "Compat.ini",
+        "Lightmass.ini"
+      ],
+      "flatten": true,
+      "to_prefix": true
+    },
+    {
       "dest": "Content/Splash",
       "filenames": [
         "Splash.bmp"
@@ -129,6 +153,6 @@
   "custom_frameworks": {
     "UE4SS": "Binaries/Win64/dwmapi.dll"
   },
-  "version": 1,
+  "version": 2,
   "editable": false
 }

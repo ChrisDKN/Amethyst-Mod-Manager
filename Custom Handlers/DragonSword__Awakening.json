@@ -39,6 +39,29 @@
   },
   "custom_routing_rules": [
     {
+      "dest": "Saved/Config/Windows",
+      "filenames": [
+        "Engine.ini",
+        "Game.ini",
+        "Input.ini",
+        "DeviceProfiles.ini",
+        "GameUserSettings.ini",
+        "Scalability.ini",
+        "RuntimeOptions.ini",
+        "InstallBundle.ini",
+        "Hardware.ini",
+        "GameplayTags.ini",
+        "Editor.ini",
+        "EditorPerProjectUserSettings.ini",
+        "EditorSettings.ini",
+        "EditorKeyBindings.ini",
+        "EditorLayout.ini",
+        "Compat.ini",
+        "Lightmass.ini"
+      ],
+      "flatten": true
+    },
+    {
       "dest": "Binaries/Win64",
       "folders": [
         "ue4ss"
@@ -114,6 +137,6 @@
   "custom_frameworks": {
     "UE4SS": "Binaries/Win64/dwmapi.dll"
   },
-  "version": 2,
+  "version": 3,
   "editable": false
 }

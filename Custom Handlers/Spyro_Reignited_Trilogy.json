@@ -29,21 +29,29 @@
     {
       "dest": "drive_c/users/steamuser/AppData/Local/Falcon/Saved/Config/WindowsNoEditor",
       "filenames": [
-        "Engine.ini"
-      ],
-      "flatten": true,
-      "to_prefix": true
-    },
-    {
-      "dest": "drive_c/users/steamuser/AppData/Local/Falcon/Saved/Config/WindowsNoEditor",
-      "filenames": [
-        "Scalability.ini"
+        "Engine.ini",
+        "Game.ini",
+        "Input.ini",
+        "DeviceProfiles.ini",
+        "GameUserSettings.ini",
+        "Scalability.ini",
+        "RuntimeOptions.ini",
+        "InstallBundle.ini",
+        "Hardware.ini",
+        "GameplayTags.ini",
+        "Editor.ini",
+        "EditorPerProjectUserSettings.ini",
+        "EditorSettings.ini",
+        "EditorKeyBindings.ini",
+        "EditorLayout.ini",
+        "Compat.ini",
+        "Lightmass.ini"
       ],
       "flatten": true,
       "to_prefix": true
     }
   ],
   "custom_frameworks": {},
-  "version": 2,
+  "version": 3,
   "editable": false
 }
