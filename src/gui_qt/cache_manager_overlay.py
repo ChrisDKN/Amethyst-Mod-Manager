@@ -385,7 +385,7 @@ class CacheManagerOverlay(OverlayBase):
         if len(shown) > 10:
             listing += self.tr("\n  • …and {0} more").format(len(shown) - 10)
         body = self.tr("Clear {0} across {1} item(s)?\n\n"
-                "{2}\n\nArchives, gallery data and modlist packages will be re-downloaded as needed. The Wabbajack jobs/backups entry removes abandoned jobs and update backups; referenced installations are preserved.").format(
+                "{2}\n\nArchives, gallery data and modlist packages will be re-downloaded as needed. Saved Wabbajack requirement checks in the selected game caches will be reset. The Wabbajack jobs/backups entry removes abandoned jobs and update backups; referenced installations are preserved.").format(
                     format_size(total), len(keys), listing)
         n = len(keys)
         ConfirmOverlay.show_over(
@@ -411,7 +411,7 @@ class CacheManagerOverlay(OverlayBase):
         body = self.tr("Clear {0} of cached downloads across every "
                 "game?\n\nLocation: {1}\n\n"
                 "The md5 cache is preserved. Archives will be re-downloaded as "
-                "needed. Wabbajack gallery data and modlist packages are also cleared. The jobs/backups entry removes abandoned jobs and update backups.").format(format_size(total), get_download_cache_dir())
+                "needed. Wabbajack gallery data, modlist packages and saved requirement checks are also cleared. The jobs/backups entry removes abandoned jobs and update backups.").format(format_size(total), get_download_cache_dir())
         ConfirmOverlay.show_over(
             self._host, self.tr("Clear All Download Caches"), body,
             lambda ok: self._run_clear(keys) if ok else None,

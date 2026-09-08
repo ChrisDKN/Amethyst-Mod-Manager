@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import shutil
 import tempfile
+import threading
 import time
 import zipfile
 from pathlib import Path
@@ -15,33 +16,45 @@ from .checks import make_check
 from .models import PreflightReport
 from .paths import WabbajackError, existing_parent, source_path
 from .diagnostics import bind, emit, emit_exception, log_request, url_host
+from .verification import parallel_verify
 
 
 def _check_lengths(request, adapter, check, archive_paths, stop):
+    import hashlib
+    import json
+    from dataclasses import asdict
     from .paths import check_path_length, path_limits
+    from .verification import verified_read
     roots = [request.directory / "work/output", request.directory / "root",
              request.directory / "work/extract" / ("0" * 64) / "999999"]
     limits = {root: path_limits(root) for root in roots}
-    failures = set()
-    for directive in request.package.directives:
-        if stop is not None and stop.is_set():
-            raise InterruptedError("Preflight stopped")
-        paths = [(roots[0], directive.path)]
-        published = adapter.installed_path(directive.path) if adapter else directive.path
-        if published:
-            paths.append((roots[1], published))
-        if directive.kind in {"FromArchive", "PatchedFromArchive", "TransformedTexture"}:
-            paths.extend((roots[2], member) for member in archive_paths[directive.index][1])
-        for root, relative in paths:
-            try:
-                check_path_length(root, relative, limits[root])
-            except WabbajackError as exc:
-                failures.add(str(exc))
-                if len(failures) >= 5:
-                    break
-        if len(failures) >= 5:
-            break
-    for detail in sorted(failures):
+    configuration = json.dumps({"paths": [(str(root), limits[root]) for root in roots],
+                                "adapter": asdict(adapter) if adapter else None},
+                               sort_keys=True, default=sorted)
+    key = ("path-limits-1", request.package.identity,
+           hashlib.sha256(configuration.encode()).hexdigest())
+    def inspect():
+        failures = set()
+        for directive in request.package.directives:
+            if stop is not None and stop.is_set():
+                raise InterruptedError("Preflight stopped")
+            paths = [(roots[0], directive.path)]
+            published = adapter.installed_path(directive.path) if adapter else directive.path
+            if published:
+                paths.append((roots[1], published))
+            if directive.kind in {"FromArchive", "PatchedFromArchive", "TransformedTexture"}:
+                paths.extend((roots[2], member) for member in archive_paths[directive.index][1])
+            for root, relative in paths:
+                try:
+                    check_path_length(root, relative, limits[root])
+                except WabbajackError as exc:
+                    failures.add(str(exc))
+                    if len(failures) >= 5:
+                        break
+            if len(failures) >= 5:
+                break
+        return sorted(failures)
+    for detail in verified_read(request.package.path, key, inspect):
         check("error", "Filesystem path limits", detail)
 
 
@@ -159,27 +172,51 @@ def _reusable(request, stop, check, adapter, log=None):
     from .hashes import file_hash
     from .paths import within
     from .reconstruct import signature
+    from .verification import cached_files
     directory = request.directory
     old, completed, root_reuse, stage_reuse = {}, {}, set(), set()
     if not (directory / "state.sqlite").is_file():
         return root_reuse, stage_reuse, old
+    def candidates():
+        for directive in request.package.directives:
+            if stop is not None and stop.is_set():
+                raise InterruptedError("Preflight stopped")
+            published = adapter.installed_path(directive.path) if adapter else directive.path
+            rows = [(old.get("root/" + rel), directory / "root", rel, rel == published)
+                    for rel in dict.fromkeys((published, directive.path)) if rel]
+            rows.append((completed.get(directive.path), directory / "work/output", directive.path, False))
+            rows = [row for row in rows if row[0]]
+            if not rows:
+                continue
+            sig = signature(directive, request)
+            for row, base, rel, published in rows:
+                if row[0] == sig:
+                    yield directive.path, base, rel, row[1], published, directive.output_size
+    def verify(candidate):
+        directive_path, base, rel, expected, published, _ = candidate
+        path = within(base, rel)
+        valid = path.is_file() and file_hash(path, stop) == expected
+        return directive_path, published, valid
     try:
         with sqlite3.connect((directory / "state.sqlite").as_uri() + "?mode=ro", uri=True) as db:
             old = {p: (sig, digest) for p, sig, digest in db.execute("SELECT path,signature,authored_hash FROM outputs")}
             completed = {p: (sig, digest) for p, sig, digest in db.execute("SELECT path,signature,actual_hash FROM completed")}
-        for directive in request.package.directives:
-            sig = signature(directive, request)
-            staged = completed.get(directive.path)
-            published = adapter.installed_path(directive.path) if adapter else directive.path
-            candidates = [(old.get("root/" + rel), directory / "root", rel,
-                           root_reuse if rel == published else stage_reuse)
-                          for rel in dict.fromkeys((published, directive.path)) if rel]
-            candidates.append((staged, directory / "work" / "output", directive.path, stage_reuse))
-            for row, base, rel, found in candidates:
-                if row and row[0] == sig:
-                    path = within(base, rel)
-                    if path.is_file() and file_hash(path, stop) == row[1]:
-                        found.add(directive.path)
+        pending = {}
+        for candidate in candidates():
+            pending.setdefault(candidate[1], {}).setdefault(candidate[2], []).append(candidate)
+        for base, paths in pending.items():
+            for relative, digest, _ in cached_files(base, paths):
+                for path, _, _, expected, published, _ in paths.pop(relative):
+                    if digest == expected:
+                        (root_reuse if published else stage_reuse).add(path)
+        remaining = (candidate for paths in pending.values()
+                     for rows in paths.values() for candidate in rows)
+        for path, published, valid in parallel_verify(verify, remaining, stop,
+                                                      size=lambda item: item[-1]):
+            if valid:
+                (root_reuse if published else stage_reuse).add(path)
+    except InterruptedError:
+        raise
     except (OSError, sqlite3.Error, WabbajackError) as exc:
         emit_exception(log, "preflight.reuse.failed", exc,
                        directory=request.directory)
@@ -187,31 +224,74 @@ def _reusable(request, stop, check, adapter, log=None):
     return root_reuse, stage_reuse, old
 
 
+def _verify_game_source(request, archive, stop, log):
+    from .game_files import plan_game_file
+    package = request.package
+    name = str(archive.state.get("Game", archive.state.get("GameName", package.game)))
+    game_root = next((p for n, p in request.game_roots.items() if token(n) == token(name)), None)
+    rel = archive.state.get("GameFile", archive.name)
+    found = None
+    present = None
+    candidates = []
+    if game_root:
+        for candidate in (rel, "Data/" + rel):
+            try:
+                path = source_path(game_root, candidate, expected=archive.key, size=archive.size, stop=stop)
+                found = path
+                break
+            except InterruptedError:
+                raise
+            except (OSError, WabbajackError) as exc:
+                emit(log, "preflight.game_file.candidate_rejected",
+                     archive=archive.name, game_root=game_root,
+                     candidate=candidate, exception_type=type(exc).__name__,
+                     exception=str(exc))
+                try:
+                    candidate_path = source_path(game_root, candidate)
+                    if candidate_path.is_file():
+                        present = candidate_path
+                        candidates.append(candidate_path)
+                except (OSError, WabbajackError) as fallback_exc:
+                    emit(log, "preflight.game_file.candidate_unavailable",
+                         archive=archive.name, game_root=game_root,
+                         candidate=candidate,
+                         exception_type=type(fallback_exc).__name__,
+                         exception=str(fallback_exc))
+    preparation = plan_game_file(archive, candidates, stop, log) if found is None else None
+    return name, rel, found, present, preparation
+
+
 def preflight(request, stop=None, *, cache=None, progress=None, log=None) -> PreflightReport:
-    from .verification import VerificationCache, verification_scope
+    from .verification import VERIFICATION_WORKERS, VerificationCache, verification_scope
     log = bind(log, request.diagnostic_id)
     timings = {}
     stage, started, emitted = "", time.monotonic(), 0.0
     overall_started = started
+    progress_lock = threading.Lock()
     log_request(log, request, "preflight.request")
+    emit(log, "preflight.verification.workers", workers=VERIFICATION_WORKERS,
+         max_pending=VERIFICATION_WORKERS * 2)
     def notify(name, detail=""):
         nonlocal stage, started, emitted
         if stop is not None and stop.is_set():
             raise InterruptedError("Preflight stopped")
-        now = time.monotonic()
-        changed = name != stage
-        if changed:
-            if stage:
-                timings[stage] = timings.get(stage, 0) + now - started
-                emit(log, "preflight.stage.completed", name=stage,
-                     elapsed_seconds=round(now - started, 3))
-            stage, started = name, now
-            emit(log, "preflight.stage.started", name=name, detail=detail)
-        if progress and (changed or now - emitted >= 0.1):
-            progress(name, 0, 0, detail)
-            emitted = now
+        with progress_lock:
+            now = time.monotonic()
+            changed = name != stage
+            if changed:
+                if stage:
+                    timings[stage] = timings.get(stage, 0) + now - started
+                    emit(log, "preflight.stage.completed", name=stage,
+                         elapsed_seconds=round(now - started, 3))
+                stage, started = name, now
+                emit(log, "preflight.stage.started", name=name, detail=detail)
+            if progress and (changed or now - emitted >= 0.1):
+                progress(name, 0, 0, detail)
+                emitted = now
+    if cache is None:
+        cache = VerificationCache(directory=request.downloads / ".wabbajack-checks")
     try:
-        with verification_scope(cache if cache is not None else VerificationCache(), stop,
+        with verification_scope(cache, stop,
                                 lambda path: notify(stage, path.name), log):
             report = _preflight(request, stop, notify, log)
     except BaseException as exc:
@@ -538,6 +618,33 @@ def _preflight(request, stop, notify, log=None):
         emit(log, "preflight.cache_scan.directory", path=folder,
              exists=folder.is_dir(), candidates=candidates)
     from .hashes import file_hash
+    notify("Verifying cached downloads")
+    expected_by_size = {}
+    for archive in package.archives.values():
+        if archive.key in required_archives and archive.kind != "GameFileSource":
+            expected_by_size.setdefault(archive.size, set()).add(archive.key)
+    def verify_downloads(item):
+        size, paths = item
+        needed = expected_by_size[size].copy()
+        found = {}
+        for path in paths:
+            key = file_hash(path, stop)
+            if key in needed:
+                found[key] = path
+                needed.remove(key)
+                if not needed:
+                    break
+        return found
+    for found in parallel_verify(verify_downloads, by_size.items(), stop,
+                                 size=lambda item: item[0]):
+        report.cached.update(found)
+    notify("Verifying required game files")
+    def verify_game(archive):
+        return archive.key, _verify_game_source(request, archive, stop, log)
+    game_sources = dict(parallel_verify(verify_game,
+        (archive for archive in package.archives.values()
+         if archive.kind == "GameFileSource" and archive.key in required_archives | ignored_archives),
+        stop, size=lambda archive: archive.size))
     game_file_problems = []
     ignored_game_file_problems = []
     for archive in package.archives.values():
@@ -546,35 +653,7 @@ def _preflight(request, stop, notify, log=None):
         if stop is not None and stop.is_set():
             raise InterruptedError("Preflight stopped")
         if archive.kind == "GameFileSource":
-            notify("Verifying required game files", archive.name)
-            name = str(archive.state.get("Game", archive.state.get("GameName", package.game)))
-            game_root = next((p for n, p in request.game_roots.items() if token(n) == token(name)), None)
-            rel = archive.state.get("GameFile", archive.name)
-            found = None
-            present = None
-            candidates = []
-            if game_root:
-                for candidate in (rel, "Data/" + rel):
-                    try:
-                        path = source_path(game_root, candidate, expected=archive.key, size=archive.size, stop=stop)
-                        found = path
-                        break
-                    except (OSError, WabbajackError) as exc:
-                        emit(log, "preflight.game_file.candidate_rejected",
-                             archive=archive.name, game_root=game_root,
-                             candidate=candidate, exception_type=type(exc).__name__,
-                             exception=str(exc))
-                        try:
-                            candidate_path = source_path(game_root, candidate)
-                            if candidate_path.is_file():
-                                present = candidate_path
-                                candidates.append(candidate_path)
-                        except (OSError, WabbajackError) as fallback_exc:
-                            emit(log, "preflight.game_file.candidate_unavailable",
-                                 archive=archive.name, game_root=game_root,
-                                 candidate=candidate,
-                                 exception_type=type(fallback_exc).__name__,
-                                 exception=str(fallback_exc))
+            name, rel, found, present, preparation = game_sources[archive.key]
             if found:
                 if archive.key in required_archives:
                     report.game_files[archive.key] = found
@@ -582,8 +661,6 @@ def _preflight(request, stop, notify, log=None):
                      kind=archive.kind, bytes=archive.size, hash=archive.key,
                      route="game-file", path=found)
             else:
-                from .game_files import plan_game_file
-                preparation = plan_game_file(archive, candidates, stop, log)
                 if preparation and archive.key in required_archives:
                     report.prepared_game_files[archive.key] = preparation
                     emit(log, "preflight.archive", archive=archive.name,
@@ -601,11 +678,6 @@ def _preflight(request, stop, notify, log=None):
                          kind=archive.kind, bytes=archive.size, hash=archive.key,
                          route="missing-game-file", relative=rel, present=present)
             continue
-        notify("Verifying cached downloads", archive.name)
-        for path in by_size.get(archive.size, []):
-            if file_hash(path, stop) == archive.key:
-                report.cached[archive.key] = path
-                break
         if archive.key not in report.cached:
             report.download_bytes += archive.size
             automatic = automatic_source(archive, request.premium)

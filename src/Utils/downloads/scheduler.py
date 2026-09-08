@@ -117,6 +117,7 @@ def run_pipelined(mods: list, fetch: Callable[[object], Any],
                   download: Callable[[object, Any], None],
                   dl_workers: int, *, link_workers: int = 2,
                   large_workers: int = 1,
+                  large_download: "Callable[[object, Any], None] | None" = None,
                   stop: "threading.Event | None" = None,
                   worker_done: "Callable[[], None] | None" = None,
                   spawn: Callable[[Callable, str], object] | None = None
@@ -146,6 +147,7 @@ def run_pipelined(mods: list, fetch: Callable[[object], Any],
     *link_workers*- number of link-fetch threads (>=1) available across both
                     lanes.
     *large_workers* - download lanes reserved for the largest remaining mods.
+    *large_download* - optional callback for items downloaded by those lanes.
     *stop*        - optional cancel event; when set, both stages drain the
                     remainder (feeding *download* with ``links=None``) so every
                     mod is still handed off once and the caller short-circuits.
@@ -203,7 +205,7 @@ def run_pipelined(mods: list, fetch: Callable[[object], Any],
             # off once (caller bookkeeping) - the download fn short-circuits.
             ready.put((mod, links))
 
-    def _downloader(ready, claim_gate=None):
+    def _downloader(ready, work, claim_gate=None):
         try:
             while True:
                 item = ready.get()
@@ -211,7 +213,7 @@ def run_pipelined(mods: list, fetch: Callable[[object], Any],
                     return
                 mod, links = item
                 try:
-                    download(mod, links)
+                    work(mod, links)
                 except Exception:
                     # A dead worker wedges the pipeline because fetchers can
                     # block on a full ready queue. Drop this mod and keep going.
@@ -237,11 +239,13 @@ def run_pipelined(mods: list, fetch: Callable[[object], Any],
     if large_workers:
         # Do not let the tail prefetcher reserve several large files serially.
         lanes.append(("large", True, large_workers, large_link_workers,
-                      threading.Semaphore(large_workers)))
-    lanes.append(("small", False, small_workers, small_link_workers, None))
+                      threading.Semaphore(large_workers),
+                      large_download if large_download is not None else download))
+    lanes.append(("small", False, small_workers, small_link_workers, None,
+                  download))
 
     running = []
-    for name, from_tail, worker_count, fetch_count, claim_gate in lanes:
+    for name, from_tail, worker_count, fetch_count, claim_gate, work in lanes:
         ready = _queue.Queue(maxsize=worker_count + fetch_count)
         fetchers = [
             spawn(lambda q=ready, tail=from_tail, gate=claim_gate:
@@ -250,7 +254,8 @@ def run_pipelined(mods: list, fetch: Callable[[object], Any],
             for i in range(fetch_count)
         ]
         downloaders = [
-            spawn(lambda q=ready, gate=claim_gate: _downloader(q, gate),
+            spawn(lambda q=ready, fn=work, gate=claim_gate:
+                  _downloader(q, fn, gate),
                   f"col-dl-{name}-{i}")
             for i in range(worker_count)
         ]

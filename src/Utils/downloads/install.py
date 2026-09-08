@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools
 import queue as _queue
 import threading
 from dataclasses import dataclass, field
@@ -62,9 +63,15 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
     from Utils.downloads.scheduler import order_by_size, run_pipelined
     items, manual_items = tuple(items), tuple(manual_items)
     download_workers, install_workers = max(1, download_workers), max(1, install_workers)
-    ready = _queue.Queue(maxsize=max(download_workers + install_workers + 8, 32))
+    ready = _queue.PriorityQueue(maxsize=max(
+        download_workers + install_workers + 8, 32,
+        len(items) + len(manual_items)))
     errors = []
     lock = threading.Lock()
+    deferred_large = []
+    deferred_lock = threading.Lock()
+    sequence = itertools.count()
+    sequence_lock = threading.Lock()
     pending_manual = _queue.Queue(maxsize=max(1, len(items) + len(manual_items)))
     for item in manual_items:
         pending_manual.put((item, ""))
@@ -82,7 +89,28 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
             except Exception:
                 pass
 
-    def producer(item, prefetched, *, manual=False, reason=""):
+    def queue_key(item):
+        try:
+            size = max(0, int(item.size or 0))
+        except (AttributeError, TypeError, ValueError):
+            size = 0
+        return (1 if size <= 0 else 0, size)
+
+    def next_sequence():
+        with sequence_lock:
+            return next(sequence)
+
+    def enqueue(item, result):
+        priority = (*queue_key(item), next_sequence(), (item, result))
+        while not control.stop.is_set():
+            try:
+                ready.put(priority, timeout=0.2)
+                return True
+            except _queue.Full:
+                pass
+        return False
+
+    def producer(item, prefetched, *, manual=False, reason="", defer=False):
         if control.stop.is_set():
             return
         handed_off = False
@@ -96,13 +124,12 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                 return
             notify(on_ready, item)
             queued = True
-            while not control.stop.is_set():
-                try:
-                    ready.put((item, result), timeout=0.2)
-                    handed_off = True
-                    return
-                except _queue.Full:
-                    pass
+            if defer:
+                with deferred_lock:
+                    deferred_large.append((item, result))
+                handed_off = True
+                return
+            handed_off = enqueue(item, result)
         except ManualDownloadRequired as exc:
             if manual_acquire and not manual and not control.stop.is_set():
                 pending_manual.put((item, str(exc)))
@@ -114,9 +141,17 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
             if queued and not handed_off:
                 notify(on_discard, item)
 
+    def release_deferred_large():
+        with deferred_lock:
+            pending = sorted(deferred_large, key=lambda pair: queue_key(pair[0]))
+            deferred_large.clear()
+        for item, result in pending:
+            if not enqueue(item, result):
+                notify(on_discard, item)
+
     def consumer():
         while True:
-            task = ready.get()
+            _unknown, _size, _seq, task = ready.get()
             try:
                 if task is None:
                     return
@@ -139,8 +174,11 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                     run_pipelined(order_by_size(items, lambda a: a.size), prefetch or (lambda _: None),
                                   producer, download_workers, stop=control.stop,
                                   link_workers=max(4, download_workers),
-                                  large_workers=min(2, download_workers - 1))
+                                  large_workers=min(2, download_workers - 1),
+                                  large_download=lambda item, value:
+                                      producer(item, value, defer=True))
                 finally:
+                    release_deferred_large()
                     automatic_done.set()
             def manual():
                 while not control.stop.is_set():
@@ -159,7 +197,7 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                     future.result()
         finally:
             for _ in workers:
-                ready.put(None)
+                ready.put((2, 0, next_sequence(), None))
             for worker in workers:
                 worker.result()
     return errors

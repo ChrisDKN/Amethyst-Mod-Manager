@@ -97,12 +97,17 @@ def run_install(request, *, callbacks=None, control=None, report=None):
             store.set("pending_package_xxhash", file_hash(saved, ctl.stop))
             request.package.path = saved
             reconstruction = Reconstruction(request, store, cb, ctl)
-            progress("Preparing archives", 0, 0, "Verifying reusable installation files")
-            needed = reconstruction.needed_archives()
+            needed = reconstruction.needed_archives(progress=progress)
             cb.on_display_total(report.download_bytes)
             with Acquisition(request, report, cb, ctl, archives=needed) as acquire:
                 automatic = [a for a in needed if acquire.automatic(a)]
                 manual = [a for a in needed if not acquire.automatic(a)]
+                download_plan = [a for a in needed
+                    if a.key not in report.cached
+                    and a.key not in report.game_files
+                    and a.key not in report.prepared_game_files
+                    and a.kind != "GameFileSource"]
+                cb.on_mod_plan([(acquire.ids[a.key], a.size) for a in download_plan])
                 from Utils.ui.config import load_collection_settings
                 from Utils.archives.budget import ExtractionMemoryBudget, probe_archive
                 settings = load_collection_settings()
@@ -110,7 +115,13 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                 emit(cb.on_log, "install.pipeline.configured", archives=len(needed),
                      automatic=len(automatic), manual=len(manual),
                      download_workers=settings["max_concurrent"],
+                     large_download_workers=min(
+                         2, max(0, settings["max_concurrent"] - 1)),
                      extraction_workers=settings["max_extract_workers"],
+                     extraction_order="smallest-ready-first",
+                     large_lane_extraction="after-automatic-downloads",
+                     extraction_queue_capacity=max(
+                         32, len(automatic) + len(manual)),
                      extraction_memory_budget_bytes=memory.budget,
                      extraction_spike_factor=memory.SPIKE_FACTOR,
                      automatic_sample=[a.name for a in automatic[:20]],
@@ -145,6 +156,7 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                              archive=archive.name, estimated_expanded_bytes=estimate,
                              memory_wait_seconds=round(time.monotonic() - wait_started, 3))
                         reconstruction.install_archive(archive, path)
+                        cb.on_row_installed(acquire.ids[archive.key])
                         emit(cb.on_log, "install.archive.extraction_completed",
                              archive=archive.name,
                              elapsed_seconds=round(time.monotonic() - archive_started, 3))

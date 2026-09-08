@@ -108,13 +108,16 @@ class CollectionInstallOverlay(QWidget):
     CARD_H = 540
 
     def __init__(self, host: QWidget, title: str, on_pause=None, on_cancel=None,
-                 limit_mbps: float = 0.0, on_limit_change=None):
+                 limit_mbps: float = 0.0, on_limit_change=None,
+                 hide_completed_batches: bool = False,
+                 install_heading: str | None = None):
         super().__init__(host)
         self._host = host
         self._on_pause = on_pause
         self._on_cancel = on_cancel
         self._limit_mbps = limit_mbps
         self._on_limit_change = on_limit_change
+        self._hide_completed_batches = hide_completed_batches
         self._p = active_palette()
         # file_id → pool-slot index (RED and GREEN; -1 = overflow, no bar row).
         self._dl_slot_of: dict[int, int] = {}
@@ -125,6 +128,7 @@ class CollectionInstallOverlay(QWidget):
         self._small_mod_ids: set[int] = set()
         self._small_dl_current: dict[int, int] = {}
         self._small_dl_total: dict[int, int] = {}
+        self._small_dl_done: set[int] = set()
         self._small_extract_done: set[int] = set()
         self._small_extract_visible = False
         self._finished = False
@@ -135,7 +139,7 @@ class CollectionInstallOverlay(QWidget):
         self.setObjectName("OverlayBackdrop")
         self.setStyleSheet("#OverlayBackdrop { background: rgba(0,0,0,150); }")
         self.setGeometry(host.rect())
-        self._build(title)
+        self._build(title, install_heading)
         bind_theme(self, roles={"TEXT_MAIN", "STATUS_QUEUED"})
         host.installEventFilter(self)
         self._reposition()
@@ -144,10 +148,14 @@ class CollectionInstallOverlay(QWidget):
 
     @classmethod
     def show_over(cls, host, title, on_pause=None, on_cancel=None,
-                  limit_mbps: float = 0.0, on_limit_change=None):
+                  limit_mbps: float = 0.0, on_limit_change=None,
+                  hide_completed_batches: bool = False,
+                  install_heading: str | None = None):
         top = host.window() if host is not None else None
         return cls(top or host, title, on_pause=on_pause, on_cancel=on_cancel,
-                   limit_mbps=limit_mbps, on_limit_change=on_limit_change)
+                   limit_mbps=limit_mbps, on_limit_change=on_limit_change,
+                   hide_completed_batches=hide_completed_batches,
+                   install_heading=install_heading)
 
     # ---- build ------------------------------------------------------------
     def _c(self, k):
@@ -171,7 +179,7 @@ class CollectionInstallOverlay(QWidget):
         v.addWidget(hdr)
         return frame, v
 
-    def _build(self, title: str):
+    def _build(self, title: str, install_heading: str | None):
         self._card = QFrame(self)
         self._card.setObjectName("_InstallCard")
         self._card.setStyleSheet(
@@ -220,7 +228,7 @@ class CollectionInstallOverlay(QWidget):
         # GREEN - a FIXED pool of bar rows for active extractions (same widget as
         # the download rows) + ONE text label for overflow-active/queued names.
         ex_frame, ex_v = self._panel(
-            self.tr("Installing / Extracting"), "TONE_GREEN")
+            install_heading or self.tr("Installing / Extracting"), "TONE_GREEN")
         self._small_ex_row = _DownloadRow(ex_frame)
         ex_v.addWidget(self._small_ex_row)
         self._ex_rows: list[_DownloadRow] = []
@@ -353,6 +361,10 @@ class CollectionInstallOverlay(QWidget):
     def _render_small_downloads(self):
         if not self._small_mod_ids:
             return
+        if (self._hide_completed_batches
+                and self._small_mod_ids <= self._small_dl_done):
+            self._small_dl_row.clear()
+            return
         total = sum(self._small_dl_total.values())
         current = sum(min(self._small_dl_current.get(fid, 0),
                           self._small_dl_total.get(fid, 0))
@@ -368,12 +380,19 @@ class CollectionInstallOverlay(QWidget):
     def _render_small_extractions(self):
         if not self._small_extract_visible or not self._small_mod_ids:
             return
+        if (self._hide_completed_batches
+                and self._small_mod_ids <= self._small_extract_done):
+            self._small_ex_row.clear()
+            self._small_extract_visible = False
+            return
         self._small_ex_row.set_progress(
             len(self._small_extract_done), len(self._small_mod_ids))
 
     # RED - small downloads share one row; larger downloads use the pool.
     def dl_start(self, file_id: int, name: str, size: int):
         if file_id in self._small_mod_ids or 0 < size < _SMALL_MOD_THRESHOLD:
+            self._small_dl_done.discard(file_id)
+            self._small_dl_current[file_id] = 0
             self._add_small_mod(file_id, size)
             self._render_small_downloads()
             return
@@ -407,6 +426,7 @@ class CollectionInstallOverlay(QWidget):
                         self._small_dl_current.get(file_id, 0))
             self._small_dl_total[file_id] = total
             self._small_dl_current[file_id] = total
+            self._small_dl_done.add(file_id)
             self._render_small_downloads()
             return
         slot = self._dl_slot_of.pop(file_id, None)

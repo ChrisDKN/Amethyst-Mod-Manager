@@ -984,15 +984,10 @@ def run_collection_install(
     # Re-reading every sidecar for every mod makes large collections quadratic.
     _automatic_scan_dirs = _scan_dirs() if not manual_mode else []
     _archive_index = ArchiveLookupIndex(_automatic_scan_dirs)
-    # Decouple downloads from installs: size the hand-off queue so all download
-    # workers can deposit a finished archive without blocking even when every
-    # install worker is busy extracting. Downloaded archives live on disk; queue
-    # items are cheap (mod, result) tuples, and _mem_budget still caps concurrent
-    # extraction - so a generous queue lets the 8 download slots stay saturated
-    # (matching Tk's observed behaviour) instead of stalling in bursts. Was
-    # max(_INSTALL_WORKERS + 1, 5), which blocked producers once installs (slow
-    # per-archive 7z spawns for many tiny mods) fell behind.
-    _PIPELINE_QUEUE_SIZE = max(_DL_WORKERS + _INSTALL_WORKERS + 8, 32)
+    # Downloaded archives already live on disk, so the hand-off queue can hold
+    # the full plan without extraction backpressuring the download workers.
+    _PIPELINE_QUEUE_SIZE = max(
+        _DL_WORKERS + _INSTALL_WORKERS + 8, 32, len(to_download))
     _DONE_SENTINEL = None
     import os as _os_col
     _COL_TIMING = bool(_os_col.environ.get("MM_COL_TIMING"))
@@ -1075,22 +1070,20 @@ def run_collection_install(
     # Priority hand-off queue: when several downloaded archives are waiting, the
     # install consumers always take the SMALLEST first so one big archive can't
     # back up a pile of quick installs behind it. Items are
-    # ``(priority, seq, payload)``; priority = archive size in bytes (smallest
-    # first), seq is a monotonic tiebreaker so the payload tuples are never
-    # compared. DONE sentinels use +inf priority so they sort AFTER all real
-    # work - a consumer never exits while a smaller item is still queued.
+    # ``(unknown, size, seq, payload)`` so known small files come first and
+    # unknown sizes come last. The sequence keeps payloads out of comparisons.
     _install_queue: _queue.PriorityQueue = _queue.PriorityQueue(
         maxsize=_PIPELINE_QUEUE_SIZE)
     _iq_seq = _itertools.count()
     _iq_seq_lock = threading.Lock()
+    _deferred_large_downloads: list[tuple] = []
+    _deferred_large_lock = threading.Lock()
 
     def _iq_next_seq() -> int:
         with _iq_seq_lock:
             return next(_iq_seq)
 
-    def _enqueue_install(mod, result, domain) -> None:
-        """Put a downloaded (mod, result, domain) onto the priority install queue,
-        keyed on archive size (smallest installs first)."""
+    def _install_priority(mod, result) -> tuple[int, int]:
         size = 0
         try:
             if result is not None and getattr(result, "file_path", None):
@@ -1099,11 +1092,31 @@ def run_collection_install(
             size = 0
         if not size:
             size = getattr(mod, "size_bytes", 0) or 0
-        _install_queue.put((size, _iq_next_seq(), (mod, result, domain)))
+        return (1 if size <= 0 else 0, int(size))
+
+    def _enqueue_install(mod, result, domain) -> None:
+        priority = _install_priority(mod, result)
+        _install_queue.put((*priority, _iq_next_seq(), (mod, result, domain)))
+
+    def _handoff_install(mod, result, domain, defer: bool) -> None:
+        if not defer:
+            _enqueue_install(mod, result, domain)
+            return
+        with _deferred_large_lock:
+            _deferred_large_downloads.append((mod, result, domain))
+
+    def _release_large_downloads() -> int:
+        with _deferred_large_lock:
+            pending = sorted(
+                _deferred_large_downloads,
+                key=lambda item: _install_priority(item[0], item[1]))
+            _deferred_large_downloads.clear()
+        for mod, result, domain in pending:
+            _enqueue_install(mod, result, domain)
+        return len(pending)
 
     def _enqueue_done() -> None:
-        """Put a DONE sentinel that sorts after every real item (+inf priority)."""
-        _install_queue.put((float("inf"), _iq_next_seq(), _DONE_SENTINEL))
+        _install_queue.put((2, 0, _iq_next_seq(), _DONE_SENTINEL))
 
     def _agg_push(force: bool = False):
         now = _time_mod.monotonic()
@@ -1262,7 +1275,7 @@ def run_collection_install(
         return ("links", links)
 
     # ---- download producer (stage 2 of the pipeline) ------------------
-    def _download_one(mod, prefetched=None):
+    def _download_one(mod, prefetched=None, *, defer_install=False):
         nonlocal _dl_done
         mod_domain = _effective_mod_domain(mod)
         effective_mod_id = _effective_mod_id(mod)
@@ -1277,7 +1290,7 @@ def run_collection_install(
         if _col_stop.is_set():
             with _dl_lock:
                 _dl_done += 1
-            _enqueue_install(mod, None, mod_domain)
+            _handoff_install(mod, None, mod_domain, defer_install)
             return
 
         def _progress_cb(cur, tot, _fid=mod.file_id, _mod=mod):
@@ -1377,11 +1390,11 @@ def run_collection_install(
         except Exception as exc:
             log(f"Collection install: finish callback failed for "
                 f"'{mod.mod_name}': {exc}")
-        # The install queue is bounded; if it ever fills (installs falling far
-        # behind downloads) this put() blocks the download worker so it can't
-        # start the next download. The queue is now sized generously so that
-        # shouldn't happen, but MM_COL_TIMING=1 logs any block >0.05s to confirm.
-        if _COL_TIMING:
+        # MM_COL_TIMING retains a diagnostic in case a malformed plan hands off
+        # more entries than were counted when the queue was sized.
+        if defer_install:
+            _handoff_install(mod, result, effective_domain, True)
+        elif _COL_TIMING:
             _t_put = _time_mod.monotonic()
             _enqueue_install(mod, result, effective_domain)
             _blocked = _time_mod.monotonic() - _t_put
@@ -1562,7 +1575,7 @@ def run_collection_install(
 
     def _install_consumer():
         while True:
-            _prio, _seq, payload = _install_queue.get()
+            _unknown, _size, _seq, payload = _install_queue.get()
             if payload is _DONE_SENTINEL:
                 _install_queue.task_done()
                 break
@@ -1808,8 +1821,14 @@ def run_collection_install(
             run_pipelined(_to_download_sorted, _fetch_link_one, _download_one,
                           _DL_WORKERS, link_workers=max(4, _DL_WORKERS),
                           large_workers=min(2, max(0, _DL_WORKERS - 1)),
+                          large_download=lambda mod, value:
+                              _download_one(mod, value, defer_install=True),
                           stop=_col_stop,
                           worker_done=downloader.close_worker_session)
+            released = _release_large_downloads()
+            if released:
+                log(f"Collection install: released {released} completed "
+                    "large-lane archive(s) to the extraction queue")
 
         _dl_finished.set()
         if not manual_mode:

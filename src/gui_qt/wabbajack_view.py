@@ -107,8 +107,6 @@ class WabbajackView(QWidget):
         self._request = None
         self._report = None
         self._preflight_stop = threading.Event()
-        from Utils.wabbajack.verification import VerificationCache
-        self._verification_cache = VerificationCache()
         self._page = 0
         self._busy = False
         self._checking = False
@@ -1301,7 +1299,7 @@ class WabbajackView(QWidget):
             if load_force_manual_install():
                 request.premium = False
                 self._diag("ui.nexus.manual_forced")
-            return request, preflight(request, stop, cache=self._verification_cache,
+            return request, preflight(request, stop,
                                       progress=progress, log=self._diagnostic_log)
         self._worker("preflight", work)
 
@@ -1330,10 +1328,12 @@ class WabbajackView(QWidget):
         from Utils.ui.config import load_download_speed_limit
         self._overlay = CollectionInstallOverlay.show_over(self, self._package.name,
             on_pause=self._pause, on_cancel=self._cancel, on_limit_change=set_limit_mbps,
-            limit_mbps=load_download_speed_limit())
+            limit_mbps=load_download_speed_limit(), hide_completed_batches=True,
+            install_heading=self.tr("Installing / Reconstructing"))
         callbacks = InstallCallbacks(on_log=lambda text: safe_emit(self._progress, "log", (text,)),
                                     on_manual_mod=lambda payload: safe_emit(self._manual, payload))
         slots = {"on_status": "set_status", "on_phase": "set_phase", "on_display_total": "set_display_total",
+            "on_mod_plan": "set_mod_plan", "on_row_installed": "row_installed",
             "on_agg_download": "set_agg", "on_dl_mod_start": "dl_start", "on_dl_mod_update": "dl_update",
             "on_dl_mod_finish": "dl_finish", "on_extract_add": "extract_add", "on_extract_remove": "extract_remove",
             "on_extract_queue": "extract_queue", "on_extract_update": "extract_update"}

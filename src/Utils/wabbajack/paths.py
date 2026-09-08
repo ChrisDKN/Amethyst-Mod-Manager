@@ -26,7 +26,7 @@ def within(root: Path, relative: str) -> Path:
     return target
 
 
-def source_path(root: Path, relative: str, *, expected="", size=None, stop=None) -> Path:
+def source_path(root: Path, relative: str, *, expected="", size=None, stop=None, aliases=None) -> Path:
     direct = within(root, relative)
     from .hashes import file_hash, canonical_hash
     if expected:
@@ -36,7 +36,7 @@ def source_path(root: Path, relative: str, *, expected="", size=None, stop=None)
                 and file_hash(path, stop) == expected)
     if direct.exists() and (not expected or matches(direct)):
         return direct
-    candidates = source_candidates(root, relative)
+    candidates = source_candidates(root, relative, aliases=aliases)
     if expected:
         for candidate in sorted(candidates):
             if candidate != direct and matches(candidate):
@@ -47,24 +47,33 @@ def source_path(root: Path, relative: str, *, expected="", size=None, stop=None)
     return candidates[0]
 
 
-def source_candidates(root: Path, relative: str) -> list[Path]:
-    candidates = [root]
-    for part in relative_path(relative).split("/"):
-        matches = []
-        for base in candidates:
-            if not base.is_dir():
-                continue
-            for path in base.iterdir():
-                if path.name.casefold() == part.casefold():
-                    matches.append(path)
-                    if len(matches) > 256:
-                        raise WabbajackError(f"Too many case variants for source: {relative}")
-        candidates = matches
-        if not candidates:
-            raise WabbajackError(f"Missing or ambiguous source: {relative}")
-        if any(not p.resolve().is_relative_to(root.resolve()) for p in candidates):
-            raise WabbajackError(f"Source leaves its directory: {relative}")
-    return sorted(candidates)
+def source_candidates(root: Path, relative: str, *, aliases=None) -> list[Path]:
+    relative = relative_path(relative)
+    names = [relative, *(aliases or {}).get(relative.casefold(), ())]
+    found = set()
+    for name in dict.fromkeys(names):
+        candidates = [root]
+        for part in relative_path(name).split("/"):
+            matches = []
+            for base in candidates:
+                if not base.is_dir():
+                    continue
+                for path in base.iterdir():
+                    if path.name.casefold() == part.casefold():
+                        matches.append(path)
+                        if len(matches) > 256:
+                            raise WabbajackError(f"Too many case variants for source: {relative}")
+            candidates = matches
+            if not candidates:
+                break
+            if any(not p.resolve().is_relative_to(root.resolve()) for p in candidates):
+                raise WabbajackError(f"Source leaves its directory: {relative}")
+        found.update(candidates)
+        if len(found) > 256:
+            raise WabbajackError(f"Too many matching sources: {relative}")
+    if not found:
+        raise WabbajackError(f"Missing or ambiguous source: {relative}")
+    return sorted(found)
 
 
 def cache_path(directory: Path, identity: str, name: str) -> Path:

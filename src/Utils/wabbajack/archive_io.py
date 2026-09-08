@@ -171,13 +171,20 @@ def read_member(stream, record, write, stop=None):
             raise WabbajackError("Archive member failed decompression validation")
 
 
-def extract_bethesda(source, root, stop=None, progress=None, *, excluded_paths=frozenset()):
+def extract_bethesda(source, root, stop=None, progress=None, *, excluded_paths=frozenset(), aliases=None):
     rows = [row for row in records(source, allow_case_variants=True) if relative_path(row[0]).casefold() not in excluded_paths]
     total = sum(len(header) + sum(c[2] for c in segments) for _, header, segments in rows)
     completed = 0
     with Path(source).open("rb") as stream:
+        legacy_names = aliases is not None and stream.read(8) == b"BSA\0\x67\0\0\0"
         for row in rows:
             target = within(root, row[0])
+            if legacy_names and "+" in row[0]:
+                name = relative_path(row[0])
+                alias = "/".join(part.encode("latin-1").decode("utf-7", "ignore")
+                                 for part in name.split("/"))
+                if alias.casefold() != name.casefold():
+                    aliases.setdefault(alias.casefold(), []).append(name)
             with atomic_writer(target, "wb", encoding=None) as out:
                 def write(data):
                     nonlocal completed
