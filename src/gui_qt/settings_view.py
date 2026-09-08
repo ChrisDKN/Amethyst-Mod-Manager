@@ -457,10 +457,11 @@ class SettingsView(OverlayBase):
 
     def _combo(self, grid: QGridLayout, label: str,
                pairs: list[tuple[str, str]], current_value: str,
-               save_fn) -> QComboBox:
+               save_fn, *, help: str | None = None) -> QComboBox:
         """`pairs` = [(display, value), ...]; selecting saves the value."""
         row = self._next_row(grid)
-        grid.addWidget(QLabel(label), row, self.COL_LABEL)
+        lbl = QLabel(label)
+        grid.addWidget(lbl, row, self.COL_LABEL)
         combo = QComboBox()
         values = [v for _d, v in pairs]
         for disp, _v in pairs:
@@ -471,7 +472,16 @@ class SettingsView(OverlayBase):
             lambda i: self._safe_save(save_fn, values[i]))
         no_wheel(combo)
         combo.setFixedWidth(self.COMBO_W)
-        grid.addWidget(combo, row, self.COL_CTRL, Qt.AlignLeft)
+        if help:
+            wrap = QHBoxLayout()
+            wrap.setContentsMargins(0, 0, 0, 0)
+            wrap.setSpacing(8)
+            wrap.addWidget(combo)
+            self._add_help(wrap, help, lbl, combo)
+            wrap.addStretch(1)
+            grid.addLayout(wrap, row, self.COL_CTRL)
+        else:
+            grid.addWidget(combo, row, self.COL_CTRL, Qt.AlignLeft)
         return combo
 
     # Groove floor, so a narrow window or a translated label can't crush the
@@ -1107,6 +1117,18 @@ class SettingsView(OverlayBase):
             _lbl.setText(_limit_text(v))
         lim_sld.valueChanged.connect(_fmt_limit)
         _fmt_limit(lim_sld.value())
+
+        self._nexus_server_combo = self._combo(
+            g, self.tr("Nexus download server"),
+            [(self.tr("Automatic"), ""), (self.tr("Global CDN"), "Nexus CDN")]
+            + [(self.tr("{0} (Premium)").format(server), server)
+               for server in uc.NEXUS_DOWNLOAD_SERVERS if server != "Nexus CDN"],
+            uc.load_nexus_download_server(), uc.save_nexus_download_server,
+            help=self.tr("Automatic follows your Nexus website preference. Regional "
+                 "servers require Nexus Premium. Applies to new or resumed Nexus "
+                 "downloads, including collections and Wabbajack. If the selected "
+                 "server is unavailable or fails, other available servers are tried. "
+                 "Pause and resume an active download to change its server."))
 
         self._checkbox(
             g, self.tr("Download only (don't install)"),

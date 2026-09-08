@@ -1159,6 +1159,31 @@ def save_download_speed_limit(mbps: float) -> None:
 
 
 _DOWNLOADS_SECTION = "downloads"
+NEXUS_DOWNLOAD_SERVERS = (
+    "Nexus CDN", "Amsterdam", "Prague", "Chicago", "Los Angeles", "Miami", "Dallas",
+)
+
+
+def load_nexus_download_server() -> str:
+    try:
+        value = _read_ini(get_ui_config_path()).get(
+            _DOWNLOADS_SECTION, "nexus_server", fallback="")
+        return value if value in NEXUS_DOWNLOAD_SERVERS else ""
+    except Exception:
+        return ""
+
+
+def save_nexus_download_server(value: str) -> None:
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _DOWNLOADS_SECTION not in parser:
+        parser[_DOWNLOADS_SECTION] = {}
+    parser[_DOWNLOADS_SECTION]["nexus_server"] = (
+        value if value in NEXUS_DOWNLOAD_SERVERS else "")
+    _write_ini(parser, path)
 
 
 def load_download_only() -> bool:

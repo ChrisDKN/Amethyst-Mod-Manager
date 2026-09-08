@@ -875,6 +875,12 @@ class NexusDownloader:
     ) -> DownloadResult:
         """Try each mirror in order until one succeeds."""
 
+        from Utils.ui.config import load_nexus_download_server
+        preferred = load_nexus_download_server()
+        if preferred:
+            links = sorted(links, key=lambda link:
+                           link.short_name.casefold() != preferred.casefold())
+
         last_error = ""
         for link in links:
             if cancel is not None and cancel.is_set():
@@ -884,6 +890,7 @@ class NexusDownloader:
                     mod_id=mod_id, file_id=file_id,
                 )
             try:
+                app_log(f"Downloading {file_name} from {link.name or link.short_name}")
                 result = self._stream_download(
                     url=link.URI,
                     file_name=file_name,
