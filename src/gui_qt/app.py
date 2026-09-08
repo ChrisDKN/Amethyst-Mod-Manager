@@ -4768,17 +4768,24 @@ class MainWindow(QMainWindow):
         guessed from another package's successful name.
         """
         installed = dict(installed or {})
+        stamped = False
         for archive_path, link, info in records:
             archive_path = str(archive_path)
             folder_name = installed.get(archive_path)
             if folder_name:
-                self._stamp_thunderstore_meta(link, info, folder_name)
+                stamped = (self._stamp_thunderstore_meta(
+                    link, info, folder_name) or stamped)
             elif archive_path in getattr(self, "_install_handoff_paths", set()):
                 self._pending_thunderstore_meta[archive_path] = (link, info)
             else:
                 self._append_log(
                     f"[thunderstore] {link.full_name} was not installed by this "
                     "batch - metadata not stamped.")
+        if stamped:
+            # _on_install_done starts its metadata read before invoking this
+            # callback. Supersede that possibly stale read now the source
+            # section exists, while preserving the already-painted rows.
+            self._reload_modlist(preserve_overlays=True)
 
     def _install_thunderstore_entries(self, entries, game, profile_dir,
                                       control, callbacks):
@@ -5071,7 +5078,7 @@ class MainWindow(QMainWindow):
             _confirmed, confirm_label=self.tr("Update"), danger=False)
 
     def _stamp_thunderstore_meta(self, link, info, installed_name=None,
-                                 staging_root=None):
+                                 staging_root=None) -> bool:
         """Write the [thunderstore] meta.ini section for a just-installed mod.
 
         *installed_name* is the folder reported for this archive by the install
@@ -5090,7 +5097,7 @@ class MainWindow(QMainWindow):
         try:
             game = self._gs.game
             if game is None:
-                return
+                return False
             if staging_root is not None:
                 staging = Path(staging_root)
             else:
@@ -5098,7 +5105,7 @@ class MainWindow(QMainWindow):
                 staging = Path(resolve_target_staging(
                     game, Path(self._gs.profile_dir())))
             if not staging.is_dir():
-                return
+                return False
 
             meta = build_meta_from_link(link, info)
             # Resolve the community for the record. The link never carries it,
@@ -5116,7 +5123,7 @@ class MainWindow(QMainWindow):
                 self._append_log(
                     f"[thunderstore] installed folder for {link.full_name} not "
                     "found - meta.ini not stamped.")
-                return
+                return False
 
             meta_path = target / "meta.ini"
             existing = read_meta(meta_path)
@@ -5124,12 +5131,14 @@ class MainWindow(QMainWindow):
                 self._append_log(
                     f"[thunderstore] '{target.name}' already carries metadata "
                     f"for {existing.package_id} - not overwriting.")
-                return
+                return False
             write_meta(meta_path, meta)
             self._append_log(
                 f"[thunderstore] stamped {meta.full_name} → {target.name}/meta.ini")
+            return True
         except Exception as exc:
             self._append_log(f"[thunderstore] could not stamp meta.ini: {exc}")
+            return False
 
     def _start_nxm_ipc(self):
         """Start the IPC server so this (running) instance receives NXM links
@@ -16172,6 +16181,7 @@ class MainWindow(QMainWindow):
                  for key, label in STATUS_FILTERS]
         spec = [
             {"title": "By status", "type": "checks", "items": items},
+            {"title": "By source location", "type": "dynamic", "id": "sources"},
             {"title": "By category", "type": "dynamic", "id": "categories"},
             {"title": "By file type", "type": "dynamic", "id": "filetypes"},
             {"title": "By author", "type": "dynamic", "id": "authors"},
@@ -16311,6 +16321,7 @@ class MainWindow(QMainWindow):
             (self.tr("Has BSA/BA2 archives"),      "!bsa"),
             (self.tr("PGPatcher textures"),        "!pbr"),
             (self.tr("Enabled / disabled"),        "!enabled · !disabled"),
+            (self.tr("Nexus mod / file ID"),       "12345"),
             (self.tr("By file type"),              "!.dds"),
             (self.tr("By category"),               "!patches"),
         ]
@@ -16327,12 +16338,23 @@ class MainWindow(QMainWindow):
         live FilterData, so callers must rebuild/reapply it like a panel filter."""
         return "!" in (getattr(self, "_modlist_search_text", "") or "")
 
+    def _modlist_id_search_active(self) -> bool:
+        """True when the plain-text part of the search is numeric."""
+        raw = getattr(self, "_modlist_search_text", "") or ""
+        words = [term for term in raw.split()
+                 if not (term.startswith("!") and len(term) > 1)]
+        return " ".join(words).strip().isdecimal()
+
     def _apply_modlist_search(self):
-        from gui_qt.modlist_filter import search_hidden_rows
+        from gui_qt.modlist_filter import FilterData, search_hidden_rows
         text = getattr(self, "_modlist_search_text", "")
         entries = self._modlist_model._entries
         active = bool((text or "").strip())
         data = getattr(self, "_modlist_filter_data", None)
+        if data is None:
+            data = FilterData()
+        data.nexus_mod_ids = dict(getattr(self, "_mod_nexus_mod_ids", {}))
+        data.nexus_file_ids = dict(getattr(self, "_mod_nexus_file_ids", {}))
         self._modlist_view.set_search_hidden(
             search_hidden_rows(entries, text, data), active=active)
 
@@ -16504,6 +16526,13 @@ class MainWindow(QMainWindow):
         data.ignored_missing_reqs = set(getattr(self, "_ignored_missing_reqs", frozenset()))
         data.category_names = dict(getattr(self, "_mod_categories", {}))
         data.author_names = dict(getattr(self, "_mod_authors", {}))
+        data.source_locations = {
+            name: frozenset(sources)
+            for name, sources in getattr(
+                self, "_mod_source_locations", {}).items()
+        }
+        data.nexus_mod_ids = dict(getattr(self, "_mod_nexus_mod_ids", {}))
+        data.nexus_file_ids = dict(getattr(self, "_mod_nexus_file_ids", {}))
         data.fomod_mods = set(getattr(self, "_mod_fomod", set()))
         data.bain_mods = set(getattr(self, "_mod_bain", set()))
         data.modified_mf_mods = self._build_modified_mf_mods()
@@ -16536,6 +16565,23 @@ class MainWindow(QMainWindow):
             auths = sorted({a for a in data.author_names.values() if a},
                            key=str.lower)
             panel.set_dynamic_items("authors", [(a, a, None) for a in auths])
+            mod_entries = [
+                e for e in self._modlist_model.natural_entries()
+                if not e.is_separator
+            ]
+            source_items = (
+                ("nexus", self.tr("Nexus")),
+                ("thunderstore", self.tr("Thunderstore")),
+                ("modio", self.tr("mod.io")),
+                ("none", self.tr("None")),
+            )
+            panel.set_dynamic_items("sources", [
+                (key, label, sum(
+                    1 for e in mod_entries
+                    if key in (data.source_locations.get(e.name)
+                               or ("none",))))
+                for key, label in source_items
+            ])
             fts = sorted(data.filetype_counts.items(), key=lambda kv: kv[0])
             panel.set_dynamic_items("filetypes", [
                 (ext, ext, count) for ext, count in fts])
@@ -16546,7 +16592,8 @@ class MainWindow(QMainWindow):
         self._apply_modlist_filters()
         # Token searches (e.g. "!update") depend on the FilterData we just
         # (re)built - re-run so results reflect fresh conflict/update data.
-        if self._modlist_token_search_active():
+        if (self._modlist_token_search_active()
+                or self._modlist_id_search_active()):
             self._apply_modlist_search()
 
     def _build_modified_mf_mods(self) -> set:
@@ -16861,6 +16908,9 @@ class MainWindow(QMainWindow):
 
         self._mod_categories: dict[str, str] = {}
         self._mod_authors: dict[str, str] = {}
+        self._mod_source_locations: dict[str, frozenset[str]] = {}
+        self._mod_nexus_mod_ids: dict[str, int] = {}
+        self._mod_nexus_file_ids: dict[str, int] = {}
         self._mod_updates: set[str] = set()
         self._mod_fomod: set[str] = set()
         self._mod_bain: set[str] = set()
@@ -16886,6 +16936,8 @@ class MainWindow(QMainWindow):
             self._modlist_model._versions = {}
             self._modlist_model._installed = {}
             self._modlist_model._categories = {}
+            self._modlist_model._nexus_mod_ids = {}
+            self._modlist_model._nexus_file_ids = {}
         with span("reload_modlist.set_entries"):
             self._modlist_model.set_entries(entries, mod_groups=mod_groups)
         if not preserve_overlays:
@@ -17184,16 +17236,21 @@ class MainWindow(QMainWindow):
                     phase_started=callback_started, category="mod data")
             return
         (versions, installed, flags, categories, updates,
-         fomod, bain, missing_reqs, descriptions, authors) = payload
+         fomod, bain, missing_reqs, descriptions, authors, source_locations,
+         nexus_mod_ids, nexus_file_ids) = payload
         self._mod_categories = categories
         self._mod_authors = authors
+        self._mod_source_locations = source_locations
+        self._mod_nexus_mod_ids = nexus_mod_ids
+        self._mod_nexus_file_ids = nexus_file_ids
         self._mod_updates = updates
         self._mod_fomod = fomod
         self._mod_bain = bain
         self._mod_missing_reqs = missing_reqs
         with span("on_modlist_meta_ready(apply)"):
             self._modlist_model.set_meta(versions, installed, categories,
-                                         descriptions, authors)
+                                         descriptions, authors, nexus_mod_ids,
+                                         nexus_file_ids)
             self._modlist_model.set_flags(flags)
         # Now that _mod_fomod + meta are current, refresh the rerun-FOMOD overlay
         # (picks up a just-installed/updated mod's pending deps without waiting for
@@ -17221,6 +17278,8 @@ class MainWindow(QMainWindow):
         panel_active = panel is not None and panel.any_active()
         if panel_active or self._modlist_token_search_active():
             self._rebuild_filter_data()
+        elif self._modlist_id_search_active():
+            self._apply_modlist_search()
         if startup_timing is not None:
             startup_timing.record(
                 "Apply mod metadata to the UI",
@@ -17365,7 +17424,8 @@ class MainWindow(QMainWindow):
                    and (subset is None or e.name in subset)]
         try:
             (_v, _i, flags, categories, updates, fomod, bain,
-             missing_reqs, _desc, authors) = read_meta_for_entries(
+             missing_reqs, _desc, authors, source_locations,
+             nexus_mod_ids, nexus_file_ids) = read_meta_for_entries(
                 entries, staging, self._ignored_missing_reqs,
                 profile_dir=self._gs.profile_dir(),
                 is_bg3=(getattr(self._gs.game, "game_id", "") == "baldurs_gate_3"))
@@ -17373,8 +17433,11 @@ class MainWindow(QMainWindow):
             return
         if subset is None:
             (self._mod_categories, self._mod_authors, self._mod_updates,
-             self._mod_fomod, self._mod_bain, self._mod_missing_reqs) = (
-                categories, authors, updates, fomod, bain, missing_reqs)
+             self._mod_fomod, self._mod_bain, self._mod_missing_reqs,
+             self._mod_source_locations, self._mod_nexus_mod_ids,
+             self._mod_nexus_file_ids) = (
+                categories, authors, updates, fomod, bain, missing_reqs,
+                source_locations, nexus_mod_ids, nexus_file_ids)
         else:
             # Merge: clear the requested names first (a cleared flag won't
             # appear in the subset result), then overlay the fresh values.
@@ -17385,6 +17448,24 @@ class MainWindow(QMainWindow):
             self._mod_authors = {**{n: a for n, a in
                                     getattr(self, "_mod_authors", {}).items()
                                     if n not in subset}, **authors}
+            self._mod_source_locations = {
+                **{n: s for n, s in getattr(
+                    self, "_mod_source_locations", {}).items()
+                   if n not in subset},
+                **source_locations,
+            }
+            self._mod_nexus_mod_ids = {
+                **{n: value for n, value in getattr(
+                    self, "_mod_nexus_mod_ids", {}).items()
+                   if n not in subset},
+                **nexus_mod_ids,
+            }
+            self._mod_nexus_file_ids = {
+                **{n: value for n, value in getattr(
+                    self, "_mod_nexus_file_ids", {}).items()
+                   if n not in subset},
+                **nexus_file_ids,
+            }
             for cur, fresh in ((self._mod_updates, updates),
                                (self._mod_fomod, fomod),
                                (self._mod_bain, bain),
@@ -17396,6 +17477,8 @@ class MainWindow(QMainWindow):
         # re-sort if the Category column drives the current sort.
         self._modlist_model._categories = self._mod_categories
         self._modlist_model._resort_if_key("category")
+        self._modlist_model.set_nexus_ids(
+            self._mod_nexus_mod_ids, self._mod_nexus_file_ids)
         self._modlist_model.set_notes(self._read_mod_notes())
         # If the Missing Requirements panel is open, drop cards for any
         # requirement that's now installed (works for any install path).
@@ -17416,8 +17499,15 @@ class MainWindow(QMainWindow):
             data.fomod_mods = set(self._mod_fomod)
             data.bain_mods = set(self._mod_bain)
             data.missing_reqs = set(self._mod_missing_reqs)
+            data.source_locations = {
+                name: frozenset(sources)
+                for name, sources in self._mod_source_locations.items()
+            }
+            data.nexus_mod_ids = dict(self._mod_nexus_mod_ids)
+            data.nexus_file_ids = dict(self._mod_nexus_file_ids)
             self._apply_modlist_filters()
-        if self._modlist_token_search_active():
+        if (self._modlist_token_search_active()
+                or self._modlist_id_search_active()):
             self._apply_modlist_search()
 
     def _read_mod_notes(self) -> dict:

@@ -97,6 +97,9 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
     descriptions[name] -> Nexus summary, falling back to the Thunderstore
                           description, for the name-column hover tooltip
     authors[name]      -> Nexus uploader username (Author column, "" if none)
+    source_locations[name] -> known source keys (nexus/thunderstore/modio)
+    nexus_mod_ids[name]    -> Nexus mod ID (omitted when unknown)
+    nexus_file_ids[name]   -> Nexus file ID (omitted when unknown)
 
     *ignored_reqs* - requirement names the user has dismissed (per-profile); a
     mod is only flagged if it still has missing requirements outside this set.
@@ -113,6 +116,9 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
     missing_reqs: set[str] = set()
     descriptions: dict[str, str] = {}
     authors: dict[str, str] = {}
+    source_locations: dict[str, frozenset[str]] = {}
+    nexus_mod_ids: dict[str, int] = {}
+    nexus_file_ids: dict[str, int] = {}
     # Requirement resolution is a two-pass job (Tk parity): collect every
     # installed Nexus mod_id first, then flag a mod only for requirement ids
     # that aren't present. Keyed on id, not name, so locally-seeded id-only
@@ -126,7 +132,8 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
         from Nexus.nexus_meta import read_meta
     except Exception:
         return (versions, installed, flags, categories, updates, fomod, bain,
-                missing_reqs, descriptions, authors)
+                missing_reqs, descriptions, authors, source_locations,
+                nexus_mod_ids, nexus_file_ids)
 
     # Per-profile user notes (Note flag) - one read for the whole list.
     notes: dict[str, str] = {}
@@ -147,6 +154,13 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
             meta = read_meta(meta_path)
         except Exception:
             continue
+
+        sources: set[str] = set()
+        if int(getattr(meta, "mod_id", 0) or 0) > 0:
+            sources.add("nexus")
+            nexus_mod_ids[e.name] = int(meta.mod_id)
+            if int(getattr(meta, "file_id", 0) or 0) > 0:
+                nexus_file_ids[e.name] = int(meta.file_id)
 
         if meta.version:
             versions[e.name] = meta.version
@@ -237,6 +251,8 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
 
                 _fid = int(_modio_value(
                     "fileId", "modioFileId", "0") or "0")
+                _mid = int(_modio_value(
+                    "modId", "modioModId", "0") or "0")
                 _lfid = int(_modio_value(
                     "latestFileId", "modioLatestFileId", "0") or "0")
                 _has_update = _modio_value(
@@ -245,6 +261,8 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
                 if _has_update or (_lfid and _fid and _lfid != _fid):
                     bits |= FLAG_MODIO_UPDATE
                     updates.add(e.name)
+                if _mid > 0:
+                    sources.add("modio")
             except Exception:
                 pass
         # Thunderstore update (its own meta.ini section, so no game gate -
@@ -269,8 +287,12 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
             if _ts.package_id and _ts.has_update and not _ts.ignore_update:
                 bits |= FLAG_THUNDERSTORE_UPDATE
                 updates.add(e.name)
+            if _ts.package_id:
+                sources.add("thunderstore")
         except Exception:
             pass
+        if sources:
+            source_locations[e.name] = frozenset(sources)
         # Per-profile user note.
         if notes.get(e.name):
             bits |= FLAG_NOTE
@@ -286,7 +308,8 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
             flags[name] = flags.get(name, 0) | FLAG_MISSING_REQS
 
     return (versions, installed, flags, categories, updates, fomod, bain,
-            missing_reqs, descriptions, authors)
+            missing_reqs, descriptions, authors, source_locations,
+            nexus_mod_ids, nexus_file_ids)
 
 
 # ---- mod folder sizes (Size column) - ported from gui/modlist_panel.py --------

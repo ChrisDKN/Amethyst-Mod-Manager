@@ -151,6 +151,11 @@ def sort_key_fn(key: str, ctx: dict):
         sizes = ctx.get("size_bytes") or {}
         return lambda e: sizes.get(e.name, 0)
 
+    if key in ("nexus_mod_id", "nexus_file_id"):
+        ids = ctx.get(f"{key}s") or {}
+        return lambda e: ((0, ids[e.name]) if ids.get(e.name, 0) > 0
+                          else (1, 0))
+
     return lambda e: 0
 
 

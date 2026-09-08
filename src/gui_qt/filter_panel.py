@@ -47,6 +47,7 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("FilterSidePanel", "By status"),
     QT_TRANSLATE_NOOP("FilterSidePanel", "By category"),
     QT_TRANSLATE_NOOP("FilterSidePanel", "By author"),
+    QT_TRANSLATE_NOOP("FilterSidePanel", "By source location"),
     QT_TRANSLATE_NOOP("FilterSidePanel", "By file type"),
     QT_TRANSLATE_NOOP("FilterSidePanel", "By conflict"),
     QT_TRANSLATE_NOOP("FilterSidePanel", "By location"),

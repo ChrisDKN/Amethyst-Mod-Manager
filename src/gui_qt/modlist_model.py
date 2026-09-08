@@ -1,10 +1,11 @@
 """Modlist model - QAbstractTableModel over the ModEntry list.
 
 Columns: Mod Name, Category, Flags, Conflicts, Installed, Version, Author,
-Priority, Size (the checkbox is painted into column 0 by the delegate). Fed by
-read_modlist; version / installed / flags / conflicts / authors are optional
-dicts keyed by mod name (blank when absent). Index 0 = highest priority; the Priority column shows a descending
-number (highest-priority row = largest value).
+Priority, Size, Nexus Mod ID, Nexus File ID (the checkbox is painted into
+column 0 by the delegate). Fed by read_modlist; metadata columns are backed by
+optional dicts keyed by mod name (blank when absent). Index 0 = highest
+priority; the Priority column shows a descending number (highest-priority row
+= largest value).
 """
 
 from __future__ import annotations
@@ -37,7 +38,8 @@ _PINNED_NAMES = _BOUNDARY_NAMES + (DIVIDER_NAME,)
 NEW_MOD_VERSION = "1.0"
 
 
-# Column indices. Order mirrors the Tk app: Category right after Name, Size last.
+# Column indices. Existing columns retain their logical positions; new optional
+# metadata columns are appended so saved layouts remain compatible.
 COL_NAME = 0
 COL_CATEGORY = 1
 COL_FLAGS = 2
@@ -47,8 +49,11 @@ COL_VERSION = 5
 COL_AUTHOR = 6
 COL_PRIORITY = 7
 COL_SIZE = 8
+COL_NEXUS_MOD_ID = 9
+COL_NEXUS_FILE_ID = 10
 COLUMNS = ["Mod Name", "Category", "Flags", "Conflicts", "Installed",
-           "Version", "Author", "Priority", "Size"]
+           "Version", "Author", "Priority", "Size", "Nexus Mod ID",
+           "Nexus File ID"]
 
 # COLUMNS doubles as canonical persistence keys, so it must stay untranslated;
 # headerData() translates each label at display time via self.tr(COLUMNS[i]).
@@ -65,6 +70,8 @@ _COLUMN_TR_MARKERS = [
     QT_TRANSLATE_NOOP("ModListModel", "Author"),
     QT_TRANSLATE_NOOP("ModListModel", "Priority"),
     QT_TRANSLATE_NOOP("ModListModel", "Size"),
+    QT_TRANSLATE_NOOP("ModListModel", "Nexus Mod ID"),
+    QT_TRANSLATE_NOOP("ModListModel", "Nexus File ID"),
 ]
 
 # Custom roles for the delegate.
@@ -138,6 +145,8 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         self._sizes: dict[str, str] = {}
         # Raw byte counts backing the Size column sort.
         self._size_bytes: dict[str, int] = {}
+        self._nexus_mod_ids: dict[str, int] = {}
+        self._nexus_file_ids: dict[str, int] = {}
         self._conflicts = conflicts or {}
         self._bsa_conflicts: dict[str, int] = {}
         self._uuid_conflicts: dict[str, int] = {}
@@ -283,6 +292,8 @@ class ModListModel(ModGrouping, QAbstractTableModel):
             "installed": self._installed,
             "authors": self._authors,
             "size_bytes": self._size_bytes,
+            "nexus_mod_ids": self._nexus_mod_ids,
+            "nexus_file_ids": self._nexus_file_ids,
             "flags": flags,
             "conflicts": self._conflicts,
         }
@@ -329,10 +340,11 @@ class ModListModel(ModGrouping, QAbstractTableModel):
     def set_meta(self, versions: dict[str, str], installed: dict[str, str],
                  categories: dict[str, str],
                  descriptions: "dict[str, str] | None" = None,
-                 authors: "dict[str, str] | None" = None) -> None:
-        """Set the meta.ini-derived per-mod dicts (Version / Installed /
-        Category / Author columns), repaint those columns, and re-sort if the
-        active sort reads them. The reload pushes entries first and applies the
+                 authors: "dict[str, str] | None" = None,
+                 nexus_mod_ids: "dict[str, int] | None" = None,
+                 nexus_file_ids: "dict[str, int] | None" = None) -> None:
+        """Set the meta.ini-derived column data, repaint it, and re-sort if the
+        active sort reads it. The reload pushes entries first and applies the
         meta async (reading one ini per mod is disk work).
 
         *descriptions* backs the name-column hover tooltip (no column repaint)."""
@@ -341,12 +353,27 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         self._categories = categories or {}
         self._descriptions = descriptions or {}
         self._authors = authors or {}
+        self._nexus_mod_ids = nexus_mod_ids or {}
+        self._nexus_file_ids = nexus_file_ids or {}
         if self._entries:
             self.dataChanged.emit(
                 self.index(0, COL_CATEGORY),
-                self.index(len(self._entries) - 1, COL_AUTHOR),
+                self.index(len(self._entries) - 1, COL_NEXUS_FILE_ID),
                 [Qt.DisplayRole])
-        self._resort_if_key("version", "installed", "category", "author")
+        self._resort_if_key(
+            "version", "installed", "category", "author",
+            "nexus_mod_id", "nexus_file_id")
+
+    def set_nexus_ids(self, mod_ids: dict[str, int],
+                      file_ids: dict[str, int]) -> None:
+        self._nexus_mod_ids = mod_ids or {}
+        self._nexus_file_ids = file_ids or {}
+        if self._entries:
+            self.dataChanged.emit(
+                self.index(0, COL_NEXUS_MOD_ID),
+                self.index(len(self._entries) - 1, COL_NEXUS_FILE_ID),
+                [Qt.DisplayRole])
+        self._resort_if_key("nexus_mod_id", "nexus_file_id")
 
     def set_version(self, name: str, version: str) -> None:
         version = (version or "").strip()
@@ -758,6 +785,12 @@ class ModListModel(ModGrouping, QAbstractTableModel):
                 return self._authors.get(e.name, "")
             if col == COL_SIZE:
                 return self._sizes.get(e.name, "")
+            if col == COL_NEXUS_MOD_ID:
+                value = self._nexus_mod_ids.get(e.name, 0)
+                return str(value) if value > 0 else ""
+            if col == COL_NEXUS_FILE_ID:
+                value = self._nexus_file_ids.get(e.name, 0)
+                return str(value) if value > 0 else ""
             if col == COL_PRIORITY:
                 p = self._priority_for_row(index.row())
                 return str(p) if p >= 0 else ""
