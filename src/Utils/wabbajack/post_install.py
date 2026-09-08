@@ -14,6 +14,17 @@ from .diagnostics import emit, emit_exception
 from .post_install_rules import (display_rule, display_signature, matching_rules,
                                  omitted_stock_paths, post_install_notices, stock_copy_rule)
 
+_MOD_METADATA_SIGNATURE = "wabbajack-meta:1:"
+
+
+def is_mod_metadata(path):
+    parts = path.casefold().split("/")
+    return len(parts) == 4 and parts[:2] == ["root", "mods"] and parts[3] == "meta.ini"
+
+
+def mod_metadata_signature(signature):
+    return signature if signature.startswith(_MOD_METADATA_SIGNATURE) else _MOD_METADATA_SIGNATURE + signature
+
 
 def display_supported(package):
     return any(display_rule(d.path) is not None for d in package.directives)
@@ -153,8 +164,40 @@ def _ini_values(text, section, values):
     return "".join(lines)
 
 
+def reset_mod_endorsements(store, desired, stop, progress, log=None):
+    rows = [(key, row) for key, row in desired.items() if is_mod_metadata(key)]
+    changed = 0
+    for index, (key, row) in enumerate(rows):
+        if stop.is_set():
+            raise InterruptedError("Mod metadata adjustment stopped")
+        progress("Preparing mod metadata", index, len(rows), key)
+        source = Path(row["source"])
+        if source.stat().st_size > 8 * 1024 ** 2:
+            raise WabbajackError(f"Mod metadata exceeds the adjustment limit: {key}")
+        raw = source.read_bytes()
+        text = raw.decode("utf-8-sig", errors="surrogateescape")
+        updated = _ini_values(text, "General", {"endorsed": 0})
+        signature = mod_metadata_signature(row["signature"])
+        if updated == text:
+            desired[key] = {**row, "signature": signature}
+            continue
+        target = within(store.work / "mod-metadata", key)
+        write_atomic_text(target, updated,
+                          encoding="utf-8-sig" if raw.startswith(b"\xef\xbb\xbf") else "utf-8",
+                          errors="surrogateescape")
+        digest = file_hash(target, stop)
+        desired[key] = {**row, "source": str(target), "authored_hash": digest,
+                        "signature": signature}
+        changed += 1
+    if rows:
+        progress("Preparing mod metadata", len(rows), len(rows),
+                 "Wabbajack mod endorsements reset")
+    emit(log, "post_install.mod_metadata.completed", files=len(rows), changed=changed)
+
+
 def apply_adjustments(request, store, desired, stop, progress, log=None):
     started = time.monotonic()
+    reset_mod_endorsements(store, desired, stop, progress, log=log)
     omitted = omitted_stock_paths(request)
     if omitted:
         removed = []

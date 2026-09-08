@@ -74,6 +74,10 @@ def plan_update(request, log=None):
             emit(log, "update.plan.bsa_fallback", exception_type=type(exc).__name__,
                  exception=str(exc))
             new.update({p: sig for p, sig in old.items() if p.startswith(PREFIX)})
+    from .post_install import is_mod_metadata, mod_metadata_signature
+    for key in new:
+        if is_mod_metadata(key):
+            new[key] = mod_metadata_signature(new[key])
     profiles = set(info.get("selected_profiles", []))
     selected = set(request.profiles)
     plan = UpdatePlan(sorted(new.keys() - old.keys()), sorted(old.keys() - new.keys()),
