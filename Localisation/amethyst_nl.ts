@@ -8302,7 +8302,7 @@ Snelle update uitvoeren op alle van hen nu?</translation>
     </message>
     <message>
       <source>Waiting for profile updates…</source>
-      <translation type="unfinished">Waiting for profile updates…</translation>
+      <translation>Wachten op profielupdates…</translation>
     </message>
     <message>
       <source>Extracting / Installing</source>
@@ -8560,7 +8560,7 @@ Voer de Downgrade wizard om het spel terug te patchen naar een versie die FOSE o
     </message>
     <message>
       <source>Loading profile…</source>
-      <translation type="unfinished">Loading profile…</translation>
+      <translation>Profiel wordt geladen…</translation>
     </message>
     <message>
       <source>Could not load the profile file graph. See the log for details.</source>
@@ -9287,7 +9287,7 @@ Hoe wil je omgaan met de bestaande mod?</translation>
     </message>
     <message>
       <source>Manage Overwrite…</source>
-      <translation type="unfinished">Manage Overwrite…</translation>
+      <translation>Overschrijven beheren…</translation>
     </message>
     <message>
       <source>Manage root folder</source>
@@ -11416,7 +11416,7 @@ Override paks (geen meta.lsx, of alleen het overschrijven van de eigen modules v
     </message>
     <message>
       <source>Search files… (try !.dds)</source>
-      <translation type="unfinished">Search files… (try !.dds)</translation>
+      <translation>Zoek naar bestanden… (probeer eens !.dds)</translation>
     </message>
     <message>
       <source>Root Folder (no game selected)</source>
@@ -12189,7 +12189,7 @@ Herscan om het te controleren.</translation>
     </message>
     <message>
       <source>Set priority…</source>
-      <translation type="unfinished">Set priority…</translation>
+      <translation>Prioriteit instellen…</translation>
     </message>
     <message>
       <source>Show cycle…</source>
