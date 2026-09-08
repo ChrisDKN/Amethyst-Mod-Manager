@@ -253,6 +253,13 @@ class _CurrentPageStack(QStackedWidget):
         self.clamp_to_current()
 
 
+# Hideable top-bar buttons whose visibility ALSO depends on the current game
+# (_sync_thunderstore_button decides those); the rest answer to the user's
+# hide-set alone.
+_GAME_GATED_HEADER_BUTTONS = frozenset(
+    {"proton", "nexus", "thunderstore", "wabbajack"})
+
+
 class _HeaderBar(QWidget):
     """The top bar. Reports its own resizes so the action buttons can collapse
     to icon-only when the window is too narrow for their labels (tiling the
@@ -2809,6 +2816,9 @@ class MainWindow(QMainWindow):
                     self._restore_btn = b
                 elif label == "Install Mod":
                     self._install_btn = b
+                    # Only Install Mod is hideable here; Deploy and Restore get
+                    # no _hide_key, which is what makes them unhideable.
+                    b._hide_key = "install"
             self._action_buttons.append(b)
             h.addWidget(b)
 
@@ -2901,6 +2911,7 @@ class MainWindow(QMainWindow):
             elif label == "Nexus":
                 self._nexus_btn = b
                 b._menu.aboutToShow.connect(self._sync_nexus_menu)
+            b._hide_key = label.lower()
             self._action_buttons.append(b)
             h.addWidget(b)
 
@@ -3019,6 +3030,56 @@ class MainWindow(QMainWindow):
     def _header_vertical(self) -> bool:
         """Whether the toolbar is a side bar (and so permanently icon-only)."""
         return self._header_position() in ("left", "right")
+
+    def _hidden_header_buttons(self) -> set:
+        """Top-bar buttons the user has hidden in Settings."""
+        # Cached like _header_position: read on every game switch, and the
+        # settings checkboxes refresh it through _apply_header_visibility.
+        hidden = getattr(self, "_hidden_header_btns", None)
+        if hidden is None:
+            try:
+                from Utils.ui.config import load_hidden_header_buttons
+                hidden = load_hidden_header_buttons()
+            except Exception:
+                hidden = set()
+            self._hidden_header_btns = hidden
+        return hidden
+
+    def _header_force_compact(self) -> bool:
+        """Whether the user pinned the top bar to its icon-only sizes."""
+        forced = getattr(self, "_header_forced_compact", None)
+        if forced is None:
+            try:
+                from Utils.ui.config import load_header_force_compact
+                forced = load_header_force_compact()
+            except Exception:
+                forced = False
+            self._header_forced_compact = forced
+        return forced
+
+    def _apply_header_visibility(self) -> None:
+        """Re-read the hidden-button setting and apply it to the live bar."""
+        self._hidden_header_btns = None
+        # _sync_thunderstore_button owns every setVisible on the bar, so it is
+        # the single place the composed decision is made.
+        self._sync_thunderstore_button()
+
+    def _apply_header_force_compact(self) -> None:
+        """Re-read the force-compact setting and re-run the width budget."""
+        self._header_forced_compact = None
+        if self._header_vertical():
+            # Already permanently icon-only - nothing to restage.
+            return
+        if not getattr(self, "_action_btn_widths", False):
+            # Not measured yet; the first resize picks the setting up.
+            return
+        if not self._header_force_compact():
+            # Turning it off must undo the collapse the forced pass pinned,
+            # then let the ordinary budget decide from scratch.
+            self._game_selector.set_icon_only(False)
+            self._profile_selector.set_label_width(None)
+            self._set_header_compact(False)
+        self._sync_header_compact()
 
     def _apply_header_position(self) -> None:
         """Move the toolbar to the newly saved position without a restart."""
@@ -3156,6 +3217,18 @@ class MainWindow(QMainWindow):
         try:
             self._measure_action_buttons()
             gsel, psel = self._game_selector, self._profile_selector
+            if self._header_force_compact():
+                # User pinned the compact sizes: every stage is on regardless of
+                # how much room there is, so the width budget is skipped
+                # entirely. The game selector still refuses to collapse without
+                # a logo (a blank square says nothing), and the profile goes to
+                # its floor rather than to zero so it keeps a few characters.
+                gsel.set_icon_only(bool(gsel.icon_width()))
+                psel.set_label_width(min(psel.natural_width(),
+                                         self._HEADER_PROFILE_MIN_PX))
+                if not self._header_compact:
+                    self._set_header_compact(True)
+                return
             # What each stage is worth. The game selector only collapses when
             # the current game HAS a logo - a blank button says nothing.
             prof_room = max(0, psel.natural_width() - self._HEADER_PROFILE_MIN_PX)
@@ -12977,10 +13050,30 @@ class MainWindow(QMainWindow):
             "_proton_btn": self._game_has_prefix(game),
             "_wabbajack_btn": self._wabbajack_available(),
         }
+        # A button the user has hidden in Settings stays hidden whatever the
+        # game says; the per-game answer is still recorded so unhiding it later
+        # restores the right state without a game switch.
+        hidden = self._hidden_header_buttons()
         changed = False
         for attr, want in wanted.items():
             b = getattr(self, attr, None)
-            if b is None or getattr(b, "_store_wanted", None) == want:
+            if b is None:
+                continue
+            want = want and getattr(b, "_hide_key", None) not in hidden
+            if getattr(b, "_store_wanted", None) == want:
+                continue
+            b._store_wanted = want
+            b.setVisible(want)
+            changed = True
+        # Buttons with no per-game gating (Install Mod, Wizard) are the user's
+        # call alone. isVisible() is unusable here - see the docstring - so the
+        # wanted state is tracked on the button like the gated ones.
+        for b in getattr(self, "_action_buttons", ()):
+            key = getattr(b, "_hide_key", None)
+            if key is None or key in _GAME_GATED_HEADER_BUTTONS:
+                continue
+            want = key not in hidden
+            if getattr(b, "_store_wanted", None) == want:
                 continue
             b._store_wanted = want
             b.setVisible(want)

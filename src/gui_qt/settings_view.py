@@ -39,7 +39,8 @@ per-section footer that `_finish_section` flushes at the bottom of the group.
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal, QRect, QRectF, QSize, QUrl
+from PySide6.QtCore import (
+    Qt, Signal, QRect, QRectF, QSize, QUrl, QT_TRANSLATE_NOOP)
 from PySide6.QtGui import QColor, QDesktopServices, QPainter, QPen
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QScrollArea, QFrame,
@@ -693,15 +694,6 @@ class SettingsView(OverlayBase):
         g.addWidget(self._lang_combo, row, self.COL_CTRL, Qt.AlignLeft)
         self._populate_language_combo()
 
-        # Applies live. As a side bar the buttons are icon-only, with their
-        # labels as tooltips.
-        self._combo(
-            g, self.tr("Toolbar position"),
-            [(self.tr("Top"), "top"),
-             (self.tr("Left side"), "left"),
-             (self.tr("Right side"), "right")],
-            uc.load_header_position(), self._save_header_position)
-
         self._build_ui_scale(g)
 
         note = QLabel(self.tr(
@@ -719,6 +711,8 @@ class SettingsView(OverlayBase):
         for button in (self._lang_sync_btn, crowdin_btn):
             button.setObjectName("FooterButton")
         self._finish_section(g)
+
+        self._build_top_bar_section()
 
         g = self._section(self.tr("Mod list"))
         self._checkbox(
@@ -751,6 +745,111 @@ class SettingsView(OverlayBase):
             on_changed=lambda _v: self._apply_support_buttons())
 
         self._finish_section(g)
+
+    # Buttons the user may hide, as (config key, label). The game and profile
+    # selectors, Deploy, Restore, notifications and Settings are absent on
+    # purpose: without them the bar can't do its job, so they are not offered.
+    _HIDEABLE_HEADER_BUTTONS = (
+        ("install", QT_TRANSLATE_NOOP("SettingsView", "Install Mod")),
+        ("proton", QT_TRANSLATE_NOOP("SettingsView", "Proton")),
+        ("wizard", QT_TRANSLATE_NOOP("SettingsView", "Wizard")),
+        ("nexus", QT_TRANSLATE_NOOP("SettingsView", "Nexus")),
+        ("thunderstore", QT_TRANSLATE_NOOP("SettingsView", "Thunderstore")),
+        ("wabbajack", QT_TRANSLATE_NOOP("SettingsView", "Wabbajack")),
+    )
+
+    def _build_top_bar_section(self) -> None:
+        """Toolbar placement plus which of its buttons are shown."""
+        g = self._section(self.tr("Top bar"))
+
+        # Applies live. As a side bar the buttons are icon-only, with their
+        # labels as tooltips.
+        self._combo(
+            g, self.tr("Toolbar position"),
+            [(self.tr("Top"), "top"),
+             (self.tr("Left side"), "left"),
+             (self.tr("Right side"), "right")],
+            uc.load_header_position(), self._save_header_position,
+            help=self.tr(
+                "Where the toolbar sits. As a side bar it is always icon-only, "
+                "with the labels shown as tooltips."))
+
+        self._checkbox(
+            g, self.tr("Always use compact (icon-only) buttons"),
+            uc.load_header_force_compact, uc.save_header_force_compact,
+            help=self.tr(
+                "Keep the top bar at its narrow sizes - buttons show icons "
+                "only and the game and profile selectors collapse - instead of "
+                "doing so only when the window is too narrow for the labels."),
+            on_changed=lambda _v: self._apply_header_force_compact())
+
+        # One checkbox per hideable button. Checked = hidden, matching the
+        # "Hide Ko-Fi button" phrasing already used by the Status bar section.
+        hidden = self._load_hidden_header_buttons()
+        row = self._next_row(g)
+        lbl = QLabel(self.tr("Hide buttons"))
+        boxes = QVBoxLayout()
+        boxes.setContentsMargins(0, 0, 0, 0)
+        boxes.setSpacing(6)
+        self._header_hide_boxes = {}
+        for key, label in self._HIDEABLE_HEADER_BUTTONS:
+            cb = QCheckBox(self.tr(label))
+            cb.setChecked(key in hidden)
+            cb.toggled.connect(
+                lambda _v, k=key: self._save_hidden_header_buttons())
+            self._header_hide_boxes[key] = cb
+            boxes.addWidget(cb)
+        # The "?" rides beside the LABEL, not the column of boxes: parked next
+        # to the boxes it centres itself against the whole stack and ends up
+        # stranded in mid-air, several rows from the thing it explains.
+        label_wrap = QHBoxLayout()
+        label_wrap.setContentsMargins(0, 0, 0, 0)
+        label_wrap.setSpacing(8)
+        label_wrap.addWidget(lbl)
+        self._add_help(label_wrap, self.tr(
+            "Buttons ticked here are removed from the toolbar. A button that "
+            "does not apply to the current game (Proton without a prefix, or a "
+            "store the game is not on) is hidden anyway."), lbl)
+        label_wrap.addStretch(1)
+        label_holder = QWidget(); label_holder.setLayout(label_wrap)
+        # Top-aligned so the label sits level with the first checkbox rather
+        # than centring itself against the whole column.
+        g.addWidget(label_holder, row, self.COL_LABEL, Qt.AlignTop)
+
+        holder = QWidget(); holder.setLayout(boxes)
+        g.addWidget(holder, row, self.COL_CTRL, Qt.AlignLeft | Qt.AlignTop)
+
+        self._finish_section(g)
+
+    def _load_hidden_header_buttons(self) -> set:
+        """The saved hide-set, empty if the config can't be read."""
+        try:
+            return set(uc.load_hidden_header_buttons())
+        except Exception:
+            return set()
+
+    def _save_hidden_header_buttons(self) -> None:
+        """Persist every hide checkbox as one set, then re-apply it live."""
+        hidden = {k for k, cb in self._header_hide_boxes.items()
+                  if cb.isChecked()}
+        self._safe_save(uc.save_hidden_header_buttons, hidden)
+        win = self._window
+        if win is not None and hasattr(win, "_apply_header_visibility"):
+            try:
+                win._apply_header_visibility()
+            except Exception:
+                import traceback
+                traceback.print_exc()
+
+    def _apply_header_force_compact(self) -> None:
+        """Ask the window to re-run the top bar's width staging."""
+        win = self._window
+        if win is not None and hasattr(win, "_apply_header_force_compact"):
+            try:
+                win._apply_header_force_compact()
+            except Exception:
+                import traceback
+                traceback.print_exc()
 
     def _open_crowdin(self) -> None:
         """Open the Amethyst Crowdin project in the user's browser."""

@@ -1950,6 +1950,70 @@ def save_header_position(value: str) -> None:
     _write_ini(parser, path)
 
 
+# Top-bar buttons the user may hide. The game/profile selectors, Deploy,
+# Restore, notifications and Settings are deliberately absent - hiding those
+# would leave the bar unable to do its job.
+_HIDEABLE_HEADER_BUTTONS = (
+    "install", "proton", "wizard", "nexus", "thunderstore", "wabbajack")
+
+
+def load_hidden_header_buttons() -> set[str]:
+    """Return the set of top-bar buttons the user has hidden."""
+    path = get_ui_config_path()
+    if not path.is_file():
+        return set()
+    try:
+        parser = _read_ini(path)
+        raw = parser.get(
+            _FILEMAP_SECTION, "hidden_header_buttons", fallback="")
+    except Exception:
+        return set()
+    names = {p.strip().lower() for p in raw.split(",")}
+    return {n for n in names if n in _HIDEABLE_HEADER_BUTTONS}
+
+
+def save_hidden_header_buttons(value) -> None:
+    """Persist the set of hidden top-bar buttons to amethyst.ini."""
+    names = sorted({str(v).strip().lower() for v in (value or ())}
+                   & set(_HIDEABLE_HEADER_BUTTONS))
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _FILEMAP_SECTION not in parser:
+        parser[_FILEMAP_SECTION] = {}
+    parser[_FILEMAP_SECTION]["hidden_header_buttons"] = ",".join(names)
+    _write_ini(parser, path)
+
+
+def load_header_force_compact() -> bool:
+    """Return the header_force_compact setting (default False)."""
+    path = get_ui_config_path()
+    if not path.is_file():
+        return False
+    try:
+        parser = _read_ini(path)
+        return parser.getboolean(
+            _FILEMAP_SECTION, "header_force_compact", fallback=False)
+    except Exception:
+        return False
+
+
+def save_header_force_compact(value: bool) -> None:
+    """Persist the header_force_compact setting to amethyst.ini."""
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _FILEMAP_SECTION not in parser:
+        parser[_FILEMAP_SECTION] = {}
+    parser[_FILEMAP_SECTION]["header_force_compact"] = (
+        "true" if value else "false")
+    _write_ini(parser, path)
+
+
 def load_rename_mod_after_install() -> bool:
     """Return the rename_mod_after_install setting (default False).
 
