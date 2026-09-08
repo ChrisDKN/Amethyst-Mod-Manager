@@ -44,21 +44,21 @@ def plan_update(request, log=None):
     for name in output_mods(request):
         key = f"root/mods/{name}/meta.ini"
         new.setdefault(key, old.get(key, "output-mod"))
-    from .post_install import stock_copy, nuclear_sunset
+    from .post_install import stock_copy
+    from .post_install_rules import display_rule, display_signature, omitted_stock_paths
     stock = stock_copy(request)
     if stock:
         new.update({key: sig for key, sig in old.items() if key.startswith(f"root/{stock}/") and key not in new})
-    if nuclear_sunset(request.package) and "nuclear:proton-dxvk" in request.fixes:
-        from .manifest import stock_folder
-        stock = stock_folder(request.package)
+    omitted = omitted_stock_paths(request)
+    if omitted:
         for key in list(new):
-            if key.casefold() in {f"root/{stock}/{name}".casefold() for name in ("d3d9.dll", "dxvk.conf")}:
+            if key.casefold() in omitted:
                 new.pop(key)
     display = request.setup_options.get("display")
     if display:
         for key in list(new):
-            if key.startswith("root/mods/") and key.casefold().endswith("/ssedisplaytweaks.ini"):
-                new[key] = f"display:1:{display[0]}x{display[1]}:" + new[key]
+            if display_rule(key, installed=True) is not None:
+                new[key] = display_signature(display, new[key])
     if any(adapter.root_mod_destination(d.path) for d in request.package.directives):
         key = f"root/mods/{ROOT_MOD_NAME}/meta.ini"
         new[key] = old.get(key, "root-mod")

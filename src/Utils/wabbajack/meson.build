@@ -14,6 +14,7 @@ py.install_sources(
   'requirements.py',
   'setup_tasks.py',
   'post_install.py',
+  'post_install_rules.py',
   'profile_config.py',
   'gallery.py',
   'games.py',

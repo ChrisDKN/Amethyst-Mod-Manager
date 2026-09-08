@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
 from pathlib import Path
 
 from .diagnostics import emit, emit_exception
 from .paths import WabbajackError
+from .post_install_rules import (Adjustment as Adjustment, DLL_OVERRIDES, compatibility_adjustments,
+                                 runtime_dependencies, stock_file_adjustments)
 
 
 def uses_native_runtime(game):
@@ -57,13 +58,6 @@ def uses_stock_game(game):
                 and Path(current).resolve() == Path(path).resolve())
 
 
-@dataclass(frozen=True)
-class Adjustment:
-    id: str
-    label: str
-    required: bool = False
-
-
 def adjustments(package, game, profiles=None, *, configuration=None):
     from Utils.wine.health import COMPONENT_SPECS, detect_component
     result = []
@@ -78,30 +72,12 @@ def adjustments(package, game, profiles=None, *, configuration=None):
     windows = not native and any(p.endswith((".exe", ".dll")) for p in paths)
     prefix = game.get_prefix_path() if hasattr(game, "get_prefix_path") else None
     if windows:
-        from .post_install import nuclear_sunset
-        dependencies = list(getattr(game, "auto_install_deps", []) or [])
-        if getattr(game, "game_id", "") == "Fallout4VR" and "essentials" in package.name.casefold():
-            dependencies.append("vcrun2012")
-        framework = "netscriptframework.runtime.dll" in active_names
-        if framework and any("skse64_1_5_97.dll" in path for path in paths):
-            dependencies.append("dotnet48")
-        if nuclear_sunset(package):
-            dependencies.append("d3dcompiler_43")
-            result.append(Adjustment("nuclear:proton-dxvk", "Use Proton's DXVK for the Nuclear Sunset stock game (omit bundled d3d9.dll and dxvk.conf)"))
-        for token in dict.fromkeys(dependencies):
+        result.extend(stock_file_adjustments(package, game))
+        for token, reason in runtime_dependencies(package, game, paths, active_names):
             spec = COMPONENT_SPECS.get(token)
             if spec and (not prefix or detect_component(token, Path(prefix)) is not True):
-                reason = " (required by the enabled .NET Script Framework mod)" if token == "dotnet48" else ""
                 result.append(Adjustment("runtime:" + token, "Install " + spec.label + " in the game prefix" + reason, True))
-    root_dlls = {p.rsplit("/", 1)[-1] for p in paths if "/root/" in p or p.count("/") <= 1}
-    for name in ("dinput8", "version", "winhttp", "winmm"):
-        if not native and name + ".dll" in root_dlls:
-            result.append(Adjustment("dll:" + name, f"Load the provided {name}.dll before Wine's built-in DLL"))
-    if any("enbseries" in p or "enblocal.ini" in p for p in paths):
-        result.append(Adjustment("enb-warning", "Acknowledge ENB requires manual Linux compatibility review"))
-    if any("net script framework" in p or "netscriptframework" in p for p in paths):
-        result.append(Adjustment("framework-warning", "Acknowledge .NET Script Framework requires Windows compatibility review for native Linux"
-                                 if native else "Acknowledge .NET Script Framework may require additional Wine configuration"))
+    result.extend(compatibility_adjustments(paths, native))
     return result
 
 
@@ -173,7 +149,7 @@ def launch_environment(game, env):
         return
     state = read_profile_state(Path(profile))
     accepted = state.get("profile_settings", {}).get("wabbajack_adjustments", [])
-    names = [item[4:] for item in accepted if item in {"dll:dinput8", "dll:version", "dll:winhttp", "dll:winmm"}]
+    names = [item[4:] for item in accepted if item in {"dll:" + name for name in DLL_OVERRIDES}]
     existing = env.get("WINEDLLOVERRIDES", "")
     configured = {name.strip().lstrip("*").casefold() for clause in existing.split(";")
                   for name in clause.partition("=")[0].split(",") if name.strip()}

@@ -14,10 +14,11 @@ from pathlib import Path
 
 from Utils.atomic_write import write_atomic_text
 from .archive_io import extract_bethesda, read_member, records
-from .games import nexus_domain, token
+from .games import nexus_domain
 from .hashes import file_hash
 from .paths import WabbajackError, source_path, within
 from .diagnostics import emit, emit_exception
+from .post_install_rules import bsa_requirement as requirement
 
 MOD_NAME = "Wabbajack Patched BSAs"
 RECIPE = "fnv-vanilla-bsas-1"
@@ -38,32 +39,12 @@ _AUDIO_EXCLUSIONS = ("sound/songs/", "sound/fx/mus/", "sound/fx/emt/raintoggle/"
 
 
 @dataclass(frozen=True)
-class Requirement:
-    reason: str
-    folders: tuple[str, ...] = ()
-
-
-@dataclass(frozen=True)
 class Source:
     name: str
     path: Path
     digest: str
     expanded: int
     audio: bool
-
-
-def requirement(package):
-    if nexus_domain(package.game) != "newvegas":
-        return None
-    tools = {"vanillabsaspatcherexe", "fnvbsadecompressorexe", "fnvbsadecompressormpi"}
-    folders = {d.path.split("/")[0] for d in package.directives
-               if len(d.path.split("/")) == 2 and token(Path(d.path).name) in tools}
-    if folders:
-        return Requirement("The package includes a New Vegas vanilla BSA patcher", tuple(sorted(folders)))
-    names = {token(package.name), *(token(p) for p in package.profiles)}
-    if names & {"vivanewvegas", "vivanewvegasextended", "mojaveexpress"}:
-        return Requirement("This list requires the New Vegas BSA decompression and audio fixes")
-    return None
 
 
 def _stop(stop):

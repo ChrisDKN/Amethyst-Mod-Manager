@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from .games import nexus_domain
 from .manifest import qvalue
 from .paths import WabbajackError, relative_path
+from .post_install_rules import OUTPUT_RULES
 
 
 @dataclass
@@ -84,47 +85,31 @@ def setup_tasks(package, selected=None, configuration=None):
     provided = {d.path.casefold() for d in package.directives}
     provided_mods = {path.split("/")[1] for path in provided if path.startswith("mods/")}
     grouped = {}
-    definitions = []
-    if domain == "newvegas":
-        definitions = [
-            ("ttw", "Tale of Two Wastelands", ("tale of two wastelands", "ttw output"),
-             ("TaleOfTwoWastelands.esm",), ("Tale of Two Wastelands",)),
-            ("yupttw", "YUPTTW update", ("yupttw update",), ("YUPTTW.esm",), ()),
-            ("fnv-esm", "Ultimate Edition ESM Fixes Remastered", ("ultimate edition esm fixes",),
-             ("FalloutNV.esm",), ("Ultimate Edition ESM Fixes Remastered",)),
-        ]
-    elif domain == "fallout3":
-        definitions = [
-            ("fo3-esm", "Unofficial Fallout 3 ESM Patcher", ("unofficial fallout 3 esm patcher",),
-             ("Fallout3.esm",), ("Unofficial Fallout 3 ESM Patcher",)),
-            ("fo3-bsa", "Fallout 3 BSA Decompressor",
-             ("fallout 3 bsa decompressor", "fo3 bsa decompressor", "decompressed bsas"),
-             ("Fallout - Meshes.bsa", "Fallout - Misc.bsa", "Fallout - Textures.bsa"),
-             ("Fallout 3 BSA Decompressor", "Fallout: 3 BSA Decompressor")),
-        ]
+    definitions = [rule for rule in OUTPUT_RULES if rule.domain == domain]
     for profile_name, profile in config.items():
-        for task_id, label, aliases, masters, titles in definitions:
-            if task_id == "ttw" and "taleoftwowastelands.esm" not in profile.plugins:
+        for rule in definitions:
+            task_id, label, aliases, masters, titles = rule.id, rule.label, rule.aliases, rule.masters, rule.mpi_titles
+            if rule.required_plugin and rule.required_plugin not in profile.plugins:
                 continue
-            if task_id == "ttw" and "yupttw.esm" in profile.plugins:
-                supplied_yup = any(f"mods/{mod}/YUPTTW.esm".casefold() in provided for mod in profile.mods)
-                separate_yup = any("yupttw update" in mod.casefold() for mod in profile.mods)
-                if not supplied_yup and not separate_yup:
-                    masters = (*masters, "YUPTTW.esm")
+            if rule.companion_master and rule.companion_master.casefold() in profile.plugins:
+                supplied = any(f"mods/{mod}/{rule.companion_master}".casefold() in provided for mod in profile.mods)
+                separate = bool(rule.companion_alias) and any(rule.companion_alias in mod.casefold() for mod in profile.mods)
+                if not supplied and not separate:
+                    masters = (*masters, rule.companion_master)
             candidates = [mod for mod in profile.mods if any(alias in mod.casefold() for alias in aliases)
                           and not any(word in mod.casefold() for word in ("patches", "compatibility", "translations"))]
             exact = [mod for mod in candidates if any(re.fullmatch(re.escape(alias) + r"(?:\s*\(TTW\))?(?:\s+v?\d+(?:\.\d+)*)?",
                      re.sub(r"\[[^]]*\]", "", mod).strip(" -_"), re.I) for alias in aliases)]
             if exact:
                 candidates = exact
-            if task_id == "fo3-bsa":
+            if rule.prefer_unprefixed:
                 names = {mod.casefold() for mod in candidates}
                 candidates = [mod for mod in candidates if not (
                     mod.casefold().startswith("[nodelete] ")
                     and mod.casefold() in provided_mods
                     and mod[len("[NoDelete] "):].casefold() in names)]
-            if task_id == "ttw" and len(candidates) != 1:
-                raise WabbajackError(f"Profile {profile_name} requires TTW but has no unambiguous authored TTW mod slot")
+            if rule.required_plugin and len(candidates) != 1:
+                raise WabbajackError(f"Profile {profile_name} requires {task_id.upper()} but has no unambiguous authored {task_id.upper()} mod slot")
             for mod in candidates:
                 if all(f"mods/{mod}/{name}".casefold() in provided for name in masters):
                     continue

@@ -11,24 +11,19 @@ from .hashes import file_hash
 from .manifest import stock_folder
 from .paths import WabbajackError, source_path, within
 from .diagnostics import emit, emit_exception
-
-
-def nuclear_sunset(package):
-    return nexus_domain(package.game) == "newvegas" and package.name.casefold().strip() == "nuclear sunset"
+from .post_install_rules import (display_rule, display_signature, matching_rules,
+                                 omitted_stock_paths, post_install_notices, stock_copy_rule)
 
 
 def display_supported(package):
-    return any((d.path.startswith("mods/") and Path(d.path).name.casefold() == "ssedisplaytweaks.ini")
-               or (d.path.startswith("profiles/") and len(d.path.split("/")) == 3
-                   and (Path(d.path).name.casefold().endswith("prefs.ini") or Path(d.path).name.casefold() in {
-                       "oblivion.ini", "falloutcustom.ini", "skyrimcustom.ini", "fallout76custom.ini", "user.settings", "dx12user.settings"}))
-               for d in package.directives)
+    return any(display_rule(d.path) is not None for d in package.directives)
 
 
 def stock_copy(request):
     stock = stock_folder(request.package)
-    if nuclear_sunset(request.package) and stock.casefold() == "[nodelete] stock new vegas":
-        if not any(d.path.casefold() == (stock + "/FalloutNV.exe").casefold() for d in request.package.directives):
+    rule = stock_copy_rule(request)
+    if rule:
+        if not any(d.path.casefold() == (stock + "/" + rule.executable).casefold() for d in request.package.directives):
             return next((d.path[:len(stock)] for d in request.package.directives
                          if d.path.casefold().startswith(stock.casefold() + "/")), stock)
     return ""
@@ -36,13 +31,16 @@ def stock_copy(request):
 
 def stock_sources(request, stop=None):
     from .setup_tasks import _files
-    root = next((p for name, p in request.game_roots.items() if nexus_domain(name) == "newvegas"), None)
-    if root is None or not source_path(root, "FalloutNV.exe").is_file():
-        raise WabbajackError("Select the original New Vegas installation for the stock-game copy")
+    rule = stock_copy_rule(request)
+    if rule is None:
+        return
+    root = next((p for name, p in request.game_roots.items() if nexus_domain(name) == rule.source_game), None)
+    if root is None or not source_path(root, rule.executable).is_file():
+        raise WabbajackError(rule.source_error)
     for rel, path in _files(root, stop):
         first = rel.split("/")[0].casefold()
-        if first in {"data", "fallout new vegas", "redists", "directx"} or ("/" not in rel and path.suffix.casefold() in {".exe", ".dll", ".ini", ".vdf"}):
-            if path.name.casefold() not in {"falloutnv_backup.exe", "fnvpatch.exe", "patcher.exe"}:
+        if first in rule.folders or ("/" not in rel and path.suffix.casefold() in rule.root_suffixes):
+            if path.name.casefold() not in rule.exclude_names:
                 yield rel, path
 
 
@@ -50,7 +48,7 @@ def preflight_post_install(request, check, stop=None, *, reusable=None, log=None
     started = time.monotonic()
     size = 0
     emit(log, "post_install.preflight.started",
-         stock_copy=stock_copy(request), nuclear_sunset=nuclear_sunset(request.package),
+         stock_copy=stock_copy(request), rules=[rule.id for rule in matching_rules(request.package, request.game)],
          display=request.setup_options.get("display"))
     if stock_copy(request):
         try:
@@ -79,13 +77,8 @@ def preflight_post_install(request, check, stop=None, *, reusable=None, log=None
         except (ValueError, OSError, sqlite3.Error) as exc:
             emit_exception(log, "post_install.stock.preflight_failed", exc)
             check("error", "Stock game setup", exc)
-    if nuclear_sunset(request.package):
-        check("warning", "Author instructions", "Nuclear Sunset's Linux guide specifies Proton 11 and a separate YUPTTW update. Confirm the selected runtime and external content match the guide before launch.")
-        if not getattr(request.game, "auto_4gb_patch", False):
-            check("error", "Stock game patch", "Enable automatic New Vegas 4GB patching so deployment patches the managed stock executable")
-    radio = [d for d in request.package.directives if d.path.split("/")[0].strip("_ ").casefold() == "radio fix"]
-    if radio:
-        check("manual", "Author instructions", "The supplied Radio Fix requires audio conversion after reconstruction. Its batch-script format has not been verified for automatic processing; follow the author's radio setup instructions before launching.")
+    for notice in post_install_notices(request):
+        check(notice.status, notice.name, notice.detail)
     display = request.setup_options.get("display")
     if display:
         if not display_supported(request.package):
@@ -162,14 +155,14 @@ def _ini_values(text, section, values):
 
 def apply_adjustments(request, store, desired, stop, progress, log=None):
     started = time.monotonic()
-    stock = stock_folder(request.package)
-    if nuclear_sunset(request.package) and "nuclear:proton-dxvk" in request.fixes and stock:
+    omitted = omitted_stock_paths(request)
+    if omitted:
         removed = []
         for key in list(desired):
-            if key.casefold() in {f"root/{stock}/{name}".casefold() for name in ("d3d9.dll", "dxvk.conf")}:
+            if key.casefold() in omitted:
                 desired.pop(key)
                 removed.append(key)
-        emit(log, "post_install.adjustment.nuclear_dxvk", removed=removed)
+        emit(log, "post_install.adjustment.omit_stock_files", removed=removed)
     display = request.setup_options.get("display")
     if not display:
         emit(log, "post_install.display.skipped")
@@ -179,27 +172,20 @@ def apply_adjustments(request, store, desired, stop, progress, log=None):
     for key, row in list(desired.items()):
         if stop.is_set():
             raise InterruptedError("Configuration adjustment stopped")
-        name = Path(key).name.casefold()
-        profile = key.startswith("profiles/") and "/ini files/" in key
-        values = None
-        if profile and (name.endswith("prefs.ini") or name in {"oblivion.ini", "falloutcustom.ini", "skyrimcustom.ini", "fallout76custom.ini"}):
-            values = ("Display", {"iSize W": width, "iSize H": height})
-        elif profile and name in {"user.settings", "dx12user.settings"}:
-            values = ("Viewport", {"Resolution": f"{width}x{height}"})
-        elif key.startswith("root/mods/") and name == "ssedisplaytweaks.ini":
-            values = ("Render", {"Resolution": f"{width}x{height}"})
-        if values is None:
+        rule = display_rule(key, installed=True)
+        if rule is None:
             continue
+        values = {name: value.format(width=width, height=height) for name, value in rule.values}
         source = Path(row["source"])
         if source.stat().st_size > 8 * 1024 ** 2:
             raise WabbajackError(f"Configuration exceeds the display-adjustment limit: {key}")
         text = source.read_bytes().decode("utf-8-sig")
-        text = _ini_values(text, *values)
+        text = _ini_values(text, rule.section, values)
         target = within(store.work / "adjustments", key)
         write_atomic_text(target, text)
         digest = file_hash(target, stop)
         desired[key] = {"source": str(target), "authored_hash": digest,
-                        "signature": f"display:1:{width}x{height}:" + row["signature"]}
+                        "signature": display_signature(display, row["signature"])}
         count += 1
         emit(log, "post_install.display.file", path=key, width=width,
              height=height, hash=digest)
