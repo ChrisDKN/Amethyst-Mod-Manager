@@ -1,29 +1,24 @@
 app-id: io.github.Amethyst.ModManager
 runtime: org.kde.Platform
-runtime-version: "6.9"
+runtime-version: "6.11"
 sdk: org.kde.Sdk
 sdk-extensions:
   - org.freedesktop.Sdk.Extension.rust-stable
 # PySide6 comes prebuilt from the PySide BaseApp (Flathub-standard for
 # PySide apps); Qt itself is shared from the KDE runtime.
 base: io.qt.PySide.BaseApp
-base-version: "6.9"
+base-version: "6.11"
 
 add-extensions:
-  org.freedesktop.Platform.ffmpeg-full:
-    directory: lib/ffmpeg
-    version: "24.08"
-    add-ld-path: .
-    autodelete: false
   # 32-bit support for running Proton's bundled `wine` binary (ELF i386).
-  # Version 24.08 matches KDE 6.9's Freedesktop base.
+  # Version 25.08 matches KDE 6.11's Freedesktop base.
   org.freedesktop.Platform.Compat.i386:
     directory: lib/i386-linux-gnu
-    version: "24.08"
+    version: "25.08"
   org.freedesktop.Platform.GL32:
     directory: lib/i386-linux-gnu/GL
     version: "1.4"
-    versions: 24.08;1.4
+    versions: 25.08;1.4
     subdirectories: true
     no-autodownload: false
     autodelete: false
@@ -92,13 +87,13 @@ tags:
 cleanup-commands:
   # BaseApp housekeeping (WebEngine strip per build-options env above).
   - /app/cleanup-BaseApp.sh
-  - mkdir -p /app/lib/ffmpeg
   # Mount points for the 32-bit compat extensions declared above.
   - mkdir -p /app/lib/i386-linux-gnu/GL
 
 modules:
   # Python Dependencies (PySide6 excluded - provided by the BaseApp)
   - pypi-dependencies.yaml
+  - maturin.yaml
 
   - name: sevenzip
     buildsystem: simple

@@ -16,7 +16,7 @@ The equivalent Python build helper remains available as
 `python native/amethyst_filegraph/build_extension.py`.
 
 Building requires Cargo and a C toolchain. If `cc` is not installed on the
-host, the script automatically uses the KDE 6.9 Flatpak SDK when it is
+host, the script automatically uses the KDE 6.11 Flatpak SDK when it is
 available (with the host's rustup-managed Cargo toolchain).
 
 The script writes `src/amethyst_filegraph.abi3.so`, beside the LOOT extension.

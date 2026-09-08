@@ -31,15 +31,15 @@ from Utils.app_log import safe_log as _safe_log
 # manifest's add-extensions block in flatpak/io.github.Amethyst.ModManager.yml.
 #
 # IMPORTANT: the two extensions are branched on DIFFERENT axes:
-#   * Compat.i386 tracks the freedesktop base (KDE 6.9 → 24.08). This ref
+#   * Compat.i386 tracks the freedesktop base (KDE 6.11 → 25.08). This ref
 #     provides /lib/ld-linux.so.2 - the 32-bit ELF interpreter wine needs. It
 #     is the ONE that actually matters; without it wine cannot boot at all.
 #   * GL32.default tracks the GL driver version (1.4), NOT the freedesktop base.
-#     There is no "GL32.default//24.08" ref on Flathub - asking for it fails
+#     There is no "GL32.default//25.08" ref on Flathub - asking for it fails
 #     with "…not installed" / "file doesn't exist". GL32 only supplies 32-bit
 #     OpenGL, which most tools (dtkit-patch, vcredist, wine setup) never touch,
 #     so a GL32 failure must NOT sink the whole repair.
-REQUIRED_I386_REF = "org.freedesktop.Platform.Compat.i386//24.08"
+REQUIRED_I386_REF = "org.freedesktop.Platform.Compat.i386//25.08"
 OPTIONAL_I386_REF = "org.freedesktop.Platform.GL32.default//1.4"
 
 I386_EXTENSION_REFS = (REQUIRED_I386_REF, OPTIONAL_I386_REF)
