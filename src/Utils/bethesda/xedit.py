@@ -472,7 +472,7 @@ def restore_after_xedit(game: "BaseGame", display_name: str, log_fn=None) -> Non
 
 
 def collect_dirty_plugins(game: "BaseGame") -> "list[tuple[str, str]]":
-    """Return [(plugin_name, summary), ...] for plugins LOOT flags as dirty.
+    """Return dirty LOOT entries for plugins enabled in the active profile.
 
     Reads ``loot.json`` from the active profile dir (the same data the
     Plugins panel uses for its brush icon), so QuickAutoClean users can see
@@ -482,8 +482,21 @@ def collect_dirty_plugins(game: "BaseGame") -> "list[tuple[str, str]]":
     profile_dir = getattr(game, "_active_profile_dir", None)
     if profile_dir is None:
         return []
+    plugins_path = Path(profile_dir) / "plugins.txt"
+    if not plugins_path.is_file():
+        return []
     try:
         from LOOT.loot_sorter import read_loot_info
+        from Utils.games.registry import _vanilla_plugins_for_game
+        from Utils.plugins import read_plugins
+
+        star = bool(getattr(game, "plugins_use_star_prefix", True))
+        enabled = {
+            entry.name.lower()
+            for entry in read_plugins(plugins_path, star_prefix=star)
+            if entry.enabled
+        }
+        enabled.update(_vanilla_plugins_for_game(game))
         data = read_loot_info(profile_dir)
     except Exception:
         return []
@@ -494,7 +507,7 @@ def collect_dirty_plugins(game: "BaseGame") -> "list[tuple[str, str]]":
         return []
     out: "list[tuple[str, str]]" = []
     for name, info in plugins.items():
-        if not isinstance(info, dict):
+        if name.lower() not in enabled or not isinstance(info, dict):
             continue
         dirty = info.get("dirty") or []
         if not dirty:
