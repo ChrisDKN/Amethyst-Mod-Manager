@@ -1544,7 +1544,10 @@ class WabbajackView(QWidget):
             self._package_path.setText(result.path.name if not (len(result.path.stem) == 64 and all(c in "0123456789abcdef" for c in result.path.stem))
                                        else self.tr("{0} · saved package").format(result.name))
             self._package_path.setToolTip(str(result.path))
-            self._detail_sizes.setText(self.tr("{0:,} archives · {1:,} files").format(len(result.archives), len(result.directives)))
+            self._detail_sizes.setText(
+                self.tr("{0} archives · {1} files").format(
+                    f"{len(result.archives):,}",
+                    f"{len(result.directives):,}"))
             self._refresh_free_space()
             self._setup_hint.hide()
             self._setup_form.setRowVisible(self._profiles, True)

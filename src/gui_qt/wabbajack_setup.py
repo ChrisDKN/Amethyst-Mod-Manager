@@ -345,7 +345,9 @@ class AcquisitionSummary(QWidget):
         for key, (count, size) in ((key, totals[key]) for key, _, _ in self.KEYS):
             count_label, size_label, _ = self._rows[key]
             size_label.setText(fmt_size(size) if size else self.tr("0 B"))
-            count_label.setText(self.tr("1 archive") if count == 1 else self.tr("{0:,} archives").format(count))
+            count_label.setText(
+                self.tr("1 archive") if count == 1
+                else self.tr("{0} archives").format(f"{count:,}"))
         network = totals["automatic"][1] + totals["manual"][1]
         self._total_label.setText(self.tr("Transfers over the network"))
         self._total.setText(fmt_size(network) if network else self.tr("Nothing to download"))

@@ -299,7 +299,9 @@ class CollectionInstallOverlay(QWidget):
         self._status_lbl.setToolTip(text or "")
 
     def set_phase(self, name: str, current: int, total: int, detail: str):
-        self._agg_lbl.setText(self.tr("{0}: {1:,} / {2:,}").format(name, current, total) if total else name)
+        self._agg_lbl.setText(
+            self.tr("{0}: {1} / {2}").format(
+                name, f"{current:,}", f"{total:,}") if total else name)
         self._agg_bar.setRange(0, 1000 if total else 0)
         if total:
             self._agg_bar.setValue(min(1000, int(current * 1000 / total)))
