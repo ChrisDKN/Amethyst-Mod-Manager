@@ -97,6 +97,15 @@
         "mods.txt"
       ],
       "include_siblings": true
+    },
+    {
+      "dest": "drive_c/users/steamuser/AppData/Local/Dawnwalker/Saved/Config/Windows",
+      "filenames": [
+        "Engine.ini",
+        "Game.ini"
+      ],
+      "flatten": true,
+      "to_prefix": true
     }
   ],
   "restore_whitelist": [],
