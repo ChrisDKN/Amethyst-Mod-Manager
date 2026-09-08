@@ -329,7 +329,7 @@ def _executables(request, store, output, stock, *, adapter=None, titles=None, lo
                 if cwd:
                     wd = resolve(cwd)
                     if wd:
-                        working_dirs[p.name] = str(wd)
+                        working_dirs[str(p)] = str(wd)
                 args = qvalue(section.get(key.removesuffix("binary") + "arguments", ""))
                 if args:
                     arguments[p.name] = args
@@ -341,7 +341,7 @@ def _executables(request, store, output, stock, *, adapter=None, titles=None, lo
             p = resolve(str(store.root / path.relative_to(output)))
             if p:
                 extras.append(str(p))
-                working_dirs[p.name] = str(game_root)
+                working_dirs[str(p)] = str(game_root)
     return list(dict.fromkeys(extras)), arguments, working_dirs
 
 

@@ -184,10 +184,17 @@ def launch_environment(game, env):
 
 def working_directory(game, exe):
     from Utils.profiles.state import read_profile_state
+    exe = Path(exe)
     profile = getattr(game, "_active_profile_dir", None)
     if profile:
         state = read_profile_state(Path(profile))
-        saved = state.get("wabbajack_working_directories", {}).get(exe.name)
+        directories = state.get("wabbajack_working_directories", {})
+        saved = directories.get(str(exe))
+        if saved is None:
+            matching_exes = {path for path in state.get("custom_exes", [])
+                             if Path(path).name.casefold() == exe.name.casefold()}
+            if matching_exes == {str(exe)}:
+                saved = directories.get(exe.name)
         if saved and Path(saved).is_dir():
             return Path(saved)
     return exe.parent
