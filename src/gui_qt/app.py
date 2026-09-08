@@ -393,6 +393,7 @@ class MainWindow(QMainWindow):
     _req_install_prog = Signal(object, object, "qlonglong", "qlonglong")  # (dl_key, name, downloaded, total bytes; 64-bit: >2GB)
     # Collection reset-load-order worker → UI thread (result dict).
     _reset_done = Signal(object)
+    _wabbajack_reset_done = Signal(object)
     # Dev-mode manifest downloader worker → UI thread (list of result dicts).
     _manifest_dl_done = Signal(object)
     # Collection INSTALL worker → UI thread. Every callback is a single emit; the
@@ -873,6 +874,7 @@ class MainWindow(QMainWindow):
         self._req_install_prog.connect(
             lambda key, name, d, t: self._nexus_download_progress(key, name, d, t))
         self._reset_done.connect(self._on_reset_done)
+        self._wabbajack_reset_done.connect(self._on_wabbajack_reset_done)
         self._reset_running = False
         self._manifest_dl_done.connect(self._on_manifest_dl_done)
         self._manifest_dl_running = False
@@ -2873,6 +2875,7 @@ class MainWindow(QMainWindow):
             ]),
             ("Wabbajack", self.tr("Wabbajack"), "Wabbajack.png", [
                 (self.tr("Browse Wabbajack modlists…"), self._open_wabbajack_tab),
+                (self.tr("Reset load order"), self._reset_wabbajack_load_order),
             ]),
         ]:
             # Proton's logo is a mono glyph - tint it white like the Settings
@@ -7168,6 +7171,57 @@ class MainWindow(QMainWindow):
             self._update_deployed_profile_highlight()
         except Exception:
             pass
+
+    def _reset_wabbajack_load_order(self):
+        if self._reset_running:
+            self._notify(self.tr("A load-order reset is already running."), "warning")
+            return
+        game, pdir = self._gs.game, self._gs.profile_dir()
+        if game is None or not game.is_configured() or pdir is None:
+            self._notify(self.tr("No configured game selected."), "warning")
+            return
+        from Utils.profiles.state import read_profile_settings
+        if not read_profile_settings(pdir).get("wabbajack_install_id"):
+            self._notify(self.tr("The active profile isn't a Wabbajack profile."), "warning")
+            return
+        session = getattr(self, "_play_session", None)
+        if (self._tool_busy or self._deploy_running or self._install_running
+                or self._col_install_running or self._sort_running
+                or getattr(self, "_staged_finish_running", False)
+                or (session is not None and session.active)):
+            self._notify(self.tr("Wait for the current operation to finish before resetting the load order."), "warning")
+            return
+        self._reset_running = True
+        self._set_tool_lock("wabbajack-reset", self.tr("Wabbajack load-order reset"), True)
+        self._modlist_view.setEnabled(False)
+        self._plugin_view.setEnabled(False)
+        self._notify(self.tr("Resetting Wabbajack load order…"), "info")
+        import threading
+
+        def worker():
+            try:
+                from Utils.wabbajack.reset import reset_load_order
+                result = reset_load_order(game, pdir, log_fn=self._op_log.emit)
+            except Exception as exc:
+                self._op_log.emit(f"Wabbajack load order reset failed: {exc}")
+                result = {"error": str(exc)}
+            self._wabbajack_reset_done.emit(result)
+
+        threading.Thread(target=worker, daemon=True, name="wabbajack-reset").start()
+
+    def _on_wabbajack_reset_done(self, result):
+        self._reset_running = False
+        self._set_tool_lock("wabbajack-reset", "", False)
+        self._modlist_view.setEnabled(True)
+        self._plugin_view.setEnabled(True)
+        if result.get("error"):
+            self._notify(self.tr("Load order reset failed: {0}").format(result["error"]), "warning")
+            return
+        self._notify(self.tr("Wabbajack load order reset - {0} mods and {1} plugins ordered.")
+                     .format(result["ordered"], result["plugins"]), "info")
+        self._reload_modlist()
+        if not self._reload_had_entries:
+            self._reload_plugins()
 
     # ---- Collections ▸ Reset load order ----------------------------------
     def _reset_collection_load_order(self):
