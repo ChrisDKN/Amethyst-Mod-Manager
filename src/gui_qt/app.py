@@ -3370,7 +3370,7 @@ class MainWindow(QMainWindow):
                     print(f"[gui_qt] profile-switch modlist sync failed: {exc}",
                           flush=True)
             with perftrace.span("switch.reload_modlist(sync)"):
-                self._reload_modlist(rescan_index=bool(renamed_mods) or (self._gs.profile_dir() / "mods").is_symlink())
+                self._reload_modlist(rescan_index=bool(renamed_mods))
             with perftrace.span("switch.reload_plugins(kickoff)"):
                 if getattr(self, "_reload_had_entries", False):
                     # The conflict rebuild just queued by _reload_modlist ends
