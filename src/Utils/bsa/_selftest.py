@@ -63,6 +63,7 @@ def test_hashes() -> None:
         ("ambient.wav",      _tes4_ref(b"ambient", b".wav")),
         ("readme.txt",       _tes4_ref(b"readme", b".txt")),
         ("a.dds",            _tes4_ref(b"a", b".dds")),
+        ("go.nif",           0x92CD45FD6702806F),
     ]
     for name, expected in samples_file:
         got = tes4_hash_file(name)
@@ -75,6 +76,8 @@ def test_hashes() -> None:
         ("textures",                      _tes4_ref(b"textures", b"")),
         ("textures\\sky",                 _tes4_ref(b"textures\\sky", b"")),
         ("meshes\\armor\\iron",           _tes4_ref(b"meshes\\armor\\iron", b"")),
+        ("textures/interface/icons/pipboyimages_small/s.p.e.c.i.a.l_small",
+         0x098F7B43743F6C6C),
     ]
     for path, expected in samples_folder:
         got = tes4_hash_folder(path)
@@ -115,7 +118,7 @@ def _tes4_ref(name: bytes, ext: bytes) -> int:
     if ext_b == b".kf":
         h1 |= 0x80
     elif ext_b == b".nif":
-        h1 |= 0xA000
+        h1 |= 0x8000
     elif ext_b == b".dds":
         h1 |= 0x8080
     elif ext_b == b".wav":

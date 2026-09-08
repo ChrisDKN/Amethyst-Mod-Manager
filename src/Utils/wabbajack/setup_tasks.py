@@ -233,7 +233,7 @@ def _mpi_outputs(manifest):
 
 def _verify_mod(task, root, stop=None, *, content=False):
     def archive(path):
-        rows = records(path)
+        rows = records(path, allow_hash_only=True)
         if content:
             with path.open("rb") as source:
                 for row in rows:
@@ -525,7 +525,8 @@ def run_tasks(request, store, desired, stop, progress, log=None):
                         if not path.is_file():
                             raise WabbajackError(f"MPI did not produce its declared output: {rel}")
                         if members is not None:
-                            actual = {row[0].casefold() for row in records(path)}
+                            states = [{"Path": name} for name in members]
+                            actual = {row[0].casefold() for row in records(path, states)}
                             if actual != members:
                                 raise WabbajackError(f"MPI archive contents differ from its manifest: {rel}")
                     if task.id.startswith("fo3-bsa:"):

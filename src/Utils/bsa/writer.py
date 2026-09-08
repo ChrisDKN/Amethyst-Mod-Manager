@@ -338,8 +338,7 @@ def write_stub_plugin(
 #
 #     final hash (uint64) = ((hash2 + hash3) << 32) | hash1
 #
-# Folder hashes use the same routine with the *full folder path* as the
-# "name" (no extension splitting - there's no '.' in normal folder names).
+# Folder hashes use the full folder path without extension splitting.
 # ---------------------------------------------------------------------------
 
 
@@ -348,19 +347,19 @@ def write_stub_plugin(
 # reference; if you change a value, update both places.
 TES4_EXT_MAGIC: dict[bytes, int] = {
     b".kf":  0x80,
-    b".nif": 0xA000,
+    b".nif": 0x8000,
     b".dds": 0x8080,
     b".wav": 0x80000000,
 }
 
 
-def _tes4_hash(name: bytes) -> int:
+def _tes4_hash(name: bytes, *, split_extension: bool = True) -> int:
     """Hash a single name (cp1252 bytes, lowercase, no leading slash)."""
     if not name:
         return 0
 
     # Split at last '.' to separate root and extension.
-    dot = name.rfind(b".")
+    dot = name.rfind(b".") if split_extension else -1
     if dot >= 0:
         root = name[:dot]
         ext = name[dot:]
@@ -403,7 +402,8 @@ def tes4_hash_file(filename: str) -> int:
 def tes4_hash_folder(folder_path: str) -> int:
     """Hash a folder path. Backslash-separated, lowercased, cp1252-encoded."""
     return _tes4_hash(
-        folder_path.replace("/", "\\").lower().encode("cp1252", errors="replace")
+        folder_path.replace("/", "\\").lower().encode("cp1252", errors="replace"),
+        split_extension=False,
     )
 
 

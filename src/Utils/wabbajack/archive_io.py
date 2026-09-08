@@ -18,7 +18,9 @@ def _read(stream, size):
     return data
 
 
-def records(path, file_states=None, *, mpi_paths=False, allow_case_variants=False):
+def records(path, file_states=None, *, mpi_paths=False, allow_case_variants=False,
+            allow_hash_only=False):
+    """Optional hash-only IDs support validation of archives without stored paths."""
     with Path(path).open("rb") as stream:
         size = stream.seek(0, 2)
         stream.seek(0)
@@ -50,29 +52,36 @@ def records(path, file_states=None, *, mpi_paths=False, allow_case_variants=Fals
             from Utils.bsa.extract import _parse_toc
             header = _read(stream, 36)
             _, version, toc, flags, folders, files, folder_names, file_names, _ = struct.unpack("<4s8I", header)
+            if version not in (103, 104, 105):
+                raise WabbajackError(f"Unsupported BSA version: {version}")
             if files > 1_000_000 or folders > files or file_names + folder_names > size:
                 raise WabbajackError("Invalid BSA metadata sizes")
             stream.seek(0)
             if flags & 3 == 3:
                 info, rows = _parse_toc(stream)
             else:
-                if file_states is None:
+                if file_states is None and not allow_hash_only:
                     raise WabbajackError("BSA member paths are absent from this source archive")
                 from Utils.bsa.writer import tes4_hash_file, tes4_hash_folder
-                by_hash = {(tes4_hash_folder(relative_path(f["Path"]).rpartition("/")[0].replace("/", "\\")),
-                            tes4_hash_file(relative_path(f["Path"]).rsplit("/", 1)[-1])): f["Path"] for f in file_states}
+                by_hash = None
+                if file_states is not None:
+                    by_hash = {(tes4_hash_folder(relative_path(f["Path"]).rpartition("/")[0].replace("/", "\\")),
+                                tes4_hash_file(relative_path(f["Path"]).rsplit("/", 1)[-1])): f["Path"] for f in file_states}
                 stream.seek(toc)
                 groups = []
                 for _ in range(folders):
                     raw = _read(stream, 24 if version == 105 else 16)
                     groups.append(struct.unpack_from("<QI", raw))
+                if sum(count for _, count in groups) != files:
+                    raise WabbajackError("BSA member count differs from its header")
                 rows = []
                 for folder_hash, count in groups:
                     if flags & 1:
                         _read(stream, _read(stream, 1)[0])
                     for _ in range(count):
                         file_hash, field, offset = struct.unpack("<QII", _read(stream, 16))
-                        name = by_hash.get((folder_hash, file_hash))
+                        name = (by_hash.get((folder_hash, file_hash)) if by_hash is not None
+                                else f"{folder_hash:016x}/{file_hash:016x}")
                         if name is None:
                             raise WabbajackError("Reconstructed BSA member hash differs")
                         rows.append((name, field, offset))
