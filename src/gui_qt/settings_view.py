@@ -25,7 +25,13 @@ Layout contract for every section (see :meth:`_section`):
 
 so controls start at a common x down the whole page. The "?" marker is not a
 column - it rides inside each row's own layout, immediately after the widget it
-describes, which keeps it visibly attached to that option.
+describes, which keeps it visibly attached to that option. Slider rows are the
+exception: they reserve the marker's slot whether or not the row has help,
+because a stretching groove would otherwise come up short on help-bearing rows.
+
+Sliders fill their column rather than sitting at a fixed width, flanked by -/+
+step buttons and by labels naming each end of the range. Both end labels share
+one width so every groove starts and ends at the same x.
 
 Action buttons never sit between options: `_action_row` queues them into a
 per-section footer that `_finish_section` flushes at the bottom of the group.
@@ -306,6 +312,27 @@ class SettingsView(OverlayBase):
         QSlider#ScaleSlider::sub-page:horizontal:disabled {{
             background: {c('TEXT_DIM')};
         }}
+        QLabel#SliderEnd {{ color: {c('TEXT_DIM')}; font-size: 11px; }}
+        QPushButton#StepButton {{
+            background: {c('BG_HEADER')};
+            border: 1px solid {c('BORDER')};
+            border-radius: 4px;
+            color: {c('TEXT_MAIN')};
+            font-weight: 600;
+            padding: 0;
+        }}
+        QPushButton#StepButton:hover {{
+            border-color: {c('ACCENT')};
+            color: {c('ACCENT_HOV')};
+        }}
+        QPushButton#StepButton:pressed {{ background: {c('BG_DEEP')}; }}
+        /* At a limit the button stays in place but reads as spent, so the end
+           of the range is visible rather than a control that does nothing. */
+        QPushButton#StepButton:disabled {{
+            background: transparent;
+            border-color: {c('BORDER')};
+            color: {c('BORDER')};
+        }}
         """
 
     # ---- section + control builders --------------------------------------
@@ -447,32 +474,135 @@ class SettingsView(OverlayBase):
         grid.addWidget(combo, row, self.COL_CTRL, Qt.AlignLeft)
         return combo
 
+    # Groove floor, so a narrow window or a translated label can't crush the
+    # slider to nothing once it is free to stretch.
+    SLIDER_MIN_W = 160
+    # Square step buttons flanking the groove. 24px is a comfortable touch
+    # target on the Deck without out-weighing the slider itself.
+    STEP_BTN_W = 24
+    # Shared width for both range labels, so every groove on the page starts
+    # and ends at the same x. Sized for the widest end text in use
+    # ("Unlimited" at 51px), with room for a translation.
+    SLIDER_END_W = 58
+    # Reserved slot for a slider row's "?" marker, held whether or not the row
+    # has help, so every groove ends at the same x.
+    HELP_SLOT_W = 14
+
+    def _step_button(self, sld: QSlider, delta: int, tip: str) -> QPushButton:
+        """A -/+ button that nudges `sld` by one `singleStep` per click.
+
+        Stepping through singleStep() rather than a literal 1 is what keeps UI
+        Scale usable: it sets setSingleStep(5), so its buttons move 5% a click
+        instead of asking for fifty clicks to cross the range.
+
+        setValue emits valueChanged, so every readout, persist and (for UI
+        Scale) commit path already wired to the slider fires unchanged.
+        """
+        btn = QPushButton("−" if delta < 0 else "+")
+        btn.setObjectName("StepButton")
+        btn.setFixedSize(self.STEP_BTN_W, self.STEP_BTN_W)
+        btn.setToolTip(self._tip_text(tip))
+        btn.setAutoRepeat(True)
+        btn.setAutoRepeatDelay(400)
+        btn.setAutoRepeatInterval(90)
+        # Without NoFocus a click steals focus from the groove, which silently
+        # kills arrow-key adjustment part-way through a change.
+        btn.setFocusPolicy(Qt.NoFocus)
+        btn.setCursor(Qt.PointingHandCursor)
+        btn.clicked.connect(
+            lambda: sld.setValue(sld.value() + delta * sld.singleStep()))
+        return btn
+
     def _slider(self, grid: QGridLayout, label: str, lo: int, hi: int,
-                value: int, on_change, help: str | None = None) -> QSlider:
-        """Integer slider lo..hi with a live value label. `on_change(int)`."""
+                value: int, on_change, help: str | None = None,
+                fmt=None) -> QSlider:
+        """Integer slider lo..hi with a live value label. `on_change(int)`.
+
+        The groove stretches to fill the control column, flanked by -/+ step
+        buttons and by end labels naming the range. `fmt(int) -> str` formats
+        those end labels (and nothing else); without it they are the bare
+        numbers. Callers that display something other than the raw number
+        ("Unlimited", "All") pass their own formatter so the ends match the
+        readout.
+        """
         row = self._next_row(grid)
         lbl = QLabel(label)
         grid.addWidget(lbl, row, self.COL_LABEL)
         wrap = QHBoxLayout()
         wrap.setContentsMargins(0, 0, 0, 0)
         # Gap so a handle parked at maximum doesn't sit on top of the readout.
-        wrap.setSpacing(10)
+        wrap.setSpacing(8)
         sld = QSlider(Qt.Horizontal)
         sld.setMinimum(lo); sld.setMaximum(hi)
         sld.setValue(max(lo, min(hi, value)))
-        sld.setFixedWidth(200)
+        # Elastic groove: the row's leftover width goes to the slider instead
+        # of to a trailing stretch, so it lands on the panel's right edge like
+        # the path rows do. A wider groove is also a finer one - the same range
+        # spread over more pixels roughly doubles the drag precision.
+        sld.setMinimumWidth(self.SLIDER_MIN_W)
+        sld.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         val_lbl = QLabel(str(sld.value()))
         # Fixed (not minimum) width: the readout text varies per slider
         # ("Unlimited", "All", "150%"), and a minimum width would let each one
-        # size itself, staggering the "?" markers that follow it.
+        # size itself, dragging the groove's right edge in and out as the value
+        # changes. Right-aligned so the digits sit against a common edge.
         val_lbl.setFixedWidth(68)
+        val_lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         sld.valueChanged.connect(lambda v: val_lbl.setText(str(v)))
         sld.valueChanged.connect(lambda v: on_change(v))
         no_wheel(sld)
-        wrap.addWidget(sld)
+
+        _fmt_end = fmt if fmt is not None else str
+        lo_lbl = QLabel(_fmt_end(lo))
+        hi_lbl = QLabel(_fmt_end(hi))
+        # One fixed width for both ends, shared across every slider on the
+        # page. End text varies wildly ("1" is 7px, "Unlimited" 51px), and
+        # letting each label self-size would start and end every groove at a
+        # different x - the staggering this row was meant to remove.
+        for end in (lo_lbl, hi_lbl):
+            end.setObjectName("SliderEnd")
+            end.setFixedWidth(self.SLIDER_END_W)
+        lo_lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        hi_lbl.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        minus = self._step_button(
+            sld, -1, self.tr("Decrease {0}").format(label))
+        plus = self._step_button(
+            sld, +1, self.tr("Increase {0}").format(label))
+        # Handed to callers that need to tune the pair - UI Scale switches
+        # autorepeat off, since each of its commits raises a restart prompt.
+        sld.setProperty("_step_buttons", [minus, plus])
+
+        # Grey the ends out at the limits so the range reads as finished
+        # rather than as a button that silently does nothing.
+        def _sync_steps(v: int, _m=minus, _p=plus, _s=sld):
+            _m.setEnabled(v > _s.minimum())
+            _p.setEnabled(v < _s.maximum())
+        sld.valueChanged.connect(_sync_steps)
+        _sync_steps(sld.value())
+
+        wrap.addWidget(lo_lbl)
+        wrap.addWidget(minus)
+        wrap.addWidget(sld, 1)
+        wrap.addWidget(plus)
+        wrap.addWidget(hi_lbl)
         wrap.addWidget(val_lbl)
-        self._add_help(wrap, help, lbl, sld)
-        wrap.addStretch(1)
+        # No trailing addStretch: the stretch would compete with the slider for
+        # the leftover width and the groove would barely grow.
+        #
+        # The "?" slot is reserved on every slider row, marker or not. Adding
+        # it only where help exists takes its width out of the groove, leaving
+        # help-bearing sliders visibly shorter than their neighbours.
+        mark_slot = QWidget()
+        mark_slot.setFixedWidth(self.HELP_SLOT_W)
+        slot_row = QHBoxLayout(mark_slot)
+        slot_row.setContentsMargins(0, 0, 0, 0)
+        if help:
+            tip = self._tip_text(help)
+            for w in (lbl, sld):
+                w.setToolTip(tip)
+            slot_row.addWidget(self._help_marker(help))
+        slot_row.addStretch(1)
+        wrap.addWidget(mark_slot)
         holder = QWidget(); holder.setLayout(wrap)
         grid.addWidget(holder, row, self.COL_CTRL)
         return sld, val_lbl
@@ -791,14 +921,21 @@ class SettingsView(OverlayBase):
         self._scale_slider, self._scale_val_lbl = self._slider(
             g, self.tr("UI Scale"), 50, 200, pct, lambda _v: None,
             help=self.tr("Make the whole interface bigger or smaller. "
-               "Changes take effect after a restart."))
+               "Changes take effect after a restart."),
+            fmt=lambda v: f"{v}%")
         self._scale_slider.setObjectName("ScaleSlider")
-        self._scale_slider.setFixedWidth(self.COMBO_W)
+        # No width pin here: _slider lets the groove stretch, and re-pinning it
+        # to COMBO_W would make this the one narrow slider in the app.
         self._scale_val_lbl.setObjectName("ScaleValue")
         self._scale_val_lbl.setFixedWidth(
             self._scale_val_lbl.fontMetrics().horizontalAdvance("200%") + 4)
         self._scale_slider.setSingleStep(5)
         self._scale_slider.setPageStep(10)
+        # Each committed change here raises a restart prompt, so a held button
+        # would stack one prompt per 5% tick - the same pile-up isSliderDown()
+        # already prevents for drags. One click, one deliberate step.
+        for _btn in (self._scale_slider.property("_step_buttons") or []):
+            _btn.setAutoRepeat(False)
         self._scale_val_lbl.setText(f"{pct}%")
         # valueChanged fires on every tick - while dragging (isSliderDown()) it
         # only updates the label; a change that lands with the handle NOT held
@@ -954,16 +1091,20 @@ class SettingsView(OverlayBase):
             self._cs["max_concurrent"], self._save_max_concurrent)
 
         # Download speed limit - global cap shared by all download threads.
+        def _limit_text(v) -> str:
+            return (self.tr("Unlimited") if int(v) == 0 else
+                    self.tr("{0} MB/s").format(int(v)))
+
         lim_sld, lim_lbl = self._slider(
             g, self.tr("Download speed limit"), 0, 250,
             int(uc.load_download_speed_limit()), self._save_speed_limit,
             help=self.tr("Cap the combined download speed of all downloads "
                "(collections, single mods, nxm and modl links) so they don't use "
                "the whole connection. Applies immediately, including to a running "
-               "collection install."))
+               "collection install."),
+            fmt=_limit_text)
         def _fmt_limit(v, _lbl=lim_lbl):
-            _lbl.setText(self.tr("Unlimited") if int(v) == 0 else
-                         self.tr("{0} MB/s").format(int(v)))
+            _lbl.setText(_limit_text(v))
         lim_sld.valueChanged.connect(_fmt_limit)
         _fmt_limit(lim_sld.value())
 
@@ -995,6 +1136,10 @@ class SettingsView(OverlayBase):
                "may be lower than set."))
 
         import os as _os
+
+        def _threads_text(v) -> str:
+            return self.tr("All") if int(v) == 0 else str(int(v))
+
         ext = uc.load_extraction_settings()
         thr_sld, thr_lbl = self._slider(
             g, self.tr("Extraction CPU threads"), 0, _os.cpu_count() or 8,
@@ -1002,9 +1147,10 @@ class SettingsView(OverlayBase):
             lambda v: self._safe_save(uc.save_extraction_cpu_threads, v),
             help=self.tr("CPU threads each extraction may use. 'All' is fastest; a "
                "lower value keeps the system responsive while large archives "
-               "extract."))
+               "extract."),
+            fmt=_threads_text)
         def _fmt_threads(v, _lbl=thr_lbl):
-            _lbl.setText(self.tr("All") if int(v) == 0 else str(v))
+            _lbl.setText(_threads_text(v))
         thr_sld.valueChanged.connect(_fmt_threads)
         _fmt_threads(thr_sld.value())
         self._checkbox(
