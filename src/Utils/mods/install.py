@@ -668,6 +668,18 @@ def stage_file_list(game, extract_dir: str, *, is_root_install: bool = False,
     return filtered
 
 
+def _bain_content_prefixes(game) -> set[str]:
+    return {
+        *(getattr(game, "mod_folder_strip_prefixes", None) or ()),
+        *(getattr(game, "mod_folder_strip_prefixes_post", None) or ()),
+    }
+
+
+def _bain_data_dirs(game) -> set[str]:
+    return _bain_content_prefixes(game) | set(
+        getattr(game, "mod_required_top_level_folders", None) or ())
+
+
 # ---------------------------------------------------------------- temp location
 # Guards /tmp space accounting so parallel extractions (collection installs run
 # several workers at once) don't all claim the same free space before any of
@@ -1542,9 +1554,13 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
     if fomod_result is None and getattr(game, "supports_bain", True):
         try:
             from Utils.mods.bain import detect_bain, bain_unwrap_single_folder
-            bain_root = bain_unwrap_single_folder(str(extract_dir))
+            bain_prefixes = _bain_content_prefixes(game)
+            bain_data_dirs = _bain_data_dirs(game)
+            bain_root = bain_unwrap_single_folder(
+                str(extract_dir), extra_data_dirs=bain_data_dirs)
             subpkgs = detect_bain(
-                bain_root, extra_exts=getattr(game, "plugin_extensions", None))
+                bain_root, extra_exts=getattr(game, "plugin_extensions", None),
+                extra_data_dirs=bain_data_dirs)
         except Exception as exc:
             log_fn(f"BAIN detection failed ({exc}); will install verbatim.")
             subpkgs = None
@@ -1554,7 +1570,7 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
             # picker's win/lose recolour needs them and must not walk the
             # disk on the GUI thread.
             from Utils.mods.bain import scan_subpackage_files
-            scan_subpackage_files(subpkgs)
+            scan_subpackage_files(subpkgs, bain_prefixes)
             prepared.bain_subpkgs = subpkgs
             prepared.bain_root = bain_root
             prepared.readme_text = _read_bain_readme(bain_root)
@@ -1860,7 +1876,9 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
                 bain_selected = [pkg.name for pkg in p.bain_subpkgs
                                  if pkg.default_selected]
                 log_fn("BAIN: using default sub-package selection.")
-            file_list = resolve_bain_files(p.bain_subpkgs, set(bain_selected))
+            file_list = resolve_bain_files(
+                p.bain_subpkgs, set(bain_selected),
+                _bain_content_prefixes(p.game))
             log_fn(f"BAIN: {len(bain_selected)} sub-package(s), "
                    f"{len(file_list)} file(s) to install.")
             dest_root.mkdir(parents=True, exist_ok=True)
@@ -2302,12 +2320,10 @@ def install_collection_archive(
                     is_fomod_install = False
 
         # ---- BAIN ---------------------------------------------------------
-        elif getattr(game, "supports_bain", True):
-            from Utils.mods.bain import (
-                detect_bain, resolve_bain_files, bain_unwrap_single_folder)
-            bain_root = bain_unwrap_single_folder(str(prepared.extract_dir))
-            bain_subpkgs = detect_bain(
-                bain_root, extra_exts=getattr(game, "plugin_extensions", None))
+        elif prepared.is_bain():
+            from Utils.mods.bain import resolve_bain_files
+            bain_root = prepared.bain_root
+            bain_subpkgs = prepared.bain_subpkgs
             if bain_subpkgs:
                 stage_src_root = bain_root
                 default_names = [p.name for p in bain_subpkgs if p.default_selected]
@@ -2321,11 +2337,6 @@ def install_collection_archive(
                     selected = bain_auto_selections.get("selected", [])
                     log_fn("BAIN: applying exported selection automatically.")
                 elif resolve_bain is not None:
-                    # Worker thread: fill the per-package file sets before the
-                    # picker shows (its recolour must not walk the disk on the
-                    # GUI thread).
-                    from Utils.mods.bain import scan_subpackage_files
-                    scan_subpackage_files(bain_subpkgs)
                     result = resolve_bain(bain_subpkgs, bain_root, prepared.mod_name)
                     if result is None:
                         log_fn("BAIN install cancelled.")
@@ -2340,7 +2351,9 @@ def install_collection_archive(
                     _write_profile_bain_selection(
                         game, prepared.mod_name, {"selected": selected},
                         prepared.profile_dir)
-                    file_list = resolve_bain_files(bain_subpkgs, set(selected))
+                    file_list = resolve_bain_files(
+                        bain_subpkgs, set(selected),
+                        _bain_content_prefixes(game))
                     log_fn(f"BAIN complete - {len(selected)} sub-package(s), "
                            f"{len(file_list)} file(s) to install.")
 

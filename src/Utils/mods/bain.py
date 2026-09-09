@@ -57,9 +57,13 @@ _DOC_EXTS = {
     ".url",
 }
 
-# Folders/files Wrye Bash silently skips when classifying a package. Lower-case.
-_SKIP_DIR_NAMES = {"bash", "omod conversion data", "wizard images"}
+# Folders/files Wrye Bash silently skips when classifying or installing a
+# package. Lower-case.
+_SKIP_DIR_NAMES = {"bash", "fomod", "omod conversion data", "wizard images"}
 _SKIP_PREFIXES = ("--",)
+_SKIP_FILE_NAMES = {
+    "desktop.ini", "meta.ini", "thumbs.db", "__folder_managed_by_vortex",
+}
 
 # A sub-package folder name like "00 Core" / "01 Faction Integration" /
 # "01a Variant" - Wrye Bash allows an optional letter suffix after the digits
@@ -80,17 +84,39 @@ class BainSubPackage:
     file_keys: set | None = None
 
 
-def scan_subpackage_files(subpackages: "list[BainSubPackage]") -> None:
+def _strip_prefix(path: str, strip_prefixes: set[str]) -> str:
+    parts = path.replace("\\", "/").strip("/").split("/")
+    while len(parts) > 1 and parts[0].lower() in strip_prefixes:
+        parts.pop(0)
+    return "/".join(parts)
+
+
+def _walk_package_files(root: str):
+    root_abs = os.path.abspath(root)
+    for dirpath, dirnames, files in os.walk(root):
+        at_root = os.path.abspath(dirpath) == root_abs
+        if at_root:
+            dirnames[:] = [d for d in dirnames if not _is_skipped_dir(d)]
+        for fn in files:
+            low = fn.lower()
+            if (low not in _SKIP_FILE_NAMES
+                    and not (at_root and low.startswith(_SKIP_PREFIXES))):
+                yield dirpath, fn
+
+
+def scan_subpackage_files(
+        subpackages: "list[BainSubPackage]",
+        strip_prefixes: "set[str] | list[str] | None" = None) -> None:
     """Fill each sub-package's ``file_keys`` (the picker's live win/lose
     conflict recolour needs the per-package file sets). Call from the worker
     that detected the package, right before handing off to the picker."""
+    strip_lower = {p.lower() for p in (strip_prefixes or ())}
     for pkg in subpackages:
         out: set = set()
         try:
-            for dirpath, _dirs, files in os.walk(pkg.path):
-                for fn in files:
-                    rel = os.path.relpath(os.path.join(dirpath, fn), pkg.path)
-                    out.add(rel.replace("\\", "/").lower())
+            for dirpath, fn in _walk_package_files(pkg.path):
+                rel = os.path.relpath(os.path.join(dirpath, fn), pkg.path)
+                out.add(_strip_prefix(rel, strip_lower).lower())
         except OSError:
             pass
         pkg.file_keys = out
@@ -116,7 +142,8 @@ def _is_skipped_dir(name: str) -> bool:
     return low in _SKIP_DIR_NAMES or low.startswith(_SKIP_PREFIXES)
 
 
-def _looks_like_subpackage(dir_path: str, data_exts: set[str]) -> bool:
+def _looks_like_subpackage(dir_path: str, data_exts: set[str],
+                           data_dirs: set[str]) -> bool:
     """True if *dir_path* behaves like a simple package: it directly contains a
     recognised data sub-folder or a top-level data/doc file."""
     top_exts = data_exts | _DOC_EXTS
@@ -124,9 +151,12 @@ def _looks_like_subpackage(dir_path: str, data_exts: set[str]) -> bool:
         with os.scandir(dir_path) as it:
             for e in it:
                 if e.is_dir():
-                    if e.name.lower() in _DATA_DIRS:
+                    if e.name.lower() in data_dirs:
                         return True
                 else:
+                    low = e.name.lower()
+                    if low in _SKIP_FILE_NAMES or low.startswith(_SKIP_PREFIXES):
+                        continue
                     ext = os.path.splitext(e.name)[1].lower()
                     if ext in top_exts:
                         return True
@@ -135,7 +165,9 @@ def _looks_like_subpackage(dir_path: str, data_exts: set[str]) -> bool:
     return False
 
 
-def bain_unwrap_single_folder(extract_dir: str) -> str:
+def bain_unwrap_single_folder(
+        extract_dir: str,
+        extra_data_dirs: "set[str] | list[str] | None" = None) -> str:
     """Peel a single wrapping top-level folder for BAIN detection, but NOT when
     that folder is itself a recognised data dir.
 
@@ -145,19 +177,21 @@ def bain_unwrap_single_folder(extract_dir: str) -> str:
     (``Plugins/``, ``Scripts/`` …) for BAIN sub-packages. Refusing to peel a
     recognised data dir keeps such packages classified as simple, matching Wrye
     Bash (which treats a top-level data dir as package content, not a wrapper)."""
+    data_dirs = _DATA_DIRS | {p.lower() for p in (extra_data_dirs or ())}
     try:
         entries = list(os.scandir(extract_dir))
     except OSError:
         return extract_dir
     if len(entries) == 1 and entries[0].is_dir():
-        if entries[0].name.lower() in _DATA_DIRS:
+        if entries[0].name.lower() in data_dirs:
             return extract_dir
         return entries[0].path
     return extract_dir
 
 
 def detect_bain(extract_dir: str,
-                extra_exts: "set[str] | list[str] | None" = None
+                extra_exts: "set[str] | list[str] | None" = None,
+                extra_data_dirs: "set[str] | list[str] | None" = None,
                 ) -> list[BainSubPackage] | None:
     """Detect a BAIN complex package: a root holding ≥2 sub-package folders,
     each of which behaves like a simple package (contains data sub-folders or
@@ -167,11 +201,15 @@ def detect_bain(extract_dir: str,
     game's ``plugin_extensions``) so detection recognises formats beyond the
     built-in defaults. Extensions may be given with or without a leading dot.
 
+    *extra_data_dirs* adds game-specific content directories and wrappers such
+    as Morrowind's ``iwy`` and ``Data Files``.
+
     Returns the ordered list of sub-packages, or ``None`` if the directory
     doesn't look like a complex BAIN package. The caller is expected to pass an
     already single-folder-unwrapped path.
     """
     data_exts = set(_DATA_EXTS)
+    data_dirs = _DATA_DIRS | {p.lower() for p in (extra_data_dirs or ())}
     if extra_exts:
         for x in extra_exts:
             x = x.lower()
@@ -188,9 +226,12 @@ def detect_bain(extract_dir: str,
     # Wrye Bash's _re_top_extensions (which excludes docExts).
     for e in entries:
         if e.is_dir():
-            if e.name.lower() in _DATA_DIRS:
+            if e.name.lower() in data_dirs:
                 return None
         else:
+            low = e.name.lower()
+            if low in _SKIP_FILE_NAMES or low.startswith(_SKIP_PREFIXES):
+                continue
             if os.path.splitext(e.name)[1].lower() in data_exts:
                 return None
 
@@ -198,7 +239,7 @@ def detect_bain(extract_dir: str,
     for e in entries:
         if not e.is_dir() or _is_skipped_dir(e.name):
             continue
-        if _looks_like_subpackage(e.path, data_exts):
+        if _looks_like_subpackage(e.path, data_exts, data_dirs):
             subpackages.append(BainSubPackage(
                 name=e.name,
                 display_name=_strip_numeric_prefix(e.name),
@@ -216,24 +257,27 @@ def detect_bain(extract_dir: str,
 
 
 def resolve_bain_files(subpackages: list[BainSubPackage],
-                       selected_names: set[str]) -> list[tuple[str, str, bool]]:
+                       selected_names: set[str],
+                       strip_prefixes: "set[str] | list[str] | None" = None,
+                       ) -> list[tuple[str, str, bool]]:
     """Build the (src_rel, dst_rel, is_folder) install list for the chosen
     sub-packages.
 
     ``src_rel`` is relative to the extract root (e.g. ``00 Core/MWSE/x``);
-    ``dst_rel`` strips the sub-package folder so chosen packages merge into a
-    single namespace (e.g. ``MWSE/x``). Files are emitted in sub-package order
+    ``dst_rel`` strips the sub-package folder and any game-specific content
+    wrapper so chosen packages merge into a single namespace (e.g. ``Data
+    Files/MWSE/x`` becomes ``MWSE/x``). Files are emitted in sub-package order
     so later packages overwrite earlier ones on conflict (BAIN semantics).
     """
+    strip_lower = {p.lower() for p in (strip_prefixes or ())}
     result: list[tuple[str, str, bool]] = []
     for pkg in subpackages:
         if pkg.name not in selected_names:
             continue
         root = pkg.path
-        for dirpath, _dirnames, filenames in os.walk(root):
-            for fn in filenames:
-                abs_path = os.path.join(dirpath, fn)
-                dst_rel = os.path.relpath(abs_path, root)
-                src_rel = os.path.join(pkg.name, dst_rel)
-                result.append((src_rel, dst_rel, False))
+        for dirpath, fn in _walk_package_files(root):
+            abs_path = os.path.join(dirpath, fn)
+            rel = os.path.relpath(abs_path, root)
+            src_rel = os.path.join(pkg.name, rel)
+            result.append((src_rel, _strip_prefix(rel, strip_lower), False))
     return result
