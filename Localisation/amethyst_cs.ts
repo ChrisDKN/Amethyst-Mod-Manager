@@ -137,61 +137,6 @@ Vyberte si cesty nebo pouze cesty, klepněte na tlačítko Generovat, poté zav�
     </message>
   </context>
   <context>
-    <name>AcquisitionSummary</name>
-    <message>
-      <source>Transfers over the network</source>
-      <translation>Převody přes síť</translation>
-    </message>
-    <message>
-      <source>Not checked</source>
-      <translation>Nezaškrtnuto</translation>
-    </message>
-    <message>
-      <source>Check requirements to verify cached files and Nexus access, then review what still needs downloading.</source>
-      <translation>Zkontrolujte požadavky pro ověření souborů v mezipaměti a Nexus a pak zkontrolujte, co stále vyžaduje stažení.</translation>
-    </message>
-    <message>
-      <source>0 B</source>
-      <translation>0 B</translation>
-    </message>
-    <message>
-      <source>1 archive</source>
-      <translation>1 archiv</translation>
-    </message>
-    <message>
-      <source>{0} archives</source>
-      <translation>{0} archivy</translation>
-    </message>
-    <message>
-      <source>Nothing to download</source>
-      <translation>Nic ke stažení</translation>
-    </message>
-    <message>
-      <source>1 required game file is missing or differs.</source>
-      <translation>1 požadovaný herní soubor chybí nebo se liší.</translation>
-    </message>
-    <message>
-      <source>{0} required game files are missing or differ.</source>
-      <translation>{0} požadované herní soubory chybí nebo se liší.</translation>
-    </message>
-    <message>
-      <source>Resolve the listed requirements before downloading.</source>
-      <translation>Vyřešte uvedené požadavky před stažením.</translation>
-    </message>
-    <message>
-      <source>Browser downloads and Select File use the normal installer prompts. Automatic downloads continue while you respond.</source>
-      <translation>Stahování prohlížeče a výběr souboru použijte běžné výzvy instalátoru. Automatické stahování pokračuje, zatímco odpovídáte.</translation>
-    </message>
-    <message>
-      <source>No archive downloads needed. Verified local content will be reused.</source>
-      <translation>Není třeba stahovat archivy. Ověřený lokální obsah bude znovu použit.</translation>
-    </message>
-    <message>
-      <source>Verified cache and game files are reused. Downloads follow your existing speed and concurrency settings.</source>
-      <translation>Ověřená keš a herní soubory jsou znovu použity. Stažení postupuje podle existující rychlosti a nastavení konměny.</translation>
-    </message>
-  </context>
-  <context>
     <name>AddGameView</name>
     <message>
       <source>Select a game to add</source>
@@ -1344,16 +1289,8 @@ Až skončíte, zavřete jej a poté klikněte na tlačítko Hotovo.</translatio
       <translation>Záložní složky pro levicové motory ({0})</translation>
     </message>
     <message>
-      <source>Wabbajack jobs and update backups</source>
-      <translation>Wabbajack úlohy a aktualizace záloh</translation>
-    </message>
-    <message>
       <source>Total: {0}</source>
       <translation>Celkem: {0}</translation>
-    </message>
-    <message>
-      <source>Wabbajack gallery and packages</source>
-      <translation>Wabbajack galerie a balení</translation>
     </message>
     <message>
       <source>Nothing selected.</source>
@@ -1370,24 +1307,12 @@ Až skončíte, zavřete jej a poté klikněte na tlačítko Hotovo.</translatio
 
 {2}
 
-Archives, gallery data and modlist packages will be re-downloaded as needed. Saved Wabbajack requirement checks in the selected game caches will be reset. The Wabbajack jobs/backups entry removes abandoned jobs and update backups; referenced installations are preserved.</source>
+Archives will be re-downloaded as needed.</source>
       <translation>Vymazat {0} napříč položkami {1} ?
 
 {2}
 
-Archivy, galerie a modlistové balíčky budou podle potřeby znovu staženy. Uložené požadavky Wabbajack ve vybraných herních keších budou resetovány. Wabbajack pracovní pozice/zálohování odstraňuje opuštěné pracovní pozice a aktualizuje zálohy. Odkazované instalace jsou zachovány.</translation>
-    </message>
-    <message>
-      <source>Clear {0} of cached downloads across every game?
-
-Location: {1}
-
-The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack gallery data, modlist packages and saved requirement checks are also cleared. The jobs/backups entry removes abandoned jobs and update backups.</source>
-      <translation>Vymazat {0} z mezipaměti stahování v každé hře?
-
-Umístění: {1}
-
-Mezipaměť md5 je zachována. Archivy budou znovu staženy podle potřeby. Wabbajack galerie dat, balíčky modlistů a uložené kontroly požadavků jsou také vymazány. Zálohy/Záloha odstraňuje opuštěné úlohy a aktualizuje zálohy.</translation>
+archivy budou znovu staženy podle potřeby.</translation>
     </message>
     <message>
       <source>Clear {0} Cache(s)</source>
@@ -1404,6 +1329,18 @@ Mezipaměť md5 je zachována. Archivy budou znovu staženy podle potřeby. Wabb
     <message>
       <source>Cache is empty.</source>
       <translation>Meziřádek je prázdný.</translation>
+    </message>
+    <message>
+      <source>Clear {0} of cached downloads across every game?
+
+Location: {1}
+
+The md5 cache is preserved. Archives will be re-downloaded as needed.</source>
+      <translation>Vymazat {0} z mezipaměti stahování v každé hře?
+
+Poloha: {1}
+
+Mezipaměť md5 je zachována. Archivy budou znovu staženy podle potřeby.</translation>
     </message>
     <message>
       <source>Clear All Download Caches</source>
@@ -1499,45 +1436,6 @@ Mezipaměť md5 je zachována. Archivy budou znovu staženy podle potřeby. Wabb
     <message>
       <source>Waiting for the browser download - {0} / {1}</source>
       <translation>Čekání na stahování prohlížeče - {0} / {1}</translation>
-    </message>
-  </context>
-  <context>
-    <name>CheckRow</name>
-    <message>
-      <source>Blocking: resolve before installing.</source>
-      <translation>Blokování: před instalací vyřešit.</translation>
-    </message>
-    <message>
-      <source>Needs your input: follow the download or setup instructions.</source>
-      <translation>Potřebuje váš vstup: postupujte podle pokynů ke stažení nebo nastavení.</translation>
-    </message>
-    <message>
-      <source>To review: read before continuing; this does not block installation.</source>
-      <translation>Pro kontrolu: přečtěte si před pokračováním; tato instalace není blokována.</translation>
-    </message>
-    <message>
-      <source>Passed: this check is ready to proceed.</source>
-      <translation>Prošlo: tato kontrola je připravena k pokračování.</translation>
-    </message>
-    <message>
-      <source>What this means</source>
-      <translation>Co to znamená</translation>
-    </message>
-    <message>
-      <source>Details</source>
-      <translation>Detaily</translation>
-    </message>
-    <message>
-      <source>Hide affected files</source>
-      <translation>Skrýt dotčené soubory</translation>
-    </message>
-    <message>
-      <source>Show 1 affected file</source>
-      <translation>Zobrazit 1 dotčený soubor</translation>
-    </message>
-    <message>
-      <source>Show {0} affected files</source>
-      <translation>Zobrazit {0} dotčené soubory</translation>
     </message>
   </context>
   <context>
@@ -1717,16 +1615,8 @@ Mezipaměť md5 je zachována. Archivy budou znovu staženy podle potřeby. Wabb
       <translation>Pauza…</translation>
     </message>
     <message>
-      <source>{0}: {1} / {2}</source>
-      <translation>{0}: {1} / {2}</translation>
-    </message>
-    <message>
       <source>Downloading…</source>
       <translation>Stahování…</translation>
-    </message>
-    <message>
-      <source>Small mods (under 100 MB)</source>
-      <translation>Malé mody (pod 100 MB)</translation>
     </message>
     <message>
       <source>+ {0} more downloading…</source>
@@ -1792,10 +1682,6 @@ Mezipaměť md5 je zachována. Archivy budou znovu staženy podle potřeby. Wabb
       <translation>Pauza…</translation>
     </message>
     <message>
-      <source>This source needs a browser download or an existing file.</source>
-      <translation>Tento zdroj vyžaduje stahování prohlížeče nebo existující soubor.</translation>
-    </message>
-    <message>
       <source>Optional</source>
       <translation>Volitelné</translation>
     </message>
@@ -1808,24 +1694,8 @@ Mezipaměť md5 je zachována. Archivy budou znovu staženy podle potřeby. Wabb
       <translation>Očekávaný soubor: {0}</translation>
     </message>
     <message>
-      <source>Download this exact archive to a watched download folder, or use Select File. Amethyst checks its size and hash before continuing.</source>
-      <translation>Stáhněte si tento přesný archiv do sledované složky pro stahování, nebo vyberte soubor. Amethyst zkontroluje jeho velikost a hash před pokračováním.</translation>
-    </message>
-    <message>
       <source>Mod {0}/{1} - download this file, then it will be auto-detected…</source>
       <translation>Mod {0} / {1} - stáhnout tento soubor, pak bude automaticky detekován..</translation>
-    </message>
-    <message>
-      <source>Why this needs your help:
-{0}</source>
-      <translation>Proč to potřebuje vaši pomoc:
-{0}</translation>
-    </message>
-    <message>
-      <source>Author instructions:
-{0}</source>
-      <translation>Instrukce pro autora:
-{0}</translation>
     </message>
     <message>
       <source>Open next {0}</source>
@@ -1989,6 +1859,10 @@ Mezipaměť md5 je zachována. Archivy budou znovu staženy podle potřeby. Wabb
       <translation>Zrušit</translation>
     </message>
     <message>
+      <source>Game Installation Folder</source>
+      <translation>Složka pro instalaci hry</translation>
+    </message>
+    <message>
       <source>Scanning Steam libraries…</source>
       <translation>Probíhá prohledávání knihoven služby Steam…</translation>
     </message>
@@ -2009,6 +1883,10 @@ Mezipaměť md5 je zachována. Archivy budou znovu staženy podle potřeby. Wabb
       <translation>Skenovat</translation>
     </message>
     <message>
+      <source>Proton Prefix (compatdata/pfx)</source>
+      <translation>Proton Prefix (compatdata/pfx)</translation>
+    </message>
+    <message>
       <source>Scanning for prefix…</source>
       <translation>Vyhledávání předpony…</translation>
     </message>
@@ -2021,8 +1899,16 @@ Mezipaměť md5 je zachována. Archivy budou znovu staženy podle potřeby. Wabb
       <translation>Není nastavena předvolba.</translation>
     </message>
     <message>
+      <source>Mod Staging Folder</source>
+      <translation>Složka Mod</translation>
+    </message>
+    <message>
       <source>Searching common AppImage locations…</source>
       <translation>Vyhledávání společných míst Appliture..</translation>
+    </message>
+    <message>
+      <source>AppImage Location (Optional)</source>
+      <translation>Umístění obrázku aplikace (nepovinné)</translation>
     </message>
     <message>
       <source>Default location will be used.</source>
@@ -2033,24 +1919,16 @@ Mezipaměť md5 je zachována. Archivy budou znovu staženy podle potřeby. Wabb
       <translation>Obnovit výchozí nastavení</translation>
     </message>
     <message>
+      <source>Saves Folder (optional)</source>
+      <translation>Uložená složka (volitelné)</translation>
+    </message>
+    <message>
       <source>Detected automatically.</source>
       <translation>Zjištěno automaticky.</translation>
     </message>
     <message>
-      <source>Detected from the Ludusavi manifest</source>
-      <translation>Zjištěno z Ludusaviho manifestu</translation>
-    </message>
-    <message>
-      <source>Saves</source>
-      <translation>Uložené</translation>
-    </message>
-    <message>
       <source>Clear</source>
       <translation>Vymazat</translation>
-    </message>
-    <message>
-      <source>Set this only if the Saves tab looks in the wrong place.</source>
-      <translation>Nastavte pouze v případě, že karta Uložené vypadá na nesprávném místě.</translation>
     </message>
     <message>
       <source>Options</source>
@@ -2095,10 +1973,6 @@ Mezipaměť md5 je zachována. Archivy budou znovu staženy podle potřeby. Wabb
     <message>
       <source>Windows / Proton</source>
       <translation>Windows / Proton</translation>
-    </message>
-    <message>
-      <source>Behaviour</source>
-      <translation>Chování</translation>
     </message>
     <message>
       <source>Swap launcher with script extender on deploy</source>
@@ -2185,14 +2059,6 @@ Nastavení výchozího profilu tím nebude ovlivněno.</translation>
       <translation>Profil nyní používá nastavení sdíleného profilu (výchozího profilu).</translation>
     </message>
     <message>
-      <source>{0} · this profile only</source>
-      <translation>{0} · pouze tento profil</translation>
-    </message>
-    <message>
-      <source>Shared settings</source>
-      <translation>Nastavení sdíleno</translation>
-    </message>
-    <message>
       <source>Settings saved.</source>
       <translation>Nastavení bylo uloženo.</translation>
     </message>
@@ -2211,14 +2077,6 @@ Nastavení výchozího profilu tím nebude ovlivněno.</translation>
     <message>
       <source>Version {0}</source>
       <translation>Verze {0}</translation>
-    </message>
-    <message>
-      <source>Non-Steam Shortcut prefix</source>
-      <translation>Prefix zástupce mimo Steam</translation>
-    </message>
-    <message>
-      <source>{0} prefix</source>
-      <translation>Předpona {0}</translation>
     </message>
     <message>
       <source>Prefix already configured. You can update the path below.</source>
@@ -2323,102 +2181,6 @@ Nastavení výchozího profilu tím nebude ovlivněno.</translation>
     <message>
       <source>Found via drive scan.</source>
       <translation>Nalezeno přes drive scan.</translation>
-    </message>
-    <message>
-      <source>Problem</source>
-      <translation>Problém</translation>
-    </message>
-    <message>
-      <source>N/A</source>
-      <translation>Nepřichází v úvahu</translation>
-    </message>
-    <message>
-      <source>Scanning…</source>
-      <translation>Skenování…</translation>
-    </message>
-    <message>
-      <source>Not found</source>
-      <translation>Nenalezeno</translation>
-    </message>
-    <message>
-      <source>Custom</source>
-      <translation>Vlastní</translation>
-    </message>
-    <message>
-      <source>Default</source>
-      <translation>Výchozí</translation>
-    </message>
-    <message>
-      <source>Auto</source>
-      <translation>Automaticky</translation>
-    </message>
-    <message>
-      <source>None</source>
-      <translation>Nic</translation>
-    </message>
-    <message>
-      <source>Detected</source>
-      <translation>Zjištěno</translation>
-    </message>
-    <message>
-      <source>Check</source>
-      <translation>Zkontrolovat</translation>
-    </message>
-    <message>
-      <source>Set</source>
-      <translation>Nastavit</translation>
-    </message>
-    <message>
-      <source>Configured</source>
-      <translation>Konfigurováno</translation>
-    </message>
-    <message>
-      <source>Not set up</source>
-      <translation>Není nastaveno</translation>
-    </message>
-    <message>
-      <source>VFS deploy</source>
-      <translation>Zavést VFS</translation>
-    </message>
-    <message>
-      <source>Hardlink deploy</source>
-      <translation>Hardlinka nasazení</translation>
-    </message>
-    <message>
-      <source>Symlink deploy</source>
-      <translation>Symlink deploy</translation>
-    </message>
-    <message>
-      <source>Locations</source>
-      <translation>Místa</translation>
-    </message>
-    <message>
-      <source>Game install</source>
-      <translation>Instalace hry</translation>
-    </message>
-    <message>
-      <source>AppImage</source>
-      <translation>AppImage</translation>
-    </message>
-    <message>
-      <source>Not needed for a native Linux game</source>
-      <translation>Není potřeba pro nativní linuxovou hru</translation>
-    </message>
-    <message>
-      <source>Detected automatically</source>
-      <translation>Detekováno automaticky</translation>
-    </message>
-    <message>
-      <source>Proton prefix</source>
-      <translation>Předpona Protonu</translation>
-    </message>
-    <message>
-      <source>Default location</source>
-      <translation>Výchozí umístění</translation>
-    </message>
-    <message>
-      <source>Mod staging</source>
-      <translation>Mod staging</translation>
     </message>
     <message>
       <source>Game executable not found on any drive.</source>
@@ -5363,10 +5125,6 @@ Klikněte na Hotovo pro vyčištění extrahovaných souborů a zavřít.</trans
       <translation>Autor</translation>
     </message>
     <message>
-      <source>By source location</source>
-      <translation>Podle polohy zdroje</translation>
-    </message>
-    <message>
       <source>By file type</source>
       <translation>Podle typu souboru</translation>
     </message>
@@ -5650,10 +5408,6 @@ It may already be modified. Verify game files in Steam/Heroic to get a clean exe
       <translation>Neznámá verze {0}.
 SHA-1: {1}
 Může být již upravena. Ověřit herní soubory ve službě Steam / Heroic získat čistý exe, pak zkuste znovu.</translation>
-    </message>
-    <message>
-      <source>Unpatched {0} detected - ready to patch.</source>
-      <translation>Neupravený {0} byl detekován - připraven k opravě.</translation>
     </message>
     <message>
       <source>Backup found: {0}</source>
@@ -8321,28 +8075,12 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
       <translation>Upřednostnit AppImage</translation>
     </message>
     <message>
-      <source>.NET Framework 4.8</source>
-      <translation>.NET Framework 4.8</translation>
-    </message>
-    <message>
       <source>Download Manifest…</source>
       <translation>Stáhnout Manifest..</translation>
     </message>
     <message>
-      <source>Wabbajack</source>
-      <translation>Wabbajack</translation>
-    </message>
-    <message>
-      <source>Browse Wabbajack modlists…</source>
-      <translation>Procházet Wabbajack modlists…</translation>
-    </message>
-    <message>
       <source>{0} is running - switch games when it finishes.</source>
       <translation>{0} běží - po dokončení přepínat hry.</translation>
-    </message>
-    <message>
-      <source>{0} is running - switch profiles when it finishes.</source>
-      <translation>{0} běží - přepněte profily, když skončí.</translation>
     </message>
     <message>
       <source>VFS</source>
@@ -8411,34 +8149,6 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
     <message>
       <source>Could not identify any of the {0} mod(s) found.</source>
       <translation>Nelze identifikovat žádný z nalezených {0} mod (s).</translation>
-    </message>
-    <message>
-      <source>Wabbajack installation complete.</source>
-      <translation>Instalace Wabbajack dokončena.</translation>
-    </message>
-    <message>
-      <source>A Wabbajack installation is running.</source>
-      <translation>Instalace Wabbajack je spuštěna.</translation>
-    </message>
-    <message>
-      <source>The active profile isn't a Wabbajack profile.</source>
-      <translation>Aktivní profil není Wabbajack profil.</translation>
-    </message>
-    <message>
-      <source>Wait for the current operation to finish before resetting the load order.</source>
-      <translation>Počkejte na dokončení aktuální operace před resetováním pořadí načtení.</translation>
-    </message>
-    <message>
-      <source>Wabbajack load-order reset</source>
-      <translation>Wabbajack load-order reset</translation>
-    </message>
-    <message>
-      <source>Resetting Wabbajack load order…</source>
-      <translation>Resetování pořadí zatížení Wabbajack…</translation>
-    </message>
-    <message>
-      <source>Wabbajack load order reset - {0} mods and {1} plugins ordered.</source>
-      <translation>Pořadí načítání Wabbajack bylo obnoveno - {0} modů a {1} pluginy byly objednány.</translation>
     </message>
     <message>
       <source>Load order reset - {0} mods ordered, {1} kept below.</source>
@@ -8589,14 +8299,6 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
       <translation>Čekání na aktualizace profilu…</translation>
     </message>
     <message>
-      <source>Wait for the Proton installer to finish before closing Amethyst.</source>
-      <translation>Počkejte na dokončení instalace Protonu před uzavřením Amethystu.</translation>
-    </message>
-    <message>
-      <source>Pausing Wabbajack and waiting for installation and tool setup to stop safely…</source>
-      <translation>Pozastavení Wabbajack a čekání na instalaci a nastavení nástrojů pro bezpečné zastavení…</translation>
-    </message>
-    <message>
       <source>Extracting / Installing</source>
       <translation>Extrakce / instalace</translation>
     </message>
@@ -8605,32 +8307,12 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
       <translation>Obnovit hru před změnou preferovaného balíčku OpenMW.</translation>
     </message>
     <message>
-      <source>Installing .NET Framework 4.8</source>
-      <translation>Installing .NET Framework 4.8</translation>
-    </message>
-    <message>
       <source>Wizard Settings…</source>
       <translation>Nastavení průvodce..</translation>
     </message>
     <message>
       <source>Reset wizard tools that automatically reuse their saved Proton settings.</source>
       <translation>Obnovit průvodce nástroje, které automaticky znovu použijí jejich uložená nastavení Proton.</translation>
-    </message>
-    <message>
-      <source>Return to the game and profile shown in this wizard, then install the downloaded files.</source>
-      <translation>Vraťte se do hry a profilu zobrazeného v tomto průvodci, poté nainstalujte stažené soubory.</translation>
-    </message>
-    <message>
-      <source>Select a member profile before installing Workshop mods.</source>
-      <translation>Vyberte profil člena před instalací módů Workshopu.</translation>
-    </message>
-    <message>
-      <source>Wait for the running wizard tool to finish.</source>
-      <translation>Počkejte na dokončení spuštěného nástroje průvodce.</translation>
-    </message>
-    <message>
-      <source>Workshop installation</source>
-      <translation>Instalace dílny</translation>
     </message>
     <message>
       <source>No QuickAutoClean tool is available for this game.</source>
@@ -8803,10 +8485,6 @@ Spustit průvodce Downgrade pro opravu hry zpět na verzi FOSE podporu. Váš se
       <translation>Povoleno / zakázáno</translation>
     </message>
     <message>
-      <source>Nexus mod / file ID</source>
-      <translation>Nexus mod / file ID</translation>
-    </message>
-    <message>
       <source>By file type</source>
       <translation>Podle typu souboru</translation>
     </message>
@@ -8817,14 +8495,6 @@ Spustit průvodce Downgrade pro opravu hry zpět na verzi FOSE podporu. Váš se
     <message>
       <source>Filter the modlist with search tags (combine them, and with text):</source>
       <translation>Filtrovat modlist pomocí vyhledávacích značek (kombinovat je a s textem):</translation>
-    </message>
-    <message>
-      <source>mod.io</source>
-      <translation>mod.io</translation>
-    </message>
-    <message>
-      <source>None</source>
-      <translation>Nic</translation>
     </message>
     <message>
       <source>Mods with BA2 archives</source>
@@ -8863,16 +8533,8 @@ Spustit průvodce Downgrade pro opravu hry zpět na verzi FOSE podporu. Váš se
       <translation>Odstranit stalé pluginy</translation>
     </message>
     <message>
-      <source>Cancel LOOT</source>
-      <translation>Zrušit DLOUHÉ</translation>
-    </message>
-    <message>
       <source>Refreshing LOOT metadata for {0} plugins…</source>
       <translation>Osvěžující metadata LOOT pro moduly {0}..</translation>
-    </message>
-    <message>
-      <source>LOOT cancelled.</source>
-      <translation>LOOT zrušeno.</translation>
     </message>
     <message>
       <source>Plugin metadata refreshed.</source>
@@ -9690,10 +9352,6 @@ Jak by se ti líbilo zvládnout stávající mód?</translation>
       <translation>Otevřít na Thunderstore</translation>
     </message>
     <message>
-      <source>Open on Steam Workshop</source>
-      <translation>Otevřít na Steam Workshopu</translation>
-    </message>
-    <message>
       <source>Thunderstore Actions</source>
       <translation>Thunderstore Akce</translation>
     </message>
@@ -9847,14 +9505,6 @@ Jak by se ti líbilo zvládnout stávající mód?</translation>
     <message>
       <source>Size</source>
       <translation>Velikost</translation>
-    </message>
-    <message>
-      <source>Nexus Mod ID</source>
-      <translation>Nexus Mod ID</translation>
-    </message>
-    <message>
-      <source>Nexus File ID</source>
-      <translation>ID Nexus souboru</translation>
     </message>
   </context>
   <context>
@@ -11575,37 +11225,6 @@ Denně: {1}</translation>
     <message>
       <source>could not be read</source>
       <translation>nelze číst</translation>
-    </message>
-  </context>
-  <context>
-    <name>Oblivion4GbView</name>
-    <message>
-      <source>Oblivion 4GB Patch</source>
-      <translation>Oblivion 4GB patch</translation>
-    </message>
-    <message>
-      <source>Patches Oblivion.exe so the 32-bit game can use up to 4 GB of memory on a 64-bit system.
-
-The patch is applied natively and does not require Wine or an external patcher. It does not install or load OBSE.
-
-The original exe is kept as {0}.</source>
-      <translation>Patches Oblivion.exe, takže 32-bitová hra může používat až 4 GB paměti na 64bitovém systému.
-
-Záplata je aplikována nativně a nevyžaduje víno nebo externí patcher. Neinstaluje ani nenačte OBSE.
-
-Původní exe je udržována jako {0}.</translation>
-    </message>
-    <message>
-      <source>The PE header could not be read.</source>
-      <translation>Hlavička PE nemohla být přečtena.</translation>
-    </message>
-    <message>
-      <source>{0} is not a supported Windows executable.
-{1}
-Verify the game files in Steam and try again.</source>
-      <translation>{0} není podporovaný spouštěč Windows.
-{1}
-Ověřte herní soubory ve Steamu a zkuste to znovu.</translation>
     </message>
   </context>
   <context>
@@ -13791,37 +13410,6 @@ Zvolte možnost „Ponechat“, pokud se jedná o volitelnou/alternativní varia
     </message>
   </context>
   <context>
-    <name>RequirementsSummary</name>
-    <message>
-      <source>Check requirements to verify game files, available space and runtime requirements. Review the results before installing.</source>
-      <translation>Zkontrolujte požadavky pro ověření herních souborů, dostupného místa a požadavků na běh. Před instalací zkontrolujte výsledky.</translation>
-    </message>
-    <message>
-      <source>{0} blocking</source>
-      <translation>Blokování {0}</translation>
-    </message>
-    <message>
-      <source>1 needs your input</source>
-      <translation>1 potřebuje váš vstup</translation>
-    </message>
-    <message>
-      <source>{0} need your input</source>
-      <translation>{0} potřebuje váš vstup</translation>
-    </message>
-    <message>
-      <source>{0} to review</source>
-      <translation>{0} k přezkoumání</translation>
-    </message>
-    <message>
-      <source>Requirements passed</source>
-      <translation>Předchozí požadavky</translation>
-    </message>
-    <message>
-      <source>Passed ({0})</source>
-      <translation>Prošel ({0})</translation>
-    </message>
-  </context>
-  <context>
     <name>RequirementsView</name>
     <message>
       <source>Requirements</source>
@@ -15125,14 +14713,6 @@ ametyst.flatpakrepo</translation>
       <translation>Přeložit na Crowdin</translation>
     </message>
     <message>
-      <source>Decrease {0}</source>
-      <translation>Snížit {0}</translation>
-    </message>
-    <message>
-      <source>Increase {0}</source>
-      <translation type="unfinished">Increase {0}</translation>
-    </message>
-    <message>
       <source>Open the Amethyst Crowdin project to help translate the app.</source>
       <translation>Otevřete Amethyst Crowdin projekt, který pomůže přeložit aplikaci.</translation>
     </message>
@@ -15145,76 +14725,8 @@ ametyst.flatpakrepo</translation>
       <translation>Stavový řádek</translation>
     </message>
     <message>
-      <source>Install Mod</source>
-      <translation>Install Mod</translation>
-    </message>
-    <message>
-      <source>Proton</source>
-      <translation>Proton</translation>
-    </message>
-    <message>
-      <source>Wizard</source>
-      <translation>Průvodce</translation>
-    </message>
-    <message>
-      <source>Nexus</source>
-      <translation>Nexus</translation>
-    </message>
-    <message>
-      <source>Thunderstore</source>
-      <translation>Thunderstore</translation>
-    </message>
-    <message>
-      <source>Wabbajack</source>
-      <translation>Wabbajack</translation>
-    </message>
-    <message>
-      <source>Top bar</source>
-      <translation>Horní lišta</translation>
-    </message>
-    <message>
-      <source>Where the toolbar sits. As a side bar it is always icon-only, with the labels shown as tooltips.</source>
-      <translation>Kde se nachází panel nástrojů. Jako postranní panel je vždy pouze ikona, s popisky zobrazenými jako nářadí.</translation>
-    </message>
-    <message>
-      <source>Always use compact (icon-only) buttons</source>
-      <translation>Vždy používat kompaktní tlačítka (pouze ikony)</translation>
-    </message>
-    <message>
-      <source>Keep the top bar at its narrow sizes - buttons show icons only and the game and profile selectors collapse - instead of doing so only when the window is too narrow for the labels.</source>
-      <translation>Ponechat horní lištu ve své úzké velikosti - tlačítka zobrazují pouze ikony a selektory hry a profilu se sbalí - namísto toho pouze pokud je okno příliš úzké pro popisky.</translation>
-    </message>
-    <message>
-      <source>Hide buttons</source>
-      <translation>Skrýt tlačítka</translation>
-    </message>
-    <message>
-      <source>Buttons ticked here are removed from the toolbar. A button that does not apply to the current game (Proton without a prefix, or a store the game is not on) is hidden anyway.</source>
-      <translation>Tlačítka zaškrtnutá zde jsou odstraněna z panelu nástrojů. Tlačítko, které se nevztahuje na aktuální hru (Proton bez předpony, nebo obchod hra není zapnuta) je přesto skryté.</translation>
-    </message>
-    <message>
       <source>Cap the combined download speed of all downloads (collections, single mods, nxm and modl links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>
       <translation>Omezte kombinovanou rychlost stahování všech stahování (kolekce, jednotlivé mody, nxm a modl odkazy), takže nepoužívají celé připojení. Platí okamžitě, a to i pro běžící kolekci.</translation>
-    </message>
-    <message>
-      <source>Nexus download server</source>
-      <translation>Server pro stahování Nexus</translation>
-    </message>
-    <message>
-      <source>Automatic</source>
-      <translation>Automaticky</translation>
-    </message>
-    <message>
-      <source>Global CDN</source>
-      <translation>Globální CDN</translation>
-    </message>
-    <message>
-      <source>{0} (Premium)</source>
-      <translation>{0} (Premium)</translation>
-    </message>
-    <message>
-      <source>Automatic follows your Nexus website preference. Regional servers require Nexus Premium. Applies to new or resumed Nexus downloads, including collections and Wabbajack. If the selected server is unavailable or fails, other available servers are tried. Pause and resume an active download to change its server.</source>
-      <translation>Automaticky se řídí preferencí vašich webových stránek Nexus. Regionální servery vyžadují Nexus Premium. Platí pro nové nebo obnovené stahování Nexus, včetně kolekcí a Wabbajack. Pokud je vybraný server nedostupný nebo selže, ostatní dostupné servery se pokusí. Pozastavit a obnovit aktivní stahování pro změnu serveru.</translation>
     </message>
     <message>
       <source>Downloads are saved to the cache but not installed. Applies to nxm:// and modl:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</source>
@@ -15379,113 +14891,6 @@ ametyst.flatpakrepo</translation>
     <message>
       <source>Failed to save setting: {0}</source>
       <translation>Nepodařilo se uložit nastavení: {0}</translation>
-    </message>
-  </context>
-  <context>
-    <name>SetupOptions</name>
-    <message>
-      <source>Use the version required by the author. Output keeps its authored position in {0}.</source>
-      <translation>Použijte verzi vyžadovanou autorem. Výstup udržuje svou autorskou pozici v {0}.</translation>
-    </message>
-    <message>
-      <source>Run the Fallout 3 BSA Decompressor wizard, then import its complete output mod here, or select the author's .mpi package.</source>
-      <translation>Spusťte průvodce Decompressor Fallout 3 BSA a poté importujte svůj kompletní výstupní mód zde, nebo vyberte autorův balíček .mpi.</translation>
-    </message>
-    <message>
-      <source>Open mod.pub TTW page</source>
-      <translation>Open mod.pub TTW page</translation>
-    </message>
-    <message>
-      <source>Build from .mpi package</source>
-      <translation>Sestavit z balíčku .mpi</translation>
-    </message>
-    <message>
-      <source>Import existing output mod</source>
-      <translation>Importovat stávající výstupní mód</translation>
-    </message>
-    <message>
-      <source>Method</source>
-      <translation>Metoda</translation>
-    </message>
-    <message>
-      <source>Select the author-required version</source>
-      <translation>Vyberte autorem požadovanou verzi</translation>
-    </message>
-    <message>
-      <source>Browse…</source>
-      <translation>Procházet…</translation>
-    </message>
-    <message>
-      <source>Download package…</source>
-      <translation>Stáhnout balíček…</translation>
-    </message>
-    <message>
-      <source>Download the FO3 BSA Decompressor archive from Nexus Mods, extract it, then browse to the .mpi file.</source>
-      <translation>Stáhněte FO3 BSA Dekompressor archiv z Nexus Mods, extrahujte jej a pak procházejte do souboru .mpi.</translation>
-    </message>
-    <message>
-      <source>Detected automatically when installed through Steam</source>
-      <translation>Automaticky detekováno při instalaci přes Steam</translation>
-    </message>
-    <message>
-      <source>Original Fallout 3 game</source>
-      <translation>Původní Fallout 3 hra</translation>
-    </message>
-    <message>
-      <source>Install / update native MPI tool</source>
-      <translation>Instalovat / aktualizovat nativní nástroj MPI</translation>
-    </message>
-    <message>
-      <source>MPI installer on GitHub</source>
-      <translation>MPI installer on GitHub</translation>
-    </message>
-    <message>
-      <source>Root file variant</source>
-      <translation>Varianta kořenového souboru</translation>
-    </message>
-    <message>
-      <source>Override</source>
-      <translation>Přepsat</translation>
-    </message>
-    <message>
-      <source>Overrides the author's resolution in supported game INIs and display-tweak files. Leave off to keep their settings.</source>
-      <translation>Přepíše rozlišení autora v podporované hře INI a v zobrazovacích souborech. Nechte vypnuté pro zachování jejich nastavení.</translation>
-    </message>
-    <message>
-      <source>Display resolution</source>
-      <translation>Rozlišení zobrazení</translation>
-    </message>
-    <message>
-      <source>Choose automatically</source>
-      <translation>Automaticky vybrat</translation>
-    </message>
-    <message>
-      <source>Unavailable: {0}</source>
-      <translation>Unavailable: {0}</translation>
-    </message>
-    <message>
-      <source>Texture tool Proton</source>
-      <translation>Nástroj textury Proton</translation>
-    </message>
-    <message>
-      <source>Automatic (GPU when available)</source>
-      <translation>Automaticky (GPU, je-li k dispozici)</translation>
-    </message>
-    <message>
-      <source>CPU only</source>
-      <translation>Pouze CPU</translation>
-    </message>
-    <message>
-      <source>Texture conversion</source>
-      <translation>Převod textur</translation>
-    </message>
-    <message>
-      <source>Select extracted MPI package</source>
-      <translation>Vybrat extrahovaný MPI balíček</translation>
-    </message>
-    <message>
-      <source>Select original game</source>
-      <translation>Vyberte původní hru</translation>
     </message>
   </context>
   <context>
@@ -18518,550 +17923,6 @@ Nejnovější verze:  {1}</translation>
     </message>
   </context>
   <context>
-    <name>WabbajackCard</name>
-    <message>
-      <source>by {0}</source>
-      <translation>od {0}</translation>
-    </message>
-    <message>
-      <source>Unknown author</source>
-      <translation>Neznámý autor</translation>
-    </message>
-    <message>
-      <source>Featured</source>
-      <translation>Doporučené</translation>
-    </message>
-    <message>
-      <source>Adult</source>
-      <translation>Dospělý</translation>
-    </message>
-    <message>
-      <source>Unavailable</source>
-      <translation>Unavailable</translation>
-    </message>
-    <message>
-      <source>Resume available</source>
-      <translation>Pokračovat k dispozici</translation>
-    </message>
-    <message>
-      <source>Update available</source>
-      <translation>K dispozici je aktualizace</translation>
-    </message>
-    <message>
-      <source>Installed</source>
-      <translation>Nainstalováno</translation>
-    </message>
-    <message>
-      <source>Download</source>
-      <translation>Stáhnout</translation>
-    </message>
-    <message>
-      <source>Install</source>
-      <translation>Instalovat</translation>
-    </message>
-    <message>
-      <source>Unknown</source>
-      <translation>Neznámý</translation>
-    </message>
-    <message>
-      <source>View</source>
-      <translation>Zobrazit</translation>
-    </message>
-    <message>
-      <source>Installation: {0}</source>
-      <translation>Instalace: {0}</translation>
-    </message>
-  </context>
-  <context>
-    <name>WabbajackView</name>
-    <message>
-      <source>Wabbajack modlists</source>
-      <translation>Wabbajack modlisty</translation>
-    </message>
-    <message>
-      <source>No game selected</source>
-      <translation>Nebyla vybrána žádná hra</translation>
-    </message>
-    <message>
-      <source>All tags</source>
-      <translation>Všechny štítky</translation>
-    </message>
-    <message>
-      <source>Sort: </source>
-      <translation>Seřadit: </translation>
-    </message>
-    <message>
-      <source>Featured only</source>
-      <translation>Pouze doporučené</translation>
-    </message>
-    <message>
-      <source>Installed</source>
-      <translation>Nainstalováno</translation>
-    </message>
-    <message>
-      <source>Show adult</source>
-      <translation>Zobrazit dospělého</translation>
-    </message>
-    <message>
-      <source>Loading modlists…</source>
-      <translation>Načítání modifikací…</translation>
-    </message>
-    <message>
-      <source>Search titles, authors, or tags…</source>
-      <translation>Hledat názvy, autory nebo značky…</translation>
-    </message>
-    <message>
-      <source>Page</source>
-      <translation>Stránka</translation>
-    </message>
-    <message>
-      <source>Select a game in the main toolbar</source>
-      <translation>Vyberte hru v hlavním panelu nástrojů</translation>
-    </message>
-    <message>
-      <source>Not checked</source>
-      <translation>Nezaškrtnuto</translation>
-    </message>
-    <message>
-      <source>Files and locations</source>
-      <translation>Soubory a umístění</translation>
-    </message>
-    <message>
-      <source>The package is loaded when you check requirements.</source>
-      <translation>Balíček se načte při kontrole požadavků.</translation>
-    </message>
-    <message>
-      <source>Modlist package</source>
-      <translation>Balíček Modlistů</translation>
-    </message>
-    <message>
-      <source>Reuse an existing download folder</source>
-      <translation>Znovu použít existující složku pro stahování</translation>
-    </message>
-    <message>
-      <source>This installation's managed directory inside the current game's .wabbajack folder.</source>
-      <translation>Tento instalační adresář je spravován ve složce .wabbajack aktuální hry.</translation>
-    </message>
-    <message>
-      <source>Downloads</source>
-      <translation>Stahování</translation>
-    </message>
-    <message>
-      <source>Installation</source>
-      <translation>Montáž</translation>
-    </message>
-    <message>
-      <source>Chosen automatically for this game</source>
-      <translation>Automaticky zvoleno pro tuto hru</translation>
-    </message>
-    <message>
-      <source>Profiles and options</source>
-      <translation>Profily a možnosti</translation>
-    </message>
-    <message>
-      <source>Operation</source>
-      <translation>Operace</translation>
-    </message>
-    <message>
-      <source>Profiles</source>
-      <translation>Profiles</translation>
-    </message>
-    <message>
-      <source>Linux adjustments</source>
-      <translation>Nastavení Linuxu</translation>
-    </message>
-    <message>
-      <source>Check requirements to load the authored profiles and prepare the download plan.</source>
-      <translation>Zkontrolujte požadavky pro načtení autorizovaných profilů a připravte plán stahování.</translation>
-    </message>
-    <message>
-      <source>Editing shared mod files affects every profile. INIs, enabled mods and load order stay separate.</source>
-      <translation>Úprava sdílených souborů modů ovlivňuje každý profil. INI, povolené mody a nezůstávají oddělené.</translation>
-    </message>
-    <message>
-      <source>Requirements</source>
-      <translation>Požadavky</translation>
-    </message>
-    <message>
-      <source>Download plan</source>
-      <translation>Stáhnout plán</translation>
-    </message>
-    <message>
-      <source>Check</source>
-      <translation>Zkontrolovat</translation>
-    </message>
-    <message>
-      <source>Review</source>
-      <translation>Přezkum</translation>
-    </message>
-    <message>
-      <source>Install</source>
-      <translation>Instalovat</translation>
-    </message>
-    <message>
-      <source>Check requirements and review the download plan.</source>
-      <translation>Zkontrolujte požadavky a zkontrolujte plán stahování.</translation>
-    </message>
-    <message>
-      <source>Review changes before updating shared files and profiles.</source>
-      <translation>Před aktualizací sdílených souborů a profilů zkontrolujte změny.</translation>
-    </message>
-    <message>
-      <source>File</source>
-      <translation>Soubor</translation>
-    </message>
-    <message>
-      <source>Change</source>
-      <translation>Změnit</translation>
-    </message>
-    <message>
-      <source>Resolution</source>
-      <translation>Rozlišení</translation>
-    </message>
-    <message>
-      <source>No modlists match these filters.
-Try clearing your search or filters.</source>
-      <translation>Těmto filtrům neodpovídají žádné modlisty.
-Zkuste vymazat vyhledávání nebo filtry.</translation>
-    </message>
-    <message>
-      <source>Select a game in the main toolbar to browse its modlists.</source>
-      <translation>Vyberte hru v hlavní nástrojové liště pro procházení jejích modlistů.</translation>
-    </message>
-    <message>
-      <source>of {0}</source>
-      <translation>z {0}</translation>
-    </message>
-    <message>
-      <source>{0} modlists</source>
-      <translation>{0} seznamy modifikací</translation>
-    </message>
-    <message>
-      <source>View modlist</source>
-      <translation>Zobrazit modlist</translation>
-    </message>
-    <message>
-      <source>Unknown</source>
-      <translation>Neznámý</translation>
-    </message>
-    <message>
-      <source>Featured</source>
-      <translation>Doporučené</translation>
-    </message>
-    <message>
-      <source>Unavailable</source>
-      <translation>Unavailable</translation>
-    </message>
-    <message>
-      <source>Update available</source>
-      <translation>K dispozici je aktualizace</translation>
-    </message>
-    <message>
-      <source>Saved installation package</source>
-      <translation>Uložený instalační balíček</translation>
-    </message>
-    <message>
-      <source>Package will download from the gallery</source>
-      <translation>Balíček se stáhne z galerie</translation>
-    </message>
-    <message>
-      <source>This list is currently unavailable for download.</source>
-      <translation>Tento seznam není momentálně k dispozici ke stažení.</translation>
-    </message>
-    <message>
-      <source>Open Wabbajack modlist</source>
-      <translation>Otevřít seznam Wabbajack</translation>
-    </message>
-    <message>
-      <source>Installation directory</source>
-      <translation>Instalační adresář</translation>
-    </message>
-    <message>
-      <source>Download directory</source>
-      <translation>Adresář pro stahování</translation>
-    </message>
-    <message>
-      <source>Open Wabbajack URL</source>
-      <translation>Otevřít Wabbajack URL</translation>
-    </message>
-    <message>
-      <source>Direct .wabbajack URL:</source>
-      <translation>Přímý .wabbajack URL:</translation>
-    </message>
-    <message>
-      <source>This list is currently unavailable for download. Open a local .wabbajack file to continue.</source>
-      <translation>Tento seznam není momentálně k dispozici ke stažení. Otevřete místní .wabbajack soubor a pokračujte.</translation>
-    </message>
-    <message>
-      <source>This entry has no package download URL. Open a local .wabbajack file.</source>
-      <translation>Tato položka neobsahuje žádnou URL adresu ke stažení balíčku. Otevřete lokální .wabbajack soubor.</translation>
-    </message>
-    <message>
-      <source>Downloading modlist package…</source>
-      <translation>Stahování modlistu…</translation>
-    </message>
-    <message>
-      <source>Inspecting modlist package…</source>
-      <translation>Probíhá prohlídka modlistu…</translation>
-    </message>
-    <message>
-      <source>{0} / {1} ({2}%)</source>
-      <translation>{0} / {1} ({2}%)</translation>
-    </message>
-    <message>
-      <source>{0} downloaded</source>
-      <translation>{0} staženo</translation>
-    </message>
-    <message>
-      <source>Starting…</source>
-      <translation>Začínáme…</translation>
-    </message>
-    <message>
-      <source>Installing…</source>
-      <translation>Instalace…</translation>
-    </message>
-    <message>
-      <source>Preparing tool…</source>
-      <translation>Příprava nástroje…</translation>
-    </message>
-    <message>
-      <source>Loading modlist…</source>
-      <translation>Načítání modlistu…</translation>
-    </message>
-    <message>
-      <source>Checking requirements…</source>
-      <translation>Kontrola požadavků…</translation>
-    </message>
-    <message>
-      <source>Choose .wabbajack…</source>
-      <translation>Zvolte .wabbajack…</translation>
-    </message>
-    <message>
-      <source>Recheck requirements</source>
-      <translation>Požadavky na ověření</translation>
-    </message>
-    <message>
-      <source>Check requirements</source>
-      <translation>Požadavky na kontrolu</translation>
-    </message>
-    <message>
-      <source>Start the selected operation using the reviewed download plan.</source>
-      <translation>Zahájit vybranou operaci pomocí revidovaného plánu stahování.</translation>
-    </message>
-    <message>
-      <source>Load the package if needed, check requirements, and prepare the download plan for review.</source>
-      <translation>V případě potřeby načtěte balíček, zkontrolujte požadavky a připravte plán stahování pro přezkoumání.</translation>
-    </message>
-    <message>
-      <source>Installing</source>
-      <translation>Instalace</translation>
-    </message>
-    <message>
-      <source>Installation is running. Pause and cancel are available in the progress window.</source>
-      <translation>Instalace běží. Pozastavit a zrušit je k dispozici v okně průběhu.</translation>
-    </message>
-    <message>
-      <source>Wait for tool setup to finish, then check requirements again.</source>
-      <translation>Počkejte na dokončení nastavení nástroje a pak znovu zkontrolujte požadavky.</translation>
-    </message>
-    <message>
-      <source>Checking…</source>
-      <translation>Kontrola…</translation>
-    </message>
-    <message>
-      <source>Loading…</source>
-      <translation>Načítání…</translation>
-    </message>
-    <message>
-      <source>Checking game files, downloads and available space…</source>
-      <translation>Kontroluji herní soubory, stahování a dostupné místo…</translation>
-    </message>
-    <message>
-      <source>Loading the package, then checking requirements…</source>
-      <translation>Načítání balíku a kontrola požadavků…</translation>
-    </message>
-    <message>
-      <source>Loading the modlist's profiles and options…</source>
-      <translation>Načítání profilů a možností modlistu…</translation>
-    </message>
-    <message>
-      <source>1 blocking</source>
-      <translation>1 blokování</translation>
-    </message>
-    <message>
-      <source>{0} blocking</source>
-      <translation>Blokování {0}</translation>
-    </message>
-    <message>
-      <source>Resolve the blocking requirement to continue, then recheck.</source>
-      <translation>Vyřešte požadavek blokování, abyste mohli pokračovat, poté znovu zkontrolujte.</translation>
-    </message>
-    <message>
-      <source>Resolve the {0} blocking requirements to continue, then recheck.</source>
-      <translation>Pro pokračování vyřešte požadavky blokování {0} a poté znovu zkontrolujte.</translation>
-    </message>
-    <message>
-      <source>Ready to install</source>
-      <translation>Připraveno k instalaci</translation>
-    </message>
-    <message>
-      <source>Plan ready</source>
-      <translation>Plán je připraven</translation>
-    </message>
-    <message>
-      <source>Review the requirements and download plan, then select {0}.</source>
-      <translation>Zkontrolujte požadavky a plán stahování a poté vyberte {0}.</translation>
-    </message>
-    <message>
-      <source>Package ready</source>
-      <translation>Balíček připraven</translation>
-    </message>
-    <message>
-      <source>Preparing the isolated texture runtime and testing DDS conversion…</source>
-      <translation>Příprava rozběhu izolované struktury struktury půdy a testování konverze DDS…</translation>
-    </message>
-    <message>
-      <source>Installing the native MPI tool…</source>
-      <translation>Instalace nativního nástroje MPI…</translation>
-    </message>
-    <message>
-      <source>Wait for the current install or deployment operation to finish.</source>
-      <translation>Počkejte na dokončení aktuální instalace nebo nasazení.</translation>
-    </message>
-    <message>
-      <source>Configure the required game before installing this modlist.</source>
-      <translation>Nastavte požadovanou hru před instalací tohoto modlistu.</translation>
-    </message>
-    <message>
-      <source>Checking game files, downloads, disk space, and runtime requirements…</source>
-      <translation>Kontrola herních souborů, stahování, místa na disku a runtime požadavků…</translation>
-    </message>
-    <message>
-      <source>Installing / Reconstructing</source>
-      <translation>Instalace / Obnova</translation>
-    </message>
-    <message>
-      <source>Download complete · inspecting package…</source>
-      <translation>Stahování dokončeno · Kontrola balíčku…</translation>
-    </message>
-    <message>
-      <source>Modlist package downloaded. Checking its contents…</source>
-      <translation>Balíček Modlist byl stažen. Kontrola jeho obsahu…</translation>
-    </message>
-    <message>
-      <source>Downloading modlist package: {0}</source>
-      <translation>Stahování balíčku modlistů: {0}</translation>
-    </message>
-    <message>
-      <source>Keep mine</source>
-      <translation>Ponechat důl</translation>
-    </message>
-    <message>
-      <source>Use author version</source>
-      <translation>Použít verzi autora</translation>
-    </message>
-    <message>
-      <source>Preview truncated. Review the complete files before choosing.</source>
-      <translation>Náhled zkrácen. Před výběrem zkontrolujte kompletní soubory.</translation>
-    </message>
-    <message>
-      <source>Binary or unreadable content. Compare the recorded hashes and file locations.</source>
-      <translation>Binární nebo nečitelný obsah. Porovnejte nahrané hashy a lokace souborů.</translation>
-    </message>
-    <message>
-      <source>The gallery could not be loaded. Try Refresh, or open a local .wabbajack file.</source>
-      <translation>Galerie nemohla být načtena. Zkuste obnovit nebo otevřít místní .wabbajack soubor.</translation>
-    </message>
-    <message>
-      <source>Open download page</source>
-      <translation>Otevřít stránku ke stažení</translation>
-    </message>
-    <message>
-      <source>Download the .wabbajack file from {0}, then use Open .wabbajack to continue setup.</source>
-      <translation>Stáhněte soubor .wabbajack z {0}, poté použijte Open .wabbajack pro pokračování v instalaci.</translation>
-    </message>
-    <message>
-      <source>Could not continue</source>
-      <translation>Nelze pokračovat</translation>
-    </message>
-    <message>
-      <source>Review the error details, then try the operation again.</source>
-      <translation>Zkontrolujte podrobnosti o chybách a zkuste operaci znovu.</translation>
-    </message>
-    <message>
-      <source>Using cached gallery information.</source>
-      <translation>Použití informací z mezipaměti galerie</translation>
-    </message>
-    <message>
-      <source>Gallery loaded.</source>
-      <translation>Galerie načtena.</translation>
-    </message>
-    <message>
-      <source> {0} feeds unavailable.</source>
-      <translation> {0} kanálů není k dispozici.</translation>
-    </message>
-    <message>
-      <source>Reload</source>
-      <translation>Reload</translation>
-    </message>
-    <message>
-      <source>{0} · saved package</source>
-      <translation>{0} · uložený balíček</translation>
-    </message>
-    <message>
-      <source>{0} archives · {1} files</source>
-      <translation>{0} archivy · {1} soubory</translation>
-    </message>
-    <message>
-      <source>Package ready. Check requirements to prepare the download plan.</source>
-      <translation>Balíček je připraven. Zkontrolujte požadavky pro přípravu plánu stahování.</translation>
-    </message>
-    <message>
-      <source>Requirements and download plan ready. Review them before starting.</source>
-      <translation>Požadavky a plán stažení připraven. Před spuštěním je zkontrolujte.</translation>
-    </message>
-    <message>
-      <source>Resolve the listed requirements, then recheck.</source>
-      <translation>Vyřešte uvedené požadavky a poté znovu zkontrolujte.</translation>
-    </message>
-    <message>
-      <source>Texture tool installed. Check requirements again to refresh the download plan.</source>
-      <translation>Nástroj textur nainstalován. Znovu zkontrolujte požadavky pro aktualizaci plánu stahování.</translation>
-    </message>
-    <message>
-      <source>Native MPI tool installed. Check requirements again to verify the selected package.</source>
-      <translation>Nativní nástroj MPI nainstalován. Zkontrolujte znovu požadavky pro ověření vybraného balíčku.</translation>
-    </message>
-    <message>
-      <source>Paused</source>
-      <translation>Pozastaveno</translation>
-    </message>
-    <message>
-      <source>Cancelled</source>
-      <translation>Zrušeno</translation>
-    </message>
-    <message>
-      <source>Needs attention</source>
-      <translation>Potřebuje pozornost</translation>
-    </message>
-    <message>
-      <source>Installation complete. You can select its profiles from the main toolbar.</source>
-      <translation>Instalace dokončena. Můžete si vybrat její profily z hlavního panelu nástrojů.</translation>
-    </message>
-    <message>
-      <source>Your progress is saved. Check requirements, then select Resume to continue.</source>
-      <translation>Tvůj postup je uložen. Zkontroluj požadavky a poté vyber pokračovat a pokračovat.</translation>
-    </message>
-    <message>
-      <source>Wait for tool setup to finish before closing this tab.</source>
-      <translation>Počkejte na dokončení nastavení nástroje před zavřením této karty.</translation>
-    </message>
-    <message>
-      <source>Pause or cancel the installation before closing this tab.</source>
-      <translation>Pozastavit nebo zrušit instalaci před zavřením této karty.</translation>
-    </message>
-  </context>
-  <context>
     <name>WikiView</name>
     <message>
       <source>Refresh</source>
@@ -19146,10 +18007,6 @@ Stiskněte Refresh vyzkoušet znovu.</translation>
   </context>
   <context>
     <name>WizardTools</name>
-    <message>
-      <source>Install Steam Workshop Mod</source>
-      <translation>Instalovat mód Steam Workshop</translation>
-    </message>
     <message>
       <source>mod.io API Key</source>
       <translation>mod.io API klíč</translation>
@@ -19383,10 +18240,6 @@ Stiskněte Refresh vyzkoušet znovu.</translation>
       <translation>Nainstalovat ReShade</translation>
     </message>
     <message>
-      <source>Download a Steam Workshop item and install it into this profile.</source>
-      <translation>Stáhněte si položku Steam Workshop a nainstalujte ji do tohoto profilu.</translation>
-    </message>
-    <message>
       <source>Enter a mod.io key to enable update checks for manually-installed mod.io mods.</source>
       <translation>Zadejte mod.io klíč umožňující aktualizovat kontroly pro manuálně nainstalovaný mod.io mods.</translation>
     </message>
@@ -19461,10 +18314,6 @@ Stiskněte Refresh vyzkoušet znovu.</translation>
     <message>
       <source>Patch FalloutNV.exe to use 4 GB of memory (keeps a backup that can be restored).</source>
       <translation>Patch FalloutNV.exe pro použití 4 GB paměti (udržuje zálohu, která může být obnovena).</translation>
-    </message>
-    <message>
-      <source>Patch Oblivion.exe to use up to 4 GB of memory (keeps a backup that can be restored).</source>
-      <translation>Patch Oblivion.exe používá až 4 GB paměti (udržuje zálohu, kterou lze obnovit).</translation>
     </message>
     <message>
       <source>Run the native Linux TTW installer (merges Fallout 3 + New Vegas) and add the result as a mod. Requires Fallout 3 installed and a TTW .mpi package from mod.pub.</source>
@@ -19866,149 +18715,6 @@ Znovu otevřete toho čaroděje.</translation>
     <message>
       <source>Deploy</source>
       <translation>Nasazení</translation>
-    </message>
-  </context>
-  <context>
-    <name>WorkshopView</name>
-    <message>
-      <source>Install Steam Workshop Mod</source>
-      <translation>Instalovat mód Steam Workshop</translation>
-    </message>
-    <message>
-      <source>Download an individual public Workshop mod into this profile. Required Workshop items must be installed separately.</source>
-      <translation>Stáhněte si do tohoto profilu jednotlivý veřejný workshop. Požadované položky workshopu musí být nainstalovány samostatně.</translation>
-    </message>
-    <message>
-      <source>Item ID or Steam Workshop URL</source>
-      <translation>ID položky nebo URL Steam Workshopu</translation>
-    </message>
-    <message>
-      <source>Workshop item</source>
-      <translation>Položka dílny</translation>
-    </message>
-    <message>
-      <source>{0} · App ID {1}</source>
-      <translation>{0} · App ID {1}</translation>
-    </message>
-    <message>
-      <source>Install into</source>
-      <translation>Instalovat do</translation>
-    </message>
-    <message>
-      <source>QR code (Steam mobile app)</source>
-      <translation>QR kód (Steam Mobile app)</translation>
-    </message>
-    <message>
-      <source>Steam account and password</source>
-      <translation>Steam účet a heslo</translation>
-    </message>
-    <message>
-      <source>Saved account</source>
-      <translation>Uložený účet</translation>
-    </message>
-    <message>
-      <source>Anonymous (where supported)</source>
-      <translation>Anonymní (pokud je podporováno)</translation>
-    </message>
-    <message>
-      <source>Sign in</source>
-      <translation>Přihlásit se</translation>
-    </message>
-    <message>
-      <source>Steam account name, not display name</source>
-      <translation>Jméno účtu Steamu, nezobrazovat jméno</translation>
-    </message>
-    <message>
-      <source>Account name</source>
-      <translation>Název účtu</translation>
-    </message>
-    <message>
-      <source>Remember this account</source>
-      <translation>Zapamatovat si tento účet</translation>
-    </message>
-    <message>
-      <source>Keep the Steam session on this device. Enter the account name to use it for later downloads.</source>
-      <translation>Ponechat Steam relaci na tomto zařízení. Zadejte název účtu pro pozdější stažení.</translation>
-    </message>
-    <message>
-      <source>Forget saved account</source>
-      <translation>Zapomenout uložený účet</translation>
-    </message>
-    <message>
-      <source>Open Workshop page</source>
-      <translation>Otevřít stránku Workshopu</translation>
-    </message>
-    <message>
-      <source>Continue sign-in</source>
-      <translation>Pokračovat v přihlášení</translation>
-    </message>
-    <message>
-      <source>Install downloaded files</source>
-      <translation>Nainstalovat stažené soubory</translation>
-    </message>
-    <message>
-      <source>Cancel download</source>
-      <translation>Zrušit stahování</translation>
-    </message>
-    <message>
-      <source>Download and install</source>
-      <translation>Stáhnout a nainstalovat</translation>
-    </message>
-    <message>
-      <source>Cancel the download before closing.</source>
-      <translation>Zrušit stahování před uzavřením.</translation>
-    </message>
-    <message>
-      <source>Enter your Steam account name.</source>
-      <translation>Zadejte svůj Steam účet.</translation>
-    </message>
-    <message>
-      <source>The mod installer is unavailable.</source>
-      <translation>Instalátor modifikací není k dispozici.</translation>
-    </message>
-    <message>
-      <source>Looking up Workshop item…</source>
-      <translation>Vyhledávání položky…</translation>
-    </message>
-    <message>
-      <source>Signed in. Downloading Workshop files…</source>
-      <translation>Jste přihlášeni. Stahuji soubory Workshopu…</translation>
-    </message>
-    <message>
-      <source>Steam account password</source>
-      <translation>Steam heslo k účtu</translation>
-    </message>
-    <message>
-      <source>Steam Guard code from your email or authenticator</source>
-      <translation>Steam Guard kód z vašeho e-mailu nebo autentifikátoru</translation>
-    </message>
-    <message>
-      <source>Download cancelled. Nothing was installed.</source>
-      <translation>Stahování bylo zrušeno. Nic nebylo nainstalováno.</translation>
-    </message>
-    <message>
-      <source>Installed: {0}</source>
-      <translation>Nainstalováno: {0}</translation>
-    </message>
-    <message>
-      <source>Complete the mod installer tab to finish installation.</source>
-      <translation>Pro dokončení instalace doplňte instalační kartu modů.</translation>
-    </message>
-    <message>
-      <source>Installation did not complete. The download is kept so you can try again.</source>
-      <translation>Instalace nebyla dokončena. Stahování je zachováno a můžete to zkusit znovu.</translation>
-    </message>
-    <message>
-      <source>Cancelling download…</source>
-      <translation>Zrušení stahování…</translation>
-    </message>
-    <message>
-      <source>Installing the downloaded mod…</source>
-      <translation>Instalace staženého modu…</translation>
-    </message>
-    <message>
-      <source>Saved Steam account removed from Amethyst.</source>
-      <translation>Uložený Steam účet odstraněn z Amethystu.</translation>
     </message>
   </context>
   <context>
