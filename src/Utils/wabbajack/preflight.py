@@ -549,6 +549,9 @@ def _preflight(request, stop, notify, log=None):
                     continue
                 name = line[1:]
                 if name.casefold() not in available_mods:
+                    if name.casefold().startswith("[dev]"):
+                        emit(log, "preflight.development_mod.skipped", profile=profile, mod=name)
+                        continue
                     try:
                         existing = source_path(directory / "root" / "mods", name)
                         available = existing.is_dir() and any(existing.iterdir())
