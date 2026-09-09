@@ -108,10 +108,13 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                     and a.key not in report.prepared_game_files
                     and a.kind != "GameFileSource"]
                 cb.on_mod_plan([(acquire.ids[a.key], a.size) for a in download_plan])
-                from Utils.ui.config import load_collection_settings
+                from Utils.ui.config import (
+                    load_collection_settings, _MAX_EXTRACT_WORKERS_CEILING)
                 from Utils.archives.budget import ExtractionMemoryBudget, probe_archive
                 settings = load_collection_settings()
-                memory = ExtractionMemoryBudget(max_workers=settings["max_extract_workers"])
+                ctl.extract_workers.set_default(settings["max_extract_workers"])
+                memory = ExtractionMemoryBudget(
+                    max_workers=_MAX_EXTRACT_WORKERS_CEILING)
                 emit(cb.on_log, "install.pipeline.configured", archives=len(needed),
                      automatic=len(automatic), manual=len(manual),
                      download_workers=settings["max_concurrent"],
@@ -179,10 +182,12 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                     emit_exception(cb.on_log, "install.pipeline.item_failed", exc,
                                    archive=item.name, archive_hash=item.key)
                 errors = consume_pipeline(automatic, acquire, install, ctl, manual_items=manual,
-                    download_workers=settings["max_concurrent"], install_workers=settings["max_extract_workers"],
+                    download_workers=settings["max_concurrent"],
+                    install_workers=_MAX_EXTRACT_WORKERS_CEILING,
                     on_ready=ready, on_discard=lambda a: cb.on_extract_remove(acquire.ids[a.key]),
                     on_error=pipeline_error, prefetch=acquire.prefetch,
-                    manual_acquire=acquire.manual)
+                    manual_acquire=acquire.manual,
+                    worker_limit=ctl.extract_workers)
                 emit(cb.on_log, "install.pipeline.completed", errors=len(errors),
                      archives_ready=counts[0], archives_installed=counts[1],
                      stopped=ctl.stop.is_set(), paused=ctl.pause.is_set(),

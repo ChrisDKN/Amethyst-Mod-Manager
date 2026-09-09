@@ -12,6 +12,40 @@ def _noop(*_a, **_k):
     return None
 
 
+class AdjustableWorkerLimit:
+    def __init__(self):
+        self._limit: int | None = None
+        self._active = 0
+        self._cv = threading.Condition()
+
+    def set_default(self, value: int) -> None:
+        with self._cv:
+            if self._limit is None:
+                self._limit = max(1, int(value))
+                self._cv.notify_all()
+
+    def set_limit(self, value: int) -> None:
+        with self._cv:
+            self._limit = max(1, int(value))
+            self._cv.notify_all()
+
+    def acquire(self, stop: "threading.Event | None" = None) -> bool:
+        with self._cv:
+            while self._active >= (self._limit or 1):
+                if stop is not None and stop.is_set():
+                    return False
+                self._cv.wait(timeout=0.2)
+            if stop is not None and stop.is_set():
+                return False
+            self._active += 1
+            return True
+
+    def release(self) -> None:
+        with self._cv:
+            self._active = max(0, self._active - 1)
+            self._cv.notify_all()
+
+
 @dataclass
 class InstallCallbacks:
     on_status: Callable[[str], None] = _noop            # status line text
@@ -47,6 +81,7 @@ class InstallControl:
     cancel: threading.Event = field(default_factory=threading.Event)
     pause: threading.Event = field(default_factory=threading.Event)
     stop: threading.Event = field(default_factory=threading.Event)  # set by BOTH pause & cancel
+    extract_workers: AdjustableWorkerLimit = field(default_factory=AdjustableWorkerLimit)
     # manual mode - user actions from the overlay: a str path (Select File…)
     # or None (Skip, honored for optional mods only). Mirrors Tk's
     # _manual_file_queue.
@@ -59,7 +94,8 @@ class ManualDownloadRequired(Exception):
 
 def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                      install_workers=2, manual_items=(), on_ready=None,
-                     on_discard=None, on_error=None, prefetch=None, manual_acquire=None):
+                     on_discard=None, on_error=None, prefetch=None, manual_acquire=None,
+                     worker_limit=None):
     from Utils.downloads.scheduler import order_by_size, run_pipelined
     items, manual_items = tuple(items), tuple(manual_items)
     download_workers, install_workers = max(1, download_workers), max(1, install_workers)
@@ -157,10 +193,17 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                     return
                 item, result = task
                 if not control.stop.is_set():
-                    try:
-                        install(item, result)
-                    except Exception as exc:
-                        failed(item, exc)
+                    admitted = worker_limit is None or worker_limit.acquire(control.stop)
+                    if admitted:
+                        try:
+                            install(item, result)
+                        except Exception as exc:
+                            failed(item, exc)
+                        finally:
+                            if worker_limit is not None:
+                                worker_limit.release()
+                    else:
+                        notify(on_discard, item)
                 else:
                     notify(on_discard, item)
             finally:

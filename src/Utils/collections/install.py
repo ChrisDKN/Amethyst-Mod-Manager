@@ -47,7 +47,7 @@ from Utils.plugins import (
 )
 from Utils.ui.config import (
     load_collection_settings, load_clear_archive_after_install,
-    load_keep_fomod_archives)
+    load_keep_fomod_archives, _MAX_EXTRACT_WORKERS_CEILING)
 from Nexus.nexus_download import (
     ArchiveLookupIndex, DownloadResult, _find_cached_archive, _clean_nexus_stem,
     delete_archive_and_sidecar, _get_downloads_dir)
@@ -955,7 +955,9 @@ def run_collection_install(
     # ------------------------------------------------------------------
     _col_cfg = load_collection_settings()
     _DL_WORKERS = _col_cfg["max_concurrent"]
-    _INSTALL_WORKERS = _col_cfg.get("max_extract_workers", 4)
+    _initial_install_workers = _col_cfg.get("max_extract_workers", 4)
+    _INSTALL_POOL_SIZE = _MAX_EXTRACT_WORKERS_CEILING
+    ctl.extract_workers.set_default(_initial_install_workers)
     # Archive-clear settings, read ONCE - _maybe_delete_archive used to re-parse
     # the settings INI per mod while holding _install_lock, serialising the
     # install consumers on file I/O for nothing (settings don't change mid-run).
@@ -987,7 +989,7 @@ def run_collection_install(
     # Downloaded archives already live on disk, so the hand-off queue can hold
     # the full plan without extraction backpressuring the download workers.
     _PIPELINE_QUEUE_SIZE = max(
-        _DL_WORKERS + _INSTALL_WORKERS + 8, 32, len(to_download))
+        _DL_WORKERS + _INSTALL_POOL_SIZE + 8, 32, len(to_download))
     _DONE_SENTINEL = None
     import os as _os_col
     _COL_TIMING = bool(_os_col.environ.get("MM_COL_TIMING"))
@@ -1040,7 +1042,7 @@ def run_collection_install(
     _col_stop = ctl.stop
     _dl_finished = threading.Event()
 
-    _mem_budget = ExtractionMemoryBudget(max_workers=_INSTALL_WORKERS)
+    _mem_budget = ExtractionMemoryBudget(max_workers=_INSTALL_POOL_SIZE)
     _archive_use_count: dict[str, int] = {}
     _external_archive_paths: set[str] = set()
 
@@ -1580,6 +1582,7 @@ def run_collection_install(
                 _install_queue.task_done()
                 break
             mod, result, effective_domain = payload
+            admitted = ctl.extract_workers.acquire(_col_stop)
             try:
                 _install_one(mod, result, effective_domain)
             except Exception as exc:
@@ -1592,6 +1595,8 @@ def run_collection_install(
                     _install_counters["skipped"] += 1
                     _install_counters["done"] += 1
             finally:
+                if admitted:
+                    ctl.extract_workers.release()
                 _install_queue.task_done()
 
     def _write_preliminary_plugins_txt(label: str) -> None:
@@ -1792,7 +1797,7 @@ def run_collection_install(
                 cb.on_agg_download(_dl_bytes_done, _total_bytes, 0.0)
 
         _consumer_threads: list[threading.Thread] = []
-        for _ci in range(_INSTALL_WORKERS):
+        for _ci in range(_INSTALL_POOL_SIZE):
             t = threading.Thread(target=_install_consumer, daemon=True,
                                  name=f"col-install-{_ci}")
             t.start()
@@ -1833,7 +1838,7 @@ def run_collection_install(
         _dl_finished.set()
         if not manual_mode:
             cb.on_agg_download(_total_bytes, _total_bytes, 0.0)
-        for _ in range(_INSTALL_WORKERS):
+        for _ in range(_INSTALL_POOL_SIZE):
             _enqueue_done()
         for t in _consumer_threads:
             t.join()

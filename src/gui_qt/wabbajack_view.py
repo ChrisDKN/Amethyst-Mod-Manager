@@ -1424,6 +1424,11 @@ class WabbajackView(QWidget):
         self._update_start_button()
         self.running_changed.emit(True)
         self._control = InstallControl()
+        from Utils.ui.config import (
+            load_collection_settings, _MAX_EXTRACT_WORKERS_CEILING)
+        collection_settings = load_collection_settings()
+        extract_workers = collection_settings["max_extract_workers"]
+        self._control.extract_workers.set_limit(extract_workers)
         self._answers = queue.Queue()
         self._request.resolve_conflicts = self._wait_conflicts
         from gui_qt.collection_install_overlay import CollectionInstallOverlay
@@ -1432,7 +1437,10 @@ class WabbajackView(QWidget):
         self._overlay = CollectionInstallOverlay.show_over(self, self._package.name,
             on_pause=self._pause, on_cancel=self._cancel, on_limit_change=set_limit_mbps,
             limit_mbps=load_download_speed_limit(), hide_completed_batches=True,
-            install_heading=self.tr("Installing / Reconstructing"))
+            install_heading=self.tr("Installing / Reconstructing"),
+            extract_workers=extract_workers,
+            max_extract_workers=_MAX_EXTRACT_WORKERS_CEILING,
+            on_extract_workers_change=self._set_extract_workers)
         callbacks = InstallCallbacks(on_log=lambda text: safe_emit(self._progress, "log", (text,)),
                                     on_manual_mod=lambda payload: safe_emit(self._manual, payload))
         slots = {"on_status": "set_status", "on_phase": "set_phase", "on_display_total": "set_display_total",
@@ -1505,6 +1513,14 @@ class WabbajackView(QWidget):
         self._control.pause.set()
         self._control.stop.set()
         self._answers.put(None)
+
+    def _set_extract_workers(self, value: int):
+        self._control.extract_workers.set_limit(value)
+        try:
+            from Utils.ui.config import save_max_extract_workers
+            save_max_extract_workers(value)
+        except Exception:
+            pass
 
     def _cancel(self):
         self._diag("ui.operation.cancel_requested",

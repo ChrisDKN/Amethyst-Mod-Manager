@@ -1239,6 +1239,19 @@ def save_collection_settings(max_concurrent: int,
     _write_ini(parser, path)
 
 
+def save_max_extract_workers(value: int) -> None:
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _COLLECTIONS_SECTION not in parser:
+        parser[_COLLECTIONS_SECTION] = {}
+    parser[_COLLECTIONS_SECTION]["max_extract_workers"] = str(
+        max(1, min(_MAX_EXTRACT_WORKERS_CEILING, int(value))))
+    _write_ini(parser, path)
+
+
 # ---------------------------------------------------------------------------
 # Extraction resource limits
 # ---------------------------------------------------------------------------

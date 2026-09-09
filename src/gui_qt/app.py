@@ -6580,7 +6580,12 @@ class MainWindow(QMainWindow):
         # download-prompt card; premium gets the download/extract progress
         # overlay. Both expose the same slot surface to the _on_col_* handlers.
         from Utils.collections.install import CollectionInstallControl
+        from Utils.ui.config import (
+            load_collection_settings, _MAX_EXTRACT_WORKERS_CEILING)
         control = CollectionInstallControl()
+        collection_settings = load_collection_settings()
+        extract_workers = collection_settings["max_extract_workers"]
+        control.extract_workers.set_limit(extract_workers)
         self._col_install_control = control
         manual_mode = bool(info.get("manual"))
         title = (f"Downloading collection: {collection.name or slug}" if dl_only
@@ -6603,7 +6608,11 @@ class MainWindow(QMainWindow):
                 self, title, on_pause=_on_pause,
                 on_cancel=self._on_col_cancel_clicked,
                 limit_mbps=load_download_speed_limit(),
-                on_limit_change=self._on_col_limit_changed)
+                on_limit_change=self._on_col_limit_changed,
+                extract_workers=extract_workers,
+                max_extract_workers=_MAX_EXTRACT_WORKERS_CEILING,
+                on_extract_workers_change=(
+                    None if dl_only else self._on_col_extract_workers_changed))
 
         callbacks = self._build_collection_callbacks()
         # Thunderstore entries from an imported manifest - installed by their
@@ -6920,6 +6929,16 @@ class MainWindow(QMainWindow):
         bandwidth.set_limit_mbps(mbps)
         try:
             save_download_speed_limit(mbps)
+        except Exception:
+            pass
+
+    def _on_col_extract_workers_changed(self, value: int):
+        ctl = self._col_install_control
+        if ctl is not None:
+            ctl.extract_workers.set_limit(value)
+        try:
+            from Utils.ui.config import save_max_extract_workers
+            save_max_extract_workers(value)
         except Exception:
             pass
 
