@@ -114,6 +114,7 @@ class WabbajackView(QWidget):
         self._installing_mpi = False
         self._installing_texture = False
         self._worker_stop = threading.Event()
+        self._package_stop = None
         self._workers = set()
         self._workers_lock = threading.Lock()
         self._shutting_down = False
@@ -426,6 +427,8 @@ class WabbajackView(QWidget):
         self._package_progress_text.setTextFormat(Qt.PlainText)
         self._package_progress_text.setStyleSheet(f"color:{_c(palette, 'TEXT_DIM')}; font-size:11px;")
         progress.addWidget(self._package_progress_text)
+        self._cancel_package_button = self._button("Cancel download", self._cancel_package_download, progress)
+        self._cancel_package_button.hide()
         package.addLayout(progress)
         self._package_progress.hide()
         self._package_progress_text.hide()
@@ -600,6 +603,7 @@ class WabbajackView(QWidget):
         self._diag("ui.shutdown.started", workers=len(self._workers),
                    installing=self._busy, checking=self._checking)
         self._worker_stop.set()
+        self._stop_package_download()
         self._preflight_stop.set()
         self._pause()
         with self._workers_lock:
@@ -699,6 +703,7 @@ class WabbajackView(QWidget):
     def _back_to_browser(self):
         if self._busy:
             return
+        self._stop_package_download()
         self._tokens["package"] = self._tokens.get("package", 0) + 1
         self._loading_package = False
         self._clear_package_progress()
@@ -906,6 +911,7 @@ class WabbajackView(QWidget):
     def _open_entry(self, entry, info=None):
         if self._busy:
             return
+        self._stop_package_download()
         self._tokens["package"] = self._tokens.get("package", 0) + 1
         self._loading_package = False
         self._clear_package_progress()
@@ -1044,6 +1050,7 @@ class WabbajackView(QWidget):
             self._open_file(check_after=check_after)
 
     def _download_package(self, url, *, check_after=False):
+        self._stop_package_download()
         self._package_url = url
         self._manual_package = False
         self._package = None
@@ -1061,7 +1068,12 @@ class WabbajackView(QWidget):
         entry = self._entry
         total = entry.package_size if entry else 0
         token = self._tokens.get("package", 0) + 1
+        stop = threading.Event()
+        self._package_stop = stop
         self._show_package_progress(0, total)
+        self._cancel_package_button.setText(self.tr("Cancel download"))
+        self._cancel_package_button.setEnabled(True)
+        self._cancel_package_button.show()
         self._status.setText(self.tr("Downloading modlist package…"))
         self._diag("ui.package.download_requested", url=url, expected_bytes=total,
                    expected_hash=entry.package_hash if entry else "",
@@ -1074,13 +1086,18 @@ class WabbajackView(QWidget):
                 if now - last[0] >= 0.1 or maximum and current >= maximum:
                     last[0] = now
                     safe_emit(self._progress, "package", (token, current, maximum))
-            download_package(url, path, stop=self._worker_stop, size=total,
+            download_package(url, path, stop=stop, size=total,
                           expected=entry.package_hash if entry else "", progress=progress,
                           log=self._diagnostic_log)
+            if stop.is_set():
+                raise InterruptedError("Package download stopped")
+            safe_emit(self._progress, "package-inspect", (token,))
             return inspect_package(path, log=self._diagnostic_log)
         self._worker("package", work)
 
     def _inspect(self, path, *, check_after=False):
+        self._stop_package_download()
+        self._package_stop = None
         self._package_url = ""
         self._manual_package = False
         self._package = None
@@ -1096,6 +1113,20 @@ class WabbajackView(QWidget):
                    check_after=check_after)
         from Utils.wabbajack.manifest import inspect_package
         self._worker("package", lambda: inspect_package(path, log=self._diagnostic_log))
+
+    def _stop_package_download(self):
+        if self._package_stop is not None:
+            self._package_stop.set()
+
+    def _cancel_package_download(self):
+        if self._package_stop is None or self._package_stop.is_set():
+            return
+        self._diag("ui.package.download_cancel_requested", url=self._package_url)
+        self._package_stop.set()
+        self._cancel_package_button.setText(self.tr("Cancelling…"))
+        self._cancel_package_button.setEnabled(False)
+        self._status.setText(self.tr("Cancelling modlist package download…"))
+        self._footer_hint.setText(self.tr("Stopping the download. Any partial download will be kept so it can resume later."))
 
     def _game_selected(self, *_):
         game = self._game
@@ -1171,6 +1202,9 @@ class WabbajackView(QWidget):
     def _clear_package_progress(self):
         self._package_progress.hide()
         self._package_progress_text.hide()
+        self._cancel_package_button.hide()
+        self._cancel_package_button.setText(self.tr("Cancel download"))
+        self._cancel_package_button.setEnabled(True)
         self._package_progress.setRange(0, 1000)
         self._package_progress.setValue(0)
         self._package_progress_text.clear()
@@ -1404,6 +1438,14 @@ class WabbajackView(QWidget):
             if not self._shutting_down and self._installing_mpi:
                 self._status.setText(args[0])
             return
+        if method == "package-inspect":
+            token, = args
+            if token == self._tokens.get("package") and self._loading_package:
+                self._package_stop = None
+                self._cancel_package_button.hide()
+                self._package_path.setText(self.tr("Download complete · inspecting package…"))
+                self._status.setText(self.tr("Modlist package downloaded. Checking its contents…"))
+            return
         if method == "package":
             token, current, total = args
             if token == self._tokens.get("package") and self._loading_package:
@@ -1550,9 +1592,12 @@ class WabbajackView(QWidget):
             self._update_start_button()
         if kind == "package":
             check_after = self._check_after_package
+            package_cancelled = self._package_stop is not None and self._package_stop.is_set()
+            self._package_stop = None
             self._check_after_package = False
             self._loading_package = False
             self._clear_package_progress()
+            self._update_start_button()
         if kind == "preflight":
             self._checking = False
             self._update_start_button()
@@ -1565,6 +1610,12 @@ class WabbajackView(QWidget):
             self._refresh_button.setEnabled(True)
             if error and not self._cards:
                 self._empty.setText(self.tr("The gallery could not be loaded. Try Refresh, or open a local .wabbajack file."))
+        if kind == "package" and error and package_cancelled:
+            self._diag("ui.package.download_cancelled", url=self._package_url)
+            self._package_path.setText(self.tr("Download cancelled"))
+            self._status.setText(self.tr("Modlist package download cancelled."))
+            self._footer_hint.setText(self.tr("Select Check requirements to resume; any partial download will be reused."))
+            return
         if error:
             self._status.setText(error)
             self._log("[wabbajack] " + error)
@@ -1694,6 +1745,7 @@ class WabbajackView(QWidget):
                 self._footer_hint.setText(self.tr("Review the error details, then try the operation again."))
 
     def tab_closing(self):
+        self._stop_package_download()
         self._tokens["package"] = self._tokens.get("package", 0) + 1
         self._loading_package = False
         self._clear_package_progress()
@@ -1733,6 +1785,7 @@ class WabbajackView(QWidget):
                    previous_id=getattr(previous, "game_id", None),
                    current=getattr(game, "name", None),
                    current_id=getattr(game, "game_id", None))
+        self._stop_package_download()
         self._tokens["package"] = self._tokens.get("package", 0) + 1
         self._loading_package = False
         self._clear_package_progress()
