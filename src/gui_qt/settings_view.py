@@ -767,6 +767,7 @@ class SettingsView(OverlayBase):
         self._combo(
             g, self.tr("Toolbar position"),
             [(self.tr("Top"), "top"),
+             (self.tr("Bottom"), "bottom"),
              (self.tr("Left side"), "left"),
              (self.tr("Right side"), "right")],
             uc.load_header_position(), self._save_header_position,

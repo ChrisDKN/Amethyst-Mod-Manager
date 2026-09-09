@@ -768,6 +768,12 @@ def build_qss(pal: dict | None = None) -> str:
         border-left: 1px solid {c('BORDER')};
         border-right: 1px solid {c('BORDER')};
     }}
+    /* Bottom mode: the bar sits under the body, so the dividing rule moves to
+       its top edge - a bottom border there would only hug the status bar. */
+    #HeaderBar[position="bottom"] {{
+        border-bottom: none;
+        border-top: 1px solid {c('BORDER')};
+    }}
     /* Dim caption above a tab's column header (Mod Files / Data / …). Palette-
        driven so it stays legible in light themes (was a hardcoded #aaa). */
     #HeaderCaption {{ color: {c('TEXT_DIM')}; }}

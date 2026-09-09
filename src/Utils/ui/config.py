@@ -1917,11 +1917,11 @@ def save_hide_endorse_button(value: bool) -> None:
     _write_ini(parser, path)
 
 
-_HEADER_POSITIONS = ("top", "left", "right")
+_HEADER_POSITIONS = ("top", "bottom", "left", "right")
 
 
 def load_header_position() -> str:
-    """Return where the main toolbar sits: "top" (default), "left" or "right"."""
+    """Return where the toolbar sits: "top" (default), "bottom", "left", "right"."""
     path = get_ui_config_path()
     if not path.is_file():
         return "top"

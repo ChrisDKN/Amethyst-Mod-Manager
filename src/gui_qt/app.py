@@ -688,17 +688,19 @@ class MainWindow(QMainWindow):
 
         # Header+body+footer go in a vertical splitter with the log text area
         # so the log is drag-resizable; the log control bar stays fixed below.
-        # The toolbar is a row above the body by default; as a side bar it is a
-        # fixed-width icon column beside it, so the layout flips to horizontal.
+        # The toolbar is a row above the body by default ("bottom" puts that row
+        # under it instead); as a side bar it is a fixed-width icon column
+        # beside it, so the layout flips to horizontal.
         header_pos = self._header_position()
         main_content = QWidget()
-        mc = (QHBoxLayout(main_content) if header_pos in ("left", "right")
+        mc = (QHBoxLayout(main_content) if self._header_vertical()
               else QVBoxLayout(main_content))
         mc.setContentsMargins(0, 0, 0, 0)
         mc.setSpacing(0)
         phase_started = _startup_time.perf_counter()
         header_row = self._build_header_row()
-        if header_pos != "right":
+        header_after = header_pos in ("bottom", "right")
+        if not header_after:
             mc.addWidget(header_row)
         if startup_timing is not None:
             startup_timing.record(
@@ -707,7 +709,7 @@ class MainWindow(QMainWindow):
         phase_started = _startup_time.perf_counter()
         body_row = self._build_body_row(startup_timing=startup_timing)
         mc.addWidget(body_row, 1)
-        if header_pos == "right":
+        if header_after:
             mc.addWidget(header_row)
         # Kept for _apply_header_position, which re-lays out this container.
         self._main_content = main_content
@@ -2716,6 +2718,8 @@ class MainWindow(QMainWindow):
         header = _HeaderBar(self._sync_header_compact)
         header.setObjectName("HeaderBar")
         header.setProperty("vertical", vertical)
+        # Drives which edge the QSS draws the body divider on.
+        header.setProperty("position", self._header_position())
         h = QVBoxLayout(header) if vertical else QHBoxLayout(header)
         if vertical:
             h.setContentsMargins(6, 8, 6, 8)
@@ -3117,12 +3121,12 @@ class MainWindow(QMainWindow):
         self._action_btn_widths = False
         self._header_compact = False
 
-        vertical = new_pos in ("left", "right")
+        vertical = self._header_vertical()
         mc = QHBoxLayout(main) if vertical else QVBoxLayout(main)
         mc.setContentsMargins(0, 0, 0, 0)
         mc.setSpacing(0)
         header = self._build_header_row()
-        if new_pos == "right":
+        if new_pos in ("bottom", "right"):
             mc.addWidget(body, 1)
             mc.addWidget(header)
         else:
