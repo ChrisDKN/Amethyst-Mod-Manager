@@ -2315,19 +2315,26 @@ class ConfigureGameView(QWidget):
                 self._prefix_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
                 return
 
-        staging_path = self._custom_staging
-        if staging_path is None:
+        staging_root = self._custom_staging
+        if staging_root is None:
             try:
-                staging_path = g.get_mod_staging_path()
+                staging_root = g.get_profile_root()
             except Exception:
-                staging_path = None
-        if staging_path is not None and _path_is_same_or_descendant(
-                self._found_path, staging_path):
+                staging_root = None
+        if staging_root is not None and _path_is_same_or_descendant(
+                self._found_path, staging_root):
             self._staging_status.setText(self.tr(
                 "The mod staging folder cannot be the game folder or be inside "
                 "it. Choose a separate location."))
             self._staging_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
             return
+
+        old_profile_root: Path | None = None
+        try:
+            if g.is_configured():
+                old_profile_root = g.get_profile_root()
+        except Exception:
+            old_profile_root = None
 
         # Flatpak: a path outside the sandbox's filesystem grants looks like a
         # typo (it simply doesn't exist in here) - tell the user what it
@@ -2336,7 +2343,7 @@ class ConfigureGameView(QWidget):
         from Utils.environment.sandbox import flatpak_blocked_path_hint
         for candidate, status in (
             (self._found_path, self._game_status),
-            (self._staging_edit.text().strip() or None, self._staging_status),
+            (staging_root, self._staging_status),
             (self._found_appimage,
              self._appimage_status if self._uses_appimage_path else None),
         ):
@@ -2346,6 +2353,33 @@ class ConfigureGameView(QWidget):
                     "This path is not visible inside the Flatpak sandbox. "
                     "Grant access in Flatseal or run: {0}").format(hint))
                 status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
+                return
+
+        if staging_root is not None:
+            from Utils.mods.staging import staging_root_problem
+            problem = staging_root_problem(
+                staging_root, g.name, current_root=old_profile_root)
+            if problem is not None:
+                code, detail = problem
+                if code == "owned":
+                    message = self.tr(
+                        "This staging folder is already used by {0}. Choose a "
+                        "separate folder for each game.").format(detail)
+                elif code == "not_directory":
+                    message = self.tr(
+                        "The selected staging path is not a folder.")
+                elif code == "unreadable":
+                    message = self.tr(
+                        "The selected staging folder could not be read: {0}").format(
+                            detail)
+                else:
+                    message = self.tr(
+                        "This non-empty folder does not contain an Amethyst "
+                        "staging layout. Choose an empty folder or the correct "
+                        "game-specific staging folder.")
+                self._staging_status.setText(message)
+                self._staging_status.setStyleSheet(
+                    f"color:{self._c('TEXT_ERR')};")
                 return
 
         # Block path changes while deployed (would strand deployed files).
@@ -2412,15 +2446,6 @@ class ConfigureGameView(QWidget):
                     "Restore the game first."))
                 self._game_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
                 return
-
-        # Capture the staging root currently on disk, before any setters mutate
-        # it - needed to offer a migration if the staging location changed.
-        old_profile_root: Path | None = None
-        try:
-            if g.is_configured():
-                old_profile_root = g.get_profile_root()
-        except Exception:
-            old_profile_root = None
 
         # -- Hard-link cross-device validation --------------------------------
         # Hardlinks can't span filesystems. Apply the pending paths so the game

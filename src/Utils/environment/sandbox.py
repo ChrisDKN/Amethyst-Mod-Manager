@@ -27,6 +27,20 @@ def in_flatpak() -> bool:
     return os.path.exists("/.flatpak-info")
 
 
+def _has_writable_ancestor(path: Path, stop_at: Path | None = None) -> bool:
+    sandbox_only = {Path("/"), Path("/var"), Path("/run"), Path("/tmp")}
+    for parent in path.parents:
+        try:
+            if parent == stop_at or parent in sandbox_only:
+                return False
+            if parent.exists():
+                return parent.is_dir() and os.access(
+                    parent, os.W_OK | os.X_OK)
+        except OSError:
+            return False
+    return False
+
+
 def flatpak_blocked_path_hint(path) -> str | None:
     """Return a `flatpak override` command when *path* looks sandbox-blocked.
 
@@ -56,17 +70,26 @@ def flatpak_blocked_path_hint(path) -> str | None:
             own_id = os.environ.get("FLATPAK_ID", "io.github.Amethyst.ModManager")
             if app in _GRANTED_VAR_APPS or app == own_id:
                 return None
+            if _has_writable_ancestor(p, home / ".var" / "app"):
+                return None
         else:
             for root in _GRANTED_ROOTS:
                 if p == Path(root) or str(p).startswith(root + "/"):
                     return None
+            # Flatseal may grant any user-selected directory, including paths
+            # not listed in the manifest. A missing leaf is usable when it can
+            # be created below a visible, writable ancestor.
+            if _has_writable_ancestor(p):
+                return None
         app_id = os.environ.get("FLATPAK_ID", "io.github.Amethyst.ModManager")
         # Grant the top-level tree, not the leaf, so sibling paths
         # (other games in the same library) come along.
         if rel is not None:
             grant = home / rel.parts[0] / rel.parts[1] / (rel.parts[2] if len(rel.parts) > 2 else "")
         else:
-            grant = Path("/") / p.parts[1] if len(p.parts) > 1 else p
+            grant_parts = p.parts[1:3] if p.parts[1:2] == ("var",) \
+                else p.parts[1:2]
+            grant = Path("/").joinpath(*grant_parts) if grant_parts else p
         return f"flatpak override --user --filesystem={grant} {app_id}"
     except Exception:
         return None
