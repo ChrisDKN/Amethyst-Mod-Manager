@@ -180,15 +180,15 @@ Escolha Estradas ou Caminhos Somente, clique em Gerar e então feche quando term
     </message>
     <message>
       <source>Browser downloads and Select File use the normal installer prompts. Automatic downloads continue while you respond.</source>
-      <translation type="unfinished">Browser downloads and Select File use the normal installer prompts. Automatic downloads continue while you respond.</translation>
+      <translation>Os downloads do navegador e Selecionar Arquivo usam os alertas normais do instalador. Downloads automáticos continuam enquanto você responde.</translation>
     </message>
     <message>
       <source>No archive downloads needed. Verified local content will be reused.</source>
-      <translation type="unfinished">No archive downloads needed. Verified local content will be reused.</translation>
+      <translation>Não é necessário baixar o arquivo. Conteúdos locais verificados serão reutilizados.</translation>
     </message>
     <message>
       <source>Verified cache and game files are reused. Downloads follow your existing speed and concurrency settings.</source>
-      <translation type="unfinished">Verified cache and game files are reused. Downloads follow your existing speed and concurrency settings.</translation>
+      <translation>Cache e arquivos de jogo verificados são reutilizados. Os downloads seguem suas configurações de velocidade e correspondência existentes.</translation>
     </message>
   </context>
   <context>
@@ -1345,7 +1345,7 @@ Feche-o quando terminar e clique em Concluído.</translation>
     </message>
     <message>
       <source>Wabbajack jobs and update backups</source>
-      <translation type="unfinished">Wabbajack jobs and update backups</translation>
+      <translation>Trabalhos do Wabbajack e atualizar backups</translation>
     </message>
     <message>
       <source>Total: {0}</source>
@@ -1353,7 +1353,7 @@ Feche-o quando terminar e clique em Concluído.</translation>
     </message>
     <message>
       <source>Wabbajack gallery and packages</source>
-      <translation type="unfinished">Wabbajack gallery and packages</translation>
+      <translation>Galeria e pacotes Wabbajack</translation>
     </message>
     <message>
       <source>Nothing selected.</source>
@@ -1371,11 +1371,11 @@ Feche-o quando terminar e clique em Concluído.</translation>
 {2}
 
 Archives, gallery data and modlist packages will be re-downloaded as needed. Saved Wabbajack requirement checks in the selected game caches will be reset. The Wabbajack jobs/backups entry removes abandoned jobs and update backups; referenced installations are preserved.</source>
-      <translation type="unfinished">Clear {0} across {1} item(s)?
+      <translation>Limpar {0} em {1} item(s)?
 
 {2}
 
-Archives, gallery data and modlist packages will be re-downloaded as needed. Saved Wabbajack requirement checks in the selected game caches will be reset. The Wabbajack jobs/backups entry removes abandoned jobs and update backups; referenced installations are preserved.</translation>
+arquivos, galeria de dados e modlist pacotes serão baixados novamente conforme necessário. Verificações de requisitos Wabbajack salvas nos caches de jogo selecionados serão redefinidas. A entrada Wabbajack para jobs/backups remove trabalhos abandonados e atualiza backups; instalações referenciadas são preservadas.</translation>
     </message>
     <message>
       <source>Clear {0} of cached downloads across every game?
@@ -1383,11 +1383,11 @@ Archives, gallery data and modlist packages will be re-downloaded as needed. Sav
 Location: {1}
 
 The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack gallery data, modlist packages and saved requirement checks are also cleared. The jobs/backups entry removes abandoned jobs and update backups.</source>
-      <translation type="unfinished">Clear {0} of cached downloads across every game?
+      <translation>Limpar {0} de downloads armazenados em cache em cada jogo?
 
-Location: {1}
+Localização: {1}
 
-The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack gallery data, modlist packages and saved requirement checks are also cleared. The jobs/backups entry removes abandoned jobs and update backups.</translation>
+O cache md5 é preservado. Os arquivos serão baixados novamente conforme necessário. Dados da galeria do Wabbajack, pacotes de lista de mods e verificações de requisitos salvos também são limpos. A entrada de tarefas/backups remove tarefas abandonadas e atualiza backups.</translation>
     </message>
     <message>
       <source>Clear {0} Cache(s)</source>
@@ -1505,39 +1505,39 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack 
     <name>CheckRow</name>
     <message>
       <source>Blocking: resolve before installing.</source>
-      <translation type="unfinished">Blocking: resolve before installing.</translation>
+      <translation>Bloqueando: resolva antes de instalar.</translation>
     </message>
     <message>
       <source>Needs your input: follow the download or setup instructions.</source>
-      <translation type="unfinished">Needs your input: follow the download or setup instructions.</translation>
+      <translation>Precisa de entrada: siga o download ou as instruções de configuração.</translation>
     </message>
     <message>
       <source>To review: read before continuing; this does not block installation.</source>
-      <translation type="unfinished">To review: read before continuing; this does not block installation.</translation>
+      <translation>Revisar: leia antes de continuar; isto não bloqueia a instalação.</translation>
     </message>
     <message>
       <source>Passed: this check is ready to proceed.</source>
-      <translation type="unfinished">Passed: this check is ready to proceed.</translation>
+      <translation>Passeiado: esta verificação está pronta para continuar.</translation>
     </message>
     <message>
       <source>What this means</source>
-      <translation type="unfinished">What this means</translation>
+      <translation>O que isto significa</translation>
     </message>
     <message>
       <source>Details</source>
-      <translation type="unfinished">Details</translation>
+      <translation>detalhes</translation>
     </message>
     <message>
       <source>Hide affected files</source>
-      <translation type="unfinished">Hide affected files</translation>
+      <translation>Ocultar arquivos afetados</translation>
     </message>
     <message>
       <source>Show 1 affected file</source>
-      <translation type="unfinished">Show 1 affected file</translation>
+      <translation>Exibir 1 arquivo afetado</translation>
     </message>
     <message>
       <source>Show {0} affected files</source>
-      <translation type="unfinished">Show {0} affected files</translation>
+      <translation>Mostrar arquivos afetados pelo {0}</translation>
     </message>
   </context>
   <context>
@@ -1718,7 +1718,7 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack 
     </message>
     <message>
       <source>{0}: {1} / {2}</source>
-      <translation type="unfinished">{0}: {1} / {2}</translation>
+      <translation>{0}: {1} / {2}</translation>
     </message>
     <message>
       <source>Downloading…</source>
@@ -1726,7 +1726,7 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack 
     </message>
     <message>
       <source>Small mods (under 100 MB)</source>
-      <translation type="unfinished">Small mods (under 100 MB)</translation>
+      <translation>Mods pequenos (menos de 100 MB)</translation>
     </message>
     <message>
       <source>+ {0} more downloading…</source>
@@ -1793,7 +1793,7 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack 
     </message>
     <message>
       <source>This source needs a browser download or an existing file.</source>
-      <translation type="unfinished">This source needs a browser download or an existing file.</translation>
+      <translation>Esta fonte precisa de um download do navegador ou de um arquivo existente.</translation>
     </message>
     <message>
       <source>Optional</source>
@@ -1809,7 +1809,7 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack 
     </message>
     <message>
       <source>Download this exact archive to a watched download folder, or use Select File. Amethyst checks its size and hash before continuing.</source>
-      <translation type="unfinished">Download this exact archive to a watched download folder, or use Select File. Amethyst checks its size and hash before continuing.</translation>
+      <translation>Faça o download deste arquivo exato para uma pasta de download assistida, ou use Selecionar arquivo. O Ametista verifica seu tamanho e hash antes de continuar.</translation>
     </message>
     <message>
       <source>Mod {0}/{1} - download this file, then it will be auto-detected…</source>
@@ -1818,13 +1818,13 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack 
     <message>
       <source>Why this needs your help:
 {0}</source>
-      <translation type="unfinished">Why this needs your help:
+      <translation>Por que isso precisa da sua ajuda:
 {0}</translation>
     </message>
     <message>
       <source>Author instructions:
 {0}</source>
-      <translation type="unfinished">Author instructions:
+      <translation>Instruções do autor:
 {0}</translation>
     </message>
     <message>
@@ -2038,11 +2038,11 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack 
     </message>
     <message>
       <source>Detected from the Ludusavi manifest</source>
-      <translation type="unfinished">Detected from the Ludusavi manifest</translation>
+      <translation>Detectado do manifesto Ludusavi</translation>
     </message>
     <message>
       <source>Saves</source>
-      <translation type="unfinished">Saves</translation>
+      <translation>Defesas</translation>
     </message>
     <message>
       <source>Clear</source>
@@ -2050,7 +2050,7 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack 
     </message>
     <message>
       <source>Set this only if the Saves tab looks in the wrong place.</source>
-      <translation type="unfinished">Set this only if the Saves tab looks in the wrong place.</translation>
+      <translation>Defina isto apenas se a aba Gravar no lugar errado.</translation>
     </message>
     <message>
       <source>Options</source>
@@ -2098,7 +2098,7 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack 
     </message>
     <message>
       <source>Behaviour</source>
-      <translation type="unfinished">Behaviour</translation>
+      <translation>Comportamento</translation>
     </message>
     <message>
       <source>Swap launcher with script extender on deploy</source>
@@ -2186,11 +2186,11 @@ As configurações do perfil padrão não são afetadas.</translation>
     </message>
     <message>
       <source>{0} · this profile only</source>
-      <translation type="unfinished">{0} · this profile only</translation>
+      <translation>{0} · Apenas este perfil</translation>
     </message>
     <message>
       <source>Shared settings</source>
-      <translation type="unfinished">Shared settings</translation>
+      <translation>Configurações compartilhadas</translation>
     </message>
     <message>
       <source>Settings saved.</source>
@@ -2214,11 +2214,11 @@ As configurações do perfil padrão não são afetadas.</translation>
     </message>
     <message>
       <source>Non-Steam Shortcut prefix</source>
-      <translation type="unfinished">Non-Steam Shortcut prefix</translation>
+      <translation>Prefixo de atalho não-Steam</translation>
     </message>
     <message>
       <source>{0} prefix</source>
-      <translation type="unfinished">{0} prefix</translation>
+      <translation>Prefixo {0}</translation>
     </message>
     <message>
       <source>Prefix already configured. You can update the path below.</source>
@@ -2326,99 +2326,99 @@ As configurações do perfil padrão não são afetadas.</translation>
     </message>
     <message>
       <source>Problem</source>
-      <translation type="unfinished">Problem</translation>
+      <translation>Problema</translation>
     </message>
     <message>
       <source>N/A</source>
-      <translation type="unfinished">N/A</translation>
+      <translation>N/D</translation>
     </message>
     <message>
       <source>Scanning…</source>
-      <translation type="unfinished">Scanning…</translation>
+      <translation>Verificando…</translation>
     </message>
     <message>
       <source>Not found</source>
-      <translation type="unfinished">Not found</translation>
+      <translation>Não encontrado</translation>
     </message>
     <message>
       <source>Custom</source>
-      <translation type="unfinished">Custom</translation>
+      <translation>Personalizado</translation>
     </message>
     <message>
       <source>Default</source>
-      <translation type="unfinished">Default</translation>
+      <translation>Padrão</translation>
     </message>
     <message>
       <source>Auto</source>
-      <translation type="unfinished">Auto</translation>
+      <translation>Automático</translation>
     </message>
     <message>
       <source>None</source>
-      <translation type="unfinished">None</translation>
+      <translation>Nenhuma</translation>
     </message>
     <message>
       <source>Detected</source>
-      <translation type="unfinished">Detected</translation>
+      <translation>Detectado</translation>
     </message>
     <message>
       <source>Check</source>
-      <translation type="unfinished">Check</translation>
+      <translation>Verificar</translation>
     </message>
     <message>
       <source>Set</source>
-      <translation type="unfinished">Set</translation>
+      <translation>Definir</translation>
     </message>
     <message>
       <source>Configured</source>
-      <translation type="unfinished">Configured</translation>
+      <translation>Configurado</translation>
     </message>
     <message>
       <source>Not set up</source>
-      <translation type="unfinished">Not set up</translation>
+      <translation>Não configurado</translation>
     </message>
     <message>
       <source>VFS deploy</source>
-      <translation type="unfinished">VFS deploy</translation>
+      <translation>Implementar VFS</translation>
     </message>
     <message>
       <source>Hardlink deploy</source>
-      <translation type="unfinished">Hardlink deploy</translation>
+      <translation>Implementar no deploy</translation>
     </message>
     <message>
       <source>Symlink deploy</source>
-      <translation type="unfinished">Symlink deploy</translation>
+      <translation>Symlink deploy</translation>
     </message>
     <message>
       <source>Locations</source>
-      <translation type="unfinished">Locations</translation>
+      <translation>Alocações</translation>
     </message>
     <message>
       <source>Game install</source>
-      <translation type="unfinished">Game install</translation>
+      <translation>Instalação do jogo</translation>
     </message>
     <message>
       <source>AppImage</source>
-      <translation type="unfinished">AppImage</translation>
+      <translation>AppImage</translation>
     </message>
     <message>
       <source>Not needed for a native Linux game</source>
-      <translation type="unfinished">Not needed for a native Linux game</translation>
+      <translation>Não é necessário para um jogo nativo de Linux</translation>
     </message>
     <message>
       <source>Detected automatically</source>
-      <translation type="unfinished">Detected automatically</translation>
+      <translation>Detetar automaticamente</translation>
     </message>
     <message>
       <source>Proton prefix</source>
-      <translation type="unfinished">Proton prefix</translation>
+      <translation>Prefixo do Proton</translation>
     </message>
     <message>
       <source>Default location</source>
-      <translation type="unfinished">Default location</translation>
+      <translation>Localização padrão</translation>
     </message>
     <message>
       <source>Mod staging</source>
-      <translation type="unfinished">Mod staging</translation>
+      <translation>Mod staging</translation>
     </message>
     <message>
       <source>Game executable not found on any drive.</source>
@@ -5361,7 +5361,7 @@ Clique em Concluído para limpar os arquivos extraídos e fechar.</translation>
     </message>
     <message>
       <source>By source location</source>
-      <translation type="unfinished">By source location</translation>
+      <translation>Por localização de origem</translation>
     </message>
     <message>
       <source>By file type</source>
@@ -5650,7 +5650,7 @@ Pode já ter sido modificado. Verifique os arquivos do jogo no Steam/Heroic para
     </message>
     <message>
       <source>Unpatched {0} detected - ready to patch.</source>
-      <translation type="unfinished">Unpatched {0} detected - ready to patch.</translation>
+      <translation>{0} não corrigido detectado - pronto para atualizar.</translation>
     </message>
     <message>
       <source>Backup found: {0}</source>
@@ -8319,7 +8319,7 @@ Executar Atualização rápida em todos eles agora?</translation>
     </message>
     <message>
       <source>.NET Framework 4.8</source>
-      <translation type="unfinished">.NET Framework 4.8</translation>
+      <translation>.NET Framework 4.8</translation>
     </message>
     <message>
       <source>Download Manifest…</source>
@@ -8327,11 +8327,11 @@ Executar Atualização rápida em todos eles agora?</translation>
     </message>
     <message>
       <source>Wabbajack</source>
-      <translation type="unfinished">Wabbajack</translation>
+      <translation>Bajack</translation>
     </message>
     <message>
       <source>Browse Wabbajack modlists…</source>
-      <translation type="unfinished">Browse Wabbajack modlists…</translation>
+      <translation>Procurar listas de mods Wabbajack…</translation>
     </message>
     <message>
       <source>{0} is running - switch games when it finishes.</source>
@@ -8339,7 +8339,7 @@ Executar Atualização rápida em todos eles agora?</translation>
     </message>
     <message>
       <source>{0} is running - switch profiles when it finishes.</source>
-      <translation type="unfinished">{0} is running - switch profiles when it finishes.</translation>
+      <translation>{0} está em execução - mude os perfis quando terminar.</translation>
     </message>
     <message>
       <source>VFS</source>
@@ -8411,31 +8411,31 @@ Executar Atualização rápida em todos eles agora?</translation>
     </message>
     <message>
       <source>Wabbajack installation complete.</source>
-      <translation type="unfinished">Wabbajack installation complete.</translation>
+      <translation>Instalação do Wabbajack concluída.</translation>
     </message>
     <message>
       <source>A Wabbajack installation is running.</source>
-      <translation type="unfinished">A Wabbajack installation is running.</translation>
+      <translation>Uma instalação do Wabbajack está em execução.</translation>
     </message>
     <message>
       <source>The active profile isn't a Wabbajack profile.</source>
-      <translation type="unfinished">The active profile isn't a Wabbajack profile.</translation>
+      <translation>O perfil ativo não é um perfil Wabbajack.</translation>
     </message>
     <message>
       <source>Wait for the current operation to finish before resetting the load order.</source>
-      <translation type="unfinished">Wait for the current operation to finish before resetting the load order.</translation>
+      <translation>Aguarde a operação atual terminar antes de redefinir a ordem de carga.</translation>
     </message>
     <message>
       <source>Wabbajack load-order reset</source>
-      <translation type="unfinished">Wabbajack load-order reset</translation>
+      <translation>Wabbajack load-order reset</translation>
     </message>
     <message>
       <source>Resetting Wabbajack load order…</source>
-      <translation type="unfinished">Resetting Wabbajack load order…</translation>
+      <translation>Redefinindo ordem de carregamento do Wabbajack…</translation>
     </message>
     <message>
       <source>Wabbajack load order reset - {0} mods and {1} plugins ordered.</source>
-      <translation type="unfinished">Wabbajack load order reset - {0} mods and {1} plugins ordered.</translation>
+      <translation>Pedido de carregamento Wabbajack reiniciado - mods {0} e plugins {1} encomendados.</translation>
     </message>
     <message>
       <source>Load order reset - {0} mods ordered, {1} kept below.</source>
@@ -8587,11 +8587,11 @@ Executar Atualização rápida em todos eles agora?</translation>
     </message>
     <message>
       <source>Wait for the Proton installer to finish before closing Amethyst.</source>
-      <translation type="unfinished">Wait for the Proton installer to finish before closing Amethyst.</translation>
+      <translation>Espere que o instalador Proton termine antes de fechar a Ametista.</translation>
     </message>
     <message>
       <source>Pausing Wabbajack and waiting for installation and tool setup to stop safely…</source>
-      <translation type="unfinished">Pausing Wabbajack and waiting for installation and tool setup to stop safely…</translation>
+      <translation>Pausando o Wabbajack e esperando a instalação e configuração de ferramentas para parar de com segurança…</translation>
     </message>
     <message>
       <source>Extracting / Installing</source>
@@ -8603,7 +8603,7 @@ Executar Atualização rápida em todos eles agora?</translation>
     </message>
     <message>
       <source>Installing .NET Framework 4.8</source>
-      <translation type="unfinished">Installing .NET Framework 4.8</translation>
+      <translation>Installing .NET Framework 4.8</translation>
     </message>
     <message>
       <source>Wizard Settings…</source>
@@ -8615,19 +8615,19 @@ Executar Atualização rápida em todos eles agora?</translation>
     </message>
     <message>
       <source>Return to the game and profile shown in this wizard, then install the downloaded files.</source>
-      <translation type="unfinished">Return to the game and profile shown in this wizard, then install the downloaded files.</translation>
+      <translation>Retorne para o jogo e perfil mostrado neste assistente, em seguida, instale os arquivos baixados.</translation>
     </message>
     <message>
       <source>Select a member profile before installing Workshop mods.</source>
-      <translation type="unfinished">Select a member profile before installing Workshop mods.</translation>
+      <translation>Selecione um perfil de membro antes de instalar os mods da oficina.</translation>
     </message>
     <message>
       <source>Wait for the running wizard tool to finish.</source>
-      <translation type="unfinished">Wait for the running wizard tool to finish.</translation>
+      <translation>Aguarde a execução da ferramenta wizard para finalizar.</translation>
     </message>
     <message>
       <source>Workshop installation</source>
-      <translation type="unfinished">Workshop installation</translation>
+      <translation>Instalação da Oficina</translation>
     </message>
     <message>
       <source>No QuickAutoClean tool is available for this game.</source>
@@ -8801,7 +8801,7 @@ Executar o assistente Downgrade para remendar o jogo de volta para uma versão F
     </message>
     <message>
       <source>Nexus mod / file ID</source>
-      <translation type="unfinished">Nexus mod / file ID</translation>
+      <translation>Nexus mod / file ID</translation>
     </message>
     <message>
       <source>By file type</source>
@@ -8817,11 +8817,11 @@ Executar o assistente Downgrade para remendar o jogo de volta para uma versão F
     </message>
     <message>
       <source>mod.io</source>
-      <translation type="unfinished">mod.io</translation>
+      <translation>mod.io</translation>
     </message>
     <message>
       <source>None</source>
-      <translation type="unfinished">None</translation>
+      <translation>Nenhuma</translation>
     </message>
     <message>
       <source>Mods with BA2 archives</source>
@@ -8861,7 +8861,7 @@ Executar o assistente Downgrade para remendar o jogo de volta para uma versão F
     </message>
     <message>
       <source>Cancel LOOT</source>
-      <translation type="unfinished">Cancel LOOT</translation>
+      <translation>Cancelar LOOT</translation>
     </message>
     <message>
       <source>Refreshing LOOT metadata for {0} plugins…</source>
@@ -8869,7 +8869,7 @@ Executar o assistente Downgrade para remendar o jogo de volta para uma versão F
     </message>
     <message>
       <source>LOOT cancelled.</source>
-      <translation type="unfinished">LOOT cancelled.</translation>
+      <translation>SAQUE cancelado.</translation>
     </message>
     <message>
       <source>Plugin metadata refreshed.</source>
@@ -9688,7 +9688,7 @@ Como você gostaria de lidar com o mod existente?</translation>
     </message>
     <message>
       <source>Open on Steam Workshop</source>
-      <translation type="unfinished">Open on Steam Workshop</translation>
+      <translation>Abrir na Oficina Steam</translation>
     </message>
     <message>
       <source>Thunderstore Actions</source>
@@ -9847,11 +9847,11 @@ Como você gostaria de lidar com o mod existente?</translation>
     </message>
     <message>
       <source>Nexus Mod ID</source>
-      <translation type="unfinished">Nexus Mod ID</translation>
+      <translation>Nexus Mod ID</translation>
     </message>
     <message>
       <source>Nexus File ID</source>
-      <translation type="unfinished">Nexus File ID</translation>
+      <translation>ID do arquivo Nexus</translation>
     </message>
   </context>
   <context>
@@ -11576,7 +11576,7 @@ Por dia: {1}</translation>
     <name>Oblivion4GbView</name>
     <message>
       <source>Oblivion 4GB Patch</source>
-      <translation type="unfinished">Oblivion 4GB Patch</translation>
+      <translation>Esquecimento de 4GB</translation>
     </message>
     <message>
       <source>Patches Oblivion.exe so the 32-bit game can use up to 4 GB of memory on a 64-bit system.
@@ -11592,15 +11592,15 @@ The original exe is kept as {0}.</translation>
     </message>
     <message>
       <source>The PE header could not be read.</source>
-      <translation type="unfinished">The PE header could not be read.</translation>
+      <translation>O cabeçalho PE não pôde ser lido.</translation>
     </message>
     <message>
       <source>{0} is not a supported Windows executable.
 {1}
 Verify the game files in Steam and try again.</source>
-      <translation type="unfinished">{0} is not a supported Windows executable.
+      <translation>{0} não é um executável para Windows suportado.
 {1}
-Verify the game files in Steam and try again.</translation>
+Verifique os arquivos do jogo na Steam e tente novamente.</translation>
     </message>
   </context>
   <context>
@@ -13789,31 +13789,31 @@ Escolha Manter se esta for uma variante opcional/alternativa, e não uma substit
     <name>RequirementsSummary</name>
     <message>
       <source>Check requirements to verify game files, available space and runtime requirements. Review the results before installing.</source>
-      <translation type="unfinished">Check requirements to verify game files, available space and runtime requirements. Review the results before installing.</translation>
+      <translation>Verifique os requisitos para verificar os arquivos do jogo, espaço disponível e requisitos de tempo de execução. Revise os resultados antes de instalar.</translation>
     </message>
     <message>
       <source>{0} blocking</source>
-      <translation type="unfinished">{0} blocking</translation>
+      <translation>Bloqueando {0}</translation>
     </message>
     <message>
       <source>1 needs your input</source>
-      <translation type="unfinished">1 needs your input</translation>
+      <translation>1 precisa da sua entrada</translation>
     </message>
     <message>
       <source>{0} need your input</source>
-      <translation type="unfinished">{0} need your input</translation>
+      <translation>{0} precisa da sua entrada</translation>
     </message>
     <message>
       <source>{0} to review</source>
-      <translation type="unfinished">{0} to review</translation>
+      <translation>{0} para revisar</translation>
     </message>
     <message>
       <source>Requirements passed</source>
-      <translation type="unfinished">Requirements passed</translation>
+      <translation>Requisitos aprovados</translation>
     </message>
     <message>
       <source>Passed ({0})</source>
-      <translation type="unfinished">Passed ({0})</translation>
+      <translation>Passado ({0})</translation>
     </message>
   </context>
   <context>
@@ -15119,11 +15119,11 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     </message>
     <message>
       <source>Decrease {0}</source>
-      <translation type="unfinished">Decrease {0}</translation>
+      <translation>Diminuir {0}</translation>
     </message>
     <message>
       <source>Increase {0}</source>
-      <translation type="unfinished">Increase {0}</translation>
+      <translation>Aumentar {0}</translation>
     </message>
     <message>
       <source>Open the Amethyst Crowdin project to help translate the app.</source>
@@ -15139,51 +15139,51 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     </message>
     <message>
       <source>Install Mod</source>
-      <translation type="unfinished">Install Mod</translation>
+      <translation>Install Mod</translation>
     </message>
     <message>
       <source>Proton</source>
-      <translation type="unfinished">Proton</translation>
+      <translation>Proton</translation>
     </message>
     <message>
       <source>Wizard</source>
-      <translation type="unfinished">Wizard</translation>
+      <translation>Assistente</translation>
     </message>
     <message>
       <source>Nexus</source>
-      <translation type="unfinished">Nexus</translation>
+      <translation>Nexus</translation>
     </message>
     <message>
       <source>Thunderstore</source>
-      <translation type="unfinished">Thunderstore</translation>
+      <translation>Thunderstore</translation>
     </message>
     <message>
       <source>Wabbajack</source>
-      <translation type="unfinished">Wabbajack</translation>
+      <translation>Bajack</translation>
     </message>
     <message>
       <source>Top bar</source>
-      <translation type="unfinished">Top bar</translation>
+      <translation>Barra superior</translation>
     </message>
     <message>
       <source>Where the toolbar sits. As a side bar it is always icon-only, with the labels shown as tooltips.</source>
-      <translation type="unfinished">Where the toolbar sits. As a side bar it is always icon-only, with the labels shown as tooltips.</translation>
+      <translation>Onde fica a barra de ferramentas. Como uma barra lateral, sempre fica apenas com ícone, com as etiquetas exibidas como dicas de ferramentas.</translation>
     </message>
     <message>
       <source>Always use compact (icon-only) buttons</source>
-      <translation type="unfinished">Always use compact (icon-only) buttons</translation>
+      <translation>Sempre usar botões compactos (apenas ícone)</translation>
     </message>
     <message>
       <source>Keep the top bar at its narrow sizes - buttons show icons only and the game and profile selectors collapse - instead of doing so only when the window is too narrow for the labels.</source>
-      <translation type="unfinished">Keep the top bar at its narrow sizes - buttons show icons only and the game and profile selectors collapse - instead of doing so only when the window is too narrow for the labels.</translation>
+      <translation>Mantenha a barra superior em seus tamanhos estreitos - os botões mostram apenas ícones e os seletores de jogo e perfil colapsarão - em vez de fazer isso apenas quando a janela for muito estreita para as etiquetas.</translation>
     </message>
     <message>
       <source>Hide buttons</source>
-      <translation type="unfinished">Hide buttons</translation>
+      <translation>Ocultar botões</translation>
     </message>
     <message>
       <source>Buttons ticked here are removed from the toolbar. A button that does not apply to the current game (Proton without a prefix, or a store the game is not on) is hidden anyway.</source>
-      <translation type="unfinished">Buttons ticked here are removed from the toolbar. A button that does not apply to the current game (Proton without a prefix, or a store the game is not on) is hidden anyway.</translation>
+      <translation>Os botões marcados aqui são removidos da barra de ferramentas. Um botão que não se aplica ao jogo atual (Proton sem um prefixo, ou uma loja onde o jogo não está ligado) está oculto.</translation>
     </message>
     <message>
       <source>Cap the combined download speed of all downloads (collections, single mods, nxm and modl links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>
@@ -15191,23 +15191,23 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     </message>
     <message>
       <source>Nexus download server</source>
-      <translation type="unfinished">Nexus download server</translation>
+      <translation>Servidor de downloads Nexus</translation>
     </message>
     <message>
       <source>Automatic</source>
-      <translation type="unfinished">Automatic</translation>
+      <translation>Automático</translation>
     </message>
     <message>
       <source>Global CDN</source>
-      <translation type="unfinished">Global CDN</translation>
+      <translation>CDN Global</translation>
     </message>
     <message>
       <source>{0} (Premium)</source>
-      <translation type="unfinished">{0} (Premium)</translation>
+      <translation>{0} (Premium)</translation>
     </message>
     <message>
       <source>Automatic follows your Nexus website preference. Regional servers require Nexus Premium. Applies to new or resumed Nexus downloads, including collections and Wabbajack. If the selected server is unavailable or fails, other available servers are tried. Pause and resume an active download to change its server.</source>
-      <translation type="unfinished">Automatic follows your Nexus website preference. Regional servers require Nexus Premium. Applies to new or resumed Nexus downloads, including collections and Wabbajack. If the selected server is unavailable or fails, other available servers are tried. Pause and resume an active download to change its server.</translation>
+      <translation>Segue-se automaticamente a preferência de site Nexus. Servidores regionais requerem Nexus Premium. Aplica-se para novos ou retomou os downloads Nexus, incluindo coleções e Wabbajack. Se o servidor selecionado não estiver disponível ou falhar, outros servidores disponíveis serão testados. Pausar e retomar um download ativo para alterar seu servidor.</translation>
     </message>
     <message>
       <source>Downloads are saved to the cache but not installed. Applies to nxm:// and modl:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</source>
@@ -15378,107 +15378,107 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     <name>SetupOptions</name>
     <message>
       <source>Use the version required by the author. Output keeps its authored position in {0}.</source>
-      <translation type="unfinished">Use the version required by the author. Output keeps its authored position in {0}.</translation>
+      <translation>Use a versão requerida pelo autor. A saída mantém a sua posição de autoria em {0}.</translation>
     </message>
     <message>
       <source>Run the Fallout 3 BSA Decompressor wizard, then import its complete output mod here, or select the author's .mpi package.</source>
-      <translation type="unfinished">Run the Fallout 3 BSA Decompressor wizard, then import its complete output mod here, or select the author's .mpi package.</translation>
+      <translation>Execute o assistente de Descompactador BSA de Fallout 3 e, em seguida, importe seu mod de saída completo aqui, ou selecione o pacote .mpi do autor.</translation>
     </message>
     <message>
       <source>Open mod.pub TTW page</source>
-      <translation type="unfinished">Open mod.pub TTW page</translation>
+      <translation>Open mod.pub TTW page</translation>
     </message>
     <message>
       <source>Build from .mpi package</source>
-      <translation type="unfinished">Build from .mpi package</translation>
+      <translation>Construir a partir de pacote .mpi</translation>
     </message>
     <message>
       <source>Import existing output mod</source>
-      <translation type="unfinished">Import existing output mod</translation>
+      <translation>Importar um mod de saída existente</translation>
     </message>
     <message>
       <source>Method</source>
-      <translation type="unfinished">Method</translation>
+      <translation>Método</translation>
     </message>
     <message>
       <source>Select the author-required version</source>
-      <translation type="unfinished">Select the author-required version</translation>
+      <translation>Selecione a versão requerida pelo autor</translation>
     </message>
     <message>
       <source>Browse…</source>
-      <translation type="unfinished">Browse…</translation>
+      <translation>Navegar…</translation>
     </message>
     <message>
       <source>Download package…</source>
-      <translation type="unfinished">Download package…</translation>
+      <translation>Baixar pacote…</translation>
     </message>
     <message>
       <source>Download the FO3 BSA Decompressor archive from Nexus Mods, extract it, then browse to the .mpi file.</source>
-      <translation type="unfinished">Download the FO3 BSA Decompressor archive from Nexus Mods, extract it, then browse to the .mpi file.</translation>
+      <translation>Baixe o arquivo FO3 do descompactador BSA de Nexus Mods, extraia-o e, em seguida, navegue até o arquivo .mpi.</translation>
     </message>
     <message>
       <source>Detected automatically when installed through Steam</source>
-      <translation type="unfinished">Detected automatically when installed through Steam</translation>
+      <translation>Detectado automaticamente quando instalado através do Steam</translation>
     </message>
     <message>
       <source>Original Fallout 3 game</source>
-      <translation type="unfinished">Original Fallout 3 game</translation>
+      <translation>Jogo original de Fallout 3</translation>
     </message>
     <message>
       <source>Install / update native MPI tool</source>
-      <translation type="unfinished">Install / update native MPI tool</translation>
+      <translation>Instalar / atualizar ferramenta MPI nativa</translation>
     </message>
     <message>
       <source>MPI installer on GitHub</source>
-      <translation type="unfinished">MPI installer on GitHub</translation>
+      <translation>MPI installer on GitHub</translation>
     </message>
     <message>
       <source>Root file variant</source>
-      <translation type="unfinished">Root file variant</translation>
+      <translation>Variante de arquivo raiz</translation>
     </message>
     <message>
       <source>Override</source>
-      <translation type="unfinished">Override</translation>
+      <translation>Sobrepor</translation>
     </message>
     <message>
       <source>Overrides the author's resolution in supported game INIs and display-tweak files. Leave off to keep their settings.</source>
-      <translation type="unfinished">Overrides the author's resolution in supported game INIs and display-tweak files. Leave off to keep their settings.</translation>
+      <translation>Sobrepõe a resolução do autor em INIs do jogo suportados e arquivos pressionados. Deixe em branco para manter suas configurações.</translation>
     </message>
     <message>
       <source>Display resolution</source>
-      <translation type="unfinished">Display resolution</translation>
+      <translation>Resolução da tela</translation>
     </message>
     <message>
       <source>Choose automatically</source>
-      <translation type="unfinished">Choose automatically</translation>
+      <translation>Escolher automaticamente</translation>
     </message>
     <message>
       <source>Unavailable: {0}</source>
-      <translation type="unfinished">Unavailable: {0}</translation>
+      <translation>Unavailable: {0}</translation>
     </message>
     <message>
       <source>Texture tool Proton</source>
-      <translation type="unfinished">Texture tool Proton</translation>
+      <translation>Ferramenta de textura Proton</translation>
     </message>
     <message>
       <source>Automatic (GPU when available)</source>
-      <translation type="unfinished">Automatic (GPU when available)</translation>
+      <translation>Automático (GPU quando disponível)</translation>
     </message>
     <message>
       <source>CPU only</source>
-      <translation type="unfinished">CPU only</translation>
+      <translation>Apenas CPU</translation>
     </message>
     <message>
       <source>Texture conversion</source>
-      <translation type="unfinished">Texture conversion</translation>
+      <translation>Conversão de textura</translation>
     </message>
     <message>
       <source>Select extracted MPI package</source>
-      <translation type="unfinished">Select extracted MPI package</translation>
+      <translation>Selecionar pacote MPI extraído</translation>
     </message>
     <message>
       <source>Select original game</source>
-      <translation type="unfinished">Select original game</translation>
+      <translation>Selecione o jogo original</translation>
     </message>
   </context>
   <context>
@@ -18509,206 +18509,206 @@ Mais recente:  {1}</translation>
     <name>WabbajackCard</name>
     <message>
       <source>by {0}</source>
-      <translation type="unfinished">by {0}</translation>
+      <translation>por {0}</translation>
     </message>
     <message>
       <source>Unknown author</source>
-      <translation type="unfinished">Unknown author</translation>
+      <translation>Autor desconhecido</translation>
     </message>
     <message>
       <source>Featured</source>
-      <translation type="unfinished">Featured</translation>
+      <translation>Destaques</translation>
     </message>
     <message>
       <source>Adult</source>
-      <translation type="unfinished">Adult</translation>
+      <translation>Adulto</translation>
     </message>
     <message>
       <source>Unavailable</source>
-      <translation type="unfinished">Unavailable</translation>
+      <translation>Unavailable</translation>
     </message>
     <message>
       <source>Resume available</source>
-      <translation type="unfinished">Resume available</translation>
+      <translation>Continuar disponível</translation>
     </message>
     <message>
       <source>Update available</source>
-      <translation type="unfinished">Update available</translation>
+      <translation>Atualização disponível</translation>
     </message>
     <message>
       <source>Installed</source>
-      <translation type="unfinished">Installed</translation>
+      <translation>Instalado</translation>
     </message>
     <message>
       <source>Download</source>
-      <translation type="unfinished">Download</translation>
+      <translation>BAIXAR</translation>
     </message>
     <message>
       <source>Install</source>
-      <translation type="unfinished">Install</translation>
+      <translation>Instale</translation>
     </message>
     <message>
       <source>Unknown</source>
-      <translation type="unfinished">Unknown</translation>
+      <translation>Desconhecido</translation>
     </message>
     <message>
       <source>View</source>
-      <translation type="unfinished">View</translation>
+      <translation>Visualizar</translation>
     </message>
     <message>
       <source>Installation: {0}</source>
-      <translation type="unfinished">Installation: {0}</translation>
+      <translation>Instalação: {0}</translation>
     </message>
   </context>
   <context>
     <name>WabbajackView</name>
     <message>
       <source>Wabbajack modlists</source>
-      <translation type="unfinished">Wabbajack modlists</translation>
+      <translation>Modlists do Wabbajack</translation>
     </message>
     <message>
       <source>No game selected</source>
-      <translation type="unfinished">No game selected</translation>
+      <translation>Nenhuma partida selecionada</translation>
     </message>
     <message>
       <source>All tags</source>
-      <translation type="unfinished">All tags</translation>
+      <translation>Todas as tags</translation>
     </message>
     <message>
       <source>Sort: </source>
-      <translation type="unfinished">Sort: </translation>
+      <translation>Organizar </translation>
     </message>
     <message>
       <source>Featured only</source>
-      <translation type="unfinished">Featured only</translation>
+      <translation>Apenas em destaque</translation>
     </message>
     <message>
       <source>Installed</source>
-      <translation type="unfinished">Installed</translation>
+      <translation>Instalado</translation>
     </message>
     <message>
       <source>Show adult</source>
-      <translation type="unfinished">Show adult</translation>
+      <translation>Mostrar adultos</translation>
     </message>
     <message>
       <source>Hide unavailable</source>
-      <translation type="unfinished">Hide unavailable</translation>
+      <translation>Ocultar indisponível</translation>
     </message>
     <message>
       <source>Loading modlists…</source>
-      <translation type="unfinished">Loading modlists…</translation>
+      <translation>Carregando modlists…</translation>
     </message>
     <message>
       <source>Search titles, authors, or tags…</source>
-      <translation type="unfinished">Search titles, authors, or tags…</translation>
+      <translation>Pesquisar títulos, autores ou etiquetas…</translation>
     </message>
     <message>
       <source>Page</source>
-      <translation type="unfinished">Page</translation>
+      <translation>Página</translation>
     </message>
     <message>
       <source>Select a game in the main toolbar</source>
-      <translation type="unfinished">Select a game in the main toolbar</translation>
+      <translation>Selecione um jogo na barra de ferramentas principal</translation>
     </message>
     <message>
       <source>Not checked</source>
-      <translation type="unfinished">Not checked</translation>
+      <translation>Não verificado</translation>
     </message>
     <message>
       <source>Files and locations</source>
-      <translation type="unfinished">Files and locations</translation>
+      <translation>Arquivos e locais</translation>
     </message>
     <message>
       <source>The package is loaded when you check requirements.</source>
-      <translation type="unfinished">The package is loaded when you check requirements.</translation>
+      <translation>O pacote é carregado quando você verifica os requisitos.</translation>
     </message>
     <message>
       <source>Modlist package</source>
-      <translation type="unfinished">Modlist package</translation>
+      <translation>Pacote Modlist</translation>
     </message>
     <message>
       <source>Reuse an existing download folder</source>
-      <translation type="unfinished">Reuse an existing download folder</translation>
+      <translation>Reutilizar uma pasta de download existente</translation>
     </message>
     <message>
       <source>This installation's managed directory inside the current game's .wabbajack folder.</source>
-      <translation type="unfinished">This installation's managed directory inside the current game's .wabbajack folder.</translation>
+      <translation>O diretório gerenciado desta instalação dentro da pasta .wabbajack do jogo atual.</translation>
     </message>
     <message>
       <source>Downloads</source>
-      <translation type="unfinished">Downloads</translation>
+      <translation>Downloads</translation>
     </message>
     <message>
       <source>Installation</source>
-      <translation type="unfinished">Installation</translation>
+      <translation>Instalação</translation>
     </message>
     <message>
       <source>Chosen automatically for this game</source>
-      <translation type="unfinished">Chosen automatically for this game</translation>
+      <translation>Escolhido automaticamente para este jogo</translation>
     </message>
     <message>
       <source>Profiles and options</source>
-      <translation type="unfinished">Profiles and options</translation>
+      <translation>Perfis e opções</translation>
     </message>
     <message>
       <source>Operation</source>
-      <translation type="unfinished">Operation</translation>
+      <translation>Operação</translation>
     </message>
     <message>
       <source>Profiles</source>
-      <translation type="unfinished">Profiles</translation>
+      <translation>Profiles</translation>
     </message>
     <message>
       <source>Linux adjustments</source>
-      <translation type="unfinished">Linux adjustments</translation>
+      <translation>Ajustes no Linux</translation>
     </message>
     <message>
       <source>Check requirements to load the authored profiles and prepare the download plan.</source>
-      <translation type="unfinished">Check requirements to load the authored profiles and prepare the download plan.</translation>
+      <translation>Verifique os requisitos para carregar os perfis de autoria e preparar o plano de download.</translation>
     </message>
     <message>
       <source>Editing shared mod files affects every profile. INIs, enabled mods and load order stay separate.</source>
-      <translation type="unfinished">Editing shared mod files affects every profile. INIs, enabled mods and load order stay separate.</translation>
+      <translation>A edição de arquivos de mods compartilhados afeta todos os perfis. INIs, mods ativados e ordem de carregamento permanecem separados.</translation>
     </message>
     <message>
       <source>Requirements</source>
-      <translation type="unfinished">Requirements</translation>
+      <translation>Requisitos</translation>
     </message>
     <message>
       <source>Download plan</source>
-      <translation type="unfinished">Download plan</translation>
+      <translation>Baixar plano</translation>
     </message>
     <message>
       <source>Check</source>
-      <translation type="unfinished">Check</translation>
+      <translation>Verificar</translation>
     </message>
     <message>
       <source>Review</source>
-      <translation type="unfinished">Review</translation>
+      <translation>Avaliar</translation>
     </message>
     <message>
       <source>Install</source>
-      <translation type="unfinished">Install</translation>
+      <translation>Instale</translation>
     </message>
     <message>
       <source>Check requirements and review the download plan.</source>
-      <translation type="unfinished">Check requirements and review the download plan.</translation>
+      <translation>Verificar os requisitos e rever o plano de download.</translation>
     </message>
     <message>
       <source>Review changes before updating shared files and profiles.</source>
-      <translation type="unfinished">Review changes before updating shared files and profiles.</translation>
+      <translation>Revise as alterações antes de atualizar arquivos e perfis compartilhados.</translation>
     </message>
     <message>
       <source>File</source>
-      <translation type="unfinished">File</translation>
+      <translation>Arquivo</translation>
     </message>
     <message>
       <source>Change</source>
-      <translation type="unfinished">Change</translation>
+      <translation>Troca</translation>
     </message>
     <message>
       <source>Resolution</source>
-      <translation type="unfinished">Resolution</translation>
+      <translation>Resolução:</translation>
     </message>
     <message>
       <source>No modlists match these filters.
@@ -18718,87 +18718,87 @@ Try clearing your search or filters.</translation>
     </message>
     <message>
       <source>Select a game in the main toolbar to browse its modlists.</source>
-      <translation type="unfinished">Select a game in the main toolbar to browse its modlists.</translation>
+      <translation>Selecione um jogo na barra de ferramentas principal para navegar em suas listas de mods.</translation>
     </message>
     <message>
       <source>of {0}</source>
-      <translation type="unfinished">of {0}</translation>
+      <translation>De {0}</translation>
     </message>
     <message>
       <source>{0} modlists</source>
-      <translation type="unfinished">{0} modlists</translation>
+      <translation>Modlists {0}</translation>
     </message>
     <message>
       <source>View modlist</source>
-      <translation type="unfinished">View modlist</translation>
+      <translation>Ver lista</translation>
     </message>
     <message>
       <source>Unknown</source>
-      <translation type="unfinished">Unknown</translation>
+      <translation>Desconhecido</translation>
     </message>
     <message>
       <source>Featured</source>
-      <translation type="unfinished">Featured</translation>
+      <translation>Destaques</translation>
     </message>
     <message>
       <source>Unavailable</source>
-      <translation type="unfinished">Unavailable</translation>
+      <translation>Unavailable</translation>
     </message>
     <message>
       <source>Update available</source>
-      <translation type="unfinished">Update available</translation>
+      <translation>Atualização disponível</translation>
     </message>
     <message>
       <source>Saved installation package</source>
-      <translation type="unfinished">Saved installation package</translation>
+      <translation>Pacote de instalação salvo</translation>
     </message>
     <message>
       <source>Package will download from the gallery</source>
-      <translation type="unfinished">Package will download from the gallery</translation>
+      <translation>Pacote irá baixar da galeria</translation>
     </message>
     <message>
       <source>This list is currently unavailable for download.</source>
-      <translation type="unfinished">This list is currently unavailable for download.</translation>
+      <translation>Esta lista está indisponível para download.</translation>
     </message>
     <message>
       <source>Open Wabbajack modlist</source>
-      <translation type="unfinished">Open Wabbajack modlist</translation>
+      <translation>Abrir modlist do Wabbajack</translation>
     </message>
     <message>
       <source>Installation directory</source>
-      <translation type="unfinished">Installation directory</translation>
+      <translation>Diretório de instalação</translation>
     </message>
     <message>
       <source>Download directory</source>
-      <translation type="unfinished">Download directory</translation>
+      <translation>Diretório de Download</translation>
     </message>
     <message>
       <source>Open Wabbajack URL</source>
-      <translation type="unfinished">Open Wabbajack URL</translation>
+      <translation>Abrir URL do Wabbajack</translation>
     </message>
     <message>
       <source>Direct .wabbajack URL:</source>
-      <translation type="unfinished">Direct .wabbajack URL:</translation>
+      <translation>URL do .wabbajack direto:</translation>
     </message>
     <message>
       <source>This list is currently unavailable for download. Open a local .wabbajack file to continue.</source>
-      <translation type="unfinished">This list is currently unavailable for download. Open a local .wabbajack file to continue.</translation>
+      <translation>Esta lista está indisponível para download. Abra um arquivo .wabbajack local para continuar.</translation>
     </message>
     <message>
       <source>This entry has no package download URL. Open a local .wabbajack file.</source>
-      <translation type="unfinished">This entry has no package download URL. Open a local .wabbajack file.</translation>
+      <translation>Esta entrada não tem uma URL de download de pacote. Abra um arquivo local .wabbajack.</translation>
     </message>
     <message>
       <source>Downloading modlist package…</source>
-      <translation type="unfinished">Downloading modlist package…</translation>
+      <translation>Baixando pacote de lista…</translation>
     </message>
     <message>
       <source>Inspecting modlist package…</source>
-      <translation type="unfinished">Inspecting modlist package…</translation>
+      <translation>Inspecionando pacote de modlist…</translation>
     </message>
     <message>
       <source>{0} / {1} ({2}%)</source>
-      <translation type="unfinished">{0} / {1} ({2}%)</translation>
+      <translation>{0} / {1} ({2}%)</translation>
     </message>
     <message>
       <source>{0} downloaded</source>
@@ -18806,251 +18806,251 @@ Try clearing your search or filters.</translation>
     </message>
     <message>
       <source>Starting…</source>
-      <translation type="unfinished">Starting…</translation>
+      <translation>Iniciando…</translation>
     </message>
     <message>
       <source>Installing…</source>
-      <translation type="unfinished">Installing…</translation>
+      <translation>Instalando…</translation>
     </message>
     <message>
       <source>Preparing tool…</source>
-      <translation type="unfinished">Preparing tool…</translation>
+      <translation>Preparando ferramenta…</translation>
     </message>
     <message>
       <source>Loading modlist…</source>
-      <translation type="unfinished">Loading modlist…</translation>
+      <translation>Carregando modlist…</translation>
     </message>
     <message>
       <source>Checking requirements…</source>
-      <translation type="unfinished">Checking requirements…</translation>
+      <translation>Verificando requisitos…</translation>
     </message>
     <message>
       <source>Choose .wabbajack…</source>
-      <translation type="unfinished">Choose .wabbajack…</translation>
+      <translation>Escolher .wabbajack…</translation>
     </message>
     <message>
       <source>Recheck requirements</source>
-      <translation type="unfinished">Recheck requirements</translation>
+      <translation>Verifique os requisitos</translation>
     </message>
     <message>
       <source>Check requirements</source>
-      <translation type="unfinished">Check requirements</translation>
+      <translation>Verificar requisitos</translation>
     </message>
     <message>
       <source>Start the selected operation using the reviewed download plan.</source>
-      <translation type="unfinished">Start the selected operation using the reviewed download plan.</translation>
+      <translation>Inicie a operação selecionada usando o plano revisado.</translation>
     </message>
     <message>
       <source>Load the package if needed, check requirements, and prepare the download plan for review.</source>
-      <translation type="unfinished">Load the package if needed, check requirements, and prepare the download plan for review.</translation>
+      <translation>Carregue o pacote se necessário, verifique os requisitos e prepare o plano de download para revisão.</translation>
     </message>
     <message>
       <source>Installing</source>
-      <translation type="unfinished">Installing</translation>
+      <translation>Instalando</translation>
     </message>
     <message>
       <source>Installation is running. Pause and cancel are available in the progress window.</source>
-      <translation type="unfinished">Installation is running. Pause and cancel are available in the progress window.</translation>
+      <translation>Instalação está em execução. Pausar e cancelar estão disponíveis na janela de progresso.</translation>
     </message>
     <message>
       <source>Wait for tool setup to finish, then check requirements again.</source>
-      <translation type="unfinished">Wait for tool setup to finish, then check requirements again.</translation>
+      <translation>Aguarde a configuração da ferramenta para finalizar, em seguida, verifique os requisitos novamente.</translation>
     </message>
     <message>
       <source>Checking…</source>
-      <translation type="unfinished">Checking…</translation>
+      <translation>Verificando…</translation>
     </message>
     <message>
       <source>Loading…</source>
-      <translation type="unfinished">Loading…</translation>
+      <translation>Carregando…</translation>
     </message>
     <message>
       <source>Checking game files, downloads and available space…</source>
-      <translation type="unfinished">Checking game files, downloads and available space…</translation>
+      <translation>Verificando arquivos do jogo, downloads e espaço disponível…</translation>
     </message>
     <message>
       <source>Loading the package, then checking requirements…</source>
-      <translation type="unfinished">Loading the package, then checking requirements…</translation>
+      <translation>Carregando o pacote e depois verificando os requisitos…</translation>
     </message>
     <message>
       <source>Loading the modlist's profiles and options…</source>
-      <translation type="unfinished">Loading the modlist's profiles and options…</translation>
+      <translation>Carregando perfis e opções da lista de mods…</translation>
     </message>
     <message>
       <source>1 blocking</source>
-      <translation type="unfinished">1 blocking</translation>
+      <translation>1 bloqueio</translation>
     </message>
     <message>
       <source>{0} blocking</source>
-      <translation type="unfinished">{0} blocking</translation>
+      <translation>Bloqueando {0}</translation>
     </message>
     <message>
       <source>Resolve the blocking requirement to continue, then recheck.</source>
-      <translation type="unfinished">Resolve the blocking requirement to continue, then recheck.</translation>
+      <translation>Resolva o requisito de bloqueio para continuar, e então verifique novamente.</translation>
     </message>
     <message>
       <source>Resolve the {0} blocking requirements to continue, then recheck.</source>
-      <translation type="unfinished">Resolve the {0} blocking requirements to continue, then recheck.</translation>
+      <translation>Resolva os requisitos de bloqueio {0} para continuar, e então verifique novamente.</translation>
     </message>
     <message>
       <source>Ready to install</source>
-      <translation type="unfinished">Ready to install</translation>
+      <translation>Pronto para instalar</translation>
     </message>
     <message>
       <source>Plan ready</source>
-      <translation type="unfinished">Plan ready</translation>
+      <translation>Plano pronto</translation>
     </message>
     <message>
       <source>Review the requirements and download plan, then select {0}.</source>
-      <translation type="unfinished">Review the requirements and download plan, then select {0}.</translation>
+      <translation>Revise os requisitos e baixe o plano e, em seguida, selecione {0}.</translation>
     </message>
     <message>
       <source>Package ready</source>
-      <translation type="unfinished">Package ready</translation>
+      <translation>Pacote pronto</translation>
     </message>
     <message>
       <source>Preparing the isolated texture runtime and testing DDS conversion…</source>
-      <translation type="unfinished">Preparing the isolated texture runtime and testing DDS conversion…</translation>
+      <translation>Preparando o tempo de execução de textura isolado e testando a conversão de DDS…</translation>
     </message>
     <message>
       <source>Installing the native MPI tool…</source>
-      <translation type="unfinished">Installing the native MPI tool…</translation>
+      <translation>Instalando a ferramenta MPI nativa…</translation>
     </message>
     <message>
       <source>Wait for the current install or deployment operation to finish.</source>
-      <translation type="unfinished">Wait for the current install or deployment operation to finish.</translation>
+      <translation>Aguarde a operação de instalação atual ou implantação terminar.</translation>
     </message>
     <message>
       <source>Configure the required game before installing this modlist.</source>
-      <translation type="unfinished">Configure the required game before installing this modlist.</translation>
+      <translation>Configure o jogo necessário antes de instalar este modlist.</translation>
     </message>
     <message>
       <source>Checking game files, downloads, disk space, and runtime requirements…</source>
-      <translation type="unfinished">Checking game files, downloads, disk space, and runtime requirements…</translation>
+      <translation>Verificando arquivos de jogos, downloads, espaço em disco e requisitos de tempo de execução…</translation>
     </message>
     <message>
       <source>Installing / Reconstructing</source>
-      <translation type="unfinished">Installing / Reconstructing</translation>
+      <translation>Instalando / Reconstruindo</translation>
     </message>
     <message>
       <source>Download complete · inspecting package…</source>
-      <translation type="unfinished">Download complete · inspecting package…</translation>
+      <translation>Download concluído · inspecionando pacote…</translation>
     </message>
     <message>
       <source>Modlist package downloaded. Checking its contents…</source>
-      <translation type="unfinished">Modlist package downloaded. Checking its contents…</translation>
+      <translation>Modlist pacote baixado. Verificando seu conteúdo…</translation>
     </message>
     <message>
       <source>Downloading modlist package: {0}</source>
-      <translation type="unfinished">Downloading modlist package: {0}</translation>
+      <translation>Baixando pacote de lista de mods: {0}</translation>
     </message>
     <message>
       <source>Keep mine</source>
-      <translation type="unfinished">Keep mine</translation>
+      <translation>Manter o meu</translation>
     </message>
     <message>
       <source>Use author version</source>
-      <translation type="unfinished">Use author version</translation>
+      <translation>Usar versão do autor</translation>
     </message>
     <message>
       <source>Preview truncated. Review the complete files before choosing.</source>
-      <translation type="unfinished">Preview truncated. Review the complete files before choosing.</translation>
+      <translation>Visualização truncada. Revise os arquivos completos antes de escolher.</translation>
     </message>
     <message>
       <source>Binary or unreadable content. Compare the recorded hashes and file locations.</source>
-      <translation type="unfinished">Binary or unreadable content. Compare the recorded hashes and file locations.</translation>
+      <translation>Conteúdo binário ou ilegível. Comparar os hashes e locais de arquivos registrados.</translation>
     </message>
     <message>
       <source>The gallery could not be loaded. Try Refresh, or open a local .wabbajack file.</source>
-      <translation type="unfinished">The gallery could not be loaded. Try Refresh, or open a local .wabbajack file.</translation>
+      <translation>Não foi possível carregar a galeria. Tente atualizar ou abra um arquivo .wabbajack local.</translation>
     </message>
     <message>
       <source>Open download page</source>
-      <translation type="unfinished">Open download page</translation>
+      <translation>Abrir página de download</translation>
     </message>
     <message>
       <source>Download the .wabbajack file from {0}, then use Open .wabbajack to continue setup.</source>
-      <translation type="unfinished">Download the .wabbajack file from {0}, then use Open .wabbajack to continue setup.</translation>
+      <translation>Baixe o arquivo .wabbajack do {0}e, em seguida, use Open .wabbajack para continuar a instalação.</translation>
     </message>
     <message>
       <source>Could not continue</source>
-      <translation type="unfinished">Could not continue</translation>
+      <translation>Não foi possível continuar</translation>
     </message>
     <message>
       <source>Review the error details, then try the operation again.</source>
-      <translation type="unfinished">Review the error details, then try the operation again.</translation>
+      <translation>Revise os detalhes do erro e tente a operação novamente.</translation>
     </message>
     <message>
       <source>Using cached gallery information.</source>
-      <translation type="unfinished">Using cached gallery information.</translation>
+      <translation>Usando informações da galeria em cache.</translation>
     </message>
     <message>
       <source>Gallery loaded.</source>
-      <translation type="unfinished">Gallery loaded.</translation>
+      <translation>Galeria carregada.</translation>
     </message>
     <message>
       <source> {0} feeds unavailable.</source>
-      <translation type="unfinished"> {0} feeds unavailable.</translation>
+      <translation> Feeds {0} indisponíveis.</translation>
     </message>
     <message>
       <source>Reload</source>
-      <translation type="unfinished">Reload</translation>
+      <translation>Reload</translation>
     </message>
     <message>
       <source>{0} · saved package</source>
-      <translation type="unfinished">{0} · saved package</translation>
+      <translation>{0} · pacote salvo</translation>
     </message>
     <message>
       <source>{0} archives · {1} files</source>
-      <translation type="unfinished">{0} archives · {1} files</translation>
+      <translation>Arquivos {0} · Arquivos {1}</translation>
     </message>
     <message>
       <source>Package ready. Check requirements to prepare the download plan.</source>
-      <translation type="unfinished">Package ready. Check requirements to prepare the download plan.</translation>
+      <translation>Pacote pronto. Verifique os requisitos para preparar o plano de download.</translation>
     </message>
     <message>
       <source>Requirements and download plan ready. Review them before starting.</source>
-      <translation type="unfinished">Requirements and download plan ready. Review them before starting.</translation>
+      <translation>Requisitos e plano de download pronto. Revise-os antes de começar.</translation>
     </message>
     <message>
       <source>Resolve the listed requirements, then recheck.</source>
-      <translation type="unfinished">Resolve the listed requirements, then recheck.</translation>
+      <translation>Resolva os requisitos listados e verifique novamente.</translation>
     </message>
     <message>
       <source>Texture tool installed. Check requirements again to refresh the download plan.</source>
-      <translation type="unfinished">Texture tool installed. Check requirements again to refresh the download plan.</translation>
+      <translation>Ferramenta de textura instalada. Verifique os requisitos novamente para atualizar o plano de download.</translation>
     </message>
     <message>
       <source>Native MPI tool installed. Check requirements again to verify the selected package.</source>
-      <translation type="unfinished">Native MPI tool installed. Check requirements again to verify the selected package.</translation>
+      <translation>Ferramenta MPI nativa instalada. Verifique os requisitos novamente para verificar o pacote selecionado.</translation>
     </message>
     <message>
       <source>Paused</source>
-      <translation type="unfinished">Paused</translation>
+      <translation>Pausado</translation>
     </message>
     <message>
       <source>Cancelled</source>
-      <translation type="unfinished">Cancelled</translation>
+      <translation>Cancelado</translation>
     </message>
     <message>
       <source>Needs attention</source>
-      <translation type="unfinished">Needs attention</translation>
+      <translation>Precisa de atenção</translation>
     </message>
     <message>
       <source>Installation complete. You can select its profiles from the main toolbar.</source>
-      <translation type="unfinished">Installation complete. You can select its profiles from the main toolbar.</translation>
+      <translation>Instalação completa. Você pode selecionar seus perfis na barra de ferramentas principal.</translation>
     </message>
     <message>
       <source>Your progress is saved. Check requirements, then select Resume to continue.</source>
-      <translation type="unfinished">Your progress is saved. Check requirements, then select Resume to continue.</translation>
+      <translation>Seu progresso foi salvo. Verifique os requisitos e selecione Continuar para continuar.</translation>
     </message>
     <message>
       <source>Wait for tool setup to finish before closing this tab.</source>
-      <translation type="unfinished">Wait for tool setup to finish before closing this tab.</translation>
+      <translation>Espere a configuração das ferramentas terminar antes de fechar esta aba.</translation>
     </message>
     <message>
       <source>Pause or cancel the installation before closing this tab.</source>
-      <translation type="unfinished">Pause or cancel the installation before closing this tab.</translation>
+      <translation>Pausar ou cancelar a instalação antes de fechar esta aba.</translation>
     </message>
   </context>
   <context>
@@ -19140,7 +19140,7 @@ Pressione Atualizar para tentar novamente.</translation>
     <name>WizardTools</name>
     <message>
       <source>Install Steam Workshop Mod</source>
-      <translation type="unfinished">Install Steam Workshop Mod</translation>
+      <translation>Instalar Oficina Steam Mod</translation>
     </message>
     <message>
       <source>mod.io API Key</source>
@@ -19376,7 +19376,7 @@ Pressione Atualizar para tentar novamente.</translation>
     </message>
     <message>
       <source>Download a Steam Workshop item and install it into this profile.</source>
-      <translation type="unfinished">Download a Steam Workshop item and install it into this profile.</translation>
+      <translation>Baixe um item da Oficina Steam e instale-o nesse perfil.</translation>
     </message>
     <message>
       <source>Enter a mod.io key to enable update checks for manually-installed mod.io mods.</source>
@@ -19456,7 +19456,7 @@ Pressione Atualizar para tentar novamente.</translation>
     </message>
     <message>
       <source>Patch Oblivion.exe to use up to 4 GB of memory (keeps a backup that can be restored).</source>
-      <translation type="unfinished">Patch Oblivion.exe to use up to 4 GB of memory (keeps a backup that can be restored).</translation>
+      <translation>Patch Oblivion.exe para usar até 4 GB de memória (mantém um backup que pode ser restaurado).</translation>
     </message>
     <message>
       <source>Run the native Linux TTW installer (merges Fallout 3 + New Vegas) and add the result as a mod. Requires Fallout 3 installed and a TTW .mpi package from mod.pub.</source>
@@ -19864,143 +19864,143 @@ Reabra este wizard.</translation>
     <name>WorkshopView</name>
     <message>
       <source>Install Steam Workshop Mod</source>
-      <translation type="unfinished">Install Steam Workshop Mod</translation>
+      <translation>Instalar Oficina Steam Mod</translation>
     </message>
     <message>
       <source>Download an individual public Workshop mod into this profile. Required Workshop items must be installed separately.</source>
-      <translation type="unfinished">Download an individual public Workshop mod into this profile. Required Workshop items must be installed separately.</translation>
+      <translation>Faça o download de um mod público individual para este perfil. Itens necessários da oficina devem ser instalados separadamente.</translation>
     </message>
     <message>
       <source>Item ID or Steam Workshop URL</source>
-      <translation type="unfinished">Item ID or Steam Workshop URL</translation>
+      <translation>ID do Item ou URL da Oficina Steam</translation>
     </message>
     <message>
       <source>Workshop item</source>
-      <translation type="unfinished">Workshop item</translation>
+      <translation>Item da oficina</translation>
     </message>
     <message>
       <source>{0} · App ID {1}</source>
-      <translation type="unfinished">{0} · App ID {1}</translation>
+      <translation>{0} · App ID {1}</translation>
     </message>
     <message>
       <source>Install into</source>
-      <translation type="unfinished">Install into</translation>
+      <translation>Instalar em</translation>
     </message>
     <message>
       <source>QR code (Steam mobile app)</source>
-      <translation type="unfinished">QR code (Steam mobile app)</translation>
+      <translation>Código QR (aplicativo móvel Steam)</translation>
     </message>
     <message>
       <source>Steam account and password</source>
-      <translation type="unfinished">Steam account and password</translation>
+      <translation>Conta e senha Steam</translation>
     </message>
     <message>
       <source>Saved account</source>
-      <translation type="unfinished">Saved account</translation>
+      <translation>Conta salva</translation>
     </message>
     <message>
       <source>Anonymous (where supported)</source>
-      <translation type="unfinished">Anonymous (where supported)</translation>
+      <translation>Anônimo (quando suportado)</translation>
     </message>
     <message>
       <source>Sign in</source>
-      <translation type="unfinished">Sign in</translation>
+      <translation>Iniciar sessão</translation>
     </message>
     <message>
       <source>Steam account name, not display name</source>
-      <translation type="unfinished">Steam account name, not display name</translation>
+      <translation>Nome da conta Steam, não exibir o nome</translation>
     </message>
     <message>
       <source>Account name</source>
-      <translation type="unfinished">Account name</translation>
+      <translation>Nome da Conta</translation>
     </message>
     <message>
       <source>Remember this account</source>
-      <translation type="unfinished">Remember this account</translation>
+      <translation>Lembrar esta conta</translation>
     </message>
     <message>
       <source>Keep the Steam session on this device. Enter the account name to use it for later downloads.</source>
-      <translation type="unfinished">Keep the Steam session on this device. Enter the account name to use it for later downloads.</translation>
+      <translation>Mantenha a sessão Steam neste dispositivo. Digite o nome da conta para usá-la para downloads posteriores.</translation>
     </message>
     <message>
       <source>Forget saved account</source>
-      <translation type="unfinished">Forget saved account</translation>
+      <translation>Esqueci a conta salva</translation>
     </message>
     <message>
       <source>Open Workshop page</source>
-      <translation type="unfinished">Open Workshop page</translation>
+      <translation>Abrir página da Oficina</translation>
     </message>
     <message>
       <source>Continue sign-in</source>
-      <translation type="unfinished">Continue sign-in</translation>
+      <translation>Continuar o login</translation>
     </message>
     <message>
       <source>Install downloaded files</source>
-      <translation type="unfinished">Install downloaded files</translation>
+      <translation>Instalar arquivos baixados</translation>
     </message>
     <message>
       <source>Cancel download</source>
-      <translation type="unfinished">Cancel download</translation>
+      <translation>Cancelar o download</translation>
     </message>
     <message>
       <source>Download and install</source>
-      <translation type="unfinished">Download and install</translation>
+      <translation>Baixar e instalar</translation>
     </message>
     <message>
       <source>Cancel the download before closing.</source>
-      <translation type="unfinished">Cancel the download before closing.</translation>
+      <translation>Cancele o download antes de fechar.</translation>
     </message>
     <message>
       <source>Enter your Steam account name.</source>
-      <translation type="unfinished">Enter your Steam account name.</translation>
+      <translation>Digite o nome da sua conta Steam.</translation>
     </message>
     <message>
       <source>The mod installer is unavailable.</source>
-      <translation type="unfinished">The mod installer is unavailable.</translation>
+      <translation>O instalador de mods não está disponível.</translation>
     </message>
     <message>
       <source>Looking up Workshop item…</source>
-      <translation type="unfinished">Looking up Workshop item…</translation>
+      <translation>Localizando item da Oficina…</translation>
     </message>
     <message>
       <source>Signed in. Downloading Workshop files…</source>
-      <translation type="unfinished">Signed in. Downloading Workshop files…</translation>
+      <translation>Conectado. Baixando arquivos do Workshop…</translation>
     </message>
     <message>
       <source>Steam account password</source>
-      <translation type="unfinished">Steam account password</translation>
+      <translation>Senha da conta Steam</translation>
     </message>
     <message>
       <source>Steam Guard code from your email or authenticator</source>
-      <translation type="unfinished">Steam Guard code from your email or authenticator</translation>
+      <translation>Código Steam Guard de seu e-mail ou autenticador</translation>
     </message>
     <message>
       <source>Download cancelled. Nothing was installed.</source>
-      <translation type="unfinished">Download cancelled. Nothing was installed.</translation>
+      <translation>Download cancelado. Nada foi instalado.</translation>
     </message>
     <message>
       <source>Installed: {0}</source>
-      <translation type="unfinished">Installed: {0}</translation>
+      <translation>Instalado: {0}</translation>
     </message>
     <message>
       <source>Complete the mod installer tab to finish installation.</source>
-      <translation type="unfinished">Complete the mod installer tab to finish installation.</translation>
+      <translation>Complete a aba do instalador do mod para terminar a instalação.</translation>
     </message>
     <message>
       <source>Installation did not complete. The download is kept so you can try again.</source>
-      <translation type="unfinished">Installation did not complete. The download is kept so you can try again.</translation>
+      <translation>A instalação não foi concluída. O download foi mantido para que você possa tentar novamente.</translation>
     </message>
     <message>
       <source>Cancelling download…</source>
-      <translation type="unfinished">Cancelling download…</translation>
+      <translation>Cancelando o download…</translation>
     </message>
     <message>
       <source>Installing the downloaded mod…</source>
-      <translation type="unfinished">Installing the downloaded mod…</translation>
+      <translation>Instalando o mod baixado…</translation>
     </message>
     <message>
       <source>Saved Steam account removed from Amethyst.</source>
-      <translation type="unfinished">Saved Steam account removed from Amethyst.</translation>
+      <translation>Conta Steam salva removida da Ametista.</translation>
     </message>
   </context>
   <context>
