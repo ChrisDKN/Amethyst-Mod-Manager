@@ -22,11 +22,15 @@ Plugins.txt is managed by the plugin panel (extensions: .esp, .esm).
 
 from __future__ import annotations
 
+import filecmp
+import shutil
 from pathlib import Path
 
 from Games.ue5_game import UE5Game, UE5Rule
+from Games.Bethesda.bethesda_ini import _read_ini_key, _set_ini_key
 from Utils.deployment import CustomRule, LinkMode
 from Utils.config_paths import get_profiles_dir
+from Utils.atomic_write import write_atomic
 
 # Plugins.txt lives here inside the game root (OblivionRemastered/)
 _PLUGINS_TXT_GAME_REL = Path("Content/Dev/ObvData/Data/Plugins.txt")
@@ -38,6 +42,17 @@ _GAME_SUBDIR = "OblivionRemastered"
 
 
 class OblivionRemastered(UE5Game):
+
+    supports_script_extender_swap = True
+    preferred_launch_requires_direct = True
+    profile_overridable_paths_extras = (
+        *UE5Game.profile_overridable_paths_extras,
+        "script_extender_swap",
+    )
+
+    def __init__(self) -> None:
+        self._script_extender_swap = False
+        super().__init__()
 
     vanilla_plugins = [
         "Oblivion.esm",
@@ -126,15 +141,173 @@ class OblivionRemastered(UE5Game):
             }
 
     @property
+    def _script_extender_exe(self) -> str:
+        return "Binaries/Win64/obse64_loader.exe"
+
+    @property
+    def script_extender_swap(self) -> bool:
+        return self._script_extender_swap
+
+    def set_script_extender_swap(self, value: bool) -> None:
+        self._script_extender_swap = bool(value)
+        self.save_paths()
+
+    def _load_paths_extra(self, data: dict) -> None:
+        self._script_extender_swap = bool(
+            data.get("script_extender_swap", False))
+
+    def _save_paths_extra(self) -> dict:
+        return {"script_extender_swap": self._script_extender_swap}
+
+    @property
     def wine_dll_overrides(self) -> dict[str, str]:
         return {"dwmapi": "native,builtin", "winmm": "native,builtin"}
 
     @property
     def preferred_launch_exe(self) -> str:
         # obse64_loader.exe must be launched to play with mods active, but
-        # replacing OblivionRemastered.exe with it causes errors.  When OBSE
-        # is installed we show it first in the dropdown as the launch exe.
+        # a launcher swap also needs OBSE's RuntimeName override. When OBSE is
+        # installed we show it first in the dropdown as the launch exe.
         return "Binaries/Win64/obse64_loader.exe"
+
+    def _script_extender_paths(self) -> tuple[Path, Path, Path] | None:
+        game_path = self.get_game_path()
+        if game_path is None:
+            return None
+        bin_dir = game_path / "Binaries" / "Win64"
+        runtime = bin_dir / "OblivionRemastered-Win64-Shipping.exe"
+        backup = runtime.with_name(runtime.stem + ".bak")
+        return bin_dir / "obse64_loader.exe", runtime, backup
+
+    def _script_extender_runtime_ini_path(self) -> Path | None:
+        game_path = self.get_game_path()
+        if game_path is None:
+            return None
+        from Utils.games.frameworks import resolve_file_ci
+        relative = Path("Binaries/Win64/OBSE/obse.ini")
+        return resolve_file_ci(game_path, relative) or game_path / relative
+
+    def _write_script_extender_runtime_override(self, backup_name: str,
+                                                 log_fn) -> None:
+        ini_path = self._script_extender_runtime_ini_path()
+        if ini_path is None:
+            return
+        if ini_path.is_symlink():
+            write_atomic(ini_path, ini_path.read_bytes())
+        _set_ini_key(ini_path, "Loader", "RuntimeName", backup_name,
+                     case_insensitive=True)
+        log_fn(
+            "  Wrote Binaries/Win64/OBSE/obse.ini "
+            f"(RuntimeName={backup_name}).")
+
+    def _remove_script_extender_runtime_override(self, log_fn) -> None:
+        paths = self._script_extender_paths()
+        ini_path = self._script_extender_runtime_ini_path()
+        if paths is None or ini_path is None:
+            return
+        _loader, _runtime, backup = paths
+        if (not backup.is_file()
+                or _read_ini_key(
+                    ini_path, "Loader", "RuntimeName",
+                    case_insensitive=True) != backup.name):
+            return
+        if ini_path.is_symlink():
+            write_atomic(ini_path, ini_path.read_bytes())
+        _set_ini_key(ini_path, "Loader", "RuntimeName", None,
+                     case_insensitive=True)
+        log_fn("  Removed Amethyst RuntimeName from "
+               "Binaries/Win64/OBSE/obse.ini.")
+
+    def swap_launcher(self, log_fn=None) -> None:
+        _log = log_fn or (lambda _: None)
+        paths = self._script_extender_paths()
+        if paths is None:
+            return
+        if self.vfs_launch_enabled:
+            _log("  VFS launch: launcher swap is unnecessary - skipping.")
+            return
+        if not self._script_extender_swap:
+            _log("  Script extender / launcher swap disabled - skipping.")
+            return
+
+        loader, runtime, backup = paths
+        if not loader.is_file():
+            _log("  Binaries/Win64/obse64_loader.exe not found - skipping "
+                 "launcher swap.")
+            return
+        ini_path = self._script_extender_runtime_ini_path()
+        current_runtime_name = (
+            _read_ini_key(
+                ini_path, "Loader", "RuntimeName", case_insensitive=True)
+            if ini_path is not None else None
+        )
+        if current_runtime_name not in (None, backup.name):
+            _log("  WARN: OBSE/obse.ini already has a custom RuntimeName; "
+                 "launcher swap skipped to preserve it.")
+            return
+        if backup.is_file() and runtime.is_file():
+            try:
+                already_swapped = filecmp.cmp(runtime, loader, shallow=False)
+            except OSError:
+                already_swapped = False
+            if not already_swapped:
+                _log("  WARN: both the Oblivion Remastered runtime and its "
+                     ".bak backup exist; launcher swap skipped to preserve "
+                     "the existing backup.")
+                return
+        elif not backup.is_file():
+            if not runtime.is_file():
+                _log("  OblivionRemastered-Win64-Shipping.exe not found - "
+                     "skipping launcher swap.")
+                return
+            runtime.rename(backup)
+            _log(f"  Renamed {runtime.name} → {backup.name}.")
+
+        try:
+            shutil.copy2(loader, runtime)
+            self._write_script_extender_runtime_override(backup.name, _log)
+        except Exception:
+            if runtime.is_file():
+                runtime.unlink()
+            if backup.is_file():
+                backup.rename(runtime)
+            raise
+        _log(f"  Copied {loader.name} → {runtime.name}.")
+
+    def _restore_launcher(self, log_fn=None) -> None:
+        _log = log_fn or (lambda _: None)
+        paths = self._script_extender_paths()
+        if paths is None:
+            return
+        loader, runtime, backup = paths
+        if not backup.is_file():
+            return
+        ini_path = self._script_extender_runtime_ini_path()
+        override_matches = (
+            _read_ini_key(
+                ini_path, "Loader", "RuntimeName", case_insensitive=True)
+            == backup.name
+            if ini_path is not None else False
+        )
+        try:
+            runtime_matches = (
+                runtime.is_file()
+                and loader.is_file()
+                and filecmp.cmp(runtime, loader, shallow=False)
+            )
+        except OSError:
+            runtime_matches = False
+        interrupted_swap = (
+            not runtime.exists() and self._script_extender_swap)
+        if not (override_matches or runtime_matches or interrupted_swap):
+            _log("  WARN: an existing Oblivion Remastered runtime backup was "
+                 "not created by the active launcher swap; leaving it intact.")
+            return
+        self._remove_script_extender_runtime_override(_log)
+        if runtime.is_file() or runtime.is_symlink():
+            runtime.unlink()
+        backup.rename(runtime)
+        _log(f"  Restored {runtime.name} from {backup.name}.")
     
     @property
     def loot_masterlist_repo(self) -> str:
@@ -317,12 +490,14 @@ class OblivionRemastered(UE5Game):
 
     def restore(self, log_fn=None, progress_fn=None) -> None:
         from Utils.vfs import has_deployment_state
+        _log = log_fn or (lambda _: None)
         had_physical = self._ue5_deployed_manifest_path().is_file()
         was_vfs = (
             has_deployment_state(self)
             or self._vfs_external_manifest_path().exists()
             or self._vfs_prefix_context_path().exists()
         )
+        self._restore_launcher(_log)
         super().restore(log_fn=log_fn, progress_fn=progress_fn)
         if had_physical or not was_vfs:
-            self._remove_plugins_txt_symlink(log_fn or (lambda _: None))
+            self._remove_plugins_txt_symlink(_log)

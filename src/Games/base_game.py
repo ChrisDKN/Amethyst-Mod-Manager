@@ -233,6 +233,9 @@ class BaseGame(ABC):
     # without asking Steam to launch the physical game outside a profile VFS.
     native_steam_client_required: bool = False
 
+    # A preferred executable which the store launcher does not invoke itself.
+    preferred_launch_requires_direct: bool = False
+
     profile_overridable_settings: tuple[str, ...] = (
         "auto_deploy",
         "archive_invalidation",

@@ -2869,7 +2869,24 @@ def launch_game(game, log_fn=_noop_log) -> None:
     )
     launch_with_wayland = load_launch_with_wayland(game)
     effective_mode = mode
-    if manager_launch_options and mode != "none":
+    preferred_rel = getattr(game, "preferred_launch_exe", "") or ""
+    preferred_path = None
+    if preferred_rel:
+        game_path = game.get_game_path() if hasattr(game, "get_game_path") else None
+        if game_path is not None:
+            candidate = Path(game_path) / preferred_rel
+            if candidate.is_file():
+                preferred_path = candidate
+    direct_preferred = (
+        mode == "auto"
+        and preferred_path is not None
+        and bool(getattr(game, "preferred_launch_requires_direct", False))
+    )
+    if direct_preferred:
+        effective_mode = "none"
+        log_fn(f"Play: {preferred_path.name} is the preferred launcher - "
+               "launching it directly in the game's Proton context.")
+    elif manager_launch_options and mode != "none":
         # steam://, heroic:// and the other launcher hand-offs talk to a
         # normally already-running client.  Environment variables or wrappers
         # placed around that short-lived IPC process do not reach the game;
