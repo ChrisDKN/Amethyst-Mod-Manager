@@ -1590,6 +1590,46 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
                     return name
         return self.exe_name
 
+    @property
+    def _script_extender_runtime_ini(self) -> "Path | None":
+        return None
+
+    def _script_extender_runtime_ini_path(self) -> "Path | None":
+        rel_path = self._script_extender_runtime_ini
+        if self._game_path is None or rel_path is None:
+            return None
+        from Utils.games.frameworks import resolve_file_ci
+        return (resolve_file_ci(self._game_path, rel_path)
+                or self._game_path / rel_path)
+
+    def _write_script_extender_runtime_override(self, backup_name: str,
+                                                log_fn) -> None:
+        ini_path = self._script_extender_runtime_ini_path()
+        if ini_path is None:
+            return
+        if ini_path.is_symlink():
+            from Utils.atomic_write import write_atomic
+            write_atomic(ini_path, ini_path.read_bytes())
+        _set_ini_key(ini_path, "Loader", "RuntimeName", backup_name,
+                     case_insensitive=True)
+        rel_path = ini_path.relative_to(self._game_path)
+        log_fn(f"  Wrote {rel_path} (RuntimeName={backup_name}).")
+
+    def _remove_script_extender_runtime_override(self, log_fn) -> None:
+        ini_path = self._script_extender_runtime_ini_path()
+        if ini_path is None or self._game_path is None:
+            return
+        backup_name = Path(self._launcher_name()).stem + ".bak"
+        backup = self._game_path / backup_name
+        if not backup.is_file() or _read_ini_key(
+                ini_path, "Loader", "RuntimeName",
+                case_insensitive=True) != backup_name:
+            return
+        _set_ini_key(ini_path, "Loader", "RuntimeName", None,
+                     case_insensitive=True)
+        rel_path = ini_path.relative_to(self._game_path)
+        log_fn(f"  Removed Amethyst RuntimeName from {rel_path}.")
+
     def swap_launcher(self, log_fn) -> None:
         """Replace the game launcher with the script extender if present."""
         _log = log_fn
@@ -1616,6 +1656,8 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
             _log(f"  Renamed {exe_name} → {backup.name}.")
         shutil.copy2(se, launcher)
         _log(f"  Copied {self._script_extender_exe} → {exe_name}.")
+        if backup.is_file():
+            self._write_script_extender_runtime_override(backup.name, _log)
 
     def _restore_launcher(self, log_fn) -> None:
         """Reverse the script extender launcher swap if a backup exists."""
@@ -1756,6 +1798,8 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
             raise RuntimeError("Game path is not configured.")
 
         data_dir = self._game_path / "Data"
+
+        self._remove_script_extender_runtime_override(_log)
 
         _log("Restore: removing case-alias symlinks ...")
         remove_case_alias_links(self._game_path, self.case_alias_dirs,

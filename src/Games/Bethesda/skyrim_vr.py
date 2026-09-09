@@ -130,3 +130,7 @@ class SkyrimVR(Fallout_3):
     @property
     def _script_extender_exe(self) -> str:
         return "sksevr_loader.exe"
+
+    @property
+    def _script_extender_runtime_ini(self) -> Path:
+        return Path("Data/SKSE/skse.ini")

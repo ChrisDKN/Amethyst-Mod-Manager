@@ -115,3 +115,7 @@ class Fallout_4VR(Fallout_3):
     @property
     def _script_extender_exe(self) -> str:
         return "f4sevr_loader.exe"
+
+    @property
+    def _script_extender_runtime_ini(self) -> Path:
+        return Path("Data/F4SE/f4sevr.ini")
