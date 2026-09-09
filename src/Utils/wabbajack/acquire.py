@@ -5,6 +5,7 @@ import json
 import queue
 import threading
 import time
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from pathlib import Path
 from urllib.parse import urlparse, urlunparse
 
@@ -39,7 +40,20 @@ def route_nxm(link, api=None) -> bool:
     return True
 
 
-def download_cdn(url, target, size, expected, stop, progress, log=None):
+class _CombinedStop:
+    def __init__(self, external, internal):
+        self.external, self.internal = external, internal
+
+    def is_set(self):
+        return self.external.is_set() or self.internal.is_set()
+
+    def wait(self, timeout=None):
+        if self.external.is_set():
+            return True
+        return self.internal.wait(timeout) or self.external.is_set()
+
+
+def download_cdn(url, target, size, expected, stop, progress, log=None, *, workers=1):
     started = time.monotonic()
     parsed = urlparse(url)
     hosts = {"wabbajack.b-cdn.net": "authored-files.wabbajack.org",
@@ -75,23 +89,82 @@ def download_cdn(url, target, size, expected, stop, progress, log=None):
     from .paths import auxiliary_path
     chunks = auxiliary_path(target, ".chunks")
     chunks.mkdir(parents=True, exist_ok=True)
+    workers = max(1, min(int(workers), len(parts)))
     completed = 0
     reused = 0
-    for part in parts:
+    active = {}
+    progress_lock = threading.Lock()
+    failed = threading.Event()
+    combined_stop = _CombinedStop(stop, failed)
+    session_state = threading.local()
+    sessions = []
+    sessions_lock = threading.Lock()
+
+    def report_part(part_index, current):
+        with progress_lock:
+            active[part_index] = current
+            progress(min(completed + sum(active.values()), size), size)
+
+    def fetch_part(part):
         part_index = int(part["Index"])
         dest = chunks / str(part_index)
         count, digest = int(part["Size"]), canonical_hash(part["Hash"])
-        if not verify_file(dest, digest, count, stop):
+        if not verify_file(dest, digest, count, combined_stop):
             emit(log, "cdn.part.started", target=target, part=part_index,
                  offset=int(part["Offset"]), bytes=count, hash=digest)
-            download_http(base + f"/parts/{part['Index']}", dest, size=count, expected=digest,
-                          stop=stop, progress=lambda cur, total: progress(completed + cur, size),
+            part_url = base + f"/parts/{part['Index']}"
+            session = getattr(session_state, "session", None)
+            if session is None:
+                session = requests.Session()
+                session_state.session = session
+                with sessions_lock:
+                    sessions.append(session)
+            download_http(part_url, dest, size=count, expected=digest,
+                          stop=combined_stop,
+                          progress=lambda cur, total: report_part(part_index, cur),
+                          open_response=lambda headers: session.get(
+                              part_url, headers=headers, stream=True, timeout=(20, 60),
+                              verify=resolve_ca_bundle() or True),
                           log=log)
-        else:
-            reused += 1
-            emit(log, "cdn.part.reused", target=target, part=part_index, bytes=count)
-        completed += count
-        progress(completed, size)
+            return part_index, count, False
+        emit(log, "cdn.part.reused", target=target, part=part_index, bytes=count)
+        return part_index, count, True
+
+    emit(log, "cdn.parts.started", target=target, parts=len(parts), workers=workers)
+    iterator = iter(parts)
+    pending = set()
+    try:
+        with ThreadPoolExecutor(max_workers=workers,
+                                thread_name_prefix="wabbajack-cdn") as pool:
+            try:
+                while True:
+                    if stop.is_set():
+                        raise InterruptedError("Installation stopped")
+                    while len(pending) < workers * 2:
+                        try:
+                            part = next(iterator)
+                        except StopIteration:
+                            break
+                        pending.add(pool.submit(fetch_part, part))
+                    if not pending:
+                        break
+                    finished, pending = wait(pending, timeout=0.1,
+                                             return_when=FIRST_COMPLETED)
+                    for future in finished:
+                        part_index, count, was_reused = future.result()
+                        with progress_lock:
+                            active.pop(part_index, None)
+                            completed += count
+                            reused += int(was_reused)
+                            progress(min(completed + sum(active.values()), size), size)
+            except BaseException:
+                failed.set()
+                for future in pending:
+                    future.cancel()
+                raise
+    finally:
+        for session in sessions:
+            session.close()
     output = auxiliary_path(target, ".part")
     emit(log, "cdn.assembly.started", target=target, output=output,
          parts=len(parts), reused_parts=reused)
@@ -126,10 +199,12 @@ def download_package(url, target, *, size=0, expected="", stop=None, progress=No
     if host in {"authored-files.wabbajack.org", "mirror.wabbajack.org", "patches.wabbajack.org",
                 "test-files.wabbajack.org", "wabbajack.b-cdn.net", "wabbajack-mirror.b-cdn.net",
                 "wabbajack-patches.b-cdn.net", "wabbajacktest.b-cdn.net"}:
+        from Utils.ui.config import load_collection_settings
+        workers = load_collection_settings()["max_concurrent"]
         emit(log, "package.download.route", route="wabbajack-cdn", host=host,
-             target=target)
+             target=target, workers=workers)
         return download_cdn(url, target, size, expected, stop,
-                            progress or (lambda *_: None), log)
+                            progress or (lambda *_: None), log, workers=workers)
     emit(log, "package.download.route", route="http", host=host, target=target)
     return download_http(url, target, size=size, expected=expected, stop=stop,
                          progress=progress, log=log)
