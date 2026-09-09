@@ -11,7 +11,7 @@ import zipfile
 from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal, QTimer, QEvent
-from PySide6.QtGui import QIntValidator
+from PySide6.QtGui import QIntValidator, QTextDocument
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit,
     QComboBox, QListWidget, QListWidgetItem, QStackedWidget,
@@ -35,6 +35,7 @@ from Utils.wabbajack.diagnostics import emit, emit_exception
 
 PAGE_SIZE = 20
 HERO_W, HERO_H = 248, 140
+DESC_MIN_H, DESC_MAX_H = 46, 260
 _VIEWS = weakref.WeakSet()
 
 
@@ -358,8 +359,11 @@ class WabbajackView(QWidget):
         self._description = QPlainTextEdit(self)
         self._description.setReadOnly(True)
         self._description.setFrameShape(QFrame.NoFrame)
-        self._description.setFixedHeight(46)
+        self._description.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self._description.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
+        self._description.setFixedHeight(DESC_MIN_H)
         self._description.setStyleSheet(f"background:transparent; color:{_c(palette, 'TEXT_DIM')};")
+        self._description.installEventFilter(self)
         summary_text.addWidget(self._description)
         figures = QHBoxLayout()
         figures.setSpacing(22)
@@ -808,7 +812,25 @@ class WabbajackView(QWidget):
             if detail and watched is detail.viewport():
                 direction = QBoxLayout.LeftToRight if detail.viewport().width() >= 850 else QBoxLayout.TopToBottom
                 self._detail_columns.setDirection(direction)
+            if watched is getattr(self, "_description", None) and event.type() == QEvent.Resize:
+                self._fit_description()
         return super().eventFilter(watched, event)
+
+    def _fit_description(self):
+        """Size the description box to its wrapped text, between DESC_MIN_H and DESC_MAX_H."""
+        box = self._description
+        # QPlainTextEdit reports its document height in blocks, not pixels, so measure
+        # the wrapped text with a throwaway QTextDocument that honours setTextWidth.
+        measure = QTextDocument()
+        measure.setDefaultFont(box.font())
+        measure.setDocumentMargin(box.document().documentMargin())
+        measure.setPlainText(box.toPlainText())
+        measure.setTextWidth(max(1, box.viewport().width()))
+        margins = box.contentsMargins()
+        height = int(measure.size().height()) + margins.top() + margins.bottom() + 2
+        height = max(DESC_MIN_H, min(DESC_MAX_H, height))
+        if height != box.height():
+            box.setFixedHeight(height)
 
     def _card_menu(self, entry, info, position):
         menu = QMenu(self)
@@ -829,8 +851,8 @@ class WabbajackView(QWidget):
         game_name = self._game.name if self._game and matches_game(self._game, game) else game
         self._detail_author.setText(" · ".join(value for value in [author, version, game_name] if value))
         self._description.setPlainText(description)
-        self._description.setFixedHeight(46)
         self._description.setVisible(bool(description))
+        self._fit_description()
         self._set_figure("download", fmt_size(download_size) if download_size else self.tr("Unknown"))
         self._set_figure("install", fmt_size(install_size) if install_size else self.tr("Unknown"))
         self._refresh_free_space()
@@ -1568,8 +1590,8 @@ class WabbajackView(QWidget):
             self._render()
         elif kind == "readme" and result and self._package and result[0] == self._package.identity:
             self._description.setPlainText(result[1])
-            self._description.setFixedHeight(160)
             self._description.show()
+            self._fit_description()
         elif kind == "package" and result:
             self._package = result
             self._overview(result.name, str(result.metadata.get("Author", "")), result.version, result.game,
