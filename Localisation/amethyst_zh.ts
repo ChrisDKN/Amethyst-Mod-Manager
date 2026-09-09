@@ -137,61 +137,6 @@ Choose Roads or Paths Only, click Generate, then close it when finished.</source
     </message>
   </context>
   <context>
-    <name>AcquisitionSummary</name>
-    <message>
-      <source>Transfers over the network</source>
-      <translation>传输到网络</translation>
-    </message>
-    <message>
-      <source>Not checked</source>
-      <translation>未检查</translation>
-    </message>
-    <message>
-      <source>Check requirements to verify cached files and Nexus access, then review what still needs downloading.</source>
-      <translation>检查要求以验证缓存文件和 Nexus 访问权限，然后检查仍然需要下载的内容。</translation>
-    </message>
-    <message>
-      <source>0 B</source>
-      <translation>0 B</translation>
-    </message>
-    <message>
-      <source>1 archive</source>
-      <translation>1 个存档</translation>
-    </message>
-    <message>
-      <source>{0} archives</source>
-      <translation>{0} 档案</translation>
-    </message>
-    <message>
-      <source>Nothing to download</source>
-      <translation>无需下载</translation>
-    </message>
-    <message>
-      <source>1 required game file is missing or differs.</source>
-      <translation>1 个必需的游戏文件缺失或不同。</translation>
-    </message>
-    <message>
-      <source>{0} required game files are missing or differ.</source>
-      <translation>{0} 需要的游戏文件丢失或不同。</translation>
-    </message>
-    <message>
-      <source>Resolve the listed requirements before downloading.</source>
-      <translation>下载前解析列出的要求。</translation>
-    </message>
-    <message>
-      <source>Browser downloads and Select File use the normal installer prompts. Automatic downloads continue while you respond.</source>
-      <translation>浏览器下载并选择文件使用正常安装程序提示。在您响应时自动下载仍在继续。</translation>
-    </message>
-    <message>
-      <source>No archive downloads needed. Verified local content will be reused.</source>
-      <translation>无需下载归档。验证的本地内容将被重新使用。</translation>
-    </message>
-    <message>
-      <source>Verified cache and game files are reused. Downloads follow your existing speed and concurrency settings.</source>
-      <translation>已验证的缓存和游戏文件已重新使用。下载遵循您现有的速度和同种设置。</translation>
-    </message>
-  </context>
-  <context>
     <name>AddGameView</name>
     <message>
       <source>Select a game to add</source>
@@ -1342,16 +1287,8 @@ Close it when you are done, then click Done.</source>
       <translation>遗留的临时文件夹( {0})</translation>
     </message>
     <message>
-      <source>Wabbajack jobs and update backups</source>
-      <translation>Wabbajack作业和更新备份</translation>
-    </message>
-    <message>
       <source>Total: {0}</source>
       <translation>总计：{0}</translation>
-    </message>
-    <message>
-      <source>Wabbajack gallery and packages</source>
-      <translation>Wabbajack 库和软件包</translation>
     </message>
     <message>
       <source>Nothing selected.</source>
@@ -1368,24 +1305,12 @@ Close it when you are done, then click Done.</source>
 
 {2}
 
-Archives, gallery data and modlist packages will be re-downloaded as needed. Saved Wabbajack requirement checks in the selected game caches will be reset. The Wabbajack jobs/backups entry removes abandoned jobs and update backups; referenced installations are preserved.</source>
-      <translation type="unfinished">Clear {0} across {1} item(s)?
+Archives will be re-downloaded as needed.</source>
+      <translation>清除 {0} 中的 {1} 项目(s)?
 
 {2}
 
-Archives, gallery data and modlist packages will be re-downloaded as needed. Saved Wabbajack requirement checks in the selected game caches will be reset. The Wabbajack jobs/backups entry removes abandoned jobs and update backups; referenced installations are preserved.</translation>
-    </message>
-    <message>
-      <source>Clear {0} of cached downloads across every game?
-
-Location: {1}
-
-The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack gallery data, modlist packages and saved requirement checks are also cleared. The jobs/backups entry removes abandoned jobs and update backups.</source>
-      <translation>清除每个游戏中缓存下载的 {0} 吗？
-
-位置： {1}
-
-Md5 缓存已保存。 档案将根据需要重新下载。 还清理了 Wabbajack 库数据、modList 软件包和保存的需求检查。作业/备份将删除丢弃的任务并更新备份。</translation>
+档案将根据需要重新下载。</translation>
     </message>
     <message>
       <source>Clear {0} Cache(s)</source>
@@ -1402,6 +1327,18 @@ Md5 缓存已保存。 档案将根据需要重新下载。 还清理了 Wabbaja
     <message>
       <source>Cache is empty.</source>
       <translation>缓存为空。</translation>
+    </message>
+    <message>
+      <source>Clear {0} of cached downloads across every game?
+
+Location: {1}
+
+The md5 cache is preserved. Archives will be re-downloaded as needed.</source>
+      <translation>清除每个游戏中缓存下载的 {0} 吗？
+
+位置： {1}
+
+Md5 缓存已保存。存档将根据需要重新下载。</translation>
     </message>
     <message>
       <source>Clear All Download Caches</source>
@@ -1497,45 +1434,6 @@ Md5 缓存已保存。 档案将根据需要重新下载。 还清理了 Wabbaja
     <message>
       <source>Waiting for the browser download - {0} / {1}</source>
       <translation>等待浏览器下载 - {0} / {1}</translation>
-    </message>
-  </context>
-  <context>
-    <name>CheckRow</name>
-    <message>
-      <source>Blocking: resolve before installing.</source>
-      <translation>屏蔽：安装前解决。</translation>
-    </message>
-    <message>
-      <source>Needs your input: follow the download or setup instructions.</source>
-      <translation>需要您的输入：遵循下载或设置指令。</translation>
-    </message>
-    <message>
-      <source>To review: read before continuing; this does not block installation.</source>
-      <translation>审查：在继续之前阅读；这不会阻止安装。</translation>
-    </message>
-    <message>
-      <source>Passed: this check is ready to proceed.</source>
-      <translation>通过：这次检查已准备就绪。</translation>
-    </message>
-    <message>
-      <source>What this means</source>
-      <translation>这意味着什么</translation>
-    </message>
-    <message>
-      <source>Details</source>
-      <translation>详细信息</translation>
-    </message>
-    <message>
-      <source>Hide affected files</source>
-      <translation>隐藏受影响的文件</translation>
-    </message>
-    <message>
-      <source>Show 1 affected file</source>
-      <translation>显示 1 个受影响的文件</translation>
-    </message>
-    <message>
-      <source>Show {0} affected files</source>
-      <translation>显示 {0} 受影响的文件</translation>
     </message>
   </context>
   <context>
@@ -1715,16 +1613,8 @@ Md5 缓存已保存。 档案将根据需要重新下载。 还清理了 Wabbaja
       <translation>暂停……</translation>
     </message>
     <message>
-      <source>{0}: {1} / {2}</source>
-      <translation>{0}: {1} / {2}</translation>
-    </message>
-    <message>
       <source>Downloading…</source>
       <translation>正在下载……</translation>
-    </message>
-    <message>
-      <source>Small mods (under 100 MB)</source>
-      <translation>小模组 (低于100 MB)</translation>
     </message>
     <message>
       <source>+ {0} more downloading…</source>
@@ -1790,10 +1680,6 @@ Md5 缓存已保存。 档案将根据需要重新下载。 还清理了 Wabbaja
       <translation>暂停……</translation>
     </message>
     <message>
-      <source>This source needs a browser download or an existing file.</source>
-      <translation>此源需要浏览器下载或已有文件。</translation>
-    </message>
-    <message>
       <source>Optional</source>
       <translation>可选</translation>
     </message>
@@ -1806,24 +1692,8 @@ Md5 缓存已保存。 档案将根据需要重新下载。 还清理了 Wabbaja
       <translation>预期文件：{0}</translation>
     </message>
     <message>
-      <source>Download this exact archive to a watched download folder, or use Select File. Amethyst checks its size and hash before continuing.</source>
-      <translation>下载这个准确的归档到一个观看的下载文件夹，或使用选择文件。Ameyst在继续之前检查其大小和哈希。</translation>
-    </message>
-    <message>
       <source>Mod {0}/{1} - download this file, then it will be auto-detected…</source>
       <translation>Mod {0}/{1} - 下载此文件,然后将自动被检测出..</translation>
-    </message>
-    <message>
-      <source>Why this needs your help:
-{0}</source>
-      <translation>为什么这需要您的帮助：
-{0}</translation>
-    </message>
-    <message>
-      <source>Author instructions:
-{0}</source>
-      <translation>作者说明:
-{0}</translation>
     </message>
     <message>
       <source>Open next {0}</source>
@@ -1987,6 +1857,10 @@ Md5 缓存已保存。 档案将根据需要重新下载。 还清理了 Wabbaja
       <translation>取消</translation>
     </message>
     <message>
+      <source>Game Installation Folder</source>
+      <translation>游戏安装文件夹</translation>
+    </message>
+    <message>
       <source>Scanning Steam libraries…</source>
       <translation>正在扫描 Steam 游戏库……</translation>
     </message>
@@ -2007,6 +1881,10 @@ Md5 缓存已保存。 档案将根据需要重新下载。 还清理了 Wabbaja
       <translation>扫描</translation>
     </message>
     <message>
+      <source>Proton Prefix (compatdata/pfx)</source>
+      <translation>质子前缀 (compatdata/pfx)</translation>
+    </message>
+    <message>
       <source>Scanning for prefix…</source>
       <translation>正在扫描前缀……</translation>
     </message>
@@ -2019,8 +1897,16 @@ Md5 缓存已保存。 档案将根据需要重新下载。 还清理了 Wabbaja
       <translation>未配置前缀 .</translation>
     </message>
     <message>
+      <source>Mod Staging Folder</source>
+      <translation>ModStaging文件夹</translation>
+    </message>
+    <message>
       <source>Searching common AppImage locations…</source>
       <translation>正在搜索常见的应用程序位置..</translation>
+    </message>
+    <message>
+      <source>AppImage Location (Optional)</source>
+      <translation>AppImage 位置(可选)</translation>
     </message>
     <message>
       <source>Default location will be used.</source>
@@ -2031,24 +1917,16 @@ Md5 缓存已保存。 档案将根据需要重新下载。 还清理了 Wabbaja
       <translation>恢复默认设置</translation>
     </message>
     <message>
+      <source>Saves Folder (optional)</source>
+      <translation>保存文件夹(可选)</translation>
+    </message>
+    <message>
       <source>Detected automatically.</source>
       <translation>自动检测.</translation>
     </message>
     <message>
-      <source>Detected from the Ludusavi manifest</source>
-      <translation>从Ludusavi清单中检测</translation>
-    </message>
-    <message>
-      <source>Saves</source>
-      <translation>救球</translation>
-    </message>
-    <message>
       <source>Clear</source>
       <translation>清除</translation>
-    </message>
-    <message>
-      <source>Set this only if the Saves tab looks in the wrong place.</source>
-      <translation>只有当保存标签出现在错误的地方时才设定此项。</translation>
     </message>
     <message>
       <source>Options</source>
@@ -2093,10 +1971,6 @@ Md5 缓存已保存。 档案将根据需要重新下载。 还清理了 Wabbaja
     <message>
       <source>Windows / Proton</source>
       <translation>Windows / 质点</translation>
-    </message>
-    <message>
-      <source>Behaviour</source>
-      <translation>行为</translation>
     </message>
     <message>
       <source>Swap launcher with script extender on deploy</source>
@@ -2183,14 +2057,6 @@ The default profile's settings are not affected.</source>
       <translation>该配置文件现在遵循共享（默认配置文件）设置。</translation>
     </message>
     <message>
-      <source>{0} · this profile only</source>
-      <translation>{0} · 仅此配置文件</translation>
-    </message>
-    <message>
-      <source>Shared settings</source>
-      <translation>共享设置</translation>
-    </message>
-    <message>
       <source>Settings saved.</source>
       <translation>设置已保存。</translation>
     </message>
@@ -2209,14 +2075,6 @@ The default profile's settings are not affected.</source>
     <message>
       <source>Version {0}</source>
       <translation>版本 {0}</translation>
-    </message>
-    <message>
-      <source>Non-Steam Shortcut prefix</source>
-      <translation>非Steam快捷键前缀</translation>
-    </message>
-    <message>
-      <source>{0} prefix</source>
-      <translation>{0} 前缀</translation>
     </message>
     <message>
       <source>Prefix already configured. You can update the path below.</source>
@@ -2321,102 +2179,6 @@ The default profile's settings are not affected.</source>
     <message>
       <source>Found via drive scan.</source>
       <translation>通过磁盘扫描发现。</translation>
-    </message>
-    <message>
-      <source>Problem</source>
-      <translation>问题</translation>
-    </message>
-    <message>
-      <source>N/A</source>
-      <translation>无</translation>
-    </message>
-    <message>
-      <source>Scanning…</source>
-      <translation>正在扫描…</translation>
-    </message>
-    <message>
-      <source>Not found</source>
-      <translation>找不到</translation>
-    </message>
-    <message>
-      <source>Custom</source>
-      <translation>自定义</translation>
-    </message>
-    <message>
-      <source>Default</source>
-      <translation>默认设置</translation>
-    </message>
-    <message>
-      <source>Auto</source>
-      <translation>自动操作</translation>
-    </message>
-    <message>
-      <source>None</source>
-      <translation>无</translation>
-    </message>
-    <message>
-      <source>Detected</source>
-      <translation>检测到</translation>
-    </message>
-    <message>
-      <source>Check</source>
-      <translation>检查</translation>
-    </message>
-    <message>
-      <source>Set</source>
-      <translation>设置</translation>
-    </message>
-    <message>
-      <source>Configured</source>
-      <translation>已配置</translation>
-    </message>
-    <message>
-      <source>Not set up</source>
-      <translation>未设置</translation>
-    </message>
-    <message>
-      <source>VFS deploy</source>
-      <translation>VFS 部署</translation>
-    </message>
-    <message>
-      <source>Hardlink deploy</source>
-      <translation>硬链接部署</translation>
-    </message>
-    <message>
-      <source>Symlink deploy</source>
-      <translation>Symlink deploy</translation>
-    </message>
-    <message>
-      <source>Locations</source>
-      <translation>地点</translation>
-    </message>
-    <message>
-      <source>Game install</source>
-      <translation>游戏安装</translation>
-    </message>
-    <message>
-      <source>AppImage</source>
-      <translation>AppImage</translation>
-    </message>
-    <message>
-      <source>Not needed for a native Linux game</source>
-      <translation>原生的Linux游戏不需要</translation>
-    </message>
-    <message>
-      <source>Detected automatically</source>
-      <translation>自动检测</translation>
-    </message>
-    <message>
-      <source>Proton prefix</source>
-      <translation>质子前缀</translation>
-    </message>
-    <message>
-      <source>Default location</source>
-      <translation>默认位置</translation>
-    </message>
-    <message>
-      <source>Mod staging</source>
-      <translation>Mod staging</translation>
     </message>
     <message>
       <source>Game executable not found on any drive.</source>
@@ -5361,10 +5123,6 @@ Click Done to clean up the extracted files and close.</source>
       <translation>作者</translation>
     </message>
     <message>
-      <source>By source location</source>
-      <translation>按来源位置</translation>
-    </message>
-    <message>
       <source>By file type</source>
       <translation>按文件类型</translation>
     </message>
@@ -5648,10 +5406,6 @@ It may already be modified. Verify game files in Steam/Heroic to get a clean exe
       <translation>未识别出{0}版本.
 SHA-1: {1} (英语).
 它可能已经修改。 在Steam/Heroic中验证游戏文件以获得干净的exe,然后再次尝试.</translation>
-    </message>
-    <message>
-      <source>Unpatched {0} detected - ready to patch.</source>
-      <translation>检测到未补丁的 {0} - 准备进行补丁。</translation>
     </message>
     <message>
       <source>Backup found: {0}</source>
@@ -8319,28 +8073,12 @@ Run Quick Update on all of them now?</source>
       <translation>首选 :</translation>
     </message>
     <message>
-      <source>.NET Framework 4.8</source>
-      <translation>.NET Framework 4.8</translation>
-    </message>
-    <message>
       <source>Download Manifest…</source>
       <translation>下载声明..</translation>
     </message>
     <message>
-      <source>Wabbajack</source>
-      <translation>瓦巴杰克</translation>
-    </message>
-    <message>
-      <source>Browse Wabbajack modlists…</source>
-      <translation type="unfinished">Browse Wabbajack modlists…</translation>
-    </message>
-    <message>
       <source>{0} is running - switch games when it finishes.</source>
       <translation>{0}正在运行 - 游戏完成后切换.</translation>
-    </message>
-    <message>
-      <source>{0} is running - switch profiles when it finishes.</source>
-      <translation>{0} 正在运行 - 完成后切换配置文件。</translation>
     </message>
     <message>
       <source>VFS</source>
@@ -8409,34 +8147,6 @@ Run Quick Update on all of them now?</source>
     <message>
       <source>Could not identify any of the {0} mod(s) found.</source>
       <translation>无法识别找到的 {0} mod(s) .</translation>
-    </message>
-    <message>
-      <source>Wabbajack installation complete.</source>
-      <translation>Wabbajack安装完成。</translation>
-    </message>
-    <message>
-      <source>A Wabbajack installation is running.</source>
-      <translation>一个Wabbajack安装正在运行。</translation>
-    </message>
-    <message>
-      <source>The active profile isn't a Wabbajack profile.</source>
-      <translation>活动配置文件不是一个Wabbajack配置文件。</translation>
-    </message>
-    <message>
-      <source>Wait for the current operation to finish before resetting the load order.</source>
-      <translation>等待当前操作在重置负载顺序之前完成。</translation>
-    </message>
-    <message>
-      <source>Wabbajack load-order reset</source>
-      <translation>Wabbajack load-order reset</translation>
-    </message>
-    <message>
-      <source>Resetting Wabbajack load order…</source>
-      <translation>重置Wabbajack装载顺序…</translation>
-    </message>
-    <message>
-      <source>Wabbajack load order reset - {0} mods and {1} plugins ordered.</source>
-      <translation>Wabbajack 加载订单重置 - 订购了 {0} 模组和 {1} 插件。</translation>
     </message>
     <message>
       <source>Load order reset - {0} mods ordered, {1} kept below.</source>
@@ -8587,14 +8297,6 @@ Run Quick Update on all of them now?</source>
       <translation>正在等待个人资料更新…</translation>
     </message>
     <message>
-      <source>Wait for the Proton installer to finish before closing Amethyst.</source>
-      <translation>等待质子安装程序在关闭代气晶之前完成。</translation>
-    </message>
-    <message>
-      <source>Pausing Wabbajack and waiting for installation and tool setup to stop safely…</source>
-      <translation>暂停 Wabbajack 等待安装和工具设置以安全停止…</translation>
-    </message>
-    <message>
       <source>Extracting / Installing</source>
       <translation>正在提取/ 安装</translation>
     </message>
@@ -8603,32 +8305,12 @@ Run Quick Update on all of them now?</source>
       <translation>在更改首选的 OpenMW 套件之前恢复游戏.</translation>
     </message>
     <message>
-      <source>Installing .NET Framework 4.8</source>
-      <translation>Installing .NET Framework 4.8</translation>
-    </message>
-    <message>
       <source>Wizard Settings…</source>
       <translation>向导设置..</translation>
     </message>
     <message>
       <source>Reset wizard tools that automatically reuse their saved Proton settings.</source>
       <translation>重置自动重用所保存的质子设置的向导工具 .</translation>
-    </message>
-    <message>
-      <source>Return to the game and profile shown in this wizard, then install the downloaded files.</source>
-      <translation>返回这个向导中显示的游戏和配置文件，然后安装下载的文件。</translation>
-    </message>
-    <message>
-      <source>Select a member profile before installing Workshop mods.</source>
-      <translation>在安装创意工坊模式之前选择成员配置文件。</translation>
-    </message>
-    <message>
-      <source>Wait for the running wizard tool to finish.</source>
-      <translation>等待运行中的向导工具完成。</translation>
-    </message>
-    <message>
-      <source>Workshop installation</source>
-      <translation>车间安装</translation>
     </message>
     <message>
       <source>No QuickAutoClean tool is available for this game.</source>
@@ -8801,10 +8483,6 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
       <translation>已启用/ 已禁用</translation>
     </message>
     <message>
-      <source>Nexus mod / file ID</source>
-      <translation>Nexus mod / file ID</translation>
-    </message>
-    <message>
       <source>By file type</source>
       <translation>按文件类型</translation>
     </message>
@@ -8815,14 +8493,6 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
     <message>
       <source>Filter the modlist with search tags (combine them, and with text):</source>
       <translation>过滤带有搜索标记的调制解调器( 将其压缩, 并使用文本) :</translation>
-    </message>
-    <message>
-      <source>mod.io</source>
-      <translation>mod.io</translation>
-    </message>
-    <message>
-      <source>None</source>
-      <translation>无</translation>
     </message>
     <message>
       <source>Mods with BA2 archives</source>
@@ -8861,16 +8531,8 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
       <translation>删除 stale 插件</translation>
     </message>
     <message>
-      <source>Cancel LOOT</source>
-      <translation>取消登录</translation>
-    </message>
-    <message>
       <source>Refreshing LOOT metadata for {0} plugins…</source>
       <translation>正在刷新 {0} 插件的 LOOT 元数据..</translation>
-    </message>
-    <message>
-      <source>LOOT cancelled.</source>
-      <translation>LOOT 已取消。</translation>
     </message>
     <message>
       <source>Plugin metadata refreshed.</source>
@@ -9688,10 +9350,6 @@ How would you like to handle the existing mod?</source>
       <translation>在雷神店打开</translation>
     </message>
     <message>
-      <source>Open on Steam Workshop</source>
-      <translation>在 Steam 创意工坊打开</translation>
-    </message>
-    <message>
       <source>Thunderstore Actions</source>
       <translation>雷神店动作</translation>
     </message>
@@ -9845,14 +9503,6 @@ How would you like to handle the existing mod?</source>
     <message>
       <source>Size</source>
       <translation>尺寸</translation>
-    </message>
-    <message>
-      <source>Nexus Mod ID</source>
-      <translation>Nexus Mod ID</translation>
-    </message>
-    <message>
-      <source>Nexus File ID</source>
-      <translation>Nexus 文件 ID</translation>
     </message>
   </context>
   <context>
@@ -11573,37 +11223,6 @@ Daily: {1}</source>
     <message>
       <source>could not be read</source>
       <translation>无法读取</translation>
-    </message>
-  </context>
-  <context>
-    <name>Oblivion4GbView</name>
-    <message>
-      <source>Oblivion 4GB Patch</source>
-      <translation>4GB 补丁</translation>
-    </message>
-    <message>
-      <source>Patches Oblivion.exe so the 32-bit game can use up to 4 GB of memory on a 64-bit system.
-
-The patch is applied natively and does not require Wine or an external patcher. It does not install or load OBSE.
-
-The original exe is kept as {0}.</source>
-      <translation>Patches Oblivion.exe 让32位游戏在64位系统上最多可以使用4GB 的内存。
-
-补丁是本地应用的，不需要Wine或外部补丁。 它没有安装或加载 OBSE.
-
-原始exe 被保留为 {0}。</translation>
-    </message>
-    <message>
-      <source>The PE header could not be read.</source>
-      <translation>无法读取PE标题。</translation>
-    </message>
-    <message>
-      <source>{0} is not a supported Windows executable.
-{1}
-Verify the game files in Steam and try again.</source>
-      <translation type="unfinished">{0} is not a supported Windows executable.
-{1}
-Verify the game files in Steam and try again.</translation>
     </message>
   </context>
   <context>
@@ -13789,37 +13408,6 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     </message>
   </context>
   <context>
-    <name>RequirementsSummary</name>
-    <message>
-      <source>Check requirements to verify game files, available space and runtime requirements. Review the results before installing.</source>
-      <translation>检查要求以验证游戏文件、 可用空间和运行时间要求。在安装前审查结果。</translation>
-    </message>
-    <message>
-      <source>{0} blocking</source>
-      <translation>{0} 阻止</translation>
-    </message>
-    <message>
-      <source>1 needs your input</source>
-      <translation>1 需要您的输入</translation>
-    </message>
-    <message>
-      <source>{0} need your input</source>
-      <translation>{0} 需要您的输入</translation>
-    </message>
-    <message>
-      <source>{0} to review</source>
-      <translation>待审阅的 {0}</translation>
-    </message>
-    <message>
-      <source>Requirements passed</source>
-      <translation>已通过的要求</translation>
-    </message>
-    <message>
-      <source>Passed ({0})</source>
-      <translation>通过({0})</translation>
-    </message>
-  </context>
-  <context>
     <name>RequirementsView</name>
     <message>
       <source>Requirements</source>
@@ -15123,14 +14711,6 @@ flatpak 远程添加-user amethyst https://chrisdkn.github.io/ Amethyst-Mod-Mana
       <translation>在 Crowdin 上翻译</translation>
     </message>
     <message>
-      <source>Decrease {0}</source>
-      <translation>减少 {0}</translation>
-    </message>
-    <message>
-      <source>Increase {0}</source>
-      <translation>增加 {0}</translation>
-    </message>
-    <message>
       <source>Open the Amethyst Crowdin project to help translate the app.</source>
       <translation>打开Amethyst Crowdin项目，帮助翻译应用程序。</translation>
     </message>
@@ -15143,76 +14723,8 @@ flatpak 远程添加-user amethyst https://chrisdkn.github.io/ Amethyst-Mod-Mana
       <translation>状态栏</translation>
     </message>
     <message>
-      <source>Install Mod</source>
-      <translation>Install Mod</translation>
-    </message>
-    <message>
-      <source>Proton</source>
-      <translation>普罗顿</translation>
-    </message>
-    <message>
-      <source>Wizard</source>
-      <translation>向导</translation>
-    </message>
-    <message>
-      <source>Nexus</source>
-      <translation>Nexus</translation>
-    </message>
-    <message>
-      <source>Thunderstore</source>
-      <translation>Thunderstore</translation>
-    </message>
-    <message>
-      <source>Wabbajack</source>
-      <translation>瓦巴杰克</translation>
-    </message>
-    <message>
-      <source>Top bar</source>
-      <translation>顶栏</translation>
-    </message>
-    <message>
-      <source>Where the toolbar sits. As a side bar it is always icon-only, with the labels shown as tooltips.</source>
-      <translation>工具栏坐在哪里。作为侧边栏，它总是图标，标签显示为工具提示。</translation>
-    </message>
-    <message>
-      <source>Always use compact (icon-only) buttons</source>
-      <translation>总是使用紧凑(仅图标) 按钮</translation>
-    </message>
-    <message>
-      <source>Keep the top bar at its narrow sizes - buttons show icons only and the game and profile selectors collapse - instead of doing so only when the window is too narrow for the labels.</source>
-      <translation>保持顶部栏的狭小尺寸——按钮只显示图标，游戏和配置文件选择器崩溃——而不是仅在窗口对标签太窄时才显示。</translation>
-    </message>
-    <message>
-      <source>Hide buttons</source>
-      <translation>隐藏按钮</translation>
-    </message>
-    <message>
-      <source>Buttons ticked here are removed from the toolbar. A button that does not apply to the current game (Proton without a prefix, or a store the game is not on) is hidden anyway.</source>
-      <translation>此处粘贴的按钮将从工具栏中删除。 不适用于当前游戏 (Proton没有前缀，或游戏商店不存在)的按钮无论如何都是隐藏的。</translation>
-    </message>
-    <message>
       <source>Cap the combined download speed of all downloads (collections, single mods, nxm and modl links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>
       <translation>拍照所有下载的合并下载速度(集合，单个模组，nxm 和 modl 链接)，这样他们就不会使用整个连接。 立即应用，包括正在运行的集合安装。</translation>
-    </message>
-    <message>
-      <source>Nexus download server</source>
-      <translation>Nexus 下载服务器</translation>
-    </message>
-    <message>
-      <source>Automatic</source>
-      <translation>自动的</translation>
-    </message>
-    <message>
-      <source>Global CDN</source>
-      <translation>全局CDN</translation>
-    </message>
-    <message>
-      <source>{0} (Premium)</source>
-      <translation>{0} (高级)</translation>
-    </message>
-    <message>
-      <source>Automatic follows your Nexus website preference. Regional servers require Nexus Premium. Applies to new or resumed Nexus downloads, including collections and Wabbajack. If the selected server is unavailable or fails, other available servers are tried. Pause and resume an active download to change its server.</source>
-      <translation>自动关注您的 Nexus 网站首选项。区域服务器需要 Nexus 高级版。应用于新的或恢复的 Nexus 下载，包括收藏和Wabbajack。 如果选中的服务器不可用或失败，将尝试其他可用的服务器。暂停并恢复主动下载以更改其服务器。</translation>
     </message>
     <message>
       <source>Downloads are saved to the cache but not installed. Applies to nxm:// and modl:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</source>
@@ -15377,113 +14889,6 @@ flatpak 远程添加-user amethyst https://chrisdkn.github.io/ Amethyst-Mod-Mana
     <message>
       <source>Failed to save setting: {0}</source>
       <translation>保存设置失败：{0}</translation>
-    </message>
-  </context>
-  <context>
-    <name>SetupOptions</name>
-    <message>
-      <source>Use the version required by the author. Output keeps its authored position in {0}.</source>
-      <translation>使用作者所需的版本。输出它的撰写位置在 {0} 中。</translation>
-    </message>
-    <message>
-      <source>Run the Fallout 3 BSA Decompressor wizard, then import its complete output mod here, or select the author's .mpi package.</source>
-      <translation>运行 Fallout 3 BSA Decompressor 向导，然后将其全部输出模组导入到这里，或者选择作者的 .mpi 包。</translation>
-    </message>
-    <message>
-      <source>Open mod.pub TTW page</source>
-      <translation>Open mod.pub TTW page</translation>
-    </message>
-    <message>
-      <source>Build from .mpi package</source>
-      <translation>从 .mpi 软件包生成</translation>
-    </message>
-    <message>
-      <source>Import existing output mod</source>
-      <translation>导入现有输出模组</translation>
-    </message>
-    <message>
-      <source>Method</source>
-      <translation>方法</translation>
-    </message>
-    <message>
-      <source>Select the author-required version</source>
-      <translation>选择作者必填的版本</translation>
-    </message>
-    <message>
-      <source>Browse…</source>
-      <translation>浏览…</translation>
-    </message>
-    <message>
-      <source>Download package…</source>
-      <translation>下载软件包…</translation>
-    </message>
-    <message>
-      <source>Download the FO3 BSA Decompressor archive from Nexus Mods, extract it, then browse to the .mpi file.</source>
-      <translation>从 Nexus Mods 下载FO3 BSA解压器档案，提取它，然后浏览到.mpi 文件。</translation>
-    </message>
-    <message>
-      <source>Detected automatically when installed through Steam</source>
-      <translation>通过 Steam 安装时自动检测</translation>
-    </message>
-    <message>
-      <source>Original Fallout 3 game</source>
-      <translation>原始《秋季3》游戏</translation>
-    </message>
-    <message>
-      <source>Install / update native MPI tool</source>
-      <translation>安装/更新原生MPI工具</translation>
-    </message>
-    <message>
-      <source>MPI installer on GitHub</source>
-      <translation>MPI installer on GitHub</translation>
-    </message>
-    <message>
-      <source>Root file variant</source>
-      <translation>根文件变量</translation>
-    </message>
-    <message>
-      <source>Override</source>
-      <translation>覆盖</translation>
-    </message>
-    <message>
-      <source>Overrides the author's resolution in supported game INIs and display-tweak files. Leave off to keep their settings.</source>
-      <translation>在支持的游戏 INI 中覆盖作者的分辨率并显示调整文件。关闭以保持其设置。</translation>
-    </message>
-    <message>
-      <source>Display resolution</source>
-      <translation>显示分辨率</translation>
-    </message>
-    <message>
-      <source>Choose automatically</source>
-      <translation>自动选择</translation>
-    </message>
-    <message>
-      <source>Unavailable: {0}</source>
-      <translation>Unavailable: {0}</translation>
-    </message>
-    <message>
-      <source>Texture tool Proton</source>
-      <translation>纹理工具质点</translation>
-    </message>
-    <message>
-      <source>Automatic (GPU when available)</source>
-      <translation>自动(可用时GPU)</translation>
-    </message>
-    <message>
-      <source>CPU only</source>
-      <translation>仅CPU</translation>
-    </message>
-    <message>
-      <source>Texture conversion</source>
-      <translation>纹理转换</translation>
-    </message>
-    <message>
-      <source>Select extracted MPI package</source>
-      <translation>选择已提取的 MPI 包</translation>
-    </message>
-    <message>
-      <source>Select original game</source>
-      <translation>选择原始游戏</translation>
     </message>
   </context>
   <context>
@@ -18516,550 +17921,6 @@ Latest:  {1}</source>
     </message>
   </context>
   <context>
-    <name>WabbajackCard</name>
-    <message>
-      <source>by {0}</source>
-      <translation>由 {0}</translation>
-    </message>
-    <message>
-      <source>Unknown author</source>
-      <translation>未知作者</translation>
-    </message>
-    <message>
-      <source>Featured</source>
-      <translation>精选</translation>
-    </message>
-    <message>
-      <source>Adult</source>
-      <translation>成年人</translation>
-    </message>
-    <message>
-      <source>Unavailable</source>
-      <translation>Unavailable</translation>
-    </message>
-    <message>
-      <source>Resume available</source>
-      <translation>恢复可用</translation>
-    </message>
-    <message>
-      <source>Update available</source>
-      <translation>可用更新</translation>
-    </message>
-    <message>
-      <source>Installed</source>
-      <translation>已安装</translation>
-    </message>
-    <message>
-      <source>Download</source>
-      <translation>下载</translation>
-    </message>
-    <message>
-      <source>Install</source>
-      <translation>安装</translation>
-    </message>
-    <message>
-      <source>Unknown</source>
-      <translation>未知的</translation>
-    </message>
-    <message>
-      <source>View</source>
-      <translation>查看</translation>
-    </message>
-    <message>
-      <source>Installation: {0}</source>
-      <translation>安装: {0}</translation>
-    </message>
-  </context>
-  <context>
-    <name>WabbajackView</name>
-    <message>
-      <source>Wabbajack modlists</source>
-      <translation>Wabbajack模式列表</translation>
-    </message>
-    <message>
-      <source>No game selected</source>
-      <translation>没有选择游戏</translation>
-    </message>
-    <message>
-      <source>All tags</source>
-      <translation>所有标签</translation>
-    </message>
-    <message>
-      <source>Sort: </source>
-      <translation>排序： </translation>
-    </message>
-    <message>
-      <source>Featured only</source>
-      <translation>仅精选</translation>
-    </message>
-    <message>
-      <source>Installed</source>
-      <translation>已安装</translation>
-    </message>
-    <message>
-      <source>Show adult</source>
-      <translation>显示成年人</translation>
-    </message>
-    <message>
-      <source>Loading modlists…</source>
-      <translation>正在装入版块列表…</translation>
-    </message>
-    <message>
-      <source>Search titles, authors, or tags…</source>
-      <translation>搜索标题、作者或标签…</translation>
-    </message>
-    <message>
-      <source>Page</source>
-      <translation>页</translation>
-    </message>
-    <message>
-      <source>Select a game in the main toolbar</source>
-      <translation>在主工具栏中选择一个游戏</translation>
-    </message>
-    <message>
-      <source>Not checked</source>
-      <translation>未检查</translation>
-    </message>
-    <message>
-      <source>Files and locations</source>
-      <translation>文件和位置</translation>
-    </message>
-    <message>
-      <source>The package is loaded when you check requirements.</source>
-      <translation>当您检查要求时，包将被加载。</translation>
-    </message>
-    <message>
-      <source>Modlist package</source>
-      <translation>Modlist 包</translation>
-    </message>
-    <message>
-      <source>Reuse an existing download folder</source>
-      <translation>重新使用现有的下载文件夹</translation>
-    </message>
-    <message>
-      <source>This installation's managed directory inside the current game's .wabbajack folder.</source>
-      <translation>此安装在当前游戏的 .wabbajack 文件夹中的管理目录。</translation>
-    </message>
-    <message>
-      <source>Downloads</source>
-      <translation>下载</translation>
-    </message>
-    <message>
-      <source>Installation</source>
-      <translation>安装</translation>
-    </message>
-    <message>
-      <source>Chosen automatically for this game</source>
-      <translation>自动选择这个游戏</translation>
-    </message>
-    <message>
-      <source>Profiles and options</source>
-      <translation>配置文件和选项</translation>
-    </message>
-    <message>
-      <source>Operation</source>
-      <translation>操作</translation>
-    </message>
-    <message>
-      <source>Profiles</source>
-      <translation>Profiles</translation>
-    </message>
-    <message>
-      <source>Linux adjustments</source>
-      <translation>Linux 调整</translation>
-    </message>
-    <message>
-      <source>Check requirements to load the authored profiles and prepare the download plan.</source>
-      <translation>检查要求以加载编写的配置文件并准备下载计划。</translation>
-    </message>
-    <message>
-      <source>Editing shared mod files affects every profile. INIs, enabled mods and load order stay separate.</source>
-      <translation>编辑共享模组文件会影响每个配置文件。INI，启用模组和加载订单保持分离。</translation>
-    </message>
-    <message>
-      <source>Requirements</source>
-      <translation>B. 所需经费</translation>
-    </message>
-    <message>
-      <source>Download plan</source>
-      <translation>下载计划</translation>
-    </message>
-    <message>
-      <source>Check</source>
-      <translation>检查</translation>
-    </message>
-    <message>
-      <source>Review</source>
-      <translation>审查</translation>
-    </message>
-    <message>
-      <source>Install</source>
-      <translation>安装</translation>
-    </message>
-    <message>
-      <source>Check requirements and review the download plan.</source>
-      <translation>检查要求并审查下载计划。</translation>
-    </message>
-    <message>
-      <source>Review changes before updating shared files and profiles.</source>
-      <translation>在更新共享文件和配置文件之前审查更改。</translation>
-    </message>
-    <message>
-      <source>File</source>
-      <translation>文件</translation>
-    </message>
-    <message>
-      <source>Change</source>
-      <translation>更改</translation>
-    </message>
-    <message>
-      <source>Resolution</source>
-      <translation>决 议</translation>
-    </message>
-    <message>
-      <source>No modlists match these filters.
-Try clearing your search or filters.</source>
-      <translation>没有匹配这些过滤规则的modLists。
-尝试清理您的搜索或过滤器。</translation>
-    </message>
-    <message>
-      <source>Select a game in the main toolbar to browse its modlists.</source>
-      <translation>在主工具栏中选择一个游戏来浏览它的模组列表。</translation>
-    </message>
-    <message>
-      <source>of {0}</source>
-      <translation>{0}</translation>
-    </message>
-    <message>
-      <source>{0} modlists</source>
-      <translation>{0} 模组列表</translation>
-    </message>
-    <message>
-      <source>View modlist</source>
-      <translation>查看版块列表</translation>
-    </message>
-    <message>
-      <source>Unknown</source>
-      <translation>未知的</translation>
-    </message>
-    <message>
-      <source>Featured</source>
-      <translation>精选</translation>
-    </message>
-    <message>
-      <source>Unavailable</source>
-      <translation>Unavailable</translation>
-    </message>
-    <message>
-      <source>Update available</source>
-      <translation>可用更新</translation>
-    </message>
-    <message>
-      <source>Saved installation package</source>
-      <translation>保存的安装包</translation>
-    </message>
-    <message>
-      <source>Package will download from the gallery</source>
-      <translation>软件包将从图库下载</translation>
-    </message>
-    <message>
-      <source>This list is currently unavailable for download.</source>
-      <translation>此列表目前不可下载。</translation>
-    </message>
-    <message>
-      <source>Open Wabbajack modlist</source>
-      <translation>打开 Wabbajack 模式列表</translation>
-    </message>
-    <message>
-      <source>Installation directory</source>
-      <translation>安装目录</translation>
-    </message>
-    <message>
-      <source>Download directory</source>
-      <translation>下载目录</translation>
-    </message>
-    <message>
-      <source>Open Wabbajack URL</source>
-      <translation>打开 Wabbajack URL</translation>
-    </message>
-    <message>
-      <source>Direct .wabbajack URL:</source>
-      <translation>直接.wabbajack URL：</translation>
-    </message>
-    <message>
-      <source>This list is currently unavailable for download. Open a local .wabbajack file to continue.</source>
-      <translation>此列表目前不可下载。打开本地.wabbajack文件以继续。</translation>
-    </message>
-    <message>
-      <source>This entry has no package download URL. Open a local .wabbajack file.</source>
-      <translation>此条目没有软件包下载 URL。打开本地.wabbajack文件。</translation>
-    </message>
-    <message>
-      <source>Downloading modlist package…</source>
-      <translation>正在下载 modlist 软件包…</translation>
-    </message>
-    <message>
-      <source>Inspecting modlist package…</source>
-      <translation>正在检查modlist 软件包…</translation>
-    </message>
-    <message>
-      <source>{0} / {1} ({2}%)</source>
-      <translation type="unfinished">{0} / {1} ({2}%)</translation>
-    </message>
-    <message>
-      <source>{0} downloaded</source>
-      <translation>{0} 已下载</translation>
-    </message>
-    <message>
-      <source>Starting…</source>
-      <translation type="unfinished">Starting…</translation>
-    </message>
-    <message>
-      <source>Installing…</source>
-      <translation>正在安装…</translation>
-    </message>
-    <message>
-      <source>Preparing tool…</source>
-      <translation>正在准备工具…</translation>
-    </message>
-    <message>
-      <source>Loading modlist…</source>
-      <translation>正在加载 modlist…</translation>
-    </message>
-    <message>
-      <source>Checking requirements…</source>
-      <translation>正在检查要求…</translation>
-    </message>
-    <message>
-      <source>Choose .wabbajack…</source>
-      <translation>选择 .wabbajack…</translation>
-    </message>
-    <message>
-      <source>Recheck requirements</source>
-      <translation>重新检查要求</translation>
-    </message>
-    <message>
-      <source>Check requirements</source>
-      <translation>检查要求</translation>
-    </message>
-    <message>
-      <source>Start the selected operation using the reviewed download plan.</source>
-      <translation>使用审核的下载计划开始选定的操作。</translation>
-    </message>
-    <message>
-      <source>Load the package if needed, check requirements, and prepare the download plan for review.</source>
-      <translation>如果需要加载包，检查要求，并编写下载计划供审查。</translation>
-    </message>
-    <message>
-      <source>Installing</source>
-      <translation>正在安装</translation>
-    </message>
-    <message>
-      <source>Installation is running. Pause and cancel are available in the progress window.</source>
-      <translation>安装正在运行。在进度窗口中可以暂停和取消。</translation>
-    </message>
-    <message>
-      <source>Wait for tool setup to finish, then check requirements again.</source>
-      <translation>等待工具设置完成，然后再次检查要求。</translation>
-    </message>
-    <message>
-      <source>Checking…</source>
-      <translation>正在检查…</translation>
-    </message>
-    <message>
-      <source>Loading…</source>
-      <translation>正在加载…</translation>
-    </message>
-    <message>
-      <source>Checking game files, downloads and available space…</source>
-      <translation>检查游戏文件，下载和可用空间…</translation>
-    </message>
-    <message>
-      <source>Loading the package, then checking requirements…</source>
-      <translation>加载包，然后检查要求…</translation>
-    </message>
-    <message>
-      <source>Loading the modlist's profiles and options…</source>
-      <translation>正在加载modlist的配置文件和选项…</translation>
-    </message>
-    <message>
-      <source>1 blocking</source>
-      <translation>%{count} 个屏蔽</translation>
-    </message>
-    <message>
-      <source>{0} blocking</source>
-      <translation>{0} 阻止</translation>
-    </message>
-    <message>
-      <source>Resolve the blocking requirement to continue, then recheck.</source>
-      <translation>解决屏蔽要求继续，然后重新检查。</translation>
-    </message>
-    <message>
-      <source>Resolve the {0} blocking requirements to continue, then recheck.</source>
-      <translation>解决 {0} 屏蔽要求，然后重新检查。</translation>
-    </message>
-    <message>
-      <source>Ready to install</source>
-      <translation>准备安装</translation>
-    </message>
-    <message>
-      <source>Plan ready</source>
-      <translation>计划已准备好</translation>
-    </message>
-    <message>
-      <source>Review the requirements and download plan, then select {0}.</source>
-      <translation>查看要求和下载计划，然后选择 {0}。</translation>
-    </message>
-    <message>
-      <source>Package ready</source>
-      <translation>包已准备好</translation>
-    </message>
-    <message>
-      <source>Preparing the isolated texture runtime and testing DDS conversion…</source>
-      <translation>正在准备孤立的纹理运行时间并测试 DS 转换…</translation>
-    </message>
-    <message>
-      <source>Installing the native MPI tool…</source>
-      <translation>正在安装原生MPI工具…</translation>
-    </message>
-    <message>
-      <source>Wait for the current install or deployment operation to finish.</source>
-      <translation>等待当前安装或部署操作完成。</translation>
-    </message>
-    <message>
-      <source>Configure the required game before installing this modlist.</source>
-      <translation>在安装此modList之前配置所需的游戏。</translation>
-    </message>
-    <message>
-      <source>Checking game files, downloads, disk space, and runtime requirements…</source>
-      <translation>正在检查游戏文件、下载、磁盘空间和运行时间要求…</translation>
-    </message>
-    <message>
-      <source>Installing / Reconstructing</source>
-      <translation>正在安装/重建</translation>
-    </message>
-    <message>
-      <source>Download complete · inspecting package…</source>
-      <translation>下载完成 · 检查软件包…</translation>
-    </message>
-    <message>
-      <source>Modlist package downloaded. Checking its contents…</source>
-      <translation>已下载Modlist 软件包。正在检查其内容…</translation>
-    </message>
-    <message>
-      <source>Downloading modlist package: {0}</source>
-      <translation>正在下载 modList 软件包: {0}</translation>
-    </message>
-    <message>
-      <source>Keep mine</source>
-      <translation>保留我的</translation>
-    </message>
-    <message>
-      <source>Use author version</source>
-      <translation>使用作者版本</translation>
-    </message>
-    <message>
-      <source>Preview truncated. Review the complete files before choosing.</source>
-      <translation>预览截断。在选择之前检查完整的文件。</translation>
-    </message>
-    <message>
-      <source>Binary or unreadable content. Compare the recorded hashes and file locations.</source>
-      <translation>二进制或不可读的内容。比较记录的哈希和文件位置。</translation>
-    </message>
-    <message>
-      <source>The gallery could not be loaded. Try Refresh, or open a local .wabbajack file.</source>
-      <translation>无法加载相册。请尝试刷新，或打开本地的 .wabbajack文件。</translation>
-    </message>
-    <message>
-      <source>Open download page</source>
-      <translation>打开下载页面</translation>
-    </message>
-    <message>
-      <source>Download the .wabbajack file from {0}, then use Open .wabbajack to continue setup.</source>
-      <translation>从 {0}下载.wabbajack文件，然后使用 Open .wabbajack 继续设置。</translation>
-    </message>
-    <message>
-      <source>Could not continue</source>
-      <translation>无法继续</translation>
-    </message>
-    <message>
-      <source>Review the error details, then try the operation again.</source>
-      <translation>查看错误详细信息，然后再试一次。</translation>
-    </message>
-    <message>
-      <source>Using cached gallery information.</source>
-      <translation>使用缓存的相册信息。</translation>
-    </message>
-    <message>
-      <source>Gallery loaded.</source>
-      <translation>已加载相册。</translation>
-    </message>
-    <message>
-      <source> {0} feeds unavailable.</source>
-      <translation> {0} 源不可用。</translation>
-    </message>
-    <message>
-      <source>Reload</source>
-      <translation>Reload</translation>
-    </message>
-    <message>
-      <source>{0} · saved package</source>
-      <translation>{0} · 保存的软件包</translation>
-    </message>
-    <message>
-      <source>{0} archives · {1} files</source>
-      <translation>{0} 存档 · {1} 文件</translation>
-    </message>
-    <message>
-      <source>Package ready. Check requirements to prepare the download plan.</source>
-      <translation>包已准备就绪。检查要求以准备下载计划。</translation>
-    </message>
-    <message>
-      <source>Requirements and download plan ready. Review them before starting.</source>
-      <translation>需要并下载计划准备好。在启动前审查它们。</translation>
-    </message>
-    <message>
-      <source>Resolve the listed requirements, then recheck.</source>
-      <translation>解析列出的要求，然后重新检查。</translation>
-    </message>
-    <message>
-      <source>Texture tool installed. Check requirements again to refresh the download plan.</source>
-      <translation>材质工具已安装。再次检查要求以刷新下载计划。</translation>
-    </message>
-    <message>
-      <source>Native MPI tool installed. Check requirements again to verify the selected package.</source>
-      <translation>本机MPI工具已安装。再次检查要求以验证选定的软件包。</translation>
-    </message>
-    <message>
-      <source>Paused</source>
-      <translation>已暂停</translation>
-    </message>
-    <message>
-      <source>Cancelled</source>
-      <translation>已取消</translation>
-    </message>
-    <message>
-      <source>Needs attention</source>
-      <translation>需要关注</translation>
-    </message>
-    <message>
-      <source>Installation complete. You can select its profiles from the main toolbar.</source>
-      <translation>安装完成。您可以从主工具栏选择它的配置文件。</translation>
-    </message>
-    <message>
-      <source>Your progress is saved. Check requirements, then select Resume to continue.</source>
-      <translation>您的进度已保存。检查要求，然后选择恢复继续操作。</translation>
-    </message>
-    <message>
-      <source>Wait for tool setup to finish before closing this tab.</source>
-      <translation>等待工具设置在关闭此选项卡前完成。</translation>
-    </message>
-    <message>
-      <source>Pause or cancel the installation before closing this tab.</source>
-      <translation>关闭此选项卡前暂停或取消安装。</translation>
-    </message>
-  </context>
-  <context>
     <name>WikiView</name>
     <message>
       <source>Refresh</source>
@@ -19144,10 +18005,6 @@ Press Refresh to try again.</source>
   </context>
   <context>
     <name>WizardTools</name>
-    <message>
-      <source>Install Steam Workshop Mod</source>
-      <translation>安装 Steam Workshop Mod</translation>
-    </message>
     <message>
       <source>mod.io API Key</source>
       <translation>mod.io API 密钥</translation>
@@ -19381,10 +18238,6 @@ Press Refresh to try again.</source>
       <translation>安装再阴影</translation>
     </message>
     <message>
-      <source>Download a Steam Workshop item and install it into this profile.</source>
-      <translation>下载Steam 创意工坊物品并将其安装到此配置文件中。</translation>
-    </message>
-    <message>
       <source>Enter a mod.io key to enable update checks for manually-installed mod.io mods.</source>
       <translation>输入一个mod.io 键,以允许对手动安装的mod.io mods进行更新检查.</translation>
     </message>
@@ -19459,10 +18312,6 @@ Press Refresh to try again.</source>
     <message>
       <source>Patch FalloutNV.exe to use 4 GB of memory (keeps a backup that can be restored).</source>
       <translation>补丁FalloutNV.exe用于4GB内存(保留一个可以还原的备份).</translation>
-    </message>
-    <message>
-      <source>Patch Oblivion.exe to use up to 4 GB of memory (keeps a backup that can be restored).</source>
-      <translation>Patch Oblivion.exe 使用最多4GB 内存(保存一个可以恢复的备份)。</translation>
     </message>
     <message>
       <source>Run the native Linux TTW installer (merges Fallout 3 + New Vegas) and add the result as a mod. Requires Fallout 3 installed and a TTW .mpi package from mod.pub.</source>
@@ -19864,149 +18713,6 @@ Reopen this wizard.</source>
     <message>
       <source>Deploy</source>
       <translation>部署</translation>
-    </message>
-  </context>
-  <context>
-    <name>WorkshopView</name>
-    <message>
-      <source>Install Steam Workshop Mod</source>
-      <translation>安装 Steam Workshop Mod</translation>
-    </message>
-    <message>
-      <source>Download an individual public Workshop mod into this profile. Required Workshop items must be installed separately.</source>
-      <translation>将个别公共创意工坊模组下载到此配置文件。必须单独安装所需的创意工坊项目。</translation>
-    </message>
-    <message>
-      <source>Item ID or Steam Workshop URL</source>
-      <translation>项目 ID 或 Steam 创意工坊网址</translation>
-    </message>
-    <message>
-      <source>Workshop item</source>
-      <translation>工坊项目</translation>
-    </message>
-    <message>
-      <source>{0} · App ID {1}</source>
-      <translation>{0} · App ID {1}</translation>
-    </message>
-    <message>
-      <source>Install into</source>
-      <translation>安装到</translation>
-    </message>
-    <message>
-      <source>QR code (Steam mobile app)</source>
-      <translation>二维码 (Steam 移动应用程序)</translation>
-    </message>
-    <message>
-      <source>Steam account and password</source>
-      <translation>Steam账户和密码</translation>
-    </message>
-    <message>
-      <source>Saved account</source>
-      <translation>已保存的帐户</translation>
-    </message>
-    <message>
-      <source>Anonymous (where supported)</source>
-      <translation>匿名(支持)</translation>
-    </message>
-    <message>
-      <source>Sign in</source>
-      <translation>登录</translation>
-    </message>
-    <message>
-      <source>Steam account name, not display name</source>
-      <translation>Steam账户名称，不显示名称</translation>
-    </message>
-    <message>
-      <source>Account name</source>
-      <translation>帐户名称</translation>
-    </message>
-    <message>
-      <source>Remember this account</source>
-      <translation>记住这个帐户</translation>
-    </message>
-    <message>
-      <source>Keep the Steam session on this device. Enter the account name to use it for later downloads.</source>
-      <translation>在此设备上保持Steam会话。请输入帐户名称以便以后下载。</translation>
-    </message>
-    <message>
-      <source>Forget saved account</source>
-      <translation>忘记保存的帐户</translation>
-    </message>
-    <message>
-      <source>Open Workshop page</source>
-      <translation>打开创意工坊页面</translation>
-    </message>
-    <message>
-      <source>Continue sign-in</source>
-      <translation>继续登录</translation>
-    </message>
-    <message>
-      <source>Install downloaded files</source>
-      <translation>安装下载的文件</translation>
-    </message>
-    <message>
-      <source>Cancel download</source>
-      <translation>取消下载</translation>
-    </message>
-    <message>
-      <source>Download and install</source>
-      <translation>下载并安装</translation>
-    </message>
-    <message>
-      <source>Cancel the download before closing.</source>
-      <translation>关闭前取消下载。</translation>
-    </message>
-    <message>
-      <source>Enter your Steam account name.</source>
-      <translation>输入您的 Steam 账户名称。</translation>
-    </message>
-    <message>
-      <source>The mod installer is unavailable.</source>
-      <translation>Mod安装程序不可用。</translation>
-    </message>
-    <message>
-      <source>Looking up Workshop item…</source>
-      <translation>查找创意工坊项目…</translation>
-    </message>
-    <message>
-      <source>Signed in. Downloading Workshop files…</source>
-      <translation>已登录。正在下载创意工坊文件…</translation>
-    </message>
-    <message>
-      <source>Steam account password</source>
-      <translation>Steam账户密码</translation>
-    </message>
-    <message>
-      <source>Steam Guard code from your email or authenticator</source>
-      <translation>来自您的电子邮件或身份验证器的Steam护卫代码</translation>
-    </message>
-    <message>
-      <source>Download cancelled. Nothing was installed.</source>
-      <translation>下载已取消。没有安装。</translation>
-    </message>
-    <message>
-      <source>Installed: {0}</source>
-      <translation>已安装: {0}</translation>
-    </message>
-    <message>
-      <source>Complete the mod installer tab to finish installation.</source>
-      <translation>完成Mod安装器标签页以完成安装。</translation>
-    </message>
-    <message>
-      <source>Installation did not complete. The download is kept so you can try again.</source>
-      <translation>安装未完成。下载将保持，您可以再试一次。</translation>
-    </message>
-    <message>
-      <source>Cancelling download…</source>
-      <translation type="unfinished">Cancelling download…</translation>
-    </message>
-    <message>
-      <source>Installing the downloaded mod…</source>
-      <translation>正在安装下载的模组…</translation>
-    </message>
-    <message>
-      <source>Saved Steam account removed from Amethyst.</source>
-      <translation>已从 Amethysty 中删除Steam 账户。</translation>
     </message>
   </context>
   <context>
