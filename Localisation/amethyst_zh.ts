@@ -180,15 +180,15 @@ Choose Roads or Paths Only, click Generate, then close it when finished.</source
     </message>
     <message>
       <source>Browser downloads and Select File use the normal installer prompts. Automatic downloads continue while you respond.</source>
-      <translation type="unfinished">Browser downloads and Select File use the normal installer prompts. Automatic downloads continue while you respond.</translation>
+      <translation>浏览器下载并选择文件使用正常安装程序提示。在您响应时自动下载仍在继续。</translation>
     </message>
     <message>
       <source>No archive downloads needed. Verified local content will be reused.</source>
-      <translation type="unfinished">No archive downloads needed. Verified local content will be reused.</translation>
+      <translation>无需下载归档。验证的本地内容将被重新使用。</translation>
     </message>
     <message>
       <source>Verified cache and game files are reused. Downloads follow your existing speed and concurrency settings.</source>
-      <translation type="unfinished">Verified cache and game files are reused. Downloads follow your existing speed and concurrency settings.</translation>
+      <translation>已验证的缓存和游戏文件已重新使用。下载遵循您现有的速度和同种设置。</translation>
     </message>
   </context>
   <context>
@@ -1343,7 +1343,7 @@ Close it when you are done, then click Done.</source>
     </message>
     <message>
       <source>Wabbajack jobs and update backups</source>
-      <translation type="unfinished">Wabbajack jobs and update backups</translation>
+      <translation>Wabbajack作业和更新备份</translation>
     </message>
     <message>
       <source>Total: {0}</source>
@@ -1351,7 +1351,7 @@ Close it when you are done, then click Done.</source>
     </message>
     <message>
       <source>Wabbajack gallery and packages</source>
-      <translation type="unfinished">Wabbajack gallery and packages</translation>
+      <translation>Wabbajack 库和软件包</translation>
     </message>
     <message>
       <source>Nothing selected.</source>
@@ -1381,11 +1381,11 @@ Archives, gallery data and modlist packages will be re-downloaded as needed. Sav
 Location: {1}
 
 The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack gallery data, modlist packages and saved requirement checks are also cleared. The jobs/backups entry removes abandoned jobs and update backups.</source>
-      <translation type="unfinished">Clear {0} of cached downloads across every game?
+      <translation>清除每个游戏中缓存下载的 {0} 吗？
 
-Location: {1}
+位置： {1}
 
-The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack gallery data, modlist packages and saved requirement checks are also cleared. The jobs/backups entry removes abandoned jobs and update backups.</translation>
+Md5 缓存已保存。 档案将根据需要重新下载。 还清理了 Wabbajack 库数据、modList 软件包和保存的需求检查。作业/备份将删除丢弃的任务并更新备份。</translation>
     </message>
     <message>
       <source>Clear {0} Cache(s)</source>
@@ -1503,39 +1503,39 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack 
     <name>CheckRow</name>
     <message>
       <source>Blocking: resolve before installing.</source>
-      <translation type="unfinished">Blocking: resolve before installing.</translation>
+      <translation>屏蔽：安装前解决。</translation>
     </message>
     <message>
       <source>Needs your input: follow the download or setup instructions.</source>
-      <translation type="unfinished">Needs your input: follow the download or setup instructions.</translation>
+      <translation>需要您的输入：遵循下载或设置指令。</translation>
     </message>
     <message>
       <source>To review: read before continuing; this does not block installation.</source>
-      <translation type="unfinished">To review: read before continuing; this does not block installation.</translation>
+      <translation>审查：在继续之前阅读；这不会阻止安装。</translation>
     </message>
     <message>
       <source>Passed: this check is ready to proceed.</source>
-      <translation type="unfinished">Passed: this check is ready to proceed.</translation>
+      <translation>通过：这次检查已准备就绪。</translation>
     </message>
     <message>
       <source>What this means</source>
-      <translation type="unfinished">What this means</translation>
+      <translation>这意味着什么</translation>
     </message>
     <message>
       <source>Details</source>
-      <translation type="unfinished">Details</translation>
+      <translation>详细信息</translation>
     </message>
     <message>
       <source>Hide affected files</source>
-      <translation type="unfinished">Hide affected files</translation>
+      <translation>隐藏受影响的文件</translation>
     </message>
     <message>
       <source>Show 1 affected file</source>
-      <translation type="unfinished">Show 1 affected file</translation>
+      <translation>显示 1 个受影响的文件</translation>
     </message>
     <message>
       <source>Show {0} affected files</source>
-      <translation type="unfinished">Show {0} affected files</translation>
+      <translation>显示 {0} 受影响的文件</translation>
     </message>
   </context>
   <context>
@@ -1716,7 +1716,7 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack 
     </message>
     <message>
       <source>{0}: {1} / {2}</source>
-      <translation type="unfinished">{0}: {1} / {2}</translation>
+      <translation>{0}: {1} / {2}</translation>
     </message>
     <message>
       <source>Downloading…</source>
@@ -1724,7 +1724,7 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack 
     </message>
     <message>
       <source>Small mods (under 100 MB)</source>
-      <translation type="unfinished">Small mods (under 100 MB)</translation>
+      <translation>小模组 (低于100 MB)</translation>
     </message>
     <message>
       <source>+ {0} more downloading…</source>
@@ -1791,7 +1791,7 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack 
     </message>
     <message>
       <source>This source needs a browser download or an existing file.</source>
-      <translation type="unfinished">This source needs a browser download or an existing file.</translation>
+      <translation>此源需要浏览器下载或已有文件。</translation>
     </message>
     <message>
       <source>Optional</source>
@@ -1807,7 +1807,7 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack 
     </message>
     <message>
       <source>Download this exact archive to a watched download folder, or use Select File. Amethyst checks its size and hash before continuing.</source>
-      <translation type="unfinished">Download this exact archive to a watched download folder, or use Select File. Amethyst checks its size and hash before continuing.</translation>
+      <translation>下载这个准确的归档到一个观看的下载文件夹，或使用选择文件。Ameyst在继续之前检查其大小和哈希。</translation>
     </message>
     <message>
       <source>Mod {0}/{1} - download this file, then it will be auto-detected…</source>
@@ -1816,13 +1816,13 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack 
     <message>
       <source>Why this needs your help:
 {0}</source>
-      <translation type="unfinished">Why this needs your help:
+      <translation>为什么这需要您的帮助：
 {0}</translation>
     </message>
     <message>
       <source>Author instructions:
 {0}</source>
-      <translation type="unfinished">Author instructions:
+      <translation>作者说明:
 {0}</translation>
     </message>
     <message>
@@ -2036,11 +2036,11 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack 
     </message>
     <message>
       <source>Detected from the Ludusavi manifest</source>
-      <translation type="unfinished">Detected from the Ludusavi manifest</translation>
+      <translation>从Ludusavi清单中检测</translation>
     </message>
     <message>
       <source>Saves</source>
-      <translation type="unfinished">Saves</translation>
+      <translation>救球</translation>
     </message>
     <message>
       <source>Clear</source>
@@ -2048,7 +2048,7 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack 
     </message>
     <message>
       <source>Set this only if the Saves tab looks in the wrong place.</source>
-      <translation type="unfinished">Set this only if the Saves tab looks in the wrong place.</translation>
+      <translation>只有当保存标签出现在错误的地方时才设定此项。</translation>
     </message>
     <message>
       <source>Options</source>
@@ -2096,7 +2096,7 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack 
     </message>
     <message>
       <source>Behaviour</source>
-      <translation type="unfinished">Behaviour</translation>
+      <translation>行为</translation>
     </message>
     <message>
       <source>Swap launcher with script extender on deploy</source>
@@ -2184,11 +2184,11 @@ The default profile's settings are not affected.</source>
     </message>
     <message>
       <source>{0} · this profile only</source>
-      <translation type="unfinished">{0} · this profile only</translation>
+      <translation>{0} · 仅此配置文件</translation>
     </message>
     <message>
       <source>Shared settings</source>
-      <translation type="unfinished">Shared settings</translation>
+      <translation>共享设置</translation>
     </message>
     <message>
       <source>Settings saved.</source>
@@ -2212,11 +2212,11 @@ The default profile's settings are not affected.</source>
     </message>
     <message>
       <source>Non-Steam Shortcut prefix</source>
-      <translation type="unfinished">Non-Steam Shortcut prefix</translation>
+      <translation>非Steam快捷键前缀</translation>
     </message>
     <message>
       <source>{0} prefix</source>
-      <translation type="unfinished">{0} prefix</translation>
+      <translation>{0} 前缀</translation>
     </message>
     <message>
       <source>Prefix already configured. You can update the path below.</source>
@@ -2324,99 +2324,99 @@ The default profile's settings are not affected.</source>
     </message>
     <message>
       <source>Problem</source>
-      <translation type="unfinished">Problem</translation>
+      <translation>问题</translation>
     </message>
     <message>
       <source>N/A</source>
-      <translation type="unfinished">N/A</translation>
+      <translation>无</translation>
     </message>
     <message>
       <source>Scanning…</source>
-      <translation type="unfinished">Scanning…</translation>
+      <translation>正在扫描…</translation>
     </message>
     <message>
       <source>Not found</source>
-      <translation type="unfinished">Not found</translation>
+      <translation>找不到</translation>
     </message>
     <message>
       <source>Custom</source>
-      <translation type="unfinished">Custom</translation>
+      <translation>自定义</translation>
     </message>
     <message>
       <source>Default</source>
-      <translation type="unfinished">Default</translation>
+      <translation>默认设置</translation>
     </message>
     <message>
       <source>Auto</source>
-      <translation type="unfinished">Auto</translation>
+      <translation>自动操作</translation>
     </message>
     <message>
       <source>None</source>
-      <translation type="unfinished">None</translation>
+      <translation>无</translation>
     </message>
     <message>
       <source>Detected</source>
-      <translation type="unfinished">Detected</translation>
+      <translation>检测到</translation>
     </message>
     <message>
       <source>Check</source>
-      <translation type="unfinished">Check</translation>
+      <translation>检查</translation>
     </message>
     <message>
       <source>Set</source>
-      <translation type="unfinished">Set</translation>
+      <translation>设置</translation>
     </message>
     <message>
       <source>Configured</source>
-      <translation type="unfinished">Configured</translation>
+      <translation>已配置</translation>
     </message>
     <message>
       <source>Not set up</source>
-      <translation type="unfinished">Not set up</translation>
+      <translation>未设置</translation>
     </message>
     <message>
       <source>VFS deploy</source>
-      <translation type="unfinished">VFS deploy</translation>
+      <translation>VFS 部署</translation>
     </message>
     <message>
       <source>Hardlink deploy</source>
-      <translation type="unfinished">Hardlink deploy</translation>
+      <translation>硬链接部署</translation>
     </message>
     <message>
       <source>Symlink deploy</source>
-      <translation type="unfinished">Symlink deploy</translation>
+      <translation>Symlink deploy</translation>
     </message>
     <message>
       <source>Locations</source>
-      <translation type="unfinished">Locations</translation>
+      <translation>地点</translation>
     </message>
     <message>
       <source>Game install</source>
-      <translation type="unfinished">Game install</translation>
+      <translation>游戏安装</translation>
     </message>
     <message>
       <source>AppImage</source>
-      <translation type="unfinished">AppImage</translation>
+      <translation>AppImage</translation>
     </message>
     <message>
       <source>Not needed for a native Linux game</source>
-      <translation type="unfinished">Not needed for a native Linux game</translation>
+      <translation>原生的Linux游戏不需要</translation>
     </message>
     <message>
       <source>Detected automatically</source>
-      <translation type="unfinished">Detected automatically</translation>
+      <translation>自动检测</translation>
     </message>
     <message>
       <source>Proton prefix</source>
-      <translation type="unfinished">Proton prefix</translation>
+      <translation>质子前缀</translation>
     </message>
     <message>
       <source>Default location</source>
-      <translation type="unfinished">Default location</translation>
+      <translation>默认位置</translation>
     </message>
     <message>
       <source>Mod staging</source>
-      <translation type="unfinished">Mod staging</translation>
+      <translation>Mod staging</translation>
     </message>
     <message>
       <source>Game executable not found on any drive.</source>
@@ -5362,7 +5362,7 @@ Click Done to clean up the extracted files and close.</source>
     </message>
     <message>
       <source>By source location</source>
-      <translation type="unfinished">By source location</translation>
+      <translation>按来源位置</translation>
     </message>
     <message>
       <source>By file type</source>
@@ -5651,7 +5651,7 @@ SHA-1: {1} (英语).
     </message>
     <message>
       <source>Unpatched {0} detected - ready to patch.</source>
-      <translation type="unfinished">Unpatched {0} detected - ready to patch.</translation>
+      <translation>检测到未补丁的 {0} - 准备进行补丁。</translation>
     </message>
     <message>
       <source>Backup found: {0}</source>
@@ -8320,7 +8320,7 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source>.NET Framework 4.8</source>
-      <translation type="unfinished">.NET Framework 4.8</translation>
+      <translation>.NET Framework 4.8</translation>
     </message>
     <message>
       <source>Download Manifest…</source>
@@ -8328,7 +8328,7 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source>Wabbajack</source>
-      <translation type="unfinished">Wabbajack</translation>
+      <translation>瓦巴杰克</translation>
     </message>
     <message>
       <source>Browse Wabbajack modlists…</source>
@@ -8340,7 +8340,7 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source>{0} is running - switch profiles when it finishes.</source>
-      <translation type="unfinished">{0} is running - switch profiles when it finishes.</translation>
+      <translation>{0} 正在运行 - 完成后切换配置文件。</translation>
     </message>
     <message>
       <source>VFS</source>
@@ -8412,31 +8412,31 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source>Wabbajack installation complete.</source>
-      <translation type="unfinished">Wabbajack installation complete.</translation>
+      <translation>Wabbajack安装完成。</translation>
     </message>
     <message>
       <source>A Wabbajack installation is running.</source>
-      <translation type="unfinished">A Wabbajack installation is running.</translation>
+      <translation>一个Wabbajack安装正在运行。</translation>
     </message>
     <message>
       <source>The active profile isn't a Wabbajack profile.</source>
-      <translation type="unfinished">The active profile isn't a Wabbajack profile.</translation>
+      <translation>活动配置文件不是一个Wabbajack配置文件。</translation>
     </message>
     <message>
       <source>Wait for the current operation to finish before resetting the load order.</source>
-      <translation type="unfinished">Wait for the current operation to finish before resetting the load order.</translation>
+      <translation>等待当前操作在重置负载顺序之前完成。</translation>
     </message>
     <message>
       <source>Wabbajack load-order reset</source>
-      <translation type="unfinished">Wabbajack load-order reset</translation>
+      <translation>Wabbajack load-order reset</translation>
     </message>
     <message>
       <source>Resetting Wabbajack load order…</source>
-      <translation type="unfinished">Resetting Wabbajack load order…</translation>
+      <translation>重置Wabbajack装载顺序…</translation>
     </message>
     <message>
       <source>Wabbajack load order reset - {0} mods and {1} plugins ordered.</source>
-      <translation type="unfinished">Wabbajack load order reset - {0} mods and {1} plugins ordered.</translation>
+      <translation>Wabbajack 加载订单重置 - 订购了 {0} 模组和 {1} 插件。</translation>
     </message>
     <message>
       <source>Load order reset - {0} mods ordered, {1} kept below.</source>
@@ -8588,11 +8588,11 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source>Wait for the Proton installer to finish before closing Amethyst.</source>
-      <translation type="unfinished">Wait for the Proton installer to finish before closing Amethyst.</translation>
+      <translation>等待质子安装程序在关闭代气晶之前完成。</translation>
     </message>
     <message>
       <source>Pausing Wabbajack and waiting for installation and tool setup to stop safely…</source>
-      <translation type="unfinished">Pausing Wabbajack and waiting for installation and tool setup to stop safely…</translation>
+      <translation>暂停 Wabbajack 等待安装和工具设置以安全停止…</translation>
     </message>
     <message>
       <source>Extracting / Installing</source>
@@ -8604,7 +8604,7 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source>Installing .NET Framework 4.8</source>
-      <translation type="unfinished">Installing .NET Framework 4.8</translation>
+      <translation>Installing .NET Framework 4.8</translation>
     </message>
     <message>
       <source>Wizard Settings…</source>
@@ -8616,19 +8616,19 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source>Return to the game and profile shown in this wizard, then install the downloaded files.</source>
-      <translation type="unfinished">Return to the game and profile shown in this wizard, then install the downloaded files.</translation>
+      <translation>返回这个向导中显示的游戏和配置文件，然后安装下载的文件。</translation>
     </message>
     <message>
       <source>Select a member profile before installing Workshop mods.</source>
-      <translation type="unfinished">Select a member profile before installing Workshop mods.</translation>
+      <translation>在安装创意工坊模式之前选择成员配置文件。</translation>
     </message>
     <message>
       <source>Wait for the running wizard tool to finish.</source>
-      <translation type="unfinished">Wait for the running wizard tool to finish.</translation>
+      <translation>等待运行中的向导工具完成。</translation>
     </message>
     <message>
       <source>Workshop installation</source>
-      <translation type="unfinished">Workshop installation</translation>
+      <translation>车间安装</translation>
     </message>
     <message>
       <source>No QuickAutoClean tool is available for this game.</source>
@@ -8802,7 +8802,7 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
     </message>
     <message>
       <source>Nexus mod / file ID</source>
-      <translation type="unfinished">Nexus mod / file ID</translation>
+      <translation>Nexus mod / file ID</translation>
     </message>
     <message>
       <source>By file type</source>
@@ -8818,11 +8818,11 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
     </message>
     <message>
       <source>mod.io</source>
-      <translation type="unfinished">mod.io</translation>
+      <translation>mod.io</translation>
     </message>
     <message>
       <source>None</source>
-      <translation type="unfinished">None</translation>
+      <translation>无</translation>
     </message>
     <message>
       <source>Mods with BA2 archives</source>
@@ -8862,7 +8862,7 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
     </message>
     <message>
       <source>Cancel LOOT</source>
-      <translation type="unfinished">Cancel LOOT</translation>
+      <translation>取消登录</translation>
     </message>
     <message>
       <source>Refreshing LOOT metadata for {0} plugins…</source>
@@ -8870,7 +8870,7 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
     </message>
     <message>
       <source>LOOT cancelled.</source>
-      <translation type="unfinished">LOOT cancelled.</translation>
+      <translation>LOOT 已取消。</translation>
     </message>
     <message>
       <source>Plugin metadata refreshed.</source>
@@ -9689,7 +9689,7 @@ How would you like to handle the existing mod?</source>
     </message>
     <message>
       <source>Open on Steam Workshop</source>
-      <translation type="unfinished">Open on Steam Workshop</translation>
+      <translation>在 Steam 创意工坊打开</translation>
     </message>
     <message>
       <source>Thunderstore Actions</source>
@@ -9848,11 +9848,11 @@ How would you like to handle the existing mod?</source>
     </message>
     <message>
       <source>Nexus Mod ID</source>
-      <translation type="unfinished">Nexus Mod ID</translation>
+      <translation>Nexus Mod ID</translation>
     </message>
     <message>
       <source>Nexus File ID</source>
-      <translation type="unfinished">Nexus File ID</translation>
+      <translation>Nexus 文件 ID</translation>
     </message>
   </context>
   <context>
@@ -11579,7 +11579,7 @@ Daily: {1}</source>
     <name>Oblivion4GbView</name>
     <message>
       <source>Oblivion 4GB Patch</source>
-      <translation type="unfinished">Oblivion 4GB Patch</translation>
+      <translation>4GB 补丁</translation>
     </message>
     <message>
       <source>Patches Oblivion.exe so the 32-bit game can use up to 4 GB of memory on a 64-bit system.
@@ -11587,15 +11587,15 @@ Daily: {1}</source>
 The patch is applied natively and does not require Wine or an external patcher. It does not install or load OBSE.
 
 The original exe is kept as {0}.</source>
-      <translation type="unfinished">Patches Oblivion.exe so the 32-bit game can use up to 4 GB of memory on a 64-bit system.
+      <translation>Patches Oblivion.exe 让32位游戏在64位系统上最多可以使用4GB 的内存。
 
-The patch is applied natively and does not require Wine or an external patcher. It does not install or load OBSE.
+补丁是本地应用的，不需要Wine或外部补丁。 它没有安装或加载 OBSE.
 
-The original exe is kept as {0}.</translation>
+原始exe 被保留为 {0}。</translation>
     </message>
     <message>
       <source>The PE header could not be read.</source>
-      <translation type="unfinished">The PE header could not be read.</translation>
+      <translation>无法读取PE标题。</translation>
     </message>
     <message>
       <source>{0} is not a supported Windows executable.
@@ -13792,31 +13792,31 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     <name>RequirementsSummary</name>
     <message>
       <source>Check requirements to verify game files, available space and runtime requirements. Review the results before installing.</source>
-      <translation type="unfinished">Check requirements to verify game files, available space and runtime requirements. Review the results before installing.</translation>
+      <translation>检查要求以验证游戏文件、 可用空间和运行时间要求。在安装前审查结果。</translation>
     </message>
     <message>
       <source>{0} blocking</source>
-      <translation type="unfinished">{0} blocking</translation>
+      <translation>{0} 阻止</translation>
     </message>
     <message>
       <source>1 needs your input</source>
-      <translation type="unfinished">1 needs your input</translation>
+      <translation>1 需要您的输入</translation>
     </message>
     <message>
       <source>{0} need your input</source>
-      <translation type="unfinished">{0} need your input</translation>
+      <translation>{0} 需要您的输入</translation>
     </message>
     <message>
       <source>{0} to review</source>
-      <translation type="unfinished">{0} to review</translation>
+      <translation>待审阅的 {0}</translation>
     </message>
     <message>
       <source>Requirements passed</source>
-      <translation type="unfinished">Requirements passed</translation>
+      <translation>已通过的要求</translation>
     </message>
     <message>
       <source>Passed ({0})</source>
-      <translation type="unfinished">Passed ({0})</translation>
+      <translation>通过({0})</translation>
     </message>
   </context>
   <context>
@@ -15124,11 +15124,11 @@ flatpak 远程添加-user amethyst https://chrisdkn.github.io/ Amethyst-Mod-Mana
     </message>
     <message>
       <source>Decrease {0}</source>
-      <translation type="unfinished">Decrease {0}</translation>
+      <translation>减少 {0}</translation>
     </message>
     <message>
       <source>Increase {0}</source>
-      <translation type="unfinished">Increase {0}</translation>
+      <translation>增加 {0}</translation>
     </message>
     <message>
       <source>Open the Amethyst Crowdin project to help translate the app.</source>
@@ -15144,51 +15144,51 @@ flatpak 远程添加-user amethyst https://chrisdkn.github.io/ Amethyst-Mod-Mana
     </message>
     <message>
       <source>Install Mod</source>
-      <translation type="unfinished">Install Mod</translation>
+      <translation>Install Mod</translation>
     </message>
     <message>
       <source>Proton</source>
-      <translation type="unfinished">Proton</translation>
+      <translation>普罗顿</translation>
     </message>
     <message>
       <source>Wizard</source>
-      <translation type="unfinished">Wizard</translation>
+      <translation>向导</translation>
     </message>
     <message>
       <source>Nexus</source>
-      <translation type="unfinished">Nexus</translation>
+      <translation>Nexus</translation>
     </message>
     <message>
       <source>Thunderstore</source>
-      <translation type="unfinished">Thunderstore</translation>
+      <translation>Thunderstore</translation>
     </message>
     <message>
       <source>Wabbajack</source>
-      <translation type="unfinished">Wabbajack</translation>
+      <translation>瓦巴杰克</translation>
     </message>
     <message>
       <source>Top bar</source>
-      <translation type="unfinished">Top bar</translation>
+      <translation>顶栏</translation>
     </message>
     <message>
       <source>Where the toolbar sits. As a side bar it is always icon-only, with the labels shown as tooltips.</source>
-      <translation type="unfinished">Where the toolbar sits. As a side bar it is always icon-only, with the labels shown as tooltips.</translation>
+      <translation>工具栏坐在哪里。作为侧边栏，它总是图标，标签显示为工具提示。</translation>
     </message>
     <message>
       <source>Always use compact (icon-only) buttons</source>
-      <translation type="unfinished">Always use compact (icon-only) buttons</translation>
+      <translation>总是使用紧凑(仅图标) 按钮</translation>
     </message>
     <message>
       <source>Keep the top bar at its narrow sizes - buttons show icons only and the game and profile selectors collapse - instead of doing so only when the window is too narrow for the labels.</source>
-      <translation type="unfinished">Keep the top bar at its narrow sizes - buttons show icons only and the game and profile selectors collapse - instead of doing so only when the window is too narrow for the labels.</translation>
+      <translation>保持顶部栏的狭小尺寸——按钮只显示图标，游戏和配置文件选择器崩溃——而不是仅在窗口对标签太窄时才显示。</translation>
     </message>
     <message>
       <source>Hide buttons</source>
-      <translation type="unfinished">Hide buttons</translation>
+      <translation>隐藏按钮</translation>
     </message>
     <message>
       <source>Buttons ticked here are removed from the toolbar. A button that does not apply to the current game (Proton without a prefix, or a store the game is not on) is hidden anyway.</source>
-      <translation type="unfinished">Buttons ticked here are removed from the toolbar. A button that does not apply to the current game (Proton without a prefix, or a store the game is not on) is hidden anyway.</translation>
+      <translation>此处粘贴的按钮将从工具栏中删除。 不适用于当前游戏 (Proton没有前缀，或游戏商店不存在)的按钮无论如何都是隐藏的。</translation>
     </message>
     <message>
       <source>Cap the combined download speed of all downloads (collections, single mods, nxm and modl links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>
@@ -15196,23 +15196,23 @@ flatpak 远程添加-user amethyst https://chrisdkn.github.io/ Amethyst-Mod-Mana
     </message>
     <message>
       <source>Nexus download server</source>
-      <translation type="unfinished">Nexus download server</translation>
+      <translation>Nexus 下载服务器</translation>
     </message>
     <message>
       <source>Automatic</source>
-      <translation type="unfinished">Automatic</translation>
+      <translation>自动的</translation>
     </message>
     <message>
       <source>Global CDN</source>
-      <translation type="unfinished">Global CDN</translation>
+      <translation>全局CDN</translation>
     </message>
     <message>
       <source>{0} (Premium)</source>
-      <translation type="unfinished">{0} (Premium)</translation>
+      <translation>{0} (高级)</translation>
     </message>
     <message>
       <source>Automatic follows your Nexus website preference. Regional servers require Nexus Premium. Applies to new or resumed Nexus downloads, including collections and Wabbajack. If the selected server is unavailable or fails, other available servers are tried. Pause and resume an active download to change its server.</source>
-      <translation type="unfinished">Automatic follows your Nexus website preference. Regional servers require Nexus Premium. Applies to new or resumed Nexus downloads, including collections and Wabbajack. If the selected server is unavailable or fails, other available servers are tried. Pause and resume an active download to change its server.</translation>
+      <translation>自动关注您的 Nexus 网站首选项。区域服务器需要 Nexus 高级版。应用于新的或恢复的 Nexus 下载，包括收藏和Wabbajack。 如果选中的服务器不可用或失败，将尝试其他可用的服务器。暂停并恢复主动下载以更改其服务器。</translation>
     </message>
     <message>
       <source>Downloads are saved to the cache but not installed. Applies to nxm:// and modl:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</source>
@@ -15383,107 +15383,107 @@ flatpak 远程添加-user amethyst https://chrisdkn.github.io/ Amethyst-Mod-Mana
     <name>SetupOptions</name>
     <message>
       <source>Use the version required by the author. Output keeps its authored position in {0}.</source>
-      <translation type="unfinished">Use the version required by the author. Output keeps its authored position in {0}.</translation>
+      <translation>使用作者所需的版本。输出它的撰写位置在 {0} 中。</translation>
     </message>
     <message>
       <source>Run the Fallout 3 BSA Decompressor wizard, then import its complete output mod here, or select the author's .mpi package.</source>
-      <translation type="unfinished">Run the Fallout 3 BSA Decompressor wizard, then import its complete output mod here, or select the author's .mpi package.</translation>
+      <translation>运行 Fallout 3 BSA Decompressor 向导，然后将其全部输出模组导入到这里，或者选择作者的 .mpi 包。</translation>
     </message>
     <message>
       <source>Open mod.pub TTW page</source>
-      <translation type="unfinished">Open mod.pub TTW page</translation>
+      <translation>Open mod.pub TTW page</translation>
     </message>
     <message>
       <source>Build from .mpi package</source>
-      <translation type="unfinished">Build from .mpi package</translation>
+      <translation>从 .mpi 软件包生成</translation>
     </message>
     <message>
       <source>Import existing output mod</source>
-      <translation type="unfinished">Import existing output mod</translation>
+      <translation>导入现有输出模组</translation>
     </message>
     <message>
       <source>Method</source>
-      <translation type="unfinished">Method</translation>
+      <translation>方法</translation>
     </message>
     <message>
       <source>Select the author-required version</source>
-      <translation type="unfinished">Select the author-required version</translation>
+      <translation>选择作者必填的版本</translation>
     </message>
     <message>
       <source>Browse…</source>
-      <translation type="unfinished">Browse…</translation>
+      <translation>浏览…</translation>
     </message>
     <message>
       <source>Download package…</source>
-      <translation type="unfinished">Download package…</translation>
+      <translation>下载软件包…</translation>
     </message>
     <message>
       <source>Download the FO3 BSA Decompressor archive from Nexus Mods, extract it, then browse to the .mpi file.</source>
-      <translation type="unfinished">Download the FO3 BSA Decompressor archive from Nexus Mods, extract it, then browse to the .mpi file.</translation>
+      <translation>从 Nexus Mods 下载FO3 BSA解压器档案，提取它，然后浏览到.mpi 文件。</translation>
     </message>
     <message>
       <source>Detected automatically when installed through Steam</source>
-      <translation type="unfinished">Detected automatically when installed through Steam</translation>
+      <translation>通过 Steam 安装时自动检测</translation>
     </message>
     <message>
       <source>Original Fallout 3 game</source>
-      <translation type="unfinished">Original Fallout 3 game</translation>
+      <translation>原始《秋季3》游戏</translation>
     </message>
     <message>
       <source>Install / update native MPI tool</source>
-      <translation type="unfinished">Install / update native MPI tool</translation>
+      <translation>安装/更新原生MPI工具</translation>
     </message>
     <message>
       <source>MPI installer on GitHub</source>
-      <translation type="unfinished">MPI installer on GitHub</translation>
+      <translation>MPI installer on GitHub</translation>
     </message>
     <message>
       <source>Root file variant</source>
-      <translation type="unfinished">Root file variant</translation>
+      <translation>根文件变量</translation>
     </message>
     <message>
       <source>Override</source>
-      <translation type="unfinished">Override</translation>
+      <translation>覆盖</translation>
     </message>
     <message>
       <source>Overrides the author's resolution in supported game INIs and display-tweak files. Leave off to keep their settings.</source>
-      <translation type="unfinished">Overrides the author's resolution in supported game INIs and display-tweak files. Leave off to keep their settings.</translation>
+      <translation>在支持的游戏 INI 中覆盖作者的分辨率并显示调整文件。关闭以保持其设置。</translation>
     </message>
     <message>
       <source>Display resolution</source>
-      <translation type="unfinished">Display resolution</translation>
+      <translation>显示分辨率</translation>
     </message>
     <message>
       <source>Choose automatically</source>
-      <translation type="unfinished">Choose automatically</translation>
+      <translation>自动选择</translation>
     </message>
     <message>
       <source>Unavailable: {0}</source>
-      <translation type="unfinished">Unavailable: {0}</translation>
+      <translation>Unavailable: {0}</translation>
     </message>
     <message>
       <source>Texture tool Proton</source>
-      <translation type="unfinished">Texture tool Proton</translation>
+      <translation>纹理工具质点</translation>
     </message>
     <message>
       <source>Automatic (GPU when available)</source>
-      <translation type="unfinished">Automatic (GPU when available)</translation>
+      <translation>自动(可用时GPU)</translation>
     </message>
     <message>
       <source>CPU only</source>
-      <translation type="unfinished">CPU only</translation>
+      <translation>仅CPU</translation>
     </message>
     <message>
       <source>Texture conversion</source>
-      <translation type="unfinished">Texture conversion</translation>
+      <translation>纹理转换</translation>
     </message>
     <message>
       <source>Select extracted MPI package</source>
-      <translation type="unfinished">Select extracted MPI package</translation>
+      <translation>选择已提取的 MPI 包</translation>
     </message>
     <message>
       <source>Select original game</source>
-      <translation type="unfinished">Select original game</translation>
+      <translation>选择原始游戏</translation>
     </message>
   </context>
   <context>
@@ -18519,292 +18519,292 @@ Latest:  {1}</source>
     <name>WabbajackCard</name>
     <message>
       <source>by {0}</source>
-      <translation type="unfinished">by {0}</translation>
+      <translation>由 {0}</translation>
     </message>
     <message>
       <source>Unknown author</source>
-      <translation type="unfinished">Unknown author</translation>
+      <translation>未知作者</translation>
     </message>
     <message>
       <source>Featured</source>
-      <translation type="unfinished">Featured</translation>
+      <translation>精选</translation>
     </message>
     <message>
       <source>Adult</source>
-      <translation type="unfinished">Adult</translation>
+      <translation>成年人</translation>
     </message>
     <message>
       <source>Unavailable</source>
-      <translation type="unfinished">Unavailable</translation>
+      <translation>Unavailable</translation>
     </message>
     <message>
       <source>Resume available</source>
-      <translation type="unfinished">Resume available</translation>
+      <translation>恢复可用</translation>
     </message>
     <message>
       <source>Update available</source>
-      <translation type="unfinished">Update available</translation>
+      <translation>可用更新</translation>
     </message>
     <message>
       <source>Installed</source>
-      <translation type="unfinished">Installed</translation>
+      <translation>已安装</translation>
     </message>
     <message>
       <source>Download</source>
-      <translation type="unfinished">Download</translation>
+      <translation>下载</translation>
     </message>
     <message>
       <source>Install</source>
-      <translation type="unfinished">Install</translation>
+      <translation>安装</translation>
     </message>
     <message>
       <source>Unknown</source>
-      <translation type="unfinished">Unknown</translation>
+      <translation>未知的</translation>
     </message>
     <message>
       <source>View</source>
-      <translation type="unfinished">View</translation>
+      <translation>查看</translation>
     </message>
     <message>
       <source>Installation: {0}</source>
-      <translation type="unfinished">Installation: {0}</translation>
+      <translation>安装: {0}</translation>
     </message>
   </context>
   <context>
     <name>WabbajackView</name>
     <message>
       <source>Wabbajack modlists</source>
-      <translation type="unfinished">Wabbajack modlists</translation>
+      <translation>Wabbajack模式列表</translation>
     </message>
     <message>
       <source>No game selected</source>
-      <translation type="unfinished">No game selected</translation>
+      <translation>没有选择游戏</translation>
     </message>
     <message>
       <source>All tags</source>
-      <translation type="unfinished">All tags</translation>
+      <translation>所有标签</translation>
     </message>
     <message>
       <source>Sort: </source>
-      <translation type="unfinished">Sort: </translation>
+      <translation>排序： </translation>
     </message>
     <message>
       <source>Featured only</source>
-      <translation type="unfinished">Featured only</translation>
+      <translation>仅精选</translation>
     </message>
     <message>
       <source>Installed</source>
-      <translation type="unfinished">Installed</translation>
+      <translation>已安装</translation>
     </message>
     <message>
       <source>Show adult</source>
-      <translation type="unfinished">Show adult</translation>
+      <translation>显示成年人</translation>
     </message>
     <message>
       <source>Hide unavailable</source>
-      <translation type="unfinished">Hide unavailable</translation>
+      <translation>隐藏不可用</translation>
     </message>
     <message>
       <source>Loading modlists…</source>
-      <translation type="unfinished">Loading modlists…</translation>
+      <translation>正在装入版块列表…</translation>
     </message>
     <message>
       <source>Search titles, authors, or tags…</source>
-      <translation type="unfinished">Search titles, authors, or tags…</translation>
+      <translation>搜索标题、作者或标签…</translation>
     </message>
     <message>
       <source>Page</source>
-      <translation type="unfinished">Page</translation>
+      <translation>页</translation>
     </message>
     <message>
       <source>Select a game in the main toolbar</source>
-      <translation type="unfinished">Select a game in the main toolbar</translation>
+      <translation>在主工具栏中选择一个游戏</translation>
     </message>
     <message>
       <source>Not checked</source>
-      <translation type="unfinished">Not checked</translation>
+      <translation>未检查</translation>
     </message>
     <message>
       <source>Files and locations</source>
-      <translation type="unfinished">Files and locations</translation>
+      <translation>文件和位置</translation>
     </message>
     <message>
       <source>The package is loaded when you check requirements.</source>
-      <translation type="unfinished">The package is loaded when you check requirements.</translation>
+      <translation>当您检查要求时，包将被加载。</translation>
     </message>
     <message>
       <source>Modlist package</source>
-      <translation type="unfinished">Modlist package</translation>
+      <translation>Modlist 包</translation>
     </message>
     <message>
       <source>Reuse an existing download folder</source>
-      <translation type="unfinished">Reuse an existing download folder</translation>
+      <translation>重新使用现有的下载文件夹</translation>
     </message>
     <message>
       <source>This installation's managed directory inside the current game's .wabbajack folder.</source>
-      <translation type="unfinished">This installation's managed directory inside the current game's .wabbajack folder.</translation>
+      <translation>此安装在当前游戏的 .wabbajack 文件夹中的管理目录。</translation>
     </message>
     <message>
       <source>Downloads</source>
-      <translation type="unfinished">Downloads</translation>
+      <translation>下载</translation>
     </message>
     <message>
       <source>Installation</source>
-      <translation type="unfinished">Installation</translation>
+      <translation>安装</translation>
     </message>
     <message>
       <source>Chosen automatically for this game</source>
-      <translation type="unfinished">Chosen automatically for this game</translation>
+      <translation>自动选择这个游戏</translation>
     </message>
     <message>
       <source>Profiles and options</source>
-      <translation type="unfinished">Profiles and options</translation>
+      <translation>配置文件和选项</translation>
     </message>
     <message>
       <source>Operation</source>
-      <translation type="unfinished">Operation</translation>
+      <translation>操作</translation>
     </message>
     <message>
       <source>Profiles</source>
-      <translation type="unfinished">Profiles</translation>
+      <translation>Profiles</translation>
     </message>
     <message>
       <source>Linux adjustments</source>
-      <translation type="unfinished">Linux adjustments</translation>
+      <translation>Linux 调整</translation>
     </message>
     <message>
       <source>Check requirements to load the authored profiles and prepare the download plan.</source>
-      <translation type="unfinished">Check requirements to load the authored profiles and prepare the download plan.</translation>
+      <translation>检查要求以加载编写的配置文件并准备下载计划。</translation>
     </message>
     <message>
       <source>Editing shared mod files affects every profile. INIs, enabled mods and load order stay separate.</source>
-      <translation type="unfinished">Editing shared mod files affects every profile. INIs, enabled mods and load order stay separate.</translation>
+      <translation>编辑共享模组文件会影响每个配置文件。INI，启用模组和加载订单保持分离。</translation>
     </message>
     <message>
       <source>Requirements</source>
-      <translation type="unfinished">Requirements</translation>
+      <translation>B. 所需经费</translation>
     </message>
     <message>
       <source>Download plan</source>
-      <translation type="unfinished">Download plan</translation>
+      <translation>下载计划</translation>
     </message>
     <message>
       <source>Check</source>
-      <translation type="unfinished">Check</translation>
+      <translation>检查</translation>
     </message>
     <message>
       <source>Review</source>
-      <translation type="unfinished">Review</translation>
+      <translation>审查</translation>
     </message>
     <message>
       <source>Install</source>
-      <translation type="unfinished">Install</translation>
+      <translation>安装</translation>
     </message>
     <message>
       <source>Check requirements and review the download plan.</source>
-      <translation type="unfinished">Check requirements and review the download plan.</translation>
+      <translation>检查要求并审查下载计划。</translation>
     </message>
     <message>
       <source>Review changes before updating shared files and profiles.</source>
-      <translation type="unfinished">Review changes before updating shared files and profiles.</translation>
+      <translation>在更新共享文件和配置文件之前审查更改。</translation>
     </message>
     <message>
       <source>File</source>
-      <translation type="unfinished">File</translation>
+      <translation>文件</translation>
     </message>
     <message>
       <source>Change</source>
-      <translation type="unfinished">Change</translation>
+      <translation>更改</translation>
     </message>
     <message>
       <source>Resolution</source>
-      <translation type="unfinished">Resolution</translation>
+      <translation>决 议</translation>
     </message>
     <message>
       <source>No modlists match these filters.
 Try clearing your search or filters.</source>
-      <translation type="unfinished">No modlists match these filters.
-Try clearing your search or filters.</translation>
+      <translation>没有匹配这些过滤规则的modLists。
+尝试清理您的搜索或过滤器。</translation>
     </message>
     <message>
       <source>Select a game in the main toolbar to browse its modlists.</source>
-      <translation type="unfinished">Select a game in the main toolbar to browse its modlists.</translation>
+      <translation>在主工具栏中选择一个游戏来浏览它的模组列表。</translation>
     </message>
     <message>
       <source>of {0}</source>
-      <translation type="unfinished">of {0}</translation>
+      <translation>{0}</translation>
     </message>
     <message>
       <source>{0} modlists</source>
-      <translation type="unfinished">{0} modlists</translation>
+      <translation>{0} 模组列表</translation>
     </message>
     <message>
       <source>View modlist</source>
-      <translation type="unfinished">View modlist</translation>
+      <translation>查看版块列表</translation>
     </message>
     <message>
       <source>Unknown</source>
-      <translation type="unfinished">Unknown</translation>
+      <translation>未知的</translation>
     </message>
     <message>
       <source>Featured</source>
-      <translation type="unfinished">Featured</translation>
+      <translation>精选</translation>
     </message>
     <message>
       <source>Unavailable</source>
-      <translation type="unfinished">Unavailable</translation>
+      <translation>Unavailable</translation>
     </message>
     <message>
       <source>Update available</source>
-      <translation type="unfinished">Update available</translation>
+      <translation>可用更新</translation>
     </message>
     <message>
       <source>Saved installation package</source>
-      <translation type="unfinished">Saved installation package</translation>
+      <translation>保存的安装包</translation>
     </message>
     <message>
       <source>Package will download from the gallery</source>
-      <translation type="unfinished">Package will download from the gallery</translation>
+      <translation>软件包将从图库下载</translation>
     </message>
     <message>
       <source>This list is currently unavailable for download.</source>
-      <translation type="unfinished">This list is currently unavailable for download.</translation>
+      <translation>此列表目前不可下载。</translation>
     </message>
     <message>
       <source>Open Wabbajack modlist</source>
-      <translation type="unfinished">Open Wabbajack modlist</translation>
+      <translation>打开 Wabbajack 模式列表</translation>
     </message>
     <message>
       <source>Installation directory</source>
-      <translation type="unfinished">Installation directory</translation>
+      <translation>安装目录</translation>
     </message>
     <message>
       <source>Download directory</source>
-      <translation type="unfinished">Download directory</translation>
+      <translation>下载目录</translation>
     </message>
     <message>
       <source>Open Wabbajack URL</source>
-      <translation type="unfinished">Open Wabbajack URL</translation>
+      <translation>打开 Wabbajack URL</translation>
     </message>
     <message>
       <source>Direct .wabbajack URL:</source>
-      <translation type="unfinished">Direct .wabbajack URL:</translation>
+      <translation>直接.wabbajack URL：</translation>
     </message>
     <message>
       <source>This list is currently unavailable for download. Open a local .wabbajack file to continue.</source>
-      <translation type="unfinished">This list is currently unavailable for download. Open a local .wabbajack file to continue.</translation>
+      <translation>此列表目前不可下载。打开本地.wabbajack文件以继续。</translation>
     </message>
     <message>
       <source>This entry has no package download URL. Open a local .wabbajack file.</source>
-      <translation type="unfinished">This entry has no package download URL. Open a local .wabbajack file.</translation>
+      <translation>此条目没有软件包下载 URL。打开本地.wabbajack文件。</translation>
     </message>
     <message>
       <source>Downloading modlist package…</source>
-      <translation type="unfinished">Downloading modlist package…</translation>
+      <translation>正在下载 modlist 软件包…</translation>
     </message>
     <message>
       <source>Inspecting modlist package…</source>
-      <translation type="unfinished">Inspecting modlist package…</translation>
+      <translation>正在检查modlist 软件包…</translation>
     </message>
     <message>
       <source>{0} / {1} ({2}%)</source>
@@ -18812,7 +18812,7 @@ Try clearing your search or filters.</translation>
     </message>
     <message>
       <source>{0} downloaded</source>
-      <translation type="unfinished">{0} downloaded</translation>
+      <translation>{0} 已下载</translation>
     </message>
     <message>
       <source>Starting…</source>
@@ -18820,247 +18820,247 @@ Try clearing your search or filters.</translation>
     </message>
     <message>
       <source>Installing…</source>
-      <translation type="unfinished">Installing…</translation>
+      <translation>正在安装…</translation>
     </message>
     <message>
       <source>Preparing tool…</source>
-      <translation type="unfinished">Preparing tool…</translation>
+      <translation>正在准备工具…</translation>
     </message>
     <message>
       <source>Loading modlist…</source>
-      <translation type="unfinished">Loading modlist…</translation>
+      <translation>正在加载 modlist…</translation>
     </message>
     <message>
       <source>Checking requirements…</source>
-      <translation type="unfinished">Checking requirements…</translation>
+      <translation>正在检查要求…</translation>
     </message>
     <message>
       <source>Choose .wabbajack…</source>
-      <translation type="unfinished">Choose .wabbajack…</translation>
+      <translation>选择 .wabbajack…</translation>
     </message>
     <message>
       <source>Recheck requirements</source>
-      <translation type="unfinished">Recheck requirements</translation>
+      <translation>重新检查要求</translation>
     </message>
     <message>
       <source>Check requirements</source>
-      <translation type="unfinished">Check requirements</translation>
+      <translation>检查要求</translation>
     </message>
     <message>
       <source>Start the selected operation using the reviewed download plan.</source>
-      <translation type="unfinished">Start the selected operation using the reviewed download plan.</translation>
+      <translation>使用审核的下载计划开始选定的操作。</translation>
     </message>
     <message>
       <source>Load the package if needed, check requirements, and prepare the download plan for review.</source>
-      <translation type="unfinished">Load the package if needed, check requirements, and prepare the download plan for review.</translation>
+      <translation>如果需要加载包，检查要求，并编写下载计划供审查。</translation>
     </message>
     <message>
       <source>Installing</source>
-      <translation type="unfinished">Installing</translation>
+      <translation>正在安装</translation>
     </message>
     <message>
       <source>Installation is running. Pause and cancel are available in the progress window.</source>
-      <translation type="unfinished">Installation is running. Pause and cancel are available in the progress window.</translation>
+      <translation>安装正在运行。在进度窗口中可以暂停和取消。</translation>
     </message>
     <message>
       <source>Wait for tool setup to finish, then check requirements again.</source>
-      <translation type="unfinished">Wait for tool setup to finish, then check requirements again.</translation>
+      <translation>等待工具设置完成，然后再次检查要求。</translation>
     </message>
     <message>
       <source>Checking…</source>
-      <translation type="unfinished">Checking…</translation>
+      <translation>正在检查…</translation>
     </message>
     <message>
       <source>Loading…</source>
-      <translation type="unfinished">Loading…</translation>
+      <translation>正在加载…</translation>
     </message>
     <message>
       <source>Checking game files, downloads and available space…</source>
-      <translation type="unfinished">Checking game files, downloads and available space…</translation>
+      <translation>检查游戏文件，下载和可用空间…</translation>
     </message>
     <message>
       <source>Loading the package, then checking requirements…</source>
-      <translation type="unfinished">Loading the package, then checking requirements…</translation>
+      <translation>加载包，然后检查要求…</translation>
     </message>
     <message>
       <source>Loading the modlist's profiles and options…</source>
-      <translation type="unfinished">Loading the modlist's profiles and options…</translation>
+      <translation>正在加载modlist的配置文件和选项…</translation>
     </message>
     <message>
       <source>1 blocking</source>
-      <translation type="unfinished">1 blocking</translation>
+      <translation>%{count} 个屏蔽</translation>
     </message>
     <message>
       <source>{0} blocking</source>
-      <translation type="unfinished">{0} blocking</translation>
+      <translation>{0} 阻止</translation>
     </message>
     <message>
       <source>Resolve the blocking requirement to continue, then recheck.</source>
-      <translation type="unfinished">Resolve the blocking requirement to continue, then recheck.</translation>
+      <translation>解决屏蔽要求继续，然后重新检查。</translation>
     </message>
     <message>
       <source>Resolve the {0} blocking requirements to continue, then recheck.</source>
-      <translation type="unfinished">Resolve the {0} blocking requirements to continue, then recheck.</translation>
+      <translation>解决 {0} 屏蔽要求，然后重新检查。</translation>
     </message>
     <message>
       <source>Ready to install</source>
-      <translation type="unfinished">Ready to install</translation>
+      <translation>准备安装</translation>
     </message>
     <message>
       <source>Plan ready</source>
-      <translation type="unfinished">Plan ready</translation>
+      <translation>计划已准备好</translation>
     </message>
     <message>
       <source>Review the requirements and download plan, then select {0}.</source>
-      <translation type="unfinished">Review the requirements and download plan, then select {0}.</translation>
+      <translation>查看要求和下载计划，然后选择 {0}。</translation>
     </message>
     <message>
       <source>Package ready</source>
-      <translation type="unfinished">Package ready</translation>
+      <translation>包已准备好</translation>
     </message>
     <message>
       <source>Preparing the isolated texture runtime and testing DDS conversion…</source>
-      <translation type="unfinished">Preparing the isolated texture runtime and testing DDS conversion…</translation>
+      <translation>正在准备孤立的纹理运行时间并测试 DS 转换…</translation>
     </message>
     <message>
       <source>Installing the native MPI tool…</source>
-      <translation type="unfinished">Installing the native MPI tool…</translation>
+      <translation>正在安装原生MPI工具…</translation>
     </message>
     <message>
       <source>Wait for the current install or deployment operation to finish.</source>
-      <translation type="unfinished">Wait for the current install or deployment operation to finish.</translation>
+      <translation>等待当前安装或部署操作完成。</translation>
     </message>
     <message>
       <source>Configure the required game before installing this modlist.</source>
-      <translation type="unfinished">Configure the required game before installing this modlist.</translation>
+      <translation>在安装此modList之前配置所需的游戏。</translation>
     </message>
     <message>
       <source>Checking game files, downloads, disk space, and runtime requirements…</source>
-      <translation type="unfinished">Checking game files, downloads, disk space, and runtime requirements…</translation>
+      <translation>正在检查游戏文件、下载、磁盘空间和运行时间要求…</translation>
     </message>
     <message>
       <source>Installing / Reconstructing</source>
-      <translation type="unfinished">Installing / Reconstructing</translation>
+      <translation>正在安装/重建</translation>
     </message>
     <message>
       <source>Download complete · inspecting package…</source>
-      <translation type="unfinished">Download complete · inspecting package…</translation>
+      <translation>下载完成 · 检查软件包…</translation>
     </message>
     <message>
       <source>Modlist package downloaded. Checking its contents…</source>
-      <translation type="unfinished">Modlist package downloaded. Checking its contents…</translation>
+      <translation>已下载Modlist 软件包。正在检查其内容…</translation>
     </message>
     <message>
       <source>Downloading modlist package: {0}</source>
-      <translation type="unfinished">Downloading modlist package: {0}</translation>
+      <translation>正在下载 modList 软件包: {0}</translation>
     </message>
     <message>
       <source>Keep mine</source>
-      <translation type="unfinished">Keep mine</translation>
+      <translation>保留我的</translation>
     </message>
     <message>
       <source>Use author version</source>
-      <translation type="unfinished">Use author version</translation>
+      <translation>使用作者版本</translation>
     </message>
     <message>
       <source>Preview truncated. Review the complete files before choosing.</source>
-      <translation type="unfinished">Preview truncated. Review the complete files before choosing.</translation>
+      <translation>预览截断。在选择之前检查完整的文件。</translation>
     </message>
     <message>
       <source>Binary or unreadable content. Compare the recorded hashes and file locations.</source>
-      <translation type="unfinished">Binary or unreadable content. Compare the recorded hashes and file locations.</translation>
+      <translation>二进制或不可读的内容。比较记录的哈希和文件位置。</translation>
     </message>
     <message>
       <source>The gallery could not be loaded. Try Refresh, or open a local .wabbajack file.</source>
-      <translation type="unfinished">The gallery could not be loaded. Try Refresh, or open a local .wabbajack file.</translation>
+      <translation>无法加载相册。请尝试刷新，或打开本地的 .wabbajack文件。</translation>
     </message>
     <message>
       <source>Open download page</source>
-      <translation type="unfinished">Open download page</translation>
+      <translation>打开下载页面</translation>
     </message>
     <message>
       <source>Download the .wabbajack file from {0}, then use Open .wabbajack to continue setup.</source>
-      <translation type="unfinished">Download the .wabbajack file from {0}, then use Open .wabbajack to continue setup.</translation>
+      <translation>从 {0}下载.wabbajack文件，然后使用 Open .wabbajack 继续设置。</translation>
     </message>
     <message>
       <source>Could not continue</source>
-      <translation type="unfinished">Could not continue</translation>
+      <translation>无法继续</translation>
     </message>
     <message>
       <source>Review the error details, then try the operation again.</source>
-      <translation type="unfinished">Review the error details, then try the operation again.</translation>
+      <translation>查看错误详细信息，然后再试一次。</translation>
     </message>
     <message>
       <source>Using cached gallery information.</source>
-      <translation type="unfinished">Using cached gallery information.</translation>
+      <translation>使用缓存的相册信息。</translation>
     </message>
     <message>
       <source>Gallery loaded.</source>
-      <translation type="unfinished">Gallery loaded.</translation>
+      <translation>已加载相册。</translation>
     </message>
     <message>
       <source> {0} feeds unavailable.</source>
-      <translation type="unfinished"> {0} feeds unavailable.</translation>
+      <translation> {0} 源不可用。</translation>
     </message>
     <message>
       <source>Reload</source>
-      <translation type="unfinished">Reload</translation>
+      <translation>Reload</translation>
     </message>
     <message>
       <source>{0} · saved package</source>
-      <translation type="unfinished">{0} · saved package</translation>
+      <translation>{0} · 保存的软件包</translation>
     </message>
     <message>
       <source>{0} archives · {1} files</source>
-      <translation type="unfinished">{0} archives · {1} files</translation>
+      <translation>{0} 存档 · {1} 文件</translation>
     </message>
     <message>
       <source>Package ready. Check requirements to prepare the download plan.</source>
-      <translation type="unfinished">Package ready. Check requirements to prepare the download plan.</translation>
+      <translation>包已准备就绪。检查要求以准备下载计划。</translation>
     </message>
     <message>
       <source>Requirements and download plan ready. Review them before starting.</source>
-      <translation type="unfinished">Requirements and download plan ready. Review them before starting.</translation>
+      <translation>需要并下载计划准备好。在启动前审查它们。</translation>
     </message>
     <message>
       <source>Resolve the listed requirements, then recheck.</source>
-      <translation type="unfinished">Resolve the listed requirements, then recheck.</translation>
+      <translation>解析列出的要求，然后重新检查。</translation>
     </message>
     <message>
       <source>Texture tool installed. Check requirements again to refresh the download plan.</source>
-      <translation type="unfinished">Texture tool installed. Check requirements again to refresh the download plan.</translation>
+      <translation>材质工具已安装。再次检查要求以刷新下载计划。</translation>
     </message>
     <message>
       <source>Native MPI tool installed. Check requirements again to verify the selected package.</source>
-      <translation type="unfinished">Native MPI tool installed. Check requirements again to verify the selected package.</translation>
+      <translation>本机MPI工具已安装。再次检查要求以验证选定的软件包。</translation>
     </message>
     <message>
       <source>Paused</source>
-      <translation type="unfinished">Paused</translation>
+      <translation>已暂停</translation>
     </message>
     <message>
       <source>Cancelled</source>
-      <translation type="unfinished">Cancelled</translation>
+      <translation>已取消</translation>
     </message>
     <message>
       <source>Needs attention</source>
-      <translation type="unfinished">Needs attention</translation>
+      <translation>需要关注</translation>
     </message>
     <message>
       <source>Installation complete. You can select its profiles from the main toolbar.</source>
-      <translation type="unfinished">Installation complete. You can select its profiles from the main toolbar.</translation>
+      <translation>安装完成。您可以从主工具栏选择它的配置文件。</translation>
     </message>
     <message>
       <source>Your progress is saved. Check requirements, then select Resume to continue.</source>
-      <translation type="unfinished">Your progress is saved. Check requirements, then select Resume to continue.</translation>
+      <translation>您的进度已保存。检查要求，然后选择恢复继续操作。</translation>
     </message>
     <message>
       <source>Wait for tool setup to finish before closing this tab.</source>
-      <translation type="unfinished">Wait for tool setup to finish before closing this tab.</translation>
+      <translation>等待工具设置在关闭此选项卡前完成。</translation>
     </message>
     <message>
       <source>Pause or cancel the installation before closing this tab.</source>
-      <translation type="unfinished">Pause or cancel the installation before closing this tab.</translation>
+      <translation>关闭此选项卡前暂停或取消安装。</translation>
     </message>
   </context>
   <context>
@@ -19150,7 +19150,7 @@ Press Refresh to try again.</source>
     <name>WizardTools</name>
     <message>
       <source>Install Steam Workshop Mod</source>
-      <translation type="unfinished">Install Steam Workshop Mod</translation>
+      <translation>安装 Steam Workshop Mod</translation>
     </message>
     <message>
       <source>mod.io API Key</source>
@@ -19386,7 +19386,7 @@ Press Refresh to try again.</source>
     </message>
     <message>
       <source>Download a Steam Workshop item and install it into this profile.</source>
-      <translation type="unfinished">Download a Steam Workshop item and install it into this profile.</translation>
+      <translation>下载Steam 创意工坊物品并将其安装到此配置文件中。</translation>
     </message>
     <message>
       <source>Enter a mod.io key to enable update checks for manually-installed mod.io mods.</source>
@@ -19466,7 +19466,7 @@ Press Refresh to try again.</source>
     </message>
     <message>
       <source>Patch Oblivion.exe to use up to 4 GB of memory (keeps a backup that can be restored).</source>
-      <translation type="unfinished">Patch Oblivion.exe to use up to 4 GB of memory (keeps a backup that can be restored).</translation>
+      <translation>Patch Oblivion.exe 使用最多4GB 内存(保存一个可以恢复的备份)。</translation>
     </message>
     <message>
       <source>Run the native Linux TTW installer (merges Fallout 3 + New Vegas) and add the result as a mod. Requires Fallout 3 installed and a TTW .mpi package from mod.pub.</source>
@@ -19874,131 +19874,131 @@ Reopen this wizard.</source>
     <name>WorkshopView</name>
     <message>
       <source>Install Steam Workshop Mod</source>
-      <translation type="unfinished">Install Steam Workshop Mod</translation>
+      <translation>安装 Steam Workshop Mod</translation>
     </message>
     <message>
       <source>Download an individual public Workshop mod into this profile. Required Workshop items must be installed separately.</source>
-      <translation type="unfinished">Download an individual public Workshop mod into this profile. Required Workshop items must be installed separately.</translation>
+      <translation>将个别公共创意工坊模组下载到此配置文件。必须单独安装所需的创意工坊项目。</translation>
     </message>
     <message>
       <source>Item ID or Steam Workshop URL</source>
-      <translation type="unfinished">Item ID or Steam Workshop URL</translation>
+      <translation>项目 ID 或 Steam 创意工坊网址</translation>
     </message>
     <message>
       <source>Workshop item</source>
-      <translation type="unfinished">Workshop item</translation>
+      <translation>工坊项目</translation>
     </message>
     <message>
       <source>{0} · App ID {1}</source>
-      <translation type="unfinished">{0} · App ID {1}</translation>
+      <translation>{0} · App ID {1}</translation>
     </message>
     <message>
       <source>Install into</source>
-      <translation type="unfinished">Install into</translation>
+      <translation>安装到</translation>
     </message>
     <message>
       <source>QR code (Steam mobile app)</source>
-      <translation type="unfinished">QR code (Steam mobile app)</translation>
+      <translation>二维码 (Steam 移动应用程序)</translation>
     </message>
     <message>
       <source>Steam account and password</source>
-      <translation type="unfinished">Steam account and password</translation>
+      <translation>Steam账户和密码</translation>
     </message>
     <message>
       <source>Saved account</source>
-      <translation type="unfinished">Saved account</translation>
+      <translation>已保存的帐户</translation>
     </message>
     <message>
       <source>Anonymous (where supported)</source>
-      <translation type="unfinished">Anonymous (where supported)</translation>
+      <translation>匿名(支持)</translation>
     </message>
     <message>
       <source>Sign in</source>
-      <translation type="unfinished">Sign in</translation>
+      <translation>登录</translation>
     </message>
     <message>
       <source>Steam account name, not display name</source>
-      <translation type="unfinished">Steam account name, not display name</translation>
+      <translation>Steam账户名称，不显示名称</translation>
     </message>
     <message>
       <source>Account name</source>
-      <translation type="unfinished">Account name</translation>
+      <translation>帐户名称</translation>
     </message>
     <message>
       <source>Remember this account</source>
-      <translation type="unfinished">Remember this account</translation>
+      <translation>记住这个帐户</translation>
     </message>
     <message>
       <source>Keep the Steam session on this device. Enter the account name to use it for later downloads.</source>
-      <translation type="unfinished">Keep the Steam session on this device. Enter the account name to use it for later downloads.</translation>
+      <translation>在此设备上保持Steam会话。请输入帐户名称以便以后下载。</translation>
     </message>
     <message>
       <source>Forget saved account</source>
-      <translation type="unfinished">Forget saved account</translation>
+      <translation>忘记保存的帐户</translation>
     </message>
     <message>
       <source>Open Workshop page</source>
-      <translation type="unfinished">Open Workshop page</translation>
+      <translation>打开创意工坊页面</translation>
     </message>
     <message>
       <source>Continue sign-in</source>
-      <translation type="unfinished">Continue sign-in</translation>
+      <translation>继续登录</translation>
     </message>
     <message>
       <source>Install downloaded files</source>
-      <translation type="unfinished">Install downloaded files</translation>
+      <translation>安装下载的文件</translation>
     </message>
     <message>
       <source>Cancel download</source>
-      <translation type="unfinished">Cancel download</translation>
+      <translation>取消下载</translation>
     </message>
     <message>
       <source>Download and install</source>
-      <translation type="unfinished">Download and install</translation>
+      <translation>下载并安装</translation>
     </message>
     <message>
       <source>Cancel the download before closing.</source>
-      <translation type="unfinished">Cancel the download before closing.</translation>
+      <translation>关闭前取消下载。</translation>
     </message>
     <message>
       <source>Enter your Steam account name.</source>
-      <translation type="unfinished">Enter your Steam account name.</translation>
+      <translation>输入您的 Steam 账户名称。</translation>
     </message>
     <message>
       <source>The mod installer is unavailable.</source>
-      <translation type="unfinished">The mod installer is unavailable.</translation>
+      <translation>Mod安装程序不可用。</translation>
     </message>
     <message>
       <source>Looking up Workshop item…</source>
-      <translation type="unfinished">Looking up Workshop item…</translation>
+      <translation>查找创意工坊项目…</translation>
     </message>
     <message>
       <source>Signed in. Downloading Workshop files…</source>
-      <translation type="unfinished">Signed in. Downloading Workshop files…</translation>
+      <translation>已登录。正在下载创意工坊文件…</translation>
     </message>
     <message>
       <source>Steam account password</source>
-      <translation type="unfinished">Steam account password</translation>
+      <translation>Steam账户密码</translation>
     </message>
     <message>
       <source>Steam Guard code from your email or authenticator</source>
-      <translation type="unfinished">Steam Guard code from your email or authenticator</translation>
+      <translation>来自您的电子邮件或身份验证器的Steam护卫代码</translation>
     </message>
     <message>
       <source>Download cancelled. Nothing was installed.</source>
-      <translation type="unfinished">Download cancelled. Nothing was installed.</translation>
+      <translation>下载已取消。没有安装。</translation>
     </message>
     <message>
       <source>Installed: {0}</source>
-      <translation type="unfinished">Installed: {0}</translation>
+      <translation>已安装: {0}</translation>
     </message>
     <message>
       <source>Complete the mod installer tab to finish installation.</source>
-      <translation type="unfinished">Complete the mod installer tab to finish installation.</translation>
+      <translation>完成Mod安装器标签页以完成安装。</translation>
     </message>
     <message>
       <source>Installation did not complete. The download is kept so you can try again.</source>
-      <translation type="unfinished">Installation did not complete. The download is kept so you can try again.</translation>
+      <translation>安装未完成。下载将保持，您可以再试一次。</translation>
     </message>
     <message>
       <source>Cancelling download…</source>
@@ -20006,11 +20006,11 @@ Reopen this wizard.</source>
     </message>
     <message>
       <source>Installing the downloaded mod…</source>
-      <translation type="unfinished">Installing the downloaded mod…</translation>
+      <translation>正在安装下载的模组…</translation>
     </message>
     <message>
       <source>Saved Steam account removed from Amethyst.</source>
-      <translation type="unfinished">Saved Steam account removed from Amethyst.</translation>
+      <translation>已从 Amethysty 中删除Steam 账户。</translation>
     </message>
   </context>
   <context>
