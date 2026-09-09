@@ -477,7 +477,7 @@ class WabbajackView(QWidget):
         setup_layout.addLayout(form)
         from gui_qt.wabbajack_tasks import SetupOptions
         self._task_options = SetupOptions(setup)
-        self._task_options.changed.connect(self._invalidate)
+        self._task_options.changed.connect(self._options_changed)
         self._task_options.install_tool.connect(self._install_mpi)
         setup_layout.addWidget(self._task_options)
         self._setup_hint = QLabel(self.tr("Check requirements to load the authored profiles and prepare the download plan."), setup)
@@ -545,7 +545,7 @@ class WabbajackView(QWidget):
         self._stack.addWidget(detail_page)
         for widget in (self._directory, self._downloads):
             widget.textChanged.connect(self._invalidate)
-        self._mode.currentIndexChanged.connect(self._invalidate)
+        self._mode.currentIndexChanged.connect(self._options_changed)
 
         review = QWidget(self)
         layout = QVBoxLayout(review)
@@ -652,7 +652,7 @@ class WabbajackView(QWidget):
         checkbox.setToolTip(label)
         checkbox.setFocusPolicy(Qt.StrongFocus)
         checkbox.set_state(int(checked))
-        checkbox.stateChanged.connect(self._invalidate)
+        checkbox.stateChanged.connect(self._options_changed)
         size = checkbox.sizeHint()
         size.setWidth(0)
         item.setSizeHint(size)
@@ -1155,18 +1155,26 @@ class WabbajackView(QWidget):
     def _choose_downloads(self):
         self._pick_path("downloads")
 
-    def _invalidate(self, *_):
+    def _options_changed(self, *_):
+        self._invalidate(preserve_report=True)
+
+    def _invalidate(self, *_, preserve_report=False):
+        keep_report = preserve_report and self._report is not None
         self._check_after_package = False
         self._preflight_stop.set()
         self._tokens["preflight"] = self._tokens.get("preflight", 0) + 1
         self._checking = False
         if hasattr(self, "_task_options") and hasattr(self, "_profiles"):
             self._task_options.set_profiles(self._selected_choices(self._profiles))
-        self._report = None
+        if not keep_report:
+            self._report = None
         if not self._busy:
             self._request = None
-            self._checks.clear()
-            self._acquisition_summary.clear()
+            if keep_report:
+                self._status.setText(self.tr("Options changed. Previous requirements are shown for reference; recheck to update them."))
+            else:
+                self._checks.clear()
+                self._acquisition_summary.clear()
             self._texture_button.hide()
         self._update_start_button()
 
@@ -1218,6 +1226,7 @@ class WabbajackView(QWidget):
         self._choose_package_button.setEnabled(idle)
         self._texture_button.setEnabled(idle)
         ready = self._request is not None and self._report is not None and self._report.ok
+        stale = self._request is None and self._report is not None
         operation = self.tr("Install") if self._mode.currentData() == "install" else self._mode.currentText()
         if self._busy:
             label = self.tr("Installing…")
@@ -1250,6 +1259,10 @@ class WabbajackView(QWidget):
             self._footer_hint.setText(self.tr("Checking game files, downloads and available space…") if self._checking
                                       else self.tr("Loading the package, then checking requirements…") if self._check_after_package
                                       else self.tr("Loading the modlist's profiles and options…"))
+        elif stale:
+            self._set_setup_state(self.tr("Recheck required"), "TEXT_WARN")
+            self._set_step(0)
+            self._footer_hint.setText(self.tr("Options changed. Previous requirements are shown for reference; recheck to update them."))
         elif self._report is not None and not self._report.ok:
             blocking = sum(c.status == "error" for c in self._report.checks)
             self._set_setup_state(self.tr("1 blocking") if blocking == 1

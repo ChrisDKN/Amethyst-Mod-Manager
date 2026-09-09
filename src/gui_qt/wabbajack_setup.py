@@ -3,7 +3,7 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QToolButton,
-    QFrame, QSizePolicy, QComboBox, QPlainTextEdit,
+    QFrame, QSizePolicy, QComboBox, QPlainTextEdit, QScrollArea,
 )
 
 from gui_qt.theme_qt import active_palette, _c
@@ -160,8 +160,14 @@ class RequirementsSummary(QWidget):
         self._list_layout = QVBoxLayout(self._list)
         self._list_layout.setContentsMargins(0, 0, 0, 0)
         self._list_layout.setSpacing(0)
-        layout.addWidget(self._list)
-        self._list.hide()
+        self._list_scroll = QScrollArea(self)
+        self._list_scroll.setWidgetResizable(True)
+        self._list_scroll.setFrameShape(QFrame.NoFrame)
+        self._list_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self._list_scroll.setMaximumHeight(360)
+        self._list_scroll.setWidget(self._list)
+        layout.addWidget(self._list_scroll)
+        self._list_scroll.hide()
         self.clear()
 
     def clear(self):
@@ -178,7 +184,7 @@ class RequirementsSummary(QWidget):
     def setPlainText(self, text):
         self._rows = []
         self._clear_rows()
-        self._list.hide()
+        self._list_scroll.hide()
         self._passed.hide()
         self.summary.hide()
         self._message.setText(text)
@@ -213,7 +219,7 @@ class RequirementsSummary(QWidget):
         self._show_passed = not pieces
         self._passed.blockSignals(False)
         self._message.hide()
-        self._list.show()
+        self._list_scroll.show()
         self._render()
 
     def _render(self):

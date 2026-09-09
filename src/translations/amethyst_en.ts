@@ -15384,6 +15384,22 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
 <context>
     <name>SetupOptions</name>
     <message>
+        <source>Additional setup</source>
+        <translation>Additional setup</translation>
+    </message>
+    <message>
+        <source>Source games</source>
+        <translation>Source games</translation>
+    </message>
+    <message>
+        <source>Setup tools</source>
+        <translation>Setup tools</translation>
+    </message>
+    <message>
+        <source>Compatibility and display</source>
+        <translation>Compatibility and display</translation>
+    </message>
+    <message>
         <source>Use the version required by the author. Output keeps its authored position in {0}.</source>
         <translation>Use the version required by the author. Output keeps its authored position in {0}.</translation>
     </message>
@@ -15402,6 +15418,14 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     <message>
         <source>Import existing output mod</source>
         <translation>Import existing output mod</translation>
+    </message>
+    <message>
+        <source>Import output archive</source>
+        <translation>Import output archive</translation>
+    </message>
+    <message>
+        <source>Output archive</source>
+        <translation>Output archive</translation>
     </message>
     <message>
         <source>Method</source>
@@ -15482,6 +15506,10 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     <message>
         <source>Select extracted MPI package</source>
         <translation>Select extracted MPI package</translation>
+    </message>
+    <message>
+        <source>Select output archive</source>
+        <translation>Select output archive</translation>
     </message>
     <message>
         <source>Select original game</source>
@@ -18704,6 +18732,14 @@ Latest:  {1}</translation>
     <message>
         <source>Check requirements and review the download plan.</source>
         <translation>Check requirements and review the download plan.</translation>
+    </message>
+    <message>
+        <source>Options changed. Previous requirements are shown for reference; recheck to update them.</source>
+        <translation>Options changed. Previous requirements are shown for reference; recheck to update them.</translation>
+    </message>
+    <message>
+        <source>Recheck required</source>
+        <translation>Recheck required</translation>
     </message>
     <message>
         <source>Review changes before updating shared files and profiles.</source>

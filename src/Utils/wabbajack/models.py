@@ -119,7 +119,7 @@ class InstallRequest:
         self.setup_options = copy.deepcopy(self.setup_options)
         for value in self.setup_options.values():
             if isinstance(value, dict):
-                for key in ("mpi", "source"):
+                for key in ("mpi", "source", "archive"):
                     if value.get(key):
                         value[key] = str(Path(value[key]).expanduser().absolute())
         if self.setup_options.get("fallout3"):
