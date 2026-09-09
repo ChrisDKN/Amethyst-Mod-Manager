@@ -2,13 +2,16 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QToolButton,
-    QFrame, QSizePolicy, QComboBox, QPlainTextEdit, QScrollArea,
+    QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QToolButton,
+    QFrame, QSizePolicy, QComboBox, QPlainTextEdit,
 )
 
 from gui_qt.theme_qt import active_palette, _c
 from gui_qt.tooltips import escaped_tooltip
 from Utils.collections.manifest import fmt_size
+
+CARD_MIN_W = 330
+GRID_GAP = 10
 
 
 class CappedComboBox(QComboBox):
@@ -47,14 +50,17 @@ class CheckRow(QFrame):
         colour = _c(palette, tone)
         self.setObjectName("CheckRow")
         blocking = check.status == "error"
-        tint = f"background:{_c(palette, 'BG_ROW')};" if blocking else ""
-        self.setStyleSheet(f"#CheckRow {{ {tint} border-bottom:1px solid {_c(palette, 'BORDER_FAINT')}; }}")
+        tint = _c(palette, 'BG_ROW') if blocking else _c(palette, 'BG_DEEP')
+        self.setStyleSheet(f"#CheckRow {{ background:{tint}; border:1px solid {_c(palette, 'BORDER_FAINT')};"
+                           f" border-radius:5px; }}")
+        self.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
         outer = QHBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
         stripe = QFrame(self)
         stripe.setFixedWidth(3)
-        stripe.setStyleSheet(f"background:{colour if check.status != 'pass' else _c(palette, 'BORDER')};")
+        stripe.setStyleSheet(f"background:{colour if check.status != 'pass' else _c(palette, 'BORDER')};"
+                             " border-top-left-radius:4px; border-bottom-left-radius:4px;")
         outer.addWidget(stripe)
         body = QHBoxLayout()
         body.setContentsMargins(9, 8, 10, 9)
@@ -135,6 +141,7 @@ class RequirementsSummary(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._rows = []
+        self._cards = []
         self._show_passed = False
         self._placeholder = self.tr("Check requirements to verify game files, available space and runtime requirements. Review the results before installing.")
         layout = QVBoxLayout(self)
@@ -157,18 +164,41 @@ class RequirementsSummary(QWidget):
         self._message.setTextInteractionFlags(Qt.TextSelectableByMouse)
         layout.addWidget(self._message)
         self._list = QWidget(self)
-        self._list_layout = QVBoxLayout(self._list)
+        self._list_layout = QGridLayout(self._list)
         self._list_layout.setContentsMargins(0, 0, 0, 0)
-        self._list_layout.setSpacing(0)
-        self._list_scroll = QScrollArea(self)
-        self._list_scroll.setWidgetResizable(True)
-        self._list_scroll.setFrameShape(QFrame.NoFrame)
-        self._list_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self._list_scroll.setMaximumHeight(360)
-        self._list_scroll.setWidget(self._list)
-        layout.addWidget(self._list_scroll)
-        self._list_scroll.hide()
+        self._list_layout.setHorizontalSpacing(GRID_GAP)
+        self._list_layout.setVerticalSpacing(GRID_GAP)
+        layout.addWidget(self._list)
+        self._list.hide()
+        self._columns = 0
         self.clear()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._relayout()
+
+    def _column_count(self):
+        """Columns that fit the current width, each at least CARD_MIN_W wide."""
+        width = self._list.width() or self.width()
+        return max(1, min(4, (width + GRID_GAP) // (CARD_MIN_W + GRID_GAP)))
+
+    def _relayout(self):
+        """Reflow the rendered cards into the number of columns the width allows."""
+        columns = self._column_count()
+        if columns == self._columns or not self._cards:
+            return
+        self._place(columns)
+
+    def _place(self, columns):
+        while self._list_layout.count():
+            self._list_layout.takeAt(0)
+        for column in range(self._list_layout.columnCount()):
+            self._list_layout.setColumnStretch(column, 0)
+        for index, card in enumerate(self._cards):
+            self._list_layout.addWidget(card, index // columns, index % columns)
+        for column in range(columns):
+            self._list_layout.setColumnStretch(column, 1)
+        self._columns = columns
 
     def clear(self):
         self.setPlainText(self._placeholder)
@@ -180,11 +210,13 @@ class RequirementsSummary(QWidget):
             if widget is not None:
                 widget.setParent(None)
                 widget.deleteLater()
+        self._cards = []
+        self._columns = 0
 
     def setPlainText(self, text):
         self._rows = []
         self._clear_rows()
-        self._list_scroll.hide()
+        self._list.hide()
         self._passed.hide()
         self.summary.hide()
         self._message.setText(text)
@@ -219,7 +251,7 @@ class RequirementsSummary(QWidget):
         self._show_passed = not pieces
         self._passed.blockSignals(False)
         self._message.hide()
-        self._list_scroll.show()
+        self._list.show()
         self._render()
 
     def _render(self):
@@ -227,8 +259,8 @@ class RequirementsSummary(QWidget):
         rows = sorted((c for c in self._rows if c.status != "pass" or self._show_passed),
                       key=lambda c: order.get(c.status, 2))
         self._clear_rows()
-        for check in rows:
-            self._list_layout.addWidget(CheckRow(check, self._list))
+        self._cards = [CheckRow(check, self._list) for check in rows]
+        self._place(self._column_count())
 
 
 class PlanBar(QFrame):
