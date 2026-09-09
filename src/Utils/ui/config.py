@@ -2084,6 +2084,39 @@ def save_nexus_show_adult(value: bool) -> None:
     _write_ini(parser, path)
 
 
+_WABBAJACK_SECTION = "wabbajack"
+_WABBAJACK_FILTERS = {
+    "featured_only", "installed_only", "show_adult", "hide_unavailable",
+}
+
+
+def load_wabbajack_filter(key: str) -> bool:
+    if key not in _WABBAJACK_FILTERS:
+        return False
+    path = get_ui_config_path()
+    if not path.is_file():
+        return False
+    try:
+        parser = _read_ini(path)
+        return parser.getboolean(_WABBAJACK_SECTION, key, fallback=False)
+    except Exception:
+        return False
+
+
+def save_wabbajack_filter(key: str, value: bool) -> None:
+    if key not in _WABBAJACK_FILTERS:
+        return
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _WABBAJACK_SECTION not in parser:
+        parser[_WABBAJACK_SECTION] = {}
+    parser[_WABBAJACK_SECTION][key] = "true" if value else "false"
+    _write_ini(parser, path)
+
+
 _THUNDERSTORE_SECTION = "thunderstore"
 
 

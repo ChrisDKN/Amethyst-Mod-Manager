@@ -130,6 +130,12 @@ class WabbajackView(QWidget):
         self._cards = []
         self._columns = 0
         self._sort = "featured"
+        self._saved_filters = {
+            key: self._load_filter(key) for key in (
+                "featured_only", "installed_only", "show_adult",
+                "hide_unavailable",
+            )
+        }
         self._thumb_sequence = 0
         self._result.connect(self._received)
         self._progress.connect(self._on_progress)
@@ -222,7 +228,15 @@ class WabbajackView(QWidget):
         self._featured = TriStateCheckBox(self.tr("Featured only"), self, two_state=True)
         self._only_installed = TriStateCheckBox(self.tr("Installed"), self, two_state=True)
         self._adult = TriStateCheckBox(self.tr("Show adult"), self, two_state=True)
-        for checkbox in (self._featured, self._only_installed, self._adult):
+        self._hide_unavailable = TriStateCheckBox(self.tr("Hide unavailable"), self, two_state=True)
+        filter_switches = (
+            (self._featured, "featured_only"),
+            (self._only_installed, "installed_only"),
+            (self._adult, "show_adult"),
+            (self._hide_unavailable, "hide_unavailable"),
+        )
+        for checkbox, key in filter_switches:
+            checkbox.set_state(int(self._saved_filters[key]))
             switches.addWidget(checkbox)
         switches.addStretch()
         self._results_label = QLabel(self)
@@ -277,8 +291,9 @@ class WabbajackView(QWidget):
         layout.addWidget(footer)
         self._stack.addWidget(browser)
         self._tag.currentIndexChanged.connect(self._filter_changed)
-        for widget in (self._adult, self._only_installed, self._featured):
-            widget.stateChanged.connect(self._filter_changed)
+        for widget, key in filter_switches:
+            widget.stateChanged.connect(
+                lambda state, key=key: self._filter_toggled(key, state))
         self._search_timer = QTimer(self)
         self._search_timer.setSingleShot(True)
         self._search_timer.setInterval(250)
@@ -646,6 +661,22 @@ class WabbajackView(QWidget):
         self._render()
         self._scroll.verticalScrollBar().setValue(0)
 
+    @staticmethod
+    def _load_filter(key):
+        try:
+            from Utils.ui.config import load_wabbajack_filter
+            return bool(load_wabbajack_filter(key))
+        except Exception:
+            return False
+
+    def _filter_toggled(self, key, state):
+        try:
+            from Utils.ui.config import save_wabbajack_filter
+            save_wabbajack_filter(key, bool(state))
+        except Exception:
+            pass
+        self._filter_changed()
+
     def _sort_changed(self, label):
         self._sort = next((key for title, key in SORTS if self.tr(title) == label), "featured")
         self._filter_changed()
@@ -703,6 +734,7 @@ class WabbajackView(QWidget):
         rows = [(e, info) for e, info in candidates if (self._adult.state() or not e.nsfw)
                 and (not query or query in " ".join([e.title, e.author, e.description, e.id, *e.tags]).casefold())
                 and (not tag or tag in e.tags) and (not self._featured.state() or e.featured)
+                and (not self._hide_unavailable.state() or not e.unavailable)
                 and self._game is not None and matches_game(self._game, e.game)]
         if self._sort in {"size", "size_desc"}:
             rows.sort(key=lambda row: (not row[0].install_size,

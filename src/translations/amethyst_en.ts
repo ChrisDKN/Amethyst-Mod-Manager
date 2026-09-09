@@ -18602,6 +18602,10 @@ Latest:  {1}</translation>
         <translation>Show adult</translation>
     </message>
     <message>
+        <source>Hide unavailable</source>
+        <translation>Hide unavailable</translation>
+    </message>
+    <message>
         <source>Loading modlists…</source>
         <translation>Loading modlists…</translation>
     </message>
