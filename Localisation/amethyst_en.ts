@@ -137,6 +137,61 @@ Choose Roads or Paths Only, click Generate, then close it when finished.</transl
     </message>
 </context>
 <context>
+    <name>AcquisitionSummary</name>
+    <message>
+        <source>Transfers over the network</source>
+        <translation>Transfers over the network</translation>
+    </message>
+    <message>
+        <source>Not checked</source>
+        <translation>Not checked</translation>
+    </message>
+    <message>
+        <source>Check requirements to verify cached files and Nexus access, then review what still needs downloading.</source>
+        <translation>Check requirements to verify cached files and Nexus access, then review what still needs downloading.</translation>
+    </message>
+    <message>
+        <source>0 B</source>
+        <translation>0 B</translation>
+    </message>
+    <message>
+        <source>1 archive</source>
+        <translation>1 archive</translation>
+    </message>
+    <message>
+        <source>{0} archives</source>
+        <translation>{0} archives</translation>
+    </message>
+    <message>
+        <source>Nothing to download</source>
+        <translation>Nothing to download</translation>
+    </message>
+    <message>
+        <source>1 required game file is missing or differs.</source>
+        <translation>1 required game file is missing or differs.</translation>
+    </message>
+    <message>
+        <source>{0} required game files are missing or differ.</source>
+        <translation>{0} required game files are missing or differ.</translation>
+    </message>
+    <message>
+        <source>Resolve the listed requirements before downloading.</source>
+        <translation>Resolve the listed requirements before downloading.</translation>
+    </message>
+    <message>
+        <source>Browser downloads and Select File use the normal installer prompts. Automatic downloads continue while you respond.</source>
+        <translation>Browser downloads and Select File use the normal installer prompts. Automatic downloads continue while you respond.</translation>
+    </message>
+    <message>
+        <source>No archive downloads needed. Verified local content will be reused.</source>
+        <translation>No archive downloads needed. Verified local content will be reused.</translation>
+    </message>
+    <message>
+        <source>Verified cache and game files are reused. Downloads follow your existing speed and concurrency settings.</source>
+        <translation>Verified cache and game files are reused. Downloads follow your existing speed and concurrency settings.</translation>
+    </message>
+</context>
+<context>
     <name>AddGameView</name>
     <message>
         <source>Select a game to add</source>
@@ -1289,8 +1344,16 @@ Close it when you are done, then click Done.</translation>
         <translation>Leftover temp folders  ({0})</translation>
     </message>
     <message>
+        <source>Wabbajack jobs and update backups</source>
+        <translation>Wabbajack jobs and update backups</translation>
+    </message>
+    <message>
         <source>Total: {0}</source>
         <translation>Total: {0}</translation>
+    </message>
+    <message>
+        <source>Wabbajack gallery and packages</source>
+        <translation>Wabbajack gallery and packages</translation>
     </message>
     <message>
         <source>Nothing selected.</source>
@@ -1307,12 +1370,24 @@ Close it when you are done, then click Done.</translation>
 
 {2}
 
-Archives will be re-downloaded as needed.</source>
+Archives, gallery data and modlist packages will be re-downloaded as needed. Saved Wabbajack requirement checks in the selected game caches will be reset. The Wabbajack jobs/backups entry removes abandoned jobs and update backups; referenced installations are preserved.</source>
         <translation>Clear {0} across {1} item(s)?
 
 {2}
 
-Archives will be re-downloaded as needed.</translation>
+Archives, gallery data and modlist packages will be re-downloaded as needed. Saved Wabbajack requirement checks in the selected game caches will be reset. The Wabbajack jobs/backups entry removes abandoned jobs and update backups; referenced installations are preserved.</translation>
+    </message>
+    <message>
+        <source>Clear {0} of cached downloads across every game?
+
+Location: {1}
+
+The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack gallery data, modlist packages and saved requirement checks are also cleared. The jobs/backups entry removes abandoned jobs and update backups.</source>
+        <translation>Clear {0} of cached downloads across every game?
+
+Location: {1}
+
+The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack gallery data, modlist packages and saved requirement checks are also cleared. The jobs/backups entry removes abandoned jobs and update backups.</translation>
     </message>
     <message>
         <source>Clear {0} Cache(s)</source>
@@ -1329,18 +1404,6 @@ Archives will be re-downloaded as needed.</translation>
     <message>
         <source>Cache is empty.</source>
         <translation>Cache is empty.</translation>
-    </message>
-    <message>
-        <source>Clear {0} of cached downloads across every game?
-
-Location: {1}
-
-The md5 cache is preserved. Archives will be re-downloaded as needed.</source>
-        <translation>Clear {0} of cached downloads across every game?
-
-Location: {1}
-
-The md5 cache is preserved. Archives will be re-downloaded as needed.</translation>
     </message>
     <message>
         <source>Clear All Download Caches</source>
@@ -1436,6 +1499,45 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</translati
     <message>
         <source>Waiting for the browser download - {0} / {1}</source>
         <translation>Waiting for the browser download - {0} / {1}</translation>
+    </message>
+</context>
+<context>
+    <name>CheckRow</name>
+    <message>
+        <source>Blocking: resolve before installing.</source>
+        <translation>Blocking: resolve before installing.</translation>
+    </message>
+    <message>
+        <source>Needs your input: follow the download or setup instructions.</source>
+        <translation>Needs your input: follow the download or setup instructions.</translation>
+    </message>
+    <message>
+        <source>To review: read before continuing; this does not block installation.</source>
+        <translation>To review: read before continuing; this does not block installation.</translation>
+    </message>
+    <message>
+        <source>Passed: this check is ready to proceed.</source>
+        <translation>Passed: this check is ready to proceed.</translation>
+    </message>
+    <message>
+        <source>What this means</source>
+        <translation>What this means</translation>
+    </message>
+    <message>
+        <source>Details</source>
+        <translation>Details</translation>
+    </message>
+    <message>
+        <source>Hide affected files</source>
+        <translation>Hide affected files</translation>
+    </message>
+    <message>
+        <source>Show 1 affected file</source>
+        <translation>Show 1 affected file</translation>
+    </message>
+    <message>
+        <source>Show {0} affected files</source>
+        <translation>Show {0} affected files</translation>
     </message>
 </context>
 <context>
@@ -1615,8 +1717,16 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</translati
         <translation>Pausing…</translation>
     </message>
     <message>
+        <source>{0}: {1} / {2}</source>
+        <translation>{0}: {1} / {2}</translation>
+    </message>
+    <message>
         <source>Downloading…</source>
         <translation>Downloading…</translation>
+    </message>
+    <message>
+        <source>Small mods (under 100 MB)</source>
+        <translation>Small mods (under 100 MB)</translation>
     </message>
     <message>
         <source>+ {0} more downloading…</source>
@@ -1682,6 +1792,10 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</translati
         <translation>Pausing…</translation>
     </message>
     <message>
+        <source>This source needs a browser download or an existing file.</source>
+        <translation>This source needs a browser download or an existing file.</translation>
+    </message>
+    <message>
         <source>Optional</source>
         <translation>Optional</translation>
     </message>
@@ -1694,8 +1808,24 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</translati
         <translation>Expected file: {0}</translation>
     </message>
     <message>
+        <source>Download this exact archive to a watched download folder, or use Select File. Amethyst checks its size and hash before continuing.</source>
+        <translation>Download this exact archive to a watched download folder, or use Select File. Amethyst checks its size and hash before continuing.</translation>
+    </message>
+    <message>
         <source>Mod {0}/{1} - download this file, then it will be auto-detected…</source>
         <translation>Mod {0}/{1} - download this file, then it will be auto-detected…</translation>
+    </message>
+    <message>
+        <source>Why this needs your help:
+{0}</source>
+        <translation>Why this needs your help:
+{0}</translation>
+    </message>
+    <message>
+        <source>Author instructions:
+{0}</source>
+        <translation>Author instructions:
+{0}</translation>
     </message>
     <message>
         <source>Open next {0}</source>
@@ -1859,10 +1989,6 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</translati
         <translation>Cancel</translation>
     </message>
     <message>
-        <source>Game Installation Folder</source>
-        <translation>Game Installation Folder</translation>
-    </message>
-    <message>
         <source>Scanning Steam libraries…</source>
         <translation>Scanning Steam libraries…</translation>
     </message>
@@ -1883,10 +2009,6 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</translati
         <translation>Scan</translation>
     </message>
     <message>
-        <source>Proton Prefix (compatdata/pfx)</source>
-        <translation>Proton Prefix (compatdata/pfx)</translation>
-    </message>
-    <message>
         <source>Scanning for prefix…</source>
         <translation>Scanning for prefix…</translation>
     </message>
@@ -1899,16 +2021,8 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</translati
         <translation>No prefix configured.</translation>
     </message>
     <message>
-        <source>Mod Staging Folder</source>
-        <translation>Mod Staging Folder</translation>
-    </message>
-    <message>
         <source>Searching common AppImage locations…</source>
         <translation>Searching common AppImage locations…</translation>
-    </message>
-    <message>
-        <source>AppImage Location (Optional)</source>
-        <translation>AppImage Location (Optional)</translation>
     </message>
     <message>
         <source>Default location will be used.</source>
@@ -1919,16 +2033,24 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</translati
         <translation>Reset to default</translation>
     </message>
     <message>
-        <source>Saves Folder (optional)</source>
-        <translation>Saves Folder (optional)</translation>
-    </message>
-    <message>
         <source>Detected automatically.</source>
         <translation>Detected automatically.</translation>
     </message>
     <message>
+        <source>Detected from the Ludusavi manifest</source>
+        <translation>Detected from the Ludusavi manifest</translation>
+    </message>
+    <message>
+        <source>Saves</source>
+        <translation>Saves</translation>
+    </message>
+    <message>
         <source>Clear</source>
         <translation>Clear</translation>
+    </message>
+    <message>
+        <source>Set this only if the Saves tab looks in the wrong place.</source>
+        <translation>Set this only if the Saves tab looks in the wrong place.</translation>
     </message>
     <message>
         <source>Options</source>
@@ -1973,6 +2095,10 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</translati
     <message>
         <source>Windows / Proton</source>
         <translation>Windows / Proton</translation>
+    </message>
+    <message>
+        <source>Behaviour</source>
+        <translation>Behaviour</translation>
     </message>
     <message>
         <source>Swap launcher with script extender on deploy</source>
@@ -2059,6 +2185,14 @@ The default profile's settings are not affected.</translation>
         <translation>Profile now follows the shared (default profile) settings.</translation>
     </message>
     <message>
+        <source>{0} · this profile only</source>
+        <translation>{0} · this profile only</translation>
+    </message>
+    <message>
+        <source>Shared settings</source>
+        <translation>Shared settings</translation>
+    </message>
+    <message>
         <source>Settings saved.</source>
         <translation>Settings saved.</translation>
     </message>
@@ -2077,6 +2211,14 @@ The default profile's settings are not affected.</translation>
     <message>
         <source>Version {0}</source>
         <translation>Version {0}</translation>
+    </message>
+    <message>
+        <source>Non-Steam Shortcut prefix</source>
+        <translation>Non-Steam Shortcut prefix</translation>
+    </message>
+    <message>
+        <source>{0} prefix</source>
+        <translation>{0} prefix</translation>
     </message>
     <message>
         <source>Prefix already configured. You can update the path below.</source>
@@ -2181,6 +2323,102 @@ The default profile's settings are not affected.</translation>
     <message>
         <source>Found via drive scan.</source>
         <translation>Found via drive scan.</translation>
+    </message>
+    <message>
+        <source>Problem</source>
+        <translation>Problem</translation>
+    </message>
+    <message>
+        <source>N/A</source>
+        <translation>N/A</translation>
+    </message>
+    <message>
+        <source>Scanning…</source>
+        <translation>Scanning…</translation>
+    </message>
+    <message>
+        <source>Not found</source>
+        <translation>Not found</translation>
+    </message>
+    <message>
+        <source>Custom</source>
+        <translation>Custom</translation>
+    </message>
+    <message>
+        <source>Default</source>
+        <translation>Default</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>Auto</translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation>None</translation>
+    </message>
+    <message>
+        <source>Detected</source>
+        <translation>Detected</translation>
+    </message>
+    <message>
+        <source>Check</source>
+        <translation>Check</translation>
+    </message>
+    <message>
+        <source>Set</source>
+        <translation>Set</translation>
+    </message>
+    <message>
+        <source>Configured</source>
+        <translation>Configured</translation>
+    </message>
+    <message>
+        <source>Not set up</source>
+        <translation>Not set up</translation>
+    </message>
+    <message>
+        <source>VFS deploy</source>
+        <translation>VFS deploy</translation>
+    </message>
+    <message>
+        <source>Hardlink deploy</source>
+        <translation>Hardlink deploy</translation>
+    </message>
+    <message>
+        <source>Symlink deploy</source>
+        <translation>Symlink deploy</translation>
+    </message>
+    <message>
+        <source>Locations</source>
+        <translation>Locations</translation>
+    </message>
+    <message>
+        <source>Game install</source>
+        <translation>Game install</translation>
+    </message>
+    <message>
+        <source>AppImage</source>
+        <translation>AppImage</translation>
+    </message>
+    <message>
+        <source>Not needed for a native Linux game</source>
+        <translation>Not needed for a native Linux game</translation>
+    </message>
+    <message>
+        <source>Detected automatically</source>
+        <translation>Detected automatically</translation>
+    </message>
+    <message>
+        <source>Proton prefix</source>
+        <translation>Proton prefix</translation>
+    </message>
+    <message>
+        <source>Default location</source>
+        <translation>Default location</translation>
+    </message>
+    <message>
+        <source>Mod staging</source>
+        <translation>Mod staging</translation>
     </message>
     <message>
         <source>Game executable not found on any drive.</source>
@@ -5125,6 +5363,10 @@ Click Done to clean up the extracted files and close.</translation>
         <translation>By author</translation>
     </message>
     <message>
+        <source>By source location</source>
+        <translation>By source location</translation>
+    </message>
+    <message>
         <source>By file type</source>
         <translation>By file type</translation>
     </message>
@@ -5408,6 +5650,10 @@ It may already be modified. Verify game files in Steam/Heroic to get a clean exe
         <translation>Unrecognised {0} version.
 SHA-1: {1}
 It may already be modified. Verify game files in Steam/Heroic to get a clean exe, then try again.</translation>
+    </message>
+    <message>
+        <source>Unpatched {0} detected - ready to patch.</source>
+        <translation>Unpatched {0} detected - ready to patch.</translation>
     </message>
     <message>
         <source>Backup found: {0}</source>
@@ -8075,12 +8321,28 @@ Run Quick Update on all of them now?</translation>
         <translation>Prefer AppImage</translation>
     </message>
     <message>
+        <source>.NET Framework 4.8</source>
+        <translation>.NET Framework 4.8</translation>
+    </message>
+    <message>
         <source>Download Manifest…</source>
         <translation>Download Manifest…</translation>
     </message>
     <message>
+        <source>Wabbajack</source>
+        <translation>Wabbajack</translation>
+    </message>
+    <message>
+        <source>Browse Wabbajack modlists…</source>
+        <translation>Browse Wabbajack modlists…</translation>
+    </message>
+    <message>
         <source>{0} is running - switch games when it finishes.</source>
         <translation>{0} is running - switch games when it finishes.</translation>
+    </message>
+    <message>
+        <source>{0} is running - switch profiles when it finishes.</source>
+        <translation>{0} is running - switch profiles when it finishes.</translation>
     </message>
     <message>
         <source>VFS</source>
@@ -8149,6 +8411,34 @@ Run Quick Update on all of them now?</translation>
     <message>
         <source>Could not identify any of the {0} mod(s) found.</source>
         <translation>Could not identify any of the {0} mod(s) found.</translation>
+    </message>
+    <message>
+        <source>Wabbajack installation complete.</source>
+        <translation>Wabbajack installation complete.</translation>
+    </message>
+    <message>
+        <source>A Wabbajack installation is running.</source>
+        <translation>A Wabbajack installation is running.</translation>
+    </message>
+    <message>
+        <source>The active profile isn't a Wabbajack profile.</source>
+        <translation>The active profile isn't a Wabbajack profile.</translation>
+    </message>
+    <message>
+        <source>Wait for the current operation to finish before resetting the load order.</source>
+        <translation>Wait for the current operation to finish before resetting the load order.</translation>
+    </message>
+    <message>
+        <source>Wabbajack load-order reset</source>
+        <translation>Wabbajack load-order reset</translation>
+    </message>
+    <message>
+        <source>Resetting Wabbajack load order…</source>
+        <translation>Resetting Wabbajack load order…</translation>
+    </message>
+    <message>
+        <source>Wabbajack load order reset - {0} mods and {1} plugins ordered.</source>
+        <translation>Wabbajack load order reset - {0} mods and {1} plugins ordered.</translation>
     </message>
     <message>
         <source>Load order reset - {0} mods ordered, {1} kept below.</source>
@@ -8299,6 +8589,14 @@ Run Quick Update on all of them now?</translation>
         <translation>Waiting for profile updates…</translation>
     </message>
     <message>
+        <source>Wait for the Proton installer to finish before closing Amethyst.</source>
+        <translation>Wait for the Proton installer to finish before closing Amethyst.</translation>
+    </message>
+    <message>
+        <source>Pausing Wabbajack and waiting for installation and tool setup to stop safely…</source>
+        <translation>Pausing Wabbajack and waiting for installation and tool setup to stop safely…</translation>
+    </message>
+    <message>
         <source>Extracting / Installing</source>
         <translation>Extracting / Installing</translation>
     </message>
@@ -8307,12 +8605,32 @@ Run Quick Update on all of them now?</translation>
         <translation>Restore the game before changing the preferred OpenMW package.</translation>
     </message>
     <message>
+        <source>Installing .NET Framework 4.8</source>
+        <translation>Installing .NET Framework 4.8</translation>
+    </message>
+    <message>
         <source>Wizard Settings…</source>
         <translation>Wizard Settings…</translation>
     </message>
     <message>
         <source>Reset wizard tools that automatically reuse their saved Proton settings.</source>
         <translation>Reset wizard tools that automatically reuse their saved Proton settings.</translation>
+    </message>
+    <message>
+        <source>Return to the game and profile shown in this wizard, then install the downloaded files.</source>
+        <translation>Return to the game and profile shown in this wizard, then install the downloaded files.</translation>
+    </message>
+    <message>
+        <source>Select a member profile before installing Workshop mods.</source>
+        <translation>Select a member profile before installing Workshop mods.</translation>
+    </message>
+    <message>
+        <source>Wait for the running wizard tool to finish.</source>
+        <translation>Wait for the running wizard tool to finish.</translation>
+    </message>
+    <message>
+        <source>Workshop installation</source>
+        <translation>Workshop installation</translation>
     </message>
     <message>
         <source>No QuickAutoClean tool is available for this game.</source>
@@ -8485,6 +8803,10 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
         <translation>Enabled / disabled</translation>
     </message>
     <message>
+        <source>Nexus mod / file ID</source>
+        <translation>Nexus mod / file ID</translation>
+    </message>
+    <message>
         <source>By file type</source>
         <translation>By file type</translation>
     </message>
@@ -8495,6 +8817,14 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
     <message>
         <source>Filter the modlist with search tags (combine them, and with text):</source>
         <translation>Filter the modlist with search tags (combine them, and with text):</translation>
+    </message>
+    <message>
+        <source>mod.io</source>
+        <translation>mod.io</translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation>None</translation>
     </message>
     <message>
         <source>Mods with BA2 archives</source>
@@ -8533,8 +8863,16 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
         <translation>Remove stale plugins</translation>
     </message>
     <message>
+        <source>Cancel LOOT</source>
+        <translation>Cancel LOOT</translation>
+    </message>
+    <message>
         <source>Refreshing LOOT metadata for {0} plugins…</source>
         <translation>Refreshing LOOT metadata for {0} plugins…</translation>
+    </message>
+    <message>
+        <source>LOOT cancelled.</source>
+        <translation>LOOT cancelled.</translation>
     </message>
     <message>
         <source>Plugin metadata refreshed.</source>
@@ -9352,6 +9690,10 @@ How would you like to handle the existing mod?</translation>
         <translation>Open on Thunderstore</translation>
     </message>
     <message>
+        <source>Open on Steam Workshop</source>
+        <translation>Open on Steam Workshop</translation>
+    </message>
+    <message>
         <source>Thunderstore Actions</source>
         <translation>Thunderstore Actions</translation>
     </message>
@@ -9505,6 +9847,14 @@ How would you like to handle the existing mod?</translation>
     <message>
         <source>Size</source>
         <translation>Size</translation>
+    </message>
+    <message>
+        <source>Nexus Mod ID</source>
+        <translation>Nexus Mod ID</translation>
+    </message>
+    <message>
+        <source>Nexus File ID</source>
+        <translation>Nexus File ID</translation>
     </message>
 </context>
 <context>
@@ -11227,6 +11577,37 @@ Daily: {1}</translation>
     <message>
         <source>could not be read</source>
         <translation>could not be read</translation>
+    </message>
+</context>
+<context>
+    <name>Oblivion4GbView</name>
+    <message>
+        <source>Oblivion 4GB Patch</source>
+        <translation>Oblivion 4GB Patch</translation>
+    </message>
+    <message>
+        <source>Patches Oblivion.exe so the 32-bit game can use up to 4 GB of memory on a 64-bit system.
+
+The patch is applied natively and does not require Wine or an external patcher. It does not install or load OBSE.
+
+The original exe is kept as {0}.</source>
+        <translation>Patches Oblivion.exe so the 32-bit game can use up to 4 GB of memory on a 64-bit system.
+
+The patch is applied natively and does not require Wine or an external patcher. It does not install or load OBSE.
+
+The original exe is kept as {0}.</translation>
+    </message>
+    <message>
+        <source>The PE header could not be read.</source>
+        <translation>The PE header could not be read.</translation>
+    </message>
+    <message>
+        <source>{0} is not a supported Windows executable.
+{1}
+Verify the game files in Steam and try again.</source>
+        <translation>{0} is not a supported Windows executable.
+{1}
+Verify the game files in Steam and try again.</translation>
     </message>
 </context>
 <context>
@@ -13412,6 +13793,37 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     </message>
 </context>
 <context>
+    <name>RequirementsSummary</name>
+    <message>
+        <source>Check requirements to verify game files, available space and runtime requirements. Review the results before installing.</source>
+        <translation>Check requirements to verify game files, available space and runtime requirements. Review the results before installing.</translation>
+    </message>
+    <message>
+        <source>{0} blocking</source>
+        <translation>{0} blocking</translation>
+    </message>
+    <message>
+        <source>1 needs your input</source>
+        <translation>1 needs your input</translation>
+    </message>
+    <message>
+        <source>{0} need your input</source>
+        <translation>{0} need your input</translation>
+    </message>
+    <message>
+        <source>{0} to review</source>
+        <translation>{0} to review</translation>
+    </message>
+    <message>
+        <source>Requirements passed</source>
+        <translation>Requirements passed</translation>
+    </message>
+    <message>
+        <source>Passed ({0})</source>
+        <translation>Passed ({0})</translation>
+    </message>
+</context>
+<context>
     <name>RequirementsView</name>
     <message>
         <source>Requirements</source>
@@ -14713,6 +15125,14 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
         <translation>Translate on Crowdin</translation>
     </message>
     <message>
+        <source>Decrease {0}</source>
+        <translation>Decrease {0}</translation>
+    </message>
+    <message>
+        <source>Increase {0}</source>
+        <translation>Increase {0}</translation>
+    </message>
+    <message>
         <source>Open the Amethyst Crowdin project to help translate the app.</source>
         <translation>Open the Amethyst Crowdin project to help translate the app.</translation>
     </message>
@@ -14725,8 +15145,76 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
         <translation>Status bar</translation>
     </message>
     <message>
+        <source>Install Mod</source>
+        <translation>Install Mod</translation>
+    </message>
+    <message>
+        <source>Proton</source>
+        <translation>Proton</translation>
+    </message>
+    <message>
+        <source>Wizard</source>
+        <translation>Wizard</translation>
+    </message>
+    <message>
+        <source>Nexus</source>
+        <translation>Nexus</translation>
+    </message>
+    <message>
+        <source>Thunderstore</source>
+        <translation>Thunderstore</translation>
+    </message>
+    <message>
+        <source>Wabbajack</source>
+        <translation>Wabbajack</translation>
+    </message>
+    <message>
+        <source>Top bar</source>
+        <translation>Top bar</translation>
+    </message>
+    <message>
+        <source>Where the toolbar sits. As a side bar it is always icon-only, with the labels shown as tooltips.</source>
+        <translation>Where the toolbar sits. As a side bar it is always icon-only, with the labels shown as tooltips.</translation>
+    </message>
+    <message>
+        <source>Always use compact (icon-only) buttons</source>
+        <translation>Always use compact (icon-only) buttons</translation>
+    </message>
+    <message>
+        <source>Keep the top bar at its narrow sizes - buttons show icons only and the game and profile selectors collapse - instead of doing so only when the window is too narrow for the labels.</source>
+        <translation>Keep the top bar at its narrow sizes - buttons show icons only and the game and profile selectors collapse - instead of doing so only when the window is too narrow for the labels.</translation>
+    </message>
+    <message>
+        <source>Hide buttons</source>
+        <translation>Hide buttons</translation>
+    </message>
+    <message>
+        <source>Buttons ticked here are removed from the toolbar. A button that does not apply to the current game (Proton without a prefix, or a store the game is not on) is hidden anyway.</source>
+        <translation>Buttons ticked here are removed from the toolbar. A button that does not apply to the current game (Proton without a prefix, or a store the game is not on) is hidden anyway.</translation>
+    </message>
+    <message>
         <source>Cap the combined download speed of all downloads (collections, single mods, nxm and modl links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>
         <translation>Cap the combined download speed of all downloads (collections, single mods, nxm and modl links) so they don't use the whole connection. Applies immediately, including to a running collection install.</translation>
+    </message>
+    <message>
+        <source>Nexus download server</source>
+        <translation>Nexus download server</translation>
+    </message>
+    <message>
+        <source>Automatic</source>
+        <translation>Automatic</translation>
+    </message>
+    <message>
+        <source>Global CDN</source>
+        <translation>Global CDN</translation>
+    </message>
+    <message>
+        <source>{0} (Premium)</source>
+        <translation>{0} (Premium)</translation>
+    </message>
+    <message>
+        <source>Automatic follows your Nexus website preference. Regional servers require Nexus Premium. Applies to new or resumed Nexus downloads, including collections and Wabbajack. If the selected server is unavailable or fails, other available servers are tried. Pause and resume an active download to change its server.</source>
+        <translation>Automatic follows your Nexus website preference. Regional servers require Nexus Premium. Applies to new or resumed Nexus downloads, including collections and Wabbajack. If the selected server is unavailable or fails, other available servers are tried. Pause and resume an active download to change its server.</translation>
     </message>
     <message>
         <source>Downloads are saved to the cache but not installed. Applies to nxm:// and modl:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</source>
@@ -14891,6 +15379,113 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     <message>
         <source>Failed to save setting: {0}</source>
         <translation>Failed to save setting: {0}</translation>
+    </message>
+</context>
+<context>
+    <name>SetupOptions</name>
+    <message>
+        <source>Use the version required by the author. Output keeps its authored position in {0}.</source>
+        <translation>Use the version required by the author. Output keeps its authored position in {0}.</translation>
+    </message>
+    <message>
+        <source>Run the Fallout 3 BSA Decompressor wizard, then import its complete output mod here, or select the author's .mpi package.</source>
+        <translation>Run the Fallout 3 BSA Decompressor wizard, then import its complete output mod here, or select the author's .mpi package.</translation>
+    </message>
+    <message>
+        <source>Open mod.pub TTW page</source>
+        <translation>Open mod.pub TTW page</translation>
+    </message>
+    <message>
+        <source>Build from .mpi package</source>
+        <translation>Build from .mpi package</translation>
+    </message>
+    <message>
+        <source>Import existing output mod</source>
+        <translation>Import existing output mod</translation>
+    </message>
+    <message>
+        <source>Method</source>
+        <translation>Method</translation>
+    </message>
+    <message>
+        <source>Select the author-required version</source>
+        <translation>Select the author-required version</translation>
+    </message>
+    <message>
+        <source>Browse…</source>
+        <translation>Browse…</translation>
+    </message>
+    <message>
+        <source>Download package…</source>
+        <translation>Download package…</translation>
+    </message>
+    <message>
+        <source>Download the FO3 BSA Decompressor archive from Nexus Mods, extract it, then browse to the .mpi file.</source>
+        <translation>Download the FO3 BSA Decompressor archive from Nexus Mods, extract it, then browse to the .mpi file.</translation>
+    </message>
+    <message>
+        <source>Detected automatically when installed through Steam</source>
+        <translation>Detected automatically when installed through Steam</translation>
+    </message>
+    <message>
+        <source>Original Fallout 3 game</source>
+        <translation>Original Fallout 3 game</translation>
+    </message>
+    <message>
+        <source>Install / update native MPI tool</source>
+        <translation>Install / update native MPI tool</translation>
+    </message>
+    <message>
+        <source>MPI installer on GitHub</source>
+        <translation>MPI installer on GitHub</translation>
+    </message>
+    <message>
+        <source>Root file variant</source>
+        <translation>Root file variant</translation>
+    </message>
+    <message>
+        <source>Override</source>
+        <translation>Override</translation>
+    </message>
+    <message>
+        <source>Overrides the author's resolution in supported game INIs and display-tweak files. Leave off to keep their settings.</source>
+        <translation>Overrides the author's resolution in supported game INIs and display-tweak files. Leave off to keep their settings.</translation>
+    </message>
+    <message>
+        <source>Display resolution</source>
+        <translation>Display resolution</translation>
+    </message>
+    <message>
+        <source>Choose automatically</source>
+        <translation>Choose automatically</translation>
+    </message>
+    <message>
+        <source>Unavailable: {0}</source>
+        <translation>Unavailable: {0}</translation>
+    </message>
+    <message>
+        <source>Texture tool Proton</source>
+        <translation>Texture tool Proton</translation>
+    </message>
+    <message>
+        <source>Automatic (GPU when available)</source>
+        <translation>Automatic (GPU when available)</translation>
+    </message>
+    <message>
+        <source>CPU only</source>
+        <translation>CPU only</translation>
+    </message>
+    <message>
+        <source>Texture conversion</source>
+        <translation>Texture conversion</translation>
+    </message>
+    <message>
+        <source>Select extracted MPI package</source>
+        <translation>Select extracted MPI package</translation>
+    </message>
+    <message>
+        <source>Select original game</source>
+        <translation>Select original game</translation>
     </message>
 </context>
 <context>
@@ -17922,6 +18517,554 @@ Latest:  {1}</translation>
     </message>
 </context>
 <context>
+    <name>WabbajackCard</name>
+    <message>
+        <source>by {0}</source>
+        <translation>by {0}</translation>
+    </message>
+    <message>
+        <source>Unknown author</source>
+        <translation>Unknown author</translation>
+    </message>
+    <message>
+        <source>Featured</source>
+        <translation>Featured</translation>
+    </message>
+    <message>
+        <source>Adult</source>
+        <translation>Adult</translation>
+    </message>
+    <message>
+        <source>Unavailable</source>
+        <translation>Unavailable</translation>
+    </message>
+    <message>
+        <source>Resume available</source>
+        <translation>Resume available</translation>
+    </message>
+    <message>
+        <source>Update available</source>
+        <translation>Update available</translation>
+    </message>
+    <message>
+        <source>Installed</source>
+        <translation>Installed</translation>
+    </message>
+    <message>
+        <source>Download</source>
+        <translation>Download</translation>
+    </message>
+    <message>
+        <source>Install</source>
+        <translation>Install</translation>
+    </message>
+    <message>
+        <source>Unknown</source>
+        <translation>Unknown</translation>
+    </message>
+    <message>
+        <source>View</source>
+        <translation>View</translation>
+    </message>
+    <message>
+        <source>Installation: {0}</source>
+        <translation>Installation: {0}</translation>
+    </message>
+</context>
+<context>
+    <name>WabbajackView</name>
+    <message>
+        <source>Wabbajack modlists</source>
+        <translation>Wabbajack modlists</translation>
+    </message>
+    <message>
+        <source>No game selected</source>
+        <translation>No game selected</translation>
+    </message>
+    <message>
+        <source>All tags</source>
+        <translation>All tags</translation>
+    </message>
+    <message>
+        <source>Sort: </source>
+        <translation>Sort: </translation>
+    </message>
+    <message>
+        <source>Featured only</source>
+        <translation>Featured only</translation>
+    </message>
+    <message>
+        <source>Installed</source>
+        <translation>Installed</translation>
+    </message>
+    <message>
+        <source>Show adult</source>
+        <translation>Show adult</translation>
+    </message>
+    <message>
+        <source>Hide unavailable</source>
+        <translation>Hide unavailable</translation>
+    </message>
+    <message>
+        <source>Loading modlists…</source>
+        <translation>Loading modlists…</translation>
+    </message>
+    <message>
+        <source>Search titles, authors, or tags…</source>
+        <translation>Search titles, authors, or tags…</translation>
+    </message>
+    <message>
+        <source>Page</source>
+        <translation>Page</translation>
+    </message>
+    <message>
+        <source>Select a game in the main toolbar</source>
+        <translation>Select a game in the main toolbar</translation>
+    </message>
+    <message>
+        <source>Not checked</source>
+        <translation>Not checked</translation>
+    </message>
+    <message>
+        <source>Files and locations</source>
+        <translation>Files and locations</translation>
+    </message>
+    <message>
+        <source>The package is loaded when you check requirements.</source>
+        <translation>The package is loaded when you check requirements.</translation>
+    </message>
+    <message>
+        <source>Modlist package</source>
+        <translation>Modlist package</translation>
+    </message>
+    <message>
+        <source>Reuse an existing download folder</source>
+        <translation>Reuse an existing download folder</translation>
+    </message>
+    <message>
+        <source>This installation's managed directory inside the current game's .wabbajack folder.</source>
+        <translation>This installation's managed directory inside the current game's .wabbajack folder.</translation>
+    </message>
+    <message>
+        <source>Downloads</source>
+        <translation>Downloads</translation>
+    </message>
+    <message>
+        <source>Installation</source>
+        <translation>Installation</translation>
+    </message>
+    <message>
+        <source>Chosen automatically for this game</source>
+        <translation>Chosen automatically for this game</translation>
+    </message>
+    <message>
+        <source>Profiles and options</source>
+        <translation>Profiles and options</translation>
+    </message>
+    <message>
+        <source>Operation</source>
+        <translation>Operation</translation>
+    </message>
+    <message>
+        <source>Profiles</source>
+        <translation>Profiles</translation>
+    </message>
+    <message>
+        <source>Linux adjustments</source>
+        <translation>Linux adjustments</translation>
+    </message>
+    <message>
+        <source>Check requirements to load the authored profiles and prepare the download plan.</source>
+        <translation>Check requirements to load the authored profiles and prepare the download plan.</translation>
+    </message>
+    <message>
+        <source>Editing shared mod files affects every profile. INIs, enabled mods and load order stay separate.</source>
+        <translation>Editing shared mod files affects every profile. INIs, enabled mods and load order stay separate.</translation>
+    </message>
+    <message>
+        <source>Requirements</source>
+        <translation>Requirements</translation>
+    </message>
+    <message>
+        <source>Download plan</source>
+        <translation>Download plan</translation>
+    </message>
+    <message>
+        <source>Check</source>
+        <translation>Check</translation>
+    </message>
+    <message>
+        <source>Review</source>
+        <translation>Review</translation>
+    </message>
+    <message>
+        <source>Install</source>
+        <translation>Install</translation>
+    </message>
+    <message>
+        <source>Check requirements and review the download plan.</source>
+        <translation>Check requirements and review the download plan.</translation>
+    </message>
+    <message>
+        <source>Review changes before updating shared files and profiles.</source>
+        <translation>Review changes before updating shared files and profiles.</translation>
+    </message>
+    <message>
+        <source>File</source>
+        <translation>File</translation>
+    </message>
+    <message>
+        <source>Change</source>
+        <translation>Change</translation>
+    </message>
+    <message>
+        <source>Resolution</source>
+        <translation>Resolution</translation>
+    </message>
+    <message>
+        <source>No modlists match these filters.
+Try clearing your search or filters.</source>
+        <translation>No modlists match these filters.
+Try clearing your search or filters.</translation>
+    </message>
+    <message>
+        <source>Select a game in the main toolbar to browse its modlists.</source>
+        <translation>Select a game in the main toolbar to browse its modlists.</translation>
+    </message>
+    <message>
+        <source>of {0}</source>
+        <translation>of {0}</translation>
+    </message>
+    <message>
+        <source>{0} modlists</source>
+        <translation>{0} modlists</translation>
+    </message>
+    <message>
+        <source>View modlist</source>
+        <translation>View modlist</translation>
+    </message>
+    <message>
+        <source>Unknown</source>
+        <translation>Unknown</translation>
+    </message>
+    <message>
+        <source>Featured</source>
+        <translation>Featured</translation>
+    </message>
+    <message>
+        <source>Unavailable</source>
+        <translation>Unavailable</translation>
+    </message>
+    <message>
+        <source>Update available</source>
+        <translation>Update available</translation>
+    </message>
+    <message>
+        <source>Saved installation package</source>
+        <translation>Saved installation package</translation>
+    </message>
+    <message>
+        <source>Package will download from the gallery</source>
+        <translation>Package will download from the gallery</translation>
+    </message>
+    <message>
+        <source>This list is currently unavailable for download.</source>
+        <translation>This list is currently unavailable for download.</translation>
+    </message>
+    <message>
+        <source>Open Wabbajack modlist</source>
+        <translation>Open Wabbajack modlist</translation>
+    </message>
+    <message>
+        <source>Installation directory</source>
+        <translation>Installation directory</translation>
+    </message>
+    <message>
+        <source>Download directory</source>
+        <translation>Download directory</translation>
+    </message>
+    <message>
+        <source>Open Wabbajack URL</source>
+        <translation>Open Wabbajack URL</translation>
+    </message>
+    <message>
+        <source>Direct .wabbajack URL:</source>
+        <translation>Direct .wabbajack URL:</translation>
+    </message>
+    <message>
+        <source>This list is currently unavailable for download. Open a local .wabbajack file to continue.</source>
+        <translation>This list is currently unavailable for download. Open a local .wabbajack file to continue.</translation>
+    </message>
+    <message>
+        <source>This entry has no package download URL. Open a local .wabbajack file.</source>
+        <translation>This entry has no package download URL. Open a local .wabbajack file.</translation>
+    </message>
+    <message>
+        <source>Downloading modlist package…</source>
+        <translation>Downloading modlist package…</translation>
+    </message>
+    <message>
+        <source>Inspecting modlist package…</source>
+        <translation>Inspecting modlist package…</translation>
+    </message>
+    <message>
+        <source>{0} / {1} ({2}%)</source>
+        <translation>{0} / {1} ({2}%)</translation>
+    </message>
+    <message>
+        <source>{0} downloaded</source>
+        <translation>{0} downloaded</translation>
+    </message>
+    <message>
+        <source>Starting…</source>
+        <translation>Starting…</translation>
+    </message>
+    <message>
+        <source>Installing…</source>
+        <translation>Installing…</translation>
+    </message>
+    <message>
+        <source>Preparing tool…</source>
+        <translation>Preparing tool…</translation>
+    </message>
+    <message>
+        <source>Loading modlist…</source>
+        <translation>Loading modlist…</translation>
+    </message>
+    <message>
+        <source>Checking requirements…</source>
+        <translation>Checking requirements…</translation>
+    </message>
+    <message>
+        <source>Choose .wabbajack…</source>
+        <translation>Choose .wabbajack…</translation>
+    </message>
+    <message>
+        <source>Recheck requirements</source>
+        <translation>Recheck requirements</translation>
+    </message>
+    <message>
+        <source>Check requirements</source>
+        <translation>Check requirements</translation>
+    </message>
+    <message>
+        <source>Start the selected operation using the reviewed download plan.</source>
+        <translation>Start the selected operation using the reviewed download plan.</translation>
+    </message>
+    <message>
+        <source>Load the package if needed, check requirements, and prepare the download plan for review.</source>
+        <translation>Load the package if needed, check requirements, and prepare the download plan for review.</translation>
+    </message>
+    <message>
+        <source>Installing</source>
+        <translation>Installing</translation>
+    </message>
+    <message>
+        <source>Installation is running. Pause and cancel are available in the progress window.</source>
+        <translation>Installation is running. Pause and cancel are available in the progress window.</translation>
+    </message>
+    <message>
+        <source>Wait for tool setup to finish, then check requirements again.</source>
+        <translation>Wait for tool setup to finish, then check requirements again.</translation>
+    </message>
+    <message>
+        <source>Checking…</source>
+        <translation>Checking…</translation>
+    </message>
+    <message>
+        <source>Loading…</source>
+        <translation>Loading…</translation>
+    </message>
+    <message>
+        <source>Checking game files, downloads and available space…</source>
+        <translation>Checking game files, downloads and available space…</translation>
+    </message>
+    <message>
+        <source>Loading the package, then checking requirements…</source>
+        <translation>Loading the package, then checking requirements…</translation>
+    </message>
+    <message>
+        <source>Loading the modlist's profiles and options…</source>
+        <translation>Loading the modlist's profiles and options…</translation>
+    </message>
+    <message>
+        <source>1 blocking</source>
+        <translation>1 blocking</translation>
+    </message>
+    <message>
+        <source>{0} blocking</source>
+        <translation>{0} blocking</translation>
+    </message>
+    <message>
+        <source>Resolve the blocking requirement to continue, then recheck.</source>
+        <translation>Resolve the blocking requirement to continue, then recheck.</translation>
+    </message>
+    <message>
+        <source>Resolve the {0} blocking requirements to continue, then recheck.</source>
+        <translation>Resolve the {0} blocking requirements to continue, then recheck.</translation>
+    </message>
+    <message>
+        <source>Ready to install</source>
+        <translation>Ready to install</translation>
+    </message>
+    <message>
+        <source>Plan ready</source>
+        <translation>Plan ready</translation>
+    </message>
+    <message>
+        <source>Review the requirements and download plan, then select {0}.</source>
+        <translation>Review the requirements and download plan, then select {0}.</translation>
+    </message>
+    <message>
+        <source>Package ready</source>
+        <translation>Package ready</translation>
+    </message>
+    <message>
+        <source>Preparing the isolated texture runtime and testing DDS conversion…</source>
+        <translation>Preparing the isolated texture runtime and testing DDS conversion…</translation>
+    </message>
+    <message>
+        <source>Installing the native MPI tool…</source>
+        <translation>Installing the native MPI tool…</translation>
+    </message>
+    <message>
+        <source>Wait for the current install or deployment operation to finish.</source>
+        <translation>Wait for the current install or deployment operation to finish.</translation>
+    </message>
+    <message>
+        <source>Configure the required game before installing this modlist.</source>
+        <translation>Configure the required game before installing this modlist.</translation>
+    </message>
+    <message>
+        <source>Checking game files, downloads, disk space, and runtime requirements…</source>
+        <translation>Checking game files, downloads, disk space, and runtime requirements…</translation>
+    </message>
+    <message>
+        <source>Installing / Reconstructing</source>
+        <translation>Installing / Reconstructing</translation>
+    </message>
+    <message>
+        <source>Download complete · inspecting package…</source>
+        <translation>Download complete · inspecting package…</translation>
+    </message>
+    <message>
+        <source>Modlist package downloaded. Checking its contents…</source>
+        <translation>Modlist package downloaded. Checking its contents…</translation>
+    </message>
+    <message>
+        <source>Downloading modlist package: {0}</source>
+        <translation>Downloading modlist package: {0}</translation>
+    </message>
+    <message>
+        <source>Keep mine</source>
+        <translation>Keep mine</translation>
+    </message>
+    <message>
+        <source>Use author version</source>
+        <translation>Use author version</translation>
+    </message>
+    <message>
+        <source>Preview truncated. Review the complete files before choosing.</source>
+        <translation>Preview truncated. Review the complete files before choosing.</translation>
+    </message>
+    <message>
+        <source>Binary or unreadable content. Compare the recorded hashes and file locations.</source>
+        <translation>Binary or unreadable content. Compare the recorded hashes and file locations.</translation>
+    </message>
+    <message>
+        <source>The gallery could not be loaded. Try Refresh, or open a local .wabbajack file.</source>
+        <translation>The gallery could not be loaded. Try Refresh, or open a local .wabbajack file.</translation>
+    </message>
+    <message>
+        <source>Open download page</source>
+        <translation>Open download page</translation>
+    </message>
+    <message>
+        <source>Download the .wabbajack file from {0}, then use Open .wabbajack to continue setup.</source>
+        <translation>Download the .wabbajack file from {0}, then use Open .wabbajack to continue setup.</translation>
+    </message>
+    <message>
+        <source>Could not continue</source>
+        <translation>Could not continue</translation>
+    </message>
+    <message>
+        <source>Review the error details, then try the operation again.</source>
+        <translation>Review the error details, then try the operation again.</translation>
+    </message>
+    <message>
+        <source>Using cached gallery information.</source>
+        <translation>Using cached gallery information.</translation>
+    </message>
+    <message>
+        <source>Gallery loaded.</source>
+        <translation>Gallery loaded.</translation>
+    </message>
+    <message>
+        <source> {0} feeds unavailable.</source>
+        <translation> {0} feeds unavailable.</translation>
+    </message>
+    <message>
+        <source>Reload</source>
+        <translation>Reload</translation>
+    </message>
+    <message>
+        <source>{0} · saved package</source>
+        <translation>{0} · saved package</translation>
+    </message>
+    <message>
+        <source>{0} archives · {1} files</source>
+        <translation>{0} archives · {1} files</translation>
+    </message>
+    <message>
+        <source>Package ready. Check requirements to prepare the download plan.</source>
+        <translation>Package ready. Check requirements to prepare the download plan.</translation>
+    </message>
+    <message>
+        <source>Requirements and download plan ready. Review them before starting.</source>
+        <translation>Requirements and download plan ready. Review them before starting.</translation>
+    </message>
+    <message>
+        <source>Resolve the listed requirements, then recheck.</source>
+        <translation>Resolve the listed requirements, then recheck.</translation>
+    </message>
+    <message>
+        <source>Texture tool installed. Check requirements again to refresh the download plan.</source>
+        <translation>Texture tool installed. Check requirements again to refresh the download plan.</translation>
+    </message>
+    <message>
+        <source>Native MPI tool installed. Check requirements again to verify the selected package.</source>
+        <translation>Native MPI tool installed. Check requirements again to verify the selected package.</translation>
+    </message>
+    <message>
+        <source>Paused</source>
+        <translation>Paused</translation>
+    </message>
+    <message>
+        <source>Cancelled</source>
+        <translation>Cancelled</translation>
+    </message>
+    <message>
+        <source>Needs attention</source>
+        <translation>Needs attention</translation>
+    </message>
+    <message>
+        <source>Installation complete. You can select its profiles from the main toolbar.</source>
+        <translation>Installation complete. You can select its profiles from the main toolbar.</translation>
+    </message>
+    <message>
+        <source>Your progress is saved. Check requirements, then select Resume to continue.</source>
+        <translation>Your progress is saved. Check requirements, then select Resume to continue.</translation>
+    </message>
+    <message>
+        <source>Wait for tool setup to finish before closing this tab.</source>
+        <translation>Wait for tool setup to finish before closing this tab.</translation>
+    </message>
+    <message>
+        <source>Pause or cancel the installation before closing this tab.</source>
+        <translation>Pause or cancel the installation before closing this tab.</translation>
+    </message>
+</context>
+<context>
     <name>WikiView</name>
     <message>
         <source>Refresh</source>
@@ -18006,6 +19149,10 @@ Press Refresh to try again.</translation>
 </context>
 <context>
     <name>WizardTools</name>
+    <message>
+        <source>Install Steam Workshop Mod</source>
+        <translation>Install Steam Workshop Mod</translation>
+    </message>
     <message>
         <source>mod.io API Key</source>
         <translation>mod.io API Key</translation>
@@ -18239,6 +19386,10 @@ Press Refresh to try again.</translation>
         <translation>Install ReShade</translation>
     </message>
     <message>
+        <source>Download a Steam Workshop item and install it into this profile.</source>
+        <translation>Download a Steam Workshop item and install it into this profile.</translation>
+    </message>
+    <message>
         <source>Enter a mod.io key to enable update checks for manually-installed mod.io mods.</source>
         <translation>Enter a mod.io key to enable update checks for manually-installed mod.io mods.</translation>
     </message>
@@ -18313,6 +19464,10 @@ Press Refresh to try again.</translation>
     <message>
         <source>Patch FalloutNV.exe to use 4 GB of memory (keeps a backup that can be restored).</source>
         <translation>Patch FalloutNV.exe to use 4 GB of memory (keeps a backup that can be restored).</translation>
+    </message>
+    <message>
+        <source>Patch Oblivion.exe to use up to 4 GB of memory (keeps a backup that can be restored).</source>
+        <translation>Patch Oblivion.exe to use up to 4 GB of memory (keeps a backup that can be restored).</translation>
     </message>
     <message>
         <source>Run the native Linux TTW installer (merges Fallout 3 + New Vegas) and add the result as a mod. Requires Fallout 3 installed and a TTW .mpi package from mod.pub.</source>
@@ -18714,6 +19869,149 @@ Reopen this wizard.</translation>
     <message>
         <source>Deploy</source>
         <translation>Deploy</translation>
+    </message>
+</context>
+<context>
+    <name>WorkshopView</name>
+    <message>
+        <source>Install Steam Workshop Mod</source>
+        <translation>Install Steam Workshop Mod</translation>
+    </message>
+    <message>
+        <source>Download an individual public Workshop mod into this profile. Required Workshop items must be installed separately.</source>
+        <translation>Download an individual public Workshop mod into this profile. Required Workshop items must be installed separately.</translation>
+    </message>
+    <message>
+        <source>Item ID or Steam Workshop URL</source>
+        <translation>Item ID or Steam Workshop URL</translation>
+    </message>
+    <message>
+        <source>Workshop item</source>
+        <translation>Workshop item</translation>
+    </message>
+    <message>
+        <source>{0} · App ID {1}</source>
+        <translation>{0} · App ID {1}</translation>
+    </message>
+    <message>
+        <source>Install into</source>
+        <translation>Install into</translation>
+    </message>
+    <message>
+        <source>QR code (Steam mobile app)</source>
+        <translation>QR code (Steam mobile app)</translation>
+    </message>
+    <message>
+        <source>Steam account and password</source>
+        <translation>Steam account and password</translation>
+    </message>
+    <message>
+        <source>Saved account</source>
+        <translation>Saved account</translation>
+    </message>
+    <message>
+        <source>Anonymous (where supported)</source>
+        <translation>Anonymous (where supported)</translation>
+    </message>
+    <message>
+        <source>Sign in</source>
+        <translation>Sign in</translation>
+    </message>
+    <message>
+        <source>Steam account name, not display name</source>
+        <translation>Steam account name, not display name</translation>
+    </message>
+    <message>
+        <source>Account name</source>
+        <translation>Account name</translation>
+    </message>
+    <message>
+        <source>Remember this account</source>
+        <translation>Remember this account</translation>
+    </message>
+    <message>
+        <source>Keep the Steam session on this device. Enter the account name to use it for later downloads.</source>
+        <translation>Keep the Steam session on this device. Enter the account name to use it for later downloads.</translation>
+    </message>
+    <message>
+        <source>Forget saved account</source>
+        <translation>Forget saved account</translation>
+    </message>
+    <message>
+        <source>Open Workshop page</source>
+        <translation>Open Workshop page</translation>
+    </message>
+    <message>
+        <source>Continue sign-in</source>
+        <translation>Continue sign-in</translation>
+    </message>
+    <message>
+        <source>Install downloaded files</source>
+        <translation>Install downloaded files</translation>
+    </message>
+    <message>
+        <source>Cancel download</source>
+        <translation>Cancel download</translation>
+    </message>
+    <message>
+        <source>Download and install</source>
+        <translation>Download and install</translation>
+    </message>
+    <message>
+        <source>Cancel the download before closing.</source>
+        <translation>Cancel the download before closing.</translation>
+    </message>
+    <message>
+        <source>Enter your Steam account name.</source>
+        <translation>Enter your Steam account name.</translation>
+    </message>
+    <message>
+        <source>The mod installer is unavailable.</source>
+        <translation>The mod installer is unavailable.</translation>
+    </message>
+    <message>
+        <source>Looking up Workshop item…</source>
+        <translation>Looking up Workshop item…</translation>
+    </message>
+    <message>
+        <source>Signed in. Downloading Workshop files…</source>
+        <translation>Signed in. Downloading Workshop files…</translation>
+    </message>
+    <message>
+        <source>Steam account password</source>
+        <translation>Steam account password</translation>
+    </message>
+    <message>
+        <source>Steam Guard code from your email or authenticator</source>
+        <translation>Steam Guard code from your email or authenticator</translation>
+    </message>
+    <message>
+        <source>Download cancelled. Nothing was installed.</source>
+        <translation>Download cancelled. Nothing was installed.</translation>
+    </message>
+    <message>
+        <source>Installed: {0}</source>
+        <translation>Installed: {0}</translation>
+    </message>
+    <message>
+        <source>Complete the mod installer tab to finish installation.</source>
+        <translation>Complete the mod installer tab to finish installation.</translation>
+    </message>
+    <message>
+        <source>Installation did not complete. The download is kept so you can try again.</source>
+        <translation>Installation did not complete. The download is kept so you can try again.</translation>
+    </message>
+    <message>
+        <source>Cancelling download…</source>
+        <translation>Cancelling download…</translation>
+    </message>
+    <message>
+        <source>Installing the downloaded mod…</source>
+        <translation>Installing the downloaded mod…</translation>
+    </message>
+    <message>
+        <source>Saved Steam account removed from Amethyst.</source>
+        <translation>Saved Steam account removed from Amethyst.</translation>
     </message>
 </context>
 <context>
