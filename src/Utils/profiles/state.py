@@ -14,7 +14,8 @@ consolidates all small per-profile JSON/text state files:
   disabled_plugins            dict[str, list[str]]  (mod_name -> [plugin, ...])
   excluded_mod_files          dict[str, list[str]]  (mod_name -> [raw_key_lower, ...])
   root_mod_files              dict[str, list[str]]  (mod_name -> [raw_key_lower, ...])
-  profile_settings            dict  (profile_specific_mods, collection_url, original_default, …)
+  profile_settings            dict  (profile_specific_mods, collection_url, original_default,
+                                    hide_from_profile_dropdown, …)
   ignored_missing_requirements list[str]
   custom_exes                 list[str]  (per-profile Run-menu exe paths)
 
@@ -362,6 +363,12 @@ def read_profile_settings(profile_dir: Path, state: dict | None = None) -> dict:
 def profile_uses_specific_mods(profile_dir: Path) -> bool:
     """Return True if this profile stores its own mods folder inside itself."""
     return bool(read_profile_settings(profile_dir, None).get("profile_specific_mods", False))
+
+
+def profile_hidden_from_dropdown(profile_dir: Path) -> bool:
+    """Return True if this profile should be omitted from the main selector."""
+    return bool(read_profile_settings(profile_dir, None).get(
+        "hide_from_profile_dropdown", False))
 
 
 def read_ignored_missing_requirements(profile_dir: Path, state: dict | None = None) -> set[str]:

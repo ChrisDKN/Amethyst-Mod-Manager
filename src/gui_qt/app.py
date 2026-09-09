@@ -10943,8 +10943,9 @@ class MainWindow(QMainWindow):
             key="profile_settings")
 
     def _set_profile_selector_items(self, profs, current=None):
-        """Separate ordinary, Wabbajack and grouped profiles with their badges."""
+        """Filter hidden profiles and separate the rest with their badges."""
         profs = list(profs)
+        selected = current if current is not None else self._gs.profile
         # Always a REAL dict/set - set_items keeps the previous icon map when
         # passed None, so a deleted group's badge would stick to any later
         # profile reusing its name.
@@ -10958,6 +10959,9 @@ class MainWindow(QMainWindow):
                 plain, wabbajack, grouped = [], [], []
                 for name in profs:
                     settings = read_profile_settings(root / name)
+                    if settings.get("hide_from_profile_dropdown") \
+                            and name != selected:
+                        continue
                     if settings.get("is_group"):
                         grouped.append(name)
                     elif settings.get("wabbajack_install_id"):
@@ -11034,7 +11038,7 @@ class MainWindow(QMainWindow):
             current_profile=self._gs.profile,
             on_profile_renamed=self._on_profile_renamed,
             on_profile_removed=self._on_profile_removed,
-            on_profiles_changed=self._on_profiles_lock_changed,
+            on_profiles_changed=self._on_profile_settings_changed,
             log_fn=self._append_log,
         )
 
@@ -11067,9 +11071,8 @@ class MainWindow(QMainWindow):
         view._on_remove(profile)
 
     # -- Profile Settings callbacks (view → app: refresh selector + reload) --
-    def _on_profiles_lock_changed(self):
-        """A profile's lock toggled - the active profile is unchanged, so just
-        refresh the selector list (Remove-eligibility, etc.)."""
+    def _on_profile_settings_changed(self):
+        """Refresh the selector after a profile management setting changes."""
         self._set_profile_selector_items(self._gs.profiles(),
                                          current=self._gs.profile)
         # Lock state feeds the "Remove current profile…" gate - rebuild the

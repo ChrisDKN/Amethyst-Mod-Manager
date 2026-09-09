@@ -3,10 +3,11 @@ game with per-row management. Qt port of the Tk ``gui/profile_settings_overlay.p
 (``ProfileSettingsOverlay``), MINUS the "Steam Cmd" button.
 
 Each row: a lock toggle (disabled for the default profile), the profile name (with
-``(default)`` / ``★`` markers), and Rename / Open / Remove buttons. Rename opens an
-inline bar under the row; Remove restores the game first if the profile is deployed,
-asks a second time if the profile has its own mods, then deletes the folder. All the
-persistence reuses the neutral ``Utils.profiles.state`` helpers - no backend rewrite.
+``(default)`` / ``★`` markers), a dropdown visibility checkbox, and Rename / Open /
+Remove buttons. Rename opens an inline bar under the row; Remove restores the game
+first if the profile is deployed, asks a second time if the profile has its own mods,
+then deletes the folder. All persistence reuses the neutral
+``Utils.profiles.state`` helpers - no backend rewrite.
 """
 
 from __future__ import annotations
@@ -19,7 +20,7 @@ from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QPainter, QPen, QColor
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
-    QFrame, QScrollArea,
+    QCheckBox, QFrame, QScrollArea,
 )
 
 from gui_qt.theme_qt import active_palette, _c, close_button, contrast_text
@@ -27,7 +28,8 @@ from gui_qt.icons import icon
 from gui_qt.safe_emit import safe_emit
 from gui_qt.i18n import profile_display, is_reserved_profile_name
 from Utils.profiles.state import (
-    read_profile_settings, merge_profile_settings, profile_uses_specific_mods,
+    read_profile_settings, merge_profile_settings,
+    profile_hidden_from_dropdown, profile_uses_specific_mods,
 )
 from Utils.environment.xdg import xdg_open
 
@@ -185,6 +187,9 @@ class ProfileSettingsView(QWidget):
         except Exception:
             return False
 
+    def _is_profile_hidden(self, profile: str) -> bool:
+        return profile_hidden_from_dropdown(self._get_profile_dir(profile))
+
     def _mark_original_default(self, profile_dir: Path):
         try:
             profile_dir.mkdir(parents=True, exist_ok=True)
@@ -242,7 +247,17 @@ class ProfileSettingsView(QWidget):
             name.setStyleSheet(f"color:{_c(p,'TEXT_MAIN')};")
         rl.addWidget(name, 1)
 
-        # (3) Buttons - Rename / Open / Remove (NO Steam Cmd).
+        hidden = QCheckBox(self.tr("Hide"))
+        hidden.setChecked(self._is_profile_hidden(profile))
+        hidden.setToolTip(self.tr(
+            "Hidden profiles remain available here. The active profile stays "
+            "in the dropdown until you switch profiles."))
+        hidden.clicked.connect(
+            lambda checked, pr=profile, cb=hidden:
+            self._set_profile_hidden(pr, checked, cb))
+        rl.addWidget(hidden)
+
+        # (4) Buttons - Rename / Open / Remove (NO Steam Cmd).
         rename = QPushButton(self.tr("Rename"))
         rename.setObjectName("FormButton")
         rename.setCursor(Qt.PointingHandCursor)
@@ -277,6 +292,18 @@ class ProfileSettingsView(QWidget):
             self._log(f"Could not save lock state: {e}")
             return
         self._populate_list()
+        self._on_profiles_changed()
+
+    def _set_profile_hidden(self, profile: str, hidden: bool,
+                            checkbox: QCheckBox):
+        try:
+            merge_profile_settings(
+                self._get_profile_dir(profile),
+                {"hide_from_profile_dropdown": True if hidden else None})
+        except Exception as e:
+            checkbox.setChecked(not hidden)
+            self._log(f"Could not save profile visibility: {e}")
+            return
         self._on_profiles_changed()
 
     # -- open ---------------------------------------------------------------

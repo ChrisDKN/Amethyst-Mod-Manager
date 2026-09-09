@@ -13059,6 +13059,14 @@ Its listed mods are copied into the profile's own mods folder (hardlinked where 
         <translation>  (default)</translation>
     </message>
     <message>
+        <source>Hide</source>
+        <translation>Hide</translation>
+    </message>
+    <message>
+        <source>Hidden profiles remain available here. The active profile stays in the dropdown until you switch profiles.</source>
+        <translation>Hidden profiles remain available here. The active profile stays in the dropdown until you switch profiles.</translation>
+    </message>
+    <message>
         <source>Rename</source>
         <translation>Rename</translation>
     </message>
