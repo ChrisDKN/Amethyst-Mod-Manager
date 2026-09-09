@@ -9400,8 +9400,8 @@ How would you like to handle the existing mod?</translation>
         <translation>Root</translation>
     </message>
     <message>
-        <source>Disable</source>
-        <translation>Disable</translation>
+        <source>Enabled</source>
+        <translation>Enabled</translation>
     </message>
     <message>
         <source>The mod's files and folders as they are packaged in the archive.</source>

@@ -30,7 +30,7 @@ COLUMNS = [
     QT_TRANSLATE_NOOP("ModFilesModel", "File name"),
     QT_TRANSLATE_NOOP("ModFilesModel", "Top Level"),
     QT_TRANSLATE_NOOP("ModFilesModel", "Root"),
-    QT_TRANSLATE_NOOP("ModFilesModel", "Disable"),
+    QT_TRANSLATE_NOOP("ModFilesModel", "Enabled"),
 ]
 # Header tooltips, one per column. Translated at display time in headerData.
 COLUMN_TIPS = [

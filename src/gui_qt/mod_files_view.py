@@ -194,7 +194,7 @@ class ModFilesView(QWidget):
         hdr = TkStyleHeader(self._tree, col_mins, col_defaults)
         self._tree.setHeader(hdr)
         hdr.setMinimumSectionSize(min(col_mins.values()))
-        hdr.setDefaultAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        hdr.setDefaultAlignment(Qt.AlignCenter)
         for col, wdt in col_defaults.items():
             self._tree.setColumnWidth(col, wdt)
         # Repaint the arrow column when a folder expands/collapses.
