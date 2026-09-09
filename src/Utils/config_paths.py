@@ -188,6 +188,61 @@ def get_logs_dir() -> Path:
     return d
 
 
+LOG_RETENTION_DAYS = 7
+
+# Only files this app writes into the logs dir are ever pruned - a user may keep
+# unrelated notes or a hand-saved log in there, and an age sweep must not eat
+# them. Covers session logs (amethyst-<ts>-<pid>.log), faulthandler dumps
+# (amethyst-fault-<pid>.log) and the NXM handoff log plus its rotated .old.
+def _is_prunable_log(name: str) -> bool:
+    if name.startswith("amethyst-") and name.endswith(".log"):
+        return True
+    return name in ("nxm.log", "nxm.log.old")
+
+
+def prune_old_logs(max_age_days: int = LOG_RETENTION_DAYS,
+                   keep: "set[Path] | None" = None,
+                   log_fn=None) -> int:
+    """Delete app-written logs older than *max_age_days*; return how many went.
+
+    *keep* holds paths the caller still has open (the current session's log and
+    fault dump) - deleting those would silently break this session's logging,
+    and their mtime can look stale before the first line is written. Wholly
+    best-effort: a log dir we cannot read or a file we cannot unlink is not
+    worth failing startup over.
+    """
+    import time
+
+    if max_age_days <= 0:
+        return 0
+    keep = {Path(p).resolve() for p in (keep or ())}
+    cutoff = time.time() - max_age_days * 86400
+    removed = 0
+    try:
+        entries = list(get_logs_dir().iterdir())
+    except OSError:
+        return 0
+    for entry in entries:
+        try:
+            if not entry.is_file() or not _is_prunable_log(entry.name):
+                continue
+            if entry.resolve() in keep:
+                continue
+            if entry.stat().st_mtime >= cutoff:
+                continue
+            entry.unlink()
+            removed += 1
+        except OSError:
+            continue
+    if removed and log_fn is not None:
+        try:
+            log_fn(f"[log] removed {removed} log file(s) older than "
+                   f"{max_age_days} days")
+        except Exception:
+            pass
+    return removed
+
+
 def get_requirement_external_tool_mod_ids_path() -> Path:
     """Return the path to the cached requirement filter (external tool mod IDs).
 

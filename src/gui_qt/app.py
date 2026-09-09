@@ -950,6 +950,10 @@ class MainWindow(QMainWindow):
         # background delete was interrupted (crash / app close mid-delete).
         self._queue_startup_deferred(
             "Queue deploy-trash cleanup", self._sweep_deploy_trash_startup)
+        # Session logs accumulate one file per launch (plus a fault dump each);
+        # a heavy session writes tens of MB. Drop anything older than a week.
+        self._queue_startup_deferred(
+            "Queue old-log cleanup", self._prune_old_logs_startup)
         # App self-update check (Tk parity: after(2000, …)). AppImage/flatpak
         # compare against GitHub releases, everything else against the AUR.
         self._update_overlay = None
@@ -3824,6 +3828,36 @@ class MainWindow(QMainWindow):
                     continue
 
         threading.Thread(target=_run, name="mm-trash-sweep", daemon=True).start()
+
+    def _prune_old_logs_startup(self):
+        """Delete logs older than the retention window (7 days) at startup.
+
+        This session's own files are held back: the session log is still being
+        appended to, and the faulthandler dump stays open for the process
+        lifetime so a segfault can be written into it. Runs on a daemon thread -
+        the logs dir may hold a few hundred files on a long-lived install.
+        """
+        import threading
+
+        from Utils.config_paths import prune_old_logs
+
+        keep = set()
+        session_log = getattr(self, "_log_file", None)
+        if session_log is not None:
+            keep.add(session_log)
+        try:
+            from Utils.config_paths import get_logs_dir
+            keep.add(get_logs_dir() / f"amethyst-fault-{os.getpid()}.log")
+        except Exception:
+            pass
+
+        def _run():
+            try:
+                prune_old_logs(keep=keep, log_fn=self._append_log)
+            except Exception:
+                pass
+
+        threading.Thread(target=_run, name="mm-log-prune", daemon=True).start()
 
     def _check_for_app_update(self, force_downgrade_prompt: bool = False,
                               force_fresh: bool = False):
