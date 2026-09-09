@@ -137,61 +137,6 @@ Choose Roads or Paths Only, click Generate, then close it when finished.</source
     </message>
   </context>
   <context>
-    <name>AcquisitionSummary</name>
-    <message>
-      <source>Transfers over the network</source>
-      <translation>ネットワーク経由で転送</translation>
-    </message>
-    <message>
-      <source>Not checked</source>
-      <translation>未チェック</translation>
-    </message>
-    <message>
-      <source>Check requirements to verify cached files and Nexus access, then review what still needs downloading.</source>
-      <translation>キャッシュされたファイルと Nexus アクセスを確認するための要件を確認し、ダウンロードが必要なものを確認してください。</translation>
-    </message>
-    <message>
-      <source>0 B</source>
-      <translation>0 B</translation>
-    </message>
-    <message>
-      <source>1 archive</source>
-      <translation>1 アーカイブ</translation>
-    </message>
-    <message>
-      <source>{0} archives</source>
-      <translation>{0} アーカイブ</translation>
-    </message>
-    <message>
-      <source>Nothing to download</source>
-      <translation>ダウンロードするものがありません</translation>
-    </message>
-    <message>
-      <source>1 required game file is missing or differs.</source>
-      <translation>必要なゲームファイルが1つ見つからないか、異なります。</translation>
-    </message>
-    <message>
-      <source>{0} required game files are missing or differ.</source>
-      <translation>{0} が必要なゲームファイルが見つからないか、または異なります。</translation>
-    </message>
-    <message>
-      <source>Resolve the listed requirements before downloading.</source>
-      <translation>ダウンロードする前にリストされている要件を解決してください。</translation>
-    </message>
-    <message>
-      <source>Browser downloads and Select File use the normal installer prompts. Automatic downloads continue while you respond.</source>
-      <translation>ブラウザのダウンロードとformat@@0は、通常のインストーラのプロンプトを使用します。</translation>
-    </message>
-    <message>
-      <source>No archive downloads needed. Verified local content will be reused.</source>
-      <translation>アーカイブのダウンロードは必要ありません。確認済みのローカルコンテンツが再利用されます。</translation>
-    </message>
-    <message>
-      <source>Verified cache and game files are reused. Downloads follow your existing speed and concurrency settings.</source>
-      <translation>キャッシュとゲームファイルが再利用されます。ダウンロードは既存の速度と並行設定に従って行われます。</translation>
-    </message>
-  </context>
-  <context>
     <name>AddGameView</name>
     <message>
       <source>Select a game to add</source>
@@ -1344,16 +1289,8 @@ Close it when you are done, then click Done.</source>
       <translation>残り温度フォルダ({0})</translation>
     </message>
     <message>
-      <source>Wabbajack jobs and update backups</source>
-      <translation>Wabbajack ジョブとバックアップの更新</translation>
-    </message>
-    <message>
       <source>Total: {0}</source>
       <translation>合計：{0}</translation>
-    </message>
-    <message>
-      <source>Wabbajack gallery and packages</source>
-      <translation>Wabbajack ギャラリーとパッケージ</translation>
     </message>
     <message>
       <source>Nothing selected.</source>
@@ -1370,24 +1307,12 @@ Close it when you are done, then click Done.</source>
 
 {2}
 
-Archives, gallery data and modlist packages will be re-downloaded as needed. Saved Wabbajack requirement checks in the selected game caches will be reset. The Wabbajack jobs/backups entry removes abandoned jobs and update backups; referenced installations are preserved.</source>
+Archives will be re-downloaded as needed.</source>
       <translation>{0} アイテム間で {1} をクリアしますか？
 
 {2}
 
-アーカイブ、ギャラリーデータ、Modlist パッケージは必要に応じて再ダウンロードされます。 選択したゲームキャッシュに保存されたWabbajack要件チェックがリセットされます。 「Wabbajack jobs/backup」エントリは、放棄されたジョブと更新バックアップを削除します。参照されるインストールは保存されます。</translation>
-    </message>
-    <message>
-      <source>Clear {0} of cached downloads across every game?
-
-Location: {1}
-
-The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack gallery data, modlist packages and saved requirement checks are also cleared. The jobs/backups entry removes abandoned jobs and update backups.</source>
-      <translation>各ゲームのキャッシュされたダウンロードの {0} をクリアしますか?
-
-場所: {1}
-
-md5 キャッシュは保持されます。 アーカイブは必要に応じて再ダウンロードされます。 Wabbajack ギャラリーデータ, Modlist パッケージと保存要件のチェックもクリアされます. ジョブ/バックアップのエントリは、放棄されたジョブと更新バックアップを削除します.</translation>
+アーカイブは必要に応じて再ダウンロードされます。</translation>
     </message>
     <message>
       <source>Clear {0} Cache(s)</source>
@@ -1404,6 +1329,18 @@ md5 キャッシュは保持されます。 アーカイブは必要に応じて
     <message>
       <source>Cache is empty.</source>
       <translation>キャッシュは空です。</translation>
+    </message>
+    <message>
+      <source>Clear {0} of cached downloads across every game?
+
+Location: {1}
+
+The md5 cache is preserved. Archives will be re-downloaded as needed.</source>
+      <translation>各ゲームのキャッシュされたダウンロードの {0} をクリアしますか?
+
+場所: {1}
+
+md5 キャッシュは保持されます。 必要に応じてアーカイブを再ダウンロードします。</translation>
     </message>
     <message>
       <source>Clear All Download Caches</source>
@@ -1499,45 +1436,6 @@ md5 キャッシュは保持されます。 アーカイブは必要に応じて
     <message>
       <source>Waiting for the browser download - {0} / {1}</source>
       <translation>ブラウザのダウンロード待ち - {0} / {1}</translation>
-    </message>
-  </context>
-  <context>
-    <name>CheckRow</name>
-    <message>
-      <source>Blocking: resolve before installing.</source>
-      <translation>ブロック: インストールする前に解決します。</translation>
-    </message>
-    <message>
-      <source>Needs your input: follow the download or setup instructions.</source>
-      <translation>入力が必要です:ダウンロードまたはセットアップの手順に従ってください。</translation>
-    </message>
-    <message>
-      <source>To review: read before continuing; this does not block installation.</source>
-      <translation>レビューするには: 続行する前に読んでください。これはインストールをブロックしません。</translation>
-    </message>
-    <message>
-      <source>Passed: this check is ready to proceed.</source>
-      <translation>合格:このチェックは続行する準備ができています。</translation>
-    </message>
-    <message>
-      <source>What this means</source>
-      <translation>これが意味すること</translation>
-    </message>
-    <message>
-      <source>Details</source>
-      <translation>詳細</translation>
-    </message>
-    <message>
-      <source>Hide affected files</source>
-      <translation>影響を受けるファイルを隠す</translation>
-    </message>
-    <message>
-      <source>Show 1 affected file</source>
-      <translation>影響を受けたファイルを1つ表示</translation>
-    </message>
-    <message>
-      <source>Show {0} affected files</source>
-      <translation>{0} の影響を受けるファイルを表示</translation>
     </message>
   </context>
   <context>
@@ -1717,16 +1615,8 @@ md5 キャッシュは保持されます。 アーカイブは必要に応じて
       <translation>一時停止中…</translation>
     </message>
     <message>
-      <source>{0}: {1} / {2}</source>
-      <translation>{0}: {1} / {2}</translation>
-    </message>
-    <message>
       <source>Downloading…</source>
       <translation>ダウンロード中…</translation>
-    </message>
-    <message>
-      <source>Small mods (under 100 MB)</source>
-      <translation>スモールモッド（100 MB未満）</translation>
     </message>
     <message>
       <source>+ {0} more downloading…</source>
@@ -1792,10 +1682,6 @@ md5 キャッシュは保持されます。 アーカイブは必要に応じて
       <translation>一時停止中…</translation>
     </message>
     <message>
-      <source>This source needs a browser download or an existing file.</source>
-      <translation>このソースは、ブラウザのダウンロードまたは既存のファイルが必要です。</translation>
-    </message>
-    <message>
       <source>Optional</source>
       <translation>任意</translation>
     </message>
@@ -1808,24 +1694,8 @@ md5 キャッシュは保持されます。 アーカイブは必要に応じて
       <translation>期待されるファイル：{0}</translation>
     </message>
     <message>
-      <source>Download this exact archive to a watched download folder, or use Select File. Amethyst checks its size and hash before continuing.</source>
-      <translation>この正確なアーカイブをダウンロードフォルダにダウンロードするか、Select Fileを使用してください。Amethystは続行する前にそのサイズとハッシュをチェックします。</translation>
-    </message>
-    <message>
       <source>Mod {0}/{1} - download this file, then it will be auto-detected…</source>
       <translation>Mod {0}/{1} - このファイルをダウンロードすると、自動検出されます..</translation>
-    </message>
-    <message>
-      <source>Why this needs your help:
-{0}</source>
-      <translation>ヘルプが必要な理由：
-{0}</translation>
-    </message>
-    <message>
-      <source>Author instructions:
-{0}</source>
-      <translation>著者の指示:
-{0}</translation>
     </message>
     <message>
       <source>Open next {0}</source>
@@ -1989,6 +1859,10 @@ md5 キャッシュは保持されます。 アーカイブは必要に応じて
       <translation>キャンセル</translation>
     </message>
     <message>
+      <source>Game Installation Folder</source>
+      <translation>ゲームインストールフォルダ</translation>
+    </message>
+    <message>
       <source>Scanning Steam libraries…</source>
       <translation>Steamライブラリをスキャン中…</translation>
     </message>
@@ -2009,6 +1883,10 @@ md5 キャッシュは保持されます。 アーカイブは必要に応じて
       <translation>スキャン</translation>
     </message>
     <message>
+      <source>Proton Prefix (compatdata/pfx)</source>
+      <translation>Proton Prefix (compatdata/pfx)</translation>
+    </message>
+    <message>
       <source>Scanning for prefix…</source>
       <translation>接頭辞を検索中…</translation>
     </message>
@@ -2021,8 +1899,16 @@ md5 キャッシュは保持されます。 アーカイブは必要に応じて
       <translation>プレフィックスの設定はありません.</translation>
     </message>
     <message>
+      <source>Mod Staging Folder</source>
+      <translation>Modステージングフォルダ</translation>
+    </message>
+    <message>
       <source>Searching common AppImage locations…</source>
       <translation>一般的なAppImageの場所を検索..</translation>
+    </message>
+    <message>
+      <source>AppImage Location (Optional)</source>
+      <translation>AppImageの場所（オプション）</translation>
     </message>
     <message>
       <source>Default location will be used.</source>
@@ -2033,24 +1919,16 @@ md5 キャッシュは保持されます。 アーカイブは必要に応じて
       <translation>デフォルト設定に戻す</translation>
     </message>
     <message>
+      <source>Saves Folder (optional)</source>
+      <translation>セーブフォルダ（オプション）</translation>
+    </message>
+    <message>
       <source>Detected automatically.</source>
       <translation>自動的に検出される.</translation>
     </message>
     <message>
-      <source>Detected from the Ludusavi manifest</source>
-      <translation>Ludusaviマニフェストから検出されました</translation>
-    </message>
-    <message>
-      <source>Saves</source>
-      <translation>保存</translation>
-    </message>
-    <message>
       <source>Clear</source>
       <translation>クリア</translation>
-    </message>
-    <message>
-      <source>Set this only if the Saves tab looks in the wrong place.</source>
-      <translation>format@@0 タブが間違った場所に見える場合にのみこれを設定します。</translation>
     </message>
     <message>
       <source>Options</source>
@@ -2095,10 +1973,6 @@ md5 キャッシュは保持されます。 アーカイブは必要に応じて
     <message>
       <source>Windows / Proton</source>
       <translation>Windows / Proton</translation>
-    </message>
-    <message>
-      <source>Behaviour</source>
-      <translation>行動</translation>
     </message>
     <message>
       <source>Swap launcher with script extender on deploy</source>
@@ -2185,14 +2059,6 @@ The default profile's settings are not affected.</source>
       <translation>プロファイルは、共有（デフォルトのプロファイル）設定に従うようになりました。</translation>
     </message>
     <message>
-      <source>{0} · this profile only</source>
-      <translation>{0} · このプロファイルのみ</translation>
-    </message>
-    <message>
-      <source>Shared settings</source>
-      <translation>共有設定</translation>
-    </message>
-    <message>
       <source>Settings saved.</source>
       <translation>設定が保存されました。</translation>
     </message>
@@ -2211,14 +2077,6 @@ The default profile's settings are not affected.</source>
     <message>
       <source>Version {0}</source>
       <translation>バージョン{0}</translation>
-    </message>
-    <message>
-      <source>Non-Steam Shortcut prefix</source>
-      <translation>スチーム以外のショートカット</translation>
-    </message>
-    <message>
-      <source>{0} prefix</source>
-      <translation>{0} プレフィクス</translation>
     </message>
     <message>
       <source>Prefix already configured. You can update the path below.</source>
@@ -2323,102 +2181,6 @@ The default profile's settings are not affected.</source>
     <message>
       <source>Found via drive scan.</source>
       <translation>ドライブスキャンで発見されました。</translation>
-    </message>
-    <message>
-      <source>Problem</source>
-      <translation>問題</translation>
-    </message>
-    <message>
-      <source>N/A</source>
-      <translation>該当なし</translation>
-    </message>
-    <message>
-      <source>Scanning…</source>
-      <translation type="unfinished">Scanning…</translation>
-    </message>
-    <message>
-      <source>Not found</source>
-      <translation>見つかりません</translation>
-    </message>
-    <message>
-      <source>Custom</source>
-      <translation>カスタム</translation>
-    </message>
-    <message>
-      <source>Default</source>
-      <translation>デフォルト</translation>
-    </message>
-    <message>
-      <source>Auto</source>
-      <translation>自動</translation>
-    </message>
-    <message>
-      <source>None</source>
-      <translation>なし</translation>
-    </message>
-    <message>
-      <source>Detected</source>
-      <translation>検出済み</translation>
-    </message>
-    <message>
-      <source>Check</source>
-      <translation>チェック</translation>
-    </message>
-    <message>
-      <source>Set</source>
-      <translation>設定</translation>
-    </message>
-    <message>
-      <source>Configured</source>
-      <translation>設定済み</translation>
-    </message>
-    <message>
-      <source>Not set up</source>
-      <translation>未設定</translation>
-    </message>
-    <message>
-      <source>VFS deploy</source>
-      <translation>VFS デプロイ</translation>
-    </message>
-    <message>
-      <source>Hardlink deploy</source>
-      <translation>Hardlink deploy</translation>
-    </message>
-    <message>
-      <source>Symlink deploy</source>
-      <translation>Symlink deploy</translation>
-    </message>
-    <message>
-      <source>Locations</source>
-      <translation>場所</translation>
-    </message>
-    <message>
-      <source>Game install</source>
-      <translation>ゲームのインストール</translation>
-    </message>
-    <message>
-      <source>AppImage</source>
-      <translation>AppImage</translation>
-    </message>
-    <message>
-      <source>Not needed for a native Linux game</source>
-      <translation>ネイティブ Linux ゲームに必要ありません</translation>
-    </message>
-    <message>
-      <source>Detected automatically</source>
-      <translation>自動的に検出</translation>
-    </message>
-    <message>
-      <source>Proton prefix</source>
-      <translation>Proton prefix</translation>
-    </message>
-    <message>
-      <source>Default location</source>
-      <translation>既定の場所</translation>
-    </message>
-    <message>
-      <source>Mod staging</source>
-      <translation>Mod staging</translation>
     </message>
     <message>
       <source>Game executable not found on any drive.</source>
@@ -5363,10 +5125,6 @@ Doneをクリックして抽出されたファイルをクリーンアップし�
       <translation>著者による</translation>
     </message>
     <message>
-      <source>By source location</source>
-      <translation>ソースの場所</translation>
-    </message>
-    <message>
       <source>By file type</source>
       <translation>ファイルの種類別</translation>
     </message>
@@ -5650,10 +5408,6 @@ It may already be modified. Verify game files in Steam/Heroic to get a clean exe
       <translation>{0} のバージョンを認識しない。
 SHA-1:{1}
 既に変更される場合があります。 Steam/Heroic でゲームファイルを確認して、クリーンな実行を取得してからもう一度お試しください.</translation>
-    </message>
-    <message>
-      <source>Unpatched {0} detected - ready to patch.</source>
-      <translation>パッチを適用していない {0} が検出されました - パッチの準備ができています。</translation>
     </message>
     <message>
       <source>Backup found: {0}</source>
@@ -8321,28 +8075,12 @@ Run Quick Update on all of them now?</source>
       <translation>アプリイメージ</translation>
     </message>
     <message>
-      <source>.NET Framework 4.8</source>
-      <translation>.NET Framework 4.8</translation>
-    </message>
-    <message>
       <source>Download Manifest…</source>
       <translation>マニフェストをダウンロード..</translation>
     </message>
     <message>
-      <source>Wabbajack</source>
-      <translation>Wabbajack</translation>
-    </message>
-    <message>
-      <source>Browse Wabbajack modlists…</source>
-      <translation type="unfinished">Browse Wabbajack modlists…</translation>
-    </message>
-    <message>
       <source>{0} is running - switch games when it finishes.</source>
       <translation>{0}は実行中 - 終了時にゲームを切り替えます.</translation>
-    </message>
-    <message>
-      <source>{0} is running - switch profiles when it finishes.</source>
-      <translation>{0} が実行されています - 終了時にプロファイルを切り替えます。</translation>
     </message>
     <message>
       <source>VFS</source>
@@ -8411,34 +8149,6 @@ Run Quick Update on all of them now?</source>
     <message>
       <source>Could not identify any of the {0} mod(s) found.</source>
       <translation>{0} MOD(s) が見つかりませんでした.</translation>
-    </message>
-    <message>
-      <source>Wabbajack installation complete.</source>
-      <translation>Wabbajackのインストールが完了しました。</translation>
-    </message>
-    <message>
-      <source>A Wabbajack installation is running.</source>
-      <translation>Wabbajack のインストールが実行されています。</translation>
-    </message>
-    <message>
-      <source>The active profile isn't a Wabbajack profile.</source>
-      <translation>アクティブなプロファイルは Wabbajack プロファイルではありません。</translation>
-    </message>
-    <message>
-      <source>Wait for the current operation to finish before resetting the load order.</source>
-      <translation>負荷順序をリセットする前に、現在の操作が完了するのを待ちます。</translation>
-    </message>
-    <message>
-      <source>Wabbajack load-order reset</source>
-      <translation>Wabbajack load-order reset</translation>
-    </message>
-    <message>
-      <source>Resetting Wabbajack load order…</source>
-      <translation type="unfinished">Resetting Wabbajack load order…</translation>
-    </message>
-    <message>
-      <source>Wabbajack load order reset - {0} mods and {1} plugins ordered.</source>
-      <translation>Wabbajack load order reset - {0} Mod と {1} プラグインを注文しました。</translation>
     </message>
     <message>
       <source>Load order reset - {0} mods ordered, {1} kept below.</source>
@@ -8589,14 +8299,6 @@ Run Quick Update on all of them now?</source>
       <translation type="unfinished">Waiting for profile updates…</translation>
     </message>
     <message>
-      <source>Wait for the Proton installer to finish before closing Amethyst.</source>
-      <translation>Protonインストーラがアメジストを閉じる前に終了するのを待ちます。</translation>
-    </message>
-    <message>
-      <source>Pausing Wabbajack and waiting for installation and tool setup to stop safely…</source>
-      <translation type="unfinished">Pausing Wabbajack and waiting for installation and tool setup to stop safely…</translation>
-    </message>
-    <message>
       <source>Extracting / Installing</source>
       <translation>抽出/インストール</translation>
     </message>
@@ -8605,32 +8307,12 @@ Run Quick Update on all of them now?</source>
       <translation>推奨OpenMWパッケージを変更する前に、ゲームを復元します.</translation>
     </message>
     <message>
-      <source>Installing .NET Framework 4.8</source>
-      <translation>Installing .NET Framework 4.8</translation>
-    </message>
-    <message>
       <source>Wizard Settings…</source>
       <translation>ウィザード設定..</translation>
     </message>
     <message>
       <source>Reset wizard tools that automatically reuse their saved Proton settings.</source>
       <translation>保存されたプロトン設定を自動的に再利用するウィザードツールをリセットします.</translation>
-    </message>
-    <message>
-      <source>Return to the game and profile shown in this wizard, then install the downloaded files.</source>
-      <translation>このウィザードに表示されるゲームとプロファイルに戻り、ダウンロードしたファイルをインストールします。</translation>
-    </message>
-    <message>
-      <source>Select a member profile before installing Workshop mods.</source>
-      <translation>ワークショップモッドをインストールする前にメンバープロファイルを選択してください。</translation>
-    </message>
-    <message>
-      <source>Wait for the running wizard tool to finish.</source>
-      <translation>実行中のウィザードツールが終了するのを待ちます。</translation>
-    </message>
-    <message>
-      <source>Workshop installation</source>
-      <translation>ワークショップのインストール</translation>
     </message>
     <message>
       <source>No QuickAutoClean tool is available for this game.</source>
@@ -8803,10 +8485,6 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
       <translation>有効/無効</translation>
     </message>
     <message>
-      <source>Nexus mod / file ID</source>
-      <translation>Nexus mod / file ID</translation>
-    </message>
-    <message>
       <source>By file type</source>
       <translation>ファイルの種類別</translation>
     </message>
@@ -8817,14 +8495,6 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
     <message>
       <source>Filter the modlist with search tags (combine them, and with text):</source>
       <translation>検索タグでモダリストをフィルタリング(それらを結合し、テキストで):</translation>
-    </message>
-    <message>
-      <source>mod.io</source>
-      <translation>mod.io</translation>
-    </message>
-    <message>
-      <source>None</source>
-      <translation>なし</translation>
     </message>
     <message>
       <source>Mods with BA2 archives</source>
@@ -8863,16 +8533,8 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
       <translation>ステープルプラグインを削除します</translation>
     </message>
     <message>
-      <source>Cancel LOOT</source>
-      <translation>戦利品をキャンセル</translation>
-    </message>
-    <message>
       <source>Refreshing LOOT metadata for {0} plugins…</source>
       <translation>{0}プラグイン用のLOOTメタデータをリフレッシュ..</translation>
-    </message>
-    <message>
-      <source>LOOT cancelled.</source>
-      <translation>LOOTはキャンセルされました。</translation>
     </message>
     <message>
       <source>Plugin metadata refreshed.</source>
@@ -9690,10 +9352,6 @@ How would you like to handle the existing mod?</source>
       <translation>サンダーストアで開く</translation>
     </message>
     <message>
-      <source>Open on Steam Workshop</source>
-      <translation>Steam ワークショップで開く</translation>
-    </message>
-    <message>
       <source>Thunderstore Actions</source>
       <translation>Thunderstore アクション</translation>
     </message>
@@ -9847,14 +9505,6 @@ How would you like to handle the existing mod?</source>
     <message>
       <source>Size</source>
       <translation>サイズ</translation>
-    </message>
-    <message>
-      <source>Nexus Mod ID</source>
-      <translation>Nexus Mod ID</translation>
-    </message>
-    <message>
-      <source>Nexus File ID</source>
-      <translation>Nexus File ID</translation>
     </message>
   </context>
   <context>
@@ -11575,37 +11225,6 @@ Daily: {1}</source>
     <message>
       <source>could not be read</source>
       <translation>読むことができません</translation>
-    </message>
-  </context>
-  <context>
-    <name>Oblivion4GbView</name>
-    <message>
-      <source>Oblivion 4GB Patch</source>
-      <translation>Oblivion 4GB patch</translation>
-    </message>
-    <message>
-      <source>Patches Oblivion.exe so the 32-bit game can use up to 4 GB of memory on a 64-bit system.
-
-The patch is applied natively and does not require Wine or an external patcher. It does not install or load OBSE.
-
-The original exe is kept as {0}.</source>
-      <translation type="unfinished">Patches Oblivion.exe so the 32-bit game can use up to 4 GB of memory on a 64-bit system.
-
-The patch is applied natively and does not require Wine or an external patcher. It does not install or load OBSE.
-
-The original exe is kept as {0}.</translation>
-    </message>
-    <message>
-      <source>The PE header could not be read.</source>
-      <translation>PE ヘッダーを読み込めませんでした。</translation>
-    </message>
-    <message>
-      <source>{0} is not a supported Windows executable.
-{1}
-Verify the game files in Steam and try again.</source>
-      <translation>{0} はサポートされている Windows 実行ファイルではありません。
-{1}
-Steamでゲームファイルを確認して再度お試し下さい。</translation>
     </message>
   </context>
   <context>
@@ -13791,37 +13410,6 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     </message>
   </context>
   <context>
-    <name>RequirementsSummary</name>
-    <message>
-      <source>Check requirements to verify game files, available space and runtime requirements. Review the results before installing.</source>
-      <translation>ゲームファイル、空き容量、ランタイムの要件を確認するために要件をチェックします。インストールする前に結果を確認してください。</translation>
-    </message>
-    <message>
-      <source>{0} blocking</source>
-      <translation type="unfinished">{0} blocking</translation>
-    </message>
-    <message>
-      <source>1 needs your input</source>
-      <translation>1にはあなたの入力が必要です</translation>
-    </message>
-    <message>
-      <source>{0} need your input</source>
-      <translation>{0} はあなたの入力が必要です</translation>
-    </message>
-    <message>
-      <source>{0} to review</source>
-      <translation>レビューする{0}</translation>
-    </message>
-    <message>
-      <source>Requirements passed</source>
-      <translation>要件が合格しました</translation>
-    </message>
-    <message>
-      <source>Passed ({0})</source>
-      <translation>合格（{0}）</translation>
-    </message>
-  </context>
-  <context>
     <name>RequirementsView</name>
     <message>
       <source>Requirements</source>
@@ -15125,14 +14713,6 @@ flatpak リモート追加 --user amethyst https://chrisdkn.github.io/Amethyst-M
       <translation>Crowdin で翻訳</translation>
     </message>
     <message>
-      <source>Decrease {0}</source>
-      <translation>{0}減少</translation>
-    </message>
-    <message>
-      <source>Increase {0}</source>
-      <translation>{0}増加</translation>
-    </message>
-    <message>
       <source>Open the Amethyst Crowdin project to help translate the app.</source>
       <translation>アプリの翻訳を手伝うためにアメジストCrowdinのプロジェクトを開きます。</translation>
     </message>
@@ -15145,76 +14725,8 @@ flatpak リモート追加 --user amethyst https://chrisdkn.github.io/Amethyst-M
       <translation>ステータスバー</translation>
     </message>
     <message>
-      <source>Install Mod</source>
-      <translation>Install Mod</translation>
-    </message>
-    <message>
-      <source>Proton</source>
-      <translation>&lt;unk></translation>
-    </message>
-    <message>
-      <source>Wizard</source>
-      <translation>ウィザード</translation>
-    </message>
-    <message>
-      <source>Nexus</source>
-      <translation>Nexus</translation>
-    </message>
-    <message>
-      <source>Thunderstore</source>
-      <translation>Thunderstore</translation>
-    </message>
-    <message>
-      <source>Wabbajack</source>
-      <translation>Wabbajack</translation>
-    </message>
-    <message>
-      <source>Top bar</source>
-      <translation>上部バー</translation>
-    </message>
-    <message>
-      <source>Where the toolbar sits. As a side bar it is always icon-only, with the labels shown as tooltips.</source>
-      <translation>ツールバーが座る場所 サイドバーとして、ツールチップとして表示されるラベルとともに常にアイコンのみです。</translation>
-    </message>
-    <message>
-      <source>Always use compact (icon-only) buttons</source>
-      <translation>常にコンパクト（アイコンのみ）ボタンを使用する</translation>
-    </message>
-    <message>
-      <source>Keep the top bar at its narrow sizes - buttons show icons only and the game and profile selectors collapse - instead of doing so only when the window is too narrow for the labels.</source>
-      <translation>その狭いサイズでトップバーを維持 - ボタンはアイコンのみを表示し、ゲームやプロファイルセレクターが崩壊します - 代わりに、ウィンドウがラベルのためにあまりにも狭い場合にのみそうする。</translation>
-    </message>
-    <message>
-      <source>Hide buttons</source>
-      <translation>ボタンを隠す</translation>
-    </message>
-    <message>
-      <source>Buttons ticked here are removed from the toolbar. A button that does not apply to the current game (Proton without a prefix, or a store the game is not on) is hidden anyway.</source>
-      <translation>ここでチェックされたボタンはツールバーから削除されます。 現在のゲームには適用されないボタン (プレフィックスなし、またはゲームがないストア) はとにかく隠されています。</translation>
-    </message>
-    <message>
       <source>Cap the combined download speed of all downloads (collections, single mods, nxm and modl links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>
       <translation>彼らは全体の接続を使用しないように、すべてのダウンロード(コレクション、シングルMod、nxmとmodlリンク)の組み合わせのダウンロード速度を上げます。 実行中のコレクションのインストールを含め、直ちに適用されます。</translation>
-    </message>
-    <message>
-      <source>Nexus download server</source>
-      <translation>Nexusダウンロードサーバー</translation>
-    </message>
-    <message>
-      <source>Automatic</source>
-      <translation>自動</translation>
-    </message>
-    <message>
-      <source>Global CDN</source>
-      <translation>グローバル CDN</translation>
-    </message>
-    <message>
-      <source>{0} (Premium)</source>
-      <translation>{0} (プレミアム)</translation>
-    </message>
-    <message>
-      <source>Automatic follows your Nexus website preference. Regional servers require Nexus Premium. Applies to new or resumed Nexus downloads, including collections and Wabbajack. If the selected server is unavailable or fails, other available servers are tried. Pause and resume an active download to change its server.</source>
-      <translation>自動はネクサスのウェブサイトの好みに従います. 地域のサーバーはネクサスプレミアムが必要です. コレクションやWabbajackを含む新しいまたは再開ネクサスのダウンロードに適用されます. 選択したサーバーが利用できない、または失敗した場合、他の利用可能なサーバーが試されます。一時停止し、サーバーを変更するためにアクティブなダウンロードを再開します。</translation>
     </message>
     <message>
       <source>Downloads are saved to the cache but not installed. Applies to nxm:// and modl:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</source>
@@ -15379,113 +14891,6 @@ flatpak リモート追加 --user amethyst https://chrisdkn.github.io/Amethyst-M
     <message>
       <source>Failed to save setting: {0}</source>
       <translation>設定の保存に失敗しました：{0}</translation>
-    </message>
-  </context>
-  <context>
-    <name>SetupOptions</name>
-    <message>
-      <source>Use the version required by the author. Output keeps its authored position in {0}.</source>
-      <translation>作成者が必要とするバージョンを使用してください。出力は {0}の作成済みポジションを保持します。</translation>
-    </message>
-    <message>
-      <source>Run the Fallout 3 BSA Decompressor wizard, then import its complete output mod here, or select the author's .mpi package.</source>
-      <translation>Fallout 3 BSA Decompressor ウィザードを実行し、ここに完全な出力モジュールをインポートするか、作者の .mpi パッケージを選択します。</translation>
-    </message>
-    <message>
-      <source>Open mod.pub TTW page</source>
-      <translation>Open mod.pub TTW page</translation>
-    </message>
-    <message>
-      <source>Build from .mpi package</source>
-      <translation>.mpi パッケージからビルド</translation>
-    </message>
-    <message>
-      <source>Import existing output mod</source>
-      <translation>既存の出力モジュールをインポート</translation>
-    </message>
-    <message>
-      <source>Method</source>
-      <translation>方法</translation>
-    </message>
-    <message>
-      <source>Select the author-required version</source>
-      <translation>作成者が必要なバージョンを選択してください</translation>
-    </message>
-    <message>
-      <source>Browse…</source>
-      <translation type="unfinished">Browse…</translation>
-    </message>
-    <message>
-      <source>Download package…</source>
-      <translation type="unfinished">Download package…</translation>
-    </message>
-    <message>
-      <source>Download the FO3 BSA Decompressor archive from Nexus Mods, extract it, then browse to the .mpi file.</source>
-      <translation>Nexus Mods から FO3 BSA Decompressor アーカイブをダウンロードし、展開して .mpi ファイルを参照します。</translation>
-    </message>
-    <message>
-      <source>Detected automatically when installed through Steam</source>
-      <translation>Steam経由でインストールされたときに自動的に検出されます</translation>
-    </message>
-    <message>
-      <source>Original Fallout 3 game</source>
-      <translation>オリジナルFallout 3 ゲーム</translation>
-    </message>
-    <message>
-      <source>Install / update native MPI tool</source>
-      <translation>ネイティブ MPI ツールのインストール/更新</translation>
-    </message>
-    <message>
-      <source>MPI installer on GitHub</source>
-      <translation>MPI installer on GitHub</translation>
-    </message>
-    <message>
-      <source>Root file variant</source>
-      <translation>ルートファイルのバリアント</translation>
-    </message>
-    <message>
-      <source>Override</source>
-      <translation>オーバーライド</translation>
-    </message>
-    <message>
-      <source>Overrides the author's resolution in supported game INIs and display-tweak files. Leave off to keep their settings.</source>
-      <translation>サポートされているゲームのINIとdisplay-tweakファイルで著者の解像度を上書きします。設定を保持するにはオフにしてください。</translation>
-    </message>
-    <message>
-      <source>Display resolution</source>
-      <translation>解像度を表示</translation>
-    </message>
-    <message>
-      <source>Choose automatically</source>
-      <translation>自動的に選択</translation>
-    </message>
-    <message>
-      <source>Unavailable: {0}</source>
-      <translation>Unavailable: {0}</translation>
-    </message>
-    <message>
-      <source>Texture tool Proton</source>
-      <translation>テクスチャツール &lt;unk></translation>
-    </message>
-    <message>
-      <source>Automatic (GPU when available)</source>
-      <translation>自動 (使用可能な場合はGPU)</translation>
-    </message>
-    <message>
-      <source>CPU only</source>
-      <translation>CPU のみ</translation>
-    </message>
-    <message>
-      <source>Texture conversion</source>
-      <translation>テクスチャ変換</translation>
-    </message>
-    <message>
-      <source>Select extracted MPI package</source>
-      <translation>抽出された MPI パッケージを選択</translation>
-    </message>
-    <message>
-      <source>Select original game</source>
-      <translation>オリジナルのゲームを選択</translation>
     </message>
   </context>
   <context>
@@ -18518,550 +17923,6 @@ Latest:  {1}</source>
     </message>
   </context>
   <context>
-    <name>WabbajackCard</name>
-    <message>
-      <source>by {0}</source>
-      <translation>作成者： {0}</translation>
-    </message>
-    <message>
-      <source>Unknown author</source>
-      <translation>不明な作成者</translation>
-    </message>
-    <message>
-      <source>Featured</source>
-      <translation>注目の商品</translation>
-    </message>
-    <message>
-      <source>Adult</source>
-      <translation>大人</translation>
-    </message>
-    <message>
-      <source>Unavailable</source>
-      <translation>Unavailable</translation>
-    </message>
-    <message>
-      <source>Resume available</source>
-      <translation>利用可能な再開</translation>
-    </message>
-    <message>
-      <source>Update available</source>
-      <translation>アップデートがあります</translation>
-    </message>
-    <message>
-      <source>Installed</source>
-      <translation>インストール済み</translation>
-    </message>
-    <message>
-      <source>Download</source>
-      <translation>ダウンロード</translation>
-    </message>
-    <message>
-      <source>Install</source>
-      <translation>インストール</translation>
-    </message>
-    <message>
-      <source>Unknown</source>
-      <translation>不明</translation>
-    </message>
-    <message>
-      <source>View</source>
-      <translation>表示</translation>
-    </message>
-    <message>
-      <source>Installation: {0}</source>
-      <translation>インストール: {0}</translation>
-    </message>
-  </context>
-  <context>
-    <name>WabbajackView</name>
-    <message>
-      <source>Wabbajack modlists</source>
-      <translation>Wabbajack modlists</translation>
-    </message>
-    <message>
-      <source>No game selected</source>
-      <translation>ゲームが選択されていません</translation>
-    </message>
-    <message>
-      <source>All tags</source>
-      <translation>すべてのタグ</translation>
-    </message>
-    <message>
-      <source>Sort: </source>
-      <translation>並べ替え: </translation>
-    </message>
-    <message>
-      <source>Featured only</source>
-      <translation>特集のみ</translation>
-    </message>
-    <message>
-      <source>Installed</source>
-      <translation>インストール済み</translation>
-    </message>
-    <message>
-      <source>Show adult</source>
-      <translation>大人を表示</translation>
-    </message>
-    <message>
-      <source>Loading modlists…</source>
-      <translation type="unfinished">Loading modlists…</translation>
-    </message>
-    <message>
-      <source>Search titles, authors, or tags…</source>
-      <translation type="unfinished">Search titles, authors, or tags…</translation>
-    </message>
-    <message>
-      <source>Page</source>
-      <translation>ページ</translation>
-    </message>
-    <message>
-      <source>Select a game in the main toolbar</source>
-      <translation>メインツールバーでゲームを選択</translation>
-    </message>
-    <message>
-      <source>Not checked</source>
-      <translation>未チェック</translation>
-    </message>
-    <message>
-      <source>Files and locations</source>
-      <translation>ファイルと場所</translation>
-    </message>
-    <message>
-      <source>The package is loaded when you check requirements.</source>
-      <translation>パッケージは、要件を確認するときにロードされます。</translation>
-    </message>
-    <message>
-      <source>Modlist package</source>
-      <translation>Modlistパッケージ</translation>
-    </message>
-    <message>
-      <source>Reuse an existing download folder</source>
-      <translation>既存のダウンロードフォルダを再利用する</translation>
-    </message>
-    <message>
-      <source>This installation's managed directory inside the current game's .wabbajack folder.</source>
-      <translation>このインストールの管理ディレクトリは、現在のゲームの .wabbajack フォルダ内にあります。</translation>
-    </message>
-    <message>
-      <source>Downloads</source>
-      <translation>ダウンロード</translation>
-    </message>
-    <message>
-      <source>Installation</source>
-      <translation>インストール</translation>
-    </message>
-    <message>
-      <source>Chosen automatically for this game</source>
-      <translation>このゲームのために自動的に選択されました</translation>
-    </message>
-    <message>
-      <source>Profiles and options</source>
-      <translation>プロファイルとオプション</translation>
-    </message>
-    <message>
-      <source>Operation</source>
-      <translation>操作</translation>
-    </message>
-    <message>
-      <source>Profiles</source>
-      <translation>Profiles</translation>
-    </message>
-    <message>
-      <source>Linux adjustments</source>
-      <translation>Linuxの調整</translation>
-    </message>
-    <message>
-      <source>Check requirements to load the authored profiles and prepare the download plan.</source>
-      <translation>作成されたプロファイルをロードし、ダウンロードプランを準備するための要件を確認してください。</translation>
-    </message>
-    <message>
-      <source>Editing shared mod files affects every profile. INIs, enabled mods and load order stay separate.</source>
-      <translation>共有MODファイルの編集は、すべてのプロファイルに影響します。INI、有効化されたMODとロード順序は分離されたままです。</translation>
-    </message>
-    <message>
-      <source>Requirements</source>
-      <translation>要件</translation>
-    </message>
-    <message>
-      <source>Download plan</source>
-      <translation>ダウンロードプラン</translation>
-    </message>
-    <message>
-      <source>Check</source>
-      <translation>チェック</translation>
-    </message>
-    <message>
-      <source>Review</source>
-      <translation>レビュー</translation>
-    </message>
-    <message>
-      <source>Install</source>
-      <translation>インストール</translation>
-    </message>
-    <message>
-      <source>Check requirements and review the download plan.</source>
-      <translation>要件を確認し、ダウンロードプランをご確認ください。</translation>
-    </message>
-    <message>
-      <source>Review changes before updating shared files and profiles.</source>
-      <translation>共有ファイルとプロファイルを更新する前に変更を確認してください。</translation>
-    </message>
-    <message>
-      <source>File</source>
-      <translation>ファイル</translation>
-    </message>
-    <message>
-      <source>Change</source>
-      <translation>変更</translation>
-    </message>
-    <message>
-      <source>Resolution</source>
-      <translation>解像度</translation>
-    </message>
-    <message>
-      <source>No modlists match these filters.
-Try clearing your search or filters.</source>
-      <translation>これらのフィルターに一致するモデリストがありません。
-検索またはフィルターをクリアしてみてください。</translation>
-    </message>
-    <message>
-      <source>Select a game in the main toolbar to browse its modlists.</source>
-      <translation>メインツールバーでゲームを選択すると、Modリストを参照できます。</translation>
-    </message>
-    <message>
-      <source>of {0}</source>
-      <translation>の {0}</translation>
-    </message>
-    <message>
-      <source>{0} modlists</source>
-      <translation>{0} のモデリスト</translation>
-    </message>
-    <message>
-      <source>View modlist</source>
-      <translation>Modリストを表示</translation>
-    </message>
-    <message>
-      <source>Unknown</source>
-      <translation>不明</translation>
-    </message>
-    <message>
-      <source>Featured</source>
-      <translation>注目の商品</translation>
-    </message>
-    <message>
-      <source>Unavailable</source>
-      <translation>Unavailable</translation>
-    </message>
-    <message>
-      <source>Update available</source>
-      <translation>アップデートがあります</translation>
-    </message>
-    <message>
-      <source>Saved installation package</source>
-      <translation>インストールパッケージを保存しました</translation>
-    </message>
-    <message>
-      <source>Package will download from the gallery</source>
-      <translation>パッケージはギャラリーからダウンロードされます</translation>
-    </message>
-    <message>
-      <source>This list is currently unavailable for download.</source>
-      <translation>このリストは現在ダウンロードできません。</translation>
-    </message>
-    <message>
-      <source>Open Wabbajack modlist</source>
-      <translation>Wabbajack Modlistを開く</translation>
-    </message>
-    <message>
-      <source>Installation directory</source>
-      <translation>インストールディレクトリ</translation>
-    </message>
-    <message>
-      <source>Download directory</source>
-      <translation>ディレクトリをダウンロード</translation>
-    </message>
-    <message>
-      <source>Open Wabbajack URL</source>
-      <translation>Wabbajack URLを開く</translation>
-    </message>
-    <message>
-      <source>Direct .wabbajack URL:</source>
-      <translation>Direct .wabbajack URL:</translation>
-    </message>
-    <message>
-      <source>This list is currently unavailable for download. Open a local .wabbajack file to continue.</source>
-      <translation>このリストは現在ダウンロードできません。続行するにはローカル .wabbajack ファイルを開きます。</translation>
-    </message>
-    <message>
-      <source>This entry has no package download URL. Open a local .wabbajack file.</source>
-      <translation>このエントリにはパッケージのダウンロードURLがありません。ローカルの .wabbajack ファイルを開きます。</translation>
-    </message>
-    <message>
-      <source>Downloading modlist package…</source>
-      <translation type="unfinished">Downloading modlist package…</translation>
-    </message>
-    <message>
-      <source>Inspecting modlist package…</source>
-      <translation type="unfinished">Inspecting modlist package…</translation>
-    </message>
-    <message>
-      <source>{0} / {1} ({2}%)</source>
-      <translation>{0} / {1} ({2}%)</translation>
-    </message>
-    <message>
-      <source>{0} downloaded</source>
-      <translation>{0} をダウンロードしました</translation>
-    </message>
-    <message>
-      <source>Starting…</source>
-      <translation type="unfinished">Starting…</translation>
-    </message>
-    <message>
-      <source>Installing…</source>
-      <translation type="unfinished">Installing…</translation>
-    </message>
-    <message>
-      <source>Preparing tool…</source>
-      <translation type="unfinished">Preparing tool…</translation>
-    </message>
-    <message>
-      <source>Loading modlist…</source>
-      <translation type="unfinished">Loading modlist…</translation>
-    </message>
-    <message>
-      <source>Checking requirements…</source>
-      <translation type="unfinished">Checking requirements…</translation>
-    </message>
-    <message>
-      <source>Choose .wabbajack…</source>
-      <translation type="unfinished">Choose .wabbajack…</translation>
-    </message>
-    <message>
-      <source>Recheck requirements</source>
-      <translation>再確認要件</translation>
-    </message>
-    <message>
-      <source>Check requirements</source>
-      <translation>要件を確認する</translation>
-    </message>
-    <message>
-      <source>Start the selected operation using the reviewed download plan.</source>
-      <translation>レビュー済みのダウンロードプランを使用して、選択した操作を開始します。</translation>
-    </message>
-    <message>
-      <source>Load the package if needed, check requirements, and prepare the download plan for review.</source>
-      <translation>必要に応じてパッケージをロードし、要件を確認し、ダウンロード計画を作成してレビューを行います。</translation>
-    </message>
-    <message>
-      <source>Installing</source>
-      <translation>インストール中</translation>
-    </message>
-    <message>
-      <source>Installation is running. Pause and cancel are available in the progress window.</source>
-      <translation>インストールが実行されています。一時停止とキャンセルは進行中ウィンドウで利用できます。</translation>
-    </message>
-    <message>
-      <source>Wait for tool setup to finish, then check requirements again.</source>
-      <translation>ツールのセットアップが完了するのを待ってから、もう一度要件を確認してください。</translation>
-    </message>
-    <message>
-      <source>Checking…</source>
-      <translation type="unfinished">Checking…</translation>
-    </message>
-    <message>
-      <source>Loading…</source>
-      <translation type="unfinished">Loading…</translation>
-    </message>
-    <message>
-      <source>Checking game files, downloads and available space…</source>
-      <translation type="unfinished">Checking game files, downloads and available space…</translation>
-    </message>
-    <message>
-      <source>Loading the package, then checking requirements…</source>
-      <translation type="unfinished">Loading the package, then checking requirements…</translation>
-    </message>
-    <message>
-      <source>Loading the modlist's profiles and options…</source>
-      <translation type="unfinished">Loading the modlist's profiles and options…</translation>
-    </message>
-    <message>
-      <source>1 blocking</source>
-      <translation>1件ブロック</translation>
-    </message>
-    <message>
-      <source>{0} blocking</source>
-      <translation type="unfinished">{0} blocking</translation>
-    </message>
-    <message>
-      <source>Resolve the blocking requirement to continue, then recheck.</source>
-      <translation>ブロック要件を解決して続けてから再チェックします。</translation>
-    </message>
-    <message>
-      <source>Resolve the {0} blocking requirements to continue, then recheck.</source>
-      <translation>{0} ブロック要件を解決してから再チェックします。</translation>
-    </message>
-    <message>
-      <source>Ready to install</source>
-      <translation>インストールの準備ができました</translation>
-    </message>
-    <message>
-      <source>Plan ready</source>
-      <translation>プランの準備ができました</translation>
-    </message>
-    <message>
-      <source>Review the requirements and download plan, then select {0}.</source>
-      <translation>要件とダウンロードプランを確認し、 {0} を選択します。</translation>
-    </message>
-    <message>
-      <source>Package ready</source>
-      <translation>パッケージの準備ができました</translation>
-    </message>
-    <message>
-      <source>Preparing the isolated texture runtime and testing DDS conversion…</source>
-      <translation type="unfinished">Preparing the isolated texture runtime and testing DDS conversion…</translation>
-    </message>
-    <message>
-      <source>Installing the native MPI tool…</source>
-      <translation type="unfinished">Installing the native MPI tool…</translation>
-    </message>
-    <message>
-      <source>Wait for the current install or deployment operation to finish.</source>
-      <translation>現在のインストールまたはデプロイ操作が完了するのを待ちます。</translation>
-    </message>
-    <message>
-      <source>Configure the required game before installing this modlist.</source>
-      <translation>このModlistをインストールする前に、必要なゲームを設定してください。</translation>
-    </message>
-    <message>
-      <source>Checking game files, downloads, disk space, and runtime requirements…</source>
-      <translation type="unfinished">Checking game files, downloads, disk space, and runtime requirements…</translation>
-    </message>
-    <message>
-      <source>Installing / Reconstructing</source>
-      <translation>インストール/再構築</translation>
-    </message>
-    <message>
-      <source>Download complete · inspecting package…</source>
-      <translation type="unfinished">Download complete · inspecting package…</translation>
-    </message>
-    <message>
-      <source>Modlist package downloaded. Checking its contents…</source>
-      <translation>Modlistパッケージをダウンロードしました。内容を確認しています…</translation>
-    </message>
-    <message>
-      <source>Downloading modlist package: {0}</source>
-      <translation>Modlist パッケージのダウンロード: {0}</translation>
-    </message>
-    <message>
-      <source>Keep mine</source>
-      <translation>自分のものを保持</translation>
-    </message>
-    <message>
-      <source>Use author version</source>
-      <translation>著者のバージョンを使用</translation>
-    </message>
-    <message>
-      <source>Preview truncated. Review the complete files before choosing.</source>
-      <translation>切り詰められたプレビュー。選択する前に完全なファイルを確認してください。</translation>
-    </message>
-    <message>
-      <source>Binary or unreadable content. Compare the recorded hashes and file locations.</source>
-      <translation>バイナリまたは読めないコンテンツ。記録されたハッシュとファイルの場所を比較してください。</translation>
-    </message>
-    <message>
-      <source>The gallery could not be loaded. Try Refresh, or open a local .wabbajack file.</source>
-      <translation>ギャラリーを読み込めませんでした。更新するか、ローカルの .wabbajack ファイルを開いてください。</translation>
-    </message>
-    <message>
-      <source>Open download page</source>
-      <translation>ダウンロードページを開く</translation>
-    </message>
-    <message>
-      <source>Download the .wabbajack file from {0}, then use Open .wabbajack to continue setup.</source>
-      <translation>{0}から .wabbajack ファイルをダウンロードし、Open .wabbajack を使用してセットアップを続けます。</translation>
-    </message>
-    <message>
-      <source>Could not continue</source>
-      <translation>続行できませんでした</translation>
-    </message>
-    <message>
-      <source>Review the error details, then try the operation again.</source>
-      <translation>エラーの詳細を確認し、操作をもう一度お試しください。</translation>
-    </message>
-    <message>
-      <source>Using cached gallery information.</source>
-      <translation>キャッシュされたギャラリー情報を使用します。</translation>
-    </message>
-    <message>
-      <source>Gallery loaded.</source>
-      <translation>ギャラリーが読み込まれました。</translation>
-    </message>
-    <message>
-      <source> {0} feeds unavailable.</source>
-      <translation> {0} フィードは利用できません。</translation>
-    </message>
-    <message>
-      <source>Reload</source>
-      <translation>Reload</translation>
-    </message>
-    <message>
-      <source>{0} · saved package</source>
-      <translation>{0} · 保存されたパッケージ</translation>
-    </message>
-    <message>
-      <source>{0} archives · {1} files</source>
-      <translation>{0} アーカイブ · {1} ファイル</translation>
-    </message>
-    <message>
-      <source>Package ready. Check requirements to prepare the download plan.</source>
-      <translation>パッケージの準備ができました。ダウンロードプランを準備するには、要件を確認してください。</translation>
-    </message>
-    <message>
-      <source>Requirements and download plan ready. Review them before starting.</source>
-      <translation>要件とダウンロードプランの準備ができています。開始する前に確認してください。</translation>
-    </message>
-    <message>
-      <source>Resolve the listed requirements, then recheck.</source>
-      <translation>リストされた要件を解決し、再度チェックします。</translation>
-    </message>
-    <message>
-      <source>Texture tool installed. Check requirements again to refresh the download plan.</source>
-      <translation>テクスチャツールがインストールされました。ダウンロードプランを更新するには、要件をもう一度確認してください。</translation>
-    </message>
-    <message>
-      <source>Native MPI tool installed. Check requirements again to verify the selected package.</source>
-      <translation>ネイティブ MPI ツールがインストールされました。選択したパッケージを検証するために要件をもう一度確認してください。</translation>
-    </message>
-    <message>
-      <source>Paused</source>
-      <translation>一時停止</translation>
-    </message>
-    <message>
-      <source>Cancelled</source>
-      <translation>キャンセルしました</translation>
-    </message>
-    <message>
-      <source>Needs attention</source>
-      <translation>注意が必要です</translation>
-    </message>
-    <message>
-      <source>Installation complete. You can select its profiles from the main toolbar.</source>
-      <translation>インストールが完了しました。メインツールバーからプロファイルを選択できます。</translation>
-    </message>
-    <message>
-      <source>Your progress is saved. Check requirements, then select Resume to continue.</source>
-      <translation>進行状況が保存されました。要件を確認し、続行するには再開を選択してください。</translation>
-    </message>
-    <message>
-      <source>Wait for tool setup to finish before closing this tab.</source>
-      <translation>このタブを閉じる前にツールのセットアップが完了するのを待ちます。</translation>
-    </message>
-    <message>
-      <source>Pause or cancel the installation before closing this tab.</source>
-      <translation>このタブを閉じる前に、インストールを一時停止またはキャンセルします。</translation>
-    </message>
-  </context>
-  <context>
     <name>WikiView</name>
     <message>
       <source>Refresh</source>
@@ -19146,10 +18007,6 @@ Press Refresh to try again.</source>
   </context>
   <context>
     <name>WizardTools</name>
-    <message>
-      <source>Install Steam Workshop Mod</source>
-      <translation>Steam Workshop Modをインストール</translation>
-    </message>
     <message>
       <source>mod.io API Key</source>
       <translation>mod.io API キー</translation>
@@ -19383,10 +18240,6 @@ Press Refresh to try again.</source>
       <translation>ReShade をインストールする</translation>
     </message>
     <message>
-      <source>Download a Steam Workshop item and install it into this profile.</source>
-      <translation>Steam ワークショップアイテムをダウンロードし、このプロフィールにインストールしてください。</translation>
-    </message>
-    <message>
       <source>Enter a mod.io key to enable update checks for manually-installed mod.io mods.</source>
       <translation>Mod.io キーを入力して、手動でインストールされた mod.io mods の更新チェックを有効にします.</translation>
     </message>
@@ -19461,10 +18314,6 @@ Press Refresh to try again.</source>
     <message>
       <source>Patch FalloutNV.exe to use 4 GB of memory (keeps a backup that can be restored).</source>
       <translation>パッチ FalloutNV.exe を使用して 4 GB のメモリ (復元できるバックアップをキープ).</translation>
-    </message>
-    <message>
-      <source>Patch Oblivion.exe to use up to 4 GB of memory (keeps a backup that can be restored).</source>
-      <translation>4GBまでのメモリを使用するパッチOblivion.exe (復元可能なバックアップを保持します)。</translation>
     </message>
     <message>
       <source>Run the native Linux TTW installer (merges Fallout 3 + New Vegas) and add the result as a mod. Requires Fallout 3 installed and a TTW .mpi package from mod.pub.</source>
@@ -19866,149 +18715,6 @@ Reopen this wizard.</source>
     <message>
       <source>Deploy</source>
       <translation>デプロイ</translation>
-    </message>
-  </context>
-  <context>
-    <name>WorkshopView</name>
-    <message>
-      <source>Install Steam Workshop Mod</source>
-      <translation>Steam Workshop Modをインストール</translation>
-    </message>
-    <message>
-      <source>Download an individual public Workshop mod into this profile. Required Workshop items must be installed separately.</source>
-      <translation>個々の公開ワークショップモジュールをこのプロフィールにダウンロードします。必要なワークショップアイテムは個別にインストールしてください。</translation>
-    </message>
-    <message>
-      <source>Item ID or Steam Workshop URL</source>
-      <translation>アイテムIDまたはSteamワークショップURL</translation>
-    </message>
-    <message>
-      <source>Workshop item</source>
-      <translation>ワークショップアイテム</translation>
-    </message>
-    <message>
-      <source>{0} · App ID {1}</source>
-      <translation>{0} · App ID {1}</translation>
-    </message>
-    <message>
-      <source>Install into</source>
-      <translation>インストール先</translation>
-    </message>
-    <message>
-      <source>QR code (Steam mobile app)</source>
-      <translation>QRコード（チームモバイルアプリ）</translation>
-    </message>
-    <message>
-      <source>Steam account and password</source>
-      <translation>Steamアカウントとパスワード</translation>
-    </message>
-    <message>
-      <source>Saved account</source>
-      <translation>保存されたアカウント</translation>
-    </message>
-    <message>
-      <source>Anonymous (where supported)</source>
-      <translation>匿名（サポートされている場合）</translation>
-    </message>
-    <message>
-      <source>Sign in</source>
-      <translation>サインイン</translation>
-    </message>
-    <message>
-      <source>Steam account name, not display name</source>
-      <translation>Steamアカウント名は表示されません。</translation>
-    </message>
-    <message>
-      <source>Account name</source>
-      <translation>アカウント名</translation>
-    </message>
-    <message>
-      <source>Remember this account</source>
-      <translation>このアカウントを記憶する</translation>
-    </message>
-    <message>
-      <source>Keep the Steam session on this device. Enter the account name to use it for later downloads.</source>
-      <translation>Steamセッションをこのデバイスに保存します。アカウント名を入力して後でダウンロードできます。</translation>
-    </message>
-    <message>
-      <source>Forget saved account</source>
-      <translation>保存されたアカウントを削除する</translation>
-    </message>
-    <message>
-      <source>Open Workshop page</source>
-      <translation>ワークショップページを開く</translation>
-    </message>
-    <message>
-      <source>Continue sign-in</source>
-      <translation>サインインを続ける</translation>
-    </message>
-    <message>
-      <source>Install downloaded files</source>
-      <translation>ダウンロードしたファイルをインストール</translation>
-    </message>
-    <message>
-      <source>Cancel download</source>
-      <translation>ダウンロードをキャンセル</translation>
-    </message>
-    <message>
-      <source>Download and install</source>
-      <translation>ダウンロードしてインストール</translation>
-    </message>
-    <message>
-      <source>Cancel the download before closing.</source>
-      <translation>閉じる前にダウンロードをキャンセルします</translation>
-    </message>
-    <message>
-      <source>Enter your Steam account name.</source>
-      <translation>Steamアカウント名を入力してください。</translation>
-    </message>
-    <message>
-      <source>The mod installer is unavailable.</source>
-      <translation>Modインストーラは利用できません。</translation>
-    </message>
-    <message>
-      <source>Looking up Workshop item…</source>
-      <translation type="unfinished">Looking up Workshop item…</translation>
-    </message>
-    <message>
-      <source>Signed in. Downloading Workshop files…</source>
-      <translation type="unfinished">Signed in. Downloading Workshop files…</translation>
-    </message>
-    <message>
-      <source>Steam account password</source>
-      <translation>Steamアカウントのパスワード</translation>
-    </message>
-    <message>
-      <source>Steam Guard code from your email or authenticator</source>
-      <translation>あなたの電子メールまたは認証システムからSteamガードコード</translation>
-    </message>
-    <message>
-      <source>Download cancelled. Nothing was installed.</source>
-      <translation>ダウンロードはキャンセルされました。何もインストールされませんでした。</translation>
-    </message>
-    <message>
-      <source>Installed: {0}</source>
-      <translation>インストール済み: {0}</translation>
-    </message>
-    <message>
-      <source>Complete the mod installer tab to finish installation.</source>
-      <translation>MODインストーラのタブを完了してインストールを完了します。</translation>
-    </message>
-    <message>
-      <source>Installation did not complete. The download is kept so you can try again.</source>
-      <translation>インストールが完了しませんでした。ダウンロードは保持されているため、もう一度お試しください。</translation>
-    </message>
-    <message>
-      <source>Cancelling download…</source>
-      <translation type="unfinished">Cancelling download…</translation>
-    </message>
-    <message>
-      <source>Installing the downloaded mod…</source>
-      <translation type="unfinished">Installing the downloaded mod…</translation>
-    </message>
-    <message>
-      <source>Saved Steam account removed from Amethyst.</source>
-      <translation>保存されたSteamアカウントはアメジストから削除されました。</translation>
     </message>
   </context>
   <context>
