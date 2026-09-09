@@ -19,7 +19,32 @@ from Utils.atomic_write import atomic_writer
 from .diagnostics import emit, emit_exception
 from .hashes import XXHash, file_hash
 from .models import Conflict
-from .paths import WabbajackError, relative_path, within
+from .paths import WabbajackError, existing_parent, relative_path, within
+
+
+def private_work_source(source: Path, work: Path):
+    try:
+        relative = source.relative_to(work)
+    except ValueError:
+        return False
+    if ".." in relative.parts or not relative.parts:
+        return False
+    path = source.parent
+    while path != work:
+        if path.is_symlink():
+            return False
+        path = path.parent
+    return not work.is_symlink()
+
+
+def publication_copy_required(source: Path, target: Path, work: Path):
+    try:
+        info = source.lstat()
+        return not (stat.S_ISREG(info.st_mode) and info.st_nlink == 1
+                    and private_work_source(source, work)
+                    and info.st_dev == existing_parent(target).stat().st_dev)
+    except OSError:
+        return True
 
 
 class Store:
@@ -324,18 +349,7 @@ class Store:
             os.close(fd)
 
     def _private_source(self, source):
-        try:
-            relative = source.relative_to(self.work)
-        except ValueError:
-            return False
-        if ".." in relative.parts or not relative.parts:
-            return False
-        path = source.parent
-        while path != self.work:
-            if path.is_symlink():
-                return False
-            path = path.parent
-        return not self.work.is_symlink()
+        return private_work_source(source, self.work)
 
     def _place(self, source, target, wanted, stop=None, progress=None, *, synced=None,
                deferred_sync=None):

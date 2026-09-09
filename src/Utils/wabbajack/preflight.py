@@ -14,7 +14,7 @@ from .hashes import XXHash
 from .hosts import automatic_source
 from .checks import make_check
 from .models import PreflightReport
-from .paths import WabbajackError, existing_parent, source_path
+from .paths import WabbajackError, existing_parent, source_path, within
 from .diagnostics import bind, emit, emit_exception, log_request, url_host
 from .verification import parallel_verify
 
@@ -760,10 +760,26 @@ def _preflight(request, stop, notify, log=None):
     if reusable:
         check("pass", "Reusable outputs", f"{reused_bytes / 1024 ** 3:.1f} GiB verified for reuse; {len(package.archives) - len(required_archives):,} source archives are no longer needed")
     staged_bytes = sum(d.size for d in pending)
-    final_bytes = sum(d.size for d in package.directives if d.path not in ignored_directives
-                      and d.path not in root_reuse
-                      and d.path.split("/")[0].casefold() != "temp_bsa_files"
-                      and (not adapter or adapter.installed_path(d.path)))
+    from .store import publication_copy_required
+    final_bytes = 0
+    linked_reuse = copied_reuse = 0
+    for directive in package.directives:
+        published = adapter.installed_path(directive.path) if adapter else directive.path
+        if (directive.path in ignored_directives or directive.path in root_reuse
+                or directive.path.split("/")[0].casefold() == "temp_bsa_files"
+                or not published):
+            continue
+        if directive.path in stage_reuse:
+            source = within(directory / "work" / "output", directive.path)
+            target = within(directory / "root", published)
+            if not publication_copy_required(source, target, directory / "work"):
+                linked_reuse += 1
+                continue
+            copied_reuse += 1
+        final_bytes += directive.size
+    emit(log, "preflight.space.publication", required_bytes=final_bytes,
+         linked_reusable_outputs=linked_reuse,
+         copied_reusable_outputs=copied_reuse)
     profile_bytes = sum(d.size for d in package.directives if d.path.startswith("profiles/")
                         and d.path.split("/")[1] in request.profiles)
     profile_bytes += max(1, len(request.profiles)) * sum(d.size for d in package.directives if

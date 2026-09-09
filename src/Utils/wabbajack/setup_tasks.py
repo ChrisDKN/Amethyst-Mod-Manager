@@ -253,6 +253,17 @@ def _mpi_outputs(manifest, managed_roots=None):
     return outputs, root_outputs
 
 
+def _mpi_output_aliases(task, outputs):
+    if not task.id.startswith("ttw:"):
+        return None
+    aliases = {}
+    for relative in outputs:
+        path = Path(relative)
+        if path.name.casefold().startswith("new "):
+            aliases[relative.casefold()] = (path.with_name(path.name[4:]).as_posix(),)
+    return aliases or None
+
+
 def _verify_mod(task, root, stop=None, *, content=False):
     def archive(path):
         rows = records(path, allow_hash_only=True)
@@ -608,6 +619,7 @@ def run_tasks(request, store, desired, stop, progress, log=None):
                 identity["package"] = manifest["Package"]
                 managed_roots = _managed_mpi_roots(request, task)
                 expected, root_outputs = _mpi_outputs(manifest, managed_roots)
+                output_aliases = _mpi_output_aliases(task, expected)
                 tool = find_ttw_installer(request.game)
                 if not tool:
                     raise WabbajackError("The native MPI tool is missing")
@@ -645,7 +657,7 @@ def run_tasks(request, store, desired, stop, progress, log=None):
                         if _stamp(path) != stamp and file_hash(Path(path), stop) != identity["sources"][path]:
                             raise WabbajackError(f"Original game file changed during setup: {path}")
                     for rel, members in expected.items():
-                        path = source_path(built, rel)
+                        path = source_path(built, rel, aliases=output_aliases)
                         if not path.is_file():
                             raise WabbajackError(f"MPI did not produce its declared output: {rel}")
                         if members is not None:

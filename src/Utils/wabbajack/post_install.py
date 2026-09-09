@@ -56,6 +56,8 @@ def stock_sources(request, stop=None):
 
 
 def preflight_post_install(request, check, stop=None, *, reusable=None, log=None):
+    from .manifest import optional_game_file_directives
+    from .store import publication_copy_required
     started = time.monotonic()
     size = 0
     emit(log, "post_install.preflight.started",
@@ -70,21 +72,41 @@ def preflight_post_install(request, check, stop=None, *, reusable=None, log=None
                 with sqlite3.connect(database.as_uri() + "?mode=ro", uri=True) as db:
                     old = dict(db.execute("SELECT path,signature FROM outputs"))
             stock = stock_copy(request)
-            reused = 0
+            ignored = optional_game_file_directives(request.package)
+            authored = {("root/" + d.path).casefold() for d in request.package.directives
+                        if d.path not in ignored}
+            published_reuse = staged_reuse = authored_reuse = 0
             for rel, path in files:
                 key = f"root/{stock}/{rel}"
+                if key.casefold() in authored:
+                    authored_reuse += 1
+                    continue
+                source_size = path.stat().st_size
+                digest = None
                 target = within(request.directory, key)
                 if key in old and target.is_file():
                     digest = file_hash(path, stop)
                     if old[key] == "stock-copy:1:" + digest and file_hash(target, stop) == digest:
                         if reusable is not None:
                             reusable.add(key)
-                        reused += 1
+                        published_reuse += 1
                         continue
-                size += path.stat().st_size * 2
+                staged = within(request.directory / "work" / "output", f"{stock}/{rel}")
+                if staged.is_file() and not staged.is_symlink():
+                    digest = digest or file_hash(path, stop)
+                    if staged.stat().st_size == source_size and file_hash(staged, stop) == digest:
+                        staged_reuse += 1
+                        if publication_copy_required(staged, target,
+                                                     request.directory / "work"):
+                            size += source_size
+                        continue
+                size += source_size * 2
             check("pass", "Stock game setup", f"Copy {len(files):,} original game files into the managed stock game; original files remain unchanged")
             emit(log, "post_install.stock.plan", folder=stock, files=len(files),
-                 reusable_files=reused, required_bytes=size)
+                 reusable_files=published_reuse + staged_reuse,
+                 published_reusable_files=published_reuse,
+                 staged_reusable_files=staged_reuse,
+                 authored_files=authored_reuse, required_bytes=size)
         except (ValueError, OSError, sqlite3.Error) as exc:
             emit_exception(log, "post_install.stock.preflight_failed", exc)
             check("error", "Stock game setup", exc)
