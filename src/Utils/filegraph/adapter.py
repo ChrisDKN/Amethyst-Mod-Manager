@@ -388,6 +388,7 @@ class GameCandidateAdapter:
                 return False
         if (getattr(self.game, "filemap_exclude_unknown_top_level", False)
                 and mod_name not in self._top_level_exempt
+                and mod_name not in self._per_mod_deploy
                 and "/" in routed_lower):
             allowed = {
                 str(folder).lower()
