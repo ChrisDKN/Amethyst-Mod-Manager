@@ -296,8 +296,10 @@ def _resolve_plugin_paths(staging_dir: Path | None, data_dir: Path | None,
             relative = winner.source_rel.decode("utf-8", "surrogateescape")
             source_root = (overwrite_dir if winner.mod_name == _OVERWRITE_NAME
                            else staging_dir / winner.mod_name)
-            if source_root is not None:
-                paths[plugin.lower()] = source_root / relative
+            candidate = (source_root / relative
+                         if source_root is not None else None)
+            if candidate is not None and candidate.is_file():
+                paths[plugin.lower()] = candidate
 
     # 2. overwrite/ + overwrite/Data/ direct scan (plugins not yet in filemap).
     if overwrite_dir is not None and overwrite_dir.is_dir():
@@ -380,6 +382,90 @@ def _staged_top_level_plugins(game, staging: "Path | None",
     }
 
 
+def _direct_plugin_matches(directory: Path, wanted: set[str], *,
+                           scan_data_child: bool = False) -> set[str]:
+    found: set[str] = set()
+    if not wanted:
+        return found
+    children: list[Path] = []
+    try:
+        entries = os.scandir(directory)
+    except FileNotFoundError:
+        return found
+    with entries:
+        for entry in entries:
+            low = os.fsdecode(entry.name).lower()
+            if low in wanted and entry.is_file():
+                found.add(low)
+            elif (scan_data_child and low in {"data", "data files"}
+                  and entry.is_dir()):
+                children.append(Path(entry.path))
+    for child in children:
+        found.update(_direct_plugin_matches(child, wanted - found))
+    return found
+
+
+def _verified_absent_plugins(game, data_dir: Path | None, snapshot,
+                             names: list[str], cancelled
+                             ) -> "list[str] | None":
+    """Return names with no raw or directly accessible plugin file."""
+    wanted = {name.lower() for name in names}
+    if not wanted:
+        return []
+    possible: set[str] = set()
+    try:
+        for _mod_name, relative in snapshot.raw_files_by_basename(wanted):
+            text = bytes(relative).decode("utf-8", "surrogateescape")
+            possible.add(text.replace("\\", "/").rsplit("/", 1)[-1].lower())
+
+        roots: list[tuple[Path, bool]] = []
+        staging = Path(game.get_effective_mod_staging_path())
+        overwrite = Path(game.get_effective_overwrite_path())
+        roots.append((overwrite, True))
+        if data_dir is not None:
+            roots.extend(((Path(data_dir), False),
+                          (Path(data_dir).with_name(
+                              Path(data_dir).name + "_Core"), False)))
+        for root, scan_data_child in roots:
+            possible.update(_direct_plugin_matches(
+                root, wanted - possible, scan_data_child=scan_data_child))
+
+        remaining = wanted - possible
+        if remaining:
+            try:
+                mod_entries = os.scandir(staging)
+            except FileNotFoundError:
+                mod_entries = None
+            if mod_entries is not None:
+                with mod_entries:
+                    for entry in mod_entries:
+                        if cancelled():
+                            return None
+                        if not entry.is_dir():
+                            continue
+                        possible.update(_direct_plugin_matches(
+                            Path(entry.path), remaining - possible,
+                            scan_data_child=True))
+                        if remaining <= possible:
+                            break
+    except OSError as exc:
+        app_log(f"Plugins: stale-entry verification could not read a source "
+                f"directory; cleanup skipped: {exc}")
+        return None
+    except Exception as exc:
+        app_log(f"Plugins: stale-entry verification failed; cleanup skipped: "
+                f"{exc}")
+        return None
+
+    retained = [name for name in names if name.lower() in possible]
+    if retained:
+        app_log(f"Plugins: retained {len(retained)} unresolved entr(y/ies) "
+                f"because matching raw inventory entries or files still exist: "
+                f"{', '.join(retained[:20])}"
+                f"{'…' if len(retained) > 20 else ''}")
+    return [name for name in names if name.lower() not in possible]
+
+
 def load_plugins(game, profile: str,
                  cancelled=None, report: dict | None = None, snapshot=None,
                  include_bos_sp: bool = True,
@@ -395,9 +481,9 @@ def load_plugins(game, profile: str,
 
     *report* - optional dict filled with prune diagnostics for the caller:
     'prune_checked' (the phantom-prune actually ran, i.e. filemap_ok held)
-    and 'mass_prune' (names SAFETY 3 refused to auto-prune - more unresolved
-    entries than _PRUNE_MAX). An explicit Refresh uses this to offer the
-    user a confirmed cleanup the automatic path must not do on its own.
+    and 'mass_prune' (independently verified absent names SAFETY 3 refused to
+    auto-prune - more entries than _PRUNE_MAX). An explicit Refresh uses this
+    to offer the user a confirmed cleanup the automatic path must not do.
 
     *include_bos_sp* may be False for an initial render that is guaranteed to
     be followed by a snapshot-backed reload. All correctness/load-order flags
@@ -602,6 +688,12 @@ def load_plugins(game, profile: str,
                  if staged is not None and n.lower() in staged]
         unowned = [n for n in pruned
                    if staged is None or n.lower() not in staged]
+        if unowned:
+            verified = _verified_absent_plugins(
+                game, data_dir, snapshot, unowned, cancelled)
+            if cancelled():
+                return None
+            unowned = [] if verified is None else verified
         pruned_now: set[str] = set()
         if owned:
             app_log(f"Plugins: removed {len(owned)} entr(y/ies) belonging to "

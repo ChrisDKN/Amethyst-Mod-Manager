@@ -769,10 +769,9 @@ def _find_plugin_paths(
 
     for name_lower, path in (winner_paths or {}).items():
         orig = names_lower.get(name_lower.lower())
-        if orig:
+        if orig and valid(path):
             found_basenames.add(name_lower.lower())
-            if valid(path):
-                found[orig] = str(path)
+            found[orig] = str(path)
 
     for directory in (game_data_dir.with_name(game_data_dir.name + "_Core"), game_data_dir):
         if not directory.is_dir():
