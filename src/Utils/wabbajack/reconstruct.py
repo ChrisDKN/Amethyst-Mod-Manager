@@ -400,7 +400,7 @@ class Reconstruction:
             nonlocal count
             pending = {d.path: d for d in directives}
             staged = [path for path in pending if path in completed]
-            for path, digest, info in cached_files(self.output, staged):
+            for path, digest, info in cached_files(self.output, staged, verify=True):
                 d = pending[path]
                 sig = signature(d, self.request)
                 if completed[path] == (sig, digest):

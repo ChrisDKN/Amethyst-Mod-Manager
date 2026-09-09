@@ -167,12 +167,13 @@ class VerificationCache:
                     found[path] = row
         return found
 
-    def cached_files(self, root, relatives, stop=None, progress=None, log=None):
+    def cached_files(self, root, relatives, stop=None, progress=None, log=None, *, verify=False):
+        from .hashes import _file_hash
         from .paths import relative_path
         root = os.path.abspath(root)
         prefix = root.rstrip(os.sep) + os.sep
         with self._lock:
-            if self._database_exists(log):
+            if not verify and self._database_exists(log):
                 try:
                     any_rows = self._db.execute(
                         "SELECT 1 FROM verified WHERE path>=? AND path<? AND kind=? LIMIT 1",
@@ -182,8 +183,9 @@ class VerificationCache:
                     any_rows = None
             else:
                 any_rows = None
-            if not any_rows and not any(kind == "xxhash64" and path.startswith(prefix)
-                                        for path, kind in self._entries):
+            if not verify and not any_rows and not any(
+                    kind == "xxhash64" and path.startswith(prefix)
+                    for path, kind in self._entries):
                 return
         folders, ancestors = {}, set()
         for relative in relatives:
@@ -197,41 +199,57 @@ class VerificationCache:
                 parent = parent.rpartition("/")[0]
         def unreadable(exc):
             emit_exception(log, "verification.cache.directory_unreadable", exc)
-        try:
-            for directory, dirs, _, fd in os.fwalk(root, onerror=unreadable, follow_symlinks=False):
-                if stop is not None and stop.is_set():
-                    raise InterruptedError("Verification stopped")
-                relative = os.path.relpath(directory, root)
-                prefix = "" if relative == "." else relative + "/"
-                dirs[:] = [name for name in dirs if prefix + name in ancestors]
-                names = folders.get(prefix.rstrip("/"), ())
-                for offset in range(0, len(names), 256):
-                    batch = names[offset:offset + 256]
-                    paths = [os.path.join(directory, name) for name in batch]
-                    rows = self._cached_rows(paths, log)
-                    for name, path in zip(batch, paths):
-                        if stop is not None and stop.is_set():
-                            raise InterruptedError("Verification stopped")
-                        row = rows.get(path)
-                        if row is None:
-                            continue
-                        try:
-                            info = os.stat(name, dir_fd=fd, follow_symlinks=False)
-                        except OSError:
-                            continue
-                        stamp = (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
-                        if stat.S_ISREG(info.st_mode) and row[0] == stamp:
-                            with self._lock:
-                                self._hit(path, info.st_size, log)
-                            yield prefix + name, row[1], info
-                    if progress:
-                        progress(Path(paths[-1]))
-        except InterruptedError:
-            raise
-        except OSError as exc:
-            unreadable(exc)
+        def candidates():
+            try:
+                for directory, dirs, _, fd in os.fwalk(root, onerror=unreadable, follow_symlinks=False):
+                    if stop is not None and stop.is_set():
+                        raise InterruptedError("Verification stopped")
+                    relative = os.path.relpath(directory, root)
+                    prefix = "" if relative == "." else relative + "/"
+                    dirs[:] = [name for name in dirs if prefix + name in ancestors]
+                    names = folders.get(prefix.rstrip("/"), ())
+                    for offset in range(0, len(names), 256):
+                        batch = names[offset:offset + 256]
+                        paths = [os.path.join(directory, name) for name in batch]
+                        rows = self._cached_rows(paths, log)
+                        for name, path in zip(batch, paths):
+                            if stop is not None and stop.is_set():
+                                raise InterruptedError("Verification stopped")
+                            row = rows.get(path)
+                            if row is None and not verify:
+                                continue
+                            try:
+                                info = os.stat(name, dir_fd=fd, follow_symlinks=False)
+                            except OSError:
+                                continue
+                            stamp = (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+                            if stat.S_ISREG(info.st_mode):
+                                cached = row is not None and row[0] == stamp
+                                if cached or verify:
+                                    yield prefix + name, Path(path), info, row[1] if cached else None
+                        if progress:
+                            progress(Path(paths[-1]))
+            except InterruptedError:
+                raise
+            except OSError as exc:
+                unreadable(exc)
+        def checked(candidate):
+            relative, path, info, digest = candidate
+            if digest is None:
+                digest = self.read(path, "xxhash64", lambda: _file_hash(path, stop),
+                                   stop, progress, log,
+                                   detailed=info.st_size >= 1024 * 1024)
+            else:
+                with self._lock:
+                    self._hit(path, info.st_size, log)
+            return relative, digest, info
+        if verify:
+            yield from parallel_verify(checked, candidates(), stop,
+                size=lambda item: 0 if item[3] is not None else item[2].st_size)
+        else:
+            yield from map(checked, candidates())
 
-    def read(self, path, kind, operation, stop, progress, log=None):
+    def read(self, path, kind, operation, stop, progress, log=None, *, detailed=True):
         def stamp():
             value = path.stat()
             if not stat.S_ISREG(value.st_mode):
@@ -265,8 +283,9 @@ class VerificationCache:
         if progress:
             progress(path)
         started = time.monotonic()
-        emit(log, "verification.started", path=path, kind=kind,
-             bytes=before[2])
+        if detailed:
+            emit(log, "verification.started", path=path, kind=kind,
+                 bytes=before[2])
         result = operation()
         if stop is not None and stop.is_set():
             raise InterruptedError("Preflight stopped")
@@ -286,8 +305,9 @@ class VerificationCache:
                         self._pending = 0
                 except (sqlite3.Error, ValueError, TypeError) as exc:
                     self._disable(exc, log)
-        emit(log, "verification.completed", path=path, kind=kind,
-             bytes=before[2], elapsed_seconds=round(time.monotonic() - started, 3))
+        if detailed:
+            emit(log, "verification.completed", path=path, kind=kind,
+                 bytes=before[2], elapsed_seconds=round(time.monotonic() - started, 3))
         return result
 
     def _trim(self):
@@ -314,8 +334,8 @@ def verified_read(path, kind, operation):
     return cache.read(path, kind, operation, stop, progress, log)
 
 
-def cached_files(root, relatives):
+def cached_files(root, relatives, *, verify=False):
     context = _current.get()
     if context is not None:
         cache, stop, progress, log = context
-        yield from cache.cached_files(root, relatives, stop, progress, log)
+        yield from cache.cached_files(root, relatives, stop, progress, log, verify=verify)

@@ -205,7 +205,7 @@ def _reusable(request, stop, check, adapter, log=None):
         for candidate in candidates():
             pending.setdefault(candidate[1], {}).setdefault(candidate[2], []).append(candidate)
         for base, paths in pending.items():
-            for relative, digest, _ in cached_files(base, paths):
+            for relative, digest, _ in cached_files(base, paths, verify=True):
                 for path, _, _, expected, published, _ in paths.pop(relative):
                     if digest == expected:
                         (root_reuse if published else stage_reuse).add(path)
