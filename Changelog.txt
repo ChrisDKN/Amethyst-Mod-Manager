@@ -5,11 +5,12 @@
 - Disabled plugins are no longer shown in the xedit qac wizards
 - Updated flatpak to kde runtime 6.11
 - Added UI options to hide top bar buttons
+- Fixed some issues with Bain mods
 
 ---
 
 - v2.4.3
-- Fixed TTW/Mpi installer not downloading due to it's location changing
+- Fixed TTW/Mpi installer not downloading due to its location changing
 
 ---
 
