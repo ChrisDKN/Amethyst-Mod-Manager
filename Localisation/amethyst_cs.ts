@@ -1705,6 +1705,10 @@ Mezipaměť md5 je zachována. Archivy budou znovu staženy podle potřeby. Wabb
       <translation>Kryjte kombinovanou rychlost stahování této instalace. 0 = plné připojení. Platí okamžitě.</translation>
     </message>
     <message>
+      <source>Extractions:</source>
+      <translation>Výtažky:</translation>
+    </message>
+    <message>
       <source>Pause</source>
       <translation>Pauza</translation>
     </message>
@@ -9400,8 +9404,8 @@ Jak by se ti líbilo zvládnout stávající mód?</translation>
       <translation>Kořen</translation>
     </message>
     <message>
-      <source>Disable</source>
-      <translation>Zakázat</translation>
+      <source>Enabled</source>
+      <translation>Povoleno</translation>
     </message>
     <message>
       <source>The mod's files and folders as they are packaged in the archive.</source>
@@ -13053,6 +13057,14 @@ Jeho uvedené módy jsou zkopírovány do vlastní složky mods profilu (pokud m
       <translation>(přednastaveno)</translation>
     </message>
     <message>
+      <source>Hide</source>
+      <translation>Skrýt</translation>
+    </message>
+    <message>
+      <source>Hidden profiles remain available here. The active profile stays in the dropdown until you switch profiles.</source>
+      <translation>Zde zůstávají skryté profily. Aktivní profil zůstane v rozbalovacím seznamu, dokud nepřepnete profily.</translation>
+    </message>
+    <message>
       <source>Rename</source>
       <translation>Přejmenovat</translation>
     </message>
@@ -15173,6 +15185,10 @@ ametyst.flatpakrepo</translation>
       <translation>Horní lišta</translation>
     </message>
     <message>
+      <source>Bottom</source>
+      <translation>Spodní</translation>
+    </message>
+    <message>
       <source>Where the toolbar sits. As a side bar it is always icon-only, with the labels shown as tooltips.</source>
       <translation>Kde se nachází panel nástrojů. Jako postranní panel je vždy pouze ikona, s popisky zobrazenými jako nářadí.</translation>
     </message>
@@ -15384,6 +15400,22 @@ ametyst.flatpakrepo</translation>
   <context>
     <name>SetupOptions</name>
     <message>
+      <source>Additional setup</source>
+      <translation>Další nastavení</translation>
+    </message>
+    <message>
+      <source>Source games</source>
+      <translation>Zdrojové hry</translation>
+    </message>
+    <message>
+      <source>Setup tools</source>
+      <translation>Instalační nástroje</translation>
+    </message>
+    <message>
+      <source>Compatibility and display</source>
+      <translation>Slučitelnost a zobrazení</translation>
+    </message>
+    <message>
       <source>Use the version required by the author. Output keeps its authored position in {0}.</source>
       <translation>Použijte verzi vyžadovanou autorem. Výstup udržuje svou autorskou pozici v {0}.</translation>
     </message>
@@ -15402,6 +15434,10 @@ ametyst.flatpakrepo</translation>
     <message>
       <source>Import existing output mod</source>
       <translation>Importovat stávající výstupní mód</translation>
+    </message>
+    <message>
+      <source>Import output archive</source>
+      <translation>Importovat výstupní archiv</translation>
     </message>
     <message>
       <source>Method</source>
@@ -15482,6 +15518,10 @@ ametyst.flatpakrepo</translation>
     <message>
       <source>Select extracted MPI package</source>
       <translation>Vybrat extrahovaný MPI balíček</translation>
+    </message>
+    <message>
+      <source>Select output archive</source>
+      <translation>Vyberte výstupní archiv</translation>
     </message>
     <message>
       <source>Select original game</source>
@@ -18707,6 +18747,14 @@ Nejnovější verze:  {1}</translation>
       <translation>Zkontrolujte požadavky a zkontrolujte plán stahování.</translation>
     </message>
     <message>
+      <source>Options changed. Previous requirements are shown for reference; recheck to update them.</source>
+      <translation>Možnosti byly změněny. Předchozí požadavky jsou zobrazeny jako referenční; znovu zaškrtněte pro jejich aktualizaci.</translation>
+    </message>
+    <message>
+      <source>Recheck required</source>
+      <translation>Je vyžadováno opakování</translation>
+    </message>
+    <message>
       <source>Review changes before updating shared files and profiles.</source>
       <translation>Před aktualizací sdílených souborů a profilů zkontrolujte změny.</translation>
     </message>
@@ -18805,8 +18853,24 @@ Zkuste vymazat vyhledávání nebo filtry.</translation>
       <translation>Stahování modlistu…</translation>
     </message>
     <message>
+      <source>Cancel download</source>
+      <translation>Zrušit stahování</translation>
+    </message>
+    <message>
       <source>Inspecting modlist package…</source>
       <translation>Probíhá prohlídka modlistu…</translation>
+    </message>
+    <message>
+      <source>Cancelling…</source>
+      <translation>Rušení…</translation>
+    </message>
+    <message>
+      <source>Cancelling modlist package download…</source>
+      <translation>Ruší se stahování balíčku…</translation>
+    </message>
+    <message>
+      <source>Stopping the download. Any partial download will be kept so it can resume later.</source>
+      <translation type="unfinished">Stopping the download. Any partial download will be kept so it can resume later.</translation>
     </message>
     <message>
       <source>{0} / {1} ({2}%)</source>
@@ -18975,6 +19039,18 @@ Zkuste vymazat vyhledávání nebo filtry.</translation>
     <message>
       <source>The gallery could not be loaded. Try Refresh, or open a local .wabbajack file.</source>
       <translation>Galerie nemohla být načtena. Zkuste obnovit nebo otevřít místní .wabbajack soubor.</translation>
+    </message>
+    <message>
+      <source>Download cancelled</source>
+      <translation type="unfinished">Download cancelled</translation>
+    </message>
+    <message>
+      <source>Modlist package download cancelled.</source>
+      <translation type="unfinished">Modlist package download cancelled.</translation>
+    </message>
+    <message>
+      <source>Select Check requirements to resume; any partial download will be reused.</source>
+      <translation type="unfinished">Select Check requirements to resume; any partial download will be reused.</translation>
     </message>
     <message>
       <source>Open download page</source>

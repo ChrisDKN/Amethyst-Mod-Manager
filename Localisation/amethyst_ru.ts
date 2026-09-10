@@ -1705,6 +1705,10 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack 
       <translation>Сократите общую скорость загрузки этой установки. 0 = полное соединение. Применяется немедленно.</translation>
     </message>
     <message>
+      <source>Extractions:</source>
+      <translation>Извлечения:</translation>
+    </message>
+    <message>
       <source>Pause</source>
       <translation>Пауза</translation>
     </message>
@@ -9400,8 +9404,8 @@ How would you like to handle the existing mod?</source>
       <translation>Корень</translation>
     </message>
     <message>
-      <source>Disable</source>
-      <translation>Инвалид</translation>
+      <source>Enabled</source>
+      <translation>Включено</translation>
     </message>
     <message>
       <source>The mod's files and folders as they are packaged in the archive.</source>
@@ -13053,6 +13057,14 @@ Its listed mods are copied into the profile's own mods folder (hardlinked where 
       <translation>(по умолчанию)</translation>
     </message>
     <message>
+      <source>Hide</source>
+      <translation>Скрыть</translation>
+    </message>
+    <message>
+      <source>Hidden profiles remain available here. The active profile stays in the dropdown until you switch profiles.</source>
+      <translation>Здесь по-прежнему доступны скрытые профили. Активный профиль остается в выпадающем списке, пока вы не переключите профили.</translation>
+    </message>
+    <message>
       <source>Rename</source>
       <translation>Переименовать</translation>
     </message>
@@ -15173,6 +15185,10 @@ flatpak remote-add - пользователь аметист https://chrisdkn.gi
       <translation>Верхняя панель</translation>
     </message>
     <message>
+      <source>Bottom</source>
+      <translation>Внизу</translation>
+    </message>
+    <message>
       <source>Where the toolbar sits. As a side bar it is always icon-only, with the labels shown as tooltips.</source>
       <translation>Где находится панель инструментов. В качестве боковой панели всегда есть иконка, с этикетками отображаются подсказки.</translation>
     </message>
@@ -15384,6 +15400,22 @@ flatpak remote-add - пользователь аметист https://chrisdkn.gi
   <context>
     <name>SetupOptions</name>
     <message>
+      <source>Additional setup</source>
+      <translation>Дополнительные настройки</translation>
+    </message>
+    <message>
+      <source>Source games</source>
+      <translation>Исходные игры</translation>
+    </message>
+    <message>
+      <source>Setup tools</source>
+      <translation>Настроить инструменты</translation>
+    </message>
+    <message>
+      <source>Compatibility and display</source>
+      <translation>Совместимость и отображение</translation>
+    </message>
+    <message>
       <source>Use the version required by the author. Output keeps its authored position in {0}.</source>
       <translation>Используйте версию, требуемую автором. Вывод сохраняет свою авторскую позицию в {0}.</translation>
     </message>
@@ -15402,6 +15434,10 @@ flatpak remote-add - пользователь аметист https://chrisdkn.gi
     <message>
       <source>Import existing output mod</source>
       <translation>Импортировать существующий выходной мод</translation>
+    </message>
+    <message>
+      <source>Import output archive</source>
+      <translation>Импортировать выходной архив</translation>
     </message>
     <message>
       <source>Method</source>
@@ -15482,6 +15518,10 @@ flatpak remote-add - пользователь аметист https://chrisdkn.gi
     <message>
       <source>Select extracted MPI package</source>
       <translation>Выберите извлеченный пакет MPI</translation>
+    </message>
+    <message>
+      <source>Select output archive</source>
+      <translation>Выберите выходной архив</translation>
     </message>
     <message>
       <source>Select original game</source>
@@ -18707,6 +18747,14 @@ Latest:  {1}</source>
       <translation>Проверьте требования и проверьте тарифный план.</translation>
     </message>
     <message>
+      <source>Options changed. Previous requirements are shown for reference; recheck to update them.</source>
+      <translation>Параметры изменены. Предыдущие требования показаны для ссылки; перепроверьте для их обновления.</translation>
+    </message>
+    <message>
+      <source>Recheck required</source>
+      <translation>Требуется перепроверить</translation>
+    </message>
+    <message>
       <source>Review changes before updating shared files and profiles.</source>
       <translation>Просмотрите изменения перед обновлением общих файлов и профилей.</translation>
     </message>
@@ -18805,8 +18853,24 @@ Try clearing your search or filters.</translation>
       <translation>Загрузка пакета мод-листа…</translation>
     </message>
     <message>
+      <source>Cancel download</source>
+      <translation>Отменить загрузку</translation>
+    </message>
+    <message>
       <source>Inspecting modlist package…</source>
       <translation>Проверка пакета мод-листа…</translation>
+    </message>
+    <message>
+      <source>Cancelling…</source>
+      <translation>Отмена…</translation>
+    </message>
+    <message>
+      <source>Cancelling modlist package download…</source>
+      <translation>Отмена загрузки списка модулей…</translation>
+    </message>
+    <message>
+      <source>Stopping the download. Any partial download will be kept so it can resume later.</source>
+      <translation>Остановка загрузки. Любая частичная загрузка будет сохранена, чтобы возобновить ее позже.</translation>
     </message>
     <message>
       <source>{0} / {1} ({2}%)</source>
@@ -18975,6 +19039,18 @@ Try clearing your search or filters.</translation>
     <message>
       <source>The gallery could not be loaded. Try Refresh, or open a local .wabbajack file.</source>
       <translation>Галерея не может быть загружена. Попробуйте обновить или откройте локальный файл .wabbajack.</translation>
+    </message>
+    <message>
+      <source>Download cancelled</source>
+      <translation>Загрузка отменена</translation>
+    </message>
+    <message>
+      <source>Modlist package download cancelled.</source>
+      <translation>Скачивание пакета мод отменено.</translation>
+    </message>
+    <message>
+      <source>Select Check requirements to resume; any partial download will be reused.</source>
+      <translation>Выберите «Проверить требования», чтобы возобновить; любая частичная загрузка будет повторно использована.</translation>
     </message>
     <message>
       <source>Open download page</source>

@@ -1703,6 +1703,10 @@ Md5 缓存已保存。 档案将根据需要重新下载。 还清理了 Wabbaja
       <translation>控制此安装的综合下载速度 。 0=使用全线连接. 立即应用.</translation>
     </message>
     <message>
+      <source>Extractions:</source>
+      <translation>提取：</translation>
+    </message>
+    <message>
       <source>Pause</source>
       <translation>暂停</translation>
     </message>
@@ -9398,8 +9402,8 @@ How would you like to handle the existing mod?</source>
       <translation>根</translation>
     </message>
     <message>
-      <source>Disable</source>
-      <translation>禁用</translation>
+      <source>Enabled</source>
+      <translation>已启用</translation>
     </message>
     <message>
       <source>The mod's files and folders as they are packaged in the archive.</source>
@@ -13051,6 +13055,14 @@ Its listed mods are copied into the profile's own mods folder (hardlinked where 
       <translation>(默认)</translation>
     </message>
     <message>
+      <source>Hide</source>
+      <translation>隐藏</translation>
+    </message>
+    <message>
+      <source>Hidden profiles remain available here. The active profile stays in the dropdown until you switch profiles.</source>
+      <translation>隐藏的配置文件在此处仍然可用。在您切换配置文件之前，激活的配置文件将保持在下拉列表中。</translation>
+    </message>
+    <message>
       <source>Rename</source>
       <translation>重命名</translation>
     </message>
@@ -15171,6 +15183,10 @@ flatpak 远程添加-user amethyst https://chrisdkn.github.io/ Amethyst-Mod-Mana
       <translation>顶栏</translation>
     </message>
     <message>
+      <source>Bottom</source>
+      <translation>底部</translation>
+    </message>
+    <message>
       <source>Where the toolbar sits. As a side bar it is always icon-only, with the labels shown as tooltips.</source>
       <translation>工具栏坐在哪里。作为侧边栏，它总是图标，标签显示为工具提示。</translation>
     </message>
@@ -15382,6 +15398,22 @@ flatpak 远程添加-user amethyst https://chrisdkn.github.io/ Amethyst-Mod-Mana
   <context>
     <name>SetupOptions</name>
     <message>
+      <source>Additional setup</source>
+      <translation>附加设置</translation>
+    </message>
+    <message>
+      <source>Source games</source>
+      <translation>源游戏</translation>
+    </message>
+    <message>
+      <source>Setup tools</source>
+      <translation>设置工具</translation>
+    </message>
+    <message>
+      <source>Compatibility and display</source>
+      <translation>兼容性和显示</translation>
+    </message>
+    <message>
       <source>Use the version required by the author. Output keeps its authored position in {0}.</source>
       <translation>使用作者所需的版本。输出它的撰写位置在 {0} 中。</translation>
     </message>
@@ -15400,6 +15432,10 @@ flatpak 远程添加-user amethyst https://chrisdkn.github.io/ Amethyst-Mod-Mana
     <message>
       <source>Import existing output mod</source>
       <translation>导入现有输出模组</translation>
+    </message>
+    <message>
+      <source>Import output archive</source>
+      <translation>导入输出存档</translation>
     </message>
     <message>
       <source>Method</source>
@@ -15480,6 +15516,10 @@ flatpak 远程添加-user amethyst https://chrisdkn.github.io/ Amethyst-Mod-Mana
     <message>
       <source>Select extracted MPI package</source>
       <translation>选择已提取的 MPI 包</translation>
+    </message>
+    <message>
+      <source>Select output archive</source>
+      <translation>选择输出存档</translation>
     </message>
     <message>
       <source>Select original game</source>
@@ -18705,6 +18745,14 @@ Latest:  {1}</source>
       <translation>检查要求并审查下载计划。</translation>
     </message>
     <message>
+      <source>Options changed. Previous requirements are shown for reference; recheck to update them.</source>
+      <translation>选项已更改。先前的要求会显示参考；请重新检查以更新它们。</translation>
+    </message>
+    <message>
+      <source>Recheck required</source>
+      <translation>需要重新检查</translation>
+    </message>
+    <message>
       <source>Review changes before updating shared files and profiles.</source>
       <translation>在更新共享文件和配置文件之前审查更改。</translation>
     </message>
@@ -18803,8 +18851,24 @@ Try clearing your search or filters.</source>
       <translation>正在下载 modlist 软件包…</translation>
     </message>
     <message>
+      <source>Cancel download</source>
+      <translation>取消下载</translation>
+    </message>
+    <message>
       <source>Inspecting modlist package…</source>
       <translation>正在检查modlist 软件包…</translation>
+    </message>
+    <message>
+      <source>Cancelling…</source>
+      <translation type="unfinished">Cancelling…</translation>
+    </message>
+    <message>
+      <source>Cancelling modlist package download…</source>
+      <translation>正在取消modlist 软件包下载…</translation>
+    </message>
+    <message>
+      <source>Stopping the download. Any partial download will be kept so it can resume later.</source>
+      <translation>正在停止下载。任何部分下载都将被保存，以便稍后恢复。</translation>
     </message>
     <message>
       <source>{0} / {1} ({2}%)</source>
@@ -18973,6 +19037,18 @@ Try clearing your search or filters.</source>
     <message>
       <source>The gallery could not be loaded. Try Refresh, or open a local .wabbajack file.</source>
       <translation>无法加载相册。请尝试刷新，或打开本地的 .wabbajack文件。</translation>
+    </message>
+    <message>
+      <source>Download cancelled</source>
+      <translation>下载已取消</translation>
+    </message>
+    <message>
+      <source>Modlist package download cancelled.</source>
+      <translation>Modlist 软件包下载已取消。</translation>
+    </message>
+    <message>
+      <source>Select Check requirements to resume; any partial download will be reused.</source>
+      <translation>选择要恢复的检查要求，任何部分下载都将被重新使用。</translation>
     </message>
     <message>
       <source>Open download page</source>
