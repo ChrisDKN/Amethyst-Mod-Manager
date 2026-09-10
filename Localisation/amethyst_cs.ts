@@ -18870,7 +18870,7 @@ Zkuste vymazat vyhledávání nebo filtry.</translation>
     </message>
     <message>
       <source>Stopping the download. Any partial download will be kept so it can resume later.</source>
-      <translation type="unfinished">Stopping the download. Any partial download will be kept so it can resume later.</translation>
+      <translation>Zastavuji stahování. Každá část stahování bude zachována, aby mohla být obnovena později.</translation>
     </message>
     <message>
       <source>{0} / {1} ({2}%)</source>
@@ -19042,15 +19042,15 @@ Zkuste vymazat vyhledávání nebo filtry.</translation>
     </message>
     <message>
       <source>Download cancelled</source>
-      <translation type="unfinished">Download cancelled</translation>
+      <translation>Stahování zrušeno</translation>
     </message>
     <message>
       <source>Modlist package download cancelled.</source>
-      <translation type="unfinished">Modlist package download cancelled.</translation>
+      <translation>Stahování balíčku Modlist bylo zrušeno.</translation>
     </message>
     <message>
       <source>Select Check requirements to resume; any partial download will be reused.</source>
-      <translation type="unfinished">Select Check requirements to resume; any partial download will be reused.</translation>
+      <translation>Vyberte požadavky kontroly pro obnovení; každé částečné stahování bude znovu použito.</translation>
     </message>
     <message>
       <source>Open download page</source>
