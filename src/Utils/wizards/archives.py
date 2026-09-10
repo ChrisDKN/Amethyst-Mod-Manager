@@ -483,10 +483,7 @@ def install_archive_payload(
             # Revert to vanilla so the extractor writes onto clean files
             # (mirrors the Tk wizard's pre-extract restore).
             log_fn("Wizard: restoring game to vanilla state…")
-            try:
-                game.restore(log_fn=log_fn)
-            except Exception as exc:
-                log_fn(f"Wizard: restore skipped or failed: {exc}")
+            game.restore(log_fn=log_fn)
 
     dest_label = {
         "mod": f"mod folder ({mod_name})",
