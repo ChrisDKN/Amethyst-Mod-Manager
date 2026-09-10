@@ -1,5 +1,6 @@
 py.install_sources(
   '__init__.py',
+  '_selftest.py',
   'custom_rules.py',
   'game_root.py',
   'incremental.py',

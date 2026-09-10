@@ -462,8 +462,7 @@ def apply_incremental(
         return key, actual, error, destination, stat_record
 
     def fatal_place(result) -> bool:
-        return result[2] is not None and getattr(
-            result[2], "errno", None) == errno.ENOSPC
+        return result[2] is not None
 
     for key, actual, error, destination, stat_record in _iter_map_batched(
             place, link_specs, stop_on=fatal_place):
@@ -471,7 +470,9 @@ def apply_incremental(
         if error is not None:
             if getattr(error, "errno", None) == errno.ENOSPC:
                 raise OSError(errno.ENOSPC, f"game drive full at {destination}")
-            log(f"  WARN: could not transfer {destination}: {error}")
+            log(f"  ERROR: could not transfer {destination}: {error} - "
+                f"aborting deploy.")
+            raise error
         else:
             linked += 1
             if actual is not None:
@@ -490,13 +491,14 @@ def apply_incremental(
 
     for destination, actual, error in _iter_map_batched(
             refill, refill_tasks,
-            stop_on=lambda result: getattr(
-                result[2], "errno", None) == errno.ENOSPC):
+            stop_on=lambda result: result[2] is not None):
         completed += 1
         if error is not None:
             if getattr(error, "errno", None) == errno.ENOSPC:
                 raise OSError(errno.ENOSPC, f"game drive full at {destination}")
-            log(f"  WARN: could not restore vanilla {destination}: {error}")
+            log(f"  ERROR: could not restore vanilla {destination}: {error} - "
+                f"aborting deploy.")
+            raise error
         elif actual is not None:
             mode_counts[actual] = mode_counts.get(actual, 0) + 1
         if progress_fn is not None and (
