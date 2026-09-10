@@ -1924,6 +1924,15 @@ def save_wizard_prefer_discrete_gpu(
         True if enabled else None)
 
 
+def load_tool_use_64bit(game, exe_name: str) -> bool:
+    return bool(_read_launch_mode_data(game).get(f"__use_64bit_{exe_name}"))
+
+
+def save_tool_use_64bit(game, exe_name: str, enabled: bool) -> None:
+    _write_launch_mode_key(
+        game, f"__use_64bit_{exe_name}", True if enabled else None)
+
+
 def load_tool_launch_env(exe: Path | None) -> str:
     """Return the saved env-var string for this exe ('' if none)."""
     if exe is None:

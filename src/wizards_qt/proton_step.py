@@ -37,6 +37,7 @@ from Utils.executables.launch import (
     save_winetricks_style, shared_prefix_dir,
     load_wizard_always_use_settings, save_wizard_always_use_settings,
     load_wizard_prefer_discrete_gpu, save_wizard_prefer_discrete_gpu,
+    load_tool_use_64bit, save_tool_use_64bit,
 )
 
 if TYPE_CHECKING:
@@ -62,6 +63,7 @@ class ProtonStepWidget(QWidget):
                  show_launch_args: bool = False,
                  default_launch_args: str = "",
                  show_discrete_gpu: bool = False,
+                 exe_64bit: Path | None = None,
                  wizard_id: str = "",
                  wizard_label: str = "",
                  wizard_label_args: tuple = ()):
@@ -73,6 +75,15 @@ class ProtonStepWidget(QWidget):
                                 "dependencies are installed into it "
                                 "automatically on the next step.")
         self._game = game
+        self._standard_exe = exe
+        self._standard_exe_name = tool_exe_name
+        self._exe_64bit = exe_64bit
+        self._use_64bit_chk = None
+        saved_64bit = (exe_64bit is not None
+                       and load_tool_use_64bit(game, tool_exe_name))
+        if saved_64bit and exe_64bit.is_file():
+            exe = exe_64bit
+            tool_exe_name = exe.name
         self._exe = exe
         self._tool_exe_name = tool_exe_name
         self._tool_display_name = tool_display_name
@@ -140,6 +151,16 @@ class ProtonStepWidget(QWidget):
         )
         add_heading(title, intro_help)
 
+        if exe_64bit is not None:
+            self._use_64bit_chk = QCheckBox(self.tr("Use 64-bit version"))
+            self._use_64bit_chk.setChecked(exe == exe_64bit)
+            self._use_64bit_chk.setEnabled(exe_64bit.is_file())
+            help_text = self.tr("Run the 64-bit executable from the Optional folder.")
+            if not exe_64bit.is_file():
+                help_text += "\n" + self.tr("Not found: {0}").format(exe_64bit)
+            add_help_control(self._use_64bit_chk, help_text)
+            self._use_64bit_chk.toggled.connect(self._on_64bit_toggle)
+
         from Utils.launchers.steam import list_installed_proton
         self._versions = [s.parent.name for s in list_installed_proton()]
         self._no_versions_label = QLabel(self.tr(
@@ -179,6 +200,11 @@ class ProtonStepWidget(QWidget):
                     "Choose another version.").format(saved_proton)
         if mode == PREFIX_MODE_GAME and not (allow_game_prefix and game_pfx_ok):
             mode = PREFIX_MODE_ISOLATED
+
+        if saved_64bit and not exe_64bit.is_file():
+            self._remember_warning = self.tr(
+                "The saved 64-bit executable was not found: {0}\n"
+                "Continue to use the standard version instead.").format(exe_64bit)
 
         if self._remember_warning:
             warning = QLabel(self._remember_warning)
@@ -411,6 +437,19 @@ class ProtonStepWidget(QWidget):
             and self._prefer_discrete_gpu_cb.isChecked()
         )
 
+    def selected_exe(self) -> Path:
+        return self._exe
+
+    def _on_64bit_toggle(self, enabled: bool):
+        self._exe = self._exe_64bit if enabled else self._standard_exe
+        self._tool_exe_name = (
+            self._exe.name if enabled else self._standard_exe_name)
+        if self._args_entry is not None:
+            self._args_entry.setText(
+                load_tool_launch_args(self._exe) or self._default_launch_args)
+        self._env_entry.setText(load_tool_launch_env(self._exe))
+        self._update_prefix_delete_state()
+
     def _on_shared_toggle(self, on: bool):
         if on and self._game_chk is not None:
             self._game_chk.setChecked(False)
@@ -476,6 +515,10 @@ class ProtonStepWidget(QWidget):
     def _save_and_continue(self):
         mode = self._current_prefix_mode()
         name = self._proton_combo.currentText()
+        if self._use_64bit_chk is not None:
+            save_tool_use_64bit(
+                self._game, self._standard_exe_name,
+                self._use_64bit_chk.isChecked())
         save_proton_override(self._game, self._tool_exe_name, name)
         save_prefix_mode(self._game, self._tool_exe_name, mode)
         wt = self._winetricks_chk.isChecked()
