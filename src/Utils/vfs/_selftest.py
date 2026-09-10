@@ -2255,6 +2255,124 @@ def test_external_separator_cleanup_failure_is_retryable() -> None:
     print("✓ external separator cleanup retains recovery state for retry")
 
 
+def _custom_deploy_log_fixture(root: Path, relative: str = "payload.txt"):
+    profile = root / "profile"
+    staging = profile / "mods"
+    deploy_dir = root / "game" / "Data"
+    custom_dir = root / "custom"
+    source = staging / "Fixture" / relative
+    source.parent.mkdir(parents=True)
+    source.write_text("mod payload", encoding="utf-8", errors="surrogateescape")
+    deploy_dir.mkdir(parents=True)
+    custom_dir.mkdir()
+    filemap = profile / "filemap.txt"
+    filemap.write_text("fixture", encoding="utf-8")
+    entry = types.SimpleNamespace(
+        legacy_rel=relative,
+        mod_name="Fixture",
+        source_root=source.parent,
+        source_rel=os.fsencode(source.name),
+        destination=relative,
+    )
+
+    def deploy():
+        with patch("Utils.filegraph.deploy.entries", return_value=(entry,)):
+            return deploy_filemap(
+                filemap,
+                deploy_dir,
+                staging,
+                mode=LinkMode.HARDLINK,
+                per_mod_deploy_dirs={"Fixture": custom_dir},
+                per_mod_link_modes={"Fixture": LinkMode.HARDLINK},
+            )
+
+    return deploy, profile / "custom_deploy_log.txt", custom_dir / relative
+
+
+def test_custom_deploy_initial_log_failure_aborts_before_mutation() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        deploy, log_path, target = _custom_deploy_log_fixture(Path(tmp))
+        error = PermissionError("injected recovery-log write failure")
+
+        caught = None
+        with patch(
+            "Utils.deployment.standard.write_atomic_text",
+            side_effect=error,
+        ) as write_log:
+            try:
+                deploy()
+            except PermissionError as exc:
+                caught = exc
+        write_log.assert_called_once_with(
+            log_path,
+            str(target),
+            errors="surrogateescape",
+        )
+        assert caught is error, (
+            "initial recovery-log failure was suppressed; "
+            f"custom destination mutated={target.exists()}"
+        )
+        assert not target.exists()
+
+
+def test_custom_deploy_writes_recovery_log_and_payload() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        deploy, log_path, target = _custom_deploy_log_fixture(Path(tmp))
+        linked, _placed = deploy()
+        assert linked == 1
+        assert target.read_text(encoding="utf-8") == "mod payload"
+        assert log_path.read_text(
+            encoding="utf-8", errors="surrogateescape").splitlines() == [
+                str(target),
+            ]
+
+
+def test_custom_deploy_later_log_failure_preserves_previous_log() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        deploy, log_path, target = _custom_deploy_log_fixture(Path(tmp))
+        error = OSError("injected later recovery-log replace failure")
+        real_replace = Path.replace
+        previous_log: list[bytes] = []
+        log_replaces = 0
+
+        def fail_second_log_replace(path: Path, destination: Path):
+            nonlocal log_replaces
+            if Path(destination) == log_path:
+                log_replaces += 1
+                if log_replaces == 2:
+                    previous_log.append(log_path.read_bytes())
+                    raise error
+            return real_replace(path, destination)
+
+        caught = None
+        with patch.object(Path, "replace", fail_second_log_replace):
+            try:
+                deploy()
+            except OSError as exc:
+                caught = exc
+        assert caught is error
+        assert target.exists()
+        assert log_replaces == 2
+        assert log_path.read_bytes() == previous_log[0]
+        assert log_path.read_text(
+            encoding="utf-8", errors="surrogateescape").splitlines() == [
+                str(target),
+            ]
+        assert not list(log_path.parent.glob("custom_deploy_log.txt.tmp-*"))
+
+
+def test_custom_deploy_log_preserves_surrogateescaped_paths() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        relative = os.fsdecode(b"non-utf8-\xff.bin")
+        deploy, log_path, target = _custom_deploy_log_fixture(
+            Path(tmp), relative=relative)
+        linked, _placed = deploy()
+        assert linked == 1
+        assert target.read_text(
+            encoding="utf-8", errors="surrogateescape") == "mod payload"
+        assert log_path.read_bytes().splitlines() == [os.fsencode(str(target))]
+
+
 def test_ue5_nested_project_shadow_view() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         game = _FakeUE5Game(Path(tmp))
@@ -5198,6 +5316,10 @@ def main() -> None:
     test_custom_rule_symlink_restore_and_redeploy_self_heal()
     test_custom_rule_prefix_restore_failure_is_retryable()
     test_external_separator_cleanup_failure_is_retryable()
+    test_custom_deploy_initial_log_failure_aborts_before_mutation()
+    test_custom_deploy_writes_recovery_log_and_payload()
+    test_custom_deploy_later_log_failure_preserves_previous_log()
+    test_custom_deploy_log_preserves_surrogateescaped_paths()
     test_ue5_nested_project_shadow_view()
     test_custom_ue5_factory_vfs_contract()
     test_ue5_external_routes_restore_and_failure_rollback()

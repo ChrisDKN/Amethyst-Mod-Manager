@@ -19,7 +19,7 @@ import uuid
 from pathlib import Path, PureWindowsPath
 
 from Utils.app_log import safe_log as _safe_log, app_log as _app_log
-from Utils.atomic_write import atomic_writer
+from Utils.atomic_write import atomic_writer, write_atomic_text
 from Utils.environment.paths import has_path_traversal as _has_traversal
 from Utils.deployment.shared import (
     LinkMode,
@@ -983,16 +983,19 @@ def deploy_filemap(
         shutil.rmtree(_custom_backup_dir)
 
     def _write_custom_log(paths: "list[str]") -> None:
-        try:
-            if paths:
-                # surrogateescape: custom-deploy log holds absolute dest paths
-                # that carry surrogate-escaped on-disk filename bytes.
-                _custom_log_path.write_text("\n".join(paths), encoding="utf-8",
-                                            errors="surrogateescape")
-            elif _custom_log_path.exists():
+        if paths:
+            # surrogateescape: custom-deploy log holds absolute dest paths
+            # that carry surrogate-escaped on-disk filename bytes.
+            write_atomic_text(
+                _custom_log_path,
+                "\n".join(paths),
+                errors="surrogateescape",
+            )
+        elif _custom_log_path.exists():
+            try:
                 _custom_log_path.unlink()
-        except OSError:
-            pass
+            except OSError:
+                pass
 
     # Write the custom-deploy log BEFORE the first on-disk mutation (the
     # wholesale-replace pass below): if the deploy is interrupted, cleanup
