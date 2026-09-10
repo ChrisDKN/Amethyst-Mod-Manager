@@ -633,6 +633,15 @@ def _preflight(request, stop, notify, log=None):
         (archive for archive in package.archives.values()
          if archive.kind == "GameFileSource" and archive.key in required_archives | ignored_archives),
         stop, size=lambda archive: archive.size))
+    loverslab_available = False
+    from .hosts import is_loverslab_url, source_url
+    if any(a.key in required_archives and a.key not in report.cached
+           and is_loverslab_url(source_url(a)) for a in package.archives.values()):
+        from Utils.loverslab.credentials import load_loverslab_credentials, CredentialStorageError
+        try:
+            loverslab_available = load_loverslab_credentials() is not None
+        except CredentialStorageError as exc:
+            emit(log, "loverslab.credentials.unavailable", reason=str(exc))
     game_file_problems = []
     ignored_game_file_problems = []
     for archive in package.archives.values():
@@ -668,7 +677,8 @@ def _preflight(request, stop, notify, log=None):
             continue
         if archive.key not in report.cached:
             report.download_bytes += archive.size
-            automatic = automatic_source(archive, request.premium)
+            automatic = automatic_source(archive, request.premium,
+                                         loverslab_available=loverslab_available)
             emit(log, "preflight.archive", archive=archive.name,
                  kind=archive.kind, host=url_host(archive.state.get("Url", "")),
                  bytes=archive.size, hash=archive.key,

@@ -8,6 +8,7 @@ import requests
 
 from Utils.ca_bundle import resolve_ca_bundle
 from Utils.downloads import bandwidth
+from Utils.loverslab import is_loverslab_url
 from .http import DownloadUnavailable, download_http
 from .paths import WabbajackError
 from .diagnostics import emit, url_host
@@ -26,7 +27,9 @@ def source_url(archive):
     return ""
 
 
-def automatic_source(archive, premium=False):
+def automatic_source(archive, premium=False, *, loverslab_available=False):
+    if is_loverslab_url(source_url(archive)):
+        return loverslab_available
     if archive.kind == "Mega":
         from .mega import _file_link
         try:

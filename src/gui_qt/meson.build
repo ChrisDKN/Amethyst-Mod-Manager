@@ -129,6 +129,7 @@ py.install_sources(
   'separator_settings_view.py',
   'set_prefix_overlay.py',
   'settings_view.py',
+  'settings_connections.py',
   'share_code_overlay.py',
   'shortcut_editor.py',
   'shortcuts.py',

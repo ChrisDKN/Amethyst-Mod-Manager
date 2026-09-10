@@ -1586,6 +1586,11 @@ class MainWindow(QMainWindow):
     def _open_settings_tab(self):
         return self._open_settings_modal()
 
+    def _open_connections(self, section="nexus"):
+        view = self._open_settings_modal()
+        view.show_connection(section)
+        return view
+
     def _open_install_name_patterns_tab(self):
         """Open the custom install-name rules editor scoped over the MODLIST
         panel. Re-opening focuses the existing tab."""
@@ -2862,12 +2867,8 @@ class MainWindow(QMainWindow):
                 (self.tr("Open Nexus Mods"), self._open_nexus_browser_tab),
                 (self.tr("Open game on nexus"), self._open_game_on_nexus),
                 None,
-                (self.tr("Login to Nexus"), [
-                    (self.tr("Login via SSO"), self._nexus_login_sso),
-                    (self.tr("Paste login code…"), self._nexus_paste_code),
-                    (self.tr("Clear credentials"), self._nexus_clear_credentials),
-                    (self._nxm_menu_label(), self._nexus_toggle_nxm),
-                ]),
+                (self.tr("Login to Nexus"), lambda: self._open_connections("nexus")),
+                (self._nxm_menu_label(), self._nexus_toggle_nxm),
                 (self.tr("Collections"), [
                     (self.tr("Browse collections…"), self._open_collections_tab),
                     (self.tr("Create collection…"), self._open_create_collection_tab),
@@ -4235,10 +4236,13 @@ class MainWindow(QMainWindow):
     def _start_nexus_api_init(self):
         """Restore the optional saved Nexus session without blocking paint."""
         self._nexus_api_init_deferred = False
-        if (getattr(self, "_nexus_api", None) is not None
+        if (getattr(self, "_nexus_credentials_clearing", False)
+                or getattr(self, "_nexus_api", None) is not None
                 or getattr(self, "_nexus_api_init_running", False)):
             return
         self._nexus_api_init_running = True
+        self._nexus_api_reload_pending = False
+        generation = getattr(self, "_nexus_auth_generation", 0)
         import threading
 
         def _worker():
@@ -4254,12 +4258,18 @@ class MainWindow(QMainWindow):
                     phase_started=started, lane="Nexus login",
                     category="services")
             from gui_qt.safe_emit import safe_emit
+            result["generation"] = generation
             safe_emit(self._nexus_api_initialized, result)
 
         threading.Thread(
             target=_worker, daemon=True, name="nexus-login-init").start()
 
     def _apply_nexus_api_result(self, result: dict):
+        result = result or {}
+        if (getattr(self, "_nexus_credentials_clearing", False)
+                or result.get("generation", getattr(self, "_nexus_auth_generation", 0))
+                != getattr(self, "_nexus_auth_generation", 0)):
+            return None
         error = str((result or {}).get("error") or "")
         revoked = bool((result or {}).get("revoked"))
         if error:
@@ -4284,7 +4294,12 @@ class MainWindow(QMainWindow):
 
     def _on_nexus_api_initialized(self, result):
         """UI thread: adopt the saved session built by the startup worker."""
+        result = result or {}
         self._nexus_api_init_running = False
+        if (result.get("generation", 0) != getattr(self, "_nexus_auth_generation", 0)
+                or getattr(self, "_nexus_api_reload_pending", False)):
+            self._start_nexus_api_init()
+            return
         self._apply_nexus_api_result(result or {})
         # A browser may have launched this instance with an nxm:// URL while
         # the saved-login worker was still restoring credentials. Resume those
@@ -4299,6 +4314,8 @@ class MainWindow(QMainWindow):
         Normal startup uses :meth:`_start_nexus_api_init`; this fallback keeps
         existing callers simple after that short worker has completed.
         """
+        if getattr(self, "_nexus_credentials_clearing", False):
+            return None
         if getattr(self, "_nexus_api", None) is not None:
             return self._nexus_api
         if getattr(self, "_nexus_api_init_running", False):
@@ -4309,9 +4326,10 @@ class MainWindow(QMainWindow):
     def _start_nexus_validation(self, api):
         """Validate a restored login on a worker and report through Qt."""
         import threading
+        self._nexus_validation_error = ""
 
         def _worker():
-            result = {"name": None, "error": ""}
+            result = {"name": None, "error": "", "api": api}
             try:
                 user = api.validate()
                 result["name"] = user.name
@@ -4333,10 +4351,13 @@ class MainWindow(QMainWindow):
     def _on_nexus_validated(self, result):
         """Worker reported the validated username (or an error)."""
         if isinstance(result, dict):
+            if "api" in result and result["api"] is not self._nexus_api:
+                return
             name = result.get("name")
             error = result.get("error")
         else:  # compatibility with a queued signal from pre-refactor code
             name, error = result, ""
+        self._nexus_validation_error = error
         if error:
             self._append_log(f"[nexus] validate failed: {error}")
         if name:
@@ -5369,7 +5390,7 @@ class MainWindow(QMainWindow):
             return
         api = self._ensure_nexus_api()
         if api is None:
-            self._notify(self.tr("Log in first: Nexus ▸ Login to Nexus ▸ Login via SSO."),
+            self._notify(self.tr("Log in first: Settings ▸ Connections ▸ Nexus ▸ Login via SSO."),
                          "warning")
             nxm_log("NXM link ignored - not logged in to Nexus")
             self._append_log("[nexus] NXM link ignored - not logged in")
@@ -5807,7 +5828,7 @@ class MainWindow(QMainWindow):
         # if startup couldn't (e.g. the user logged in afterwards).
         api = self._ensure_nexus_api()
         if api is None:
-            self._notify(self.tr("Log in first: Nexus ▸ Login to Nexus ▸ Login via SSO."),
+            self._notify(self.tr("Log in first: Settings ▸ Connections ▸ Nexus ▸ Login via SSO."),
                          "warning")
             self._append_log("[nexus] no OAuth tokens - login required")
             return
@@ -5919,7 +5940,7 @@ class MainWindow(QMainWindow):
             return
         api = self._ensure_nexus_api()
         if api is None:
-            self._notify(self.tr("Log in first: Nexus ▸ Login to Nexus ▸ Login via SSO."),
+            self._notify(self.tr("Log in first: Settings ▸ Connections ▸ Nexus ▸ Login via SSO."),
                          "warning")
             self._append_log("[nexus] no OAuth tokens - login required")
             return
@@ -6067,7 +6088,7 @@ class MainWindow(QMainWindow):
             return
         api = self._ensure_nexus_api()
         if api is None:
-            self._notify(self.tr("Log in first: Nexus ▸ Login to Nexus ▸ Login via SSO."),
+            self._notify(self.tr("Log in first: Settings ▸ Connections ▸ Nexus ▸ Login via SSO."),
                          "warning")
             return
         from gui_qt.collection_detail_view import CollectionDetailView
@@ -7565,19 +7586,45 @@ class MainWindow(QMainWindow):
     def _nexus_login_sso(self):
         """Start the browser OAuth flow. Keeps the client on self so the
         'Paste login code' fallback can complete the same session."""
-        from Nexus.nexus_oauth import NexusOAuthClient, CLIENT_ID
-        if not CLIENT_ID:
-            self._notify(self.tr("Nexus login is unavailable in this build."), "warning")
+        if getattr(self, "_nexus_credentials_clearing", False):
             return
-        if self._oauth_client is not None and self._oauth_client.is_running:
+        if (getattr(self, "_nexus_login_starting", False)
+                or self._oauth_client is not None and self._oauth_client.is_running):
             self._notify(self.tr("A Nexus login is already in progress."), "info")
             return
-        self._oauth_client = NexusOAuthClient(
-            on_token=lambda t: self._oauth_event.emit("token", t),
-            on_error=lambda m: self._oauth_event.emit("error", m),
-            on_status=lambda m: self._oauth_event.emit("status", m),
-        )
-        self._oauth_client.start()
+        import threading
+        if not hasattr(self, "_nexus_auth_lock"):
+            self._nexus_auth_lock = threading.Lock()
+        lock = self._nexus_auth_lock
+        self._nexus_login_starting = True
+        self._nexus_validation_error = ""
+        self._nexus_auth_generation = getattr(self, "_nexus_auth_generation", 0) + 1
+        generation = self._nexus_auth_generation
+        from gui_qt.safe_emit import safe_emit
+
+        def event(kind, value):
+            safe_emit(self._oauth_event, kind, {"generation": generation, "value": value})
+
+        def worker():
+            try:
+                from Nexus.nexus_oauth import NexusOAuthClient, CLIENT_ID
+                if not CLIENT_ID:
+                    event("error", "Nexus login is unavailable in this build.")
+                    return
+                client = NexusOAuthClient(
+                    on_token=lambda t: event("token", t),
+                    on_error=lambda m: event("error", m),
+                    on_status=lambda m: event("status", m))
+                with lock:
+                    if generation != self._nexus_auth_generation:
+                        return
+                    event("client", client)
+                    client.start()
+                event("started", None)
+            except Exception:
+                event("error", "Could not start Nexus login. Please try again.")
+
+        threading.Thread(target=worker, daemon=True, name="nexus-login-start").start()
         self._notify(self.tr("Opening browser to log in to Nexus Mods…"), "info")
 
     def _nexus_paste_code(self):
@@ -7605,15 +7652,44 @@ class MainWindow(QMainWindow):
 
     def _nexus_clear_credentials(self):
         """Forget the saved OAuth tokens + legacy API key."""
-        from Nexus.nexus_oauth import clear_oauth_tokens
-        from Nexus.nexus_api import clear_api_key
-        clear_api_key()
-        clear_oauth_tokens()
+        if getattr(self, "_nexus_credentials_clearing", False):
+            return
+        self._nexus_credentials_clearing = True
+        self._nexus_login_starting = False
+        self._nexus_validation_error = ""
+        self._nexus_auth_generation = getattr(self, "_nexus_auth_generation", 0) + 1
+        generation = self._nexus_auth_generation
+        client, self._oauth_client = self._oauth_client, None
         self._nexus_api = None
         if hasattr(self, "_nexus_footer"):
             self._nexus_footer.set_username(None)
-        self._notify(self.tr("Nexus credentials cleared."), "warning")
-        self._append_log("[nexus] credentials cleared")
+        import threading
+        from gui_qt.safe_emit import safe_emit
+        if not hasattr(self, "_nexus_auth_lock"):
+            self._nexus_auth_lock = threading.Lock()
+        lock = self._nexus_auth_lock
+
+        def worker():
+            error = False
+            try:
+                from Nexus.nexus_oauth import clear_oauth_tokens
+                from Nexus.nexus_api import clear_api_key
+                with lock:
+                    if client is not None:
+                        try:
+                            client.cancel()
+                        except Exception:
+                            pass
+                    for clear in (clear_api_key, clear_oauth_tokens):
+                        try:
+                            clear()
+                        except Exception:
+                            error = True
+            except Exception:
+                error = True
+            safe_emit(self._oauth_event, "cleared", {"generation": generation, "value": error})
+
+        threading.Thread(target=worker, daemon=True, name="nexus-credentials-clear").start()
 
     def _nxm_menu_label(self) -> str:
         """Label for the NXM toggle, reflecting the handler's state at build
@@ -7644,16 +7720,47 @@ class MainWindow(QMainWindow):
 
     def _on_oauth_event(self, kind: str, payload):
         """OAuth client callbacks marshalled onto the UI thread."""
+        if isinstance(payload, dict) and "generation" in payload:
+            if payload["generation"] != getattr(self, "_nexus_auth_generation", 0):
+                if kind == "client":
+                    import threading
+                    client = payload["value"]
+                    lock = self._nexus_auth_lock
+
+                    def cancel():
+                        with lock:
+                            client.cancel()
+
+                    threading.Thread(target=cancel, daemon=True, name="nexus-login-cancel").start()
+                return
+            payload = payload["value"]
+        if kind == "client":
+            self._oauth_client = payload
+            return
+        if kind == "started":
+            self._nexus_login_starting = False
+            return
+        if kind == "cleared":
+            self._nexus_credentials_clearing = False
+            if payload:
+                self._notify(self.tr("Could not clear Nexus credentials. Please try again."), "error")
+            else:
+                self._notify(self.tr("Nexus credentials cleared."), "warning")
+                self._append_log("[nexus] credentials cleared")
+            return
         if kind == "status":
             self._append_log(f"[nexus] {payload}")
         elif kind == "error":
+            self._nexus_login_starting = False
             self._oauth_client = None
             self._notify(self.tr("Nexus login failed: {0}").format(payload), "error")
         elif kind == "token":
+            self._nexus_login_starting = False
             # Tokens are already persisted by the client before this fires.
             self._oauth_client = None
             self._nexus_api = None
-            self._ensure_nexus_api()   # rebuild api + kick the validate() worker
+            self._nexus_api_reload_pending = True
+            self._start_nexus_api_init()
             self._notify(self.tr("Logged in to Nexus Mods."), "info")
             self._append_log("[nexus] OAuth login complete")
             # If onboarding is open, update its Nexus page (Skip → Next).
@@ -7714,7 +7821,7 @@ class MainWindow(QMainWindow):
                 self._notify(self.tr("'{0}' has no Nexus Mods page.").format(game.name), "warning")
             else:
                 self._notify(
-                    self.tr("Log in first: Nexus ▸ Login to Nexus ▸ Login via SSO."),
+                    self.tr("Log in first: Settings ▸ Connections ▸ Nexus ▸ Login via SSO."),
                     "warning")
             return
 
@@ -8190,7 +8297,7 @@ class MainWindow(QMainWindow):
         api = self._ensure_nexus_api()
         if api is None:
             self._notify(
-                self.tr("Log in first: Nexus ▸ Login to Nexus ▸ Login via SSO."),
+                self.tr("Log in first: Settings ▸ Connections ▸ Nexus ▸ Login via SSO."),
                 "warning")
             return
         game = self._gs.game
@@ -8624,7 +8731,7 @@ class MainWindow(QMainWindow):
             return
         api = self._ensure_nexus_api()
         if api is None:
-            self._notify(self.tr("Log in first: Nexus ▸ Login to Nexus ▸ Login via SSO."),
+            self._notify(self.tr("Log in first: Settings ▸ Connections ▸ Nexus ▸ Login via SSO."),
                          "warning")
             return
         staging = self._gs.staging_dir()
@@ -8982,7 +9089,7 @@ class MainWindow(QMainWindow):
             return
         api = self._ensure_nexus_api()
         if api is None:
-            self._notify(self.tr("Log in first: Nexus ▸ Login to Nexus ▸ Login via SSO."),
+            self._notify(self.tr("Log in first: Settings ▸ Connections ▸ Nexus ▸ Login via SSO."),
                          "warning")
             return
 
@@ -9353,7 +9460,7 @@ class MainWindow(QMainWindow):
             return
         api = self._ensure_nexus_api()
         if api is None:
-            self._notify(self.tr("Log in first: Nexus ▸ Login to Nexus ▸ Login via SSO."),
+            self._notify(self.tr("Log in first: Settings ▸ Connections ▸ Nexus ▸ Login via SSO."),
                          "warning")
             return
 
@@ -10744,7 +10851,7 @@ class MainWindow(QMainWindow):
             return
         api = self._ensure_nexus_api()
         if api is None:
-            self._notify(self.tr("Log in first: Nexus ▸ Login to Nexus ▸ "
+            self._notify(self.tr("Log in first: Settings ▸ Connections ▸ Nexus ▸ "
                                  "Login via SSO."), "warning")
             return
         from gui_qt.my_collections_view import MyCollectionsView
@@ -10800,7 +10907,7 @@ class MainWindow(QMainWindow):
         # Inscryption) has no Nexus domain to log in against at all.
         if (profile_export.manifest_needs_nexus(manifest)
                 and self._ensure_nexus_api() is None):
-            self._notify(self.tr("Log in first: Nexus ▸ Login to Nexus ▸ Login via SSO."),
+            self._notify(self.tr("Log in first: Settings ▸ Connections ▸ Nexus ▸ Login via SSO."),
                          "warning")
             return
         bundle_zip = path if Path(path).suffix.lower() in (".amethyst", ".zip") else ""
@@ -10823,7 +10930,7 @@ class MainWindow(QMainWindow):
         # Nexus-touching step downstream is skipped along with it.
         api = self._ensure_nexus_api()
         if api is None and _pe.manifest_needs_nexus(manifest):
-            self._notify(self.tr("Log in first: Nexus ▸ Login to Nexus ▸ Login via SSO."),
+            self._notify(self.tr("Log in first: Settings ▸ Connections ▸ Nexus ▸ Login via SSO."),
                          "warning")
             return
         # The selected game may explicitly accept additional Nexus domains.
@@ -13415,6 +13522,8 @@ class MainWindow(QMainWindow):
         *extra_kwargs* / *key_suffix* / *label* open a PARAMETERISED instance of
         a tool (right-click ▸ Open in NIF Viewer scopes it to one mod), which
         needs its own tab key so it can't refocus a differently-scoped tab."""
+        if tool.dialog_class_path == "wizards.modio_settings.ModioSettingsWizard":
+            return self._open_connections("modio")
         game = self._gs.game
         if game is None:
             return

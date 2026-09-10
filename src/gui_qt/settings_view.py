@@ -1,13 +1,13 @@
 """Settings modal opened from the top-bar gear button.
 
 The settings UI is a dimmed, in-window modal rather than a detachable or
-panel-scoped tab. Seven tabs group the existing settings into Appearance,
-Downloads, General, Shortcuts, Paths, Advanced and About while keeping every
-setting's existing save-on-change behaviour.
+panel-scoped tab. Tabs group settings into Appearance, Downloads, Connections,
+General, Shortcuts, Paths, Advanced and About.
 
 Save-on-change: every control writes straight to amethyst.ini through the
 toolkit-free `Utils.ui.config` load_*/save_* helpers the moment it changes - there
-is no Save/Cancel button. Language and UI Scale take effect on restart; themes
+is no global Save/Cancel button. Connections explicitly validate and save
+credentials. Language and UI Scale take effect on restart; themes
 are applied to the running Qt application immediately.
 
 A curated subset of the Tk Settings panel (gui/status_bar.py `SettingsPanel`):
@@ -53,6 +53,7 @@ from gui_qt.help_marker import tip_text, make_help_marker, help_mark_qss
 from gui_qt.wheel_guard import no_wheel
 from gui_qt.flow_layout import FlowLayout, enable_height_for_width
 from gui_qt.overlay_base import OverlayBase
+from gui_qt.settings_connections import ConnectionsSettingsMixin
 from Utils.ui import config as uc
 
 CROWDIN_URL = "https://crowdin.com/project/amethyst-mod-manager"
@@ -148,7 +149,7 @@ class _ThemePreviewButton(QAbstractButton):
 
 
 # ---------------------------------------------------------------------------
-class SettingsView(OverlayBase):
+class SettingsView(ConnectionsSettingsMixin, OverlayBase):
     """Save-on-change settings presented as a single in-window modal."""
 
     CARD_W = 700
@@ -161,6 +162,7 @@ class SettingsView(OverlayBase):
     # pick_folder's callback fires on the portal WORKER thread; marshal the
     # (edit, save_fn, path) result to the GUI thread before touching a widget.
     _folder_picked = Signal(object)
+    _connection_result = Signal(str, int, str, object)
 
     # Stable width for the language selector within the common settings grid.
     COMBO_W = 180
@@ -207,6 +209,8 @@ class SettingsView(OverlayBase):
         self._add_tab(
             self.tr("Downloads"), self._build_archives,
             self._build_downloads, self._build_extraction)
+        self._connections_tab_index = self._tabs.count()
+        self._add_tab(self.tr("Connections"), self._build_connections)
         self._add_tab(self.tr("General"), self._build_general)
         self._add_tab(self.tr("Shortcuts"), self._build_shortcuts)
         self._add_tab(self.tr("Paths"), self._build_paths)
@@ -223,6 +227,10 @@ class SettingsView(OverlayBase):
     def show_over(cls, host, on_closed=None):
         top = host.window() if host is not None else None
         return cls(top or host, on_closed=on_closed)
+
+    def _finish(self, result=None):
+        self._close_connections()
+        super()._finish(result)
 
     def _build_toolbar(self, outer: QVBoxLayout) -> None:
         bar = QFrame()

@@ -18,7 +18,7 @@ from .games import nexus_domain
 from .hashes import canonical_hash, hash_bytes, file_hash, verify_file
 from .paths import WabbajackError
 from .http import download_http, safe_error as _safe_error
-from .hosts import automatic_source, download_host, source_url
+from .hosts import automatic_source, download_host, source_url, is_loverslab_url
 from .diagnostics import emit, emit_exception, url_host
 from .verification import bind_verification, file_stamp, verified_replace
 
@@ -300,6 +300,14 @@ class Acquisition:
         self._started = time.monotonic()
         self.ids = {a.key: i + 1 for i, a in enumerate(request.package.archives.values())}
         self.archives = list(request.package.archives.values() if archives is None else archives)
+        self._loverslab_credentials = None
+        self._loverslab_client = None
+        if any(a.key not in report.cached and is_loverslab_url(source_url(a)) for a in self.archives):
+            from Utils.loverslab.credentials import load_loverslab_credentials, CredentialStorageError
+            try:
+                self._loverslab_credentials = load_loverslab_credentials()
+            except CredentialStorageError as exc:
+                self.cb.on_log(str(exc))
         self.cache_index = getattr(report, "cache_index", None)
         if self.cache_index is None:
             from Utils.downloads.core import get_scan_dirs
@@ -324,6 +332,9 @@ class Acquisition:
         return self
 
     def __exit__(self, *_):
+        if self._loverslab_client is not None:
+            self._loverslab_client.close()
+        self._loverslab_credentials = None
         with _active_lock:
             for key, receiver in self._nxm.items():
                 if _active.get(key) is receiver:
@@ -379,7 +390,20 @@ class Acquisition:
         return None
 
     def automatic(self, archive):
-        return archive.key in self.report.cached or archive.kind == "GameFileSource" or automatic_source(archive, self.request.premium)
+        return archive.key in self.report.cached or archive.kind == "GameFileSource" or self._automatic_source(archive)
+
+    def _automatic_source(self, archive):
+        return automatic_source(archive, self.request.premium,
+                                loverslab_available=self._loverslab_credentials is not None)
+
+    def _download_loverslab(self, archive, target, progress):
+        from Utils.loverslab.client import LoversLabClient
+        with self._lock:
+            if self._loverslab_client is None:
+                self._loverslab_client = LoversLabClient(
+                    self._loverslab_credentials, stop=self.control.stop, log=self.cb.on_log)
+            client = self._loverslab_client
+        return client.download(archive, target, progress=progress)
 
     def prefetch(self, archive):
         if (not self.control.stop.is_set() and archive.kind == "Nexus" and self.request.premium
@@ -452,6 +476,14 @@ class Acquisition:
             if manual:
                 route = "manual"
                 path = self._manual(archive, target, progress, reason)
+            elif is_loverslab_url(source_url(archive)):
+                if self._loverslab_credentials is not None:
+                    route = "loverslab"
+                    path = self._download_loverslab(archive, target, progress)
+                else:
+                    route = "manual"
+                    path = self._manual(archive, target, progress,
+                                        "Connect LoversLab in Settings → Connections to enable automatic downloads.")
             elif archive.kind in {"Http", "HTTP"}:
                 route = "http"
                 headers = {}
@@ -491,7 +523,7 @@ class Acquisition:
         except (requests.RequestException, WabbajackError) as exc:
             if self.control.stop.is_set():
                 raise InterruptedError("Installation stopped") from exc
-            if not manual and automatic_source(archive, self.request.premium):
+            if not manual and self._automatic_source(archive):
                 reason = _safe_error(exc)
                 self.cb.on_log(f"{archive.name}: automatic download needs manual assistance: {reason}")
                 emit_exception(self.cb.on_log, "acquisition.deferred_to_manual", exc,
