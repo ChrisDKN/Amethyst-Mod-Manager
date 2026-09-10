@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import codecs
 import struct
 import zlib
 from pathlib import Path
@@ -9,6 +10,22 @@ from .hashes import XXHash
 from .paths import WabbajackError, relative_path, within
 
 BLOCK = 1024 * 1024
+
+
+def utf8_chunks(stream, stop=None, *, errors="strict"):
+    decoder = codecs.getincrementaldecoder("utf-8-sig")(errors=errors)
+    while True:
+        if stop is not None and stop.is_set():
+            raise InterruptedError("Operation stopped")
+        data = stream.read(BLOCK)
+        if not data:
+            break
+        text = decoder.decode(data)
+        if text:
+            yield text
+    text = decoder.decode(b"", final=True)
+    if text:
+        yield text
 
 
 def _read(stream, size):

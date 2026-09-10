@@ -9,6 +9,7 @@ import zipfile
 from pathlib import Path
 
 from .archive_build import check_archive_state
+from .archive_io import utf8_chunks
 from .games import matches_game, token
 from .hashes import XXHash
 from .hosts import automatic_source
@@ -139,9 +140,18 @@ def _emit_game_file_problems(package, problems, check, readme="", ignored=False)
                 items.append(f"{relative} — {state}; expected xxHash64 {archive.key}")
             versions = sorted({str(a.state.get("GameVersion", "")).strip()
                                for _, _, a in entries if a.state.get("GameVersion")})
+            installed_versions = set()
+            if category == "game":
+                from Utils.executables.icon import extract_exe_version
+                installed_versions = {extract_exe_version(present)
+                                      for relative, present, _ in entries
+                                      if present is not None and _game_version_source(game, relative)}
+                installed_versions.discard("")
             detail = f"{game}: {len(entries):,} required files do not match ({', '.join(states)})."
             if versions and category != "creation_kit":
                 detail += " Package game-source snapshot: " + ", ".join(versions) + "."
+            if installed_versions:
+                detail += " Detected installed executable version: " + ", ".join(sorted(installed_versions)) + "."
             if category == "creation_kit":
                 name = "Creation Kit files"
                 detail += " Install the matching Creation Kit through Steam, select Proton for it if needed, launch it once, close it, and recheck."
@@ -158,7 +168,7 @@ def _emit_game_file_problems(package, problems, check, readme="", ignored=False)
             elif different and any(_game_version_source(game, relative)
                                    for relative, _, _ in entries):
                 name = "Game version"
-                detail += " Use the exact game build, store and language required by the author; a newer store build cannot substitute for it."
+                detail += " Use the exact game build, store and language required by the author; files from a different build cannot substitute for it."
             else:
                 name = "Required game files"
                 detail += " Verify the original game location and required content. This alone does not prove that the game executable version is wrong."
@@ -530,11 +540,16 @@ def _preflight(request, stop, notify, log=None):
                        and parts[2].casefold() in {"modlist.txt", "plugins.txt"})
             if directive.kind != "RemappedInlineFile" and not is_list:
                 continue
-            if archive.getinfo(member).file_size > 8 * 1024 * 1024:
-                check("error", "Configuration file", f"{directive.path} exceeds the 8 MiB configuration limit")
-                continue
             try:
-                lines = archive.read(member).decode("utf-8-sig").splitlines()
+                if is_list:
+                    if archive.getinfo(member).file_size > 8 * 1024 * 1024:
+                        check("error", "Configuration file", f"{directive.path} exceeds the 8 MiB profile-list limit")
+                        continue
+                    lines = archive.read(member).decode("utf-8-sig").splitlines()
+                else:
+                    with archive.open(member) as source:
+                        for _ in utf8_chunks(source, stop):
+                            pass
             except UnicodeError:
                 check("error", "Configuration file", f"{directive.path} is not UTF-8 text")
                 continue

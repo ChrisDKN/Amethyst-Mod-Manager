@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import stat
 import struct
@@ -19,11 +20,21 @@ from pathlib import Path
 
 from Utils.atomic_write import atomic_writer
 from .archive_build import rebuild_archive
+from .archive_io import utf8_chunks
 from .hashes import XXHash, canonical_hash, file_hash
 from .manifest import archive_path, optional_game_file_directives, required_directives
 from .patches import apply_octodiff
 from .paths import WabbajackError, relative_path, within, source_path, source_candidates
 from .diagnostics import emit, emit_exception
+
+
+_PATH_MAGIC = tuple(
+    "{--||" + name + "_PATH_MAGIC_" + style + "||--}"
+    for name in ("GAME", "MO2", "DOWNLOAD")
+    for style in ("BACK", "DOUBLE_BACK", "FORWARD")
+)
+_PATH_MAGIC_PATTERN = re.compile("|".join(map(re.escape, _PATH_MAGIC)))
+_PATH_MAGIC_RETAIN = max(map(len, _PATH_MAGIC)) - 1
 
 
 def _patch_source(patch_archive, directive, source, root, member, target, stop,
@@ -94,16 +105,51 @@ def signature(directive, request):
     return hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()
 
 
-def remap(text, request):
+def _remap_values(request):
     from .runtime import windows_path
     paths = {"GAME": request.game_roots.get(request.package.game, request.game.get_game_path()),
              "MO2": request.directory / "root", "DOWNLOAD": request.downloads}
+    replacements = {}
     for name, path in paths.items():
         windows = windows_path(request.game, path)
         for style, value in (("BACK", windows), ("DOUBLE_BACK", windows.replace("\\", "\\\\")),
                              ("FORWARD", windows.replace("\\", "/"))):
-            text = text.replace("{--||" + name + "_PATH_MAGIC_" + style + "||--}", value)
+            replacements["{--||" + name + "_PATH_MAGIC_" + style + "||--}"] = value
+    return replacements
+
+
+def remap(text, request):
+    for token, value in _remap_values(request).items():
+        text = text.replace(token, value)
     return text
+
+
+def _remap_prefix(text, replacements, final):
+    limit = len(text) if final else max(0, len(text) - _PATH_MAGIC_RETAIN)
+    cursor = 0
+    consumed = limit
+    pieces = []
+    for match in _PATH_MAGIC_PATTERN.finditer(text):
+        if match.start() >= limit:
+            break
+        pieces.extend((text[cursor:match.start()], replacements[match.group()]))
+        cursor = match.end()
+        consumed = max(consumed, cursor)
+    pieces.append(text[cursor:consumed])
+    return "".join(pieces), text[consumed:]
+
+
+def _remapped_bytes(source, request, stop=None):
+    replacements = _remap_values(request)
+    pending = ""
+    for chunk in utf8_chunks(source, stop):
+        pending += chunk
+        output, pending = _remap_prefix(pending, replacements, False)
+        if output:
+            yield output.replace("\n", os.linesep).encode("utf-8")
+    output, pending = _remap_prefix(pending, replacements, True)
+    if output:
+        yield output.replace("\n", os.linesep).encode("utf-8")
 
 
 def _open_zip_member(source, item, log):
@@ -857,8 +903,7 @@ class Reconstruction:
         with archive.open(member) as source, atomic_writer(
                 target, "wb", encoding=None, prepare_parent=self.store.prepare_directory) as out:
             if directive.kind == "RemappedInlineFile":
-                text = remap(source.read().decode("utf-8-sig"), self.request)
-                chunks = (text.replace("\n", os.linesep).encode("utf-8"),)
+                chunks = _remapped_bytes(source, self.request, self.control.stop)
             else:
                 chunks = iter(lambda: source.read(1024 * 1024), b"")
             for data in chunks:

@@ -38,7 +38,7 @@ _HELP = {
         "No action is required. Amethyst will omit these direct copies from the managed installation and continue. The affected paths remain listed for transparency."),
     "Game version": (
         "Files exist in the original game location, but their exact sizes or hashes differ from the source snapshot used to build this package.",
-        "Use the game build, store and language named by the author. A newer file with the same name cannot produce the declared output. If the required build is no longer available and the author provides no supported downgrade, use an updated modlist package or contact its author."),
+        "Use the game build, store and language named by the author. A file from a different build cannot produce the declared output. If the required build is no longer available and the author provides no supported downgrade, use an updated modlist package or contact its author."),
     "Creation Kit files": (
         "This package uses files installed by the game's Creation Kit as reconstruction sources. The Creation Kit is a separate Steam application and its files must match the version used by the author.",
         "Install the matching Creation Kit through Steam, select a Proton compatibility tool for it when required, and launch it once. Close it after it opens, then check requirements again. Follow the author's version requirement if the files still differ."),
@@ -118,8 +118,8 @@ _HELP = {
         "This package supplies different game-root files for different stores. Only the variant for your installation should be deployed.",
         "Choose the matching Root file variant in setup, such as Steam/GOG or Epic, then recheck."),
     "Configuration file": (
-        "A packaged configuration file is too large for the supported limit or cannot be read as the expected UTF-8 text.",
-        "Open the author's current package. If the same file remains blocked, report its path and the package version to Amethyst support and the author; the configuration or format support needs correction."),
+        "A packaged configuration file cannot be read as the expected UTF-8 text, or an authored profile list exceeds its safety limit.",
+        "Open the author's current package. If the same file remains blocked, report its path and package version to Amethyst support and the author; the file format or profile data needs correction."),
     "Affected profiles": (
         "These profiles share the installation's mod files, so changes to shared files affect all of them.",
         "Review the listed profiles before continuing. Resolve any update or repair conflicts when prompted; choose Keep mine for edits you want to retain."),
