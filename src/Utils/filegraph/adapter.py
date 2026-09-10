@@ -11,6 +11,8 @@ import fnmatch
 import hashlib
 import json
 import os
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Callable, Iterable
@@ -96,6 +98,46 @@ def _cancelled(cancel) -> bool:
 def _check_cancel(cancel) -> None:
     if _cancelled(cancel):
         raise FileGraphCancelled("filegraph operation cancelled")
+
+
+_shared_inventory = ContextVar("filegraph_shared_inventory", default=None)
+
+
+@contextmanager
+def shared_inventory_scope(inventory):
+    token = _shared_inventory.set(inventory)
+    try:
+        yield
+    finally:
+        _shared_inventory.reset(token)
+
+
+class SharedInventory:
+    """Reuse source inventory while the caller holds shared mods unchanged."""
+    def __init__(self, mods_root: Path):
+        self.root = mods_root.resolve()
+        self.files = {}
+        self.archives = {}
+
+    def key(self, root: Path):
+        resolved = root.resolve()
+        if resolved.parent != self.root:
+            return None
+        info = resolved.stat()
+        return (str(resolved), info.st_dev, info.st_ino,
+                info.st_mtime_ns, info.st_ctime_ns)
+
+    def scan(self, adapter, root: Path, cancel):
+        _check_cancel(cancel)
+        key = self.key(root)
+        if key is None:
+            return adapter._scan_root(root, cancel=cancel)
+        exclusions = frozenset(str(name).lower() for name in
+                               (getattr(adapter.game, "filemap_exclude_dirs", None) or ()))
+        key = key, exclusions
+        if key not in self.files:
+            self.files[key] = adapter._scan_root(root, cancel=cancel)
+        return self.files[key]
 
 
 def _json_default(value):
@@ -743,16 +785,22 @@ class GameCandidateAdapter:
     def build_manifest(
         self, mod_name: str, *, cancel=None,
         catalog_manifest: dict | None = None,
+        inventory: SharedInventory | None = None,
     ) -> dict:
         _check_cancel(cancel)
+        inventory = inventory if inventory is not None else _shared_inventory.get()
         if mod_name == OVERWRITE_NAME:
             root = self.overwrite
+            inventory = None
         elif mod_name == ROOT_FOLDER_NAME:
             root = self.root_folder
+            inventory = None
         else:
             root = self.staging / mod_name
         if catalog_manifest is None:
-            raw_files = self._scan_root(root, cancel=cancel) if root.is_dir() else []
+            raw_files = ((inventory.scan(self, root, cancel) if inventory is not None
+                          else self._scan_root(root, cancel=cancel))
+                         if root.is_dir() else [])
         else:
             raw_files = [
                 RawFile(
@@ -982,7 +1030,7 @@ class GameCandidateAdapter:
         if catalog_manifest is None:
             self._append_archive_candidates(
                 mod_name, root, raw_files, inventory_plugin_stems, candidates,
-                cancel=cancel)
+                cancel=cancel, inventory=inventory)
         else:
             self._append_cached_archive_candidates(
                 mod_name, raw_files, inventory_plugin_stems,
@@ -1017,6 +1065,7 @@ class GameCandidateAdapter:
         candidates: list[dict],
         *,
         cancel=None,
+        inventory: SharedInventory | None = None,
     ) -> None:
         extensions = frozenset(
             str(ext).lower()
@@ -1025,8 +1074,14 @@ class GameCandidateAdapter:
         if not extensions or not root.is_dir():
             return
         try:
-            _name, archives, _parsed = scan_mod_archives(
-                mod_name, str(root), extensions, None)
+            key = inventory.key(root) if inventory is not None else None
+            key = (key, extensions) if key is not None else None
+            archives = inventory.archives.get(key) if key is not None else None
+            if archives is None:
+                _name, archives, _parsed = scan_mod_archives(
+                    mod_name, str(root), extensions, None)
+                if key is not None:
+                    inventory.archives[key] = archives
         except Exception as exc:
             self.log(f"Archive scan warning for {mod_name}: {exc}")
             return
@@ -1253,6 +1308,7 @@ class GameCandidateAdapter:
         *,
         progress: Callable[[RefreshProgress], None] | None = None,
         cancel=None,
+        inventory: SharedInventory | None = None,
     ) -> Iterable[dict]:
         self.prepare_profile_rules()
         self._archive_units.clear()
@@ -1272,7 +1328,7 @@ class GameCandidateAdapter:
         files_scanned = archives_scanned = 0
         for index, name in enumerate(names, 1):
             _check_cancel(cancel)
-            batch = self.build_manifest(name, cancel=cancel)
+            batch = self.build_manifest(name, cancel=cancel, inventory=inventory)
             files_scanned += sum(
                 1 for candidate in batch["candidates"]
                 if candidate["kind"] != "archive_member")

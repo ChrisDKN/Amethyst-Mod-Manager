@@ -144,12 +144,20 @@ def read_member(stream, record, write, stop=None):
     _, header, segments = record
     write(header)
     for offset, packed, full, compression in segments:
+        if stop is not None and stop.is_set():
+            raise InterruptedError("Archive processing stopped")
         if packed == full == 0:
             continue
         stream.seek(offset)
         if compression == "lz4block":
             import lz4.block
-            write(lz4.block.decompress(_read(stream, packed), uncompressed_size=full))
+            decoded = lz4.block.decompress(_read(stream, packed), uncompressed_size=full)
+            if len(decoded) != full:
+                raise WabbajackError("Archive member failed decompression validation")
+            if stop is not None and stop.is_set():
+                raise InterruptedError("Archive processing stopped")
+            write(decoded)
+            del decoded
             continue
         if compression == "zlib":
             decoder = zlib.decompressobj()
@@ -180,20 +188,37 @@ def read_member(stream, record, write, stop=None):
             raise WabbajackError("Archive member failed decompression validation")
 
 
-def extract_bethesda(source, root, stop=None, progress=None, *, excluded_paths=frozenset(), aliases=None):
-    rows = [row for row in records(source, allow_case_variants=True) if relative_path(row[0]).casefold() not in excluded_paths]
+def select_bethesda(source, members=None, aliases=None):
+    rows = records(source, allow_case_variants=True)
+    with Path(source).open("rb") as stream:
+        legacy_names = ((members is not None or aliases is not None)
+                        and stream.read(8) == b"BSA\0\x67\0\0\0")
+    selected = []
+    for row in rows:
+        name = relative_path(row[0])
+        alias = name
+        if legacy_names and "+" in name:
+            alias = "/".join(part.encode("latin-1").decode("utf-7", "ignore")
+                             for part in name.split("/"))
+        if members is not None and not {name.casefold(), alias.casefold()} & members:
+            continue
+        selected.append(row)
+        if aliases is not None and alias.casefold() != name.casefold():
+            aliases.setdefault(alias.casefold(), []).append(name)
+    return selected
+
+
+def extract_bethesda(source, root, stop=None, progress=None, *, excluded_paths=frozenset(), aliases=None,
+                     members=None, selected_records=None):
+    rows = select_bethesda(source, members, aliases) if selected_records is None else selected_records
+    rows = [row for row in rows if relative_path(row[0]).casefold() not in excluded_paths]
     total = sum(len(header) + sum(c[2] for c in segments) for _, header, segments in rows)
     completed = 0
     with Path(source).open("rb") as stream:
-        legacy_names = aliases is not None and stream.read(8) == b"BSA\0\x67\0\0\0"
         for row in rows:
+            if stop is not None and stop.is_set():
+                raise InterruptedError("Archive processing stopped")
             target = within(root, row[0])
-            if legacy_names and "+" in row[0]:
-                name = relative_path(row[0])
-                alias = "/".join(part.encode("latin-1").decode("utf-7", "ignore")
-                                 for part in name.split("/"))
-                if alias.casefold() != name.casefold():
-                    aliases.setdefault(alias.casefold(), []).append(name)
             with atomic_writer(target, "wb", encoding=None) as out:
                 def write(data):
                     nonlocal completed
@@ -207,34 +232,56 @@ def extract_bethesda(source, root, stop=None, progress=None, *, excluded_paths=f
                     raise WabbajackError(f"{Path(source).name}: {row[0]}: {exc}") from exc
 
 
-def verify_archive(path, root, files, stop=None, progress=None):
+def verify_archive(path, root, files, stop=None, progress=None, *, expected_hashes=None,
+                   memory_budget=None):
     from .paths import source_path
     rows = records(path, files)
     if len(rows) != len(files):
         raise WabbajackError("Reconstructed archive member count differs")
     expected = {relative_path(f["Path"]).casefold() for f in files}
+    if expected_hashes is not None and set(expected_hashes) != expected:
+        raise WabbajackError("Reconstructed archive verification records differ")
     with Path(path).open("rb") as stream:
         for index, row in enumerate(rows):
-            if relative_path(row[0]).casefold() not in expected:
+            if stop is not None and stop.is_set():
+                raise InterruptedError("Archive processing stopped")
+            name = relative_path(row[0]).casefold()
+            if name not in expected:
                 raise WabbajackError("Reconstructed archive contains an unexpected file")
-            source = source_path(root, row[0])
             actual = XXHash()
-            skip = len(row[1])
+            skip, count = len(row[1]), 0
             def collect(data):
-                nonlocal skip
+                nonlocal skip, count
                 chunk = data[skip:]
                 skip = max(0, skip - len(data))
+                count += len(chunk)
                 actual.update(chunk)
-            read_member(stream, row, collect, stop)
-            wanted = XXHash()
-            with source.open("rb") as incoming:
-                if row[1]:
-                    header = _read(incoming, 128)
-                    if header[84:88] == b"DX10":
-                        _read(incoming, 20)
-                while data := incoming.read(BLOCK):
-                    wanted.update(data)
-            if actual.digest() != wanted.digest():
+            cost = 16 * BLOCK + max((packed + full for _, packed, full, compression in row[2]
+                                    if compression == "lz4block"), default=0)
+            if memory_budget is not None:
+                memory_budget.acquire(cost, cancel=stop)
+            try:
+                read_member(stream, row, collect, stop)
+            finally:
+                if memory_budget is not None:
+                    memory_budget.release(cost)
+            if expected_hashes is None:
+                source = source_path(root, row[0])
+                wanted, wanted_size = XXHash(), 0
+                with source.open("rb") as incoming:
+                    if row[1]:
+                        header = _read(incoming, 128)
+                        if header[84:88] == b"DX10":
+                            _read(incoming, 20)
+                    while data := incoming.read(BLOCK):
+                        if stop is not None and stop.is_set():
+                            raise InterruptedError("Archive processing stopped")
+                        wanted.update(data)
+                        wanted_size += len(data)
+                wanted_digest = wanted.digest()
+            else:
+                wanted_size, wanted_digest = expected_hashes[name]
+            if count != wanted_size or actual.digest() != wanted_digest:
                 raise WabbajackError(f"Reconstructed archive content differs: {row[0]}")
             if progress:
                 progress(index + 1, len(rows))

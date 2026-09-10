@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import gzip
 import json
+import os
 import queue
 import threading
 import time
@@ -19,9 +20,83 @@ from .paths import WabbajackError
 from .http import download_http, safe_error as _safe_error
 from .hosts import automatic_source, download_host, source_url
 from .diagnostics import emit, emit_exception, url_host
+from .verification import bind_verification, file_stamp, verified_replace
 
 _active_lock = threading.Lock()
 _active = {}
+
+
+class ArchiveCacheIndex:
+    def __init__(self, roots, sizes):
+        self.roots = tuple(dict.fromkeys(Path(root).resolve() for root in roots))
+        self.sizes = set(sizes)
+        self._folders = {}
+        self._stamps = {}
+        self._last_refresh = 0.0
+        self._lock = threading.Lock()
+
+    def include_sizes(self, sizes):
+        with self._lock:
+            added = set(sizes) - self.sizes
+            if added:
+                self.sizes.update(added)
+                self._stamps.clear()
+                self._last_refresh = 0.0
+
+    def refresh(self, stop=None, *, force=False):
+        with self._lock:
+            now = time.monotonic()
+            if not force and now - self._last_refresh < 1:
+                return
+            for root in self.roots:
+                if stop is not None and stop.is_set():
+                    raise InterruptedError("Installation stopped")
+                try:
+                    info = root.stat()
+                except FileNotFoundError:
+                    self._folders.pop(root, None)
+                    self._stamps.pop(root, None)
+                    continue
+                stamp = info.st_dev, info.st_ino, info.st_mtime_ns, info.st_ctime_ns
+                if not force and self._stamps.get(root) == stamp:
+                    continue
+                by_size = {}
+                if root.is_dir():
+                    with os.scandir(root) as entries:
+                        for entry in entries:
+                            if stop is not None and stop.is_set():
+                                raise InterruptedError("Installation stopped")
+                            try:
+                                if not entry.is_file() or entry.name.endswith((".part", ".tmp")):
+                                    continue
+                                size = entry.stat().st_size
+                            except FileNotFoundError:
+                                continue
+                            if size in self.sizes:
+                                by_size.setdefault(size, {})[Path(entry.path)] = None
+                self._folders[root] = by_size
+                self._stamps[root] = stamp
+            self._last_refresh = now
+
+    def candidates(self, size):
+        with self._lock:
+            return tuple(path for folder in self._folders.values()
+                         for path in folder.get(size, ()))
+
+    def groups(self):
+        with self._lock:
+            by_size = {}
+            for folder in self._folders.values():
+                for size, paths in folder.items():
+                    by_size.setdefault(size, []).extend(paths)
+            return by_size
+
+    def add(self, path):
+        path = Path(path).resolve()
+        size = path.stat().st_size
+        with self._lock:
+            if path.parent in self.roots and size in self.sizes:
+                self._folders.setdefault(path.parent, {}).setdefault(size, {})[path] = None
 
 
 def route_nxm(link, api=None) -> bool:
@@ -145,7 +220,7 @@ def download_cdn(url, target, size, expected, stop, progress, log=None, *, worke
                             part = next(iterator)
                         except StopIteration:
                             break
-                        pending.add(pool.submit(fetch_part, part))
+                        pending.add(pool.submit(bind_verification(fetch_part), part))
                     if not pending:
                         break
                     finished, pending = wait(pending, timeout=0.1,
@@ -175,9 +250,10 @@ def download_cdn(url, target, size, expected, stop, progress, log=None, *, worke
                     if stop.is_set():
                         raise InterruptedError("Installation stopped")
                     stream.write(data)
+    stamp = file_stamp(output)
     if not verify_file(output, expected, size, stop):
         raise WabbajackError("Assembled CDN archive failed verification")
-    output.replace(target)
+    verified_replace(output, target, digest=expected, stamp=stamp, stop=stop)
     emit(log, "cdn.completed", target=target, bytes=size, hash=expected,
          parts=len(parts), reused_parts=reused,
          elapsed_seconds=round(time.monotonic() - started, 3))
@@ -224,6 +300,15 @@ class Acquisition:
         self._started = time.monotonic()
         self.ids = {a.key: i + 1 for i, a in enumerate(request.package.archives.values())}
         self.archives = list(request.package.archives.values() if archives is None else archives)
+        self.cache_index = getattr(report, "cache_index", None)
+        if self.cache_index is None:
+            from Utils.downloads.core import get_scan_dirs
+            self.cache_index = ArchiveCacheIndex(
+                [request.downloads, *get_scan_dirs(request.game.name)],
+                (a.size for a in self.archives))
+            self.cache_index.refresh(control.stop)
+        else:
+            self.cache_index.include_sizes(a.size for a in self.archives)
 
     def __enter__(self):
         with _active_lock:
@@ -258,7 +343,7 @@ class Acquisition:
                 if _active.get(key) is self._nxm.get(key):
                     _active.pop(key, None)
 
-    def cached(self, archive):
+    def cached(self, archive, *, refresh=False):
         if archive.key in self.report.cached:
             path = self.report.cached[archive.key]
             if verify_file(path, archive.key, archive.size, self.control.stop):
@@ -269,26 +354,28 @@ class Acquisition:
             emit(self.cb.on_log, "acquisition.cache.preflight_rejected",
                  archive=archive.name, path=path, bytes=archive.size,
                  hash=archive.key)
-        from Utils.downloads.core import get_scan_dirs
-        for root in [self.request.downloads, *get_scan_dirs(self.request.game.name)]:
-            if not root.is_dir():
+        self.cache_index.refresh(self.control.stop, force=refresh)
+        for path in self.cache_index.candidates(archive.size):
+            try:
+                stamp = file_stamp(path)
+            except (FileNotFoundError, WabbajackError):
                 continue
-            for path in root.iterdir():
-                if not path.is_file() or path.name.endswith((".part", ".tmp")):
-                    continue
-                stat = path.stat()
-                if stat.st_size != archive.size:
-                    continue
-                identity = (str(path), stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
+            if stamp[2] != archive.size:
+                continue
+            identity = (str(path), *stamp)
+            with self._lock:
                 digest = self._hashes.get(identity)
-                if digest is None:
-                    digest = file_hash(path, self.control.stop)
+            if digest is None:
+                digest = file_hash(path, self.control.stop)
+                if file_stamp(path) != stamp:
+                    continue
+                with self._lock:
                     self._hashes[identity] = digest
-                if digest == archive.key:
-                    emit(self.cb.on_log, "acquisition.cache.scan_hit",
-                         archive=archive.name, path=path, bytes=archive.size,
-                         hash=archive.key)
-                    return path
+            if digest == archive.key:
+                emit(self.cb.on_log, "acquisition.cache.scan_hit",
+                     archive=archive.name, path=path, bytes=archive.size,
+                     hash=archive.key)
+                return path
         return None
 
     def automatic(self, archive):
@@ -395,6 +482,7 @@ class Acquisition:
                 path = self._manual(archive, target, progress)
             if not verify_file(path, archive.key, archive.size, self.control.stop):
                 raise WabbajackError(f"Archive failed verification: {archive.name}")
+            self.cache_index.add(path)
             progress(archive.size, archive.size)
             emit(self.cb.on_log, "acquisition.completed", archive=archive.name,
                  route=route, path=path, bytes=archive.size, hash=archive.key,
@@ -462,6 +550,7 @@ class Acquisition:
                 emit(self.cb.on_log, "nexus.links.refresh", archive=archive.name,
                      attempt=attempt + 1)
             path = Path(result.file_path) if result.file_path else None
+            stamp = file_stamp(path) if path and path.is_file() else None
             if not path or not verify_file(path, archive.key, archive.size, self.control.stop):
                 if path and path.is_file():
                     from .paths import auxiliary_path
@@ -470,7 +559,8 @@ class Acquisition:
                     emit(self.cb.on_log, "nexus.download.rejected",
                          archive=archive.name, preserved_as=invalid)
                 raise WabbajackError(f"Nexus download failed: {archive.name}: {_safe_error(getattr(result, 'error', ''))}")
-            path.replace(target)
+            verified_replace(path, target, digest=archive.key, stamp=stamp,
+                             stop=self.control.stop)
             emit(self.cb.on_log, "nexus.download.completed", archive=archive.name,
                  target=target, bytes=archive.size)
             return target
@@ -553,7 +643,7 @@ class Acquisition:
                     status(f"That file does not match the required size and hash. Select the exact archive: {archive.name}")
                 except queue.Empty:
                     pass
-                found = self.cached(archive)
+                found = self.cached(archive, refresh=True)
                 if found:
                     emit(self.cb.on_log, "manual.cache.detected", archive=archive.name,
                          path=found)

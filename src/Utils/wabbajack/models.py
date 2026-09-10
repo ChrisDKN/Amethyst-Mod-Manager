@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Callable, TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from .acquire import ArchiveCacheIndex
     from .requirements import SetupTask
 
 
@@ -85,6 +86,7 @@ class PreflightReport:
     required_archives: list[str] | None = None
     setup_tasks: list[SetupTask] = field(default_factory=list)
     timings: dict[str, float] = field(default_factory=dict)
+    cache_index: ArchiveCacheIndex | None = field(default=None, repr=False, compare=False)
 
     @property
     def ok(self):

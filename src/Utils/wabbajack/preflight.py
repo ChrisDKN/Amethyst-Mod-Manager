@@ -607,24 +607,17 @@ def _preflight(request, stop, notify, log=None):
          pending_directives=len(pending), ignored_directives=len(ignored_directives),
          required_archives=len(required_archives), ignored_archives=len(ignored_archives))
     from Utils.downloads.core import get_scan_dirs
+    from .acquire import ArchiveCacheIndex
     scan_dirs = [request.downloads, *get_scan_dirs(request.game.name)]
     notify("Finding cached downloads")
-    by_size = {}
     sizes_needed = {a.size for a in package.archives.values() if a.key in required_archives and a.kind != "GameFileSource"}
     emit(log, "preflight.cache_scan.started", directories=scan_dirs,
          required_sizes=len(sizes_needed))
-    for folder in dict.fromkeys(p.resolve() for p in scan_dirs):
-        candidates = 0
-        if folder.is_dir():
-            with os.scandir(folder) as entries:
-                for entry in entries:
-                    if stop is not None and stop.is_set():
-                        raise InterruptedError("Preflight stopped")
-                    if entry.is_file() and not entry.name.endswith((".part", ".tmp")):
-                        size = entry.stat().st_size
-                        if size in sizes_needed:
-                            by_size.setdefault(size, []).append(Path(entry.path))
-                            candidates += 1
+    report.cache_index = ArchiveCacheIndex(scan_dirs, sizes_needed)
+    report.cache_index.refresh(stop, force=True)
+    by_size = report.cache_index.groups()
+    for folder in report.cache_index.roots:
+        candidates = sum(path.parent == folder for paths in by_size.values() for path in paths)
         emit(log, "preflight.cache_scan.directory", path=folder,
              exists=folder.is_dir(), candidates=candidates)
     from .hashes import file_hash

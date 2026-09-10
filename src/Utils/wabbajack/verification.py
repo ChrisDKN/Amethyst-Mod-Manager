@@ -10,6 +10,7 @@ from collections import OrderedDict
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from contextlib import contextmanager
 from contextvars import ContextVar, copy_context
+from functools import wraps
 from pathlib import Path
 
 from .diagnostics import emit, emit_exception
@@ -17,6 +18,13 @@ from .paths import WabbajackError
 
 _current = ContextVar("wabbajack_verification", default=None)
 VERIFICATION_WORKERS = min(4, os.cpu_count() or 1)
+
+
+def file_stamp(path):
+    value = Path(path).stat()
+    if not stat.S_ISREG(value.st_mode):
+        raise WabbajackError(f"Verification requires a regular file: {path}")
+    return value.st_dev, value.st_ino, value.st_size, value.st_mtime_ns, value.st_ctime_ns
 
 
 def parallel_verify(operation, items, stop=None, *, size=None):
@@ -250,14 +258,10 @@ class VerificationCache:
             yield from map(checked, candidates())
 
     def read(self, path, kind, operation, stop, progress, log=None, *, detailed=True):
-        def stamp():
-            value = path.stat()
-            if not stat.S_ISREG(value.st_mode):
-                raise WabbajackError(f"Verification requires a regular file: {path}")
-            return value.st_dev, value.st_ino, value.st_size, value.st_mtime_ns, value.st_ctime_ns
+        path = Path(path)
         if stop is not None and stop.is_set():
             raise InterruptedError("Preflight stopped")
-        before = stamp()
+        before = file_stamp(path)
         key = os.path.abspath(path), kind
         disk_key = key[0], json.dumps(kind, separators=(",", ":"))
         disk_stamp = json.dumps(before, separators=(",", ":"))
@@ -289,10 +293,20 @@ class VerificationCache:
         result = operation()
         if stop is not None and stop.is_set():
             raise InterruptedError("Preflight stopped")
-        if stamp() != before:
+        if file_stamp(path) != before:
             raise WabbajackError(f"File changed during verification: {path}")
+        self.remember(path, kind, result, before, log)
+        if detailed:
+            emit(log, "verification.completed", path=path, kind=kind,
+                 bytes=before[2], elapsed_seconds=round(time.monotonic() - started, 3))
+        return result
+
+    def remember(self, path, kind, result, stamp, log=None):
+        key = os.path.abspath(path), kind
+        disk_key = key[0], json.dumps(kind, separators=(",", ":"))
+        disk_stamp = json.dumps(stamp, separators=(",", ":"))
         with self._lock:
-            self._entries[key] = before, result
+            self._entries[key] = stamp, result
             self._entries.move_to_end(key)
             self._trim()
             if self._database_exists(log):
@@ -305,10 +319,6 @@ class VerificationCache:
                         self._pending = 0
                 except (sqlite3.Error, ValueError, TypeError) as exc:
                     self._disable(exc, log)
-        if detailed:
-            emit(log, "verification.completed", path=path, kind=kind,
-                 bytes=before[2], elapsed_seconds=round(time.monotonic() - started, 3))
-        return result
 
     def _trim(self):
         while len(self._entries) > self.limit:
@@ -331,7 +341,45 @@ def verified_read(path, kind, operation):
     if context is None:
         return operation()
     cache, stop, progress, log = context
-    return cache.read(path, kind, operation, stop, progress, log)
+    return cache.read(path, kind, operation, stop, progress, log,
+                      detailed=Path(path).stat().st_size >= 1024 * 1024)
+
+
+def remember_verified(path, digest, stamp):
+    if file_stamp(path) != stamp:
+        raise WabbajackError(f"Verified file changed: {path}")
+    context = _current.get()
+    if context is not None:
+        cache, _, _, log = context
+        cache.remember(path, "xxhash64", digest, stamp, log)
+
+
+def verified_replace(source, target, *, digest=None, stamp=None, stop=None):
+    source, target = Path(source), Path(target)
+    if stop is not None and stop.is_set():
+        raise InterruptedError("Installation stopped")
+    before = file_stamp(source)
+    if digest is not None and stamp != before:
+        raise WabbajackError(f"Verified file changed before publication: {source}")
+    source.replace(target)
+    after = file_stamp(target)
+    if before[:4] != after[:4]:
+        raise WabbajackError(f"Verified file changed during publication: {target}")
+    if digest is not None:
+        remember_verified(target, digest, after)
+    return target
+
+
+def bind_verification(operation):
+    context = _current.get()
+    @wraps(operation)
+    def bound(*args, **kwargs):
+        token = _current.set(context)
+        try:
+            return operation(*args, **kwargs)
+        finally:
+            _current.reset(token)
+    return bound
 
 
 def cached_files(root, relatives, *, verify=False):

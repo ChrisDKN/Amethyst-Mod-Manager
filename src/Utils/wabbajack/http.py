@@ -12,6 +12,7 @@ from Utils.downloads import bandwidth
 from .hashes import canonical_hash, file_hash, verify_file
 from .paths import WabbajackError
 from .diagnostics import emit, emit_exception, url_host
+from .verification import file_stamp, verified_replace
 
 
 def safe_error(error):
@@ -41,10 +42,11 @@ def download_http(url: str, target: Path, *, size=0, expected="", headers=None,
     from .paths import auxiliary_path
     part = auxiliary_path(target, ".part")
     if expected and part.is_file() and part.stat().st_size >= size:
+        stamp = file_stamp(part)
         if verify_file(part, expected, size, stop):
             if validate:
                 validate(part)
-            part.replace(target)
+            verified_replace(part, target, digest=expected, stamp=stamp, stop=stop)
             emit(log, "http.partial_verified", target=target, bytes=size,
                  elapsed_seconds=round(time.monotonic() - started, 3))
             return target
@@ -75,10 +77,11 @@ def download_http(url: str, target: Path, *, size=0, expected="", headers=None,
                      accept_ranges=response.headers.get("Accept-Ranges", ""),
                      encoding=response.headers.get("Content-Encoding", ""))
                 if response.status_code == 416:
+                    stamp = file_stamp(part) if part.is_file() else None
                     if expected and verify_file(part, expected, size, stop):
                         if validate:
                             validate(part)
-                        part.replace(target)
+                        verified_replace(part, target, digest=expected, stamp=stamp, stop=stop)
                         emit(log, "http.range_complete", target=target, bytes=size)
                         return target
                     part.unlink(missing_ok=True)
@@ -113,7 +116,8 @@ def download_http(url: str, target: Path, *, size=0, expected="", headers=None,
                         offset += len(chunk)
                         if progress:
                             progress(offset, total)
-            if (size or expected) and part.stat().st_size != size:
+            stamp = file_stamp(part)
+            if (size or expected) and stamp[2] != size:
                 raise WabbajackError("Download has an incorrect size")
             if expected and file_hash(part, stop) != expected:
                 part.replace(auxiliary_path(part, f".invalid-{time.time_ns()}"))
@@ -126,7 +130,8 @@ def download_http(url: str, target: Path, *, size=0, expected="", headers=None,
                     raise
             if stop is not None and stop.is_set():
                 raise InterruptedError("Installation stopped")
-            part.replace(target)
+            verified_replace(part, target, digest=expected or None,
+                             stamp=stamp, stop=stop)
             emit(log, "http.completed", target=target, bytes=target.stat().st_size,
                  attempts=attempt + 1, elapsed_seconds=round(time.monotonic() - started, 3))
             return target

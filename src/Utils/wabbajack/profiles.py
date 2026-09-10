@@ -5,6 +5,7 @@ import copy
 import json
 import os
 import shutil
+import threading
 import time
 from functools import lru_cache
 from pathlib import Path
@@ -141,7 +142,7 @@ def prepare_profiles(request, store, reconstruction, desired, *, generated_mods=
             overwrite_files.append((Path(row["source"]), rel.split("/", 1)[1]))
     executable_titles = {}
     extras, arguments, working_dirs = _executables(
-        request, store, output, stock, adapter=adapter,
+        request, store, output, stock, desired, adapter=adapter,
         titles=executable_titles, log=log)
     emit(log, "profiles.payloads", root_mod_outputs=len(payloads),
          root_files=len(root_files), overwrite_files=len(overwrite_files),
@@ -280,7 +281,7 @@ def prepare_profiles(request, store, reconstruction, desired, *, generated_mods=
     return [store.profile_root / "profiles" / names[p] for p in selected]
 
 
-def _executables(request, store, output, stock, *, adapter=None, titles=None, log=None):
+def _executables(request, store, output, stock, desired, *, adapter=None, titles=None, log=None):
     extras, arguments, working_dirs = [], {}, {}
     game_root = store.root / stock.relative_to(output) if stock else Path(request.game_roots.get(request.package.game, request.game.get_game_path()))
     allowed = [store.root, *request.game_roots.values()]
@@ -336,9 +337,12 @@ def _executables(request, store, output, stock, *, adapter=None, titles=None, lo
         except (OSError, configparser.Error) as exc:
             emit(log, "profile.executables.unreadable", source=ini,
                  exception_type=type(exc).__name__, exception=str(exc))
-    for path in output.rglob("*.exe"):
+    for key in desired:
+        if not key.startswith("root/"):
+            continue
+        path = Path(key.removeprefix("root/"))
         if path.name.lower() in _EXTENDERS:
-            p = resolve(str(store.root / path.relative_to(output)))
+            p = resolve(str(store.root / path))
             if p:
                 extras.append(str(p))
                 working_dirs[str(p)] = str(game_root)
@@ -378,31 +382,78 @@ def publish_links(store, profiles, log=None):
     emit(log, "profiles.links.published", mods=mods, profiles=len(profiles))
 
 
-def refresh_profiles(request, profiles, log, progress=None):
-    from Utils.filegraph.service import FileGraphService
+def refresh_profiles(request, profiles, log, progress=None, *, stop=None):
+    from Utils.filegraph.adapter import SharedInventory, shared_inventory_scope
+    from Utils.filegraph.models import FileGraphCancelled
+    from Utils.filegraph.service import CancellationToken, FileGraphService
+    from Utils.profiles.state import read_profile_settings
     started = time.monotonic()
     emit(log, "profiles.refresh.started", profiles=profiles)
-    for index, profile in enumerate(profiles):
-        if progress:
-            progress("Refreshing file catalogs", index, len(profiles) * 2, profile.name)
-        game = copy.copy(request.game)
-        game.set_active_profile_dir(profile)
-        game.load_paths()
-        from Utils.profiles.state import read_profile_settings
-        if read_profile_settings(profile).get("is_group"):
-            from Utils.profiles.groups import materialize_group
-            materialize_group(game, profile, log_fn=log)
-            emit(log, "profile.group.materialized", profile=profile)
-        FileGraphService.open_library(game, profile, log_fn=log).refresh(profile)
-        emit(log, "profile.catalog.refreshed", profile=profile)
-    for index, profile in enumerate(profiles):
-        if progress:
-            progress("Refreshing file catalogs", len(profiles) + index, len(profiles) * 2, profile.name)
-        game = copy.copy(request.game)
-        game.set_active_profile_dir(profile)
-        game.load_paths()
-        FileGraphService.open_library(game, profile, log_fn=log).ensure_ready(profile)
-        emit(log, "profile.catalog.ready", profile=profile)
+    token = CancellationToken()
+    finished = threading.Event()
+    def check_stop():
+        if stop is not None and stop.is_set():
+            token.cancel()
+            raise InterruptedError("Profile catalog refresh stopped")
+    def watch_stop():
+        while not finished.wait(0.1):
+            if stop.is_set():
+                token.cancel()
+                return
+    watcher = threading.Thread(target=watch_stop, name="wabbajack-catalog-cancel", daemon=True) if stop is not None else None
+    contexts = []
+    try:
+        if watcher:
+            watcher.start()
+        for profile in profiles:
+            check_stop()
+            game = copy.copy(request.game)
+            game.set_active_profile_dir(profile)
+            game.load_paths()
+            library = FileGraphService.open_library(game, profile, log_fn=log)
+            contexts.append((profile, game, library))
+            library.invalidate()
+        inventory = SharedInventory(request.directory / "root" / "mods")
+        grouped = False
+        with shared_inventory_scope(inventory):
+            for profile, game, _library in contexts:
+                check_stop()
+                if read_profile_settings(profile).get("is_group"):
+                    from Utils.profiles.groups import materialize_group
+                    materialize_group(game, profile, log_fn=log)
+                    grouped = True
+                    emit(log, "profile.group.materialized", profile=profile)
+        if grouped:
+            for _profile, _game, library in contexts:
+                library.invalidate()
+        shared_batch = frozenset(str(library.root.resolve()) for _, _, library in contexts)
+        for index, (profile, _game, library) in enumerate(contexts):
+            check_stop()
+            if progress:
+                progress("Refreshing file catalogs", index, len(profiles) * 2, profile.name)
+            library.rebuild(profile, cancel=token, inventory=inventory, shared_batch=shared_batch)
+            emit(log, "profile.catalog.refreshed", profile=profile)
+        for index, (profile, _game, library) in enumerate(contexts):
+            check_stop()
+            if progress:
+                progress("Refreshing file catalogs", len(profiles) + index, len(profiles) * 2, profile.name)
+            library.ensure_ready(profile, cancel=token)
+            emit(log, "profile.catalog.ready", profile=profile)
+        check_stop()
+    except BaseException as exc:
+        for _profile, _game, library in contexts:
+            try:
+                library.invalidate()
+            except Exception as invalidation_error:
+                emit(log, "profile.catalog.invalidation_failed", profile=library.root,
+                     exception=str(invalidation_error))
+        if isinstance(exc, FileGraphCancelled):
+            raise InterruptedError("Profile catalog refresh stopped") from exc
+        raise
+    finally:
+        finished.set()
+        if watcher:
+            watcher.join()
     if progress:
         progress("Refreshing file catalogs", len(profiles) * 2, len(profiles) * 2, "Profiles are ready")
     emit(log, "profiles.refresh.completed", profiles=len(profiles),
@@ -449,7 +500,7 @@ def _group_members(profile, stamp):
     return settings.get("group_members", []) if settings.get("is_group") else []
 
 
-def invalidate_shared_catalogs(library):
+def invalidate_shared_catalogs(library, *, shared_batch=frozenset()):
     candidates = [library.root]
     state_path = library.root / "profile_state.json"
     if state_path.is_file():
@@ -470,7 +521,7 @@ def invalidate_shared_catalogs(library):
         loaded = dict(_library_sessions)
     profiles = {p for directory in directories for p in referenced_profiles(directory, directory.parent.parent)}
     for profile in profiles:
-        if profile.resolve() == library.root.resolve():
+        if profile.resolve() == library.root.resolve() or str(profile.resolve()) in shared_batch:
             continue
         other = loaded.get(str(profile.resolve()))
         native = other._native if other else require_native().LibrarySession.open(profile)

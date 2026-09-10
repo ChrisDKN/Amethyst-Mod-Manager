@@ -75,6 +75,8 @@ class XXHash:
 
 def file_hash(path: Path, stop=None) -> str:
     from .verification import verified_read
+    if stop is not None and stop.is_set():
+        raise InterruptedError("Installation stopped")
     return verified_read(path, "xxhash64", lambda: _file_hash(path, stop))
 
 

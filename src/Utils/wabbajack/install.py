@@ -10,6 +10,7 @@ from Utils.downloads.install import InstallCallbacks, InstallControl, consume_pi
 from Utils.deployment.locking import game_mutation_lock
 from .acquire import Acquisition
 from .diagnostics import bind, emit, emit_exception, log_request
+from .extraction import LARGE_BYTES
 from .hashes import package_hash, file_hash
 from .models import InstallResult
 from .paths import WabbajackError
@@ -17,6 +18,7 @@ from .preflight import preflight
 from .profiles import prepare_profiles, publish_links, validate_links, refresh_profiles, referenced_profiles
 from .reconstruct import Reconstruction
 from .store import Store
+from .verification import VerificationCache, bind_verification, verification_scope
 
 _install_lock = threading.Lock()
 
@@ -35,6 +37,7 @@ def run_install(request, *, callbacks=None, control=None, report=None):
         raise WabbajackError("Another Wabbajack installation is running")
     emit(cb.on_log, "install.lock.acquired", diagnostic_id=request.diagnostic_id)
     store = None
+    reconstruction = None
     last_phase, last_emit, phase_started = "", 0.0, 0.0
     def progress(phase, current, total, detail=""):
         nonlocal last_phase, last_emit, phase_started
@@ -99,7 +102,9 @@ def run_install(request, *, callbacks=None, control=None, report=None):
             reconstruction = Reconstruction(request, store, cb, ctl)
             needed = reconstruction.needed_archives(progress=progress)
             cb.on_display_total(report.download_bytes)
-            with Acquisition(request, report, cb, ctl, archives=needed) as acquire:
+            cache = VerificationCache(directory=request.downloads / ".wabbajack-checks")
+            with verification_scope(cache, ctl.stop, log=cb.on_log), Acquisition(
+                    request, report, cb, ctl, archives=needed) as acquire:
                 automatic = [a for a in needed if acquire.automatic(a)]
                 manual = [a for a in needed if not acquire.automatic(a)]
                 download_plan = [a for a in needed
@@ -110,11 +115,18 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                 cb.on_mod_plan([(acquire.ids[a.key], a.size) for a in download_plan])
                 from Utils.ui.config import (
                     load_collection_settings, _MAX_EXTRACT_WORKERS_CEILING)
-                from Utils.archives.budget import ExtractionMemoryBudget, probe_archive
+                from Utils.archives.budget import ExtractionMemoryBudget
                 settings = load_collection_settings()
                 ctl.extract_workers.set_default(settings["max_extract_workers"])
                 memory = ExtractionMemoryBudget(
-                    max_workers=_MAX_EXTRACT_WORKERS_CEILING)
+                    max_workers=_MAX_EXTRACT_WORKERS_CEILING, max_large_workers=2)
+                reconstruction.extraction_memory = memory
+                reconstruction.start_builds()
+                large_archives = {
+                    archive.key for archive in needed
+                    if max(archive.size, sum(
+                        d.output_size for d in reconstruction.by_archive.get(archive.key, ())
+                        if d.path not in reconstruction._skipped_dependencies)) >= LARGE_BYTES}
                 emit(cb.on_log, "install.pipeline.configured", archives=len(needed),
                      automatic=len(automatic), manual=len(manual),
                      download_workers=settings["max_concurrent"],
@@ -122,10 +134,13 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                          2, max(0, settings["max_concurrent"] - 1)),
                      extraction_workers=settings["max_extract_workers"],
                      extraction_order="smallest-ready-first",
-                     large_lane_extraction="after-automatic-downloads",
+                     large_lane_extraction="when-ready",
                      extraction_queue_capacity=max(
-                         32, len(automatic) + len(manual)),
+                         settings["max_concurrent"] + _MAX_EXTRACT_WORKERS_CEILING + 8,
+                         32, len(needed) + _MAX_EXTRACT_WORKERS_CEILING),
                      extraction_memory_budget_bytes=memory.budget,
+                     extraction_memory_estimate="decoder-working-set",
+                     large_extraction_workers=2,
                      extraction_spike_factor=memory.SPIKE_FACTOR,
                      automatic_sample=[a.name for a in automatic[:20]],
                      automatic_sample_truncated=len(automatic) > 20,
@@ -145,23 +160,14 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                         if counts[0] == len(needed):
                             acquire.finish_progress()
                 def install(archive, path):
-                    reserved = False
                     archive_started = time.monotonic()
                     try:
-                        estimate = probe_archive(str(path), compressed_size=archive.size).uncompressed_size
-                        emit(cb.on_log, "install.archive.extraction_wait", archive=archive.name,
-                             path=path, compressed_bytes=archive.size,
-                             estimated_expanded_bytes=estimate)
-                        wait_started = time.monotonic()
-                        memory.acquire(estimate, cancel=ctl.stop)
-                        reserved = True
-                        emit(cb.on_log, "install.archive.extraction_started",
-                             archive=archive.name, estimated_expanded_bytes=estimate,
-                             memory_wait_seconds=round(time.monotonic() - wait_started, 3))
-                        reconstruction.install_archive(archive, path)
+                        waited = reconstruction.install_archive(archive, path)
                         cb.on_row_installed(acquire.ids[archive.key])
                         emit(cb.on_log, "install.archive.extraction_completed",
                              archive=archive.name,
+                             capacity_wait_seconds=round(waited, 3),
+                             active_seconds=round(time.monotonic() - archive_started - waited, 3),
                              elapsed_seconds=round(time.monotonic() - archive_started, 3))
                     except BaseException as exc:
                         emit_exception(cb.on_log, "install.archive.extraction_failed", exc,
@@ -169,8 +175,6 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                                        elapsed_seconds=round(time.monotonic() - archive_started, 3))
                         raise
                     finally:
-                        if reserved:
-                            memory.release(estimate)
                         cb.on_extract_remove(acquire.ids[archive.key])
                     with count_lock:
                         counts[1] += 1
@@ -181,13 +185,14 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                     cb.on_log(f"{item.name}: {exc}")
                     emit_exception(cb.on_log, "install.pipeline.item_failed", exc,
                                    archive=item.name, archive_hash=item.key)
-                errors = consume_pipeline(automatic, acquire, install, ctl, manual_items=manual,
+                errors = consume_pipeline(automatic, bind_verification(acquire), install, ctl, manual_items=manual,
                     download_workers=settings["max_concurrent"],
                     install_workers=_MAX_EXTRACT_WORKERS_CEILING,
                     on_ready=ready, on_discard=lambda a: cb.on_extract_remove(acquire.ids[a.key]),
                     on_error=pipeline_error, prefetch=acquire.prefetch,
-                    manual_acquire=acquire.manual,
-                    worker_limit=ctl.extract_workers)
+                    manual_acquire=bind_verification(acquire.manual),
+                    worker_limit=ctl.extract_workers, defer_large=False,
+                    is_large=lambda archive: archive.key in large_archives)
                 emit(cb.on_log, "install.pipeline.completed", errors=len(errors),
                      archives_ready=counts[0], archives_installed=counts[1],
                      stopped=ctl.stop.is_set(), paused=ctl.pause.is_set(),
@@ -255,7 +260,7 @@ def run_install(request, *, callbacks=None, control=None, report=None):
             publish_links(store, profiles, log=cb.on_log)
             all_profiles = referenced_profiles(store.directory, store.profile_root,
                                                cb.on_log)
-            refresh_profiles(request, all_profiles, cb.on_log, progress=progress)
+            refresh_profiles(request, all_profiles, cb.on_log, progress=progress, stop=ctl.stop)
             store.set("status", "complete")
             store.flush_completed()
             progress("Cleaning temporary files", 0, 0, "Keeping downloaded archives and removing completed temporary work")
@@ -295,6 +300,8 @@ def run_install(request, *, callbacks=None, control=None, report=None):
             store.set("status", "interrupted")
         raise
     finally:
+        if reconstruction:
+            reconstruction.close_builds()
         if store:
             store.close()
         _install_lock.release()

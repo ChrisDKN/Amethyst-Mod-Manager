@@ -7,6 +7,7 @@ py.install_sources(
   'bsa_setup.py',
   'checks.py',
   'diagnostics.py',
+  'extraction.py',
   'merge.py',
   'planning.py',
   'maintenance.py',

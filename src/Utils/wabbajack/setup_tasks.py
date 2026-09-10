@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import errno
 import hashlib
 import io
 import json
@@ -66,12 +67,32 @@ def _stamp(path):
     return stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns
 
 
-def _source_hash(path, stop):
+def _source_hash(path, stop, *, with_stamp=False):
     before = _stamp(path)
     digest = file_hash(path, stop)
     if before != _stamp(path):
         raise WabbajackError(f"Setup source changed during verification: {path}")
-    return digest
+    return (digest, before) if with_stamp else digest
+
+
+def _stage_private_output(store, source, destination, files, stop, progress, label):
+    _stop(stop)
+    total_bytes = sum(path.stat().st_size for _, path in files)
+    progress(label, 0, total_bytes, label)
+    try:
+        source.replace(destination)
+    except OSError as exc:
+        if exc.errno != errno.EXDEV:
+            raise
+        copied = 0
+        for rel, path in files:
+            _stop(stop)
+            store._copy(path, within(destination, rel), stop=stop,
+                        progress=lambda done, total: progress(label, copied + done, total_bytes, rel))
+            copied += path.stat().st_size
+    else:
+        store._sync_directory(destination.parent)
+    progress(label, total_bytes, total_bytes, label)
 
 
 def mpi_manifest(path, stop=None):
@@ -271,20 +292,28 @@ def _verify_mod(task, root, stop=None, *, content=False):
             with path.open("rb") as source:
                 for row in rows:
                     read_member(source, row, lambda data: None, stop)
+    archives = []
     for name in task.masters:
         path = source_path(root, name)
         if not path.is_file() or path.stat().st_size < 24:
             raise WabbajackError(f"{task.label} output is incomplete: missing {name}")
         if path.suffix.casefold() == ".bsa":
-            archive(path)
+            archives.append(path)
         else:
             with path.open("rb") as stream:
                 if stream.read(4) != b"TES4":
                     raise WabbajackError(f"Invalid Bethesda plugin: {path}")
     if task.id.startswith("ttw:"):
-        archives = [p for _, p in _files(root, stop) if p.suffix.casefold() == ".bsa"]
-        if not any(p.name.casefold().startswith("taleoftwowastelands") for p in archives):
+        ttw_archives = [p for _, p in _files(root, stop) if p.suffix.casefold() == ".bsa"]
+        if not any(p.name.casefold().startswith("taleoftwowastelands") for p in ttw_archives):
             raise WabbajackError("Select the complete TTW output including its BSAs, not just the ESM")
+        archives.extend(ttw_archives)
+    archives = list(dict.fromkeys(archives))
+    if content:
+        from .verification import parallel_verify
+        for _ in parallel_verify(archive, archives, stop, size=lambda path: path.stat().st_size):
+            pass
+    else:
         for path in archives:
             archive(path)
 
@@ -565,6 +594,7 @@ def run_tasks(request, store, desired, stop, progress, log=None):
             archive = option.get("archive", "")
             identity = {"version": VERSION, "option": option, "package_identity": request.package.identity}
             managed_output_files = {}
+            verified_outputs = {}
             if source:
                 root = Path(source).expanduser().absolute()
                 _verify_mod(task, root, stop)
@@ -579,7 +609,10 @@ def run_tasks(request, store, desired, stop, progress, log=None):
                     store._copy(path, within(destination, rel), stop=stop,
                                 progress=lambda done, total: progress("Importing " + task.label, copied + done, total_bytes, rel))
                     copied += path.stat().st_size
-                    identity["source_hashes"][rel] = file_hash(within(destination, rel), stop)
+                    target = within(destination, rel)
+                    digest, stamp = _source_hash(target, stop, with_stamp=True)
+                    identity["source_hashes"][rel] = digest
+                    verified_outputs[target] = (digest, stamp)
             elif archive:
                 if not task.id.startswith("yupttw:"):
                     raise WabbajackError(f"Output archive import is not supported for {task.label}")
@@ -593,12 +626,8 @@ def run_tasks(request, store, desired, stop, progress, log=None):
                     emit(log, "setup.task.archive.started", task_id=task.id,
                          archive=path, files=len(files),
                          bytes=sum(file.stat().st_size for _, file in files))
-                    copied, total_bytes = 0, sum(file.stat().st_size for _, file in files)
-                    for rel, file in files:
-                        _stop(stop)
-                        store._copy(file, within(destination, rel), stop=stop,
-                                    progress=lambda done, total: progress("Importing " + task.label, copied + done, total_bytes, rel))
-                        copied += file.stat().st_size
+                    _stage_private_output(store, root, destination, files, stop, progress,
+                                          "Importing " + task.label)
                 if before != _stamp(path) and file_hash(path, stop) != identity["archive_hash"]:
                     raise WabbajackError(f"Setup archive changed during import: {path}")
             else:
@@ -678,11 +707,8 @@ def run_tasks(request, store, desired, stop, progress, log=None):
                             source_path(built, "New " + name).replace(built / name)
                     _verify_mod(task, built, stop)
                     built_files = list(_files(built, stop))
-                    copied, total_bytes = 0, sum(path.stat().st_size for _, path in built_files)
-                    for rel, path in built_files:
-                        store._copy(path, within(destination, rel), stop=stop,
-                                    progress=lambda done, total: progress("Staging " + task.label, copied + done, total_bytes, rel))
-                        copied += path.stat().st_size
+                    _stage_private_output(store, built, destination, built_files, stop, progress,
+                                          "Staging " + task.label)
             _verify_mod(task, destination, stop, content=True)
             generated = {}
             output_files = {f"root/mods/{task.mod}/{rel}": path
@@ -690,7 +716,15 @@ def run_tasks(request, store, desired, stop, progress, log=None):
             output_files.update(managed_output_files)
             output_hashes = {}
             for key, path in output_files.items():
-                output_hashes[key] = file_hash(path, stop)
+                _stop(stop)
+                verified = verified_outputs.get(path)
+                if verified and _stamp(path) == verified[1]:
+                    digest = verified[0]
+                else:
+                    digest = _source_hash(path, stop)
+                    if verified and digest != verified[0]:
+                        raise WabbajackError(f"Setup output changed during verification: {path}")
+                output_hashes[key] = digest
             sig = "setup:" + hashlib.sha256(json.dumps([identity, output_hashes], sort_keys=True).encode()).hexdigest()
             for key, digest in output_hashes.items():
                 generated[key] = {"source": str(output_files[key]),

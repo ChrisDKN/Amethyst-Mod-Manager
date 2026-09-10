@@ -80,7 +80,7 @@ def write_atomic_text(path: Path, text: str, *, encoding: str = "utf-8",
 
 @contextmanager
 def atomic_writer(path: Path, mode: str = "w", *, encoding: str | None = "utf-8",
-                  errors: str | None = None, suffix: str = ".tmp"):
+                  errors: str | None = None, suffix: str = ".tmp", prepare_parent=None):
     """Open ``<path><suffix>`` for writing; on clean exit rename it onto *path*.
 
     ``mode`` follows ``open()`` semantics. For binary mode, pass
@@ -89,7 +89,10 @@ def atomic_writer(path: Path, mode: str = "w", *, encoding: str | None = "utf-8"
     carry non-UTF-8 bytes. On any exception the temp file is removed and the
     original *path* is left untouched.
     """
-    path.parent.mkdir(parents=True, exist_ok=True)
+    if prepare_parent is None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        prepare_parent(path.parent)
     tmp = _tmp_for(path, suffix=suffix)
     if "b" in mode:
         fh = tmp.open(mode)

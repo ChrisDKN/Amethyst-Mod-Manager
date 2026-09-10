@@ -196,7 +196,8 @@ class ExtractionMemoryBudget:
 
     def __init__(self, max_workers: int = 4,
                  safety_margin_bytes: int = 1024 * 1024 * 1024,
-                 max_budget_bytes: int | None = None):
+                 max_budget_bytes: int | None = None,
+                 max_large_workers: int | None = None):
         avail = _get_available_memory_bytes()
         auto_budget = max(0, avail - safety_margin_bytes)
         self._budget = min(auto_budget, max_budget_bytes) if max_budget_bytes else auto_budget
@@ -204,12 +205,16 @@ class ExtractionMemoryBudget:
         self._lock = threading.Lock()
         self._cv = threading.Condition(self._lock)
         self._semaphore = threading.Semaphore(max(1, max_workers))
+        self._max_large_workers = max_large_workers
+        self._large_active = 0
+        self._large_waiters = []
 
     @property
     def budget(self) -> int:
         return self._budget
 
-    def acquire(self, estimated_bytes: int, cancel=None) -> None:
+    def acquire(self, estimated_bytes: int, cancel=None, *, large=False,
+                on_wait=None) -> None:
         """Reserve *estimated_bytes* (with spike factor) of extraction budget.
 
         Blocks until budget and a worker slot are available.  If the request
@@ -219,30 +224,51 @@ class ExtractionMemoryBudget:
         says there is room, we wait if the OS reports less than 1 GB free.
         """
         cost = int(estimated_bytes * self.SPIKE_FACTOR)
+        notified = False
+        def waiting():
+            nonlocal notified
+            if not notified and on_wait is not None:
+                on_wait()
+            notified = True
         while not self._semaphore.acquire(timeout=0.2):
             if cancel is not None and cancel.is_set():
                 raise InterruptedError("Extraction stopped while waiting for memory")
+            waiting()
         with self._cv:
-            while True:
-                if cancel is not None and cancel.is_set():
-                    self._semaphore.release()
-                    raise InterruptedError("Extraction stopped while waiting for memory")
-                fits_budget = (
-                    self._reserved + cost <= self._budget
-                    or self._reserved == 0  # allow oversized archive when alone
-                )
-                # Live memory check - even if budget bookkeeping says OK, wait
-                # if the system is actually low on RAM (< 1 GB free).
-                live_ok = _get_available_memory_bytes() >= 1024 * 1024 * 1024
-                if fits_budget and live_ok:
-                    break
-                self._cv.wait(timeout=0.2 if cancel is not None else 2.0)
-            self._reserved += cost
+            ticket = object() if large and self._max_large_workers else None
+            if ticket is not None:
+                self._large_waiters.append(ticket)
+            try:
+                while True:
+                    if cancel is not None and cancel.is_set():
+                        raise InterruptedError("Extraction stopped while waiting for memory")
+                    fits_budget = (
+                        self._reserved + cost <= self._budget
+                        or self._reserved == 0
+                    )
+                    fits_lane = (ticket is None or (
+                        self._large_active < self._max_large_workers
+                        and self._large_waiters[0] is ticket))
+                    live_ok = _get_available_memory_bytes() >= 1024 * 1024 * 1024
+                    if fits_budget and fits_lane and live_ok:
+                        break
+                    waiting()
+                    self._cv.wait(timeout=0.2 if cancel is not None else 2.0)
+                self._reserved += cost
+                self._large_active += int(large)
+            except BaseException:
+                self._semaphore.release()
+                raise
+            finally:
+                if ticket is not None:
+                    self._large_waiters.remove(ticket)
+                self._cv.notify_all()
 
-    def release(self, estimated_bytes: int) -> None:
+    def release(self, estimated_bytes: int, *, large=False) -> None:
         """Return *estimated_bytes* (with spike factor) to the budget pool."""
         cost = int(estimated_bytes * self.SPIKE_FACTOR)
         with self._cv:
             self._reserved = max(0, self._reserved - cost)
+            self._large_active -= int(large)
             self._cv.notify_all()
         self._semaphore.release()

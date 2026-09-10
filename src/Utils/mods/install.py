@@ -1002,7 +1002,8 @@ def _fix_nonutf8_names_extracted_tree(extract_dir: str, log_fn: LogFn) -> int:
 
 def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
                      cancel=None, error_sink: "list[str] | None" = None,
-                     progress_cb: "Callable[[int], None] | None" = None) -> bool:
+                     progress_cb: "Callable[[int], None] | None" = None,
+                     *, cpu_threads: int | None = None, finalize=None) -> bool:
     """Extract *archive_path* into *dest_dir*. Native 7z → bsdtar → py7zr →
     Python zipfile/tarfile, mirroring gui.install_mod's fallback chain. After a
     successful native/zip extraction, backslash-named members are normalised
@@ -1042,7 +1043,10 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
                 tf.extractall(dest_dir, filter="data")
             # tarfile's "data" filter keeps member modes (masked to 0755), so a
             # mode-000 member stays unreadable here too.
-            _fix_perms_extracted_tree(dest_dir, log_fn)
+            if finalize is not None:
+                finalize(dest_dir)
+            else:
+                _fix_perms_extracted_tree(dest_dir, log_fn)
             log_fn("Extracted with tarfile.")
             return True
         except Exception as exc:
@@ -1051,6 +1055,9 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
             # fall through to the generic extractors
 
     def _ok() -> bool:
+        if finalize is not None:
+            finalize(dest_dir)
+            return True
         # Archives can carry a mode-000 Unix attribute; clear it FIRST or the
         # repair sweeps below (and staging) can't even read the tree.
         _fix_perms_extracted_tree(dest_dir, log_fn)
@@ -1083,6 +1090,8 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
     except Exception:
         _limits = {}
     _threads = int(_limits.get("cpu_threads", 0) or 0)
+    if cpu_threads is not None:
+        _threads = min(_threads or cpu_threads, cpu_threads)
     _low_prio = bool(_limits.get("low_priority", False))
     _mmt = f"-mmt={_threads}" if _threads > 0 else "-mmt=on"
 

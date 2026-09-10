@@ -66,7 +66,9 @@ class Store:
         self.work.mkdir(exist_ok=True)
         self.lock = threading.RLock()
         self._pending_completed = {}
+        self._prepared_directories = {}
         self._verified = {}
+        self._hash_metrics = Counter()
         self._linked_placements = 0
         self._copied_placements = 0
         self._hardlink_error_logged = False
@@ -282,11 +284,32 @@ class Store:
         if progress:
             progress("Restoring previous files", len(rows), len(rows), "Previous installation restored")
 
+    def prepare_directory(self, path):
+        with self.lock:
+            known = self._prepared_directories.get(path)
+            if known is not None:
+                try:
+                    info = path.lstat()
+                except FileNotFoundError:
+                    pass
+                else:
+                    if not stat.S_ISDIR(info.st_mode):
+                        raise WabbajackError(f"Expected a managed directory: {path}")
+                    if (info.st_dev, info.st_ino) == known:
+                        return
+            path.mkdir(parents=True, exist_ok=True)
+            info = path.lstat()
+            if not stat.S_ISDIR(info.st_mode):
+                raise WabbajackError(f"Expected a managed directory: {path}")
+            self._prepared_directories[path] = (info.st_dev, info.st_ino)
+
     @staticmethod
-    def _copy(source, target, stop=None, progress=None, *, sync_directory=True, sync_file=True):
+    def _copy(source, target, stop=None, progress=None, *, sync_directory=True, sync_file=True,
+              prepare_parent=None):
         total = source.stat().st_size if progress else 0
         completed = 0
-        with source.open("rb") as incoming, atomic_writer(target, "wb", encoding=None) as outgoing:
+        with source.open("rb") as incoming, atomic_writer(
+                target, "wb", encoding=None, prepare_parent=prepare_parent) as outgoing:
             while data := incoming.read(1024 * 1024):
                 if stop is not None and stop.is_set():
                     raise InterruptedError("File publication stopped")
@@ -304,7 +327,7 @@ class Store:
     def _stage(self, source, target, stop=None, progress=None, size=None):
         if stop is not None and stop.is_set():
             raise InterruptedError("File reconstruction stopped")
-        target.parent.mkdir(parents=True, exist_ok=True)
+        self.prepare_directory(target.parent)
         target.unlink(missing_ok=True)
         try:
             os.link(source, target, follow_symlinks=False)
@@ -321,7 +344,7 @@ class Store:
                                source=source, target=target)
                 self._staging_hardlink_error_logged = True
         self._copy(source, target, stop=stop, progress=progress,
-                   sync_directory=False)
+                   sync_directory=False, prepare_parent=self.prepare_directory)
         return False
 
     @staticmethod
@@ -352,7 +375,7 @@ class Store:
         return private_work_source(source, self.work)
 
     def _place(self, source, target, wanted, stop=None, progress=None, *, synced=None,
-               deferred_sync=None):
+               deferred_sync=None, metrics=None):
         if stop is not None and stop.is_set():
             raise InterruptedError("File publication stopped")
         info = source.lstat()
@@ -360,7 +383,7 @@ class Store:
                    and self._private_source(source))
         linked = False
         if private:
-            target.parent.mkdir(parents=True, exist_ok=True)
+            self.prepare_directory(target.parent)
             from Utils.atomic_write import _tmp_for
             temporary = _tmp_for(target)
             try:
@@ -380,8 +403,12 @@ class Store:
             finally:
                 temporary.unlink(missing_ok=True)
         if not linked:
+            copy_started = time.monotonic()
             self._copy(source, target, stop=stop, progress=progress, sync_directory=False,
-                       sync_file=deferred_sync is None)
+                       sync_file=deferred_sync is None, prepare_parent=self.prepare_directory)
+            if metrics is not None:
+                metrics["copy_seconds"] += time.monotonic() - copy_started
+                metrics["copied_bytes"] += info.st_size
             self._copied_placements += 1
         else:
             self._linked_placements += 1
@@ -410,8 +437,13 @@ class Store:
         stamp = self._stamp(info)
         cached = self._verified.get(path)
         if cached and cached[0] == stamp:
+            self._hash_metrics["hash_cache_hits"] += 1
             return cached[1]
+        hash_started = time.monotonic()
         actual = file_hash(path, stop)
+        self._hash_metrics["hash_seconds"] += time.monotonic() - hash_started
+        self._hash_metrics["hashed_files"] += 1
+        self._hash_metrics["hashed_bytes"] += info.st_size
         if self._stamp(path.lstat()) != stamp:
             raise WabbajackError(f"File changed during verification: {path}")
         self._verified[path] = (stamp, actual)
@@ -490,6 +522,27 @@ class Store:
 
     def publish(self, desired, choices, current, metadata, stop=None, progress=None):
         started = time.monotonic()
+        metrics = Counter()
+        hash_before = self._hash_metrics.copy()
+        def timed_sync(source, *, expected=None):
+            sync_started = time.monotonic()
+            stamp = self._sync_source(source, stop, expected=expected)
+            return stamp, time.monotonic() - sync_started
+        def sync_directory(path):
+            sync_started = time.monotonic()
+            self._sync_directory(path)
+            metrics["directory_sync_seconds"] += time.monotonic() - sync_started
+            metrics["directories_synced"] += 1
+        def target_for(key):
+            target_started = time.monotonic()
+            target = self.target(key)
+            metrics["path_check_seconds"] += time.monotonic() - target_started
+            return target
+        def measurements():
+            values = dict(metrics)
+            values.update(self._hash_metrics - hash_before)
+            return {key: round(value, 6) if isinstance(value, float) else value
+                    for key, value in values.items()}
         from .merge import protected
         old = self.outputs()
         operations = []
@@ -524,6 +577,7 @@ class Store:
             self.db.execute("DELETE FROM publication_outputs")
             self.db.execute("DELETE FROM publication_baselines")
         def record(rows):
+            record_started = time.monotonic()
             with self.db:
                 self.db.executemany("INSERT INTO publication_outputs VALUES (?,?,?,?)",
                     ((key, desired[key]["authored_hash"], desired[key]["signature"], actual)
@@ -540,6 +594,7 @@ class Store:
                         if len(content) > 2 * 1024 * 1024 or digest.digest() != row["authored_hash"]:
                             raise WabbajackError(f"Authored baseline changed before publication: {key}")
                         self.db.execute("INSERT INTO publication_baselines VALUES (?,?)", (key, content))
+            metrics["record_seconds"] += time.monotonic() - record_started
         emit(self.log, "store.publish.plan", previous_outputs=len(old),
              desired_outputs=len(desired), operations=len(operations),
              replacements=sum(source is not None and current[key] is not None
@@ -560,17 +615,18 @@ class Store:
                 for index, key in enumerate(retained[offset:offset + batch_size], offset):
                     if progress:
                         progress("Checking retained files", index, len(retained), key)
-                    rows.append((key, self._current_hash(self.target(key), stop)))
+                    rows.append((key, self._current_hash(target_for(key), stop)))
                 record(rows)
             with ThreadPoolExecutor(max_workers=sync_workers,
                                     thread_name_prefix="wabbajack-flush") as pool:
                 for offset in range(0, len(operations), batch_size):
                     batch = operations[offset:offset + batch_size]
                     batch_started = time.monotonic()
+                    batch_before = measurements()
                     emit(self.log, "store.publish.batch_started", offset=offset,
                          operations=len(batch), first_path=batch[0][0] if batch else None,
                          last_path=batch[-1][0] if batch else None)
-                    synced = {source: pool.submit(self._sync_source, Path(source), stop)
+                    synced = {source: pool.submit(timed_sync, Path(source))
                               for source in dict.fromkeys(source for _, source in batch
                                   if source is not None and Path(source).is_relative_to(self.work))}
                     journal = []
@@ -578,24 +634,29 @@ class Store:
                     for sequence, (key, source) in enumerate(batch, offset):
                         if progress:
                             progress("Applying verified files", offset, len(operations), f"Preparing {key}")
-                        target = self.target(key)
+                        target = target_for(key)
                         actual = self._current_hash(target, stop)
                         if actual != current[key]:
                             raise WabbajackError(f"File changed during update review: {key}")
                         backup = backup_root / str(sequence)
                         if actual is not None:
+                            backup_started = time.monotonic()
                             self._copy(target, backup, stop=stop, sync_directory=False,
+                                prepare_parent=self.prepare_directory,
                                 progress=(lambda cur, total, key=key: progress("Applying verified files", offset,
                                     len(operations), f"Backing up {key} ({cur / 1024 ** 2:.1f} / {total / 1024 ** 2:.1f} MB)")) if progress else None)
+                            metrics["backup_copy_seconds"] += time.monotonic() - backup_started
                             if self._current_hash(backup, stop) != actual:
                                 raise WabbajackError(f"File changed while creating update backup: {key}")
                         journal.append((sequence, key, backup.relative_to(self.directory).as_posix(), int(actual is not None)))
                     if backup_root.exists():
-                        self._sync_directory(backup_root)
-                        self._sync_directory(backup_root.parent)
-                        self._sync_directory(self.directory)
+                        sync_directory(backup_root)
+                        sync_directory(backup_root.parent)
+                        sync_directory(self.directory)
+                    journal_started = time.monotonic()
                     with self.db:
                         self.db.executemany("INSERT INTO journal VALUES (?,?,?,?,1)", journal)
+                    metrics["journal_seconds"] += time.monotonic() - journal_started
                     prepared = time.monotonic()
                     written, records = [], []
                     for sequence, (key, source) in enumerate(batch, offset):
@@ -605,8 +666,8 @@ class Store:
                                          f"{key} ({current_bytes / 1024 ** 2:.1f} / {total_bytes / 1024 ** 2:.1f} MB)")
                         if progress:
                             progress("Applying verified files", sequence, len(operations), key)
-                        flushed = synced[source].result() if source in synced else None
-                        target = self.target(key)
+                        flushed = synced[source].result()[0] if source in synced else None
+                        target = target_for(key)
                         if self._current_hash(target, stop) != current[key]:
                             raise WabbajackError(f"File changed during update review: {key}")
                         touched = sequence + 1
@@ -621,22 +682,26 @@ class Store:
                             wanted = desired[key].get("merged_hash", desired[key]["authored_hash"])
                             deferred = []
                             actual = self._place(Path(source), target, wanted, stop=stop,
-                                                 progress=copying, synced=flushed, deferred_sync=deferred)
+                                                 progress=copying, synced=flushed, deferred_sync=deferred,
+                                                 metrics=metrics)
                             records.append((key, actual))
                             written.extend(deferred)
                         if progress:
                             progress("Applying verified files", sequence + 1, len(operations), key)
-                    flushed_outputs = [pool.submit(self._sync_source, path, stop, expected=stamp)
+                    metrics["source_sync_worker_seconds"] += sum(future.result()[1] for future in synced.values())
+                    flushed_outputs = [pool.submit(timed_sync, path, expected=stamp)
                                        for path, stamp in written]
                     for future in flushed_outputs:
-                        future.result()
+                        metrics["output_sync_worker_seconds"] += future.result()[1]
                     for directory in sorted(directories, key=lambda p: len(p.parts), reverse=True):
-                        self._sync_directory(directory)
+                        sync_directory(directory)
                     record(records)
                     emit(self.log, "store.publish.batch_completed", offset=offset,
                          operations=len(batch),
                          prepare_seconds=round(prepared - batch_started, 3),
                          apply_seconds=round(time.monotonic() - prepared, 3),
+                         timings={key: round(value - batch_before.get(key, 0), 6)
+                                  for key, value in measurements().items()},
                          elapsed_seconds=round(time.monotonic() - batch_started, 3))
             if progress:
                 progress("Saving installation records", 0, 1, "Committing the verified file records")
@@ -670,10 +735,12 @@ class Store:
             emit(self.log, "store.publish.completed", operations=len(operations),
                  linked=getattr(self, "_linked_placements", 0) - linked_before,
                  copied=getattr(self, "_copied_placements", 0) - copied_before,
+                 timings=measurements(),
                  elapsed_seconds=round(time.monotonic() - started, 3))
         except BaseException as exc:
             emit_exception(self.log, "store.publish.failed", exc,
                            operations=len(operations), touched=touched,
+                           timings=measurements(),
                            elapsed_seconds=round(time.monotonic() - started, 3))
             with self.db:
                 self.db.execute("DELETE FROM journal WHERE sequence>=?", (touched,))

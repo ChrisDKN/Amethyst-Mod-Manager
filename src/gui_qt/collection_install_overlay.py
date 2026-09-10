@@ -132,6 +132,7 @@ class CollectionInstallOverlay(QWidget):
         self._ex_slot_of: dict[int, int] = {}
         self._extract_active: dict[int, str] = {}
         self._extract_queued: dict[int, str] = {}
+        self._extract_waiting: set[int] = set()
         self._extract_progress: dict[int, tuple[int, int]] = {}
         self._small_mod_ids: set[int] = set()
         self._small_dl_current: dict[int, int] = {}
@@ -490,6 +491,7 @@ class CollectionInstallOverlay(QWidget):
         self._render_extract()
 
     def extract_add(self, file_id: int, name: str):
+        self._extract_waiting.discard(file_id)
         if file_id in self._small_mod_ids:
             self._show_small_extractions()
             return
@@ -506,6 +508,11 @@ class CollectionInstallOverlay(QWidget):
                 self._ex_rows[free].set_progress(0, 0)
         self._render_extract()
 
+    def extract_wait(self, file_id: int, name: str):
+        self.extract_remove(file_id)
+        self._extract_waiting.add(file_id)
+        self.extract_queue(file_id, name)
+
     def extract_update(self, file_id: int, cur: int, tot: int):
         if file_id in self._small_mod_ids:
             return
@@ -517,6 +524,7 @@ class CollectionInstallOverlay(QWidget):
             self._ex_rows[slot].set_progress(cur, tot)
 
     def extract_remove(self, file_id: int):
+        self._extract_waiting.discard(file_id)
         if file_id in self._small_mod_ids:
             self._render_small_extractions()
             return
@@ -547,10 +555,12 @@ class CollectionInstallOverlay(QWidget):
             if self._ex_slot_of.get(fid, -1) == -1:   # no bar row - text line
                 lines.append(
                     f"<div style='color:{self._c('TEXT_MAIN')}'>{escape(name)}</div>")
-        for name in self._extract_queued.values():
+        for fid, name in self._extract_queued.items():
+            status = (self.tr("- Waiting for extraction capacity") if fid in self._extract_waiting
+                      else self.tr("- Queued"))
             lines.append(
                 f"<div style='color:{self._c('STATUS_QUEUED')}'>{escape(name)} "
-                f"{self.tr('- Queued')}</div>")
+                f"{escape(status)}</div>")
         self._ex_label.setText("".join(lines))
 
     # ---- lifecycle --------------------------------------------------------

@@ -15,7 +15,7 @@ from typing import Callable, Iterable, Iterator
 from Utils.filegraph.adapter import (
     FLAG_ARCHIVE, FLAG_FRAMEWORK, FLAG_PLUGIN, FLAG_PRE_RTX, FLAG_ROOT_RULE,
     FLAG_TEXT,
-    OVERWRITE_NAME, ROOT_FOLDER_NAME, GameCandidateAdapter,
+    OVERWRITE_NAME, ROOT_FOLDER_NAME, GameCandidateAdapter, SharedInventory,
 )
 from Utils.filegraph.models import (
     AssetCopy, CatalogStatus, ConflictState, ConflictSummary, DeployedStateEntry,
@@ -1151,16 +1151,26 @@ class LibrarySession:
         *,
         progress: Callable | None = None,
         cancel: CancellationToken | None = None,
+        inventory: SharedInventory | None = None,
+        shared_batch: frozenset[str] = frozenset(),
     ) -> CatalogStatus:
         """Build, validate, and atomically activate a complete raw catalog."""
         with self._refresh_lock:
             return self._rebuild_locked(
-                profile_dir, progress=progress, cancel=cancel)
+                profile_dir, progress=progress, cancel=cancel,
+                inventory=inventory, shared_batch=shared_batch)
 
-    def _invalidate_shared_catalogs(self):
+    def invalidate(self):
+        with self._refresh_lock:
+            self._native.set_ready(False)
+            self._variant_keys_cache = None
+            for profile in self._profiles.values():
+                profile._invalidate_resolution_cache()
+
+    def _invalidate_shared_catalogs(self, shared_batch=frozenset()):
         if (self.root / "mods").is_symlink() or (self.root / "profile_state.json").is_file():
             from Utils.wabbajack.profiles import invalidate_shared_catalogs
-            invalidate_shared_catalogs(self)
+            invalidate_shared_catalogs(self, shared_batch=shared_batch)
 
     def _rebuild_locked(
         self,
@@ -1168,6 +1178,8 @@ class LibrarySession:
         *,
         progress: Callable | None = None,
         cancel: CancellationToken | None = None,
+        inventory: SharedInventory | None = None,
+        shared_batch: frozenset[str] = frozenset(),
     ) -> CatalogStatus:
         previous_fingerprints = self.manifest_fingerprints() if (self.root / "mods").is_symlink() else None
         session = self.open_profile(profile_dir)
@@ -1180,7 +1192,7 @@ class LibrarySession:
             native = require_native()
             temporary = native.LibrarySession.open(build_root)
             batches = session.adapter.refresh_batches(
-                progress=progress, cancel=token)
+                progress=progress, cancel=token, inventory=inventory)
             for batch in batches:
                 if token.is_cancelled():
                     raise FileGraphCancelled("filegraph rebuild cancelled")
@@ -1193,7 +1205,7 @@ class LibrarySession:
             for profile_id, profile in self._profiles.items():
                 profile._reset_after_catalog_rebuild(profile_id)
             if previous_fingerprints is not None and previous_fingerprints != self.manifest_fingerprints():
-                self._invalidate_shared_catalogs()
+                self._invalidate_shared_catalogs(shared_batch)
             return self.status()
         except BaseException as exc:
             if isinstance(exc, FileGraphCancelled):

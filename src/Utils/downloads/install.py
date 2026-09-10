@@ -29,6 +29,11 @@ class AdjustableWorkerLimit:
             self._limit = max(1, int(value))
             self._cv.notify_all()
 
+    @property
+    def limit(self) -> int:
+        with self._cv:
+            return self._limit or 1
+
     def acquire(self, stop: "threading.Event | None" = None) -> bool:
         with self._cv:
             while self._active >= (self._limit or 1):
@@ -59,6 +64,7 @@ class InstallCallbacks:
     on_dl_mod_finish: Callable[[int], None] = _noop            # file_id
     # GREEN - extracting/queued
     on_extract_queue: Callable[[int, str], None] = _noop       # file_id,name
+    on_extract_wait: Callable[[int, str], None] = _noop
     on_extract_add: Callable[[int, str], None] = _noop
     on_extract_update: Callable[[int, int, int], None] = _noop  # file_id,cur,tot (tot 0 = busy)
     on_extract_remove: Callable[[int], None] = _noop
@@ -95,13 +101,14 @@ class ManualDownloadRequired(Exception):
 def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                      install_workers=2, manual_items=(), on_ready=None,
                      on_discard=None, on_error=None, prefetch=None, manual_acquire=None,
-                     worker_limit=None):
+                     worker_limit=None, defer_large=True, max_large_install=2,
+                     is_large=None):
     from Utils.downloads.scheduler import order_by_size, run_pipelined
     items, manual_items = tuple(items), tuple(manual_items)
     download_workers, install_workers = max(1, download_workers), max(1, install_workers)
     ready = _queue.PriorityQueue(maxsize=max(
         download_workers + install_workers + 8, 32,
-        len(items) + len(manual_items)))
+        len(items) + len(manual_items) + (install_workers if not defer_large else 0)))
     errors = []
     lock = threading.Lock()
     deferred_large = []
@@ -112,6 +119,10 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
     for item in manual_items:
         pending_manual.put((item, ""))
     automatic_done = threading.Event()
+    admission = threading.Condition()
+    active_large = 0
+    waiting_large = []
+    outstanding = 0
 
     def failed(item, exc):
         with lock:
@@ -136,8 +147,19 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
         with sequence_lock:
             return next(sequence)
 
-    def enqueue(item, result):
-        priority = (*queue_key(item), next_sequence(), (item, result))
+    def enqueue(item, result, large=False):
+        nonlocal outstanding
+        task = (item, result) if defer_large else (
+            item, result, bool(is_large(item)) if is_large else large)
+        priority = (*queue_key(item), next_sequence(), task)
+        if not defer_large:
+            if control.stop.is_set():
+                return False
+            with admission:
+                ready.put_nowait(priority)
+                outstanding += 1
+                admission.notify_all()
+            return True
         while not control.stop.is_set():
             try:
                 ready.put(priority, timeout=0.2)
@@ -146,7 +168,7 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                 pass
         return False
 
-    def producer(item, prefetched, *, manual=False, reason="", defer=False):
+    def producer(item, prefetched, *, manual=False, reason="", defer=False, large=False):
         if control.stop.is_set():
             return
         handed_off = False
@@ -165,7 +187,7 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                     deferred_large.append((item, result))
                 handed_off = True
                 return
-            handed_off = enqueue(item, result)
+            handed_off = enqueue(item, result, large)
         except ManualDownloadRequired as exc:
             if manual_acquire and not manual and not control.stop.is_set():
                 pending_manual.put((item, str(exc)))
@@ -185,7 +207,67 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
             if not enqueue(item, result):
                 notify(on_discard, item)
 
+    def pipelined_consumer():
+        nonlocal active_large, outstanding
+        def large_limit():
+            capacity = min(install_workers, getattr(worker_limit, "limit", install_workers))
+            return min(max(1, max_large_install), max(1, capacity - 1))
+        def release_waiting():
+            for queued in waiting_large:
+                ready.put_nowait(queued)
+            waiting_large.clear()
+        while True:
+            admitted = worker_limit is None or worker_limit.acquire(control.stop)
+            with admission:
+                if control.stop.is_set() or active_large < large_limit():
+                    release_waiting()
+            entry = ready.get()
+            task = entry[3]
+            large_slot = requeued = False
+            try:
+                if task is None:
+                    with admission:
+                        if not outstanding:
+                            return
+                        ready.put_nowait(entry)
+                        requeued = True
+                else:
+                    item, result, large = task
+                    if control.stop.is_set() or not admitted:
+                        notify(on_discard, item)
+                        continue
+                    if large:
+                        with admission:
+                            if active_large >= large_limit():
+                                waiting_large.append(entry)
+                                requeued = True
+                            else:
+                                active_large += 1
+                                large_slot = True
+                    if not requeued:
+                        try:
+                            install(item, result)
+                        except Exception as exc:
+                            failed(item, exc)
+            finally:
+                with admission:
+                    if large_slot:
+                        active_large -= 1
+                        release_waiting()
+                    if task is not None and not requeued:
+                        outstanding -= 1
+                    if large_slot or (task is not None and not requeued):
+                        admission.notify_all()
+                if admitted and worker_limit is not None:
+                    worker_limit.release()
+                ready.task_done()
+            if requeued:
+                with admission:
+                    admission.wait(timeout=0.2)
+
     def consumer():
+        if not defer_large:
+            return pipelined_consumer()
         while True:
             _unknown, _size, _seq, task = ready.get()
             try:
@@ -219,7 +301,7 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                                   link_workers=max(4, download_workers),
                                   large_workers=min(2, download_workers - 1),
                                   large_download=lambda item, value:
-                                      producer(item, value, defer=True))
+                                      producer(item, value, defer=defer_large, large=True))
                 finally:
                     release_deferred_large()
                     automatic_done.set()
