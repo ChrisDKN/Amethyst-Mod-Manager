@@ -49,6 +49,7 @@ build-options:
 #   XDG_CONFIG_HOME, so it lands in ~/.var/app/<app-id>/config/AmethystModManager
 #   (separate from a native/AppImage install's ~/.config/AmethystModManager).
 # - run/media, media, mnt: Steam libraries on SD cards and removable drives (Steam Deck, etc.)
+# - var/mnt: mount point on Fedora Atomic / Bazzite, where /mnt is a symlink to /var/mnt
 # - ~/.var/app/com.valvesoftware.Steam: Steam Flatpak data (home excludes ~/.var/app)
 # - ~/.var/app/com.heroicgameslauncher.hgl: Heroic Flatpak
 # - ~/.var/app/net.lutris.Lutris: Lutris Flatpak (pga.db, game configs, wine runners)
@@ -65,6 +66,7 @@ finish-args:
   - --filesystem=/run/media
   - --filesystem=/media
   - --filesystem=/mnt
+  - --filesystem=/var/mnt
   - --filesystem=~/.var/app/com.valvesoftware.Steam
   - --filesystem=~/.var/app/com.heroicgameslauncher.hgl
   - --filesystem=~/.var/app/net.lutris.Lutris
