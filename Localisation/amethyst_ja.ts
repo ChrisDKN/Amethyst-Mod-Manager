@@ -18870,7 +18870,7 @@ Try clearing your search or filters.</source>
     </message>
     <message>
       <source>Stopping the download. Any partial download will be kept so it can resume later.</source>
-      <translation type="unfinished">Stopping the download. Any partial download will be kept so it can resume later.</translation>
+      <translation>ダウンロードを停止しています。後で再開できるように、一部のダウンロードは保持されます。</translation>
     </message>
     <message>
       <source>{0} / {1} ({2}%)</source>
@@ -19042,15 +19042,15 @@ Try clearing your search or filters.</source>
     </message>
     <message>
       <source>Download cancelled</source>
-      <translation type="unfinished">Download cancelled</translation>
+      <translation>ダウンロードがキャンセルされました</translation>
     </message>
     <message>
       <source>Modlist package download cancelled.</source>
-      <translation type="unfinished">Modlist package download cancelled.</translation>
+      <translation>Modlistパッケージのダウンロードがキャンセルされました。</translation>
     </message>
     <message>
       <source>Select Check requirements to resume; any partial download will be reused.</source>
-      <translation type="unfinished">Select Check requirements to resume; any partial download will be reused.</translation>
+      <translation>再開するチェック要件を選択します。一部のダウンロードが再利用されます。</translation>
     </message>
     <message>
       <source>Open download page</source>
