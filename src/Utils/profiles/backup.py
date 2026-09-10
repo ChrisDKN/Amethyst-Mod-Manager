@@ -29,6 +29,7 @@ _SEPARATOR_SUFFIX = "_separator"
 _BACKUP_FILES = [
     "modlist.txt",
     "plugins.txt",
+    "loadorder.txt",
     "userlist.yaml",
     "profile_state.json",
     # Legacy individual files - kept so old backups can still be restored
