@@ -128,6 +128,13 @@ def _open_zip_member(source, item, log):
         return source.open(compatible)
 
 
+def _archive_member_path(value, *, directory=False, size=0):
+    name = str(value).replace("\\", "/").rstrip("/")
+    if directory and not size and name == ".":
+        return None
+    return relative_path(name)
+
+
 def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=None,
                  *, members=None, resources=None):
     from .extraction import working_memory, zip_memory, extract_selected, finish_extraction
@@ -153,11 +160,18 @@ def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=N
                      encrypted=sum(bool(item.flag_bits & 1) for item in items))
                 entries, seen = [], {}
                 for item in items:
-                    name = relative_path(item.orig_filename.rstrip("/\\"))
-                    path = within(target, name)
                     directory = (item.orig_filename.endswith(("/", "\\"))
                                  or stat.S_ISDIR(item.external_attr >> 16)
                                  or bool(item.external_attr & 0x10))
+                    if (item.external_attr >> 16) & 0o170000 == 0o120000:
+                        raise WabbajackError("Symbolic links are not supported in source archives")
+                    if item.flag_bits & 1:
+                        raise WabbajackError(f"Password-protected source archive is unsupported: {archive.name}")
+                    name = _archive_member_path(item.orig_filename, directory=directory,
+                                                size=item.file_size)
+                    if name is None:
+                        continue
+                    path = within(target, name)
                     if name in seen and not (directory and seen[name]):
                         raise WabbajackError(f"Conflicting ZIP destination: {name}")
                     if directory and item.file_size:
@@ -165,10 +179,6 @@ def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=N
                     seen[name] = directory
                     if members is None or name.casefold() in members:
                         entries.append((item, path, directory))
-                    if (item.external_attr >> 16) & 0o170000 == 0o120000:
-                        raise WabbajackError("Symbolic links are not supported in source archives")
-                    if item.flag_bits & 1:
-                        raise WabbajackError(f"Password-protected source archive is unsupported: {archive.name}")
                 native_methods = {zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED,
                                   zipfile.ZIP_BZIP2, zipfile.ZIP_LZMA}
                 selected = [item for item, _, _ in entries]
@@ -209,19 +219,22 @@ def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=N
             emit(log, "extract.format", archive=archive, format="tar",
                  members=len(items), expanded_bytes=sum(i.size for i in items))
             completed = 0
-            for item in source:
-                within(target, item.name.rstrip("/"))
+            entries = []
+            for item in items:
                 if not item.isfile() and not item.isdir():
                     raise WabbajackError("Special files are not supported in source archives")
-            items = [item for item in items if members is None or
-                     relative_path(item.name.rstrip("/")).casefold() in members]
-            total = sum(i.size for i in items)
+                name = _archive_member_path(item.name, directory=item.isdir(), size=item.size)
+                if name is None:
+                    continue
+                path = within(target, name)
+                if members is None or name.casefold() in members:
+                    entries.append((item, path))
+            total = sum(item.size for item, _ in entries)
             reserve_budget(total)
             with resources(256 * 1024 ** 2, total) if resources else nullcontext():
-                for item in items:
+                for item, path in entries:
                     if stop.is_set():
                         raise InterruptedError("Installation stopped")
-                    path = within(target, item.name.rstrip("/"))
                     if item.isdir():
                         path.mkdir(parents=True, exist_ok=True)
                     else:
@@ -235,7 +248,7 @@ def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=N
                                     progress(completed, total)
                         path.chmod((item.mode & 0o777) | 0o600)
         emit(log, "extract.completed", archive=archive, target=target,
-             format="tar-native", members=len(items), expanded_bytes=total,
+             format="tar-native", members=len(entries), expanded_bytes=total,
              elapsed_seconds=round(time.monotonic() - started, 3))
         return
     tool = next((shutil.which(n) for n in ("7zzs", "7zz", "7z", "7za") if shutil.which(n)), None)
@@ -258,27 +271,34 @@ def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=N
             continue
         if sep:
             entry[key] = value
-        if key == "Path" and sep:
-            within(target, value.rstrip("/"))
         if key in {"Symbolic Link", "Hard Link"} and value:
             raise WabbajackError("Links are not supported in source archives")
     if entry:
         entries.append(entry)
-    entries = [entry for entry in entries if "Path" in entry]
-    expanded = sum(int(entry.get("Size") or "0") for entry in entries)
-    selected = [entry for entry in entries if members is None or
-                relative_path(entry["Path"].rstrip("/")).casefold() in members]
-    names = [entry["Path"] for entry in selected if entry.get("Folder") != "+"
-             and not entry.get("Attributes", "").startswith("D")]
-    matched = {relative_path(name).casefold() for name in names}
+    validated = []
+    for entry in entries:
+        if "Path" not in entry:
+            continue
+        size = int(entry.get("Size") or "0")
+        directory = (entry.get("Folder") == "+"
+                     or entry.get("Attributes", "").startswith("D"))
+        name = _archive_member_path(entry["Path"], directory=directory, size=size)
+        if name is None:
+            continue
+        within(target, name)
+        validated.append((entry, name, directory, size))
+    expanded = sum(size for _, _, _, size in validated)
+    selected = [item for item in validated if members is None or item[1].casefold() in members]
+    names = [entry["Path"] for entry, _, directory, _ in selected if not directory]
+    matched = {name.casefold() for _, name, directory, _ in selected if not directory}
     selective = (members is not None and members <= matched and
                  all(name == name.strip() and not name.startswith(('"', '\ufeff'))
                      and not any(c in name for c in "\r\n") for name in names))
-    selected_bytes = sum(int(entry.get("Size") or "0") for entry in selected) if selective else expanded
+    selected_bytes = sum(size for _, _, _, size in selected) if selective else expanded
     reserve_budget(selected_bytes)
-    memory_bytes = working_memory({entry.get("Method", "") for entry in entries})
+    memory_bytes = working_memory({entry.get("Method", "") for entry, _, _, _ in validated})
     emit(log, "extract.selection", archive=archive, selective=selective,
-         archive_members=len(entries), selected_members=len(names) if selective else len(entries),
+         archive_members=len(validated), selected_members=len(names) if selective else len(validated),
          expanded_bytes=expanded, selected_bytes=selected_bytes,
          working_memory_bytes=memory_bytes)
     try:
