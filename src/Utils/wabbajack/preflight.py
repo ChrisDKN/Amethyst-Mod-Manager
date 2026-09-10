@@ -34,9 +34,14 @@ def _check_lengths(request, adapter, check, archive_paths, stop):
                                sort_keys=True, default=sorted)
     key = ("path-limits-1", request.package.identity,
            hashlib.sha256(configuration.encode()).hexdigest())
+    from .manifest import excluded_directives, required_directives
+    required = required_directives(request.package, (), excluded_directives(request, adapter)) if adapter else None
+    key += (tuple(request.profiles), tuple(sorted(request.fixes)))
     def inspect():
         failures = set()
         for directive in request.package.directives:
+            if required is not None and directive.path not in required:
+                continue
             if stop is not None and stop.is_set():
                 raise InterruptedError("Preflight stopped")
             paths = [(roots[0], directive.path)]
@@ -177,18 +182,22 @@ def _emit_game_file_problems(package, problems, check, readme="", ignored=False)
             check("warning" if ignored else "error", name, detail, items)
 
 
-def _reusable(request, stop, check, adapter, log=None):
+def _reusable(request, stop, check, adapter, log=None, *, required=None):
     import sqlite3
     from .hashes import file_hash
     from .paths import within
-    from .reconstruct import signature
+    from .reconstruct import reusable_signature
+    from .store import installation_info
     from .verification import cached_files
     directory = request.directory
     old, completed, root_reuse, stage_reuse = {}, {}, set(), set()
     if not (directory / "state.sqlite").is_file():
         return root_reuse, stage_reuse, old
+    previous = installation_info(directory, log)
     def candidates():
         for directive in request.package.directives:
+            if required is not None and directive.path not in required:
+                continue
             if stop is not None and stop.is_set():
                 raise InterruptedError("Preflight stopped")
             published = adapter.installed_path(directive.path) if adapter else directive.path
@@ -198,9 +207,8 @@ def _reusable(request, stop, check, adapter, log=None):
             rows = [row for row in rows if row[0]]
             if not rows:
                 continue
-            sig = signature(directive, request)
             for row, base, rel, published in rows:
-                if row[0] == sig:
+                if reusable_signature(directive, request, row[0], row[1], previous):
                     yield directive.path, base, rel, row[1], published, directive.output_size
     def verify(candidate):
         directive_path, base, rel, expected, published, _ = candidate
@@ -353,7 +361,7 @@ def _preflight(request, stop, notify, log=None):
         for index, item in enumerate(result.items):
             emit(log, "preflight.check.item", check=result.name,
                  index=index + 1, total=len(result.items), detail=item)
-    notify("Verifying package integrity")
+    notify("Checking installation requirements")
     if request.game.get_deploy_active():
         check("error", "Deployment", "Restore the deployed game before installing or updating a modlist")
     try:
@@ -362,6 +370,65 @@ def _preflight(request, stop, notify, log=None):
     except Exception as exc:
         emit_exception(log, "preflight.filegraph.failed", exc)
         check("error", "File catalog", f"The native Filegraph component is required: {exc}")
+    root = Path(request.game.get_profile_root()).resolve()
+    directory = request.directory.resolve()
+    if not matches_game(request.game, package.game):
+        check("error", "Game", f"This list requires {package.game}; selected {request.game.name}")
+    if request.mode not in {"install", "resume", "repair", "update"}:
+        check("error", "Operation", "Unknown installation operation")
+    if directory.parent != root / ".wabbajack" or request.directory.is_symlink():
+        check("error", "Installation directory", "Choose a directory directly inside the game's .wabbajack directory")
+    if request.mode == "install" and directory.exists() and any(directory.iterdir()):
+        check("error", "Installation directory", "Choose an empty managed directory, or use Resume, Repair or Update")
+    if package.profiles and (not request.profiles or any(p not in package.profiles for p in request.profiles)):
+        check("error", "Profiles", "Select at least one authored profile")
+    downloads = request.downloads.resolve()
+    pairs = [(directory, downloads)]
+    pairs.extend((dest, path.resolve()) for path in request.game_roots.values() for dest in (directory, downloads))
+    for source, target in pairs:
+        if source == target or source.is_relative_to(target) or target.is_relative_to(source):
+            check("error", "Path overlap", f"The installation, downloads and original games must use separate directories: {source}")
+    for name in ("root", "work", "backups", "state.sqlite", "state.sqlite-wal", "state.sqlite-shm", "install.lock"):
+        if (directory / name).is_symlink():
+            check("error", "Installation directory", f"Managed entry cannot be a symbolic link: {name}")
+    from .store import installation_info
+    info = installation_info(directory, log)
+    if request.mode != "install":
+        if not info:
+            check("error", "Installation", "No managed installation exists at this location")
+        elif request.mode in {"resume", "repair"} and package.identity != info.get("pending_package", info.get("package_identity")):
+            check("error", "Package identity", "Resume and Repair require the saved package. Use Update for a different authored version.")
+    if not report.ok:
+        return report
+    hardlinks = True
+    notify("Checking filesystem capabilities")
+    try:
+        parent = existing_parent(request.directory)
+        with tempfile.TemporaryDirectory(prefix=".amethyst-preflight-", dir=parent) as tmp:
+            p = Path(tmp)
+            (p / "source").write_bytes(b"ok")
+            try:
+                os.link(p / "source", p / "hardlink")
+            except OSError as exc:
+                hardlinks = False
+                check("warning", "Filesystem", f"Hard links are unavailable; installation will use copies and reserve space for them: {exc}")
+            (p / "link").symlink_to("source")
+            if (p / "link").read_bytes() != b"ok":
+                raise OSError("Symbolic links are unavailable")
+            (p / "Case").write_bytes(b"a")
+            case_sensitive = not (p / "case").exists()
+            if not case_sensitive:
+                check("warning", "Filesystem", "Case-insensitive installation filesystem")
+            emit(log, "preflight.filesystem_probe", path=parent,
+                 hardlinks=hardlinks, symlinks=True,
+                 case_sensitive=case_sensitive)
+    except OSError as exc:
+        emit_exception(log, "preflight.filesystem_probe.failed", exc,
+                       path=parent)
+        check("error", "Filesystem capabilities", exc)
+    if not report.ok:
+        return report
+    notify("Verifying package integrity")
     try:
         XXHash()
         from .verification import verified_read
@@ -377,13 +444,6 @@ def _preflight(request, stop, notify, log=None):
     from .manifest import archive_path
     archive_paths = {d.index: archive_path(d.data) for d in package.directives
                      if d.kind in {"FromArchive", "PatchedFromArchive", "TransformedTexture"}}
-    if not matches_game(request.game, package.game):
-        check("error", "Game", f"This list requires {package.game}; selected {request.game.name}")
-    if request.mode not in {"install", "resume", "repair", "update"}:
-        check("error", "Operation", "Unknown installation operation")
-    for required_game in package.metadata.get("OtherGames", []):
-        if not any(token(n) == token(required_game) for n in request.game_roots):
-            check("error", "Additional game", f"Configure the required {required_game} game and its original source directory")
     from .manifest import stock_folder
     from .adapters import ROOT_MOD_NAME, adapter_for
     stock = ""
@@ -401,6 +461,8 @@ def _preflight(request, stop, notify, log=None):
         emit_exception(log, "preflight.adapter.failed", exc)
         check("error", "Game layout", exc)
     _check_lengths(request, adapter, check, archive_paths, stop)
+    from .manifest import excluded_directives, required_directives
+    planned_paths = required_directives(package, (), excluded_directives(request, adapter)) if adapter else {d.path for d in package.directives}
     if adapter:
         from .adapters import STORE_ROOT_FOLDERS
         if adapter.bethesda and any(d.path.split("/")[0].casefold().strip("_ ") in STORE_ROOT_FOLDERS for d in package.directives):
@@ -449,51 +511,26 @@ def _preflight(request, stop, notify, log=None):
             check("manual", "Author instructions", "Enable automatic 4GB patching in the game's settings or apply the provided FNV patcher before launching")
     from .bsa_setup import preflight_setup, requirement as bsa_requirement
     notify("Checking BSA setup")
-    bsa_bytes, bsa_reuse = preflight_setup(request, check, stop, log=log)
+    bsa_bytes, bsa_reuse = preflight_setup(request, check, stop, log=log, hardlinks=hardlinks)
     bsa = bsa_requirement(package)
     for folder in sorted({d.path.split("/")[0] for d in package.directives
                           if "patcher" in d.path.split("/")[0].casefold()}):
         if bsa and folder in bsa.folders:
             continue
         check("manual", "Author instructions", f"The tool in {folder} is retained. Follow the author's instructions to run it; copying its files does not apply its patches.")
-    root = Path(request.game.get_profile_root()).resolve()
     notify("Checking installation and profiles")
-    directory = request.directory.resolve()
-    if directory.parent != root / ".wabbajack" or request.directory.is_symlink():
-        check("error", "Installation directory", "Choose a directory directly inside the game's .wabbajack directory")
-    for name in ("root", "work", "backups", "state.sqlite", "state.sqlite-wal", "state.sqlite-shm", "install.lock"):
-        if (directory / name).is_symlink():
-            check("error", "Installation directory", f"Managed entry cannot be a symbolic link: {name}")
-    from .store import installation_info
-    info = installation_info(directory, log)
-    if request.mode == "install" and directory.exists() and any(directory.iterdir()):
-        check("error", "Installation directory", "Choose an empty managed directory, or use Resume, Repair or Update")
-    elif request.mode != "install":
-        if not info:
-            check("error", "Installation", "No managed installation exists at this location")
-        elif request.mode in {"resume", "repair"} and package.identity != info.get("pending_package", info.get("package_identity")):
-            check("error", "Package identity", "Resume and Repair require the saved package. Use Update for a different authored version.")
-        else:
-            from .profiles import referenced_profiles
-            affected = referenced_profiles(directory, root, log)
-            check("warning", "Affected profiles", ", ".join(p.name for p in affected) or "No published profiles")
-            from .planning import plan_update
-            plan = plan_update(request, log=log)
-            check("pass", "Update preview", f"{len(plan.added):,} added, {len(plan.changed):,} changed, {len(plan.removed):,} obsolete authored files. Local changes are compared before publication.")
-            old_profiles = set(info.get("selected_profiles", []))
-            new_profiles = set(request.profiles)
-            if old_profiles != new_profiles:
-                check("warning", "Authored profile changes", f"Added: {', '.join(sorted(new_profiles - old_profiles)) or 'none'}; removed: {', '.join(sorted(old_profiles - new_profiles)) or 'none'}. Removed profiles remain available for review.")
-    for game_root in request.game_roots.values():
-        for dest in (directory, request.downloads.resolve()):
-            game_root = game_root.resolve()
-            if dest == game_root or dest.is_relative_to(game_root) or game_root.is_relative_to(dest):
-                check("error", "Path overlap", f"{dest} overlaps the game directory")
-    if directory == request.downloads.resolve() or directory.is_relative_to(request.downloads.resolve()) or request.downloads.resolve().is_relative_to(directory):
-        check("error", "Path overlap", "Downloads and managed installation must be separate")
-    if package.profiles and (not request.profiles or any(p not in package.profiles for p in request.profiles)):
-        check("error", "Profiles", "Select at least one authored profile")
-    if any(d.kind == "RemappedInlineFile" for d in package.directives):
+    if request.mode != "install":
+        from .profiles import referenced_profiles
+        affected = referenced_profiles(directory, root, log)
+        check("warning", "Affected profiles", ", ".join(p.name for p in affected) or "No published profiles")
+        from .planning import plan_update
+        plan = plan_update(request, log=log)
+        check("pass", "Update preview", f"{len(plan.added):,} added, {len(plan.changed):,} changed, {len(plan.removed):,} obsolete authored files. Local changes are compared before publication.")
+        old_profiles = set(info.get("selected_profiles", []))
+        new_profiles = set(request.profiles)
+        if old_profiles != new_profiles:
+            check("warning", "Authored profile changes", f"Added: {', '.join(sorted(new_profiles - old_profiles)) or 'none'}; removed: {', '.join(sorted(old_profiles - new_profiles)) or 'none'}. Removed profiles remain available for review.")
+    if any(d.kind == "RemappedInlineFile" and d.path in planned_paths for d in package.directives):
         from .runtime import windows_path
         try:
             for path in [directory / "root", request.downloads, *request.game_roots.values()]:
@@ -517,10 +554,10 @@ def _preflight(request, stop, notify, log=None):
     setup_reuse = set()
     notify("Checking additional setup")
     tasks, setup_bytes = preflight_tasks(request, check, stop,
-        configuration=configuration, reusable=setup_reuse, log=log)
+        configuration=configuration, reusable=setup_reuse, log=log, hardlinks=hardlinks)
     from .post_install import preflight_post_install
     setup_bytes += preflight_post_install(request, check, stop,
-                                          reusable=setup_reuse, log=log)
+                                          reusable=setup_reuse, log=log, hardlinks=hardlinks)
     report.setup_tasks = tasks
     notify("Checking authored profiles")
     provided_mods = {d.path.split("/")[1].casefold() for d in package.directives if d.path.startswith("mods/")}
@@ -533,6 +570,8 @@ def _preflight(request, stop, notify, log=None):
     with zipfile.ZipFile(package.path) as archive:
         for directive in package.directives:
             parts = directive.path.split("/")
+            if directive.path not in planned_paths:
+                continue
             member = directive.data.get("SourceDataID")
             if not member:
                 continue
@@ -590,17 +629,18 @@ def _preflight(request, stop, notify, log=None):
                          exception_type=type(exc).__name__, exception=str(exc))
             if not available:
                 check("error", "Required DLC or game plugin", f"Profile {profile} enables {name}, which is missing from the original game and reconstructed files")
-    from .manifest import required_directives, dependency_paths, optional_game_file_directives
+    from .manifest import required_directives, dependency_paths, optional_game_file_directives, excluded_directives
     notify("Verifying reusable installation files")
     root_reuse, stage_reuse, old_outputs = _reusable(
-        request, stop, check, adapter, log)
+        request, stop, check, adapter, log, required=planned_paths)
     reusable = root_reuse | stage_reuse
-    ignored_directives = optional_game_file_directives(package)
+    optional = optional_game_file_directives(package)
+    ignored_directives = excluded_directives(request, adapter) if adapter else optional
     required = required_directives(package, reusable, ignored_directives)
     pending = [d for d in package.directives if d.path in required and d.path not in reusable]
     required_archives = {archive_paths[d.index][0] for d in pending if d.index in archive_paths}
     ignored_archives = {archive_paths[d.index][0] for d in package.directives
-                        if d.path in ignored_directives and d.index in archive_paths} - required_archives
+                        if d.path in optional and d.index in archive_paths} - required_archives
     report.required_archives = sorted(required_archives)
     emit(log, "preflight.reuse", root_outputs=len(root_reuse),
          staged_outputs=len(stage_reuse), prior_outputs=len(old_outputs),
@@ -613,7 +653,7 @@ def _preflight(request, stop, notify, log=None):
     sizes_needed = {a.size for a in package.archives.values() if a.key in required_archives and a.kind != "GameFileSource"}
     emit(log, "preflight.cache_scan.started", directories=scan_dirs,
          required_sizes=len(sizes_needed))
-    report.cache_index = ArchiveCacheIndex(scan_dirs, sizes_needed)
+    report.cache_index = ArchiveCacheIndex(scan_dirs, sizes_needed, log=log)
     report.cache_index.refresh(stop, force=True)
     by_size = report.cache_index.groups()
     for folder in report.cache_index.roots:
@@ -631,7 +671,13 @@ def _preflight(request, stop, notify, log=None):
         needed = expected_by_size[size].copy()
         found = {}
         for path in paths:
-            key = file_hash(path, stop)
+            try:
+                key = file_hash(path, stop)
+            except InterruptedError:
+                raise
+            except (OSError, WabbajackError) as exc:
+                emit_exception(log, "preflight.cache.unreadable", exc, path=path)
+                continue
             if key in needed:
                 found[key] = path
                 needed.remove(key)
@@ -710,12 +756,12 @@ def _preflight(request, stop, notify, log=None):
                              request.gallery_metadata.get("readme", ""), ignored=True)
     notify("Checking reconstruction requirements")
     for directive in package.directives:
-        if directive.path in ignored_directives:
+        if directive.path not in required:
             continue
         report.install_bytes += directive.size
         if directive.embedded_hash:
             check("pass", "Profile selections", f"{directive.path}: Amethyst will import and verify the author's packaged selections automatically. No action needed.")
-        if directive.kind == "CreateBSA":
+        if directive.kind == "CreateBSA" and directive.path not in reusable:
             try:
                 check_archive_state(directive.data["State"], directive.data["FileStates"])
             except (KeyError, ValueError) as exc:
@@ -739,12 +785,14 @@ def _preflight(request, stop, notify, log=None):
     from .runtime import adjustments, uses_native_runtime
     notify("Checking runtime requirements")
     native_runtime = uses_native_runtime(request.game)
-    for item in adjustments(package, request.game, request.profiles, configuration=configuration):
+    runtime_paths = required - ignored_directives
+    for item in adjustments(package, request.game, request.profiles, configuration=configuration, paths=runtime_paths):
         check("pass" if item.id in request.fixes else "error" if item.required else "warning",
               "Runtime adjustment", item.label + (" (accepted)" if item.id in request.fixes else " — review this option in setup"))
     if native_runtime:
         check("pass", "Game runtime", "Native Linux runtime; no Wine/Proton prefix required")
-    elif any(d.path.lower().endswith(".exe") for d in package.directives):
+    elif any(d.path in runtime_paths and d.path.split("/")[0].casefold() != "temp_bsa_files"
+             and d.path.lower().endswith(".exe") for d in package.directives):
         prefix = request.game.get_prefix_path() if hasattr(request.game, "get_prefix_path") else None
         if not prefix or not Path(prefix).is_dir():
             check("error", "Game runtime", "Configure the selected game's Wine/Proton prefix before installation")
@@ -768,14 +816,14 @@ def _preflight(request, stop, notify, log=None):
     linked_reuse = copied_reuse = 0
     for directive in package.directives:
         published = adapter.installed_path(directive.path) if adapter else directive.path
-        if (directive.path in ignored_directives or directive.path in root_reuse
+        if (directive.path not in required or directive.path in root_reuse
                 or directive.path.split("/")[0].casefold() == "temp_bsa_files"
                 or not published):
             continue
         if directive.path in stage_reuse:
             source = within(directory / "work" / "output", directive.path)
             target = within(directory / "root", published)
-            if not publication_copy_required(source, target, directory / "work"):
+            if hardlinks and not publication_copy_required(source, target, directory / "work"):
                 linked_reuse += 1
                 continue
             copied_reuse += 1
@@ -799,11 +847,18 @@ def _preflight(request, stop, notify, log=None):
         if path.is_file() and not path.is_symlink():
             backups += path.stat().st_size
     extracted = {}
+    selected_members = {}
+    nested_outputs = {}
+    nested_members = {}
     for d in pending:
         if d.kind in {"FromArchive", "PatchedFromArchive", "TransformedTexture"}:
             key, members = archive_paths[d.index]
             if members:
                 extracted[key] = extracted.get(key, 0) + d.size
+                selected_members.setdefault(key, set()).add(members[0].casefold())
+                if len(members) > 1:
+                    nested_outputs[key] = nested_outputs.get(key, 0) + d.size
+                    nested_members.setdefault(key, set()).add(members[0].casefold())
     estimates = []
     for key, outputs in extracted.items():
         archive = package.archives[key]
@@ -811,22 +866,34 @@ def _preflight(request, stop, notify, log=None):
         cached = report.cached.get(key, report.game_files.get(key))
         if cached and zipfile.is_zipfile(cached):
             with zipfile.ZipFile(cached) as source:
-                estimate = max(estimate, sum(i.file_size for i in source.infolist()))
+                selected = [i for i in source.infolist()
+                            if i.filename.replace("\\", "/").casefold() in selected_members[key]]
+                estimate = sum(i.file_size for i in selected)
+                if key in nested_outputs:
+                    packed = sum(i.file_size for i in selected
+                                 if i.filename.replace("\\", "/").casefold() in nested_members[key])
+                    estimate += max(nested_outputs[key], packed * 3)
                 if any(i.flag_bits & 1 for i in source.infolist()):
                     check("error", "Archive extraction", f"Password-protected source archive is unsupported: {archive.name}")
-                if any(i.compress_type not in {zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED, zipfile.ZIP_BZIP2, zipfile.ZIP_LZMA} for i in source.infolist()):
+                if any(i.compress_type not in {zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED, zipfile.ZIP_BZIP2, zipfile.ZIP_LZMA} for i in selected):
                     if not any(shutil.which(n) for n in ("7zzs", "7zz", "7z", "7za")):
                         check("error", "Archive extraction", f"Install 7-Zip to decode the ZIP compression used by {archive.name}")
         estimates.append(estimate)
     by_path = {d.path.casefold(): d for d in package.directives}
     merge_bytes = max((sum(by_path[p.casefold()].size for p in dependency_paths(d))
                        for d in pending if d.kind == "MergedPatch"), default=0)
-    temporary = max(sum(sorted(estimates, reverse=True)[:3]), merge_bytes)
+    from Utils.ui.config import load_collection_settings
+    workers = max(1, load_collection_settings()["max_extract_workers"])
+    temporary = max(sum(sorted(estimates, reverse=True)[:workers]), merge_bytes)
     multipart = sum(a.size for a in package.archives.values() if a.key in required_archives and a.kind == "WabbajackCDN" and a.key not in report.cached)
-    sizes = [(request.downloads, report.download_bytes + multipart, "downloads and multipart assembly"),
+    from .acquire import partial_download_space
+    partial_bytes = sum(partial_download_space(a, request.downloads, stop, log)
+                        for a in package.archives.values() if a.key in required_archives and a.key not in report.cached)
+    emit(log, "preflight.space.partial_downloads", reusable_bytes=partial_bytes)
+    sizes = [(request.downloads, max(0, report.download_bytes + multipart - partial_bytes), "downloads and multipart assembly"),
              (directory, setup_bytes, "additional setup, staging and generated mods"),
              (directory, bsa_bytes, "vanilla BSA setup and audio conversion"),
-             (directory, max(staged_bytes, final_bytes) + 2 * profile_bytes + backups, "installation working set and update backups"),
+             (directory, (max(staged_bytes, final_bytes) if hardlinks else staged_bytes + final_bytes) + 2 * profile_bytes + backups, "installation working set and update backups"),
              (directory, temporary, "estimated temporary extraction")]
     for path, count, label in sizes:
         parent = existing_parent(path)
@@ -852,27 +919,6 @@ def _preflight(request, stop, notify, log=None):
              components=labels)
         check("pass" if available >= count + reserve else "error", "Disk space",
               f"{', '.join(labels)}: need {(count + reserve) / 1024 ** 3:.1f} GiB including reserve; {available / 1024 ** 3:.1f} GiB available at {parent}")
-    try:
-        notify("Checking filesystem capabilities")
-        parent = existing_parent(request.directory)
-        with tempfile.TemporaryDirectory(prefix=".amethyst-preflight-", dir=parent) as tmp:
-            p = Path(tmp)
-            (p / "source").write_bytes(b"ok")
-            os.link(p / "source", p / "hardlink")
-            (p / "link").symlink_to("source")
-            if (p / "link").read_bytes() != b"ok":
-                raise OSError("Symbolic links are unavailable")
-            (p / "Case").write_bytes(b"a")
-            case_sensitive = not (p / "case").exists()
-            if not case_sensitive:
-                check("warning", "Filesystem", "Case-insensitive installation filesystem")
-            emit(log, "preflight.filesystem_probe", path=parent,
-                 hardlinks=True, symlinks=True,
-                 case_sensitive=case_sensitive)
-    except OSError as exc:
-        emit_exception(log, "preflight.filesystem_probe.failed", exc,
-                       path=parent)
-        check("error", "Filesystem capabilities", exc)
     check("warning", "Linux compatibility", "Amethyst reminder: successful file reconstruction does not verify that every mod or bundled tool supports native Linux. This is not an author-supplied warning."
           if native_runtime else "Amethyst reminder: successful file reconstruction does not verify every Windows mod or tool under Proton. This is not an author-supplied warning.")
     return report

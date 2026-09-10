@@ -3,11 +3,40 @@ from __future__ import annotations
 import os
 import re
 from functools import lru_cache
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 
 
 class WabbajackError(ValueError):
     pass
+
+
+_source_index = ContextVar("wabbajack_source_index", default=None)
+
+
+@contextmanager
+def source_lookup_scope():
+    token = _source_index.set({})
+    try:
+        yield
+    finally:
+        _source_index.reset(token)
+
+
+def _matching_children(base, name):
+    index = _source_index.get()
+    if index is None:
+        return [path for path in base.iterdir() if path.name.casefold() == name]
+    info = base.stat()
+    stamp = info.st_dev, info.st_ino, info.st_mtime_ns, info.st_ctime_ns
+    cached = index.get(base)
+    if cached is None or cached[0] != stamp:
+        children = {}
+        for path in base.iterdir():
+            children.setdefault(path.name.casefold(), []).append(path)
+        cached = index[base] = stamp, children
+    return cached[1].get(name, ())
 
 
 def relative_path(value: str) -> str:
@@ -58,11 +87,9 @@ def source_candidates(root: Path, relative: str, *, aliases=None) -> list[Path]:
             for base in candidates:
                 if not base.is_dir():
                     continue
-                for path in base.iterdir():
-                    if path.name.casefold() == part.casefold():
-                        matches.append(path)
-                        if len(matches) > 256:
-                            raise WabbajackError(f"Too many case variants for source: {relative}")
+                matches.extend(_matching_children(base, part.casefold()))
+                if len(matches) > 256:
+                    raise WabbajackError(f"Too many case variants for source: {relative}")
             candidates = matches
             if not candidates:
                 break

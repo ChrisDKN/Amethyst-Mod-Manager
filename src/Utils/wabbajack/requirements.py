@@ -96,6 +96,10 @@ def setup_tasks(package, selected=None, configuration=None):
                 separate = bool(rule.companion_alias) and any(rule.companion_alias in mod.casefold() for mod in profile.mods)
                 if not supplied and not separate:
                     masters = (*masters, rule.companion_master)
+            if rule.required_plugin and all(any(
+                    f"mods/{mod}/{name}".casefold() in provided for mod in profile.mods)
+                    for name in masters):
+                continue
             eligible = [mod for mod in profile.mods
                         if not any(word in mod.casefold() for word in ("patches", "compatibility", "translations"))]
             candidates = [mod for mod in eligible if any(alias in mod.casefold() for alias in aliases)]

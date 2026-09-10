@@ -1367,7 +1367,9 @@ class WabbajackView(QWidget):
         from Utils.wabbajack.store import installation_info
         info = installation_info(request.directory, self._diagnostic_log)
         if info:
-            request.game_roots.update({k: Path(v) for k, v in info.get("source_roots", {}).items()})
+            for name, path in info.get("source_roots", {}).items():
+                if name not in request.game_roots or not request.game_roots[name].is_dir():
+                    request.game_roots[name] = Path(path)
             request.gallery_id = request.gallery_id or info.get("gallery_id", "")
         if self._entry:
             request.gallery_metadata = {k: getattr(self._entry, k) for k in ("author", "image", "readme", "community", "download", "nsfw", "tags")}

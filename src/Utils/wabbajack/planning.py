@@ -4,7 +4,7 @@ import sqlite3
 from dataclasses import dataclass, field, replace
 
 from .diagnostics import emit
-from .reconstruct import signature
+from .reconstruct import signature, reusable_signature
 from .store import installation_info
 
 
@@ -25,14 +25,23 @@ def plan_update(request, log=None):
     if not info:
         raise ValueError("Installation does not exist")
     with sqlite3.connect((request.directory / "state.sqlite").as_uri() + "?mode=ro", uri=True) as db:
-        old = {path: sig for path, sig in db.execute("SELECT path,signature FROM outputs WHERE path LIKE 'root/%'")}
+        stored = {path: (sig, digest) for path, sig, digest in db.execute(
+            "SELECT path,signature,authored_hash FROM outputs WHERE path LIKE 'root/%'")}
+    old = {path: sig for path, (sig, _) in stored.items()}
     adapter = adapter_for(request.package, request.game,
                           store=request.setup_options.get("store", ""), log=log)
-    from .manifest import optional_game_file_directives
-    ignored = optional_game_file_directives(request.package)
-    new = {"root/" + rel: signature(d, request) for d in request.package.directives
-           if d.path not in ignored and d.path.split("/")[0].casefold() != "temp_bsa_files"
-           and (rel := adapter.installed_path(d.path))}
+    from .manifest import excluded_directives
+    ignored = excluded_directives(request, adapter)
+    new = {}
+    for directive in request.package.directives:
+        if directive.path in ignored or directive.path.split("/")[0].casefold() == "temp_bsa_files":
+            continue
+        if rel := adapter.installed_path(directive.path):
+            key = "root/" + rel
+            new[key] = signature(directive, request)
+            row = stored.get(key)
+            if row and reusable_signature(directive, request, row[0], row[1], info):
+                old[key] = new[key]
     from .requirements import setup_tasks
     from .setup_tasks import output_mods
     for task in setup_tasks(request.package, request.profiles):
@@ -62,10 +71,10 @@ def plan_update(request, log=None):
     if any(adapter.root_mod_destination(d.path) for d in request.package.directives):
         key = f"root/mods/{ROOT_MOD_NAME}/meta.ini"
         new[key] = old.get(key, "root-mod")
-    from .bsa_setup import PREFIX, RECIPE, requirement, sources, expected_outputs, library_paths
+    from .bsa_setup import PREFIX, RECIPE, requirement, source_plan, expected_outputs, library_paths
     if requirement(request.package):
         try:
-            new.update(expected_outputs(sources(request, log=log)))
+            new.update(expected_outputs(source_plan(request, old)))
             new[PREFIX + "meta.ini"] = RECIPE
             by_path = {d.path: d for d in request.package.directives}
             for name, path in library_paths(request.package).items():

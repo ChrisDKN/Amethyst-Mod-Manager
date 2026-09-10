@@ -87,7 +87,7 @@ def _audio_size(stream, row, stop):
     return size
 
 
-def sources(request, stop=None, log=None):
+def sources(request, stop=None, log=None, *, names=None):
     from .verification import verified_read
     roots = {p.resolve() for name, p in request.game_roots.items() if nexus_domain(name) == "newvegas"}
     if len(roots) != 1:
@@ -100,7 +100,9 @@ def sources(request, stop=None, log=None):
     result = []
     for index, (name, expected) in enumerate(_SOURCES):
         _stop(stop)
-        if index >= 5 and name.casefold() not in available:
+        if names is not None and name not in names:
+            continue
+        if names is None and index >= 5 and name.casefold() not in available:
             continue
         try:
             path = source_path(data, name)
@@ -158,7 +160,21 @@ def expected_outputs(items):
     return {PREFIX + item.name: _signature(group) for group in groups(items) for item in group}
 
 
-def preflight_setup(request, check, stop=None, log=None):
+def source_plan(request, tracked=()):
+    available = {key.removeprefix(PREFIX).casefold() for key in tracked if key.startswith(PREFIX)}
+    for name, root in request.game_roots.items():
+        if nexus_domain(name) != "newvegas":
+            continue
+        try:
+            available.update(path.name.casefold() for path in source_path(root, "Data").iterdir())
+        except (OSError, WabbajackError):
+            pass
+    return [Source(name, Path(), digest, 0, False)
+            for index, (name, digest) in enumerate(_SOURCES)
+            if index < 5 or name.casefold() in available]
+
+
+def preflight_setup(request, check, stop=None, log=None, *, hardlinks=True):
     needed = requirement(request.package)
     if not needed:
         emit(log, "bsa.preflight.skipped")
@@ -180,9 +196,7 @@ def preflight_setup(request, check, stop=None, log=None):
                 completed = {p: (sig, digest) for p, sig, digest in db.execute("SELECT path,signature,actual_hash FROM completed")}
         if (request.directory / "root" / "mods" / MOD_NAME).exists() and not any(p.startswith(PREFIX) for p in old):
             raise WabbajackError(f"Move or rename the existing unowned {MOD_NAME} mod before installing")
-        items = sources(request, stop, log)
-        if any(item.audio for item in items):
-            probe_audio(log)
+        items = source_plan(request, old.keys() | completed.keys())
         reused, staged = set(), set()
         for key, sig in expected_outputs(items).items():
             row = old.get(key)
@@ -194,14 +208,29 @@ def preflight_setup(request, check, stop=None, log=None):
             if row and row[0] == sig and path.is_file() and file_hash(path, stop) == row[1]:
                 staged.add(key)
         pending = [g for g in groups(items) if any(PREFIX + s.name not in reused | staged for s in g)]
-        output = sum(s.expanded for g in pending for s in g)
-        temporary = max((sum(s.expanded for s in g) for g in pending), default=0)
-        publish = sum(s.expanded for s in items if PREFIX + s.name not in reused)
+        names = {s.name for g in pending for s in g}
+        inputs = {s.name: s for s in sources(request, stop, log, names=names)} if names else {}
+        if any(item.audio for item in inputs.values()):
+            probe_audio(log)
+        output = sum(s.expanded for s in inputs.values())
+        temporary = max((sum(inputs[s.name].expanded for s in g) for g in pending), default=0)
+        from .store import publication_copy_required
+        publish = output if not hardlinks else 0
+        for item in items:
+            key = PREFIX + item.name
+            if item.name in names:
+                reused.discard(key)
+            elif key in staged and key not in reused:
+                source = within(request.directory, "work/bsa-setup/output/" + item.name)
+                if not hardlinks or publication_copy_required(source, within(request.directory, key), request.directory / "work"):
+                    publish += source.stat().st_size
         check("pass", "BSA setup", f"{needed.reason}. Automatically rebuild {len(items)} archives and enable {MOD_NAME} in every selected profile; {len(reused | staged)} verified archives can be reused.")
         emit(log, "bsa.preflight.completed", archives=len(items),
              reusable=len(reused), staged=len(staged), pending_groups=len(pending),
              required_bytes=output + publish + temporary)
         return output + publish + temporary, reused
+    except InterruptedError:
+        raise
     except (OSError, ValueError, subprocess.SubprocessError) as exc:
         emit_exception(log, "bsa.preflight.failed", exc)
         check("error", "BSA setup", str(exc))
@@ -297,13 +326,13 @@ def run_setup(request, store, desired, stop, progress, log=None):
     started = time.monotonic()
     emit(log, "bsa.setup.started", reason=needed.reason,
          output_mod=MOD_NAME)
-    progress("Preparing vanilla BSAs", 0, 0, "Verifying original game archives")
-    items = sources(request, stop, log)
-    exe = probe_audio(log) if any(item.audio for item in items) else None
+    progress("Preparing vanilla BSAs", 0, 0, "Checking reusable archives")
+    old = store.outputs()
+    items = source_plan(request, old.keys() | store.completed_outputs().keys())
+    exe = None
     base = within(store.work, "bsa-setup")
     output = within(base, "output")
     output.mkdir(parents=True, exist_ok=True)
-    old = store.outputs()
     for group in groups(items):
         group_started = time.monotonic()
         sig = _signature(group)
@@ -321,6 +350,9 @@ def run_setup(request, store, desired, stop, progress, log=None):
             emit(log, "bsa.group.reused", archives=[item.name for item in group],
                  elapsed_seconds=round(time.monotonic() - group_started, 3))
             continue
+        group = sources(request, stop, log, names={item.name for item in group})
+        if exe is None and any(item.audio for item in group):
+            exe = probe_audio(log)
         emit(log, "bsa.group.started", archives=[item.name for item in group],
              signature=sig)
         scratch = within(base, "extracted")

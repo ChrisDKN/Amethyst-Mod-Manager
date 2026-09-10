@@ -327,13 +327,20 @@ class VerificationCache:
 
 @contextmanager
 def verification_scope(cache, stop=None, progress=None, log=None):
-    cache.open(log)
+    parent = _current.get()
+    shared = parent is not None and (parent[0] is cache or (
+        cache.directory is not None and cache.directory == parent[0].directory))
+    if shared:
+        cache = parent[0]
+    else:
+        cache.open(log)
     token = _current.set((cache, stop, progress, log))
     try:
         yield
     finally:
         _current.reset(token)
-        cache.close(log)
+        if not shared:
+            cache.close(log)
 
 
 def verified_read(path, kind, operation):
@@ -345,13 +352,13 @@ def verified_read(path, kind, operation):
                       detailed=Path(path).stat().st_size >= 1024 * 1024)
 
 
-def remember_verified(path, digest, stamp):
+def remember_verified(path, digest, stamp, *, kind="xxhash64"):
     if file_stamp(path) != stamp:
         raise WabbajackError(f"Verified file changed: {path}")
     context = _current.get()
     if context is not None:
         cache, _, _, log = context
-        cache.remember(path, "xxhash64", digest, stamp, log)
+        cache.remember(path, kind, digest, stamp, log)
 
 
 def verified_replace(source, target, *, digest=None, stamp=None, stop=None):
@@ -371,14 +378,10 @@ def verified_replace(source, target, *, digest=None, stamp=None, stop=None):
 
 
 def bind_verification(operation):
-    context = _current.get()
+    context = copy_context()
     @wraps(operation)
     def bound(*args, **kwargs):
-        token = _current.set(context)
-        try:
-            return operation(*args, **kwargs)
-        finally:
-            _current.reset(token)
+        return context.copy().run(operation, *args, **kwargs)
     return bound
 
 

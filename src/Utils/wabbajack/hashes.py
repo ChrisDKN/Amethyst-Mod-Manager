@@ -96,5 +96,41 @@ def verify_file(path: Path, expected: str, size: int, stop=None) -> bool:
 
 
 def package_hash(path: Path) -> str:
+    from .verification import file_stamp, verified_read
+    path = Path(path).absolute()
+    return verified_read(path, "sha256", lambda: _package_hash(path, file_stamp(path)))
+
+
+@lru_cache(maxsize=16)
+def _package_hash(path, stamp):
+    from .verification import file_stamp
     with path.open("rb") as stream:
-        return hashlib.file_digest(stream, "sha256").hexdigest()
+        digest = hashlib.file_digest(stream, "sha256").hexdigest()
+    if file_stamp(path) != stamp:
+        raise WabbajackError(f"Package changed during inspection: {path}")
+    return digest
+
+
+def copy_package(source, target, identity, stop=None):
+    import os
+    from Utils.atomic_write import atomic_writer
+    from .store import Store
+    from .verification import file_stamp, remember_verified
+    before = file_stamp(source)
+    sha, xxhash = hashlib.sha256(), XXHash()
+    with source.open("rb") as incoming, atomic_writer(target, "wb", encoding=None) as output:
+        while data := incoming.read(1024 * 1024):
+            if stop is not None and stop.is_set():
+                raise InterruptedError("Package copy stopped")
+            sha.update(data)
+            xxhash.update(data)
+            output.write(data)
+        if sha.hexdigest() != identity or file_stamp(source) != before:
+            raise WabbajackError("Modlist package changed while saving the installation")
+        output.flush()
+        os.fsync(output.fileno())
+    Store._sync_directory(target.parent)
+    stamp = file_stamp(target)
+    remember_verified(target, identity, stamp, kind="sha256")
+    remember_verified(target, xxhash.digest(), stamp)
+    return xxhash.digest()

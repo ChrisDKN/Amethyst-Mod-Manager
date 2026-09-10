@@ -58,10 +58,14 @@ def uses_stock_game(game):
                 and Path(current).resolve() == Path(path).resolve())
 
 
-def adjustments(package, game, profiles=None, *, configuration=None):
+def adjustments(package, game, profiles=None, *, configuration=None, paths=None):
     from Utils.wine.health import COMPONENT_SPECS, detect_component
     result = []
-    paths = [d.path.casefold() for d in package.directives]
+    if paths is None:
+        from .adapters import adapter_for
+        adapter = adapter_for(package, game)
+        paths = (d.path for d in package.directives if not adapter.application_file(d.path))
+    paths = [path.casefold() for path in paths if path.split("/")[0].casefold() != "temp_bsa_files"]
     from .requirements import profile_configuration
     if configuration is None:
         configuration = profile_configuration(package, profiles)
@@ -85,7 +89,12 @@ def ensure_runtime(request, stop, log):
     from Utils.wine import proton
     from Utils.wine.health import detect_component
     from Utils.wine.protontricks import WINETRICKS_VERB_DEPS, install_winetricks_verb
-    required = [item for item in adjustments(request.package, request.game, request.profiles)
+    from .adapters import adapter_for
+    from .manifest import excluded_directives, required_directives
+    adapter = adapter_for(request.package, request.game, store=request.setup_options.get("store", ""))
+    excluded = excluded_directives(request, adapter)
+    paths = required_directives(request.package, (), excluded) - excluded
+    required = [item for item in adjustments(request.package, request.game, request.profiles, paths=paths)
                 if item.required]
     emit(log, "runtime.setup.started", required=[item.id for item in required],
          accepted=request.fixes, prefix=request.game.get_prefix_path()

@@ -219,6 +219,14 @@ class Store:
                                   (path, signature)).fetchone()
         return row[0] if row else None
 
+    def completed_output(self, path):
+        with self.lock:
+            row = self._pending_completed.get(path)
+            if row is None:
+                row = self.db.execute("SELECT signature,actual_hash FROM completed WHERE path=?",
+                                      (path,)).fetchone()
+        return tuple(row) if row else None
+
     def completed_paths(self, paths):
         paths = tuple(dict.fromkeys(paths))
         with self.lock:

@@ -379,6 +379,26 @@ def _extract_output_archive(task, archive, target, stop, log=None,
     return _archive_mod_root(task, target, stop)
 
 
+def _inspect_output_archive(task, archive, stop=None):
+    from .extraction import archive_entries
+    from .verification import verified_read
+    def inspect():
+        rows = archive_entries(archive, stop)
+        files = {name.casefold(): (name, size) for name, size, directory in rows if not directory}
+        masters = {name.casefold() for name in task.masters}
+        roots = {name.rpartition("/")[0] for name in files if name.rsplit("/", 1)[-1] in masters}
+        valid = [root for root in roots if all(
+            files.get((root + "/" if root else "") + name, (None, 0))[1] >= 24 for name in masters)]
+        if "" in valid:
+            valid = [""]
+        if len(valid) != 1:
+            raise WabbajackError(f"{task.label} archive has no unambiguous complete output folder")
+        prefix = valid[0] + "/" if valid[0] else ""
+        selected = [row for name, row in files.items() if name.startswith(prefix)]
+        return len(selected), sum(size for _, size in selected), sum(size for _, size in files.values())
+    return verified_read(archive, ("setup-archive-layout-1", *task.masters), inspect)
+
+
 def _sandbox(command, work, writable=(), readonly=()):
     bwrap = shutil.which("bwrap")
     if not bwrap:
@@ -494,7 +514,7 @@ def _reusable(request, task, record, stop=None):
 
 
 def preflight_tasks(request, check, stop=None, *, configuration=None,
-                    reusable=None, log=None):
+                    reusable=None, log=None, hardlinks=True):
     from .store import installation_info
     from Utils.bethesda.ttw import find_ttw_installer
     tasks = setup_tasks(request.package, request.profiles, configuration)
@@ -512,6 +532,12 @@ def preflight_tasks(request, check, stop=None, *, configuration=None,
         try:
             reused = _reusable(request, task, previous, stop) if option == (previous or {}).get("option", {}) else None
             if reused:
+                from .store import publication_copy_required
+                for key, row in reused.items():
+                    source = Path(row["source"])
+                    target = request.directory / key
+                    if source != target and (not hardlinks or publication_copy_required(source, target, request.directory / "work")):
+                        estimates += source.stat().st_size
                 if reusable is not None:
                     reusable.update(key for key, row in reused.items() if Path(row["source"]) == request.directory / key)
                 check("pass", task.label, f"Verified reusable setup in {task.mod}")
@@ -528,7 +554,7 @@ def preflight_tasks(request, check, stop=None, *, configuration=None,
                 _input_boundary(request, root)
                 _verify_mod(task, root, stop)
                 files = list(_files(root, stop))
-                estimates += sum(path.stat().st_size for _, path in files) * 2
+                estimates += sum(path.stat().st_size for _, path in files) * (1 if hardlinks else 2)
                 emit(log, "setup.preflight.import", task_id=task.id,
                      source=root, files=len(files),
                      bytes=sum(path.stat().st_size for _, path in files))
@@ -539,17 +565,12 @@ def preflight_tasks(request, check, stop=None, *, configuration=None,
                     raise WabbajackError(f"Output archive import is not supported for {task.label}")
                 path = Path(archive).expanduser().absolute()
                 _input_boundary(request, path)
-                expanded = [0]
-                with tempfile.TemporaryDirectory(prefix="amethyst-setup-archive-") as folder:
-                    root = _extract_output_archive(task, path, Path(folder), stop, log,
-                                                   budget=lambda size: expanded.__setitem__(0, size))
-                    files = list(_files(root, stop))
-                    size = sum(file.stat().st_size for _, file in files)
-                estimates += size * 2
+                count, size, expanded = _inspect_output_archive(task, path, stop)
+                estimates += expanded + (size if not hardlinks else 0)
                 emit(log, "setup.preflight.archive", task_id=task.id,
-                     archive=path, files=len(files), bytes=size,
-                     expanded_bytes=expanded[0])
-                check("pass", task.label, f"Extract {len(files):,} files from {path.name} into {task.mod}; required masters checked and authored priority preserved")
+                     archive=path, files=count, bytes=size,
+                     expanded_bytes=expanded)
+                check("pass", task.label, f"Extract {count:,} files from {path.name} into {task.mod}; required filenames found, content will be verified during installation")
                 check("warning", task.label, "The archive has no package-supplied version guarantee. Confirm it is the version required by the author.")
             elif mpi and task.mpi_titles:
                 path = Path(mpi).expanduser().absolute()
@@ -585,7 +606,9 @@ def preflight_tasks(request, check, stop=None, *, configuration=None,
             else:
                 raise WabbajackError("Select the author-required MPI package or an existing complete output mod"
                                      if task.mpi_titles else "Select the author-required output archive or extracted output mod")
-        except (OSError, ValueError, KeyError, TypeError) as exc:
+        except InterruptedError:
+            raise
+        except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as exc:
             emit_exception(log, "setup.preflight.failed", exc, task_id=task.id)
             check("error", task.label, str(exc))
     emit(log, "setup.preflight.completed", tasks=len(tasks),

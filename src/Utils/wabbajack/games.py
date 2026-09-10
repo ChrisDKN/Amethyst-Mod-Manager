@@ -60,7 +60,14 @@ def source_roots(package, game) -> dict[str, Path]:
                 from .store import installation_info
                 saved = read_profile_settings(Path(profile)).get("wabbajack_directory")
                 info = installation_info(Path(saved)) if saved else None
-                if info:
+                if info and (roots[name].resolve().is_relative_to(Path(saved).resolve())
+                             or not roots[name].is_dir()):
+                    configured = getattr(found, "_read_global_paths", lambda: {})().get("game_path")
+                    if configured:
+                        configured = Path(configured).expanduser()
+                        if configured.is_dir() and not configured.resolve().is_relative_to(Path(saved).parent.resolve()):
+                            roots[name] = configured
+                            continue
                     original = next((p for n, p in info.get("source_roots", {}).items() if matches_game(found, n)), None)
                     if original:
                         roots[name] = Path(original)

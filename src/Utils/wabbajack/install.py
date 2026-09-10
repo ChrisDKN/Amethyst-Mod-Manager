@@ -4,6 +4,7 @@ import shutil
 import threading
 import time
 from dataclasses import replace
+from contextlib import ExitStack
 from pathlib import Path
 
 from Utils.downloads.install import InstallCallbacks, InstallControl, consume_pipeline
@@ -38,6 +39,7 @@ def run_install(request, *, callbacks=None, control=None, report=None):
     emit(cb.on_log, "install.lock.acquired", diagnostic_id=request.diagnostic_id)
     store = None
     reconstruction = None
+    contexts = ExitStack()
     last_phase, last_emit, phase_started = "", 0.0, 0.0
     def progress(phase, current, total, detail=""):
         nonlocal last_phase, last_emit, phase_started
@@ -54,6 +56,10 @@ def run_install(request, *, callbacks=None, control=None, report=None):
             cb.on_phase(phase, current, total, detail)
             last_phase, last_emit = phase, now
     try:
+        if request.game.get_deploy_active():
+            raise WabbajackError("Restore the deployed game before installing or updating a modlist")
+        cache = VerificationCache(directory=request.downloads / ".wabbajack-checks")
+        contexts.enter_context(verification_scope(cache, ctl.stop, log=cb.on_log))
         actual_identity = package_hash(request.package.path)
         emit(cb.on_log, "install.package.verified", path=request.package.path,
              expected_identity=request.package.identity, actual_identity=actual_identity,
@@ -86,8 +92,6 @@ def run_install(request, *, callbacks=None, control=None, report=None):
             if request.gallery_metadata:
                 store.set("gallery_metadata", request.gallery_metadata)
             store.set("game", request.package.game)
-            store.set("downloads", str(request.downloads))
-            store.set("source_roots", {k: str(v) for k, v in request.game_roots.items()})
             store.set("selected_profiles", request.profiles)
             store.set("setup_options", request.setup_options)
             store.set("pending_authored_profiles", request.package.profiles)
@@ -95,15 +99,17 @@ def run_install(request, *, callbacks=None, control=None, report=None):
             if request.package.path.resolve() != saved.resolve():
                 emit(cb.on_log, "install.package.persisting", source=request.package.path,
                      target=saved)
-                store._copy(request.package.path, saved)
+                from .hashes import copy_package
+                copy_package(request.package.path, saved, request.package.identity, ctl.stop)
             store.set("package_path", str(saved))
             store.set("pending_package_xxhash", file_hash(saved, ctl.stop))
             request.package.path = saved
             reconstruction = Reconstruction(request, store, cb, ctl)
             needed = reconstruction.needed_archives(progress=progress)
+            store.set("downloads", str(request.downloads))
+            store.set("source_roots", {k: str(v) for k, v in request.game_roots.items()})
             cb.on_display_total(report.download_bytes)
-            cache = VerificationCache(directory=request.downloads / ".wabbajack-checks")
-            with verification_scope(cache, ctl.stop, log=cb.on_log), Acquisition(
+            with Acquisition(
                     request, report, cb, ctl, archives=needed) as acquire:
                 automatic = [a for a in needed if acquire.automatic(a)]
                 manual = [a for a in needed if not acquire.automatic(a)]
@@ -185,7 +191,7 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                     cb.on_log(f"{item.name}: {exc}")
                     emit_exception(cb.on_log, "install.pipeline.item_failed", exc,
                                    archive=item.name, archive_hash=item.key)
-                errors = consume_pipeline(automatic, bind_verification(acquire), install, ctl, manual_items=manual,
+                errors = consume_pipeline(automatic, bind_verification(acquire), bind_verification(install), ctl, manual_items=manual,
                     download_workers=settings["max_concurrent"],
                     install_workers=_MAX_EXTRACT_WORKERS_CEILING,
                     on_ready=ready, on_discard=lambda a: cb.on_extract_remove(acquire.ids[a.key]),
@@ -304,6 +310,7 @@ def run_install(request, *, callbacks=None, control=None, report=None):
             reconstruction.close_builds()
         if store:
             store.close()
+        contexts.close()
         _install_lock.release()
         emit(cb.on_log, "install.lock.released", diagnostic_id=request.diagnostic_id,
              elapsed_seconds=round(time.monotonic() - started, 3))

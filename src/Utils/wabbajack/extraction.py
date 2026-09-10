@@ -4,6 +4,9 @@ import os
 import re
 import stat
 import struct
+import shutil
+import subprocess
+import tarfile
 import tempfile
 import zipfile
 from pathlib import Path
@@ -12,6 +15,60 @@ from .paths import WabbajackError, check_tree, relative_path
 
 MIB = 1024 * 1024
 LARGE_BYTES = 1024 * MIB
+
+
+def archive_entries(archive, stop=None):
+    archive = Path(archive)
+    rows = []
+    if zipfile.is_zipfile(archive):
+        with zipfile.ZipFile(archive) as source:
+            for item in source.infolist():
+                if stat.S_ISLNK(item.external_attr >> 16) or item.flag_bits & 1:
+                    raise WabbajackError("Links and encrypted files are not supported in setup archives")
+                rows.append((item.orig_filename, item.file_size,
+                             item.is_dir() or item.orig_filename.endswith("\\")
+                             or stat.S_ISDIR(item.external_attr >> 16) or bool(item.external_attr & 0x10)))
+    elif tarfile.is_tarfile(archive):
+        with tarfile.open(archive) as source:
+            for item in source:
+                if not item.isfile() and not item.isdir():
+                    raise WabbajackError("Special files are not supported in setup archives")
+                rows.append((item.name, item.size, item.isdir()))
+    else:
+        tool = next((shutil.which(n) for n in ("7zzs", "7zz", "7z", "7za") if shutil.which(n)), None)
+        if not tool:
+            raise WabbajackError("7-Zip is required to inspect this setup archive")
+        result = subprocess.run([tool, "l", "-slt", "-ba", "--", str(archive)],
+                                capture_output=True, text=True, timeout=120)
+        if result.returncode:
+            raise WabbajackError(f"Cannot inspect {archive.name}: {result.stderr[:300]}")
+        entry = {}
+        for line in [*result.stdout.splitlines(), ""]:
+            key, sep, value = line.partition(" = ")
+            if sep:
+                entry[key] = value
+            elif not line.strip() and entry:
+                if entry.get("Symbolic Link") or entry.get("Hard Link") or entry.get("Encrypted") == "+":
+                    raise WabbajackError("Links and encrypted files are not supported in setup archives")
+                if "Path" in entry:
+                    rows.append((entry["Path"], int(entry.get("Size") or 0),
+                                 entry.get("Folder") == "+" or entry.get("Attributes", "").startswith("D")))
+                entry = {}
+    found = {}
+    for raw, size, directory in rows:
+        if stop is not None and stop.is_set():
+            raise InterruptedError("Archive inspection stopped")
+        name = raw.replace("\\", "/").rstrip("/")
+        if directory and name == "." and not size:
+            continue
+        name = relative_path(name)
+        if size < 0 or (directory and size):
+            raise WabbajackError(f"Invalid archive entry: {name}")
+        previous = found.get(name.casefold())
+        if previous and not (directory and previous[2] and previous[0] == name):
+            raise WabbajackError(f"Conflicting Windows paths in archive: {name}")
+        found[name.casefold()] = name, size, directory
+    return list(found.values())
 
 
 def working_memory(methods, threads=2):

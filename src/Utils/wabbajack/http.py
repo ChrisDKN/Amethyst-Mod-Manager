@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import re
 import time
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 from urllib.parse import urlparse, urlunparse
 
@@ -22,6 +24,40 @@ def safe_error(error):
 
 class DownloadUnavailable(WabbajackError):
     pass
+
+
+_connections = ContextVar("wabbajack_connections", default=None)
+
+
+@contextmanager
+def connection_scope(limit):
+    token = _connections.set(limit)
+    try:
+        yield
+    finally:
+        _connections.reset(token)
+
+
+@contextmanager
+def connection_slot(stop=None):
+    limit = _connections.get()
+    if limit is not None:
+        while not limit.acquire(timeout=0.1):
+            if stop is not None and stop.is_set():
+                raise InterruptedError("Download stopped")
+    try:
+        if stop is not None and stop.is_set():
+            raise InterruptedError("Download stopped")
+        yield
+    finally:
+        if limit is not None:
+            limit.release()
+
+
+@contextmanager
+def limited_response(operation, stop=None):
+    with connection_slot(stop), operation() as response:
+        yield response
 
 
 def download_http(url: str, target: Path, *, size=0, expected="", headers=None,
@@ -64,10 +100,10 @@ def download_http(url: str, target: Path, *, size=0, expected="", headers=None,
         try:
             emit(log, "http.attempt", host=url_host(url), target=target,
                  attempt=attempt + 1, resume_offset=offset)
-            response = (open_response(request_headers) if open_response else
+            response = limited_response(lambda: (open_response(request_headers) if open_response else
                         requests.get(url, headers=request_headers, stream=True, timeout=(20, 60),
-                                     verify=resolve_ca_bundle() or True))
-            with response:
+                                     verify=resolve_ca_bundle() or True)), stop)
+            with response as response:
                 emit(log, "http.response", target=target, attempt=attempt + 1,
                      status=response.status_code,
                      final_host=url_host(getattr(response, "url", url)),

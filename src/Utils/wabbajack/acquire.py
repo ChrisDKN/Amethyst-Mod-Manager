@@ -7,6 +7,7 @@ import queue
 import threading
 import time
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+from contextlib import nullcontext
 from pathlib import Path
 from urllib.parse import urlparse, urlunparse
 
@@ -15,9 +16,9 @@ import requests
 from Utils.ca_bundle import resolve_ca_bundle
 from Utils.downloads.install import ManualDownloadRequired
 from .games import nexus_domain
-from .hashes import canonical_hash, hash_bytes, file_hash, verify_file
+from .hashes import XXHash, canonical_hash, hash_bytes, file_hash, verify_file
 from .paths import WabbajackError
-from .http import download_http, safe_error as _safe_error
+from .http import download_http, safe_error as _safe_error, connection_scope, connection_slot, limited_response
 from .hosts import automatic_source, download_host, source_url, is_loverslab_url
 from .diagnostics import emit, emit_exception, url_host
 from .verification import bind_verification, file_stamp, verified_replace
@@ -27,9 +28,10 @@ _active = {}
 
 
 class ArchiveCacheIndex:
-    def __init__(self, roots, sizes):
+    def __init__(self, roots, sizes, log=None):
         self.roots = tuple(dict.fromkeys(Path(root).resolve() for root in roots))
         self.sizes = set(sizes)
+        self.log = log
         self._folders = {}
         self._stamps = {}
         self._last_refresh = 0.0
@@ -53,7 +55,7 @@ class ArchiveCacheIndex:
                     raise InterruptedError("Installation stopped")
                 try:
                     info = root.stat()
-                except FileNotFoundError:
+                except OSError:
                     self._folders.pop(root, None)
                     self._stamps.pop(root, None)
                     continue
@@ -61,19 +63,27 @@ class ArchiveCacheIndex:
                 if not force and self._stamps.get(root) == stamp:
                     continue
                 by_size = {}
-                if root.is_dir():
-                    with os.scandir(root) as entries:
-                        for entry in entries:
-                            if stop is not None and stop.is_set():
-                                raise InterruptedError("Installation stopped")
-                            try:
-                                if not entry.is_file() or entry.name.endswith((".part", ".tmp")):
+                try:
+                    if root.is_dir():
+                        with os.scandir(root) as entries:
+                            for entry in entries:
+                                if stop is not None and stop.is_set():
+                                    raise InterruptedError("Installation stopped")
+                                try:
+                                    if not entry.is_file() or entry.name.endswith((".part", ".tmp")):
+                                        continue
+                                    size = entry.stat().st_size
+                                except OSError:
                                     continue
-                                size = entry.stat().st_size
-                            except FileNotFoundError:
-                                continue
-                            if size in self.sizes:
-                                by_size.setdefault(size, {})[Path(entry.path)] = None
+                                if size in self.sizes:
+                                    by_size.setdefault(size, {})[Path(entry.path)] = None
+                except InterruptedError:
+                    raise
+                except OSError as exc:
+                    emit_exception(self.log, "acquisition.cache.unreadable", exc, path=root)
+                    self._folders.pop(root, None)
+                    self._stamps.pop(root, None)
+                    continue
                 self._folders[root] = by_size
                 self._stamps[root] = stamp
             self._last_refresh = now
@@ -128,8 +138,7 @@ class _CombinedStop:
         return self.internal.wait(timeout) or self.external.is_set()
 
 
-def download_cdn(url, target, size, expected, stop, progress, log=None, *, workers=1):
-    started = time.monotonic()
+def cdn_definition(url, size, expected, stop=None, log=None):
     parsed = urlparse(url)
     hosts = {"wabbajack.b-cdn.net": "authored-files.wabbajack.org",
              "wabbajack-mirror.b-cdn.net": "mirror.wabbajack.org",
@@ -137,10 +146,10 @@ def download_cdn(url, target, size, expected, stop, progress, log=None, *, worke
              "wabbajacktest.b-cdn.net": "test-files.wabbajack.org"}
     base = urlunparse(parsed._replace(netloc=hosts.get(parsed.netloc, parsed.netloc))).rstrip("/")
     emit(log, "cdn.definition.started", source_host=url_host(url),
-         resolved_host=url_host(base), target=target, expected_size=size,
+         resolved_host=url_host(base), expected_size=size,
          expected_hash=expected)
-    with requests.get(base + "/definition.json.gz", timeout=(20, 60),
-                      verify=resolve_ca_bundle() or True) as response:
+    with limited_response(lambda: requests.get(base + "/definition.json.gz", timeout=(20, 60),
+                      verify=resolve_ca_bundle() or True), stop) as response:
         emit(log, "cdn.definition.response", status=response.status_code,
              final_host=url_host(getattr(response, "url", base)),
              bytes=len(response.content))
@@ -159,10 +168,17 @@ def download_cdn(url, target, size, expected, stop, progress, log=None, *, worke
         cursor += count
     if cursor != size:
         raise WabbajackError("CDN parts do not cover the archive")
-    emit(log, "cdn.definition.verified", target=target, parts=len(parts),
-         bytes=size, hash=expected)
+    emit(log, "cdn.definition.verified", parts=len(parts), bytes=size, hash=expected)
+    return base, size, expected, parts
+
+
+def download_cdn(url, target, size, expected, stop, progress, log=None, *, workers=1, pool=None):
+    started = time.monotonic()
+    base, size, expected, parts = cdn_definition(url, size, expected, stop, log)
     from .paths import auxiliary_path
     chunks = auxiliary_path(target, ".chunks")
+    if chunks.is_symlink():
+        raise WabbajackError("CDN chunks cannot be a symbolic link")
     chunks.mkdir(parents=True, exist_ok=True)
     workers = max(1, min(int(workers), len(parts)))
     completed = 0
@@ -209,8 +225,8 @@ def download_cdn(url, target, size, expected, stop, progress, log=None, *, worke
     iterator = iter(parts)
     pending = set()
     try:
-        with ThreadPoolExecutor(max_workers=workers,
-                                thread_name_prefix="wabbajack-cdn") as pool:
+        with (nullcontext(pool) if pool is not None else ThreadPoolExecutor(
+                max_workers=workers, thread_name_prefix="wabbajack-cdn")) as executor:
             try:
                 while True:
                     if stop.is_set():
@@ -220,7 +236,7 @@ def download_cdn(url, target, size, expected, stop, progress, log=None, *, worke
                             part = next(iterator)
                         except StopIteration:
                             break
-                        pending.add(pool.submit(bind_verification(fetch_part), part))
+                        pending.add(executor.submit(bind_verification(fetch_part), part))
                     if not pending:
                         break
                     finished, pending = wait(pending, timeout=0.1,
@@ -236,6 +252,7 @@ def download_cdn(url, target, size, expected, stop, progress, log=None, *, worke
                 failed.set()
                 for future in pending:
                     future.cancel()
+                wait(pending)
                 raise
     finally:
         for session in sessions:
@@ -243,6 +260,7 @@ def download_cdn(url, target, size, expected, stop, progress, log=None, *, worke
     output = auxiliary_path(target, ".part")
     emit(log, "cdn.assembly.started", target=target, output=output,
          parts=len(parts), reused_parts=reused)
+    digest = XXHash()
     with output.open("wb") as stream:
         for part in parts:
             with (chunks / str(int(part["Index"]))).open("rb") as source:
@@ -250,14 +268,84 @@ def download_cdn(url, target, size, expected, stop, progress, log=None, *, worke
                     if stop.is_set():
                         raise InterruptedError("Installation stopped")
                     stream.write(data)
+                    digest.update(data)
+        stream.flush()
+        os.fsync(stream.fileno())
     stamp = file_stamp(output)
-    if not verify_file(output, expected, size, stop):
+    if stamp[2] != size or digest.digest() != expected:
         raise WabbajackError("Assembled CDN archive failed verification")
     verified_replace(output, target, digest=expected, stamp=stamp, stop=stop)
+    cleanup_cdn_chunks(target, log)
     emit(log, "cdn.completed", target=target, bytes=size, hash=expected,
          parts=len(parts), reused_parts=reused,
          elapsed_seconds=round(time.monotonic() - started, 3))
     return target
+
+
+def cleanup_cdn_chunks(target, log=None):
+    from .paths import auxiliary_path
+    from .store import Store
+    chunks = auxiliary_path(target, ".chunks")
+    if chunks.is_symlink() or not chunks.is_dir():
+        return
+    try:
+        with target.open("rb") as stream:
+            os.fsync(stream.fileno())
+        Store._sync_directory(target.parent)
+        removed = 0
+        for path in chunks.iterdir():
+            if path.name.isdecimal() and not path.is_symlink() and path.is_file():
+                path.unlink()
+                removed += 1
+        try:
+            chunks.rmdir()
+        except OSError:
+            pass
+        Store._sync_directory(target.parent)
+        emit(log, "cdn.chunks.cleaned", target=target, removed=removed)
+    except OSError as exc:
+        emit_exception(log, "cdn.chunks.cleanup_deferred", exc, target=target)
+
+
+def partial_download_space(archive, downloads, stop=None, log=None):
+    if archive.kind not in {"Http", "HTTP", "WabbajackCDN"}:
+        return 0
+    from .paths import auxiliary_path, cache_path
+    target = cache_path(downloads, hash_bytes(archive.key).hex(), archive.name)
+    def allocated(path, limit, expected=""):
+        if path.is_symlink():
+            return 0
+        try:
+            info = path.stat()
+            if not path.is_file() or info.st_size > limit:
+                return 0
+            if expected and info.st_size == limit and not verify_file(path, expected, limit, stop):
+                return 0
+            return min(info.st_size, info.st_blocks * 512, limit)
+        except InterruptedError:
+            raise
+        except (OSError, WabbajackError):
+            return 0
+    if archive.kind in {"Http", "HTTP"}:
+        return allocated(auxiliary_path(target, ".part"), archive.size, archive.key)
+    credit = allocated(auxiliary_path(target, ".part"), archive.size)
+    chunks = auxiliary_path(target, ".chunks")
+    if chunks.is_symlink() or not chunks.is_dir():
+        return credit
+    try:
+        _, _, _, parts = cdn_definition(archive.state["Url"], archive.size, archive.key, stop, log)
+        for part in parts:
+            path = chunks / str(int(part["Index"]))
+            size, digest = int(part["Size"]), canonical_hash(part["Hash"])
+            if not path.is_symlink() and verify_file(path, digest, size, stop):
+                credit += allocated(path, size)
+            else:
+                credit += allocated(auxiliary_path(path, ".part"), size, digest)
+    except InterruptedError:
+        raise
+    except (OSError, ValueError, KeyError, TypeError, requests.RequestException) as exc:
+        emit_exception(log, "cdn.partial_space.unavailable", exc, archive=archive.name)
+    return min(credit, archive.size * 2)
 
 
 def download_package(url, target, *, size=0, expected="", stop=None, progress=None,
@@ -268,6 +356,7 @@ def download_package(url, target, *, size=0, expected="", stop=None, progress=No
     if expected and size and verify_file(target, expected, size, stop):
         emit(log, "package.download.reused", target=target, bytes=size,
              hash=expected, host=url_host(url))
+        cleanup_cdn_chunks(target, log)
         if progress:
             progress(size, size)
         return target
@@ -279,8 +368,9 @@ def download_package(url, target, *, size=0, expected="", stop=None, progress=No
         workers = load_collection_settings()["max_concurrent"]
         emit(log, "package.download.route", route="wabbajack-cdn", host=host,
              target=target, workers=workers)
-        return download_cdn(url, target, size, expected, stop,
-                            progress or (lambda *_: None), log, workers=workers)
+        with connection_scope(threading.BoundedSemaphore(max(1, int(workers)))):
+            return download_cdn(url, target, size, expected, stop,
+                                progress or (lambda *_: None), log, workers=workers)
     emit(log, "package.download.route", route="http", host=host, target=target)
     return download_http(url, target, size=size, expected=expected, stop=stop,
                          progress=progress, log=log)
@@ -298,6 +388,10 @@ class Acquisition:
         self._last_aggregate = 0.0
         self._lock = threading.Lock()
         self._started = time.monotonic()
+        from Utils.ui.config import load_collection_settings
+        self.workers = max(1, int(load_collection_settings()["max_concurrent"]))
+        self._connections = connection_scope(threading.BoundedSemaphore(self.workers))
+        self._cdn_pool = None
         self.ids = {a.key: i + 1 for i, a in enumerate(request.package.archives.values())}
         self.archives = list(request.package.archives.values() if archives is None else archives)
         self._loverslab_credentials = None
@@ -313,7 +407,7 @@ class Acquisition:
             from Utils.downloads.core import get_scan_dirs
             self.cache_index = ArchiveCacheIndex(
                 [request.downloads, *get_scan_dirs(request.game.name)],
-                (a.size for a in self.archives))
+                (a.size for a in self.archives), log=self.cb.on_log)
             self.cache_index.refresh(control.stop)
         else:
             self.cache_index.include_sizes(a.size for a in self.archives)
@@ -329,9 +423,15 @@ class Acquisition:
             _active.update(self._nxm)
         emit(self.cb.on_log, "acquisition.routes.registered",
              archives=len(self.archives), nexus_routes=len(self._nxm))
+        self._connections.__enter__()
+        self._cdn_pool = ThreadPoolExecutor(max_workers=self.workers,
+                                           thread_name_prefix="wabbajack-cdn")
         return self
 
     def __exit__(self, *_):
+        if self._cdn_pool is not None:
+            self._cdn_pool.shutdown(wait=True, cancel_futures=True)
+        self._connections.__exit__(None, None, None)
         if self._loverslab_client is not None:
             self._loverslab_client.close()
         self._loverslab_credentials = None
@@ -357,7 +457,14 @@ class Acquisition:
     def cached(self, archive, *, refresh=False):
         if archive.key in self.report.cached:
             path = self.report.cached[archive.key]
-            if verify_file(path, archive.key, archive.size, self.control.stop):
+            try:
+                valid = verify_file(path, archive.key, archive.size, self.control.stop)
+            except InterruptedError:
+                raise
+            except (OSError, WabbajackError) as exc:
+                emit_exception(self.cb.on_log, "acquisition.cache.unreadable", exc, path=path)
+                valid = False
+            if valid:
                 emit(self.cb.on_log, "acquisition.cache.preflight_hit",
                      archive=archive.name, path=path, bytes=archive.size,
                      hash=archive.key)
@@ -369,19 +476,22 @@ class Acquisition:
         for path in self.cache_index.candidates(archive.size):
             try:
                 stamp = file_stamp(path)
-            except (FileNotFoundError, WabbajackError):
-                continue
-            if stamp[2] != archive.size:
-                continue
-            identity = (str(path), *stamp)
-            with self._lock:
-                digest = self._hashes.get(identity)
-            if digest is None:
-                digest = file_hash(path, self.control.stop)
-                if file_stamp(path) != stamp:
+                if stamp[2] != archive.size:
                     continue
+                identity = (str(path), *stamp)
                 with self._lock:
-                    self._hashes[identity] = digest
+                    digest = self._hashes.get(identity)
+                if digest is None:
+                    digest = file_hash(path, self.control.stop)
+                    if file_stamp(path) != stamp:
+                        continue
+                    with self._lock:
+                        self._hashes[identity] = digest
+            except InterruptedError:
+                raise
+            except (OSError, WabbajackError) as exc:
+                emit_exception(self.cb.on_log, "acquisition.cache.unreadable", exc, path=path)
+                continue
             if digest == archive.key:
                 emit(self.cb.on_log, "acquisition.cache.scan_hit",
                      archive=archive.name, path=path, bytes=archive.size,
@@ -448,6 +558,8 @@ class Acquisition:
             raise WabbajackError(f"A reusable output changed after preflight. Start the operation again to verify the source for {archive.name}.")
         cached = self.cached(archive)
         if cached:
+            if archive.kind == "WabbajackCDN":
+                cleanup_cdn_chunks(cached, self.cb.on_log)
             self._release_nxm(archive)
             emit(self.cb.on_log, "acquisition.completed", archive=archive.name,
                  route="cache", path=cached,
@@ -479,7 +591,8 @@ class Acquisition:
             elif is_loverslab_url(source_url(archive)):
                 if self._loverslab_credentials is not None:
                     route = "loverslab"
-                    path = self._download_loverslab(archive, target, progress)
+                    with connection_slot(self.control.stop):
+                        path = self._download_loverslab(archive, target, progress)
                 else:
                     route = "manual"
                     path = self._manual(archive, target, progress,
@@ -499,7 +612,8 @@ class Acquisition:
                 route = "wabbajack-cdn"
                 try:
                     path = download_cdn(archive.state["Url"], target, archive.size, archive.key,
-                                        self.control.stop, progress, self.cb.on_log)
+                                        self.control.stop, progress, self.cb.on_log,
+                                        workers=self.workers, pool=self._cdn_pool)
                 except (ValueError, TypeError, KeyError, gzip.BadGzipFile, EOFError) as exc:
                     raise WabbajackError("The CDN returned invalid archive information. Obtain the exact archive from the author.") from exc
             elif archive.kind == "Nexus" and self.request.premium:

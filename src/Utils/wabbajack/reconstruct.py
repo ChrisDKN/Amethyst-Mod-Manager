@@ -22,9 +22,9 @@ from Utils.atomic_write import atomic_writer
 from .archive_build import rebuild_archive
 from .archive_io import utf8_chunks
 from .hashes import XXHash, canonical_hash, file_hash
-from .manifest import archive_path, optional_game_file_directives, required_directives
+from .manifest import archive_path, required_directives
 from .patches import apply_octodiff
-from .paths import WabbajackError, relative_path, within, source_path, source_candidates
+from .paths import WabbajackError, relative_path, within, source_path, source_candidates, source_lookup_scope
 from .diagnostics import emit, emit_exception
 
 
@@ -92,10 +92,13 @@ def _patch_source(patch_archive, directive, source, root, member, target, stop,
     raise WabbajackError(f"No archive source produced the verified patch output for {directive.path}: {error or 'required source hash not found'}")
 
 
-def signature(directive, request):
-    data = {"directive": directive.data, "root": str(request.directory / "root"),
-            "games": {k: str(v) for k, v in request.game_roots.items()},
-            "downloads": str(request.downloads), "format": 1}
+def signature(directive, request, *, legacy=False, previous=None):
+    data = {"directive": directive.data, "format": 2}
+    if legacy or directive.kind == "RemappedInlineFile":
+        previous = previous or {}
+        data.update(root=str(request.directory / "root"),
+                    games={k: str(v) for k, v in previous.get("source_roots", request.game_roots).items()},
+                    downloads=str(previous.get("downloads", request.downloads)), format=1)
     if directive.embedded_hash:
         data["embedded_hash"] = directive.embedded_hash
     if directive.kind == "RemappedInlineFile":
@@ -103,6 +106,18 @@ def signature(directive, request):
         data["windows"] = [windows_path(request.game, p) for p in
                            [request.directory / "root", request.downloads, *(request.game_roots[k] for k in sorted(request.game_roots))]]
     return hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()
+
+
+def reusable_signature(directive, request, recorded, digest, previous=None):
+    if directive.deterministic and digest == directive.output_hash:
+        return True
+    if recorded == signature(directive, request):
+        return True
+    if recorded == signature(directive, request, legacy=True):
+        return True
+    if previous and directive.kind != "RemappedInlineFile":
+        return recorded == signature(directive, request, legacy=True, previous=previous)
+    return False
 
 
 def _remap_values(request):
@@ -185,13 +200,9 @@ def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=N
                  *, members=None, resources=None):
     from .extraction import working_memory, zip_memory, extract_selected, finish_extraction
     started = time.monotonic()
-    budgeted = 0
     def reserve_budget(total):
-        nonlocal budgeted
-        additional = max(0, total - budgeted)
-        if budget and additional:
-            budget(additional)
-        budgeted = max(budgeted, total)
+        if budget:
+            budget(total)
     emit(log, "extract.started", archive=archive, target=target,
          compressed_bytes=archive.stat().st_size)
     target.mkdir(parents=True, exist_ok=True)
@@ -366,7 +377,7 @@ def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=N
             raise
         emit(log, "extract.selection.fallback", archive=archive, exception=str(exc))
         shutil.rmtree(target)
-        return extract_safe(archive, target, stop, log, reserve_budget, progress,
+        return extract_safe(archive, target, stop, log, budget, progress,
                             resources=resources)
     emit(log, "extract.completed", archive=archive, target=target,
          format="7zip", expanded_bytes=selected_bytes,
@@ -429,6 +440,7 @@ class Reconstruction:
                              if self.output.exists() else set())
         self.output.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
+        self._space_changed = threading.Condition(self._lock)
         self._record_delay = threading.local()
         self.results = {}
         self._result_keys = set()
@@ -446,6 +458,8 @@ class Reconstruction:
             if d.kind in {"FromArchive", "PatchedFromArchive", "TransformedTexture"}:
                 self.by_archive.setdefault(archive_path(d.data)[0], []).append(d)
         self.old = store.outputs()
+        self.previous = {"downloads": store.get("downloads", str(request.downloads)),
+                         "source_roots": store.get("source_roots", request.game_roots)}
         self._skipped_dependencies = set()
         self._reuse_counts = {"staged": 0, "installed": 0, "rejected": 0}
         emit(self.cb.on_log, "reconstruct.initialized",
@@ -473,13 +487,11 @@ class Reconstruction:
             return None
         sig = signature(d, self.request)
         target = within(self.output, d.path)
-        if completed is None:
-            cached_hash = self.store.completed(d.path, sig)
-        else:
-            row = completed.get(d.path)
-            cached_hash = row[1] if row and row[0] == sig else None
+        row = self.store.completed_output(d.path) if completed is None else completed.get(d.path)
+        cached_hash = row[1] if row and reusable_signature(
+            d, self.request, row[0], row[1], self.previous) else None
         if cached_hash and (stamp := verified(target, cached_hash)):
-            return target, sig, cached_hash, "staged", stamp
+            return target, sig, cached_hash, "staged", stamp, row[0] != sig
         if cached_hash:
             with self._lock:
                 self._reuse_counts["rejected"] += 1
@@ -490,11 +502,12 @@ class Reconstruction:
             if rel is None:
                 continue
             old = self.old.get("root/" + rel)
-            if not old or old["signature"] != sig:
+            if not old or not reusable_signature(d, self.request, old["signature"],
+                                                  old["authored_hash"], self.previous):
                 continue
             existing = within(self.store.root, rel)
             if stamp := verified(existing, old["authored_hash"]):
-                return existing, sig, old["authored_hash"], "installed", stamp
+                return existing, sig, old["authored_hash"], "installed", stamp, True
             with self._lock:
                 self._reuse_counts["rejected"] += 1
             emit(self.cb.on_log, "reconstruct.reuse.rejected", path=d.path,
@@ -503,7 +516,7 @@ class Reconstruction:
         return None
 
     def _accept_reuse(self, d, found):
-        source, sig, digest, kind, stamp = found
+        source, sig, digest, kind, stamp, persist = found
         if self.control.stop.is_set():
             raise InterruptedError("Installation stopped")
         if (self.store._stamp(source.stat()) != stamp
@@ -519,7 +532,7 @@ class Reconstruction:
                 self.store._copy(source, target, self.control.stop)
         else:
             target = source
-        self._record(d, target, sig, digest, persist=kind != "staged")
+        self._record(d, target, sig, digest, persist=persist)
         with self._lock:
             self._reuse_counts[kind] += 1
 
@@ -553,10 +566,13 @@ class Reconstruction:
 
     def needed_archives(self, progress=None):
         from .verification import VerificationCache, cached_files, parallel_verify, verification_scope
+        from .manifest import excluded_directives
         started = time.monotonic()
         completed = self.store.completed_outputs()
+        excluded = excluded_directives(self.request, self.adapter)
+        planned = required_directives(self.request.package, (), excluded)
         candidates = [d for d in self.request.package.directives
-                      if d.path not in self.results
+                      if d.path in planned and d.path not in self.results
                       and (d.path in completed or self._installed_reuse_candidate(d))]
         special = [d for d in candidates if d.kind in {"CreateBSA", "MergedPatch"}]
         count, total = 0, len(candidates)
@@ -572,9 +588,10 @@ class Reconstruction:
             for path, digest, info in cached_files(self.output, staged, verify=True):
                 d = pending[path]
                 sig = signature(d, self.request)
-                if completed[path] == (sig, digest):
+                if completed[path][1] == digest and reusable_signature(
+                        d, self.request, completed[path][0], digest, self.previous):
                     self._accept_reuse(d, (self.output / path, sig, digest,
-                                          "staged", self.store._stamp(info)))
+                                          "staged", self.store._stamp(info), completed[path][0] != sig))
                     del pending[path]
                     count += 1
                     notify(d.path)
@@ -588,8 +605,7 @@ class Reconstruction:
         cache = VerificationCache(directory=self.request.downloads / ".wabbajack-checks")
         with verification_scope(cache, self.control.stop, log=self.cb.on_log):
             reuse(special)
-            required = required_directives(self.request.package, self.results,
-                                           optional_game_file_directives(self.request.package))
+            required = required_directives(self.request.package, self.results, excluded)
             self._skipped_dependencies = {d.path for d in self.request.package.directives if d.path not in required}
             remaining = [d for d in candidates if d.kind not in {"CreateBSA", "MergedPatch"}]
             count += sum(d.path in self._skipped_dependencies for d in remaining)
@@ -612,6 +628,7 @@ class Reconstruction:
              reused=self._reuse_counts)
         return archives
 
+    @source_lookup_scope()
     def install_archive(self, archive, path):
         started = time.monotonic()
         self._record_delay.paths = []
@@ -622,6 +639,7 @@ class Reconstruction:
         extracted = {}
         aliases = {}
         reserved = 0
+        reserved_total = 0
         current_directive = None
         source_extraction_seconds = 0.0
         extraction_wait_seconds = 0.0
@@ -633,26 +651,36 @@ class Reconstruction:
              kind=archive.kind, source=path, source_bytes=archive.size,
              directives=len(self.by_archive.get(archive.key, [])), scratch=scratch)
         def reserve(count):
-            nonlocal reserved
-            with self._lock:
-                free = shutil.disk_usage(scratch).free
-                if count + self._temporary_bytes + 512 * 1024 ** 2 > free:
-                    raise WabbajackError(f"Not enough temporary space to extract {archive.name}; free space and resume")
+            nonlocal reserved, reserved_total, extraction_wait_seconds
+            wait_started = time.monotonic()
+            with self._space_changed:
+                self._temporary_bytes -= reserved
+                reserved = 0
+                self._space_changed.notify_all()
+                while True:
+                    if self.control.stop.is_set():
+                        raise InterruptedError("Installation stopped")
+                    free = shutil.disk_usage(scratch).free
+                    if count + self._temporary_bytes + 512 * 1024 ** 2 <= free:
+                        break
+                    if not self._temporary_bytes:
+                        raise WabbajackError(f"Not enough temporary space to extract {archive.name}; free space and resume")
+                    self.cb.on_extract_wait(row, archive.name)
+                    self._space_changed.wait(0.1)
                 self._temporary_bytes += count
-                reserved += count
+                reserved = count
+                reserved_total += count
+                extraction_wait_seconds += time.monotonic() - wait_started
                 emit(self.cb.on_log, "reconstruct.temporary_reserved",
                      archive=archive.name, bytes=count,
-                     archive_reserved_bytes=reserved,
+                     archive_reserved_bytes=reserved_total,
                      total_reserved_bytes=self._temporary_bytes,
                      free_bytes=free)
         @contextmanager
         def resources(working_bytes, expanded_bytes):
-            nonlocal extraction_wait_seconds
+            nonlocal extraction_wait_seconds, reserved
             from .extraction import LARGE_BYTES
             memory = self.extraction_memory
-            if memory is None:
-                yield
-                return
             large = max(source.stat().st_size, expanded_bytes) >= LARGE_BYTES
             wait_started = time.monotonic()
             def waiting():
@@ -660,11 +688,14 @@ class Reconstruction:
                 emit(self.cb.on_log, "extract.capacity.wait", archive=archive.name,
                      source=source, working_memory_bytes=working_bytes,
                      selected_bytes=expanded_bytes, large=large)
-            memory.acquire(working_bytes, cancel=self.control.stop, large=large,
-                           on_wait=waiting)
-            waited = time.monotonic() - wait_started
-            extraction_wait_seconds += waited
+            acquired = False
             try:
+                if memory is not None:
+                    memory.acquire(working_bytes, cancel=self.control.stop, large=large,
+                                   on_wait=waiting)
+                    acquired = True
+                waited = time.monotonic() - wait_started
+                extraction_wait_seconds += waited
                 self.cb.on_extract_add(row, archive.name)
                 self.cb.on_extract_update(row, progress.last_value, 1000)
                 emit(self.cb.on_log, "extract.capacity.acquired", archive=archive.name,
@@ -673,7 +704,12 @@ class Reconstruction:
                      wait_seconds=round(waited, 3))
                 yield
             finally:
-                memory.release(working_bytes, large=large)
+                if acquired:
+                    memory.release(working_bytes, large=large)
+                with self._space_changed:
+                    self._temporary_bytes -= reserved
+                    reserved = 0
+                    self._space_changed.notify_all()
         try:
             if scratch.exists():
                 shutil.rmtree(scratch)
@@ -833,7 +869,7 @@ class Reconstruction:
                  outputs=len(directives), extracted_sources=len(extracted),
                  output_bytes=sum(d.output_size for d in directives),
                  hardlinked_outputs=hardlinked_outputs,
-                 copied_outputs=copied_outputs, reserved_bytes=reserved,
+                 copied_outputs=copied_outputs, reserved_bytes=reserved_total,
                  planning_seconds=round(planning_seconds, 3),
                  source_extraction_seconds=round(source_extraction_seconds, 3),
                  extraction_wait_seconds=round(extraction_wait_seconds, 3),
@@ -871,6 +907,7 @@ class Reconstruction:
                  elapsed_seconds=round(time.monotonic() - cleanup_started, 3))
             with self._lock:
                 self._temporary_bytes -= reserved
+                self._space_changed.notify_all()
                 recorded = self._record_delay.paths
                 del self._record_delay.paths
                 if succeeded:
@@ -1026,8 +1063,9 @@ class Reconstruction:
         emit(self.cb.on_log, "reconstruct.builds.started", outputs=len(directives), workers=1)
 
     def _submit_build(self, path):
+        from .verification import bind_verification
         self._build_pending.pop(path)
-        self._build_futures[path] = self._build_pool.submit(self._build_special, self._build_directives[path])
+        self._build_futures[path] = self._build_pool.submit(bind_verification(self._build_special), self._build_directives[path])
 
     def close_builds(self):
         with self._lock:
@@ -1037,6 +1075,7 @@ class Reconstruction:
         if pool is not None:
             pool.shutdown(wait=True, cancel_futures=True)
 
+    @source_lookup_scope()
     def _build_special(self, directive):
         from .acquire import _CombinedStop
         stop = _CombinedStop(self.control.stop, self._build_stop)

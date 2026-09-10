@@ -55,7 +55,7 @@ def stock_sources(request, stop=None):
                 yield rel, path
 
 
-def preflight_post_install(request, check, stop=None, *, reusable=None, log=None):
+def preflight_post_install(request, check, stop=None, *, reusable=None, log=None, hardlinks=True):
     from .manifest import optional_game_file_directives
     from .store import publication_copy_required
     started = time.monotonic()
@@ -96,17 +96,19 @@ def preflight_post_install(request, check, stop=None, *, reusable=None, log=None
                     digest = digest or file_hash(path, stop)
                     if staged.stat().st_size == source_size and file_hash(staged, stop) == digest:
                         staged_reuse += 1
-                        if publication_copy_required(staged, target,
+                        if not hardlinks or publication_copy_required(staged, target,
                                                      request.directory / "work"):
                             size += source_size
                         continue
-                size += source_size * 2
+                size += source_size * (1 if hardlinks else 2)
             check("pass", "Stock game setup", f"Copy {len(files):,} original game files into the managed stock game; original files remain unchanged")
             emit(log, "post_install.stock.plan", folder=stock, files=len(files),
                  reusable_files=published_reuse + staged_reuse,
                  published_reusable_files=published_reuse,
                  staged_reusable_files=staged_reuse,
                  authored_files=authored_reuse, required_bytes=size)
+        except InterruptedError:
+            raise
         except (ValueError, OSError, sqlite3.Error) as exc:
             emit_exception(log, "post_install.stock.preflight_failed", exc)
             check("error", "Stock game setup", exc)

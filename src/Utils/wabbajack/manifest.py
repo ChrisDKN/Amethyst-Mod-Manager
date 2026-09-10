@@ -102,6 +102,29 @@ def required_directives(package, reusable, excluded=()):
     return required
 
 
+def excluded_directives(request, adapter):
+    package = request.package
+    excluded = optional_game_file_directives(package)
+    from .bsa_setup import library_paths
+    from .post_install_rules import omitted_stock_paths
+    retained = {path.casefold() for path in library_paths(package).values()}
+    retained.add("modorganizer.ini")
+    omitted = omitted_stock_paths(request)
+    for directive in package.directives:
+        path = directive.path.casefold()
+        parts = directive.path.split("/")
+        if path in retained:
+            continue
+        if ((adapter.application_file(directive.path)
+             and not (adapter.stock and path.startswith(adapter.stock.casefold() + "/")))
+                or "root/" + path in omitted
+                or (adapter.mo2 and parts[0].casefold() == "profiles"
+                    and "profiles" not in adapter.keep and len(parts) > 1
+                    and parts[1] not in request.profiles)):
+            excluded.add(directive.path)
+    return excluded
+
+
 def _inspect_package(path: Path, log=None) -> Package:
     path = Path(path)
     started = time.monotonic()
