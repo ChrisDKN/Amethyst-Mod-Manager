@@ -18870,7 +18870,7 @@ Versuche deine Suche oder Filter zu löschen.</translation>
     </message>
     <message>
       <source>Stopping the download. Any partial download will be kept so it can resume later.</source>
-      <translation type="unfinished">Stopping the download. Any partial download will be kept so it can resume later.</translation>
+      <translation>Stoppen des Downloads. Alle teilweisen Downloads werden so aufbewahrt, dass sie später fortgesetzt werden können.</translation>
     </message>
     <message>
       <source>{0} / {1} ({2}%)</source>
@@ -19042,15 +19042,15 @@ Versuche deine Suche oder Filter zu löschen.</translation>
     </message>
     <message>
       <source>Download cancelled</source>
-      <translation type="unfinished">Download cancelled</translation>
+      <translation>Download abgebrochen</translation>
     </message>
     <message>
       <source>Modlist package download cancelled.</source>
-      <translation type="unfinished">Modlist package download cancelled.</translation>
+      <translation>Herunterladen des Modlist-Pakets abgebrochen.</translation>
     </message>
     <message>
       <source>Select Check requirements to resume; any partial download will be reused.</source>
-      <translation type="unfinished">Select Check requirements to resume; any partial download will be reused.</translation>
+      <translation>Wählen Sie die Prüfungsvoraussetzungen aus, um fortzufahren; jeder partielle Download wird wiederverwendet.</translation>
     </message>
     <message>
       <source>Open download page</source>
