@@ -18870,7 +18870,7 @@ Essayez de supprimer votre recherche ou vos filtres.</translation>
     </message>
     <message>
       <source>Stopping the download. Any partial download will be kept so it can resume later.</source>
-      <translation type="unfinished">Stopping the download. Any partial download will be kept so it can resume later.</translation>
+      <translation>Arrêt du téléchargement. Tout téléchargement partiel sera conservé pour qu'il puisse reprendre plus tard.</translation>
     </message>
     <message>
       <source>{0} / {1} ({2}%)</source>
@@ -19042,15 +19042,15 @@ Essayez de supprimer votre recherche ou vos filtres.</translation>
     </message>
     <message>
       <source>Download cancelled</source>
-      <translation type="unfinished">Download cancelled</translation>
+      <translation>Téléchargement annulé</translation>
     </message>
     <message>
       <source>Modlist package download cancelled.</source>
-      <translation type="unfinished">Modlist package download cancelled.</translation>
+      <translation>Téléchargement du paquet de Modlist annulé.</translation>
     </message>
     <message>
       <source>Select Check requirements to resume; any partial download will be reused.</source>
-      <translation type="unfinished">Select Check requirements to resume; any partial download will be reused.</translation>
+      <translation>Sélectionnez les conditions de vérification pour reprendre; tout téléchargement partiel sera réutilisé.</translation>
     </message>
     <message>
       <source>Open download page</source>
