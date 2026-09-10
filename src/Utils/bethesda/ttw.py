@@ -14,11 +14,9 @@ from typing import TYPE_CHECKING, Callable
 if TYPE_CHECKING:
     from Games.base_game import BaseGame
 
-GITHUB_API_URL = (
-    "https://api.github.com/repos/SulfurNitride/TTW_Linux_Installer/releases/latest"
-)
-GITHUB_REPO_URL = "https://github.com/SulfurNitride/TTW_Linux_Installer"
-GITHUB_BUILDS_URL = GITHUB_REPO_URL + "/actions/workflows/build.yml"
+INSTALLER_ARCHIVE_EXTS = {".zip", ".7z"}
+INSTALLER_MOD_ID = 1657
+INSTALLER_NEXUS_URL = "https://www.nexusmods.com/site/mods/1657?tab=files"
 MODPUB_URL = "https://mod.pub/ttw/133/files"
 EXE_NAME = "mpi_installer"
 APP_DIR = "TTW"
@@ -58,121 +56,163 @@ def find_ttw_installer(game: "BaseGame") -> Path | None:
     return p if p.is_file() else None
 
 
-def _github_json(url: str):
-    import json
-    import urllib.request
-    from Utils.ca_bundle import get_ssl_context
-
-    req = urllib.request.Request(url, headers={
-        "Accept": "application/vnd.github+json", "User-Agent": "ModManager/1.0",
-        "Cache-Control": "no-cache"})
-    with urllib.request.urlopen(req, timeout=15, context=get_ssl_context()) as resp:
-        return json.load(resp)
+class ManualInstallerDownloadRequired(RuntimeError):
+    pass
 
 
-def _actions_installer(log_fn: Callable[[str], None] = _noop) -> tuple[str, str, str]:
-    from collections import Counter
+def _installer_archive_members(archive: Path) -> list[str]:
+    import stat
+    import zipfile
+    from pathlib import PurePosixPath
+
+    if archive.suffix.lower() not in INSTALLER_ARCHIVE_EXTS:
+        raise ValueError("Select the MPI installer ZIP or 7z archive from Nexus Mods.")
+    try:
+        if archive.suffix.lower() == ".zip":
+            with zipfile.ZipFile(archive) as source:
+                members = [(info.filename, info.is_dir(),
+                            stat.S_ISLNK(info.external_attr >> 16))
+                           for info in source.infolist()]
+        else:
+            import py7zr
+            with py7zr.SevenZipFile(archive, "r") as source:
+                members = [(info.filename, info.is_directory, info.is_symlink)
+                           for info in source.list()]
+    except Exception as exc:
+        raise ValueError(f"Cannot read installer archive {archive.name}: {exc}") from exc
+    files = []
+    for name, is_dir, is_link in members:
+        path = PurePosixPath(name.replace("\\", "/"))
+        if path.is_absolute() or ".." in path.parts or ":" in name or is_link:
+            raise ValueError("The installer archive contains an unsafe path.")
+        if not is_dir:
+            files.append(str(path))
+    return files
+
+
+def find_installer_archive(game: "BaseGame", observed: dict) -> Path | None:
     import re
+    from Utils.downloads.core import get_scan_dirs
 
-    api = GITHUB_API_URL.removesuffix("/releases/latest")
-    skipped = Counter()
-    for page in range(1, 6):
-        data = _github_json(api + "/actions/artifacts"
-            f"?name=mpi-installer-linux-x86_64&per_page=100&page={page}")
-        artifacts = data.get("artifacts", [])
-        log_fn(f"GitHub MPI artifacts page {page}: {len(artifacts)} returned")
-        for artifact in artifacts:
-            digest = str(artifact.get("digest", ""))
-            origin = artifact.get("workflow_run") or {}
-            if artifact.get("name") != "mpi-installer-linux-x86_64":
-                skipped["other platforms"] += 1
+    candidates = []
+    current = {}
+    for directory in get_scan_dirs(game.name):
+        try:
+            entries = list(directory.iterdir())
+        except OSError:
+            continue
+        names = {p.name.lower() for p in entries}
+        for path in entries:
+            if path.suffix.lower() not in INSTALLER_ARCHIVE_EXTS or not re.search(r"(?<!\d)1657(?!\d)", path.name):
                 continue
-            if artifact.get("expired"):
-                skipped["expired"] += 1
+            low = path.name.lower()
+            if any(name.startswith(low) and name.endswith((".part", ".crdownload", ".download"))
+                   for name in names):
                 continue
-            if (origin.get("head_branch") != "main" or not origin.get("repository_id")
-                    or origin.get("head_repository_id") != origin["repository_id"]):
-                skipped["other branches or forks"] += 1
+            try:
+                stat = path.stat()
+                signature = (stat.st_size, stat.st_mtime_ns)
+                current[path] = signature
+                if not stat.st_size or observed.get(path) != signature:
+                    continue
+                if not any(Path(name).name == EXE_NAME for name in _installer_archive_members(path)):
+                    continue
+                candidates.append((stat.st_mtime_ns, path))
+            except (OSError, ValueError):
                 continue
-            if not re.fullmatch(r"sha256:[0-9a-fA-F]{64}", digest):
-                skipped["missing checksum"] += 1
+    observed.clear()
+    observed.update(current)
+    return max(candidates, key=lambda item: item[0])[1] if candidates else None
+
+
+def install_installer_archive(game: "BaseGame", archive: Path,
+                              status_fn: Callable[[str], None] = _noop,
+                              log_fn: Callable[[str], None] = _noop,
+                              *, cancel=None) -> Path:
+    import os
+    import shutil
+    import tempfile
+    from Utils.wizards.archives import extract_to_dir
+
+    _installer_archive_members(archive)
+    dest = applications_dir(game)
+    dest.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix=".mpi-install-", dir=dest.parent) as tmp:
+        root = Path(tmp)
+        status_fn("Extracting MPI installer…")
+        extract_to_dir(archive, root, log_fn=log_fn)
+        binaries = [p for p in root.rglob(EXE_NAME) if p.is_file()]
+        if len(binaries) != 1:
+            raise RuntimeError(f"Expected one Linux {EXE_NAME} binary in {archive.name}.")
+        binary = binaries[0]
+        if not binary.stat().st_size:
+            raise RuntimeError("The MPI installer binary is empty.")
+        if cancel is not None and cancel.is_set():
+            raise RuntimeError("MPI installer installation cancelled.")
+        for path in binary.parent.rglob("xdelta*"):
+            if path.is_file():
+                path.chmod(path.stat().st_mode | 0o111)
+        for path in binary.parent.iterdir():
+            if path == binary:
                 continue
-            run = _github_json(f"{api}/actions/runs/{int(origin['id'])}")
-            if (run.get("head_branch") != "main"
-                    or run.get("path") != ".github/workflows/build.yml"
-                    or run.get("event") not in {"push", "workflow_dispatch"}
-                    or run.get("status") != "completed" or run.get("conclusion") != "success"):
-                skipped["unsuccessful or unrelated workflows"] += 1
-                continue
-            url = ("https://nightly.link/SulfurNitride/TTW_Linux_Installer"
-                   f"/actions/artifacts/{int(artifact['id'])}.zip")
-            log_fn(f"Selected GitHub MPI artifact {artifact['id']} from main build {run['id']}")
-            return f"main build {run['id']}", url, digest
-        if len(artifacts) < 100:
-            break
-    detail = ", ".join(f"{count} {reason}" for reason, count in skipped.items()) or "no artifacts returned"
-    log_fn(f"No usable GitHub MPI build: {detail}")
-    raise RuntimeError(
-        f"GitHub returned no usable Linux MPI installer ({detail}). "
-        f"Check the shared TTW/MPI installer builds at {GITHUB_BUILDS_URL}")
+            target = dest / path.name
+            if path.is_dir():
+                shutil.copytree(path, target, dirs_exist_ok=True)
+            else:
+                shutil.copy2(path, target)
+        binary.chmod(0o755)
+        os.replace(binary, dest / EXE_NAME)
+    log_fn(f"Installed MPI installer from {archive.name} into {dest}")
+    return dest / EXE_NAME
 
 
 def download_installer(game: "BaseGame",
                        status_fn: Callable[[str], None] = _noop,
-                       log_fn: Callable[[str], None] = _noop) -> Path:
-    """Download an MPI-installer release or verified main-branch build into
-    Applications/TTW and return the executable path. Raises on failure.
-    Shared by the TTW and BSA-Decompressor wizards (same binary)."""
-    import hashlib
-    import os
-    import shutil
+                       log_fn: Callable[[str], None] = _noop,
+                       *, api=None, archive_path: Path | None = None,
+                       cancel=None) -> Path:
+    if archive_path is not None:
+        return install_installer_archive(game, Path(archive_path), status_fn, log_fn,
+                                         cancel=cancel)
+    status_fn("Checking Nexus account…")
+    if api is None:
+        raise ManualInstallerDownloadRequired("Download the installer archive from Nexus Mods.")
+    try:
+        premium = api.validate().is_premium
+    except Exception as exc:
+        log_fn(f"Could not check Nexus account: {exc}")
+        raise ManualInstallerDownloadRequired(
+            "Could not check Nexus account. Download the installer archive manually.") from exc
+    if not premium:
+        raise ManualInstallerDownloadRequired("Download the installer archive from Nexus Mods.")
+
     import tempfile
-    from Utils.ca_bundle import download_file
-    from Utils.wizards.archives import extract_archive
+    from Nexus.nexus_download import NexusDownloader
 
-    data = _github_json(GITHUB_API_URL)
-    tag = data.get("tag_name", "unknown")
-    url = None
-    digest = ""
-    for asset in data.get("assets", []):
-        name = asset.get("name", "").lower()
-        if "linux" in name and name.endswith((".zip", ".tar.gz")):
-            url = asset["browser_download_url"]
-            break
-    if not url:
-        status_fn("Looking for a Linux MPI installer build…")
-        log_fn(f"TTW release {tag} has no Linux installer; checking successful main builds")
-        tag, url, digest = _actions_installer(log_fn)
-
-    log_fn(f"downloading TTW installer {tag} from {url}")
-    status_fn(f"Downloading TTW installer {tag}…")
-    tmp_dir = Path(tempfile.mkdtemp())
-    archive = tmp_dir / Path(url).name
-    try:
-        download_file(url, archive)
-        if digest:
-            with archive.open("rb") as stream:
-                actual = "sha256:" + hashlib.file_digest(stream, "sha256").hexdigest()
-            if actual != digest.lower():
-                raise RuntimeError("MPI installer download does not match GitHub's SHA-256 checksum.")
-            log_fn("verified MPI installer archive against GitHub's SHA-256 checksum")
-        dest = applications_dir(game)
-        dest.mkdir(parents=True, exist_ok=True)
-        status_fn("Extracting installer…")
-        log_fn(f"extracting {archive.name} → {dest}")
-        paths = extract_archive(archive, dest)
-        log_fn(f"extracted {len([p for p in paths if p.is_file()])} file(s).")
-    finally:
-        shutil.rmtree(tmp_dir, ignore_errors=True)
-
-    exe = dest / EXE_NAME
-    if not exe.is_file():
-        raise RuntimeError(f"{EXE_NAME} not found after extraction at {dest}.")
-    try:
-        os.chmod(exe, 0o755)
-    except OSError:
-        pass
-    return exe
+    status_fn("Finding the latest Main file on Nexus Mods…")
+    files = api.get_mod_files("site", INSTALLER_MOD_ID).files
+    main = [file for file in files if file.category_id == 1
+            or file.category_name.upper() == "MAIN"]
+    if not main:
+        raise RuntimeError("Nexus Mods returned no Main files for the MPI installer.")
+    latest = max(main, key=lambda file: (file.uploaded_timestamp, file.file_id))
+    log_fn(f"Selected Nexus site/{INSTALLER_MOD_ID} Main file {latest.file_id} ({latest.version})")
+    with tempfile.TemporaryDirectory(prefix="mpi-download-") as tmp:
+        downloader = NexusDownloader(api, download_dir=Path(tmp))
+        try:
+            result = downloader.download_file(
+                "site", INSTALLER_MOD_ID, latest.file_id, cancel=cancel,
+                known_file_name=latest.file_name or latest.name,
+                expected_size_bytes=int(latest.size_in_bytes or latest.size_kb * 1024),
+                progress_cb=lambda done, total: status_fn(
+                    f"Downloading MPI installer… {int(done * 100 / total)}%"
+                    if total else "Downloading MPI installer…"))
+            if not result.success or result.file_path is None:
+                raise RuntimeError(result.error or "MPI installer download failed.")
+            return install_installer_archive(game, result.file_path, status_fn, log_fn,
+                                             cancel=cancel)
+        finally:
+            downloader.close_worker_session()
 
 
 def find_fo3_install() -> Path | None:

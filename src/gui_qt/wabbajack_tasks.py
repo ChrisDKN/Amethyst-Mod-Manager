@@ -15,11 +15,16 @@ from gui_qt.wabbajack_setup import CappedComboBox
 
 class SetupOptions(QWidget):
     changed = Signal()
-    install_tool = Signal()
+    tool_running_changed = Signal(bool)
+    tool_ready = Signal(object)
     picked = Signal(int, str, str, object)
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, *, get_api=None, log_fn=None, can_install_tool=None):
         super().__init__(parent)
+        self._get_api = get_api
+        self._log = log_fn
+        self._can_install_tool = can_install_tool
+        self._mpi_installer = None
         self._generation = 0
         self._rows = {}
         self._values = {}
@@ -52,7 +57,12 @@ class SetupOptions(QWidget):
         self._layout.addWidget(label)
         return label
 
+    def stop_tool(self):
+        if self._mpi_installer is not None:
+            self._mpi_installer.stop()
+
     def configure(self, package, options=None, *, game=None):
+        self.stop_tool()
         with QSignalBlocker(self):
             self._configure(package, options, game)
 
@@ -164,17 +174,16 @@ class SetupOptions(QWidget):
         form.addRow(self.tr("Original Fallout 3 game"), row)
         self._layout.addWidget(self._fo3_panel)
         self._tool, section = self._section(self.tr("Setup tools"))
-        tools = QHBoxLayout()
-        tools.setContentsMargins(0, 0, 0, 0)
-        button = QPushButton(self.tr("Install / update native MPI tool"), self._tool)
-        button.setObjectName("FormButton")
-        button.clicked.connect(self.install_tool)
-        tools.addWidget(button, 1)
-        page = QPushButton(self.tr("MPI installer on GitHub"), self._tool)
-        page.setObjectName("FormButton")
-        page.clicked.connect(self._open_mpi_tool_page)
-        tools.addWidget(page)
-        section.addLayout(tools)
+        from gui_qt.mpi_installer_widget import MPIInstallerWidget
+        self._mpi_installer = MPIInstallerWidget(
+            game, self._get_api, self._log, self._tool, can_start=self._can_install_tool)
+        self._mpi_installer.setEnabled(game is not None)
+        self._mpi_installer.install_button.setText(self.tr("Install / update native MPI tool"))
+        self._mpi_installer.running_changed.connect(self.tool_running_changed)
+        self._mpi_installer.ready.connect(self.tool_ready)
+        for button in self._mpi_installer.findChildren(QPushButton):
+            button.setObjectName("FormButton")
+        section.addWidget(self._mpi_installer)
         self._layout.addWidget(self._tool)
         settings, section = self._section(self.tr("Compatibility and display"))
         self._settings_panel = settings
@@ -310,12 +319,6 @@ class SetupOptions(QWidget):
         from PySide6.QtGui import QDesktopServices
         from Utils.bsa.decompressor import FO3_CONFIG
         QDesktopServices.openUrl(QUrl(FO3_CONFIG.nexus_url))
-
-    def _open_mpi_tool_page(self):
-        from PySide6.QtCore import QUrl
-        from PySide6.QtGui import QDesktopServices
-        from Utils.bethesda.ttw import GITHUB_BUILDS_URL
-        QDesktopServices.openUrl(QUrl(GITHUB_BUILDS_URL))
 
     def _picked(self, generation, task, key, path):
         if generation != self._generation or not path:

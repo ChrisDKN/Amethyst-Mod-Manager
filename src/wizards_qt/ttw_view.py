@@ -24,7 +24,7 @@ from gui_qt.safe_emit import safe_emit
 from gui_qt.theme_qt import active_palette, _c
 from wizards_qt._view_base import GREEN, RED, WizardViewBase
 from Utils.bethesda.ttw import (
-    GITHUB_REPO_URL, MODPUB_URL, OUTPUT_NAME,
+    MODPUB_URL, OUTPUT_NAME,
     find_fo3_install, find_ttw_installer, ttw_mod_dir,
 )
 
@@ -37,8 +37,6 @@ _PG_DOWNLOAD, _PG_ALREADY, _PG_PATHS, _PG_RUN = range(4)
 class TTWView(WizardViewBase):
     """Install Tale of Two Wastelands via the native Linux MPI installer."""
 
-    _dl_status_sig = Signal(str, str)
-    _dl_done_sig = Signal(bool)
     _paths_picked_sig = Signal(str, object)   # (attr, path)
     _run_status_sig2 = Signal(str, str)
     _run_log_sig = Signal(str)
@@ -59,9 +57,6 @@ class TTWView(WizardViewBase):
         from Utils.bethesda.ttw import sync_active_profile
         sync_active_profile(game, profile)
 
-        self._dl_status_sig.connect(self._guard(
-            lambda t, c: self._set_status(self._dl_status, t, c)))
-        self._dl_done_sig.connect(self._guard(self._on_dl_done))
         self._paths_picked_sig.connect(self._guard(self._on_path_picked))
         self._run_status_sig2.connect(self._guard(
             lambda t, c: self._set_status(self._run_status, t, c)))
@@ -88,52 +83,23 @@ class TTWView(WizardViewBase):
 
     # ---- page 0: download ------------------------------------------------------
     def _build_download_page(self) -> QWidget:
-        page, lay = self._step_page(self.tr("Step 1: Install the TTW MPI Installer"))
-        self._make_note(lay, (
-            self.tr("The native Linux TTW installer will be downloaded from GitHub\n"
-            "and placed in this game's Applications folder.\n\n"
-            "Click Install to begin.")))
-        self._make_note(lay, self.tr("Installer by SulfurNitride (TTW_Linux_Installer)"))
-        gh = QPushButton(self.tr("View on GitHub"))
-        gh.setCursor(Qt.PointingHandCursor)
-        gh.clicked.connect(lambda: self._open_url(GITHUB_REPO_URL))
-        lay.addWidget(gh, 0, Qt.AlignHCenter)
-        self._dl_status = self._make_status(lay)
+        from gui_qt.mpi_installer_widget import MPIInstallerWidget
+        page, lay = self._step_page(self.tr("Step 1: Install the MPI Installer"))
+        self._mpi_installer = MPIInstallerWidget(
+            self._game, get_api=getattr(self._ctx, "nexus_api", None),
+            log_fn=self._log, parent=page)
+        self._mpi_installer.ready.connect(self._guard(self._installer_ready))
+        lay.addWidget(self._mpi_installer)
         lay.addStretch(1)
-        self._install_btn = self._accent_btn(self.tr("Install"))
-        self._install_btn.clicked.connect(self._start_install)
-        lay.addWidget(self._install_btn, 0, Qt.AlignHCenter)
+        self._install_btn = self._mpi_installer.install_button
         return page
 
     def _start_install(self):
-        self._install_btn.setEnabled(False)
-        self._set_status(self._dl_status, self.tr("Contacting GitHub…"))
-        game = self._game
+        self._mpi_installer.start()
 
-        def worker():
-            from Utils.bethesda.ttw import download_installer
-            _wlog = lambda m: self._log(f"TTW Wizard: {m}")
-            try:
-                self._exe = download_installer(
-                    game,
-                    status_fn=lambda m: safe_emit(self._dl_status_sig, m, ""),
-                    log_fn=_wlog)
-                safe_emit(self._dl_status_sig,
-                          self.tr("Installer ready."), GREEN)
-                safe_emit(self._dl_done_sig, True)
-            except Exception as exc:
-                safe_emit(self._dl_status_sig,
-                          self.tr("Install error: {0}").format(exc), RED)
-                _wlog(f"install error: {exc}")
-                safe_emit(self._dl_done_sig, False)
-
-        threading.Thread(target=worker, daemon=True, name="ttw-install").start()
-
-    def _on_dl_done(self, ok: bool):
-        if ok:
-            self._goto_step(_PG_PATHS)
-        else:
-            self._install_btn.setEnabled(True)
+    def _installer_ready(self, exe):
+        self._exe = exe
+        self._goto_step(_PG_PATHS)
 
     # ---- page 1: already installed ---------------------------------------------
     def _build_already_page(self) -> QWidget:

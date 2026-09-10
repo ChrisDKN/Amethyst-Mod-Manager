@@ -476,9 +476,12 @@ class WabbajackView(QWidget):
         form.setRowVisible(self._adjustments, False)
         setup_layout.addLayout(form)
         from gui_qt.wabbajack_tasks import SetupOptions
-        self._task_options = SetupOptions(setup)
+        self._task_options = SetupOptions(
+            setup, get_api=self._get_api, log_fn=self._diagnostic_log,
+            can_install_tool=self._can_install_mpi)
         self._task_options.changed.connect(self._options_changed)
-        self._task_options.install_tool.connect(self._install_mpi)
+        self._task_options.tool_running_changed.connect(self._mpi_running_changed)
+        self._task_options.tool_ready.connect(self._mpi_ready)
         setup_layout.addWidget(self._task_options)
         self._setup_hint = QLabel(self.tr("Check requirements to load the authored profiles and prepare the download plan."), setup)
         self._setup_hint.setWordWrap(True)
@@ -598,6 +601,7 @@ class WabbajackView(QWidget):
         self._diag("ui.shutdown.started", workers=len(self._workers),
                    installing=self._busy, checking=self._checking)
         self._worker_stop.set()
+        self._task_options.stop_tool()
         self._stop_package_download()
         self._preflight_stop.set()
         self._pause()
@@ -1304,25 +1308,25 @@ class WabbajackView(QWidget):
         self._worker("texture", lambda: install_texture_tool(self._worker_stop, request=request,
             log=lambda message: safe_emit(self._progress, "log", (message,))))
 
-    def _install_mpi(self):
-        if self._busy or self._installing_mpi or self._installing_texture or not self._game:
-            self._diag("ui.mpi_setup.ignored", busy=self._busy,
-                       mpi_running=self._installing_mpi,
-                       texture_running=self._installing_texture,
-                       game=bool(self._game))
+    def _can_install_mpi(self):
+        return bool(self._game and not (
+            self._busy or self._checking or self._loading_package
+            or self._installing_mpi or self._installing_texture or self._shutting_down)
+            and self._can_install())
+
+    def _mpi_running_changed(self, running):
+        self._installing_mpi = running
+        if self._shutting_down:
             return
-        from Utils.bethesda.ttw import download_installer
-        self._invalidate()
-        self._installing_mpi = True
-        self.setEnabled(False)
-        self.running_changed.emit(True)
-        self._task_options.setEnabled(False)
+        if running:
+            self._invalidate()
+        self.running_changed.emit(running)
         self._update_start_button()
-        self._status.setText(self.tr("Installing the native MPI tool…"))
-        game = copy.copy(self._game)
-        self._worker("mpi-tool", lambda: download_installer(game,
-            status_fn=lambda message: safe_emit(self._progress, "mpi-status", (message,)),
-            log_fn=lambda message: safe_emit(self._progress, "log", (message,))))
+
+    def _mpi_ready(self, _exe):
+        if not self._shutting_down:
+            self._status.setText(self.tr(
+                "Native MPI tool installed. Check requirements again to verify the selected package."))
 
     def _check(self):
         if self._busy or self._checking or self._loading_package or self._installing_mpi or self._installing_texture:
@@ -1451,10 +1455,6 @@ class WabbajackView(QWidget):
                       control=self._control, report=self._report))
 
     def _on_progress(self, method, args):
-        if method == "mpi-status":
-            if not self._shutting_down and self._installing_mpi:
-                self._status.setText(args[0])
-            return
         if method == "package-inspect":
             token, = args
             if token == self._tokens.get("package") and self._loading_package:
@@ -1606,12 +1606,9 @@ class WabbajackView(QWidget):
             return
         self._diag("ui.worker.result_received", kind=kind, token=token,
                    error=error, result_type=type(result).__name__ if result else None)
-        if kind in {"mpi-tool", "texture"}:
+        if kind == "texture":
             self.setEnabled(True)
-            if kind == "mpi-tool":
-                self._installing_mpi = False
-            else:
-                self._installing_texture = False
+            self._installing_texture = False
             self.running_changed.emit(False)
             self._task_options.setEnabled(True)
             self._update_start_button()
@@ -1737,8 +1734,6 @@ class WabbajackView(QWidget):
                 QTimer.singleShot(0, self, lambda: self._detail_scroll.ensureWidgetVisible(self._checks))
         elif kind == "texture" and result:
             self._status.setText(self.tr("Texture tool installed. Check requirements again to refresh the download plan."))
-        elif kind == "mpi-tool" and result:
-            self._status.setText(self.tr("Native MPI tool installed. Check requirements again to verify the selected package."))
         elif kind == "install":
             request = self._request
             self._busy = False
