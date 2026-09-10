@@ -147,12 +147,39 @@ def _managed_mpi_roots(request, task):
     if not task.id.startswith("ttw:"):
         return {}
     from .manifest import stock_folder
-    from .post_install_rules import stock_copy_rule
-    rule = stock_copy_rule(request)
     stock = stock_folder(request.package)
-    if rule and stock and rule.source_game == "newvegas":
-        return {"FNVROOT": stock}
-    return {}
+    return {"FNVROOT": stock or f"mods/{task.mod}/root"}
+
+
+def _mpi_game_view(source, target, outputs, store, stop=None):
+    readonly = []
+    outputs = {name.casefold() for name in outputs}
+    def populate(folder, destination, prefix=""):
+        destination.mkdir(parents=True, exist_ok=True)
+        seen = set()
+        for path in folder.iterdir():
+            _stop(stop)
+            key = (prefix + path.name).casefold()
+            if key in seen or not path.resolve().is_relative_to(source.resolve()):
+                raise WabbajackError(f"Ambiguous or external MPI source: {path}")
+            seen.add(key)
+            output = destination / path.name
+            if path.is_dir():
+                if any(name.startswith(key + "/") for name in outputs):
+                    populate(path, output, key + "/")
+                else:
+                    output.mkdir()
+                    readonly.append((path, output))
+            elif path.is_file():
+                if key in outputs:
+                    store._copy(path, output, stop=stop)
+                else:
+                    output.touch()
+                    readonly.append((path, output))
+            else:
+                raise WabbajackError(f"MPI source is not a regular file or directory: {path}")
+    populate(source, target)
+    return readonly
 
 
 def _input_boundary(request, path):
@@ -286,6 +313,10 @@ def _mpi_output_aliases(task, outputs):
 
 
 def _verify_mod(task, root, stop=None, *, content=False):
+    if task.id.startswith("external:"):
+        if not any(rel.casefold() != "meta.ini" for rel, _ in _files(root, stop)):
+            raise WabbajackError(f"Select a complete extracted mod folder for {task.mod}")
+        return
     def archive(path):
         rows = records(path, allow_hash_only=True)
         if content:
@@ -352,7 +383,7 @@ def _extract_output_archive(task, archive, target, stop, log=None,
     return _archive_mod_root(task, target, stop)
 
 
-def _sandbox(command, work, writable=()):
+def _sandbox(command, work, writable=(), readonly=()):
     bwrap = shutil.which("bwrap")
     if not bwrap:
         raise WabbajackError("Install bubblewrap to run MPI with read-only source games")
@@ -362,14 +393,16 @@ def _sandbox(command, work, writable=()):
         if not path.is_dir() or path.is_symlink():
             raise WabbajackError(f"MPI managed output is not a real directory: {path}")
         sandboxed.extend(["--bind", str(path), str(path)])
+    for source, target in readonly:
+        sandboxed.extend(["--ro-bind", str(source), str(target)])
     return [*sandboxed, "--proc", "/proc", "--dev", "/dev", "--chdir", str(work),
             "--setenv", "HOME", str(work), "--setenv", "TMPDIR", str(work),
             "--", *map(str, command)]
 
 
-def _run(command, work, stop, progress, label, log=None, *, writable=()):
+def _run(command, work, stop, progress, label, log=None, *, writable=(), readonly=()):
     started = time.monotonic()
-    sandboxed = _sandbox(command, work, writable)
+    sandboxed = _sandbox(command, work, writable, readonly)
     emit(log, "setup.process.started", label=label, command=sandboxed,
          work=work)
     process = subprocess.Popen(sandboxed, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -424,13 +457,28 @@ def _previous(info, task):
     return pending.get(task.id) or info.get("setup_tasks", {}).get(task.id)
 
 
+def setup_option(request, task):
+    option = request.setup_options.get(task.id, {})
+    if task.id.startswith("external:") and "source" not in option:
+        root = request.directory / "root" / "mods"
+        if root.is_dir() and any(path.name.casefold() == task.mod.casefold() for path in root.iterdir()):
+            existing = source_path(root, task.mod)
+            if existing.is_dir() and any(existing.iterdir()):
+                return {"source": str(existing)}
+    return option
+
+
 def _reusable(request, task, record, stop=None):
     if not record or record.get("version") != VERSION or not record.get("outputs"):
         return None
+    if overrides := record.get("authored_root_overrides"):
+        authored = {("root/" + directive.path).casefold() for directive in request.package.directives}
+        if any(key.casefold() not in authored for key in overrides):
+            return None
     if any(f"root/mods/{task.mod}/{name}".casefold() not in {key.casefold() for key in record["outputs"]}
            for name in task.masters):
         return None
-    option = request.setup_options.get(task.id, {})
+    option = setup_option(request, task)
     if option.get("mpi") and Path(option["mpi"]).is_file():
         if file_hash(Path(option["mpi"]), stop) != record.get("mpi_hash"):
             return None
@@ -477,6 +525,12 @@ def preflight_tasks(request, check, stop=None, *, configuration=None,
              mod=task.mod, profiles=task.profiles, option=option,
              previous=bool(previous))
         try:
+            option = setup_option(request, task)
+            if task.id.startswith("external:") and not option.get("source"):
+                if "source" in option:
+                    raise WabbajackError(f"Select a complete extracted mod folder for {task.mod}")
+                check("warning", "Required external mod", f"{task.mod} is not supplied for {', '.join(task.profiles)}. Import its complete mod folder in Additional setup, or install it after the list finishes and before playing. Installation can continue.")
+                continue
             reused = _reusable(request, task, previous, stop) if option == (previous or {}).get("option", {}) else None
             if reused:
                 if reusable is not None:
@@ -499,7 +553,7 @@ def preflight_tasks(request, check, stop=None, *, configuration=None,
                 emit(log, "setup.preflight.import", task_id=task.id,
                      source=root, files=len(files),
                      bytes=sum(path.stat().st_size for _, path in files))
-                check("pass", task.label, f"Import {len(files):,} files into {task.mod}; required masters and archive indexes checked, authored priority preserved")
+                check("pass", task.label, f"Import {len(files):,} files into {task.mod}; authored priority preserved")
                 check("warning", task.label, "Existing output has no package-supplied hash or version guarantee. Confirm it is the version required by the author.")
             elif archive:
                 if not task.id.startswith("yupttw:"):
@@ -545,7 +599,7 @@ def preflight_tasks(request, check, stop=None, *, configuration=None,
                 estimates += max(workspace_bytes,
                                  50 * 1024 ** 3 if task.id.startswith("ttw:") else 0)
                 managed_count = sum(map(len, root_outputs.values()))
-                managed_detail = f"; {managed_count:,} managed stock-game files" if managed_count else ""
+                managed_detail = f"; {managed_count:,} managed game-root files" if managed_count else ""
                 check("pass", task.label, f"Build {title} {manifest['Package'].get('Version', '')} into {task.mod}; {len(sources):,} source files verified{managed_detail}")
                 emit(log, "setup.preflight.mpi_ready", task_id=task.id,
                      tool=tool, sources=len(sources))
@@ -573,7 +627,12 @@ def run_tasks(request, store, desired, stop, progress, log=None):
         task_started = time.monotonic()
         _stop(stop)
         progress("Additional setup", 0, len(tasks), task.label)
-        option = request.setup_options.get(task.id, {})
+        option = setup_option(request, task)
+        if task.id.startswith("external:") and not option.get("source"):
+            if "source" in option:
+                raise WabbajackError(f"Select a complete extracted mod folder for {task.mod}")
+            emit(log, "setup.external_mod.deferred", task_id=task.id, mod=task.mod)
+            continue
         previous = _previous({"pending_setup_tasks": previous_tasks,
                               "setup_tasks": store.get("setup_tasks", {})}, task)
         emit(log, "setup.task.started", task_id=task.id, label=task.label,
@@ -669,19 +728,20 @@ def run_tasks(request, store, desired, stop, progress, log=None):
                         for rel, path in _files(tool.parent / "tools", stop):
                             store._copy(path, within(runner.parent / "tools", rel), stop=stop)
                     run_roots = dict(roots)
-                    writable = []
+                    readonly = []
                     for variable, stock in managed_roots.items():
                         game = {"FNVROOT": "newvegas"}.get(variable)
                         if game:
-                            root = within(store.work / "output", stock)
+                            root = work / game
+                            readonly.extend(_mpi_game_view(roots[game], root,
+                                root_outputs.get(variable, ()), store, stop))
                             run_roots[game] = root
-                            writable.append(root)
                     command = [runner, "install", "--mpi", package, "--dest", built]
                     for game, flag in (("newvegas", "--fnv"), ("fallout3", "--fo3")):
                         if game in run_roots:
                             command.extend([flag, run_roots[game]])
                     _run(command, work, stop, progress, "Building " + task.label,
-                         log, writable=writable)
+                         log, readonly=readonly)
                     for path, stamp in source_stamps.items():
                         if _stamp(path) != stamp and file_hash(Path(path), stop) != identity["sources"][path]:
                             raise WabbajackError(f"Original game file changed during setup: {path}")
@@ -700,8 +760,14 @@ def run_tasks(request, store, desired, stop, progress, log=None):
                         for rel in paths:
                             path = source_path(root, rel)
                             if not path.is_file() or path.is_symlink():
-                                raise WabbajackError(f"MPI did not produce its managed stock-game output: {rel}")
-                            managed_output_files[f"root/{stock}/{rel}"] = path
+                                raise WabbajackError(f"MPI did not produce its managed game-root output: {rel}")
+                            if stock == f"mods/{task.mod}/root":
+                                store._copy(path, within(built / "root", rel), stop=stop)
+                            else:
+                                key = f"root/{stock}/{rel}"
+                                target = within(store.work / "setup-output", key)
+                                store._copy(path, target, stop=stop)
+                                managed_output_files[key] = target
                     if task.id.startswith("fo3-bsa:"):
                         for name in task.masters:
                             source_path(built, "New " + name).replace(built / name)
@@ -735,7 +801,8 @@ def run_tasks(request, store, desired, stop, progress, log=None):
         authored = {key.casefold(): key for key in desired}
         managed_prefixes = tuple(f"root/{stock}/".casefold()
                                  for stock in _managed_mpi_roots(request, task).values())
-        record = {**record, "outputs": dict(record["outputs"])}
+        record = {**record, "outputs": dict(record["outputs"]),
+                  "authored_root_overrides": list(record.get("authored_root_overrides", ()))}
         for key, row in generated.items():
             existing = authored.get(key.casefold())
             if existing:
@@ -743,9 +810,13 @@ def run_tasks(request, store, desired, stop, progress, log=None):
                     record["outputs"].pop(key, None)
                     continue
                 if desired[existing]["authored_hash"] != row["authored_hash"]:
-                    if (key.casefold().startswith(managed_prefixes)
-                            and desired[existing]["signature"].startswith("stock-copy:")):
-                        desired[existing] = row
+                    if key.casefold().startswith(managed_prefixes):
+                        if desired[existing]["signature"].startswith("stock-copy:"):
+                            desired[existing] = row
+                        else:
+                            record["outputs"].pop(key, None)
+                            record["authored_root_overrides"].append(existing)
+                            emit(log, "setup.mpi.authored_root_retained", task_id=task.id, path=existing)
                         continue
                     raise WabbajackError(f"Additional setup conflicts with an authored file: {key}")
                 continue

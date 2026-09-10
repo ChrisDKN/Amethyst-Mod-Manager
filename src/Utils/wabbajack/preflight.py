@@ -568,7 +568,7 @@ def _preflight(request, stop, notify, log=None):
                          exception_type=type(exc).__name__, exception=str(exc))
                     available = False
                 if not available:
-                    check("error", "Required external mod", f"Profile {profile} enables '{name}', which this package does not provide. Follow the author's external setup requirements or deselect this profile.")
+                    check("warning", "Required external mod", f"Profile {profile} enables '{name}', which this package does not provide. Install the author's required mod after the list finishes and before playing. Installation can continue.")
     vanilla = {p.casefold() for p in [*getattr(request.game, "vanilla_plugins", []),
                                      *getattr(request.game, "vanilla_dlc_plugins", [])]}
     provided_plugins = {d.path.rsplit("/", 1)[-1].casefold() for d in package.directives if d.path.casefold().endswith((".esm", ".esp", ".esl"))}

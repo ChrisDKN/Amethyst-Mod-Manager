@@ -50,7 +50,7 @@ _HELP = {
         "Install the required DLC or Creation Club content through your game or store, following Author instructions, and check the original game location before rechecking."),
     "Required external mod": (
         "The profile enables a mod that the package does not supply and that is not present in this installation.",
-        "Follow Author instructions to obtain or generate the required mod. Use its additional setup option if one is offered, or deselect the profile that requires it, then recheck."),
+        "Follow Author instructions to obtain the required version. Import its complete extracted mod folder under Additional setup, or finish installing the list and add the mod before playing. Keep its exact authored name and priority."),
     "Manual download": (
         "This archive needs a browser download or file selection. This is normal for free Nexus accounts and hosts without automatic download support.",
         "Start installation and follow the browser prompts. Use Select File if the download is not detected. Choose the exact file version requested; Amethyst checks its size and hash while other automatic downloads continue."),

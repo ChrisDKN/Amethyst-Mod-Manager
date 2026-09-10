@@ -96,10 +96,11 @@ def setup_tasks(package, selected=None, configuration=None):
                 separate = bool(rule.companion_alias) and any(rule.companion_alias in mod.casefold() for mod in profile.mods)
                 if not supplied and not separate:
                     masters = (*masters, rule.companion_master)
-            candidates = [mod for mod in profile.mods if any(alias in mod.casefold() for alias in aliases)
-                          and not any(word in mod.casefold() for word in ("patches", "compatibility", "translations"))]
-            exact = [mod for mod in candidates if any(re.fullmatch(re.escape(alias) + r"(?:\s*\(TTW\))?(?:\s+v?\d+(?:\.\d+)*)?",
-                     re.sub(r"\[[^]]*\]", "", mod).strip(" -_"), re.I) for alias in aliases)]
+            eligible = [mod for mod in profile.mods
+                        if not any(word in mod.casefold() for word in ("patches", "compatibility", "translations"))]
+            candidates = [mod for mod in eligible if any(alias in mod.casefold() for alias in aliases)]
+            exact = [mod for mod in eligible if any(re.fullmatch(re.escape(alias) + r"(?:\s*\(TTW\))?(?:\s+v?\d+(?:\.\d+)*)?",
+                     re.sub(r"\[[^]]*\]", "", mod).strip(" -_"), re.I) for alias in (*aliases, *rule.exact_aliases))]
             if exact:
                 candidates = exact
             if rule.prefer_unprefixed:
@@ -117,5 +118,19 @@ def setup_tasks(package, selected=None, configuration=None):
                 row = grouped.setdefault(key, [task_id, label, mod, [], masters, titles])
                 row[3].append(profile_name)
                 row[4] = tuple(dict.fromkeys((*row[4], *masters)))
-    return [SetupTask(key, row[1], row[2], tuple(row[3]), row[4], row[5])
-            for key, row in grouped.items()]
+    tasks = [SetupTask(key, row[1], row[2], tuple(row[3]), row[4], row[5])
+             for key, row in grouped.items()]
+    from .post_install_rules import ignored_profile_mods
+    supplied = provided_mods | {task.mod.casefold() for task in tasks} | ignored_profile_mods(package)
+    external = {}
+    for profile_name, profile in config.items():
+        available = supplied | {name.casefold() for name in profile.outputs.values()}
+        for mod in profile.mods:
+            if mod.casefold() in available or mod.casefold().startswith("[dev]"):
+                continue
+            row = external.setdefault(mod.casefold(), [mod, []])
+            if profile_name not in row[1]:
+                row[1].append(profile_name)
+    tasks.extend(SetupTask("external:" + mod.casefold(), mod, mod, tuple(profiles), ())
+                 for mod, profiles in external.values())
+    return tasks

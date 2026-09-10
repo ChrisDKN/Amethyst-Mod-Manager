@@ -122,13 +122,14 @@ class OutputRule:
     companion_master: str = ""
     companion_alias: str = ""
     prefer_unprefixed: bool = False
+    exact_aliases: tuple[str, ...] = ()
 
 
 OUTPUT_RULES = (
     OutputRule("ttw", "Tale of Two Wastelands", "newvegas",
                ("tale of two wastelands", "ttw output"), ("TaleOfTwoWastelands.esm",),
                ("Tale of Two Wastelands",), required_plugin="taleoftwowastelands.esm",
-               companion_master="YUPTTW.esm", companion_alias="yupttw update"),
+               companion_master="YUPTTW.esm", companion_alias="yupttw update", exact_aliases=("ttw",)),
     OutputRule("yupttw", "YUPTTW update", "newvegas", ("yupttw update",), ("YUPTTW.esm",)),
     OutputRule("fnv-esm", "Ultimate Edition ESM Fixes Remastered", "newvegas",
                ("ultimate edition esm fixes",), ("FalloutNV.esm",), ("Ultimate Edition ESM Fixes Remastered",)),
