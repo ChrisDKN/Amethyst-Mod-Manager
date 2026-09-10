@@ -1705,6 +1705,10 @@ Pamięć podręczna md5 jest zachowana. Archiwum zostanie ponownie pobrane w raz
       <translation>Cap połączona prędkość pobierania tej instalacji. 0 = użyj pełnego połączenia. Ma zastosowanie natychmiast.</translation>
     </message>
     <message>
+      <source>Extractions:</source>
+      <translation>Ekstrakcje:</translation>
+    </message>
+    <message>
       <source>Pause</source>
       <translation>Pauza</translation>
     </message>
@@ -9400,8 +9404,8 @@ Co powiesz na istniejący mod?</translation>
       <translation>Katalog główny</translation>
     </message>
     <message>
-      <source>Disable</source>
-      <translation>Wyłącz</translation>
+      <source>Enabled</source>
+      <translation>Włączone</translation>
     </message>
     <message>
       <source>The mod's files and folders as they are packaged in the archive.</source>
@@ -13053,6 +13057,14 @@ Jego wymienione mody są kopiowane do własnego folderu modów profilu (w miarę
       <translation>(domyślnie)</translation>
     </message>
     <message>
+      <source>Hide</source>
+      <translation>Ukryj</translation>
+    </message>
+    <message>
+      <source>Hidden profiles remain available here. The active profile stays in the dropdown until you switch profiles.</source>
+      <translation>Ukryte profile pozostają dostępne tutaj. Aktywny profil pozostaje w rozwijanej liście aż do zmiany profili.</translation>
+    </message>
+    <message>
       <source>Rename</source>
       <translation>Zmień nazwę</translation>
     </message>
@@ -15173,6 +15185,10 @@ flatpak remote- add -- user amethyst https: / / christdkn.github.io / Amethyst- 
       <translation>Górny pasek</translation>
     </message>
     <message>
+      <source>Bottom</source>
+      <translation>Dolny</translation>
+    </message>
+    <message>
       <source>Where the toolbar sits. As a side bar it is always icon-only, with the labels shown as tooltips.</source>
       <translation>Gdzie znajduje się pasek narzędzi. Jako pasek boczny jest zawsze tylko ikoną, z etykietami wyświetlanymi jako podpowiedzi.</translation>
     </message>
@@ -15384,6 +15400,22 @@ flatpak remote- add -- user amethyst https: / / christdkn.github.io / Amethyst- 
   <context>
     <name>SetupOptions</name>
     <message>
+      <source>Additional setup</source>
+      <translation>Dodatkowe ustawienia</translation>
+    </message>
+    <message>
+      <source>Source games</source>
+      <translation>Gry źródłowe</translation>
+    </message>
+    <message>
+      <source>Setup tools</source>
+      <translation>Narzędzia konfiguracyjne</translation>
+    </message>
+    <message>
+      <source>Compatibility and display</source>
+      <translation>Zgodność i wyświetlanie</translation>
+    </message>
+    <message>
       <source>Use the version required by the author. Output keeps its authored position in {0}.</source>
       <translation>Użyj wersji wymaganej przez autora. Wyjście zachowuje swoją pozycję w {0}.</translation>
     </message>
@@ -15402,6 +15434,10 @@ flatpak remote- add -- user amethyst https: / / christdkn.github.io / Amethyst- 
     <message>
       <source>Import existing output mod</source>
       <translation>Importuj istniejącą modyfikację wyjściową</translation>
+    </message>
+    <message>
+      <source>Import output archive</source>
+      <translation>Importuj archiwum wyjściowe</translation>
     </message>
     <message>
       <source>Method</source>
@@ -15482,6 +15518,10 @@ flatpak remote- add -- user amethyst https: / / christdkn.github.io / Amethyst- 
     <message>
       <source>Select extracted MPI package</source>
       <translation>Wybierz rozpakowaną paczkę MPI</translation>
+    </message>
+    <message>
+      <source>Select output archive</source>
+      <translation>Wybierz archiwum wyjściowe</translation>
     </message>
     <message>
       <source>Select original game</source>
@@ -18707,6 +18747,14 @@ Najnowsza wersja:  {1}</translation>
       <translation>Sprawdź wymagania i przejdź do planu pobierania.</translation>
     </message>
     <message>
+      <source>Options changed. Previous requirements are shown for reference; recheck to update them.</source>
+      <translation>Zmieniono opcje. Poprzednie wymagania są wyświetlane dla odnośnika; sprawdź ponownie, aby je zaktualizować.</translation>
+    </message>
+    <message>
+      <source>Recheck required</source>
+      <translation>Wymagane ponowne sprawdzenie</translation>
+    </message>
+    <message>
       <source>Review changes before updating shared files and profiles.</source>
       <translation>Przejrzyj zmiany przed aktualizacją udostępnionych plików i profili.</translation>
     </message>
@@ -18805,8 +18853,24 @@ Spróbuj wyczyścić wyszukiwanie lub filtry.</translation>
       <translation>Pobieranie listy modów…</translation>
     </message>
     <message>
+      <source>Cancel download</source>
+      <translation>Anuluj pobieranie</translation>
+    </message>
+    <message>
       <source>Inspecting modlist package…</source>
       <translation>Sprawdzanie listy modów…</translation>
+    </message>
+    <message>
+      <source>Cancelling…</source>
+      <translation>Anulowanie…</translation>
+    </message>
+    <message>
+      <source>Cancelling modlist package download…</source>
+      <translation>Anulowanie pobierania paczki modów…</translation>
+    </message>
+    <message>
+      <source>Stopping the download. Any partial download will be kept so it can resume later.</source>
+      <translation>Zatrzymywanie pobierania. Każde częściowe pobranie zostanie zachowane, aby mogło zostać wznowione później.</translation>
     </message>
     <message>
       <source>{0} / {1} ({2}%)</source>
@@ -18975,6 +19039,18 @@ Spróbuj wyczyścić wyszukiwanie lub filtry.</translation>
     <message>
       <source>The gallery could not be loaded. Try Refresh, or open a local .wabbajack file.</source>
       <translation>Nie można załadować galerii. Spróbuj odświeżyć lub otwórz lokalny plik .wabbajack.</translation>
+    </message>
+    <message>
+      <source>Download cancelled</source>
+      <translation>Pobieranie anulowane</translation>
+    </message>
+    <message>
+      <source>Modlist package download cancelled.</source>
+      <translation>Anulowano pobieranie paczek z listy modów.</translation>
+    </message>
+    <message>
+      <source>Select Check requirements to resume; any partial download will be reused.</source>
+      <translation>Wybierz wymagania sprawdzania do wznowienia; każde częściowe pobranie zostanie ponownie wykorzystane.</translation>
     </message>
     <message>
       <source>Open download page</source>
