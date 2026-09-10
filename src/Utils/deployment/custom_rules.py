@@ -1092,13 +1092,17 @@ def deploy_custom_rules(
         return None, (dst_s, err)
 
     done_count = 0
-    for result, err in _iter_map_batched(_do_custom, transfer_tasks):
+    for result, err in _iter_map_batched(
+            _do_custom, transfer_tasks,
+            stop_on=lambda outcome: outcome[1] is not None):
         done_count += 1
         if result is not None:
             placed_abs.append(result)
         elif err is not None:
             dst_err, exc = err
-            _log(f"  WARN: could not transfer {dst_err}: {exc}")
+            _log(f"  ERROR: could not transfer {dst_err}: {exc} - "
+                 f"aborting deploy.")
+            raise exc
         if progress_fn is not None and (done_count % 200 == 0 or done_count == total):
             progress_fn(done_count, total)
 
