@@ -1705,6 +1705,10 @@ md5 キャッシュは保持されます。 アーカイブは必要に応じて
       <translation>このインストールの結合されたダウンロード速度をキャップします。 0 = フル接続を使用します。 すぐに適用して下さい.</translation>
     </message>
     <message>
+      <source>Extractions:</source>
+      <translation>抽出:</translation>
+    </message>
+    <message>
       <source>Pause</source>
       <translation>一時停止</translation>
     </message>
@@ -9400,8 +9404,8 @@ How would you like to handle the existing mod?</source>
       <translation>ルート</translation>
     </message>
     <message>
-      <source>Disable</source>
-      <translation>免責事項</translation>
+      <source>Enabled</source>
+      <translation>有効</translation>
     </message>
     <message>
       <source>The mod's files and folders as they are packaged in the archive.</source>
@@ -13053,6 +13057,14 @@ Its listed mods are copied into the profile's own mods folder (hardlinked where 
       <translation>(デフォルト)</translation>
     </message>
     <message>
+      <source>Hide</source>
+      <translation>非表示</translation>
+    </message>
+    <message>
+      <source>Hidden profiles remain available here. The active profile stays in the dropdown until you switch profiles.</source>
+      <translation>非表示のプロファイルはここに残ります。アクティブなプロファイルは、プロファイルを切り替えるまでドロップダウンに残ります。</translation>
+    </message>
+    <message>
       <source>Rename</source>
       <translation>名前を変更</translation>
     </message>
@@ -15173,6 +15185,10 @@ flatpak リモート追加 --user amethyst https://chrisdkn.github.io/Amethyst-M
       <translation>上部バー</translation>
     </message>
     <message>
+      <source>Bottom</source>
+      <translation>下揃え</translation>
+    </message>
+    <message>
       <source>Where the toolbar sits. As a side bar it is always icon-only, with the labels shown as tooltips.</source>
       <translation>ツールバーが座る場所 サイドバーとして、ツールチップとして表示されるラベルとともに常にアイコンのみです。</translation>
     </message>
@@ -15384,6 +15400,22 @@ flatpak リモート追加 --user amethyst https://chrisdkn.github.io/Amethyst-M
   <context>
     <name>SetupOptions</name>
     <message>
+      <source>Additional setup</source>
+      <translation>追加設定</translation>
+    </message>
+    <message>
+      <source>Source games</source>
+      <translation>ソース ゲーム</translation>
+    </message>
+    <message>
+      <source>Setup tools</source>
+      <translation>ツールのセットアップ</translation>
+    </message>
+    <message>
+      <source>Compatibility and display</source>
+      <translation>互換性と表示</translation>
+    </message>
+    <message>
       <source>Use the version required by the author. Output keeps its authored position in {0}.</source>
       <translation>作成者が必要とするバージョンを使用してください。出力は {0}の作成済みポジションを保持します。</translation>
     </message>
@@ -15402,6 +15434,10 @@ flatpak リモート追加 --user amethyst https://chrisdkn.github.io/Amethyst-M
     <message>
       <source>Import existing output mod</source>
       <translation>既存の出力モジュールをインポート</translation>
+    </message>
+    <message>
+      <source>Import output archive</source>
+      <translation>出力アーカイブをインポート</translation>
     </message>
     <message>
       <source>Method</source>
@@ -15482,6 +15518,10 @@ flatpak リモート追加 --user amethyst https://chrisdkn.github.io/Amethyst-M
     <message>
       <source>Select extracted MPI package</source>
       <translation>抽出された MPI パッケージを選択</translation>
+    </message>
+    <message>
+      <source>Select output archive</source>
+      <translation>出力アーカイブを選択</translation>
     </message>
     <message>
       <source>Select original game</source>
@@ -18707,6 +18747,14 @@ Latest:  {1}</source>
       <translation>要件を確認し、ダウンロードプランをご確認ください。</translation>
     </message>
     <message>
+      <source>Options changed. Previous requirements are shown for reference; recheck to update them.</source>
+      <translation>オプションが変更されました。参照のために以前の要件が表示されます。更新するには再チェックしてください。</translation>
+    </message>
+    <message>
+      <source>Recheck required</source>
+      <translation>再確認が必要</translation>
+    </message>
+    <message>
       <source>Review changes before updating shared files and profiles.</source>
       <translation>共有ファイルとプロファイルを更新する前に変更を確認してください。</translation>
     </message>
@@ -18805,8 +18853,24 @@ Try clearing your search or filters.</source>
       <translation type="unfinished">Downloading modlist package…</translation>
     </message>
     <message>
+      <source>Cancel download</source>
+      <translation>ダウンロードをキャンセル</translation>
+    </message>
+    <message>
       <source>Inspecting modlist package…</source>
       <translation type="unfinished">Inspecting modlist package…</translation>
+    </message>
+    <message>
+      <source>Cancelling…</source>
+      <translation type="unfinished">Cancelling…</translation>
+    </message>
+    <message>
+      <source>Cancelling modlist package download…</source>
+      <translation type="unfinished">Cancelling modlist package download…</translation>
+    </message>
+    <message>
+      <source>Stopping the download. Any partial download will be kept so it can resume later.</source>
+      <translation type="unfinished">Stopping the download. Any partial download will be kept so it can resume later.</translation>
     </message>
     <message>
       <source>{0} / {1} ({2}%)</source>
@@ -18975,6 +19039,18 @@ Try clearing your search or filters.</source>
     <message>
       <source>The gallery could not be loaded. Try Refresh, or open a local .wabbajack file.</source>
       <translation>ギャラリーを読み込めませんでした。更新するか、ローカルの .wabbajack ファイルを開いてください。</translation>
+    </message>
+    <message>
+      <source>Download cancelled</source>
+      <translation type="unfinished">Download cancelled</translation>
+    </message>
+    <message>
+      <source>Modlist package download cancelled.</source>
+      <translation type="unfinished">Modlist package download cancelled.</translation>
+    </message>
+    <message>
+      <source>Select Check requirements to resume; any partial download will be reused.</source>
+      <translation type="unfinished">Select Check requirements to resume; any partial download will be reused.</translation>
     </message>
     <message>
       <source>Open download page</source>
