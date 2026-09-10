@@ -1541,6 +1541,9 @@ def _member_side_remove(game, profiles_dir: Path, member: str, folder: str,
     and catalog rows."""
     member_dir = profiles_dir / member
     member_staging = member_dir / "mods"
+    from Utils.downloads.core import record_download_install
+    record_download_install(
+        member_dir, member_staging / folder, log_fn=log)
     try:
         from Utils.mods.remove import _remove_plugins_for_mods
         _remove_plugins_for_mods(game, member_dir, member_staging, [folder], log)
@@ -1621,6 +1624,11 @@ def remove_mods_from_group(game, group_dir: Path, mod_names: list[str],
         group_library = FileGraphService.open_library(
             game, group_dir, log_fn=log)
         group_profile = group_library.open_profile(group_dir)
+
+        from Utils.downloads.core import record_download_install
+        for name in mod_names:
+            record_download_install(
+                group_dir, staging / name, log_fn=log)
 
         # 1. Undeploy from the game dir while the group's catalog/links are
         # still intact (identity checks resolve through the links).

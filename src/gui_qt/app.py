@@ -17325,7 +17325,8 @@ class MainWindow(QMainWindow):
         # Point the Downloads tab at this game (game-name getter for cache dir).
         if hasattr(self, "_downloads_view"):
             self._downloads_view.configure(
-                self._gs.game, lambda: self._gs.game_name)
+                self._gs.game, lambda: self._gs.game_name,
+                self._gs.profile_dir())
         # Point the Overrides tab (BG3) at this game/profile.
         if hasattr(self, "_overrides_view"):
             self._overrides_view.configure(

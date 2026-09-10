@@ -14,6 +14,7 @@ consolidates all small per-profile JSON/text state files:
   disabled_plugins            dict[str, list[str]]  (mod_name -> [plugin, ...])
   excluded_mod_files          dict[str, list[str]]  (mod_name -> [raw_key_lower, ...])
   root_mod_files              dict[str, list[str]]  (mod_name -> [raw_key_lower, ...])
+  download_install_history    dict  (archive names + Nexus mod/file IDs)
   profile_settings            dict  (profile_specific_mods, collection_url, original_default,
                                     hide_from_profile_dropdown, …)
   ignored_missing_requirements list[str]
@@ -349,6 +350,34 @@ def read_mod_notes(profile_dir: Path, state: dict | None = None) -> dict[str, st
     return out
 
 
+def _normalize_download_install_history(
+        raw,
+) -> tuple[set[str], set[tuple[int, int]]]:
+    if not isinstance(raw, dict):
+        return set(), set()
+    raw_names = raw.get("archive_names")
+    raw_ids = raw.get("nexus_mod_file_ids")
+    names = {
+        value for value in (raw_names if isinstance(raw_names, list) else ())
+        if isinstance(value, str) and value
+    }
+    ids: set[tuple[int, int]] = set()
+    for value in raw_ids if isinstance(raw_ids, list) else ():
+        if (isinstance(value, list) and len(value) == 2
+                and all(isinstance(part, int) and not isinstance(part, bool)
+                        for part in value)
+                and value[0] > 0 and value[1] > 0):
+            ids.add((value[0], value[1]))
+    return names, ids
+
+
+def read_download_install_history(
+        profile_dir: Path, state: dict | None = None,
+) -> tuple[set[str], set[tuple[int, int]]]:
+    return _normalize_download_install_history(
+        _read_key(profile_dir, state, "download_install_history"))
+
+
 def read_profile_settings(profile_dir: Path, state: dict | None = None) -> dict:
     """Read profile_settings (flags and metadata). Returns {} if absent or corrupt.
 
@@ -505,6 +534,35 @@ def write_mod_notes(profile_dir: Path, value: dict[str, str]) -> None:
         _update_key(profile_dir, "mod_notes", cleaned)
     else:
         _remove_key(profile_dir, "mod_notes")
+
+
+def merge_download_install_history(
+        profile_dir: Path, archive_names, nexus_mod_file_ids,
+) -> tuple[set[str], set[tuple[int, int]]]:
+    """Add successful archive identities and return the complete history."""
+    with _lock_for(profile_dir):
+        state = read_profile_state(profile_dir)
+        names, ids = _normalize_download_install_history(
+            state.get("download_install_history"))
+        merged_names = names | {
+            value for value in archive_names or ()
+            if isinstance(value, str) and value
+        }
+        merged_ids = ids | {
+            (int(value[0]), int(value[1]))
+            for value in nexus_mod_file_ids or ()
+            if (isinstance(value, tuple) and len(value) == 2
+                and all(isinstance(part, int) and not isinstance(part, bool)
+                        for part in value)
+                and value[0] > 0 and value[1] > 0)
+        }
+        if merged_names != names or merged_ids != ids:
+            state["download_install_history"] = {
+                "archive_names": sorted(merged_names, key=str.casefold),
+                "nexus_mod_file_ids": [list(value) for value in sorted(merged_ids)],
+            }
+            write_profile_state(profile_dir, state)
+        return merged_names, merged_ids
 
 
 def write_profile_settings(profile_dir: Path, value: dict) -> None:

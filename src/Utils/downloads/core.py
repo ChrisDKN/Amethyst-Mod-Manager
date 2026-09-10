@@ -44,8 +44,13 @@ def fmt_size(n: int) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Installed-mod index (Install vs Reinstall)
+# Installed-mod index (Install vs Reinstall vs Uninstalled)
 # ---------------------------------------------------------------------------
+ARCHIVE_NOT_INSTALLED = "not_installed"
+ARCHIVE_INSTALLED = "installed"
+ARCHIVE_UNINSTALLED = "uninstalled"
+
+
 def parse_archive_mod_file_ids(name: str) -> Optional[tuple[int, int]]:
     """(mod_id, file_id) parsed from a Nexus-style archive filename, or None.
     Nexus downloads end ``-<mod_id>-<version_parts>-<file_id>`` (numeric)."""
@@ -70,45 +75,102 @@ def parse_archive_mod_file_ids(name: str) -> Optional[tuple[int, int]]:
 
 @dataclass
 class InstalledIndex:
-    """Snapshot of installed mods, to mark Downloads-tab archives as installed.
-    `names` = exact installationFile match; `mod_file_ids` = (mod_id,file_id)
-    fallback (collections store the canonical Nexus name, not the download name)."""
+    """Current installs plus the active profile's archive-install history."""
     names: set[str] = field(default_factory=set)
     mod_file_ids: set[tuple[int, int]] = field(default_factory=set)
+    historical_names: set[str] = field(default_factory=set)
+    historical_mod_file_ids: set[tuple[int, int]] = field(default_factory=set)
 
-    def is_archive_installed(self, archive_name: str) -> bool:
-        if archive_name in self.names:
+    @staticmethod
+    def _matches(archive_name: str, names: set[str],
+                 mod_file_ids: set[tuple[int, int]]) -> bool:
+        if archive_name in names:
             return True
         ids = parse_archive_mod_file_ids(archive_name)
-        return ids is not None and ids in self.mod_file_ids
+        return ids is not None and ids in mod_file_ids
+
+    def is_archive_installed(self, archive_name: str) -> bool:
+        return self._matches(archive_name, self.names, self.mod_file_ids)
+
+    def archive_status(self, archive_name: str) -> str:
+        if self.is_archive_installed(archive_name):
+            return ARCHIVE_INSTALLED
+        if self._matches(
+                archive_name, self.historical_names,
+                self.historical_mod_file_ids):
+            return ARCHIVE_UNINSTALLED
+        return ARCHIVE_NOT_INSTALLED
 
 
-def build_installed_index(game) -> InstalledIndex:
+def build_installed_index(game, profile_dir: Path | None = None) -> InstalledIndex:
     """Walk the game's staging, read each meta.ini, collect installation_file +
     (mod_id, file_id). Port of Tk _get_installed_filenames (game, not panel)."""
     idx = InstalledIndex()
     try:
         from Nexus.nexus_meta import read_meta
-        if game is None or not game.is_configured():
-            return idx
-        staging = game.get_effective_mod_staging_path()
-        if not staging or not Path(staging).is_dir():
-            return idx
-        for folder in Path(staging).iterdir():
-            meta_path = folder / "meta.ini"
-            if not meta_path.is_file():
-                continue
-            try:
-                m = read_meta(meta_path)
-            except Exception:
-                continue
-            if m.installation_file:
-                idx.names.add(m.installation_file)
-            if m.mod_id and m.file_id:
-                idx.mod_file_ids.add((int(m.mod_id), int(m.file_id)))
+        if game is not None and game.is_configured():
+            staging = game.get_effective_mod_staging_path()
+            if staging and Path(staging).is_dir():
+                for folder in Path(staging).iterdir():
+                    meta_path = folder / "meta.ini"
+                    if not meta_path.is_file():
+                        continue
+                    try:
+                        m = read_meta(meta_path)
+                    except Exception:
+                        continue
+                    if m.installation_file:
+                        idx.names.add(m.installation_file)
+                    if m.mod_id and m.file_id:
+                        idx.mod_file_ids.add((int(m.mod_id), int(m.file_id)))
     except Exception:
-        return idx
+        pass
+    if profile_dir is None:
+        profile_dir = getattr(game, "_active_profile_dir", None)
+    if profile_dir is not None:
+        try:
+            from Utils.profiles.state import (
+                merge_download_install_history,
+                read_download_install_history,
+            )
+            profile_dir = Path(profile_dir)
+            names, ids = merge_download_install_history(
+                profile_dir, idx.names, idx.mod_file_ids)
+            idx.historical_names = names
+            idx.historical_mod_file_ids = ids
+            from Utils.profiles.groups import get_members, is_group
+            if is_group(profile_dir):
+                for member in get_members(profile_dir):
+                    names, ids = read_download_install_history(
+                        profile_dir.parent / member)
+                    idx.historical_names.update(names)
+                    idx.historical_mod_file_ids.update(ids)
+        except Exception:
+            pass
     return idx
+
+
+def record_download_install(profile_dir: Path, mod_dir: Path, *,
+                            archive_name: str = "", log_fn=None) -> None:
+    names = {archive_name} if archive_name else set()
+    ids: set[tuple[int, int]] = set()
+    try:
+        from Nexus.nexus_meta import read_meta
+        meta = read_meta(Path(mod_dir) / "meta.ini")
+        if meta.installation_file:
+            names.add(meta.installation_file)
+        if meta.mod_id and meta.file_id:
+            ids.add((int(meta.mod_id), int(meta.file_id)))
+    except Exception:
+        pass
+    if not names and not ids:
+        return
+    try:
+        from Utils.profiles.state import merge_download_install_history
+        merge_download_install_history(Path(profile_dir), names, ids)
+    except Exception as exc:
+        if log_fn is not None:
+            log_fn(f"Download install history update skipped: {exc}")
 
 
 # ---------------------------------------------------------------------------

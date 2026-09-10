@@ -5,7 +5,7 @@
   1 name     - archive filename / section label
   2 size     - human size (archives only)
   3 date     - downloaded date/time (archives only)
-  4 install  - Install / Reinstall button (painted by the delegate)
+  4 install  - Install / Reinstall / Uninstalled button (painted by delegate)
 
 Selection is tracked by Path in `checked` so it survives rescans/filtering
 (Tk parity). Installed detection (Install vs Reinstall) comes from an
@@ -20,7 +20,9 @@ from pathlib import Path
 from PySide6.QtCore import (
     Qt, QAbstractTableModel, QModelIndex, QT_TRANSLATE_NOOP)
 
-from Utils.downloads.core import DownloadEntry, InstalledIndex
+from Utils.downloads.core import (
+    ARCHIVE_NOT_INSTALLED, DownloadEntry, InstalledIndex,
+)
 from Utils.downloads.locations import archive_path_key
 
 COL_CHECK = 0
@@ -40,6 +42,7 @@ _SORT_KEYS = {"name", "size", "downloaded"}
 EntryRole = Qt.UserRole + 1
 InstalledRole = Qt.UserRole + 2   # bool: archive already installed
 HiddenRole = Qt.UserRole + 3
+InstallStateRole = Qt.UserRole + 4
 
 
 def _downloaded_text(mtime: float) -> str:
@@ -134,6 +137,11 @@ class DownloadsModel(QAbstractTableModel):
     def is_installed(self, e: DownloadEntry) -> bool:
         return (not e.is_section_header and e.path is not None
                 and self._installed.is_archive_installed(e.path.name))
+
+    def install_state(self, e: DownloadEntry) -> str:
+        if e.is_section_header or e.path is None:
+            return ARCHIVE_NOT_INSTALLED
+        return self._installed.archive_status(e.path.name)
 
     # ---- selection --------------------------------------------------------
     def toggle_check(self, row: int, shift: bool = False):
@@ -242,6 +250,8 @@ class DownloadsModel(QAbstractTableModel):
             return e
         if role == InstalledRole:
             return self.is_installed(e)
+        if role == InstallStateRole:
+            return self.install_state(e)
         if role == HiddenRole:
             return (not e.is_section_header and e.path is not None
                     and e.path in self._hidden_entries)

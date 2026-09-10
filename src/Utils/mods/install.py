@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from Utils.archives.budget import ArchiveProbe, probe_archive
+from Utils.downloads.core import record_download_install
 
 LogFn = Callable[[str], None]
 ProgressFn = Callable[[int, int, Optional[str]], None]
@@ -1810,6 +1811,8 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
                 p._preserved_endorsed = False
             if p.is_bundle():
                 old_bundle_spec = _read_old_bundle_spec(dest_root)
+            record_download_install(
+                p.profile_dir, dest_root, log_fn=log_fn)
             log_fn(f"Replacing existing mod folder: {p.mod_name}")
             shutil.rmtree(dest_root, ignore_errors=True)
             p._preserve_position = True
@@ -1836,6 +1839,8 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
                         p._preserved_endorsed = False
                     if p.is_bundle():
                         old_bundle_spec = _read_old_bundle_spec(dest_root)
+                    record_download_install(
+                        p.profile_dir, dest_root, log_fn=log_fn)
                     log_fn(f"Replacing existing mod folder: {p.mod_name}")
                     shutil.rmtree(dest_root, ignore_errors=True)
                     p._preserve_position = True
@@ -2012,6 +2017,8 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
     # "Check updates".
     _check_nexus_flags_after_install(p.game, p.mod_name, log_fn,
                                      profile_dir=p.profile_dir)
+    record_download_install(
+        p.profile_dir, dest_root, archive_name=p.archive.name, log_fn=log_fn)
     log_fn(f"Installed '{p.mod_name}'.")
     return p.mod_name
 
@@ -2383,6 +2390,8 @@ def install_collection_archive(
                 _preserved_endorsed = False
             if prepared.is_bundle():
                 old_bundle_spec = _read_old_bundle_spec(dest_root)
+            record_download_install(
+                profile_dir, dest_root, log_fn=log_fn)
             log_fn(f"Replacing existing mod folder: {prepared.mod_name}")
             shutil.rmtree(dest_root, ignore_errors=True)
 
@@ -2494,6 +2503,8 @@ def install_collection_archive(
             on_catalogued(prepared.mod_name)
         except Exception:
             pass
+    record_download_install(
+        profile_dir, dest_root, archive_name=archive.name, log_fn=log_fn)
     log_fn(f"Installed '{prepared.mod_name}'.")
     _fire_on_installed(on_installed, is_fomod_install)
     return prepared.mod_name
@@ -2951,6 +2962,8 @@ def _install_multi_mod(p: "PreparedInstall", log_fn: LogFn, _pp) -> str | None:
                 continue
             m_dest = staging_root / m_name
             if m_dest.exists():
+                record_download_install(
+                    p.profile_dir, m_dest, log_fn=log_fn)
                 log_fn(f"Replacing existing mod folder: {m_name}")
                 shutil.rmtree(m_dest, ignore_errors=True)
             m_dest.mkdir(parents=True, exist_ok=True)
@@ -2961,6 +2974,9 @@ def _install_multi_mod(p: "PreparedInstall", log_fn: LogFn, _pp) -> str | None:
                 _update_indexes(p.game, p.profile_dir, m_name, m_dest, log_fn)
                 _add_to_modlist(p.profile_dir, m_name, log_fn)
                 _add_plugins(p.game, p.profile_dir, m_dest, log_fn)
+            record_download_install(
+                p.profile_dir, m_dest,
+                archive_name=p.archive.name, log_fn=log_fn)
             log_fn(f"  Installed '{m_name}' → {m_dest}")
             installed.append(m_name)
     finally:

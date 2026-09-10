@@ -38,6 +38,11 @@ def remove_mods(game, profile_dir: Path, mod_names: list[str], log_fn=None, *,
     library = FileGraphService.open_library(game, profile_dir, log_fn=log)
     profile = library.open_profile(profile_dir)
 
+    from Utils.downloads.core import record_download_install
+    for name in mod_names:
+        record_download_install(
+            profile_dir, Path(staging_root) / name, log_fn=log)
+
     # 1. Undeploy deployed files first - but only when a deployment is
     #    actually active: after a restore the game folder holds the REAL
     #    game files, and a mod that shadows vanilla names (e.g. a patched
