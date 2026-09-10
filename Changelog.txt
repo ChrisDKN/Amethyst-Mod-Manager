@@ -1,11 +1,17 @@
 - v2.5.0
+### Additions
 - Added the ability to browse and install Wabbajack modlists
+- Added UI options to hide top bar buttons
+- Added an option in the profile settings to hide profiles from the profile dropdown
+### Changes
 - Smaller mods during collection install are added as a batch to remove flashing text as they download/install
 - Rearranged the game configure menu to better fit game options instead of them being in one small box
 - Disabled plugins are no longer shown in the xedit qac wizards
 - Updated flatpak to kde runtime 6.11
-- Added UI options to hide top bar buttons
+- Logs older than 7 days are now automatically removed from the logs folder on startup
+### Bug Fixes
 - Fixed some issues with Bain mods
+
 
 ---
 
