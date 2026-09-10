@@ -1623,6 +1623,7 @@ def _run_additional_install_logic(game, dest_root: Path, mod_name: str,
                         log_fn(f"  cleanup failed: {rm_exc}")
                 return True
             log_fn(f"Additional install logic failed: {e}")
+            raise
     return False
 
 
