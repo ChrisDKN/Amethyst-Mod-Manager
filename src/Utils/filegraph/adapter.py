@@ -118,6 +118,13 @@ class SharedInventory:
         self.root = mods_root.resolve()
         self.files = {}
         self.archives = {}
+        self.fingerprints = {}
+
+    def fingerprint(self, files):
+        key = id(files)
+        if key not in self.fingerprints:
+            self.fingerprints[key] = files, manifest_fingerprint(files)
+        return self.fingerprints[key][1]
 
     def key(self, root: Path):
         resolved = root.resolve()
@@ -138,6 +145,16 @@ class SharedInventory:
         if key not in self.files:
             self.files[key] = adapter._scan_root(root, cancel=cancel)
         return self.files[key]
+
+
+def manifest_fingerprint(files):
+    fingerprint = hashlib.blake2b(digest_size=24)
+    for raw in files:
+        fingerprint.update(len(raw.relative).to_bytes(4, "little"))
+        fingerprint.update(raw.relative)
+        fingerprint.update(raw.size.to_bytes(8, "little", signed=False))
+        fingerprint.update(raw.mtime_ns.to_bytes(8, "little", signed=True))
+    return fingerprint.digest()
 
 
 def _json_default(value):
@@ -825,16 +842,11 @@ class GameCandidateAdapter:
                 whole_mod_root = bool(read_meta(root / "meta.ini").root_folder)
             except Exception:
                 pass
-        fingerprint = hashlib.blake2b(digest_size=24)
-        for raw in raw_files:
-            fingerprint.update(len(raw.relative).to_bytes(4, "little"))
-            fingerprint.update(raw.relative)
-            fingerprint.update(raw.size.to_bytes(8, "little", signed=False))
-            fingerprint.update(raw.mtime_ns.to_bytes(8, "little", signed=True))
-        manifest_fingerprint = (
+        fingerprint = (
             bytes(catalog_manifest.get("manifest_fingerprint", ()))
             if catalog_manifest is not None
-            else fingerprint.digest()
+            else inventory.fingerprint(raw_files) if inventory is not None
+            else manifest_fingerprint(raw_files)
         )
         cached_identities: dict[bytes, list[bytes]] = {}
         if catalog_manifest is not None:
@@ -1045,7 +1057,7 @@ class GameCandidateAdapter:
             "mod_name": mod_name,
             "mod_key": _normalise_mod_key(mod_name),
             "variant_key": self.variant_key(mod_name),
-            "manifest_fingerprint": manifest_fingerprint,
+            "manifest_fingerprint": fingerprint,
             "raw_files": [
                 {
                     "source_rel": raw.relative,

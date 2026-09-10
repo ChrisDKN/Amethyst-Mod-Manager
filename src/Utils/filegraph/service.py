@@ -1160,6 +1160,72 @@ class LibrarySession:
                 profile_dir, progress=progress, cancel=cancel,
                 inventory=inventory, shared_batch=shared_batch)
 
+    def refresh_changed(
+        self, profile_dir: Path, *, cancel: CancellationToken | None = None,
+        inventory: SharedInventory | None = None,
+        shared_batch: frozenset[str] = frozenset(),
+    ) -> CatalogStatus:
+        from Utils.filegraph.adapter import manifest_fingerprint
+        token = cancel or CancellationToken()
+        with self._refresh_lock:
+            if not self.status().ready:
+                return self._rebuild_locked(profile_dir, cancel=token,
+                    inventory=inventory, shared_batch=shared_batch)
+            adapter = self.open_profile(profile_dir).adapter
+            adapter.prepare_profile_rules()
+            fingerprints = self.manifest_fingerprints()
+            names = {name.lower(): name for name in fingerprints}
+            previous = {name.lower(): value for name, value in fingerprints.items()}
+            variants = self.variant_keys()
+            roots = {entry.name: entry for entry in adapter.staging.iterdir()
+                     if entry.is_dir() and not entry.name.endswith("_separator")}
+            roots[OVERWRITE_NAME] = adapter.overwrite
+            roots[ROOT_FOLDER_NAME] = adapter.root_folder
+            changed, shared_changed = [], False
+            for name, root in roots.items():
+                if token.is_cancelled():
+                    raise FileGraphCancelled("filegraph refresh cancelled")
+                files = ((inventory.scan(adapter, root, token) if inventory is not None
+                          else adapter._scan_root(root, token)) if root.is_dir() else [])
+                fingerprint = inventory.fingerprint(files) if inventory is not None else manifest_fingerprint(files)
+                same = previous.get(name.lower()) == fingerprint
+                if (not same or names.get(name.lower()) != name
+                        or adapter.variant_key(name) not in variants.get(name.lower(), ())):
+                    changed.append((name, same))
+                    shared_changed |= (not same or names.get(name.lower()) != name) and name not in (OVERWRITE_NAME, ROOT_FOLDER_NAME)
+            removed = previous.keys() - {name.lower() for name in roots}
+            shared_changed |= bool(removed - {OVERWRITE_NAME.lower(), ROOT_FOLDER_NAME.lower()})
+            try:
+                payloads, size = [], 0
+                for name, same in changed:
+                    catalog = self.manifest_for_rederive(name) if same else None
+                    batch = adapter.build_manifest(name, cancel=token,
+                        catalog_manifest=catalog, inventory=inventory)
+                    payload = pack(batch)
+                    payloads.append(payload)
+                    size += len(payload)
+                    if size >= 16 * 1024 ** 2:
+                        self._native.replace_mod_manifests(iter(payloads), token._native)
+                        payloads, size = [], 0
+                if payloads:
+                    self._native.replace_mod_manifests(iter(payloads), token._native)
+                for name in removed:
+                    if token.is_cancelled():
+                        raise FileGraphCancelled("filegraph refresh cancelled")
+                    self._native.remove_mod(name)
+                if changed or removed:
+                    self._variant_keys_cache = None
+                for profile in self._profiles.values():
+                    profile._invalidate_resolution_cache()
+                if shared_changed:
+                    self._invalidate_shared_catalogs(shared_batch)
+                self.log(f"File catalog: {len(changed)} changed, {len(removed)} removed, {len(roots) - len(changed)} unchanged mods")
+                return self.status()
+            except BaseException as exc:
+                self.invalidate()
+                self._invalidate_shared_catalogs(shared_batch)
+                raise _native_error(exc) from exc
+
     def invalidate(self):
         with self._refresh_lock:
             self._native.set_ready(False)

@@ -412,26 +412,20 @@ def refresh_profiles(request, profiles, log, progress=None, *, stop=None):
             game.load_paths()
             library = FileGraphService.open_library(game, profile, log_fn=log)
             contexts.append((profile, game, library))
-            library.invalidate()
         inventory = SharedInventory(request.directory / "root" / "mods")
-        grouped = False
         with shared_inventory_scope(inventory):
             for profile, game, _library in contexts:
                 check_stop()
                 if read_profile_settings(profile).get("is_group"):
                     from Utils.profiles.groups import materialize_group
                     materialize_group(game, profile, log_fn=log)
-                    grouped = True
                     emit(log, "profile.group.materialized", profile=profile)
-        if grouped:
-            for _profile, _game, library in contexts:
-                library.invalidate()
         shared_batch = frozenset(str(library.root.resolve()) for _, _, library in contexts)
         for index, (profile, _game, library) in enumerate(contexts):
             check_stop()
             if progress:
                 progress("Refreshing file catalogs", index, len(profiles) * 2, profile.name)
-            library.rebuild(profile, cancel=token, inventory=inventory, shared_batch=shared_batch)
+            library.refresh_changed(profile, cancel=token, inventory=inventory, shared_batch=shared_batch)
             emit(log, "profile.catalog.refreshed", profile=profile)
         for index, (profile, _game, library) in enumerate(contexts):
             check_stop()
