@@ -1705,6 +1705,10 @@ El caché md5 se conserva. Los archivos serán redescargados según sea necesari
       <translation>Cap la velocidad de descarga combinada de esta instalación. 0 = utilizar la conexión completa. Se aplica inmediatamente.</translation>
     </message>
     <message>
+      <source>Extractions:</source>
+      <translation>Extracciones:</translation>
+    </message>
+    <message>
       <source>Pause</source>
       <translation>Pausa</translation>
     </message>
@@ -9400,8 +9404,8 @@ How would you like to handle the existing mod?</source>
       <translation>Raíz</translation>
     </message>
     <message>
-      <source>Disable</source>
-      <translation>Inhabilitación</translation>
+      <source>Enabled</source>
+      <translation>Activado</translation>
     </message>
     <message>
       <source>The mod's files and folders as they are packaged in the archive.</source>
@@ -13053,6 +13057,14 @@ Sus mods enumerados se copian en la propia carpeta mods del perfil (pendiendo de
       <translation>(por defecto)</translation>
     </message>
     <message>
+      <source>Hide</source>
+      <translation>Ocultar</translation>
+    </message>
+    <message>
+      <source>Hidden profiles remain available here. The active profile stays in the dropdown until you switch profiles.</source>
+      <translation>Los perfiles ocultos permanecen disponibles aquí. El perfil activo permanece en el menú desplegable hasta que cambie de perfil.</translation>
+    </message>
+    <message>
       <source>Rename</source>
       <translation>Cambiar el nombre</translation>
     </message>
@@ -15173,6 +15185,10 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
       <translation>Barra superior</translation>
     </message>
     <message>
+      <source>Bottom</source>
+      <translation>Abajo</translation>
+    </message>
+    <message>
       <source>Where the toolbar sits. As a side bar it is always icon-only, with the labels shown as tooltips.</source>
       <translation>Donde se encuentra la barra de herramientas. Como barra lateral siempre es sólo icono, con las etiquetas mostradas como tooltips.</translation>
     </message>
@@ -15384,6 +15400,22 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
   <context>
     <name>SetupOptions</name>
     <message>
+      <source>Additional setup</source>
+      <translation>Configuración adicional</translation>
+    </message>
+    <message>
+      <source>Source games</source>
+      <translation>Juegos de origen</translation>
+    </message>
+    <message>
+      <source>Setup tools</source>
+      <translation>Configurar herramientas</translation>
+    </message>
+    <message>
+      <source>Compatibility and display</source>
+      <translation>Compatibilidad y visualización</translation>
+    </message>
+    <message>
       <source>Use the version required by the author. Output keeps its authored position in {0}.</source>
       <translation>Utilice la versión requerida por el autor. La salida mantiene su posición de autor en {0}.</translation>
     </message>
@@ -15402,6 +15434,10 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     <message>
       <source>Import existing output mod</source>
       <translation>Importar mod de salida existente</translation>
+    </message>
+    <message>
+      <source>Import output archive</source>
+      <translation>Importar archivo de salida</translation>
     </message>
     <message>
       <source>Method</source>
@@ -15482,6 +15518,10 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     <message>
       <source>Select extracted MPI package</source>
       <translation>Seleccionar paquete MPI extraído</translation>
+    </message>
+    <message>
+      <source>Select output archive</source>
+      <translation>Seleccionar archivo de salida</translation>
     </message>
     <message>
       <source>Select original game</source>
@@ -18707,6 +18747,14 @@ Actual: {0}
       <translation>Compruebe los requisitos y revise el plan de descarga.</translation>
     </message>
     <message>
+      <source>Options changed. Previous requirements are shown for reference; recheck to update them.</source>
+      <translation>Opciones cambiadas. Requisitos anteriores se muestran para referencia; vuelva a marcar para actualizarlos.</translation>
+    </message>
+    <message>
+      <source>Recheck required</source>
+      <translation>Revisar</translation>
+    </message>
+    <message>
       <source>Review changes before updating shared files and profiles.</source>
       <translation>Revise los cambios antes de actualizar los archivos y perfiles compartidos.</translation>
     </message>
@@ -18805,8 +18853,24 @@ Intente borrar su búsqueda o filtros.</translation>
       <translation>Descargando paquete modlist…</translation>
     </message>
     <message>
+      <source>Cancel download</source>
+      <translation>Cancelar descarga</translation>
+    </message>
+    <message>
       <source>Inspecting modlist package…</source>
       <translation>Inspectando paquete de la lista de mods…</translation>
+    </message>
+    <message>
+      <source>Cancelling…</source>
+      <translation>Cancelando…</translation>
+    </message>
+    <message>
+      <source>Cancelling modlist package download…</source>
+      <translation>Cancelando la descarga de paquetes de la lista de mods…</translation>
+    </message>
+    <message>
+      <source>Stopping the download. Any partial download will be kept so it can resume later.</source>
+      <translation type="unfinished">Stopping the download. Any partial download will be kept so it can resume later.</translation>
     </message>
     <message>
       <source>{0} / {1} ({2}%)</source>
@@ -18975,6 +19039,18 @@ Intente borrar su búsqueda o filtros.</translation>
     <message>
       <source>The gallery could not be loaded. Try Refresh, or open a local .wabbajack file.</source>
       <translation>No se pudo cargar la galería. Intenta actualizar, o abre un archivo .wabbajack local.</translation>
+    </message>
+    <message>
+      <source>Download cancelled</source>
+      <translation type="unfinished">Download cancelled</translation>
+    </message>
+    <message>
+      <source>Modlist package download cancelled.</source>
+      <translation type="unfinished">Modlist package download cancelled.</translation>
+    </message>
+    <message>
+      <source>Select Check requirements to resume; any partial download will be reused.</source>
+      <translation type="unfinished">Select Check requirements to resume; any partial download will be reused.</translation>
     </message>
     <message>
       <source>Open download page</source>
