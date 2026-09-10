@@ -90,6 +90,39 @@ def _require_path_within(root: Path, candidate: Path, *, label: str) -> Path:
     return candidate
 
 
+def _require_mod_destination(staging_root: Path, mod_name: str) -> Path:
+    """Return the immediate staging child for one safe mod-folder name."""
+    raw = os.fspath(mod_name)
+    if not isinstance(raw, str):
+        raw = os.fsdecode(raw)
+    normalised = _normalise_relative_install_path(
+        raw, label="mod folder name", allow_empty=False)
+    if normalised != raw or "/" in normalised:
+        raise UnsafeInstallPath(
+            f"mod folder name must be one path component: {raw!r}")
+    if any(ord(char) < 32 for char in raw):
+        raise UnsafeInstallPath(
+            f"mod folder name contains a control character: {raw!r}")
+    from Utils.mods.names import sanitize_mod_folder_name
+    if sanitize_mod_folder_name(raw) != raw:
+        raise UnsafeInstallPath(
+            f"mod folder name contains unsupported characters: {raw!r}")
+
+    root = Path(staging_root)
+    candidate = root / raw
+    try:
+        resolved_root = root.resolve(strict=False)
+        resolved_candidate = candidate.resolve(strict=False)
+    except (OSError, RuntimeError) as exc:
+        raise UnsafeInstallPath(
+            f"could not validate mod folder destination: {candidate}") from exc
+    if candidate.is_symlink() or resolved_candidate.parent != resolved_root:
+        raise UnsafeInstallPath(
+            f"mod folder destination is not an immediate staging child: "
+            f"{candidate}")
+    return candidate
+
+
 # ---- case-insensitive copy core (moved from gui/install_mod.py, shared) ------
 # These resolve FOMOD/archive paths case-insensitively against the real (case-
 # sensitive Linux) filesystem and dedup by destination - the accumulated fixes
@@ -1433,6 +1466,8 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
         elif nexus_name:
             log_fn(f"Naming mod folder from Nexus: '{mod_name}'.")
 
+    _require_mod_destination(Path(staging_root), mod_name)
+
     def _p(done, total, phase=None):
         if progress_fn is not None:
             progress_fn(done, total, phase)
@@ -1750,7 +1785,7 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
     from Utils.mods.copy import resolve_target_staging
     staging_root = Path(resolve_target_staging(p.game, p.profile_dir))
     staging_root.mkdir(parents=True, exist_ok=True)
-    dest_root = staging_root / p.mod_name
+    dest_root = _require_mod_destination(staging_root, p.mod_name)
 
     def _pp(done, total, phase=None):
         if progress_fn is not None:
@@ -1786,6 +1821,7 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
             if p.is_bundle():
                 old_bundle_spec = _read_old_bundle_spec(dest_root)
             log_fn(f"Replacing existing mod folder: {p.mod_name}")
+            dest_root = _require_mod_destination(staging_root, p.mod_name)
             shutil.rmtree(dest_root, ignore_errors=True)
             p._preserve_position = True
         else:
@@ -1812,6 +1848,8 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
                     if p.is_bundle():
                         old_bundle_spec = _read_old_bundle_spec(dest_root)
                     log_fn(f"Replacing existing mod folder: {p.mod_name}")
+                    dest_root = _require_mod_destination(
+                        staging_root, p.mod_name)
                     shutil.rmtree(dest_root, ignore_errors=True)
                     p._preserve_position = True
                     break
@@ -1820,8 +1858,10 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
                     if not new_name or new_name == p.mod_name:
                         conflict = True
                         continue
+                    new_dest_root = _require_mod_destination(
+                        staging_root, new_name)
                     p.mod_name = new_name
-                    dest_root = staging_root / p.mod_name
+                    dest_root = new_dest_root
                     # Loop: if the new name is ALSO taken, re-prompt (conflict).
                     conflict = dest_root.exists()
                     # rename installs as a NEW mod (no position preserve).
@@ -2348,7 +2388,8 @@ def install_collection_archive(
             return None
 
         # ---- stage --------------------------------------------------------
-        dest_root = staging_root / prepared.mod_name
+        dest_root = _require_mod_destination(
+            staging_root, prepared.mod_name)
         _preserved_endorsed = False
         old_bundle_spec = None
         if dest_root.exists():
@@ -2362,6 +2403,8 @@ def install_collection_archive(
             if prepared.is_bundle():
                 old_bundle_spec = _read_old_bundle_spec(dest_root)
             log_fn(f"Replacing existing mod folder: {prepared.mod_name}")
+            dest_root = _require_mod_destination(
+                staging_root, prepared.mod_name)
             shutil.rmtree(dest_root, ignore_errors=True)
 
         staging_root.mkdir(parents=True, exist_ok=True)
@@ -2927,9 +2970,10 @@ def _install_multi_mod(p: "PreparedInstall", log_fn: LogFn, _pp) -> str | None:
             if not file_list:
                 log_fn(f"  '{m_name}': nothing to install - skipped.")
                 continue
-            m_dest = staging_root / m_name
+            m_dest = _require_mod_destination(staging_root, m_name)
             if m_dest.exists():
                 log_fn(f"Replacing existing mod folder: {m_name}")
+                m_dest = _require_mod_destination(staging_root, m_name)
                 shutil.rmtree(m_dest, ignore_errors=True)
             m_dest.mkdir(parents=True, exist_ok=True)
             _copy_file_list(file_list, m_path, m_dest, log_fn, game=p.game)
