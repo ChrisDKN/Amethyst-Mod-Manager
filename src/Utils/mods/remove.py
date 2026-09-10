@@ -13,6 +13,10 @@ import shutil
 from pathlib import Path
 
 
+class IncompleteUndeployError(RuntimeError):
+    """An owned deployed destination could not be safely reconciled."""
+
+
 def remove_mods(game, profile_dir: Path, mod_names: list[str], log_fn=None, *,
                 staging_root: Path | None = None) -> None:
     """Fully remove *mod_names* for *game* / *profile_dir*:
@@ -53,6 +57,7 @@ def remove_mods(game, profile_dir: Path, mod_names: list[str], log_fn=None, *,
                 game, profile, Path(staging_root), mod_names, log_fn=log)
         except Exception as exc:
             log(f"undeploy during remove failed: {exc}")
+            raise
     else:
         log("no deployment is active - skipping undeploy of removed mod(s).")
 
@@ -92,20 +97,30 @@ def undeploy_catalog_mods(game, profile, staging_root: Path,
     """Safely unlink committed deployment entries owned by *mod_names*.
 
     The source tree must still exist. Copies are accepted only when size and
-    mtime match; links must resolve to the exact staged source.
+    mtime match; links must resolve to the exact staged source. Raises
+    IncompleteUndeployError if any owned destination cannot be reconciled.
     """
     from Utils.filegraph.deploy import absolute_destination
     log = log_fn or (lambda _message: None)
     remove_keys = {name.lower() for name in mod_names}
     removed = 0
+    failures: list[str] = []
     for entry in profile.deployed_entries():
         if entry.mod_key not in remove_keys:
             continue
         destination = absolute_destination(game, entry)
         if destination is None:
+            failures.append(
+                f"could not resolve deployed destination for "
+                f"{entry.destination!r}")
             continue
         source = staging_root / entry.mod_name / entry.source_display
         try:
+            try:
+                destination.lstat()
+            except FileNotFoundError:
+                # Already absent is a successfully reconciled destination.
+                continue
             safe = False
             if destination.is_symlink():
                 safe = destination.resolve() == source.resolve()
@@ -118,10 +133,21 @@ def undeploy_catalog_mods(game, profile, staging_root: Path,
             if safe:
                 destination.unlink()
                 removed += 1
-        except OSError as exc:
-            log(f"could not undeploy {destination}: {exc}")
+            else:
+                failures.append(
+                    f"ownership could not be verified for {destination}")
+        except FileNotFoundError:
+            # The destination disappeared during reconciliation; it is gone.
+            continue
+        except (OSError, RuntimeError) as exc:
+            failures.append(f"could not undeploy {destination}: {exc}")
     if removed:
         log(f"undeployed {removed} file(s) owned by removed mod(s).")
+    if failures:
+        for failure in failures:
+            log(failure)
+        raise IncompleteUndeployError(
+            f"could not reconcile {len(failures)} deployed file(s)")
     return removed
 
 
