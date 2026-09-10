@@ -15312,9 +15312,7 @@ class MainWindow(QMainWindow):
     def _replace_then_rename(self, old_name: str, new_name: str, *,
                              reload_modlist: bool = True,
                              on_done=None) -> None:
-        """Fully remove the existing mod occupying *new_name*, drop its modlist
-        row, then rename *old_name* → *new_name* (used by the rename-collision
-        Replace-All path)."""
+        """Replace *new_name* with *old_name*, preserving the target's modlist row."""
         try:
             from Utils.mods.remove import remove_mods
             remove_mods(self._gs.game, self._gs.profile_dir(), [new_name],
@@ -15324,28 +15322,15 @@ class MainWindow(QMainWindow):
             if on_done is not None:
                 on_done(None)
             return
-        # Drop the replaced mod's modlist row so it isn't left dangling. Edit
-        # the file, not self._modlist_model - see _do_rename_mod_on_disk: for a
-        # rename-after-install the model is still the pre-install snapshot, and
-        # remove_row would save that stale state over the real modlist.
-        try:
-            from Utils.mods.modlist import read_modlist, write_modlist, modlist_lock
-            ml_path = self._gs.modlist_path()
-            if ml_path is not None:
-                with modlist_lock(ml_path):
-                    entries = [e for e in read_modlist(ml_path)
-                               if e.is_separator or e.name != new_name]
-                    write_modlist(ml_path, entries)
-        except Exception as exc:
-            print(f"[gui_qt] replace-then-rename modlist update failed: {exc}",
-                  flush=True)
         renamed = self._do_rename_mod_on_disk(
-            old_name, new_name, reload_modlist=reload_modlist)
+            old_name, new_name, reload_modlist=reload_modlist,
+            preserve_existing_entry=True)
         if on_done is not None:
             on_done(renamed)
 
     def _do_rename_mod_on_disk(self, old_name: str, new_name: str, *,
-                               reload_modlist: bool = True) -> str | None:
+                               reload_modlist: bool = True,
+                               preserve_existing_entry: bool = False) -> str | None:
         """Perform the actual rename (staging folder + index + state + modlist),
         assuming *new_name* is free. Returns the new name on success."""
         staging = self._gs.staging_dir()
@@ -15396,13 +15381,20 @@ class MainWindow(QMainWindow):
             if ml_path is not None:
                 with modlist_lock(ml_path):
                     entries = read_modlist(ml_path)
-                    for e in entries:
-                        if not e.is_separator and e.name == old_name:
-                            e.name = new_name
-                            break
+                    if preserve_existing_entry and any(
+                            not e.is_separator and e.name == new_name
+                            for e in entries):
+                        # Keep the target's slot and flags; discard the new install's row.
+                        entries = [e for e in entries
+                                   if e.is_separator or e.name != old_name]
                     else:
-                        print(f"[gui_qt] rename: no modlist entry named "
-                              f"{old_name!r} to rename.", flush=True)
+                        for e in entries:
+                            if not e.is_separator and e.name == old_name:
+                                e.name = new_name
+                                break
+                        else:
+                            print(f"[gui_qt] rename: no modlist entry named "
+                                  f"{old_name!r} to rename.", flush=True)
                     write_modlist(ml_path, entries)
         except Exception as exc:
             print(f"[gui_qt] rename modlist update failed: {exc}", flush=True)

@@ -1199,6 +1199,10 @@ class SettingsView(ConnectionsSettingsMixin, OverlayBase):
             help=self.tr("Newly installed mods start disabled in the modlist instead "
                  "of enabled. Applies to every install path except collection "
                  "installs."))
+        self._checkbox(
+            g, self.tr("Rename mod after install"),
+            uc.load_rename_mod_after_install, uc.save_rename_mod_after_install,
+            help=self.tr("Show a rename prompt after installing a mod."))
         self._finish_section(g)
 
     def _build_downloads(self):
@@ -1299,10 +1303,6 @@ class SettingsView(ConnectionsSettingsMixin, OverlayBase):
             uc.load_normalize_folder_case, uc.save_normalize_folder_case,
             help=self.tr("Unify folder names to a single casing across mods. Disable on "
                  "case-insensitive filesystems."))
-        self._checkbox(
-            g, self.tr("Rename mod after install"),
-            uc.load_rename_mod_after_install, uc.save_rename_mod_after_install,
-            help=self.tr("Show a rename prompt after installing a mod."))
         # Custom install-name rules - a full editor (opened as its own tab)
         # rather than a single control, so it goes in the section footer
         # instead of interrupting the run of checkboxes.
