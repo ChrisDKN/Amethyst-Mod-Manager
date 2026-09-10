@@ -3,6 +3,8 @@
 - Added the ability to browse and install Wabbajack modlists
 - Added UI options to hide top bar buttons
 - Added an option in the profile settings to hide profiles from the profile dropdown
+- Added a content column to display certain types of content within a mod
+- Added a blacklist button to the data tab that allows additional files/folder to be blocked from deploy and the conflict calculation
 ### Changes
 - Smaller mods during collection install are added as a batch to remove flashing text as they download/install
 - Rearranged the game configure menu to better fit game options instead of them being in one small box
