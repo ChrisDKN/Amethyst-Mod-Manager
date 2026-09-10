@@ -364,7 +364,7 @@ class WabbajackView(QWidget):
         self._description.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
         self._description.setFixedHeight(DESC_MIN_H)
         self._description.setStyleSheet(f"background:transparent; color:{_c(palette, 'TEXT_DIM')};")
-        self._description.installEventFilter(self)
+        self._description.viewport().installEventFilter(self)
         summary_text.addWidget(self._description)
         figures = QHBoxLayout()
         figures.setSpacing(22)
@@ -816,7 +816,8 @@ class WabbajackView(QWidget):
             if detail and watched is detail.viewport():
                 direction = QBoxLayout.LeftToRight if detail.viewport().width() >= 850 else QBoxLayout.TopToBottom
                 self._detail_columns.setDirection(direction)
-            if watched is getattr(self, "_description", None) and event.type() == QEvent.Resize:
+            description = getattr(self, "_description", None)
+            if description and watched is description.viewport() and event.type() == QEvent.Resize:
                 self._fit_description()
         return super().eventFilter(watched, event)
 
