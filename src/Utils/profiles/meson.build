@@ -1,5 +1,6 @@
 py.install_sources(
   '__init__.py',
+  '_selftest.py',
   'backup.py',
   'convert.py',
   'curated.py',
