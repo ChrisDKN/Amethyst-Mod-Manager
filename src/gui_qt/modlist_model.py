@@ -51,9 +51,10 @@ COL_PRIORITY = 7
 COL_SIZE = 8
 COL_NEXUS_MOD_ID = 9
 COL_NEXUS_FILE_ID = 10
+COL_CONTENT = 11
 COLUMNS = ["Mod Name", "Category", "Flags", "Conflicts", "Installed",
            "Version", "Author", "Priority", "Size", "Nexus Mod ID",
-           "Nexus File ID"]
+           "Nexus File ID", "Content"]
 
 # COLUMNS doubles as canonical persistence keys, so it must stay untranslated;
 # headerData() translates each label at display time via self.tr(COLUMNS[i]).
@@ -72,6 +73,7 @@ _COLUMN_TR_MARKERS = [
     QT_TRANSLATE_NOOP("ModListModel", "Size"),
     QT_TRANSLATE_NOOP("ModListModel", "Nexus Mod ID"),
     QT_TRANSLATE_NOOP("ModListModel", "Nexus File ID"),
+    QT_TRANSLATE_NOOP("ModListModel", "Content"),
 ]
 
 # Custom roles for the delegate.
@@ -84,6 +86,7 @@ HighlightRole = Qt.UserRole + 6    # int: 0 none, 1 higher(green), -1 lower(red)
                                    #      2 anchor(orange, plugin-selected mod),
                                    #      3 requires(purple), -3 required-by(blue)
 UuidConflictRole = Qt.UserRole + 7  # int: BG3 pak module-UUID conflict code
+ContentRole = Qt.UserRole + 8      # tuple[(badge_id, from_archive), ...]
 
 _MIME = "application/x-amethyst-modrows"
 _ITEM_BASE = Qt.ItemIsEnabled | Qt.ItemIsSelectable
@@ -147,6 +150,10 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         self._size_bytes: dict[str, int] = {}
         self._nexus_mod_ids: dict[str, int] = {}
         self._nexus_file_ids: dict[str, int] = {}
+        # Content badges per mod (Content column) as (badge_id, from_archive)
+        # tuples. Computed lazily - only when the Content column is visible -
+        # so a default-hidden Content column costs no backend query.
+        self._content: dict[str, tuple] = {}
         self._conflicts = conflicts or {}
         self._bsa_conflicts: dict[str, int] = {}
         self._uuid_conflicts: dict[str, int] = {}
@@ -296,6 +303,7 @@ class ModListModel(ModGrouping, QAbstractTableModel):
             "nexus_file_ids": self._nexus_file_ids,
             "flags": flags,
             "conflicts": self._conflicts,
+            "content": self._content,
         }
 
     def _derive_display(self) -> list[ModEntry]:
@@ -403,6 +411,16 @@ class ModListModel(ModGrouping, QAbstractTableModel):
                                   self.index(len(self._entries) - 1, COL_SIZE),
                                   [Qt.DisplayRole])
         self._resort_if_key("size")
+
+    def set_content(self, content: dict) -> None:
+        """Set per-mod content badges (Content column). Repaints just that
+        column - used when the user enables Content from the column menu."""
+        self._content = content or {}
+        if self._entries:
+            self.dataChanged.emit(self.index(0, COL_CONTENT),
+                                  self.index(len(self._entries) - 1, COL_CONTENT),
+                                  [ContentRole, Qt.DisplayRole])
+        self._resort_if_key("content")
 
     def set_flags(self, flags: dict[str, int]) -> None:
         self._flags = flags or {}
@@ -718,6 +736,31 @@ class ModListModel(ModGrouping, QAbstractTableModel):
             bits |= FLAG_RERUN_FOMOD
         return bits
 
+    def sep_block_content(self, block) -> tuple:
+        """Union of the content badges across *block* display rows, in
+        BADGE_ORDER - the collapsed-separator/group summary.
+
+        A badge is archive-toned only when every member carrying it got it from
+        an archive, the same loose-wins rule compute_badges applies to a single
+        mod. Walks the dict directly (like sep_block_summary) rather than going
+        back through data() per row."""
+        from gui_qt.modlist_content import BADGE_ORDER
+        loose, packed = set(), set()
+        for row in block:
+            entry = self._entries[row]
+            if entry.is_separator:
+                continue
+            for badge, from_archive in self._content.get(entry.name, ()):
+                (packed if from_archive else loose).add(badge)
+        return tuple(
+            (badge, badge not in loose)
+            for badge in BADGE_ORDER if badge in (loose | packed)
+        )
+
+    def _group_content(self, name) -> tuple:
+        """Union of a collapsed group's content badges."""
+        return self.sep_block_content(self.group_rows(name))
+
     def data(self, index, role=Qt.DisplayRole):
         if not index.isValid():
             return None
@@ -732,6 +775,10 @@ class ModListModel(ModGrouping, QAbstractTableModel):
                 return self.group_summary(e.name)[summary_roles.index(role)]
             if role == HighlightRole:
                 return self._separator_highlight(index.row(), e)
+            if role == ContentRole:
+                return self._group_content(e.name)
+        if role == ContentRole:
+            return () if e.is_separator else self._content.get(e.name, ())
         if role == ConflictRole:
             # Filegraph publishes the authoritative zero shortly after a
             # toggle, but the row's enabled state changes synchronously.  A

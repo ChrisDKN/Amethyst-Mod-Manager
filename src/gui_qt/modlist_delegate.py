@@ -23,9 +23,10 @@ from gui_qt.icons import icon
 from gui_qt.tooltips import wrap_tooltip
 from gui_qt.modlist_model import (
     EntryRole, ConflictRole, BsaConflictRole, UuidConflictRole, FlagsRole,
-    HighlightRole,
-    COL_NAME, COL_FLAGS, COL_CONFLICTS, COL_VERSION, COL_PRIORITY,
+    HighlightRole, ContentRole,
+    COL_NAME, COL_FLAGS, COL_CONFLICTS, COL_VERSION, COL_PRIORITY, COL_CONTENT,
 )
+from gui_qt.modlist_content import BADGE_LABELS
 from gui_qt.modlist_data import (
     FLAG_UPDATE, FLAG_ENDORSED, FLAG_ROOT, FLAG_MODIFIED_MF, FLAG_MISSING_REQS,
     FLAG_COLLECTION_BUNDLED, FLAG_COLLECTION_PATCHED, FLAG_NOTE, FLAG_XEDIT,
@@ -457,6 +458,8 @@ class ModRowDelegate(QStyledItemDelegate):
             self._paint_conflicts(p, r, index.data(ConflictRole) or 0,
                                   index.data(BsaConflictRole) or 0,
                                   index.data(UuidConflictRole) or 0)
+        elif index.column() == COL_CONTENT:
+            self._paint_content(p, r, index.data(ContentRole) or ())
         else:
             # Plain columns (Installed/Version/Priority): centred to match the
             # centred headers + the icon columns.
@@ -660,6 +663,16 @@ class ModRowDelegate(QStyledItemDelegate):
                           + _summarise(uuid_conflicts, _UUID_CONFLICT_ICONS))
         self._paint_icons(p, self._col_rect(COL_FLAGS, r), self._flag_icons(bits))
         self._paint_icons(p, self._col_rect(COL_CONFLICTS, r), conflict_icons)
+        # Content badges for the hidden mods, under the Content header. Only
+        # worth the walk when the column is actually shown.
+        view = self.parent()
+        try:
+            shown = not view.isColumnHidden(COL_CONTENT)
+        except AttributeError:
+            shown = False
+        if shown and hasattr(model, "sep_block_content"):
+            self._paint_content(p, self._col_rect(COL_CONTENT, r),
+                                model.sep_block_content(block))
 
     def _paint_name(self, p, r, e, index, text_color):
         leader = index.model().group_leader(e.name)
@@ -894,6 +907,21 @@ class ModRowDelegate(QStyledItemDelegate):
                         QToolTip.hideText()
                     return True
                 if entry is not None and entry.is_separator:
+                    # The separator row is spanned, so hit-test against each
+                    # column's sub-rect rather than opt.rect.
+                    model = index.model()
+                    content_rect = self._col_rect(COL_CONTENT, opt.rect)
+                    if (content_rect.contains(event.pos())
+                            and hasattr(model, "sep_block_content")):
+                        badges = model.sep_block_content(
+                            model.sep_block_rows(index.row()))
+                        tip = self._content_tip(event.pos(), content_rect,
+                                                badges)
+                        if tip:
+                            QToolTip.showText(
+                                event.globalPos(), wrap_tooltip(tip), view,
+                                content_rect)
+                            return True
                     flags_rect = self._col_rect(COL_FLAGS, opt.rect)
                     bits = index.data(FlagsRole) or 0
                     hit = self._hit_flag_bit(event.pos(), flags_rect, bits)
@@ -926,9 +954,135 @@ class ModRowDelegate(QStyledItemDelegate):
                             opt.rect)
                         return True
                     QToolTip.hideText()
+                elif index.column() == COL_CONTENT:
+                    tip = self._content_tip(event.pos(), opt.rect,
+                                            index.data(ContentRole) or ())
+                    if tip:
+                        QToolTip.showText(
+                            event.globalPos(), wrap_tooltip(tip), view,
+                            opt.rect)
+                        return True
+                    QToolTip.hideText()
         except Exception:
             pass
         return super().helpEvent(event, view, opt, index)
+
+    # -- Content column (badge pills) --------------------------------------
+    # Pill metrics. PILL_PAD is the horizontal padding inside a pill; PILL_GAP
+    # the space between two pills. Kept as constants so _pill_layout is the one
+    # place geometry is computed - paint, hit-testing and tooltips all read it,
+    # which is what keeps a hovered pill's tip matching what was drawn.
+    PILL_H = 17
+    PILL_PAD = 7
+    PILL_GAP = 4
+    PILL_FONT_PX = 11
+    PILL_RADIUS = 8
+
+    def _pill_font(self):
+        f = getattr(self, "_f_pill", None)
+        if f is None:
+            f = QFont()
+            f.setPixelSize(self.PILL_FONT_PX)
+            self._f_pill = f
+            self._fm_pill = QFontMetrics(f)
+        return f
+
+    def _pill_layout(self, r, badges):
+        """Lay the pills out as one horizontally-centred run within *r*.
+
+        Returns (items, overflow) where items is [(rect, label, from_archive)]
+        and overflow counts the badges that did not fit. When at least one
+        badge is dropped, room is reserved for a "+N" chip so the count can
+        never itself be clipped. The run is centred under the column header
+        (like the Flags/Conflicts icons); once it fills the cell it starts at
+        the left edge instead, so a full row never spills past either side."""
+        if not badges:
+            return [], 0
+        self._pill_font()
+        fm = self._fm_pill
+        labels = [(b, self.tr(BADGE_LABELS.get(b, b)), a) for b, a in badges]
+        widths = [fm.horizontalAdvance(text) + self.PILL_PAD * 2
+                  for _b, text, _a in labels]
+        left = r.left() + 6
+        right = r.right() - 5
+        avail = right - left
+        y = r.top() + (r.height() - self.PILL_H) // 2
+
+        # How many fit, reserving space for the "+N" chip whenever some are cut.
+        count = 0
+        used = 0
+        for i, w in enumerate(widths):
+            remaining = len(widths) - i - 1
+            step = w if count == 0 else self.PILL_GAP + w
+            need = used + step
+            if remaining:
+                need += self.PILL_GAP + fm.horizontalAdvance(
+                    f"+{remaining}") + self.PILL_PAD * 2
+            if need > avail:
+                break
+            used += step
+            count += 1
+
+        overflow = len(labels) - count
+        chip_w = 0
+        if overflow:
+            chip_w = (fm.horizontalAdvance(f"+{overflow}")
+                      + self.PILL_PAD * 2)
+            used += (self.PILL_GAP if count else 0) + chip_w
+
+        # Centre the whole run; clamp to the left edge when it fills the cell.
+        x = left + max(0, (avail - used) // 2)
+
+        items = []
+        for i in range(count):
+            _b, text, from_archive = labels[i]
+            items.append((QRect(x, y, widths[i], self.PILL_H), text,
+                          from_archive))
+            x += widths[i] + self.PILL_GAP
+        if overflow:
+            items.append((QRect(x, y, chip_w, self.PILL_H),
+                          f"+{overflow}", None))
+        return items, overflow
+
+    def _paint_content(self, p, r, badges):
+        """Paint the Content column's badge pills.
+
+        Tone carries the source: loose content in the "ok" green, content that
+        only exists inside a BSA/BA2/pak in the link tone, and the overflow
+        chip dimmed. Pills are outlined rather than filled so a row of them
+        stays readable over the selection and conflict-highlight fills."""
+        items, _overflow = self._pill_layout(r, badges)
+        if not items:
+            return
+        p.save()
+        p.setFont(self._pill_font())
+        p.setBrush(Qt.NoBrush)
+        p.setRenderHint(p.RenderHint.Antialiasing, True)
+        for rect, text, from_archive in items:
+            colour = (self.c_text_dim if from_archive is None
+                      else self.c_badge if from_archive else self.c_win)
+            p.setPen(QPen(colour, 1))
+            p.drawRoundedRect(rect, self.PILL_RADIUS, self.PILL_RADIUS)
+            p.drawText(rect, Qt.AlignCenter, text)
+        p.setRenderHint(p.RenderHint.Antialiasing, False)
+        p.restore()
+
+    def _content_tip(self, pos, rect, badges):
+        """Tooltip for the Content cell.
+
+        Only the archive-toned pills explain themselves: their colour is the
+        one thing in the cell that isn't self-evident. A pill whose label the
+        user can already read needs no tooltip, and the "+N" chip is answered
+        by widening the column."""
+        if not badges:
+            return None
+        items, _overflow = self._pill_layout(rect, badges)
+        for prect, text, from_archive in items:
+            if not from_archive:
+                continue   # loose pills and the "+N" chip stay silent
+            if prect.adjusted(-2, -4, 2, 4).contains(pos):
+                return self.tr("{0} - packed inside an archive").format(text)
+        return None
 
     def _paint_icons(self, p, r, names):
         """Paint a horizontally-centred row of icons (Flags + Conflicts cells,

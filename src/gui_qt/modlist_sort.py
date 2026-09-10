@@ -27,7 +27,7 @@ DIVIDER_NAME = "__Ungrouped_Boundary__"
 
 # Sortable-column keys (match the Tk _sort_column strings; persisted to ini).
 SORT_KEYS = ("name", "category", "flags", "conflicts", "installed",
-             "version", "author", "priority", "size")
+             "version", "author", "priority", "size", "content")
 
 
 def make_divider() -> ModEntry:
@@ -150,6 +150,11 @@ def sort_key_fn(key: str, ctx: dict):
     if key == "size":
         sizes = ctx.get("size_bytes") or {}
         return lambda e: sizes.get(e.name, 0)
+
+    if key == "content":
+        from gui_qt.modlist_content import badge_signature
+        content = ctx.get("content") or {}
+        return lambda e: badge_signature(content.get(e.name, ()))
 
     if key in ("nexus_mod_id", "nexus_file_id"):
         ids = ctx.get(f"{key}s") or {}

@@ -77,6 +77,7 @@ py.install_sources(
   'mod_files_model.py',
   'mod_files_view.py',
   'my_collections_view.py',
+  'modlist_content.py',
   'modlist_data.py',
   'modlist_delegate.py',
   'modlist_filter.py',

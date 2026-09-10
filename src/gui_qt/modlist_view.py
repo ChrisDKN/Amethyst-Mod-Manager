@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
 from gui_qt.modlist_model import (
     ModListModel, COLUMNS, COL_NAME, COL_CATEGORY, COL_PRIORITY, COL_FLAGS,
     COL_CONFLICTS, COL_INSTALLED, COL_VERSION, COL_AUTHOR, COL_SIZE,
-    COL_NEXUS_MOD_ID, COL_NEXUS_FILE_ID,
+    COL_NEXUS_MOD_ID, COL_NEXUS_FILE_ID, COL_CONTENT,
     FlagsRole, HighlightRole,
 )
 from gui_qt.modlist_delegate import ModRowDelegate, ROW_H, SEP_H
@@ -51,13 +51,13 @@ class _StayOpenMenu(QMenu):
 COL_DEFAULTS = {
     COL_CATEGORY: 120, COL_FLAGS: 70, COL_CONFLICTS: 95, COL_INSTALLED: 100,
     COL_VERSION: 90, COL_AUTHOR: 110, COL_PRIORITY: 75, COL_SIZE: 85,
-    COL_NEXUS_MOD_ID: 105, COL_NEXUS_FILE_ID: 105,
+    COL_NEXUS_MOD_ID: 105, COL_NEXUS_FILE_ID: 105, COL_CONTENT: 200,
 }
 COL_MINS = {
     COL_NAME: 120, COL_CATEGORY: 90, COL_FLAGS: 60, COL_CONFLICTS: 90,
     COL_INSTALLED: 90, COL_VERSION: 80, COL_AUTHOR: 80, COL_PRIORITY: 70,
     COL_SIZE: 70,
-    COL_NEXUS_MOD_ID: 90, COL_NEXUS_FILE_ID: 90,
+    COL_NEXUS_MOD_ID: 90, COL_NEXUS_FILE_ID: 90, COL_CONTENT: 90,
 }
 NAME_MIN = COL_MINS[COL_NAME]
 
@@ -69,8 +69,28 @@ ARCHIVE_DROP_MIME = "application/x-amethyst-archive-paths"
 # and the Nexus identity columns remain opt-in.
 _FIRST_RUN_HIDDEN = {
     COL_CATEGORY, COL_INSTALLED, COL_AUTHOR, COL_SIZE,
-    COL_NEXUS_MOD_ID, COL_NEXUS_FILE_ID,
+    COL_NEXUS_MOD_ID, COL_NEXUS_FILE_ID, COL_CONTENT,
 }
+
+# Order the column show/hide menu lists its entries in. COLUMNS itself is
+# append-only (its indices are the persistence keys), so a new column always
+# lands last there - this decouples how the menu reads from how it's stored.
+# Any column missing here falls back to its COLUMNS position.
+_COL_MENU_ORDER = (
+    COL_CATEGORY, COL_FLAGS, COL_CONFLICTS, COL_INSTALLED, COL_VERSION,
+    COL_AUTHOR, COL_PRIORITY, COL_SIZE, COL_CONTENT,
+    COL_NEXUS_MOD_ID, COL_NEXUS_FILE_ID,
+)
+
+# Show the column list as one scrollable checklist past this many entries, so
+# the quick filters and "Clear all filters" below it stay on screen (same trick
+# the game selector uses once its game list outgrows the menu).
+_COL_SCROLL_AFTER = 7
+
+# Same for the status filters, which are all listed rather than half-hidden in
+# a submenu. Separate knob: the two lists sit in one menu, so their heights are
+# tuned against each other, not shared.
+_FILTER_SCROLL_AFTER = 7
 
 # Header column → sort key (Tk _DATA_COL_SORT_KEYS; keys persisted by name via
 # column_state's sort_col, which stores the COLUMNS display name).
@@ -79,7 +99,7 @@ _COL_TO_SORTKEY = {
     COL_CONFLICTS: "conflicts", COL_INSTALLED: "installed",
     COL_VERSION: "version", COL_AUTHOR: "author", COL_PRIORITY: "priority",
     COL_SIZE: "size", COL_NEXUS_MOD_ID: "nexus_mod_id",
-    COL_NEXUS_FILE_ID: "nexus_file_id",
+    COL_NEXUS_FILE_ID: "nexus_file_id", COL_CONTENT: "content",
 }
 
 
@@ -341,6 +361,7 @@ class ModListView(QTreeView):
         # current tri-state so the menu shows the right check marks.
         self.on_quick_filter = None
         self.quick_filter_state = None
+        self.quick_filter_enabled = None
         # filters_active() -> bool and on_clear_filters() back the menu's
         # "Clear all filters" entry (both wired by the window).
         self.filters_active = None
@@ -374,22 +395,58 @@ class ModListView(QTreeView):
         a.toggled.connect(lambda checked, k=key: self._on_quick_filter(k, checked))
         menu.addAction(a)
 
-    def _show_column_menu(self):
-        menu = _StayOpenMenu(self)
-        for col, name in enumerate(COLUMNS):
-            if col == COL_NAME:
-                continue   # Name is always shown
+    def _column_menu_entries(self):
+        """(col, translated label, visible) for every toggleable column, in
+        _COL_MENU_ORDER. Name is omitted - it's always shown."""
+        rest = [c for c in range(len(COLUMNS))
+                if c != COL_NAME and c not in _COL_MENU_ORDER]
+        out = []
+        for col in list(_COL_MENU_ORDER) + rest:
+            if col == COL_NAME or col >= len(COLUMNS):
+                continue
             # Same translated label as the header (registered under ModListModel).
-            a = QAction(QCoreApplication.translate("ModListModel", name), menu)
-            a.setCheckable(True)
-            a.setChecked(not self.isColumnHidden(col))
-            a.toggled.connect(lambda checked, c=col: self._set_column_visible(c, checked))
-            menu.addAction(a)
-        # Quick modlist filters - a faster way to apply the "By status" filters
-        # from the Filters panel. These drive the same filter state, so the
-        # panel checkboxes stay in sync (the window wires on_quick_filter).
-        menu.addSeparator()
-        for key, label in (
+            out.append((col,
+                        QCoreApplication.translate("ModListModel", COLUMNS[col]),
+                        not self.isColumnHidden(col)))
+        return out
+
+    def _fill_column_checklist(self, menu, entries):
+        """Put the column toggles in one scrollable checklist so the filters
+        below them stay reachable. Reuses the filter menu's checklist widget -
+        same look, same click-anywhere-toggles behaviour, menu stays open."""
+        from PySide6.QtWidgets import QWidgetAction
+        from gui_qt.filter_menu_button import _CheckList, _checklist_qss
+
+        lst = _CheckList(menu, lambda col, on: self._set_column_visible(col, on))
+        lst.setStyleSheet(_checklist_qss())
+        for col, label, visible in entries:
+            lst.add_entry(col, label, visible)
+        row_h = lst.sizeHintForRow(0) or 22
+        lst.setFixedHeight(row_h * _COL_SCROLL_AFTER + 4)
+        sbar_w = lst.verticalScrollBar().sizeHint().width()
+        lst.setMinimumWidth(lst.sizeHintForColumn(0) + sbar_w + 40)
+        wa = QWidgetAction(menu)
+        wa.setDefaultWidget(lst)
+        menu.addAction(wa)
+
+    def _status_filter_entries(self):
+        """(key, translated label, active) for every "By status" filter.
+
+        The four most-used ones lead so the common case is reachable without
+        scrolling; the rest follow in STATUS_FILTERS order. Every filter is
+        listed - no submenu - because a scrollable list can hold them all.
+        """
+        from gui_qt.modlist_filter import STATUS_FILTERS
+        get = getattr(self, "quick_filter_state", None)
+        enabled = getattr(self, "quick_filter_enabled", None)
+
+        def _usable(key):
+            # A filter the active game can't answer (BSA archives on a game with
+            # no archive formats) would just hide every row - don't offer it.
+            return not callable(enabled) or enabled(key)
+        # Short labels for the promoted four (the panel's wordier names read
+        # badly at the top of a menu).
+        promoted = (
             ("filter_show_enabled", self.tr("Enabled")),
             ("filter_show_disabled", self.tr("Disabled")),
             ("filter_hide_separators", self.tr("Hide separators")),
@@ -397,35 +454,116 @@ class ModListView(QTreeView):
             # label) - reuse that entry rather than minting a ModListView copy.
             ("filter_has_updates",
              QCoreApplication.translate("FilterSidePanel", "Mods with updates")),
-        ):
-            self._add_quick_filter_action(menu, key, label)
-        # The remaining "By status" filters live in a submenu so the top level
-        # stays short. Same include-mode semantics as the quick filters above.
-        from gui_qt.modlist_filter import STATUS_FILTERS
-        _QUICK = {"filter_show_enabled", "filter_show_disabled",
-                  "filter_hide_separators", "filter_has_updates"}
-        more = _StayOpenMenu(self.tr("More status filters"), menu)
+        )
+        lead = {key for key, _label in promoted}
+        out = [(key, label, callable(get) and get(key) == 1)
+               for key, label in promoted if _usable(key)]
         for key, label in STATUS_FILTERS:
-            if key in _QUICK:
+            if key in lead or not _usable(key):
                 continue
             # STATUS_FILTERS labels are registered for translation under the
             # FilterSidePanel context (see filter_panel._TR_MARKERS).
-            self._add_quick_filter_action(
-                more, key, QCoreApplication.translate("FilterSidePanel", label))
-        menu.addMenu(more)
+            out.append((key,
+                        QCoreApplication.translate("FilterSidePanel", label),
+                        callable(get) and get(key) == 1))
+        return out
+
+    def _fill_filter_checklist(self, menu, entries):
+        """Put every status filter in one scrollable checklist, so they're all
+        visible without a submenu. Same widget as the column list above."""
+        from PySide6.QtWidgets import QWidgetAction
+        from gui_qt.filter_menu_button import _CheckList, _checklist_qss
+
+        lst = _CheckList(menu, lambda key, on: self._on_quick_filter(key, on))
+        lst.setStyleSheet(_checklist_qss())
+        for key, label, active in entries:
+            lst.add_entry(key, label, active)
+        # Kept so "Clear all filters" can untick the rows the user is still
+        # looking at - the menu doesn't close, so nothing else would.
+        self._filter_check_list = lst
+        row_h = lst.sizeHintForRow(0) or 22
+        lst.setFixedHeight(row_h * _FILTER_SCROLL_AFTER + 4)
+        sbar_w = lst.verticalScrollBar().sizeHint().width()
+        lst.setMinimumWidth(lst.sizeHintForColumn(0) + sbar_w + 40)
+        wa = QWidgetAction(menu)
+        wa.setDefaultWidget(lst)
+        menu.addAction(wa)
+
+    def _show_column_menu(self):
+        menu = _StayOpenMenu(self)
+        entries = self._column_menu_entries()
+        if len(entries) > _COL_SCROLL_AFTER:
+            self._fill_column_checklist(menu, entries)
+        else:
+            for col, label, visible in entries:
+                a = QAction(label, menu)
+                a.setCheckable(True)
+                a.setChecked(visible)
+                a.toggled.connect(
+                    lambda checked, c=col: self._set_column_visible(c, checked))
+                menu.addAction(a)
+        # Quick modlist filters - a faster way to apply the "By status" filters
+        # from the Filters panel. These drive the same filter state, so the
+        # panel checkboxes stay in sync (the window wires on_quick_filter).
+        menu.addSeparator()
+        entries = self._status_filter_entries()
+        if len(entries) > _FILTER_SCROLL_AFTER:
+            self._fill_filter_checklist(menu, entries)
+        else:
+            for key, label, _on in entries:
+                self._add_quick_filter_action(menu, key, label)
         # Same escape hatch the Filters panel header offers - reachable without
         # opening the panel. Greyed while nothing is filtered.
+        #
+        # The menu stays open across toggles, so its enabled state can't be
+        # decided once at build time: ticking a filter in the list above has to
+        # light it up immediately. _sync_clear_action re-reads filters_active()
+        # after every toggle (and clearing greys it back out).
         clear = QAction(self.tr("Clear all filters"), menu)
-        clear.setEnabled(callable(self.filters_active) and self.filters_active())
         clear.triggered.connect(self._on_clear_filters)
         menu.addAction(clear)
+        self._clear_action = clear
+        self._sync_clear_action()
         btn = self._col_menu_btn
         menu.exec(btn.mapToGlobal(btn.rect().bottomLeft()))
+        # The menu and its widgets die with exec() - drop the references so a
+        # later call can't touch deleted C++ objects.
+        self._clear_action = None
+        self._filter_check_list = None
+
+    def _sync_clear_action(self):
+        """Enable "Clear all filters" iff something is filtered right now.
+
+        Called after every in-menu toggle - the menu outlives each change, so a
+        build-time snapshot would leave the entry greyed out until reopened."""
+        act = getattr(self, "_clear_action", None)
+        if act is None:
+            return
+        try:
+            act.setEnabled(callable(self.filters_active) and self.filters_active())
+        except RuntimeError:
+            self._clear_action = None   # menu (and its actions) already gone
 
     def _on_clear_filters(self):
         cb = getattr(self, "on_clear_filters", None)
         if callable(cb):
             cb()
+        self._reset_filter_checks()
+        self._sync_clear_action()
+
+    def _reset_filter_checks(self):
+        """Untick every row of the open status-filter checklist.
+
+        Clearing happens while the menu is still on screen, so the rows would
+        otherwise keep showing ticks for filters that are no longer applied."""
+        lst = getattr(self, "_filter_check_list", None)
+        if lst is None:
+            return
+        try:
+            for row in range(lst.count()):
+                lst.item(row).setCheckState(Qt.Unchecked)
+        except RuntimeError:
+            self._filter_check_list = None   # menu already destroyed
 
     def _on_quick_filter(self, key: str, on: bool):
         # State 1 = include-mode (show only matching); 0 = off. Hide-separators
@@ -433,6 +571,10 @@ class ModListView(QTreeView):
         cb = getattr(self, "on_quick_filter", None)
         if callable(cb):
             cb(key, 1 if on else 0)
+        # The menu is still open - refresh "Clear all filters" so it becomes
+        # usable the moment a filter is applied (and greys out again on the
+        # last one being cleared).
+        self._sync_clear_action()
 
     def _set_column_visible(self, col: int, visible: bool):
         self.setColumnHidden(col, not visible)
@@ -446,6 +588,11 @@ class ModListView(QTreeView):
             if (col == COL_SIZE and not self.model()._sizes
                     and callable(getattr(self, "on_sizes_requested", None))):
                 self.on_sizes_requested()
+            # Same deal for Content: the badge scan only runs once the user
+            # actually reveals the column.
+            if (col == COL_CONTENT and not self.model()._content
+                    and callable(getattr(self, "on_content_requested", None))):
+                self.on_content_requested()
         self._fit_name_to_width()   # Name re-absorbs/releases the freed width
         self.viewport().update()
         self._schedule_save()

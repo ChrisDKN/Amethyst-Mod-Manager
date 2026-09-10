@@ -39,7 +39,7 @@ if _MODULE_STARTUP_TIMING is not None:
         category="imports")
 
 _startup_import_started = _startup_time.perf_counter()
-from gui_qt.modlist_model import ModListModel, COL_SIZE
+from gui_qt.modlist_model import ModListModel, COL_SIZE, COL_CONTENT
 from gui_qt.modlist_view import ModListView
 if _MODULE_STARTUP_TIMING is not None:
     _MODULE_STARTUP_TIMING.record(
@@ -351,6 +351,7 @@ class MainWindow(QMainWindow):
     _esl_elig_ready = Signal(int, object)
     # Size-column disk walk worker → UI thread (gen, sizes, size_bytes).
     _sizes_ready = Signal(int, object, object)
+    _content_ready = Signal(int, object)
     # Overwrite / Root Folder file-count walk → UI thread (gen, counts dict).
     _boundary_counts_ready = Signal(int, object)
     # Modlist meta.ini read worker → UI thread (gen, payload dict).
@@ -613,6 +614,7 @@ class MainWindow(QMainWindow):
         self._esl_elig_ready.connect(self._on_esl_elig_ready)
         self._sizes_gen = 0
         self._sizes_ready.connect(self._on_sizes_ready)
+        self._content_ready.connect(self._on_content_ready)
         self._boundary_counts_gen = 0
         self._boundary_counts_ready.connect(self._on_boundary_counts_ready)
         self._modlist_meta_gen = 0
@@ -16656,6 +16658,13 @@ class MainWindow(QMainWindow):
             return panel.check_state(key)
         return (getattr(self, "_modlist_filter_state", {}) or {}).get(key, 0)
 
+    def _quick_modlist_filter_enabled(self, key: str) -> bool:
+        """Whether a status filter applies to the active game, so the column
+        menu can omit ones the game can't answer (e.g. BSA archives on a game
+        with no archive formats)."""
+        panel = getattr(self, "_modlist_filter_panel", None)
+        return True if panel is None else panel.check_enabled(key)
+
     def _on_quick_modlist_filter(self, key: str, state: int):
         """Apply a quick filter chosen from the column menu by driving the
         Filters panel checkbox, so the panel and menu stay in sync and the
@@ -16810,6 +16819,9 @@ class MainWindow(QMainWindow):
             data.mods_with_bsa = payload["mods_with_bsa"]
             data.mods_with_plugins = payload["mods_with_plugins"]
         self._modlist_filter_data = data
+        # The Content column reads these facets, so refresh it whenever they
+        # change (no-op while the column is hidden).
+        self._apply_modlist_content()
 
         if panel is not None:
             # Repopulate dynamic lists only after the lazily-created panel
@@ -17284,8 +17296,12 @@ class MainWindow(QMainWindow):
         # Enabling the Size column scans mod folder sizes on demand (Tk parity:
         # only walk the disk when Size is actually shown).
         self._modlist_view.on_sizes_requested = self._apply_modlist_sizes
+        # Same for the Content column: the archive-source query only runs once
+        # the user reveals it.
+        self._modlist_view.on_content_requested = self._apply_modlist_content
         self._modlist_view.on_quick_filter = self._on_quick_modlist_filter
         self._modlist_view.quick_filter_state = self._quick_modlist_filter_state
+        self._modlist_view.quick_filter_enabled = self._quick_modlist_filter_enabled
         # The column menu's "Clear all filters" mirrors the panel's - so it has
         # to see (and clear) the Filter Conflicts set the panel can't hold.
         self._modlist_view.filters_active = self._modlist_filters_active
@@ -17293,6 +17309,7 @@ class MainWindow(QMainWindow):
         self._modlist_model._sizes = {}
         if not self._modlist_view.isColumnHidden(COL_SIZE):
             self._apply_modlist_sizes()
+        self._modlist_model._content = {}
         with span("reload_modlist.load_separator_state"):
             self._modlist_view.load_separator_state()
         # Point the Mod Files tab at this game/profile.
@@ -17578,6 +17595,91 @@ class MainWindow(QMainWindow):
         if gen != getattr(self, "_sizes_gen", 0):
             return   # superseded - a newer scan is in flight
         self._modlist_model.set_sizes(sizes, size_bytes)
+
+    def _apply_modlist_content(self):
+        """Compute the Content column's badges and push them to the model.
+
+        Everything here is already in memory: the filetype/PBR/plugin/archive
+        facets the Filters panel builds, the FOMOD/BAIN sets read from meta.ini,
+        and - for the archive tone - the filegraph's already-parsed archive
+        members. No archive is opened and no directory is walked; the only
+        reason this is deferred to a worker is that asset_copies() crosses the
+        FFI boundary for every mod at once.
+
+        Only runs while the Content column is visible; a generation counter
+        drops a result whose profile has since been switched."""
+        if self._modlist_view.isColumnHidden(COL_CONTENT):
+            return
+        data = getattr(self, "_modlist_filter_data", None)
+        if data is None:
+            return   # facets not built yet; _on_filter_data_ready re-runs us
+        names = [e.name for e in self._modlist_model.natural_entries()
+                 if not e.is_separator]
+        if not names:
+            return
+        self._content_gen = getattr(self, "_content_gen", 0) + 1
+        gen = self._content_gen
+        mod_filetypes = dict(data.mod_filetypes)
+        pbr = set(data.mods_with_pbr)
+        plugins = set(data.mods_with_plugins)
+        archives = set(data.mods_with_bsa)
+        fomod = set(getattr(self, "_mod_fomod", set()))
+        bain = set(getattr(self, "_mod_bain", set()))
+        conflict_data = getattr(self, "_conflict_data", None)
+        snapshot = getattr(conflict_data, "snapshot", None)
+        # Documentation/metadata the game drops from the filemap (readmes,
+        # licences, modinfo files) says nothing about a mod's contents, so it
+        # must not raise a badge either.
+        game = self._gs.game
+        ignore_patterns = tuple(
+            getattr(game, "conflict_ignore_filenames", None) or ())
+
+        from gui_qt.worker import run_in_worker, NO_EMIT
+
+        def scan():
+            from gui_qt.modlist_content import (
+                compute_badges, extensions_from_paths, BADGE_EXTENSIONS)
+            archive_sourced: dict[str, set[str]] = {}
+            loose_paths: dict[str, list[str]] = {}
+            scanned = False
+            if snapshot is not None:
+                try:
+                    for copy in snapshot.asset_copies(
+                            names, extensions=sorted(BADGE_EXTENSIONS)):
+                        if copy.namespace == "archive":
+                            archive_sourced.setdefault(
+                                copy.mod_name, []).append(copy.legacy_rel)
+                        else:
+                            loose_paths.setdefault(
+                                copy.mod_name, []).append(copy.legacy_rel)
+                    scanned = True
+                except Exception as exc:
+                    # A missing/rebuilding catalog just means no filename-level
+                    # detail; the facets below still produce badges.
+                    print(f"[gui_qt] content scan failed: {exc}", flush=True)
+            if scanned:
+                # Full paths let us honour conflict_ignore_filenames, which the
+                # extension-only facet can't express.
+                filetypes = {
+                    name: extensions_from_paths(paths, ignore_patterns)
+                    for name, paths in loose_paths.items()
+                }
+                packed = {
+                    name: extensions_from_paths(paths, ignore_patterns)
+                    for name, paths in archive_sourced.items()
+                }
+            else:
+                filetypes, packed = mod_filetypes, {}
+            return gen, compute_badges(
+                names, filetypes, pbr, plugins, archives, fomod, bain, packed)
+
+        run_in_worker(scan, self._content_ready, name="modlist-content",
+                      unpack=True, error_result=NO_EMIT)
+
+    def _on_content_ready(self, gen, content):
+        if gen != getattr(self, "_content_gen", 0):
+            return   # superseded - a newer scan is in flight
+        self._modlist_model.set_content(content)
 
     def _refresh_boundary_counts(self, clear: bool = False):
         """Count the files in the Overwrite / Root Folder folders and push them

@@ -310,6 +310,13 @@ class FilterSidePanel(QWidget):
         cb = self._checks.get(key)
         return cb.state() if cb is not None else STATE_OFF
 
+    def check_enabled(self, key: str) -> bool:
+        """Whether a status checkbox applies to the current game. Filters the
+        game can't answer (BSA on an archive-less game) are disabled by
+        _refresh_filter_game_specific; unknown keys read as enabled."""
+        cb = self._checks.get(key)
+        return True if cb is None else cb.isEnabled()
+
     def dynamic_state(self, sec_id: str, key: str) -> int:
         """Tri-state of one dynamic item (used by the header filter menu's
         check marks). Unknown ids/keys read as OFF."""
