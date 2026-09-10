@@ -1,6 +1,123 @@
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::ops::Index;
 use std::sync::Arc;
+
+#[derive(Debug)]
+pub struct CatalogRows<T> {
+    inner: Arc<CatalogChunks<T>>,
+}
+
+#[derive(Debug)]
+struct CatalogChunks<T> {
+    chunks: Vec<(Arc<str>, Arc<Vec<T>>)>,
+    offsets: Vec<usize>,
+    len: usize,
+}
+
+impl<T> Clone for CatalogRows<T> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+        }
+    }
+}
+
+impl<T> Default for CatalogRows<T> {
+    fn default() -> Self {
+        Self::from_chunks(Vec::new())
+    }
+}
+
+impl<T> CatalogRows<T> {
+    pub fn from_chunks(chunks: Vec<(Arc<str>, Arc<Vec<T>>)>) -> Self {
+        let mut len = 0;
+        let offsets = chunks
+            .iter()
+            .map(|(_, rows)| {
+                let offset = len;
+                len += rows.len();
+                offset
+            })
+            .collect();
+        Self {
+            inner: Arc::new(CatalogChunks {
+                chunks,
+                offsets,
+                len,
+            }),
+        }
+    }
+
+    pub fn from_rows(rows: Vec<T>, key: impl Fn(&T) -> Arc<str>) -> Self {
+        let mut indexes = HashMap::new();
+        let mut chunks: Vec<(Arc<str>, Vec<T>)> = Vec::new();
+        for row in rows {
+            let key = key(&row);
+            let index = *indexes.entry(key.clone()).or_insert_with(|| {
+                let index = chunks.len();
+                chunks.push((key, Vec::new()));
+                index
+            });
+            chunks[index].1.push(row);
+        }
+        Self::from_chunks(
+            chunks
+                .into_iter()
+                .map(|(key, rows)| (key, Arc::new(rows)))
+                .collect(),
+        )
+    }
+
+    pub fn chunks(&self) -> &[(Arc<str>, Arc<Vec<T>>)] {
+        &self.inner.chunks
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &T> {
+        self.inner.chunks.iter().flat_map(|(_, rows)| rows.iter())
+    }
+
+    pub fn len(&self) -> usize {
+        self.inner.len
+    }
+
+    pub fn get(&self, index: usize) -> Option<&T> {
+        if index >= self.inner.len {
+            return None;
+        }
+        let chunk = self
+            .inner
+            .offsets
+            .partition_point(|offset| *offset <= index)
+            - 1;
+        self.inner.chunks[chunk]
+            .1
+            .get(index - self.inner.offsets[chunk])
+    }
+
+    pub fn ptr_eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.inner, &other.inner)
+            || matches!(
+                (self.chunks(), other.chunks()),
+                ([(key, rows)], [(other_key, other_rows)])
+                    if key == other_key && Arc::ptr_eq(rows, other_rows)
+            )
+    }
+}
+
+impl<T> From<Arc<Vec<T>>> for CatalogRows<T> {
+    fn from(rows: Arc<Vec<T>>) -> Self {
+        Self::from_chunks(vec![(Arc::from(""), rows)])
+    }
+}
+
+impl<T> Index<usize> for CatalogRows<T> {
+    type Output = T;
+
+    fn index(&self, index: usize) -> &T {
+        self.get(index).expect("catalog row out of bounds")
+    }
+}
 
 pub const API_VERSION: u32 = 12;
 pub const SCHEMA_VERSION: u32 = 9;

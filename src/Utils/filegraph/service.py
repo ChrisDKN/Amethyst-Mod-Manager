@@ -1193,10 +1193,8 @@ class LibrarySession:
             temporary = native.LibrarySession.open(build_root)
             batches = session.adapter.refresh_batches(
                 progress=progress, cancel=token, inventory=inventory)
-            for batch in batches:
-                if token.is_cancelled():
-                    raise FileGraphCancelled("filegraph rebuild cancelled")
-                temporary.replace_mod_manifest(pack(batch), token._native)
+            temporary.replace_mod_manifests(
+                (pack(batch) for batch in batches), token._native)
             temporary.set_ready(True)
             temporary.checkpoint()
             self._native.activate_catalog(

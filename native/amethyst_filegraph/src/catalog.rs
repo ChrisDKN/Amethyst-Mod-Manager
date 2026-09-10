@@ -1,9 +1,9 @@
 use crate::error::{FileGraphError, Result};
 use crate::graph::{GraphSnapshot, GraphUpdate, reconcile_graph};
 use crate::model::{
-    API_VERSION, Candidate, CandidateRecord, CatalogStatus, DeployedStateRecord, DeploymentJournal,
-    DeploymentPlanRecord, ManifestBatch, Namespace, OperationRecord, ProfileIntent, ProviderKind,
-    RawCatalogFile, RawFileRecord, ResolutionDelta, SCHEMA_VERSION,
+    API_VERSION, Candidate, CandidateRecord, CatalogRows, CatalogStatus, DeployedStateRecord,
+    DeploymentJournal, DeploymentPlanRecord, ManifestBatch, Namespace, OperationRecord,
+    ProfileIntent, ProviderKind, RawCatalogFile, RawFileRecord, ResolutionDelta, SCHEMA_VERSION,
 };
 use crate::schema::{initialise, read_u64_meta, write_u64_meta};
 use fs2::FileExt;
@@ -169,7 +169,9 @@ fn changed_selection_keys(
     })?;
     for row in rows {
         let (key, variant, manifest_generation) = row?;
-        if manifest_generation > cached_generation {
+        if manifest_generation > cached_generation
+            && (old.contains_key(key.as_str()) || new.contains_key(key.as_str()))
+        {
             changed.insert(key.clone());
         }
         available.insert((key, variant));
@@ -292,15 +294,15 @@ const PROJECTION_CACHE_FORMAT: u32 = 1;
 const PROJECTION_CACHE_NAME: &str = "filegraph.cache";
 
 type ProjectionSelection = Arc<Vec<(String, String)>>;
-type CandidateCache = (u64, ProjectionSelection, Arc<Vec<Candidate>>);
-type RawFileCache = (u64, ProjectionSelection, Arc<Vec<RawCatalogFile>>);
+type CandidateCache = (u64, ProjectionSelection, CatalogRows<Candidate>);
+type RawFileCache = (u64, ProjectionSelection, CatalogRows<RawCatalogFile>);
 type SharedStringTable = (Vec<Arc<str>>, HashMap<Arc<str>, u32>);
 
 struct LoadedProjectionCache {
     generation: u64,
     selection: ProjectionSelection,
-    candidates: Arc<Vec<Candidate>>,
-    raw_files: Arc<Vec<RawCatalogFile>>,
+    candidates: CatalogRows<Candidate>,
+    raw_files: CatalogRows<RawCatalogFile>,
 }
 
 #[derive(Deserialize)]
@@ -394,7 +396,7 @@ struct RawFileCacheRow<'a> {
 }
 
 struct RawFileRows<'a> {
-    values: &'a [RawCatalogFile],
+    values: &'a CatalogRows<RawCatalogFile>,
     strings: &'a HashMap<Arc<str>, u32>,
 }
 
@@ -404,7 +406,7 @@ impl Serialize for RawFileRows<'_> {
         S: Serializer,
     {
         let mut rows = serializer.serialize_seq(Some(self.values.len()))?;
-        for file in self.values {
+        for file in self.values.iter() {
             rows.serialize_element(&RawFileCacheRow {
                 id: file.id,
                 mod_name: *self.strings.get(file.mod_name.as_ref()).unwrap(),
@@ -443,7 +445,7 @@ struct CandidateCacheRow<'a> {
 }
 
 struct CandidateRows<'a> {
-    values: &'a [Candidate],
+    values: &'a CatalogRows<Candidate>,
     strings: &'a HashMap<Arc<str>, u32>,
 }
 
@@ -453,7 +455,7 @@ impl Serialize for CandidateRows<'_> {
         S: Serializer,
     {
         let mut rows = serializer.serialize_seq(Some(self.values.len()))?;
-        for candidate in self.values {
+        for candidate in self.values.iter() {
             rows.serialize_element(&CandidateCacheRow {
                 id: candidate.id,
                 file_id: candidate.file_id,
@@ -559,7 +561,6 @@ fn decode_projection_cache(cache: ProjectionCacheRead) -> Result<LoadedProjectio
             flags: record.flags,
         });
     }
-    let raw_files = Arc::new(raw_files);
     let mut candidates = Vec::with_capacity(cache.candidates.len());
     for record in cache.candidates {
         let raw_index = raw_by_id.get(&record.file_id).copied().ok_or_else(|| {
@@ -608,8 +609,8 @@ fn decode_projection_cache(cache: ProjectionCacheRead) -> Result<LoadedProjectio
     Ok(LoadedProjectionCache {
         generation: cache.generation,
         selection: Arc::new(cache.selection),
-        candidates: Arc::new(candidates),
-        raw_files,
+        candidates: CatalogRows::from_rows(candidates, |candidate| candidate.mod_key.clone()),
+        raw_files: CatalogRows::from_rows(raw_files, |file| file.mod_key.clone()),
     })
 }
 
@@ -644,8 +645,8 @@ fn read_projection_cache(
 }
 
 fn projection_shared_strings(
-    candidates: &[Candidate],
-    raw_files: &[RawCatalogFile],
+    candidates: &CatalogRows<Candidate>,
+    raw_files: &CatalogRows<RawCatalogFile>,
 ) -> Result<SharedStringTable> {
     fn insert(
         values: &mut Vec<Arc<str>>,
@@ -665,11 +666,11 @@ fn projection_shared_strings(
 
     let mut values = Vec::new();
     let mut indexes = HashMap::new();
-    for file in raw_files {
+    for file in raw_files.iter() {
         insert(&mut values, &mut indexes, &file.mod_name)?;
         insert(&mut values, &mut indexes, &file.mod_key)?;
     }
-    for candidate in candidates {
+    for candidate in candidates.iter() {
         insert(&mut values, &mut indexes, &candidate.variant_key)?;
         insert(&mut values, &mut indexes, &candidate.target)?;
         if let Some(value) = &candidate.archive_key {
@@ -687,8 +688,8 @@ fn write_projection_cache(
     database: FileIdentity,
     generation: u64,
     selection: &[(String, String)],
-    candidates: &[Candidate],
-    raw_files: &[RawCatalogFile],
+    candidates: &CatalogRows<Candidate>,
+    raw_files: &CatalogRows<RawCatalogFile>,
 ) -> Result<()> {
     let path = projection_cache_path(database_path)?;
     let parent = path.parent().ok_or_else(|| {
@@ -1584,7 +1585,14 @@ impl LibraryCore {
                 file_ids.insert(record.source_rel.clone(), file_id);
             }
 
+            struct CachedArchive {
+                id: i64,
+                plugin_key: Option<String>,
+                format: String,
+            }
+
             let mut target_ids: HashMap<String, i64> = HashMap::new();
+            let mut archive_ids: HashMap<i64, HashMap<String, CachedArchive>> = HashMap::new();
             for (index, record) in batch.candidates.into_iter().enumerate() {
                 if index & 4095 == 0 {
                     check_cancelled()?;
@@ -1640,10 +1648,30 @@ impl LibraryCore {
                         .rsplit_once('.')
                         .map(|(_, extension)| extension.to_lowercase())
                         .unwrap_or_default();
-                    let archive_id: i64 = upsert_archive.query_row(
-                        params![file_id, archive_key, &record.plugin_key, format],
-                        |row| row.get(0),
-                    )?;
+                    let archives = archive_ids.entry(file_id).or_default();
+                    let archive_id = match archives.get(archive_key) {
+                        Some(cached)
+                            if cached.plugin_key == record.plugin_key
+                                && cached.format == format =>
+                        {
+                            cached.id
+                        }
+                        _ => {
+                            let archive_id = upsert_archive.query_row(
+                                params![file_id, archive_key, &record.plugin_key, &format],
+                                |row| row.get(0),
+                            )?;
+                            archives.insert(
+                                archive_key.clone(),
+                                CachedArchive {
+                                    id: archive_id,
+                                    plugin_key: record.plugin_key.clone(),
+                                    format,
+                                },
+                            );
+                            archive_id
+                        }
+                    };
                     let member_key = record.legacy_rel.to_lowercase().into_bytes();
                     upsert_archive_member.execute(params![
                         archive_id,
@@ -1739,7 +1767,7 @@ impl LibraryCore {
         Ok(changed)
     }
 
-    pub fn load_candidates(&self, intent: &ProfileIntent) -> Result<Arc<Vec<Candidate>>> {
+    pub fn load_candidates(&self, intent: &ProfileIntent) -> Result<CatalogRows<Candidate>> {
         let generation = self.inventory_generation.load(Ordering::Acquire);
         let selected = selected_variant_pairs(intent);
         let cached = self.candidate_cache.read().as_ref().map(
@@ -1759,7 +1787,7 @@ impl LibraryCore {
         }
         let connection = self.connection()?;
         if selected.is_empty() {
-            let candidates = Arc::new(Vec::new());
+            let candidates = CatalogRows::default();
             *self.candidate_cache.write() =
                 Some((generation, Arc::new(selected), candidates.clone()));
             return Ok(candidates);
@@ -1768,40 +1796,38 @@ impl LibraryCore {
             .iter()
             .map(|(key, variant)| (key.as_str(), variant.as_str()))
             .collect();
-        let mut candidates = Vec::new();
-        let query_selection = if let Some((cached_generation, cached_selection, cached_values)) =
-            cached
-        {
-            let changed = changed_selection_keys(
-                &connection,
-                cached_generation,
-                &cached_selection,
-                &selected,
-            )?;
-            if changed.is_empty() {
-                *self.candidate_cache.write() =
-                    Some((generation, Arc::new(selected), cached_values.clone()));
-                return Ok(cached_values);
-            }
-            candidates.extend(
-                cached_values
+        let mut chunks = Vec::new();
+        let query_selection =
+            if let Some((cached_generation, cached_selection, cached_values)) = cached {
+                let changed = changed_selection_keys(
+                    &connection,
+                    cached_generation,
+                    &cached_selection,
+                    &selected,
+                )?;
+                if changed.is_empty() {
+                    *self.candidate_cache.write() =
+                        Some((generation, Arc::new(selected), cached_values.clone()));
+                    return Ok(cached_values);
+                }
+                chunks.extend(
+                    cached_values
+                        .chunks()
+                        .iter()
+                        .filter(|(key, _)| {
+                            !changed.contains(key.as_ref())
+                                && selected_variants.contains_key(key.as_ref())
+                        })
+                        .cloned(),
+                );
+                selected
                     .iter()
-                    .filter(|candidate| {
-                        !changed.contains(candidate.mod_key.as_ref())
-                            && selected_variants
-                                .get(candidate.mod_key.as_ref())
-                                .is_some_and(|variant| *variant == candidate.variant_key.as_ref())
-                    })
-                    .cloned(),
-            );
-            selected
-                .iter()
-                .filter(|(key, _variant)| changed.contains(key))
-                .cloned()
-                .collect::<Vec<_>>()
-        } else {
-            selected.clone()
-        };
+                    .filter(|(key, _variant)| changed.contains(key))
+                    .cloned()
+                    .collect::<Vec<_>>()
+            } else {
+                selected.clone()
+            };
         let mut variant_ids = Vec::with_capacity(query_selection.len());
         {
             let mut find_variant = connection.prepare_cached(
@@ -1819,16 +1845,26 @@ impl LibraryCore {
             }
         }
         if variant_ids.is_empty() {
-            let candidates = Arc::new(candidates);
+            let candidates = CatalogRows::from_chunks(chunks);
             *self.candidate_cache.write() =
                 Some((generation, Arc::new(selected), candidates.clone()));
             return Ok(candidates);
         }
         let raw_files = self.load_raw_files(intent)?;
-        let raw_by_id: HashMap<_, _> = raw_files.iter().map(|file| (file.id, file)).collect();
+        let query_keys: HashSet<_> = query_selection
+            .iter()
+            .map(|(key, _)| key.as_str())
+            .collect();
+        let mut raw_by_id = HashMap::new();
         let mut strings: HashSet<Arc<str>> = HashSet::new();
         let mut bytes: HashSet<Arc<[u8]>> = HashSet::new();
-        for raw in raw_files.iter() {
+        for raw in raw_files
+            .chunks()
+            .iter()
+            .filter(|(key, _)| query_keys.contains(key.as_ref()))
+            .flat_map(|(_, files)| files.iter())
+        {
+            raw_by_id.insert(raw.id, raw);
             strings.insert(raw.mod_name.clone());
             strings.insert(raw.mod_key.clone());
             strings.insert(raw.source_display.clone());
@@ -1910,15 +1946,17 @@ impl LibraryCore {
                 flags: row.get::<_, i64>(14)? as u32,
             })
         })?;
-        for row in rows {
-            candidates.push(row?);
-        }
-        let candidates = Arc::new(candidates);
+        let candidates = CatalogRows::from_rows(
+            rows.collect::<std::result::Result<Vec<_>, _>>()?,
+            |candidate| candidate.mod_key.clone(),
+        );
+        chunks.extend(candidates.chunks().iter().cloned());
+        let candidates = CatalogRows::from_chunks(chunks);
         *self.candidate_cache.write() = Some((generation, Arc::new(selected), candidates.clone()));
         Ok(candidates)
     }
 
-    pub fn load_raw_files(&self, intent: &ProfileIntent) -> Result<Arc<Vec<RawCatalogFile>>> {
+    pub fn load_raw_files(&self, intent: &ProfileIntent) -> Result<CatalogRows<RawCatalogFile>> {
         let generation = self.inventory_generation.load(Ordering::Acquire);
         let selected = selected_variant_pairs(intent);
         let cached = self.raw_file_cache.read().as_ref().map(
@@ -1933,13 +1971,13 @@ impl LibraryCore {
             return Ok(files.clone());
         }
         if selected.is_empty() {
-            let files = Arc::new(Vec::new());
+            let files = CatalogRows::default();
             *self.raw_file_cache.write() = Some((generation, Arc::new(selected), files.clone()));
             return Ok(files);
         }
         let connection = self.connection()?;
         let selected_keys: HashSet<_> = selected.iter().map(|(key, _)| key.as_str()).collect();
-        let mut files = Vec::new();
+        let mut chunks = Vec::new();
         let query_selection =
             if let Some((cached_generation, cached_selection, cached_files)) = cached {
                 let changed = changed_selection_keys(
@@ -1948,12 +1986,17 @@ impl LibraryCore {
                     &cached_selection,
                     &selected,
                 )?;
-                files.extend(
+                if changed.is_empty() {
+                    *self.raw_file_cache.write() =
+                        Some((generation, Arc::new(selected), cached_files.clone()));
+                    return Ok(cached_files);
+                }
+                chunks.extend(
                     cached_files
+                        .chunks()
                         .iter()
-                        .filter(|file| {
-                            selected_keys.contains(file.mod_key.as_ref())
-                                && !changed.contains(file.mod_key.as_ref())
+                        .filter(|(key, _)| {
+                            selected_keys.contains(key.as_ref()) && !changed.contains(key.as_ref())
                         })
                         .cloned(),
                 );
@@ -1982,7 +2025,7 @@ impl LibraryCore {
             }
         }
         if variant_ids.is_empty() {
-            let files = Arc::new(files);
+            let files = CatalogRows::from_chunks(chunks);
             *self.raw_file_cache.write() = Some((generation, Arc::new(selected), files.clone()));
             return Ok(files);
         }
@@ -2017,10 +2060,12 @@ impl LibraryCore {
                 flags: row.get::<_, i64>(9)? as u32,
             })
         })?;
-        for row in rows {
-            files.push(row?);
-        }
-        let files = Arc::new(files);
+        let files =
+            CatalogRows::from_rows(rows.collect::<std::result::Result<Vec<_>, _>>()?, |file| {
+                file.mod_key.clone()
+            });
+        chunks.extend(files.chunks().iter().cloned());
+        let files = CatalogRows::from_chunks(chunks);
         *self.raw_file_cache.write() = Some((generation, Arc::new(selected), files.clone()));
         Ok(files)
     }
