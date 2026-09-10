@@ -429,7 +429,9 @@ def install_vcredist(game, log_fn: LogFn = _noop) -> bool:
     proton_script, env = resolve_proton_env(game, log_fn)
     if proton_script is None:
         return False
-    prefix_path = getattr(game, "_prefix_path", None)
+    get_prefix = getattr(game, "get_prefix_path", None)
+    prefix_path = (get_prefix() if callable(get_prefix)
+                   else getattr(game, "_prefix_path", None))
     from Utils.wine.protontricks import install_vcredist as _impl
     return bool(_impl(proton_script, env, log_fn=log_fn, prefix_path=prefix_path))
 

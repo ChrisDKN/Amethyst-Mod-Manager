@@ -56,9 +56,11 @@ _VCREDIST_DLLS = (
 # The x64 runtime is what Amethyst installs (vc_redist.x64.exe), so these three
 # decide the verdict; msvcp140_atomic_wait is reported but never flips it.
 _VCREDIST_REQUIRED = _VCREDIST_DLLS[:3]
+VCREDIST_MIN_VERSION = (14, 30, 0, 0)
+_VCREDIST_MIN_VERSION_TEXT = "14.30"
 
-# Only the genuine Microsoft bundle installer writes these. Used for the
-# version string shown to the user - never as a presence test.
+# Only the genuine Microsoft bundle installer writes these. Native DLLs prove
+# presence; this record proves the installed runtime is new enough.
 _VCREDIST_BUNDLE_RE = (
     re.escape(wine_reg.escape_key(r"Software\Classes\Installer\Dependencies"))
     + r"\\\\VC,redist\.(?:x64|x86),[^,]+,[^,]+,bundle"
@@ -140,30 +142,43 @@ def _prefix_usable(pfx: Path) -> bool:
 
 
 # --- VC++ Redistributable ---------------------------------------------------
-def detect_vcredist(prefix_path: Path) -> "bool | None":
-    """True when the native x64 VC++ runtime DLLs are in the prefix.
+def parse_vcredist_version(value: str) -> "tuple[int, int, int, int] | None":
+    match = re.search(r"(?<!\d)(\d+)\.(\d+)(?:\.(\d+))?(?:\.(\d+))?", value or "")
+    if match is None:
+        return None
+    return tuple(int(part or 0) for part in match.groups())
 
-    Cheap: a stat plus a 16-byte read per DLL, no registry parsing. None when
-    the prefix is unusable, meaning "cannot tell".
-    """
+
+def _vcredist_bundle_details(
+    pfx: Path,
+) -> list[tuple[bool, str, "tuple[int, int, int, int] | None"]]:
+    out = []
+    for key, values in wine_reg.find_sections(pfx, _VCREDIST_BUNDLE_RE):
+        raw_version = values.get("version", "")
+        name = values.get("displayname") or raw_version
+        version = parse_vcredist_version(raw_version) or parse_vcredist_version(name)
+        is_x64 = "redist.x64," in key.lower()
+        if name:
+            out.append((is_x64, name, version))
+    return sorted(set(out), key=lambda row: (not row[0], row[1]))
+
+
+def vcredist_x64_version(prefix_path: Path) -> "tuple[int, int, int, int] | None":
+    pfx = wine_reg.normalize_pfx(Path(prefix_path))
+    versions = [version for is_x64, _name, version in _vcredist_bundle_details(pfx)
+                if is_x64 and version is not None]
+    return max(versions, default=None)
+
+
+def detect_vcredist(prefix_path: Path) -> "bool | None":
+    """True when a compatible native x64 VC++ runtime is in the prefix."""
     pfx = wine_reg.normalize_pfx(Path(prefix_path))
     if not _prefix_usable(pfx):
         return None
-    return all(dll_origin(pfx, d) is DllOrigin.NATIVE for d in _VCREDIST_REQUIRED)
-
-
-def _vcredist_bundles(pfx: Path) -> list[str]:
-    """DisplayName of each genuine VC++ redist bundle recorded in system.reg.
-
-    x64 first - that is the runtime Amethyst installs, and a prefix often
-    carries an unrelated x86 bundle a game's own installer dropped in.
-    """
-    out: list[str] = []
-    for key, values in wine_reg.find_sections(pfx, _VCREDIST_BUNDLE_RE):
-        name = values.get("displayname") or values.get("version")
-        if name:
-            out.append((0 if ",x64," in key.lower() else 1, name))
-    return [name for _rank, name in sorted(set(out))]
+    if not all(dll_origin(pfx, d) is DllOrigin.NATIVE for d in _VCREDIST_REQUIRED):
+        return False
+    version = vcredist_x64_version(pfx)
+    return version is not None and version >= VCREDIST_MIN_VERSION
 
 
 def check_vcredist(prefix_path: Path) -> HealthCheck:
@@ -172,8 +187,8 @@ def check_vcredist(prefix_path: Path) -> HealthCheck:
     Deliberately ignores ``Software\\Microsoft\\VisualStudio\\14.0\\VC\\
     Runtimes\\x64``: Proton pre-seeds that key with ``Installed=1`` and a
     plausible Version in every prefix it creates, while the DLLs are still Wine
-    builtins (verified on prefixes 1066890, 1449850, 220200, 2060160). Only the
-    DLL bytes decide the verdict.
+    builtins (verified on prefixes 1066890, 1449850, 220200, 2060160). Native
+    DLLs and the genuine bundle install record must agree.
     """
     label = "VC++ Redistributable (x64)"
     pfx = wine_reg.normalize_pfx(Path(prefix_path))
@@ -183,12 +198,31 @@ def check_vcredist(prefix_path: Path) -> HealthCheck:
     native = [d for d in _VCREDIST_REQUIRED if origins[d] is DllOrigin.NATIVE]
     non_native = [d for d in _VCREDIST_REQUIRED if origins[d] is not DllOrigin.NATIVE]
 
-    bundles = _vcredist_bundles(pfx)
+    bundle_details = _vcredist_bundle_details(pfx)
+    bundles = [name for _is_x64, name, _version in bundle_details]
+    x64_versions = [version for is_x64, _name, version in bundle_details
+                    if is_x64 and version is not None]
+    x64_version = max(x64_versions, default=None)
     if bundles:
         evidence["bundles"] = bundles
+    if x64_version is not None:
+        evidence["x64_version"] = ".".join(map(str, x64_version))
+    evidence["minimum_version"] = _VCREDIST_MIN_VERSION_TEXT
     suffix = f" ({'; '.join(bundles)})" if bundles else ""
 
     if not non_native:
+        if x64_version is None:
+            return HealthCheck(
+                "vcredist", HealthStatus.WARN, label,
+                "native runtime DLLs found, but the x64 version could not be verified"
+                + suffix, "vcredist", evidence)
+        if x64_version < VCREDIST_MIN_VERSION:
+            installed = ".".join(map(str, x64_version))
+            return HealthCheck(
+                "vcredist", HealthStatus.WARN, label,
+                f"outdated x64 runtime {installed} - version "
+                f"{_VCREDIST_MIN_VERSION_TEXT} or newer is required" + suffix,
+                "vcredist", evidence)
         return HealthCheck("vcredist", HealthStatus.OK, label,
                            f"native runtime DLLs installed{suffix}",
                            None, evidence)

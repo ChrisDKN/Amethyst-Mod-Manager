@@ -106,7 +106,9 @@ WINETRICKS_VERB_DEPS: frozenset[str] = frozenset((
 
 
 def _deps_file(prefix_path: Path) -> Path:
-    return prefix_path.parent / _DEPS_FILE
+    from Utils.wine.registry import normalize_pfx
+    pfx = normalize_pfx(Path(prefix_path))
+    return (pfx.parent if pfx.name == "pfx" else pfx) / _DEPS_FILE
 
 
 def read_installed_deps(prefix_path: Path) -> list[str]:
@@ -118,35 +120,30 @@ def read_installed_deps(prefix_path: Path) -> list[str]:
 
 
 def is_dep_installed(prefix_path: Path, key: str) -> bool:
-    """True when *key* is recorded in amethyst_deps.json OR really in the prefix.
+    """True when the prefix or fallback marker confirms the dependency.
 
-    The marker only exists for prefixes Amethyst itself provisioned, and only
-    since the marker was introduced. Prefixes built by hand with winetricks /
-    protontricks, or by another manager, would otherwise be re-installed on
-    every add-game and save. For the components we can positively identify on
-    disk, fall back to reading the prefix (see Utils.wine.health).
+    For components that can be identified on disk, the live prefix is
+    authoritative. The marker is used only when detection is unavailable.
 
-    Read-only by design: a predicate must not write into the user's prefix.
-    Self-healing the marker here would create amethyst_deps.json outside
-    Heroic/Lutris/Faugus prefixes (``_deps_file`` is the prefix's *sibling*),
-    destroy the file's "did Amethyst install this?" meaning, and race the
-    background dependency worker through an unlocked read-modify-write.
+    Read-only by design: self-healing the marker here would destroy its "did
+    Amethyst install this?" meaning and race the background dependency worker.
     """
-    if key in read_installed_deps(prefix_path):
-        return True
+    marked = key in read_installed_deps(prefix_path)
     token = _DETECTABLE_DEPS.get(key)
     if token is None:
         match = re.fullmatch(r"dotnet(\d+)_windowsdesktop", key)
         if match:
             token = f"dotnet{match.group(1)}"
     if token is None:
-        return False
+        return marked
     try:
         from Utils.wine.health import detect_component
-        # `is True` keeps "cannot tell" (None) behaving as before: install it.
-        return detect_component(token, Path(prefix_path)) is True
+        detected = detect_component(token, Path(prefix_path))
+        if detected is not None:
+            return detected is True
     except Exception:
-        return False        # detection must never break an installer path
+        pass
+    return marked
 
 
 def mark_dep_installed(prefix_path: Path, key: str) -> None:
@@ -753,6 +750,42 @@ def prefix_downgrade_warning(
 
 
 _VCREDIST_URL = "https://aka.ms/vc14/vc_redist.x64.exe"
+_VCREDIST_CACHE_MAX_AGE = 30 * 24 * 60 * 60
+
+
+def _vcredist_installer_version(path: Path) -> "tuple[int, int, int, int] | None":
+    from Utils.executables.icon import extract_exe_version
+    from Utils.wine.health import parse_vcredist_version
+    return parse_vcredist_version(extract_exe_version(path))
+
+
+def _vcredist_cache_needs_refresh(cache_path: Path) -> bool:
+    try:
+        age = time.time() - cache_path.stat().st_mtime
+    except OSError:
+        return True
+    from Utils.wine.health import VCREDIST_MIN_VERSION
+    version = _vcredist_installer_version(cache_path)
+    return version is None or version < VCREDIST_MIN_VERSION or age > _VCREDIST_CACHE_MAX_AGE
+
+
+def _download_vcredist(cache_path: Path, log_fn: Callable[[str], None]) -> None:
+    from Utils.ca_bundle import download_file
+    from Utils.wine.health import VCREDIST_MIN_VERSION
+
+    pending = cache_path.with_name(cache_path.stem + ".download" + cache_path.suffix)
+    try:
+        download_file(_VCREDIST_URL, pending)
+        version = _vcredist_installer_version(pending)
+        if version is None or version < VCREDIST_MIN_VERSION:
+            raise RuntimeError("downloaded VC++ Redistributable has an invalid version")
+        pending.replace(cache_path)
+        log_fn("Download complete (version " + ".".join(map(str, version)) + ").")
+    finally:
+        try:
+            pending.unlink()
+        except OSError:
+            pass
 
 
 def build_proton_env_for_game(game) -> "tuple[Path, dict] | tuple[None, None]":
@@ -875,11 +908,19 @@ def install_vcredist(
 
     cache_path = get_vcredist_cache_path()
     try:
-        if not cache_path.is_file():
-            _log("Downloading VC++ Redistributable …")
-            from Utils.ca_bundle import download_file
-            download_file(_VCREDIST_URL, cache_path)
-            _log("Download complete.")
+        refresh_cache = _vcredist_cache_needs_refresh(cache_path)
+        if refresh_cache:
+            _log("Downloading the latest VC++ Redistributable …")
+            try:
+                _download_vcredist(cache_path, _log)
+            except Exception:
+                if not cache_path.is_file():
+                    raise
+                from Utils.wine.health import VCREDIST_MIN_VERSION
+                cached = _vcredist_installer_version(cache_path)
+                if cached is None or cached < VCREDIST_MIN_VERSION:
+                    raise
+                _log("Download failed; using the compatible cached installer.")
         else:
             _log("Using cached VC++ Redistributable installer.")
         _log("Installing VC++ Redistributable in game prefix (silent) - please wait …")
@@ -896,9 +937,16 @@ def install_vcredist(
             return False                # run_prefix_installer logged the abort
         # 0 = success, 1638 = already installed, 3010 = reboot required, 1641 = reboot initiated
         if rc in {0, 1638, 3010, 1641}:
-            _log(f"VC++ Redistributable installed (exit {rc}).")
             if prefix_path and Path(prefix_path).is_dir():
+                from Utils.wine.health import detect_vcredist, vcredist_x64_version
+                if detect_vcredist(Path(prefix_path)) is not True:
+                    version = vcredist_x64_version(Path(prefix_path))
+                    detail = ".".join(map(str, version)) if version else "unknown"
+                    _log("VC++ Redistributable installer completed, but the "
+                         f"required x64 runtime was not verified (version {detail}).")
+                    return False
                 mark_dep_installed(Path(prefix_path), VCREDIST_DEP_KEY)
+            _log(f"VC++ Redistributable installed (exit {rc}).")
             return True
         _log(f"VC++ Redistributable installer exited with code {rc}.")
         if output:
