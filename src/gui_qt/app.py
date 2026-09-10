@@ -2295,6 +2295,10 @@ class MainWindow(QMainWindow):
         self._data_expand_btn.setFixedHeight(self._FOOT_BTN_H)
         self._data_expand_btn.clicked.connect(self._on_data_expand_clicked)
         btns.addWidget(self._data_expand_btn)
+        self._data_blacklist_btn = self._text_button(self.tr("Blacklist"), compact=True)
+        self._data_blacklist_btn.setFixedHeight(self._FOOT_BTN_H)
+        self._data_blacklist_btn.clicked.connect(self._open_data_blacklist)
+        btns.addWidget(self._data_blacklist_btn)
         v.addLayout(btns)
 
         search_row = QHBoxLayout()
@@ -2312,6 +2316,43 @@ class MainWindow(QMainWindow):
         search.textChanged.connect(
             lambda _t, a="_data_filters_btn": self._sync_filters_btn(a))
         return bar
+
+    def _blacklist_edit_error(self, game) -> str:
+        if game is None or self._gs.game is not game:
+            return self.tr("Select a game before editing its blacklist.")
+        session = getattr(self, "_play_session", None)
+        if (self._deploy_running or self._install_running
+                or self._col_install_running or self._tool_busy
+                or getattr(self, "_staged_finish_running", False)
+                or getattr(self, "_staged_finish_queue", None)
+                or (session is not None and session.active)):
+            return self.tr("Wait for the current game, install, deployment, or tool operation to finish.")
+        return ""
+
+    def _open_data_blacklist(self):
+        from Utils.games.conflict_blacklist import load_overrides, save_overrides
+        from gui_qt.blacklist_overlay import BlacklistOverlay
+
+        game = self._gs.game
+        error = self._blacklist_edit_error(game)
+        if error:
+            self._show_warn_popup(self.tr("Blacklist"), error, None)
+            return
+        try:
+            initial = load_overrides(game)
+        except (OSError, ValueError) as exc:
+            self._show_warn_popup(self.tr("Blacklist"), str(exc), None)
+            return
+
+        def save(overrides):
+            error = self._blacklist_edit_error(game)
+            if error:
+                raise ValueError(error)
+            if overrides != initial:
+                save_overrides(game, overrides)
+                self._rebuild_conflicts_async()
+
+        BlacklistOverlay(self.window(), game, initial, save)
 
     def _on_data_expand_clicked(self):
         expanded = self._data_view._toggle_expand_all()
@@ -17624,8 +17665,8 @@ class MainWindow(QMainWindow):
         # licences, modinfo files) says nothing about a mod's contents, so it
         # must not raise a badge either.
         game = self._gs.game
-        ignore_patterns = tuple(
-            getattr(game, "conflict_ignore_filenames", None) or ())
+        from Utils.games.conflict_blacklist import effective_rules
+        ignore_patterns, ignore_folders = effective_rules(game)
 
         from gui_qt.worker import run_in_worker, NO_EMIT
 
@@ -17654,11 +17695,11 @@ class MainWindow(QMainWindow):
                 # Full paths let us honour conflict_ignore_filenames, which the
                 # extension-only facet can't express.
                 filetypes = {
-                    name: extensions_from_paths(paths, ignore_patterns)
+                    name: extensions_from_paths(paths, ignore_patterns, ignore_folders)
                     for name, paths in loose_paths.items()
                 }
                 packed = {
-                    name: extensions_from_paths(paths, ignore_patterns)
+                    name: extensions_from_paths(paths, ignore_patterns, ignore_folders)
                     for name, paths in archive_sourced.items()
                 }
             else:

@@ -270,13 +270,16 @@ class SevenDaysToDie(BaseGame):
         # below has these prefixes peeled off, so translate into that same
         # space - otherwise "Disable" silently misses and the files deploy.
         from Utils.filegraph.paths import build_path_filters
+        from Utils.games.conflict_blacklist import effective_rules
         from Utils.mods.files import translate_exclusions_for_engine
         from Utils.profiles.state import read_mod_strip_prefixes
         per_mod_prefs = read_mod_strip_prefixes(profile_dir)
         excluded_by_mod = translate_exclusions_for_engine(
             profile_dir, staging, None, per_mod_prefs)
+        ignore_files, ignore_folders = effective_rules(self)
         path_filters = build_path_filters(
-            self.conflict_ignore_filenames, None, None, excluded_by_mod)
+            ignore_files, None, None, excluded_by_mod,
+            conflict_ignore_foldernames=ignore_folders)
         strip_map = {
             m: {p.lower() for p in prefs}
             for m, prefs in per_mod_prefs.items()

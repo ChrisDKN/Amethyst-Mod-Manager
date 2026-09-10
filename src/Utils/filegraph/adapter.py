@@ -192,6 +192,7 @@ class GameCandidateAdapter:
 
     def _refresh_profile_rules(self) -> None:
         self._rules_hash_cache = None
+        self._refresh_blacklist()
         modlist = self.profile_dir / "modlist.txt"
         try:
             from Nexus.nexus_meta import collect_root_flagged_mods
@@ -261,6 +262,13 @@ class GameCandidateAdapter:
             self._normalize_folder_case = bool(
                 getattr(self.game, "normalize_folder_case", True))
 
+    def _refresh_blacklist(self) -> None:
+        from Utils.games.conflict_blacklist import effective_rules
+        rules = effective_rules(self.game)
+        if rules != getattr(self, "_ignore_rules", None):
+            self._ignore_rules = rules
+            self._rules_hash_cache = None
+
     def rules_hash(self) -> bytes:
         if self._rules_hash_cache is not None:
             return self._rules_hash_cache
@@ -274,8 +282,8 @@ class GameCandidateAdapter:
             "post_strip": getattr(game, "mod_folder_strip_prefixes_post", ()),
             "extensions": getattr(game, "mod_install_extensions", ()),
             "exclude_dirs": getattr(game, "filemap_exclude_dirs", ()),
-            "ignore_files": getattr(game, "conflict_ignore_filenames", ()),
-            "ignore_folders": getattr(game, "conflict_ignore_foldernames", ()),
+            "ignore_files": self._ignore_rules[0],
+            "ignore_folders": self._ignore_rules[1],
             "exclude_loose": getattr(game, "excluded_loose_filenames", ()),
             "required_top": getattr(game, "mod_required_top_level_folders", ()),
             "filter_top": getattr(game, "filemap_exclude_unknown_top_level", False),
@@ -413,16 +421,13 @@ class GameCandidateAdapter:
                 return False
         filename = routed_lower.rsplit("/", 1)[-1]
         if any(fnmatch.fnmatchcase(filename, str(pattern).lower())
-               for pattern in (getattr(self.game, "conflict_ignore_filenames", None) or ())):
+               for pattern in self._ignore_rules[0]):
             return False
         if "/" not in routed_lower and any(
                 fnmatch.fnmatchcase(filename, str(pattern).lower())
                 for pattern in (getattr(self.game, "excluded_loose_filenames", None) or ())):
             return False
-        folder_patterns = tuple(
-            str(pattern).lower()
-            for pattern in (getattr(self.game, "conflict_ignore_foldernames", None) or ())
-        )
+        folder_patterns = self._ignore_rules[1]
         if folder_patterns and "/" in routed_lower:
             if any(fnmatch.fnmatchcase(segment, pattern)
                    for segment in routed_lower.rsplit("/", 1)[0].split("/")
@@ -1246,6 +1251,8 @@ class GameCandidateAdapter:
         # refresh because crossing a separator can change a custom route.
         if refresh_rules:
             self._refresh_profile_rules()
+        else:
+            self._refresh_blacklist()
         try:
             from Utils.mods.modlist import read_modlist
             ordered = [

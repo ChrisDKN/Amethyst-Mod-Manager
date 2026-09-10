@@ -111,13 +111,16 @@ def ignored_filename(filename: str, patterns) -> bool:
                for pattern in patterns)
 
 
-def extensions_from_paths(paths, ignore_patterns=()) -> set[str]:
+def extensions_from_paths(paths, ignore_patterns=(), ignore_folders=()) -> set[str]:
     """Badge-relevant extensions from an iterable of mod-relative paths,
     skipping any whose filename matches *ignore_patterns*."""
     out = set()
     for path in paths:
-        name = str(path).replace("\\", "/").rsplit("/", 1)[-1].lower()
+        parts = str(path).replace("\\", "/").lower().split("/")
+        name = parts[-1]
         if not name or ignored_filename(name, ignore_patterns):
+            continue
+        if any(ignored_filename(folder, ignore_folders) for folder in parts[:-1]):
             continue
         dot = name.rfind(".")
         if dot <= 0:
