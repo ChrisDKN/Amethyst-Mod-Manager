@@ -89,11 +89,8 @@ class SetupOptions(QWidget):
         has_ttw = any(task.id.startswith("ttw:") for task in tasks)
         self._tasks_heading = self._category(self.tr("Additional setup"))
         for task in tasks:
-            external = task.id.startswith("external:")
             panel, layout = self._section(task.label)
-            hint = QLabel(
-                self.tr("This mod is not included in the package. Import a complete extracted mod folder, or install it after the list finishes and before playing. Use the author's required version and keep the name {0}.").format(task.mod)
-                if external else self.tr("Use the version required by the author. Output keeps its authored position in {0}.").format(task.mod), panel)
+            hint = QLabel(self.tr("Use the version required by the author. Output keeps its authored position in {0}.").format(task.mod), panel)
             hint.setWordWrap(True)
             layout.addWidget(hint)
             if task.id.startswith("fo3-bsa:"):
@@ -109,11 +106,9 @@ class SetupOptions(QWidget):
             form.setRowWrapPolicy(QFormLayout.WrapLongRows)
             mode = QComboBox(panel)
             mode.setMaxVisibleItems(15)
-            if external:
-                mode.addItem(self.tr("Keep existing / install later"), "later")
             if task.mpi_titles:
                 mode.addItem(self.tr("Build from .mpi package"), "mpi")
-            mode.addItem(self.tr("Import complete mod folder") if external else self.tr("Import existing output mod"), "source")
+            mode.addItem(self.tr("Import existing output mod"), "source")
             if task.id.startswith("yupttw:"):
                 mode.addItem(self.tr("Import output archive"), "archive")
             option = self._values.get(task.id, {})
@@ -129,7 +124,7 @@ class SetupOptions(QWidget):
                 mode.setCurrentIndex(mode.findData("source"))
             form.addRow(self.tr("Method"), mode)
             fields = {}
-            field_defs = [("mpi", "MPI package"), ("source", "Complete mod folder" if external else "Complete output mod")]
+            field_defs = [("mpi", "MPI package"), ("source", "Complete output mod")]
             if task.id.startswith("yupttw:"):
                 field_defs.append(("archive", "Output archive"))
             for key, label in field_defs:
@@ -297,7 +292,7 @@ class SetupOptions(QWidget):
             values["texture"] = {"proton": self._texture_runtime.currentData(), "mode": self._texture_mode.currentData()}
         for task_id, (_, _, mode, _, fields) in self._rows.items():
             key = mode.currentData()
-            values[task_id] = {key: fields[key][1].text().strip()} if key in fields else {}
+            values[task_id] = {key: fields[key][1].text().strip()}
         return values
 
     def _browse(self, task, key):

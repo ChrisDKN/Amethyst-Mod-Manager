@@ -492,7 +492,6 @@ def _preflight(request, stop, notify, log=None):
             emit_exception(log, "preflight.path_mapping.failed", exc)
             check("error", "Windows path mapping", exc)
     from .requirements import profile_configuration
-    from .post_install_rules import ignored_profile_mods
     from .setup_tasks import preflight_tasks
     configuration = profile_configuration(package, request.profiles)
     emit(log, "preflight.profile_configuration", profiles={name: {
@@ -516,7 +515,6 @@ def _preflight(request, stop, notify, log=None):
     notify("Checking authored profiles")
     provided_mods = {d.path.split("/")[1].casefold() for d in package.directives if d.path.startswith("mods/")}
     provided_mods.update(task.mod.casefold() for task in tasks)
-    ignored_mods = ignored_profile_mods(package, request.game)
     for profile, config in configuration.items():
         if config.outputs:
             check("pass", "Output mods", f"{profile}: create and retain {', '.join(sorted(set(config.outputs.values())))} for authored tool output")
@@ -553,22 +551,9 @@ def _preflight(request, stop, notify, log=None):
                 normalized = name.casefold()
                 if normalized in available_mods:
                     continue
-                if normalized in ignored_mods:
-                    emit(log, "preflight.profile_mod.ignored", profile=profile, mod=name)
-                    continue
-                if normalized.startswith("[dev]"):
-                    emit(log, "preflight.development_mod.skipped", profile=profile, mod=name)
-                    continue
-                try:
-                    existing = source_path(directory / "root" / "mods", name)
-                    available = existing.is_dir() and any(existing.iterdir())
-                except (OSError, WabbajackError) as exc:
-                    emit(log, "preflight.external_mod.probe_failed",
-                         profile=profile, mod=name, path=directory / "root" / "mods",
-                         exception_type=type(exc).__name__, exception=str(exc))
-                    available = False
-                if not available:
-                    check("warning", "Required external mod", f"Profile {profile} enables '{name}', which this package does not provide. Install the author's required mod after the list finishes and before playing. Installation can continue.")
+                event = ("preflight.development_mod.skipped" if normalized.startswith("[dev]")
+                         else "preflight.profile_mod.unrepresented")
+                emit(log, event, profile=profile, mod=name)
     vanilla = {p.casefold() for p in [*getattr(request.game, "vanilla_plugins", []),
                                      *getattr(request.game, "vanilla_dlc_plugins", [])]}
     provided_plugins = {d.path.rsplit("/", 1)[-1].casefold() for d in package.directives if d.path.casefold().endswith((".esm", ".esp", ".esl"))}
@@ -863,6 +848,6 @@ def _preflight(request, stop, notify, log=None):
         emit_exception(log, "preflight.filesystem_probe.failed", exc,
                        path=parent)
         check("error", "Filesystem capabilities", exc)
-    check("warning", "Linux compatibility", "Read the author's requirements. Successful file reconstruction does not verify that every mod or bundled tool supports native Linux."
-          if native_runtime else "Read the author's requirements. Successful file reconstruction does not verify every Windows mod under Proton.")
+    check("warning", "Linux compatibility", "Amethyst reminder: successful file reconstruction does not verify that every mod or bundled tool supports native Linux. This is not an author-supplied warning."
+          if native_runtime else "Amethyst reminder: successful file reconstruction does not verify every Windows mod or tool under Proton. This is not an author-supplied warning.")
     return report

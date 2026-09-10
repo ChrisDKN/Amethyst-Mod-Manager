@@ -313,10 +313,6 @@ def _mpi_output_aliases(task, outputs):
 
 
 def _verify_mod(task, root, stop=None, *, content=False):
-    if task.id.startswith("external:"):
-        if not any(rel.casefold() != "meta.ini" for rel, _ in _files(root, stop)):
-            raise WabbajackError(f"Select a complete extracted mod folder for {task.mod}")
-        return
     def archive(path):
         rows = records(path, allow_hash_only=True)
         if content:
@@ -457,17 +453,6 @@ def _previous(info, task):
     return pending.get(task.id) or info.get("setup_tasks", {}).get(task.id)
 
 
-def setup_option(request, task):
-    option = request.setup_options.get(task.id, {})
-    if task.id.startswith("external:") and "source" not in option:
-        root = request.directory / "root" / "mods"
-        if root.is_dir() and any(path.name.casefold() == task.mod.casefold() for path in root.iterdir()):
-            existing = source_path(root, task.mod)
-            if existing.is_dir() and any(existing.iterdir()):
-                return {"source": str(existing)}
-    return option
-
-
 def _reusable(request, task, record, stop=None):
     if not record or record.get("version") != VERSION or not record.get("outputs"):
         return None
@@ -478,7 +463,7 @@ def _reusable(request, task, record, stop=None):
     if any(f"root/mods/{task.mod}/{name}".casefold() not in {key.casefold() for key in record["outputs"]}
            for name in task.masters):
         return None
-    option = setup_option(request, task)
+    option = request.setup_options.get(task.id, {})
     if option.get("mpi") and Path(option["mpi"]).is_file():
         if file_hash(Path(option["mpi"]), stop) != record.get("mpi_hash"):
             return None
@@ -525,12 +510,6 @@ def preflight_tasks(request, check, stop=None, *, configuration=None,
              mod=task.mod, profiles=task.profiles, option=option,
              previous=bool(previous))
         try:
-            option = setup_option(request, task)
-            if task.id.startswith("external:") and not option.get("source"):
-                if "source" in option:
-                    raise WabbajackError(f"Select a complete extracted mod folder for {task.mod}")
-                check("warning", "Required external mod", f"{task.mod} is not supplied for {', '.join(task.profiles)}. Import its complete mod folder in Additional setup, or install it after the list finishes and before playing. Installation can continue.")
-                continue
             reused = _reusable(request, task, previous, stop) if option == (previous or {}).get("option", {}) else None
             if reused:
                 if reusable is not None:
@@ -627,12 +606,7 @@ def run_tasks(request, store, desired, stop, progress, log=None):
         task_started = time.monotonic()
         _stop(stop)
         progress("Additional setup", 0, len(tasks), task.label)
-        option = setup_option(request, task)
-        if task.id.startswith("external:") and not option.get("source"):
-            if "source" in option:
-                raise WabbajackError(f"Select a complete extracted mod folder for {task.mod}")
-            emit(log, "setup.external_mod.deferred", task_id=task.id, mod=task.mod)
-            continue
+        option = request.setup_options.get(task.id, {})
         previous = _previous({"pending_setup_tasks": previous_tasks,
                               "setup_tasks": store.get("setup_tasks", {})}, task)
         emit(log, "setup.task.started", task_id=task.id, label=task.label,

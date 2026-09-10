@@ -34,11 +34,11 @@ def plan_update(request, log=None):
            if d.path not in ignored and d.path.split("/")[0].casefold() != "temp_bsa_files"
            and (rel := adapter.installed_path(d.path))}
     from .requirements import setup_tasks
-    from .setup_tasks import output_mods, setup_option
+    from .setup_tasks import output_mods
     for task in setup_tasks(request.package, request.profiles):
         record = info.get("setup_tasks", {}).get(task.id, {})
         sig = record.get("signature", "setup:pending")
-        if setup_option(request, task) != record.get("option", {}):
+        if request.setup_options.get(task.id, {}) != record.get("option", {}):
             sig = "setup:pending"
         new.update({key: sig for key in record.get("outputs", {}) if key not in new})
     for name in output_mods(request):

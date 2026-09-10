@@ -74,7 +74,6 @@ class ModlistRule:
     runtime_dependencies: tuple[str, ...] = ()
     stock_copy: StockCopy | None = None
     omit_stock_files: tuple[OmitStockFiles, ...] = ()
-    ignored_profile_mods: tuple[str, ...] = ()
     notices: tuple[Notice, ...] = ()
 
 
@@ -96,7 +95,6 @@ MODLIST_RULES = (
             Adjustment("nuclear:proton-dxvk", "Use Proton's DXVK for the Nuclear Sunset stock game (omit bundled d3d9.dll and dxvk.conf)"),
             ("d3d9.dll", "dxvk.conf"),
         ),),
-        ignored_profile_mods=("[OP] - Dri - P6 - Chinese Assault Rifles (kNVSE)",),
         notices=(
             Notice("warning", "Author instructions", "Nuclear Sunset's Linux guide specifies Proton 11 and a separate YUPTTW update. Confirm the selected runtime and external content match the guide before launch."),
             Notice("error", "Stock game patch", "Enable automatic New Vegas 4GB patching so deployment patches the managed stock executable", unless_game_setting="auto_4gb_patch"),
@@ -195,11 +193,6 @@ DISPLAY_RULES = (
 
 def matching_rules(package, game=None):
     return tuple(rule for rule in MODLIST_RULES if rule.match.matches(package, game))
-
-
-def ignored_profile_mods(package, game=None):
-    return {name.casefold() for rule in matching_rules(package, game)
-            for name in rule.ignored_profile_mods}
 
 
 def stock_copy_rule(request):

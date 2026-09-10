@@ -48,14 +48,11 @@ _HELP = {
     "Required DLC or game plugin": (
         "An enabled profile needs a game or DLC plugin that is absent from both the original game and the package's planned files.",
         "Install the required DLC or Creation Club content through your game or store, following Author instructions, and check the original game location before rechecking."),
-    "Required external mod": (
-        "The profile enables a mod that the package does not supply and that is not present in this installation.",
-        "Follow Author instructions to obtain the required version. Import its complete extracted mod folder under Additional setup, or finish installing the list and add the mod before playing. Keep its exact authored name and priority."),
     "Manual download": (
         "This archive needs a browser download or file selection. This is normal for free Nexus accounts and hosts without automatic download support.",
         "Start installation and follow the browser prompts. Use Select File if the download is not detected. Choose the exact file version requested; Amethyst checks its size and hash while other automatic downloads continue."),
     "Runtime adjustment": (
-        "A bundled mod needs a runtime dependency or a Linux compatibility adjustment. The entry below identifies the proposed change.",
+        "Amethyst detected a runtime dependency or Linux compatibility adjustment from the packaged files. It may not appear in Windows-focused author instructions.",
         "Review and select the matching option under Linux adjustments in setup, then check requirements again. Required dependencies are installed automatically during installation; Proton tools can also install or repair them."),
     "Game runtime": (
         "The selected Windows game needs a configured Wine/Proton prefix, which holds its Windows settings and runtime dependencies.",
@@ -140,7 +137,7 @@ _HELP = {
         "Open Author instructions or Community at the top of setup and follow the requirement below. Keep track of any steps that must be completed after installation and before launching."),
     "Linux compatibility": (
         "File reconstruction can be verified without proving that every bundled Windows mod or tool works on Linux. This is a general compatibility reminder, not a detected failure in a specific mod.",
-        "Read Author instructions and Community for Linux guidance and review the offered Linux adjustments. There is no single repair for this reminder; it does not block installation."),
+        "Review the offered Linux adjustments and any available Community guidance. This Amethyst reminder has no single repair and does not block installation."),
     "Display settings": (
         "The selected resolution is invalid or the package has no supported configuration files for applying it.",
         "Choose a supported resolution in setup or keep the author's display settings, then recheck."),

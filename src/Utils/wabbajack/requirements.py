@@ -118,19 +118,5 @@ def setup_tasks(package, selected=None, configuration=None):
                 row = grouped.setdefault(key, [task_id, label, mod, [], masters, titles])
                 row[3].append(profile_name)
                 row[4] = tuple(dict.fromkeys((*row[4], *masters)))
-    tasks = [SetupTask(key, row[1], row[2], tuple(row[3]), row[4], row[5])
-             for key, row in grouped.items()]
-    from .post_install_rules import ignored_profile_mods
-    supplied = provided_mods | {task.mod.casefold() for task in tasks} | ignored_profile_mods(package)
-    external = {}
-    for profile_name, profile in config.items():
-        available = supplied | {name.casefold() for name in profile.outputs.values()}
-        for mod in profile.mods:
-            if mod.casefold() in available or mod.casefold().startswith("[dev]"):
-                continue
-            row = external.setdefault(mod.casefold(), [mod, []])
-            if profile_name not in row[1]:
-                row[1].append(profile_name)
-    tasks.extend(SetupTask("external:" + mod.casefold(), mod, mod, tuple(profiles), ())
-                 for mod, profiles in external.values())
-    return tasks
+    return [SetupTask(key, row[1], row[2], tuple(row[3]), row[4], row[5])
+            for key, row in grouped.items()]
