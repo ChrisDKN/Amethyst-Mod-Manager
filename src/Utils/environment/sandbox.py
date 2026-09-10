@@ -1,7 +1,8 @@
 """Detect user-supplied paths that the Flatpak sandbox cannot see.
 
-The manager's flatpak grants --filesystem=home, /run/media, /media, /mnt and
-the Steam/Heroic flatpak data dirs (see flatpak/io.github.Amethyst.ModManager.yml).
+The manager's flatpak grants --filesystem=home, /run/media, /media, /mnt,
+/var/mnt and the Steam/Heroic flatpak data dirs (see
+flatpak/io.github.Amethyst.ModManager.yml).
 A game or staging path outside those trees (e.g. /data/SteamLibrary, /opt/...)
 simply doesn't exist from inside the sandbox - indistinguishable from a typo -
 so the UI should tell the user it's a sandbox grant problem, not a bad path.
@@ -19,8 +20,12 @@ from pathlib import Path
 _GRANTED_VAR_APPS = ("com.valvesoftware.Steam", "com.heroicgameslauncher.hgl",
                      "net.lutris.Lutris", "io.github.Faugus.faugus-launcher")
 
-# Non-home trees granted in the manifest.
-_GRANTED_ROOTS = ("/run/media", "/media", "/mnt")
+# Non-home trees granted in the manifest. /var/mnt is included because on
+# Fedora Atomic / Bazzite (and similar) /mnt is a symlink to /var/mnt, so the
+# --filesystem=/mnt grant actually exposes /var/mnt, and Path.resolve() rewrites
+# any /mnt/... path the user picks to its /var/mnt/... target. Without it such a
+# resolved path looks unreachable and triggers a false "not visible" warning.
+_GRANTED_ROOTS = ("/run/media", "/media", "/mnt", "/var/mnt")
 
 
 def in_flatpak() -> bool:
