@@ -885,12 +885,28 @@ def _preflight(request, stop, notify, log=None):
     from Utils.ui.config import load_collection_settings
     workers = max(1, load_collection_settings()["max_extract_workers"])
     temporary = max(sum(sorted(estimates, reverse=True)[:workers]), merge_bytes)
-    multipart = sum(a.size for a in package.archives.values() if a.key in required_archives and a.kind == "WabbajackCDN" and a.key not in report.cached)
+    missing = [a for a in package.archives.values() if a.key in required_archives
+               and a.key not in report.cached and a.kind != "GameFileSource"]
     from .acquire import partial_download_space
-    partial_bytes = sum(partial_download_space(a, request.downloads, stop, log)
-                        for a in package.archives.values() if a.key in required_archives and a.key not in report.cached)
+    partial_bytes = sum(partial_download_space(a, request.downloads, stop, log) for a in missing)
     emit(log, "preflight.space.partial_downloads", reusable_bytes=partial_bytes)
-    sizes = [(request.downloads, max(0, report.download_bytes + multipart - partial_bytes), "downloads and multipart assembly"),
+    if request.clear_archives:
+        from .archive_cache import download_budget, download_space
+        report.archive_budget_bytes = download_budget(missing)
+        download_bytes = min(report.archive_budget_bytes,
+                             max(0, sum(download_space(a) for a in missing) - partial_bytes))
+        download_label = "bounded downloads and multipart assembly"
+        check("pass", "Archive cleanup",
+              "Clear archive after install is enabled. Newly acquired archives are removed after their required outputs are verified and saved. "
+              f"Downloads awaiting processing have a {report.archive_budget_bytes / 1024 ** 3:.1f} GiB working allowance, including assembly and failed-transfer replacements. "
+              "Original local archives are kept; repairs or updates may need downloads again.")
+    else:
+        multipart = sum(a.size for a in missing if a.kind == "WabbajackCDN")
+        download_bytes = max(0, report.download_bytes + multipart - partial_bytes)
+        download_label = "downloads and multipart assembly"
+    emit(log, "preflight.space.archive_cache", clear_archives=request.clear_archives,
+         required_bytes=download_bytes, download_bytes=report.download_bytes)
+    sizes = [(request.downloads, download_bytes, download_label),
              (directory, setup_bytes, "additional setup, staging and generated mods"),
              (directory, bsa_bytes, "vanilla BSA setup and audio conversion"),
              (directory, (max(staged_bytes, final_bytes) if hardlinks else staged_bytes + final_bytes) + 2 * profile_bytes + backups, "installation working set and update backups"),

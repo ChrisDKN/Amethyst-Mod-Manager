@@ -87,6 +87,7 @@ class PreflightReport:
     setup_tasks: list[SetupTask] = field(default_factory=list)
     timings: dict[str, float] = field(default_factory=dict)
     cache_index: ArchiveCacheIndex | None = field(default=None, repr=False, compare=False)
+    archive_budget_bytes: int = 0
 
     @property
     def ok(self):
@@ -112,9 +113,13 @@ class InstallRequest:
     resolve_conflicts: Callable | None = None
     setup_options: dict = field(default_factory=dict)
     diagnostic_id: str = field(default_factory=lambda: uuid.uuid4().hex[:12])
+    clear_archives: bool | None = None
 
     def __post_init__(self):
         import copy
+        if self.clear_archives is None:
+            from Utils.ui.config import load_clear_archive_after_install
+            self.clear_archives = load_clear_archive_after_install()
         self.directory = Path(self.directory).expanduser().absolute()
         self.downloads = Path(self.downloads).expanduser().absolute()
         self.game_roots = {k: Path(v).expanduser().absolute() for k, v in self.game_roots.items()}

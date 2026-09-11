@@ -551,7 +551,8 @@ class Reconstruction:
             self.store.record_completed(directive.path, sig, actual)
         with self._lock:
             self._result_keys.add(directive.path.casefold())
-            self.results[directive.path] = {"source": str(path), "authored_hash": actual, "signature": sig}
+            self.results[directive.path] = {"source": str(path), "authored_hash": actual, "signature": sig,
+                                            "source_stamp": self.store._stamp(path.stat())[:4]}
             delayed = getattr(self._record_delay, "paths", None)
             if delayed is not None:
                 delayed.append(directive.path)
@@ -629,7 +630,7 @@ class Reconstruction:
         return archives
 
     @source_lookup_scope()
-    def install_archive(self, archive, path):
+    def install_archive(self, archive, path, *, durable=False):
         started = time.monotonic()
         self._record_delay.paths = []
         succeeded = False
@@ -863,6 +864,8 @@ class Reconstruction:
                     copied_outputs += 1
                 progress.update(d.index, 1, 1)
             progress.finish()
+            if durable:
+                self.sync_archive_outputs(archive)
             self.store.flush_completed()
             elapsed = time.monotonic() - started
             emit(self.cb.on_log, "reconstruct.archive.completed", archive=archive.name,
@@ -915,6 +918,28 @@ class Reconstruction:
                         self._release_dependency(output)
             self.cb.on_extract_remove(row)
         return extraction_wait_seconds
+
+    def sync_archive_outputs(self, archive):
+        directories = set()
+        for directive in self.by_archive.get(archive.key, ()):
+            if directive.path in self._skipped_dependencies:
+                continue
+            row = self.results.get(directive.path)
+            if row is None:
+                raise WabbajackError(f"Archive output is incomplete: {directive.path}")
+            path = Path(row["source"])
+            stamp = self.store._stamp(path.stat())
+            if stamp[:4] != row["source_stamp"]:
+                raise WabbajackError(f"Archive output changed before cleanup: {directive.path}")
+            self.store._sync_source(path, self.control.stop,
+                                    expected=stamp)
+            parent = path.parent
+            while parent.is_relative_to(self.store.work):
+                directories.add(parent)
+                parent = parent.parent
+        for path in sorted(directories, key=lambda path: len(path.parts), reverse=True):
+            self.store._sync_directory(path)
+        self.store._sync_directory(self.store.directory)
 
     def _row(self, archive):
         return list(self.request.package.archives).index(archive.key) + 1

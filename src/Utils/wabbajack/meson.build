@@ -3,6 +3,7 @@ py.install_sources(
   'acquire.py',
   'adapters.py',
   'archive_build.py',
+  'archive_cache.py',
   'archive_io.py',
   'bsa_setup.py',
   'checks.py',

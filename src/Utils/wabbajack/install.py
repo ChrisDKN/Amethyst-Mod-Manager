@@ -9,7 +9,8 @@ from pathlib import Path
 
 from Utils.downloads.install import InstallCallbacks, InstallControl, consume_pipeline
 from Utils.deployment.locking import game_mutation_lock
-from .acquire import Acquisition
+from .acquire import Acquisition, _CombinedStop
+from .archive_cache import ArchiveBudget
 from .diagnostics import bind, emit, emit_exception, log_request
 from .extraction import LARGE_BYTES
 from .hashes import package_hash, file_hash
@@ -104,13 +105,26 @@ def run_install(request, *, callbacks=None, control=None, report=None):
             store.set("package_path", str(saved))
             store.set("pending_package_xxhash", file_hash(saved, ctl.stop))
             request.package.path = saved
-            reconstruction = Reconstruction(request, store, cb, ctl)
+            budget = (ArchiveBudget(report.archive_budget_bytes, ctl.stop, cb.on_log)
+                      if request.clear_archives else None)
+            pipeline_control = (replace(ctl, stop=_CombinedStop(ctl.stop, budget.failed))
+                                if budget else ctl)
+            reconstruction = Reconstruction(request, store, cb, pipeline_control)
             needed = reconstruction.needed_archives(progress=progress)
             store.set("downloads", str(request.downloads))
             store.set("source_roots", {k: str(v) for k, v in request.game_roots.items()})
             cb.on_display_total(report.download_bytes)
             with Acquisition(
-                    request, report, cb, ctl, archives=needed) as acquire:
+                    request, report, cb, pipeline_control, archives=needed, budget=budget) as acquire:
+                if budget:
+                    needed_keys = {archive.key for archive in needed}
+                    for archive in request.package.archives.values():
+                        if archive.key in needed_keys or archive.kind == "GameFileSource":
+                            continue
+                        path = acquire.owned.target(archive)
+                        if acquire.owned.owns(archive, path):
+                            reconstruction.sync_archive_outputs(archive)
+                            acquire.clear_archive(archive, path, required=True)
                 automatic = [a for a in needed if acquire.automatic(a)]
                 manual = [a for a in needed if not acquire.automatic(a)]
                 download_plan = [a for a in needed
@@ -134,6 +148,8 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                         d.output_size for d in reconstruction.by_archive.get(archive.key, ())
                         if d.path not in reconstruction._skipped_dependencies)) >= LARGE_BYTES}
                 emit(cb.on_log, "install.pipeline.configured", archives=len(needed),
+                     clear_archives=request.clear_archives,
+                     archive_budget_bytes=report.archive_budget_bytes,
                      automatic=len(automatic), manual=len(manual),
                      download_workers=settings["max_concurrent"],
                      large_download_workers=min(
@@ -168,7 +184,9 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                 def install(archive, path):
                     archive_started = time.monotonic()
                     try:
-                        waited = reconstruction.install_archive(archive, path)
+                        cleanup = bool(budget) and acquire.owned.owns(archive, path)
+                        waited = reconstruction.install_archive(archive, path, durable=cleanup)
+                        acquire.clear_archive(archive, path, required=cleanup)
                         cb.on_row_installed(acquire.ids[archive.key])
                         emit(cb.on_log, "install.archive.extraction_completed",
                              archive=archive.name,
@@ -188,10 +206,12 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                 cb.on_agg_download(0, report.download_bytes, 0.0)
                 update_status()
                 def pipeline_error(item, exc):
+                    if budget:
+                        budget.fail()
                     cb.on_log(f"{item.name}: {exc}")
                     emit_exception(cb.on_log, "install.pipeline.item_failed", exc,
                                    archive=item.name, archive_hash=item.key)
-                errors = consume_pipeline(automatic, bind_verification(acquire), bind_verification(install), ctl, manual_items=manual,
+                errors = consume_pipeline(automatic, bind_verification(acquire), bind_verification(install), pipeline_control, manual_items=manual,
                     download_workers=settings["max_concurrent"],
                     install_workers=_MAX_EXTRACT_WORKERS_CEILING,
                     on_ready=ready, on_discard=lambda a: cb.on_extract_remove(acquire.ids[a.key]),
@@ -269,7 +289,9 @@ def run_install(request, *, callbacks=None, control=None, report=None):
             refresh_profiles(request, all_profiles, cb.on_log, progress=progress, stop=ctl.stop)
             store.set("status", "complete")
             store.flush_completed()
-            progress("Cleaning temporary files", 0, 0, "Keeping downloaded archives and removing completed temporary work")
+            progress("Cleaning temporary files", 0, 0,
+                     "Removing completed temporary work" if request.clear_archives else
+                     "Keeping downloaded archives and removing completed temporary work")
             shutil.rmtree(store.work)
             with store.db:
                 store.db.execute("DELETE FROM completed")

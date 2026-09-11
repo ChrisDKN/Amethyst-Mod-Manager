@@ -1187,7 +1187,9 @@ class SettingsView(ConnectionsSettingsMixin, OverlayBase):
             help=self.tr("Delete a mod's downloaded archive after it is extracted. "
                  "Only applies to archives Amethyst downloaded itself - installs "
                  "from the Install Mod button or the Downloads tab keep their "
-                 "archive."))
+                 "archive. Wabbajack installs also clear managed archives after "
+                 "their required files are verified and saved, and limit downloads "
+                 "waiting for extraction to reduce disk-space requirements."))
         self._checkbox(
             g, self.tr("Keep FOMOD archives"),
             uc.load_keep_fomod_archives, uc.save_keep_fomod_archives,

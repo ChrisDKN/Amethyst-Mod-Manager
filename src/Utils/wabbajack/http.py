@@ -27,6 +27,16 @@ class DownloadUnavailable(WabbajackError):
 
 
 _connections = ContextVar("wabbajack_connections", default=None)
+_download_error = ContextVar("wabbajack_download_error", default=None)
+
+
+@contextmanager
+def download_error_scope(callback):
+    token = _download_error.set(callback)
+    try:
+        yield
+    finally:
+        _download_error.reset(token)
 
 
 @contextmanager
@@ -157,12 +167,16 @@ def download_http(url: str, target: Path, *, size=0, expected="", headers=None,
                 raise WabbajackError("Download has an incorrect size")
             if expected and file_hash(part, stop) != expected:
                 part.replace(auxiliary_path(part, f".invalid-{time.time_ns()}"))
+                if callback := _download_error.get():
+                    callback()
                 raise WabbajackError("Download checksum does not match the modlist")
             if validate:
                 try:
                     validate(part)
                 except WabbajackError:
                     part.replace(auxiliary_path(part, f".invalid-{time.time_ns()}"))
+                    if callback := _download_error.get():
+                        callback()
                     raise
             if stop is not None and stop.is_set():
                 raise InterruptedError("Installation stopped")

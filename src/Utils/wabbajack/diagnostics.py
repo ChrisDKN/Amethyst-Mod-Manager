@@ -291,6 +291,7 @@ def _log_request(log, request, event) -> None:
         selected_profile=package.selected_profile,
         selected_profiles=request.profiles,
         premium=request.premium,
+        clear_archives=getattr(request, "clear_archives", False),
         nexus_api=bool(request.api),
         fixes=request.fixes,
         setup_options=request.setup_options,

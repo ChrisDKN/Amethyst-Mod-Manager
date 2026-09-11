@@ -18,7 +18,7 @@ from Utils.downloads.install import ManualDownloadRequired
 from .games import nexus_domain
 from .hashes import XXHash, canonical_hash, hash_bytes, file_hash, verify_file
 from .paths import WabbajackError
-from .http import download_http, safe_error as _safe_error, connection_scope, connection_slot, limited_response
+from .http import download_http, safe_error as _safe_error, connection_scope, connection_slot, limited_response, download_error_scope
 from .hosts import automatic_source, download_host, source_url, is_loverslab_url
 from .diagnostics import emit, emit_exception, url_host
 from .verification import bind_verification, file_stamp, verified_replace
@@ -107,6 +107,11 @@ class ArchiveCacheIndex:
         with self._lock:
             if path.parent in self.roots and size in self.sizes:
                 self._folders.setdefault(path.parent, {}).setdefault(size, {})[path] = None
+
+    def discard(self, path, size):
+        path = Path(path).resolve()
+        with self._lock:
+            self._folders.get(path.parent, {}).get(size, {}).pop(path, None)
 
 
 def route_nxm(link, api=None) -> bool:
@@ -377,9 +382,12 @@ def download_package(url, target, *, size=0, expected="", stop=None, progress=No
 
 
 class Acquisition:
-    def __init__(self, request, report, callbacks, control, *, archives=None):
+    def __init__(self, request, report, callbacks, control, *, archives=None, budget=None):
         self.request, self.report = request, report
         self.cb, self.control = callbacks, control
+        self.budget = budget
+        from .archive_cache import OwnedArchives
+        self.owned = OwnedArchives(request, callbacks.on_log)
         self._hashes = {}
         self._manual_lock = threading.Lock()
         self._nxm = {}
@@ -391,6 +399,7 @@ class Acquisition:
         from Utils.ui.config import load_collection_settings
         self.workers = max(1, int(load_collection_settings()["max_concurrent"]))
         self._connections = connection_scope(threading.BoundedSemaphore(self.workers))
+        self._download_errors = download_error_scope(budget.fail if budget else None)
         self._cdn_pool = None
         self.ids = {a.key: i + 1 for i, a in enumerate(request.package.archives.values())}
         self.archives = list(request.package.archives.values() if archives is None else archives)
@@ -424,6 +433,7 @@ class Acquisition:
         emit(self.cb.on_log, "acquisition.routes.registered",
              archives=len(self.archives), nexus_routes=len(self._nxm))
         self._connections.__enter__()
+        self._download_errors.__enter__()
         self._cdn_pool = ThreadPoolExecutor(max_workers=self.workers,
                                            thread_name_prefix="wabbajack-cdn")
         return self
@@ -432,6 +442,7 @@ class Acquisition:
         if self._cdn_pool is not None:
             self._cdn_pool.shutdown(wait=True, cancel_futures=True)
         self._connections.__exit__(None, None, None)
+        self._download_errors.__exit__(None, None, None)
         if self._loverslab_client is not None:
             self._loverslab_client.close()
         self._loverslab_credentials = None
@@ -530,6 +541,49 @@ class Acquisition:
     def manual(self, archive, reason=""):
         return self(archive, manual=True, reason=reason)
 
+    def clear_archive(self, archive, path, *, required=False):
+        if not self.budget or archive.kind == "GameFileSource":
+            return
+        removed = self.owned.remove(archive, path)
+        if required and not removed:
+            raise WabbajackError(f"Archive changed before cleanup: {archive.name}; check requirements again")
+        if removed:
+            self.cache_index.discard(path, archive.size)
+        retained = self._clear_partial_downloads(archive, path)
+        if not removed and Path(path).resolve() == self.owned.target(archive):
+            retained += Path(path).stat().st_size
+        self.budget.release(archive, retained)
+
+    def _clear_partial_downloads(self, archive, source):
+        from Utils.atomic_write import filename_limit
+        from .paths import auxiliary_path
+        target = self.owned.target(archive)
+        paths = [auxiliary_path(target, ".part")]
+        if archive.kind == "Nexus":
+            folder = self.request.downloads / ".wabbajack" / hash_bytes(archive.key).hex()
+            name = target.name if len(os.fsencode(archive.name)) > filename_limit(folder) else archive.name
+            paths.append(auxiliary_path(folder / name, ".part"))
+        chunks = auxiliary_path(target, ".chunks")
+        if not chunks.is_symlink() and chunks.is_dir():
+            paths.extend(path for path in chunks.iterdir()
+                         if path.name.isdecimal() or path.name.removesuffix(".part").isdecimal())
+        retained = removed = 0
+        for path in paths:
+            if path.is_symlink() or not path.is_file():
+                continue
+            if not path.resolve().is_relative_to(self.owned.downloads):
+                raise WabbajackError("Partial download is outside managed downloads")
+            size = path.stat().st_size
+            if (path.resolve() == Path(source).resolve()
+                    or any(path.resolve().is_relative_to(root) for root in self.owned.protected)):
+                retained += size
+            else:
+                path.unlink()
+                removed += size
+        if removed:
+            emit(self.cb.on_log, "archive.partials.cleared", archive=archive.name, bytes=removed)
+        return retained
+
     def __call__(self, archive, prefetched=None, *, manual=False, reason=""):
         started = time.monotonic()
         emit(self.cb.on_log, "acquisition.started", archive=archive.name,
@@ -565,6 +619,8 @@ class Acquisition:
                  route="cache", path=cached,
                  elapsed_seconds=round(time.monotonic() - started, 3))
             return cached
+        if self.budget:
+            self.budget.acquire(archive)
         row = self.ids[archive.key]
         self.cb.on_dl_mod_start(row, archive.name, archive.size)
 
@@ -628,6 +684,8 @@ class Acquisition:
                 path = self._manual(archive, target, progress)
             if not verify_file(path, archive.key, archive.size, self.control.stop):
                 raise WabbajackError(f"Archive failed verification: {archive.name}")
+            if route != "manual":
+                self.owned.record(archive, path)
             self.cache_index.add(path)
             progress(archive.size, archive.size)
             emit(self.cb.on_log, "acquisition.completed", archive=archive.name,
@@ -642,6 +700,8 @@ class Acquisition:
                 self.cb.on_log(f"{archive.name}: automatic download needs manual assistance: {reason}")
                 emit_exception(self.cb.on_log, "acquisition.deferred_to_manual", exc,
                                archive=archive.name, kind=archive.kind, reason=reason)
+                if self.budget:
+                    return self.manual(archive, reason)
                 self.cb.on_status(f"Waiting for a manual download: {archive.name}. Other downloads continue.")
                 deferred = True
                 raise ManualDownloadRequired(reason) from exc
@@ -707,6 +767,7 @@ class Acquisition:
                 raise WabbajackError(f"Nexus download failed: {archive.name}: {_safe_error(getattr(result, 'error', ''))}")
             verified_replace(path, target, digest=archive.key, stamp=stamp,
                              stop=self.control.stop)
+            self.owned.record(archive, target)
             emit(self.cb.on_log, "nexus.download.completed", archive=archive.name,
                  target=target, bytes=archive.size)
             return target
@@ -752,6 +813,8 @@ class Acquisition:
                     try:
                         return self._nexus(archive, target, progress, link)
                     except WabbajackError as exc:
+                        if self.budget:
+                            raise
                         self.cb.on_log(str(exc))
                         emit_exception(self.cb.on_log, "manual.nxm.failed", exc,
                                        archive=archive.name)
@@ -778,9 +841,12 @@ class Acquisition:
                             emit_exception(self.cb.on_log, "manual.file.probe_failed", exc,
                                            archive=archive.name, path=selected_path)
                     if valid:
+                        if self.budget:
+                            return Path(selected)
                         from .store import Store
                         if Path(selected).resolve() != target.resolve():
                             Store._copy(Path(selected), target, stop=self.control.stop)
+                            self.owned.record(archive, target)
                         emit(self.cb.on_log, "manual.file.verified", archive=archive.name,
                              path=selected, cached_as=target)
                         return target
