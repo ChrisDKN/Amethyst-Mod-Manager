@@ -437,7 +437,18 @@ def run_deploy_pipeline(
         # standard primitives diff against the previous deploy instead.
         incr_plan = None
         vfs_redeploy = False
+        runtime_plugin_states = {}
+        new_data_plugins = []
         if last_deployed == profile:
+            if getattr(game, "uses_plugins_txt", False):
+                from Utils.plugins import read_plugins
+                target = game._plugins_txt_target()
+                if target is not None:
+                    runtime_plugin_states = {
+                        entry.name.lower(): entry.enabled
+                        for entry in read_plugins(
+                            target, star_prefix=game.plugins_use_star_prefix)
+                    }
             if progress_fn is not None:
                 progress_fn(0, 0, "Inspecting the current deployment…")
             probe_mode = (
@@ -447,7 +458,13 @@ def run_deploy_pipeline(
             )
             incr_plan = _incr.plan_incremental(
                 game, profile, probe_mode, recovery_profile, log_fn=log_fn)
-            if incr_plan is None:
+            if incr_plan is not None:
+                new_data_plugins = _incr.new_data_plugins(incr_plan)
+                if new_data_plugins:
+                    log_fn("New unmanaged Data plugins require runtime capture "
+                           "before deployment: " + ", ".join(new_data_plugins))
+                    incr_plan = None
+            if incr_plan is None and not new_data_plugins:
                 vfs_redeploy = _incr.plan_vfs_redeploy(
                     game, profile, log_fn=log_fn)
         timeline.mark(
@@ -476,7 +493,7 @@ def run_deploy_pipeline(
                 "An interrupted deployment requires recovery, but this game "
                 "handler does not provide Restore."
             )
-        elif ((recovery_operations
+        elif ((recovery_operations or new_data_plugins
                or getattr(game, "restore_before_deploy", True))
               and hasattr(game, "restore")):
             try:
@@ -489,9 +506,9 @@ def run_deploy_pipeline(
                 # deployment over files/backups which Restore could not clear.
                 raise
             except RuntimeError as restore_err:
-                if recovery_operations:
+                if recovery_operations or new_data_plugins:
                     raise RestoreIncompleteError(
-                        "Interrupted deployment recovery did not complete: "
+                        "Required deployment restore did not complete: "
                         f"{restore_err}"
                     ) from restore_err
                 # Expected on first deploy / unconfigured paths; the deploy
@@ -580,6 +597,14 @@ def run_deploy_pipeline(
             except Exception as backup_err:
                 log_fn(f"Backup skipped: {backup_err}")
         timeline.mark("profile backup complete", work="FS I/O")
+
+        from Utils.plugins.sync import sync_overwrite_plugins
+        if sync_overwrite_plugins(
+                game, profile_dir, filegraph_profile.snapshot(),
+                enabled_states=runtime_plugin_states, log_fn=log_fn):
+            filegraph_profile.ensure_reconciled(
+                operation_hint={"kind": "deployment"})
+            filegraph_generation = filegraph_profile.snapshot().generation
 
         deploy_mode = (
             game.get_deploy_mode()

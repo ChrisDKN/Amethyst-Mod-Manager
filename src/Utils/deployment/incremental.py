@@ -200,6 +200,37 @@ def plan_incremental(
         return skip(f"eligibility check failed ({exc})")
 
 
+def new_data_plugins(plan: IncrementalPlan) -> list[str]:
+    """Find new physical plugins that need Restore's runtime-file capture."""
+    if not getattr(plan.game, "uses_plugins_txt", False):
+        return []
+    extensions = tuple(getattr(plan.game, "plugin_extensions", ()) or
+                       (".esp", ".esm", ".esl"))
+    extensions = tuple(ext.lower() for ext in extensions)
+    with os.scandir(plan.core_dir) as entries:
+        core_names = {entry.name.lower() for entry in entries}
+    candidates = {}
+    with os.scandir(plan.deploy_dir_str) as entries:
+        for entry in entries:
+            name = entry.name.lower()
+            if (not name.endswith(extensions) or name in core_names
+                    or name in plan.old_entries):
+                continue
+            if (entry.is_file(follow_symlinks=False)
+                    and entry.stat(follow_symlinks=False).st_nlink == 1):
+                candidates[name] = entry.name
+    if not candidates:
+        return []
+    # Root-routed files are deliberately absent from the incremental plan.
+    roots: dict[str, str] = {}
+    for entry in plan.profile_session.deployed_entries():
+        relative = _entry_relative(
+            plan.game, entry, Path(plan.deploy_dir_str), roots)
+        if relative is not None:
+            candidates.pop(relative.lower(), None)
+    return sorted(candidates.values(), key=str.lower)
+
+
 def bind_deployment_plan(plan: IncrementalPlan, deployment_plan) -> None:
     """Bind the newly reconciled generation before any filesystem mutation."""
     projected = _project_entries(
