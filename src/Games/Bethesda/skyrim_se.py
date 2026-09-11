@@ -329,6 +329,15 @@ class SkyrimSE(Fallout_3):
                 dialog_class_path="wizards.pgpatcher.PGPatcherWizard",
             ),
             WizardTool(
+                id="run_cao_skyrimse",
+                label="Assets Optimizer (CAO)",
+                description=(
+                    "Install Cathedral Assets Optimizer and optimize a selected "
+                    "mod from the staging folder."),
+                dialog_class_path="wizards.cao.CAOWizard",
+                category="Patchers and Cleanup",
+            ),
+            WizardTool(
                 id="run_sseedit_skyrimse",
                 label="Run SSEEdit",
                 description="Install SSEEdit, deploy mods, and run SSEEdit.exe.",

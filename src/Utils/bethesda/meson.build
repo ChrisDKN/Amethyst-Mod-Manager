@@ -3,6 +3,7 @@ py.install_sources(
   'acmos.py',
   'bodyslide.py',
   'bodyslide_linux.py',
+  'cao.py',
   'creation_kit.py',
   'display_tweaks.py',
   'engine_fixes.py',

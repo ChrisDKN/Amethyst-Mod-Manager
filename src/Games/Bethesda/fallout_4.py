@@ -98,6 +98,15 @@ class Fallout_4(Fallout_3):
                 description="Download and run Wrye Bash.",
                 dialog_class_path="wizards.wrye_bash.WryeBashWizard",
             ),
+            WizardTool(
+                id="run_cao_fo4",
+                label="Assets Optimizer (CAO)",
+                description=(
+                    "Install Cathedral Assets Optimizer and optimize a selected "
+                    "mod from the staging folder."),
+                dialog_class_path="wizards.cao.CAOWizard",
+                category="Patchers and Cleanup",
+            ),
             self._xlodgen_wizard_tool("fo4"),
             *self._xedit_wizard_tools(
                 build="FO4Edit", id_suffix="fo4",

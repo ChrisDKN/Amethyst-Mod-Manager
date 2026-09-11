@@ -11,6 +11,7 @@ py.install_sources(
   'bodyslide_view.py',
   'bsa_decompressor_view.py',
   'bsa_pack_candidates_view.py',
+  'cao_view.py',
   'creationkit_view.py',
   'curated_profile_view.py',
   'dtkit_patch_view.py',
