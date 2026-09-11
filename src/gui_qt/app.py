@@ -2248,6 +2248,10 @@ class MainWindow(QMainWindow):
         self._mf_expand_btn = self._text_button(self.tr("⊞ Expand all"), compact=True)
         self._mf_expand_btn.setFixedHeight(self._FOOT_BTN_H)
         self._mf_expand_btn.clicked.connect(self._on_mf_expand_clicked)
+        self._mf_open_btn = self._text_button(self.tr("Open"), compact=True)
+        self._mf_open_btn.setFixedHeight(self._FOOT_BTN_H)
+        self._mf_open_btn.setEnabled(False)
+        self._mf_open_btn.clicked.connect(self._on_mf_open_clicked)
         self._mf_reset_btn = self._text_button(self.tr("Reset"), compact=True)
         self._mf_reset_btn.setFixedHeight(self._FOOT_BTN_H)
         self._mf_reset_btn.setEnabled(False)
@@ -2257,6 +2261,7 @@ class MainWindow(QMainWindow):
         self._mf_reset_btn.clicked.connect(self._on_mf_reset_clicked)
         self._equalize_button_widths(self._mf_pack_btn, self._mf_unpack_btn)
         btns.addWidget(self._mf_expand_btn)
+        btns.addWidget(self._mf_open_btn)
         btns.addWidget(self._mf_reset_btn)
         btns.addWidget(self._mf_pack_btn)
         btns.addWidget(self._mf_unpack_btn)
@@ -16170,6 +16175,10 @@ class MainWindow(QMainWindow):
         if pack_btn is None or unpack_btn is None:
             return
         mv = self._mod_files_view
+        open_btn = getattr(self, "_mf_open_btn", None)
+        if open_btn is not None:
+            mod_dir = mv._mod_root_dir() if mv.has_mod() else None
+            open_btn.setEnabled(mod_dir is not None and mod_dir.is_dir())
         # Reset first - it applies to every game, including ones we can't
         # pack for (which return early below).
         reset_btn = getattr(self, "_mf_reset_btn", None)
@@ -16199,6 +16208,10 @@ class MainWindow(QMainWindow):
         expanded = self._mod_files_view._toggle_expand_all()
         self._mf_expand_btn.setText(self.tr("⊟ Collapse all") if expanded
                                     else self.tr("⊞ Expand all"))
+
+    def _on_mf_open_clicked(self):
+        self._open_folder_path(
+            self._mod_files_view._mod_root_dir(), self.tr("File location"))
 
     def _on_mf_reset_clicked(self):
         """Undo every Mod Files edit for the shown mod (files are untouched)."""
