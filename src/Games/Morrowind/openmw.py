@@ -227,6 +227,9 @@ class OpenMW(BaseGame):
     def exe_name_alts(self) -> list[str]:
         return ["Morrowind Launcher.exe", "Morrowind.exe"]
 
+    def get_runtime_mode(self) -> str:
+        return "native"
+
     @property
     def plugin_extensions(self) -> list[str]:
         return [".esp", ".esm", ".omwscripts", ".omwaddon"]
