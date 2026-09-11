@@ -17,17 +17,19 @@ Usage::
 
 from __future__ import annotations
 
+import copy
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Optional
 
 from Nexus.nexus_api import NexusAPI, NexusAPIError, NexusModUpdateInfo
 from Nexus.nexus_meta import (
-    NexusModMeta, normalise_game_domain, scan_installed_mods, write_meta)
+    NexusModMeta, normalise_game_domain, read_meta, scan_installed_mods, write_meta)
 from Nexus.nexus_requirements import MissingRequirementInfo, check_requirements_from_gql
+from Utils.mods.metadata import meta_file_lock
 
 ProgressCallback = Callable[[str], None]
 
@@ -230,17 +232,54 @@ def check_for_updates(
         _log("No Nexus-sourced mods with a game domain found.")
         return [], []
 
+    originals = {m.mod_name: copy.copy(m) for m in installed}
+    pending: dict[Path, NexusModMeta] = {}
+    endorsements = None
+    endorsement_error = None
+
+    def queue_meta(path, meta):
+        pending[path] = meta
+
+    def get_endorsements():
+        nonlocal endorsements, endorsement_error
+        if endorsement_error is not None:
+            raise endorsement_error
+        if endorsements is None:
+            try:
+                endorsements = api.get_endorsements()
+            except NexusAPIError as exc:
+                endorsement_error = exc
+                raise
+        return endorsements
+
     updates: list[UpdateInfo] = []
     missing: list[MissingRequirementInfo] = []
-    for domain, names in by_domain.items():
-        if len(by_domain) > 1:
-            _log(f"Checking Nexus domain '{domain}'...")
-        domain_updates, domain_missing = _check_for_updates_one_domain(
-            api, staging_root, game_domain=domain, progress_cb=progress_cb,
-            save_results=save_results, enabled_only=names,
-            max_workers=max_workers)
-        updates.extend(domain_updates)
-        missing.extend(domain_missing)
+    try:
+        for domain, names in by_domain.items():
+            if len(by_domain) > 1:
+                _log(f"Checking Nexus domain '{domain}'...")
+            domain_updates, domain_missing = _check_for_updates_one_domain(
+                api, staging_root, game_domain=domain, progress_cb=progress_cb,
+                save_results=save_results, enabled_only=names,
+                max_workers=max_workers,
+                installed_mods=installed,
+                endorsements_cb=get_endorsements, write_meta_cb=queue_meta)
+            updates.extend(domain_updates)
+            missing.extend(domain_missing)
+    finally:
+        for path, meta in pending.items():
+            original = originals[meta.mod_name]
+            changed = {f.name: getattr(meta, f.name) for f in fields(meta)
+                       if getattr(meta, f.name) != getattr(original, f.name)}
+            if not changed:
+                continue
+            with meta_file_lock(path):
+                current = read_meta(path)
+                if all(getattr(current, key) == value for key, value in changed.items()):
+                    continue
+                for key, value in changed.items():
+                    setattr(current, key, value)
+                write_meta(path, current)
     return updates, missing
 
 
@@ -252,6 +291,9 @@ def _check_for_updates_one_domain(
     save_results: bool = True,
     enabled_only: Optional[set] = None,
     max_workers: int = 10,
+    installed_mods: Optional[list[NexusModMeta]] = None,
+    endorsements_cb: Optional[Callable[[], list[dict]]] = None,
+    write_meta_cb: Optional[Callable[[Path, NexusModMeta], None]] = None,
 ) -> tuple[list["UpdateInfo"], list["MissingRequirementInfo"]]:
     """
     Check all Nexus-sourced mods under *staging_root* for updates and missing
@@ -298,9 +340,11 @@ def _check_for_updates_one_domain(
         ``(updates, missing_requirements)``
     """
     _log = progress_cb or (lambda m: None)
+    save_meta = write_meta_cb or write_meta
 
     # 1. Scan installed mods with Nexus metadata
-    installed = scan_installed_mods(staging_root)
+    installed = (scan_installed_mods(staging_root)
+                 if installed_mods is None else installed_mods)
     if not installed:
         _log("No Nexus-sourced mods found.")
         return [], []
@@ -378,7 +422,7 @@ def _check_for_updates_one_domain(
                     meta.uploaded_by = uploader
                     changed = True
                 if changed:
-                    write_meta(staging_root / meta.mod_name / "meta.ini", meta)
+                    save_meta(staging_root / meta.mod_name / "meta.ini", meta)
                     desc_updated += 1
         if desc_updated:
             _log(f"  Description/uploader backfilled for {desc_updated} mod(s).")
@@ -416,7 +460,7 @@ def _check_for_updates_one_domain(
                 if meta.file_category != f.category_name:
                     meta.file_category = f.category_name
                     if save_results:
-                        write_meta(staging_root / meta.mod_name / "meta.ini", meta)
+                        save_meta(staging_root / meta.mod_name / "meta.ini", meta)
                     category_backfilled += 1
         if category_backfilled:
             _log(f"  File category backfilled for {category_backfilled} mod(s).")
@@ -427,7 +471,7 @@ def _check_for_updates_one_domain(
     # GraphQL's legacyMod type does not expose viewer endorsement status.
     if save_results:
         try:
-            all_endorsements = api.get_endorsements()
+            all_endorsements = (endorsements_cb or api.get_endorsements)()
             endorsed_ids: set[int] = {
                 int(e.get("mod_id", 0))
                 for e in all_endorsements
@@ -442,7 +486,7 @@ def _check_for_updates_one_domain(
                 for meta in metas:
                     if meta.endorsed != want_endorsed:
                         meta.endorsed = want_endorsed
-                        write_meta(staging_root / meta.mod_name / "meta.ini", meta)
+                        save_meta(staging_root / meta.mod_name / "meta.ini", meta)
                         endorsed_changed += 1
             if endorsed_changed:
                 _log(f"  Endorsement status updated for {endorsed_changed} mod(s).")
@@ -536,6 +580,7 @@ def _check_for_updates_one_domain(
                 category_id=info.category_id if info else 0,
                 category_name=info.category_name if info else "",
                 version_backfilled=gql_version_backfilled,
+                write_meta_cb=save_meta,
             )
 
     if not gql_info:
@@ -669,6 +714,7 @@ def _check_for_updates_one_domain(
                         category_id=cat_id,
                         category_name=gql_mod_info.category_name if gql_mod_info else "",
                         version_backfilled=version_backfilled,
+                        write_meta_cb=save_meta,
                     )
 
         # Use batch files when GraphQL returned them; REST only for mods not in gql_info
@@ -714,6 +760,7 @@ def _check_for_updates_one_domain(
         save_results=save_results,
         enabled_only=enabled_only,
         api=api,
+        write_meta_cb=save_meta,
     )
 
     return updates, missing_reqs
@@ -734,8 +781,10 @@ def _apply_update_result(
     category_id: int = 0,
     category_name: str = "",
     version_backfilled: bool = False,
+    write_meta_cb: Optional[Callable[[Path, NexusModMeta], None]] = None,
 ) -> None:
     """Record an update (or clear the flag) and persist to meta.ini."""
+    save_meta = write_meta_cb or write_meta
     # If the user has ignored updates for this mod, check whether a genuinely
     # newer version has appeared since they set the ignore flag.
     if has_update and meta.ignore_update:
@@ -770,7 +819,7 @@ def _apply_update_result(
                 meta.category_id = category_id
             if category_name:
                 meta.category_name = category_name
-            write_meta(staging_root / meta.mod_name / "meta.ini", meta)
+            save_meta(staging_root / meta.mod_name / "meta.ini", meta)
     else:
         if save_results:
             changed = False
@@ -804,4 +853,4 @@ def _apply_update_result(
             if version_backfilled:
                 changed = True
             if changed:
-                write_meta(staging_root / meta.mod_name / "meta.ini", meta)
+                save_meta(staging_root / meta.mod_name / "meta.ini", meta)

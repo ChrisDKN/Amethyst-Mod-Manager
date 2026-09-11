@@ -18,6 +18,7 @@ request, so a check is cheap: one HTTP call per distinct package.
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable, Optional
@@ -92,6 +93,8 @@ def check_for_updates(staging_root: Path, *,
                       only_names: Optional[Iterable[str]] = None,
                       save_results: bool = True,
                       progress_cb: Optional[ProgressCallback] = None,
+                      installed_mods: Optional[list] = None,
+                      max_workers: int = 4,
                       ) -> list:
     """
     Check every Thunderstore mod in *staging_root* for a newer version.
@@ -102,21 +105,29 @@ def check_for_updates(staging_root: Path, *,
     the user muted via ``ignoreUpdate`` / ``ignoredVersion``.
     """
     subset = set(only_names) if only_names else None
-    installed = scan_installed(staging_root)
+    installed = (scan_installed(staging_root)
+                 if installed_mods is None else installed_mods)
     if subset is not None:
         installed = [(f, m) for (f, m) in installed if f.name in subset]
 
     # One lookup per distinct package, even when several folders share it.
+    packages = {m.package_id: (m.namespace, m.name) for _, m in installed}
+
+    def lookup(package):
+        namespace, name = package
+        if progress_cb:
+            progress_cb(f"checking {namespace}-{name}")
+        return _newest_version(namespace, name, host)
+
     looked_up: dict = {}
+    if packages:
+        with ThreadPoolExecutor(max_workers=min(max_workers, len(packages)),
+                                thread_name_prefix="thunderstore-update") as pool:
+            looked_up = dict(zip(packages, pool.map(lookup, packages.values())))
     results: list = []
 
     for folder, meta in installed:
         pkg_id = meta.package_id
-        if progress_cb:
-            progress_cb(f"checking {pkg_id}")
-
-        if pkg_id not in looked_up:
-            looked_up[pkg_id] = _newest_version(meta.namespace, meta.name, host)
         latest, deprecated, ok = looked_up[pkg_id]
 
         info = ThunderstoreUpdateInfo(
@@ -143,7 +154,10 @@ def check_for_updates(staging_root: Path, *,
         muted = meta.ignore_update or (
             meta.ignored_version and meta.ignored_version == latest)
 
-        if save_results:
+        if save_results and (
+                meta.latest_version != latest
+                or meta.has_update != (info.has_update and not muted)
+                or meta.is_deprecated != deprecated):
             try:
                 meta.latest_version = latest
                 meta.has_update = info.has_update and not muted

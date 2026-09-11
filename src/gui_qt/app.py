@@ -7850,39 +7850,21 @@ class MainWindow(QMainWindow):
         have_nexus = domain and api is not None
         have_modio = _modio_key_present(game)
         modio_api_path_missing = _modio_api_path_missing(game)
-        # Thunderstore needs no key or login at all - a profile of purely
-        # Thunderstore mods must still be checkable.
-        have_thunderstore = False
-        try:
-            from Thunderstore.thunderstore_update_checker import scan_installed
-            _stg = self._gs.staging_dir()
-            have_thunderstore = bool(_stg and scan_installed(Path(_stg)))
-        except Exception:
-            have_thunderstore = False
-
-        # mod.io (BG3) and Thunderstore can run without a Nexus login. Only bail
-        # for "needs Nexus login" when there is nothing else to fall back on.
-        if not have_nexus and not have_modio and not have_thunderstore:
+        unavailable_message = ""
+        if not have_nexus and not have_modio:
             if modio_api_path_missing:
-                self._notify(
-                    self.tr("Add the API path shown on mod.io's API Access page "
-                            "using the mod.io API Key tool."), "warning")
+                unavailable_message = self.tr(
+                    "Add the API path shown on mod.io's API Access page "
+                    "using the mod.io API Key tool.")
             elif getattr(game, "game_id", "") == "baldurs_gate_3":
-                self._notify(
-                    self.tr("Log in to Nexus (Nexus ▸ Login) or set a mod.io API key "
-                    "(mod.io API Key tool) to check for updates."), "warning")
+                unavailable_message = self.tr(
+                    "Log in to Nexus (Nexus ▸ Login) or set a mod.io API key "
+                    "(mod.io API Key tool) to check for updates.")
             elif not domain:
-                self._notify(self.tr("'{0}' has no Nexus Mods page.").format(game.name), "warning")
+                unavailable_message = self.tr("'{0}' has no Nexus Mods page.").format(game.name)
             else:
-                self._notify(
-                    self.tr("Log in first: Settings ▸ Connections ▸ Nexus ▸ Login via SSO."),
-                    "warning")
-            return
-
-        if modio_api_path_missing:
-            self._notify(
-                self.tr("mod.io update checking is disabled until its API path "
-                        "is added in the mod.io API Key tool."), "warning")
+                unavailable_message = self.tr(
+                    "Log in first: Settings ▸ Connections ▸ Nexus ▸ Login via SSO.")
 
         staging = self._gs.staging_dir()
         if staging is None:
@@ -7909,7 +7891,8 @@ class MainWindow(QMainWindow):
             # Carry the checked subset (None = all) so _on_updates_ready can do a
             # scoped, filemap-free flag refresh instead of a full reload.
             out = {"nexus": None, "modio": [], "thunderstore": [],
-                   "subset": subset}
+                   "subset": subset,
+                   "modio_api_path_missing": modio_api_path_missing}
             try:
                 # Run the mod.io check (BG3) in parallel with the Nexus check -
                 # they hit different APIs and write disjoint meta.ini keys.
@@ -7929,14 +7912,16 @@ class MainWindow(QMainWindow):
 
                 # Thunderstore too - no key needed, and it writes only its own
                 # [thunderstore] meta.ini section, so it is safe alongside both.
-                ts_box = {"results": []}
+                ts_box = {"results": [], "available": False}
 
                 def _ts_work():
                     from Thunderstore.thunderstore_update_checker import (
-                        check_for_updates as ts_check)
+                        check_for_updates as ts_check, scan_installed)
                     try:
+                        installed = scan_installed(staging)
+                        ts_box["available"] = bool(installed)
                         ts_box["results"] = ts_check(
-                            staging, only_names=subset,
+                            staging, only_names=subset, installed_mods=installed,
                             progress_cb=lambda m: self._op_log.emit(
                                 f"[thunderstore] {m}"))
                     except Exception as exc:
@@ -7962,6 +7947,8 @@ class MainWindow(QMainWindow):
                     out["modio"] = modio_box["results"]
                 ts_thread.join()
                 out["thunderstore"] = ts_box["results"]
+                if unavailable_message and not ts_box["available"]:
+                    out["unavailable"] = unavailable_message
             except Exception as exc:
                 self._append_log(f"update check failed: {exc}")
                 self._updates_ready.emit(None)
@@ -7992,6 +7979,14 @@ class MainWindow(QMainWindow):
         if result is None:
             _finish(self.tr("Update check failed - see the log."), "error")
             return
+
+        if result.get("unavailable"):
+            _finish(result["unavailable"], "warning")
+            return
+        if result.get("modio_api_path_missing"):
+            self._notify(
+                self.tr("mod.io update checking is disabled until its API path "
+                        "is added in the mod.io API Key tool."), "warning")
 
         nexus = result.get("nexus")
         modio = result.get("modio") or []
