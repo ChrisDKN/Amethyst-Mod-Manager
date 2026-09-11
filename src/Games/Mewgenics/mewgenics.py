@@ -335,6 +335,7 @@ class Mewgenics(BaseGame):
             filemap,
             unpack_dir,
             staging,
+            exclude=self._deploy_custom_routing_rules(mode, log_fn),
             mode=mode,
             strip_prefixes=self.mod_folder_strip_prefixes,
             per_mod_strip_prefixes=per_mod_strip,
@@ -361,6 +362,7 @@ class Mewgenics(BaseGame):
 
     def restore(self, log_fn=None, progress_fn=None) -> None:
         """Unpack resources.gpak, remove modded files, restore vanilla from backup, repack, remove Unpacked."""
+        self._restore_custom_routing_rules(log_fn)
         from Games.Mewgenics.gpak import extract_gpak, pack_gpak
 
         _log = log_fn or (lambda _: None)

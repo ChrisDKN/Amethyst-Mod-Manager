@@ -328,7 +328,7 @@ class DaggerfallUnity(ProfileVFSGameMixin, BaseGame):
     @property
     def custom_routing_rules(self) -> list:
         from Utils.deployment import CustomRule
-        return [CustomRule(dest=f"{_DATA_DIR}/{_MANAGED}",
+        return [CustomRule(rule_id='daggerfall_unity:74b1991261fa', dest=f"{_DATA_DIR}/{_MANAGED}",
                            extensions=[".dll"], flatten=True)]
 
     @property
@@ -965,12 +965,13 @@ class DaggerfallUnity(ProfileVFSGameMixin, BaseGame):
         _log(f"Step 1b: Routing managed assemblies into {_MANAGED}/ ...")
         custom_exclude = deploy_custom_rules(
             filemap, self._game_path, staging,
-            rules=self.custom_routing_rules,
+            rules=self.effective_custom_routing_rules,
             mode=mode,
             strip_prefixes=self.mod_folder_strip_prefixes,
             per_mod_strip_prefixes=per_mod_strip,
             log_fn=_log,
             progress_fn=progress_fn,
+            prefix_root=self.get_prefix_path(),
         )
 
         _log(f"Step 2: Transferring mod files into {data_dir} ({mode.name}) ...")
@@ -1034,8 +1035,9 @@ class DaggerfallUnity(ProfileVFSGameMixin, BaseGame):
         restore_custom_rules(
             self.get_effective_filemap_path(),
             self._game_path,
-            rules=self.custom_routing_rules,
+            rules=[],
             log_fn=_log,
+            prefix_root=self.get_prefix_path(),
         )
 
         _mj = _mods_json()

@@ -337,6 +337,8 @@ class SevenDaysToDie(BaseGame):
                 _log(f"  Skipped {skipped} staged {_TFP_HARMONY_DIR} "
                      "folder(s); using the game-owned copy.")
 
+        custom_exclude = self._deploy_custom_routing_rules(mode, log_fn)
+
         # --- Step 2: prefix-link every inner Mods/-style folder ---
         total_mods = len(mods_folders)
         total_data = len(data_items)
@@ -378,7 +380,7 @@ class SevenDaysToDie(BaseGame):
             # "Disable" checkboxes on wrapped inner mods actually match.
             offset = _subtree_offset(staging / staged_name, inner)
             keep = _make_keep(path_filters, staged_name, offset.lower(),
-                              strip_map.get(staged_name))
+                              strip_map.get(staged_name), custom_exclude)
             try:
                 placed_rels = _deploy_mod_folder(inner, dst, mode, keep)
                 # Overlay runtime files rescued to overwrite/ by earlier
@@ -425,7 +427,7 @@ class SevenDaysToDie(BaseGame):
             for _idx, staged_name, loose in data_items_low_to_high:
                 mod_root = staging / staged_name
                 keep = _make_keep(path_filters, staged_name, "",
-                                  strip_map.get(staged_name))
+                                  strip_map.get(staged_name), custom_exclude)
                 placed = _deploy_loose_items(
                     mod_root, loose, game_root, mode, _log, keep)
                 placed_paths.extend(placed)
@@ -476,6 +478,8 @@ class SevenDaysToDie(BaseGame):
         _log = log_fn or (lambda _: None)
         if self._game_path is None:
             raise RuntimeError("Game path is not configured.")
+
+        self._restore_custom_routing_rules(log_fn)
 
         game_root = self._game_path
         mods_dir = game_root / self.mods_dir
@@ -783,7 +787,8 @@ def _subtree_offset(stage_root: Path, inner: Path) -> str:
         return ""
 
 
-def _make_keep(path_filters, mod_name: str, offset: str, strip=None):
+def _make_keep(path_filters, mod_name: str, offset: str, strip=None,
+               custom_exclude: set[str] | None = None):
     """Build a ``keep(rel_key_lower) -> bool`` predicate that mirrors the
     filemap filter chain for ``mod_name``.  ``rel_key_lower`` is relative to the
     walked root; ``offset`` re-bases it onto the staged-root key space.
@@ -793,11 +798,18 @@ def _make_keep(path_filters, mod_name: str, offset: str, strip=None):
     post-strip space, so any wrapper prefix is peeled off the combined
     ``offset + rel_key`` before testing - otherwise "Disable" exclusions on
     wrapped content never match and the files deploy anyway."""
+    excluded = custom_exclude or set()
     if strip:
         from Utils.mods.files import rel_key_after_strip
-        return lambda rel_key: path_filters.accepts(
-            mod_name, rel_key_after_strip(offset + rel_key, strip))
-    return lambda rel_key: path_filters.accepts(mod_name, offset + rel_key)
+        def post_strip(rel_key):
+            return rel_key_after_strip(offset + rel_key, strip)
+    else:
+        def post_strip(rel_key):
+            return offset + rel_key
+    def keep(rel_key):
+        key = post_strip(rel_key)
+        return key not in excluded and path_filters.accepts(mod_name, key)
+    return keep
 
 
 def _deploy_mod_folder(src: Path, dst: Path, mode: LinkMode,

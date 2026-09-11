@@ -155,11 +155,11 @@ class Fallout_NV(Fallout_3):
     def custom_routing_rules(self) -> list:
         from Utils.deployment import CustomRule
         return [
-            CustomRule(dest="", filenames=["nvse*.dll"], flatten=True, loose_only=True),
-            CustomRule(dest="", folders=["Data"], flatten=True, loose_only=True),
-            CustomRule(dest="", filenames=["nvse_loader.exe"], flatten=True, loose_only=True),
-            CustomRule(dest="", filenames=["nvse*.pdb"], flatten=True, loose_only=True),
-            CustomRule(dest="", filenames=["FNVpatch.exe"], flatten=True, loose_only=True),
+            CustomRule(rule_id='fallout_nv:fde4d860f961', dest="", filenames=["nvse*.dll"], flatten=True, loose_only=True),
+            CustomRule(rule_id='fallout_nv:42b2892ccb1f', dest="", folders=["Data"], flatten=True, loose_only=True),
+            CustomRule(rule_id='fallout_nv:4b0617be17c4', dest="", filenames=["nvse_loader.exe"], flatten=True, loose_only=True),
+            CustomRule(rule_id='fallout_nv:2c5a2dd0484d', dest="", filenames=["nvse*.pdb"], flatten=True, loose_only=True),
+            CustomRule(rule_id='fallout_nv:a280a808ee8e', dest="", filenames=["FNVpatch.exe"], flatten=True, loose_only=True),
             self._saves_routing_rule([".fos"]),
                 ]
 

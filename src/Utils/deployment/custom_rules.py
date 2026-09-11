@@ -1386,9 +1386,10 @@ def root_rule_flag_candidates(game) -> list["CustomRule"]:
     Keeping this rule beside the deployment matcher prevents Filegraph and
     the legacy UI semantics from drifting apart again.
     """
+    from Utils.games.routing_rules import get_rules
     rules = [
         rule
-        for rule in (getattr(game, "custom_routing_rules", None) or ())
+        for rule in get_rules(game)
         if rule.dest == "" and not rule.to_prefix
     ]
     if not rules:

@@ -109,11 +109,11 @@ class SkyrimVR(Fallout_3):
     def custom_routing_rules(self) -> list:
         from Utils.deployment import CustomRule
         return [
-            CustomRule(dest="", filenames=["sksevr_loader.exe"], flatten=True, loose_only=True),
-            CustomRule(dest="", filenames=["sksevr*.dll"], flatten=True, loose_only=True),
-            CustomRule(dest="", folders=["Data"], flatten=True, loose_only=True),
-            CustomRule(dest="", folders=["bindings"], flatten=True, loose_only=True),
-            CustomRule(dest="", folders=["src"], flatten=True, loose_only=True),
+            CustomRule(rule_id='skyrim_vr:ba8a5a10a017', dest="", filenames=["sksevr_loader.exe"], flatten=True, loose_only=True),
+            CustomRule(rule_id='skyrim_vr:94020df19209', dest="", filenames=["sksevr*.dll"], flatten=True, loose_only=True),
+            CustomRule(rule_id='skyrim_vr:42b2892ccb1f', dest="", folders=["Data"], flatten=True, loose_only=True),
+            CustomRule(rule_id='skyrim_vr:d77e45d2c1b6', dest="", folders=["bindings"], flatten=True, loose_only=True),
+            CustomRule(rule_id='skyrim_vr:7bcf1a7ed4b0', dest="", folders=["src"], flatten=True, loose_only=True),
             self._saves_routing_rule([".ess"]),
         ]
 

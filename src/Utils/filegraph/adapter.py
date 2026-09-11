@@ -281,9 +281,18 @@ class GameCandidateAdapter:
 
     def _refresh_blacklist(self) -> None:
         from Utils.games.conflict_blacklist import effective_rules
+        from Utils.games.routing_rules import get_rules
         rules = effective_rules(self.game)
         if rules != getattr(self, "_ignore_rules", None):
             self._ignore_rules = rules
+            self._rules_hash_cache = None
+        routing = get_rules(self.game)
+        if routing != getattr(self, "_routing_rules", None):
+            self._routing_rules = routing
+            self._rules_hash_cache = None
+        customized = getattr(self.game, "_routing_overrides_active", False)
+        if customized != getattr(self, "_routing_overrides_active", None):
+            self._routing_overrides_active = customized
             self._rules_hash_cache = None
 
     def rules_hash(self) -> bytes:
@@ -304,7 +313,8 @@ class GameCandidateAdapter:
             "exclude_loose": getattr(game, "excluded_loose_filenames", ()),
             "required_top": getattr(game, "mod_required_top_level_folders", ()),
             "filter_top": getattr(game, "filemap_exclude_unknown_top_level", False),
-            "routing": getattr(game, "custom_routing_rules", ()),
+            "routing": self._routing_rules,
+            "routing_overrides": self._routing_overrides_active,
             "ue_routing": getattr(game, "ue5_routing_rules", ()),
             "ue_default": getattr(game, "ue5_default_dest", ""),
             "deploy_path_remap": getattr(game, "mod_deploy_path_remap", {}),
@@ -423,7 +433,8 @@ class GameCandidateAdapter:
             self.log(f"Top-level exemption check warning: {exc}")
             return set()
 
-    def _accept(self, mod_name: str, raw_lower: str, routed_rel: str) -> bool:
+    def _accept(self, mod_name: str, raw_lower: str, routed_rel: str,
+                *, custom_routed: bool = False) -> bool:
         routed_lower = routed_rel.lower()
         if raw_lower in self._raw_excluded.get(mod_name, ()):
             return False
@@ -431,7 +442,7 @@ class GameCandidateAdapter:
             str(item).lower()
             for item in (getattr(self.game, "mod_install_extensions", None) or ())
         }
-        if allowed_extensions:
+        if allowed_extensions and not custom_routed:
             filename = routed_lower.rsplit("/", 1)[-1]
             if not any(filename.endswith(ext) and len(filename) > len(ext)
                        for ext in allowed_extensions):
@@ -451,6 +462,7 @@ class GameCandidateAdapter:
                    for pattern in folder_patterns):
                 return False
         if (getattr(self.game, "filemap_exclude_unknown_top_level", False)
+                and not custom_routed
                 and mod_name not in self._top_level_exempt
                 and mod_name not in self._per_mod_deploy
                 and "/" in routed_lower):
@@ -471,6 +483,7 @@ class GameCandidateAdapter:
                 return False
         allow_default = getattr(self.game, "filegraph_allow_default_path", None)
         if (handler_spec is None
+                and not custom_routed
                 and mod_name not in self._root_mods
                 and raw_lower not in self._raw_root_files.get(mod_name, ())
                 and mod_name not in self._per_mod_deploy
@@ -554,14 +567,14 @@ class GameCandidateAdapter:
                 else:
                     route_target = "game"
                 full = self._join(destination, final_rel)
-                out[staged_rel.lower()] = [_Route(
+                out.setdefault(staged_rel.lower(), []).append(_Route(
                     route_target, _wire_path(full), full, staged_rel,
-                    deploy_remap=False)]
+                    deploy_remap=False))
 
         # Generic custom routing uses the same matcher as deployment.  The
         # identity key is exact; display spelling remains the candidate's own
         # spelling until the Rust casing pass chooses a winner-dependent form.
-        rules = getattr(self.game, "custom_routing_rules", None) or ()
+        rules = self._routing_rules
         if rules:
             try:
                 from Utils.deployment.custom_rules import (
@@ -572,7 +585,7 @@ class GameCandidateAdapter:
                 custom_routes = {}
             for path in normal:
                 key = path.lower()
-                if key in out:
+                if key in out and all(route.target != "prefix" for route in out[key]):
                     continue
                 destinations = custom_routes.get(key)
                 if destinations:
@@ -872,13 +885,22 @@ class GameCandidateAdapter:
             for item in (getattr(self.game, "mod_install_extensions", None) or ())
         }
         per_file_roots = self._raw_root_files.get(mod_name, set())
-        for raw in raw_files:
-            raw_display = raw.display.replace("\\", "/")
-            staged = self._strip(mod_name, raw_display)
+        staged_files = ((raw, self._strip(mod_name, raw.display.replace("\\", "/")))
+                        for raw in raw_files)
+        custom_claims = {}
+        if (self._routing_overrides_active and self._routing_rules
+                and mod_name not in self._raw_route_mods):
+            from Utils.deployment.custom_rules import compute_routed_destinations
+            staged_files = list(staged_files)
+            custom_claims = compute_routed_destinations(
+                [staged for raw, staged in staged_files if staged
+                 and self._accept(mod_name, raw.display.replace("\\", "/").lower(),
+                                  staged, custom_routed=True)], self._routing_rules)
+        for raw, staged in staged_files:
             if not staged:
                 continue
             filename = staged.lower().rsplit("/", 1)[-1]
-            if (not allowed_extensions
+            if (not allowed_extensions or staged.lower() in custom_claims
                     or any(filename.endswith(ext) and len(filename) > len(ext)
                            for ext in allowed_extensions)):
                 key = staged.lower()
@@ -937,7 +959,8 @@ class GameCandidateAdapter:
                 ),
             )
             source_lower = source_raw.display.replace("\\", "/").lower()
-            if not self._accept(mod_name, source_lower, staged):
+            if not self._accept(mod_name, source_lower, staged,
+                                custom_routed=key in custom_claims):
                 continue
             processed.append((source_raw, source_lower, staged))
             if key in indexed_roots:

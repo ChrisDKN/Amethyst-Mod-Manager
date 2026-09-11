@@ -294,6 +294,7 @@ class ResidentEvilVillage(ProfileVFSGameMixin, BaseGame):
         progress_fn=None,
         state_dir: Path | None = None,
         write_snapshot: bool = True,
+        exclude: set[str] | None = None,
     ) -> tuple[int, set[str]]:
         """Place loose files physically or into a private VFS build layer."""
         _log = log_fn or (lambda _: None)
@@ -353,6 +354,7 @@ class ResidentEvilVillage(ProfileVFSGameMixin, BaseGame):
                 per_mod_strip_prefixes=per_mod_strip,
                 log_fn=_log,
                 progress_fn=progress_fn,
+                exclude=exclude,
                 path_remap=self.mod_deploy_path_remap or None,
                 ext_remap=tex_ext_remap or None,
                 file_transform=file_transform,
@@ -626,6 +628,7 @@ class ResidentEvilVillage(ProfileVFSGameMixin, BaseGame):
             "Step 1: Deploying mod files to game root, backing up "
             "overwritten vanilla files ..."
         )
+        custom_exclude = self._deploy_custom_routing_rules(mode, log_fn)
         linked_mod, placed_lower = self._deploy_loose_filemap(
             filemap=filemap,
             destination=self._game_path,
@@ -635,7 +638,10 @@ class ResidentEvilVillage(ProfileVFSGameMixin, BaseGame):
             per_mod_strip=per_mod_strip,
             log_fn=_log,
             progress_fn=progress_fn,
+            exclude=custom_exclude,
         )
+        placed_lower.update(self._custom_routing_destinations_under(
+            custom_exclude, self._game_path))
         _log(f"  Deployed {linked_mod} mod file(s).")
         self._patch_pak_files(
             placed_lower, profile=profile, log_fn=_log)
@@ -647,6 +653,8 @@ class ResidentEvilVillage(ProfileVFSGameMixin, BaseGame):
 
         if self._game_path is None:
             raise RuntimeError("Game path is not configured.")
+
+        self._restore_custom_routing_rules(log_fn)
 
         _profile_dir = self._active_profile_dir
         _entries = read_modlist(_profile_dir / "modlist.txt") if _profile_dir else []

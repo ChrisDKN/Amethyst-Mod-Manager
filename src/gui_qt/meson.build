@@ -9,6 +9,8 @@ py.install_sources(
   'audio_preview.py',
   'app.py',
   'backup_restore_view.py',
+  'blacklist_overlay.py',
+  'routing_rules_overlay.py',
   'bain_picker_view.py',
   'bsa_pack_overlay.py',
   'bsa_preview.py',

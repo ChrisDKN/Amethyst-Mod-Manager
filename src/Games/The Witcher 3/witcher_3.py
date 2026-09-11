@@ -297,6 +297,8 @@ class Witcher3(ProfileVFSGameMixin, BaseGame):
                 progress_fn=progress_fn,
             )
 
+        custom_exclude = self._deploy_custom_routing_rules(mode, log_fn)
+
         profile_dir        = self.get_profile_root() / "profiles" / profile
         per_mod_strip      = load_per_mod_strip_prefixes(profile_dir)
         _sep_deploy = load_separator_deploy_paths(profile_dir)
@@ -346,6 +348,10 @@ class Witcher3(ProfileVFSGameMixin, BaseGame):
 
         for i, line in enumerate(lines):
             staged_rel, mod_name = line.split("\t", 1)
+            if staged_rel.lower() in custom_exclude:
+                if progress_fn:
+                    progress_fn(i + 1, total)
+                continue
 
             base_dir = per_mod_deploy.get(mod_name, game_path)
             in_custom_dir = base_dir != game_path
@@ -674,6 +680,8 @@ class Witcher3(ProfileVFSGameMixin, BaseGame):
 
         if self._game_path is None:
             raise RuntimeError("Game path is not configured.")
+
+        self._restore_custom_routing_rules(log_fn)
 
         game_path     = self._game_path
         manifest_path = self.get_profile_root() / _DEPLOYED_MANIFEST

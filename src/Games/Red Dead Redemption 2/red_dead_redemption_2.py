@@ -113,7 +113,7 @@ class RedDeadRedemption2(ProfileVFSGameMixin, BaseGame):
     @property
     def custom_routing_rules(self) -> list[CustomRule]:
         return [
-            CustomRule(
+            CustomRule(rule_id='red_dead_redemption_2:b4115a1d67b4',
                     dest="",
                     filenames=[
                         "dinput8.dll",
@@ -126,7 +126,7 @@ class RedDeadRedemption2(ProfileVFSGameMixin, BaseGame):
                     ], 
                     flatten=True
                 ),
-            CustomRule(
+            CustomRule(rule_id='red_dead_redemption_2:a33957964bc3',
                     dest="", 
                     extensions=[
                         ".asi"
@@ -136,7 +136,7 @@ class RedDeadRedemption2(ProfileVFSGameMixin, BaseGame):
                     ],
                     flatten=True
                 ),
-            CustomRule(
+            CustomRule(rule_id='red_dead_redemption_2:653d49ce3c8f',
                     dest="",
                     folders=[
                         "x64",
@@ -242,7 +242,7 @@ class RedDeadRedemption2(ProfileVFSGameMixin, BaseGame):
         per_mod_modes = expand_separator_link_modes(_sep_deploy, _sep_entries) or None
         per_mod_raw = expand_separator_raw_deploy(_sep_deploy, _sep_entries) or None
 
-        custom_rules = self.custom_routing_rules
+        custom_rules = self.effective_custom_routing_rules
         custom_exclude: set[str] = set()
         if custom_rules:
             _log("Step 1: Routing loader binaries to game root ...")
@@ -255,6 +255,7 @@ class RedDeadRedemption2(ProfileVFSGameMixin, BaseGame):
                 per_mod_link_modes=per_mod_modes,
                 log_fn=_log,
                 raw_mods=per_mod_raw,
+                prefix_root=self.get_prefix_path(),
             )
             _log(f"Step 2: Moving {data_dir.name}/ → {core}/ ...")
         else:
@@ -307,13 +308,12 @@ class RedDeadRedemption2(ProfileVFSGameMixin, BaseGame):
         _entries = read_modlist(_profile_dir / "modlist.txt") if _profile_dir else []
         cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log, game=self)
 
-        custom_rules = self.custom_routing_rules
-        if custom_rules:
-            _log("Restore: removing custom-routed loader binaries ...")
-            restore_custom_rules(
-                self.get_effective_filemap_path(), game_root,
-                rules=custom_rules, log_fn=_log,
-            )
+        _log("Restore: removing custom-routed loader binaries ...")
+        restore_custom_rules(
+            self.get_effective_filemap_path(), game_root,
+            rules=[], log_fn=_log,
+            prefix_root=self.get_prefix_path(),
+        )
 
         from Utils.vfs import cleanup_deployment, has_deployment_state
         if has_deployment_state(self):

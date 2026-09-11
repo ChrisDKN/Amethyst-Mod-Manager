@@ -82,10 +82,10 @@ class Fallout_4VR(Fallout_3):
     def custom_routing_rules(self) -> list:
         from Utils.deployment import CustomRule
         return [
-            CustomRule(dest="", filenames=["f4sevr_steam_loader.dll"], flatten=True, loose_only=True),
-            CustomRule(dest="", filenames=["f4sevr_loader.exe"], flatten=True, loose_only=True),
-            CustomRule(dest="", folders=["Data"], flatten=True, loose_only=True),
-            CustomRule(dest="", filenames=["f4sevr*.dll"], flatten=True, loose_only=True),
+            CustomRule(rule_id='fallout_4vr:ec8d844f04f5', dest="", filenames=["f4sevr_steam_loader.dll"], flatten=True, loose_only=True),
+            CustomRule(rule_id='fallout_4vr:84b3774b3d1b', dest="", filenames=["f4sevr_loader.exe"], flatten=True, loose_only=True),
+            CustomRule(rule_id='fallout_4vr:42b2892ccb1f', dest="", folders=["Data"], flatten=True, loose_only=True),
+            CustomRule(rule_id='fallout_4vr:f303019012fc', dest="", filenames=["f4sevr*.dll"], flatten=True, loose_only=True),
             self._saves_routing_rule([".fos"]),
                 ]
 

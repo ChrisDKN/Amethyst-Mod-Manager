@@ -59,6 +59,7 @@ class DataView(QWidget):
         self._data_prefix = ""
         self._expected_custom_target = None
         self._include_game_root = False
+        self._include_routing_targets = False
         self._game_root_label = "<root>"
         self._data_root_label = "Data"
         self._build()
@@ -92,6 +93,10 @@ class DataView(QWidget):
         self._deploys_to_subfolder = dtlogic.deploys_to_subfolder(self.game)
         self._include_game_root = bool(
             getattr(self.game, "data_tab_include_game_root", False))
+        from Utils.games.routing_rules import get_rules
+        get_rules(self.game)
+        self._include_routing_targets = bool(
+            getattr(self.game, "_routing_overrides_active", False))
         self._game_root_label = str(
             getattr(self.game, "data_tab_game_root_label", "<root>")
             or "<root>").replace("\\", "/").strip("/")
@@ -116,6 +121,7 @@ class DataView(QWidget):
 
     def set_snapshot(self, snapshot):
         self.snapshot = snapshot
+        self._refresh_projection_context()
         self._resolved_cache = None
         self.mark_dirty()
 
@@ -138,16 +144,18 @@ class DataView(QWidget):
                         path = path[len(prefix):]
                         if self._include_game_root:
                             path = f"{self._data_root_label}/{path}"
-                    elif self._include_game_root:
+                    elif self._include_game_root or self._include_routing_targets:
                         path = f"{self._game_root_label}/{path}"
                     else:
                         return None
-                elif self._include_game_root:
+                elif self._include_game_root or self._include_routing_targets:
                     # The normal data target is outside the game root. Any
                     # candidate in the game domain therefore belongs to root.
                     path = f"{self._game_root_label}/{path}"
             elif self._include_game_root:
                 path = f"{self._game_root_label}/{path}"
+        elif target == "prefix" and self._include_routing_targets:
+            path = f"<prefix>/{path}"
         elif (self._expected_custom_target is None
               or target != self._expected_custom_target):
             return None
@@ -178,6 +186,11 @@ class DataView(QWidget):
 
     def apply_resolution_delta(self, snapshot, delta) -> None:
         """Publish a native winner delta without rebuilding the whole tree."""
+        previous_routing_targets = self._include_routing_targets
+        self._refresh_projection_context()
+        if previous_routing_targets != self._include_routing_targets:
+            self.set_snapshot(snapshot)
+            return
         # A game-specific hidden-entry predicate may depend on a different
         # winner (Stardew's overwrite config is visible only while some mod
         # wins the sibling manifest.json).  That cross-path dependency is not

@@ -614,7 +614,7 @@ class OpenMW(BaseGame):
             )
 
         profile_dir = self.get_profile_root() / "profiles" / profile
-        if self.vfs_enabled:
+        if self.vfs_enabled and not self.effective_custom_routing_rules:
             self._deploy_native_vfs(
                 vanilla_dir, profile_dir, staging, log_fn=_log,
                 progress_fn=progress_fn,
@@ -633,6 +633,7 @@ class OpenMW(BaseGame):
         per_mod_deploy = expand_separator_deploy_paths(_sep_deploy, _sep_entries) or None
         linked_mod, _placed = deploy_filemap(
             filemap, data_dir, staging,
+            exclude=self._deploy_custom_routing_rules(mode, log_fn),
             mode=mode,
             strip_prefixes=self.mod_folder_strip_prefixes,
             per_mod_strip_prefixes=per_mod_strip,
@@ -746,7 +747,7 @@ class OpenMW(BaseGame):
         )
         _log(
             f"OpenMW VFS deploy complete. Added {len(data_dirs) - 1} "
-            "additional data director(y/ies); no mod files were transferred."
+            "additional data director(y/ies); mod content is loaded from these directories."
         )
 
     @staticmethod
@@ -768,6 +769,7 @@ class OpenMW(BaseGame):
         return [name for _owner, name in archives]
 
     def restore(self, log_fn=None, progress_fn=None) -> None:
+        self._restore_custom_routing_rules(log_fn)
         _log = log_fn or (lambda _: None)
 
         if self._game_path is None:
@@ -797,10 +799,11 @@ class OpenMW(BaseGame):
                 self._profile_groundcover_plugins(_profile_dir, cfg_path)
             restore_openmw_cfg(cfg_path, data_dirs=[vanilla_dir], log_fn=_log)
 
-        if not was_vfs:
+        deployed_dirs = self._deployed_data_dirs()
+        if not was_vfs or deployed_dirs:
             _log("Restore: clearing the profile OpenMW data directories ...")
             cleared = 0
-            for deployed in self._deployed_data_dirs():
+            for deployed in deployed_dirs:
                 cleared += self._clear_deployed_dir(deployed, log_fn=_log)
             _log(f"  Removed {cleared} deployed director(y/ies).")
 

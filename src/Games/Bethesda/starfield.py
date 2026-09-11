@@ -107,9 +107,9 @@ class Starfield(Fallout_3):
     def custom_routing_rules(self) -> list:
         from Utils.deployment import CustomRule
         return [
-            CustomRule(dest="", filenames=["sfse_loader.exe"], flatten=True, loose_only=True),
-            CustomRule(dest="", filenames=["sfse*.dll"], flatten=True, loose_only=True),
-            CustomRule(dest="", folders=["Data"], flatten=True, loose_only=True),
+            CustomRule(rule_id='starfield:c7b7b8282f1c', dest="", filenames=["sfse_loader.exe"], flatten=True, loose_only=True),
+            CustomRule(rule_id='starfield:66f38608023e', dest="", filenames=["sfse*.dll"], flatten=True, loose_only=True),
+            CustomRule(rule_id='starfield:42b2892ccb1f', dest="", folders=["Data"], flatten=True, loose_only=True),
             self._saves_routing_rule([".sfs"]),
         ]
 

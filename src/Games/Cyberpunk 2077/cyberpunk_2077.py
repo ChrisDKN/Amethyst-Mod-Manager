@@ -138,13 +138,13 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
     @property
     def custom_routing_rules(self) -> list[CustomRule]:
         return [
-            CustomRule(
+            CustomRule(rule_id='cyberpunk_2077:9608abbaf6a4',
                 dest="archive/pc/mod",
                 extensions=[".archive"],
                 companion_extensions=[".xl"],
                 loose_only=True,
             ),
-            CustomRule(
+            CustomRule(rule_id='cyberpunk_2077:9dfbd499fa02',
                 dest="archive/pc/mod",
                 extensions=[".xl"],
                 loose_only=True,
@@ -291,7 +291,7 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
         per_mod_modes = expand_separator_link_modes(_sep_deploy, _sep_entries) or None
         per_mod_raw = expand_separator_raw_deploy(_sep_deploy, _sep_entries) or None
 
-        custom_rules = self.custom_routing_rules
+        custom_rules = self.effective_custom_routing_rules
         custom_exclude: set[str] = set()
         if custom_rules:
             _log("Routing loose .archive/.xl files to archive/pc/mod/ ...")
@@ -304,6 +304,7 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
                 per_mod_link_modes=per_mod_modes,
                 raw_mods=per_mod_raw,
                 log_fn=_log,
+                prefix_root=self.get_prefix_path(),
             )
 
         _log(f"Transferring mod files into game root ({mode.name}) ...")
@@ -705,10 +706,8 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
         filemap   = self.get_effective_filemap_path()
         game_root = self._game_path
 
-        custom_rules = self.custom_routing_rules
-        if custom_rules:
-            _log("Restore: removing custom-routed .archive files ...")
-            restore_custom_rules(filemap, game_root, rules=custom_rules, log_fn=_log)
+        _log("Restore: removing custom-routed .archive files ...")
+        restore_custom_rules(filemap, game_root, rules=[], log_fn=_log, prefix_root=self.get_prefix_path())
 
         # Restore follows the state that actually exists rather than the
         # current toggle. A user can turn VFS off after deploying, and an older

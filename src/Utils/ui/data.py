@@ -18,12 +18,11 @@ from pathlib import Path
 
 
 def deploys_to_subfolder(game) -> bool:
-    """True when mods deploy into a SUBFOLDER of the game root (Skyrim's Data/,
-    Morrowind's Data Files/) - the Data tab shows that subfolder, so files that
-    deploy to the game root fall outside its scope and must be hidden. False
-    for root-deployed games (deploy dir == game root, e.g. Witcher 3), where
-    root-bound files land inside the shown tree. Falls back to the mods_dir
-    property when the paths aren't configured."""
+    """Whether normal mod data lives separately from the game root.
+
+    The view decides whether to show additional routing destinations.
+    Fall back to mods_dir when paths aren't configured.
+    """
     try:
         gp = game.get_game_path()
         dp = game.get_mod_data_path()

@@ -291,9 +291,9 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
     def custom_routing_rules(self) -> list:
         from Utils.deployment import CustomRule
         return [
-            CustomRule(dest="", filenames=["fose_loader.exe"], flatten=True, loose_only=True),
-            CustomRule(dest="", folders=["Data"], flatten=True, loose_only=True),
-            CustomRule(dest="", filenames=["fose*.dll"], flatten=True, loose_only=True),
+            CustomRule(rule_id='fallout_3:abb8b8d9e72f', dest="", filenames=["fose_loader.exe"], flatten=True, loose_only=True),
+            CustomRule(rule_id='fallout_3:42b2892ccb1f', dest="", folders=["Data"], flatten=True, loose_only=True),
+            CustomRule(rule_id='fallout_3:853eca2b27b4', dest="", filenames=["fose*.dll"], flatten=True, loose_only=True),
             self._saves_routing_rule([".fos"]),
                 ]
 
@@ -304,7 +304,7 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
         mirrors: list[str] = []
         if self._prefix_path is not None and (self._prefix_path / self._MYGAMES_DOCS / gog_sub).is_dir():
             mirrors.append(str(self._MYGAMES_DOCS / gog_sub / "Saves"))
-        return CustomRule(
+        return CustomRule(rule_id='fallout_3:7dd628b5eb3e',
             dest=str(self._MYGAMES_DOCS / self._MYGAMES_SUBPATH / "Saves"),
             extensions=extensions, flatten=True, to_prefix=True,
             mirror_dests=mirrors,
@@ -1724,7 +1724,7 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
         per_mod_modes = expand_separator_link_modes(_sep_deploy, _sep_entries) or None
         per_mod_raw = expand_separator_raw_deploy(_sep_deploy, _sep_entries) or None
 
-        custom_rules = self.custom_routing_rules
+        custom_rules = self.effective_custom_routing_rules
         custom_exclude: set[str] = set()
         if custom_rules:
             _log("Step 0: Routing files via custom rules ...")
@@ -1820,13 +1820,12 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
             game=self,
         )
 
-        custom_rules = self.custom_routing_rules
-        if custom_rules and self._game_path:
+        if self._game_path:
             _log("Restore: removing custom-routed files ...")
             restore_custom_rules(
                 self.get_effective_filemap_path(),
                 self._game_path,
-                rules=custom_rules,
+                rules=[],
                 log_fn=_log,
                 prefix_root=self.get_prefix_path(),
             )

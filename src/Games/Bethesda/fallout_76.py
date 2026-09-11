@@ -79,8 +79,8 @@ class Fallout_76(Fallout_3):
     def custom_routing_rules(self) -> list:
         from Utils.deployment import CustomRule
         return [
-            CustomRule(dest="", filenames=["dxgi.dll"], flatten=True),
-            CustomRule(dest="", folders=["Data"], flatten=True, loose_only=True),
+            CustomRule(rule_id='fallout_76:967f4eb0cbaa', dest="", filenames=["dxgi.dll"], flatten=True),
+            CustomRule(rule_id='fallout_76:42b2892ccb1f', dest="", folders=["Data"], flatten=True, loose_only=True),
             self._saves_routing_rule([".fos"]),
         ]
 

@@ -134,7 +134,7 @@ class DragonAgeOrigins(BaseGame):
         # normalized into the data-folder layout at install time and deploys
         # via the normal filemap path.
         return [
-            CustomRule(dest="", folders=["bin_ship"], flatten=False),
+            CustomRule(rule_id='dragon_age_origins:05687dde5f05', dest="", folders=["bin_ship"], flatten=False),
         ]
 
     @property
@@ -278,7 +278,7 @@ class DragonAgeOrigins(BaseGame):
         per_mod_modes = expand_separator_link_modes(_sep_deploy, _sep_entries) or None
         per_mod_raw = expand_separator_raw_deploy(_sep_deploy, _sep_entries) or None
 
-        custom_rules = self.custom_routing_rules
+        custom_rules = self.effective_custom_routing_rules
         custom_exclude: set[str] = set()
         if custom_rules and self._game_path:
             _log("Step 1a: Routing bin_ship/ files to game root ...")
@@ -291,6 +291,7 @@ class DragonAgeOrigins(BaseGame):
                 per_mod_link_modes=per_mod_modes,
                 log_fn=_log,
                 raw_mods=per_mod_raw,
+                prefix_root=self.get_prefix_path(),
             )
             _log(f"  Routed {len(custom_exclude)} file(s) to game root.")
 
@@ -373,15 +374,14 @@ class DragonAgeOrigins(BaseGame):
             )
 
         if self._game_path:
-            custom_rules = self.custom_routing_rules
-            if custom_rules:
-                _log("Restore: removing custom-routed bin_ship/ files ...")
-                restore_custom_rules(
-                    self.get_effective_filemap_path(),
-                    self._game_path,
-                    rules=custom_rules,
-                    log_fn=_log,
-                )
+            _log("Restore: removing custom-routed bin_ship/ files ...")
+            restore_custom_rules(
+                self.get_effective_filemap_path(),
+                self._game_path,
+                rules=[],
+                log_fn=_log,
+                prefix_root=self.get_prefix_path(),
+            )
 
         _profile_dir = self._active_profile_dir
         _entries = read_modlist(_profile_dir / "modlist.txt") if _profile_dir else []

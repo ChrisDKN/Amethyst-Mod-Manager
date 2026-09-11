@@ -80,7 +80,7 @@ class TheSims4(BaseGame):
     def custom_routing_rules(self) -> list[CustomRule]:
         """Tray files go to the prefix Tray/ folder, not Mods/."""
         return [
-            CustomRule(dest=str(_TRAY_SUBPATH), extensions=_TRAY_EXTENSIONS,
+            CustomRule(rule_id='the_sims_4:764037fc0f9a', dest=str(_TRAY_SUBPATH), extensions=_TRAY_EXTENSIONS,
                        flatten=True, to_prefix=True),
         ]
 
@@ -179,7 +179,7 @@ class TheSims4(BaseGame):
         _sep_entries = read_modlist(profile_dir / "modlist.txt") if _sep_deploy else []
         per_mod_deploy = expand_separator_deploy_paths(_sep_deploy, _sep_entries) or None
 
-        custom_rules = self.custom_routing_rules
+        custom_rules = self.effective_custom_routing_rules
         custom_exclude: set[str] = set()
         if custom_rules:
             _log("Step 0: Routing Tray files into the prefix Tray/ folder ...")
@@ -233,16 +233,14 @@ class TheSims4(BaseGame):
         _entries = read_modlist(_profile_dir / "modlist.txt") if _profile_dir else []
         cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log, game=self)
 
-        custom_rules = self.custom_routing_rules
-        if custom_rules:
-            _log("Restore: removing custom-routed Tray files ...")
-            restore_custom_rules(
-                self.get_effective_filemap_path(),
-                self._game_path or self._prefix_path,
-                rules=custom_rules,
-                log_fn=_log,
-                prefix_root=self._prefix_path,
-            )
+        _log("Restore: removing custom-routed Tray files ...")
+        restore_custom_rules(
+            self.get_effective_filemap_path(),
+            self._game_path or self._prefix_path,
+            rules=[],
+            log_fn=_log,
+            prefix_root=self._prefix_path,
+        )
 
         _log("Restore: clearing Mods/ and moving Mods_Core/ back ...")
         restored = restore_data_core(

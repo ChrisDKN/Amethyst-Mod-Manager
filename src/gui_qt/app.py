@@ -2310,6 +2310,10 @@ class MainWindow(QMainWindow):
         self._data_blacklist_btn.setFixedHeight(self._FOOT_BTN_H)
         self._data_blacklist_btn.clicked.connect(self._open_data_blacklist)
         btns.addWidget(self._data_blacklist_btn)
+        self._data_routing_btn = self._text_button(self.tr("Routing Rules"), compact=True)
+        self._data_routing_btn.setFixedHeight(self._FOOT_BTN_H)
+        self._data_routing_btn.clicked.connect(self._open_data_routing_rules)
+        btns.addWidget(self._data_routing_btn)
         v.addLayout(btns)
 
         search_row = QHBoxLayout()
@@ -2369,6 +2373,39 @@ class MainWindow(QMainWindow):
         expanded = self._data_view._toggle_expand_all()
         self._data_expand_btn.setText(self.tr("⊟ Collapse all") if expanded
                                       else self.tr("⊞ Expand all"))
+
+    def _open_data_routing_rules(self):
+        from Utils.games.routing_rules import load_entries, save_entries
+        from gui_qt.routing_rules_overlay import RoutingRulesOverlay
+
+        game = self._gs.game
+
+        def edit_error():
+            if game is None or self._gs.game is not game:
+                return self.tr("Select a game before editing its routing rules.")
+            return self._blacklist_edit_error(game)
+
+        error = edit_error()
+        if error:
+            self._show_warn_popup(self.tr("Routing Rules"), error, None)
+            return
+        try:
+            initial = load_entries(game)
+        except (OSError, ValueError) as exc:
+            self._show_warn_popup(self.tr("Routing Rules"), str(exc), None)
+            return
+
+        def save(entries):
+            error = edit_error()
+            if error:
+                raise ValueError(error)
+            if entries != initial:
+                if load_entries(game) != initial:
+                    raise ValueError(self.tr("Routing rules changed while the editor was open. Close and reopen it before saving."))
+                save_entries(game, entries)
+                self._rebuild_conflicts_async()
+
+        RoutingRulesOverlay(self.window(), game, initial, save)
 
     def _overrides_footer(self) -> QWidget:
         """Refresh, shown under the plugins column when the Overrides sub-tab

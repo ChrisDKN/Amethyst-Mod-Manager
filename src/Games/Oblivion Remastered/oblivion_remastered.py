@@ -287,65 +287,65 @@ class OblivionRemastered(UE5Game):
     @property
     def custom_routing_rules(self) -> list[CustomRule]:
         return [
-            CustomRule(dest="Unused",
+            CustomRule(rule_id='oblivion_remastered:a29bfe0724f8', dest="Unused",
                         folders=["wingdk", "src", "True Oblivion.ini Merger"]),
 
-            CustomRule(dest="Unused", 
+            CustomRule(rule_id='oblivion_remastered:9263ebc4d543', dest="Unused",
                         filenames=["Altar.ini"],
                         flatten=True),
             
             # Required as our strip prefix rules do not apply to fomods
-            CustomRule(dest="", 
+            CustomRule(rule_id='oblivion_remastered:9ce48fc8b0c6', dest="",
                         folders=["Content", "Binaries"], 
                         flatten=True),
 
-            CustomRule(dest="Binaries/Win64", 
+            CustomRule(rule_id='oblivion_remastered:dda20ad01a5c', dest="Binaries/Win64",
                         filenames=["*obse64_*.*"],
                         flatten=True),
 
-            CustomRule(dest="Content/Paks", 
+            CustomRule(rule_id='oblivion_remastered:d3bf2f7c409b', dest="Content/Paks",
                         folders=["LogicMods"], 
                         flatten=True),
 
-            CustomRule(dest="Binaries/Win64",
+            CustomRule(rule_id='oblivion_remastered:b077042f79b7', dest="Binaries/Win64",
                         folders=["ue4ss", "obse", "GameSettings",
                                 "MadConfigs", "SkipMessages"],
                         flatten=True),
 
-            CustomRule(dest="Content/Paks/~mods", 
+            CustomRule(rule_id='oblivion_remastered:752aa4de93bc', dest="Content/Paks/~mods",
                         extensions=[".pak"],
                         companion_extensions=[".ucas", ".utoc"],
                         include_siblings=True),
 
-            CustomRule(dest="Binaries/Win64/ue4ss/Mods",
+            CustomRule(rule_id='oblivion_remastered:594071d285ce', dest="Binaries/Win64/ue4ss/Mods",
                         folders=["scripts", "dlls"], 
                         include_siblings=True),
         
-            CustomRule(dest="Binaries/Win64/ue4ss/Mods",
+            CustomRule(rule_id='oblivion_remastered:6b67352ff5e5', dest="Binaries/Win64/ue4ss/Mods",
                         filenames=["enabled.txt"], 
                         include_siblings=True),
 
-            CustomRule(dest="Binaries/Win64/ue4ss/Mods",
+            CustomRule(rule_id='oblivion_remastered:8351e32126f3', dest="Binaries/Win64/ue4ss/Mods",
                         filenames=["mods.txt"], 
                         flatten=True),
 
-            CustomRule(dest="Content/Dev/ObvData/Data",
+            CustomRule(rule_id='oblivion_remastered:669935429391', dest="Content/Dev/ObvData/Data",
                         extensions=[".esm", ".esp"], 
                         flatten=True),
 
-            CustomRule(dest="Content/Dev/ObvData/Data",
+            CustomRule(rule_id='oblivion_remastered:5acfe5b620ba', dest="Content/Dev/ObvData/Data",
                         folders=["MagicLoader", "bashtags","SyncMap","sound"], 
                         flatten=True),
 
-            CustomRule(dest="Content/Movies/Modern", 
+            CustomRule(rule_id='oblivion_remastered:83e3d5ba62a2', dest="Content/Movies/Modern",
                         extensions=[".bk2"],
                         flatten=True),
 
-            CustomRule(dest="Binaries/Win64/ue4ss/Mods",
+            CustomRule(rule_id='oblivion_remastered:b5431a066309', dest="Binaries/Win64/ue4ss/Mods",
                         folders=["shared", "NPCAppearanceManager"], 
                         flatten=True),
 
-            CustomRule(dest="Unused",
+            CustomRule(rule_id='oblivion_remastered:e29749d3df09', dest="Unused",
                         extensions=[".txt"], 
                         loose_only=True),
         ]

@@ -138,10 +138,10 @@ class Fallout_4(Fallout_3):
     def custom_routing_rules(self) -> list:
         from Utils.deployment import CustomRule
         return [
-            CustomRule(dest="", filenames=["f4se_loader.exe"], flatten=True, loose_only=True),
-            CustomRule(dest="", filenames=["f4se*.dll"], flatten=True, loose_only=True),
-            CustomRule(dest="", folders=["Data"], flatten=True, loose_only=True),
-            CustomRule(dest="", filenames=["CustomControlMap.txt"], flatten=True, loose_only=True),
+            CustomRule(rule_id='fallout_4:21658df1edd5', dest="", filenames=["f4se_loader.exe"], flatten=True, loose_only=True),
+            CustomRule(rule_id='fallout_4:952082ae0722', dest="", filenames=["f4se*.dll"], flatten=True, loose_only=True),
+            CustomRule(rule_id='fallout_4:42b2892ccb1f', dest="", folders=["Data"], flatten=True, loose_only=True),
+            CustomRule(rule_id='fallout_4:1787289cbcae', dest="", filenames=["CustomControlMap.txt"], flatten=True, loose_only=True),
             self._saves_routing_rule([".fos"]),
                 ]
 

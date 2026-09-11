@@ -36,13 +36,13 @@ class MonsterHunterRise(ResidentEvilRequiem):
     def custom_routing_rules(self) -> list:
         from Utils.deployment import CustomRule
         return super().custom_routing_rules + [
-            CustomRule(
+            CustomRule(rule_id='monster_hunter_rise:9f9044efba36',
                 dest="reframework/quests",
                 extensions=[".json"],
                 flatten=True,
                 loose_only=True,
             ),
-            CustomRule(
+            CustomRule(rule_id='monster_hunter_rise:00d408b218c9',
                 dest="reframework",
                 folders=["quests"],
                 flatten=True,

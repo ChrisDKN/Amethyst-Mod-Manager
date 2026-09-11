@@ -245,16 +245,19 @@ class StardewValley(ProfileVFSGameMixin, BaseGame):
         per_mod_deploy = expand_separator_deploy_paths(_sep_deploy, _sep_entries) or None
         _orphan_configs = self._prepare_mod_filemap(
             filemap, staging, log_fn=_log)
+        custom_exclude = self._deploy_custom_routing_rules(mode, log_fn)
         linked_mod, placed = deploy_filemap(filemap, plugins_dir, staging,
                                             mode=mode,
                                             strip_prefixes=self.mod_folder_strip_prefixes,
                                             per_mod_strip_prefixes=per_mod_strip,
                                             per_mod_deploy_dirs=per_mod_deploy,
-                                            exclude=_orphan_configs or None,
+                                            exclude=(_orphan_configs or set()) | custom_exclude,
                                             log_fn=_log,
                                             progress_fn=progress_fn,
                                             core_dir=plugins_dir.parent / (plugins_dir.name + "_Core"))
         _log(f"  Transferred {linked_mod} mod file(s).")
+        placed.update(self._custom_routing_destinations_under(
+            custom_exclude, plugins_dir))
 
         _log(f"Step 3: Filling gaps with vanilla files from {core}/ ...")
         linked_core = deploy_core(plugins_dir, placed, mode=mode, log_fn=_log)
@@ -357,6 +360,7 @@ class StardewValley(ProfileVFSGameMixin, BaseGame):
 
     def restore(self, log_fn=None, progress_fn=None) -> None:
         """Restore Mods/ to its vanilla state."""
+        self._restore_custom_routing_rules(log_fn)
         _log = log_fn or (lambda _: None)
 
         if self._game_path is None:

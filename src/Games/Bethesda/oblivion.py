@@ -103,9 +103,9 @@ class Oblivion(Fallout_3):
     def custom_routing_rules(self) -> list:
         from Utils.deployment import CustomRule
         return [
-            CustomRule(dest="", filenames=["obse_loader.exe"], flatten=True, loose_only=True),
-            CustomRule(dest="", folders=["Data"], flatten=True, loose_only=True),
-            CustomRule(dest="", filenames=["obse*.dll"], flatten=True, loose_only=True),
+            CustomRule(rule_id='oblivion:05fe14b74ba2', dest="", filenames=["obse_loader.exe"], flatten=True, loose_only=True),
+            CustomRule(rule_id='oblivion:42b2892ccb1f', dest="", folders=["Data"], flatten=True, loose_only=True),
+            CustomRule(rule_id='oblivion:5ecd4e8458ef', dest="", filenames=["obse*.dll"], flatten=True, loose_only=True),
             self._saves_routing_rule([".ess"]),
         ]
 

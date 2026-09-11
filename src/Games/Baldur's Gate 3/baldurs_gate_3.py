@@ -334,21 +334,21 @@ class BaldursGate3(BaseGame):
     @property
     def custom_routing_rules(self) -> list:
         return [
-            CustomRule(dest="Data", folders=["Generated"], flatten=True),
-            CustomRule(dest="Data", folders=["Public"], flatten=True),
-            CustomRule(dest="Data", folders=["Video"], flatten=True),
+            CustomRule(rule_id='baldurs_gate_3:9938c3abb940', dest="Data", folders=["Generated"], flatten=True),
+            CustomRule(rule_id='baldurs_gate_3:260e83ff37d3', dest="Data", folders=["Public"], flatten=True),
+            CustomRule(rule_id='baldurs_gate_3:0dd406713109', dest="Data", folders=["Video"], flatten=True),
             # Loose files under Mods/ (unpacked mods) go to game Data/Mods,
             # but .pak files under Mods/ must reach the Larian AppData Mods
             # folder via the normal deploy (a common Nexus packaging layout).
-            CustomRule(dest="Data", folders=["Mods"], flatten=True,
+            CustomRule(rule_id='baldurs_gate_3:e2beec0646d7', dest="Data", folders=["Mods"], flatten=True,
                        exclude_extensions=[".pak"]),
-            CustomRule(dest="Data", folders=["Cursors"], flatten=True),
-            CustomRule(dest="bin", folders=["NativeMods"], flatten=True),
-            CustomRule(dest="bin",
+            CustomRule(rule_id='baldurs_gate_3:12eb3a65ff17', dest="Data", folders=["Cursors"], flatten=True),
+            CustomRule(rule_id='baldurs_gate_3:e98f686550e4', dest="bin", folders=["NativeMods"], flatten=True),
+            CustomRule(rule_id='baldurs_gate_3:d290a00d692c', dest="bin",
                        filenames=["DWrite.dll", "ScriptExtenderSettings.json"],
                        flatten=True),
-            CustomRule(dest="", folders=["bin"], flatten=True),
-            CustomRule(dest="", folders=["Data"], flatten=True),
+            CustomRule(rule_id='baldurs_gate_3:81cfaf864b70', dest="", folders=["bin"], flatten=True),
+            CustomRule(rule_id='baldurs_gate_3:42b2892ccb1f', dest="", folders=["Data"], flatten=True),
         ]
 
     def _collection_install_types(
@@ -746,7 +746,7 @@ class BaldursGate3(BaseGame):
         per_mod_raw = expand_separator_raw_deploy(_sep_deploy, _entries)
         per_mod_raw = per_mod_raw or None
 
-        custom_rules = self.custom_routing_rules
+        custom_rules = self.effective_custom_routing_rules
         custom_exclude: set[str] = set()
         if custom_rules and self._game_path:
             _log("Step 1a: Routing bin/ and generated/ files via custom rules ...")
@@ -759,6 +759,7 @@ class BaldursGate3(BaseGame):
                 per_mod_link_modes=per_mod_modes,
                 log_fn=_log,
                 raw_mods=per_mod_raw,
+                prefix_root=self.get_prefix_path(),
             )
             _log(f"  Routed {len(custom_exclude)} file(s) to Data/.")
 
@@ -863,15 +864,14 @@ class BaldursGate3(BaseGame):
 
         # Undo custom-routed files (bin/ and generated/ → game root / Data/)
         if self._game_path:
-            custom_rules = self.custom_routing_rules
-            if custom_rules:
-                _log("Restore: removing custom-routed files (bin/, generated/) ...")
-                restore_custom_rules(
-                    self.get_effective_filemap_path(),
-                    self._game_path,
-                    rules=custom_rules,
-                    log_fn=_log,
-                )
+            _log("Restore: removing custom-routed files (bin/, generated/) ...")
+            restore_custom_rules(
+                self.get_effective_filemap_path(),
+                self._game_path,
+                rules=[],
+                log_fn=_log,
+                prefix_root=self.get_prefix_path(),
+            )
 
         _profile_dir = self._active_profile_dir
         _entries = read_modlist(_profile_dir / "modlist.txt") if _profile_dir else []

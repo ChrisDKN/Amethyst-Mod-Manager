@@ -64,7 +64,7 @@ from Utils.deployment import (
     _resolve_nocase, _resolve_root_path,
     _write_deploy_snapshot, _move_runtime_files, _FILEMAP_SNAPSHOT_NAME,
 )
-from Utils.deployment.shared import _move_crash_safe
+from Utils.deployment.shared import CustomRule, _move_crash_safe
 from Utils.deployment.custom_rules import (
     deploy_custom_rules, restore_custom_rules, compute_prefix_handled,
     canonicalize_declared_folders,
@@ -189,6 +189,7 @@ class UE5Rule:
     flatten: bool = False
     loose_only: bool = False
     include_siblings: bool = False
+    _custom_rule: CustomRule | None = field(default=None, repr=False, compare=False)
 
 
 def _declared_folders(rule: UE5Rule) -> tuple[str, ...]:
@@ -328,7 +329,7 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
         ``_apply_companion_routing``.
         """
         rules: list[UE5Rule] = []
-        for cr in self.custom_routing_rules:
+        for cr in self.effective_custom_routing_rules:
             if getattr(cr, "to_prefix", False):
                 continue
             if cr.folders:
@@ -349,7 +350,7 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
                             strip=[parent_strip],
                             loose_only=cr.loose_only,
                             flatten=cr.flatten,
-                            include_siblings=cr.include_siblings,
+                            include_siblings=cr.include_siblings, _custom_rule=cr,
                         ))
                         # Also generate prefix rules for common UE5 packaging
                         # prefixes above the target folder (Paks, Content,
@@ -367,7 +368,7 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
                                 strip=[full_parent],
                                 loose_only=cr.loose_only,
                                 flatten=cr.flatten,
-                                include_siblings=cr.include_siblings,
+                                include_siblings=cr.include_siblings, _custom_rule=cr,
                             ))
                     else:
                         # Single-segment: match the folder name anywhere in
@@ -378,7 +379,7 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
                             folder_anywhere=norm_folder, filenames=fnames,
                             loose_only=cr.loose_only,
                             flatten=cr.flatten,
-                            include_siblings=cr.include_siblings,
+                            include_siblings=cr.include_siblings, _custom_rule=cr,
                         ))
             elif cr.filenames:
                 rules.append(UE5Rule(
@@ -387,7 +388,7 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
                     filenames=list(cr.filenames),
                     loose_only=cr.loose_only,
                     flatten=cr.flatten,
-                    include_siblings=cr.include_siblings,
+                    include_siblings=cr.include_siblings, _custom_rule=cr,
                 ))
             else:
                 rules.append(UE5Rule(
@@ -395,7 +396,7 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
                     extensions=list(cr.extensions),
                     loose_only=cr.loose_only,
                     flatten=cr.flatten,
-                    include_siblings=cr.include_siblings,
+                    include_siblings=cr.include_siblings, _custom_rule=cr,
                 ))
         return rules
 
@@ -726,6 +727,9 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
             # must be at the top level (handled inline below).
             # loose_only on ext/filename-only: file itself must be loose
             # (handled by the late check before ext/filename branches).
+            if rule._custom_rule and any(basename.endswith(ext.lower())
+                                         for ext in rule._custom_rule.exclude_extensions):
+                continue
             if rule.prefix and norm.lower().startswith(rule.prefix.lower() + "/"):
                 # If the rule also has an extension filter, only match when
                 # the file's extension is in the list.
@@ -792,6 +796,10 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
         basename = parts[-1].lower() if parts else ""
         is_loose = len(parts) == 1
         lower_segs = [p.lower() for p in parts]
+
+        if rule._custom_rule and any(basename.endswith(ext.lower())
+                                     for ext in rule._custom_rule.exclude_extensions):
+            return None
 
         def _ext_hit(exts):
             for e in sorted(exts, key=len, reverse=True):
@@ -937,7 +945,7 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
         before the UE5 manifest deploy runs, and are skipped by the manifest
         pipeline via the ``_PREFIX_SKIP_DEST`` sentinel.
         """
-        return [r for r in self.custom_routing_rules
+        return [r for r in self.effective_custom_routing_rules
                 if getattr(r, "to_prefix", False)]
 
     def _resolve_filemap_entries(
@@ -964,7 +972,7 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
         prefix_handled: set[str] = set()
         if prefix_rules:
             prefix_handled, _ = compute_prefix_handled(
-                entries, self.custom_routing_rules,
+                entries, self.effective_custom_routing_rules,
             )
             core_entries = [
                 (sr, mn) for sr, mn in entries
@@ -980,6 +988,7 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
             for sr, mn in core_entries
         ]
         claimed: set[int] = set()
+        owners: dict[tuple[str, str], CustomRule] = {}
 
         # Process rules in declaration order. For each rule:
         #   1. Claim every still-unclaimed entry that this rule matches as
@@ -1012,6 +1021,8 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
                         final_rel = canonicalize_declared_folders(final_rel, declared)
                         per_entry[i] = (staged_rel, mod_name, rule.dest, final_rel)
                         claimed.add(i)
+                        if rule._custom_rule:
+                            owners[(staged_rel, mod_name)] = rule._custom_rule
                         new_primaries.append((i, dyn_strip, is_folder_match))
                         continue
                 # Non-include_siblings: standard flatten / preserve placement.
@@ -1025,6 +1036,8 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
                 final_rel = canonicalize_declared_folders(final_rel, declared)
                 per_entry[i] = (staged_rel, mod_name, rule.dest, final_rel)
                 claimed.add(i)
+                if rule._custom_rule:
+                    owners[(staged_rel, mod_name)] = rule._custom_rule
             # Drag siblings for include_siblings primaries.
             if not rule.include_siblings or not new_primaries:
                 continue
@@ -1065,6 +1078,8 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
                         final_rel, _declared_folders(rule))
                     per_entry[i] = (staged_rel, mod_name, rule.dest, final_rel)
                     claimed.add(i)
+                    if rule._custom_rule:
+                        owners[(staged_rel, mod_name)] = rule._custom_rule
 
         # Keep IoStore sets together and promote detected blueprint mods.
         # Runs after the rule loop so it can see where the rules actually sent
@@ -1083,7 +1098,11 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
                         (sr, mn, self._PREFIX_SKIP_DEST, sr.replace("\\", "/"))
                     )
 
-        per_entry = self._apply_companion_routing(entries, per_entry)
+        per_entry = self._apply_companion_routing(entries, per_entry, owners)
+        for sr, mn, _dest, final in tuple(per_entry):
+            owner = owners.get((sr, mn))
+            if owner is not None:
+                per_entry.extend((sr, mn, dest, final) for dest in owner.mirror_dests)
         return self._canonicalize_routed_dir_casing(per_entry)
 
     def _canonicalize_routed_dir_casing(
@@ -1275,7 +1294,7 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
                         Path(staged_rel.replace("\\", "/")).name,
                     )
 
-    def _apply_companion_routing(self, entries, resolved):
+    def _apply_companion_routing(self, entries, resolved, owners):
         """Re-route same-folder same-stem siblings to ride along with a primary
         match from a ``custom_routing_rules`` entry that declares
         ``companion_extensions``.
@@ -1287,7 +1306,7 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
         overrides the companion's entry with the same ``dest_rel`` and a
         stem-swapped ``final_rel``.  A no-op for games with no companion rules.
         """
-        user_rules = [r for r in self.custom_routing_rules
+        user_rules = [r for r in self.effective_custom_routing_rules
                       if getattr(r, "companion_extensions", None)
                       and not getattr(r, "to_prefix", False)]
         if not user_rules:
@@ -1306,7 +1325,8 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
             groups.setdefault((mn, parent_lower), []).append((sr, norm))
         # Match each user rule against entries to find its primaries; ride
         # along companions for each one.
-        claimed: set[tuple[str, str]] = set()
+        claimed = set(owners) | {(sr, mn) for sr, mn, dest, _final in resolved
+                                 if dest == self._PREFIX_SKIP_DEST}
         for rule in user_rules:
             _r, folders, exts, filenames = _normalise_rule(rule)
             companions = sorted(
@@ -1314,7 +1334,7 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
                 key=len, reverse=True,
             )
             for sr, mn in entries:
-                if (sr, mn) in claimed:
+                if owners.get((sr, mn)) != rule:
                     continue
                 norm = sr.replace("\\", "/")
                 rel_lower = norm.lower()
@@ -1368,6 +1388,7 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
                         continue
                     resolved[sib_idx] = (sib_sr, mn, primary_dest, companion_final)
                     claimed.add((sib_sr, mn))
+                    owners[(sib_sr, mn)] = rule
         return resolved
 
     # -----------------------------------------------------------------------
@@ -1813,29 +1834,20 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
         # rules with include_siblings can drag in same-mod files under the
         # matched file's containing folder.
         parsed = [tuple(line.split("\t", 1)) for line in lines]
-        rule_resolved = {
-            (sr, mn): (dr, fr)
-            for sr, mn, dr, fr in self._resolve_filemap_entries(
-                [(sr, mn) for sr, mn in parsed]
-            )
-        }
+        rule_resolved = [row for row in self._resolve_filemap_entries(parsed)
+                         if row[1] not in per_mod_raw]
+        rule_resolved.extend((sr, mn, "", sr.replace("\\", "/"))
+                             for sr, mn in parsed if mn in per_mod_raw)
         resolved_by_dest: dict[
             str, tuple[int, str, str, str, Path, Path, bool, str, Path]
         ] = {}
         dest_case_cache: dict = {}
         prefix_skip_dest = getattr(self, "_PREFIX_SKIP_DEST", None)
-        for staged_rel, mod_name in parsed:
+        for staged_rel, mod_name, dest_rel, final_rel in rule_resolved:
             base_dir = per_mod_deploy.get(mod_name, game_path)
             in_custom_dir = base_dir != game_path
-            if mod_name in per_mod_raw:
-                final_rel = staged_rel.replace("\\", "/")
-                dest_rel = ""
-            else:
-                dest_rel, final_rel = rule_resolved[(staged_rel, mod_name)]
-                # Files routed into the Proton/Wine prefix are placed by
-                # deploy_custom_rules before this loop runs; skip them here.
-                if prefix_skip_dest is not None and dest_rel == prefix_skip_dest:
-                    continue
+            if prefix_skip_dest is not None and dest_rel == prefix_skip_dest:
+                continue
             effective_rel = (Path(dest_rel) / final_rel
                              if dest_rel else Path(final_rel))
             # Resolve against folders already present in the target. This is
@@ -2564,15 +2576,13 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
                 "also remains and will be restored now."
             )
 
-        prefix_rules = self._prefix_routing_rules()
-        if prefix_rules:
-            filemap = self.get_effective_filemap_path()
-            _log("Restore: removing prefix-routed files ...")
-            restore_custom_rules(
-                filemap, self._game_path,
-                rules=prefix_rules, log_fn=_log,
-                prefix_root=self.get_prefix_path(),
-            )
+        filemap = self.get_effective_filemap_path()
+        _log("Restore: removing prefix-routed files ...")
+        restore_custom_rules(
+            filemap, self._game_path,
+            rules=[], log_fn=_log,
+            prefix_root=self.get_prefix_path(),
+        )
 
         manifest_path = self._ue5_deployed_manifest_path()
         if not manifest_path.is_file():
