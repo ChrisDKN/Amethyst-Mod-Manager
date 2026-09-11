@@ -18886,7 +18886,7 @@ class MainWindow(QMainWindow):
         step when the context is flagged as a refresh."""
         self._on_sort_plugins(refresh=True)
 
-    def _on_sync_plugins(self):
+    def _on_sync_plugins(self, _checked=False, *, confirmed=False):
         """Match plugin load order to ascending mod priority."""
         if self._sort_running:
             self._notify(self.tr("A sort is already running."), "info")
@@ -18951,6 +18951,25 @@ class MainWindow(QMainWindow):
         if not moved:
             self._notify(self.tr("Plugin load order already matches the modlist."), "info")
             return
+
+        if not confirmed:
+            body = (
+                self.tr("This will move 1 plugin to match modlist priority.")
+                if moved == 1 else
+                self.tr("This will move {0} plugins to match modlist priority.").format(
+                    moved)
+            )
+            from gui_qt.confirm_overlay import ConfirmOverlay
+            ConfirmOverlay.show_over(
+                self,
+                self.tr("Sync plugin load order?"),
+                body,
+                lambda ok: self._on_sync_plugins(confirmed=True) if ok else None,
+                confirm_label=self.tr("Sync"),
+                danger=False,
+            )
+            return
+
         try:
             save_plugins(game, profile, new_rows)
         except Exception as exc:

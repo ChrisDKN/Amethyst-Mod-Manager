@@ -8911,6 +8911,18 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
         <translation>Plugin load order already matches the modlist.</translation>
     </message>
     <message>
+        <source>This will move 1 plugin to match modlist priority.</source>
+        <translation>This will move 1 plugin to match modlist priority.</translation>
+    </message>
+    <message>
+        <source>This will move {0} plugins to match modlist priority.</source>
+        <translation>This will move {0} plugins to match modlist priority.</translation>
+    </message>
+    <message>
+        <source>Sync plugin load order?</source>
+        <translation>Sync plugin load order?</translation>
+    </message>
+    <message>
         <source>Synced - 1 plugin moved.</source>
         <translation>Synced - 1 plugin moved.</translation>
     </message>
