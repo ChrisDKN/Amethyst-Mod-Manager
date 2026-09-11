@@ -131,6 +131,15 @@ def extensions_from_paths(paths, ignore_patterns=(), ignore_folders=()) -> set[s
     return out
 
 
+def is_pbr_texture(path, ignore_patterns=(), ignore_folders=()) -> bool:
+    path = str(path).replace("\\", "/").lower()
+    return (
+        path.startswith("textures/pbr/")
+        and path.endswith(".dds")
+        and ".dds" in extensions_from_paths((path,), ignore_patterns, ignore_folders)
+    )
+
+
 def _badges_for_exts(exts) -> set[str]:
     """The extension-driven badges implied by a set of file extensions."""
     out = set()

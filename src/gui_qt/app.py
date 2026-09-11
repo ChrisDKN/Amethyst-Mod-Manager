@@ -17661,7 +17661,7 @@ class MainWindow(QMainWindow):
     def _apply_modlist_content(self):
         """Compute the Content column's badges and push them to the model.
 
-        Everything here is already in memory: the filetype/PBR/plugin/archive
+        Everything here is already in memory: the filetype/plugin/archive
         facets the Filters panel builds, the FOMOD/BAIN sets read from meta.ini,
         and - for the archive tone - the filegraph's already-parsed archive
         members. No archive is opened and no directory is walked; the only
@@ -17682,7 +17682,6 @@ class MainWindow(QMainWindow):
         self._content_gen = getattr(self, "_content_gen", 0) + 1
         gen = self._content_gen
         mod_filetypes = dict(data.mod_filetypes)
-        pbr = set(data.mods_with_pbr)
         plugins = set(data.mods_with_plugins)
         archives = set(data.mods_with_bsa)
         fomod = set(getattr(self, "_mod_fomod", set()))
@@ -17693,6 +17692,7 @@ class MainWindow(QMainWindow):
         # licences, modinfo files) says nothing about a mod's contents, so it
         # must not raise a badge either.
         game = self._gs.game
+        detect_pbr = getattr(game, "nexus_game_domain", "") == "skyrimspecialedition"
         from Utils.games.conflict_blacklist import effective_rules
         ignore_patterns, ignore_folders = effective_rules(game)
 
@@ -17700,7 +17700,9 @@ class MainWindow(QMainWindow):
 
         def scan():
             from gui_qt.modlist_content import (
-                compute_badges, extensions_from_paths, BADGE_EXTENSIONS)
+                compute_badges, extensions_from_paths, is_pbr_texture,
+                BADGE_EXTENSIONS)
+            pbr = set()
             archive_sourced: dict[str, set[str]] = {}
             loose_paths: dict[str, list[str]] = {}
             scanned = False
@@ -17708,6 +17710,10 @@ class MainWindow(QMainWindow):
                 try:
                     for copy in snapshot.asset_copies(
                             names, extensions=sorted(BADGE_EXTENSIONS)):
+                        if (detect_pbr and copy.mod_name not in pbr
+                                and is_pbr_texture(
+                                    copy.legacy_rel, ignore_patterns, ignore_folders)):
+                            pbr.add(copy.mod_name)
                         if copy.namespace == "archive":
                             archive_sourced.setdefault(
                                 copy.mod_name, []).append(copy.legacy_rel)
