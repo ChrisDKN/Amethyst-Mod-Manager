@@ -1680,6 +1680,26 @@ def save_allow_prerelease(value: bool) -> None:
     _write_ini(parser, path)
 
 
+def load_discord_presence() -> bool:
+    try:
+        return _read_ini(get_ui_config_path()).getboolean(
+            "discord", "rich_presence", fallback=False)
+    except Exception:
+        return False
+
+
+def save_discord_presence(value: bool) -> None:
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if "discord" not in parser:
+        parser["discord"] = {}
+    parser["discord"]["rich_presence"] = "true" if value else "false"
+    _write_ini(parser, path)
+
+
 def load_update_notifications() -> bool:
     """Whether to show the app-update banner on startup (default True)."""
     path = get_ui_config_path()

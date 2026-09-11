@@ -33,6 +33,7 @@ py.install_sources(
   'data_delegate.py',
   'data_model.py',
   'data_view.py',
+  'discord_presence.py',
   'date_picker_overlay.py',
   'detachable_tabs.py',
   'eliding_label.py',

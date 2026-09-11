@@ -521,6 +521,13 @@ class MainWindow(QMainWindow):
                 "Initialize window palette and game state",
                 phase_started=phase_started, category="UI")
         self._gs.load(timing=startup_timing)
+        from gui_qt.discord_presence import DiscordPresence
+        from Utils.ui.config import load_discord_presence
+        self._discord_presence = DiscordPresence(
+            lambda: self._gs.game.name if self._gs.game is not None else None,
+            self)
+        app.aboutToQuit.connect(self._discord_presence.stop)
+        self._discord_presence.set_enabled(load_discord_presence())
         phase_started = _startup_time.perf_counter()
         self._conflicts_ready.connect(self._on_conflicts_ready)
         self._conflicts_failed.connect(self._on_conflicts_failed)
@@ -12400,6 +12407,7 @@ class MainWindow(QMainWindow):
             return
         self._save_filter_states()
         self._save_window_state()
+        self._discord_presence.stop()
         try:
             from Nexus.nxm_handler import NxmIPC
             NxmIPC.shutdown()      # release the IPC socket(s)

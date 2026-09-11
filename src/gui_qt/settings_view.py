@@ -1301,6 +1301,12 @@ class SettingsView(ConnectionsSettingsMixin, OverlayBase):
     def _build_general(self):
         g = self._section(self.tr("General"))
         self._checkbox(
+            g, self.tr("Discord Rich Presence"),
+            uc.load_discord_presence, uc.save_discord_presence,
+            help=self.tr("Show Amethyst and the game you are modding on your "
+                         "Discord profile while the Discord desktop app is running."),
+            on_changed=self._window._discord_presence.set_enabled)
+        self._checkbox(
             g, self.tr("Normalise folder casing"),
             uc.load_normalize_folder_case, uc.save_normalize_folder_case,
             help=self.tr("Unify folder names to a single casing across mods. Disable on "

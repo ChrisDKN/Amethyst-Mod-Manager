@@ -14861,6 +14861,14 @@ Merge your conflicts, then close it and click Done.</translation>
 <context>
     <name>SettingsView</name>
     <message>
+        <source>Discord Rich Presence</source>
+        <translation>Discord Rich Presence</translation>
+    </message>
+    <message>
+        <source>Show Amethyst and the game you are modding on your Discord profile while the Discord desktop app is running.</source>
+        <translation>Show Amethyst and the game you are modding on your Discord profile while the Discord desktop app is running.</translation>
+    </message>
+    <message>
         <source>Settings</source>
         <translation>Settings</translation>
     </message>
