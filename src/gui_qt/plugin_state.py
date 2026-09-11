@@ -1670,6 +1670,38 @@ def apply_loot_sort(rows: list[PluginRow], locked_indices: dict[int, PluginRow],
     return new_rows, moved
 
 
+def apply_modlist_order(rows: list[PluginRow], mod_names: list[str],
+                        plugin_owner: dict[str, str]
+                        ) -> "tuple[list[PluginRow], int, int]":
+    """Order plugins by ascending mod priority, then by filename role."""
+    positions = {name.lower(): i for i, name in enumerate(mod_names)}
+    patch_patterns = (
+        r"(?:hot|bug)[ ._-]?fix", r"\bfix\b", "patch", "add[ ._-]?on",
+        "expansion", "expanded", "extension", "ext", "remastered",
+    )
+
+    def sort_key(item):
+        index, row = item
+        owner = plugin_owner.get(row.name.lower())
+        if row.vanilla:
+            return (-2, (), index, "")
+        mod_pos = positions.get(owner.lower()) if owner else None
+        name = row.name.lower()
+        role = tuple(bool(re.search(pattern, name))
+                     for pattern in patch_patterns)
+        return (-1 if mod_pos is None else mod_pos, role, len(name), name)
+
+    matched = 0
+    for row in rows:
+        owner = plugin_owner.get(row.name.lower())
+        if owner and owner.lower() in positions:
+            matched += 1
+    ordered = [row for _, row in sorted(enumerate(rows), key=sort_key)]
+    moved = sum(a.name.lower() != b.name.lower()
+                for a, b in zip(rows, ordered))
+    return ordered, moved, matched
+
+
 def save_plugins(game, profile: str, rows: list[PluginRow]) -> None:
     """Write the plugin order + enable state back to disk.
 

@@ -2175,6 +2175,7 @@ class MainWindow(QMainWindow):
         for label, disp in [
             ("Sort Plugins", self.tr("Sort Plugins")),
             ("Refresh Plugins", self.tr("Refresh Plugins")),
+            ("Sync", self.tr("Sync")),
             ("Groups", self.tr("Groups")),
             ("Plugin Rules", self.tr("Plugin Rules")),
         ]:
@@ -2189,12 +2190,16 @@ class MainWindow(QMainWindow):
         v.addLayout(btns)
         self._plugin_sort_btn = _made["Sort Plugins"]
         self._plugin_refresh_btn = _made["Refresh Plugins"]
+        self._plugin_sync_btn = _made["Sync"]
+        self._plugin_sync_btn.setToolTip(
+            self.tr("Match plugin load order to modlist priority"))
         self._plugin_groups_btn = _made["Groups"]
         self._plugin_rules_btn = _made["Plugin Rules"]
         self._plugin_filters_btn = self._filters_button()
         self._plugin_footer_btns.append(self._plugin_filters_btn)
         self._plugin_sort_btn.clicked.connect(self._on_sort_plugins)
         self._plugin_refresh_btn.clicked.connect(self._on_refresh_plugins)
+        self._plugin_sync_btn.clicked.connect(self._on_sync_plugins)
         self._plugin_groups_btn.clicked.connect(self._open_plugin_groups_tab)
         self._plugin_rules_btn.clicked.connect(self._open_plugin_rules_tab)
         self._plugin_filters_btn.clicked.connect(self._toggle_plugin_filters)
@@ -18881,6 +18886,90 @@ class MainWindow(QMainWindow):
         step when the context is flagged as a refresh."""
         self._on_sort_plugins(refresh=True)
 
+    def _on_sync_plugins(self):
+        """Match plugin load order to ascending mod priority."""
+        if self._sort_running:
+            self._notify(self.tr("A sort is already running."), "info")
+            return
+        game = self._gs.game
+        profile = self._gs.profile
+        profile_dir = self._gs.profile_dir()
+        if (game is None or not game.is_configured()
+                or not profile or profile_dir is None):
+            self._notify(self.tr("No configured game selected."), "warning")
+            return
+        rows = list(self._plugin_model.natural_rows())
+        if not rows:
+            self._notify(self.tr("No plugins to sync."), "warning")
+            return
+
+        conflict_data = getattr(self, "_conflict_data", None)
+        if (not getattr(self, "_conflict_maps_current", False)
+                or self._plugins_applied_gen != self._plugins_gen
+                or conflict_data is None
+                or getattr(conflict_data, "snapshot", None) is None
+                or getattr(conflict_data, "profile_id", None)
+                != str(profile_dir.resolve(strict=False))
+                or getattr(self, "_deploy_running", False)):
+            self._notify(
+                self.tr("Plugin sources are being refreshed. Try Sync when loading finishes."),
+                "info")
+            return
+
+        from Utils.filegraph.constants import OVERWRITE_NAME, ROOT_FOLDER_NAME
+        # modlist.txt is highest-first; sync follows ascending mod priority.
+        mod_names = [
+            entry.name for entry in reversed(
+                self._modlist_model.natural_entries())
+            if not entry.is_separator
+            or entry.name in (OVERWRITE_NAME, ROOT_FOLDER_NAME)
+        ]
+        from gui_qt.plugin_state import (
+            apply_modlist_order, enforce_master_block, master_block_enabled,
+            save_plugins,
+        )
+        from Utils.plugins import enforce_primary_plugin_order
+        new_rows, _moved, matched = apply_modlist_order(
+            rows, mod_names, conflict_data.plugin_owner)
+        if not matched:
+            self._notify(self.tr("No plugins are owned by mods in the modlist."), "info")
+            return
+        if master_block_enabled(game):
+            new_rows, _ = enforce_master_block(new_rows)
+        new_rows, _ = enforce_primary_plugin_order(game, new_rows)
+        locked = {i: row for i, row in enumerate(rows)
+                  if self._plugin_model.is_locked_name(row.name)}
+        if any(new_rows[i].name.lower() != row.name.lower()
+               for i, row in locked.items()):
+            self._notify(
+                self.tr("Locked plugin positions prevent syncing with the modlist."),
+                "error")
+            return
+
+        moved = sum(a.name.lower() != b.name.lower()
+                    for a, b in zip(rows, new_rows))
+        if not moved:
+            self._notify(self.tr("Plugin load order already matches the modlist."), "info")
+            return
+        try:
+            save_plugins(game, profile, new_rows)
+        except Exception as exc:
+            self._notify(self.tr("Failed to write load order: {0}").format(exc), "error")
+            return
+
+        selected, current = self._capture_plugin_selection()
+        self._plugin_model.set_natural_rows(new_rows)
+        self._apply_plugin_search()
+        self._apply_plugin_filters()
+        self._restore_plugin_selection(selected, current)
+        self._plugin_view.refresh_missing_marker()
+        self._plugin_view.refresh_cycle_marker()
+        self._rebuild_conflicts_async(edit_ctx=("plugin_order",))
+        self._notify(
+            (self.tr("Synced - 1 plugin moved.") if moved == 1
+             else self.tr("Synced - {0} plugins moved.").format(moved)),
+            "success")
+
     def _on_sort_plugins(self, _checked=False, *, refresh=False):
         """Run isolated LOOT work and apply the result on the UI thread."""
         if self._sort_running:
@@ -18984,6 +19073,8 @@ class MainWindow(QMainWindow):
         self._plugin_sort_btn.setText(self.tr("Cancel LOOT"))
         if hasattr(self, "_plugin_refresh_btn"):
             self._plugin_refresh_btn.setEnabled(False)
+        if hasattr(self, "_plugin_sync_btn"):
+            self._plugin_sync_btn.setEnabled(False)
         if refresh:
             self._notify(
                 self.tr("Refreshing LOOT metadata for {0} plugins…").format(
@@ -19014,6 +19105,8 @@ class MainWindow(QMainWindow):
             self._plugin_sort_btn.setEnabled(True)
         if hasattr(self, "_plugin_refresh_btn"):
             self._plugin_refresh_btn.setEnabled(True)
+        if hasattr(self, "_plugin_sync_btn"):
+            self._plugin_sync_btn.setEnabled(True)
         ctx = getattr(self, "_sort_ctx", None) or {}
         self._sort_ctx = None
         is_refresh = bool(ctx.get("refresh"))

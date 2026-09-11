@@ -6581,6 +6581,14 @@ If you continue, this warning won't be shown again for {1} unless the drives cha
         <translation>Sort Plugins</translation>
     </message>
     <message>
+        <source>Sync</source>
+        <translation>Sync</translation>
+    </message>
+    <message>
+        <source>Match plugin load order to modlist priority</source>
+        <translation>Match plugin load order to modlist priority</translation>
+    </message>
+    <message>
         <source>Groups</source>
         <translation>Groups</translation>
     </message>
@@ -8881,6 +8889,34 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
     <message>
         <source>Plugin metadata refreshed.</source>
         <translation>Plugin metadata refreshed.</translation>
+    </message>
+    <message>
+        <source>No plugins to sync.</source>
+        <translation>No plugins to sync.</translation>
+    </message>
+    <message>
+        <source>Plugin sources are being refreshed. Try Sync when loading finishes.</source>
+        <translation>Plugin sources are being refreshed. Try Sync when loading finishes.</translation>
+    </message>
+    <message>
+        <source>No plugins are owned by mods in the modlist.</source>
+        <translation>No plugins are owned by mods in the modlist.</translation>
+    </message>
+    <message>
+        <source>Locked plugin positions prevent syncing with the modlist.</source>
+        <translation>Locked plugin positions prevent syncing with the modlist.</translation>
+    </message>
+    <message>
+        <source>Plugin load order already matches the modlist.</source>
+        <translation>Plugin load order already matches the modlist.</translation>
+    </message>
+    <message>
+        <source>Synced - 1 plugin moved.</source>
+        <translation>Synced - 1 plugin moved.</translation>
+    </message>
+    <message>
+        <source>Synced - {0} plugins moved.</source>
+        <translation>Synced - {0} plugins moved.</translation>
     </message>
     <message>
         <source>An overlap check is already running.</source>
