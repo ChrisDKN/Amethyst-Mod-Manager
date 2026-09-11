@@ -594,6 +594,8 @@ class ModRowDelegate(QStyledItemDelegate):
                 lock_left = self._lock_rect(r).left() - 8
                 if pr.right() > lock_left:
                     pr.setRight(lock_left)
+                if self.fm_row.horizontalAdvance(prio_text) > pr.width():
+                    prio_text = prio_text.partition(" - ")[0]
                 p.drawText(pr, Qt.AlignVCenter | Qt.AlignHCenter, prio_text)
 
         # Lock checkbox on the far right - always drawn so it reads as a
