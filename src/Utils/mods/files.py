@@ -38,10 +38,13 @@ def load_mod_files(game, mod_name: str) -> dict[str, str]:
         getattr(game, "filemap_exclude_dirs", None) or ())
 
 
-def scan_mod_files(mod_dir: Path | None, excluded_dirs=()) -> dict[str, str]:
+def _scan_mod_tree(
+        mod_dir: Path | None, excluded_dirs, collect_dirs: bool,
+) -> tuple[dict[str, str], dict[str, str]]:
     if mod_dir is None or not mod_dir.is_dir():
-        return {}
+        return {}, {}
     files: dict[str, str] = {}
+    folders: dict[str, str] = {}
     excluded_dirs = {str(name).lower() for name in excluded_dirs}
     try:
         for directory, dirnames, filenames in os.walk(
@@ -53,6 +56,11 @@ def scan_mod_files(mod_dir: Path | None, excluded_dirs=()) -> dict[str, str]:
                     and name != ".mm_bundle")
             ]
             relative_dir = Path(directory).relative_to(mod_dir)
+            if collect_dirs:
+                for name in dirnames:
+                    relative = ((relative_dir / name).as_posix()
+                                if relative_dir != Path(".") else name)
+                    folders[relative.lower()] = relative
             for filename in filenames:
                 if filename in {"meta.ini", ".DS_Store"} \
                         or filename.startswith("._"):
@@ -61,8 +69,32 @@ def scan_mod_files(mod_dir: Path | None, excluded_dirs=()) -> dict[str, str]:
                             if relative_dir != Path(".") else filename)
                 files[relative.lower()] = relative
     except OSError:
-        return files
-    return files
+        pass
+    if not collect_dirs:
+        return files, {}
+    occupied = {
+        ancestor.lower()
+        for rel_str in files.values()
+        for ancestor in ancestor_paths(rel_str)
+    }
+    return files, {key: value for key, value in folders.items()
+                   if key not in occupied}
+
+
+def scan_mod_tree(
+        mod_dir: Path | None, excluded_dirs=(),
+) -> tuple[dict[str, str], dict[str, str]]:
+    """Return visible files and folders with no visible file descendants."""
+    return _scan_mod_tree(mod_dir, excluded_dirs, True)
+
+
+def scan_mod_files(mod_dir: Path | None, excluded_dirs=()) -> dict[str, str]:
+    return _scan_mod_tree(mod_dir, excluded_dirs, False)[0]
+
+
+def scan_mod_dirs(mod_dir: Path | None, excluded_dirs=()) -> dict[str, str]:
+    """Return folders that have no visible file descendants."""
+    return scan_mod_tree(mod_dir, excluded_dirs)[1]
 
 
 def _mod_dir_for(game, mod_name: str) -> Path | None:
@@ -459,3 +491,79 @@ def read_strip_prefixes(profile_dir: Path, mod_name: str) -> set[str]:
         return set()
     return {e.lower() for e in read_mod_strip_prefixes(profile_dir, None).get(mod_name, [])
             if e}
+
+
+def rename_path_state(profile_dir: Path | None, mod_name: str | None,
+                      old_path: str, new_path: str, is_dir: bool) -> None:
+    """Move this path's per-file settings to its new raw on-disk path."""
+    if profile_dir is None or not mod_name:
+        return
+    old_key = old_path.replace("\\", "/").strip("/").lower()
+    new_key = new_path.replace("\\", "/").strip("/").lower()
+    if not old_key or not new_key:
+        return
+
+    def remap(values, *, lowercase=True):
+        out = []
+        seen = set()
+        for value in values:
+            text = str(value).replace("\\", "/").strip("/")
+            key = text.lower()
+            if key == old_key or (is_dir and key.startswith(old_key + "/")):
+                suffix = text[len(old_key):]
+                text = new_key + suffix if lowercase else new_path + suffix
+            elif lowercase:
+                text = key
+            dedupe = text.lower()
+            if text and dedupe not in seen:
+                seen.add(dedupe)
+                out.append(text)
+        return sorted(out, key=str.lower)
+
+    for reader, writer in (
+            (read_excluded_mod_files, write_excluded_mod_files),
+            (read_root_mod_files, write_root_mod_files)):
+        data = reader(profile_dir, None)
+        if mod_name in data:
+            data[mod_name] = remap(data[mod_name])
+            writer(profile_dir, data)
+
+    strips = read_mod_strip_prefixes(profile_dir, None)
+    if is_dir and mod_name in strips:
+        strips[mod_name] = remap(strips[mod_name], lowercase=False)
+        write_mod_strip_prefixes(profile_dir, strips)
+
+
+def remove_path_state(profile_dir: Path | None, mod_name: str | None,
+                      path: str, is_dir: bool) -> None:
+    """Remove per-file settings for a path that was deleted from disk."""
+    if profile_dir is None or not mod_name:
+        return
+    path_key = path.replace("\\", "/").strip("/").lower()
+    if not path_key:
+        return
+
+    def keep(value):
+        key = str(value).replace("\\", "/").strip("/").lower()
+        return key != path_key and not (is_dir and key.startswith(path_key + "/"))
+
+    for reader, writer in (
+            (read_excluded_mod_files, write_excluded_mod_files),
+            (read_root_mod_files, write_root_mod_files)):
+        data = reader(profile_dir, None)
+        if mod_name in data:
+            kept = [value for value in data[mod_name] if keep(value)]
+            if kept:
+                data[mod_name] = kept
+            else:
+                data.pop(mod_name, None)
+            writer(profile_dir, data)
+
+    strips = read_mod_strip_prefixes(profile_dir, None)
+    if is_dir and mod_name in strips:
+        kept = [value for value in strips[mod_name] if keep(value)]
+        if kept:
+            strips[mod_name] = kept
+        else:
+            strips.pop(mod_name, None)
+        write_mod_strip_prefixes(profile_dir, strips)

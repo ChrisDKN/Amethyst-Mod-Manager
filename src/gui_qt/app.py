@@ -1944,8 +1944,7 @@ class MainWindow(QMainWindow):
         self._notify(self.tr("Saved"), "success")
 
     def _on_mod_files_changed(self):
-        """A Top Level / Root / Disable edit changed deploy state - force a full
-        index rescan (strip prefixes apply at scan time) + rebuild conflicts."""
+        """A Mod Files state or disk edit needs a rescan and conflict rebuild."""
         # Instant feedback: update the modlist "modified in Mod Files" eye flag
         # now (the async rescan below refreshes the rest a moment later).
         if hasattr(self, "_modlist_model"):
@@ -12827,6 +12826,19 @@ class MainWindow(QMainWindow):
         except Exception as e:
             self._append_log(f"Open {descr} error: {e}")
 
+    def _open_disk_path(self, path):
+        """Open a file or folder with its desktop-default application."""
+        path = Path(path)
+        if not (path.exists() or path.is_symlink()):
+            self._notify(self.tr("File or folder not found ({0}).").format(path),
+                         "warning")
+            return
+        from Utils.environment.xdg import xdg_open
+        try:
+            xdg_open(str(path), log_fn=self._append_log)
+        except Exception as exc:
+            self._append_log(f"Open file or folder error: {exc}")
+
     def _profile_actions(self):
         """Build the pinned action entries for the profile selector. An "Open"
         submenu is prepended only when the current game exposes profile-specific
@@ -20007,6 +20019,7 @@ class MainWindow(QMainWindow):
         self._mod_files_view.on_open_archive = self._open_bsa_preview_tab
         self._mod_files_view.on_open_nif = self._open_nif_preview_tab
         self._mod_files_view.on_open_text = self._open_text_editor_tab
+        self._mod_files_view.on_open_path = self._open_disk_path
         # Footer Pack/Unpack state follows the selected mod regardless of
         # whether the lazily-built Filters panel has ever been opened.
         self._mod_files_view.mod_changed.connect(

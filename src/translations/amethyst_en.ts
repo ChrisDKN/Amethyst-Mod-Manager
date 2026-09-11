@@ -9023,6 +9023,10 @@ Deploy anyway?</translation>
         <translation>File location</translation>
     </message>
     <message>
+        <source>File or folder not found ({0}).</source>
+        <translation>File or folder not found ({0}).</translation>
+    </message>
+    <message>
         <source>Log</source>
         <translation>Log</translation>
     </message>
@@ -9437,6 +9441,118 @@ How would you like to handle the existing mod?</translation>
     <message>
         <source>{0} — Unable to load files</source>
         <translation>{0} — Unable to load files</translation>
+    </message>
+    <message>
+        <source>Open</source>
+        <translation>Open</translation>
+    </message>
+    <message>
+        <source>Rename…</source>
+        <translation>Rename…</translation>
+    </message>
+    <message>
+        <source>Delete…</source>
+        <translation>Delete…</translation>
+    </message>
+    <message>
+        <source>Create new folder…</source>
+        <translation>Create new folder…</translation>
+    </message>
+    <message>
+        <source>Create new file…</source>
+        <translation>Create new file…</translation>
+    </message>
+    <message>
+        <source>Unset Top Level</source>
+        <translation>Unset Top Level</translation>
+    </message>
+    <message>
+        <source>Set Top Level</source>
+        <translation>Set Top Level</translation>
+    </message>
+    <message>
+        <source>Unset as Root</source>
+        <translation>Unset as Root</translation>
+    </message>
+    <message>
+        <source>Set as Root</source>
+        <translation>Set as Root</translation>
+    </message>
+    <message>
+        <source>Disable</source>
+        <translation>Disable</translation>
+    </message>
+    <message>
+        <source>Enable</source>
+        <translation>Enable</translation>
+    </message>
+    <message>
+        <source>The selected item no longer exists.</source>
+        <translation>The selected item no longer exists.</translation>
+    </message>
+    <message>
+        <source>Rename</source>
+        <translation>Rename</translation>
+    </message>
+    <message>
+        <source>New name:</source>
+        <translation>New name:</translation>
+    </message>
+    <message>
+        <source>A file or folder with that name already exists.</source>
+        <translation>A file or folder with that name already exists.</translation>
+    </message>
+    <message>
+        <source>The item was renamed, but its saved Mod Files settings could not be updated: {0}</source>
+        <translation>The item was renamed, but its saved Mod Files settings could not be updated: {0}</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>Delete</translation>
+    </message>
+    <message>
+        <source>Permanently delete '{0}' from this mod?
+
+This cannot be undone.</source>
+        <translation>Permanently delete '{0}' from this mod?
+
+This cannot be undone.</translation>
+    </message>
+    <message>
+        <source>The item was deleted, but its saved Mod Files settings could not be updated: {0}</source>
+        <translation>The item was deleted, but its saved Mod Files settings could not be updated: {0}</translation>
+    </message>
+    <message>
+        <source>Create new folder</source>
+        <translation>Create new folder</translation>
+    </message>
+    <message>
+        <source>Create new file</source>
+        <translation>Create new file</translation>
+    </message>
+    <message>
+        <source>Name:</source>
+        <translation>Name:</translation>
+    </message>
+    <message>
+        <source>Create</source>
+        <translation>Create</translation>
+    </message>
+    <message>
+        <source>Invalid name</source>
+        <translation>Invalid name</translation>
+    </message>
+    <message>
+        <source>Enter one file or folder name without path separators.</source>
+        <translation>Enter one file or folder name without path separators.</translation>
+    </message>
+    <message>
+        <source>That name is reserved and would be hidden from Mod Files.</source>
+        <translation>That name is reserved and would be hidden from Mod Files.</translation>
+    </message>
+    <message>
+        <source>The destination is not safe.</source>
+        <translation>The destination is not safe.</translation>
     </message>
 </context>
 <context>

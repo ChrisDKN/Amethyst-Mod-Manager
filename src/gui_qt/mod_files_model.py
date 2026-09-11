@@ -6,7 +6,7 @@ listing (Utils.mods.files.build_tree). Four columns:
   0  File name  - the tree (folder/file names)
   1  Top Level  - checkbox: is this path promoted to deploy at the game root
   2  Root       - checkbox: deploy this file to the game root folder (tri-state)
-  3  Disable    - checkbox: is this file excluded from deploy (folders = tri-state)
+  3  Enabled    - checkbox: is this file included in deploy (folders = tri-state)
 
 The model is display-only state; all persistence + the strip/exclusion
 algorithms live in Utils.mods.files. The view drives saves on checkbox clicks.
@@ -74,7 +74,7 @@ class _Node:
         self.is_dir = is_dir
         self.children: list[_Node] = []
         self.parent = parent
-        self.checked = True         # Disable column: True = included
+        self.checked = True         # Enabled column: True = included
         self.conflict = 0           # -1 lose, 0 none, 1 win
         self.top_level = False      # Top Level column checked
         self.root_tag = False       # Root column: deploy to game root (files)
@@ -223,7 +223,7 @@ class ModFilesModel(QAbstractItemModel):
 
     # ---- check-state helpers ---------------------------------------------
     def _disable_state(self, node: _Node):
-        """Disable column = checkbox 'included'. Files: checked when included.
+        """Enabled column. Files are checked when included.
         Folders: tri-state from their leaves."""
         if not node.is_dir:
             return Qt.Checked if node.checked else Qt.Unchecked
@@ -275,7 +275,7 @@ class ModFilesModel(QAbstractItemModel):
 
     def _descendants(self, node: _Node) -> list[_Node]:
         """All descendant nodes - folders AND files (for repaint after a
-        folder-level Disable toggle so nested subfolders update too)."""
+        folder-level Enabled toggle so nested subfolders update too)."""
         out: list[_Node] = []
         stack = list(node.children)
         while stack:
@@ -287,7 +287,7 @@ class ModFilesModel(QAbstractItemModel):
 
     # ---- mutation (view calls these, then persists via Utils.mods.files) ---
     def set_disabled_subtree(self, node: _Node, included: bool):
-        """Set the Disable state for a node + all descendants (folder toggle)."""
+        """Set the Enabled state for a node + all descendants."""
         if node.is_dir:
             for leaf in self._leaves(node):
                 leaf.checked = included

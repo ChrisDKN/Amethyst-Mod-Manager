@@ -1,4 +1,4 @@
-"""Qt Mod Files tab - per-mod file tree with Top Level + Root + Disable checkbox columns.
+"""Qt Mod Files tab - per-mod file tree with Top Level + Root + Enabled columns.
 
 Reuses Utils.mods.files for every bit of logic (file listing, conflict cache, the
 strip-prefix promotion/demotion algorithm, the exclusion save-merge) so it stays
@@ -10,11 +10,13 @@ ModFilesModel, a toolbar (Expand all / Filters), a search box, and a footer
 from __future__ import annotations
 
 from pathlib import Path
+import shutil
 import threading
 
 from PySide6.QtCore import Qt, QTimer, Signal, Slot
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTreeView, QLabel, QAbstractItemView,
+    QMenu,
 )
 
 import Utils.mods.files as mflogic
@@ -26,7 +28,8 @@ from gui_qt.video_preview import VIDEO_EXTS
 from gui_qt.safe_emit import safe_emit
 
 
-def _build_file_tree(files, conflicts, stripped, excluded, root_tags, filters):
+def _build_file_tree(files, folders, conflicts, stripped, excluded, root_tags,
+                     filters):
     search, search_exts, inc_exts, exc_exts, want_win, want_lose = filters
 
     def keep(rel_key, rel_str):
@@ -43,6 +46,13 @@ def _build_file_tree(files, conflicts, stripped, excluded, root_tags, filters):
         return not search or search in rel_str.lower()
 
     tree_dict = mflogic.build_tree(files, keep_rel_key=keep)
+    if not (search_exts or inc_exts or exc_exts or want_win or want_lose):
+        for rel_str in folders.values():
+            if search and search not in rel_str.lower():
+                continue
+            subtree = tree_dict
+            for part in rel_str.replace("\\", "/").split("/"):
+                subtree = subtree.setdefault(part, {})
     root = _Node("", "", is_dir=True)
     by_path = {}
 
@@ -73,7 +83,8 @@ def _build_file_tree(files, conflicts, stripped, excluded, root_tags, filters):
 
 class ModFilesView(QWidget):
     """Self-contained Mod Files tab widget. Call show_mod(mod_name) to populate.
-    Emits changed() after any edit so the host can rebuild the filemap."""
+    Emits changed() after state or disk edits so the host can rebuild the
+    filemap."""
 
     changed = Signal()
     filetypes_changed = Signal()   # the ext-count list changed (refresh panel)
@@ -99,6 +110,7 @@ class ModFilesView(QWidget):
         self._build_generation = 0
         self._worker_running = False
         self._files_cache = None
+        self._folders_cache = None
         self._pending_expanded: set[str] = set()
         self._build()
         self._files_ready.connect(self._on_files_ready)
@@ -111,6 +123,7 @@ class ModFilesView(QWidget):
     def configure(self, game, profile_dir):
         if game is not self.game or profile_dir != self.profile_dir:
             self._audio_controls.clear_audio()
+            self._folders_cache = None
             self.show_mod(None)
         self.game = game
         self.profile_dir = profile_dir
@@ -267,6 +280,7 @@ class ModFilesView(QWidget):
             self._pending_expanded = (self._pending_expanded or self._expanded_paths()) \
                 if mod_name else set()
             self._audio_controls.clear_audio()
+            self._folders_cache = None
             self._model.clear()
         self._mod_name = mod_name
         self._invalidate_files()
@@ -316,6 +330,7 @@ class ModFilesView(QWidget):
         mod_name = self._mod_name
         mod_dir = self._mod_root_dir()
         excluded_dirs = tuple(getattr(self.game, "filemap_exclude_dirs", ()) or ())
+        folders_cache = self._folders_cache
         ready = self._files_ready
         self._worker_running = True
 
@@ -329,14 +344,18 @@ class ModFilesView(QWidget):
                         key = record.source_rel.decode("utf-8", "surrogateescape").lower()
                         files[key] = record.source
                         conflicts[key] = record.conflict_status
+                    folders = (folders_cache if folders_cache is not None
+                               else mflogic.scan_mod_dirs(
+                                   mod_dir, excluded_dirs))
                 else:
-                    files = mflogic.scan_mod_files(mod_dir, excluded_dirs)
+                    files, folders = mflogic.scan_mod_tree(
+                        mod_dir, excluded_dirs)
                     conflicts = {}
                 counts = {}
                 for key in files:
                     ext = Path(key).suffix.lower()
                     counts[ext] = counts.get(ext, 0) + 1
-                safe_emit(ready, context, (files, conflicts, counts), None)
+                safe_emit(ready, context, (files, folders, conflicts, counts), None)
             except Exception as exc:
                 safe_emit(ready, context, None, str(exc))
 
@@ -350,11 +369,12 @@ class ModFilesView(QWidget):
                 self._load_failed(error)
             else:
                 self._files_cache = result
+                self._folders_cache = result[1]
         self._start_repopulate()
 
     def _start_tree_build(self):
         generation = self._build_generation
-        files, conflicts, counts = self._files_cache
+        files, folders, conflicts, counts = self._files_cache
         self._needs_repopulate = False
         self._ext_counts = counts
         self.filetypes_changed.emit()
@@ -382,7 +402,8 @@ class ModFilesView(QWidget):
         def worker():
             try:
                 result = _build_file_tree(
-                    files, conflicts, stripped, excluded, root_tags, filters)
+                    files, folders, conflicts, stripped, excluded, root_tags,
+                    filters)
                 safe_emit(ready, generation, result, None)
             except Exception as exc:
                 safe_emit(ready, generation, None, str(exc))
@@ -606,28 +627,33 @@ class ModFilesView(QWidget):
                 cb(target, node.rel_str)
 
     def _disk_path_for(self, node: _Node) -> Path | None:
-        """Resolve a file node to its real on-disk path under the mod folder."""
-        if self.game is None or self._mod_name is None or node.rel_str is None:
+        """Resolve a tree node to its real on-disk path under the mod folder."""
+        if self.game is None or self._mod_name is None:
             return None
+        rel = node.rel_str if node.rel_str is not None else node.path
+        return self._safe_disk_child(rel)
+
+    def _safe_disk_child(self, rel: str) -> Path | None:
+        root = self._mod_root_dir()
+        relative = Path(rel.replace("\\", "/"))
+        if (root is None or not relative.parts or relative.is_absolute()
+                or any(part in ("", ".", "..") for part in relative.parts)):
+            return None
+        candidate = root.joinpath(*relative.parts)
         try:
-            from Utils.filegraph.constants import OVERWRITE_NAME, ROOT_FOLDER_NAME
-            if self._mod_name == OVERWRITE_NAME and hasattr(
-                    self.game, "get_effective_overwrite_path"):
-                base = Path(self.game.get_effective_overwrite_path())
-            elif self._mod_name == ROOT_FOLDER_NAME and hasattr(
-                    self.game, "get_effective_root_folder_path"):
-                base = Path(self.game.get_effective_root_folder_path())
-            else:
-                base = Path(self.game.get_effective_mod_staging_path()) / self._mod_name
-        except Exception:
+            candidate.parent.resolve(strict=False).relative_to(
+                root.resolve(strict=False))
+        except (OSError, RuntimeError, ValueError):
             return None
-        return base / node.rel_str.replace("\\", "/")
+        return candidate
 
     def _toggle_disable(self, node: _Node):
         if node.synthetic:
             return
         if node.is_dir:
             leaves = self._model.leaves(node)
+            if not leaves:
+                return
             all_on = all(l.checked for l in leaves)
             self._model.set_disabled_subtree(node, not all_on)
         else:
@@ -676,6 +702,8 @@ class ModFilesView(QWidget):
     def _toggle_top_level(self, node: _Node):
         if self.profile_dir is None or self._mod_name is None or not node.path:
             return
+        if node.is_dir and not self._model.leaves(node):
+            return
         self._stripped = mflogic.toggle_top_level(node.path, self._stripped)
         # Case hints from every node path + its ancestors.
         hints: dict[str, str] = {}
@@ -699,11 +727,276 @@ class ModFilesView(QWidget):
         mflogic.save_exclusions(self.profile_dir, self._mod_name, visible, excluded)
         self.changed.emit()
 
-    # -- right-click (context menu stub filled in follow-up) ----------------
-    # Pack / Unpack BSA are driven by the app footer buttons (app._on_pack_bsa /
-    # _on_unpack_bsa), which own the progress popup + filemap rebuild.
+    # -- right-click --------------------------------------------------------
     def _on_context_menu(self, pos):
-        pass  # wired in a later step
+        index = self._tree.indexAt(pos)
+        node = self._model.node(index) if index.isValid() else None
+        if node is self._model._root:
+            node = None
+        if node is not None:
+            self._tree.setCurrentIndex(index.siblingAtColumn(COL_NAME))
+        if self._mod_name is None:
+            return
+
+        menu = QMenu(self._tree)
+        real_node = node is not None and not node.synthetic
+        editable_node = real_node and not node.meta
+        if real_node:
+            target = self._disk_path_for(node)
+            action = menu.addAction(self.tr("Open"))
+            action.setEnabled(target is not None and self._entry_exists(target))
+            action.triggered.connect(
+                lambda _checked=False, n=node: self._open_disk_entry(n))
+            if editable_node:
+                action = menu.addAction(self.tr("Rename…"))
+                action.triggered.connect(
+                    lambda _checked=False, n=node: self._prompt_rename(n))
+                action = menu.addAction(self.tr("Delete…"))
+                action.triggered.connect(
+                    lambda _checked=False, n=node: self._confirm_delete(n))
+            menu.addSeparator()
+
+        parent_rel = self._creation_parent(node)
+        action = menu.addAction(self.tr("Create new folder…"))
+        action.setEnabled(parent_rel is not None)
+        action.triggered.connect(
+            lambda _checked=False, p=parent_rel: self._prompt_create(p, True))
+        action = menu.addAction(self.tr("Create new file…"))
+        action.setEnabled(parent_rel is not None)
+        action.triggered.connect(
+            lambda _checked=False, p=parent_rel: self._prompt_create(p, False))
+
+        if editable_node:
+            menu.addSeparator()
+            action = menu.addAction(
+                self.tr("Unset Top Level") if node.top_level
+                else self.tr("Set Top Level"))
+            has_files = bool(self._model.leaves(node)) if node.is_dir else True
+            action.setEnabled(bool(
+                has_files and node.path and mflogic.parent_path(node.path)))
+            action.triggered.connect(
+                lambda _checked=False, n=node: self._toggle_top_level(n))
+
+            from Utils.filegraph.constants import ROOT_FOLDER_NAME
+            root_available = (self._mod_name != ROOT_FOLDER_NAME
+                              and not self._tree.isColumnHidden(COL_ROOT))
+            root_on = self._node_root_state(node)
+            action = menu.addAction(
+                self.tr("Unset as Root") if root_on else self.tr("Set as Root"))
+            action.setEnabled(root_available and has_files)
+            action.triggered.connect(
+                lambda _checked=False, n=node: self._toggle_root(n))
+
+            enabled = self._node_enabled_state(node)
+            action = menu.addAction(self.tr("Disable") if enabled
+                                    else self.tr("Enable"))
+            action.setEnabled(has_files)
+            action.triggered.connect(
+                lambda _checked=False, n=node: self._toggle_disable(n))
+
+        menu.exec(self._tree.viewport().mapToGlobal(pos))
+
+    @staticmethod
+    def _entry_exists(path: Path) -> bool:
+        return path.exists() or path.is_symlink()
+
+    def _creation_parent(self, node: _Node | None) -> str | None:
+        if node is None:
+            return "" if self._mod_root_dir() is not None else None
+        if node.synthetic:
+            return None
+        rel = node.rel_str if node.rel_str is not None else node.path
+        return rel if node.is_dir else mflogic.parent_path(rel)
+
+    def _node_enabled_state(self, node: _Node) -> bool:
+        leaves = self._model.leaves(node) if node.is_dir else [node]
+        return bool(leaves) and all(leaf.checked for leaf in leaves)
+
+    def _node_root_state(self, node: _Node) -> bool:
+        leaves = self._model.leaves(node) if node.is_dir else [node]
+        return bool(leaves) and all(leaf.root_tag for leaf in leaves)
+
+    def _open_disk_entry(self, node: _Node):
+        target = self._disk_path_for(node)
+        if target is None or not self._entry_exists(target):
+            self._show_file_error(
+                self.tr("Open"), self.tr("The selected item no longer exists."))
+            return
+        callback = getattr(self, "on_open_path", None)
+        if callback is not None:
+            callback(target)
+            return
+        try:
+            from Utils.environment.xdg import xdg_open
+            xdg_open(target)
+        except Exception as exc:
+            self._show_file_error(self.tr("Open"), str(exc))
+
+    def _prompt_rename(self, node: _Node):
+        from gui_qt.text_input_overlay import TextInputOverlay
+        TextInputOverlay.show_over(
+            self, self.tr("Rename"), self.tr("New name:"),
+            lambda name, n=node: self._rename_entry(n, name),
+            initial=node.name, ok_label=self.tr("Rename"))
+
+    def _rename_entry(self, node: _Node, value: str | None):
+        name = self._validated_name(value, node.is_dir)
+        if name is None:
+            return
+        source = self._disk_path_for(node)
+        rel = node.rel_str if node.rel_str is not None else node.path
+        parent_rel = mflogic.parent_path(rel)
+        new_rel = f"{parent_rel}/{name}" if parent_rel else name
+        target = self._safe_disk_child(new_rel)
+        if source is None or target is None or not self._entry_exists(source):
+            self._show_file_error(
+                self.tr("Rename"), self.tr("The selected item no longer exists."))
+            return
+        if source == target:
+            return
+        if self._entry_exists(target):
+            self._show_file_error(
+                self.tr("Rename"),
+                self.tr("A file or folder with that name already exists."))
+            return
+        try:
+            source.rename(target)
+        except OSError as exc:
+            self._show_file_error(self.tr("Rename"), str(exc))
+            return
+        state_error = None
+        try:
+            mflogic.rename_path_state(
+                self.profile_dir, self._mod_name, rel, new_rel, node.is_dir)
+        except OSError as exc:
+            state_error = exc
+        self._disk_contents_changed()
+        if state_error is not None:
+            self._show_file_error(
+                self.tr("Rename"),
+                self.tr("The item was renamed, but its saved Mod Files settings "
+                        "could not be updated: {0}").format(state_error))
+
+    def _confirm_delete(self, node: _Node):
+        from gui_qt.confirm_overlay import ConfirmOverlay
+
+        def confirmed(ok):
+            if ok:
+                self._delete_entry(node)
+
+        ConfirmOverlay.show_over(
+            self, self.tr("Delete"),
+            self.tr("Permanently delete '{0}' from this mod?\n\n"
+                    "This cannot be undone.").format(node.name),
+            confirmed, confirm_label=self.tr("Delete"), danger=True)
+
+    def _delete_entry(self, node: _Node):
+        target = self._disk_path_for(node)
+        rel = node.rel_str if node.rel_str is not None else node.path
+        if target is None or not self._entry_exists(target):
+            self._show_file_error(
+                self.tr("Delete"), self.tr("The selected item no longer exists."))
+            return
+        try:
+            if target.is_dir() and not target.is_symlink():
+                shutil.rmtree(target)
+            else:
+                target.unlink()
+        except OSError as exc:
+            self._disk_contents_changed()
+            self._show_file_error(self.tr("Delete"), str(exc))
+            return
+        state_error = None
+        try:
+            mflogic.remove_path_state(
+                self.profile_dir, self._mod_name, rel, node.is_dir)
+        except OSError as exc:
+            state_error = exc
+        self._disk_contents_changed()
+        if state_error is not None:
+            self._show_file_error(
+                self.tr("Delete"),
+                self.tr("The item was deleted, but its saved Mod Files settings "
+                        "could not be updated: {0}").format(state_error))
+
+    def _prompt_create(self, parent_rel: str | None, is_dir: bool):
+        if parent_rel is None:
+            return
+        from gui_qt.text_input_overlay import TextInputOverlay
+        TextInputOverlay.show_over(
+            self,
+            self.tr("Create new folder") if is_dir else self.tr("Create new file"),
+            self.tr("Name:"),
+            lambda name, p=parent_rel, d=is_dir: self._create_entry(p, name, d),
+            ok_label=self.tr("Create"))
+
+    def _validated_name(self, value: str | None, is_dir: bool) -> str | None:
+        if value is None:
+            return None
+        name = value.strip()
+        if not name or name in (".", "..") or "/" in name or "\\" in name \
+                or "\x00" in name:
+            self._show_file_error(
+                self.tr("Invalid name"),
+                self.tr("Enter one file or folder name without path separators."))
+            return None
+        lower = name.lower()
+        excluded_dirs = {
+            str(item).lower()
+            for item in (getattr(self.game, "filemap_exclude_dirs", ()) or ())
+        }
+        hidden = ((is_dir and (lower in excluded_dirs
+                               or name.startswith("prefix_")
+                               or name == ".mm_bundle"))
+                  or (not is_dir and (name in {"meta.ini", ".DS_Store"}
+                                      or name.startswith("._"))))
+        if hidden:
+            self._show_file_error(
+                self.tr("Invalid name"),
+                self.tr("That name is reserved and would be hidden from Mod Files."))
+            return None
+        return name
+
+    def _create_entry(self, parent_rel: str, value: str | None, is_dir: bool):
+        name = self._validated_name(value, is_dir)
+        if name is None:
+            return
+        rel = f"{parent_rel}/{name}" if parent_rel else name
+        target = self._safe_disk_child(rel)
+        parent = self._mod_root_dir() if not parent_rel \
+            else self._safe_disk_child(parent_rel)
+        title = self.tr("Create new folder") if is_dir else self.tr("Create new file")
+        if target is None or parent is None:
+            self._show_file_error(title, self.tr("The destination is not safe."))
+            return
+        if self._entry_exists(target):
+            self._show_file_error(
+                title, self.tr("A file or folder with that name already exists."))
+            return
+        try:
+            parent.mkdir(parents=True, exist_ok=True)
+            if is_dir:
+                target.mkdir()
+            else:
+                target.touch(exist_ok=False)
+        except OSError as exc:
+            self._show_file_error(title, str(exc))
+            return
+        self._disk_contents_changed()
+
+    def _disk_contents_changed(self):
+        self._audio_controls.clear_audio()
+        self._stripped = mflogic.read_strip_prefixes(
+            self.profile_dir, self._mod_name)
+        self._snapshot = None
+        self._folders_cache = None
+        self._invalidate_files()
+        self._request_repopulate()
+        self.changed.emit()
+
+    def _show_file_error(self, title: str, message: str):
+        from gui_qt.confirm_overlay import ConfirmOverlay
+        ConfirmOverlay.show_message(self, title, message)
 
     def has_mod(self) -> bool:
         """True when a real mod is shown (gates Pack/Unpack + Reset)."""
