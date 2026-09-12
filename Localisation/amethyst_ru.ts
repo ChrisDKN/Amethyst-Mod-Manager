@@ -14949,6 +14949,14 @@ Merge your conflicts, then close it and click Done.</source>
       <translation>Скрыть флаги конфликтов в архиве BSA/BA2 (при этом также пропускается проверка на конфликты, что обеспечивает небольшое ускорение).</translation>
     </message>
     <message>
+      <source>Hide endorsed flag</source>
+      <translation>Скрыть поддерживаемый флаг</translation>
+    </message>
+    <message>
+      <source>Hide the endorsed icon from the mod list's Flags column.</source>
+      <translation>Скрыть значок одобрения из столбца «Флаг» списка модов.</translation>
+    </message>
+    <message>
       <source>Theme</source>
       <translation>Тема</translation>
     </message>
