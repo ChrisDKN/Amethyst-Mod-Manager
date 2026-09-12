@@ -21384,9 +21384,12 @@ def run(startup_timing=None) -> int:
             "Apply UI scale environment",
             phase_started=phase_started, category="configuration")
 
-    # Share GL contexts so the nif viewport survives tab detach/re-pin
-    # reparenting. Must be set before the QApplication exists.
-    QApplication.setAttribute(Qt.AA_ShareOpenGLContexts)
+    # Qt <= 6.9 eagerly creates the global share context in QApplication's
+    # constructor. A broken sandbox GLX stack can qFatal there, before our
+    # child-process GL probe can protect the app. The viewport already rebuilds
+    # its context after a reparent, so Flatpak does not need global sharing.
+    if not Path("/.flatpak-info").is_file():
+        QApplication.setAttribute(Qt.AA_ShareOpenGLContexts)
     # We used to force QT_XCB_GL_INTEGRATION=xcb_egl here, to dodge a GLX/DRI3
     # swap that can hang forever in xcb_wait_for_special_event when the window
     # is resized mid-swap (dragging the NIF viewer's splitter froze the app).
