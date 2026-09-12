@@ -6581,6 +6581,14 @@ Wenn Sie fortfahren, wird diese Warnung für {1} nicht erneut angezeigt, es sei 
       <translation>Plugins sortieren</translation>
     </message>
     <message>
+      <source>Sync</source>
+      <translation>Sync</translation>
+    </message>
+    <message>
+      <source>Match plugin load order to modlist priority</source>
+      <translation>Sortierung nach Modlist-Priorität für Plugin-Laden</translation>
+    </message>
+    <message>
       <source>Groups</source>
       <translation>Gruppen</translation>
     </message>
@@ -8883,6 +8891,46 @@ Führen Sie den Downgrade-Assistenten aus, um das Spiel auf eine von FOSE unters
       <translation>Plugin Metadaten aktualisiert.</translation>
     </message>
     <message>
+      <source>No plugins to sync.</source>
+      <translation>Keine Plugins zum Synchronisieren.</translation>
+    </message>
+    <message>
+      <source>Plugin sources are being refreshed. Try Sync when loading finishes.</source>
+      <translation>Plugin-Quellen werden aktualisiert. Versuchen Sie die Synchronisierung beim Laden von Endgeräten.</translation>
+    </message>
+    <message>
+      <source>No plugins are owned by mods in the modlist.</source>
+      <translation>Keine Plugins gehören Mods in der Modliste.</translation>
+    </message>
+    <message>
+      <source>Locked plugin positions prevent syncing with the modlist.</source>
+      <translation>Gesperrte Plugin-Positionen verhindern die Synchronisierung mit der Modliste.</translation>
+    </message>
+    <message>
+      <source>Plugin load order already matches the modlist.</source>
+      <translation>Die Reihenfolge zum Laden des Plugins entspricht bereits der Modliste.</translation>
+    </message>
+    <message>
+      <source>This will move 1 plugin to match modlist priority.</source>
+      <translation>Dies verschiebt ein Plugin, um die Priorität der Modliste zu erfüllen.</translation>
+    </message>
+    <message>
+      <source>This will move {0} plugins to match modlist priority.</source>
+      <translation>Dies verschiebt {0} Plugins zu der Modlist-Priorität.</translation>
+    </message>
+    <message>
+      <source>Sync plugin load order?</source>
+      <translation>Plugin Laden Reihenfolge synchronisieren?</translation>
+    </message>
+    <message>
+      <source>Synced - 1 plugin moved.</source>
+      <translation>Synchronisiert - 1 Plugin verschoben.</translation>
+    </message>
+    <message>
+      <source>Synced - {0} plugins moved.</source>
+      <translation>Synchronisiert - {0} Plugins verschoben.</translation>
+    </message>
+    <message>
       <source>An overlap check is already running.</source>
       <translation>Eine Überlappungsprüfung läuft bereits.</translation>
     </message>
@@ -9021,6 +9069,10 @@ Wie auch immer?</translation>
     <message>
       <source>File location</source>
       <translation>Dateistandort</translation>
+    </message>
+    <message>
+      <source>File or folder not found ({0}).</source>
+      <translation>Datei oder Ordner nicht gefunden ({0}).</translation>
     </message>
     <message>
       <source>Log</source>
@@ -9437,6 +9489,118 @@ Wie möchten Sie mit dem bestehenden Mod umgehen?</translation>
     <message>
       <source>{0} — Unable to load files</source>
       <translation>{0} — Dateien können nicht geladen werden</translation>
+    </message>
+    <message>
+      <source>Open</source>
+      <translation>Öffnen</translation>
+    </message>
+    <message>
+      <source>Rename…</source>
+      <translation>Umbenennen…</translation>
+    </message>
+    <message>
+      <source>Delete…</source>
+      <translation type="unfinished">Delete…</translation>
+    </message>
+    <message>
+      <source>Create new folder…</source>
+      <translation type="unfinished">Create new folder…</translation>
+    </message>
+    <message>
+      <source>Create new file…</source>
+      <translation type="unfinished">Create new file…</translation>
+    </message>
+    <message>
+      <source>Unset Top Level</source>
+      <translation type="unfinished">Unset Top Level</translation>
+    </message>
+    <message>
+      <source>Set Top Level</source>
+      <translation type="unfinished">Set Top Level</translation>
+    </message>
+    <message>
+      <source>Unset as Root</source>
+      <translation type="unfinished">Unset as Root</translation>
+    </message>
+    <message>
+      <source>Set as Root</source>
+      <translation type="unfinished">Set as Root</translation>
+    </message>
+    <message>
+      <source>Disable</source>
+      <translation type="unfinished">Disable</translation>
+    </message>
+    <message>
+      <source>Enable</source>
+      <translation type="unfinished">Enable</translation>
+    </message>
+    <message>
+      <source>The selected item no longer exists.</source>
+      <translation type="unfinished">The selected item no longer exists.</translation>
+    </message>
+    <message>
+      <source>Rename</source>
+      <translation type="unfinished">Rename</translation>
+    </message>
+    <message>
+      <source>New name:</source>
+      <translation type="unfinished">New name:</translation>
+    </message>
+    <message>
+      <source>A file or folder with that name already exists.</source>
+      <translation type="unfinished">A file or folder with that name already exists.</translation>
+    </message>
+    <message>
+      <source>The item was renamed, but its saved Mod Files settings could not be updated: {0}</source>
+      <translation type="unfinished">The item was renamed, but its saved Mod Files settings could not be updated: {0}</translation>
+    </message>
+    <message>
+      <source>Delete</source>
+      <translation type="unfinished">Delete</translation>
+    </message>
+    <message>
+      <source>Permanently delete '{0}' from this mod?
+
+This cannot be undone.</source>
+      <translation type="unfinished">Permanently delete '{0}' from this mod?
+
+This cannot be undone.</translation>
+    </message>
+    <message>
+      <source>The item was deleted, but its saved Mod Files settings could not be updated: {0}</source>
+      <translation type="unfinished">The item was deleted, but its saved Mod Files settings could not be updated: {0}</translation>
+    </message>
+    <message>
+      <source>Create new folder</source>
+      <translation type="unfinished">Create new folder</translation>
+    </message>
+    <message>
+      <source>Create new file</source>
+      <translation type="unfinished">Create new file</translation>
+    </message>
+    <message>
+      <source>Name:</source>
+      <translation type="unfinished">Name:</translation>
+    </message>
+    <message>
+      <source>Create</source>
+      <translation type="unfinished">Create</translation>
+    </message>
+    <message>
+      <source>Invalid name</source>
+      <translation type="unfinished">Invalid name</translation>
+    </message>
+    <message>
+      <source>Enter one file or folder name without path separators.</source>
+      <translation type="unfinished">Enter one file or folder name without path separators.</translation>
+    </message>
+    <message>
+      <source>That name is reserved and would be hidden from Mod Files.</source>
+      <translation type="unfinished">That name is reserved and would be hidden from Mod Files.</translation>
+    </message>
+    <message>
+      <source>The destination is not safe.</source>
+      <translation type="unfinished">The destination is not safe.</translation>
     </message>
   </context>
   <context>
@@ -14744,6 +14908,14 @@ Fügen Sie Ihre Konflikte zusammen, schließen Sie sie und klicken Sie auf Ferti
   </context>
   <context>
     <name>SettingsView</name>
+    <message>
+      <source>Discord Rich Presence</source>
+      <translation type="unfinished">Discord Rich Presence</translation>
+    </message>
+    <message>
+      <source>Show Amethyst and the game you are modding on your Discord profile while the Discord desktop app is running.</source>
+      <translation type="unfinished">Show Amethyst and the game you are modding on your Discord profile while the Discord desktop app is running.</translation>
+    </message>
     <message>
       <source>Settings</source>
       <translation>Einstellungen</translation>
