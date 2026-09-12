@@ -14949,6 +14949,14 @@ Unire i conflitti, quindi chiudere e fare clic su Fatto.</translation>
       <translation>Nascondi i flag di conflitto dell'archivio BSA/BA2 (inoltre salta la scansione dei conflitti per ottenere un leggero aumento della velocità).</translation>
     </message>
     <message>
+      <source>Hide endorsed flag</source>
+      <translation>Nascondi contrassegno approvato</translation>
+    </message>
+    <message>
+      <source>Hide the endorsed icon from the mod list's Flags column.</source>
+      <translation>Nascondi l'icona approvata dalla colonna Flags della lista delle mod.</translation>
+    </message>
+    <message>
       <source>Theme</source>
       <translation>Tema</translation>
     </message>
