@@ -6579,6 +6579,14 @@ NTFS 和 exFAT 驱动器在 Linux 上有很弱的写保证: 不干净的卸载, 
       <translation>按插件排序</translation>
     </message>
     <message>
+      <source>Sync</source>
+      <translation>同步</translation>
+    </message>
+    <message>
+      <source>Match plugin load order to modlist priority</source>
+      <translation>匹配插件加载顺序到 modlist 优先级</translation>
+    </message>
+    <message>
       <source>Groups</source>
       <translation>组</translation>
     </message>
@@ -8881,6 +8889,46 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
       <translation>插件元数据已刷新 .</translation>
     </message>
     <message>
+      <source>No plugins to sync.</source>
+      <translation>没有要同步的插件。</translation>
+    </message>
+    <message>
+      <source>Plugin sources are being refreshed. Try Sync when loading finishes.</source>
+      <translation>插件源正在刷新。加载完成后请尝试同步。</translation>
+    </message>
+    <message>
+      <source>No plugins are owned by mods in the modlist.</source>
+      <translation>模组列表中没有由模组拥有的插件。</translation>
+    </message>
+    <message>
+      <source>Locked plugin positions prevent syncing with the modlist.</source>
+      <translation>已锁定的插件位置防止与 modlist 同步。</translation>
+    </message>
+    <message>
+      <source>Plugin load order already matches the modlist.</source>
+      <translation>插件加载顺序已经与 modlist 匹配。</translation>
+    </message>
+    <message>
+      <source>This will move 1 plugin to match modlist priority.</source>
+      <translation>这将移动1个插件以匹配模块列表优先级。</translation>
+    </message>
+    <message>
+      <source>This will move {0} plugins to match modlist priority.</source>
+      <translation>这将移动 {0} 插件以匹配模块列表优先级。</translation>
+    </message>
+    <message>
+      <source>Sync plugin load order?</source>
+      <translation>同步插件加载订单？</translation>
+    </message>
+    <message>
+      <source>Synced - 1 plugin moved.</source>
+      <translation>同步 - 1 个插件已移动。</translation>
+    </message>
+    <message>
+      <source>Synced - {0} plugins moved.</source>
+      <translation>同步 - 移动了 {0} 插件。</translation>
+    </message>
+    <message>
       <source>An overlap check is already running.</source>
       <translation>重叠检查已经在运行中 .</translation>
     </message>
@@ -9019,6 +9067,10 @@ CET 将不会从一个连在一起的同位素加载 。 当部署模式是Symli
     <message>
       <source>File location</source>
       <translation>文件位置</translation>
+    </message>
+    <message>
+      <source>File or folder not found ({0}).</source>
+      <translation>找不到文件或文件夹({0})。</translation>
     </message>
     <message>
       <source>Log</source>
@@ -9435,6 +9487,118 @@ How would you like to handle the existing mod?</source>
     <message>
       <source>{0} — Unable to load files</source>
       <translation>{0} -无法加载文件</translation>
+    </message>
+    <message>
+      <source>Open</source>
+      <translation>打开</translation>
+    </message>
+    <message>
+      <source>Rename…</source>
+      <translation type="unfinished">Rename…</translation>
+    </message>
+    <message>
+      <source>Delete…</source>
+      <translation>删除…</translation>
+    </message>
+    <message>
+      <source>Create new folder…</source>
+      <translation>创建新文件夹…</translation>
+    </message>
+    <message>
+      <source>Create new file…</source>
+      <translation>创建新文件…</translation>
+    </message>
+    <message>
+      <source>Unset Top Level</source>
+      <translation>取消顶级级别</translation>
+    </message>
+    <message>
+      <source>Set Top Level</source>
+      <translation>设置顶级级别</translation>
+    </message>
+    <message>
+      <source>Unset as Root</source>
+      <translation>取消设置为根目录</translation>
+    </message>
+    <message>
+      <source>Set as Root</source>
+      <translation>设置为根目录</translation>
+    </message>
+    <message>
+      <source>Disable</source>
+      <translation>禁用</translation>
+    </message>
+    <message>
+      <source>Enable</source>
+      <translation>启用</translation>
+    </message>
+    <message>
+      <source>The selected item no longer exists.</source>
+      <translation>选中的项目不再存在。</translation>
+    </message>
+    <message>
+      <source>Rename</source>
+      <translation>重命名：</translation>
+    </message>
+    <message>
+      <source>New name:</source>
+      <translation>新名称：</translation>
+    </message>
+    <message>
+      <source>A file or folder with that name already exists.</source>
+      <translation>具有该名称的文件或文件夹已存在。</translation>
+    </message>
+    <message>
+      <source>The item was renamed, but its saved Mod Files settings could not be updated: {0}</source>
+      <translation>项目已重命名，但它保存的 Mod 文件设置无法更新: {0}</translation>
+    </message>
+    <message>
+      <source>Delete</source>
+      <translation>删除</translation>
+    </message>
+    <message>
+      <source>Permanently delete '{0}' from this mod?
+
+This cannot be undone.</source>
+      <translation type="unfinished">Permanently delete '{0}' from this mod?
+
+This cannot be undone.</translation>
+    </message>
+    <message>
+      <source>The item was deleted, but its saved Mod Files settings could not be updated: {0}</source>
+      <translation>该项目已被删除，但它保存的 Mod 文件设置无法更新： {0}</translation>
+    </message>
+    <message>
+      <source>Create new folder</source>
+      <translation>创建新文件夹</translation>
+    </message>
+    <message>
+      <source>Create new file</source>
+      <translation>创建新文件</translation>
+    </message>
+    <message>
+      <source>Name:</source>
+      <translation>姓名：</translation>
+    </message>
+    <message>
+      <source>Create</source>
+      <translation>创建</translation>
+    </message>
+    <message>
+      <source>Invalid name</source>
+      <translation>无效的名称</translation>
+    </message>
+    <message>
+      <source>Enter one file or folder name without path separators.</source>
+      <translation>输入一个文件或文件夹名，不带路径分隔符。</translation>
+    </message>
+    <message>
+      <source>That name is reserved and would be hidden from Mod Files.</source>
+      <translation>该名称被保留，并将被隐藏在 Mod 文件中。</translation>
+    </message>
+    <message>
+      <source>The destination is not safe.</source>
+      <translation>目的地不安全。</translation>
     </message>
   </context>
   <context>
@@ -14742,6 +14906,14 @@ Merge your conflicts, then close it and click Done.</source>
   </context>
   <context>
     <name>SettingsView</name>
+    <message>
+      <source>Discord Rich Presence</source>
+      <translation>Discord 丰富存在</translation>
+    </message>
+    <message>
+      <source>Show Amethyst and the game you are modding on your Discord profile while the Discord desktop app is running.</source>
+      <translation>当Discord桌面应用程序正在运行时，在Discord个人资料上显示Amethyst和您正在修改的游戏。</translation>
+    </message>
     <message>
       <source>Settings</source>
       <translation>设置</translation>
