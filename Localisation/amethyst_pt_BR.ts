@@ -14942,6 +14942,14 @@ Resolva seus conflitos, feche-o e clique em Concluído.</translation>
       <translation>Ocultar os flags de conflito de arquivos BSA/BA2 (também ignora essa verificação de conflitos, com um pequeno ganho de velocidade).</translation>
     </message>
     <message>
+      <source>Hide endorsed flag</source>
+      <translation>Ocultar sinalização endossada</translation>
+    </message>
+    <message>
+      <source>Hide the endorsed icon from the mod list's Flags column.</source>
+      <translation>Ocultar o ícone endossado da coluna Bandeiras da lista de mods.</translation>
+    </message>
+    <message>
       <source>Theme</source>
       <translation>Tema</translation>
     </message>
