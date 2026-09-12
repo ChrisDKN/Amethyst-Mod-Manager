@@ -1102,7 +1102,8 @@ class ConfigureGameView(QWidget):
             self._set_check("prefer_appimage",
                             getattr(g, "prefer_appimage", False))
             self._set_check("archive_invalidation", True)
-            self._set_check("case_alias_links", True)
+            self._set_check("case_alias_links",
+                            getattr(g, "case_alias_links_default", True))
             self._set_check("profile_ini_files", False)
             self._set_check("profile_saves", False)
             self._set_check("prefix_numbering", True)

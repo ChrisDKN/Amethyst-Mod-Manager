@@ -12,6 +12,7 @@ from Games.Bethesda.bethesda_ini import _read_ini_key, _set_ini_key
 
 class Starfield(Fallout_3):
 
+    case_alias_links_default = False
     plugins_use_star_prefix = True
     plugins_include_vanilla = False
     supports_esl_flag = True

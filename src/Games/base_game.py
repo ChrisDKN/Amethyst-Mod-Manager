@@ -187,6 +187,8 @@ class BaseGame(ABC):
     # Override (e.g. to LinkMode.COPY) for games that never hardlink.
     deploy_mode_fallback: LinkMode = _DEFAULT_DEPLOY_MODE
 
+    case_alias_links_default: bool = True
+
     # Opt-in for the incremental redeploy fast path (Utils/deployment/incremental.py).
     # Only safe for handlers whose deploy() is the plain standard sequence
     # (move_to_core → deploy_filemap → deploy_core) with a single Data-style
@@ -2276,10 +2278,11 @@ class BaseGame(ABC):
 
     @property
     def case_alias_links(self) -> bool:
-        """If True (default), deploy creates the case-variant symlink aliases
-        named by ``case_alias_dirs`` (GH#374 Wine load-time fix); if False,
-        deploy removes any existing aliases instead."""
-        return self._load_settings().get("case_alias_links", True)
+        """If True, deploy creates the case-variant symlink aliases named by
+        ``case_alias_dirs`` (GH#374 Wine load-time fix); if False, deploy
+        removes any existing aliases instead."""
+        return self._load_settings().get(
+            "case_alias_links", self.case_alias_links_default)
 
     @case_alias_links.setter
     def case_alias_links(self, value: bool) -> None:
