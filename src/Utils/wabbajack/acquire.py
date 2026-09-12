@@ -25,6 +25,8 @@ from .verification import bind_verification, file_stamp, verified_replace
 
 _active_lock = threading.Lock()
 _active = {}
+_AGGREGATE_INTERVAL = 0.5
+_SPEED_WINDOW = 3.0
 
 
 class ArchiveCacheIndex:
@@ -393,9 +395,13 @@ class Acquisition:
         self._nxm = {}
         self._progress = {}
         self._last_emit = {}
-        self._last_aggregate = 0.0
         self._lock = threading.Lock()
-        self._started = time.monotonic()
+        self._speed_rows = {}
+        self._speed_bytes = 0
+        self._speed_samples = []
+        self._last_network_progress = None
+        self._aggregate_stop = threading.Event()
+        self._aggregate_thread = None
         from Utils.ui.config import load_collection_settings
         self.workers = max(1, int(load_collection_settings()["max_concurrent"]))
         self._connections = connection_scope(threading.BoundedSemaphore(self.workers))
@@ -436,9 +442,13 @@ class Acquisition:
         self._download_errors.__enter__()
         self._cdn_pool = ThreadPoolExecutor(max_workers=self.workers,
                                            thread_name_prefix="wabbajack-cdn")
+        self._aggregate_thread = threading.Thread(
+            target=self._aggregate_loop, name="wabbajack-speed", daemon=True)
+        self._aggregate_thread.start()
         return self
 
     def __exit__(self, *_):
+        self._stop_aggregate()
         if self._cdn_pool is not None:
             self._cdn_pool.shutdown(wait=True, cancel_futures=True)
         self._connections.__exit__(None, None, None)
@@ -452,6 +462,50 @@ class Acquisition:
                     del _active[key]
         emit(self.cb.on_log, "acquisition.routes.released",
              nexus_routes=len(self._nxm))
+
+    def _rolling_speed(self, now):
+        self._speed_samples.append((now, self._speed_bytes))
+        if (self._last_network_progress is None
+                or now - self._last_network_progress >= _SPEED_WINDOW):
+            self._speed_samples = [(now, self._speed_bytes)]
+            return 0.0
+        cutoff = now - _SPEED_WINDOW
+        while len(self._speed_samples) > 1 and self._speed_samples[1][0] <= cutoff:
+            self._speed_samples.pop(0)
+        if len(self._speed_samples) < 2:
+            return 0.0
+        started, initial = self._speed_samples[0]
+        elapsed = now - started
+        return max(0, self._speed_bytes - initial) / max(elapsed, 0.1)
+
+    def _record_speed(self, row, current, now):
+        previous = self._speed_rows.get(row)
+        if previous is not None:
+            previous_bytes, previous_time = previous
+            delta = current - previous_bytes
+            if delta > 0 and now - previous_time <= _SPEED_WINDOW:
+                if (self._last_network_progress is None
+                        or now - self._last_network_progress > _SPEED_WINDOW):
+                    self._speed_samples = [(previous_time, self._speed_bytes)]
+                self._speed_bytes += delta
+                self._last_network_progress = now
+        self._speed_rows[row] = (current, now)
+
+    def _aggregate_loop(self):
+        while not self._aggregate_stop.wait(_AGGREGATE_INTERVAL):
+            now = time.monotonic()
+            with self._lock:
+                current = sum(self._progress.values())
+                speed = self._rolling_speed(now)
+            self.cb.on_agg_download(
+                current, self.report.download_bytes, speed / 1024 ** 2)
+
+    def _stop_aggregate(self):
+        self._aggregate_stop.set()
+        thread = self._aggregate_thread
+        if thread is not None and thread is not threading.current_thread():
+            thread.join(timeout=1)
+        self._aggregate_thread = None
 
     def nexus_key(self, archive):
         state = archive.state
@@ -622,20 +676,20 @@ class Acquisition:
         if self.budget:
             self.budget.acquire(archive)
         row = self.ids[archive.key]
+        with self._lock:
+            self._speed_rows.pop(row, None)
         self.cb.on_dl_mod_start(row, archive.name, archive.size)
 
         def progress(cur, total):
             now = time.monotonic()
             with self._lock:
                 self._progress[row] = cur
-                current = sum(self._progress.values())
-                if now - self._last_emit.get(row, 0) >= 0.1 or cur == total:
-                    self.cb.on_dl_mod_update(row, cur, total)
+                self._record_speed(row, cur, now)
+                emit_row = now - self._last_emit.get(row, 0) >= 0.1 or cur == total
+                if emit_row:
                     self._last_emit[row] = now
-                if now - self._last_aggregate >= 0.1 or cur == total:
-                    self.cb.on_agg_download(current, self.report.download_bytes,
-                                           current / max(now - self._started, 0.1) / 1024 ** 2)
-                    self._last_aggregate = now
+            if emit_row:
+                self.cb.on_dl_mod_update(row, cur, total)
 
         from .paths import cache_path
         target = cache_path(self.request.downloads, hash_bytes(archive.key).hex(), archive.name)
@@ -686,6 +740,8 @@ class Acquisition:
                 raise WabbajackError(f"Archive failed verification: {archive.name}")
             if route != "manual":
                 self.owned.record(archive, path)
+            if self.budget and self.owned.owns(archive, path):
+                self.budget.downloaded(archive, Path(path).stat().st_size)
             self.cache_index.add(path)
             progress(archive.size, archive.size)
             emit(self.cb.on_log, "acquisition.completed", archive=archive.name,
@@ -709,9 +765,12 @@ class Acquisition:
         finally:
             if not deferred:
                 self._release_nxm(archive)
+            with self._lock:
+                self._speed_rows.pop(row, None)
             self.cb.on_dl_mod_finish(row)
 
     def finish_progress(self):
+        self._stop_aggregate()
         with self._lock:
             self.cb.on_agg_download(sum(self._progress.values()), self.report.download_bytes, 0.0)
         emit(self.cb.on_log, "acquisition.progress.completed",

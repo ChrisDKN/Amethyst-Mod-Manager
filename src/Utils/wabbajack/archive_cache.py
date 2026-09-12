@@ -12,6 +12,9 @@ from .paths import WabbajackError, auxiliary_path, cache_path
 from .verification import file_stamp
 
 
+_PARALLEL_DOWNLOAD_ALLOWANCE = 4 * 1024 ** 3
+
+
 def download_space(archive):
     # Leave room for CDN assembly or a retained failed transfer beside its replacement.
     return archive.size * 2
@@ -19,7 +22,10 @@ def download_space(archive):
 
 def download_budget(archives):
     sizes = [download_space(archive) for archive in archives]
-    return min(sum(sizes), max(4 * 1024 ** 3, max(sizes, default=0)))
+    if not sizes:
+        return 0
+    largest = max(sizes)
+    return min(sum(sizes), largest + _PARALLEL_DOWNLOAD_ALLOWANCE)
 
 
 class ArchiveBudget:
@@ -60,6 +66,21 @@ class ArchiveBudget:
             reserved = self._reserved.pop(archive.key, 0)
             self._used -= reserved
             self._used += min(reserved, retained)
+            self._condition.notify_all()
+
+    def downloaded(self, archive, retained):
+        with self._condition:
+            reserved = self._reserved.get(archive.key)
+            if reserved is None:
+                return
+            retained = min(reserved, max(0, int(retained)))
+            if retained >= reserved:
+                return
+            self._reserved[archive.key] = retained
+            self._used -= reserved - retained
+            emit(self.log, "archive.cache.downloaded", archive=archive.name,
+                 bytes=retained, released_bytes=reserved - retained,
+                 used_bytes=self._used, limit_bytes=self.limit)
             self._condition.notify_all()
 
     def fail(self):
