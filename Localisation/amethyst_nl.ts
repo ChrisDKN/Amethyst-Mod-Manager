@@ -14949,6 +14949,14 @@ Uw conflicten samenvoegen, dan sluiten en klik op Klaar.</translation>
       <translation>Conflictvlaggen van het BSA/BA2-archief verbergen (slaat ook die conflictscan over, wat een kleine snelheidswinst oplevert).</translation>
     </message>
     <message>
+      <source>Hide endorsed flag</source>
+      <translation>Verberg goedgekeurde vlag</translation>
+    </message>
+    <message>
+      <source>Hide the endorsed icon from the mod list's Flags column.</source>
+      <translation>Verberg het bevestigde icoon in de kolom vlaggenlijst</translation>
+    </message>
+    <message>
       <source>Theme</source>
       <translation>Thema</translation>
     </message>
