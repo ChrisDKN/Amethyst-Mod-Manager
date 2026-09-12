@@ -31,11 +31,11 @@ _HELP = {
         "The package reconstructs part of the installation from exact files in the original game, but those source files are absent.",
         "Check the original game location in Amethyst, install the game and required DLC, and launch the unmodified game once. Follow the linked author requirements for its store, language and version, then recheck."),
     "Required supporting files": (
-        "The package captured generated or store-maintained files from the author's game directory. A missing or different supporting file does not show that the game executable is the wrong version.",
-        "Launch the original game once and recheck. If the exact files remain unavailable and the author does not document them, use an updated package or report the listed files to the modlist author; the package may need to be rebuilt without volatile files."),
+        "The package uses logs, store metadata or script-source archives from the author's game directory to reconstruct required output. A missing or different supporting file does not show that the game executable is the wrong version.",
+        "Follow the author's instructions for obtaining the listed files. For Scripts.zip, install the matching Creation Kit. If the exact files remain unavailable and the author does not document them, use an updated package or report the listed files to the modlist author."),
     "Ignored supporting files": (
-        "The package captured direct copies of known volatile log or Steam metadata files. They are not game runtime content and can legitimately be absent or differ between systems.",
-        "No action is required. Amethyst will omit these direct copies from the managed installation and continue. The affected paths remain listed for transparency."),
+        "The package captured optional logs, store metadata or script sources and editor files from Scripts.zip. These supporting files are not needed to run the game or reconstruct required output and can be omitted.",
+        "No action is required. Amethyst will omit these supporting files from the managed installation and continue. The affected paths remain listed for transparency."),
     "Game version": (
         "Files exist in the original game location, but their exact sizes or hashes differ from the source snapshot used to build this package.",
         "Use the game build, store and language named by the author. A file from a different build cannot produce the declared output. If the required build is no longer available and the author provides no supported downgrade, use an updated modlist package or contact its author."),

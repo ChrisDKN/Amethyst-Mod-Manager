@@ -80,7 +80,7 @@ def _game_file_category(game, relative):
         ))
     ):
         return "creation_kit"
-    if leaf in {"debug.log", "installscript.vdf"}:
+    if leaf in {"debug.log", "installscript.vdf", "scripts.zip"}:
         return "support"
     if game_name in {"skyrimspecialedition", "skyrimvr", "fallout4", "fallout4vr"} and (
         (name.startswith("data/cc") and leaf.endswith((".bsa", ".ba2", ".esm", ".esl", ".esp")))
@@ -152,7 +152,8 @@ def _emit_game_file_problems(package, problems, check, readme="", ignored=False)
                                       for relative, present, _ in entries
                                       if present is not None and _game_version_source(game, relative)}
                 installed_versions.discard("")
-            detail = f"{game}: {len(entries):,} required files do not match ({', '.join(states)})."
+            files = "ignored supporting files" if ignored else "required files"
+            detail = f"{game}: {len(entries):,} {files} do not match ({', '.join(states)})."
             if versions and category != "creation_kit":
                 detail += " Package game-source snapshot: " + ", ".join(versions) + "."
             if installed_versions:
@@ -166,10 +167,10 @@ def _emit_game_file_problems(package, problems, check, readme="", ignored=False)
             elif category == "support":
                 if ignored:
                     name = "Ignored supporting files"
-                    detail += " These generated or Steam-maintained files are not needed to run the game. Amethyst will omit their direct copies and continue. Every affected file is listed below."
+                    detail += " These logs, store metadata or script sources and editor files are not needed to run the game. Amethyst will omit their supporting output and continue. Every affected file is listed below."
                 else:
                     name = "Required supporting files"
-                    detail += " These generated or Steam-maintained files do not mean that the game executable has the wrong version. If they are undocumented, the package may have captured volatile files unintentionally. Every affected file is listed below."
+                    detail += " These logs, store metadata or script-source archives are used to reconstruct required output. Their absence or differing contents do not mean that the game executable has the wrong version. Every affected file is listed below."
             elif different and any(_game_version_source(game, relative)
                                    for relative, _, _ in entries):
                 name = "Game version"

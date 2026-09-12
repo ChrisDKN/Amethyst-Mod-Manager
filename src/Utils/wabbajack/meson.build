@@ -6,6 +6,7 @@ py.install_sources(
   'archive_cache.py',
   'archive_io.py',
   'bsa_setup.py',
+  'broken_lists.py',
   'checks.py',
   'diagnostics.py',
   'extraction.py',

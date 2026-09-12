@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+from html import escape
+
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QTextOption
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QToolButton,
-    QFrame, QSizePolicy, QComboBox, QPlainTextEdit,
+    QFrame, QSizePolicy, QComboBox, QPushButton, QTextBrowser,
 )
 
-from gui_qt.theme_qt import active_palette, _c
+from gui_qt.overlay_base import OverlayBase
+from gui_qt.theme_qt import active_palette, close_button, _c
 from gui_qt.tooltips import escaped_tooltip
 from Utils.collections.manifest import fmt_size
 
@@ -44,7 +48,6 @@ class CheckRow(QFrame):
     def __init__(self, check, parent=None):
         super().__init__(parent)
         self._check = check
-        self._expanded = False
         palette = active_palette()
         mark, tone = self.TONES.get(check.status, ("·", "TEXT_DIM"))
         colour = _c(palette, tone)
@@ -53,7 +56,7 @@ class CheckRow(QFrame):
         tint = _c(palette, 'BG_ROW') if blocking else _c(palette, 'BG_DEEP')
         self.setStyleSheet(f"#CheckRow {{ background:{tint}; border:1px solid {_c(palette, 'BORDER_FAINT')};"
                            f" border-radius:5px; }}")
-        self.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        self.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Maximum)
         outer = QHBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
@@ -68,73 +71,80 @@ class CheckRow(QFrame):
         outer.addLayout(body, 1)
         glyph = QLabel(mark, self)
         glyph.setFixedWidth(12)
-        glyph.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        glyph.setAlignment(Qt.AlignCenter)
         glyph.setStyleSheet(f"color:{colour}; font-weight:600;")
         body.addWidget(glyph)
-        text = QVBoxLayout()
-        text.setSpacing(2)
-        body.addLayout(text, 1)
         count = f"  ({len(check.items):,})" if check.items else ""
         name = QLabel(check.name + count, self)
         name.setTextFormat(Qt.PlainText)
         name.setWordWrap(True)
+        name.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
         name.setStyleSheet(f"color:{colour}; font-weight:600;")
-        text.addWidget(name)
-        detail = QLabel(check.detail, self)
-        detail.setTextFormat(Qt.PlainText)
-        detail.setWordWrap(True)
-        detail.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
-        detail.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        text.addWidget(detail)
-        resolution = check.resolution
-        if not resolution and check.status != "pass":
-            from Utils.wabbajack.checks import make_check
-            resolution = make_check(check.status, check.name, check.detail).resolution
-        if resolution and check.status != "pass":
-            advice = QLabel(resolution, self)
-            advice.setTextFormat(Qt.PlainText)
-            advice.setWordWrap(True)
-            advice.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
-            advice.setStyleSheet(f"color:{_c(palette, 'TEXT_DIM')};")
-            text.addWidget(advice)
+        body.addWidget(name, 1)
+        show = QPushButton(self.tr("Show"), self)
+        show.setCursor(Qt.PointingHandCursor)
+        show.setAccessibleName(self.tr("Show requirement: {0}").format(check.name))
+        show.clicked.connect(self._show_details)
+        body.addWidget(show)
+        self._status = {
+            "error": self.tr("Blocking: resolve before installing."),
+            "manual": self.tr("Needs your input: follow the download or setup instructions."),
+            "warning": self.tr("To review: read before continuing; this does not block installation."),
+            "pass": self.tr("Passed: this check is ready to proceed."),
+        }.get(check.status, "")
+        name.setToolTip(escaped_tooltip(check.name + "\n\n" + self._status))
+
+    def _show_details(self):
+        CheckDetailsOverlay(self.window(), self._check, self._status)
+
+
+class CheckDetailsOverlay(OverlayBase):
+    CARD_W = 760
+    CARD_H = 600
+    MIN_W = 320
+    MIN_H = 240
+
+    def __init__(self, host, check, status_text):
+        super().__init__(host)
+        self.setAttribute(Qt.WA_StyledBackground)
+        from Utils.wabbajack.checks import make_check
+
+        help_check = make_check(check.status, check.name, check.detail)
+        palette = active_palette()
+        card, layout = self._make_card("CheckDetailsCard", margins=(16, 16, 16, 16), spacing=12)
+        title = QLabel(check.name, card)
+        title.setTextFormat(Qt.PlainText)
+        title.setWordWrap(True)
+        title.setStyleSheet(f"color:{_c(palette, 'TEXT_MAIN')}; font-weight:600; font-size:16px;")
+        layout.addWidget(title)
+        status = QLabel(status_text, card)
+        status.setWordWrap(True)
+        _, tone = CheckRow.TONES.get(check.status, ("·", "TEXT_DIM"))
+        status.setStyleSheet(f"color:{_c(palette, tone)}; font-weight:600;")
+        layout.addWidget(status)
+        details = QTextBrowser(card)
+        details.setFrameShape(QFrame.NoFrame)
+        details.setWordWrapMode(QTextOption.WrapAtWordBoundaryOrAnywhere)
+        sections = [
+            (self.tr("What this means"), check.explanation or help_check.explanation),
+            (self.tr("Details"), check.detail),
+            (self.tr("What to do"), check.resolution or help_check.resolution),
+        ]
         if check.items:
-            self._toggle = QToolButton(self)
-            self._toggle.setCursor(Qt.PointingHandCursor)
-            self._toggle.setStyleSheet(f"color:{_c(palette, 'ACCENT')}; padding:1px 0; border:none;")
-            self._toggle.clicked.connect(self._toggle_items)
-            text.addWidget(self._toggle, 0, Qt.AlignLeft)
-            self._files = QPlainTextEdit(self)
-            self._files.setReadOnly(True)
-            self._files.setPlainText("\n".join(check.items))
-            self._files.setMaximumHeight(120)
-            self._files.hide()
-            text.addWidget(self._files)
-            self._sync_toggle()
-        status = {"error": self.tr("Blocking: resolve before installing."),
-                  "manual": self.tr("Needs your input: follow the download or setup instructions."),
-                  "warning": self.tr("To review: read before continuing; this does not block installation."),
-                  "pass": self.tr("Passed: this check is ready to proceed.")}.get(check.status, "")
-        explanation = check.explanation
-        if not explanation:
-            from Utils.wabbajack.checks import make_check
-            explanation = make_check(check.status, check.name, check.detail).explanation
-        tooltip = escaped_tooltip("\n\n".join(piece for piece in (
-            check.name, status,
-            self.tr("What this means") + "\n" + explanation if explanation else "",
-            self.tr("Details") + "\n" + check.detail) if piece))
-        for widget in (name, detail):
-            widget.setToolTip(tooltip)
-
-    def _sync_toggle(self):
-        total = len(self._check.items)
-        self._toggle.setText(self.tr("Hide affected files") if self._expanded
-                             else (self.tr("Show 1 affected file") if total == 1
-                                   else self.tr("Show {0} affected files").format(total)))
-
-    def _toggle_items(self):
-        self._expanded = not self._expanded
-        self._files.setVisible(self._expanded)
-        self._sync_toggle()
+            sections.append((self.tr("Affected files ({0})").format(f"{len(check.items):,}"),
+                             "\n".join(check.items)))
+        details.setHtml("".join(
+            "<h3>{}</h3><p>{}</p>".format(escape(title), escape(text).replace("\n", "<br>"))
+            for title, text in sections if text))
+        layout.addWidget(details, 1)
+        bar = QHBoxLayout()
+        bar.addStretch(1)
+        close = close_button(self.tr("Close"), pal=palette)
+        close.clicked.connect(lambda: self._finish())
+        bar.addWidget(close)
+        layout.addLayout(bar)
+        self._present()
+        details.setFocus()
 
 
 class RequirementsSummary(QWidget):

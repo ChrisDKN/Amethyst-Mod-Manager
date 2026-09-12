@@ -124,6 +124,7 @@ class WabbajackView(QWidget):
         self._answers = queue.Queue()
         self._overlay = None
         self._manual_overlay = None
+        self._issues_overlay = None
         self._manual_row = None
         self._manual_auto_open = False
         self._tokens = {}
@@ -598,6 +599,8 @@ class WabbajackView(QWidget):
         if self._shutting_down:
             return
         self._shutting_down = True
+        if self._issues_overlay:
+            self._issues_overlay.dismiss()
         self._diag("ui.shutdown.started", workers=len(self._workers),
                    installing=self._busy, checking=self._checking)
         self._worker_stop.set()
@@ -1159,6 +1162,8 @@ class WabbajackView(QWidget):
         self._invalidate(preserve_report=True)
 
     def _invalidate(self, *_, preserve_report=False):
+        if self._issues_overlay:
+            self._issues_overlay.dismiss()
         keep_report = preserve_report and self._report is not None
         self._check_after_package = False
         self._preflight_stop.set()
@@ -1408,7 +1413,9 @@ class WabbajackView(QWidget):
                                       progress=progress, log=self._diagnostic_log)
         self._worker("preflight", work)
 
-    def _start(self):
+    def _start(self, *, known_issues_accepted=False):
+        if self._shutting_down or self._issues_overlay:
+            return
         if self._busy or self._checking or self._loading_package or not self._request or not self._report or not self._report.ok:
             self._diag("ui.install.ignored", busy=self._busy,
                        checking=self._checking, loading=self._loading_package,
@@ -1420,6 +1427,25 @@ class WabbajackView(QWidget):
                        diagnostic_id=self._request.diagnostic_id)
             self._status.setText(self.tr("Wait for the current install or deployment operation to finish."))
             return
+        if not known_issues_accepted:
+            from Utils.wabbajack.broken_lists import matching_broken_lists
+            issues = matching_broken_lists(self._request.package)
+            if issues:
+                from gui_qt.wabbajack_issues_overlay import WabbajackIssuesOverlay
+                request, report = self._request, self._report
+                self._diag("ui.install.known_issues", diagnostic_id=request.diagnostic_id,
+                           issues=[issue.id for issue in issues])
+
+                def confirmed(proceed):
+                    self._issues_overlay = None
+                    self._diag("ui.install.known_issues_answered", diagnostic_id=request.diagnostic_id,
+                               accepted=bool(proceed))
+                    if proceed and self._request is request and self._report is report:
+                        self._start(known_issues_accepted=True)
+
+                self._issues_overlay = WabbajackIssuesOverlay(
+                    self, request.package.name, issues, confirmed)
+                return
         self._busy = True
         self._diag("ui.install.requested", diagnostic_id=self._request.diagnostic_id,
                    operation=self._request.mode, package=self._request.package.name)

@@ -67,19 +67,36 @@ def dependency_paths(directive):
     return []
 
 
+def _supporting_script_output(members, target):
+    target = target.casefold()
+    if not members:
+        return target.rsplit("/", 1)[-1] == "scripts.zip"
+    if len(members) != 1:
+        return False
+    member = members[0].casefold()
+    if member.startswith(("source/scripts/", "scripts/source/")) and member.endswith(".psc"):
+        return (target.endswith((".psc", ".txt"))
+                and any(folder in "/" + target for folder in ("/source/scripts/", "/scripts/source/")))
+    return (member.startswith("dialogueviews/") and member.endswith(".xml")
+            and "/dialogueviews/" in "/" + target and target.endswith(".xml"))
+
+
 def optional_game_file_directives(package):
     candidates = set()
     for directive in package.directives:
-        if directive.kind != "FromArchive":
+        if directive.kind not in {"FromArchive", "PatchedFromArchive"}:
             continue
         key, members = archive_path(directive.data)
         archive = package.archives.get(key)
-        if not archive or archive.kind != "GameFileSource" or members:
+        if not archive or archive.kind != "GameFileSource":
             continue
         source = str(archive.state.get("GameFile", archive.name)).replace("\\", "/")
         source_name = source.rsplit("/", 1)[-1].casefold()
         target_name = directive.path.rsplit("/", 1)[-1].casefold()
-        if source_name == target_name and source_name in {"debug.log", "installscript.vdf"}:
+        if source_name == "scripts.zip" and _supporting_script_output(members, directive.path):
+            candidates.add(directive.path)
+        elif (directive.kind == "FromArchive" and not members
+              and source_name == target_name and source_name in {"debug.log", "installscript.vdf"}):
             candidates.add(directive.path)
     used = {path.casefold() for directive in package.directives
             if directive.path not in candidates for path in dependency_paths(directive)}
