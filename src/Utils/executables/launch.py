@@ -2878,6 +2878,14 @@ def launch_game(game, log_fn=_noop_log) -> None:
     )
     launch_with_wayland = load_launch_with_wayland(game)
     effective_mode = mode
+    direct_play_rel = getattr(game, "direct_play_exe", "") or ""
+    direct_play_path = None
+    if direct_play_rel:
+        game_path = game.get_game_path() if hasattr(game, "get_game_path") else None
+        if game_path is not None:
+            candidate = Path(game_path) / direct_play_rel
+            if candidate.is_file():
+                direct_play_path = candidate
     preferred_rel = getattr(game, "preferred_launch_exe", "") or ""
     preferred_path = None
     if preferred_rel:
@@ -2891,7 +2899,16 @@ def launch_game(game, log_fn=_noop_log) -> None:
         and preferred_path is not None
         and bool(getattr(game, "preferred_launch_requires_direct", False))
     )
-    if direct_preferred:
+    direct_handler_play = (
+        mode == "auto"
+        and direct_play_path is not None
+        and bool(getattr(game, "direct_play_requires_direct", False))
+    )
+    if direct_handler_play:
+        effective_mode = "none"
+        log_fn(f"Play: {direct_play_path.name} is the handler's direct launch "
+               "target - using the game's Proton context.")
+    elif direct_preferred:
         effective_mode = "none"
         log_fn(f"Play: {preferred_path.name} is the preferred launcher - "
                "launching it directly in the game's Proton context.")
@@ -3016,7 +3033,7 @@ def launch_game(game, log_fn=_noop_log) -> None:
             game, log_fn):
         return
 
-    exe_path = resolve_game_exe(game)
+    exe_path = direct_play_path or resolve_game_exe(game)
     if exe_path is None:
         log_fn("Play: could not find the game's executable on disk.")
         return
@@ -3680,6 +3697,15 @@ def launch_exe_via_proton(
             log_prefix="Run EXE")
 
     launch_environment(game, env)
+    try:
+        prepare_env = getattr(game, "prepare_launch_environment_for_exe", None)
+        if callable(prepare_env):
+            prepare_env(exe_path, env, log_fn)
+    except Exception as exc:
+        reason = f"could not prepare the game launch environment: {exc}"
+        log_fn(f"Run EXE: {reason}")
+        launch_report.mark_failed(launch_report.actionable(reason))
+        return
     if umu_bin is not None:
         from Utils.launchers.lutris import umu_run_command
         base_cmd = umu_run_command(
@@ -3737,6 +3763,7 @@ def launch_exe_via_proton(
         "WINE_D3D_CONFIG", "PROTON_USE_WINED3D", "WINEDLLOVERRIDES",
         "STEAM_COMPAT_DATA_PATH", "WINEDEBUG", "DXVK_HUD", "PROTON_LOG",
         "WINEPREFIX", "PROTONPATH", "GAMEID",
+        "PROTONFIXES_DISABLE",
         # App context: a missing/zero SteamAppId is what DRM load errors report.
         "SteamAppId", "SteamGameId", "SteamOverlayGameId",
         "STEAM_COMPAT_APP_ID", "STEAM_COMPAT_INSTALL_PATH",

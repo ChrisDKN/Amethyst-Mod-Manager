@@ -239,6 +239,10 @@ class BaseGame(ABC):
     # A preferred executable which the store launcher does not invoke itself.
     preferred_launch_requires_direct: bool = False
 
+    # A handler-selected executable for manager-owned Play launches. Unlike
+    # preferred_launch_exe, this does not change the Play entry's settings key.
+    direct_play_requires_direct: bool = False
+
     profile_overridable_settings: tuple[str, ...] = (
         "auto_deploy",
         "archive_invalidation",
@@ -1072,6 +1076,11 @@ class BaseGame(ABC):
         return ""
 
     @property
+    def direct_play_exe(self) -> str:
+        """Optional game-root-relative executable for direct Play launches."""
+        return ""
+
+    @property
     def direct_launch_exes(self) -> list[str]:
         """Additional game-root executables that directly start the game.
 
@@ -1132,6 +1141,10 @@ class BaseGame(ABC):
         to :attr:`default_launch_args` for every exe.
         """
         return self.default_launch_args
+
+    def prepare_launch_environment_for_exe(
+            self, exe_path: Path, env: dict[str, str], log_fn=None) -> None:
+        """Apply handler-specific environment values before launching an exe."""
 
     @property
     def steam_id(self) -> str:

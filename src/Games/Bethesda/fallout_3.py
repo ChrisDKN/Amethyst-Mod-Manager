@@ -958,6 +958,21 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
         except (OSError, RuntimeError):
             return None
 
+    def _is_managed_profile_ini_link(self, target: Path) -> bool:
+        link_dir = self._profile_ini_link_dir(target)
+        if link_dir is None:
+            return False
+        try:
+            relative = link_dir.relative_to(
+                (self.get_profile_root() / "profiles").resolve())
+        except (OSError, RuntimeError, ValueError):
+            return False
+        return (
+            len(relative.parts) == 2
+            and relative.parts[1].casefold()
+            == self._PROFILE_INI_SUBDIR.casefold()
+        )
+
     @staticmethod
     def _restore_profile_ini_link(target: Path, log_fn) -> None:
         target.unlink()
@@ -993,15 +1008,11 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
         if not ini_files:
             _log(f"  No *.ini files found in '{ini_dir.name}' folder - skipping.")
             return
-        profiles_root = self.get_profile_root() / "profiles"
-        managed_dirs = {ini_dir.resolve()}
-        if profiles_root.is_dir():
-            managed_dirs.update((p / self._PROFILE_INI_SUBDIR).resolve()
-                                for p in profiles_root.iterdir() if p.is_dir())
         for mygames in mygames_dirs:
             mygames.mkdir(parents=True, exist_ok=True)
             for target in mygames.iterdir():
-                if target.name.casefold() in ini_files and self._profile_ini_link_dir(target) in managed_dirs:
+                if (target.name.casefold() in ini_files
+                        and self._is_managed_profile_ini_link(target)):
                     self._restore_profile_ini_link(target, _log)
             for src in ini_files.values():
                 target = self._resolve_ini_path(mygames, self._profile_ini_filename(src.name))
@@ -1020,28 +1031,19 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
                 target.symlink_to(src)
                 _log(f"  Linked {src.name} → {target}")
 
-    def _remove_profile_ini_symlinks(self, profile: str, log_fn) -> None:
+    def _remove_profile_ini_symlinks(self, _profile: str, log_fn) -> None:
         """Remove profile INI symlinks from My Games and restore any backups."""
         _log = log_fn
-        if not self._profile_ini_files:
-            return
         mygames_dirs = [p for p in self._mygames_paths() if p.is_dir()]
         if not mygames_dirs:
             return
-        ini_dir = self._profile_ini_dir(profile)
-        if not ini_dir.is_dir():
-            return
-        try:
-            ini_dir_resolved = ini_dir.resolve()
-        except OSError:
-            ini_dir_resolved = ini_dir
         for mygames in mygames_dirs:
             # Scan the actual My Games folder so orphaned symlinks (whose source
             # .ini was deleted from the profile) are still removed.
             for target in mygames.iterdir():
                 if target.suffix.casefold() != ".ini":
                     continue
-                if self._profile_ini_link_dir(target) != ini_dir_resolved:
+                if not self._is_managed_profile_ini_link(target):
                     continue
                 self._restore_profile_ini_link(target, _log)
 
