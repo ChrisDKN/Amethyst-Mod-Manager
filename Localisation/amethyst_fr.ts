@@ -14949,6 +14949,14 @@ Fusionnez vos conflits, puis fermez-le et cliquez sur Terminé.</translation>
       <translation>Masquer les indicateurs de conflit des archives BSA/BA2 (ce qui permet également d'ignorer cette analyse de conflits pour un léger gain de vitesse).</translation>
     </message>
     <message>
+      <source>Hide endorsed flag</source>
+      <translation>Masquer le drapeau approuvé</translation>
+    </message>
+    <message>
+      <source>Hide the endorsed icon from the mod list's Flags column.</source>
+      <translation>Masquer l'icône endossée de la colonne Drapeaux de la liste des mods.</translation>
+    </message>
+    <message>
       <source>Theme</source>
       <translation>Thème</translation>
     </message>

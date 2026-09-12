@@ -14947,6 +14947,14 @@ Merge your conflicts, then close it and click Done.</source>
       <translation>隐藏 BSA/BA2 归档冲突标记（同时跳过该冲突扫描，以略微提高速度）。</translation>
     </message>
     <message>
+      <source>Hide endorsed flag</source>
+      <translation>隐藏认可的标志</translation>
+    </message>
+    <message>
+      <source>Hide the endorsed icon from the mod list's Flags column.</source>
+      <translation>从模组列表的标志栏隐藏认可的图标。</translation>
+    </message>
+    <message>
       <source>Theme</source>
       <translation>主题</translation>
     </message>

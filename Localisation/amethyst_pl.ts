@@ -14949,6 +14949,14 @@ Połącz konflikty, a następnie zamknij je i kliknij przycisk Gotowe.</translat
       <translation>Ukryj flagi konfliktów archiwum BSA/BA2 (pominięcie tego skanowania w poszukiwaniu konfliktów zapewnia również niewielkie przyspieszenie).</translation>
     </message>
     <message>
+      <source>Hide endorsed flag</source>
+      <translation>Ukryj zatwierdzoną flagę</translation>
+    </message>
+    <message>
+      <source>Hide the endorsed icon from the mod list's Flags column.</source>
+      <translation>Ukryj zatwierdzoną ikonę z kolumny Flagi listy modyfikacji.</translation>
+    </message>
+    <message>
       <source>Theme</source>
       <translation>Temat</translation>
     </message>

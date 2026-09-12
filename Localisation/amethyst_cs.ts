@@ -14949,6 +14949,14 @@ Spojte své konflikty, pak je zavřete a klepněte na tlačítko Hotovo.</transl
       <translation>Skrýt příznaky konfliktů v archivu BSA/BA2 (zároveň se tím přeskočí kontrola konfliktů, což přinese mírné zrychlení).</translation>
     </message>
     <message>
+      <source>Hide endorsed flag</source>
+      <translation>Skrýt potvrzenou vlajku</translation>
+    </message>
+    <message>
+      <source>Hide the endorsed icon from the mod list's Flags column.</source>
+      <translation>Skrýt potvrzenou ikonu z sloupce seznamu příznaků.</translation>
+    </message>
+    <message>
       <source>Theme</source>
       <translation>Téma</translation>
     </message>

@@ -14949,6 +14949,14 @@ Fügen Sie Ihre Konflikte zusammen, schließen Sie sie und klicken Sie auf Ferti
       <translation>Konfliktmarkierungen im BSA/BA2-Archiv ausblenden (dabei wird auch die Konfliktprüfung übersprungen, was zu einer leichten Beschleunigung führt).</translation>
     </message>
     <message>
+      <source>Hide endorsed flag</source>
+      <translation>Empfohlene Flagge ausblenden</translation>
+    </message>
+    <message>
+      <source>Hide the endorsed icon from the mod list's Flags column.</source>
+      <translation>Das unterstützte Symbol in der Flags-Spalte der Mod-Liste ausblenden.</translation>
+    </message>
+    <message>
       <source>Theme</source>
       <translation>Thema</translation>
     </message>
