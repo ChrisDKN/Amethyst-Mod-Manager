@@ -9500,107 +9500,107 @@ Como você gostaria de lidar com o mod existente?</translation>
     </message>
     <message>
       <source>Delete…</source>
-      <translation type="unfinished">Delete…</translation>
+      <translation>Excluir…</translation>
     </message>
     <message>
       <source>Create new folder…</source>
-      <translation type="unfinished">Create new folder…</translation>
+      <translation>Criar nova pasta…</translation>
     </message>
     <message>
       <source>Create new file…</source>
-      <translation type="unfinished">Create new file…</translation>
+      <translation>Criar novo arquivo…</translation>
     </message>
     <message>
       <source>Unset Top Level</source>
-      <translation type="unfinished">Unset Top Level</translation>
+      <translation>Remover Nível Superior</translation>
     </message>
     <message>
       <source>Set Top Level</source>
-      <translation type="unfinished">Set Top Level</translation>
+      <translation>Definir Nível Superior</translation>
     </message>
     <message>
       <source>Unset as Root</source>
-      <translation type="unfinished">Unset as Root</translation>
+      <translation>Desmarcar como Raiz</translation>
     </message>
     <message>
       <source>Set as Root</source>
-      <translation type="unfinished">Set as Root</translation>
+      <translation>Definir como raiz</translation>
     </message>
     <message>
       <source>Disable</source>
-      <translation type="unfinished">Disable</translation>
+      <translation>Desligado</translation>
     </message>
     <message>
       <source>Enable</source>
-      <translation type="unfinished">Enable</translation>
+      <translation>Habilitado</translation>
     </message>
     <message>
       <source>The selected item no longer exists.</source>
-      <translation type="unfinished">The selected item no longer exists.</translation>
+      <translation>O item selecionado não existe mais.</translation>
     </message>
     <message>
       <source>Rename</source>
-      <translation type="unfinished">Rename</translation>
+      <translation>Renomear</translation>
     </message>
     <message>
       <source>New name:</source>
-      <translation type="unfinished">New name:</translation>
+      <translation>Novo nome:</translation>
     </message>
     <message>
       <source>A file or folder with that name already exists.</source>
-      <translation type="unfinished">A file or folder with that name already exists.</translation>
+      <translation>Já existe um arquivo ou pasta com esse nome.</translation>
     </message>
     <message>
       <source>The item was renamed, but its saved Mod Files settings could not be updated: {0}</source>
-      <translation type="unfinished">The item was renamed, but its saved Mod Files settings could not be updated: {0}</translation>
+      <translation>O item foi renomeado, mas suas configurações de Arquivos de Mod salvos não puderam ser atualizadas: {0}</translation>
     </message>
     <message>
       <source>Delete</source>
-      <translation type="unfinished">Delete</translation>
+      <translation>excluir</translation>
     </message>
     <message>
       <source>Permanently delete '{0}' from this mod?
 
 This cannot be undone.</source>
-      <translation type="unfinished">Permanently delete '{0}' from this mod?
+      <translation>Permanentemente excluir '{0}' deste mod?
 
-This cannot be undone.</translation>
+Essa ação não pode ser desfeita.</translation>
     </message>
     <message>
       <source>The item was deleted, but its saved Mod Files settings could not be updated: {0}</source>
-      <translation type="unfinished">The item was deleted, but its saved Mod Files settings could not be updated: {0}</translation>
+      <translation>O item foi apagado, mas suas configurações de Arquivos de Mod salvos não puderam ser atualizadas: {0}</translation>
     </message>
     <message>
       <source>Create new folder</source>
-      <translation type="unfinished">Create new folder</translation>
+      <translation>Criar nova pasta</translation>
     </message>
     <message>
       <source>Create new file</source>
-      <translation type="unfinished">Create new file</translation>
+      <translation>Criar novo arquivo</translation>
     </message>
     <message>
       <source>Name:</source>
-      <translation type="unfinished">Name:</translation>
+      <translation>Nome:</translation>
     </message>
     <message>
       <source>Create</source>
-      <translation type="unfinished">Create</translation>
+      <translation>Crio</translation>
     </message>
     <message>
       <source>Invalid name</source>
-      <translation type="unfinished">Invalid name</translation>
+      <translation>Nome inválido</translation>
     </message>
     <message>
       <source>Enter one file or folder name without path separators.</source>
-      <translation type="unfinished">Enter one file or folder name without path separators.</translation>
+      <translation>Insira um arquivo ou nome da pasta sem separadores de caminho!</translation>
     </message>
     <message>
       <source>That name is reserved and would be hidden from Mod Files.</source>
-      <translation type="unfinished">That name is reserved and would be hidden from Mod Files.</translation>
+      <translation>Esse nome é reservado e seria escondido dos Filmes de Mod.</translation>
     </message>
     <message>
       <source>The destination is not safe.</source>
-      <translation type="unfinished">The destination is not safe.</translation>
+      <translation>O destino não é seguro.</translation>
     </message>
   </context>
   <context>
@@ -14910,11 +14910,11 @@ Mesclar seus conflitos, então fechá-lo e clique em Concluído.</translation>
     <name>SettingsView</name>
     <message>
       <source>Discord Rich Presence</source>
-      <translation type="unfinished">Discord Rich Presence</translation>
+      <translation>Rich Presence do Discord</translation>
     </message>
     <message>
       <source>Show Amethyst and the game you are modding on your Discord profile while the Discord desktop app is running.</source>
-      <translation type="unfinished">Show Amethyst and the game you are modding on your Discord profile while the Discord desktop app is running.</translation>
+      <translation>Mostre o Ametista e o jogo que você está modificando no seu perfil do Discord enquanto o aplicativo para computador do Discord está rodando.</translation>
     </message>
     <message>
       <source>Settings</source>
