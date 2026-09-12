@@ -9512,95 +9512,95 @@ How would you like to handle the existing mod?</source>
     </message>
     <message>
       <source>Unset Top Level</source>
-      <translation type="unfinished">Unset Top Level</translation>
+      <translation>トップレベルを解除</translation>
     </message>
     <message>
       <source>Set Top Level</source>
-      <translation type="unfinished">Set Top Level</translation>
+      <translation>トップレベルを設定</translation>
     </message>
     <message>
       <source>Unset as Root</source>
-      <translation type="unfinished">Unset as Root</translation>
+      <translation>ルートとして設定解除</translation>
     </message>
     <message>
       <source>Set as Root</source>
-      <translation type="unfinished">Set as Root</translation>
+      <translation>ルートとして設定</translation>
     </message>
     <message>
       <source>Disable</source>
-      <translation type="unfinished">Disable</translation>
+      <translation>無効</translation>
     </message>
     <message>
       <source>Enable</source>
-      <translation type="unfinished">Enable</translation>
+      <translation>有効にする</translation>
     </message>
     <message>
       <source>The selected item no longer exists.</source>
-      <translation type="unfinished">The selected item no longer exists.</translation>
+      <translation>選択したアイテムは存在しません。</translation>
     </message>
     <message>
       <source>Rename</source>
-      <translation type="unfinished">Rename</translation>
+      <translation>名前の変更</translation>
     </message>
     <message>
       <source>New name:</source>
-      <translation type="unfinished">New name:</translation>
+      <translation>新しい名前:</translation>
     </message>
     <message>
       <source>A file or folder with that name already exists.</source>
-      <translation type="unfinished">A file or folder with that name already exists.</translation>
+      <translation>同じ名前のファイルまたはフォルダが既に存在します。</translation>
     </message>
     <message>
       <source>The item was renamed, but its saved Mod Files settings could not be updated: {0}</source>
-      <translation type="unfinished">The item was renamed, but its saved Mod Files settings could not be updated: {0}</translation>
+      <translation>アイテムの名前が変更されましたが、保存されたModファイルの設定を更新できませんでした: {0}</translation>
     </message>
     <message>
       <source>Delete</source>
-      <translation type="unfinished">Delete</translation>
+      <translation>削除</translation>
     </message>
     <message>
       <source>Permanently delete '{0}' from this mod?
 
 This cannot be undone.</source>
-      <translation type="unfinished">Permanently delete '{0}' from this mod?
+      <translation>このmodから「{0}」を完全に削除しますか？
 
-This cannot be undone.</translation>
+この操作は元に戻せません。</translation>
     </message>
     <message>
       <source>The item was deleted, but its saved Mod Files settings could not be updated: {0}</source>
-      <translation type="unfinished">The item was deleted, but its saved Mod Files settings could not be updated: {0}</translation>
+      <translation>アイテムは削除されましたが、保存されたModファイル設定を更新できませんでした: {0}</translation>
     </message>
     <message>
       <source>Create new folder</source>
-      <translation type="unfinished">Create new folder</translation>
+      <translation>新しいフォルダを作成</translation>
     </message>
     <message>
       <source>Create new file</source>
-      <translation type="unfinished">Create new file</translation>
+      <translation>新しいファイルを作成</translation>
     </message>
     <message>
       <source>Name:</source>
-      <translation type="unfinished">Name:</translation>
+      <translation>名前:</translation>
     </message>
     <message>
       <source>Create</source>
-      <translation type="unfinished">Create</translation>
+      <translation>作成</translation>
     </message>
     <message>
       <source>Invalid name</source>
-      <translation type="unfinished">Invalid name</translation>
+      <translation>無効な名前</translation>
     </message>
     <message>
       <source>Enter one file or folder name without path separators.</source>
-      <translation type="unfinished">Enter one file or folder name without path separators.</translation>
+      <translation>パス区切り文字のないファイルまたはフォルダ名を1つ入力します。</translation>
     </message>
     <message>
       <source>That name is reserved and would be hidden from Mod Files.</source>
-      <translation type="unfinished">That name is reserved and would be hidden from Mod Files.</translation>
+      <translation>その名前は予約済みで、Mod ファイルから非表示になります。</translation>
     </message>
     <message>
       <source>The destination is not safe.</source>
-      <translation type="unfinished">The destination is not safe.</translation>
+      <translation>目的地は安全ではありません。</translation>
     </message>
   </context>
   <context>
@@ -14910,11 +14910,11 @@ Merge your conflicts, then close it and click Done.</source>
     <name>SettingsView</name>
     <message>
       <source>Discord Rich Presence</source>
-      <translation type="unfinished">Discord Rich Presence</translation>
+      <translation>Discord Rich Presence</translation>
     </message>
     <message>
       <source>Show Amethyst and the game you are modding on your Discord profile while the Discord desktop app is running.</source>
-      <translation type="unfinished">Show Amethyst and the game you are modding on your Discord profile while the Discord desktop app is running.</translation>
+      <translation>Discordデスクトップアプリを起動している間は、AmystとDiscordプロファイルをお楽しみください。</translation>
     </message>
     <message>
       <source>Settings</source>
