@@ -21,6 +21,7 @@
 - Fixed Cyberpunk's prefix health check returning a false positive for Vcredist
 - Fixed an issue when updating a mod while the rename after install and install disabled options were enabled could cause them to move to the top of the modlist
 - Fixed Bethesda creation content not being moved to overwrite when the game is redeployed
+- Fixed plugins being enabled from collections that are intended to be disabled
 
 ---
 
