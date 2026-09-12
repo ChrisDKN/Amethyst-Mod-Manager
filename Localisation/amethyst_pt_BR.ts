@@ -6578,6 +6578,14 @@ Se você continuar, este aviso não será mostrado novamente para {1} a menos qu
       <translation>Ordenar plugins</translation>
     </message>
     <message>
+      <source>Sync</source>
+      <translation>Sincronizar</translation>
+    </message>
+    <message>
+      <source>Match plugin load order to modlist priority</source>
+      <translation>Corresponder ordem de carregamento do plugin para lista de prioridade</translation>
+    </message>
+    <message>
       <source>Groups</source>
       <translation>Grupos</translation>
     </message>
@@ -8880,6 +8888,46 @@ Executar o assistente Downgrade para remendar o jogo de volta para uma versão F
       <translation>Metadados de plugin atualizados.</translation>
     </message>
     <message>
+      <source>No plugins to sync.</source>
+      <translation>Sem plugins para sincronizar.</translation>
+    </message>
+    <message>
+      <source>Plugin sources are being refreshed. Try Sync when loading finishes.</source>
+      <translation>Fontes do plugin estão sendo atualizadas. Tente Sincronizar quando o carregamento terminar.</translation>
+    </message>
+    <message>
+      <source>No plugins are owned by mods in the modlist.</source>
+      <translation>Nenhum plugin é propriedade de mods na lista de modificações.</translation>
+    </message>
+    <message>
+      <source>Locked plugin positions prevent syncing with the modlist.</source>
+      <translation>Posições bloqueadas do plugin impedem a sincronização com a lista.</translation>
+    </message>
+    <message>
+      <source>Plugin load order already matches the modlist.</source>
+      <translation>A ordem de carregamento do plugin já corresponde à lista de mods.</translation>
+    </message>
+    <message>
+      <source>This will move 1 plugin to match modlist priority.</source>
+      <translation>Isto irá mover 1 plugin para coincidir com a prioridade da lista de mods.</translation>
+    </message>
+    <message>
+      <source>This will move {0} plugins to match modlist priority.</source>
+      <translation>Isso moverá os plugins {0} para coincidir com a prioridade da lista de módulos.</translation>
+    </message>
+    <message>
+      <source>Sync plugin load order?</source>
+      <translation>Sincronizar ordem de carregamento do plugin?</translation>
+    </message>
+    <message>
+      <source>Synced - 1 plugin moved.</source>
+      <translation>Sincronizado - 1 plugin movido.</translation>
+    </message>
+    <message>
+      <source>Synced - {0} plugins moved.</source>
+      <translation>Sincronizado - plugins {0} movidos.</translation>
+    </message>
+    <message>
       <source>An overlap check is already running.</source>
       <translation>Uma verificação de sobreposição já está em execução.</translation>
     </message>
@@ -9018,6 +9066,10 @@ Fazer deploy mesmo assim?</translation>
     <message>
       <source>File location</source>
       <translation>Localização do arquivo</translation>
+    </message>
+    <message>
+      <source>File or folder not found ({0}).</source>
+      <translation>Arquivo ou pasta não encontrado ({0}).</translation>
     </message>
     <message>
       <source>Log</source>
@@ -9434,6 +9486,118 @@ Como você gostaria de lidar com o mod existente?</translation>
     <message>
       <source>{0} — Unable to load files</source>
       <translation>{0} - Não foi possível carregar os arquivos</translation>
+    </message>
+    <message>
+      <source>Open</source>
+      <translation>Abertas</translation>
+    </message>
+    <message>
+      <source>Rename…</source>
+      <translation>Renomear…</translation>
+    </message>
+    <message>
+      <source>Delete…</source>
+      <translation>Excluir…</translation>
+    </message>
+    <message>
+      <source>Create new folder…</source>
+      <translation>Criar nova pasta…</translation>
+    </message>
+    <message>
+      <source>Create new file…</source>
+      <translation>Criar novo arquivo…</translation>
+    </message>
+    <message>
+      <source>Unset Top Level</source>
+      <translation>Remover Nível Superior</translation>
+    </message>
+    <message>
+      <source>Set Top Level</source>
+      <translation>Definir Nível Superior</translation>
+    </message>
+    <message>
+      <source>Unset as Root</source>
+      <translation>Desmarcar como Raiz</translation>
+    </message>
+    <message>
+      <source>Set as Root</source>
+      <translation>Definir como raiz</translation>
+    </message>
+    <message>
+      <source>Disable</source>
+      <translation>Desligado</translation>
+    </message>
+    <message>
+      <source>Enable</source>
+      <translation>Habilitado</translation>
+    </message>
+    <message>
+      <source>The selected item no longer exists.</source>
+      <translation>O item selecionado não existe mais.</translation>
+    </message>
+    <message>
+      <source>Rename</source>
+      <translation>Renomear</translation>
+    </message>
+    <message>
+      <source>New name:</source>
+      <translation>Novo nome:</translation>
+    </message>
+    <message>
+      <source>A file or folder with that name already exists.</source>
+      <translation>Já existe um arquivo ou pasta com esse nome.</translation>
+    </message>
+    <message>
+      <source>The item was renamed, but its saved Mod Files settings could not be updated: {0}</source>
+      <translation>O item foi renomeado, mas suas configurações de Arquivos de Mod salvos não puderam ser atualizadas: {0}</translation>
+    </message>
+    <message>
+      <source>Delete</source>
+      <translation>excluir</translation>
+    </message>
+    <message>
+      <source>Permanently delete '{0}' from this mod?
+
+This cannot be undone.</source>
+      <translation>Permanentemente excluir '{0}' deste mod?
+
+Essa ação não pode ser desfeita.</translation>
+    </message>
+    <message>
+      <source>The item was deleted, but its saved Mod Files settings could not be updated: {0}</source>
+      <translation>O item foi apagado, mas suas configurações de Arquivos de Mod salvos não puderam ser atualizadas: {0}</translation>
+    </message>
+    <message>
+      <source>Create new folder</source>
+      <translation>Criar nova pasta</translation>
+    </message>
+    <message>
+      <source>Create new file</source>
+      <translation>Criar novo arquivo</translation>
+    </message>
+    <message>
+      <source>Name:</source>
+      <translation>Nome:</translation>
+    </message>
+    <message>
+      <source>Create</source>
+      <translation>Crio</translation>
+    </message>
+    <message>
+      <source>Invalid name</source>
+      <translation>Nome inválido</translation>
+    </message>
+    <message>
+      <source>Enter one file or folder name without path separators.</source>
+      <translation>Insira um arquivo ou nome da pasta sem separadores de caminho!</translation>
+    </message>
+    <message>
+      <source>That name is reserved and would be hidden from Mod Files.</source>
+      <translation>Esse nome é reservado e seria escondido dos Filmes de Mod.</translation>
+    </message>
+    <message>
+      <source>The destination is not safe.</source>
+      <translation>O destino não é seguro.</translation>
     </message>
   </context>
   <context>
@@ -14737,6 +14901,14 @@ Resolva seus conflitos, feche-o e clique em Concluído.</translation>
   </context>
   <context>
     <name>SettingsView</name>
+    <message>
+      <source>Discord Rich Presence</source>
+      <translation>Rich Presence do Discord</translation>
+    </message>
+    <message>
+      <source>Show Amethyst and the game you are modding on your Discord profile while the Discord desktop app is running.</source>
+      <translation>Mostre o Ametista e o jogo que você está modificando no seu perfil do Discord enquanto o aplicativo para computador do Discord está rodando.</translation>
+    </message>
     <message>
       <source>Settings</source>
       <translation>Configurações</translation>
