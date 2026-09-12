@@ -730,6 +730,13 @@ class SettingsView(ConnectionsSettingsMixin, OverlayBase):
                  "conflict scan for a small speed-up)."),
             on_changed=lambda _v: self._rebuild_conflicts())
 
+        self._checkbox(
+            g, self.tr("Hide endorsed flag"),
+            uc.load_hide_endorsed_flag, uc.save_hide_endorsed_flag,
+            help=self.tr("Hide the endorsed icon from the mod list's Flags "
+                         "column."),
+            on_changed=self._apply_modlist_flag_visibility)
+
         # Read live by the modlist view on each hover, so persisting the value
         # is enough - no rebuild/refresh needed.
         self._checkbox(
@@ -1780,6 +1787,12 @@ class SettingsView(ConnectionsSettingsMixin, OverlayBase):
                 win._rebuild_conflicts_async()
             except Exception:
                 pass
+
+    def _apply_modlist_flag_visibility(self, hidden: bool):
+        win = self._window
+        view = getattr(win, "_modlist_view", None) if win is not None else None
+        if view is not None and hasattr(view, "set_hide_endorsed_flag"):
+            view.set_hide_endorsed_flag(hidden)
 
     def _safe_save(self, save_fn, *args):
         try:

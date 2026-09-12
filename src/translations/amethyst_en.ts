@@ -14949,6 +14949,14 @@ Merge your conflicts, then close it and click Done.</translation>
         <translation>Hide BSA/BA2 archive conflict flags (also skips that conflict scan for a small speed-up).</translation>
     </message>
     <message>
+        <source>Hide endorsed flag</source>
+        <translation>Hide endorsed flag</translation>
+    </message>
+    <message>
+        <source>Hide the endorsed icon from the mod list's Flags column.</source>
+        <translation>Hide the endorsed icon from the mod list's Flags column.</translation>
+    </message>
+    <message>
         <source>Theme</source>
         <translation>Theme</translation>
     </message>

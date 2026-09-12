@@ -240,6 +240,11 @@ class ModListView(QTreeView):
         self._reposition_marker_strip()
         bind_theme(self, roles={"TEXT_MAIN"})
 
+    def set_hide_endorsed_flag(self, hidden: bool) -> None:
+        delegate = self.itemDelegate()
+        if isinstance(delegate, ModRowDelegate):
+            delegate.set_hide_endorsed_flag(hidden)
+
     def refresh_theme(self, palette: dict) -> None:
         btn = getattr(self, "_col_menu_btn", None)
         if btn is not None:

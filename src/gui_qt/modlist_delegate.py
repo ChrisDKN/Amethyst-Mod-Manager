@@ -271,6 +271,11 @@ FONT_PX = 14        # row text size
 class ModRowDelegate(QStyledItemDelegate):
     def __init__(self, parent=None):
         super().__init__(parent)
+        try:
+            from Utils.ui.config import load_hide_endorsed_flag
+            self._hide_endorsed_flag = load_hide_endorsed_flag()
+        except Exception:
+            self._hide_endorsed_flag = False
         bind_theme(self, roles={
             "BG_ROW", "BG_ROW_ALT", "BG_ROW_HOVER", "BG_SELECT", "BG_SEP",
             "BG_DEEP", "TEXT_MAIN", "TEXT_DIM", "TEXT_ON_ACCENT",
@@ -289,6 +294,15 @@ class ModRowDelegate(QStyledItemDelegate):
         self.f_bold.setPixelSize(FONT_PX)
         self.fm_row = QFontMetrics(self.f_row)
         self._name_widths: dict[str, int] = {}
+
+    def set_hide_endorsed_flag(self, hidden: bool) -> None:
+        hidden = bool(hidden)
+        if self._hide_endorsed_flag == hidden:
+            return
+        self._hide_endorsed_flag = hidden
+        parent = self.parent()
+        if parent is not None:
+            parent.viewport().update()
 
     def refresh_theme(self, p: dict) -> None:
         self.c_sep_bg = qc(p, "BG_SEP")
@@ -753,11 +767,12 @@ class ModRowDelegate(QStyledItemDelegate):
                             _BSA_CONFLICT_ICONS.get(bsa),
                             _UUID_CONFLICT_ICONS.get(uuid)) if n]
 
-    @staticmethod
-    def _effective_flag_bits(bits):
+    def _effective_flag_bits(self, bits):
         """Collapse the mutually-exclusive icon groups: only ONE info.png (pre-RTX
         wins over collection bundled/patched) and only ONE root.png ever paint -
         matching Tk. Returns the active FLAG_ICONS entries after the collapse."""
+        if self._hide_endorsed_flag:
+            bits &= ~FLAG_ENDORSED
         # Info group: keep the first present in precedence order, drop the rest.
         info_keep = next((f for f in _INFO_FLAGS if bits & f), 0)
         root_keep = next((f for f in _ROOT_FLAGS if bits & f), 0)

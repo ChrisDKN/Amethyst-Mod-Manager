@@ -1900,6 +1900,33 @@ def save_hide_bsa_conflicts(value: bool) -> None:
     _write_ini(parser, path)
 
 
+def load_hide_endorsed_flag() -> bool:
+    """Return the hide_endorsed_flag setting (default False)."""
+    path = get_ui_config_path()
+    if not path.is_file():
+        return False
+    try:
+        parser = _read_ini(path)
+        return parser.getboolean(
+            _FILEMAP_SECTION, "hide_endorsed_flag", fallback=False)
+    except Exception:
+        return False
+
+
+def save_hide_endorsed_flag(value: bool) -> None:
+    """Persist the hide_endorsed_flag setting to amethyst.ini."""
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _FILEMAP_SECTION not in parser:
+        parser[_FILEMAP_SECTION] = {}
+    parser[_FILEMAP_SECTION]["hide_endorsed_flag"] = \
+        "true" if value else "false"
+    _write_ini(parser, path)
+
+
 def load_hide_kofi_button() -> bool:
     """Return the hide_kofi_button setting (default False)."""
     path = get_ui_config_path()
