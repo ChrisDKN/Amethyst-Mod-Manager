@@ -387,11 +387,11 @@ def compute_sizes(entries: list[ModEntry], staging_dir: Path
 
 
 def compute_plugin_stats(rows) -> dict:
-    """Aggregate plugin stats for the plugins footer stats row: total / ESL /
-    non-ESL. ESL = the PF_ESL (light-flagged or .esl) bit. In-memory, instant."""
+    """Aggregate enabled plugin stats for the plugins footer."""
     from gui_qt.plugin_state import PF_ESL
-    total = len(rows)
-    esl = sum(1 for r in rows if getattr(r, "flags", 0) & PF_ESL)
+    enabled = [r for r in rows if getattr(r, "enabled", False)]
+    total = len(enabled)
+    esl = sum(1 for r in enabled if getattr(r, "flags", 0) & PF_ESL)
     return {"total": total, "esl": esl, "non_esl": total - esl}
 
 

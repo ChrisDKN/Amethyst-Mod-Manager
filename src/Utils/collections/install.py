@@ -43,7 +43,8 @@ from Utils.mods.install import (
     _extract_archive, _link_or_copy)
 from Utils.mods.modlist import read_modlist, write_modlist, ModEntry
 from Utils.plugins import (
-    write_plugins, write_loadorder, PluginEntry, enforce_primary_plugin_order,
+    read_plugins, read_loadorder, write_plugins, write_loadorder, PluginEntry,
+    enforce_primary_plugin_order,
 )
 from Utils.ui.config import (
     load_collection_settings, load_clear_archive_after_install,
@@ -2009,10 +2010,15 @@ def run_collection_install(
     # Step 4: write plugins.txt / loadorder.txt from collection.json (or the
     # archive's exact exported order, which also skips the LOOT sort).
     if not _col_pause.is_set():
+        _collection_mod_folders = {
+            folder for _order, folder in install_order
+        }
+        _collection_mod_folders.update(_bundled_folders)
         _write_collection_plugins(
             game, profile_dir, plugins_path, collection_schema,
             overwrite_existing, _is_append_run, log, _set_status,
-            amethyst_state=_amethyst_state)
+            amethyst_state=_amethyst_state,
+            collection_mod_folders=_collection_mod_folders)
         # Also covers manifests with no plugins array: a collection install
         # must not leave a freshly-created/cloned profile with a stale native
         # block simply because there was no authored plugin order to write.
@@ -2901,10 +2907,12 @@ def _entries_from_amethyst_plugins(amethyst_state, author_entries, vanilla_map,
 
 def _write_collection_plugins(game, profile_dir, plugins_path, collection_schema,
                               overwrite_existing, _is_append_run, log, _set_status,
-                              amethyst_state=None):
+                              amethyst_state=None,
+                              collection_mod_folders=None):
     from Utils.games.registry import _vanilla_plugins_for_game
     schema_plugins: list[dict] = collection_schema.get("plugins", [])
-    if schema_plugins and overwrite_existing is None:
+    has_plugin_state = isinstance(collection_schema.get("plugins"), list)
+    if has_plugin_state and overwrite_existing is None:
         try:
             author_entries = [
                 PluginEntry(name=p.get("name", ""), enabled=p.get("enabled", True))
@@ -2916,10 +2924,14 @@ def _write_collection_plugins(game, profile_dir, plugins_path, collection_schema
             # of plugins.txt: the engine force-loads it before reading the file and
             # strips any such entries on launch. MO2/Vortex/LOOT exclude it too.
             vanilla_lower = set() if plugins_include_vanilla else set(vanilla_map.keys())
-            deployed, plugin_winner_paths, loot_sources = _filegraph_deployed_plugins(
-                game, profile_dir)
+            if collection_mod_folders is None:
+                collection_mod_folders = _collection_member_folders(
+                    profile_dir, collection_schema)
+            deployed, plugin_winner_paths, loot_sources, member_plugins = \
+                _filegraph_deployed_plugins(
+                    game, profile_dir, collection_mod_folders)
             # Drop manifest plugins whose file was never installed. A collection's
-            # ``plugins`` array covers ALL its mods including optional ones the
+            # ``plugins`` array can include active plugins from optional mods the
             # user skipped (e.g. GTS's 119 Anniversary-Edition patch mods), and
             # Vortex only lists plugins that exist on disk - writing the array
             # verbatim leaves phantom plugins.txt entries that inflate the
@@ -2945,19 +2957,29 @@ def _write_collection_plugins(game, profile_dir, plugins_path, collection_schema
                         f"plugin(s) with no installed file (skipped optional "
                         f"mods): {', '.join(missing[:8])}"
                         f"{', …' if len(missing) > 8 else ''}")
-            # Recover plugins staged by the collection's mods but absent from the
-            # manifest's ``plugins`` array (FOMOD-conditional / unlisted plugins).
-            # These are read from the filemap built in Step 3c so the LOOT sort
-            # covers the SAME set as a later manual sort - otherwise they're
-            # dropped and the manual sort re-inserts them (the "400+ moved" bug).
+            star_prefix = getattr(game, "plugins_use_star_prefix", True)
+            existing_states = _profile_plugin_enabled_states(
+                plugins_path, star_prefix)
+            disabled_members: list[str] = []
+            # Vortex applies this list only to collection members: an absent
+            # member plugin is disabled, while external plugin state is retained.
             for low, orig in deployed.items():
                 if low in author_lower or low in vanilla_map:
                     continue
-                author_entries.append(PluginEntry(name=orig, enabled=True))
+                if low in member_plugins:
+                    enabled = False
+                    disabled_members.append(orig)
+                else:
+                    enabled = existing_states.get(low, True)
+                author_entries.append(PluginEntry(name=orig, enabled=enabled))
                 author_lower.add(low)
+            if disabled_members:
+                log(f"Collection install: kept {len(disabled_members)} plugin(s) "
+                    f"shipped by collection mods disabled because they are absent "
+                    f"from the manifest: {', '.join(disabled_members[:8])}"
+                    f"{', …' if len(disabled_members) > 8 else ''}")
             _apply_collection_groups(profile_dir, collection_schema, log)
             final_entries: list[PluginEntry] = []
-            star_prefix = getattr(game, "plugins_use_star_prefix", True)
             if amethyst_state:
                 # An Amethyst-authored archive carries the exact exported
                 # plugin order - apply it and skip the LOOT sort (LOOT would
@@ -3030,10 +3052,12 @@ def _write_collection_plugins(game, profile_dir, plugins_path, collection_schema
                           [e for e in final_entries if e.name.lower() not in vanilla_lower],
                           star_prefix=star_prefix)
             write_loadorder(plugins_path.parent / "loadorder.txt", final_entries)
-            log(f"Collection install: wrote plugins.txt ({len(final_entries)} plugin(s)).")
+            active_count = sum(entry.enabled for entry in final_entries)
+            log(f"Collection install: wrote plugins.txt ({active_count} active / "
+                f"{len(final_entries)} known plugin(s)).")
         except Exception as exc:
             log(f"Collection install: failed to write plugins.txt: {exc}")
-    elif schema_plugins and _is_append_run:
+    elif has_plugin_state and _is_append_run:
         try:
             _apply_collection_groups(profile_dir, collection_schema, log)
         except Exception as exc:
@@ -3048,7 +3072,7 @@ def _loot_available() -> bool:
         return False
 
 
-def _filegraph_deployed_plugins(game, profile_dir):
+def _filegraph_deployed_plugins(game, profile_dir, collection_mod_folders=()):
     """Winning plugin spellings and sources from one reconciled generation."""
     from Utils.filegraph.service import FileGraphService, plugin_source_paths
     library = FileGraphService.open_library(game, profile_dir)
@@ -3060,8 +3084,78 @@ def _filegraph_deployed_plugins(game, profile_dir):
         name.lower(): winner.destination_display.rsplit("/", 1)[-1]
         for name, winner in snapshot.plugin_winners().items()
     }
+    member_plugins: set[str] = set()
+    for folder in collection_mod_folders or ():
+        try:
+            member_plugins.update(
+                name.lower() for name in snapshot.mod_plugins(folder))
+        except (OSError, RuntimeError):
+            continue
     from LOOT.game_view import ProfileSources
-    return found, plugin_source_paths(snapshot, game), ProfileSources.from_game(snapshot, game)
+    return (found, plugin_source_paths(snapshot, game),
+            ProfileSources.from_game(snapshot, game), member_plugins)
+
+
+def _profile_plugin_enabled_states(plugins_path: Path,
+                                   star_prefix: bool) -> dict[str, bool]:
+    states = {
+        entry.name.lower(): entry.enabled
+        for entry in read_plugins(plugins_path, star_prefix=star_prefix)
+    }
+    if not star_prefix:
+        for name in read_loadorder(plugins_path.parent / "loadorder.txt"):
+            states.setdefault(name.lower(), False)
+    return states
+
+
+def _collection_member_folders(profile_dir: Path,
+                               collection_schema: dict) -> set[str]:
+    """Recover this collection's staged member folders for Reset Load Order."""
+    source_ids: set[int] = set()
+    for entry in collection_schema.get("mods", []):
+        try:
+            source_id = int((entry.get("source") or {}).get("fileId") or 0)
+        except (TypeError, ValueError):
+            continue
+        if source_id:
+            source_ids.add(source_id)
+    slugs: set[str] = set()
+    try:
+        from Utils.collections.manifest import parse_collection_url
+        from Utils.profiles.state import read_profile_settings
+        url = read_profile_settings(profile_dir, None).get("collection_url", "")
+        slug, _domain, _revision = parse_collection_url(url)
+        if slug:
+            slugs.add(slug.lower())
+    except Exception:
+        pass
+
+    from Nexus.nexus_meta import read_meta
+    metadata = []
+    try:
+        mod_dirs = [entry for entry in (profile_dir / "mods").iterdir()
+                    if entry.is_dir()]
+    except OSError:
+        return set()
+    members: set[str] = set()
+    for mod_dir in mod_dirs:
+        try:
+            meta = read_meta(mod_dir / "meta.ini")
+            source_id = int(meta.collection_source_file_id or 0)
+            file_id = int(meta.file_id or 0)
+        except (OSError, TypeError, ValueError):
+            continue
+        metadata.append((mod_dir.name, meta))
+        if (source_id in source_ids
+                or (not source_id and file_id in source_ids)):
+            members.add(mod_dir.name)
+            if meta.from_collection:
+                slugs.add(meta.from_collection.lower())
+    if slugs:
+        members.update(
+            name for name, meta in metadata
+            if meta.from_collection.lower() in slugs)
+    return members
 
 
 def _on_disk_plugin_names(game) -> "set[str]":

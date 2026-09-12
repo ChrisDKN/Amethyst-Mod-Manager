@@ -2204,7 +2204,7 @@ class MainWindow(QMainWindow):
         self._plugin_rules_btn.clicked.connect(self._open_plugin_rules_tab)
         self._plugin_filters_btn.clicked.connect(self._toggle_plugin_filters)
 
-        # Search row: a total / non-ESL count label (accent outline) to the left
+        # Search row: an active / non-ESL count label (accent outline) to the left
         # of a full-width search box, mirroring the modlist footer.
         search_row = QHBoxLayout()
         search_row.setContentsMargins(0, 0, 0, 0)
@@ -17997,7 +17997,7 @@ class MainWindow(QMainWindow):
             return {}
 
     def _refresh_plugin_stats(self):
-        """Update the plugins footer count label: total plugins / non-ESL. All
+        """Update the plugins footer count label: active plugins / non-ESL. All
         the data is in-memory on the plugin model, so this is instant."""
         lbl = getattr(self, "_plugin_count", None)
         if lbl is None:
@@ -20148,6 +20148,7 @@ class MainWindow(QMainWindow):
         self._plugin_model.order_changed.connect(
             lambda: self._rebuild_conflicts_async(
                 edit_ctx=("plugin_order",)))
+        self._plugin_model.order_changed.connect(self._refresh_plugin_stats)
         self._plugin_model.save_failed.connect(
             lambda msg: self._notify(msg, "error"))
         self._plugin_view = PluginView(self._plugin_model)
