@@ -673,9 +673,10 @@ class Acquisition:
                  route="cache", path=cached,
                  elapsed_seconds=round(time.monotonic() - started, 3))
             return cached
-        if self.budget:
-            self.budget.acquire(archive)
         row = self.ids[archive.key]
+        if self.budget:
+            self.budget.acquire(archive, lambda used, limit:
+                self.cb.on_dl_mod_wait(row, archive.name, used, limit))
         with self._lock:
             self._speed_rows.pop(row, None)
         self.cb.on_dl_mod_start(row, archive.name, archive.size)

@@ -36,7 +36,7 @@ class ArchiveBudget:
         self._reserved = {}
         self._used = 0
 
-    def acquire(self, archive):
+    def acquire(self, archive, on_wait=None):
         size = download_space(archive)
         with self._condition:
             if size > self.limit:
@@ -59,6 +59,8 @@ class ArchiveBudget:
                     emit(self.log, "archive.cache.waiting", archive=archive.name,
                          bytes=size, used_bytes=self._used, limit_bytes=self.limit)
                     waiting = True
+                    if on_wait is not None:
+                        on_wait(self._used, self.limit)
                 self._condition.wait(0.2)
 
     def release(self, archive, retained=0):

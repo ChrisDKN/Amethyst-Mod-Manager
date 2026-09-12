@@ -129,6 +129,8 @@ class CollectionInstallOverlay(QWidget):
         self._p = active_palette()
         # file_id → pool-slot index (RED and GREEN; -1 = overflow, no bar row).
         self._dl_slot_of: dict[int, int] = {}
+        self._download_waiting: dict[int, str] = {}
+        self._download_waiting_space = (0, 0)
         self._ex_slot_of: dict[int, int] = {}
         self._extract_active: dict[int, str] = {}
         self._extract_queued: dict[int, str] = {}
@@ -235,7 +237,9 @@ class CollectionInstallOverlay(QWidget):
             self._dl_rows.append(row)
             dl_v.addWidget(row)
         self._dl_overflow = QLabel("", dl_frame)
-        self._dl_overflow.setStyleSheet(f"color:{self._c('TEXT_DIM')}; font-size:11px;")
+        self._dl_overflow.setWordWrap(True)
+        self._dl_overflow.setStyleSheet(
+            f"color:{self._c('STATUS_QUEUED')}; font-size:11px;")
         dl_v.addWidget(self._dl_overflow)
         dl_v.addStretch(1)
 
@@ -430,7 +434,14 @@ class CollectionInstallOverlay(QWidget):
             len(self._small_extract_done), len(self._small_mod_ids))
 
     # RED - small downloads share one row; larger downloads use the pool.
+    def dl_wait(self, file_id: int, name: str, used: int, limit: int):
+        self._download_waiting[file_id] = name
+        self._download_waiting_space = (used, limit)
+        self._update_dl_overflow()
+
     def dl_start(self, file_id: int, name: str, size: int):
+        self._download_waiting.pop(file_id, None)
+        self._update_dl_overflow()
         if file_id in self._small_mod_ids or 0 < size < _SMALL_MOD_THRESHOLD:
             self._small_dl_done.discard(file_id)
             self._small_dl_current[file_id] = 0
@@ -462,6 +473,7 @@ class CollectionInstallOverlay(QWidget):
             self._dl_rows[slot].set_progress(cur, tot)
 
     def dl_finish(self, file_id: int):
+        self._download_waiting.pop(file_id, None)
         if file_id in self._small_mod_ids:
             total = max(self._small_dl_total.get(file_id, 0),
                         self._small_dl_current.get(file_id, 0))
@@ -479,7 +491,22 @@ class CollectionInstallOverlay(QWidget):
 
     def _update_dl_overflow(self):
         extra = sum(1 for v in self._dl_slot_of.values() if v == -1)
-        self._dl_overflow.setText(self.tr("+ {0} more downloading…").format(extra) if extra else "")
+        waiting = len(self._download_waiting)
+        lines = []
+        if extra:
+            lines.append(self.tr("+ {0} more downloading…").format(extra))
+        if waiting:
+            lines.append(self.tr(
+                "{0} queued — archive cleanup limit reached").format(waiting))
+            lines.append(self.tr("Downloads resume as installs finish"))
+            used, limit = self._download_waiting_space
+            self._dl_overflow.setToolTip(self.tr(
+                "Clear archive after install is limiting temporary archive storage "
+                "({0} / {1} used). Downloads resume automatically as installed "
+                "archives are cleared.").format(_fmt_gb(used), _fmt_gb(limit)))
+        else:
+            self._dl_overflow.setToolTip("")
+        self._dl_overflow.setText("\n".join(lines))
 
     # GREEN - assign a pool slot per active extraction; overflow-active and
     # queued names go in the text label (no widget creation).

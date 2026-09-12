@@ -59,6 +59,7 @@ class InstallCallbacks:
     on_display_total: Callable[[int], None] = _noop     # true collection size (bytes)
     on_mod_plan: Callable[[list], None] = _noop         # [(file_id, size), ...]
     # RED - active downloads
+    on_dl_mod_wait: Callable[[int, str, int, int], None] = _noop
     on_dl_mod_start: Callable[[int, str, int], None] = _noop   # file_id,name,size
     on_dl_mod_update: Callable[[int, int, int], None] = _noop  # file_id,cur,tot
     on_dl_mod_finish: Callable[[int], None] = _noop            # file_id
