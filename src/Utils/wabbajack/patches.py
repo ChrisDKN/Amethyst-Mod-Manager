@@ -21,11 +21,12 @@ def _read(stream, count: int) -> bytes:
 
 
 def apply_octodiff(source: Path, patch, target: Path, size: int, expected: str,
-                   stop=None, *, progress=None, log=None) -> str:
+                   stop=None, *, progress=None, log=None, metrics=None) -> str:
     started = time.monotonic()
-    emit(log, "octodiff.started", source=source, target=target,
-         source_bytes=source.stat().st_size, output_bytes=size,
-         expected_hash=expected)
+    if log is not None:
+        emit(log, "octodiff.started", source=source, target=target,
+             source_bytes=source.stat().st_size, output_bytes=size,
+             expected_hash=expected)
     if _read(patch, 9) != b"OCTODELTA" or _read(patch, 1) != b"\x01":
         raise WabbajackError("Unsupported Octodiff header")
     length, shift = 0, 0
@@ -46,8 +47,9 @@ def apply_octodiff(source: Path, patch, target: Path, size: int, expected: str,
     checksum = _read(patch, digest_size)
     if _read(patch, 3) != b">>>":
         raise WabbajackError("Invalid Octodiff metadata terminator")
-    emit(log, "octodiff.header", algorithm=algorithm,
-         embedded_sha1=checksum.hex())
+    if log is not None:
+        emit(log, "octodiff.header", algorithm=algorithm,
+             embedded_sha1=checksum.hex())
     sha, xx, written = hashlib.sha1(), XXHash(), 0
     commands = copies = literals = copy_bytes = literal_bytes = 0
     source_size = source.stat().st_size
@@ -87,9 +89,15 @@ def apply_octodiff(source: Path, patch, target: Path, size: int, expected: str,
         if written != size or sha.digest() != checksum or (expected and xx.digest() != expected):
             raise WabbajackError(f"Patched output failed verification: {target.name}")
     digest = xx.digest()
-    emit(log, "octodiff.completed", target=target, output_bytes=written,
-         output_hash=digest, commands=commands, copy_commands=copies,
-         copy_bytes=copy_bytes, literal_commands=literals,
-         literal_bytes=literal_bytes,
-         elapsed_seconds=round(time.monotonic() - started, 3))
+    if metrics is not None:
+        for key, value in (("output_bytes", written), ("commands", commands),
+                           ("copy_commands", copies), ("copy_bytes", copy_bytes),
+                           ("literal_commands", literals), ("literal_bytes", literal_bytes)):
+            metrics[key] += value
+    if log is not None:
+        emit(log, "octodiff.completed", target=target, output_bytes=written,
+             output_hash=digest, commands=commands, copy_commands=copies,
+             copy_bytes=copy_bytes, literal_commands=literals,
+             literal_bytes=literal_bytes,
+             elapsed_seconds=round(time.monotonic() - started, 3))
     return digest

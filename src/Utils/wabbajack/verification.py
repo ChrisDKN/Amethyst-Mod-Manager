@@ -17,6 +17,7 @@ from .diagnostics import emit, emit_exception
 from .paths import WabbajackError
 
 _current = ContextVar("wabbajack_verification", default=None)
+_temporary = ContextVar("wabbajack_temporary_verification", default=None)
 VERIFICATION_WORKERS = min(4, os.cpu_count() or 1)
 
 
@@ -24,6 +25,10 @@ def file_stamp(path):
     value = Path(path).stat()
     if not stat.S_ISREG(value.st_mode):
         raise WabbajackError(f"Verification requires a regular file: {path}")
+    return stat_stamp(value)
+
+
+def stat_stamp(value):
     return value.st_dev, value.st_ino, value.st_size, value.st_mtime_ns, value.st_ctime_ns
 
 
@@ -263,13 +268,13 @@ class VerificationCache:
             raise InterruptedError("Preflight stopped")
         before = file_stamp(path)
         key = os.path.abspath(path), kind
-        disk_key = key[0], json.dumps(kind, separators=(",", ":"))
-        disk_stamp = json.dumps(before, separators=(",", ":"))
         with self._lock:
             persistent = self._database_exists(log)
             found = self._entries.get(key)
             if found is None and persistent:
                 try:
+                    disk_key = key[0], json.dumps(kind, separators=(",", ":"))
+                    disk_stamp = json.dumps(before, separators=(",", ":"))
                     row = self._db.execute(
                         "SELECT result FROM verified WHERE path=? AND kind=? AND stamp=?",
                         (*disk_key, disk_stamp)).fetchone()
@@ -303,14 +308,14 @@ class VerificationCache:
 
     def remember(self, path, kind, result, stamp, log=None):
         key = os.path.abspath(path), kind
-        disk_key = key[0], json.dumps(kind, separators=(",", ":"))
-        disk_stamp = json.dumps(stamp, separators=(",", ":"))
         with self._lock:
             self._entries[key] = stamp, result
             self._entries.move_to_end(key)
             self._trim()
             if self._database_exists(log):
                 try:
+                    disk_key = key[0], json.dumps(kind, separators=(",", ":"))
+                    disk_stamp = json.dumps(stamp, separators=(",", ":"))
                     self._db.execute("INSERT OR REPLACE INTO verified VALUES (?,?,?,?)",
                         (*disk_key, disk_stamp, json.dumps(result, separators=(",", ":"))))
                     self._pending += 1
@@ -343,8 +348,32 @@ def verification_scope(cache, stop=None, progress=None, log=None):
             cache.close(log)
 
 
+@contextmanager
+def temporary_verification_scope(root, stop=None, log=None, *, limit=32768):
+    cache = VerificationCache(limit=limit)
+    token = _temporary.set((os.path.abspath(root) + os.sep, cache, stop, log))
+    try:
+        yield cache
+    finally:
+        _temporary.reset(token)
+        with cache._lock:
+            cache._entries.clear()
+        emit(log, "verification.scratch.summary", root=root,
+             reused=cache._hits, verified=cache._misses,
+             reused_bytes=cache._hit_bytes)
+
+
+def _context_for(path):
+    temporary = _temporary.get()
+    if temporary is not None:
+        prefix, cache, stop, log = temporary
+        if os.path.abspath(path).startswith(prefix):
+            return cache, stop, None, log
+    return _current.get()
+
+
 def verified_read(path, kind, operation):
-    context = _current.get()
+    context = _context_for(path)
     if context is None:
         return operation()
     cache, stop, progress, log = context
@@ -355,10 +384,22 @@ def verified_read(path, kind, operation):
 def remember_verified(path, digest, stamp, *, kind="xxhash64"):
     if file_stamp(path) != stamp:
         raise WabbajackError(f"Verified file changed: {path}")
-    context = _current.get()
+    context = _context_for(path)
     if context is not None:
         cache, _, _, log = context
         cache.remember(path, kind, digest, stamp, log)
+
+
+def remember_written(path, digest, stamp):
+    after = file_stamp(path)
+    if after[:4] != stamp[:4]:
+        raise WabbajackError(f"Extracted file changed while writing: {path}")
+    context = _context_for(path)
+    if context is not None:
+        cache, stop, _, log = context
+        if stop is not None and stop.is_set():
+            raise InterruptedError("Installation stopped")
+        cache.remember(path, "xxhash64", digest, after, log)
 
 
 def verified_replace(source, target, *, digest=None, stamp=None, stop=None):

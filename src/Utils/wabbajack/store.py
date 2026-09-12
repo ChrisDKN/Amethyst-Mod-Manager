@@ -65,6 +65,7 @@ class Store:
         self.root.mkdir(exist_ok=True)
         self.work.mkdir(exist_ok=True)
         self.lock = threading.RLock()
+        self._directory_lock = threading.Lock()
         self._pending_completed = {}
         self._prepared_directories = {}
         self._verified = {}
@@ -253,8 +254,8 @@ class Store:
                 self.flush_completed()
 
     def flush_completed(self):
-        count = len(self._pending_completed)
         with self.lock, self.db:
+            count = len(self._pending_completed)
             self.db.executemany("INSERT OR REPLACE INTO completed VALUES (?,?,?)",
                 [(path, sig, digest) for path, (sig, digest) in self._pending_completed.items()])
             self._pending_completed.clear()
@@ -293,22 +294,23 @@ class Store:
             progress("Restoring previous files", len(rows), len(rows), "Previous installation restored")
 
     def prepare_directory(self, path):
-        with self.lock:
+        with self._directory_lock:
             known = self._prepared_directories.get(path)
-            if known is not None:
-                try:
-                    info = path.lstat()
-                except FileNotFoundError:
-                    pass
-                else:
-                    if not stat.S_ISDIR(info.st_mode):
-                        raise WabbajackError(f"Expected a managed directory: {path}")
-                    if (info.st_dev, info.st_ino) == known:
-                        return
-            path.mkdir(parents=True, exist_ok=True)
-            info = path.lstat()
-            if not stat.S_ISDIR(info.st_mode):
-                raise WabbajackError(f"Expected a managed directory: {path}")
+        if known is not None:
+            try:
+                info = path.lstat()
+            except FileNotFoundError:
+                pass
+            else:
+                if not stat.S_ISDIR(info.st_mode):
+                    raise WabbajackError(f"Expected a managed directory: {path}")
+                if (info.st_dev, info.st_ino) == known:
+                    return
+        path.mkdir(parents=True, exist_ok=True)
+        info = path.lstat()
+        if not stat.S_ISDIR(info.st_mode):
+            raise WabbajackError(f"Expected a managed directory: {path}")
+        with self._directory_lock:
             self._prepared_directories[path] = (info.st_dev, info.st_ino)
 
     @staticmethod

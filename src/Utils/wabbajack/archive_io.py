@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import codecs
+import os
 import struct
 import zlib
 from pathlib import Path
@@ -8,6 +9,7 @@ from pathlib import Path
 from Utils.atomic_write import atomic_writer
 from .hashes import XXHash
 from .paths import WabbajackError, relative_path, within
+from .verification import remember_written, stat_stamp
 
 BLOCK = 1024 * 1024
 
@@ -226,7 +228,7 @@ def select_bethesda(source, members=None, aliases=None):
 
 
 def extract_bethesda(source, root, stop=None, progress=None, *, excluded_paths=frozenset(), aliases=None,
-                     members=None, selected_records=None):
+                     members=None, selected_records=None, cache_hashes=False):
     rows = select_bethesda(source, members, aliases) if selected_records is None else selected_records
     rows = [row for row in rows if relative_path(row[0]).casefold() not in excluded_paths]
     total = sum(len(header) + sum(c[2] for c in segments) for _, header, segments in rows)
@@ -236,10 +238,13 @@ def extract_bethesda(source, root, stop=None, progress=None, *, excluded_paths=f
             if stop is not None and stop.is_set():
                 raise InterruptedError("Archive processing stopped")
             target = within(root, row[0])
+            digest = XXHash() if cache_hashes else None
             with atomic_writer(target, "wb", encoding=None) as out:
                 def write(data):
                     nonlocal completed
                     out.write(data)
+                    if digest is not None:
+                        digest.update(data)
                     completed += len(data)
                     if progress:
                         progress(completed, total)
@@ -247,6 +252,11 @@ def extract_bethesda(source, root, stop=None, progress=None, *, excluded_paths=f
                     read_member(stream, row, write, stop)
                 except WabbajackError as exc:
                     raise WabbajackError(f"{Path(source).name}: {row[0]}: {exc}") from exc
+                if digest is not None:
+                    out.flush()
+                    stamp = stat_stamp(os.fstat(out.fileno()))
+            if digest is not None:
+                remember_written(target, digest.digest(), stamp)
 
 
 def verify_archive(path, root, files, stop=None, progress=None, *, expected_hashes=None,

@@ -26,6 +26,7 @@ from .manifest import archive_path, required_directives
 from .patches import apply_octodiff
 from .paths import WabbajackError, relative_path, within, source_path, source_candidates, source_lookup_scope
 from .diagnostics import emit, emit_exception
+from .verification import remember_written, stat_stamp, temporary_verification_scope
 
 
 _PATH_MAGIC = tuple(
@@ -35,6 +36,24 @@ _PATH_MAGIC = tuple(
 )
 _PATH_MAGIC_PATTERN = re.compile("|".join(map(re.escape, _PATH_MAGIC)))
 _PATH_MAGIC_RETAIN = max(map(len, _PATH_MAGIC)) - 1
+
+
+def _order_patches(directives, archive, stop):
+    pending = []
+    for directive in directives:
+        if stop.is_set():
+            raise InterruptedError("Installation stopped")
+        if directive.kind == "PatchedFromArchive":
+            patch_id = directive.data["PatchID"]
+            try:
+                member = archive.getinfo(patch_id)
+            except KeyError as exc:
+                raise WabbajackError(f"Missing patch {patch_id} for {directive.path}") from exc
+            pending.append((member.header_offset, directive))
+    pending.sort(key=lambda item: item[0])
+    ordered = iter(directive for _, directive in pending)
+    return [next(ordered) if directive.kind == "PatchedFromArchive" else directive
+            for directive in directives]
 
 
 def _patch_source(patch_archive, directive, source, root, member, target, stop,
@@ -53,6 +72,8 @@ def _patch_source(patch_archive, directive, source, root, member, target, stop,
         if not candidate.is_file():
             continue
         attempted += 1
+        if metrics is not None:
+            metrics["attempts"] += 1
         reused_source_hash = (source_verified and candidate == source)
         if directive.data.get("FromHash") is not None and not reused_source_hash:
             hash_started = time.monotonic()
@@ -61,13 +82,16 @@ def _patch_source(patch_archive, directive, source, root, member, target, stop,
                 metrics["source_hash_seconds"] += time.monotonic() - hash_started
             expected = canonical_hash(directive.data["FromHash"])
             if actual != expected:
+                if metrics is not None:
+                    metrics["source_rejections"] += 1
                 emit(log, "reconstruct.patch.source_rejected", output=directive.path,
                      source=candidate, actual_hash=actual, expected_hash=expected)
                 continue
         if metrics is not None:
             metrics["source_hashes_reused"] += int(reused_source_hash)
-        emit(log, "reconstruct.patch.attempt", output=directive.path,
-             source=candidate, attempt=attempted)
+        if metrics is None:
+            emit(log, "reconstruct.patch.attempt", output=directive.path,
+                 source=candidate, attempt=attempted)
         try:
             entry_started = time.monotonic()
             patch = patch_archive.open(directive.data["PatchID"])
@@ -78,17 +102,26 @@ def _patch_source(patch_archive, directive, source, root, member, target, stop,
                 try:
                     digest = apply_octodiff(candidate, patch, target,
                                             directive.size, directive.hash, stop,
-                                            progress=progress, log=log)
+                                            progress=progress,
+                                            log=log if metrics is None else None,
+                                            metrics=metrics)
                 finally:
                     if metrics is not None:
                         metrics["apply_seconds"] += (
                             time.monotonic() - apply_started)
             return digest
-        except WabbajackError as exc:
+        except InterruptedError:
+            raise
+        except Exception as exc:
+            if metrics is not None:
+                metrics["failed_attempts"] += 1
+            emit_exception(log, "reconstruct.patch.attempt_failed", exc,
+                           output=directive.path, source=candidate, target=target,
+                           attempt=attempted, patch_id=directive.data["PatchID"],
+                           expected_hash=directive.hash, output_bytes=directive.size)
+            if not isinstance(exc, WabbajackError):
+                raise
             error = exc
-            emit(log, "reconstruct.patch.attempt_failed", output=directive.path,
-                 source=candidate, attempt=attempted,
-                 exception_type=type(exc).__name__, exception=str(exc))
     raise WabbajackError(f"No archive source produced the verified patch output for {directive.path}: {error or 'required source hash not found'}")
 
 
@@ -197,7 +230,7 @@ def _archive_member_path(value, *, directory=False, size=0):
 
 
 def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=None,
-                 *, members=None, resources=None):
+                 *, members=None, resources=None, cache_hashes=False):
     from .extraction import working_memory, zip_memory, extract_selected, finish_extraction
     started = time.monotonic()
     def reserve_budget(total):
@@ -250,15 +283,23 @@ def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=N
                                 continue
                             if stop.is_set():
                                 raise InterruptedError("Installation stopped")
+                            digest = XXHash() if cache_hashes else None
                             with _open_zip_member(source, item, log) as incoming, atomic_writer(path, "wb", encoding=None) as out:
                                 while data := incoming.read(1024 * 1024):
                                     if stop.is_set():
                                         raise InterruptedError("Installation stopped")
                                     out.write(data)
+                                    if digest is not None:
+                                        digest.update(data)
                                     completed += len(data)
                                     if progress:
                                         progress(completed, total)
+                                if digest is not None:
+                                    out.flush()
+                                    stamp = stat_stamp(os.fstat(out.fileno()))
                             path.chmod(((item.external_attr >> 16) & 0o777) | 0o600)
+                            if digest is not None:
+                                remember_written(path, digest.digest(), stamp)
                     emit(log, "extract.completed", archive=archive, target=target,
                          format="zip-native", members=len(selected), expanded_bytes=total,
                          elapsed_seconds=round(time.monotonic() - started, 3))
@@ -295,15 +336,23 @@ def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=N
                     if item.isdir():
                         path.mkdir(parents=True, exist_ok=True)
                     else:
+                        digest = XXHash() if cache_hashes else None
                         with source.extractfile(item) as incoming, atomic_writer(path, "wb", encoding=None) as out:
                             while data := incoming.read(1024 * 1024):
                                 if stop.is_set():
                                     raise InterruptedError("Installation stopped")
                                 out.write(data)
+                                if digest is not None:
+                                    digest.update(data)
                                 completed += len(data)
                                 if progress:
                                     progress(completed, total)
+                            if digest is not None:
+                                out.flush()
+                                stamp = stat_stamp(os.fstat(out.fileno()))
                         path.chmod((item.mode & 0o777) | 0o600)
+                        if digest is not None:
+                            remember_written(path, digest.digest(), stamp)
         emit(log, "extract.completed", archive=archive, target=target,
              format="tar-native", members=len(entries), expanded_bytes=total,
              elapsed_seconds=round(time.monotonic() - started, 3))
@@ -378,7 +427,7 @@ def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=N
         emit(log, "extract.selection.fallback", archive=archive, exception=str(exc))
         shutil.rmtree(target)
         return extract_safe(archive, target, stop, log, budget, progress,
-                            resources=resources)
+                            resources=resources, cache_hashes=cache_hashes)
     emit(log, "extract.completed", archive=archive, target=target,
          format="7zip", expanded_bytes=selected_bytes,
          elapsed_seconds=round(time.monotonic() - started, 3))
@@ -545,14 +594,15 @@ class Reconstruction:
     def _record(self, directive, path, sig=None, actual=None, *, persist=True):
         sig = sig or signature(directive, self.request)
         actual = actual or file_hash(path, self.control.stop)
-        if directive.deterministic and (actual != directive.output_hash or path.stat().st_size != directive.output_size):
+        info = path.stat()
+        if directive.deterministic and (actual != directive.output_hash or info.st_size != directive.output_size):
             raise WabbajackError(f"Output failed verification: {directive.path}")
         if persist:
             self.store.record_completed(directive.path, sig, actual)
         with self._lock:
             self._result_keys.add(directive.path.casefold())
             self.results[directive.path] = {"source": str(path), "authored_hash": actual, "signature": sig,
-                                            "source_stamp": self.store._stamp(path.stat())[:4]}
+                                            "source_stamp": self.store._stamp(info)[:4]}
             delayed = getattr(self._record_delay, "paths", None)
             if delayed is not None:
                 delayed.append(directive.path)
@@ -631,12 +681,18 @@ class Reconstruction:
 
     @source_lookup_scope()
     def install_archive(self, archive, path, *, durable=False):
+        scratch = self.store.work / "extract" / hashlib.sha256(archive.key.encode()).hexdigest()
+        limit = max(32768, min(131072, len(self.by_archive.get(archive.key, ())) * 2))
+        with temporary_verification_scope(scratch, self.control.stop, self.cb.on_log,
+                                          limit=limit):
+            return self._install_archive(archive, path, scratch, durable=durable)
+
+    def _install_archive(self, archive, path, scratch, *, durable=False):
         started = time.monotonic()
         self._record_delay.paths = []
         succeeded = False
         row = self._row(archive)
         self.cb.on_extract_add(row, archive.name)
-        scratch = self.store.work / "extract" / hashlib.sha256(archive.key.encode()).hexdigest()
         extracted = {}
         aliases = {}
         reserved = 0
@@ -648,6 +704,7 @@ class Reconstruction:
         copied_outputs = 0
         patch_archive = None
         patch_metrics = Counter()
+        last_patch_log = started
         emit(self.cb.on_log, "reconstruct.archive.started", archive=archive.name,
              kind=archive.kind, source=path, source_bytes=archive.size,
              directives=len(self.by_archive.get(archive.key, [])), scratch=scratch)
@@ -732,6 +789,13 @@ class Reconstruction:
                 reuse_candidates += int(reusable)
                 if not reusable or not self._reuse(d):
                     directives.append(d)
+            patch_count = sum(d.kind == "PatchedFromArchive" for d in directives)
+            if patch_count:
+                package_started = time.monotonic()
+                patch_archive = zipfile.ZipFile(self.request.package.path)
+                patch_metrics["package_open_seconds"] = time.monotonic() - package_started
+                patch_metrics["package_opens"] = 1
+                directives = _order_patches(directives, patch_archive, self.control.stop)
             required_members = {}
             for d in directives:
                 _, members = archive_path(d.data)
@@ -744,6 +808,7 @@ class Reconstruction:
             emit(self.cb.on_log, "reconstruct.archive.outputs", archive=archive.name,
                  required_directives=len(directives),
                  reuse_candidates=reuse_candidates,
+                 patch_order="archive-offset", patches=patch_count,
                  kinds=dict(Counter(d.kind for d in directives)))
             for d in directives:
                 current_directive = d
@@ -780,7 +845,8 @@ class Reconstruction:
                                                        aliases=aliases[cache_key])
                         else:
                             extract_safe(source, root, self.control.stop, self.cb.on_log, reserve, extracting,
-                                         members=required_members[key], resources=resources)
+                                         members=required_members[key], resources=resources,
+                                         cache_hashes=True)
                         progress.update(key, 1, 1)
                         extracted[cache_key] = root
                         waited = extraction_wait_seconds - previous_wait
@@ -807,18 +873,12 @@ class Reconstruction:
                         else:
                             raise
                 target = within(self.output, d.path)
-                self.store.prepare_directory(target.parent)
                 linked = None
                 patched_hash = None
                 def copying(current, total, key=d.index):
                     progress.update(key, current * 9, total * 10)
                 if d.kind == "PatchedFromArchive":
-                    if patch_archive is None:
-                        package_started = time.monotonic()
-                        patch_archive = zipfile.ZipFile(self.request.package.path)
-                        patch_metrics["package_open_seconds"] += (
-                            time.monotonic() - package_started)
-                        patch_metrics["package_opens"] += 1
+                    self.store.prepare_directory(target.parent)
                     patched_hash = _patch_source(
                         patch_archive, d, source, root if members else None,
                         members[-1] if members else "", target,
@@ -829,6 +889,7 @@ class Reconstruction:
                         metrics=patch_metrics)
                     patch_metrics["outputs"] += 1
                 elif d.kind == "TransformedTexture":
+                    self.store.prepare_directory(target.parent)
                     from .textures import transform_texture
                     transform_texture(self.request, source, target,
                                       d.data["ImageState"], self.control.stop,
@@ -863,6 +924,14 @@ class Reconstruction:
                 elif linked is False:
                     copied_outputs += 1
                 progress.update(d.index, 1, 1)
+                if d.kind == "PatchedFromArchive":
+                    now = time.monotonic()
+                    if patch_metrics["outputs"] % 1024 == 0 or now - last_patch_log >= 2:
+                        emit(self.cb.on_log, "reconstruct.patch.progress",
+                             archive=archive.name, completed=patch_metrics["outputs"],
+                             total=patch_count, output_bytes=patch_metrics["output_bytes"],
+                             path=d.path, elapsed_seconds=round(now - started, 3))
+                        last_patch_log = now
             progress.finish()
             if durable:
                 self.sync_archive_outputs(archive)
@@ -877,6 +946,15 @@ class Reconstruction:
                  source_extraction_seconds=round(source_extraction_seconds, 3),
                  extraction_wait_seconds=round(extraction_wait_seconds, 3),
                  patch_outputs=patch_metrics["outputs"],
+                 patch_output_bytes=patch_metrics["output_bytes"],
+                 patch_commands=patch_metrics["commands"],
+                 patch_copy_commands=patch_metrics["copy_commands"],
+                 patch_copy_bytes=patch_metrics["copy_bytes"],
+                 patch_literal_commands=patch_metrics["literal_commands"],
+                 patch_literal_bytes=patch_metrics["literal_bytes"],
+                 patch_attempts=patch_metrics["attempts"],
+                 patch_failed_attempts=patch_metrics["failed_attempts"],
+                 patch_source_rejections=patch_metrics["source_rejections"],
                  patch_package_opens=patch_metrics["package_opens"],
                  patch_package_open_seconds=round(
                      patch_metrics["package_open_seconds"], 3),
@@ -898,6 +976,9 @@ class Reconstruction:
                            directive=current_directive.path if current_directive else None,
                            directive_kind=current_directive.kind
                            if current_directive else None,
+                           patch_id=current_directive.data.get("PatchID")
+                           if current_directive else None,
+                           patch_outputs=patch_metrics["outputs"],
                            elapsed_seconds=round(time.monotonic() - started, 3))
             raise
         finally:
@@ -952,7 +1033,7 @@ class Reconstruction:
         if aliases is None:
             aliases = {}
         extract_bethesda(source, root, self.control.stop, progress=progress, aliases=aliases,
-                         selected_records=rows)
+                         selected_records=rows, cache_hashes=True)
         emit(self.cb.on_log, "extract.bethesda.completed", archive=source,
              target=root, legacy_path_aliases=len(aliases),
              elapsed_seconds=round(time.monotonic() - started, 3))

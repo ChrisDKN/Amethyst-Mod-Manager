@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import re
+import stat
 from functools import lru_cache
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -60,15 +61,22 @@ def source_path(root: Path, relative: str, *, expected="", size=None, stop=None,
     from .hashes import file_hash, canonical_hash
     if expected:
         expected = canonical_hash(expected)
-    def matches(path):
-        return (path.is_file() and (size is None or path.stat().st_size == size)
+    def info(path):
+        try:
+            return path.stat()
+        except (FileNotFoundError, NotADirectoryError):
+            return None
+    def matches(path, found):
+        return (found is not None and stat.S_ISREG(found.st_mode)
+                and (size is None or found.st_size == size)
                 and file_hash(path, stop) == expected)
-    if direct.exists() and (not expected or matches(direct)):
+    found = info(direct)
+    if found is not None and (not expected or matches(direct, found)):
         return direct
     candidates = source_candidates(root, relative, aliases=aliases)
     if expected:
         for candidate in sorted(candidates):
-            if candidate != direct and matches(candidate):
+            if candidate != direct and matches(candidate, info(candidate)):
                 return candidate
         raise WabbajackError(f"No source matches the required hash: {relative}")
     if len(candidates) != 1:
