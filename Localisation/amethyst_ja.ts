@@ -14949,6 +14949,14 @@ Merge your conflicts, then close it and click Done.</source>
       <translation>BSA/BA2アーカイブの競合フラグを非表示にする（また、競合スキャンをスキップして処理をわずかに高速化する）。</translation>
     </message>
     <message>
+      <source>Hide endorsed flag</source>
+      <translation>承認されたフラグを隠す</translation>
+    </message>
+    <message>
+      <source>Hide the endorsed icon from the mod list's Flags column.</source>
+      <translation>承認されたアイコンをModリストのフラグ列から非表示にします。</translation>
+    </message>
+    <message>
       <source>Theme</source>
       <translation>テーマ</translation>
     </message>
