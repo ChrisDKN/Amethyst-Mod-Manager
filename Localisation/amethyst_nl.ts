@@ -6581,6 +6581,14 @@ Als u doorgaat, wordt deze waarschuwing niet meer getoond voor {1} tenzij de sch
       <translation>Plug-ins sorteren</translation>
     </message>
     <message>
+      <source>Sync</source>
+      <translation>Synchroniseren</translation>
+    </message>
+    <message>
+      <source>Match plugin load order to modlist priority</source>
+      <translation>Combineer plugin laad volgorde naar de modlist prioriteit</translation>
+    </message>
+    <message>
       <source>Groups</source>
       <translation>Groepen</translation>
     </message>
@@ -8883,6 +8891,46 @@ Voer de Downgrade wizard om het spel terug te patchen naar een versie die FOSE o
       <translation>Plugin metadata vernieuwd.</translation>
     </message>
     <message>
+      <source>No plugins to sync.</source>
+      <translation>Geen plugins om te synchroniseren.</translation>
+    </message>
+    <message>
+      <source>Plugin sources are being refreshed. Try Sync when loading finishes.</source>
+      <translation>Plugin bronnen worden vernieuwd. Probeer Sync tijdens het laden voltooid.</translation>
+    </message>
+    <message>
+      <source>No plugins are owned by mods in the modlist.</source>
+      <translation>Geen plugins zijn eigendom van mods in de modlist.</translation>
+    </message>
+    <message>
+      <source>Locked plugin positions prevent syncing with the modlist.</source>
+      <translation>Vergrendelde plugin-posities voorkomen synchronisatie met de modlist.</translation>
+    </message>
+    <message>
+      <source>Plugin load order already matches the modlist.</source>
+      <translation>Plugin laadvolgorde komt al overeen met de modlist</translation>
+    </message>
+    <message>
+      <source>This will move 1 plugin to match modlist priority.</source>
+      <translation>Dit zal 1 plugin verplaatsen die overeenkomt met de prioriteit van de modlijst.</translation>
+    </message>
+    <message>
+      <source>This will move {0} plugins to match modlist priority.</source>
+      <translation>Dit zal {0} plugins verplaatsen naar de modlist prioriteit.</translation>
+    </message>
+    <message>
+      <source>Sync plugin load order?</source>
+      <translation>Synchroniseer plugin laden volgorde?</translation>
+    </message>
+    <message>
+      <source>Synced - 1 plugin moved.</source>
+      <translation>Gesynchroniseerd - 1 plug-in verplaatst.</translation>
+    </message>
+    <message>
+      <source>Synced - {0} plugins moved.</source>
+      <translation>Gesynchroniseerd - {0} plugins verplaatst.</translation>
+    </message>
+    <message>
       <source>An overlap check is already running.</source>
       <translation>Er is al een overlappingscontrole uitgevoerd.</translation>
     </message>
@@ -9021,6 +9069,10 @@ Toch inzetten?</translation>
     <message>
       <source>File location</source>
       <translation>Bestandslocatie</translation>
+    </message>
+    <message>
+      <source>File or folder not found ({0}).</source>
+      <translation>Bestand of map niet gevonden ({0}).</translation>
     </message>
     <message>
       <source>Log</source>
@@ -9437,6 +9489,118 @@ Hoe wil je omgaan met de bestaande mod?</translation>
     <message>
       <source>{0} — Unable to load files</source>
       <translation>{0} — Kan bestanden niet laden</translation>
+    </message>
+    <message>
+      <source>Open</source>
+      <translation>Open</translation>
+    </message>
+    <message>
+      <source>Rename…</source>
+      <translation type="unfinished">Rename…</translation>
+    </message>
+    <message>
+      <source>Delete…</source>
+      <translation type="unfinished">Delete…</translation>
+    </message>
+    <message>
+      <source>Create new folder…</source>
+      <translation type="unfinished">Create new folder…</translation>
+    </message>
+    <message>
+      <source>Create new file…</source>
+      <translation type="unfinished">Create new file…</translation>
+    </message>
+    <message>
+      <source>Unset Top Level</source>
+      <translation type="unfinished">Unset Top Level</translation>
+    </message>
+    <message>
+      <source>Set Top Level</source>
+      <translation type="unfinished">Set Top Level</translation>
+    </message>
+    <message>
+      <source>Unset as Root</source>
+      <translation type="unfinished">Unset as Root</translation>
+    </message>
+    <message>
+      <source>Set as Root</source>
+      <translation type="unfinished">Set as Root</translation>
+    </message>
+    <message>
+      <source>Disable</source>
+      <translation type="unfinished">Disable</translation>
+    </message>
+    <message>
+      <source>Enable</source>
+      <translation type="unfinished">Enable</translation>
+    </message>
+    <message>
+      <source>The selected item no longer exists.</source>
+      <translation type="unfinished">The selected item no longer exists.</translation>
+    </message>
+    <message>
+      <source>Rename</source>
+      <translation type="unfinished">Rename</translation>
+    </message>
+    <message>
+      <source>New name:</source>
+      <translation type="unfinished">New name:</translation>
+    </message>
+    <message>
+      <source>A file or folder with that name already exists.</source>
+      <translation type="unfinished">A file or folder with that name already exists.</translation>
+    </message>
+    <message>
+      <source>The item was renamed, but its saved Mod Files settings could not be updated: {0}</source>
+      <translation type="unfinished">The item was renamed, but its saved Mod Files settings could not be updated: {0}</translation>
+    </message>
+    <message>
+      <source>Delete</source>
+      <translation type="unfinished">Delete</translation>
+    </message>
+    <message>
+      <source>Permanently delete '{0}' from this mod?
+
+This cannot be undone.</source>
+      <translation type="unfinished">Permanently delete '{0}' from this mod?
+
+This cannot be undone.</translation>
+    </message>
+    <message>
+      <source>The item was deleted, but its saved Mod Files settings could not be updated: {0}</source>
+      <translation type="unfinished">The item was deleted, but its saved Mod Files settings could not be updated: {0}</translation>
+    </message>
+    <message>
+      <source>Create new folder</source>
+      <translation type="unfinished">Create new folder</translation>
+    </message>
+    <message>
+      <source>Create new file</source>
+      <translation type="unfinished">Create new file</translation>
+    </message>
+    <message>
+      <source>Name:</source>
+      <translation type="unfinished">Name:</translation>
+    </message>
+    <message>
+      <source>Create</source>
+      <translation type="unfinished">Create</translation>
+    </message>
+    <message>
+      <source>Invalid name</source>
+      <translation type="unfinished">Invalid name</translation>
+    </message>
+    <message>
+      <source>Enter one file or folder name without path separators.</source>
+      <translation type="unfinished">Enter one file or folder name without path separators.</translation>
+    </message>
+    <message>
+      <source>That name is reserved and would be hidden from Mod Files.</source>
+      <translation type="unfinished">That name is reserved and would be hidden from Mod Files.</translation>
+    </message>
+    <message>
+      <source>The destination is not safe.</source>
+      <translation type="unfinished">The destination is not safe.</translation>
     </message>
   </context>
   <context>
@@ -14744,6 +14908,14 @@ Uw conflicten samenvoegen, dan sluiten en klik op Klaar.</translation>
   </context>
   <context>
     <name>SettingsView</name>
+    <message>
+      <source>Discord Rich Presence</source>
+      <translation type="unfinished">Discord Rich Presence</translation>
+    </message>
+    <message>
+      <source>Show Amethyst and the game you are modding on your Discord profile while the Discord desktop app is running.</source>
+      <translation type="unfinished">Show Amethyst and the game you are modding on your Discord profile while the Discord desktop app is running.</translation>
+    </message>
     <message>
       <source>Settings</source>
       <translation>Instellingen</translation>

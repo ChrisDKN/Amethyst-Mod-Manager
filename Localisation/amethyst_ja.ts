@@ -6581,6 +6581,14 @@ Linuxファイルシステム(ext4/btrfs)は、ゲームとMODのステージン
       <translation>プラグインの並べ替え</translation>
     </message>
     <message>
+      <source>Sync</source>
+      <translation>同期</translation>
+    </message>
+    <message>
+      <source>Match plugin load order to modlist priority</source>
+      <translation>プラグインの読み込み順をModlistの優先順位に合わせる</translation>
+    </message>
+    <message>
       <source>Groups</source>
       <translation>グループ</translation>
     </message>
@@ -8883,6 +8891,46 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
       <translation>プラグインメタデータが更新されました.</translation>
     </message>
     <message>
+      <source>No plugins to sync.</source>
+      <translation>同期するプラグインがありません。</translation>
+    </message>
+    <message>
+      <source>Plugin sources are being refreshed. Try Sync when loading finishes.</source>
+      <translation>プラグインソースが更新されています。読み込み完了時に同期してみてください。</translation>
+    </message>
+    <message>
+      <source>No plugins are owned by mods in the modlist.</source>
+      <translation>Modリスト内のModが所有しているプラグインはありません。</translation>
+    </message>
+    <message>
+      <source>Locked plugin positions prevent syncing with the modlist.</source>
+      <translation>ロックされたプラグインの位置はModリストとの同期を防ぎます。</translation>
+    </message>
+    <message>
+      <source>Plugin load order already matches the modlist.</source>
+      <translation>プラグインの読み込み順は既にmodlistと一致しています。</translation>
+    </message>
+    <message>
+      <source>This will move 1 plugin to match modlist priority.</source>
+      <translation>これにより、modlistの優先順位に一致する1つのプラグインが移動します。</translation>
+    </message>
+    <message>
+      <source>This will move {0} plugins to match modlist priority.</source>
+      <translation>これにより、 {0} プラグインはmodlistの優先順位に一致するように移動します。</translation>
+    </message>
+    <message>
+      <source>Sync plugin load order?</source>
+      <translation>プラグインの読み込み順を同期しますか？</translation>
+    </message>
+    <message>
+      <source>Synced - 1 plugin moved.</source>
+      <translation>同期済み - 1プラグインが移動しました。</translation>
+    </message>
+    <message>
+      <source>Synced - {0} plugins moved.</source>
+      <translation>同期済み - {0} プラグインが移動しました。</translation>
+    </message>
+    <message>
       <source>An overlap check is already running.</source>
       <translation>オーバーラップチェックは既に実行中です.</translation>
     </message>
@@ -9021,6 +9069,10 @@ CETは、symlinked asiから読み込まれません。 これは、展開モー
     <message>
       <source>File location</source>
       <translation>ファイルの場所</translation>
+    </message>
+    <message>
+      <source>File or folder not found ({0}).</source>
+      <translation>ファイルまたはフォルダが見つかりません（{0}）</translation>
     </message>
     <message>
       <source>Log</source>
@@ -9437,6 +9489,118 @@ How would you like to handle the existing mod?</source>
     <message>
       <source>{0} — Unable to load files</source>
       <translation>{0} — ファイルを読み込めません</translation>
+    </message>
+    <message>
+      <source>Open</source>
+      <translation>開く</translation>
+    </message>
+    <message>
+      <source>Rename…</source>
+      <translation type="unfinished">Rename…</translation>
+    </message>
+    <message>
+      <source>Delete…</source>
+      <translation type="unfinished">Delete…</translation>
+    </message>
+    <message>
+      <source>Create new folder…</source>
+      <translation type="unfinished">Create new folder…</translation>
+    </message>
+    <message>
+      <source>Create new file…</source>
+      <translation type="unfinished">Create new file…</translation>
+    </message>
+    <message>
+      <source>Unset Top Level</source>
+      <translation type="unfinished">Unset Top Level</translation>
+    </message>
+    <message>
+      <source>Set Top Level</source>
+      <translation type="unfinished">Set Top Level</translation>
+    </message>
+    <message>
+      <source>Unset as Root</source>
+      <translation type="unfinished">Unset as Root</translation>
+    </message>
+    <message>
+      <source>Set as Root</source>
+      <translation type="unfinished">Set as Root</translation>
+    </message>
+    <message>
+      <source>Disable</source>
+      <translation type="unfinished">Disable</translation>
+    </message>
+    <message>
+      <source>Enable</source>
+      <translation type="unfinished">Enable</translation>
+    </message>
+    <message>
+      <source>The selected item no longer exists.</source>
+      <translation type="unfinished">The selected item no longer exists.</translation>
+    </message>
+    <message>
+      <source>Rename</source>
+      <translation type="unfinished">Rename</translation>
+    </message>
+    <message>
+      <source>New name:</source>
+      <translation type="unfinished">New name:</translation>
+    </message>
+    <message>
+      <source>A file or folder with that name already exists.</source>
+      <translation type="unfinished">A file or folder with that name already exists.</translation>
+    </message>
+    <message>
+      <source>The item was renamed, but its saved Mod Files settings could not be updated: {0}</source>
+      <translation type="unfinished">The item was renamed, but its saved Mod Files settings could not be updated: {0}</translation>
+    </message>
+    <message>
+      <source>Delete</source>
+      <translation type="unfinished">Delete</translation>
+    </message>
+    <message>
+      <source>Permanently delete '{0}' from this mod?
+
+This cannot be undone.</source>
+      <translation type="unfinished">Permanently delete '{0}' from this mod?
+
+This cannot be undone.</translation>
+    </message>
+    <message>
+      <source>The item was deleted, but its saved Mod Files settings could not be updated: {0}</source>
+      <translation type="unfinished">The item was deleted, but its saved Mod Files settings could not be updated: {0}</translation>
+    </message>
+    <message>
+      <source>Create new folder</source>
+      <translation type="unfinished">Create new folder</translation>
+    </message>
+    <message>
+      <source>Create new file</source>
+      <translation type="unfinished">Create new file</translation>
+    </message>
+    <message>
+      <source>Name:</source>
+      <translation type="unfinished">Name:</translation>
+    </message>
+    <message>
+      <source>Create</source>
+      <translation type="unfinished">Create</translation>
+    </message>
+    <message>
+      <source>Invalid name</source>
+      <translation type="unfinished">Invalid name</translation>
+    </message>
+    <message>
+      <source>Enter one file or folder name without path separators.</source>
+      <translation type="unfinished">Enter one file or folder name without path separators.</translation>
+    </message>
+    <message>
+      <source>That name is reserved and would be hidden from Mod Files.</source>
+      <translation type="unfinished">That name is reserved and would be hidden from Mod Files.</translation>
+    </message>
+    <message>
+      <source>The destination is not safe.</source>
+      <translation type="unfinished">The destination is not safe.</translation>
     </message>
   </context>
   <context>
@@ -14744,6 +14908,14 @@ Merge your conflicts, then close it and click Done.</source>
   </context>
   <context>
     <name>SettingsView</name>
+    <message>
+      <source>Discord Rich Presence</source>
+      <translation type="unfinished">Discord Rich Presence</translation>
+    </message>
+    <message>
+      <source>Show Amethyst and the game you are modding on your Discord profile while the Discord desktop app is running.</source>
+      <translation type="unfinished">Show Amethyst and the game you are modding on your Discord profile while the Discord desktop app is running.</translation>
+    </message>
     <message>
       <source>Settings</source>
       <translation>設定</translation>
