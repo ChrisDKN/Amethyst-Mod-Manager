@@ -9508,99 +9508,99 @@ Hoe wil je omgaan met de bestaande mod?</translation>
     </message>
     <message>
       <source>Create new file…</source>
-      <translation type="unfinished">Create new file…</translation>
+      <translation>Nieuw bestand aanmaken…</translation>
     </message>
     <message>
       <source>Unset Top Level</source>
-      <translation type="unfinished">Unset Top Level</translation>
+      <translation>Hoogste niveau uitzetten</translation>
     </message>
     <message>
       <source>Set Top Level</source>
-      <translation type="unfinished">Set Top Level</translation>
+      <translation>Hoogste niveau instellen</translation>
     </message>
     <message>
       <source>Unset as Root</source>
-      <translation type="unfinished">Unset as Root</translation>
+      <translation>Uitzetten als Root</translation>
     </message>
     <message>
       <source>Set as Root</source>
-      <translation type="unfinished">Set as Root</translation>
+      <translation>Instellen als Root</translation>
     </message>
     <message>
       <source>Disable</source>
-      <translation type="unfinished">Disable</translation>
+      <translation>Uitschakelen</translation>
     </message>
     <message>
       <source>Enable</source>
-      <translation type="unfinished">Enable</translation>
+      <translation>Inschakelen</translation>
     </message>
     <message>
       <source>The selected item no longer exists.</source>
-      <translation type="unfinished">The selected item no longer exists.</translation>
+      <translation>Het geselecteerde item bestaat niet meer.</translation>
     </message>
     <message>
       <source>Rename</source>
-      <translation type="unfinished">Rename</translation>
+      <translation>Hernoem</translation>
     </message>
     <message>
       <source>New name:</source>
-      <translation type="unfinished">New name:</translation>
+      <translation>Nieuwe naam:</translation>
     </message>
     <message>
       <source>A file or folder with that name already exists.</source>
-      <translation type="unfinished">A file or folder with that name already exists.</translation>
+      <translation>Een bestand of map met deze naam bestaat al.</translation>
     </message>
     <message>
       <source>The item was renamed, but its saved Mod Files settings could not be updated: {0}</source>
-      <translation type="unfinished">The item was renamed, but its saved Mod Files settings could not be updated: {0}</translation>
+      <translation>Het item werd hernoemd, maar de opgeslagen Mod Files instellingen konden niet worden bijgewerkt: {0}</translation>
     </message>
     <message>
       <source>Delete</source>
-      <translation type="unfinished">Delete</translation>
+      <translation>Verwijderen</translation>
     </message>
     <message>
       <source>Permanently delete '{0}' from this mod?
 
 This cannot be undone.</source>
-      <translation type="unfinished">Permanently delete '{0}' from this mod?
+      <translation>'{0}' permanent verwijderen uit deze modus?
 
-This cannot be undone.</translation>
+Dit kan niet ongedaan worden gemaakt.</translation>
     </message>
     <message>
       <source>The item was deleted, but its saved Mod Files settings could not be updated: {0}</source>
-      <translation type="unfinished">The item was deleted, but its saved Mod Files settings could not be updated: {0}</translation>
+      <translation>Het item is verwijderd, maar de opgeslagen Mod Files instellingen konden niet worden bijgewerkt: {0}</translation>
     </message>
     <message>
       <source>Create new folder</source>
-      <translation type="unfinished">Create new folder</translation>
+      <translation>Nieuwe map maken</translation>
     </message>
     <message>
       <source>Create new file</source>
-      <translation type="unfinished">Create new file</translation>
+      <translation>Nieuw bestand maken</translation>
     </message>
     <message>
       <source>Name:</source>
-      <translation type="unfinished">Name:</translation>
+      <translation>Naam:</translation>
     </message>
     <message>
       <source>Create</source>
-      <translation type="unfinished">Create</translation>
+      <translation>Aanmaken</translation>
     </message>
     <message>
       <source>Invalid name</source>
-      <translation type="unfinished">Invalid name</translation>
+      <translation>Ongeldige naam</translation>
     </message>
     <message>
       <source>Enter one file or folder name without path separators.</source>
-      <translation type="unfinished">Enter one file or folder name without path separators.</translation>
+      <translation>Voer één bestand of mapnaam in zonder padscheidingstekens.</translation>
     </message>
     <message>
       <source>That name is reserved and would be hidden from Mod Files.</source>
-      <translation type="unfinished">That name is reserved and would be hidden from Mod Files.</translation>
+      <translation>Die naam is gereserveerd en zou verborgen worden voor Mod Files.</translation>
     </message>
     <message>
       <source>The destination is not safe.</source>
-      <translation type="unfinished">The destination is not safe.</translation>
+      <translation>Het land is niet veilig.</translation>
     </message>
   </context>
   <context>
@@ -14910,11 +14910,11 @@ Uw conflicten samenvoegen, dan sluiten en klik op Klaar.</translation>
     <name>SettingsView</name>
     <message>
       <source>Discord Rich Presence</source>
-      <translation type="unfinished">Discord Rich Presence</translation>
+      <translation>Discord Rich Presence</translation>
     </message>
     <message>
       <source>Show Amethyst and the game you are modding on your Discord profile while the Discord desktop app is running.</source>
-      <translation type="unfinished">Show Amethyst and the game you are modding on your Discord profile while the Discord desktop app is running.</translation>
+      <translation>Toon Amethyst en het spel dat je aan het moduleren bent op je Discord-profiel terwijl de Discord desktop-app actief is.</translation>
     </message>
     <message>
       <source>Settings</source>
