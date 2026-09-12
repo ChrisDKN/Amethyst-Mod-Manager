@@ -198,7 +198,7 @@ class _OverridesModel(QAbstractTableModel):
 class OverridesView(QWidget):
     """The Overrides tab. configure() once, then refresh()/mark_dirty()."""
 
-    changed = Signal()                    # an exclusion was toggled
+    changed = Signal(object)              # owning mod of the toggled exclusion
     _rows_ready = Signal(int, object, object)  # gen, rows, excluded map
 
     def __init__(self, parent=None):
@@ -377,4 +377,4 @@ class OverridesView(QWidget):
         else:
             all_excluded.pop(row.mod_name, None)
         write_excluded_mod_files(self.profile_dir, all_excluded)
-        self.changed.emit()
+        self.changed.emit(row.mod_name)

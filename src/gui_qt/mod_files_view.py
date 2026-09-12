@@ -83,10 +83,10 @@ def _build_file_tree(files, folders, conflicts, stripped, excluded, root_tags,
 
 class ModFilesView(QWidget):
     """Self-contained Mod Files tab widget. Call show_mod(mod_name) to populate.
-    Emits changed() after state or disk edits so the host can rebuild the
-    filemap."""
+    Emits changed(mod_name) after state edits, or changed(None) after disk
+    edits, so the host can rebuild the filemap."""
 
-    changed = Signal()
+    changed = Signal(object)       # mod name, or None for a disk-content edit
     filetypes_changed = Signal()   # the ext-count list changed (refresh panel)
     mod_changed = Signal(object)   # the shown mod name (or None) changed
     _files_ready = Signal(int, object, object)
@@ -684,7 +684,7 @@ class ModFilesView(QWidget):
         tagged = {l.raw_key for l in leaves
                   if l.raw_key is not None and l.root_tag}
         mflogic.save_root_tags(self.profile_dir, self._mod_name, visible, tagged)
-        self.changed.emit()
+        self.changed.emit(self._mod_name)
 
     def has_changes(self) -> bool:
         """True when the shown mod has any saved Mod Files edits (gates Reset)."""
@@ -696,7 +696,7 @@ class ModFilesView(QWidget):
             return False
         self._stripped = set()
         self._repopulate()
-        self.changed.emit()
+        self.changed.emit(self._mod_name)
         return True
 
     def _toggle_top_level(self, node: _Node):
@@ -715,7 +715,7 @@ class ModFilesView(QWidget):
         mflogic.save_strip_prefixes(self.profile_dir, self._mod_name,
                                     self._stripped, hints)
         self._repopulate()
-        self.changed.emit()
+        self.changed.emit(self._mod_name)
 
     def _save_exclusions(self):
         if self.profile_dir is None or self._mod_name is None:
@@ -725,7 +725,7 @@ class ModFilesView(QWidget):
         excluded = {l.raw_key for l in leaves
                     if l.raw_key is not None and not l.checked}
         mflogic.save_exclusions(self.profile_dir, self._mod_name, visible, excluded)
-        self.changed.emit()
+        self.changed.emit(self._mod_name)
 
     # -- right-click --------------------------------------------------------
     def _on_context_menu(self, pos):
@@ -992,7 +992,7 @@ class ModFilesView(QWidget):
         self._folders_cache = None
         self._invalidate_files()
         self._request_repopulate()
-        self.changed.emit()
+        self.changed.emit(None)
 
     def _show_file_error(self, title: str, message: str):
         from gui_qt.confirm_overlay import ConfirmOverlay

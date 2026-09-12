@@ -1950,10 +1950,10 @@ class MainWindow(QMainWindow):
             self._saves_view.mark_dirty()
         self._notify(self.tr("Saved"), "success")
 
-    def _on_mod_files_changed(self):
-        """A Mod Files state or disk edit needs a rescan and conflict rebuild."""
+    def _on_mod_files_changed(self, mod_name=None):
+        """Reconcile a Mod Files state edit, or rescan after a disk edit."""
         # Instant feedback: update the modlist "modified in Mod Files" eye flag
-        # now (the async rescan below refreshes the rest a moment later).
+        # now (the async reconciliation below refreshes the rest shortly).
         if hasattr(self, "_modlist_model"):
             self._modlist_model.set_modified_mf(self._build_modified_mf_mods())
         # Exclusion edits change the Overrides tab's checkbox states too (a
@@ -1961,7 +1961,13 @@ class MainWindow(QMainWindow):
         # so an Overrides-originated toggle just refreshes to the same state.
         if hasattr(self, "_overrides_view"):
             self._overrides_view.mark_dirty()
-        self._rebuild_conflicts_async(rescan_index=True)
+        mod_name = str(mod_name) if mod_name else None
+        if mod_name is None:
+            self._rebuild_conflicts_async(rescan_index=True)
+            return
+        from Utils.diagnostics.conflicts import ensure_timeline
+        edit_ctx, _ = ensure_timeline(("mod_files", (mod_name,)))
+        self._rebuild_conflicts_async(edit_ctx=edit_ctx)
 
     def _on_plugin_selection_changed(self):
         if self._suppress_xpanel():
@@ -19684,7 +19690,8 @@ class MainWindow(QMainWindow):
                                 operation_hint["mods"] = [
                                     name for name, _enabled in edit_ctx[1]
                                 ]
-                            elif edit_ctx[0] == "move" and len(edit_ctx) > 1:
+                            elif edit_ctx[0] in ("move", "mod_files") \
+                                    and len(edit_ctx) > 1:
                                 operation_hint["mods"] = list(edit_ctx[1])
                         data = self._gs.build_conflicts(
                             log_fn=_fm_log,
