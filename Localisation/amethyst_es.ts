@@ -14949,6 +14949,14 @@ Combina tus conflictos, luego cierra y haz clic en Done.</translation>
       <translation>Ocultar los indicadores de conflicto del archivo BSA/BA2 (además, omite ese análisis de conflictos para ganar un poco de velocidad).</translation>
     </message>
     <message>
+      <source>Hide endorsed flag</source>
+      <translation>Ocultar marca avalada</translation>
+    </message>
+    <message>
+      <source>Hide the endorsed icon from the mod list's Flags column.</source>
+      <translation>Ocultar el icono aprobado de la columna de banderas de la lista de modos.</translation>
+    </message>
+    <message>
       <source>Theme</source>
       <translation>Tema</translation>
     </message>
