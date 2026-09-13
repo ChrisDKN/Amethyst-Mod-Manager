@@ -1,6 +1,7 @@
 py.install_sources(
   '__init__.py',
   'dll_config.py',
+  'framework.py',
   'health.py',
   'jre.py',
   'manager.py',

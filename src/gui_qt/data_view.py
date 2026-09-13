@@ -20,7 +20,9 @@ from PySide6.QtWidgets import (
 
 import Utils.ui.data as dtlogic
 from gui_qt.audio_preview import AUDIO_EXTS, AudioControls
-from gui_qt.data_model import DataModel, _DataNode, COL_NAME, COL_MOD
+from gui_qt.data_model import (
+    BULK_DELTA_THRESHOLD, DataModel, _DataNode, COL_NAME, COL_MOD,
+)
 from gui_qt.safe_emit import safe_emit
 from gui_qt.video_preview import VIDEO_EXTS
 
@@ -59,6 +61,7 @@ class DataView(QWidget):
         self._data_prefix = ""
         self._expected_custom_target = None
         self._include_game_root = False
+        self._include_routing_targets = False
         self._game_root_label = "<root>"
         self._data_root_label = "Data"
         self._build()
@@ -92,6 +95,10 @@ class DataView(QWidget):
         self._deploys_to_subfolder = dtlogic.deploys_to_subfolder(self.game)
         self._include_game_root = bool(
             getattr(self.game, "data_tab_include_game_root", False))
+        from Utils.games.routing_rules import get_rules
+        get_rules(self.game)
+        self._include_routing_targets = bool(
+            getattr(self.game, "_routing_overrides_active", False))
         self._game_root_label = str(
             getattr(self.game, "data_tab_game_root_label", "<root>")
             or "<root>").replace("\\", "/").strip("/")
@@ -116,6 +123,7 @@ class DataView(QWidget):
 
     def set_snapshot(self, snapshot):
         self.snapshot = snapshot
+        self._refresh_projection_context()
         self._resolved_cache = None
         self.mark_dirty()
 
@@ -138,16 +146,18 @@ class DataView(QWidget):
                         path = path[len(prefix):]
                         if self._include_game_root:
                             path = f"{self._data_root_label}/{path}"
-                    elif self._include_game_root:
+                    elif self._include_game_root or self._include_routing_targets:
                         path = f"{self._game_root_label}/{path}"
                     else:
                         return None
-                elif self._include_game_root:
+                elif self._include_game_root or self._include_routing_targets:
                     # The normal data target is outside the game root. Any
                     # candidate in the game domain therefore belongs to root.
                     path = f"{self._game_root_label}/{path}"
             elif self._include_game_root:
                 path = f"{self._game_root_label}/{path}"
+        elif target == "prefix" and self._include_routing_targets:
+            path = f"<prefix>/{path}"
         elif (self._expected_custom_target is None
               or target != self._expected_custom_target):
             return None
@@ -178,6 +188,11 @@ class DataView(QWidget):
 
     def apply_resolution_delta(self, snapshot, delta) -> None:
         """Publish a native winner delta without rebuilding the whole tree."""
+        previous_routing_targets = self._include_routing_targets
+        self._refresh_projection_context()
+        if previous_routing_targets != self._include_routing_targets:
+            self.set_snapshot(snapshot)
+            return
         # A game-specific hidden-entry predicate may depend on a different
         # winner (Stardew's overwrite config is visible only while some mod
         # wins the sibling manifest.json).  That cross-path dependency is not
@@ -235,9 +250,31 @@ class DataView(QWidget):
              candidate_id in self._resolved_contested)
             for candidate_id, path, mod in projected
         ]
-        self._model.apply_leaf_delta(removed | touched, changed_rows)
+        impacted = ({row[0] for row in changed_rows}
+                    | ((removed | touched) & self._model._candidate_nodes.keys()))
+        if len(impacted) >= BULK_DELTA_THRESHOLD:
+            self._replace_model_rows([
+                (candidate_id, path, mod,
+                 candidate_id in self._resolved_contested)
+                for candidate_id, path, mod in by_id.values()
+            ])
+        else:
+            self._model.apply_leaf_delta(removed | touched, changed_rows)
         self.filetypes_changed.emit()
         self._update_label_counts(len(by_id), len(self._mod_counts))
+
+    def _replace_model_rows(self, rows) -> None:
+        expanded = self._expanded_paths()
+        current = self._model.node(self._tree.currentIndex())
+        identity = ((current.candidate_id, current.path)
+                    if current is not None else (0, ""))
+        scroll = self._tree.verticalScrollBar().value()
+        self._model.replace_rows(rows)
+        self._restore_expanded(expanded)
+        current = self._model.node_for_identity(*identity)
+        if current is not None:
+            self._tree.setCurrentIndex(self._model.index_for_node(current))
+        self._tree.verticalScrollBar().setValue(scroll)
 
     def set_visible_tab(self, visible: bool):
         """Tell the view whether the Data sub-tab is showing. Switching TO it

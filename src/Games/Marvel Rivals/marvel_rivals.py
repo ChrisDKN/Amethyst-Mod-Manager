@@ -94,9 +94,9 @@ class MarvelRivals(UE5Game):
         # at the game root.
         cfg_dest = "drive_c/users/steamuser/AppData/Local/Marvel/Saved/Config/Windows"
         return [
-            CustomRule(dest=cfg_dest, filenames=["Engine.ini"],
+            CustomRule(rule_id='marvel_rivals:ca2f3253a9ae', dest=cfg_dest, filenames=["Engine.ini"],
                        flatten=True, to_prefix=True),
-            CustomRule(dest=cfg_dest, filenames=["Scalability.ini"],
+            CustomRule(rule_id='marvel_rivals:567777d303d2', dest=cfg_dest, filenames=["Scalability.ini"],
                        flatten=True, to_prefix=True),
         ]
 

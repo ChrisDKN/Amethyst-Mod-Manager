@@ -250,17 +250,17 @@ def _parse_toc(f) -> tuple[dict, list[tuple[str, int, int]]]:
         raise BsaExtractError("truncated file-name block")
     names_text = name_block.decode("latin-1").lower()
     file_names = names_text.split("\x00")
-    # Some shipped archives pad the name block with extra nulls (vanilla
-    # MarketplaceTextures.bsa carries ten), so drop every trailing empty, not
-    # just the one terminator.
+    # Some shipped archives pad the name block, occasionally with non-zero
+    # data, so retain only the names represented by file records.
     while file_names and file_names[-1] == "":
         file_names.pop()
 
     # Pair names with file records.
-    if len(file_names) != len(file_specs):
+    if len(file_names) < len(file_specs):
         raise BsaExtractError(
             f"name count {len(file_names)} != file record count {len(file_specs)}"
         )
+    del file_names[len(file_specs):]
 
     # Pair files with their folder. file_specs is in the same order as
     # file_names - folder N's *count* file records, in turn.

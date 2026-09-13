@@ -25,11 +25,12 @@ callback fires on a WORKER thread, so it does nothing but ``manual_queue.put``
 from __future__ import annotations
 
 import queue
+from urllib.parse import urlparse
 
 from PySide6.QtCore import Qt, QEvent
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame,
-    QCheckBox,
+    QCheckBox, QPlainTextEdit,
 )
 
 from gui_qt.theme_qt import active_palette, contrast_text, _c
@@ -67,6 +68,7 @@ class CollectionManualOverlay(QWidget):
         self._finished = False
         self._cur_optional = False
         self._skip_armed = False
+        self._cur_job = None
 
         self.setObjectName("OverlayBackdrop")
         self.setStyleSheet("#OverlayBackdrop { background: rgba(0,0,0,150); }")
@@ -108,6 +110,7 @@ class CollectionManualOverlay(QWidget):
         sub.setAlignment(Qt.AlignHCenter)
         sub.setStyleSheet(f"color:{self._tc('TEXT_DIM')}; font-size:11px;")
         outer.addWidget(sub)
+        self._subtitle = sub
         if profile_name:
             prof = QLabel(self.tr("Profile: {0}").format(profile_name), self._card)
             prof.setAlignment(Qt.AlignHCenter)
@@ -154,6 +157,12 @@ class CollectionManualOverlay(QWidget):
             f"color:{self._tc('TEXT_DIM')}; font-size:10px;"
             " font-family:monospace;")
         cv.addWidget(self._hint_lbl)
+        self._details = QPlainTextEdit(card)
+        self._details.setReadOnly(True)
+        self._details.setMaximumHeight(140)
+        self._details.setStyleSheet(f"color:{self._tc('TEXT_MAIN')}; background:transparent; border:0;")
+        self._details.hide()
+        cv.addWidget(self._details)
         outer.addWidget(card)
 
         # --- instruction + secondary status ---
@@ -167,6 +176,7 @@ class CollectionManualOverlay(QWidget):
         outer.addWidget(self._instr_lbl)
         self._status_lbl = QLabel("", self._card)
         self._status_lbl.setWordWrap(True)
+        self._status_lbl.setTextFormat(Qt.PlainText)
         self._status_lbl.setStyleSheet(
             f"color:{self._tc('TEXT_DIM')}; font-size:11px;")
         outer.addWidget(self._status_lbl)
@@ -277,6 +287,15 @@ class CollectionManualOverlay(QWidget):
     def update_mod(self, payload: dict):
         """Show the next mod awaiting a manual download (on_manual_mod)."""
         name = payload.get("name") or ""
+        job = (payload.get("idx"), payload.get("file_name"))
+        changed = self._cur_job != job
+        self._cur_job = job
+        strict = bool(payload.get("required_strict"))
+        source = payload.get("source")
+        if source and (source != "Nexus" or payload.get("reason")):
+            self._subtitle.setText(self.tr("This source needs a browser download or an existing file."))
+        else:
+            self._subtitle.setText(self.tr("Non-premium users must download each mod manually."))
         self._name_lbl.setText(name)
         self._size_lbl.setText(_fmt_size(payload.get("size", 0)))
         optional = bool(payload.get("optional"))
@@ -289,15 +308,30 @@ class CollectionManualOverlay(QWidget):
         self._badge_lbl.show()
         self._cur_optional = optional
         self._reset_skip()
-        self._skip_btn.setVisible(True)
+        self._skip_btn.setVisible(not strict)
         fname = payload.get("file_name") or ""
         self._hint_lbl.setText(self.tr("Expected file: {0}").format(fname) if fname else "")
-        self._instr_lbl.setText(
-            self.tr("Mod {0}/{1} - download this file, then it will be auto-detected…")
-            .format(payload.get('idx', 0), payload.get('total', self._total)))
+        if strict:
+            self._instr_lbl.setText(self.tr("Download this exact archive to a watched download folder, or use Select File. Amethyst checks its size and hash before continuing."))
+        else:
+            self._instr_lbl.setText(
+                self.tr("Mod {0}/{1} - download this file, then it will be auto-detected…")
+                .format(payload.get('idx', 0), payload.get('total', self._total)))
+        details = []
+        if payload.get("reason"):
+            details.append(self.tr("Why this needs your help:\n{0}").format(payload["reason"]))
+        if payload.get("instructions"):
+            details.append(self.tr("Author instructions:\n{0}").format(payload["instructions"]))
+        self._details.setPlainText("\n\n".join(details))
+        self._details.setVisible(bool(details))
+        if "status" in payload:
+            self._status_lbl.setText(payload["status"])
         self._total = int(payload.get("total", self._total) or self._total)
         self._installed_base = int(payload.get("installed_base", 0) or 0)
         self._cur_url = payload.get("url") or ""
+        if urlparse(self._cur_url).scheme not in {"http", "https"}:
+            self._cur_url = ""
+        self._open_btn.setEnabled(bool(self._cur_url))
         self._upcoming = list(payload.get("upcoming") or [])
         if self._upcoming:
             self._open_next_btn.setText(self.tr("Open next {0}").format(len(self._upcoming) + 1))
@@ -305,7 +339,8 @@ class CollectionManualOverlay(QWidget):
         else:
             self._open_next_btn.hide()
         self._refresh_progress()
-        if self._seen_first and self._auto_open_chk.isChecked() and self._cur_url:
+        self._progress_lbl.setVisible(not strict)
+        if changed and self._seen_first and self._auto_open_chk.isChecked() and self._cur_url:
             from Utils.environment.xdg import open_url
             open_url(self._cur_url)
         self._seen_first = True

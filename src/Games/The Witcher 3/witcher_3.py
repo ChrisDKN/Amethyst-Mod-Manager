@@ -139,6 +139,7 @@ def _route_path(staged_rel: str) -> tuple[str, str]:
 # ---------------------------------------------------------------------------
 
 class Witcher3(ProfileVFSGameMixin, BaseGame):
+    profile_overridable_paths_extras = (*BaseGame.profile_overridable_paths_extras, "profile_ini_files")
 
     profile_overridable_settings = (
         *BaseGame.profile_overridable_settings,
@@ -296,6 +297,8 @@ class Witcher3(ProfileVFSGameMixin, BaseGame):
                 progress_fn=progress_fn,
             )
 
+        custom_exclude = self._deploy_custom_routing_rules(mode, log_fn)
+
         profile_dir        = self.get_profile_root() / "profiles" / profile
         per_mod_strip      = load_per_mod_strip_prefixes(profile_dir)
         _sep_deploy = load_separator_deploy_paths(profile_dir)
@@ -345,6 +348,10 @@ class Witcher3(ProfileVFSGameMixin, BaseGame):
 
         for i, line in enumerate(lines):
             staged_rel, mod_name = line.split("\t", 1)
+            if staged_rel.lower() in custom_exclude:
+                if progress_fn:
+                    progress_fn(i + 1, total)
+                continue
 
             base_dir = per_mod_deploy.get(mod_name, game_path)
             in_custom_dir = base_dir != game_path
@@ -469,6 +476,16 @@ class Witcher3(ProfileVFSGameMixin, BaseGame):
             _log(f"  WARN: could not write deploy snapshot: {exc}")
 
         update_menu_filelists(game_path, log_fn=_log)
+        self._symlink_profile_ini_files(profile, _log)
+
+    def _symlink_profile_ini_files(self, profile, log_fn):
+        from Utils.wabbajack.profile_config import link_settings
+        link_settings(self, profile, log_fn)
+
+    def _remove_profile_ini_symlinks(self, profile, log_fn):
+        from Utils.wabbajack.profile_config import restore_settings
+        if (self.get_profile_root() / "wabbajack-settings-links.json").is_file():
+            restore_settings(self, log_fn)
 
     def _find_staged_file(
         self,
@@ -664,8 +681,11 @@ class Witcher3(ProfileVFSGameMixin, BaseGame):
         if self._game_path is None:
             raise RuntimeError("Game path is not configured.")
 
+        self._restore_custom_routing_rules(log_fn)
+
         game_path     = self._game_path
         manifest_path = self.get_profile_root() / _DEPLOYED_MANIFEST
+        self._remove_profile_ini_symlinks("", _log)
 
         # Separator targets outside the install remain physical under the
         # generic VFS builder and have their own transactional journal.

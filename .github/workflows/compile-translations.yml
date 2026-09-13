@@ -52,7 +52,9 @@ jobs:
       # Fatal problems fail the run; unsafe placeholders are quarantined rather
       # than failing, so one bad string never blocks eleven good languages.
       - name: Validate placeholders and contexts
-        run: python3 Localisation/tools/i18n/check_ts.py --quarantine Localisation/amethyst_*.ts
+        run: |
+          python3 Localisation/tools/i18n/check_ts.py --quarantine Localisation/amethyst_*.ts ||
+            python3 Localisation/tools/i18n/check_ts.py Localisation/amethyst_*.ts
 
       - name: Compile .qm
         run: ./Localisation/tools/compile.sh

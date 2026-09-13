@@ -1,0 +1,17 @@
+# Generated with flatpak-pip-generator maturin --runtime org.kde.Sdk//6.11 --prefer-wheels maturin --output flatpak/maturin --yaml
+name: python3-maturin
+buildsystem: simple
+build-commands:
+  - pip3 install --verbose --exists-action=i --no-index --find-links="file://${PWD}"
+    --prefix=${FLATPAK_DEST} "maturin" --no-build-isolation
+sources:
+  - type: file
+    url: https://files.pythonhosted.org/packages/fe/91/b495e19e2f5c503b540452b2039115e7b2363867e8c5ad4179eb752fa92c/maturin-1.15.0-py3-none-manylinux_2_12_x86_64.manylinux2010_x86_64.musllinux_1_1_x86_64.whl
+    sha256: 653020a63525bb224e5ab0adf02e17a2e08bc86dbea7fc1399c9a56d7529b99e
+    only-arches:
+      - x86_64
+  - type: file
+    url: https://files.pythonhosted.org/packages/5d/2b/2abff58037188d852b124871b1f0d720e1c2bfb3d4f1b03d87c52cd66488/maturin-1.15.0-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.musllinux_1_1_aarch64.whl
+    sha256: 0ebf9767892725083138e671c34482c660317a2f3d6a29fc0e0f34e9d8c99136
+    only-arches:
+      - aarch64

@@ -531,6 +531,7 @@ def check_requirements_from_gql(
     save_results: bool = True,
     enabled_only: Optional[set] = None,
     api: Optional[NexusAPI] = None,
+    write_meta_cb: Optional[Callable[[Path, NexusModMeta], None]] = None,
 ) -> list[MissingRequirementInfo]:
     """
     Check for missing requirements using pre-fetched GraphQL data.
@@ -667,7 +668,7 @@ def check_requirements_from_gql(
                                  or meta.nexus_requirements != full_str):
                 meta.missing_requirements = missing_str
                 meta.nexus_requirements = full_str
-                write_meta(staging_root / meta.mod_name / "meta.ini", meta)
+                (write_meta_cb or write_meta)(staging_root / meta.mod_name / "meta.ini", meta)
 
     _log(f"Requirements check complete: {len(results)} mod(s) with missing dependencies.")
     return results

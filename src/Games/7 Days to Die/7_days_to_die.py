@@ -12,7 +12,7 @@ particular load order.
 
 This handler emulates that convention automatically.  When the user deploys,
 each enabled mod that *is a Mods/-style mod* (i.e. contains a top-level
-``ModInfo.xml``) has its staging folder linked into ``Mods/NNNN_<ModName>/``
+``ModInfo.xml``) has its staging folder linked into ``Mods/1NNNN_<ModName>/``
 where ``NNNN`` is a zero-padded integer derived from the modlist position:
 the highest-priority mod (index 0) gets the *highest* NNNN so it sorts last
 and therefore **loads last / wins** on any conflicting XPath patch.  Any
@@ -48,9 +48,12 @@ from Utils.mods.modlist import read_modlist
 from Utils.config_paths import get_profiles_dir
 _PROFILES_DIR = get_profiles_dir()
 
-# Zero-padding width for the priority prefix (``0001_Foo``).  Four digits is
-# enough for 9999 enabled mods - the modlist cap in practice is well under that.
+# The leading ``1`` keeps managed mods after the game-owned
+# ``0_TFP_Harmony`` folder while preserving their relative priority.
 _PRIORITY_WIDTH = 4
+_MANAGED_PREFIX = "1"
+_TFP_HARMONY_DIR = "0_TFP_Harmony"
+_TFP_HARMONY_KEY = _TFP_HARMONY_DIR.casefold()
 
 # Strip any leading numeric ordering prefix the mod author may have baked into
 # the folder name (``00-Foo``, ``0_Bar``, ``99_Baz``) so our own prefix is
@@ -199,7 +202,7 @@ class SevenDaysToDie(BaseGame):
     @property
     def prefix_numbering(self) -> bool:
         """If True (default), deployed Mods/ folders are prefixed with a
-        zero-padded ``NNNN_`` index derived from the modlist position so the
+        ``1NNNN_`` index derived from the modlist position so the
         game's strict-alphabetical load order matches the manager's priority.
 
         When False, mods are linked under their bare folder name (with any
@@ -225,7 +228,8 @@ class SevenDaysToDie(BaseGame):
         deploy for Data/-style mods.
 
         Steps:
-          1. Move vanilla ``Mods/`` → ``Mods_Core/``.
+          1. Move vanilla ``Mods/`` → ``Mods_Core/`` and deploy the required
+             ``0_TFP_Harmony`` folder back into ``Mods/``.
           2. For each enabled mod, decide:
                - has ``ModInfo.xml`` at root  → Mods/-style, folder-link with
                  priority prefix.
@@ -266,13 +270,16 @@ class SevenDaysToDie(BaseGame):
         # below has these prefixes peeled off, so translate into that same
         # space - otherwise "Disable" silently misses and the files deploy.
         from Utils.filegraph.paths import build_path_filters
+        from Utils.games.conflict_blacklist import effective_rules
         from Utils.mods.files import translate_exclusions_for_engine
         from Utils.profiles.state import read_mod_strip_prefixes
         per_mod_prefs = read_mod_strip_prefixes(profile_dir)
         excluded_by_mod = translate_exclusions_for_engine(
             profile_dir, staging, None, per_mod_prefs)
+        ignore_files, ignore_folders = effective_rules(self)
         path_filters = build_path_filters(
-            self.conflict_ignore_filenames, None, None, excluded_by_mod)
+            ignore_files, None, None, excluded_by_mod,
+            conflict_ignore_foldernames=ignore_folders)
         strip_map = {
             m: {p.lower() for p in prefs}
             for m, prefs in per_mod_prefs.items()
@@ -280,7 +287,7 @@ class SevenDaysToDie(BaseGame):
 
         # Walk each enabled staging folder and split its *contents* into:
         #   - mods_folders: inner dirs that contain ModInfo.xml (each becomes
-        #     its own Mods/NNNN_<name>/ on disk)
+        #     its own Mods/1NNNN_<name>/ on disk)
         #   - data_items:   everything else (files and non-mod subdirs) -
         #     routed via the loose-file deploy so extensions like .nim land
         #     in Data/Prefabs/.
@@ -303,6 +310,34 @@ class SevenDaysToDie(BaseGame):
         moved = self._move_vanilla_aside(mods_dir, core_dir, _log)
         _log(f"  Moved {moved} vanilla mod folder(s) to {core_dir.name}/.")
         mods_dir.mkdir(parents=True, exist_ok=True)
+
+        harmony_src = _find_tfp_harmony(core_dir)
+        if harmony_src is not None:
+            try:
+                harmony_files = _deploy_mod_folder(
+                    harmony_src, mods_dir / harmony_src.name, mode,
+                    preserve_layout=True)
+                _log(f"  Deployed game-owned {harmony_src.name}/ "
+                     f"({len(harmony_files)} file(s)).")
+            except OSError as err:
+                _log(f"  ERROR: failed to deploy game-owned "
+                     f"{harmony_src.name}: {err}")
+                raise RuntimeError(
+                    f"Could not deploy required {harmony_src.name}"
+                ) from err
+
+        if _find_tfp_harmony(mods_dir) is not None:
+            before = len(mods_folders)
+            mods_folders = [
+                item for item in mods_folders
+                if not _is_tfp_harmony(item[2].name)
+            ]
+            skipped = before - len(mods_folders)
+            if skipped:
+                _log(f"  Skipped {skipped} staged {_TFP_HARMONY_DIR} "
+                     "folder(s); using the game-owned copy.")
+
+        custom_exclude = self._deploy_custom_routing_rules(mode, log_fn)
 
         # --- Step 2: prefix-link every inner Mods/-style folder ---
         total_mods = len(mods_folders)
@@ -327,7 +362,7 @@ class SevenDaysToDie(BaseGame):
                 # so n=0 needs the LARGEST NNNN to sort last alphabetically and
                 # win on any conflicting XPath patch.
                 priority = total_mods - n
-                prefix = str(priority).zfill(_PRIORITY_WIDTH)
+                prefix = _MANAGED_PREFIX + str(priority).zfill(_PRIORITY_WIDTH)
                 bare_name = _strip_existing_prefix(inner.name)
                 dst_name = f"{prefix}_{_safe_folder_name(bare_name)}"
             else:
@@ -345,7 +380,7 @@ class SevenDaysToDie(BaseGame):
             # "Disable" checkboxes on wrapped inner mods actually match.
             offset = _subtree_offset(staging / staged_name, inner)
             keep = _make_keep(path_filters, staged_name, offset.lower(),
-                              strip_map.get(staged_name))
+                              strip_map.get(staged_name), custom_exclude)
             try:
                 placed_rels = _deploy_mod_folder(inner, dst, mode, keep)
                 # Overlay runtime files rescued to overwrite/ by earlier
@@ -392,7 +427,7 @@ class SevenDaysToDie(BaseGame):
             for _idx, staged_name, loose in data_items_low_to_high:
                 mod_root = staging / staged_name
                 keep = _make_keep(path_filters, staged_name, "",
-                                  strip_map.get(staged_name))
+                                  strip_map.get(staged_name), custom_exclude)
                 placed = _deploy_loose_items(
                     mod_root, loose, game_root, mode, _log, keep)
                 placed_paths.extend(placed)
@@ -443,6 +478,8 @@ class SevenDaysToDie(BaseGame):
         _log = log_fn or (lambda _: None)
         if self._game_path is None:
             raise RuntimeError("Game path is not configured.")
+
+        self._restore_custom_routing_rules(log_fn)
 
         game_root = self._game_path
         mods_dir = game_root / self.mods_dir
@@ -505,16 +542,28 @@ class SevenDaysToDie(BaseGame):
         rescued: list[str] = []
         if mods_dir.is_dir():
             legacy_wipe = deployed_map is None and core_dir.is_dir()
+            core_harmony = _find_tfp_harmony(core_dir)
             _log(f"Restore: clearing {mods_dir.name}/ ...")
             for child in list(mods_dir.iterdir()):
                 try:
+                    entry = (deployed_map.get(child.name)
+                             if deployed_map is not None else None)
+                    if (_is_tfp_harmony(child.name)
+                            and core_harmony is not None):
+                        if child.is_symlink() or child.is_file():
+                            child.unlink()
+                        else:
+                            shutil.rmtree(child)
+                        removed_mods += 1
+                        continue
+                    if entry is None and _is_tfp_harmony(child.name):
+                        preserved += 1
+                        continue
                     if child.is_symlink():
                         # Whole-folder symlinks are always deploy leftovers.
                         child.unlink()
                         removed_mods += 1
                         continue
-                    entry = (deployed_map.get(child.name)
-                             if deployed_map is not None else None)
                     if entry is not None and child.is_dir():
                         staged_name, offset, rels = entry
                         rescued.extend(_rescue_runtime_files(
@@ -573,8 +622,7 @@ class SevenDaysToDie(BaseGame):
 
     @staticmethod
     def _move_vanilla_aside(mods_dir: Path, core_dir: Path, log_fn) -> int:
-        """Move every top-level entry currently inside ``mods_dir`` into
-        ``core_dir`` so the vanilla layout can be restored later.
+        """Move every top-level entry from ``mods_dir`` into ``core_dir``.
 
         Skips entries that are already symlinks (leftovers from a previous
         deploy that wasn't properly restored) - those are simply unlinked.
@@ -599,6 +647,21 @@ class SevenDaysToDie(BaseGame):
 # ---------------------------------------------------------------------------
 # Module-level helpers
 # ---------------------------------------------------------------------------
+
+def _is_tfp_harmony(name: str) -> bool:
+    return name.casefold() == _TFP_HARMONY_KEY
+
+
+def _find_tfp_harmony(parent: Path) -> Path | None:
+    try:
+        return next(
+            (child for child in parent.iterdir()
+             if _is_tfp_harmony(child.name)),
+            None,
+        )
+    except OSError:
+        return None
+
 
 def _has_modinfo(folder: Path) -> bool:
     """Return True if a direct child named ``ModInfo.xml`` (case-insensitive)
@@ -639,7 +702,7 @@ def _classify_stage_children(stage_root: Path) -> tuple[list[Path], list[Path]]:
     and Data/-style loose paths.
 
     Each entry of the returned ``inner_mods`` list is a directory that has a
-    direct ``ModInfo.xml`` - deploy it as its own ``Mods/NNNN_<name>/``.
+    direct ``ModInfo.xml`` - deploy it as its own ``Mods/1NNNN_<name>/``.
 
     ``loose`` is a list of Path objects (files *and* directories) that should
     be linked into the game root via the loose-file pipeline.  Manager
@@ -724,7 +787,8 @@ def _subtree_offset(stage_root: Path, inner: Path) -> str:
         return ""
 
 
-def _make_keep(path_filters, mod_name: str, offset: str, strip=None):
+def _make_keep(path_filters, mod_name: str, offset: str, strip=None,
+               custom_exclude: set[str] | None = None):
     """Build a ``keep(rel_key_lower) -> bool`` predicate that mirrors the
     filemap filter chain for ``mod_name``.  ``rel_key_lower`` is relative to the
     walked root; ``offset`` re-bases it onto the staged-root key space.
@@ -734,15 +798,22 @@ def _make_keep(path_filters, mod_name: str, offset: str, strip=None):
     post-strip space, so any wrapper prefix is peeled off the combined
     ``offset + rel_key`` before testing - otherwise "Disable" exclusions on
     wrapped content never match and the files deploy anyway."""
+    excluded = custom_exclude or set()
     if strip:
         from Utils.mods.files import rel_key_after_strip
-        return lambda rel_key: path_filters.accepts(
-            mod_name, rel_key_after_strip(offset + rel_key, strip))
-    return lambda rel_key: path_filters.accepts(mod_name, offset + rel_key)
+        def post_strip(rel_key):
+            return rel_key_after_strip(offset + rel_key, strip)
+    else:
+        def post_strip(rel_key):
+            return offset + rel_key
+    def keep(rel_key):
+        key = post_strip(rel_key)
+        return key not in excluded and path_filters.accepts(mod_name, key)
+    return keep
 
 
 def _deploy_mod_folder(src: Path, dst: Path, mode: LinkMode,
-                       keep=None) -> list[str]:
+                       keep=None, preserve_layout: bool = False) -> list[str]:
     """Place ``src`` (a whole mod staging folder) at ``dst``, file-by-file.
 
     Every file is linked individually (rather than symlinking the whole folder)
@@ -755,7 +826,8 @@ def _deploy_mod_folder(src: Path, dst: Path, mode: LinkMode,
     ``keep`` is a predicate ``(rel_key_lower) -> bool`` (rel_key relative to
     ``src``, forward-slash); files for which it returns False are skipped, and
     directories left empty as a result are not created - so the deployed tree
-    matches the Data tab exactly.  ``dst`` must not exist on entry - any
+    matches the Data tab exactly.  ``preserve_layout`` retains all directories
+    and root files for vanilla layouts.  ``dst`` must not exist on entry - any
     pre-existing directory with the same name is removed first so re-deploys
     stay idempotent.
 
@@ -779,11 +851,15 @@ def _deploy_mod_folder(src: Path, dst: Path, mode: LinkMode,
         rel_real = "" if rel == "." else rel.replace(os.sep, "/") + "/"
         rel_prefix = rel_real.lower()
         made_dir = rel == "."   # dst root always exists already
+        if preserve_layout and not made_dir:
+            os.makedirs(target_dir, exist_ok=True)
+            made_dir = True
         for fname in files:
             # Manager metadata at the mod root (meta.ini etc.) is excluded
             # from the filemap at index level, so keep() never sees it -
             # filter it here too (flat layout puts it at the walk root).
-            if rel == "." and fname.lower() in _STAGING_METADATA:
+            if (not preserve_layout and rel == "."
+                    and fname.lower() in _STAGING_METADATA):
                 continue
             if not keep(rel_prefix + fname.lower()):
                 continue

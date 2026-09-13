@@ -221,6 +221,9 @@ def _parse_files(files_el: ET.Element) -> list[FileInstall]:
             source = child.get("source", "")
             destination = child.get("destination")
             is_folder = (tag == "folder")
+            if destination in ("\\", "/"):
+                # A lone separator also denotes the FOMOD destination root.
+                destination = ""
             # An ABSENT `destination` is not the same as an EMPTY one - the
             # FOMOD schema says a missing destination installs to the source's
             # own path, while an explicit destination="" means the destination

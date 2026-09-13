@@ -5,6 +5,7 @@ py.install_sources(
   'core.py',
   'inventory.py',
   'locations.py',
+  'install.py',
   'modl.py',
   'mpi.py',
   'scheduler.py',

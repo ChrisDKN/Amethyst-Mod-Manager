@@ -75,6 +75,7 @@ _CUSTOM_RULE_ARTIFACTS = (
     "custom_rules_deployed.txt",
     "custom_rules_backup",
     "custom_rules_prefix_backup",
+    "custom_rules_roots.json",
 )
 _CUSTOM_DEPLOY_ARTIFACTS = (
     "custom_deploy_log.txt",
@@ -1407,9 +1408,10 @@ def build_layers(
 
     metadata_dir = filemap.parent
     populate_data_layer = getattr(game, "_vfs_populate_data_layer", None)
+    from Utils.games.routing_rules import get_rules
     custom_rules = (
         [] if callable(populate_data_layer)
-        else list(getattr(game, "custom_routing_rules", None) or [])
+        else list(get_rules(game))
     )
     game_rules = [rule for rule in custom_rules if not rule.to_prefix]
     prefix_rules = [rule for rule in custom_rules if rule.to_prefix]

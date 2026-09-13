@@ -13,9 +13,67 @@ Semantics (Tk parity):
 
 from __future__ import annotations
 
+import json
 import shutil
 from pathlib import Path
 from typing import Callable, Optional
+
+
+def _same_path(left: Path, right: Path) -> bool:
+    try:
+        return left.expanduser().resolve(strict=False) \
+            == right.expanduser().resolve(strict=False)
+    except (OSError, RuntimeError):
+        return left.expanduser().absolute() == right.expanduser().absolute()
+
+
+def staging_root_problem(
+    root: Path,
+    game_name: str,
+    current_root: Optional[Path] = None,
+) -> tuple[str, str] | None:
+    """Return a problem code and detail for an unsafe staging root."""
+    root = Path(root).expanduser()
+    if current_root is not None and _same_path(root, Path(current_root)):
+        return None
+    if root.exists() and not root.is_dir():
+        return "not_directory", ""
+
+    from Utils.config_paths import get_config_dir, get_profiles_dir
+
+    games_dir = get_config_dir() / "games"
+    try:
+        path_files = games_dir.glob("*/paths.json")
+        for paths_file in path_files:
+            owner = paths_file.parent.name
+            if owner == game_name:
+                continue
+            try:
+                data = json.loads(paths_file.read_text(encoding="utf-8"))
+                if not isinstance(data, dict):
+                    continue
+                saved = str(data.get("staging_path", "") or "").strip()
+                owner_root = Path(saved).expanduser() if saved \
+                    else get_profiles_dir() / owner
+            except (OSError, ValueError, TypeError):
+                continue
+            if _same_path(root, owner_root):
+                return "owned", owner
+    except OSError:
+        pass
+
+    if not root.is_dir():
+        return None
+    try:
+        entries = list(root.iterdir())
+    except OSError as exc:
+        return "unreadable", str(exc)
+    managed_dirs = {
+        entry.name.casefold() for entry in entries if entry.is_dir()
+    }
+    if entries and not {"mods", "profiles"}.issubset(managed_dirs):
+        return "unrecognized", ""
+    return None
 
 
 def staging_move_needed(old_root: Optional[Path],

@@ -28,7 +28,9 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -667,6 +669,8 @@ class NexusAPI:
         self._cached_user: "NexusUser | None" = None
         self._cached_user_ts: float = 0.0
         self._oauth_tokens = None
+        self._oauth_lock = threading.RLock()
+        self._graphql_slots = threading.BoundedSemaphore(4)
         self._game_id_cache: dict[str, int] = {}
         self._session = requests.Session()
         self._session.verify = resolve_ca_bundle() or True
@@ -702,6 +706,8 @@ class NexusAPI:
         instance._cached_user = None
         instance._cached_user_ts = 0.0
         instance._oauth_tokens = tokens
+        instance._oauth_lock = threading.RLock()
+        instance._graphql_slots = threading.BoundedSemaphore(4)
         instance._game_id_cache = {}
         instance._session = requests.Session()
         instance._session.verify = resolve_ca_bundle() or True
@@ -716,14 +722,15 @@ class NexusAPI:
 
     def _refresh_oauth_if_needed(self) -> None:
         """If this instance uses OAuth, refresh the access token if it is expiring soon and update the session header."""
-        tokens = getattr(self, "_oauth_tokens", None)
-        if tokens is None:
-            return
-        from Nexus.nexus_oauth import refresh_if_needed
-        new_tokens = refresh_if_needed(tokens)
-        if new_tokens.access_token != tokens.access_token:
-            self._oauth_tokens = new_tokens
-            self._session.headers["Authorization"] = f"Bearer {new_tokens.access_token}"
+        with self._oauth_lock:
+            tokens = self._oauth_tokens
+            if tokens is None:
+                return
+            from Nexus.nexus_oauth import refresh_if_needed
+            new_tokens = refresh_if_needed(tokens)
+            if new_tokens.access_token != tokens.access_token:
+                self._oauth_tokens = new_tokens
+                self._session.headers["Authorization"] = f"Bearer {new_tokens.access_token}"
 
     # -- low-level ----------------------------------------------------------
 
@@ -884,11 +891,17 @@ class NexusAPI:
     def _post_graphql(self, query: str, variables: dict | None = None,
                       op: str = "GraphQL",
                       retries: int = _MAX_RETRIES,
-                      base_url: str = GRAPHQL_BASE) -> requests.Response:
+                      base_url: str = GRAPHQL_BASE,
+                      session: requests.Session | None = None) -> requests.Response:
         """POST to a Nexus GraphQL endpoint (OAuth refresh + 429 retry)."""
         # Returns the raw response. Pass base_url=GRAPHQL_SEARCH_BASE for the
         # public mods-listing queries (see the constant's comment for why).
-        self._refresh_oauth_if_needed()
+        with self._oauth_lock:
+            self._refresh_oauth_if_needed()
+            if session is None:
+                session = self._session
+            elif session is not self._session:
+                session.headers.update(self._session.headers)
         payload: dict[str, Any] = {"query": query}
         if variables is not None:
             payload["variables"] = variables
@@ -899,9 +912,10 @@ class NexusAPI:
                    if base_url == GRAPHQL_SEARCH_BASE else None)
         for attempt in range(retries):
             try:
-                resp = self._session.post(base_url, json=payload,
-                                          headers=headers,
-                                          timeout=self._timeout)
+                with self._graphql_slots:
+                    resp = session.post(base_url, json=payload,
+                                        headers=headers,
+                                        timeout=self._timeout)
             except requests.ConnectionError as exc:
                 raise NexusAPIError(
                     f"Connection failed: {exc}", url=base_url) from exc
@@ -1955,6 +1969,30 @@ class NexusAPI:
 
     _GRAPHQL_UPDATE_BATCH = 20  # legacyModsByDomain returns at most 20 nodes per request
 
+    def _map_graphql_batches(self, batches, fetch_batch) -> dict:
+        if not batches:
+            return {}
+
+        workers = min(4, len(batches))
+
+        def fetch_lane(lane):
+            results = {}
+            with requests.Session() as session:
+                session.verify = self._session.verify
+                for batch in lane:
+                    results.update(fetch_batch(batch, session))
+            return results
+
+        if workers == 1:
+            return fetch_lane(batches)
+        results = {}
+        with ThreadPoolExecutor(max_workers=workers,
+                                thread_name_prefix="nexus-update") as pool:
+            for result in pool.map(fetch_lane,
+                                   [batches[i::workers] for i in range(workers)]):
+                results.update(result)
+        return results
+
     def graphql_mod_update_info_batch(
         self,
         ids: list[tuple[str, int]],
@@ -2000,23 +2038,22 @@ class NexusAPI:
             }
         }
         """
-        results: dict[int, NexusModUpdateInfo] = {}
-        batch_size = self._GRAPHQL_UPDATE_BATCH
-        for i in range(0, len(ids), batch_size):
-            batch = ids[i: i + batch_size]
+        def fetch_batch(batch, session):
+            results: dict[int, NexusModUpdateInfo] = {}
             variables = {
                 "ids": [{"gameDomain": gd, "modId": mid} for gd, mid in batch]
             }
             try:
                 resp = self._post_graphql(query, variables,
-                                          op="GraphQL batchUpdateCheck")
+                                          op="GraphQL batchUpdateCheck",
+                                          session=session)
                 if not resp.ok:
                     app_log(f"GraphQL batch update check failed: {resp.status_code}")
-                    continue
+                    return results
                 data = resp.json()
                 if not isinstance(data, dict):
                     app_log("GraphQL batch update check: unexpected response format")
-                    continue
+                    return results
                 if "errors" in data:
                     app_log(f"GraphQL batch update check errors: {data['errors']}")
                 nodes = (
@@ -2074,7 +2111,12 @@ class NexusAPI:
                     )
             except Exception as exc:
                 app_log(f"GraphQL batch update check error: {exc}")
-        return results
+            return results
+
+        batch_size = self._GRAPHQL_UPDATE_BATCH
+        return self._map_graphql_batches(
+            [ids[i:i + batch_size] for i in range(0, len(ids), batch_size)],
+            fetch_batch)
 
     def graphql_mod_files_batch(
         self,
@@ -2097,11 +2139,8 @@ class NexusAPI:
             app_log(f"GraphQL modFilesBatch: could not resolve game ID for {game_domain!r}")
             return {}
 
-        results: dict[int, list[NexusModFile]] = {}
-        unique_mods = list(dict.fromkeys(mod_ids))
-        batch_size = self._GRAPHQL_FILE_BATCH
-        for i in range(0, len(unique_mods), batch_size):
-            batch = unique_mods[i: i + batch_size]
+        def fetch_batch(batch, session):
+            results: dict[int, list[NexusModFile]] = {}
             aliases = "\n".join(
                 f"    m{mid}: modFiles(gameId: {game_id}, modId: {mid}) {{\n"
                 f"        fileId name version description\n"
@@ -2112,10 +2151,11 @@ class NexusAPI:
             )
             query = f"query ModFilesBatch {{\n{aliases}\n}}"
             try:
-                resp = self._post_graphql(query, op="GraphQL modFilesBatch")
+                resp = self._post_graphql(query, op="GraphQL modFilesBatch",
+                                          session=session)
                 if not resp.ok:
                     app_log(f"GraphQL modFilesBatch failed: {resp.status_code}")
-                    continue
+                    return results
                 payload = resp.json()
                 if "errors" in payload:
                     app_log(f"GraphQL modFilesBatch errors: {payload['errors']}")
@@ -2165,7 +2205,14 @@ class NexusAPI:
             except Exception as exc:
                 app_log(f"GraphQL modFilesBatch error: {exc}")
 
-        return results
+            return results
+
+        unique_mods = list(dict.fromkeys(mod_ids))
+        batch_size = self._GRAPHQL_FILE_BATCH
+        return self._map_graphql_batches(
+            [unique_mods[i:i + batch_size]
+             for i in range(0, len(unique_mods), batch_size)],
+            fetch_batch)
 
     def graphql_mod_info_batch(
         self,

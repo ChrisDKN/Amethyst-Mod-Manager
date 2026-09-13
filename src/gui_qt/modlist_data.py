@@ -20,7 +20,7 @@ FLAG_ROOT = 1 << 2         # meta.root_folder
 FLAG_MODIFIED_MF = 1 << 3  # modified in the Mod Files tab (excluded files/strip)
 FLAG_MISSING_REQS = 1 << 4  # meta.missing_requirements has un-ignored entries
 FLAG_COLLECTION_BUNDLED = 1 << 5  # meta.from_collection_bundled (bundled by a collection)
-FLAG_COLLECTION_PATCHED = 1 << 6  # meta.from_collection_patched (diff-patched by a collection)
+FLAG_COLLECTION_PATCHED = 1 << 6  # collection/Wabbajack diff-patched metadata
 FLAG_NOTE = 1 << 7         # a saved per-profile user note (read_mod_notes)
 FLAG_XEDIT = 1 << 8        # meta.xedit_modified_plugins non-empty (xEdit-edited plugins)
 FLAG_BUNDLE = 1 << 9       # RE/Fluffy bundle (a [Bundle] section in meta.ini)
@@ -97,6 +97,9 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
     descriptions[name] -> Nexus summary, falling back to the Thunderstore
                           description, for the name-column hover tooltip
     authors[name]      -> Nexus uploader username (Author column, "" if none)
+    source_locations[name] -> known source keys (nexus/thunderstore/modio)
+    nexus_mod_ids[name]    -> Nexus mod ID (omitted when unknown)
+    nexus_file_ids[name]   -> Nexus file ID (omitted when unknown)
 
     *ignored_reqs* - requirement names the user has dismissed (per-profile); a
     mod is only flagged if it still has missing requirements outside this set.
@@ -113,6 +116,9 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
     missing_reqs: set[str] = set()
     descriptions: dict[str, str] = {}
     authors: dict[str, str] = {}
+    source_locations: dict[str, frozenset[str]] = {}
+    nexus_mod_ids: dict[str, int] = {}
+    nexus_file_ids: dict[str, int] = {}
     # Requirement resolution is a two-pass job (Tk parity): collect every
     # installed Nexus mod_id first, then flag a mod only for requirement ids
     # that aren't present. Keyed on id, not name, so locally-seeded id-only
@@ -126,7 +132,8 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
         from Nexus.nexus_meta import read_meta
     except Exception:
         return (versions, installed, flags, categories, updates, fomod, bain,
-                missing_reqs, descriptions, authors)
+                missing_reqs, descriptions, authors, source_locations,
+                nexus_mod_ids, nexus_file_ids)
 
     # Per-profile user notes (Note flag) - one read for the whole list.
     notes: dict[str, str] = {}
@@ -147,6 +154,13 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
             meta = read_meta(meta_path)
         except Exception:
             continue
+
+        sources: set[str] = set()
+        if int(getattr(meta, "mod_id", 0) or 0) > 0:
+            sources.add("nexus")
+            nexus_mod_ids[e.name] = int(meta.mod_id)
+            if int(getattr(meta, "file_id", 0) or 0) > 0:
+                nexus_file_ids[e.name] = int(meta.file_id)
 
         if meta.version:
             versions[e.name] = meta.version
@@ -207,10 +221,11 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
                 pairs = [pr for pr in pairs if pr[0] not in ign_ids]
             if pairs:
                 raw_missing_pairs[e.name] = pairs
-        # Collection-install provenance (stamped in meta.ini at install time).
+        # Collection/Wabbajack install provenance (stamped in meta.ini).
         if getattr(meta, "from_collection_bundled", False):
             bits |= FLAG_COLLECTION_BUNDLED
-        if getattr(meta, "from_collection_patched", False):
+        if (getattr(meta, "from_collection_patched", False)
+                or getattr(meta, "wabbajack_patched", False)):
             bits |= FLAG_COLLECTION_PATCHED
         # xEdit-modified plugins (semicolon-separated list in meta).
         if (getattr(meta, "xedit_modified_plugins", "") or "").strip():
@@ -237,6 +252,8 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
 
                 _fid = int(_modio_value(
                     "fileId", "modioFileId", "0") or "0")
+                _mid = int(_modio_value(
+                    "modId", "modioModId", "0") or "0")
                 _lfid = int(_modio_value(
                     "latestFileId", "modioLatestFileId", "0") or "0")
                 _has_update = _modio_value(
@@ -245,6 +262,8 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
                 if _has_update or (_lfid and _fid and _lfid != _fid):
                     bits |= FLAG_MODIO_UPDATE
                     updates.add(e.name)
+                if _mid > 0:
+                    sources.add("modio")
             except Exception:
                 pass
         # Thunderstore update (its own meta.ini section, so no game gate -
@@ -269,8 +288,12 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
             if _ts.package_id and _ts.has_update and not _ts.ignore_update:
                 bits |= FLAG_THUNDERSTORE_UPDATE
                 updates.add(e.name)
+            if _ts.package_id:
+                sources.add("thunderstore")
         except Exception:
             pass
+        if sources:
+            source_locations[e.name] = frozenset(sources)
         # Per-profile user note.
         if notes.get(e.name):
             bits |= FLAG_NOTE
@@ -286,7 +309,8 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
             flags[name] = flags.get(name, 0) | FLAG_MISSING_REQS
 
     return (versions, installed, flags, categories, updates, fomod, bain,
-            missing_reqs, descriptions, authors)
+            missing_reqs, descriptions, authors, source_locations,
+            nexus_mod_ids, nexus_file_ids)
 
 
 # ---- mod folder sizes (Size column) - ported from gui/modlist_panel.py --------
@@ -364,11 +388,11 @@ def compute_sizes(entries: list[ModEntry], staging_dir: Path
 
 
 def compute_plugin_stats(rows) -> dict:
-    """Aggregate plugin stats for the plugins footer stats row: total / ESL /
-    non-ESL. ESL = the PF_ESL (light-flagged or .esl) bit. In-memory, instant."""
+    """Aggregate enabled plugin stats for the plugins footer."""
     from Utils.plugins.state import PF_ESL
-    total = len(rows)
-    esl = sum(1 for r in rows if getattr(r, "flags", 0) & PF_ESL)
+    enabled = [r for r in rows if getattr(r, "enabled", False)]
+    total = len(enabled)
+    esl = sum(1 for r in enabled if getattr(r, "flags", 0) & PF_ESL)
     return {"total": total, "esl": esl, "non_esl": total - esl}
 
 

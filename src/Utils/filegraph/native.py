@@ -17,7 +17,7 @@ from Utils.filegraph.models import FileGraphUnavailable
 API_VERSION = 12
 SCHEMA_VERSION = 9
 ENGINE_REVISION = 1
-RULES_REVISION = 7
+RULES_REVISION = 8
 _native: ModuleType | None = None
 
 

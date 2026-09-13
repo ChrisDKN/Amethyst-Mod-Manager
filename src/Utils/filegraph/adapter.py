@@ -11,6 +11,8 @@ import fnmatch
 import hashlib
 import json
 import os
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Callable, Iterable
@@ -98,6 +100,63 @@ def _check_cancel(cancel) -> None:
         raise FileGraphCancelled("filegraph operation cancelled")
 
 
+_shared_inventory = ContextVar("filegraph_shared_inventory", default=None)
+
+
+@contextmanager
+def shared_inventory_scope(inventory):
+    token = _shared_inventory.set(inventory)
+    try:
+        yield
+    finally:
+        _shared_inventory.reset(token)
+
+
+class SharedInventory:
+    """Reuse source inventory while the caller holds shared mods unchanged."""
+    def __init__(self, mods_root: Path):
+        self.root = mods_root.resolve()
+        self.files = {}
+        self.archives = {}
+        self.fingerprints = {}
+
+    def fingerprint(self, files):
+        key = id(files)
+        if key not in self.fingerprints:
+            self.fingerprints[key] = files, manifest_fingerprint(files)
+        return self.fingerprints[key][1]
+
+    def key(self, root: Path):
+        resolved = root.resolve()
+        if resolved.parent != self.root:
+            return None
+        info = resolved.stat()
+        return (str(resolved), info.st_dev, info.st_ino,
+                info.st_mtime_ns, info.st_ctime_ns)
+
+    def scan(self, adapter, root: Path, cancel):
+        _check_cancel(cancel)
+        key = self.key(root)
+        if key is None:
+            return adapter._scan_root(root, cancel=cancel)
+        exclusions = frozenset(str(name).lower() for name in
+                               (getattr(adapter.game, "filemap_exclude_dirs", None) or ()))
+        key = key, exclusions
+        if key not in self.files:
+            self.files[key] = adapter._scan_root(root, cancel=cancel)
+        return self.files[key]
+
+
+def manifest_fingerprint(files):
+    fingerprint = hashlib.blake2b(digest_size=24)
+    for raw in files:
+        fingerprint.update(len(raw.relative).to_bytes(4, "little"))
+        fingerprint.update(raw.relative)
+        fingerprint.update(raw.size.to_bytes(8, "little", signed=False))
+        fingerprint.update(raw.mtime_ns.to_bytes(8, "little", signed=True))
+    return fingerprint.digest()
+
+
 def _json_default(value):
     if isinstance(value, Path):
         return str(value)
@@ -150,6 +209,7 @@ class GameCandidateAdapter:
 
     def _refresh_profile_rules(self) -> None:
         self._rules_hash_cache = None
+        self._refresh_blacklist()
         modlist = self.profile_dir / "modlist.txt"
         try:
             from Nexus.nexus_meta import collect_root_flagged_mods
@@ -219,6 +279,22 @@ class GameCandidateAdapter:
             self._normalize_folder_case = bool(
                 getattr(self.game, "normalize_folder_case", True))
 
+    def _refresh_blacklist(self) -> None:
+        from Utils.games.conflict_blacklist import effective_rules
+        from Utils.games.routing_rules import get_rules
+        rules = effective_rules(self.game)
+        if rules != getattr(self, "_ignore_rules", None):
+            self._ignore_rules = rules
+            self._rules_hash_cache = None
+        routing = get_rules(self.game)
+        if routing != getattr(self, "_routing_rules", None):
+            self._routing_rules = routing
+            self._rules_hash_cache = None
+        customized = getattr(self.game, "_routing_overrides_active", False)
+        if customized != getattr(self, "_routing_overrides_active", None):
+            self._routing_overrides_active = customized
+            self._rules_hash_cache = None
+
     def rules_hash(self) -> bytes:
         if self._rules_hash_cache is not None:
             return self._rules_hash_cache
@@ -232,12 +308,13 @@ class GameCandidateAdapter:
             "post_strip": getattr(game, "mod_folder_strip_prefixes_post", ()),
             "extensions": getattr(game, "mod_install_extensions", ()),
             "exclude_dirs": getattr(game, "filemap_exclude_dirs", ()),
-            "ignore_files": getattr(game, "conflict_ignore_filenames", ()),
-            "ignore_folders": getattr(game, "conflict_ignore_foldernames", ()),
+            "ignore_files": self._ignore_rules[0],
+            "ignore_folders": self._ignore_rules[1],
             "exclude_loose": getattr(game, "excluded_loose_filenames", ()),
             "required_top": getattr(game, "mod_required_top_level_folders", ()),
             "filter_top": getattr(game, "filemap_exclude_unknown_top_level", False),
-            "routing": getattr(game, "custom_routing_rules", ()),
+            "routing": self._routing_rules,
+            "routing_overrides": self._routing_overrides_active,
             "ue_routing": getattr(game, "ue5_routing_rules", ()),
             "ue_default": getattr(game, "ue5_default_dest", ""),
             "deploy_path_remap": getattr(game, "mod_deploy_path_remap", {}),
@@ -356,7 +433,8 @@ class GameCandidateAdapter:
             self.log(f"Top-level exemption check warning: {exc}")
             return set()
 
-    def _accept(self, mod_name: str, raw_lower: str, routed_rel: str) -> bool:
+    def _accept(self, mod_name: str, raw_lower: str, routed_rel: str,
+                *, custom_routed: bool = False) -> bool:
         routed_lower = routed_rel.lower()
         if raw_lower in self._raw_excluded.get(mod_name, ()):
             return False
@@ -364,30 +442,29 @@ class GameCandidateAdapter:
             str(item).lower()
             for item in (getattr(self.game, "mod_install_extensions", None) or ())
         }
-        if allowed_extensions:
+        if allowed_extensions and not custom_routed:
             filename = routed_lower.rsplit("/", 1)[-1]
             if not any(filename.endswith(ext) and len(filename) > len(ext)
                        for ext in allowed_extensions):
                 return False
         filename = routed_lower.rsplit("/", 1)[-1]
         if any(fnmatch.fnmatchcase(filename, str(pattern).lower())
-               for pattern in (getattr(self.game, "conflict_ignore_filenames", None) or ())):
+               for pattern in self._ignore_rules[0]):
             return False
         if "/" not in routed_lower and any(
                 fnmatch.fnmatchcase(filename, str(pattern).lower())
                 for pattern in (getattr(self.game, "excluded_loose_filenames", None) or ())):
             return False
-        folder_patterns = tuple(
-            str(pattern).lower()
-            for pattern in (getattr(self.game, "conflict_ignore_foldernames", None) or ())
-        )
+        folder_patterns = self._ignore_rules[1]
         if folder_patterns and "/" in routed_lower:
             if any(fnmatch.fnmatchcase(segment, pattern)
                    for segment in routed_lower.rsplit("/", 1)[0].split("/")
                    for pattern in folder_patterns):
                 return False
         if (getattr(self.game, "filemap_exclude_unknown_top_level", False)
+                and not custom_routed
                 and mod_name not in self._top_level_exempt
+                and mod_name not in self._per_mod_deploy
                 and "/" in routed_lower):
             allowed = {
                 str(folder).lower()
@@ -406,6 +483,7 @@ class GameCandidateAdapter:
                 return False
         allow_default = getattr(self.game, "filegraph_allow_default_path", None)
         if (handler_spec is None
+                and not custom_routed
                 and mod_name not in self._root_mods
                 and raw_lower not in self._raw_root_files.get(mod_name, ())
                 and mod_name not in self._per_mod_deploy
@@ -489,14 +567,14 @@ class GameCandidateAdapter:
                 else:
                     route_target = "game"
                 full = self._join(destination, final_rel)
-                out[staged_rel.lower()] = [_Route(
+                out.setdefault(staged_rel.lower(), []).append(_Route(
                     route_target, _wire_path(full), full, staged_rel,
-                    deploy_remap=False)]
+                    deploy_remap=False))
 
         # Generic custom routing uses the same matcher as deployment.  The
         # identity key is exact; display spelling remains the candidate's own
         # spelling until the Rust casing pass chooses a winner-dependent form.
-        rules = getattr(self.game, "custom_routing_rules", None) or ()
+        rules = self._routing_rules
         if rules:
             try:
                 from Utils.deployment.custom_rules import (
@@ -507,7 +585,7 @@ class GameCandidateAdapter:
                 custom_routes = {}
             for path in normal:
                 key = path.lower()
-                if key in out:
+                if key in out and all(route.target != "prefix" for route in out[key]):
                     continue
                 destinations = custom_routes.get(key)
                 if destinations:
@@ -742,16 +820,22 @@ class GameCandidateAdapter:
     def build_manifest(
         self, mod_name: str, *, cancel=None,
         catalog_manifest: dict | None = None,
+        inventory: SharedInventory | None = None,
     ) -> dict:
         _check_cancel(cancel)
+        inventory = inventory if inventory is not None else _shared_inventory.get()
         if mod_name == OVERWRITE_NAME:
             root = self.overwrite
+            inventory = None
         elif mod_name == ROOT_FOLDER_NAME:
             root = self.root_folder
+            inventory = None
         else:
             root = self.staging / mod_name
         if catalog_manifest is None:
-            raw_files = self._scan_root(root, cancel=cancel) if root.is_dir() else []
+            raw_files = ((inventory.scan(self, root, cancel) if inventory is not None
+                          else self._scan_root(root, cancel=cancel))
+                         if root.is_dir() else [])
         else:
             raw_files = [
                 RawFile(
@@ -771,16 +855,11 @@ class GameCandidateAdapter:
                 whole_mod_root = bool(read_meta(root / "meta.ini").root_folder)
             except Exception:
                 pass
-        fingerprint = hashlib.blake2b(digest_size=24)
-        for raw in raw_files:
-            fingerprint.update(len(raw.relative).to_bytes(4, "little"))
-            fingerprint.update(raw.relative)
-            fingerprint.update(raw.size.to_bytes(8, "little", signed=False))
-            fingerprint.update(raw.mtime_ns.to_bytes(8, "little", signed=True))
-        manifest_fingerprint = (
+        fingerprint = (
             bytes(catalog_manifest.get("manifest_fingerprint", ()))
             if catalog_manifest is not None
-            else fingerprint.digest()
+            else inventory.fingerprint(raw_files) if inventory is not None
+            else manifest_fingerprint(raw_files)
         )
         cached_identities: dict[bytes, list[bytes]] = {}
         if catalog_manifest is not None:
@@ -806,13 +885,22 @@ class GameCandidateAdapter:
             for item in (getattr(self.game, "mod_install_extensions", None) or ())
         }
         per_file_roots = self._raw_root_files.get(mod_name, set())
-        for raw in raw_files:
-            raw_display = raw.display.replace("\\", "/")
-            staged = self._strip(mod_name, raw_display)
+        staged_files = ((raw, self._strip(mod_name, raw.display.replace("\\", "/")))
+                        for raw in raw_files)
+        custom_claims = {}
+        if (self._routing_overrides_active and self._routing_rules
+                and mod_name not in self._raw_route_mods):
+            from Utils.deployment.custom_rules import compute_routed_destinations
+            staged_files = list(staged_files)
+            custom_claims = compute_routed_destinations(
+                [staged for raw, staged in staged_files if staged
+                 and self._accept(mod_name, raw.display.replace("\\", "/").lower(),
+                                  staged, custom_routed=True)], self._routing_rules)
+        for raw, staged in staged_files:
             if not staged:
                 continue
             filename = staged.lower().rsplit("/", 1)[-1]
-            if (not allowed_extensions
+            if (not allowed_extensions or staged.lower() in custom_claims
                     or any(filename.endswith(ext) and len(filename) > len(ext)
                            for ext in allowed_extensions)):
                 key = staged.lower()
@@ -871,7 +959,8 @@ class GameCandidateAdapter:
                 ),
             )
             source_lower = source_raw.display.replace("\\", "/").lower()
-            if not self._accept(mod_name, source_lower, staged):
+            if not self._accept(mod_name, source_lower, staged,
+                                custom_routed=key in custom_claims):
                 continue
             processed.append((source_raw, source_lower, staged))
             if key in indexed_roots:
@@ -981,7 +1070,7 @@ class GameCandidateAdapter:
         if catalog_manifest is None:
             self._append_archive_candidates(
                 mod_name, root, raw_files, inventory_plugin_stems, candidates,
-                cancel=cancel)
+                cancel=cancel, inventory=inventory)
         else:
             self._append_cached_archive_candidates(
                 mod_name, raw_files, inventory_plugin_stems,
@@ -991,7 +1080,7 @@ class GameCandidateAdapter:
             "mod_name": mod_name,
             "mod_key": _normalise_mod_key(mod_name),
             "variant_key": self.variant_key(mod_name),
-            "manifest_fingerprint": manifest_fingerprint,
+            "manifest_fingerprint": fingerprint,
             "raw_files": [
                 {
                     "source_rel": raw.relative,
@@ -1016,6 +1105,7 @@ class GameCandidateAdapter:
         candidates: list[dict],
         *,
         cancel=None,
+        inventory: SharedInventory | None = None,
     ) -> None:
         extensions = frozenset(
             str(ext).lower()
@@ -1024,8 +1114,14 @@ class GameCandidateAdapter:
         if not extensions or not root.is_dir():
             return
         try:
-            _name, archives, _parsed = scan_mod_archives(
-                mod_name, str(root), extensions, None)
+            key = inventory.key(root) if inventory is not None else None
+            key = (key, extensions) if key is not None else None
+            archives = inventory.archives.get(key) if key is not None else None
+            if archives is None:
+                _name, archives, _parsed = scan_mod_archives(
+                    mod_name, str(root), extensions, None)
+                if key is not None:
+                    inventory.archives[key] = archives
         except Exception as exc:
             self.log(f"Archive scan warning for {mod_name}: {exc}")
             return
@@ -1190,6 +1286,8 @@ class GameCandidateAdapter:
         # refresh because crossing a separator can change a custom route.
         if refresh_rules:
             self._refresh_profile_rules()
+        else:
+            self._refresh_blacklist()
         try:
             from Utils.mods.modlist import read_modlist
             ordered = [
@@ -1252,6 +1350,7 @@ class GameCandidateAdapter:
         *,
         progress: Callable[[RefreshProgress], None] | None = None,
         cancel=None,
+        inventory: SharedInventory | None = None,
     ) -> Iterable[dict]:
         self.prepare_profile_rules()
         self._archive_units.clear()
@@ -1271,7 +1370,7 @@ class GameCandidateAdapter:
         files_scanned = archives_scanned = 0
         for index, name in enumerate(names, 1):
             _check_cancel(cancel)
-            batch = self.build_manifest(name, cancel=cancel)
+            batch = self.build_manifest(name, cancel=cancel, inventory=inventory)
             files_scanned += sum(
                 1 for candidate in batch["candidates"]
                 if candidate["kind"] != "archive_member")

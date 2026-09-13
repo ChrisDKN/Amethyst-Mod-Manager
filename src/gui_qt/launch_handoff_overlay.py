@@ -39,9 +39,9 @@ class LaunchHandoffOverlay(OverlayBase):
         v.addWidget(title)
 
         sub = QLabel(self.tr(
-            "This deployment uses an external loader or virtual filesystem, "
-            "so the launcher must start the game through Amethyst. Press Play "
-            "in Amethyst, or configure {0} as follows:\n\n{1}"
+            "This game uses an external loader or virtual filesystem. Press "
+            "Play in Amethyst, or configure {0} to launch the deployed setup "
+            "as follows:\n\n{1}"
         ).format(handoff.launcher_name, handoff.instructions))
         sub.setStyleSheet(f"color:{_c(p,'TEXT_DIM')}; font-size:13px;")
         sub.setWordWrap(True)

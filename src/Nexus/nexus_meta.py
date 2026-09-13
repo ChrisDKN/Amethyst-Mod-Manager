@@ -57,6 +57,11 @@ class NexusModMeta:
     file_size: int = 0                 # original archive size in bytes
     installed: str = ""                # ISO-8601 timestamp
     nexus_url: str = ""                # full Nexus mod page URL
+    workshop_app_id: str = ""
+    workshop_item_id: str = ""
+    workshop_title: str = ""
+    workshop_updated: str = ""
+    workshop_archive: str = ""
     description: str = ""              # short summary
     category_id: int = 0               # Nexus category
     category_name: str = ""            # Category display name (e.g. Armor, Weapons)
@@ -76,6 +81,7 @@ class NexusModMeta:
     from_collection: str = ""          # slug of the collection that installed this mod
     from_collection_bundled: bool = False  # True for mods extracted from collection bundled/ folder
     from_collection_patched: bool = False  # True for mods that received BSDIFF40 patches from a collection
+    wabbajack_patched: bool = False    # True for mods that received Octodiff patches during Wabbajack installation
     collection_source_file_id: int = 0  # fileId authored in collection.json before policy resolution
     collection_install_type: str | None = None  # manifest details.type used for game-specific destinations
     collection_optional: bool = False  # manifest ``optional`` flag at collection-install time
@@ -149,6 +155,11 @@ _KEY_MAP: dict[str, str] = {
     "fileSize":          "file_size",
     "installed":         "installed",
     "nexusUrl":          "nexus_url",
+    "workshopAppId":     "workshop_app_id",
+    "workshopItemId":    "workshop_item_id",
+    "workshopTitle":     "workshop_title",
+    "workshopUpdated":   "workshop_updated",
+    "workshopArchive":   "workshop_archive",
     "description":       "description",
     "categoryId":        "category_id",
     "categoryName":      "category_name",
@@ -168,6 +179,7 @@ _KEY_MAP: dict[str, str] = {
     "fromCollection":    "from_collection",
     "fromCollectionBundled": "from_collection_bundled",
     "fromCollectionPatched": "from_collection_patched",
+    "wabbajackPatched": "wabbajack_patched",
     "collectionSourceFileId": "collection_source_file_id",
     "collectionInstallType": "collection_install_type",
     "collectionOptional": "collection_optional",
@@ -187,6 +199,7 @@ _INT_FIELDS = {"mod_id", "file_id", "category_id", "latest_file_id", "file_size"
 _BOOL_FIELDS = {
     "endorsed", "has_update", "ignore_update", "is_fomod", "is_bain",
     "root_folder", "from_collection_bundled", "from_collection_patched",
+    "wabbajack_patched",
     "collection_optional", "fomod_pending_baselined",
 }
 
@@ -277,7 +290,8 @@ def write_meta(meta_ini_path: Path, meta: NexusModMeta) -> None:
             # that construct fresh ``NexusModMeta`` objects without them.
             if attr in (
                 "is_fomod", "is_bain", "from_collection_bundled",
-                "from_collection_patched", "collection_optional",
+                "from_collection_patched", "wabbajack_patched",
+                "collection_optional",
                 "fomod_pending_baselined",
             ) and not value:
                 continue
@@ -313,6 +327,8 @@ def write_meta(meta_ini_path: Path, meta: NexusModMeta) -> None:
             # Same for the uploader: stamped by the install lookup / update
             # check; a fresh NexusModMeta without it must not blank the value.
             if attr == "uploaded_by" and not value:
+                continue
+            if attr.startswith("workshop_") and not value:
                 continue
             cp.set(_SECTION, ini_key, str(value).replace("%", "%%"))
 
@@ -435,6 +451,7 @@ def has_reinstall_carryover(installed: "NexusModMeta | None") -> bool:
     time would stay unidentified forever."""
     return installed is not None and bool(
         getattr(installed, "mod_id", 0)
+        or getattr(installed, "workshop_item_id", "")
         or getattr(installed, "root_folder", False)
         or getattr(installed, "from_collection", "")
         or getattr(installed, "collection_install_type", ""))
@@ -450,14 +467,19 @@ def merge_reinstall_metadata(
     reinstall can reuse stable package identity from the installed metadata,
     while install-layout and collection ownership must survive either path.
     Transient update-check state is deliberately excluded (re-derived by the
-    next check), as is from_collection_patched (a plain reinstall does NOT
-    reapply a collection's BSDIFF patches, so the badge would lie).
+    next check), as are the collection/Wabbajack patch markers (a plain
+    reinstall does not reapply their binary patches, so the badge would lie).
     """
     meta = copy.copy(refreshed) if refreshed is not None else NexusModMeta()
     if installed is None:
         return meta
 
     stable_identity = (
+        "workshop_app_id",
+        "workshop_item_id",
+        "workshop_title",
+        "workshop_updated",
+        "workshop_archive",
         "game_domain",
         "mod_id",
         "file_id",

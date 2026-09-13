@@ -1,8 +1,8 @@
 use crate::model::{
-    AssetCopyRecord, Candidate, ConflictEdgeRecord, ConflictStateExport, ConflictSummary,
-    DataEntryRecord, DeployEntryRecord, DeployedStateRecord, DeploymentPlanRecord, InventoryFacets,
-    ModFileRecord, Namespace, ProfileIntent, ProviderKind, ProviderRecord, RawCatalogFile,
-    ResolutionDelta, SnapshotExport, WinnerRecord,
+    AssetCopyRecord, Candidate, CatalogRows, ConflictEdgeRecord, ConflictStateExport,
+    ConflictSummary, DataEntryRecord, DeployEntryRecord, DeployedStateRecord, DeploymentPlanRecord,
+    InventoryFacets, ModFileRecord, Namespace, ProfileIntent, ProviderKind, ProviderRecord,
+    RawCatalogFile, ResolutionDelta, SnapshotExport, WinnerRecord,
 };
 use im::{HashMap as PersistentHashMap, HashSet as PersistentHashSet};
 use parking_lot::Mutex;
@@ -529,14 +529,14 @@ impl IdentityState {
 // Keep cold-build arrays and maps intact; later snapshots share small updates.
 #[derive(Clone, Debug)]
 pub struct SharedAppend<T: Clone> {
-    base: Arc<Vec<T>>,
+    base: CatalogRows<T>,
     appended: im::Vector<T>,
 }
 
 impl<T: Clone> SharedAppend<T> {
-    fn new(base: Arc<Vec<T>>) -> Self {
+    fn new(base: impl Into<CatalogRows<T>>) -> Self {
         Self {
-            base,
+            base: base.into(),
             appended: im::Vector::new(),
         }
     }
@@ -662,12 +662,15 @@ struct GraphInventory {
 }
 
 impl GraphInventory {
-    fn new(candidates: &[Candidate]) -> Self {
+    fn new(candidates: &CatalogRows<Candidate>) -> Self {
         let active_candidate_ids = candidates.iter().map(|candidate| candidate.id).collect();
         Self::new_with_active(candidates, active_candidate_ids)
     }
 
-    fn new_with_active(candidates: &[Candidate], active_candidate_ids: HashSet<i64>) -> Self {
+    fn new_with_active(
+        candidates: &CatalogRows<Candidate>,
+        active_candidate_ids: HashSet<i64>,
+    ) -> Self {
         let mut candidate_indexes = HashMap::with_capacity(candidates.len());
         let mut effective_paths = Vec::new();
         let mut effective_lookup = HashMap::new();
@@ -954,7 +957,8 @@ pub struct GraphSnapshot {
     pub generation: u64,
     pub inventory_generation: u64,
     pub candidates: Arc<SharedAppend<Candidate>>,
-    raw_files: Arc<Vec<RawCatalogFile>>,
+    catalog_candidates: CatalogRows<Candidate>,
+    raw_files: CatalogRows<RawCatalogFile>,
     raw_files_by_mod: Arc<HashMap<Arc<str>, Vec<usize>>>,
     page_indexes: Arc<PageIndexes>,
     inventory: Arc<GraphInventory>,
@@ -998,10 +1002,11 @@ impl GraphSnapshot {
             generation: 0,
             inventory_generation,
             candidates: Arc::new(SharedAppend::new(Arc::new(Vec::new()))),
-            raw_files: Arc::new(Vec::new()),
+            catalog_candidates: CatalogRows::default(),
+            raw_files: CatalogRows::default(),
             raw_files_by_mod: Arc::new(HashMap::new()),
             page_indexes: Arc::default(),
-            inventory: Arc::new(GraphInventory::new(&[])),
+            inventory: Arc::new(GraphInventory::new(&CatalogRows::default())),
             destination_states: PersistentHashMap::new(),
             identity_states: PersistentHashMap::new(),
             suppressed_counts: PersistentHashMap::new(),
@@ -3368,12 +3373,14 @@ fn finish_summaries(
 }
 
 pub fn build_full(
-    candidates: Arc<Vec<Candidate>>,
-    raw_files: Arc<Vec<RawCatalogFile>>,
+    candidates: impl Into<CatalogRows<Candidate>>,
+    raw_files: impl Into<CatalogRows<RawCatalogFile>>,
     intent: &ProfileIntent,
     inventory_generation: u64,
     generation: u64,
 ) -> GraphSnapshot {
+    let candidates = candidates.into();
+    let raw_files = raw_files.into();
     let trace =
         crate::model::perftrace_enabled() || std::env::var_os("AMETHYST_FILEGRAPH_TRACE").is_some();
     let build_started = Instant::now();
@@ -3393,7 +3400,8 @@ pub fn build_full(
     let mut snapshot = GraphSnapshot {
         generation,
         inventory_generation,
-        candidates: Arc::new(SharedAppend::new(candidates)),
+        candidates: Arc::new(SharedAppend::new(candidates.clone())),
+        catalog_candidates: candidates,
         raw_files,
         raw_files_by_mod: Arc::new(raw_files_by_mod),
         page_indexes: Arc::default(),
@@ -3595,7 +3603,7 @@ fn changed_mods(previous_intent: &ProfileIntent, intent: &ProfileIntent) -> Hash
 fn archive_rank_changes(
     previous: &ProfileIntent,
     intent: &ProfileIntent,
-    candidates: &[Candidate],
+    candidates: &CatalogRows<Candidate>,
 ) -> HashSet<String> {
     if matches!(intent.hint.kind.as_str(), "move" | "move_block") && !intent.hint.mods.is_empty() {
         // changed_mods() already dirties every loose/archive destination owned
@@ -3656,7 +3664,7 @@ fn archive_rank_changes(
 // Stable slots keep existing destination and identity states valid.
 fn merge_inventory_candidates(
     previous: &GraphSnapshot,
-    current: &[Candidate],
+    current: &CatalogRows<Candidate>,
 ) -> Option<(
     Arc<SharedAppend<Candidate>>,
     Arc<GraphInventory>,
@@ -3667,7 +3675,7 @@ fn merge_inventory_candidates(
     let mut changed_mods = HashSet::new();
     let mut added = Vec::new();
 
-    for candidate in current {
+    for candidate in current.iter() {
         if !previous_active.contains(&candidate.id) {
             changed_mods.insert(candidate.mod_key.to_string());
         }
@@ -3704,14 +3712,14 @@ fn merge_inventory_candidates(
     }
     // Bulk additions are cheaper to index together than through per-key updates.
     if added.len() > 4096 && added.len() > previous.candidates.len() / 4 {
-        let candidates = Arc::new(
+        let candidates = CatalogRows::from(Arc::new(
             previous
                 .candidates
                 .iter()
                 .chain(added)
                 .cloned()
                 .collect::<Vec<_>>(),
-        );
+        ));
         let inventory = GraphInventory::new_with_active(&candidates, active_candidate_ids);
         return Some((
             Arc::new(SharedAppend::new(candidates)),
@@ -3733,12 +3741,14 @@ fn merge_inventory_candidates(
 pub fn reconcile_graph(
     previous: &GraphSnapshot,
     previous_intent: Option<&ProfileIntent>,
-    candidates: Arc<Vec<Candidate>>,
-    raw_files: Arc<Vec<RawCatalogFile>>,
+    candidates: impl Into<CatalogRows<Candidate>>,
+    raw_files: impl Into<CatalogRows<RawCatalogFile>>,
     intent: &ProfileIntent,
     inventory_generation: u64,
     generation: u64,
 ) -> GraphUpdate {
+    let candidates = candidates.into();
+    let raw_files = raw_files.into();
     let trace =
         crate::model::perftrace_enabled() || std::env::var_os("AMETHYST_FILEGRAPH_TRACE").is_some();
     let reconcile_started = Instant::now();
@@ -3770,7 +3780,7 @@ pub fn reconcile_graph(
             .collect::<HashMap<_, _>>(),
     );
     let mut inventory_changed_mods = HashSet::new();
-    if previous.inventory_generation != inventory_generation
+    if !previous.catalog_candidates.ptr_eq(&candidates)
         || previous.selected_variants.as_ref() != selected_variants.as_ref()
         || previous_intent.special_variants != intent.special_variants
     {
@@ -3792,7 +3802,8 @@ pub fn reconcile_graph(
     }
     snapshot.generation = generation;
     snapshot.inventory_generation = inventory_generation;
-    let raw_projection_changed = !Arc::ptr_eq(&snapshot.raw_files, &raw_files);
+    snapshot.catalog_candidates = candidates.clone();
+    let raw_projection_changed = !snapshot.raw_files.ptr_eq(&raw_files);
     snapshot.raw_files = raw_files;
     if raw_projection_changed {
         let mut capability_flags = BTreeMap::new();
@@ -4203,6 +4214,36 @@ mod tests {
         assert!(std::mem::size_of::<EdgeKey>() <= 24);
     }
 
+    #[test]
+    fn catalog_rows_share_chunks_and_preserve_group_order() {
+        let rows =
+            CatalogRows::from_rows(vec![("b", 1), ("a", 2), ("b", 3)], |row| Arc::from(row.0));
+        assert_eq!(
+            rows.iter().map(|row| row.1).collect::<Vec<_>>(),
+            vec![1, 3, 2]
+        );
+        assert_eq!(rows[0], ("b", 1));
+        assert_eq!(rows[1], ("b", 3));
+        assert_eq!(rows[2], ("a", 2));
+        assert!(rows.get(3).is_none());
+        assert!(rows.ptr_eq(&rows.clone()));
+
+        let reused = CatalogRows::from_chunks(vec![
+            (Arc::from("empty"), Arc::new(Vec::new())),
+            rows.chunks()[1].clone(),
+            rows.chunks()[0].clone(),
+            (Arc::from("trailing"), Arc::new(Vec::new())),
+        ]);
+        assert!(std::ptr::eq(&rows[2], &reused[0]));
+        assert!(std::ptr::eq(&rows[0], &reused[1]));
+        assert_eq!(reused[2], ("b", 3));
+        assert!(reused.get(3).is_none());
+        assert!(!rows.ptr_eq(&reused));
+        assert_eq!(CatalogRows::<Candidate>::default().len(), 0);
+        let flat = Arc::new(vec![1, 2]);
+        assert!(CatalogRows::from(flat.clone()).ptr_eq(&CatalogRows::from(flat)));
+    }
+
     fn candidate(id: i64, owner: &str, path: &str) -> Candidate {
         Candidate {
             id,
@@ -4586,11 +4627,14 @@ mod tests {
         };
         // This is the compact allocation retained by the catalog cache.  The
         // incremental graph creates a different allocation with stable slots.
-        let catalog_candidates = Arc::new(vec![
-            candidate(1, "A", "shared"),
-            candidate(2, "B", "shared"),
-            candidate(3, "C", "only-c"),
-        ]);
+        let catalog_candidates = CatalogRows::from_rows(
+            vec![
+                candidate(1, "A", "shared"),
+                candidate(2, "B", "shared"),
+                candidate(3, "C", "only-c"),
+            ],
+            |candidate| candidate.mod_key.clone(),
+        );
         let added = reconcile_graph(
             &first,
             Some(&first_intent),
@@ -4600,10 +4644,7 @@ mod tests {
             2,
             2,
         );
-        assert!(!Arc::ptr_eq(
-            &added.snapshot.candidates.base,
-            &catalog_candidates
-        ));
+        assert!(!added.snapshot.candidates.base.ptr_eq(&catalog_candidates));
 
         let mut toggled_intent = added_intent.clone();
         toggled_intent.mods[0].enabled = false;
@@ -4628,6 +4669,67 @@ mod tests {
         ));
         assert_eq!(toggled.delta.candidates_touched, 1);
         assert_eq!(toggled.delta.destinations_touched, 1);
+    }
+
+    #[test]
+    fn unchanged_candidate_projection_reuses_inventory_after_generation_change() {
+        let profile = intent();
+        let candidates = CatalogRows::from_rows(
+            vec![candidate(1, "A", "shared"), candidate(2, "B", "shared")],
+            |candidate| candidate.mod_key.clone(),
+        );
+        let raw_files = CatalogRows::from_rows(
+            vec![raw_file(1, "A", "shared", "shared", FLAG_INDEXED)],
+            |raw| raw.mod_key.clone(),
+        );
+        let first = build_full(candidates.clone(), raw_files.clone(), &profile, 1, 1);
+        let unchanged = reconcile_graph(
+            &first,
+            Some(&profile),
+            candidates.clone(),
+            raw_files.clone(),
+            &profile,
+            2,
+            2,
+        );
+        assert!(Arc::ptr_eq(&first.inventory, &unchanged.snapshot.inventory));
+        assert!(Arc::ptr_eq(
+            &first.raw_files_by_mod,
+            &unchanged.snapshot.raw_files_by_mod
+        ));
+        assert_eq!(unchanged.delta.candidates_touched, 0);
+        assert_eq!(unchanged.snapshot.inventory_generation, 2);
+        assert_eq!(first.inventory_generation, 1);
+
+        let mut changed_chunks = raw_files.chunks().to_vec();
+        changed_chunks.push((
+            Arc::from("b"),
+            Arc::new(vec![raw_file(
+                2,
+                "B",
+                "plugin.esp",
+                "plugin.esp",
+                FLAG_INDEXED | (1 << 7),
+            )]),
+        ));
+        let changed = reconcile_graph(
+            &unchanged.snapshot,
+            Some(&profile),
+            candidates,
+            CatalogRows::from_chunks(changed_chunks),
+            &profile,
+            3,
+            3,
+        );
+        assert!(Arc::ptr_eq(&first.inventory, &changed.snapshot.inventory));
+        assert_eq!(changed.snapshot.raw_file_count(), 2);
+        assert_eq!(first.raw_file_count(), 1);
+        assert!(changed.snapshot.staged_plugins().contains("plugin.esp"));
+        assert!(!first.staged_plugins().contains("plugin.esp"));
+        assert_eq!(
+            changed.delta.changed_capability_flags["B"],
+            Some(FLAG_INDEXED | (1 << 7))
+        );
     }
 
     #[test]

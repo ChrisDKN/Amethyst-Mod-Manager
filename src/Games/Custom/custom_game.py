@@ -129,10 +129,10 @@ def _defn_to_custom_rules(defn: dict) -> list[CustomRule]:
     raw = defn.get("custom_routing_rules", [])
     if not isinstance(raw, list):
         return []
+    from Utils.games.routing_rules import definition_rule_ids
+    raw = [entry for entry in raw if isinstance(entry, dict)]
     rules: list[CustomRule] = []
-    for entry in raw:
-        if not isinstance(entry, dict):
-            continue
+    for entry, rule_id in zip(raw, definition_rule_ids(raw)):
         dest = entry.get("dest", "")
         extensions = [s.strip().lower() for s in entry.get("extensions", []) if s.strip()]
         folders = [s.strip() for s in entry.get("folders", []) if s.strip()]
@@ -150,7 +150,10 @@ def _defn_to_custom_rules(defn: dict) -> list[CustomRule]:
                                     companion_extensions=companion_extensions,
                                     flatten=flatten,
                                     include_siblings=include_siblings,
-                                    to_prefix=to_prefix))
+                                    to_prefix=to_prefix,
+                                    mirror_dests=list(entry.get("mirror_dests", [])),
+                                    exclude_extensions=list(entry.get("exclude_extensions", [])),
+                                    rule_id=rule_id))
     return rules
 
 
@@ -683,7 +686,7 @@ class StandardCustomGame(ProfileVFSGameMixin, BaseGame):
         per_mod_modes = expand_separator_link_modes(_sep_deploy, _sep_entries) or None
         per_mod_raw = expand_separator_raw_deploy(_sep_deploy, _sep_entries) or None
 
-        custom_rules = self.custom_routing_rules
+        custom_rules = self.effective_custom_routing_rules
         custom_exclude: set[str] = set()
         if custom_rules:
             _log("Step 1: Routing files via custom rules ...")
@@ -740,15 +743,13 @@ class StandardCustomGame(ProfileVFSGameMixin, BaseGame):
         _entries = read_modlist(_profile_dir / "modlist.txt") if _profile_dir else []
         cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log, game=self)
 
-        custom_rules = self.custom_routing_rules
-        if custom_rules:
-            _log("Restore: removing custom-routed files ...")
+        _log("Restore: removing custom-routed files ...")
         # The deployment log is authoritative and may outlive a definition
         # edit that removed its rules, so always give restore a chance to
         # consume both the log and backup-only interrupted state.
         restore_custom_rules(
             self.get_effective_filemap_path(), self._game_path,
-            rules=custom_rules, log_fn=_log,
+            rules=[], log_fn=_log,
             prefix_root=self.get_prefix_path(),
         )
 
@@ -829,7 +830,7 @@ class RootCustomGame(StandardCustomGame):
         per_mod_modes = expand_separator_link_modes(_sep_deploy, _sep_entries) or None
         per_mod_raw = expand_separator_raw_deploy(_sep_deploy, _sep_entries) or None
 
-        custom_rules = self.custom_routing_rules
+        custom_rules = self.effective_custom_routing_rules
         custom_exclude: set[str] = set()
         if custom_rules:
             _log("Routing files via custom rules ...")
@@ -868,11 +869,9 @@ class RootCustomGame(StandardCustomGame):
         _entries = read_modlist(_profile_dir / "modlist.txt") if _profile_dir else []
         cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log, game=self)
 
-        custom_rules = self.custom_routing_rules
-        if custom_rules:
-            _log("Restore: removing custom-routed files ...")
+        _log("Restore: removing custom-routed files ...")
         restore_custom_rules(
-            filemap, game_root, rules=custom_rules, log_fn=_log,
+            filemap, game_root, rules=[], log_fn=_log,
             prefix_root=self.get_prefix_path())
 
         from Utils.vfs import cleanup_deployment, has_deployment_state

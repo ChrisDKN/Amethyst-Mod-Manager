@@ -89,6 +89,7 @@ class QtWizardContext:
     open_log_tab: Callable | None = None
     set_tool_lock: Callable | None = None
     show_mod_files: Callable | None = None
+    install_archive: Callable | None = None
     filegraph_snapshot: Callable | None = None
     wizard_tool_id: str = ""
     wizard_tool_label: str = ""
@@ -184,6 +185,8 @@ def _param(module: str, cls: str, **fixed):
 # which is per-game suffixed like "run_skygen_skyrimse") so one entry serves
 # every game that registers the tool.
 REGISTRY: dict[str, QtWizardSpec] = {
+    "wizards.workshop.WorkshopWizard": QtWizardSpec(
+        _simple("wizards_qt.workshop_view", "WorkshopView"), panel="full"),
     "wizards.re_pak_restore.RePakRestoreWizard": QtWizardSpec(_re_pak_restore),
     "wizards.pandora.PandoraWizard": QtWizardSpec(_pandora),
     "wizards.reshade.ReShadeWizard": QtWizardSpec(_reshade),
@@ -197,6 +200,10 @@ REGISTRY: dict[str, QtWizardSpec] = {
     "wizards.dyndolod.xLODGenWizard": QtWizardSpec(_dyndolod_tool("xlodgen")),
     "wizards.acmos.ACMOSWizard":
         QtWizardSpec(_simple("wizards_qt.acmos_view", "ACMOSView")),
+    "wizards.cao.CAOWizard":
+        QtWizardSpec(_simple("wizards_qt.cao_view", "CAOView")),
+    "wizards.eet.EETWizard":
+        QtWizardSpec(_simple("wizards_qt.eet_view", "EETView")),
 
     # -- phase 6: plugins-panel tools --
     "wizards.mewgenics_gpak.MewgenicsGpakWizard":
@@ -205,6 +212,9 @@ REGISTRY: dict[str, QtWizardSpec] = {
         QtWizardSpec(_simple("wizards_qt.modio_settings_view", "ModioSettingsView")),
     "wizards.fnv_4gb_patch.Fnv4GbPatchWizard":
         QtWizardSpec(_simple("wizards_qt.fnv_4gb_view", "Fnv4GbView")),
+    "wizards.oblivion_4gb_patch.Oblivion4GbPatchWizard":
+        QtWizardSpec(_simple("wizards_qt.oblivion_4gb_view",
+                             "Oblivion4GbView")),
     "wizards.fallout_downgrade.FalloutDowngradeWizard":
         QtWizardSpec(_simple("wizards_qt.fallout_downgrade_view", "FalloutDowngradeView")),
     "wizards.fallout_4_downgrader.Fallout4DowngraderWizard":

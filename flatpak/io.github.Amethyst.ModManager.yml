@@ -1,29 +1,24 @@
 app-id: io.github.Amethyst.ModManager
 runtime: org.kde.Platform
-runtime-version: "6.9"
+runtime-version: "6.11"
 sdk: org.kde.Sdk
 sdk-extensions:
   - org.freedesktop.Sdk.Extension.rust-stable
 # PySide6 comes prebuilt from the PySide BaseApp (Flathub-standard for
 # PySide apps); Qt itself is shared from the KDE runtime.
 base: io.qt.PySide.BaseApp
-base-version: "6.9"
+base-version: "6.11"
 
 add-extensions:
-  org.freedesktop.Platform.ffmpeg-full:
-    directory: lib/ffmpeg
-    version: "24.08"
-    add-ld-path: .
-    autodelete: false
   # 32-bit support for running Proton's bundled `wine` binary (ELF i386).
-  # Version 24.08 matches KDE 6.9's Freedesktop base.
+  # Version 25.08 matches KDE 6.11's Freedesktop base.
   org.freedesktop.Platform.Compat.i386:
     directory: lib/i386-linux-gnu
-    version: "24.08"
+    version: "25.08"
   org.freedesktop.Platform.GL32:
     directory: lib/i386-linux-gnu/GL
     version: "1.4"
-    versions: 24.08;1.4
+    versions: 25.08;1.4
     subdirectories: true
     no-autodownload: false
     autodelete: false
@@ -49,6 +44,7 @@ build-options:
 #   XDG_CONFIG_HOME, so it lands in ~/.var/app/<app-id>/config/AmethystModManager
 #   (separate from a native/AppImage install's ~/.config/AmethystModManager).
 # - run/media, media, mnt: Steam libraries on SD cards and removable drives (Steam Deck, etc.)
+# - var/mnt: mount point on Fedora Atomic / Bazzite, where /mnt is a symlink to /var/mnt
 # - ~/.var/app/com.valvesoftware.Steam: Steam Flatpak data (home excludes ~/.var/app)
 # - ~/.var/app/com.heroicgameslauncher.hgl: Heroic Flatpak
 # - ~/.var/app/net.lutris.Lutris: Lutris Flatpak (pga.db, game configs, wine runners)
@@ -65,10 +61,26 @@ finish-args:
   - --filesystem=/run/media
   - --filesystem=/media
   - --filesystem=/mnt
+  - --filesystem=/var/mnt
   - --filesystem=~/.var/app/com.valvesoftware.Steam
   - --filesystem=~/.var/app/com.heroicgameslauncher.hgl
   - --filesystem=~/.var/app/net.lutris.Lutris
   - --filesystem=~/.var/app/io.github.Faugus.faugus-launcher
+  # Discord Rich Presence sockets (used only when enabled in Settings).
+  - --filesystem=xdg-run/discord-ipc-0
+  - --filesystem=xdg-run/discord-ipc-1
+  - --filesystem=xdg-run/discord-ipc-2
+  - --filesystem=xdg-run/discord-ipc-3
+  - --filesystem=xdg-run/discord-ipc-4
+  - --filesystem=xdg-run/discord-ipc-5
+  - --filesystem=xdg-run/discord-ipc-6
+  - --filesystem=xdg-run/discord-ipc-7
+  - --filesystem=xdg-run/discord-ipc-8
+  - --filesystem=xdg-run/discord-ipc-9
+  - --filesystem=xdg-run/app/com.discordapp.Discord
+  - --filesystem=xdg-run/app/com.discordapp.DiscordCanary
+  - --filesystem=xdg-run/app/com.discordapp.DiscordPTB
+  - --filesystem=xdg-run/app/dev.vencord.Vesktop
   - --talk-name=org.freedesktop.secrets
   - --talk-name=org.freedesktop.Flatpak
   # Wine (Synthesis prefix setup) installs its own seccomp filter and runs
@@ -92,13 +104,13 @@ tags:
 cleanup-commands:
   # BaseApp housekeeping (WebEngine strip per build-options env above).
   - /app/cleanup-BaseApp.sh
-  - mkdir -p /app/lib/ffmpeg
   # Mount points for the 32-bit compat extensions declared above.
   - mkdir -p /app/lib/i386-linux-gnu/GL
 
 modules:
   # Python Dependencies (PySide6 excluded - provided by the BaseApp)
   - pypi-dependencies.yaml
+  - maturin.yaml
 
   - name: sevenzip
     buildsystem: simple

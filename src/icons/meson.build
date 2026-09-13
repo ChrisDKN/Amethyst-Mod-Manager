@@ -63,6 +63,7 @@ py.install_sources(
   'UUID_Loser.png',
   'UUID_Partial.png',
   'UUID_Winner.png',
+  'Wabbajack.png',
   'warning2.png',
   'warning.png',
   'wizard.png',

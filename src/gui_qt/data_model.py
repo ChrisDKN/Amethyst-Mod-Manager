@@ -31,11 +31,12 @@ _COL_TR = (
 
 NodeRole = Qt.UserRole + 1       # the _DataNode
 ConflictRole = Qt.UserRole + 2   # 0 none, 1 winning conflict
+BULK_DELTA_THRESHOLD = 512
 
 
 class _DataNode:
     __slots__ = ("name", "path", "mod", "is_dir", "children", "parent",
-                 "conflict", "candidate_id")
+                 "conflict", "candidate_id", "_row")
 
     def __init__(self, name, path, *, is_dir, parent=None, mod="", conflict=0,
                  candidate_id=0):
@@ -47,11 +48,10 @@ class _DataNode:
         self.parent = parent
         self.conflict = conflict  # 1 = winning conflict (tinted), 0 = none
         self.candidate_id = int(candidate_id)
+        self._row = 0
 
     def row(self) -> int:
-        if self.parent is None:
-            return 0
-        return self.parent.children.index(self)
+        return self._row
 
 
 class DataModel(QAbstractItemModel):
@@ -61,6 +61,8 @@ class DataModel(QAbstractItemModel):
         super().__init__(parent)
         self._root = _DataNode("", "", is_dir=True)
         self._candidate_nodes: dict[int, _DataNode] = {}
+        self._folder_nodes: dict[str, _DataNode] = {}
+        self._path_nodes: dict[str, _DataNode] = {}
         self._highlight_mod: str | None = None
         # data() runs per visible cell; keep the QColor cached but live-refresh
         # it without resetting the model/selection.
@@ -72,24 +74,66 @@ class DataModel(QAbstractItemModel):
 
     # ---- population -------------------------------------------------------
     def set_root(self, root: _DataNode):
+        candidates, folders, paths = self._index_tree(root)
         self.beginResetModel()
         self._root = root
-        self._candidate_nodes = {}
-
-        def index_nodes(node):
-            for child in node.children:
-                if child.is_dir:
-                    index_nodes(child)
-                elif child.candidate_id:
-                    self._candidate_nodes[child.candidate_id] = child
-
-        index_nodes(root)
+        self._candidate_nodes = candidates
+        self._folder_nodes = folders
+        self._path_nodes = paths
         self.endResetModel()
+
+    @staticmethod
+    def _index_tree(root: _DataNode):
+        candidates = {}
+        folders = {}
+        paths = {}
+        stack = [root]
+        while stack:
+            parent = stack.pop()
+            for row, child in enumerate(parent.children):
+                child._row = row
+                paths[child.path.casefold()] = child
+                if child.is_dir:
+                    folders[child.path] = child
+                    stack.append(child)
+                elif child.candidate_id:
+                    candidates[child.candidate_id] = child
+        return candidates, folders, paths
+
+    def replace_rows(self, rows) -> None:
+        """Replace the tree from ``(candidate_id, path, mod, conflict)`` rows."""
+        root = _DataNode("", "", is_dir=True)
+        folders: dict[str, _DataNode] = {}
+        for candidate_id, path, mod, conflict in rows:
+            parts = [part for part in path.replace("\\", "/").split("/") if part]
+            if not parts:
+                continue
+            parent = root
+            parent_path = ""
+            for part in parts[:-1]:
+                parent_path = f"{parent_path}/{part}" if parent_path else part
+                node = folders.get(parent_path)
+                if node is None:
+                    node = _DataNode(part, parent_path, is_dir=True, parent=parent)
+                    parent.children.append(node)
+                    folders[parent_path] = node
+                parent = node
+            parent.children.append(_DataNode(
+                parts[-1], path, is_dir=False, parent=parent, mod=mod,
+                conflict=int(bool(conflict)), candidate_id=int(candidate_id)))
+        stack = [root]
+        while stack:
+            parent = stack.pop()
+            parent.children.sort(key=self._sort_key)
+            stack.extend(child for child in parent.children if child.is_dir)
+        self.set_root(root)
 
     def clear(self):
         self.beginResetModel()
         self._root = _DataNode("", "", is_dir=True)
         self._candidate_nodes = {}
+        self._folder_nodes = {}
+        self._path_nodes = {}
         self.endResetModel()
 
     @staticmethod
@@ -98,38 +142,55 @@ class DataModel(QAbstractItemModel):
 
     def _insert_position(self, parent: _DataNode, node: _DataNode) -> int:
         key = self._sort_key(node)
-        for index, current in enumerate(parent.children):
-            if self._sort_key(current) > key:
-                return index
-        return len(parent.children)
+        low, high = 0, len(parent.children)
+        while low < high:
+            middle = (low + high) // 2
+            if self._sort_key(parent.children[middle]) <= key:
+                low = middle + 1
+            else:
+                high = middle
+        return low
+
+    @staticmethod
+    def _reindex_children(parent: _DataNode, start: int = 0) -> None:
+        for row in range(start, len(parent.children)):
+            parent.children[row]._row = row
 
     def _remove_leaf(self, node: _DataNode) -> None:
         parent = node.parent
         if parent is None:
             return
-        row = parent.children.index(node)
+        row = node._row
         self.beginRemoveRows(self.index_for_node(parent), row, row)
         parent.children.pop(row)
+        self._reindex_children(parent, row)
         self.endRemoveRows()
         self._candidate_nodes.pop(node.candidate_id, None)
+        self._path_nodes.pop(node.path.casefold(), None)
         while parent is not self._root and not parent.children:
             empty = parent
             parent = empty.parent
             if parent is None:
                 break
-            row = parent.children.index(empty)
+            row = empty._row
             self.beginRemoveRows(self.index_for_node(parent), row, row)
             parent.children.pop(row)
+            self._reindex_children(parent, row)
             self.endRemoveRows()
+            self._folder_nodes.pop(empty.path, None)
+            self._path_nodes.pop(empty.path.casefold(), None)
 
     def _ensure_folder(self, parent: _DataNode, name: str, path: str) -> _DataNode:
-        for child in parent.children:
-            if child.is_dir and child.name == name:
-                return child
+        existing = self._folder_nodes.get(path)
+        if existing is not None:
+            return existing
         node = _DataNode(name, path, is_dir=True, parent=parent)
         row = self._insert_position(parent, node)
         self.beginInsertRows(self.index_for_node(parent), row, row)
         parent.children.insert(row, node)
+        self._reindex_children(parent, row)
+        self._folder_nodes[path] = node
+        self._path_nodes[path.casefold()] = node
         self.endInsertRows()
         return node
 
@@ -150,7 +211,9 @@ class DataModel(QAbstractItemModel):
         row = self._insert_position(parent, node)
         self.beginInsertRows(self.index_for_node(parent), row, row)
         parent.children.insert(row, node)
+        self._reindex_children(parent, row)
         self._candidate_nodes[candidate_id] = node
+        self._path_nodes[path.casefold()] = node
         self.endInsertRows()
 
     def apply_leaf_delta(self, removed_ids, changed) -> None:
@@ -193,6 +256,13 @@ class DataModel(QAbstractItemModel):
             return QModelIndex()
         return self.createIndex(node.row(), col, node)
 
+    def node_for_identity(self, candidate_id: int, path: str):
+        if candidate_id:
+            node = self._candidate_nodes.get(candidate_id)
+            if node is not None:
+                return node
+        return self._path_nodes.get(path.casefold())
+
     def set_highlight_mod(self, mod: str | None):
         """Tint files belonging to *mod* (modlist selection cross-highlight)."""
         if mod == self._highlight_mod:
@@ -223,6 +293,8 @@ class DataModel(QAbstractItemModel):
         return self.createIndex(p.row(), 0, p)
 
     def rowCount(self, parent=QModelIndex()):
+        if parent.isValid() and parent.column() != 0:
+            return 0
         pnode = self.node(parent)
         return len(pnode.children) if pnode else 0
 

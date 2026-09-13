@@ -68,6 +68,11 @@ _BETHESDA_GAME_IDS = [
     "enderal", "enderalse",
 ]
 
+_EET_GAME_IDS = [
+    "morrowind", "Oblivion", "skyrim", "skyrim_se", "Fallout3",
+    "Fallout3GOTY", "FalloutNV", "Fallout4", "Starfield",
+]
+
 # Games we can actually WRITE an archive for - the keys of archive_rules'
 # _GAME_RULES. Deliberately not _BETHESDA_GAME_IDS: Starfield has archive
 # extensions but no allowlist, so archive_kind_for_game returns None there and
@@ -78,6 +83,17 @@ _BSA_PACKABLE_GAME_IDS = [
 ]
 
 BUILTIN_WIZARD_TOOLS: list[dict] = [
+    {
+        "id": "esp_esm_translator",
+        "label": "ESP-ESM Translator",
+        "description": (
+            "Install, configure, and run EET against a plugin in a staged mod."
+        ),
+        "game_ids": _EET_GAME_IDS,
+        "all_games": False,
+        "dialog_class": "wizards.eet.EETWizard",
+        "category": "Development",
+    },
     {
         "id": "bethesda_register_game_path",
         "label": "Register Game Path in Wine Registry",
@@ -326,9 +342,18 @@ def get_plugin_tools_for_game(game_id: str) -> list[WizardTool]:
 def get_all_wizard_tools(game: BaseGame) -> list[WizardTool]:
     """Return a game's own wizard tools merged with the built-in ported-plugin
     tools and any external plugin tools for *game*."""
-    return (list(game.wizard_tools)
-            + get_builtin_wizard_tools_for_game(game.game_id)
-            + get_plugin_tools_for_game(game.game_id))
+    tools = (list(game.wizard_tools)
+             + get_builtin_wizard_tools_for_game(game.game_id)
+             + get_plugin_tools_for_game(game.game_id))
+    from Utils.games.workshop import supports_workshop_install
+    if supports_workshop_install(game):
+        tools.append(WizardTool(
+            id="install_workshop",
+            label="Install Steam Workshop Mod",
+            description="Download a Steam Workshop item and install it into this profile.",
+            dialog_class_path="wizards.workshop.WorkshopWizard",
+            category="Setup and Installers"))
+    return tools
 
 
 # ---------------------------------------------------------------------------
@@ -344,10 +369,12 @@ def get_all_wizard_tools(game: BaseGame) -> list[WizardTool]:
 # game (the xEdit family) are handled dynamically below via ``extra`` instead.
 
 _WIZARD_CLASS_EXES: dict[str, set[str]] = {
+    "wizards.eet.EETWizard": {"eet4.exe"},
     "wizards.pandora.PandoraWizard": {"pandora behaviour engine+.exe"},
     "wizards.bodyslide.BodySlideWizard": {"bodyslide.exe", "bodyslide x64.exe"},
     "wizards.bodyslide.OutfitStudioWizard": {"outfitstudio.exe", "outfitstudio x64.exe"},
     "wizards.pgpatcher.PGPatcherWizard": {"pgpatcher.exe"},
+    "wizards.cao.CAOWizard": {"cathedral_assets_optimizer.exe"},
     "wizards.eslifier.ESLifierWizard": {"eslifier.exe"},
     "wizards.dyndolod.TexGenWizard": {"texgenx64.exe"},
     "wizards.dyndolod.DynDOLODWizard": {"dyndolodx64.exe"},

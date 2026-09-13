@@ -877,8 +877,8 @@ class EldenRing(BaseGame):
             from Utils.deployment.custom_rules import restore_custom_rules
             routed = self.get_routed_package_path()
             restore_custom_rules(self.get_effective_filemap_path(), routed,
-                                 self.custom_routing_rules,
-                                 log_fn=lambda m: None)
+                                 [],
+                                 log_fn=lambda m: None, prefix_root=self.get_prefix_path())
             if routed.is_dir():
                 shutil.rmtree(routed)
                 _log(f"Removed {routed.name}/.")
@@ -928,15 +928,15 @@ class EldenRing(BaseGame):
         """
         from Utils.deployment import CustomRule
         return [
-            CustomRule(dest="chr",
+            CustomRule(rule_id='elden_ring:37163bc08e63', dest="chr",
                        extensions=[".anibnd.dcx", ".chrbnd.dcx", ".behbnd.dcx"],
                        flatten=True),
-            CustomRule(dest="parts", extensions=[".partsbnd.dcx"], flatten=True),
-            CustomRule(dest="sfx", extensions=[".ffxbnd.dcx"], flatten=True),
-            CustomRule(dest="material", extensions=[".matbinbnd.dcx"],
+            CustomRule(rule_id='elden_ring:dc535ba27921', dest="parts", extensions=[".partsbnd.dcx"], flatten=True),
+            CustomRule(rule_id='elden_ring:ac3c3535b3cc', dest="sfx", extensions=[".ffxbnd.dcx"], flatten=True),
+            CustomRule(rule_id='elden_ring:35e6a0991bc5', dest="material", extensions=[".matbinbnd.dcx"],
                        flatten=True),
-            CustomRule(dest="event", extensions=[".emevd.dcx"], flatten=True),
-            CustomRule(dest="script", extensions=[".luabnd.dcx"], flatten=True),
+            CustomRule(rule_id='elden_ring:e3e544566ef7', dest="event", extensions=[".emevd.dcx"], flatten=True),
+            CustomRule(rule_id='elden_ring:60a87a212c93', dest="script", extensions=[".luabnd.dcx"], flatten=True),
         ]
 
     def get_routed_package_path(self) -> Path:
@@ -962,8 +962,8 @@ class EldenRing(BaseGame):
         # Always clear the previous run first: a file that stopped matching (mod
         # disabled, or moved into chr/ by hand) must not linger and keep winning.
         try:
-            restore_custom_rules(filemap, routed, self.custom_routing_rules,
-                                 log_fn=lambda m: None)
+            restore_custom_rules(filemap, routed, self.effective_custom_routing_rules,
+                                 log_fn=lambda m: None, prefix_root=self.get_prefix_path())
         except Exception:
             pass
         try:
@@ -978,8 +978,9 @@ class EldenRing(BaseGame):
         try:
             handled = deploy_custom_rules(
                 filemap, routed, self.get_effective_mod_staging_path(),
-                self.custom_routing_rules, mode=LinkMode.HARDLINK,
+                self.effective_custom_routing_rules, mode=LinkMode.HARDLINK,
                 log_fn=lambda m: log_fn(f"  {m}"),
+                prefix_root=self.get_prefix_path(),
             )
         except Exception as exc:
             # A routing failure must not lose the whole mod list.

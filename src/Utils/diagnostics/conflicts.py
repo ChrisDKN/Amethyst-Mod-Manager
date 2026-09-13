@@ -101,7 +101,7 @@ def edit_mod_names(edit_ctx) -> list[str]:
     try:
         if edit_ctx[0] == "toggle":
             return [str(name) for name, _enabled in edit_ctx[1]]
-        if edit_ctx[0] == "move":
+        if edit_ctx[0] in ("move", "mod_files"):
             return [str(name) for name in edit_ctx[1]]
     except (IndexError, TypeError, ValueError):
         return []
@@ -109,14 +109,14 @@ def edit_mod_names(edit_ctx) -> list[str]:
 
 
 def ensure_timeline(edit_ctx):
-    """Return ``(possibly augmented edit_ctx, timeline)`` for toggle/move."""
+    """Return ``(possibly augmented edit_ctx, timeline)`` for graph edits."""
     from Utils.diagnostics import performance as perftrace
     if not perftrace.is_enabled():
         return edit_ctx, None
     timeline = timeline_from_edit_ctx(edit_ctx)
     if timeline is not None:
         return edit_ctx, timeline
-    if not edit_ctx or edit_ctx[0] not in ("toggle", "move"):
+    if not edit_ctx or edit_ctx[0] not in ("toggle", "move", "mod_files"):
         return edit_ctx, None
     timeline = ConflictTimeline(str(edit_ctx[0]), edit_mod_names(edit_ctx))
     edit_ctx = tuple(edit_ctx) + (timeline,)

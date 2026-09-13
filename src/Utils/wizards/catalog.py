@@ -23,6 +23,7 @@ CATEGORY_ORDER = [
     "DynDOLOD",
     "RSuite (experimental)",
     "Patchers and Cleanup",
+    "Development",
     "xEdit",
     "Load Order and Config",
     "INI Tweaks",
@@ -42,6 +43,8 @@ _CATEGORY_RULES: list[tuple[tuple[str, ...], str]] = [
     (("vramr", "bendr", "parallaxr"), "RSuite (experimental)"),
     # DynDOLOD (LOD & textures)
     (("texgen", "dyndolod", "xlodgen"), "DynDOLOD"),
+    # Development tools
+    (("creationkit", "esp_esm_translator"), "Development"),
     # xEdit
     #   xEdit ships under many build names (SSEEdit, FO4Edit, FNVEdit, TES5Edit,
     #   SF1Edit, …) whose wizard ids share the "<build>edit_<suffix>" shape, so

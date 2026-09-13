@@ -50,6 +50,29 @@ def _resolve_case(root: Path, relative: str) -> Path:
     return current
 
 
+def condition_directories(db, plugin_names: list[str], data_relative: str) -> set[str]:
+    directories = set()
+    metadata = [db.plugin_metadata(name, True, False) for name in plugin_names]
+    items = list(db.general_messages(True, False))
+    for meta in metadata:
+        if meta is not None:
+            for field in ("messages", "tags", "requirements", "incompatibilities",
+                          "load_after_files", "dirty_info", "clean_info"):
+                items.extend(getattr(meta, field))
+    for item in items:
+        paths = re.findall(r'"([^"\n]+)"', item.condition or "")
+        if hasattr(item, "constraint"):
+            paths.append(str(item.name))
+        for path in paths:
+            try:
+                directories.add(_normalise(data_relative + "/" + posixpath.dirname(path)))
+                if "\\" not in path:
+                    directories.add(_normalise(data_relative + "/" + path))
+            except ValueError:
+                continue
+    return directories
+
+
 @dataclass(frozen=True)
 class ProfileSources:
     snapshot: object
@@ -261,32 +284,13 @@ class GameView:
             if self._signature(path) != signature:
                 raise RuntimeError(f"LOOT source changed during sorting: {path.name}. Run LOOT again.")
 
-    def populate(self, db, plugin_names: list[str], plugin_paths: list[str]) -> None:
+    def populate(self, db, plugin_names: list[str], plugin_paths: list[str],
+                 condition_paths=()) -> None:
         directories = {"", self.data_relative.lower()}
-        directory_spellings = set()
+        directory_spellings = set(condition_paths)
         if db is not None:
-            metadata = [db.plugin_metadata(name, True, False) for name in plugin_names]
-            items = list(db.general_messages(True, False))
-            for meta in metadata:
-                if meta is not None:
-                    for field in ("messages", "tags", "requirements", "incompatibilities",
-                                  "load_after_files", "dirty_info", "clean_info"):
-                        items.extend(getattr(meta, field))
-            for item in items:
-                paths = re.findall(r'"([^"\n]+)"', item.condition or "")
-                if hasattr(item, "constraint"):
-                    paths.append(str(item.name))
-                for path in paths:
-                    try:
-                        directory = _normalise(self.data_relative + "/" + posixpath.dirname(path))
-                        directories.add(directory.lower() if directory != "." else "")
-                        directory_spellings.add(directory)
-                        if "\\" not in path:
-                            directory = _normalise(self.data_relative + "/" + path)
-                            directories.add(directory.lower() if directory != "." else "")
-                            directory_spellings.add(directory)
-                    except ValueError:
-                        continue
+            directory_spellings.update(condition_directories(db, plugin_names, self.data_relative))
+        directories.update(path.lower() if path != "." else "" for path in directory_spellings)
         new_directories = directories - self._populated_dirs
         for directory in sorted(new_directories):
             relative = _relative(directory, self.data_relative)
@@ -324,10 +328,9 @@ class GameView:
                 self._directory(directory)
         self._populated_dirs.update(new_directories)
 
-    def write_active_plugins(self, game, names: list[str], enabled: set[str]) -> None:
+    def write_active_plugins(self, path: Path, names: list[str], enabled: set[str]) -> None:
         enabled = {name.lower() for name in enabled}
         active = [name for name in names if name.lower() in enabled]
-        path = Path(game.active_plugins_file_path())
         if self.game_type == "Morrowind":
             text = "[Game Files]\n" + "".join(f"GameFile{i}={name}\n" for i, name in enumerate(active))
         elif self.game_type == "OpenMW":

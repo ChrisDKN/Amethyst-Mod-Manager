@@ -11,6 +11,7 @@ To add support for a new game:
 from __future__ import annotations
 
 import json
+import os
 import shutil
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -186,6 +187,8 @@ class BaseGame(ABC):
     # Override (e.g. to LinkMode.COPY) for games that never hardlink.
     deploy_mode_fallback: LinkMode = _DEFAULT_DEPLOY_MODE
 
+    case_alias_links_default: bool = True
+
     # Opt-in for the incremental redeploy fast path (Utils/deployment/incremental.py).
     # Only safe for handlers whose deploy() is the plain standard sequence
     # (move_to_core → deploy_filemap → deploy_core) with a single Data-style
@@ -232,6 +235,13 @@ class BaseGame(ABC):
     # The direct native Play path uses this opt-in to start/wait for Steam
     # without asking Steam to launch the physical game outside a profile VFS.
     native_steam_client_required: bool = False
+
+    # A preferred executable which the store launcher does not invoke itself.
+    preferred_launch_requires_direct: bool = False
+
+    # A handler-selected executable for manager-owned Play launches. Unlike
+    # preferred_launch_exe, this does not change the Play entry's settings key.
+    direct_play_requires_direct: bool = False
 
     profile_overridable_settings: tuple[str, ...] = (
         "auto_deploy",
@@ -1066,6 +1076,11 @@ class BaseGame(ABC):
         return ""
 
     @property
+    def direct_play_exe(self) -> str:
+        """Optional game-root-relative executable for direct Play launches."""
+        return ""
+
+    @property
     def direct_launch_exes(self) -> list[str]:
         """Additional game-root executables that directly start the game.
 
@@ -1126,6 +1141,10 @@ class BaseGame(ABC):
         to :attr:`default_launch_args` for every exe.
         """
         return self.default_launch_args
+
+    def prepare_launch_environment_for_exe(
+            self, exe_path: Path, env: dict[str, str], log_fn=None) -> None:
+        """Apply handler-specific environment values before launching an exe."""
 
     @property
     def steam_id(self) -> str:
@@ -1554,6 +1573,52 @@ class BaseGame(ABC):
         Return an empty list (the default) to use normal routing for all files.
         """
         return []
+
+    @property
+    def effective_custom_routing_rules(self) -> list:
+        from Utils.games.routing_rules import effective_rules
+        return effective_rules(self)
+
+    def _deploy_custom_routing_rules(self, mode, log_fn=None) -> set[str]:
+        from Utils.deployment import deploy_custom_rules, load_per_mod_strip_prefixes
+        rules = self.effective_custom_routing_rules
+        if not rules:
+            return set()
+        filemap = self.get_effective_filemap_path()
+        return deploy_custom_rules(
+            filemap, self.get_game_path(), self.get_effective_mod_staging_path(),
+            rules, mode=mode, log_fn=log_fn, prefix_root=self.get_prefix_path(),
+            strip_prefixes=self.mod_folder_strip_prefixes,
+            per_mod_strip_prefixes=load_per_mod_strip_prefixes(filemap.parent))
+
+    def _custom_routing_destinations_under(
+        self, handled: set[str], root: Path,
+    ) -> set[str]:
+        if not handled:
+            return set()
+        from Utils.filegraph.deploy import absolute_destination, entries
+        root_abs = Path(os.path.abspath(root))
+        placed = set()
+        for entry in entries():
+            if not entry.legacy_rel or entry.legacy_rel.lower() not in handled:
+                continue
+            destination = absolute_destination(self, entry)
+            if destination is None:
+                continue
+            try:
+                relative = Path(os.path.abspath(destination)).relative_to(root_abs)
+            except ValueError:
+                continue
+            placed.add(relative.as_posix().lower())
+        return placed
+
+    def _restore_custom_routing_rules(self, log_fn=None) -> None:
+        from Utils.deployment import restore_custom_rules
+        game_root = self.get_game_path()
+        if game_root is not None:
+            restore_custom_rules(
+                self.get_effective_filemap_path(), game_root, [],
+                log_fn=log_fn, prefix_root=self.get_prefix_path())
 
     @property
     def restore_whitelist(self) -> list:
@@ -2226,10 +2291,11 @@ class BaseGame(ABC):
 
     @property
     def case_alias_links(self) -> bool:
-        """If True (default), deploy creates the case-variant symlink aliases
-        named by ``case_alias_dirs`` (GH#374 Wine load-time fix); if False,
-        deploy removes any existing aliases instead."""
-        return self._load_settings().get("case_alias_links", True)
+        """If True, deploy creates the case-variant symlink aliases named by
+        ``case_alias_dirs`` (GH#374 Wine load-time fix); if False, deploy
+        removes any existing aliases instead."""
+        return self._load_settings().get(
+            "case_alias_links", self.case_alias_links_default)
 
     @case_alias_links.setter
     def case_alias_links(self, value: bool) -> None:

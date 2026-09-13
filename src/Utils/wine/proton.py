@@ -429,7 +429,9 @@ def install_vcredist(game, log_fn: LogFn = _noop) -> bool:
     proton_script, env = resolve_proton_env(game, log_fn)
     if proton_script is None:
         return False
-    prefix_path = getattr(game, "_prefix_path", None)
+    get_prefix = getattr(game, "get_prefix_path", None)
+    prefix_path = (get_prefix() if callable(get_prefix)
+                   else getattr(game, "_prefix_path", None))
     from Utils.wine.protontricks import install_vcredist as _impl
     return bool(_impl(proton_script, env, log_fn=log_fn, prefix_path=prefix_path))
 
@@ -560,6 +562,8 @@ def install_dotnet(game, version: str, log_fn: LogFn = _noop) -> bool:
     """Download (cached) + silently install the .NET desktop runtime *version*
     into the game's prefix. Mirrors the Tk panel's ``_run_install_dotnet``
     worker. Thin wrapper over :func:`install_dotnet_runtime`."""
+    if version == "4.8":
+        return install_dotnet48(game, log_fn)
     proton_script, env = resolve_proton_env(game, log_fn)
     if proton_script is None:
         return False
@@ -570,3 +574,11 @@ def install_dotnet(game, version: str, log_fn: LogFn = _noop) -> bool:
     except Exception as e:
         log_fn(f"Error: {e}")
         return False
+
+
+def install_dotnet48(game, log_fn: LogFn = _noop) -> bool:
+    from Utils.wine.framework import install_framework_runtime
+    proton_script, env = resolve_proton_env(game, log_fn)
+    if proton_script is None:
+        return False
+    return install_framework_runtime(proton_script, env, game.get_prefix_path(), log_fn)

@@ -848,7 +848,8 @@ class CustomGameView(QWidget):
     # ---- routing-rule rows ------------------------------------------------
     def _add_routing_rule(self, dest="", match_type="extensions", match_value="",
                           loose_only=False, flatten=False, include_siblings=False,
-                          to_prefix=False):
+                          to_prefix=False, rule_id="", original=None):
+        from uuid import uuid4
         row = QFrame(); row.setObjectName("RuleRow")
         row.setFrameShape(QFrame.StyledPanel)
         hb = QHBoxLayout(row); hb.setContentsMargins(4, 4, 4, 4); hb.setSpacing(4)
@@ -899,7 +900,9 @@ class CustomGameView(QWidget):
 
         rd = {"frame": row, "dest": dest_edit, "type": type_combo,
               "value": value_edit, "loose_only": cb_loose, "flatten": cb_flat,
-              "include_siblings": cb_sib, "to_prefix": cb_pfx}
+              "include_siblings": cb_sib, "to_prefix": cb_pfx,
+              "rule_id": rule_id or "user:" + uuid4().hex,
+              "original": dict(original or {}), "original_type": match_type}
         self._routing_rows.append(rd)
         self._routing_vbox.addWidget(row)
         self._routing_header.setVisible(True)
@@ -945,7 +948,13 @@ class CustomGameView(QWidget):
             values = [v.strip() for v in raw_value.split(",") if v.strip()]
             if not values and not dest:
                 continue
-            rule: dict = {"dest": dest}
+            rule = dict(rd["original"])
+            rule.pop(rd["original_type"], None)
+            if rd["original_type"] == "extensions":
+                rule.pop("companion_extensions", None)
+            for key in ("loose_only", "flatten", "include_siblings", "to_prefix"):
+                rule.pop(key, None)
+            rule.update(dest=dest, rule_id=rd["rule_id"])
             if match_type == "extensions":
                 rule["extensions"] = values
                 if companions:
@@ -1195,9 +1204,10 @@ class CustomGameView(QWidget):
 
         self._dll_edit.setPlainText(_dll_to_str(e.get("wine_dll_overrides", {})))
 
-        for rule in e.get("custom_routing_rules", []) or []:
-            if not isinstance(rule, dict):
-                continue
+        from Utils.games.routing_rules import definition_rule_ids
+        routing_rules = [rule for rule in e.get("custom_routing_rules", []) or []
+                         if isinstance(rule, dict)]
+        for rule, rule_id in zip(routing_rules, definition_rule_ids(routing_rules)):
             companions = rule.get("companion_extensions") or []
             if rule.get("filenames"):
                 mt, mv = "filenames", ", ".join(rule["filenames"])
@@ -1213,7 +1223,8 @@ class CustomGameView(QWidget):
                 loose_only=bool(rule.get("loose_only", False)),
                 flatten=bool(rule.get("flatten", False)),
                 include_siblings=bool(rule.get("include_siblings", False)),
-                to_prefix=bool(rule.get("to_prefix", False)))
+                to_prefix=bool(rule.get("to_prefix", False)),
+                rule_id=rule_id, original=rule)
 
         for rule in e.get("restore_whitelist", []) or []:
             if not isinstance(rule, dict):

@@ -6,10 +6,10 @@
 #     flatpak (installed automatically when missing - no sudo or rootfs writes).
 #     Useful on SteamOS where the rootfs is read-only.
 #   - KDE runtime + PySide BaseApp (auto-installed by --install-deps-from=flathub):
-#       flatpak install flathub org.kde.Platform//6.9 org.kde.Sdk//6.9 io.qt.PySide.BaseApp//6.9
+#       flatpak install flathub org.kde.Platform//6.11 org.kde.Sdk//6.11 io.qt.PySide.BaseApp//6.11
 #   - 32-bit compat extensions (auto-installed by --install-deps-from=flathub):
-#       org.freedesktop.Platform.Compat.i386//24.08
-#       org.freedesktop.Platform.GL32//1.4
+#       org.freedesktop.Platform.Compat.i386//25.08
+#       org.freedesktop.Platform.GL32.default//1.4
 #     These provide /lib/i386-linux-gnu/ld-linux.so.2 etc., needed to exec
 #     Proton's bundled 32-bit `wine` binary during Synthesis prefix setup.
 #
@@ -87,7 +87,7 @@ if [ "$BUNDLE_MODE" = true ]; then
   # extensions the manifest declares must be installed separately (the app
   # also self-heals this at startup via Utils/flatpak/i386.py).
   echo "Then install 32-bit support (bundle installs skip related refs):"
-  echo "  flatpak install --user flathub org.freedesktop.Platform.Compat.i386//24.08 org.freedesktop.Platform.GL32.default//24.08"
+  echo "  flatpak install --user flathub org.freedesktop.Platform.Compat.i386//25.08 org.freedesktop.Platform.GL32.default//1.4"
 elif [ "${1:-}" != "--export" ]; then
   echo ""
   echo "=== Build and install complete ==="

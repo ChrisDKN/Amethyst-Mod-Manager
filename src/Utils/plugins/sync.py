@@ -16,6 +16,45 @@ from Utils.plugins import (
 )
 
 
+def sync_overwrite_plugins(game, profile_dir: Path, snapshot, *,
+                           enabled_states=None, log_fn=None) -> bool:
+    """Register newly captured plugins before deploying the profile's list."""
+    if not getattr(game, "uses_plugins_txt", False):
+        return False
+    from Utils.filegraph.constants import OVERWRITE_NAME
+    from Utils.games.registry import _vanilla_plugins_for_game
+
+    star = bool(getattr(game, "plugins_use_star_prefix", True))
+    plugins_path = profile_dir / "plugins.txt"
+    loadorder_path = profile_dir / "loadorder.txt"
+    entries = read_plugins(plugins_path, star_prefix=star)
+    loadorder = read_loadorder(loadorder_path)
+    known = {entry.name.lower() for entry in entries}
+    known.update(name.lower() for name in loadorder)
+    if not getattr(game, "plugins_include_vanilla", False):
+        known.update(_vanilla_plugins_for_game(game))
+    overwrite = Path(game.get_effective_overwrite_path())
+    states = enabled_states or {}
+    added = []
+    for name, winner in snapshot.plugin_winners().items():
+        if winner.mod_name != OVERWRITE_NAME or name.lower() in known:
+            continue
+        source = overwrite / winner.source_rel.decode("utf-8", "surrogateescape")
+        if not source.is_file():
+            continue
+        name = Path(winner.destination).name
+        entries.append(PluginEntry(name, states.get(name.lower(), True)))
+        loadorder.append(name)
+        known.add(name.lower())
+        added.append(name)
+    if added:
+        write_plugins(plugins_path, entries, star_prefix=star)
+        write_loadorder(loadorder_path, [PluginEntry(name, True) for name in loadorder])
+        if log_fn is not None:
+            log_fn("Plugins: registered captured Overwrite plugins: " + ", ".join(added))
+    return bool(added)
+
+
 def _plugin_data_subfolders(game) -> set[str]:
     try:
         from Utils.games.registry import game_data_subpath

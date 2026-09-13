@@ -92,6 +92,8 @@ class XEditView(QWidget):
         # Resolve per-game config from kwargs, falling back to SSEEdit
         # defaults (mirrors the Tk wizard's __init__).
         base_exe = xedit_exe or _EXE_NAME
+        self._exe_64bit_name = Path(base_exe).stem + "64.exe"
+        self._use_64bit = False
         # The Discord build has no separate QuickAutoClean exe - QAC
         # is the same launcher with a ``-quickautoclean`` command-line arg (added
         # in _start_run).  The Nexus builds ship a distinct <build>QuickAutoClean.exe.
@@ -490,19 +492,24 @@ class XEditView(QWidget):
             lay.addWidget(err)
             return
         from wizards_qt.proton_step import ProtonStepWidget
-        lay.addWidget(ProtonStepWidget(
+        self._proton_step = ProtonStepWidget(
             self._game, self._exe, self._exe_name, self._name,
             on_continue=self._on_proton_chosen,
             log_fn=self._log,
             title=self.tr("Step 5: Choose Proton Version"),
             show_launch_args=True,
+            exe_64bit=(self._exe.parent / "Optional" / self._exe_64bit_name
+                       if not self._discord else None),
             wizard_id=getattr(self._ctx, "wizard_tool_id", ""),
             wizard_label=getattr(self._ctx, "wizard_tool_label", ""),
             wizard_label_args=getattr(
                 self._ctx, "wizard_tool_label_args", ()),
-        ))
+        )
+        lay.addWidget(self._proton_step)
 
     def _on_proton_chosen(self, proton_name: str, prefix_mode: str):
+        self._exe = self._proton_step.selected_exe()
+        self._use_64bit = not self._discord and self._exe.name == self._exe_64bit_name
         self._proton_name = proton_name
         self._prefix_mode = prefix_mode
         self._goto_step(_PG_RUN)
@@ -626,9 +633,10 @@ class XEditView(QWidget):
                 pfx = compat_data / "pfx"
                 data_arg = f'-d:{to_wine_path(game_path / "Data", pfx)}'
                 extra_args = [data_arg]
-                # The Discord build's QuickAutoClean is the same launcher with a
-                # -quickautoclean switch (the Nexus builds ship a separate exe).
-                if self._qac and self._discord:
+                if self._use_64bit:
+                    scripts = to_wine_path(exe.parent.parent / "Edit Scripts", pfx)
+                    extra_args.append(f'-s:{scripts}\\')
+                if self._qac and (self._discord or self._use_64bit):
                     extra_args.insert(0, "-quickautoclean")
                 # The multi-game Discord launcher needs a game-mode arg (e.g.
                 # -SSE / -FO4 / -SF1) to pick the game - it errors out without it.
@@ -841,9 +849,10 @@ class XEditView(QWidget):
                 # the plugin filename (positional) is the one to clean. The QAC
                 # exe already forces IKnowWhatImDoing + autosave, so no prompt.
                 base_args = [data_arg, "-autoload", "-autoexit"]
-                # The Discord build's QuickAutoClean is the same launcher with a
-                # -quickautoclean switch (the Nexus builds ship a separate exe).
-                if self._qac and self._discord:
+                if self._use_64bit:
+                    scripts = to_wine_path(exe.parent.parent / "Edit Scripts", pfx)
+                    base_args.append(f'-s:{scripts}\\')
+                if self._qac and (self._discord or self._use_64bit):
                     base_args.insert(0, "-quickautoclean")
                 # The multi-game Discord launcher needs a game-mode arg to pick
                 # the game (e.g. -SSE / -FO4 / -SF1) or it errors out.

@@ -24,6 +24,10 @@ on:
           - stable
         default: beta
 
+concurrency:
+  group: test-build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     name: Build

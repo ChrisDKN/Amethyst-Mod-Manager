@@ -5,10 +5,11 @@ top-levels behind the app), shown while an automatic collection install runs.
 Layout mirrors the user's sketch:
 
   * TOP  - aggregate download bar + "X / Y GB (nn%) - S MB/s".
-  * RED  - "Downloading" list: a FIXED POOL of rows (name + thin bar), reused.
-  * GREEN- "Installing / Extracting" list: a FIXED POOL of rows (name + thin
-           bar, real extraction %) for active installs + one text label for
-           overflow-active and queued names.
+  * RED  - "Downloading" list: one persistent small-mod batch row plus a FIXED
+           POOL of rows (name + thin bar) for larger active downloads.
+  * GREEN- "Installing / Extracting" list: one persistent small-mod batch row,
+           a FIXED POOL of rows for larger active installs, and one text label
+           for overflow-active and queued names.
   * BLUE - Pause + Cancel buttons.
 
 IMPORTANT - why no per-mod widget creation: creating a QWidget/QLabel and only
@@ -36,9 +37,11 @@ from gui_qt.theme_qt import active_palette, bind_theme, _c
 # Fixed number of visible download rows (matches the Tk overlay's 8 slots).
 _DL_SLOTS = 8
 
-# Fixed number of extraction rows with a progress bar (matches the orchestrator's
-# max_extract_workers default of 4; extras overflow into the text label).
+# Fixed number of extraction rows with a progress bar; extras overflow into the
+# text label.
 _EX_SLOTS = 4
+
+_SMALL_MOD_THRESHOLD = 100 * 1024 * 1024
 
 # Fixed width of each of the two side panels. Card is CARD_W (720) wide, with
 # 16px outer margins each side and 10px spacing between the panels, so each
@@ -81,11 +84,14 @@ class _DownloadRow(QWidget):
         self.hide()
 
     def assign(self, name: str):
-        fm = self._name.fontMetrics()
-        self._name.setText(fm.elidedText(name, Qt.ElideRight, _PANEL_W - 28))
+        self.set_name(name)
         self._bar.setRange(0, 1000)
         self._bar.setValue(0)
         self.show()
+
+    def set_name(self, name: str):
+        fm = self._name.fontMetrics()
+        self._name.setText(fm.elidedText(name, Qt.ElideRight, _PANEL_W - 28))
 
     def set_progress(self, cur: int, tot: int):
         if tot > 0:
@@ -105,19 +111,37 @@ class CollectionInstallOverlay(QWidget):
     CARD_H = 540
 
     def __init__(self, host: QWidget, title: str, on_pause=None, on_cancel=None,
-                 limit_mbps: float = 0.0, on_limit_change=None):
+                 limit_mbps: float = 0.0, on_limit_change=None,
+                 extract_workers: int = 1, max_extract_workers: int = 8,
+                 on_extract_workers_change=None,
+                 hide_completed_batches: bool = False,
+                 install_heading: str | None = None):
         super().__init__(host)
         self._host = host
         self._on_pause = on_pause
         self._on_cancel = on_cancel
         self._limit_mbps = limit_mbps
         self._on_limit_change = on_limit_change
+        self._extract_workers = extract_workers
+        self._max_extract_workers = max_extract_workers
+        self._on_extract_workers_change = on_extract_workers_change
+        self._hide_completed_batches = hide_completed_batches
         self._p = active_palette()
         # file_id → pool-slot index (RED and GREEN; -1 = overflow, no bar row).
         self._dl_slot_of: dict[int, int] = {}
+        self._download_waiting: dict[int, str] = {}
+        self._download_waiting_space = (0, 0)
         self._ex_slot_of: dict[int, int] = {}
         self._extract_active: dict[int, str] = {}
         self._extract_queued: dict[int, str] = {}
+        self._extract_waiting: set[int] = set()
+        self._extract_progress: dict[int, tuple[int, int]] = {}
+        self._small_mod_ids: set[int] = set()
+        self._small_dl_current: dict[int, int] = {}
+        self._small_dl_total: dict[int, int] = {}
+        self._small_dl_done: set[int] = set()
+        self._small_extract_done: set[int] = set()
+        self._small_extract_visible = False
         self._finished = False
         # True collection size (installed/uncompressed) for the aggregate label;
         # the progress bar itself still tracks compressed download bytes.
@@ -126,7 +150,7 @@ class CollectionInstallOverlay(QWidget):
         self.setObjectName("OverlayBackdrop")
         self.setStyleSheet("#OverlayBackdrop { background: rgba(0,0,0,150); }")
         self.setGeometry(host.rect())
-        self._build(title)
+        self._build(title, install_heading)
         bind_theme(self, roles={"TEXT_MAIN", "STATUS_QUEUED"})
         host.installEventFilter(self)
         self._reposition()
@@ -135,10 +159,19 @@ class CollectionInstallOverlay(QWidget):
 
     @classmethod
     def show_over(cls, host, title, on_pause=None, on_cancel=None,
-                  limit_mbps: float = 0.0, on_limit_change=None):
+                  limit_mbps: float = 0.0, on_limit_change=None,
+                  extract_workers: int = 1, max_extract_workers: int = 8,
+                  on_extract_workers_change=None,
+                  hide_completed_batches: bool = False,
+                  install_heading: str | None = None):
         top = host.window() if host is not None else None
         return cls(top or host, title, on_pause=on_pause, on_cancel=on_cancel,
-                   limit_mbps=limit_mbps, on_limit_change=on_limit_change)
+                   limit_mbps=limit_mbps, on_limit_change=on_limit_change,
+                   extract_workers=extract_workers,
+                   max_extract_workers=max_extract_workers,
+                   on_extract_workers_change=on_extract_workers_change,
+                   hide_completed_batches=hide_completed_batches,
+                   install_heading=install_heading)
 
     # ---- build ------------------------------------------------------------
     def _c(self, k):
@@ -162,7 +195,7 @@ class CollectionInstallOverlay(QWidget):
         v.addWidget(hdr)
         return frame, v
 
-    def _build(self, title: str):
+    def _build(self, title: str, install_heading: str | None):
         self._card = QFrame(self)
         self._card.setObjectName("_InstallCard")
         self._card.setStyleSheet(
@@ -196,20 +229,26 @@ class CollectionInstallOverlay(QWidget):
 
         # RED - a FIXED pool of download-row widgets (built once, parented now).
         dl_frame, dl_v = self._panel(self.tr("Downloading"), "TONE_RED")
+        self._small_dl_row = _DownloadRow(dl_frame)
+        dl_v.addWidget(self._small_dl_row)
         self._dl_rows: list[_DownloadRow] = []
         for _ in range(_DL_SLOTS):
             row = _DownloadRow(dl_frame)
             self._dl_rows.append(row)
             dl_v.addWidget(row)
         self._dl_overflow = QLabel("", dl_frame)
-        self._dl_overflow.setStyleSheet(f"color:{self._c('TEXT_DIM')}; font-size:11px;")
+        self._dl_overflow.setWordWrap(True)
+        self._dl_overflow.setStyleSheet(
+            f"color:{self._c('STATUS_QUEUED')}; font-size:11px;")
         dl_v.addWidget(self._dl_overflow)
         dl_v.addStretch(1)
 
         # GREEN - a FIXED pool of bar rows for active extractions (same widget as
         # the download rows) + ONE text label for overflow-active/queued names.
         ex_frame, ex_v = self._panel(
-            self.tr("Installing / Extracting"), "TONE_GREEN")
+            install_heading or self.tr("Installing / Extracting"), "TONE_GREEN")
+        self._small_ex_row = _DownloadRow(ex_frame)
+        ex_v.addWidget(self._small_ex_row)
         self._ex_rows: list[_DownloadRow] = []
         for _ in range(_EX_SLOTS):
             row = _DownloadRow(ex_frame)
@@ -241,6 +280,17 @@ class CollectionInstallOverlay(QWidget):
             "0 = use the full connection. Applies immediately."))
         self._limit_spin.valueChanged.connect(self._limit_changed)
         bar.addWidget(self._limit_spin)
+        extract_lbl = QLabel(self.tr("Extractions:"), self._card)
+        extract_lbl.setStyleSheet(f"color:{self._c('TEXT_DIM')}; font-size:12px;")
+        bar.addWidget(extract_lbl)
+        self._extract_spin = QSpinBox(self._card)
+        self._extract_spin.setRange(1, max(1, int(self._max_extract_workers)))
+        self._extract_spin.setValue(max(1, int(self._extract_workers)))
+        self._extract_spin.valueChanged.connect(self._extract_workers_changed)
+        bar.addWidget(self._extract_spin)
+        extract_visible = self._on_extract_workers_change is not None
+        extract_lbl.setVisible(extract_visible)
+        self._extract_spin.setVisible(extract_visible)
         bar.addStretch(1)
         self._pause_btn = QPushButton(self.tr("Pause"), self._card)
         self._pause_btn.setObjectName("FormButton")
@@ -262,6 +312,10 @@ class CollectionInstallOverlay(QWidget):
         if self._on_limit_change is not None:
             self._on_limit_change(float(value))
 
+    def _extract_workers_changed(self, value: int):
+        if self._on_extract_workers_change is not None:
+            self._on_extract_workers_change(int(value))
+
     def _pause_clicked(self):
         self._pause_btn.setEnabled(False)
         self._pause_btn.setText(self.tr("Pausing…"))
@@ -275,6 +329,18 @@ class CollectionInstallOverlay(QWidget):
     # ---- progress slots (UI thread only) - NO widget creation -------------
     def set_status(self, text: str):
         self._status_lbl.setText(text or "")
+        self._status_lbl.setToolTip(text or "")
+
+    def set_phase(self, name: str, current: int, total: int, detail: str):
+        self._agg_lbl.setText(
+            self.tr("{0}: {1} / {2}").format(
+                name, f"{current:,}", f"{total:,}") if total else name)
+        self._agg_bar.setRange(0, 1000 if total else 0)
+        if total:
+            self._agg_bar.setValue(min(1000, int(current * 1000 / total)))
+        self._status_lbl.setText(self._status_lbl.fontMetrics().elidedText(
+            detail, Qt.ElideMiddle, self.CARD_W - 32))
+        self._status_lbl.setToolTip(detail)
 
     def refresh_theme(self, palette):
         self._p = palette
@@ -308,8 +374,80 @@ class CollectionInstallOverlay(QWidget):
             self._agg_bar.setRange(0, 0)
             self._agg_lbl.setText(self.tr("Downloading…"))
 
-    # RED - assign a pool slot per download; overflow is a count, not widgets.
+    def set_mod_plan(self, mods):
+        for file_id, size in mods or ():
+            try:
+                file_id = int(file_id)
+                size = int(size or 0)
+            except (TypeError, ValueError):
+                continue
+            if 0 < size < _SMALL_MOD_THRESHOLD:
+                self._add_small_mod(file_id, size)
+        self._render_small_downloads()
+
+    def _add_small_mod(self, file_id: int, size: int):
+        self._small_mod_ids.add(file_id)
+        self._small_dl_current.setdefault(file_id, 0)
+        self._small_dl_total[file_id] = max(
+            self._small_dl_total.get(file_id, 0), int(size or 0))
+
+    def _small_mod_label(self, done: int) -> str:
+        name = self.tr("Small mods (under 100 MB)")
+        return f"{done:,} / {len(self._small_mod_ids):,} — {name}"
+
+    def _render_small_downloads(self):
+        if not self._small_mod_ids:
+            return
+        if (self._hide_completed_batches
+                and self._small_mod_ids <= self._small_dl_done):
+            self._small_dl_row.clear()
+            return
+        label = self._small_mod_label(len(self._small_dl_done))
+        if self._small_dl_row.isHidden():
+            self._small_dl_row.assign(label)
+        else:
+            self._small_dl_row.set_name(label)
+        total = sum(self._small_dl_total.values())
+        current = sum(min(self._small_dl_current.get(fid, 0),
+                          self._small_dl_total.get(fid, 0))
+                      for fid in self._small_mod_ids)
+        self._small_dl_row.set_progress(current, total)
+
+    def _show_small_extractions(self):
+        self._small_extract_visible = True
+        self._render_small_extractions()
+
+    def _render_small_extractions(self):
+        if not self._small_extract_visible or not self._small_mod_ids:
+            return
+        if (self._hide_completed_batches
+                and self._small_mod_ids <= self._small_extract_done):
+            self._small_ex_row.clear()
+            self._small_extract_visible = False
+            return
+        label = self._small_mod_label(len(self._small_extract_done))
+        if self._small_ex_row.isHidden():
+            self._small_ex_row.assign(label)
+        else:
+            self._small_ex_row.set_name(label)
+        self._small_ex_row.set_progress(
+            len(self._small_extract_done), len(self._small_mod_ids))
+
+    # RED - small downloads share one row; larger downloads use the pool.
+    def dl_wait(self, file_id: int, name: str, used: int, limit: int):
+        self._download_waiting[file_id] = name
+        self._download_waiting_space = (used, limit)
+        self._update_dl_overflow()
+
     def dl_start(self, file_id: int, name: str, size: int):
+        self._download_waiting.pop(file_id, None)
+        self._update_dl_overflow()
+        if file_id in self._small_mod_ids or 0 < size < _SMALL_MOD_THRESHOLD:
+            self._small_dl_done.discard(file_id)
+            self._small_dl_current[file_id] = 0
+            self._add_small_mod(file_id, size)
+            self._render_small_downloads()
+            return
         if file_id in self._dl_slot_of:
             return
         free = next((i for i in range(_DL_SLOTS) if i not in self._dl_slot_of.values()),
@@ -323,11 +461,27 @@ class CollectionInstallOverlay(QWidget):
         self._dl_rows[free].assign(name)
 
     def dl_update(self, file_id: int, cur: int, tot: int):
+        if file_id in self._small_mod_ids:
+            self._small_dl_current[file_id] = max(
+                self._small_dl_current.get(file_id, 0), int(cur or 0))
+            self._small_dl_total[file_id] = max(
+                self._small_dl_total.get(file_id, 0), int(tot or 0), int(cur or 0))
+            self._render_small_downloads()
+            return
         slot = self._dl_slot_of.get(file_id)
         if slot is not None and slot >= 0:
             self._dl_rows[slot].set_progress(cur, tot)
 
     def dl_finish(self, file_id: int):
+        self._download_waiting.pop(file_id, None)
+        if file_id in self._small_mod_ids:
+            total = max(self._small_dl_total.get(file_id, 0),
+                        self._small_dl_current.get(file_id, 0))
+            self._small_dl_total[file_id] = total
+            self._small_dl_current[file_id] = total
+            self._small_dl_done.add(file_id)
+            self._render_small_downloads()
+            return
         slot = self._dl_slot_of.pop(file_id, None)
         if slot is not None and slot >= 0:
             self._dl_rows[slot].clear()
@@ -337,15 +491,37 @@ class CollectionInstallOverlay(QWidget):
 
     def _update_dl_overflow(self):
         extra = sum(1 for v in self._dl_slot_of.values() if v == -1)
-        self._dl_overflow.setText(self.tr("+ {0} more downloading…").format(extra) if extra else "")
+        waiting = len(self._download_waiting)
+        lines = []
+        if extra:
+            lines.append(self.tr("+ {0} more downloading…").format(extra))
+        if waiting:
+            lines.append(self.tr(
+                "{0} queued — archive cleanup limit reached").format(waiting))
+            lines.append(self.tr("Downloads resume as installs finish"))
+            used, limit = self._download_waiting_space
+            self._dl_overflow.setToolTip(self.tr(
+                "Clear archive after install is limiting temporary archive storage "
+                "({0} / {1} used). Downloads resume automatically as installed "
+                "archives are cleared.").format(_fmt_gb(used), _fmt_gb(limit)))
+        else:
+            self._dl_overflow.setToolTip("")
+        self._dl_overflow.setText("\n".join(lines))
 
     # GREEN - assign a pool slot per active extraction; overflow-active and
     # queued names go in the text label (no widget creation).
     def extract_queue(self, file_id: int, name: str):
+        if file_id in self._small_mod_ids:
+            self._show_small_extractions()
+            return
         self._extract_queued[file_id] = name
         self._render_extract()
 
     def extract_add(self, file_id: int, name: str):
+        self._extract_waiting.discard(file_id)
+        if file_id in self._small_mod_ids:
+            self._show_small_extractions()
+            return
         self._extract_queued.pop(file_id, None)
         self._extract_active[file_id] = name
         if file_id not in self._ex_slot_of:
@@ -359,14 +535,29 @@ class CollectionInstallOverlay(QWidget):
                 self._ex_rows[free].set_progress(0, 0)
         self._render_extract()
 
+    def extract_wait(self, file_id: int, name: str):
+        self.extract_remove(file_id)
+        self._extract_waiting.add(file_id)
+        self.extract_queue(file_id, name)
+
     def extract_update(self, file_id: int, cur: int, tot: int):
+        if file_id in self._small_mod_ids:
+            return
+        if file_id not in self._extract_active:
+            return
+        self._extract_progress[file_id] = (cur, tot)
         slot = self._ex_slot_of.get(file_id)
         if slot is not None and slot >= 0:
             self._ex_rows[slot].set_progress(cur, tot)
 
     def extract_remove(self, file_id: int):
+        self._extract_waiting.discard(file_id)
+        if file_id in self._small_mod_ids:
+            self._render_small_extractions()
+            return
         self._extract_active.pop(file_id, None)
         self._extract_queued.pop(file_id, None)
+        self._extract_progress.pop(file_id, None)
         slot = self._ex_slot_of.pop(file_id, None)
         if slot is not None and slot >= 0:
             self._ex_rows[slot].clear()
@@ -376,11 +567,13 @@ class CollectionInstallOverlay(QWidget):
             if promo is not None:
                 self._ex_slot_of[promo] = slot
                 self._ex_rows[slot].assign(self._extract_active.get(promo, ""))
-                self._ex_rows[slot].set_progress(0, 0)
+                self._ex_rows[slot].set_progress(*self._extract_progress.get(promo, (0, 0)))
         self._render_extract()
 
     def row_installed(self, file_id: int):
-        pass
+        if file_id in self._small_mod_ids:
+            self._small_extract_done.add(file_id)
+            self._render_small_extractions()
 
     def _render_extract(self):
         from html import escape
@@ -389,10 +582,12 @@ class CollectionInstallOverlay(QWidget):
             if self._ex_slot_of.get(fid, -1) == -1:   # no bar row - text line
                 lines.append(
                     f"<div style='color:{self._c('TEXT_MAIN')}'>{escape(name)}</div>")
-        for name in self._extract_queued.values():
+        for fid, name in self._extract_queued.items():
+            status = (self.tr("- Waiting for extraction capacity") if fid in self._extract_waiting
+                      else self.tr("- Queued"))
             lines.append(
                 f"<div style='color:{self._c('STATUS_QUEUED')}'>{escape(name)} "
-                f"{self.tr('- Queued')}</div>")
+                f"{escape(status)}</div>")
         self._ex_label.setText("".join(lines))
 
     # ---- lifecycle --------------------------------------------------------
@@ -403,6 +598,7 @@ class CollectionInstallOverlay(QWidget):
         self._pause_btn.setEnabled(False)
         self._cancel_btn.setEnabled(False)
         self._limit_spin.setEnabled(False)
+        self._extract_spin.setEnabled(False)
 
     def dismiss(self):
         try:

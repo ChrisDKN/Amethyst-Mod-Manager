@@ -3,7 +3,7 @@ Shared deployment and restoration orchestration used by the desktop app,
 wizards, CLI, and headless service.
 
 `run_deploy_pipeline` performs the full restore → build_filemap → deploy →
-wine-dll → root-folder → root-flagged → swap_launcher sequence. UI-specific
+root-folder → root-flagged → swap_launcher → wine-dll sequence. UI-specific
 concerns (button enable/disable, status bar, mod panel reload) stay at the
 call site.
 """
@@ -24,7 +24,11 @@ from Utils.deployment import (
 )
 from Utils.deployment.shared import RestoreIncompleteError, _FILEMAP_SNAPSHOT_NAME
 from Utils.profiles.backup import create_backup
-from Utils.wine.dll_config import deploy_game_wine_dll_overrides
+from Utils.wine.dll_config import (
+    deploy_game_wine_dll_overrides,
+    discover_adjacent_dll_overrides,
+)
+from Utils.deployment.locking import guard_deployment
 
 
 LogFn = Callable[[str], None]
@@ -204,6 +208,33 @@ def _vfs_deploy_active(game) -> bool:
     )
 
 
+def _wine_dll_discovery_executable(game) -> Path | None:
+    from Utils.executables.launch import resolve_game_exe
+
+    executable = resolve_game_exe(game)
+    if not _vfs_deploy_active(game):
+        return executable
+
+    try:
+        from Utils.vfs import effective_shadow_root
+        view_root = effective_shadow_root(game).resolve(strict=False)
+        virtual_executable = game.get_vfs_launch_exe()
+        candidate = virtual_executable or executable
+        if candidate is None:
+            return None
+        candidate = Path(candidate).resolve(strict=False)
+        try:
+            candidate.relative_to(view_root)
+            return candidate
+        except ValueError:
+            game_root = Path(game.get_game_path()).resolve(strict=False)
+            relative = candidate.relative_to(game_root)
+            mapped = view_root / relative
+            return mapped if mapped.is_file() else executable
+    except (AttributeError, OSError, RuntimeError, TypeError, ValueError):
+        return executable
+
+
 def _log_deploy_context(game, profile: str, profile_dir: Path,
                         deploy_mode: "LinkMode", *, log_fn: LogFn) -> None:
     """Emit a diagnostic header describing the full deploy environment.
@@ -309,6 +340,7 @@ def flatpak_runtime_app(path: Path) -> "str | None":
     return rel.parts[0] if rel.parts else None
 
 
+@guard_deployment
 def _run_deploy_pipeline(
     game,
     profile: str,
@@ -435,7 +467,18 @@ def _run_deploy_pipeline(
         # standard primitives diff against the previous deploy instead.
         incr_plan = None
         vfs_redeploy = False
+        runtime_plugin_states = {}
+        new_data_plugins = []
         if last_deployed == profile:
+            if getattr(game, "uses_plugins_txt", False):
+                from Utils.plugins import read_plugins
+                target = game._plugins_txt_target()
+                if target is not None:
+                    runtime_plugin_states = {
+                        entry.name.lower(): entry.enabled
+                        for entry in read_plugins(
+                            target, star_prefix=game.plugins_use_star_prefix)
+                    }
             if progress_fn is not None:
                 progress_fn(0, 0, "Inspecting the current deployment…")
             probe_mode = (
@@ -445,7 +488,13 @@ def _run_deploy_pipeline(
             )
             incr_plan = _incr.plan_incremental(
                 game, profile, probe_mode, recovery_profile, log_fn=log_fn)
-            if incr_plan is None:
+            if incr_plan is not None:
+                new_data_plugins = _incr.new_data_plugins(incr_plan)
+                if new_data_plugins:
+                    log_fn("New unmanaged Data plugins require runtime capture "
+                           "before deployment: " + ", ".join(new_data_plugins))
+                    incr_plan = None
+            if incr_plan is None and not new_data_plugins:
                 vfs_redeploy = _incr.plan_vfs_redeploy(
                     game, profile, log_fn=log_fn)
         timeline.mark(
@@ -474,7 +523,7 @@ def _run_deploy_pipeline(
                 "An interrupted deployment requires recovery, but this game "
                 "handler does not provide Restore."
             )
-        elif ((recovery_operations
+        elif ((recovery_operations or new_data_plugins
                or getattr(game, "restore_before_deploy", True))
               and hasattr(game, "restore")):
             try:
@@ -487,9 +536,9 @@ def _run_deploy_pipeline(
                 # deployment over files/backups which Restore could not clear.
                 raise
             except RuntimeError as restore_err:
-                if recovery_operations:
+                if recovery_operations or new_data_plugins:
                     raise RestoreIncompleteError(
-                        "Interrupted deployment recovery did not complete: "
+                        "Required deployment restore did not complete: "
                         f"{restore_err}"
                     ) from restore_err
                 # Expected on first deploy / unconfigured paths; the deploy
@@ -578,6 +627,14 @@ def _run_deploy_pipeline(
             except Exception as backup_err:
                 log_fn(f"Backup skipped: {backup_err}")
         timeline.mark("profile backup complete", work="FS I/O")
+
+        from Utils.plugins.sync import sync_overwrite_plugins
+        if sync_overwrite_plugins(
+                game, profile_dir, filegraph_profile.snapshot(),
+                enabled_states=runtime_plugin_states, log_fn=log_fn):
+            filegraph_profile.ensure_reconciled(
+                operation_hint={"kind": "deployment"})
+            filegraph_generation = filegraph_profile.snapshot().generation
 
         deploy_mode = (
             game.get_deploy_mode()
@@ -732,19 +789,13 @@ def _run_deploy_pipeline(
         from Utils.filegraph.deploy import mark_phase as mark_deploy_phase
         mark_deploy_phase("post_deploy")
 
-        pfx = game.get_prefix_path()
-        if pfx and pfx.is_dir():
-            deploy_game_wine_dll_overrides(
-                game.name, pfx, game.wine_dll_overrides, log_fn=log_fn
-            )
-
         method_name = (
             "VFS" if _vfs_deploy_active(game)
             else deploy_mode.name
         )
         game.save_last_deployed_profile(profile, deploy_mode=method_name)
         timeline.mark(
-            "Wine configuration and deployed-profile marker complete",
+            "deployed-profile marker complete",
             work="FS I/O")
 
         target_rf = game.get_effective_root_folder_path()
@@ -852,6 +903,24 @@ def _run_deploy_pipeline(
         except Exception as pd_err:
             log_fn(f"post_deploy warning: {pd_err}")
 
+        pfx = game.get_prefix_path()
+        if pfx and pfx.is_dir():
+            game_exe = _wine_dll_discovery_executable(game)
+            discovered = discover_adjacent_dll_overrides(
+                game_exe, log_fn=log_fn)
+            if discovered:
+                log_fn(
+                    f"Wine DLL overrides: detected {len(discovered)} DLL(s) "
+                    f"beside {game_exe.name}."
+                )
+            deploy_game_wine_dll_overrides(
+                game.name,
+                pfx,
+                game.wine_dll_overrides,
+                discovered_overrides=discovered,
+                log_fn=log_fn,
+            )
+
         # External launchers retain one short per-game script. Refresh it after
         # every successful deploy (including silent Play/wizard deployments),
         # so an AppImage upgrade or moved source checkout cannot leave stale
@@ -862,7 +931,8 @@ def _run_deploy_pipeline(
         except Exception as handoff_err:
             log_fn(f"Launcher handoff warning: {handoff_err}")
         timeline.mark(
-            "launcher and post-deploy hooks complete", work="FS I/O")
+            "launcher, post-deploy, and Wine configuration complete",
+            work="FS I/O")
 
         if incr_plan is not None:
             _tag = " (incremental)"
@@ -955,6 +1025,7 @@ def _run_restore_pipeline(
     *,
     log_fn: LogFn,
     progress_fn: Optional[ProgressFn] = None,
+    recovery_profile_dir: Path | None = None,
 ) -> bool:
     started = time.perf_counter()
     ok = False
@@ -964,7 +1035,7 @@ def _run_restore_pipeline(
             log_fn(f"Restore failed: {game.name} does not support restore.")
             return False
 
-        recovery_profile_dir = (
+        recovery_profile_dir = Path(recovery_profile_dir) if recovery_profile_dir else (
             game.get_profile_root() / "profiles"
             / (game.get_last_deployed_profile() or profile)
         )
@@ -1020,6 +1091,7 @@ def run_restore_pipeline(
     *,
     log_fn: LogFn,
     progress_fn: Optional[ProgressFn] = None,
+    recovery_profile_dir: Path | None = None,
     operation_owner: "str | None" = None,
     raise_busy: bool = False,
 ) -> bool:
@@ -1042,6 +1114,7 @@ def run_restore_pipeline(
         return False
     try:
         return _run_restore_pipeline(
-            game, profile, log_fn=log_fn, progress_fn=progress_fn)
+            game, profile, log_fn=log_fn, progress_fn=progress_fn,
+            recovery_profile_dir=recovery_profile_dir)
     finally:
         lease.release()

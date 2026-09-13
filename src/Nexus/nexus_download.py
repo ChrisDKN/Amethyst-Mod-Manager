@@ -317,7 +317,10 @@ def _zip_is_intact(path: Path) -> bool:
     is effectively instant regardless of archive size.  Returns False for
     non-ZIP files so callers can skip the check for .7z/.rar/.tar.*
     """
-    if not path.name.lower().endswith('.zip'):
+    name = path.name.lower()
+    if name.endswith(".part"):
+        name = name[:-5]
+    if not name.endswith('.zip'):
         return True  # can't cheaply verify; assume OK
     try:
         if not zipfile.is_zipfile(path):
@@ -638,8 +641,9 @@ class NexusDownloader:
     """
 
     def __init__(self, api: NexusAPI,
-                 download_dir: Path | None = None):
+                 download_dir: Path | None = None, *, stream_handler=None):
         self._api = api
+        self._stream_handler = stream_handler
         self._download_dir = download_dir or _get_downloads_dir()
         self._download_dir.mkdir(parents=True, exist_ok=True)
         self._worker_state = threading.local()
@@ -997,6 +1001,12 @@ class NexusDownloader:
     ) -> DownloadResult:
         """Try each mirror in order until one succeeds."""
 
+        from Utils.ui.config import load_nexus_download_server
+        preferred = load_nexus_download_server()
+        if preferred:
+            links = sorted(links, key=lambda link:
+                           link.short_name.casefold() != preferred.casefold())
+
         last_error = ""
         for link in links:
             if cancel is not None and cancel.is_set():
@@ -1006,6 +1016,7 @@ class NexusDownloader:
                     mod_id=mod_id, file_id=file_id,
                 )
             try:
+                app_log(f"Downloading {file_name} from {link.name or link.short_name}")
                 result = self._stream_download(
                     url=link.URI,
                     file_name=file_name,
@@ -1049,6 +1060,11 @@ class NexusDownloader:
         file_id: int,
     ) -> DownloadResult:
         """Stream-download a single URL to disk."""
+
+        if self._stream_handler is not None:
+            return self._stream_handler(url=url, file_name=file_name, dest_dir=dest_dir,
+                progress_cb=progress_cb, cancel=cancel, game_domain=game_domain,
+                mod_id=mod_id, file_id=file_id)
 
         session = self._worker_session()
         with session.get(url, stream=True, timeout=60,
@@ -1096,23 +1112,38 @@ class NexusDownloader:
             stem, suffix = _archive_name_parts(file_name)
             counter = 1
             dest = dest_dir / file_name
+
+            # Keep incomplete transfers hidden and reserve the candidate name
+            # atomically so concurrent downloads cannot share it.
             while True:
                 if (_fileid_sidecar(dest).exists()
                         or _identity_sidecar(dest).exists()):
                     dest = dest_dir / f"{stem} ({counter}){suffix}"
                     counter += 1
                     continue
+                partial = dest.with_name(dest.name + ".part")
+                if dest.exists():
+                    dest = dest_dir / f"{stem} ({counter}){suffix}"
+                    counter += 1
+                    continue
                 try:
-                    fh = open(dest, "xb")
-                    break
+                    fh = partial.open("xb")
                 except FileExistsError:
                     dest = dest_dir / f"{stem} ({counter}){suffix}"
                     counter += 1
+                    continue
+                if (not dest.exists()
+                        and not _fileid_sidecar(dest).exists()
+                        and not _identity_sidecar(dest).exists()):
+                    break
+                fh.close()
+                partial.unlink(missing_ok=True)
+                dest = dest_dir / f"{stem} ({counter}){suffix}"
+                counter += 1
 
             downloaded = 0
+            completed = False
             try:
-                if file_id > 0:
-                    _write_sidecar_file_id(dest, file_id)
                 with fh:
                     for chunk in resp.iter_content(_CHUNK_SIZE):
                         if cancel and cancel.is_set():
@@ -1124,37 +1155,46 @@ class NexusDownloader:
 
                         if progress_cb:
                             progress_cb(downloaded, total)
-            except BaseException:
-                delete_archive_and_sidecar(dest)
-                raise
 
-        # Verify against Content-Length - a dropped connection can end the
-        # stream early without raising; a short file must not look successful.
-        if total and downloaded != total:
-            app_log(f"Incomplete download of {file_name}: got {downloaded} "
-                    f"of {total} bytes - discarding")
-            delete_archive_and_sidecar(dest)
-            return DownloadResult(
-                success=False,
-                error=f"Incomplete download: got {downloaded} of {total} bytes",
-                game_domain=game_domain,
-                mod_id=mod_id, file_id=file_id,
-            )
+                if cancel and cancel.is_set():
+                    raise DownloadCancelled()
 
-        if downloaded <= 0 or not _zip_is_intact(dest):
-            app_log(f"Invalid or empty download of {dest.name} - discarding")
-            delete_archive_and_sidecar(dest)
-            return DownloadResult(
-                success=False,
-                error="Downloaded archive is empty or invalid",
-                game_domain=game_domain,
-                mod_id=mod_id, file_id=file_id,
-            )
+                if total and downloaded != total:
+                    app_log(f"Incomplete download of {file_name}: got {downloaded} "
+                            f"of {total} bytes - discarding")
+                    return DownloadResult(
+                        success=False,
+                        error=f"Incomplete download: got {downloaded} of {total} bytes",
+                        game_domain=game_domain,
+                        mod_id=mod_id, file_id=file_id,
+                    )
+
+                if downloaded <= 0 or not _zip_is_intact(partial):
+                    app_log(
+                        f"Invalid or empty download of {dest.name} - discarding")
+                    return DownloadResult(
+                        success=False,
+                        error="Downloaded archive is empty or invalid",
+                        game_domain=game_domain,
+                        mod_id=mod_id, file_id=file_id,
+                    )
+
+                # Publish the identity before the complete archive becomes visible.
+                if file_id > 0:
+                    _write_sidecar_file_id(dest, file_id)
+                _write_download_identity(dest, game_domain, mod_id, file_id)
+                try:
+                    partial.replace(dest)
+                except OSError:
+                    raise
+                completed = True
+            finally:
+                if not completed:
+                    partial.unlink(missing_ok=True)
+                    _fileid_sidecar(dest).unlink(missing_ok=True)
+                    _identity_sidecar(dest).unlink(missing_ok=True)
 
         app_log(f"Downloaded {dest.name} ({downloaded} bytes) → {dest}")
-        if file_id > 0:
-            _write_sidecar_file_id(dest, file_id)
-        _write_download_identity(dest, game_domain, mod_id, file_id)
 
         return DownloadResult(
             success=True,

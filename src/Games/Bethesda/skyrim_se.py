@@ -161,19 +161,19 @@ class SkyrimSE(Fallout_3):
     def custom_routing_rules(self) -> list:
         from Utils.deployment import CustomRule
         return [
-            CustomRule(dest="", filenames=["d3dx9_42.dll"], flatten=True),
-            CustomRule(dest="", filenames=["skse64_1*.dll"], flatten=True, loose_only=True),
-            CustomRule(dest="", filenames=["skse64_loader.exe"], flatten=True, loose_only=True),
-            CustomRule(dest="", filenames=["d3dcompiler_47.dll"], flatten=True, loose_only=True),
-            CustomRule(dest="Data/SKSE/Plugins/CharGen/Presets", extensions=[".jslot"], flatten=True),
+            CustomRule(rule_id='skyrim_se:37111f7bfb46', dest="", filenames=["d3dx9_42.dll"], flatten=True),
+            CustomRule(rule_id='skyrim_se:a84e7a154053', dest="", filenames=["skse64_1*.dll"], flatten=True, loose_only=True),
+            CustomRule(rule_id='skyrim_se:e772bb9074f3', dest="", filenames=["skse64_loader.exe"], flatten=True, loose_only=True),
+            CustomRule(rule_id='skyrim_se:44bc033720c3', dest="", filenames=["d3dcompiler_47.dll"], flatten=True, loose_only=True),
+            CustomRule(rule_id='skyrim_se:e39e7c9da11d', dest="Data/SKSE/Plugins/CharGen/Presets", extensions=[".jslot"], flatten=True),
             # ENB Series files → game root
-            CustomRule(dest="", filenames=[
+            CustomRule(rule_id='skyrim_se:92efaebf878e', dest="", filenames=[
                 "d3d11.dll",
                 "d3dcompiler_46e.dll",
                 "enblocal.ini",
                 "enbseries.ini",
             ], flatten=True),
-            CustomRule(dest="", folders=["enbseries"], flatten=True),
+            CustomRule(rule_id='skyrim_se:112bbe22ee8d', dest="", folders=["enbseries"], flatten=True),
             self._saves_routing_rule([".ess"]),
         ]
 
@@ -327,6 +327,15 @@ class SkyrimSE(Fallout_3):
                 label="Run PGPatcher",
                 description="Install PGPatcher, deploy mods, and run PGPatcher.exe.",
                 dialog_class_path="wizards.pgpatcher.PGPatcherWizard",
+            ),
+            WizardTool(
+                id="run_cao_skyrimse",
+                label="Assets Optimizer (CAO)",
+                description=(
+                    "Install Cathedral Assets Optimizer and optimize a selected "
+                    "mod from the staging folder."),
+                dialog_class_path="wizards.cao.CAOWizard",
+                category="Patchers and Cleanup",
             ),
             WizardTool(
                 id="run_sseedit_skyrimse",

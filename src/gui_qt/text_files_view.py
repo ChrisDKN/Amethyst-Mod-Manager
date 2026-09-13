@@ -24,6 +24,8 @@ from gui_qt.text_files_model import (
 class TextFilesView(QWidget):
     """The Text Files tab. configure() once, then mark_dirty()/refresh()."""
 
+    _EXTERNAL_CACHE_SECONDS = 30
+
     filetypes_changed = Signal()
     content_status_changed = Signal(object)   # current content keyword | None
     scan_status_changed = Signal(bool)        # True = scan running
@@ -36,6 +38,7 @@ class TextFilesView(QWidget):
         self._snapshot = None
         self.on_open_file = None        # callback(full_path, rel_path)
         self._dirty = True
+        self._refresh_external = True
         self._is_visible = False
         self._scan_gen = 0              # bumped per scan → drops stale results
         self._scanning = False
@@ -64,6 +67,7 @@ class TextFilesView(QWidget):
         self.profile_dir = profile_dir
         self._snapshot = None
         self._dirty = True
+        self._refresh_external = True
         # A profile/game switch invalidates any active content search.
         self._content_matches = None
         self._content_keyword = None
@@ -71,15 +75,20 @@ class TextFilesView(QWidget):
 
     def set_snapshot(self, snapshot):
         self._snapshot = snapshot
-        self.mark_dirty()
+        self._dirty = True
+        if self._is_visible:
+            self.refresh()
 
     def set_visible_tab(self, visible: bool):
+        if self._is_visible and not visible:
+            self._dirty = True
         self._is_visible = visible
         if visible and self._dirty:
             self.refresh()
 
     def mark_dirty(self):
         self._dirty = True
+        self._refresh_external = True
         if self._is_visible:
             self.refresh()
 
@@ -148,6 +157,8 @@ class TextFilesView(QWidget):
         game = self.game
         profile_dir = self.profile_dir
         snapshot = self._snapshot
+        refresh_external = self._refresh_external
+        self._refresh_external = False
         keyword = self._content_keyword if self._content_matches is not None else None
         self._scanning = True
         self.scan_status_changed.emit(True)
@@ -155,7 +166,9 @@ class TextFilesView(QWidget):
         def worker():
             try:
                 entries = tf.discover_text_files(
-                    game, profile_dir, snapshot=snapshot)
+                    game, profile_dir, snapshot=snapshot,
+                    external_cache_seconds=self._EXTERNAL_CACHE_SECONDS,
+                    refresh_external=refresh_external)
                 # A new scan invalidates the content-match set (paths may have
                 # changed) - recompute it here, still off the UI thread.
                 matches = (tf.content_search(entries, keyword)

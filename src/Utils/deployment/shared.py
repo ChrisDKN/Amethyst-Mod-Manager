@@ -750,6 +750,7 @@ class CustomRule:
                  ``mods`` folder rule so loose files under Mods/ route to the
                  game Data dir while ``Mods/Foo.pak`` stays with the normal
                  deploy into the Larian AppData Mods folder.
+    rule_id    - stable handler identity; keep it when editing or reordering.
 
     Placement behaviour:
     - extension-only match: file placed as game_root/dest/<filename> (flat)
@@ -769,6 +770,7 @@ class CustomRule:
     to_prefix: bool = False
     mirror_dests: list[str] = field(default_factory=list)
     exclude_extensions: list[str] = field(default_factory=list)
+    rule_id: str = ""
 
 
 @dataclass

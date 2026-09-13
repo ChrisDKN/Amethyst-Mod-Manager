@@ -37,6 +37,7 @@ py.install_sources(
   'oblivion_remastered.png',
   'peak.png',
   'pragmata.png',
+  'Project_Zomboid.png',
   'red_dead_redemption_2.png',
   'repo.png',
   'resident_evil_2.png',

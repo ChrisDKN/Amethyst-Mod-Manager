@@ -24,16 +24,24 @@ from contextlib import contextmanager
 from pathlib import Path
 
 
-def _tmp_for(path: Path, *, suffix: str = ".tmp") -> Path:
-    """Return a temp sibling for *path*, unique to this call.
+def filename_limit(directory: Path) -> int:
+    directory = Path(directory)
+    while not directory.exists() and directory != directory.parent:
+        directory = directory.parent
+    try:
+        limit = os.pathconf(directory, "PC_NAME_MAX")
+        return limit if limit > 0 else 255
+    except (OSError, ValueError):
+        return 255
 
-    Unique per call, not per destination: two threads writing the same
-    destination would otherwise share one temp file, so one's failure-path
-    unlink() deletes the other's in-progress write and an interleaved
-    truncate can rename a partial file into place. The unique part goes
-    AFTER *suffix* so cleanup globs on ``<name><suffix>*`` still match."""
-    return path.with_name(
-        f"{path.name}{suffix}-{os.getpid()}-{uuid.uuid4().hex[:8]}")
+
+def _tmp_for(path: Path, *, suffix: str = ".tmp") -> Path:
+    """Return a unique temporary sibling within the filesystem's name limit."""
+    unique = uuid.uuid4().hex
+    name = f"{path.name}{suffix}-{os.getpid()}-{unique[:8]}"
+    if len(os.fsencode(name)) > filename_limit(path.parent):
+        name = f".amm-{unique}{suffix}"
+    return path.with_name(name)
 
 
 def write_atomic(path: Path, data: bytes, *, suffix: str = ".tmp") -> None:
@@ -72,7 +80,7 @@ def write_atomic_text(path: Path, text: str, *, encoding: str = "utf-8",
 
 @contextmanager
 def atomic_writer(path: Path, mode: str = "w", *, encoding: str | None = "utf-8",
-                  errors: str | None = None, suffix: str = ".tmp"):
+                  errors: str | None = None, suffix: str = ".tmp", prepare_parent=None):
     """Open ``<path><suffix>`` for writing; on clean exit rename it onto *path*.
 
     ``mode`` follows ``open()`` semantics. For binary mode, pass
@@ -81,7 +89,10 @@ def atomic_writer(path: Path, mode: str = "w", *, encoding: str | None = "utf-8"
     carry non-UTF-8 bytes. On any exception the temp file is removed and the
     original *path* is left untouched.
     """
-    path.parent.mkdir(parents=True, exist_ok=True)
+    if prepare_parent is None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        prepare_parent(path.parent)
     tmp = _tmp_for(path, suffix=suffix)
     if "b" in mode:
         fh = tmp.open(mode)

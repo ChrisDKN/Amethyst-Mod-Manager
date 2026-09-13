@@ -87,6 +87,25 @@ ENDORSEMENTS_PRESETS = [
 PAGE_SIZE_BROWSE = 30
 # User-selectable "shown per page" counts (footer dropdown).
 PAGE_SIZE_CHOICES = [20, 30, 40, 50]
+INSTALL_ALL_MAX_BYTES = 100 * 1024 * 1024
+INSTALL_ALL_CONCURRENCY = 4
+
+
+def _file_size_bytes(file) -> int:
+    return int((getattr(file, "size_in_bytes", 0) or 0)
+               or ((getattr(file, "size_kb", 0) or 0) * 1024))
+
+
+def _newest_main_file(files):
+    mains = [f for f in files
+             if (getattr(f, "category_name", "") or "").strip().upper() == "MAIN"]
+    primary = [f for f in mains if getattr(f, "is_primary", False)]
+    choices = primary or mains
+    if not choices:
+        return None
+    return max(choices, key=lambda f: (
+        int(getattr(f, "uploaded_timestamp", 0) or 0),
+        int(getattr(f, "file_id", 0) or 0)))
 
 
 def _category_key(value: str) -> str:
@@ -119,6 +138,7 @@ class NexusBrowserView(QWidget):
     _manual_watch_ended = Signal(int)               # (mod_id) - found or timed out
     _download_done = Signal(object, object, object)      # (archive_path|None, meta|None, dl_key)
     _download_progress = Signal(object, object, "qlonglong", "qlonglong")  # (dl_key, name, downloaded, total bytes; 64-bit: >2GB)
+    _install_all_ready = Signal(object)
 
     def __init__(self, api, domain, game, install_fn=None, log_fn=None,
                  progress_fn=None, parent=None):
@@ -203,6 +223,7 @@ class NexusBrowserView(QWidget):
         self._manual_watch_ended.connect(self._on_manual_watch_ended)
         self._download_done.connect(self._on_download_done)
         self._download_progress.connect(self._on_download_progress)
+        self._install_all_ready.connect(self._on_install_all_ready)
         self._installing = False        # serialise the prep phase (premium
         #                                 check → file chooser) of one install;
         #                                 released once the download starts
@@ -211,8 +232,24 @@ class NexusBrowserView(QWidget):
         # folders. The destroyed hook must not touch self (C++ side is gone
         # by then), so it captures the dict + progress_fn directly.
         self._manual_watchers: dict = {}
+        self._download_cancels: dict[str, threading.Event] = {}
+        self._download_games: dict[str, str] = {}
+        self._download_oversize: dict[str, threading.Event] = {}
+        self._install_all_generation = 0
+        self._install_all_preparing = False
+        self._install_all_confirming = False
+        self._install_all_queue: list[tuple] = []
+        self._install_all_active: set[str] = set()
+        self._install_all_total = 0
+        self._install_all_done = 0
+        self._install_all_succeeded = 0
+        self._install_all_failed = 0
+        self._install_all_skipped = 0
+        self._install_all_aborted = False
+        self._loading = False
 
-        def _stop_watchers(*_, w=self._manual_watchers, pf=self._progress_fn):
+        def _stop_watchers(*_, w=self._manual_watchers,
+                           dc=self._download_cancels, pf=self._progress_fn):
             for watcher, key in list(w.values()):
                 watcher.stop()
                 try:
@@ -220,6 +257,9 @@ class NexusBrowserView(QWidget):
                 except Exception:
                     pass
             w.clear()
+            for cancel in list(dc.values()):
+                cancel.set()
+            dc.clear()
         self.destroyed.connect(_stop_watchers)
 
         self._build()
@@ -518,6 +558,18 @@ class NexusBrowserView(QWidget):
         refresh.setCursor(Qt.PointingHandCursor)
         refresh.clicked.connect(self._reload)
         tb.addWidget(refresh)
+
+        self._install_all_btn = QToolButton()
+        self._install_all_btn.setText(self.tr("Install all"))
+        self._install_all_btn.setObjectName("ActionButton")
+        self._install_all_btn.setCursor(Qt.PointingHandCursor)
+        self._install_all_btn.setToolTip(self.tr(
+            "Install the newest main file for every mod shown. "
+            "Files over 100 MB are skipped. Requires Nexus Premium."))
+        self._install_all_btn.clicked.connect(self._on_install_all)
+        from Utils.ui.config import load_dev_mode
+        self._install_all_btn.setVisible(load_dev_mode())
+        tb.addWidget(self._install_all_btn)
 
         self._enable_hfw(toolbar)
         outer.addWidget(toolbar)
@@ -1243,6 +1295,7 @@ class NexusBrowserView(QWidget):
 
     def set_game(self, game, domain):
         """Retarget the browser after the application changes games."""
+        self._abort_install_all_for_game_change()
         self._game = game
         domains = tuple(getattr(game, "nexus_game_domains", ()) or ())
         self._domains = domains or tuple(
@@ -1365,8 +1418,10 @@ class NexusBrowserView(QWidget):
         self._rebuild_cards()
         self._scroll.verticalScrollBar().setValue(0)
         self._update_page_buttons()
+        self._sync_install_all_button()
 
     def _set_loading(self, on: bool):
+        self._loading = on
         for w in (self._prev_btn, self._next_btn, self._sort_sel, self._time_sel,
                   self._domain_sel,
                   self._page_edit, self._perpage_sel):
@@ -1376,6 +1431,7 @@ class NexusBrowserView(QWidget):
             self._loading_overlay.show_over()
         else:
             self._loading_overlay.hide_overlay()
+        self._sync_install_all_button()
 
     def _update_page_buttons(self):
         paged = self._section in ("Browse", "Trending")
@@ -1646,6 +1702,263 @@ class NexusBrowserView(QWidget):
         threading.Thread(target=worker, daemon=True).start()
 
     # -- install (premium check → file pick → download → install queue) ----
+    def _sync_install_all_button(self):
+        btn = getattr(self, "_install_all_btn", None)
+        if btn is None:
+            return
+        from Utils.ui.config import load_dev_mode
+        visible = load_dev_mode()
+        btn.setVisible(visible)
+        busy = (self._install_all_preparing or self._install_all_confirming
+                or bool(self._install_all_queue)
+                or bool(self._install_all_active))
+        if self._install_all_preparing:
+            btn.setText(self.tr("Preparing…"))
+        elif self._install_all_total and busy:
+            btn.setText(self.tr("Installing {0}/{1}").format(
+                self._install_all_done, self._install_all_total))
+        else:
+            btn.setText(self.tr("Install all"))
+        btn.setEnabled(
+            visible and not self._loading and not busy
+            and bool(self._visible_entries()))
+
+    def _on_install_all(self):
+        from Utils.ui.config import load_dev_mode
+        if not load_dev_mode():
+            return
+        if (self._install_all_preparing or self._install_all_confirming
+                or self._install_all_queue or self._install_all_active):
+            self._log("Nexus: Install all is already running.")
+            return
+        if self._installing:
+            self._log("Nexus: finish selecting the current mod file first.")
+            return
+        entries = list(self._visible_entries())
+        if not entries:
+            self._log("Nexus: no mods on this page to install.")
+            return
+
+        self._install_all_generation += 1
+        generation = self._install_all_generation
+        page_token = self._fetch_token
+        game_name = getattr(self._game, "name", "") or ""
+        fallback_domain = self._domain
+        self._install_all_preparing = True
+        self._sync_install_all_button()
+        self._log(f"Nexus: checking main files for {len(entries)} mod(s)…")
+
+        def prepare():
+            try:
+                premium = self._premium_install_allowed()
+            except Exception as exc:
+                return {"generation": generation, "page_token": page_token,
+                        "game_name": game_name,
+                        "entries": entries, "candidates": [], "skipped": [],
+                        "error": str(exc), "premium": None}
+            if not premium:
+                return {"generation": generation, "page_token": page_token,
+                        "game_name": game_name,
+                        "entries": entries, "candidates": [], "skipped": [],
+                        "error": "", "premium": False}
+
+            candidates = []
+            skipped = []
+            for entry in entries:
+                name = entry.name or f"Mod {entry.mod_id}"
+                domain = getattr(entry, "domain_name", "") or fallback_domain
+                try:
+                    listing = self._api.get_mod_files(domain, entry.mod_id)
+                    file = _newest_main_file(list(listing.files or []))
+                except Exception as exc:
+                    skipped.append((name, f"file lookup failed: {exc}"))
+                    continue
+                if file is None:
+                    skipped.append((name, "no main file"))
+                    continue
+                size = _file_size_bytes(file)
+                if size > INSTALL_ALL_MAX_BYTES:
+                    skipped.append((name, "main file is over 100 MB"))
+                    continue
+                candidates.append((entry, file, size))
+            return {"generation": generation, "page_token": page_token,
+                    "game_name": game_name,
+                    "entries": entries, "candidates": candidates,
+                    "skipped": skipped, "error": "", "premium": True}
+
+        run_in_worker(prepare, self._install_all_ready,
+                      name="nexus-install-all", error_result={
+                          "generation": generation, "page_token": page_token,
+                          "game_name": game_name,
+                          "entries": entries, "candidates": [], "skipped": [],
+                          "error": "Could not inspect this page.", "premium": None})
+
+    def _on_install_all_ready(self, plan):
+        if (not isinstance(plan, dict)
+                or plan.get("generation") != self._install_all_generation):
+            return
+        self._install_all_preparing = False
+        current_game = getattr(self._game, "name", "") or ""
+        if current_game != plan.get("game_name", ""):
+            self._log("Nexus: Install all cancelled because the game changed.")
+            self._sync_install_all_button()
+            return
+        if self._fetch_token != plan.get("page_token"):
+            self._log("Nexus: Install all cancelled because the page changed.")
+            self._sync_install_all_button()
+            return
+
+        from gui_qt.confirm_overlay import ConfirmOverlay
+        if plan.get("premium") is False:
+            self._sync_install_all_button()
+            ConfirmOverlay.show_message(
+                self, self.tr("Install all unavailable"),
+                self.tr("Install all uses direct Nexus downloads and requires "
+                        "a Premium account. It is unavailable while forced "
+                        "manual downloads are enabled."))
+            return
+        if plan.get("error"):
+            self._sync_install_all_button()
+            ConfirmOverlay.show_message(
+                self, self.tr("Install all failed"),
+                self.tr("Could not prepare the page: {0}").format(
+                    plan["error"]))
+            return
+
+        candidates = list(plan.get("candidates") or [])
+        skipped = list(plan.get("skipped") or [])
+        for name, reason in skipped:
+            self._log(f"Nexus: Install all skipped {name}: {reason}.")
+        if not candidates:
+            self._sync_install_all_button()
+            ConfirmOverlay.show_message(
+                self, self.tr("Nothing to install"),
+                self.tr("No mod on this page has a main file of 100 MB or less."))
+            return
+
+        self._install_all_confirming = True
+        self._sync_install_all_button()
+        count = len(candidates)
+        body = self.tr(
+            "Install the newest main file for {0} mod(s)? Files over 100 MB, "
+            "and mods without a main file are skipped. A download is stopped "
+            "if its actual size exceeds the limit."
+        ).format(count)
+        if skipped:
+            body += " " + self.tr("{0} mod(s) will be skipped.").format(len(skipped))
+        items = []
+        for entry, file, size in candidates:
+            size_label = (self.tr("{0:.1f} MB").format(size / (1024 * 1024))
+                          if size > 0 else self.tr("size unknown; 100 MB limit"))
+            items.append(self.tr("Install: {0} — {1} ({2})").format(
+                entry.name or f"Mod {entry.mod_id}",
+                file.name or file.file_name or f"File {file.file_id}",
+                size_label))
+        items.extend(self.tr("Skip: {0} — {1}").format(name, reason)
+                     for name, reason in skipped)
+
+        def confirmed(ok):
+            self._install_all_confirming = False
+            if (not ok
+                    or plan.get("generation") != self._install_all_generation):
+                if not ok:
+                    self._log("Nexus: Install all cancelled.")
+                self._sync_install_all_button()
+                return
+            self._begin_install_all(plan)
+
+        ConfirmOverlay.show_over(
+            self, self.tr("Install all mods"), body, confirmed,
+            confirm_label=self.tr("Install all"), danger=False,
+            list_items=items)
+
+    def _begin_install_all(self, plan):
+        current_game = getattr(self._game, "name", "") or ""
+        if current_game != plan.get("game_name", ""):
+            self._log("Nexus: Install all cancelled because the game changed.")
+            self._sync_install_all_button()
+            return
+        if self._fetch_token != plan.get("page_token"):
+            self._log("Nexus: Install all cancelled because the page changed.")
+            self._sync_install_all_button()
+            return
+        candidates = list(plan.get("candidates") or [])
+        self._install_all_queue = [(entry, file) for entry, file, _size in candidates]
+        self._install_all_total = len(candidates)
+        self._install_all_done = 0
+        self._install_all_succeeded = 0
+        self._install_all_failed = 0
+        self._install_all_skipped = len(plan.get("skipped") or [])
+        self._install_all_aborted = False
+        self._install_all_game = current_game
+        self._log(f"Nexus: Install all starting {len(candidates)} download(s).")
+        self._pump_install_all()
+
+    def _pump_install_all(self):
+        if self._install_all_aborted:
+            if not self._install_all_active:
+                self._finish_install_all()
+            return
+        current_game = getattr(self._game, "name", "") or ""
+        if current_game != getattr(self, "_install_all_game", current_game):
+            self._abort_install_all_for_game_change()
+            return
+        while (self._install_all_queue
+               and len(self._install_all_active) < INSTALL_ALL_CONCURRENCY):
+            entry, file = self._install_all_queue.pop(0)
+            try:
+                key = self._start_download(
+                    entry, file, max_size_bytes=INSTALL_ALL_MAX_BYTES)
+                self._install_all_active.add(key)
+            except Exception as exc:
+                self._install_all_done += 1
+                self._install_all_failed += 1
+                self._log(f"Nexus: Install all could not start "
+                          f"{entry.name or entry.mod_id}: {exc}")
+        self._sync_install_all_button()
+        if not self._install_all_queue and not self._install_all_active:
+            self._finish_install_all()
+
+    def _abort_install_all_for_game_change(self):
+        self._abort_install_all("the game changed")
+
+    def _abort_install_all(self, reason: str):
+        self._install_all_generation += 1
+        was_running = bool(
+            self._install_all_preparing or self._install_all_confirming
+            or self._install_all_queue or self._install_all_active)
+        self._install_all_preparing = False
+        self._install_all_confirming = False
+        self._install_all_queue.clear()
+        self._install_all_aborted = was_running
+        for key in self._install_all_active:
+            cancel = self._download_cancels.get(key)
+            if cancel is not None:
+                cancel.set()
+        if was_running:
+            self._log(f"Nexus: Install all cancelled because {reason}.")
+        if not self._install_all_active:
+            self._finish_install_all()
+
+    def _finish_install_all(self):
+        total = self._install_all_total
+        succeeded = self._install_all_succeeded
+        failed = self._install_all_failed
+        skipped = self._install_all_skipped
+        aborted = self._install_all_aborted
+        self._install_all_queue.clear()
+        self._install_all_active.clear()
+        self._install_all_total = 0
+        self._install_all_done = 0
+        self._install_all_succeeded = 0
+        self._install_all_failed = 0
+        self._install_all_skipped = 0
+        self._install_all_aborted = False
+        if total and not aborted:
+            self._log(f"Nexus: Install all finished: {succeeded} downloaded, "
+                      f"{failed} failed, {skipped} skipped.")
+        self._sync_install_all_button()
+
     def _premium_install_allowed(self) -> bool:
         premium = bool(self._api.validate().is_premium)
         if premium:
@@ -1866,17 +2179,31 @@ class NexusBrowserView(QWidget):
         else:
             self._start_download(entry, picks[0])
 
-    def _start_download(self, entry, file):
+    def _start_download(self, entry, file, *, max_size_bytes: int = 0):
         domain = getattr(entry, "domain_name", "") or self._domain
         name = entry.name or f"Mod {entry.mod_id}"
         dl_label = file.file_name or name
+        game_name = getattr(self._game, "name", "") or ""
         self._dl_seq += 1
         dl_key = f"nxb-{self._dl_seq}"
         self._log(f"Nexus: downloading {dl_label}…")
         cancel = threading.Event()
+        too_large = threading.Event()
+        self._download_cancels[dl_key] = cancel
+        self._download_games[dl_key] = game_name
+        self._download_oversize[dl_key] = too_large
         # Show the popup immediately (indeterminate) so there's feedback even
         # before the first progress callback arrives.
         self._progress_fn(dl_key, dl_label, 0, 0, cancel.set)
+
+        def report_progress(downloaded, total):
+            if (max_size_bytes > 0
+                    and max(int(downloaded or 0), int(total or 0)) > max_size_bytes):
+                too_large.set()
+                cancel.set()
+                return
+            safe_emit(self._download_progress, dl_key, dl_label,
+                      int(downloaded), int(total))
 
         def worker():
             archive = None
@@ -1886,31 +2213,43 @@ class NexusBrowserView(QWidget):
                 from Utils.config_paths import get_download_cache_dir_for_game
                 # Download into the per-game CACHE folder (the Downloads tab
                 # scans this), matching the Tk Nexus browser - NOT ~/Downloads.
-                dest = get_download_cache_dir_for_game(
-                    getattr(self._game, "name", "") or "")
-                size = (file.size_in_bytes or 0) or (file.size_kb * 1024)
+                dest = get_download_cache_dir_for_game(game_name)
+                size = _file_size_bytes(file)
                 result = NexusDownloader(self._api, download_dir=dest).download_file(
                     game_domain=domain, mod_id=entry.mod_id, file_id=file.file_id,
                     dest_dir=dest, known_file_name=file.file_name,
                     expected_size_bytes=size,
-                    progress_cb=lambda d, t: safe_emit(
-                        self._download_progress, dl_key, dl_label, int(d), int(t)),
+                    progress_cb=report_progress,
                     cancel=cancel)
                 if result.success and result.file_path is not None:
-                    archive = str(result.file_path)
+                    actual_size = int(result.bytes_downloaded or 0)
+                    try:
+                        actual_size = max(actual_size, result.file_path.stat().st_size)
+                    except OSError:
+                        pass
+                    if max_size_bytes > 0 and actual_size > max_size_bytes:
+                        too_large.set()
+                        self._log(f"Nexus: Install all skipped {name}: the "
+                                  "cached archive is over 100 MB.")
+                    else:
+                        archive = str(result.file_path)
                     # Build the meta from the KNOWN mod_id/file_id (the archive
                     # name can mis-parse), like the Tk browser - so the installed
                     # meta.ini records the right id and Reinstall detection works.
-                    try:
-                        from Nexus.nexus_meta import build_meta_from_download
-                        meta = build_meta_from_download(
-                            game_domain=domain, mod_id=entry.mod_id,
-                            file_id=file.file_id, archive_name=result.file_name,
-                            mod_info=entry, file_info=file)
-                    except Exception:
-                        meta = None
+                    if archive:
+                        try:
+                            from Nexus.nexus_meta import build_meta_from_download
+                            meta = build_meta_from_download(
+                                game_domain=domain, mod_id=entry.mod_id,
+                                file_id=file.file_id, archive_name=result.file_name,
+                                mod_info=entry, file_info=file)
+                        except Exception:
+                            meta = None
                 else:
-                    if "cancel" in (result.error or "").lower():
+                    if too_large.is_set():
+                        self._log(f"Nexus: Install all skipped {name}: the "
+                                  "download reported a size over 100 MB.")
+                    elif "cancel" in (result.error or "").lower():
                         self._log("Nexus: download cancelled.")
                     else:
                         self._log(f"Nexus: download failed: "
@@ -1925,6 +2264,7 @@ class NexusBrowserView(QWidget):
         # while this one downloads/installs (installs serialise in the app's
         # pending-install queue).
         self._installing = False
+        return dl_key
 
     def _on_download_progress(self, key, name, downloaded, total):
         """UI thread: forward download bytes to its notification progress item."""
@@ -1935,8 +2275,35 @@ class NexusBrowserView(QWidget):
         app's install queue."""
         # Hide this download's card (the install queue shows its own progress).
         self._progress_fn(dl_key, "", 0, -1)
+        cancel = self._download_cancels.pop(dl_key, None)
+        was_cancelled = bool(cancel is not None and cancel.is_set())
+        download_game = self._download_games.pop(dl_key, "")
+        oversize = self._download_oversize.pop(dl_key, None)
+        was_oversize = bool(oversize is not None and oversize.is_set())
+        current_game = getattr(self._game, "name", "") or ""
+        game_changed = bool(download_game and current_game != download_game)
+        is_bulk = dl_key in self._install_all_active
+        if is_bulk:
+            self._install_all_active.discard(dl_key)
+            self._install_all_done += 1
+            if archive and not game_changed:
+                self._install_all_succeeded += 1
+            elif was_oversize:
+                self._install_all_skipped += 1
+            else:
+                self._install_all_failed += 1
+            if (was_cancelled and not was_oversize and not game_changed
+                    and not self._install_all_aborted):
+                self._abort_install_all("a bulk download was cancelled")
         if not archive:
-            return
-        self._log(f"Nexus: downloaded → {archive}"
-                  f"{'' if self._download_only() else '; installing…'}")
-        self._install_fn([archive], {archive: meta} if meta is not None else None)
+            pass
+        elif game_changed:
+            self._log(f"Nexus: downloaded → {archive}; kept in the "
+                      "original game's cache because the active game changed.")
+        else:
+            self._log(f"Nexus: downloaded → {archive}"
+                      f"{'' if self._download_only() else '; installing…'}")
+            self._install_fn(
+                [archive], {archive: meta} if meta is not None else None)
+        if is_bulk:
+            QTimer.singleShot(0, self._pump_install_all)

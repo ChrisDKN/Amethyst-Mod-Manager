@@ -120,22 +120,22 @@ class ResidentEvilRequiem(ProfileVFSGameMixin, BaseGame):
     @property
     def custom_routing_rules(self) -> list[CustomRule]:
         return [
-            CustomRule(
+            CustomRule(rule_id='resident_evil_requiem:9328ff928a2e',
                 dest="",
                 filenames=["dinput8.dll"],
                 flatten=True,
             ),
-            CustomRule(
+            CustomRule(rule_id='resident_evil_requiem:752aa4de93bc',
                 dest="pak_mods",
                 extensions=[".pak"],
                 flatten=True,
             ),
-            CustomRule(
+            CustomRule(rule_id='resident_evil_requiem:3abb1861763f',
                 dest="pak_mods",
                 extensions=[".patch_metadata.json"],
                 flatten=True,
             ),
-            CustomRule(
+            CustomRule(rule_id='resident_evil_requiem:824c6f181c56',
                 dest="reframework/autorun",
                 extensions=[".lua"],
                 flatten=True,
@@ -225,7 +225,7 @@ class ResidentEvilRequiem(ProfileVFSGameMixin, BaseGame):
         per_mod_modes = expand_separator_link_modes(_sep_deploy, _sep_entries) or None
         per_mod_raw = expand_separator_raw_deploy(_sep_deploy, _sep_entries) or None
 
-        custom_rules = self.custom_routing_rules
+        custom_rules = self.effective_custom_routing_rules
         custom_exclude: set[str] = set()
         if custom_rules:
             _log("Step 1: Routing .pak files to pak_mods/ ...")
@@ -238,6 +238,7 @@ class ResidentEvilRequiem(ProfileVFSGameMixin, BaseGame):
                 per_mod_link_modes=per_mod_modes,
                 raw_mods=per_mod_raw,
                 log_fn=_log,
+                prefix_root=self.get_prefix_path(),
             )
 
         _log(f"Step 2: Deploying mod files to game root ({mode.name}), backing up any overwritten vanilla files ...")
@@ -265,15 +266,14 @@ class ResidentEvilRequiem(ProfileVFSGameMixin, BaseGame):
         _entries = read_modlist(_profile_dir / "modlist.txt") if _profile_dir else []
         cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log, game=self)
 
-        custom_rules = self.custom_routing_rules
-        if custom_rules:
-            _log("Restore: removing pak_mods/ custom-deployed files ...")
-            restore_custom_rules(
-                self.get_effective_filemap_path(),
-                self._game_path,
-                rules=custom_rules,
-                log_fn=_log,
-            )
+        _log("Restore: removing pak_mods/ custom-deployed files ...")
+        restore_custom_rules(
+            self.get_effective_filemap_path(),
+            self._game_path,
+            rules=[],
+            log_fn=_log,
+            prefix_root=self.get_prefix_path(),
+        )
 
         from Utils.vfs import cleanup_deployment, has_deployment_state
         if has_deployment_state(self):

@@ -17,6 +17,7 @@ subdir('fomod')
 subdir('games')
 subdir('github')
 subdir('launchers')
+subdir('loverslab')
 subdir('mo2')
 subdir('mods')
 subdir('npc')
@@ -33,6 +34,7 @@ subdir('vfs')
 subdir('wine')
 subdir('witcher3')
 subdir('wizards')
+subdir('wabbajack')
 
 py.install_sources(
   '__init__.py',

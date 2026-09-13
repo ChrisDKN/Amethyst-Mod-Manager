@@ -438,9 +438,9 @@ def reset_collection_load_order(profile_dir: Path, manifest: dict,
     already in loadorder.txt are preserved above the collection's plugins.
 
     When *game* is provided the plugin write reuses the install path's
-    ``_write_collection_plugins`` (build filemap → recover staged-but-unlisted
-    plugins → LOOT sort) so the reset matches a subsequent manual sort instead of
-    dropping unlisted plugins and writing the raw manifest order.
+    ``_write_collection_plugins`` (build filemap → apply the manifest's enabled
+    state to collection-owned plugins → LOOT sort) so the reset matches a
+    subsequent manual sort without enabling unselected plugin variants.
 
     *amethyst_state* (from ``Utils.collections.install.load_amethyst_reset_data``)
     switches the reset to the EXACT exported profile: the archived modlist.txt
@@ -514,9 +514,9 @@ def reset_collection_load_order(profile_dir: Path, manifest: dict,
 
     # Re-write plugins.txt and loadorder.txt.
     schema_plugins: list = manifest.get("plugins", [])
-    if schema_plugins and game is not None:
+    if isinstance(manifest.get("plugins"), list) and game is not None:
         # Reuse the install path: build the filemap for the just-written modlist
-        # so LOOT (and staged-plugin recovery) see the true conflict winners,
+        # so LOOT and collection plugin-state recovery see the true winners,
         # then LOOT-sort exactly as a fresh install / manual sort would. This
         # keeps the reset from dropping unlisted plugins or writing the raw
         # (unsorted) manifest order - see project_qt_collection_loot_sort.
@@ -597,11 +597,11 @@ def _reset_from_amethyst(profile_dir: Path, manifest: dict, amethyst_state,
     stats = _apply_amethyst_profile_state(
         profile_dir, profile_dir / "modlist.txt", amethyst_state, log)
 
-    if manifest.get("plugins") and game is not None:
+    if isinstance(manifest.get("plugins"), list) and game is not None:
         try:
-            # Filemap rebuild feeds the phantom-plugin filter and the
-            # staged-but-unlisted recovery in _write_collection_plugins (the
-            # LOOT sort itself is skipped by the exported order).
+            # Filemap rebuild feeds the phantom-plugin filter and collection
+            # member-state recovery (the LOOT sort itself is skipped by the
+            # exported order).
             try:
                 from Utils.filegraph.service import FileGraphService
                 _library = FileGraphService.open_library(

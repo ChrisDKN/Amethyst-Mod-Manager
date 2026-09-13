@@ -77,9 +77,9 @@ class EnderalSE(Fallout_3):
     def custom_routing_rules(self) -> list:
         from Utils.deployment import CustomRule
         return [
-            CustomRule(dest="", filenames=["skse64_loader.exe"], flatten=True, loose_only=True),
-            CustomRule(dest="", filenames=["skse64*.dll"], flatten=True, loose_only=True),
-            CustomRule(dest="", folders=["Data"], flatten=True, loose_only=True),
+            CustomRule(rule_id='enderal_se:e772bb9074f3', dest="", filenames=["skse64_loader.exe"], flatten=True, loose_only=True),
+            CustomRule(rule_id='enderal_se:47e31b43f7e0', dest="", filenames=["skse64*.dll"], flatten=True, loose_only=True),
+            CustomRule(rule_id='enderal_se:42b2892ccb1f', dest="", folders=["Data"], flatten=True, loose_only=True),
             self._saves_routing_rule([".ess"]),
         ]
 

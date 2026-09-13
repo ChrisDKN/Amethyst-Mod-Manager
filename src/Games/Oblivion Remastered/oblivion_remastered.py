@@ -22,11 +22,17 @@ Plugins.txt is managed by the plugin panel (extensions: .esp, .esm).
 
 from __future__ import annotations
 
+import filecmp
+import os
+import shutil
+import tempfile
 from pathlib import Path
 
 from Games.ue5_game import UE5Game, UE5Rule
+from Games.Bethesda.bethesda_ini import _read_ini_key, _set_ini_key
 from Utils.deployment import CustomRule, LinkMode
 from Utils.config_paths import get_profiles_dir
+from Utils.atomic_write import write_atomic
 
 # Plugins.txt lives here inside the game root (OblivionRemastered/)
 _PLUGINS_TXT_GAME_REL = Path("Content/Dev/ObvData/Data/Plugins.txt")
@@ -38,6 +44,8 @@ _GAME_SUBDIR = "OblivionRemastered"
 
 
 class OblivionRemastered(UE5Game):
+
+    supports_script_extender_swap = False
 
     vanilla_plugins = [
         "Oblivion.esm",
@@ -126,15 +134,144 @@ class OblivionRemastered(UE5Game):
             }
 
     @property
+    def _script_extender_exe(self) -> str:
+        return "Binaries/Win64/obse64_loader.exe"
+
+    @property
     def wine_dll_overrides(self) -> dict[str, str]:
         return {"dwmapi": "native,builtin", "winmm": "native,builtin"}
 
     @property
-    def preferred_launch_exe(self) -> str:
-        # obse64_loader.exe must be launched to play with mods active, but
-        # replacing OblivionRemastered.exe with it causes errors.  When OBSE
-        # is installed we show it first in the dropdown as the launch exe.
-        return "Binaries/Win64/obse64_loader.exe"
+    def framework_launch_exes(self) -> dict[str, str]:
+        return {"Script Extender": self._script_extender_exe}
+
+    def get_launch_handoff(self, profile: str | None = None):
+        if self.vfs_launch_enabled:
+            return super().get_launch_handoff(profile)
+        paths = self._script_extender_paths()
+        if paths is None or not paths[0].is_file():
+            return None
+        from Utils.launchers.handoff import LaunchHandoff, LaunchHandoffField
+        command = (
+            "bash -c 'exec \"${@/OblivionRemastered.exe/"
+            "OblivionRemastered/Binaries/Win64/obse64_loader.exe}\"' "
+            "-- %command%"
+        )
+        return LaunchHandoff(
+            launcher_id="steam-obse64",
+            launcher_name="Steam",
+            instructions=(
+                "Open Properties → General and paste this into Launch Options."
+            ),
+            fields=(LaunchHandoffField("Launch Options", command),),
+            note=(
+                "Set this once to make Steam launch the deployed OBSE64 loader. "
+                "Amethyst's obse64_loader.exe Run entry launches it directly "
+                "and does not require this setting."
+            ),
+        )
+
+    def _script_extender_paths(self) -> tuple[Path, Path, Path] | None:
+        game_path = self.get_game_path()
+        if game_path is None:
+            return None
+        bin_dir = game_path / "Binaries" / "Win64"
+        runtime = bin_dir / "OblivionRemastered-Win64-Shipping.exe"
+        backup = runtime.with_name(runtime.stem + ".bak")
+        return bin_dir / "obse64_loader.exe", runtime, backup
+
+    def _script_extender_runtime_ini_path(self) -> Path | None:
+        game_path = self.get_game_path()
+        if game_path is None:
+            return None
+        from Utils.games.frameworks import resolve_file_ci
+        relative = Path("Binaries/Win64/OBSE/obse.ini")
+        return resolve_file_ci(game_path, relative) or game_path / relative
+
+    def _remove_script_extender_runtime_override(self, log_fn) -> None:
+        paths = self._script_extender_paths()
+        ini_path = self._script_extender_runtime_ini_path()
+        if paths is None or ini_path is None:
+            return
+        _loader, _runtime, backup = paths
+        if (not backup.is_file()
+                or _read_ini_key(
+                    ini_path, "Loader", "RuntimeName",
+                    case_insensitive=True) != backup.name):
+            return
+        if ini_path.is_symlink():
+            write_atomic(ini_path, ini_path.read_bytes())
+        _set_ini_key(ini_path, "Loader", "RuntimeName", None,
+                     case_insensitive=True)
+        log_fn("  Removed Amethyst RuntimeName from "
+               "Binaries/Win64/OBSE/obse.ini.")
+
+    def _materialize_script_extender_loader(self, log_fn=None) -> None:
+        _log = log_fn or (lambda _: None)
+        paths = self._script_extender_paths()
+        if paths is None or self.vfs_launch_enabled:
+            return
+        loader, _runtime, _backup = paths
+        if not loader.is_symlink():
+            return
+        if not loader.is_file():
+            raise FileNotFoundError(
+                f"OBSE64 loader symlink is broken: {loader}")
+        fd, temp_name = tempfile.mkstemp(
+            prefix=f".{loader.name}.amethyst-", dir=loader.parent)
+        os.close(fd)
+        temp_path = Path(temp_name)
+        try:
+            shutil.copy2(loader, temp_path)
+            os.replace(temp_path, loader)
+        finally:
+            temp_path.unlink(missing_ok=True)
+        _log("  Materialized Binaries/Win64/obse64_loader.exe so OBSE64 "
+             "resolves the game runtime from the deployed directory.")
+
+    def post_deploy(self, log_fn=None) -> None:
+        super().post_deploy(log_fn=log_fn)
+        try:
+            self._materialize_script_extender_loader(log_fn)
+        except Exception:
+            self.add_deploy_warning(
+                "OBSE64 could not be prepared as a real file in Binaries/Win64; "
+                "direct script-extender launch may fail. See the deploy log.")
+            raise
+
+    def _restore_launcher(self, log_fn=None) -> None:
+        _log = log_fn or (lambda _: None)
+        paths = self._script_extender_paths()
+        if paths is None:
+            return
+        loader, runtime, backup = paths
+        if not backup.is_file():
+            return
+        ini_path = self._script_extender_runtime_ini_path()
+        override_matches = (
+            _read_ini_key(
+                ini_path, "Loader", "RuntimeName", case_insensitive=True)
+            == backup.name
+            if ini_path is not None else False
+        )
+        try:
+            runtime_matches = (
+                runtime.is_file()
+                and loader.is_file()
+                and filecmp.cmp(runtime, loader, shallow=False)
+            )
+        except OSError:
+            runtime_matches = False
+        if not (override_matches or runtime_matches):
+            _log("  WARN: an existing Oblivion Remastered runtime backup was "
+                 "not created by Amethyst's legacy launcher swap; leaving it "
+                 "intact.")
+            return
+        self._remove_script_extender_runtime_override(_log)
+        if runtime.is_file() or runtime.is_symlink():
+            runtime.unlink()
+        backup.rename(runtime)
+        _log(f"  Restored {runtime.name} from {backup.name}.")
     
     @property
     def loot_masterlist_repo(self) -> str:
@@ -150,65 +287,65 @@ class OblivionRemastered(UE5Game):
     @property
     def custom_routing_rules(self) -> list[CustomRule]:
         return [
-            CustomRule(dest="Unused",
+            CustomRule(rule_id='oblivion_remastered:a29bfe0724f8', dest="Unused",
                         folders=["wingdk", "src", "True Oblivion.ini Merger"]),
 
-            CustomRule(dest="Unused", 
+            CustomRule(rule_id='oblivion_remastered:9263ebc4d543', dest="Unused",
                         filenames=["Altar.ini"],
                         flatten=True),
             
             # Required as our strip prefix rules do not apply to fomods
-            CustomRule(dest="", 
+            CustomRule(rule_id='oblivion_remastered:9ce48fc8b0c6', dest="",
                         folders=["Content", "Binaries"], 
                         flatten=True),
 
-            CustomRule(dest="Binaries/Win64", 
+            CustomRule(rule_id='oblivion_remastered:dda20ad01a5c', dest="Binaries/Win64",
                         filenames=["*obse64_*.*"],
                         flatten=True),
 
-            CustomRule(dest="Content/Paks", 
+            CustomRule(rule_id='oblivion_remastered:d3bf2f7c409b', dest="Content/Paks",
                         folders=["LogicMods"], 
                         flatten=True),
 
-            CustomRule(dest="Binaries/Win64",
+            CustomRule(rule_id='oblivion_remastered:b077042f79b7', dest="Binaries/Win64",
                         folders=["ue4ss", "obse", "GameSettings",
                                 "MadConfigs", "SkipMessages"],
                         flatten=True),
 
-            CustomRule(dest="Content/Paks/~mods", 
+            CustomRule(rule_id='oblivion_remastered:752aa4de93bc', dest="Content/Paks/~mods",
                         extensions=[".pak"],
                         companion_extensions=[".ucas", ".utoc"],
                         include_siblings=True),
 
-            CustomRule(dest="Binaries/Win64/ue4ss/Mods",
+            CustomRule(rule_id='oblivion_remastered:594071d285ce', dest="Binaries/Win64/ue4ss/Mods",
                         folders=["scripts", "dlls"], 
                         include_siblings=True),
         
-            CustomRule(dest="Binaries/Win64/ue4ss/Mods",
+            CustomRule(rule_id='oblivion_remastered:6b67352ff5e5', dest="Binaries/Win64/ue4ss/Mods",
                         filenames=["enabled.txt"], 
                         include_siblings=True),
 
-            CustomRule(dest="Binaries/Win64/ue4ss/Mods",
+            CustomRule(rule_id='oblivion_remastered:8351e32126f3', dest="Binaries/Win64/ue4ss/Mods",
                         filenames=["mods.txt"], 
                         flatten=True),
 
-            CustomRule(dest="Content/Dev/ObvData/Data",
+            CustomRule(rule_id='oblivion_remastered:669935429391', dest="Content/Dev/ObvData/Data",
                         extensions=[".esm", ".esp"], 
                         flatten=True),
 
-            CustomRule(dest="Content/Dev/ObvData/Data",
+            CustomRule(rule_id='oblivion_remastered:5acfe5b620ba', dest="Content/Dev/ObvData/Data",
                         folders=["MagicLoader", "bashtags","SyncMap","sound"], 
                         flatten=True),
 
-            CustomRule(dest="Content/Movies/Modern", 
+            CustomRule(rule_id='oblivion_remastered:83e3d5ba62a2', dest="Content/Movies/Modern",
                         extensions=[".bk2"],
                         flatten=True),
 
-            CustomRule(dest="Binaries/Win64/ue4ss/Mods",
+            CustomRule(rule_id='oblivion_remastered:b5431a066309', dest="Binaries/Win64/ue4ss/Mods",
                         folders=["shared", "NPCAppearanceManager"], 
                         flatten=True),
 
-            CustomRule(dest="Unused",
+            CustomRule(rule_id='oblivion_remastered:e29749d3df09', dest="Unused",
                         extensions=[".txt"], 
                         loose_only=True),
         ]
@@ -317,12 +454,14 @@ class OblivionRemastered(UE5Game):
 
     def restore(self, log_fn=None, progress_fn=None) -> None:
         from Utils.vfs import has_deployment_state
+        _log = log_fn or (lambda _: None)
         had_physical = self._ue5_deployed_manifest_path().is_file()
         was_vfs = (
             has_deployment_state(self)
             or self._vfs_external_manifest_path().exists()
             or self._vfs_prefix_context_path().exists()
         )
+        self._restore_launcher(_log)
         super().restore(log_fn=log_fn, progress_fn=progress_fn)
         if had_physical or not was_vfs:
-            self._remove_plugins_txt_symlink(log_fn or (lambda _: None))
+            self._remove_plugins_txt_symlink(_log)

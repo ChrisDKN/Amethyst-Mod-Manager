@@ -130,6 +130,9 @@ class ProfileVFSGameMixin:
         except Exception:
             return ""
 
+    def _vfs_direct_launch_exe(self) -> str:
+        return ""
+
     def get_vfs_launch_exe(self) -> Path | None:
         """Executable seen inside the active profile's private game view."""
         game_root = self.get_vfs_game_root()
@@ -142,6 +145,11 @@ class ProfileVFSGameMixin:
             if not relative:
                 return None
             return virtual_file_path(self, relative)
+
+        direct = self._vfs_direct_launch_exe()
+        candidate = _virtual_candidate(direct)
+        if candidate is not None:
+            return candidate
 
         extender = self._vfs_script_extender()
         candidate = _virtual_candidate(extender)
@@ -226,13 +234,17 @@ class ProfileVFSGameMixin:
             defaults = getattr(self, "default_launch_args", []) or []
         command.extend(str(arg) for arg in defaults if str(arg) not in command)
 
-        extender = self._vfs_script_extender()
-        if extender:
-            command = prefer_virtual_executable(self, command, extender)
+        direct = self._vfs_direct_launch_exe()
+        if direct and virtual_file(self, direct):
+            command = prefer_virtual_executable(self, command, direct)
         else:
-            preferred = getattr(self, "preferred_launch_exe", "") or ""
-            if preferred and virtual_file(self, preferred):
-                command = prefer_virtual_executable(self, command, preferred)
+            extender = self._vfs_script_extender()
+            if extender:
+                command = prefer_virtual_executable(self, command, extender)
+            else:
+                preferred = getattr(self, "preferred_launch_exe", "") or ""
+                if preferred and virtual_file(self, preferred):
+                    command = prefer_virtual_executable(self, command, preferred)
         return command
 
     def get_vfs_passthrough_command(self, vanilla_command: list[str]) -> list[str]:

@@ -21,43 +21,124 @@ on:
           wrong for dispatch runs whose ref is a branch name.
         type: string
         default: ""
+      source_ref:
+        description: Source ref to check out. Empty uses the caller's ref.
+        type: string
+        default: ""
+      warm_only:
+        description: Populate build caches without producing packages.
+        type: boolean
+        default: false
+      flatpak_builder_image:
+        description: Flatpak builder container override. Empty selects from the manifest.
+        type: string
+        default: ""
 
 jobs:
-  filegraph-native:
-    name: Filegraph native extension
+  filegraph-test:
+    name: Test Filegraph native extension
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref || github.ref }}
       - uses: dtolnay/rust-toolchain@stable
+      - name: Resolve Rust toolchain
+        id: rust
+        run: echo "version=$(rustc --version | sha256sum | cut -c1-12)" >> "$GITHUB_OUTPUT"
+      - name: Cache test dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: filegraph-test-v1-${{ runner.os }}-${{ steps.rust.outputs.version }}-${{ hashFiles('native/amethyst_filegraph/Cargo.lock') }}
+          restore-keys: filegraph-test-v1-${{ runner.os }}-
       - name: Test the required stable-ABI extension
         run: cargo test --locked --manifest-path native/amethyst_filegraph/Cargo.toml
+
+  filegraph-native:
+    name: Build Filegraph native extension
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref || github.ref }}
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Resolve Rust toolchain
+        id: rust
+        run: echo "version=$(rustc --version | sha256sum | cut -c1-12)" >> "$GITHUB_OUTPUT"
+      - name: Cache release dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            native/amethyst_filegraph/target/release
+          key: filegraph-release-v1-${{ runner.os }}-${{ steps.rust.outputs.version }}-${{ hashFiles('native/amethyst_filegraph/Cargo.lock') }}
+          restore-keys: filegraph-release-v1-${{ runner.os }}-
       - name: Build the required stable-ABI extension
         run: |
           cargo build --locked --release --manifest-path native/amethyst_filegraph/Cargo.toml
           cp native/amethyst_filegraph/target/release/libamethyst_filegraph.so src/amethyst_filegraph.abi3.so
       - uses: actions/upload-artifact@v4
+        if: ${{ !inputs.warm_only }}
         with:
           name: filegraph-native
           path: src/amethyst_filegraph.abi3.so
           if-no-files-found: error
           retention-days: 1
 
+  flatpak-image:
+    name: Resolve Flatpak builder image
+    if: ${{ inputs.build_flatpak }}
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.resolve.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref || github.ref }}
+      - name: Resolve image
+        id: resolve
+        shell: bash
+        env:
+          EXPLICIT_IMAGE: ${{ inputs.flatpak_builder_image }}
+        run: |
+          if [ -n "$EXPLICIT_IMAGE" ]; then
+            echo "image=$EXPLICIT_IMAGE" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          runtime=$(sed -n 's/^runtime-version: *"\{0,1\}\([^" ]*\)"\{0,1\}$/\1/p' flatpak/io.github.Amethyst.ModManager.yml)
+          case "$runtime" in
+            6.9|6.10)
+              image="ghcr.io/flathub-infra/flatpak-github-actions:kde-$runtime"
+              ;;
+            6.11)
+              image="ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-25.08"
+              ;;
+            *)
+              echo "Unsupported Flatpak runtime version: $runtime" >&2
+              exit 1
+              ;;
+          esac
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+
   # ────────────────────────────────────────────────────────────────────
-  # libloot must be built once per target Python ABI:
-  #   - Arch container (AppImage): Python 3.14 → cp314 .so
-  #   - KDE 6.9 runtime (Flatpak): Python 3.12 → cp312 .so
-  #     (freedesktop-sdk 24.08, which KDE 6.9 inherits, ships Python 3.12)
-  # Each is cached independently keyed on libloot HEAD + Python version.
+  # The AppImage needs a libloot build for Arch's target Python ABI. Flatpak
+  # builds its pinned libloot module inside flatpak-builder instead.
   # ────────────────────────────────────────────────────────────────────
   libloot-arch:
     name: libloot (Arch / cp314)
     if: ${{ inputs.build_appimage }}
     runs-on: ubuntu-latest
     container: ghcr.io/pkgforge-dev/archlinux:latest
-    outputs:
-      so-name: ${{ steps.detect.outputs.so-name }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref || github.ref }}
 
       - name: Install build dependencies
         run: |
@@ -79,58 +160,16 @@ jobs:
         uses: actions/cache@v4
         with:
           path: src/${{ steps.detect.outputs.so-name }}
-          key: libloot-${{ steps.detect.outputs.libloot-rev }}-${{ steps.detect.outputs.py-tag }}
+          key: libloot-v1-${{ steps.detect.outputs.libloot-rev }}-${{ steps.detect.outputs.py-tag }}-${{ hashFiles('src/LOOT/rebuild_libloot.sh') }}
 
       - name: Build extension
         if: steps.cache.outputs.cache-hit != 'true'
         run: bash src/LOOT/rebuild_libloot.sh
 
       - uses: actions/upload-artifact@v4
+        if: ${{ !inputs.warm_only }}
         with:
           name: libloot-cp314
-          path: src/loot.cpython-*-x86_64-linux-gnu.so
-          if-no-files-found: error
-          retention-days: 1
-
-  # libloot for Python 3.12 - needed by the Flatpak (KDE 6.9 runtime
-  # ships Python 3.12). Built on a plain Ubuntu runner with
-  # actions/setup-python because the Flathub container has no usable
-  # package manager and the Arch container ships Python 3.14.
-  libloot-flatpak:
-    name: libloot (KDE 6.9 / cp312)
-    if: ${{ inputs.build_flatpak }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Resolve libloot revision
-        id: detect
-        run: |
-          LIBLOOT_REV=$(git ls-remote https://github.com/loot/libloot.git HEAD | awk '{print substr($1,1,12)}')
-          PY_TAG=$(python3 -c 'import sys; print(f"cp{sys.version_info.major}{sys.version_info.minor}")')
-          SO_NAME="loot.cpython-${PY_TAG#cp}-x86_64-linux-gnu.so"
-          echo "libloot-rev=$LIBLOOT_REV" >> "$GITHUB_OUTPUT"
-          echo "py-tag=$PY_TAG"           >> "$GITHUB_OUTPUT"
-          echo "so-name=$SO_NAME"         >> "$GITHUB_OUTPUT"
-
-      - name: Cache built extension
-        id: cache
-        uses: actions/cache@v4
-        with:
-          path: src/${{ steps.detect.outputs.so-name }}
-          key: libloot-${{ steps.detect.outputs.libloot-rev }}-${{ steps.detect.outputs.py-tag }}
-
-      - name: Build extension
-        if: steps.cache.outputs.cache-hit != 'true'
-        run: bash src/LOOT/rebuild_libloot.sh
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: libloot-cp312
           path: src/loot.cpython-*-x86_64-linux-gnu.so
           if-no-files-found: error
           retention-days: 1
@@ -140,12 +179,14 @@ jobs:
   # ────────────────────────────────────────────────────────────────────
   appimage:
     name: AppImage
-    if: ${{ inputs.build_appimage }}
+    if: ${{ inputs.build_appimage && !inputs.warm_only }}
     needs: [libloot-arch, filegraph-native]
     runs-on: ubuntu-latest
     container: ghcr.io/pkgforge-dev/archlinux:latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref || github.ref }}
 
       # anylinux-setup-action downloads three helper scripts from
       # raw.githubusercontent.com using `wget --retry-connrefused`, which does
@@ -209,9 +250,11 @@ jobs:
           pacman -Syu --noconfirm \
               7zip \
               base-devel \
+              bubblewrap \
               freetype2 \
               git \
               jq \
+              libarchive \
               libx11 \
               libxrandr \
               libxss \
@@ -220,44 +263,19 @@ jobs:
               nss-mdns \
               nss-myhostname \
               patchelf \
+              pyside6 \
               pulseaudio \
               pulseaudio-alsa \
+              python-pip \
+              qt6-imageformats \
+              qt6-multimedia \
+              qt6-multimedia-ffmpeg \
+              qt6-wayland \
+              sudo \
               unzip \
               wget \
               xorg-server-xvfb \
               zsync
-
-      - name: Install build dependencies
-        run: |
-          # pyside6: the Qt GUI - installed as a system package (not pip)
-          # so quick-sharun traces the shared Qt libs and deploys their
-          # plugins. qt6-wayland: explicit because pyside6 doesn't hard-
-          # depend on it and quick-sharun only deploys wayland plugin dirs
-          # that exist on disk.
-          # qt6-imageformats: provides the extra image-format plugins that
-          # qt6-base omits - critically libqwebp.so. Nexus Mods serves its
-          # mod/collection thumbnails as WebP, so without this plugin
-          # QImage.fromData() returns null and the browser cards render
-          # blank. quick-sharun only deploys imageformats/*.so that exist
-          # on disk, so the plugin must be installed here to be bundled.
-          # qt6-multimedia + its FFmpeg backend provide Mod Files audio
-          # decoding and the multimedia plugin quick-sharun deploys.
-          # libarchive: bsdtar + libarchive.so.13 for fast extraction.
-          # sudo: needed for `sudo -u builder` makepkg invocation.
-          # (base-devel is already pulled in by the container-prep step.)
-          # zenity is bundled from zenity-rs-bin (static) by the PKGBUILD;
-          # not installed here.
-          pacman -Syu --noconfirm \
-              bubblewrap \
-              pyside6 \
-              qt6-wayland \
-              qt6-imageformats \
-              qt6-multimedia \
-              qt6-multimedia-ffmpeg \
-              python-pip \
-              libarchive \
-              wget \
-              sudo
 
       - name: Install debloated packages
         run: |
@@ -320,6 +338,7 @@ jobs:
           name: AmethystModManager-AppImage
           path: src/appimage/dist/*
           if-no-files-found: error
+          compression-level: 0
 
       # quick-sharun --test runs the AppImage under xvfb-run for 12s and fails
       # if it exits early. app_bootstrap dup2()s fd 2 into the config dir's
@@ -362,18 +381,16 @@ jobs:
         run: quick-sharun --test src/appimage/dist/*.AppImage
 
   # ────────────────────────────────────────────────────────────────────
-  # Flatpak bundle (KDE 6.9 runtime + PySide BaseApp).
-  # Pulls the cp312 libloot from libloot-flatpak into src/ (rebuild_libloot.sh's
-  # output location). The manifest also builds libloot itself into
-  # /app/lib/python*/site-packages, which is what the app imports.
+  # Flatpak bundle (matching KDE runtime + PySide BaseApp). libloot is built by
+  # the manifest and installed into /app/lib/python*/site-packages.
   # ────────────────────────────────────────────────────────────────────
   flatpak:
     name: Flatpak
-    if: ${{ inputs.build_flatpak }}
-    needs: [libloot-flatpak, filegraph-native]
+    if: ${{ inputs.build_flatpak && !inputs.warm_only }}
+    needs: [filegraph-native, flatpak-image]
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/flathub-infra/flatpak-github-actions:kde-6.9
+      image: ${{ needs.flatpak-image.outputs.image }}
       options: --privileged
     env:
       # Callers must pass `secrets: inherit` for these to be non-empty.
@@ -381,12 +398,8 @@ jobs:
       HAVE_GPG: ${{ secrets.FLATPAK_GPG_PRIVATE_KEY != '' }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Download libloot extension
-        uses: actions/download-artifact@v4
         with:
-          name: libloot-cp312
-          path: src/
+          ref: ${{ inputs.source_ref || github.ref }}
 
       - name: Download Filegraph extension
         uses: actions/download-artifact@v4
@@ -436,13 +449,13 @@ jobs:
       # the "No remote refs found for flathub" failure. The bundle is built in
       # the next step instead (the action doesn't expose --repo-url).
       - name: Build Flatpak (repo)
-        uses: flathub-infra/flatpak-github-actions/flatpak-builder@master
+        uses: flatpak/flatpak-github-actions/flatpak-builder@v6
         with:
           manifest-path: flatpak/io.github.Amethyst.ModManager.yml
           branch: ${{ steps.branch.outputs.name }}
           build-bundle: false
           repo-dir: repo
-          cache-key: flatpak-builder-${{ github.sha }}
+          cache-key: flatpak-builder-v2-${{ hashFiles('flatpak/io.github.Amethyst.ModManager.yml', 'flatpak/pypi-dependencies.yaml', 'flatpak/maturin.yaml', 'flatpak/Cargo.lock', 'flatpak/cargo-sources.json') }}
           upload-artifact: false
           # Empty when secrets aren't inherited → the action skips signing.
           gpg-sign: ${{ secrets.FLATPAK_GPG_KEY_ID }}
@@ -478,6 +491,7 @@ jobs:
           name: AmethystModManager-flatpak
           path: AmethystModManager.flatpak
           if-no-files-found: error
+          compression-level: 0
 
       # The raw OSTree repo for this build - consumed by release.yml's
       # publish-pages job, which merges it into the accumulated gh-pages repo.
@@ -486,3 +500,24 @@ jobs:
           name: AmethystModManager-flatpak-repo
           path: repo/
           if-no-files-found: error
+          compression-level: 0
+
+  flatpak-cache:
+    name: Warm Flatpak dependency cache
+    if: ${{ inputs.build_flatpak && inputs.warm_only }}
+    needs: [flatpak-image]
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ needs.flatpak-image.outputs.image }}
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref || github.ref }}
+      - name: Build dependency modules
+        uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          manifest-path: flatpak/io.github.Amethyst.ModManager.yml
+          stop-at-module: amethyst-mod-manager
+          cache-key: flatpak-builder-v2-${{ hashFiles('flatpak/io.github.Amethyst.ModManager.yml', 'flatpak/pypi-dependencies.yaml', 'flatpak/maturin.yaml', 'flatpak/Cargo.lock', 'flatpak/cargo-sources.json') }}
+          upload-artifact: false

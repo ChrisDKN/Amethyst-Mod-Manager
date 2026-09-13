@@ -10,6 +10,7 @@ so all user config must be written outside the app bundle.
 """
 
 import os
+import threading
 from pathlib import Path
 
 APP_NAME = "AmethystModManager"
@@ -187,6 +188,61 @@ def get_logs_dir() -> Path:
     return d
 
 
+LOG_RETENTION_DAYS = 7
+
+# Only files this app writes into the logs dir are ever pruned - a user may keep
+# unrelated notes or a hand-saved log in there, and an age sweep must not eat
+# them. Covers session logs (amethyst-<ts>-<pid>.log), faulthandler dumps
+# (amethyst-fault-<pid>.log) and the NXM handoff log plus its rotated .old.
+def _is_prunable_log(name: str) -> bool:
+    if name.startswith("amethyst-") and name.endswith(".log"):
+        return True
+    return name in ("nxm.log", "nxm.log.old")
+
+
+def prune_old_logs(max_age_days: int = LOG_RETENTION_DAYS,
+                   keep: "set[Path] | None" = None,
+                   log_fn=None) -> int:
+    """Delete app-written logs older than *max_age_days*; return how many went.
+
+    *keep* holds paths the caller still has open (the current session's log and
+    fault dump) - deleting those would silently break this session's logging,
+    and their mtime can look stale before the first line is written. Wholly
+    best-effort: a log dir we cannot read or a file we cannot unlink is not
+    worth failing startup over.
+    """
+    import time
+
+    if max_age_days <= 0:
+        return 0
+    keep = {Path(p).resolve() for p in (keep or ())}
+    cutoff = time.time() - max_age_days * 86400
+    removed = 0
+    try:
+        entries = list(get_logs_dir().iterdir())
+    except OSError:
+        return 0
+    for entry in entries:
+        try:
+            if not entry.is_file() or not _is_prunable_log(entry.name):
+                continue
+            if entry.resolve() in keep:
+                continue
+            if entry.stat().st_mtime >= cutoff:
+                continue
+            entry.unlink()
+            removed += 1
+        except OSError:
+            continue
+    if removed and log_fn is not None:
+        try:
+            log_fn(f"[log] removed {removed} log file(s) older than "
+                   f"{max_age_days} days")
+        except Exception:
+            pass
+    return removed
+
+
 def get_requirement_external_tool_mod_ids_path() -> Path:
     """Return the path to the cached requirement filter (external tool mod IDs).
 
@@ -309,6 +365,7 @@ def get_tools_dir() -> Path:
 
 
 _CACHE_ROOT_RESERVED: set[str] = set()
+_WABBAJACK_CACHE_LOCK = threading.Lock()
 
 
 def get_wine_prefixes_dir() -> Path:
@@ -386,6 +443,71 @@ def get_download_cache_dir_for_game(game_name: str | None) -> Path:
     d = root / game_name
     d.mkdir(parents=True, exist_ok=True)
     return d
+
+
+def get_wabbajack_cache_dir() -> Path:
+    import errno
+    import shutil
+    import tempfile
+    import uuid
+
+    target = get_download_cache_dir() / "wabbajack"
+    legacy = get_config_dir() / "wabbajack"
+    with _WABBAJACK_CACHE_LOCK:
+        if legacy.resolve() == target.resolve():
+            return target
+        if target.is_symlink() or legacy.is_symlink():
+            raise OSError("Wabbajack cache migration requires directories, not symbolic links")
+        if not legacy.exists():
+            return target
+        if not legacy.is_dir() or target.exists() and not target.is_dir():
+            raise OSError("Wabbajack cache path is occupied by a file")
+        if target.resolve().is_relative_to(legacy.resolve()):
+            raise OSError("The download cache cannot be inside the old Wabbajack cache")
+        if not target.exists():
+            try:
+                legacy.rename(target)
+                return target
+            except OSError as exc:
+                if exc.errno != errno.EXDEV:
+                    raise
+
+        def move(source, destination):
+            if source.is_symlink() or destination.is_symlink():
+                raise OSError(f"Cache migration encountered a symbolic link: {source}")
+            if destination.exists() and not (source.is_dir() and destination.is_dir()):
+                destination = destination.with_name(destination.name + ".migrated-" + uuid.uuid4().hex)
+            if source.is_dir():
+                destination.mkdir(parents=True, exist_ok=True)
+                for child in source.iterdir():
+                    move(child, destination / child.name)
+                source.rmdir()
+                return
+            if not source.is_file():
+                raise OSError(f"Cache migration encountered a special file: {source}")
+            try:
+                source.rename(destination)
+            except OSError as exc:
+                if exc.errno != errno.EXDEV:
+                    raise
+                fd, name = tempfile.mkstemp(prefix=".migrate-", dir=destination.parent)
+                os.close(fd)
+                temporary = Path(name)
+                try:
+                    shutil.copy2(source, temporary)
+                    with temporary.open("rb") as stream:
+                        os.fsync(stream.fileno())
+                    temporary.replace(destination)
+                    directory_fd = os.open(destination.parent, os.O_RDONLY | os.O_DIRECTORY)
+                    try:
+                        os.fsync(directory_fd)
+                    finally:
+                        os.close(directory_fd)
+                    source.unlink()
+                finally:
+                    temporary.unlink(missing_ok=True)
+        move(legacy, target)
+    return target
 
 
 def list_all_cache_dirs(active_game_name: str | None = None) -> list[Path]:

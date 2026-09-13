@@ -85,6 +85,9 @@ class FilterData:
     modified_mf_mods: set[str] = field(default_factory=set)
     category_names: dict[str, str] = field(default_factory=dict)        # mod -> cat
     author_names: dict[str, str] = field(default_factory=dict)          # mod -> uploader
+    source_locations: dict[str, frozenset[str]] = field(default_factory=dict)
+    nexus_mod_ids: dict[str, int] = field(default_factory=dict)
+    nexus_file_ids: dict[str, int] = field(default_factory=dict)
     # filetype membership is computed lazily from the index per query.
     filetype_counts: dict[str, int] = field(default_factory=dict)
     mod_filetypes: dict[str, set[str]] = field(default_factory=dict)    # mod -> {ext}
@@ -181,6 +184,7 @@ def search_hidden_rows(entries, query: str, data: "FilterData | None" = None) ->
     """Rows to HIDE for the modlist search box.
 
     Plain text matches the mod name (case-insensitive substring, Tk parity).
+    A numeric text query also exactly matches a Nexus mod ID or file ID.
     A whitespace-separated term starting with `!` is a filter token resolved
     against *data* (a live FilterData); `!.dds` = filetype, `!patches` = a
     category, `!update`/`!winning`/… = status keywords. All tokens AND with each
@@ -205,7 +209,18 @@ def search_hidden_rows(entries, query: str, data: "FilterData | None" = None) ->
 
     preds = [_token_predicate(tok, data) for tok in tokens]
     if needle:
-        preds.append(lambda e, _n=needle: _n in e.display_name.lower())
+        if needle.isdecimal():
+            mod_ids = data.nexus_mod_ids
+            file_ids = data.nexus_file_ids
+            preds.append(
+                lambda e, _n=needle: (
+                    _n in e.display_name.lower()
+                    or str(mod_ids.get(e.name, "")) == _n
+                    or str(file_ids.get(e.name, "")) == _n
+                )
+            )
+        else:
+            preds.append(lambda e, _n=needle: _n in e.display_name.lower())
 
     def _match(e) -> bool:
         return all(p(e) for p in preds)
@@ -505,6 +520,25 @@ def compute_hidden_rows(entries, state: dict, data: FilterData) -> set[int]:
             return (auths.get(e.name, "") or "") in exc_auth
         keep = _apply_exclude(entries, keep, _auth_ex)
 
+    # Step: source location. One mod may carry metadata for multiple services;
+    # those sources form a union, while an empty set belongs to "none".
+    sources = data.source_locations
+    inc_src = state.get("sources") or frozenset()
+    exc_src = state.get("sources_exclude") or frozenset()
+
+    def _mod_sources(e):
+        return sources.get(e.name) or frozenset(("none",))
+
+    if inc_src:
+        def _src_in(e):
+            return bool(_mod_sources(e) & inc_src)
+        keep = _apply_include(
+            entries, keep, _src_in,
+            lambda i: _sep_block_has(entries, i, _src_in))
+    if exc_src:
+        keep = _apply_exclude(
+            entries, keep, lambda e: bool(_mod_sources(e) & exc_src))
+
     # Step: filetype include/exclude.
     inc_ft = state.get("filetypes") or frozenset()
     exc_ft = state.get("filetypes_exclude") or frozenset()
@@ -570,6 +604,8 @@ def _any_active(state: dict) -> bool:
     if state.get("categories") or state.get("categories_exclude"):
         return True
     if state.get("authors") or state.get("authors_exclude"):
+        return True
+    if state.get("sources") or state.get("sources_exclude"):
         return True
     if state.get("filetypes") or state.get("filetypes_exclude"):
         return True

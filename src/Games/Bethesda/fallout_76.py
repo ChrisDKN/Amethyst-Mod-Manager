@@ -79,8 +79,8 @@ class Fallout_76(Fallout_3):
     def custom_routing_rules(self) -> list:
         from Utils.deployment import CustomRule
         return [
-            CustomRule(dest="", filenames=["dxgi.dll"], flatten=True),
-            CustomRule(dest="", folders=["Data"], flatten=True, loose_only=True),
+            CustomRule(rule_id='fallout_76:967f4eb0cbaa', dest="", filenames=["dxgi.dll"], flatten=True),
+            CustomRule(rule_id='fallout_76:42b2892ccb1f', dest="", folders=["Data"], flatten=True, loose_only=True),
             self._saves_routing_rule([".fos"]),
         ]
 
@@ -221,7 +221,7 @@ class Fallout_76(Fallout_3):
     )
 
     def _fo76_custom_ini_paths(self) -> list[Path]:
-        return [d / self._CUSTOM_INI_FILENAME
+        return [self._resolve_ini_path(d, self._CUSTOM_INI_FILENAME)
                 for d in {p.parent for p in self._get_archive_ini_paths()}]
 
     def apply_archive_invalidation(self, log_fn) -> None:

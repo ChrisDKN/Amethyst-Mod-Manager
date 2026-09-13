@@ -768,6 +768,12 @@ def build_qss(pal: dict | None = None) -> str:
         border-left: 1px solid {c('BORDER')};
         border-right: 1px solid {c('BORDER')};
     }}
+    /* Bottom mode: the bar sits under the body, so the dividing rule moves to
+       its top edge - a bottom border there would only hug the status bar. */
+    #HeaderBar[position="bottom"] {{
+        border-bottom: none;
+        border-top: 1px solid {c('BORDER')};
+    }}
     /* Dim caption above a tab's column header (Mod Files / Data / …). Palette-
        driven so it stays legible in light themes (was a hardcoded #aaa). */
     #HeaderCaption {{ color: {c('TEXT_DIM')}; }}
@@ -829,6 +835,8 @@ def build_qss(pal: dict | None = None) -> str:
     #IconButton:pressed {{ background: {c('ACCENT')}; }}
     /* Configure-Game form body + monospace path fields + buttons. */
     #FormBody {{ background: {c('BG_DEEP')}; }}
+    #FormScroll {{ background: {c('BG_DEEP')}; }}
+    #FormScroll > QWidget > QWidget {{ background: {c('BG_DEEP')}; }}
     /* The four bordered card panels in the Configure-Game view. */
     #ConfigPanel {{
         background: {c('BG_PANEL')};
@@ -836,6 +844,17 @@ def build_qss(pal: dict | None = None) -> str:
         border-radius: 8px;
     }}
     #ConfigPanel QLabel {{ background: transparent; }}
+    /* State pills on the location rows and the identity strip. The border and
+       text colour are set per-widget from the status tone; only the shared
+       ground lives here. */
+    #StatusChip {{ background: {c('BG_ROW')}; }}
+    /* Launcher picker under the game-install row - an inset strip so it reads
+       as part of that row rather than as a section of its own. */
+    #LauncherStrip {{
+        background: {c('BG_ROW')};
+        border: 1px solid {c('BORDER')};
+        border-radius: 5px;
+    }}
     #PathEdit {{
         background: {c('BG_ROW')};
         color: {c('TEXT_MAIN')};

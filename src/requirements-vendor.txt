@@ -18,3 +18,4 @@ bsdiff4
 cryptography==46.0.5
 SecretStorage==3.5.0
 certifi==2026.4.22
+xxhash==3.6.0

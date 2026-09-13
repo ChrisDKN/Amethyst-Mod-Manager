@@ -16,6 +16,7 @@ class Fallout_NV(Fallout_3):
 
     _archive_list_fix_name = "JIP LN NVSE"
     _archive_list_fix_path = "Data/NVSE/Plugins/jip_nvse.dll"
+    direct_play_requires_direct = True
 
     # MO2 fixes the base game, story DLC and preorder packs to the front in
     # this order. FalloutNV_lang.esp (when a localized build ships it) remains
@@ -133,6 +134,10 @@ class Fallout_NV(Fallout_3):
         return "FalloutNVLauncher.exe"
 
     @property
+    def direct_launch_exes(self) -> list[str]:
+        return ["FalloutNV.exe"]
+
+    @property
     def steam_id(self) -> str:
         return "22380"
 
@@ -155,11 +160,11 @@ class Fallout_NV(Fallout_3):
     def custom_routing_rules(self) -> list:
         from Utils.deployment import CustomRule
         return [
-            CustomRule(dest="", filenames=["nvse*.dll"], flatten=True, loose_only=True),
-            CustomRule(dest="", folders=["Data"], flatten=True, loose_only=True),
-            CustomRule(dest="", filenames=["nvse_loader.exe"], flatten=True, loose_only=True),
-            CustomRule(dest="", filenames=["nvse*.pdb"], flatten=True, loose_only=True),
-            CustomRule(dest="", filenames=["FNVpatch.exe"], flatten=True, loose_only=True),
+            CustomRule(rule_id='fallout_nv:fde4d860f961', dest="", filenames=["nvse*.dll"], flatten=True, loose_only=True),
+            CustomRule(rule_id='fallout_nv:42b2892ccb1f', dest="", folders=["Data"], flatten=True, loose_only=True),
+            CustomRule(rule_id='fallout_nv:4b0617be17c4', dest="", filenames=["nvse_loader.exe"], flatten=True, loose_only=True),
+            CustomRule(rule_id='fallout_nv:2c5a2dd0484d', dest="", filenames=["nvse*.pdb"], flatten=True, loose_only=True),
+            CustomRule(rule_id='fallout_nv:a280a808ee8e', dest="", filenames=["FNVpatch.exe"], flatten=True, loose_only=True),
             self._saves_routing_rule([".fos"]),
                 ]
 
@@ -201,6 +206,57 @@ class Fallout_NV(Fallout_3):
     @property
     def _script_extender_exe(self) -> str:
         return "nvse_loader.exe"
+
+    def _is_4gb_patched_exe(self, exe: Path) -> bool:
+        if exe.name.casefold() != "falloutnv.exe":
+            return False
+        try:
+            from Utils.bethesda.fnv4gb import inspect_exe
+            return inspect_exe(exe.parent)["state"] == "patched"
+        except (OSError, RuntimeError):
+            return False
+
+    @property
+    def direct_play_exe(self) -> str:
+        game_root = self.get_game_path()
+        if (game_root is not None
+                and self._is_4gb_patched_exe(game_root / "FalloutNV.exe")):
+            return "FalloutNV.exe"
+        return ""
+
+    def _vfs_direct_launch_exe(self) -> str:
+        try:
+            from Utils.vfs import virtual_file_path
+            exe = virtual_file_path(self, "FalloutNV.exe")
+        except (OSError, RuntimeError):
+            return ""
+        return "FalloutNV.exe" if (
+            exe is not None and self._is_4gb_patched_exe(exe)) else ""
+
+    def prepare_launch_environment_for_exe(
+            self, exe_path: Path, env: dict[str, str], log_fn=None) -> None:
+        app_ids = {env.get("STEAM_COMPAT_APP_ID"), env.get("SteamAppId")}
+        if ("22380" not in app_ids
+                or not self._is_4gb_patched_exe(Path(exe_path))):
+            return
+        env["PROTONFIXES_DISABLE"] = "1"
+        if log_fn is not None:
+            log_fn("Run EXE: disabled ProtonFixes for the 4GB-patched "
+                   "FalloutNV.exe launch.")
+
+    def swap_launcher(self, log_fn) -> None:
+        if self._game_path is not None:
+            try:
+                from Utils.bethesda.fnv4gb import inspect_exe
+                state = inspect_exe(self._game_path)["state"]
+            except (OSError, RuntimeError):
+                state = "unknown"
+            if state == "patched":
+                self._restore_launcher(log_fn)
+                log_fn("  Launcher swap skipped - the 4GB-patched FalloutNV.exe "
+                       "loads xNVSE directly.")
+                return
+        super().swap_launcher(log_fn)
 
     # -----------------------------------------------------------------------
     # Automatic 4GB patch on deploy
@@ -282,6 +338,7 @@ class Fallout_NV(Fallout_3):
         state = info["state"]
         if state == "patchable":
             variant = apply_4gb_patch(patch_root)
+            state = "patched"
             if self.vfs_launch_enabled:
                 (patch_root / BACKUP_NAME).unlink(missing_ok=True)
                 _log(f"4GB patch: added a virtual patched {EXE_NAME} "
@@ -293,6 +350,8 @@ class Fallout_NV(Fallout_3):
             _log(f"4GB patch: skipped - unrecognised {EXE_NAME} version "
                  f"(SHA-1 {info['hash']}). Verify game files, then use the "
                  f"4GB Patch wizard.")
+        if state == "patched" and not self.vfs_launch_enabled:
+            self._restore_launcher(_log)
         # "patched" / "missing" → nothing to do.
 
     # FalloutCustom.ini key/value set the TTW NVSE plugin expects (section, key,
@@ -354,8 +413,8 @@ class Fallout_NV(Fallout_3):
         # 2. Migrate INIs from the prefix → profile, without overwriting.
         for mygames in self._mygames_paths():
             for name in self._TTW_MIGRATE_INI_NAMES:
-                src = mygames / name
-                dst = ini_dir / name
+                src = self._resolve_ini_path(mygames, name)
+                dst = self._resolve_ini_path(ini_dir, name)
                 # Resolve through any symlink: a managed symlink already points
                 # back into a profile, so there's nothing to migrate.
                 if not src.exists() or src.is_symlink():
@@ -370,7 +429,7 @@ class Fallout_NV(Fallout_3):
                     _log(f"  WARN: could not migrate '{name}': {exc}")
 
         # 3. Create / update FalloutCustom.ini with the TTW values.
-        custom_ini = ini_dir / self._TTW_CUSTOM_INI_FILENAME
+        custom_ini = self._resolve_ini_path(ini_dir, self._TTW_CUSTOM_INI_FILENAME)
         for section, key, value in self._TTW_CUSTOM_INI_VALUES:
             _set_ini_key(custom_ini, section, key, value)
         _log(f"  Wrote TTW values to '{custom_ini.name}'.")

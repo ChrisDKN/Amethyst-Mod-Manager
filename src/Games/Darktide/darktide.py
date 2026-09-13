@@ -120,10 +120,10 @@ class Darktide(BaseGame):
     def custom_routing_rules(self) -> list:
         from Utils.deployment import CustomRule
         return [
-            CustomRule(dest="", folders=["binaries"], flatten=True),
-            CustomRule(dest="", folders=["bundle"], flatten=True),
-            CustomRule(dest="", folders=["tools"], flatten=True),
-            CustomRule(dest="", filenames=["toggle_darktide_mods.bat"], flatten=True),
+            CustomRule(rule_id='darktide:1e158d655074', dest="", folders=["binaries"], flatten=True),
+            CustomRule(rule_id='darktide:f06d7175ff61', dest="", folders=["bundle"], flatten=True),
+            CustomRule(rule_id='darktide:cf9f4db0b27d', dest="", folders=["tools"], flatten=True),
+            CustomRule(rule_id='darktide:42c5999f64a8', dest="", filenames=["toggle_darktide_mods.bat"], flatten=True),
         ]
 
     # -----------------------------------------------------------------------
@@ -232,7 +232,7 @@ class Darktide(BaseGame):
         per_mod_modes = expand_separator_link_modes(_sep_deploy, _sep_entries) or None
         per_mod_raw = expand_separator_raw_deploy(_sep_deploy, _sep_entries) or None
 
-        custom_rules = self.custom_routing_rules
+        custom_rules = self.effective_custom_routing_rules
         custom_exclude: set[str] = set()
         if custom_rules:
             _log("Step 0: Routing game-root files via custom rules ...")
@@ -246,6 +246,7 @@ class Darktide(BaseGame):
                 log_fn=_log,
                 progress_fn=progress_fn,
                 raw_mods=per_mod_raw,
+                prefix_root=self.get_prefix_path(),
             )
 
         _log(f"Step 1: Moving {mods_dir.name}/ → {core}/ ...")
@@ -299,14 +300,14 @@ class Darktide(BaseGame):
         _entries = read_modlist(_profile_dir / "modlist.txt") if _profile_dir else []
         cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log, game=self)
 
-        custom_rules = self.custom_routing_rules
-        if custom_rules and self._game_path:
+        if self._game_path:
             _log("Restore: removing custom-routed files ...")
             restore_custom_rules(
                 self.get_effective_filemap_path(),
                 self._game_path,
-                rules=custom_rules,
+                rules=[],
                 log_fn=_log,
+                prefix_root=self.get_prefix_path(),
             )
 
         if core_dir.is_dir():

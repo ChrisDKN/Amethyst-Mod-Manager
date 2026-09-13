@@ -1,13 +1,13 @@
 """Settings modal opened from the top-bar gear button.
 
 The settings UI is a dimmed, in-window modal rather than a detachable or
-panel-scoped tab. Seven tabs group the existing settings into Appearance,
-Downloads, General, Shortcuts, Paths, Advanced and About while keeping every
-setting's existing save-on-change behaviour.
+panel-scoped tab. Tabs group settings into Appearance, Downloads, Connections,
+General, Shortcuts, Paths, Advanced and About.
 
 Save-on-change: every control writes straight to amethyst.ini through the
 toolkit-free `Utils.ui.config` load_*/save_* helpers the moment it changes - there
-is no Save/Cancel button. Language and UI Scale take effect on restart; themes
+is no global Save/Cancel button. Connections explicitly validate and save
+credentials. Language and UI Scale take effect on restart; themes
 are applied to the running Qt application immediately.
 
 A curated subset of the Tk Settings panel (gui/status_bar.py `SettingsPanel`):
@@ -25,7 +25,13 @@ Layout contract for every section (see :meth:`_section`):
 
 so controls start at a common x down the whole page. The "?" marker is not a
 column - it rides inside each row's own layout, immediately after the widget it
-describes, which keeps it visibly attached to that option.
+describes, which keeps it visibly attached to that option. Slider rows are the
+exception: they reserve the marker's slot whether or not the row has help,
+because a stretching groove would otherwise come up short on help-bearing rows.
+
+Sliders fill their column rather than sitting at a fixed width, flanked by -/+
+step buttons and by labels naming each end of the range. Both end labels share
+one width so every groove starts and ends at the same x.
 
 Action buttons never sit between options: `_action_row` queues them into a
 per-section footer that `_finish_section` flushes at the bottom of the group.
@@ -33,7 +39,8 @@ per-section footer that `_finish_section` flushes at the bottom of the group.
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal, QRect, QRectF, QSize, QUrl
+from PySide6.QtCore import (
+    Qt, Signal, QRect, QRectF, QSize, QUrl, QT_TRANSLATE_NOOP)
 from PySide6.QtGui import QColor, QDesktopServices, QPainter, QPen
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QScrollArea, QFrame,
@@ -46,6 +53,7 @@ from gui_qt.help_marker import tip_text, make_help_marker, help_mark_qss
 from gui_qt.wheel_guard import no_wheel
 from gui_qt.flow_layout import FlowLayout, enable_height_for_width
 from gui_qt.overlay_base import OverlayBase
+from gui_qt.settings_connections import ConnectionsSettingsMixin
 from Utils.ui import config as uc
 
 CROWDIN_URL = "https://crowdin.com/project/amethyst-mod-manager"
@@ -141,7 +149,7 @@ class _ThemePreviewButton(QAbstractButton):
 
 
 # ---------------------------------------------------------------------------
-class SettingsView(OverlayBase):
+class SettingsView(ConnectionsSettingsMixin, OverlayBase):
     """Save-on-change settings presented as a single in-window modal."""
 
     CARD_W = 700
@@ -154,6 +162,7 @@ class SettingsView(OverlayBase):
     # pick_folder's callback fires on the portal WORKER thread; marshal the
     # (edit, save_fn, path) result to the GUI thread before touching a widget.
     _folder_picked = Signal(object)
+    _connection_result = Signal(str, int, str, object)
 
     # Stable width for the language selector within the common settings grid.
     COMBO_W = 180
@@ -200,6 +209,8 @@ class SettingsView(OverlayBase):
         self._add_tab(
             self.tr("Downloads"), self._build_archives,
             self._build_downloads, self._build_extraction)
+        self._connections_tab_index = self._tabs.count()
+        self._add_tab(self.tr("Connections"), self._build_connections)
         self._add_tab(self.tr("General"), self._build_general)
         self._add_tab(self.tr("Shortcuts"), self._build_shortcuts)
         self._add_tab(self.tr("Paths"), self._build_paths)
@@ -216,6 +227,10 @@ class SettingsView(OverlayBase):
     def show_over(cls, host, on_closed=None):
         top = host.window() if host is not None else None
         return cls(top or host, on_closed=on_closed)
+
+    def _finish(self, result=None):
+        self._close_connections()
+        super()._finish(result)
 
     def _build_toolbar(self, outer: QVBoxLayout) -> None:
         bar = QFrame()
@@ -305,6 +320,27 @@ class SettingsView(OverlayBase):
         QSlider#ScaleSlider::handle:horizontal:disabled,
         QSlider#ScaleSlider::sub-page:horizontal:disabled {{
             background: {c('TEXT_DIM')};
+        }}
+        QLabel#SliderEnd {{ color: {c('TEXT_DIM')}; font-size: 11px; }}
+        QPushButton#StepButton {{
+            background: {c('BG_HEADER')};
+            border: 1px solid {c('BORDER')};
+            border-radius: 4px;
+            color: {c('TEXT_MAIN')};
+            font-weight: 600;
+            padding: 0;
+        }}
+        QPushButton#StepButton:hover {{
+            border-color: {c('ACCENT')};
+            color: {c('ACCENT_HOV')};
+        }}
+        QPushButton#StepButton:pressed {{ background: {c('BG_DEEP')}; }}
+        /* At a limit the button stays in place but reads as spent, so the end
+           of the range is visible rather than a control that does nothing. */
+        QPushButton#StepButton:disabled {{
+            background: transparent;
+            border-color: {c('BORDER')};
+            color: {c('BORDER')};
         }}
         """
 
@@ -430,10 +466,11 @@ class SettingsView(OverlayBase):
 
     def _combo(self, grid: QGridLayout, label: str,
                pairs: list[tuple[str, str]], current_value: str,
-               save_fn) -> QComboBox:
+               save_fn, *, help: str | None = None) -> QComboBox:
         """`pairs` = [(display, value), ...]; selecting saves the value."""
         row = self._next_row(grid)
-        grid.addWidget(QLabel(label), row, self.COL_LABEL)
+        lbl = QLabel(label)
+        grid.addWidget(lbl, row, self.COL_LABEL)
         combo = QComboBox()
         values = [v for _d, v in pairs]
         for disp, _v in pairs:
@@ -444,35 +481,147 @@ class SettingsView(OverlayBase):
             lambda i: self._safe_save(save_fn, values[i]))
         no_wheel(combo)
         combo.setFixedWidth(self.COMBO_W)
-        grid.addWidget(combo, row, self.COL_CTRL, Qt.AlignLeft)
+        if help:
+            wrap = QHBoxLayout()
+            wrap.setContentsMargins(0, 0, 0, 0)
+            wrap.setSpacing(8)
+            wrap.addWidget(combo)
+            self._add_help(wrap, help, lbl, combo)
+            wrap.addStretch(1)
+            grid.addLayout(wrap, row, self.COL_CTRL)
+        else:
+            grid.addWidget(combo, row, self.COL_CTRL, Qt.AlignLeft)
         return combo
 
+    # Groove floor, so a narrow window or a translated label can't crush the
+    # slider to nothing once it is free to stretch.
+    SLIDER_MIN_W = 160
+    # Square step buttons flanking the groove. 24px is a comfortable touch
+    # target on the Deck without out-weighing the slider itself.
+    STEP_BTN_W = 24
+    # Shared width for both range labels, so every groove on the page starts
+    # and ends at the same x. Sized for the widest end text in use
+    # ("Unlimited" at 51px), with room for a translation.
+    SLIDER_END_W = 58
+    # Reserved slot for a slider row's "?" marker, held whether or not the row
+    # has help, so every groove ends at the same x.
+    HELP_SLOT_W = 14
+
+    def _step_button(self, sld: QSlider, delta: int, tip: str) -> QPushButton:
+        """A -/+ button that nudges `sld` by one `singleStep` per click.
+
+        Stepping through singleStep() rather than a literal 1 is what keeps UI
+        Scale usable: it sets setSingleStep(5), so its buttons move 5% a click
+        instead of asking for fifty clicks to cross the range.
+
+        setValue emits valueChanged, so every readout, persist and (for UI
+        Scale) commit path already wired to the slider fires unchanged.
+        """
+        btn = QPushButton("−" if delta < 0 else "+")
+        btn.setObjectName("StepButton")
+        btn.setFixedSize(self.STEP_BTN_W, self.STEP_BTN_W)
+        btn.setToolTip(self._tip_text(tip))
+        btn.setAutoRepeat(True)
+        btn.setAutoRepeatDelay(400)
+        btn.setAutoRepeatInterval(90)
+        # Without NoFocus a click steals focus from the groove, which silently
+        # kills arrow-key adjustment part-way through a change.
+        btn.setFocusPolicy(Qt.NoFocus)
+        btn.setCursor(Qt.PointingHandCursor)
+        btn.clicked.connect(
+            lambda: sld.setValue(sld.value() + delta * sld.singleStep()))
+        return btn
+
     def _slider(self, grid: QGridLayout, label: str, lo: int, hi: int,
-                value: int, on_change, help: str | None = None) -> QSlider:
-        """Integer slider lo..hi with a live value label. `on_change(int)`."""
+                value: int, on_change, help: str | None = None,
+                fmt=None) -> QSlider:
+        """Integer slider lo..hi with a live value label. `on_change(int)`.
+
+        The groove stretches to fill the control column, flanked by -/+ step
+        buttons and by end labels naming the range. `fmt(int) -> str` formats
+        those end labels (and nothing else); without it they are the bare
+        numbers. Callers that display something other than the raw number
+        ("Unlimited", "All") pass their own formatter so the ends match the
+        readout.
+        """
         row = self._next_row(grid)
         lbl = QLabel(label)
         grid.addWidget(lbl, row, self.COL_LABEL)
         wrap = QHBoxLayout()
         wrap.setContentsMargins(0, 0, 0, 0)
         # Gap so a handle parked at maximum doesn't sit on top of the readout.
-        wrap.setSpacing(10)
+        wrap.setSpacing(8)
         sld = QSlider(Qt.Horizontal)
         sld.setMinimum(lo); sld.setMaximum(hi)
         sld.setValue(max(lo, min(hi, value)))
-        sld.setFixedWidth(200)
+        # Elastic groove: the row's leftover width goes to the slider instead
+        # of to a trailing stretch, so it lands on the panel's right edge like
+        # the path rows do. A wider groove is also a finer one - the same range
+        # spread over more pixels roughly doubles the drag precision.
+        sld.setMinimumWidth(self.SLIDER_MIN_W)
+        sld.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         val_lbl = QLabel(str(sld.value()))
         # Fixed (not minimum) width: the readout text varies per slider
         # ("Unlimited", "All", "150%"), and a minimum width would let each one
-        # size itself, staggering the "?" markers that follow it.
+        # size itself, dragging the groove's right edge in and out as the value
+        # changes. Right-aligned so the digits sit against a common edge.
         val_lbl.setFixedWidth(68)
+        val_lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         sld.valueChanged.connect(lambda v: val_lbl.setText(str(v)))
         sld.valueChanged.connect(lambda v: on_change(v))
         no_wheel(sld)
-        wrap.addWidget(sld)
+
+        _fmt_end = fmt if fmt is not None else str
+        lo_lbl = QLabel(_fmt_end(lo))
+        hi_lbl = QLabel(_fmt_end(hi))
+        # One fixed width for both ends, shared across every slider on the
+        # page. End text varies wildly ("1" is 7px, "Unlimited" 51px), and
+        # letting each label self-size would start and end every groove at a
+        # different x - the staggering this row was meant to remove.
+        for end in (lo_lbl, hi_lbl):
+            end.setObjectName("SliderEnd")
+            end.setFixedWidth(self.SLIDER_END_W)
+        lo_lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        hi_lbl.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        minus = self._step_button(
+            sld, -1, self.tr("Decrease {0}").format(label))
+        plus = self._step_button(
+            sld, +1, self.tr("Increase {0}").format(label))
+        # Handed to callers that need to tune the pair - UI Scale switches
+        # autorepeat off, since each of its commits raises a restart prompt.
+        sld.setProperty("_step_buttons", [minus, plus])
+
+        # Grey the ends out at the limits so the range reads as finished
+        # rather than as a button that silently does nothing.
+        def _sync_steps(v: int, _m=minus, _p=plus, _s=sld):
+            _m.setEnabled(v > _s.minimum())
+            _p.setEnabled(v < _s.maximum())
+        sld.valueChanged.connect(_sync_steps)
+        _sync_steps(sld.value())
+
+        wrap.addWidget(lo_lbl)
+        wrap.addWidget(minus)
+        wrap.addWidget(sld, 1)
+        wrap.addWidget(plus)
+        wrap.addWidget(hi_lbl)
         wrap.addWidget(val_lbl)
-        self._add_help(wrap, help, lbl, sld)
-        wrap.addStretch(1)
+        # No trailing addStretch: the stretch would compete with the slider for
+        # the leftover width and the groove would barely grow.
+        #
+        # The "?" slot is reserved on every slider row, marker or not. Adding
+        # it only where help exists takes its width out of the groove, leaving
+        # help-bearing sliders visibly shorter than their neighbours.
+        mark_slot = QWidget()
+        mark_slot.setFixedWidth(self.HELP_SLOT_W)
+        slot_row = QHBoxLayout(mark_slot)
+        slot_row.setContentsMargins(0, 0, 0, 0)
+        if help:
+            tip = self._tip_text(help)
+            for w in (lbl, sld):
+                w.setToolTip(tip)
+            slot_row.addWidget(self._help_marker(help))
+        slot_row.addStretch(1)
+        wrap.addWidget(mark_slot)
         holder = QWidget(); holder.setLayout(wrap)
         grid.addWidget(holder, row, self.COL_CTRL)
         return sld, val_lbl
@@ -553,15 +702,6 @@ class SettingsView(OverlayBase):
         g.addWidget(self._lang_combo, row, self.COL_CTRL, Qt.AlignLeft)
         self._populate_language_combo()
 
-        # Applies live. As a side bar the buttons are icon-only, with their
-        # labels as tooltips.
-        self._combo(
-            g, self.tr("Toolbar position"),
-            [(self.tr("Top"), "top"),
-             (self.tr("Left side"), "left"),
-             (self.tr("Right side"), "right")],
-            uc.load_header_position(), self._save_header_position)
-
         self._build_ui_scale(g)
 
         note = QLabel(self.tr(
@@ -580,6 +720,8 @@ class SettingsView(OverlayBase):
             button.setObjectName("FooterButton")
         self._finish_section(g)
 
+        self._build_top_bar_section()
+
         g = self._section(self.tr("Mod list"))
         self._checkbox(
             g, self.tr("Hide BSA conflicts"),
@@ -587,6 +729,13 @@ class SettingsView(OverlayBase):
             help=self.tr("Hide BSA/BA2 archive conflict flags (also skips that "
                  "conflict scan for a small speed-up)."),
             on_changed=lambda _v: self._rebuild_conflicts())
+
+        self._checkbox(
+            g, self.tr("Hide endorsed flag"),
+            uc.load_hide_endorsed_flag, uc.save_hide_endorsed_flag,
+            help=self.tr("Hide the endorsed icon from the mod list's Flags "
+                         "column."),
+            on_changed=self._apply_modlist_flag_visibility)
 
         # Read live by the modlist view on each hover, so persisting the value
         # is enough - no rebuild/refresh needed.
@@ -611,6 +760,112 @@ class SettingsView(OverlayBase):
             on_changed=lambda _v: self._apply_support_buttons())
 
         self._finish_section(g)
+
+    # Buttons the user may hide, as (config key, label). The game and profile
+    # selectors, Deploy, Restore, notifications and Settings are absent on
+    # purpose: without them the bar can't do its job, so they are not offered.
+    _HIDEABLE_HEADER_BUTTONS = (
+        ("install", QT_TRANSLATE_NOOP("SettingsView", "Install Mod")),
+        ("proton", QT_TRANSLATE_NOOP("SettingsView", "Proton")),
+        ("wizard", QT_TRANSLATE_NOOP("SettingsView", "Wizard")),
+        ("nexus", QT_TRANSLATE_NOOP("SettingsView", "Nexus")),
+        ("thunderstore", QT_TRANSLATE_NOOP("SettingsView", "Thunderstore")),
+        ("wabbajack", QT_TRANSLATE_NOOP("SettingsView", "Wabbajack")),
+    )
+
+    def _build_top_bar_section(self) -> None:
+        """Toolbar placement plus which of its buttons are shown."""
+        g = self._section(self.tr("Top bar"))
+
+        # Applies live. As a side bar the buttons are icon-only, with their
+        # labels as tooltips.
+        self._combo(
+            g, self.tr("Toolbar position"),
+            [(self.tr("Top"), "top"),
+             (self.tr("Bottom"), "bottom"),
+             (self.tr("Left side"), "left"),
+             (self.tr("Right side"), "right")],
+            uc.load_header_position(), self._save_header_position,
+            help=self.tr(
+                "Where the toolbar sits. As a side bar it is always icon-only, "
+                "with the labels shown as tooltips."))
+
+        self._checkbox(
+            g, self.tr("Always use compact (icon-only) buttons"),
+            uc.load_header_force_compact, uc.save_header_force_compact,
+            help=self.tr(
+                "Keep the top bar at its narrow sizes - buttons show icons "
+                "only and the game and profile selectors collapse - instead of "
+                "doing so only when the window is too narrow for the labels."),
+            on_changed=lambda _v: self._apply_header_force_compact())
+
+        # One checkbox per hideable button. Checked = hidden, matching the
+        # "Hide Ko-Fi button" phrasing already used by the Status bar section.
+        hidden = self._load_hidden_header_buttons()
+        row = self._next_row(g)
+        lbl = QLabel(self.tr("Hide buttons"))
+        boxes = QVBoxLayout()
+        boxes.setContentsMargins(0, 0, 0, 0)
+        boxes.setSpacing(6)
+        self._header_hide_boxes = {}
+        for key, label in self._HIDEABLE_HEADER_BUTTONS:
+            cb = QCheckBox(self.tr(label))
+            cb.setChecked(key in hidden)
+            cb.toggled.connect(
+                lambda _v, k=key: self._save_hidden_header_buttons())
+            self._header_hide_boxes[key] = cb
+            boxes.addWidget(cb)
+        # The "?" rides beside the LABEL, not the column of boxes: parked next
+        # to the boxes it centres itself against the whole stack and ends up
+        # stranded in mid-air, several rows from the thing it explains.
+        label_wrap = QHBoxLayout()
+        label_wrap.setContentsMargins(0, 0, 0, 0)
+        label_wrap.setSpacing(8)
+        label_wrap.addWidget(lbl)
+        self._add_help(label_wrap, self.tr(
+            "Buttons ticked here are removed from the toolbar. A button that "
+            "does not apply to the current game (Proton without a prefix, or a "
+            "store the game is not on) is hidden anyway."), lbl)
+        label_wrap.addStretch(1)
+        label_holder = QWidget(); label_holder.setLayout(label_wrap)
+        # Top-aligned so the label sits level with the first checkbox rather
+        # than centring itself against the whole column.
+        g.addWidget(label_holder, row, self.COL_LABEL, Qt.AlignTop)
+
+        holder = QWidget(); holder.setLayout(boxes)
+        g.addWidget(holder, row, self.COL_CTRL, Qt.AlignLeft | Qt.AlignTop)
+
+        self._finish_section(g)
+
+    def _load_hidden_header_buttons(self) -> set:
+        """The saved hide-set, empty if the config can't be read."""
+        try:
+            return set(uc.load_hidden_header_buttons())
+        except Exception:
+            return set()
+
+    def _save_hidden_header_buttons(self) -> None:
+        """Persist every hide checkbox as one set, then re-apply it live."""
+        hidden = {k for k, cb in self._header_hide_boxes.items()
+                  if cb.isChecked()}
+        self._safe_save(uc.save_hidden_header_buttons, hidden)
+        win = self._window
+        if win is not None and hasattr(win, "_apply_header_visibility"):
+            try:
+                win._apply_header_visibility()
+            except Exception:
+                import traceback
+                traceback.print_exc()
+
+    def _apply_header_force_compact(self) -> None:
+        """Ask the window to re-run the top bar's width staging."""
+        win = self._window
+        if win is not None and hasattr(win, "_apply_header_force_compact"):
+            try:
+                win._apply_header_force_compact()
+            except Exception:
+                import traceback
+                traceback.print_exc()
 
     def _open_crowdin(self) -> None:
         """Open the Amethyst Crowdin project in the user's browser."""
@@ -791,14 +1046,21 @@ class SettingsView(OverlayBase):
         self._scale_slider, self._scale_val_lbl = self._slider(
             g, self.tr("UI Scale"), 50, 200, pct, lambda _v: None,
             help=self.tr("Make the whole interface bigger or smaller. "
-               "Changes take effect after a restart."))
+               "Changes take effect after a restart."),
+            fmt=lambda v: f"{v}%")
         self._scale_slider.setObjectName("ScaleSlider")
-        self._scale_slider.setFixedWidth(self.COMBO_W)
+        # No width pin here: _slider lets the groove stretch, and re-pinning it
+        # to COMBO_W would make this the one narrow slider in the app.
         self._scale_val_lbl.setObjectName("ScaleValue")
         self._scale_val_lbl.setFixedWidth(
             self._scale_val_lbl.fontMetrics().horizontalAdvance("200%") + 4)
         self._scale_slider.setSingleStep(5)
         self._scale_slider.setPageStep(10)
+        # Each committed change here raises a restart prompt, so a held button
+        # would stack one prompt per 5% tick - the same pile-up isSliderDown()
+        # already prevents for drags. One click, one deliberate step.
+        for _btn in (self._scale_slider.property("_step_buttons") or []):
+            _btn.setAutoRepeat(False)
         self._scale_val_lbl.setText(f"{pct}%")
         # valueChanged fires on every tick - while dragging (isSliderDown()) it
         # only updates the label; a change that lands with the handle NOT held
@@ -932,7 +1194,9 @@ class SettingsView(OverlayBase):
             help=self.tr("Delete a mod's downloaded archive after it is extracted. "
                  "Only applies to archives Amethyst downloaded itself - installs "
                  "from the Install Mod button or the Downloads tab keep their "
-                 "archive."))
+                 "archive. Wabbajack installs also clear managed archives after "
+                 "their required files are verified and saved, and limit downloads "
+                 "waiting for extraction to reduce disk-space requirements."))
         self._checkbox(
             g, self.tr("Keep FOMOD archives"),
             uc.load_keep_fomod_archives, uc.save_keep_fomod_archives,
@@ -944,6 +1208,10 @@ class SettingsView(OverlayBase):
             help=self.tr("Newly installed mods start disabled in the modlist instead "
                  "of enabled. Applies to every install path except collection "
                  "installs."))
+        self._checkbox(
+            g, self.tr("Rename mod after install"),
+            uc.load_rename_mod_after_install, uc.save_rename_mod_after_install,
+            help=self.tr("Show a rename prompt after installing a mod."))
         self._finish_section(g)
 
     def _build_downloads(self):
@@ -954,18 +1222,34 @@ class SettingsView(OverlayBase):
             self._cs["max_concurrent"], self._save_max_concurrent)
 
         # Download speed limit - global cap shared by all download threads.
+        def _limit_text(v) -> str:
+            return (self.tr("Unlimited") if int(v) == 0 else
+                    self.tr("{0} MB/s").format(int(v)))
+
         lim_sld, lim_lbl = self._slider(
             g, self.tr("Download speed limit"), 0, 250,
             int(uc.load_download_speed_limit()), self._save_speed_limit,
             help=self.tr("Cap the combined download speed of all downloads "
                "(collections, single mods, nxm and modl links) so they don't use "
                "the whole connection. Applies immediately, including to a running "
-               "collection install."))
+               "collection install."),
+            fmt=_limit_text)
         def _fmt_limit(v, _lbl=lim_lbl):
-            _lbl.setText(self.tr("Unlimited") if int(v) == 0 else
-                         self.tr("{0} MB/s").format(int(v)))
+            _lbl.setText(_limit_text(v))
         lim_sld.valueChanged.connect(_fmt_limit)
         _fmt_limit(lim_sld.value())
+
+        self._nexus_server_combo = self._combo(
+            g, self.tr("Nexus download server"),
+            [(self.tr("Automatic"), ""), (self.tr("Global CDN"), "Nexus CDN")]
+            + [(self.tr("{0} (Premium)").format(server), server)
+               for server in uc.NEXUS_DOWNLOAD_SERVERS if server != "Nexus CDN"],
+            uc.load_nexus_download_server(), uc.save_nexus_download_server,
+            help=self.tr("Automatic follows your Nexus website preference. Regional "
+                 "servers require Nexus Premium. Applies to new or resumed Nexus "
+                 "downloads, including collections and Wabbajack. If the selected "
+                 "server is unavailable or fails, other available servers are tried. "
+                 "Pause and resume an active download to change its server."))
 
         self._checkbox(
             g, self.tr("Download only (don't install)"),
@@ -995,6 +1279,10 @@ class SettingsView(OverlayBase):
                "may be lower than set."))
 
         import os as _os
+
+        def _threads_text(v) -> str:
+            return self.tr("All") if int(v) == 0 else str(int(v))
+
         ext = uc.load_extraction_settings()
         thr_sld, thr_lbl = self._slider(
             g, self.tr("Extraction CPU threads"), 0, _os.cpu_count() or 8,
@@ -1002,9 +1290,10 @@ class SettingsView(OverlayBase):
             lambda v: self._safe_save(uc.save_extraction_cpu_threads, v),
             help=self.tr("CPU threads each extraction may use. 'All' is fastest; a "
                "lower value keeps the system responsive while large archives "
-               "extract."))
+               "extract."),
+            fmt=_threads_text)
         def _fmt_threads(v, _lbl=thr_lbl):
-            _lbl.setText(self.tr("All") if int(v) == 0 else str(v))
+            _lbl.setText(_threads_text(v))
         thr_sld.valueChanged.connect(_fmt_threads)
         _fmt_threads(thr_sld.value())
         self._checkbox(
@@ -1019,14 +1308,16 @@ class SettingsView(OverlayBase):
     def _build_general(self):
         g = self._section(self.tr("General"))
         self._checkbox(
+            g, self.tr("Discord Rich Presence"),
+            uc.load_discord_presence, uc.save_discord_presence,
+            help=self.tr("Show Amethyst and the game you are modding on your "
+                         "Discord profile while the Discord desktop app is running."),
+            on_changed=self._window._discord_presence.set_enabled)
+        self._checkbox(
             g, self.tr("Normalise folder casing"),
             uc.load_normalize_folder_case, uc.save_normalize_folder_case,
             help=self.tr("Unify folder names to a single casing across mods. Disable on "
                  "case-insensitive filesystems."))
-        self._checkbox(
-            g, self.tr("Rename mod after install"),
-            uc.load_rename_mod_after_install, uc.save_rename_mod_after_install,
-            help=self.tr("Show a rename prompt after installing a mod."))
         # Custom install-name rules - a full editor (opened as its own tab)
         # rather than a single control, so it goes in the section footer
         # instead of interrupting the run of checkboxes.
@@ -1496,6 +1787,12 @@ class SettingsView(OverlayBase):
                 win._rebuild_conflicts_async()
             except Exception:
                 pass
+
+    def _apply_modlist_flag_visibility(self, hidden: bool):
+        win = self._window
+        view = getattr(win, "_modlist_view", None) if win is not None else None
+        if view is not None and hasattr(view, "set_hide_endorsed_flag"):
+            view.set_hide_endorsed_flag(hidden)
 
     def _safe_save(self, save_fn, *args):
         try:

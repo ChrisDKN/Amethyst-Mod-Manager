@@ -1,0 +1,42 @@
+name: Warm build caches
+
+on:
+  schedule:
+    - cron: '0 4 * * 1'
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Branch or tag whose dependencies to cache (run this workflow from main)
+        type: string
+        default: Testing
+
+permissions:
+  contents: read
+
+concurrency:
+  group: warm-build-caches
+  cancel-in-progress: true
+
+jobs:
+  verify-cache-scope:
+    name: Verify cache scope
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require the default branch
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/$DEFAULT_BRANCH" ]; then
+            echo "Run this workflow from the default branch so release tags can restore its caches." >&2
+            exit 1
+          fi
+
+  warm:
+    name: Warm
+    needs: verify-cache-scope
+    uses: ./.github/workflows/build.yml
+    with:
+      build_appimage: true
+      build_flatpak: true
+      source_ref: ${{ inputs.source_ref || 'Testing' }}
+      warm_only: true

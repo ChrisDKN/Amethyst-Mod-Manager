@@ -1,10 +1,11 @@
 """Modlist model - QAbstractTableModel over the ModEntry list.
 
 Columns: Mod Name, Category, Flags, Conflicts, Installed, Version, Author,
-Priority, Size (the checkbox is painted into column 0 by the delegate). Fed by
-read_modlist; version / installed / flags / conflicts / authors are optional
-dicts keyed by mod name (blank when absent). Index 0 = highest priority; the Priority column shows a descending
-number (highest-priority row = largest value).
+Priority, Size, Nexus Mod ID, Nexus File ID (the checkbox is painted into
+column 0 by the delegate). Fed by read_modlist; metadata columns are backed by
+optional dicts keyed by mod name (blank when absent). Index 0 = highest
+priority; the Priority column shows a descending number (highest-priority row
+= largest value).
 """
 
 from __future__ import annotations
@@ -37,7 +38,8 @@ _PINNED_NAMES = _BOUNDARY_NAMES + (DIVIDER_NAME,)
 NEW_MOD_VERSION = "1.0"
 
 
-# Column indices. Order mirrors the Tk app: Category right after Name, Size last.
+# Column indices. Existing columns retain their logical positions; new optional
+# metadata columns are appended so saved layouts remain compatible.
 COL_NAME = 0
 COL_CATEGORY = 1
 COL_FLAGS = 2
@@ -47,8 +49,12 @@ COL_VERSION = 5
 COL_AUTHOR = 6
 COL_PRIORITY = 7
 COL_SIZE = 8
+COL_NEXUS_MOD_ID = 9
+COL_NEXUS_FILE_ID = 10
+COL_CONTENT = 11
 COLUMNS = ["Mod Name", "Category", "Flags", "Conflicts", "Installed",
-           "Version", "Author", "Priority", "Size"]
+           "Version", "Author", "Priority", "Size", "Nexus Mod ID",
+           "Nexus File ID", "Content"]
 
 # COLUMNS doubles as canonical persistence keys, so it must stay untranslated;
 # headerData() translates each label at display time via self.tr(COLUMNS[i]).
@@ -65,6 +71,9 @@ _COLUMN_TR_MARKERS = [
     QT_TRANSLATE_NOOP("ModListModel", "Author"),
     QT_TRANSLATE_NOOP("ModListModel", "Priority"),
     QT_TRANSLATE_NOOP("ModListModel", "Size"),
+    QT_TRANSLATE_NOOP("ModListModel", "Nexus Mod ID"),
+    QT_TRANSLATE_NOOP("ModListModel", "Nexus File ID"),
+    QT_TRANSLATE_NOOP("ModListModel", "Content"),
 ]
 
 # Custom roles for the delegate.
@@ -77,6 +86,7 @@ HighlightRole = Qt.UserRole + 6    # int: 0 none, 1 higher(green), -1 lower(red)
                                    #      2 anchor(orange, plugin-selected mod),
                                    #      3 requires(purple), -3 required-by(blue)
 UuidConflictRole = Qt.UserRole + 7  # int: BG3 pak module-UUID conflict code
+ContentRole = Qt.UserRole + 8      # tuple[(badge_id, from_archive), ...]
 
 _MIME = "application/x-amethyst-modrows"
 _ITEM_BASE = Qt.ItemIsEnabled | Qt.ItemIsSelectable
@@ -138,6 +148,12 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         self._sizes: dict[str, str] = {}
         # Raw byte counts backing the Size column sort.
         self._size_bytes: dict[str, int] = {}
+        self._nexus_mod_ids: dict[str, int] = {}
+        self._nexus_file_ids: dict[str, int] = {}
+        # Content badges per mod (Content column) as (badge_id, from_archive)
+        # tuples. Computed lazily - only when the Content column is visible -
+        # so a default-hidden Content column costs no backend query.
+        self._content: dict[str, tuple] = {}
         self._conflicts = conflicts or {}
         self._bsa_conflicts: dict[str, int] = {}
         self._uuid_conflicts: dict[str, int] = {}
@@ -283,8 +299,11 @@ class ModListModel(ModGrouping, QAbstractTableModel):
             "installed": self._installed,
             "authors": self._authors,
             "size_bytes": self._size_bytes,
+            "nexus_mod_ids": self._nexus_mod_ids,
+            "nexus_file_ids": self._nexus_file_ids,
             "flags": flags,
             "conflicts": self._conflicts,
+            "content": self._content,
         }
 
     def _derive_display(self) -> list[ModEntry]:
@@ -329,10 +348,11 @@ class ModListModel(ModGrouping, QAbstractTableModel):
     def set_meta(self, versions: dict[str, str], installed: dict[str, str],
                  categories: dict[str, str],
                  descriptions: "dict[str, str] | None" = None,
-                 authors: "dict[str, str] | None" = None) -> None:
-        """Set the meta.ini-derived per-mod dicts (Version / Installed /
-        Category / Author columns), repaint those columns, and re-sort if the
-        active sort reads them. The reload pushes entries first and applies the
+                 authors: "dict[str, str] | None" = None,
+                 nexus_mod_ids: "dict[str, int] | None" = None,
+                 nexus_file_ids: "dict[str, int] | None" = None) -> None:
+        """Set the meta.ini-derived column data, repaint it, and re-sort if the
+        active sort reads it. The reload pushes entries first and applies the
         meta async (reading one ini per mod is disk work).
 
         *descriptions* backs the name-column hover tooltip (no column repaint)."""
@@ -341,12 +361,27 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         self._categories = categories or {}
         self._descriptions = descriptions or {}
         self._authors = authors or {}
+        self._nexus_mod_ids = nexus_mod_ids or {}
+        self._nexus_file_ids = nexus_file_ids or {}
         if self._entries:
             self.dataChanged.emit(
                 self.index(0, COL_CATEGORY),
-                self.index(len(self._entries) - 1, COL_AUTHOR),
+                self.index(len(self._entries) - 1, COL_NEXUS_FILE_ID),
                 [Qt.DisplayRole])
-        self._resort_if_key("version", "installed", "category", "author")
+        self._resort_if_key(
+            "version", "installed", "category", "author",
+            "nexus_mod_id", "nexus_file_id")
+
+    def set_nexus_ids(self, mod_ids: dict[str, int],
+                      file_ids: dict[str, int]) -> None:
+        self._nexus_mod_ids = mod_ids or {}
+        self._nexus_file_ids = file_ids or {}
+        if self._entries:
+            self.dataChanged.emit(
+                self.index(0, COL_NEXUS_MOD_ID),
+                self.index(len(self._entries) - 1, COL_NEXUS_FILE_ID),
+                [Qt.DisplayRole])
+        self._resort_if_key("nexus_mod_id", "nexus_file_id")
 
     def set_version(self, name: str, version: str) -> None:
         version = (version or "").strip()
@@ -376,6 +411,16 @@ class ModListModel(ModGrouping, QAbstractTableModel):
                                   self.index(len(self._entries) - 1, COL_SIZE),
                                   [Qt.DisplayRole])
         self._resort_if_key("size")
+
+    def set_content(self, content: dict) -> None:
+        """Set per-mod content badges (Content column). Repaints just that
+        column - used when the user enables Content from the column menu."""
+        self._content = content or {}
+        if self._entries:
+            self.dataChanged.emit(self.index(0, COL_CONTENT),
+                                  self.index(len(self._entries) - 1, COL_CONTENT),
+                                  [ContentRole, Qt.DisplayRole])
+        self._resort_if_key("content")
 
     def set_flags(self, flags: dict[str, int]) -> None:
         self._flags = flags or {}
@@ -691,6 +736,31 @@ class ModListModel(ModGrouping, QAbstractTableModel):
             bits |= FLAG_RERUN_FOMOD
         return bits
 
+    def sep_block_content(self, block) -> tuple:
+        """Union of the content badges across *block* display rows, in
+        BADGE_ORDER - the collapsed-separator/group summary.
+
+        A badge is archive-toned only when every member carrying it got it from
+        an archive, the same loose-wins rule compute_badges applies to a single
+        mod. Walks the dict directly (like sep_block_summary) rather than going
+        back through data() per row."""
+        from gui_qt.modlist_content import BADGE_ORDER
+        loose, packed = set(), set()
+        for row in block:
+            entry = self._entries[row]
+            if entry.is_separator:
+                continue
+            for badge, from_archive in self._content.get(entry.name, ()):
+                (packed if from_archive else loose).add(badge)
+        return tuple(
+            (badge, badge not in loose)
+            for badge in BADGE_ORDER if badge in (loose | packed)
+        )
+
+    def _group_content(self, name) -> tuple:
+        """Union of a collapsed group's content badges."""
+        return self.sep_block_content(self.group_rows(name))
+
     def data(self, index, role=Qt.DisplayRole):
         if not index.isValid():
             return None
@@ -705,6 +775,10 @@ class ModListModel(ModGrouping, QAbstractTableModel):
                 return self.group_summary(e.name)[summary_roles.index(role)]
             if role == HighlightRole:
                 return self._separator_highlight(index.row(), e)
+            if role == ContentRole:
+                return self._group_content(e.name)
+        if role == ContentRole:
+            return () if e.is_separator else self._content.get(e.name, ())
         if role == ConflictRole:
             # Filegraph publishes the authoritative zero shortly after a
             # toggle, but the row's enabled state changes synchronously.  A
@@ -758,6 +832,12 @@ class ModListModel(ModGrouping, QAbstractTableModel):
                 return self._authors.get(e.name, "")
             if col == COL_SIZE:
                 return self._sizes.get(e.name, "")
+            if col == COL_NEXUS_MOD_ID:
+                value = self._nexus_mod_ids.get(e.name, 0)
+                return str(value) if value > 0 else ""
+            if col == COL_NEXUS_FILE_ID:
+                value = self._nexus_file_ids.get(e.name, 0)
+                return str(value) if value > 0 else ""
             if col == COL_PRIORITY:
                 p = self._priority_for_row(index.row())
                 return str(p) if p >= 0 else ""

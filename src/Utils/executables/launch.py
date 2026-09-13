@@ -1924,6 +1924,15 @@ def save_wizard_prefer_discrete_gpu(
         True if enabled else None)
 
 
+def load_tool_use_64bit(game, exe_name: str) -> bool:
+    return bool(_read_launch_mode_data(game).get(f"__use_64bit_{exe_name}"))
+
+
+def save_tool_use_64bit(game, exe_name: str, enabled: bool) -> None:
+    _write_launch_mode_key(
+        game, f"__use_64bit_{exe_name}", True if enabled else None)
+
+
 def load_tool_launch_env(exe: Path | None) -> str:
     """Return the saved env-var string for this exe ('' if none)."""
     if exe is None:
@@ -2857,7 +2866,11 @@ def launch_game(game, log_fn=_noop_log) -> None:
         launch_report.mark_failed(launch_report.actionable(reason))
         return
 
-    mode = load_launch_mode(game, settings_key)
+    from Utils.wabbajack.runtime import uses_stock_game
+    stock_game = uses_stock_game(game)
+    mode = "none" if stock_game else load_launch_mode(game, settings_key)
+    if stock_game:
+        log_fn("Play: launching the reconstructed game copy through the selected prefix.")
     # The direct route consumes its settings below; only inspect them here
     # when a launcher hand-off would otherwise bypass the manager entirely.
     manager_launch_options = (
@@ -2865,7 +2878,41 @@ def launch_game(game, log_fn=_noop_log) -> None:
     )
     launch_with_wayland = load_launch_with_wayland(game)
     effective_mode = mode
-    if manager_launch_options and mode != "none":
+    direct_play_rel = getattr(game, "direct_play_exe", "") or ""
+    direct_play_path = None
+    if direct_play_rel:
+        game_path = game.get_game_path() if hasattr(game, "get_game_path") else None
+        if game_path is not None:
+            candidate = Path(game_path) / direct_play_rel
+            if candidate.is_file():
+                direct_play_path = candidate
+    preferred_rel = getattr(game, "preferred_launch_exe", "") or ""
+    preferred_path = None
+    if preferred_rel:
+        game_path = game.get_game_path() if hasattr(game, "get_game_path") else None
+        if game_path is not None:
+            candidate = Path(game_path) / preferred_rel
+            if candidate.is_file():
+                preferred_path = candidate
+    direct_preferred = (
+        mode == "auto"
+        and preferred_path is not None
+        and bool(getattr(game, "preferred_launch_requires_direct", False))
+    )
+    direct_handler_play = (
+        mode == "auto"
+        and direct_play_path is not None
+        and bool(getattr(game, "direct_play_requires_direct", False))
+    )
+    if direct_handler_play:
+        effective_mode = "none"
+        log_fn(f"Play: {direct_play_path.name} is the handler's direct launch "
+               "target - using the game's Proton context.")
+    elif direct_preferred:
+        effective_mode = "none"
+        log_fn(f"Play: {preferred_path.name} is the preferred launcher - "
+               "launching it directly in the game's Proton context.")
+    elif manager_launch_options and mode != "none":
         # steam://, heroic:// and the other launcher hand-offs talk to a
         # normally already-running client.  Environment variables or wrappers
         # placed around that short-lived IPC process do not reach the game;
@@ -2986,7 +3033,7 @@ def launch_game(game, log_fn=_noop_log) -> None:
             game, log_fn):
         return
 
-    exe_path = resolve_game_exe(game)
+    exe_path = direct_play_path or resolve_game_exe(game)
     if exe_path is None:
         log_fn("Play: could not find the game's executable on disk.")
         return
@@ -3301,6 +3348,10 @@ def launch_exe_via_proton(
     # script extender, so its caller supplies the canonical Play-entry key.
     manager_play_launch = launch_settings_key is not None
     settings_key = launch_settings_key or exe_path.name
+    from Utils.wabbajack.runtime import working_directory, launch_environment, uses_stock_game
+    launch_cwd = working_directory(game, exe_path)
+    from Utils.wabbajack.runtime import configure_tool_output
+    configure_tool_output(game, exe_path, log_fn)
     framework_launch = is_framework_launch_exe(game, exe_path.name)
     vfs_game_launch = False
     if getattr(game, "vfs_launch_enabled", False):
@@ -3317,6 +3368,7 @@ def launch_exe_via_proton(
         return
     if (framework_launch
             and not getattr(game, "vfs_launch_enabled", False)
+            and not uses_stock_game(game)
             and launch_swapped_framework_via_steam(
                 exe_path, game, log_fn)):
         return
@@ -3644,11 +3696,21 @@ def launch_exe_via_proton(
             game, env, [], native=False, log_fn=log_fn,
             log_prefix="Run EXE")
 
+    launch_environment(game, env)
+    try:
+        prepare_env = getattr(game, "prepare_launch_environment_for_exe", None)
+        if callable(prepare_env):
+            prepare_env(exe_path, env, log_fn)
+    except Exception as exc:
+        reason = f"could not prepare the game launch environment: {exc}"
+        log_fn(f"Run EXE: {reason}")
+        launch_report.mark_failed(launch_report.actionable(reason))
+        return
     if umu_bin is not None:
         from Utils.launchers.lutris import umu_run_command
         base_cmd = umu_run_command(
             umu_bin, str(exe_path), env=env,
-            host_cwd=exe_path.parent) + extra_args
+            host_cwd=launch_cwd) + extra_args
     else:
         # Anything that starts the game needs "waitforexitandrun" (the verb
         # Steam itself uses): it boots the steam.exe shim, without which
@@ -3667,7 +3729,7 @@ def launch_exe_via_proton(
                     if (compat_data / "pfx" / "user.reg").is_file() else "run")
         base_cmd = proton_run_command(
             proton_script, verb, str(exe_path), env=env,
-            host_cwd=exe_path.parent) + extra_args
+            host_cwd=launch_cwd) + extra_args
         # proton_run_command routes game launches through Steam's runtime
         # container (as Steam does). Name it in the log: a container failure
         # looks nothing like a Proton failure, and the escape hatch has to be
@@ -3701,6 +3763,7 @@ def launch_exe_via_proton(
         "WINE_D3D_CONFIG", "PROTON_USE_WINED3D", "WINEDLLOVERRIDES",
         "STEAM_COMPAT_DATA_PATH", "WINEDEBUG", "DXVK_HUD", "PROTON_LOG",
         "WINEPREFIX", "PROTONPATH", "GAMEID",
+        "PROTONFIXES_DISABLE",
         # App context: a missing/zero SteamAppId is what DRM load errors report.
         "SteamAppId", "SteamGameId", "SteamOverlayGameId",
         "STEAM_COMPAT_APP_ID", "STEAM_COMPAT_INSTALL_PATH",
@@ -3712,7 +3775,7 @@ def launch_exe_via_proton(
     if _env_summary:
         log_fn(f"Run EXE:   env: {_env_summary}")
 
-    spawn_process_watched(final_cmd, env=env, cwd=exe_path.parent,
+    spawn_process_watched(final_cmd, env=env, cwd=launch_cwd,
                           label=f"Run EXE {exe_path.name}", log_fn=log_fn)
 
 

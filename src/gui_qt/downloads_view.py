@@ -1,5 +1,5 @@
 """Qt Downloads tab - scans archive folders (Downloads + per-game cache + extras),
-lists them grouped by source with Install/Reinstall buttons + checkboxes. Reuses
+lists them grouped by source with install-state buttons + checkboxes. Reuses
 Utils.downloads.core for all scanning/filtering/installed-detection, and
 Utils.downloads.locations for the (backward-compatible) settings. Built lazily:
 only (re)scans when the sub-tab is visible.
@@ -40,6 +40,7 @@ class DownloadsView(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.game = None
+        self.profile_dir = None
         self.game_name_getter = None      # callable -> active game name | None
         self.on_install = None            # callback(path) - per-row / selected
         self._dirty = True
@@ -66,8 +67,9 @@ class DownloadsView(QWidget):
         self._build()
 
     # -- context ------------------------------------------------------------
-    def configure(self, game, game_name_getter):
+    def configure(self, game, game_name_getter, profile_dir=None):
         self.game = game
+        self.profile_dir = Path(profile_dir) if profile_dir is not None else None
         self.game_name_getter = game_name_getter
         self._dirty = True
         # Start watching immediately so files added before the tab is first
@@ -319,7 +321,7 @@ class DownloadsView(QWidget):
         self._apply()
 
     def _apply(self):
-        installed = dc.build_installed_index(self.game)
+        installed = dc.build_installed_index(self.game, self.profile_dir)
         rows = dc.filter_entries(
             self._all_entries, installed,
             only_installed=self._only_installed,

@@ -1159,6 +1159,31 @@ def save_download_speed_limit(mbps: float) -> None:
 
 
 _DOWNLOADS_SECTION = "downloads"
+NEXUS_DOWNLOAD_SERVERS = (
+    "Nexus CDN", "Amsterdam", "Prague", "Chicago", "Los Angeles", "Miami", "Dallas",
+)
+
+
+def load_nexus_download_server() -> str:
+    try:
+        value = _read_ini(get_ui_config_path()).get(
+            _DOWNLOADS_SECTION, "nexus_server", fallback="")
+        return value if value in NEXUS_DOWNLOAD_SERVERS else ""
+    except Exception:
+        return ""
+
+
+def save_nexus_download_server(value: str) -> None:
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _DOWNLOADS_SECTION not in parser:
+        parser[_DOWNLOADS_SECTION] = {}
+    parser[_DOWNLOADS_SECTION]["nexus_server"] = (
+        value if value in NEXUS_DOWNLOAD_SERVERS else "")
+    _write_ini(parser, path)
 
 
 def load_download_only() -> bool:
@@ -1211,6 +1236,19 @@ def save_collection_settings(max_concurrent: int,
     parser[_COLLECTIONS_SECTION]["max_extract_workers"] = str(max(1, min(_MAX_EXTRACT_WORKERS_CEILING, max_extract_workers)))
     parser[_COLLECTIONS_SECTION]["check_download_locations"] = "true" if check_download_locations else "false"
     parser[_COLLECTIONS_SECTION]["clear_archive_after_install"] = "true" if clear_archive_after_install else "false"
+    _write_ini(parser, path)
+
+
+def save_max_extract_workers(value: int) -> None:
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _COLLECTIONS_SECTION not in parser:
+        parser[_COLLECTIONS_SECTION] = {}
+    parser[_COLLECTIONS_SECTION]["max_extract_workers"] = str(
+        max(1, min(_MAX_EXTRACT_WORKERS_CEILING, int(value))))
     _write_ini(parser, path)
 
 
@@ -1642,6 +1680,26 @@ def save_allow_prerelease(value: bool) -> None:
     _write_ini(parser, path)
 
 
+def load_discord_presence() -> bool:
+    try:
+        return _read_ini(get_ui_config_path()).getboolean(
+            "discord", "rich_presence", fallback=False)
+    except Exception:
+        return False
+
+
+def save_discord_presence(value: bool) -> None:
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if "discord" not in parser:
+        parser["discord"] = {}
+    parser["discord"]["rich_presence"] = "true" if value else "false"
+    _write_ini(parser, path)
+
+
 def load_update_notifications() -> bool:
     """Whether to show the app-update banner on startup (default True)."""
     path = get_ui_config_path()
@@ -1842,6 +1900,33 @@ def save_hide_bsa_conflicts(value: bool) -> None:
     _write_ini(parser, path)
 
 
+def load_hide_endorsed_flag() -> bool:
+    """Return the hide_endorsed_flag setting (default False)."""
+    path = get_ui_config_path()
+    if not path.is_file():
+        return False
+    try:
+        parser = _read_ini(path)
+        return parser.getboolean(
+            _FILEMAP_SECTION, "hide_endorsed_flag", fallback=False)
+    except Exception:
+        return False
+
+
+def save_hide_endorsed_flag(value: bool) -> None:
+    """Persist the hide_endorsed_flag setting to amethyst.ini."""
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _FILEMAP_SECTION not in parser:
+        parser[_FILEMAP_SECTION] = {}
+    parser[_FILEMAP_SECTION]["hide_endorsed_flag"] = \
+        "true" if value else "false"
+    _write_ini(parser, path)
+
+
 def load_hide_kofi_button() -> bool:
     """Return the hide_kofi_button setting (default False)."""
     path = get_ui_config_path()
@@ -1892,11 +1977,11 @@ def save_hide_endorse_button(value: bool) -> None:
     _write_ini(parser, path)
 
 
-_HEADER_POSITIONS = ("top", "left", "right")
+_HEADER_POSITIONS = ("top", "bottom", "left", "right")
 
 
 def load_header_position() -> str:
-    """Return where the main toolbar sits: "top" (default), "left" or "right"."""
+    """Return where the toolbar sits: "top" (default), "bottom", "left", "right"."""
     path = get_ui_config_path()
     if not path.is_file():
         return "top"
@@ -1922,6 +2007,70 @@ def save_header_position(value: str) -> None:
     if _FILEMAP_SECTION not in parser:
         parser[_FILEMAP_SECTION] = {}
     parser[_FILEMAP_SECTION]["header_position"] = value
+    _write_ini(parser, path)
+
+
+# Top-bar buttons the user may hide. The game/profile selectors, Deploy,
+# Restore, notifications and Settings are deliberately absent - hiding those
+# would leave the bar unable to do its job.
+_HIDEABLE_HEADER_BUTTONS = (
+    "install", "proton", "wizard", "nexus", "thunderstore", "wabbajack")
+
+
+def load_hidden_header_buttons() -> set[str]:
+    """Return the set of top-bar buttons the user has hidden."""
+    path = get_ui_config_path()
+    if not path.is_file():
+        return set()
+    try:
+        parser = _read_ini(path)
+        raw = parser.get(
+            _FILEMAP_SECTION, "hidden_header_buttons", fallback="")
+    except Exception:
+        return set()
+    names = {p.strip().lower() for p in raw.split(",")}
+    return {n for n in names if n in _HIDEABLE_HEADER_BUTTONS}
+
+
+def save_hidden_header_buttons(value) -> None:
+    """Persist the set of hidden top-bar buttons to amethyst.ini."""
+    names = sorted({str(v).strip().lower() for v in (value or ())}
+                   & set(_HIDEABLE_HEADER_BUTTONS))
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _FILEMAP_SECTION not in parser:
+        parser[_FILEMAP_SECTION] = {}
+    parser[_FILEMAP_SECTION]["hidden_header_buttons"] = ",".join(names)
+    _write_ini(parser, path)
+
+
+def load_header_force_compact() -> bool:
+    """Return the header_force_compact setting (default False)."""
+    path = get_ui_config_path()
+    if not path.is_file():
+        return False
+    try:
+        parser = _read_ini(path)
+        return parser.getboolean(
+            _FILEMAP_SECTION, "header_force_compact", fallback=False)
+    except Exception:
+        return False
+
+
+def save_header_force_compact(value: bool) -> None:
+    """Persist the header_force_compact setting to amethyst.ini."""
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _FILEMAP_SECTION not in parser:
+        parser[_FILEMAP_SECTION] = {}
+    parser[_FILEMAP_SECTION]["header_force_compact"] = (
+        "true" if value else "false")
     _write_ini(parser, path)
 
 
@@ -1992,6 +2141,39 @@ def save_nexus_show_adult(value: bool) -> None:
     if _NEXUS_SECTION not in parser:
         parser[_NEXUS_SECTION] = {}
     parser[_NEXUS_SECTION]["show_adult"] = "true" if value else "false"
+    _write_ini(parser, path)
+
+
+_WABBAJACK_SECTION = "wabbajack"
+_WABBAJACK_FILTERS = {
+    "featured_only", "installed_only", "show_adult", "hide_unavailable",
+}
+
+
+def load_wabbajack_filter(key: str) -> bool:
+    if key not in _WABBAJACK_FILTERS:
+        return False
+    path = get_ui_config_path()
+    if not path.is_file():
+        return False
+    try:
+        parser = _read_ini(path)
+        return parser.getboolean(_WABBAJACK_SECTION, key, fallback=False)
+    except Exception:
+        return False
+
+
+def save_wabbajack_filter(key: str, value: bool) -> None:
+    if key not in _WABBAJACK_FILTERS:
+        return
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _WABBAJACK_SECTION not in parser:
+        parser[_WABBAJACK_SECTION] = {}
+    parser[_WABBAJACK_SECTION][key] = "true" if value else "false"
     _write_ini(parser, path)
 
 

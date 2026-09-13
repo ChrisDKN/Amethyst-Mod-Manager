@@ -10,6 +10,8 @@ Pure stdlib + Utils.* - no GUI toolkit.
 from __future__ import annotations
 
 import os
+import threading
+import time
 from pathlib import Path
 
 TEXT_EXTENSIONS = frozenset({
@@ -41,6 +43,9 @@ _LOG_SOURCES = frozenset({"game", "mygames"})
 # don't dump thousands of duplicate mod files under "Profile".
 _PROFILE_SKIP_DIRS = frozenset({"mods", "overwrite", "root_folder", "backups",
                                 "fomod"})
+_EXTERNAL_CACHE: dict[tuple, tuple[float, list[tuple[str, str, Path]]]] = {}
+_EXTERNAL_CACHE_LOCK = threading.Lock()
+_EXTERNAL_CACHE_LIMIT = 16
 
 
 def entry_source(mod_name: str, rel_path: str | None = None) -> str:
@@ -144,14 +149,8 @@ def _collect_mygames_files(game, exts: frozenset) -> list[tuple[str, Path]]:
     return out
 
 
-def discover_text_files(game, profile_dir: Path | None,
-                        snapshot=None) -> list[tuple[str, str, Path]]:
-    """Return sorted [(rel_path, source_mod, full_path)] across all four sources.
-    Port of Tk `_refresh_ini_files_tab`. Deferred/expensive - call off the hot
-    path (recursive game + My Games scans)."""
+def discover_mod_text_files(game, snapshot) -> list[tuple[str, str, Path]]:
     entries: list[tuple[str, str, Path]] = []
-
-    # 1. Mod-deployed text winners from one pinned graph generation.
     if snapshot is not None and game is not None:
         from Utils.filegraph.adapter import FLAG_TEXT
         from Utils.filegraph.service import source_path
@@ -161,8 +160,39 @@ def discover_text_files(game, profile_dir: Path | None,
                 winner.mod_name,
                 source_path(game, winner.mod_name, winner.source_rel),
             ))
+    return entries
 
-    # 2. Vanilla game folder (skip symlinks/hardlinks = deployed files). Use
+
+def _external_cache_key(game, profile_dir: Path | None) -> tuple:
+    def _path(value) -> str:
+        if not value:
+            return ""
+        try:
+            return str(Path(value).resolve(strict=False))
+        except (OSError, RuntimeError, ValueError):
+            return str(value)
+
+    game_path = None
+    if game is not None and hasattr(game, "get_game_path"):
+        try:
+            game_path = game.get_game_path()
+        except Exception:
+            pass
+    mygames = ()
+    fn = getattr(game, "_mygames_paths", None) if game else None
+    if callable(fn):
+        try:
+            mygames = tuple(_path(path) for path in fn())
+        except Exception:
+            pass
+    return id(game), _path(game_path), _path(profile_dir), mygames
+
+
+def _scan_external_text_files(game, profile_dir: Path | None
+                              ) -> list[tuple[str, str, Path]]:
+    entries: list[tuple[str, str, Path]] = []
+
+    # Vanilla game folder (skip symlinks/hardlinks = deployed files). Use
     #    os.walk + scandir so the extension check (cheap) gates the stat (costly)
     #    - most game files aren't text and never get stat'd.
     game_path = (game.get_game_path()
@@ -198,15 +228,46 @@ def discover_text_files(game, profile_dir: Path | None,
                     entries.append((fpath.relative_to(root).as_posix(),
                                     SRC_GAME, fpath))
 
-    # 3. Profile folder.
     if profile_dir is not None:
         for rel, fpath in _collect_profile_files(Path(profile_dir),
                                                  TEXT_EXTENSIONS):
             entries.append((rel, SRC_PROFILE, fpath))
 
-    # 4. My Games (Bethesda).
     for rel, fpath in _collect_mygames_files(game, TEXT_EXTENSIONS):
         entries.append((rel, SRC_MYGAMES, fpath))
+
+    return entries
+
+
+def discover_external_text_files(game, profile_dir: Path | None, *,
+                                 cache_seconds: float = 0,
+                                 refresh: bool = False
+                                 ) -> list[tuple[str, str, Path]]:
+    if cache_seconds <= 0:
+        return _scan_external_text_files(game, profile_dir)
+    key = _external_cache_key(game, profile_dir)
+    with _EXTERNAL_CACHE_LOCK:
+        now = time.monotonic()
+        cached = _EXTERNAL_CACHE.get(key)
+        if not refresh and cached is not None and now - cached[0] < cache_seconds:
+            return list(cached[1])
+        entries = _scan_external_text_files(game, profile_dir)
+        _EXTERNAL_CACHE[key] = (time.monotonic(), entries)
+        if len(_EXTERNAL_CACHE) > _EXTERNAL_CACHE_LIMIT:
+            oldest = min(_EXTERNAL_CACHE, key=lambda item: _EXTERNAL_CACHE[item][0])
+            _EXTERNAL_CACHE.pop(oldest, None)
+        return list(entries)
+
+
+def discover_text_files(game, profile_dir: Path | None, snapshot=None, *,
+                        external_cache_seconds: float = 0,
+                        refresh_external: bool = False
+                        ) -> list[tuple[str, str, Path]]:
+    """Return sorted [(rel_path, source_mod, full_path)] across all sources."""
+    entries = discover_mod_text_files(game, snapshot)
+    entries.extend(discover_external_text_files(
+        game, profile_dir, cache_seconds=external_cache_seconds,
+        refresh=refresh_external))
 
     entries.sort(key=sort_key)
     return entries

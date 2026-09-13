@@ -391,14 +391,20 @@ def rename_profile_everywhere(game, old_name: str, new_name: str, *,
 def remove_profile_everywhere(game, name: str, *, log_fn=None) -> list[str]:
     """Prune *name* from every group's member list and re-materialize the
     affected groups. Returns the group names that referenced it."""
+    return remove_profiles_everywhere(game, [name], log_fn=log_fn)
+
+
+def remove_profiles_everywhere(game, names, *, log_fn=None) -> list[str]:
+    """Prune several profiles while materializing each affected group once."""
     affected = []
+    removed = set(names)
     profiles_dir = _profiles_root(game)
     for group_name in list_groups(game):
         group_dir = profiles_dir / group_name
         with group_build_lock(group_dir):
             members = get_members(group_dir)
-            if name in members:
-                set_members(group_dir, [m for m in members if m != name])
+            if removed.intersection(members):
+                set_members(group_dir, [m for m in members if m not in removed])
                 materialize_group(game, group_dir, log_fn=log_fn)
                 affected.append(group_name)
     return affected
@@ -1541,6 +1547,9 @@ def _member_side_remove(game, profiles_dir: Path, member: str, folder: str,
     and catalog rows."""
     member_dir = profiles_dir / member
     member_staging = member_dir / "mods"
+    from Utils.downloads.core import record_download_install
+    record_download_install(
+        member_dir, member_staging / folder, log_fn=log)
     try:
         from Utils.mods.remove import _remove_plugins_for_mods
         _remove_plugins_for_mods(game, member_dir, member_staging, [folder], log)
@@ -1630,6 +1639,11 @@ def remove_mods_from_group(game, group_dir: Path, mod_names: list[str],
         group_library = FileGraphService.open_library(
             game, group_dir, log_fn=log)
         group_profile = group_library.open_profile(group_dir)
+
+        from Utils.downloads.core import record_download_install
+        for name in mod_names:
+            record_download_install(
+                group_dir, staging / name, log_fn=log)
 
         # 1. Undeploy from the game dir while the group's catalog/links are
         # still intact (identity checks resolve through the links).

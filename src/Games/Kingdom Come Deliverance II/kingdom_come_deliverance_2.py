@@ -178,8 +178,10 @@ class KingdomComeDeliverance2(ProfileVFSGameMixin, BaseGame):
         _sep_deploy = load_separator_deploy_paths(profile_dir)
         _sep_entries = read_modlist(profile_dir / "modlist.txt") if _sep_deploy else []
         per_mod_deploy = expand_separator_deploy_paths(_sep_deploy, _sep_entries) or None
+        custom_exclude = self._deploy_custom_routing_rules(mode, log_fn)
         linked_mod, placed = deploy_filemap(
             filemap, plugins_dir, staging,
+            exclude=custom_exclude,
             mode=mode,
             strip_prefixes=self.mod_folder_strip_prefixes,
             per_mod_strip_prefixes=per_mod_strip,
@@ -189,6 +191,8 @@ class KingdomComeDeliverance2(ProfileVFSGameMixin, BaseGame):
             core_dir=plugins_dir.parent / (plugins_dir.name + "_Core"),
         )
         _log(f"  Transferred {linked_mod} mod file(s).")
+        placed.update(self._custom_routing_destinations_under(
+            custom_exclude, plugins_dir))
 
         _log(f"Step 3: Filling gaps with vanilla files from {core}/ ...")
         linked_core = deploy_core(plugins_dir, placed, mode=mode, log_fn=_log)
@@ -205,6 +209,7 @@ class KingdomComeDeliverance2(ProfileVFSGameMixin, BaseGame):
 
     def restore(self, log_fn=None, progress_fn=None) -> None:
         """Restore mods/ to vanilla: clear deployed mods and, if present, move mods_Core/ back."""
+        self._restore_custom_routing_rules(log_fn)
         _log = log_fn or (lambda _: None)
 
         if self._game_path is None:

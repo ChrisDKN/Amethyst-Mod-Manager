@@ -8,7 +8,7 @@ MANIFEST_PATH="${SCRIPT_DIR}/Cargo.toml"
 TARGET_DIR="${SCRIPT_DIR}/target"
 BUILT_EXTENSION="${TARGET_DIR}/release/libamethyst_filegraph.so"
 OUTPUT_EXTENSION="${REPOSITORY_DIR}/src/amethyst_filegraph.abi3.so"
-FLATPAK_SDK="org.kde.Sdk//6.9"
+FLATPAK_SDK="org.kde.Sdk//6.11"
 
 if ! command -v cargo >/dev/null 2>&1; then
     echo "error: cargo is required to build amethyst_filegraph" >&2
