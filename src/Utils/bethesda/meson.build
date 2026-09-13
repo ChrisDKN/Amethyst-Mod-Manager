@@ -6,6 +6,7 @@ py.install_sources(
   'cao.py',
   'creation_kit.py',
   'display_tweaks.py',
+  'eet.py',
   'engine_fixes.py',
   'eslifier.py',
   'esm_fixes.py',

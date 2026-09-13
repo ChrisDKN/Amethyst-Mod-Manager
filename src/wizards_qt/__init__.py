@@ -202,6 +202,8 @@ REGISTRY: dict[str, QtWizardSpec] = {
         QtWizardSpec(_simple("wizards_qt.acmos_view", "ACMOSView")),
     "wizards.cao.CAOWizard":
         QtWizardSpec(_simple("wizards_qt.cao_view", "CAOView")),
+    "wizards.eet.EETWizard":
+        QtWizardSpec(_simple("wizards_qt.eet_view", "EETView")),
 
     # -- phase 6: plugins-panel tools --
     "wizards.mewgenics_gpak.MewgenicsGpakWizard":

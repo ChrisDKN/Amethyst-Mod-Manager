@@ -68,6 +68,11 @@ _BETHESDA_GAME_IDS = [
     "enderal", "enderalse",
 ]
 
+_EET_GAME_IDS = [
+    "morrowind", "Oblivion", "skyrim", "skyrim_se", "Fallout3",
+    "Fallout3GOTY", "FalloutNV", "Fallout4", "Starfield",
+]
+
 # Games we can actually WRITE an archive for - the keys of archive_rules'
 # _GAME_RULES. Deliberately not _BETHESDA_GAME_IDS: Starfield has archive
 # extensions but no allowlist, so archive_kind_for_game returns None there and
@@ -78,6 +83,17 @@ _BSA_PACKABLE_GAME_IDS = [
 ]
 
 BUILTIN_WIZARD_TOOLS: list[dict] = [
+    {
+        "id": "esp_esm_translator",
+        "label": "ESP-ESM Translator",
+        "description": (
+            "Install, configure, and run EET against a plugin in a staged mod."
+        ),
+        "game_ids": _EET_GAME_IDS,
+        "all_games": False,
+        "dialog_class": "wizards.eet.EETWizard",
+        "category": "Development",
+    },
     {
         "id": "bethesda_register_game_path",
         "label": "Register Game Path in Wine Registry",
@@ -353,6 +369,7 @@ def get_all_wizard_tools(game: BaseGame) -> list[WizardTool]:
 # game (the xEdit family) are handled dynamically below via ``extra`` instead.
 
 _WIZARD_CLASS_EXES: dict[str, set[str]] = {
+    "wizards.eet.EETWizard": {"eet4.exe"},
     "wizards.pandora.PandoraWizard": {"pandora behaviour engine+.exe"},
     "wizards.bodyslide.BodySlideWizard": {"bodyslide.exe", "bodyslide x64.exe"},
     "wizards.bodyslide.OutfitStudioWizard": {"outfitstudio.exe", "outfitstudio x64.exe"},
