@@ -1079,8 +1079,6 @@ def run_collection_install(
         maxsize=_PIPELINE_QUEUE_SIZE)
     _iq_seq = _itertools.count()
     _iq_seq_lock = threading.Lock()
-    _deferred_large_downloads: list[tuple] = []
-    _deferred_large_lock = threading.Lock()
 
     def _iq_next_seq() -> int:
         with _iq_seq_lock:
@@ -1100,23 +1098,6 @@ def run_collection_install(
     def _enqueue_install(mod, result, domain) -> None:
         priority = _install_priority(mod, result)
         _install_queue.put((*priority, _iq_next_seq(), (mod, result, domain)))
-
-    def _handoff_install(mod, result, domain, defer: bool) -> None:
-        if not defer:
-            _enqueue_install(mod, result, domain)
-            return
-        with _deferred_large_lock:
-            _deferred_large_downloads.append((mod, result, domain))
-
-    def _release_large_downloads() -> int:
-        with _deferred_large_lock:
-            pending = sorted(
-                _deferred_large_downloads,
-                key=lambda item: _install_priority(item[0], item[1]))
-            _deferred_large_downloads.clear()
-        for mod, result, domain in pending:
-            _enqueue_install(mod, result, domain)
-        return len(pending)
 
     def _enqueue_done() -> None:
         _install_queue.put((2, 0, _iq_next_seq(), _DONE_SENTINEL))
@@ -1278,7 +1259,7 @@ def run_collection_install(
         return ("links", links)
 
     # ---- download producer (stage 2 of the pipeline) ------------------
-    def _download_one(mod, prefetched=None, *, defer_install=False):
+    def _download_one(mod, prefetched=None):
         nonlocal _dl_done
         mod_domain = _effective_mod_domain(mod)
         effective_mod_id = _effective_mod_id(mod)
@@ -1293,7 +1274,7 @@ def run_collection_install(
         if _col_stop.is_set():
             with _dl_lock:
                 _dl_done += 1
-            _handoff_install(mod, None, mod_domain, defer_install)
+            _enqueue_install(mod, None, mod_domain)
             return
 
         def _progress_cb(cur, tot, _fid=mod.file_id, _mod=mod):
@@ -1395,9 +1376,7 @@ def run_collection_install(
                 f"'{mod.mod_name}': {exc}")
         # MM_COL_TIMING retains a diagnostic in case a malformed plan hands off
         # more entries than were counted when the queue was sized.
-        if defer_install:
-            _handoff_install(mod, result, effective_domain, True)
-        elif _COL_TIMING:
+        if _COL_TIMING:
             _t_put = _time_mod.monotonic()
             _enqueue_install(mod, result, effective_domain)
             _blocked = _time_mod.monotonic() - _t_put
@@ -1790,9 +1769,8 @@ def run_collection_install(
                         else f"Downloading & installing {_dl_total} mod(s)…")
         _set_progress(_pre_done / total if total else 0.0)
         if not manual_mode:
-            # Keep up to two lanes on the largest remaining archives while the
-            # other lanes process the smallest first. Two sustained CDN streams
-            # avoid leaving bandwidth idle when one connection tops out early.
+            # Queue known-size archives smallest first. Unknown sizes remain at
+            # the end so they cannot block the known-small work.
             _to_download_sorted = order_by_size(to_download, _expected_size)
             if _total_bytes > 0:
                 cb.on_agg_download(_dl_bytes_done, _total_bytes, 0.0)
@@ -1823,18 +1801,14 @@ def run_collection_install(
             # fetched only a bounded distance ahead.
             #
             # Match link prefetch width to download width so tiny archives do not
-            # leave transfer workers waiting between files.
+            # leave transfer workers waiting between files. Prefetch stays
+            # concurrent, but results are handed to download workers in size
+            # order even if later link requests finish first.
             run_pipelined(_to_download_sorted, _fetch_link_one, _download_one,
                           _DL_WORKERS, link_workers=max(4, _DL_WORKERS),
-                          large_workers=min(2, max(0, _DL_WORKERS - 1)),
-                          large_download=lambda mod, value:
-                              _download_one(mod, value, defer_install=True),
+                          large_workers=0, strict_order=True,
                           stop=_col_stop,
                           worker_done=downloader.close_worker_session)
-            released = _release_large_downloads()
-            if released:
-                log(f"Collection install: released {released} completed "
-                    "large-lane archive(s) to the extraction queue")
 
         _dl_finished.set()
         if not manual_mode:

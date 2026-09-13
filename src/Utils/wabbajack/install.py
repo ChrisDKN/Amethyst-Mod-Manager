@@ -152,11 +152,10 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                      archive_budget_bytes=report.archive_budget_bytes,
                      automatic=len(automatic), manual=len(manual),
                      download_workers=settings["max_concurrent"],
-                     large_download_workers=min(
-                         2, max(0, settings["max_concurrent"] - 1)),
+                     large_download_workers=0,
+                     download_order="smallest-first",
                      extraction_workers=settings["max_extract_workers"],
                      extraction_order="smallest-ready-first",
-                     large_lane_extraction="when-ready",
                      extraction_queue_capacity=max(
                          settings["max_concurrent"] + _MAX_EXTRACT_WORKERS_CEILING + 8,
                          32, len(needed) + _MAX_EXTRACT_WORKERS_CEILING),

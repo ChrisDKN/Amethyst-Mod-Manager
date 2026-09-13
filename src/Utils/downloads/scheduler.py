@@ -118,6 +118,7 @@ def run_pipelined(mods: list, fetch: Callable[[object], Any],
                   dl_workers: int, *, link_workers: int = 2,
                   large_workers: int = 1,
                   large_download: "Callable[[object, Any], None] | None" = None,
+                  strict_order: bool = False,
                   stop: "threading.Event | None" = None,
                   worker_done: "Callable[[], None] | None" = None,
                   spawn: Callable[[Callable, str], object] | None = None
@@ -148,6 +149,8 @@ def run_pipelined(mods: list, fetch: Callable[[object], Any],
                     lanes.
     *large_workers* - download lanes reserved for the largest remaining mods.
     *large_download* - optional callback for items downloaded by those lanes.
+    *strict_order* - publish prefetched items to each download lane in claim
+                    order, even when concurrent link fetches finish out of order.
     *stop*        - optional cancel event; when set, both stages drain the
                     remainder (feeding *download* with ``links=None``) so every
                     mod is still handed off once and the caller short-circuits.
@@ -172,25 +175,28 @@ def run_pipelined(mods: list, fetch: Callable[[object], Any],
 
     lock = threading.Lock()
     cursor = {"lo": 0, "hi": n - 1}
+    claim_sequence = {False: 0, True: 0}
     _READY_DONE = object()
 
     def _claim(from_tail: bool):
         with lock:
             if cursor["lo"] > cursor["hi"]:
-                return None, True
+                return None, True, -1
             if from_tail:
                 mod = mods[cursor["hi"]]
                 cursor["hi"] -= 1
             else:
                 mod = mods[cursor["lo"]]
                 cursor["lo"] += 1
-            return mod, False
+            sequence = claim_sequence[from_tail]
+            claim_sequence[from_tail] += 1
+            return mod, False, sequence
 
-    def _fetcher(ready, from_tail: bool, claim_gate=None):
+    def _fetcher(ready, from_tail: bool, claim_gate=None, delivery=None):
         while True:
             if claim_gate is not None:
                 claim_gate.acquire()
-            mod, exhausted = _claim(from_tail)
+            mod, exhausted, sequence = _claim(from_tail)
             if exhausted:
                 if claim_gate is not None:
                     claim_gate.release()
@@ -203,7 +209,16 @@ def run_pipelined(mods: list, fetch: Callable[[object], Any],
                     links = None
             # Enqueue even when stopping so the downloader still hands the mod
             # off once (caller bookkeeping) - the download fn short-circuits.
-            ready.put((mod, links))
+            if delivery is None:
+                ready.put((mod, links))
+            else:
+                condition, next_sequence = delivery
+                with condition:
+                    while sequence != next_sequence["value"]:
+                        condition.wait()
+                    ready.put((mod, links))
+                    next_sequence["value"] += 1
+                    condition.notify_all()
 
     def _downloader(ready, work, claim_gate=None):
         try:
@@ -247,9 +262,12 @@ def run_pipelined(mods: list, fetch: Callable[[object], Any],
     running = []
     for name, from_tail, worker_count, fetch_count, claim_gate, work in lanes:
         ready = _queue.Queue(maxsize=worker_count + fetch_count)
+        delivery = ((threading.Condition(), {"value": 0})
+                    if strict_order else None)
         fetchers = [
-            spawn(lambda q=ready, tail=from_tail, gate=claim_gate:
-                  _fetcher(q, tail, gate),
+            spawn(lambda q=ready, tail=from_tail, gate=claim_gate,
+                         ordered_delivery=delivery:
+                  _fetcher(q, tail, gate, ordered_delivery),
                   f"col-link-{name}-{i}")
             for i in range(fetch_count)
         ]

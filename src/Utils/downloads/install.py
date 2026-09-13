@@ -112,8 +112,6 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
         len(items) + len(manual_items) + (install_workers if not defer_large else 0)))
     errors = []
     lock = threading.Lock()
-    deferred_large = []
-    deferred_lock = threading.Lock()
     sequence = itertools.count()
     sequence_lock = threading.Lock()
     pending_manual = _queue.Queue(maxsize=max(1, len(items) + len(manual_items)))
@@ -148,10 +146,10 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
         with sequence_lock:
             return next(sequence)
 
-    def enqueue(item, result, large=False):
+    def enqueue(item, result):
         nonlocal outstanding
         task = (item, result) if defer_large else (
-            item, result, bool(is_large(item)) if is_large else large)
+            item, result, bool(is_large(item)) if is_large else False)
         priority = (*queue_key(item), next_sequence(), task)
         if not defer_large:
             if control.stop.is_set():
@@ -169,7 +167,7 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                 pass
         return False
 
-    def producer(item, prefetched, *, manual=False, reason="", defer=False, large=False):
+    def producer(item, prefetched, *, manual=False, reason=""):
         if control.stop.is_set():
             return
         handed_off = False
@@ -183,12 +181,7 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                 return
             notify(on_ready, item)
             queued = True
-            if defer:
-                with deferred_lock:
-                    deferred_large.append((item, result))
-                handed_off = True
-                return
-            handed_off = enqueue(item, result, large)
+            handed_off = enqueue(item, result)
         except ManualDownloadRequired as exc:
             if manual_acquire and not manual and not control.stop.is_set():
                 pending_manual.put((item, str(exc)))
@@ -198,14 +191,6 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
             failed(item, exc)
         finally:
             if queued and not handed_off:
-                notify(on_discard, item)
-
-    def release_deferred_large():
-        with deferred_lock:
-            pending = sorted(deferred_large, key=lambda pair: queue_key(pair[0]))
-            deferred_large.clear()
-        for item, result in pending:
-            if not enqueue(item, result):
                 notify(on_discard, item)
 
     def pipelined_consumer():
@@ -300,11 +285,8 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                     run_pipelined(order_by_size(items, lambda a: a.size), prefetch or (lambda _: None),
                                   producer, download_workers, stop=control.stop,
                                   link_workers=max(4, download_workers),
-                                  large_workers=min(2, download_workers - 1),
-                                  large_download=lambda item, value:
-                                      producer(item, value, defer=defer_large, large=True))
+                                  large_workers=0, strict_order=True)
                 finally:
-                    release_deferred_large()
                     automatic_done.set()
             def manual():
                 while not control.stop.is_set():
