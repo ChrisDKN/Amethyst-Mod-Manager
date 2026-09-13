@@ -1727,9 +1727,13 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
         per_mod_raw = expand_separator_raw_deploy(_sep_deploy, _sep_entries) or None
 
         custom_rules = self.effective_custom_routing_rules
+        _log("Step 1: Moving Data/ → Data_Core/ ...")
+        move_to_core(data_dir, log_fn=_log)
+        _log("  Backed up existing files → Data_Core/.")
+
         custom_exclude: set[str] = set()
         if custom_rules:
-            _log("Step 0: Routing files via custom rules ...")
+            _log("Step 1b: Routing files via custom rules ...")
             custom_exclude = deploy_custom_rules(
                 filemap, self._game_path, staging,
                 rules=custom_rules,
@@ -1742,10 +1746,6 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
                 progress_fn=progress_fn,
                 prefix_root=self.get_prefix_path(),
             )
-
-        _log("Step 1: Moving Data/ → Data_Core/ ...")
-        move_to_core(data_dir, log_fn=_log)
-        _log("  Backed up existing files → Data_Core/.")
 
         _log(f"Step 2: Transferring mod files into Data/ ({mode.name}) ...")
         linked_mod, placed = deploy_filemap(filemap, data_dir, staging,

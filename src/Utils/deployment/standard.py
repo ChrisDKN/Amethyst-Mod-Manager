@@ -683,7 +683,18 @@ def deploy_filemap(
     tasks: list[tuple[str, str, str, bool, bool, LinkMode | None]] = []
     placed_lower: set[str] = set()
     _exclude: set[str] = exclude or set()
-    _excluded_plan_keys: set[str] = set()
+    if _exclude:
+        from Utils.deployment.custom_rules import _CUSTOM_RULES_LOG_NAME
+        routed_log = filemap_path.parent / _CUSTOM_RULES_LOG_NAME
+        if routed_log.is_file():
+            for destination in routed_log.read_text(
+                    encoding="utf-8", errors="surrogateescape").splitlines():
+                try:
+                    relative = Path(destination).relative_to(deploy_dir)
+                except ValueError:
+                    continue
+                placed_lower.add(relative.as_posix().lower())
+    _excluded_plan_keys: set[str] = set(placed_lower)
     # rel_lower -> (deployed rel_str, mod_name) for non-custom tasks - the
     # "effective deployed set" recorded in deployed_filemap.txt so the next
     # deploy can diff against it (incremental fast path).
