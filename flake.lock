@@ -1,0 +1,44 @@
+{
+  "nodes": {
+    "amethyst-mod-manager": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1789247334,
+        "narHash": "sha256-RyyBtrWFbpFzn/RGFXB05NneS5jHT+i5fZn+yaLsWQA=",
+        "owner": "ChrisDKN",
+        "repo": "Amethyst-Mod-Manager",
+        "rev": "405231d3501375130d5d19fe42a0fb8201eb9631",
+        "type": "github"
+      },
+      "original": {
+        "owner": "ChrisDKN",
+        "repo": "Amethyst-Mod-Manager",
+        "type": "github"
+      }
+    },
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1789149629,
+        "narHash": "sha256-H6GwaZzZf+4npqv0tph94w9tZddSjFjmQrVsW0z78uk=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "eaad089433ca2bb662274377d33df3d0e51ef28b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "root": {
+      "inputs": {
+        "amethyst-mod-manager": "amethyst-mod-manager",
+        "nixpkgs": "nixpkgs"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}
