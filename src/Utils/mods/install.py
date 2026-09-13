@@ -47,6 +47,16 @@ BAIN_DEFERRED = "__BAIN_DEFERRED__"
 # race, silently dropping entries.
 _commit_lock = threading.Lock()
 
+_SMALL_ZIP_MAX_ARCHIVE_BYTES = 1024 * 1024
+_SMALL_ZIP_MAX_EXPANDED_BYTES = 64 * 1024 * 1024
+_SMALL_ZIP_MAX_MEMBERS = 2048
+_ZIPFILE_COMPRESSION_TYPES = {
+    zipfile.ZIP_STORED,
+    zipfile.ZIP_DEFLATED,
+    zipfile.ZIP_BZIP2,
+    zipfile.ZIP_LZMA,
+}
+
 
 class UnsafeInstallPath(ValueError):
     pass
@@ -932,11 +942,28 @@ def _debackslash_extracted_tree(extract_dir: str, log_fn: LogFn) -> int:
     return moved
 
 
-def _validate_zip_member_paths(archive_path: str) -> None:
+def _small_zip_fast_path_eligible(archive_path: str) -> bool:
+    try:
+        if os.path.getsize(archive_path) > _SMALL_ZIP_MAX_ARCHIVE_BYTES:
+            size_ok = False
+        else:
+            size_ok = True
+    except OSError:
+        size_ok = False
     with zipfile.ZipFile(archive_path, "r") as archive:
-        for member in archive.infolist():
+        members = archive.infolist()
+        expanded = 0
+        conventional = size_ok and len(members) <= _SMALL_ZIP_MAX_MEMBERS
+        for member in members:
             _normalise_relative_install_path(
                 member.filename, label="archive member", allow_empty=False)
+            expanded += max(0, member.file_size)
+            if (member.flag_bits & 0x1
+                    or member.compress_type not in _ZIPFILE_COMPRESSION_TYPES
+                    or (not (member.flag_bits & 0x800)
+                        and not member.filename.isascii())):
+                conventional = False
+        return conventional and expanded <= _SMALL_ZIP_MAX_EXPANDED_BYTES
 
 
 def _fix_perms_extracted_tree(extract_dir: str, log_fn: LogFn) -> int:
@@ -1028,9 +1055,10 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
         if error_sink is not None:
             error_sink.append(str(err))
 
+    small_zip = False
     try:
         if zipfile.is_zipfile(archive_path):
-            _validate_zip_member_paths(archive_path)
+            small_zip = _small_zip_fast_path_eligible(archive_path)
     except (OSError, ValueError, zipfile.BadZipFile) as exc:
         _note(exc)
         log_fn(f"Unsafe archive path rejected ({exc}).")
@@ -1081,6 +1109,50 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
 
     if _cancelled():
         return False
+
+    def _extract_zipfile() -> bool:
+        with zipfile.ZipFile(archive_path, "r") as archive:
+            infos = archive.infolist()
+            total = sum(info.file_size for info in infos) or 1
+            done = 0
+            last_pct = -1
+            permissions = []
+            for info in infos:
+                if _cancelled():
+                    return False
+                extracted = archive.extract(info, dest_dir)
+                mode = (info.external_attr >> 16) & 0o777
+                if mode:
+                    permissions.append((extracted, mode))
+                done += info.file_size
+                if progress_cb is not None:
+                    pct = min(100, int(done * 100 / total))
+                    if pct != last_pct:
+                        last_pct = pct
+                        progress_cb(pct)
+            for extracted, mode in permissions:
+                try:
+                    os.chmod(extracted, mode)
+                except OSError:
+                    pass
+        return True
+
+    if small_zip:
+        try:
+            if not _extract_zipfile():
+                log_fn("Extraction cancelled (zipfile).")
+                return False
+            log_fn("Extracted small ZIP with zipfile.")
+            return _ok()
+        except Exception as exc:
+            _note(exc)
+            log_fn(f"Small ZIP extraction failed ({exc}), trying compatibility extractors…")
+            try:
+                shutil.rmtree(dest_dir)
+                os.makedirs(dest_dir, exist_ok=True)
+            except OSError as cleanup_exc:
+                _note(cleanup_exc)
+                return False
 
     # Extraction resource limits (Settings ▸ Downloads & Collections). Read per
     # archive so a settings change applies to the next extraction without a
@@ -1138,22 +1210,9 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
     if _cancelled():
         return False
     try:
-        with zipfile.ZipFile(archive_path, "r") as z:
-            infos = z.infolist()
-            total = sum(i.file_size for i in infos) or 1
-            done = 0
-            last_pct = -1
-            for info in infos:
-                if _cancelled():
-                    log_fn("Extraction cancelled (zipfile).")
-                    return False
-                z.extract(info, dest_dir)
-                done += info.file_size
-                if progress_cb is not None:
-                    pct = min(100, int(done * 100 / total))
-                    if pct != last_pct:
-                        last_pct = pct
-                        progress_cb(pct)
+        if not _extract_zipfile():
+            log_fn("Extraction cancelled (zipfile).")
+            return False
         log_fn("Extracted with zipfile.")
         return _ok()
     except Exception as exc:
