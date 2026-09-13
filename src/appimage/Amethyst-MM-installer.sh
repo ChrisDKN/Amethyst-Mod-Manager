@@ -114,7 +114,7 @@ fi
 APPIMAGE_TMP="$APPIMAGE_DEST.new"
 echo "Downloading AppImage..."
 if command -v curl &>/dev/null; then
-    curl -L -o "$APPIMAGE_TMP" "$APPIMAGE_URL"
+    curl --fail --show-error --location -o "$APPIMAGE_TMP" "$APPIMAGE_URL"
 elif command -v wget &>/dev/null; then
     wget -O "$APPIMAGE_TMP" "$APPIMAGE_URL"
 else
@@ -135,7 +135,7 @@ fi
 # Download icon
 echo "Downloading icon..."
 if command -v curl &>/dev/null; then
-    curl -L -o "$ICONS_DIR/$ICON_NAME" "$ICON_URL"
+    curl --fail --show-error --location -o "$ICONS_DIR/$ICON_NAME" "$ICON_URL"
 elif command -v wget &>/dev/null; then
     wget -O "$ICONS_DIR/$ICON_NAME" "$ICON_URL"
 fi
