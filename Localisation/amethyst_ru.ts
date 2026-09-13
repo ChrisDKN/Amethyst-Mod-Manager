@@ -137,6 +137,61 @@ Choose Roads or Paths Only, click Generate, then close it when finished.</source
     </message>
   </context>
   <context>
+    <name>AcquisitionSummary</name>
+    <message>
+      <source>Transfers over the network</source>
+      <translation>Передача по сети</translation>
+    </message>
+    <message>
+      <source>Not checked</source>
+      <translation>Не проверено</translation>
+    </message>
+    <message>
+      <source>Check requirements to verify cached files and Nexus access, then review what still needs downloading.</source>
+      <translation>Проверьте требования для верификации кэшированных файлов и доступа к Nexus, а затем ознакомьтесь с тем, что все еще нуждается в загрузке.</translation>
+    </message>
+    <message>
+      <source>0 B</source>
+      <translation>0 Б</translation>
+    </message>
+    <message>
+      <source>1 archive</source>
+      <translation>1 архив</translation>
+    </message>
+    <message>
+      <source>{0} archives</source>
+      <translation>Архивы {0}</translation>
+    </message>
+    <message>
+      <source>Nothing to download</source>
+      <translation>Нечего загружать</translation>
+    </message>
+    <message>
+      <source>1 required game file is missing or differs.</source>
+      <translation>1 необходимый игровой файл отсутствует или отличается друг от друга.</translation>
+    </message>
+    <message>
+      <source>{0} required game files are missing or differ.</source>
+      <translation>{0} требуемые файлы игры отсутствуют или отличаются друг от друга.</translation>
+    </message>
+    <message>
+      <source>Resolve the listed requirements before downloading.</source>
+      <translation>Разрешите указанные требования перед загрузкой.</translation>
+    </message>
+    <message>
+      <source>Browser downloads and Select File use the normal installer prompts. Automatic downloads continue while you respond.</source>
+      <translation>Браузер загружает и Выберите файл, используя обычные приглашения установщика. Автоматические загрузки продолжаются пока вы отвечаете.</translation>
+    </message>
+    <message>
+      <source>No archive downloads needed. Verified local content will be reused.</source>
+      <translation>Архивные загрузки не требуются. Проверенный локальный контент будет повторно использован.</translation>
+    </message>
+    <message>
+      <source>Verified cache and game files are reused. Downloads follow your existing speed and concurrency settings.</source>
+      <translation>Проверенный кэш и файлы игр повторно используются. Загрузки следуют вашей скорости и настройкам одновременно.</translation>
+    </message>
+  </context>
+  <context>
     <name>AddGameView</name>
     <message>
       <source>Select a game to add</source>
@@ -1289,8 +1344,16 @@ Close it when you are done, then click Done.</source>
       <translation>Оставшиеся временные папки ({0})</translation>
     </message>
     <message>
+      <source>Wabbajack jobs and update backups</source>
+      <translation>Wabbajack задания и обновление резервных копий</translation>
+    </message>
+    <message>
       <source>Total: {0}</source>
       <translation>Всего: {0}</translation>
+    </message>
+    <message>
+      <source>Wabbajack gallery and packages</source>
+      <translation>Галерея и пакеты Wabbajack</translation>
     </message>
     <message>
       <source>Nothing selected.</source>
@@ -1307,16 +1370,24 @@ Close it when you are done, then click Done.</source>
 
 {2}
 
-Archives will be re-downloaded as needed.</source>
-      <translation>Очистить список «{0}
+Archives, gallery data and modlist packages will be re-downloaded as needed. Saved Wabbajack requirement checks in the selected game caches will be reset. The Wabbajack jobs/backups entry removes abandoned jobs and update backups; referenced installations are preserved.</source>
+      <translation>Очистить {0} по всем элементам {1} ?
 
-» для всех элементов в разделе «{1}
+{2}
 
-»?
+архивы, данные галереи и пакеты модов будут перезагружены по мере необходимости. Требования к сохраненным Wabbajack в выбранном кэше будут сброшены. Запись о заданиях/резервных копиях Wabbajack удаляет ненужные работы и обновляет резервные копии; сохраняются ссылки на установку.</translation>
+    </message>
+    <message>
+      <source>Clear {0} of cached downloads across every game?
 
-Архивы{2}
+Location: {1}
 
-будут заново загружены по мере необходимости.</translation>
+The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack gallery data, modlist packages and saved requirement checks are also cleared. The jobs/backups entry removes abandoned jobs and update backups.</source>
+      <translation>Очистить {0} кэшированных загрузок по каждой игре?
+
+Местоположение: {1}
+
+Кэш md5 сохраняется. Архивы будут перезагружены по мере необходимости. Данные галереи Wabbajack, пакеты modlist и проверки сохраненных требований также очищаются. Запись о заданиях и резервных копиях удаляет оставленные вакансии и обновляет резервные копии.</translation>
     </message>
     <message>
       <source>Clear {0} Cache(s)</source>
@@ -1333,20 +1404,6 @@ Archives will be re-downloaded as needed.</source>
     <message>
       <source>Cache is empty.</source>
       <translation>Кэш пуст.</translation>
-    </message>
-    <message>
-      <source>Clear {0} of cached downloads across every game?
-
-Location: {1}
-
-The md5 cache is preserved. Archives will be re-downloaded as needed.</source>
-      <translation>Как очистить кэш загрузок{0}
-
-для всех игр?
-
-Адрес:{1}
-
-Кэш MD5 сохраняется. Архивы будут загружаться заново по мере необходимости.</translation>
     </message>
     <message>
       <source>Clear All Download Caches</source>
@@ -1442,6 +1499,45 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</source>
     <message>
       <source>Waiting for the browser download - {0} / {1}</source>
       <translation>Ожидание загрузки браузера - {0} / {1}</translation>
+    </message>
+  </context>
+  <context>
+    <name>CheckRow</name>
+    <message>
+      <source>Blocking: resolve before installing.</source>
+      <translation>Блокировка: решается перед установкой.</translation>
+    </message>
+    <message>
+      <source>Needs your input: follow the download or setup instructions.</source>
+      <translation>Требуется ваш вход: следуйте инструкциям по загрузке или настройке.</translation>
+    </message>
+    <message>
+      <source>To review: read before continuing; this does not block installation.</source>
+      <translation>Для проверки: читайте перед продолжением; это не блокирует установку.</translation>
+    </message>
+    <message>
+      <source>Passed: this check is ready to proceed.</source>
+      <translation>Пройдено: эта проверка готова к продолжению.</translation>
+    </message>
+    <message>
+      <source>What this means</source>
+      <translation>Что это означает</translation>
+    </message>
+    <message>
+      <source>Details</source>
+      <translation>Детали</translation>
+    </message>
+    <message>
+      <source>Hide affected files</source>
+      <translation>Скрыть затрагиваемые файлы</translation>
+    </message>
+    <message>
+      <source>Show 1 affected file</source>
+      <translation>Показать 1 файл</translation>
+    </message>
+    <message>
+      <source>Show {0} affected files</source>
+      <translation>Показать файлы, затрагиваемые {0}</translation>
     </message>
   </context>
   <context>
@@ -1609,6 +1705,10 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</source>
       <translation>Сократите общую скорость загрузки этой установки. 0 = полное соединение. Применяется немедленно.</translation>
     </message>
     <message>
+      <source>Extractions:</source>
+      <translation>Извлечения:</translation>
+    </message>
+    <message>
       <source>Pause</source>
       <translation>Пауза</translation>
     </message>
@@ -1621,8 +1721,16 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</source>
       <translation>Пауза…</translation>
     </message>
     <message>
+      <source>{0}: {1} / {2}</source>
+      <translation>{0}: {1} / {2}</translation>
+    </message>
+    <message>
       <source>Downloading…</source>
       <translation>Загрузка…</translation>
+    </message>
+    <message>
+      <source>Small mods (under 100 MB)</source>
+      <translation>Маленькие моды (меньше 100 МБ)</translation>
     </message>
     <message>
       <source>+ {0} more downloading…</source>
@@ -1688,6 +1796,10 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</source>
       <translation>Пауза…</translation>
     </message>
     <message>
+      <source>This source needs a browser download or an existing file.</source>
+      <translation>Этому источнику требуется загрузка браузера или существующий файл.</translation>
+    </message>
+    <message>
       <source>Optional</source>
       <translation>Необязательно</translation>
     </message>
@@ -1700,8 +1812,24 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</source>
       <translation>Требуемый файл: {0}</translation>
     </message>
     <message>
+      <source>Download this exact archive to a watched download folder, or use Select File. Amethyst checks its size and hash before continuing.</source>
+      <translation>Загрузите этот архив в просматриваемую папку загрузки или используйте Select File. Amethyst проверяет его размер и хэш перед продолжением.</translation>
+    </message>
+    <message>
       <source>Mod {0}/{1} - download this file, then it will be auto-detected…</source>
       <translation>Mod {0}/{1} - загрузите этот файл, тогда он будет автоматически обнаружен</translation>
+    </message>
+    <message>
+      <source>Why this needs your help:
+{0}</source>
+      <translation>Почему эта помощь нужна вам:
+{0}</translation>
+    </message>
+    <message>
+      <source>Author instructions:
+{0}</source>
+      <translation>Указания автора:
+{0}</translation>
     </message>
     <message>
       <source>Open next {0}</source>
@@ -1865,10 +1993,6 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</source>
       <translation>Отменить</translation>
     </message>
     <message>
-      <source>Game Installation Folder</source>
-      <translation>Папка установки игры</translation>
-    </message>
-    <message>
       <source>Scanning Steam libraries…</source>
       <translation>Производится сканирование библиотек Steam…</translation>
     </message>
@@ -1889,10 +2013,6 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</source>
       <translation>Сканировать</translation>
     </message>
     <message>
-      <source>Proton Prefix (compatdata/pfx)</source>
-      <translation>Префикс Proton (compatdata/pfx)</translation>
-    </message>
-    <message>
       <source>Scanning for prefix…</source>
       <translation>Поиск префикса…</translation>
     </message>
@@ -1905,16 +2025,8 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</source>
       <translation>Префикс не настроен.</translation>
     </message>
     <message>
-      <source>Mod Staging Folder</source>
-      <translation>Папка для размещения модификаций</translation>
-    </message>
-    <message>
       <source>Searching common AppImage locations…</source>
       <translation>Поиск общих локаций изображений..</translation>
-    </message>
-    <message>
-      <source>AppImage Location (Optional)</source>
-      <translation>Местоположение изображения (факультативно)</translation>
     </message>
     <message>
       <source>Default location will be used.</source>
@@ -1925,16 +2037,24 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</source>
       <translation>Сброс на настройки по умолчанию</translation>
     </message>
     <message>
-      <source>Saves Folder (optional)</source>
-      <translation>Saves Folder (необязательно)</translation>
-    </message>
-    <message>
       <source>Detected automatically.</source>
       <translation>Обнаружен автоматически.</translation>
     </message>
     <message>
+      <source>Detected from the Ludusavi manifest</source>
+      <translation>Обнаружено из манифеста Людусави</translation>
+    </message>
+    <message>
+      <source>Saves</source>
+      <translation>Сейвы</translation>
+    </message>
+    <message>
       <source>Clear</source>
       <translation>Очистить</translation>
+    </message>
+    <message>
+      <source>Set this only if the Saves tab looks in the wrong place.</source>
+      <translation>Установите это только, если вкладка "Сохранения" выглядит неправильно.</translation>
     </message>
     <message>
       <source>Options</source>
@@ -1979,6 +2099,10 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</source>
     <message>
       <source>Windows / Proton</source>
       <translation>Windows / Протон</translation>
+    </message>
+    <message>
+      <source>Behaviour</source>
+      <translation>Поведение</translation>
     </message>
     <message>
       <source>Swap launcher with script extender on deploy</source>
@@ -2065,6 +2189,14 @@ The default profile's settings are not affected.</source>
       <translation>Профиль теперь использует общие настройки (настройки профиля по умолчанию).</translation>
     </message>
     <message>
+      <source>{0} · this profile only</source>
+      <translation>{0} · только этот профиль</translation>
+    </message>
+    <message>
+      <source>Shared settings</source>
+      <translation>Общие настройки</translation>
+    </message>
+    <message>
       <source>Settings saved.</source>
       <translation>Настройки сохранены.</translation>
     </message>
@@ -2083,6 +2215,14 @@ The default profile's settings are not affected.</source>
     <message>
       <source>Version {0}</source>
       <translation>Версия {0}</translation>
+    </message>
+    <message>
+      <source>Non-Steam Shortcut prefix</source>
+      <translation>Префикс ярлыков для Steam</translation>
+    </message>
+    <message>
+      <source>{0} prefix</source>
+      <translation>Префикс {0}</translation>
     </message>
     <message>
       <source>Prefix already configured. You can update the path below.</source>
@@ -2187,6 +2327,102 @@ The default profile's settings are not affected.</source>
     <message>
       <source>Found via drive scan.</source>
       <translation>Обнаружено в ходе сканирования диска.</translation>
+    </message>
+    <message>
+      <source>Problem</source>
+      <translation>Проблема</translation>
+    </message>
+    <message>
+      <source>N/A</source>
+      <translation>Н/Д</translation>
+    </message>
+    <message>
+      <source>Scanning…</source>
+      <translation>Сканирование…</translation>
+    </message>
+    <message>
+      <source>Not found</source>
+      <translation>Не найдено</translation>
+    </message>
+    <message>
+      <source>Custom</source>
+      <translation>Свой</translation>
+    </message>
+    <message>
+      <source>Default</source>
+      <translation>По умолчанию</translation>
+    </message>
+    <message>
+      <source>Auto</source>
+      <translation>Авто</translation>
+    </message>
+    <message>
+      <source>None</source>
+      <translation>Нет</translation>
+    </message>
+    <message>
+      <source>Detected</source>
+      <translation>Обнаружен</translation>
+    </message>
+    <message>
+      <source>Check</source>
+      <translation>Проверить</translation>
+    </message>
+    <message>
+      <source>Set</source>
+      <translation>Задать</translation>
+    </message>
+    <message>
+      <source>Configured</source>
+      <translation>Настроено</translation>
+    </message>
+    <message>
+      <source>Not set up</source>
+      <translation>Не настроен</translation>
+    </message>
+    <message>
+      <source>VFS deploy</source>
+      <translation>Развертывание VFS</translation>
+    </message>
+    <message>
+      <source>Hardlink deploy</source>
+      <translation>Развертывание Hardlink</translation>
+    </message>
+    <message>
+      <source>Symlink deploy</source>
+      <translation>Symlink deploy</translation>
+    </message>
+    <message>
+      <source>Locations</source>
+      <translation>Места</translation>
+    </message>
+    <message>
+      <source>Game install</source>
+      <translation>Установка игры</translation>
+    </message>
+    <message>
+      <source>AppImage</source>
+      <translation>AppImage</translation>
+    </message>
+    <message>
+      <source>Not needed for a native Linux game</source>
+      <translation>Не требуется для родной игры в Linux</translation>
+    </message>
+    <message>
+      <source>Detected automatically</source>
+      <translation>Обнаружено автоматически</translation>
+    </message>
+    <message>
+      <source>Proton prefix</source>
+      <translation>Префикс Proton</translation>
+    </message>
+    <message>
+      <source>Default location</source>
+      <translation>Местоположение по умолчанию</translation>
+    </message>
+    <message>
+      <source>Mod staging</source>
+      <translation>Mod staging</translation>
     </message>
     <message>
       <source>Game executable not found on any drive.</source>
@@ -5131,6 +5367,10 @@ Click Done to clean up the extracted files and close.</source>
       <translation>Автор</translation>
     </message>
     <message>
+      <source>By source location</source>
+      <translation>По местоположению источника</translation>
+    </message>
+    <message>
       <source>By file type</source>
       <translation>По типу файла</translation>
     </message>
@@ -5414,6 +5654,10 @@ It may already be modified. Verify game files in Steam/Heroic to get a clean exe
       <translation>Непризнанная версия {0}.
 SHA-1: {1}
 Он уже может быть изменен. Проверьте игровые файлы в Steam/Heroic, чтобы получить чистый exe.</translation>
+    </message>
+    <message>
+      <source>Unpatched {0} detected - ready to patch.</source>
+      <translation>Обнаружен Unpatched {0} - готов к исправлению.</translation>
     </message>
     <message>
       <source>Backup found: {0}</source>
@@ -6335,6 +6579,14 @@ If you continue, this warning won't be shown again for {1} unless the drives cha
     <message>
       <source>Sort Plugins</source>
       <translation>Сортировать плагины</translation>
+    </message>
+    <message>
+      <source>Sync</source>
+      <translation>Синхр.</translation>
+    </message>
+    <message>
+      <source>Match plugin load order to modlist priority</source>
+      <translation>Порядок загрузки плагинов совпадает с приоритетом списка</translation>
     </message>
     <message>
       <source>Groups</source>
@@ -8081,12 +8333,28 @@ Run Quick Update on all of them now?</source>
       <translation>Предпочтение AppImage</translation>
     </message>
     <message>
+      <source>.NET Framework 4.8</source>
+      <translation>.NET Framework 4.8</translation>
+    </message>
+    <message>
       <source>Download Manifest…</source>
       <translation>Скачать Манифест..</translation>
     </message>
     <message>
+      <source>Wabbajack</source>
+      <translation>Ваббаджак</translation>
+    </message>
+    <message>
+      <source>Browse Wabbajack modlists…</source>
+      <translation>Обзор списков Wabbajack…</translation>
+    </message>
+    <message>
       <source>{0} is running - switch games when it finishes.</source>
       <translation>{0} работает - переключайте игры, когда закончите.</translation>
+    </message>
+    <message>
+      <source>{0} is running - switch profiles when it finishes.</source>
+      <translation>{0} запущен - переключайте профили, когда закончите.</translation>
     </message>
     <message>
       <source>VFS</source>
@@ -8155,6 +8423,34 @@ Run Quick Update on all of them now?</source>
     <message>
       <source>Could not identify any of the {0} mod(s) found.</source>
       <translation>Не удалось идентифицировать ни один из найденных модов {0}.</translation>
+    </message>
+    <message>
+      <source>Wabbajack installation complete.</source>
+      <translation>Установка Wabbajack завершена.</translation>
+    </message>
+    <message>
+      <source>A Wabbajack installation is running.</source>
+      <translation>Запущена установка Wabbajack.</translation>
+    </message>
+    <message>
+      <source>The active profile isn't a Wabbajack profile.</source>
+      <translation>Активный профиль не является профилем Wabbajack.</translation>
+    </message>
+    <message>
+      <source>Wait for the current operation to finish before resetting the load order.</source>
+      <translation>Дождитесь завершения текущей операции, прежде чем сбросить порядок загрузки.</translation>
+    </message>
+    <message>
+      <source>Wabbajack load-order reset</source>
+      <translation>Wabbajack load-order reset</translation>
+    </message>
+    <message>
+      <source>Resetting Wabbajack load order…</source>
+      <translation>Сброс порядка загрузки Wabbajack…</translation>
+    </message>
+    <message>
+      <source>Wabbajack load order reset - {0} mods and {1} plugins ordered.</source>
+      <translation>Порядок загрузки Wabbajack сброшен - Заказано модов и {0} плагинов {1}.</translation>
     </message>
     <message>
       <source>Load order reset - {0} mods ordered, {1} kept below.</source>
@@ -8305,6 +8601,14 @@ Run Quick Update on all of them now?</source>
       <translation>Ожидание обновлений профиля…</translation>
     </message>
     <message>
+      <source>Wait for the Proton installer to finish before closing Amethyst.</source>
+      <translation>Дождитесь завершения установки Proton перед закрытием Amethyst.</translation>
+    </message>
+    <message>
+      <source>Pausing Wabbajack and waiting for installation and tool setup to stop safely…</source>
+      <translation>Пауза Wabbajack и ожидание установки и установки инструмента для безопасной остановки…</translation>
+    </message>
+    <message>
       <source>Extracting / Installing</source>
       <translation>Извлечение/установка</translation>
     </message>
@@ -8313,12 +8617,32 @@ Run Quick Update on all of them now?</source>
       <translation>Восстановите игру, прежде чем менять предпочтительный пакет OpenMW.</translation>
     </message>
     <message>
+      <source>Installing .NET Framework 4.8</source>
+      <translation>Installing .NET Framework 4.8</translation>
+    </message>
+    <message>
       <source>Wizard Settings…</source>
       <translation>Волшебные настройки..</translation>
     </message>
     <message>
       <source>Reset wizard tools that automatically reuse their saved Proton settings.</source>
       <translation>Инструменты мастера сброса, которые автоматически повторно используют сохраненные настройки Proton.</translation>
+    </message>
+    <message>
+      <source>Return to the game and profile shown in this wizard, then install the downloaded files.</source>
+      <translation>Вернитесь к игре и профилю, показанному в этом мастере, затем установите скачанные файлы.</translation>
+    </message>
+    <message>
+      <source>Select a member profile before installing Workshop mods.</source>
+      <translation>Выберите профиль участника перед установкой модификаций.</translation>
+    </message>
+    <message>
+      <source>Wait for the running wizard tool to finish.</source>
+      <translation>Дождитесь завершения работы инструмента мастера.</translation>
+    </message>
+    <message>
+      <source>Workshop installation</source>
+      <translation>Установка мастерской</translation>
     </message>
     <message>
       <source>No QuickAutoClean tool is available for this game.</source>
@@ -8491,6 +8815,10 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
       <translation>Включено / отключено</translation>
     </message>
     <message>
+      <source>Nexus mod / file ID</source>
+      <translation>Nexus mod / file ID</translation>
+    </message>
+    <message>
       <source>By file type</source>
       <translation>По типу файла</translation>
     </message>
@@ -8501,6 +8829,14 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
     <message>
       <source>Filter the modlist with search tags (combine them, and with text):</source>
       <translation>Отфильтровать модуль с помощью тегов поиска (собрать их и с текстом):</translation>
+    </message>
+    <message>
+      <source>mod.io</source>
+      <translation>mod.io</translation>
+    </message>
+    <message>
+      <source>None</source>
+      <translation>Нет</translation>
     </message>
     <message>
       <source>Mods with BA2 archives</source>
@@ -8539,12 +8875,60 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
       <translation>Удалить устаревшие плагины</translation>
     </message>
     <message>
+      <source>Cancel LOOT</source>
+      <translation>Отменить потерю</translation>
+    </message>
+    <message>
       <source>Refreshing LOOT metadata for {0} plugins…</source>
       <translation>Обновление метаданных LOOT для плагинов {0}</translation>
     </message>
     <message>
+      <source>LOOT cancelled.</source>
+      <translation>БЛОТ отменен.</translation>
+    </message>
+    <message>
       <source>Plugin metadata refreshed.</source>
       <translation>Обновлены метаданные плагина.</translation>
+    </message>
+    <message>
+      <source>No plugins to sync.</source>
+      <translation>Нет плагинов для синхронизации.</translation>
+    </message>
+    <message>
+      <source>Plugin sources are being refreshed. Try Sync when loading finishes.</source>
+      <translation>Источники плагинов обновляются. Попробуйте синхронизироваться после завершения загрузки.</translation>
+    </message>
+    <message>
+      <source>No plugins are owned by mods in the modlist.</source>
+      <translation>В списке модов нет ни одного плагина.</translation>
+    </message>
+    <message>
+      <source>Locked plugin positions prevent syncing with the modlist.</source>
+      <translation>Блокированные позиции плагина предотвращают синхронизацию с списком модификаций.</translation>
+    </message>
+    <message>
+      <source>Plugin load order already matches the modlist.</source>
+      <translation>Порядок загрузки плагина уже соответствует списку модификаций.</translation>
+    </message>
+    <message>
+      <source>This will move 1 plugin to match modlist priority.</source>
+      <translation>Этот плагин будет перемещать 1 плагин в соответствии с приоритетом модуля.</translation>
+    </message>
+    <message>
+      <source>This will move {0} plugins to match modlist priority.</source>
+      <translation>Это переместит {0} плагины в соответствии с приоритетом модуля.</translation>
+    </message>
+    <message>
+      <source>Sync plugin load order?</source>
+      <translation>Синхронизировать заказ на загрузку плагинов?</translation>
+    </message>
+    <message>
+      <source>Synced - 1 plugin moved.</source>
+      <translation>Синхронизировано - 1 плагин перемещен.</translation>
+    </message>
+    <message>
+      <source>Synced - {0} plugins moved.</source>
+      <translation>Синхронизировано - {0} плагины перемещены.</translation>
     </message>
     <message>
       <source>An overlap check is already running.</source>
@@ -8685,6 +9069,10 @@ CET не будет загружаться из symlinked asi. Это проис
     <message>
       <source>File location</source>
       <translation>Расположение файла</translation>
+    </message>
+    <message>
+      <source>File or folder not found ({0}).</source>
+      <translation>Файл или папка не найдена ({0}).</translation>
     </message>
     <message>
       <source>Log</source>
@@ -9068,8 +9456,8 @@ How would you like to handle the existing mod?</source>
       <translation>Корень</translation>
     </message>
     <message>
-      <source>Disable</source>
-      <translation>Инвалид</translation>
+      <source>Enabled</source>
+      <translation>Включено</translation>
     </message>
     <message>
       <source>The mod's files and folders as they are packaged in the archive.</source>
@@ -9101,6 +9489,118 @@ How would you like to handle the existing mod?</source>
     <message>
       <source>{0} — Unable to load files</source>
       <translation>{0} — Не удается загрузить файлы</translation>
+    </message>
+    <message>
+      <source>Open</source>
+      <translation>Открыть</translation>
+    </message>
+    <message>
+      <source>Rename…</source>
+      <translation>Переименовать…</translation>
+    </message>
+    <message>
+      <source>Delete…</source>
+      <translation>Удалить…</translation>
+    </message>
+    <message>
+      <source>Create new folder…</source>
+      <translation>Создать новую папку…</translation>
+    </message>
+    <message>
+      <source>Create new file…</source>
+      <translation>Создать новый файл…</translation>
+    </message>
+    <message>
+      <source>Unset Top Level</source>
+      <translation>Сбросить верхний уровень</translation>
+    </message>
+    <message>
+      <source>Set Top Level</source>
+      <translation>Установить верхний уровень</translation>
+    </message>
+    <message>
+      <source>Unset as Root</source>
+      <translation>Отключено от Root</translation>
+    </message>
+    <message>
+      <source>Set as Root</source>
+      <translation>Установить как Root</translation>
+    </message>
+    <message>
+      <source>Disable</source>
+      <translation>Отключено</translation>
+    </message>
+    <message>
+      <source>Enable</source>
+      <translation>Включить</translation>
+    </message>
+    <message>
+      <source>The selected item no longer exists.</source>
+      <translation>Выбранный элемент больше не существует.</translation>
+    </message>
+    <message>
+      <source>Rename</source>
+      <translation>Переименовать</translation>
+    </message>
+    <message>
+      <source>New name:</source>
+      <translation>Новое имя:</translation>
+    </message>
+    <message>
+      <source>A file or folder with that name already exists.</source>
+      <translation>Файл или папка с таким именем уже существует.</translation>
+    </message>
+    <message>
+      <source>The item was renamed, but its saved Mod Files settings could not be updated: {0}</source>
+      <translation>Элемент был переименован, но его сохраненные настройки файлов модов не могут быть обновлены: {0}</translation>
+    </message>
+    <message>
+      <source>Delete</source>
+      <translation>Удалить</translation>
+    </message>
+    <message>
+      <source>Permanently delete '{0}' from this mod?
+
+This cannot be undone.</source>
+      <translation>Окончательно удалить '{0}' из этого мода?
+
+Это не может быть отменено.</translation>
+    </message>
+    <message>
+      <source>The item was deleted, but its saved Mod Files settings could not be updated: {0}</source>
+      <translation>Элемент был удален, но его сохраненные настройки файлов модов не могут быть обновлены: {0}</translation>
+    </message>
+    <message>
+      <source>Create new folder</source>
+      <translation>Создать новую папку</translation>
+    </message>
+    <message>
+      <source>Create new file</source>
+      <translation>Создать новый файл</translation>
+    </message>
+    <message>
+      <source>Name:</source>
+      <translation>Имя:</translation>
+    </message>
+    <message>
+      <source>Create</source>
+      <translation>Создать</translation>
+    </message>
+    <message>
+      <source>Invalid name</source>
+      <translation>Неверное имя</translation>
+    </message>
+    <message>
+      <source>Enter one file or folder name without path separators.</source>
+      <translation>Введите один файл или имя папки без разделителей пути.</translation>
+    </message>
+    <message>
+      <source>That name is reserved and would be hidden from Mod Files.</source>
+      <translation>Это имя зарезервировано и будет скрыто из файлов Mod.</translation>
+    </message>
+    <message>
+      <source>The destination is not safe.</source>
+      <translation>Место назначения небезопасно.</translation>
     </message>
   </context>
   <context>
@@ -9358,6 +9858,10 @@ How would you like to handle the existing mod?</source>
       <translation>Открыть в Thunderstore</translation>
     </message>
     <message>
+      <source>Open on Steam Workshop</source>
+      <translation>Открыть в Мастерской Steam</translation>
+    </message>
+    <message>
       <source>Thunderstore Actions</source>
       <translation>Акции Thunderstore</translation>
     </message>
@@ -9511,6 +10015,14 @@ How would you like to handle the existing mod?</source>
     <message>
       <source>Size</source>
       <translation>Размер</translation>
+    </message>
+    <message>
+      <source>Nexus Mod ID</source>
+      <translation>Nexus Mod ID</translation>
+    </message>
+    <message>
+      <source>Nexus File ID</source>
+      <translation>Nexus ID файла</translation>
     </message>
   </context>
   <context>
@@ -11234,6 +11746,37 @@ Daily: {1}</source>
     </message>
   </context>
   <context>
+    <name>Oblivion4GbView</name>
+    <message>
+      <source>Oblivion 4GB Patch</source>
+      <translation>Наклонный патч 4GB</translation>
+    </message>
+    <message>
+      <source>Patches Oblivion.exe so the 32-bit game can use up to 4 GB of memory on a 64-bit system.
+
+The patch is applied natively and does not require Wine or an external patcher. It does not install or load OBSE.
+
+The original exe is kept as {0}.</source>
+      <translation>Патчи Oblivion.exe, чтобы 32-битная игра могла использовать до 4 Гб памяти в 64-битной системе.
+
+Патч применяется изначально и не требует вино или внешнего патчера. Он не устанавливает или не загружает OBSE.
+
+Первоначальная версия exe хранится как {0}.</translation>
+    </message>
+    <message>
+      <source>The PE header could not be read.</source>
+      <translation>Заголовок PE не может быть прочитан.</translation>
+    </message>
+    <message>
+      <source>{0} is not a supported Windows executable.
+{1}
+Verify the game files in Steam and try again.</source>
+      <translation>{0} не является поддерживаемым исполняемым файлом Windows.
+{1}
+Подтвердите файлы игры в Steam и повторите попытку.</translation>
+    </message>
+  </context>
+  <context>
     <name>OnboardingView</name>
     <message>
       <source>Welcome to Amethyst Mod Manager</source>
@@ -12678,6 +13221,14 @@ Its listed mods are copied into the profile's own mods folder (hardlinked where 
       <translation>(по умолчанию)</translation>
     </message>
     <message>
+      <source>Hide</source>
+      <translation>Скрыть</translation>
+    </message>
+    <message>
+      <source>Hidden profiles remain available here. The active profile stays in the dropdown until you switch profiles.</source>
+      <translation>Здесь по-прежнему доступны скрытые профили. Активный профиль остается в выпадающем списке, пока вы не переключите профили.</translation>
+    </message>
+    <message>
       <source>Rename</source>
       <translation>Переименовать</translation>
     </message>
@@ -13413,6 +13964,37 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     <message>
       <source>Remove</source>
       <translation>Удалить</translation>
+    </message>
+  </context>
+  <context>
+    <name>RequirementsSummary</name>
+    <message>
+      <source>Check requirements to verify game files, available space and runtime requirements. Review the results before installing.</source>
+      <translation>Проверьте требования для проверки игровых файлов, доступного места и требований рабочего времени. Просмотрите результаты перед установкой.</translation>
+    </message>
+    <message>
+      <source>{0} blocking</source>
+      <translation>{0} блокирует</translation>
+    </message>
+    <message>
+      <source>1 needs your input</source>
+      <translation>1 требует ввода</translation>
+    </message>
+    <message>
+      <source>{0} need your input</source>
+      <translation>{0} необходим ваш ввод</translation>
+    </message>
+    <message>
+      <source>{0} to review</source>
+      <translation>{0} для отзыва</translation>
+    </message>
+    <message>
+      <source>Requirements passed</source>
+      <translation>Требования пройдены</translation>
+    </message>
+    <message>
+      <source>Passed ({0})</source>
+      <translation>Пройдено ({0})</translation>
     </message>
   </context>
   <context>
@@ -14327,6 +14909,14 @@ Merge your conflicts, then close it and click Done.</source>
   <context>
     <name>SettingsView</name>
     <message>
+      <source>Discord Rich Presence</source>
+      <translation>Discord Rich Presence</translation>
+    </message>
+    <message>
+      <source>Show Amethyst and the game you are modding on your Discord profile while the Discord desktop app is running.</source>
+      <translation>Показать Amethyst и ту игру, которую вы модифицируете в вашем профиле Discord во время работы приложения Discord.</translation>
+    </message>
+    <message>
       <source>Settings</source>
       <translation>Настройки</translation>
     </message>
@@ -14357,6 +14947,14 @@ Merge your conflicts, then close it and click Done.</source>
     <message>
       <source>Hide BSA/BA2 archive conflict flags (also skips that conflict scan for a small speed-up).</source>
       <translation>Скрыть флаги конфликтов в архиве BSA/BA2 (при этом также пропускается проверка на конфликты, что обеспечивает небольшое ускорение).</translation>
+    </message>
+    <message>
+      <source>Hide endorsed flag</source>
+      <translation>Скрыть поддерживаемый флаг</translation>
+    </message>
+    <message>
+      <source>Hide the endorsed icon from the mod list's Flags column.</source>
+      <translation>Скрыть значок одобрения из столбца «Флаг» списка модов.</translation>
     </message>
     <message>
       <source>Theme</source>
@@ -14719,6 +15317,14 @@ flatpak remote-add - пользователь аметист https://chrisdkn.gi
       <translation>Перевести на Crowdin</translation>
     </message>
     <message>
+      <source>Decrease {0}</source>
+      <translation>Уменьшить {0}</translation>
+    </message>
+    <message>
+      <source>Increase {0}</source>
+      <translation>Увеличить {0}</translation>
+    </message>
+    <message>
       <source>Open the Amethyst Crowdin project to help translate the app.</source>
       <translation>Откройте проект Amethyst Crowdin, чтобы помочь перевести приложение.</translation>
     </message>
@@ -14731,8 +15337,80 @@ flatpak remote-add - пользователь аметист https://chrisdkn.gi
       <translation>Строка состояния</translation>
     </message>
     <message>
+      <source>Install Mod</source>
+      <translation>Install Mod</translation>
+    </message>
+    <message>
+      <source>Proton</source>
+      <translation>Протон</translation>
+    </message>
+    <message>
+      <source>Wizard</source>
+      <translation>Волшебник</translation>
+    </message>
+    <message>
+      <source>Nexus</source>
+      <translation>Nexus</translation>
+    </message>
+    <message>
+      <source>Thunderstore</source>
+      <translation>Thunderstore</translation>
+    </message>
+    <message>
+      <source>Wabbajack</source>
+      <translation>Ваббаджак</translation>
+    </message>
+    <message>
+      <source>Top bar</source>
+      <translation>Верхняя панель</translation>
+    </message>
+    <message>
+      <source>Bottom</source>
+      <translation>Внизу</translation>
+    </message>
+    <message>
+      <source>Where the toolbar sits. As a side bar it is always icon-only, with the labels shown as tooltips.</source>
+      <translation>Где находится панель инструментов. В качестве боковой панели всегда есть иконка, с этикетками отображаются подсказки.</translation>
+    </message>
+    <message>
+      <source>Always use compact (icon-only) buttons</source>
+      <translation>Всегда использовать компактные (только иконки) кнопки</translation>
+    </message>
+    <message>
+      <source>Keep the top bar at its narrow sizes - buttons show icons only and the game and profile selectors collapse - instead of doing so only when the window is too narrow for the labels.</source>
+      <translation>Держите верхнюю панель в узких размерах - кнопки показывают только иконки, а селекторы игр и профиля сворачиваются - вместо того, чтобы делать это только тогда, когда окно слишком узкое для этикеток.</translation>
+    </message>
+    <message>
+      <source>Hide buttons</source>
+      <translation>Скрыть кнопки</translation>
+    </message>
+    <message>
+      <source>Buttons ticked here are removed from the toolbar. A button that does not apply to the current game (Proton without a prefix, or a store the game is not on) is hidden anyway.</source>
+      <translation>Отмеченные здесь кнопки удаляются с панели инструментов. Кнопка, которая не относится к текущей игре (Протон без префикса или магазин не является он) все равно скрыта.</translation>
+    </message>
+    <message>
       <source>Cap the combined download speed of all downloads (collections, single mods, nxm and modl links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>
       <translation>Соединительная скорость загрузки всех загрузок (коллекций, единичных модов, nxm и ссылок на мод), так что они не используют все соединения. Применяется немедленно, в том числе и к работающей установке коллекции.</translation>
+    </message>
+    <message>
+      <source>Nexus download server</source>
+      <translation>Сервер загрузки Nexus</translation>
+    </message>
+    <message>
+      <source>Automatic</source>
+      <translation>Автоматически</translation>
+    </message>
+    <message>
+      <source>Global CDN</source>
+      <translation>Глобальный CDN</translation>
+    </message>
+    <message>
+      <source>{0} (Premium)</source>
+      <translation>{0} (Премиум)</translation>
+    </message>
+    <message>
+      <source>Automatic follows your Nexus website preference. Regional servers require Nexus Premium. Applies to new or resumed Nexus downloads, including collections and Wabbajack. If the selected server is unavailable or fails, other available servers are tried. Pause and resume an active download to change its server.</source>
+      <translation>Автоматическое следование предпочтениям сайта Nexus. Региональные серверы требуют Nexus Premium. Применяется к новым или возобновленным Nexus загрузкам, включая коллекции и Wabbajack. Если выбранный сервер недоступен или не удается, другие доступные серверы испытываются. Пауза и возобновить активную загрузку, чтобы изменить свой сервер.</translation>
     </message>
     <message>
       <source>Downloads are saved to the cache but not installed. Applies to nxm:// and modl:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</source>
@@ -14897,6 +15575,137 @@ flatpak remote-add - пользователь аметист https://chrisdkn.gi
     <message>
       <source>Failed to save setting: {0}</source>
       <translation>Не удалось сохранить настройку: {0}</translation>
+    </message>
+  </context>
+  <context>
+    <name>SetupOptions</name>
+    <message>
+      <source>Additional setup</source>
+      <translation>Дополнительные настройки</translation>
+    </message>
+    <message>
+      <source>Source games</source>
+      <translation>Исходные игры</translation>
+    </message>
+    <message>
+      <source>Setup tools</source>
+      <translation>Настроить инструменты</translation>
+    </message>
+    <message>
+      <source>Compatibility and display</source>
+      <translation>Совместимость и отображение</translation>
+    </message>
+    <message>
+      <source>Use the version required by the author. Output keeps its authored position in {0}.</source>
+      <translation>Используйте версию, требуемую автором. Вывод сохраняет свою авторскую позицию в {0}.</translation>
+    </message>
+    <message>
+      <source>Run the Fallout 3 BSA Decompressor wizard, then import its complete output mod here, or select the author's .mpi package.</source>
+      <translation>Запустите мастер работы BSA Decompressor Fallout 3, затем импортируйте здесь свой полный модификатор вывода или выберите пакет .mpi автора.</translation>
+    </message>
+    <message>
+      <source>Open mod.pub TTW page</source>
+      <translation>Open mod.pub TTW page</translation>
+    </message>
+    <message>
+      <source>Build from .mpi package</source>
+      <translation>Собрать из пакета .mpi</translation>
+    </message>
+    <message>
+      <source>Import existing output mod</source>
+      <translation>Импортировать существующий выходной мод</translation>
+    </message>
+    <message>
+      <source>Import output archive</source>
+      <translation>Импортировать выходной архив</translation>
+    </message>
+    <message>
+      <source>Method</source>
+      <translation>Метод</translation>
+    </message>
+    <message>
+      <source>Select the author-required version</source>
+      <translation>Выберите требуемую автором версию</translation>
+    </message>
+    <message>
+      <source>Browse…</source>
+      <translation>Просмотр…</translation>
+    </message>
+    <message>
+      <source>Download package…</source>
+      <translation>Скачать пакет…</translation>
+    </message>
+    <message>
+      <source>Download the FO3 BSA Decompressor archive from Nexus Mods, extract it, then browse to the .mpi file.</source>
+      <translation>Загрузите файл FO3 BSA Decompressor из Nexus Mods, извлеките его, затем перейдите в .mpi файл.</translation>
+    </message>
+    <message>
+      <source>Detected automatically when installed through Steam</source>
+      <translation>Автоматически обнаруживается при установке через Steam</translation>
+    </message>
+    <message>
+      <source>Original Fallout 3 game</source>
+      <translation>Оригинальная игра Fallout 3</translation>
+    </message>
+    <message>
+      <source>Install / update native MPI tool</source>
+      <translation>Установить / обновить встроенный MPI инструмент</translation>
+    </message>
+    <message>
+      <source>MPI installer on GitHub</source>
+      <translation>MPI installer on GitHub</translation>
+    </message>
+    <message>
+      <source>Root file variant</source>
+      <translation>Корневой вариант файла</translation>
+    </message>
+    <message>
+      <source>Override</source>
+      <translation>Переопределить</translation>
+    </message>
+    <message>
+      <source>Overrides the author's resolution in supported game INIs and display-tweak files. Leave off to keep their settings.</source>
+      <translation>Переопределяет разрешение автора в поддерживаемых INI играх и отображаемых файлах. Отключите для сохранения настроек.</translation>
+    </message>
+    <message>
+      <source>Display resolution</source>
+      <translation>Разрешение экрана</translation>
+    </message>
+    <message>
+      <source>Choose automatically</source>
+      <translation>Выбрать автоматически</translation>
+    </message>
+    <message>
+      <source>Unavailable: {0}</source>
+      <translation>Unavailable: {0}</translation>
+    </message>
+    <message>
+      <source>Texture tool Proton</source>
+      <translation>Инструмент текстуры Proton</translation>
+    </message>
+    <message>
+      <source>Automatic (GPU when available)</source>
+      <translation>Автоматически (GPU при наличии)</translation>
+    </message>
+    <message>
+      <source>CPU only</source>
+      <translation>Только ЦП</translation>
+    </message>
+    <message>
+      <source>Texture conversion</source>
+      <translation>Преобразование текстур</translation>
+    </message>
+    <message>
+      <source>Select extracted MPI package</source>
+      <translation>Выберите извлеченный пакет MPI</translation>
+    </message>
+    <message>
+      <source>Select output archive</source>
+      <translation>Выберите выходной архив</translation>
+    </message>
+    <message>
+      <source>Select original game</source>
+      <translation>Выберите оригинальную игру</translation>
     </message>
   </context>
   <context>
@@ -17929,6 +18738,590 @@ Latest:  {1}</source>
     </message>
   </context>
   <context>
+    <name>WabbajackCard</name>
+    <message>
+      <source>by {0}</source>
+      <translation>от {0}</translation>
+    </message>
+    <message>
+      <source>Unknown author</source>
+      <translation>Неизвестный автор</translation>
+    </message>
+    <message>
+      <source>Featured</source>
+      <translation>Избранные</translation>
+    </message>
+    <message>
+      <source>Adult</source>
+      <translation>Взрослый</translation>
+    </message>
+    <message>
+      <source>Unavailable</source>
+      <translation>Unavailable</translation>
+    </message>
+    <message>
+      <source>Resume available</source>
+      <translation>Возобновить доступно</translation>
+    </message>
+    <message>
+      <source>Update available</source>
+      <translation>Доступно обновление</translation>
+    </message>
+    <message>
+      <source>Installed</source>
+      <translation>Установлено</translation>
+    </message>
+    <message>
+      <source>Download</source>
+      <translation>Скачать</translation>
+    </message>
+    <message>
+      <source>Install</source>
+      <translation>Установить</translation>
+    </message>
+    <message>
+      <source>Unknown</source>
+      <translation>Неизвестен</translation>
+    </message>
+    <message>
+      <source>View</source>
+      <translation>Вид</translation>
+    </message>
+    <message>
+      <source>Installation: {0}</source>
+      <translation>Установка {0}</translation>
+    </message>
+  </context>
+  <context>
+    <name>WabbajackView</name>
+    <message>
+      <source>Wabbajack modlists</source>
+      <translation>Мод-списки Wabbajack</translation>
+    </message>
+    <message>
+      <source>No game selected</source>
+      <translation>Игра не выбрана</translation>
+    </message>
+    <message>
+      <source>All tags</source>
+      <translation>Все теги</translation>
+    </message>
+    <message>
+      <source>Sort: </source>
+      <translation>Сортировка: </translation>
+    </message>
+    <message>
+      <source>Featured only</source>
+      <translation>Только избранные</translation>
+    </message>
+    <message>
+      <source>Installed</source>
+      <translation>Установлено</translation>
+    </message>
+    <message>
+      <source>Show adult</source>
+      <translation>Показать взрослый</translation>
+    </message>
+    <message>
+      <source>Hide unavailable</source>
+      <translation>Скрыть недоступные</translation>
+    </message>
+    <message>
+      <source>Loading modlists…</source>
+      <translation>Загрузка мод-списков…</translation>
+    </message>
+    <message>
+      <source>Search titles, authors, or tags…</source>
+      <translation>Поиск заголовков, авторов или тегов…</translation>
+    </message>
+    <message>
+      <source>Page</source>
+      <translation>Страница</translation>
+    </message>
+    <message>
+      <source>Select a game in the main toolbar</source>
+      <translation>Выберите игру на главной панели инструментов</translation>
+    </message>
+    <message>
+      <source>Not checked</source>
+      <translation>Не проверено</translation>
+    </message>
+    <message>
+      <source>Files and locations</source>
+      <translation>Файлы и местоположения</translation>
+    </message>
+    <message>
+      <source>The package is loaded when you check requirements.</source>
+      <translation>Пакет загружается при проверке требований.</translation>
+    </message>
+    <message>
+      <source>Modlist package</source>
+      <translation>Пакет модулей</translation>
+    </message>
+    <message>
+      <source>Reuse an existing download folder</source>
+      <translation>Повторно использовать существующую папку загрузок</translation>
+    </message>
+    <message>
+      <source>This installation's managed directory inside the current game's .wabbajack folder.</source>
+      <translation>Управляемая директория этой установки в папке .wabbajack текущей игры.</translation>
+    </message>
+    <message>
+      <source>Downloads</source>
+      <translation>Загрузки</translation>
+    </message>
+    <message>
+      <source>Installation</source>
+      <translation>Установка</translation>
+    </message>
+    <message>
+      <source>Chosen automatically for this game</source>
+      <translation>Автоматически выбран для этой игры</translation>
+    </message>
+    <message>
+      <source>Profiles and options</source>
+      <translation>Профили и параметры</translation>
+    </message>
+    <message>
+      <source>Operation</source>
+      <translation>Операция</translation>
+    </message>
+    <message>
+      <source>Profiles</source>
+      <translation>Profiles</translation>
+    </message>
+    <message>
+      <source>Linux adjustments</source>
+      <translation>Коррекции Linux</translation>
+    </message>
+    <message>
+      <source>Check requirements to load the authored profiles and prepare the download plan.</source>
+      <translation>Проверьте требования, чтобы загрузить авторские профили и подготовить план загрузки.</translation>
+    </message>
+    <message>
+      <source>Editing shared mod files affects every profile. INIs, enabled mods and load order stay separate.</source>
+      <translation>Редактирование общих модных файлов влияет на каждый профиль. INIs, включенные моды и оставшиеся разделенные порядок загрузки.</translation>
+    </message>
+    <message>
+      <source>Requirements</source>
+      <translation>Требования</translation>
+    </message>
+    <message>
+      <source>Download plan</source>
+      <translation>Скачать план</translation>
+    </message>
+    <message>
+      <source>Check</source>
+      <translation>Проверить</translation>
+    </message>
+    <message>
+      <source>Review</source>
+      <translation>Обзор</translation>
+    </message>
+    <message>
+      <source>Install</source>
+      <translation>Установить</translation>
+    </message>
+    <message>
+      <source>Check requirements and review the download plan.</source>
+      <translation>Проверьте требования и проверьте тарифный план.</translation>
+    </message>
+    <message>
+      <source>Options changed. Previous requirements are shown for reference; recheck to update them.</source>
+      <translation>Параметры изменены. Предыдущие требования показаны для ссылки; перепроверьте для их обновления.</translation>
+    </message>
+    <message>
+      <source>Recheck required</source>
+      <translation>Требуется перепроверить</translation>
+    </message>
+    <message>
+      <source>Review changes before updating shared files and profiles.</source>
+      <translation>Просмотрите изменения перед обновлением общих файлов и профилей.</translation>
+    </message>
+    <message>
+      <source>File</source>
+      <translation>Файл</translation>
+    </message>
+    <message>
+      <source>Change</source>
+      <translation>Изменить</translation>
+    </message>
+    <message>
+      <source>Resolution</source>
+      <translation>Разрешение</translation>
+    </message>
+    <message>
+      <source>No modlists match these filters.
+Try clearing your search or filters.</source>
+      <translation type="unfinished">No modlists match these filters.
+Try clearing your search or filters.</translation>
+    </message>
+    <message>
+      <source>Select a game in the main toolbar to browse its modlists.</source>
+      <translation>Выберите игру на главной панели инструментов для просмотра списков модулей.</translation>
+    </message>
+    <message>
+      <source>of {0}</source>
+      <translation>из {0}</translation>
+    </message>
+    <message>
+      <source>{0} modlists</source>
+      <translation>{0} списки модов</translation>
+    </message>
+    <message>
+      <source>View modlist</source>
+      <translation>Просмотр списка модулей</translation>
+    </message>
+    <message>
+      <source>Unknown</source>
+      <translation>Неизвестен</translation>
+    </message>
+    <message>
+      <source>Featured</source>
+      <translation>Избранные</translation>
+    </message>
+    <message>
+      <source>Unavailable</source>
+      <translation>Unavailable</translation>
+    </message>
+    <message>
+      <source>Update available</source>
+      <translation>Доступно обновление</translation>
+    </message>
+    <message>
+      <source>Saved installation package</source>
+      <translation>Сохраненный установочный пакет</translation>
+    </message>
+    <message>
+      <source>Package will download from the gallery</source>
+      <translation>Пакет будет загружен из галереи</translation>
+    </message>
+    <message>
+      <source>This list is currently unavailable for download.</source>
+      <translation>Этот список в настоящее время недоступен для скачивания.</translation>
+    </message>
+    <message>
+      <source>Open Wabbajack modlist</source>
+      <translation>Открыть список модулей Wabbajack</translation>
+    </message>
+    <message>
+      <source>Installation directory</source>
+      <translation>Каталог установки</translation>
+    </message>
+    <message>
+      <source>Download directory</source>
+      <translation>Каталог загрузок</translation>
+    </message>
+    <message>
+      <source>Open Wabbajack URL</source>
+      <translation>Открыть URL Wabbajack</translation>
+    </message>
+    <message>
+      <source>Direct .wabbajack URL:</source>
+      <translation>URL .wabbajack:</translation>
+    </message>
+    <message>
+      <source>This list is currently unavailable for download. Open a local .wabbajack file to continue.</source>
+      <translation>Этот список сейчас недоступен для скачивания. Чтобы продолжить, откройте локальный файл .wabbajack.</translation>
+    </message>
+    <message>
+      <source>This entry has no package download URL. Open a local .wabbajack file.</source>
+      <translation>Эта запись не содержит URL загрузки пакета. Откройте локальный файл .wabbajack.</translation>
+    </message>
+    <message>
+      <source>Downloading modlist package…</source>
+      <translation>Загрузка пакета мод-листа…</translation>
+    </message>
+    <message>
+      <source>Cancel download</source>
+      <translation>Отменить загрузку</translation>
+    </message>
+    <message>
+      <source>Inspecting modlist package…</source>
+      <translation>Проверка пакета мод-листа…</translation>
+    </message>
+    <message>
+      <source>Cancelling…</source>
+      <translation>Отмена…</translation>
+    </message>
+    <message>
+      <source>Cancelling modlist package download…</source>
+      <translation>Отмена загрузки списка модулей…</translation>
+    </message>
+    <message>
+      <source>Stopping the download. Any partial download will be kept so it can resume later.</source>
+      <translation>Остановка загрузки. Любая частичная загрузка будет сохранена, чтобы возобновить ее позже.</translation>
+    </message>
+    <message>
+      <source>{0} / {1} ({2}%)</source>
+      <translation>{0} / {1} ({2}%)</translation>
+    </message>
+    <message>
+      <source>{0} downloaded</source>
+      <translation>{0} загружен</translation>
+    </message>
+    <message>
+      <source>Starting…</source>
+      <translation>Запуск…</translation>
+    </message>
+    <message>
+      <source>Installing…</source>
+      <translation>Установка…</translation>
+    </message>
+    <message>
+      <source>Preparing tool…</source>
+      <translation>Подготовка инструмента…</translation>
+    </message>
+    <message>
+      <source>Loading modlist…</source>
+      <translation>Загрузка мод-листа…</translation>
+    </message>
+    <message>
+      <source>Checking requirements…</source>
+      <translation>Проверка требований…</translation>
+    </message>
+    <message>
+      <source>Choose .wabbajack…</source>
+      <translation>Выберите .wabbajack…</translation>
+    </message>
+    <message>
+      <source>Recheck requirements</source>
+      <translation>Перепроверить требования</translation>
+    </message>
+    <message>
+      <source>Check requirements</source>
+      <translation>Проверка требований</translation>
+    </message>
+    <message>
+      <source>Start the selected operation using the reviewed download plan.</source>
+      <translation>Запустите выбранную операцию, используя проверенный план загрузки.</translation>
+    </message>
+    <message>
+      <source>Load the package if needed, check requirements, and prepare the download plan for review.</source>
+      <translation>Загрузить пакет при необходимости, проверить требования и подготовить план загрузки для рассмотрения.</translation>
+    </message>
+    <message>
+      <source>Installing</source>
+      <translation>Установка</translation>
+    </message>
+    <message>
+      <source>Installation is running. Pause and cancel are available in the progress window.</source>
+      <translation>Установка запущена. Пауза и отмена доступны в окне процесса.</translation>
+    </message>
+    <message>
+      <source>Wait for tool setup to finish, then check requirements again.</source>
+      <translation>Дождитесь завершения установки инструмента, а затем проверьте требования снова.</translation>
+    </message>
+    <message>
+      <source>Checking…</source>
+      <translation>Проверка…</translation>
+    </message>
+    <message>
+      <source>Loading…</source>
+      <translation>Загрузка…</translation>
+    </message>
+    <message>
+      <source>Checking game files, downloads and available space…</source>
+      <translation>Проверка игровых файлов, загрузок и свободного места…</translation>
+    </message>
+    <message>
+      <source>Loading the package, then checking requirements…</source>
+      <translation>Загрузка пакета, а затем проверка требований…</translation>
+    </message>
+    <message>
+      <source>Loading the modlist's profiles and options…</source>
+      <translation>Загрузка профилей и опций списка модулей…</translation>
+    </message>
+    <message>
+      <source>1 blocking</source>
+      <translation>1 блокировка</translation>
+    </message>
+    <message>
+      <source>{0} blocking</source>
+      <translation>{0} блокирует</translation>
+    </message>
+    <message>
+      <source>Resolve the blocking requirement to continue, then recheck.</source>
+      <translation>Разрешите требование блокировки, чтобы продолжить, а затем перепроверить.</translation>
+    </message>
+    <message>
+      <source>Resolve the {0} blocking requirements to continue, then recheck.</source>
+      <translation>Разрешите требования к блокировке {0} для продолжения, а затем перепроверки.</translation>
+    </message>
+    <message>
+      <source>Ready to install</source>
+      <translation>Готов к установке</translation>
+    </message>
+    <message>
+      <source>Plan ready</source>
+      <translation>План готов</translation>
+    </message>
+    <message>
+      <source>Review the requirements and download plan, then select {0}.</source>
+      <translation>Просмотрите требования и план загрузки, а затем выберите {0}.</translation>
+    </message>
+    <message>
+      <source>Package ready</source>
+      <translation>Пакет готов</translation>
+    </message>
+    <message>
+      <source>Preparing the isolated texture runtime and testing DDS conversion…</source>
+      <translation>Подготовка рабочего времени изолированной текстуры и тестирование конвертации DDS…</translation>
+    </message>
+    <message>
+      <source>Installing the native MPI tool…</source>
+      <translation>Установка собственного инструмента MPI…</translation>
+    </message>
+    <message>
+      <source>Wait for the current install or deployment operation to finish.</source>
+      <translation>Дождитесь завершения текущей операции установки или установки.</translation>
+    </message>
+    <message>
+      <source>Configure the required game before installing this modlist.</source>
+      <translation>Настройте требуемую игру перед установкой этого мод-списка.</translation>
+    </message>
+    <message>
+      <source>Checking game files, downloads, disk space, and runtime requirements…</source>
+      <translation>Проверка игровых файлов, загрузок, дискового пространства и требований рабочего времени…</translation>
+    </message>
+    <message>
+      <source>Installing / Reconstructing</source>
+      <translation>Установка / Реконструкция</translation>
+    </message>
+    <message>
+      <source>Download complete · inspecting package…</source>
+      <translation>Загрузка завершена · Проверка пакета…</translation>
+    </message>
+    <message>
+      <source>Modlist package downloaded. Checking its contents…</source>
+      <translation>Пакет мод-листа загружен. Проверка его содержимого…</translation>
+    </message>
+    <message>
+      <source>Downloading modlist package: {0}</source>
+      <translation>Загрузка пакета с модсписком: {0}</translation>
+    </message>
+    <message>
+      <source>Keep mine</source>
+      <translation>Оставить мою</translation>
+    </message>
+    <message>
+      <source>Use author version</source>
+      <translation>Использовать версию автора</translation>
+    </message>
+    <message>
+      <source>Preview truncated. Review the complete files before choosing.</source>
+      <translation>Предварительный просмотр усечен. Просмотрите все файлы перед выбором.</translation>
+    </message>
+    <message>
+      <source>Binary or unreadable content. Compare the recorded hashes and file locations.</source>
+      <translation>Двоичный или нечитаемый контент. Сравните записанные хэши и расположение файлов.</translation>
+    </message>
+    <message>
+      <source>The gallery could not be loaded. Try Refresh, or open a local .wabbajack file.</source>
+      <translation>Галерея не может быть загружена. Попробуйте обновить или откройте локальный файл .wabbajack.</translation>
+    </message>
+    <message>
+      <source>Download cancelled</source>
+      <translation>Загрузка отменена</translation>
+    </message>
+    <message>
+      <source>Modlist package download cancelled.</source>
+      <translation>Скачивание пакета мод отменено.</translation>
+    </message>
+    <message>
+      <source>Select Check requirements to resume; any partial download will be reused.</source>
+      <translation>Выберите «Проверить требования», чтобы возобновить; любая частичная загрузка будет повторно использована.</translation>
+    </message>
+    <message>
+      <source>Open download page</source>
+      <translation>Открыть страницу загрузки</translation>
+    </message>
+    <message>
+      <source>Download the .wabbajack file from {0}, then use Open .wabbajack to continue setup.</source>
+      <translation>Загрузите файл .wabbajack из {0}, затем используйте Open .wabbajack для продолжения установки.</translation>
+    </message>
+    <message>
+      <source>Could not continue</source>
+      <translation>Не удалось продолжить</translation>
+    </message>
+    <message>
+      <source>Review the error details, then try the operation again.</source>
+      <translation>Проверьте детали ошибки, затем повторите операцию.</translation>
+    </message>
+    <message>
+      <source>Using cached gallery information.</source>
+      <translation>Использование кэшированных данных галереи.</translation>
+    </message>
+    <message>
+      <source>Gallery loaded.</source>
+      <translation>Галерея загружена.</translation>
+    </message>
+    <message>
+      <source> {0} feeds unavailable.</source>
+      <translation> Каналы {0} недоступны.</translation>
+    </message>
+    <message>
+      <source>Reload</source>
+      <translation>Reload</translation>
+    </message>
+    <message>
+      <source>{0} · saved package</source>
+      <translation>{0} · сохраненный пакет</translation>
+    </message>
+    <message>
+      <source>{0} archives · {1} files</source>
+      <translation>{0} архивы · {1} файлы</translation>
+    </message>
+    <message>
+      <source>Package ready. Check requirements to prepare the download plan.</source>
+      <translation>Пакет готов. Проверьте требования для подготовки плана загрузки.</translation>
+    </message>
+    <message>
+      <source>Requirements and download plan ready. Review them before starting.</source>
+      <translation>Требования и план загрузки готов. Проверьте их, прежде чем начать.</translation>
+    </message>
+    <message>
+      <source>Resolve the listed requirements, then recheck.</source>
+      <translation>Разрешите перечисленные требования, затем перепроверьте.</translation>
+    </message>
+    <message>
+      <source>Texture tool installed. Check requirements again to refresh the download plan.</source>
+      <translation>Инструмент текстур установлен. Проверьте требования для обновления плана загрузки.</translation>
+    </message>
+    <message>
+      <source>Native MPI tool installed. Check requirements again to verify the selected package.</source>
+      <translation>Инструмент MPI установлен. Проверьте требования еще раз, чтобы проверить выбранный пакет.</translation>
+    </message>
+    <message>
+      <source>Paused</source>
+      <translation>Пауза</translation>
+    </message>
+    <message>
+      <source>Cancelled</source>
+      <translation>Отменено</translation>
+    </message>
+    <message>
+      <source>Needs attention</source>
+      <translation>Требует внимания</translation>
+    </message>
+    <message>
+      <source>Installation complete. You can select its profiles from the main toolbar.</source>
+      <translation>Установка завершена. Профили можно выбрать из основной панели инструментов.</translation>
+    </message>
+    <message>
+      <source>Your progress is saved. Check requirements, then select Resume to continue.</source>
+      <translation>Ваш прогресс сохранен. Проверьте требования, затем выберите «Продолжать», чтобы продолжить.</translation>
+    </message>
+    <message>
+      <source>Wait for tool setup to finish before closing this tab.</source>
+      <translation>Дождитесь завершения установки инструмента перед закрытием этой вкладки.</translation>
+    </message>
+    <message>
+      <source>Pause or cancel the installation before closing this tab.</source>
+      <translation>Приостановить или отменить установку перед закрытием этой вкладки.</translation>
+    </message>
+  </context>
+  <context>
     <name>WikiView</name>
     <message>
       <source>Refresh</source>
@@ -18013,6 +19406,10 @@ Press Refresh to try again.</source>
   </context>
   <context>
     <name>WizardTools</name>
+    <message>
+      <source>Install Steam Workshop Mod</source>
+      <translation>Установить Мод Мастерской Steam</translation>
+    </message>
     <message>
       <source>mod.io API Key</source>
       <translation>mod.io API Key</translation>
@@ -18246,6 +19643,10 @@ Press Refresh to try again.</source>
       <translation>Установить ReShade</translation>
     </message>
     <message>
+      <source>Download a Steam Workshop item and install it into this profile.</source>
+      <translation>Скачать элемент Мастерской Steam и установить его в этот профиль.</translation>
+    </message>
+    <message>
       <source>Enter a mod.io key to enable update checks for manually-installed mod.io mods.</source>
       <translation>Введите ключ mod.io, чтобы включить проверку обновлений для установленных вручную модов mod.io.</translation>
     </message>
@@ -18320,6 +19721,10 @@ Press Refresh to try again.</source>
     <message>
       <source>Patch FalloutNV.exe to use 4 GB of memory (keeps a backup that can be restored).</source>
       <translation>Патч FalloutNV.exe использует 4 ГБ памяти (сохраняет резервную копию, которую можно восстановить).</translation>
+    </message>
+    <message>
+      <source>Patch Oblivion.exe to use up to 4 GB of memory (keeps a backup that can be restored).</source>
+      <translation>Патч Oblivion.exe для использования до 4 ГБ памяти (хранит резервную копию, которая может быть восстановлена).</translation>
     </message>
     <message>
       <source>Run the native Linux TTW installer (merges Fallout 3 + New Vegas) and add the result as a mod. Requires Fallout 3 installed and a TTW .mpi package from mod.pub.</source>
@@ -18721,6 +20126,149 @@ Reopen this wizard.</source>
     <message>
       <source>Deploy</source>
       <translation>Развернуть</translation>
+    </message>
+  </context>
+  <context>
+    <name>WorkshopView</name>
+    <message>
+      <source>Install Steam Workshop Mod</source>
+      <translation>Установить Мод Мастерской Steam</translation>
+    </message>
+    <message>
+      <source>Download an individual public Workshop mod into this profile. Required Workshop items must be installed separately.</source>
+      <translation>Загрузите отдельный публичный мод мастерской в этот профиль. Обязательные элементы мастерской должны быть установлены отдельно.</translation>
+    </message>
+    <message>
+      <source>Item ID or Steam Workshop URL</source>
+      <translation>ID товара или Steam Workshop URL</translation>
+    </message>
+    <message>
+      <source>Workshop item</source>
+      <translation>Предмет мастерской</translation>
+    </message>
+    <message>
+      <source>{0} · App ID {1}</source>
+      <translation>{0} · App ID {1}</translation>
+    </message>
+    <message>
+      <source>Install into</source>
+      <translation>Установить в</translation>
+    </message>
+    <message>
+      <source>QR code (Steam mobile app)</source>
+      <translation>QR-код (мобильное приложение)</translation>
+    </message>
+    <message>
+      <source>Steam account and password</source>
+      <translation>Учетная запись и пароль Steam</translation>
+    </message>
+    <message>
+      <source>Saved account</source>
+      <translation>Сохраненный аккаунт</translation>
+    </message>
+    <message>
+      <source>Anonymous (where supported)</source>
+      <translation>Анонимный (где поддерживается)</translation>
+    </message>
+    <message>
+      <source>Sign in</source>
+      <translation>Войти</translation>
+    </message>
+    <message>
+      <source>Steam account name, not display name</source>
+      <translation>Имя учетной записи Steam, не отображается</translation>
+    </message>
+    <message>
+      <source>Account name</source>
+      <translation>Имя аккаунта</translation>
+    </message>
+    <message>
+      <source>Remember this account</source>
+      <translation>Запомнить эту учетную запись</translation>
+    </message>
+    <message>
+      <source>Keep the Steam session on this device. Enter the account name to use it for later downloads.</source>
+      <translation>Оставить сеанс Steam на этом устройстве. Введите имя учетной записи, чтобы использовать его для последующих загрузок.</translation>
+    </message>
+    <message>
+      <source>Forget saved account</source>
+      <translation>Забыть сохраненный аккаунт</translation>
+    </message>
+    <message>
+      <source>Open Workshop page</source>
+      <translation>Открыть страницу мастерской</translation>
+    </message>
+    <message>
+      <source>Continue sign-in</source>
+      <translation>Продолжить вход</translation>
+    </message>
+    <message>
+      <source>Install downloaded files</source>
+      <translation>Установить загруженные файлы</translation>
+    </message>
+    <message>
+      <source>Cancel download</source>
+      <translation>Отменить загрузку</translation>
+    </message>
+    <message>
+      <source>Download and install</source>
+      <translation>Скачать и установить</translation>
+    </message>
+    <message>
+      <source>Cancel the download before closing.</source>
+      <translation>Отменить загрузку перед закрытием.</translation>
+    </message>
+    <message>
+      <source>Enter your Steam account name.</source>
+      <translation>Введите имя аккаунта Steam.</translation>
+    </message>
+    <message>
+      <source>The mod installer is unavailable.</source>
+      <translation>Установка мода недоступна.</translation>
+    </message>
+    <message>
+      <source>Looking up Workshop item…</source>
+      <translation>Поиск предмета Мастерской…</translation>
+    </message>
+    <message>
+      <source>Signed in. Downloading Workshop files…</source>
+      <translation>Выполнен вход. Загрузка файлов Мастерской…</translation>
+    </message>
+    <message>
+      <source>Steam account password</source>
+      <translation>Пароль аккаунта Steam</translation>
+    </message>
+    <message>
+      <source>Steam Guard code from your email or authenticator</source>
+      <translation>Код стражи Steam от вашей электронной почты или аутентификатора</translation>
+    </message>
+    <message>
+      <source>Download cancelled. Nothing was installed.</source>
+      <translation>Загрузка отменена. Ничего не было установлено.</translation>
+    </message>
+    <message>
+      <source>Installed: {0}</source>
+      <translation>Установлено: {0}</translation>
+    </message>
+    <message>
+      <source>Complete the mod installer tab to finish installation.</source>
+      <translation>Завершите установку модификатора для завершения установки.</translation>
+    </message>
+    <message>
+      <source>Installation did not complete. The download is kept so you can try again.</source>
+      <translation>Установка не завершена. Загрузка сохранена, поэтому вы можете попробовать еще раз.</translation>
+    </message>
+    <message>
+      <source>Cancelling download…</source>
+      <translation>Отмена загрузки…</translation>
+    </message>
+    <message>
+      <source>Installing the downloaded mod…</source>
+      <translation>Установка загруженного мода…</translation>
+    </message>
+    <message>
+      <source>Saved Steam account removed from Amethyst.</source>
+      <translation>Сохраненный аккаунт Steam удален из Amethyst.</translation>
     </message>
   </context>
   <context>
