@@ -2,13 +2,15 @@ from __future__ import annotations
 
 from html import escape
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex
 from PySide6.QtGui import QTextOption
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QToolButton,
-    QFrame, QSizePolicy, QComboBox, QPushButton, QTextBrowser,
+    QFrame, QSizePolicy, QComboBox, QPushButton, QTextBrowser, QTableView,
+    QAbstractItemView, QHeaderView,
 )
 
+from gui_qt.icons import icon
 from gui_qt.overlay_base import OverlayBase
 from gui_qt.theme_qt import active_palette, close_button, _c
 from gui_qt.tooltips import escaped_tooltip
@@ -16,6 +18,161 @@ from Utils.collections.manifest import fmt_size
 
 CARD_MIN_W = 330
 GRID_GAP = 10
+
+
+class ArchiveModel(QAbstractTableModel):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._archives = []
+        self._sort_column = 0
+        self._sort_order = Qt.AscendingOrder
+
+    def set_archives(self, archives):
+        self.beginResetModel()
+        self._archives = list(archives or ())
+        self._sort_rows()
+        self.endResetModel()
+
+    def sort(self, column, order=Qt.AscendingOrder):
+        if not 0 <= column < 3:
+            return
+        self.beginResetModel()
+        self._sort_column = column
+        self._sort_order = order
+        self._sort_rows()
+        self.endResetModel()
+
+    def _sort_rows(self):
+        def key(archive):
+            name = archive.name.casefold()
+            source = (archive.kind or "").casefold()
+            return ((name, source, archive.size),
+                    (source, name, archive.size),
+                    (archive.size, name, source))[self._sort_column]
+
+        self._archives.sort(key=key, reverse=self._sort_order == Qt.DescendingOrder)
+
+    def rowCount(self, parent=QModelIndex()):
+        return 0 if parent.isValid() else len(self._archives)
+
+    def columnCount(self, parent=QModelIndex()):
+        return 0 if parent.isValid() else 3
+
+    def data(self, index, role=Qt.DisplayRole):
+        if not index.isValid() or not 0 <= index.row() < len(self._archives):
+            return None
+        archive = self._archives[index.row()]
+        if role == Qt.DisplayRole:
+            return (archive.name, archive.kind or self.tr("Unknown"), fmt_size(archive.size))[index.column()]
+        if role == Qt.ToolTipRole:
+            return archive.name
+        if role == Qt.TextAlignmentRole and index.column() == 2:
+            return Qt.AlignRight | Qt.AlignVCenter
+        return None
+
+    def headerData(self, section, orientation, role=Qt.DisplayRole):
+        if orientation == Qt.Horizontal and role == Qt.DisplayRole and 0 <= section < 3:
+            return (self.tr("Name"), self.tr("Source"), self.tr("Size"))[section]
+        return None
+
+
+class ArchivesList(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        palette = active_palette()
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(8)
+        heading = QHBoxLayout()
+        self._toggle = QToolButton(self)
+        self._toggle.setCheckable(True)
+        self._toggle.setCursor(Qt.PointingHandCursor)
+        self._toggle.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        self._toggle.setText(self.tr("Archives"))
+        self._toggle.setStyleSheet(
+            f"QToolButton {{ background:transparent; border:none; color:{_c(palette, 'TEXT_MAIN')};"
+            " font-weight:600; padding:0; }"
+            f"QToolButton:hover {{ color:{_c(palette, 'ACCENT')}; }}")
+        self._toggle.toggled.connect(self._set_expanded)
+        heading.addWidget(self._toggle)
+        heading.addStretch(1)
+        self._summary = QLabel(self)
+        self._summary.setTextFormat(Qt.PlainText)
+        self._summary.setStyleSheet(f"color:{_c(palette, 'TEXT_DIM')};")
+        heading.addWidget(self._summary)
+        layout.addLayout(heading)
+
+        self._body = QWidget(self)
+        body = QVBoxLayout(self._body)
+        body.setContentsMargins(0, 0, 0, 0)
+        self._table = QTableView(self._body)
+        self._model = ArchiveModel(self._table)
+        self._table.setModel(self._model)
+        self._table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self._table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self._table.setSelectionMode(QAbstractItemView.SingleSelection)
+        self._table.setAlternatingRowColors(True)
+        self._table.setWordWrap(False)
+        self._table.setTextElideMode(Qt.ElideMiddle)
+        self._table.setFixedHeight(320)
+        self._table.verticalHeader().hide()
+        self._table.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
+        self._table.verticalHeader().setDefaultSectionSize(self.fontMetrics().height() + 10)
+        header = self._table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.Stretch)
+        header.setSectionResizeMode(1, QHeaderView.Interactive)
+        header.setSectionResizeMode(2, QHeaderView.Fixed)
+        header.resizeSection(1, 150)
+        header.resizeSection(2, 105)
+        self._table.setSortingEnabled(True)
+        self._table.sortByColumn(0, Qt.AscendingOrder)
+        self._table.setStyleSheet(
+            f"QTableView {{ background:{_c(palette, 'BG_LIST')};"
+            f" alternate-background-color:{_c(palette, 'BG_ROW_ALT')};"
+            f" color:{_c(palette, 'TEXT_MAIN')}; border:1px solid {_c(palette, 'BORDER')};"
+            f" gridline-color:{_c(palette, 'BORDER')}; }}"
+            f"QTableView::item:selected {{ background:{_c(palette, 'BG_SELECT')};"
+            f" color:{_c(palette, 'TEXT_ON_ACCENT')}; }}")
+        body.addWidget(self._table)
+        self._empty = QLabel(self.tr("This package does not contain any source archives."), self._body)
+        self._empty.setTextFormat(Qt.PlainText)
+        self._empty.setStyleSheet(f"color:{_c(palette, 'TEXT_DIM')};")
+        body.addWidget(self._empty)
+        layout.addWidget(self._body)
+        self.clear()
+
+    def clear(self):
+        self._model.set_archives(())
+        self._summary.setText(self.tr("Load the package to view its archives."))
+        self._toggle.setEnabled(False)
+        self._toggle.setChecked(False)
+        self._set_expanded(False)
+
+    def set_archives(self, archives):
+        archives = tuple(archives)
+        self._model.set_archives(archives)
+        count = len(archives)
+        total = sum(archive.size for archive in archives)
+        if count:
+            self._summary.setText(
+                self.tr("1 archive · {0}").format(fmt_size(total)) if count == 1
+                else self.tr("{0} archives · {1}").format(f"{count:,}", fmt_size(total)))
+        else:
+            self._summary.setText(self.tr("No archives"))
+        self._table.setVisible(bool(count))
+        self._empty.setVisible(not count)
+        self._toggle.setEnabled(True)
+        self._toggle.setChecked(False)
+        self._set_expanded(False)
+
+    def _set_expanded(self, expanded):
+        expanded = bool(expanded)
+        self._body.setVisible(expanded)
+        self._toggle.setIcon(icon(
+            "arrow.png" if expanded else "right.png", 12,
+            color=_c(active_palette(), "DROPDOWN_ARROW")))
+        self._toggle.setAccessibleName(
+            self.tr("Collapse archives") if expanded else self.tr("Expand archives"))
 
 
 class CappedComboBox(QComboBox):

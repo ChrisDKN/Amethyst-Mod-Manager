@@ -26,7 +26,9 @@ from gui_qt.tri_state_checkbox import TriStateCheckBox
 from gui_qt.loading_overlay import LoadingOverlay
 from gui_qt.mouse_navigation import MouseNavigationFilter
 from gui_qt.wabbajack_card import WabbajackCard, CARD_W, IMG_W, IMG_H
-from gui_qt.wabbajack_setup import RequirementsSummary, AcquisitionSummary, CappedComboBox
+from gui_qt.wabbajack_setup import (
+    RequirementsSummary, AcquisitionSummary, ArchivesList, CappedComboBox,
+)
 from gui_qt.icons import icon
 from Utils.collections.manifest import fmt_size
 from Utils.downloads.install import InstallCallbacks, InstallControl
@@ -504,6 +506,10 @@ class WabbajackView(QWidget):
         self._texture_button = self._button("Prepare / repair texture tool", self._install_texconv, checks_layout)
         self._texture_button.hide()
         layout.addWidget(requirements)
+        archives, archives_layout = self._panel("")
+        self._archive_list = ArchivesList(archives)
+        archives_layout.addWidget(self._archive_list)
+        layout.addWidget(archives)
         layout.addStretch()
         self._detail_scroll = QScrollArea(detail_page)
         self._detail_scroll.setWidgetResizable(True)
@@ -933,6 +939,7 @@ class WabbajackView(QWidget):
         self._setup_form.setRowVisible(self._adjustments, False)
         self._setup_form.setRowVisible(self._profiles, False)
         self._checks.clear()
+        self._archive_list.clear()
         self._setup_hint.setText(self.tr("Check requirements to load the authored profiles and prepare the download plan."))
         self._setup_hint.show()
         self._package_path.setText(self.tr("Saved installation package") if info else self.tr("Package will download from the gallery"))
@@ -1058,6 +1065,7 @@ class WabbajackView(QWidget):
         self._package_url = url
         self._manual_package = False
         self._package = None
+        self._archive_list.clear()
         self._loading_package = True
         self._package_path.setText(self.tr("Downloading modlist package…"))
         self._package_path.setToolTip("")
@@ -1105,6 +1113,7 @@ class WabbajackView(QWidget):
         self._package_url = ""
         self._manual_package = False
         self._package = None
+        self._archive_list.clear()
         self._loading_package = True
         self._package_path.setText(Path(path).name)
         self._package_path.setToolTip(str(path))
@@ -1715,6 +1724,7 @@ class WabbajackView(QWidget):
             self._fit_description()
         elif kind == "package" and result:
             self._package = result
+            self._archive_list.set_archives(result.archives.values())
             self._overview(result.name, str(result.metadata.get("Author", "")), result.version, result.game,
                 str(result.metadata.get("Description", "")) or (self._entry.description if self._entry else ""),
                 sum(a.size for a in result.archives.values()), sum(d.size for d in result.directives))
