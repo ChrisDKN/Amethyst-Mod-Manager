@@ -83,10 +83,16 @@ def plan_update(request, log=None):
             emit(log, "update.plan.bsa_fallback", exception_type=type(exc).__name__,
                  exception=str(exc))
             new.update({p: sig for p, sig in old.items() if p.startswith(PREFIX)})
-    from .post_install import is_mod_metadata, mod_metadata_signature
+    from .post_install import (is_mod_metadata, mod_metadata_signature,
+                               patched_mod_metadata_paths)
+    patched_metadata = patched_mod_metadata_paths(request.package, adapter)
+    patched_folded = {path.casefold() for path in patched_metadata}
+    for key in patched_metadata:
+        new.setdefault(key, old.get(key, "generated-mod-meta"))
     for key in new:
         if is_mod_metadata(key):
-            new[key] = mod_metadata_signature(new[key])
+            new[key] = mod_metadata_signature(
+                new[key], patched=key.casefold() in patched_folded)
     profiles = set(info.get("selected_profiles", []))
     selected = set(request.profiles)
     plan = UpdatePlan(sorted(new.keys() - old.keys()), sorted(old.keys() - new.keys()),

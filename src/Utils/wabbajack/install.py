@@ -244,7 +244,7 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                                         generated_mods=generated_mods,
                                         progress=progress, log=cb.on_log)
             apply_adjustments(request, store, desired, ctl.stop, progress,
-                              log=cb.on_log)
+                              log=cb.on_log, adapter=reconstruction.adapter)
             validate_links(store, profiles, log=cb.on_log)
             current, conflicts = store.preview(desired, repair=request.mode == "repair", stop=ctl.stop, progress=progress)
             choices = {}

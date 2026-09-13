@@ -20,7 +20,7 @@ FLAG_ROOT = 1 << 2         # meta.root_folder
 FLAG_MODIFIED_MF = 1 << 3  # modified in the Mod Files tab (excluded files/strip)
 FLAG_MISSING_REQS = 1 << 4  # meta.missing_requirements has un-ignored entries
 FLAG_COLLECTION_BUNDLED = 1 << 5  # meta.from_collection_bundled (bundled by a collection)
-FLAG_COLLECTION_PATCHED = 1 << 6  # meta.from_collection_patched (diff-patched by a collection)
+FLAG_COLLECTION_PATCHED = 1 << 6  # collection/Wabbajack diff-patched metadata
 FLAG_NOTE = 1 << 7         # a saved per-profile user note (read_mod_notes)
 FLAG_XEDIT = 1 << 8        # meta.xedit_modified_plugins non-empty (xEdit-edited plugins)
 FLAG_BUNDLE = 1 << 9       # RE/Fluffy bundle (a [Bundle] section in meta.ini)
@@ -221,10 +221,11 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
                 pairs = [pr for pr in pairs if pr[0] not in ign_ids]
             if pairs:
                 raw_missing_pairs[e.name] = pairs
-        # Collection-install provenance (stamped in meta.ini at install time).
+        # Collection/Wabbajack install provenance (stamped in meta.ini).
         if getattr(meta, "from_collection_bundled", False):
             bits |= FLAG_COLLECTION_BUNDLED
-        if getattr(meta, "from_collection_patched", False):
+        if (getattr(meta, "from_collection_patched", False)
+                or getattr(meta, "wabbajack_patched", False)):
             bits |= FLAG_COLLECTION_PATCHED
         # xEdit-modified plugins (semicolon-separated list in meta).
         if (getattr(meta, "xedit_modified_plugins", "") or "").strip():

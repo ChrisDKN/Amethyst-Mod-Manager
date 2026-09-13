@@ -15,6 +15,9 @@ from .post_install_rules import (display_rule, display_signature, matching_rules
                                  omitted_stock_paths, post_install_notices, stock_copy_rule)
 
 _MOD_METADATA_SIGNATURE = "wabbajack-meta:1:"
+_PATCHED_MOD_METADATA_SIGNATURE = "wabbajack-meta:2:patched:"
+_MOD_METADATA_PREFIX = re.compile(
+    r"^(?:wabbajack-meta:\d+:(?:(?:plain|patched):)?)+")
 
 
 def is_mod_metadata(path):
@@ -22,8 +25,28 @@ def is_mod_metadata(path):
     return len(parts) == 4 and parts[:2] == ["root", "mods"] and parts[3] == "meta.ini"
 
 
-def mod_metadata_signature(signature):
-    return signature if signature.startswith(_MOD_METADATA_SIGNATURE) else _MOD_METADATA_SIGNATURE + signature
+def mod_metadata_signature(signature, patched=False):
+    base = _MOD_METADATA_PREFIX.sub("", signature)
+    prefix = _PATCHED_MOD_METADATA_SIGNATURE if patched else _MOD_METADATA_SIGNATURE
+    return prefix + base
+
+
+def patched_mod_metadata_paths(package, adapter):
+    if not adapter.mo2:
+        return set()
+    paths = {}
+    for directive in package.directives:
+        if directive.kind != "PatchedFromArchive":
+            continue
+        installed = adapter.installed_path(directive.path)
+        if not installed:
+            continue
+        parts = installed.split("/")
+        if len(parts) < 3 or parts[0].casefold() != "mods":
+            continue
+        path = f"root/{parts[0]}/{parts[1]}/meta.ini"
+        paths.setdefault(path.casefold(), path)
+    return set(paths.values())
 
 
 def display_supported(package):
@@ -188,20 +211,46 @@ def _ini_values(text, section, values):
     return "".join(lines)
 
 
-def reset_mod_endorsements(store, desired, stop, progress, log=None):
-    rows = [(key, row) for key, row in desired.items() if is_mod_metadata(key)]
+def reset_mod_endorsements(store, desired, stop, progress, log=None,
+                           patched_metadata=None):
+    rows = {key.casefold(): (key, row) for key, row in desired.items()
+            if is_mod_metadata(key)}
+    patched = ({key.casefold() for key in patched_metadata}
+               if patched_metadata is not None else set())
+    generated = 0
+    for key in sorted(patched_metadata or (), key=str.casefold):
+        folded = key.casefold()
+        if folded in rows:
+            continue
+        target = within(store.work / "mod-metadata", key)
+        write_atomic_text(target, "[General]\n")
+        digest = file_hash(target, stop)
+        row = {"source": str(target), "authored_hash": digest,
+               "signature": "generated-mod-meta"}
+        desired[key] = row
+        rows[folded] = (key, row)
+        generated += 1
+    metadata = list(rows.values())
     changed = 0
-    for index, (key, row) in enumerate(rows):
+    for index, (key, row) in enumerate(metadata):
         if stop.is_set():
             raise InterruptedError("Mod metadata adjustment stopped")
-        progress("Preparing mod metadata", index, len(rows), key)
+        progress("Preparing mod metadata", index, len(metadata), key)
         source = Path(row["source"])
         if source.stat().st_size > 8 * 1024 ** 2:
             raise WabbajackError(f"Mod metadata exceeds the adjustment limit: {key}")
         raw = source.read_bytes()
         text = raw.decode("utf-8-sig", errors="surrogateescape")
-        updated = _ini_values(text, "General", {"endorsed": 0})
-        signature = mod_metadata_signature(row["signature"])
+        is_patched = key.casefold() in patched
+        values = {"endorsed": 0}
+        if is_patched:
+            values["wabbajackPatched"] = "true"
+        elif (patched_metadata is not None
+              and re.search(r"^\s*wabbajackPatched\s*=", text,
+                            flags=re.I | re.M)):
+            values["wabbajackPatched"] = "false"
+        updated = _ini_values(text, "General", values)
+        signature = mod_metadata_signature(row["signature"], patched=is_patched)
         if updated == text:
             desired[key] = {**row, "signature": signature}
             continue
@@ -213,15 +262,24 @@ def reset_mod_endorsements(store, desired, stop, progress, log=None):
         desired[key] = {**row, "source": str(target), "authored_hash": digest,
                         "signature": signature}
         changed += 1
-    if rows:
-        progress("Preparing mod metadata", len(rows), len(rows),
-                 "Wabbajack mod endorsements reset")
-    emit(log, "post_install.mod_metadata.completed", files=len(rows), changed=changed)
+    if metadata:
+        progress("Preparing mod metadata", len(metadata), len(metadata),
+                 "Wabbajack mod metadata prepared")
+    emit(log, "post_install.mod_metadata.completed", files=len(metadata),
+         changed=changed, patched_mods=len(patched), generated_metadata=generated)
 
 
-def apply_adjustments(request, store, desired, stop, progress, log=None):
+def apply_adjustments(request, store, desired, stop, progress, log=None, *,
+                      adapter=None):
     started = time.monotonic()
-    reset_mod_endorsements(store, desired, stop, progress, log=log)
+    if adapter is None:
+        from .adapters import adapter_for
+        adapter = adapter_for(
+            request.package, request.game,
+            store=request.setup_options.get("store", ""), log=log)
+    patched_metadata = patched_mod_metadata_paths(request.package, adapter)
+    reset_mod_endorsements(store, desired, stop, progress, log=log,
+                           patched_metadata=patched_metadata)
     omitted = omitted_stock_paths(request)
     if omitted:
         removed = []

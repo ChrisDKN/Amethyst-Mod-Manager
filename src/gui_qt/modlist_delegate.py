@@ -92,7 +92,7 @@ _FLAG_TIPS = {
     FLAG_ENDORSED: QT_TRANSLATE_NOOP("ModRowDelegate", "Endorsed"),
     FLAG_PRERTX: QT_TRANSLATE_NOOP("ModRowDelegate", "Pre-RTX mod"),
     FLAG_COLLECTION_BUNDLED: QT_TRANSLATE_NOOP("ModRowDelegate", "This mod is a collection bundled mod"),
-    FLAG_COLLECTION_PATCHED: QT_TRANSLATE_NOOP("ModRowDelegate", "This mod has diff patches applied by the collection install"),
+    FLAG_COLLECTION_PATCHED: QT_TRANSLATE_NOOP("ModRowDelegate", "This mod has diff patches applied during a collection or Wabbajack install"),
     FLAG_MODIFIED_MF: QT_TRANSLATE_NOOP("ModRowDelegate", "Modified in Mod Files tab"),
     FLAG_XEDIT: QT_TRANSLATE_NOOP("ModRowDelegate", "Contains a plugin modified in xEdit"),
     FLAG_ROOT: QT_TRANSLATE_NOOP("ModRowDelegate", "This mod is sent to the root folder"),
