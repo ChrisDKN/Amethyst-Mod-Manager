@@ -21,6 +21,7 @@ belong to a real mod and their conflict standing changes.
 from __future__ import annotations
 
 import shutil
+import threading
 from pathlib import Path
 
 from PySide6.QtCore import QFileSystemWatcher, Qt, QTimer, Signal
@@ -39,6 +40,7 @@ from gui_qt.modlist_model import NEW_MOD_VERSION
 from gui_qt.path_tree import (
     Node, sort_tree, PathTreeModel, PathTreeDelegate,
 )
+from gui_qt.safe_emit import safe_emit
 from gui_qt.text_input_overlay import TextInputOverlay
 
 
@@ -167,6 +169,7 @@ class OverwriteView(QWidget):
 
     # Mods whose staging folder changed on disk ([] for a pure delete).
     changed = Signal(list)
+    _scan_ready = Signal(int, object, object)
 
     def __init__(self, parent=None, *, root_folder=False):
         super().__init__(parent)
@@ -180,6 +183,10 @@ class OverwriteView(QWidget):
         self._files: list[str] = []
         self._empty_dirs: list[str] = []
         self._watch_dirs: list[str] = []
+        self._scan_gen = 0
+        self._scan_running = False
+        self._scan_pending = False
+        self._scan_restore_expanded = False
         self._watching = False
         self._watcher = QFileSystemWatcher(self)
         self._watcher.directoryChanged.connect(self._on_directory_changed)
@@ -199,6 +206,7 @@ class OverwriteView(QWidget):
         self.on_close = lambda: None
         self._skip_next_show_reload = False
         self._build()
+        self._scan_ready.connect(self._on_scan_ready)
 
     # -- context ------------------------------------------------------------
     def configure(self, game, staging_dir, context_id=None, *, refresh=True):
@@ -328,30 +336,66 @@ class OverwriteView(QWidget):
         if self._skip_next_show_reload:
             self._skip_next_show_reload = False
         else:
-            self.reload()
+            self.reload(preserve_expanded=True)
 
     def tab_closing(self):
         self._stop_watching()
 
     # -- population ---------------------------------------------------------
-    def reload(self):
-        """Re-read the managed folder from disk, then rebuild the tree.
+    def reload(self, *, preserve_expanded: bool = False):
+        """Queue a recursive scan and tree build without blocking the UI."""
+        self._scan_gen += 1
+        self._scan_restore_expanded = (
+            preserve_expanded and self._tree_was_expanded())
+        if self._scan_running:
+            self._scan_pending = True
+            return
+        self._start_scan(self._scan_gen)
 
-        The scan is cached in _files/_empty_dirs so typing in the search box
-        re-filters without re-walking the folder (Overwrite can hold thousands
-        of generated files - Grass Cache, Pandora output, PGPatcher textures).
-        """
-        self._files = []
-        self._empty_dirs = []
-        self._watch_dirs = []
-        if self._root_path is not None and self._root_path.is_dir():
+    def _scan_context(self):
+        return (id(self.game), self.context_id, self._root_path)
+
+    def _start_scan(self, gen: int):
+        root_path = self._root_path
+        context = self._scan_context()
+        self._scan_running = True
+        self._sync_buttons()
+
+        def worker():
+            files: list[str] = []
+            empty_dirs: list[str] = []
+            watch_dirs: list[str] = []
+            if root_path is not None and root_path.is_dir():
+                files, empty_dirs, watch_dirs = _list_overwrite_tree(root_path)
+            elif root_path is not None and root_path.parent.is_dir():
+                watch_dirs = [str(root_path.parent)]
+            tree = _build_overwrite_tree(files, empty_dirs)
+            safe_emit(
+                self._scan_ready, gen, context,
+                (files, empty_dirs, watch_dirs, tree))
+
+        threading.Thread(
+            target=worker, daemon=True,
+            name="root-folder-scan" if self._root_folder
+            else "overwrite-scan").start()
+
+    def _on_scan_ready(self, gen: int, context, result):
+        self._scan_running = False
+        if gen == self._scan_gen and context == self._scan_context():
             (self._files, self._empty_dirs,
-             self._watch_dirs) = _list_overwrite_tree(self._root_path)
-        elif (self._root_path is not None
-              and self._root_path.parent.is_dir()):
-            self._watch_dirs = [str(self._root_path.parent)]
-        self._sync_watch_dirs()
-        self._repopulate()
+             self._watch_dirs, root) = result
+            self._sync_watch_dirs()
+            if self._search or self._search_exts:
+                self._repopulate()
+            else:
+                self._install_tree(
+                    root, len(self._files),
+                    restore_expanded=self._scan_restore_expanded)
+        if self._scan_pending:
+            self._scan_pending = False
+            self._start_scan(self._scan_gen)
+        else:
+            self._sync_buttons()
 
     def _start_watching(self):
         if self._watching:
@@ -362,6 +406,8 @@ class OverwriteView(QWidget):
     def _stop_watching(self):
         self._watching = False
         self._watch_timer.stop()
+        self._scan_gen += 1
+        self._scan_pending = False
         watched = self._watcher.directories()
         if watched:
             self._watcher.removePaths(watched)
@@ -392,6 +438,10 @@ class OverwriteView(QWidget):
         """Rebuild the tree from the cached scan, honouring the search filter."""
         files, empty_dirs = self._apply_search()
         root = _build_overwrite_tree(files, empty_dirs)
+        self._install_tree(root, len(files))
+
+    def _install_tree(self, root: Node, shown: int, *,
+                      restore_expanded: bool = False):
         self._model.set_root(root)
         # A search is only useful with its hits on screen - a match five levels
         # down is invisible in a collapsed tree. set_root collapsed everything,
@@ -399,9 +449,15 @@ class OverwriteView(QWidget):
         searching = bool(self._search or self._search_exts)
         if searching:
             self._tree.expandAll()
-        self._set_expand_label(searching)
-        self._update_label(len(files))
+        elif restore_expanded:
+            self._tree.expandAll()
+        self._set_expand_label(searching or restore_expanded)
+        self._update_label(shown)
         self._sync_buttons()
+
+    def _tree_was_expanded(self) -> bool:
+        first = self._model.index(0, 0) if self._model.rowCount() else None
+        return bool(first is not None and self._tree.isExpanded(first))
 
     def _apply_search(self) -> tuple[list[str], list[str]]:
         """(files, empty_dirs) narrowed to the current query.
@@ -481,25 +537,15 @@ class OverwriteView(QWidget):
         self._set_expand_label(self._toggle_expand_all())
 
     def _on_refresh_clicked(self):
-        """Re-scan the folder, keeping the tree expanded if it was.
-
-        reload() rebuilds the model, which collapses everything, so an expanded
-        tree has to be re-expanded afterwards or refreshing would silently fold
-        the view up. A search re-expands on its own inside _repopulate.
-        """
-        first = self._model.index(0, 0) if self._model.rowCount() else None
-        was_expanded = bool(first is not None and self._tree.isExpanded(first))
-        self.reload()
-        if was_expanded and not (self._search or self._search_exts):
-            self._tree.expandAll()
-            self._set_expand_label(True)
+        """Re-scan the folder without folding an expanded tree."""
+        self.reload(preserve_expanded=True)
 
     def _set_expand_label(self, expanded: bool):
         self._btn_expand.setText(self.tr("⊟ Collapse all") if expanded
                                  else self.tr("⊞ Expand all"))
 
     def _sync_buttons(self):
-        has_sel = bool(self._selected_nodes())
+        has_sel = bool(self._selected_nodes()) and not self._scan_running
         staging_ok = self.staging_dir is not None
         if self._btn_mod is not None:
             self._btn_mod.setEnabled(has_sel and staging_ok)
