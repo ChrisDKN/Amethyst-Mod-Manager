@@ -1,15 +1,11 @@
 {
-  description = "Amethyst Mod Manager - Nix flake";
+  description = "Amethyst Mod Manager - a Linux native mod manager";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    amethyst-mod-manager = {
-      url = "github:ChrisDKN/Amethyst-Mod-Manager";
-      flake = false;
-    };
   };
 
-  outputs = { self, nixpkgs, amethyst-mod-manager }:
+  outputs = { self, nixpkgs }:
     let
       systems = [ "x86_64-linux" "aarch64-linux" ];
       forEachSystem = f:
@@ -17,8 +13,10 @@
     in {
       packages = forEachSystem (pkgs: {
         default = pkgs.callPackage ./nix/package.nix {
-          src = amethyst-mod-manager;
-          version = "2.4.3-unstable-${builtins.substring 0 8 amethyst-mod-manager.lastModifiedDate}";
+          src = self;
+          version = let
+            d = self.lastModifiedDate;
+          in "2.4.3-unstable-${builtins.substring 0 4 d}-${builtins.substring 4 2 d}-${builtins.substring 6 2 d}";
         };
       });
     };
