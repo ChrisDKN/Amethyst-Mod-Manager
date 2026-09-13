@@ -173,7 +173,7 @@ class PrefixHealthOverlay(OverlayBase):
         if win is None:
             return
         try:
-            safe_emit(win._op_log, f"Prefix health: {message}")  # i18n: skip — log line
+            win._append_log(f"Prefix health: {message}")  # i18n: skip — log line
         except Exception:
             pass
 

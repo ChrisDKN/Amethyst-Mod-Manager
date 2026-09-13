@@ -549,13 +549,13 @@ class ProfileSettingsView(QWidget):
             game_root = game.get_game_path()
             if hasattr(game, "restore"):
                 game.restore(
-                    log_fn=lambda m: win._op_log.emit(str(m)),
+                    log_fn=lambda m: self._log(str(m)),
                     progress_fn=lambda d, t, ph=None: win._op_progress.emit(d, t, ph))
             rf = game.get_effective_root_folder_path()
             if rf.is_dir() and game_root:
                 restore_root_folder_for_game(
                     game, root_folder_dir=rf, game_root=game_root,
-                    log_fn=lambda m: win._op_log.emit(str(m)),
+                    log_fn=lambda m: self._log(str(m)),
                 )
         finally:
             game.set_active_profile_dir(prev_profile_dir)
