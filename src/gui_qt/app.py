@@ -299,7 +299,7 @@ class MainWindow(QMainWindow):
     # Carries (generation, ConflictData) from a worker thread to the UI thread
     # (queued connection - thread-safe). See _rebuild_conflicts_async.
     _conflicts_ready = Signal(int, object)
-    _conflicts_failed = Signal(int, str)
+    _conflicts_failed = Signal(int, object)
     # (generation, list[FrameworkStatus]) from the framework-detect worker -
     # detect_frameworks reads filemap.txt + the mod index, too slow for the UI
     # thread on a big modlist. See _refresh_framework_banner.
@@ -12653,7 +12653,7 @@ class MainWindow(QMainWindow):
             except Exception as e:
                 log_fn(f"error for {game.name}: {e}")
 
-    def _on_restore(self):
+    def _on_restore(self, *, recovery_profile_dir=None):
         game = self._gs.game
         if game is None or not game.is_configured():
             self._notify(self.tr("No configured game selected."), "warning")
@@ -12678,8 +12678,8 @@ class MainWindow(QMainWindow):
                 or self._staged_finish_queue:
             if not any(getattr(cb, "_kind", None) == "restore"
                        for cb in self._pending_after_staged):
-                def _later():
-                    self._on_restore()
+                def _later(recovery_dir=recovery_profile_dir):
+                    self._on_restore(recovery_profile_dir=recovery_dir)
                 _later._kind = "restore"
                 self._pending_after_staged.append(_later)
             self._notify(self.tr("Restore queued - it will run after the "
@@ -12696,6 +12696,10 @@ class MainWindow(QMainWindow):
         self._ensure_feedback()
         self._notify(self.tr("Restoring {0}…").format(game.name), "info")
         profile = self._gs.profile
+        requested_recovery_dir = (
+            Path(recovery_profile_dir) if recovery_profile_dir is not None
+            else None
+        )
 
         import threading
         from Utils.deployment import restore_root_folder_for_game
@@ -12712,11 +12716,11 @@ class MainWindow(QMainWindow):
                     ok = False
                 else:
                     last = game.get_last_deployed_profile()
-                    recovery_profile_dir = (
+                    active_recovery_dir = requested_recovery_dir or (
                         game.get_profile_root() / "profiles" / (last or profile)
                     )
-                    if last:
-                        game.set_active_profile_dir(recovery_profile_dir)
+                    if requested_recovery_dir is not None or last:
+                        game.set_active_profile_dir(active_recovery_dir)
                         game.load_paths()
                     self._restore_timing_mark(
                         "preflight and deployed-profile load complete",
@@ -12739,7 +12743,7 @@ class MainWindow(QMainWindow):
                         )
                     from Utils.deployment.pipeline import finalize_filegraph_recovery
                     finalize_filegraph_recovery(
-                        game, recovery_profile_dir,
+                        game, active_recovery_dir,
                         log_fn=lambda m: self._append_log(str(m)),
                     )
                     self._restore_timing_mark(
@@ -19886,7 +19890,7 @@ class MainWindow(QMainWindow):
                     if timing is not None:
                         timing.finish(f"conflict build failed: {exc}",
                                       lane="worker")
-                    self._conflicts_failed.emit(gen, str(exc))
+                    self._conflicts_failed.emit(gen, exc)
                     return
                 if startup_timing is not None:
                     startup_timing.record(
@@ -19959,17 +19963,93 @@ class MainWindow(QMainWindow):
             except RuntimeError:
                 pass
 
-    def _on_conflicts_failed(self, gen: int, error: str) -> None:
+    def _on_conflicts_failed(self, gen: int, error) -> None:
+        message = str(error)
         self._append_log(
-            f"[filemap] ERROR: profile file graph build {gen} failed: {error}")
+            f"[filemap] ERROR: profile file graph build {gen} failed: {message}")
         if gen != self._conflict_gen:
             return
         self._set_filegraph_loading(False)
         self._conflict_maps_current = False
         self._startup_wait_for_conflicts = False
+        from Utils.filegraph.models import FileGraphRecoveryRequired
+        if isinstance(error, FileGraphRecoveryRequired) \
+                and self._offer_filegraph_recovery():
+            return
         self._notify(self.tr(
             "Could not load the profile file graph. See the log for details."),
             "error")
+
+    def _offer_filegraph_recovery(self) -> bool:
+        game = self._gs.game
+        profile_dir = self._gs.profile_dir()
+        if game is None or profile_dir is None or not game.is_configured():
+            return False
+        try:
+            from Utils.filegraph.service import FileGraphService
+            session = FileGraphService.open_library(
+                game, profile_dir, log_fn=self._append_log,
+            ).open_profile(profile_dir)
+            operations = session.incomplete_operations()
+        except Exception as exc:
+            self._append_log(
+                f"[filemap] Could not inspect the recovery journal: {exc}")
+            return False
+        if not operations:
+            return False
+        phases = ", ".join(sorted({operation.phase for operation in operations}))
+        self._append_log(
+            f"[filemap] Recovery required for {len(operations)} interrupted "
+            f"deployment operation(s); phase(s): {phases}.")
+        if (self._deploy_running or getattr(self, "_install_running", False)
+                or self._col_install_running or self._tool_busy):
+            self._notify(self.tr(
+                "Profile recovery is required. Finish the current operation, "
+                "then press Restore."), "warning")
+            return True
+        if all(operation.phase == "planned" for operation in operations):
+            try:
+                for operation in operations:
+                    session.fail_deployment(operation.operation_id)
+            except Exception as exc:
+                self._append_log(
+                    f"[filemap] Could not release the unused deployment "
+                    f"reservation: {exc}")
+                return False
+            self._append_log(
+                f"[filemap] Released {len(operations)} deployment "
+                "reservation(s) that stopped before filesystem changes; "
+                "retrying the profile build.")
+            self._notify(self.tr(
+                "Recovered an unfinished profile operation. Retrying…"),
+                "info")
+            self._set_filegraph_loading(True)
+            QTimer.singleShot(0, self._rebuild_conflicts_async)
+            return True
+        if getattr(self, "_filegraph_recovery_prompt", None) is not None:
+            return True
+
+        from gui_qt.confirm_overlay import ConfirmOverlay
+
+        def _done(ok):
+            self._filegraph_recovery_prompt = None
+            if ok:
+                self._on_restore(recovery_profile_dir=profile_dir)
+
+        self._filegraph_recovery_prompt = ConfirmOverlay.show_over(
+            self,
+            self.tr("Profile recovery required"),
+            self.tr(
+                "An earlier deployment stopped after it began changing game "
+                "files. Amethyst must restore the affected profile before "
+                "it can rebuild this profile safely.\n\nRestore now?"),
+            _done,
+            confirm_label=self.tr("Restore now"),
+            cancel_label=self.tr("Cancel"),
+            danger=False,
+            card_h=280,
+        )
+        return True
 
     def _on_conflicts_ready(self, gen: int, data):
         startup_timing = getattr(
