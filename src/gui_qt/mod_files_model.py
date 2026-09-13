@@ -63,7 +63,8 @@ ConflictRole = Qt.UserRole + 2   # 0 none, 1 win (green), -1 lose (red)
 class _Node:
     __slots__ = ("name", "path", "raw_key", "rel_str", "is_dir",
                  "children", "parent", "checked", "conflict", "top_level",
-                 "root_tag", "synthetic", "stripped", "meta")
+                 "root_tag", "synthetic", "stripped", "meta", "_row",
+                 "leaf_count", "checked_count", "root_count")
 
     def __init__(self, name, path, *, is_dir, parent=None,
                  rel_str=None, raw_key=None):
@@ -81,11 +82,13 @@ class _Node:
         self.synthetic = False      # greyed strip placeholder
         self.stripped = False       # this path is itself stripped (greyed)
         self.meta = False           # the mod's meta.ini row (view/edit only)
+        self._row = 0
+        self.leaf_count = 0
+        self.checked_count = 0
+        self.root_count = 0
 
     def row(self) -> int:
-        if self.parent is None:
-            return 0
-        return self.parent.children.index(self)
+        return self._row
 
 
 class ModFilesModel(QAbstractItemModel):
@@ -108,10 +111,32 @@ class ModFilesModel(QAbstractItemModel):
 
     # ---- population -------------------------------------------------------
     def set_root(self, root: _Node, by_path: dict[str, _Node]):
+        self._prepare_tree(root)
         self.beginResetModel()
         self._root = root
         self._by_path = by_path
         self.endResetModel()
+
+    @staticmethod
+    def _prepare_tree(root: _Node) -> None:
+        stack = [(root, False)]
+        while stack:
+            node, visited = stack.pop()
+            if not node.is_dir:
+                node.leaf_count = 1
+                node.checked_count = int(node.checked)
+                node.root_count = int(node.root_tag)
+                continue
+            if not visited:
+                stack.append((node, True))
+                for row in range(len(node.children) - 1, -1, -1):
+                    child = node.children[row]
+                    child._row = row
+                    stack.append((child, False))
+                continue
+            node.leaf_count = sum(child.leaf_count for child in node.children)
+            node.checked_count = sum(child.checked_count for child in node.children)
+            node.root_count = sum(child.root_count for child in node.children)
 
     def clear(self):
         self.beginResetModel()
@@ -148,6 +173,8 @@ class ModFilesModel(QAbstractItemModel):
         return self.createIndex(p.row(), 0, p)
 
     def rowCount(self, parent=QModelIndex()):
+        if parent.isValid() and parent.column() != 0:
+            return 0
         pnode = self.node(parent)
         return len(pnode.children) if pnode else 0
 
@@ -227,13 +254,11 @@ class ModFilesModel(QAbstractItemModel):
         Folders: tri-state from their leaves."""
         if not node.is_dir:
             return Qt.Checked if node.checked else Qt.Unchecked
-        leaves = self._leaves(node)
-        if not leaves:
+        if not node.leaf_count:
             return Qt.Checked
-        on = sum(1 for l in leaves if l.checked)
-        if on == len(leaves):
+        if node.checked_count == node.leaf_count:
             return Qt.Checked
-        if on == 0:
+        if node.checked_count == 0:
             return Qt.Unchecked
         return Qt.PartiallyChecked
 
@@ -242,13 +267,11 @@ class ModFilesModel(QAbstractItemModel):
         Folders: tri-state from their leaves."""
         if not node.is_dir:
             return Qt.Checked if node.root_tag else Qt.Unchecked
-        leaves = self._leaves(node)
-        if not leaves:
+        if not node.leaf_count:
             return Qt.Unchecked
-        on = sum(1 for l in leaves if l.root_tag)
-        if on == len(leaves):
+        if node.root_count == node.leaf_count:
             return Qt.Checked
-        if on == 0:
+        if node.root_count == 0:
             return Qt.Unchecked
         return Qt.PartiallyChecked
 
@@ -256,8 +279,7 @@ class ModFilesModel(QAbstractItemModel):
         """Name greys when the row (or whole folder) is disabled."""
         if not node.is_dir:
             return not node.checked
-        leaves = self._leaves(node)
-        return bool(leaves) and not any(l.checked for l in leaves)
+        return bool(node.leaf_count) and node.checked_count == 0
 
     def _leaves(self, node: _Node) -> list[_Node]:
         out: list[_Node] = []
@@ -273,48 +295,76 @@ class ModFilesModel(QAbstractItemModel):
     def leaves(self, node: _Node) -> list[_Node]:
         return self._leaves(node)
 
-    def _descendants(self, node: _Node) -> list[_Node]:
-        """All descendant nodes - folders AND files (for repaint after a
-        folder-level Enabled toggle so nested subfolders update too)."""
-        out: list[_Node] = []
-        stack = list(node.children)
-        while stack:
-            n = stack.pop()
-            out.append(n)
-            if n.is_dir:
-                stack.extend(n.children)
-        return out
-
     # ---- mutation (view calls these, then persists via Utils.mods.files) ---
     def set_disabled_subtree(self, node: _Node, included: bool):
         """Set the Enabled state for a node + all descendants."""
         if node.is_dir:
-            for leaf in self._leaves(node):
-                leaf.checked = included
+            old_count = node.checked_count
+            value = node.leaf_count if included else 0
+            stack = [node]
+            while stack:
+                descendant = stack.pop()
+                if descendant.is_dir:
+                    descendant.checked_count = (
+                        descendant.leaf_count if included else 0)
+                    stack.extend(descendant.children)
+                else:
+                    descendant.checked = included
+                    descendant.checked_count = int(included)
+            node.checked_count = value
+            self._adjust_ancestors(node.parent, "checked_count", value - old_count)
         else:
-            node.checked = included
+            self._set_leaf_state(node, "checked", "checked_count", included)
         self._emit_subtree_and_ancestors(node)
 
     def set_disabled(self, node: _Node, included: bool):
-        node.checked = included
+        self._set_leaf_state(node, "checked", "checked_count", included)
         self._emit_subtree_and_ancestors(node)
 
     def set_root_subtree(self, node: _Node, tagged: bool):
         """Set the Root state for a node + all descendants (folder toggle)."""
         if node.is_dir:
-            for leaf in self._leaves(node):
-                leaf.root_tag = tagged
+            old_count = node.root_count
+            value = node.leaf_count if tagged else 0
+            stack = [node]
+            while stack:
+                descendant = stack.pop()
+                if descendant.is_dir:
+                    descendant.root_count = (
+                        descendant.leaf_count if tagged else 0)
+                    stack.extend(descendant.children)
+                else:
+                    descendant.root_tag = tagged
+                    descendant.root_count = int(tagged)
+            node.root_count = value
+            self._adjust_ancestors(node.parent, "root_count", value - old_count)
         else:
-            node.root_tag = tagged
+            self._set_leaf_state(node, "root_tag", "root_count", tagged)
         self._emit_subtree_and_ancestors(node)
 
     def set_root_tag(self, node: _Node, tagged: bool):
-        node.root_tag = tagged
+        self._set_leaf_state(node, "root_tag", "root_count", tagged)
         self._emit_subtree_and_ancestors(node)
 
+    @staticmethod
+    def _adjust_ancestors(node: _Node | None, field: str, delta: int) -> None:
+        while node is not None:
+            setattr(node, field, getattr(node, field) + delta)
+            node = node.parent
+
+    def _set_leaf_state(self, node: _Node, value_field: str,
+                        count_field: str, value: bool) -> None:
+        old = bool(getattr(node, value_field))
+        value = bool(value)
+        if old == value:
+            return
+        setattr(node, value_field, value)
+        setattr(node, count_field, int(value))
+        self._adjust_ancestors(node.parent, count_field,
+                               int(value) - int(old))
+
     def _emit_subtree_and_ancestors(self, node: _Node):
-        # Repaint the node, its descendants (DisplayRole grey), and its ancestors
-        # (folder tri-state). Simplest: emit a broad dataChanged on the column.
+        # Repaint the node, its descendants, and its tri-state ancestors.
         top = self.index_for_node(node, COL_NAME)
         if top.isValid():
             self.dataChanged.emit(
@@ -329,15 +379,21 @@ class ModFilesModel(QAbstractItemModel):
                 self.index_for_node(p, COL_DISABLE),
                 [Qt.CheckStateRole, Qt.ForegroundRole])
             p = p.parent
-        # Descendants - every folder AND file under this node, so nested
-        # subfolders' (tri-state) checkboxes + greying repaint too (not just the
-        # leaves). Was the "disable a folder, subfolders don't update" bug.
+        # Descendants - one contiguous signal per parent keeps nested folder
+        # tri-states current without sending one Qt event per file.
         if node.is_dir:
-            for child in self._descendants(node):
-                ci = self.index_for_node(child, COL_NAME)
-                if ci.isValid():
-                    self.dataChanged.emit(ci, self.index_for_node(child, COL_DISABLE),
-                                          [Qt.CheckStateRole, Qt.ForegroundRole])
+            stack = [node]
+            while stack:
+                parent = stack.pop()
+                if not parent.children:
+                    continue
+                first = parent.children[0]
+                last = parent.children[-1]
+                self.dataChanged.emit(
+                    self.createIndex(first._row, COL_NAME, first),
+                    self.createIndex(last._row, COL_DISABLE, last),
+                    [Qt.CheckStateRole, Qt.ForegroundRole])
+                stack.extend(child for child in parent.children if child.is_dir)
 
     def refresh_all(self):
         """Repaint every cell (after a Top Level change recomputes top_level)."""

@@ -651,10 +651,9 @@ class ModFilesView(QWidget):
         if node.synthetic:
             return
         if node.is_dir:
-            leaves = self._model.leaves(node)
-            if not leaves:
+            if not node.leaf_count:
                 return
-            all_on = all(l.checked for l in leaves)
+            all_on = node.checked_count == node.leaf_count
             self._model.set_disabled_subtree(node, not all_on)
         else:
             self._model.set_disabled(node, not node.checked)
@@ -667,10 +666,9 @@ class ModFilesView(QWidget):
         if self._mod_name == ROOT_FOLDER_NAME:
             return   # [Root_Folder] already deploys to the game root
         if node.is_dir:
-            leaves = self._model.leaves(node)
-            if not leaves:
+            if not node.leaf_count:
                 return
-            all_on = all(l.root_tag for l in leaves)
+            all_on = node.root_count == node.leaf_count
             self._model.set_root_subtree(node, not all_on)
         else:
             self._model.set_root_tag(node, not node.root_tag)
