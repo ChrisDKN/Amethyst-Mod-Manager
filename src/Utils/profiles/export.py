@@ -865,28 +865,50 @@ def install_local_bundle(src_path, profile_dir, mods_dir, overwrite_dir=None, *,
     if not _zip.is_zipfile(src_path):
         return []
 
-    mods_dir.mkdir(parents=True, exist_ok=True)
-    overwrite_dir.mkdir(parents=True, exist_ok=True)
+    from Utils.mods.install import (
+        _normalise_relative_install_path, _require_path_within)
 
     staged: list[str] = []
     with _zip.ZipFile(src_path, "r") as zf:
         names = zf.namelist()
 
-        # (1) Bundled mods + overwrite - extract verbatim (no rename, keep meta.ini).
+        # Validate every managed member before creating a directory or writing a
+        # file. The check rejects parent traversal (including Windows
+        # style separators); the resolved check also catches existing symlink
+        # parents or destinations that point outside their intended root.
+        plans: list[tuple[str, str, Path, Path]] = []
+        roots = {
+            "mods": mods_dir,
+            "overwrite": overwrite_dir,
+            "profile": profile_dir,
+        }
         for n in names:
             if n.endswith("/"):
                 continue
             parts = n.split("/")
-            if len(parts) < 2:
+            if len(parts) < 2 or parts[0] not in roots:
                 continue
-            if parts[0] == "mods":
-                dest = mods_dir / Path(*parts[1:])
+            _normalise_relative_install_path(
+                n, label="bundle member", allow_empty=False)
+            root = roots[parts[0]]
+            dest = root / Path(*parts[1:])
+            _require_path_within(root, dest, label="bundle member")
+            plans.append((n, parts[0], root, dest))
+
+        mods_dir.mkdir(parents=True, exist_ok=True)
+        overwrite_dir.mkdir(parents=True, exist_ok=True)
+
+        # (1) Bundled mods + overwrite - extract verbatim (no rename, keep meta.ini).
+        for n, section, root, dest in plans:
+            if section not in ("mods", "overwrite"):
+                continue
+            parts = n.split("/")
+            if section == "mods":
                 if len(parts) >= 2 and parts[1] not in staged:
                     staged.append(parts[1])
-            elif parts[0] == "overwrite":
-                dest = overwrite_dir / Path(*parts[1:])
-            else:
-                continue
+            # Recheck immediately before the write to narrow the window in
+            # which an external process could replace parent with symlink.
+            _require_path_within(root, dest, label="bundle member")
             dest.parent.mkdir(parents=True, exist_ok=True)
             with zf.open(n) as srcf, open(dest, "wb") as dstf:
                 shutil.copyfileobj(srcf, dstf)
@@ -896,13 +918,10 @@ def install_local_bundle(src_path, profile_dir, mods_dir, overwrite_dir=None, *,
 
         # (2) profile/ state files → copy over the generated ones.
         wrote_profile = False
-        for n in names:
-            if n.endswith("/"):
+        for n, section, root, dest in plans:
+            if section != "profile":
                 continue
-            parts = n.split("/")
-            if len(parts) < 2 or parts[0] != "profile":
-                continue
-            dest = profile_dir / Path(*parts[1:])
+            _require_path_within(root, dest, label="bundle member")
             dest.parent.mkdir(parents=True, exist_ok=True)
             with zf.open(n) as srcf, open(dest, "wb") as dstf:
                 shutil.copyfileobj(srcf, dstf)
