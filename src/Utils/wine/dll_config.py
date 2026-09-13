@@ -59,17 +59,63 @@ def save_wine_dll_overrides(game_name: str, overrides: dict[str, str]) -> None:
 # Deploy helper
 # ---------------------------------------------------------------------------
 
+def discover_adjacent_dll_overrides(
+    executable_path: Path | None,
+    log_fn=None,
+) -> dict[str, str]:
+    """Return native-first overrides for DLLs beside the game executable."""
+    if executable_path is None or not executable_path.is_file():
+        return {}
+
+    _log = _safe_log(log_fn)
+    try:
+        entries = sorted(
+            executable_path.parent.iterdir(),
+            key=lambda path: (path.name.casefold(), path.name),
+        )
+    except OSError as exc:
+        _log(f"Warning: could not scan for game DLLs beside "
+             f"{executable_path}: {exc}")
+        return {}
+
+    overrides: dict[str, str] = {}
+    for path in entries:
+        try:
+            is_dll = path.is_file() and path.suffix.casefold() == ".dll"
+        except OSError:
+            continue
+        if is_dll and path.stem:
+            overrides[path.stem.lower()] = "native,builtin"
+    return overrides
+
+
+def _merge_overrides(*sources: dict[str, str]) -> dict[str, str]:
+    merged: dict[str, str] = {}
+    key_by_casefold: dict[str, str] = {}
+    for source in sources:
+        for dll, mode in source.items():
+            folded = dll.casefold()
+            previous = key_by_casefold.get(folded)
+            if previous is not None and previous != dll:
+                merged.pop(previous, None)
+            merged[dll] = mode
+            key_by_casefold[folded] = dll
+    return merged
+
+
 def deploy_game_wine_dll_overrides(
     game_name: str,
     prefix_path: Path,
     handler_overrides: dict[str, str],
     log_fn=None,
+    *,
+    discovered_overrides: dict[str, str] | None = None,
 ) -> None:
-    """Merge handler overrides with stored config and apply to the prefix.
+    """Merge automatic, handler, and stored overrides and apply to the prefix.
 
-    Called automatically after every game.deploy() by the deploy orchestration
-    in top_bar, cli, and plugin_panel.  It:
-      1. Merges user-stored overrides with handler overrides.
+    Called automatically by the shared deploy pipeline after all game-root
+    files have landed.  It:
+      1. Merges discovered and user-stored overrides with handler overrides.
       2. Persists any new handler DLLs back to storage so the panel
          reflects the current state.
       3. Applies the full merged set to the Proton prefix.
@@ -86,12 +132,16 @@ def deploy_game_wine_dll_overrides(
         pass
 
     stored = load_wine_dll_overrides(game_name)
-    # Handler overrides are always present; user overrides sit on top
-    to_apply: dict[str, str] = {**handler_overrides, **stored}
+    # Explicit handler and user choices take precedence over discovery.
+    to_apply = _merge_overrides(
+        discovered_overrides or {}, handler_overrides, stored)
     # Handler DLLs not in stored yet should be persisted
     if handler_overrides:
+        stored_keys = {dll.casefold() for dll in stored}
         for dll, mode in handler_overrides.items():
-            stored.setdefault(dll, mode)
+            if dll.casefold() not in stored_keys:
+                stored[dll] = mode
+                stored_keys.add(dll.casefold())
         save_wine_dll_overrides(game_name, stored)
 
     if not to_apply:

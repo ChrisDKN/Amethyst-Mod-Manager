@@ -3,7 +3,7 @@ Shared deployment orchestration used by the Deploy button, Run EXE (Play),
 the BodySlide / DynDOLOD wizards, and the CLI.
 
 `run_deploy_pipeline` performs the full restore → build_filemap → deploy →
-wine-dll → root-folder → root-flagged → swap_launcher sequence. UI-specific
+root-folder → root-flagged → swap_launcher → wine-dll sequence. UI-specific
 concerns (button enable/disable, status bar, mod panel reload) stay at the
 call site.
 """
@@ -24,7 +24,10 @@ from Utils.deployment import (
 )
 from Utils.deployment.shared import RestoreIncompleteError, _FILEMAP_SNAPSHOT_NAME
 from Utils.profiles.backup import create_backup
-from Utils.wine.dll_config import deploy_game_wine_dll_overrides
+from Utils.wine.dll_config import (
+    deploy_game_wine_dll_overrides,
+    discover_adjacent_dll_overrides,
+)
 from Utils.deployment.locking import guard_deployment
 
 
@@ -203,6 +206,33 @@ def _vfs_deploy_active(game) -> bool:
         getattr(game, "vfs_deploy_active", False)
         or getattr(game, "vfs_launch_enabled", False)
     )
+
+
+def _wine_dll_discovery_executable(game) -> Path | None:
+    from Utils.executables.launch import resolve_game_exe
+
+    executable = resolve_game_exe(game)
+    if not _vfs_deploy_active(game):
+        return executable
+
+    try:
+        from Utils.vfs import effective_shadow_root
+        view_root = effective_shadow_root(game).resolve(strict=False)
+        virtual_executable = game.get_vfs_launch_exe()
+        candidate = virtual_executable or executable
+        if candidate is None:
+            return None
+        candidate = Path(candidate).resolve(strict=False)
+        try:
+            candidate.relative_to(view_root)
+            return candidate
+        except ValueError:
+            game_root = Path(game.get_game_path()).resolve(strict=False)
+            relative = candidate.relative_to(game_root)
+            mapped = view_root / relative
+            return mapped if mapped.is_file() else executable
+    except (AttributeError, OSError, RuntimeError, TypeError, ValueError):
+        return executable
 
 
 def _log_deploy_context(game, profile: str, profile_dir: Path,
@@ -759,19 +789,13 @@ def run_deploy_pipeline(
         from Utils.filegraph.deploy import mark_phase as mark_deploy_phase
         mark_deploy_phase("post_deploy")
 
-        pfx = game.get_prefix_path()
-        if pfx and pfx.is_dir():
-            deploy_game_wine_dll_overrides(
-                game.name, pfx, game.wine_dll_overrides, log_fn=log_fn
-            )
-
         method_name = (
             "VFS" if _vfs_deploy_active(game)
             else deploy_mode.name
         )
         game.save_last_deployed_profile(profile, deploy_mode=method_name)
         timeline.mark(
-            "Wine configuration and deployed-profile marker complete",
+            "deployed-profile marker complete",
             work="FS I/O")
 
         target_rf = game.get_effective_root_folder_path()
@@ -879,6 +903,24 @@ def run_deploy_pipeline(
         except Exception as pd_err:
             log_fn(f"post_deploy warning: {pd_err}")
 
+        pfx = game.get_prefix_path()
+        if pfx and pfx.is_dir():
+            game_exe = _wine_dll_discovery_executable(game)
+            discovered = discover_adjacent_dll_overrides(
+                game_exe, log_fn=log_fn)
+            if discovered:
+                log_fn(
+                    f"Wine DLL overrides: detected {len(discovered)} DLL(s) "
+                    f"beside {game_exe.name}."
+                )
+            deploy_game_wine_dll_overrides(
+                game.name,
+                pfx,
+                game.wine_dll_overrides,
+                discovered_overrides=discovered,
+                log_fn=log_fn,
+            )
+
         # External launchers retain one short per-game script. Refresh it after
         # every successful deploy (including silent Play/wizard deployments),
         # so an AppImage upgrade or moved source checkout cannot leave stale
@@ -889,7 +931,8 @@ def run_deploy_pipeline(
         except Exception as handoff_err:
             log_fn(f"Launcher handoff warning: {handoff_err}")
         timeline.mark(
-            "launcher and post-deploy hooks complete", work="FS I/O")
+            "launcher, post-deploy, and Wine configuration complete",
+            work="FS I/O")
 
         if incr_plan is not None:
             _tag = " (incremental)"
