@@ -2,17 +2,27 @@
   "name": "FF VII Rebirth",
   "game_id": "Final_Fantasy_VII_Rebirth",
   "exe_name": "End/Binaries/Win64/ff7rebirth_.exe",
+  "exe_name_alts": [],
   "deploy_type": "ue5",
   "mod_data_path": "End",
   "steam_id": "2909400",
   "nexus_game_domain": "finalfantasy7rebirth",
+  "additional_nexus_domains": [],
+  "thunderstore_community": "",
   "image_url": "https://cdn2.steamgriddb.com/icon/f1ddf31d687ba7d8539da45a92dbc68d/32/256x256.png",
-  "mod_folder_strip_prefixes": [],
+  "auto_install_deps": [
+    "vcredist"
+  ],
+  "mod_folder_strip_prefixes": [
+    "End",
+    "~mods"
+  ],
   "conflict_ignore_filenames": [
     "*.txt",
     "*.png",
     "*.jpg"
   ],
+  "conflict_ignore_foldernames": [],
   "mod_folder_strip_prefixes_post": [],
   "mod_install_prefix": "",
   "mod_required_top_level_folders": [],
@@ -31,6 +41,7 @@
   "custom_routing_rules": [
     {
       "dest": "drive_c/users/steamuser/Documents/My Games/FINAL FANTASY VII REBIRTH/Saved/Config/WindowsNoEditor",
+      "rule_id": "legacy:7f2036839a5c5f551ac1",
       "filenames": [
         "Engine.ini",
         "Game.ini",
@@ -55,6 +66,7 @@
     },
     {
       "dest": "Content/GameContents/Movie",
+      "rule_id": "legacy:24a192769ac0c8256d7d",
       "extensions": [
         ".emov"
       ],
@@ -62,6 +74,7 @@
     },
     {
       "dest": "Binaries/Win64",
+      "rule_id": "legacy:dbf242ed46cbf7557fc1",
       "filenames": [
         "xinput1_3.dll"
       ],
@@ -69,6 +82,7 @@
     },
     {
       "dest": "Binaries/Win64",
+      "rule_id": "legacy:5c467a187e530799d4a6",
       "folders": [
         "reshade-shaders"
       ],
@@ -76,6 +90,7 @@
     },
     {
       "dest": "Binaries/Win64",
+      "rule_id": "legacy:9b96fbb25251161cbbbc",
       "extensions": [
         ".dll"
       ],
@@ -83,6 +98,7 @@
     },
     {
       "dest": "Binaries/Win64",
+      "rule_id": "legacy:307fa1cfbd919466af38",
       "filenames": [
         "*reshade*.ini"
       ],
@@ -90,6 +106,7 @@
     },
     {
       "dest": "Mods",
+      "rule_id": "legacy:da526a2d13ae03e053e6",
       "extensions": [
         ".uplugin"
       ],
@@ -97,6 +114,7 @@
     },
     {
       "dest": "Content/Paks/~mods",
+      "rule_id": "legacy:56f7d84269e2c4499c9a",
       "extensions": [
         ".pak"
       ],
@@ -107,13 +125,8 @@
       "include_siblings": true
     },
     {
-      "dest": "Mods",
-      "folders": [
-        "Mods"
-      ]
-    },
-    {
       "dest": "Binaries/Win64",
+      "rule_id": "legacy:c49a071e4ac29daf8a91",
       "folders": [
         "ShaderFixes"
       ],
@@ -121,13 +134,17 @@
     },
     {
       "dest": "Binaries/Win64",
+      "rule_id": "legacy:db4f0afb3972eebd0bcf",
       "filenames": [
         "d3dx.ini"
       ],
       "flatten": true
     }
   ],
-  "custom_frameworks": {},
-  "version": 3,
+  "restore_whitelist": [],
+  "custom_frameworks": {
+    "Reunion Mod Loader": "Mods/FF7RML/FF7RML.uplugin"
+  },
+  "version": 4,
   "editable": false
 }
