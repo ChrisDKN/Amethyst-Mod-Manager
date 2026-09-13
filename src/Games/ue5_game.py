@@ -626,6 +626,7 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
         artifacts = (
             metadata / "custom_rules_deployed.txt",
             metadata / "custom_rules_prefix_backup",
+            metadata / "custom_rules_roots.json",
         )
         if artifacts[0].is_file():
             restore_custom_rules(

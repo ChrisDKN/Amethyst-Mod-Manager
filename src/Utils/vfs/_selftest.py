@@ -2118,6 +2118,102 @@ def test_custom_rule_symlink_restore_and_redeploy_self_heal() -> None:
     print("✓ custom-rule symlink recovery and deploy-twice self-heal")
 
 
+def test_custom_rule_journal_rebases_only_same_root() -> None:
+    definition = {
+        "name": "Custom Rule Moved Root Test",
+        "game_id": "custom_rule_moved_root_test",
+        "exe_name": "Game.exe",
+        "deploy_type": "root",
+        "custom_routing_rules": [
+            {
+                "dest": "",
+                "filenames": ["root.dll"],
+                "flatten": True,
+            },
+        ],
+    }
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        game = _FakeRootCustomGame(root, definition)
+        target = game.game / "root.dll"
+        target.write_text("vanilla")
+        source = game.staging / "RootMod" / "root.dll"
+        source.parent.mkdir(parents=True)
+        source.write_text("profile")
+        game.filemap.write_text("root.dll\tRootMod\n", encoding="utf-8")
+
+        entry = types.SimpleNamespace(
+            legacy_rel="root.dll",
+            mod_name="RootMod",
+            source_root=source.parent,
+            source_rel="root.dll",
+        )
+        with patch("Utils.filegraph.deploy.entries", return_value=iter([entry])):
+            deploy_custom_rules(
+                game.filemap,
+                game.game,
+                game.staging,
+                rules=game.custom_routing_rules,
+                mode=LinkMode.HARDLINK,
+            )
+        roots_path = game.filemap.parent / "custom_rules_roots.json"
+        assert roots_path.is_file()
+        moved_game = root / "renamed-game"
+        game.game.rename(moved_game)
+
+        logs: list[str] = []
+        removed = restore_custom_rules(
+            game.filemap,
+            moved_game,
+            rules=[],
+            log_fn=logs.append,
+        )
+        assert removed == 1
+        assert (moved_game / "root.dll").read_text() == "vanilla"
+        assert not roots_path.exists()
+        assert any("root moved" in line for line in logs)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        game = _FakeRootCustomGame(root, definition)
+        target = game.game / "root.dll"
+        target.write_text("vanilla")
+        source = game.staging / "RootMod" / "root.dll"
+        source.parent.mkdir(parents=True)
+        source.write_text("profile")
+        game.filemap.write_text("root.dll\tRootMod\n", encoding="utf-8")
+        entry = types.SimpleNamespace(
+            legacy_rel="root.dll",
+            mod_name="RootMod",
+            source_root=source.parent,
+            source_rel="root.dll",
+        )
+        with patch("Utils.filegraph.deploy.entries", return_value=iter([entry])):
+            deploy_custom_rules(
+                game.filemap,
+                game.game,
+                game.staging,
+                rules=game.custom_routing_rules,
+                mode=LinkMode.HARDLINK,
+            )
+        different_game = root / "different-game"
+        different_game.mkdir()
+        different_target = different_game / "root.dll"
+        different_target.write_text("unrelated")
+
+        try:
+            restore_custom_rules(game.filemap, different_game, rules=[])
+        except RestoreIncompleteError:
+            pass
+        else:
+            raise AssertionError("journal rebased to a different game root")
+        assert target.read_text() == "profile"
+        assert different_target.read_text() == "unrelated"
+        assert (game.filemap.parent / "custom_rules_deployed.txt").is_file()
+        assert (game.filemap.parent / "custom_rules_roots.json").is_file()
+    print("✓ custom-rule journal safely follows a moved root")
+
+
 def test_custom_rule_prefix_restore_failure_is_retryable() -> None:
     """A failed prefix unlink must preserve both recovery artifacts."""
     definition = {
@@ -5196,6 +5292,7 @@ def main() -> None:
     test_custom_physical_deploy_modes_unchanged()
     test_custom_pending_prefix_restore_and_traversal_guard()
     test_custom_rule_symlink_restore_and_redeploy_self_heal()
+    test_custom_rule_journal_rebases_only_same_root()
     test_custom_rule_prefix_restore_failure_is_retryable()
     test_external_separator_cleanup_failure_is_retryable()
     test_ue5_nested_project_shadow_view()

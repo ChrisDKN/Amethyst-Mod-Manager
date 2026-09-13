@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import concurrent.futures
 import fnmatch
+import json
 import os
 import re
 import shutil
@@ -38,6 +39,75 @@ from Utils.deployment.shared import (
 _CUSTOM_RULES_LOG_NAME = "custom_rules_deployed.txt"
 _CUSTOM_RULES_BACKUP_DIR = "custom_rules_backup"
 _CUSTOM_RULES_PREFIX_BACKUP_DIR = "custom_rules_prefix_backup"
+_CUSTOM_RULES_ROOTS_NAME = "custom_rules_roots.json"
+
+
+def _root_record(root: Path | None) -> dict | None:
+    if root is None:
+        return None
+    record: dict = {"path": str(root)}
+    try:
+        stat = os.stat(root)
+    except OSError:
+        return record
+    identity = {"device": stat.st_dev, "inode": stat.st_ino}
+    try:
+        fsid = getattr(os.statvfs(root), "f_fsid", None)
+        if isinstance(fsid, int) and fsid:
+            identity["fsid"] = fsid
+    except OSError:
+        pass
+    record["identity"] = identity
+    return record
+
+
+def _write_root_records(
+    path: Path, game_root: Path, prefix_root: Path | None,
+) -> None:
+    write_atomic_text(
+        path,
+        json.dumps({
+            "version": 1,
+            "game_root": _root_record(game_root),
+            "prefix_root": _root_record(prefix_root),
+        }, indent=2, sort_keys=True) + "\n",
+    )
+
+
+def _load_root_records(path: Path) -> dict:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(payload, dict) or payload.get("version") != 1:
+        return {}
+    return payload
+
+
+def _root_identity_matches(record: object, current_root: Path) -> bool:
+    if not isinstance(record, dict):
+        return False
+    saved = record.get("identity")
+    current = _root_record(current_root)
+    if not isinstance(saved, dict) or not isinstance(current, dict):
+        return False
+    current_identity = current.get("identity")
+    if not isinstance(current_identity, dict):
+        return False
+    if saved.get("inode") != current_identity.get("inode"):
+        return False
+    saved_fsid = saved.get("fsid")
+    current_fsid = current_identity.get("fsid")
+    if isinstance(saved_fsid, int) and isinstance(current_fsid, int):
+        return saved_fsid == current_fsid
+    return saved.get("device") == current_identity.get("device")
+
+
+def _remove_root_records(path: Path, log_fn) -> None:
+    try:
+        path.unlink(missing_ok=True)
+    except OSError as exc:
+        log_fn(f"  WARN: could not remove custom-rules root record: {exc}")
 
 
 def _ext_match(filename: str, exts: list[str]) -> str | None:
@@ -594,9 +664,8 @@ def deploy_custom_rules(
     lowercased filemap paths. It lets callers preserve rule ownership while
     materializing different destination namespaces separately.
 
-    A log of placed absolute paths is written to
-    filemap_path.parent / "custom_rules_deployed.txt" for use by
-    restore_custom_rules().
+    A log of placed absolute paths and the identities of their destination
+    roots are written beside the filemap for use by restore_custom_rules().
     """
     if not rules:
         return set()
@@ -983,12 +1052,14 @@ def deploy_custom_rules(
     prefix_backup_dir = filemap_path.parent / _CUSTOM_RULES_PREFIX_BACKUP_DIR
 
     log_path = filemap_path.parent / _CUSTOM_RULES_LOG_NAME
+    roots_path = filemap_path.parent / _CUSTOM_RULES_ROOTS_NAME
 
     # Self-heal an interrupted prior deploy before discarding its backups.
     # A process can stop after moving the first original aside but before the
     # destination journal is published, so either a log *or* a backup tree is
     # sufficient evidence that recovery is required.
-    if log_path.is_file() or backup_dir.exists() or prefix_backup_dir.exists():
+    if (log_path.is_file() or backup_dir.exists() or prefix_backup_dir.exists()
+            or roots_path.exists()):
         _log("  Previous custom-rules deployment state found - restoring it before redeploying.")
         restore_custom_rules(filemap_path, game_root, rules=[],
                              log_fn=log_fn, prefix_root=prefix_root)
@@ -1015,6 +1086,10 @@ def deploy_custom_rules(
             except ValueError:
                 pass
         return None
+
+    # Record the roots before the first original can move into backup. This
+    # allows recovery after the same directories are mounted at new paths.
+    _write_root_records(roots_path, game_root, prefix_root)
 
     # Back up any vanilla files we are about to overwrite (must be serial).
     # Only destinations that are absent, regular files, or symlinks are valid
@@ -1052,6 +1127,7 @@ def deploy_custom_rules(
 
     safe_tasks = [task for task in tasks if str(task[1]) not in blocked]
     if not safe_tasks:
+        _remove_root_records(roots_path, _log)
         return handled_lower
 
     # Publish every destination before creating/replacing any of them.  The
@@ -1071,6 +1147,7 @@ def deploy_custom_rules(
         _restore_backup_dir(backup_dir, game_root, _log)
         if prefix_root is not None:
             _restore_backup_dir(prefix_backup_dir, prefix_root, _log)
+        _remove_root_records(roots_path, _log)
         raise
 
     # Create destination directories (skip parents implied by deeper leaves).
@@ -1109,8 +1186,9 @@ def deploy_custom_rules(
                 "\n".join(placed_abs),
                 errors="surrogateescape",
             )
-        elif log_path.exists():
-            log_path.unlink()
+        else:
+            log_path.unlink(missing_ok=True)
+            _remove_root_records(roots_path, _log)
     except OSError as exc:
         # Keep the conservative planned journal if narrowing it fails.
         _log(f"  WARN: could not finalize custom-rules deploy journal: {exc}")
@@ -1130,7 +1208,9 @@ def restore_custom_rules(
 
     Reads filemap_path.parent / "custom_rules_deployed.txt", deletes every
     listed absolute path, then tries to rmdir each rule's destination directory
-    (silently ignored if non-empty).  Returns the number of files removed.
+    (silently ignored if non-empty). If a recorded root has moved, entries are
+    rebased only when its stored filesystem identity still matches. Returns the
+    number of files removed.
 
     ``prefix_root`` allows removing files placed by prefix-routed rules
     (``to_prefix=True``) and restoring their backups from
@@ -1141,6 +1221,7 @@ def restore_custom_rules(
     log_path = filemap_path.parent / _CUSTOM_RULES_LOG_NAME
     backup_dir = filemap_path.parent / _CUSTOM_RULES_BACKUP_DIR
     prefix_backup_dir = filemap_path.parent / _CUSTOM_RULES_PREFIX_BACKUP_DIR
+    roots_path = filemap_path.parent / _CUSTOM_RULES_ROOTS_NAME
 
     if not log_path.is_file():
         # An interruption during the backup phase can leave a recoverable
@@ -1160,6 +1241,7 @@ def restore_custom_rules(
                 "  Custom rules restore: recovered "
                 f"{restored} original file(s) from an interrupted deploy."
             )
+        _remove_root_records(roots_path, _log)
         return 0
 
     placed = list(dict.fromkeys(
@@ -1171,6 +1253,23 @@ def restore_custom_rules(
     retry_entries: list[str] = []
     _game_root_resolved = game_root.resolve()
     _prefix_root_resolved = prefix_root.resolve() if prefix_root else None
+    root_records = _load_root_records(roots_path)
+    relocations: list[tuple[str, Path, Path]] = []
+    for label, record, current_root in (
+        ("game", root_records.get("game_root"), game_root),
+        ("prefix", root_records.get("prefix_root"), prefix_root),
+    ):
+        if current_root is None or not isinstance(record, dict):
+            continue
+        saved_path = record.get("path")
+        if not isinstance(saved_path, str) or not saved_path:
+            continue
+        saved_root = Path(saved_path)
+        if saved_root == current_root:
+            continue
+        if _root_identity_matches(record, current_root):
+            relocations.append((label, saved_root, current_root))
+    reported_relocations: set[tuple[Path, Path]] = set()
     # Pre-filter for path traversal (cheap, serial) so the worker pool only
     # does syscalls - one lstat + (maybe) one unlink per file.
     safe_targets: list[tuple[str, Path]] = []
@@ -1198,9 +1297,27 @@ def restore_custom_rules(
                 except ValueError:
                     continue
         if under_root is None:
-            _log(f"  SKIP: path traversal blocked - {abs_str}")
-            retry_entries.append(abs_str)
-            continue
+            for label, saved_root, current_root in relocations:
+                try:
+                    rel = p.relative_to(saved_root)
+                except ValueError:
+                    continue
+                if rel.is_absolute() or ".." in rel.parts or not rel.parts:
+                    continue
+                p = current_root / rel
+                under_root = current_root
+                relocation = (saved_root, current_root)
+                if relocation not in reported_relocations:
+                    _log(
+                        f"  Custom-rules recovery: {label} root moved from "
+                        f"{saved_root} to {current_root}; rebasing its journal."
+                    )
+                    reported_relocations.add(relocation)
+                break
+            if under_root is None:
+                _log(f"  SKIP: path traversal blocked - {abs_str}")
+                retry_entries.append(abs_str)
+                continue
         safe_targets.append((abs_str, p))
         # Collect parent dirs for pruning (stop at the matched root)
         parent = p.parent
@@ -1267,6 +1384,8 @@ def restore_custom_rules(
             "Wine/Proton prefix is configured. Reconfigure the original "
             "prefix and run Restore again."
         )
+
+    _remove_root_records(roots_path, _log)
 
     # Prune empty subdirectories deepest-first; never touch either root itself
     stop_dirs = {game_root}
@@ -1437,6 +1556,7 @@ __all__ = [
     "_CUSTOM_RULES_LOG_NAME",
     "_CUSTOM_RULES_BACKUP_DIR",
     "_CUSTOM_RULES_PREFIX_BACKUP_DIR",
+    "_CUSTOM_RULES_ROOTS_NAME",
     "deploy_custom_rules",
     "compute_routed_dest",
     "compute_routed_destinations",

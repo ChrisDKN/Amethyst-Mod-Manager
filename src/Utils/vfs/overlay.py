@@ -75,6 +75,7 @@ _CUSTOM_RULE_ARTIFACTS = (
     "custom_rules_deployed.txt",
     "custom_rules_backup",
     "custom_rules_prefix_backup",
+    "custom_rules_roots.json",
 )
 _CUSTOM_DEPLOY_ARTIFACTS = (
     "custom_deploy_log.txt",
