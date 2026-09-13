@@ -80,10 +80,12 @@ def _feed_json(data, log=None):
     return json.loads("".join(output))
 
 
-def _fetch(url, root, refresh, cached_only=False, stop=None, log=None, label=""):
+def _fetch(url, root, refresh, cached_only=False, stop=None, log=None, label="",
+           routine_log=True):
     started = time.monotonic()
-    emit(log, "gallery.feed.started", label=label, host=url_host(url),
-         refresh=refresh, cached_only=cached_only)
+    if routine_log:
+        emit(log, "gallery.feed.started", label=label, host=url_host(url),
+             refresh=refresh, cached_only=cached_only)
     if stop is not None and stop.is_set():
         raise InterruptedError("Gallery loading stopped")
     if urlparse(url).scheme != "https":
@@ -95,8 +97,9 @@ def _fetch(url, root, refresh, cached_only=False, stop=None, log=None, label="")
             cached = json.loads(path.read_text())
             age = max(0, time.time() - cached["time"])
             if cached_only or not refresh and age < 3600:
-                emit(log, "gallery.feed.cache_hit", label=label, path=path,
-                     age_seconds=round(age, 1))
+                if routine_log:
+                    emit(log, "gallery.feed.cache_hit", label=label, path=path,
+                         age_seconds=round(age, 1))
                 return cached["data"], True
             emit(log, "gallery.feed.cache_stale", label=label, path=path,
                  age_seconds=round(age, 1))
@@ -108,13 +111,15 @@ def _fetch(url, root, refresh, cached_only=False, stop=None, log=None, label="")
         raise WabbajackError("Gallery feed is not cached")
     try:
         response = requests.get(url, timeout=(10, 30), verify=resolve_ca_bundle() or True)
-        emit(log, "gallery.feed.response", label=label, status=response.status_code,
-             final_host=url_host(getattr(response, "url", url)), bytes=len(response.content),
-             elapsed_seconds=round(time.monotonic() - started, 3))
+        if routine_log:
+            emit(log, "gallery.feed.response", label=label, status=response.status_code,
+                 final_host=url_host(getattr(response, "url", url)), bytes=len(response.content),
+                 elapsed_seconds=round(time.monotonic() - started, 3))
         response.raise_for_status()
         data = _feed_json(response.content, log)
         write_atomic_text(path, json.dumps({"time": time.time(), "data": data}))
-        emit(log, "gallery.feed.cached", label=label, path=path)
+        if routine_log:
+            emit(log, "gallery.feed.cached", label=label, path=path)
         return data, False
     except (requests.RequestException, ValueError) as exc:
         if cached is not None:
@@ -142,8 +147,11 @@ def load_gallery(*, refresh=False, root=None, cached_only=False, stop=None, log=
     except Exception as exc:
         warnings.append(f"Featured list feed unavailable: {exc}")
         emit_exception(log, "gallery.featured.failed", exc)
+    loaded_repositories = 0
+    cached_repositories = 0
     with ThreadPoolExecutor(max_workers=8, thread_name_prefix="wabbajack-gallery") as pool:
-        futures = {pool.submit(_fetch, url, root, refresh, cached_only, stop, log, name): name
+        futures = {pool.submit(
+            _fetch, url, root, refresh, cached_only, stop, log, name, False): name
                    for name, url in registry.items()}
         for future in as_completed(futures):
             if stop is not None and stop.is_set():
@@ -156,7 +164,6 @@ def load_gallery(*, refresh=False, root=None, cached_only=False, stop=None, log=
                 stale |= old
                 if isinstance(rows, dict):
                     rows = [rows]
-                added = 0
                 for row in rows:
                     links = row.get("links") or {}
                     machine = links.get("machineURL", links.get("machineUrl", ""))
@@ -172,9 +179,8 @@ def load_gallery(*, refresh=False, root=None, cached_only=False, stop=None, log=
                         list(row.get("tags") or []), int(metadata.get("sizeofarchives", 0)),
                         int(metadata.get("sizeofinstalledfiles", 0)), int(metadata.get("size", 0)),
                         str(metadata.get("hash", "")))
-                    added += 1
-                emit(log, "gallery.repository.loaded", repository=repository,
-                     entries=added, cached=old)
+                loaded_repositories += 1
+                cached_repositories += int(old)
             except Exception as exc:
                 warnings.append(f"{repository}: {exc}")
                 emit_exception(log, "gallery.repository.failed", exc,
@@ -182,5 +188,6 @@ def load_gallery(*, refresh=False, root=None, cached_only=False, stop=None, log=
     result = GalleryResult(sorted(entries.values(), key=lambda e: (not e.featured, e.title.casefold())),
                            warnings, stale)
     emit(log, "gallery.completed", entries=len(result.entries), warnings=len(warnings),
+         repositories=loaded_repositories, cached_repositories=cached_repositories,
          cached=stale, elapsed_seconds=round(time.monotonic() - started, 3))
     return result

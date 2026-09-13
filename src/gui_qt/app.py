@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import os
 import time as _startup_time
+from collections import deque
 from pathlib import Path
+from threading import Lock
 
 from Utils.diagnostics import performance as _perftrace
 
@@ -289,6 +291,11 @@ class _InstalledRoot:
 
 
 class MainWindow(QMainWindow):
+    _LOG_BATCH_SIZE = 1000
+    _LOG_FLUSH_INTERVAL_MS = 16
+    _LOG_DISPLAY_LIMIT = 20000
+    _LOG_DISPLAY_TRIM_AT = 22000
+
     # Carries (generation, ConflictData) from a worker thread to the UI thread
     # (queued connection - thread-safe). See _rebuild_conflicts_async.
     _conflicts_ready = Signal(int, object)
@@ -299,7 +306,7 @@ class MainWindow(QMainWindow):
     _framework_statuses_ready = Signal(int, object)
     # Deploy/restore worker → UI thread (thread-safe queued connections).
     _op_progress = Signal(int, int, object)   # (done, total, phase|None)
-    _op_log = Signal(str)
+    _log_flush_ready = Signal()
     _op_done = Signal(str, bool, object)       # (kind, success, warnings-list)
     # Install worker → UI thread.
     _install_done = Signal(int, int, object)   # (ok_count, total, names-list)
@@ -560,7 +567,6 @@ class MainWindow(QMainWindow):
         self._notifier = None
         self._notif_history = NotificationHistory(self)
         self._op_progress.connect(self._on_op_progress)
-        self._op_log.connect(self._append_log)
         self._op_done.connect(self._on_op_done)
         self._warn_popup.connect(self._show_warn_popup)
         self._play_toast_handle = None
@@ -569,6 +575,8 @@ class MainWindow(QMainWindow):
         self._play_stop_requested = None
         self._play_process_state.connect(self._on_play_process_state)
         self._init_log_file()   # one on-disk log file per session
+        self._log_flush_ready.connect(self._schedule_log_flush)
+        app.aboutToQuit.connect(self._flush_all_logs)
         self._bsa_op_running = False
         self._bsa_op_done.connect(self._on_bsa_op_done)
         # Long-running external tools (VRAMr/BENDr/ParallaxR) that read the
@@ -4795,7 +4803,7 @@ class MainWindow(QMainWindow):
             try:
                 res = resolve_dependencies(link)
             except Exception as exc:
-                self._op_log.emit(
+                self._append_log(
                     f"[thunderstore] dependency resolution failed ({exc}) - "
                     "installing the requested mod only")
                 res = None
@@ -4804,10 +4812,10 @@ class MainWindow(QMainWindow):
             skipped = []
             if res is not None:
                 for missing in res.failed:
-                    self._op_log.emit(
+                    self._append_log(
                         f"[thunderstore] could not look up {missing} - skipped")
                 if res.truncated:
-                    self._op_log.emit(
+                    self._append_log(
                         "[thunderstore] dependency graph too large - "
                         "only the first packages were resolved")
                 try:
@@ -4815,11 +4823,11 @@ class MainWindow(QMainWindow):
                         self._gs.game, Path(self._gs.profile_dir())))
                     wanted, skipped = filter_already_installed(wanted, staging)
                 except Exception as exc:
-                    self._op_log.emit(
+                    self._append_log(
                         f"[thunderstore] could not check installed mods ({exc})"
                         " - installing everything")
             for pkg in skipped:
-                self._op_log.emit(
+                self._append_log(
                     f"[thunderstore] {pkg.package_id} already installed - skipped")
 
             safe_emit(
@@ -4924,7 +4932,7 @@ class MainWindow(QMainWindow):
                     }
                 label = f"{sub_link.full_name}.zip"
                 if total > 1:
-                    self._op_log.emit(
+                    self._append_log(
                         f"[thunderstore] downloading ({idx}/{total}) {label}")
                 result = download_package(
                     sub_link, dest_dir=dest, expected_size=expected,
@@ -5048,7 +5056,7 @@ class MainWindow(QMainWindow):
         from Utils.mods.copy import resolve_target_staging
         from Utils.mods.install import install_collection_archive
 
-        log = callbacks.on_log if callbacks is not None else self._op_log.emit
+        log = callbacks.on_log if callbacks is not None else self._append_log
         order: list = []
         failures: list = []
         installed = 0
@@ -5219,10 +5227,10 @@ class MainWindow(QMainWindow):
             try:
                 res = check_for_updates(
                     staging, only_names=subset,
-                    progress_cb=lambda m: self._op_log.emit(
+                    progress_cb=lambda m: self._append_log(
                         f"[thunderstore] {m}"))
             except Exception as exc:
-                self._op_log.emit(
+                self._append_log(
                     f"[thunderstore] update check failed: {exc}")
                 res = None
             safe_emit(self._ts_updates_ready, (res, toast, subset))
@@ -5558,7 +5566,7 @@ class MainWindow(QMainWindow):
                 mod_info, file_info = api.get_mod_and_file_info_graphql(
                     link.game_domain, link.mod_id, link.file_id)
             except Exception as exc:
-                self._op_log.emit(
+                self._append_log(
                     f"[nexus] could not fetch mod info ({exc}) - meta partial")
             dest_name = matched[0] if matched else (self._gs.game_name or "")
             dest = get_download_cache_dir_for_game(dest_name)
@@ -5742,7 +5750,7 @@ class MainWindow(QMainWindow):
                         seen_missing.add(pkg.package_id)
                         missing.append(pkg)
                 except Exception as exc:
-                    self._op_log.emit(
+                    self._append_log(
                         f"[thunderstore] could not identify '{name}': {exc}")
             if done or missing:
                 safe_emit(self._ts_auto_identified, (done, missing))
@@ -5825,10 +5833,10 @@ class MainWindow(QMainWindow):
             try:
                 results = identify_all(
                     staging, community,
-                    progress_cb=lambda m: self._op_log.emit(
+                    progress_cb=lambda m: self._append_log(
                         f"[thunderstore] {m}"))
             except Exception as exc:
-                self._op_log.emit(
+                self._append_log(
                     f"[thunderstore] identify failed: {exc}")
                 results = None
             safe_emit(self._ts_identify_ready, (results, toast))
@@ -6106,7 +6114,7 @@ class MainWindow(QMainWindow):
         def work():
             from Utils.wabbajack.diagnostics import emit_exception
             from Utils.wabbajack.gallery import load_gallery
-            log = lambda message: safe_emit(self._op_log, "[wabbajack] " + message)
+            log = lambda message: self._append_log("[wabbajack] " + message)
             try:
                 cached = load_gallery(cached_only=True, log=log)
                 safe_emit(self._wabbajack_gallery_ready, cached, False)
@@ -6227,10 +6235,10 @@ class MainWindow(QMainWindow):
                 try:
                     remove_appended_collection(
                         game, pdir, record, names,
-                        log_fn=lambda m: self._op_log.emit(f"[collection] {m}"))
+                        log_fn=lambda m: self._append_log(f"[collection] {m}"))
                 except Exception as exc:
                     done_ok = False
-                    self._op_log.emit(f"[collection] remove appended failed: {exc}")
+                    self._append_log(f"[collection] remove appended failed: {exc}")
                 finally:
                     self._deploy_running = False
                     safe_emit(self._appended_col_removed, name, done_ok)
@@ -6441,7 +6449,7 @@ class MainWindow(QMainWindow):
                     # manual mode - fall back to the last validated status.
                     last = load_nexus_last_premium()
                     is_premium = bool(last)
-                    self._op_log.emit(
+                    self._append_log(
                         f"[collection] premium check failed: {exc} - using "
                         f"last-known status "
                         f"({'premium' if is_premium else 'not premium'})")
@@ -6949,7 +6957,7 @@ class MainWindow(QMainWindow):
                     callbacks=callbacks, control=control)
             except Exception as exc:
                 import traceback
-                self._op_log.emit(f"[collection] install error: {exc}\n"
+                self._append_log(f"[collection] install error: {exc}\n"
                                   f"{traceback.format_exc()}")
                 self._col_finished.emit(
                     "cancelled",
@@ -7000,7 +7008,7 @@ class MainWindow(QMainWindow):
             on_extract_remove=lambda f: self._col_extract.emit("remove", f),
             on_row_installed=lambda f: self._col_row.emit(int(f)),
             on_manual_mod=lambda d: self._col_manual.emit(dict(d)),
-            on_log=lambda m: self._op_log.emit(str(m)),
+            on_log=lambda m: self._append_log(str(m)),
             on_done=lambda i, s, t, p: self._col_finished.emit("done", (i, s, t, p)),
             on_paused=lambda i, p: self._col_finished.emit("paused", (i, p)),
             # str(None) would be the truthy "None" - every download-only guard
@@ -7313,9 +7321,9 @@ class MainWindow(QMainWindow):
                         # everything it just fetched, so never wipe it.
                         clear_cache=(bool(load_clear_archive_after_install())
                                      if pd else False),
-                        log_fn=lambda m: self._op_log.emit(str(m)))
+                        log_fn=lambda m: self._append_log(str(m)))
                 except Exception as exc:
-                    self._op_log.emit(f"[collection] cancel cleanup failed: {exc}")
+                    self._append_log(f"[collection] cancel cleanup failed: {exc}")
                 self._col_finished.emit("_cancel_cleaned", {
                     "deleted": delete_profile,
                     "no_profile": not pd,
@@ -7473,9 +7481,9 @@ class MainWindow(QMainWindow):
                 from Utils.profiles import export as profile_export
                 staged = profile_export.install_local_bundle(
                     bundle_zip, profile_dir, mods_dir, overwrite_dir,
-                    log_fn=lambda m: self._op_log.emit(str(m)))
+                    log_fn=lambda m: self._append_log(str(m)))
             except Exception as exc:
-                self._op_log.emit(f"[import] bundle extraction failed: {exc}")
+                self._append_log(f"[import] bundle extraction failed: {exc}")
             # Bundled mods carry no Nexus file ID, so the install pipeline never
             # counts them - each extracted bundle folder is an installed mod.
             self._col_import_done.emit(
@@ -7575,9 +7583,9 @@ class MainWindow(QMainWindow):
         def worker():
             try:
                 from Utils.wabbajack.reset import reset_load_order
-                result = reset_load_order(game, pdir, log_fn=self._op_log.emit)
+                result = reset_load_order(game, pdir, log_fn=self._append_log)
             except Exception as exc:
-                self._op_log.emit(f"Wabbajack load order reset failed: {exc}")
+                self._append_log(f"Wabbajack load order reset failed: {exc}")
                 result = {"error": str(exc)}
             self._wabbajack_reset_done.emit(result)
 
@@ -7641,7 +7649,7 @@ class MainWindow(QMainWindow):
                 from Utils.collections.install import load_amethyst_reset_data
                 from Utils.collections.manifest import load_collection_manifest
                 from Utils.collections.reset import reset_collection_load_order
-                _log = lambda m: self._op_log.emit(str(m))
+                _log = lambda m: self._append_log(str(m))
                 # Prefer the profile's already-saved collection.json (offline).
                 manifest = {}
                 saved = pdir / "collection.json"
@@ -7689,7 +7697,7 @@ class MainWindow(QMainWindow):
                         pdir, manifest, log_fn=_log, game=game,
                         amethyst_state=amethyst)
             except Exception as exc:
-                self._op_log.emit(f"Reset load order failed: {exc}")
+                self._append_log(f"Reset load order failed: {exc}")
                 res = {"error": str(exc)}
             self._reset_done.emit(res)
 
@@ -7754,7 +7762,7 @@ class MainWindow(QMainWindow):
             results = []
             try:
                 from Utils.collections.manifest import download_manifest_archive
-                _log = lambda m: self._op_log.emit(str(m))
+                _log = lambda m: self._append_log(str(m))
                 api = self._ensure_nexus_api()
                 for url in urls:
                     if api is None:
@@ -7767,7 +7775,7 @@ class MainWindow(QMainWindow):
                         _log(f"Manifest: {url} failed - {res.get('error')}")
                     results.append(res)
             except Exception as exc:
-                self._op_log.emit(f"Manifest download failed: {exc}")
+                self._append_log(f"Manifest download failed: {exc}")
             self._manifest_dl_done.emit(results)
 
         threading.Thread(target=worker, daemon=True,
@@ -8061,7 +8069,7 @@ class MainWindow(QMainWindow):
                 def _modio_work():
                     modio_box["results"] = _check_modio_updates(
                         game, staging,
-                        lambda m: self._op_log.emit(f"[modio] {m}"),
+                        lambda m: self._append_log(f"[modio] {m}"),
                         only_names=subset)
 
                 modio_thread = None
@@ -8082,10 +8090,10 @@ class MainWindow(QMainWindow):
                         ts_box["available"] = bool(installed)
                         ts_box["results"] = ts_check(
                             staging, only_names=subset, installed_mods=installed,
-                            progress_cb=lambda m: self._op_log.emit(
+                            progress_cb=lambda m: self._append_log(
                                 f"[thunderstore] {m}"))
                     except Exception as exc:
-                        self._op_log.emit(
+                        self._append_log(
                             f"[thunderstore] update check failed: {exc}")
 
                 ts_thread = threading.Thread(
@@ -8097,10 +8105,10 @@ class MainWindow(QMainWindow):
                         out["nexus"] = check_for_updates(
                             api, staging, game_domain=domain, save_results=True,
                             enabled_only=subset,
-                            progress_cb=lambda m: self._op_log.emit(f"[nexus] {m}"),
+                            progress_cb=lambda m: self._append_log(f"[nexus] {m}"),
                         )
                     except Exception as exc:
-                        self._op_log.emit(f"[nexus] update check failed: {exc}")
+                        self._append_log(f"[nexus] update check failed: {exc}")
 
                 if modio_thread is not None:
                     modio_thread.join()
@@ -8626,7 +8634,7 @@ class MainWindow(QMainWindow):
                             archive_name=result.file_name, mod_info=mod_info)
                         prebuilt = merge_reinstall_metadata(prebuilt, installed_meta)
                     except Exception as exc:
-                        self._op_log.emit(
+                        self._append_log(
                             f"[reinstall] Warning - could not build metadata: {exc}")
                     with lock:
                         dl_items.append((mod_name, str(result.file_path), prebuilt,
@@ -8687,7 +8695,7 @@ class MainWindow(QMainWindow):
                                   == int(file_id or 0)), None)
                     except Exception as exc:
                         files_cache.setdefault(key, [])
-                        self._op_log.emit(
+                        self._append_log(
                             f"[reinstall] {nm} - could not fetch file info "
                             f"({exc}); archive detection may be less reliable.")
                 if f is None:
@@ -8718,8 +8726,7 @@ class MainWindow(QMainWindow):
             dl_key = self._new_dl_key()
             self._nexus_download_progress(dl_key, nm, 0, 0)  # show popup card
 
-            # Helper callbacks run on the WATCHER thread - marshal via Signals.
-            # (_op_log / _append_log are thread-safe.)
+            # Helper callbacks run on the watcher thread.
             def on_archive(path, meta, _file, _nm=nm, _domain=domain,
                            _mid=mod_id, _key=dl_key,
                            _installed=installed_meta,
@@ -8741,7 +8748,7 @@ class MainWindow(QMainWindow):
             def on_timeout(_nm=nm, _domain=domain, _mid=mod_id, _key=dl_key):
                 if not self._claim_app_manual_watch(_mid, _domain, _key):
                     return
-                self._op_log.emit(
+                self._append_log(
                     f"[reinstall] {_nm} - stopped waiting for a browser "
                     "download (nothing arrived; reinstall from Downloads once "
                     "downloaded).")
@@ -8974,7 +8981,7 @@ class MainWindow(QMainWindow):
                         queue.append(payload)
                     else:
                         skipped.append((nm, payload))
-                        self._op_log.emit(f"[nexus] {nm} - {payload}, skipped.")
+                        self._append_log(f"[nexus] {nm} - {payload}, skipped.")
             self._qu_resolved.emit(queue, skipped)
 
         threading.Thread(target=_resolve_worker, daemon=True,
@@ -9105,7 +9112,7 @@ class MainWindow(QMainWindow):
                             mod_info=mod_info, file_info=file_info)
                         prebuilt.has_update = False
                     except Exception as exc:
-                        self._op_log.emit(
+                        self._append_log(
                             f"[nexus] Warning - could not build metadata: {exc}")
                         prebuilt = None
                     with lock:
@@ -10103,7 +10110,7 @@ class MainWindow(QMainWindow):
                     write_meta(meta_path, meta)
                     ok += 1
                 except Exception as exc:
-                    self._op_log.emit(f"Nexus: {'endorse' if endorse else 'abstain'} "
+                    self._append_log(f"Nexus: {'endorse' if endorse else 'abstain'} "
                                       f"failed for '{nm}': {exc}")
             self._endorse_done.emit({"ok": ok, "endorse": endorse,
                                      "names": list(names)})
@@ -10157,7 +10164,7 @@ class MainWindow(QMainWindow):
                     api.track_mod(mod_domain, meta.mod_id)
                     ok += 1
                 except Exception as exc:
-                    self._op_log.emit(f"Nexus: track failed for '{nm}': {exc}")
+                    self._append_log(f"Nexus: track failed for '{nm}': {exc}")
             self._track_done.emit({"ok": ok})
 
         threading.Thread(target=_worker, daemon=True, name="track").start()
@@ -10331,7 +10338,7 @@ class MainWindow(QMainWindow):
                         name_map[nm] = dest_name or nm
                         registered.append(
                             (dest_name or nm, enabled_map.get(nm, True)))
-                        self._op_log.emit(
+                        self._append_log(
                             f"'{nm}' already uses the target staging folder - "
                             f"nothing to copy.")
                         continue
@@ -10348,7 +10355,7 @@ class MainWindow(QMainWindow):
                         name_map[nm] = out
                         registered.append((out, enabled_map.get(nm, True)))
                 except Exception as exc:
-                    self._op_log.emit(f"Copy to profile failed for '{nm}': {exc}")
+                    self._append_log(f"Copy to profile failed for '{nm}': {exc}")
             separator_copied = False
             target_registered = False
             if separator_name:
@@ -10360,7 +10367,7 @@ class MainWindow(QMainWindow):
                     separator_copied = True
                     target_registered = True
                 except Exception as exc:
-                    self._op_log.emit(
+                    self._append_log(
                         f"Copy separator to profile: modlist update failed: {exc}")
                 if separator_copied and created:
                     try:
@@ -10368,7 +10375,7 @@ class MainWindow(QMainWindow):
                             Path(src_profile_dir), Path(target_profile_dir),
                             separator_name)
                     except Exception as exc:
-                        self._op_log.emit(
+                        self._append_log(
                             f"Copy separator state failed: {exc}")
             elif registered:
                 try:
@@ -10376,7 +10383,7 @@ class MainWindow(QMainWindow):
                         Path(target_profile_dir) / "modlist.txt", registered)
                     target_registered = True
                 except Exception as exc:
-                    self._op_log.emit(f"Copy to profile: modlist update failed: {exc}")
+                    self._append_log(f"Copy to profile: modlist update failed: {exc}")
             preserved_groups = set()
             if target_registered and requested_groups:
                 try:
@@ -10385,14 +10392,14 @@ class MainWindow(QMainWindow):
                         Path(src_profile_dir), Path(target_profile_dir), name_map,
                         source_groups=source_groups)
                 except Exception as exc:
-                    self._op_log.emit(f"Copy mod groups failed: {exc}")
+                    self._append_log(f"Copy mod groups failed: {exc}")
             group_failures = set(requested_groups) - preserved_groups
             protected = set(locked_sources)
             for leader, members in requested_groups.items():
                 if leader in group_failures or members & locked_sources:
                     protected.update(members)
             if group_failures:
-                self._op_log.emit(
+                self._append_log(
                     f"Groups not transferred completely: {', '.join(sorted(group_failures))}")
             removable = ([n for n in copied if n not in protected]
                          if target_registered else [])
@@ -10403,7 +10410,7 @@ class MainWindow(QMainWindow):
                 try:
                     from Utils.profiles.groups import (is_group,
                                                       remove_mods_from_group)
-                    _log_cb = lambda m: self._op_log.emit(str(m))  # noqa: E731
+                    _log_cb = lambda m: self._append_log(str(m))  # noqa: E731
                     if is_group(Path(src_profile_dir)):
                         # Moving OUT of a group removes the mod from its
                         # owning member too - EXCEPT when the target IS the
@@ -10424,7 +10431,7 @@ class MainWindow(QMainWindow):
                                 log_fn=_log_cb, delete_member_copies=False)
                         blocked = [n for n in removable if n not in done]
                         if blocked:
-                            self._op_log.emit(
+                            self._append_log(
                                 f"Kept in the group (locked profile): "
                                 f"{', '.join(blocked)}")
                         removed_names = done
@@ -10437,7 +10444,7 @@ class MainWindow(QMainWindow):
                         removed_names = removable
                     removed = bool(removed_names)
                 except Exception as exc:
-                    self._op_log.emit(f"Move: could not remove sources: {exc}")
+                    self._append_log(f"Move: could not remove sources: {exc}")
             transferred = removed_names if move else copied if target_registered else []
             self._copy_done.emit({"copied": len(transferred), "total": mod_total,
                                   "move": move, "removed": removed,
@@ -10781,7 +10788,7 @@ class MainWindow(QMainWindow):
         def on_timeout():
             if not self._claim_app_manual_watch(mod_id, domain, dl_key):
                 return
-            self._op_log.emit(f"[nexus] stopped waiting for a browser download "
+            self._append_log(f"[nexus] stopped waiting for a browser download "
                               f"of '{dl_label}' (nothing arrived).")
             safe_emit(self._req_install_dl, None, None, dl_key)
 
@@ -12447,7 +12454,7 @@ class MainWindow(QMainWindow):
             try:
                 if not conflict_build_lock.acquire(blocking=False):
                     self._op_progress.emit(0, 0, wait_phase)
-                    self._op_log.emit(
+                    self._append_log(
                         "Deploy: waiting for the current profile update to "
                         "finish."
                     )
@@ -12455,7 +12462,7 @@ class MainWindow(QMainWindow):
                 try:
                     ok = run_deploy_pipeline(
                         game, profile,
-                        log_fn=lambda m: self._op_log.emit(str(m)),
+                        log_fn=lambda m: self._append_log(str(m)),
                         progress_fn=lambda d, t, p=None: self._op_progress.emit(d, t, p),
                         root_folder_enabled=rf_enabled,
                         confirm_cet=self._make_confirm_cet_cb(game),
@@ -12468,7 +12475,7 @@ class MainWindow(QMainWindow):
                 finally:
                     conflict_build_lock.release()
             except Exception as exc:
-                self._op_log.emit(f"Deploy error: {exc}")
+                self._append_log(f"Deploy error: {exc}")
             finally:
                 try:
                     warns = list(game.pop_deploy_warnings())
@@ -12593,6 +12600,7 @@ class MainWindow(QMainWindow):
                 log_fn=lambda m: print(f"[tool-reap] {m}", flush=True))
         except Exception as exc:
             print(f"[gui_qt] tool-reap error: {exc}", flush=True)
+        self._flush_all_logs()
         super().closeEvent(event)
 
     def _restore_all_on_close(self):
@@ -12696,11 +12704,11 @@ class MainWindow(QMainWindow):
             ok = True
             try:
                 self._restore_timing_mark(
-                    "pipeline worker entered", log_fn=self._op_log.emit)
+                    "pipeline worker entered", log_fn=self._append_log)
                 from Utils.deployment.pipeline import check_paths_mounted
                 err = check_paths_mounted(game)
                 if err:
-                    self._op_log.emit(f"Restore aborted: {err}")
+                    self._append_log(f"Restore aborted: {err}")
                     ok = False
                 else:
                     last = game.get_last_deployed_profile()
@@ -12713,33 +12721,33 @@ class MainWindow(QMainWindow):
                     self._restore_timing_mark(
                         "preflight and deployed-profile load complete",
                         work="FS I/O",
-                        log_fn=self._op_log.emit)
+                        log_fn=self._append_log)
                     game_root = game.get_game_path()
                     if hasattr(game, "restore"):
                         game.restore(
-                            log_fn=lambda m: self._op_log.emit(str(m)),
+                            log_fn=lambda m: self._append_log(str(m)),
                             progress_fn=lambda d, t, p=None: self._op_progress.emit(d, t, p))
                     self._restore_timing_mark(
                         "game handler restore complete",
                         work="FS I/O + CPU",
-                        log_fn=self._op_log.emit)
+                        log_fn=self._append_log)
                     rf = game.get_effective_root_folder_path()
                     if rf.is_dir() and game_root:
                         restore_root_folder_for_game(
                             game, root_folder_dir=rf, game_root=game_root,
-                            log_fn=lambda m: self._op_log.emit(str(m)),
+                            log_fn=lambda m: self._append_log(str(m)),
                         )
                     from Utils.deployment.pipeline import finalize_filegraph_recovery
                     finalize_filegraph_recovery(
                         game, recovery_profile_dir,
-                        log_fn=lambda m: self._op_log.emit(str(m)),
+                        log_fn=lambda m: self._append_log(str(m)),
                     )
                     self._restore_timing_mark(
                         "root-file restore complete", work="FS I/O",
-                        log_fn=self._op_log.emit)
+                        log_fn=self._append_log)
             except Exception as exc:
                 ok = False
-                self._op_log.emit(f"Restore error: {exc}")
+                self._append_log(f"Restore error: {exc}")
             finally:
                 # Always restore the active profile dir to the selected profile.
                 try:
@@ -12752,7 +12760,7 @@ class MainWindow(QMainWindow):
                     pass
                 self._restore_timing_mark(
                     "active profile restored; worker complete", work="FS I/O",
-                    log_fn=self._op_log.emit)
+                    log_fn=self._append_log)
                 self._op_done.emit("restore", ok, [])
 
         threading.Thread(target=worker, daemon=True).start()
@@ -13354,7 +13362,7 @@ class MainWindow(QMainWindow):
         self._notify(self.tr("Launching winetricks…"), "info")
         threading.Thread(
             target=lambda: launch_winetricks(
-                game, log_fn=lambda m: self._op_log.emit(str(m))),
+                game, log_fn=lambda m: self._append_log(str(m))),
             daemon=True).start()
 
     def _proton_run_exe(self):
@@ -13540,9 +13548,9 @@ class MainWindow(QMainWindow):
         def _run():
             ok = False
             try:
-                ok = bool(worker_fn(lambda m: self._op_log.emit(f"Proton Tools: {m}")))
+                ok = bool(worker_fn(lambda m: self._append_log(f"Proton Tools: {m}")))
             except Exception as exc:
-                self._op_log.emit(f"Proton Tools error: {exc}")
+                self._append_log(f"Proton Tools error: {exc}")
             self._proton_done.emit(title, ok)
 
         threading.Thread(target=_run, daemon=True).start()
@@ -14669,7 +14677,7 @@ class MainWindow(QMainWindow):
         path = self._install_queue.pop(0)
         self._install_current_path = str(path)
         idx = self._install_total - len(self._install_queue)
-        self._op_log.emit(f"Installing ({idx}/{self._install_total}): {Path(path).name}")
+        self._append_log(f"Installing ({idx}/{self._install_total}): {Path(path).name}")
 
         import threading
 
@@ -14681,13 +14689,13 @@ class MainWindow(QMainWindow):
             try:
                 prepared = prepare_archive(
                     path, self._install_game, self._install_profile_dir,
-                    log_fn=lambda m: self._op_log.emit(str(m)),
+                    log_fn=lambda m: self._append_log(str(m)),
                     progress_fn=lambda d, t, ph=None: self._op_progress.emit(d, t, ph),
                     prebuilt_meta=meta,
                     preferred_name=forced_name,
                     on_need_prefix=self._make_need_prefix_cb())
             except Exception as exc:
-                self._op_log.emit(f"Prepare error ({Path(path).name}): {exc}")
+                self._append_log(f"Prepare error ({Path(path).name}): {exc}")
                 prepared = None
             self._prepared_ready.emit(prepared)
 
@@ -14745,7 +14753,7 @@ class MainWindow(QMainWindow):
                 est = 0
                 acquired = False
                 try:
-                    self._op_log.emit(f"Installing: {name_for_log}")
+                    self._append_log(f"Installing: {name_for_log}")
                     # One archive probe supplies FOMOD detection, the memory
                     # reservation and extraction placement below.
                     probe = probe_archive(path, inspect_members=True)
@@ -14753,7 +14761,7 @@ class MainWindow(QMainWindow):
                     # defer NOW, skipping an extract that would be thrown away
                     # and repeated in the deferred phase (collection parity).
                     if probe.has_fomod_config:
-                        self._op_log.emit(
+                        self._append_log(
                             f"FOMOD installer detected: {name_for_log} - "
                             "deferred to the end of the batch.")
                         with lock:
@@ -14764,7 +14772,7 @@ class MainWindow(QMainWindow):
                     acquired = True
                     prepared = prepare_archive(
                         path, self._install_game, self._install_profile_dir,
-                        log_fn=lambda m: self._op_log.emit(str(m)),
+                        log_fn=lambda m: self._append_log(str(m)),
                         prebuilt_meta=meta, preferred_name=forced,
                         on_need_prefix=prefix_cb, archive_probe=probe)
                     if prepared is None:
@@ -14772,7 +14780,7 @@ class MainWindow(QMainWindow):
                     if (prepared.is_fomod() and prepared.fomod_has_steps()) \
                             or prepared.is_bain():
                         kind = "FOMOD" if prepared.is_fomod() else "BAIN"
-                        self._op_log.emit(
+                        self._append_log(
                             f"{kind} installer detected: {prepared.mod_name} "
                             "- deferred to the end of the batch.")
                         prepared.cleanup()
@@ -14782,19 +14790,19 @@ class MainWindow(QMainWindow):
                     if prepared.is_fomod():
                         # FOMOD with no install steps → nothing to choose;
                         # install headlessly (parity with _on_prepared_ready).
-                        self._op_log.emit(
+                        self._append_log(
                             f"FOMOD has no install options: "
                             f"{prepared.mod_name} - installing required files.")
                     name = finish_install(
                         prepared, None,
-                        log_fn=lambda m: self._op_log.emit(str(m)),
+                        log_fn=lambda m: self._append_log(str(m)),
                         on_exists=None if forced else exists_cb)
                     if name:
                         self._maybe_clear_archive(prepared)
                         with lock:
                             ok_items.append((str(path), name))
                 except Exception as exc:
-                    self._op_log.emit(f"Install error ({name_for_log}): {exc}")
+                    self._append_log(f"Install error ({name_for_log}): {exc}")
                 finally:
                     if acquired:
                         budget.release(est)
@@ -14820,7 +14828,7 @@ class MainWindow(QMainWindow):
 
         def _proceed():
             if deferred:
-                self._op_log.emit(
+                self._append_log(
                     f"Installing {len(deferred)} deferred FOMOD/BAIN mod(s)…")
             self._install_queue = deferred
             self._install_next()
@@ -14862,7 +14870,7 @@ class MainWindow(QMainWindow):
             # conditionalFileInstalls) → nothing for the user to choose. Install
             # headlessly with default selections instead of opening the wizard
             # on an empty step list (which crashed with IndexError).
-            self._op_log.emit(
+            self._append_log(
                 f"FOMOD has no install options: {prepared.mod_name} - "
                 "installing required files.")
             self._run_finish_install(prepared, None)
@@ -14936,7 +14944,7 @@ class MainWindow(QMainWindow):
                     return
                 done["v"] = True
                 self._tabs.close_tab(tab_key)
-                self._op_log.emit(f"FOMOD install cancelled: {prepared.mod_name}")
+                self._append_log(f"FOMOD install cancelled: {prepared.mod_name}")
                 prepared.cleanup()
                 self._notify(self.tr("Install cancelled: {0}").format(prepared.mod_name), "info")
 
@@ -14990,7 +14998,7 @@ class MainWindow(QMainWindow):
                 done["v"] = True
                 self._tabs.close_tab(tab_key)
                 if result is None:
-                    self._op_log.emit(
+                    self._append_log(
                         f"BAIN install cancelled: {prepared.mod_name}")
                     prepared.cleanup()
                     self._notify(self.tr("Install cancelled: {0}").format(prepared.mod_name), "info")
@@ -15023,12 +15031,12 @@ class MainWindow(QMainWindow):
             try:
                 name = finish_install(
                     prepared, selections,
-                    log_fn=lambda m: self._op_log.emit(str(m)),
+                    log_fn=lambda m: self._append_log(str(m)),
                     progress_fn=lambda d, t, ph=None: self._op_progress.emit(d, t, ph),
                     on_exists=exists_cb,
                     bain_selections=bain_selections)
             except Exception as exc:
-                self._op_log.emit(f"Install error ({prepared.mod_name}): {exc}")
+                self._append_log(f"Install error ({prepared.mod_name}): {exc}")
                 name = None
             if name:
                 self._maybe_clear_archive(prepared)
@@ -15097,12 +15105,12 @@ class MainWindow(QMainWindow):
             try:
                 name = finish_install(
                     prepared, selections,
-                    log_fn=lambda m: self._op_log.emit(str(m)),
+                    log_fn=lambda m: self._append_log(str(m)),
                     progress_fn=lambda d, t, ph=None: self._op_progress.emit(d, t, ph),
                     on_exists=exists_cb,
                     bain_selections=bain_selections)
             except Exception as exc:
-                self._op_log.emit(f"Install error ({prepared.mod_name}): {exc}")
+                self._append_log(f"Install error ({prepared.mod_name}): {exc}")
                 name = None
             if name:
                 self._maybe_clear_archive(prepared)
@@ -15220,9 +15228,9 @@ class MainWindow(QMainWindow):
             from Nexus.nexus_download import delete_archive_and_sidecar
             from pathlib import Path as _P
             delete_archive_and_sidecar(_P(archive))
-            self._op_log.emit(f"Removed archive: {_P(archive).name}")
+            self._append_log(f"Removed archive: {_P(archive).name}")
         except Exception as exc:
-            self._op_log.emit(f"Archive cleanup skipped: {exc}")
+            self._append_log(f"Archive cleanup skipped: {exc}")
 
     def _on_one_install_done(self, name):
         if name is _WIZARD_HANDOFF:
@@ -20780,8 +20788,14 @@ class MainWindow(QMainWindow):
         """Create one on-disk log file per session (Tk status_bar parity).
 
         Lives at ``~/.config/AmethystModManager/logs/amethyst-<ts>.log`` and is
-        appended to on every ``_append_log`` call so the file stays in sync with
-        the on-screen log."""
+        kept in sync with the on-screen log by the batched log drain."""
+        self._log_pending = deque()
+        self._log_pending_lock = Lock()
+        self._log_flush_scheduled = False
+        self._log_flush_timer = QTimer(self)
+        self._log_flush_timer.setSingleShot(True)
+        self._log_flush_timer.setInterval(self._LOG_FLUSH_INTERVAL_MS)
+        self._log_flush_timer.timeout.connect(self._flush_log_queue)
         self._log_file = None
         self._log_file_error = None
         self._log_file_error_reported = False
@@ -20796,16 +20810,15 @@ class MainWindow(QMainWindow):
                 f"{type(exc).__name__}: {exc}")
             self._log_file = None
 
-    def _write_log_file(self, line: str, timestamp: str):
-        """Append one already-stripped line to the session log file (best-effort).
-
-        *timestamp* is the same value shown on-screen so file and panel agree."""
+    def _write_log_file(self, records):
+        """Append a batch of ``(line, timestamp)`` records to the session log."""
         log_file = getattr(self, "_log_file", None)
-        if log_file is None:
+        if log_file is None or not records:
             return None
         try:
             with open(log_file, "a", encoding="utf-8", errors="replace") as f:
-                f.write(f"[{timestamp}]  {line}\n")
+                f.write("".join(
+                    f"[{timestamp}]  {line}\n" for line, timestamp in records))
         except OSError as exc:
             self._log_file = None
             self._log_file_error = f"could not write {log_file}: {exc}"
@@ -20843,7 +20856,7 @@ class MainWindow(QMainWindow):
             # containing "failed"/"error" must not tint the banner red or make it
             # the only line left under the Errors filter.
             self._log_lines.append((line, "banner", timestamp))
-            self._write_log_file(line, timestamp)
+        self._write_log_file([(line, timestamp) for line in banner])
         self._log_banner_len = len(self._log_lines) - before
         self._render_log()
         self._report_log_file_failure()
@@ -20851,16 +20864,7 @@ class MainWindow(QMainWindow):
             self._append_log(f"Session log file: {self._log_file}")
 
     def _append_log(self, message: str):
-        """Backend log_fn target - append a line to the log text area.
-
-        Thread-safe: worker threads pass this as their ``log_fn`` (Nexus browser,
-        collection detail/reset, installs …). Qt widgets may ONLY be touched on
-        the GUI thread - touching ``_log_view`` from a worker is a data race that
-        can segfault - so when called off-thread we marshal through the queued
-        ``_op_log`` signal instead of writing the widget directly.
-
-        Lines are also retained (with their severity) in ``_log_lines`` so the
-        Error/Warning toggles can re-render a filtered view."""
+        """Thread-safe backend log target queued for one batched UI update."""
         # Escape surrogate bytes from on-disk file names before the message
         # touches Qt / the log file - a lone surrogate can raise on encode in
         # any sink, and log calls must never be able to crash their caller.
@@ -20870,28 +20874,68 @@ class MainWindow(QMainWindow):
         except UnicodeEncodeError:
             message = message.encode("utf-8", "backslashreplace").decode(
                 "utf-8", "replace")
-        try:
-            from PySide6.QtCore import QThread
-            if QThread.currentThread() is not self.thread():
-                self._op_log.emit(message)
-                return
-        except Exception:
-            pass
         line = message.rstrip("\n")
-        severity = self._classify_log_line(line)
         from datetime import datetime
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with self._log_pending_lock:
+            self._log_pending.append((line, timestamp))
+            request_flush = not self._log_flush_scheduled
+            self._log_flush_scheduled = True
+        if request_flush:
+            self._log_flush_ready.emit()
+
+    def _schedule_log_flush(self):
+        if not self._log_flush_timer.isActive():
+            self._log_flush_timer.start()
+
+    def _flush_log_queue(self):
+        batch = []
+        with self._log_pending_lock:
+            while self._log_pending and len(batch) < self._LOG_BATCH_SIZE:
+                batch.append(self._log_pending.popleft())
+            more = bool(self._log_pending)
+            if not more:
+                self._log_flush_scheduled = False
+        self._append_log_batch(batch)
+        if more:
+            self._log_flush_timer.start()
+
+    def _flush_all_logs(self):
+        timer = getattr(self, "_log_flush_timer", None)
+        if timer is not None:
+            timer.stop()
+        while True:
+            with self._log_pending_lock:
+                if not self._log_pending:
+                    self._log_flush_scheduled = False
+                    break
+                batch = list(self._log_pending)
+                self._log_pending.clear()
+            self._append_log_batch(batch)
+
+    def _append_log_batch(self, batch):
+        if not batch:
+            return
         if not hasattr(self, "_log_lines"):
             self._log_lines = []
-        self._log_lines.append((line, severity, timestamp))
-        # Persist to the session log file (before the display filter, so the file
-        # captures everything - Tk status_bar parity).
-        file_error = self._write_log_file(line, timestamp)
+        records = [
+            (line, self._classify_log_line(line), timestamp)
+            for line, timestamp in batch
+        ]
+        self._log_lines.extend(records)
+        file_error = self._write_log_file(batch)
         if file_error:
             self._report_log_file_failure()
-        if not self._line_visible(severity):
-            return   # filtered out - retained but not shown
-        html = self._log_line_html(line, severity, timestamp)
+        visible = [record for record in records if self._line_visible(record[1])]
+        if not visible:
+            return
+        displayed = getattr(self, "_log_displayed_count", 0) + len(visible)
+        if displayed > self._LOG_DISPLAY_TRIM_AT:
+            self._render_log()
+            return
+        html = "".join(
+            self._log_line_html(line, severity, timestamp)
+            for line, severity, timestamp in visible)
         for view in (self._log_view, getattr(self, "_log_tab_view", None)):
             if view is None:
                 continue
@@ -20899,14 +20943,23 @@ class MainWindow(QMainWindow):
                 view.appendHtml(html)
             except Exception:
                 pass
+        self._log_displayed_count = displayed
 
     def _render_log(self):
         """Re-render both log views from ``_log_lines`` honouring the current
-        Error/Warning filter toggles."""
+        Error/Warning filter toggles and the bounded display history."""
         lines = getattr(self, "_log_lines", [])
+        banner_len = min(getattr(self, "_log_banner_len", 0), len(lines))
+        shown = list(lines[:banner_len])
+        remaining = max(0, self._LOG_DISPLAY_LIMIT - len(shown))
+        if remaining:
+            shown.extend(deque(
+                (record for record in lines[banner_len:]
+                 if self._line_visible(record[1])),
+                maxlen=remaining))
         html = "".join(
             self._log_line_html(text, sev, ts)
-            for text, sev, ts in lines if self._line_visible(sev)
+            for text, sev, ts in shown
         )
         for view in (self._log_view, getattr(self, "_log_tab_view", None)):
             if view is None:
@@ -20918,6 +20971,7 @@ class MainWindow(QMainWindow):
                 view.moveCursor(QTextCursor.End)
             except Exception:
                 pass
+        self._log_displayed_count = len(shown)
 
     def _toggle_log_filter(self, which: str):
         """Filter the log to only *which* severity; clicking the active filter
@@ -20961,6 +21015,7 @@ class MainWindow(QMainWindow):
         """Clear both the docked log view and the full-screen log tab (if open),
         keeping the pinned System Information banner - a shared log has to carry
         the environment it came from, however often the user clears it."""
+        self._flush_all_logs()
         banner = getattr(self, "_log_banner_len", 0)
         self._log_lines = getattr(self, "_log_lines", [])[:banner]
         self._render_log()
@@ -20983,6 +21038,7 @@ class MainWindow(QMainWindow):
         Uploads the FULL retained log, not the on-screen view: an Error/Warning
         filter is a reading aid, and a log stripped of everything but its error
         lines is close to useless for diagnosing one."""
+        self._flush_all_logs()
         lines = getattr(self, "_log_lines", [])
         if not lines:
             self._notify(self.tr("The log is empty."), "warning")
@@ -21015,11 +21071,8 @@ class MainWindow(QMainWindow):
         view.setReadOnly(True)
         view.setObjectName("LogView")
         self._log_tab_view = view
-        # Seed with the existing (filtered, colour-tinted) log contents.
-        for text, sev, ts in getattr(self, "_log_lines", []):
-            if self._line_visible(sev):
-                view.appendHtml(self._log_line_html(text, sev, ts))
-        view.moveCursor(QTextCursor.End)
+        self._flush_all_logs()
+        self._render_log()
         col.addWidget(view, 1)
 
         bar = QWidget()
