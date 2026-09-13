@@ -220,6 +220,30 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
         self.load_paths()
 
     @property
+    def configure_exe_names(self) -> list[str]:
+        """Executable paths accepted from either the install or project root."""
+        declared = [self.exe_name, *list(getattr(self, "exe_name_alts", []) or [])]
+        names: list[str] = []
+        for name in declared:
+            normalised = str(name or "").replace("\\", "/")
+            if not normalised:
+                continue
+            if normalised not in names:
+                names.append(normalised)
+            parts = normalised.split("/")
+            try:
+                binaries = next(
+                    index for index, part in enumerate(parts)
+                    if part.casefold() == "binaries"
+                )
+            except StopIteration:
+                continue
+            project_relative = "/".join(parts[binaries:])
+            if project_relative not in names:
+                names.append(project_relative)
+        return names
+
+    @property
     def filemap_casing_pins(self) -> dict[str, str]:
         """UE4SS loads a lua mod's entry point from ``Scripts/main.lua`` (capital
         S) but discovers the mod folder by a lowercase ``scripts`` check - see
