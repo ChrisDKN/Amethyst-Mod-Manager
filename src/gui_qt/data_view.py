@@ -20,7 +20,9 @@ from PySide6.QtWidgets import (
 
 import Utils.ui.data as dtlogic
 from gui_qt.audio_preview import AUDIO_EXTS, AudioControls
-from gui_qt.data_model import DataModel, _DataNode, COL_NAME, COL_MOD
+from gui_qt.data_model import (
+    BULK_DELTA_THRESHOLD, DataModel, _DataNode, COL_NAME, COL_MOD,
+)
 from gui_qt.safe_emit import safe_emit
 from gui_qt.video_preview import VIDEO_EXTS
 
@@ -248,9 +250,31 @@ class DataView(QWidget):
              candidate_id in self._resolved_contested)
             for candidate_id, path, mod in projected
         ]
-        self._model.apply_leaf_delta(removed | touched, changed_rows)
+        impacted = ({row[0] for row in changed_rows}
+                    | ((removed | touched) & self._model._candidate_nodes.keys()))
+        if len(impacted) >= BULK_DELTA_THRESHOLD:
+            self._replace_model_rows([
+                (candidate_id, path, mod,
+                 candidate_id in self._resolved_contested)
+                for candidate_id, path, mod in by_id.values()
+            ])
+        else:
+            self._model.apply_leaf_delta(removed | touched, changed_rows)
         self.filetypes_changed.emit()
         self._update_label_counts(len(by_id), len(self._mod_counts))
+
+    def _replace_model_rows(self, rows) -> None:
+        expanded = self._expanded_paths()
+        current = self._model.node(self._tree.currentIndex())
+        identity = ((current.candidate_id, current.path)
+                    if current is not None else (0, ""))
+        scroll = self._tree.verticalScrollBar().value()
+        self._model.replace_rows(rows)
+        self._restore_expanded(expanded)
+        current = self._model.node_for_identity(*identity)
+        if current is not None:
+            self._tree.setCurrentIndex(self._model.index_for_node(current))
+        self._tree.verticalScrollBar().setValue(scroll)
 
     def set_visible_tab(self, visible: bool):
         """Tell the view whether the Data sub-tab is showing. Switching TO it
