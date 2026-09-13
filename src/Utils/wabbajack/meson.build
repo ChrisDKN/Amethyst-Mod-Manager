@@ -16,6 +16,7 @@ py.install_sources(
   'runtime.py',
   'requirements.py',
   'setup_tasks.py',
+  'setup_validation.py',
   'post_install.py',
   'post_install_rules.py',
   'profile_config.py',

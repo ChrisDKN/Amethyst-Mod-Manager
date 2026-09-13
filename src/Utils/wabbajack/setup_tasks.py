@@ -21,6 +21,7 @@ from .hashes import file_hash
 from .paths import WabbajackError, relative_path, source_path, within
 from .requirements import profile_configuration, setup_tasks
 from .diagnostics import emit, emit_exception
+from .setup_validation import mpi_identity, plugin_identity, version_detail, version_key
 
 VERSION = 1
 
@@ -330,11 +331,13 @@ def _verify_mod(task, root, stop=None, *, content=False):
             with path.open("rb") as stream:
                 if stream.read(4) != b"TES4":
                     raise WabbajackError(f"Invalid Bethesda plugin: {path}")
-    if task.id.startswith("ttw:"):
-        ttw_archives = [p for _, p in _files(root, stop) if p.suffix.casefold() == ".bsa"]
-        if not any(p.name.casefold().startswith("taleoftwowastelands") for p in ttw_archives):
-            raise WabbajackError("Select the complete TTW output including its BSAs, not just the ESM")
-        archives.extend(ttw_archives)
+    identity = plugin_identity(task, source_path(root, task.masters[0]))
+    if task.id.startswith(("ttw:", "yupttw:")):
+        mod_archives = [p for _, p in _files(root, stop) if p.suffix.casefold() == ".bsa"]
+        prefix = "taleoftwowastelands" if task.id.startswith("ttw:") else "yupttw"
+        if not any(p.name.casefold().startswith(prefix) for p in mod_archives):
+            raise WabbajackError(f"Select the complete {task.label} output including its BSAs, not just the ESM")
+        archives.extend(mod_archives)
     archives = list(dict.fromkeys(archives))
     if content:
         from .verification import parallel_verify
@@ -343,6 +346,7 @@ def _verify_mod(task, root, stop=None, *, content=False):
     else:
         for path in archives:
             archive(path)
+    return identity
 
 
 def _archive_mod_root(task, root, stop=None):
@@ -379,7 +383,7 @@ def _extract_output_archive(task, archive, target, stop, log=None,
     return _archive_mod_root(task, target, stop)
 
 
-def _inspect_output_archive(task, archive, stop=None):
+def _inspect_output_archive(task, archive, stop=None, log=None):
     from .extraction import archive_entries
     from .verification import verified_read
     def inspect():
@@ -395,8 +399,14 @@ def _inspect_output_archive(task, archive, stop=None):
             raise WabbajackError(f"{task.label} archive has no unambiguous complete output folder")
         prefix = valid[0] + "/" if valid[0] else ""
         selected = [row for name, row in files.items() if name.startswith(prefix)]
-        return len(selected), sum(size for _, size in selected), sum(size for _, size in files.values())
-    return verified_read(archive, ("setup-archive-layout-1", *task.masters), inspect)
+        expanded = sum(size for _, size in files.values())
+        with tempfile.TemporaryDirectory(prefix="amethyst-setup-check-") as folder:
+            if expanded > shutil.disk_usage(folder).free:
+                raise WabbajackError("Not enough temporary space to verify the selected output archive")
+            root = _extract_output_archive(task, archive, Path(folder), stop, log)
+            identity = _verify_mod(task, root, stop, content=True)
+        return len(selected), sum(size for _, size in selected), expanded, identity
+    return verified_read(archive, ("setup-archive-content-2", task.id, task.required_version, *task.masters), inspect)
 
 
 def _sandbox(command, work, writable=(), readonly=()):
@@ -510,7 +520,14 @@ def _reusable(request, task, record, stop=None):
             return None
         result[key] = {"source": str(path), "authored_hash": digest,
                        "signature": record["signature"]}
+    _reused_identity(task, result)
     return result
+
+
+def _reused_identity(task, outputs):
+    key = f"root/mods/{task.mod}/{task.masters[0]}".casefold()
+    path = next(Path(row["source"]) for name, row in outputs.items() if name.casefold() == key)
+    return plugin_identity(task, path)
 
 
 def preflight_tasks(request, check, stop=None, *, configuration=None,
@@ -520,6 +537,8 @@ def preflight_tasks(request, check, stop=None, *, configuration=None,
     tasks = setup_tasks(request.package, request.profiles, configuration)
     info = installation_info(request.directory, log) or {}
     estimates = 0
+    identities = {}
+    missing_tool_reported = False
     emit(log, "setup.preflight.started", tasks=len(tasks),
          task_ids=[task.id for task in tasks])
     for task in tasks:
@@ -540,7 +559,8 @@ def preflight_tasks(request, check, stop=None, *, configuration=None,
                         estimates += source.stat().st_size
                 if reusable is not None:
                     reusable.update(key for key, row in reused.items() if Path(row["source"]) == request.directory / key)
-                check("pass", task.label, f"Verified reusable setup in {task.mod}")
+                identities[task.id] = _reused_identity(task, reused)
+                check("pass", task.label, f"{version_detail(task, identities[task.id])}; verified reusable setup in {task.mod}")
                 if previous.get("package_identity") != request.package.identity:
                     check("warning", task.label, "Review the new author's required external content version; the saved setup will be reused.")
                 emit(log, "setup.preflight.reused", task_id=task.id,
@@ -549,29 +569,37 @@ def preflight_tasks(request, check, stop=None, *, configuration=None,
             source = option.get("source", "")
             archive = option.get("archive", "")
             mpi = option.get("mpi", "")
+            tool = None
+            if task.mpi_titles and not (source or archive) and (mpi or not ({"source", "archive"} & option.keys())):
+                tool = find_ttw_installer(request.game)
+                if (not tool or not os.access(tool, os.X_OK)) and not missing_tool_reported:
+                    check("error", "Native MPI installer", "The native MPI installer is missing or not executable. Install it in Setup tools before building from an MPI package.")
+                    missing_tool_reported = True
             if source:
                 root = Path(source).expanduser().absolute()
                 _input_boundary(request, root)
-                _verify_mod(task, root, stop)
+                identities[task.id] = _verify_mod(task, root, stop)
                 files = list(_files(root, stop))
                 estimates += sum(path.stat().st_size for _, path in files) * (1 if hardlinks else 2)
                 emit(log, "setup.preflight.import", task_id=task.id,
                      source=root, files=len(files),
                      bytes=sum(path.stat().st_size for _, path in files))
-                check("pass", task.label, f"Import {len(files):,} files into {task.mod}; authored priority preserved")
-                check("warning", task.label, "Existing output has no package-supplied hash or version guarantee. Confirm it is the version required by the author.")
+                check("pass", task.label, f"{version_detail(task, identities[task.id])}; import {len(files):,} files into {task.mod}; authored priority preserved")
+                if not task.required_version:
+                    check("warning", task.label, "The list does not specify a verifiable version for this output. Confirm the detected version against the author's instructions.")
             elif archive:
                 if not task.id.startswith("yupttw:"):
                     raise WabbajackError(f"Output archive import is not supported for {task.label}")
                 path = Path(archive).expanduser().absolute()
                 _input_boundary(request, path)
-                count, size, expanded = _inspect_output_archive(task, path, stop)
+                count, size, expanded, identities[task.id] = _inspect_output_archive(task, path, stop, log)
                 estimates += expanded + (size if not hardlinks else 0)
                 emit(log, "setup.preflight.archive", task_id=task.id,
                      archive=path, files=count, bytes=size,
                      expanded_bytes=expanded)
-                check("pass", task.label, f"Extract {count:,} files from {path.name} into {task.mod}; required filenames found, content will be verified during installation")
-                check("warning", task.label, "The archive has no package-supplied version guarantee. Confirm it is the version required by the author.")
+                check("pass", task.label, f"{version_detail(task, identities[task.id])}; archive content verified; extract {count:,} files from {path.name} into {task.mod}")
+                if not task.required_version:
+                    check("warning", task.label, "The list does not specify a verifiable version for this output. Confirm the detected version against the author's instructions.")
             elif mpi and task.mpi_titles:
                 path = Path(mpi).expanduser().absolute()
                 _input_boundary(request, path)
@@ -580,17 +608,18 @@ def preflight_tasks(request, check, stop=None, *, configuration=None,
                 emit(log, "setup.preflight.mpi", task_id=task.id, path=path,
                      title=title, version=manifest["Package"].get("Version", ""),
                      assets=len(manifest.get("Assets", [])))
-                if title.casefold() not in {name.casefold() for name in task.mpi_titles}:
-                    raise WabbajackError(f"Wrong MPI package: {title}; select {task.label}")
+                identities[task.id] = mpi_identity(task, manifest)
                 managed_roots = _managed_mpi_roots(request, task)
                 expected, root_outputs = _mpi_outputs(manifest, managed_roots)
                 for name in task.masters:
                     if name.casefold() not in {p.casefold().removeprefix("new ") for p in expected}:
                         raise WabbajackError(f"This MPI version does not provide the authored requirement {name}")
-                sources = _mpi_sources(task, manifest, _source_roots(request), stop)
-                tool = find_ttw_installer(request.game)
+                check("pass", task.label, f"{version_detail(task, identities[task.id])}; MPI title and required outputs verified")
+                if not task.required_version:
+                    check("warning", task.label, "The list does not specify a verifiable version for this MPI. Confirm the detected version against the author's instructions.")
                 if not tool or not os.access(tool, os.X_OK):
-                    raise WabbajackError("Install the native MPI tool using the setup button")
+                    continue
+                sources = _mpi_sources(task, manifest, _source_roots(request), stop)
                 with tempfile.TemporaryDirectory(prefix="amethyst-mpi-probe-") as folder:
                     _run([tool, "install", "--help"], Path(folder), stop, None,
                          "MPI capability probe", log)
@@ -611,6 +640,12 @@ def preflight_tasks(request, check, stop=None, *, configuration=None,
         except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as exc:
             emit_exception(log, "setup.preflight.failed", exc, task_id=task.id)
             check("error", task.label, str(exc))
+    for update in (task for task in tasks if task.id.startswith("yupttw:")):
+        required = identities.get(update.id, {}).get("ttw")
+        for base in (task for task in tasks if task.id.startswith("ttw:") and set(task.profiles).intersection(update.profiles)):
+            selected = identities.get(base.id, {}).get("ttw")
+            if required and selected and version_key(required) != version_key(selected):
+                check("error", update.label, f"The selected YUPTTW update requires TTW {required}; the selected TTW content is {selected}.")
     emit(log, "setup.preflight.completed", tasks=len(tasks),
          estimated_bytes=estimates)
     return tasks, estimates
@@ -693,8 +728,7 @@ def run_tasks(request, store, desired, stop, progress, log=None):
                      title=manifest["Package"].get("Title", ""),
                      version=manifest["Package"].get("Version", ""),
                      assets=len(manifest.get("Assets", [])))
-                if str(manifest["Package"].get("Title", "")).casefold() not in {name.casefold() for name in task.mpi_titles}:
-                    raise WabbajackError(f"Incorrect MPI for {task.label}")
+                mpi_identity(task, manifest)
                 roots = _source_roots(request)
                 identity["sources"] = _mpi_sources(task, manifest, roots, stop)
                 emit(log, "setup.task.sources.verified", task_id=task.id,
@@ -706,8 +740,8 @@ def run_tasks(request, store, desired, stop, progress, log=None):
                 expected, root_outputs = _mpi_outputs(manifest, managed_roots)
                 output_aliases = _mpi_output_aliases(task, expected)
                 tool = find_ttw_installer(request.game)
-                if not tool:
-                    raise WabbajackError("The native MPI tool is missing")
+                if not tool or not os.access(tool, os.X_OK):
+                    raise WabbajackError("The native MPI installer is missing or not executable. Install it in Setup tools.")
                 identity["tool_hash"] = file_hash(tool, stop)
                 emit(log, "setup.task.tool.verified", task_id=task.id,
                      tool=tool, hash=identity["tool_hash"])

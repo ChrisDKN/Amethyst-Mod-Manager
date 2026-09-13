@@ -26,6 +26,35 @@ class SetupTask:
     profiles: tuple[str, ...]
     masters: tuple[str, ...]
     mpi_titles: tuple[str, ...] = ()
+    required_version: str = ""
+
+
+def _setup_version(package, task_id, mod):
+    if task_id not in {"ttw", "yupttw"}:
+        return ""
+    name = re.sub(r"\[[^]]*\]", "", mod).strip(" -_")
+    pattern = (r"(?:Tale of Two Wastelands(?:\s*\(TTW\))?|TTW(?: output)?)"
+               if task_id == "ttw" else r"YUPTTW(?: update)?")
+    match = re.fullmatch(pattern + r"\s+v?(\d+(?:\.\d+)+)", name, re.I)
+    if match:
+        return match[1]
+    target = f"mods/{mod}/meta.ini".casefold()
+    directive = next((d for d in package.directives if d.path.casefold() == target), None)
+    member = directive.data.get("SourceDataID") if directive else None
+    if not member:
+        return ""
+    with zipfile.ZipFile(package.path) as archive:
+        if archive.getinfo(member).file_size > 8 * 1024 ** 2:
+            raise WabbajackError(f"Setup metadata exceeds 8 MiB: {mod}")
+        cp = configparser.ConfigParser(interpolation=None, strict=False)
+        cp.read_string(archive.read(member).decode("utf-8-sig"))
+    filename = qvalue(cp.get("General", "installationFile", fallback="")).replace("\\", "/").rsplit("/", 1)[-1]
+    match = re.match(pattern + r"\s+v?(\d+(?:\.\d+)+)(?=[^\d.]|$)", filename, re.I)
+    if match:
+        return match[1]
+    # ModPub's YUPTTW metadata can carry the TTW project version.
+    version = qvalue(cp.get("General", "version", fallback=""))
+    return version if task_id == "ttw" and re.fullmatch(r"v?\d+(?:\.\d+)+", version, re.I) else ""
 
 
 def profile_configuration(package, selected=None):
@@ -122,5 +151,6 @@ def setup_tasks(package, selected=None, configuration=None):
                 row = grouped.setdefault(key, [task_id, label, mod, [], masters, titles])
                 row[3].append(profile_name)
                 row[4] = tuple(dict.fromkeys((*row[4], *masters)))
-    return [SetupTask(key, row[1], row[2], tuple(row[3]), row[4], row[5])
+    return [SetupTask(key, row[1], row[2], tuple(row[3]), row[4], row[5],
+                      _setup_version(package, row[0], row[2]))
             for key, row in grouped.items()]

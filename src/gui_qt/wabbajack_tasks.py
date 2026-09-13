@@ -4,8 +4,11 @@ import configparser
 import zipfile
 from pathlib import Path
 
-from PySide6.QtCore import QSignalBlocker, Signal
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel, QLineEdit, QPushButton, QComboBox, QSpinBox, QFrame
+from PySide6.QtCore import Qt, QSignalBlocker, Signal
+from PySide6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QFormLayout, QLabel,
+    QLineEdit, QPushButton, QComboBox, QSpinBox, QFrame, QSizePolicy,
+)
 
 from gui_qt.safe_emit import safe_emit
 from gui_qt.theme_qt import active_palette, _c
@@ -28,6 +31,9 @@ class SetupOptions(QWidget):
         self._generation = 0
         self._rows = {}
         self._values = {}
+        self._sections = []
+        self._section_grid = None
+        self._section_layout_key = None
         self._layout = QVBoxLayout(self)
         self._layout.setContentsMargins(0, 0, 0, 0)
         self._layout.setSpacing(10)
@@ -35,7 +41,8 @@ class SetupOptions(QWidget):
         self.hide()
 
     def _section(self, title):
-        panel = QFrame(self)
+        panel = QFrame(self._section_grid.parentWidget())
+        panel.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
         panel.setObjectName("WabbajackSetupSection")
         palette = active_palette()
         panel.setStyleSheet(
@@ -49,7 +56,29 @@ class SetupOptions(QWidget):
         heading.setWordWrap(True)
         heading.setStyleSheet(f"color:{_c(palette, 'TEXT_MAIN')}; font-weight:600; border:none; background:transparent;")
         layout.addWidget(heading)
+        self._sections.append(panel)
         return panel, layout
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._relayout_sections()
+
+    def _relayout_sections(self):
+        if self._section_grid is None:
+            return
+        panels = tuple(panel for panel in self._sections if not panel.isHidden())
+        columns = 2 if self.width() >= 970 else 1
+        key = (columns, panels)
+        if key == self._section_layout_key:
+            return
+        self._section_layout_key = key
+        while self._section_grid.count():
+            self._section_grid.takeAt(0)
+        for column in range(2):
+            self._section_grid.setColumnStretch(column, 1 if column < columns else 0)
+        for index, panel in enumerate(panels):
+            span = columns if index == len(panels) - 1 and index % columns == 0 else 1
+            self._section_grid.addWidget(panel, index // columns, index % columns, 1, span, Qt.AlignTop)
 
     def _category(self, title):
         label = QLabel(title, self)
@@ -73,9 +102,13 @@ class SetupOptions(QWidget):
         self._values = dict(options or {})
         from Utils.wabbajack.post_install import display_supported
         display_available = bool(package and display_supported(package))
+        self._sections = []
+        self._section_grid = None
+        self._section_layout_key = None
         while self._layout.count():
             item = self._layout.takeAt(0)
             if item.widget():
+                item.widget().hide()
                 item.widget().deleteLater()
         problem = ""
         try:
@@ -88,11 +121,22 @@ class SetupOptions(QWidget):
             self._layout.addWidget(label)
         has_ttw = any(task.id.startswith("ttw:") for task in tasks)
         self._tasks_heading = self._category(self.tr("Additional setup"))
+        sections = QWidget(self)
+        self._section_grid = QGridLayout(sections)
+        self._section_grid.setContentsMargins(0, 0, 0, 0)
+        self._section_grid.setSpacing(10)
+        self._layout.addWidget(sections)
         for task in tasks:
             panel, layout = self._section(task.label)
             hint = QLabel(self.tr("Use the version required by the author. Output keeps its authored position in {0}.").format(task.mod), panel)
             hint.setWordWrap(True)
             layout.addWidget(hint)
+            if task.id.startswith(("ttw:", "yupttw:")):
+                text = (self.tr("Required version: {0}. Check requirements verifies the selected content and version.").format(task.required_version)
+                        if task.required_version else self.tr("Check requirements verifies the selected content and shows its version. This list does not specify an exact version; check the author's instructions."))
+                verification = QLabel(text, panel)
+                verification.setWordWrap(True)
+                layout.addWidget(verification)
             if task.id.startswith("fo3-bsa:"):
                 hint = QLabel(self.tr("Run the Fallout 3 BSA Decompressor wizard, then import its complete output mod here, or select the author's .mpi package."), panel)
                 hint.setWordWrap(True)
@@ -103,6 +147,7 @@ class SetupOptions(QWidget):
                 package_page.clicked.connect(self._open_ttw_page)
                 layout.addWidget(package_page)
             form = QFormLayout()
+            form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
             form.setRowWrapPolicy(QFormLayout.WrapLongRows)
             mode = QComboBox(panel)
             mode.setMaxVisibleItems(15)
@@ -150,7 +195,6 @@ class SetupOptions(QWidget):
                 fields[key] = (row, edit)
                 edit.textChanged.connect(self.changed)
             layout.addLayout(form)
-            self._layout.addWidget(panel)
             self._rows[task.id] = (task, panel, mode, form, fields)
             mode.currentIndexChanged.connect(lambda _, task=task.id: self._mode(task))
             self._mode(task.id)
@@ -172,7 +216,6 @@ class SetupOptions(QWidget):
         browse.clicked.connect(lambda: self._browse("fallout3", "source"))
         row.addWidget(browse)
         form.addRow(self.tr("Original Fallout 3 game"), row)
-        self._layout.addWidget(self._fo3_panel)
         self._tool, section = self._section(self.tr("Setup tools"))
         from gui_qt.mpi_installer_widget import MPIInstallerWidget
         self._mpi_installer = MPIInstallerWidget(
@@ -184,7 +227,6 @@ class SetupOptions(QWidget):
         for button in self._mpi_installer.findChildren(QPushButton):
             button.setObjectName("FormButton")
         section.addWidget(self._mpi_installer)
-        self._layout.addWidget(self._tool)
         settings, section = self._section(self.tr("Compatibility and display"))
         self._settings_panel = settings
         form = QFormLayout()
@@ -248,7 +290,6 @@ class SetupOptions(QWidget):
         self._texture_mode.currentIndexChanged.connect(self.changed)
         form.addRow(self.tr("Texture conversion"), self._texture_mode)
         form.setRowVisible(self._texture_mode, textures)
-        self._layout.addWidget(settings)
         settings_available = display_available or store_available or textures
         settings.setVisible(settings_available)
         self._configurable = settings_available or bool(problem)
@@ -281,6 +322,7 @@ class SetupOptions(QWidget):
             self._fo3_panel.setVisible(any(task.id.startswith("ttw:") for task in tasks))
             self._tool.setVisible(any(task.mpi_titles for task in tasks))
         self.setVisible(bool(tasks) or getattr(self, "_configurable", False))
+        self._relayout_sections()
 
     def values(self):
         values = dict(self._values)

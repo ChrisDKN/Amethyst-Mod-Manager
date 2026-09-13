@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit,
     QComboBox, QListWidget, QListWidgetItem, QStackedWidget,
     QFormLayout, QPlainTextEdit, QTableWidget, QTableWidgetItem, QHeaderView, QScrollArea,
-    QGridLayout, QFrame, QToolButton, QMenu, QBoxLayout, QSizePolicy, QProgressBar,
+    QGridLayout, QFrame, QToolButton, QMenu, QSizePolicy, QProgressBar,
 )
 
 from gui_qt.safe_emit import safe_emit
@@ -450,11 +450,12 @@ class WabbajackView(QWidget):
                     self._path_row(locations, self._directory, self._choose_directory,
                                    self.tr("Chosen automatically for this game")))
         location_layout.addLayout(form)
-        self._detail_columns = QBoxLayout(QBoxLayout.LeftToRight)
-        self._detail_columns.setSpacing(12)
-        layout.addLayout(self._detail_columns)
+        acquisition, acquisition_layout = self._panel(self.tr("Download plan"))
+        self._acquisition_summary = AcquisitionSummary(acquisition)
+        acquisition_layout.addWidget(self._acquisition_summary)
+        layout.addWidget(acquisition)
         setup, setup_layout = self._panel(self.tr("Profiles and options"))
-        self._detail_columns.addWidget(setup, 1, Qt.AlignTop)
+        layout.addWidget(setup)
         form = QFormLayout()
         self._setup_form = form
         form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
@@ -494,12 +495,6 @@ class WabbajackView(QWidget):
         note.setWordWrap(True)
         note.setStyleSheet(f"color:{_c(palette, 'TEXT_DIM')};")
         setup_layout.addWidget(note)
-        setup_layout.addStretch()
-        acquisition, acquisition_layout = self._panel(self.tr("Download plan"))
-        self._acquisition_summary = AcquisitionSummary(acquisition)
-        acquisition_layout.addWidget(self._acquisition_summary)
-        acquisition_layout.addStretch()
-        self._detail_columns.addWidget(acquisition, 1, Qt.AlignTop)
         requirements, checks_layout = self._panel(self.tr("Requirements"))
         self._checks = RequirementsSummary(requirements)
         checks_layout.addWidget(self._checks)
@@ -822,10 +817,6 @@ class WabbajackView(QWidget):
             scroll = getattr(self, "_scroll", None)
             if scroll and watched is scroll.viewport():
                 self._relayout()
-            detail = getattr(self, "_detail_scroll", None)
-            if detail and watched is detail.viewport():
-                direction = QBoxLayout.LeftToRight if detail.viewport().width() >= 850 else QBoxLayout.TopToBottom
-                self._detail_columns.setDirection(direction)
             description = getattr(self, "_description", None)
             if description and watched is description.viewport() and event.type() == QEvent.Resize:
                 self._fit_description()
