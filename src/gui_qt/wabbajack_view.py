@@ -87,6 +87,7 @@ class WabbajackView(QWidget):
     _conflicts = Signal(object)
     _path_picked = Signal(str, int, object)
     installed = Signal(object, object)
+    installation_changed = Signal()
     running_changed = Signal(bool)
     gallery_changed = Signal(object)
 
@@ -1691,6 +1692,23 @@ class WabbajackView(QWidget):
                 self._status.setText(self._status.text() + self.tr(" {0} feeds unavailable.").format(len(result.warnings)))
                 self._log("[wabbajack] " + "\n".join(result.warnings))
             self._render()
+            if self._info:
+                gallery_id = str(self._info.get("gallery_id") or "")
+                current = next(
+                    (entry for entry in self._entries if entry.id == gallery_id),
+                    None)
+                if current is not None:
+                    self._entry = current
+                    self._overview(
+                        current.title, current.author, current.version,
+                        current.game, current.description,
+                        current.download_size, current.install_size)
+                    if current.image:
+                        self._request_thumbnail(current.image)
+                    if self._info.get("status") == "complete":
+                        mode = ("update" if self._has_update(current, self._info)
+                                else "repair")
+                        self._mode.setCurrentIndex(self._mode.findData(mode))
         elif kind == "readme" and result and self._package and result[0] == self._package.identity:
             self._description.setPlainText(result[1])
             self._description.show()
@@ -1778,6 +1796,7 @@ class WabbajackView(QWidget):
             self._render()
             from Utils.wabbajack.store import installation_info
             self._info = installation_info(request.directory, self._diagnostic_log)
+            self.installation_changed.emit()
             if self._info:
                 self._mode.setCurrentIndex(self._mode.findData("repair" if self._info.get("status") == "complete" else "resume"))
             if result:
@@ -1824,6 +1843,55 @@ class WabbajackView(QWidget):
         self._tag.setCurrentIndex(max(0, self._tag.findData(selected)))
         self._tag.blockSignals(False)
 
+    def open_installation(self, directory):
+        if self._busy:
+            return False
+        from Utils.wabbajack.store import installation_info
+        info = installation_info(Path(directory), self._diagnostic_log)
+        if not info or self._game is None:
+            return False
+        try:
+            root = Path(self._game.get_profile_root()).resolve()
+            target = Path(info["directory"])
+            if target.is_symlink() or target.resolve().parent != root / ".wabbajack":
+                return False
+        except (OSError, KeyError, TypeError):
+            return False
+        gallery_id = str(info.get("gallery_id") or "")
+        entry = next((row for row in self._entries if row.id == gallery_id), None)
+        if entry is None:
+            from Utils.wabbajack.gallery import GalleryEntry
+            saved = info.get("gallery_metadata", {})
+            entry = GalleryEntry(
+                gallery_id or "local:" + str(info.get("id") or target.name),
+                str(info.get("name") or target.name),
+                str(saved.get("author") or self.tr("Local installation")),
+                str(info.get("game") or self._game.name),
+                str(info.get("version") or ""),
+                image=str(saved.get("image") or ""),
+                readme=str(saved.get("readme") or info.get("readme") or ""),
+                community=str(saved.get("community") or ""),
+                download=str(saved.get("download") or ""),
+                nsfw=bool(saved.get("nsfw")),
+                tags=list(saved.get("tags") or []),
+            )
+        self._refresh_installed()
+        self._open_entry(entry, info)
+        return True
+
+    def installation_removed(self, directory):
+        removed = Path(directory)
+        current = Path(self._info["directory"]) if self._info else None
+        self._refresh_installed()
+        self._render()
+        try:
+            same = current is not None and current.resolve() == removed.resolve()
+        except OSError:
+            same = current == removed
+        if same:
+            self._back_to_browser()
+            self._status.setText(self.tr("The installed list was removed."))
+
     def set_game(self, game):
         if self._busy:
             self._diag("ui.game.change_ignored", current=getattr(self._game, "name", None),
@@ -1831,6 +1899,7 @@ class WabbajackView(QWidget):
             return
         previous = self._game
         self._game = game
+        self._entries = []
         self._diag("ui.game.changed", previous=getattr(previous, "name", None),
                    previous_id=getattr(previous, "game_id", None),
                    current=getattr(game, "name", None),

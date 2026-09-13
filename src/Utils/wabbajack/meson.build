@@ -25,6 +25,7 @@ py.install_sources(
   'hashes.py',
   'hosts.py',
   'http.py',
+  'installed.py',
   'install.py',
   'manifest.py',
   'mega.py',

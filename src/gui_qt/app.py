@@ -2996,6 +2996,7 @@ class MainWindow(QMainWindow):
             ]),
             ("Wabbajack", self.tr("Wabbajack"), "Wabbajack.png", [
                 (self.tr("Browse Wabbajack modlists…"), self._open_wabbajack_tab),
+                (self.tr("Installed Lists"), self._open_installed_wabbajack_tab),
                 (self.tr("Reset load order"), self._reset_wabbajack_load_order),
             ]),
         ]:
@@ -5960,8 +5961,120 @@ class MainWindow(QMainWindow):
         self._wabbajack_view = view
         view.running_changed.connect(lambda held: self._set_tool_lock("wabbajack", "Wabbajack installation", held))
         view.installed.connect(self._wabbajack_installed)
+        view.installation_changed.connect(self._refresh_installed_wabbajack)
         view.gallery_changed.connect(self._on_wabbajack_gallery_ready)
         self._tabs.open_tab(view, self.tr("Wabbajack"), key="wabbajack")
+
+    def _open_installed_wabbajack_tab(self):
+        if self._tabs.has_key("wabbajack_installed"):
+            self._tabs.focus_key("wabbajack_installed")
+            view = self._tabs.content_for_key("wabbajack_installed")
+            if view is not None:
+                view.refresh()
+            return
+        from gui_qt.installed_wabbajack_view import InstalledWabbajackView
+        view = InstalledWabbajackView(
+            self,
+            can_remove=self._can_remove_installed_wabbajack,
+            log_fn=self._append_log,
+        )
+        self._installed_wabbajack_view = view
+        view.view_requested.connect(self._view_installed_wabbajack)
+        view.removed.connect(self._on_installed_wabbajack_removed)
+        view.running_changed.connect(self._installed_wabbajack_running)
+        view.operation_progress.connect(self._op_progress.emit)
+        view.destroyed.connect(
+            lambda *_: setattr(self, "_installed_wabbajack_view", None))
+        self._tabs.open_tab(
+            view, self.tr("Installed Lists"), key="wabbajack_installed")
+
+    def _can_remove_installed_wabbajack(self):
+        wabbajack = getattr(self, "_wabbajack_view", None)
+        wabbajack_busy = bool(wabbajack and any(
+            getattr(wabbajack, name, False) for name in (
+                "_busy", "_checking", "_loading_package",
+                "_installing_mpi", "_installing_texture")))
+        return not (
+            self._col_install_running or self._tool_busy or wabbajack_busy
+            or getattr(self, "_install_running", False)
+            or getattr(self, "_deploy_running", False)
+            or getattr(self, "_filegraph_loading", False)
+            or getattr(self, "_staged_finish_running", False))
+
+    def _view_installed_wabbajack(self, record):
+        if not self._can_remove_installed_wabbajack():
+            label = (self._tool_busy_label() if self._tool_busy
+                     else self.tr("Another installation or deployment operation"))
+            self._notify(self.tr("{0} is running - open the list when it finishes.")
+                         .format(label), "warning")
+            return
+        from Utils.wabbajack.games import configured_games
+        game = configured_games().get(record.game_name)
+        if game is None:
+            self._notify(self.tr("The list's configured game is no longer available."),
+                         "warning")
+            self._refresh_installed_wabbajack()
+            return
+        if self._gs.game_name != record.game_name:
+            self._on_game_changed(record.game_name)
+        self._open_wabbajack_tab()
+        view = getattr(self, "_wabbajack_view", None)
+        if view is None or not view.open_installation(record.directory):
+            self._notify(self.tr("The installed list could not be opened."), "error")
+            return
+        self._tabs.focus_key("wabbajack")
+
+    def _installed_wabbajack_running(self, running):
+        if running:
+            self._op_title = self.tr("Removing Wabbajack list")
+            self._ensure_feedback()
+        self._set_tool_lock(
+            "wabbajack-remove", self.tr("Wabbajack list removal"), running)
+        if not running and self._progress_popup is not None:
+            self._schedule_op_clear(1200)
+
+    def _refresh_installed_wabbajack(self):
+        view = getattr(self, "_installed_wabbajack_view", None)
+        if view is not None:
+            try:
+                view.refresh()
+            except RuntimeError:
+                self._installed_wabbajack_view = None
+        self._sync_thunderstore_button()
+
+    def _on_installed_wabbajack_removed(self, record, result):
+        wabbajack = getattr(self, "_wabbajack_view", None)
+        if wabbajack is not None:
+            try:
+                wabbajack.installation_removed(record.directory)
+            except RuntimeError:
+                self._wabbajack_view = None
+        if self._gs.game_name == record.game_name:
+            current = self._gs.profile
+            profiles = self._gs.profiles()
+            reload_panels = current in result.profiles or current in result.groups
+            if current in result.profiles:
+                current = "default" if "default" in profiles else (
+                    profiles[0] if profiles else "default")
+                self._gs.set_profile(current)
+                self._profile_selector.set_current(current)
+            self._set_profile_selector_items(profiles, current=current)
+            self._refresh_profile_actions()
+            if reload_panels:
+                self._reload_modlist()
+                self._reload_plugins()
+            self._update_deployed_profile_highlight()
+            settings = getattr(self, "_profile_settings_view", None)
+            if settings is not None:
+                settings.set_current_profile(current)
+                settings._populate_list()
+            groups = getattr(self, "_profile_groups_view", None)
+            if groups is not None:
+                groups.set_current_profile(current)
+                groups._populate()
+        self._sync_thunderstore_button()
+        self._notify(self.tr("Wabbajack list '{0}' removed.").format(
+            record.title), "success")
 
     def _wabbajack_available(self):
         game = self._gs.game
@@ -5973,11 +6086,10 @@ class MainWindow(QMainWindow):
             if any(matches_game(game, name) for name in names):
                 return True
         try:
-            root = Path(game.get_profile_root())
-            if not (root / ".wabbajack").is_dir():
-                return False
             from Utils.wabbajack.store import installations
-            return bool(installations(root))
+            root = Path(game.get_profile_root())
+            return bool((root / ".wabbajack").is_dir()
+                        and installations(root))
         except (OSError, TypeError, AttributeError):
             return False
 
@@ -11317,6 +11429,7 @@ class MainWindow(QMainWindow):
         # pinned actions so unlocking the active profile reveals Remove (and
         # locking it hides Remove) without reopening the dropdown.
         self._refresh_profile_actions()
+        self._refresh_installed_wabbajack()
 
     def _on_profile_renamed(self, old: str, new: str):
         # A renamed profile may be a Profile Group member - update every
@@ -11343,6 +11456,7 @@ class MainWindow(QMainWindow):
         # actions so Remove-eligibility tracks the current profile.
         self._refresh_profile_actions()
         self._update_deployed_profile_highlight()
+        self._refresh_installed_wabbajack()
 
     def _on_profile_removed(self, name: str):
         # Prune the deleted profile from every group's member list; affected
@@ -11382,6 +11496,7 @@ class MainWindow(QMainWindow):
         # rebuild the pinned actions so Remove hides on the locked default.
         self._refresh_profile_actions()
         self._update_deployed_profile_highlight()
+        self._refresh_installed_wabbajack()
         # The removed profile may have been a group (or a group member) - the
         # Profile Groups tab lists both, so refresh it in place if open.
         if self._tabs.has_key("profile_groups"):
@@ -12431,6 +12546,13 @@ class MainWindow(QMainWindow):
         Restore is synchronous because the app is exiting and mirrors the Tk
         gui.py shutdown path.
         """
+        installed = getattr(self, "_installed_wabbajack_view", None)
+        if installed is not None and getattr(installed, "_busy", False):
+            event.ignore()
+            self._notify(self.tr(
+                "Wait for Wabbajack list removal to finish before closing Amethyst."),
+                "warning")
+            return
         if getattr(self, "_proton_busy", False):
             event.ignore()
             self._notify(self.tr("Wait for the Proton installer to finish before closing Amethyst."), "warning")

@@ -272,6 +272,130 @@ class IntegrityChecks(unittest.TestCase):
                 self.assertEqual(target.read_bytes(), b"my changes")
             store.close()
 
+    def test_installed_lists_and_removal(self):
+        from unittest.mock import patch
+        from Utils.profiles.state import merge_profile_settings, read_profile_settings
+        from .installed import installed_lists, remove_installed_list
+
+        class Game:
+            def __init__(self, name, root):
+                self.name = name
+                self.root = root
+                self.deployed = False
+                self.last_deployed = "default"
+
+            def is_configured(self):
+                return True
+
+            def get_profile_root(self):
+                return self.root
+
+            def get_deploy_active(self):
+                return self.deployed
+
+            def get_last_deployed_profile(self):
+                return self.last_deployed
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            first_root = base / "first"
+            second_root = base / "second"
+            first = Game("First Game", first_root)
+            duplicate = Game("Duplicate", first_root)
+            second = Game("Second Game", second_root)
+
+            complete = first_root / ".wabbajack" / "complete"
+            store = Store(complete, first_root)
+            store.set("name", "Complete List")
+            store.set("game", "First Game")
+            store.set("version", "1.0")
+            store.set("gallery_metadata", {
+                "author": "Offline Author", "image": "cached-cover"})
+            store.set("status", "complete")
+            installation_id = store.get("id")
+            (store.root / "mods").mkdir()
+            store.close()
+
+            profiles_root = first_root / "profiles"
+            for name in ("Authored", "Clone"):
+                profile = profiles_root / name
+                profile.mkdir(parents=True)
+                merge_profile_settings(profile, {
+                    "profile_specific_mods": True,
+                    "wabbajack_install_id": installation_id,
+                    "wabbajack_directory": str(complete),
+                })
+                (profile / "mods").symlink_to(
+                    os.path.relpath(complete / "root" / "mods", profile),
+                    target_is_directory=True)
+
+            group = profiles_root / "Combined"
+            group.mkdir()
+            merge_profile_settings(group, {
+                "is_group": True,
+                "profile_specific_mods": True,
+                "group_members": ["Authored", "Clone", "Other"],
+            })
+            (group / "mods").mkdir()
+
+            paused = second_root / ".wabbajack" / "paused"
+            store = Store(paused, second_root)
+            store.set("name", "Paused List")
+            store.set("game", "Second Game")
+            store.set("status", "paused")
+            store.close()
+
+            rows = installed_lists({
+                first.name: first,
+                duplicate.name: duplicate,
+                second.name: second,
+            })
+            self.assertEqual([row.title for row in rows],
+                             ["Paused List", "Complete List"])
+            self.assertEqual(rows[1].profiles, ("Authored", "Clone"))
+            self.assertEqual(rows[1].groups, ("Combined",))
+            self.assertEqual(rows[1].info["gallery_metadata"]["author"],
+                             "Offline Author")
+
+            merge_profile_settings(profiles_root / "Clone", {
+                "profile_locked": True})
+            with self.assertRaisesRegex(WabbajackError, "Unlock these profiles"):
+                remove_installed_list(first, complete)
+            self.assertTrue(complete.is_dir())
+            merge_profile_settings(profiles_root / "Clone", {
+                "profile_locked": None})
+
+            downloads = base / "downloads"
+            downloads.mkdir()
+            shared = downloads / "shared-archive.7z.part"
+            shared.write_bytes(b"partial")
+            first.deployed = True
+            first.last_deployed = "Combined"
+            with patch("Utils.wabbajack.installed._restore_deployment") as restore, \
+                    patch("Utils.profiles.groups.materialize_group") as materialize:
+                result = remove_installed_list(first, complete)
+            restore.assert_called_once()
+            materialize.assert_called_once()
+            self.assertEqual(result.profiles, ("Authored", "Clone"))
+            self.assertFalse(complete.exists())
+            self.assertFalse((profiles_root / "Authored").exists())
+            self.assertFalse((profiles_root / "Clone").exists())
+            self.assertTrue(group.is_dir())
+            self.assertEqual(read_profile_settings(group)["group_members"],
+                             ["Other"])
+            self.assertEqual(shared.read_bytes(), b"partial")
+
+            remove_installed_list(second, paused)
+            self.assertFalse(paused.exists())
+            outside = base / "outside"
+            outside.mkdir()
+            linked = second_root / ".wabbajack" / "linked"
+            linked.symlink_to(outside, target_is_directory=True)
+            with self.assertRaisesRegex(WabbajackError, "outside managed"):
+                remove_installed_list(second, linked)
+            with self.assertRaisesRegex(WabbajackError, "outside managed"):
+                remove_installed_list(second, outside)
+
 
 if __name__ == "__main__":
     unittest.main()

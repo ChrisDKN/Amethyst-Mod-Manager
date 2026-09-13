@@ -391,14 +391,20 @@ def rename_profile_everywhere(game, old_name: str, new_name: str, *,
 def remove_profile_everywhere(game, name: str, *, log_fn=None) -> list[str]:
     """Prune *name* from every group's member list and re-materialize the
     affected groups. Returns the group names that referenced it."""
+    return remove_profiles_everywhere(game, [name], log_fn=log_fn)
+
+
+def remove_profiles_everywhere(game, names, *, log_fn=None) -> list[str]:
+    """Prune several profiles while materializing each affected group once."""
     affected = []
+    removed = set(names)
     profiles_dir = _profiles_root(game)
     for group_name in list_groups(game):
         group_dir = profiles_dir / group_name
         with group_build_lock(group_dir):
             members = get_members(group_dir)
-            if name in members:
-                set_members(group_dir, [m for m in members if m != name])
+            if removed.intersection(members):
+                set_members(group_dir, [m for m in members if m not in removed])
                 materialize_group(game, group_dir, log_fn=log_fn)
                 affected.append(group_name)
     return affected

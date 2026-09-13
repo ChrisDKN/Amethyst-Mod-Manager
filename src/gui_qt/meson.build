@@ -4,6 +4,7 @@ py.install_sources(
   'wabbajack_setup.py',
   'wabbajack_tasks.py',
   'wabbajack_issues_overlay.py',
+  'installed_wabbajack_view.py',
   'mpi_installer_widget.py',
   '__init__.py',
   'add_game_view.py',
