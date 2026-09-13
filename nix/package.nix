@@ -11,23 +11,28 @@
   qt6,
   zstd,
   lz4,
+  _7zz,
+  libarchive,
+  bubblewrap,
   makeWrapper,
   src,
   version,
 }:
 
 let
-  pythonEnv = python3.withPackages (ps: with ps; [
-    pyside6
-    requests
-    py7zr
-    pillow
-    lz4
-    zstandard
-    websocket-client
-    keyring
-    msgpack
-    bsdiff4
+  libloot = python3.pkgs.callPackage ./libloot.nix { };
+  pythonEnv = python3.withPackages (ps: [
+    ps.pyside6
+    ps.requests
+    ps.py7zr
+    ps.pillow
+    ps.lz4
+    ps.zstandard
+    ps.websocket-client
+    ps.keyring
+    ps.msgpack
+    ps.bsdiff4
+    libloot
   ]);
 in
 stdenv.mkDerivation (finalAttrs: {
@@ -55,8 +60,9 @@ stdenv.mkDerivation (finalAttrs: {
   buildInputs = [ pythonEnv zstd lz4 qt6.qtbase ];
 
   enableParallelBuilding = true;
+  dontWrapQtApps = true;
 
-  patchPhase = ''
+  postPatch = ''
     patchShebangs native/amethyst_filegraph/build.sh
     patchShebangs src/version.py
   '';
@@ -70,9 +76,9 @@ stdenv.mkDerivation (finalAttrs: {
     for f in "$out"/bin/*; do
       if [ -f "$f" ] && [ ! -L "$f" ]; then
         sed -i "s|python3|${pythonEnv}/bin/python3|g" "$f"
-        wrapProgram "$f" \
+        wrapQtApp "$f" \
           --prefix PYTHONPATH : "${pythonEnv}/${python3.sitePackages}:$out/${python3.sitePackages}" \
-          --prefix PATH : "${pythonEnv}/bin"
+          --prefix PATH : "${lib.makeBinPath [ pythonEnv _7zz libarchive bubblewrap ]}"
       fi
     done
   '';
