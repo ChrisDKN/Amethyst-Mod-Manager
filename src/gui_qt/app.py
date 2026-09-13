@@ -18145,6 +18145,35 @@ class MainWindow(QMainWindow):
         lbl.setToolTip(self.tr("{0} plugins ({1} ESL, {2} non-ESL)").format(
             s["total"], s["esl"], s["non_esl"]))
 
+    @staticmethod
+    def _plugin_projection_signature(snapshot):
+        if snapshot is None:
+            return None
+        try:
+            winners = frozenset(
+                (name, winner.candidate_id, winner.mod_name, winner.target,
+                 winner.source_rel)
+                for name, winner in snapshot.plugin_winners().items())
+            patches = frozenset(snapshot.patch_files())
+            return winners, patches
+        except Exception:
+            return None
+
+    def _conflict_needs_plugin_reload(self, data, incremental: bool,
+                                      edit_kind: str) -> bool:
+        if not incremental or edit_kind == "plugin_order":
+            return True
+        delta = getattr(data, "resolution_delta", None)
+        if delta is None:
+            return True
+        if (delta.changed_plugin_owners
+                or delta.changed_capability_flags):
+            return True
+        current = self._plugin_projection_signature(
+            getattr(data, "snapshot", None))
+        baseline = getattr(self, "_plugin_projection_baseline", None)
+        return current is None or current != baseline
+
     def _reload_plugins(self, timing=None, startup_stage=None):
         """Load the active game/profile's plugins into the Plugins tab.
 
@@ -18153,7 +18182,6 @@ class MainWindow(QMainWindow):
         load order, so it runs on a daemon worker → _plugins_loaded → the
         UI applies the rows. A generation counter drops results from a
         superseded reload (game/profile switched mid-read)."""
-        import threading
         startup_timing = (getattr(self, "_startup_timing", None)
                           if startup_stage else None)
         if startup_timing is not None and not startup_timing.active:
@@ -18175,6 +18203,11 @@ class MainWindow(QMainWindow):
             startup_plugins[gen] = (startup_timing, startup_stage)
         game, profile = self._gs.game, self._gs.profile
         ul_path = self._userlist_path()
+        if game is not None and not getattr(game, "plugin_extensions", None):
+            QTimer.singleShot(
+                0, lambda: self._on_plugins_loaded(
+                    gen, [], {}, None, {"pluginless": True}))
+            return
         graph_snapshot = None
         conflict_data = getattr(self, "_conflict_data", None)
         profile_dir = self._gs.profile_dir()
@@ -18287,6 +18320,7 @@ class MainWindow(QMainWindow):
             if timing is not None:
                 timing.mark("Plugins result emitted to Qt", lane="worker")
 
+        import threading
         thread = threading.Thread(target=worker, daemon=True,
                                   name="plugins-reload")
         thread.start()
@@ -18299,6 +18333,7 @@ class MainWindow(QMainWindow):
         authoritative one). Bumps the generation so any in-flight load from
         the previous profile is dropped/cancelled."""
         self._plugins_gen += 1
+        self._plugin_projection_baseline = None
         # A pending Refresh cleanup offer belongs to the OLD profile.
         self._offer_mass_prune = False
         self._plugin_model.set_rows([], game=self._gs.game,
@@ -18415,6 +18450,17 @@ class MainWindow(QMainWindow):
                                     profile=self._gs.profile,
                                     profile_dir=self._gs.profile_dir())
         self._plugins_applied_gen = gen
+        conflict_data = getattr(self, "_conflict_data", None)
+        profile_dir = self._gs.profile_dir()
+        if (getattr(self, "_conflict_maps_current", False)
+                and conflict_data is not None
+                and profile_dir is not None
+                and getattr(conflict_data, "profile_id", None)
+                == str(profile_dir.resolve(strict=False))):
+            self._plugin_projection_baseline = (
+                self._plugin_projection_signature(conflict_data.snapshot))
+        else:
+            self._plugin_projection_baseline = None
         if timing is not None:
             timing.mark(f"Plugins table model populated ({len(rows)} rows)",
                         phase_started=phase_started)
@@ -19962,9 +20008,12 @@ class MainWindow(QMainWindow):
             self._mark_since_switch("switch→conflicts_applied")  # i18n: skip - perftrace marker label
             self._switch_conflicts_done = True
         _edit = getattr(self, "_conflict_gen_edit_ctx", None)
+        edit_kind = (
+            _edit[1][0]
+            if _edit is not None and _edit[0] == gen and _edit[1] else "")
         toggle_only = bool(
             _edit is not None and _edit[0] == gen and _edit[1]
-            and _edit[1][0] == "toggle" and _edit[2])
+            and edit_kind == "toggle" and _edit[2])
         resolution_delta = getattr(data, "resolution_delta", None)
         ui_base_matches = bool(
             resolution_delta is not None
@@ -19997,6 +20046,10 @@ class MainWindow(QMainWindow):
                 f"changed_edges={len(resolution_delta.changed_edges) if resolution_delta else 0}"
             )
             timing.mark(f"Qt conflict update classified ({detail})")
+        plugins_reload_needed = (
+            not self._plugins_supported()
+            or self._conflict_needs_plugin_reload(
+                data, incremental_delta, edit_kind))
         with span("on_conflicts_ready"):
             self._conflict_data = data
             # These maps now describe the on-disk modlist - arm the move
@@ -20117,37 +20170,54 @@ class MainWindow(QMainWindow):
             if timing is not None:
                 timing.mark("framework banner, footer stats, and boundaries updated",
                             phase_started=phase_started)
-            # The filemap is now fresh → reload the Plugins tab so ESL/master flags
-            # resolve against the winning (e.g. patcher-provided light) copies and
-            # plugins still deployed by another enabled mod are recovered. Tk parity:
-            # gui.py _on_filemap_rebuilt calls _refresh_plugins_tab() here, AFTER the
-            # rebuild - reloading earlier (on the toggle) races the stale filemap.
-            with span("reload_plugins"):
-                self._reload_plugins(
-                    timing=timing,
-                    startup_stage=("post-conflict"
-                                   if startup_timing is not None else None))
+            if plugins_reload_needed:
+                with span("reload_plugins"):
+                    self._reload_plugins(
+                        timing=timing,
+                        startup_stage=("post-conflict"
+                                       if startup_timing is not None else None))
+            elif timing is not None:
+                timing.mark(
+                    "Plugins reload skipped; plugin projection unchanged")
             # All synchronous conflict consumers above now describe this
             # immutable snapshot.  Record the baseline only after they have all
             # accepted it, so a later native delta cannot be applied to a
             # partially reset/profile-mismatched UI.
             self._conflict_ui_profile_id = data.profile_id
             self._conflict_ui_generation = data.snapshot.generation
-            if timing is not None:
+            if timing is not None and plugins_reload_needed:
                 timing.mark("post-conflict Plugins reload queued")
         if getattr(self, "_deploy_refresh_pending", False):
             self._deploy_refresh_conflicts_done = True
-            self._deploy_timing_mark(
-                "post-deploy conflicts/Data update applied; Plugins reload running")
+            if plugins_reload_needed:
+                self._deploy_timing_mark(
+                    "post-deploy conflicts/Data update applied; Plugins reload running")
+            else:
+                self._deploy_timing_mark(
+                    "post-deploy conflict update applied; plugin state unchanged",
+                    finish=True)
+                self._deploy_refresh_pending = False
+                self._deploy_refresh_conflicts_done = False
         if getattr(self, "_restore_refresh_pending", False):
             self._restore_refresh_conflicts_done = True
-            self._restore_timing_mark(
-                "post-restore conflicts/Data update applied; Plugins reload running")
+            if plugins_reload_needed:
+                self._restore_timing_mark(
+                    "post-restore conflicts/Data update applied; Plugins reload running")
+            else:
+                self._restore_timing_mark(
+                    "post-restore conflict update applied; plugin state unchanged",
+                    finish=True)
+                self._restore_refresh_pending = False
+                self._restore_refresh_conflicts_done = False
         phase_started = timing.now() if timing is not None else None
         self._maybe_auto_deploy()
         if timing is not None:
             timing.mark("post-conflict auto-deploy check complete",
                         phase_started=phase_started)
+            if not plugins_reload_needed:
+                QTimer.singleShot(
+                    0, lambda current=timing: current.finish(
+                        "conflict update settled; Plugins unchanged"))
         if startup_timing is not None:
             self._startup_wait_for_conflicts = False
             startup_timing.record(
