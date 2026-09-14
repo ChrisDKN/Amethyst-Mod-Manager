@@ -17,6 +17,7 @@ Public API:
 
 from __future__ import annotations
 
+import errno
 import os
 import re
 import shutil
@@ -859,10 +860,16 @@ def _extract_with_disk_retry(archive_path: str, staging_root: Path,
             return _extract_archive(archive_path, str(target), log_fn, cancel=cancel,
                                     error_sink=errors, progress_cb=progress_cb)
         probe = archive_probe or probe_archive(archive_path)
-        with work.extraction(probe, target):
-            return _extract_archive(archive_path, str(target), log_fn, cancel=cancel,
-                                    error_sink=errors, progress_cb=progress_cb,
-                                    cpu_threads=work.resources.cpu_threads)
+        try:
+            with work.extraction(probe, target):
+                return _extract_archive(archive_path, str(target), log_fn, cancel=cancel,
+                                        error_sink=errors, progress_cb=progress_cb,
+                                        cpu_threads=work.resources.cpu_threads)
+        except OSError as exc:
+            if exc.errno not in (errno.ENOSPC, errno.EDQUOT):
+                raise
+            errors.append(f"{os.strerror(exc.errno)}: {exc}")
+            return False
     try:
         extracted = extract(extract_dir)
     except BaseException:
