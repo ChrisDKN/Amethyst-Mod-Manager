@@ -1,6 +1,8 @@
 - v2.5.0
 ### Wabbajack
 - Added the ability to browse and install Wabbajack modlists
+### Game Support
+- Added Project Zomboid #488
 ### Additions
 - Added UI options to hide top bar buttons
 - Added an option in the profile settings to hide profiles from the profile dropdown
@@ -16,6 +18,7 @@
 - Updated flatpak to kde runtime 6.11
 - Logs older than 7 days are now automatically removed from the logs folder on startup
 - Improved update checking speed
+- Wine dll overrides are now fully automated and no longer need to be set in a game's handler
 ### Bug Fixes
 - Fixed some issues with Bain mods
 - Fixed Cyberpunk's prefix health check returning a false positive for Vcredist
