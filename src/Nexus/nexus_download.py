@@ -26,6 +26,7 @@ Usage
 
 from __future__ import annotations
 
+import atexit
 import os
 import re
 import threading
@@ -152,13 +153,17 @@ def ingest_archive_to_cache(path: Path, game_name: str,
 # -- md5 cache ---------------------------------------------------------------
 # Hashing a multi-GB archive is slow, so we cache results in a single JSON
 # file inside the app's download cache directory.  Entries are keyed by the
-# archive's absolute path and invalidated when size or mtime changes.  We
+# archive's absolute path and invalidated when its filesystem identity changes.  We
 # deliberately never write alongside the archive itself - that would pollute
 # the user's Downloads folder / any external download locations they've
 # configured.
 
 _MD5_CACHE_FILE = "md5_cache.json"
 _md5_cache_lock = threading.Lock()
+_md5_cache_data = {}
+_md5_cache_identity = None
+_md5_cache_pending = {}
+_md5_cache_timer = None
 
 
 def _md5_cache_path() -> Path:
@@ -166,21 +171,81 @@ def _md5_cache_path() -> Path:
     return get_download_cache_dir() / _MD5_CACHE_FILE
 
 
-def _md5_cache_load() -> dict:
+def _md5_file_stamp(path):
+    try:
+        info = path.stat()
+        return [info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns]
+    except OSError:
+        return None
+
+
+def _md5_cache_read(path):
     try:
         import json
-        return json.loads(_md5_cache_path().read_text(encoding="utf-8"))
-    except Exception:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
         return {}
 
 
-def _md5_cache_save(data: dict) -> None:
-    try:
-        import json
-        from Utils.atomic_write import write_atomic_text
-        write_atomic_text(_md5_cache_path(), json.dumps(data))
-    except Exception:
-        pass
+def _md5_cache_merge(data):
+    for key, entry in _md5_cache_pending.items():
+        if entry is None:
+            data.pop(key, None)
+        else:
+            data[key] = entry
+    return data
+
+
+def _md5_cache_load() -> dict:
+    global _md5_cache_data, _md5_cache_identity
+    path = _md5_cache_path()
+    identity = path, _md5_file_stamp(path)
+    if identity != _md5_cache_identity:
+        if _md5_cache_identity is not None and _md5_cache_identity[0] != path:
+            _md5_cache_pending.clear()
+        _md5_cache_data = _md5_cache_merge(_md5_cache_read(path))
+        _md5_cache_identity = identity
+    return _md5_cache_data
+
+
+def _md5_cache_save(data, path) -> None:
+    import json
+    from Utils.atomic_write import write_atomic_text
+    write_atomic_text(path, json.dumps(data))
+
+
+def _md5_cache_flush():
+    global _md5_cache_timer, _md5_cache_data, _md5_cache_identity
+    import fcntl
+    with _md5_cache_lock:
+        if _md5_cache_timer is not None:
+            _md5_cache_timer.cancel()
+            _md5_cache_timer = None
+        if not _md5_cache_pending or _md5_cache_identity is None:
+            return
+        path = _md5_cache_identity[0]
+        try:
+            with path.with_name(path.name + ".lock").open("a+b") as stream:
+                fcntl.flock(stream, fcntl.LOCK_EX)
+                data = _md5_cache_merge(_md5_cache_read(path))
+                _md5_cache_save(data, path)
+                _md5_cache_data = data
+                _md5_cache_identity = path, _md5_file_stamp(path)
+                _md5_cache_pending.clear()
+        except OSError:
+            pass
+
+
+def _md5_cache_schedule():
+    global _md5_cache_timer
+    if _md5_cache_timer is None:
+        _md5_cache_timer = threading.Timer(2.0, _md5_cache_flush)
+        _md5_cache_timer.daemon = True
+        _md5_cache_timer.start()
+
+
+atexit.register(_md5_cache_flush)
 
 
 def _md5_cache_key(archive: Path) -> str:
@@ -191,39 +256,48 @@ def _md5_cache_key(archive: Path) -> str:
 
 
 def _md5_cache_get(archive: Path) -> str:
-    """Return the cached md5 for *archive*, or "" if absent/stale."""
-    try:
-        st = archive.stat()
-    except Exception:
+    stamp = _md5_file_stamp(archive)
+    if stamp is None:
         return ""
     key = _md5_cache_key(archive)
     with _md5_cache_lock:
-        entry = _md5_cache_load().get(key)
-    if not entry:
+        try:
+            entry = _md5_cache_load().get(key)
+        except OSError:
+            return ""
+    if not isinstance(entry, dict) or entry.get("stamp") != stamp:
         return ""
-    if entry.get("size") != st.st_size or entry.get("mtime") != int(st.st_mtime):
-        return ""
-    return (entry.get("md5") or "").lower()
+    digest = entry.get("md5")
+    return digest.lower() if isinstance(digest, str) else ""
 
 
-def _md5_cache_put(archive: Path, md5_hex: str) -> None:
-    try:
-        st = archive.stat()
-    except Exception:
-        return
+def _md5_cache_put(archive: Path, md5_hex: str, *, expected_stamp=None) -> bool:
+    stamp = _md5_file_stamp(archive)
+    if stamp is None or expected_stamp is not None and stamp != expected_stamp:
+        return False
     key = _md5_cache_key(archive)
+    entry = {"stamp": stamp, "md5": md5_hex.lower()}
     with _md5_cache_lock:
-        data = _md5_cache_load()
-        data[key] = {"size": st.st_size, "mtime": int(st.st_mtime), "md5": md5_hex.lower()}
-        _md5_cache_save(data)
+        try:
+            data = _md5_cache_load()
+        except OSError:
+            return True
+        data[key] = entry
+        _md5_cache_pending[key] = entry
+        _md5_cache_schedule()
+    return True
 
 
 def _md5_cache_forget(archive: Path) -> None:
     key = _md5_cache_key(archive)
     with _md5_cache_lock:
-        data = _md5_cache_load()
+        try:
+            data = _md5_cache_load()
+        except OSError:
+            return
         if data.pop(key, None) is not None:
-            _md5_cache_save(data)
+            _md5_cache_pending[key] = None
+            _md5_cache_schedule()
 
 
 def _compute_md5(path: Path) -> str:
@@ -252,10 +326,12 @@ def _md5_matches(archive: Path, expected_md5: str) -> bool:
     cached = _md5_cache_get(archive)
     if cached:
         return cached == expected
+    stamp = _md5_file_stamp(archive)
+    if stamp is None:
+        return False
     actual = _compute_md5(archive)
-    if actual:
-        _md5_cache_put(archive, actual)
-    return actual == expected
+    accepted = bool(actual) and _md5_cache_put(archive, actual, expected_stamp=stamp)
+    return accepted and actual == expected
 
 
 def _zip_is_intact(path: Path) -> bool:
