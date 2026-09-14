@@ -37,6 +37,7 @@
   "custom_routing_rules": [
     {
       "dest": "drive_c/users/steamuser/AppData/Local/Stalker2/Saved/Config/WinGDK",
+      "rule_id": "legacy:7f2036839a5c5f551ac1",
       "filenames": [
         "Engine.ini",
         "Game.ini",
@@ -61,6 +62,7 @@
     },
     {
       "dest": "Content/Paks/~mods",
+      "rule_id": "legacy:3296f1ef373e984adbf6",
       "folders": [
         "windows"
       ],
@@ -68,6 +70,7 @@
     },
     {
       "dest": "Content/Paks/~mods",
+      "rule_id": "legacy:9b5ea032cf0a83dc7519",
       "extensions": [
         ".pak",
         ".ucas",
@@ -77,6 +80,7 @@
     },
     {
       "dest": "Content/Splash",
+      "rule_id": "legacy:ad2c5f6fc0fa6935453a",
       "filenames": [
         "Splash.bmp"
       ],
@@ -84,6 +88,7 @@
     },
     {
       "dest": "Binaries/Win64",
+      "rule_id": "legacy:f1686b7eacad2f4f2416",
       "filenames": [
         "winmm.dll",
         "s2ae.cfg",
@@ -94,6 +99,7 @@
     },
     {
       "dest": "Binaries/Win64",
+      "rule_id": "legacy:2ad5a3e0e2ff0f79150c",
       "folders": [
         "ue4ss"
       ],
@@ -101,6 +107,7 @@
     },
     {
       "dest": "Binaries/Win64/ue4ss",
+      "rule_id": "legacy:b6ce786064bc13056fb8",
       "folders": [
         "Mods",
         "ue4ss_signatures"
@@ -108,7 +115,16 @@
       "flatten": true
     },
     {
+      "dest": "Binaries/Win64/ue4ss/Mods",
+      "rule_id": "user:21e343ba69f34bbeae2dfd7267a4bb42",
+      "folders": [
+        "Scripts"
+      ],
+      "include_siblings": true
+    },
+    {
       "dest": "Binaries/Win64/ue4ss",
+      "rule_id": "legacy:95ace3c910193caf1173",
       "filenames": [
         "ue4ss.dll",
         "ue4ss-settings.ini"
@@ -117,6 +133,7 @@
     },
     {
       "dest": "Unused",
+      "rule_id": "legacy:8ce4a410fb22c6942dfd",
       "filenames": [
         "*.*"
       ],
@@ -125,6 +142,6 @@
   ],
   "restore_whitelist": [],
   "custom_frameworks": {},
-  "version": 4,
+  "version": 5,
   "editable": false
 }
