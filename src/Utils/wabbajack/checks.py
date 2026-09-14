@@ -4,143 +4,154 @@ from .models import Check
 
 _HELP = {
     "Archive reconstruction": (
-        "The package describes how to rebuild a BSA or BA2 archive. Amethyst cannot safely build it with the reported member information or archive format.",
-        "Check for an Amethyst update and the author's current modlist package. If this remains blocked, report the modlist name, version and full details below to Amethyst support. This may need an installer fix or a corrected package; downloading the same source archives again does not change the reconstruction instructions."),
+        "Amethyst cannot rebuild a BSA or BA2 file using the instructions in this modlist.",
+        "Update Amethyst and download the latest version of the modlist, then check again. If it still fails, send the modlist name, version and details below to Amethyst support. Downloading the same mod archives again will not fix this."),
     "Package integrity": (
-        "The .wabbajack package is unreadable, damaged, or has changed since it was opened.",
-        "Use Reload to fetch the package again, or download a fresh .wabbajack file from the author and open it with Choose file. Keep your existing mod downloads."),
+        "The .wabbajack file is damaged, unreadable or has changed since you opened it.",
+        "Select Reload to download it again. If that fails, download a fresh .wabbajack file from the author and open it with Choose file. You can keep your existing mod downloads."),
     "Package identity": (
-        "Resume and Repair use the package saved for this installation. The selected package describes a different authored version.",
-        "Open the saved installation to Resume or Repair it, or choose Update to apply the new package."),
+        "The selected modlist is a different version from the one used for this installation.",
+        "Open the existing installation from Installed lists to Resume or Repair it. Choose Update if you want to install the newly selected version."),
     "Deployment": (
-        "The game currently has deployed mods. Installation and updates need exclusive access to its managed files.",
-        "Close the game and any running mod tools, use Restore in Amethyst, then check requirements again."),
+        "Mods are currently deployed to the game, so Amethyst cannot safely change the installation.",
+        "Close the game and any modding tools. Select Restore in Amethyst, then check requirements again."),
     "File catalog": (
-        "Amethyst's native Filegraph component is unavailable. It is needed to publish and track the installed mods.",
-        "Update or reinstall Amethyst from a complete build for your system. For a source checkout, build and install the native Filegraph component, then restart Amethyst."),
+        "A required Amethyst component named Filegraph is missing or could not start.",
+        "Update or reinstall Amethyst, then restart it. If you run Amethyst from source, build and install the native Filegraph component first."),
     "Game": (
-        "The package targets a different game or edition from the game currently selected in Amethyst.",
-        "Select the required game using the main game dropdown, then reopen this modlist and check requirements."),
+        "This modlist is for a different game or edition from the one selected in Amethyst.",
+        "Select the correct game from the main game menu. Reopen the modlist, then check requirements again."),
     "Additional game": (
-        "This modlist uses files from another game as well as the selected game.",
-        "Install and configure the additional game named below in Amethyst, including the author's required DLC and version, then recheck."),
+        "This modlist also needs files from another game.",
+        "Install the game named below with the required version and DLC. Add or select that game in Amethyst, then check requirements again."),
     "Required game file": (
-        "A source file is missing or differs from the exact size and hash required by the package. Store, language, game updates and Creation Club versions can produce different files with the same name.",
-        "Follow the specific version or content guidance below. Correct the original game location or obtain the author's required version, then check requirements again. Renaming a different file will not make its contents match."),
+        "A required game file is missing or is not the exact version expected by this modlist. Files with the same name can differ between stores, languages and game updates.",
+        "Read the details below to identify the file. Check that Amethyst uses the correct game folder, then install the game version or content required by the author and check again. Renaming another file will not fix it."),
     "Required game files": (
-        "The package reconstructs part of the installation from exact files in the original game, but those source files are absent.",
-        "Check the original game location in Amethyst, install the game and required DLC, and launch the unmodified game once. Follow the linked author requirements for its store, language and version, then recheck."),
+        "This modlist needs original game files that Amethyst cannot find.",
+        "Check the game folder selected in Amethyst. Install the required game and DLC, launch the unmodified game once, then check requirements again. Also follow the author's requirements for the store, language and game version."),
     "Required supporting files": (
-        "The package uses logs, store metadata or script-source archives from the author's game directory to reconstruct required output. A missing or different supporting file does not show that the game executable is the wrong version.",
-        "Follow the author's instructions for obtaining the listed files. For Scripts.zip, install the matching Creation Kit. If the exact files remain unavailable and the author does not document them, use an updated package or report the listed files to the modlist author."),
+        "This modlist needs an extra file from the game or its tools. This does not necessarily mean that your game version is wrong.",
+        "Read the affected-file list and follow the author's setup instructions. If Scripts.zip is listed, install the matching Creation Kit. If the author does not explain how to obtain the file, try the latest modlist or report the file to the modlist author."),
     "Ignored supporting files": (
-        "The package captured optional logs, store metadata or script sources and editor files from Scripts.zip. These supporting files are not needed to run the game or reconstruct required output and can be omitted.",
-        "No action is required. Amethyst will omit these supporting files from the managed installation and continue. The affected paths remain listed for transparency."),
+        "The modlist contains optional logs, store information or editor files that are not needed for the installation.",
+        "No action is needed. Amethyst will leave out the files listed below and continue."),
     "Game version": (
-        "Files exist in the original game location, but their exact sizes or hashes differ from the source snapshot used to build this package.",
-        "Use the game build, store and language named by the author. A file from a different build cannot produce the declared output. If the required build is no longer available and the author provides no supported downgrade, use an updated modlist package or contact its author."),
+        "Your game files do not match the version used to create this modlist.",
+        "Install the game version, store edition and language required by the author, then check again. If that version is no longer available and the author provides no downgrade instructions, use a newer modlist or contact its author."),
     "Creation Kit files": (
-        "This package uses files installed by the game's Creation Kit as reconstruction sources. The Creation Kit is a separate Steam application and its files must match the version used by the author.",
-        "Install the matching Creation Kit through Steam, select a Proton compatibility tool for it when required, and launch it once. Close it after it opens, then check requirements again. Follow the author's version requirement if the files still differ."),
+        "This modlist needs files from the Creation Kit, which is installed separately from the game.",
+        "Install the required Creation Kit through Steam. Select a Proton version for it if needed, launch it once, close it, then check requirements again. Follow the author's version instructions if files still do not match."),
     "Creation content": (
-        "Required Creations or Creation Club files are missing or differ from the exact variants used by the package author. Steam-delivered and in-game-downloaded files can share a name while having different contents.",
-        "Follow the linked author requirements and obtain the exact listed content through the required source. For Skyrim Rare Curios, use the author's specified Steam or in-game variant. Renaming or copying a different version will not satisfy the hash check."),
+        "A required Creation or Creation Club file is missing or is a different version. Steam and the in-game Creations menu can install different files for the same content.",
+        "Install or update the affected content using the source required by the modlist author.\n\n"
+        "For lowercase ccbgssse037-curios files:\n"
+        "1. Delete both Rare Curios files from the game's Data folder.\n"
+        "2. Launch Skyrim through Steam and open Creations.\n"
+        "3. Find Rare Curios and download it.\n"
+        "4. Wait for the download to finish, then exit the game.\n"
+        "5. Do not verify the game through Steam afterward.\n"
+        "6. Check requirements again.\n\n"
+        "Renaming the old files will not fix them."),
     "Required DLC or game plugin": (
-        "An enabled profile needs a game or DLC plugin that is absent from both the original game and the package's planned files.",
-        "Install the required DLC or Creation Club content through your game or store, following Author instructions, and check the original game location before rechecking."),
+        "A selected profile needs a game, DLC or Creation Club plugin that is not installed.",
+        "Install the plugin or DLC named below through the game or its store. Follow the author's instructions, check that Amethyst uses the correct game folder, then check requirements again."),
     "Manual download": (
-        "This archive needs a browser download or file selection. This is normal for free Nexus accounts and hosts without automatic download support.",
-        "Start installation and follow the browser prompts. Use Select File if the download is not detected. Choose the exact file version requested; Amethyst checks its size and hash while other automatic downloads continue."),
+        "Amethyst cannot download this file automatically. This is normal for free Nexus accounts and some download sites.",
+        "Start the installation and follow the browser prompt. If Amethyst does not find the download, choose Select File and select it yourself. Make sure you download the exact version shown below."),
     "Runtime adjustment": (
-        "Amethyst detected a runtime dependency or Linux compatibility adjustment from the packaged files. It may not appear in Windows-focused author instructions.",
-        "Review and select the matching option under Linux adjustments in setup, then check requirements again. Required dependencies are installed automatically during installation; Proton tools can also install or repair them."),
+        "This modlist needs an extra setting or dependency to work on Linux.",
+        "Review Linux adjustments in setup and select the option described below, then check requirements again. Amethyst installs required dependencies during installation; Proton tools can also install or repair them."),
     "Game runtime": (
-        "The selected Windows game needs a configured Wine/Proton prefix, which holds its Windows settings and runtime dependencies.",
-        "Configure Proton and the prefix for the selected game in Amethyst. Launch the original game once to initialise it, close it, then check requirements again."),
+        "This Windows game does not yet have a working Proton configuration in Amethyst.",
+        "Configure Proton for the game in Amethyst. Launch the original game once, close it, then check requirements again."),
     "Windows path mapping": (
-        "The selected prefix cannot translate one of the permanent Linux installation paths into a Windows drive path for bundled tools.",
-        "Check the selected game's prefix and its Wine drive mappings. Make the listed location accessible through a mapped drive, then recheck."),
+        "A Windows tool in this modlist cannot access one of the selected Linux folders.",
+        "Check the game's Proton prefix and Wine drive mappings. Map the folder named below to a Windows drive, then check requirements again."),
     "Texture conversion": (
-        "The package needs DDS textures resized or converted. The selected texture converter did not pass its capability check.",
-        "Choose a converter under Texture conversion and use its Install / repair button. Texconv needs an installed build under Texture tool Proton; Native Compressonator does not use Proton. Then check requirements again and include the details below if both converters fail."),
+        "This modlist needs to convert DDS textures, but the selected converter is not working.",
+        "Open Texture conversion, choose a converter and select Install / repair. Texconv also needs a version selected under Texture tool Proton; Native Compressonator does not. Check requirements again after the repair."),
     "BSA setup": (
-        "This list requires the original New Vegas archives to be rebuilt, including audio conversion. Amethyst checks the supported source files, required tools and existing generated output first.",
-        "Follow the specific failure below: restore the required English vanilla sources, install FFmpeg if missing, or resolve the named output-folder conflict. Then recheck; Amethyst runs the supported BSA setup automatically during installation."),
+        "This modlist needs Amethyst to rebuild original Fallout: New Vegas archives, but part of that setup is not ready.",
+        "Follow the specific error below. Restore the required English game files, install FFmpeg if it is missing, or resolve the named output-folder conflict. Then check requirements again; Amethyst will rebuild the archives during installation."),
+    "Native MPI installer": (
+        "The tool Amethyst uses to build files from an MPI package is missing or cannot run.",
+        "Open Setup tools and install or repair the Native MPI installer. Then return to this modlist and check requirements again."),
     "Stock game setup": (
-        "This list needs a separate copy of the original game inside its managed installation, but preparation of that copy failed.",
-        "Check that the original game path is correct and readable, then address the file or permission error below and recheck. Keep the original game available for future verification."),
+        "This modlist needs its own copy of the original game files, but Amethyst could not prepare it.",
+        "Check that Amethyst uses the correct original game folder and can read it. Fix the file or permission error shown below, then check requirements again. Do not remove the original game files."),
     "Stock game patch": (
-        "The reconstructed New Vegas game copy needs the 4GB executable patch.",
-        "Enable automatic New Vegas 4GB patching in the game's Amethyst settings, then recheck. Deployment applies the patch to the managed game copy."),
+        "The separate Fallout: New Vegas game copy needs the 4 GB patch.",
+        "Enable automatic New Vegas 4 GB patching in the game's Amethyst settings, then check requirements again. Amethyst will apply it during deployment."),
     "Disk space": (
-        "Available space is below the estimate for downloads, installation, temporary extraction and update backups. Locations sharing a filesystem are counted together, with a reserve.",
-        "Free space on the filesystem named below, or choose supported download and profile locations on a larger filesystem. Manage caches can remove unused downloads; keep files needed by active jobs. Then recheck."),
+        "There is not enough free space for the download, installation, temporary files and backups.",
+        "Free space on the drive named below, or move the download or profile folder to a larger supported drive. Manage caches can remove unused downloads, but keep files used by active installations. Then check requirements again."),
     "Filesystem path limits": (
-        "A required filename or full path is longer than the destination filesystem supports.",
-        "For a full-path limit, choose a shorter installation path. For a filename-component limit, use a filesystem that supports the named length. Keep the author's filenames intact and recheck."),
+        "A required file path is too long for the selected drive.",
+        "Choose a shorter installation folder. If the detail says a single filename is too long, choose a drive with a filesystem that supports longer names. Do not rename the modlist's files. Then check requirements again."),
     "Path overlap": (
-        "The download, managed installation or original game locations contain one another. This can mix source files with installation output.",
-        "Choose separate download and managed installation directories outside the original game. Neither location should contain the other. Then recheck."),
+        "The game, download and installation folders overlap, which could mix or overwrite their files.",
+        "Choose separate download and installation folders outside the original game folder. The download and installation folders must not be inside one another. Then check requirements again."),
     "Permissions": (
-        "Amethyst cannot write to or access the selected location with your current user or application permissions.",
-        "Choose a writable location or correct its permissions and, for Flatpak, its filesystem access. Check that the drive is mounted with write access, then recheck."),
+        "Amethyst cannot read or write the selected folder.",
+        "Choose a folder you can write to, or fix its permissions. If you use Flatpak, allow Amethyst to access the folder. Also check that the drive is mounted as writable, then check requirements again."),
     "Filesystem capabilities": (
-        "The managed installation requires working hard links and symbolic links. The selected filesystem or its permissions failed that check.",
-        "Use a Linux filesystem that supports both link types, such as ext4 or Btrfs, for the game's managed profile location. Check write permissions and application access, then recheck."),
+        "The selected drive cannot create the file links Amethyst needs for this installation.",
+        "Move the profile to a Linux filesystem that supports hard links and symbolic links, such as ext4 or Btrfs. Check folder permissions and application access, then check requirements again."),
     "Filesystem": (
-        "The selected filesystem has an access problem or behaves differently from the case-sensitive paths expected by the installer.",
-        "Read the detail below. Check drive access and permissions for an error; for a case-insensitivity warning, prefer a case-sensitive Linux filesystem for the managed installation."),
+        "The selected drive has a filesystem limitation or access problem.",
+        "Read the details below. If hard links are unavailable, you can continue, but the installation will use more space. Fix any drive-access or permission error. For a case-sensitivity warning, move the installation to a case-sensitive Linux filesystem."),
     "Installation directory": (
-        "The chosen directory does not meet the managed installation's location, ownership or symbolic-link requirements.",
-        "Use the default managed location under this game's profile root for a new installation. Open an existing installation through Installed lists to Resume, Repair or Update it. Preserve any existing files when correcting the location."),
+        "The selected installation folder is not safe or supported for this operation.",
+        "For a new installation, use the default folder inside the game's profile location. To Resume, Repair or Update an existing installation, open it from Installed lists. Do not delete existing files while correcting the folder."),
     "Installation": (
-        "Amethyst could not find a managed installation at the selected location.",
-        "Choose the installation from Installed lists, or use Install with a new empty managed location."),
+        "Amethyst cannot find an existing modlist installation in the selected folder.",
+        "Open the installation from Installed lists. To create a new installation instead, choose Install and select a new empty folder."),
     "Operation": (
-        "The requested operation is not one of the supported installation modes.",
-        "Reopen setup and choose Install, Resume, Repair or Update. If the error persists, report it to Amethyst support."),
+        "Amethyst could not recognise the requested installation action.",
+        "Reopen setup and choose Install, Resume, Repair or Update. If the error appears again, send the details below to Amethyst support."),
     "Profiles": (
-        "The selected authored profiles are missing or no longer exist in this package.",
-        "Select at least one of the profiles shown in setup, then check requirements again."),
+        "No valid modlist profile is selected.",
+        "Select at least one available profile in setup, then check requirements again."),
     "Game layout": (
-        "Amethyst cannot map this package's authored directory layout to the selected game's profiles and deployment paths.",
-        "Confirm the game and edition, then check for an Amethyst update. If the layout remains unsupported, report the package name, version and details below to Amethyst support."),
+        "Amethyst does not know how to install this modlist's folder layout for the selected game.",
+        "Confirm that the correct game and edition are selected, then update Amethyst and check again. If it still fails, send the modlist name, version and details below to Amethyst support."),
     "Game-root deployment": (
-        "This list contains files that must be deployed beside the game's executable, but the selected game handler does not support that layout.",
-        "Confirm the selected game and check for an Amethyst update. This needs game-handler support before installation can complete; report the package and details to Amethyst support."),
+        "This modlist puts files beside the game's executable, but Amethyst does not support that for the selected game.",
+        "Confirm that the correct game is selected and update Amethyst. If it still fails, send the modlist name and details below to Amethyst support."),
     "Game-root conflict": (
-        "Two authored files would be deployed to the same game-root location. Amethyst cannot choose which one the author intended.",
-        "Check the Root file variant in setup if the list offers store-specific alternatives. If both files still target the same location, report the listed paths and package version to Amethyst support and the modlist author."),
+        "Two modlist files would be placed at the same location beside the game executable.",
+        "If setup offers a Root file variant, choose the one for your store, such as Steam/GOG or Epic. Check requirements again. If the conflict remains, send the listed paths and modlist version to Amethyst support and the modlist author."),
     "Game-root mod": (
-        "The automatic root-file mod would collide with an existing mod, a reserved name or its metadata.",
-        "Follow the detail below to resolve the named unowned mod conflict while preserving your files. If the conflict is inside the authored package, report it with the package version; it may need a corrected package."),
+        "A mod that places files beside the game executable conflicts with an existing mod, name or metadata file.",
+        "Follow the details below to resolve the named conflict without deleting files you want to keep. If both sides come from the modlist, report the conflict and modlist version to its author."),
     "Store-specific root files": (
-        "This package supplies different game-root files for different stores. Only the variant for your installation should be deployed.",
-        "Choose the matching Root file variant in setup, such as Steam/GOG or Epic, then recheck."),
+        "This modlist includes different files for different game stores.",
+        "In setup, choose the Root file variant that matches your store, such as Steam/GOG or Epic. Then check requirements again."),
     "Configuration file": (
-        "A packaged configuration file cannot be read as the expected UTF-8 text, or an authored profile list exceeds its safety limit.",
-        "Open the author's current package. If the same file remains blocked, report its path and package version to Amethyst support and the author; the file format or profile data needs correction."),
+        "A configuration file in the modlist is invalid or too large to read safely.",
+        "Download the latest version of the modlist and check again. If the same file still fails, send its path and the modlist version to Amethyst support and the modlist author."),
     "Affected profiles": (
-        "These profiles share the installation's mod files, so changes to shared files affect all of them.",
-        "Review the listed profiles before continuing. Resolve any update or repair conflicts when prompted; choose Keep mine for edits you want to retain."),
+        "The profiles listed below share mod files, so this operation will affect all of them.",
+        "Review the affected profiles before continuing. During an Update or Repair, choose Keep mine for changes you want to preserve."),
     "Authored profile changes": (
-        "The new package changes the available profile selection. Removed authored profiles are retained for review.",
-        "Review the added and removed profiles and adjust the selected profiles in setup before starting the update."),
+        "This modlist update adds or removes profile choices.",
+        "Review the added and removed profiles below. Select the profiles you want in setup before starting the update."),
     "Reusable outputs": (
-        "Some existing output could not be fully verified during the requirements check. Installation must validate it before deciding what can be reused.",
-        "Check the file or database access problem below. Keep existing files and backups; Resume or Repair will verify available content and rebuild required output as needed."),
+        "Amethyst could not confirm whether some existing installation files can be reused.",
+        "Check the file or database error below. Keep your existing files and backups. Resume or Repair will verify them again and rebuild only what is needed."),
     "Tool output configuration": (
-        "The author assigned folders for files generated by tools. Some tools need that destination selected manually.",
-        "After installation, select the named output mod in each affected tool before running it. Follow Author instructions for the tool's other settings."),
+        "A bundled modding tool needs you to choose where its generated files will be saved.",
+        "After installation, open each tool named below and select the listed output mod before running it. Follow Author instructions for any other tool settings."),
     "Author instructions": (
-        "This is an author requirement or a setup step that Amethyst cannot fully automate or verify.",
-        "Open Author instructions or Community at the top of setup and follow the requirement below. Keep track of any steps that must be completed after installation and before launching."),
+        "The modlist author requires a step that Amethyst cannot complete or verify for you.",
+        "Open Author instructions or Community at the top of setup and follow the step shown below. Complete any remaining instructions before launching the modlist."),
     "Linux compatibility": (
-        "File reconstruction can be verified without proving that every bundled Windows mod or tool works on Linux. This is a general compatibility reminder, not a detected failure in a specific mod.",
-        "Review the offered Linux adjustments and any available Community guidance. This Amethyst reminder has no single repair and does not block installation."),
+        "Amethyst can install the files, but it cannot guarantee that every Windows mod or tool in this modlist works on Linux. This is a reminder, not a detected failure.",
+        "Review Linux adjustments and any Community instructions. You can continue installing; there is no specific error to fix here."),
     "Display settings": (
-        "The selected resolution is invalid or the package has no supported configuration files for applying it.",
-        "Choose a supported resolution in setup or keep the author's display settings, then recheck."),
+        "Amethyst cannot apply the selected screen resolution to this modlist.",
+        "Choose another supported resolution in setup, or keep the author's display settings. Then check requirements again."),
 }
 
 _SETUP_TASKS = {"Tale of Two Wastelands", "YUPTTW update", "Ultimate Edition ESM Fixes Remastered",
@@ -150,17 +161,17 @@ _SETUP_TASKS = {"Tale of Two Wastelands", "YUPTTW update", "Ultimate Edition ESM
 def make_check(status, name, detail, items=()):
     detail = str(detail)
     if status == "pass":
-        explanation = "This check is ready to proceed. Any planned setup described below will run during installation."
-        resolution = "No action is needed for this check."
+        explanation = "This requirement passed. Any automatic setup described below will run during installation."
+        resolution = "No action is needed now. Follow any next step shown in Details after installation."
     elif name == "Archive extraction":
-        explanation = "A required source archive cannot be extracted with the available tools or supported archive settings."
-        resolution = ("Obtain an unencrypted source or a supported package from the author. Amethyst cannot automatically extract password-protected archives."
-                      if "Password-protected" in detail else "Install 7-Zip and make it available to Amethyst, then recheck. If it is already installed, check application or Flatpak access and the details below.")
+        explanation = "Amethyst cannot open a required mod archive."
+        resolution = ("Download an unencrypted version or ask the author for a supported archive. Amethyst cannot open password-protected archives automatically."
+                      if "Password-protected" in detail else "Install 7-Zip and make sure Amethyst can access it, then check requirements again. If 7-Zip is already installed, check Flatpak access and the details below.")
     elif name in _SETUP_TASKS:
-        explanation = "The selected profile needs additional generated content that is not supplied as ordinary mod files in this package."
-        resolution = "Select the author's required MPI package or a complete existing output mod in additional setup. Follow the source-game and tool requirements below, then recheck. Confirm the external content's version matches the author instructions."
+        explanation = "The selected profile needs extra files that must be generated by another installer or tool."
+        resolution = "In Additional setup, select the MPI package requested by the author or a complete existing output mod. Follow the game and tool requirements below, confirm the version matches the author's instructions, then check requirements again."
     else:
         explanation, resolution = _HELP.get(name, (
-            "The requirements check reported a condition that needs your attention before continuing.",
-            "Follow the specific requirement below and check requirements again after making changes. If the message has no applicable action, report the full details and modlist version to Amethyst support."))
+            "This requirement needs your attention before Amethyst can continue.",
+            "Follow the instructions in the details below, then check requirements again. If there is no clear action, send the full details and modlist version to Amethyst support."))
     return Check(status, name, detail, explanation, resolution, tuple(items))
