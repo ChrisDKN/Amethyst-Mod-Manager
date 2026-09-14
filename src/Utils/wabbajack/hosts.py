@@ -27,6 +27,18 @@ def source_url(archive):
     return ""
 
 
+def download_priority(archive):
+    try:
+        host = urlparse(source_url(archive)).hostname or ""
+    except ValueError:
+        host = ""
+    if archive.kind == "GoogleDrive" or host in _DRIVE_HOSTS:
+        return 0
+    if archive.kind == "Nexus" or host == "nexusmods.com" or host.endswith(".nexusmods.com"):
+        return 2
+    return 1
+
+
 def automatic_source(archive, premium=False, *, loverslab_available=False):
     if is_loverslab_url(source_url(archive)):
         return loverslab_available

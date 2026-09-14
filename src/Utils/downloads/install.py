@@ -103,7 +103,8 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                      install_workers=2, manual_items=(), on_ready=None,
                      on_discard=None, on_error=None, prefetch=None, manual_acquire=None,
                      worker_limit=None, defer_large=True, max_large_install=2,
-                     is_large=None):
+                     is_large=None, download_first=False, on_downloads_complete=None,
+                     download_group=None, on_download_group=None):
     from Utils.downloads.scheduler import order_by_size, run_pipelined
     items, manual_items = tuple(items), tuple(manual_items)
     download_workers, install_workers = max(1, download_workers), max(1, install_workers)
@@ -115,8 +116,11 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
     sequence = itertools.count()
     sequence_lock = threading.Lock()
     pending_manual = _queue.Queue(maxsize=max(1, len(items) + len(manual_items)))
-    for item in manual_items:
-        pending_manual.put((item, ""))
+    groups = {}
+    for lane, batch in enumerate((items, manual_items)):
+        for item in batch:
+            group = download_group(item) if download_group else 0
+            groups.setdefault(group, ([], []))[lane].append(item)
     automatic_done = threading.Event()
     admission = threading.Condition()
     active_large = 0
@@ -278,11 +282,12 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                 ready.task_done()
 
     with ThreadPoolExecutor(max_workers=install_workers, thread_name_prefix="install") as pool:
-        workers = [pool.submit(consumer) for _ in range(install_workers)]
+        workers = ([] if download_first else
+                   [pool.submit(consumer) for _ in range(install_workers)])
         try:
-            def automatic():
+            def automatic(batch):
                 try:
-                    run_pipelined(order_by_size(items, lambda a: a.size), prefetch or (lambda _: None),
+                    run_pipelined(order_by_size(batch, lambda a: a.size), prefetch or (lambda _: None),
                                   producer, download_workers, stop=control.stop,
                                   link_workers=max(4, download_workers),
                                   large_workers=0, strict_order=True)
@@ -298,12 +303,28 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                         continue
                     producer(item, None, manual=True, reason=reason)
             with ThreadPoolExecutor(max_workers=2, thread_name_prefix="acquire") as producers:
-                futures = [producers.submit(automatic)]
-                if not pending_manual.empty() or manual_acquire:
-                    futures.append(producers.submit(manual))
-                for future in futures:
-                    future.result()
+                for group, (automatic_items, manual_batch) in sorted(groups.items()):
+                    if errors or control.stop.is_set():
+                        break
+                    automatic_done.clear()
+                    for item in order_by_size(manual_batch, lambda a: a.size):
+                        pending_manual.put((item, ""))
+                    notify(on_download_group, group)
+                    futures = [producers.submit(automatic, automatic_items)]
+                    if not pending_manual.empty() or manual_acquire:
+                        futures.append(producers.submit(manual))
+                    for future in futures:
+                        future.result()
+            if download_first and not errors and not control.stop.is_set():
+                if on_downloads_complete:
+                    on_downloads_complete()
+                workers = [pool.submit(consumer) for _ in range(install_workers)]
         finally:
+            if not workers:
+                while not ready.empty():
+                    task = ready.get_nowait()[3]
+                    notify(on_discard, task[0])
+                    ready.task_done()
             for _ in workers:
                 ready.put((2, 0, next_sequence(), None))
             for worker in workers:

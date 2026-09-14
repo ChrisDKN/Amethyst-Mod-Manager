@@ -12,20 +12,13 @@ from .paths import WabbajackError, auxiliary_path, cache_path
 from .verification import file_stamp
 
 
-_PARALLEL_DOWNLOAD_ALLOWANCE = 4 * 1024 ** 3
-
-
 def download_space(archive):
     # Leave room for CDN assembly or a retained failed transfer beside its replacement.
     return archive.size * 2
 
 
 def download_budget(archives):
-    sizes = [download_space(archive) for archive in archives]
-    if not sizes:
-        return 0
-    largest = max(sizes)
-    return min(sum(sizes), largest + _PARALLEL_DOWNLOAD_ALLOWANCE)
+    return sum(download_space(archive) for archive in archives)
 
 
 class ArchiveBudget:

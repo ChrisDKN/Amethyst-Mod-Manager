@@ -14,6 +14,7 @@ from .archive_cache import ArchiveBudget
 from .diagnostics import bind, emit, emit_exception, log_request
 from .extraction import LARGE_BYTES
 from .hashes import package_hash, file_hash
+from .hosts import download_priority
 from .models import InstallResult
 from .paths import WabbajackError
 from .preflight import preflight
@@ -141,19 +142,20 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                 memory = ExtractionMemoryBudget(
                     max_workers=_MAX_EXTRACT_WORKERS_CEILING, max_large_workers=2)
                 reconstruction.extraction_memory = memory
-                reconstruction.start_builds()
                 large_archives = {
                     archive.key for archive in needed
                     if max(archive.size, sum(
                         d.output_size for d in reconstruction.by_archive.get(archive.key, ())
                         if d.path not in reconstruction._skipped_dependencies)) >= LARGE_BYTES}
                 emit(cb.on_log, "install.pipeline.configured", archives=len(needed),
+                     download_first=True,
                      clear_archives=request.clear_archives,
                      archive_budget_bytes=report.archive_budget_bytes,
                      automatic=len(automatic), manual=len(manual),
                      download_workers=settings["max_concurrent"],
                      large_download_workers=0,
-                     download_order="smallest-first",
+                     download_order="google-drive,other-sources,nexus",
+                     download_order_within_group="smallest-first",
                      extraction_workers=settings["max_extract_workers"],
                      extraction_order="smallest-ready-first",
                      extraction_queue_capacity=max(
@@ -168,18 +170,35 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                      manual_sample=[a.name for a in manual[:20]],
                      manual_sample_truncated=len(manual) > 20)
                 counts = [0, 0]
+                downloads_complete = False
+                download_stage = "Downloading archives"
                 count_lock = threading.Lock()
                 def update_status():
-                    cb.on_status(f"Archives ready {counts[0]:,}/{len(needed):,} · Installed {counts[1]:,}/{len(needed):,}")
+                    if downloads_complete:
+                        progress("Reconstructing archives", counts[1], len(needed),
+                                 f"Installed {counts[1]:,}/{len(needed):,} archives")
+                    else:
+                        cb.on_status(f"{download_stage} · Ready {counts[0]:,}/{len(needed):,}")
+                def start_download_group(priority):
+                    nonlocal download_stage
+                    source = ("Google Drive", "other sources", "Nexus")[priority]
+                    download_stage = f"Downloading {source}"
+                    emit(cb.on_log, "install.download_group.started", source=source)
+                    update_status()
                 def ready(archive):
-                    cb.on_extract_queue(acquire.ids[archive.key], archive.name)
                     emit(cb.on_log, "install.archive.ready", archive=archive.name,
                          archive_hash=archive.key, row=acquire.ids[archive.key])
                     with count_lock:
                         counts[0] += 1
                         update_status()
-                        if counts[0] == len(needed):
-                            acquire.finish_progress()
+                def start_reconstruction():
+                    nonlocal downloads_complete
+                    acquire.finish_progress()
+                    downloads_complete = True
+                    update_status()
+                    for archive in needed:
+                        cb.on_extract_queue(acquire.ids[archive.key], archive.name)
+                    reconstruction.start_builds()
                 def install(archive, path):
                     archive_started = time.monotonic()
                     try:
@@ -202,6 +221,8 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                     with count_lock:
                         counts[1] += 1
                         update_status()
+                progress("Downloading archives", 0, len(needed),
+                         "Acquiring and verifying all required archives before reconstruction")
                 cb.on_agg_download(0, report.download_bytes, 0.0)
                 update_status()
                 def pipeline_error(item, exc):
@@ -217,7 +238,9 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                     on_error=pipeline_error, prefetch=acquire.prefetch,
                     manual_acquire=bind_verification(acquire.manual),
                     worker_limit=ctl.extract_workers, defer_large=False,
-                    is_large=lambda archive: archive.key in large_archives)
+                    is_large=lambda archive: archive.key in large_archives,
+                    download_first=True, on_downloads_complete=start_reconstruction,
+                    download_group=download_priority, on_download_group=start_download_group)
                 emit(cb.on_log, "install.pipeline.completed", errors=len(errors),
                      archives_ready=counts[0], archives_installed=counts[1],
                      stopped=ctl.stop.is_set(), paused=ctl.pause.is_set(),
