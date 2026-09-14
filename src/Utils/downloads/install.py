@@ -104,7 +104,8 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                      on_discard=None, on_error=None, prefetch=None, manual_acquire=None,
                      worker_limit=None, defer_large=True, max_large_install=2,
                      is_large=None, download_first=False, on_downloads_complete=None,
-                     download_group=None, on_download_group=None):
+                     download_group=None, on_download_group=None,
+                     interleave_groups=False, install_key=None):
     from Utils.downloads.scheduler import order_by_size, run_pipelined
     items, manual_items = tuple(items), tuple(manual_items)
     download_workers, install_workers = max(1, download_workers), max(1, install_workers)
@@ -119,8 +120,9 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
     groups = {}
     for lane, batch in enumerate((items, manual_items)):
         for item in batch:
-            group = download_group(item) if download_group else 0
+            group = download_group(item) if download_group and not interleave_groups else 0
             groups.setdefault(group, ([], []))[lane].append(item)
+    started_groups = set()
     automatic_done = threading.Event()
     admission = threading.Condition()
     active_large = 0
@@ -140,6 +142,8 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                 pass
 
     def queue_key(item):
+        if install_key is not None:
+            return install_key(item)
         try:
             size = max(0, int(item.size or 0))
         except (AttributeError, TypeError, ValueError):
@@ -177,6 +181,13 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
         handed_off = False
         queued = False
         try:
+            if interleave_groups and download_group is not None:
+                group = download_group(item)
+                with lock:
+                    first = group not in started_groups
+                    started_groups.add(group)
+                if first:
+                    notify(on_download_group, group)
             if manual and manual_acquire:
                 result = manual_acquire(item, reason)
             else:
@@ -290,7 +301,8 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                     run_pipelined(order_by_size(batch, lambda a: a.size), prefetch or (lambda _: None),
                                   producer, download_workers, stop=control.stop,
                                   link_workers=max(4, download_workers),
-                                  large_workers=2, size_key=lambda a: a.size)
+                                  large_workers=2, size_key=lambda a: a.size,
+                                  group_key=download_group if interleave_groups else None)
                 finally:
                     automatic_done.set()
             def manual():
@@ -309,7 +321,8 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                     automatic_done.clear()
                     for item in order_by_size(manual_batch, lambda a: a.size):
                         pending_manual.put((item, ""))
-                    notify(on_download_group, group)
+                    if not interleave_groups:
+                        notify(on_download_group, group)
                     futures = [producers.submit(automatic, automatic_items)]
                     if not pending_manual.empty() or manual_acquire:
                         futures.append(producers.submit(manual))

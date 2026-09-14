@@ -142,6 +142,7 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                 memory = ExtractionMemoryBudget(
                     max_workers=_MAX_EXTRACT_WORKERS_CEILING, max_large_workers=2)
                 reconstruction.extraction_memory = memory
+                priorities = reconstruction.archive_priorities()
                 large_archives = {
                     archive.key for archive in needed
                     if max(archive.size, sum(
@@ -154,10 +155,10 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                      automatic=len(automatic), manual=len(manual),
                      download_workers=settings["max_concurrent"],
                      large_download_workers=min(2, max(0, settings["max_concurrent"] - 1)),
-                     download_order="google-drive,other-sources,nexus",
+                     download_order="balanced-source-groups",
                      download_order_within_group="smallest-ready-first,largest-remaining",
                      extraction_workers=settings["max_extract_workers"],
-                     extraction_order="smallest-ready-first",
+                     extraction_order="dependencies-then-estimated-work",
                      extraction_queue_capacity=max(
                          settings["max_concurrent"] + _MAX_EXTRACT_WORKERS_CEILING + 8,
                          32, len(needed) + _MAX_EXTRACT_WORKERS_CEILING),
@@ -180,9 +181,7 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                     else:
                         cb.on_status(f"{download_stage} · Ready {counts[0]:,}/{len(needed):,}")
                 def start_download_group(priority):
-                    nonlocal download_stage
                     source = ("Google Drive", "other sources", "Nexus")[priority]
-                    download_stage = f"Downloading {source}"
                     emit(cb.on_log, "install.download_group.started", source=source)
                     update_status()
                 def ready(archive):
@@ -240,7 +239,8 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                     worker_limit=ctl.extract_workers, defer_large=False,
                     is_large=lambda archive: archive.key in large_archives,
                     download_first=True, on_downloads_complete=start_reconstruction,
-                    download_group=download_priority, on_download_group=start_download_group)
+                    download_group=download_priority, on_download_group=start_download_group,
+                    interleave_groups=True, install_key=lambda archive: priorities[archive.key])
                 emit(cb.on_log, "install.pipeline.completed", errors=len(errors),
                      archives_ready=counts[0], archives_installed=counts[1],
                      stopped=ctl.stop.is_set(), paused=ctl.pause.is_set(),

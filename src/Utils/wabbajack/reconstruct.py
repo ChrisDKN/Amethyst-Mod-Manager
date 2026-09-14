@@ -532,6 +532,22 @@ class Reconstruction:
         self._accept_reuse(d, found)
         return True
 
+    def archive_priorities(self):
+        dependencies = {path.casefold() for d in self.request.package.directives
+                        if d.kind in {"CreateBSA", "MergedPatch"}
+                        and d.path not in self.results and d.path not in self._skipped_dependencies
+                        for path in self._dependencies(d)}
+        priorities = {}
+        for key, directives in self.by_archive.items():
+            pending = [d for d in directives if d.path not in self.results
+                       and d.path not in self._skipped_dependencies]
+            work = sum(d.output_size + 256 * 1024 +
+                       (1024 * 1024 if d.kind == "PatchedFromArchive" else 0) for d in pending)
+            work += self.request.package.archives[key].size
+            critical = any(d.path.casefold() in dependencies for d in pending)
+            priorities[key] = (0 if critical else 1, -work)
+        return priorities
+
     def _find_reusable(self, d, completed=None):
         def verified(path, expected):
             try:
