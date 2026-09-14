@@ -290,7 +290,7 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                     run_pipelined(order_by_size(batch, lambda a: a.size), prefetch or (lambda _: None),
                                   producer, download_workers, stop=control.stop,
                                   link_workers=max(4, download_workers),
-                                  large_workers=0, strict_order=True)
+                                  large_workers=2, size_key=lambda a: a.size)
                 finally:
                     automatic_done.set()
             def manual():

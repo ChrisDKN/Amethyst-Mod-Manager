@@ -29,6 +29,7 @@ import json
 import queue as _queue
 import re
 import threading
+from collections import deque
 from pathlib import Path
 
 from Utils.collections.reset import (
@@ -1020,10 +1021,10 @@ def run_collection_install(
         if getattr(m, "file_id", None) not in _to_download_fids)
     _per_mod_prev: dict[int, int] = {}
 
-    # Aggregate-download speed state (replaces the Tk after()-timer poll).
     import time as _time_mod
-    _agg_state = {"prev_bytes": 0, "prev_time": _time_mod.monotonic(), "speed": 0.0,
-                  "last_emit": 0.0}
+    _SPEED_WINDOW = 3.0
+    _agg_state = {"network_bytes": 0, "last_network": None,
+                  "samples": deque([(_time_mod.monotonic(), 0)])}
     # Progress-emit throttle: NexusDownloader calls progress_cb per read (~every
     # few KB). Emitting a Signal per chunk (×N concurrent downloads) floods the Qt
     # event loop and the X server's shared-memory backing store → the desktop can
@@ -1102,21 +1103,29 @@ def run_collection_install(
     def _enqueue_done() -> None:
         _install_queue.put((2, 0, _iq_next_seq(), _DONE_SENTINEL))
 
-    def _agg_push(force: bool = False):
-        now = _time_mod.monotonic()
-        # Throttle emissions to ~10/sec (speed is still averaged over 0.5s).
-        if not force and now - _agg_state["last_emit"] < _EMIT_INTERVAL:
-            return
-        _agg_state["last_emit"] = now
+    def _agg_push():
         with _dl_lock:
+            now = _time_mod.monotonic()
             agg = _dl_bytes_done
             total = _total_bytes
-        dt = now - _agg_state["prev_time"]
-        if dt >= 0.5:
-            _agg_state["speed"] = (agg - _agg_state["prev_bytes"]) / dt
-            _agg_state["prev_bytes"] = agg
-            _agg_state["prev_time"] = now
-        cb.on_agg_download(agg, total, _agg_state["speed"] / (1024 * 1024))
+            network_bytes = _agg_state["network_bytes"]
+            samples = _agg_state["samples"]
+            samples.append((now, network_bytes))
+            if (_agg_state["last_network"] is None
+                    or now - _agg_state["last_network"] >= _SPEED_WINDOW):
+                samples.clear()
+                samples.append((now, network_bytes))
+                speed = 0.0
+            else:
+                while len(samples) > 1 and samples[1][0] <= now - _SPEED_WINDOW:
+                    samples.popleft()
+                started, initial = samples[0]
+                speed = (network_bytes - initial) / max(now - started, 0.1)
+        cb.on_agg_download(agg, total, speed / (1024 * 1024))
+
+    def _aggregate_loop():
+        while not _dl_finished.wait(_EMIT_INTERVAL):
+            _agg_push()
 
     def _effective_mod_domain(mod) -> str:
         """Per-mod domain, then collection.json recovery, then collection."""
@@ -1277,13 +1286,16 @@ def run_collection_install(
             _enqueue_install(mod, None, mod_domain)
             return
 
-        def _progress_cb(cur, tot, _fid=mod.file_id, _mod=mod):
+        def _progress_cb(cur, tot, _fid=mod.file_id, _mod=mod, *, network=True):
             nonlocal _dl_bytes_done, _total_bytes
             with _dl_lock:
                 prev = _per_mod_prev.get(_fid, 0)
                 delta = max(cur - prev, 0)
                 _per_mod_prev[_fid] = cur
                 _dl_bytes_done += delta
+                if network and delta > 0:
+                    _agg_state["network_bytes"] += delta
+                    _agg_state["last_network"] = _time_mod.monotonic()
                 is_first = prev == 0 and cur > 0
                 # A mod's declared size is often unknown (0) or an estimate; the
                 # real content-length (`tot`) or bytes seen so far may exceed it.
@@ -1304,7 +1316,6 @@ def run_collection_install(
             if is_first or _complete or _now - _dl_last_emit.get(_fid, 0.0) >= _EMIT_INTERVAL:
                 _dl_last_emit[_fid] = _now
                 cb.on_dl_mod_update(_fid, cur, tot)
-            _agg_push(force=is_first)
 
         result = None
         effective_domain = mod_domain
@@ -1348,7 +1359,7 @@ def run_collection_install(
         mod_size = getattr(mod, "size_bytes", 0) or 0
         try:
             if mod_size > 0 and _per_mod_prev.get(mod.file_id, 0) == 0:
-                _progress_cb(mod_size, mod_size)
+                _progress_cb(mod_size, mod_size, network=False)
         except Exception as exc:
             log(f"Collection install: progress callback failed for "
                 f"'{mod.mod_name}': {exc}")
@@ -1791,24 +1802,18 @@ def run_collection_install(
                                    m.file_id, len(schema_mods))))
             _manual_produce(to_download)
         else:
-            # Two-stage pipeline: a link-fetch pool mints signed CDN links (and
-            # does the cached-archive scan) AHEAD of the download workers so a
-            # worker finishing a tiny archive finds the next link already waiting
-            # and starts transferring with zero link-fetch latency. This keeps
-            # all _DL_WORKERS slots continuously saturated instead of stuttering
-            # in bursts of _DL_WORKERS between synchronized get_download_links
-            # round-trips. Cached mods cost no link request; other links are
-            # fetched only a bounded distance ahead.
-            #
-            # Match link prefetch width to download width so tiny archives do not
-            # leave transfer workers waiting between files. Prefetch stays
-            # concurrent, but results are handed to download workers in size
-            # order even if later link requests finish first.
-            run_pipelined(_to_download_sorted, _fetch_link_one, _download_one,
-                          _DL_WORKERS, link_workers=max(4, _DL_WORKERS),
-                          large_workers=0, strict_order=True,
-                          stop=_col_stop,
-                          worker_done=downloader.close_worker_session)
+            _aggregate_thread = threading.Thread(
+                target=_aggregate_loop, name="col-speed", daemon=True)
+            _aggregate_thread.start()
+            try:
+                run_pipelined(_to_download_sorted, _fetch_link_one, _download_one,
+                              _DL_WORKERS, link_workers=max(4, _DL_WORKERS),
+                              large_workers=2, size_key=_expected_size,
+                              stop=_col_stop,
+                              worker_done=downloader.close_worker_session)
+            finally:
+                _dl_finished.set()
+                _aggregate_thread.join()
 
         _dl_finished.set()
         if not manual_mode:

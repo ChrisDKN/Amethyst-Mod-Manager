@@ -1,19 +1,4 @@
-"""Double-ended download dispatch for collection installs (toolkit-neutral).
-
-Problem: with N equal download workers all pulling from one size-sorted list,
-many tiny archives finish faster than the Nexus API can hand out the next CDN
-link, so the queue stutters and bandwidth sits idle until a big mod happens to
-land in a slot.
-
-Fix: dedicate ONE worker to the largest-remaining mods (it stays busy on long
-transfers that keep the pipe full) and let the other workers burn through the
-smallest-remaining mods from the other end. They converge in the middle, so
-every mod is dispatched exactly once and the link-fetch latency of the small
-mods is hidden behind the big worker's ongoing transfer.
-
-This module only owns the *dispatch order*; the actual per-mod work (link
-fetch, download, hand-off to the install queue) is the caller's `work` fn.
-"""
+"""Bounded download dispatch with small-first and large-first lanes."""
 
 from __future__ import annotations
 
@@ -119,6 +104,7 @@ def run_pipelined(mods: list, fetch: Callable[[object], Any],
                   large_workers: int = 1,
                   large_download: "Callable[[object, Any], None] | None" = None,
                   strict_order: bool = False,
+                  size_key: "Callable[[object], int] | None" = None,
                   stop: "threading.Event | None" = None,
                   worker_done: "Callable[[], None] | None" = None,
                   spawn: Callable[[Callable, str], object] | None = None
@@ -151,6 +137,7 @@ def run_pipelined(mods: list, fetch: Callable[[object], Any],
     *large_download* - optional callback for items downloaded by those lanes.
     *strict_order* - publish prefetched items to each download lane in claim
                     order, even when concurrent link fetches finish out of order.
+    *size_key*    - identify unknown sizes at the end, claimed after known sizes.
     *stop*        - optional cancel event; when set, both stages drain the
                     remainder (feeding *download* with ``links=None``) so every
                     mod is still handed off once and the caller short-circuits.
@@ -174,15 +161,20 @@ def run_pipelined(mods: list, fetch: Callable[[object], Any],
     small_workers = dl_workers - large_workers
 
     lock = threading.Lock()
-    cursor = {"lo": 0, "hi": n - 1}
+    known_end = (next((i for i, mod in enumerate(mods) if size_key(mod) <= 0), n)
+                 if size_key is not None else n)
+    cursor = {"lo": 0, "hi": known_end - 1, "unknown": known_end}
     claim_sequence = {False: 0, True: 0}
     _READY_DONE = object()
 
     def _claim(from_tail: bool):
         with lock:
             if cursor["lo"] > cursor["hi"]:
-                return None, True, -1
-            if from_tail:
+                if cursor["unknown"] >= n:
+                    return None, True, -1
+                mod = mods[cursor["unknown"]]
+                cursor["unknown"] += 1
+            elif from_tail:
                 mod = mods[cursor["hi"]]
                 cursor["hi"] -= 1
             else:

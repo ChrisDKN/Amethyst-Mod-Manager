@@ -153,9 +153,9 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                      archive_budget_bytes=report.archive_budget_bytes,
                      automatic=len(automatic), manual=len(manual),
                      download_workers=settings["max_concurrent"],
-                     large_download_workers=0,
+                     large_download_workers=min(2, max(0, settings["max_concurrent"] - 1)),
                      download_order="google-drive,other-sources,nexus",
-                     download_order_within_group="smallest-first",
+                     download_order_within_group="smallest-ready-first,largest-remaining",
                      extraction_workers=settings["max_extract_workers"],
                      extraction_order="smallest-ready-first",
                      extraction_queue_capacity=max(

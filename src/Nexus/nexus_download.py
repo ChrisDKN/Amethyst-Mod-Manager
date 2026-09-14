@@ -1003,6 +1003,8 @@ class NexusDownloader:
             completed = False
             try:
                 with fh:
+                    if progress_cb:
+                        progress_cb(0, total)
                     for chunk in resp.iter_content(_CHUNK_SIZE):
                         if cancel and cancel.is_set():
                             raise DownloadCancelled()
