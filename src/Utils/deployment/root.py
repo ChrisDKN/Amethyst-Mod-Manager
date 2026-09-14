@@ -240,11 +240,14 @@ def deploy_root_folder(
         _actual, err = _do_link_ex(str(src), str(dst), mode)
         return rel_posix, err
 
-    for rel_posix, err in _iter_map_batched(_do_root, tasks):
+    for rel_posix, err in _iter_map_batched(
+            _do_root, tasks, stop_on=lambda result: result[1] is not None):
         if err is None:
             placed.append(rel_posix)
         else:
-            _log(f"  WARN: could not transfer root file {rel_posix}: {err}")
+            _log(f"  ERROR: could not transfer root file {rel_posix}: "
+                 f"{err} - aborting deploy.")
+            raise err
 
     # Re-write the log with what actually landed.
     _write_log(placed)
@@ -409,11 +412,14 @@ def deploy_root_flagged_mods(
         _actual, err = _do_link_ex(str(src), str(dst), mode)
         return rel_posix, err
 
-    for rel_posix, err in _iter_map_batched(_do_flagged, tasks):
+    for rel_posix, err in _iter_map_batched(
+            _do_flagged, tasks, stop_on=lambda result: result[1] is not None):
         if err is None:
             placed.append(rel_posix)
         else:
-            _log(f"  WARN: could not transfer root-flagged file {rel_posix}: {err}")
+            _log(f"  ERROR: could not transfer root-flagged file "
+                 f"{rel_posix}: {err} - aborting deploy.")
+            raise err
 
     # Re-write the log with what actually landed.
     _write_log(placed)
