@@ -10197,8 +10197,8 @@ Clique em Concluído para fechar.</translation>
       <translation>Este mod faz parte de uma coleção</translation>
     </message>
     <message>
-      <source>This mod has diff patches applied by the collection install</source>
-      <translation>Este mod tem patches de diff aplicados pela instalação da coleção</translation>
+      <source>This mod has diff patches applied during a collection or Wabbajack install</source>
+      <translation>Este mod tem patches de diff aplicados durante uma coleção ou instalação do Wabbajack</translation>
     </message>
     <message>
       <source>Modified in Mod Files tab</source>
