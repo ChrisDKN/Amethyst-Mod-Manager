@@ -19,6 +19,7 @@ from contextlib import contextmanager, nullcontext
 from pathlib import Path
 
 from Utils.atomic_write import atomic_writer
+from Utils.archives.process import failure_message
 from .archive_build import rebuild_archive
 from .archive_io import utf8_chunks
 from .hashes import XXHash, canonical_hash, file_hash
@@ -231,7 +232,7 @@ def _archive_member_path(value, *, directory=False, size=0):
 
 def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=None,
                  *, members=None, resources=None, cache_hashes=False):
-    from .extraction import working_memory, zip_memory, extract_selected, finish_extraction
+    from .extraction import working_memory, zip_memory, extract_selected, finish_extraction, ExtractionFailure
     started = time.monotonic()
     def reserve_budget(total):
         if budget:
@@ -360,13 +361,16 @@ def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=N
     tool = next((shutil.which(n) for n in ("7zzs", "7zz", "7z", "7za") if shutil.which(n)), None)
     if not tool:
         raise WabbajackError("7-Zip is required to inspect and extract this archive")
-    result = subprocess.run([tool, "l", "-slt", "-ba", "--", str(archive)],
-                            capture_output=True, text=True, timeout=120)
+    result = subprocess.run([tool, "l", "-slt", "-ba", "-sccUTF-8", "--", str(archive)],
+                            stdin=subprocess.DEVNULL, capture_output=True,
+                            encoding="utf-8", errors="replace", timeout=120)
     emit(log, "extract.7zip.inspect", archive=archive, tool=tool,
          exit_code=result.returncode, stdout_tail=result.stdout[-2000:],
          stderr_tail=result.stderr[-2000:])
     if result.returncode:
-        raise WabbajackError(f"Cannot inspect archive: {archive.name}: {result.stderr[:300]}")
+        detail = failure_message(tool, result.returncode,
+                                 result.stdout[-2000:] + result.stderr[-2000:])
+        raise WabbajackError(f"Cannot inspect archive: {archive.name}: {detail}")
     entries, entry = [], {}
     for line in result.stdout.splitlines():
         key, sep, value = line.partition(" = ")
@@ -383,6 +387,8 @@ def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=N
         entries.append(entry)
     validated = []
     for entry in entries:
+        if entry.get("Encrypted") == "+":
+            raise WabbajackError(f"Password-protected source archive is unsupported: {archive.name}")
         if "Path" not in entry:
             continue
         size = int(entry.get("Size") or "0")
@@ -422,7 +428,8 @@ def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=N
                                         finalize=lambda folder: finish_extraction(folder, stop, log)):
                     raise WabbajackError(f"Extraction failed: {archive.name}: {'; '.join(errors)}")
     except WabbajackError as exc:
-        if not selective or stop.is_set():
+        if (not selective or stop.is_set()
+                or isinstance(exc, ExtractionFailure) and not exc.retryable):
             raise
         emit(log, "extract.selection.fallback", archive=archive, exception=str(exc))
         shutil.rmtree(target)

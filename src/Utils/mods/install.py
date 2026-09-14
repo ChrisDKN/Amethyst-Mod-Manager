@@ -20,7 +20,6 @@ from __future__ import annotations
 import os
 import re
 import shutil
-import subprocess
 import tarfile
 import tempfile
 import threading
@@ -29,6 +28,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from Utils.archives.budget import ArchiveProbe, probe_archive
+from Utils.archives.process import failure_kind, run_extractor as _run_extractor_cancellable
 from Utils.downloads.core import record_download_install
 
 LogFn = Callable[[str], None]
@@ -1055,6 +1055,39 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
         if error_sink is not None:
             error_sink.append(str(err))
 
+    destination = Path(dest_dir)
+    try:
+        if destination.is_symlink():
+            raise UnsafeInstallPath("Extraction destination is a symbolic link")
+        destination.mkdir(parents=True, exist_ok=True)
+        if any(destination.iterdir()):
+            raise UnsafeInstallPath("Extraction requires an empty temporary directory")
+    except (OSError, UnsafeInstallPath) as exc:
+        _note(exc)
+        log_fn(f"Extraction rejected: {exc}")
+        return False
+
+    def _cancelled() -> bool:
+        return cancel is not None and cancel.is_set()
+
+    def _retry(error, code=None, tool="") -> bool:
+        if (_cancelled() or failure_kind(error, code, tool) != "archive"
+                or isinstance(error, (UnsafeInstallPath, tarfile.FilterError))):
+            log_fn("Extraction stopped; another backend cannot resolve this failure.")
+            return False
+        try:
+            shutil.rmtree(dest_dir)
+            destination.mkdir()
+        except OSError as exc:
+            _note(exc)
+            log_fn(f"Cannot clear partial extraction: {exc}")
+            return False
+        log_fn("Retrying extraction with a clean temporary directory.")
+        return True
+
+    if _cancelled():
+        return False
+
     small_zip = False
     try:
         if zipfile.is_zipfile(archive_path):
@@ -1081,7 +1114,8 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
         except Exception as exc:
             _note(exc)
             log_fn(f"tarfile failed ({exc}).")
-            # fall through to the generic extractors
+            if not _retry(exc):
+                return False
 
     def _ok() -> bool:
         if finalize is not None:
@@ -1103,9 +1137,6 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
         # the index (rebuild_mod_index drops any mod with a non-UTF-8 filename).
         _fix_nonutf8_names_extracted_tree(dest_dir, log_fn)
         return True
-
-    def _cancelled() -> bool:
-        return cancel is not None and cancel.is_set()
 
     if _cancelled():
         return False
@@ -1146,12 +1177,8 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
             return _ok()
         except Exception as exc:
             _note(exc)
-            log_fn(f"Small ZIP extraction failed ({exc}), trying compatibility extractors…")
-            try:
-                shutil.rmtree(dest_dir)
-                os.makedirs(dest_dir, exist_ok=True)
-            except OSError as cleanup_exc:
-                _note(cleanup_exc)
+            log_fn(f"Small ZIP extraction failed ({exc}).")
+            if not _retry(exc):
                 return False
 
     # Extraction resource limits (Settings ▸ Downloads & Collections). Read per
@@ -1172,7 +1199,8 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
            or shutil.which("7z") or shutil.which("7za"))
     if _7z:
         rc, err, killed = _run_extractor_cancellable(
-            [_7z, "x", archive_path, f"-o{dest_dir}", "-y", _mmt, "-bsp1"],
+            [_7z, "x", f"-o{dest_dir}", "-y", _mmt, "-bsp1", "-sccUTF-8",
+             "--", archive_path],
             cancel, progress_cb=progress_cb, low_priority=_low_prio)
         if killed:
             log_fn("Extraction cancelled (7z terminated).")
@@ -1181,7 +1209,9 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
             log_fn("Extracted with 7z.")
             return _ok()
         _note(err)
-        log_fn(f"7z failed ({err.strip()}), trying bsdtar…")
+        log_fn(f"7z failed ({err.strip()}).")
+        if not _retry(err, rc, _7z):
+            return False
     if _cancelled():
         return False
     if shutil.which("bsdtar"):
@@ -1195,7 +1225,9 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
             log_fn("Extracted with bsdtar.")
             return _ok()
         _note(err)
-        log_fn(f"bsdtar failed ({err.strip()}), trying py7zr…")
+        log_fn(f"bsdtar failed ({err.strip()}).")
+        if not _retry(err, rc, "bsdtar"):
+            return False
     if _cancelled():
         return False
     try:
@@ -1206,7 +1238,9 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
         return _ok()
     except Exception as exc:
         _note(exc)
-        log_fn(f"py7zr failed ({exc}), trying zipfile…")
+        log_fn(f"py7zr failed ({exc}).")
+        if not _retry(exc):
+            return False
     if _cancelled():
         return False
     try:
@@ -1219,96 +1253,6 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
         _note(exc)
         log_fn(f"zipfile failed ({exc}).")
     return False
-
-
-def _run_extractor_cancellable(cmd: list, cancel,
-                               progress_cb=None,
-                               low_priority=False) -> "tuple[int, str, bool]":
-    """Run *cmd* (7z/bsdtar), polling *cancel* so a pause/cancel kills the
-    extractor promptly instead of waiting for it to finish. Returns
-    ``(returncode, stderr, killed)`` - *killed* is True if we terminated it on a
-    cancel request. When *cancel* is None this behaves like a blocking run.
-
-    *progress_cb* - optional ``cb(percent)``; when given, stdout is kept (7z is
-    invoked with ``-bsp1``) and scanned for percent updates. 7z redraws its
-    progress line in place with backspaces rather than newlines, so the scan is
-    a regex over raw chunks, not line reads. Both pipes are drained on
-    background threads - waiting for the process first and reading after would
-    deadlock once a pipe buffer fills.
-
-    *low_priority* - run the extractor at low CPU and disk priority so it
-    yields to foreground applications. CPU niceness is set post-spawn with
-    ``os.setpriority`` (a ``preexec_fn`` is unsafe in this heavily-threaded
-    process); disk priority via an ``ionice`` prefix when available - ionice
-    exec()s the target without forking, so the PID (and thus terminate/renice)
-    still reaches the extractor itself."""
-    if low_priority and shutil.which("ionice"):
-        # best-effort class 2 (lowest level) rather than idle class 3, which
-        # can starve the extraction outright under sustained foreground I/O
-        cmd = ["ionice", "-c2", "-n7"] + list(cmd)
-    proc = subprocess.Popen(
-        cmd,
-        stdout=subprocess.PIPE if progress_cb is not None else subprocess.DEVNULL,
-        stderr=subprocess.PIPE)
-    if low_priority:
-        try:
-            os.setpriority(os.PRIO_PROCESS, proc.pid, 19)
-        except (OSError, AttributeError):
-            pass
-    err_parts: "list[bytes]" = []
-
-    def _drain_stderr():
-        err_parts.append(proc.stderr.read() or b"")
-
-    def _scan_stdout():
-        pct_re = re.compile(rb"(\d{1,3})%")
-        last = -1
-        tail = b""
-        while True:
-            chunk = proc.stdout.read1(4096)
-            if not chunk:
-                break
-            hits = pct_re.findall(tail + chunk)
-            # keep a few trailing bytes so a percent split across chunks
-            # ("4" | "7%") still matches next round
-            tail = chunk[-8:]
-            if hits:
-                pct = min(100, int(hits[-1]))
-                if pct != last:
-                    last = pct
-                    try:
-                        progress_cb(pct)
-                    except Exception:
-                        pass
-
-    readers = [threading.Thread(target=_drain_stderr, daemon=True)]
-    if progress_cb is not None:
-        readers.append(threading.Thread(target=_scan_stdout, daemon=True))
-    for t in readers:
-        t.start()
-
-    killed = False
-    while True:
-        try:
-            proc.wait(timeout=0.25 if cancel is not None else None)
-            break
-        except subprocess.TimeoutExpired:
-            if cancel.is_set():
-                proc.terminate()
-                try:
-                    proc.wait(timeout=3)
-                except subprocess.TimeoutExpired:
-                    proc.kill()
-                    try:
-                        proc.wait(timeout=3)
-                    except subprocess.TimeoutExpired:
-                        pass
-                killed = True
-                break
-    for t in readers:
-        t.join(timeout=5)
-    err = b"".join(err_parts).decode("utf-8", "replace")
-    return (proc.returncode if proc.returncode is not None else -1, err, killed)
 
 
 # ---------------------------------------------------------------- root detection

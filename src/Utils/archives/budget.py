@@ -85,9 +85,10 @@ def _probe_archive_cached(path: str, compressed_size: int, file_size: int,
             try:
                 import subprocess
                 result = subprocess.run(
-                    [binary, "l", "-slt", path],
+                    [binary, "l", "-slt", "-sccUTF-8", "--", path],
+                    stdin=subprocess.DEVNULL,
                     stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                    text=True, timeout=30,
+                    encoding="utf-8", errors="replace", timeout=30,
                 )
                 if result.returncode == 0:
                     members_inspected = True
