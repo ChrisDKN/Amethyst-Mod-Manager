@@ -277,6 +277,23 @@ class InstallWork:
         self.resources, self.row, self.stop = resources, row, stop
         self.name, self.on_wait = name, on_wait
         self.timings = {}
+        self.inventories = {}
+
+    @staticmethod
+    def directory_stamp(path):
+        info = path.stat()
+        return info.st_dev, info.st_ino, info.st_mtime_ns, info.st_ctime_ns
+
+    def files(self, root):
+        for base, (files, directories) in self.inventories.items():
+            if root.is_relative_to(base):
+                try:
+                    if any(self.directory_stamp(path) != stamp for path, stamp in directories):
+                        return None
+                except OSError:
+                    return None
+                return [path for path in files if path.is_relative_to(root)]
+        return None
 
     @contextmanager
     def phase(self, phase, **fields):

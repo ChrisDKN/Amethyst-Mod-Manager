@@ -426,8 +426,10 @@ def resolve_direct_files(extract_dir: str) -> list[tuple[str, str, bool]]:
     ConfigParser read of it (``read_meta`` etc.)."""
     result: list[tuple[str, str, bool]] = []
     root = Path(extract_dir)
-    for entry in root.rglob("*"):
-        if entry.is_file():
+    work = current_work()
+    cached = work.files(root) if work is not None else None
+    for entry in root.rglob("*") if cached is None else cached:
+        if cached is not None or entry.is_file():
             rel = str(entry.relative_to(root))
             parts = rel.replace("\\", "/").split("/")
             first = parts[0]
@@ -896,7 +898,7 @@ def _extract_with_disk_retry(archive_path: str, staging_root: Path,
 
 
 # ---------------------------------------------------------------- extraction
-def _debackslash_extracted_tree(extract_dir: str, log_fn: LogFn) -> int:
+def _debackslash_extracted_tree(extract_dir: str, log_fn: LogFn, *, entries=None) -> int:
     """Repair an extraction that kept Windows backslash path separators.
 
     Some ZIPs (commonly packed by PowerShell's ``Compress-Archive``, or Nexus
@@ -916,7 +918,7 @@ def _debackslash_extracted_tree(extract_dir: str, log_fn: LogFn) -> int:
     # Collect first so we don't mutate the tree mid-walk. Deepest paths first so
     # files move before we try to clean up their (now-empty) flat parents.
     try:
-        offenders = [p for p in root.rglob("*") if "\\" in p.name]
+        offenders = [p for p in (root.rglob("*") if entries is None else entries) if "\\" in p.name]
     except OSError:
         return 0
     if not offenders:
@@ -1048,6 +1050,53 @@ def _fix_nonutf8_names_extracted_tree(extract_dir: str, log_fn: LogFn) -> int:
     return repair_nonutf8_names(extract_dir, log_fn=log_fn)
 
 
+
+@time_phase("normalization")
+def _normalise_extracted_tree(extract_dir, log_fn):
+    import stat
+    from Utils.filegraph.paths import is_utf8_safe, repair_nonutf8_names
+    work = current_work()
+    root = Path(extract_dir)
+    fixed = 0
+    def scan():
+        nonlocal fixed
+        pending, entries, files, directories = [root], [], [], []
+        while pending:
+            if work is not None and work.stop.is_set():
+                raise InterruptedError("Extraction normalization stopped")
+            parent = pending.pop()
+            mode = parent.stat().st_mode
+            if mode & 0o700 != 0o700:
+                parent.chmod(stat.S_IMODE(mode) | 0o700)
+                fixed += 1
+            directories.append((parent, work.directory_stamp(parent) if work is not None else None))
+            with os.scandir(parent) as iterator:
+                for entry in iterator:
+                    path = Path(entry.path)
+                    info = entry.stat(follow_symlinks=False)
+                    entries.append(path)
+                    if stat.S_ISDIR(info.st_mode):
+                        pending.append(path)
+                    elif stat.S_ISREG(info.st_mode):
+                        if info.st_mode & 0o600 != 0o600:
+                            path.chmod(stat.S_IMODE(info.st_mode) | 0o600)
+                            fixed += 1
+                        files.append(path)
+                    elif entry.is_file():
+                        files.append(path)
+        return entries, files, directories
+    entries, files, directories = scan()
+    if any("\\" in path.name for path in entries):
+        _debackslash_extracted_tree(extract_dir, log_fn, entries=entries)
+        entries, files, directories = scan()
+    if any(not is_utf8_safe(path.name) for path in entries):
+        if repair_nonutf8_names(root, log_fn=log_fn, entries=entries):
+            entries, files, directories = scan()
+    if fixed:
+        log_fn(f"Repaired unreadable permissions on {fixed} extracted entries.")
+    if work is not None:
+        work.inventories[root] = files, directories
+
 def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
                      cancel=None, error_sink: "list[str] | None" = None,
                      progress_cb: "Callable[[int], None] | None" = None,
@@ -1141,21 +1190,12 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
         if finalize is not None:
             finalize(dest_dir)
             return True
-        # Archives can carry a mode-000 Unix attribute; clear it FIRST or the
-        # repair sweeps below (and staging) can't even read the tree.
-        _fix_perms_extracted_tree(dest_dir, log_fn)
-        # Native extractors (7z/bsdtar) and Python zipfile reproduce Windows
-        # backslash member names as literal flat filenames; repair them into a
-        # real tree so staging can resolve the paths (fixes "nothing staged").
         try:
-            _debackslash_extracted_tree(dest_dir, log_fn)
+            _normalise_extracted_tree(dest_dir, log_fn)
         except UnsafeInstallPath as exc:
             _note(exc)
             log_fn(f"Unsafe archive path rejected ({exc}).")
             return False
-        # Repair non-UTF-8 (legacy code page) names so the mod isn't skipped by
-        # the index (rebuild_mod_index drops any mod with a non-UTF-8 filename).
-        _fix_nonutf8_names_extracted_tree(dest_dir, log_fn)
         return True
 
     if _cancelled():
