@@ -10202,8 +10202,8 @@ Klicken Sie auf Fertig zum Schließen.</translation>
       <translation>Dieser Mod ist ein Collection Bundle Mod</translation>
     </message>
     <message>
-      <source>This mod has diff patches applied by the collection install</source>
-      <translation>Dieser Mod hat Diff-Patches, die von der Collection Install angewendet werden</translation>
+      <source>This mod has diff patches applied during a collection or Wabbajack install</source>
+      <translation>Dieses Mod hat Diff-Patches während einer Sammlung oder Wabbajack Installation angewendet</translation>
     </message>
     <message>
       <source>Modified in Mod Files tab</source>
