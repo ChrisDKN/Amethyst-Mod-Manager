@@ -10202,8 +10202,8 @@ Haga clic en Hecho para cerrar.</translation>
       <translation>Este mod es un mod de colección</translation>
     </message>
     <message>
-      <source>This mod has diff patches applied by the collection install</source>
-      <translation>Este mod tiene parches diff aplicados por la instalación de la colección</translation>
+      <source>This mod has diff patches applied during a collection or Wabbajack install</source>
+      <translation>Este mod tiene parches de diferencias aplicados durante una colección o instalación de Wabbajack</translation>
     </message>
     <message>
       <source>Modified in Mod Files tab</source>

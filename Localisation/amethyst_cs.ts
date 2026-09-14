@@ -10202,8 +10202,8 @@ Klepněte na tlačítko Hotovo pro uzavření.</translation>
       <translation>Toto mod je kolekce svázané mod</translation>
     </message>
     <message>
-      <source>This mod has diff patches applied by the collection install</source>
-      <translation>Tento mod má různé záplaty aplikované sběrnou instalací</translation>
+      <source>This mod has diff patches applied during a collection or Wabbajack install</source>
+      <translation>Tento mod má rozdílové záplaty aplikované při instalaci kolekce nebo Wabbajack</translation>
     </message>
     <message>
       <source>Modified in Mod Files tab</source>

@@ -10202,8 +10202,8 @@ Click Done to close.</source>
       <translation>Этот мод представляет собой набор модов</translation>
     </message>
     <message>
-      <source>This mod has diff patches applied by the collection install</source>
-      <translation>Этот мод имеет дифф-патчи, применяемые установкой коллекции</translation>
+      <source>This mod has diff patches applied during a collection or Wabbajack install</source>
+      <translation>Этот мод имеет diff патчи, применяемые во время установки коллекции или Wabbajack</translation>
     </message>
     <message>
       <source>Modified in Mod Files tab</source>

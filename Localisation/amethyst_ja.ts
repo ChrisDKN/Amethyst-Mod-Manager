@@ -10202,8 +10202,8 @@ Done をクリックして閉じます.</translation>
       <translation>このMODはコレクションのバンドルされたMODです</translation>
     </message>
     <message>
-      <source>This mod has diff patches applied by the collection install</source>
-      <translation>このmod はコレクションの取付けによって加えられた diff のパッチがあります</translation>
+      <source>This mod has diff patches applied during a collection or Wabbajack install</source>
+      <translation>この mod にはコレクションまたは Wabbajack インストール時に適用される差分パッチがあります</translation>
     </message>
     <message>
       <source>Modified in Mod Files tab</source>

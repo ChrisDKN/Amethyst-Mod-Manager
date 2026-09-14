@@ -10202,8 +10202,8 @@ Cliquez sur Terminé pour fermer.</translation>
       <translation>Ce mod est une collection groupée mod</translation>
     </message>
     <message>
-      <source>This mod has diff patches applied by the collection install</source>
-      <translation>Ce mod a des correctifs diff appliqués par l'installation de la collection</translation>
+      <source>This mod has diff patches applied during a collection or Wabbajack install</source>
+      <translation>Ce mod a des correctifs de diff appliqués pendant une collection ou l'installation de Wabbajack</translation>
     </message>
     <message>
       <source>Modified in Mod Files tab</source>

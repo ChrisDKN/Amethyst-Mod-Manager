@@ -10200,8 +10200,8 @@ Click Done to close.</source>
       <translation>这个mod是收藏捆绑的mod</translation>
     </message>
     <message>
-      <source>This mod has diff patches applied by the collection install</source>
-      <translation>此 Mod 有收藏安装应用的 diff 补丁</translation>
+      <source>This mod has diff patches applied during a collection or Wabbajack install</source>
+      <translation>这个模组在收藏或 Wabbajack 安装过程中应用了diff 补丁</translation>
     </message>
     <message>
       <source>Modified in Mod Files tab</source>
