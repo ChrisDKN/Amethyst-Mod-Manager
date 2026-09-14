@@ -10202,8 +10202,8 @@ Klik op Gereed om te sluiten.</translation>
       <translation>Deze mod is een verzameling gebundeld mod</translation>
     </message>
     <message>
-      <source>This mod has diff patches applied by the collection install</source>
-      <translation>Deze mod heeft diff patches toegepast door de collectie installatie</translation>
+      <source>This mod has diff patches applied during a collection or Wabbajack install</source>
+      <translation>Deze mod heeft diff patches toegepast tijdens een collectie of Wabbajack installatie</translation>
     </message>
     <message>
       <source>Modified in Mod Files tab</source>
