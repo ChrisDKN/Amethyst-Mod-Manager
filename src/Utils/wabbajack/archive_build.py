@@ -57,8 +57,13 @@ def check_archive_state(state, files):
                 raise WabbajackError("Invalid texture dimensions")
             if not 1 <= int(item["NumMips"]) <= 15 or not 1 <= len(item["Chunks"]) <= 255:
                 raise WabbajackError("Invalid texture mip or chunk count")
-            if int(item.get("ChunkHdrLen", 24)) != 24 or int(item.get("TileMode", 0)) != 0:
-                raise WabbajackError("Unsupported texture chunk layout or tiled texture")
+            chunk_header_length = int(item.get("ChunkHdrLen", 24))
+            if chunk_header_length != 24:
+                raise WabbajackError(
+                    f"Unsupported texture chunk header length: {chunk_header_length}")
+            tile_mode = int(item.get("TileMode", 0))
+            if tile_mode not in {0, 8}:
+                raise WabbajackError(f"Unsupported texture tile mode: {tile_mode}")
             from Utils.ba2.writer import _mip_byte_size
             mip_sizes = [_mip_byte_size(max(1, int(item["Width"]) >> m),
                          max(1, int(item["Height"]) >> m), int(item["PixelFormat"]))

@@ -764,6 +764,7 @@ def _preflight(request, stop, notify, log=None):
     _emit_game_file_problems(package, ignored_game_file_problems, check,
                              request.gallery_metadata.get("readme", ""), ignored=True)
     notify("Checking reconstruction requirements")
+    archive_state_failures = {}
     for directive in package.directives:
         if directive.path not in required:
             continue
@@ -776,7 +777,14 @@ def _preflight(request, stop, notify, log=None):
             except (KeyError, ValueError) as exc:
                 emit_exception(log, "preflight.archive_state.failed", exc,
                                path=directive.path)
-                check("error", "Archive reconstruction", f"{directive.path}: {exc}")
+                archive_state_failures.setdefault(str(exc), []).append(directive.path)
+    for error, paths in archive_state_failures.items():
+        if len(paths) == 1:
+            check("error", "Archive reconstruction", f"{paths[0]}: {error}")
+        else:
+            check("error", "Archive reconstruction",
+                  f"{len(paths):,} archives have the same unsupported reconstruction metadata: {error}",
+                  paths)
     textures = [d for d in pending if d.kind == "TransformedTexture"]
     if textures:
         notify("Checking texture conversion")
