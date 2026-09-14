@@ -604,6 +604,7 @@ class Reconstruction:
         info = path.stat()
         if directive.deterministic and (actual != directive.output_hash or info.st_size != directive.output_size):
             raise WabbajackError(f"Output failed verification: {directive.path}")
+        self.store.remember_source(path, actual, info)
         if persist:
             self.store.record_completed(directive.path, sig, actual)
         with self._lock:
@@ -711,6 +712,8 @@ class Reconstruction:
         copied_outputs = 0
         patch_archive = None
         patch_metrics = Counter()
+        cleanup_seconds = sync_seconds = 0.0
+        scratch_cleaned = False
         last_patch_log = started
         emit(self.cb.on_log, "reconstruct.archive.started", archive=archive.name,
              kind=archive.kind, source=path, source_bytes=archive.size,
@@ -940,9 +943,20 @@ class Reconstruction:
                              path=d.path, elapsed_seconds=round(now - started, 3))
                         last_patch_log = now
             progress.finish()
+            cleanup_started = time.monotonic()
+            self.store.clean_scratch(scratch, (
+                Path(self.results[d.path]["source"]) for d in directives))
+            scratch_cleaned = True
+            cleanup_seconds = time.monotonic() - cleanup_started
+            emit(self.cb.on_log, "reconstruct.scratch.cleaned", archive=archive.name,
+                 target=scratch, elapsed_seconds=round(cleanup_seconds, 3))
             if durable:
+                sync_started = time.monotonic()
                 self.sync_archive_outputs(archive)
+                sync_seconds = time.monotonic() - sync_started
+            flush_started = time.monotonic()
             self.store.flush_completed()
+            flush_seconds = time.monotonic() - flush_started
             elapsed = time.monotonic() - started
             emit(self.cb.on_log, "reconstruct.archive.completed", archive=archive.name,
                  outputs=len(directives), extracted_sources=len(extracted),
@@ -972,9 +986,13 @@ class Reconstruction:
                  patch_source_hashes_reused=patch_metrics["source_hashes_reused"],
                  patch_output_hashes_reused=patch_metrics["outputs"],
                  patch_apply_seconds=round(patch_metrics["apply_seconds"], 3),
+                 scratch_cleanup_seconds=round(cleanup_seconds, 3),
+                 output_sync_seconds=round(sync_seconds, 3),
+                 completion_flush_seconds=round(flush_seconds, 3),
                  output_processing_seconds=round(max(
                      0.0, elapsed - source_extraction_seconds -
-                     planning_seconds - extraction_wait_seconds), 3),
+                     planning_seconds - extraction_wait_seconds - cleanup_seconds -
+                     sync_seconds - flush_seconds), 3),
                  elapsed_seconds=round(elapsed, 3))
             succeeded = True
         except BaseException as exc:
@@ -991,11 +1009,12 @@ class Reconstruction:
         finally:
             if patch_archive is not None:
                 patch_archive.close()
-            cleanup_started = time.monotonic()
-            shutil.rmtree(scratch, ignore_errors=True)
-            emit(self.cb.on_log, "reconstruct.scratch.cleaned",
-                 archive=archive.name, target=scratch,
-                 elapsed_seconds=round(time.monotonic() - cleanup_started, 3))
+            if not scratch_cleaned:
+                cleanup_started = time.monotonic()
+                shutil.rmtree(scratch, ignore_errors=True)
+                emit(self.cb.on_log, "reconstruct.scratch.cleaned",
+                     archive=archive.name, target=scratch,
+                     elapsed_seconds=round(time.monotonic() - cleanup_started, 3))
             with self._lock:
                 self._temporary_bytes -= reserved
                 self._space_changed.notify_all()
@@ -1008,7 +1027,9 @@ class Reconstruction:
         return extraction_wait_seconds
 
     def sync_archive_outputs(self, archive):
+        started = time.monotonic()
         directories = set()
+        sources = []
         for directive in self.by_archive.get(archive.key, ()):
             if directive.path in self._skipped_dependencies:
                 continue
@@ -1019,15 +1040,24 @@ class Reconstruction:
             stamp = self.store._stamp(path.stat())
             if stamp[:4] != row["source_stamp"]:
                 raise WabbajackError(f"Archive output changed before cleanup: {directive.path}")
-            self.store._sync_source(path, self.control.stop,
-                                    expected=stamp)
+            if self.store._current_hash(path, self.control.stop) != row["authored_hash"]:
+                raise WabbajackError(f"Archive output changed before cleanup: {directive.path}")
+            sources.append((path, stamp))
             parent = path.parent
             while parent.is_relative_to(self.store.work):
                 directories.add(parent)
                 parent = parent.parent
+        sync = self.store.sync_sources(sources, self.control.stop)
+        directory_started = time.monotonic()
         for path in sorted(directories, key=lambda path: len(path.parts), reverse=True):
+            if self.control.stop.is_set():
+                raise InterruptedError("Installation stopped")
             self.store._sync_directory(path)
         self.store._sync_directory(self.store.directory)
+        emit(self.cb.on_log, "reconstruct.outputs.synced", archive=archive.name,
+             **sync, directories=len(directories),
+             directory_sync_seconds=round(time.monotonic() - directory_started, 3),
+             total_seconds=round(time.monotonic() - started, 3))
 
     def _row(self, archive):
         return list(self.request.package.archives).index(archive.key) + 1

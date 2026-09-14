@@ -69,6 +69,9 @@ class Store:
         self._pending_completed = {}
         self._prepared_directories = {}
         self._verified = {}
+        self._proof_lock = threading.Lock()
+        self._synced = {}
+        self._sync_pool = None
         self._hash_metrics = Counter()
         self._linked_placements = 0
         self._copied_placements = 0
@@ -101,6 +104,8 @@ class Store:
              pending_journal=self.db.execute("SELECT COUNT(*) FROM journal").fetchone()[0])
 
     def close(self):
+        if self._sync_pool is not None:
+            self._sync_pool.shutdown(wait=True, cancel_futures=True)
         self.flush_completed()
         self.db.close()
         emit(self.log, "store.closed", directory=self.directory)
@@ -315,24 +320,101 @@ class Store:
 
     @staticmethod
     def _copy(source, target, stop=None, progress=None, *, sync_directory=True, sync_file=True,
-              prepare_parent=None):
+              prepare_parent=None, expected=None):
         total = source.stat().st_size if progress else 0
         completed = 0
+        digest = XXHash() if expected is not None else None
         with source.open("rb") as incoming, atomic_writer(
                 target, "wb", encoding=None, prepare_parent=prepare_parent) as outgoing:
             while data := incoming.read(1024 * 1024):
                 if stop is not None and stop.is_set():
                     raise InterruptedError("File publication stopped")
                 outgoing.write(data)
+                if digest is not None:
+                    digest.update(data)
                 completed += len(data)
                 if progress:
                     progress(completed, total)
+            if digest is not None and digest.digest() != expected:
+                raise WabbajackError(f"Copied output failed verification: {source}")
             outgoing.flush()
             if sync_file:
                 os.fsync(outgoing.fileno())
         shutil.copymode(source, target)
         if sync_directory:
             Store._sync_directory(target.parent)
+        if digest is not None:
+            return Store._stamp(target.lstat()), digest.digest()
+
+    def remember_source(self, path, digest, info=None):
+        info = info if info is not None else path.lstat()
+        if not stat.S_ISREG(info.st_mode):
+            raise WabbajackError(f"Expected a regular staged file: {path}")
+        with self._proof_lock:
+            self._verified[path] = self._stamp(info), digest
+
+    def clean_scratch(self, scratch, paths):
+        proofs = []
+        for path in dict.fromkeys(paths):
+            info = path.lstat()
+            with self._proof_lock:
+                known = self._verified.get(path)
+            if known and known[0] == self._stamp(info) and info.st_nlink > 1:
+                proofs.append((path, info, known[1]))
+        shutil.rmtree(scratch)
+        for path, before, digest in proofs:
+            after = path.lstat()
+            if (self._stamp(before)[:4] == self._stamp(after)[:4]
+                    and before.st_mode == after.st_mode
+                    and after.st_nlink < before.st_nlink):
+                self.remember_source(path, digest, after)
+
+    def _sync_cached(self, source, stop=None, *, expected=None):
+        if stop is not None and stop.is_set():
+            raise InterruptedError("File publication stopped")
+        info = source.lstat()
+        stamp = self._stamp(info)
+        if expected is not None and stamp != expected:
+            raise WabbajackError(f"Staged output changed before syncing: {source}")
+        with self._proof_lock:
+            if self._synced.get(stamp[:2]) == stamp:
+                return stamp, True
+        synced = self._sync_source(source, stop, expected=expected)
+        if synced is not None:
+            with self._proof_lock:
+                self._synced[synced[:2]] = synced
+        return synced, False
+
+    def sync_sources(self, sources, stop=None):
+        started = time.monotonic()
+        with self._proof_lock:
+            if self._sync_pool is None:
+                self._sync_pool = ThreadPoolExecutor(max_workers=4,
+                                                    thread_name_prefix="wabbajack-sync")
+        def sync(item):
+            source, expected = item
+            before = time.monotonic()
+            _, reused = self._sync_cached(source, stop, expected=expected)
+            return time.monotonic() - before, reused
+        seconds = reused = count = 0
+        iterator = iter(sources)
+        from itertools import islice
+        while batch := list(islice(iterator, 128)):
+            futures = [self._sync_pool.submit(sync, item) for item in batch]
+            try:
+                for future in futures:
+                    elapsed, skipped = future.result()
+                    seconds += elapsed
+                    reused += skipped
+                    count += 1
+            finally:
+                for future in futures:
+                    future.cancel()
+                for future in futures:
+                    if not future.cancelled():
+                        future.result()
+        return {"files": count, "reused": reused, "worker_seconds": round(seconds, 3),
+                "elapsed_seconds": round(time.monotonic() - started, 3)}
 
     def _stage(self, source, target, stop=None, progress=None, size=None):
         if stop is not None and stop.is_set():
@@ -392,13 +474,21 @@ class Store:
         private = (stat.S_ISREG(info.st_mode) and info.st_nlink == 1
                    and self._private_source(source))
         linked = False
+        proof = None
         if private:
+            actual = self._current_hash(source, stop)
+            if actual != wanted:
+                raise WabbajackError(f"Staged output changed before publication: {source}")
+            info = source.lstat()
+            proof = self._verified.get(source)
+            if proof is None or proof[0] != self._stamp(info):
+                raise WabbajackError(f"Staged output changed before publication: {source}")
             self.prepare_directory(target.parent)
             from Utils.atomic_write import _tmp_for
             temporary = _tmp_for(target)
             try:
                 if synced != self._stamp(info):
-                    self._sync_source(source, stop)
+                    self._sync_cached(source, stop)
                 try:
                     os.link(source, temporary, follow_symlinks=False)
                     linked = True
@@ -410,12 +500,24 @@ class Store:
                         self._hardlink_error_logged = True
                 if linked:
                     temporary.replace(target)
+                    after = target.lstat()
+                    if (self._stamp(after)[:4] == proof[0][:4]
+                            and after.st_mode == info.st_mode
+                            and after.st_nlink == info.st_nlink + 1
+                            and self._stamp(source.lstat()) == self._stamp(after)):
+                        self.remember_source(target, actual, after)
+                        if metrics is not None:
+                            metrics["hash_handoffs"] += 1
             finally:
                 temporary.unlink(missing_ok=True)
         if not linked:
             copy_started = time.monotonic()
-            self._copy(source, target, stop=stop, progress=progress, sync_directory=False,
-                       sync_file=deferred_sync is None, prepare_parent=self.prepare_directory)
+            copied = self._copy(source, target, stop=stop, progress=progress, sync_directory=False,
+                                sync_file=deferred_sync is None, prepare_parent=self.prepare_directory,
+                                expected=wanted)
+            if copied is not None:
+                with self._proof_lock:
+                    self._verified[target] = copied
             if metrics is not None:
                 metrics["copy_seconds"] += time.monotonic() - copy_started
                 metrics["copied_bytes"] += info.st_size
@@ -536,7 +638,7 @@ class Store:
         hash_before = self._hash_metrics.copy()
         def timed_sync(source, *, expected=None):
             sync_started = time.monotonic()
-            stamp = self._sync_source(source, stop, expected=expected)
+            stamp, _ = self._sync_cached(source, stop, expected=expected)
             return stamp, time.monotonic() - sync_started
         def sync_directory(path):
             sync_started = time.monotonic()
