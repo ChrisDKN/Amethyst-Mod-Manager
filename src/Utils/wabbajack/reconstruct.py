@@ -232,7 +232,8 @@ def _archive_member_path(value, *, directory=False, size=0):
 
 def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=None,
                  *, members=None, resources=None, cache_hashes=False):
-    from .extraction import working_memory, zip_memory, extract_selected, finish_extraction, ExtractionFailure
+    from Utils.archives.budget import working_memory, zip_memory
+    from .extraction import extract_selected, finish_extraction, ExtractionFailure
     started = time.monotonic()
     def reserve_budget(total):
         if budget:

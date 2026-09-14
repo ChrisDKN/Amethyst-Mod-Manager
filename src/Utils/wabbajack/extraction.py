@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import os
-import re
 import stat
-import struct
 import shutil
 import subprocess
 import tarfile
@@ -79,40 +77,6 @@ def archive_entries(archive, stop=None):
             raise WabbajackError(f"Conflicting Windows paths in archive: {name}")
         found[name.casefold()] = name, size, directory
     return list(found.values())
-
-
-def working_memory(methods, threads=2):
-    dictionary = 0
-    for method in methods:
-        for value, unit in re.findall(
-                r"(?:LZMA2?|PPMd|(?:Rar\d?|v\d+):m\d+):(\d+)([bkmg]?)", method, re.I):
-            number = int(value)
-            if unit:
-                size = number * 1024 ** "bkmg".index(unit.lower())
-            else:
-                size = 1 << min(number, 40)
-            dictionary = max(dictionary, size)
-    return max(256 * MIB, 64 * MIB + dictionary * 2 * threads)
-
-
-def zip_memory(source, items):
-    dictionary = 0
-    with open(source.filename, "rb") as stream:
-        for item in items:
-            if item.compress_type != zipfile.ZIP_LZMA:
-                continue
-            stream.seek(item.header_offset)
-            header = stream.read(30)
-            if len(header) != 30:
-                raise zipfile.BadZipFile("Truncated ZIP local header")
-            name_length, extra_length = struct.unpack_from("<HH", header, 26)
-            stream.seek(name_length + extra_length, 1)
-            properties = stream.read(9)
-            if len(properties) == 9 and properties[2:4] == b"\x05\x00":
-                dictionary = max(dictionary, struct.unpack_from("<I", properties, 5)[0])
-            else:
-                raise zipfile.BadZipFile("Invalid ZIP LZMA properties")
-    return 64 * MIB + dictionary * 2
 
 
 def extract_selected(tool, archive, target, names, stop, log, progress=None):

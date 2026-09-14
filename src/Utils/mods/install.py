@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from Utils.archives.budget import ArchiveProbe, probe_archive
+from Utils.downloads.resources import current_work, time_phase
 from Utils.archives.process import failure_kind, run_extractor as _run_extractor_cancellable
 from Utils.downloads.core import record_download_install
 
@@ -307,6 +308,7 @@ def _merge_case_variant_dirs(file_list, game, log_fn):
     return out
 
 
+@time_phase("staging")
 def _copy_file_list(file_list, src_root: str, dest_root: Path, log_fn,
                     game=None) -> None:
     """Copy each (src_rel, dst_rel, is_folder) from src_root → dest_root with
@@ -398,9 +400,13 @@ def _copy_file_list(file_list, src_root: str, dest_root: Path, log_fn,
                 dst.unlink()
         _link_or_copy(src, dst)
 
-    with ThreadPoolExecutor(max_workers=8) as pool:
-        for _ in pool.map(_copy_one, file_entries, chunksize=256):
-            pass
+    work = current_work()
+    if work is not None:
+        work.resources.map_files(_copy_one, file_entries, work.stop)
+    else:
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            for _ in pool.map(_copy_one, file_entries, chunksize=256):
+                pass
     copied = folder_copied + len(file_entries)
     log_fn(f"Copied {copied} item(s) to staging area.")
 
@@ -845,9 +851,22 @@ def _extract_with_disk_retry(archive_path: str, staging_root: Path,
                                         dir=str(parent) if parent else None))
     _log_extract_location(extract_dir, log_fn)
     errors: list[str] = []
-    extracted = _extract_archive(archive_path, str(extract_dir), log_fn,
-                                 cancel=cancel, error_sink=errors,
-                                 progress_cb=progress_cb)
+    work = current_work()
+    def extract(target):
+        if work is None:
+            return _extract_archive(archive_path, str(target), log_fn, cancel=cancel,
+                                    error_sink=errors, progress_cb=progress_cb)
+        probe = archive_probe or probe_archive(archive_path)
+        with work.extraction(probe, target):
+            return _extract_archive(archive_path, str(target), log_fn, cancel=cancel,
+                                    error_sink=errors, progress_cb=progress_cb,
+                                    cpu_threads=work.resources.cpu_threads)
+    try:
+        extracted = extract(extract_dir)
+    except BaseException:
+        shutil.rmtree(extract_dir, ignore_errors=True)
+        _release_tmp_reservation(tmp_reserved)
+        raise
     if (not extracted and (cancel is None or not cancel.is_set())
             and any(_is_disk_full_error(e) for e in errors)):
         disk_parent = staging_root.parent if staging_root else None
@@ -868,10 +887,11 @@ def _extract_with_disk_retry(archive_path: str, staging_root: Path,
             tmp_reserved = 0
             extract_dir = new_dir
             _log_extract_location(extract_dir, log_fn)
-            extracted = _extract_archive(archive_path, str(extract_dir),
-                                         log_fn, cancel=cancel,
-                                         error_sink=errors,
-                                         progress_cb=progress_cb)
+            try:
+                extracted = extract(extract_dir)
+            except BaseException:
+                shutil.rmtree(extract_dir, ignore_errors=True)
+                raise
     return extracted, extract_dir, tmp_reserved, errors
 
 
@@ -1378,6 +1398,7 @@ class PreparedInstall:
     def is_multi_mod(self) -> bool:
         return bool(self.multi_mods)
 
+    @time_phase("cleanup")
     def cleanup(self):
         shutil.rmtree(self.extract_dir, ignore_errors=True)
         _release_tmp_reservation(self._tmp_reserved)
@@ -3209,6 +3230,7 @@ def _check_nexus_flags_after_install(game, mod_names, log_fn: LogFn,
         log_fn(f"Nexus flag check after install skipped ({exc}).")
 
 
+@time_phase("indexing")
 def _update_indexes(game, profile_dir: Path, mod_name: str, dest_root: Path,
                     log_fn: LogFn) -> bool:
     try:

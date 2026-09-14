@@ -12,6 +12,10 @@ project imports.
 from __future__ import annotations
 
 import os
+import errno
+import re
+import struct
+from contextlib import contextmanager
 import shutil
 import threading
 import zipfile
@@ -23,6 +27,43 @@ from functools import lru_cache
 # worst-case fallback for a small archive is a trivially small reservation -
 # while collections install thousands of tiny archives, so one process spawn
 # per mod adds real wall time to the (already bottlenecked) install consumers.
+MIB = 1024 * 1024
+
+
+def working_memory(methods, threads=2):
+    dictionary = 0
+    for method in methods:
+        for value, unit in re.findall(
+                r"(?:LZMA2?|PPMd|(?:Rar\d?|v\d+):m\d+):(\d+)([bkmg]?)", method, re.I):
+            number = int(value)
+            if unit:
+                size = number * 1024 ** "bkmg".index(unit.lower())
+            else:
+                size = 1 << min(number, 40)
+            dictionary = max(dictionary, size)
+    return max(256 * MIB, 64 * MIB + dictionary * 2 * threads)
+
+
+def zip_memory(source, items):
+    dictionary = 0
+    with open(source.filename, "rb") as stream:
+        for item in items:
+            if item.compress_type != zipfile.ZIP_LZMA:
+                continue
+            stream.seek(item.header_offset)
+            header = stream.read(30)
+            if len(header) != 30:
+                raise zipfile.BadZipFile("Truncated ZIP local header")
+            name_length, extra_length = struct.unpack_from("<HH", header, 26)
+            stream.seek(name_length + extra_length, 1)
+            properties = stream.read(9)
+            if len(properties) == 9 and properties[2:4] == b"\x05\x00":
+                dictionary = max(dictionary, struct.unpack_from("<I", properties, 5)[0])
+            else:
+                raise zipfile.BadZipFile("Invalid ZIP LZMA properties")
+    return 64 * MIB + dictionary * 2
+
+
 _PROBE_MIN_COMPRESSED_BYTES = 64 * 1024 * 1024
 
 
@@ -39,6 +80,8 @@ class ArchiveProbe:
     uncompressed_size: int
     has_fomod_config: bool = False
     members_inspected: bool = False
+    memory_bytes: int = 256 * MIB
+    member_count: int = 0
 
 
 def _is_fomod_member(name: str) -> bool:
@@ -54,6 +97,8 @@ def _probe_archive_cached(path: str, compressed_size: int, file_size: int,
     # re-downloaded/replaced archive at the same path must be probed again.
     del file_size, mtime_ns
     total = 0
+    memory_bytes = member_count = 0
+    methods = set()
     has_fomod = False
     members_inspected = False
     lower = path.lower()
@@ -64,6 +109,8 @@ def _probe_archive_cached(path: str, compressed_size: int, file_size: int,
         try:
             with zipfile.ZipFile(path, "r") as archive:
                 infos = archive.infolist()
+                memory_bytes = zip_memory(archive, infos)
+                member_count = len(infos)
             total = sum(member.file_size for member in infos)
             has_fomod = any(_is_fomod_member(member.filename) for member in infos)
             members_inspected = True
@@ -93,7 +140,10 @@ def _probe_archive_cached(path: str, compressed_size: int, file_size: int,
                 if result.returncode == 0:
                     members_inspected = True
                     for line in result.stdout.splitlines():
-                        if line.startswith("Size = "):
+                        if line.startswith("Method = "):
+                            methods.add(line[9:].strip())
+                        elif line.startswith("Size = "):
+                            member_count += 1
                             try:
                                 total += int(line.split("=", 1)[1].strip())
                             except ValueError:
@@ -124,6 +174,8 @@ def _probe_archive_cached(path: str, compressed_size: int, file_size: int,
         uncompressed_size=total,
         has_fomod_config=has_fomod,
         members_inspected=members_inspected,
+        memory_bytes=memory_bytes or (working_memory(methods) if methods else max(256 * MIB, total)),
+        member_count=member_count,
     )
 
 
@@ -273,3 +325,40 @@ class ExtractionMemoryBudget:
             self._large_active -= int(large)
             self._cv.notify_all()
         self._semaphore.release()
+
+
+class ExtractionSpaceBudget:
+    def __init__(self, margin=512 * MIB):
+        self.margin = margin
+        self._cv = threading.Condition()
+        self._reserved = {}
+
+    @contextmanager
+    def reserve(self, directory, size, cancel=None, *, on_wait=None):
+        device = os.stat(directory).st_dev
+        size = max(0, int(size))
+        notified = False
+        with self._cv:
+            while True:
+                if cancel is not None and cancel.is_set():
+                    raise InterruptedError("Extraction stopped while waiting for disk space")
+                reserved = self._reserved.get(device, 0)
+                if size + reserved + self.margin <= shutil.disk_usage(directory).free:
+                    self._reserved[device] = reserved + size
+                    break
+                if not reserved:
+                    raise OSError(errno.ENOSPC, "Not enough free space for archive extraction", str(directory))
+                if not notified and on_wait is not None:
+                    on_wait()
+                notified = True
+                self._cv.wait(0.2)
+        try:
+            yield
+        finally:
+            with self._cv:
+                remaining = self._reserved[device] - size
+                if remaining:
+                    self._reserved[device] = remaining
+                else:
+                    self._reserved.pop(device)
+                self._cv.notify_all()

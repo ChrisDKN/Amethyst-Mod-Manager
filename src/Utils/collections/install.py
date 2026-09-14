@@ -30,6 +30,7 @@ import queue as _queue
 import re
 import threading
 from collections import deque
+from contextlib import nullcontext
 from pathlib import Path
 
 from Utils.collections.reset import (
@@ -37,6 +38,7 @@ from Utils.collections.reset import (
 from Utils.config_paths import get_download_cache_dir_for_game, list_all_cache_dirs
 from Utils.downloads.locations import (
     is_default_downloads_disabled, load_extra_download_locations)
+from Utils.downloads.resources import InstallResources
 from Utils.downloads.scheduler import order_by_size, run_pipelined
 from Utils.archives.budget import ExtractionMemoryBudget, probe_archive
 from Utils.mods.install import (
@@ -988,8 +990,6 @@ def run_collection_install(
     # Re-reading every sidecar for every mod makes large collections quadratic.
     _automatic_scan_dirs = _scan_dirs() if not manual_mode else []
     _archive_index = ArchiveLookupIndex(_automatic_scan_dirs)
-    # Downloaded archives already live on disk, so the hand-off queue can hold
-    # the full plan without extraction backpressuring the download workers.
     _PIPELINE_QUEUE_SIZE = max(
         _DL_WORKERS + _INSTALL_POOL_SIZE + 8, 32, len(to_download))
     _DONE_SENTINEL = None
@@ -1044,7 +1044,11 @@ def run_collection_install(
     _col_stop = ctl.stop
     _dl_finished = threading.Event()
 
-    _mem_budget = ExtractionMemoryBudget(max_workers=_INSTALL_POOL_SIZE)
+    resources = None
+    _ready_budget = 0
+    _ready_bytes = _ready_waiters = 0
+    _ready_condition = threading.Condition()
+    _network_active = set()
     _archive_use_count: dict[str, int] = {}
     _external_archive_paths: set[str] = set()
 
@@ -1097,8 +1101,27 @@ def run_collection_install(
         return (1 if size <= 0 else 0, int(size))
 
     def _enqueue_install(mod, result, domain) -> None:
+        nonlocal _ready_bytes, _ready_waiters
         priority = _install_priority(mod, result)
-        _install_queue.put((*priority, _iq_next_seq(), (mod, result, domain)))
+        cost = (max(1, priority[1]) if result is not None and result.success
+                and str(result.file_path) not in _external_archive_paths else 0)
+        with _ready_condition:
+            waiting = False
+            try:
+                while (_ready_budget and cost and _ready_bytes
+                       and _ready_bytes + cost > _ready_budget and not _col_stop.is_set()):
+                    if not waiting:
+                        waiting = True
+                        _ready_waiters += 1
+                        resources.queue_changed(_ready_bytes, _ready_waiters)
+                    _ready_condition.wait(0.2)
+            finally:
+                if waiting:
+                    _ready_waiters -= 1
+            _ready_bytes += cost
+            if resources is not None:
+                resources.queue_changed(_ready_bytes, _ready_waiters)
+            _install_queue.put((*priority, _iq_next_seq(), (mod, result, domain, cost)))
 
     def _enqueue_done() -> None:
         _install_queue.put((2, 0, _iq_next_seq(), _DONE_SENTINEL))
@@ -1318,6 +1341,7 @@ def run_collection_install(
                 cb.on_dl_mod_update(_fid, cur, tot)
 
         result = None
+        download_started = _time_mod.monotonic()
         effective_domain = mod_domain
 
         # Stage 1 (_fetch_link_one) already handled the cached-archive scan and
@@ -1336,6 +1360,8 @@ def run_collection_install(
 
         try:
             if result is None:
+                with _dl_lock:
+                    _network_active.add(mod.file_id)
                 result = downloader.download_file(
                     game_domain=mod_domain, mod_id=effective_mod_id,
                     file_id=_resolved_file_id(mod),
@@ -1350,6 +1376,14 @@ def run_collection_install(
             log(f"Collection install: download exception for '{mod.mod_name}' "
                 f"(mod_id={effective_mod_id}, file_id={mod.file_id}): "
                 f"{exc}\n{_tb.format_exc()}")
+
+        finally:
+            with _dl_lock:
+                _network_active.discard(mod.file_id)
+            if resources is not None:
+                resources.emit("install.download.completed", row=mod.file_id,
+                               seconds=round(_time_mod.monotonic() - download_started, 4),
+                               success=bool(result and result.success))
 
         # From here on the counters and the install-queue handoff MUST fire
         # exactly once per mod no matter what the UI callbacks do - an escaped
@@ -1451,8 +1485,6 @@ def run_collection_install(
         # the conservative no-spawn fallback inside probe_archive.
         _archive_probe = probe_archive(
             archive_path, inspect_members=(auto_fomod is None))
-        _extract_est = _archive_probe.uncompressed_size
-        _mem_budget.acquire(_extract_est)
         _fomod_flag = {"value": False}
 
         def _capture_fomod(is_fomod=False):
@@ -1477,7 +1509,6 @@ def run_collection_install(
                 cancel=_col_stop,
                 archive_probe=_archive_probe)
         finally:
-            _mem_budget.release(_extract_est)
             cb.on_extract_remove(mod.file_id)
         _installed_was_fomod = _fomod_flag["value"]
 
@@ -1567,27 +1598,39 @@ def run_collection_install(
             log(f"Collection install: could not remove archive '{archive_path}': {_del_exc}")
 
     def _install_consumer():
+        nonlocal _ready_bytes
+        limit = resources or ctl.extract_workers
         while True:
             _unknown, _size, _seq, payload = _install_queue.get()
             if payload is _DONE_SENTINEL:
                 _install_queue.task_done()
                 break
-            mod, result, effective_domain = payload
-            admitted = ctl.extract_workers.acquire(_col_stop)
+            mod, result, effective_domain, cost = payload
+            admitted = limit.acquire(_col_stop)
             try:
-                _install_one(mod, result, effective_domain)
+                with (resources.work(mod.file_id, _col_stop, name=mod.mod_name,
+                      on_wait=lambda: cb.on_extract_wait(mod.file_id, "Waiting for extraction capacity"))
+                      if resources is not None and admitted else nullcontext()):
+                    _install_one(mod, result, effective_domain)
             except Exception as exc:
                 import traceback as _tbx
-                log(f"Collection install: unexpected error installing "
-                    f"'{mod.mod_name}' (mod_id={getattr(mod,'mod_id',0)}, "
-                    f"file_id={getattr(mod,'file_id',0)}): {exc}\n{_tbx.format_exc()}")
+                if not _col_stop.is_set():
+                    log(f"Collection install: unexpected error installing "
+                        f"'{mod.mod_name}' (mod_id={getattr(mod,'mod_id',0)}, "
+                        f"file_id={getattr(mod,'file_id',0)}): {exc}\n{_tbx.format_exc()}")
                 with _install_lock:
-                    _record_outcome(mod, "error", str(exc))
+                    _record_outcome(mod, "cancelled" if _col_stop.is_set() else "error", str(exc))
                     _install_counters["skipped"] += 1
                     _install_counters["done"] += 1
             finally:
                 if admitted:
-                    ctl.extract_workers.release()
+                    limit.release()
+                with _ready_condition:
+                    _ready_bytes -= cost
+                    if resources is not None:
+                        resources.progress(mod.file_id, 1, 1)
+                        resources.queue_changed(_ready_bytes, _ready_waiters)
+                    _ready_condition.notify_all()
                 _install_queue.task_done()
 
     def _write_preliminary_plugins_txt(label: str) -> None:
@@ -1786,42 +1829,59 @@ def run_collection_install(
             if _total_bytes > 0:
                 cb.on_agg_download(_dl_bytes_done, _total_bytes, 0.0)
 
-        _consumer_threads: list[threading.Thread] = []
-        for _ci in range(_INSTALL_POOL_SIZE):
-            t = threading.Thread(target=_install_consumer, daemon=True,
-                                 name=f"col-install-{_ci}")
-            t.start()
-            _consumer_threads.append(t)
-
-        if manual_mode:
-            # Prompt order: phase first, then the author's mods-array order
-            # within a phase - the order a human reads the collection page.
-            to_download.sort(
-                key=lambda m: (schema_file_id_to_phase.get(m.file_id, 0),
-                               schema_file_id_to_arrayidx.get(
-                                   m.file_id, len(schema_mods))))
-            _manual_produce(to_download)
-        else:
-            _aggregate_thread = threading.Thread(
-                target=_aggregate_loop, name="col-speed", daemon=True)
-            _aggregate_thread.start()
+        if not download_only:
+            import shutil
+            downloads = get_download_cache_dir_for_game(getattr(game, "name", "") or "")
+            def network_snapshot():
+                with _dl_lock:
+                    return _agg_state["network_bytes"], bool(_network_active)
+            def resource_event(event, **fields):
+                log("[collection resources] " + json.dumps({"event": event, **fields}, sort_keys=True))
+            resources = InstallResources(
+                ctl.extract_workers, downloads, staging_path, network_snapshot,
+                sum(_expected_size(mod) for mod in to_download),
+                {mod.file_id: max(1, _expected_size(mod)) for mod in to_download},
+                on_event=resource_event)
+            _ready_budget = min(4 * 1024 ** 3, max(256 * 1024 ** 2,
+                                shutil.disk_usage(downloads).free // 16))
+            resources.emit("install.pipeline.configured", ready_budget_bytes=_ready_budget,
+                           download_workers=_DL_WORKERS, extraction_workers=ctl.extract_workers.limit,
+                           cpu_threads_per_extractor=resources.cpu_threads)
+        with resources if resources is not None else nullcontext():
+            _consumer_threads: list[threading.Thread] = []
+            for _ci in range(_INSTALL_POOL_SIZE):
+                t = threading.Thread(target=_install_consumer, daemon=True,
+                                     name=f"col-install-{_ci}")
+                t.start()
+                _consumer_threads.append(t)
             try:
-                run_pipelined(_to_download_sorted, _fetch_link_one, _download_one,
-                              _DL_WORKERS, link_workers=max(4, _DL_WORKERS),
-                              large_workers=2, size_key=_expected_size,
-                              stop=_col_stop,
-                              worker_done=downloader.close_worker_session)
+                if manual_mode:
+                    to_download.sort(
+                        key=lambda m: (schema_file_id_to_phase.get(m.file_id, 0),
+                                       schema_file_id_to_arrayidx.get(m.file_id, len(schema_mods))))
+                    _manual_produce(to_download)
+                else:
+                    _aggregate_thread = threading.Thread(
+                        target=_aggregate_loop, name="col-speed", daemon=True)
+                    _aggregate_thread.start()
+                    try:
+                        run_pipelined(_to_download_sorted, _fetch_link_one, _download_one,
+                                      _DL_WORKERS, link_workers=max(4, _DL_WORKERS),
+                                      large_workers=2, size_key=_expected_size, stop=_col_stop,
+                                      worker_done=downloader.close_worker_session)
+                    finally:
+                        _dl_finished.set()
+                        _aggregate_thread.join()
             finally:
                 _dl_finished.set()
-                _aggregate_thread.join()
-
-        _dl_finished.set()
+                if resources is not None:
+                    resources.downloads_complete()
+                for _ in range(_INSTALL_POOL_SIZE):
+                    _enqueue_done()
+                for t in _consumer_threads:
+                    t.join()
         if not manual_mode:
             cb.on_agg_download(_total_bytes, _total_bytes, 0.0)
-        for _ in range(_INSTALL_POOL_SIZE):
-            _enqueue_done()
-        for t in _consumer_threads:
-            t.join()
 
         # download_only extracts nothing, so nothing can be deferred.
         if not download_only:
