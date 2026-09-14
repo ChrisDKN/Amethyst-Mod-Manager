@@ -2,14 +2,18 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 import sqlite3
 import struct
 import subprocess
 import tempfile
+import threading
 import time
 import wave
 from dataclasses import dataclass
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+from contextlib import closing
 from pathlib import Path
 
 from Utils.atomic_write import write_atomic_text
@@ -160,6 +164,41 @@ def expected_outputs(items):
     return {PREFIX + item.name: _signature(group) for group in groups(items) for item in group}
 
 
+def shared_outputs(request, expected, stop=None, log=None):
+    found = {}
+    parent = request.directory.parent
+    if not expected or not parent.is_dir() or parent.is_symlink():
+        return found
+    for directory in sorted(parent.iterdir()):
+        _stop(stop)
+        if directory == request.directory or directory.is_symlink() or not directory.is_dir():
+            continue
+        database = directory / "state.sqlite"
+        if database.is_symlink() or not database.is_file():
+            continue
+        try:
+            with closing(sqlite3.connect(database.as_uri() + "?mode=ro", uri=True, timeout=0.2)) as db:
+                row = db.execute("SELECT value FROM metadata WHERE key='status'").fetchone()
+                if row is None or json.loads(row[0]) != "complete":
+                    continue
+                rows = db.execute("SELECT path,signature,authored_hash FROM outputs WHERE path LIKE ?",
+                                  (PREFIX + "%",)).fetchall()
+            for key, signature, digest in rows:
+                if key in found or expected.get(key) != signature:
+                    continue
+                path = source_path(directory, key)
+                if file_hash(path, stop) == digest:
+                    found[key] = {"source": str(path), "authored_hash": digest, "signature": signature}
+        except InterruptedError:
+            raise
+        except (OSError, ValueError, sqlite3.Error, WabbajackError) as exc:
+            emit(log, "bsa.shared.unavailable", directory=directory, reason=str(exc))
+        if expected.keys() <= found.keys():
+            break
+    emit(log, "bsa.shared.verified", archives=len(found))
+    return found
+
+
 def source_plan(request, tracked=()):
     available = {key.removeprefix(PREFIX).casefold() for key in tracked if key.startswith(PREFIX)}
     for name, root in request.game_roots.items():
@@ -207,6 +246,8 @@ def preflight_setup(request, check, stop=None, log=None, *, hardlinks=True):
             path = within(request.directory, "work/bsa-setup/output/" + key.removeprefix(PREFIX))
             if row and row[0] == sig and path.is_file() and file_hash(path, stop) == row[1]:
                 staged.add(key)
+        shared = shared_outputs(request, {k: v for k, v in expected_outputs(items).items()
+                                         if k not in reused | staged}, stop, log)
         pending = [g for g in groups(items) if any(PREFIX + s.name not in reused | staged for s in g)]
         names = {s.name for g in pending for s in g}
         inputs = {s.name: s for s in sources(request, stop, log, names=names)} if names else {}
@@ -224,9 +265,9 @@ def preflight_setup(request, check, stop=None, log=None, *, hardlinks=True):
                 source = within(request.directory, "work/bsa-setup/output/" + item.name)
                 if not hardlinks or publication_copy_required(source, within(request.directory, key), request.directory / "work"):
                     publish += source.stat().st_size
-        check("pass", "BSA setup", f"{needed.reason}. Automatically rebuild {len(items)} archives and enable {MOD_NAME} in every selected profile; {len(reused | staged)} verified archives can be reused.")
+        check("pass", "BSA setup", f"{needed.reason}. Automatically prepare {len(items)} archives and enable {MOD_NAME} in every selected profile; {len(reused | staged | shared.keys())} verified archives can be reused.")
         emit(log, "bsa.preflight.completed", archives=len(items),
-             reusable=len(reused), staged=len(staged), pending_groups=len(pending),
+             reusable=len(reused), staged=len(staged), shared=len(shared), pending_groups=len(pending),
              required_bytes=output + publish + temporary)
         return output + publish + temporary, reused
     except InterruptedError:
@@ -238,18 +279,25 @@ def preflight_setup(request, check, stop=None, log=None, *, hardlinks=True):
 
 
 def _convert_audio(root, exe, stop, progress, log=None):
+    from .acquire import _CombinedStop
+    from Utils.archives.budget import ExtractionMemoryBudget
+    from Utils.ui.config import load_collection_settings
+    started = time.monotonic()
     paths = sorted(p for p in root.rglob("*") if p.is_file() and p.suffix.casefold() == ".ogg"
                    and not p.relative_to(root).as_posix().casefold().startswith(_AUDIO_EXCLUSIONS))
-    for index, path in enumerate(paths):
+    paths.sort(key=lambda path: path.stat().st_size, reverse=True)
+    workers = min(4, max(1, (os.cpu_count() or 1) // 2), load_collection_settings()["max_extract_workers"])
+    failed = threading.Event()
+    stop = _CombinedStop(stop or threading.Event(), failed)
+    memory = ExtractionMemoryBudget(max_workers=workers, max_budget_bytes=512 * 1024 ** 2)
+    emit(log, "bsa.audio.batch.started", files=len(paths), workers=workers)
+    def convert(path):
         _stop(stop)
-        started = time.monotonic()
-        emit(log, "bsa.audio.started", source=path,
-             index=index + 1, total=len(paths), ffmpeg=exe)
-        progress(index, len(paths), path.relative_to(root).as_posix())
         target = path.with_suffix(".wav")
         if target.exists():
             raise WabbajackError(f"BSA audio conversion would overwrite {target.relative_to(root)}")
         temporary = target.with_suffix(".wav.tmp")
+        memory.acquire(64 * 1024 ** 2, cancel=stop)
         try:
             with tempfile.TemporaryFile() as errors, subprocess.Popen(
                     [exe, "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
@@ -286,11 +334,43 @@ def _convert_audio(root, exe, stop, progress, log=None):
                     raise WabbajackError(f"Invalid converted BSA audio: {path.name}")
             temporary.replace(target)
             path.unlink()
-            emit(log, "bsa.audio.completed", source=path, target=target,
-                 bytes=target.stat().st_size,
-                 elapsed_seconds=round(time.monotonic() - started, 3))
+            return path
+        except BaseException as exc:
+            emit_exception(log, "bsa.audio.failed", exc, source=path)
+            raise
         finally:
             temporary.unlink(missing_ok=True)
+            memory.release(64 * 1024 ** 2)
+    pending = set()
+    completed = 0
+    iterator = iter(paths)
+    last_log = started
+    with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="wabbajack-audio") as pool:
+        try:
+            while True:
+                _stop(stop)
+                while len(pending) < workers:
+                    path = next(iterator, None)
+                    if path is None:
+                        break
+                    pending.add(pool.submit(convert, path))
+                if not pending:
+                    break
+                done, pending = wait(pending, timeout=0.1, return_when=FIRST_COMPLETED)
+                for future in done:
+                    path = future.result()
+                    completed += 1
+                    progress(completed, len(paths), path.relative_to(root).as_posix())
+                now = time.monotonic()
+                if now - last_log >= 2:
+                    emit(log, "bsa.audio.progress", completed=completed, total=len(paths))
+                    last_log = now
+        finally:
+            failed.set()
+            for future in pending:
+                future.cancel()
+    emit(log, "bsa.audio.batch.completed", files=completed,
+         elapsed_seconds=round(time.monotonic() - started, 3))
     progress(len(paths), len(paths), "Audio fixes verified")
 
 
@@ -333,6 +413,7 @@ def run_setup(request, store, desired, stop, progress, log=None):
     base = within(store.work, "bsa-setup")
     output = within(base, "output")
     output.mkdir(parents=True, exist_ok=True)
+    shared = None
     for group in groups(items):
         group_started = time.monotonic()
         sig = _signature(group)
@@ -344,6 +425,27 @@ def run_setup(request, store, desired, stop, progress, log=None):
                 if digest and candidate.is_file() and file_hash(candidate, stop) == digest:
                     reusable[key] = {"source": str(candidate), "authored_hash": digest, "signature": sig}
                     break
+        if len(reusable) != len(group):
+            if shared is None:
+                shared = shared_outputs(request, expected_outputs(items), stop, log)
+            missing = {PREFIX + item.name for item in group} - reusable.keys()
+            if missing <= shared.keys():
+                for key in missing:
+                    row = shared[key]
+                    target = within(output, key.removeprefix(PREFIX))
+                    progress("Preparing vanilla BSAs", 0, 0, "Reusing verified " + target.name)
+                    try:
+                        copied = store._copy(Path(row["source"]), target, stop=stop,
+                                             expected=row["authored_hash"])
+                    except InterruptedError:
+                        raise
+                    except (OSError, WabbajackError) as exc:
+                        emit(log, "bsa.shared.unavailable", source=row["source"], reason=str(exc))
+                        break
+                    store.remember_source(target, copied[1])
+                    store.record_completed(key, sig, row["authored_hash"])
+                    reusable[key] = {**row, "source": str(target)}
+                store.flush_completed()
         if len(reusable) == len(group):
             desired.update(reusable)
             progress("Preparing vanilla BSAs", 1, 1, "Reusing verified " + ", ".join(s.name for s in group))
@@ -402,6 +504,7 @@ def run_setup(request, store, desired, stop, progress, log=None):
                 if target.stat().st_size >= 2 * 1024 ** 3:
                     raise WabbajackError(f"{item.name} exceeds the New Vegas archive size limit")
                 digest = file_hash(target, stop)
+                store.remember_source(target, digest)
                 key = PREFIX + item.name
                 completed[key] = {"source": str(target), "authored_hash": digest, "signature": sig}
                 emit(log, "bsa.archive.rebuild.completed", archive=item.name,
