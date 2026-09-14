@@ -45,6 +45,14 @@ class AdjustableWorkerLimit:
             self._active += 1
             return True
 
+    def try_acquire(self, stop: "threading.Event | None" = None) -> bool:
+        with self._cv:
+            if ((stop is not None and stop.is_set())
+                    or self._active >= (self._limit or 1)):
+                return False
+            self._active += 1
+            return True
+
     def release(self) -> None:
         with self._cv:
             self._active = max(0, self._active - 1)
@@ -125,8 +133,9 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
             groups.setdefault(group, ([], []))[lane].append(item)
     started_groups = set()
     automatic_done = threading.Event()
+    acquisition_done = threading.Event()
     admission = threading.Condition()
-    active_large = 0
+    active_large = active_small = 0
     waiting_large = []
     outstanding = 0
     queued_bytes = waiting_producers = 0
@@ -231,22 +240,70 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                 notify(on_discard, item)
 
     def pipelined_consumer():
-        nonlocal active_large, outstanding, queued_bytes
+        nonlocal active_large, active_small, outstanding, queued_bytes
+        def has_small_ready():
+            with ready.mutex:
+                return any(entry[3] is not None and not entry[3][2]
+                           for entry in ready.queue)
         def large_limit():
             capacity = min(install_workers, getattr(worker_limit, "limit", install_workers))
-            return min(max(1, max_large_install), max(1, capacity - 1))
+            maximum = min(max(1, max_large_install), max(1, capacity - 1))
+            if not acquisition_done.is_set() or active_small or has_small_ready():
+                return 1
+            return maximum
         def release_waiting():
             for queued in waiting_large:
                 ready.put_nowait(queued)
             waiting_large.clear()
         while True:
             admitted = False
-            with admission:
-                if control.stop.is_set() or active_large < large_limit():
-                    release_waiting()
-            entry = ready.get()
-            task = entry[3]
-            large_slot = requeued = False
+            large_slot = small_slot = requeued = False
+            while True:
+                with admission:
+                    if control.stop.is_set() or active_large < large_limit():
+                        release_waiting()
+                    if ready.empty():
+                        admission.wait(timeout=0.2)
+                        continue
+                if not control.stop.is_set():
+                    if worker_limit is None:
+                        admitted = True
+                    else:
+                        attempt = getattr(worker_limit, "try_acquire", None)
+                        admitted = (attempt(control.stop) if attempt is not None
+                                    else worker_limit.acquire(control.stop))
+                    if not admitted:
+                        with admission:
+                            admission.wait(timeout=0.2)
+                        continue
+                with admission:
+                    if control.stop.is_set() or active_large < large_limit():
+                        release_waiting()
+                    if ready.empty():
+                        no_entry = True
+                    else:
+                        no_entry = False
+                        entry = ready.get_nowait()
+                        task = entry[3]
+                        if task is not None and not control.stop.is_set():
+                            if task[2] and active_large >= large_limit():
+                                waiting_large.append(entry)
+                                ready.task_done()
+                                no_entry = True
+                            elif task[2]:
+                                active_large += 1
+                                large_slot = True
+                            else:
+                                active_small += 1
+                                small_slot = True
+                if no_entry:
+                    if admitted and worker_limit is not None:
+                        worker_limit.release()
+                    admitted = False
+                    with admission:
+                        admission.wait(timeout=0.2)
+                    continue
+                break
             try:
                 if task is None:
                     with admission:
@@ -256,27 +313,20 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                         requeued = True
                 else:
                     item, result, large = task
-                    admitted = worker_limit is None or worker_limit.acquire(control.stop)
-                    if control.stop.is_set() or not admitted:
+                    if control.stop.is_set():
                         notify(on_discard, item)
                         continue
-                    if large:
-                        with admission:
-                            if active_large >= large_limit():
-                                waiting_large.append(entry)
-                                requeued = True
-                            else:
-                                active_large += 1
-                                large_slot = True
-                    if not requeued:
-                        try:
-                            install(item, result)
-                        except Exception as exc:
-                            failed(item, exc)
+                    try:
+                        install(item, result)
+                    except Exception as exc:
+                        failed(item, exc)
             finally:
                 with admission:
                     if large_slot:
                         active_large -= 1
+                    elif small_slot:
+                        active_small -= 1
+                    if control.stop.is_set() or active_large < large_limit():
                         release_waiting()
                     if task is not None and not requeued:
                         outstanding -= 1
@@ -358,6 +408,9 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                     on_downloads_complete()
                 workers = [pool.submit(consumer) for _ in range(install_workers)]
         finally:
+            acquisition_done.set()
+            with admission:
+                admission.notify_all()
             try:
                 if not download_first and on_downloads_complete:
                     on_downloads_complete()
@@ -369,6 +422,8 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                         ready.task_done()
                 for _ in workers:
                     ready.put((2, 0, next_sequence(), None))
+                with admission:
+                    admission.notify_all()
                 for worker in workers:
                     worker.result()
     return errors

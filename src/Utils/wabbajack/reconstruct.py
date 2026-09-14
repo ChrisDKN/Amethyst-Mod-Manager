@@ -549,7 +549,7 @@ class Reconstruction:
                        (1024 * 1024 if d.kind == "PatchedFromArchive" else 0) for d in pending)
             work += self.request.package.archives[key].size
             critical = any(d.path.casefold() in dependencies for d in pending)
-            priorities[key] = (0 if critical else 1, -work)
+            priorities[key] = (0 if critical else 1, work)
         return priorities
 
     def _find_reusable(self, d, completed=None):

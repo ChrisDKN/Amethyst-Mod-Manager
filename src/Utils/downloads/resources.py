@@ -121,6 +121,14 @@ class InstallResources:
             self._active += 1
             return True
 
+    def try_acquire(self, stop=None):
+        with self._cv:
+            if (self._closed.is_set() or stop is not None and stop.is_set()
+                    or self._active >= self._limit()):
+                return False
+            self._active += 1
+            return True
+
     def release(self):
         with self._cv:
             self._active -= 1

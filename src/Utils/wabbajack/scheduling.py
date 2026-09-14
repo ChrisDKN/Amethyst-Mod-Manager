@@ -7,6 +7,6 @@ class InstallResources(SharedInstallResources):
         super().__init__(
             workers, request.downloads, request.directory, acquisition.resource_snapshot,
             acquisition.report.download_bytes,
-            {acquisition.ids[key]: -priority[1] for key, priority in priorities.items()},
+            {acquisition.ids[key]: priority[1] for key, priority in priorities.items()},
             blocked=lambda: acquisition.budget is not None and acquisition.budget.waiting,
             on_event=lambda event, **fields: emit(log, event, **fields))
