@@ -10202,8 +10202,8 @@ Kliknij przycisk Gotowe do zamknięcia.</translation>
       <translation>Ten mod jest kolekcją mod</translation>
     </message>
     <message>
-      <source>This mod has diff patches applied by the collection install</source>
-      <translation>Ten mod ma inne łaty stosowane przez instalację kolekcji</translation>
+      <source>This mod has diff patches applied during a collection or Wabbajack install</source>
+      <translation>Ten mod ma różne poprawki zastosowane podczas kolekcji lub instalacji Wabbajack</translation>
     </message>
     <message>
       <source>Modified in Mod Files tab</source>
