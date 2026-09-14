@@ -17,8 +17,15 @@ def download_space(archive):
     return archive.size * 2
 
 
-def download_budget(archives):
-    return sum(download_space(archive) for archive in archives)
+def ready_budget(archives):
+    sizes = [max(0, archive.size) for archive in archives]
+    return min(sum(sizes), max(4 * 1024 ** 3, max(sizes, default=0)))
+
+
+def download_budget(archives, workers=8):
+    archives = list(archives)
+    transfers = sum(sorted((download_space(a) for a in archives), reverse=True)[:max(1, workers) + 1])
+    return min(sum(download_space(a) for a in archives), ready_budget(archives) + transfers)
 
 
 class ArchiveBudget:
@@ -28,6 +35,12 @@ class ArchiveBudget:
         self._condition = threading.Condition()
         self._reserved = {}
         self._used = 0
+        self._waiters = 0
+
+    @property
+    def waiting(self):
+        with self._condition:
+            return self._waiters > 0
 
     def acquire(self, archive, on_wait=None):
         size = download_space(archive)
@@ -54,7 +67,11 @@ class ArchiveBudget:
                     waiting = True
                     if on_wait is not None:
                         on_wait(self._used, self.limit)
-                self._condition.wait(0.2)
+                self._waiters += 1
+                try:
+                    self._condition.wait(0.2)
+                finally:
+                    self._waiters -= 1
 
     def release(self, archive, retained=0):
         with self._condition:

@@ -105,7 +105,8 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                      worker_limit=None, defer_large=True, max_large_install=2,
                      is_large=None, download_first=False, on_downloads_complete=None,
                      download_group=None, on_download_group=None,
-                     interleave_groups=False, install_key=None):
+                     interleave_groups=False, install_key=None,
+                     ready_budget_bytes=0, on_queue_changed=None):
     from Utils.downloads.scheduler import order_by_size, run_pipelined
     items, manual_items = tuple(items), tuple(manual_items)
     download_workers, install_workers = max(1, download_workers), max(1, install_workers)
@@ -128,6 +129,7 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
     active_large = 0
     waiting_large = []
     outstanding = 0
+    queued_bytes = waiting_producers = 0
 
     def failed(item, exc):
         with lock:
@@ -155,7 +157,7 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
             return next(sequence)
 
     def enqueue(item, result):
-        nonlocal outstanding
+        nonlocal outstanding, queued_bytes, waiting_producers
         task = (item, result) if defer_large else (
             item, result, bool(is_large(item)) if is_large else False)
         priority = (*queue_key(item), next_sequence(), task)
@@ -163,8 +165,28 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
             if control.stop.is_set():
                 return False
             with admission:
+                cost = max(1, int(item.size or 0))
+                waiting = False
+                try:
+                    while (ready_budget_bytes and not download_first and outstanding
+                           and queued_bytes + cost > ready_budget_bytes):
+                        if control.stop.is_set():
+                            return False
+                        if not waiting:
+                            waiting = True
+                            waiting_producers += 1
+                            notify(on_queue_changed, queued_bytes, waiting_producers)
+                        admission.wait(0.2)
+                finally:
+                    if waiting:
+                        waiting_producers -= 1
+                        notify(on_queue_changed, queued_bytes, waiting_producers)
+                if control.stop.is_set():
+                    return False
                 ready.put_nowait(priority)
                 outstanding += 1
+                queued_bytes += cost
+                notify(on_queue_changed, queued_bytes, waiting_producers)
                 admission.notify_all()
             return True
         while not control.stop.is_set():
@@ -209,7 +231,7 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                 notify(on_discard, item)
 
     def pipelined_consumer():
-        nonlocal active_large, outstanding
+        nonlocal active_large, outstanding, queued_bytes
         def large_limit():
             capacity = min(install_workers, getattr(worker_limit, "limit", install_workers))
             return min(max(1, max_large_install), max(1, capacity - 1))
@@ -218,7 +240,7 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                 ready.put_nowait(queued)
             waiting_large.clear()
         while True:
-            admitted = worker_limit is None or worker_limit.acquire(control.stop)
+            admitted = False
             with admission:
                 if control.stop.is_set() or active_large < large_limit():
                     release_waiting()
@@ -234,6 +256,7 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                         requeued = True
                 else:
                     item, result, large = task
+                    admitted = worker_limit is None or worker_limit.acquire(control.stop)
                     if control.stop.is_set() or not admitted:
                         notify(on_discard, item)
                         continue
@@ -257,6 +280,8 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                         release_waiting()
                     if task is not None and not requeued:
                         outstanding -= 1
+                        queued_bytes -= max(1, int(task[0].size or 0))
+                        notify(on_queue_changed, queued_bytes, waiting_producers)
                     if large_slot or (task is not None and not requeued):
                         admission.notify_all()
                 if admitted and worker_limit is not None:
@@ -333,13 +358,17 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                     on_downloads_complete()
                 workers = [pool.submit(consumer) for _ in range(install_workers)]
         finally:
-            if not workers:
-                while not ready.empty():
-                    task = ready.get_nowait()[3]
-                    notify(on_discard, task[0])
-                    ready.task_done()
-            for _ in workers:
-                ready.put((2, 0, next_sequence(), None))
-            for worker in workers:
-                worker.result()
+            try:
+                if not download_first and on_downloads_complete:
+                    on_downloads_complete()
+            finally:
+                if not workers:
+                    while not ready.empty():
+                        task = ready.get_nowait()[3]
+                        notify(on_discard, task[0])
+                        ready.task_done()
+                for _ in workers:
+                    ready.put((2, 0, next_sequence(), None))
+                for worker in workers:
+                    worker.result()
     return errors

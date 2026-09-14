@@ -143,13 +143,24 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                     max_workers=_MAX_EXTRACT_WORKERS_CEILING, max_large_workers=2)
                 reconstruction.extraction_memory = memory
                 priorities = reconstruction.archive_priorities()
+                from .scheduling import InstallResources
+                from .archive_cache import ready_budget
+                resources = contexts.enter_context(InstallResources(
+                    ctl.extract_workers, request, acquire, priorities, log=cb.on_log))
+                reconstruction.worker_limit = resources
+                update_extraction = cb.on_extract_update
+                def extraction_progress(row, current, total):
+                    resources.progress(row, current, total)
+                    update_extraction(row, current, total)
+                reconstruction.cb = replace(cb, on_extract_update=extraction_progress)
+                queue_budget = ready_budget(download_plan)
                 large_archives = {
                     archive.key for archive in needed
                     if max(archive.size, sum(
                         d.output_size for d in reconstruction.by_archive.get(archive.key, ())
                         if d.path not in reconstruction._skipped_dependencies)) >= LARGE_BYTES}
                 emit(cb.on_log, "install.pipeline.configured", archives=len(needed),
-                     download_first=True,
+                     download_first=False, adaptive_overlap=True,
                      clear_archives=request.clear_archives,
                      archive_budget_bytes=report.archive_budget_bytes,
                      automatic=len(automatic), manual=len(manual),
@@ -158,6 +169,7 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                      download_order="balanced-source-groups",
                      download_order_within_group="smallest-ready-first,largest-remaining",
                      extraction_workers=settings["max_extract_workers"],
+                     ready_archive_budget_bytes=queue_budget,
                      extraction_order="dependencies-then-estimated-work",
                      extraction_queue_capacity=max(
                          settings["max_concurrent"] + _MAX_EXTRACT_WORKERS_CEILING + 8,
@@ -172,14 +184,14 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                      manual_sample_truncated=len(manual) > 20)
                 counts = [0, 0]
                 downloads_complete = False
-                download_stage = "Downloading archives"
+                download_stage = "Downloading and reconstructing archives"
                 count_lock = threading.Lock()
                 def update_status():
                     if downloads_complete:
                         progress("Reconstructing archives", counts[1], len(needed),
                                  f"Installed {counts[1]:,}/{len(needed):,} archives")
                     else:
-                        cb.on_status(f"{download_stage} · Ready {counts[0]:,}/{len(needed):,}")
+                        cb.on_status(f"{download_stage} · Ready {counts[0]:,}/{len(needed):,} · Installed {counts[1]:,}/{len(needed):,}")
                 def start_download_group(priority):
                     source = ("Google Drive", "other sources", "Nexus")[priority]
                     emit(cb.on_log, "install.download_group.started", source=source)
@@ -190,14 +202,15 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                     with count_lock:
                         counts[0] += 1
                         update_status()
-                def start_reconstruction():
+                    cb.on_extract_queue(acquire.ids[archive.key], archive.name)
+                def downloads_finished():
                     nonlocal downloads_complete
+                    resources.downloads_complete()
+                    if pipeline_control.stop.is_set():
+                        return
                     acquire.finish_progress()
                     downloads_complete = True
                     update_status()
-                    for archive in needed:
-                        cb.on_extract_queue(acquire.ids[archive.key], archive.name)
-                    reconstruction.start_builds()
                 def install(archive, path):
                     archive_started = time.monotonic()
                     try:
@@ -220,8 +233,8 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                     with count_lock:
                         counts[1] += 1
                         update_status()
-                progress("Downloading archives", 0, len(needed),
-                         "Acquiring and verifying all required archives before reconstruction")
+                progress(download_stage, 0, len(needed),
+                         "Reconstruction adjusts to available CPU, memory and storage capacity")
                 cb.on_agg_download(0, report.download_bytes, 0.0)
                 update_status()
                 def pipeline_error(item, exc):
@@ -230,17 +243,19 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                     cb.on_log(f"{item.name}: {exc}")
                     emit_exception(cb.on_log, "install.pipeline.item_failed", exc,
                                    archive=item.name, archive_hash=item.key)
+                reconstruction.start_builds()
                 errors = consume_pipeline(automatic, bind_verification(acquire), bind_verification(install), pipeline_control, manual_items=manual,
                     download_workers=settings["max_concurrent"],
                     install_workers=_MAX_EXTRACT_WORKERS_CEILING,
                     on_ready=ready, on_discard=lambda a: cb.on_extract_remove(acquire.ids[a.key]),
                     on_error=pipeline_error, prefetch=acquire.prefetch,
                     manual_acquire=bind_verification(acquire.manual),
-                    worker_limit=ctl.extract_workers, defer_large=False,
+                    worker_limit=resources, defer_large=False,
                     is_large=lambda archive: archive.key in large_archives,
-                    download_first=True, on_downloads_complete=start_reconstruction,
+                    on_downloads_complete=downloads_finished,
                     download_group=download_priority, on_download_group=start_download_group,
-                    interleave_groups=True, install_key=lambda archive: priorities[archive.key])
+                    interleave_groups=True, install_key=lambda archive: priorities[archive.key],
+                    ready_budget_bytes=queue_budget, on_queue_changed=resources.queue_changed)
                 emit(cb.on_log, "install.pipeline.completed", errors=len(errors),
                      archives_ready=counts[0], archives_installed=counts[1],
                      stopped=ctl.stop.is_set(), paused=ctl.pause.is_set(),

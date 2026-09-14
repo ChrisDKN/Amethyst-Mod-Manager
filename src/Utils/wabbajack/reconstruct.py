@@ -502,6 +502,7 @@ class Reconstruction:
         self._result_keys = set()
         self._temporary_bytes = 0
         self.extraction_memory = None
+        self.worker_limit = None
         self._build_pool = None
         self._build_stop = threading.Event()
         self._build_futures = {}
@@ -541,6 +542,8 @@ class Reconstruction:
         for key, directives in self.by_archive.items():
             pending = [d for d in directives if d.path not in self.results
                        and d.path not in self._skipped_dependencies]
+            if not pending:
+                continue
             work = sum(d.output_size + 256 * 1024 +
                        (1024 * 1024 if d.kind == "PatchedFromArchive" else 0) for d in pending)
             work += self.request.package.archives[key].size
@@ -1224,7 +1227,19 @@ class Reconstruction:
     def _submit_build(self, path):
         from .verification import bind_verification
         self._build_pending.pop(path)
-        self._build_futures[path] = self._build_pool.submit(bind_verification(self._build_special), self._build_directives[path])
+        self._build_futures[path] = self._build_pool.submit(bind_verification(self._build_admitted), self._build_directives[path])
+
+    def _build_admitted(self, directive):
+        from .acquire import _CombinedStop
+        stop = _CombinedStop(self.control.stop, self._build_stop)
+        admitted = self.worker_limit is None or self.worker_limit.acquire(stop)
+        if not admitted:
+            raise InterruptedError("Archive reconstruction stopped")
+        try:
+            return self._build_special(directive)
+        finally:
+            if self.worker_limit is not None:
+                self.worker_limit.release()
 
     def close_builds(self):
         with self._lock:

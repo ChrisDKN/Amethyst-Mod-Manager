@@ -491,6 +491,10 @@ class Acquisition:
                 self._last_network_progress = now
         self._speed_rows[row] = (current, now)
 
+    def resource_snapshot(self):
+        with self._lock:
+            return self._speed_bytes, bool(self._speed_rows)
+
     def _aggregate_loop(self):
         while not self._aggregate_stop.wait(_AGGREGATE_INTERVAL):
             now = time.monotonic()
@@ -757,8 +761,6 @@ class Acquisition:
                 self.cb.on_log(f"{archive.name}: automatic download needs manual assistance: {reason}")
                 emit_exception(self.cb.on_log, "acquisition.deferred_to_manual", exc,
                                archive=archive.name, kind=archive.kind, reason=reason)
-                if self.budget:
-                    return self.manual(archive, reason)
                 self.cb.on_status(f"Waiting for a manual download: {archive.name}. Other downloads continue.")
                 deferred = True
                 raise ManualDownloadRequired(reason) from exc

@@ -350,14 +350,6 @@ def _verify_package(package, stop):
                         raise InterruptedError("Preflight stopped")
 
 
-def _archive_reconstruction_peak(outputs, cleanup, workers):
-    sizes = [(size, cleanup.get(key, 0)) for key, size in outputs.items()]
-    completed = sum(max(0, output - archive) for output, archive in sizes)
-    # Active archives remain on disk until all of their outputs are durable.
-    active = sorted((min(output, archive) for output, archive in sizes), reverse=True)
-    return completed + sum(active[:workers])
-
-
 def _preflight(request, stop, notify, log=None):
     package = request.package
     report = PreflightReport()
@@ -901,7 +893,7 @@ def _preflight(request, stop, notify, log=None):
     by_path = {d.path.casefold(): d for d in package.directives}
     merge_bytes = max((sum(by_path[p.casefold()].size for p in dependency_paths(d))
                        for d in pending if d.kind == "MergedPatch"), default=0)
-    from Utils.ui.config import load_collection_settings, _MAX_EXTRACT_WORKERS_CEILING
+    from Utils.ui.config import load_collection_settings
     settings = load_collection_settings()
     workers = max(1, settings["max_extract_workers"])
     temporary = max(sum(sorted(estimates, reverse=True)[:workers]), merge_bytes)
@@ -914,7 +906,7 @@ def _preflight(request, stop, notify, log=None):
     cleanup = {}
     if request.clear_archives:
         from .archive_cache import OwnedArchives, download_budget
-        report.archive_budget_bytes = download_budget(missing)
+        report.archive_budget_bytes = download_budget(missing, settings["max_concurrent"])
         cleanup = {a.key: a.size - min(a.size, partials[a.key]) for a in missing
                    if automatic_source(a, request.premium, loverslab_available=loverslab_available)}
         owned = OwnedArchives(request, log)
@@ -922,11 +914,14 @@ def _preflight(request, stop, notify, log=None):
                         if key in required_archives and owned.owns(package.archives[key], path)})
         check("pass", "Archive cleanup",
               "Clear archive after install is enabled. Newly acquired archives are removed after their required outputs are verified and saved. "
-              "All required archives are downloaded before reconstruction starts; disk space accounts for archives being removed as reconstruction progresses. "
+              "Downloads and reconstruction share a bounded archive queue and adjust to available hardware capacity. "
               "Original local archives are kept; repairs or updates may need downloads again.")
     transfer_workers = max(1, settings["max_concurrent"]) + 1
     transfer_space = sum(sorted((a.size for a in missing), reverse=True)[:transfer_workers])
     download_bytes = max(0, report.download_bytes + transfer_space - partial_bytes)
+    if request.clear_archives:
+        retained_manual = sum(a.size for a in missing if a.key not in cleanup)
+        download_bytes = min(download_bytes, report.archive_budget_bytes + retained_manual)
     retained_bytes = report.download_bytes - partial_bytes
     archive_outputs = {}
     for d in pending:
@@ -934,29 +929,24 @@ def _preflight(request, stop, notify, log=None):
             key, _ = archive_paths[d.index]
             archive_outputs[key] = archive_outputs.get(key, 0) + d.size
     cleanup = {key: size for key, size in cleanup.items() if key in archive_outputs}
-    archive_peak = _archive_reconstruction_peak(
-        archive_outputs, cleanup, _MAX_EXTRACT_WORKERS_CEILING)
     install_work = ((max(staged_bytes, final_bytes) if hardlinks else staged_bytes + final_bytes)
                     + 2 * profile_bytes + backups)
-    shared_download_device = (existing_parent(request.downloads).stat().st_dev
-                              == existing_parent(directory).stat().st_dev)
-    reconstruction_savings = (sum(archive_outputs.values()) - archive_peak
-                              if shared_download_device else 0)
     saved_package = directory / (package.identity + ".wabbajack")
     preparation_bytes = package.path.stat().st_size if package.path.resolve() != saved_package.resolve() else 0
     preparation_bytes += sum(package.archives[key].size for key in report.prepared_game_files)
     if not hardlinks:
         preparation_bytes += sum(d.size for d in package.directives if d.path in root_reuse)
-    download_label = "all downloads and concurrent transfer workspace"
+    download_label = ("bounded archives and concurrent transfer workspace" if request.clear_archives
+                      else "retained downloads and concurrent transfer workspace")
     emit(log, "preflight.space.archive_cache", clear_archives=request.clear_archives,
          required_bytes=download_bytes, download_bytes=report.download_bytes,
-         cleanup_credit_bytes=sum(cleanup.values()), reconstruction_savings_bytes=reconstruction_savings,
-         transfer_workspace_bytes=transfer_space, download_first=True)
-    sizes = [(request.downloads, (download_bytes, retained_bytes, retained_bytes - sum(cleanup.values())), download_label),
+         cleanup_credit_bytes=sum(cleanup.values()), archive_budget_bytes=report.archive_budget_bytes,
+         transfer_workspace_bytes=transfer_space, download_first=False)
+    sizes = [(request.downloads, (download_bytes, download_bytes, max(0, retained_bytes - sum(cleanup.values()))), download_label),
              (directory, (preparation_bytes,) * 3, "saved package and source preparation"),
              (directory, (0, 0, setup_bytes), "additional setup, staging and generated mods"),
              (directory, (0, 0, bsa_bytes), "vanilla BSA setup and audio conversion"),
-             (directory, (0, install_work - reconstruction_savings, install_work), "installation working set and update backups"),
+             (directory, (0, install_work, install_work), "installation working set and update backups"),
              (directory, (0, temporary, 0), "estimated temporary extraction")]
     for path, counts, label in sizes:
         parent = existing_parent(path)
