@@ -109,6 +109,7 @@ class WabbajackView(QWidget):
         self._package_url = ""
         self._manual_package = False
         self._request = None
+        self._last_checked_request = None
         self._report = None
         self._preflight_stop = threading.Event()
         self._page = 0
@@ -116,6 +117,7 @@ class WabbajackView(QWidget):
         self._checking = False
         self._installing_mpi = False
         self._installing_texture = False
+        self._testing_texture = False
         self._worker_stop = threading.Event()
         self._package_stop = None
         self._workers = set()
@@ -485,6 +487,8 @@ class WabbajackView(QWidget):
             setup, get_api=self._get_api, log_fn=self._diagnostic_log,
             can_install_tool=self._can_install_mpi)
         self._task_options.changed.connect(self._options_changed)
+        self._task_options.texture_prepare_requested.connect(self._install_texconv)
+        self._task_options.texture_test_requested.connect(self._test_textures)
         self._task_options.tool_running_changed.connect(self._mpi_running_changed)
         self._task_options.tool_ready.connect(self._mpi_ready)
         setup_layout.addWidget(self._task_options)
@@ -1174,7 +1178,10 @@ class WabbajackView(QWidget):
             self._task_options.set_profiles(self._selected_choices(self._profiles))
         if not keep_report:
             self._report = None
+            self._last_checked_request = None
         if not self._busy:
+            if keep_report and self._request is not None:
+                self._last_checked_request = self._request
             self._request = None
             if keep_report:
                 self._status.setText(self.tr("Options changed. Previous requirements are shown for reference; recheck to update them."))
@@ -1234,7 +1241,9 @@ class WabbajackView(QWidget):
         ready = self._request is not None and self._report is not None and self._report.ok
         stale = self._request is None and self._report is not None
         operation = self.tr("Install") if self._mode.currentData() == "install" else self._mode.currentText()
-        if self._busy:
+        if self._testing_texture:
+            label = self.tr("Testing textures…")
+        elif self._busy:
             label = self.tr("Installing…")
         elif self._installing_texture or self._installing_mpi:
             label = self.tr("Preparing tool…")
@@ -1251,7 +1260,12 @@ class WabbajackView(QWidget):
         self._start_button.setText(label)
         self._start_button.setToolTip(self.tr("Start the selected operation using the reviewed download plan.") if ready
                                      else self.tr("Load the package if needed, check requirements, and prepare the download plan for review."))
-        if self._busy:
+        if self._testing_texture:
+            self._set_setup_state(self.tr("Testing textures"), "ACCENT")
+            self._set_step(1)
+            self._footer_hint.setText(self.tr(
+                "Downloading only texture source archives and validating real list conversions."))
+        elif self._busy:
             self._set_setup_state(self.tr("Installing"), "ACCENT")
             self._set_step(2)
             self._footer_hint.setText(self.tr("Installation is running. Pause and cancel are available in the progress window."))
@@ -1311,9 +1325,116 @@ class WabbajackView(QWidget):
         self.running_changed.emit(True)
         self._update_start_button()
         from Utils.wabbajack.textures import install_texture_tool
-        self._status.setText(self.tr("Preparing the isolated texture runtime and testing DDS conversion…"))
+        native = request.setup_options.get("texture", {}).get("mode") == "compressonator"
+        self._status.setText(self.tr(
+            "Installing the native texture converter and testing DDS conversion…" if native else
+            "Preparing the isolated Texconv runtime and testing DDS conversion…"))
         self._worker("texture", lambda: install_texture_tool(self._worker_stop, request=request,
             log=lambda message: safe_emit(self._progress, "log", (message,))))
+
+    def _test_textures(self):
+        from Utils.ui.config import load_dev_mode
+        if not load_dev_mode():
+            return
+        base_request = self._request or self._last_checked_request
+        if self._busy or self._checking or self._loading_package or not base_request or not self._report:
+            self._status.setText(self.tr(
+                "Check requirements first, then run the developer texture test."))
+            return
+        if not self._can_install():
+            self._status.setText(self.tr(
+                "Wait for the current install or deployment operation to finish."))
+            return
+        from dataclasses import replace
+        request = replace(
+            base_request,
+            profiles=self._selected_choices(self._profiles),
+            fixes=self._selected_choices(self._adjustments),
+            setup_options=self._task_options.values(),
+            mode=self._mode.currentData())
+        report = self._report
+        try:
+            from Utils.wabbajack.texture_test import texture_test_plan
+            directives, archives = texture_test_plan(request)
+        except Exception as exc:
+            self._status.setText(str(exc))
+            return
+        if not directives:
+            self._status.setText(self.tr(
+                "The selected profiles do not require texture conversion."))
+            return
+        cached = set(self._report.cached) | set(self._report.game_files) | set(
+            self._report.prepared_game_files)
+        from Utils.wabbajack.texture_test import texture_test_substitutes
+        substitutes, missing_sources = texture_test_substitutes(
+            request, report, archives)
+        if missing_sources:
+            self._status.setText(self.tr(
+                "Texture conversion sources are missing and cannot be downloaded: {0}").format(
+                    ", ".join(archive.name for archive in missing_sources)))
+            return
+        download_bytes = sum(a.size for a in archives
+                             if a.key not in cached and a.kind != "GameFileSource")
+        substitute_note = self.tr(
+            " {0} game-source archive does not match the list hash; its installed local file will be used only to test conversion and will not satisfy installation requirements.").format(
+                f"{len(substitutes):,}") if substitutes else ""
+        from gui_qt.confirm_overlay import ConfirmOverlay
+        ConfirmOverlay.show_over(
+            self, self.tr("Test real list textures"),
+            self.tr(
+                "This will process {0} texture conversions from {1} source archives. "
+                "Up to {2} must be downloaded; cached archives are reused. "
+                "Converted outputs are temporary, while downloaded archives are retained for a normal installation.{3}").format(
+                    f"{len(directives):,}", f"{len(archives):,}",
+                    fmt_size(download_bytes), substitute_note),
+            lambda accepted: self._start_texture_test(request, report) if accepted else None,
+            confirm_label=self.tr("Download and test"), danger=False)
+
+    def _start_texture_test(self, request, report):
+        if self._busy or self._report is not report:
+            return
+        self._busy = True
+        self._testing_texture = True
+        self._task_options.setEnabled(False)
+        self.running_changed.emit(True)
+        self._control = InstallControl()
+        from Utils.ui.config import (
+            load_collection_settings, _MAX_EXTRACT_WORKERS_CEILING)
+        settings = load_collection_settings()
+        self._control.extract_workers.set_limit(settings["max_extract_workers"])
+        self._update_start_button()
+        from gui_qt.collection_install_overlay import CollectionInstallOverlay
+        from Utils.downloads.bandwidth import set_limit_mbps
+        from Utils.ui.config import load_download_speed_limit
+        self._overlay = CollectionInstallOverlay.show_over(
+            self, self._package.name, on_pause=self._pause, on_cancel=self._cancel,
+            on_limit_change=set_limit_mbps,
+            limit_mbps=load_download_speed_limit(), hide_completed_batches=True,
+            install_heading=self.tr("Testing texture conversion"),
+            extract_workers=settings["max_extract_workers"],
+            max_extract_workers=_MAX_EXTRACT_WORKERS_CEILING,
+            on_extract_workers_change=self._set_extract_workers)
+        callbacks = InstallCallbacks(
+            on_log=lambda text: safe_emit(self._progress, "log", (text,)),
+            on_manual_mod=lambda payload: safe_emit(self._manual, payload))
+        slots = {
+            "on_status": "set_status", "on_phase": "set_phase",
+            "on_display_total": "set_display_total", "on_mod_plan": "set_mod_plan",
+            "on_row_installed": "row_installed", "on_agg_download": "set_agg",
+            "on_dl_mod_wait": "dl_wait", "on_dl_mod_start": "dl_start",
+            "on_dl_mod_update": "dl_update", "on_dl_mod_finish": "dl_finish",
+            "on_extract_add": "extract_add", "on_extract_remove": "extract_remove",
+            "on_extract_queue": "extract_queue", "on_extract_wait": "extract_wait",
+            "on_extract_update": "extract_update",
+        }
+        for attribute, slot in slots.items():
+            setattr(callbacks, attribute,
+                    lambda *args, slot=slot: safe_emit(self._progress, slot, args))
+        self._status.setText(self.tr(
+            "Downloading texture source archives and testing real list conversions…"))
+        from Utils.wabbajack.texture_test import run_texture_test
+        self._worker("texture-test", lambda: run_texture_test(
+            request, report, callbacks=callbacks, control=self._control))
 
     def _can_install_mpi(self):
         return bool(self._game and not (
@@ -1643,6 +1764,16 @@ class WabbajackView(QWidget):
             self.running_changed.emit(False)
             self._task_options.setEnabled(True)
             self._update_start_button()
+        if kind == "texture-test":
+            self._busy = False
+            self._testing_texture = False
+            self.running_changed.emit(False)
+            self._task_options.setEnabled(True)
+            for overlay in (self._overlay, self._manual_overlay):
+                if overlay:
+                    overlay.dismiss()
+            self._overlay = self._manual_overlay = None
+            self._update_start_button()
         if kind == "package":
             check_after = self._check_after_package
             package_cancelled = self._package_stop is not None and self._package_stop.is_set()
@@ -1672,6 +1803,8 @@ class WabbajackView(QWidget):
         if error:
             self._status.setText(error)
             self._log("[wabbajack] " + error)
+            if kind == "texture-test":
+                self._checks.setPlainText(error)
             if kind == "package" and self._package_url.startswith(("http://", "https://")):
                 self._manual_package = True
                 self._prepare_button.setText(self.tr("Open download page"))
@@ -1680,7 +1813,7 @@ class WabbajackView(QWidget):
                 self._stack.setCurrentIndex(1)
             if kind == "package":
                 self._update_start_button()
-            if kind in {"package", "preflight", "install"}:
+            if kind in {"package", "preflight", "install", "texture-test"}:
                 self._set_setup_state(self.tr("Could not continue"), "TEXT_ERR")
                 self._footer_hint.setText(self.tr("Review the error details, then try the operation again."))
         if kind == "gallery" and result:
@@ -1769,6 +1902,7 @@ class WabbajackView(QWidget):
             if request is not self._request:
                 return
             self._report = report
+            self._last_checked_request = request
             self._log("[wabbajack] Requirements checked in " + f"{sum(report.timings.values()):.2f}s: "
                       + "; ".join(f"{name}: {seconds:.2f}s" for name, seconds in report.timings.items()))
             self._checks.show_report(report)
@@ -1782,7 +1916,20 @@ class WabbajackView(QWidget):
             else:
                 QTimer.singleShot(0, self, lambda: self._detail_scroll.ensureWidgetVisible(self._checks))
         elif kind == "texture" and result:
-            self._status.setText(self.tr("Texture tool installed. Check requirements again to refresh the download plan."))
+            self._status.setText(self.tr("Texture converter ready. Check requirements again to refresh the download plan."))
+        elif kind == "texture-test" and result:
+            self._status.setText(result.message)
+            self._checks.setPlainText(result.message + self.tr(
+                "\n\nFormats: {0}").format(", ".join(result.formats)))
+            tone = ("ACCENT" if result.status == "complete" and not result.substitutes
+                    else "TEXT_WARN")
+            self._set_setup_state(
+                self.tr("Texture test passed with substitute")
+                if result.status == "complete" and result.substitutes
+                else self.tr("Texture test passed") if result.status == "complete"
+                else self.tr("Texture test stopped"), tone)
+            self._footer_hint.setText(self.tr(
+                "The normal installation can reuse the downloaded source archives."))
         elif kind == "install":
             request = self._request
             self._busy = False

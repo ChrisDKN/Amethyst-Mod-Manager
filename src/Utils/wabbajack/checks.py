@@ -61,8 +61,8 @@ _HELP = {
         "The selected prefix cannot translate one of the permanent Linux installation paths into a Windows drive path for bundled tools.",
         "Check the selected game's prefix and its Wine drive mappings. Make the listed location accessible through a mapped drive, then recheck."),
     "Texture conversion": (
-        "The package needs DDS textures resized or converted. The isolated texture tool did not pass its capability check with the selected runtime.",
-        "Select an installed build under Texture tool Proton, then use Prepare / repair texture tool. If GPU conversion fails, choose CPU only under Texture conversion and recheck. Include the details below if neither mode works."),
+        "The package needs DDS textures resized or converted. The selected texture converter did not pass its capability check.",
+        "Choose a converter under Texture conversion and use its Install / repair button. Texconv needs an installed build under Texture tool Proton; Native Compressonator does not use Proton. Then check requirements again and include the details below if both converters fail."),
     "BSA setup": (
         "This list requires the original New Vegas archives to be rebuilt, including audio conversion. Amethyst checks the supported source files, required tools and existing generated output first.",
         "Follow the specific failure below: restore the required English vanilla sources, install FFmpeg if missing, or resolve the named output-folder conflict. Then recheck; Amethyst runs the supported BSA setup automatically during installation."),

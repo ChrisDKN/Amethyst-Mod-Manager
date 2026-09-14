@@ -109,6 +109,7 @@ class InstallRequest:
     gallery_metadata: dict = field(default_factory=dict)
     fixes: list[str] = field(default_factory=list)
     texconv: Path | None = None
+    compressonator: Path | None = None
     proton: Path | None = None
     resolve_conflicts: Callable | None = None
     setup_options: dict = field(default_factory=dict)

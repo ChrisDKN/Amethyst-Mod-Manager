@@ -18,6 +18,8 @@ from gui_qt.wabbajack_setup import CappedComboBox
 
 class SetupOptions(QWidget):
     changed = Signal()
+    texture_prepare_requested = Signal()
+    texture_test_requested = Signal()
     tool_running_changed = Signal(bool)
     tool_ready = Signal(object)
     picked = Signal(int, str, str, object)
@@ -284,12 +286,32 @@ class SetupOptions(QWidget):
         form.addRow(self.tr("Texture tool Proton"), self._texture_runtime)
         form.setRowVisible(self._texture_runtime, textures)
         self._texture_mode = CappedComboBox(settings)
-        self._texture_mode.addItem(self.tr("Automatic (GPU when available)"), "auto")
-        self._texture_mode.addItem(self.tr("CPU only"), "cpu")
+        self._texture_mode.addItem(self.tr("Texconv (GPU when available)"), "auto")
+        self._texture_mode.addItem(self.tr("Texconv (CPU only)"), "cpu")
+        from Utils.wabbajack.textures import compressonator_supported
+        if compressonator_supported():
+            self._texture_mode.addItem(self.tr("Native Compressonator (CPU, experimental)"), "compressonator")
+        self._texture_mode.setToolTip(self.tr(
+            "Texconv matches Wabbajack's converter and needs Proton. Native Compressonator avoids Wine but may produce different compressed pixels; Amethyst still verifies the DDS layout requested by the list."))
         self._texture_mode.setCurrentIndex(max(0, self._texture_mode.findData(texture.get("mode", "auto"))))
-        self._texture_mode.currentIndexChanged.connect(self.changed)
         form.addRow(self.tr("Texture conversion"), self._texture_mode)
         form.setRowVisible(self._texture_mode, textures)
+        self._texture_prepare = QPushButton(settings)
+        self._texture_prepare.setObjectName("FormButton")
+        self._texture_prepare.clicked.connect(self.texture_prepare_requested.emit)
+        form.addRow("", self._texture_prepare)
+        form.setRowVisible(self._texture_prepare, textures)
+        self._texture_test = QPushButton(settings)
+        self._texture_test.setObjectName("FormButton")
+        self._texture_test.setText(self.tr("Dev: Download and test list textures"))
+        self._texture_test.setToolTip(self.tr(
+            "Downloads only source archives referenced by the selected profiles' texture conversions, converts and validates every referenced texture, then removes temporary outputs."))
+        self._texture_test.clicked.connect(self.texture_test_requested.emit)
+        form.addRow("", self._texture_test)
+        from Utils.ui.config import load_dev_mode
+        form.setRowVisible(self._texture_test, textures and load_dev_mode())
+        self._texture_mode.currentIndexChanged.connect(self._texture_mode_changed)
+        self._texture_mode_changed()
         settings_available = display_available or store_available or textures
         settings.setVisible(settings_available)
         self._configurable = settings_available or bool(problem)
@@ -302,6 +324,16 @@ class SetupOptions(QWidget):
         separator = getattr(self, "_display_separator", None)
         if separator is not None:
             separator.setEnabled(enabled)
+        self.changed.emit()
+
+    def _texture_mode_changed(self, *_):
+        native = self._texture_mode.currentData() == "compressonator"
+        self._texture_prepare.setText(self.tr(
+            "Install / repair Compressonator" if native else "Install / repair Texconv"))
+        self._texture_runtime.setEnabled(not native)
+        self._texture_runtime.setToolTip(self.tr(
+            "Native Compressonator does not use Proton." if native else
+            "Proton build used by the isolated Texconv runtime."))
         self.changed.emit()
 
     def _mode(self, task_id):
