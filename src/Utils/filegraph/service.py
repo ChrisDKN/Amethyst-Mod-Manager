@@ -360,7 +360,7 @@ class ProfileSession:
         "_committed_deployment_mode", "_deployment_matches_committed",
         "_deployment_match_known", "_deployment_projection_cache",
         "_prepared_deployment_plan", "_deployment_prepare_lock",
-        "_intent_identity", "_deployed_entries_cache",
+        "_intent_identity", "_deployed_entries_cache", "__weakref__",
     )
 
     def __init__(self, library: "LibrarySession", profile_dir: Path):
@@ -895,7 +895,7 @@ class ProfileSession:
 class LibrarySession:
     __slots__ = (
         "game", "root", "log", "_native", "_profiles", "_refresh_lock",
-        "_variant_keys_cache", "__weakref__",
+        "_profiles_lock", "_variant_keys_cache", "__weakref__",
     )
 
     def __init__(self, game, root: Path, *, log_fn=None):
@@ -914,27 +914,37 @@ class LibrarySession:
                 f"{quarantined}. A raw manifest rebuild is required.")
             self._native = native.LibrarySession.open(self.root)
             self._native.set_ready(False)
-        self._profiles: dict[str, ProfileSession] = {}
+        self._profiles: "weakref.WeakValueDictionary[str, ProfileSession]" = (
+            weakref.WeakValueDictionary())
+        self._profiles_lock = threading.RLock()
         self._refresh_lock = threading.Lock()
         self._variant_keys_cache: dict[str, frozenset[str]] | None = None
+
+    def _profile_sessions(self) -> tuple[ProfileSession, ...]:
+        with self._profiles_lock:
+            return tuple(self._profiles.values())
+
+    def _profile_items(self) -> tuple[tuple[str, ProfileSession], ...]:
+        with self._profiles_lock:
+            return tuple(self._profiles.items())
 
     def rebind_game(self, game, *, log_fn=None) -> None:
         """Bind cached profile sessions to the current game-handler object."""
         if self.game is game:
             if log_fn is not None:
                 self.log = log_fn
-                for profile in self._profiles.values():
+                for profile in self._profile_sessions():
                     profile.adapter.log = log_fn
             return
         with self._refresh_lock:
             if log_fn is not None:
                 self.log = log_fn
             if self.game is game:
-                for profile in self._profiles.values():
+                for profile in self._profile_sessions():
                     profile.adapter.log = self.log
                 return
             self.game = game
-            for profile in self._profiles.values():
+            for profile in self._profile_sessions():
                 profile._rebind_game(game, self.log)
 
     def _quarantine_corrupt_database(self) -> Path:
@@ -975,7 +985,8 @@ class LibrarySession:
             if not status.ready:
                 return None
             key = str(Path(profile_dir).resolve(strict=False))
-            profile = self._profiles.get(key)
+            with self._profiles_lock:
+                profile = self._profiles.get(key)
             if profile is None:
                 return None
             return profile._try_inventory_snapshot(
@@ -985,11 +996,12 @@ class LibrarySession:
 
     def open_profile(self, profile_dir: Path) -> ProfileSession:
         key = str(Path(profile_dir).resolve(strict=False))
-        session = self._profiles.get(key)
-        if session is None:
-            session = ProfileSession(self, Path(profile_dir))
-            self._profiles[key] = session
-        return session
+        with self._profiles_lock:
+            session = self._profiles.get(key)
+            if session is None:
+                session = ProfileSession(self, Path(profile_dir))
+                self._profiles[key] = session
+            return session
 
     def update_mod_from_disk(
         self, profile_dir: Path, mod_name: str, *,
@@ -1031,7 +1043,7 @@ class LibrarySession:
             generation = int(self._native.replace_mod_manifest(
                 pack(batch), cancel._native if cancel is not None else None))
             self._variant_keys_cache = None
-            for profile in self._profiles.values():
+            for profile in self._profile_sessions():
                 profile._invalidate_resolution_cache()
             self._invalidate_shared_catalogs()
             return generation
@@ -1085,7 +1097,7 @@ class LibrarySession:
             removed = bool(self._native.remove_mod(mod_name.lower()))
             if removed:
                 self._variant_keys_cache = None
-                for profile in self._profiles.values():
+                for profile in self._profile_sessions():
                     profile._invalidate_resolution_cache()
             if removed:
                 self._invalidate_shared_catalogs()
@@ -1099,7 +1111,7 @@ class LibrarySession:
                 old_name.lower(), new_name.lower(), new_name))
             if renamed:
                 self._variant_keys_cache = None
-                for profile in self._profiles.values():
+                for profile in self._profile_sessions():
                     profile._invalidate_resolution_cache()
             if renamed:
                 self._invalidate_shared_catalogs()
@@ -1136,7 +1148,7 @@ class LibrarySession:
                 self._native.replace_mod_manifests(
                     (pack(batch) for batch in batches), token._native)
                 self._variant_keys_cache = None
-                for profile in self._profiles.values():
+                for profile in self._profile_sessions():
                     profile._invalidate_resolution_cache()
                 self._invalidate_shared_catalogs()
                 return self.status()
@@ -1215,7 +1227,7 @@ class LibrarySession:
                     self._native.remove_mod(name)
                 if changed or removed:
                     self._variant_keys_cache = None
-                for profile in self._profiles.values():
+                for profile in self._profile_sessions():
                     profile._invalidate_resolution_cache()
                 if shared_changed:
                     self._invalidate_shared_catalogs(shared_batch)
@@ -1230,7 +1242,7 @@ class LibrarySession:
         with self._refresh_lock:
             self._native.set_ready(False)
             self._variant_keys_cache = None
-            for profile in self._profiles.values():
+            for profile in self._profile_sessions():
                 profile._invalidate_resolution_cache()
 
     def _invalidate_shared_catalogs(self, shared_batch=frozenset()):
@@ -1266,7 +1278,7 @@ class LibrarySession:
             self._native.activate_catalog(
                 temporary.database_path, True)
             self._variant_keys_cache = None
-            for profile_id, profile in self._profiles.items():
+            for profile_id, profile in self._profile_items():
                 profile._reset_after_catalog_rebuild(profile_id)
             if previous_fingerprints is not None and previous_fingerprints != self.manifest_fingerprints():
                 self._invalidate_shared_catalogs(shared_batch)

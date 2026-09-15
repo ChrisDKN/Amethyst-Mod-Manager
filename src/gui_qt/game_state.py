@@ -9,6 +9,7 @@ active modlist.txt + staging dir.
 from __future__ import annotations
 
 import time
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -98,11 +99,15 @@ class ConflictData:
 
 
 class GameState:
+    _FILEGRAPH_CACHE_LIMIT = 2
+
     def __init__(self):
         self.game_names: list[str] = []
         self.game_name: str | None = None
         self.profile: str | None = None
-        self._filegraph_conflict_cache: dict[tuple[str, bool], ConflictData] = {}
+        self._filegraph_conflict_cache: OrderedDict[
+            tuple[str, bool], ConflictData
+        ] = OrderedDict()
         # Keep the active native library warm.  FileGraphService's registry is
         # intentionally weak so unused libraries can be reclaimed, but without
         # an owner here every build_conflicts() call became a cold SQLite/graph
@@ -111,6 +116,7 @@ class GameState:
         # repeatedly during one UI session.
         self._filegraph_library = None
         self._filegraph_profile = None
+        self._filegraph_recent_profiles: list[object] = []
 
     # -- discovery / load ---------------------------------------------------
     def load(self, timing=None) -> None:
@@ -292,6 +298,9 @@ class GameState:
         if timing is not None:
             timing.mark("Filegraph library opened",
                         phase_started=phase_started, lane="worker")
+        if library is not self._filegraph_library:
+            self._filegraph_conflict_cache.clear()
+            self._filegraph_recent_profiles.clear()
         self._filegraph_library = library
         phase_started = time.perf_counter()
         with span("filegraph.refresh" if rescan_index else "filegraph.ensure_ready"):
@@ -307,6 +316,12 @@ class GameState:
         phase_started = time.perf_counter()
         session = library.open_profile(profile_dir)
         self._filegraph_profile = session
+        self._filegraph_recent_profiles = [
+            profile for profile in self._filegraph_recent_profiles
+            if profile is not session and profile.library is library
+        ]
+        self._filegraph_recent_profiles.append(session)
+        del self._filegraph_recent_profiles[:-self._FILEGRAPH_CACHE_LIMIT]
         if timing is not None:
             timing.mark("profile session opened",
                         phase_started=phase_started, lane="worker")
@@ -337,6 +352,8 @@ class GameState:
                     pass
         cache_key = (profile_id, show_archives)
         data = self._filegraph_conflict_cache.get(cache_key)
+        if data is not None:
+            self._filegraph_conflict_cache.move_to_end(cache_key)
         can_apply_delta = bool(
             data is not None
             and not delta.full_rebuild
@@ -527,6 +544,9 @@ class GameState:
                 if reuse_frameworks else "framework statuses resolved",
                 phase_started=phase_started, lane="worker")
         self._filegraph_conflict_cache[cache_key] = data
+        self._filegraph_conflict_cache.move_to_end(cache_key)
+        while len(self._filegraph_conflict_cache) > self._FILEGRAPH_CACHE_LIMIT:
+            self._filegraph_conflict_cache.popitem(last=False)
         return data
 
     # -- internals ----------------------------------------------------------
