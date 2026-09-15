@@ -1848,7 +1848,7 @@ class NexusBrowserView(QWidget):
             body += " " + self.tr("{0} mod(s) will be skipped.").format(len(skipped))
         items = []
         for entry, file, size in candidates:
-            size_label = (self.tr("{0:.1f} MB").format(size / (1024 * 1024))
+            size_label = (self.tr("{0} MB").format(f"{size / (1024 * 1024):.1f}")
                           if size > 0 else self.tr("size unknown; 100 MB limit"))
             items.append(self.tr("Install: {0} — {1} ({2})").format(
                 entry.name or f"Mod {entry.mod_id}",
