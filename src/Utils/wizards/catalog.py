@@ -44,7 +44,7 @@ _CATEGORY_RULES: list[tuple[tuple[str, ...], str]] = [
     # DynDOLOD (LOD & textures)
     (("texgen", "dyndolod", "xlodgen"), "DynDOLOD"),
     # Development tools
-    (("creationkit", "esp_esm_translator"), "Development"),
+    (("creationkit", "esp_esm_translator", "xtranslator"), "Development"),
     # xEdit
     #   xEdit ships under many build names (SSEEdit, FO4Edit, FNVEdit, TES5Edit,
     #   SF1Edit, …) whose wizard ids share the "<build>edit_<suffix>" shape, so
