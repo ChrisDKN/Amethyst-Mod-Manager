@@ -27,6 +27,7 @@ COMPRESSONATOR_ARCHIVE_SHA256 = "70c9cdb27a19875df03766f349864951a749a44c0f5c001
 COMPRESSONATOR_SHA256 = "c00d88dab9c0dce00818263dc7ac9f8bc24ba5ef2ed461e56aaedad01270c239"
 _CONVERSIONS = threading.BoundedSemaphore(2)
 _PREPARATION = threading.Lock()
+_COMPRESSONATOR_PREPARATION = threading.Lock()
 _LEASES = threading.local()
 _USED_PREFIXES = set()
 
@@ -312,7 +313,9 @@ def _run_once(request, arguments, stop=None, timeout=600, log=None):
             emit(log, "texture.process.failed", exit_code=process.returncode,
                  output=detail,
                  elapsed_seconds=round(time.monotonic() - started, 3))
-            transient = any(word in detail.casefold() for word in ("connection reset by peer", "wine client error", "recvmsg"))
+            transient = any(word in detail.casefold() for word in (
+                "connection reset by peer", "wine client error", "recvmsg",
+                "wine server seems to be running"))
             raise _TextureFailure(f"Texconv exited with code {process.returncode}. {detail}", transient)
         detail = b"".join(tail).decode("utf-8", "replace")[-4000:]
         emit(log, "texture.process.completed", exit_code=process.returncode,
@@ -334,8 +337,18 @@ def _run_once(request, arguments, stop=None, timeout=600, log=None):
 
 
 def _run(request, arguments, stop=None, timeout=600, log=None):
-    with _prefix_lease(request, stop):
-        return _run_leased(request, arguments, stop, timeout, log)
+    return _run_leased(request, arguments, stop, timeout, log)
+
+
+def _restart_texture_runtime(request, stop=None, log=None):
+    from Utils.executables.launch import shutdown_prefix_wineserver
+    with _prefix_lease(request, stop, exclusive=True):
+        prefix = _prefix(request)
+        emit(log, "texture.runtime.restart.started", prefix=prefix,
+             proton=request.proton)
+        shutdown_prefix_wineserver(request.proton, prefix, log_fn=log)
+        emit(log, "texture.runtime.restart.completed", prefix=prefix,
+             proton=request.proton)
 
 
 def _run_leased(request, arguments, stop=None, timeout=600, log=None):
@@ -343,17 +356,22 @@ def _run_leased(request, arguments, stop=None, timeout=600, log=None):
         if stop is not None and stop.is_set():
             raise InterruptedError("Texture conversion stopped")
     try:
-        with _prefix_lease(request, stop):
-            for attempt in range(3):
-                try:
+        for attempt in range(3):
+            try:
+                with _prefix_lease(request, stop):
                     return _run_once(request, arguments, stop, timeout, log)
-                except _TextureFailure as exc:
-                    emit_exception(log, "texture.process.retry", exc,
-                                   attempt=attempt + 1, transient=exc.transient)
-                    if not exc.transient or attempt == 2:
-                        raise
-                    if stop is not None and stop.wait(0.2 * (attempt + 1)):
+            except _TextureFailure as exc:
+                emit_exception(log, "texture.process.retry", exc,
+                               attempt=attempt + 1, transient=exc.transient)
+                if not exc.transient or attempt == 2:
+                    raise
+                _restart_texture_runtime(request, stop, log)
+                delay = 0.2 * (attempt + 1)
+                if stop is not None:
+                    if stop.wait(delay):
                         raise InterruptedError("Texture conversion stopped")
+                else:
+                    time.sleep(delay)
     finally:
         _CONVERSIONS.release()
 
@@ -597,6 +615,43 @@ def _transform_compressonator(request, source, result, width, height, mips,
     return expected_mips
 
 
+def _transform_compressonator_limited(request, source, result, width, height,
+                                      mips, format_name, filtering, stop,
+                                      timeout, log):
+    while not _CONVERSIONS.acquire(timeout=0.1):
+        if stop is not None and stop.is_set():
+            raise InterruptedError("Texture conversion stopped")
+    try:
+        return _transform_compressonator(
+            request, source, result, width, height, mips, format_name,
+            filtering, stop, timeout, log)
+    finally:
+        _CONVERSIONS.release()
+
+
+def _compressonator_fallback_request(request, stop=None, log=None,
+                                     format_name=""):
+    if not compressonator_supported():
+        raise WabbajackError("Native Compressonator fallback is unavailable on this architecture")
+    if format_name not in _COMPRESSONATOR_FORMATS and format_name not in _NATIVE_RAW_FORMATS:
+        raise WabbajackError(f"Native Compressonator does not support {format_name}")
+    from copy import copy
+    native = copy(request)
+    native.setup_options = dict(request.setup_options)
+    native.setup_options["texture"] = dict(native.setup_options.get("texture", {}))
+    native.setup_options["texture"]["mode"] = "compressonator"
+    installed = False
+    with _COMPRESSONATOR_PREPARATION:
+        tool = find_compressonator()
+        if tool is None:
+            emit(log, "texture.fallback.install.started",
+                 converter="compressonator", format=format_name)
+            tool = install_compressonator(stop, request=native, log=log)
+            installed = True
+        native.compressonator = Path(tool).resolve()
+    return native, installed
+
+
 def transform_texture(request, source, target, state, stop=None, *, timeout=600,
                       log=None):
     from Utils.ba2.writer import _parse_dds
@@ -608,18 +663,13 @@ def transform_texture(request, source, target, state, stop=None, *, timeout=600,
          mode=request.setup_options.get("texture", {}).get("mode", "auto"))
     with tempfile.TemporaryDirectory(prefix="texture-", dir=target.parent) as tmp:
         work = Path(tmp)
+        fallback = None
         if request.setup_options.get("texture", {}).get("mode") == "compressonator":
             result = work / "converted.dds"
             try:
-                while not _CONVERSIONS.acquire(timeout=0.1):
-                    if stop is not None and stop.is_set():
-                        raise InterruptedError("Texture conversion stopped")
-                try:
-                    expected_mips = _transform_compressonator(
-                        request, source, result, width, height, mips, format_name,
-                        filtering, stop, timeout, log)
-                finally:
-                    _CONVERSIONS.release()
+                expected_mips = _transform_compressonator_limited(
+                    request, source, result, width, height, mips, format_name,
+                    filtering, stop, timeout, log)
             except WabbajackError as exc:
                 raise WabbajackError(f"{target}: {width}x{height}, {format_name}, {mips} mip levels; native Compressonator. {exc}. Install / repair Compressonator or select Texconv, then resume.") from exc
         else:
@@ -635,9 +685,30 @@ def transform_texture(request, source, target, state, stop=None, *, timeout=600,
                                "-if", filtering, *flags, "-dx10", "-y"], stop,
                      timeout, log)
             except WabbajackError as exc:
-                raise WabbajackError(f"{target}: {width}x{height}, {format_name}, {mips} mip levels; Proton {request.proton.parent.name}. {exc}. Prepare the texture tool again or select CPU conversion, then resume.") from exc
-            result = output / "source.dds"
-            expected_mips = mips or max(width, height).bit_length()
+                emit_exception(log, "texture.fallback.started", exc,
+                               source_converter="texconv",
+                               target_converter="compressonator",
+                               format=format_name)
+                try:
+                    native, installed = _compressonator_fallback_request(
+                        request, stop, log, format_name)
+                    result = work / "converted.dds"
+                    expected_mips = _transform_compressonator_limited(
+                        native, source, result, width, height, mips,
+                        format_name, filtering, stop, timeout, log)
+                    fallback = native, installed, exc
+                except InterruptedError:
+                    raise
+                except Exception as fallback_exc:
+                    proton = request.proton.parent.name if request.proton else "selected Proton"
+                    raise WabbajackError(
+                        f"{target}: {width}x{height}, {format_name}, {mips} mip levels; "
+                        f"Texconv with {proton} failed: {exc}. Native Compressonator "
+                        f"fallback also failed: {fallback_exc}. Prepare either texture "
+                        "tool, then resume.") from fallback_exc
+            else:
+                result = output / "source.dds"
+                expected_mips = mips or max(width, height).bit_length()
         with result.open("rb") as stream:
             import mmap
             with mmap.mmap(stream.fileno(), 0, access=mmap.ACCESS_READ) as mapped:
@@ -645,6 +716,14 @@ def transform_texture(request, source, target, state, stop=None, *, timeout=600,
         if info["width"] != width or info["height"] != height or info["mip_count"] != expected_mips or _FORMATS.get(info["dxgi_format"]) != format_name:
             raise WabbajackError("Converted texture does not match requested dimensions or mipmaps")
         result.replace(target)
+        if fallback is not None:
+            native, installed, texconv_error = fallback
+            request.compressonator = native.compressonator
+            request.setup_options.setdefault("texture", {})["mode"] = "compressonator"
+            emit(log, "texture.fallback.completed",
+                 source_converter="texconv", target_converter="compressonator",
+                 auto_installed=installed, format=format_name,
+                 texconv_error=str(texconv_error))
     emit(log, "texture.transform.completed", target=target,
          bytes=target.stat().st_size, width=width, height=height,
          mip_levels=expected_mips, format=format_name,
