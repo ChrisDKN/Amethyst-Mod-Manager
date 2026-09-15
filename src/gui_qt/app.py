@@ -1388,8 +1388,8 @@ class MainWindow(QMainWindow):
             startup_timing.record(
                 "Build play controls", phase_started=phase_started,
                 category="UI")
-        # Build the plugins panel FIRST - it creates the sub-tab views (incl.
-        # _text_files_view) that the footers below reference.
+        # Build the plugins panel first; secondary sub-tabs and their footers are
+        # constructed together on first use.
         plugins_body = self._build_plugins(startup_timing=startup_timing)
         # The plugins column footer is a stack: it swaps to the active sub-tab's
         # tools (Plugins tools ↔ Mod Files Pack/Unpack + search).
@@ -1397,6 +1397,15 @@ class MainWindow(QMainWindow):
         # footer only, so the Downloads footer wrapping its buttons to a second
         # row at min width doesn't add a blank row to the Plugins/etc. footers.
         self._plugin_footer_stack = _CurrentPageStack()
+        self._plugin_footer_placeholders = {}
+        self._plugin_footer_builders = {
+            1: self._mod_files_footer,
+            2: self._data_footer,
+            3: self._downloads_footer,
+            4: self._text_files_footer,
+            5: self._overrides_footer,
+            6: self._saves_footer,
+        }
         for _footer_name, _footer_builder in (
                 ("Plugins", self._plugins_footer),
                 ("Mod Files", self._mod_files_footer),
@@ -1406,12 +1415,16 @@ class MainWindow(QMainWindow):
                 ("Overrides", self._overrides_footer),
                 ("Saves", self._saves_footer)):
             phase_started = _startup_time.perf_counter()
-            _page = _footer_builder()
+            _footer_idx = self._plugin_footer_stack.count()
+            _page = (_footer_builder() if _footer_idx == 0 else QWidget())
+            if _footer_idx:
+                self._plugin_footer_placeholders[_footer_idx] = _page
             self._enable_height_for_width(_page)
             self._plugin_footer_stack.addWidget(_page)
             if startup_timing is not None:
                 startup_timing.record(
-                    f"Build {_footer_name} footer",
+                    (f"Build {_footer_name} footer" if _footer_idx == 0
+                     else f"Prepare lazy {_footer_name} footer"),
                     phase_started=phase_started, category="UI")
         # The stack must also report height via heightForWidth so its parent
         # (plugins_panel's QVBoxLayout) fits it to the visible page's wrapped
@@ -15978,6 +15991,15 @@ class MainWindow(QMainWindow):
         panel = getattr(self, attr, None)
         if panel is not None:
             return panel
+        tab_idx = {
+            "_mod_files_filter_panel": 1,
+            "_text_files_filter_panel": 2,
+            "_data_filter_panel": 3,
+            "_downloads_filter_panel": 4,
+            "_saves_filter_panel": 6,
+        }.get(attr)
+        if tab_idx is not None:
+            self._ensure_plugin_tab(tab_idx)
         builder_name = getattr(self, "_filter_panel_builders", {}).get(attr)
         layout = getattr(self, "_filter_panel_layout", None)
         if not builder_name or layout is None:
@@ -16037,33 +16059,47 @@ class MainWindow(QMainWindow):
         (The modlist + plugins views grow their own - theirs also carries the
         column show/hide list.) Every button drives the tab's filter side
         panel, so menu and panel are always the same state."""
-        from gui_qt.mod_files_view import ModFilesView
-        from gui_qt.data_view import DataView
-        from gui_qt.saves_view import SavesView
-        mf, tf, sv, dv, dl = (self._mod_files_view, self._text_files_view,
-                              self._saves_view, self._data_view,
-                              self._downloads_view)
-        for view, panel_attr, spec, dyn, sync in (
-            (mf, "_mod_files_filter_panel", ModFilesView.filter_spec(),
-             {"filetypes": mf.filetype_items},
-             self._sync_mod_files_filter_list),
-            (tf, "_text_files_filter_panel", tf.filter_spec(),
-             {"filetypes": tf.filetype_items},
-             self._sync_text_files_filter_list),
-            (sv, "_saves_filter_panel", SavesView.filter_spec(),
-             {"filetypes": sv.filetype_items},
-             self._sync_saves_filter_list),
-            (dv, "_data_filter_panel", DataView.filter_spec(),
-             {"filetypes": dv.filetype_items},
-             self._sync_data_filter_list),
-            (dl, "_downloads_filter_panel", dl.filter_spec(),
-             {"filetypes": dl.filetype_items, "locations": dl.location_items},
-             self._sync_downloads_filter_list),
-        ):
+        installed = getattr(self, "_installed_tab_filter_menus", set())
+        self._installed_tab_filter_menus = installed
+        entries = []
+        mf = getattr(self, "_mod_files_view", None)
+        if mf is not None:
+            from gui_qt.mod_files_view import ModFilesView
+            entries.append((mf, "_mod_files_filter_panel",
+                            ModFilesView.filter_spec(),
+                            {"filetypes": mf.filetype_items},
+                            self._sync_mod_files_filter_list))
+        tf = getattr(self, "_text_files_view", None)
+        if tf is not None:
+            entries.append((tf, "_text_files_filter_panel", tf.filter_spec(),
+                            {"filetypes": tf.filetype_items},
+                            self._sync_text_files_filter_list))
+        sv = getattr(self, "_saves_view", None)
+        if sv is not None:
+            from gui_qt.saves_view import SavesView
+            entries.append((sv, "_saves_filter_panel", SavesView.filter_spec(),
+                            {"filetypes": sv.filetype_items},
+                            self._sync_saves_filter_list))
+        dv = getattr(self, "_data_view", None)
+        if dv is not None:
+            from gui_qt.data_view import DataView
+            entries.append((dv, "_data_filter_panel", DataView.filter_spec(),
+                            {"filetypes": dv.filetype_items},
+                            self._sync_data_filter_list))
+        dl = getattr(self, "_downloads_view", None)
+        if dl is not None:
+            entries.append((dl, "_downloads_filter_panel", dl.filter_spec(),
+                            {"filetypes": dl.filetype_items,
+                             "locations": dl.location_items},
+                            self._sync_downloads_filter_list))
+        for view, panel_attr, spec, dyn, sync in entries:
+            if id(view) in installed:
+                continue
             btn = self._install_filter_menu_button(
                 view._tree, panel_attr, spec, dyn, sync)
             btn.columns_fn = getattr(view, "column_menu_items", None)
             btn.on_column_toggle = getattr(view, "set_column_visible", None)
+            installed.add(id(view))
 
     def _install_filter_menu_button(self, tree, panel_attr, spec, dyn_fns, sync):
         from gui_qt.filter_menu_button import FilterMenuButton, BTN_W
@@ -20486,98 +20522,21 @@ class MainWindow(QMainWindow):
             startup_timing.record(
                 "Build Plugins tab view", phase_started=phase_started,
                 category="UI")
-        # Page 1: the real Mod Files view.
-        phase_started = _startup_time.perf_counter()
-        from gui_qt.mod_files_view import ModFilesView
-        self._mod_files_view = ModFilesView()
-        self._mod_files_view.changed.connect(self._on_mod_files_changed)
-        self._mod_files_view.on_open_image = self._open_image_preview_tab
-        self._mod_files_view.on_open_video = self._open_video_preview_tab
-        self._mod_files_view.on_open_archive = self._open_bsa_preview_tab
-        self._mod_files_view.on_open_nif = self._open_nif_preview_tab
-        self._mod_files_view.on_open_text = self._open_text_editor_tab
-        self._mod_files_view.on_open_path = self._open_disk_path
-        # Footer Pack/Unpack state follows the selected mod regardless of
-        # whether the lazily-built Filters panel has ever been opened.
-        self._mod_files_view.mod_changed.connect(
-            lambda _n: self._update_mf_footer_buttons())
-        self._plugin_stack.addWidget(self._mod_files_view)
-        if startup_timing is not None:
-            startup_timing.record(
-                "Build hidden Mod Files tab view",
-                phase_started=phase_started, category="UI")
-        # Page 2: the real Text Files view.
-        phase_started = _startup_time.perf_counter()
-        from gui_qt.text_files_view import TextFilesView
-        self._text_files_view = TextFilesView()
-        self._text_files_view.on_open_file = self._open_text_editor_tab
-        self._plugin_stack.addWidget(self._text_files_view)
-        if startup_timing is not None:
-            startup_timing.record(
-                "Build hidden Text Files tab view",
-                phase_started=phase_started, category="UI")
-        # Page 3: the real Data view.
-        phase_started = _startup_time.perf_counter()
-        from gui_qt.data_view import DataView
-        self._data_view = DataView()
-        self._data_view.on_select_mod = self._on_data_select_mod
-        self._data_view.on_open_file_browser = lambda folder: \
-            self._open_folder_path(folder, self.tr("File location"))
-        self._data_view.on_open_text = self._open_text_editor_tab
-        self._data_view.on_open_nif = self._open_nif_preview_tab
-        self._data_view.on_open_video = self._open_video_preview_tab
-        self._data_view.on_open_archive = self._open_bsa_preview_tab
-        self._plugin_stack.addWidget(self._data_view)
-        if startup_timing is not None:
-            startup_timing.record(
-                "Build hidden Data tab view", phase_started=phase_started,
-                category="UI")
-        # Page 4: the real Downloads view.
-        phase_started = _startup_time.perf_counter()
-        from gui_qt.downloads_view import DownloadsView
-        self._downloads_view = DownloadsView()
-        self._downloads_view.on_install = \
-            lambda paths: self._install_paths(paths, clear_archives=False)
-        self._downloads_view.selection_changed.connect(
-            self._update_downloads_footer)
-        self._plugin_stack.addWidget(self._downloads_view)
-        if startup_timing is not None:
-            startup_timing.record(
-                "Build hidden Downloads tab view",
-                phase_started=phase_started, category="UI")
-        # Page 5: the BG3 Overrides view (override paks - tab shown only for
-        # games with has_override_pak_tab; the label is repositioned below so
-        # it renders where the hidden Plugins tab sits).
-        phase_started = _startup_time.perf_counter()
-        from gui_qt.override_view import OverridesView
-        self._overrides_view = OverridesView()
-        self._overrides_view.changed.connect(self._on_mod_files_changed)
-        # Pak row selected → orange its owning mod in the modlist + marker
-        # strip (same anchor-highlight path the Plugins/Data tabs use).
-        self._overrides_view.on_select_mod = self._on_data_select_mod
-        self._plugin_stack.addWidget(self._overrides_view)
-        if startup_timing is not None:
-            startup_timing.record(
-                "Build hidden Overrides tab view",
-                phase_started=phase_started, category="UI")
-        # Page 6: the Saves view (Ludusavi-resolved save folders, read-only).
-        phase_started = _startup_time.perf_counter()
-        from gui_qt.saves_view import SavesView
-        self._saves_view = SavesView(log_fn=self._append_log)
-        # Screenshot.jpg / mod_*.txt beside a save open the same way a mod's
-        # files do -image preview and text editor, both panel-scoped tabs.
-        self._saves_view.on_open_image = self._open_image_preview_tab
-        self._saves_view.on_open_text = self._open_text_editor_tab
-        self._plugin_stack.addWidget(self._saves_view)
-        if startup_timing is not None:
-            startup_timing.record(
-                "Build hidden Saves tab view", phase_started=phase_started,
-                category="UI")
         self._TEXT_FILES_TAB_IDX = 2
         self._DATA_TAB_IDX = 3
         self._DOWNLOADS_TAB_IDX = 4
         self._OVERRIDES_TAB_IDX = 5
         self._SAVES_TAB_IDX = 6
+        phase_started = _startup_time.perf_counter()
+        self._plugin_page_placeholders = {}
+        for idx in range(1, 7):
+            placeholder = QWidget()
+            self._plugin_page_placeholders[idx] = placeholder
+            self._plugin_stack.addWidget(placeholder)
+        if startup_timing is not None:
+            startup_timing.record(
+                "Prepare lazy plugin sub-tabs", phase_started=phase_started,
+                category="UI")
 
         phase_started = _startup_time.perf_counter()
         tabs = QHBoxLayout()
@@ -20613,6 +20572,118 @@ class MainWindow(QMainWindow):
                 phase_started=phase_started, category="UI")
         return frame
 
+    def _ensure_plugin_footer(self, tab_idx: int) -> None:
+        footer_idx = {1: 1, 2: 4, 3: 2, 4: 3, 5: 5, 6: 6}.get(tab_idx)
+        stack = getattr(self, "_plugin_footer_stack", None)
+        placeholders = getattr(self, "_plugin_footer_placeholders", {})
+        placeholder = placeholders.get(footer_idx)
+        if footer_idx is None or stack is None or placeholder is None:
+            return
+        page = self._plugin_footer_builders[footer_idx]()
+        self._enable_height_for_width(page)
+        placeholders.pop(footer_idx, None)
+        stack.removeWidget(placeholder)
+        placeholder.deleteLater()
+        stack.insertWidget(footer_idx, page)
+
+    def _ensure_plugin_tab(self, idx: int):
+        placeholders = getattr(self, "_plugin_page_placeholders", {})
+        placeholder = placeholders.get(idx)
+        if placeholder is None:
+            attrs = {
+                1: "_mod_files_view", 2: "_text_files_view",
+                3: "_data_view", 4: "_downloads_view",
+                5: "_overrides_view", 6: "_saves_view",
+            }
+            view = getattr(self, attrs.get(idx, ""), None)
+            if view is not None:
+                self._ensure_plugin_footer(idx)
+                if hasattr(self, "_filter_panel_builders"):
+                    self._install_tab_filter_menus()
+            return view
+
+        if idx == 1:
+            from gui_qt.mod_files_view import ModFilesView
+            view = ModFilesView()
+            attr = "_mod_files_view"
+            view.changed.connect(self._on_mod_files_changed)
+            view.on_open_image = self._open_image_preview_tab
+            view.on_open_video = self._open_video_preview_tab
+            view.on_open_archive = self._open_bsa_preview_tab
+            view.on_open_nif = self._open_nif_preview_tab
+            view.on_open_text = self._open_text_editor_tab
+            view.on_open_path = self._open_disk_path
+            view.mod_changed.connect(lambda _n: self._update_mf_footer_buttons())
+        elif idx == 2:
+            from gui_qt.text_files_view import TextFilesView
+            view = TextFilesView()
+            attr = "_text_files_view"
+            view.on_open_file = self._open_text_editor_tab
+        elif idx == 3:
+            from gui_qt.data_view import DataView
+            view = DataView()
+            attr = "_data_view"
+            view.on_select_mod = self._on_data_select_mod
+            view.on_open_file_browser = lambda folder: self._open_folder_path(
+                folder, self.tr("File location"))
+            view.on_open_text = self._open_text_editor_tab
+            view.on_open_nif = self._open_nif_preview_tab
+            view.on_open_video = self._open_video_preview_tab
+            view.on_open_archive = self._open_bsa_preview_tab
+        elif idx == 4:
+            from gui_qt.downloads_view import DownloadsView
+            view = DownloadsView()
+            attr = "_downloads_view"
+            view.on_install = lambda paths: self._install_paths(
+                paths, clear_archives=False)
+            view.selection_changed.connect(self._update_downloads_footer)
+        elif idx == 5:
+            from gui_qt.override_view import OverridesView
+            view = OverridesView()
+            attr = "_overrides_view"
+            view.changed.connect(self._on_mod_files_changed)
+            view.on_select_mod = self._on_data_select_mod
+        elif idx == 6:
+            from gui_qt.saves_view import SavesView
+            view = SavesView(log_fn=self._append_log)
+            attr = "_saves_view"
+            view.on_open_image = self._open_image_preview_tab
+            view.on_open_text = self._open_text_editor_tab
+        else:
+            placeholders[idx] = placeholder
+            return None
+
+        setattr(self, attr, view)
+        placeholders.pop(idx, None)
+        self._plugin_stack.removeWidget(placeholder)
+        placeholder.deleteLater()
+        self._plugin_stack.insertWidget(idx, view)
+        self._ensure_plugin_footer(idx)
+        if hasattr(self, "_filter_panel_builders"):
+            self._install_tab_filter_menus()
+
+        game = self._gs.game
+        profile_dir = self._gs.profile_dir()
+        snapshot = getattr(getattr(self, "_conflict_data", None), "snapshot", None)
+        if idx == 1:
+            view.configure(game, profile_dir)
+            view.set_snapshot(snapshot)
+        elif idx == 2:
+            view.configure(game, profile_dir)
+            view.set_snapshot(snapshot)
+        elif idx == 3:
+            view.configure(game, profile_dir, snapshot=snapshot)
+        elif idx == 4:
+            view.configure(game, lambda: self._gs.game_name, profile_dir)
+        elif idx == 5:
+            view.configure(profile_dir, self._gs.staging_dir(),
+                           self._gs.modlist_path())
+        elif idx == 6:
+            view.configure(game, self._gs.profile or "")
+            view.set_known_plugins(
+                [row.name for row in self._plugin_model.natural_rows()])
+        return view
+
     def _select_plugin_tab(self, idx: int):
         # Plugin-less games have no Plugins tab - route to the Overrides tab
         # (BG3) when it's shown, else to Downloads.
@@ -20620,6 +20691,7 @@ class MainWindow(QMainWindow):
             idx = (getattr(self, "_OVERRIDES_TAB_IDX", 5)
                    if getattr(self, "_overrides_tab_shown", False)
                    else getattr(self, "_DOWNLOADS_TAB_IDX", 4))
+        self._ensure_plugin_tab(idx)
         self._plugin_stack.setCurrentIndex(idx)
         # Swap the column footer to match the active sub-tab. Footer pages:
         # 0 plugins / 1 Mod Files / 2 Data / 3 Downloads / 4 Text Files /
