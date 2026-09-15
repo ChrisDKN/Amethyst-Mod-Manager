@@ -214,16 +214,18 @@ def _web_response(session, archive, headers, stop, log=None):
     raise DownloadUnavailable(f"{kind} did not provide a direct download. Open the page to complete any sign-in or browser checks, then download the exact file.")
 
 
-def download_host(archive, target, *, stop=None, progress=None, log=None):
+def download_host(archive, target, *, stop=None, progress=None, log=None,
+                  network_progress=None):
     emit(log, "host.download.started", archive=archive.name, kind=archive.kind,
          source_host=url_host(source_url(archive)), target=target)
     if archive.kind == "Mega":
         from .mega import download_mega
         return download_mega(source_url(archive), target, size=archive.size, expected=archive.key,
-                             stop=stop, progress=progress, log=log)
+                             stop=stop, progress=progress, log=log,
+                             network_progress=network_progress)
     with requests.Session() as session:
         resolver = _drive_response if archive.kind == "GoogleDrive" else _web_response
         return download_http(source_url(archive), target, size=archive.size, expected=archive.key,
                              stop=stop, progress=progress,
                              open_response=lambda headers: resolver(session, archive, headers, stop, log),
-                             log=log)
+                             log=log, network_progress=network_progress)

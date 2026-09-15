@@ -72,7 +72,7 @@ def limited_response(operation, stop=None):
 
 def download_http(url: str, target: Path, *, size=0, expected="", headers=None,
                   stop=None, progress=None, open_response=None, transform=None,
-                  validate=None, log=None) -> Path:
+                  validate=None, log=None, network_progress=None) -> Path:
     started = time.monotonic()
     if stop is not None and stop.is_set():
         raise InterruptedError("Installation stopped")
@@ -160,6 +160,8 @@ def download_http(url: str, target: Path, *, size=0, expected="", headers=None,
                             raise WabbajackError("Download exceeds declared size")
                         output.write(decode(chunk) if decode else chunk)
                         offset += len(chunk)
+                        if network_progress:
+                            network_progress(len(chunk))
                         if progress:
                             progress(offset, total)
             stamp = file_stamp(part)

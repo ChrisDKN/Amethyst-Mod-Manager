@@ -15,6 +15,7 @@ import requests
 
 from Utils.ca_bundle import resolve_ca_bundle
 from Utils.downloads.install import ManualDownloadRequired
+from Utils.downloads.speed import RollingDownloadSpeed
 from .games import nexus_domain
 from .hashes import XXHash, canonical_hash, hash_bytes, file_hash, verify_file
 from .paths import WabbajackError
@@ -26,7 +27,6 @@ from .verification import bind_verification, file_stamp, verified_replace
 _active_lock = threading.Lock()
 _active = {}
 _AGGREGATE_INTERVAL = 0.5
-_SPEED_WINDOW = 3.0
 
 
 class ArchiveCacheIndex:
@@ -179,7 +179,8 @@ def cdn_definition(url, size, expected, stop=None, log=None):
     return base, size, expected, parts
 
 
-def download_cdn(url, target, size, expected, stop, progress, log=None, *, workers=1, pool=None):
+def download_cdn(url, target, size, expected, stop, progress, log=None, *, workers=1,
+                 pool=None, network_progress=None):
     started = time.monotonic()
     base, size, expected, parts = cdn_definition(url, size, expected, stop, log)
     from .paths import auxiliary_path
@@ -223,7 +224,7 @@ def download_cdn(url, target, size, expected, stop, progress, log=None, *, worke
                           open_response=lambda headers: session.get(
                               part_url, headers=headers, stream=True, timeout=(20, 60),
                               verify=resolve_ca_bundle() or True),
-                          log=log)
+                          log=log, network_progress=network_progress)
             return part_index, count, False
         emit(log, "cdn.part.reused", target=target, part=part_index, bytes=count)
         return part_index, count, True
@@ -396,10 +397,8 @@ class Acquisition:
         self._progress = {}
         self._last_emit = {}
         self._lock = threading.Lock()
-        self._speed_rows = {}
-        self._speed_bytes = 0
-        self._speed_samples = []
-        self._last_network_progress = None
+        self._speed = RollingDownloadSpeed()
+        self._network_rows = set()
         self._aggregate_stop = threading.Event()
         self._aggregate_thread = None
         from Utils.ui.config import load_collection_settings
@@ -463,44 +462,17 @@ class Acquisition:
         emit(self.cb.on_log, "acquisition.routes.released",
              nexus_routes=len(self._nxm))
 
-    def _rolling_speed(self, now):
-        self._speed_samples.append((now, self._speed_bytes))
-        if (self._last_network_progress is None
-                or now - self._last_network_progress >= _SPEED_WINDOW):
-            self._speed_samples = [(now, self._speed_bytes)]
-            return 0.0
-        cutoff = now - _SPEED_WINDOW
-        while len(self._speed_samples) > 1 and self._speed_samples[1][0] <= cutoff:
-            self._speed_samples.pop(0)
-        if len(self._speed_samples) < 2:
-            return 0.0
-        started, initial = self._speed_samples[0]
-        elapsed = now - started
-        return max(0, self._speed_bytes - initial) / max(elapsed, 0.1)
-
-    def _record_speed(self, row, current, now):
-        previous = self._speed_rows.get(row)
-        if previous is not None:
-            previous_bytes, previous_time = previous
-            delta = current - previous_bytes
-            if delta > 0 and now - previous_time <= _SPEED_WINDOW:
-                if (self._last_network_progress is None
-                        or now - self._last_network_progress > _SPEED_WINDOW):
-                    self._speed_samples = [(previous_time, self._speed_bytes)]
-                self._speed_bytes += delta
-                self._last_network_progress = now
-        self._speed_rows[row] = (current, now)
-
     def resource_snapshot(self):
         with self._lock:
-            return self._speed_bytes, bool(self._speed_rows)
+            active = bool(self._network_rows)
+        return self._speed.total_bytes, active
 
     def _aggregate_loop(self):
         while not self._aggregate_stop.wait(_AGGREGATE_INTERVAL):
             now = time.monotonic()
             with self._lock:
                 current = sum(self._progress.values())
-                speed = self._rolling_speed(now)
+            speed = self._speed.rate(now=now)
             self.cb.on_agg_download(
                 current, self.report.download_bytes, speed / 1024 ** 2)
 
@@ -575,14 +547,16 @@ class Acquisition:
         return automatic_source(archive, self.request.premium,
                                 loverslab_available=self._loverslab_credentials is not None)
 
-    def _download_loverslab(self, archive, target, progress):
+    def _download_loverslab(self, archive, target, progress, network_progress):
         from Utils.loverslab.client import LoversLabClient
         with self._lock:
             if self._loverslab_client is None:
                 self._loverslab_client = LoversLabClient(
                     self._loverslab_credentials, stop=self.control.stop, log=self.cb.on_log)
             client = self._loverslab_client
-        return client.download(archive, target, progress=progress)
+        return client.download(
+            archive, target, progress=progress,
+            network_progress=network_progress)
 
     def prefetch(self, archive):
         if (not self.control.stop.is_set() and archive.kind == "Nexus" and self.request.premium
@@ -681,20 +655,22 @@ class Acquisition:
         if self.budget:
             self.budget.acquire(archive, lambda used, limit:
                 self.cb.on_dl_mod_wait(row, archive.name, used, limit))
-        with self._lock:
-            self._speed_rows.pop(row, None)
         self.cb.on_dl_mod_start(row, archive.name, archive.size)
 
         def progress(cur, total):
             now = time.monotonic()
             with self._lock:
                 self._progress[row] = cur
-                self._record_speed(row, cur, now)
                 emit_row = now - self._last_emit.get(row, 0) >= 0.1 or cur == total
                 if emit_row:
                     self._last_emit[row] = now
             if emit_row:
                 self.cb.on_dl_mod_update(row, cur, total)
+
+        def network_progress(count):
+            self._speed.add(count)
+            with self._lock:
+                self._network_rows.add(row)
 
         from .paths import cache_path
         target = cache_path(self.request.downloads, hash_bytes(archive.key).hex(), archive.name)
@@ -702,15 +678,16 @@ class Acquisition:
         try:
             if manual:
                 route = "manual"
-                path = self._manual(archive, target, progress, reason)
+                path = self._manual(archive, target, progress, network_progress, reason)
             elif is_loverslab_url(source_url(archive)):
                 if self._loverslab_credentials is not None:
                     route = "loverslab"
                     with connection_slot(self.control.stop):
-                        path = self._download_loverslab(archive, target, progress)
+                        path = self._download_loverslab(
+                            archive, target, progress, network_progress)
                 else:
                     route = "manual"
-                    path = self._manual(archive, target, progress,
+                    path = self._manual(archive, target, progress, network_progress,
                                         "Connect LoversLab in Settings → Connections to enable automatic downloads.")
             elif archive.kind in {"Http", "HTTP"}:
                 route = "http"
@@ -722,25 +699,30 @@ class Acquisition:
                 path = download_http(archive.state["Url"], target, size=archive.size,
                                      expected=archive.key, headers=headers,
                                      stop=self.control.stop, progress=progress,
-                                     log=self.cb.on_log)
+                                     log=self.cb.on_log,
+                                     network_progress=network_progress)
             elif archive.kind == "WabbajackCDN":
                 route = "wabbajack-cdn"
                 try:
                     path = download_cdn(archive.state["Url"], target, archive.size, archive.key,
                                         self.control.stop, progress, self.cb.on_log,
-                                        workers=self.workers, pool=self._cdn_pool)
+                                        workers=self.workers, pool=self._cdn_pool,
+                                        network_progress=network_progress)
                 except (ValueError, TypeError, KeyError, gzip.BadGzipFile, EOFError) as exc:
                     raise WabbajackError("The CDN returned invalid archive information. Obtain the exact archive from the author.") from exc
             elif archive.kind == "Nexus" and self.request.premium:
                 route = "nexus-premium"
-                path = self._nexus(archive, target, progress, prefetched=prefetched)
+                path = self._nexus(
+                    archive, target, progress, network_progress,
+                    prefetched=prefetched)
             elif automatic_source(archive):
                 route = archive.kind.casefold()
                 path = download_host(archive, target, stop=self.control.stop,
-                                     progress=progress, log=self.cb.on_log)
+                                     progress=progress, log=self.cb.on_log,
+                                     network_progress=network_progress)
             else:
                 route = "manual"
-                path = self._manual(archive, target, progress)
+                path = self._manual(archive, target, progress, network_progress)
             if not verify_file(path, archive.key, archive.size, self.control.stop):
                 raise WabbajackError(f"Archive failed verification: {archive.name}")
             if route != "manual":
@@ -769,7 +751,7 @@ class Acquisition:
             if not deferred:
                 self._release_nxm(archive)
             with self._lock:
-                self._speed_rows.pop(row, None)
+                self._network_rows.discard(row)
             self.cb.on_dl_mod_finish(row)
 
     def finish_progress(self):
@@ -780,7 +762,8 @@ class Acquisition:
              downloaded_bytes=sum(self._progress.values()),
              planned_bytes=self.report.download_bytes)
 
-    def _nexus(self, archive, target, progress, link=None, prefetched=None):
+    def _nexus(self, archive, target, progress, network_progress,
+               link=None, prefetched=None):
         from os import fsencode
         from Utils.atomic_write import filename_limit
         from Nexus.nexus_download import NexusDownloader, DownloadResult
@@ -795,7 +778,8 @@ class Acquisition:
         def stream_handler(**kwargs):
             path = download_http(kwargs["url"], incoming, size=archive.size,
                                  expected=archive.key, stop=self.control.stop,
-                                 progress=progress, log=self.cb.on_log)
+                                 progress=progress, log=self.cb.on_log,
+                                 network_progress=network_progress)
             return DownloadResult(success=True, file_path=path, file_name=archive.name,
                                   bytes_downloaded=archive.size, game_domain=kwargs["game_domain"],
                                   mod_id=kwargs["mod_id"], file_id=kwargs["file_id"])
@@ -836,7 +820,7 @@ class Acquisition:
         finally:
             downloader.close_worker_session()
 
-    def _manual(self, archive, target, progress, reason=""):
+    def _manual(self, archive, target, progress, network_progress, reason=""):
         while not self._manual_lock.acquire(timeout=0.2):
             if self.control.stop.is_set():
                 raise InterruptedError("Installation stopped")
@@ -873,7 +857,8 @@ class Acquisition:
                     if api is not None:
                         self.request.api = api
                     try:
-                        return self._nexus(archive, target, progress, link)
+                        return self._nexus(
+                            archive, target, progress, network_progress, link)
                     except WabbajackError as exc:
                         if self.budget:
                             raise

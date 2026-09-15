@@ -416,7 +416,7 @@ class LoversLabClient:
             break
         raise DownloadUnavailable("LoversLab did not provide the required file. Open the page, download the exact archive, and use Select File.")
 
-    def download(self, archive, target, *, progress=None):
+    def download(self, archive, target, *, progress=None, network_progress=None):
         from Utils.wabbajack.hosts import source_url
         from Utils.wabbajack.mega import download_mega
         with self._operation():
@@ -442,10 +442,12 @@ class LoversLabClient:
 
             try:
                 return download_http(source, target, size=archive.size, expected=archive.key,
-                                     stop=self.stop, progress=progress, open_response=open_response, log=self.log)
+                                     stop=self.stop, progress=progress, open_response=open_response, log=self.log,
+                                     network_progress=network_progress)
             except _MegaRedirect as redirect:
                 return download_mega(redirect.url, target, size=archive.size, expected=archive.key,
-                                     stop=self.stop, progress=progress, log=self.log)
+                                     stop=self.stop, progress=progress, log=self.log,
+                                     network_progress=network_progress)
 
     def close(self):
         for session in (self._session, self._public_session):

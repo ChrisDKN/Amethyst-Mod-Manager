@@ -29,7 +29,6 @@ import json
 import queue as _queue
 import re
 import threading
-from collections import deque
 from contextlib import nullcontext
 from pathlib import Path
 
@@ -40,6 +39,7 @@ from Utils.downloads.locations import (
     is_default_downloads_disabled, load_extra_download_locations)
 from Utils.downloads.resources import InstallResources
 from Utils.downloads.scheduler import order_by_size, run_pipelined
+from Utils.downloads.speed import RollingDownloadSpeed
 from Utils.archives.budget import ExtractionMemoryBudget, probe_archive
 from Utils.mods.install import (
     install_collection_archive, FOMOD_DEFERRED, BAIN_DEFERRED,
@@ -1022,9 +1022,7 @@ def run_collection_install(
     _per_mod_prev: dict[int, int] = {}
 
     import time as _time_mod
-    _SPEED_WINDOW = 3.0
-    _agg_state = {"network_bytes": 0, "last_network": None,
-                  "samples": deque([(_time_mod.monotonic(), 0)])}
+    _speed = RollingDownloadSpeed()
     # Progress-emit throttle: NexusDownloader calls progress_cb per read (~every
     # few KB). Emitting a Signal per chunk (×N concurrent downloads) floods the Qt
     # event loop and the X server's shared-memory backing store → the desktop can
@@ -1128,22 +1126,9 @@ def run_collection_install(
 
     def _agg_push():
         with _dl_lock:
-            now = _time_mod.monotonic()
             agg = _dl_bytes_done
             total = _total_bytes
-            network_bytes = _agg_state["network_bytes"]
-            samples = _agg_state["samples"]
-            samples.append((now, network_bytes))
-            if (_agg_state["last_network"] is None
-                    or now - _agg_state["last_network"] >= _SPEED_WINDOW):
-                samples.clear()
-                samples.append((now, network_bytes))
-                speed = 0.0
-            else:
-                while len(samples) > 1 and samples[1][0] <= now - _SPEED_WINDOW:
-                    samples.popleft()
-                started, initial = samples[0]
-                speed = (network_bytes - initial) / max(now - started, 0.1)
+        speed = _speed.rate()
         cb.on_agg_download(agg, total, speed / (1024 * 1024))
 
     def _aggregate_loop():
@@ -1317,8 +1302,7 @@ def run_collection_install(
                 _per_mod_prev[_fid] = cur
                 _dl_bytes_done += delta
                 if network and delta > 0:
-                    _agg_state["network_bytes"] += delta
-                    _agg_state["last_network"] = _time_mod.monotonic()
+                    _speed.add(delta)
                 is_first = prev == 0 and cur > 0
                 # A mod's declared size is often unknown (0) or an estimate; the
                 # real content-length (`tot`) or bytes seen so far may exceed it.
@@ -1834,7 +1818,7 @@ def run_collection_install(
             downloads = get_download_cache_dir_for_game(getattr(game, "name", "") or "")
             def network_snapshot():
                 with _dl_lock:
-                    return _agg_state["network_bytes"], bool(_network_active)
+                    return _speed.total_bytes, bool(_network_active)
             def resource_event(event, **fields):
                 log("[collection resources] " + json.dumps({"event": event, **fields}, sort_keys=True))
             resources = InstallResources(
