@@ -266,6 +266,13 @@ class CollectionInstallOverlay(QWidget):
         lists.addWidget(ex_frame, 1)
         outer.addLayout(lists, 1)
 
+        self._extract_state_lbl = QLabel(
+            self.tr("0 active · 1 allowed · Starting"), self._card)
+        self._extract_state_lbl.setAlignment(Qt.AlignRight)
+        self._extract_state_lbl.setStyleSheet(
+            f"color:{self._c('TEXT_DIM')}; font-size:11px;")
+        outer.addWidget(self._extract_state_lbl)
+
         bar = QHBoxLayout()
         limit_lbl = QLabel(self.tr("Speed limit:"), self._card)
         limit_lbl.setStyleSheet(f"color:{self._c('TEXT_DIM')}; font-size:12px;")
@@ -286,11 +293,15 @@ class CollectionInstallOverlay(QWidget):
         self._extract_spin = QSpinBox(self._card)
         self._extract_spin.setRange(1, max(1, int(self._max_extract_workers)))
         self._extract_spin.setValue(max(1, int(self._extract_workers)))
+        self._extract_spin.setToolTip(self.tr(
+            "Maximum concurrent extractions. The live allowed count adapts to "
+            "download, memory and storage conditions."))
         self._extract_spin.valueChanged.connect(self._extract_workers_changed)
         bar.addWidget(self._extract_spin)
         extract_visible = self._on_extract_workers_change is not None
         extract_lbl.setVisible(extract_visible)
         self._extract_spin.setVisible(extract_visible)
+        self._extract_state_lbl.hide()
         bar.addStretch(1)
         self._pause_btn = QPushButton(self.tr("Pause"), self._card)
         self._pause_btn.setObjectName("FormButton")
@@ -549,6 +560,31 @@ class CollectionInstallOverlay(QWidget):
         slot = self._ex_slot_of.get(file_id)
         if slot is not None and slot >= 0:
             self._ex_rows[slot].set_progress(cur, tot)
+
+    def extract_state(self, effective: int, active: int, configured: int,
+                      reason: str):
+        effective = max(0, int(effective))
+        active = max(0, int(active))
+        configured = max(1, int(configured))
+        reason = {
+            "Starting": self.tr("Starting"),
+            "Low memory": self.tr("Low memory"),
+            "Downloads complete": self.tr("Downloads complete"),
+            "Memory pressure": self.tr("Memory pressure"),
+            "Protecting downloads": self.tr("Protecting downloads"),
+            "Clearing install backlog": self.tr("Clearing install backlog"),
+            "Monitoring unavailable": self.tr("Monitoring unavailable"),
+            "Balancing downloads": self.tr("Balancing downloads"),
+        }.get(str(reason), str(reason or self.tr("Adaptive")))
+        text = self.tr("{0} active · {1} allowed · {2}").format(
+            active, effective, reason)
+        self._extract_state_lbl.setText(text)
+        self._extract_state_lbl.setVisible(
+            self._on_extract_workers_change is not None)
+        self._extract_state_lbl.setToolTip(self.tr(
+            "{0} extraction jobs are active. The scheduler currently allows "
+            "{1} of your configured maximum of {2}. Reason: {3}").format(
+                active, effective, configured, reason))
 
     def extract_remove(self, file_id: int):
         self._extract_waiting.discard(file_id)

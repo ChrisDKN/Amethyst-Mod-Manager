@@ -1475,11 +1475,14 @@ def run_collection_install(
             _fomod_flag["value"] = is_fomod
 
         cb.on_extract_add(mod.file_id, _preferred or (mod.mod_name or mod.file_name or ""))
+        def _install_progress(done, total, _phase=None, _file_id=mod.file_id):
+            if resources is not None and _phase == "Extracting":
+                resources.progress(_file_id, int(done), int(total))
+            cb.on_extract_update(_file_id, int(done), int(total))
         try:
             folder_name = install_collection_archive(
                 archive_path, game, profile_dir, log_fn=log,
-                progress_fn=lambda d, t, p=None, _f=mod.file_id:
-                    cb.on_extract_update(_f, int(d), int(t)),
+                progress_fn=_install_progress,
                 fomod_auto_selections=auto_fomod, bain_auto_selections=auto_bain,
                 fomod_expected_installed_files=fomod_expected_installed_files,
                 fomod_expected_active_files=fomod_expected_active_files,
@@ -1825,12 +1828,13 @@ def run_collection_install(
                 ctl.extract_workers, downloads, staging_path, network_snapshot,
                 sum(_expected_size(mod) for mod in to_download),
                 {mod.file_id: max(1, _expected_size(mod)) for mod in to_download},
-                on_event=resource_event)
+                on_event=resource_event, on_state=cb.on_extract_state)
             _ready_budget = min(4 * 1024 ** 3, max(256 * 1024 ** 2,
                                 shutil.disk_usage(downloads).free // 16))
             resources.emit("install.pipeline.configured", ready_budget_bytes=_ready_budget,
                            download_workers=_DL_WORKERS, extraction_workers=ctl.extract_workers.limit,
-                           cpu_threads_per_extractor=resources.cpu_threads)
+                           cpu_threads_per_extractor=resources.cpu_threads,
+                           cpu_threads_policy="adaptive-shared-budget")
         with resources if resources is not None else nullcontext():
             _consumer_threads: list[threading.Thread] = []
             for _ci in range(_INSTALL_POOL_SIZE):

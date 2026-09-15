@@ -231,7 +231,8 @@ def _archive_member_path(value, *, directory=False, size=0):
 
 
 def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=None,
-                 *, members=None, resources=None, cache_hashes=False):
+                 *, members=None, resources=None, cache_hashes=False,
+                 cpu_threads=None):
     from Utils.archives.budget import working_memory, zip_memory
     from .extraction import extract_selected, finish_extraction, ExtractionFailure
     started = time.monotonic()
@@ -419,13 +420,14 @@ def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=N
             if selective:
                 if names:
                     extract_selected(tool, archive, target, names, stop, log,
-                                     (lambda pct: progress(pct, 100)) if progress else None)
+                                     (lambda pct: progress(pct, 100)) if progress else None,
+                                     cpu_threads=cpu_threads)
             else:
                 from Utils.mods.install import _extract_archive
                 errors = []
                 if not _extract_archive(str(archive), str(target), log, stop, errors,
                                         progress_cb=(lambda pct: progress(pct, 100)) if progress else None,
-                                        cpu_threads=2 if resources else None,
+                                        cpu_threads=cpu_threads if resources else None,
                                         finalize=lambda folder: finish_extraction(folder, stop, log)):
                     raise WabbajackError(f"Extraction failed: {archive.name}: {'; '.join(errors)}")
     except WabbajackError as exc:
@@ -435,7 +437,8 @@ def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=N
         emit(log, "extract.selection.fallback", archive=archive, exception=str(exc))
         shutil.rmtree(target)
         return extract_safe(archive, target, stop, log, budget, progress,
-                            resources=resources, cache_hashes=cache_hashes)
+                            resources=resources, cache_hashes=cache_hashes,
+                            cpu_threads=cpu_threads)
     emit(log, "extract.completed", archive=archive, target=target,
          format="7zip", expanded_bytes=selected_bytes,
          elapsed_seconds=round(time.monotonic() - started, 3))
@@ -876,7 +879,8 @@ class Reconstruction:
                         else:
                             extract_safe(source, root, self.control.stop, self.cb.on_log, reserve, extracting,
                                          members=required_members[key], resources=resources,
-                                         cache_hashes=True)
+                                         cache_hashes=True,
+                                         cpu_threads=getattr(self.worker_limit, "cpu_threads", 2))
                         progress.update(key, 1, 1)
                         extracted[cache_key] = root
                         waited = extraction_wait_seconds - previous_wait

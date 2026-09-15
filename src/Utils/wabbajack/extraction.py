@@ -79,16 +79,20 @@ def archive_entries(archive, stop=None):
     return list(found.values())
 
 
-def extract_selected(tool, archive, target, names, stop, log, progress=None):
+def extract_selected(tool, archive, target, names, stop, log, progress=None,
+                     cpu_threads=None):
     from Utils.ui.config import load_extraction_settings
     settings = load_extraction_settings()
-    threads = min(2, int(settings.get("cpu_threads", 0) or 2))
+    threads = int(settings.get("cpu_threads", 0) or 0)
+    if cpu_threads is not None:
+        threads = min(threads or cpu_threads, cpu_threads)
+    mmt = f"-mmt={threads}" if threads > 0 else "-mmt=on"
     with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=target.parent,
                                      prefix="members-", suffix=".txt") as listing:
         listing.write("\n".join(names) + "\n")
         listing.flush()
         code, error, killed = run_extractor(
-            [tool, "x", f"-o{target}", "-y", f"-mmt={threads}", "-bsp1",
+            [tool, "x", f"-o{target}", "-y", mmt, "-bsp1",
              "-spd", "-sccUTF-8", "-scsUTF-8", f"-i@{listing.name}", "--", str(archive)],
             stop, progress_cb=progress,
             low_priority=bool(settings.get("low_priority", False)))

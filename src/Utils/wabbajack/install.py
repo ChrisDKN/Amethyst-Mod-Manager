@@ -146,7 +146,8 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                 from .scheduling import InstallResources
                 from .archive_cache import ready_budget
                 resources = contexts.enter_context(InstallResources(
-                    ctl.extract_workers, request, acquire, priorities, log=cb.on_log))
+                    ctl.extract_workers, request, acquire, priorities, log=cb.on_log,
+                    on_state=cb.on_extract_state))
                 reconstruction.worker_limit = resources
                 update_extraction = cb.on_extract_update
                 def extraction_progress(row, current, total):
@@ -169,6 +170,8 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                      download_order="balanced-source-groups",
                      download_order_within_group="smallest-ready-first,largest-remaining",
                      extraction_workers=settings["max_extract_workers"],
+                     cpu_threads_per_extractor=resources.cpu_threads,
+                     cpu_threads_policy="adaptive-shared-budget",
                      ready_archive_budget_bytes=queue_budget,
                      extraction_order="dependencies-then-smallest-estimated-work",
                      extraction_queue_capacity=max(

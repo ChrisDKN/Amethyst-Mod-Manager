@@ -7033,6 +7033,8 @@ class MainWindow(QMainWindow):
             on_extract_add=lambda f, n: self._col_extract.emit("add", (f, n)),
             on_extract_update=lambda f, c, t: self._col_extract.emit("update", (f, c, t)),
             on_extract_remove=lambda f: self._col_extract.emit("remove", f),
+            on_extract_state=lambda e, a, c, r:
+                self._col_extract.emit("state", (e, a, c, r)),
             on_row_installed=lambda f: self._col_row.emit(int(f)),
             on_manual_mod=lambda d: self._col_manual.emit(dict(d)),
             on_log=lambda m: self._append_log(str(m)),
@@ -7087,6 +7089,8 @@ class MainWindow(QMainWindow):
             ov.extract_update(*payload)
         elif verb == "remove":
             ov.extract_remove(payload)
+        elif verb == "state":
+            ov.extract_state(*payload)
 
     def _on_col_row(self, file_id):
         if self._col_install_overlay is not None:
