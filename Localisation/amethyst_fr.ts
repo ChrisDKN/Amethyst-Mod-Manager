@@ -215,6 +215,60 @@ Choisissez Routes ou Chemins Seulement, cliquez sur Générer, puis fermez-le un
     </message>
   </context>
   <context>
+    <name>ArchiveModel</name>
+    <message>
+      <source>Unknown</source>
+      <translation>Inconnu</translation>
+    </message>
+    <message>
+      <source>Name</source>
+      <translation>Nom</translation>
+    </message>
+    <message>
+      <source>Source</source>
+      <translation>Source</translation>
+    </message>
+    <message>
+      <source>Size</source>
+      <translation>Taille</translation>
+    </message>
+  </context>
+  <context>
+    <name>ArchivesList</name>
+    <message>
+      <source>Archives</source>
+      <translation>Archives</translation>
+    </message>
+    <message>
+      <source>This package does not contain any source archives.</source>
+      <translation>Ce paquet ne contient aucune archive source.</translation>
+    </message>
+    <message>
+      <source>Load the package to view its archives.</source>
+      <translation>Charger le paquet pour afficher ses archives.</translation>
+    </message>
+    <message>
+      <source>1 archive · {0}</source>
+      <translation>1 archive · {0}</translation>
+    </message>
+    <message>
+      <source>{0} archives · {1}</source>
+      <translation>Archives {0} · {1}</translation>
+    </message>
+    <message>
+      <source>No archives</source>
+      <translation>Aucune archive</translation>
+    </message>
+    <message>
+      <source>Collapse archives</source>
+      <translation>Réduire les archives</translation>
+    </message>
+    <message>
+      <source>Expand archives</source>
+      <translation>Développer les archives</translation>
+    </message>
+  </context>
+  <context>
     <name>AudioControls</name>
     <message>
       <source>Qt Multimedia is not installed.</source>
@@ -369,36 +423,6 @@ Déployer pour pousser le nouvel ordre de chargement au jeu.</translation>
     <message>
       <source>Step 1: Install the MPI Installer</source>
       <translation>Étape 1: Installez l'installateur MPI</translation>
-    </message>
-    <message>
-      <source>The native Linux MPI installer (also used for Tale of Two Wastelands) will be downloaded from GitHub
-and placed in this game's Applications folder.
-
-Click Install to begin.</source>
-      <translation>L'installateur Linux MPI natif (également utilisé pour Tale of Two Wastelands) sera téléchargé de GitHub
-et placé dans le dossier de ce jeu.
-
-Cliquez sur Installer pour commencer.</translation>
-    </message>
-    <message>
-      <source>Installer by SulfurNitride (TTW_Linux_Installer)</source>
-      <translation>Programme d'installation par SulfurNitride (TTW_Linux_Installer)</translation>
-    </message>
-    <message>
-      <source>Install</source>
-      <translation>Installer</translation>
-    </message>
-    <message>
-      <source>Contacting GitHub…</source>
-      <translation>Connexion à GitHub…</translation>
-    </message>
-    <message>
-      <source>Installer ready.</source>
-      <translation>Installateur prêt.</translation>
-    </message>
-    <message>
-      <source>Install error: {0}</source>
-      <translation>Erreur d'installation : {0}</translation>
     </message>
     <message>
       <source>The BSA Decompressor output is already installed</source>
@@ -853,6 +877,97 @@ Configurez vos paramètres INI, puis fermez-le et cliquez sur Terminé.</transla
     </message>
   </context>
   <context>
+    <name>BlacklistOverlay</name>
+    <message>
+      <source>Blacklist — {0}</source>
+      <translation>Liste noire — {0}</translation>
+    </message>
+    <message>
+      <source>Applies to all profiles for this game. Matching files and folders are excluded from deployment and conflict tracking; files remain in staging. Changes apply on the next deploy, or automatically when auto-deploy is enabled.</source>
+      <translation>S'applique à tous les profils pour ce jeu. Les fichiers et dossiers correspondants sont exclus du déploiement et du suivi des conflits; les fichiers restent en stagne. Les modifications s'appliquent au prochain déploiement, ou automatiquement lorsque le déploiement automatique est activé.</translation>
+    </message>
+    <message>
+      <source>Files</source>
+      <translation>Fichiers</translation>
+    </message>
+    <message>
+      <source>Case-insensitive filename patterns, e.g. *.txt or readme*.</source>
+      <translation>Motifs de nom de fichier insensibles à la casse, par exemple *.txt ou readme*.</translation>
+    </message>
+    <message>
+      <source>Folders</source>
+      <translation type="unfinished">Folders</translation>
+    </message>
+    <message>
+      <source>Case-insensitive folder-name patterns at any depth, e.g. docs or *_backup. Matching folders exclude their entire contents.</source>
+      <translation type="unfinished">Case-insensitive folder-name patterns at any depth, e.g. docs or *_backup. Matching folders exclude their entire contents.</translation>
+    </message>
+    <message>
+      <source>Pattern</source>
+      <translation type="unfinished">Pattern</translation>
+    </message>
+    <message>
+      <source>Source</source>
+      <translation type="unfinished">Source</translation>
+    </message>
+    <message>
+      <source>Status</source>
+      <translation type="unfinished">Status</translation>
+    </message>
+    <message>
+      <source>Add a pattern…</source>
+      <translation type="unfinished">Add a pattern…</translation>
+    </message>
+    <message>
+      <source>Add</source>
+      <translation type="unfinished">Add</translation>
+    </message>
+    <message>
+      <source>Remove</source>
+      <translation type="unfinished">Remove</translation>
+    </message>
+    <message>
+      <source>Restore built-ins</source>
+      <translation type="unfinished">Restore built-ins</translation>
+    </message>
+    <message>
+      <source>Cancel</source>
+      <translation type="unfinished">Cancel</translation>
+    </message>
+    <message>
+      <source>Save</source>
+      <translation type="unfinished">Save</translation>
+    </message>
+    <message>
+      <source>Built-in</source>
+      <translation type="unfinished">Built-in</translation>
+    </message>
+    <message>
+      <source>Custom</source>
+      <translation type="unfinished">Custom</translation>
+    </message>
+    <message>
+      <source>Disabled</source>
+      <translation type="unfinished">Disabled</translation>
+    </message>
+    <message>
+      <source>Active</source>
+      <translation type="unfinished">Active</translation>
+    </message>
+    <message>
+      <source>Restore</source>
+      <translation type="unfinished">Restore</translation>
+    </message>
+    <message>
+      <source>Enter a filename or folder-name pattern without path separators.</source>
+      <translation type="unfinished">Enter a filename or folder-name pattern without path separators.</translation>
+    </message>
+    <message>
+      <source>Could not save blacklist: {0}</source>
+      <translation type="unfinished">Could not save blacklist: {0}</translation>
+    </message>
+  </context>
+  <context>
     <name>BodySlideLinuxView</name>
     <message>
       <source>{0} (Linux) - {1}</source>
@@ -1298,6 +1413,139 @@ Fermez-le lorsque vous avez terminé, puis cliquez sur Terminé.</translation>
     </message>
   </context>
   <context>
+    <name>CAOView</name>
+    <message>
+      <source>Assets Optimizer (CAO) - {0}</source>
+      <translation type="unfinished">Assets Optimizer (CAO) - {0}</translation>
+    </message>
+    <message>
+      <source>Step 1: Download Cathedral Assets Optimizer</source>
+      <translation type="unfinished">Step 1: Download Cathedral Assets Optimizer</translation>
+    </message>
+    <message>
+      <source>Click the button below to open Cathedral Assets Optimizer on Nexus Mods.
+
+Download the 64-bit archive, then click Next.</source>
+      <translation type="unfinished">Click the button below to open Cathedral Assets Optimizer on Nexus Mods.
+
+Download the 64-bit archive, then click Next.</translation>
+    </message>
+    <message>
+      <source>Step 2: Locate the Archive</source>
+      <translation type="unfinished">Step 2: Locate the Archive</translation>
+    </message>
+    <message>
+      <source>Step 3: Extract Cathedral Assets Optimizer</source>
+      <translation type="unfinished">Step 3: Extract Cathedral Assets Optimizer</translation>
+    </message>
+    <message>
+      <source>Step 6: Run Assets Optimizer (CAO)</source>
+      <translation type="unfinished">Step 6: Run Assets Optimizer (CAO)</translation>
+    </message>
+    <message>
+      <source>Step 4: Choose Mod</source>
+      <translation type="unfinished">Step 4: Choose Mod</translation>
+    </message>
+    <message>
+      <source>Choose the staged mod that CAO should optimize. Enabled and disabled mod folders are both listed; deployment is not required.</source>
+      <translation type="unfinished">Choose the staged mod that CAO should optimize. Enabled and disabled mod folders are both listed; deployment is not required.</translation>
+    </message>
+    <message>
+      <source>Mod:</source>
+      <translation type="unfinished">Mod:</translation>
+    </message>
+    <message>
+      <source>Search mods…</source>
+      <translation type="unfinished">Search mods…</translation>
+    </message>
+    <message>
+      <source>Continue</source>
+      <translation type="unfinished">Continue</translation>
+    </message>
+    <message>
+      <source>Select the Cathedral Assets Optimizer archive</source>
+      <translation type="unfinished">Select the Cathedral Assets Optimizer archive</translation>
+    </message>
+    <message>
+      <source>Cathedral Assets Optimizer archive not found in your download locations.
+Press Try Again, or use Browse to select it manually.</source>
+      <translation type="unfinished">Cathedral Assets Optimizer archive not found in your download locations.
+Press Try Again, or use Browse to select it manually.</translation>
+    </message>
+    <message>
+      <source>Step 5: Choose Proton Version</source>
+      <translation type="unfinished">Step 5: Choose Proton Version</translation>
+    </message>
+    <message>
+      <source>{0} was not found. Reopen the wizard and install Cathedral Assets Optimizer first.</source>
+      <translation type="unfinished">{0} was not found. Reopen the wizard and install Cathedral Assets Optimizer first.</translation>
+    </message>
+    <message>
+      <source>No mod folders were found in the staging folder.</source>
+      <translation type="unfinished">No mod folders were found in the staging folder.</translation>
+    </message>
+    <message>
+      <source>Mod path: {0}</source>
+      <translation type="unfinished">Mod path: {0}</translation>
+    </message>
+    <message>
+      <source>Select a mod first.</source>
+      <translation type="unfinished">Select a mod first.</translation>
+    </message>
+    <message>
+      <source>The selected mod folder no longer exists.</source>
+      <translation type="unfinished">The selected mod folder no longer exists.</translation>
+    </message>
+    <message>
+      <source>Assets Optimizer (CAO)</source>
+      <translation type="unfinished">Assets Optimizer (CAO)</translation>
+    </message>
+    <message>
+      <source>{0} was not found.</source>
+      <translation type="unfinished">{0} was not found.</translation>
+    </message>
+    <message>
+      <source>The selected mod folder is unavailable.</source>
+      <translation type="unfinished">The selected mod folder is unavailable.</translation>
+    </message>
+    <message>
+      <source>Preparing Assets Optimizer…</source>
+      <translation type="unfinished">Preparing Assets Optimizer…</translation>
+    </message>
+    <message>
+      <source>Assets Optimizer is preparing or running - close it to continue.</source>
+      <translation type="unfinished">Assets Optimizer is preparing or running - close it to continue.</translation>
+    </message>
+    <message>
+      <source>Could not resolve Proton for the game's own prefix.</source>
+      <translation type="unfinished">Could not resolve Proton for the game's own prefix.</translation>
+    </message>
+    <message>
+      <source>Could not find Proton '{0}'.</source>
+      <translation type="unfinished">Could not find Proton '{0}'.</translation>
+    </message>
+    <message>
+      <source>Assets Optimizer is running. Close it when done.</source>
+      <translation type="unfinished">Assets Optimizer is running. Close it when done.</translation>
+    </message>
+    <message>
+      <source>CAO exited with code {0}.</source>
+      <translation type="unfinished">CAO exited with code {0}.</translation>
+    </message>
+    <message>
+      <source>Could not launch Assets Optimizer: {0}</source>
+      <translation type="unfinished">Could not launch Assets Optimizer: {0}</translation>
+    </message>
+    <message>
+      <source>{0} Any changes remain in the selected mod folder.</source>
+      <translation type="unfinished">{0} Any changes remain in the selected mod folder.</translation>
+    </message>
+    <message>
+      <source>Assets Optimizer finished. Changes were saved directly to the selected mod folder.</source>
+      <translation type="unfinished">Assets Optimizer finished. Changes were saved directly to the selected mod folder.</translation>
+    </message>
+  </context>
+  <context>
     <name>CacheManagerOverlay</name>
     <message>
       <source>Total: calculating…</source>
@@ -1502,7 +1750,38 @@ Le cache md5 est préservé. Les archives seront retéléchargées au besoin. Le
     </message>
   </context>
   <context>
+    <name>CheckDetailsOverlay</name>
+    <message>
+      <source>What this means</source>
+      <translation type="unfinished">What this means</translation>
+    </message>
+    <message>
+      <source>Details</source>
+      <translation type="unfinished">Details</translation>
+    </message>
+    <message>
+      <source>What to do</source>
+      <translation type="unfinished">What to do</translation>
+    </message>
+    <message>
+      <source>Affected files ({0})</source>
+      <translation type="unfinished">Affected files ({0})</translation>
+    </message>
+    <message>
+      <source>Close</source>
+      <translation type="unfinished">Close</translation>
+    </message>
+  </context>
+  <context>
     <name>CheckRow</name>
+    <message>
+      <source>Show</source>
+      <translation type="unfinished">Show</translation>
+    </message>
+    <message>
+      <source>Show requirement: {0}</source>
+      <translation type="unfinished">Show requirement: {0}</translation>
+    </message>
     <message>
       <source>Blocking: resolve before installing.</source>
       <translation>Blocage : résoudre avant d'installer.</translation>
@@ -1518,26 +1797,6 @@ Le cache md5 est préservé. Les archives seront retéléchargées au besoin. Le
     <message>
       <source>Passed: this check is ready to proceed.</source>
       <translation>Passé : cette vérification est prête à continuer.</translation>
-    </message>
-    <message>
-      <source>What this means</source>
-      <translation>Ce que cela signifie</translation>
-    </message>
-    <message>
-      <source>Details</source>
-      <translation>Détails du produit</translation>
-    </message>
-    <message>
-      <source>Hide affected files</source>
-      <translation>Masquer les fichiers affectés</translation>
-    </message>
-    <message>
-      <source>Show 1 affected file</source>
-      <translation>Afficher 1 fichier affecté</translation>
-    </message>
-    <message>
-      <source>Show {0} affected files</source>
-      <translation>Afficher les fichiers affectés à {0}</translation>
     </message>
   </context>
   <context>
@@ -1689,6 +1948,10 @@ Le cache md5 est préservé. Les archives seront retéléchargées au besoin. Le
       <translation>Installation / Désinstallation</translation>
     </message>
     <message>
+      <source>0 active · 1 allowed · Starting</source>
+      <translation type="unfinished">0 active · 1 allowed · Starting</translation>
+    </message>
+    <message>
       <source>Speed limit:</source>
       <translation>Limite de vitesse:</translation>
     </message>
@@ -1707,6 +1970,10 @@ Le cache md5 est préservé. Les archives seront retéléchargées au besoin. Le
     <message>
       <source>Extractions:</source>
       <translation>Extraits :</translation>
+    </message>
+    <message>
+      <source>Maximum concurrent extractions. The live allowed count adapts to download, memory and storage conditions.</source>
+      <translation type="unfinished">Maximum concurrent extractions. The live allowed count adapts to download, memory and storage conditions.</translation>
     </message>
     <message>
       <source>Pause</source>
@@ -1735,6 +2002,70 @@ Le cache md5 est préservé. Les archives seront retéléchargées au besoin. Le
     <message>
       <source>+ {0} more downloading…</source>
       <translation>+ {0}, téléchargement en cours…</translation>
+    </message>
+    <message>
+      <source>{0} queued — archive cleanup limit reached</source>
+      <translation type="unfinished">{0} queued — archive cleanup limit reached</translation>
+    </message>
+    <message>
+      <source>Downloads resume as installs finish</source>
+      <translation type="unfinished">Downloads resume as installs finish</translation>
+    </message>
+    <message>
+      <source>Clear archive after install is limiting temporary archive storage ({0} / {1} used). Downloads resume automatically as installed archives are cleared.</source>
+      <translation type="unfinished">Clear archive after install is limiting temporary archive storage ({0} / {1} used). Downloads resume automatically as installed archives are cleared.</translation>
+    </message>
+    <message>
+      <source>Starting</source>
+      <translation type="unfinished">Starting</translation>
+    </message>
+    <message>
+      <source>Low memory</source>
+      <translation type="unfinished">Low memory</translation>
+    </message>
+    <message>
+      <source>Downloads complete</source>
+      <translation type="unfinished">Downloads complete</translation>
+    </message>
+    <message>
+      <source>Memory pressure</source>
+      <translation type="unfinished">Memory pressure</translation>
+    </message>
+    <message>
+      <source>Protecting downloads</source>
+      <translation type="unfinished">Protecting downloads</translation>
+    </message>
+    <message>
+      <source>Clearing install backlog</source>
+      <translation type="unfinished">Clearing install backlog</translation>
+    </message>
+    <message>
+      <source>Monitoring unavailable</source>
+      <translation type="unfinished">Monitoring unavailable</translation>
+    </message>
+    <message>
+      <source>Balancing downloads</source>
+      <translation type="unfinished">Balancing downloads</translation>
+    </message>
+    <message>
+      <source>Adaptive</source>
+      <translation type="unfinished">Adaptive</translation>
+    </message>
+    <message>
+      <source>{0} active · {1} allowed · {2}</source>
+      <translation type="unfinished">{0} active · {1} allowed · {2}</translation>
+    </message>
+    <message>
+      <source>{0} extraction jobs are active. The scheduler currently allows {1} of your configured maximum of {2}. Reason: {3}</source>
+      <translation type="unfinished">{0} extraction jobs are active. The scheduler currently allows {1} of your configured maximum of {2}. Reason: {3}</translation>
+    </message>
+    <message>
+      <source>- Waiting for extraction capacity</source>
+      <translation type="unfinished">- Waiting for extraction capacity</translation>
+    </message>
+    <message>
+      <source>- Queued</source>
+      <translation type="unfinished">- Queued</translation>
     </message>
   </context>
   <context>
@@ -2465,6 +2796,22 @@ Les paramètres du profil par défaut ne sont pas modifiés.</translation>
       <translation>Ce chemin n'est pas visible dans le bac à sable Flatpak. Accordez l'accès dans Flatseal ou exécutez la commande suivante : {0}</translation>
     </message>
     <message>
+      <source>This staging folder is already used by {0}. Choose a separate folder for each game.</source>
+      <translation type="unfinished">This staging folder is already used by {0}. Choose a separate folder for each game.</translation>
+    </message>
+    <message>
+      <source>The selected staging path is not a folder.</source>
+      <translation type="unfinished">The selected staging path is not a folder.</translation>
+    </message>
+    <message>
+      <source>The selected staging folder could not be read: {0}</source>
+      <translation type="unfinished">The selected staging folder could not be read: {0}</translation>
+    </message>
+    <message>
+      <source>This non-empty folder does not contain an Amethyst staging layout. Choose an empty folder or the correct game-specific staging folder.</source>
+      <translation type="unfinished">This non-empty folder does not contain an Amethyst staging layout. Choose an empty folder or the correct game-specific staging folder.</translation>
+    </message>
+    <message>
       <source>Cannot change the game/prefix path while mods are deployed. Restore the game first.</source>
       <translation>Il est impossible de modifier le chemin d'accès au jeu ou au préfixe tant que des mods sont déployés. Commencez par restaurer le jeu.</translation>
     </message>
@@ -2568,6 +2915,161 @@ Les fichiers du jeu Vanilla sont conservés. Cela ne peut être annulé.</transl
     <message>
       <source>OK</source>
       <translation>Ok</translation>
+    </message>
+  </context>
+  <context>
+    <name>ConnectionsSettingsMixin</name>
+    <message>
+      <source>Nexus Mods</source>
+      <translation type="unfinished">Nexus Mods</translation>
+    </message>
+    <message>
+      <source>Account</source>
+      <translation type="unfinished">Account</translation>
+    </message>
+    <message>
+      <source>Membership</source>
+      <translation type="unfinished">Membership</translation>
+    </message>
+    <message>
+      <source>API requests remaining</source>
+      <translation type="unfinished">API requests remaining</translation>
+    </message>
+    <message>
+      <source>Login via SSO</source>
+      <translation type="unfinished">Login via SSO</translation>
+    </message>
+    <message>
+      <source>Paste login code…</source>
+      <translation type="unfinished">Paste login code…</translation>
+    </message>
+    <message>
+      <source>Clear credentials</source>
+      <translation type="unfinished">Clear credentials</translation>
+    </message>
+    <message>
+      <source>mod.io</source>
+      <translation type="unfinished">mod.io</translation>
+    </message>
+    <message>
+      <source>Enable update checks for Baldur's Gate 3 mods using the API path and read-only key from your mod.io API Access page.</source>
+      <translation type="unfinished">Enable update checks for Baldur's Gate 3 mods using the API path and read-only key from your mod.io API Access page.</translation>
+    </message>
+    <message>
+      <source>API path</source>
+      <translation type="unfinished">API path</translation>
+    </message>
+    <message>
+      <source>API key</source>
+      <translation type="unfinished">API key</translation>
+    </message>
+    <message>
+      <source>Get my API key</source>
+      <translation type="unfinished">Get my API key</translation>
+    </message>
+    <message>
+      <source>LoversLab</source>
+      <translation type="unfinished">LoversLab</translation>
+    </message>
+    <message>
+      <source>Sign in to automatically download LoversLab files during Wabbajack installs. Credentials are stored securely. Site security checks may require a manual download.</source>
+      <translation type="unfinished">Sign in to automatically download LoversLab files during Wabbajack installs. Credentials are stored securely. Site security checks may require a manual download.</translation>
+    </message>
+    <message>
+      <source>Email</source>
+      <translation type="unfinished">Email</translation>
+    </message>
+    <message>
+      <source>Password</source>
+      <translation type="unfinished">Password</translation>
+    </message>
+    <message>
+      <source>Loading saved credentials…</source>
+      <translation type="unfinished">Loading saved credentials…</translation>
+    </message>
+    <message>
+      <source>Test &amp;&amp; Save</source>
+      <translation type="unfinished">Test &amp;&amp; Save</translation>
+    </message>
+    <message>
+      <source>Changes have not been saved.</source>
+      <translation type="unfinished">Changes have not been saved.</translation>
+    </message>
+    <message>
+      <source>Complete both fields first.</source>
+      <translation type="unfinished">Complete both fields first.</translation>
+    </message>
+    <message>
+      <source>Checking credentials…</source>
+      <translation type="unfinished">Checking credentials…</translation>
+    </message>
+    <message>
+      <source>Clearing credentials…</source>
+      <translation type="unfinished">Clearing credentials…</translation>
+    </message>
+    <message>
+      <source>Login verified and saved. Automatic LoversLab downloads are enabled.</source>
+      <translation type="unfinished">Login verified and saved. Automatic LoversLab downloads are enabled.</translation>
+    </message>
+    <message>
+      <source>Key verified and saved. mod.io update checks are enabled.</source>
+      <translation type="unfinished">Key verified and saved. mod.io update checks are enabled.</translation>
+    </message>
+    <message>
+      <source>Credentials cleared.</source>
+      <translation type="unfinished">Credentials cleared.</translation>
+    </message>
+    <message>
+      <source>Credentials saved.</source>
+      <translation type="unfinished">Credentials saved.</translation>
+    </message>
+    <message>
+      <source>Not connected.</source>
+      <translation type="unfinished">Not connected.</translation>
+    </message>
+    <message>
+      <source>Could not load saved credentials. Unlock your keyring or enter them again.</source>
+      <translation type="unfinished">Could not load saved credentials. Unlock your keyring or enter them again.</translation>
+    </message>
+    <message>
+      <source>Could not verify or save credentials. Check both fields and your connection.</source>
+      <translation type="unfinished">Could not verify or save credentials. Check both fields and your connection.</translation>
+    </message>
+    <message>
+      <source>Could not clear credentials. Please try again.</source>
+      <translation type="unfinished">Could not clear credentials. Please try again.</translation>
+    </message>
+    <message>
+      <source>Could not verify the saved login. Check your connection or sign in again.</source>
+      <translation type="unfinished">Could not verify the saved login. Check your connection or sign in again.</translation>
+    </message>
+    <message>
+      <source>Waiting for browser login…</source>
+      <translation type="unfinished">Waiting for browser login…</translation>
+    </message>
+    <message>
+      <source>Checking saved login…</source>
+      <translation type="unfinished">Checking saved login…</translation>
+    </message>
+    <message>
+      <source>Unknown</source>
+      <translation type="unfinished">Unknown</translation>
+    </message>
+    <message>
+      <source>Premium</source>
+      <translation type="unfinished">Premium</translation>
+    </message>
+    <message>
+      <source>Supporter</source>
+      <translation type="unfinished">Supporter</translation>
+    </message>
+    <message>
+      <source>Free</source>
+      <translation type="unfinished">Free</translation>
+    </message>
+    <message>
+      <source>Hourly: {0} · Daily: {1}</source>
+      <translation type="unfinished">Hourly: {0} · Daily: {1}</translation>
     </message>
   </context>
   <context>
@@ -4013,6 +4515,10 @@ Une fois terminée, l'application bascule vers le nouveau profil - puis revenir 
       <translation>Installer</translation>
     </message>
     <message>
+      <source>Uninstalled</source>
+      <translation type="unfinished">Uninstalled</translation>
+    </message>
+    <message>
       <source>{0} (hidden)</source>
       <translation>{0} (hidden)</translation>
     </message>
@@ -4328,6 +4834,189 @@ Fermez-le lorsque vous avez terminé, puis cliquez sur « Terminé ».</translat
     </message>
   </context>
   <context>
+    <name>EETView</name>
+    <message>
+      <source>ESP-ESM Translator - {0}</source>
+      <translation type="unfinished">ESP-ESM Translator - {0}</translation>
+    </message>
+    <message>
+      <source>Step 1: Download ESP-ESM Translator</source>
+      <translation type="unfinished">Step 1: Download ESP-ESM Translator</translation>
+    </message>
+    <message>
+      <source>Open the ESP-ESM Translator files page and download the 'Application only Date up' archive, then click Next.</source>
+      <translation type="unfinished">Open the ESP-ESM Translator files page and download the 'Application only Date up' archive, then click Next.</translation>
+    </message>
+    <message>
+      <source>Step 2: Locate the Archive</source>
+      <translation type="unfinished">Step 2: Locate the Archive</translation>
+    </message>
+    <message>
+      <source>Step 3: Extract ESP-ESM Translator</source>
+      <translation type="unfinished">Step 3: Extract ESP-ESM Translator</translation>
+    </message>
+    <message>
+      <source>Step 7: Run ESP-ESM Translator</source>
+      <translation type="unfinished">Step 7: Run ESP-ESM Translator</translation>
+    </message>
+    <message>
+      <source>Step 4: Choose Plugin</source>
+      <translation type="unfinished">Step 4: Choose Plugin</translation>
+    </message>
+    <message>
+      <source>Choose a plugin from a staged mod. EET receives that file directly, so the translation and supported sidecar-file changes stay in the owning mod folder. You can also open EET without a target and choose a staged file inside the application.</source>
+      <translation type="unfinished">Choose a plugin from a staged mod. EET receives that file directly, so the translation and supported sidecar-file changes stay in the owning mod folder. You can also open EET without a target and choose a staged file inside the application.</translation>
+    </message>
+    <message>
+      <source>Plugin:</source>
+      <translation type="unfinished">Plugin:</translation>
+    </message>
+    <message>
+      <source>Search staged plugins…</source>
+      <translation type="unfinished">Search staged plugins…</translation>
+    </message>
+    <message>
+      <source>Continue</source>
+      <translation type="unfinished">Continue</translation>
+    </message>
+    <message>
+      <source>Step 5: Prepare Game Data</source>
+      <translation type="unfinished">Step 5: Prepare Game Data</translation>
+    </message>
+    <message>
+      <source>Deploy to let EET read the active profile's masters and archives through the game's Data folder. Skip if the required files are already available there. The selected plugin is still edited directly in its staged mod.</source>
+      <translation type="unfinished">Deploy to let EET read the active profile's masters and archives through the game's Data folder. Skip if the required files are already available there. The selected plugin is still edited directly in its staged mod.</translation>
+    </message>
+    <message>
+      <source>Skip</source>
+      <translation type="unfinished">Skip</translation>
+    </message>
+    <message>
+      <source>Deploy</source>
+      <translation type="unfinished">Deploy</translation>
+    </message>
+    <message>
+      <source>Select the ESP-ESM Translator archive</source>
+      <translation type="unfinished">Select the ESP-ESM Translator archive</translation>
+    </message>
+    <message>
+      <source>ESP-ESM Translator was not found in your download locations. Press Try Again, or use Browse to select the archive manually.</source>
+      <translation type="unfinished">ESP-ESM Translator was not found in your download locations. Press Try Again, or use Browse to select the archive manually.</translation>
+    </message>
+    <message>
+      <source>Step 6: Choose Proton Version</source>
+      <translation type="unfinished">Step 6: Choose Proton Version</translation>
+    </message>
+    <message>
+      <source>{0} was not found. Reopen the wizard and install ESP-ESM Translator first.</source>
+      <translation type="unfinished">{0} was not found. Reopen the wizard and install ESP-ESM Translator first.</translation>
+    </message>
+    <message>
+      <source>Scanning staged mods for plugins…</source>
+      <translation type="unfinished">Scanning staged mods for plugins…</translation>
+    </message>
+    <message>
+      <source>Open ESP-ESM Translator without a target</source>
+      <translation type="unfinished">Open ESP-ESM Translator without a target</translation>
+    </message>
+    <message>
+      <source>{0} / {1}</source>
+      <translation type="unfinished">{0} / {1}</translation>
+    </message>
+    <message>
+      <source>No staged plugins were found. EET will open without a target; choose a file from inside the application.</source>
+      <translation type="unfinished">No staged plugins were found. EET will open without a target; choose a file from inside the application.</translation>
+    </message>
+    <message>
+      <source>EET will open without a target plugin. Its game Data path will still be configured. Open files from a staged mod, not from the deployed Data folder.</source>
+      <translation type="unfinished">EET will open without a target plugin. Its game Data path will still be configured. Open files from a staged mod, not from the deployed Data folder.</translation>
+    </message>
+    <message>
+      <source>Plugin path: {0}</source>
+      <translation type="unfinished">Plugin path: {0}</translation>
+    </message>
+    <message>
+      <source>The selected staged plugin is no longer available.</source>
+      <translation type="unfinished">The selected staged plugin is no longer available.</translation>
+    </message>
+    <message>
+      <source>ESP-ESM Translator</source>
+      <translation type="unfinished">ESP-ESM Translator</translation>
+    </message>
+    <message>
+      <source>{0} was not found.</source>
+      <translation type="unfinished">{0} was not found.</translation>
+    </message>
+    <message>
+      <source>The selected staged plugin is unavailable.</source>
+      <translation type="unfinished">The selected staged plugin is unavailable.</translation>
+    </message>
+    <message>
+      <source>The game's Data folder is not configured or available.</source>
+      <translation type="unfinished">The game's Data folder is not configured or available.</translation>
+    </message>
+    <message>
+      <source>Preparing ESP-ESM Translator…</source>
+      <translation type="unfinished">Preparing ESP-ESM Translator…</translation>
+    </message>
+    <message>
+      <source>ESP-ESM Translator is preparing or running — close it to continue.</source>
+      <translation type="unfinished">ESP-ESM Translator is preparing or running — close it to continue.</translation>
+    </message>
+    <message>
+      <source>Could not resolve Proton for the game's own prefix.</source>
+      <translation type="unfinished">Could not resolve Proton for the game's own prefix.</translation>
+    </message>
+    <message>
+      <source>Could not find Proton '{0}'.</source>
+      <translation type="unfinished">Could not find Proton '{0}'.</translation>
+    </message>
+    <message>
+      <source>ESP-ESM Translator is running. Close it when done.</source>
+      <translation type="unfinished">ESP-ESM Translator is running. Close it when done.</translation>
+    </message>
+    <message>
+      <source>EET exited with code {0}.</source>
+      <translation type="unfinished">EET exited with code {0}.</translation>
+    </message>
+    <message>
+      <source>Could not launch ESP-ESM Translator: {0}</source>
+      <translation type="unfinished">Could not launch ESP-ESM Translator: {0}</translation>
+    </message>
+    <message>
+      <source>The deployed Data folder is being updated.</source>
+      <translation type="unfinished">The deployed Data folder is being updated.</translation>
+    </message>
+    <message>
+      <source>EET closed. Updating the deployed Data folder…</source>
+      <translation type="unfinished">EET closed. Updating the deployed Data folder…</translation>
+    </message>
+    <message>
+      <source> The staged changes remain safe, but redeploy failed; see log.</source>
+      <translation type="unfinished"> The staged changes remain safe, but redeploy failed; see log.</translation>
+    </message>
+    <message>
+      <source>Changes remain in the selected staged mod.</source>
+      <translation type="unfinished">Changes remain in the selected staged mod.</translation>
+    </message>
+    <message>
+      <source>ESP-ESM Translator finished.</source>
+      <translation type="unfinished">ESP-ESM Translator finished.</translation>
+    </message>
+    <message>
+      <source>ESP-ESM Translator finished. Any file selected inside EET was changed in place; deploy again if you edited a staged plugin.</source>
+      <translation type="unfinished">ESP-ESM Translator finished. Any file selected inside EET was changed in place; deploy again if you edited a staged plugin.</translation>
+    </message>
+    <message>
+      <source>ESP-ESM Translator finished. Changes were saved directly to the selected staged mod.</source>
+      <translation type="unfinished">ESP-ESM Translator finished. Changes were saved directly to the selected staged mod.</translation>
+    </message>
+    <message>
+      <source>The deployed Data folder is up to date.</source>
+      <translation type="unfinished">The deployed Data folder is up to date.</translation>
+    </message>
+  </context>
+  <context>
     <name>ESLifierView</name>
     <message>
       <source>Run ESLifier - {0}</source>
@@ -4425,36 +5114,6 @@ Fermer lorsque vous avez terminé, puis cliquez sur Terminé.</translation>
     <message>
       <source>Step 1: Install the MPI Installer</source>
       <translation>Étape 1: Installez l'installateur MPI</translation>
-    </message>
-    <message>
-      <source>The native Linux MPI installer (also used for Tale of Two Wastelands) will be downloaded from GitHub
-and placed in this game's Applications folder.
-
-Click Install to begin.</source>
-      <translation>L'installateur Linux MPI natif (également utilisé pour Tale of Two Wastelands) sera téléchargé de GitHub
-et placé dans le dossier Applications de ce jeu.
-
-Cliquez sur Installer pour commencer.</translation>
-    </message>
-    <message>
-      <source>Installer by SulfurNitride (TTW_Linux_Installer)</source>
-      <translation>Programme d'installation de SulfurNitride (TTW_Linux_Installer)</translation>
-    </message>
-    <message>
-      <source>Install</source>
-      <translation>Installer</translation>
-    </message>
-    <message>
-      <source>Contacting GitHub…</source>
-      <translation>Connexion à GitHub…</translation>
-    </message>
-    <message>
-      <source>Installer ready.</source>
-      <translation>Installateur prêt.</translation>
-    </message>
-    <message>
-      <source>Install error: {0}</source>
-      <translation>Erreur d'installation : {0}</translation>
     </message>
     <message>
       <source>The ESM Fixes output is already installed</source>
@@ -5976,16 +6635,154 @@ Il peut déjà être modifié. Vérifiez les fichiers de jeu dans Steam/Heroic p
     </message>
   </context>
   <context>
+    <name>InstalledWabbajackCard</name>
+    <message>
+      <source>Local installation</source>
+      <translation type="unfinished">Local installation</translation>
+    </message>
+    <message>
+      <source>No profiles created yet</source>
+      <translation type="unfinished">No profiles created yet</translation>
+    </message>
+    <message>
+      <source>Profiles: {0}</source>
+      <translation type="unfinished">Profiles: {0}</translation>
+    </message>
+    <message>
+      <source>View</source>
+      <translation type="unfinished">View</translation>
+    </message>
+    <message>
+      <source>Remove</source>
+      <translation type="unfinished">Remove</translation>
+    </message>
+    <message>
+      <source>Unlock these profiles first: {0}</source>
+      <translation type="unfinished">Unlock these profiles first: {0}</translation>
+    </message>
+    <message>
+      <source>Installation: {0}</source>
+      <translation type="unfinished">Installation: {0}</translation>
+    </message>
+    <message>
+      <source>Installed</source>
+      <translation type="unfinished">Installed</translation>
+    </message>
+    <message>
+      <source>Paused · Resume available</source>
+      <translation type="unfinished">Paused · Resume available</translation>
+    </message>
+    <message>
+      <source>Cancelled · Resume available</source>
+      <translation type="unfinished">Cancelled · Resume available</translation>
+    </message>
+    <message>
+      <source>Interrupted · Resume available</source>
+      <translation type="unfinished">Interrupted · Resume available</translation>
+    </message>
+    <message>
+      <source>Incomplete · Resume available</source>
+      <translation type="unfinished">Incomplete · Resume available</translation>
+    </message>
+  </context>
+  <context>
+    <name>InstalledWabbajackView</name>
+    <message>
+      <source>Installed Wabbajack Lists</source>
+      <translation type="unfinished">Installed Wabbajack Lists</translation>
+    </message>
+    <message>
+      <source>Refresh</source>
+      <translation type="unfinished">Refresh</translation>
+    </message>
+    <message>
+      <source>✕ Close</source>
+      <translation type="unfinished">✕ Close</translation>
+    </message>
+    <message>
+      <source>Loading installed lists…</source>
+      <translation type="unfinished">Loading installed lists…</translation>
+    </message>
+    <message>
+      <source>Scanning configured games…</source>
+      <translation type="unfinished">Scanning configured games…</translation>
+    </message>
+    <message>
+      <source>Could not scan installed lists: {0}</source>
+      <translation type="unfinished">Could not scan installed lists: {0}</translation>
+    </message>
+    <message>
+      <source>Shared download archives and partial downloads are retained when a list is removed.</source>
+      <translation type="unfinished">Shared download archives and partial downloads are retained when a list is removed.</translation>
+    </message>
+    <message>
+      <source>No managed Wabbajack installations were found across your configured games.</source>
+      <translation type="unfinished">No managed Wabbajack installations were found across your configured games.</translation>
+    </message>
+    <message>
+      <source>{0} lists</source>
+      <translation type="unfinished">{0} lists</translation>
+    </message>
+    <message>
+      <source>Wait for the current installation or deployment operation to finish.</source>
+      <translation type="unfinished">Wait for the current installation or deployment operation to finish.</translation>
+    </message>
+    <message>
+      <source>No profiles created yet</source>
+      <translation type="unfinished">No profiles created yet</translation>
+    </message>
+    <message>
+      <source>Remove '{0}' for {1}?
+
+This permanently deletes its managed installation, installed mods, Stock Game files, saved package, work data, backups, local changes, and every linked profile.
+
+Shared download archives and partial downloads are kept.
+
+Managed directory: {2}</source>
+      <translation type="unfinished">Remove '{0}' for {1}?
+
+This permanently deletes its managed installation, installed mods, Stock Game files, saved package, work data, backups, local changes, and every linked profile.
+
+Shared download archives and partial downloads are kept.
+
+Managed directory: {2}</translation>
+    </message>
+    <message>
+      <source>Remove Wabbajack List</source>
+      <translation type="unfinished">Remove Wabbajack List</translation>
+    </message>
+    <message>
+      <source>Remove</source>
+      <translation type="unfinished">Remove</translation>
+    </message>
+    <message>
+      <source>Preparing to remove {0}…</source>
+      <translation type="unfinished">Preparing to remove {0}…</translation>
+    </message>
+    <message>
+      <source>Could not remove {0}: {1}</source>
+      <translation type="unfinished">Could not remove {0}: {1}</translation>
+    </message>
+    <message>
+      <source>Removed {0}.</source>
+      <translation type="unfinished">Removed {0}.</translation>
+    </message>
+    <message>
+      <source>Wait for list removal to finish before closing this tab.</source>
+      <translation type="unfinished">Wait for list removal to finish before closing this tab.</translation>
+    </message>
+  </context>
+  <context>
     <name>LaunchHandoffOverlay</name>
     <message>
       <source>{0} - launching from {1}</source>
       <translation>{0} - lancement depuis {1}</translation>
     </message>
     <message>
-      <source>This deployment uses an external loader or virtual filesystem, so the launcher must start the game through Amethyst. Press Play in Amethyst, or configure {0} as follows:
+      <source>This game uses an external loader or virtual filesystem. Press Play in Amethyst, or configure {0} to launch the deployed setup as follows:
 
 {1}</source>
-      <translation>Ce déploiement utilise un chargeur externe ou un système de fichiers virtuel, de sorte que le lanceur doit démarrer le jeu par Amethyst. Appuyez sur Play in Amethyst ou configurez {0} comme suit :
+      <translation type="unfinished">This game uses an external loader or virtual filesystem. Press Play in Amethyst, or configure {0} to launch the deployed setup as follows:
 
 {1}</translation>
     </message>
@@ -6386,6 +7183,71 @@ Cliquez sur Terminé pour fermer.</translation>
 {2}</source>
       <translation>{0} est sorti avec le code {1}.
 {2}</translation>
+    </message>
+  </context>
+  <context>
+    <name>MPIInstallerWidget</name>
+    <message>
+      <source>Install the TTW / MPI installer from Nexus Mods (site mod 1657).
+Premium accounts download the latest Main file automatically. Free users download it in their browser; ZIP or 7z archives containing 1657 in their name are detected in the enabled locations in the Downloads tab.
+You can also select the installer archive below.</source>
+      <translation type="unfinished">Install the TTW / MPI installer from Nexus Mods (site mod 1657).
+Premium accounts download the latest Main file automatically. Free users download it in their browser; ZIP or 7z archives containing 1657 in their name are detected in the enabled locations in the Downloads tab.
+You can also select the installer archive below.</translation>
+    </message>
+    <message>
+      <source>Installer archive (ZIP or 7z, optional)</source>
+      <translation type="unfinished">Installer archive (ZIP or 7z, optional)</translation>
+    </message>
+    <message>
+      <source>Choose archive…</source>
+      <translation type="unfinished">Choose archive…</translation>
+    </message>
+    <message>
+      <source>Install</source>
+      <translation type="unfinished">Install</translation>
+    </message>
+    <message>
+      <source>Open Nexus download page</source>
+      <translation type="unfinished">Open Nexus download page</translation>
+    </message>
+    <message>
+      <source>Cancel</source>
+      <translation type="unfinished">Cancel</translation>
+    </message>
+    <message>
+      <source>Select the TTW / MPI installer archive</source>
+      <translation type="unfinished">Select the TTW / MPI installer archive</translation>
+    </message>
+    <message>
+      <source>Installer archives (*.zip, *.7z)</source>
+      <translation type="unfinished">Installer archives (*.zip, *.7z)</translation>
+    </message>
+    <message>
+      <source>Wait for the current operation to finish before installing this tool.</source>
+      <translation type="unfinished">Wait for the current operation to finish before installing this tool.</translation>
+    </message>
+    <message>
+      <source>Preparing MPI installer…</source>
+      <translation type="unfinished">Preparing MPI installer…</translation>
+    </message>
+    <message>
+      <source>{0}
+Waiting for the completed installer archive in your download locations. You can also choose the archive manually.</source>
+      <translation type="unfinished">{0}
+Waiting for the completed installer archive in your download locations. You can also choose the archive manually.</translation>
+    </message>
+    <message>
+      <source>MPI installer ready.</source>
+      <translation type="unfinished">MPI installer ready.</translation>
+    </message>
+    <message>
+      <source>Install error: {0}</source>
+      <translation type="unfinished">Install error: {0}</translation>
+    </message>
+    <message>
+      <source>Installer setup cancelled.</source>
+      <translation type="unfinished">Installer setup cancelled.</translation>
     </message>
   </context>
   <context>
@@ -6833,18 +7695,6 @@ Si vous continuez, cet avertissement ne sera plus affiché pour {1} sauf si les 
       <translation>Se connecter à Nexus</translation>
     </message>
     <message>
-      <source>Login via SSO</source>
-      <translation>Connexion via SSO</translation>
-    </message>
-    <message>
-      <source>Paste login code…</source>
-      <translation>Collez le code d'accès…</translation>
-    </message>
-    <message>
-      <source>Clear credentials</source>
-      <translation>Effacer les identifiants</translation>
-    </message>
-    <message>
       <source>Collections</source>
       <translation>Collections</translation>
     </message>
@@ -7057,10 +7907,6 @@ Si vous continuez, cet avertissement ne sera plus affiché pour {1} sauf si les 
       <translation>Bienvenue</translation>
     </message>
     <message>
-      <source>Log in first: Nexus ▸ Login to Nexus ▸ Login via SSO.</source>
-      <translation>Connectez-vous d'abord : Nexus ▸ Se connecter à Nexus ▸ Se connecter via SSO.</translation>
-    </message>
-    <message>
       <source>Received a malformed NXM link.</source>
       <translation>Un lien NXM non valide a été reçu.</translation>
     </message>
@@ -7123,6 +7969,26 @@ Souhaitez-vous supprimer l'entrée de la collection associée ?</translation>
     <message>
       <source>This collection has no installable mods.</source>
       <translation>Cette collection ne contient aucun mod installable.</translation>
+    </message>
+    <message>
+      <source> or </source>
+      <translation type="unfinished"> or </translation>
+    </message>
+    <message>
+      <source>This collection was made for game version {0}, but the default profile uses game version {1}.
+
+The collection may not work correctly. You can still install it.</source>
+      <translation type="unfinished">This collection was made for game version {0}, but the default profile uses game version {1}.
+
+The collection may not work correctly. You can still install it.</translation>
+    </message>
+    <message>
+      <source>Game version mismatch</source>
+      <translation type="unfinished">Game version mismatch</translation>
+    </message>
+    <message>
+      <source>Install anyway</source>
+      <translation type="unfinished">Install anyway</translation>
     </message>
     <message>
       <source>Checking Nexus account…</source>
@@ -7279,10 +8145,6 @@ Souhaitez-vous supprimer l'entrée de la collection associée ?</translation>
     <message>
       <source>Load order reset failed: {0}</source>
       <translation>Échec de la réinitialisation de l'ordre de chargement : {0}</translation>
-    </message>
-    <message>
-      <source>Nexus login is unavailable in this build.</source>
-      <translation>La connexion à Nexus n'est pas disponible dans cette version.</translation>
     </message>
     <message>
       <source>A Nexus login is already in progress.</source>
@@ -8333,6 +9195,30 @@ Exécuter une mise à jour rapide sur tous maintenant?</translation>
       <translation>Préférez AppImage</translation>
     </message>
     <message>
+      <source>Blacklist</source>
+      <translation type="unfinished">Blacklist</translation>
+    </message>
+    <message>
+      <source>Routing Rules</source>
+      <translation type="unfinished">Routing Rules</translation>
+    </message>
+    <message>
+      <source>Select a game before editing its blacklist.</source>
+      <translation type="unfinished">Select a game before editing its blacklist.</translation>
+    </message>
+    <message>
+      <source>Wait for the current game, install, deployment, or tool operation to finish.</source>
+      <translation type="unfinished">Wait for the current game, install, deployment, or tool operation to finish.</translation>
+    </message>
+    <message>
+      <source>Select a game before editing its routing rules.</source>
+      <translation type="unfinished">Select a game before editing its routing rules.</translation>
+    </message>
+    <message>
+      <source>Routing rules changed while the editor was open. Close and reopen it before saving.</source>
+      <translation type="unfinished">Routing rules changed while the editor was open. Close and reopen it before saving.</translation>
+    </message>
+    <message>
       <source>.NET Framework 4.8</source>
       <translation>.NET Framework 4.8</translation>
     </message>
@@ -8347,6 +9233,10 @@ Exécuter une mise à jour rapide sur tous maintenant?</translation>
     <message>
       <source>Browse Wabbajack modlists…</source>
       <translation>Parcourir les modlists Wabbajack…</translation>
+    </message>
+    <message>
+      <source>Installed Lists</source>
+      <translation type="unfinished">Installed Lists</translation>
     </message>
     <message>
       <source>{0} is running - switch games when it finishes.</source>
@@ -8393,6 +9283,10 @@ Exécuter une mise à jour rapide sur tous maintenant?</translation>
       <translation>Téléchargé - basculez vers '{0}' et installez-le à partir de l'onglet Téléchargements.</translation>
     </message>
     <message>
+      <source>Log in first: Settings ▸ Connections ▸ Nexus ▸ Login via SSO.</source>
+      <translation type="unfinished">Log in first: Settings ▸ Connections ▸ Nexus ▸ Login via SSO.</translation>
+    </message>
+    <message>
       <source>this mod</source>
       <translation>ce mod</translation>
     </message>
@@ -8423,6 +9317,34 @@ Exécuter une mise à jour rapide sur tous maintenant?</translation>
     <message>
       <source>Could not identify any of the {0} mod(s) found.</source>
       <translation>Impossible d'identifier les mods {0} trouvés.</translation>
+    </message>
+    <message>
+      <source>Another installation or deployment operation</source>
+      <translation type="unfinished">Another installation or deployment operation</translation>
+    </message>
+    <message>
+      <source>{0} is running - open the list when it finishes.</source>
+      <translation type="unfinished">{0} is running - open the list when it finishes.</translation>
+    </message>
+    <message>
+      <source>The list's configured game is no longer available.</source>
+      <translation type="unfinished">The list's configured game is no longer available.</translation>
+    </message>
+    <message>
+      <source>The installed list could not be opened.</source>
+      <translation type="unfinished">The installed list could not be opened.</translation>
+    </message>
+    <message>
+      <source>Removing Wabbajack list</source>
+      <translation type="unfinished">Removing Wabbajack list</translation>
+    </message>
+    <message>
+      <source>Wabbajack list removal</source>
+      <translation type="unfinished">Wabbajack list removal</translation>
+    </message>
+    <message>
+      <source>Wabbajack list '{0}' removed.</source>
+      <translation type="unfinished">Wabbajack list '{0}' removed.</translation>
     </message>
     <message>
       <source>Wabbajack installation complete.</source>
@@ -8483,6 +9405,10 @@ Exécuter une mise à jour rapide sur tous maintenant?</translation>
     <message>
       <source>Manifest download failed: {0}</source>
       <translation>Le téléchargement du manifeste a échoué : {0}</translation>
+    </message>
+    <message>
+      <source>Could not clear Nexus credentials. Please try again.</source>
+      <translation type="unfinished">Could not clear Nexus credentials. Please try again.</translation>
     </message>
     <message>
       <source>Add the API path shown on mod.io's API Access page using the mod.io API Key tool.</source>
@@ -8599,6 +9525,10 @@ Exécuter une mise à jour rapide sur tous maintenant?</translation>
     <message>
       <source>Waiting for profile updates…</source>
       <translation>En attente de mises à jour du profil…</translation>
+    </message>
+    <message>
+      <source>Wait for Wabbajack list removal to finish before closing Amethyst.</source>
+      <translation type="unfinished">Wait for Wabbajack list removal to finish before closing Amethyst.</translation>
     </message>
     <message>
       <source>Wait for the Proton installer to finish before closing Amethyst.</source>
@@ -9073,6 +10003,30 @@ De toute façon ?</translation>
     <message>
       <source>File or folder not found ({0}).</source>
       <translation>Fichier ou dossier introuvable ({0}).</translation>
+    </message>
+    <message>
+      <source>Profile recovery is required. Finish the current operation, then press Restore.</source>
+      <translation type="unfinished">Profile recovery is required. Finish the current operation, then press Restore.</translation>
+    </message>
+    <message>
+      <source>Recovered an unfinished profile operation. Retrying…</source>
+      <translation type="unfinished">Recovered an unfinished profile operation. Retrying…</translation>
+    </message>
+    <message>
+      <source>Profile recovery required</source>
+      <translation type="unfinished">Profile recovery required</translation>
+    </message>
+    <message>
+      <source>An earlier deployment stopped after it began changing game files. Amethyst must restore the affected profile before it can rebuild this profile safely.
+
+Restore now?</source>
+      <translation type="unfinished">An earlier deployment stopped after it began changing game files. Amethyst must restore the affected profile before it can rebuild this profile safely.
+
+Restore now?</translation>
+    </message>
+    <message>
+      <source>Restore now</source>
+      <translation type="unfinished">Restore now</translation>
     </message>
     <message>
       <source>Log</source>
@@ -10024,6 +10978,10 @@ Cette action est irréversible.</translation>
       <source>Nexus File ID</source>
       <translation>ID du fichier Nexus</translation>
     </message>
+    <message>
+      <source>Content</source>
+      <translation type="unfinished">Content</translation>
+    </message>
   </context>
   <context>
     <name>ModListView</name>
@@ -10042,10 +11000,6 @@ Cette action est irréversible.</translation>
     <message>
       <source>Hide separators</source>
       <translation>Masquer les séparateurs</translation>
-    </message>
-    <message>
-      <source>More status filters</source>
-      <translation>Autres filtres d'état</translation>
     </message>
     <message>
       <source>Clear all filters</source>
@@ -10270,6 +11224,10 @@ Cliquez sur Terminé pour fermer.</translation>
 Expand the group to act on individual mods.</source>
       <translation>Résumé du groupe : {0}
 Développez le groupe pour agir sur chaque mod.</translation>
+    </message>
+    <message>
+      <source>{0} - packed inside an archive</source>
+      <translation type="unfinished">{0} - packed inside an archive</translation>
     </message>
   </context>
   <context>
@@ -11016,6 +11974,14 @@ Your modlist was restored before downgrading - use Deploy to put it back.</sourc
       <translation>Filtres</translation>
     </message>
     <message>
+      <source>Install all</source>
+      <translation type="unfinished">Install all</translation>
+    </message>
+    <message>
+      <source>Install the newest main file for every mod shown. Files over 100 MB are skipped. Requires Nexus Premium.</source>
+      <translation type="unfinished">Install the newest main file for every mod shown. Files over 100 MB are skipped. Requires Nexus Premium.</translation>
+    </message>
+    <message>
       <source>Filters</source>
       <translation>Filtres</translation>
     </message>
@@ -11046,6 +12012,66 @@ Your modlist was restored before downgrading - use Deploy to put it back.</sourc
     <message>
       <source>Abstain</source>
       <translation>S'abstenir</translation>
+    </message>
+    <message>
+      <source>Preparing…</source>
+      <translation type="unfinished">Preparing…</translation>
+    </message>
+    <message>
+      <source>Installing {0}/{1}</source>
+      <translation type="unfinished">Installing {0}/{1}</translation>
+    </message>
+    <message>
+      <source>Install all unavailable</source>
+      <translation type="unfinished">Install all unavailable</translation>
+    </message>
+    <message>
+      <source>Install all uses direct Nexus downloads and requires a Premium account. It is unavailable while forced manual downloads are enabled.</source>
+      <translation type="unfinished">Install all uses direct Nexus downloads and requires a Premium account. It is unavailable while forced manual downloads are enabled.</translation>
+    </message>
+    <message>
+      <source>Install all failed</source>
+      <translation type="unfinished">Install all failed</translation>
+    </message>
+    <message>
+      <source>Could not prepare the page: {0}</source>
+      <translation type="unfinished">Could not prepare the page: {0}</translation>
+    </message>
+    <message>
+      <source>Nothing to install</source>
+      <translation type="unfinished">Nothing to install</translation>
+    </message>
+    <message>
+      <source>No mod on this page has a main file of 100 MB or less.</source>
+      <translation type="unfinished">No mod on this page has a main file of 100 MB or less.</translation>
+    </message>
+    <message>
+      <source>Install the newest main file for {0} mod(s)? Files over 100 MB, and mods without a main file are skipped. A download is stopped if its actual size exceeds the limit.</source>
+      <translation type="unfinished">Install the newest main file for {0} mod(s)? Files over 100 MB, and mods without a main file are skipped. A download is stopped if its actual size exceeds the limit.</translation>
+    </message>
+    <message>
+      <source>{0} mod(s) will be skipped.</source>
+      <translation type="unfinished">{0} mod(s) will be skipped.</translation>
+    </message>
+    <message>
+      <source>{0} MB</source>
+      <translation type="unfinished">{0} MB</translation>
+    </message>
+    <message>
+      <source>size unknown; 100 MB limit</source>
+      <translation type="unfinished">size unknown; 100 MB limit</translation>
+    </message>
+    <message>
+      <source>Install: {0} — {1} ({2})</source>
+      <translation type="unfinished">Install: {0} — {1} ({2})</translation>
+    </message>
+    <message>
+      <source>Skip: {0} — {1}</source>
+      <translation type="unfinished">Skip: {0} — {1}</translation>
+    </message>
+    <message>
+      <source>Install all mods</source>
+      <translation type="unfinished">Install all mods</translation>
     </message>
   </context>
   <context>
@@ -13327,6 +14353,18 @@ Ses mods listés sont copiés dans le dossier de mods du profil (en lien dur si 
       <translation>Le préfixe de jeu sauvegardé n'est pas disponible. Choisissez un autre paramètre de préfixe.</translation>
     </message>
     <message>
+      <source>Use 64-bit version</source>
+      <translation type="unfinished">Use 64-bit version</translation>
+    </message>
+    <message>
+      <source>Run the 64-bit executable from the Optional folder.</source>
+      <translation type="unfinished">Run the 64-bit executable from the Optional folder.</translation>
+    </message>
+    <message>
+      <source>Not found: {0}</source>
+      <translation type="unfinished">Not found: {0}</translation>
+    </message>
+    <message>
       <source>No Proton versions were found. Install one through Steam or Heroic, or add a custom Proton build below.</source>
       <translation>Aucune version de Proton n'a été trouvée. Installez-en un via Steam ou Heroic, ou ajoutez une compilation Proton personnalisée ci-dessous.</translation>
     </message>
@@ -13337,6 +14375,12 @@ Ses mods listés sont copiés dans le dossier de mods du profil (en lien dur si 
     <message>
       <source>The saved Proton version '{0}' is no longer installed. Choose another version.</source>
       <translation>La version Proton enregistrée '{0}' n'est plus installée. Choisissez une autre version.</translation>
+    </message>
+    <message>
+      <source>The saved 64-bit executable was not found: {0}
+Continue to use the standard version instead.</source>
+      <translation type="unfinished">The saved 64-bit executable was not found: {0}
+Continue to use the standard version instead.</translation>
     </message>
     <message>
       <source>Run this tool with plain Wine against the selected prefix instead of starting a Proton session.</source>
@@ -14046,6 +15090,197 @@ Sélectionnez « Conserver » s'il s'agit d'une variante optionnelle ou alternat
     <message>
       <source>Run Check Updates for this data.</source>
       <translation>Exécuter des mises à jour pour ces données.</translation>
+    </message>
+  </context>
+  <context>
+    <name>RoutingRulesOverlay</name>
+    <message>
+      <source>Routing Rules — {0}</source>
+      <translation type="unfinished">Routing Rules — {0}</translation>
+    </message>
+    <message>
+      <source>Applies to all profiles for this game. Earlier matching rules take precedence. Changes apply on the next deploy, or automatically when auto-deploy is enabled. Blacklist exclusions still apply. Removed built-ins remain available to restore.</source>
+      <translation type="unfinished">Applies to all profiles for this game. Earlier matching rules take precedence. Changes apply on the next deploy, or automatically when auto-deploy is enabled. Blacklist exclusions still apply. Removed built-ins remain available to restore.</translation>
+    </message>
+    <message>
+      <source>Match</source>
+      <translation type="unfinished">Match</translation>
+    </message>
+    <message>
+      <source>Destination</source>
+      <translation type="unfinished">Destination</translation>
+    </message>
+    <message>
+      <source>Source</source>
+      <translation type="unfinished">Source</translation>
+    </message>
+    <message>
+      <source>Status</source>
+      <translation type="unfinished">Status</translation>
+    </message>
+    <message>
+      <source>Add</source>
+      <translation type="unfinished">Add</translation>
+    </message>
+    <message>
+      <source>Edit</source>
+      <translation type="unfinished">Edit</translation>
+    </message>
+    <message>
+      <source>Move up</source>
+      <translation type="unfinished">Move up</translation>
+    </message>
+    <message>
+      <source>Move down</source>
+      <translation type="unfinished">Move down</translation>
+    </message>
+    <message>
+      <source>Remove</source>
+      <translation type="unfinished">Remove</translation>
+    </message>
+    <message>
+      <source>Empty = root of the selected destination base</source>
+      <translation type="unfinished">Empty = root of the selected destination base</translation>
+    </message>
+    <message>
+      <source>Extensions</source>
+      <translation type="unfinished">Extensions</translation>
+    </message>
+    <message>
+      <source>One per line, e.g. .pak. Combined with folders when both are set.</source>
+      <translation type="unfinished">One per line, e.g. .pak. Combined with folders when both are set.</translation>
+    </message>
+    <message>
+      <source>Folders</source>
+      <translation type="unfinished">Folders</translation>
+    </message>
+    <message>
+      <source>One folder name or relative path per line. Matching is case-insensitive; spelling controls destination casing.</source>
+      <translation type="unfinished">One folder name or relative path per line. Matching is case-insensitive; spelling controls destination casing.</translation>
+    </message>
+    <message>
+      <source>Filenames</source>
+      <translation type="unfinished">Filenames</translation>
+    </message>
+    <message>
+      <source>One filename pattern per line, e.g. loader*.dll. Filename matches are also accepted when other criteria are set.</source>
+      <translation type="unfinished">One filename pattern per line, e.g. loader*.dll. Filename matches are also accepted when other criteria are set.</translation>
+    </message>
+    <message>
+      <source>Companion extensions</source>
+      <translation type="unfinished">Companion extensions</translation>
+    </message>
+    <message>
+      <source>One extension per line. Route same-stem siblings alongside matching files.</source>
+      <translation type="unfinished">One extension per line. Route same-stem siblings alongside matching files.</translation>
+    </message>
+    <message>
+      <source>Excluded extensions</source>
+      <translation type="unfinished">Excluded extensions</translation>
+    </message>
+    <message>
+      <source>One extension per line. These files cannot match this rule.</source>
+      <translation type="unfinished">One extension per line. These files cannot match this rule.</translation>
+    </message>
+    <message>
+      <source>Mirrored destinations</source>
+      <translation type="unfinished">Mirrored destinations</translation>
+    </message>
+    <message>
+      <source>One additional relative destination per line, under the same base.</source>
+      <translation type="unfinished">One additional relative destination per line, under the same base.</translation>
+    </message>
+    <message>
+      <source>Loose only</source>
+      <translation type="unfinished">Loose only</translation>
+    </message>
+    <message>
+      <source>Match loose files or a matching folder at the mod root.</source>
+      <translation type="unfinished">Match loose files or a matching folder at the mod root.</translation>
+    </message>
+    <message>
+      <source>Flatten</source>
+      <translation type="unfinished">Flatten</translation>
+    </message>
+    <message>
+      <source>For folder matches, remove leading folders above the match. For filename or extension matches, use the bare filename.</source>
+      <translation type="unfinished">For folder matches, remove leading folders above the match. For filename or extension matches, use the bare filename.</translation>
+    </message>
+    <message>
+      <source>Include siblings</source>
+      <translation type="unfinished">Include siblings</translation>
+    </message>
+    <message>
+      <source>Bring the containing folder's contents along, keeping the folder name. Overrides Flatten for these matches.</source>
+      <translation type="unfinished">Bring the containing folder's contents along, keeping the folder name. Overrides Flatten for these matches.</translation>
+    </message>
+    <message>
+      <source>To Prefix</source>
+      <translation type="unfinished">To Prefix</translation>
+    </message>
+    <message>
+      <source>Destinations are relative to the Proton/Wine prefix root instead of the game root. Requires a configured prefix.</source>
+      <translation type="unfinished">Destinations are relative to the Proton/Wine prefix root instead of the game root. Requires a configured prefix.</translation>
+    </message>
+    <message>
+      <source>Reset to built-in</source>
+      <translation type="unfinished">Reset to built-in</translation>
+    </message>
+    <message>
+      <source>Restore built-ins</source>
+      <translation type="unfinished">Restore built-ins</translation>
+    </message>
+    <message>
+      <source>Cancel</source>
+      <translation type="unfinished">Cancel</translation>
+    </message>
+    <message>
+      <source>Save</source>
+      <translation type="unfinished">Save</translation>
+    </message>
+    <message>
+      <source>Prefix</source>
+      <translation type="unfinished">Prefix</translation>
+    </message>
+    <message>
+      <source>Game</source>
+      <translation type="unfinished">Game</translation>
+    </message>
+    <message>
+      <source>Custom</source>
+      <translation type="unfinished">Custom</translation>
+    </message>
+    <message>
+      <source>Built-in (edited)</source>
+      <translation type="unfinished">Built-in (edited)</translation>
+    </message>
+    <message>
+      <source>Built-in</source>
+      <translation type="unfinished">Built-in</translation>
+    </message>
+    <message>
+      <source>New rule</source>
+      <translation type="unfinished">New rule</translation>
+    </message>
+    <message>
+      <source>Root</source>
+      <translation type="unfinished">Root</translation>
+    </message>
+    <message>
+      <source>Disabled</source>
+      <translation type="unfinished">Disabled</translation>
+    </message>
+    <message>
+      <source>Active</source>
+      <translation type="unfinished">Active</translation>
+    </message>
+    <message>
+      <source>Restore</source>
+      <translation type="unfinished">Restore</translation>
+    </message>
+    <message>
+      <source>Could not save routing rules: {0}</source>
+      <translation type="unfinished">Could not save routing rules: {0}</translation>
     </message>
   </context>
   <context>
@@ -15129,10 +16364,6 @@ Fusionnez vos conflits, puis fermez-le et cliquez sur Terminé.</translation>
       <translation>Archives</translation>
     </message>
     <message>
-      <source>Delete a mod's downloaded archive after it is extracted. Only applies to archives Amethyst downloaded itself - installs from the Install Mod button or the Downloads tab keep their archive.</source>
-      <translation>Supprimer l'archive téléchargée d'un mod après l'extraction. S'applique uniquement aux archives Amethyst téléchargée elle-même - installe à partir du bouton Installer Mod ou de l'onglet Téléchargements garder leurs archives.</translation>
-    </message>
-    <message>
       <source>Downloads</source>
       <translation>Téléchargements</translation>
     </message>
@@ -15317,6 +16548,10 @@ flatpak distant-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Mana
       <translation>Traduire sur Crowdin</translation>
     </message>
     <message>
+      <source>Connections</source>
+      <translation type="unfinished">Connections</translation>
+    </message>
+    <message>
       <source>Decrease {0}</source>
       <translation>Diminuer {0}</translation>
     </message>
@@ -15387,6 +16622,10 @@ flatpak distant-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Mana
     <message>
       <source>Buttons ticked here are removed from the toolbar. A button that does not apply to the current game (Proton without a prefix, or a store the game is not on) is hidden anyway.</source>
       <translation>Les boutons cochés ici sont supprimés de la barre d'outils. Un bouton qui ne s'applique pas à la partie en cours (Proton sans préfixe, ou un magasin le jeu n'est pas) est caché de toute façon.</translation>
+    </message>
+    <message>
+      <source>Delete a mod's downloaded archive after it is extracted. Only applies to archives Amethyst downloaded itself - installs from the Install Mod button or the Downloads tab keep their archive. Wabbajack installs also clear managed archives after their required files are verified and saved, and limit downloads waiting for extraction to reduce disk-space requirements.</source>
+      <translation type="unfinished">Delete a mod's downloaded archive after it is extracted. Only applies to archives Amethyst downloaded itself - installs from the Install Mod button or the Downloads tab keep their archive. Wabbajack installs also clear managed archives after their required files are verified and saved, and limit downloads waiting for extraction to reduce disk-space requirements.</translation>
     </message>
     <message>
       <source>Cap the combined download speed of all downloads (collections, single mods, nxm and modl links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>
@@ -15600,6 +16839,14 @@ flatpak distant-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Mana
       <translation>Utiliser la version requise par l'auteur. La sortie conserve sa position de l'auteur dans {0}.</translation>
     </message>
     <message>
+      <source>Required version: {0}. Check requirements verifies the selected content and version.</source>
+      <translation type="unfinished">Required version: {0}. Check requirements verifies the selected content and version.</translation>
+    </message>
+    <message>
+      <source>Check requirements verifies the selected content and shows its version. This list does not specify an exact version; check the author's instructions.</source>
+      <translation type="unfinished">Check requirements verifies the selected content and shows its version. This list does not specify an exact version; check the author's instructions.</translation>
+    </message>
+    <message>
       <source>Run the Fallout 3 BSA Decompressor wizard, then import its complete output mod here, or select the author's .mpi package.</source>
       <translation>Lancez l'assistant de décompression de Fallout 3, puis importez ici son mod de sortie complet ou sélectionnez le paquet .mpi de l'auteur.</translation>
     </message>
@@ -15652,8 +16899,20 @@ flatpak distant-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Mana
       <translation>Installer / mettre à jour l'outil MPI natif</translation>
     </message>
     <message>
-      <source>MPI installer on GitHub</source>
-      <translation>MPI installer on GitHub</translation>
+      <source>Texconv (GPU when available)</source>
+      <translation type="unfinished">Texconv (GPU when available)</translation>
+    </message>
+    <message>
+      <source>Texconv (CPU only)</source>
+      <translation type="unfinished">Texconv (CPU only)</translation>
+    </message>
+    <message>
+      <source>Native Compressonator (CPU, experimental)</source>
+      <translation type="unfinished">Native Compressonator (CPU, experimental)</translation>
+    </message>
+    <message>
+      <source>Texconv matches Wabbajack's converter and needs Proton. Native Compressonator avoids Wine but may produce different compressed pixels; Amethyst still verifies the DDS layout requested by the list.</source>
+      <translation type="unfinished">Texconv matches Wabbajack's converter and needs Proton. Native Compressonator avoids Wine but may produce different compressed pixels; Amethyst still verifies the DDS layout requested by the list.</translation>
     </message>
     <message>
       <source>Root file variant</source>
@@ -15684,16 +16943,24 @@ flatpak distant-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Mana
       <translation>Outil de texture Proton</translation>
     </message>
     <message>
-      <source>Automatic (GPU when available)</source>
-      <translation>Automatique (GPU si disponible)</translation>
-    </message>
-    <message>
-      <source>CPU only</source>
-      <translation>CPU uniquement</translation>
-    </message>
-    <message>
       <source>Texture conversion</source>
       <translation>Conversion des textures</translation>
+    </message>
+    <message>
+      <source>Dev: Download and test list textures</source>
+      <translation type="unfinished">Dev: Download and test list textures</translation>
+    </message>
+    <message>
+      <source>Downloads only source archives referenced by the selected profiles' texture conversions, converts and validates every referenced texture, then removes temporary outputs.</source>
+      <translation type="unfinished">Downloads only source archives referenced by the selected profiles' texture conversions, converts and validates every referenced texture, then removes temporary outputs.</translation>
+    </message>
+    <message>
+      <source>Install / repair Compressonator</source>
+      <translation type="unfinished">Install / repair Compressonator</translation>
+    </message>
+    <message>
+      <source>Native Compressonator does not use Proton.</source>
+      <translation type="unfinished">Native Compressonator does not use Proton.</translation>
     </message>
     <message>
       <source>Select extracted MPI package</source>
@@ -16505,42 +17772,8 @@ Continuer avec {0}?</translation>
       <translation>Installer le Tale de deux terrains à déchets - {0}</translation>
     </message>
     <message>
-      <source>Step 1: Install the TTW MPI Installer</source>
-      <translation>Étape 1 : Installez le programme d'installation TTW MPI</translation>
-    </message>
-    <message>
-      <source>The native Linux TTW installer will be downloaded from GitHub
-and placed in this game's Applications folder.
-
-Click Install to begin.</source>
-      <translation>Le programme d'installation natif TTW pour Linux sera téléchargé depuis GitHub
-et placé dans le dossier « Applications » de ce jeu.
-
-Cliquez sur « Installer » pour commencer.</translation>
-    </message>
-    <message>
-      <source>Installer by SulfurNitride (TTW_Linux_Installer)</source>
-      <translation>Programme d'installation de SulfurNitride (TTW_Linux_Installer)</translation>
-    </message>
-    <message>
-      <source>View on GitHub</source>
-      <translation>Consulter sur GitHub</translation>
-    </message>
-    <message>
-      <source>Install</source>
-      <translation>Installer</translation>
-    </message>
-    <message>
-      <source>Contacting GitHub…</source>
-      <translation>Connexion à GitHub…</translation>
-    </message>
-    <message>
-      <source>Installer ready.</source>
-      <translation>Installateur prêt.</translation>
-    </message>
-    <message>
-      <source>Install error: {0}</source>
-      <translation>Erreur d'installation : {0}</translation>
+      <source>Step 1: Install the MPI Installer</source>
+      <translation type="unfinished">Step 1: Install the MPI Installer</translation>
     </message>
     <message>
       <source>Tale of Two Wastelands is already installed</source>
@@ -18793,6 +20026,29 @@ Dernière version :  {1}</translation>
     </message>
   </context>
   <context>
+    <name>WabbajackIssuesOverlay</name>
+    <message>
+      <source>Confirmed broken modlist</source>
+      <translation type="unfinished">Confirmed broken modlist</translation>
+    </message>
+    <message>
+      <source>{0} has a confirmed installation issue. Installation may fail unless it has been resolved.</source>
+      <translation type="unfinished">{0} has a confirmed installation issue. Installation may fail unless it has been resolved.</translation>
+    </message>
+    <message>
+      <source>Confirmed on {0}</source>
+      <translation type="unfinished">Confirmed on {0}</translation>
+    </message>
+    <message>
+      <source>Cancel</source>
+      <translation type="unfinished">Cancel</translation>
+    </message>
+    <message>
+      <source>Continue anyway</source>
+      <translation type="unfinished">Continue anyway</translation>
+    </message>
+  </context>
+  <context>
     <name>WabbajackView</name>
     <message>
       <source>Wabbajack modlists</source>
@@ -19065,6 +20321,10 @@ Essayez de supprimer votre recherche ou vos filtres.</translation>
       <translation>Démarrage de…</translation>
     </message>
     <message>
+      <source>Testing textures…</source>
+      <translation type="unfinished">Testing textures…</translation>
+    </message>
+    <message>
       <source>Installing…</source>
       <translation>Installation de…</translation>
     </message>
@@ -19099,6 +20359,14 @@ Essayez de supprimer votre recherche ou vos filtres.</translation>
     <message>
       <source>Load the package if needed, check requirements, and prepare the download plan for review.</source>
       <translation>Charger le paquet si nécessaire, vérifier les exigences et préparer le plan de téléchargement pour examen.</translation>
+    </message>
+    <message>
+      <source>Testing textures</source>
+      <translation type="unfinished">Testing textures</translation>
+    </message>
+    <message>
+      <source>Downloading only texture source archives and validating real list conversions.</source>
+      <translation type="unfinished">Downloading only texture source archives and validating real list conversions.</translation>
     </message>
     <message>
       <source>Installing</source>
@@ -19165,16 +20433,56 @@ Essayez de supprimer votre recherche ou vos filtres.</translation>
       <translation>Paquet prêt</translation>
     </message>
     <message>
-      <source>Preparing the isolated texture runtime and testing DDS conversion…</source>
-      <translation>Préparation du runtime de texture isolée et test de conversion DDS…</translation>
+      <source>Installing the native texture converter and testing DDS conversion…</source>
+      <translation type="unfinished">Installing the native texture converter and testing DDS conversion…</translation>
     </message>
     <message>
-      <source>Installing the native MPI tool…</source>
-      <translation>Installation de l'outil MPI natif…</translation>
+      <source>Check requirements first, then run the developer texture test.</source>
+      <translation type="unfinished">Check requirements first, then run the developer texture test.</translation>
+    </message>
+    <message>
+      <source>Local installation</source>
+      <translation type="unfinished">Local installation</translation>
+    </message>
+    <message>
+      <source>The installed list was removed.</source>
+      <translation type="unfinished">The installed list was removed.</translation>
     </message>
     <message>
       <source>Wait for the current install or deployment operation to finish.</source>
       <translation>Attendez que l'opération d'installation ou de déploiement en cours se termine.</translation>
+    </message>
+    <message>
+      <source>The selected profiles do not require texture conversion.</source>
+      <translation type="unfinished">The selected profiles do not require texture conversion.</translation>
+    </message>
+    <message>
+      <source>Texture conversion sources are missing and cannot be downloaded: {0}</source>
+      <translation type="unfinished">Texture conversion sources are missing and cannot be downloaded: {0}</translation>
+    </message>
+    <message>
+      <source> {0} game-source archive does not match the list hash; its installed local file will be used only to test conversion and will not satisfy installation requirements.</source>
+      <translation type="unfinished"> {0} game-source archive does not match the list hash; its installed local file will be used only to test conversion and will not satisfy installation requirements.</translation>
+    </message>
+    <message>
+      <source>Test real list textures</source>
+      <translation type="unfinished">Test real list textures</translation>
+    </message>
+    <message>
+      <source>This will process {0} texture conversions from {1} source archives. Up to {2} must be downloaded; cached archives are reused. Converted outputs are temporary, while downloaded archives are retained for a normal installation.{3}</source>
+      <translation type="unfinished">This will process {0} texture conversions from {1} source archives. Up to {2} must be downloaded; cached archives are reused. Converted outputs are temporary, while downloaded archives are retained for a normal installation.{3}</translation>
+    </message>
+    <message>
+      <source>Download and test</source>
+      <translation type="unfinished">Download and test</translation>
+    </message>
+    <message>
+      <source>Testing texture conversion</source>
+      <translation type="unfinished">Testing texture conversion</translation>
+    </message>
+    <message>
+      <source>Downloading texture source archives and testing real list conversions…</source>
+      <translation type="unfinished">Downloading texture source archives and testing real list conversions…</translation>
     </message>
     <message>
       <source>Configure the required game before installing this modlist.</source>
@@ -19285,12 +20593,36 @@ Essayez de supprimer votre recherche ou vos filtres.</translation>
       <translation>Résoudre les exigences énumérées, puis revérifier.</translation>
     </message>
     <message>
-      <source>Texture tool installed. Check requirements again to refresh the download plan.</source>
-      <translation>Outil Texture installé. Vérifiez les exigences pour actualiser le plan de téléchargement.</translation>
-    </message>
-    <message>
       <source>Native MPI tool installed. Check requirements again to verify the selected package.</source>
       <translation>Outil MPI natif installé. Vérifiez les exigences pour vérifier le package sélectionné.</translation>
+    </message>
+    <message>
+      <source>Texture converter ready. Check requirements again to refresh the download plan.</source>
+      <translation type="unfinished">Texture converter ready. Check requirements again to refresh the download plan.</translation>
+    </message>
+    <message>
+      <source>
+
+Formats: {0}</source>
+      <translation type="unfinished">
+
+Formats: {0}</translation>
+    </message>
+    <message>
+      <source>Texture test passed with substitute</source>
+      <translation type="unfinished">Texture test passed with substitute</translation>
+    </message>
+    <message>
+      <source>Texture test passed</source>
+      <translation type="unfinished">Texture test passed</translation>
+    </message>
+    <message>
+      <source>Texture test stopped</source>
+      <translation type="unfinished">Texture test stopped</translation>
+    </message>
+    <message>
+      <source>The normal installation can reuse the downloaded source archives.</source>
+      <translation type="unfinished">The normal installation can reuse the downloaded source archives.</translation>
     </message>
     <message>
       <source>Paused</source>
