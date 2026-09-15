@@ -225,10 +225,15 @@ class _CurrentPageStack(QStackedWidget):
     def clamp_to_current(self) -> None:
         """Clamp our max height to the current page so hidden (taller) pages
         don't reserve extra rows. Safe to call after a page swap or resize."""
+        page = self.currentWidget()
         h = self._current_height()
         if h >= 0:
+            if (getattr(self, "_clamped_page", None) is page
+                    and self.maximumHeight() == h):
+                return
             # A max (not fixed) height is enough to drop the extra rows the
             # hidden pages reserve, without fighting the parent layout.
+            self._clamped_page = page
             self.setMaximumHeight(h)
             self.updateGeometry()
 

@@ -425,29 +425,42 @@ class SelectorButton(QToolButton):
         full = self.full_text()
         face = self._face_for_current()
         if self._icon_only and face is not None:
-            self.setIcon(face)
-            self.setIconSize(QSize(self._face_icon_px, self._face_icon_px))
-            self.setToolButtonStyle(Qt.ToolButtonIconOnly)
+            icon_size = QSize(self._face_icon_px, self._face_icon_px)
+            if self.icon().cacheKey() != face.cacheKey():
+                self.setIcon(face)
+            if self.iconSize() != icon_size:
+                self.setIconSize(icon_size)
+            if self.toolButtonStyle() != Qt.ToolButtonIconOnly:
+                self.setToolButtonStyle(Qt.ToolButtonIconOnly)
             # Same QSS hook the action buttons use for their icon-only mode:
             # drops the label padding, keeps the arrow section.
-            self.setProperty("compact", True)
-            self.setToolTip(full)
-            self._repolish()
+            if self.property("compact") is not True:
+                self.setProperty("compact", True)
+                self._repolish()
+            if self.toolTip() != full:
+                self.setToolTip(full)
             self._pin_minimum()
             return
         # The current item's icon is drawn ourselves in paintEvent (to the left
         # of the still-centred text). Keep the QToolButton in text-only mode so
         # Qt centres the label; its built-in icon slot would left-align the
         # icon+text group instead.
-        self.setToolButtonStyle(Qt.ToolButtonTextOnly)
-        self.setProperty("compact", False)
+        if self.toolButtonStyle() != Qt.ToolButtonTextOnly:
+            self.setToolButtonStyle(Qt.ToolButtonTextOnly)
+        compact_changed = self.property("compact") is not False
+        if compact_changed:
+            self.setProperty("compact", False)
         cap = self._label_cap
         if cap is None:
             # No trailing glyph - the split-button's arrow section shows it now.
-            self.setText(full)
-            self.setMinimumWidth(self._min_width)
-            self.setToolTip("")
-            self._repolish()
+            if self.text() != full:
+                self.setText(full)
+            if self.minimumWidth() != self._min_width:
+                self.setMinimumWidth(self._min_width)
+            if self.toolTip():
+                self.setToolTip("")
+            if compact_changed:
+                self._repolish()
             return
         # Drop the suffix and the prefix before eliding the name itself:
         # "Gate_To_Sovn…" says more in the same pixels than "Profile: Gate_To…".
@@ -459,9 +472,13 @@ class SelectorButton(QToolButton):
             name = self._display(self._current) or "-"
             text = (name if fm.horizontalAdvance(name) <= room
                     else fm.elidedText(name, Qt.ElideRight, room))
-        self.setText(text)
-        self.setToolTip("" if text == full else full)
-        self._repolish()
+        if self.text() != text:
+            self.setText(text)
+        tooltip = "" if text == full else full
+        if self.toolTip() != tooltip:
+            self.setToolTip(tooltip)
+        if compact_changed:
+            self._repolish()
         self._pin_minimum()
 
     def _pin_minimum(self) -> None:
@@ -469,8 +486,9 @@ class SelectorButton(QToolButton):
         full min_width the layout couldn't shrink it at all; left at 0 it
         becomes the one elastic item in the bar and gets squeezed to nothing
         once everything else is collapsed too."""
-        self.setMinimumWidth(0)         # drop the old floor before re-reading
-        self.setMinimumWidth(self.sizeHint().width())
+        target = self.sizeHint().width()
+        if self.minimumWidth() != target:
+            self.setMinimumWidth(target)
 
     def _repolish(self) -> None:
         self.style().unpolish(self); self.style().polish(self)
