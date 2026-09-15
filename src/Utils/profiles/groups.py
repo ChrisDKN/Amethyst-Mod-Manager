@@ -332,7 +332,8 @@ def create_group(game, group_name: str, members: list[str], *,
     return group_dir
 
 
-def add_member(game, group_dir: Path, member_name: str, *, log_fn=None) -> None:
+def add_member(game, group_dir: Path, member_name: str, *, priority: int | None = None,
+               log_fn=None) -> None:
     profiles_dir = _profiles_root(game)
     _validate_member(game, profiles_dir, member_name)
     # Membership edits hold the group lock across set_members + materialize so
@@ -341,7 +342,7 @@ def add_member(game, group_dir: Path, member_name: str, *, log_fn=None) -> None:
         members = get_members(group_dir)
         if member_name in members:
             raise GroupValidationError(f"'{member_name}' is already a member of this group.")
-        members.append(member_name)
+        members.insert(len(members) if priority is None else max(0, priority), member_name)
         set_members(group_dir, members)
         materialize_group(game, group_dir, log_fn=log_fn)
 

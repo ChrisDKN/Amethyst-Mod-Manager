@@ -5,11 +5,11 @@ top-levels behind the app), shown while an automatic collection install runs.
 Layout mirrors the user's sketch:
 
   * TOP  - aggregate download bar + "X / Y GB (nn%) - S MB/s".
-  * RED  - "Downloading" list: one persistent small-mod batch row plus a FIXED
+  * RED  - "Downloading" list: one aggregated small-mod batch row plus a FIXED
            POOL of rows (name + thin bar) for larger active downloads.
-  * GREEN- "Installing / Extracting" list: one persistent small-mod batch row,
+  * GREEN- "Installing / Extracting" list: one aggregated small-mod batch row,
            a FIXED POOL of rows for larger active installs, and one text label
-           for overflow-active and queued names.
+           for overflow-active and queued names. Completed batch rows disappear.
   * BLUE - Pause + Cancel buttons.
 
 IMPORTANT - why no per-mod widget creation: creating a QWidget/QLabel and only
@@ -114,7 +114,6 @@ class CollectionInstallOverlay(QWidget):
                  limit_mbps: float = 0.0, on_limit_change=None,
                  extract_workers: int = 1, max_extract_workers: int = 8,
                  on_extract_workers_change=None,
-                 hide_completed_batches: bool = False,
                  install_heading: str | None = None):
         super().__init__(host)
         self._host = host
@@ -125,7 +124,6 @@ class CollectionInstallOverlay(QWidget):
         self._extract_workers = extract_workers
         self._max_extract_workers = max_extract_workers
         self._on_extract_workers_change = on_extract_workers_change
-        self._hide_completed_batches = hide_completed_batches
         self._p = active_palette()
         # file_id → pool-slot index (RED and GREEN; -1 = overflow, no bar row).
         self._dl_slot_of: dict[int, int] = {}
@@ -162,7 +160,6 @@ class CollectionInstallOverlay(QWidget):
                   limit_mbps: float = 0.0, on_limit_change=None,
                   extract_workers: int = 1, max_extract_workers: int = 8,
                   on_extract_workers_change=None,
-                  hide_completed_batches: bool = False,
                   install_heading: str | None = None):
         top = host.window() if host is not None else None
         return cls(top or host, title, on_pause=on_pause, on_cancel=on_cancel,
@@ -170,7 +167,6 @@ class CollectionInstallOverlay(QWidget):
                    extract_workers=extract_workers,
                    max_extract_workers=max_extract_workers,
                    on_extract_workers_change=on_extract_workers_change,
-                   hide_completed_batches=hide_completed_batches,
                    install_heading=install_heading)
 
     # ---- build ------------------------------------------------------------
@@ -409,8 +405,7 @@ class CollectionInstallOverlay(QWidget):
     def _render_small_downloads(self):
         if not self._small_mod_ids:
             return
-        if (self._hide_completed_batches
-                and self._small_mod_ids <= self._small_dl_done):
+        if self._small_mod_ids <= self._small_dl_done:
             self._small_dl_row.clear()
             return
         label = self._small_mod_label(len(self._small_dl_done))
@@ -431,8 +426,7 @@ class CollectionInstallOverlay(QWidget):
     def _render_small_extractions(self):
         if not self._small_extract_visible or not self._small_mod_ids:
             return
-        if (self._hide_completed_batches
-                and self._small_mod_ids <= self._small_extract_done):
+        if self._small_mod_ids <= self._small_extract_done:
             self._small_ex_row.clear()
             self._small_extract_visible = False
             return

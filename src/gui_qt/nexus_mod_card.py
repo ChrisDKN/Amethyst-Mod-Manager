@@ -145,22 +145,23 @@ def _cover_scale(img: QImage, w: int, h: int) -> QImage:
 class ThumbnailLoader(QObject):
     """Fetches thumbnails off the UI thread; emits `loaded(mod_id, QPixmap)`
     on the UI thread. Caches scaled pixmaps in an LRU dict (cover-cropped to the
-    card image size). *crop_w*/*crop_h* set the target cover size - default is the
-    mod card's inner width (298×150 landscape); the collections browser passes a
-    portrait size."""
+    card image size). *crop_w*/*crop_h* set the target size. ``fit=True`` keeps
+    the whole image inside those bounds instead of cover-cropping it."""
 
     loaded = Signal(int, object)         # (mod_id, QPixmap)
     # Fetch worker → GUI thread: the decoded + cropped QImage. The QPixmap
     # conversion happens in the slot - QPixmap is GUI-thread-only.
     _img_ready = Signal(int, str, object)
 
-    def __init__(self, parent=None, crop_w: int = IMG_W, crop_h: int = IMG_H):
+    def __init__(self, parent=None, crop_w: int = IMG_W, crop_h: int = IMG_H,
+                 fit: bool = False):
         super().__init__(parent)
         self._cache: "OrderedDict[str, QPixmap]" = OrderedDict()
         self._inflight: set[str] = set()
         self._lock = threading.Lock()
         self._crop_w = crop_w
         self._crop_h = crop_h
+        self._fit = fit
         self._img_ready.connect(self._on_img_ready)
 
     def cached(self, url: str) -> QPixmap | None:
@@ -192,7 +193,12 @@ class ThumbnailLoader(QObject):
             if resp.ok:
                 img = QImage.fromData(resp.content)
                 if not img.isNull():
-                    img = _cover_scale(img, self._crop_w, self._crop_h)
+                    if self._fit:
+                        img = img.scaled(
+                            self._crop_w, self._crop_h, Qt.KeepAspectRatio,
+                            Qt.SmoothTransformation)
+                    else:
+                        img = _cover_scale(img, self._crop_w, self._crop_h)
         except Exception:
             img = QImage()
         with self._lock:

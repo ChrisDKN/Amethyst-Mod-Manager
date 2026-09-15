@@ -1405,7 +1405,7 @@ class WabbajackView(QWidget):
         self._overlay = CollectionInstallOverlay.show_over(
             self, self._package.name, on_pause=self._pause, on_cancel=self._cancel,
             on_limit_change=set_limit_mbps,
-            limit_mbps=load_download_speed_limit(), hide_completed_batches=True,
+            limit_mbps=load_download_speed_limit(),
             install_heading=self.tr("Testing texture conversion"),
             extract_workers=settings["max_extract_workers"],
             max_extract_workers=_MAX_EXTRACT_WORKERS_CEILING,
@@ -1582,7 +1582,7 @@ class WabbajackView(QWidget):
         from Utils.ui.config import load_download_speed_limit
         self._overlay = CollectionInstallOverlay.show_over(self, self._package.name,
             on_pause=self._pause, on_cancel=self._cancel, on_limit_change=set_limit_mbps,
-            limit_mbps=load_download_speed_limit(), hide_completed_batches=True,
+            limit_mbps=load_download_speed_limit(),
             install_heading=self.tr("Installing / Reconstructing"),
             extract_workers=extract_workers,
             max_extract_workers=_MAX_EXTRACT_WORKERS_CEILING,

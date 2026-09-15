@@ -6303,15 +6303,31 @@ class MainWindow(QMainWindow):
         from Utils.collections.manifest import parse_collection_url
         from Nexus.nexus_api import NexusCollection
         slug, url_domain, rev = parse_collection_url(url)
+        from Utils.profiles.state import read_profile_settings
+        identity = read_profile_settings(pdir, None).get("collection_identity")
+        if isinstance(identity, dict):
+            slug, url_domain, rev = identity.get("slug"), identity.get("domain"), identity.get("revision")
         if not slug:
             self._notify(self.tr("Couldn't read the collection from this profile."),
                          "warning")
             return
         domain = url_domain or getattr(game, "nexus_game_domain", "") or ""
         col = NexusCollection(slug=slug, name=slug, game_domain=domain)
+        if slug.startswith("import_"):
+            import json
+            try:
+                manifest = json.loads((pdir / "collection.json").read_text(encoding="utf-8"))
+                col.name = (manifest.get("info") or {}).get("name") or pdir.name
+                bundle = read_profile_settings(pdir, None).get("collection_bundle_path") or ""
+                self._open_collection_detail_tab(col, revision_number=rev,
+                                                 local_manifest=manifest, bundle_zip=bundle)
+                return
+            except (OSError, ValueError):
+                pass
         self._open_collection_detail_tab(col, revision_number=rev)
 
-    def _open_collection_detail_tab(self, collection, revision_number=None):
+    def _open_collection_detail_tab(self, collection, revision_number=None, *,
+                                    local_manifest=None, bundle_zip=""):
         """Open a collection's detail panel as a NEW detachable tab (the
         collections browser tab stays open). Card View passes no revision (latest);
         the browser's 'Open Current' passes the installed revision."""
@@ -6327,14 +6343,15 @@ class MainWindow(QMainWindow):
             self._notify(self.tr("No configured game selected."), "warning")
             return
         api = self._ensure_nexus_api()
-        if api is None:
+        if api is None and local_manifest is None:
             self._notify(self.tr("Log in first: Settings ▸ Connections ▸ Nexus ▸ Login via SSO."),
                          "warning")
             return
         from gui_qt.collection_detail_view import CollectionDetailView
         view = CollectionDetailView(
             api, collection, game, log_fn=self._append_log,
-            revision_number=revision_number)
+            revision_number=revision_number, local_manifest=local_manifest, bundle_zip=bundle_zip)
+        view.convert_requested.connect(lambda name, v=view: self._convert_collection_profile(v, name))
         view.set_install_handler(
             lambda chosen, skipped, intent="install": self._install_collection(
                 collection, view, chosen, skipped, intent))
@@ -6359,6 +6376,9 @@ class MainWindow(QMainWindow):
         if "wabbajack" in getattr(self, "_tool_locks", {}):
             self._notify(self.tr("A Wabbajack installation is running."), "warning")
             return
+        if self._tool_busy or self._deploy_running or self._install_running:
+            self._notify(self.tr("Wait for the current operation to finish before installing a collection."), "warning")
+            return
         if self._col_install_running:
             self._notify(self.tr("A collection install is already running."), "warning")
             return
@@ -6374,13 +6394,17 @@ class MainWindow(QMainWindow):
         if game is None or not game.is_configured():
             self._notify(self.tr("No configured game selected."), "warning")
             return
+        if getattr(detail_view._game, "name", "") != game.name:
+            self._notify(self.tr("Switch back to this collection's game before installing it."), "warning")
+            return
         from Utils.profiles import export as profile_export
+        install_options = detail_view.install_options()
         # Read the imported manifest BEFORE the Nexus gate: a Thunderstore-only
         # or fully-bundled import needs no account, and the Thunderstore-only
         # games have no Nexus domain to log in against (see manifest_needs_nexus).
         _local_manifest_early = getattr(detail_view, "_local_manifest", None)
         api = self._ensure_nexus_api()
-        if api is None:
+        if api is None and not (install_options.mode == "group" and install_options.reuse_profile):
             if (_local_manifest_early is None
                     or profile_export.manifest_needs_nexus(_local_manifest_early)):
                 self._notify(self.tr("Log in first: Nexus ▸ Login to Nexus."),
@@ -6412,7 +6436,7 @@ class MainWindow(QMainWindow):
             if fetched and (revision_number is None
                             or fetched_rev == revision_number):
                 local_manifest = fetched
-        mods = detail_view.install_mods(skipped)
+        mods = detail_view.install_mods(set() if install_options.mode == "group" and install_options.reuse_profile else skipped)
         # Unticked optionals, taken from the FULL mod list (mods above already
         # excludes them) - the orchestrator removes these from an existing
         # profile on continue/append/update.
@@ -6422,7 +6446,7 @@ class MainWindow(QMainWindow):
         _ts_pending = bool(
             local_manifest is not None
             and profile_export.thunderstore_entries(local_manifest))
-        if not mods and not _ts_pending:
+        if not mods and not _ts_pending and not (install_options.mode == "group" and install_options.reuse_profile):
             self._notify(self.tr("This collection has no installable mods."), "info")
             return
         slug = getattr(collection, "slug", "") or ""
@@ -6516,56 +6540,182 @@ class MainWindow(QMainWindow):
                              "recommend_new": recommend_new, "intent": intent,
                              "local_manifest": local_manifest,
                              "bundle_zip": bundle_zip,
-                             "offsite": offsite})
+                             "offsite": offsite, "install_options": install_options})
 
         threading.Thread(target=_premium_worker, daemon=True,
                          name="col-premium").start()
 
-    def _choose_collection_mode(self, info):
-        """UI thread: show the New/Append (or Continue) mode overlay, then start
-        the pipeline with the chosen mode. Mirrors Tk _continue_install_collection:
-        if this exact collection+revision URL is already in a profile → Continue;
-        else → New/Append."""
-        from Utils.games.registry import (
-            find_profile_with_collection_url, _profiles_for_game)
-        game = info["game"]; slug = info["slug"]; domain = info["domain"]
-        rev = info["revision"]
-        url = f"https://www.nexusmods.com/games/{domain}/collections/{slug}"
-        if rev is not None:
-            url += f"/revisions/{rev}"
-        try:
-            existing = find_profile_with_collection_url(game.name, url)
-        except Exception:
-            existing = None
+    def _convert_collection_profile(self, view, name):
+        if (self._col_install_running or self._deploy_running or self._install_running
+                or self._tool_busy):
+            self._notify(self.tr("An install or deploy is in progress - try again shortly."), "warning")
+            return
+        from Utils.collections.grouping import profile_path
+        from Utils.profiles.groups import profile_is_locked
+        from gui_qt.confirm_overlay import ConfirmOverlay
+        game = self._gs.game
+        if game is None or getattr(view._game, "name", "") != game.name:
+            self._notify(self.tr("Switch back to this collection's game before installing it."), "warning")
+            return
+        path = profile_path(game, name)
+        if profile_is_locked(path):
+            self._notify(self.tr("This profile is locked."), "warning")
+            return
+        if game.get_deploy_active() and game.get_last_deployed_profile() == name:
+            self._notify(self.tr("Restore the deployed profile before converting it."), "warning")
+            return
 
-        def _done(result):
-            if result is None:
-                self._col_install_finished()
-                self._notify(self.tr("Collection install cancelled."), "info")
+        def confirmed(ok):
+            if not ok:
                 return
-            info["mode_result"] = result
-            self._start_collection_pipeline(info)
+            if (self._col_install_running or self._deploy_running or self._install_running
+                    or self._tool_busy or self._gs.game is not game):
+                self._notify(self.tr("An install or deploy is in progress - try again shortly."), "warning")
+                return
+            self._col_install_running = True
+            self._set_tool_lock("collection-convert", self.tr("Profile conversion"), True)
+            view._setup.set_busy(True)
 
-        if existing:
-            from gui_qt.collection_mode_overlay import ContinueOverlay
-            ContinueOverlay.show_over(self, existing, _done)
-        else:
-            from gui_qt.collection_mode_overlay import ModeOverlay
+            def worker():
+                error = ""
+                try:
+                    from Utils.deployment.locking import game_mutation_lock
+                    from Utils.profiles.convert import convert_profile_to_specific
+                    with game_mutation_lock(game):
+                        if profile_is_locked(path):
+                            raise ValueError(self.tr("This profile is locked."))
+                        if game.get_deploy_active() and game.get_last_deployed_profile() == name:
+                            raise ValueError(self.tr("Restore the deployed profile before converting it."))
+                        convert_profile_to_specific(game, path, log_fn=self._append_log)
+                except Exception as exc:
+                    error = str(exc)
+                self._col_finished.emit("_converted", (view, name, error))
+            threading.Thread(target=worker, daemon=True, name="collection-convert").start()
+
+        import threading
+        ConfirmOverlay.show_over(
+            self, self.tr("Convert Profile"),
+            self.tr("Convert '{0}' to profile-specific mods? Its listed mods are copied into its own mods folder, hardlinked where possible. The shared pool stays available to other profiles.").format(name),
+            confirmed, confirm_label=self.tr("Convert"))
+
+    def _choose_collection_mode(self, info):
+        from Utils.collections.options import CollectionInstallOptions
+        from Utils.collections.grouping import check_target, matching_profiles, profile_path, save_pending_group
+        options = info.get("install_options") or CollectionInstallOptions()
+        game = info["game"]
+        if options.mode == "group":
             try:
-                profiles = _profiles_for_game(game.name)
-            except Exception:
-                profiles = []
-            # Profile Groups can't take a collection append - a group is a
-            # merged view of its members; append into a member instead.
-            try:
-                from Utils.profiles.groups import is_group
-                _pr = game.get_profile_root() / "profiles"
-                profiles = [p for p in profiles if not is_group(_pr / p)]
-            except Exception:
-                pass
-            # Manifest rule (collectionConfig.recommendNewProfile) → disable Append.
-            force_new = bool(info.get("recommend_new"))
-            ModeOverlay.show_over(self, profiles, _done, force_new_profile=force_new)
+                check_target(game, options, options.reuse_profile)
+                if options.reuse_profile:
+                    matches = matching_profiles(game, info["domain"], info["slug"], info["revision"])
+                    if options.reuse_profile not in matches:
+                        raise ValueError("The selected collection profile has changed. Select it again.")
+                    member = profile_path(game, options.reuse_profile)
+                    from Utils.profiles import groups
+                    groups._validate_member(game, member.parent, member.name)
+                    if groups.profile_is_locked(member):
+                        raise ValueError(self.tr("This profile is locked."))
+                    if game.get_deploy_active() and game.get_last_deployed_profile() == member.name:
+                        raise ValueError(self.tr("Restore the deployed profile before grouping it."))
+                    save_pending_group(member, options)
+                    from Utils.profiles.state import read_collection_optional_skipped
+                    info["skipped"] = read_collection_optional_skipped(member)
+                    info["skipped_mods"] = []
+                    info["mods"] = [mod for mod in info["mods"] if mod.file_id not in info["skipped"]]
+            except Exception as exc:
+                self._col_install_finished()
+                self._notify(str(exc), "warning")
+                return
+            self._col_group_options = options
+            self._col_report = None
+            self._col_record_report = True
+            self._col_offsite = list(info.get("offsite") or [])
+            info["install_options"] = options
+            if options.reuse_profile:
+                import threading
+                def worker():
+                    from Utils.collections.grouping import profile_ready
+                    try:
+                        ready = profile_ready(member)
+                    except Exception as exc:
+                        self._col_finished.emit("failed", {"profile_dir": str(member), "error": str(exc)})
+                        return
+                    self._col_finished.emit("_group_checked", (info, ready))
+                threading.Thread(target=worker, daemon=True, name="collection-group-check").start()
+                return
+        elif options.mode == "new":
+            matches = matching_profiles(game, info["domain"], info["slug"], info["revision"])
+            if matches:
+                options = CollectionInstallOptions(mode="continue", target=matches[0])
+        info["install_options"] = options
+        self._start_collection_pipeline(info)
+
+    def _finish_collection_group(self, profile_name):
+        if not getattr(self, "_col_record_report", True):
+            return False
+        from Utils.collections.grouping import pending_group, profile_path, check_target
+        from Utils.profiles import groups
+        game = self._gs.game
+        member = profile_path(game, profile_name)
+        options = getattr(self, "_col_group_options", None) or pending_group(member)
+        if options is None:
+            return False
+        report = getattr(self, "_col_report", None)
+        if report is not None and not report.ready:
+            self._grouping_failed(profile_name, self.tr("Required installation work failed. Retry the collection installation."))
+            return True
+        try:
+            check_target(game, options, profile_name)
+        except Exception as exc:
+            self._grouping_failed(profile_name, str(exc))
+            return True
+
+        def run(ini_source=None):
+            import threading
+            overlay = self._col_install_overlay
+            if overlay is not None:
+                overlay.set_status(self.tr("Updating profile group…"))
+            self._notify(self.tr("Updating profile group…"), "info")
+            def worker():
+                result, error = "", ""
+                try:
+                    from Utils.collections.grouping import finalize_group, save_pending_group
+                    save_pending_group(member, options)
+                    result = finalize_group(game, member, options, ini_source=ini_source,
+                                            log_fn=self._append_log).name
+                except Exception as exc:
+                    error = str(exc)
+                self._col_finished.emit("_group_finalized", (profile_name, result, error))
+            threading.Thread(target=worker, daemon=True, name="collection-group").start()
+
+        if not options.target_is_group and not (member.parent / options.group_name).exists():
+            contributors, conflicts = groups.profile_ini_conflicts(
+                game, member.parent, [profile_name, options.target])
+            if conflicts and len(contributors) > 1:
+                from gui_qt.list_picker_overlay import ListPickerOverlay
+                def picked(name):
+                    if name:
+                        run(name)
+                    else:
+                        self._grouping_failed(profile_name, self.tr("Grouping is pending. Choose the INI source when you retry."))
+                ListPickerOverlay(self, self.tr("Which profile's INI files should the new group use?"),
+                                  [(name, name) for name in contributors], picked,
+                                  select_label=self.tr("Use these INIs"))
+                return True
+        run()
+        return True
+
+    def _grouping_failed(self, profile_name, error):
+        self._col_install_finished()
+        self._col_group_options = None
+        overlay = self._col_install_overlay
+        if overlay is not None:
+            overlay.finish(self.tr("Grouping pending"))
+            QTimer.singleShot(1500, self._dismiss_col_overlay)
+        self._auto_deploy_in_progress = True
+        self._select_installed_collection_profile(profile_name)
+        self._refresh_open_collection_buttons()
+        self._notify(self.tr("Collection profile kept; grouping pending: {0}").format(error), "warning")
 
     def _resume_collection_install(self, info):
         """UI thread: RESUME a paused install - clear the paused flag + registry,
@@ -6593,7 +6743,8 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
         self._refresh_open_collection_buttons()
-        info["mode_result"] = ("continue", pname, False, False)
+        from Utils.collections.options import CollectionInstallOptions
+        info["install_options"] = CollectionInstallOptions(mode="continue", target=pname)
         self._start_collection_pipeline(info)
 
     def _run_collection_update(self, info):
@@ -6765,7 +6916,8 @@ class MainWindow(QMainWindow):
             if e.is_separator or e.name.lower() not in removed_lower]
 
         info["update_context"] = {"snapshot": filtered_snapshot, "schema_order": {}}
-        info["mode_result"] = ("continue", pname, False, False)
+        from Utils.collections.options import CollectionInstallOptions
+        info["install_options"] = CollectionInstallOptions(mode="continue", target=pname)
         self._start_collection_pipeline(info)
 
     def _refresh_open_collection_buttons(self):
@@ -6783,7 +6935,7 @@ class MainWindow(QMainWindow):
                         continue
                     seen.add(id(view))
                     try:
-                        view._update_install_btn_state()
+                        view.refresh_install_options()
                     except Exception:
                         pass
         except Exception:
@@ -6807,22 +6959,28 @@ class MainWindow(QMainWindow):
         self._col_bundle_zip = info.get("bundle_zip") or ""
         self._col_offsite = list(info.get("offsite") or [])
 
-        # Resolve the install mode chosen in the mode overlay (default: new).
-        mode_result = info.get("mode_result") or ("new", None, False, False)
-        mode, append_profile_name, ov_existing, skip_existing = mode_result
+        from Utils.collections.options import CollectionInstallOptions
+        from Utils.collections.grouping import pending_group, save_pending_group, available_name, profile_path
+        options = info.get("install_options") or CollectionInstallOptions()
+        mode = options.mode
+        append_profile_name = options.reuse_profile if mode == "group" else options.target
+        ov_existing, skip_existing = options.overwrite_existing, options.skip_existing
+        self._col_group_options = options if mode == "group" else None
+        self._col_report = None
+        created_profile = mode == "new" or (mode == "group" and not options.reuse_profile)
         # Mods whose optional was unticked - the orchestrator removes these from
         # an existing profile (append/continue). NB: must come from the full
         # detail-view list; *mods* already excludes them.
         skipped_mods = list(info.get("skipped_mods") or [])
 
-        from Utils.games.registry import _create_profile, _profiles_for_game
+        from Utils.games.registry import _create_profile
         from Utils.profiles.state import write_collection_optional_skipped
-        import re as _re
 
         # overwrite_existing is None for new/continue (fresh modlist write); a bool
         # for append (preserves existing load order via _append_reconcile_modlist).
         overwrite_existing = None
         skip_existing_arg = False
+        self._col_record_report = mode != "append"
 
         # Download only: no profile is created, stamped or touched. _create_profile
         # is never called, so there is nothing for a cancel to delete either.
@@ -6832,18 +6990,9 @@ class MainWindow(QMainWindow):
             self._col_created_profile = False
             self._col_profile_name = ""
             update_context = None
-        elif mode == "new":
+        elif created_profile:
             raw = collection.name or slug or "Collection"
-            base = _re.sub(r"[^\w\s\-]", "", raw).strip().replace(" ", "_") or "Collection"
-            profile_name = (f"{base}_Rev{revision_number}"[:64]
-                            if revision_number is not None else base[:64])
-            _existing = set(_profiles_for_game(game.name))
-            _pn = profile_name
-            _i = 2
-            while _pn in _existing:
-                _pn = f"{profile_name}_{_i}"[:64]
-                _i += 1
-            profile_name = _pn
+            profile_name = available_name(game, f"{raw}_Rev{revision_number}" if revision_number is not None else raw)
             try:
                 profile_dir = Path(_create_profile(
                     game.name, profile_name, profile_specific_mods=True))
@@ -6856,7 +7005,7 @@ class MainWindow(QMainWindow):
                 profile_dir, domain, slug, revision_number, skipped)
         else:
             # append / continue → install into an existing profile.
-            profile_dir = game.get_profile_root() / "profiles" / append_profile_name
+            profile_dir = profile_path(game, append_profile_name)
             if not profile_dir.is_dir():
                 self._col_install_finished()
                 self._notify(self.tr("Profile '{0}' not found.").format(append_profile_name), "error")
@@ -6877,8 +7026,30 @@ class MainWindow(QMainWindow):
         # run created it (new mode). Continue/append/resume/update target a
         # pre-existing profile that must survive a cancel.
         if not dl_only:
-            self._col_created_profile = (mode == "new")
+            self._col_created_profile = created_profile
             self._col_profile_name = profile_dir.name
+            if mode == "group":
+                save_pending_group(profile_dir, options)
+            else:
+                self._col_group_options = pending_group(profile_dir)
+            from Utils.profiles.state import write_collection_install_paused
+            write_collection_install_paused(profile_dir, False)
+            if mode != "append":
+                from Utils.profiles.state import merge_profile_settings, read_profile_settings
+                settings = read_profile_settings(profile_dir, None)
+                bundle = info.get("bundle_zip") or settings.get("collection_bundle_path") or ""
+                if bundle:
+                    info["bundle_zip"] = self._col_bundle_zip = bundle
+                    if local_manifest is None:
+                        import json
+                        try:
+                            local_manifest = json.loads((profile_dir / "collection.json").read_text(encoding="utf-8"))
+                        except (OSError, ValueError):
+                            pass
+                merge_profile_settings(profile_dir, {
+                    "collection_bundle_path": bundle,
+                    "collection_install_report": {
+                        "failed_stages": ["Installation did not finish"], "verified": False}})
 
         # Card display fields for the appended-collections record
         # (installed_collections/<slug>.json - see Utils.collections.installed).
@@ -6966,24 +7137,27 @@ class MainWindow(QMainWindow):
             from Utils.collections.install import run_collection_install
             from Nexus.nexus_download import NexusDownloader
             from Utils.config_paths import get_download_cache_dir_for_game
-            downloader = NexusDownloader(
-                api, download_dir=get_download_cache_dir_for_game(game.name or ""))
-            # Thunderstore mods first: the bundled modlist.txt restored later
-            # drops rows whose folder isn't staged yet, and the orchestrator
-            # needs their priorities as it builds install_order.
-            ts_order = []
-            if ts_entries and not dl_only:
-                ts_order, ts_installed, ts_failed = \
-                    self._install_thunderstore_entries(
-                        ts_entries, game, profile_dir, control, callbacks)
-                self._col_ts_installed = ts_installed
-                self._col_ts_failed = len(ts_failed)
-                if control.stop.is_set():
-                    self._col_finished.emit(
-                        "cancelled",
-                        {"profile_dir": str(profile_dir) if profile_dir else ""})
-                    return
             try:
+                downloader = NexusDownloader(
+                    api, download_dir=get_download_cache_dir_for_game(game.name or ""))
+                # Thunderstore mods first: the bundled modlist.txt restored later
+                # drops rows whose folder isn't staged yet, and the orchestrator
+                # needs their priorities as it builds install_order.
+                ts_order = []
+                if ts_entries and not dl_only:
+                    ts_order, ts_installed, ts_failed = \
+                        self._install_thunderstore_entries(
+                            ts_entries, game, profile_dir, control, callbacks)
+                    self._col_ts_installed = ts_installed
+                    self._col_ts_failed = len(ts_failed)
+                if control.stop.is_set() and not dl_only:
+                    if control.pause.is_set() and not control.cancel.is_set():
+                        from Utils.profiles.state import write_collection_install_paused
+                        write_collection_install_paused(profile_dir, True)
+                        self._col_finished.emit("paused", (self._col_ts_installed, profile_dir.name))
+                    else:
+                        self._col_finished.emit("cancelled", {"profile_dir": str(profile_dir)})
+                    return
                 run_collection_install(
                     game=game, api=api, downloader=downloader, mods=mods,
                     download_link_path=dl_path, profile_dir=profile_dir,
@@ -6999,14 +7173,19 @@ class MainWindow(QMainWindow):
                     local_bundle_zip=info.get("bundle_zip") or "",
                     preinstalled_order=ts_order,
                     append_pre_existing=ts_append_pre_existing,
+                    preinstall_failures=(["Some Thunderstore mods failed to install."]
+                                         if self._col_ts_failed else []),
                     callbacks=callbacks, control=control)
             except Exception as exc:
                 import traceback
                 self._append_log(f"[collection] install error: {exc}\n"
                                   f"{traceback.format_exc()}")
                 self._col_finished.emit(
-                    "cancelled",
-                    {"profile_dir": str(profile_dir) if profile_dir else ""})
+                    "failed" if self._col_group_options else "cancelled",
+                    {"profile_dir": str(profile_dir) if profile_dir else "", "error": str(exc)})
+            finally:
+                game.set_active_profile_dir(old_profile_dir)
+                game.load_paths()
 
         threading.Thread(target=_worker, daemon=True, name="col-install").start()
 
@@ -7016,12 +7195,14 @@ class MainWindow(QMainWindow):
         that claims this collection (new / continue modes)."""
         from Utils.games.registry import save_collection_url_to_profile
         from Utils.profiles.state import (
-            write_collection_revision, write_collection_optional_skipped)
+            write_collection_revision, write_collection_optional_skipped, merge_profile_settings)
         try:
             url = f"https://www.nexusmods.com/games/{domain}/collections/{slug}"
             if revision_number is not None:
                 url += f"/revisions/{revision_number}"
             save_collection_url_to_profile(profile_dir, url)
+            merge_profile_settings(profile_dir, {"collection_identity": {
+                "domain": domain, "slug": slug, "revision": revision_number}})
         except Exception as exc:
             self._append_log(f"[collection] could not save URL: {exc}")
         try:
@@ -7056,6 +7237,7 @@ class MainWindow(QMainWindow):
             on_row_installed=lambda f: self._col_row.emit(int(f)),
             on_manual_mod=lambda d: self._col_manual.emit(dict(d)),
             on_log=lambda m: self._append_log(str(m)),
+            on_result=lambda report: self._col_finished.emit("_result", report),
             on_done=lambda i, s, t, p: self._col_finished.emit("done", (i, s, t, p)),
             on_paused=lambda i, p: self._col_finished.emit("paused", (i, p)),
             # str(None) would be the truthy "None" - every download-only guard
@@ -7314,6 +7496,54 @@ class MainWindow(QMainWindow):
     # ---- completion ------------------------------------------------------
     def _on_col_finished(self, kind, payload):
         """UI thread: handle the premium gate result AND the terminal states."""
+        if kind == "_converted":
+            view, name, error = payload
+            self._col_install_finished()
+            self._set_tool_lock("collection-convert", self.tr("Profile conversion"), False)
+            try:
+                view._setup.set_busy(False)
+                view.refresh_install_options()
+            except RuntimeError:
+                pass
+            self._gs.reassert_active_profile()
+            self._reload_modlist()
+            self._notify(error or self.tr("Profile '{0}' converted.").format(name), "warning" if error else "success")
+            return
+        if kind == "_result":
+            self._col_report = payload
+            return
+        if kind == "_group_checked":
+            info, ready = payload
+            if ready:
+                self._col_install_overlay = None
+                self._finish_collection_group(info["install_options"].reuse_profile)
+            else:
+                from Utils.profiles.export import manifest_needs_nexus
+                if info["api"] is None and (info.get("local_manifest") is None
+                                            or manifest_needs_nexus(info["local_manifest"])):
+                    self._col_install_finished()
+                    self._notify(self.tr("Log in first: Nexus ▸ Login to Nexus."), "warning")
+                    return
+                self._start_collection_pipeline(info)
+            return
+        if kind == "_group_finalized":
+            profile_name, group_name, error = payload
+            if error:
+                self._grouping_failed(profile_name, error)
+            else:
+                self._col_install_finished()
+                self._col_group_options = None
+                if self._col_install_overlay is not None:
+                    self._col_install_overlay.finish(self.tr("Collection grouped"))
+                    QTimer.singleShot(1500, self._dismiss_col_overlay)
+                self._select_installed_collection_profile(group_name)
+                self._refresh_open_collection_buttons()
+                self._notify(self.tr("Collection added to group '{0}'.").format(group_name), "success")
+                self._show_offsite_reminder()
+            return
+        if kind == "failed":
+            self._grouping_failed(Path(payload["profile_dir"]).name, payload["error"])
+            return
         if kind == "_premium":
             if payload.get("manual"):
                 # Non-premium (or [dev] force_manual_install): same pipeline,
@@ -7325,19 +7555,20 @@ class MainWindow(QMainWindow):
             # Not cosmetic - 'update' routes to _run_collection_update, which
             # REMOVES mods from a real profile, and 'resume' needs a paused one.
             if getattr(self, "_col_download_only", False):
-                payload["mode_result"] = ("new", None, False, False)
+                from Utils.collections.options import CollectionInstallOptions
+                payload["install_options"] = CollectionInstallOptions()
                 payload["update_context"] = None
                 self._start_collection_pipeline(payload)
                 return
             # Route by intent (identical for premium and manual).
             intent = payload.get("intent", "install")
-            if intent == "update":
+            if payload.get("install_options") and payload["install_options"].mode == "group":
+                self._choose_collection_mode(payload)
+            elif intent == "update":
                 self._run_collection_update(payload)
             elif intent == "resume":
                 self._resume_collection_install(payload)
             else:
-                # Ask the user how to install (New/Append/Continue) BEFORE
-                # creating any profile.
                 self._choose_collection_mode(payload)
             return
 
@@ -7480,11 +7711,14 @@ class MainWindow(QMainWindow):
         # worker (unzipping can be sizeable) → reload marshaled back via a Signal.
         bundle_zip = getattr(self, "_col_bundle_zip", "") or ""
         self._col_bundle_zip = ""
-        if bundle_zip and Path(bundle_zip).is_file():
+        if bundle_zip:
             # Flag stays held - the bundle worker still writes into the profile;
             # _on_import_bundle_done releases it.
             self._finish_import_bundle(bundle_zip, profile_name, ov,
                                        installed, total, skipped_n)
+            return
+        self._persist_collection_report(profile_name)
+        if self._finish_collection_group(profile_name):
             return
         # Fully finished: auto-deploy is live again, so the switch's rebuild
         # may (deliberately) deploy the freshly-installed collection.
@@ -7514,7 +7748,20 @@ class MainWindow(QMainWindow):
 
         def _worker():
             staged = []
+            error = ""
+            from Utils.profiles.state import (
+                read_profile_settings, merge_profile_settings, read_collection_revision,
+                write_collection_revision, read_collection_optional_skipped,
+                write_collection_optional_skipped)
+            settings = read_profile_settings(profile_dir, None)
+            preserved = {key: value for key, value in settings.items()
+                         if key.startswith("collection_") or key in ("profile_specific_mods", "pending_collection_group")}
+            revision = read_collection_revision(profile_dir)
+            skipped_fids = read_collection_optional_skipped(profile_dir)
             try:
+                import zipfile
+                if not zipfile.is_zipfile(bundle_zip):
+                    raise ValueError("The local collection bundle is unavailable or invalid.")
                 # Resolve the imported profile's own mods/overwrite dirs (it's a
                 # profile_specific_mods profile → <profile_dir>/mods + /overwrite).
                 # Set it active first so get_effective_*_path resolves to it.
@@ -7528,22 +7775,49 @@ class MainWindow(QMainWindow):
                     game.set_active_profile_dir(prev)
                     game.load_paths()
                 from Utils.profiles import export as profile_export
+                errors = []
                 staged = profile_export.install_local_bundle(
                     bundle_zip, profile_dir, mods_dir, overwrite_dir,
-                    log_fn=lambda m: self._append_log(str(m)))
+                    log_fn=lambda m: self._append_log(str(m)), error_sink=errors)
+                import json
+                from Utils.collections.install import required_bundle_folders
+                manifest = json.loads((profile_dir / "collection.json").read_text(encoding="utf-8"))
+                _found, missing = required_bundle_folders(mods_dir, manifest)
+                if missing:
+                    errors.append("Required bundled mods are missing: " + ", ".join(missing))
+                error = "; ".join(errors)
             except Exception as exc:
+                error = str(exc)
                 self._append_log(f"[import] bundle extraction failed: {exc}")
+            finally:
+                try:
+                    merge_profile_settings(profile_dir, preserved)
+                    write_collection_revision(profile_dir, revision)
+                    write_collection_optional_skipped(profile_dir, skipped_fids)
+                except Exception as exc:
+                    error = f"{error}; {exc}" if error else str(exc)
             # Bundled mods carry no Nexus file ID, so the install pipeline never
             # counts them - each extracted bundle folder is an installed mod.
             self._col_import_done.emit(
                 (profile_name, int(installed) + len(staged or ()),
-                 int(total), int(skipped_n)))
+                 int(total), int(skipped_n), error, staged))
 
         threading.Thread(target=_worker, daemon=True, name="import-bundle").start()
 
     def _on_import_bundle_done(self, payload):
+        profile_name, installed, total, skipped_n, error, staged = payload
+        if getattr(self, "_col_report", None) is not None:
+            self._col_report.required_folders.extend(staged)
+            if not error:
+                from Utils.collections.options import BUNDLE_PENDING
+                self._col_report.failed_stages = [stage for stage in self._col_report.failed_stages
+                                                 if stage != BUNDLE_PENDING]
+        if error and getattr(self, "_col_report", None) is not None:
+            self._col_report.failed_stages.append(error)
+        self._persist_collection_report(profile_name)
+        if self._finish_collection_group(profile_name):
+            return
         self._col_install_finished()
-        profile_name, installed, total, skipped_n = payload
         ov = self._col_install_overlay
         if ov is not None:
             ov.finish(self.tr("Imported - {0}/{1} installed.").format(installed, total))
@@ -7554,6 +7828,17 @@ class MainWindow(QMainWindow):
         self._notify(msg + (self.tr(" ({0} skipped)").format(skipped_n) if skipped_n else ""),
                      "success")
         self._show_offsite_reminder()
+
+    def _persist_collection_report(self, profile_name):
+        from Utils.profiles.state import merge_profile_settings
+        from Utils.collections.grouping import save_pending_group
+        path = self._gs.game.get_profile_root() / "profiles" / profile_name
+        report = getattr(self, "_col_report", None)
+        if report is not None and getattr(self, "_col_record_report", True):
+            merge_profile_settings(path, {"collection_install_report": report.to_dict()})
+        options = getattr(self, "_col_group_options", None)
+        if options is not None:
+            save_pending_group(path, options)
 
     def _show_offsite_reminder(self):
         """Post-install reminder: the collection lists off-site mods that the
@@ -7667,6 +7952,29 @@ class MainWindow(QMainWindow):
             self._notify(self.tr("No configured game selected."), "warning")
             return
         pdir = self._gs.profile_dir()
+        from Utils.profiles import groups
+        from Utils.games.registry import get_collection_url_from_profile
+        if pdir is not None and groups.is_group(pdir):
+            members = [name for name in groups.get_members(pdir)
+                       if get_collection_url_from_profile(pdir.parent / name)
+                       or (pdir.parent / name / "collection.json").is_file()]
+            if not members:
+                self._notify(self.tr("This group has no collection profiles to reset."), "info")
+                return
+            from gui_qt.list_picker_overlay import ListPickerOverlay
+            ListPickerOverlay(
+                self, self.tr("Choose the collection whose load order should be reset in this group."),
+                [(name, name) for name in members],
+                lambda name: self._start_collection_order_reset(game, pdir.parent / name, pdir) if name else None,
+                select_label=self.tr("Reset collection order"))
+            return
+        self._start_collection_order_reset(game, pdir)
+
+    def _start_collection_order_reset(self, game, pdir, group_dir=None):
+        if (self._reset_running or self._tool_busy or self._col_install_running
+                or self._deploy_running or self._install_running):
+            self._notify(self.tr("Wait for the current operation to finish before resetting the load order."), "warning")
+            return
         from Utils.games.registry import get_collection_url_from_profile
         url = get_collection_url_from_profile(pdir) if pdir is not None else None
         # Imported .amethyst profiles have no collection URL, but they DO have
@@ -7681,6 +7989,7 @@ class MainWindow(QMainWindow):
             return
 
         self._reset_running = True
+        self._set_tool_lock("collection-reset", self.tr("Collection load-order reset"), True)
         self._notify(self.tr("Resetting collection load order…"), "info")
         domain = getattr(game, "nexus_game_domain", "") or ""
         game_name = getattr(game, "name", "") or ""
@@ -7688,6 +7997,9 @@ class MainWindow(QMainWindow):
         # collection; the selected game's primary remains the legacy fallback.
         from Utils.collections.manifest import parse_collection_url
         slug, url_domain, rev_hint = parse_collection_url(url or "")
+        if group_dir is not None:
+            from Utils.profiles.state import read_collection_revision
+            rev_hint = read_collection_revision(pdir) or rev_hint
         domain = url_domain or domain
 
         import threading, json
@@ -7711,16 +8023,17 @@ class MainWindow(QMainWindow):
                     api = self._ensure_nexus_api()
                     if api is not None:
                         (_n, _s, _c, _mods, dl_path,
-                         revs, _card) = api.get_collection_detail(slug, domain)
-                        rev = None
+                         revs, _card) = api.get_collection_detail(slug, domain, rev_hint)
+                        rev = rev_hint
                         try:
                             pub = [int(r.get("revisionNumber") or 0)
                                    for r in (revs or [])
                                    if (r.get("revisionStatus") or "").lower()
                                    == "published"]
-                            rev = max(pub) if pub else None
+                            if rev is None:
+                                rev = max(pub) if pub else None
                         except Exception:
-                            rev = None
+                            rev = rev_hint
                         manifest = load_collection_manifest(
                             api, game_name, slug, rev, dl_path,
                             log_fn=_log)
@@ -7742,9 +8055,15 @@ class MainWindow(QMainWindow):
                     except Exception as exc:
                         _log(f"Reset load order: Amethyst data unavailable "
                              f"({exc}) - using the manifest")
-                    res = reset_collection_load_order(
-                        pdir, manifest, log_fn=_log, game=game,
-                        amethyst_state=amethyst)
+                    if group_dir is not None:
+                        from Utils.collections.group_reset import reset_group_collection_load_order
+                        res = reset_group_collection_load_order(
+                            game, group_dir, pdir.name, manifest, log_fn=_log,
+                            amethyst_state=amethyst)
+                    else:
+                        res = reset_collection_load_order(
+                            pdir, manifest, log_fn=_log, game=game,
+                            amethyst_state=amethyst)
             except Exception as exc:
                 self._append_log(f"Reset load order failed: {exc}")
                 res = {"error": str(exc)}
@@ -7755,6 +8074,7 @@ class MainWindow(QMainWindow):
 
     def _on_reset_done(self, res):
         self._reset_running = False
+        self._set_tool_lock("collection-reset", self.tr("Collection load-order reset"), False)
         if not isinstance(res, dict) or res.get("error"):
             reason = (res or {}).get("error", "unknown") if isinstance(res, dict) else "unknown"
             self._notify(self.tr("Load order reset failed: {0}").format(reason), "warning")
@@ -7775,6 +8095,7 @@ class MainWindow(QMainWindow):
             msg = self.tr("Load order reset - {0} mods ordered.").format(ordered)
         self._notify(msg, "info")
         self._reload_modlist()
+        self._reload_plugins()
 
     # ---- Dev mode: Nexus ▸ Collections ▸ Download Manifest -----------------
 
@@ -11222,6 +11543,7 @@ class MainWindow(QMainWindow):
             api, collection, game, log_fn=self._append_log,
             local_manifest=manifest, bundle_zip=bundle_zip,
             allow_append=allow_append)
+        view.convert_requested.connect(lambda name, v=view: self._convert_collection_profile(v, name))
         view.set_install_handler(
             lambda chosen, skipped, intent="install": self._install_collection(
                 collection, view, chosen, skipped, intent))

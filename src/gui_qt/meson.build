@@ -26,6 +26,7 @@ py.install_sources(
   'collection_install_overlay.py',
   'collection_manual_overlay.py',
   'collection_mode_overlay.py',
+  'collection_setup.py',
   'collection_update_overlay.py',
   'collections_browser_view.py',
   'color_picker_overlay.py',

@@ -456,6 +456,7 @@ def run_collection_install(
         local_bundle_zip: str = "",
         preinstalled_order: "list[tuple[int, str]] | None" = None,
         append_pre_existing: "set[str] | None" = None,
+        preinstall_failures: "list[str] | None" = None,
         callbacks: "CollectionInstallCallbacks | None" = None,
         control: "CollectionInstallControl | None" = None) -> None:
     """Download then install every mod in *mods* in collection-defined order.
@@ -492,6 +493,14 @@ def run_collection_install(
     cb = callbacks or CollectionInstallCallbacks()
     ctl = control or CollectionInstallControl()
     log = cb.on_log
+    from Utils.collections.options import CollectionInstallReport, BUNDLE_PENDING
+    report = CollectionInstallReport(failed_stages=list(preinstall_failures or []))
+    if local_bundle_zip:
+        report.failed_stages.append(BUNDLE_PENDING)
+    if profile_dir is not None and overwrite_existing is None and not download_only:
+        from Utils.profiles.state import merge_profile_settings
+        merge_profile_settings(profile_dir, {"collection_install_report": {
+            "failed_stages": ["Installation did not finish"], "verified": False}})
     game_domain = normalise_game_domain(
         (collection_domain or "").strip()
         or getattr(game, "nexus_game_domain", None)
@@ -568,6 +577,7 @@ def run_collection_install(
             except Exception:
                 collection_schema = {}
     if not collection_schema:
+        report.failed_stages.append("Collection manifest unavailable")
         log("WARNING: collection manifest unavailable - install order falls "
             "back to GraphQL and FOMOD/BAIN choices canNOT be auto-applied "
             "(installers will prompt at the end)")
@@ -588,9 +598,14 @@ def run_collection_install(
                 json.dumps(collection_schema, indent=2), encoding="utf-8")
             log(f"Collection install: saved manifest to {profile_dir / 'collection.json'}")
         except Exception as exc:
+            report.failed_stages.append(f"Save manifest: {exc}")
             log(f"Collection install: could not save manifest: {exc}")
 
     schema_mods: list[dict] = collection_schema.get("mods", [])
+    report.intentional_skips.extend(
+        mod.get("name") or str((mod.get("source") or {}).get("fileId"))
+        for mod in schema_mods
+        if mod.get("optional") and int((mod.get("source") or {}).get("fileId") or 0) in (skipped_fids or set()))
     schema_plugins: list[dict] = collection_schema.get("plugins", [])
     fomod_expected_installed_files = {
         str(plugin.get("name") or "").strip().lower()
@@ -1944,7 +1959,10 @@ def run_collection_install(
             installed += _n_bundled
             skipped += _n_bundle_skipped
             _bundled_folders.extend(_b_names)
+            if _n_bundle_skipped:
+                report.failed_stages.append(f"{_n_bundle_skipped} bundled mods could not be installed")
         except Exception as exc:
+            report.failed_stages.append(f"Bundled mods: {exc}")
             log(f"Collection install: error processing bundled assets: {exc}")
 
     # Step 3: write modlist.txt.
@@ -1961,6 +1979,7 @@ def run_collection_install(
                 _reconcile_update_modlist(modlist_path, install_order,
                                           update_context, log)
         except Exception as exc:
+            report.failed_stages.append(f"Modlist update: {exc}")
             log(f"Collection update: reconcile modlist failed: {exc}")
     elif overwrite_existing is None and not _col_pause.is_set():
         _write_new_profile_modlist(profile_dir, modlist_path, install_order, log)
@@ -1978,9 +1997,11 @@ def run_collection_install(
                 collection_slug, revision_number,
                 _install_results, log,
                 local_bundle_zip=local_bundle_zip,
-                archive_root=_shared_collection_archive_root)
+                archive_root=_shared_collection_archive_root,
+                error_sink=report.failed_stages)
             _bundled_folders.extend(_step3b_bundled or [])
         except Exception as exc:
+            report.failed_stages.append(f"Collection setup: {exc}")
             log(f"Collection install: Step 3b failed: {exc}")
     if _shared_collection_archive_root is not None:
         try:
@@ -1993,6 +2014,7 @@ def run_collection_install(
         try:
             _persist_amethyst_stash(profile_dir, _amethyst_state, log)
         except Exception as exc:
+            report.failed_stages.append(f"Amethyst snapshot: {exc}")
             log(f"Collection install: could not save Amethyst snapshot: {exc}")
 
     # Manager-owned installs update just the affected raw manifests. Candidate
@@ -2018,6 +2040,7 @@ def run_collection_install(
             _rescan_staged_subset(
                 _catalog_folders, "installed/bundled mod folder(s)")
         except Exception as exc:
+            report.failed_stages.append(f"Filegraph catalog: {exc}")
             log(f"Collection install: could not update the Filegraph catalog ({exc}) "
                 "- run Refresh if bundled content does not deploy")
 
@@ -2032,6 +2055,7 @@ def run_collection_install(
             _library.open_profile(profile_dir).reconcile(
                 operation_hint={"kind": "collection_install"})
         except Exception as exc:
+            report.failed_stages.append(f"Filegraph reconciliation: {exc}")
             log(f"Collection install: Filegraph reconcile before LOOT failed: {exc}")
 
     # Step 4: write plugins.txt / loadorder.txt from collection.json (or the
@@ -2045,7 +2069,7 @@ def run_collection_install(
             game, profile_dir, plugins_path, collection_schema,
             overwrite_existing, _is_append_run, log, _set_status,
             amethyst_state=_amethyst_state,
-            collection_mod_folders=_collection_mod_folders)
+            collection_mod_folders=_collection_mod_folders, error_sink=report.failed_stages)
         # Also covers manifests with no plugins array: a collection install
         # must not leave a freshly-created/cloned profile with a stale native
         # block simply because there was no authored plugin order to write.
@@ -2053,6 +2077,7 @@ def run_collection_install(
             from Utils.games.registry import _ensure_profile_primary_plugin_order
             _ensure_profile_primary_plugin_order(game, profile_dir)
         except Exception as exc:
+            report.failed_stages.append(f"Primary plugin order: {exc}")
             log(f"Collection install: primary-plugin order repair failed: {exc}")
 
     # Final reconciliation - new-profile path only. Update runs were already
@@ -2077,6 +2102,7 @@ def run_collection_install(
             log(f"Collection install: reconciled modlist.txt "
                 f"({len(_known)} ordered, {len(_unknown)} trailing)")
         except Exception as exc:
+            report.failed_stages.append(f"Modlist order: {exc}")
             log(f"Collection install: reconcile modlist failed: {exc}")
 
     # Share-code extras - must run AFTER the reconcile passes above (the final
@@ -2088,11 +2114,13 @@ def run_collection_install(
                 modlist_path, collection_schema, schema_file_id_to_pos,
                 install_order, log)
         except Exception as exc:
+            report.failed_stages.append(f"Disabled states: {exc}")
             log(f"Collection install: apply disabled states failed: {exc}")
         try:
             _apply_manifest_separators(
                 profile_dir, modlist_path, collection_schema, log)
         except Exception as exc:
+            report.failed_stages.append(f"Separators: {exc}")
             log(f"Collection install: apply separators failed: {exc}")
 
     # Amethyst profile fidelity: an archive exported by our Create Collection
@@ -2116,9 +2144,11 @@ def run_collection_install(
                     _rescan_staged_subset(
                         _strip_changed, "mod(s) with imported strip prefixes")
                 except Exception as exc:
+                    report.failed_stages.append(f"Strip prefix catalog: {exc}")
                     log(f"Collection install: strip-prefix rescan failed "
                         f"({exc}) - run Refresh before deploying")
         except Exception as exc:
+            report.failed_stages.append(f"Amethyst profile state: {exc}")
             log(f"Collection install: Amethyst profile state failed: {exc}")
 
     # Restore the original profile dir
@@ -2128,40 +2158,48 @@ def run_collection_install(
     except Exception:
         pass
 
-    # End-of-install verification: every non-optional manifest mod SHOULD have
-    # ended up staged. Loudly report any that didn't (the "N mods missing" bug),
-    # with the recorded reason per mod, so a failure is visible + diagnosable
-    # instead of silently swallowed. Only meaningful on a clean finish (a paused
-    # / cancelled run legitimately leaves mods un-installed).
     if not _col_cancel.is_set() and not _col_pause.is_set():
-        try:
-            _final_staging = game.get_effective_mod_staging_path()
-            _missing: list = []
-            for mod in ordered_mods:
-                fid = getattr(mod, "file_id", 0) or 0
-                if not fid:
-                    continue
-                folder = _install_results.get(fid)
-                staged_ok = bool(folder) and (_final_staging is not None
-                                              and (Path(_final_staging) / folder).is_dir())
-                if not staged_ok:
-                    oc = _mod_outcomes.get(fid, {})
-                    if oc.get("status") == "skipped_manual":
-                        continue  # user chose to skip an optional mod
-                    _missing.append((getattr(mod, "mod_name", "") or f"file {fid}",
-                                     getattr(mod, "mod_id", 0) or 0, fid,
-                                     oc.get("status", "unknown"),
-                                     oc.get("detail", "")))
-            if _missing:
-                log(f"⚠ Collection install: {len(_missing)} mod(s) did NOT install "
-                    f"and are missing from the profile:")
-                for _nm, _mid, _fid, _st, _dt in _missing:
-                    log(f"    • {_nm} (mod_id={_mid}, file_id={_fid}) - "
-                        f"{_st}{(': ' + _dt) if _dt else ''}")
-                _set_status(f"Done, but {len(_missing)} mod(s) failed to install "
-                            "- see log.")
-        except Exception as _ver_exc:
-            log(f"Collection install: verification summary failed: {_ver_exc}")
+        for mod in ordered_mods:
+            fid = getattr(mod, "file_id", 0) or 0
+            name = getattr(mod, "mod_name", "") or f"file {fid}"
+            outcome = _mod_outcomes.get(fid, {})
+            folder = _install_results.get(fid)
+            if not folder and outcome.get("status") == "existing":
+                folder = outcome.get("detail")
+            if outcome.get("status") == "skipped_manual" and getattr(mod, "optional", False):
+                report.intentional_skips.append(name)
+                continue
+            if not fid and (getattr(mod, "source_type", "") == "bundle"
+                            or name.strip().lower() in _schema_bundle_names):
+                continue
+            if folder and (Path(staging_path) / folder).is_dir():
+                if not getattr(mod, "optional", False):
+                    report.required_folders.append(folder)
+            elif not getattr(mod, "optional", False):
+                report.missing_required.append(name)
+                log(f"Collection install: required mod missing: {name} "
+                    f"({outcome.get('status', 'unknown')}: {outcome.get('detail', '')})")
+        report.required_folders.extend(_bundled_folders)
+        if not local_bundle_zip:
+            found, missing = required_bundle_folders(staging_path, collection_schema, collection_slug)
+            report.required_folders.extend(found)
+            report.missing_required.extend(missing)
+        for _position, folder in preinstalled_order or []:
+            if (Path(staging_path) / folder).is_dir():
+                report.required_folders.append(folder)
+            else:
+                report.missing_required.append(folder)
+        report.required_folders = list(dict.fromkeys(report.required_folders))
+        listed = {entry.name for entry in read_modlist(modlist_path) if not entry.is_separator}
+        if any(folder not in listed for folder in report.required_folders):
+            report.failed_stages.append("Required mods are missing from the profile modlist")
+        report.verified = True
+        if not report.ready:
+            _set_status("Required installation work failed - see the log.")
+        if not _is_append_run:
+            from Utils.profiles.state import merge_profile_settings
+            merge_profile_settings(profile_dir, {"collection_install_report": report.to_dict()})
+        cb.on_result(report)
 
     # Terminal handling
     if _col_cancel.is_set():
@@ -2828,7 +2866,7 @@ def load_amethyst_reset_data(game, slug, *, profile_dir=None,
             if revision_hint is not None and rev == int(revision_hint):
                 best, best_rev = p, rev
                 break
-            if rev > best_rev:
+            if revision_hint is None and rev > best_rev:
                 best, best_rev = p, rev
     except OSError:
         pass
@@ -2935,7 +2973,7 @@ def _entries_from_amethyst_plugins(amethyst_state, author_entries, vanilla_map,
 def _write_collection_plugins(game, profile_dir, plugins_path, collection_schema,
                               overwrite_existing, _is_append_run, log, _set_status,
                               amethyst_state=None,
-                              collection_mod_folders=None):
+                              collection_mod_folders=None, error_sink=None):
     from Utils.games.registry import _vanilla_plugins_for_game
     schema_plugins: list[dict] = collection_schema.get("plugins", [])
     has_plugin_state = isinstance(collection_schema.get("plugins"), list)
@@ -3005,7 +3043,7 @@ def _write_collection_plugins(game, profile_dir, plugins_path, collection_schema
                     f"shipped by collection mods disabled because they are absent "
                     f"from the manifest: {', '.join(disabled_members[:8])}"
                     f"{', …' if len(disabled_members) > 8 else ''}")
-            _apply_collection_groups(profile_dir, collection_schema, log)
+            _apply_collection_groups(profile_dir, collection_schema, log, error_sink=error_sink)
             final_entries: list[PluginEntry] = []
             if amethyst_state:
                 # An Amethyst-authored archive carries the exact exported
@@ -3020,6 +3058,8 @@ def _write_collection_plugins(game, profile_dir, plugins_path, collection_schema
                             f"order ({len(final_entries)} plugin(s)) - "
                             "LOOT sort skipped.")
                 except Exception as exc:
+                    if error_sink is not None:
+                        error_sink.append(f"Exported plugin order: {exc}")
                     log(f"Collection install: exported plugin order failed "
                         f"({exc}) - falling back to LOOT.")
                     final_entries = []
@@ -3056,6 +3096,8 @@ def _write_collection_plugins(game, profile_dir, plugins_path, collection_schema
                         for n in loot_result.sorted_names]
                     log(f"Collection install: LOOT sort produced {len(final_entries)} plugin(s).")
                 except Exception as loot_exc:
+                    if error_sink is not None:
+                        error_sink.append(f"LOOT sort: {loot_exc}")
                     log(f"Collection install: LOOT sort failed - {loot_exc}; "
                         "falling back to flat list.")
             if not final_entries:
@@ -3083,6 +3125,8 @@ def _write_collection_plugins(game, profile_dir, plugins_path, collection_schema
             log(f"Collection install: wrote plugins.txt ({active_count} active / "
                 f"{len(final_entries)} known plugin(s)).")
         except Exception as exc:
+            if error_sink is not None:
+                error_sink.append(f"Plugin setup: {exc}")
             log(f"Collection install: failed to write plugins.txt: {exc}")
     elif has_plugin_state and _is_append_run:
         try:
@@ -3322,11 +3366,40 @@ def _install_bundled_assets(game, api, profile_dir, staging_path, collection_sch
                     log(f"Collection install: installed bundled asset "
                         f"'{bm_name}' → '{mod_name_clean}'")
                 except Exception as exc:
+                    _shutil.rmtree(dest, ignore_errors=True)
                     log(f"Collection install: failed to install bundled asset '{bm_name}': {exc}")
                     skipped += 1
     except Exception as exc:
         log(f"Collection install: bundled archive could not be read ({exc})")
     return installed, skipped, touched
+
+
+def required_bundle_folders(staging_path: Path, manifest: dict, slug: str = "") -> tuple[list[str], list[str]]:
+    bundles = []
+    for mod in manifest.get("mods", []):
+        source = mod.get("source") or {}
+        if not mod.get("optional") and (source.get("type", "").lower() == "bundle" or source.get("bundle") is True):
+            bundles.append(mod)
+    if not bundles:
+        return [], []
+    staging_path = Path(staging_path)
+    staged = {path.name.lower(): path.name for path in staging_path.iterdir() if path.is_dir()} if staging_path.is_dir() else {}
+    metadata = _installed_bundled_meta_map(staging_path, slug)
+    found, missing = [], []
+    for mod in bundles:
+        source = mod.get("source") or {}
+        folder = None
+        for name in (mod.get("name"), source.get("fileExpression")):
+            if name:
+                clean = re.sub(r"[^\w\s-]", "", name).strip().replace(" ", "_")
+                folder = staged.get(name.lower()) or staged.get(clean.lower()) or metadata.get(name.lower())
+                if folder:
+                    break
+        if folder:
+            found.append(folder)
+        else:
+            missing.append(mod.get("name") or source.get("fileExpression") or "Bundled mod")
+    return found, missing
 
 
 def _installed_bundled_meta_map(staging_path: Path, slug: str) -> "dict[str, str]":
@@ -3519,8 +3592,11 @@ def _install_bundled_from_extracted(archive_root, modlist_path, staging_path,
         dest = staging_path / clean
         if dest.exists():
             _shutil.rmtree(dest, ignore_errors=True)
-        _shutil.copytree(
-            str(src_folder), str(dest), copy_function=_link_or_copy)
+        try:
+            _shutil.copytree(str(src_folder), str(dest), copy_function=_link_or_copy)
+        except Exception:
+            _shutil.rmtree(dest, ignore_errors=True)
+            raise
         cp = _cpi.ConfigParser()
         general = {"modname": raw_name, "installationfile": raw_name,
                    "fromCollection": slug, "fromCollectionBundled": "true"}
@@ -3560,7 +3636,7 @@ def _install_bundled_from_extracted(archive_root, modlist_path, staging_path,
 
 def _apply_collection_binary_patches(archive_root, collection_schema, staging_path,
                                      install_results, collection_slug,
-                                     revision_number, log):
+                                     revision_number, log, *, error_sink=None):
     from Utils.collections.patches import apply_collection_patches
     staging_lower = ({p.name.lower(): p.name for p in staging_path.iterdir() if p.is_dir()}
                      if staging_path.exists() else {})
@@ -3583,6 +3659,8 @@ def _apply_collection_binary_patches(archive_root, collection_schema, staging_pa
         archive_root=archive_root, collection_schema=collection_schema,
         staging_path=staging_path, mod_folder_for=_folder_for, log_fn=log,
         collection_slug=slug, collection_revision=rev_str)
+    if error_sink is not None and (result.crc_mismatch or result.missing_diff or result.missing_target or result.failed):
+        error_sink.append("Collection binary patches did not all apply")
     if (result.applied or result.crc_mismatch or result.missing_diff
             or result.missing_target or result.failed):
         log(f"Collection patches: applied={result.applied}, "
@@ -3598,7 +3676,7 @@ def _apply_collection_ini_tweaks(archive_root, profile_dir, game, log):
         from Games.Bethesda.bethesda_ini import _read_ini_key, _set_ini_key
     except Exception as exc:
         log(f"Collection INI tweaks: INI helpers unavailable ({exc}) - skipped")
-        return
+        raise
     prefix_ini_dir = None
     get_mygames = getattr(game, "_mygames_path", None)
     if callable(get_mygames):
@@ -3625,6 +3703,7 @@ def _apply_collection_ini_tweaks(archive_root, profile_dir, game, log):
             log("Collection INI tweaks: enabled profile-specific INI files")
         except Exception as exc:
             log(f"Collection INI tweaks: could not enable profile INI files ({exc})")
+            raise
     result = apply_collection_ini_tweaks(
         archive_root=archive_root, profile_dir=ini_target_dir,
         prefix_ini_dir=prefix_ini_dir, set_ini_key=_set_ini_key,
@@ -3638,7 +3717,7 @@ def _apply_collection_ini_tweaks(archive_root, profile_dir, game, log):
 def _run_step3b(game, api, profile_dir, staging_path, collection_schema,
                 download_link_path, collection_slug, revision_number,
                 install_results, log, *, local_bundle_zip="",
-                archive_root=None
+                archive_root=None, error_sink=None
                 ) -> "tuple[list[str], dict | None]":
     """Install bundled folders + apply binary patches + INI tweaks from the cached
     collection archive. Runs after modlist is written, before LOOT. Returns
@@ -3659,6 +3738,9 @@ def _run_step3b(game, api, profile_dir, staging_path, collection_schema,
         archive_root = _extract_local_bundle_patches(
             game, local_bundle_zip, log)
     if archive_root is None:
+        if error_sink is not None and ((download_link_path and not local_bundle_zip)
+                                      or any(mod.get("patches") for mod in collection_schema.get("mods", []))):
+            error_sink.append("Collection setup archive unavailable")
         return [], None
     modlist_path = profile_dir / "modlist.txt"
     bundled: list[str] = []
@@ -3669,20 +3751,28 @@ def _run_step3b(game, api, profile_dir, staging_path, collection_schema,
                 archive_root, modlist_path, staging_path, collection_slug,
                 revision_number, log) or []
         except Exception as exc:
+            if error_sink is not None:
+                error_sink.append(f"bundled: {exc}")
             log(f"Collection install: bundled step failed: {exc}")
         try:
             _apply_collection_binary_patches(
                 archive_root, collection_schema, staging_path, install_results,
-                collection_slug, revision_number, log)
+                collection_slug, revision_number, log, error_sink=error_sink)
         except Exception as exc:
+            if error_sink is not None:
+                error_sink.append(f"patches: {exc}")
             log(f"Collection install: patches step failed: {exc}")
         try:
             _apply_collection_ini_tweaks(archive_root, profile_dir, game, log)
         except Exception as exc:
+            if error_sink is not None:
+                error_sink.append(f"INI tweaks: {exc}")
             log(f"Collection install: INI tweaks step failed: {exc}")
         try:
             amethyst_state = _read_amethyst_export_data(archive_root, log)
         except Exception as exc:
+            if error_sink is not None:
+                error_sink.append(f"Amethyst state read: {exc}")
             log(f"Collection install: Amethyst state read failed: {exc}")
     finally:
         if owns_archive_root:

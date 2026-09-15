@@ -3,10 +3,10 @@ from __future__ import annotations
 
 import threading
 
-from PySide6.QtCore import Qt, Signal, QT_TRANSLATE_NOOP
+from PySide6.QtCore import Qt, Signal, QT_TRANSLATE_NOOP, QAbstractTableModel, QModelIndex, QCoreApplication
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame,
-    QSplitter, QScrollArea, QCheckBox, QComboBox, QTableWidget, QTableWidgetItem,
+    QScrollArea, QCheckBox, QComboBox, QTableView, QSizePolicy,
     QHeaderView, QAbstractItemView,
 )
 
@@ -16,17 +16,62 @@ from gui_qt.worker import run_in_worker
 from Utils.collections.manifest import fmt_size
 
 
-class _SizeItem(QTableWidgetItem):
-    """Size cell: shows the humanized string (DisplayRole only) but sorts by the
-    raw byte count stashed in UserRole. Setting EditRole to an int made the view
-    render the raw number instead of the formatted text, so keep it off the
-    item and compare via UserRole here."""
+class CollectionModModel(QAbstractTableModel):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._mods = []
+        self._column = 0
+        self._order = Qt.AscendingOrder
 
-    def __lt__(self, other):
-        try:
-            return (self.data(Qt.UserRole) or 0) < (other.data(Qt.UserRole) or 0)
-        except Exception:
-            return super().__lt__(other)
+    def set_mods(self, mods):
+        self.beginResetModel()
+        self._mods = list(mods)
+        self._sort()
+        self.endResetModel()
+
+    def rowCount(self, parent=QModelIndex()):
+        return 0 if parent.isValid() else len(self._mods)
+
+    def columnCount(self, parent=QModelIndex()):
+        return 0 if parent.isValid() else len(_COLS)
+
+    def _values(self, mod):
+        return (CollectionDetailView._display_name(mod), mod.mod_author or "",
+                mod.version or "", int(mod.size_bytes or 0), bool(mod.optional))
+
+    def data(self, index, role=Qt.DisplayRole):
+        if not index.isValid() or not 0 <= index.row() < len(self._mods):
+            return None
+        values = self._values(self._mods[index.row()])
+        if role == Qt.ToolTipRole:
+            return values[0]
+        if role == Qt.DisplayRole:
+            value = values[index.column()]
+            if index.column() == 3:
+                return fmt_size(value)
+            if index.column() == 4:
+                return "✓" if value else ""
+            return value
+        return None
+
+    def headerData(self, section, orientation, role=Qt.DisplayRole):
+        if orientation == Qt.Horizontal and role == Qt.DisplayRole and 0 <= section < len(_COLS):
+            return QCoreApplication.translate("CollectionDetailView", _COLS[section])
+        return None
+
+    def sort(self, column, order=Qt.AscendingOrder):
+        if not 0 <= column < len(_COLS):
+            return
+        self.beginResetModel()
+        self._column, self._order = column, order
+        self._sort()
+        self.endResetModel()
+
+    def _sort(self):
+        def key(mod):
+            value = self._values(mod)[self._column]
+            return value.casefold() if isinstance(value, str) else value
+        self._mods.sort(key=key, reverse=self._order == Qt.DescendingOrder)
 
 
 # Slug registry of collections whose install is paused mid-run (mirrors Tk's
@@ -44,6 +89,9 @@ class _RevisionCombo(QComboBox):
     (a very tall popup gets centred on the cursor by default)."""
 
     _MAX_POPUP_H = 340        # ~14 rows
+
+    def wheelEvent(self, event):
+        event.ignore()
 
     def showPopup(self):
         super().showPopup()
@@ -90,6 +138,7 @@ class CollectionDetailView(QWidget):
 
     _detail_ready = Signal(object)      # (name, size, count, mods, dl_path, revisions) | None
     _manifest_ready = Signal(object)    # (token, offsite list[(name, url)], manifest dict|None)
+    convert_requested = Signal(str)
     title_resolved = Signal(str)        # real collection name once the detail loads
 
     def __init__(self, api, collection, game, log_fn=None, on_install=None,
@@ -127,6 +176,8 @@ class CollectionDetailView(QWidget):
         # into an existing profile.
         self._recommend_new_profile = bool(local_manifest) and not allow_append
         self._opt_boxes: list[tuple[QCheckBox, int]] = []   # (checkbox, file_id)
+        self._optional_reuse_profile = ""
+        self._optional_before_reuse = {}
         self._revision_number = revision_number    # None = latest published
         # A ctor-requested revision (e.g. Open Current) - the FIRST fetch is still
         # done at "latest" so the revisions list + dropdown populate, then we
@@ -136,6 +187,8 @@ class CollectionDetailView(QWidget):
         self._detail_token = 0                     # guards stale revision fetches
         self._unsupported_collection_schema = False
         self._game_versions: list[str] = []
+        self._data_ready = local_manifest is not None
+        self._image_token = 0
 
         self.setObjectName("CollectionDetailView")
         self._detail_ready.connect(self._on_detail_ready)
@@ -206,206 +259,308 @@ class CollectionDetailView(QWidget):
                 domain_name=(m.get("domainName") or "").strip()))
         self._mods = mods
         self._total_size = int(total_size or 0)
-        self._size_lbl.setText(
-            self.tr("Total size: {0}  |  {1} mods").format(fmt_size(total_size), len(mods)))
+        self._size_lbl.setText(self.tr("{0} mods").format(f"{len(mods):,}"))
+        self._refresh_figures()
         self._fill_table()
         self._fill_optional()
         # Optional flags already came straight from the manifest - no override.
         self._on_manifest_ready((self._detail_token, offsite, None))
 
     # -- construction -------------------------------------------------------
+    def _panel(self, title):
+        panel = QFrame(self)
+        panel.setObjectName("CollectionPanel")
+        palette = active_palette()
+        panel.setStyleSheet(
+            f"#CollectionPanel {{ background:{_c(palette, 'BG_PANEL')};"
+            f" border:1px solid {_c(palette, 'BORDER')}; border-radius:6px; }}")
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(8)
+        if title:
+            label = QLabel(title, panel)
+            label.setStyleSheet("font-weight:600;")
+            layout.addWidget(label)
+        return panel, layout
+
     def _build(self):
+        from gui_qt.collapsible_section import CollapsibleSection
+        from gui_qt.collection_setup import CollectionSetup
+        from gui_qt.nexus_mod_card import ThumbnailLoader
         p = active_palette()
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
+        self._scroll = QScrollArea(self)
+        self._scroll.setWidgetResizable(True)
+        self._scroll.setFrameShape(QFrame.NoFrame)
+        self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        page = QWidget(self._scroll)
+        content = QVBoxLayout(page)
+        content.setContentsMargins(16, 12, 16, 12)
+        content.setSpacing(12)
+        self._scroll.setWidget(page)
+        root.addWidget(self._scroll, 1)
 
-        # Header.
-        bar = QWidget(); bar.setObjectName("HeaderBar")
-        hb = QHBoxLayout(bar); hb.setContentsMargins(12, 8, 12, 8); hb.setSpacing(10)
-        col = self._collection
-        title = QLabel(col.name or col.slug or "Collection")
-        title.setStyleSheet(
-            f"color:{_c(p,'TEXT_MAIN')}; font-weight:600; font-size:15px;")
-        self._title_lbl = title
-        hb.addWidget(title)
-        if col.user_name:
-            author = QLabel(self.tr("by {0}").format(col.user_name))
-            author.setStyleSheet(f"color:{_c(p,'TEXT_DIM')}; font-size:12px;")
-            hb.addWidget(author)
-        summ = (col.summary or "").strip()
-        if summ:
-            s = QLabel(summ)
-            s.setStyleSheet(f"color:{_c(p,'TEXT_DIM')}; font-size:12px;")
-            s.setMaximumWidth(520)
-            hb.addWidget(s)
-        hb.addStretch(1)
-        # A combo (not SelectorButton, which builds a giant flat menu): its popup
-        # scrolls + is hard height-capped (see _RevisionCombo), so hundreds of
-        # revisions never open a full-screen list.
-        self._rev_selector = _RevisionCombo()
-        self._rev_selector.setMinimumWidth(150)
+        overview, ov = self._panel("")
+        self._overview_panel = overview
+        content.addWidget(overview)
+        self._overview_row = QHBoxLayout()
+        self._overview_row.setSpacing(18)
+        ov.addLayout(self._overview_row)
+        self._image = QLabel(self.tr("No image"), overview)
+        self._image.setFixedSize(248, 140)
+        self._image.setAlignment(Qt.AlignCenter)
+        self._image.setStyleSheet(f"background:{_c(p, 'BG_DEEP')}; color:{_c(p, 'TEXT_DIM')}; border-radius:6px;")
+        self._overview_row.addWidget(self._image, 0, Qt.AlignTop)
+        self._overview_text = QWidget(overview)
+        text = QVBoxLayout(self._overview_text)
+        text.setContentsMargins(0, 0, 0, 0)
+        text.setSpacing(6)
+        self._overview_row.addWidget(self._overview_text, 1)
+        self._title_lbl = QLabel(self._collection.name or self._collection.slug, overview)
+        self._title_lbl.setTextFormat(Qt.PlainText)
+        self._title_lbl.setWordWrap(True)
+        self._title_lbl.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        self._title_lbl.setStyleSheet("font-size:22px; font-weight:700;")
+        text.addWidget(self._title_lbl)
+        self._author_lbl = QLabel(overview)
+        self._author_lbl.setTextFormat(Qt.PlainText)
+        self._author_lbl.setWordWrap(True)
+        self._author_lbl.setStyleSheet(f"color:{_c(p, 'TEXT_DIM')};")
+        text.addWidget(self._author_lbl)
+        self._summary_lbl = QLabel(overview)
+        self._summary_lbl.setTextFormat(Qt.PlainText)
+        self._summary_lbl.setWordWrap(True)
+        self._summary_lbl.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        self._summary_lbl.setStyleSheet(f"color:{_c(p, 'TEXT_DIM')};")
+        text.addWidget(self._summary_lbl)
+        self._rev_selector = _RevisionCombo(overview)
+        self._rev_selector.setMinimumWidth(140)
+        self._rev_selector.setMaximumWidth(220)
         self._rev_selector.setMaxVisibleItems(14)
-        self._rev_selector.view().setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        self._rev_selector.setVisible(False)      # shown once revisions arrive
-        # Guard so programmatic set_items/setCurrentIndex don't fire the handler.
+        self._rev_selector.setVisible(False)
         self._rev_updating = False
         self._rev_selector.currentIndexChanged.connect(self._on_revision_index)
-        hb.addWidget(self._rev_selector)
-        self._size_lbl = QLabel(self.tr("Loading…"))
-        self._size_lbl.setStyleSheet(f"color:{_c(p,'TEXT_DIM')}; font-size:12px;")
-        hb.addWidget(self._size_lbl)
-        root.addWidget(bar)
+        text.addWidget(self._rev_selector)
+        figures = QHBoxLayout()
+        figures.setSpacing(22)
+        self._figures = {}
+        for key, title in (("download", self.tr("Download")),
+                           ("free", self.tr("Free space"))):
+            cell = QVBoxLayout()
+            cell.setSpacing(0)
+            caption = QLabel(title, overview)
+            caption.setStyleSheet(
+                f"color:{_c(p, 'TEXT_FAINT')}; font-size:10px; font-weight:600;")
+            cell.addWidget(caption)
+            value = QLabel("—", overview)
+            value.setTextFormat(Qt.PlainText)
+            value.setStyleSheet(
+                f"color:{_c(p, 'TEXT_MAIN')}; font-size:16px; font-weight:600;")
+            cell.addWidget(value)
+            figures.addLayout(cell)
+            self._figures[key] = value
+        self._size_lbl = QLabel(self.tr("Loading…"), overview)
+        self._size_lbl.setWordWrap(True)
+        self._size_lbl.setStyleSheet(f"color:{_c(p, 'TEXT_DIM')};")
+        figures.addWidget(self._size_lbl, 1, Qt.AlignBottom)
+        text.addLayout(figures)
+        self._thumbs = ThumbnailLoader(self, crop_w=248, crop_h=372, fit=True)
+        self._thumbs.loaded.connect(self._on_thumbnail)
+        self._refresh_overview()
 
-        # Body: left (table / off-site - vertically resizable) | right (optional /
-        # actions).
-        body = QSplitter(Qt.Horizontal)
+        self._setup_panel, setup_layout = self._panel(self.tr("Installation"))
+        self._setup = CollectionSetup(self._game, self._collection, self._setup_panel)
+        self._setup.convert_requested.connect(self.convert_requested)
+        setup_layout.addWidget(self._setup)
+        content.addWidget(self._setup_panel)
 
-        # LEFT column is a VERTICAL splitter so the off-site section can be
-        # resized against the mod table above it.
-        left = QSplitter(Qt.Vertical)
+        self._opt_panel, opt = self._panel(self.tr("Optional mods"))
+        self._opt_host = QWidget()
+        self._opt_scroll = self._opt_host
+        self._opt_layout = QVBoxLayout(self._opt_host)
+        self._opt_layout.setContentsMargins(0, 0, 0, 0)
+        self._opt_layout.setSpacing(5)
+        self._opt_empty = QLabel(self.tr("Loading…"), self._opt_host)
+        self._opt_layout.addWidget(self._opt_empty)
+        self._opt_layout.addStretch(1)
+        opt.addWidget(self._opt_host)
+        row = QHBoxLayout()
+        self._select_all_btn = QPushButton(self.tr("Select all"), self._opt_panel)
+        self._deselect_all_btn = QPushButton(self.tr("Deselect all"), self._opt_panel)
+        for button, checked in ((self._select_all_btn, True), (self._deselect_all_btn, False)):
+            button.setObjectName("FormButton")
+            button.clicked.connect(lambda _=False, value=checked: self._set_all_optional(value))
+            row.addWidget(button)
+        row.addStretch(1)
+        opt.addLayout(row)
+        content.addWidget(self._opt_panel)
+        self._opt_panel.hide()
 
-        table_wrap = QWidget()
-        lv = QVBoxLayout(table_wrap)
-        lv.setContentsMargins(8, 8, 8, 4); lv.setSpacing(6)
-
-        # (red) sortable mod table.
-        self._table = QTableWidget(0, len(_COLS))
-        self._table.setHorizontalHeaderLabels([self.tr(c) for c in _COLS])
-        self._table.setSortingEnabled(True)
-        self._table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self._table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self._table.setSelectionMode(QAbstractItemView.SingleSelection)
-        self._table.verticalHeader().setVisible(False)
-        self._table.setAlternatingRowColors(True)
-        hh = self._table.horizontalHeader()
-        hh.setSectionResizeMode(0, QHeaderView.Stretch)          # Name fills
-        for c in range(1, len(_COLS)):
-            hh.setSectionResizeMode(c, QHeaderView.Interactive)
-        # QTableView isn't covered by the global QTreeView/QListView list QSS.
-        self._table.setStyleSheet(
-            f"QTableWidget {{ background:{_c(p,'BG_LIST')};"
-            f" alternate-background-color:{_c(p,'BG_ROW_ALT')};"
-            f" color:{_c(p,'TEXT_MAIN')}; border:1px solid {_c(p,'BORDER')};"
-            f" gridline-color:{_c(p,'BORDER')}; }}"
-            f"QTableWidget::item:selected {{ background:{_c(p,'BG_SELECT')};"
-            f" color:{_c(p,'TEXT_ON_ACCENT')}; }}")
-        lv.addWidget(self._table, 1)
-        left.addWidget(table_wrap)
-
-        # (yellow) off-site section - hidden until the manifest lands. A separate
-        # splitter pane so the divider above it can resize the two vertically.
-        self._offsite_panel = QFrame()
-        self._offsite_panel.setObjectName("OffsitePanel")
-        self._offsite_panel.setStyleSheet(
-            f"#OffsitePanel {{ background:{_c(p,'BG_PANEL')};"
-            f" border:1px solid {_c(p,'BORDER')}; border-radius:4px; }}")
-        ov = QVBoxLayout(self._offsite_panel)
-        ov.setContentsMargins(8, 6, 8, 6); ov.setSpacing(3)
-        self._offsite_title = QLabel(self.tr("Off-site mods"))
-        self._offsite_title.setStyleSheet(
-            f"color:{_c(p,'TEXT_WARN')}; font-weight:600; font-size:12px;")
-        ov.addWidget(self._offsite_title)
-        self._offsite_scroll = QScrollArea()
+        self._offsite_panel, offsite = self._panel("")
+        self._offsite_wrap = self._offsite_panel
+        self._offsite_title = QLabel(self.tr("Off-site mods"), self._offsite_panel)
+        self._offsite_title.setStyleSheet(f"color:{_c(p, 'TEXT_WARN')}; font-weight:600;")
+        self._offsite_title.setWordWrap(True)
+        offsite.addWidget(self._offsite_title)
+        self._offsite_scroll = QScrollArea(self._offsite_panel)
         self._offsite_scroll.setWidgetResizable(True)
         self._offsite_scroll.setFrameShape(QFrame.NoFrame)
+        self._offsite_scroll.setMinimumHeight(60)
+        self._offsite_scroll.setMaximumHeight(230)
         self._offsite_host = QWidget()
         self._offsite_layout = QVBoxLayout(self._offsite_host)
         self._offsite_layout.setContentsMargins(0, 0, 0, 0)
-        self._offsite_layout.setSpacing(2)
         self._offsite_layout.addStretch(1)
         self._offsite_scroll.setWidget(self._offsite_host)
-        ov.addWidget(self._offsite_scroll, 1)
-        # A small wrapper with margins so the splitter handle has breathing room.
-        offsite_wrap = QWidget()
-        owrap = QVBoxLayout(offsite_wrap)
-        owrap.setContentsMargins(8, 4, 8, 8); owrap.setSpacing(0)
-        owrap.addWidget(self._offsite_panel)
-        left.addWidget(offsite_wrap)
-        self._offsite_wrap = offsite_wrap
-        self._offsite_wrap.setVisible(False)      # shown with the panel
+        offsite.addWidget(self._offsite_scroll)
+        content.addWidget(self._offsite_panel)
+        self._offsite_panel.hide()
 
-        left.setStretchFactor(0, 4)               # table gets most of the height
-        left.setStretchFactor(1, 1)
-        left.setCollapsible(0, False)
-        body.addWidget(left)
+        panel, table_layout = self._panel("")
+        self._mods_section = CollapsibleSection(self.tr("Mods"))
+        table_layout.addWidget(self._mods_section)
+        table_body = QVBoxLayout(self._mods_section.body)
+        table_body.setContentsMargins(0, 0, 0, 0)
+        self._table = QTableView(self._mods_section.body)
+        self._mod_model = CollectionModModel(self._table)
+        self._table.setModel(self._mod_model)
+        self._table.setSortingEnabled(True)
+        self._table.sortByColumn(0, Qt.AscendingOrder)
+        self._table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self._table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self._table.setSelectionMode(QAbstractItemView.SingleSelection)
+        self._table.setWordWrap(False)
+        self._table.verticalHeader().hide()
+        self._table.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
+        self._table.setAlternatingRowColors(True)
+        self._table.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self._table.verticalHeader().setDefaultSectionSize(self.fontMetrics().height() + 10)
+        header = self._table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.Stretch)
+        for column, width in ((1, 140), (2, 85), (3, 95), (4, 45)):
+            header.setSectionResizeMode(column, QHeaderView.Interactive)
+            header.resizeSection(column, width)
+        self._table.setStyleSheet(
+            f"QTableView {{ background:{_c(p, 'BG_LIST')}; alternate-background-color:{_c(p, 'BG_ROW_ALT')};"
+            f" color:{_c(p, 'TEXT_MAIN')}; gridline-color:{_c(p, 'BORDER')}; }}")
+        table_body.addWidget(self._table)
+        content.addWidget(panel)
+        content.addStretch(1)
 
-        # RIGHT column = optional-mods panel (green) + a SEPARATE actions panel.
-        right = QWidget()
-        rv = QVBoxLayout(right); rv.setContentsMargins(8, 8, 8, 8); rv.setSpacing(8)
-
-        # --- (green) optional-mods panel: title + checklist + select-all row ---
-        opt_panel = QFrame()
-        opt_panel.setObjectName("OptPanel")
-        opt_panel.setStyleSheet(
-            f"#OptPanel {{ background:{_c(p,'BG_PANEL')};"
-            f" border:1px solid {_c(p,'BORDER')}; border-radius:4px; }}")
-        opv = QVBoxLayout(opt_panel)
-        opv.setContentsMargins(8, 6, 8, 6); opv.setSpacing(6)
-        opt_title = QLabel(self.tr("Optional mods"))
-        opt_title.setStyleSheet(
-            f"color:{_c(p,'TEXT_MAIN')}; font-weight:600; font-size:13px;")
-        opv.addWidget(opt_title)
-        self._opt_scroll = QScrollArea()
-        self._opt_scroll.setWidgetResizable(True)
-        self._opt_scroll.setFrameShape(QFrame.NoFrame)
-        self._opt_host = QWidget()
-        self._opt_layout = QVBoxLayout(self._opt_host)
-        self._opt_layout.setContentsMargins(2, 2, 2, 2)
-        self._opt_layout.setSpacing(4)
-        self._opt_empty = QLabel(self.tr("Loading…"))
-        self._opt_empty.setStyleSheet(f"color:{_c(p,'TEXT_DIM')};")
-        self._opt_layout.addWidget(self._opt_empty)
-        self._opt_layout.addStretch(1)
-        self._opt_scroll.setWidget(self._opt_host)
-        opv.addWidget(self._opt_scroll, 1)
-        # Select all / Deselect all at the bottom of the optional-mods panel.
-        selrow = QHBoxLayout(); selrow.setSpacing(6)
-        self._select_all_btn = QPushButton(self.tr("Select all"))
-        self._select_all_btn.setObjectName("FormButton")
-        self._select_all_btn.setCursor(Qt.PointingHandCursor)
-        self._select_all_btn.clicked.connect(lambda: self._set_all_optional(True))
-        selrow.addWidget(self._select_all_btn)
-        self._deselect_all_btn = QPushButton(self.tr("Deselect all"))
-        self._deselect_all_btn.setObjectName("FormButton")
-        self._deselect_all_btn.setCursor(Qt.PointingHandCursor)
-        self._deselect_all_btn.clicked.connect(lambda: self._set_all_optional(False))
-        selrow.addWidget(self._deselect_all_btn)
-        selrow.addStretch(1)
-        opv.addLayout(selrow)
-        rv.addWidget(opt_panel, 1)
-
-        # --- separate actions area (Install / View on Nexus) ------------------
-        actions = QFrame()
-        actions.setObjectName("ActionPanel")
-        actions.setStyleSheet(
-            f"#ActionPanel {{ background:{_c(p,'BG_HEADER')};"
-            f" border:1px solid {_c(p,'BORDER')}; border-radius:4px; }}")
-        av = QHBoxLayout(actions); av.setContentsMargins(8, 8, 8, 8); av.setSpacing(6)
-        install = QPushButton(self.tr("Install collection"))
-        install.setObjectName("PrimaryButton")
-        install.setCursor(Qt.PointingHandCursor)
-        install.clicked.connect(self._on_install_clicked)
-        av.addWidget(install)
-        self._install_btn = install
-        self._install_intent = "install"     # install | update | resume
-        view = QPushButton(self.tr("View on Nexus"))
+        footer = QWidget(self)
+        footer.setObjectName("HeaderBar")
+        actions = QHBoxLayout(footer)
+        actions.setContentsMargins(16, 10, 16, 10)
+        view = QPushButton(self.tr("View on Nexus"), footer)
         view.setObjectName("FormButton")
-        view.setCursor(Qt.PointingHandCursor)
         view.clicked.connect(self._open_on_nexus)
-        av.addWidget(view)
-        av.addStretch(1)
-        rv.addWidget(actions)
+        view.setVisible(bool(self._collection.slug and self._domain))
+        actions.addWidget(view)
+        actions.addStretch(1)
+        self._install_btn = QPushButton(self.tr("Install collection"), footer)
+        self._install_btn.setObjectName("PrimaryButton")
+        self._install_btn.clicked.connect(self._on_install_clicked)
+        actions.addWidget(self._install_btn)
+        root.addWidget(footer)
+        self._install_intent = "install"
+        self._setup.changed.connect(self._update_install_btn_state)
+        self._setup.changed.connect(self._refresh_figures)
+        self.refresh_install_options()
 
-        body.addWidget(right)
-        body.setStretchFactor(0, 3)     # mod list wider
-        body.setStretchFactor(1, 2)
-        root.addWidget(body, 1)
+    def _refresh_overview(self):
+        col = self._collection
+        self._author_lbl.setText(self.tr("by {0}").format(col.user_name) if col.user_name else "")
+        self._author_lbl.setVisible(bool(col.user_name))
+        self._summary_lbl.setText(col.summary or "")
+        self._summary_lbl.setVisible(bool(col.summary))
+        url = col.tile_image_url or ""
+        if url and url != getattr(self, "_image_url", ""):
+            self._image_url = url
+            self._image_token += 1
+            self._image.clear()
+            self._image.setText(self.tr("No image"))
+            self._image.setFixedSize(248, 140)
+            self._thumbs.request(self._image_token, url)
+
+    def _on_thumbnail(self, token, pixmap):
+        if token == self._image_token and pixmap is not None and not pixmap.isNull():
+            self._image.setFixedSize(pixmap.size())
+            self._image.setPixmap(pixmap)
+            self._fit_overview_height()
+
+    def _set_figure(self, key, text, tone="TEXT_MAIN"):
+        value = self._figures[key]
+        value.setText(text)
+        value.setStyleSheet(
+            f"color:{_c(active_palette(), tone)}; font-size:16px; font-weight:600;")
+
+    def _free_space_target(self):
+        options = self._setup.options()
+        if options.mode == "append" and options.target:
+            from Utils.collections.grouping import profile_path
+            from Utils.profiles.state import profile_uses_specific_mods
+            profile = profile_path(self._game, options.target)
+            if profile_uses_specific_mods(profile):
+                return profile / "mods"
+            return self._game.get_mod_staging_path()
+        if options.mode == "group" and options.reuse_profile:
+            from Utils.collections.grouping import profile_path
+            return profile_path(self._game, options.reuse_profile) / "mods"
+        return self._game.get_profile_root() / "profiles"
+
+    def _refresh_figures(self):
+        if not hasattr(self, "_figures"):
+            return
+        import shutil
+        self._set_figure(
+            "download", fmt_size(self._total_size) if self._total_size else self.tr("Unknown"))
+        try:
+            target = self._free_space_target()
+        except (OSError, ValueError):
+            target = self._game.get_profile_root() / "profiles"
+        while target and not target.exists() and target != target.parent:
+            target = target.parent
+        try:
+            free = shutil.disk_usage(target).free if target else 0
+        except OSError:
+            free = 0
+        tone = "TEXT_ERR" if free and self._total_size and free < self._total_size else "TEXT_MAIN"
+        self._set_figure("free", fmt_size(free) if free else self.tr("Unknown"), tone)
+
+    def _fit_overview_height(self):
+        if not hasattr(self, "_overview_panel"):
+            return
+        narrow = self.width() < 650
+        text_width = max(200, self.width() - (60 if narrow else self._image.width() + 78))
+        text_height = self._overview_text.layout().totalHeightForWidth(text_width)
+        image_height = self._image.height()
+        self._overview_panel.setMinimumHeight(
+            image_height + max(100, text_height) + 30 if narrow
+            else max(image_height, max(100, text_height)) + 24)
+        self._overview_row.invalidate()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        narrow = self.width() < 650
+        self._overview_row.setDirection(QHBoxLayout.TopToBottom if narrow else QHBoxLayout.LeftToRight)
+        self._fit_overview_height()
+
+    def refresh_install_options(self):
+        self._setup.refresh(self._domain, self._resolved_viewing_revision(), self._recommend_new_profile)
+
+    def install_options(self):
+        return self._setup.options()
 
     # -- fetch: detail ------------------------------------------------------
     def _start_detail_fetch(self):
         self._detail_token += 1
         token = self._detail_token
+        self._data_ready = False
+        self._total_size = 0
+        self._refresh_figures()
+        self._mods_section.set_expanded(False)
         self._install_btn.setEnabled(False)
         slug = getattr(self._collection, "slug", "") or ""
         domain = self._domain
@@ -451,15 +606,17 @@ class CollectionDetailView(QWidget):
                     "be installed by Amethyst.")
             self._mods = []
             self._total_size = 0
-            self._table.setRowCount(0)
+            self._mod_model.set_mods(())
             self._size_lbl.setText(message)
+            self._refresh_figures()
             self._opt_empty.setText(self.tr("No installable collection data."))
             self._install_btn.setText(self.tr("Unsupported collection"))
             self._install_btn.setToolTip(message)
             self._install_btn.setEnabled(False)
             return
         self._unsupported_collection_schema = False
-        self._install_btn.setEnabled(True)
+        self._data_ready = False
+        self._install_btn.setEnabled(False)
         self._install_btn.setToolTip("")
         self._game_versions = [
             str(version or "").strip()
@@ -482,6 +639,7 @@ class CollectionDetailView(QWidget):
                     self._collection.endorsements = int(card["endorsements"])
         except Exception:
             pass
+        self._refresh_overview()
         # `revisions` is populated only on the latest fetch (empty on a specific
         # revision fetch) - don't clobber the stored list.
         if revisions:
@@ -496,15 +654,15 @@ class CollectionDetailView(QWidget):
             if want != latest:
                 self._revision_number = want
                 self._set_rev_current(want)
-                self._table.setRowCount(0)
+                self._mod_model.set_mods(())
                 self._size_lbl.setText(self.tr("Loading…"))
                 self._start_detail_fetch()
                 return
             self._revision_number = want
         self._mods = list(mods or [])
         self._total_size = int(total_size or 0)
-        self._size_lbl.setText(
-            self.tr("Total size: {0}  |  {1} mods").format(fmt_size(total_size), mod_count))
+        self._size_lbl.setText(self.tr("{0} mods").format(f"{mod_count:,}"))
+        self._refresh_figures()
         self._fill_table()
         self._fill_optional()
         # Now lazily fetch the manifest (for off-site) - cache-first.
@@ -609,8 +767,33 @@ class CollectionDetailView(QWidget):
             # Resume/update both need a profile a download-only run never creates.
             self._install_intent = "install"
             btn.setText(self.tr("Download collection"))
+            self._setup_panel.hide()
+            btn.setEnabled(self._data_ready)
             return
-        if self._is_paused():
+        self._setup_panel.setVisible(True)
+        btn.setEnabled(self._data_ready and self._setup.valid())
+        options = self._setup.options()
+        reused = options.reuse_profile if options.mode == "group" else ""
+        if reused != self._optional_reuse_profile:
+            if not self._optional_reuse_profile:
+                self._optional_before_reuse = {fid: cb.isChecked() for cb, fid in self._opt_boxes}
+            self._optional_reuse_profile = reused
+            saved = self._saved_skipped_fids() if reused else set()
+            for cb, fid in self._opt_boxes:
+                cb.setChecked(fid not in saved if reused else self._optional_before_reuse.get(fid, cb.isChecked()))
+        self._opt_panel.setEnabled(not reused)
+        if self._setup.options().mode == "group":
+            self._install_intent = "group"
+            options = self._setup.options()
+            from Utils.collections.grouping import pending_group, profile_path
+            retry = options.reuse_profile and pending_group(profile_path(self._game, options.reuse_profile))
+            btn.setText(self.tr("Retry grouping") if retry else (
+                self.tr("Group collection") if options.reuse_profile else self.tr("Install and group")))
+            return
+        if self._setup.options().mode == "append":
+            self._install_intent = "install"
+            btn.setText(self.tr("Append collection"))
+        elif self._is_paused():
             self._install_intent = "resume"
             btn.setText(self.tr("Resume Install"))
         elif self._update_available():
@@ -623,7 +806,7 @@ class CollectionDetailView(QWidget):
     def showEvent(self, event):
         super().showEvent(event)
         # Refresh on (re)show so a paused/updated state is reflected on reopen.
-        self._update_install_btn_state()
+        self.refresh_install_options()
 
     def _populate_revision_dropdown(self):
         installed = self._installed_revision()
@@ -680,7 +863,9 @@ class CollectionDetailView(QWidget):
         # Reset the panels; the next detail fetch reloads them for this revision.
         self._offsite = []
         self._offsite_wrap.setVisible(False)
-        self._table.setRowCount(0)
+        self._mod_model.set_mods(())
+        self._total_size = 0
+        self._refresh_figures()
         self._size_lbl.setText(self.tr("Loading…"))
         self._update_install_btn_state()     # viewing rev changed → maybe Update
         self._start_detail_fetch()
@@ -697,22 +882,13 @@ class CollectionDetailView(QWidget):
                 or (f"Mod {getattr(m, 'mod_id', 0)}"))
 
     def _fill_table(self):
-        self._table.setSortingEnabled(False)
-        self._table.setRowCount(len(self._mods))
-        for r, m in enumerate(self._mods):
-            self._set_cell(r, 0, self._display_name(m))
-            self._set_cell(r, 1, m.mod_author or "")
-            self._set_cell(r, 2, m.version or "")
-            # Size - humanized text, numeric sort via the raw bytes in UserRole.
-            size_item = _SizeItem(fmt_size(m.size_bytes))
-            size_item.setData(Qt.UserRole, int(m.size_bytes or 0))
-            self._table.setItem(r, _COL_SIZE, size_item)
-            self._set_cell(r, 4, "✓" if m.optional else "")
-        self._table.setSortingEnabled(True)
-        self._table.sortItems(0, Qt.AscendingOrder)
-
-    def _set_cell(self, row, col, text):
-        self._table.setItem(row, col, QTableWidgetItem(text))
+        self._mod_model.set_mods(self._mods)
+        self._mods_section._toggle.setText(self.tr("Mods ({0})").format(len(self._mods)))
+        rows = self._mod_model.rowCount()
+        height = (self._table.horizontalHeader().sizeHint().height()
+                  + rows * self._table.verticalHeader().defaultSectionSize()
+                  + self._table.frameWidth() * 2)
+        self._table.setFixedHeight(max(40, height))
 
     def _fill_optional(self):
         # In-session choices: keep the user's unticks when the checklist is
@@ -721,8 +897,8 @@ class CollectionDetailView(QWidget):
         prior_unticked = {fid for cb, fid in self._opt_boxes
                           if fid and not cb.isChecked()}
         # Clear the placeholder + any prior boxes.
-        while self._opt_layout.count() > 1:      # keep the trailing stretch
-            it = self._opt_layout.takeAt(0)
+        while self._opt_layout.count() > 2:      # keep the trailing stretch
+            it = self._opt_layout.takeAt(1)
             w = it.widget()
             if w is not None:
                 w.setParent(None)
@@ -737,10 +913,10 @@ class CollectionDetailView(QWidget):
         has_opt = bool(optionals)
         self._select_all_btn.setEnabled(has_opt)
         self._deselect_all_btn.setEnabled(has_opt)
+        self._opt_panel.setVisible(has_opt)
+        self._opt_empty.setVisible(not has_opt)
         if not has_opt:
-            lbl = QLabel(self.tr("No optional mods."))
-            lbl.setStyleSheet(f"color:{_c(active_palette(),'TEXT_DIM')};")
-            self._opt_layout.insertWidget(0, lbl)
+            self._opt_empty.setText(self.tr("No optional mods."))
             return
         # Selections saved by the last install of this collection (Tk parity:
         # pre_skipped_fids) - only consulted for boxes not shown this session.
@@ -753,13 +929,17 @@ class CollectionDetailView(QWidget):
             else:
                 cb.setChecked(m.file_id not in saved_skipped)
             cb.setToolTip(name)
-            self._opt_layout.insertWidget(i, cb)
+            self._opt_layout.insertWidget(i + 1, cb)
             self._opt_boxes.append((cb, m.file_id))
 
     def _saved_skipped_fids(self) -> "set[int]":
         """Optional mods unticked on the LAST install of this collection, read
         from the profile that holds it. Empty set when none is saved."""
-        _pname, pdir = self._collection_profile()
+        if self._optional_reuse_profile:
+            from Utils.collections.grouping import profile_path
+            pdir = profile_path(self._game, self._optional_reuse_profile)
+        else:
+            _pname, pdir = self._collection_profile()
         if pdir is None or not pdir.is_dir():
             return set()
         try:
@@ -804,20 +984,6 @@ class CollectionDetailView(QWidget):
                 manifest = load_collection_manifest(
                     self._api, game_name, slug, rev, dl_path, log_fn=self._log)
                 offsite = extract_offsite_mods(manifest)
-                if manifest:
-                    # Keep for the install worker (Tk _collection_schema_cache
-                    # parity) so install never needs a second manifest download.
-                    self._fetched_manifest = manifest
-                    self._fetched_manifest_rev = rev
-                # Manifest rule: some collections must be installed as a NEW
-                # profile (collectionConfig.recommendNewProfile). Capture it so
-                # the install mode overlay can disable "Append".
-                try:
-                    self._recommend_new_profile = bool(
-                        (manifest.get("collectionConfig") or {}).get(
-                            "recommendNewProfile", False))
-                except Exception:
-                    pass
             except Exception as exc:
                 self._log(f"Collection manifest error: {exc}")
             if not manifest:
@@ -893,7 +1059,14 @@ class CollectionDetailView(QWidget):
         token, offsite, manifest = payload
         if token != self._detail_token:
             return                       # a newer revision switch superseded this
+        if manifest:
+            self._fetched_manifest = manifest
+            self._fetched_manifest_rev = self._resolved_viewing_revision()
+            self._recommend_new_profile = bool(
+                (manifest.get("collectionConfig") or {}).get("recommendNewProfile", False))
         self._offsite = list(offsite or [])
+        self._data_ready = not self._unsupported_collection_schema
+        self.refresh_install_options()
         info = ((manifest.get("info") or {})
                 if isinstance(manifest, dict) else {})
         if isinstance(info, dict):
@@ -922,6 +1095,8 @@ class CollectionDetailView(QWidget):
             row = QWidget()
             rl = QHBoxLayout(row); rl.setContentsMargins(0, 0, 0, 0); rl.setSpacing(6)
             nl = QLabel(name or url)
+            nl.setWordWrap(True)
+            nl.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
             nl.setStyleSheet(f"color:{_c(p,'TEXT_MAIN')}; font-size:11px;")
             rl.addWidget(nl, 1)
             openb = QPushButton(self.tr("Open"))
@@ -930,6 +1105,7 @@ class CollectionDetailView(QWidget):
             openb.clicked.connect(lambda _=False, u=url: self._open_url(u))
             rl.addWidget(openb)
             self._offsite_layout.insertWidget(i, row)
+        self._offsite_scroll.setFixedHeight(min(230, max(60, len(offsite) * 38)))
         self._offsite_wrap.setVisible(True)
 
     # -- actions ------------------------------------------------------------

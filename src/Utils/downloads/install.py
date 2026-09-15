@@ -90,6 +90,7 @@ class InstallCallbacks:
     resolve_fomod: "Callable | None" = None   # (config, base, name, inst, act, loose, saved) -> dict|None
     resolve_bain: "Callable | None" = None     # (subpkgs, root, name) -> {"selected":[...]}|None
     on_phase: Callable[[str, int, int, str], None] = _noop
+    on_result: Callable[[object], None] = _noop
 
 
 @dataclass

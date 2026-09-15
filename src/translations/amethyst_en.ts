@@ -1873,10 +1873,6 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack 
         <translation>Opt</translation>
     </message>
     <message>
-        <source>Total size: {0}  |  {1} mods</source>
-        <translation>Total size: {0}  |  {1} mods</translation>
-    </message>
-    <message>
         <source>by {0}</source>
         <translation>by {0}</translation>
     </message>
@@ -1909,6 +1905,34 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack 
         <translation>View on Nexus</translation>
     </message>
     <message>
+        <source>{0} mods</source>
+        <translation>{0} mods</translation>
+    </message>
+    <message>
+        <source>No image</source>
+        <translation>No image</translation>
+    </message>
+    <message>
+        <source>Download</source>
+        <translation>Download</translation>
+    </message>
+    <message>
+        <source>Free space</source>
+        <translation>Free space</translation>
+    </message>
+    <message>
+        <source>Installation</source>
+        <translation>Installation</translation>
+    </message>
+    <message>
+        <source>Mods</source>
+        <translation>Mods</translation>
+    </message>
+    <message>
+        <source>Unknown</source>
+        <translation>Unknown</translation>
+    </message>
+    <message>
         <source>Could not load collection.</source>
         <translation>Could not load collection.</translation>
     </message>
@@ -1937,6 +1961,22 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack 
         <translation>Download collection</translation>
     </message>
     <message>
+        <source>Retry grouping</source>
+        <translation>Retry grouping</translation>
+    </message>
+    <message>
+        <source>Group collection</source>
+        <translation>Group collection</translation>
+    </message>
+    <message>
+        <source>Install and group</source>
+        <translation>Install and group</translation>
+    </message>
+    <message>
+        <source>Append collection</source>
+        <translation>Append collection</translation>
+    </message>
+    <message>
         <source>Resume Install</source>
         <translation>Resume Install</translation>
     </message>
@@ -1951,6 +1991,10 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack 
     <message>
         <source>(installed)</source>
         <translation>(installed)</translation>
+    </message>
+    <message>
+        <source>Mods ({0})</source>
+        <translation>Mods ({0})</translation>
     </message>
     <message>
         <source>No optional mods.</source>
@@ -2205,6 +2249,81 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack 
     <message>
         <source>Installing {0}…</source>
         <translation>Installing {0}…</translation>
+    </message>
+</context>
+<context>
+    <name>CollectionSetup</name>
+    <message>
+        <source>Create a new profile</source>
+        <translation>Create a new profile</translation>
+    </message>
+    <message>
+        <source>Append to existing profile</source>
+        <translation>Append to existing profile</translation>
+    </message>
+    <message>
+        <source>Group with</source>
+        <translation>Group with</translation>
+    </message>
+    <message>
+        <source>Install mode</source>
+        <translation>Install mode</translation>
+    </message>
+    <message>
+        <source>Target</source>
+        <translation>Target</translation>
+    </message>
+    <message>
+        <source>Collection profile</source>
+        <translation>Collection profile</translation>
+    </message>
+    <message>
+        <source>Group name</source>
+        <translation>Group name</translation>
+    </message>
+    <message>
+        <source>Overwrite existing mods</source>
+        <translation>Overwrite existing mods</translation>
+    </message>
+    <message>
+        <source>Skip already installed mods</source>
+        <translation>Skip already installed mods</translation>
+    </message>
+    <message>
+        <source>Convert to profile-specific mods…</source>
+        <translation>Convert to profile-specific mods…</translation>
+    </message>
+    <message>
+        <source>Create a new collection profile</source>
+        <translation>Create a new collection profile</translation>
+    </message>
+    <message>
+        <source>Group: {0}</source>
+        <translation>Group: {0}</translation>
+    </message>
+    <message>
+        <source>Profile: {0}</source>
+        <translation>Profile: {0}</translation>
+    </message>
+    <message>
+        <source>Convert '{0}' before grouping. Its mods will be stored in its own profile.</source>
+        <translation>Convert '{0}' before grouping. Its mods will be stored in its own profile.</translation>
+    </message>
+    <message>
+        <source>The collection keeps its own profile and gets highest member priority. Newer duplicate mod versions still win.</source>
+        <translation>The collection keeps its own profile and gets highest member priority. Newer duplicate mod versions still win.</translation>
+    </message>
+    <message>
+        <source>Complete this collection's installation before it is added to the group.</source>
+        <translation>Complete this collection's installation before it is added to the group.</translation>
+    </message>
+    <message>
+        <source>The existing collection profile will be reused.</source>
+        <translation>The existing collection profile will be reused.</translation>
+    </message>
+    <message>
+        <source>This collection requires its own profile. It can also be combined through Group with.</source>
+        <translation>This collection requires its own profile. It can also be combined through Group with.</translation>
     </message>
 </context>
 <context>
@@ -9387,6 +9506,86 @@ Run Quick Update on all of them now?</translation>
         <translation>A Wabbajack installation is running.</translation>
     </message>
     <message>
+        <source>Wait for the current operation to finish before installing a collection.</source>
+        <translation>Wait for the current operation to finish before installing a collection.</translation>
+    </message>
+    <message>
+        <source>Switch back to this collection's game before installing it.</source>
+        <translation>Switch back to this collection's game before installing it.</translation>
+    </message>
+    <message>
+        <source>An install or deploy is in progress - try again shortly.</source>
+        <translation>An install or deploy is in progress - try again shortly.</translation>
+    </message>
+    <message>
+        <source>This profile is locked.</source>
+        <translation>This profile is locked.</translation>
+    </message>
+    <message>
+        <source>Restore the deployed profile before converting it.</source>
+        <translation>Restore the deployed profile before converting it.</translation>
+    </message>
+    <message>
+        <source>Profile conversion</source>
+        <translation>Profile conversion</translation>
+    </message>
+    <message>
+        <source>Convert Profile</source>
+        <translation>Convert Profile</translation>
+    </message>
+    <message>
+        <source>Convert '{0}' to profile-specific mods? Its listed mods are copied into its own mods folder, hardlinked where possible. The shared pool stays available to other profiles.</source>
+        <translation>Convert '{0}' to profile-specific mods? Its listed mods are copied into its own mods folder, hardlinked where possible. The shared pool stays available to other profiles.</translation>
+    </message>
+    <message>
+        <source>Convert</source>
+        <translation>Convert</translation>
+    </message>
+    <message>
+        <source>Restore the deployed profile before grouping it.</source>
+        <translation>Restore the deployed profile before grouping it.</translation>
+    </message>
+    <message>
+        <source>Required installation work failed. Retry the collection installation.</source>
+        <translation>Required installation work failed. Retry the collection installation.</translation>
+    </message>
+    <message>
+        <source>Updating profile group…</source>
+        <translation>Updating profile group…</translation>
+    </message>
+    <message>
+        <source>Grouping is pending. Choose the INI source when you retry.</source>
+        <translation>Grouping is pending. Choose the INI source when you retry.</translation>
+    </message>
+    <message>
+        <source>Which profile's INI files should the new group use?</source>
+        <translation>Which profile's INI files should the new group use?</translation>
+    </message>
+    <message>
+        <source>Use these INIs</source>
+        <translation>Use these INIs</translation>
+    </message>
+    <message>
+        <source>Grouping pending</source>
+        <translation>Grouping pending</translation>
+    </message>
+    <message>
+        <source>Collection profile kept; grouping pending: {0}</source>
+        <translation>Collection profile kept; grouping pending: {0}</translation>
+    </message>
+    <message>
+        <source>Profile '{0}' converted.</source>
+        <translation>Profile '{0}' converted.</translation>
+    </message>
+    <message>
+        <source>Collection grouped</source>
+        <translation>Collection grouped</translation>
+    </message>
+    <message>
+        <source>Collection added to group '{0}'.</source>
+        <translation>Collection added to group '{0}'.</translation>
+    </message>
+    <message>
         <source>The active profile isn't a Wabbajack profile.</source>
         <translation>The active profile isn't a Wabbajack profile.</translation>
     </message>
@@ -9405,6 +9604,22 @@ Run Quick Update on all of them now?</translation>
     <message>
         <source>Wabbajack load order reset - {0} mods and {1} plugins ordered.</source>
         <translation>Wabbajack load order reset - {0} mods and {1} plugins ordered.</translation>
+    </message>
+    <message>
+        <source>This group has no collection profiles to reset.</source>
+        <translation>This group has no collection profiles to reset.</translation>
+    </message>
+    <message>
+        <source>Choose the collection whose load order should be reset in this group.</source>
+        <translation>Choose the collection whose load order should be reset in this group.</translation>
+    </message>
+    <message>
+        <source>Reset collection order</source>
+        <translation>Reset collection order</translation>
+    </message>
+    <message>
+        <source>Collection load-order reset</source>
+        <translation>Collection load-order reset</translation>
     </message>
     <message>
         <source>Load order reset - {0} mods ordered, {1} kept below.</source>

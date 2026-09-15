@@ -14,6 +14,8 @@ curator built the patch against).
 from __future__ import annotations
 
 import zlib
+import configparser
+import hashlib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -29,6 +31,7 @@ except Exception:  # pragma: no cover
 @dataclass
 class PatchResult:
     applied: int = 0
+    already_applied: int = 0
     crc_mismatch: int = 0
     missing_diff: int = 0
     missing_target: int = 0
@@ -88,13 +91,17 @@ def apply_collection_patches(
     log = log_fn or (lambda *_a: None)
     result = PatchResult()
     patched_mods: set[str] = set()  # installed-folder names we already tagged
+    expected = sum(len(mod.get("patches") or {}) for mod in collection_schema.get("mods", [])
+                   if mod.get("patches") and mod_folder_for(mod))
 
     if not _BSDIFF_AVAILABLE:
+        result.failed = expected
         log("Collection patches: bsdiff4 not installed - patches skipped")
         return result
 
     patches_root = archive_root / "patches"
     if not patches_root.is_dir():
+        result.missing_diff = expected
         return result
 
     for mod_entry in collection_schema.get("mods", []):
@@ -134,6 +141,10 @@ def apply_collection_patches(
             continue
 
         mod_dir = staging_path / installed_folder
+        receipts = configparser.ConfigParser(interpolation=None)
+        meta_path = mod_dir / "meta.ini"
+        if meta_path.is_file():
+            receipts.read(meta_path, encoding="utf-8")
 
         for rel_path, expected_crc in patches.items():
             # collection.json stores Windows-style separators; normalise so the
@@ -154,6 +165,13 @@ def apply_collection_patches(
             tmp = target_file.with_suffix(target_file.suffix + ".patched")
             try:
                 src = target_file.read_bytes()
+                diff = diff_file.read_bytes()
+                receipt_key = hashlib.sha256(rel_norm.lower().encode()).hexdigest()
+                diff_hash = hashlib.sha256(diff).hexdigest()
+                output_hash = hashlib.sha256(src).hexdigest()
+                if receipts.get("CollectionPatches", receipt_key, fallback="") == f"{diff_hash}:{output_hash}":
+                    result.already_applied += 1
+                    continue
                 actual_crc = _crc32_hex(src)
                 if actual_crc.upper() != str(expected_crc).upper():
                     log(f"Collection patches: CRC mismatch for {rel_path} "
@@ -161,8 +179,17 @@ def apply_collection_patches(
                     result.crc_mismatch += 1
                     continue
 
-                patched = bsdiff4.patch(src, diff_file.read_bytes())
+                patched = bsdiff4.patch(src, diff)
                 tmp.write_bytes(patched)
+                if not receipts.has_section("CollectionPatches"):
+                    receipts.add_section("CollectionPatches")
+                receipts.set("CollectionPatches", receipt_key,
+                             f"{diff_hash}:{hashlib.sha256(patched).hexdigest()}")
+                from io import StringIO
+                from Utils.atomic_write import write_atomic_text
+                encoded = StringIO()
+                receipts.write(encoded)
+                write_atomic_text(meta_path, encoded.getvalue())
                 tmp.replace(target_file)
                 result.applied += 1
                 patched_mods.add(installed_folder)
