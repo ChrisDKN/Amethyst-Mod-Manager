@@ -7,7 +7,7 @@ from pathlib import Path
 from PySide6.QtCore import Qt, QSignalBlocker, Signal
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QFormLayout, QLabel,
-    QLineEdit, QPushButton, QComboBox, QSpinBox, QFrame, QSizePolicy,
+    QLineEdit, QPushButton, QSpinBox, QFrame, QSizePolicy,
 )
 
 from gui_qt.safe_emit import safe_emit
@@ -151,8 +151,7 @@ class SetupOptions(QWidget):
             form = QFormLayout()
             form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
             form.setRowWrapPolicy(QFormLayout.WrapLongRows)
-            mode = QComboBox(panel)
-            mode.setMaxVisibleItems(15)
+            mode = CappedComboBox(panel)
             if task.mpi_titles:
                 mode.addItem(self.tr("Build from .mpi package"), "mpi")
             mode.addItem(self.tr("Import existing output mod"), "source")
@@ -234,8 +233,7 @@ class SetupOptions(QWidget):
         form = QFormLayout()
         form.setContentsMargins(0, 0, 0, 0)
         section.addLayout(form)
-        self._store = QComboBox(settings)
-        self._store.setMaxVisibleItems(15)
+        self._store = CappedComboBox(settings)
         for label, value in (("Detect from game installation", ""), ("Steam / GOG", "steam-gog"), ("Epic Games", "epic")):
             self._store.addItem(self.tr(label), value)
         self._store.setCurrentIndex(max(0, self._store.findData(self._values.get("store", ""))))

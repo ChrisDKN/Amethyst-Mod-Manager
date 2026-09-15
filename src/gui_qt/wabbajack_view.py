@@ -465,7 +465,6 @@ class WabbajackView(QWidget):
         self._mode = CappedComboBox(self)
         for label, mode in (("New installation", "install"), ("Resume", "resume"), ("Repair", "repair"), ("Update", "update")):
             self._mode.addItem(self.tr(label), mode)
-        self._mode.installEventFilter(self)
         form.addRow(self.tr("Operation"), self._mode)
         self._profiles = QListWidget(self)
         self._profiles.setMaximumHeight(110)
@@ -814,9 +813,6 @@ class WabbajackView(QWidget):
         self._columns = columns
 
     def eventFilter(self, watched, event):
-        if watched is getattr(self, "_mode", None) and event.type() == QEvent.Wheel:
-            event.ignore()
-            return True
         if event.type() in {QEvent.Resize, QEvent.Show}:
             scroll = getattr(self, "_scroll", None)
             if scroll and watched is scroll.viewport():

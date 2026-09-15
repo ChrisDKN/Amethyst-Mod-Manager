@@ -18,7 +18,6 @@ from Utils.collections.manifest import fmt_size
 
 CARD_MIN_W = 330
 GRID_GAP = 10
-ARCHIVE_VISIBLE_ROWS = 100
 
 
 class ArchiveModel(QAbstractTableModel):
@@ -115,6 +114,7 @@ class ArchivesList(QWidget):
         self._table.setAlternatingRowColors(True)
         self._table.setWordWrap(False)
         self._table.setTextElideMode(Qt.ElideMiddle)
+        self._table.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self._table.verticalHeader().hide()
         self._table.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
         self._table.verticalHeader().setDefaultSectionSize(self.fontMetrics().height() + 10)
@@ -162,9 +162,8 @@ class ArchivesList(QWidget):
         self._table.setVisible(bool(count))
         self._empty.setVisible(not count)
         if count:
-            visible_rows = min(count, ARCHIVE_VISIBLE_ROWS)
             height = (self._table.horizontalHeader().sizeHint().height()
-                      + visible_rows * self._table.verticalHeader().defaultSectionSize()
+                      + count * self._table.verticalHeader().defaultSectionSize()
                       + self._table.frameWidth() * 2)
             self._table.setFixedHeight(height)
         self._toggle.setEnabled(True)
@@ -185,6 +184,9 @@ class CappedComboBox(QComboBox):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setMaxVisibleItems(15)
+
+    def wheelEvent(self, event):
+        event.ignore()
 
     def showPopup(self):
         super().showPopup()
