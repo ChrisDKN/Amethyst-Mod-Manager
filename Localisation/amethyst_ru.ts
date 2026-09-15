@@ -896,75 +896,75 @@ Configure your INI settings, then close it and click Done.</source>
     </message>
     <message>
       <source>Folders</source>
-      <translation type="unfinished">Folders</translation>
+      <translation>Папки</translation>
     </message>
     <message>
       <source>Case-insensitive folder-name patterns at any depth, e.g. docs or *_backup. Matching folders exclude their entire contents.</source>
-      <translation type="unfinished">Case-insensitive folder-name patterns at any depth, e.g. docs or *_backup. Matching folders exclude their entire contents.</translation>
+      <translation>Нечувствительные к регистру шаблоны папок на любой глубине, например документы или *_резервное копирование. Сопоставление папок исключает их содержимое.</translation>
     </message>
     <message>
       <source>Pattern</source>
-      <translation type="unfinished">Pattern</translation>
+      <translation>Шаблон</translation>
     </message>
     <message>
       <source>Source</source>
-      <translation type="unfinished">Source</translation>
+      <translation>Источник</translation>
     </message>
     <message>
       <source>Status</source>
-      <translation type="unfinished">Status</translation>
+      <translation>Статус</translation>
     </message>
     <message>
       <source>Add a pattern…</source>
-      <translation type="unfinished">Add a pattern…</translation>
+      <translation>Добавить шаблон…</translation>
     </message>
     <message>
       <source>Add</source>
-      <translation type="unfinished">Add</translation>
+      <translation>Добавить</translation>
     </message>
     <message>
       <source>Remove</source>
-      <translation type="unfinished">Remove</translation>
+      <translation>Удалить</translation>
     </message>
     <message>
       <source>Restore built-ins</source>
-      <translation type="unfinished">Restore built-ins</translation>
+      <translation>Восстановить встроенные</translation>
     </message>
     <message>
       <source>Cancel</source>
-      <translation type="unfinished">Cancel</translation>
+      <translation>Отмена</translation>
     </message>
     <message>
       <source>Save</source>
-      <translation type="unfinished">Save</translation>
+      <translation>Сохранить</translation>
     </message>
     <message>
       <source>Built-in</source>
-      <translation type="unfinished">Built-in</translation>
+      <translation>Встроенный</translation>
     </message>
     <message>
       <source>Custom</source>
-      <translation type="unfinished">Custom</translation>
+      <translation>Свой</translation>
     </message>
     <message>
       <source>Disabled</source>
-      <translation type="unfinished">Disabled</translation>
+      <translation>Отключено</translation>
     </message>
     <message>
       <source>Active</source>
-      <translation type="unfinished">Active</translation>
+      <translation>Активный</translation>
     </message>
     <message>
       <source>Restore</source>
-      <translation type="unfinished">Restore</translation>
+      <translation>Восстановить</translation>
     </message>
     <message>
       <source>Enter a filename or folder-name pattern without path separators.</source>
-      <translation type="unfinished">Enter a filename or folder-name pattern without path separators.</translation>
+      <translation>Введите имя файла или шаблон папок без разделителей пути.</translation>
     </message>
     <message>
       <source>Could not save blacklist: {0}</source>
-      <translation type="unfinished">Could not save blacklist: {0}</translation>
+      <translation>Не удалось сохранить чёрный список: {0}</translation>
     </message>
   </context>
   <context>
@@ -1416,55 +1416,55 @@ Close it when you are done, then click Done.</source>
     <name>CAOView</name>
     <message>
       <source>Assets Optimizer (CAO) - {0}</source>
-      <translation type="unfinished">Assets Optimizer (CAO) - {0}</translation>
+      <translation>Оптимизатор Активов (CAO) - {0}</translation>
     </message>
     <message>
       <source>Step 1: Download Cathedral Assets Optimizer</source>
-      <translation type="unfinished">Step 1: Download Cathedral Assets Optimizer</translation>
+      <translation>Шаг 1: Скачать Оптимизатор Cathedral Assets</translation>
     </message>
     <message>
       <source>Click the button below to open Cathedral Assets Optimizer on Nexus Mods.
 
 Download the 64-bit archive, then click Next.</source>
-      <translation type="unfinished">Click the button below to open Cathedral Assets Optimizer on Nexus Mods.
+      <translation>Нажмите на кнопку ниже, чтобы открыть обозначение Optimizer Cathedral Assets Optimizer на Nexus Mods.
 
-Download the 64-bit archive, then click Next.</translation>
+Загрузите 64-битный архив, затем нажмите Next.</translation>
     </message>
     <message>
       <source>Step 2: Locate the Archive</source>
-      <translation type="unfinished">Step 2: Locate the Archive</translation>
+      <translation>Шаг 2: Найдите архив</translation>
     </message>
     <message>
       <source>Step 3: Extract Cathedral Assets Optimizer</source>
-      <translation type="unfinished">Step 3: Extract Cathedral Assets Optimizer</translation>
+      <translation>Шаг 3: Извлечь Оптимизатор Соборных Активов</translation>
     </message>
     <message>
       <source>Step 6: Run Assets Optimizer (CAO)</source>
-      <translation type="unfinished">Step 6: Run Assets Optimizer (CAO)</translation>
+      <translation>Шаг 6: Запуск оптимизатора активов (CAO)</translation>
     </message>
     <message>
       <source>Step 4: Choose Mod</source>
-      <translation type="unfinished">Step 4: Choose Mod</translation>
+      <translation>Шаг 4: Выберите мод</translation>
     </message>
     <message>
       <source>Choose the staged mod that CAO should optimize. Enabled and disabled mod folders are both listed; deployment is not required.</source>
-      <translation type="unfinished">Choose the staged mod that CAO should optimize. Enabled and disabled mod folders are both listed; deployment is not required.</translation>
+      <translation>Выберите поэтапный мод, который CAO должен оптимизировать. Оба включенные и отключенные папки модов перечислены в списке; установка не требуется.</translation>
     </message>
     <message>
       <source>Mod:</source>
-      <translation type="unfinished">Mod:</translation>
+      <translation>Mod:</translation>
     </message>
     <message>
       <source>Search mods…</source>
-      <translation type="unfinished">Search mods…</translation>
+      <translation>Поиск модов…</translation>
     </message>
     <message>
       <source>Continue</source>
-      <translation type="unfinished">Continue</translation>
+      <translation>Продолжить</translation>
     </message>
     <message>
       <source>Select the Cathedral Assets Optimizer archive</source>
-      <translation type="unfinished">Select the Cathedral Assets Optimizer archive</translation>
+      <translation>Выберите архив Optimizer Cathedral Assets</translation>
     </message>
     <message>
       <source>Cathedral Assets Optimizer archive not found in your download locations.
@@ -1474,75 +1474,75 @@ Press Try Again, or use Browse to select it manually.</translation>
     </message>
     <message>
       <source>Step 5: Choose Proton Version</source>
-      <translation type="unfinished">Step 5: Choose Proton Version</translation>
+      <translation>Шаг 5: Выберите версию Proton</translation>
     </message>
     <message>
       <source>{0} was not found. Reopen the wizard and install Cathedral Assets Optimizer first.</source>
-      <translation type="unfinished">{0} was not found. Reopen the wizard and install Cathedral Assets Optimizer first.</translation>
+      <translation>{0} не найден. Сначала откройте мастер и установите оптимизатор Cathedral Assets Optimizer.</translation>
     </message>
     <message>
       <source>No mod folders were found in the staging folder.</source>
-      <translation type="unfinished">No mod folders were found in the staging folder.</translation>
+      <translation>Папки модов не были найдены в промежуточной папке.</translation>
     </message>
     <message>
       <source>Mod path: {0}</source>
-      <translation type="unfinished">Mod path: {0}</translation>
+      <translation>Mod path: {0}</translation>
     </message>
     <message>
       <source>Select a mod first.</source>
-      <translation type="unfinished">Select a mod first.</translation>
+      <translation>Сначала выберите мод.</translation>
     </message>
     <message>
       <source>The selected mod folder no longer exists.</source>
-      <translation type="unfinished">The selected mod folder no longer exists.</translation>
+      <translation>Выбранная папка модов больше не существует.</translation>
     </message>
     <message>
       <source>Assets Optimizer (CAO)</source>
-      <translation type="unfinished">Assets Optimizer (CAO)</translation>
+      <translation>Оптимизатор активов (CAO)</translation>
     </message>
     <message>
       <source>{0} was not found.</source>
-      <translation type="unfinished">{0} was not found.</translation>
+      <translation>{0} не найден.</translation>
     </message>
     <message>
       <source>The selected mod folder is unavailable.</source>
-      <translation type="unfinished">The selected mod folder is unavailable.</translation>
+      <translation>Выбранная папка модов недоступна.</translation>
     </message>
     <message>
       <source>Preparing Assets Optimizer…</source>
-      <translation type="unfinished">Preparing Assets Optimizer…</translation>
+      <translation>Подготовка Оптимизатора активов…</translation>
     </message>
     <message>
       <source>Assets Optimizer is preparing or running - close it to continue.</source>
-      <translation type="unfinished">Assets Optimizer is preparing or running - close it to continue.</translation>
+      <translation>Оптимизатор активов готовит или запущен - закройте его, чтобы продолжить.</translation>
     </message>
     <message>
       <source>Could not resolve Proton for the game's own prefix.</source>
-      <translation type="unfinished">Could not resolve Proton for the game's own prefix.</translation>
+      <translation>Не удалось разрешить Proton для собственного префикса.</translation>
     </message>
     <message>
       <source>Could not find Proton '{0}'.</source>
-      <translation type="unfinished">Could not find Proton '{0}'.</translation>
+      <translation>Не удалось найти Proton '{0}'.</translation>
     </message>
     <message>
       <source>Assets Optimizer is running. Close it when done.</source>
-      <translation type="unfinished">Assets Optimizer is running. Close it when done.</translation>
+      <translation>Оптимизатор медиафайлов запущен. Закройте по завершении.</translation>
     </message>
     <message>
       <source>CAO exited with code {0}.</source>
-      <translation type="unfinished">CAO exited with code {0}.</translation>
+      <translation>CAO завершился с кодом {0}.</translation>
     </message>
     <message>
       <source>Could not launch Assets Optimizer: {0}</source>
-      <translation type="unfinished">Could not launch Assets Optimizer: {0}</translation>
+      <translation>Не удалось запустить оптимизатор активов: {0}</translation>
     </message>
     <message>
       <source>{0} Any changes remain in the selected mod folder.</source>
-      <translation type="unfinished">{0} Any changes remain in the selected mod folder.</translation>
+      <translation>{0} Все изменения остаются в выбранной папке модов.</translation>
     </message>
     <message>
       <source>Assets Optimizer finished. Changes were saved directly to the selected mod folder.</source>
-      <translation type="unfinished">Assets Optimizer finished. Changes were saved directly to the selected mod folder.</translation>
+      <translation>Оптимизатор активов завершен. Изменения были сохранены непосредственно в выбранную папку модов.</translation>
     </message>
   </context>
   <context>
@@ -1753,34 +1753,34 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack 
     <name>CheckDetailsOverlay</name>
     <message>
       <source>What this means</source>
-      <translation type="unfinished">What this means</translation>
+      <translation>Что это означает</translation>
     </message>
     <message>
       <source>Details</source>
-      <translation type="unfinished">Details</translation>
+      <translation>Детали</translation>
     </message>
     <message>
       <source>What to do</source>
-      <translation type="unfinished">What to do</translation>
+      <translation>Что делать</translation>
     </message>
     <message>
       <source>Affected files ({0})</source>
-      <translation type="unfinished">Affected files ({0})</translation>
+      <translation>Затронутые файлы ({0})</translation>
     </message>
     <message>
       <source>Close</source>
-      <translation type="unfinished">Close</translation>
+      <translation>Закрыть</translation>
     </message>
   </context>
   <context>
     <name>CheckRow</name>
     <message>
       <source>Show</source>
-      <translation type="unfinished">Show</translation>
+      <translation>Показать</translation>
     </message>
     <message>
       <source>Show requirement: {0}</source>
-      <translation type="unfinished">Show requirement: {0}</translation>
+      <translation>Показать требование: {0}</translation>
     </message>
     <message>
       <source>Blocking: resolve before installing.</source>
@@ -1949,7 +1949,7 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack 
     </message>
     <message>
       <source>0 active · 1 allowed · Starting</source>
-      <translation type="unfinished">0 active · 1 allowed · Starting</translation>
+      <translation>0 активных · 1 разрешено · Начало</translation>
     </message>
     <message>
       <source>Speed limit:</source>
@@ -1973,7 +1973,7 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack 
     </message>
     <message>
       <source>Maximum concurrent extractions. The live allowed count adapts to download, memory and storage conditions.</source>
-      <translation type="unfinished">Maximum concurrent extractions. The live allowed count adapts to download, memory and storage conditions.</translation>
+      <translation>Максимальное количество параллельных извлечений. Доступное количество адаптировано к условиям загрузки, памяти и хранения.</translation>
     </message>
     <message>
       <source>Pause</source>
@@ -2005,67 +2005,67 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack 
     </message>
     <message>
       <source>{0} queued — archive cleanup limit reached</source>
-      <translation type="unfinished">{0} queued — archive cleanup limit reached</translation>
+      <translation>{0} в очереди — лимит очистки архива достигнут</translation>
     </message>
     <message>
       <source>Downloads resume as installs finish</source>
-      <translation type="unfinished">Downloads resume as installs finish</translation>
+      <translation>Загружает резюме по мере завершения установки</translation>
     </message>
     <message>
       <source>Clear archive after install is limiting temporary archive storage ({0} / {1} used). Downloads resume automatically as installed archives are cleared.</source>
-      <translation type="unfinished">Clear archive after install is limiting temporary archive storage ({0} / {1} used). Downloads resume automatically as installed archives are cleared.</translation>
+      <translation>Очистить архив после установки ограничивает временное хранилище архива ({0} / {1} использовано). Загружает возобновить автоматически, как установленные архивы очищаются.</translation>
     </message>
     <message>
       <source>Starting</source>
-      <translation type="unfinished">Starting</translation>
+      <translation>Запуск</translation>
     </message>
     <message>
       <source>Low memory</source>
-      <translation type="unfinished">Low memory</translation>
+      <translation>Низкая память</translation>
     </message>
     <message>
       <source>Downloads complete</source>
-      <translation type="unfinished">Downloads complete</translation>
+      <translation>Скачивание завершено</translation>
     </message>
     <message>
       <source>Memory pressure</source>
-      <translation type="unfinished">Memory pressure</translation>
+      <translation>Давление памяти</translation>
     </message>
     <message>
       <source>Protecting downloads</source>
-      <translation type="unfinished">Protecting downloads</translation>
+      <translation>Защита загрузок</translation>
     </message>
     <message>
       <source>Clearing install backlog</source>
-      <translation type="unfinished">Clearing install backlog</translation>
+      <translation>Очистка бэклога установки</translation>
     </message>
     <message>
       <source>Monitoring unavailable</source>
-      <translation type="unfinished">Monitoring unavailable</translation>
+      <translation>Мониторинг недоступен</translation>
     </message>
     <message>
       <source>Balancing downloads</source>
-      <translation type="unfinished">Balancing downloads</translation>
+      <translation>Загрузки балансировки</translation>
     </message>
     <message>
       <source>Adaptive</source>
-      <translation type="unfinished">Adaptive</translation>
+      <translation>Адаптивный</translation>
     </message>
     <message>
       <source>{0} active · {1} allowed · {2}</source>
-      <translation type="unfinished">{0} active · {1} allowed · {2}</translation>
+      <translation>{0} активен · {1} разрешено · {2}</translation>
     </message>
     <message>
       <source>{0} extraction jobs are active. The scheduler currently allows {1} of your configured maximum of {2}. Reason: {3}</source>
-      <translation type="unfinished">{0} extraction jobs are active. The scheduler currently allows {1} of your configured maximum of {2}. Reason: {3}</translation>
+      <translation>{0} задания для извлечения активны. Планировщик в настоящее время позволяет {1} сконфигурированного максимум {2}. Причина: {3}</translation>
     </message>
     <message>
       <source>- Waiting for extraction capacity</source>
-      <translation type="unfinished">- Waiting for extraction capacity</translation>
+      <translation>- в ожидании емкости извлечения</translation>
     </message>
     <message>
       <source>- Queued</source>
-      <translation type="unfinished">- Queued</translation>
+      <translation>- в очереди</translation>
     </message>
   </context>
   <context>
@@ -2797,19 +2797,19 @@ The default profile's settings are not affected.</source>
     </message>
     <message>
       <source>This staging folder is already used by {0}. Choose a separate folder for each game.</source>
-      <translation type="unfinished">This staging folder is already used by {0}. Choose a separate folder for each game.</translation>
+      <translation>Эта промежуточная папка уже используется {0}. Выберите отдельную папку для каждой игры.</translation>
     </message>
     <message>
       <source>The selected staging path is not a folder.</source>
-      <translation type="unfinished">The selected staging path is not a folder.</translation>
+      <translation>Выбранный промежуточный путь не является папкой.</translation>
     </message>
     <message>
       <source>The selected staging folder could not be read: {0}</source>
-      <translation type="unfinished">The selected staging folder could not be read: {0}</translation>
+      <translation>Выбранная промежуточная папка не может быть прочитан: {0}</translation>
     </message>
     <message>
       <source>This non-empty folder does not contain an Amethyst staging layout. Choose an empty folder or the correct game-specific staging folder.</source>
-      <translation type="unfinished">This non-empty folder does not contain an Amethyst staging layout. Choose an empty folder or the correct game-specific staging folder.</translation>
+      <translation>Эта непустая папка не содержит форматирования Amethyst. Выберите пустую папку или правильную папку для постановки в зависимости от игры.</translation>
     </message>
     <message>
       <source>Cannot change the game/prefix path while mods are deployed. Restore the game first.</source>
@@ -2921,155 +2921,155 @@ Vanilla game files are kept. This cannot be undone.</source>
     <name>ConnectionsSettingsMixin</name>
     <message>
       <source>Nexus Mods</source>
-      <translation type="unfinished">Nexus Mods</translation>
+      <translation>Nexus Mods</translation>
     </message>
     <message>
       <source>Account</source>
-      <translation type="unfinished">Account</translation>
+      <translation>Аккаунт</translation>
     </message>
     <message>
       <source>Membership</source>
-      <translation type="unfinished">Membership</translation>
+      <translation>Членский состав</translation>
     </message>
     <message>
       <source>API requests remaining</source>
-      <translation type="unfinished">API requests remaining</translation>
+      <translation>API запросов осталось</translation>
     </message>
     <message>
       <source>Login via SSO</source>
-      <translation type="unfinished">Login via SSO</translation>
+      <translation>Войти через SSO</translation>
     </message>
     <message>
       <source>Paste login code…</source>
-      <translation type="unfinished">Paste login code…</translation>
+      <translation>Вставить код входа…</translation>
     </message>
     <message>
       <source>Clear credentials</source>
-      <translation type="unfinished">Clear credentials</translation>
+      <translation>Очистить учетные данные</translation>
     </message>
     <message>
       <source>mod.io</source>
-      <translation type="unfinished">mod.io</translation>
+      <translation>mod.io</translation>
     </message>
     <message>
       <source>Enable update checks for Baldur's Gate 3 mods using the API path and read-only key from your mod.io API Access page.</source>
-      <translation type="unfinished">Enable update checks for Baldur's Gate 3 mods using the API path and read-only key from your mod.io API Access page.</translation>
+      <translation>Включить проверку обновлений для модов Baldur's Gate 3, используя путь к API и ключ только для чтения на странице mod.io API.</translation>
     </message>
     <message>
       <source>API path</source>
-      <translation type="unfinished">API path</translation>
+      <translation>Путь к API</translation>
     </message>
     <message>
       <source>API key</source>
-      <translation type="unfinished">API key</translation>
+      <translation>API ключ</translation>
     </message>
     <message>
       <source>Get my API key</source>
-      <translation type="unfinished">Get my API key</translation>
+      <translation>Получить мой ключ API</translation>
     </message>
     <message>
       <source>LoversLab</source>
-      <translation type="unfinished">LoversLab</translation>
+      <translation>LoversLab</translation>
     </message>
     <message>
       <source>Sign in to automatically download LoversLab files during Wabbajack installs. Credentials are stored securely. Site security checks may require a manual download.</source>
-      <translation type="unfinished">Sign in to automatically download LoversLab files during Wabbajack installs. Credentials are stored securely. Site security checks may require a manual download.</translation>
+      <translation>Войдите, чтобы автоматически загружать файлы LoversLab во время установки Wabbajack. Учетные данные хранятся безопасно. Проверка безопасности сайта может потребовать ручной загрузки.</translation>
     </message>
     <message>
       <source>Email</source>
-      <translation type="unfinished">Email</translation>
+      <translation>Почта</translation>
     </message>
     <message>
       <source>Password</source>
-      <translation type="unfinished">Password</translation>
+      <translation>Пароль</translation>
     </message>
     <message>
       <source>Loading saved credentials…</source>
-      <translation type="unfinished">Loading saved credentials…</translation>
+      <translation>Загрузка сохраненных учетных данных…</translation>
     </message>
     <message>
       <source>Test &amp;&amp; Save</source>
-      <translation type="unfinished">Test &amp;&amp; Save</translation>
+      <translation>Тестировать и сохранить</translation>
     </message>
     <message>
       <source>Changes have not been saved.</source>
-      <translation type="unfinished">Changes have not been saved.</translation>
+      <translation>Изменения не были сохранены.</translation>
     </message>
     <message>
       <source>Complete both fields first.</source>
-      <translation type="unfinished">Complete both fields first.</translation>
+      <translation>Сначала заполните оба поля.</translation>
     </message>
     <message>
       <source>Checking credentials…</source>
-      <translation type="unfinished">Checking credentials…</translation>
+      <translation>Проверка учетных данных…</translation>
     </message>
     <message>
       <source>Clearing credentials…</source>
-      <translation type="unfinished">Clearing credentials…</translation>
+      <translation>Очистка учетных данных…</translation>
     </message>
     <message>
       <source>Login verified and saved. Automatic LoversLab downloads are enabled.</source>
-      <translation type="unfinished">Login verified and saved. Automatic LoversLab downloads are enabled.</translation>
+      <translation>Логин подтвержден и сохранен. Автоматические загрузки LoversLab включены.</translation>
     </message>
     <message>
       <source>Key verified and saved. mod.io update checks are enabled.</source>
-      <translation type="unfinished">Key verified and saved. mod.io update checks are enabled.</translation>
+      <translation>Ключ подтвержден и сохранен. Проверки обновлений mod.io включены.</translation>
     </message>
     <message>
       <source>Credentials cleared.</source>
-      <translation type="unfinished">Credentials cleared.</translation>
+      <translation>Учетные данные очищены.</translation>
     </message>
     <message>
       <source>Credentials saved.</source>
-      <translation type="unfinished">Credentials saved.</translation>
+      <translation>Учетные данные сохранены.</translation>
     </message>
     <message>
       <source>Not connected.</source>
-      <translation type="unfinished">Not connected.</translation>
+      <translation>Не подключено.</translation>
     </message>
     <message>
       <source>Could not load saved credentials. Unlock your keyring or enter them again.</source>
-      <translation type="unfinished">Could not load saved credentials. Unlock your keyring or enter them again.</translation>
+      <translation>Не удалось загрузить сохраненные учетные данные. Разблокируйте ваше кольцо ключей или введите их снова.</translation>
     </message>
     <message>
       <source>Could not verify or save credentials. Check both fields and your connection.</source>
-      <translation type="unfinished">Could not verify or save credentials. Check both fields and your connection.</translation>
+      <translation>Не удалось проверить или сохранить учетные данные. Проверьте оба поля и ваше соединение.</translation>
     </message>
     <message>
       <source>Could not clear credentials. Please try again.</source>
-      <translation type="unfinished">Could not clear credentials. Please try again.</translation>
+      <translation>Не удалось очистить учетные данные. Пожалуйста, попробуйте еще раз.</translation>
     </message>
     <message>
       <source>Could not verify the saved login. Check your connection or sign in again.</source>
-      <translation type="unfinished">Could not verify the saved login. Check your connection or sign in again.</translation>
+      <translation>Не удалось проверить сохраненный логин. Проверьте подключение или войдите снова.</translation>
     </message>
     <message>
       <source>Waiting for browser login…</source>
-      <translation type="unfinished">Waiting for browser login…</translation>
+      <translation>Ожидание входа в браузер…</translation>
     </message>
     <message>
       <source>Checking saved login…</source>
-      <translation type="unfinished">Checking saved login…</translation>
+      <translation>Проверка сохраненного логина…</translation>
     </message>
     <message>
       <source>Unknown</source>
-      <translation type="unfinished">Unknown</translation>
+      <translation>Неизвестен</translation>
     </message>
     <message>
       <source>Premium</source>
-      <translation type="unfinished">Premium</translation>
+      <translation>Премиум</translation>
     </message>
     <message>
       <source>Supporter</source>
-      <translation type="unfinished">Supporter</translation>
+      <translation>Сторонник</translation>
     </message>
     <message>
       <source>Free</source>
-      <translation type="unfinished">Free</translation>
+      <translation>Бесплатно</translation>
     </message>
     <message>
       <source>Hourly: {0} · Daily: {1}</source>
-      <translation type="unfinished">Hourly: {0} · Daily: {1}</translation>
+      <translation>В час: {0} · В день: {1}</translation>
     </message>
   </context>
   <context>
@@ -4516,7 +4516,7 @@ When it completes, the app switches to the new profile - then come back here and
     </message>
     <message>
       <source>Uninstalled</source>
-      <translation type="unfinished">Uninstalled</translation>
+      <translation>Удалено</translation>
     </message>
     <message>
       <source>{0} (hidden)</source>
@@ -4837,183 +4837,183 @@ Close it when you are done, then click Done.</source>
     <name>EETView</name>
     <message>
       <source>ESP-ESM Translator - {0}</source>
-      <translation type="unfinished">ESP-ESM Translator - {0}</translation>
+      <translation>Переводчик ESM - {0}</translation>
     </message>
     <message>
       <source>Step 1: Download ESP-ESM Translator</source>
-      <translation type="unfinished">Step 1: Download ESP-ESM Translator</translation>
+      <translation>Шаг 1: Скачать ESP-ESM переводчика</translation>
     </message>
     <message>
       <source>Open the ESP-ESM Translator files page and download the 'Application only Date up' archive, then click Next.</source>
-      <translation type="unfinished">Open the ESP-ESM Translator files page and download the 'Application only Date up' archive, then click Next.</translation>
+      <translation>Откройте страницу с файлами переводчика ESP-ESM и загрузите архив "Application only Date up", затем нажмите Далее.</translation>
     </message>
     <message>
       <source>Step 2: Locate the Archive</source>
-      <translation type="unfinished">Step 2: Locate the Archive</translation>
+      <translation>Шаг 2: Найдите архив</translation>
     </message>
     <message>
       <source>Step 3: Extract ESP-ESM Translator</source>
-      <translation type="unfinished">Step 3: Extract ESP-ESM Translator</translation>
+      <translation>Шаг 3: Извлечь ESP-ESM переводчика</translation>
     </message>
     <message>
       <source>Step 7: Run ESP-ESM Translator</source>
-      <translation type="unfinished">Step 7: Run ESP-ESM Translator</translation>
+      <translation>Шаг 7: Запуск ESP-ESM переводчика</translation>
     </message>
     <message>
       <source>Step 4: Choose Plugin</source>
-      <translation type="unfinished">Step 4: Choose Plugin</translation>
+      <translation>Шаг 4: Выбор плагина</translation>
     </message>
     <message>
       <source>Choose a plugin from a staged mod. EET receives that file directly, so the translation and supported sidecar-file changes stay in the owning mod folder. You can also open EET without a target and choose a staged file inside the application.</source>
-      <translation type="unfinished">Choose a plugin from a staged mod. EET receives that file directly, so the translation and supported sidecar-file changes stay in the owning mod folder. You can also open EET without a target and choose a staged file inside the application.</translation>
+      <translation>Выберите плагин из поэтапного режима. EET получает этот файл напрямую, так что перевод и поддерживаемые изменения sidecar-файла остаются в каталоге owning mod. Вы также можете открыть ET без цели и выбрать файл в программе.</translation>
     </message>
     <message>
       <source>Plugin:</source>
-      <translation type="unfinished">Plugin:</translation>
+      <translation>Плагин:</translation>
     </message>
     <message>
       <source>Search staged plugins…</source>
-      <translation type="unfinished">Search staged plugins…</translation>
+      <translation>Поиск разбитых плагинов…</translation>
     </message>
     <message>
       <source>Continue</source>
-      <translation type="unfinished">Continue</translation>
+      <translation>Продолжить</translation>
     </message>
     <message>
       <source>Step 5: Prepare Game Data</source>
-      <translation type="unfinished">Step 5: Prepare Game Data</translation>
+      <translation>Шаг 5: Подготовка игровых данных</translation>
     </message>
     <message>
       <source>Deploy to let EET read the active profile's masters and archives through the game's Data folder. Skip if the required files are already available there. The selected plugin is still edited directly in its staged mod.</source>
-      <translation type="unfinished">Deploy to let EET read the active profile's masters and archives through the game's Data folder. Skip if the required files are already available there. The selected plugin is still edited directly in its staged mod.</translation>
+      <translation>Развертывание позволит EET прочитать мастеров и архивировать активные профили через папку данных игры. Пропустить, если необходимые файлы уже там. Выбранный плагин все еще редактируется непосредственно в его staged mod.</translation>
     </message>
     <message>
       <source>Skip</source>
-      <translation type="unfinished">Skip</translation>
+      <translation>Пропустить</translation>
     </message>
     <message>
       <source>Deploy</source>
-      <translation type="unfinished">Deploy</translation>
+      <translation>Развертывание</translation>
     </message>
     <message>
       <source>Select the ESP-ESM Translator archive</source>
-      <translation type="unfinished">Select the ESP-ESM Translator archive</translation>
+      <translation>Выберите архив ESP-ESM переводчика</translation>
     </message>
     <message>
       <source>ESP-ESM Translator was not found in your download locations. Press Try Again, or use Browse to select the archive manually.</source>
-      <translation type="unfinished">ESP-ESM Translator was not found in your download locations. Press Try Again, or use Browse to select the archive manually.</translation>
+      <translation>ESP-ESM переводчик не найден в ваших местах загрузки. Нажмите «Попробовать снова» или используйте «Обзор», чтобы выбрать архив вручную.</translation>
     </message>
     <message>
       <source>Step 6: Choose Proton Version</source>
-      <translation type="unfinished">Step 6: Choose Proton Version</translation>
+      <translation>Шаг 6: Выберите версию Proton</translation>
     </message>
     <message>
       <source>{0} was not found. Reopen the wizard and install ESP-ESM Translator first.</source>
-      <translation type="unfinished">{0} was not found. Reopen the wizard and install ESP-ESM Translator first.</translation>
+      <translation>{0} не найден. Сначала откройте мастер и установите ESP-ESM переводчик.</translation>
     </message>
     <message>
       <source>Scanning staged mods for plugins…</source>
-      <translation type="unfinished">Scanning staged mods for plugins…</translation>
+      <translation>Сканирование отдельных модов для плагинов…</translation>
     </message>
     <message>
       <source>Open ESP-ESM Translator without a target</source>
-      <translation type="unfinished">Open ESP-ESM Translator without a target</translation>
+      <translation>Открыть ESP-ESM переводчика без цели</translation>
     </message>
     <message>
       <source>{0} / {1}</source>
-      <translation type="unfinished">{0} / {1}</translation>
+      <translation>{0} / {1}</translation>
     </message>
     <message>
       <source>No staged plugins were found. EET will open without a target; choose a file from inside the application.</source>
-      <translation type="unfinished">No staged plugins were found. EET will open without a target; choose a file from inside the application.</translation>
+      <translation>Плагины не найдены. EET откроется без целей; выберите файл внутри приложения.</translation>
     </message>
     <message>
       <source>EET will open without a target plugin. Its game Data path will still be configured. Open files from a staged mod, not from the deployed Data folder.</source>
-      <translation type="unfinished">EET will open without a target plugin. Its game Data path will still be configured. Open files from a staged mod, not from the deployed Data folder.</translation>
+      <translation>EET откроется без целевого плагина. Его путь к игровым данным по-прежнему будет настроен. Откройте файлы из staged mod, а не из развернутой папки Data.</translation>
     </message>
     <message>
       <source>Plugin path: {0}</source>
-      <translation type="unfinished">Plugin path: {0}</translation>
+      <translation>Путь к плагину: {0}</translation>
     </message>
     <message>
       <source>The selected staged plugin is no longer available.</source>
-      <translation type="unfinished">The selected staged plugin is no longer available.</translation>
+      <translation>Выбранный плагин больше не доступен.</translation>
     </message>
     <message>
       <source>ESP-ESM Translator</source>
-      <translation type="unfinished">ESP-ESM Translator</translation>
+      <translation>Переводчик ESP ESM</translation>
     </message>
     <message>
       <source>{0} was not found.</source>
-      <translation type="unfinished">{0} was not found.</translation>
+      <translation>{0} не найден.</translation>
     </message>
     <message>
       <source>The selected staged plugin is unavailable.</source>
-      <translation type="unfinished">The selected staged plugin is unavailable.</translation>
+      <translation>Выбранный плагин недоступен.</translation>
     </message>
     <message>
       <source>The game's Data folder is not configured or available.</source>
-      <translation type="unfinished">The game's Data folder is not configured or available.</translation>
+      <translation>Папка данных игры не настроена или недоступна.</translation>
     </message>
     <message>
       <source>Preparing ESP-ESM Translator…</source>
-      <translation type="unfinished">Preparing ESP-ESM Translator…</translation>
+      <translation>Подготовка переводчика ESP-ESM…</translation>
     </message>
     <message>
       <source>ESP-ESM Translator is preparing or running — close it to continue.</source>
-      <translation type="unfinished">ESP-ESM Translator is preparing or running — close it to continue.</translation>
+      <translation>ESP-ESM Translator готовит или запущен — закройте его, чтобы продолжить.</translation>
     </message>
     <message>
       <source>Could not resolve Proton for the game's own prefix.</source>
-      <translation type="unfinished">Could not resolve Proton for the game's own prefix.</translation>
+      <translation>Не удалось разрешить Proton для собственного префикса.</translation>
     </message>
     <message>
       <source>Could not find Proton '{0}'.</source>
-      <translation type="unfinished">Could not find Proton '{0}'.</translation>
+      <translation>Не удалось найти Proton '{0}'.</translation>
     </message>
     <message>
       <source>ESP-ESM Translator is running. Close it when done.</source>
-      <translation type="unfinished">ESP-ESM Translator is running. Close it when done.</translation>
+      <translation>ESP-ESM Переводчик запущен. Закройте его по завершении.</translation>
     </message>
     <message>
       <source>EET exited with code {0}.</source>
-      <translation type="unfinished">EET exited with code {0}.</translation>
+      <translation>EET завершился с кодом {0}.</translation>
     </message>
     <message>
       <source>Could not launch ESP-ESM Translator: {0}</source>
-      <translation type="unfinished">Could not launch ESP-ESM Translator: {0}</translation>
+      <translation>Не удалось запустить ESP-ESM переводчик: {0}</translation>
     </message>
     <message>
       <source>The deployed Data folder is being updated.</source>
-      <translation type="unfinished">The deployed Data folder is being updated.</translation>
+      <translation>Папка развернутых данных обновляется.</translation>
     </message>
     <message>
       <source>EET closed. Updating the deployed Data folder…</source>
-      <translation type="unfinished">EET closed. Updating the deployed Data folder…</translation>
+      <translation>EET закрыт. Обновление развернутой папки данных…</translation>
     </message>
     <message>
       <source> The staged changes remain safe, but redeploy failed; see log.</source>
-      <translation type="unfinished"> The staged changes remain safe, but redeploy failed; see log.</translation>
+      <translation> Шаговые изменения остаются безопасными, но переразвертывание не удалось; смотрите журнал.</translation>
     </message>
     <message>
       <source>Changes remain in the selected staged mod.</source>
-      <translation type="unfinished">Changes remain in the selected staged mod.</translation>
+      <translation>Изменения остаются в выбранном шаге.</translation>
     </message>
     <message>
       <source>ESP-ESM Translator finished.</source>
-      <translation type="unfinished">ESP-ESM Translator finished.</translation>
+      <translation>Завершен перевод ESP-ESM.</translation>
     </message>
     <message>
       <source>ESP-ESM Translator finished. Any file selected inside EET was changed in place; deploy again if you edited a staged plugin.</source>
-      <translation type="unfinished">ESP-ESM Translator finished. Any file selected inside EET was changed in place; deploy again if you edited a staged plugin.</translation>
+      <translation>ESP-ESM Переводчик завершен. Любой файл, выбранный внутри EET, был изменен на месте; развертывание снова если вы отредактировали staged плагин.</translation>
     </message>
     <message>
       <source>ESP-ESM Translator finished. Changes were saved directly to the selected staged mod.</source>
-      <translation type="unfinished">ESP-ESM Translator finished. Changes were saved directly to the selected staged mod.</translation>
+      <translation>ESP-ESM Переводчик закончился. Изменения были сохранены непосредственно в выбранный шаг.</translation>
     </message>
     <message>
       <source>The deployed Data folder is up to date.</source>
-      <translation type="unfinished">The deployed Data folder is up to date.</translation>
+      <translation>Папка развернутых данных актуальна.</translation>
     </message>
   </context>
   <context>
@@ -6638,98 +6638,98 @@ SHA-1: {1}
     <name>InstalledWabbajackCard</name>
     <message>
       <source>Local installation</source>
-      <translation type="unfinished">Local installation</translation>
+      <translation>Локальная установка</translation>
     </message>
     <message>
       <source>No profiles created yet</source>
-      <translation type="unfinished">No profiles created yet</translation>
+      <translation>Профилей пока нет</translation>
     </message>
     <message>
       <source>Profiles: {0}</source>
-      <translation type="unfinished">Profiles: {0}</translation>
+      <translation>Профиль: {0}</translation>
     </message>
     <message>
       <source>View</source>
-      <translation type="unfinished">View</translation>
+      <translation>Вид</translation>
     </message>
     <message>
       <source>Remove</source>
-      <translation type="unfinished">Remove</translation>
+      <translation>Удалить</translation>
     </message>
     <message>
       <source>Unlock these profiles first: {0}</source>
-      <translation type="unfinished">Unlock these profiles first: {0}</translation>
+      <translation>Разблокировать эти профили сначала: {0}</translation>
     </message>
     <message>
       <source>Installation: {0}</source>
-      <translation type="unfinished">Installation: {0}</translation>
+      <translation>Установка {0}</translation>
     </message>
     <message>
       <source>Installed</source>
-      <translation type="unfinished">Installed</translation>
+      <translation>Установлено</translation>
     </message>
     <message>
       <source>Paused · Resume available</source>
-      <translation type="unfinished">Paused · Resume available</translation>
+      <translation>Пауза · Возобновление доступно</translation>
     </message>
     <message>
       <source>Cancelled · Resume available</source>
-      <translation type="unfinished">Cancelled · Resume available</translation>
+      <translation>Отменено · Возобновление доступно</translation>
     </message>
     <message>
       <source>Interrupted · Resume available</source>
-      <translation type="unfinished">Interrupted · Resume available</translation>
+      <translation>Прервано · Возобновление доступно</translation>
     </message>
     <message>
       <source>Incomplete · Resume available</source>
-      <translation type="unfinished">Incomplete · Resume available</translation>
+      <translation>Незавершено · Возобновление доступно</translation>
     </message>
   </context>
   <context>
     <name>InstalledWabbajackView</name>
     <message>
       <source>Installed Wabbajack Lists</source>
-      <translation type="unfinished">Installed Wabbajack Lists</translation>
+      <translation>Установленные списки Wabbajack</translation>
     </message>
     <message>
       <source>Refresh</source>
-      <translation type="unfinished">Refresh</translation>
+      <translation>Обновить</translation>
     </message>
     <message>
       <source>✕ Close</source>
-      <translation type="unfinished">✕ Close</translation>
+      <translation>Закрыть</translation>
     </message>
     <message>
       <source>Loading installed lists…</source>
-      <translation type="unfinished">Loading installed lists…</translation>
+      <translation>Загрузка установленных списков…</translation>
     </message>
     <message>
       <source>Scanning configured games…</source>
-      <translation type="unfinished">Scanning configured games…</translation>
+      <translation>Сканирование настроенных игр…</translation>
     </message>
     <message>
       <source>Could not scan installed lists: {0}</source>
-      <translation type="unfinished">Could not scan installed lists: {0}</translation>
+      <translation>Не удалось просканировать списки: {0}</translation>
     </message>
     <message>
       <source>Shared download archives and partial downloads are retained when a list is removed.</source>
-      <translation type="unfinished">Shared download archives and partial downloads are retained when a list is removed.</translation>
+      <translation>Общие загрузки архивов и частичные загрузки сохраняются при удалении списка.</translation>
     </message>
     <message>
       <source>No managed Wabbajack installations were found across your configured games.</source>
-      <translation type="unfinished">No managed Wabbajack installations were found across your configured games.</translation>
+      <translation>Управляемые установки Wabbajack не были обнаружены в ваших настроенных играх.</translation>
     </message>
     <message>
       <source>{0} lists</source>
-      <translation type="unfinished">{0} lists</translation>
+      <translation>Списки {0}</translation>
     </message>
     <message>
       <source>Wait for the current installation or deployment operation to finish.</source>
-      <translation type="unfinished">Wait for the current installation or deployment operation to finish.</translation>
+      <translation>Дождитесь завершения текущей операции установки или установки.</translation>
     </message>
     <message>
       <source>No profiles created yet</source>
-      <translation type="unfinished">No profiles created yet</translation>
+      <translation>Профилей пока нет</translation>
     </message>
     <message>
       <source>Remove '{0}' for {1}?
@@ -6739,37 +6739,37 @@ This permanently deletes its managed installation, installed mods, Stock Game fi
 Shared download archives and partial downloads are kept.
 
 Managed directory: {2}</source>
-      <translation type="unfinished">Remove '{0}' for {1}?
+      <translation>Удалить '{0}' для {1}?
 
-This permanently deletes its managed installation, installed mods, Stock Game files, saved package, work data, backups, local changes, and every linked profile.
+Это окончательно удаляет управляемую установку, установленные модификации, файлы стоковых игр, сохраненные пакеты, данные работ, резервные копии, локальные изменения и все связанные профили.
 
-Shared download archives and partial downloads are kept.
+Общие загрузки архивов и частичных загрузок сохранены.
 
-Managed directory: {2}</translation>
+Управляемая директория: {2}</translation>
     </message>
     <message>
       <source>Remove Wabbajack List</source>
-      <translation type="unfinished">Remove Wabbajack List</translation>
+      <translation>Удалить список Wabbajack</translation>
     </message>
     <message>
       <source>Remove</source>
-      <translation type="unfinished">Remove</translation>
+      <translation>Удалить</translation>
     </message>
     <message>
       <source>Preparing to remove {0}…</source>
-      <translation type="unfinished">Preparing to remove {0}…</translation>
+      <translation>Подготовка к удалению {0}…</translation>
     </message>
     <message>
       <source>Could not remove {0}: {1}</source>
-      <translation type="unfinished">Could not remove {0}: {1}</translation>
+      <translation>Не удалось удалить {0}: {1}</translation>
     </message>
     <message>
       <source>Removed {0}.</source>
-      <translation type="unfinished">Removed {0}.</translation>
+      <translation>Удалено {0}.</translation>
     </message>
     <message>
       <source>Wait for list removal to finish before closing this tab.</source>
-      <translation type="unfinished">Wait for list removal to finish before closing this tab.</translation>
+      <translation>Дождитесь завершения удаления списка перед закрытием этой вкладки.</translation>
     </message>
   </context>
   <context>
@@ -6782,7 +6782,7 @@ Managed directory: {2}</translation>
       <source>This game uses an external loader or virtual filesystem. Press Play in Amethyst, or configure {0} to launch the deployed setup as follows:
 
 {1}</source>
-      <translation type="unfinished">This game uses an external loader or virtual filesystem. Press Play in Amethyst, or configure {0} to launch the deployed setup as follows:
+      <translation>Игра использует внешний загрузчик или виртуальную файловую систему. Нажмите Play in Amethyst, или настройте {0} для запуска развернутой настройки следующим образом:
 
 {1}</translation>
     </message>
@@ -7191,63 +7191,63 @@ Click Done to close.</source>
       <source>Install the TTW / MPI installer from Nexus Mods (site mod 1657).
 Premium accounts download the latest Main file automatically. Free users download it in their browser; ZIP or 7z archives containing 1657 in their name are detected in the enabled locations in the Downloads tab.
 You can also select the installer archive below.</source>
-      <translation type="unfinished">Install the TTW / MPI installer from Nexus Mods (site mod 1657).
-Premium accounts download the latest Main file automatically. Free users download it in their browser; ZIP or 7z archives containing 1657 in their name are detected in the enabled locations in the Downloads tab.
-You can also select the installer archive below.</translation>
+      <translation>Установите TTW / MPI инсталлятор от Nexus Mods (мод сайта 1657).
+Премиум аккаунты автоматически скачайте последний главный файл. Бесплатные пользователи скачивают его в своем браузере; ZIP или 7z архивы, содержащие 1657 в их имени, обнаружены в разрешенных местах на вкладке Downloads.
+Вы также можете выбрать архив программы установки ниже.</translation>
     </message>
     <message>
       <source>Installer archive (ZIP or 7z, optional)</source>
-      <translation type="unfinished">Installer archive (ZIP or 7z, optional)</translation>
+      <translation>Установщик архив (ZIP или 7z, необязательно)</translation>
     </message>
     <message>
       <source>Choose archive…</source>
-      <translation type="unfinished">Choose archive…</translation>
+      <translation>Выберите архив…</translation>
     </message>
     <message>
       <source>Install</source>
-      <translation type="unfinished">Install</translation>
+      <translation>Установить</translation>
     </message>
     <message>
       <source>Open Nexus download page</source>
-      <translation type="unfinished">Open Nexus download page</translation>
+      <translation>Открыть страницу загрузки Nexus</translation>
     </message>
     <message>
       <source>Cancel</source>
-      <translation type="unfinished">Cancel</translation>
+      <translation>Отмена</translation>
     </message>
     <message>
       <source>Select the TTW / MPI installer archive</source>
-      <translation type="unfinished">Select the TTW / MPI installer archive</translation>
+      <translation>Выберите архив TTW / MPI инсталлятора</translation>
     </message>
     <message>
       <source>Installer archives (*.zip, *.7z)</source>
-      <translation type="unfinished">Installer archives (*.zip, *.7z)</translation>
+      <translation>Архивы инсталлятора (*.zip, *.7z)</translation>
     </message>
     <message>
       <source>Wait for the current operation to finish before installing this tool.</source>
-      <translation type="unfinished">Wait for the current operation to finish before installing this tool.</translation>
+      <translation>Дождитесь завершения текущей операции перед установкой этого инструмента.</translation>
     </message>
     <message>
       <source>Preparing MPI installer…</source>
-      <translation type="unfinished">Preparing MPI installer…</translation>
+      <translation>Подготовка установщика MPI…</translation>
     </message>
     <message>
       <source>{0}
 Waiting for the completed installer archive in your download locations. You can also choose the archive manually.</source>
-      <translation type="unfinished">{0}
-Waiting for the completed installer archive in your download locations. You can also choose the archive manually.</translation>
+      <translation>{0}
+Ожидание завершения установки архива в ваших местах загрузки. Вы также можете выбрать архив вручную.</translation>
     </message>
     <message>
       <source>MPI installer ready.</source>
-      <translation type="unfinished">MPI installer ready.</translation>
+      <translation>Установщик MPI готов.</translation>
     </message>
     <message>
       <source>Install error: {0}</source>
-      <translation type="unfinished">Install error: {0}</translation>
+      <translation>Ошибка установки: {0}</translation>
     </message>
     <message>
       <source>Installer setup cancelled.</source>
-      <translation type="unfinished">Installer setup cancelled.</translation>
+      <translation>Установка установщика отменена.</translation>
     </message>
   </context>
   <context>
@@ -7972,23 +7972,23 @@ Remove the appended-collection entry?</source>
     </message>
     <message>
       <source> or </source>
-      <translation type="unfinished"> or </translation>
+      <translation> или </translation>
     </message>
     <message>
       <source>This collection was made for game version {0}, but the default profile uses game version {1}.
 
 The collection may not work correctly. You can still install it.</source>
-      <translation type="unfinished">This collection was made for game version {0}, but the default profile uses game version {1}.
+      <translation>Эта коллекция была создана для игры версии {0}, но профиль по умолчанию использует игру версии {1}.
 
-The collection may not work correctly. You can still install it.</translation>
+Коллекция может работать некорректно. Вы можете установить ее.</translation>
     </message>
     <message>
       <source>Game version mismatch</source>
-      <translation type="unfinished">Game version mismatch</translation>
+      <translation>Несоответствие версии игры</translation>
     </message>
     <message>
       <source>Install anyway</source>
-      <translation type="unfinished">Install anyway</translation>
+      <translation>Всё равно установить</translation>
     </message>
     <message>
       <source>Checking Nexus account…</source>
@@ -9196,27 +9196,27 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source>Blacklist</source>
-      <translation type="unfinished">Blacklist</translation>
+      <translation>Черный список</translation>
     </message>
     <message>
       <source>Routing Rules</source>
-      <translation type="unfinished">Routing Rules</translation>
+      <translation>Правила маршрутизации</translation>
     </message>
     <message>
       <source>Select a game before editing its blacklist.</source>
-      <translation type="unfinished">Select a game before editing its blacklist.</translation>
+      <translation>Выберите игру перед редактированием её чёрного списка.</translation>
     </message>
     <message>
       <source>Wait for the current game, install, deployment, or tool operation to finish.</source>
-      <translation type="unfinished">Wait for the current game, install, deployment, or tool operation to finish.</translation>
+      <translation>Дождитесь завершения текущей игры, установки, развертывания или работы инструмента.</translation>
     </message>
     <message>
       <source>Select a game before editing its routing rules.</source>
-      <translation type="unfinished">Select a game before editing its routing rules.</translation>
+      <translation>Выберите игру перед редактированием правил маршрутизации.</translation>
     </message>
     <message>
       <source>Routing rules changed while the editor was open. Close and reopen it before saving.</source>
-      <translation type="unfinished">Routing rules changed while the editor was open. Close and reopen it before saving.</translation>
+      <translation>Правила маршрутизации изменились при открытии редактора. Закройте и повторно откройте их перед сохранением.</translation>
     </message>
     <message>
       <source>.NET Framework 4.8</source>
@@ -9236,7 +9236,7 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source>Installed Lists</source>
-      <translation type="unfinished">Installed Lists</translation>
+      <translation>Установленные списки</translation>
     </message>
     <message>
       <source>{0} is running - switch games when it finishes.</source>
@@ -9284,7 +9284,7 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source>Log in first: Settings ▸ Connections ▸ Nexus ▸ Login via SSO.</source>
-      <translation type="unfinished">Log in first: Settings ▸ Connections ▸ Nexus ▸ Login via SSO.</translation>
+      <translation>Сначала войдите: Настройки &lt;unk> Соединения &lt;unk> Nexus &lt;unk> Войти через SSO.</translation>
     </message>
     <message>
       <source>this mod</source>
@@ -9320,31 +9320,31 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source>Another installation or deployment operation</source>
-      <translation type="unfinished">Another installation or deployment operation</translation>
+      <translation>Другая операция установки или развертывания</translation>
     </message>
     <message>
       <source>{0} is running - open the list when it finishes.</source>
-      <translation type="unfinished">{0} is running - open the list when it finishes.</translation>
+      <translation>{0} выполняется - откройте список, когда он закончится.</translation>
     </message>
     <message>
       <source>The list's configured game is no longer available.</source>
-      <translation type="unfinished">The list's configured game is no longer available.</translation>
+      <translation>Список настроенных игр больше не доступен.</translation>
     </message>
     <message>
       <source>The installed list could not be opened.</source>
-      <translation type="unfinished">The installed list could not be opened.</translation>
+      <translation>Не удалось открыть установленный список.</translation>
     </message>
     <message>
       <source>Removing Wabbajack list</source>
-      <translation type="unfinished">Removing Wabbajack list</translation>
+      <translation>Удаление списка Wabbajack</translation>
     </message>
     <message>
       <source>Wabbajack list removal</source>
-      <translation type="unfinished">Wabbajack list removal</translation>
+      <translation>Удаление списка Wabbajack</translation>
     </message>
     <message>
       <source>Wabbajack list '{0}' removed.</source>
-      <translation type="unfinished">Wabbajack list '{0}' removed.</translation>
+      <translation>Список Wabbajack '{0}' удален.</translation>
     </message>
     <message>
       <source>Wabbajack installation complete.</source>
@@ -9408,7 +9408,7 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source>Could not clear Nexus credentials. Please try again.</source>
-      <translation type="unfinished">Could not clear Nexus credentials. Please try again.</translation>
+      <translation>Не удалось очистить учетные данные Nexus. Пожалуйста, попробуйте еще раз.</translation>
     </message>
     <message>
       <source>Add the API path shown on mod.io's API Access page using the mod.io API Key tool.</source>
@@ -9528,7 +9528,7 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source>Wait for Wabbajack list removal to finish before closing Amethyst.</source>
-      <translation type="unfinished">Wait for Wabbajack list removal to finish before closing Amethyst.</translation>
+      <translation>Дождитесь завершения удаления списка Wabbajack перед закрытием Amethyst.</translation>
     </message>
     <message>
       <source>Wait for the Proton installer to finish before closing Amethyst.</source>
@@ -10006,15 +10006,15 @@ CET не будет загружаться из symlinked asi. Это проис
     </message>
     <message>
       <source>Profile recovery is required. Finish the current operation, then press Restore.</source>
-      <translation type="unfinished">Profile recovery is required. Finish the current operation, then press Restore.</translation>
+      <translation>Требуется восстановление профиля. Завершите текущую операцию, затем нажмите кнопку Restore.</translation>
     </message>
     <message>
       <source>Recovered an unfinished profile operation. Retrying…</source>
-      <translation type="unfinished">Recovered an unfinished profile operation. Retrying…</translation>
+      <translation>Восстановление незавершенной операции профиля. Повтор…</translation>
     </message>
     <message>
       <source>Profile recovery required</source>
-      <translation type="unfinished">Profile recovery required</translation>
+      <translation>Требуется восстановление профиля</translation>
     </message>
     <message>
       <source>An earlier deployment stopped after it began changing game files. Amethyst must restore the affected profile before it can rebuild this profile safely.
@@ -10026,7 +10026,7 @@ Restore now?</translation>
     </message>
     <message>
       <source>Restore now</source>
-      <translation type="unfinished">Restore now</translation>
+      <translation>Восстановить сейчас</translation>
     </message>
     <message>
       <source>Log</source>
@@ -10980,7 +10980,7 @@ This cannot be undone.</source>
     </message>
     <message>
       <source>Content</source>
-      <translation type="unfinished">Content</translation>
+      <translation>Содержание</translation>
     </message>
   </context>
   <context>
@@ -11227,7 +11227,7 @@ Expand the group to act on individual mods.</source>
     </message>
     <message>
       <source>{0} - packed inside an archive</source>
-      <translation type="unfinished">{0} - packed inside an archive</translation>
+      <translation>{0} - упакован внутри архива</translation>
     </message>
   </context>
   <context>
@@ -11975,11 +11975,11 @@ Your modlist was restored before downgrading - use Deploy to put it back.</sourc
     </message>
     <message>
       <source>Install all</source>
-      <translation type="unfinished">Install all</translation>
+      <translation>Установить все</translation>
     </message>
     <message>
       <source>Install the newest main file for every mod shown. Files over 100 MB are skipped. Requires Nexus Premium.</source>
-      <translation type="unfinished">Install the newest main file for every mod shown. Files over 100 MB are skipped. Requires Nexus Premium.</translation>
+      <translation>Установите самый новый основной файл для каждого мода. Файлы более 100 МБ пропускаются. Требуется Nexus Premium.</translation>
     </message>
     <message>
       <source>Filters</source>
@@ -12015,63 +12015,63 @@ Your modlist was restored before downgrading - use Deploy to put it back.</sourc
     </message>
     <message>
       <source>Preparing…</source>
-      <translation type="unfinished">Preparing…</translation>
+      <translation>Подготовка…</translation>
     </message>
     <message>
       <source>Installing {0}/{1}</source>
-      <translation type="unfinished">Installing {0}/{1}</translation>
+      <translation>Установка {0}/{1}</translation>
     </message>
     <message>
       <source>Install all unavailable</source>
-      <translation type="unfinished">Install all unavailable</translation>
+      <translation>Установить все недоступные</translation>
     </message>
     <message>
       <source>Install all uses direct Nexus downloads and requires a Premium account. It is unavailable while forced manual downloads are enabled.</source>
-      <translation type="unfinished">Install all uses direct Nexus downloads and requires a Premium account. It is unavailable while forced manual downloads are enabled.</translation>
+      <translation>Установка всех использует прямые Nexus загрузки и требует премиум аккаунта. Она недоступна, пока включена принудительная ручная загрузка.</translation>
     </message>
     <message>
       <source>Install all failed</source>
-      <translation type="unfinished">Install all failed</translation>
+      <translation>Не удалось установить все</translation>
     </message>
     <message>
       <source>Could not prepare the page: {0}</source>
-      <translation type="unfinished">Could not prepare the page: {0}</translation>
+      <translation>Не удалось подготовить страницу: {0}</translation>
     </message>
     <message>
       <source>Nothing to install</source>
-      <translation type="unfinished">Nothing to install</translation>
+      <translation>Нечего устанавливать</translation>
     </message>
     <message>
       <source>No mod on this page has a main file of 100 MB or less.</source>
-      <translation type="unfinished">No mod on this page has a main file of 100 MB or less.</translation>
+      <translation>На этой странице нет мода с основным файлом не более 100 МБ.</translation>
     </message>
     <message>
       <source>Install the newest main file for {0} mod(s)? Files over 100 MB, and mods without a main file are skipped. A download is stopped if its actual size exceeds the limit.</source>
-      <translation type="unfinished">Install the newest main file for {0} mod(s)? Files over 100 MB, and mods without a main file are skipped. A download is stopped if its actual size exceeds the limit.</translation>
+      <translation>Установить новейший основной файл для {0} мод(ов)? Файлы более 100 МБ и моды без основного файла пропущены. Загрузка остановлена, если ее фактический размер превышает лимит.</translation>
     </message>
     <message>
       <source>{0} mod(s) will be skipped.</source>
-      <translation type="unfinished">{0} mod(s) will be skipped.</translation>
+      <translation>{0} мод(ы) будут пропущены.</translation>
     </message>
     <message>
       <source>{0} MB</source>
-      <translation type="unfinished">{0} MB</translation>
+      <translation>{0} МБ</translation>
     </message>
     <message>
       <source>size unknown; 100 MB limit</source>
-      <translation type="unfinished">size unknown; 100 MB limit</translation>
+      <translation>размер неизвестен; ограничение 100 MB</translation>
     </message>
     <message>
       <source>Install: {0} — {1} ({2})</source>
-      <translation type="unfinished">Install: {0} — {1} ({2})</translation>
+      <translation>Установка: {0} — {1} ({2})</translation>
     </message>
     <message>
       <source>Skip: {0} — {1}</source>
-      <translation type="unfinished">Skip: {0} — {1}</translation>
+      <translation>Пропускать: {0} — {1}</translation>
     </message>
     <message>
       <source>Install all mods</source>
-      <translation type="unfinished">Install all mods</translation>
+      <translation>Установить все моды</translation>
     </message>
   </context>
   <context>
@@ -14354,15 +14354,15 @@ Its listed mods are copied into the profile's own mods folder (hardlinked where 
     </message>
     <message>
       <source>Use 64-bit version</source>
-      <translation type="unfinished">Use 64-bit version</translation>
+      <translation>Использовать 64-битную версию</translation>
     </message>
     <message>
       <source>Run the 64-bit executable from the Optional folder.</source>
-      <translation type="unfinished">Run the 64-bit executable from the Optional folder.</translation>
+      <translation>Запустите исполняемый файл из Необязательной папки.</translation>
     </message>
     <message>
       <source>Not found: {0}</source>
-      <translation type="unfinished">Not found: {0}</translation>
+      <translation>Не найдено: {0}</translation>
     </message>
     <message>
       <source>No Proton versions were found. Install one through Steam or Heroic, or add a custom Proton build below.</source>
@@ -14379,8 +14379,8 @@ Its listed mods are copied into the profile's own mods folder (hardlinked where 
     <message>
       <source>The saved 64-bit executable was not found: {0}
 Continue to use the standard version instead.</source>
-      <translation type="unfinished">The saved 64-bit executable was not found: {0}
-Continue to use the standard version instead.</translation>
+      <translation>Сохраненный исполняемый файл не найден: {0}
+Продолжить использовать стандартную версию.</translation>
     </message>
     <message>
       <source>Run this tool with plain Wine against the selected prefix instead of starting a Proton session.</source>
@@ -15096,191 +15096,191 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     <name>RoutingRulesOverlay</name>
     <message>
       <source>Routing Rules — {0}</source>
-      <translation type="unfinished">Routing Rules — {0}</translation>
+      <translation>Правила маршрутизации — {0}</translation>
     </message>
     <message>
       <source>Applies to all profiles for this game. Earlier matching rules take precedence. Changes apply on the next deploy, or automatically when auto-deploy is enabled. Blacklist exclusions still apply. Removed built-ins remain available to restore.</source>
-      <translation type="unfinished">Applies to all profiles for this game. Earlier matching rules take precedence. Changes apply on the next deploy, or automatically when auto-deploy is enabled. Blacklist exclusions still apply. Removed built-ins remain available to restore.</translation>
+      <translation>Применяется ко всем профилям для этой игры. Предыдущие правила сопоставления имеют приоритет. Изменения применяются при следующем развертывании или автоматически при включенном авторазвертывании. Исключения из черного списка все еще применимы. Удаленные встроенные остаются доступными для восстановления.</translation>
     </message>
     <message>
       <source>Match</source>
-      <translation type="unfinished">Match</translation>
+      <translation>Матч</translation>
     </message>
     <message>
       <source>Destination</source>
-      <translation type="unfinished">Destination</translation>
+      <translation>Назначение</translation>
     </message>
     <message>
       <source>Source</source>
-      <translation type="unfinished">Source</translation>
+      <translation>Источник</translation>
     </message>
     <message>
       <source>Status</source>
-      <translation type="unfinished">Status</translation>
+      <translation>Статус</translation>
     </message>
     <message>
       <source>Add</source>
-      <translation type="unfinished">Add</translation>
+      <translation>Добавить</translation>
     </message>
     <message>
       <source>Edit</source>
-      <translation type="unfinished">Edit</translation>
+      <translation>Редактирование</translation>
     </message>
     <message>
       <source>Move up</source>
-      <translation type="unfinished">Move up</translation>
+      <translation>Вверх</translation>
     </message>
     <message>
       <source>Move down</source>
-      <translation type="unfinished">Move down</translation>
+      <translation>Сдвинуть вниз</translation>
     </message>
     <message>
       <source>Remove</source>
-      <translation type="unfinished">Remove</translation>
+      <translation>Удалить</translation>
     </message>
     <message>
       <source>Empty = root of the selected destination base</source>
-      <translation type="unfinished">Empty = root of the selected destination base</translation>
+      <translation>Пусто = корень выбранной базы назначения</translation>
     </message>
     <message>
       <source>Extensions</source>
-      <translation type="unfinished">Extensions</translation>
+      <translation>Расширения</translation>
     </message>
     <message>
       <source>One per line, e.g. .pak. Combined with folders when both are set.</source>
-      <translation type="unfinished">One per line, e.g. .pak. Combined with folders when both are set.</translation>
+      <translation>Один на строку, например .pak. Комбинируется с папками, когда оба устанавливаются.</translation>
     </message>
     <message>
       <source>Folders</source>
-      <translation type="unfinished">Folders</translation>
+      <translation>Папки</translation>
     </message>
     <message>
       <source>One folder name or relative path per line. Matching is case-insensitive; spelling controls destination casing.</source>
-      <translation type="unfinished">One folder name or relative path per line. Matching is case-insensitive; spelling controls destination casing.</translation>
+      <translation>Одно имя папки или относительный путь на строке. Соответствие не зависит от регистра; регистр места назначения контроля.</translation>
     </message>
     <message>
       <source>Filenames</source>
-      <translation type="unfinished">Filenames</translation>
+      <translation>Имена файлов</translation>
     </message>
     <message>
       <source>One filename pattern per line, e.g. loader*.dll. Filename matches are also accepted when other criteria are set.</source>
-      <translation type="unfinished">One filename pattern per line, e.g. loader*.dll. Filename matches are also accepted when other criteria are set.</translation>
+      <translation>Один шаблон имени файла в строке, например loader*.dll. Если заданы другие критерии, то будет приниматься имя файла.</translation>
     </message>
     <message>
       <source>Companion extensions</source>
-      <translation type="unfinished">Companion extensions</translation>
+      <translation>Расширения компаньонов</translation>
     </message>
     <message>
       <source>One extension per line. Route same-stem siblings alongside matching files.</source>
-      <translation type="unfinished">One extension per line. Route same-stem siblings alongside matching files.</translation>
+      <translation>Одно расширение на строку. Перенесите однородных братьев и совпадающих файлов.</translation>
     </message>
     <message>
       <source>Excluded extensions</source>
-      <translation type="unfinished">Excluded extensions</translation>
+      <translation>Исключенные расширения</translation>
     </message>
     <message>
       <source>One extension per line. These files cannot match this rule.</source>
-      <translation type="unfinished">One extension per line. These files cannot match this rule.</translation>
+      <translation>Одно расширение на строку. Эти файлы не могут соответствовать этому правилу.</translation>
     </message>
     <message>
       <source>Mirrored destinations</source>
-      <translation type="unfinished">Mirrored destinations</translation>
+      <translation>Зеркальные места</translation>
     </message>
     <message>
       <source>One additional relative destination per line, under the same base.</source>
-      <translation type="unfinished">One additional relative destination per line, under the same base.</translation>
+      <translation>Один дополнительный относительный пункт назначения на одну и ту же строку.</translation>
     </message>
     <message>
       <source>Loose only</source>
-      <translation type="unfinished">Loose only</translation>
+      <translation>Только разорвать</translation>
     </message>
     <message>
       <source>Match loose files or a matching folder at the mod root.</source>
-      <translation type="unfinished">Match loose files or a matching folder at the mod root.</translation>
+      <translation>Совпадение с потерянными файлами или с соответствующей папкой в корне модов.</translation>
     </message>
     <message>
       <source>Flatten</source>
-      <translation type="unfinished">Flatten</translation>
+      <translation>Выровнять</translation>
     </message>
     <message>
       <source>For folder matches, remove leading folders above the match. For filename or extension matches, use the bare filename.</source>
-      <translation type="unfinished">For folder matches, remove leading folders above the match. For filename or extension matches, use the bare filename.</translation>
+      <translation>Для совпадений папки удалите ведущие папки выше соответствия. Для совпадения имени файла или расширения используйте имя грубого файла.</translation>
     </message>
     <message>
       <source>Include siblings</source>
-      <translation type="unfinished">Include siblings</translation>
+      <translation>Включить братьев и сестер</translation>
     </message>
     <message>
       <source>Bring the containing folder's contents along, keeping the folder name. Overrides Flatten for these matches.</source>
-      <translation type="unfinished">Bring the containing folder's contents along, keeping the folder name. Overrides Flatten for these matches.</translation>
+      <translation>Принесите содержимое папки с именем папки. Переопределяет Flatten для этих совпадений.</translation>
     </message>
     <message>
       <source>To Prefix</source>
-      <translation type="unfinished">To Prefix</translation>
+      <translation>К префиксу</translation>
     </message>
     <message>
       <source>Destinations are relative to the Proton/Wine prefix root instead of the game root. Requires a configured prefix.</source>
-      <translation type="unfinished">Destinations are relative to the Proton/Wine prefix root instead of the game root. Requires a configured prefix.</translation>
+      <translation>Назначения относятся к корню префикса Proton/Wine вместо корня игры. Требуется сконфигурированный префикс.</translation>
     </message>
     <message>
       <source>Reset to built-in</source>
-      <translation type="unfinished">Reset to built-in</translation>
+      <translation>Восстановить встроенные</translation>
     </message>
     <message>
       <source>Restore built-ins</source>
-      <translation type="unfinished">Restore built-ins</translation>
+      <translation>Восстановить встроенные</translation>
     </message>
     <message>
       <source>Cancel</source>
-      <translation type="unfinished">Cancel</translation>
+      <translation>Отмена</translation>
     </message>
     <message>
       <source>Save</source>
-      <translation type="unfinished">Save</translation>
+      <translation>Сохранить</translation>
     </message>
     <message>
       <source>Prefix</source>
-      <translation type="unfinished">Prefix</translation>
+      <translation>Префикс</translation>
     </message>
     <message>
       <source>Game</source>
-      <translation type="unfinished">Game</translation>
+      <translation>Игра</translation>
     </message>
     <message>
       <source>Custom</source>
-      <translation type="unfinished">Custom</translation>
+      <translation>Свой</translation>
     </message>
     <message>
       <source>Built-in (edited)</source>
-      <translation type="unfinished">Built-in (edited)</translation>
+      <translation>Встроенный (отредактированный)</translation>
     </message>
     <message>
       <source>Built-in</source>
-      <translation type="unfinished">Built-in</translation>
+      <translation>Встроенный</translation>
     </message>
     <message>
       <source>New rule</source>
-      <translation type="unfinished">New rule</translation>
+      <translation>Новое правило</translation>
     </message>
     <message>
       <source>Root</source>
-      <translation type="unfinished">Root</translation>
+      <translation>Корень</translation>
     </message>
     <message>
       <source>Disabled</source>
-      <translation type="unfinished">Disabled</translation>
+      <translation>Отключено</translation>
     </message>
     <message>
       <source>Active</source>
-      <translation type="unfinished">Active</translation>
+      <translation>Активный</translation>
     </message>
     <message>
       <source>Restore</source>
-      <translation type="unfinished">Restore</translation>
+      <translation>Восстановить</translation>
     </message>
     <message>
       <source>Could not save routing rules: {0}</source>
-      <translation type="unfinished">Could not save routing rules: {0}</translation>
+      <translation>Не удалось сохранить правила маршрутизации: {0}</translation>
     </message>
   </context>
   <context>
@@ -16549,7 +16549,7 @@ flatpak remote-add - пользователь аметист https://chrisdkn.gi
     </message>
     <message>
       <source>Connections</source>
-      <translation type="unfinished">Connections</translation>
+      <translation>Соединения</translation>
     </message>
     <message>
       <source>Decrease {0}</source>
@@ -16625,7 +16625,7 @@ flatpak remote-add - пользователь аметист https://chrisdkn.gi
     </message>
     <message>
       <source>Delete a mod's downloaded archive after it is extracted. Only applies to archives Amethyst downloaded itself - installs from the Install Mod button or the Downloads tab keep their archive. Wabbajack installs also clear managed archives after their required files are verified and saved, and limit downloads waiting for extraction to reduce disk-space requirements.</source>
-      <translation type="unfinished">Delete a mod's downloaded archive after it is extracted. Only applies to archives Amethyst downloaded itself - installs from the Install Mod button or the Downloads tab keep their archive. Wabbajack installs also clear managed archives after their required files are verified and saved, and limit downloads waiting for extraction to reduce disk-space requirements.</translation>
+      <translation>Удалите скачанный архив мода после его распаковки. Применимо только к скачанным архивам Amethyst - установка из кнопки Install Mod или вкладки Downloads сохранит их в архиве. Установленные Wabbajack также очищают управляемые архивы после проверки и сохранения их необходимых файлов, а также ограничивают загрузки, ожидающие извлечения для уменьшения дискового пространства.</translation>
     </message>
     <message>
       <source>Cap the combined download speed of all downloads (collections, single mods, nxm and modl links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>
@@ -16840,11 +16840,11 @@ flatpak remote-add - пользователь аметист https://chrisdkn.gi
     </message>
     <message>
       <source>Required version: {0}. Check requirements verifies the selected content and version.</source>
-      <translation type="unfinished">Required version: {0}. Check requirements verifies the selected content and version.</translation>
+      <translation>Необходимая версия: {0}. Проверьте требования проверяет выбранный контент и версию.</translation>
     </message>
     <message>
       <source>Check requirements verifies the selected content and shows its version. This list does not specify an exact version; check the author's instructions.</source>
-      <translation type="unfinished">Check requirements verifies the selected content and shows its version. This list does not specify an exact version; check the author's instructions.</translation>
+      <translation>Проверьте требования проверяет выбранный контент и показывает его версию. В этом списке не указывается точная версия; проверьте инструкции автора.</translation>
     </message>
     <message>
       <source>Run the Fallout 3 BSA Decompressor wizard, then import its complete output mod here, or select the author's .mpi package.</source>
@@ -16900,19 +16900,19 @@ flatpak remote-add - пользователь аметист https://chrisdkn.gi
     </message>
     <message>
       <source>Texconv (GPU when available)</source>
-      <translation type="unfinished">Texconv (GPU when available)</translation>
+      <translation>Texconv (GPU при наличии)</translation>
     </message>
     <message>
       <source>Texconv (CPU only)</source>
-      <translation type="unfinished">Texconv (CPU only)</translation>
+      <translation>Texconv (только CPU)</translation>
     </message>
     <message>
       <source>Native Compressonator (CPU, experimental)</source>
-      <translation type="unfinished">Native Compressonator (CPU, experimental)</translation>
+      <translation>Родной Компрессор (CPU, экспериментальный)</translation>
     </message>
     <message>
       <source>Texconv matches Wabbajack's converter and needs Proton. Native Compressonator avoids Wine but may produce different compressed pixels; Amethyst still verifies the DDS layout requested by the list.</source>
-      <translation type="unfinished">Texconv matches Wabbajack's converter and needs Proton. Native Compressonator avoids Wine but may produce different compressed pixels; Amethyst still verifies the DDS layout requested by the list.</translation>
+      <translation>Texconv совпадает с преобразователем Wabbajack и нуждается в Proton. Native Compressonator избегает Wine, но может создавать различные сжатые пикселы; Amethyst все еще проверяет расположение DDS, запрошенное списком.</translation>
     </message>
     <message>
       <source>Root file variant</source>
@@ -16948,19 +16948,19 @@ flatpak remote-add - пользователь аметист https://chrisdkn.gi
     </message>
     <message>
       <source>Dev: Download and test list textures</source>
-      <translation type="unfinished">Dev: Download and test list textures</translation>
+      <translation>Dev: Скачать и протестировать текстуры списка</translation>
     </message>
     <message>
       <source>Downloads only source archives referenced by the selected profiles' texture conversions, converts and validates every referenced texture, then removes temporary outputs.</source>
-      <translation type="unfinished">Downloads only source archives referenced by the selected profiles' texture conversions, converts and validates every referenced texture, then removes temporary outputs.</translation>
+      <translation>Загружает только исходные архивы, на которые ссылается выбранный профиль, конвертирует текстуры и проверяет каждую указанную текстуру, а затем удаляет временные выходы.</translation>
     </message>
     <message>
       <source>Install / repair Compressonator</source>
-      <translation type="unfinished">Install / repair Compressonator</translation>
+      <translation>Установка / ремонт Compressonator</translation>
     </message>
     <message>
       <source>Native Compressonator does not use Proton.</source>
-      <translation type="unfinished">Native Compressonator does not use Proton.</translation>
+      <translation>Родной Компрессонатор не использует Proton.</translation>
     </message>
     <message>
       <source>Select extracted MPI package</source>
@@ -17773,7 +17773,7 @@ Continue with {0}?</source>
     </message>
     <message>
       <source>Step 1: Install the MPI Installer</source>
-      <translation type="unfinished">Step 1: Install the MPI Installer</translation>
+      <translation>Шаг 1: Установка установщика MPI</translation>
     </message>
     <message>
       <source>Tale of Two Wastelands is already installed</source>
@@ -20029,23 +20029,23 @@ Latest:  {1}</source>
     <name>WabbajackIssuesOverlay</name>
     <message>
       <source>Confirmed broken modlist</source>
-      <translation type="unfinished">Confirmed broken modlist</translation>
+      <translation>Список модулей подтвержден</translation>
     </message>
     <message>
       <source>{0} has a confirmed installation issue. Installation may fail unless it has been resolved.</source>
-      <translation type="unfinished">{0} has a confirmed installation issue. Installation may fail unless it has been resolved.</translation>
+      <translation>{0} имеет подтверждённую проблему установки. Установка может не удаться до тех пор, пока она не будет решена.</translation>
     </message>
     <message>
       <source>Confirmed on {0}</source>
-      <translation type="unfinished">Confirmed on {0}</translation>
+      <translation>Подтверждено на {0}</translation>
     </message>
     <message>
       <source>Cancel</source>
-      <translation type="unfinished">Cancel</translation>
+      <translation>Отмена</translation>
     </message>
     <message>
       <source>Continue anyway</source>
-      <translation type="unfinished">Continue anyway</translation>
+      <translation>Все равно продолжить</translation>
     </message>
   </context>
   <context>
@@ -20322,7 +20322,7 @@ Try clearing your search or filters.</translation>
     </message>
     <message>
       <source>Testing textures…</source>
-      <translation type="unfinished">Testing textures…</translation>
+      <translation>Тестирование текстур…</translation>
     </message>
     <message>
       <source>Installing…</source>
@@ -20362,11 +20362,11 @@ Try clearing your search or filters.</translation>
     </message>
     <message>
       <source>Testing textures</source>
-      <translation type="unfinished">Testing textures</translation>
+      <translation>Тестирование текстур</translation>
     </message>
     <message>
       <source>Downloading only texture source archives and validating real list conversions.</source>
-      <translation type="unfinished">Downloading only texture source archives and validating real list conversions.</translation>
+      <translation>Загрузка только архивов исходных текстур и проверка конверсии реального списка.</translation>
     </message>
     <message>
       <source>Installing</source>
@@ -20434,19 +20434,19 @@ Try clearing your search or filters.</translation>
     </message>
     <message>
       <source>Installing the native texture converter and testing DDS conversion…</source>
-      <translation type="unfinished">Installing the native texture converter and testing DDS conversion…</translation>
+      <translation>Установка собственного конвертера текстур и тестирование DDS преобразования…</translation>
     </message>
     <message>
       <source>Check requirements first, then run the developer texture test.</source>
-      <translation type="unfinished">Check requirements first, then run the developer texture test.</translation>
+      <translation>Сначала проверьте требования и запустите тест текстуры разработчика.</translation>
     </message>
     <message>
       <source>Local installation</source>
-      <translation type="unfinished">Local installation</translation>
+      <translation>Локальная установка</translation>
     </message>
     <message>
       <source>The installed list was removed.</source>
-      <translation type="unfinished">The installed list was removed.</translation>
+      <translation>Установленный список был удален.</translation>
     </message>
     <message>
       <source>Wait for the current install or deployment operation to finish.</source>
@@ -20454,35 +20454,35 @@ Try clearing your search or filters.</translation>
     </message>
     <message>
       <source>The selected profiles do not require texture conversion.</source>
-      <translation type="unfinished">The selected profiles do not require texture conversion.</translation>
+      <translation>Выбранные профили не требуют преобразования текстуры.</translation>
     </message>
     <message>
       <source>Texture conversion sources are missing and cannot be downloaded: {0}</source>
-      <translation type="unfinished">Texture conversion sources are missing and cannot be downloaded: {0}</translation>
+      <translation>Источники преобразования текстур отсутствуют и не могут быть загружены: {0}</translation>
     </message>
     <message>
       <source> {0} game-source archive does not match the list hash; its installed local file will be used only to test conversion and will not satisfy installation requirements.</source>
-      <translation type="unfinished"> {0} game-source archive does not match the list hash; its installed local file will be used only to test conversion and will not satisfy installation requirements.</translation>
+      <translation> {0} архив с исходным кодом не соответствует списку хэш; его установленный локальный файл будет использоваться только для тестирования конвертации и не будет соответствовать требованиям установки.</translation>
     </message>
     <message>
       <source>Test real list textures</source>
-      <translation type="unfinished">Test real list textures</translation>
+      <translation>Тест реального списка текстур</translation>
     </message>
     <message>
       <source>This will process {0} texture conversions from {1} source archives. Up to {2} must be downloaded; cached archives are reused. Converted outputs are temporary, while downloaded archives are retained for a normal installation.{3}</source>
-      <translation type="unfinished">This will process {0} texture conversions from {1} source archives. Up to {2} must be downloaded; cached archives are reused. Converted outputs are temporary, while downloaded archives are retained for a normal installation.{3}</translation>
+      <translation>Это будет обрабатывать преобразования текстур {0} из исходных архивов {1} . До {2} необходимо скачать; кэшированные архивы повторно используются. Преобразованные выходные файлы являются временными, а загруженные архивы сохраняются для обычной установки.{3}</translation>
     </message>
     <message>
       <source>Download and test</source>
-      <translation type="unfinished">Download and test</translation>
+      <translation>Скачать и протестировать</translation>
     </message>
     <message>
       <source>Testing texture conversion</source>
-      <translation type="unfinished">Testing texture conversion</translation>
+      <translation>Тестирование преобразования текстур</translation>
     </message>
     <message>
       <source>Downloading texture source archives and testing real list conversions…</source>
-      <translation type="unfinished">Downloading texture source archives and testing real list conversions…</translation>
+      <translation>Загрузка исходных архивов текстур и тестирование реальных преобразований списков…</translation>
     </message>
     <message>
       <source>Configure the required game before installing this modlist.</source>
@@ -20598,31 +20598,31 @@ Try clearing your search or filters.</translation>
     </message>
     <message>
       <source>Texture converter ready. Check requirements again to refresh the download plan.</source>
-      <translation type="unfinished">Texture converter ready. Check requirements again to refresh the download plan.</translation>
+      <translation>Конвертор текстур готов. Проверьте требования еще раз, чтобы обновить план загрузки.</translation>
     </message>
     <message>
       <source>
 
 Formats: {0}</source>
-      <translation type="unfinished">
+      <translation>
 
-Formats: {0}</translation>
+Форматы: {0}</translation>
     </message>
     <message>
       <source>Texture test passed with substitute</source>
-      <translation type="unfinished">Texture test passed with substitute</translation>
+      <translation>Тест текстур передан подстановкой</translation>
     </message>
     <message>
       <source>Texture test passed</source>
-      <translation type="unfinished">Texture test passed</translation>
+      <translation>Тест текстур пройден</translation>
     </message>
     <message>
       <source>Texture test stopped</source>
-      <translation type="unfinished">Texture test stopped</translation>
+      <translation>Тест текстур остановлен</translation>
     </message>
     <message>
       <source>The normal installation can reuse the downloaded source archives.</source>
-      <translation type="unfinished">The normal installation can reuse the downloaded source archives.</translation>
+      <translation>Обычная установка может повторно использовать загруженные архивы исходного кода.</translation>
     </message>
     <message>
       <source>Paused</source>
