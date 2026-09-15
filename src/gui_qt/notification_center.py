@@ -6,11 +6,11 @@ from collections import deque
 from datetime import datetime
 from weakref import ref, WeakSet
 
-from PySide6.QtCore import Qt, QObject, QPoint, QSize, Signal, QTimer
+from PySide6.QtCore import Qt, QEvent, QObject, QPoint, QSize, Signal, QTimer
 from PySide6.QtGui import QAction, QColor, QPainter
 from PySide6.QtWidgets import (
-    QFrame, QHBoxLayout, QLabel, QMenu, QProgressBar, QPushButton, QScrollArea,
-    QTabWidget, QToolButton, QVBoxLayout, QWidget, QWidgetAction,
+    QApplication, QFrame, QHBoxLayout, QLabel, QMenu, QProgressBar, QPushButton,
+    QScrollArea, QTabWidget, QToolButton, QVBoxLayout, QWidget, QWidgetAction,
 )
 
 from gui_qt.icons import icon
@@ -277,6 +277,7 @@ class NotificationButton(QToolButton):
         self._progress_rows: dict[str, _ProgressRow] = {}
         self._history_scroll = None
         self._history_action = None
+        self._menu_filter_installed = False
         self._mirrors: WeakSet = WeakSet()
         pal = active_palette()
         self.setIcon(icon("notification.png", icon_px,
@@ -366,6 +367,43 @@ class NotificationButton(QToolButton):
             return
         self.open_menu(anchor)
 
+    def eventFilter(self, obj, event):
+        menu = self._active_menu
+        if menu is not None and menu.isVisible():
+            event_type = event.type()
+            if event_type == QEvent.MouseButtonPress:
+                global_pos = event.globalPosition().toPoint()
+                if not menu.rect().contains(menu.mapFromGlobal(global_pos)):
+                    menu.close()
+                    if self._notification_button_at(global_pos):
+                        return True
+            elif event_type == QEvent.KeyPress and event.key() == Qt.Key_Escape:
+                menu.close()
+                return True
+            elif event_type in (QEvent.WindowDeactivate,
+                                 QEvent.ApplicationDeactivate):
+                menu.close()
+            elif event_type == QEvent.Resize and obj is menu.parentWidget():
+                QTimer.singleShot(0, self._place_menu)
+        return super().eventFilter(obj, event)
+
+    def _notification_button_at(self, global_pos: QPoint) -> bool:
+        for button in (self, *list(self._mirrors)):
+            if button.isVisible() and button.rect().contains(
+                    button.mapFromGlobal(global_pos)):
+                return True
+        return False
+
+    def _set_menu_filter(self, enabled: bool) -> None:
+        app = QApplication.instance()
+        if app is None or enabled == self._menu_filter_installed:
+            return
+        if enabled:
+            app.installEventFilter(self)
+        else:
+            app.removeEventFilter(self)
+        self._menu_filter_installed = enabled
+
     @staticmethod
     def _menu_origin(anchor: QWidget, size: QSize) -> QPoint:
         """Top-left for the menu: below-left of *anchor*, flipped to stay on
@@ -405,10 +443,15 @@ class NotificationButton(QToolButton):
             else:
                 anchor = next(
                     (m for m in list(self._mirrors) if m.isVisible()), self)
-        menu = self._build_menu()
+        menu = self._build_menu(window)
+        # A normal QMenu is a mouse-grabbing popup, so Qt consumes the outside
+        # click that dismisses it. As an in-window menu, the application filter
+        # can close it while the same event continues to the intended widget.
+        menu.setWindowFlags(Qt.Widget)
         menu.adjustSize()
         self._active_menu = menu
         self._menu_anchor = ref(anchor)
+        self._set_menu_filter(True)
 
         def _closed(m=menu):
             if self._active_menu is m:
@@ -421,11 +464,13 @@ class NotificationButton(QToolButton):
                 self._progress_rows = {}
                 self._history_scroll = None
                 self._history_action = None
+                self._set_menu_filter(False)
             m.deleteLater()
 
         menu.aboutToHide.connect(_closed)
-        menu.popup(self._menu_origin(anchor, menu.sizeHint()))
-        # Re-anchor off the laid-out width now that popup() has shown it, so the
+        menu.show()
+        menu.raise_()
+        # Re-anchor off the laid-out width now that the menu has been shown, so the
         # initial placement can't disagree with later re-anchoring.
         self._place_menu()
 
@@ -438,7 +483,14 @@ class NotificationButton(QToolButton):
             return
         # Same rule as the initial popup - re-anchoring must not undo the flip
         # that keeps the menu on screen beside a side bar.
-        menu.move(self._menu_origin(anchor, menu.size()))
+        parent = menu.parentWidget()
+        if parent is None:
+            return
+        pos = parent.mapFromGlobal(self._menu_origin(anchor, menu.size()))
+        pos.setX(max(0, min(pos.x(), parent.width() - menu.width())))
+        pos.setY(max(0, min(pos.y(), parent.height() - menu.height())))
+        menu.move(pos)
+        menu.raise_()
 
     def set_progress(self, key: str, done: int, total: int,
                      phase: str | None = None, title: str | None = None,
@@ -597,13 +649,13 @@ class NotificationButton(QToolButton):
             self._history_action.setVisible(False)
             self._history_action.setVisible(True)
 
-    def _build_menu(self) -> QMenu:
+    def _build_menu(self, parent: QWidget) -> QMenu:
         """Fresh right-aligned menu: newest-first rows + a Clear-all action.
         Also clears the unread dot (built = seen)."""
         self._mark_read()
         self._history_scroll = None
         self._history_action = None
-        menu = QMenu(self)
+        menu = QMenu(parent)
         progress = QWidgetAction(menu)
         progress.setDefaultWidget(self._progress_widget())
         menu.addAction(progress)
@@ -625,6 +677,7 @@ class NotificationButton(QToolButton):
         clear = QAction(self.tr("Clear all"), menu)
         clear.setEnabled(bool(entries))
         clear.triggered.connect(self._history.clear)
+        clear.triggered.connect(menu.close)
         menu.addAction(clear)
         return menu
 
