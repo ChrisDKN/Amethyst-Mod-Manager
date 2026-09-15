@@ -21006,6 +21006,20 @@ class MainWindow(QMainWindow):
             return self._log_file_error
         return None
 
+    def _replace_log_file(self, records):
+        log_file = getattr(self, "_log_file", None)
+        if log_file is None:
+            return
+        try:
+            with open(log_file, "w", encoding="utf-8", errors="replace") as f:
+                f.write("".join(
+                    f"[{timestamp}]  {line}\n"
+                    for line, _severity, timestamp in records))
+        except OSError as exc:
+            self._log_file = None
+            self._log_file_error = f"could not write {log_file}: {exc}"
+            self._report_log_file_failure()
+
     def _report_log_file_failure(self):
         if getattr(self, "_log_file_error_reported", False):
             return
@@ -21104,6 +21118,11 @@ class MainWindow(QMainWindow):
             for line, timestamp in batch
         ]
         self._log_lines.extend(records)
+        banner_len = min(getattr(self, "_log_banner_len", 0),
+                         len(self._log_lines))
+        excess = len(self._log_lines) - self._LOG_DISPLAY_LIMIT
+        if excess > 0:
+            del self._log_lines[banner_len:banner_len + excess]
         file_error = self._write_log_file(batch)
         if file_error:
             self._report_log_file_failure()
@@ -21199,6 +21218,7 @@ class MainWindow(QMainWindow):
         self._flush_all_logs()
         banner = getattr(self, "_log_banner_len", 0)
         self._log_lines = getattr(self, "_log_lines", [])[:banner]
+        self._replace_log_file(self._log_lines)
         self._render_log()
 
     def _open_logs_folder(self):
@@ -21216,22 +21236,26 @@ class MainWindow(QMainWindow):
         """Upload the session log to a paste host and hand back a short URL -
         what a user needs when a bug report asks for their log.
 
-        Uploads the FULL retained log, not the on-screen view: an Error/Warning
+        Uploads the FULL on-disk log, not the bounded on-screen view: an Error/Warning
         filter is a reading aid, and a log stripped of everything but its error
         lines is close to useless for diagnosing one."""
         self._flush_all_logs()
         lines = getattr(self, "_log_lines", [])
-        if not lines:
+        log_file = getattr(self, "_log_file", None)
+        if not lines and (log_file is None or not log_file.is_file()):
             self._notify(self.tr("The log is empty."), "warning")
             return
-        text = "\n".join(f"[{ts}]  {line}" for line, _sev, ts in lines)
 
         def _done(url):
             if url:
                 self._append_log(f"[log] uploaded → {url}")
 
         from gui_qt.log_upload_overlay import LogUploadOverlay
-        LogUploadOverlay(self.window(), text, on_done=_done)
+        if log_file is not None and log_file.is_file():
+            LogUploadOverlay(self.window(), log_path=log_file, on_done=_done)
+        else:
+            text = "\n".join(f"[{ts}]  {line}" for line, _sev, ts in lines)
+            LogUploadOverlay(self.window(), text, on_done=_done)
 
     def _open_log_tab(self):
         """Open the log as a full-screen (detachable) tab. It mirrors the docked
