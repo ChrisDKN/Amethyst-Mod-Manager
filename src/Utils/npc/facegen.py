@@ -20,11 +20,13 @@ import math
 import mmap
 import re
 import struct
+import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from Utils.bethesda.strings import is_localised
 from Utils.assets.texture_sets import _iter_subrecords, _record_payload
+from Utils.memory_cache import ByteLruCache
 
 # FaceGen meshes are named for the NPC's FormID, under a folder named for the
 # plugin that owns the record.
@@ -151,7 +153,9 @@ def _decode_color_form(data: bytes, flags: int):
     return None, None
 
 
-_cache: dict[str, tuple[float, int, PluginForms]] = {}
+_cache = ByteLruCache(32 * 1024 * 1024)
+_cache_lock = threading.Lock()
+_parse_locks: dict[str, threading.Lock] = {}
 
 
 def _parse_cached(path: Path) -> "PluginForms | None":
@@ -163,12 +167,28 @@ def _parse_cached(path: Path) -> "PluginForms | None":
     hit = _cache.get(key)
     if hit is not None and hit[0] == st.st_mtime and hit[1] == st.st_size:
         return hit[2]
-    try:
-        parsed = parse_plugin_forms(path)
-    except Exception:                                    # noqa: BLE001
-        parsed = PluginForms(name=path.name.lower())
-    _cache[key] = (st.st_mtime, st.st_size, parsed)
-    return parsed
+    with _cache_lock:
+        build_lock = _parse_locks.setdefault(key, threading.Lock())
+    with build_lock:
+        try:
+            st = path.stat()
+        except OSError:
+            with _cache_lock:
+                _parse_locks.pop(key, None)
+            return None
+        hit = _cache.get(key)
+        if hit is not None and hit[0] == st.st_mtime and hit[1] == st.st_size:
+            with _cache_lock:
+                _parse_locks.pop(key, None)
+            return hit[2]
+        try:
+            parsed = parse_plugin_forms(path)
+        except Exception:                                # noqa: BLE001
+            parsed = PluginForms(name=path.name.lower())
+        _cache.put(key, (st.st_mtime, st.st_size, parsed))
+        with _cache_lock:
+            _parse_locks.pop(key, None)
+        return parsed
 
 
 def _small_plugins(dirs) -> list[Path]:

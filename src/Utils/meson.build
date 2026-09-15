@@ -43,5 +43,6 @@ py.install_sources(
   'config_paths.py',
   'fs_check.py',
   'hardlink_check.py',
+  'memory_cache.py',
   subdir: 'Utils',
 )
