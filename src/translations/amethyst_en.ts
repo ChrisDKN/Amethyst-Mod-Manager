@@ -143,6 +143,14 @@ Choose Roads or Paths Only, click Generate, then close it when finished.</transl
         <translation>Transfers over the network</translation>
     </message>
     <message>
+        <source>Installation work</source>
+        <translation>Installation work</translation>
+    </message>
+    <message>
+        <source>Counts active reconstruction steps after verified reusable files are excluded. Binary patches include merged-patch outputs.</source>
+        <translation>Counts active reconstruction steps after verified reusable files are excluded. Binary patches include merged-patch outputs.</translation>
+    </message>
+    <message>
         <source>Not checked</source>
         <translation>Not checked</translation>
     </message>
@@ -165,6 +173,30 @@ Choose Roads or Paths Only, click Generate, then close it when finished.</transl
     <message>
         <source>Nothing to download</source>
         <translation>Nothing to download</translation>
+    </message>
+    <message>
+        <source>1 binary patch</source>
+        <translation>1 binary patch</translation>
+    </message>
+    <message>
+        <source>{0} binary patches</source>
+        <translation>{0} binary patches</translation>
+    </message>
+    <message>
+        <source>1 texture conversion</source>
+        <translation>1 texture conversion</translation>
+    </message>
+    <message>
+        <source>{0} texture conversions</source>
+        <translation>{0} texture conversions</translation>
+    </message>
+    <message>
+        <source>1 archive build</source>
+        <translation>1 archive build</translation>
+    </message>
+    <message>
+        <source>{0} archive builds</source>
+        <translation>{0} archive builds</translation>
     </message>
     <message>
         <source>1 required game file is missing or differs.</source>

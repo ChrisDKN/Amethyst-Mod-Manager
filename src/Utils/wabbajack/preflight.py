@@ -639,6 +639,11 @@ def _preflight(request, stop, notify, log=None):
     ignored_directives = excluded_directives(request, adapter) if adapter else optional
     required = required_directives(package, reusable, ignored_directives)
     pending = [d for d in package.directives if d.path in required and d.path not in reusable]
+    report.install_work = {
+        "binary_patches": sum(d.kind in {"PatchedFromArchive", "MergedPatch"} for d in pending),
+        "texture_conversions": sum(d.kind == "TransformedTexture" for d in pending),
+        "archive_builds": sum(d.kind == "CreateBSA" for d in pending),
+    }
     required_archives = {archive_paths[d.index][0] for d in pending if d.index in archive_paths}
     ignored_archives = {archive_paths[d.index][0] for d in package.directives
                         if d.path in optional and d.index in archive_paths} - required_archives
@@ -646,6 +651,7 @@ def _preflight(request, stop, notify, log=None):
     emit(log, "preflight.reuse", root_outputs=len(root_reuse),
          staged_outputs=len(stage_reuse), prior_outputs=len(old_outputs),
          pending_directives=len(pending), ignored_directives=len(ignored_directives),
+         install_work=report.install_work,
          required_archives=len(required_archives), ignored_archives=len(ignored_archives))
     from Utils.downloads.core import get_scan_dirs
     from .acquire import ArchiveCacheIndex

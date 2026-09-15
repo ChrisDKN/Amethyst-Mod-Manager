@@ -88,6 +88,7 @@ class PreflightReport:
     timings: dict[str, float] = field(default_factory=dict)
     cache_index: ArchiveCacheIndex | None = field(default=None, repr=False, compare=False)
     archive_budget_bytes: int = 0
+    install_work: dict[str, int] = field(default_factory=dict)
 
     @property
     def ok(self):
