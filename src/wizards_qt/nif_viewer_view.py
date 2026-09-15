@@ -283,9 +283,9 @@ class NifViewerView(QWidget):
             return
         self._open_entry(match)
 
-    def _finish(self):
+    def _begin_close(self):
         if self._closing:
-            return
+            return False
         self._closing = True
         self._selection_timer.stop()
         self._gen += 1            # abandon any in-flight scan
@@ -295,7 +295,15 @@ class NifViewerView(QWidget):
         self._mesh_reads.discard_pending()
         self._tex_sources.cancel()
         self._preview.cancel_load()
+        return True
+
+    def _finish(self):
+        if not self._begin_close():
+            return
         self._on_close_cb()
+
+    def tab_closing(self):
+        self._begin_close()
 
     def event(self, e):
         # close_tab deleteLater()s THIS host; the embedded preview never gets
@@ -304,7 +312,7 @@ class NifViewerView(QWidget):
         # deref in QOpenGLTexture's destructor).
         if e.type() == QEvent.DeferredDelete:
             try:
-                self._preview.cancel_load()
+                self._begin_close()
                 self._preview._view.release_gl()
             except Exception:                            # noqa: BLE001
                 pass
