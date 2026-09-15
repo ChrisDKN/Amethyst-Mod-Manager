@@ -2916,6 +2916,7 @@ class NexusAPI:
             latestPublishedRevision {
                 revisionNumber
                 collectionSchemaId
+                gameVersions { reference }
                 modCount totalSize assetsSizeBytes
                 downloadLink
                 modFiles {
@@ -2936,6 +2937,7 @@ class NexusAPI:
         collectionRevision(slug: $slug, domainName: $domain, revision: $revision) {
             revisionNumber
             collectionSchemaId
+            gameVersions { reference }
             modCount totalSize assetsSizeBytes
             downloadLink
             modFiles {
@@ -3029,6 +3031,15 @@ class NexusAPI:
                 rev = rev_data.get("data", {}).get("collectionRevision") or {}
             else:
                 rev = latest_rev
+
+            game_versions = []
+            for item in (rev.get("gameVersions") or []):
+                reference = (item.get("reference") if isinstance(item, dict)
+                             else item)
+                reference = str(reference or "").strip()
+                if reference:
+                    game_versions.append(reference)
+            card["game_versions"] = game_versions
 
             schema_id_value = rev.get("collectionSchemaId")
             if schema_id_value is not None:

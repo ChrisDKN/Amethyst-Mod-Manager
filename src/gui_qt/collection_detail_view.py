@@ -135,6 +135,7 @@ class CollectionDetailView(QWidget):
         self._revisions_list: list[dict] = []
         self._detail_token = 0                     # guards stale revision fetches
         self._unsupported_collection_schema = False
+        self._game_versions: list[str] = []
 
         self.setObjectName("CollectionDetailView")
         self._detail_ready.connect(self._on_detail_ready)
@@ -151,6 +152,14 @@ class CollectionDetailView(QWidget):
         (no API). Port of the Tk CollectionsDialog._fetch_from_local_manifest."""
         from Nexus.nexus_api import NexusCollectionMod as _NCM
         cj = self._local_manifest or {}
+        info = cj.get("info") or {}
+        if not isinstance(info, dict):
+            info = {}
+        self._game_versions = [
+            str(version or "").strip()
+            for version in (info.get("gameVersions") or [])
+            if str(version or "").strip()
+        ]
         schema_mods = cj.get("mods", [])
         mods = []
         total_size = 0
@@ -452,6 +461,11 @@ class CollectionDetailView(QWidget):
         self._unsupported_collection_schema = False
         self._install_btn.setEnabled(True)
         self._install_btn.setToolTip("")
+        self._game_versions = [
+            str(version or "").strip()
+            for version in ((card or {}).get("game_versions") or [])
+            if str(version or "").strip()
+        ]
         # Enrich the (possibly bare NXM/"Open Current") collection with the
         # display fields we just fetched, so an append records a full card
         # (image + stats) into installed_collections/<slug>.json.
@@ -880,6 +894,14 @@ class CollectionDetailView(QWidget):
         if token != self._detail_token:
             return                       # a newer revision switch superseded this
         self._offsite = list(offsite or [])
+        info = ((manifest.get("info") or {})
+                if isinstance(manifest, dict) else {})
+        if isinstance(info, dict):
+            versions = [str(version or "").strip()
+                        for version in (info.get("gameVersions") or [])
+                        if str(version or "").strip()]
+            if versions:
+                self._game_versions = versions
         if manifest and self._apply_manifest_overrides(manifest):
             self._fill_table()
             self._fill_optional()
@@ -961,6 +983,10 @@ class CollectionDetailView(QWidget):
     @property
     def download_link_path(self):
         return self._dl_path
+
+    @property
+    def game_versions(self) -> tuple[str, ...]:
+        return tuple(self._game_versions)
 
     def _on_install_clicked(self):
         chosen, skipped = self.optional_selection()

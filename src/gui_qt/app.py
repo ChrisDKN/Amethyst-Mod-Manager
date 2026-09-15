@@ -6330,7 +6330,7 @@ class MainWindow(QMainWindow):
 
     # ---- Collection install (premium auto / non-premium manual) ----------
     def _install_collection(self, collection, detail_view, chosen, skipped,
-                            intent="install"):
+                            intent="install", *, version_confirmed=False):
         """Start a collection install: check premium (premium → automatic
         downloads, non-premium → manual per-mod download prompts), create a new
         profile, then run the neutral orchestrator on a daemon thread with every
@@ -6368,11 +6368,6 @@ class MainWindow(QMainWindow):
                 self._notify(self.tr("Log in first: Nexus ▸ Login to Nexus."),
                              "warning")
                 return
-        # Latched ONCE for the whole run. Re-reading it later would let a toggle
-        # mid-flight mix the two modes - worst case an Update that has already
-        # removed the outgoing mods then downloads their replacements instead of
-        # installing them, leaving the profile gutted.
-        self._col_download_only = self._download_only_active()
         dl_path = getattr(detail_view, "download_link_path", "") or ""
         revision_number = getattr(detail_view, "_revision_number", None)
         if revision_number is None and hasattr(detail_view, "_resolved_viewing_revision"):
@@ -6418,6 +6413,38 @@ class MainWindow(QMainWindow):
         # Off-site mods (manual downloads) from the detail view's manifest -
         # remembered so the completion handler can remind the user about them.
         offsite = list(getattr(detail_view, "_offsite", None) or [])
+
+        if not version_confirmed:
+            from Utils.collections.export import collection_game_version_mismatch
+            mismatch = collection_game_version_mismatch(
+                game, getattr(detail_view, "game_versions", ()))
+            if mismatch is not None:
+                installed, expected = mismatch
+                expected_text = self.tr(" or ").join(expected)
+                body = self.tr(
+                    "This collection was made for game version {0}, but the "
+                    "default profile uses game version {1}.\n\n"
+                    "The collection may not work correctly. You can still "
+                    "install it."
+                ).format(expected_text, installed)
+                self._append_log(
+                    f"[collection] game version mismatch: expected "
+                    f"{expected_text}, default profile has {installed}")
+                from gui_qt.confirm_overlay import ConfirmOverlay
+                ConfirmOverlay.show_over(
+                    self, self.tr("Game version mismatch"), body,
+                    lambda ok: self._install_collection(
+                        collection, detail_view, chosen, skipped, intent,
+                        version_confirmed=True) if ok else None,
+                    confirm_label=self.tr("Install anyway"),
+                    cancel_label=self.tr("Cancel"), danger=False)
+                return
+
+        # Latched ONCE for the whole run. Re-reading it later would let a toggle
+        # mid-flight mix the two modes - worst case an Update that has already
+        # removed the outgoing mods then downloads their replacements instead of
+        # installing them, leaving the profile gutted.
+        self._col_download_only = self._download_only_active()
 
         # Premium gate runs off-thread (validate() is rate-limited); on success it
         # creates the profile + starts the pipeline, all marshaled back to the UI.

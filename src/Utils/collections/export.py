@@ -315,6 +315,12 @@ _VERSION_EXE_SKIP = re.compile(
     r"^(unins|setup|launcher|crash|dxsetup|vc_?redist|ue4prereq|dotnet)",
     re.IGNORECASE)
 
+_COLLECTION_VERSION_CHECK_GAME_IDS = frozenset({
+    "skyrim", "skyrim_se", "skyrimvr",
+    "Fallout4", "Fallout4VR", "FalloutNV", "Fallout3", "Fallout3GOTY",
+    "Oblivion",
+})
+
 
 def detect_game_version(game, root=None) -> str:
     """Best-effort installed-game version from top-level exe version resources."""
@@ -335,6 +341,58 @@ def detect_game_version(game, root=None) -> str:
     except Exception:
         pass
     return ""
+
+
+def detect_default_profile_game_version(game) -> str:
+    """Best-effort version of the game path configured by the default profile."""
+    if game is None:
+        return ""
+    root = None
+    try:
+        raw = game._read_global_paths().get("game_path", "")
+        if raw:
+            root = Path(raw)
+    except Exception:
+        pass
+    if root is None:
+        try:
+            if game._is_default_profile():
+                root = game.get_game_path()
+        except Exception:
+            pass
+    return detect_game_version(game, root=root) if root else ""
+
+
+def _normalise_game_version(version: str):
+    value = str(version or "").strip().lower()
+    if value.startswith("v"):
+        value = value[1:].strip()
+    if re.fullmatch(r"\d+(?:\.\d+)*", value):
+        parts = [int(part) for part in value.split(".")]
+        while len(parts) > 1 and parts[-1] == 0:
+            parts.pop()
+        return tuple(parts)
+    return value
+
+
+def collection_game_version_mismatch(game, collection_versions):
+    """Return ``(installed, expected)`` for a supported-game mismatch."""
+    try:
+        if game.game_id not in _COLLECTION_VERSION_CHECK_GAME_IDS:
+            return None
+    except Exception:
+        return None
+    expected = [str(version or "").strip()
+                for version in (collection_versions or [])
+                if str(version or "").strip()]
+    installed = detect_default_profile_game_version(game)
+    if not installed or not expected:
+        return None
+    installed_key = _normalise_game_version(installed)
+    if any(_normalise_game_version(version) == installed_key
+           for version in expected):
+        return None
+    return installed, expected
 
 
 # ---------------------------------------------------------------------------

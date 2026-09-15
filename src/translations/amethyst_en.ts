@@ -7125,6 +7125,26 @@ Remove the appended-collection entry?</translation>
         <translation>This collection has no installable mods.</translation>
     </message>
     <message>
+        <source> or </source>
+        <translation> or </translation>
+    </message>
+    <message>
+        <source>This collection was made for game version {0}, but the default profile uses game version {1}.
+
+The collection may not work correctly. You can still install it.</source>
+        <translation>This collection was made for game version {0}, but the default profile uses game version {1}.
+
+The collection may not work correctly. You can still install it.</translation>
+    </message>
+    <message>
+        <source>Game version mismatch</source>
+        <translation>Game version mismatch</translation>
+    </message>
+    <message>
+        <source>Install anyway</source>
+        <translation>Install anyway</translation>
+    </message>
+    <message>
         <source>Checking Nexus account…</source>
         <translation>Checking Nexus account…</translation>
     </message>
