@@ -109,6 +109,7 @@ class AssetResolver:
             except Exception:
                 snapshot = None
         self.snapshot = snapshot
+        self._cache_namespace = object()
 
         self._dirs = _DirCache()
         self._loose: dict[str, str] | None = None      # rel_key -> mod name

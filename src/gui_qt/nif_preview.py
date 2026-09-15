@@ -60,11 +60,10 @@ PREVIEW_EXTS = {".nif"}
 # exhausts memory on a handheld.
 TEXTURE_MAX_DIM = 1024
 
-# NPCs repeatedly share body, eye, mouth and armour maps.  Keep their capped
-# CPU images across preview loads, but put a hard ceiling on it: 160 MiB holds
-# roughly forty 1024x1024 RGBA maps and cannot grow with a long browsing
-# session.  GPU textures remain scene-owned and are released normally.
-TEXTURE_CACHE_BYTES = 160 * 1024 * 1024
+# NPCs repeatedly share body, eye, mouth and armour maps. Keep one process-wide
+# CPU cache so opening more preview tabs does not multiply its memory ceiling.
+# GPU textures remain scene-owned and are released normally.
+TEXTURE_CACHE_BYTES = 96 * 1024 * 1024
 
 _CACHE_MISS = object()
 
@@ -124,6 +123,9 @@ class _DecodedTextureCache:
     def usage(self) -> tuple[int, int]:
         with self._lock:
             return len(self._items), self._bytes
+
+
+_DECODED_TEXTURES = _DecodedTextureCache()
 
 
 _IDENTITY_ROT = (1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
@@ -913,12 +915,27 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
     shared_namespace = None
     fallback_namespace = None
     if decoded_cache is not None and override is None:
-        if resolver is not None:
-            shared_namespace = ("resolver", resolver)
+        if resolver is not None and resolver.snapshot is not None:
+            snapshot = resolver.snapshot
+            shared_namespace = (
+                "resolver", str(resolver.profile_dir), snapshot.generation,
+                snapshot.inventory_generation,
+            )
             archive_paths = getattr(archives, "_archives", ()) if archives else ()
             if archives is not None:
                 fallback_namespace = (
-                    "resolver-fallback", resolver,
+                    "resolver-fallback", shared_namespace,
+                    tuple(source_stamp(Path(p)) for p in archive_paths),
+                    id(archives) if not archive_paths else 0,
+                )
+        elif resolver is not None:
+            shared_namespace = (
+                "resolver-instance", resolver._cache_namespace,
+            )
+            archive_paths = getattr(archives, "_archives", ()) if archives else ()
+            if archives is not None:
+                fallback_namespace = (
+                    "resolver-fallback", shared_namespace,
                     tuple(source_stamp(Path(p)) for p in archive_paths),
                     id(archives) if not archive_paths else 0,
                 )
@@ -2174,7 +2191,7 @@ class _Viewport(QOpenGLWidget):
         self._gl_error = ""
         self._generation = 0
         self._load_jobs = LatestWorker("nif-preview-load")
-        self._decoded_textures = _DecodedTextureCache()
+        self._decoded_textures = _DECODED_TEXTURES
         # Parsing, plugin overrides, hair tint and Starfield .mesh expansion
         # are invariant when only the texture source/slot changes.
         self._cached_model_key = None
