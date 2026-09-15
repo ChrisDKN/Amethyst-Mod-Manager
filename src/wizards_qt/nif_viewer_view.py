@@ -33,7 +33,7 @@ from gui_qt.worker import LatestWorker
 from Utils.assets.resolver import DirCache
 from Utils.assets.catalog import (
     DATA_ARCHIVE, DATA_LOOSE, DEFAULT_PREFIX, MOD_ARCHIVE, MOD_LOOSE,
-    build_catalog, read_entry, source_label,
+    build_catalog_cached, read_entry, source_label,
 )
 
 if TYPE_CHECKING:
@@ -262,7 +262,7 @@ class NifViewerView(QWidget):
         self._tex_sources.cancel()
         self._preview.clear(self.tr("Scanning…"))
         self._log("NIF Viewer: refreshing from the profile…")
-        self._start_scan()
+        self._start_scan(refresh=True)
 
     def _restore_selection(self):
         """Re-open the mesh that was on screen before a refresh, by PATH.
@@ -319,7 +319,7 @@ class NifViewerView(QWidget):
         return super().event(e)
 
     # ---- scan -------------------------------------------------------------
-    def _start_scan(self):
+    def _start_scan(self, *, refresh: bool = False):
         self._selection_timer.stop()
         self._gen += 1
         gen = self._gen
@@ -344,10 +344,10 @@ class NifViewerView(QWidget):
 
         def worker():
             try:
-                entries = build_catalog(
+                entries = build_catalog_cached(
                     self._resolver, self._staging, self._modlist, self._data,
                     extra_mods=(self._mod,) if self._mod else (),
-                    cancel=lambda: gen != self._gen)
+                    cancel=lambda: gen != self._gen, refresh=refresh)
             except Exception as exc:                     # noqa: BLE001
                 self._log(f"NIF Viewer: scan failed: {exc}")
                 entries = []
