@@ -53,6 +53,45 @@ def _storage(path):
     return str(node), rotational
 
 
+def _cpu_times():
+    try:
+        fields = Path("/proc/stat").read_text().splitlines()[0].split()[1:]
+        values = [int(value) for value in fields]
+        idle = values[3] + (values[4] if len(values) > 4 else 0)
+        return sum(values[:8]), idle
+    except (OSError, ValueError, IndexError):
+        return None
+
+
+def _disk_bytes(nodes):
+    read_sectors = write_sectors = 0
+    found = False
+    for node in nodes:
+        try:
+            fields = (Path(node) / "stat").read_text().split()
+            read_sectors += int(fields[2])
+            write_sectors += int(fields[6])
+            found = True
+        except (OSError, ValueError, IndexError):
+            pass
+    if not found:
+        return None
+    return read_sectors * 512, write_sectors * 512
+
+
+def _memory():
+    total = available = 0
+    try:
+        for line in Path("/proc/meminfo").read_text().splitlines():
+            if line.startswith("MemTotal:"):
+                total = int(line.split()[1]) * 1024
+            elif line.startswith("MemAvailable:"):
+                available = int(line.split()[1]) * 1024
+    except (OSError, ValueError, IndexError):
+        pass
+    return total, available or _get_available_memory_bytes()
+
+
 def _pressure():
     result = {}
     for resource in ("cpu", "io", "memory"):
@@ -64,18 +103,20 @@ def _pressure():
                 result[f"{resource}_{kind}"] = float(values["avg10"])
         except (OSError, ValueError, KeyError):
             pass
-    result["available_memory"] = _get_available_memory_bytes()
+    result["total_memory"], result["available_memory"] = _memory()
     return result
 
 
 class InstallResources:
     def __init__(self, workers, downloads, staging, network_snapshot, download_bytes,
-                 costs, *, blocked=None, on_event=None, on_state=None):
+                 costs, *, blocked=None, on_event=None, on_state=None,
+                 on_system_stats=None):
         self.workers = workers
         self.network_snapshot = network_snapshot
         self.blocked = blocked or (lambda: False)
         self.on_event = on_event
         self.on_state = on_state
+        self.on_system_stats = on_system_stats
         self.cpu_count = getattr(os, "process_cpu_count", os.cpu_count)() or 1
         self.memory = ExtractionMemoryBudget(max_workers=max(1, os.cpu_count() or 1), max_large_workers=2)
         self.space = ExtractionSpaceBudget()
@@ -83,6 +124,7 @@ class InstallResources:
         self.cpu_limit = max(1, self.cpu_count // 2)
         source, _ = _storage(downloads)
         target, rotational = _storage(staging)
+        self._storage_nodes = tuple(dict.fromkeys((source, target)))
         self.shared_rotational = source == target and rotational is True
         self._cv = threading.Condition()
         self._closed = threading.Event()
@@ -131,6 +173,14 @@ class InstallResources:
                 state = self._state_locked()
         try:
             self.on_state(*state)
+        except Exception:
+            pass
+
+    def _publish_system_stats(self, sample):
+        if self.on_system_stats is None:
+            return
+        try:
+            self.on_system_stats(dict(sample))
         except Exception:
             pass
 
@@ -327,6 +377,8 @@ class InstallResources:
             previous_time = time.monotonic()
             previous_bytes = self.network_snapshot()[0]
             previous_work = 0.0
+            previous_cpu = _cpu_times()
+            previous_disk = _disk_bytes(self._storage_nodes)
             while not self._closed.wait(2):
                 try:
                     now = time.monotonic()
@@ -334,9 +386,27 @@ class InstallResources:
                     with self._cv:
                         current_work = self._completed_work
                     elapsed = max(0.001, now - previous_time)
-                    self._adjust(_pressure(), max(0, current_bytes - previous_bytes) / elapsed,
-                                 max(0, current_work - previous_work) / elapsed, network_active, now)
+                    sample = _pressure()
+                    current_cpu = _cpu_times()
+                    if previous_cpu is not None and current_cpu is not None:
+                        total_delta = current_cpu[0] - previous_cpu[0]
+                        idle_delta = current_cpu[1] - previous_cpu[1]
+                        if total_delta > 0:
+                            sample["cpu_percent"] = max(
+                                0.0, min(100.0, 100.0 * (total_delta - idle_delta) / total_delta))
+                    current_disk = _disk_bytes(self._storage_nodes)
+                    if previous_disk is not None and current_disk is not None:
+                        sample["disk_read_bytes_per_second"] = max(
+                            0.0, current_disk[0] - previous_disk[0]) / elapsed
+                        sample["disk_write_bytes_per_second"] = max(
+                            0.0, current_disk[1] - previous_disk[1]) / elapsed
+                    self._adjust(
+                        sample, max(0, current_bytes - previous_bytes) / elapsed,
+                        max(0, current_work - previous_work) / elapsed,
+                        network_active, now)
+                    self._publish_system_stats(sample)
                     previous_time, previous_bytes, previous_work = now, current_bytes, current_work
+                    previous_cpu, previous_disk = current_cpu, current_disk
                 except Exception as exc:
                     with self._cv:
                         self._reason = "Monitoring unavailable"

@@ -2016,6 +2016,10 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack 
         <translation>Preparing…</translation>
     </message>
     <message>
+        <source>System-wide values refreshed every two seconds. Disk R/W is block-device traffic on the install storage devices. I/O pressure is the share of the last 10 seconds in which at least one task was stalled on I/O; a high value can make the desktop lag even when CPU and RAM are not full.</source>
+        <translation>System-wide values refreshed every two seconds. Disk R/W is block-device traffic on the install storage devices. I/O pressure is the share of the last 10 seconds in which at least one task was stalled on I/O; a high value can make the desktop lag even when CPU and RAM are not full.</translation>
+    </message>
+    <message>
         <source>Downloading</source>
         <translation>Downloading</translation>
     </message>
@@ -2134,6 +2138,22 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack 
     <message>
         <source>{0} extraction jobs are active. The scheduler currently allows {1} of your configured maximum of {2}. Reason: {3}</source>
         <translation>{0} extraction jobs are active. The scheduler currently allows {1} of your configured maximum of {2}. Reason: {3}</translation>
+    </message>
+    <message>
+        <source>CPU {0}%</source>
+        <translation>CPU {0}%</translation>
+    </message>
+    <message>
+        <source>RAM {0}/{1} GB</source>
+        <translation>RAM {0}/{1} GB</translation>
+    </message>
+    <message>
+        <source>Disk R {0} · W {1} MB/s</source>
+        <translation>Disk R {0} · W {1} MB/s</translation>
+    </message>
+    <message>
+        <source>I/O pressure {0}%</source>
+        <translation>I/O pressure {0}%</translation>
     </message>
     <message>
         <source>- Waiting for extraction capacity</source>

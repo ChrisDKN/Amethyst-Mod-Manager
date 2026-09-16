@@ -1843,7 +1843,8 @@ def run_collection_install(
                 ctl.extract_workers, downloads, staging_path, network_snapshot,
                 sum(_expected_size(mod) for mod in to_download),
                 {mod.file_id: max(1, _expected_size(mod)) for mod in to_download},
-                on_event=resource_event, on_state=cb.on_extract_state)
+                on_event=resource_event, on_state=cb.on_extract_state,
+                on_system_stats=cb.on_system_stats)
             _ready_budget = min(4 * 1024 ** 3, max(256 * 1024 ** 2,
                                 shutil.disk_usage(downloads).free // 16))
             resources.emit("install.pipeline.configured", ready_budget_bytes=_ready_budget,

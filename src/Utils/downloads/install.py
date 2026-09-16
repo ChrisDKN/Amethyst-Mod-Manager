@@ -78,6 +78,7 @@ class InstallCallbacks:
     on_extract_update: Callable[[int, int, int], None] = _noop  # file_id,cur,tot (tot 0 = busy)
     on_extract_remove: Callable[[int], None] = _noop
     on_extract_state: Callable[[int, int, int, str], None] = _noop
+    on_system_stats: Callable[[dict], None] = _noop
     on_row_installed: Callable[[int], None] = _noop            # file_id landed
     # manual (non-premium) mode - current-mod card payload dict
     on_manual_mod: Callable[[dict], None] = _noop

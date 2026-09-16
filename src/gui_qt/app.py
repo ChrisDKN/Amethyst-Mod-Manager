@@ -424,7 +424,7 @@ class MainWindow(QMainWindow):
     _col_agg = Signal("qlonglong", "qlonglong", float)  # bytes cur, total, MB/s (64-bit: >2GB)
     _col_display_total = Signal("qlonglong")   # true collection size (bytes, 64-bit)
     _col_dl = Signal(str, object)              # ("start"|"update"|"finish", payload)
-    _col_extract = Signal(str, object)         # ("queue"|"add"|"update"|"remove", payload)
+    _col_extract = Signal(str, object)         # extraction/state/stats verb, payload
     _col_row = Signal(int)                     # file_id installed
     _col_manual = Signal(object)               # manual-mode current-mod payload dict
     _col_finished = Signal(str, object)        # ("done"|"paused"|"cancelled", payload)
@@ -7234,6 +7234,8 @@ class MainWindow(QMainWindow):
             on_extract_remove=lambda f: self._col_extract.emit("remove", f),
             on_extract_state=lambda e, a, c, r:
                 self._col_extract.emit("state", (e, a, c, r)),
+            on_system_stats=lambda stats:
+                self._col_extract.emit("stats", dict(stats)),
             on_row_installed=lambda f: self._col_row.emit(int(f)),
             on_manual_mod=lambda d: self._col_manual.emit(dict(d)),
             on_log=lambda m: self._append_log(str(m)),
@@ -7291,6 +7293,8 @@ class MainWindow(QMainWindow):
             ov.extract_remove(payload)
         elif verb == "state":
             ov.extract_state(*payload)
+        elif verb == "stats":
+            ov.system_stats(payload)
 
     def _on_col_row(self, file_id):
         if self._col_install_overlay is not None:

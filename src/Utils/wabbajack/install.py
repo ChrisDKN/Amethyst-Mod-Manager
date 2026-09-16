@@ -147,7 +147,8 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                 from .archive_cache import ready_budget
                 resources = contexts.enter_context(InstallResources(
                     ctl.extract_workers, request, acquire, priorities, log=cb.on_log,
-                    on_state=cb.on_extract_state))
+                    on_state=cb.on_extract_state,
+                    on_system_stats=cb.on_system_stats))
                 reconstruction.worker_limit = resources
                 update_extraction = cb.on_extract_update
                 def extraction_progress(row, current, total):

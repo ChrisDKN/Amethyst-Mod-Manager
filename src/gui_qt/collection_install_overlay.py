@@ -220,6 +220,17 @@ class CollectionInstallOverlay(QWidget):
         self._status_lbl.setStyleSheet(f"color:{self._c('TEXT_DIM')}; font-size:12px;")
         outer.addWidget(self._status_lbl)
 
+        self._system_stats_lbl = QLabel("", self._card)
+        self._system_stats_lbl.setStyleSheet(
+            f"color:{self._c('TEXT_DIM')}; font-size:11px;")
+        self._system_stats_lbl.setToolTip(self.tr(
+            "System-wide values refreshed every two seconds. Disk R/W is block-device "
+            "traffic on the install storage devices. I/O pressure is the share of the "
+            "last 10 seconds in which at least one task was stalled on I/O; a high "
+            "value can make the desktop lag even when CPU and RAM are not full."))
+        self._system_stats_lbl.hide()
+        outer.addWidget(self._system_stats_lbl)
+
         lists = QHBoxLayout()
         lists.setSpacing(10)
 
@@ -579,6 +590,29 @@ class CollectionInstallOverlay(QWidget):
             "{0} extraction jobs are active. The scheduler currently allows "
             "{1} of your configured maximum of {2}. Reason: {3}").format(
                 active, effective, configured, reason))
+
+    def system_stats(self, stats: dict):
+        parts = []
+        cpu = stats.get("cpu_percent")
+        if cpu is not None:
+            parts.append(self.tr("CPU {0}%").format(f"{float(cpu):.0f}"))
+        total = int(stats.get("total_memory") or 0)
+        available = int(stats.get("available_memory") or 0)
+        if total > 0:
+            used = max(0, min(total, total - available))
+            parts.append(self.tr("RAM {0}/{1} GB").format(
+                f"{used / 1024 ** 3:.1f}", f"{total / 1024 ** 3:.1f}"))
+        read_rate = stats.get("disk_read_bytes_per_second")
+        write_rate = stats.get("disk_write_bytes_per_second")
+        if read_rate is not None and write_rate is not None:
+            parts.append(self.tr("Disk R {0} · W {1} MB/s").format(
+                f"{float(read_rate) / 1024 ** 2:.1f}",
+                f"{float(write_rate) / 1024 ** 2:.1f}"))
+        io_wait = stats.get("io_some")
+        if io_wait is not None:
+            parts.append(self.tr("I/O pressure {0}%").format(f"{float(io_wait):.0f}"))
+        self._system_stats_lbl.setText("  ·  ".join(parts))
+        self._system_stats_lbl.setVisible(bool(parts))
 
     def extract_remove(self, file_id: int):
         self._extract_waiting.discard(file_id)
