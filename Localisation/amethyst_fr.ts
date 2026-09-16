@@ -1974,7 +1974,7 @@ Le cache md5 est préservé. Les archives seront retéléchargées au besoin. Le
     </message>
     <message>
       <source>Append collection</source>
-      <translation type="unfinished">Append collection</translation>
+      <translation>Ajouter une collection</translation>
     </message>
     <message>
       <source>Resume Install</source>
@@ -1994,7 +1994,7 @@ Le cache md5 est préservé. Les archives seront retéléchargées au besoin. Le
     </message>
     <message>
       <source>Mods ({0})</source>
-      <translation type="unfinished">Mods ({0})</translation>
+      <translation>Mods ({0})</translation>
     </message>
     <message>
       <source>No optional mods.</source>
@@ -2017,7 +2017,7 @@ Le cache md5 est préservé. Les archives seront retéléchargées au besoin. Le
     </message>
     <message>
       <source>System-wide values refreshed every second. Disk R/W is block-device traffic on the install storage devices. I/O pressure is the share of the last 10 seconds in which at least one task was stalled on I/O; a high value can make the desktop lag even when CPU and RAM are not full.</source>
-      <translation type="unfinished">System-wide values refreshed every second. Disk R/W is block-device traffic on the install storage devices. I/O pressure is the share of the last 10 seconds in which at least one task was stalled on I/O; a high value can make the desktop lag even when CPU and RAM are not full.</translation>
+      <translation>Les valeurs de l'ensemble du système ont été actualisées chaque seconde. Disque R/W est le trafic de l'appareil de blocage sur les périphériques de stockage installés. La pression d'E/S est la part des 10 dernières secondes au cours desquelles au moins une tâche a été bloquée sur les E/S ; une valeur élevée peut rendre le décalage du bureau même lorsque le CPU et la RAM ne sont pas pleins.</translation>
     </message>
     <message>
       <source>Downloading</source>
@@ -2113,7 +2113,7 @@ Le cache md5 est préservé. Les archives seront retéléchargées au besoin. Le
     </message>
     <message>
       <source>Storage pressure</source>
-      <translation type="unfinished">Storage pressure</translation>
+      <translation>Pression de stockage</translation>
     </message>
     <message>
       <source>Protecting downloads</source>
@@ -2145,19 +2145,19 @@ Le cache md5 est préservé. Les archives seront retéléchargées au besoin. Le
     </message>
     <message>
       <source>CPU {0}%</source>
-      <translation type="unfinished">CPU {0}%</translation>
+      <translation>CPU {0}%</translation>
     </message>
     <message>
       <source>RAM {0}/{1} GB</source>
-      <translation type="unfinished">RAM {0}/{1} GB</translation>
+      <translation>RAM {0}/{1} GB</translation>
     </message>
     <message>
       <source>Disk R {0} · W {1} MB/s</source>
-      <translation type="unfinished">Disk R {0} · W {1} MB/s</translation>
+      <translation>Disque R {0} · W {1} Mo/s</translation>
     </message>
     <message>
       <source>I/O pressure {0}%</source>
-      <translation type="unfinished">I/O pressure {0}%</translation>
+      <translation>Pression d'E/S {0}%</translation>
     </message>
     <message>
       <source>- Waiting for extraction capacity</source>
@@ -2279,75 +2279,75 @@ Le cache md5 est préservé. Les archives seront retéléchargées au besoin. Le
     <name>CollectionSetup</name>
     <message>
       <source>Create a new profile</source>
-      <translation type="unfinished">Create a new profile</translation>
+      <translation>Créer un nouveau profil</translation>
     </message>
     <message>
       <source>Append to existing profile</source>
-      <translation type="unfinished">Append to existing profile</translation>
+      <translation>Ajouter au profil existant</translation>
     </message>
     <message>
       <source>Group with</source>
-      <translation type="unfinished">Group with</translation>
+      <translation>Grouper avec</translation>
     </message>
     <message>
       <source>Install mode</source>
-      <translation type="unfinished">Install mode</translation>
+      <translation>Mode d'installation</translation>
     </message>
     <message>
       <source>Target</source>
-      <translation type="unfinished">Target</translation>
+      <translation>Target</translation>
     </message>
     <message>
       <source>Collection profile</source>
-      <translation type="unfinished">Collection profile</translation>
+      <translation>Profil de la collection</translation>
     </message>
     <message>
       <source>Group name</source>
-      <translation type="unfinished">Group name</translation>
+      <translation>Nom du groupe</translation>
     </message>
     <message>
       <source>Overwrite existing mods</source>
-      <translation type="unfinished">Overwrite existing mods</translation>
+      <translation>Écraser les mods existants</translation>
     </message>
     <message>
       <source>Skip already installed mods</source>
-      <translation type="unfinished">Skip already installed mods</translation>
+      <translation>Ignorer les mods déjà installés</translation>
     </message>
     <message>
       <source>Convert to profile-specific mods…</source>
-      <translation type="unfinished">Convert to profile-specific mods…</translation>
+      <translation>Convertir en mods spécifiques au profil…</translation>
     </message>
     <message>
       <source>Create a new collection profile</source>
-      <translation type="unfinished">Create a new collection profile</translation>
+      <translation>Créer un nouveau profil de collection</translation>
     </message>
     <message>
       <source>Group: {0}</source>
-      <translation type="unfinished">Group: {0}</translation>
+      <translation>La groupe: {0}</translation>
     </message>
     <message>
       <source>Profile: {0}</source>
-      <translation type="unfinished">Profile: {0}</translation>
+      <translation>Profil: {0}</translation>
     </message>
     <message>
       <source>Convert '{0}' before grouping. Its mods will be stored in its own profile.</source>
-      <translation type="unfinished">Convert '{0}' before grouping. Its mods will be stored in its own profile.</translation>
+      <translation>Convertir '{0}' avant le regroupement. Ses mods seront stockés dans son propre profil.</translation>
     </message>
     <message>
       <source>The collection keeps its own profile and gets highest member priority. Newer duplicate mod versions still win.</source>
-      <translation type="unfinished">The collection keeps its own profile and gets highest member priority. Newer duplicate mod versions still win.</translation>
+      <translation>La collection conserve son propre profil et obtient la priorité de membre la plus élevée. Les nouvelles versions de mod dupliquées gagnent toujours.</translation>
     </message>
     <message>
       <source>Complete this collection's installation before it is added to the group.</source>
-      <translation type="unfinished">Complete this collection's installation before it is added to the group.</translation>
+      <translation>Complétez l'installation de cette collection avant de l'ajouter au groupe.</translation>
     </message>
     <message>
       <source>The existing collection profile will be reused.</source>
-      <translation type="unfinished">The existing collection profile will be reused.</translation>
+      <translation>Le profil de collection existant sera réutilisé.</translation>
     </message>
     <message>
       <source>This collection requires its own profile. It can also be combined through Group with.</source>
-      <translation type="unfinished">This collection requires its own profile. It can also be combined through Group with.</translation>
+      <translation>Cette collection nécessite son propre profil. Elle peut également être combinée par le biais de Groupe.</translation>
     </message>
   </context>
   <context>
@@ -5036,7 +5036,7 @@ Fermez-le lorsque vous avez terminé, puis cliquez sur « Terminé ».</translat
     </message>
     <message>
       <source>Step 4: Choose Plugin (Optional)</source>
-      <translation type="unfinished">Step 4: Choose Plugin (Optional)</translation>
+      <translation>Étape 4 : Choisir le Plugin (facultatif)</translation>
     </message>
     <message>
       <source>Choose a plugin from a staged mod. EET receives that file directly, so the translation and supported sidecar-file changes stay in the owning mod folder. You can also open EET without a target and choose a staged file inside the application.</source>
@@ -5168,7 +5168,7 @@ Fermez-le lorsque vous avez terminé, puis cliquez sur « Terminé ».</translat
     </message>
     <message>
       <source> Any changes remain at the location chosen in EET, but redeploy failed; see log.</source>
-      <translation type="unfinished"> Any changes remain at the location chosen in EET, but redeploy failed; see log.</translation>
+      <translation> Tout changement reste à l'emplacement choisi dans l'EET, mais le redéploiement a échoué; voir le journal.</translation>
     </message>
     <message>
       <source> The staged changes remain safe, but redeploy failed; see log.</source>
@@ -5176,7 +5176,7 @@ Fermez-le lorsque vous avez terminé, puis cliquez sur « Terminé ».</translat
     </message>
     <message>
       <source>Any changes remain at the location chosen in EET.</source>
-      <translation type="unfinished">Any changes remain at the location chosen in EET.</translation>
+      <translation>Tous les changements restent au lieu choisi dans l'EEE.</translation>
     </message>
     <message>
       <source>Changes remain in the selected staged mod.</source>
@@ -5188,7 +5188,7 @@ Fermez-le lorsque vous avez terminé, puis cliquez sur « Terminé ».</translat
     </message>
     <message>
       <source>ESP-ESM Translator finished. Any file selected inside EET was changed in place.</source>
-      <translation type="unfinished">ESP-ESM Translator finished. Any file selected inside EET was changed in place.</translation>
+      <translation>Traducteur ESP-ESM terminé. Tous les fichiers sélectionnés dans EET ont été modifiés en place.</translation>
     </message>
     <message>
       <source>ESP-ESM Translator finished. Changes were saved directly to the selected staged mod.</source>
@@ -9539,83 +9539,83 @@ Exécuter une mise à jour rapide sur tous maintenant?</translation>
     </message>
     <message>
       <source>Wait for the current operation to finish before installing a collection.</source>
-      <translation type="unfinished">Wait for the current operation to finish before installing a collection.</translation>
+      <translation>Attendez que l'opération en cours se termine avant d'installer une collection.</translation>
     </message>
     <message>
       <source>Switch back to this collection's game before installing it.</source>
-      <translation type="unfinished">Switch back to this collection's game before installing it.</translation>
+      <translation>Revenez au jeu de cette collection avant de l'installer.</translation>
     </message>
     <message>
       <source>An install or deploy is in progress - try again shortly.</source>
-      <translation type="unfinished">An install or deploy is in progress - try again shortly.</translation>
+      <translation>Une installation ou un déploiement est en cours - essayez à nouveau sous peu.</translation>
     </message>
     <message>
       <source>This profile is locked.</source>
-      <translation type="unfinished">This profile is locked.</translation>
+      <translation>Ce profil est verrouillé.</translation>
     </message>
     <message>
       <source>Restore the deployed profile before converting it.</source>
-      <translation type="unfinished">Restore the deployed profile before converting it.</translation>
+      <translation>Restaurer le profil déployé avant de le convertir.</translation>
     </message>
     <message>
       <source>Profile conversion</source>
-      <translation type="unfinished">Profile conversion</translation>
+      <translation>Conversion de profil</translation>
     </message>
     <message>
       <source>Convert Profile</source>
-      <translation type="unfinished">Convert Profile</translation>
+      <translation>Convertir le profil</translation>
     </message>
     <message>
       <source>Convert '{0}' to profile-specific mods? Its listed mods are copied into its own mods folder, hardlinked where possible. The shared pool stays available to other profiles.</source>
-      <translation type="unfinished">Convert '{0}' to profile-specific mods? Its listed mods are copied into its own mods folder, hardlinked where possible. The shared pool stays available to other profiles.</translation>
+      <translation>Convertir '{0}' en mods spécifiques au profil ? Ses mods listés sont copiés dans son propre dossier de mods, reliés en dur dans la mesure du possible. La piscine partagée reste disponible pour d'autres profils.</translation>
     </message>
     <message>
       <source>Convert</source>
-      <translation type="unfinished">Convert</translation>
+      <translation>Convertir</translation>
     </message>
     <message>
       <source>Restore the deployed profile before grouping it.</source>
-      <translation type="unfinished">Restore the deployed profile before grouping it.</translation>
+      <translation>Restaurer le profil déployé avant de le regrouper.</translation>
     </message>
     <message>
       <source>Required installation work failed. Retry the collection installation.</source>
-      <translation type="unfinished">Required installation work failed. Retry the collection installation.</translation>
+      <translation>L'installation requise a échoué. Réessayez l'installation de la collection.</translation>
     </message>
     <message>
       <source>Updating profile group…</source>
-      <translation type="unfinished">Updating profile group…</translation>
+      <translation>Mise à jour du groupe de profil…</translation>
     </message>
     <message>
       <source>Grouping is pending. Choose the INI source when you retry.</source>
-      <translation type="unfinished">Grouping is pending. Choose the INI source when you retry.</translation>
+      <translation>Le groupement est en attente. Choisissez la source INI lorsque vous réessayez.</translation>
     </message>
     <message>
       <source>Which profile's INI files should the new group use?</source>
-      <translation type="unfinished">Which profile's INI files should the new group use?</translation>
+      <translation>Les fichiers INI de quel profil le nouveau groupe doit-il utiliser ?</translation>
     </message>
     <message>
       <source>Use these INIs</source>
-      <translation type="unfinished">Use these INIs</translation>
+      <translation>Utiliser ces INIs</translation>
     </message>
     <message>
       <source>Grouping pending</source>
-      <translation type="unfinished">Grouping pending</translation>
+      <translation>Regroupement en attente</translation>
     </message>
     <message>
       <source>Collection profile kept; grouping pending: {0}</source>
-      <translation type="unfinished">Collection profile kept; grouping pending: {0}</translation>
+      <translation>Profil de collection conservé; groupement en attente : {0}</translation>
     </message>
     <message>
       <source>Profile '{0}' converted.</source>
-      <translation type="unfinished">Profile '{0}' converted.</translation>
+      <translation>Profil '{0}' converti.</translation>
     </message>
     <message>
       <source>Collection grouped</source>
-      <translation type="unfinished">Collection grouped</translation>
+      <translation>Collection groupée</translation>
     </message>
     <message>
       <source>Collection added to group '{0}'.</source>
-      <translation type="unfinished">Collection added to group '{0}'.</translation>
+      <translation>Collection ajoutée au groupe '{0}'.</translation>
     </message>
     <message>
       <source>The active profile isn't a Wabbajack profile.</source>
@@ -9639,19 +9639,19 @@ Exécuter une mise à jour rapide sur tous maintenant?</translation>
     </message>
     <message>
       <source>This group has no collection profiles to reset.</source>
-      <translation type="unfinished">This group has no collection profiles to reset.</translation>
+      <translation>Ce groupe n'a aucun profil de collection à réinitialiser.</translation>
     </message>
     <message>
       <source>Choose the collection whose load order should be reset in this group.</source>
-      <translation type="unfinished">Choose the collection whose load order should be reset in this group.</translation>
+      <translation>Choisir la collection dont l'ordre de chargement doit être réinitialisé dans ce groupe.</translation>
     </message>
     <message>
       <source>Reset collection order</source>
-      <translation type="unfinished">Reset collection order</translation>
+      <translation>Réinitialiser l'ordre de collecte</translation>
     </message>
     <message>
       <source>Collection load-order reset</source>
-      <translation type="unfinished">Collection load-order reset</translation>
+      <translation>Remise en ordre de chargement de la collection</translation>
     </message>
     <message>
       <source>Load order reset - {0} mods ordered, {1} kept below.</source>
@@ -22204,183 +22204,183 @@ Lorsque vous la fermez, vos modifications sont automatiquement rétablies.</tran
     <name>XTranslatorView</name>
     <message>
       <source>xTranslator - {0}</source>
-      <translation type="unfinished">xTranslator - {0}</translation>
+      <translation>xTranslator - {0}</translation>
     </message>
     <message>
       <source>Step 1: Download xTranslator</source>
-      <translation type="unfinished">Step 1: Download xTranslator</translation>
+      <translation>Étape 1 : Télécharger xTranslator</translation>
     </message>
     <message>
       <source>Open the xTranslator files page on Starfield Nexus and download the main archive, then click Next.</source>
-      <translation type="unfinished">Open the xTranslator files page on Starfield Nexus and download the main archive, then click Next.</translation>
+      <translation>Ouvrez la page des fichiers xTranslator sur Starfield Nexus et téléchargez l'archive principale, puis cliquez sur Suivant.</translation>
     </message>
     <message>
       <source>Step 2: Locate the Archive</source>
-      <translation type="unfinished">Step 2: Locate the Archive</translation>
+      <translation>Étape 2 : Localiser l'archive</translation>
     </message>
     <message>
       <source>Step 3: Extract xTranslator</source>
-      <translation type="unfinished">Step 3: Extract xTranslator</translation>
+      <translation>Étape 3 : Extraire xTranslator</translation>
     </message>
     <message>
       <source>Step 7: Run xTranslator</source>
-      <translation type="unfinished">Step 7: Run xTranslator</translation>
+      <translation>Étape 7 : Exécuter xTranslator</translation>
     </message>
     <message>
       <source>Step 4: Choose Plugin (Optional)</source>
-      <translation type="unfinished">Step 4: Choose Plugin (Optional)</translation>
+      <translation>Étape 4 : Choisir le Plugin (facultatif)</translation>
     </message>
     <message>
       <source>Choose a plugin from a staged mod. xTranslator opens and saves that file directly in its owning mod, while masters and archives are read from the active profile's deployed Data view. You can also open xTranslator without a target and choose a staged file inside the application.</source>
-      <translation type="unfinished">Choose a plugin from a staged mod. xTranslator opens and saves that file directly in its owning mod, while masters and archives are read from the active profile's deployed Data view. You can also open xTranslator without a target and choose a staged file inside the application.</translation>
+      <translation>Choisissez un plugin à partir d'un mod. xTranslator ouvre et enregistre ce fichier directement dans son mod propriétaire, tandis que les maîtres et les archives sont lus à partir de la vue de données déployée du profil actif. Vous pouvez également ouvrir xTranslator sans cible et choisir un fichier staged à l'intérieur de l'application.</translation>
     </message>
     <message>
       <source>Plugin:</source>
-      <translation type="unfinished">Plugin:</translation>
+      <translation>Plugin:</translation>
     </message>
     <message>
       <source>Search staged plugins…</source>
-      <translation type="unfinished">Search staged plugins…</translation>
+      <translation>Rechercher les plugins staged…</translation>
     </message>
     <message>
       <source>Continue</source>
-      <translation type="unfinished">Continue</translation>
+      <translation>Continuer</translation>
     </message>
     <message>
       <source>Step 5: Prepare Game Data</source>
-      <translation type="unfinished">Step 5: Prepare Game Data</translation>
+      <translation>Étape 5 : Préparez les données du jeu</translation>
     </message>
     <message>
       <source>Deploy to give xTranslator the active profile's masters, strings, scripts, and archives. With VFS deployment, the wizard points xTranslator at Amethyst's published profile view; the real game Data folder is not populated.</source>
-      <translation type="unfinished">Deploy to give xTranslator the active profile's masters, strings, scripts, and archives. With VFS deployment, the wizard points xTranslator at Amethyst's published profile view; the real game Data folder is not populated.</translation>
+      <translation>Déployer pour donner à xTranslator les maîtres, chaînes de caractères, scripts et archives du profil actif. Avec le déploiement de VFS, l'assistant pointe xTranslator à la vue de profil publiée d'Amethyst; le dossier de données de jeu réel n'est pas rempli.</translation>
     </message>
     <message>
       <source>Skip</source>
-      <translation type="unfinished">Skip</translation>
+      <translation>Ignorer</translation>
     </message>
     <message>
       <source>Deploy</source>
-      <translation type="unfinished">Deploy</translation>
+      <translation>Déployer</translation>
     </message>
     <message>
       <source>Select the xTranslator archive</source>
-      <translation type="unfinished">Select the xTranslator archive</translation>
+      <translation>Sélectionnez l'archive xTranslator</translation>
     </message>
     <message>
       <source>xTranslator was not found in your download locations. Press Try Again, or use Browse to select the archive manually.</source>
-      <translation type="unfinished">xTranslator was not found in your download locations. Press Try Again, or use Browse to select the archive manually.</translation>
+      <translation>xTranslator n'a pas été trouvé dans vos emplacements de téléchargement. Appuyez sur Réessayer, ou utilisez Parcourir pour sélectionner l'archive manuellement.</translation>
     </message>
     <message>
       <source>Step 6: Choose Proton Version</source>
-      <translation type="unfinished">Step 6: Choose Proton Version</translation>
+      <translation>Étape 6 : Choisissez la version Proton</translation>
     </message>
     <message>
       <source>{0} was not found. Reopen the wizard and install xTranslator first.</source>
-      <translation type="unfinished">{0} was not found. Reopen the wizard and install xTranslator first.</translation>
+      <translation>{0} n'a pas été trouvé. Ouvrez l'assistant et installez xTranslator d'abord.</translation>
     </message>
     <message>
       <source>Scanning staged mods for plugins…</source>
-      <translation type="unfinished">Scanning staged mods for plugins…</translation>
+      <translation>Analyse des mods en pré-production pour les plugins…</translation>
     </message>
     <message>
       <source>Open xTranslator without a target</source>
-      <translation type="unfinished">Open xTranslator without a target</translation>
+      <translation>Ouvrir xTranslator sans cible</translation>
     </message>
     <message>
       <source>{0} / {1}</source>
-      <translation type="unfinished">{0} / {1}</translation>
+      <translation>{0} / {1}</translation>
     </message>
     <message>
       <source>No staged plugins were found. xTranslator will open without a target; choose a file inside the application.</source>
-      <translation type="unfinished">No staged plugins were found. xTranslator will open without a target; choose a file inside the application.</translation>
+      <translation>Aucun plugin staged n'a été trouvé. xTranslator s'ouvrira sans cible ; choisissez un fichier dans l'application.</translation>
     </message>
     <message>
       <source>xTranslator will open without a target plugin. Its game Data path will still be configured. Open files from a staged mod, not from the deployed Data view.</source>
-      <translation type="unfinished">xTranslator will open without a target plugin. Its game Data path will still be configured. Open files from a staged mod, not from the deployed Data view.</translation>
+      <translation>xTranslator s'ouvrira sans plugin cible. Le chemin de données du jeu sera toujours configuré. Ouvrir des fichiers à partir d'un mod en pré-production, pas à partir de la vue de données déployée.</translation>
     </message>
     <message>
       <source>Plugin path: {0}</source>
-      <translation type="unfinished">Plugin path: {0}</translation>
+      <translation>Chemin du plugin : {0}</translation>
     </message>
     <message>
       <source>The selected staged plugin is no longer available.</source>
-      <translation type="unfinished">The selected staged plugin is no longer available.</translation>
+      <translation>Le plugin sélectionné n'est plus disponible.</translation>
     </message>
     <message>
       <source>xTranslator</source>
-      <translation type="unfinished">xTranslator</translation>
+      <translation>xTranslator</translation>
     </message>
     <message>
       <source>{0} was not found.</source>
-      <translation type="unfinished">{0} was not found.</translation>
+      <translation>{0} n'a pas été trouvé.</translation>
     </message>
     <message>
       <source>The selected staged plugin is unavailable.</source>
-      <translation type="unfinished">The selected staged plugin is unavailable.</translation>
+      <translation>Le plugin sélectionné est indisponible.</translation>
     </message>
     <message>
       <source>Preparing xTranslator…</source>
-      <translation type="unfinished">Preparing xTranslator…</translation>
+      <translation>Préparation de xTranslator…</translation>
     </message>
     <message>
       <source>xTranslator is preparing or running — close it to continue.</source>
-      <translation type="unfinished">xTranslator is preparing or running — close it to continue.</translation>
+      <translation>xTranslator se prépare ou s'exécute — fermez-le pour continuer.</translation>
     </message>
     <message>
       <source>Could not resolve Proton for the game's own prefix.</source>
-      <translation type="unfinished">Could not resolve Proton for the game's own prefix.</translation>
+      <translation>Impossible de résoudre Proton pour le préfixe du jeu.</translation>
     </message>
     <message>
       <source>Could not find Proton '{0}'.</source>
-      <translation type="unfinished">Could not find Proton '{0}'.</translation>
+      <translation>Impossible de trouver Proton '{0}'.</translation>
     </message>
     <message>
       <source>xTranslator is running. Close it when done.</source>
-      <translation type="unfinished">xTranslator is running. Close it when done.</translation>
+      <translation>xTranslator est en cours d'exécution. Fermez-le une fois terminé.</translation>
     </message>
     <message>
       <source>xTranslator exited with code {0}.</source>
-      <translation type="unfinished">xTranslator exited with code {0}.</translation>
+      <translation>xTranslator a quitté avec le code {0}.</translation>
     </message>
     <message>
       <source>Could not launch xTranslator: {0}</source>
-      <translation type="unfinished">Could not launch xTranslator: {0}</translation>
+      <translation>Impossible de lancer xTranslator: {0}</translation>
     </message>
     <message>
       <source>The deployed Data view is being updated.</source>
-      <translation type="unfinished">The deployed Data view is being updated.</translation>
+      <translation>La vue des données déployées est en cours de mise à jour.</translation>
     </message>
     <message>
       <source>xTranslator closed. Updating the deployed Data view…</source>
-      <translation type="unfinished">xTranslator closed. Updating the deployed Data view…</translation>
+      <translation>xTranslator fermé. Mise à jour de la vue des données déployées…</translation>
     </message>
     <message>
       <source> Any changes remain at the location chosen in xTranslator, but redeploy failed; see log.</source>
-      <translation type="unfinished"> Any changes remain at the location chosen in xTranslator, but redeploy failed; see log.</translation>
+      <translation> Tout changement reste à l'emplacement choisi dans xTranslator, mais le redéploiement a échoué; voir log.</translation>
     </message>
     <message>
       <source> The staged changes remain safe, but redeploy failed; see log.</source>
-      <translation type="unfinished"> The staged changes remain safe, but redeploy failed; see log.</translation>
+      <translation> Les changements staged restent sûrs, mais le redéploiement a échoué; voir log.</translation>
     </message>
     <message>
       <source>Any changes remain in the location chosen in xTranslator.</source>
-      <translation type="unfinished">Any changes remain in the location chosen in xTranslator.</translation>
+      <translation>Tout changement reste dans l'emplacement choisi dans xTranslator.</translation>
     </message>
     <message>
       <source>Changes remain in the selected staged mod.</source>
-      <translation type="unfinished">Changes remain in the selected staged mod.</translation>
+      <translation>Les modifications restent dans le mod en étape sélectionné.</translation>
     </message>
     <message>
       <source>xTranslator finished.</source>
-      <translation type="unfinished">xTranslator finished.</translation>
+      <translation>xTranslator terminé.</translation>
     </message>
     <message>
       <source>xTranslator finished. Changes were saved directly to the selected staged mod.</source>
-      <translation type="unfinished">xTranslator finished. Changes were saved directly to the selected staged mod.</translation>
+      <translation>xTranslator terminé. Les modifications ont été enregistrées directement sur le mod sélectionné en pré-production.</translation>
     </message>
     <message>
       <source>The deployed Data view is up to date.</source>
-      <translation type="unfinished">The deployed Data view is up to date.</translation>
+      <translation>La vue des données déployées est à jour.</translation>
     </message>
   </context>
   <context>
