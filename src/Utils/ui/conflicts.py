@@ -15,12 +15,14 @@ from __future__ import annotations
 
 import re
 
+from Utils.games.conflict_blacklist import path_is_ignored
+
 # Rows whose path looks like ``archive.bsa : inner/path`` come from an archive.
 BSA_ROW_RE = re.compile(r"^[^/\\:]+\.(?:bsa|ba2)\s+:\s", re.IGNORECASE)
 
 
 def _compute_snapshot_conflicts(
-    mod_name: str, snapshot, data_prefix: str = "",
+    mod_name: str, snapshot, data_prefix: str = "", ignore_rules=None,
 ):
     """File-level projection from one immutable graph generation."""
     files_win: list[tuple[str, str]] = []
@@ -67,7 +69,12 @@ def _compute_snapshot_conflicts(
 
     files = (*snapshot.mod_files(mod_name), *snapshot.archive_files(mod_name))
     for file in files:
+        source_path = (file.legacy_rel or file.source).replace("\\", "/")
+        if ignore_rules and path_is_ignored(source_path, ignore_rules):
+            continue
         display = _display(file)
+        if not display:
+            continue
         if file.provider_kind == "archive_member":
             archive = file.source.replace("\\", "/").rsplit("/", 1)[-1]
             display = f"{archive} : {display}"
@@ -135,11 +142,12 @@ def _compute_snapshot_conflicts(
             if all(beaten[partner] == "loose_archive" for partner in partners):
                 archive_only.add(display)
 
-        winner = next((
-            winner
-            for loser, winner, _kind, loser_namespace, _winner_namespace in direct
-            if loser == mod_name and loser_namespace == file.namespace
-        ), None)
+        winner = owners[file.namespace][-1] if owners[file.namespace] else None
+        if file.namespace == "normal" and owners["root"]:
+            winner = owners["root"][-1]
+        elif (file.namespace == "archive" and snapshot.loose_beats_archive
+              and owners["normal"] and owners["normal"][-1] != mod_name):
+            winner = owners["normal"][-1]
         if winner is not None and winner != mod_name:
             files_lose.append((display, winner))
         elif (not destination_involved and file.conflict_status < 0
@@ -159,8 +167,11 @@ def _compute_snapshot_conflicts(
     return files_win, files_lose, files_no_conflict, archive_only
 
 
-def compute_mod_conflicts(mod_name: str, *, snapshot, data_prefix: str = ""):
+def compute_mod_conflicts(
+    mod_name: str, *, snapshot, data_prefix: str = "", ignore_rules=None,
+):
     """Return file-level conflicts from a required pinned snapshot."""
     if snapshot is None:
         raise RuntimeError("Show Conflicts requires a published Filegraph snapshot")
-    return _compute_snapshot_conflicts(mod_name, snapshot, data_prefix)
+    return _compute_snapshot_conflicts(
+        mod_name, snapshot, data_prefix, ignore_rules)

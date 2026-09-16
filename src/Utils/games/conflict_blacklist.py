@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import fnmatch
 import json
 from dataclasses import asdict, dataclass, field
 
@@ -67,3 +68,20 @@ def effective_rules(game, overrides: BlacklistOverrides | None = None
     files, folders = builtin_rules(game)
     return ((files - overrides.disabled_files) | overrides.files,
             (folders - overrides.disabled_folders) | overrides.folders)
+
+
+def path_is_ignored(path: str, rules) -> bool:
+    value = str(path).replace("\\", "/").strip("/").lower()
+    if not value:
+        return False
+    filenames, folders = rules
+    parts = value.split("/")
+    return (
+        any(fnmatch.fnmatchcase(parts[-1], str(pattern).lower())
+            for pattern in filenames)
+        or any(
+            fnmatch.fnmatchcase(folder, str(pattern).lower())
+            for folder in parts[:-1]
+            for pattern in folders
+        )
+    )

@@ -23,6 +23,7 @@ from Utils.filegraph.archives import owning_plugin, pak_name_rank, scan_mod_arch
 from Utils.filegraph.identities import (
     bg3_uuid_conflicts_enabled, is_multipart_pak,
 )
+from Utils.games.conflict_blacklist import path_is_ignored
 from Utils.games.frameworks import framework_exe_candidates
 
 # Candidate flags consumed directly by ConflictSummary/UI filters.
@@ -448,19 +449,12 @@ class GameCandidateAdapter:
                        for ext in allowed_extensions):
                 return False
         filename = routed_lower.rsplit("/", 1)[-1]
-        if any(fnmatch.fnmatchcase(filename, str(pattern).lower())
-               for pattern in self._ignore_rules[0]):
+        if path_is_ignored(routed_lower, self._ignore_rules):
             return False
         if "/" not in routed_lower and any(
                 fnmatch.fnmatchcase(filename, str(pattern).lower())
                 for pattern in (getattr(self.game, "excluded_loose_filenames", None) or ())):
             return False
-        folder_patterns = self._ignore_rules[1]
-        if folder_patterns and "/" in routed_lower:
-            if any(fnmatch.fnmatchcase(segment, pattern)
-                   for segment in routed_lower.rsplit("/", 1)[0].split("/")
-                   for pattern in folder_patterns):
-                return False
         if (getattr(self.game, "filemap_exclude_unknown_top_level", False)
                 and not custom_routed
                 and mod_name not in self._top_level_exempt

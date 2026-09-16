@@ -10259,11 +10259,23 @@ class MainWindow(QMainWindow):
             required_by=view.installed_required_by)
 
     # ---- Show Conflicts (full detachable tab) ------------------------------
+    def _show_conflicts_context(self, game, snapshot):
+        try:
+            from Utils.games.registry import game_data_subpath
+            data_prefix = game_data_subpath(game) or ""
+        except Exception:
+            data_prefix = ""
+        from Utils.games.conflict_blacklist import effective_rules
+        return {
+            "snapshot": snapshot,
+            "data_prefix": data_prefix,
+            "ignore_rules": effective_rules(game),
+        }
+
     def _open_show_conflicts_tab(self, mod_name: str):
         """Open the conflict-detail view for *mod_name* as a full tab. The
-        file-level data is computed on a worker thread inside the view (from
-        filemap.txt + modindex.bin + bsa_index.bin - the app's ConflictData is
-        only mod-level)."""
+        file-level data is computed on a worker thread from one immutable
+        Filegraph snapshot."""
         game = self._gs.game
         if game is None or not game.is_configured():
             self._notify(self.tr("No configured game selected."), "warning")
@@ -10276,12 +10288,7 @@ class MainWindow(QMainWindow):
         if cd is None or getattr(cd, "snapshot", None) is None:
             self._notify(self.tr("Conflict data is still building."), "warning")
             return
-        try:
-            from Utils.games.registry import game_data_subpath
-            data_prefix = game_data_subpath(game) or ""
-        except Exception:
-            data_prefix = ""
-        ctx = {"snapshot": cd.snapshot, "data_prefix": data_prefix}
+        ctx = self._show_conflicts_context(game, cd.snapshot)
         # Reuse one tab: rebuild it for the new mod if already open.
         if self._tabs.has_key("show_conflicts"):
             self._tabs.close_tab("show_conflicts")
@@ -20605,8 +20612,12 @@ class MainWindow(QMainWindow):
                 self._mod_files_view.set_snapshot(data.snapshot)
             if hasattr(self, "_text_files_view"):
                 self._text_files_view.set_snapshot(data.snapshot)
+            conflicts_view = self._tabs.content_for_key("show_conflicts")
+            if conflicts_view is not None and self._gs.game is not None:
+                conflicts_view.set_context(self._show_conflicts_context(
+                    self._gs.game, data.snapshot))
             if timing is not None:
-                timing.mark("Data/Mod Files/Text Files snapshots updated",
+                timing.mark("File-detail snapshots updated",
                             phase_started=phase_started)
             # A mod may have been added/removed → re-evaluate Install vs Reinstall.
             phase_started = timing.now() if timing is not None else None
