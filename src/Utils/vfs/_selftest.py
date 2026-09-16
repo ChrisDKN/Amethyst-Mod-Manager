@@ -52,7 +52,7 @@ from Utils.vfs import (  # noqa: E402
     virtual_root_write_path,
     wrap_command,
 )
-from Utils.vfs.overlay import _move_materialized_tree  # noqa: E402
+from Utils.vfs.overlay import _links_into_root, _move_materialized_tree  # noqa: E402
 from Utils.deployment import (  # noqa: E402
     CustomRule,
     LinkMode,
@@ -4879,6 +4879,26 @@ def test_steam_runtime_uses_shadow_directly() -> None:
         assert str(runtime_bwrap) in native_steam_bound
         assert native_steam_bound.index("/usr/bin/env") \
             < native_steam_bound.index(str(fake_runtime))
+
+        # A cross-filesystem shadow uses symlinks back into the physical game
+        # tree. Binding the view over that tree makes those links point into
+        # themselves, so retain the direct Steam Runtime route in that case.
+        hidden_vanilla = view / "SkyrimSE.exe"
+        hidden_vanilla.symlink_to(
+            canonical_game / real_exe.relative_to(game.game))
+        hidden_count = _links_into_root(view, canonical_game)
+        assert hidden_count == 1
+        fallback_env = os.environ.copy()
+        fallback_env["STEAM_COMPAT_INSTALL_PATH"] = str(canonical_game)
+        logs: list[str] = []
+        cross_filesystem = wrap_command(
+            game, realistic_runtime, env=fallback_env, log_fn=logs.append)
+        assert str(runtime_bwrap) not in cross_filesystem
+        assert str(real_exe) not in cross_filesystem
+        assert str(shadow_exe) in cross_filesystem
+        assert fallback_env["STEAM_COMPAT_INSTALL_PATH"] == str(view)
+        assert any("short-path bind would hide the source" in line
+                   for line in logs)
     print("✓ Steam Linux Runtime launches the shadow directly")
 
 

@@ -669,6 +669,36 @@ def _materialize_tree(
     return linked, symlinked, copied
 
 
+def _links_into_root(view: Path, game_root: Path) -> int:
+    """Count links whose lexical target is hidden by a root bind."""
+    root_text = os.path.normpath(str(game_root.resolve(strict=False)))
+    count = 0
+    for dirpath, dirnames, filenames in os.walk(view, followlinks=False):
+        base = Path(dirpath)
+        link_names = [
+            name for name in dirnames
+            if (base / name).is_symlink()
+        ]
+        for name in (*link_names, *filenames):
+            path = base / name
+            if not path.is_symlink():
+                continue
+            try:
+                raw_target = os.readlink(path)
+            except OSError:
+                continue
+            target = os.path.normpath(
+                raw_target if os.path.isabs(raw_target)
+                else os.path.join(dirpath, raw_target)
+            )
+            try:
+                if os.path.commonpath((root_text, target)) == root_text:
+                    count += 1
+            except ValueError:
+                continue
+    return count
+
+
 def _move_disjoint_subtrees(source: Path, destination: Path) -> int:
     """Rename non-colliding directories from *source* into *destination*.
 
@@ -1710,6 +1740,16 @@ def build_layers(
         if alias_count:
             _log(f"  VFS case aliases: {alias_count} symlink(s) created.")
 
+    bind_hidden_links = _links_into_root(shadow_build, game_root)
+    if (bind_hidden_links
+            and getattr(game, "vfs_bind_launch_at_game_root", False)):
+        _log(
+            "  VFS: the private view contains "
+            f"{bind_hidden_links} base-game symlink(s) that cannot be used "
+            "with a bind over the original game path; direct shadow launch "
+            "will be used."
+        )
+
     # Keep this marker across publication and every fallible game-specific
     # post-view hook. It is written only after the replacement is completely
     # materialized, so an earlier build failure leaves a previously finalized
@@ -1751,6 +1791,7 @@ def build_layers(
         "data_layer": str(shadow.joinpath(*data_rel.parts)),
         "root_upper": str(root_upper),
         "data_upper": str(data_upper.resolve()),
+        "bind_hidden_source_symlinks": bind_hidden_links,
     }
 
     def _publish_manifest() -> None:
@@ -2234,12 +2275,25 @@ def wrap_command(game, command: list[str], env: dict[str, str] | None = None,
                 raise RuntimeError(f"Profile VFS {label} is missing: {path}")
         bind_at_game_root = bool(
             getattr(game, "vfs_bind_launch_at_game_root", False))
-        if bind_at_game_root:
+        hidden_link_value = payload.get("bind_hidden_source_symlinks")
+        if isinstance(hidden_link_value, int) and hidden_link_value >= 0:
+            bind_hidden_links = hidden_link_value
+        else:
+            bind_hidden_links = _links_into_root(view, game_root)
+        bind_is_safe = bind_hidden_links == 0
+        if bind_at_game_root and not bind_is_safe:
+            log_fn(
+                "VFS launch: the short-path bind would hide the source of "
+                f"{bind_hidden_links} base-game symlink(s); using the direct "
+                "profile view instead. Keep the game and profile on the same "
+                "filesystem to retain short-path binding."
+            )
+        if bind_at_game_root and bind_is_safe:
             bound_runtime = _bound_shadow_steam_runtime_command(
                 command, game_root, view, env)
             if bound_runtime is not None:
                 return routed("shadow Steam Runtime bind", bound_runtime)
-        if not bind_at_game_root:
+        if not bind_at_game_root or not bind_is_safe:
             direct_umu = _direct_shadow_umu_command(
                 command, game_root, view, env)
             if direct_umu is not None:
@@ -2248,10 +2302,20 @@ def wrap_command(game, command: list[str], env: dict[str, str] | None = None,
                 command, game_root, view, env)
             if direct_runtime is not None:
                 return routed("direct shadow Steam Runtime", direct_runtime)
-        if (not bind_at_game_root
-                and getattr(game, "vfs_direct_shadow_launch", False)):
+        if ((not bind_at_game_root
+                and getattr(game, "vfs_direct_shadow_launch", False))
+                or not bind_is_safe):
+            if _inside_flatpak() and _uses_umu(command):
+                raise RuntimeError(
+                    "Profile VFS cannot safely bind this cross-filesystem "
+                    "shadow view over the game path, and direct UMU launches "
+                    "are unavailable from the Amethyst Flatpak. Move this "
+                    "game's profile/staging directory onto the game "
+                    "filesystem, then redeploy."
+                )
             return routed(
-                "direct shadow opt-in",
+                ("direct shadow cross-filesystem fallback"
+                 if not bind_is_safe else "direct shadow opt-in"),
                 _direct_shadow_opt_in_command(command, game_root, view, env))
         ok, reason = _bubblewrap_status()
         if not ok:
