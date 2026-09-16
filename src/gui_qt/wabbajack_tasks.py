@@ -130,12 +130,24 @@ class SetupOptions(QWidget):
         self._layout.addWidget(sections)
         for task in tasks:
             panel, layout = self._section(task.label)
-            hint = QLabel(self.tr("Use the version required by the author. Output keeps its authored position in {0}.").format(task.mod), panel)
+            if task.id.startswith("yupttw:"):
+                hint_text = self.tr(
+                    "Manually download the YUPTTW file required by the list author from the mod.pub TTW page, then select the downloaded archive below. Leave it compressed when using Import output archive. Output keeps its authored position in {0}."
+                ).format(task.mod)
+            else:
+                hint_text = self.tr(
+                    "Use the version required by the author. Output keeps its authored position in {0}."
+                ).format(task.mod)
+            hint = QLabel(hint_text, panel)
             hint.setWordWrap(True)
             layout.addWidget(hint)
             if task.id.startswith(("ttw:", "yupttw:")):
-                text = (self.tr("Required version: {0}. Check requirements verifies the selected content and version.").format(task.required_version)
-                        if task.required_version else self.tr("Check requirements verifies the selected content and shows its version. This list does not specify an exact version; check the author's instructions."))
+                if task.id.startswith("yupttw:"):
+                    text = (self.tr("Required YUPTTW version: {0}. Check requirements verifies the selected archive's contents and version.").format(task.required_version)
+                            if task.required_version else self.tr("This list does not specify an exact YUPTTW version. Check the author's instructions; Check requirements will verify the selected archive and show its detected version."))
+                else:
+                    text = (self.tr("Required version: {0}. Check requirements verifies the selected content and version.").format(task.required_version)
+                            if task.required_version else self.tr("Check requirements verifies the selected content and shows its version. This list does not specify an exact version; check the author's instructions."))
                 verification = QLabel(text, panel)
                 verification.setWordWrap(True)
                 layout.addWidget(verification)
@@ -143,7 +155,7 @@ class SetupOptions(QWidget):
                 hint = QLabel(self.tr("Run the Fallout 3 BSA Decompressor wizard, then import its complete output mod here, or select the author's .mpi package."), panel)
                 hint.setWordWrap(True)
                 layout.addWidget(hint)
-            if task.id.startswith("ttw:"):
+            if task.id.startswith(("ttw:", "yupttw:")):
                 package_page = QPushButton(self.tr("Open mod.pub TTW page"), panel)
                 package_page.setObjectName("FormButton")
                 package_page.clicked.connect(self._open_ttw_page)

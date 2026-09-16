@@ -17138,6 +17138,18 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
         <translation>Use the version required by the author. Output keeps its authored position in {0}.</translation>
     </message>
     <message>
+        <source>Manually download the YUPTTW file required by the list author from the mod.pub TTW page, then select the downloaded archive below. Leave it compressed when using Import output archive. Output keeps its authored position in {0}.</source>
+        <translation>Manually download the YUPTTW file required by the list author from the mod.pub TTW page, then select the downloaded archive below. Leave it compressed when using Import output archive. Output keeps its authored position in {0}.</translation>
+    </message>
+    <message>
+        <source>Required YUPTTW version: {0}. Check requirements verifies the selected archive's contents and version.</source>
+        <translation>Required YUPTTW version: {0}. Check requirements verifies the selected archive's contents and version.</translation>
+    </message>
+    <message>
+        <source>This list does not specify an exact YUPTTW version. Check the author's instructions; Check requirements will verify the selected archive and show its detected version.</source>
+        <translation>This list does not specify an exact YUPTTW version. Check the author's instructions; Check requirements will verify the selected archive and show its detected version.</translation>
+    </message>
+    <message>
         <source>Required version: {0}. Check requirements verifies the selected content and version.</source>
         <translation>Required version: {0}. Check requirements verifies the selected content and version.</translation>
     </message>
