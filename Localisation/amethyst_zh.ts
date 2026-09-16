@@ -1972,7 +1972,7 @@ Md5 缓存已保存。 档案将根据需要重新下载。 还清理了 Wabbaja
     </message>
     <message>
       <source>Append collection</source>
-      <translation type="unfinished">Append collection</translation>
+      <translation>附加收藏</translation>
     </message>
     <message>
       <source>Resume Install</source>
@@ -1992,7 +1992,7 @@ Md5 缓存已保存。 档案将根据需要重新下载。 还清理了 Wabbaja
     </message>
     <message>
       <source>Mods ({0})</source>
-      <translation type="unfinished">Mods ({0})</translation>
+      <translation>模组 ({0})</translation>
     </message>
     <message>
       <source>No optional mods.</source>
@@ -2015,7 +2015,7 @@ Md5 缓存已保存。 档案将根据需要重新下载。 还清理了 Wabbaja
     </message>
     <message>
       <source>System-wide values refreshed every second. Disk R/W is block-device traffic on the install storage devices. I/O pressure is the share of the last 10 seconds in which at least one task was stalled on I/O; a high value can make the desktop lag even when CPU and RAM are not full.</source>
-      <translation type="unfinished">System-wide values refreshed every second. Disk R/W is block-device traffic on the install storage devices. I/O pressure is the share of the last 10 seconds in which at least one task was stalled on I/O; a high value can make the desktop lag even when CPU and RAM are not full.</translation>
+      <translation>全系统值每秒刷新一次。Disk R/W 是安装存储设备上的区块设备流量。 I/O 压力是过去10秒内至少有一项任务被停顿在I/O上的份额； 即使CPU和RAM 尚未满，高值也可能使桌面滞后。</translation>
     </message>
     <message>
       <source>Downloading</source>
@@ -2111,7 +2111,7 @@ Md5 缓存已保存。 档案将根据需要重新下载。 还清理了 Wabbaja
     </message>
     <message>
       <source>Storage pressure</source>
-      <translation type="unfinished">Storage pressure</translation>
+      <translation>存储压</translation>
     </message>
     <message>
       <source>Protecting downloads</source>
@@ -2143,19 +2143,19 @@ Md5 缓存已保存。 档案将根据需要重新下载。 还清理了 Wabbaja
     </message>
     <message>
       <source>CPU {0}%</source>
-      <translation type="unfinished">CPU {0}%</translation>
+      <translation>CPU {0}%</translation>
     </message>
     <message>
       <source>RAM {0}/{1} GB</source>
-      <translation type="unfinished">RAM {0}/{1} GB</translation>
+      <translation>RAM {0}/{1} GB</translation>
     </message>
     <message>
       <source>Disk R {0} · W {1} MB/s</source>
-      <translation type="unfinished">Disk R {0} · W {1} MB/s</translation>
+      <translation>磁盘 R {0} ·W {1} MB/s</translation>
     </message>
     <message>
       <source>I/O pressure {0}%</source>
-      <translation type="unfinished">I/O pressure {0}%</translation>
+      <translation>I/O 压力 {0}%</translation>
     </message>
     <message>
       <source>- Waiting for extraction capacity</source>
@@ -2277,75 +2277,75 @@ Md5 缓存已保存。 档案将根据需要重新下载。 还清理了 Wabbaja
     <name>CollectionSetup</name>
     <message>
       <source>Create a new profile</source>
-      <translation type="unfinished">Create a new profile</translation>
+      <translation>创建一个新的配置文件</translation>
     </message>
     <message>
       <source>Append to existing profile</source>
-      <translation type="unfinished">Append to existing profile</translation>
+      <translation>追加到现有配置文件</translation>
     </message>
     <message>
       <source>Group with</source>
-      <translation type="unfinished">Group with</translation>
+      <translation>群组与</translation>
     </message>
     <message>
       <source>Install mode</source>
-      <translation type="unfinished">Install mode</translation>
+      <translation>安装模式</translation>
     </message>
     <message>
       <source>Target</source>
-      <translation type="unfinished">Target</translation>
+      <translation>Target</translation>
     </message>
     <message>
       <source>Collection profile</source>
-      <translation type="unfinished">Collection profile</translation>
+      <translation>收藏资料</translation>
     </message>
     <message>
       <source>Group name</source>
-      <translation type="unfinished">Group name</translation>
+      <translation>群组名称</translation>
     </message>
     <message>
       <source>Overwrite existing mods</source>
-      <translation type="unfinished">Overwrite existing mods</translation>
+      <translation>覆盖现有模组</translation>
     </message>
     <message>
       <source>Skip already installed mods</source>
-      <translation type="unfinished">Skip already installed mods</translation>
+      <translation>跳过已安装的模组</translation>
     </message>
     <message>
       <source>Convert to profile-specific mods…</source>
-      <translation type="unfinished">Convert to profile-specific mods…</translation>
+      <translation>转换为特定配置文件的模组…</translation>
     </message>
     <message>
       <source>Create a new collection profile</source>
-      <translation type="unfinished">Create a new collection profile</translation>
+      <translation>创建一个新的收藏配置文件</translation>
     </message>
     <message>
       <source>Group: {0}</source>
-      <translation type="unfinished">Group: {0}</translation>
+      <translation>群组: {0}</translation>
     </message>
     <message>
       <source>Profile: {0}</source>
-      <translation type="unfinished">Profile: {0}</translation>
+      <translation>配置文件： {0}</translation>
     </message>
     <message>
       <source>Convert '{0}' before grouping. Its mods will be stored in its own profile.</source>
-      <translation type="unfinished">Convert '{0}' before grouping. Its mods will be stored in its own profile.</translation>
+      <translation>分组前转换 '{0}'。其模组将存储在自己的配置文件中。</translation>
     </message>
     <message>
       <source>The collection keeps its own profile and gets highest member priority. Newer duplicate mod versions still win.</source>
-      <translation type="unfinished">The collection keeps its own profile and gets highest member priority. Newer duplicate mod versions still win.</translation>
+      <translation>收藏保存自己的个人资料并获得最高会员优先级。更新的模组版本仍然胜出。</translation>
     </message>
     <message>
       <source>Complete this collection's installation before it is added to the group.</source>
-      <translation type="unfinished">Complete this collection's installation before it is added to the group.</translation>
+      <translation>在将集合添加到群组之前完成此集合的安装。</translation>
     </message>
     <message>
       <source>The existing collection profile will be reused.</source>
-      <translation type="unfinished">The existing collection profile will be reused.</translation>
+      <translation>将重新使用现有的收藏配置文件。</translation>
     </message>
     <message>
       <source>This collection requires its own profile. It can also be combined through Group with.</source>
-      <translation type="unfinished">This collection requires its own profile. It can also be combined through Group with.</translation>
+      <translation>这个收藏需要自己的个人资料。它也可以通过群组进行合并。</translation>
     </message>
   </context>
   <context>
@@ -5034,7 +5034,7 @@ Close it when you are done, then click Done.</source>
     </message>
     <message>
       <source>Step 4: Choose Plugin (Optional)</source>
-      <translation type="unfinished">Step 4: Choose Plugin (Optional)</translation>
+      <translation>第 4 步：选择插件 (可选)</translation>
     </message>
     <message>
       <source>Choose a plugin from a staged mod. EET receives that file directly, so the translation and supported sidecar-file changes stay in the owning mod folder. You can also open EET without a target and choose a staged file inside the application.</source>
@@ -5166,7 +5166,7 @@ Close it when you are done, then click Done.</source>
     </message>
     <message>
       <source> Any changes remain at the location chosen in EET, but redeploy failed; see log.</source>
-      <translation type="unfinished"> Any changes remain at the location chosen in EET, but redeploy failed; see log.</translation>
+      <translation> 任何变更都留在EET选择的地点，但重新部署失败；见日志。</translation>
     </message>
     <message>
       <source> The staged changes remain safe, but redeploy failed; see log.</source>
@@ -5174,7 +5174,7 @@ Close it when you are done, then click Done.</source>
     </message>
     <message>
       <source>Any changes remain at the location chosen in EET.</source>
-      <translation type="unfinished">Any changes remain at the location chosen in EET.</translation>
+      <translation>任何变化仍然留在专属经济区所选择的地点。</translation>
     </message>
     <message>
       <source>Changes remain in the selected staged mod.</source>
@@ -5186,7 +5186,7 @@ Close it when you are done, then click Done.</source>
     </message>
     <message>
       <source>ESP-ESM Translator finished. Any file selected inside EET was changed in place.</source>
-      <translation type="unfinished">ESP-ESM Translator finished. Any file selected inside EET was changed in place.</translation>
+      <translation>ESP-ESM 翻译完成。EET 中选择的任何文件都被更换。</translation>
     </message>
     <message>
       <source>ESP-ESM Translator finished. Changes were saved directly to the selected staged mod.</source>
@@ -9537,83 +9537,83 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source>Wait for the current operation to finish before installing a collection.</source>
-      <translation type="unfinished">Wait for the current operation to finish before installing a collection.</translation>
+      <translation>等待当前操作在安装收藏前完成。</translation>
     </message>
     <message>
       <source>Switch back to this collection's game before installing it.</source>
-      <translation type="unfinished">Switch back to this collection's game before installing it.</translation>
+      <translation>在安装之前切换到该集合的游戏。</translation>
     </message>
     <message>
       <source>An install or deploy is in progress - try again shortly.</source>
-      <translation type="unfinished">An install or deploy is in progress - try again shortly.</translation>
+      <translation>正在安装或部署，请稍后再试。</translation>
     </message>
     <message>
       <source>This profile is locked.</source>
-      <translation type="unfinished">This profile is locked.</translation>
+      <translation>此配置文件已锁定。</translation>
     </message>
     <message>
       <source>Restore the deployed profile before converting it.</source>
-      <translation type="unfinished">Restore the deployed profile before converting it.</translation>
+      <translation>在转换之前恢复部署的配置文件。</translation>
     </message>
     <message>
       <source>Profile conversion</source>
-      <translation type="unfinished">Profile conversion</translation>
+      <translation>个人资料转换</translation>
     </message>
     <message>
       <source>Convert Profile</source>
-      <translation type="unfinished">Convert Profile</translation>
+      <translation>转换配置文件</translation>
     </message>
     <message>
       <source>Convert '{0}' to profile-specific mods? Its listed mods are copied into its own mods folder, hardlinked where possible. The shared pool stays available to other profiles.</source>
-      <translation type="unfinished">Convert '{0}' to profile-specific mods? Its listed mods are copied into its own mods folder, hardlinked where possible. The shared pool stays available to other profiles.</translation>
+      <translation>转换 '{0}' 为特定模式？列出的模组被复制到自己的模组文件夹，在可能的情况下被硬链接。 共享资源库仍然可供其他配置文件使用。</translation>
     </message>
     <message>
       <source>Convert</source>
-      <translation type="unfinished">Convert</translation>
+      <translation>转换</translation>
     </message>
     <message>
       <source>Restore the deployed profile before grouping it.</source>
-      <translation type="unfinished">Restore the deployed profile before grouping it.</translation>
+      <translation>在分组之前恢复已部署的配置文件。</translation>
     </message>
     <message>
       <source>Required installation work failed. Retry the collection installation.</source>
-      <translation type="unfinished">Required installation work failed. Retry the collection installation.</translation>
+      <translation>所需的安装工作失败。请重试收藏安装。</translation>
     </message>
     <message>
       <source>Updating profile group…</source>
-      <translation type="unfinished">Updating profile group…</translation>
+      <translation>正在更新配置文件组…</translation>
     </message>
     <message>
       <source>Grouping is pending. Choose the INI source when you retry.</source>
-      <translation type="unfinished">Grouping is pending. Choose the INI source when you retry.</translation>
+      <translation>分组尚未完成。重试时请选择INI源。</translation>
     </message>
     <message>
       <source>Which profile's INI files should the new group use?</source>
-      <translation type="unfinished">Which profile's INI files should the new group use?</translation>
+      <translation>新组应使用哪个配置文件？</translation>
     </message>
     <message>
       <source>Use these INIs</source>
-      <translation type="unfinished">Use these INIs</translation>
+      <translation>使用这些INIs</translation>
     </message>
     <message>
       <source>Grouping pending</source>
-      <translation type="unfinished">Grouping pending</translation>
+      <translation>分组待定</translation>
     </message>
     <message>
       <source>Collection profile kept; grouping pending: {0}</source>
-      <translation type="unfinished">Collection profile kept; grouping pending: {0}</translation>
+      <translation>保存集合配置；分组待定： {0}</translation>
     </message>
     <message>
       <source>Profile '{0}' converted.</source>
-      <translation type="unfinished">Profile '{0}' converted.</translation>
+      <translation>个人资料'{0}'已转换。</translation>
     </message>
     <message>
       <source>Collection grouped</source>
-      <translation type="unfinished">Collection grouped</translation>
+      <translation>分组收藏</translation>
     </message>
     <message>
       <source>Collection added to group '{0}'.</source>
-      <translation type="unfinished">Collection added to group '{0}'.</translation>
+      <translation>集合已添加到组 '{0}'。</translation>
     </message>
     <message>
       <source>The active profile isn't a Wabbajack profile.</source>
@@ -9637,19 +9637,19 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source>This group has no collection profiles to reset.</source>
-      <translation type="unfinished">This group has no collection profiles to reset.</translation>
+      <translation>此组没有要重置的收藏配置文件。</translation>
     </message>
     <message>
       <source>Choose the collection whose load order should be reset in this group.</source>
-      <translation type="unfinished">Choose the collection whose load order should be reset in this group.</translation>
+      <translation>选择该组中重置负载顺序的收藏。</translation>
     </message>
     <message>
       <source>Reset collection order</source>
-      <translation type="unfinished">Reset collection order</translation>
+      <translation>重置收藏顺序</translation>
     </message>
     <message>
       <source>Collection load-order reset</source>
-      <translation type="unfinished">Collection load-order reset</translation>
+      <translation>集合加载订单重置</translation>
     </message>
     <message>
       <source>Load order reset - {0} mods ordered, {1} kept below.</source>
@@ -20679,7 +20679,7 @@ Try clearing your search or filters.</source>
     </message>
     <message>
       <source>1 blocking</source>
-      <translation type="unfinished">%{count} 个屏蔽</translation>
+      <translation>%{count} 个屏蔽</translation>
     </message>
     <message>
       <source>{0} blocking</source>
@@ -22202,79 +22202,79 @@ When you close it, your changes are restored automatically.</source>
     <name>XTranslatorView</name>
     <message>
       <source>xTranslator - {0}</source>
-      <translation type="unfinished">xTranslator - {0}</translation>
+      <translation>x翻译器 - {0}</translation>
     </message>
     <message>
       <source>Step 1: Download xTranslator</source>
-      <translation type="unfinished">Step 1: Download xTranslator</translation>
+      <translation>第 1 步：下载x翻译器</translation>
     </message>
     <message>
       <source>Open the xTranslator files page on Starfield Nexus and download the main archive, then click Next.</source>
-      <translation type="unfinished">Open the xTranslator files page on Starfield Nexus and download the main archive, then click Next.</translation>
+      <translation>打开 Starfield Nexus 上的 xTranslator 文件页面并下载主存档，然后点击 Nextus。</translation>
     </message>
     <message>
       <source>Step 2: Locate the Archive</source>
-      <translation type="unfinished">Step 2: Locate the Archive</translation>
+      <translation>第 2 步：找到存档</translation>
     </message>
     <message>
       <source>Step 3: Extract xTranslator</source>
-      <translation type="unfinished">Step 3: Extract xTranslator</translation>
+      <translation>第 3 步：提取xTranslator</translation>
     </message>
     <message>
       <source>Step 7: Run xTranslator</source>
-      <translation type="unfinished">Step 7: Run xTranslator</translation>
+      <translation>步骤7：运行 xTranslator</translation>
     </message>
     <message>
       <source>Step 4: Choose Plugin (Optional)</source>
-      <translation type="unfinished">Step 4: Choose Plugin (Optional)</translation>
+      <translation>第 4 步：选择插件 (可选)</translation>
     </message>
     <message>
       <source>Choose a plugin from a staged mod. xTranslator opens and saves that file directly in its owning mod, while masters and archives are read from the active profile's deployed Data view. You can also open xTranslator without a target and choose a staged file inside the application.</source>
-      <translation type="unfinished">Choose a plugin from a staged mod. xTranslator opens and saves that file directly in its owning mod, while masters and archives are read from the active profile's deployed Data view. You can also open xTranslator without a target and choose a staged file inside the application.</translation>
+      <translation>从待办事项中选择一个插件。 xTranslator 打开并保存该文件直接在它拥有的模组中，而大师和档案则从活动配置文件部署的数据视图中读取。 您也可以在没有目标的情况下打开 xTranslator，并在应用程序中选择一个分阶段文件。</translation>
     </message>
     <message>
       <source>Plugin:</source>
-      <translation type="unfinished">Plugin:</translation>
+      <translation>插件：</translation>
     </message>
     <message>
       <source>Search staged plugins…</source>
-      <translation type="unfinished">Search staged plugins…</translation>
+      <translation>搜索已安装的插件…</translation>
     </message>
     <message>
       <source>Continue</source>
-      <translation type="unfinished">Continue</translation>
+      <translation>继续</translation>
     </message>
     <message>
       <source>Step 5: Prepare Game Data</source>
-      <translation type="unfinished">Step 5: Prepare Game Data</translation>
+      <translation>步骤5：准备游戏数据</translation>
     </message>
     <message>
       <source>Deploy to give xTranslator the active profile's masters, strings, scripts, and archives. With VFS deployment, the wizard points xTranslator at Amethyst's published profile view; the real game Data folder is not populated.</source>
-      <translation type="unfinished">Deploy to give xTranslator the active profile's masters, strings, scripts, and archives. With VFS deployment, the wizard points xTranslator at Amethyst's published profile view; the real game Data folder is not populated.</translation>
+      <translation>部署给xTranslator 的主机、字符串、脚本和档案。 使用 VFS 部署后，Amethysts 已发布的个人资料视图上的向导点xTranslator；实际游戏数据文件夹不被配置。</translation>
     </message>
     <message>
       <source>Skip</source>
-      <translation type="unfinished">Skip</translation>
+      <translation>跳过</translation>
     </message>
     <message>
       <source>Deploy</source>
-      <translation type="unfinished">Deploy</translation>
+      <translation>部署</translation>
     </message>
     <message>
       <source>Select the xTranslator archive</source>
-      <translation type="unfinished">Select the xTranslator archive</translation>
+      <translation>选择 xTranslator 存档</translation>
     </message>
     <message>
       <source>xTranslator was not found in your download locations. Press Try Again, or use Browse to select the archive manually.</source>
-      <translation type="unfinished">xTranslator was not found in your download locations. Press Try Again, or use Browse to select the archive manually.</translation>
+      <translation>在您的下载位置找不到xTranslator。请重试或使用浏览器手动选择归档。</translation>
     </message>
     <message>
       <source>Step 6: Choose Proton Version</source>
-      <translation type="unfinished">Step 6: Choose Proton Version</translation>
+      <translation>步骤6：选择质子版本</translation>
     </message>
     <message>
       <source>{0} was not found. Reopen the wizard and install xTranslator first.</source>
-      <translation type="unfinished">{0} was not found. Reopen the wizard and install xTranslator first.</translation>
+      <translation>找不到 {0} 。重新打开向导并先安装 xTranslator。</translation>
     </message>
     <message>
       <source>Scanning staged mods for plugins…</source>
@@ -22282,7 +22282,7 @@ When you close it, your changes are restored automatically.</source>
     </message>
     <message>
       <source>Open xTranslator without a target</source>
-      <translation type="unfinished">Open xTranslator without a target</translation>
+      <translation>打开无目标的 xTranslator</translation>
     </message>
     <message>
       <source>{0} / {1}</source>
@@ -22290,95 +22290,95 @@ When you close it, your changes are restored automatically.</source>
     </message>
     <message>
       <source>No staged plugins were found. xTranslator will open without a target; choose a file inside the application.</source>
-      <translation type="unfinished">No staged plugins were found. xTranslator will open without a target; choose a file inside the application.</translation>
+      <translation>未找到分阶段插件，xTranslator 将在没有目标的情况下打开；在应用程序中选择一个文件。</translation>
     </message>
     <message>
       <source>xTranslator will open without a target plugin. Its game Data path will still be configured. Open files from a staged mod, not from the deployed Data view.</source>
-      <translation type="unfinished">xTranslator will open without a target plugin. Its game Data path will still be configured. Open files from a staged mod, not from the deployed Data view.</translation>
+      <translation>xTranslator 将在没有目标插件的情况下打开。其游戏数据路径仍将被配置。 从已部署的数据视图中而不是从已部署的模型中打开文件。</translation>
     </message>
     <message>
       <source>Plugin path: {0}</source>
-      <translation type="unfinished">Plugin path: {0}</translation>
+      <translation>插件路径: {0}</translation>
     </message>
     <message>
       <source>The selected staged plugin is no longer available.</source>
-      <translation type="unfinished">The selected staged plugin is no longer available.</translation>
+      <translation>所选的待发布插件已不可用。</translation>
     </message>
     <message>
       <source>xTranslator</source>
-      <translation type="unfinished">xTranslator</translation>
+      <translation>x翻译器</translation>
     </message>
     <message>
       <source>{0} was not found.</source>
-      <translation type="unfinished">{0} was not found.</translation>
+      <translation>找不到 {0}。</translation>
     </message>
     <message>
       <source>The selected staged plugin is unavailable.</source>
-      <translation type="unfinished">The selected staged plugin is unavailable.</translation>
+      <translation>所选的staged 插件不可用。</translation>
     </message>
     <message>
       <source>Preparing xTranslator…</source>
-      <translation type="unfinished">Preparing xTranslator…</translation>
+      <translation>正在准备 xTranslator…</translation>
     </message>
     <message>
       <source>xTranslator is preparing or running — close it to continue.</source>
-      <translation type="unfinished">xTranslator is preparing or running — close it to continue.</translation>
+      <translation>x翻译器正在准备或运行——关闭它以继续。</translation>
     </message>
     <message>
       <source>Could not resolve Proton for the game's own prefix.</source>
-      <translation type="unfinished">Could not resolve Proton for the game's own prefix.</translation>
+      <translation>无法解析游戏本身前缀的质子值。</translation>
     </message>
     <message>
       <source>Could not find Proton '{0}'.</source>
-      <translation type="unfinished">Could not find Proton '{0}'.</translation>
+      <translation>找不到质子'{0}。</translation>
     </message>
     <message>
       <source>xTranslator is running. Close it when done.</source>
-      <translation type="unfinished">xTranslator is running. Close it when done.</translation>
+      <translation>xTranslator 正在运行。完成后关闭它。</translation>
     </message>
     <message>
       <source>xTranslator exited with code {0}.</source>
-      <translation type="unfinished">xTranslator exited with code {0}.</translation>
+      <translation>xTranslator 用代码 {0} 退出。</translation>
     </message>
     <message>
       <source>Could not launch xTranslator: {0}</source>
-      <translation type="unfinished">Could not launch xTranslator: {0}</translation>
+      <translation>无法启动 xTranslator: {0}</translation>
     </message>
     <message>
       <source>The deployed Data view is being updated.</source>
-      <translation type="unfinished">The deployed Data view is being updated.</translation>
+      <translation>部署的数据视图正在更新。</translation>
     </message>
     <message>
       <source>xTranslator closed. Updating the deployed Data view…</source>
-      <translation type="unfinished">xTranslator closed. Updating the deployed Data view…</translation>
+      <translation>xTranslator 关闭。正在更新部署的数据视图…</translation>
     </message>
     <message>
       <source> Any changes remain at the location chosen in xTranslator, but redeploy failed; see log.</source>
-      <translation type="unfinished"> Any changes remain at the location chosen in xTranslator, but redeploy failed; see log.</translation>
+      <translation> 任何更改仍然在 xTranslater 中选择的位置，但是重新部署失败；见日志。</translation>
     </message>
     <message>
       <source> The staged changes remain safe, but redeploy failed; see log.</source>
-      <translation type="unfinished"> The staged changes remain safe, but redeploy failed; see log.</translation>
+      <translation> 分阶段的变动仍然安全，但是重新部署失败；见日志。</translation>
     </message>
     <message>
       <source>Any changes remain in the location chosen in xTranslator.</source>
-      <translation type="unfinished">Any changes remain in the location chosen in xTranslator.</translation>
+      <translation>任何更改都保持在 xTranslater 中选择的位置。</translation>
     </message>
     <message>
       <source>Changes remain in the selected staged mod.</source>
-      <translation type="unfinished">Changes remain in the selected staged mod.</translation>
+      <translation>在选定的分阶段移动中仍然有更改。</translation>
     </message>
     <message>
       <source>xTranslator finished.</source>
-      <translation type="unfinished">xTranslator finished.</translation>
+      <translation>xTranslator 已完成。</translation>
     </message>
     <message>
       <source>xTranslator finished. Changes were saved directly to the selected staged mod.</source>
-      <translation type="unfinished">xTranslator finished. Changes were saved directly to the selected staged mod.</translation>
+      <translation>xTranslator 已完成。更改将直接保存到选定的staged mod 。</translation>
     </message>
     <message>
       <source>The deployed Data view is up to date.</source>
-      <translation type="unfinished">The deployed Data view is up to date.</translation>
+      <translation>部署的数据视图是最新的。</translation>
     </message>
   </context>
   <context>
