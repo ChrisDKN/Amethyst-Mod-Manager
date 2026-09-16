@@ -2914,12 +2914,10 @@ class MainWindow(QMainWindow):
             display_fn=profile_display,
         )
         self._profile_selector.setFixedHeight(self._BTN_H)
-        # Rebuild the pinned actions on every open (like the Wizard menu): the
-        # "Open" submenu and Quick-configure entries are gated on live game
-        # settings, so toggling e.g. profile-specific INI files via Quick
-        # configure must make the Open submenu appear without a profile swap.
-        self._profile_selector._menu.aboutToShow.connect(
-            self._refresh_profile_actions)
+        # Refresh after closing so the next popup is already laid out before
+        # Qt positions it. Quick-configure can change the Open submenu live.
+        self._profile_selector._menu.aboutToHide.connect(
+            lambda: QTimer.singleShot(0, self._refresh_profile_actions))
         h.addWidget(self._profile_selector)
 
         if vertical:
