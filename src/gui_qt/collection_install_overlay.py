@@ -224,7 +224,7 @@ class CollectionInstallOverlay(QWidget):
         self._system_stats_lbl.setStyleSheet(
             f"color:{self._c('TEXT_DIM')}; font-size:11px;")
         self._system_stats_lbl.setToolTip(self.tr(
-            "System-wide values refreshed every two seconds. Disk R/W is block-device "
+            "System-wide values refreshed every second. Disk R/W is block-device "
             "traffic on the install storage devices. I/O pressure is the share of the "
             "last 10 seconds in which at least one task was stalled on I/O; a high "
             "value can make the desktop lag even when CPU and RAM are not full."))
@@ -576,6 +576,7 @@ class CollectionInstallOverlay(QWidget):
             "Low memory": self.tr("Low memory"),
             "Downloads complete": self.tr("Downloads complete"),
             "Memory pressure": self.tr("Memory pressure"),
+            "Storage pressure": self.tr("Storage pressure"),
             "Protecting downloads": self.tr("Protecting downloads"),
             "Clearing install backlog": self.tr("Clearing install backlog"),
             "Monitoring unavailable": self.tr("Monitoring unavailable"),

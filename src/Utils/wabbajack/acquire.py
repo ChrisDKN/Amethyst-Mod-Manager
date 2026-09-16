@@ -8,6 +8,7 @@ import threading
 import time
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from contextlib import nullcontext
+from Utils.downloads.resources import wait_for_io
 from pathlib import Path
 from urllib.parse import urlparse, urlunparse
 
@@ -273,6 +274,7 @@ def download_cdn(url, target, size, expected, stop, progress, log=None, *, worke
         for part in parts:
             with (chunks / str(int(part["Index"]))).open("rb") as source:
                 while data := source.read(1024 * 1024):
+                    wait_for_io(stop)
                     if stop.is_set():
                         raise InterruptedError("Installation stopped")
                     stream.write(data)

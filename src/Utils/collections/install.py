@@ -1292,6 +1292,10 @@ def run_collection_install(
 
     # ---- download producer (stage 2 of the pipeline) ------------------
     def _download_one(mod, prefetched=None):
+        with resources.scope() if resources is not None else nullcontext():
+            return _download_one_scoped(mod, prefetched)
+
+    def _download_one_scoped(mod, prefetched=None):
         nonlocal _dl_done
         mod_domain = _effective_mod_domain(mod)
         effective_mod_id = _effective_mod_id(mod)

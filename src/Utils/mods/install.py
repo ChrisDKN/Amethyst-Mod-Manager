@@ -850,7 +850,7 @@ def _extract_with_disk_retry(archive_path: str, staging_root: Path,
     owns the directory and the /tmp reservation."""
     parent, tmp_reserved = _choose_extract_parent(
         archive_path, staging_root, log_fn, archive_probe=archive_probe)
-    extract_dir = Path(tempfile.mkdtemp(prefix="mm_install_",
+    extract_dir = Path(tempfile.mkdtemp(prefix=".mm_install_",
                                         dir=str(parent) if parent else None))
     _log_extract_location(extract_dir, log_fn)
     errors: list[str] = []
@@ -884,7 +884,7 @@ def _extract_with_disk_retry(archive_path: str, staging_root: Path,
             try:
                 disk_parent.mkdir(parents=True, exist_ok=True)
                 if not _same_fs(str(extract_dir), str(disk_parent)):
-                    new_dir = Path(tempfile.mkdtemp(prefix="mm_install_",
+                    new_dir = Path(tempfile.mkdtemp(prefix=".mm_install_",
                                                     dir=str(disk_parent)))
             except OSError:
                 new_dir = None

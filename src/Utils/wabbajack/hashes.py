@@ -7,6 +7,8 @@ import hashlib
 from functools import lru_cache
 from pathlib import Path
 
+from Utils.downloads.resources import wait_for_io
+
 from .paths import WabbajackError
 
 
@@ -84,6 +86,7 @@ def _file_hash(path, stop):
     h = XXHash()
     with path.open("rb") as stream:
         while data := stream.read(1024 * 1024):
+            wait_for_io(stop)
             if stop is not None and stop.is_set():
                 raise InterruptedError("Installation stopped")
             h.update(data)
@@ -120,6 +123,7 @@ def copy_package(source, target, identity, stop=None):
     sha, xxhash = hashlib.sha256(), XXHash()
     with source.open("rb") as incoming, atomic_writer(target, "wb", encoding=None) as output:
         while data := incoming.read(1024 * 1024):
+            wait_for_io(stop)
             if stop is not None and stop.is_set():
                 raise InterruptedError("Package copy stopped")
             sha.update(data)

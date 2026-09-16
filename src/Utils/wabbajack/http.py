@@ -74,6 +74,8 @@ def download_http(url: str, target: Path, *, size=0, expected="", headers=None,
                   stop=None, progress=None, open_response=None, transform=None,
                   validate=None, log=None, network_progress=None) -> Path:
     started = time.monotonic()
+    from Utils.downloads.resources import current_resources
+    resources = current_resources()
     if stop is not None and stop.is_set():
         raise InterruptedError("Installation stopped")
     if urlparse(url).scheme not in {"https", "http"}:
@@ -158,7 +160,15 @@ def download_http(url: str, target: Path, *, size=0, expected="", headers=None,
                         bandwidth.throttle(len(chunk), stop)
                         if (size or expected) and offset + len(chunk) > size:
                             raise WabbajackError("Download exceeds declared size")
-                        output.write(decode(chunk) if decode else chunk)
+                        if resources is not None:
+                            resources.throttle_download(len(chunk), stop)
+                            if stop is not None and stop.is_set():
+                                raise InterruptedError("Installation stopped")
+                        data = decode(chunk) if decode else chunk
+                        if resources is not None:
+                            resources.write_download(output, data)
+                        else:
+                            output.write(data)
                         offset += len(chunk)
                         if network_progress:
                             network_progress(len(chunk))

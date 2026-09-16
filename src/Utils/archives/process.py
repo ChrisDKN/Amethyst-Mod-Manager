@@ -4,6 +4,7 @@ import errno
 import os
 import re
 import shutil
+import signal
 import subprocess
 import threading
 from pathlib import Path
@@ -62,6 +63,8 @@ def run_extractor(cmd, cancel=None, progress_cb=None, low_priority=False):
     if cancel is not None and cancel.is_set():
         return 255, "Extraction cancelled", True
     tool = cmd[0]
+    from Utils.downloads.resources import current_resources
+    resources = current_resources()
     if low_priority and shutil.which("ionice"):
         cmd = ["ionice", "-c2", "-n7", *cmd]
     try:
@@ -74,6 +77,10 @@ def run_extractor(cmd, cancel=None, progress_cb=None, low_priority=False):
             os.setpriority(os.PRIO_PROCESS, proc.pid, 19)
         except (OSError, AttributeError):
             pass
+    if resources is not None:
+        resources.emit("install.extractor.started", tool=tool, pid=proc.pid,
+                       thread_option=next((arg for arg in cmd if arg.startswith("-mmt=")), ""),
+                       low_priority=low_priority)
     output = [b"", b""]
 
     def drain(stream, index):
@@ -100,12 +107,18 @@ def run_extractor(cmd, cancel=None, progress_cb=None, low_priority=False):
     for reader in readers:
         reader.start()
     killed = False
-    while True:
-        try:
-            proc.wait(timeout=0.25 if cancel is not None else None)
-            break
-        except subprocess.TimeoutExpired:
-            if cancel.is_set():
+    paused = False
+
+    def resume():
+        nonlocal paused
+        if paused:
+            proc.send_signal(signal.SIGCONT)
+            paused = False
+
+    try:
+        while True:
+            if cancel is not None and cancel.is_set():
+                resume()
                 proc.terminate()
                 try:
                     proc.wait(timeout=3)
@@ -114,6 +127,24 @@ def run_extractor(cmd, cancel=None, progress_cb=None, low_priority=False):
                     proc.wait()
                 killed = True
                 break
+            if resources is not None and hasattr(signal, "SIGSTOP"):
+                should_pause = resources.pause_extractor()
+                if should_pause != paused:
+                    proc.send_signal(signal.SIGSTOP if should_pause else signal.SIGCONT)
+                    paused = should_pause
+            try:
+                proc.wait(timeout=0.1 if resources is not None else
+                          0.25 if cancel is not None else None)
+                break
+            except subprocess.TimeoutExpired:
+                pass
+    except BaseException:
+        resume()
+        proc.kill()
+        proc.wait()
+        raise
+    finally:
+        resume()
     for reader in readers:
         reader.join(timeout=5)
     detail = "\n".join(part.decode("utf-8", "replace").replace("\b", "")

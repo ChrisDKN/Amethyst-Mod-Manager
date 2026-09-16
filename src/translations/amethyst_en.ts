@@ -2016,8 +2016,8 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack 
         <translation>Preparing…</translation>
     </message>
     <message>
-        <source>System-wide values refreshed every two seconds. Disk R/W is block-device traffic on the install storage devices. I/O pressure is the share of the last 10 seconds in which at least one task was stalled on I/O; a high value can make the desktop lag even when CPU and RAM are not full.</source>
-        <translation>System-wide values refreshed every two seconds. Disk R/W is block-device traffic on the install storage devices. I/O pressure is the share of the last 10 seconds in which at least one task was stalled on I/O; a high value can make the desktop lag even when CPU and RAM are not full.</translation>
+        <source>System-wide values refreshed every second. Disk R/W is block-device traffic on the install storage devices. I/O pressure is the share of the last 10 seconds in which at least one task was stalled on I/O; a high value can make the desktop lag even when CPU and RAM are not full.</source>
+        <translation>System-wide values refreshed every second. Disk R/W is block-device traffic on the install storage devices. I/O pressure is the share of the last 10 seconds in which at least one task was stalled on I/O; a high value can make the desktop lag even when CPU and RAM are not full.</translation>
     </message>
     <message>
         <source>Downloading</source>
@@ -2110,6 +2110,10 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack 
     <message>
         <source>Memory pressure</source>
         <translation>Memory pressure</translation>
+    </message>
+    <message>
+        <source>Storage pressure</source>
+        <translation>Storage pressure</translation>
     </message>
     <message>
         <source>Protecting downloads</source>

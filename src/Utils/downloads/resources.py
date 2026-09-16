@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import threading
 import time
+from collections import deque
 from pathlib import Path
 
 from Utils.archives.budget import _get_available_memory_bytes
@@ -14,6 +15,23 @@ from functools import wraps
 from Utils.archives.budget import ExtractionMemoryBudget, ExtractionSpaceBudget
 
 _current_work = ContextVar("install_work", default=None)
+_current_resources = ContextVar("install_resources", default=None)
+
+
+def current_resources():
+    return _current_resources.get()
+
+
+def wait_for_io(stop=None):
+    resources = current_resources()
+    if resources is None:
+        return
+    while resources.pause_extractor():
+        if stop is not None and stop.is_set():
+            raise InterruptedError("Installation stopped")
+        resources._closed.wait(0.05)
+    if stop is not None and stop.is_set():
+        raise InterruptedError("Installation stopped")
 
 
 def current_work():
@@ -79,16 +97,26 @@ def _disk_bytes(nodes):
     return read_sectors * 512, write_sectors * 512
 
 
-def _memory():
+def _memory(stats=None):
     total = available = 0
+    extra = {}
     try:
         for line in Path("/proc/meminfo").read_text().splitlines():
             if line.startswith("MemTotal:"):
                 total = int(line.split()[1]) * 1024
             elif line.startswith("MemAvailable:"):
                 available = int(line.split()[1]) * 1024
+            elif line.startswith(("Dirty:", "Writeback:", "SwapTotal:", "SwapFree:")):
+                key, value, *_ = line.split()
+                extra[key[:-1]] = int(value) * 1024
     except (OSError, ValueError, IndexError):
         pass
+    if stats is not None:
+        for key, name in (("Dirty", "dirty_bytes"), ("Writeback", "writeback_bytes")):
+            if key in extra:
+                stats[name] = extra[key]
+        if "SwapTotal" in extra and "SwapFree" in extra:
+            stats["swap_used_bytes"] = max(0, extra["SwapTotal"] - extra["SwapFree"])
     return total, available or _get_available_memory_bytes()
 
 
@@ -101,9 +129,10 @@ def _pressure():
                 kind, *fields = line.split()
                 values = dict(field.split("=", 1) for field in fields)
                 result[f"{resource}_{kind}"] = float(values["avg10"])
+                result[f"{resource}_{kind}_total"] = int(values["total"])
         except (OSError, ValueError, KeyError):
             pass
-    result["total_memory"], result["available_memory"] = _memory()
+    result["total_memory"], result["available_memory"] = _memory(result)
     return result
 
 
@@ -125,6 +154,7 @@ class InstallResources:
         source, _ = _storage(downloads)
         target, rotational = _storage(staging)
         self._storage_nodes = tuple(dict.fromkeys((source, target)))
+        self.shared_storage = source == target
         self.shared_rotational = source == target and rotational is True
         self._cv = threading.Condition()
         self._closed = threading.Event()
@@ -143,8 +173,27 @@ class InstallResources:
         self._pressure_streak = 0
         self._capacity_streak = 0
         self._reason = "Starting"
+        self._io_pause = False
+        self._io_recovery_streak = 0
+        self._download_rate = 0.0
+        self._download_tokens = 0.0
+        self._download_updated = time.monotonic()
+        self._download_recovery_rate = 0.0
+        self._download_change = 0.0
+        self._write_bytes = 0
+        self._write_seconds = 0.0
+        self._write_max_seconds = 0.0
+        self._write_healthy_streak = 0
+        self._write_slow_streak = 0
+        self._hold_extractions = False
+        self._overlap_trial = None
+        self._overlap_retry_at = 0.0
+        self._download_trial = None
+        self._download_retry_at = 0.0
+        self._observations = deque(maxlen=8)
         self.emit("install.resources.configured", cpu_limit=self.cpu_limit,
-             shared_rotational=self.shared_rotational, initial_workers=1)
+             shared_rotational=self.shared_rotational, shared_storage=self.shared_storage,
+             initial_workers=1)
         self._publish_state()
 
     def _limit(self):
@@ -161,6 +210,46 @@ class InstallResources:
         with self._cv:
             parallel = max(1, self._limit())
         return max(1, min(4, self.cpu_count // parallel))
+
+    @contextmanager
+    def scope(self):
+        token = _current_resources.set(self)
+        try:
+            yield
+        finally:
+            _current_resources.reset(token)
+
+    def pause_extractor(self):
+        with self._cv:
+            # Reserve emergency recovery time under severe memory pressure.
+            return (not self._closed.is_set() and self._io_pause
+                    and time.monotonic() % 1.0 < 0.5)
+
+    def throttle_download(self, count, stop=None):
+        with self._cv:
+            while count > 0 and self._download_rate > 0 and not self._closed.is_set():
+                if stop is not None and stop.is_set():
+                    return
+                now = time.monotonic()
+                self._download_tokens = min(
+                    max(256 * 1024, self._download_rate * 0.25),
+                    self._download_tokens + (now - self._download_updated) * self._download_rate)
+                self._download_updated = now
+                taken = min(count, max(0, self._download_tokens))
+                count -= taken
+                self._download_tokens -= taken
+                if count:
+                    self._cv.wait(min(0.1, count / self._download_rate))
+
+    def write_download(self, stream, data):
+        started = time.monotonic()
+        written = stream.write(data)
+        elapsed = time.monotonic() - started
+        with self._cv:
+            self._write_bytes += written
+            self._write_seconds += elapsed
+            self._write_max_seconds = max(self._write_max_seconds, elapsed)
+        return written
 
     def _state_locked(self):
         return self._limit(), self._active, self.workers.limit, self._reason
@@ -232,8 +321,9 @@ class InstallResources:
     def downloads_complete(self):
         with self._cv:
             self._downloads_done = True
-            self._target = min(self.cpu_limit, self.workers.limit)
-            self._reason = "Downloads complete"
+            self._target = max(1, self._target)
+            if not self._io_pause:
+                self._reason = "Downloads complete"
             self._pressure_streak = 0
             self._capacity_streak = 0
             self._cv.notify_all()
@@ -241,77 +331,152 @@ class InstallResources:
         self._publish_state(state)
 
     def _adjust(self, sample, network_rate, work_rate, network_active, now):
+        events = []
         with self._cv:
             self._network_peak = max(network_rate, self._network_peak * 0.98)
             available_memory = sample["available_memory"]
             memory_low = available_memory < 1536 * 1024 ** 2
-            memory_busy = (available_memory < 2560 * 1024 ** 2
-                           and sample.get("memory_full", 0) >= 5)
-            io_busy = sample.get("io_some", 0) >= 15
-            network_slow = self._network_peak > 0 and network_rate < self._network_peak * 0.65
+            def pressure(name):
+                return sample.get(name + "_recent", sample.get(name, 0))
+            memory_busy = pressure("memory_full") >= 5 or pressure("memory_some") >= 10
+            storage_busy = pressure("io_full") >= 10 or pressure("io_some") >= 40
+            dirty = sample.get("dirty_bytes", 0) + sample.get("writeback_bytes", 0)
+            dirty_limit = max(64 * 1024 ** 2, min(256 * 1024 ** 2, available_memory // 16))
+            writes_slow = self._write_max_seconds >= 0.1
+            writes_fast = self._write_bytes > 0 and self._write_max_seconds < 0.05
+            self._write_healthy_streak = self._write_healthy_streak + 1 if writes_fast else 0
+            self._write_slow_streak = self._write_slow_streak + 1 if writes_slow else 0
+            previous_dirty = self._observations[0]["dirty_bytes"] if self._observations else dirty
+            sample["writeback_growth_bytes"] = dirty - previous_dirty
+            self._observations.append({
+                "network_bytes_per_second": network_rate,
+                "installation_work_per_second": work_rate,
+                "io_full": pressure("io_full"),
+                "memory_full": pressure("memory_full"),
+                "dirty_bytes": dirty,
+                "write_delay_seconds": self._write_max_seconds if self._write_bytes else None,
+            })
+            metrics = {}
+            for key in self._observations[-1]:
+                values = [item[key] for item in self._observations if item[key] is not None]
+                metrics[key] = sum(values) / len(values) if values else None
+            sample.update(download_write_bytes=self._write_bytes,
+                          download_write_seconds=round(self._write_seconds, 4),
+                          download_write_max_seconds=round(self._write_max_seconds, 4),
+                          writeback_limit_bytes=dirty_limit)
+            self._write_bytes = 0
+            self._write_seconds = self._write_max_seconds = 0.0
+            severe = (available_memory < 512 * 1024 ** 2 or
+                      (available_memory < 1536 * 1024 ** 2 and pressure("memory_full") >= 20))
+            if severe:
+                self._io_pause = True
+                self._io_recovery_streak = 0
+            else:
+                self._io_recovery_streak += 1
+                if self._io_recovery_streak >= 3:
+                    self._io_pause = False
             target = min(self._target, self.workers.limit, self.cpu_limit)
             ceiling = min(self.cpu_limit, self.workers.limit)
             install_backlog = self._backpressure or self.blocked()
-            overlap_useful = False
-            if network_rate > 0 and work_rate > 0:
-                downloaded = self.network_snapshot()[0]
-                remaining_downloads = max(0, self._download_total - downloaded)
-                remaining_work = max(0, sum(self._costs.values()) - self._completed_work)
-                overlapped = max(remaining_downloads / network_rate,
-                                 remaining_work / work_rate)
-                sequential = (remaining_downloads / max(1, self._network_peak)
-                              + remaining_work / work_rate)
-                overlap_useful = overlapped <= sequential
-            storage_hurting_downloads = (io_busy and network_active and network_slow
-                                         and not install_backlog and not overlap_useful)
+            downloading = network_active and not self._downloads_done
+            self._pressure_streak = self._pressure_streak + 1 if storage_busy or memory_busy else 0
+            spare = ("io_some" in sample and pressure("io_some") < 8
+                     and pressure("memory_some") < 2 and sample.get("cpu_some", 100) < 15)
+            self._capacity_streak = self._capacity_streak + 1 if spare else 0
 
-            if memory_low:
+            if self._hold_extractions:
+                if not downloading or install_backlog:
+                    events.append(("install.resources.intervention.completed", {
+                        "action": "reduce-overlap", "outcome": "queue-needs-draining" if install_backlog
+                        else "downloads-inactive", "after": metrics}))
+                    self._hold_extractions = False
+                    self._overlap_trial = None
+                    self._overlap_retry_at = now + 30
+                elif self._overlap_trial is not None:
+                    trial = self._overlap_trial
+                    if self._active == 0:
+                        if trial["ready_at"] is None:
+                            trial["ready_at"] = now
+                        elif now - trial["ready_at"] >= 8:
+                            improved = self._intervention_helped(trial["before"], metrics, "reduce-overlap")
+                            events.append(("install.resources.intervention.completed", {
+                                "action": "reduce-overlap", "outcome": "helped" if improved else "no-improvement",
+                                "before": trial["before"], "after": metrics}))
+                            self._hold_extractions = improved
+                            self._overlap_trial = None
+                            self._overlap_retry_at = now + 30
+                    else:
+                        trial["ready_at"] = None
+                elif self._capacity_streak >= 6 and now >= self._overlap_retry_at:
+                    self._hold_extractions = False
+                    self._overlap_retry_at = now + 15
+                    events.append(("install.resources.overlap.resumed", {"reason": "capacity-recovered"}))
+
+            if (not self._hold_extractions and self.shared_storage and downloading
+                    and not install_backlog and self._active > 0 and self._pressure_streak >= 3
+                    and now >= self._overlap_retry_at and self._download_trial is None):
+                self._hold_extractions = True
+                self._overlap_trial = {"before": metrics, "ready_at": None}
+                events.append(("install.resources.intervention.started", {
+                    "action": "reduce-overlap", "before": metrics}))
+
+            if self._download_trial is not None and now - self._download_trial["ready_at"] >= 8:
+                trial = self._download_trial
+                improved = self._intervention_helped(trial["before"], metrics, "limit-downloads")
+                events.append(("install.resources.intervention.completed", {
+                    "action": "limit-downloads", "outcome": "helped" if improved else "no-improvement",
+                    "before": trial["before"], "after": metrics}))
+                if not improved:
+                    self._set_download_rate(trial["previous_rate"], now)
+                self._download_trial = None
+                self._download_retry_at = now + (15 if improved else 30)
+            elif (self._download_trial is None and self._overlap_trial is None and downloading
+                  and self._write_slow_streak >= 3 and now >= self._download_retry_at):
+                rate = max(1024 ** 2, (self._download_rate or metrics["network_bytes_per_second"]) * 0.75)
+                if not self._download_rate or rate < self._download_rate:
+                    self._download_trial = {"before": metrics, "ready_at": now,
+                                            "previous_rate": self._download_rate}
+                    self._download_recovery_rate = max(self._download_recovery_rate, self._network_peak)
+                    self._set_download_rate(rate, now)
+                    events.append(("install.resources.intervention.started", {
+                        "action": "limit-downloads", "before": metrics,
+                        "download_limit_bytes_per_second": round(rate)}))
+            elif (self._download_trial is None and self._overlap_trial is None
+                  and self._download_rate and self._write_healthy_streak >= 3
+                  and now - self._download_change >= 4):
+                rate = max(self._download_rate * 1.5, self._download_rate + 1024 ** 2)
+                if rate >= max(16 * 1024 ** 2, self._download_recovery_rate):
+                    rate = 0.0
+                self._set_download_rate(rate, now)
+
+            if self._hold_extractions:
+                target = 0
+                reason = "Protecting downloads"
+            elif install_backlog and (storage_busy or memory_busy):
                 target = 1
-                reason = "Low memory"
-                self._pressure_streak = 0
-                self._capacity_streak = 0
-            elif self._downloads_done and not memory_busy:
-                target = ceiling
-                reason = "Downloads complete"
-                self._pressure_streak = 0
+                reason = "Clearing install backlog"
+            elif memory_low or memory_busy or storage_busy:
+                target = 1
+                reason = ("Low memory" if memory_low else "Memory pressure" if memory_busy
+                          else "Storage pressure")
                 self._capacity_streak = 0
             else:
-                harmful = memory_busy or storage_hurting_downloads
-                spare = (install_backlog or (
-                    sample.get("io_some", 100) < 8
-                    and sample.get("cpu_some", 100) < 15))
-                if harmful:
-                    self._pressure_streak += 1
-                    self._capacity_streak = 0
-                elif spare:
-                    self._capacity_streak += 1
-                    self._pressure_streak = 0
-                else:
-                    self._pressure_streak = 0
-                    self._capacity_streak = 0
-
-                if memory_busy:
-                    reason = "Memory pressure"
-                elif storage_hurting_downloads:
-                    reason = "Protecting downloads"
-                elif install_backlog:
+                if install_backlog:
                     reason = "Clearing install backlog"
+                elif self._downloads_done:
+                    reason = "Downloads complete"
                 elif "io_some" not in sample or "cpu_some" not in sample:
                     reason = "Monitoring unavailable"
                 else:
                     reason = "Balancing downloads"
 
-                can_change = now - self._last_change >= 6
-                if can_change and self._pressure_streak >= 3:
-                    floor = 0 if storage_hurting_downloads else 1
-                    target = max(floor, target - 1)
-                    self._pressure_streak = 0
-                elif can_change and self._capacity_streak >= 3:
+                can_change = now - self._last_change >= 6 and self._download_trial is None
+                if can_change and self._capacity_streak >= 3:
                     if self.shared_rotational and network_active:
                         ceiling = 1
                     target = min(ceiling, target + 1)
                     self._capacity_streak = 0
-            if not network_active or self._downloads_done or self._backpressure:
+            if not self._hold_extractions:
                 target = max(1, target)
             changed = target != self._target
             self._target = target
@@ -320,12 +485,41 @@ class InstallResources:
                 self._last_change = now
                 self._cv.notify_all()
             state = {"workers": self._limit(), "active": self._active,
-                     "queued_bytes": self._queued_bytes, "backpressure": self._backpressure}
+                     "queued_bytes": self._queued_bytes, "backpressure": self._backpressure,
+                     "holding_extractions": self._hold_extractions,
+                     "download_limit_bytes_per_second": round(self._download_rate),
+                     "extractor_duty_cycle": 0.5 if self._io_pause else 1.0}
             display_state = self._state_locked()
+        for event, fields in events:
+            self.emit(event, **fields)
         self.emit("install.resources.changed" if changed else "install.resources.sample",
              reason=reason, **state, **sample, network_bytes_per_second=round(network_rate),
              installation_work_per_second=round(work_rate))
         self._publish_state(display_state)
+
+    def _set_download_rate(self, rate, now):
+        self._download_rate = rate
+        self._download_tokens = 0.0
+        self._download_updated = now
+        self._download_change = now
+        self._cv.notify_all()
+
+    @staticmethod
+    def _intervention_helped(before, after, action):
+        backlog_not_worse = after["dirty_bytes"] <= before["dirty_bytes"] + max(
+            64 * 1024 ** 2, before["dirty_bytes"] * 0.1)
+        if action == "limit-downloads":
+            old, new = before["write_delay_seconds"], after["write_delay_seconds"]
+            return (old is not None and new is not None and old >= 0.05 and new < old * 0.7
+                    and backlog_not_worse
+                    and after["network_bytes_per_second"] >= before["network_bytes_per_second"] * 0.6)
+        throughput = after["network_bytes_per_second"]
+        old_throughput = before["network_bytes_per_second"]
+        faster = throughput > max(old_throughput * 1.15, old_throughput + 1024 ** 2)
+        fewer_stalls = any(before[key] >= 5 and after[key] < before[key] * 0.75
+                          for key in ("io_full", "memory_full"))
+        return (throughput > 0 and backlog_not_worse
+                and (faster or (fewer_stalls and throughput >= old_throughput * 0.9)))
 
     def emit(self, event, **fields):
         if self.on_event is not None:
@@ -339,12 +533,17 @@ class InstallResources:
         work = InstallWork(self, row, stop, name, on_wait)
         token = _current_work.set(work)
         try:
-            with work.phase("total"):
+            with self.scope(), work.phase("total"):
                 yield work
         finally:
             _current_work.reset(token)
 
     def map_files(self, operation, entries, stop=None):
+        def run(item):
+            with self.scope():
+                wait_for_io(stop)
+                return operation(item)
+
         with self._cv:
             if self._file_pool is None:
                 self._file_pool = ThreadPoolExecutor(
@@ -360,7 +559,7 @@ class InstallResources:
                     item = next(iterator, None)
                     if item is None:
                         break
-                    pending.add(pool.submit(operation, item))
+                    pending.add(pool.submit(run, item))
                 if not pending:
                     return
                 done, pending = wait(pending, timeout=0.2, return_when=FIRST_COMPLETED)
@@ -379,7 +578,8 @@ class InstallResources:
             previous_work = 0.0
             previous_cpu = _cpu_times()
             previous_disk = _disk_bytes(self._storage_nodes)
-            while not self._closed.wait(2):
+            previous_pressure = _pressure()
+            while not self._closed.wait(1):
                 try:
                     now = time.monotonic()
                     current_bytes, network_active = self.network_snapshot()
@@ -387,6 +587,11 @@ class InstallResources:
                         current_work = self._completed_work
                     elapsed = max(0.001, now - previous_time)
                     sample = _pressure()
+                    for key, value in list(sample.items()):
+                        if key.endswith("_total") and key in previous_pressure:
+                            sample[key[:-6] + "_recent"] = min(100.0, max(
+                                0.0, (value - previous_pressure[key]) / (elapsed * 10000)))
+                    previous_pressure = sample
                     current_cpu = _cpu_times()
                     if previous_cpu is not None and current_cpu is not None:
                         total_delta = current_cpu[0] - previous_cpu[0]
@@ -409,6 +614,11 @@ class InstallResources:
                     previous_cpu, previous_disk = current_cpu, current_disk
                 except Exception as exc:
                     with self._cv:
+                        self._io_pause = False
+                        self._download_rate = 0.0
+                        self._hold_extractions = False
+                        self._overlap_trial = self._download_trial = None
+                        self._target = max(1, self._target)
                         self._reason = "Monitoring unavailable"
                         self._cv.notify_all()
                         state = self._state_locked()
@@ -416,6 +626,7 @@ class InstallResources:
                     self._publish_state(state)
         self._thread = threading.Thread(target=monitor, name="install-resources", daemon=True)
         self._thread.start()
+        self._scope_token = _current_resources.set(self)
         return self
 
     def close(self):
@@ -428,7 +639,10 @@ class InstallResources:
             self._file_pool.shutdown(wait=True, cancel_futures=True)
 
     def __exit__(self, *_):
-        self.close()
+        try:
+            self.close()
+        finally:
+            _current_resources.reset(self._scope_token)
 
 
 class InstallWork:

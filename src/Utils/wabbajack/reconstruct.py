@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from Utils.downloads.resources import wait_for_io
+
 import hashlib
 import json
 import os
@@ -289,6 +291,7 @@ def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=N
                             digest = XXHash() if cache_hashes else None
                             with _open_zip_member(source, item, log) as incoming, atomic_writer(path, "wb", encoding=None) as out:
                                 while data := incoming.read(1024 * 1024):
+                                    wait_for_io(stop)
                                     if stop.is_set():
                                         raise InterruptedError("Installation stopped")
                                     out.write(data)
@@ -342,6 +345,7 @@ def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=N
                         digest = XXHash() if cache_hashes else None
                         with source.extractfile(item) as incoming, atomic_writer(path, "wb", encoding=None) as out:
                             while data := incoming.read(1024 * 1024):
+                                wait_for_io(stop)
                                 if stop.is_set():
                                     raise InterruptedError("Installation stopped")
                                 out.write(data)

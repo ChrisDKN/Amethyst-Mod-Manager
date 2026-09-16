@@ -1077,6 +1077,8 @@ class NexusDownloader:
 
             downloaded = 0
             completed = False
+            from Utils.downloads.resources import current_resources
+            resources = current_resources()
             try:
                 with fh:
                     if progress_cb:
@@ -1085,7 +1087,13 @@ class NexusDownloader:
                         if cancel and cancel.is_set():
                             raise DownloadCancelled()
 
-                        fh.write(chunk)
+                        if resources is not None:
+                            resources.throttle_download(len(chunk), cancel)
+                            if cancel and cancel.is_set():
+                                raise DownloadCancelled()
+                            resources.write_download(fh, chunk)
+                        else:
+                            fh.write(chunk)
                         downloaded += len(chunk)
                         bandwidth.throttle(len(chunk), cancel)
 
