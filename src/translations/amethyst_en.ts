@@ -5035,8 +5035,8 @@ Close it when you are done, then click Done.</translation>
         <translation>Step 7: Run ESP-ESM Translator</translation>
     </message>
     <message>
-        <source>Step 4: Choose Plugin</source>
-        <translation>Step 4: Choose Plugin</translation>
+        <source>Step 4: Choose Plugin (Optional)</source>
+        <translation>Step 4: Choose Plugin (Optional)</translation>
     </message>
     <message>
         <source>Choose a plugin from a staged mod. EET receives that file directly, so the translation and supported sidecar-file changes stay in the owning mod folder. You can also open EET without a target and choose a staged file inside the application.</source>
@@ -5167,8 +5167,16 @@ Close it when you are done, then click Done.</translation>
         <translation>EET closed. Updating the deployed Data folder…</translation>
     </message>
     <message>
+        <source> Any changes remain at the location chosen in EET, but redeploy failed; see log.</source>
+        <translation> Any changes remain at the location chosen in EET, but redeploy failed; see log.</translation>
+    </message>
+    <message>
         <source> The staged changes remain safe, but redeploy failed; see log.</source>
         <translation> The staged changes remain safe, but redeploy failed; see log.</translation>
+    </message>
+    <message>
+        <source>Any changes remain at the location chosen in EET.</source>
+        <translation>Any changes remain at the location chosen in EET.</translation>
     </message>
     <message>
         <source>Changes remain in the selected staged mod.</source>
@@ -5179,8 +5187,8 @@ Close it when you are done, then click Done.</translation>
         <translation>ESP-ESM Translator finished.</translation>
     </message>
     <message>
-        <source>ESP-ESM Translator finished. Any file selected inside EET was changed in place; deploy again if you edited a staged plugin.</source>
-        <translation>ESP-ESM Translator finished. Any file selected inside EET was changed in place; deploy again if you edited a staged plugin.</translation>
+        <source>ESP-ESM Translator finished. Any file selected inside EET was changed in place.</source>
+        <translation>ESP-ESM Translator finished. Any file selected inside EET was changed in place.</translation>
     </message>
     <message>
         <source>ESP-ESM Translator finished. Changes were saved directly to the selected staged mod.</source>
@@ -22189,6 +22197,189 @@ When you close it, your changes are restored automatically.</translation>
     <message>
         <source>Extracting…</source>
         <translation>Extracting…</translation>
+    </message>
+</context>
+<context>
+    <name>XTranslatorView</name>
+    <message>
+        <source>xTranslator - {0}</source>
+        <translation>xTranslator - {0}</translation>
+    </message>
+    <message>
+        <source>Step 1: Download xTranslator</source>
+        <translation>Step 1: Download xTranslator</translation>
+    </message>
+    <message>
+        <source>Open the xTranslator files page on Starfield Nexus and download the main archive, then click Next.</source>
+        <translation>Open the xTranslator files page on Starfield Nexus and download the main archive, then click Next.</translation>
+    </message>
+    <message>
+        <source>Step 2: Locate the Archive</source>
+        <translation>Step 2: Locate the Archive</translation>
+    </message>
+    <message>
+        <source>Step 3: Extract xTranslator</source>
+        <translation>Step 3: Extract xTranslator</translation>
+    </message>
+    <message>
+        <source>Step 7: Run xTranslator</source>
+        <translation>Step 7: Run xTranslator</translation>
+    </message>
+    <message>
+        <source>Step 4: Choose Plugin (Optional)</source>
+        <translation>Step 4: Choose Plugin (Optional)</translation>
+    </message>
+    <message>
+        <source>Choose a plugin from a staged mod. xTranslator opens and saves that file directly in its owning mod, while masters and archives are read from the active profile's deployed Data view. You can also open xTranslator without a target and choose a staged file inside the application.</source>
+        <translation>Choose a plugin from a staged mod. xTranslator opens and saves that file directly in its owning mod, while masters and archives are read from the active profile's deployed Data view. You can also open xTranslator without a target and choose a staged file inside the application.</translation>
+    </message>
+    <message>
+        <source>Plugin:</source>
+        <translation>Plugin:</translation>
+    </message>
+    <message>
+        <source>Search staged plugins…</source>
+        <translation>Search staged plugins…</translation>
+    </message>
+    <message>
+        <source>Continue</source>
+        <translation>Continue</translation>
+    </message>
+    <message>
+        <source>Step 5: Prepare Game Data</source>
+        <translation>Step 5: Prepare Game Data</translation>
+    </message>
+    <message>
+        <source>Deploy to give xTranslator the active profile's masters, strings, scripts, and archives. With VFS deployment, the wizard points xTranslator at Amethyst's published profile view; the real game Data folder is not populated.</source>
+        <translation>Deploy to give xTranslator the active profile's masters, strings, scripts, and archives. With VFS deployment, the wizard points xTranslator at Amethyst's published profile view; the real game Data folder is not populated.</translation>
+    </message>
+    <message>
+        <source>Skip</source>
+        <translation>Skip</translation>
+    </message>
+    <message>
+        <source>Deploy</source>
+        <translation>Deploy</translation>
+    </message>
+    <message>
+        <source>Select the xTranslator archive</source>
+        <translation>Select the xTranslator archive</translation>
+    </message>
+    <message>
+        <source>xTranslator was not found in your download locations. Press Try Again, or use Browse to select the archive manually.</source>
+        <translation>xTranslator was not found in your download locations. Press Try Again, or use Browse to select the archive manually.</translation>
+    </message>
+    <message>
+        <source>Step 6: Choose Proton Version</source>
+        <translation>Step 6: Choose Proton Version</translation>
+    </message>
+    <message>
+        <source>{0} was not found. Reopen the wizard and install xTranslator first.</source>
+        <translation>{0} was not found. Reopen the wizard and install xTranslator first.</translation>
+    </message>
+    <message>
+        <source>Scanning staged mods for plugins…</source>
+        <translation>Scanning staged mods for plugins…</translation>
+    </message>
+    <message>
+        <source>Open xTranslator without a target</source>
+        <translation>Open xTranslator without a target</translation>
+    </message>
+    <message>
+        <source>{0} / {1}</source>
+        <translation>{0} / {1}</translation>
+    </message>
+    <message>
+        <source>No staged plugins were found. xTranslator will open without a target; choose a file inside the application.</source>
+        <translation>No staged plugins were found. xTranslator will open without a target; choose a file inside the application.</translation>
+    </message>
+    <message>
+        <source>xTranslator will open without a target plugin. Its game Data path will still be configured. Open files from a staged mod, not from the deployed Data view.</source>
+        <translation>xTranslator will open without a target plugin. Its game Data path will still be configured. Open files from a staged mod, not from the deployed Data view.</translation>
+    </message>
+    <message>
+        <source>Plugin path: {0}</source>
+        <translation>Plugin path: {0}</translation>
+    </message>
+    <message>
+        <source>The selected staged plugin is no longer available.</source>
+        <translation>The selected staged plugin is no longer available.</translation>
+    </message>
+    <message>
+        <source>xTranslator</source>
+        <translation>xTranslator</translation>
+    </message>
+    <message>
+        <source>{0} was not found.</source>
+        <translation>{0} was not found.</translation>
+    </message>
+    <message>
+        <source>The selected staged plugin is unavailable.</source>
+        <translation>The selected staged plugin is unavailable.</translation>
+    </message>
+    <message>
+        <source>Preparing xTranslator…</source>
+        <translation>Preparing xTranslator…</translation>
+    </message>
+    <message>
+        <source>xTranslator is preparing or running — close it to continue.</source>
+        <translation>xTranslator is preparing or running — close it to continue.</translation>
+    </message>
+    <message>
+        <source>Could not resolve Proton for the game's own prefix.</source>
+        <translation>Could not resolve Proton for the game's own prefix.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}'.</source>
+        <translation>Could not find Proton '{0}'.</translation>
+    </message>
+    <message>
+        <source>xTranslator is running. Close it when done.</source>
+        <translation>xTranslator is running. Close it when done.</translation>
+    </message>
+    <message>
+        <source>xTranslator exited with code {0}.</source>
+        <translation>xTranslator exited with code {0}.</translation>
+    </message>
+    <message>
+        <source>Could not launch xTranslator: {0}</source>
+        <translation>Could not launch xTranslator: {0}</translation>
+    </message>
+    <message>
+        <source>The deployed Data view is being updated.</source>
+        <translation>The deployed Data view is being updated.</translation>
+    </message>
+    <message>
+        <source>xTranslator closed. Updating the deployed Data view…</source>
+        <translation>xTranslator closed. Updating the deployed Data view…</translation>
+    </message>
+    <message>
+        <source> Any changes remain at the location chosen in xTranslator, but redeploy failed; see log.</source>
+        <translation> Any changes remain at the location chosen in xTranslator, but redeploy failed; see log.</translation>
+    </message>
+    <message>
+        <source> The staged changes remain safe, but redeploy failed; see log.</source>
+        <translation> The staged changes remain safe, but redeploy failed; see log.</translation>
+    </message>
+    <message>
+        <source>Any changes remain in the location chosen in xTranslator.</source>
+        <translation>Any changes remain in the location chosen in xTranslator.</translation>
+    </message>
+    <message>
+        <source>Changes remain in the selected staged mod.</source>
+        <translation>Changes remain in the selected staged mod.</translation>
+    </message>
+    <message>
+        <source>xTranslator finished.</source>
+        <translation>xTranslator finished.</translation>
+    </message>
+    <message>
+        <source>xTranslator finished. Changes were saved directly to the selected staged mod.</source>
+        <translation>xTranslator finished. Changes were saved directly to the selected staged mod.</translation>
+    </message>
+    <message>
+        <source>The deployed Data view is up to date.</source>
+        <translation>The deployed Data view is up to date.</translation>
     </message>
 </context>
 <context>
