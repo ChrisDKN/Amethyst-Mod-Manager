@@ -6385,6 +6385,10 @@ Click Done to clean up the extracted files and close.</translation>
         <translation>Show only not installed</translation>
     </message>
     <message>
+        <source>Show only uninstalled</source>
+        <translation>Show only uninstalled</translation>
+    </message>
+    <message>
         <source>Show hidden archives</source>
         <translation>Show hidden archives</translation>
     </message>

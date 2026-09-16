@@ -8,6 +8,7 @@ only (re)scans when the sub-tab is visible.
 from __future__ import annotations
 
 from pathlib import Path
+import time
 
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
@@ -49,6 +50,7 @@ class DownloadsView(QWidget):
         self._search = ""
         self._only_installed = 0
         self._only_not_installed = 0
+        self._only_uninstalled = 0
         self._show_hidden = False
         self._hidden_paths = load_hidden_archive_paths()
         self._inc_exts: set = set()
@@ -64,6 +66,9 @@ class DownloadsView(QWidget):
         self._watch_timer.setSingleShot(True)
         self._watch_timer.setInterval(400)
         self._watch_timer.timeout.connect(self._rescan)
+        self._uninstalled_timer = QTimer(self)
+        self._uninstalled_timer.setSingleShot(True)
+        self._uninstalled_timer.timeout.connect(self._apply)
         self._build()
 
     # -- context ------------------------------------------------------------
@@ -326,6 +331,7 @@ class DownloadsView(QWidget):
             self._all_entries, installed,
             only_installed=self._only_installed,
             only_not_installed=self._only_not_installed,
+            only_uninstalled=self._only_uninstalled,
             locations=frozenset(self._inc_locs) or None,
             locations_exclude=frozenset(self._exc_locs) or None,
             filetypes=frozenset(self._inc_exts) or None,
@@ -335,7 +341,15 @@ class DownloadsView(QWidget):
             show_hidden=self._show_hidden)
         self._model.set_rows(
             rows, installed, hidden_paths=frozenset(self._hidden_paths))
+        self._schedule_uninstalled_expiry(installed.next_uninstalled_expiry)
         self.selection_changed.emit()
+
+    def _schedule_uninstalled_expiry(self, expiry: float | None):
+        self._uninstalled_timer.stop()
+        if expiry is None:
+            return
+        delay_ms = max(1000, int((expiry - time.time()) * 1000) + 1000)
+        self._uninstalled_timer.start(min(delay_ms, 2_147_483_647))
 
     # -- auto-refresh (filesystem watch) ------------------------------------
     def _staging_dir(self):
@@ -381,6 +395,7 @@ class DownloadsView(QWidget):
              "two_state_keys": {"show_hidden"}, "items": [
                 ("only_installed", "Show only installed", True),
                 ("only_not_installed", "Show only not installed", True),
+                ("only_uninstalled", "Show only uninstalled", True),
                 ("show_hidden", "Show hidden archives", True),
             ]},
             {"title": "By location", "type": "dynamic", "id": "locations"},
@@ -390,6 +405,7 @@ class DownloadsView(QWidget):
     def apply_filter_state(self, state: dict):
         self._only_installed = state.get("only_installed", 0)
         self._only_not_installed = state.get("only_not_installed", 0)
+        self._only_uninstalled = state.get("only_uninstalled", 0)
         self._show_hidden = state.get("show_hidden", 0) == 1
         self._inc_exts = set(state.get("filetypes") or ())
         self._exc_exts = set(state.get("filetypes_exclude") or ())

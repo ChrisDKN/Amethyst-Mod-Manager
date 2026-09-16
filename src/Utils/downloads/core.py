@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+import time
 from typing import Optional
 
 from Utils.downloads.locations import (
@@ -49,6 +50,7 @@ def fmt_size(n: int) -> str:
 ARCHIVE_NOT_INSTALLED = "not_installed"
 ARCHIVE_INSTALLED = "installed"
 ARCHIVE_UNINSTALLED = "uninstalled"
+UNINSTALLED_STATUS_SECONDS = 24 * 60 * 60
 
 
 def parse_archive_mod_file_ids(name: str) -> Optional[tuple[int, int]]:
@@ -80,6 +82,7 @@ class InstalledIndex:
     mod_file_ids: set[tuple[int, int]] = field(default_factory=set)
     historical_names: set[str] = field(default_factory=set)
     historical_mod_file_ids: set[tuple[int, int]] = field(default_factory=set)
+    next_uninstalled_expiry: float | None = None
 
     @staticmethod
     def _matches(archive_name: str, names: set[str],
@@ -130,21 +133,40 @@ def build_installed_index(game, profile_dir: Path | None = None) -> InstalledInd
     if profile_dir is not None:
         try:
             from Utils.profiles.state import (
-                merge_download_install_history,
+                reconcile_download_install_history,
                 read_download_install_history,
             )
             profile_dir = Path(profile_dir)
-            names, ids = merge_download_install_history(
-                profile_dir, idx.names, idx.mod_file_ids)
-            idx.historical_names = names
-            idx.historical_mod_file_ids = ids
+            now = time.time()
+
+            def _add_profile_history(path: Path, *, include_current: bool):
+                names, ids = read_download_install_history(path)
+                if include_current:
+                    names.update(idx.names)
+                    ids.update(idx.mod_file_ids)
+                installed_names = {
+                    name for name in names
+                    if idx._matches(name, idx.names, idx.mod_file_ids)
+                }
+                installed_ids = ids & idx.mod_file_ids
+                active_names, active_ids, expiry = (
+                    reconcile_download_install_history(
+                        path, names, ids, installed_names, installed_ids,
+                        now=now,
+                        max_age_seconds=UNINSTALLED_STATUS_SECONDS))
+                idx.historical_names.update(active_names)
+                idx.historical_mod_file_ids.update(active_ids)
+                if expiry is not None:
+                    current = idx.next_uninstalled_expiry
+                    idx.next_uninstalled_expiry = (
+                        expiry if current is None else min(current, expiry))
+
+            _add_profile_history(profile_dir, include_current=True)
             from Utils.profiles.groups import get_members, is_group
             if is_group(profile_dir):
                 for member in get_members(profile_dir):
-                    names, ids = read_download_install_history(
-                        profile_dir.parent / member)
-                    idx.historical_names.update(names)
-                    idx.historical_mod_file_ids.update(ids)
+                    _add_profile_history(
+                        profile_dir.parent / member, include_current=False)
         except Exception:
             pass
     return idx
@@ -347,6 +369,7 @@ def _resolved(p: Optional[Path]) -> str:
 # ---------------------------------------------------------------------------
 def filter_entries(entries: list[DownloadEntry], installed: InstalledIndex, *,
                    only_installed: int = 0, only_not_installed: int = 0,
+                   only_uninstalled: int = 0,
                    locations: frozenset | None = None,
                    locations_exclude: frozenset | None = None,
                    filetypes: frozenset | None = None,
@@ -354,8 +377,7 @@ def filter_entries(entries: list[DownloadEntry], installed: InstalledIndex, *,
                    search: str = "", hidden_paths: frozenset | None = None,
                    show_hidden: bool = False) -> list[DownloadEntry]:
     """Apply archive visibility plus the ext/location/status/search filters.
-    only_installed/only_not_installed are tri-state (0 off, 1 include,
-    2 exclude)."""
+    Status filters are tri-state (0 off, 1 include, 2 exclude)."""
     locations = locations or frozenset()
     locations_exclude = locations_exclude or frozenset()
     filetypes = filetypes or frozenset()
@@ -364,7 +386,7 @@ def filter_entries(entries: list[DownloadEntry], installed: InstalledIndex, *,
     query = (search or "").casefold()
     user_filter_active = bool(filetypes or filetypes_exclude or locations
                               or locations_exclude or only_installed
-                              or only_not_installed or query)
+                              or only_not_installed or only_uninstalled or query)
     hide_archives = bool(hidden_paths) and not show_hidden
     if not user_filter_active and not hide_archives:
         return list(entries)
@@ -384,7 +406,9 @@ def filter_entries(entries: list[DownloadEntry], installed: InstalledIndex, *,
             return False
         if locations_exclude and loc in locations_exclude:
             return False
-        inst = installed.is_archive_installed(arc.path.name)
+        status = installed.archive_status(arc.path.name)
+        inst = status == ARCHIVE_INSTALLED
+        uninstalled = status == ARCHIVE_UNINSTALLED
         if only_installed == 1 and not inst:
             return False
         if only_installed == 2 and inst:
@@ -392,6 +416,10 @@ def filter_entries(entries: list[DownloadEntry], installed: InstalledIndex, *,
         if only_not_installed == 1 and inst:
             return False
         if only_not_installed == 2 and not inst:
+            return False
+        if only_uninstalled == 1 and not uninstalled:
+            return False
+        if only_uninstalled == 2 and uninstalled:
             return False
         if query and query not in arc.path.name.casefold():
             return False

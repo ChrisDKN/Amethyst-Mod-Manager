@@ -93,6 +93,7 @@ _TR_MARKERS = (
     # --- downloads / mod-files panels ---
     QT_TRANSLATE_NOOP("FilterSidePanel", "Show only installed"),
     QT_TRANSLATE_NOOP("FilterSidePanel", "Show only not installed"),
+    QT_TRANSLATE_NOOP("FilterSidePanel", "Show only uninstalled"),
     QT_TRANSLATE_NOOP("FilterSidePanel", "Show hidden archives"),
     # --- data panel ---
     QT_TRANSLATE_NOOP("FilterSidePanel", "Only conflicts"),
