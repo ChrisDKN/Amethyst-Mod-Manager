@@ -49,9 +49,26 @@ def relative_path(value: str) -> str:
     return value
 
 
+def _has_symlink(root: Path, target: Path) -> bool:
+    boundary, path = os.fspath(root), os.fspath(target)
+    while path and path != boundary:
+        try:
+            if stat.S_ISLNK(os.lstat(path).st_mode):
+                return True
+        except (FileNotFoundError, NotADirectoryError):
+            pass
+        except OSError:
+            return True
+        parent = os.path.dirname(path)
+        if parent == path:
+            break
+        path = parent
+    return False
+
+
 def within(root: Path, relative: str) -> Path:
     target = root / relative_path(relative)
-    if not target.resolve().is_relative_to(root.resolve()):
+    if _has_symlink(root, target) and not target.resolve().is_relative_to(root.resolve()):
         raise WabbajackError(f"Path leaves its managed directory: {relative}")
     return target
 

@@ -19,7 +19,7 @@ from Utils.atomic_write import atomic_writer
 from .diagnostics import emit, emit_exception
 from .hashes import XXHash, file_hash
 from .models import Conflict
-from .paths import WabbajackError, existing_parent, relative_path, within
+from .paths import WabbajackError, existing_parent, relative_path, within, _has_symlink
 
 
 def private_work_source(source: Path, work: Path):
@@ -159,11 +159,8 @@ class Store:
     def target(self, key):
         root, relative = self._target_parts(key)
         target = root / relative
-        path = target
-        while path != root:
-            if path.is_symlink():
-                raise WabbajackError(f"Owned output traverses a symbolic link: {key}")
-            path = path.parent
+        if _has_symlink(root, target):
+            raise WabbajackError(f"Owned output traverses a symbolic link: {key}")
         return target
 
     def _existing_targets(self, keys, stop=None):
@@ -731,6 +728,11 @@ class Store:
                 record(rows)
             with ThreadPoolExecutor(max_workers=sync_workers,
                                     thread_name_prefix="wabbajack-flush") as pool:
+                def sync_batch(batch):
+                    return {source: pool.submit(timed_sync, Path(source))
+                            for source in dict.fromkeys(source for _, source in batch
+                                if source is not None and Path(source).is_relative_to(self.work))}
+                next_synced = sync_batch(operations[:batch_size])
                 for offset in range(0, len(operations), batch_size):
                     batch = operations[offset:offset + batch_size]
                     batch_started = time.monotonic()
@@ -738,9 +740,7 @@ class Store:
                     emit(self.log, "store.publish.batch_started", offset=offset,
                          operations=len(batch), first_path=batch[0][0] if batch else None,
                          last_path=batch[-1][0] if batch else None)
-                    synced = {source: pool.submit(timed_sync, Path(source))
-                              for source in dict.fromkeys(source for _, source in batch
-                                  if source is not None and Path(source).is_relative_to(self.work))}
+                    synced = next_synced
                     journal = []
                     directories = set()
                     for sequence, (key, source) in enumerate(batch, offset):
@@ -770,7 +770,8 @@ class Store:
                         self.db.executemany("INSERT INTO journal VALUES (?,?,?,?,1)", journal)
                     metrics["journal_seconds"] += time.monotonic() - journal_started
                     prepared = time.monotonic()
-                    written, records = [], []
+                    next_synced = sync_batch(operations[offset + batch_size:offset + 2 * batch_size])
+                    flushed_outputs, records = [], []
                     for sequence, (key, source) in enumerate(batch, offset):
                         def copying(current_bytes, total_bytes):
                             if progress:
@@ -778,7 +779,9 @@ class Store:
                                          f"{key} ({current_bytes / 1024 ** 2:.1f} / {total_bytes / 1024 ** 2:.1f} MB)")
                         if progress:
                             progress("Applying verified files", sequence, len(operations), key)
+                        sync_started = time.monotonic()
                         flushed = synced[source].result()[0] if source in synced else None
+                        metrics["source_sync_wait_seconds"] += time.monotonic() - sync_started
                         target = target_for(key)
                         if self._current_hash(target, stop) != current[key]:
                             raise WabbajackError(f"File changed during update review: {key}")
@@ -797,14 +800,15 @@ class Store:
                                                  progress=copying, synced=flushed, deferred_sync=deferred,
                                                  metrics=metrics)
                             records.append((key, actual))
-                            written.extend(deferred)
+                            flushed_outputs.extend(pool.submit(timed_sync, path, expected=stamp)
+                                                   for path, stamp in deferred)
                         if progress:
                             progress("Applying verified files", sequence + 1, len(operations), key)
                     metrics["source_sync_worker_seconds"] += sum(future.result()[1] for future in synced.values())
-                    flushed_outputs = [pool.submit(timed_sync, path, expected=stamp)
-                                       for path, stamp in written]
+                    sync_started = time.monotonic()
                     for future in flushed_outputs:
                         metrics["output_sync_worker_seconds"] += future.result()[1]
+                    metrics["output_sync_wait_seconds"] += time.monotonic() - sync_started
                     for directory in sorted(directories, key=lambda p: len(p.parts), reverse=True):
                         sync_directory(directory)
                     record(records)
