@@ -185,7 +185,7 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                      cpu_threads_per_extractor=resources.cpu_threads,
                      cpu_threads_policy="adaptive-shared-budget",
                      ready_archive_budget_bytes=queue_budget,
-                     extraction_order="dependencies-then-smallest-estimated-work",
+                     extraction_order="dependencies-by-downstream-impact-then-smallest-estimated-work",
                      extraction_queue_capacity=max(
                          settings["max_concurrent"] + _MAX_EXTRACT_WORKERS_CEILING + 8,
                          32, len(needed) + _MAX_EXTRACT_WORKERS_CEILING),

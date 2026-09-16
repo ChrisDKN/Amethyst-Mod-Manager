@@ -542,10 +542,18 @@ class Reconstruction:
         return True
 
     def archive_priorities(self):
-        dependencies = {path.casefold() for d in self.request.package.directives
-                        if d.kind in {"CreateBSA", "MergedPatch"}
-                        and d.path not in self.results and d.path not in self._skipped_dependencies
-                        for path in self._dependencies(d)}
+        by_path = {d.path.casefold(): d for d in self.request.package.directives}
+        consumers = {}
+        for directive in self.request.package.directives:
+            if (directive.kind not in {"CreateBSA", "MergedPatch"}
+                    or directive.path in self.results
+                    or directive.path in self._skipped_dependencies):
+                continue
+            dependencies = {path.casefold() for path in self._dependencies(directive)}
+            downstream_bytes = max(1, directive.output_size, sum(
+                by_path[path].output_size for path in dependencies if path in by_path))
+            for path in dependencies:
+                consumers.setdefault(path, {})[directive.path] = downstream_bytes
         priorities = {}
         for key, directives in self.by_archive.items():
             pending = [d for d in directives if d.path not in self.results
@@ -555,8 +563,11 @@ class Reconstruction:
             work = sum(d.output_size + 256 * 1024 +
                        (1024 * 1024 if d.kind == "PatchedFromArchive" else 0) for d in pending)
             work += self.request.package.archives[key].size
-            critical = any(d.path.casefold() in dependencies for d in pending)
-            priorities[key] = (0 if critical else 1, work)
+            blocked = {}
+            for directive in pending:
+                blocked.update(consumers.get(directive.path.casefold(), ()))
+            priorities[key] = ((0, -len(blocked), -sum(blocked.values()), work)
+                               if blocked else (1, 0, 0, work))
         return priorities
 
     def _find_reusable(self, d, completed=None):
