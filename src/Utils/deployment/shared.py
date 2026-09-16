@@ -1308,14 +1308,20 @@ def _do_link(src: str, dst: str, mode: LinkMode) -> OSError | None:
     return _do_link_ex(src, dst, mode)[1]
 
 
-def _do_link_ex(src: str, dst: str, mode: LinkMode) -> tuple["LinkMode | None", OSError | None]:
+def _do_link_ex(src: str, dst: str, mode: LinkMode, *,
+                allow_symlink: bool = True) -> tuple["LinkMode | None", OSError | None]:
     """Like _do_link but also reports the mode that actually succeeded.
 
     Returns (effective_mode, None) on success - effective_mode reflects the
     real transfer used after any hardlink → symlink → copy fallback, so the
     caller can report a per-mode breakdown. Returns (None, OSError) on failure.
+    With allow_symlink=False, dereference sources and fall back directly to copy.
     """
     try:
+        if not allow_symlink:
+            src = os.path.realpath(src)
+            if mode is LinkMode.SYMLINK:
+                mode = LinkMode.COPY
         if mode is LinkMode.HARDLINK:
             try:
                 os.link(src, dst)
@@ -1323,6 +1329,10 @@ def _do_link_ex(src: str, dst: str, mode: LinkMode) -> tuple["LinkMode | None", 
             except OSError as exc:
                 if exc.errno not in _HARDLINK_FALLBACK_ERRNOS:
                     return None, exc
+                if not allow_symlink:
+                    _record_link_fallback("hardlink→copy", exc)
+                    shutil.copy2(src, dst)
+                    return LinkMode.COPY, None
                 _notify_hardlink_fallback(exc)
             try:
                 os.symlink(src, dst)

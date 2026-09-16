@@ -127,6 +127,7 @@ def deploy_root_folder(
     mode: LinkMode = LinkMode.HARDLINK,
     log_fn=None,
     metadata_dir: "Path | None" = None,
+    no_symlink_files: frozenset[str] = frozenset(),
 ) -> int:
     """Transfer files from root_folder_dir into game_root.
 
@@ -237,7 +238,9 @@ def deploy_root_folder(
 
     def _do_root(item: "tuple[Path, Path, Path, str]"):
         src, dst, _rel, rel_posix = item
-        _actual, err = _do_link_ex(str(src), str(dst), mode)
+        _actual, err = _do_link_ex(
+            str(src), str(dst), mode,
+            allow_symlink=rel_posix.lower() not in no_symlink_files)
         return rel_posix, err
 
     for rel_posix, err in _iter_map_batched(_do_root, tasks):
@@ -272,6 +275,7 @@ def deploy_root_flagged_mods(
     excluded_raw: "dict[str, set[str]] | None" = None,
     log_fn=None,
     metadata_dir: "Path | None" = None,
+    no_symlink_files: frozenset[str] = frozenset(),
 ) -> int:
     """Deploy files from root-flagged mods (filemap_root.txt) directly into game_root.
 
@@ -406,7 +410,9 @@ def deploy_root_flagged_mods(
 
     def _do_flagged(item: "tuple[Path, Path, str]"):
         src, dst, rel_posix = item
-        _actual, err = _do_link_ex(str(src), str(dst), mode)
+        _actual, err = _do_link_ex(
+            str(src), str(dst), mode,
+            allow_symlink=rel_posix.lower() not in no_symlink_files)
         return rel_posix, err
 
     for rel_posix, err in _iter_map_batched(_do_flagged, tasks):

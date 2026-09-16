@@ -799,6 +799,7 @@ def run_deploy_pipeline(
             work="FS I/O")
 
         target_rf = game.get_effective_root_folder_path()
+        no_symlink_files = getattr(game, "root_deploy_no_symlink_files", frozenset())
         rf_allowed = (
             getattr(game, "root_folder_deploy_enabled", True)
             and not getattr(game, "virtualizes_game_root", False)
@@ -808,7 +809,8 @@ def run_deploy_pipeline(
         # Step B's root-flagged-mods deploy merges into.
         if rf_allowed and root_folder_enabled and target_rf.is_dir() and game_root:
             count = deploy_root_folder(
-                target_rf, game_root, mode=deploy_mode, log_fn=log_fn
+                target_rf, game_root, mode=deploy_mode, log_fn=log_fn,
+                no_symlink_files=no_symlink_files,
             )
             if count:
                 log_fn("Root Folder: transferred files to game root.")
@@ -829,6 +831,7 @@ def run_deploy_pipeline(
                 per_mod_strip_prefixes=per_mod_strip or None,
                 excluded_raw=excluded_raw_by_mod(profile_dir) or None,
                 log_fn=log_fn,
+                no_symlink_files=no_symlink_files,
             )
             if rf_count:
                 log_fn(f"Root-flagged mods: {rf_count} file(s) deployed to game root.")

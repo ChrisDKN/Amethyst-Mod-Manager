@@ -31,6 +31,11 @@ class StardewValley(ProfileVFSGameMixin, BaseGame):
     vfs_direct_shadow_launch = True
     native_steam_client_required = True
 
+    # Lowercase root paths: .NET apphosts must find the game's bundled runtime.
+    root_deploy_no_symlink_files = frozenset({
+        "stardewmoddingapi", "stardewmoddingapi.dll", "stardewvalley",
+    })
+
     profile_overridable_settings = (
         *BaseGame.profile_overridable_settings,
         *ProfileVFSGameMixin.vfs_profile_setting_keys,

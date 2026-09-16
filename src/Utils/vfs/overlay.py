@@ -581,6 +581,7 @@ def _materialize_tree(
     replace: bool,
     move: bool = False,
     exclude: set[str] | None = None,
+    no_symlink_files: frozenset[str] = frozenset(),
 ) -> tuple[int, int, int]:
     """Merge *source* into a physical shadow tree.
 
@@ -641,7 +642,8 @@ def _materialize_tree(
                     continue
                 _remove_path(dst)
 
-            if src.is_symlink():
+            allow_symlink = rel.as_posix().lower() not in no_symlink_files
+            if src.is_symlink() and allow_symlink:
                 os.symlink(os.readlink(src), dst)
                 symlinked += 1
                 if move:
@@ -654,7 +656,8 @@ def _materialize_tree(
                 continue
 
             actual_mode, transfer_error = _do_link_ex(
-                str(src), str(dst), LinkMode.HARDLINK)
+                str(src), str(dst), LinkMode.HARDLINK,
+                allow_symlink=allow_symlink)
             if transfer_error is not None:
                 raise transfer_error
             if actual_mode is LinkMode.SYMLINK:
@@ -1638,12 +1641,14 @@ def build_layers(
     # overwrite/delete recovery state belonging to a coexisting physical
     # deployment in filemap.parent.
     root_metadata = build / "root-metadata"
+    no_symlink_files = getattr(game, "root_deploy_no_symlink_files", frozenset())
     try:
         if root_folder_enabled:
             linked_root += deploy_root_folder(
                 game.get_effective_root_folder_path(), root_payload,
                 mode=LinkMode.HARDLINK, log_fn=_log,
-                metadata_dir=root_metadata)
+                metadata_dir=root_metadata,
+                no_symlink_files=no_symlink_files)
         linked_root += deploy_root_flagged_mods(
             root_metadata / "catalog-input", root_payload, staging,
             mode=LinkMode.HARDLINK,
@@ -1652,6 +1657,7 @@ def build_layers(
             excluded_raw=excluded_raw or None,
             log_fn=_log,
             metadata_dir=root_metadata,
+            no_symlink_files=no_symlink_files,
         )
     finally:
         # This directory is wholly synthetic; remove it as one unit. It may
@@ -1677,13 +1683,15 @@ def build_layers(
     shadow_build.mkdir(parents=True)
     with perftrace.span("vfs: materialize base game"):
         base_counts = _materialize_tree(
-            game_root, shadow_build, replace=False)
+            game_root, shadow_build, replace=False,
+            no_symlink_files=no_symlink_files)
     shadow_data = shadow_build.joinpath(*data_rel.parts)
     shadow_data.mkdir(parents=True, exist_ok=True)
     with perftrace.span("vfs: merge resolved layers"):
         _move_materialized_tree(root_layer, shadow_build, replace=True)
         _move_materialized_tree(data_layer, shadow_data, replace=True)
-        _materialize_tree(root_upper, shadow_build, replace=True)
+        _materialize_tree(root_upper, shadow_build, replace=True,
+                          no_symlink_files=no_symlink_files)
         upper_exclude = (
             file_exclude_normalized
             | routed_overwrite_entries
